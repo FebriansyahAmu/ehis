@@ -1,26 +1,76 @@
 @import "tailwindcss";
 
+/* ── Design System ──────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand */
+  --primary: #4f46e5;          /* indigo-600 */
+  --primary-hover: #4338ca;    /* indigo-700 */
+  --primary-light: #eef2ff;    /* indigo-50 */
+
+  /* Surfaces */
+  --bg: #f8fafc;               /* slate-50 */
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;        /* slate-100 */
+  --border: #e2e8f0;           /* slate-200 */
+
+  /* Text */
+  --text: #0f172a;             /* slate-900 */
+  --text-muted: #64748b;       /* slate-500 */
+
+  /* Sidebar */
+  --sidebar-bg: #0f172a;       /* slate-900 */
+  --sidebar-text: #cbd5e1;     /* slate-300 */
+  --sidebar-active: #4f46e5;   /* indigo-600 */
+  --sidebar-width: 260px;
+
+  /* Navbar */
+  --navbar-h: 64px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
+/* ── Dark mode via prefers-color-scheme ─────────────────── */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --primary-light: #1e1b4b;
+
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-2: #334155;
+    --border: #334155;
+
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+
+    --sidebar-bg: #020617;
+    --sidebar-text: #94a3b8;
   }
 }
 
+/* ── Tailwind v4 dark variant (class-based for toggle) ──── */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ── Base ───────────────────────────────────────────────── */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-geist-sans, system-ui, sans-serif);
 }
+
+/* ── Animations ─────────────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.animate-fade-in      { animation: fade-in 0.35s ease both; }
+.animate-slide-left   { animation: slide-in-left 0.3s ease both; }
+.animate-skeleton     { animation: skeleton-pulse 1.6s ease-in-out infinite; }

@@ -1,0 +1,3191 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rm_akses_log {
+  id           BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
+  rm_folder_id BigInt                   @db.UnsignedBigInt
+  episode_id   BigInt?                  @db.UnsignedBigInt
+  user_id      Int                      @db.UnsignedInt
+  jenis_akses  rm_akses_log_jenis_akses
+  alasan       String?                  @db.Text
+  ip_address   String?                  @db.VarChar(45)
+  created_at   DateTime                 @default(now()) @db.Timestamp(3)
+  rm_folder    rm_folder                @relation(fields: [rm_folder_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rmakseslog_folder")
+
+  @@index([rm_folder_id], map: "idx_rmakseslog_folder")
+  @@index([created_at], map: "idx_rmakseslog_tgl")
+  @@index([user_id], map: "idx_rmakseslog_user")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rm_asesmen_keperawatan {
+  id                      BigInt                                   @id @default(autoincrement()) @db.UnsignedBigInt
+  episode_id              BigInt                                   @db.UnsignedBigInt
+  keluhan_keperawatan     String                                   @db.Text
+  pola_persepsi_kesehatan String?                                  @db.Text
+  pola_nutrisi_metabolik  String?                                  @db.Text
+  pola_eliminasi          String?                                  @db.Text
+  pola_aktivitas          String?                                  @db.Text
+  pola_tidur              String?                                  @db.Text
+  pola_kognitif           String?                                  @db.Text
+  pola_konsep_diri        String?                                  @db.Text
+  pola_peran              String?                                  @db.Text
+  pola_seksual            String?                                  @db.Text
+  pola_koping             String?                                  @db.Text
+  pola_nilai_keyakinan    String?                                  @db.Text
+  td_sistolik             Int?                                     @db.UnsignedSmallInt
+  td_diastolik            Int?                                     @db.UnsignedSmallInt
+  nadi                    Int?                                     @db.UnsignedSmallInt
+  respirasi               Int?                                     @db.UnsignedTinyInt
+  suhu                    Decimal?                                 @db.Decimal(4, 1)
+  spo2                    Int?                                     @db.UnsignedTinyInt
+  skala_nyeri             Int?                                     @db.UnsignedTinyInt
+  skrining_gizi_skor      Int?                                     @db.UnsignedTinyInt
+  risiko_jatuh            rm_asesmen_keperawatan_risiko_jatuh?
+  skor_risiko_jatuh       Int?                                     @db.UnsignedTinyInt
+  risiko_decubitus        rm_asesmen_keperawatan_risiko_decubitus?
+  status_psikologi        String?                                  @db.Text
+  status_sosial_ekonomi   String?                                  @db.Text
+  kebutuhan_edukasi       String?                                  @db.Text
+  dibuat_oleh             Int                                      @db.UnsignedInt
+  dibuat_at               DateTime                                 @default(now()) @db.DateTime(0)
+  diverifikasi_oleh       Int?                                     @db.UnsignedInt
+  diverifikasi_at         DateTime?                                @db.DateTime(0)
+  rm_episode              rm_episode                               @relation(fields: [episode_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_asesmenkep_episode")
+
+  @@index([episode_id], map: "idx_asesmenkep_episode")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rm_asesmen_medis {
+  id                            BigInt                             @id @default(autoincrement()) @db.UnsignedBigInt
+  episode_id                    BigInt                             @db.UnsignedBigInt
+  jenis                         rm_asesmen_medis_jenis
+  keluhan_utama                 String                             @db.Text
+  riwayat_penyakit_sekarang     String?                            @db.Text
+  riwayat_penyakit_dahulu       String?                            @db.Text
+  riwayat_penyakit_keluarga     String?                            @db.Text
+  riwayat_alergi                String?                            @db.Text
+  riwayat_obat                  String?                            @db.Text
+  riwayat_sosial                String?                            @db.Text
+  ros_umum                      String?                            @db.Text
+  ros_kardiovaskuler            String?                            @db.Text
+  ros_respirasi                 String?                            @db.Text
+  ros_gastrointestinal          String?                            @db.Text
+  ros_muskuloskeletal           String?                            @db.Text
+  ros_neurologi                 String?                            @db.Text
+  ros_genitourinari             String?                            @db.Text
+  ros_endokrin                  String?                            @db.Text
+  ros_lainnya                   String?                            @db.Text
+  td_sistolik                   Int?                               @db.UnsignedSmallInt
+  td_diastolik                  Int?                               @db.UnsignedSmallInt
+  nadi                          Int?                               @db.UnsignedSmallInt
+  respirasi                     Int?                               @db.UnsignedTinyInt
+  suhu                          Decimal?                           @db.Decimal(4, 1)
+  spo2                          Int?                               @db.UnsignedTinyInt
+  berat_badan                   Decimal?                           @db.Decimal(5, 1)
+  tinggi_badan                  Decimal?                           @db.Decimal(5, 1)
+  bmi                           Decimal?                           @db.Decimal(5, 2)
+  lingkar_perut                 Decimal?                           @db.Decimal(5, 1)
+  status_gizi                   rm_asesmen_medis_status_gizi?
+  status_kesadaran              rm_asesmen_medis_status_kesadaran? @default(Compos_Mentis)
+  gcs_eye                       Int?                               @db.UnsignedTinyInt
+  gcs_verbal                    Int?                               @db.UnsignedTinyInt
+  gcs_motor                     Int?                               @db.UnsignedTinyInt
+  gcs_total                     Int?                               @db.UnsignedTinyInt
+  pemeriksaan_fisik_umum        String?                            @db.Text
+  pemeriksaan_fisik_kepala      String?                            @db.Text
+  pemeriksaan_fisik_leher       String?                            @db.Text
+  pemeriksaan_fisik_thorax      String?                            @db.Text
+  pemeriksaan_fisik_abdomen     String?                            @db.Text
+  pemeriksaan_fisik_ekstremitas String?                            @db.Text
+  pemeriksaan_fisik_neurologi   String?                            @db.Text
+  pemeriksaan_fisik_lainnya     String?                            @db.Text
+  skala_nyeri                   Int?                               @db.UnsignedTinyInt
+  lokasi_nyeri                  String?                            @db.VarChar(100)
+  karakter_nyeri                String?                            @db.VarChar(100)
+  asesmen_klinis                String                             @db.Text
+  rencana_tatalaksana           String                             @db.Text
+  rencana_pemeriksaan           String?                            @db.Text
+  prognosis                     rm_asesmen_medis_prognosis?
+  kebutuhan_edukasi             String?                            @db.Text
+  kebutuhan_rohani              String?                            @db.VarChar(200)
+  risiko_jatuh                  rm_asesmen_medis_risiko_jatuh?
+  skor_risiko_jatuh             Int?                               @db.UnsignedTinyInt
+  risiko_decubitus              rm_asesmen_medis_risiko_decubitus?
+  dibuat_oleh                   Int                                @db.UnsignedInt
+  dibuat_at                     DateTime                           @default(now()) @db.DateTime(0)
+  disetujui_oleh                Int?                               @db.UnsignedInt
+  disetujui_at                  DateTime?                          @db.DateTime(0)
+  rm_episode                    rm_episode                         @relation(fields: [episode_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_asesmenmedis_episode")
+  usr_user                      usr_user                           @relation(fields: [dibuat_oleh], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_asesmenmedis_pembuat")
+
+  @@index([dibuat_oleh], map: "fk_asesmenmedis_pembuat")
+  @@index([episode_id], map: "idx_asesmenmedis_episode")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rm_cppt {
+  id                      BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  episode_id              BigInt          @db.UnsignedBigInt
+  waktu                   DateTime        @default(now()) @db.DateTime(0)
+  profesi                 rm_cppt_profesi
+  subjektif               String?         @db.Text
+  objektif                String?         @db.Text
+  asesmen                 String?         @db.Text
+  planning                String?         @db.Text
+  instruksi_verbal        String?         @db.Text
+  instruksi_verified      Boolean         @default(false)
+  instruksi_verified_oleh Int?            @db.UnsignedInt
+  instruksi_verified_at   DateTime?       @db.DateTime(0)
+  td_sistolik             Int?            @db.UnsignedSmallInt
+  td_diastolik            Int?            @db.UnsignedSmallInt
+  nadi                    Int?            @db.UnsignedSmallInt
+  suhu                    Decimal?        @db.Decimal(4, 1)
+  spo2                    Int?            @db.UnsignedTinyInt
+  skala_nyeri             Int?            @db.UnsignedTinyInt
+  dibuat_oleh             Int             @db.UnsignedInt
+  dibuat_at               DateTime        @default(now()) @db.DateTime(0)
+  diubah_oleh             Int?            @db.UnsignedInt
+  diubah_at               DateTime?       @db.DateTime(0)
+  alasan_ubah             String?         @db.Text
+  is_koreksi              Boolean         @default(false)
+  cppt_asli_id            BigInt?         @db.UnsignedBigInt
+  rm_episode              rm_episode      @relation(fields: [episode_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rmcppt_episode")
+  usr_user                usr_user        @relation(fields: [dibuat_oleh], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rmcppt_pembuat")
+
+  @@index([dibuat_oleh], map: "fk_rmcppt_pembuat")
+  @@index([episode_id], map: "idx_rmcppt_episode")
+  @@index([waktu], map: "idx_rmcppt_waktu")
+  @@index([episode_id, profesi, waktu], map: "idx_rm_cppt_profesi")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rm_diagnosa_keperawatan {
+  id                        BigInt                         @id @default(autoincrement()) @db.UnsignedBigInt
+  episode_id                BigInt                         @db.UnsignedBigInt
+  kode_sdki                 String?                        @db.VarChar(10)
+  nama_diagnosa             String                         @db.VarChar(300)
+  tipe                      rm_diagnosa_keperawatan_tipe   @default(Aktual)
+  prioritas                 Int                            @default(1) @db.UnsignedTinyInt
+  batasan_karakteristik     String?                        @db.Text
+  faktor_berhubungan        String?                        @db.Text
+  faktor_risiko             String?                        @db.Text
+  tujuan_luaran             String?                        @db.Text
+  kriteria_hasil            String?                        @db.Text
+  status                    rm_diagnosa_keperawatan_status @default(Aktif)
+  dibuat_oleh               Int                            @db.UnsignedInt
+  dibuat_at                 DateTime                       @default(now()) @db.DateTime(0)
+  dievaluasi_at             DateTime?                      @db.DateTime(0)
+  rm_episode                rm_episode                     @relation(fields: [episode_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_diagkep_episode")
+  rm_evaluasi_keperawatan   rm_evaluasi_keperawatan[]
+  rm_intervensi_keperawatan rm_intervensi_keperawatan[]
+
+  @@index([episode_id], map: "idx_diagkep_episode")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rm_diagnosis {
+  id              BigInt                    @id @default(autoincrement()) @db.UnsignedBigInt
+  episode_id      BigInt                    @db.UnsignedBigInt
+  urutan          Int                       @default(1) @db.UnsignedTinyInt
+  tipe            rm_diagnosis_tipe         @default(Utama)
+  icd10_id        Int                       @db.UnsignedInt
+  kode_icd10      String                    @db.VarChar(10)
+  nama_diagnosis  String                    @db.VarChar(500)
+  stadium         String?                   @db.VarChar(50)
+  lateralitas     rm_diagnosis_lateralitas? @default(Tidak_Berlaku)
+  kronisitas      rm_diagnosis_kronisitas?
+  status          rm_diagnosis_status       @default(Aktif)
+  catatan         String?                   @db.Text
+  ditegakkan_oleh Int                       @db.UnsignedInt
+  ditegakkan_at   DateTime                  @default(now()) @db.DateTime(0)
+  usr_user        usr_user                  @relation(fields: [ditegakkan_oleh], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rmdiag_dokter")
+  rm_episode      rm_episode                @relation(fields: [episode_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rmdiag_episode")
+  mst_icd10       mst_icd10                 @relation(fields: [icd10_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rmdiag_icd10")
+
+  @@index([ditegakkan_oleh], map: "fk_rmdiag_dokter")
+  @@index([episode_id], map: "idx_rmdiag_episode")
+  @@index([icd10_id], map: "idx_rmdiag_icd10")
+  @@index([episode_id, tipe, urutan], map: "idx_rm_diag_tipe")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rm_discharge_planning {
+  id              BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  episode_id      BigInt     @unique(map: "uq_displan_episode") @db.UnsignedBigInt
+  kebutuhan_pasca String?    @db.Text
+  transportasi    String?    @db.VarChar(100)
+  pendamping      String?    @db.VarChar(150)
+  hubungan        String?    @db.VarChar(50)
+  home_care       Boolean    @default(false)
+  rujuk_balik     Boolean    @default(false)
+  alat_bantu      String?    @db.Text
+  dibuat_oleh     Int        @db.UnsignedInt
+  dibuat_at       DateTime   @default(now()) @db.DateTime(0)
+  rm_episode      rm_episode @relation(fields: [episode_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_displan_episode")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rm_dokumen {
+  id            BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  rm_folder_id  BigInt           @db.UnsignedBigInt
+  episode_id    BigInt?          @db.UnsignedBigInt
+  jenis         rm_dokumen_jenis
+  nomor_dokumen String?          @db.VarChar(50)
+  judul         String           @db.VarChar(200)
+  file_path     String?          @db.VarChar(500)
+  file_hash     String?          @db.VarChar(64)
+  is_rahasia    Boolean          @default(false)
+  catatan       String?          @db.Text
+  dibuat_oleh   Int              @db.UnsignedInt
+  dibuat_at     DateTime         @default(now()) @db.DateTime(0)
+  rm_folder     rm_folder        @relation(fields: [rm_folder_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rmdok_folder")
+
+  @@index([episode_id], map: "idx_rmdok_episode")
+  @@index([rm_folder_id], map: "idx_rmdok_folder")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rm_edukasi {
+  id             BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  episode_id     BigInt              @db.UnsignedBigInt
+  topik          String              @db.VarChar(200)
+  metode         rm_edukasi_metode   @default(Lisan)
+  sasaran        rm_edukasi_sasaran
+  hambatan       String?             @db.Text
+  evaluasi       rm_edukasi_evaluasi
+  catatan        String?             @db.Text
+  dilakukan_oleh Int                 @db.UnsignedInt
+  dilakukan_at   DateTime            @default(now()) @db.DateTime(0)
+  rm_episode     rm_episode          @relation(fields: [episode_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rmedukasi_episode")
+
+  @@index([episode_id], map: "idx_rmedukasi_episode")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rm_episode {
+  id                      BigInt                    @id @default(autoincrement()) @db.UnsignedBigInt
+  rm_folder_id            BigInt                    @db.UnsignedBigInt
+  kunjungan_id            BigInt                    @unique(map: "uq_episode_kunjungan") @db.UnsignedBigInt
+  jenis                   rm_episode_jenis
+  tgl_mulai               DateTime                  @db.DateTime(0)
+  tgl_selesai             DateTime?                 @db.DateTime(0)
+  status                  rm_episode_status         @default(Aktif)
+  dikunci_oleh            Int?                      @db.UnsignedInt
+  dikunci_at              DateTime?                 @db.DateTime(0)
+  rm_asesmen_keperawatan  rm_asesmen_keperawatan[]
+  rm_asesmen_medis        rm_asesmen_medis[]
+  rm_cppt                 rm_cppt[]
+  rm_diagnosa_keperawatan rm_diagnosa_keperawatan[]
+  rm_diagnosis            rm_diagnosis[]
+  rm_discharge_planning   rm_discharge_planning?
+  rm_edukasi              rm_edukasi[]
+  rm_folder               rm_folder                 @relation(fields: [rm_folder_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_episode_folder")
+  reg_kunjungan           reg_kunjungan             @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_episode_kunjungan")
+  rm_medication_order     rm_medication_order[]
+  rm_observasi            rm_observasi[]
+  rm_prosedur             rm_prosedur[]
+  rm_resume_keperawatan   rm_resume_keperawatan?
+  rm_vital_sign           rm_vital_sign[]
+
+  @@index([rm_folder_id], map: "idx_episode_folder")
+  @@index([tgl_mulai], map: "idx_episode_tgl")
+  @@index([status, tgl_mulai], map: "idx_rm_episode_status")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rm_evaluasi_keperawatan {
+  id                      BigInt                                 @id @default(autoincrement()) @db.UnsignedBigInt
+  diagnosa_kep_id         BigInt                                 @db.UnsignedBigInt
+  waktu                   DateTime                               @default(now()) @db.DateTime(0)
+  subjektif               String?                                @db.Text
+  objektif                String?                                @db.Text
+  asesmen                 String?                                @db.Text
+  planning                String?                                @db.Text
+  implementasi            String?                                @db.Text
+  evaluasi                String?                                @db.Text
+  skor_luaran             Int?                                   @db.UnsignedTinyInt
+  status_luaran           rm_evaluasi_keperawatan_status_luaran?
+  dibuat_oleh             Int                                    @db.UnsignedInt
+  rm_diagnosa_keperawatan rm_diagnosa_keperawatan                @relation(fields: [diagnosa_kep_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_evalkep_diag")
+
+  @@index([diagnosa_kep_id], map: "idx_evalkep_diag")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rm_folder {
+  id                     BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  pasien_id              BigInt           @unique(map: "uq_rm_folder_pasien") @db.UnsignedBigInt
+  no_rm                  String           @unique(map: "uq_rm_folder_no_rm") @db.VarChar(20)
+  tgl_buka               DateTime         @default(dbgenerated("(curdate())")) @db.Date
+  tgl_tutup              DateTime?        @db.Date
+  status                 rm_folder_status @default(Aktif)
+  lokasi_fisik           String?          @db.VarChar(100)
+  retensi_aktif_sampai   DateTime?        @db.Date
+  retensi_inaktif_sampai DateTime?        @db.Date
+  catatan                String?          @db.Text
+  dibuat_oleh            Int              @db.UnsignedInt
+  dibuat_at              DateTime         @default(now()) @db.Timestamp(0)
+  updated_at             DateTime         @default(now()) @db.Timestamp(0)
+  rm_akses_log           rm_akses_log[]
+  rm_dokumen             rm_dokumen[]
+  rm_episode             rm_episode[]
+  pas_pasien             pas_pasien       @relation(fields: [pasien_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rmfolder_pasien")
+  rm_peminjaman          rm_peminjaman[]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rm_intervensi_keperawatan {
+  id                      BigInt                         @id @default(autoincrement()) @db.UnsignedBigInt
+  diagnosa_kep_id         BigInt                         @db.UnsignedBigInt
+  kode_siki               String?                        @db.VarChar(10)
+  nama_intervensi         String                         @db.VarChar(300)
+  tipe                    rm_intervensi_keperawatan_tipe @default(Mandiri)
+  observasi               String?                        @db.Text
+  terapeutik              String?                        @db.Text
+  edukasi                 String?                        @db.Text
+  kolaborasi              String?                        @db.Text
+  frekuensi               String?                        @db.VarChar(100)
+  dibuat_oleh             Int                            @db.UnsignedInt
+  dibuat_at               DateTime                       @default(now()) @db.DateTime(0)
+  rm_diagnosa_keperawatan rm_diagnosa_keperawatan        @relation(fields: [diagnosa_kep_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_intervensikep_diag")
+
+  @@index([diagnosa_kep_id], map: "idx_intervensikep_diag")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rm_medication_administration {
+  id                  BigInt                              @id @default(autoincrement()) @db.UnsignedBigInt
+  medication_order_id BigInt                              @db.UnsignedBigInt
+  waktu_pemberian     DateTime                            @default(now()) @db.DateTime(0)
+  dosis_diberikan     String?                             @db.VarChar(100)
+  rute_aktual         String?                             @db.VarChar(50)
+  lokasi_injeksi      String?                             @db.VarChar(100)
+  status              rm_medication_administration_status @default(Diberikan)
+  alasan_tidak        String?                             @db.Text
+  reaksi              String?                             @db.Text
+  diberikan_oleh      Int                                 @db.UnsignedInt
+  rm_medication_order rm_medication_order                 @relation(fields: [medication_order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_medadmin_order")
+
+  @@index([medication_order_id], map: "idx_medadmin_order")
+  @@index([medication_order_id, waktu_pemberian], map: "idx_rm_medadmin_waktu")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rm_medication_order {
+  id                           BigInt                         @id @default(autoincrement()) @db.UnsignedBigInt
+  episode_id                   BigInt                         @db.UnsignedBigInt
+  resep_id                     BigInt?                        @db.UnsignedBigInt
+  obat_id                      Int                            @db.UnsignedInt
+  nama_obat                    String                         @db.VarChar(200)
+  dosis                        String                         @db.VarChar(100)
+  satuan_dosis                 String?                        @db.VarChar(30)
+  rute                         String                         @db.VarChar(50)
+  frekuensi                    String                         @db.VarChar(100)
+  tgl_mulai                    DateTime?                      @db.DateTime(0)
+  tgl_selesai                  DateTime?                      @db.DateTime(0)
+  durasi_hari                  Int?                           @db.UnsignedTinyInt
+  indikasi                     String?                        @db.Text
+  status                       rm_medication_order_status     @default(Active)
+  alasan_stop                  String?                        @db.Text
+  diorder_oleh                 Int                            @db.UnsignedInt
+  diorder_at                   DateTime                       @default(now()) @db.DateTime(0)
+  rm_medication_administration rm_medication_administration[]
+  rm_episode                   rm_episode                     @relation(fields: [episode_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_medorder_episode")
+  far_obat                     far_obat                       @relation(fields: [obat_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_medorder_obat")
+
+  @@index([episode_id], map: "idx_medorder_episode")
+  @@index([obat_id], map: "idx_medorder_obat")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rm_observasi {
+  id              BigInt                     @id @default(autoincrement()) @db.UnsignedBigInt
+  episode_id      BigInt                     @db.UnsignedBigInt
+  kode_loinc      String?                    @db.VarChar(20)
+  nama_observasi  String                     @db.VarChar(200)
+  kategori        rm_observasi_kategori
+  nilai_string    String?                    @db.VarChar(500)
+  nilai_numerik   Decimal?                   @db.Decimal(15, 4)
+  satuan          String?                    @db.VarChar(50)
+  nilai_boolean   Boolean?
+  nilai_codeable  String?                    @db.VarChar(100)
+  interpretasi    rm_observasi_interpretasi?
+  waktu_observasi DateTime                   @default(now()) @db.DateTime(0)
+  dicatat_oleh    Int                        @db.UnsignedInt
+  rm_episode      rm_episode                 @relation(fields: [episode_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rmobs_episode")
+
+  @@index([episode_id], map: "idx_rmobs_episode")
+  @@index([kode_loinc], map: "idx_rmobs_loinc")
+  @@index([episode_id, waktu_observasi], map: "idx_rmobs_waktu")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rm_peminjaman {
+  id                  BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  no_peminjaman       String               @unique(map: "uq_peminjaman_no") @db.VarChar(30)
+  rm_folder_id        BigInt               @db.UnsignedBigInt
+  tujuan              rm_peminjaman_tujuan
+  pemohon             String               @db.VarChar(150)
+  institusi           String?              @db.VarChar(200)
+  surat_permohonan    String?              @db.VarChar(255)
+  tgl_pinjam          DateTime             @db.Date
+  tgl_kembali_rencana DateTime?            @db.Date
+  tgl_kembali_aktual  DateTime?            @db.Date
+  status              rm_peminjaman_status @default(Diajukan)
+  alasan_penolakan    String?              @db.Text
+  disetujui_oleh      Int?                 @db.UnsignedInt
+  disetujui_at        DateTime?            @db.DateTime(0)
+  dicatat_oleh        Int                  @db.UnsignedInt
+  dibuat_at           DateTime             @default(now()) @db.DateTime(0)
+  rm_folder           rm_folder            @relation(fields: [rm_folder_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_peminjaman_folder")
+
+  @@index([rm_folder_id], map: "idx_peminjaman_folder")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rm_prosedur {
+  id             BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
+  episode_id     BigInt                   @db.UnsignedBigInt
+  icd9cm_id      Int?                     @db.UnsignedInt
+  kode_icd9cm    String?                  @db.VarChar(10)
+  nama_prosedur  String                   @db.VarChar(500)
+  tanggal        DateTime                 @db.Date
+  waktu_mulai    DateTime?                @db.Time(0)
+  waktu_selesai  DateTime?                @db.Time(0)
+  lateralitas    rm_prosedur_lateralitas? @default(Tidak_Berlaku)
+  anestesi       rm_prosedur_anestesi?
+  dilakukan_oleh Int                      @db.UnsignedInt
+  dpjp_nama      String?                  @db.VarChar(150)
+  catatan        String?                  @db.Text
+  rm_episode     rm_episode               @relation(fields: [episode_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rmprosedur_episode")
+
+  @@index([episode_id], map: "idx_rmprosedur_episode")
+}
+
+model rm_resume_keperawatan {
+  id                  BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  episode_id          BigInt     @unique(map: "uq_resumekep_episode") @db.UnsignedBigInt
+  kondisi_saat_masuk  String?    @db.Text
+  tindakan_dilakukan  String?    @db.Text
+  kondisi_saat_keluar String?    @db.Text
+  diagnosa_kep_utama  String?    @db.VarChar(300)
+  luaran_tercapai     String?    @db.Text
+  catatan_lanjutan    String?    @db.Text
+  dibuat_oleh         Int        @db.UnsignedInt
+  dibuat_at           DateTime   @default(now()) @db.DateTime(0)
+  rm_episode          rm_episode @relation(fields: [episode_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_resumekep_episode")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rm_vital_sign {
+  id             BigInt                    @id @default(autoincrement()) @db.UnsignedBigInt
+  episode_id     BigInt                    @db.UnsignedBigInt
+  waktu          DateTime                  @default(now()) @db.DateTime(0)
+  td_sistolik    Int?                      @db.UnsignedSmallInt
+  td_diastolik   Int?                      @db.UnsignedSmallInt
+  map            Int?                      @db.UnsignedSmallInt
+  nadi           Int?                      @db.UnsignedSmallInt
+  irama_nadi     rm_vital_sign_irama_nadi?
+  respirasi      Int?                      @db.UnsignedTinyInt
+  suhu           Decimal?                  @db.Decimal(4, 1)
+  spo2           Int?                      @db.UnsignedTinyInt
+  fio2           Int?                      @db.UnsignedTinyInt
+  gcs_eye        Int?                      @db.UnsignedTinyInt
+  gcs_verbal     Int?                      @db.UnsignedTinyInt
+  gcs_motor      Int?                      @db.UnsignedTinyInt
+  gcs_total      Int?                      @db.UnsignedTinyInt
+  skala_nyeri    Int?                      @db.UnsignedTinyInt
+  berat_badan    Decimal?                  @db.Decimal(5, 1)
+  lingkar_kepala Decimal?                  @db.Decimal(5, 1)
+  urin_output_ml Int?                      @db.UnsignedInt
+  catatan        String?                   @db.Text
+  dicatat_oleh   Int                       @db.UnsignedInt
+  rm_episode     rm_episode                @relation(fields: [episode_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rmvs_episode")
+
+  @@index([episode_id], map: "idx_rmvs_episode")
+  @@index([episode_id, waktu], map: "idx_rmvs_waktu")
+  @@index([episode_id, waktu], map: "idx_rm_vital_waktu")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ss_api_log {
+  id                 BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  queue_id           BigInt?           @db.UnsignedBigInt
+  fhir_resource_type String?           @db.VarChar(50)
+  satusehat_id       String?           @db.VarChar(100)
+  metode             ss_api_log_metode
+  endpoint           String            @db.VarChar(500)
+  request_header     String?           @db.Text
+  request_body       String?           @db.LongText
+  response_status    Int?              @db.UnsignedSmallInt
+  response_header    String?           @db.Text
+  response_body      String?           @db.LongText
+  durasi_ms          Int?              @db.UnsignedInt
+  is_success         Boolean?
+  error_message      String?           @db.Text
+  dibuat_at          DateTime          @default(now()) @db.Timestamp(3)
+
+  @@index([queue_id], map: "idx_sslog_queue")
+  @@index([fhir_resource_type, satusehat_id], map: "idx_sslog_resource")
+  @@index([response_status], map: "idx_sslog_status")
+  @@index([dibuat_at], map: "idx_sslog_tgl")
+  @@index([dibuat_at, fhir_resource_type], map: "idx_ss_apilog_tgl")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ss_fhir_cache {
+  id                 BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  fhir_resource_type String   @db.VarChar(50)
+  satusehat_id       String   @db.VarChar(100)
+  fhir_version_id    String?  @db.VarChar(20)
+  payload_json       String   @db.LongText
+  payload_hash       String   @db.VarChar(64)
+  last_synced_at     DateTime @db.DateTime(0)
+
+  @@unique([fhir_resource_type, satusehat_id], map: "uq_sscache_resource")
+  @@index([fhir_resource_type], map: "idx_sscache_type")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ss_fhir_template {
+  id                 Int      @id @default(autoincrement()) @db.UnsignedSmallInt
+  fhir_resource_type String   @db.VarChar(50)
+  nama               String   @db.VarChar(100)
+  template_json      String   @db.LongText
+  versi              String   @default("1.0") @db.VarChar(10)
+  is_active          Boolean  @default(true)
+  keterangan         String?  @db.Text
+  updated_at         DateTime @default(now()) @db.Timestamp(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ss_konfigurasi {
+  id              Int                        @id @default(autoincrement()) @db.UnsignedTinyInt
+  environment     ss_konfigurasi_environment @default(Staging)
+  client_id       String                     @db.VarChar(200)
+  client_secret   String                     @db.VarChar(500)
+  organization_id String                     @db.VarChar(100)
+  base_url        String                     @default("https://api-satusehat.kemkes.go.id") @db.VarChar(300)
+  auth_url        String                     @default("https://api-satusehat.kemkes.go.id/oauth2/v1") @db.VarChar(300)
+  fhir_url        String                     @default("https://api-satusehat.kemkes.go.id/fhir-r4/v1") @db.VarChar(300)
+  is_active       Boolean                    @default(true)
+  created_at      DateTime                   @default(now()) @db.Timestamp(0)
+  updated_at      DateTime                   @default(now()) @db.Timestamp(0)
+  updated_by      Int?                       @db.UnsignedInt
+  ss_oauth_token  ss_oauth_token[]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ss_oauth_token {
+  id             Int            @id @default(autoincrement()) @db.UnsignedInt
+  config_id      Int            @db.UnsignedTinyInt
+  access_token   String         @db.Text
+  token_type     String         @default("Bearer") @db.VarChar(50)
+  expires_in     Int            @db.UnsignedInt
+  expired_at     DateTime       @db.DateTime(0)
+  dibuat_at      DateTime       @default(now()) @db.Timestamp(0)
+  ss_konfigurasi ss_konfigurasi @relation(fields: [config_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_sstoken_config")
+
+  @@index([config_id], map: "idx_sstoken_config")
+  @@index([expired_at], map: "idx_sstoken_expired")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ss_patient {
+  id                   BigInt                 @id @default(autoincrement()) @db.UnsignedBigInt
+  pasien_id            BigInt                 @unique(map: "uq_sspatient_pasien") @db.UnsignedBigInt
+  satusehat_patient_id String?                @unique(map: "uq_sspatient_satusehat") @db.VarChar(100)
+  nik_verified         Boolean                @default(false)
+  ihs_number           String?                @db.VarChar(50)
+  nama_fhir            String?                @db.VarChar(300)
+  sync_status          ss_patient_sync_status @default(Pending)
+  last_synced_at       DateTime?              @db.DateTime(0)
+  catatan              String?                @db.Text
+  pas_pasien           pas_pasien             @relation(fields: [pasien_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_sspatient_pasien")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ss_practitioner {
+  id                 BigInt                      @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id            Int                         @unique(map: "uq_sspract_user") @db.UnsignedInt
+  satusehat_pract_id String?                     @db.VarChar(100)
+  nik                String?                     @db.VarChar(16)
+  ihs_number         String?                     @db.VarChar(50)
+  sync_status        ss_practitioner_sync_status @default(Pending)
+  last_synced_at     DateTime?                   @db.DateTime(0)
+  usr_user           usr_user                    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_sspract_user")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ss_resource_mapping {
+  id                 BigInt                          @id @default(autoincrement()) @db.UnsignedBigInt
+  fhir_resource_type String                          @db.VarChar(50)
+  internal_table     String                          @db.VarChar(100)
+  internal_id        BigInt                          @db.UnsignedBigInt
+  satusehat_id       String                          @db.VarChar(100)
+  satusehat_version  String?                         @db.VarChar(20)
+  last_synced_at     DateTime?                       @db.DateTime(0)
+  sync_status        ss_resource_mapping_sync_status @default(Pending)
+  error_message      String?                         @db.Text
+  created_at         DateTime                        @default(now()) @db.Timestamp(0)
+  updated_at         DateTime                        @default(now()) @db.Timestamp(0)
+
+  @@unique([fhir_resource_type, internal_table, internal_id], map: "uq_ssmap_resource")
+  @@unique([fhir_resource_type, satusehat_id], map: "uq_ssmap_satusehat")
+  @@index([sync_status], map: "idx_ssmap_status")
+  @@index([fhir_resource_type], map: "idx_ssmap_type")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ss_sync_queue {
+  id                 BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  fhir_resource_type String               @db.VarChar(50)
+  internal_table     String               @db.VarChar(100)
+  internal_id        BigInt               @db.UnsignedBigInt
+  aksi               ss_sync_queue_aksi
+  prioritas          Int                  @default(5) @db.UnsignedTinyInt
+  payload_fhir       String?              @db.LongText
+  percobaan          Int                  @default(0) @db.UnsignedTinyInt
+  max_percobaan      Int                  @default(3) @db.UnsignedTinyInt
+  status             ss_sync_queue_status @default(Pending)
+  http_status_code   Int?                 @db.UnsignedSmallInt
+  response_body      String?              @db.Text
+  error_message      String?              @db.Text
+  dijadwalkan_at     DateTime             @default(now()) @db.DateTime(0)
+  diambil_at         DateTime?            @db.DateTime(0)
+  selesai_at         DateTime?            @db.DateTime(0)
+  dibuat_at          DateTime             @default(now()) @db.Timestamp(0)
+
+  @@index([prioritas, status], map: "idx_ssqueue_prioritas")
+  @@index([fhir_resource_type, internal_id], map: "idx_ssqueue_resource")
+  @@index([status, dijadwalkan_at], map: "idx_ssqueue_status")
+  @@index([status, prioritas, dijadwalkan_at], map: "idx_ss_queue_pending")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ss_sync_rule {
+  id                 Int     @id @default(autoincrement()) @db.UnsignedSmallInt
+  fhir_resource_type String  @db.VarChar(50)
+  internal_table     String  @db.VarChar(100)
+  is_enabled         Boolean @default(true)
+  trigger_events     String? @db.VarChar(500)
+  prioritas          Int     @default(5) @db.UnsignedTinyInt
+  delay_detik        Int     @default(0) @db.UnsignedInt
+  keterangan         String? @db.Text
+
+  @@unique([fhir_resource_type, internal_table], map: "uq_ssrule_resource_table")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ss_webhook_inbox {
+  id                 BigInt                  @id @default(autoincrement()) @db.UnsignedBigInt
+  event_id           String?                 @db.VarChar(100)
+  event_type         String                  @db.VarChar(100)
+  fhir_resource_type String?                 @db.VarChar(50)
+  satusehat_id       String?                 @db.VarChar(100)
+  payload            String                  @db.LongText
+  status             ss_webhook_inbox_status @default(Received)
+  error_message      String?                 @db.Text
+  diterima_at        DateTime                @default(now()) @db.Timestamp(3)
+  diproses_at        DateTime?               @db.DateTime(0)
+
+  @@index([event_type], map: "idx_webhook_event")
+  @@index([status], map: "idx_webhook_status")
+  @@index([diterima_at], map: "idx_webhook_tgl")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model akn_jurnal {
+  id                BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  no_jurnal         String              @unique(map: "uq_jurnal_no") @db.VarChar(30)
+  tgl_jurnal        DateTime            @db.Date
+  jenis             akn_jurnal_jenis
+  keterangan        String?             @db.Text
+  referensi_id      BigInt?             @db.UnsignedBigInt
+  referensi_tipe    String?             @db.VarChar(50)
+  total_debit       Decimal             @default(0.00) @db.Decimal(18, 2)
+  total_kredit      Decimal             @default(0.00) @db.Decimal(18, 2)
+  dibuat_oleh       Int                 @db.UnsignedInt
+  dibuat_at         DateTime            @default(now()) @db.DateTime(0)
+  diposting_oleh    Int?                @db.UnsignedInt
+  diposting_at      DateTime?           @db.DateTime(0)
+  akn_jurnal_detail akn_jurnal_detail[]
+
+  @@index([tgl_jurnal], map: "idx_jurnal_tgl")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model akn_jurnal_detail {
+  id         BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
+  jurnal_id  BigInt                   @db.UnsignedBigInt
+  kode_akun  String                   @db.VarChar(20)
+  nama_akun  String                   @db.VarChar(200)
+  posisi     akn_jurnal_detail_posisi
+  jumlah     Decimal                  @db.Decimal(18, 2)
+  akn_jurnal akn_jurnal               @relation(fields: [jurnal_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_jurnaldetail_jurnal")
+
+  @@index([jurnal_id], map: "idx_jurnaldetail_jurnal")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ast_aset {
+  id                       Int                @id @default(autoincrement()) @db.UnsignedInt
+  kode_aset                String             @unique(map: "uq_aset_kode") @db.VarChar(30)
+  nama                     String             @db.VarChar(200)
+  kategori_id              Int                @db.UnsignedSmallInt
+  ruangan_id               Int?               @db.UnsignedInt
+  merk                     String?            @db.VarChar(100)
+  model                    String?            @db.VarChar(100)
+  no_seri                  String?            @db.VarChar(100)
+  tgl_perolehan            DateTime?          @db.Date
+  harga_perolehan          Decimal?           @db.Decimal(18, 2)
+  kondisi                  ast_aset_kondisi   @default(Baik)
+  status                   ast_aset_status    @default(Aktif)
+  tgl_kalibrasi_terakhir   DateTime?          @db.Date
+  tgl_kalibrasi_berikutnya DateTime?          @db.Date
+  catatan                  String?            @db.Text
+  created_at               DateTime           @default(now()) @db.Timestamp(0)
+  ast_kategori             ast_kategori       @relation(fields: [kategori_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_aset_kategori")
+  mst_ruangan              mst_ruangan?       @relation(fields: [ruangan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_aset_ruangan")
+  ast_pemeliharaan         ast_pemeliharaan[]
+
+  @@index([kategori_id], map: "idx_aset_kategori")
+  @@index([ruangan_id], map: "idx_aset_ruangan")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ast_kategori {
+  id                 Int        @id @default(autoincrement()) @db.UnsignedSmallInt
+  kode               String     @db.VarChar(10)
+  nama               String     @db.VarChar(100)
+  masa_manfaat_tahun Int?       @db.UnsignedTinyInt
+  ast_aset           ast_aset[]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ast_pemeliharaan {
+  id               Int                    @id @default(autoincrement()) @db.UnsignedInt
+  aset_id          Int                    @db.UnsignedInt
+  jenis            ast_pemeliharaan_jenis
+  tgl_pemeliharaan DateTime               @db.Date
+  uraian           String                 @db.Text
+  biaya            Decimal?               @db.Decimal(15, 2)
+  dilakukan_oleh   String?                @db.VarChar(150)
+  hasil            ast_pemeliharaan_hasil @default(Baik)
+  catatan          String?                @db.Text
+  dicatat_oleh     Int                    @db.UnsignedInt
+  ast_aset         ast_aset               @relation(fields: [aset_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pemeliharaan_aset")
+
+  @@index([aset_id], map: "idx_pemeliharaan_aset")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model aud_consent_pasien {
+  id                  BigInt                    @id @default(autoincrement()) @db.UnsignedBigInt
+  pasien_id           BigInt                    @db.UnsignedBigInt
+  kunjungan_id        BigInt?                   @db.UnsignedBigInt
+  jenis               aud_consent_pasien_jenis
+  status              aud_consent_pasien_status @default(Diberikan)
+  ditandatangani_oleh String?                   @db.VarChar(150)
+  hubungan            String?                   @db.VarChar(50)
+  catatan             String?                   @db.Text
+  dokumen_path        String?                   @db.VarChar(255)
+  dicatat_oleh        Int                       @db.UnsignedInt
+  dicatat_at          DateTime                  @default(now()) @db.DateTime(0)
+  pas_pasien          pas_pasien                @relation(fields: [pasien_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_consent_pasien")
+
+  @@index([kunjungan_id], map: "idx_consent_kunjungan")
+  @@index([pasien_id], map: "idx_consent_pasien")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model aud_log {
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id    Int?     @db.UnsignedInt
+  username   String?  @db.VarChar(50)
+  ip_address String?  @db.VarChar(45)
+  modul      String   @db.VarChar(100)
+  aksi       String   @db.VarChar(50)
+  tabel      String?  @db.VarChar(100)
+  record_id  String?  @db.VarChar(50)
+  data_lama  String?  @db.LongText
+  data_baru  String?  @db.LongText
+  keterangan String?  @db.Text
+  created_at DateTime @default(now()) @db.Timestamp(3)
+
+  @@index([created_at], map: "idx_aud_created")
+  @@index([created_at], map: "idx_aud_log_tgl")
+  @@index([modul], map: "idx_aud_modul")
+  @@index([tabel, record_id], map: "idx_aud_record")
+  @@index([tabel], map: "idx_aud_tabel")
+  @@index([user_id], map: "idx_aud_user")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model aud_login_history {
+  id         BigInt                  @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id    Int                     @db.UnsignedInt
+  username   String                  @db.VarChar(50)
+  ip_address String?                 @db.VarChar(45)
+  user_agent String?                 @db.Text
+  jenis      aud_login_history_jenis
+  keterangan String?                 @db.VarChar(200)
+  created_at DateTime                @default(now()) @db.Timestamp(0)
+
+  @@index([created_at], map: "idx_loginhistory_created")
+  @@index([user_id], map: "idx_loginhistory_user")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model bil_item_tagihan {
+  id             BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
+  tagihan_id     BigInt      @db.UnsignedBigInt
+  tarif_id       Int         @db.UnsignedInt
+  nama_layanan   String      @db.VarChar(200)
+  jumlah         Int         @default(1) @db.UnsignedSmallInt
+  harga_satuan   Decimal     @db.Decimal(15, 2)
+  diskon_persen  Decimal?    @default(0.00) @db.Decimal(5, 2)
+  subtotal       Decimal?    @db.Decimal(15, 2)
+  kategori       String?     @db.VarChar(50)
+  tanggal        DateTime?   @db.Date
+  referensi_id   BigInt?     @db.UnsignedBigInt
+  referensi_tipe String?     @db.VarChar(50)
+  bil_tagihan    bil_tagihan @relation(fields: [tagihan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_itemtagihan_tagihan")
+  mst_tarif      mst_tarif   @relation(fields: [tarif_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_itemtagihan_tarif")
+
+  @@index([tarif_id], map: "fk_itemtagihan_tarif")
+  @@index([tagihan_id], map: "idx_itemtagihan_tagihan")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model bil_jasa_medis {
+  id            BigInt                    @id @default(autoincrement()) @db.UnsignedBigInt
+  tagihan_id    BigInt                    @db.UnsignedBigInt
+  dpjp_id       Int                       @db.UnsignedInt
+  jenis_jasa    bil_jasa_medis_jenis_jasa
+  jumlah        Decimal                   @db.Decimal(15, 2)
+  persen_dokter Decimal?                  @default(100.00) @db.Decimal(5, 2)
+  jumlah_dokter Decimal?                  @db.Decimal(15, 2)
+  status        bil_jasa_medis_status     @default(Pending)
+  mst_dpjp      mst_dpjp                  @relation(fields: [dpjp_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_jasamedis_dpjp")
+  bil_tagihan   bil_tagihan               @relation(fields: [tagihan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_jasamedis_tagihan")
+
+  @@index([dpjp_id], map: "idx_jasamedis_dpjp")
+  @@index([tagihan_id], map: "idx_jasamedis_tagihan")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model bil_pembayaran {
+  id            BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
+  no_pembayaran String                @unique(map: "uq_pembayaran_no") @db.VarChar(30)
+  tagihan_id    BigInt                @db.UnsignedBigInt
+  metode        bil_pembayaran_metode
+  jumlah        Decimal               @db.Decimal(15, 2)
+  kembalian     Decimal?              @default(0.00) @db.Decimal(15, 2)
+  no_referensi  String?               @db.VarChar(100)
+  keterangan    String?               @db.Text
+  dibuat_oleh   Int                   @db.UnsignedInt
+  dibuat_at     DateTime              @default(now()) @db.DateTime(0)
+  bil_tagihan   bil_tagihan           @relation(fields: [tagihan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pembayaran_tagihan")
+
+  @@index([tagihan_id], map: "idx_pembayaran_tagihan")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model bil_tagihan {
+  id                   BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  no_tagihan           String             @unique(map: "uq_tagihan_no") @db.VarChar(30)
+  kunjungan_id         BigInt             @db.UnsignedBigInt
+  status               bil_tagihan_status @default(Draft)
+  total_sebelum_diskon Decimal            @default(0.00) @db.Decimal(15, 2)
+  diskon               Decimal            @default(0.00) @db.Decimal(15, 2)
+  total_setelah_diskon Decimal?           @db.Decimal(15, 2)
+  dibayar              Decimal            @default(0.00) @db.Decimal(15, 2)
+  sisa                 Decimal?           @db.Decimal(15, 2)
+  catatan              String?            @db.Text
+  dibuat_oleh          Int                @db.UnsignedInt
+  dibuat_at            DateTime           @default(now()) @db.DateTime(0)
+  difinalisasi_oleh    Int?               @db.UnsignedInt
+  difinalisasi_at      DateTime?          @db.DateTime(0)
+  bil_item_tagihan     bil_item_tagihan[]
+  bil_jasa_medis       bil_jasa_medis[]
+  bil_pembayaran       bil_pembayaran[]
+  reg_kunjungan        reg_kunjungan      @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_tagihan_kunjungan")
+
+  @@index([status, dibuat_at], map: "idx_bil_tagihan_status_tgl")
+  @@index([kunjungan_id], map: "idx_tagihan_kunjungan")
+  @@index([status], map: "idx_tagihan_status")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model bpjs_klaim {
+  id                 BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  no_klaim           String            @unique(map: "uq_klaim_no") @db.VarChar(30)
+  sep_id             BigInt            @unique(map: "uq_klaim_sep") @db.UnsignedBigInt
+  periode_bulan      Int               @db.UnsignedTinyInt
+  periode_tahun      Int               @db.UnsignedSmallInt
+  kode_ina_cbg       String?           @db.VarChar(20)
+  nama_ina_cbg       String?           @db.VarChar(200)
+  tarif_rs           Decimal           @default(0.00) @db.Decimal(15, 2)
+  tarif_ina_cbg      Decimal           @default(0.00) @db.Decimal(15, 2)
+  selisih            Decimal?          @db.Decimal(15, 2)
+  status             bpjs_klaim_status @default(Draft)
+  alasan_penolakan   String?           @db.Text
+  diagnosis_utama    String?           @db.VarChar(10)
+  diagnosis_sekunder String?           @db.Text
+  prosedur           String?           @db.Text
+  los                Int?              @db.UnsignedSmallInt
+  dibuat_oleh        Int               @db.UnsignedInt
+  dibuat_at          DateTime          @default(now()) @db.DateTime(0)
+  diajukan_oleh      Int?              @db.UnsignedInt
+  diajukan_at        DateTime?         @db.DateTime(0)
+  diputuskan_at      DateTime?         @db.DateTime(0)
+  bpjs_sep           bpjs_sep          @relation(fields: [sep_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_klaim_sep")
+
+  @@index([status, periode_tahun, periode_bulan], map: "idx_bpjs_klaim_status_periode")
+  @@index([periode_tahun, periode_bulan], map: "idx_klaim_periode")
+  @@index([status], map: "idx_klaim_status")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model bpjs_sep {
+  id              BigInt                    @id @default(autoincrement()) @db.UnsignedBigInt
+  kunjungan_id    BigInt                    @unique(map: "uq_sep_kunjungan") @db.UnsignedBigInt
+  no_sep          String                    @unique(map: "uq_sep_no") @db.VarChar(25)
+  no_kartu_bpjs   String                    @db.VarChar(20)
+  tgl_sep         DateTime                  @db.Date
+  jenis_pelayanan bpjs_sep_jenis_pelayanan
+  kelas_rawat     bpjs_sep_kelas_rawat?
+  diagnosa_sep    String?                   @db.VarChar(10)
+  poli_tujuan     String?                   @db.VarChar(100)
+  dpjp_id         Int?                      @db.UnsignedInt
+  jenis_kunjungan bpjs_sep_jenis_kunjungan?
+  asal_rujukan    String?                   @db.VarChar(200)
+  no_rujukan      String?                   @db.VarChar(50)
+  tgl_rujukan     DateTime?                 @db.Date
+  dibuat_oleh     Int                       @db.UnsignedInt
+  dibuat_at       DateTime                  @default(now()) @db.DateTime(0)
+  bpjs_klaim      bpjs_klaim?
+  reg_kunjungan   reg_kunjungan             @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_sep_kunjungan")
+
+  @@index([no_kartu_bpjs], map: "idx_sep_bpjs")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model cssd_instrumen {
+  id           Int           @id @default(autoincrement()) @db.UnsignedInt
+  kode         String        @unique(map: "uq_cssd_kode") @db.VarChar(20)
+  nama         String        @db.VarChar(150)
+  kategori     String?       @db.VarChar(50)
+  set_nama     String?       @db.VarChar(100)
+  jumlah_total Int           @default(1) @db.UnsignedSmallInt
+  is_active    Boolean       @default(true)
+  cssd_siklus  cssd_siklus[]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model cssd_siklus {
+  id             BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  instrumen_id   Int                @db.UnsignedInt
+  metode         cssd_siklus_metode
+  suhu           Decimal?           @db.Decimal(5, 1)
+  durasi_menit   Int?               @db.UnsignedSmallInt
+  tgl_steril     DateTime           @db.DateTime(0)
+  tgl_kadaluarsa DateTime?          @db.DateTime(0)
+  status         cssd_siklus_status @default(Proses)
+  diproses_oleh  Int                @db.UnsignedInt
+  cssd_instrumen cssd_instrumen     @relation(fields: [instrumen_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cssd_instrumen")
+
+  @@index([instrumen_id], map: "idx_cssd_instrumen")
+  @@index([status], map: "idx_cssd_status")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model far_batch {
+  id             BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  obat_id        Int      @db.UnsignedInt
+  depo_id        Int      @db.UnsignedSmallInt
+  no_batch       String   @db.VarChar(50)
+  tgl_kadaluarsa DateTime @db.Date
+  jumlah_awal    Int
+  jumlah_sisa    Int
+  harga_beli     Decimal? @db.Decimal(15, 2)
+  created_at     DateTime @default(now()) @db.Timestamp(0)
+  far_depo       far_depo @relation(fields: [depo_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_batch_depo")
+  far_obat       far_obat @relation(fields: [obat_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_batch_obat")
+
+  @@index([depo_id], map: "fk_batch_depo")
+  @@index([tgl_kadaluarsa], map: "idx_batch_exp")
+  @@index([obat_id], map: "idx_batch_obat")
+  @@index([tgl_kadaluarsa], map: "idx_far_batch_exp")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model far_depo {
+  id              Int               @id @default(autoincrement()) @db.UnsignedSmallInt
+  kode            String            @unique(map: "uq_depo_kode") @db.VarChar(20)
+  nama            String            @db.VarChar(100)
+  ruangan_id      Int?              @db.UnsignedInt
+  is_active       Boolean           @default(true)
+  far_batch       far_batch[]
+  mst_ruangan     mst_ruangan?      @relation(fields: [ruangan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_depo_ruangan")
+  far_mutasi_stok far_mutasi_stok[]
+  far_resep       far_resep[]
+  far_stok        far_stok[]
+
+  @@index([ruangan_id], map: "fk_depo_ruangan")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model far_golongan_obat {
+  id       Int        @id @default(autoincrement()) @db.UnsignedTinyInt
+  nama     String     @db.VarChar(50)
+  far_obat far_obat[]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model far_mutasi_stok {
+  id             BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
+  depo_id        Int                   @db.UnsignedSmallInt
+  obat_id        Int                   @db.UnsignedInt
+  batch_id       BigInt?               @db.UnsignedBigInt
+  jenis          far_mutasi_stok_jenis
+  jumlah         Int
+  saldo_sebelum  Int
+  saldo_sesudah  Int
+  referensi_id   BigInt?               @db.UnsignedBigInt
+  referensi_tipe String?               @db.VarChar(50)
+  keterangan     String?               @db.Text
+  dibuat_oleh    Int                   @db.UnsignedInt
+  dibuat_at      DateTime              @default(now()) @db.Timestamp(0)
+  far_depo       far_depo              @relation(fields: [depo_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_mutasi_depo")
+  far_obat       far_obat              @relation(fields: [obat_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_mutasi_obat")
+
+  @@index([depo_id], map: "idx_mutasi_depo")
+  @@index([obat_id], map: "idx_mutasi_obat")
+  @@index([dibuat_at], map: "idx_mutasi_tgl")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model far_obat {
+  id                  Int                   @id @default(autoincrement()) @db.UnsignedInt
+  kode                String                @unique(map: "uq_obat_kode") @db.VarChar(20)
+  nama_generik        String                @db.VarChar(200)
+  nama_dagang         String?               @db.VarChar(200)
+  golongan_id         Int                   @db.UnsignedTinyInt
+  satuan_id           Int                   @db.UnsignedSmallInt
+  satuan_terkecil_id  Int?                  @db.UnsignedSmallInt
+  isi_per_satuan      Int?                  @default(1) @db.UnsignedSmallInt
+  bentuk_sediaan      String?               @db.VarChar(50)
+  kekuatan            String?               @db.VarChar(50)
+  rute                String?               @db.VarChar(100)
+  kelas_terapi        String?               @db.VarChar(100)
+  formularium         far_obat_formularium  @default(RS)
+  is_generik          Boolean               @default(false)
+  is_bpjs             Boolean               @default(false)
+  is_narkotika        Boolean               @default(false)
+  is_psikotropika     Boolean               @default(false)
+  harga_beli          Decimal?              @default(0.00) @db.Decimal(15, 2)
+  harga_jual          Decimal?              @default(0.00) @db.Decimal(15, 2)
+  stok_minimal        Int                   @default(0)
+  is_active           Boolean               @default(true)
+  created_at          DateTime              @default(now()) @db.Timestamp(0)
+  far_batch           far_batch[]
+  far_mutasi_stok     far_mutasi_stok[]
+  far_golongan_obat   far_golongan_obat     @relation(fields: [golongan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_obat_golongan")
+  far_satuan          far_satuan            @relation(fields: [satuan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_obat_satuan")
+  far_resep_item      far_resep_item[]
+  far_stok            far_stok[]
+  rm_medication_order rm_medication_order[]
+
+  @@index([golongan_id], map: "fk_obat_golongan")
+  @@index([satuan_id], map: "fk_obat_satuan")
+  @@fulltext([nama_generik, nama_dagang], map: "ft_obat_nama")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model far_resep {
+  id                BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  no_resep          String           @unique(map: "uq_resep_no") @db.VarChar(30)
+  kunjungan_id      BigInt           @db.UnsignedBigInt
+  depo_id           Int              @db.UnsignedSmallInt
+  jenis             far_resep_jenis
+  status            far_resep_status @default(Draft)
+  catatan           String?          @db.Text
+  diresepkan_oleh   Int              @db.UnsignedInt
+  diresepkan_at     DateTime         @default(now()) @db.DateTime(0)
+  diverifikasi_oleh Int?             @db.UnsignedInt
+  diverifikasi_at   DateTime?        @db.DateTime(0)
+  diserahkan_oleh   Int?             @db.UnsignedInt
+  diserahkan_at     DateTime?        @db.DateTime(0)
+  far_depo          far_depo         @relation(fields: [depo_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_resep_depo")
+  reg_kunjungan     reg_kunjungan    @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_resep_kunjungan")
+  far_resep_item    far_resep_item[]
+
+  @@index([depo_id], map: "fk_resep_depo")
+  @@index([kunjungan_id], map: "idx_resep_kunjungan")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model far_resep_item {
+  id               BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  resep_id         BigInt    @db.UnsignedBigInt
+  obat_id          Int       @db.UnsignedInt
+  dosis            String    @db.VarChar(50)
+  frekuensi        String    @db.VarChar(50)
+  rute             String?   @db.VarChar(50)
+  durasi_hari      Int?      @db.UnsignedTinyInt
+  jumlah_diminta   Decimal   @db.Decimal(10, 2)
+  jumlah_diberikan Decimal?  @db.Decimal(10, 2)
+  instruksi        String?   @db.Text
+  aturan_pakai     String?   @db.VarChar(200)
+  catatan          String?   @db.Text
+  far_obat         far_obat  @relation(fields: [obat_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_resepitem_obat")
+  far_resep        far_resep @relation(fields: [resep_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_resepitem_resep")
+
+  @@index([obat_id], map: "idx_resepitem_obat")
+  @@index([resep_id], map: "idx_resepitem_resep")
+}
+
+model far_satuan {
+  id       Int        @id @default(autoincrement()) @db.UnsignedSmallInt
+  nama     String     @db.VarChar(30)
+  far_obat far_obat[]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model far_stok {
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  depo_id    Int      @db.UnsignedSmallInt
+  obat_id    Int      @db.UnsignedInt
+  jumlah     Int      @default(0)
+  updated_at DateTime @default(now()) @db.Timestamp(0)
+  far_depo   far_depo @relation(fields: [depo_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_stok_depo")
+  far_obat   far_obat @relation(fields: [obat_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_stok_obat")
+
+  @@unique([depo_id, obat_id], map: "uq_stok_depo_obat")
+  @@index([obat_id], map: "idx_stok_obat")
+}
+
+model fis_order {
+  id              BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  no_order        String           @unique(map: "uq_fisorder_no") @db.VarChar(30)
+  kunjungan_id    BigInt           @db.UnsignedBigInt
+  dpjp_id         Int              @db.UnsignedInt
+  diagnosis_fisio String?          @db.VarChar(200)
+  tujuan_terapi   String?          @db.Text
+  jumlah_sesi     Int              @default(1) @db.UnsignedTinyInt
+  status          fis_order_status @default(Order)
+  diorder_oleh    Int              @db.UnsignedInt
+  diorder_at      DateTime         @default(now()) @db.DateTime(0)
+  reg_kunjungan   reg_kunjungan    @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_fisorder_kunjungan")
+  fis_sesi        fis_sesi[]
+
+  @@index([kunjungan_id], map: "idx_fisorder_kunjungan")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model fis_sesi {
+  id             BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  order_id       BigInt    @db.UnsignedBigInt
+  sesi_ke        Int       @db.UnsignedTinyInt
+  tgl_sesi       DateTime  @db.Date
+  jam_mulai      DateTime? @db.Time(0)
+  jam_selesai    DateTime? @db.Time(0)
+  modalitas      String?   @db.VarChar(200)
+  soap_s         String?   @db.Text
+  soap_o         String?   @db.Text
+  soap_a         String?   @db.Text
+  soap_p         String?   @db.Text
+  dilakukan_oleh Int       @db.UnsignedInt
+  fis_order      fis_order @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_fissesi_order")
+
+  @@index([order_id], map: "idx_fissesi_order")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model giz_asuhan {
+  id                    BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  kunjungan_id          BigInt        @db.UnsignedBigInt
+  diet_id               Int?          @db.UnsignedSmallInt
+  kebutuhan_kalori      Decimal?      @db.Decimal(8, 2)
+  kebutuhan_protein     Decimal?      @db.Decimal(6, 2)
+  kebutuhan_lemak       Decimal?      @db.Decimal(6, 2)
+  kebutuhan_karbohidrat Decimal?      @db.Decimal(6, 2)
+  form_saji             String?       @db.VarChar(100)
+  alergi_makanan        String?       @db.Text
+  intervensi            String?       @db.Text
+  monitoring            String?       @db.Text
+  evaluasi              String?       @db.Text
+  dibuat_oleh           Int           @db.UnsignedInt
+  dibuat_at             DateTime      @default(now()) @db.DateTime(0)
+  reg_kunjungan         reg_kunjungan @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_gizasuhan_kunjungan")
+
+  @@index([kunjungan_id], map: "idx_gizasuhan_kunjungan")
+}
+
+model giz_diet_jenis {
+  id   Int    @id @default(autoincrement()) @db.UnsignedSmallInt
+  kode String @unique(map: "uq_diet_kode") @db.VarChar(10)
+  nama String @db.VarChar(100)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model giz_skrining {
+  id              BigInt                        @id @default(autoincrement()) @db.UnsignedBigInt
+  kunjungan_id    BigInt                        @db.UnsignedBigInt
+  alat_skrining   giz_skrining_alat_skrining    @default(NRS_2002)
+  skor            Int?                          @db.TinyInt
+  kategori_risiko giz_skrining_kategori_risiko?
+  berat_badan     Decimal?                      @db.Decimal(5, 1)
+  tinggi_badan    Decimal?                      @db.Decimal(5, 1)
+  lila            Decimal?                      @db.Decimal(5, 1)
+  catatan         String?                       @db.Text
+  dilakukan_oleh  Int                           @db.UnsignedInt
+  dilakukan_at    DateTime                      @default(now()) @db.DateTime(0)
+  reg_kunjungan   reg_kunjungan                 @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_gizskrining_kunjungan")
+
+  @@index([kunjungan_id], map: "idx_gizskrining_kunjungan")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model igd_asesmen {
+  id               BigInt                        @id @default(autoincrement()) @db.UnsignedBigInt
+  kunjungan_id     BigInt                        @db.UnsignedBigInt
+  triage_level     igd_asesmen_triage_level
+  keluhan_utama    String                        @db.Text
+  td_sistolik      Int?                          @db.UnsignedSmallInt
+  td_diastolik     Int?                          @db.UnsignedSmallInt
+  nadi             Int?                          @db.UnsignedSmallInt
+  respirasi        Int?                          @db.UnsignedTinyInt
+  suhu             Decimal?                      @db.Decimal(4, 1)
+  spo2             Int?                          @db.UnsignedTinyInt
+  gcs_eye          Int?                          @db.UnsignedTinyInt
+  gcs_verbal       Int?                          @db.UnsignedTinyInt
+  gcs_motor        Int?                          @db.UnsignedTinyInt
+  gcs_total        Int?                          @db.UnsignedTinyInt
+  berat_badan      Decimal?                      @db.Decimal(5, 1)
+  tinggi_badan     Decimal?                      @db.Decimal(5, 1)
+  mekanisme_cedera String?                       @db.Text
+  riwayat_alergi   String?                       @db.Text
+  obat_saat_ini    String?                       @db.Text
+  skala_nyeri      Int?                          @db.UnsignedTinyInt
+  status_kesadaran igd_asesmen_status_kesadaran?
+  disposisi        igd_asesmen_disposisi?
+  catatan          String?                       @db.Text
+  diperiksa_oleh   Int                           @db.UnsignedInt
+  waktu_asesmen    DateTime                      @default(now()) @db.DateTime(0)
+  reg_kunjungan    reg_kunjungan                 @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_igd_kunjungan")
+  usr_user         usr_user                      @relation(fields: [diperiksa_oleh], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_igd_pemeriksa")
+
+  @@index([diperiksa_oleh], map: "fk_igd_pemeriksa")
+  @@index([kunjungan_id], map: "idx_igd_kunjungan")
+}
+
+model igd_tindakan {
+  id             BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  kunjungan_id   BigInt        @db.UnsignedBigInt
+  tarif_id       Int           @db.UnsignedInt
+  jumlah         Int           @default(1) @db.UnsignedSmallInt
+  waktu          DateTime      @default(now()) @db.DateTime(0)
+  dilakukan_oleh Int           @db.UnsignedInt
+  catatan        String?       @db.Text
+  reg_kunjungan  reg_kunjungan @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_igdtindakan_kunjungan")
+  mst_tarif      mst_tarif     @relation(fields: [tarif_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_igdtindakan_tarif")
+  usr_user       usr_user      @relation(fields: [dilakukan_oleh], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_igdtindakan_user")
+
+  @@index([tarif_id], map: "fk_igdtindakan_tarif")
+  @@index([dilakukan_oleh], map: "fk_igdtindakan_user")
+  @@index([kunjungan_id], map: "idx_igdtindakan_kunjungan")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model lab_hasil {
+  id              BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  order_id        BigInt          @db.UnsignedBigInt
+  parameter_id    Int             @db.UnsignedInt
+  nilai           String?         @db.VarChar(200)
+  nilai_numerik   Decimal?        @db.Decimal(12, 4)
+  flag            lab_hasil_flag?
+  catatan         String?         @db.Text
+  diperiksa_oleh  Int?            @db.UnsignedInt
+  diperiksa_at    DateTime?       @db.DateTime(0)
+  divalidasi_oleh Int?            @db.UnsignedInt
+  divalidasi_at   DateTime?       @db.DateTime(0)
+  lab_order       lab_order       @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_labhasil_order")
+  lab_parameter   lab_parameter   @relation(fields: [parameter_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_labhasil_param")
+
+  @@index([flag], map: "idx_lab_hasil_flag")
+  @@index([order_id], map: "idx_labhasil_order")
+  @@index([parameter_id], map: "idx_labhasil_param")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model lab_order {
+  id             BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  no_order       String           @unique(map: "uq_laborder_no") @db.VarChar(30)
+  kunjungan_id   BigInt           @db.UnsignedBigInt
+  panel_id       Int              @db.UnsignedInt
+  status         lab_order_status @default(Order)
+  cito           Boolean          @default(false)
+  catatan_klinis String?          @db.Text
+  jenis_sampel   String?          @db.VarChar(50)
+  volume_sampel  String?          @db.VarChar(30)
+  diorder_oleh   Int              @db.UnsignedInt
+  diorder_at     DateTime         @default(now()) @db.DateTime(0)
+  sampling_oleh  Int?             @db.UnsignedInt
+  sampling_at    DateTime?        @db.DateTime(0)
+  diterima_oleh  Int?             @db.UnsignedInt
+  diterima_at    DateTime?        @db.DateTime(0)
+  lab_hasil      lab_hasil[]
+  reg_kunjungan  reg_kunjungan    @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_laborder_kunjungan")
+  lab_panel      lab_panel        @relation(fields: [panel_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_laborder_panel")
+
+  @@index([kunjungan_id], map: "idx_laborder_kunjungan")
+  @@index([panel_id], map: "idx_laborder_panel")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model lab_panel {
+  id            Int             @id @default(autoincrement()) @db.UnsignedInt
+  kode          String          @unique(map: "uq_labpanel_kode") @db.VarChar(20)
+  nama          String          @db.VarChar(150)
+  kategori      String?         @db.VarChar(50)
+  tarif_id      Int?            @db.UnsignedInt
+  is_active     Boolean         @default(true)
+  lab_order     lab_order[]
+  mst_tarif     mst_tarif?      @relation(fields: [tarif_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_labpanel_tarif")
+  lab_parameter lab_parameter[]
+
+  @@index([tarif_id], map: "fk_labpanel_tarif")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model lab_parameter {
+  id               Int         @id @default(autoincrement()) @db.UnsignedInt
+  panel_id         Int         @db.UnsignedInt
+  kode_loinc       String?     @db.VarChar(20)
+  nama             String      @db.VarChar(150)
+  satuan           String?     @db.VarChar(30)
+  nilai_normal_min Decimal?    @db.Decimal(12, 4)
+  nilai_normal_max Decimal?    @db.Decimal(12, 4)
+  nilai_kritis_min Decimal?    @db.Decimal(12, 4)
+  nilai_kritis_max Decimal?    @db.Decimal(12, 4)
+  nilai_normal_ket String?     @db.Text
+  urutan           Int?        @default(1) @db.UnsignedTinyInt
+  lab_hasil        lab_hasil[]
+  lab_panel        lab_panel   @relation(fields: [panel_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_labparam_panel")
+
+  @@index([panel_id], map: "idx_labparam_panel")
+}
+
+model log_gudang {
+  id             Int              @id @default(autoincrement()) @db.UnsignedSmallInt
+  kode           String           @db.VarChar(10)
+  nama           String           @db.VarChar(100)
+  jenis          log_gudang_jenis
+  is_active      Boolean          @default(true)
+  log_permintaan log_permintaan[]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model log_penerimaan {
+  id                BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  no_penerimaan     String    @unique(map: "uq_penerimaan_no") @db.VarChar(30)
+  gudang_id         Int       @db.UnsignedSmallInt
+  no_faktur         String?   @db.VarChar(50)
+  nama_supplier     String?   @db.VarChar(200)
+  tgl_penerimaan    DateTime  @db.Date
+  tgl_faktur        DateTime? @db.Date
+  nilai_total       Decimal?  @db.Decimal(18, 2)
+  catatan           String?   @db.Text
+  diterima_oleh     Int       @db.UnsignedInt
+  diverifikasi_oleh Int?      @db.UnsignedInt
+}
+
+model log_permintaan {
+  id                  BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
+  no_permintaan       String                @unique(map: "uq_permintaan_no") @db.VarChar(30)
+  ruangan_id          Int                   @db.UnsignedInt
+  gudang_id           Int                   @db.UnsignedSmallInt
+  tgl_permintaan      DateTime              @db.Date
+  tgl_butuh           DateTime?             @db.Date
+  status              log_permintaan_status @default(Draft)
+  catatan             String?               @db.Text
+  dibuat_oleh         Int                   @db.UnsignedInt
+  disetujui_oleh      Int?                  @db.UnsignedInt
+  disetujui_at        DateTime?             @db.DateTime(0)
+  log_gudang          log_gudang            @relation(fields: [gudang_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_permintaan_gudang")
+  mst_ruangan         mst_ruangan           @relation(fields: [ruangan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_permintaan_ruangan")
+  log_permintaan_item log_permintaan_item[]
+
+  @@index([gudang_id], map: "fk_permintaan_gudang")
+  @@index([ruangan_id], map: "idx_permintaan_ruangan")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model log_permintaan_item {
+  id             BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  permintaan_id  BigInt         @db.UnsignedBigInt
+  obat_id        Int?           @db.UnsignedInt
+  nama_item      String         @db.VarChar(200)
+  satuan         String?        @db.VarChar(30)
+  jumlah_diminta Decimal        @db.Decimal(10, 2)
+  jumlah_dikirim Decimal?       @db.Decimal(10, 2)
+  log_permintaan log_permintaan @relation(fields: [permintaan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_permintaanitem_permintaan")
+
+  @@index([permintaan_id], map: "idx_permintaan_item")
+}
+
+model mst_agama {
+  id         Int          @id @default(autoincrement()) @db.UnsignedTinyInt
+  nama       String       @db.VarChar(30)
+  pas_pasien pas_pasien[]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model mst_dpjp {
+  id                Int                 @id @default(autoincrement()) @db.UnsignedInt
+  kode_dokter       String              @unique(map: "uq_dpjp_kode") @db.VarChar(20)
+  nama              String              @db.VarChar(150)
+  str_nomor         String?             @db.VarChar(50)
+  sip_nomor         String?             @db.VarChar(50)
+  spesialisasi      String?             @db.VarChar(100)
+  sub_spesialisasi  String?             @db.VarChar(100)
+  is_active         Boolean             @default(true)
+  bil_jasa_medis    bil_jasa_medis[]
+  ok_jadwal_operasi ok_jadwal_operasi[]
+  reg_jadwal_dokter reg_jadwal_dokter[]
+  reg_kunjungan     reg_kunjungan[]
+  usr_user          usr_user[]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model mst_icd10 {
+  id                   Int                    @id @default(autoincrement()) @db.UnsignedInt
+  kode                 String                 @unique(map: "uq_icd10_kode") @db.VarChar(10)
+  nama_id              String                 @db.Text
+  nama_en              String                 @db.Text
+  kategori             String?                @db.VarChar(10)
+  is_active            Boolean                @default(true)
+  pas_riwayat_penyakit pas_riwayat_penyakit[]
+  rj_diagnosis         rj_diagnosis[]
+  rm_diagnosis         rm_diagnosis[]
+
+  @@fulltext([nama_id, nama_en], map: "ft_icd10_nama")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model mst_icd9cm {
+  id        Int     @id @default(autoincrement()) @db.UnsignedInt
+  kode      String  @unique(map: "uq_icd9cm_kode") @db.VarChar(10)
+  nama_id   String  @db.Text
+  nama_en   String  @db.Text
+  is_active Boolean @default(true)
+
+  @@fulltext([nama_id, nama_en], map: "ft_icd9cm_nama")
+}
+
+model mst_jenis_penjamin {
+  id            Int             @id @default(autoincrement()) @db.UnsignedTinyInt
+  kode          String          @unique(map: "uq_penjamin_kode") @db.VarChar(50)
+  nama          String          @db.VarChar(50)
+  reg_kunjungan reg_kunjungan[]
+}
+
+model mst_pekerjaan {
+  id   Int    @id @default(autoincrement()) @db.UnsignedSmallInt
+  kode String @unique(map: "uq_pekerjaan_kode") @db.VarChar(10)
+  nama String @db.VarChar(100)
+}
+
+model mst_pendidikan {
+  id         Int          @id @default(autoincrement()) @db.UnsignedTinyInt
+  nama       String       @db.VarChar(30)
+  pas_pasien pas_pasien[]
+}
+
+model mst_ruangan {
+  id                      Int                       @id @default(autoincrement()) @db.UnsignedInt
+  kode                    String                    @unique(map: "uq_ruangan_kode") @db.VarChar(20)
+  nama                    String                    @db.VarChar(100)
+  jenis                   mst_ruangan_jenis
+  lantai                  Int?                      @db.TinyInt
+  gedung                  String?                   @db.VarChar(50)
+  kapasitas_bed           Int?                      @default(0) @db.UnsignedSmallInt
+  is_active               Boolean                   @default(true)
+  ast_aset                ast_aset[]
+  far_depo                far_depo[]
+  log_permintaan          log_permintaan[]
+  reg_antrian             reg_antrian[]
+  reg_jadwal_dokter       reg_jadwal_dokter[]
+  reg_kunjungan           reg_kunjungan[]
+  ri_kamar                ri_kamar[]
+  rpt_insiden_keselamatan rpt_insiden_keselamatan[]
+  usr_user                usr_user[]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model mst_tarif {
+  id                 Int                @id @default(autoincrement()) @db.UnsignedInt
+  kode               String             @unique(map: "uq_tarif_kode") @db.VarChar(20)
+  nama               String             @db.VarChar(200)
+  kategori_id        Int                @db.UnsignedSmallInt
+  harga_umum         Decimal            @default(0.00) @db.Decimal(15, 2)
+  harga_bpjs         Decimal            @default(0.00) @db.Decimal(15, 2)
+  satuan             String             @default("kali") @db.VarChar(30)
+  is_active          Boolean            @default(true)
+  berlaku_mulai      DateTime?          @db.Date
+  berlaku_sampai     DateTime?          @db.Date
+  created_at         DateTime           @default(now()) @db.Timestamp(0)
+  updated_at         DateTime           @default(now()) @db.Timestamp(0)
+  bil_item_tagihan   bil_item_tagihan[]
+  igd_tindakan       igd_tindakan[]
+  lab_panel          lab_panel[]
+  mst_tarif_kategori mst_tarif_kategori @relation(fields: [kategori_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_tarif_kategori")
+  rad_order          rad_order[]
+  rj_tindakan        rj_tindakan[]
+
+  @@index([kategori_id], map: "idx_tarif_kategori")
+}
+
+model mst_tarif_kategori {
+  id        Int         @id @default(autoincrement()) @db.UnsignedSmallInt
+  nama      String      @db.VarChar(50)
+  mst_tarif mst_tarif[]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model mst_wilayah {
+  id                BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  kode              String              @unique(map: "uq_wilayah_kode") @db.VarChar(10)
+  nama              String              @db.VarChar(100)
+  tingkat           mst_wilayah_tingkat
+  parent_id         BigInt?             @db.UnsignedBigInt
+  is_active         Boolean             @default(true)
+  mst_wilayah       mst_wilayah?        @relation("mst_wilayahTomst_wilayah", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_wilayah_parent")
+  other_mst_wilayah mst_wilayah[]       @relation("mst_wilayahTomst_wilayah")
+  pas_pasien        pas_pasien[]
+
+  @@index([parent_id], map: "idx_wilayah_parent")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ok_jadwal_operasi {
+  id                  BigInt                            @id @default(autoincrement()) @db.UnsignedBigInt
+  no_jadwal           String                            @unique(map: "uq_okjadwal_no") @db.VarChar(30)
+  kunjungan_id        BigInt                            @db.UnsignedBigInt
+  kamar_id            Int                               @db.UnsignedSmallInt
+  dpjp_id             Int                               @db.UnsignedInt
+  operator_id         Int?                              @db.UnsignedInt
+  anestesi_id         Int?                              @db.UnsignedInt
+  jenis_operasi       String                            @db.VarChar(200)
+  kode_icd9cm         Int?                              @db.UnsignedInt
+  kelas_operasi       ok_jadwal_operasi_kelas_operasi
+  jenis_anestesi      ok_jadwal_operasi_jenis_anestesi?
+  tgl_rencana         DateTime                          @db.Date
+  jam_mulai           DateTime?                         @db.Time(0)
+  jam_selesai         DateTime?                         @db.Time(0)
+  durasi_menit        Int?                              @db.UnsignedSmallInt
+  status              ok_jadwal_operasi_status          @default(Terjadwal)
+  catatan             String?                           @db.Text
+  dibuat_oleh         Int                               @db.UnsignedInt
+  dibuat_at           DateTime                          @default(now()) @db.DateTime(0)
+  mst_dpjp            mst_dpjp                          @relation(fields: [dpjp_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_okjadwal_dpjp")
+  reg_kunjungan       reg_kunjungan                     @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_okjadwal_kunjungan")
+  ok_laporan_anestesi ok_laporan_anestesi?
+  ok_laporan_operasi  ok_laporan_operasi?
+
+  @@index([dpjp_id], map: "fk_okjadwal_dpjp")
+  @@index([kunjungan_id], map: "idx_okjadwal_kunjungan")
+  @@index([tgl_rencana], map: "idx_okjadwal_tgl")
+}
+
+model ok_kamar_operasi {
+  id        Int                     @id @default(autoincrement()) @db.UnsignedSmallInt
+  kode      String                  @db.VarChar(10)
+  nama      String                  @db.VarChar(50)
+  jenis     ok_kamar_operasi_jenis?
+  status    ok_kamar_operasi_status @default(Kosong)
+  is_active Boolean                 @default(true)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ok_laporan_anestesi {
+  id                BigInt                             @id @default(autoincrement()) @db.UnsignedBigInt
+  jadwal_id         BigInt                             @unique(map: "uq_okanestesi_jadwal") @db.UnsignedBigInt
+  jenis_anestesi    ok_laporan_anestesi_jenis_anestesi
+  obat_anestesi     String?                            @db.Text
+  monitoring        String?                            @db.Text
+  komplikasi        String?                            @db.Text
+  skor_apgar_1      Int?                               @db.UnsignedTinyInt
+  skor_apgar_5      Int?                               @db.UnsignedTinyInt
+  dibuat_oleh       Int                                @db.UnsignedInt
+  dibuat_at         DateTime                           @default(now()) @db.DateTime(0)
+  ok_jadwal_operasi ok_jadwal_operasi                  @relation(fields: [jadwal_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_okanestesi_jadwal")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ok_laporan_operasi {
+  id                BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  jadwal_id         BigInt            @unique(map: "uq_oklaporan_jadwal") @db.UnsignedBigInt
+  jam_mulai         DateTime?         @db.DateTime(0)
+  jam_selesai       DateTime?         @db.DateTime(0)
+  temuan            String?           @db.Text
+  prosedur          String            @db.Text
+  komplikasi        String?           @db.Text
+  instruksi_post    String?           @db.Text
+  perdarahan_ml     Int?              @db.UnsignedInt
+  urin_ml           Int?              @db.UnsignedInt
+  cairan_masuk_ml   Int?              @db.UnsignedInt
+  dibuat_oleh       Int               @db.UnsignedInt
+  dibuat_at         DateTime          @default(now()) @db.DateTime(0)
+  ok_jadwal_operasi ok_jadwal_operasi @relation(fields: [jadwal_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_oklaporan_jadwal")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model pas_alergi {
+  id           BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  pasien_id    BigInt              @db.UnsignedBigInt
+  jenis        pas_alergi_jenis
+  nama         String              @db.VarChar(200)
+  reaksi       String?             @db.VarChar(200)
+  tingkat      pas_alergi_tingkat? @default(Ringan)
+  catatan      String?             @db.Text
+  dicatat_oleh Int?                @db.UnsignedInt
+  dicatat_at   DateTime            @default(now()) @db.Timestamp(0)
+  pas_pasien   pas_pasien          @relation(fields: [pasien_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_alergi_pasien")
+
+  @@index([pasien_id], map: "idx_alergi_pasien")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model pas_dokumen_identitas {
+  id          BigInt                      @id @default(autoincrement()) @db.UnsignedBigInt
+  pasien_id   BigInt                      @db.UnsignedBigInt
+  jenis       pas_dokumen_identitas_jenis
+  nomor       String                      @db.VarChar(50)
+  file_path   String?                     @db.VarChar(255)
+  uploaded_at DateTime                    @default(now()) @db.Timestamp(0)
+  uploaded_by Int?                        @db.UnsignedInt
+  pas_pasien  pas_pasien                  @relation(fields: [pasien_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_dokid_pasien")
+
+  @@index([pasien_id], map: "idx_dokid_pasien")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model pas_pasien {
+  id                    BigInt                        @id @default(autoincrement()) @db.UnsignedBigInt
+  no_rm                 String                        @unique(map: "uq_pasien_no_rm") @db.VarChar(20)
+  nik                   String?                       @unique(map: "nik") @db.VarChar(16)
+  no_bpjs               String?                       @unique(map: "no_bpjs") @db.VarChar(20)
+  nama_lengkap          String                        @db.VarChar(150)
+  nama_panggilan        String?                       @db.VarChar(50)
+  tempat_lahir          String?                       @db.VarChar(100)
+  tanggal_lahir         DateTime?                     @db.Date
+  jenis_kelamin         pas_pasien_jenis_kelamin
+  golongan_darah        pas_pasien_golongan_darah?
+  rhesus                pas_pasien_rhesus?
+  agama_id              Int?                          @db.UnsignedTinyInt
+  pendidikan_id         Int?                          @db.UnsignedTinyInt
+  pekerjaan_id          Int?                          @db.UnsignedSmallInt
+  status_perkawinan     pas_pasien_status_perkawinan?
+  alamat                String?                       @db.Text
+  rt                    String?                       @db.VarChar(5)
+  rw                    String?                       @db.VarChar(5)
+  desa_id               BigInt?                       @db.UnsignedBigInt
+  kodepos               String?                       @db.VarChar(10)
+  no_telp               String?                       @db.VarChar(20)
+  no_hp                 String?                       @db.VarChar(20)
+  email                 String?                       @db.VarChar(150)
+  nama_keluarga         String?                       @db.VarChar(150)
+  hubungan_keluarga     String?                       @db.VarChar(50)
+  telp_keluarga         String?                       @db.VarChar(20)
+  bahasa                String?                       @default("Indonesia") @db.VarChar(50)
+  suku                  String?                       @db.VarChar(50)
+  kewarganegaraan       String?                       @default("WNI") @db.VarChar(50)
+  is_active             Boolean                       @default(true)
+  catatan               String?                       @db.Text
+  created_at            DateTime                      @default(now()) @db.Timestamp(0)
+  updated_at            DateTime                      @default(now()) @db.Timestamp(0)
+  created_by            Int?                          @db.UnsignedInt
+  aud_consent_pasien    aud_consent_pasien[]
+  pas_alergi            pas_alergi[]
+  pas_dokumen_identitas pas_dokumen_identitas[]
+  mst_agama             mst_agama?                    @relation(fields: [agama_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pasien_agama")
+  mst_wilayah           mst_wilayah?                  @relation(fields: [desa_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pasien_desa")
+  mst_pendidikan        mst_pendidikan?               @relation(fields: [pendidikan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pasien_pendidikan")
+  pas_riwayat_penyakit  pas_riwayat_penyakit[]
+  reg_kunjungan         reg_kunjungan[]
+  rm_folder             rm_folder?
+  ss_patient            ss_patient?
+
+  @@index([agama_id], map: "fk_pasien_agama")
+  @@index([desa_id], map: "fk_pasien_desa")
+  @@index([pendidikan_id], map: "fk_pasien_pendidikan")
+  @@index([no_bpjs], map: "idx_pasien_bpjs")
+  @@index([nama_lengkap], map: "idx_pasien_nama")
+  @@index([nik], map: "idx_pasien_nik")
+  @@index([no_rm, nama_lengkap], map: "idx_pasien_no_rm_nama")
+  @@index([tanggal_lahir], map: "idx_pasien_tgl_lahir")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model pas_riwayat_penyakit {
+  id            BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  pasien_id     BigInt     @db.UnsignedBigInt
+  icd10_id      Int?       @db.UnsignedInt
+  nama_penyakit String?    @db.VarChar(200)
+  tahun         Int?       @db.UnsignedSmallInt
+  keterangan    String?    @db.Text
+  dicatat_oleh  Int?       @db.UnsignedInt
+  dicatat_at    DateTime   @default(now()) @db.Timestamp(0)
+  mst_icd10     mst_icd10? @relation(fields: [icd10_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rwpenyakit_icd10")
+  pas_pasien    pas_pasien @relation(fields: [pasien_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rwpenyakit_pasien")
+
+  @@index([icd10_id], map: "fk_rwpenyakit_icd10")
+  @@index([pasien_id], map: "idx_rwpenyakit_pasien")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rad_laporan {
+  id                BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  order_id          BigInt    @unique(map: "uq_radlaporan_order") @db.UnsignedBigInt
+  temuan            String    @db.Text
+  kesan             String    @db.Text
+  rekomendasi       String?   @db.Text
+  file_dicom        String?   @db.VarChar(500)
+  file_laporan      String?   @db.VarChar(255)
+  dibaca_oleh       Int       @db.UnsignedInt
+  dibaca_at         DateTime  @default(now()) @db.DateTime(0)
+  diverifikasi_oleh Int?      @db.UnsignedInt
+  diverifikasi_at   DateTime? @db.DateTime(0)
+  rad_order         rad_order @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_radlaporan_order")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rad_modalitas {
+  id        Int         @id @default(autoincrement()) @db.UnsignedSmallInt
+  kode      String      @unique(map: "uq_modalitas_kode") @db.VarChar(10)
+  nama      String      @db.VarChar(100)
+  rad_order rad_order[]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rad_order {
+  id            BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  no_order      String           @unique(map: "uq_radorder_no") @db.VarChar(30)
+  kunjungan_id  BigInt           @db.UnsignedBigInt
+  modalitas_id  Int              @db.UnsignedSmallInt
+  tarif_id      Int              @db.UnsignedInt
+  region        String           @db.VarChar(100)
+  klinis        String?          @db.Text
+  cito          Boolean          @default(false)
+  status        rad_order_status @default(Order)
+  diorder_oleh  Int              @db.UnsignedInt
+  diorder_at    DateTime         @default(now()) @db.DateTime(0)
+  jadwal_at     DateTime?        @db.DateTime(0)
+  dilakukan_at  DateTime?        @db.DateTime(0)
+  rad_laporan   rad_laporan?
+  reg_kunjungan reg_kunjungan    @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_radorder_kunjungan")
+  rad_modalitas rad_modalitas    @relation(fields: [modalitas_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_radorder_modalitas")
+  mst_tarif     mst_tarif        @relation(fields: [tarif_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_radorder_tarif")
+
+  @@index([modalitas_id], map: "fk_radorder_modalitas")
+  @@index([tarif_id], map: "fk_radorder_tarif")
+  @@index([kunjungan_id], map: "idx_radorder_kunjungan")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model reg_antrian {
+  id             BigInt                    @id @default(autoincrement()) @db.UnsignedBigInt
+  kunjungan_id   BigInt                    @db.UnsignedBigInt
+  ruangan_id     Int                       @db.UnsignedInt
+  nomor_antrian  String                    @db.VarChar(10)
+  jenis_antrian  reg_antrian_jenis_antrian @default(Offline)
+  status         reg_antrian_status        @default(Menunggu)
+  estimasi_waktu DateTime?                 @db.DateTime(0)
+  dipanggil_at   DateTime?                 @db.DateTime(0)
+  dilayani_at    DateTime?                 @db.DateTime(0)
+  selesai_at     DateTime?                 @db.DateTime(0)
+  created_at     DateTime                  @default(now()) @db.Timestamp(0)
+  reg_kunjungan  reg_kunjungan             @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_antrian_kunjungan")
+  mst_ruangan    mst_ruangan               @relation(fields: [ruangan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_antrian_ruangan")
+
+  @@index([kunjungan_id], map: "idx_antrian_kunjungan")
+  @@index([ruangan_id], map: "idx_antrian_ruangan")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model reg_jadwal_dokter {
+  id             Int         @id @default(autoincrement()) @db.UnsignedInt
+  dpjp_id        Int         @db.UnsignedInt
+  ruangan_id     Int         @db.UnsignedInt
+  hari           Int         @db.UnsignedTinyInt
+  jam_mulai      DateTime    @db.Time(0)
+  jam_selesai    DateTime    @db.Time(0)
+  kuota          Int         @default(20) @db.UnsignedSmallInt
+  is_active      Boolean     @default(true)
+  berlaku_mulai  DateTime?   @db.Date
+  berlaku_sampai DateTime?   @db.Date
+  mst_dpjp       mst_dpjp    @relation(fields: [dpjp_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_jadwal_dpjp")
+  mst_ruangan    mst_ruangan @relation(fields: [ruangan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_jadwal_ruangan")
+
+  @@index([dpjp_id], map: "idx_jadwal_dpjp")
+  @@index([ruangan_id], map: "idx_jadwal_ruangan")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model reg_kunjungan {
+  id                  BigInt                        @id @default(autoincrement()) @db.UnsignedBigInt
+  no_kunjungan        String                        @unique(map: "uq_kunjungan_no") @db.VarChar(30)
+  pasien_id           BigInt                        @db.UnsignedBigInt
+  tgl_kunjungan       DateTime                      @db.Date
+  jam_datang          DateTime?                     @db.Time(0)
+  jenis_kunjungan     reg_kunjungan_jenis_kunjungan
+  ruangan_id          Int                           @db.UnsignedInt
+  dpjp_id             Int?                          @db.UnsignedInt
+  jenis_penjamin_id   Int                           @db.UnsignedTinyInt
+  no_sep              String?                       @db.VarChar(30)
+  no_surat_rujukan    String?                       @db.VarChar(50)
+  asal_rujukan        String?                       @db.VarChar(100)
+  cara_masuk          reg_kunjungan_cara_masuk?     @default(Datang_Sendiri)
+  status              reg_kunjungan_status          @default(Menunggu)
+  catatan_admisi      String?                       @db.Text
+  created_by          Int?                          @db.UnsignedInt
+  created_at          DateTime                      @default(now()) @db.Timestamp(0)
+  updated_at          DateTime                      @default(now()) @db.Timestamp(0)
+  bil_tagihan         bil_tagihan[]
+  bpjs_sep            bpjs_sep?
+  far_resep           far_resep[]
+  fis_order           fis_order[]
+  giz_asuhan          giz_asuhan[]
+  giz_skrining        giz_skrining[]
+  igd_asesmen         igd_asesmen[]
+  igd_tindakan        igd_tindakan[]
+  lab_order           lab_order[]
+  ok_jadwal_operasi   ok_jadwal_operasi[]
+  rad_order           rad_order[]
+  reg_antrian         reg_antrian[]
+  mst_dpjp            mst_dpjp?                     @relation(fields: [dpjp_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_kunjungan_dpjp")
+  pas_pasien          pas_pasien                    @relation(fields: [pasien_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_kunjungan_pasien")
+  mst_jenis_penjamin  mst_jenis_penjamin            @relation(fields: [jenis_penjamin_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_kunjungan_penjamin")
+  mst_ruangan         mst_ruangan                   @relation(fields: [ruangan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_kunjungan_ruangan")
+  ri_admisi           ri_admisi?
+  ri_cppt             ri_cppt[]
+  ri_monitoring_vital ri_monitoring_vital[]
+  ri_resume_medis     ri_resume_medis?
+  rj_diagnosis        rj_diagnosis[]
+  rj_rujukan          rj_rujukan[]
+  rj_soap             rj_soap[]
+  rj_tindakan         rj_tindakan[]
+  rm_episode          rm_episode?
+
+  @@index([jenis_penjamin_id], map: "fk_kunjungan_penjamin")
+  @@index([dpjp_id], map: "idx_kunjungan_dpjp")
+  @@index([pasien_id], map: "idx_kunjungan_pasien")
+  @@index([ruangan_id], map: "idx_kunjungan_ruangan")
+  @@index([status], map: "idx_kunjungan_status")
+  @@index([tgl_kunjungan], map: "idx_kunjungan_tgl")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ri_admisi {
+  id             BigInt                    @id @default(autoincrement()) @db.UnsignedBigInt
+  kunjungan_id   BigInt                    @unique(map: "uq_admisi_kunjungan") @db.UnsignedBigInt
+  bed_id         Int                       @db.UnsignedInt
+  tgl_masuk      DateTime                  @db.DateTime(0)
+  tgl_keluar     DateTime?                 @db.DateTime(0)
+  alasan_masuk   String                    @db.Text
+  kondisi_masuk  ri_admisi_kondisi_masuk
+  kondisi_keluar ri_admisi_kondisi_keluar?
+  lama_rawat     Int?                      @db.UnsignedSmallInt
+  catatan_admisi String?                   @db.Text
+  catatan_keluar String?                   @db.Text
+  admisi_oleh    Int                       @db.UnsignedInt
+  ri_bed         ri_bed                    @relation(fields: [bed_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_admisi_bed")
+  reg_kunjungan  reg_kunjungan             @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_admisi_kunjungan")
+  usr_user       usr_user                  @relation(fields: [admisi_oleh], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_admisi_user")
+
+  @@index([admisi_oleh], map: "fk_admisi_user")
+  @@index([bed_id], map: "idx_admisi_bed")
+  @@index([tgl_masuk], map: "idx_admisi_tgl_masuk")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ri_bed {
+  id        Int           @id @default(autoincrement()) @db.UnsignedInt
+  kamar_id  Int           @db.UnsignedInt
+  kode_bed  String        @unique(map: "uq_bed_kode") @db.VarChar(20)
+  status    ri_bed_status @default(Kosong)
+  is_active Boolean       @default(true)
+  ri_admisi ri_admisi[]
+  ri_kamar  ri_kamar      @relation(fields: [kamar_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_bed_kamar")
+
+  @@index([kamar_id], map: "idx_bed_kamar")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ri_cppt {
+  id                BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  kunjungan_id      BigInt          @db.UnsignedBigInt
+  waktu             DateTime        @default(now()) @db.DateTime(0)
+  profesi           ri_cppt_profesi
+  soap_s            String?         @db.Text
+  soap_o            String?         @db.Text
+  soap_a            String?         @db.Text
+  soap_p            String?         @db.Text
+  instruksi         String?         @db.Text
+  dibuat_oleh       Int             @db.UnsignedInt
+  diverifikasi_oleh Int?            @db.UnsignedInt
+  diverifikasi_at   DateTime?       @db.DateTime(0)
+  reg_kunjungan     reg_kunjungan   @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cppt_kunjungan")
+  usr_user          usr_user        @relation(fields: [dibuat_oleh], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cppt_pembuat")
+
+  @@index([dibuat_oleh], map: "fk_cppt_pembuat")
+  @@index([kunjungan_id], map: "idx_cppt_kunjungan")
+  @@index([waktu], map: "idx_cppt_waktu")
+}
+
+model ri_kamar {
+  id             Int            @id @default(autoincrement()) @db.UnsignedInt
+  ruangan_id     Int            @db.UnsignedInt
+  kelas_id       Int            @db.UnsignedTinyInt
+  kode_kamar     String         @unique(map: "uq_kamar_kode") @db.VarChar(20)
+  nama_kamar     String?        @db.VarChar(50)
+  is_active      Boolean        @default(true)
+  ri_bed         ri_bed[]
+  ri_kelas_kamar ri_kelas_kamar @relation(fields: [kelas_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_kamar_kelas")
+  mst_ruangan    mst_ruangan    @relation(fields: [ruangan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_kamar_ruangan")
+
+  @@index([kelas_id], map: "fk_kamar_kelas")
+  @@index([ruangan_id], map: "idx_kamar_ruangan")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ri_kelas_kamar {
+  id       Int        @id @default(autoincrement()) @db.UnsignedTinyInt
+  nama     String     @db.VarChar(30)
+  ri_kamar ri_kamar[]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ri_monitoring_vital {
+  id            BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  kunjungan_id  BigInt        @db.UnsignedBigInt
+  waktu         DateTime      @default(now()) @db.DateTime(0)
+  td_sistolik   Int?          @db.UnsignedSmallInt
+  td_diastolik  Int?          @db.UnsignedSmallInt
+  nadi          Int?          @db.UnsignedSmallInt
+  respirasi     Int?          @db.UnsignedTinyInt
+  suhu          Decimal?      @db.Decimal(4, 1)
+  spo2          Int?          @db.UnsignedTinyInt
+  gcs           Int?          @db.UnsignedTinyInt
+  urine_output  Int?          @db.UnsignedInt
+  catatan       String?       @db.Text
+  dicatat_oleh  Int           @db.UnsignedInt
+  reg_kunjungan reg_kunjungan @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_mvital_kunjungan")
+
+  @@index([kunjungan_id], map: "idx_mvital_kunjungan")
+  @@index([waktu], map: "idx_mvital_waktu")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ri_resume_medis {
+  id                 BigInt                          @id @default(autoincrement()) @db.UnsignedBigInt
+  kunjungan_id       BigInt                          @unique(map: "uq_resume_kunjungan") @db.UnsignedBigInt
+  diagnosis_masuk    String?                         @db.Text
+  diagnosis_keluar   String?                         @db.Text
+  tindakan_operasi   String?                         @db.Text
+  kondisi_keluar     ri_resume_medis_kondisi_keluar?
+  instruksi_pulang   String?                         @db.Text
+  obat_pulang        String?                         @db.Text
+  kontrol_berikutnya DateTime?                       @db.Date
+  prognosis          ri_resume_medis_prognosis?
+  dibuat_oleh        Int                             @db.UnsignedInt
+  dibuat_at          DateTime                        @default(now()) @db.DateTime(0)
+  reg_kunjungan      reg_kunjungan                   @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_resume_kunjungan")
+}
+
+model rj_diagnosis {
+  id            BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  kunjungan_id  BigInt            @db.UnsignedBigInt
+  icd10_id      Int               @db.UnsignedInt
+  tipe          rj_diagnosis_tipe @default(Utama)
+  urutan        Int               @default(1) @db.UnsignedTinyInt
+  mst_icd10     mst_icd10         @relation(fields: [icd10_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rjdiag_icd10")
+  reg_kunjungan reg_kunjungan     @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rjdiag_kunjungan")
+
+  @@index([icd10_id], map: "idx_rj_diagnosis_icd10")
+  @@index([kunjungan_id], map: "idx_rjdiag_kunjungan")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rj_rujukan {
+  id            BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  kunjungan_id  BigInt           @db.UnsignedBigInt
+  jenis         rj_rujukan_jenis
+  tujuan        String           @db.VarChar(200)
+  dpjp_tujuan   String?          @db.VarChar(150)
+  alasan        String           @db.Text
+  catatan       String?          @db.Text
+  dibuat_oleh   Int              @db.UnsignedInt
+  dibuat_at     DateTime         @default(now()) @db.DateTime(0)
+  reg_kunjungan reg_kunjungan    @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rujukan_kunjungan")
+
+  @@index([kunjungan_id], map: "idx_rujukan_kunjungan")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rj_soap {
+  id             BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  kunjungan_id   BigInt        @db.UnsignedBigInt
+  subjektif      String        @db.Text
+  objektif       String?       @db.Text
+  asesmen        String?       @db.Text
+  planning       String?       @db.Text
+  td_sistolik    Int?          @db.UnsignedSmallInt
+  td_diastolik   Int?          @db.UnsignedSmallInt
+  nadi           Int?          @db.UnsignedSmallInt
+  respirasi      Int?          @db.UnsignedTinyInt
+  suhu           Decimal?      @db.Decimal(4, 1)
+  spo2           Int?          @db.UnsignedTinyInt
+  berat_badan    Decimal?      @db.Decimal(5, 1)
+  tinggi_badan   Decimal?      @db.Decimal(5, 1)
+  bmi            Decimal?      @db.Decimal(5, 2)
+  skala_nyeri    Int?          @db.UnsignedTinyInt
+  dibuat_oleh    Int           @db.UnsignedInt
+  dibuat_at      DateTime      @default(now()) @db.DateTime(0)
+  disetujui_oleh Int?          @db.UnsignedInt
+  disetujui_at   DateTime?     @db.DateTime(0)
+  reg_kunjungan  reg_kunjungan @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_soap_kunjungan")
+  usr_user       usr_user      @relation(fields: [dibuat_oleh], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_soap_pembuat")
+
+  @@index([dibuat_oleh], map: "fk_soap_pembuat")
+  @@index([kunjungan_id], map: "idx_soap_kunjungan")
+}
+
+model rj_tindakan {
+  id             BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  kunjungan_id   BigInt        @db.UnsignedBigInt
+  icd9cm_id      Int?          @db.UnsignedInt
+  tarif_id       Int           @db.UnsignedInt
+  jumlah         Int           @default(1) @db.UnsignedSmallInt
+  catatan        String?       @db.Text
+  dilakukan_oleh Int           @db.UnsignedInt
+  dilakukan_at   DateTime      @default(now()) @db.DateTime(0)
+  reg_kunjungan  reg_kunjungan @relation(fields: [kunjungan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rjtindakan_kunjungan")
+  mst_tarif      mst_tarif     @relation(fields: [tarif_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rjtindakan_tarif")
+
+  @@index([tarif_id], map: "fk_rjtindakan_tarif")
+  @@index([kunjungan_id], map: "idx_rjtindakan_kunjungan")
+}
+
+model rpt_capaian_indikator {
+  id                 BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  indikator_id       Int                @db.UnsignedInt
+  periode_mulai      DateTime           @db.Date
+  periode_selesai    DateTime           @db.Date
+  nilai              Decimal            @db.Decimal(12, 4)
+  keterangan         String?            @db.Text
+  dibuat_oleh        Int                @db.UnsignedInt
+  dibuat_at          DateTime           @default(now()) @db.Timestamp(0)
+  rpt_indikator_mutu rpt_indikator_mutu @relation(fields: [indikator_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_capaian_indikator")
+
+  @@index([indikator_id], map: "idx_capaian_indikator")
+  @@index([periode_mulai], map: "idx_capaian_periode")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rpt_indikator_mutu {
+  id                    Int                             @id @default(autoincrement()) @db.UnsignedInt
+  kode                  String                          @unique(map: "uq_indikator_kode") @db.VarChar(20)
+  nama                  String                          @db.VarChar(200)
+  formula               String?                         @db.Text
+  satuan                String?                         @db.VarChar(30)
+  target                Decimal?                        @db.Decimal(10, 4)
+  tipe_target           rpt_indikator_mutu_tipe_target? @default(Min)
+  kategori              rpt_indikator_mutu_kategori
+  sumber_data           String?                         @db.VarChar(100)
+  frekuensi             rpt_indikator_mutu_frekuensi    @default(Bulanan)
+  is_active             Boolean                         @default(true)
+  rpt_capaian_indikator rpt_capaian_indikator[]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rpt_insiden_keselamatan {
+  id            BigInt                          @id @default(autoincrement()) @db.UnsignedBigInt
+  no_insiden    String                          @unique(map: "uq_insiden_no") @db.VarChar(30)
+  tanggal       DateTime                        @db.Date
+  waktu         DateTime?                       @db.Time(0)
+  ruangan_id    Int?                            @db.UnsignedInt
+  kunjungan_id  BigInt?                         @db.UnsignedBigInt
+  jenis         rpt_insiden_keselamatan_jenis
+  kategori      String?                         @db.VarChar(100)
+  uraian        String                          @db.Text
+  penyebab      String?                         @db.Text
+  dampak        rpt_insiden_keselamatan_dampak?
+  tindakan_awal String?                         @db.Text
+  pelapor_id    Int                             @db.UnsignedInt
+  dilaporkan_at DateTime                        @default(now()) @db.DateTime(0)
+  investigasi   String?                         @db.Text
+  rekomendasi   String?                         @db.Text
+  status        rpt_insiden_keselamatan_status  @default(Dilaporkan)
+  mst_ruangan   mst_ruangan?                    @relation(fields: [ruangan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_insiden_ruangan")
+
+  @@index([ruangan_id], map: "fk_insiden_ruangan")
+  @@index([tanggal], map: "idx_insiden_tgl")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rpt_survei_kepuasan {
+  id              BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  kunjungan_id    BigInt?  @db.UnsignedBigInt
+  tanggal         DateTime @db.Date
+  jenis_layanan   String?  @db.VarChar(50)
+  skor_total      Decimal? @db.Decimal(5, 2)
+  skor_kebersihan Int?     @db.UnsignedTinyInt
+  skor_kecepatan  Int?     @db.UnsignedTinyInt
+  skor_keramahan  Int?     @db.UnsignedTinyInt
+  skor_penjelasan Int?     @db.UnsignedTinyInt
+  skor_fasilitas  Int?     @db.UnsignedTinyInt
+  komentar        String?  @db.Text
+  anonim          Boolean  @default(false)
+
+  @@index([tanggal], map: "idx_survei_tgl")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sdm_absensi {
+  id           BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  pegawai_id   Int                @db.UnsignedInt
+  tanggal      DateTime           @db.Date
+  shift_id     Int?               @db.UnsignedInt
+  jam_masuk    DateTime?          @db.Time(0)
+  jam_keluar   DateTime?          @db.Time(0)
+  status       sdm_absensi_status @default(Hadir)
+  keterangan   String?            @db.Text
+  dicatat_oleh Int?               @db.UnsignedInt
+  sdm_pegawai  sdm_pegawai        @relation(fields: [pegawai_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_absensi_pegawai")
+
+  @@unique([pegawai_id, tanggal], map: "uq_absensi_pegawai_tgl")
+  @@index([tanggal], map: "idx_absensi_tanggal")
+}
+
+model sdm_golongan {
+  id   Int    @id @default(autoincrement()) @db.UnsignedTinyInt
+  kode String @db.VarChar(10)
+  nama String @db.VarChar(50)
+}
+
+model sdm_jabatan {
+  id            Int           @id @default(autoincrement()) @db.UnsignedInt
+  kode          String        @unique(map: "uq_jabatan_kode") @db.VarChar(20)
+  nama          String        @db.VarChar(150)
+  unit_kerja    String?       @db.VarChar(100)
+  is_struktural Boolean       @default(false)
+  sdm_pegawai   sdm_pegawai[]
+}
+
+model sdm_jadwal_shift {
+  id          Int      @id @default(autoincrement()) @db.UnsignedInt
+  nama        String   @db.VarChar(50)
+  jam_mulai   DateTime @db.Time(0)
+  jam_selesai DateTime @db.Time(0)
+  is_active   Boolean  @default(true)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sdm_pegawai {
+  id               Int                        @id @default(autoincrement()) @db.UnsignedInt
+  nip              String                     @unique(map: "uq_pegawai_nip") @db.VarChar(30)
+  nik              String?                    @db.VarChar(16)
+  nama_lengkap     String                     @db.VarChar(150)
+  gelar_depan      String?                    @db.VarChar(50)
+  gelar_belakang   String?                    @db.VarChar(100)
+  jenis_kelamin    sdm_pegawai_jenis_kelamin
+  tempat_lahir     String?                    @db.VarChar(100)
+  tanggal_lahir    DateTime?                  @db.Date
+  agama_id         Int?                       @db.UnsignedTinyInt
+  pendidikan_id    Int?                       @db.UnsignedTinyInt
+  status_pegawai   sdm_pegawai_status_pegawai
+  golongan_id      Int?                       @db.UnsignedTinyInt
+  jabatan_id       Int?                       @db.UnsignedInt
+  unit_kerja       String?                    @db.VarChar(100)
+  tgl_masuk        DateTime?                  @db.Date
+  tgl_pengangkatan DateTime?                  @db.Date
+  no_str           String?                    @db.VarChar(50)
+  no_sip           String?                    @db.VarChar(50)
+  kompetensi       String?                    @db.Text
+  foto             String?                    @db.VarChar(255)
+  alamat           String?                    @db.Text
+  no_hp            String?                    @db.VarChar(20)
+  email            String?                    @db.VarChar(150)
+  user_id          Int?                       @db.UnsignedInt
+  is_active        Boolean                    @default(true)
+  created_at       DateTime                   @default(now()) @db.Timestamp(0)
+  sdm_absensi      sdm_absensi[]
+  sdm_jabatan      sdm_jabatan?               @relation(fields: [jabatan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pegawai_jabatan")
+  usr_user         usr_user?                  @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pegawai_user")
+
+  @@index([jabatan_id], map: "fk_pegawai_jabatan")
+  @@index([user_id], map: "fk_pegawai_user")
+  @@index([nama_lengkap], map: "idx_pegawai_nama")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sys_konfigurasi {
+  kunci      String               @id @db.VarChar(100)
+  nilai      String               @db.Text
+  deskripsi  String?              @db.Text
+  tipe       sys_konfigurasi_tipe @default(String)
+  updated_at DateTime             @default(now()) @db.Timestamp(0)
+  updated_by Int?                 @db.UnsignedInt
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model usr_permission {
+  id                  Int                   @id @default(autoincrement()) @db.UnsignedInt
+  modul               String                @db.VarChar(50)
+  aksi                String                @db.VarChar(50)
+  kode                String                @unique(map: "uq_permission_kode") @db.VarChar(100)
+  nama                String                @db.VarChar(200)
+  usr_role_permission usr_role_permission[]
+}
+
+model usr_role {
+  id                  Int                   @id @default(autoincrement()) @db.UnsignedSmallInt
+  kode                String                @unique(map: "uq_role_kode") @db.VarChar(30)
+  nama                String                @db.VarChar(100)
+  deskripsi           String?               @db.Text
+  is_active           Boolean               @default(true)
+  usr_role_permission usr_role_permission[]
+  usr_user            usr_user[]
+}
+
+model usr_role_permission {
+  role_id        Int            @db.UnsignedSmallInt
+  permission_id  Int            @db.UnsignedInt
+  usr_permission usr_permission @relation(fields: [permission_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rp_permission")
+  usr_role       usr_role       @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rp_role")
+
+  @@id([role_id, permission_id])
+  @@index([permission_id], map: "fk_rp_permission")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model usr_sesi {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id    Int       @db.UnsignedInt
+  token      String    @unique(map: "uq_sesi_token") @db.VarChar(255)
+  ip_address String?   @db.VarChar(45)
+  user_agent String?   @db.Text
+  expired_at DateTime  @db.DateTime(0)
+  revoked_at DateTime? @db.DateTime(0)
+  created_at DateTime  @default(now()) @db.Timestamp(0)
+  usr_user   usr_user  @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_sesi_user")
+
+  @@index([user_id], map: "idx_sesi_user")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model usr_user {
+  id               Int                @id @default(autoincrement()) @db.UnsignedInt
+  username         String             @unique(map: "uq_user_username") @db.VarChar(50)
+  password_hash    String             @db.VarChar(255)
+  nama_lengkap     String             @db.VarChar(150)
+  email            String?            @unique(map: "uq_user_email") @db.VarChar(150)
+  no_hp            String?            @db.VarChar(20)
+  nip              String?            @db.VarChar(30)
+  role_id          Int                @db.UnsignedSmallInt
+  ruangan_id       Int?               @db.UnsignedInt
+  dpjp_id          Int?               @db.UnsignedInt
+  foto             String?            @db.VarChar(255)
+  last_login_at    DateTime?          @db.DateTime(0)
+  last_login_ip    String?            @db.VarChar(45)
+  is_active        Boolean            @default(true)
+  must_change_pwd  Boolean            @default(true)
+  created_at       DateTime           @default(now()) @db.Timestamp(0)
+  updated_at       DateTime           @default(now()) @db.Timestamp(0)
+  igd_asesmen      igd_asesmen[]
+  igd_tindakan     igd_tindakan[]
+  ri_admisi        ri_admisi[]
+  ri_cppt          ri_cppt[]
+  rj_soap          rj_soap[]
+  rm_asesmen_medis rm_asesmen_medis[]
+  rm_cppt          rm_cppt[]
+  rm_diagnosis     rm_diagnosis[]
+  sdm_pegawai      sdm_pegawai[]
+  ss_practitioner  ss_practitioner?
+  usr_sesi         usr_sesi[]
+  mst_dpjp         mst_dpjp?          @relation(fields: [dpjp_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_dpjp")
+  usr_role         usr_role           @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_role")
+  mst_ruangan      mst_ruangan?       @relation(fields: [ruangan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_ruangan")
+
+  @@index([dpjp_id], map: "fk_user_dpjp")
+  @@index([ruangan_id], map: "fk_user_ruangan")
+  @@index([role_id], map: "idx_user_role")
+}
+
+enum ss_konfigurasi_environment {
+  Staging
+  Production
+}
+
+enum rm_asesmen_medis_jenis {
+  IGD
+  Rawat_Jalan
+  Rawat_Inap
+  Pre_Operasi
+  Post_Operasi
+}
+
+enum rm_cppt_profesi {
+  Dokter
+  Perawat
+  Bidan
+  Apoteker
+  Gizi
+  Fisioterapi
+  Analis
+  Radiografer
+  Lainnya
+}
+
+enum rm_diagnosis_tipe {
+  Utama
+  Sekunder
+  Komplikasi
+  Komorbid
+}
+
+enum rm_dokumen_jenis {
+  Surat_Keterangan_Sehat
+  Surat_Keterangan_Sakit
+  Surat_Keterangan_Kematian
+  Surat_Rujukan
+  Surat_Balik_Rujukan
+  Surat_Rawat_Inap
+  Sertifikat_Lahir
+  Sertifikat_Mati
+  Visum_Et_Repertum
+  Surat_Ijin_Operasi
+  Informed_Consent
+  Resume_Medis
+  Hasil_Lab
+  Hasil_Radiologi
+  Lainnya
+}
+
+enum rm_edukasi_metode {
+  Lisan
+  Demonstrasi
+  Leaflet
+  Video
+  Simulasi
+  Lainnya
+}
+
+enum rm_episode_jenis {
+  IGD
+  Rawat_Jalan
+  Rawat_Inap
+  One_Day_Care
+  Home_Care
+}
+
+enum rm_peminjaman_tujuan {
+  Pelayanan
+  Penelitian
+  Hukum
+  Asuransi
+  Pasien_Sendiri
+  Audit
+  Lainnya
+}
+
+enum rm_akses_log_jenis_akses {
+  Baca
+  Edit
+  Cetak
+  Download
+  Share
+}
+
+enum rm_diagnosa_keperawatan_tipe {
+  Aktual
+  Risiko
+  Promosi_Kesehatan
+}
+
+enum rm_edukasi_sasaran {
+  Pasien
+  Keluarga
+  Pasien_dan_Keluarga
+}
+
+enum rm_intervensi_keperawatan_tipe {
+  Mandiri
+  Kolaborasi
+  Edukasi
+}
+
+enum rm_observasi_kategori {
+  Vital_Sign
+  Lab
+  Imaging
+  Survey
+  Exam
+  Procedure
+  Activity
+  Social_History
+}
+
+enum ss_api_log_metode {
+  GET
+  POST
+  PUT
+  PATCH
+  DELETE
+}
+
+enum ss_sync_queue_aksi {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum rm_folder_status {
+  Aktif
+  Inaktif
+  Dipindahkan
+  Meninggal
+}
+
+enum ss_practitioner_sync_status {
+  Synced
+  Pending
+  Failed
+}
+
+enum rm_edukasi_evaluasi {
+  Mengerti
+  Mengerti_Sebagian
+  Belum_Mengerti
+}
+
+enum rm_episode_status {
+  Aktif
+  Selesai
+  Batal
+}
+
+enum rm_medication_administration_status {
+  Diberikan
+  Tidak_Diberikan
+  Ditunda
+}
+
+enum ss_patient_sync_status {
+  Synced
+  Pending
+  Failed
+  Not_Registered
+}
+
+enum ss_webhook_inbox_status {
+  Received
+  Processing
+  Processed
+  Failed
+}
+
+enum rm_vital_sign_irama_nadi {
+  Reguler
+  Ireguler
+}
+
+enum ss_resource_mapping_sync_status {
+  Synced
+  Pending
+  Failed
+  Outdated
+}
+
+enum rm_diagnosis_lateralitas {
+  Kanan
+  Kiri
+  Bilateral
+  Tidak_Berlaku
+}
+
+enum rm_prosedur_lateralitas {
+  Kanan
+  Kiri
+  Bilateral
+  Tidak_Berlaku
+}
+
+enum rm_diagnosis_kronisitas {
+  Akut
+  Kronik
+  Akut_pada_Kronik
+  Subakut
+}
+
+enum rm_prosedur_anestesi {
+  Tidak_Ada
+  Lokal
+  Spinal
+  Umum
+}
+
+enum ss_sync_queue_status {
+  Pending
+  Processing
+  Success
+  Failed
+  Skipped
+}
+
+enum rm_diagnosis_status {
+  Aktif
+  Resolved
+  Inaktif
+}
+
+enum rm_evaluasi_keperawatan_status_luaran {
+  Menurun
+  Cukup_Menurun
+  Sedang
+  Cukup_Meningkat
+  Meningkat
+}
+
+enum rm_observasi_interpretasi {
+  Normal
+  High
+  Low
+  Critical_High
+  Critical_Low
+  Abnormal
+  Borderline
+}
+
+enum rm_peminjaman_status {
+  Diajukan
+  Disetujui
+  Dipinjam
+  Dikembalikan
+  Ditolak
+}
+
+enum rm_diagnosa_keperawatan_status {
+  Aktif
+  Teratasi_Sebagian
+  Teratasi
+  Tidak_Teratasi
+}
+
+enum rm_medication_order_status {
+  Active
+  On_Hold
+  Completed
+  Cancelled
+  Discontinued
+}
+
+enum rm_asesmen_keperawatan_risiko_jatuh {
+  Rendah
+  Sedang
+  Tinggi
+}
+
+enum rm_asesmen_keperawatan_risiko_decubitus {
+  Tidak_Berisiko
+  Berisiko
+  Risiko_Tinggi
+}
+
+enum rm_asesmen_medis_status_gizi {
+  Kurang
+  Normal
+  Lebih
+  Obesitas
+}
+
+enum rm_asesmen_medis_status_kesadaran {
+  Compos_Mentis
+  Apatis
+  Somnolen
+  Sopor
+  Koma
+}
+
+enum rm_asesmen_medis_prognosis {
+  Baik
+  Dubia_Ad_Bonam
+  Dubia
+  Dubia_Ad_Malam
+  Buruk
+}
+
+enum rm_asesmen_medis_risiko_jatuh {
+  Rendah
+  Sedang
+  Tinggi
+}
+
+enum rm_asesmen_medis_risiko_decubitus {
+  Tidak_Berisiko
+  Berisiko
+  Risiko_Tinggi
+}
+
+enum ast_pemeliharaan_jenis {
+  Preventif
+  Korektif
+  Kalibrasi
+}
+
+enum cssd_siklus_metode {
+  Autoklaf
+  EO
+  Plasma
+  Kimia
+}
+
+enum giz_skrining_alat_skrining {
+  NRS_2002
+  MNA
+  MUST
+  SGA
+}
+
+enum igd_asesmen_triage_level {
+  P1_Merah
+  P2_Kuning
+  P3_Hijau
+  P4_Hitam
+}
+
+enum ok_laporan_anestesi_jenis_anestesi {
+  Umum
+  Spinal
+  Lokal
+  Regional
+  Lainnya
+}
+
+enum pas_alergi_jenis {
+  Obat
+  Makanan
+  Lingkungan
+  Lainnya
+}
+
+enum pas_dokumen_identitas_jenis {
+  KTP
+  KK
+  SIM
+  Passport
+  BPJS
+  Lainnya
+}
+
+enum rj_rujukan_jenis {
+  Internal
+  Eksternal
+}
+
+enum akn_jurnal_jenis {
+  Umum
+  Penerimaan
+  Pengeluaran
+  Penyesuaian
+}
+
+enum aud_consent_pasien_jenis {
+  Umum
+  Tindakan_Medis
+  Operasi
+  Anestesi
+  Berbagi_Data
+  Foto_Dokumentasi
+}
+
+enum bil_jasa_medis_jenis_jasa {
+  Konsultasi
+  Tindakan
+  Visite
+  Operasi
+  Anestesi
+}
+
+enum bil_pembayaran_metode {
+  Tunai
+  Transfer
+  QRIS
+  Debit
+  Kredit
+  BPJS
+  Piutang
+}
+
+enum bil_tagihan_status {
+  Draft
+  Finalisasi
+  Lunas
+  Piutang
+  Batal
+}
+
+enum log_gudang_jenis {
+  Obat
+  BMHP
+  ATK
+  Linen
+  Umum
+}
+
+enum mst_ruangan_jenis {
+  IGD
+  Rawat_Jalan
+  Rawat_Inap
+  Laboratorium
+  Radiologi
+  Farmasi
+  OK
+  ICU
+  HCU
+  Fisioterapi
+  Gizi
+  Lainnya
+}
+
+enum mst_wilayah_tingkat {
+  provinsi
+  kabupaten
+  kecamatan
+  desa
+}
+
+enum ok_kamar_operasi_jenis {
+  Umum
+  Orthopedi
+  Kebidanan
+  Jantung
+  Mata
+  Lainnya
+}
+
+enum ri_bed_status {
+  Kosong
+  Terisi
+  Maintenance
+  Kotor
+}
+
+enum ri_cppt_profesi {
+  Dokter
+  Perawat
+  Bidan
+  Apoteker
+  Gizi
+  Fisioterapi
+  Lainnya
+}
+
+enum rj_diagnosis_tipe {
+  Utama
+  Sekunder
+  Komplikasi
+  Komorbid
+}
+
+enum sys_konfigurasi_tipe {
+  String
+  Integer
+  Boolean
+  JSON
+}
+
+enum akn_jurnal_detail_posisi {
+  Debit
+  Kredit
+}
+
+enum aud_consent_pasien_status {
+  Diberikan
+  Ditolak
+  Dicabut
+}
+
+enum far_mutasi_stok_jenis {
+  Masuk
+  Keluar
+  Koreksi
+  Retur
+  Kadaluarsa
+  Rusak
+}
+
+enum far_resep_jenis {
+  Rawat_Jalan
+  Rawat_Inap
+  IGD
+  Pulang
+}
+
+enum giz_skrining_kategori_risiko {
+  Tidak_Berisiko @map("Tidak Berisiko")
+  Risiko_Rendah  @map("Risiko Rendah")
+  Risiko_Sedang  @map("Risiko Sedang")
+  Risiko_Tinggi  @map("Risiko Tinggi")
+}
+
+enum lab_order_status {
+  Order
+  Sampling
+  Proses
+  Selesai
+  Batal
+}
+
+enum ok_kamar_operasi_status {
+  Kosong
+  Digunakan
+  Maintenance
+}
+
+enum reg_antrian_jenis_antrian {
+  Online
+  Offline
+  BPJS_Mobile
+}
+
+enum aud_login_history_jenis {
+  Login
+  Logout
+  Gagal
+  Paksa_Keluar
+}
+
+enum bpjs_sep_jenis_pelayanan {
+  Rawat_Jalan
+  Rawat_Inap
+  IGD
+}
+
+enum far_resep_status {
+  Draft
+  Diverifikasi
+  Dispensing
+  Selesai
+  Batal
+}
+
+enum lab_hasil_flag {
+  Normal
+  Tinggi
+  Rendah
+  Kritis_Tinggi
+  Kritis_Rendah
+  Abnormal
+}
+
+enum pas_alergi_tingkat {
+  Ringan
+  Sedang
+  Berat
+}
+
+enum reg_antrian_status {
+  Menunggu
+  Dipanggil
+  Dilayani
+  Selesai
+  Lewat
+  Batal
+}
+
+enum reg_kunjungan_jenis_kunjungan {
+  IGD
+  Rawat_Jalan
+  Rawat_Inap
+}
+
+enum ri_resume_medis_kondisi_keluar {
+  Sembuh
+  Membaik
+  Stasioner
+  Dirujuk
+  Meninggal
+  APS
+}
+
+enum bpjs_sep_kelas_rawat {
+  // 1 @map("1")
+  // 2 @map("2")
+  // 3 @map("3")
+}
+
+enum log_permintaan_status {
+  Draft
+  Diajukan
+  Disetujui
+  Dikirim
+  Selesai
+  Batal
+}
+
+enum ri_admisi_kondisi_masuk {
+  Baik
+  Sedang
+  Kritis
+}
+
+enum rpt_indikator_mutu_tipe_target {
+  Min
+  Maks
+  Sama
+}
+
+enum rpt_insiden_keselamatan_jenis {
+  KTD
+  KNC
+  KTC
+  SENTINEL
+  KPC
+}
+
+enum sdm_absensi_status {
+  Hadir
+  Izin
+  Sakit
+  Cuti
+  Tanpa_Keterangan
+  Libur
+}
+
+enum sdm_pegawai_jenis_kelamin {
+  L
+  P
+}
+
+enum ast_pemeliharaan_hasil {
+  Baik
+  Perlu_Tindak_Lanjut
+  Rusak
+}
+
+enum bil_jasa_medis_status {
+  Pending
+  Diproses
+  Dibayar
+}
+
+enum cssd_siklus_status {
+  Proses
+  Steril
+  Digunakan
+  Kadaluarsa
+}
+
+enum fis_order_status {
+  Order
+  Terjadwal
+  Berjalan
+  Selesai
+  Batal
+}
+
+enum ri_admisi_kondisi_keluar {
+  Sembuh
+  Membaik
+  Stasioner
+  Dirujuk
+  Meninggal
+  APS
+}
+
+enum rpt_indikator_mutu_kategori {
+  Klinis
+  Manajemen
+  Keselamatan
+  Kepuasan
+}
+
+enum pas_pasien_jenis_kelamin {
+  L
+  P
+}
+
+enum rad_order_status {
+  Order
+  Dijadwalkan
+  Proses
+  Selesai
+  Dibaca
+  Batal
+}
+
+enum ok_jadwal_operasi_kelas_operasi {
+  Kecil
+  Sedang
+  Besar
+  Khusus
+}
+
+enum pas_pasien_golongan_darah {
+  A
+  B
+  AB
+  O
+  Tidak_Tahu @map("Tidak Tahu")
+}
+
+enum ri_resume_medis_prognosis {
+  Baik
+  Dubia_Ad_Bonam @map("Dubia Ad Bonam")
+  Dubia
+  Dubia_Ad_Malam @map("Dubia Ad Malam")
+  Buruk
+}
+
+enum rpt_indikator_mutu_frekuensi {
+  Harian
+  Mingguan
+  Bulanan
+  Triwulan
+  Tahunan
+}
+
+enum ast_aset_kondisi {
+  Baik
+  Rusak_Ringan @map("Rusak Ringan")
+  Rusak_Berat  @map("Rusak Berat")
+  Hilang
+}
+
+enum bpjs_klaim_status {
+  Draft
+  Diajukan
+  Proses_Verifikasi
+  Disetujui
+  Ditolak
+  Revisi
+}
+
+enum bpjs_sep_jenis_kunjungan {
+  Pertama
+  Kontrol
+  Lanjutan
+}
+
+enum ok_jadwal_operasi_jenis_anestesi {
+  Umum
+  Spinal
+  Lokal
+  Regional
+  Lainnya
+}
+
+enum pas_pasien_rhesus {
+  // + @map("+")
+  // - @map("-")
+  Tidak_Tahu @map("Tidak Tahu")
+}
+
+enum rpt_insiden_keselamatan_dampak {
+  Tidak_Ada @map("Tidak Ada")
+  Ringan
+  Sedang
+  Berat
+  Meninggal
+}
+
+enum ast_aset_status {
+  Aktif
+  Tidak_Aktif
+  Dimusnahkan
+  Dipindahkan
+}
+
+enum sdm_pegawai_status_pegawai {
+  PNS
+  CPNS
+  PPPK
+  Kontrak
+  Honor
+  Magang
+}
+
+enum far_obat_formularium {
+  Nasional
+  RS
+  Non_Formularium
+}
+
+enum reg_kunjungan_cara_masuk {
+  Datang_Sendiri  @map("Datang Sendiri")
+  Rujukan_FKTP    @map("Rujukan FKTP")
+  Rujukan_RS_Lain @map("Rujukan RS Lain")
+  Pindahan
+}
+
+enum reg_kunjungan_status {
+  Menunggu
+  Dalam_Pelayanan
+  Selesai
+  Batal
+  Pulang_APS
+  Meninggal
+}
+
+enum pas_pasien_status_perkawinan {
+  Belum_Kawin @map("Belum Kawin")
+  Kawin
+  Cerai_Hidup @map("Cerai Hidup")
+  Cerai_Mati  @map("Cerai Mati")
+}
+
+enum ok_jadwal_operasi_status {
+  Terjadwal
+  Konfirmasi
+  Berjalan
+  Selesai
+  Batal
+  Tunda
+}
+
+enum rpt_insiden_keselamatan_status {
+  Dilaporkan
+  Investigasi
+  Selesai
+}
+
+enum igd_asesmen_status_kesadaran {
+  Compos_Mentis @map("Compos Mentis")
+  Apatis
+  Somnolen
+  Sopor
+  Koma
+}
+
+enum igd_asesmen_disposisi {
+  Pulang
+  Rawat_Inap
+  Rujuk
+  Meninggal
+  APS
+}
