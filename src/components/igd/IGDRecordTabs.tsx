@@ -17,6 +17,9 @@ import CPPTTab         from "./tabs/CPPTTab";
 import TindakanTab     from "./tabs/TindakanTab";
 import DisposisiTab    from "./tabs/DisposisiTab";
 import ResepPasienTab  from "./tabs/ResepPasienTab";
+import OrderLabTab     from "./tabs/OrderLabTab";
+import OrderRadTab      from "./tabs/OrderRadTab";
+import PasienPulangTab  from "./tabs/PasienPulangTab";
 
 // ── Tab groups ────────────────────────────────────────────
 
@@ -154,7 +157,10 @@ export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }
         {active === "tindakan"  && <TindakanTab     patient={patient} />}
         {active === "disposisi" && <DisposisiTab    patient={patient} />}
         {active === "resep"     && <ResepPasienTab  patient={patient} />}
-        {["order-lab", "order-rad", "rujukan", "pulang"].includes(active) && (
+        {active === "order-lab" && <OrderLabTab     patient={patient} />}
+        {active === "order-rad" && <OrderRadTab     patient={patient} />}
+        {active === "pulang"    && <PasienPulangTab  patient={patient} />}
+        {["rujukan"].includes(active) && (
           <ComingSoon label={activeTab.label} icon={activeTab.icon} />
         )}
       </main>
