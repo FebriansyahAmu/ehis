@@ -6,17 +6,35 @@ import { cn } from "@/lib/utils";
 
 // ── Compact form primitives ───────────────────────────────
 
-function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
+function Label({
+  children,
+  required,
+}: {
+  children: React.ReactNode;
+  required?: boolean;
+}) {
   return (
     <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-      {children}{required && <span className="ml-0.5 text-rose-400">*</span>}
+      {children}
+      {required && <span className="ml-0.5 text-rose-400">*</span>}
     </p>
   );
 }
 
-function RadioGroup({ label, options, value, onChange, required, cols }: {
-  label: string; options: string[]; value: string; onChange: (v: string) => void;
-  required?: boolean; cols?: boolean;
+function RadioGroup({
+  label,
+  options,
+  value,
+  onChange,
+  required,
+  cols,
+}: {
+  label: string;
+  options: string[];
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+  cols?: boolean;
 }) {
   return (
     <div>
@@ -24,7 +42,9 @@ function RadioGroup({ label, options, value, onChange, required, cols }: {
       <div className={cn("flex flex-wrap gap-1", cols && "grid grid-cols-2")}>
         {options.map((opt) => (
           <button
-            key={opt} type="button" onClick={() => onChange(opt)}
+            key={opt}
+            type="button"
+            onClick={() => onChange(opt)}
             className={cn(
               "rounded-md border px-2.5 py-1 text-xs font-medium transition",
               value === opt
@@ -40,18 +60,30 @@ function RadioGroup({ label, options, value, onChange, required, cols }: {
   );
 }
 
-function CheckGroup({ label, options, values, onChange }: {
-  label: string; options: string[]; values: string[]; onChange: (v: string[]) => void;
+function CheckGroup({
+  label,
+  options,
+  values,
+  onChange,
+}: {
+  label: string;
+  options: string[];
+  values: string[];
+  onChange: (v: string[]) => void;
 }) {
   const toggle = (opt: string) =>
-    onChange(values.includes(opt) ? values.filter((v) => v !== opt) : [...values, opt]);
+    onChange(
+      values.includes(opt) ? values.filter((v) => v !== opt) : [...values, opt],
+    );
   return (
     <div>
       <Label>{label}</Label>
       <div className="flex flex-wrap gap-1">
         {options.map((opt) => (
           <button
-            key={opt} type="button" onClick={() => toggle(opt)}
+            key={opt}
+            type="button"
+            onClick={() => toggle(opt)}
             className={cn(
               "rounded-md border px-2.5 py-1 text-xs font-medium transition",
               values.includes(opt)
@@ -70,21 +102,39 @@ function CheckGroup({ label, options, values, onChange }: {
 // ── Compact section ───────────────────────────────────────
 
 const LETTER_CLS: Record<string, string> = {
-  A: "bg-sky-500", B: "bg-emerald-500",
-  C: "bg-rose-500", D: "bg-violet-500", E: "bg-amber-500",
+  A: "bg-sky-500",
+  B: "bg-emerald-500",
+  C: "bg-rose-500",
+  D: "bg-violet-500",
+  E: "bg-amber-500",
 };
 
-function Block({ letter, title, children, className }: {
-  letter?: string; title: string; children: React.ReactNode; className?: string;
+function Block({
+  letter,
+  title,
+  children,
+  className,
+}: {
+  letter?: string;
+  title: string;
+  children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div className={cn("rounded-xl border border-slate-200 bg-white shadow-sm", className)}>
+    <div
+      className={cn(
+        "rounded-xl border border-slate-200 bg-white shadow-sm",
+        className,
+      )}
+    >
       <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/60 px-4 py-2.5">
         {letter && (
-          <span className={cn(
-            "flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-bold text-white",
-            LETTER_CLS[letter] ?? "bg-slate-400",
-          )}>
+          <span
+            className={cn(
+              "flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-bold text-white",
+              LETTER_CLS[letter] ?? "bg-slate-400",
+            )}
+          >
             {letter}
           </span>
         )}
@@ -98,103 +148,123 @@ function Block({ letter, title, children, className }: {
 // ── Triage criteria table ─────────────────────────────────
 
 const COL_HEADERS = [
-  { key: "resusitasi",  label: "Resusitasi",  cls: "bg-red-600",    text: "text-white" },
-  { key: "emergency",   label: "Emergency",   cls: "bg-rose-500",   text: "text-white" },
-  { key: "urgent",      label: "Urgent",      cls: "bg-amber-500",  text: "text-white" },
-  { key: "lessUrgent",  label: "Less Urgent", cls: "bg-emerald-500",text: "text-white" },
-  { key: "nonUrgent",   label: "Non Urgent",  cls: "bg-sky-500",    text: "text-white" },
-  { key: "doa",         label: "DOA",         cls: "bg-slate-700",  text: "text-white" },
+  {
+    key: "resusitasi",
+    label: "Resusitasi",
+    cls: "bg-red-600",
+    text: "text-white",
+  },
+  {
+    key: "emergency",
+    label: "Emergency",
+    cls: "bg-rose-500",
+    text: "text-white",
+  },
+  { key: "urgent", label: "Urgent", cls: "bg-amber-500", text: "text-white" },
+  {
+    key: "lessUrgent",
+    label: "Less Urgent",
+    cls: "bg-emerald-500",
+    text: "text-white",
+  },
+  {
+    key: "nonUrgent",
+    label: "Non Urgent",
+    cls: "bg-sky-500",
+    text: "text-white",
+  },
+  { key: "doa", label: "DOA", cls: "bg-slate-700", text: "text-white" },
 ] as const;
 
-type ColKey = typeof COL_HEADERS[number]["key"];
+type ColKey = (typeof COL_HEADERS)[number]["key"];
 
 const CRITERIA_ROWS: { parameter: string; values: Record<ColKey, string> }[] = [
   {
     parameter: "Airway",
     values: {
       resusitasi: "Tersumbat total / apnea",
-      emergency:  "Tersumbat parsial, stridor",
-      urgent:     "Bebas, perlu bantuan",
+      emergency: "Tersumbat parsial, stridor",
+      urgent: "Bebas, perlu bantuan",
       lessUrgent: "Bebas",
-      nonUrgent:  "Bebas",
-      doa:        "—",
+      nonUrgent: "Bebas",
+      doa: "—",
     },
   },
   {
     parameter: "Breathing / RR",
     values: {
       resusitasi: "Tidak bernapas / RR < 8",
-      emergency:  "RR > 30, distress berat, sianosis",
-      urgent:     "RR 21–30, distress sedang",
+      emergency: "RR > 30, distress berat, sianosis",
+      urgent: "RR 21–30, distress sedang",
       lessUrgent: "Normal, sesak ringan",
-      nonUrgent:  "Normal",
-      doa:        "—",
+      nonUrgent: "Normal",
+      doa: "—",
     },
   },
   {
     parameter: "Sirkulasi / TD",
     values: {
       resusitasi: "Henti jantung / TD tidak terukur",
-      emergency:  "TD < 90 mmHg (syok)",
-      urgent:     "TD 90–100 mmHg",
+      emergency: "TD < 90 mmHg (syok)",
+      urgent: "TD 90–100 mmHg",
       lessUrgent: "Stabil",
-      nonUrgent:  "Normal",
-      doa:        "—",
+      nonUrgent: "Normal",
+      doa: "—",
     },
   },
   {
     parameter: "Nadi",
     values: {
       resusitasi: "Tidak teraba",
-      emergency:  "< 50 atau > 130 ×/mnt",
-      urgent:     "100–130 ×/mnt (lemah)",
+      emergency: "< 50 atau > 130 ×/mnt",
+      urgent: "100–130 ×/mnt (lemah)",
       lessUrgent: "Normal",
-      nonUrgent:  "Normal",
-      doa:        "—",
+      nonUrgent: "Normal",
+      doa: "—",
     },
   },
   {
     parameter: "Kesadaran (GCS)",
     values: {
       resusitasi: "≤ 8 · Koma",
-      emergency:  "9–12 · Somnolen",
-      urgent:     "13–14 · Apatis / Delirium",
+      emergency: "9–12 · Somnolen",
+      urgent: "13–14 · Apatis / Delirium",
       lessUrgent: "15 · Sadar penuh",
-      nonUrgent:  "15",
-      doa:        "—",
+      nonUrgent: "15",
+      doa: "—",
     },
   },
   {
     parameter: "Skala Nyeri (VAS)",
     values: {
       resusitasi: "—",
-      emergency:  "8–10 · Berat",
-      urgent:     "5–7 · Sedang",
+      emergency: "8–10 · Berat",
+      urgent: "5–7 · Sedang",
       lessUrgent: "3–4 · Ringan-sedang",
-      nonUrgent:  "0–2",
-      doa:        "—",
+      nonUrgent: "0–2",
+      doa: "—",
     },
   },
   {
     parameter: "Waktu Respons",
     values: {
       resusitasi: "Segera · detik",
-      emergency:  "< 10 menit",
-      urgent:     "< 30 menit",
+      emergency: "< 10 menit",
+      urgent: "< 30 menit",
       lessUrgent: "< 60 menit",
-      nonUrgent:  "< 120 menit",
-      doa:        "Verifikasi kematian",
+      nonUrgent: "< 120 menit",
+      doa: "Verifikasi kematian",
     },
   },
   {
     parameter: "Contoh Kasus",
     values: {
       resusitasi: "Henti napas / jantung, syok berat",
-      emergency:  "STEMI, stroke, distress napas berat",
-      urgent:     "Fraktur, nyeri dada moderat, kejang",
+      emergency: "STEMI, stroke, distress napas berat",
+      urgent: "Fraktur, nyeri dada moderat, kejang",
       lessUrgent: "Luka ringan, nyeri sedang",
-      nonUrgent:  "ISPA ringan, kontrol rutin",
-      doa:        "Meninggal saat tiba, tanpa tanda kehidupan",
+      nonUrgent: "ISPA ringan, kontrol rutin",
+      doa: "Meninggal saat tiba, tanpa tanda kehidupan",
     },
   },
 ];
@@ -203,10 +273,12 @@ function CriteriaTable() {
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-100 bg-slate-50/60 px-4 py-2.5">
-        <span className="text-xs font-semibold text-slate-700">Tabel Kriteria Triase</span>
+        <span className="text-xs font-semibold text-slate-700">
+          Tabel Kriteria Triase
+        </span>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] text-xs">
+        <table className="w-full min-w-180 text-xs">
           <thead>
             <tr>
               <th className="sticky left-0 z-10 w-32 bg-slate-50 px-4 py-2.5 text-left font-semibold text-slate-600">
@@ -215,7 +287,11 @@ function CriteriaTable() {
               {COL_HEADERS.map((col) => (
                 <th
                   key={col.key}
-                  className={cn("px-3 py-2.5 text-center font-semibold", col.cls, col.text)}
+                  className={cn(
+                    "px-3 py-2.5 text-center font-semibold",
+                    col.cls,
+                    col.text,
+                  )}
                 >
                   {col.label}
                 </th>
@@ -247,44 +323,120 @@ function CriteriaTable() {
 
 // ── Triage decision cards ─────────────────────────────────
 
-const TRIAGE_OPT: { id: TriageLevel; label: string; sub: string; desc: string; active: string; dot: string }[] = [
-  { id: "P1", label: "P1", sub: "Merah",  desc: "Kritis / mengancam jiwa",        dot: "bg-rose-500",    active: "border-rose-400 bg-rose-50 text-rose-800 shadow-sm" },
-  { id: "P2", label: "P2", sub: "Kuning", desc: "Gawat / segera ditangani",        dot: "bg-amber-400",   active: "border-amber-400 bg-amber-50 text-amber-800 shadow-sm" },
-  { id: "P3", label: "P3", sub: "Hijau",  desc: "Tidak gawat darurat",             dot: "bg-emerald-500", active: "border-emerald-400 bg-emerald-50 text-emerald-800 shadow-sm" },
-  { id: "P4", label: "P4", sub: "Hitam",  desc: "Meninggal / harapan sangat kecil",dot: "bg-slate-700",   active: "border-slate-500 bg-slate-100 text-slate-800 shadow-sm" },
+const TRIAGE_OPT: {
+  id: TriageLevel;
+  label: string;
+  sub: string;
+  desc: string;
+  active: string;
+  dot: string;
+}[] = [
+  {
+    id: "P1",
+    label: "P1",
+    sub: "Merah",
+    desc: "Kritis / mengancam jiwa",
+    dot: "bg-rose-500",
+    active: "border-rose-400 bg-rose-50 text-rose-800 shadow-sm",
+  },
+  {
+    id: "P2",
+    label: "P2",
+    sub: "Kuning",
+    desc: "Gawat / segera ditangani",
+    dot: "bg-amber-400",
+    active: "border-amber-400 bg-amber-50 text-amber-800 shadow-sm",
+  },
+  {
+    id: "P3",
+    label: "P3",
+    sub: "Hijau",
+    desc: "Tidak gawat darurat",
+    dot: "bg-emerald-500",
+    active: "border-emerald-400 bg-emerald-50 text-emerald-800 shadow-sm",
+  },
+  {
+    id: "P4",
+    label: "P4",
+    sub: "Hitam",
+    desc: "Meninggal / harapan sangat kecil",
+    dot: "bg-slate-700",
+    active: "border-slate-500 bg-slate-100 text-slate-800 shadow-sm",
+  },
 ];
 
 // ── Form state ────────────────────────────────────────────
 
 interface TriaseForm {
-  caraMasuk: string; kondisiTiba: string;
+  caraMasuk: string;
+  kondisiTiba: string;
   // Anamnesis
-  keluhanUtama: string; onset: string; lokasiKeluhan: string;
-  kualitasKeluhan: string; skalaBerat: string;
-  faktorPemberat: string; faktorPeringan: string;
-  gejalaPenyerta: string[]; riwayatSerupa: string;
+  keluhanUtama: string;
+  onset: string;
+  lokasiKeluhan: string;
+  kualitasKeluhan: string;
+  skalaBerat: string;
+  faktorPemberat: string;
+  faktorPeringan: string;
+  gejalaPenyerta: string[];
+  riwayatSerupa: string;
   // Primary survey
-  airwayStatus: string; suaraNapasAbnormal: string[];
-  breathingQuality: string; pergerakanDada: string; ototBantu: string; sianosis: string;
-  nadiTeraba: string; kualitasNadi: string; crt: string; kondisiKulit: string; perdarahan: string;
-  avpu: string; pupil: string; refleksCahaya: string;
-  traumaLuka: string; lokasiLuka: string; suhuKulit: string;
-  diagnosisSementara: string; tindakanTriase: string[];
-  triageLevel: string; perawatTriase: string;
+  airwayStatus: string;
+  suaraNapasAbnormal: string[];
+  breathingQuality: string;
+  pergerakanDada: string;
+  ototBantu: string;
+  sianosis: string;
+  nadiTeraba: string;
+  kualitasNadi: string;
+  crt: string;
+  kondisiKulit: string;
+  perdarahan: string;
+  avpu: string;
+  pupil: string;
+  refleksCahaya: string;
+  traumaLuka: string;
+  lokasiLuka: string;
+  suhuKulit: string;
+  diagnosisSementara: string;
+  tindakanTriase: string[];
+  triageLevel: string;
+  perawatTriase: string;
 }
 
 const EMPTY: TriaseForm = {
-  caraMasuk: "", kondisiTiba: "",
-  keluhanUtama: "", onset: "", lokasiKeluhan: "",
-  kualitasKeluhan: "", skalaBerat: "",
-  faktorPemberat: "", faktorPeringan: "",
-  gejalaPenyerta: [], riwayatSerupa: "",
-  airwayStatus: "", suaraNapasAbnormal: [],
-  breathingQuality: "", pergerakanDada: "", ototBantu: "", sianosis: "",
-  nadiTeraba: "", kualitasNadi: "", crt: "", kondisiKulit: "", perdarahan: "",
-  avpu: "", pupil: "", refleksCahaya: "",
-  traumaLuka: "", lokasiLuka: "", suhuKulit: "",
-  diagnosisSementara: "", tindakanTriase: [], triageLevel: "", perawatTriase: "",
+  caraMasuk: "",
+  kondisiTiba: "",
+  keluhanUtama: "",
+  onset: "",
+  lokasiKeluhan: "",
+  kualitasKeluhan: "",
+  skalaBerat: "",
+  faktorPemberat: "",
+  faktorPeringan: "",
+  gejalaPenyerta: [],
+  riwayatSerupa: "",
+  airwayStatus: "",
+  suaraNapasAbnormal: [],
+  breathingQuality: "",
+  pergerakanDada: "",
+  ototBantu: "",
+  sianosis: "",
+  nadiTeraba: "",
+  kualitasNadi: "",
+  crt: "",
+  kondisiKulit: "",
+  perdarahan: "",
+  avpu: "",
+  pupil: "",
+  refleksCahaya: "",
+  traumaLuka: "",
+  lokasiLuka: "",
+  suhuKulit: "",
+  diagnosisSementara: "",
+  tindakanTriase: [],
+  triageLevel: "",
+  perawatTriase: "",
 };
 
 // ── Main component ────────────────────────────────────────
@@ -300,19 +452,33 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
 
   return (
     <div className="flex flex-col gap-3">
-
       {/* Kedatangan */}
       <Block title="Informasi Kedatangan">
         <div className="grid gap-3 sm:grid-cols-2">
           <RadioGroup
-            label="Cara Masuk" required
-            options={["Jalan Kaki", "Kursi Roda", "Brankar", "Ambulans RS", "Ambulans 118"]}
-            value={form.caraMasuk} onChange={(v) => set("caraMasuk", v)}
+            label="Cara Masuk"
+            required
+            options={[
+              "Jalan Kaki",
+              "Kursi Roda",
+              "Brankar",
+              "Ambulans RS",
+              "Ambulans 118",
+            ]}
+            value={form.caraMasuk}
+            onChange={(v) => set("caraMasuk", v)}
           />
           <RadioGroup
-            label="Kondisi Saat Tiba" required
-            options={["Sadar", "Penurunan Kesadaran", "Tidak Sadar", "Gelisah / Agitasi"]}
-            value={form.kondisiTiba} onChange={(v) => set("kondisiTiba", v)}
+            label="Kondisi Saat Tiba"
+            required
+            options={[
+              "Sadar",
+              "Penurunan Kesadaran",
+              "Tidak Sadar",
+              "Gelisah / Agitasi",
+            ]}
+            value={form.kondisiTiba}
+            onChange={(v) => set("kondisiTiba", v)}
           />
         </div>
       </Block>
@@ -353,13 +519,22 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
           <RadioGroup
             label="Skala Berat Keluhan"
             options={["Ringan", "Sedang", "Berat", "Sangat Berat"]}
-            value={form.skalaBerat} onChange={(v) => set("skalaBerat", v)}
+            value={form.skalaBerat}
+            onChange={(v) => set("skalaBerat", v)}
           />
         </div>
         <RadioGroup
           label="Kualitas Keluhan"
-          options={["Tumpul", "Tajam / Menusuk", "Seperti Ditekan", "Seperti Terbakar", "Berdenyut", "Kolik"]}
-          value={form.kualitasKeluhan} onChange={(v) => set("kualitasKeluhan", v)}
+          options={[
+            "Tumpul",
+            "Tajam / Menusuk",
+            "Seperti Ditekan",
+            "Seperti Terbakar",
+            "Berdenyut",
+            "Kolik",
+          ]}
+          value={form.kualitasKeluhan}
+          onChange={(v) => set("kualitasKeluhan", v)}
         />
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
@@ -385,8 +560,22 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
         </div>
         <CheckGroup
           label="Gejala Penyerta"
-          options={["Mual", "Muntah", "Demam", "Sesak Napas", "Nyeri Kepala", "Pusing", "Keringat Dingin", "Lemas", "Pingsan", "Diare", "Batuk", "Kejang"]}
-          values={form.gejalaPenyerta} onChange={(v) => set("gejalaPenyerta", v)}
+          options={[
+            "Mual",
+            "Muntah",
+            "Demam",
+            "Sesak Napas",
+            "Nyeri Kepala",
+            "Pusing",
+            "Keringat Dingin",
+            "Lemas",
+            "Pingsan",
+            "Diare",
+            "Batuk",
+            "Kejang",
+          ]}
+          values={form.gejalaPenyerta}
+          onChange={(v) => set("gejalaPenyerta", v)}
         />
         <div>
           <Label>Riwayat Keluhan Serupa</Label>
@@ -402,43 +591,50 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
 
       {/* Primary Survey — 2-col grid on sm+ */}
       <div className="grid gap-3 sm:grid-cols-2">
-
         {/* A */}
         <Block letter="A" title="Airway — Jalan Napas">
           <RadioGroup
-            label="Status" required
+            label="Status"
+            required
             options={["Bebas / Paten", "Tersumbat Parsial", "Tersumbat Total"]}
-            value={form.airwayStatus} onChange={(v) => set("airwayStatus", v)}
+            value={form.airwayStatus}
+            onChange={(v) => set("airwayStatus", v)}
           />
           <CheckGroup
             label="Suara Napas Abnormal"
             options={["Stridor", "Gurgling", "Snoring", "Tidak Ada"]}
-            values={form.suaraNapasAbnormal} onChange={(v) => set("suaraNapasAbnormal", v)}
+            values={form.suaraNapasAbnormal}
+            onChange={(v) => set("suaraNapasAbnormal", v)}
           />
         </Block>
 
         {/* B */}
         <Block letter="B" title="Breathing — Pernapasan">
           <RadioGroup
-            label="Kualitas Napas" required
+            label="Kualitas Napas"
+            required
             options={["Normal", "Sesak / Distress", "Tidak Bernapas"]}
-            value={form.breathingQuality} onChange={(v) => set("breathingQuality", v)}
+            value={form.breathingQuality}
+            onChange={(v) => set("breathingQuality", v)}
           />
           <div className="grid grid-cols-3 gap-2">
             <RadioGroup
               label="Pergerakan Dada"
               options={["Simetris", "Asimetris"]}
-              value={form.pergerakanDada} onChange={(v) => set("pergerakanDada", v)}
+              value={form.pergerakanDada}
+              onChange={(v) => set("pergerakanDada", v)}
             />
             <RadioGroup
               label="Otot Bantu"
               options={["Tidak", "Ya"]}
-              value={form.ototBantu} onChange={(v) => set("ototBantu", v)}
+              value={form.ototBantu}
+              onChange={(v) => set("ototBantu", v)}
             />
             <RadioGroup
               label="Sianosis"
               options={["Tidak", "Ya"]}
-              value={form.sianosis} onChange={(v) => set("sianosis", v)}
+              value={form.sianosis}
+              onChange={(v) => set("sianosis", v)}
             />
           </div>
         </Block>
@@ -447,50 +643,64 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
         <Block letter="C" title="Circulation — Sirkulasi">
           <div className="grid grid-cols-2 gap-2">
             <RadioGroup
-              label="Nadi" required
+              label="Nadi"
+              required
               options={["Teraba", "Tidak Teraba"]}
-              value={form.nadiTeraba} onChange={(v) => set("nadiTeraba", v)}
+              value={form.nadiTeraba}
+              onChange={(v) => set("nadiTeraba", v)}
             />
             <RadioGroup
               label="Kualitas Nadi"
               options={["Kuat & Teratur", "Lemah", "Tidak Teraba"]}
-              value={form.kualitasNadi} onChange={(v) => set("kualitasNadi", v)}
+              value={form.kualitasNadi}
+              onChange={(v) => set("kualitasNadi", v)}
             />
             <RadioGroup
               label="CRT"
               options={["< 2 detik", "≥ 2 detik"]}
-              value={form.crt} onChange={(v) => set("crt", v)}
+              value={form.crt}
+              onChange={(v) => set("crt", v)}
             />
             <RadioGroup
               label="Kondisi Kulit"
               options={["Hangat & Kering", "Pucat", "Dingin", "Lembab"]}
-              value={form.kondisiKulit} onChange={(v) => set("kondisiKulit", v)}
+              value={form.kondisiKulit}
+              onChange={(v) => set("kondisiKulit", v)}
             />
           </div>
           <RadioGroup
             label="Perdarahan Aktif"
-            options={["Tidak Ada", "Ada — Terkontrol", "Ada — Tidak Terkontrol"]}
-            value={form.perdarahan} onChange={(v) => set("perdarahan", v)}
+            options={[
+              "Tidak Ada",
+              "Ada — Terkontrol",
+              "Ada — Tidak Terkontrol",
+            ]}
+            value={form.perdarahan}
+            onChange={(v) => set("perdarahan", v)}
           />
         </Block>
 
         {/* D */}
         <Block letter="D" title="Disability — Neurologis">
           <RadioGroup
-            label="Tingkat Kesadaran (AVPU)" required
+            label="Tingkat Kesadaran (AVPU)"
+            required
             options={["Alert", "Verbal", "Pain", "Unresponsive"]}
-            value={form.avpu} onChange={(v) => set("avpu", v)}
+            value={form.avpu}
+            onChange={(v) => set("avpu", v)}
           />
           <div className="grid grid-cols-2 gap-2">
             <RadioGroup
               label="Pupil"
               options={["Isokor", "Anisokor", "Miosis", "Midriasis"]}
-              value={form.pupil} onChange={(v) => set("pupil", v)}
+              value={form.pupil}
+              onChange={(v) => set("pupil", v)}
             />
             <RadioGroup
               label="Refleks Cahaya"
               options={["+/+", "+/−", "−/−"]}
-              value={form.refleksCahaya} onChange={(v) => set("refleksCahaya", v)}
+              value={form.refleksCahaya}
+              onChange={(v) => set("refleksCahaya", v)}
             />
           </div>
         </Block>
@@ -501,12 +711,14 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
             <RadioGroup
               label="Trauma / Luka"
               options={["Tidak Ada", "Ada"]}
-              value={form.traumaLuka} onChange={(v) => set("traumaLuka", v)}
+              value={form.traumaLuka}
+              onChange={(v) => set("traumaLuka", v)}
             />
             <RadioGroup
               label="Suhu Kulit"
               options={["Normal", "Hipertermi", "Hipotermi"]}
-              value={form.suhuKulit} onChange={(v) => set("suhuKulit", v)}
+              value={form.suhuKulit}
+              onChange={(v) => set("suhuKulit", v)}
             />
           </div>
           {form.traumaLuka === "Ada" && (
@@ -537,11 +749,20 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
           </div>
           <CheckGroup
             label="Tindakan di Area Triase"
-            options={["Pemberian O₂", "IV Line", "Monitor EKG", "NGT", "Kateter", "RJP", "Cairan IV", "Lainnya"]}
-            values={form.tindakanTriase} onChange={(v) => set("tindakanTriase", v)}
+            options={[
+              "Pemberian O₂",
+              "IV Line",
+              "Monitor EKG",
+              "NGT",
+              "Kateter",
+              "RJP",
+              "Cairan IV",
+              "Lainnya",
+            ]}
+            values={form.tindakanTriase}
+            onChange={(v) => set("tindakanTriase", v)}
           />
         </Block>
-
       </div>
 
       {/* Criteria table */}
@@ -565,7 +786,9 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
               <span className={cn("h-2.5 w-2.5 rounded-full", opt.dot)} />
               <p className="text-sm font-bold">{opt.label}</p>
               <p className="text-[11px] font-semibold">{opt.sub}</p>
-              <p className="mt-0.5 px-1 text-[10px] leading-tight opacity-70">{opt.desc}</p>
+              <p className="mt-0.5 px-1 text-[10px] leading-tight opacity-70">
+                {opt.desc}
+              </p>
             </button>
           ))}
         </div>
@@ -603,7 +826,6 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
           Simpan Pengkajian Triase
         </button>
       </div>
-
     </div>
   );
 }

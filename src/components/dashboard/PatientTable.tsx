@@ -3,17 +3,17 @@ import type { Patient, PatientStatus } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
 const STATUS_STYLE: Record<PatientStatus, string> = {
-  Selesai:           "bg-emerald-50 text-emerald-700",
-  Menunggu:          "bg-amber-50 text-amber-700",
+  Selesai: "bg-emerald-50 text-emerald-700",
+  Menunggu: "bg-amber-50 text-amber-700",
   "Dalam Perawatan": "bg-sky-50 text-sky-700",
-  Kritis:            "bg-rose-50 text-rose-700",
+  Kritis: "bg-rose-50 text-rose-700",
 };
 
 const STATUS_DOT: Record<PatientStatus, string> = {
-  Selesai:           "bg-emerald-500",
-  Menunggu:          "bg-amber-500",
+  Selesai: "bg-emerald-500",
+  Menunggu: "bg-amber-500",
   "Dalam Perawatan": "bg-sky-500",
-  Kritis:            "bg-rose-500",
+  Kritis: "bg-rose-500",
 };
 
 interface PatientTableProps {
@@ -36,18 +36,23 @@ export default function PatientTable({ patients }: PatientTableProps) {
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-sm" aria-label="Daftar pasien terbaru">
+        <table
+          className="w-full min-w-160 text-sm"
+          aria-label="Daftar pasien terbaru"
+        >
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50">
-              {["No. RM", "Nama Pasien", "Unit", "Dokter", "Jam", "Status"].map((h) => (
-                <th
-                  key={h}
-                  scope="col"
-                  className="whitespace-nowrap px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500"
-                >
-                  {h}
-                </th>
-              ))}
+              {["No. RM", "Nama Pasien", "Unit", "Dokter", "Jam", "Status"].map(
+                (h) => (
+                  <th
+                    key={h}
+                    scope="col"
+                    className="whitespace-nowrap px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500"
+                  >
+                    {h}
+                  </th>
+                ),
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -64,11 +69,15 @@ export default function PatientTable({ patients }: PatientTableProps) {
                   <p className="font-medium text-slate-800">{p.name}</p>
                   <p className="text-xs text-slate-400">{p.age} tahun</p>
                 </td>
-                <td className="whitespace-nowrap px-5 py-3.5 text-slate-600">{p.unit}</td>
-                <td className="px-5 py-3.5">
-                  <p className="max-w-[200px] truncate text-slate-600">{p.doctor}</p>
+                <td className="whitespace-nowrap px-5 py-3.5 text-slate-600">
+                  {p.unit}
                 </td>
-                <td className="whitespace-nowrap px-5 py-3.5 font-mono text-slate-600">{p.time}</td>
+                <td className="px-5 py-3.5">
+                  <p className="max-w-50 truncate text-slate-600">{p.doctor}</p>
+                </td>
+                <td className="whitespace-nowrap px-5 py-3.5 font-mono text-slate-600">
+                  {p.time}
+                </td>
                 <td className="whitespace-nowrap px-5 py-3.5">
                   <span
                     className={cn(
@@ -76,7 +85,13 @@ export default function PatientTable({ patients }: PatientTableProps) {
                       STATUS_STYLE[p.status],
                     )}
                   >
-                    <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOT[p.status])} aria-hidden="true" />
+                    <span
+                      className={cn(
+                        "h-1.5 w-1.5 rounded-full",
+                        STATUS_DOT[p.status],
+                      )}
+                      aria-hidden="true"
+                    />
                     {p.status}
                   </span>
                 </td>
