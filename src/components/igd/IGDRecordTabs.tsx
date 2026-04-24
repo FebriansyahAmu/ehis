@@ -4,35 +4,44 @@ import { useState } from "react";
 import {
   ClipboardList, HeartPulse, Stethoscope, Tag, FileText, Zap, LogOut,
   Pill, FlaskConical, Radiation, Send, Home,
+  Repeat, HeartHandshake, ScanLine, ClipboardCheck,
   type LucideIcon,
 } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
-import TriaseTab       from "./tabs/TriaseTab";
-import TTVTab          from "./tabs/TTVTab";
-import AsesmenMedisTab from "./tabs/AsesmenMedisTab";
-import DiagnosaTab     from "./tabs/DiagnosaTab";
-import CPPTTab         from "./tabs/CPPTTab";
-import TindakanTab     from "./tabs/TindakanTab";
-import DisposisiTab    from "./tabs/DisposisiTab";
-import ResepPasienTab  from "./tabs/ResepPasienTab";
-import OrderLabTab     from "./tabs/OrderLabTab";
+import TriaseTab        from "./tabs/TriaseTab";
+import TTVTab           from "./tabs/TTVTab";
+import AsesmenMedisTab  from "./tabs/AsesmenMedisTab";
+import DiagnosaTab      from "./tabs/DiagnosaTab";
+import CPPTTab          from "./tabs/CPPTTab";
+import TindakanTab      from "./tabs/TindakanTab";
+import DisposisiTab     from "./tabs/DisposisiTab";
+import ResepPasienTab   from "./tabs/ResepPasienTab";
+import OrderLabTab      from "./tabs/OrderLabTab";
 import OrderRadTab      from "./tabs/OrderRadTab";
 import PasienPulangTab  from "./tabs/PasienPulangTab";
+import RekonsiliasTab   from "./tabs/RekonsiliasTab";
+import KeperawatanTab   from "./tabs/KeperawatanTab";
+import PemeriksaanTab   from "./tabs/PemeriksaanTab";
+import PenilaianTab     from "./tabs/PenilaianTab";
 
 // ── Tab groups ────────────────────────────────────────────
 
 interface TabDef { id: string; label: string; icon: LucideIcon }
 
 const REKAM_MEDIS: TabDef[] = [
-  { id: "triase",    label: "Triase",        icon: ClipboardList },
-  { id: "ttv",       label: "TTV",           icon: HeartPulse    },
-  { id: "asesmen",   label: "Asesmen Medis", icon: Stethoscope   },
-  { id: "diagnosa",  label: "Diagnosa",      icon: Tag           },
-  { id: "cppt",      label: "CPPT / SOAP",   icon: FileText      },
-  { id: "tindakan",  label: "Tindakan IGD",  icon: Zap           },
-  { id: "disposisi", label: "Disposisi",     icon: LogOut        },
+  { id: "triase",        label: "Triase",          icon: ClipboardList  },
+  { id: "ttv",           label: "TTV",             icon: HeartPulse     },
+  { id: "asesmen",       label: "Asesmen Medis",   icon: Stethoscope    },
+  { id: "diagnosa",      label: "Diagnosa",        icon: Tag            },
+  { id: "cppt",          label: "CPPT / SOAP",     icon: FileText       },
+  { id: "tindakan",      label: "Tindakan IGD",    icon: Zap            },
+  { id: "disposisi",     label: "Disposisi",       icon: LogOut         },
+  { id: "rekonsiliasi",  label: "Rekonsiliasi",    icon: Repeat         },
+  { id: "keperawatan",   label: "Keperawatan",     icon: HeartHandshake },
+  { id: "pemeriksaan",   label: "Pemeriksaan",     icon: ScanLine       },
+  { id: "penilaian",     label: "Penilaian",       icon: ClipboardCheck },
 ];
 
 const LAYANAN: TabDef[] = [
@@ -149,17 +158,21 @@ export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }
 
       {/* ── Content ── */}
       <main className="flex-1 overflow-y-auto bg-slate-50 p-4 md:p-5">
-        {active === "triase"    && <TriaseTab       patient={patient} />}
-        {active === "ttv"       && <TTVTab          patient={patient} />}
-        {active === "asesmen"   && <AsesmenMedisTab patient={patient} />}
-        {active === "diagnosa"  && <DiagnosaTab     patient={patient} />}
-        {active === "cppt"      && <CPPTTab         patient={patient} />}
-        {active === "tindakan"  && <TindakanTab     patient={patient} />}
-        {active === "disposisi" && <DisposisiTab    patient={patient} />}
-        {active === "resep"     && <ResepPasienTab  patient={patient} />}
-        {active === "order-lab" && <OrderLabTab     patient={patient} />}
-        {active === "order-rad" && <OrderRadTab     patient={patient} />}
-        {active === "pulang"    && <PasienPulangTab  patient={patient} />}
+        {active === "triase"       && <TriaseTab       patient={patient} />}
+        {active === "ttv"          && <TTVTab          patient={patient} />}
+        {active === "asesmen"      && <AsesmenMedisTab patient={patient} />}
+        {active === "diagnosa"     && <DiagnosaTab     patient={patient} />}
+        {active === "cppt"         && <CPPTTab         patient={patient} />}
+        {active === "tindakan"     && <TindakanTab     patient={patient} />}
+        {active === "disposisi"    && <DisposisiTab    patient={patient} />}
+        {active === "resep"        && <ResepPasienTab  patient={patient} />}
+        {active === "order-lab"    && <OrderLabTab     patient={patient} />}
+        {active === "order-rad"    && <OrderRadTab     patient={patient} />}
+        {active === "pulang"       && <PasienPulangTab patient={patient} />}
+        {active === "rekonsiliasi" && <RekonsiliasTab  patient={patient} />}
+        {active === "keperawatan"  && <KeperawatanTab  patient={patient} />}
+        {active === "pemeriksaan"  && <PemeriksaanTab  patient={patient} />}
+        {active === "penilaian"    && <PenilaianTab    patient={patient} />}
         {["rujukan"].includes(active) && (
           <ComingSoon label={activeTab.label} icon={activeTab.icon} />
         )}
