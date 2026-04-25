@@ -21,6 +21,18 @@ function Label({
   );
 }
 
+type ChipColor = "indigo" | "sky" | "emerald" | "rose" | "violet" | "amber" | "slate";
+
+const CHIP_ACTIVE: Record<ChipColor, string> = {
+  indigo:  "border-indigo-500 bg-indigo-500 text-white shadow-sm",
+  sky:     "border-sky-500 bg-sky-500 text-white shadow-sm",
+  emerald: "border-emerald-500 bg-emerald-500 text-white shadow-sm",
+  rose:    "border-rose-500 bg-rose-500 text-white shadow-sm",
+  violet:  "border-violet-500 bg-violet-500 text-white shadow-sm",
+  amber:   "border-amber-500 bg-amber-500 text-white shadow-sm",
+  slate:   "border-slate-700 bg-slate-700 text-white shadow-sm",
+};
+
 function RadioGroup({
   label,
   options,
@@ -28,6 +40,7 @@ function RadioGroup({
   onChange,
   required,
   cols,
+  color = "indigo",
 }: {
   label: string;
   options: string[];
@@ -35,20 +48,21 @@ function RadioGroup({
   onChange: (v: string) => void;
   required?: boolean;
   cols?: boolean;
+  color?: ChipColor;
 }) {
   return (
     <div>
       <Label required={required}>{label}</Label>
-      <div className={cn("flex flex-wrap gap-1", cols && "grid grid-cols-2")}>
+      <div className={cn("flex flex-wrap gap-1.5", cols && "grid grid-cols-2")}>
         {options.map((opt) => (
           <button
             key={opt}
             type="button"
             onClick={() => onChange(opt)}
             className={cn(
-              "rounded-md border px-2.5 py-1 text-xs font-medium transition",
+              "cursor-pointer rounded-lg border px-2.5 py-1 text-xs font-medium transition-all duration-150",
               value === opt
-                ? "border-indigo-400 bg-indigo-50 text-indigo-700"
+                ? CHIP_ACTIVE[color]
                 : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50",
             )}
           >
@@ -65,11 +79,13 @@ function CheckGroup({
   options,
   values,
   onChange,
+  color = "indigo",
 }: {
   label: string;
   options: string[];
   values: string[];
   onChange: (v: string[]) => void;
+  color?: ChipColor;
 }) {
   const toggle = (opt: string) =>
     onChange(
@@ -78,16 +94,16 @@ function CheckGroup({
   return (
     <div>
       <Label>{label}</Label>
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap gap-1.5">
         {options.map((opt) => (
           <button
             key={opt}
             type="button"
             onClick={() => toggle(opt)}
             className={cn(
-              "rounded-md border px-2.5 py-1 text-xs font-medium transition",
+              "cursor-pointer rounded-lg border px-2.5 py-1 text-xs font-medium transition-all duration-150",
               values.includes(opt)
-                ? "border-indigo-400 bg-indigo-50 text-indigo-700"
+                ? CHIP_ACTIVE[color]
                 : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50",
             )}
           >
@@ -109,6 +125,14 @@ const LETTER_CLS: Record<string, string> = {
   E: "bg-amber-500",
 };
 
+const LETTER_BORDER: Record<string, string> = {
+  A: "border-l-sky-500",
+  B: "border-l-emerald-500",
+  C: "border-l-rose-500",
+  D: "border-l-violet-500",
+  E: "border-l-amber-500",
+};
+
 function Block({
   letter,
   title,
@@ -120,10 +144,14 @@ function Block({
   children: React.ReactNode;
   className?: string;
 }) {
+  const leftBorder = letter
+    ? (LETTER_BORDER[letter] ?? "border-l-indigo-400")
+    : "border-l-indigo-200";
   return (
     <div
       className={cn(
-        "rounded-xl border border-slate-200 bg-white shadow-sm",
+        "rounded-xl border border-slate-200 bg-white shadow-xs border-l-4",
+        leftBorder,
         className,
       )}
     >
@@ -328,40 +356,45 @@ const TRIAGE_OPT: {
   label: string;
   sub: string;
   desc: string;
-  active: string;
-  dot: string;
+  activeCls: string;
+  inactiveDot: string;
+  pulse: boolean;
 }[] = [
   {
     id: "P1",
     label: "P1",
-    sub: "Merah",
-    desc: "Kritis / mengancam jiwa",
-    dot: "bg-rose-500",
-    active: "border-rose-400 bg-rose-50 text-rose-800 shadow-sm",
+    sub: "MERAH",
+    desc: "Kritis · Mengancam jiwa",
+    inactiveDot: "bg-rose-400",
+    activeCls: "border-rose-600 bg-rose-600 text-white shadow-md shadow-rose-200 scale-[1.03]",
+    pulse: true,
   },
   {
     id: "P2",
     label: "P2",
-    sub: "Kuning",
-    desc: "Gawat / segera ditangani",
-    dot: "bg-amber-400",
-    active: "border-amber-400 bg-amber-50 text-amber-800 shadow-sm",
+    sub: "KUNING",
+    desc: "Gawat · Segera ditangani",
+    inactiveDot: "bg-amber-400",
+    activeCls: "border-amber-500 bg-amber-500 text-white shadow-md shadow-amber-200 scale-[1.03]",
+    pulse: false,
   },
   {
     id: "P3",
     label: "P3",
-    sub: "Hijau",
+    sub: "HIJAU",
     desc: "Tidak gawat darurat",
-    dot: "bg-emerald-500",
-    active: "border-emerald-400 bg-emerald-50 text-emerald-800 shadow-sm",
+    inactiveDot: "bg-emerald-500",
+    activeCls: "border-emerald-600 bg-emerald-600 text-white shadow-md shadow-emerald-200 scale-[1.03]",
+    pulse: false,
   },
   {
     id: "P4",
     label: "P4",
-    sub: "Hitam",
-    desc: "Meninggal / harapan sangat kecil",
-    dot: "bg-slate-700",
-    active: "border-slate-500 bg-slate-100 text-slate-800 shadow-sm",
+    sub: "HITAM",
+    desc: "Meninggal · Harapan sangat kecil",
+    inactiveDot: "bg-slate-600",
+    activeCls: "border-slate-800 bg-slate-800 text-white shadow-md shadow-slate-200 scale-[1.03]",
+    pulse: false,
   },
 ];
 
@@ -599,12 +632,14 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
             options={["Bebas / Paten", "Tersumbat Parsial", "Tersumbat Total"]}
             value={form.airwayStatus}
             onChange={(v) => set("airwayStatus", v)}
+            color="sky"
           />
           <CheckGroup
             label="Suara Napas Abnormal"
             options={["Stridor", "Gurgling", "Snoring", "Tidak Ada"]}
             values={form.suaraNapasAbnormal}
             onChange={(v) => set("suaraNapasAbnormal", v)}
+            color="sky"
           />
         </Block>
 
@@ -616,6 +651,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
             options={["Normal", "Sesak / Distress", "Tidak Bernapas"]}
             value={form.breathingQuality}
             onChange={(v) => set("breathingQuality", v)}
+            color="emerald"
           />
           <div className="grid grid-cols-3 gap-2">
             <RadioGroup
@@ -623,18 +659,21 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
               options={["Simetris", "Asimetris"]}
               value={form.pergerakanDada}
               onChange={(v) => set("pergerakanDada", v)}
+              color="emerald"
             />
             <RadioGroup
               label="Otot Bantu"
               options={["Tidak", "Ya"]}
               value={form.ototBantu}
               onChange={(v) => set("ototBantu", v)}
+              color="emerald"
             />
             <RadioGroup
               label="Sianosis"
               options={["Tidak", "Ya"]}
               value={form.sianosis}
               onChange={(v) => set("sianosis", v)}
+              color="emerald"
             />
           </div>
         </Block>
@@ -648,24 +687,28 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
               options={["Teraba", "Tidak Teraba"]}
               value={form.nadiTeraba}
               onChange={(v) => set("nadiTeraba", v)}
+              color="rose"
             />
             <RadioGroup
               label="Kualitas Nadi"
               options={["Kuat & Teratur", "Lemah", "Tidak Teraba"]}
               value={form.kualitasNadi}
               onChange={(v) => set("kualitasNadi", v)}
+              color="rose"
             />
             <RadioGroup
               label="CRT"
               options={["< 2 detik", "≥ 2 detik"]}
               value={form.crt}
               onChange={(v) => set("crt", v)}
+              color="rose"
             />
             <RadioGroup
               label="Kondisi Kulit"
               options={["Hangat & Kering", "Pucat", "Dingin", "Lembab"]}
               value={form.kondisiKulit}
               onChange={(v) => set("kondisiKulit", v)}
+              color="rose"
             />
           </div>
           <RadioGroup
@@ -677,6 +720,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
             ]}
             value={form.perdarahan}
             onChange={(v) => set("perdarahan", v)}
+            color="rose"
           />
         </Block>
 
@@ -688,6 +732,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
             options={["Alert", "Verbal", "Pain", "Unresponsive"]}
             value={form.avpu}
             onChange={(v) => set("avpu", v)}
+            color="violet"
           />
           <div className="grid grid-cols-2 gap-2">
             <RadioGroup
@@ -695,12 +740,14 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
               options={["Isokor", "Anisokor", "Miosis", "Midriasis"]}
               value={form.pupil}
               onChange={(v) => set("pupil", v)}
+              color="violet"
             />
             <RadioGroup
               label="Refleks Cahaya"
               options={["+/+", "+/−", "−/−"]}
               value={form.refleksCahaya}
               onChange={(v) => set("refleksCahaya", v)}
+              color="violet"
             />
           </div>
         </Block>
@@ -713,12 +760,14 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
               options={["Tidak Ada", "Ada"]}
               value={form.traumaLuka}
               onChange={(v) => set("traumaLuka", v)}
+              color="amber"
             />
             <RadioGroup
               label="Suhu Kulit"
               options={["Normal", "Hipertermi", "Hipotermi"]}
               value={form.suhuKulit}
               onChange={(v) => set("suhuKulit", v)}
+              color="amber"
             />
           </div>
           {form.traumaLuka === "Ada" && (
@@ -771,26 +820,43 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
       {/* Keputusan Triase */}
       <Block title="Keputusan Triase">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {TRIAGE_OPT.map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => set("triageLevel", opt.id)}
-              className={cn(
-                "flex flex-col items-center gap-1 rounded-xl border-2 py-3 text-center transition",
-                form.triageLevel === opt.id
-                  ? opt.active
-                  : "border-slate-200 bg-white text-slate-400 opacity-60 hover:opacity-80",
-              )}
-            >
-              <span className={cn("h-2.5 w-2.5 rounded-full", opt.dot)} />
-              <p className="text-sm font-bold">{opt.label}</p>
-              <p className="text-[11px] font-semibold">{opt.sub}</p>
-              <p className="mt-0.5 px-1 text-[10px] leading-tight opacity-70">
-                {opt.desc}
-              </p>
-            </button>
-          ))}
+          {TRIAGE_OPT.map((opt) => {
+            const isActive = form.triageLevel === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => set("triageLevel", opt.id)}
+                className={cn(
+                  "cursor-pointer flex flex-col items-center gap-1.5 rounded-xl border-2 py-3.5 text-center transition-all duration-200",
+                  isActive
+                    ? opt.activeCls
+                    : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
+                )}
+              >
+                <span className="relative flex h-3 w-3">
+                  {opt.pulse && isActive && (
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-60" />
+                  )}
+                  <span
+                    className={cn(
+                      "relative inline-flex h-3 w-3 rounded-full",
+                      isActive ? "bg-white/80" : opt.inactiveDot,
+                    )}
+                  />
+                </span>
+                <p className={cn("text-sm font-black leading-none", isActive ? "text-white" : "text-slate-700")}>
+                  {opt.label}
+                </p>
+                <p className={cn("text-[10px] font-bold tracking-widest", isActive ? "text-white/80" : "text-slate-400")}>
+                  {opt.sub}
+                </p>
+                <p className={cn("px-2 text-[9px] leading-tight", isActive ? "text-white/70" : "text-slate-400")}>
+                  {opt.desc}
+                </p>
+              </button>
+            );
+          })}
         </div>
       </Block>
 

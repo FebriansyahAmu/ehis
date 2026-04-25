@@ -383,3 +383,304 @@ export const igdStats = {
   bedsTotal: 12,
   avgWait: "42 mnt",
 };
+
+// ── Patient Master types ──────────────────────────────────
+
+export type GolonganDarah    = "A" | "B" | "AB" | "O" | "-";
+export type StatusPerkawinan = "Belum Menikah" | "Menikah" | "Janda" | "Duda";
+export type UnitKunjungan    = "IGD" | "Rawat Jalan" | "Rawat Inap" | "Laboratorium" | "Radiologi" | "Farmasi";
+export type StatusTagihan    = "Lunas" | "Belum Lunas" | "Proses Klaim" | "Ditanggung";
+export type TipePenjamin     = "Umum" | "BPJS_Non_PBI" | "BPJS_PBI" | "Asuransi" | "Jamkesda";
+
+export interface PenjaminData {
+  tipe: TipePenjamin;
+  nama: string;
+  nomor?: string;
+  kelas?: "1" | "2" | "3";
+  berlakuSampai?: string;
+  noSEP?: string;
+  noPolis?: string;
+}
+
+export interface KontakDarurat {
+  nama: string;
+  hubungan: string;
+  noHp: string;
+  alamat?: string;
+}
+
+export interface KunjunganRecord {
+  id: string;
+  noKunjungan: string;
+  tanggal: string;
+  unit: UnitKunjungan;
+  dokter: string;
+  keluhan: string;
+  diagnosa: string;
+  status: "Selesai" | "Aktif" | "Dibatalkan";
+  detailPath?: string;
+}
+
+export interface BillingRincian { nama: string; qty: number; harga: number }
+
+export interface BillingRecord {
+  id: string;
+  noTagihan: string;
+  tanggal: string;
+  noKunjungan: string;
+  unit: UnitKunjungan;
+  rincian: BillingRincian[];
+  totalBiaya: number;
+  dibayar: number;
+  status: StatusTagihan;
+  penjamin: string;
+}
+
+export type KategoriItem = "Tindakan" | "Obat" | "Laboratorium" | "Radiologi" | "Akomodasi" | "Lain-lain";
+export type MetodeBayar  = "Tunai" | "Transfer" | "QRIS" | "BPJS" | "Asuransi";
+
+export interface ItemTagihan {
+  id: string;
+  kategori: KategoriItem;
+  nama: string;
+  qty: number;
+  satuan: string;
+  harga: number;
+  tanggal: string;
+}
+
+export interface DepositRecord {
+  id: string;
+  tanggal: string;
+  waktu: string;
+  jumlah: number;
+  metode: MetodeBayar;
+  keterangan?: string;
+  kasir: string;
+}
+
+export interface KasirData {
+  noTagihan: string;
+  noKunjungan: string;
+  tanggal: string;
+  items: ItemTagihan[];
+  deposits: DepositRecord[];
+  penjamin: string;
+  statusPembayaran: StatusTagihan;
+}
+
+export interface PatientMaster {
+  id: string;
+  noRM: string;
+  nik: string;
+  name: string;
+  age: number;
+  gender: "L" | "P";
+  golonganDarah: GolonganDarah;
+  tempatLahir: string;
+  tanggalLahir: string;
+  statusPerkawinan: StatusPerkawinan;
+  agama: string;
+  pekerjaan: string;
+  pendidikan: string;
+  suku: string;
+  kewarganegaraan: string;
+  alamat: string;
+  kelurahan: string;
+  kecamatan: string;
+  kota: string;
+  provinsi: string;
+  kodePos: string;
+  noHp: string;
+  email?: string;
+  idSatusehat?: string;
+  alergi?: string[];
+  penjamin: PenjaminData;
+  kontakDarurat: KontakDarurat;
+  riwayatKunjungan: KunjunganRecord[];
+  billing: BillingRecord[];
+  kasir?: KasirData;
+  terdaftar: string;
+}
+
+// ── Patient Master mock data ──────────────────────────────
+
+export const patientMasterData: Record<string, PatientMaster> = {
+  "RM-2025-005": {
+    id: "RM-2025-005",
+    noRM: "RM-2025-005",
+    nik: "7172050312710003",
+    name: "Joko Prasetyo",
+    age: 55,
+    gender: "L",
+    golonganDarah: "B",
+    tempatLahir: "Kotamobagu",
+    tanggalLahir: "12 Maret 1971",
+    statusPerkawinan: "Menikah",
+    agama: "Islam",
+    pekerjaan: "Wiraswasta",
+    pendidikan: "SMA/Sederajat",
+    suku: "Jawa",
+    kewarganegaraan: "WNI",
+    alamat: "Jl. Merdeka No. 45, Kel. Motoboi Kecil",
+    kelurahan: "Motoboi Kecil",
+    kecamatan: "Kotamobagu Barat",
+    kota: "Kotamobagu",
+    provinsi: "Sulawesi Utara",
+    kodePos: "95711",
+    noHp: "081234567890",
+    email: "joko.prasetyo@email.com",
+    idSatusehat: "P02029S00001234",
+    alergi: ["Penisilin", "Aspirin"],
+    terdaftar: "15 Januari 2020",
+    penjamin: {
+      tipe: "BPJS_Non_PBI",
+      nama: "BPJS Kesehatan Non-PBI",
+      nomor: "0001234567890",
+      kelas: "2",
+      berlakuSampai: "31 Desember 2026",
+      noSEP: "0000000001100001",
+    },
+    kontakDarurat: {
+      nama: "Sartini",
+      hubungan: "Istri",
+      noHp: "081298765432",
+      alamat: "Jl. Merdeka No. 45, Kel. Motoboi Kecil, Kec. Kotamobagu Barat",
+    },
+    riwayatKunjungan: [
+      { id: "k1", noKunjungan: "IGD/2026/04/0023",  tanggal: "14 Apr 2026", unit: "IGD",           dokter: "dr. Hendra Wijaya, Sp.EM",  keluhan: "Nyeri dada hebat, sesak napas, keringat dingin",  diagnosa: "NSTEMI + Syok Kardiogenik",    status: "Aktif",   detailPath: "/ehis-care/igd/igd-1" },
+      { id: "k2", noKunjungan: "RJ/2026/02/1203",   tanggal: "20 Feb 2026", unit: "Rawat Jalan",   dokter: "dr. Anisa Putri, Sp.PD",    keluhan: "Kontrol hipertensi dan dislipidemia",            diagnosa: "Hipertensi, Dislipidemia",      status: "Selesai"  },
+      { id: "k3", noKunjungan: "RI/2025/11/0089",   tanggal: "05 Nov 2025", unit: "Rawat Inap",    dokter: "dr. Dewi Kusuma, Sp.JP",    keluhan: "Nyeri dada, sesak napas",                        diagnosa: "Unstable Angina Pectoris",      status: "Selesai"  },
+      { id: "k4", noKunjungan: "RJ/2025/09/0876",   tanggal: "18 Sep 2025", unit: "Rawat Jalan",   dokter: "dr. Anisa Putri, Sp.PD",    keluhan: "Kontrol rutin PJK",                              diagnosa: "PJK, Hipertensi, Dislipidemia", status: "Selesai"  },
+      { id: "k5", noKunjungan: "LAB/2025/09/0441",  tanggal: "18 Sep 2025", unit: "Laboratorium",  dokter: "dr. Anisa Putri, Sp.PD",    keluhan: "Pemeriksaan lab rutin",                          diagnosa: "Profil lipid terkontrol",       status: "Selesai"  },
+      { id: "k6", noKunjungan: "RAD/2025/11/0201",  tanggal: "06 Nov 2025", unit: "Radiologi",     dokter: "dr. Dewi Kusuma, Sp.JP",    keluhan: "Foto thorax pre-op",                             diagnosa: "Cardiomegaly ringan",           status: "Selesai"  },
+    ],
+    billing: [
+      {
+        id: "b1", noTagihan: "INV/2026/04/0023", tanggal: "14 Apr 2026", noKunjungan: "IGD/2026/04/0023", unit: "IGD",
+        rincian: [
+          { nama: "Tindakan IGD",                    qty: 1, harga: 150000 },
+          { nama: "EKG 12 Lead",                     qty: 1, harga: 75000  },
+          { nama: "Pemeriksaan Darah Lengkap",        qty: 1, harga: 120000 },
+          { nama: "Troponin I Kuantitatif",           qty: 1, harga: 250000 },
+          { nama: "Obat-obatan IGD",                 qty: 1, harga: 180000 },
+        ],
+        totalBiaya: 775000, dibayar: 0, status: "Proses Klaim", penjamin: "BPJS Kesehatan",
+      },
+      {
+        id: "b2", noTagihan: "INV/2026/02/1203", tanggal: "20 Feb 2026", noKunjungan: "RJ/2026/02/1203", unit: "Rawat Jalan",
+        rincian: [
+          { nama: "Konsultasi Rawat Jalan Spesialis", qty: 1, harga: 50000 },
+          { nama: "Resep Obat Rutin (30 hari)",       qty: 1, harga: 95000 },
+        ],
+        totalBiaya: 145000, dibayar: 145000, status: "Ditanggung", penjamin: "BPJS Kesehatan",
+      },
+      {
+        id: "b3", noTagihan: "INV/2025/11/0089", tanggal: "05 Nov 2025", noKunjungan: "RI/2025/11/0089", unit: "Rawat Inap",
+        rincian: [
+          { nama: "Rawat Inap Kelas II (3 hari)",    qty: 3, harga: 300000 },
+          { nama: "Tindakan Medis Kardiologi",        qty: 1, harga: 450000 },
+          { nama: "Laboratorium",                    qty: 1, harga: 320000 },
+          { nama: "Obat-obatan",                     qty: 1, harga: 280000 },
+        ],
+        totalBiaya: 1950000, dibayar: 1950000, status: "Ditanggung", penjamin: "BPJS Kesehatan",
+      },
+    ],
+    kasir: {
+      noTagihan: "INV/2026/04/0023",
+      noKunjungan: "IGD/2026/04/0023",
+      tanggal: "14 Apr 2026",
+      penjamin: "BPJS Kesehatan Non-PBI",
+      statusPembayaran: "Proses Klaim",
+      items: [
+        { id: "i01", kategori: "Tindakan",     nama: "Tindakan IGD Rawat",           qty: 1, satuan: "Kali",  harga: 150000, tanggal: "14 Apr 2026" },
+        { id: "i02", kategori: "Tindakan",     nama: "EKG 12 Lead",                  qty: 1, satuan: "Kali",  harga: 75000,  tanggal: "14 Apr 2026" },
+        { id: "i03", kategori: "Tindakan",     nama: "Pemasangan IV Line",            qty: 2, satuan: "Kali",  harga: 45000,  tanggal: "14 Apr 2026" },
+        { id: "i04", kategori: "Tindakan",     nama: "Pemberian O2 via NRM",          qty: 1, satuan: "Kali",  harga: 50000,  tanggal: "14 Apr 2026" },
+        { id: "i05", kategori: "Laboratorium", nama: "Darah Lengkap",                qty: 1, satuan: "Panel", harga: 120000, tanggal: "14 Apr 2026" },
+        { id: "i06", kategori: "Laboratorium", nama: "Troponin I Kuantitatif",        qty: 1, satuan: "Tes",   harga: 250000, tanggal: "14 Apr 2026" },
+        { id: "i07", kategori: "Laboratorium", nama: "BMP / Kimia Darah",             qty: 1, satuan: "Panel", harga: 185000, tanggal: "14 Apr 2026" },
+        { id: "i08", kategori: "Obat",         nama: "Aspirin 300mg tab",             qty: 1, satuan: "Tab",   harga: 2500,   tanggal: "14 Apr 2026" },
+        { id: "i09", kategori: "Obat",         nama: "Clopidogrel 75mg tab",          qty: 4, satuan: "Tab",   harga: 8500,   tanggal: "14 Apr 2026" },
+        { id: "i10", kategori: "Obat",         nama: "Morfin 10mg/mL inj",            qty: 1, satuan: "Amp",   harga: 45000,  tanggal: "14 Apr 2026" },
+        { id: "i11", kategori: "Obat",         nama: "NaCl 0.9% 500mL",              qty: 2, satuan: "Flak",  harga: 25000,  tanggal: "14 Apr 2026" },
+        { id: "i12", kategori: "Obat",         nama: "Infus set",                    qty: 2, satuan: "Set",   harga: 15000,  tanggal: "14 Apr 2026" },
+        { id: "i13", kategori: "Akomodasi",    nama: "Jasa Pelayanan IGD",           qty: 1, satuan: "Hari",  harga: 100000, tanggal: "14 Apr 2026" },
+        { id: "i14", kategori: "Akomodasi",    nama: "Penggunaan Ruang Resusitasi",  qty: 1, satuan: "Hari",  harga: 150000, tanggal: "14 Apr 2026" },
+      ],
+      deposits: [
+        { id: "dp1", tanggal: "14 Apr 2026", waktu: "11:05", jumlah: 200000, metode: "Tunai",    keterangan: "Deposit awal keluarga pasien", kasir: "Kasir 1 - Rina Marlina" },
+        { id: "dp2", tanggal: "14 Apr 2026", waktu: "14:30", jumlah: 300000, metode: "Transfer", keterangan: "Transfer BCA a/n Sartini",     kasir: "Kasir 2 - Doni Kurnia"  },
+      ],
+    },
+  },
+  "RM-2025-012": {
+    id: "RM-2025-012",
+    noRM: "RM-2025-012",
+    nik: "7172056207880012",
+    name: "Kartini Wulandari",
+    age: 38,
+    gender: "P",
+    golonganDarah: "A",
+    tempatLahir: "Manado",
+    tanggalLahir: "22 Juli 1988",
+    statusPerkawinan: "Menikah",
+    agama: "Kristen",
+    pekerjaan: "Ibu Rumah Tangga",
+    pendidikan: "D3",
+    suku: "Minahasa",
+    kewarganegaraan: "WNI",
+    alamat: "Jl. Veteran No. 12",
+    kelurahan: "Matali",
+    kecamatan: "Kotamobagu Barat",
+    kota: "Kotamobagu",
+    provinsi: "Sulawesi Utara",
+    kodePos: "95711",
+    noHp: "085678901234",
+    idSatusehat: "P02029S00001235",
+    alergi: ["Sulfonamida"],
+    terdaftar: "3 Maret 2022",
+    penjamin: {
+      tipe: "Umum",
+      nama: "Umum / Mandiri",
+    },
+    kontakDarurat: {
+      nama: "Andi Wulandari",
+      hubungan: "Suami",
+      noHp: "081290123456",
+      alamat: "Jl. Veteran No. 12, Kel. Matali",
+    },
+    riwayatKunjungan: [
+      { id: "k1", noKunjungan: "IGD/2026/04/0024", tanggal: "14 Apr 2026", unit: "IGD",         dokter: "dr. Hendra Wijaya, Sp.EM", keluhan: "Penurunan kesadaran, GCS 10",  diagnosa: "Hipoglikemia berat", status: "Aktif",  detailPath: "/ehis-care/igd/igd-2" },
+      { id: "k2", noKunjungan: "RJ/2026/01/0521",  tanggal: "10 Jan 2026", unit: "Rawat Jalan", dokter: "dr. Anisa Putri, Sp.PD",   keluhan: "Kontrol DM tipe 2",           diagnosa: "DM Tipe 2",          status: "Selesai" },
+    ],
+    billing: [
+      {
+        id: "b1", noTagihan: "INV/2026/04/0024", tanggal: "14 Apr 2026", noKunjungan: "IGD/2026/04/0024", unit: "IGD",
+        rincian: [
+          { nama: "Tindakan IGD",                    qty: 1, harga: 150000 },
+          { nama: "Pemeriksaan GDS",                 qty: 3, harga: 25000  },
+          { nama: "Dextrose 40% IV",                 qty: 2, harga: 35000  },
+          { nama: "Infus D10% + set infus",          qty: 1, harga: 85000  },
+        ],
+        totalBiaya: 380000, dibayar: 0, status: "Belum Lunas", penjamin: "Umum / Mandiri",
+      },
+    ],
+    kasir: {
+      noTagihan: "INV/2026/04/0024",
+      noKunjungan: "IGD/2026/04/0024",
+      tanggal: "14 Apr 2026",
+      penjamin: "Umum / Mandiri",
+      statusPembayaran: "Belum Lunas",
+      items: [
+        { id: "i01", kategori: "Tindakan",     nama: "Tindakan IGD Rawat",    qty: 1, satuan: "Kali",  harga: 150000, tanggal: "14 Apr 2026" },
+        { id: "i02", kategori: "Laboratorium", nama: "Pemeriksaan GDS",       qty: 3, satuan: "Tes",   harga: 25000,  tanggal: "14 Apr 2026" },
+        { id: "i03", kategori: "Obat",         nama: "Dextrose 40% inj",      qty: 2, satuan: "Flak",  harga: 35000,  tanggal: "14 Apr 2026" },
+        { id: "i04", kategori: "Obat",         nama: "Infus D10% 500mL",      qty: 1, satuan: "Flak",  harga: 55000,  tanggal: "14 Apr 2026" },
+        { id: "i05", kategori: "Obat",         nama: "Infus set",             qty: 1, satuan: "Set",   harga: 15000,  tanggal: "14 Apr 2026" },
+        { id: "i06", kategori: "Akomodasi",    nama: "Jasa Pelayanan IGD",    qty: 1, satuan: "Hari",  harga: 100000, tanggal: "14 Apr 2026" },
+      ],
+      deposits: [],
+    },
+  },
+};

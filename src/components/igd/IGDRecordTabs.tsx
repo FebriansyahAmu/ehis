@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ClipboardList, HeartPulse, Stethoscope, Tag, FileText, Zap, LogOut,
   Pill, FlaskConical, Radiation, Send, Home,
@@ -79,16 +80,20 @@ function NavItem({ tab, active, onClick }: { tab: TabDef; active: boolean; onCli
     <button
       onClick={onClick}
       className={cn(
-        "mx-2 flex w-[calc(100%-16px)] items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium transition",
+        "mx-2 flex w-[calc(100%-16px)] cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-all duration-150",
         active
-          ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200/80"
-          : "text-slate-500 hover:bg-white/60 hover:text-slate-800",
+          ? "bg-emerald-600 text-white shadow-sm shadow-emerald-200"
+          : "text-slate-500 hover:bg-emerald-50 hover:text-emerald-700",
       )}
       aria-current={active ? "page" : undefined}
     >
-      <Icon size={14} className={active ? "text-indigo-500" : "text-slate-400"} aria-hidden="true" />
+      <Icon
+        size={14}
+        className={cn("shrink-0", active ? "text-white/90" : "text-slate-400")}
+        aria-hidden="true"
+      />
       <span className="truncate">{tab.label}</span>
-      {active && <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" />}
+      {active && <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-white/60" />}
     </button>
   );
 }
@@ -114,14 +119,14 @@ export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }
               key={tab.id}
               onClick={() => setActive(tab.id)}
               className={cn(
-                "my-1.5 flex shrink-0 flex-col items-center gap-1 rounded-lg px-3 py-2 text-[10px] font-semibold transition",
+                "my-1.5 flex shrink-0 flex-col items-center gap-1 rounded-lg px-3 py-2 text-[10px] font-semibold transition-all duration-150",
                 active === tab.id
-                  ? "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200"
-                  : "text-slate-400 hover:bg-slate-50 hover:text-slate-600",
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-slate-400 hover:bg-indigo-50 hover:text-indigo-600",
               )}
               aria-current={active === tab.id ? "page" : undefined}
             >
-              <Icon size={14} aria-hidden="true" />
+              <Icon size={13} aria-hidden="true" />
               {tab.label}
             </button>
           );
@@ -130,12 +135,25 @@ export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }
 
       {/* ── Desktop: vertical left nav ── */}
       <nav
-        className="hidden w-44 shrink-0 overflow-y-auto border-r border-slate-200 bg-white py-3 md:flex md:flex-col md:gap-3"
+        className="hidden w-56 shrink-0 overflow-y-auto border-r border-slate-200 bg-white py-3 md:flex md:flex-col md:gap-0"
         aria-label="Navigasi rekam medis"
       >
+        {/* Branded header */}
+        <div className="px-3 pb-3">
+          <div className="flex items-center gap-2.5 rounded-xl bg-indigo-600 px-3 py-2.5 shadow-sm">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/15">
+              <ClipboardList size={13} className="text-white" />
+            </div>
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-indigo-200">Formulir</p>
+              <p className="text-xs font-bold leading-none text-white">Rekam Medis</p>
+            </div>
+          </div>
+        </div>
+
         {/* Rekam Medis group */}
-        <div>
-          <p className="mb-1 px-4 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+        <div className="mb-2">
+          <p className="mb-1 px-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">
             Rekam Medis
           </p>
           {REKAM_MEDIS.map((tab) => (
@@ -143,39 +161,51 @@ export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }
           ))}
         </div>
 
-        <hr className="mx-4 border-slate-100" />
+        {/* Divider */}
+        <div className="mx-3 mb-2 flex items-center gap-2">
+          <div className="h-px flex-1 bg-slate-100" />
+          <span className="text-[9px] font-bold uppercase tracking-widest text-slate-300">Layanan</span>
+          <div className="h-px flex-1 bg-slate-100" />
+        </div>
 
         {/* Layanan group */}
         <div>
-          <p className="mb-1 px-4 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-            Layanan
-          </p>
           {LAYANAN.map((tab) => (
             <NavItem key={tab.id} tab={tab} active={active === tab.id} onClick={() => setActive(tab.id)} />
           ))}
         </div>
       </nav>
 
-      {/* ── Content ── */}
+      {/* ── Content with smooth fade transition ── */}
       <main className="flex-1 overflow-y-auto bg-slate-50 p-4 md:p-5">
-        {active === "triase"       && <TriaseTab       patient={patient} />}
-        {active === "ttv"          && <TTVTab          patient={patient} />}
-        {active === "asesmen"      && <AsesmenMedisTab patient={patient} />}
-        {active === "diagnosa"     && <DiagnosaTab     patient={patient} />}
-        {active === "cppt"         && <CPPTTab         patient={patient} />}
-        {active === "tindakan"     && <TindakanTab     patient={patient} />}
-        {active === "disposisi"    && <DisposisiTab    patient={patient} />}
-        {active === "resep"        && <ResepPasienTab  patient={patient} />}
-        {active === "order-lab"    && <OrderLabTab     patient={patient} />}
-        {active === "order-rad"    && <OrderRadTab     patient={patient} />}
-        {active === "pulang"       && <PasienPulangTab patient={patient} />}
-        {active === "rekonsiliasi" && <RekonsiliasTab  patient={patient} />}
-        {active === "keperawatan"  && <KeperawatanTab  patient={patient} />}
-        {active === "pemeriksaan"  && <PemeriksaanTab  patient={patient} />}
-        {active === "penilaian"    && <PenilaianTab    patient={patient} />}
-        {["rujukan"].includes(active) && (
-          <ComingSoon label={activeTab.label} icon={activeTab.icon} />
-        )}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={active}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+          >
+            {active === "triase"       && <TriaseTab       patient={patient} />}
+            {active === "ttv"          && <TTVTab          patient={patient} />}
+            {active === "asesmen"      && <AsesmenMedisTab patient={patient} />}
+            {active === "diagnosa"     && <DiagnosaTab     patient={patient} />}
+            {active === "cppt"         && <CPPTTab         patient={patient} />}
+            {active === "tindakan"     && <TindakanTab     patient={patient} />}
+            {active === "disposisi"    && <DisposisiTab    patient={patient} />}
+            {active === "resep"        && <ResepPasienTab  patient={patient} />}
+            {active === "order-lab"    && <OrderLabTab     patient={patient} />}
+            {active === "order-rad"    && <OrderRadTab     patient={patient} />}
+            {active === "pulang"       && <PasienPulangTab patient={patient} />}
+            {active === "rekonsiliasi" && <RekonsiliasTab  patient={patient} />}
+            {active === "keperawatan"  && <KeperawatanTab  patient={patient} />}
+            {active === "pemeriksaan"  && <PemeriksaanTab  patient={patient} />}
+            {active === "penilaian"    && <PenilaianTab    patient={patient} />}
+            {active === "rujukan"      && (
+              <ComingSoon label={activeTab.label} icon={activeTab.icon} />
+            )}
+          </motion.div>
+        </AnimatePresence>
       </main>
     </div>
   );
