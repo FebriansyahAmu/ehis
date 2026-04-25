@@ -29,6 +29,11 @@ export interface IGDPatient {
   waitDuration: string;
   doctor: string;
   notes?: string;
+  bed?: {
+    nomor: string;
+    ruangan: string;
+    kategori: "BEDAH" | "NON_BEDAH" | "IRDA" | "IRDO";
+  };
 }
 
 export interface StatCard {
@@ -90,6 +95,7 @@ export const igdPatients: IGDPatient[] = [
     waitDuration: "2 jam 15 mnt",
     doctor: "dr. Hendra Wijaya, Sp.EM",
     notes: "Riwayat jantung koroner, perlu EKG segera",
+    bed: { nomor: "IRDA-1", ruangan: "Ruang IRDA", kategori: "IRDA" },
   },
   {
     id: "igd-2",
@@ -104,6 +110,7 @@ export const igdPatients: IGDPatient[] = [
     waitDuration: "1 jam 32 mnt",
     doctor: "dr. Hendra Wijaya, Sp.EM",
     notes: "Gula darah 45 mg/dL saat tiba",
+    bed: { nomor: "IRDA-2", ruangan: "Ruang IRDA", kategori: "IRDA" },
   },
   {
     id: "igd-3",
@@ -113,10 +120,11 @@ export const igdPatients: IGDPatient[] = [
     gender: "P",
     triage: "P2",
     status: "Observasi",
-    complaint: "Patah tulang lengan kanan akibat kecelakaan lalu lintas",
+    complaint: "Patah tulang lenang kanan akibat kecelakaan lalu lintas",
     arrivalTime: "09:15",
     waitDuration: "3 jam 22 mnt",
     doctor: "dr. Rizal Akbar, Sp.OT",
+    bed: { nomor: "M1", ruangan: "R. Bedah Mayor", kategori: "BEDAH" },
   },
   {
     id: "igd-4",
@@ -131,6 +139,7 @@ export const igdPatients: IGDPatient[] = [
     waitDuration: "49 mnt",
     doctor: "dr. Anisa Putri, Sp.PD",
     notes: "Saturasi O2 88%, perlu nebulisasi",
+    bed: { nomor: "A1", ruangan: "R. Non Bedah A", kategori: "NON_BEDAH" },
   },
   {
     id: "igd-5",
@@ -144,6 +153,7 @@ export const igdPatients: IGDPatient[] = [
     arrivalTime: "12:10",
     waitDuration: "27 mnt",
     doctor: "dr. Hendra Wijaya, Sp.EM",
+    bed: { nomor: "A2", ruangan: "R. Non Bedah A", kategori: "NON_BEDAH" },
   },
   {
     id: "igd-6",
@@ -157,6 +167,7 @@ export const igdPatients: IGDPatient[] = [
     arrivalTime: "11:30",
     waitDuration: "1 jam 7 mnt",
     doctor: "dr. Rizal Akbar, Sp.OT",
+    bed: { nomor: "B1", ruangan: "R. Bedah Minor", kategori: "BEDAH" },
   },
   {
     id: "igd-7",
@@ -170,6 +181,7 @@ export const igdPatients: IGDPatient[] = [
     arrivalTime: "09:45",
     waitDuration: "Selesai",
     doctor: "dr. Anisa Putri, Sp.PD",
+    bed: { nomor: "B1", ruangan: "R. Non Bedah B", kategori: "NON_BEDAH" },
   },
   {
     id: "igd-8",
@@ -183,6 +195,7 @@ export const igdPatients: IGDPatient[] = [
     arrivalTime: "12:00",
     waitDuration: "37 mnt",
     doctor: "dr. Dewi Kusuma, Sp.JP",
+    bed: { nomor: "B2", ruangan: "R. Non Bedah B", kategori: "NON_BEDAH" },
   },
 ];
 
@@ -383,6 +396,112 @@ export const igdStats = {
   bedsTotal: 12,
   avgWait: "42 mnt",
 };
+
+// ── IGD Room Classification types ─────────────────────────
+
+export type IGDKategoriRuangan = "BEDAH" | "NON_BEDAH" | "IRDA" | "IRDO";
+export type BedStatus = "Tersedia" | "Terisi" | "Maintenance";
+
+export interface IGDBed {
+  id: string;
+  nomor: string;
+  status: BedStatus;
+  pasienNama?: string;
+  pasienRM?: string;
+  triage?: TriageLevel;
+  masukSejak?: string;
+}
+
+export interface IGDRuangan {
+  id: string;
+  nama: string;
+  kategori: IGDKategoriRuangan;
+  beds: IGDBed[];
+}
+
+export const igdRuangan: IGDRuangan[] = [
+  // ── BEDAH ────────────────────────────────────────────────
+  {
+    id: "bedah-minor",
+    nama: "R. Bedah Minor",
+    kategori: "BEDAH",
+    beds: [
+      { id: "bm1", nomor: "B1", status: "Terisi",   pasienNama: "Bambang Nugroho",  pasienRM: "RM-2025-009", triage: "P3", masukSejak: "11:30" },
+      { id: "bm2", nomor: "B2", status: "Terisi",   pasienNama: "Ari Susanto",      pasienRM: "RM-2025-044", triage: "P2", masukSejak: "10:15" },
+      { id: "bm3", nomor: "B3", status: "Tersedia" },
+      { id: "bm4", nomor: "B4", status: "Tersedia" },
+    ],
+  },
+  {
+    id: "bedah-mayor",
+    nama: "R. Bedah Mayor",
+    kategori: "BEDAH",
+    beds: [
+      { id: "bM1", nomor: "M1", status: "Terisi",     pasienNama: "Siti Rahayu",    pasienRM: "RM-2025-002", triage: "P2", masukSejak: "09:15" },
+      { id: "bM2", nomor: "M2", status: "Terisi",     pasienNama: "Farhan Maulana", pasienRM: "RM-2025-051", triage: "P1", masukSejak: "08:45" },
+      { id: "bM3", nomor: "M3", status: "Tersedia" },
+      { id: "bM4", nomor: "M4", status: "Maintenance" },
+    ],
+  },
+  // ── NON BEDAH ─────────────────────────────────────────────
+  {
+    id: "nonbedah-a",
+    nama: "R. Non Bedah A",
+    kategori: "NON_BEDAH",
+    beds: [
+      { id: "na1", nomor: "A1", status: "Terisi",   pasienNama: "Darmawan Santoso", pasienRM: "RM-2025-018", triage: "P2", masukSejak: "11:48" },
+      { id: "na2", nomor: "A2", status: "Terisi",   pasienNama: "Mega Lestari",     pasienRM: "RM-2025-021", triage: "P2", masukSejak: "12:10" },
+      { id: "na3", nomor: "A3", status: "Tersedia" },
+      { id: "na4", nomor: "A4", status: "Tersedia" },
+    ],
+  },
+  {
+    id: "nonbedah-b",
+    nama: "R. Non Bedah B",
+    kategori: "NON_BEDAH",
+    beds: [
+      { id: "nb1", nomor: "B1", status: "Terisi",   pasienNama: "Nurul Hidayah",    pasienRM: "RM-2025-033", triage: "P3", masukSejak: "09:45" },
+      { id: "nb2", nomor: "B2", status: "Terisi",   pasienNama: "Hendra Kurniawan", pasienRM: "RM-2025-041", triage: "P3", masukSejak: "12:00" },
+      { id: "nb3", nomor: "B3", status: "Terisi",   pasienNama: "Lina Marliana",    pasienRM: "RM-2025-058", triage: "P3", masukSejak: "10:55" },
+      { id: "nb4", nomor: "B4", status: "Tersedia" },
+    ],
+  },
+  {
+    id: "nonbedah-c",
+    nama: "R. Non Bedah C",
+    kategori: "NON_BEDAH",
+    beds: [
+      { id: "nc1", nomor: "C1", status: "Terisi",   pasienNama: "Rudi Hermawan",    pasienRM: "RM-2025-062", triage: "P2", masukSejak: "07:30" },
+      { id: "nc2", nomor: "C2", status: "Tersedia" },
+      { id: "nc3", nomor: "C3", status: "Tersedia" },
+      { id: "nc4", nomor: "C4", status: "Tersedia" },
+    ],
+  },
+  // ── IRDA ──────────────────────────────────────────────────
+  {
+    id: "irda-1",
+    nama: "Ruang IRDA",
+    kategori: "IRDA",
+    beds: [
+      { id: "irda1", nomor: "IRDA-1", status: "Terisi",   pasienNama: "Joko Prasetyo",     pasienRM: "RM-2025-005", triage: "P1", masukSejak: "10:22" },
+      { id: "irda2", nomor: "IRDA-2", status: "Terisi",   pasienNama: "Kartini Wulandari", pasienRM: "RM-2025-012", triage: "P1", masukSejak: "11:05" },
+      { id: "irda3", nomor: "IRDA-3", status: "Terisi",   pasienNama: "Wahyu Santoso",     pasienRM: "RM-2025-067", triage: "P1", masukSejak: "09:30" },
+      { id: "irda4", nomor: "IRDA-4", status: "Tersedia" },
+    ],
+  },
+  // ── IRDO ──────────────────────────────────────────────────
+  {
+    id: "irdo-1",
+    nama: "Ruang IRDO",
+    kategori: "IRDO",
+    beds: [
+      { id: "irdo1", nomor: "IRDO-1", status: "Terisi",   pasienNama: "Agus Prasetyo", pasienRM: "RM-2025-071", triage: "P2", masukSejak: "08:15" },
+      { id: "irdo2", nomor: "IRDO-2", status: "Terisi",   pasienNama: "Sri Mulyani",   pasienRM: "RM-2025-073", triage: "P1", masukSejak: "07:45" },
+      { id: "irdo3", nomor: "IRDO-3", status: "Tersedia" },
+      { id: "irdo4", nomor: "IRDO-4", status: "Tersedia" },
+    ],
+  },
+];
 
 // ── Patient Master types ──────────────────────────────────
 

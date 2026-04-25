@@ -2,7 +2,8 @@ import { Siren, BedDouble, Clock, Users } from "lucide-react";
 import type { Metadata } from "next";
 
 import IGDBoard from "@/components/igd/IGDBoard";
-import { igdPatients, igdStats } from "@/lib/data";
+import IGDRuanganPanel from "@/components/igd/IGDRuanganPanel";
+import { igdPatients, igdStats, igdRuangan } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "IGD" };
@@ -129,8 +130,13 @@ export default function IGDPage() {
         </span>
       </div>
 
+      {/* Room classification panel */}
+      <section className="animate-fade-in" style={{ animationDelay: "160ms" }}>
+        <IGDRuanganPanel ruangan={igdRuangan} />
+      </section>
+
       {/* Board */}
-      <div className="animate-fade-in" style={{ animationDelay: "160ms" }}>
+      <div className="animate-fade-in" style={{ animationDelay: "220ms" }}>
         <IGDBoard patients={igdPatients} />
       </div>
     </div>

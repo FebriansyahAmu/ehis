@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Clock, Stethoscope, FileText, ArrowRight } from "lucide-react";
+import { Clock, Stethoscope, FileText, ArrowRight, BedDouble } from "lucide-react";
 import type { IGDPatient, TriageLevel, IGDStatus } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +42,20 @@ const STATUS: Record<IGDStatus, string> = {
   Selesai:            "bg-emerald-50 text-emerald-700",
 };
 
+// ── Ruangan config ────────────────────────────────────────
+
+type BedKategori = "BEDAH" | "NON_BEDAH" | "IRDA" | "IRDO";
+
+const RUANGAN_CFG: Record<BedKategori, {
+  badge: string; dot: string; label: string;
+  strip: string; icon: string;
+}> = {
+  BEDAH:     { badge: "bg-rose-100 text-rose-700 ring-1 ring-rose-200",   dot: "bg-rose-500",   label: "BEDAH",     strip: "bg-rose-50 border-rose-100",   icon: "text-rose-400"   },
+  NON_BEDAH: { badge: "bg-sky-100 text-sky-700 ring-1 ring-sky-200",      dot: "bg-sky-500",    label: "NON BEDAH", strip: "bg-sky-50 border-sky-100",     icon: "text-sky-400"    },
+  IRDA:      { badge: "bg-amber-100 text-amber-700 ring-1 ring-amber-200", dot: "bg-amber-500",  label: "IRDA",      strip: "bg-amber-50 border-amber-100", icon: "text-amber-400"  },
+  IRDO:      { badge: "bg-teal-100 text-teal-700 ring-1 ring-teal-200",   dot: "bg-teal-500",   label: "IRDO",      strip: "bg-teal-50 border-teal-100",   icon: "text-teal-400"   },
+};
+
 // ── Component ─────────────────────────────────────────────
 
 interface PatientCardProps {
@@ -51,6 +65,7 @@ interface PatientCardProps {
 
 export default function PatientCard({ patient, index = 0 }: PatientCardProps) {
   const triage = TRIAGE[patient.triage];
+  const bedCfg = patient.bed ? RUANGAN_CFG[patient.bed.kategori] : null;
 
   return (
     <article
@@ -63,9 +78,7 @@ export default function PatientCard({ patient, index = 0 }: PatientCardProps) {
     >
       {/* Row 1 — triage + status */}
       <div className="flex items-center justify-between gap-2">
-        <span
-          className={cn("inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-semibold", triage.badge)}
-        >
+        <span className={cn("inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-semibold", triage.badge)}>
           <span className={cn("h-1.5 w-1.5 rounded-full", triage.dot)} aria-hidden="true" />
           {triage.label}
         </span>
@@ -87,7 +100,32 @@ export default function PatientCard({ patient, index = 0 }: PatientCardProps) {
       {/* Divider */}
       <hr className="border-slate-100" />
 
-      {/* Row 3 — complaint */}
+      {/* Row 3 — ruangan */}
+      {bedCfg && patient.bed ? (
+        <div className={cn(
+          "group flex items-center gap-2.5 rounded-lg border px-3 py-2 transition-all duration-150",
+          bedCfg.strip,
+          "hover:shadow-xs",
+        )}>
+          <BedDouble size={13} className={cn("shrink-0 transition-transform duration-150 group-hover:scale-110", bedCfg.icon)} aria-hidden="true" />
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <span className={cn("shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-black tracking-wider", bedCfg.badge)}>
+              {bedCfg.label}
+            </span>
+            <span className="text-[11px] font-bold text-slate-700">{patient.bed.nomor}</span>
+            <span className="mx-0.5 text-slate-300">·</span>
+            <span className="truncate text-[10px] text-slate-500">{patient.bed.ruangan}</span>
+          </div>
+          <span className={cn("h-1.5 w-1.5 shrink-0 animate-pulse rounded-full", bedCfg.dot)} />
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 rounded-lg border border-dashed border-slate-200 px-3 py-2">
+          <BedDouble size={12} className="shrink-0 text-slate-300" aria-hidden="true" />
+          <span className="text-[11px] text-slate-400">Belum ditentukan ruangan</span>
+        </div>
+      )}
+
+      {/* Row 4 — complaint */}
       <div className="flex items-start gap-2">
         <FileText size={13} className="mt-0.5 shrink-0 text-slate-400" aria-hidden="true" />
         <p className="text-sm text-slate-600 leading-snug line-clamp-2">{patient.complaint}</p>
@@ -99,7 +137,7 @@ export default function PatientCard({ patient, index = 0 }: PatientCardProps) {
         </p>
       )}
 
-      {/* Row 4 — doctor + time */}
+      {/* Row 5 — doctor + time */}
       <div className="flex items-center justify-between gap-2 pt-0.5">
         <div className="flex items-center gap-1.5 min-w-0">
           <Stethoscope size={12} className="shrink-0 text-slate-400" aria-hidden="true" />
@@ -113,7 +151,7 @@ export default function PatientCard({ patient, index = 0 }: PatientCardProps) {
         </div>
       </div>
 
-      {/* Row 5 — action */}
+      {/* Row 6 — action */}
       <div className="border-t border-slate-100 pt-3">
         <Link
           href={`/ehis-care/igd/${patient.id}`}
