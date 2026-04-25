@@ -25,7 +25,8 @@ import PasienPulangTab  from "./tabs/PasienPulangTab";
 import RekonsiliasTab   from "./tabs/RekonsiliasTab";
 import KeperawatanTab   from "./tabs/KeperawatanTab";
 import PemeriksaanTab   from "./tabs/PemeriksaanTab";
-import PenilaianTab     from "./tabs/PenilaianTab";
+import PenilaianTab      from "./tabs/PenilaianTab";
+import RujukanKeluarTab  from "./tabs/RujukanKeluarTab";
 
 // ── Tab groups ────────────────────────────────────────────
 
@@ -201,9 +202,7 @@ export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }
             {active === "keperawatan"  && <KeperawatanTab  patient={patient} />}
             {active === "pemeriksaan"  && <PemeriksaanTab  patient={patient} />}
             {active === "penilaian"    && <PenilaianTab    patient={patient} />}
-            {active === "rujukan"      && (
-              <ComingSoon label={activeTab.label} icon={activeTab.icon} />
-            )}
+            {active === "rujukan"      && <RujukanKeluarTab patient={patient} />}
           </motion.div>
         </AnimatePresence>
       </main>
