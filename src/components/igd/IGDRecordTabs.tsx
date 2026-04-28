@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ClipboardList, HeartPulse, Stethoscope, Tag, FileText, Zap, LogOut,
+  ClipboardList, HeartPulse, Stethoscope, Tag, FileText, Zap,
   Pill, FlaskConical, Radiation, Send, Home,
-  Repeat, HeartHandshake, ScanLine, ClipboardCheck,
+  Repeat, HeartHandshake, ScanLine, ClipboardCheck, ScanEye,
   type LucideIcon,
 } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
@@ -17,7 +17,6 @@ import AsesmenMedisTab  from "./tabs/AsesmenMedisTab";
 import DiagnosaTab      from "./tabs/DiagnosaTab";
 import CPPTTab          from "./tabs/CPPTTab";
 import TindakanTab      from "./tabs/TindakanTab";
-import DisposisiTab     from "./tabs/DisposisiTab";
 import ResepPasienTab   from "./tabs/ResepPasienTab";
 import OrderLabTab      from "./tabs/OrderLabTab";
 import OrderRadTab      from "./tabs/OrderRadTab";
@@ -26,7 +25,8 @@ import RekonsiliasTab   from "./tabs/RekonsiliasTab";
 import KeperawatanTab   from "./tabs/KeperawatanTab";
 import PemeriksaanTab   from "./tabs/PemeriksaanTab";
 import PenilaianTab      from "./tabs/PenilaianTab";
-import RujukanKeluarTab  from "./tabs/RujukanKeluarTab";
+import RujukanKeluarTab      from "./tabs/RujukanKeluarTab";
+import PenandaanGambarTab   from "./tabs/PenandaanGambarTab";
 
 // ── Tab groups ────────────────────────────────────────────
 
@@ -39,11 +39,11 @@ const REKAM_MEDIS: TabDef[] = [
   { id: "diagnosa",      label: "Diagnosa",        icon: Tag            },
   { id: "cppt",          label: "CPPT / SOAP",     icon: FileText       },
   { id: "tindakan",      label: "Tindakan IGD",    icon: Zap            },
-  { id: "disposisi",     label: "Disposisi",       icon: LogOut         },
   { id: "rekonsiliasi",  label: "Rekonsiliasi",    icon: Repeat         },
   { id: "keperawatan",   label: "Keperawatan",     icon: HeartHandshake },
   { id: "pemeriksaan",   label: "Pemeriksaan",     icon: ScanLine       },
   { id: "penilaian",     label: "Penilaian",       icon: ClipboardCheck },
+  { id: "penandaan",    label: "Penandaan Gambar", icon: ScanEye        },
 ];
 
 const LAYANAN: TabDef[] = [
@@ -56,22 +56,6 @@ const LAYANAN: TabDef[] = [
 
 const ALL_TABS = [...REKAM_MEDIS, ...LAYANAN];
 type TabId = typeof ALL_TABS[number]["id"];
-
-// ── Stub placeholder ──────────────────────────────────────
-
-function ComingSoon({ label, icon: Icon }: { label: string; icon: LucideIcon }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-        <Icon size={22} />
-      </span>
-      <div>
-        <p className="text-sm font-semibold text-slate-700">{label}</p>
-        <p className="mt-1 text-xs text-slate-400">Fitur ini sedang dalam pengembangan.</p>
-      </div>
-    </div>
-  );
-}
 
 // ── Nav item ──────────────────────────────────────────────
 
@@ -102,8 +86,7 @@ function NavItem({ tab, active, onClick }: { tab: TabDef; active: boolean; onCli
 // ── Main component ────────────────────────────────────────
 
 export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }) {
-  const [active, setActive] = useState<TabId>("triase");
-  const activeTab = ALL_TABS.find((t) => t.id === active)!;
+  const [active, setActive] = useState<TabId>("triase");;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
@@ -193,7 +176,6 @@ export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }
             {active === "diagnosa"     && <DiagnosaTab     patient={patient} />}
             {active === "cppt"         && <CPPTTab         patient={patient} />}
             {active === "tindakan"     && <TindakanTab     patient={patient} />}
-            {active === "disposisi"    && <DisposisiTab    patient={patient} />}
             {active === "resep"        && <ResepPasienTab  patient={patient} />}
             {active === "order-lab"    && <OrderLabTab     patient={patient} />}
             {active === "order-rad"    && <OrderRadTab     patient={patient} />}
@@ -202,7 +184,8 @@ export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }
             {active === "keperawatan"  && <KeperawatanTab  patient={patient} />}
             {active === "pemeriksaan"  && <PemeriksaanTab  patient={patient} />}
             {active === "penilaian"    && <PenilaianTab    patient={patient} />}
-            {active === "rujukan"      && <RujukanKeluarTab patient={patient} />}
+            {active === "rujukan"      && <RujukanKeluarTab    patient={patient} />}
+            {active === "penandaan"   && <PenandaanGambarTab patient={patient} />}
           </motion.div>
         </AnimatePresence>
       </main>
