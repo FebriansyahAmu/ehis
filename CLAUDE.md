@@ -59,9 +59,8 @@ Work items in priority order. Pick top item each session.
 
 ### 🔴 Now
 
-- [ ] **Redesign: IGD page /ehis-care/igd** — current: tambah card pada klasifikasi tempat tidur itu Boarding Bed, buat interaktif dan estetika, utamakan responsive di layar kecil. gunakan frontend Design Skils, terapkan best practices
-  - Scope: `components/igd/IGDRuanganPanel.tsx`,
-  - Reason: buat responsive, estetika serta buat ui ux friendly
+- [ ] **Redesign: IGD pasien page components components/igd/tabs/Diagnosa** — current: terdapat bug pada halaman diagnosa, ketika user memilih dropdown itu sepertinya, dropdownya ter cutting di card, jadi terlihat terpotong, yang mana ini tidak sesuai dengan user interaface yang friendly, perbaiki, terapkan frontend Design Skill
+  - Scope: `components/igd/DiagnosaTab.tsx`,
 
 ### 🟡 Next (EHIS-Care)
 

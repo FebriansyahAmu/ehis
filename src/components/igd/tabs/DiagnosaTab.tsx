@@ -134,8 +134,9 @@ function DiagnosaRow({ diag, onRemove, onChangeTipe }: {
       exit={{ opacity: 0, x: 10 }}
       transition={{ duration: 0.18 }}
       className={cn(
-        "group flex items-center gap-2.5 border-b border-slate-100 border-l-2 px-3 py-2.5 last:border-b-0",
+        "group relative flex items-center gap-2.5 border-b border-slate-100 border-l-2 px-3 py-2.5 last:border-b-0",
         "transition-colors hover:bg-slate-50/70",
+        "first:rounded-t-xl last:rounded-b-xl",
         c.border,
       )}
     >
@@ -155,7 +156,7 @@ function DiagnosaRow({ diag, onRemove, onChangeTipe }: {
           <ChevronDown size={8} />
         </button>
         {open && (
-          <div className="absolute right-0 top-full z-20 mt-1 w-32 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+          <div className="absolute right-0 top-full z-50 mt-1 w-32 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
             {TIPE_ORDER.map(t => {
               const tc = TIPE_CONFIG[t];
               return (
@@ -198,7 +199,7 @@ function Icd9Row({ entry, onRemove }: { entry: Icd9Entry; onRemove: () => void }
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 10 }}
       transition={{ duration: 0.18 }}
-      className="group flex items-center gap-2.5 border-b border-slate-100 border-l-2 border-l-teal-400 px-3 py-2.5 last:border-b-0 transition-colors hover:bg-slate-50/70"
+      className="group flex items-center gap-2.5 border-b border-slate-100 border-l-2 border-l-teal-400 px-3 py-2.5 last:border-b-0 transition-colors hover:bg-slate-50/70 first:rounded-t-xl last:rounded-b-xl"
     >
       <span className="w-14 shrink-0 font-mono text-[10px] font-bold text-teal-600">{entry.kode}</span>
       <p className="min-w-0 flex-1 text-[11px] font-medium leading-snug text-slate-800">{entry.nama}</p>
@@ -281,7 +282,7 @@ function CatalogSearch({
         </button>
       )}
       {open && results.length > 0 && (
-        <div className="absolute inset-x-0 top-full z-30 mt-1 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+        <div className="absolute inset-x-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
           {Object.entries(groups).map(([kat, items]) => (
             <div key={kat}>
               <div className="sticky top-0 border-b border-slate-100 bg-slate-50/95 px-2.5 py-1 backdrop-blur-sm">
@@ -302,7 +303,7 @@ function CatalogSearch({
         </div>
       )}
       {open && query.trim().length >= 2 && results.length === 0 && (
-        <div className="absolute inset-x-0 top-full z-30 mt-1 rounded-xl border border-slate-200 bg-white px-3 py-3 text-center shadow-lg">
+        <div className="absolute inset-x-0 top-full z-50 mt-1 rounded-xl border border-slate-200 bg-white px-3 py-3 text-center shadow-lg">
           <p className="text-xs text-slate-400">Tidak ditemukan</p>
         </div>
       )}
@@ -659,7 +660,7 @@ export default function DiagnosaTab({ patient }: { patient: IGDPatientDetail }) 
                 </div>
 
                 {/* ICD-10 list */}
-                <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
+                <div className="rounded-xl border border-slate-200 bg-white shadow-xs">
                   {sortedIcd10.length === 0 ? (
                     <div className="flex flex-col items-center gap-2 py-10 text-center">
                       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-sky-300">
@@ -712,7 +713,7 @@ export default function DiagnosaTab({ patient }: { patient: IGDPatientDetail }) 
                 </div>
 
                 {/* ICD-9 list */}
-                <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
+                <div className="rounded-xl border border-slate-200 bg-white shadow-xs">
                   {icd9List.length === 0 ? (
                     <div className="flex flex-col items-center gap-2 py-10 text-center">
                       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 text-teal-300">
