@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ClipboardList, HeartPulse, Stethoscope, Tag, FileText, Zap,
   Pill, FlaskConical, Radiation, Send, Home,
-  Repeat, HeartHandshake, ScanLine, ClipboardCheck, ScanEye,
+  Repeat, HeartHandshake, ScanLine, ClipboardCheck, ScanEye, ListChecks,
   type LucideIcon,
 } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
@@ -27,6 +27,7 @@ import PemeriksaanTab   from "./tabs/PemeriksaanTab";
 import PenilaianTab      from "./tabs/PenilaianTab";
 import RujukanKeluarTab      from "./tabs/RujukanKeluarTab";
 import PenandaanGambarTab   from "./tabs/PenandaanGambarTab";
+import DaftarOrderTab        from "./tabs/DaftarOrderTab";
 
 // ── Tab groups ────────────────────────────────────────────
 
@@ -47,11 +48,12 @@ const REKAM_MEDIS: TabDef[] = [
 ];
 
 const LAYANAN: TabDef[] = [
-  { id: "resep",     label: "Resep Pasien",    icon: Pill         },
-  { id: "order-lab", label: "Order Lab",       icon: FlaskConical },
-  { id: "order-rad", label: "Order Radiologi", icon: Radiation    },
-  { id: "rujukan",   label: "Rujukan Keluar",  icon: Send         },
-  { id: "pulang",    label: "Pasien Pulang",   icon: Home         },
+  { id: "daftar-order", label: "Daftar Order",    icon: ListChecks   },
+  { id: "resep",        label: "Resep Pasien",    icon: Pill         },
+  { id: "order-lab",    label: "Order Lab",       icon: FlaskConical },
+  { id: "order-rad",    label: "Order Radiologi", icon: Radiation    },
+  { id: "rujukan",      label: "Rujukan Keluar",  icon: Send         },
+  { id: "pulang",       label: "Pasien Pulang",   icon: Home         },
 ];
 
 const ALL_TABS = [...REKAM_MEDIS, ...LAYANAN];
@@ -176,6 +178,7 @@ export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }
             {active === "diagnosa"     && <DiagnosaTab     patient={patient} />}
             {active === "cppt"         && <CPPTTab         patient={patient} />}
             {active === "tindakan"     && <TindakanTab     patient={patient} />}
+            {active === "daftar-order" && <DaftarOrderTab   patient={patient} />}
             {active === "resep"        && <ResepPasienTab  patient={patient} />}
             {active === "order-lab"    && <OrderLabTab     patient={patient} />}
             {active === "order-rad"    && <OrderRadTab     patient={patient} />}

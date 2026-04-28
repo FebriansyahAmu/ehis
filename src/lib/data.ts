@@ -399,7 +399,7 @@ export const igdStats = {
 
 // ── IGD Room Classification types ─────────────────────────
 
-export type IGDKategoriRuangan = "BEDAH" | "NON_BEDAH" | "IRDA" | "IRDO";
+export type IGDKategoriRuangan = "BEDAH" | "NON_BEDAH" | "IRDA" | "IRDO" | "BOARDING_BED";
 export type BedStatus = "Tersedia" | "Terisi" | "Maintenance";
 
 export interface IGDBed {
@@ -410,6 +410,7 @@ export interface IGDBed {
   pasienRM?: string;
   triage?: TriageLevel;
   masukSejak?: string;
+  boardingJam?: number;
 }
 
 export interface IGDRuangan {
@@ -499,6 +500,20 @@ export const igdRuangan: IGDRuangan[] = [
       { id: "irdo2", nomor: "IRDO-2", status: "Terisi",   pasienNama: "Sri Mulyani",   pasienRM: "RM-2025-073", triage: "P1", masukSejak: "07:45" },
       { id: "irdo3", nomor: "IRDO-3", status: "Tersedia" },
       { id: "irdo4", nomor: "IRDO-4", status: "Tersedia" },
+    ],
+  },
+  // ── BOARDING BED ──────────────────────────────────────────
+  {
+    id: "boarding-1",
+    nama: "R. Boarding",
+    kategori: "BOARDING_BED",
+    beds: [
+      { id: "bb1", nomor: "BB-1", status: "Terisi",   pasienNama: "Supriadi Raharjo",  pasienRM: "RM-2025-079", triage: "P2", masukSejak: "06:30", boardingJam: 7 },
+      { id: "bb2", nomor: "BB-2", status: "Terisi",   pasienNama: "Yeni Anggraini",    pasienRM: "RM-2025-081", triage: "P3", masukSejak: "08:15", boardingJam: 5 },
+      { id: "bb3", nomor: "BB-3", status: "Terisi",   pasienNama: "Mulyono Hartanto",  pasienRM: "RM-2025-084", triage: "P3", masukSejak: "09:00", boardingJam: 4 },
+      { id: "bb4", nomor: "BB-4", status: "Terisi",   pasienNama: "Dewi Novitasari",   pasienRM: "RM-2025-087", triage: "P2", masukSejak: "10:30", boardingJam: 3 },
+      { id: "bb5", nomor: "BB-5", status: "Tersedia" },
+      { id: "bb6", nomor: "BB-6", status: "Tersedia" },
     ],
   },
 ];

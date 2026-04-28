@@ -43,6 +43,7 @@ Shared layout: `Navbar` · `Sidebar` · `ModuleSwitcher` · `ModuleLayout` → `
 | tindakan · disposisi · rekonsiliasi · keperawatan                | tabs/                                | ✅     |
 | pemeriksaan · penilaian · resep · order-lab · order-rad · pulang | tabs/                                | ✅     |
 | rujukan                                                          | `tabs/RujukanKeluarTab.tsx`          | ✅     |
+| Penandaan Gambar                                                 | tabs/penandaanGambar.tsx             | ✅     |
 
 ### Pasien Master
 
@@ -58,14 +59,12 @@ Work items in priority order. Pick top item each session.
 
 ### 🔴 Now
 
-- [ ] **Redesign: IGD pasien page** — current: header DPJP tanggal masuk flat dan tidak responsive, target: visual lebih impactful /_ estetika refresh _/
-  - Scope: `components/igd/PatientHeader.tsx`,
-  - Reason: estetika — tampilan current terlalu flat, tidak interaktif, perpaduan warna mati dan tidak estetika
+- [ ] **Redesign: IGD page /ehis-care/igd** — current: tambah card pada klasifikasi tempat tidur itu Boarding Bed, buat interaktif dan estetika, utamakan responsive di layar kecil. gunakan frontend Design Skils, terapkan best practices
+  - Scope: `components/igd/IGDRuanganPanel.tsx`,
+  - Reason: buat responsive, estetika serta buat ui ux friendly
 
 ### 🟡 Next (EHIS-Care)
 
-- [ ] **OrderRadTab** — mirip OrderLabTab: catalog radiologi, prioritas CITO/Rutin, riwayat + hasil modal
-- [ ] **Pasien Master: Data completeness** — validasi NIK, Satusehat ID, foto pasien upload
 - [ ] **IGD → Admission flow** — dari DisposisiTab "Rawat Inap" trigger create rawat-inap record
 
 ### 🟢 Backlog (Other Modules)

@@ -3,10 +3,10 @@
 import { useState } from "react";
 import {
   Scissors, Stethoscope, Activity, HeartPulse,
-  BedDouble, X, Wrench, ChevronRight, Clock,
+  BedDouble, X, Wrench, ChevronRight, Clock, Timer,
   type LucideIcon,
 } from "lucide-react";
-import type { IGDKategoriRuangan, IGDRuangan, IGDBed, BedStatus, TriageLevel } from "@/lib/data";
+import type { IGDKategoriRuangan, IGDRuangan, IGDBed, TriageLevel } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
 // ── Config ────────────────────────────────────────────────
@@ -15,11 +15,11 @@ interface KategoriCfg {
   label: string;
   desc: string;
   icon: LucideIcon;
-  ring:   string;
-  badge:  string;
-  header: string;
-  arc:    string; // SVG stroke color class
-  cardBg: string;
+  ring:       string;
+  badge:      string;
+  header:     string;
+  arc:        string;
+  cardBg:     string;
   cardBorder: string;
   pulse?: boolean;
 }
@@ -71,6 +71,18 @@ const KATEGORI_CFG: Record<IGDKategoriRuangan, KategoriCfg> = {
     cardBorder: "border-teal-200",
     pulse:      true,
   },
+  BOARDING_BED: {
+    label:      "Boarding Bed",
+    desc:       "Pasien tunggu rawat inap",
+    icon:       Timer,
+    ring:       "ring-indigo-200",
+    badge:      "bg-indigo-600 text-white",
+    header:     "bg-indigo-600",
+    arc:        "text-indigo-500",
+    cardBg:     "bg-indigo-50",
+    cardBorder: "border-indigo-200",
+    pulse:      true,
+  },
 };
 
 const TRIAGE_CHIP: Record<TriageLevel, string> = {
@@ -99,15 +111,32 @@ function calcOccupancy(rooms: IGDRuangan[]) {
   };
 }
 
+function calcBoardingStats(rooms: IGDRuangan[]) {
+  const beds = rooms
+    .flatMap((r) => r.beds)
+    .filter((b) => b.status === "Terisi" && b.boardingJam !== undefined);
+  if (beds.length === 0) return { avgJam: 0, maxJam: 0 };
+  const total  = beds.reduce((s, b) => s + (b.boardingJam ?? 0), 0);
+  const avgJam = Math.round(total / beds.length);
+  const maxJam = Math.max(...beds.map((b) => b.boardingJam ?? 0));
+  return { avgJam, maxJam };
+}
+
+function boardingTimeClasses(jam: number) {
+  if (jam > 6) return { text: "text-rose-700",   bg: "bg-rose-50 border-rose-100"   };
+  if (jam >= 3) return { text: "text-amber-700",  bg: "bg-amber-50 border-amber-100" };
+  return              { text: "text-emerald-700", bg: "bg-emerald-50 border-emerald-100" };
+}
+
 // ── SVG Occupancy Ring ────────────────────────────────────
 
 function OccupancyRing({
   occupied, total, colorClass,
 }: { occupied: number; total: number; colorClass: string }) {
-  const r     = 22;
-  const circ  = 2 * Math.PI * r;
-  const pct   = total === 0 ? 0 : occupied / total;
-  const dash  = pct * circ;
+  const r    = 22;
+  const circ = 2 * Math.PI * r;
+  const pct  = total === 0 ? 0 : occupied / total;
+  const dash = pct * circ;
   return (
     <svg width={56} height={56} viewBox="0 0 56 56" className="shrink-0" aria-hidden="true">
       <circle cx={28} cy={28} r={r} fill="none" stroke="currentColor" strokeWidth={5} className="text-slate-100" />
@@ -129,7 +158,7 @@ function OccupancyRing({
 function BedCard({ bed, onSelect }: { bed: IGDBed; onSelect: (b: IGDBed) => void }) {
   if (bed.status === "Tersedia") {
     return (
-      <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-emerald-200 bg-emerald-50/60 p-3 text-center">
+      <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-emerald-200 bg-emerald-50/60 p-3 text-center transition-colors duration-150 hover:border-emerald-300 hover:bg-emerald-50">
         <BedDouble size={16} className="text-emerald-400" />
         <p className="text-[10px] font-bold text-emerald-600">{bed.nomor}</p>
         <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600">
@@ -153,11 +182,13 @@ function BedCard({ bed, onSelect }: { bed: IGDBed; onSelect: (b: IGDBed) => void
 
   // Terisi
   const triageBg = bed.triage ? TRIAGE_BED_BG[bed.triage] : "border-sky-200 bg-sky-50";
+  const bCls     = bed.boardingJam !== undefined ? boardingTimeClasses(bed.boardingJam) : null;
+
   return (
     <button
       onClick={() => onSelect(bed)}
       className={cn(
-        "flex cursor-pointer flex-col gap-1.5 rounded-xl border-2 p-3 text-left transition-all duration-150 hover:shadow-sm hover:-translate-y-0.5",
+        "flex cursor-pointer flex-col gap-1.5 rounded-xl border-2 p-3 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0",
         triageBg,
       )}
     >
@@ -176,13 +207,20 @@ function BedCard({ bed, onSelect }: { bed: IGDBed; onSelect: (b: IGDBed) => void
         <Clock size={9} />
         {bed.masukSejak}
       </div>
+      {bCls && bed.boardingJam !== undefined && (
+        <div className={cn("flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-bold", bCls.text, bCls.bg.split(" ")[0])}>
+          <Timer size={8} />
+          {bed.boardingJam}j boarding
+        </div>
+      )}
     </button>
   );
 }
 
-// ── Bed Detail Popover ────────────────────────────────────
+// ── Bed Detail Panel ──────────────────────────────────────
 
 function BedDetailPanel({ bed, onClose }: { bed: IGDBed; onClose: () => void }) {
+  const bCls = bed.boardingJam !== undefined ? boardingTimeClasses(bed.boardingJam) : null;
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-lg">
       <div className="mb-3 flex items-start justify-between gap-2">
@@ -190,13 +228,17 @@ function BedDetailPanel({ bed, onClose }: { bed: IGDBed; onClose: () => void }) 
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tempat Tidur</p>
           <p className="text-sm font-black text-slate-800">{bed.nomor}</p>
         </div>
-        <button onClick={onClose} className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md border border-slate-200 text-slate-400 hover:bg-slate-50">
+        <button
+          onClick={onClose}
+          className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md border border-slate-200 text-slate-400 hover:bg-slate-50"
+        >
           <X size={12} />
         </button>
       </div>
       {bed.triage && (
         <span className={cn("mb-3 inline-block rounded-md px-2 py-0.5 text-[10px] font-bold", TRIAGE_CHIP[bed.triage])}>
-          {bed.triage} — Prioritas {bed.triage === "P1" ? "Kritis" : bed.triage === "P2" ? "Urgent" : "Non-urgent"}
+          {bed.triage} —{" "}
+          {bed.triage === "P1" ? "Kritis" : bed.triage === "P2" ? "Urgent" : "Non-urgent"}
         </span>
       )}
       <div className="space-y-2 text-xs">
@@ -212,6 +254,15 @@ function BedDetailPanel({ bed, onClose }: { bed: IGDBed; onClose: () => void }) 
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Masuk Sejak</span>
           <span className="text-slate-700">{bed.masukSejak}</span>
         </div>
+        {bCls && bed.boardingJam !== undefined && (
+          <div className={cn("mt-1 flex items-center gap-2 rounded-lg border px-3 py-2", bCls.bg, bCls.text)}>
+            <Timer size={13} />
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-wider opacity-70">Lama Boarding</p>
+              <p className="text-sm font-black">{bed.boardingJam} jam</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -225,9 +276,9 @@ function BedMapModal({
   const cfg              = KATEGORI_CFG[kategori];
   const KatIcon          = cfg.icon;
   const occ              = calcOccupancy(rooms);
-  const [activeRoom, setActiveRoom] = useState(rooms[0]?.id ?? "");
+  const [activeRoom, setActiveRoom]   = useState(rooms[0]?.id ?? "");
   const [selectedBed, setSelectedBed] = useState<IGDBed | null>(null);
-  const currentRoom      = rooms.find((r) => r.id === activeRoom);
+  const currentRoom = rooms.find((r) => r.id === activeRoom);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
@@ -244,7 +295,10 @@ function BedMapModal({
               <p className="text-sm font-black text-white">{cfg.label}</p>
             </div>
           </div>
-          <button onClick={onClose} className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl bg-white/20 text-white transition hover:bg-white/30">
+          <button
+            onClick={onClose}
+            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl bg-white/20 text-white transition hover:bg-white/30"
+          >
             <X size={15} />
           </button>
         </div>
@@ -264,7 +318,7 @@ function BedMapModal({
           ))}
         </div>
 
-        {/* Room tabs (if multiple rooms) */}
+        {/* Room tabs */}
         {rooms.length > 1 && (
           <div className="flex shrink-0 gap-1 border-b border-slate-100 bg-white px-4 pt-3">
             {rooms.map((room) => {
@@ -298,7 +352,7 @@ function BedMapModal({
         <div className="flex flex-1 overflow-hidden">
           <div className="flex-1 overflow-y-auto p-5">
             {currentRoom && (
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
                 {currentRoom.beds.map((bed) => (
                   <BedCard
                     key={bed.id}
@@ -310,7 +364,6 @@ function BedMapModal({
             )}
           </div>
 
-          {/* Slide-in detail panel */}
           {selectedBed && (
             <div className="w-52 shrink-0 border-l border-slate-100 p-3">
               <BedDetailPanel bed={selectedBed} onClose={() => setSelectedBed(null)} />
@@ -319,7 +372,7 @@ function BedMapModal({
         </div>
 
         {/* Legend */}
-        <div className="flex shrink-0 items-center gap-5 border-t border-slate-100 bg-slate-50 px-5 py-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-5 border-t border-slate-100 bg-slate-50 px-5 py-3">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Keterangan</p>
           {[
             { label: "Tersedia",    cls: "border-2 border-dashed border-emerald-300 bg-emerald-50" },
@@ -348,10 +401,16 @@ function KategoriCard({
   const pctFull = occ.total === 0 ? 0 : occ.terisi / occ.total;
   const isCritical = pctFull >= 0.85;
 
+  const boarding        = kategori === "BOARDING_BED" ? calcBoardingStats(rooms) : null;
+  const boardingCritical = boarding ? boarding.avgJam > 6 : false;
+  const bCls            = boarding ? boardingTimeClasses(boarding.avgJam) : null;
+
+  const showAlert = isCritical || boardingCritical;
+
   return (
     <div
       className={cn(
-        "flex flex-col overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5",
+        "group flex flex-col overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg",
         cfg.cardBorder,
         `ring-1 ${cfg.ring}`,
       )}
@@ -359,18 +418,21 @@ function KategoriCard({
       {/* Colored top bar */}
       <div className={cn("flex items-center justify-between px-4 py-3", cfg.header)}>
         <div className="flex items-center gap-2">
-          {cfg.pulse && isCritical && (
+          {cfg.pulse && showAlert && (
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
             </span>
           )}
-          <KatIcon size={14} className="text-white" />
+          <KatIcon
+            size={14}
+            className="text-white transition-transform duration-200 group-hover:scale-110"
+          />
           <p className="text-sm font-black tracking-wide text-white">{cfg.label}</p>
         </div>
-        {isCritical && (
+        {showAlert && (
           <span className="rounded-full bg-white/25 px-2 py-0.5 text-[9px] font-bold text-white">
-            PENUH
+            {boardingCritical ? "LAMA" : "PENUH"}
           </span>
         )}
       </div>
@@ -402,6 +464,27 @@ function KategoriCard({
           </div>
         </div>
 
+        {/* Boarding wait stats — BOARDING_BED only */}
+        {boarding && bCls && (
+          <div className={cn("flex items-center justify-between rounded-xl border px-3 py-2.5", bCls.bg)}>
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Avg. Boarding</p>
+              <p className={cn("mt-0.5 text-base font-black tabular-nums leading-none", bCls.text)}>
+                {boarding.avgJam}
+                <span className="ml-0.5 text-[10px] font-semibold">jam</span>
+              </p>
+            </div>
+            <div className="h-8 w-px bg-slate-200" />
+            <div className="text-right">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Maks.</p>
+              <p className={cn("mt-0.5 text-base font-black tabular-nums leading-none", bCls.text)}>
+                {boarding.maxJam}
+                <span className="ml-0.5 text-[10px] font-semibold">jam</span>
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Room list */}
         <div className="space-y-1.5">
           {rooms.map((room) => {
@@ -418,8 +501,10 @@ function KategoriCard({
                   </div>
                   <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-slate-100">
                     <div
-                      className={cn("h-full rounded-full transition-all duration-500",
-                        rPct >= 1 ? "bg-rose-500" : rPct >= 0.7 ? "bg-amber-400" : "bg-emerald-500")}
+                      className={cn(
+                        "h-full rounded-full transition-all duration-500",
+                        rPct >= 1 ? "bg-rose-500" : rPct >= 0.7 ? "bg-amber-400" : "bg-emerald-500",
+                      )}
                       style={{ width: `${rPct * 100}%` }}
                     />
                   </div>
@@ -441,8 +526,11 @@ function KategoriCard({
           )}
         >
           <BedDouble size={12} />
-          Lihat Peta Kamar
-          <ChevronRight size={12} className="ml-auto" />
+          {kategori === "BOARDING_BED" ? "Monitor Boarding" : "Lihat Peta Kamar"}
+          <ChevronRight
+            size={12}
+            className="ml-auto transition-transform duration-150 group-hover:translate-x-0.5"
+          />
         </button>
       </div>
     </div>
@@ -451,7 +539,7 @@ function KategoriCard({
 
 // ── Main Panel ────────────────────────────────────────────
 
-const KATEGORI_ORDER: IGDKategoriRuangan[] = ["BEDAH", "NON_BEDAH", "IRDA", "IRDO"];
+const KATEGORI_ORDER: IGDKategoriRuangan[] = ["BEDAH", "NON_BEDAH", "IRDA", "IRDO", "BOARDING_BED"];
 
 export default function IGDRuanganPanel({ ruangan }: { ruangan: IGDRuangan[] }) {
   const [openKategori, setOpenKategori] = useState<IGDKategoriRuangan | null>(null);
@@ -472,11 +560,11 @@ export default function IGDRuanganPanel({ ruangan }: { ruangan: IGDRuangan[] }) 
           <BedDouble size={15} className="text-slate-500" />
           <p className="text-sm font-bold text-slate-700">Klasifikasi Ruangan IGD</p>
         </div>
-        <p className="text-[11px] text-slate-400">Klik kamar untuk melihat detail bed</p>
+        <p className="hidden text-[11px] text-slate-400 sm:block">Klik kamar untuk melihat detail bed</p>
       </div>
 
-      {/* Category grid */}
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      {/* Category grid — 1col mobile → 2col sm → 3col lg → 5col xl */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {KATEGORI_ORDER.map((k) => (
           <KategoriCard
             key={k}
