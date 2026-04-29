@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import EdukasiPane from "@/components/igd/tabs/EdukasiPane";
 
 // ── Shared compact primitives ─────────────────────────────
 
@@ -889,85 +890,6 @@ function AllergyPane({ patient }: { patient: IGDPatientDetail }) {
           )}
         </div>
 
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────
-// EDUKASI sub-tab
-// ─────────────────────────────────────────────────────────
-
-interface EdukasiEntry {
-  id: string; waktu: string; topik: string; metode: string;
-  media: string; verifikasi: string; edukator: string; catatan: string;
-}
-
-function EdukasiPane() {
-  const [form, setForm] = useState({
-    topik: "", metode: "", media: "", verifikasi: "", edukator: "", catatan: "",
-  });
-  const set = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
-  const [entries, setEntries] = useState<EdukasiEntry[]>([]);
-
-  const handleAdd = () => {
-    if (!form.topik || !form.edukator) return;
-    const waktu = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
-    setEntries((p) => [{ id: `edu-${Date.now()}`, waktu, ...form }, ...p]);
-    setForm({ topik: "", metode: "", media: "", verifikasi: "", edukator: "", catatan: "" });
-  };
-
-  return (
-    <div className="flex flex-col gap-3 md:flex-row md:items-start md:gap-4">
-      {/* Form */}
-      <Block title="Tambah Catatan Edukasi" className="md:w-72 md:shrink-0">
-        <TI label="Topik Edukasi" required value={form.topik}
-          onChange={(v) => set("topik", v)} placeholder="Contoh: Penyakit jantung, diet..." />
-        <div className="grid grid-cols-2 gap-2">
-          <TI label="Metode" value={form.metode} onChange={(v) => set("metode", v)} placeholder="Lisan / Demonstrasi" />
-          <TI label="Media" value={form.media} onChange={(v) => set("media", v)} placeholder="Leaflet / Video / Verbal" />
-        </div>
-        <TI label="Verifikasi Pemahaman" value={form.verifikasi}
-          onChange={(v) => set("verifikasi", v)} placeholder="Paham / Belum paham / Perlu ulang" />
-        <TI label="Edukator" required value={form.edukator}
-          onChange={(v) => set("edukator", v)} placeholder="Nama petugas..." />
-        <TA label="Catatan Tambahan" rows={2} value={form.catatan}
-          onChange={(v) => set("catatan", v)} placeholder="Hambatan komunikasi, kondisi pasien..." />
-        <button type="button" onClick={handleAdd} disabled={!form.topik || !form.edukator}
-          className="w-full rounded-md bg-indigo-600 py-1.5 text-xs font-medium text-white transition hover:bg-indigo-700 disabled:opacity-40">
-          Tambah Edukasi
-        </button>
-      </Block>
-
-      {/* History */}
-      <div className="flex flex-1 flex-col gap-2">
-        <p className="text-xs font-semibold text-slate-700">
-          Riwayat Edukasi
-          <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
-            {entries.length}
-          </span>
-        </p>
-        {entries.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-white py-8 text-center text-xs text-slate-400 shadow-sm">
-            Belum ada catatan edukasi
-          </div>
-        ) : (
-          entries.map((e) => (
-            <div key={e.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-[10px] font-semibold text-slate-500">{e.waktu}</span>
-                <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">{e.topik}</span>
-                <span className="text-[11px] text-slate-500">{e.edukator}</span>
-              </div>
-              <div className="mt-2 grid grid-cols-3 gap-x-4 gap-y-1 text-[11px]">
-                {e.metode && <span className="text-slate-500">Metode: <span className="text-slate-700">{e.metode}</span></span>}
-                {e.media && <span className="text-slate-500">Media: <span className="text-slate-700">{e.media}</span></span>}
-                {e.verifikasi && <span className="text-slate-500">Verifikasi: <span className="text-slate-700">{e.verifikasi}</span></span>}
-              </div>
-              {e.catatan && <p className="mt-1.5 text-[11px] text-slate-400">{e.catatan}</p>}
-            </div>
-          ))
-        )}
       </div>
     </div>
   );
