@@ -29,6 +29,8 @@ import {
   Building2,
   MapPin,
   Layers,
+  Phone,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PatientMaster, KunjunganRecord, UnitKunjungan } from "@/lib/data";
@@ -152,7 +154,9 @@ function ActionBtn({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "group flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all duration-150",
+        "group flex w-full items-center rounded-xl border transition-all duration-150",
+        "flex-col gap-1.5 px-2 py-3 text-center",
+        "lg:flex-row lg:gap-3 lg:px-3 lg:py-2.5 lg:text-left",
         containerCls,
         disabled && "cursor-not-allowed opacity-40 hover:border-slate-200! hover:bg-white! hover:shadow-none!",
       )}
@@ -161,10 +165,10 @@ function ActionBtn({
         <Icon size={14} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[12px] font-semibold leading-tight text-slate-700">{label}</p>
-        {sublabel && <p className="mt-0.5 text-[10px] text-slate-400">{sublabel}</p>}
+        <p className="text-[11px] font-semibold leading-tight text-slate-700">{label}</p>
+        {sublabel && <p className="mt-0.5 hidden text-[10px] text-slate-400 lg:block">{sublabel}</p>}
       </div>
-      <ChevronRight size={12} className="shrink-0 text-slate-300 transition-transform duration-150 group-hover:translate-x-0.5" />
+      <ChevronRight size={12} className="hidden shrink-0 text-slate-300 transition-transform duration-150 group-hover:translate-x-0.5 lg:block" />
     </button>
   );
 }
@@ -174,15 +178,17 @@ function PrintBtn({ label, disabled }: { label: string; disabled?: boolean }) {
     <button
       disabled={disabled}
       className={cn(
-        "group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left transition-all duration-150",
+        "group flex w-full items-center rounded-xl border border-slate-200 bg-white transition-all duration-150",
+        "flex-col gap-1.5 px-2 py-3 text-center",
         "hover:border-slate-300 hover:shadow-sm",
+        "lg:flex-row lg:gap-3 lg:px-3 lg:py-2.5 lg:text-left",
         disabled && "cursor-not-allowed opacity-40",
       )}
     >
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-all duration-150 group-hover:bg-slate-800 group-hover:text-white">
         <Printer size={13} />
       </div>
-      <span className="flex-1 text-[12px] font-medium text-slate-600">{label}</span>
+      <span className="flex-1 text-[11px] font-medium leading-tight text-slate-600 lg:text-[12px]">{label}</span>
     </button>
   );
 }
@@ -203,8 +209,8 @@ function TabNav({ active, onChange }: { active: TabId; onChange: (id: TabId) => 
               : "text-slate-500 hover:text-slate-700",
           )}
         >
-          <tab.icon size={12} />
-          {tab.label}
+          <tab.icon size={13} />
+          <span className="hidden sm:inline">{tab.label}</span>
         </button>
       ))}
     </div>
@@ -222,7 +228,7 @@ function RingkasanTab({
 }) {
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         <InfoCard label="No. Pendaftaran">
           <span className="font-mono font-bold text-indigo-700">{kunjungan.noPendaftaran}</span>
         </InfoCard>
@@ -231,7 +237,7 @@ function RingkasanTab({
         </InfoCard>
       </div>
 
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
         <InfoCard label="Tanggal">
           <span className="text-[12px]">{kunjungan.tanggal}</span>
         </InfoCard>
@@ -483,7 +489,7 @@ function ModalShell({
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-3 backdrop-blur-md sm:p-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -520,7 +526,7 @@ function ModalShell({
         </div>
 
         {noPadding ? (
-          <div className="flex flex-1 overflow-hidden">{children}</div>
+          <div className="flex flex-1 flex-col overflow-hidden sm:flex-row">{children}</div>
         ) : (
           <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
         )}
@@ -627,7 +633,7 @@ function PanelFooter<T extends string>({
   const idx = sections.findIndex((s) => s.id === active);
   return (
     <div className="flex w-full items-center justify-between">
-      <div className="flex gap-2">
+      <div className="hidden gap-2 sm:flex">
         <button
           disabled={idx === 0}
           onClick={() => onChange(sections[idx - 1].id)}
@@ -643,7 +649,7 @@ function PanelFooter<T extends string>({
           Selanjutnya →
         </button>
       </div>
-      <div className="flex gap-2">
+      <div className="flex w-full justify-end gap-2 sm:w-auto">
         <BtnCancel onClick={onClose} />
         <BtnSave label={saveLabel} />
       </div>
@@ -753,6 +759,72 @@ function IconSelect({
   );
 }
 
+function SectionHeader({
+  icon: Icon,
+  iconCls,
+  title,
+  sub,
+}: {
+  icon: React.ElementType;
+  iconCls: string;
+  title: string;
+  sub?: string;
+}) {
+  return (
+    <div className="mb-5 flex items-center gap-2.5 border-b border-slate-100 pb-4">
+      <div className={cn("flex h-8 w-8 items-center justify-center rounded-xl", iconCls)}>
+        <Icon size={14} />
+      </div>
+      <div>
+        <p className="text-xs font-bold text-slate-800">{title}</p>
+        {sub && <p className="text-[10px] text-slate-400">{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
+function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!value)}
+      className={cn(
+        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none",
+        value ? "bg-indigo-600" : "bg-slate-200",
+      )}
+    >
+      <span
+        className={cn(
+          "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+          value ? "translate-x-4" : "translate-x-0",
+        )}
+      />
+    </button>
+  );
+}
+
+function ToggleField({
+  label,
+  description,
+  value,
+  onChange,
+}: {
+  label: string;
+  description?: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3">
+      <div>
+        <p className="text-[12px] font-semibold text-slate-700">{label}</p>
+        {description && <p className="mt-0.5 text-[10px] text-slate-400">{description}</p>}
+      </div>
+      <Toggle value={value} onChange={onChange} />
+    </div>
+  );
+}
+
 function BtnSave({ label = "Simpan Perubahan" }: { label?: string }) {
   return (
     <button className="rounded-xl bg-linear-to-b from-indigo-500 to-indigo-600 px-5 py-2 text-[12px] font-bold text-white shadow-sm shadow-indigo-200 transition hover:from-indigo-600 hover:to-indigo-700 hover:shadow-md hover:shadow-indigo-200">
@@ -775,37 +847,87 @@ function BtnCancel({ onClick }: { onClick: () => void }) {
 // ─── Modal contents ─────────────────────────────────────────
 
 function UbahPenjaminModal({
+  patient,
   kunjungan,
   onClose,
 }: {
+  patient: PatientMaster;
   kunjungan: KunjunganRecord;
   onClose: () => void;
 }) {
-  type SecId = "penjamin" | "sep";
+  type SecId = "penjamin" | "peserta" | "pelayanan" | "poli-rujukan" | "jaminan";
+
+  const [penjaminType, setPenjaminType] = useState<string>(kunjungan.penjamin ?? "BPJS Non-PBI");
   const [sec, setSec] = useState<SecId>("penjamin");
+  // klsRawat
+  const [klsRawatNaik, setKlsRawatNaik] = useState<string>("");
+  const [pembiayaan, setPembiayaan] = useState<string>("1");
+  // pelayanan
+  const [jnsPelayanan, setJnsPelayanan] = useState<string>("2");
+  const [tujuanKunj, setTujuanKunj] = useState<string>("0");
+  // jaminan
+  const [lakaLantas, setLakaLantas] = useState<string>("0");
+  const [suplesi, setSuplesi] = useState(false);
+  const [cob, setCob] = useState(false);
+  const [katarak, setKatarak] = useState(false);
+  const [poliEksekutif, setPoliEksekutif] = useState(false);
+
+  const isBpjs = penjaminType === "BPJS Non-PBI" || penjaminType === "BPJS PBI";
+  const isLaka = lakaLantas !== "0";
+  const isNaikKelas = klsRawatNaik !== "";
+  const isRajal = jnsPelayanan === "2";
+
+  const BPJS_SECTIONS: {
+    id: SecId; label: string; icon: React.ElementType; desc: string; iconBg: string; iconText: string;
+  }[] = [
+    { id: "penjamin",     label: "Data Penjamin",        icon: CreditCard,  desc: "Jenis & kepesertaan",           iconBg: "bg-sky-100",    iconText: "text-sky-600"    },
+    { id: "peserta",      label: "Peserta & Kunjungan",  icon: Calendar,    desc: "Tgl SEP, PPK & kontak",         iconBg: "bg-violet-100", iconText: "text-violet-600" },
+    { id: "pelayanan",    label: "Pelayanan & Diagnosa", icon: Stethoscope, desc: "Jenis layanan & diagnosa awal", iconBg: "bg-indigo-100", iconText: "text-indigo-600" },
+    { id: "poli-rujukan", label: "Poli & Rujukan",       icon: Building2,   desc: "Poli tujuan & data rujukan",    iconBg: "bg-teal-100",   iconText: "text-teal-600"   },
+    { id: "jaminan",      label: "Jaminan & SKDP",       icon: Shield,      desc: "COB, laka lantas & SKDP",       iconBg: "bg-amber-100",  iconText: "text-amber-600"  },
+  ];
+
+  const PLAIN_SECTIONS: {
+    id: SecId; label: string; icon: React.ElementType; desc: string; iconBg: string; iconText: string;
+  }[] = [
+    { id: "penjamin", label: "Data Penjamin", icon: CreditCard, desc: "Jenis & data penjamin", iconBg: "bg-sky-100", iconText: "text-sky-600" },
+  ];
+
+  const SECTIONS = isBpjs ? BPJS_SECTIONS : PLAIN_SECTIONS;
+  const validSec: SecId = SECTIONS.find((s) => s.id === sec) ? sec : "penjamin";
   const unit = UNIT_CFG[kunjungan.unit];
 
-  const SECTIONS: {
-    id: SecId; label: string; icon: React.ElementType; desc: string;
-    iconBg: string; iconText: string;
-  }[] = [
-    { id: "penjamin", label: "Data Penjamin", icon: CreditCard, desc: "Jenis & no. kepesertaan", iconBg: "bg-sky-100", iconText: "text-sky-600" },
-    { id: "sep", label: "Data SEP", icon: FileText, desc: "Nomor SEP & tanggal pelayanan", iconBg: "bg-indigo-100", iconText: "text-indigo-600" },
-  ];
+  const PEMBIAYAAN_LABEL: Record<string, string> = {
+    "1": "Pribadi",
+    "2": "Pemberi Kerja",
+    "3": "Asuransi Kesehatan Tambahan",
+  };
+
+  function handlePenjaminChange(val: string) {
+    setPenjaminType(val);
+    setSec("penjamin");
+  }
 
   return (
     <ModalShell
-      title="Ubah Penjamin & Pembuatan SEP"
-      subtitle="Perbarui data penjamin dan Surat Eligibilitas Peserta kunjungan ini"
+      title="Penjamin & Pembuatan SEP"
+      subtitle="Data penjamin dan Surat Eligibilitas Peserta BPJS Kesehatan"
       icon={CreditCard}
       onClose={onClose}
       size="xl"
       noPadding
-      footer={<PanelFooter sections={SECTIONS} active={sec} onChange={setSec} onClose={onClose} />}
+      footer={
+        <PanelFooter
+          sections={SECTIONS}
+          active={validSec}
+          onChange={setSec}
+          onClose={onClose}
+          saveLabel={isBpjs ? "Simpan & Buat SEP" : "Simpan Perubahan"}
+        />
+      }
     >
       {/* ── Left sidebar ── */}
-      <div className="flex w-56 shrink-0 flex-col border-r border-slate-100 bg-slate-50/80">
-        {/* Visit mini card */}
+      <div className="hidden w-56 shrink-0 flex-col border-r border-slate-100 bg-slate-50/80 sm:flex">
         <div className="flex flex-col gap-2.5 border-b border-slate-100 px-4 py-5">
           <span className={cn("inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[10px] font-bold", unit.bg, unit.text)}>
             {kunjungan.unit}
@@ -816,126 +938,409 @@ function UbahPenjaminModal({
           </div>
           <div className="flex items-center gap-1.5 rounded-lg border border-indigo-100 bg-indigo-50 px-2.5 py-2">
             <Shield size={11} className="shrink-0 text-indigo-500" />
-            <span className="text-[10px] font-semibold leading-tight text-indigo-700">
-              {kunjungan.penjamin ?? "Belum diatur"}
-            </span>
+            <span className="text-[10px] font-semibold leading-tight text-indigo-700">{penjaminType || "Belum diatur"}</span>
           </div>
           {kunjungan.noSEP ? (
             <div className="flex items-center gap-1.5 rounded-lg border border-emerald-100 bg-emerald-50 px-2.5 py-2">
               <CheckCircle size={11} className="shrink-0 text-emerald-500" />
-              <span className="font-mono text-[9px] font-bold text-emerald-700 truncate">{kunjungan.noSEP}</span>
+              <span className="truncate font-mono text-[9px] font-bold text-emerald-700">{kunjungan.noSEP}</span>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2">
-              <XCircle size={11} className="shrink-0 text-slate-400" />
-              <span className="text-[10px] text-slate-400">Belum ada SEP</span>
+            <div className="flex items-center gap-1.5 rounded-lg border border-amber-100 bg-amber-50 px-2.5 py-2">
+              <AlertTriangle size={11} className="shrink-0 text-amber-500" />
+              <span className="text-[10px] text-amber-600">Belum ada SEP</span>
             </div>
           )}
         </div>
-
-        <PanelSidebarNav sections={SECTIONS} active={sec} onChange={setSec} />
+        <PanelSidebarNav sections={SECTIONS} active={validSec} onChange={setSec} />
       </div>
 
       {/* ── Right content ── */}
       <div className="flex-1 overflow-y-auto p-6">
-        {sec === "penjamin" && (
-          <div>
-            <div className="mb-5 flex items-center gap-2.5 border-b border-slate-100 pb-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-100">
-                <CreditCard size={14} className="text-sky-600" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-slate-800">Data Penjamin</p>
-                <p className="text-[10px] text-slate-400">Jenis penjamin dan nomor kepesertaan pasien</p>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <FormField label="Jenis Penjamin">
-                <IconSelect icon={Shield} defaultValue={kunjungan.penjamin ?? ""}>
-                  <option>BPJS Non-PBI</option>
-                  <option>BPJS PBI</option>
-                  <option>Umum / Mandiri</option>
-                  <option>Asuransi Swasta</option>
-                  <option>Jamkesda</option>
-                </IconSelect>
-              </FormField>
-              <div className="grid grid-cols-2 gap-3">
-                <FormField label="Nomor Kepesertaan">
-                  <IconInput icon={Hash} defaultValue={kunjungan.noPenjamin ?? ""} placeholder="Nomor kepesertaan" />
-                </FormField>
-                <FormField label="Kelas Rawat">
-                  <IconSelect icon={Layers}>
-                    <option>Kelas 1</option>
-                    <option>Kelas 2</option>
-                    <option>Kelas 3</option>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={validSec}
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {/* ── Section 1: Data Penjamin ── */}
+            {validSec === "penjamin" && (
+              <div className="space-y-4">
+                <SectionHeader icon={CreditCard} iconCls="bg-sky-100 text-sky-600" title="Data Penjamin" sub="Jenis penjamin dan kepesertaan pasien" />
+                <FormField label="Jenis Penjamin">
+                  <IconSelect icon={Shield} value={penjaminType} onChange={(e) => handlePenjaminChange(e.target.value)}>
+                    <option>BPJS Non-PBI</option>
+                    <option>BPJS PBI</option>
+                    <option>Umum / Mandiri</option>
+                    <option>Asuransi Swasta</option>
+                    <option>Jamkesda</option>
                   </IconSelect>
                 </FormField>
-              </div>
-              <div className="rounded-xl border border-sky-100 bg-sky-50/50 px-4 py-3">
-                <p className="text-[10px] leading-relaxed text-sky-700">
-                  Perubahan jenis penjamin akan mempengaruhi penagihan dan laporan BPJS. Pastikan data sesuai dengan kartu kepesertaan pasien.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {sec === "sep" && (
-          <div>
-            <div className="mb-5 flex items-center gap-2.5 border-b border-slate-100 pb-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-100">
-                <FileText size={14} className="text-indigo-600" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-slate-800">Data SEP</p>
-                <p className="text-[10px] text-slate-400">Surat Eligibilitas Peserta BPJS Kesehatan</p>
-              </div>
-            </div>
+                {isBpjs ? (
+                  <>
+                    <FormField label="No. Kartu BPJS (noKartu)">
+                      <IconInput icon={Hash} defaultValue={kunjungan.noPenjamin ?? ""} placeholder="13 digit nomor kartu peserta" />
+                    </FormField>
 
-            {kunjungan.noSEP ? (
-              <div className="mb-4 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-100">
-                  <CheckCircle size={14} className="text-emerald-600" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-emerald-700">SEP Sudah Terdaftar</p>
-                  <p className="font-mono text-[11px] text-emerald-600">{kunjungan.noSEP}</p>
-                </div>
+                    <div className="space-y-3 rounded-xl border border-sky-100 bg-sky-50/30 p-4">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-sky-600">Kelas Rawat</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <FormField label="Kelas Rawat Hak">
+                          <IconSelect icon={Layers}>
+                            <option value="1">1 — Kelas 1</option>
+                            <option value="2">2 — Kelas 2</option>
+                            <option value="3">3 — Kelas 3</option>
+                          </IconSelect>
+                        </FormField>
+                        <FormField label="Naik Kelas">
+                          <IconSelect icon={Layers} value={klsRawatNaik} onChange={(e) => setKlsRawatNaik(e.target.value)}>
+                            <option value="">Tidak Naik Kelas</option>
+                            <option value="1">1 — VVIP</option>
+                            <option value="2">2 — VIP</option>
+                            <option value="3">3 — Kelas 1</option>
+                            <option value="4">4 — Kelas 2</option>
+                            <option value="5">5 — Kelas 3</option>
+                            <option value="6">6 — ICCU</option>
+                            <option value="7">7 — ICU</option>
+                            <option value="8">8 — Di Atas Kelas 1</option>
+                          </IconSelect>
+                        </FormField>
+                      </div>
+
+                      <AnimatePresence>
+                        {isNaikKelas && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                            className="grid grid-cols-2 gap-3 pt-1"
+                          >
+                            <FormField label="Pembiayaan">
+                              <IconSelect icon={CreditCard} value={pembiayaan} onChange={(e) => setPembiayaan(e.target.value)}>
+                                <option value="1">1 — Pribadi</option>
+                                <option value="2">2 — Pemberi Kerja</option>
+                                <option value="3">3 — Asuransi Kesehatan Tambahan</option>
+                              </IconSelect>
+                            </FormField>
+                            <FormField label="Penanggung Jawab">
+                              <IconInput icon={User} readOnly value={PEMBIAYAAN_LABEL[pembiayaan] ?? ""} />
+                            </FormField>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    <div className="rounded-xl border border-sky-100 bg-sky-50/50 px-4 py-3">
+                      <p className="text-[10px] leading-relaxed text-sky-700">
+                        Lanjutkan ke tab berikutnya untuk mengisi data SEP. Pastikan nomor kartu BPJS sesuai dengan kartu fisik peserta.
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <FormField label="No. Referensi / Polis">
+                      <IconInput icon={Hash} defaultValue={kunjungan.noPenjamin ?? ""} placeholder="Nomor polis / referensi penjamin" />
+                    </FormField>
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3">
+                      <p className="text-[10px] leading-relaxed text-slate-500">
+                        Penjamin non-BPJS tidak memerlukan pembuatan SEP. Pastikan data penjamin sesuai untuk keperluan penagihan.
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
-            ) : (
-              <div className="mb-4 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-100">
-                  <AlertTriangle size={14} className="text-amber-600" />
+            )}
+
+            {/* ── Section 2: Peserta & Kunjungan ── */}
+            {validSec === "peserta" && (
+              <div className="space-y-4">
+                <SectionHeader icon={Calendar} iconCls="bg-violet-100 text-violet-600" title="Peserta & Kunjungan" sub="Data kunjungan untuk pengajuan SEP ke BPJS" />
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField label="Tanggal SEP (tglSep)">
+                    <IconInput icon={Calendar} type="date" defaultValue={new Date().toISOString().split("T")[0]} />
+                  </FormField>
+                  <FormField label="Kode PPK Pelayanan">
+                    <IconInput icon={Building2} placeholder="Kode faskes (8 digit)" />
+                  </FormField>
                 </div>
-                <div>
-                  <p className="text-[10px] font-bold text-amber-700">Belum Ada SEP</p>
-                  <p className="text-[11px] text-amber-600">Isi form di bawah untuk membuat SEP baru</p>
+                <FormField label="No. Medical Record (noMR)">
+                  <IconInput icon={Hash} readOnly defaultValue={patient.noRM} />
+                </FormField>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField label="No. Telepon (noTelp)">
+                    <IconInput icon={Phone} type="tel" placeholder="08xxxxxxxxxx" />
+                  </FormField>
+                  <FormField label="User Pembuat (user)">
+                    <IconInput icon={User} readOnly defaultValue="admin_rs" />
+                  </FormField>
+                </div>
+                <div className="rounded-xl border border-violet-100 bg-violet-50/50 px-4 py-3">
+                  <p className="text-[10px] leading-relaxed text-violet-700">
+                    Kode PPK adalah kode faskes RS ini di sistem BPJS. No. MR dan User diisi otomatis dari sistem.
+                  </p>
                 </div>
               </div>
             )}
 
-            <div className="space-y-4">
-              <FormField label="Nomor SEP">
-                <IconInput icon={Hash} defaultValue={kunjungan.noSEP ?? ""} placeholder="Contoh: 0000000001100231" />
-              </FormField>
-              <div className="grid grid-cols-2 gap-3">
-                <FormField label="Tanggal SEP">
-                  <IconInput icon={Calendar} type="date" />
-                </FormField>
-                <FormField label="Jenis Pelayanan">
-                  <IconSelect icon={ClipboardList}>
-                    <option>Rawat Darurat</option>
-                    <option>Rawat Jalan Tingkat Lanjut</option>
-                    <option>Rawat Inap Tingkat Lanjut</option>
-                  </IconSelect>
+            {/* ── Section 3: Pelayanan & Diagnosa ── */}
+            {validSec === "pelayanan" && (
+              <div className="space-y-4">
+                <SectionHeader icon={Stethoscope} iconCls="bg-indigo-100 text-indigo-600" title="Pelayanan & Diagnosa" sub="Jenis pelayanan, diagnosa, dan tujuan kunjungan" />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField label="Jenis Pelayanan (jnsPelayanan)">
+                    <IconSelect icon={ClipboardList} value={jnsPelayanan} onChange={(e) => setJnsPelayanan(e.target.value)}>
+                      <option value="1">1 — Rawat Inap</option>
+                      <option value="2">2 — Rawat Jalan</option>
+                    </IconSelect>
+                  </FormField>
+                  <FormField label="Diagnosa Awal ICD-10 (diagAwal)">
+                    <IconInput icon={Stethoscope} placeholder="Contoh: J06.9" />
+                  </FormField>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField label="Tujuan Kunjungan (tujuanKunj)">
+                    <IconSelect icon={ClipboardList} value={tujuanKunj} onChange={(e) => setTujuanKunj(e.target.value)}>
+                      <option value="0">0 — Normal</option>
+                      <option value="1">1 — Prosedur</option>
+                      <option value="2">2 — Konsul Dokter</option>
+                    </IconSelect>
+                  </FormField>
+                  {isRajal ? (
+                    <FormField label="DPJP Layanan (dpjpLayan)">
+                      <IconInput icon={Stethoscope} placeholder="Kode dokter DPJP layanan" />
+                    </FormField>
+                  ) : (
+                    <div className="flex items-end pb-4">
+                      <p className="text-[10px] italic text-slate-400">dpjpLayan tidak diisi untuk Rawat Inap</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* flagProcedure & kdPenunjang — diisi jika tujuanKunj ≠ "0" */}
+                <AnimatePresence>
+                  {tujuanKunj !== "0" && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                      className="space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/30 p-4"
+                    >
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-600">Prosedur / Penunjang</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <FormField label="Flag Procedure">
+                          <IconSelect icon={ClipboardList}>
+                            <option value="0">0 — Tidak Berkelanjutan</option>
+                            <option value="1">1 — Terapi Berkelanjutan</option>
+                          </IconSelect>
+                        </FormField>
+                        <FormField label="Kode Penunjang (kdPenunjang)">
+                          <IconSelect icon={ClipboardList}>
+                            <option value="">— Pilih penunjang —</option>
+                            <option value="1">1 — Radioterapi</option>
+                            <option value="2">2 — Kemoterapi</option>
+                            <option value="3">3 — Rehabilitasi Medik</option>
+                            <option value="4">4 — Rehabilitasi Psikososial</option>
+                            <option value="5">5 — Transfusi Darah</option>
+                            <option value="6">6 — Pelayanan Gigi</option>
+                            <option value="7">7 — Laboratorium</option>
+                            <option value="8">8 — USG</option>
+                            <option value="9">9 — Farmasi</option>
+                            <option value="10">10 — Lain-Lain</option>
+                            <option value="11">11 — MRI</option>
+                            <option value="12">12 — Hemodialisa</option>
+                          </IconSelect>
+                        </FormField>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* assesmentPel — diisi jika tujuanKunj = "0" atau "2" */}
+                <AnimatePresence>
+                  {(tujuanKunj === "0" || tujuanKunj === "2") && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                    >
+                      <FormField label="Assesment Pelayanan (assesmentPel)">
+                        <IconSelect icon={ClipboardList}>
+                          <option value="">— Pilih alasan (jika berlaku) —</option>
+                          <option value="1">1 — Poli spesialis tidak tersedia hari sebelumnya</option>
+                          <option value="2">2 — Jam poli telah berakhir hari sebelumnya</option>
+                          <option value="3">3 — Dokter spesialis tidak praktek hari sebelumnya</option>
+                          <option value="4">4 — Atas instruksi RS</option>
+                          <option value="5">5 — Tujuan Kontrol</option>
+                        </IconSelect>
+                      </FormField>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <FormField label="Catatan Peserta (catatan)">
+                  <textarea
+                    className={cn(inputCls, "min-h-[72px] resize-none")}
+                    placeholder="Catatan tambahan peserta BPJS (opsional)..."
+                  />
                 </FormField>
               </div>
-              <FormField label="Diagnosa Primer (ICD-10)">
-                <IconInput icon={Hash} placeholder="Contoh: J06.9" />
-              </FormField>
-            </div>
-          </div>
-        )}
+            )}
+
+            {/* ── Section 4: Poli & Rujukan ── */}
+            {validSec === "poli-rujukan" && (
+              <div className="space-y-4">
+                <SectionHeader icon={Building2} iconCls="bg-teal-100 text-teal-600" title="Poli & Rujukan" sub="Poli tujuan dan data surat rujukan" />
+
+                <div className="space-y-3 rounded-xl border border-teal-100 bg-teal-50/30 p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-teal-600">Data Poli</p>
+                  <FormField label="Kode Poli Tujuan (poli.tujuan)">
+                    <IconInput icon={Building2} placeholder="Kode poli (lihat referensi BPJS)" />
+                  </FormField>
+                  <ToggleField
+                    label="Poli Eksekutif (poli.eksekutif)"
+                    description="Centang jika pasien ke poli eksekutif"
+                    value={poliEksekutif}
+                    onChange={setPoliEksekutif}
+                  />
+                </div>
+
+                <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Data Rujukan</p>
+                  <FormField label="Asal Rujukan (rujukan.asalRujukan)">
+                    <IconSelect icon={MapPin}>
+                      <option value="">— Pilih asal rujukan —</option>
+                      <option value="1">1 — Faskes Tingkat 1 (Puskesmas / Klinik)</option>
+                      <option value="2">2 — Faskes Tingkat 2 (Rumah Sakit)</option>
+                    </IconSelect>
+                  </FormField>
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField label="Tanggal Rujukan">
+                      <IconInput icon={Calendar} type="date" />
+                    </FormField>
+                    <FormField label="No. Rujukan (noRujukan)">
+                      <IconInput icon={Hash} placeholder="Nomor surat rujukan" />
+                    </FormField>
+                  </div>
+                  <FormField label="Kode PPK Rujukan (ppkRujukan)">
+                    <IconInput icon={Building2} placeholder="Kode faskes perujuk (8 digit)" />
+                  </FormField>
+                </div>
+              </div>
+            )}
+
+            {/* ── Section 5: Jaminan & SKDP ── */}
+            {validSec === "jaminan" && (
+              <div className="space-y-4">
+                <SectionHeader icon={Shield} iconCls="bg-amber-100 text-amber-600" title="Jaminan & SKDP" sub="COB, katarak, laka lantas, dan surat kontrol DPJP" />
+
+                <div className="space-y-2">
+                  <ToggleField label="COB — Coordination of Benefit (cob.cob)" description="Peserta memiliki jaminan kesehatan lain" value={cob} onChange={setCob} />
+                  <ToggleField label="Katarak (katarak.katarak)" description="Kasus tindakan operasi katarak" value={katarak} onChange={setKatarak} />
+                </div>
+
+                <FormField label="Jenis Kecelakaan (jaminan.lakaLantas)">
+                  <IconSelect
+                    icon={Car}
+                    value={lakaLantas}
+                    onChange={(e) => { setLakaLantas(e.target.value); if (e.target.value === "0") setSuplesi(false); }}
+                  >
+                    <option value="0">0 — Bukan Kecelakaan Lalu Lintas (BKLL)</option>
+                    <option value="1">1 — KLL, Bukan Kecelakaan Kerja (BKK)</option>
+                    <option value="2">2 — KLL dan Kecelakaan Kerja (KK)</option>
+                    <option value="3">3 — Kecelakaan Kerja (KK)</option>
+                  </IconSelect>
+                </FormField>
+
+                <AnimatePresence>
+                  {isLaka && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                      className="space-y-4 rounded-xl border border-rose-100 bg-rose-50/40 p-4"
+                    >
+                      <div className="flex items-center gap-2 border-b border-rose-100 pb-3">
+                        <Car size={12} className="text-rose-500" />
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-rose-600">Data Kecelakaan (jaminan.penjamin)</p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <FormField label="No. Laporan Polisi (noLP)">
+                          <IconInput icon={Hash} placeholder="No. LP dari kepolisian" />
+                        </FormField>
+                        <FormField label="Tanggal Kejadian (tglKejadian)">
+                          <IconInput icon={Calendar} type="date" />
+                        </FormField>
+                      </div>
+                      <FormField label="Keterangan Kejadian (keterangan)">
+                        <textarea
+                          className={cn(inputCls, "min-h-[64px] resize-none")}
+                          placeholder="Uraian singkat kejadian kecelakaan..."
+                        />
+                      </FormField>
+
+                      <ToggleField
+                        label="Suplesi (suplesi.suplesi)"
+                        description="Ada SEP sebelumnya untuk kasus yang sama?"
+                        value={suplesi}
+                        onChange={setSuplesi}
+                      />
+
+                      <AnimatePresence>
+                        {suplesi && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                            className="space-y-3 rounded-xl border border-amber-100 bg-amber-50/40 p-4"
+                          >
+                            <FormField label="No. SEP Suplesi (noSepSuplesi)">
+                              <IconInput icon={Hash} placeholder="Nomor SEP yang terkait" />
+                            </FormField>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Lokasi Kejadian (lokasiLaka)</p>
+                            <div className="grid grid-cols-3 gap-2">
+                              <FormField label="Kode Provinsi">
+                                <IconInput icon={MapPin} placeholder="kdPropinsi" />
+                              </FormField>
+                              <FormField label="Kode Kabupaten">
+                                <IconInput icon={MapPin} placeholder="kdKabupaten" />
+                              </FormField>
+                              <FormField label="Kode Kecamatan">
+                                <IconInput icon={MapPin} placeholder="kdKecamatan" />
+                              </FormField>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">SKDP — Surat Kontrol DPJP</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField label="No. Surat Kontrol (skdp.noSurat)">
+                      <IconInput icon={FileText} placeholder="No. SKDP" />
+                    </FormField>
+                    <FormField label="Kode DPJP (skdp.kodeDPJP)">
+                      <IconInput icon={Stethoscope} placeholder="Kode dokter DPJP" />
+                    </FormField>
+                  </div>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </ModalShell>
   );
@@ -1295,16 +1700,18 @@ function HapusModal({
 
 function ActionModal({
   id,
+  patient,
   kunjungan,
   onClose,
 }: {
   id: NonNullable<ModalId>;
+  patient: PatientMaster;
   kunjungan: KunjunganRecord;
   onClose: () => void;
 }) {
   switch (id) {
     case "ubah-penjamin":
-      return <UbahPenjaminModal kunjungan={kunjungan} onClose={onClose} />;
+      return <UbahPenjaminModal patient={patient} kunjungan={kunjungan} onClose={onClose} />;
     case "ubah-paket":
       return <UbahPaketModal onClose={onClose} />;
     case "surat-rujukan":
@@ -1342,35 +1749,31 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
 
       {/* ── Header ── */}
       <header className="shrink-0 border-b border-slate-200 bg-white">
-        <div className="flex items-center justify-between gap-4 px-6 py-3.5">
-          <div className="flex min-w-0 items-center gap-3">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-3.5">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <Link
               href={`/ehis-care/pasien/${patient.noRM}`}
-              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-[12px] font-medium text-slate-600 transition hover:bg-slate-100"
+              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[12px] font-medium text-slate-600 transition hover:bg-slate-100 sm:px-3"
             >
               <ArrowLeft size={14} />
-              Kembali
+              <span className="hidden sm:inline">Kembali</span>
             </Link>
             <div className="h-5 w-px shrink-0 bg-slate-200" />
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-sm font-bold text-slate-800">{patient.name}</span>
-                <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
+              <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
+                <span className="truncate text-sm font-bold text-slate-800">{patient.name}</span>
+                <span className="hidden shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-500 sm:inline">
                   {patient.noRM}
                 </span>
-                <span className="shrink-0 text-slate-300">·</span>
-                <span className={cn("shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold", unit.bg, unit.text)}>
+                <span className="hidden shrink-0 text-slate-300 sm:inline">·</span>
+                <span className={cn("hidden shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold sm:inline", unit.bg, unit.text)}>
                   {kunjungan.unit}
                 </span>
-                <span className="shrink-0 text-slate-300">·</span>
-                <span className="shrink-0 text-[12px] text-slate-500">{kunjungan.tanggal}</span>
               </div>
               <div className="mt-0.5 flex items-center gap-1.5">
-                <span className="text-[11px] text-slate-400">Detail Pendaftaran</span>
-                <span className="text-slate-300">·</span>
-                <span className="font-mono text-[11px] font-bold text-indigo-600">
-                  {kunjungan.noPendaftaran}
-                </span>
+                <span className="font-mono text-[11px] font-bold text-indigo-600">{kunjungan.noPendaftaran}</span>
+                <span className="hidden text-slate-300 sm:inline">·</span>
+                <span className="hidden text-[11px] text-slate-400 sm:inline">{kunjungan.tanggal}</span>
               </div>
             </div>
           </div>
@@ -1378,11 +1781,11 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
             {kunjungan.klinisPath && (
               <Link
                 href={kunjungan.klinisPath}
-                className="flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-[11px] font-semibold text-indigo-600 transition hover:bg-indigo-100"
+                className="flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-[11px] font-semibold text-indigo-600 transition hover:bg-indigo-100"
               >
                 <Stethoscope size={13} />
-                Rekam Medis Klinis
-                <ExternalLink size={11} />
+                <span className="hidden md:inline">Rekam Medis Klinis</span>
+                <ExternalLink size={11} className="hidden md:block" />
               </Link>
             )}
             <StatusBadge status={kunjungan.status} />
@@ -1391,14 +1794,14 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
       </header>
 
       {/* ── Main ── */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
 
         {/* Left column — tabbed content */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="shrink-0 border-b border-slate-100 bg-white px-5 py-3">
+        <div className="flex flex-col lg:flex-1 lg:overflow-hidden">
+          <div className="sticky top-0 z-10 shrink-0 border-b border-slate-100 bg-white px-4 py-3 sm:px-5 lg:static">
             <TabNav active={activeTab} onChange={setActiveTab} />
           </div>
-          <div className="flex-1 overflow-y-auto p-5">
+          <div className="p-4 sm:p-5 lg:flex-1 lg:overflow-y-auto">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab}
@@ -1421,31 +1824,37 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
         </div>
 
         {/* Right column — actions */}
-        <div className="flex w-72 shrink-0 flex-col gap-5 overflow-y-auto border-l border-slate-200 bg-white p-5">
+        <div className="shrink-0 border-t border-slate-200 bg-white lg:flex lg:w-72 lg:flex-col lg:gap-5 lg:overflow-y-auto lg:border-l lg:border-t-0">
 
-          {/* Mini visit summary */}
-          <div className="overflow-hidden rounded-xl border border-slate-100 bg-linear-to-br from-slate-50 to-white">
-            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
-              <span className={cn("rounded-md px-2 py-0.5 text-[10px] font-bold", unit.bg, unit.text)}>
-                {kunjungan.unit}
-              </span>
-              <StatusBadge status={kunjungan.status} />
-            </div>
-            <div className="px-4 py-3">
-              <p className="font-mono text-[12px] font-bold text-indigo-600">
-                {kunjungan.noPendaftaran}
-              </p>
-              <p className="mt-0.5 text-[11px] text-slate-500">{kunjungan.tanggal}</p>
+          {/* Desktop only: mini visit summary */}
+          <div className="hidden p-5 pb-0 lg:block">
+            <div className="overflow-hidden rounded-xl border border-slate-100 bg-linear-to-br from-slate-50 to-white">
+              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
+                <span className={cn("rounded-md px-2 py-0.5 text-[10px] font-bold", unit.bg, unit.text)}>
+                  {kunjungan.unit}
+                </span>
+                <StatusBadge status={kunjungan.status} />
+              </div>
+              <div className="px-4 py-3">
+                <p className="font-mono text-[12px] font-bold text-indigo-600">{kunjungan.noPendaftaran}</p>
+                <p className="mt-0.5 text-[11px] text-slate-500">{kunjungan.tanggal}</p>
+              </div>
             </div>
           </div>
 
+          {/* Mobile: section label */}
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5 lg:hidden">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Aksi & Dokumen</span>
+            <StatusBadge status={kunjungan.status} />
+          </div>
+
           {/* Aksi Kunjungan */}
-          <div>
+          <div className="p-4 sm:p-5 lg:px-5 lg:py-0">
             <RightTitle label="Aksi Kunjungan" />
-            <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:flex lg:flex-col">
               <ActionBtn
                 icon={CreditCard}
-                label="Ubah Penjamin / Pembuatan SEP"
+                label="Penjamin / SEP"
                 sublabel="Perbarui data jaminan & SEP"
                 onClick={() => open("ubah-penjamin")}
               />
@@ -1471,12 +1880,12 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
             </div>
           </div>
 
-          <div className="border-t border-dashed border-slate-200" />
+          <div className="hidden border-t border-dashed border-slate-200 lg:block" />
 
           {/* Manajemen Data */}
-          <div>
+          <div className="p-4 pt-0 sm:p-5 sm:pt-0 lg:px-5 lg:py-0">
             <RightTitle label="Manajemen Data" />
-            <div className="space-y-2">
+            <div className="grid grid-cols-3 gap-2 lg:flex lg:flex-col">
               <ActionBtn
                 icon={RefreshCw}
                 label="Update Kunjungan"
@@ -1485,7 +1894,7 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
               />
               <ActionBtn
                 icon={Calendar}
-                label="Update Tanggal Pulang SEP"
+                label="Update SEP"
                 sublabel={hasSEP ? "Perbarui tgl pulang BPJS" : "Tidak ada SEP"}
                 variant="warning"
                 onClick={() => open("update-sep")}
@@ -1493,7 +1902,7 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
               />
               <ActionBtn
                 icon={Trash2}
-                label="Hapus Kunjungan"
+                label="Hapus"
                 sublabel="Hapus secara permanen"
                 variant="danger"
                 onClick={() => open("hapus")}
@@ -1501,12 +1910,12 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
             </div>
           </div>
 
-          <div className="border-t border-dashed border-slate-200" />
+          <div className="hidden border-t border-dashed border-slate-200 lg:block" />
 
           {/* Cetak Dokumen */}
-          <div>
+          <div className="p-4 pt-0 pb-6 sm:p-5 sm:pt-0 lg:px-5 lg:py-0 lg:pb-5">
             <RightTitle label="Cetak Dokumen" />
-            <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:flex lg:flex-col">
               <PrintBtn label="Bukti Pendaftaran" />
               <PrintBtn label="Barcode Pasien" />
               <PrintBtn label="Trecert" />
@@ -1519,7 +1928,7 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
       {/* Modals */}
       <AnimatePresence>
         {modal && (
-          <ActionModal id={modal} kunjungan={kunjungan} onClose={close} />
+          <ActionModal id={modal} patient={patient} kunjungan={kunjungan} onClose={close} />
         )}
       </AnimatePresence>
     </div>
