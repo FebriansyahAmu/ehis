@@ -84,7 +84,12 @@ function InfoCard({
   className?: string;
 }) {
   return (
-    <div className={cn("rounded-xl border border-slate-100 bg-slate-50/60 p-3.5", className)}>
+    <div
+      className={cn(
+        "rounded-xl border border-slate-100 bg-slate-50/60 p-3.5",
+        className,
+      )}
+    >
       <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
         {label}
       </p>
@@ -108,12 +113,23 @@ function RightTitle({ label }: { label: string }) {
 function StatusBadge({ status }: { status: KunjunganRecord["status"] }) {
   const cfg = {
     Aktif: { cls: "bg-sky-100 text-sky-700 ring-1 ring-sky-300", dot: true },
-    Selesai: { cls: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300", dot: false },
-    Dibatalkan: { cls: "bg-slate-100 text-slate-500 ring-1 ring-slate-300", dot: false },
+    Selesai: {
+      cls: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300",
+      dot: false,
+    },
+    Dibatalkan: {
+      cls: "bg-slate-100 text-slate-500 ring-1 ring-slate-300",
+      dot: false,
+    },
   }[status];
 
   return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold", cfg.cls)}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold",
+        cfg.cls,
+      )}
+    >
       {cfg.dot && (
         <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-sky-500" />
       )}
@@ -138,15 +154,21 @@ function ActionBtn({
   disabled?: boolean;
 }) {
   const iconCls = {
-    default: "bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white",
-    warning: "bg-amber-50 text-amber-600 group-hover:bg-amber-500 group-hover:text-white",
-    danger: "bg-rose-50 text-rose-600 group-hover:bg-rose-500 group-hover:text-white",
+    default:
+      "bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white",
+    warning:
+      "bg-amber-50 text-amber-600 group-hover:bg-amber-500 group-hover:text-white",
+    danger:
+      "bg-rose-50 text-rose-600 group-hover:bg-rose-500 group-hover:text-white",
   }[variant];
 
   const containerCls = {
-    default: "border-slate-200 bg-white hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-50",
-    warning: "border-amber-100 bg-amber-50/40 hover:border-amber-200 hover:shadow-md hover:shadow-amber-50",
-    danger: "border-rose-100 bg-rose-50/40 hover:border-rose-200 hover:shadow-md hover:shadow-rose-50",
+    default:
+      "border-slate-200 bg-white hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-50",
+    warning:
+      "border-amber-100 bg-amber-50/40 hover:border-amber-200 hover:shadow-md hover:shadow-amber-50",
+    danger:
+      "border-rose-100 bg-rose-50/40 hover:border-rose-200 hover:shadow-md hover:shadow-rose-50",
   }[variant];
 
   return (
@@ -158,17 +180,32 @@ function ActionBtn({
         "flex-col gap-1.5 px-2 py-3 text-center",
         "lg:flex-row lg:gap-3 lg:px-3 lg:py-2.5 lg:text-left",
         containerCls,
-        disabled && "cursor-not-allowed opacity-40 hover:border-slate-200! hover:bg-white! hover:shadow-none!",
+        disabled &&
+          "cursor-not-allowed opacity-40 hover:border-slate-200! hover:bg-white! hover:shadow-none!",
       )}
     >
-      <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all duration-150", iconCls)}>
+      <div
+        className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all duration-150",
+          iconCls,
+        )}
+      >
         <Icon size={14} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-semibold leading-tight text-slate-700">{label}</p>
-        {sublabel && <p className="mt-0.5 hidden text-[10px] text-slate-400 lg:block">{sublabel}</p>}
+        <p className="text-[11px] font-semibold leading-tight text-slate-700">
+          {label}
+        </p>
+        {sublabel && (
+          <p className="mt-0.5 hidden text-[10px] text-slate-400 lg:block">
+            {sublabel}
+          </p>
+        )}
       </div>
-      <ChevronRight size={12} className="hidden shrink-0 text-slate-300 transition-transform duration-150 group-hover:translate-x-0.5 lg:block" />
+      <ChevronRight
+        size={12}
+        className="hidden shrink-0 text-slate-300 transition-transform duration-150 group-hover:translate-x-0.5 lg:block"
+      />
     </button>
   );
 }
@@ -188,14 +225,22 @@ function PrintBtn({ label, disabled }: { label: string; disabled?: boolean }) {
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-all duration-150 group-hover:bg-slate-800 group-hover:text-white">
         <Printer size={13} />
       </div>
-      <span className="flex-1 text-[11px] font-medium leading-tight text-slate-600 lg:text-[12px]">{label}</span>
+      <span className="flex-1 text-[11px] font-medium leading-tight text-slate-600 lg:text-[12px]">
+        {label}
+      </span>
     </button>
   );
 }
 
 // ─── Tab navigation ─────────────────────────────────────────
 
-function TabNav({ active, onChange }: { active: TabId; onChange: (id: TabId) => void }) {
+function TabNav({
+  active,
+  onChange,
+}: {
+  active: TabId;
+  onChange: (id: TabId) => void;
+}) {
   return (
     <div className="flex gap-1 rounded-xl bg-slate-100/80 p-1">
       {TABS.map((tab) => (
@@ -230,10 +275,14 @@ function RingkasanTab({
     <div className="space-y-3">
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         <InfoCard label="No. Pendaftaran">
-          <span className="font-mono font-bold text-indigo-700">{kunjungan.noPendaftaran}</span>
+          <span className="font-mono font-bold text-indigo-700">
+            {kunjungan.noPendaftaran}
+          </span>
         </InfoCard>
         <InfoCard label="No. Kunjungan">
-          <span className="font-mono text-slate-600">{kunjungan.noKunjungan}</span>
+          <span className="font-mono text-slate-600">
+            {kunjungan.noKunjungan}
+          </span>
         </InfoCard>
       </div>
 
@@ -242,7 +291,13 @@ function RingkasanTab({
           <span className="text-[12px]">{kunjungan.tanggal}</span>
         </InfoCard>
         <InfoCard label="Unit Layanan">
-          <span className={cn("inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold", unit.bg, unit.text)}>
+          <span
+            className={cn(
+              "inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold",
+              unit.bg,
+              unit.text,
+            )}
+          >
             {kunjungan.unit}
           </span>
         </InfoCard>
@@ -264,7 +319,9 @@ function RingkasanTab({
         <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
           Keluhan Utama
         </p>
-        <p className="text-[13px] leading-relaxed text-slate-700">{kunjungan.keluhan}</p>
+        <p className="text-[13px] leading-relaxed text-slate-700">
+          {kunjungan.keluhan}
+        </p>
       </div>
     </div>
   );
@@ -294,11 +351,17 @@ function PenjaminTab({ kunjungan }: { kunjungan: KunjunganRecord }) {
           </div>
           {kunjungan.noPenjamin ? (
             <div>
-              <p className="mb-0.5 text-[9px] font-semibold text-indigo-300">No. Kepesertaan</p>
-              <p className="font-mono text-sm tracking-wider">{kunjungan.noPenjamin}</p>
+              <p className="mb-0.5 text-[9px] font-semibold text-indigo-300">
+                No. Kepesertaan
+              </p>
+              <p className="font-mono text-sm tracking-wider">
+                {kunjungan.noPenjamin}
+              </p>
             </div>
           ) : (
-            <p className="text-[11px] italic text-indigo-300">No. kepesertaan belum diisi</p>
+            <p className="text-[11px] italic text-indigo-300">
+              No. kepesertaan belum diisi
+            </p>
           )}
         </div>
       </div>
@@ -325,7 +388,9 @@ function PenjaminTab({ kunjungan }: { kunjungan: KunjunganRecord }) {
             <FileText size={20} className="text-slate-400" />
           </div>
           <div>
-            <p className="text-[12px] font-semibold text-slate-600">Belum ada SEP</p>
+            <p className="text-[12px] font-semibold text-slate-600">
+              Belum ada SEP
+            </p>
             <p className="mt-0.5 text-[11px] text-slate-400">
               Buat SEP melalui menu Ubah Penjamin
             </p>
@@ -352,7 +417,9 @@ function DiagnosaTab({
           <Hash size={24} className="text-slate-400" />
         </div>
         <div>
-          <p className="text-[13px] font-semibold text-slate-600">Belum ada diagnosa</p>
+          <p className="text-[13px] font-semibold text-slate-600">
+            Belum ada diagnosa
+          </p>
           <p className="mt-0.5 text-[11px] text-slate-400">
             Diagnosa akan tersedia setelah pemeriksaan
           </p>
@@ -374,8 +441,12 @@ function DiagnosaTab({
                 key={code}
                 className="flex items-center gap-2 rounded-xl border border-indigo-200 bg-linear-to-br from-indigo-50 to-violet-50 px-3.5 py-2.5"
               >
-                <span className="text-[9px] font-bold text-indigo-400">#{i + 1}</span>
-                <span className="font-mono text-[13px] font-bold text-indigo-700">{code}</span>
+                <span className="text-[9px] font-bold text-indigo-400">
+                  #{i + 1}
+                </span>
+                <span className="font-mono text-[13px] font-bold text-indigo-700">
+                  {code}
+                </span>
               </div>
             ))}
           </div>
@@ -387,7 +458,9 @@ function DiagnosaTab({
           <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
             Deskripsi Diagnosa
           </p>
-          <p className="text-[13px] leading-relaxed text-slate-700">{kunjungan.diagnosa}</p>
+          <p className="text-[13px] leading-relaxed text-slate-700">
+            {kunjungan.diagnosa}
+          </p>
         </div>
       )}
     </div>
@@ -404,7 +477,10 @@ function DokumenTab({ doc }: { doc: KunjunganRecord["dokumen"] }) {
   return (
     <div className="space-y-2.5">
       {items.map(({ label, status }) => {
-        const ok = !!status && status !== "Tidak Ada" && status !== "Belum Ditandatangani";
+        const ok =
+          !!status &&
+          status !== "Tidak Ada" &&
+          status !== "Belum Ditandatangani";
         return (
           <div
             key={label}
@@ -429,8 +505,15 @@ function DokumenTab({ doc }: { doc: KunjunganRecord["dokumen"] }) {
                 )}
               </div>
               <div>
-                <p className="text-[12px] font-semibold text-slate-700">{label}</p>
-                <p className={cn("mt-0.5 text-[10px] font-medium", ok ? "text-emerald-600" : "text-slate-400")}>
+                <p className="text-[12px] font-semibold text-slate-700">
+                  {label}
+                </p>
+                <p
+                  className={cn(
+                    "mt-0.5 text-[10px] font-medium",
+                    ok ? "text-emerald-600" : "text-slate-400",
+                  )}
+                >
                   {status ?? "Tidak Ada"}
                 </p>
               </div>
@@ -471,7 +554,12 @@ function ModalShell({
   size?: "sm" | "md" | "lg" | "xl";
   noPadding?: boolean;
 }) {
-  const maxW = { sm: "max-w-sm", md: "max-w-lg", lg: "max-w-2xl", xl: "max-w-4xl" }[size];
+  const maxW = {
+    sm: "max-w-sm",
+    md: "max-w-lg",
+    lg: "max-w-2xl",
+    xl: "max-w-4xl",
+  }[size];
 
   const accentCls =
     variant === "danger"
@@ -509,13 +597,20 @@ function ModalShell({
         <div className={cn("h-1 w-full shrink-0 bg-linear-to-r", accentCls)} />
         <div className="flex shrink-0 items-start gap-3.5 border-b border-slate-100 px-5 py-4">
           {Icon && (
-            <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", iconCls)}>
+            <div
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+                iconCls,
+              )}
+            >
               <Icon size={17} />
             </div>
           )}
           <div className="min-w-0 flex-1 pt-0.5">
             <h2 className="text-[14px] font-bold text-slate-800">{title}</h2>
-            {subtitle && <p className="mt-0.5 text-[11px] text-slate-400">{subtitle}</p>}
+            {subtitle && (
+              <p className="mt-0.5 text-[11px] text-slate-400">{subtitle}</p>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -526,7 +621,9 @@ function ModalShell({
         </div>
 
         {noPadding ? (
-          <div className="flex flex-1 flex-col overflow-hidden sm:flex-row">{children}</div>
+          <div className="flex flex-1 flex-col overflow-hidden sm:flex-row">
+            {children}
+          </div>
         ) : (
           <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
         )}
@@ -549,15 +646,28 @@ function PanelSidebarNav<T extends string>({
   onChange,
   activeColor = "indigo",
 }: {
-  sections: { id: T; label: string; icon: React.ElementType; desc: string; iconBg: string; iconText: string }[];
+  sections: {
+    id: T;
+    label: string;
+    icon: React.ElementType;
+    desc: string;
+    iconBg: string;
+    iconText: string;
+  }[];
   active: T;
   onChange: (id: T) => void;
   activeColor?: "indigo" | "amber";
 }) {
   const idx = sections.findIndex((s) => s.id === active);
-  const activeBg = activeColor === "amber" ? "bg-amber-600 shadow-amber-200" : "bg-indigo-600 shadow-indigo-200";
+  const activeBg =
+    activeColor === "amber"
+      ? "bg-amber-600 shadow-amber-200"
+      : "bg-indigo-600 shadow-indigo-200";
   const dotActive = activeColor === "amber" ? "bg-amber-500" : "bg-indigo-500";
-  const dotIdle = activeColor === "amber" ? "bg-amber-200 hover:bg-amber-300" : "bg-slate-300 hover:bg-slate-400";
+  const dotIdle =
+    activeColor === "amber"
+      ? "bg-amber-200 hover:bg-amber-300"
+      : "bg-slate-300 hover:bg-slate-400";
   const dotText = activeColor === "amber" ? "text-amber-400" : "text-slate-400";
 
   return (
@@ -572,7 +682,9 @@ function PanelSidebarNav<T extends string>({
               onClick={() => onChange(s.id)}
               className={cn(
                 "flex cursor-pointer items-start gap-2.5 rounded-xl p-3 text-left transition-all duration-150",
-                isActive ? `${activeBg} shadow-sm text-white` : "text-slate-500 hover:bg-white hover:shadow-xs",
+                isActive
+                  ? `${activeBg} shadow-sm text-white`
+                  : "text-slate-500 hover:bg-white hover:shadow-xs",
               )}
             >
               <div
@@ -581,17 +693,32 @@ function PanelSidebarNav<T extends string>({
                   isActive ? "bg-white/20" : s.iconBg,
                 )}
               >
-                <SIcon size={12} className={isActive ? "text-white" : s.iconText} />
+                <SIcon
+                  size={12}
+                  className={isActive ? "text-white" : s.iconText}
+                />
               </div>
               <div className="min-w-0">
-                <p className={cn("text-[11px] font-bold leading-tight", isActive ? "text-white" : "text-slate-700")}>
+                <p
+                  className={cn(
+                    "text-[11px] font-bold leading-tight",
+                    isActive ? "text-white" : "text-slate-700",
+                  )}
+                >
                   {s.label}
                 </p>
-                <p className={cn("mt-0.5 text-[10px] leading-tight", isActive ? "text-white/60" : "text-slate-400")}>
+                <p
+                  className={cn(
+                    "mt-0.5 text-[10px] leading-tight",
+                    isActive ? "text-white/60" : "text-slate-400",
+                  )}
+                >
                   {s.desc}
                 </p>
               </div>
-              {isActive && <span className="ml-auto mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-white/60" />}
+              {isActive && (
+                <span className="ml-auto mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-white/60" />
+              )}
             </button>
           );
         })}
@@ -664,7 +791,13 @@ const inputCls =
 const selectCls =
   "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition cursor-pointer";
 
-function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+function FormField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="mb-4 last:mb-0">
       <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
@@ -772,7 +905,12 @@ function SectionHeader({
 }) {
   return (
     <div className="mb-5 flex items-center gap-2.5 border-b border-slate-100 pb-4">
-      <div className={cn("flex h-8 w-8 items-center justify-center rounded-xl", iconCls)}>
+      <div
+        className={cn(
+          "flex h-8 w-8 items-center justify-center rounded-xl",
+          iconCls,
+        )}
+      >
         <Icon size={14} />
       </div>
       <div>
@@ -783,7 +921,13 @@ function SectionHeader({
   );
 }
 
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+function Toggle({
+  value,
+  onChange,
+}: {
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
     <button
       type="button"
@@ -818,7 +962,9 @@ function ToggleField({
     <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3">
       <div>
         <p className="text-[12px] font-semibold text-slate-700">{label}</p>
-        {description && <p className="mt-0.5 text-[10px] text-slate-400">{description}</p>}
+        {description && (
+          <p className="mt-0.5 text-[10px] text-slate-400">{description}</p>
+        )}
       </div>
       <Toggle value={value} onChange={onChange} />
     </div>
@@ -855,9 +1001,16 @@ function UbahPenjaminModal({
   kunjungan: KunjunganRecord;
   onClose: () => void;
 }) {
-  type SecId = "penjamin" | "peserta" | "pelayanan" | "poli-rujukan" | "jaminan";
+  type SecId =
+    | "penjamin"
+    | "peserta"
+    | "pelayanan"
+    | "poli-rujukan"
+    | "jaminan";
 
-  const [penjaminType, setPenjaminType] = useState<string>(kunjungan.penjamin ?? "BPJS Non-PBI");
+  const [penjaminType, setPenjaminType] = useState<string>(
+    kunjungan.penjamin ?? "BPJS Non-PBI",
+  );
   const [sec, setSec] = useState<SecId>("penjamin");
   // klsRawat
   const [klsRawatNaik, setKlsRawatNaik] = useState<string>("");
@@ -878,19 +1031,71 @@ function UbahPenjaminModal({
   const isRajal = jnsPelayanan === "2";
 
   const BPJS_SECTIONS: {
-    id: SecId; label: string; icon: React.ElementType; desc: string; iconBg: string; iconText: string;
+    id: SecId;
+    label: string;
+    icon: React.ElementType;
+    desc: string;
+    iconBg: string;
+    iconText: string;
   }[] = [
-    { id: "penjamin",     label: "Data Penjamin",        icon: CreditCard,  desc: "Jenis & kepesertaan",           iconBg: "bg-sky-100",    iconText: "text-sky-600"    },
-    { id: "peserta",      label: "Peserta & Kunjungan",  icon: Calendar,    desc: "Tgl SEP, PPK & kontak",         iconBg: "bg-violet-100", iconText: "text-violet-600" },
-    { id: "pelayanan",    label: "Pelayanan & Diagnosa", icon: Stethoscope, desc: "Jenis layanan & diagnosa awal", iconBg: "bg-indigo-100", iconText: "text-indigo-600" },
-    { id: "poli-rujukan", label: "Poli & Rujukan",       icon: Building2,   desc: "Poli tujuan & data rujukan",    iconBg: "bg-teal-100",   iconText: "text-teal-600"   },
-    { id: "jaminan",      label: "Jaminan & SKDP",       icon: Shield,      desc: "COB, laka lantas & SKDP",       iconBg: "bg-amber-100",  iconText: "text-amber-600"  },
+    {
+      id: "penjamin",
+      label: "Data Penjamin",
+      icon: CreditCard,
+      desc: "Jenis & kepesertaan",
+      iconBg: "bg-sky-100",
+      iconText: "text-sky-600",
+    },
+    {
+      id: "peserta",
+      label: "Peserta & Kunjungan",
+      icon: Calendar,
+      desc: "Tgl SEP, PPK & kontak",
+      iconBg: "bg-violet-100",
+      iconText: "text-violet-600",
+    },
+    {
+      id: "pelayanan",
+      label: "Pelayanan & Diagnosa",
+      icon: Stethoscope,
+      desc: "Jenis layanan & diagnosa awal",
+      iconBg: "bg-indigo-100",
+      iconText: "text-indigo-600",
+    },
+    {
+      id: "poli-rujukan",
+      label: "Poli & Rujukan",
+      icon: Building2,
+      desc: "Poli tujuan & data rujukan",
+      iconBg: "bg-teal-100",
+      iconText: "text-teal-600",
+    },
+    {
+      id: "jaminan",
+      label: "Jaminan & SKDP",
+      icon: Shield,
+      desc: "COB, laka lantas & SKDP",
+      iconBg: "bg-amber-100",
+      iconText: "text-amber-600",
+    },
   ];
 
   const PLAIN_SECTIONS: {
-    id: SecId; label: string; icon: React.ElementType; desc: string; iconBg: string; iconText: string;
+    id: SecId;
+    label: string;
+    icon: React.ElementType;
+    desc: string;
+    iconBg: string;
+    iconText: string;
   }[] = [
-    { id: "penjamin", label: "Data Penjamin", icon: CreditCard, desc: "Jenis & data penjamin", iconBg: "bg-sky-100", iconText: "text-sky-600" },
+    {
+      id: "penjamin",
+      label: "Data Penjamin",
+      icon: CreditCard,
+      desc: "Jenis & data penjamin",
+      iconBg: "bg-sky-100",
+      iconText: "text-sky-600",
+    },
   ];
 
   const SECTIONS = isBpjs ? BPJS_SECTIONS : PLAIN_SECTIONS;
@@ -929,21 +1134,35 @@ function UbahPenjaminModal({
       {/* ── Left sidebar ── */}
       <div className="hidden w-56 shrink-0 flex-col border-r border-slate-100 bg-slate-50/80 sm:flex">
         <div className="flex flex-col gap-2.5 border-b border-slate-100 px-4 py-5">
-          <span className={cn("inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[10px] font-bold", unit.bg, unit.text)}>
+          <span
+            className={cn(
+              "inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[10px] font-bold",
+              unit.bg,
+              unit.text,
+            )}
+          >
             {kunjungan.unit}
           </span>
           <div>
-            <p className="font-mono text-[13px] font-bold text-slate-800">{kunjungan.noPendaftaran}</p>
-            <p className="mt-0.5 text-[10px] text-slate-400">{kunjungan.tanggal}</p>
+            <p className="font-mono text-[13px] font-bold text-slate-800">
+              {kunjungan.noPendaftaran}
+            </p>
+            <p className="mt-0.5 text-[10px] text-slate-400">
+              {kunjungan.tanggal}
+            </p>
           </div>
           <div className="flex items-center gap-1.5 rounded-lg border border-indigo-100 bg-indigo-50 px-2.5 py-2">
             <Shield size={11} className="shrink-0 text-indigo-500" />
-            <span className="text-[10px] font-semibold leading-tight text-indigo-700">{penjaminType || "Belum diatur"}</span>
+            <span className="text-[10px] font-semibold leading-tight text-indigo-700">
+              {penjaminType || "Belum diatur"}
+            </span>
           </div>
           {kunjungan.noSEP ? (
             <div className="flex items-center gap-1.5 rounded-lg border border-emerald-100 bg-emerald-50 px-2.5 py-2">
               <CheckCircle size={11} className="shrink-0 text-emerald-500" />
-              <span className="truncate font-mono text-[9px] font-bold text-emerald-700">{kunjungan.noSEP}</span>
+              <span className="truncate font-mono text-[9px] font-bold text-emerald-700">
+                {kunjungan.noSEP}
+              </span>
             </div>
           ) : (
             <div className="flex items-center gap-1.5 rounded-lg border border-amber-100 bg-amber-50 px-2.5 py-2">
@@ -952,7 +1171,11 @@ function UbahPenjaminModal({
             </div>
           )}
         </div>
-        <PanelSidebarNav sections={SECTIONS} active={validSec} onChange={setSec} />
+        <PanelSidebarNav
+          sections={SECTIONS}
+          active={validSec}
+          onChange={setSec}
+        />
       </div>
 
       {/* ── Right content ── */}
@@ -968,9 +1191,18 @@ function UbahPenjaminModal({
             {/* ── Section 1: Data Penjamin ── */}
             {validSec === "penjamin" && (
               <div className="space-y-4">
-                <SectionHeader icon={CreditCard} iconCls="bg-sky-100 text-sky-600" title="Data Penjamin" sub="Jenis penjamin dan kepesertaan pasien" />
+                <SectionHeader
+                  icon={CreditCard}
+                  iconCls="bg-sky-100 text-sky-600"
+                  title="Data Penjamin"
+                  sub="Jenis penjamin dan kepesertaan pasien"
+                />
                 <FormField label="Jenis Penjamin">
-                  <IconSelect icon={Shield} value={penjaminType} onChange={(e) => handlePenjaminChange(e.target.value)}>
+                  <IconSelect
+                    icon={Shield}
+                    value={penjaminType}
+                    onChange={(e) => handlePenjaminChange(e.target.value)}
+                  >
                     <option>BPJS Non-PBI</option>
                     <option>BPJS PBI</option>
                     <option>Umum / Mandiri</option>
@@ -982,11 +1214,17 @@ function UbahPenjaminModal({
                 {isBpjs ? (
                   <>
                     <FormField label="No. Kartu BPJS (noKartu)">
-                      <IconInput icon={Hash} defaultValue={kunjungan.noPenjamin ?? ""} placeholder="13 digit nomor kartu peserta" />
+                      <IconInput
+                        icon={Hash}
+                        defaultValue={kunjungan.noPenjamin ?? ""}
+                        placeholder="13 digit nomor kartu peserta"
+                      />
                     </FormField>
 
                     <div className="space-y-3 rounded-xl border border-sky-100 bg-sky-50/30 p-4">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-sky-600">Kelas Rawat</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-sky-600">
+                        Kelas Rawat
+                      </p>
                       <div className="grid grid-cols-2 gap-3">
                         <FormField label="Kelas Rawat Hak">
                           <IconSelect icon={Layers}>
@@ -996,7 +1234,11 @@ function UbahPenjaminModal({
                           </IconSelect>
                         </FormField>
                         <FormField label="Naik Kelas">
-                          <IconSelect icon={Layers} value={klsRawatNaik} onChange={(e) => setKlsRawatNaik(e.target.value)}>
+                          <IconSelect
+                            icon={Layers}
+                            value={klsRawatNaik}
+                            onChange={(e) => setKlsRawatNaik(e.target.value)}
+                          >
                             <option value="">Tidak Naik Kelas</option>
                             <option value="1">1 — VVIP</option>
                             <option value="2">2 — VIP</option>
@@ -1016,18 +1258,31 @@ function UbahPenjaminModal({
                             initial={{ opacity: 0, y: -6 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -6 }}
-                            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                            transition={{
+                              duration: 0.18,
+                              ease: [0.16, 1, 0.3, 1],
+                            }}
                             className="grid grid-cols-2 gap-3 pt-1"
                           >
                             <FormField label="Pembiayaan">
-                              <IconSelect icon={CreditCard} value={pembiayaan} onChange={(e) => setPembiayaan(e.target.value)}>
+                              <IconSelect
+                                icon={CreditCard}
+                                value={pembiayaan}
+                                onChange={(e) => setPembiayaan(e.target.value)}
+                              >
                                 <option value="1">1 — Pribadi</option>
                                 <option value="2">2 — Pemberi Kerja</option>
-                                <option value="3">3 — Asuransi Kesehatan Tambahan</option>
+                                <option value="3">
+                                  3 — Asuransi Kesehatan Tambahan
+                                </option>
                               </IconSelect>
                             </FormField>
                             <FormField label="Penanggung Jawab">
-                              <IconInput icon={User} readOnly value={PEMBIAYAAN_LABEL[pembiayaan] ?? ""} />
+                              <IconInput
+                                icon={User}
+                                readOnly
+                                value={PEMBIAYAAN_LABEL[pembiayaan] ?? ""}
+                              />
                             </FormField>
                           </motion.div>
                         )}
@@ -1036,18 +1291,25 @@ function UbahPenjaminModal({
 
                     <div className="rounded-xl border border-sky-100 bg-sky-50/50 px-4 py-3">
                       <p className="text-[10px] leading-relaxed text-sky-700">
-                        Lanjutkan ke tab berikutnya untuk mengisi data SEP. Pastikan nomor kartu BPJS sesuai dengan kartu fisik peserta.
+                        Lanjutkan ke tab berikutnya untuk mengisi data SEP.
+                        Pastikan nomor kartu BPJS sesuai dengan kartu fisik
+                        peserta.
                       </p>
                     </div>
                   </>
                 ) : (
                   <>
                     <FormField label="No. Referensi / Polis">
-                      <IconInput icon={Hash} defaultValue={kunjungan.noPenjamin ?? ""} placeholder="Nomor polis / referensi penjamin" />
+                      <IconInput
+                        icon={Hash}
+                        defaultValue={kunjungan.noPenjamin ?? ""}
+                        placeholder="Nomor polis / referensi penjamin"
+                      />
                     </FormField>
                     <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3">
                       <p className="text-[10px] leading-relaxed text-slate-500">
-                        Penjamin non-BPJS tidak memerlukan pembuatan SEP. Pastikan data penjamin sesuai untuk keperluan penagihan.
+                        Penjamin non-BPJS tidak memerlukan pembuatan SEP.
+                        Pastikan data penjamin sesuai untuk keperluan penagihan.
                       </p>
                     </div>
                   </>
@@ -1058,13 +1320,25 @@ function UbahPenjaminModal({
             {/* ── Section 2: Peserta & Kunjungan ── */}
             {validSec === "peserta" && (
               <div className="space-y-4">
-                <SectionHeader icon={Calendar} iconCls="bg-violet-100 text-violet-600" title="Peserta & Kunjungan" sub="Data kunjungan untuk pengajuan SEP ke BPJS" />
+                <SectionHeader
+                  icon={Calendar}
+                  iconCls="bg-violet-100 text-violet-600"
+                  title="Peserta & Kunjungan"
+                  sub="Data kunjungan untuk pengajuan SEP ke BPJS"
+                />
                 <div className="grid grid-cols-2 gap-3">
                   <FormField label="Tanggal SEP (tglSep)">
-                    <IconInput icon={Calendar} type="date" defaultValue={new Date().toISOString().split("T")[0]} />
+                    <IconInput
+                      icon={Calendar}
+                      type="date"
+                      defaultValue={new Date().toISOString().split("T")[0]}
+                    />
                   </FormField>
                   <FormField label="Kode PPK Pelayanan">
-                    <IconInput icon={Building2} placeholder="Kode faskes (8 digit)" />
+                    <IconInput
+                      icon={Building2}
+                      placeholder="Kode faskes (8 digit)"
+                    />
                   </FormField>
                 </div>
                 <FormField label="No. Medical Record (noMR)">
@@ -1072,7 +1346,11 @@ function UbahPenjaminModal({
                 </FormField>
                 <div className="grid grid-cols-2 gap-3">
                   <FormField label="No. Telepon (noTelp)">
-                    <IconInput icon={Phone} type="tel" placeholder="08xxxxxxxxxx" />
+                    <IconInput
+                      icon={Phone}
+                      type="tel"
+                      placeholder="08xxxxxxxxxx"
+                    />
                   </FormField>
                   <FormField label="User Pembuat (user)">
                     <IconInput icon={User} readOnly defaultValue="admin_rs" />
@@ -1080,7 +1358,8 @@ function UbahPenjaminModal({
                 </div>
                 <div className="rounded-xl border border-violet-100 bg-violet-50/50 px-4 py-3">
                   <p className="text-[10px] leading-relaxed text-violet-700">
-                    Kode PPK adalah kode faskes RS ini di sistem BPJS. No. MR dan User diisi otomatis dari sistem.
+                    Kode PPK adalah kode faskes RS ini di sistem BPJS. No. MR
+                    dan User diisi otomatis dari sistem.
                   </p>
                 </div>
               </div>
@@ -1089,11 +1368,20 @@ function UbahPenjaminModal({
             {/* ── Section 3: Pelayanan & Diagnosa ── */}
             {validSec === "pelayanan" && (
               <div className="space-y-4">
-                <SectionHeader icon={Stethoscope} iconCls="bg-indigo-100 text-indigo-600" title="Pelayanan & Diagnosa" sub="Jenis pelayanan, diagnosa, dan tujuan kunjungan" />
+                <SectionHeader
+                  icon={Stethoscope}
+                  iconCls="bg-indigo-100 text-indigo-600"
+                  title="Pelayanan & Diagnosa"
+                  sub="Jenis pelayanan, diagnosa, dan tujuan kunjungan"
+                />
 
                 <div className="grid grid-cols-2 gap-3">
                   <FormField label="Jenis Pelayanan (jnsPelayanan)">
-                    <IconSelect icon={ClipboardList} value={jnsPelayanan} onChange={(e) => setJnsPelayanan(e.target.value)}>
+                    <IconSelect
+                      icon={ClipboardList}
+                      value={jnsPelayanan}
+                      onChange={(e) => setJnsPelayanan(e.target.value)}
+                    >
                       <option value="1">1 — Rawat Inap</option>
                       <option value="2">2 — Rawat Jalan</option>
                     </IconSelect>
@@ -1105,7 +1393,11 @@ function UbahPenjaminModal({
 
                 <div className="grid grid-cols-2 gap-3">
                   <FormField label="Tujuan Kunjungan (tujuanKunj)">
-                    <IconSelect icon={ClipboardList} value={tujuanKunj} onChange={(e) => setTujuanKunj(e.target.value)}>
+                    <IconSelect
+                      icon={ClipboardList}
+                      value={tujuanKunj}
+                      onChange={(e) => setTujuanKunj(e.target.value)}
+                    >
                       <option value="0">0 — Normal</option>
                       <option value="1">1 — Prosedur</option>
                       <option value="2">2 — Konsul Dokter</option>
@@ -1113,11 +1405,16 @@ function UbahPenjaminModal({
                   </FormField>
                   {isRajal ? (
                     <FormField label="DPJP Layanan (dpjpLayan)">
-                      <IconInput icon={Stethoscope} placeholder="Kode dokter DPJP layanan" />
+                      <IconInput
+                        icon={Stethoscope}
+                        placeholder="Kode dokter DPJP layanan"
+                      />
                     </FormField>
                   ) : (
                     <div className="flex items-end pb-4">
-                      <p className="text-[10px] italic text-slate-400">dpjpLayan tidak diisi untuk Rawat Inap</p>
+                      <p className="text-[10px] italic text-slate-400">
+                        dpjpLayan tidak diisi untuk Rawat Inap
+                      </p>
                     </div>
                   )}
                 </div>
@@ -1132,7 +1429,9 @@ function UbahPenjaminModal({
                       transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                       className="space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/30 p-4"
                     >
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-600">Prosedur / Penunjang</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-600">
+                        Prosedur / Penunjang
+                      </p>
                       <div className="grid grid-cols-2 gap-3">
                         <FormField label="Flag Procedure">
                           <IconSelect icon={ClipboardList}>
@@ -1146,7 +1445,9 @@ function UbahPenjaminModal({
                             <option value="1">1 — Radioterapi</option>
                             <option value="2">2 — Kemoterapi</option>
                             <option value="3">3 — Rehabilitasi Medik</option>
-                            <option value="4">4 — Rehabilitasi Psikososial</option>
+                            <option value="4">
+                              4 — Rehabilitasi Psikososial
+                            </option>
                             <option value="5">5 — Transfusi Darah</option>
                             <option value="6">6 — Pelayanan Gigi</option>
                             <option value="7">7 — Laboratorium</option>
@@ -1173,10 +1474,18 @@ function UbahPenjaminModal({
                     >
                       <FormField label="Assesment Pelayanan (assesmentPel)">
                         <IconSelect icon={ClipboardList}>
-                          <option value="">— Pilih alasan (jika berlaku) —</option>
-                          <option value="1">1 — Poli spesialis tidak tersedia hari sebelumnya</option>
-                          <option value="2">2 — Jam poli telah berakhir hari sebelumnya</option>
-                          <option value="3">3 — Dokter spesialis tidak praktek hari sebelumnya</option>
+                          <option value="">
+                            — Pilih alasan (jika berlaku) —
+                          </option>
+                          <option value="1">
+                            1 — Poli spesialis tidak tersedia hari sebelumnya
+                          </option>
+                          <option value="2">
+                            2 — Jam poli telah berakhir hari sebelumnya
+                          </option>
+                          <option value="3">
+                            3 — Dokter spesialis tidak praktek hari sebelumnya
+                          </option>
                           <option value="4">4 — Atas instruksi RS</option>
                           <option value="5">5 — Tujuan Kontrol</option>
                         </IconSelect>
@@ -1187,7 +1496,7 @@ function UbahPenjaminModal({
 
                 <FormField label="Catatan Peserta (catatan)">
                   <textarea
-                    className={cn(inputCls, "min-h-[72px] resize-none")}
+                    className={cn(inputCls, "min-h-18 resize-none")}
                     placeholder="Catatan tambahan peserta BPJS (opsional)..."
                   />
                 </FormField>
@@ -1197,12 +1506,22 @@ function UbahPenjaminModal({
             {/* ── Section 4: Poli & Rujukan ── */}
             {validSec === "poli-rujukan" && (
               <div className="space-y-4">
-                <SectionHeader icon={Building2} iconCls="bg-teal-100 text-teal-600" title="Poli & Rujukan" sub="Poli tujuan dan data surat rujukan" />
+                <SectionHeader
+                  icon={Building2}
+                  iconCls="bg-teal-100 text-teal-600"
+                  title="Poli & Rujukan"
+                  sub="Poli tujuan dan data surat rujukan"
+                />
 
                 <div className="space-y-3 rounded-xl border border-teal-100 bg-teal-50/30 p-4">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-teal-600">Data Poli</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-teal-600">
+                    Data Poli
+                  </p>
                   <FormField label="Kode Poli Tujuan (poli.tujuan)">
-                    <IconInput icon={Building2} placeholder="Kode poli (lihat referensi BPJS)" />
+                    <IconInput
+                      icon={Building2}
+                      placeholder="Kode poli (lihat referensi BPJS)"
+                    />
                   </FormField>
                   <ToggleField
                     label="Poli Eksekutif (poli.eksekutif)"
@@ -1213,12 +1532,18 @@ function UbahPenjaminModal({
                 </div>
 
                 <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Data Rujukan</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                    Data Rujukan
+                  </p>
                   <FormField label="Asal Rujukan (rujukan.asalRujukan)">
                     <IconSelect icon={MapPin}>
                       <option value="">— Pilih asal rujukan —</option>
-                      <option value="1">1 — Faskes Tingkat 1 (Puskesmas / Klinik)</option>
-                      <option value="2">2 — Faskes Tingkat 2 (Rumah Sakit)</option>
+                      <option value="1">
+                        1 — Faskes Tingkat 1 (Puskesmas / Klinik)
+                      </option>
+                      <option value="2">
+                        2 — Faskes Tingkat 2 (Rumah Sakit)
+                      </option>
                     </IconSelect>
                   </FormField>
                   <div className="grid grid-cols-2 gap-3">
@@ -1226,11 +1551,17 @@ function UbahPenjaminModal({
                       <IconInput icon={Calendar} type="date" />
                     </FormField>
                     <FormField label="No. Rujukan (noRujukan)">
-                      <IconInput icon={Hash} placeholder="Nomor surat rujukan" />
+                      <IconInput
+                        icon={Hash}
+                        placeholder="Nomor surat rujukan"
+                      />
                     </FormField>
                   </div>
                   <FormField label="Kode PPK Rujukan (ppkRujukan)">
-                    <IconInput icon={Building2} placeholder="Kode faskes perujuk (8 digit)" />
+                    <IconInput
+                      icon={Building2}
+                      placeholder="Kode faskes perujuk (8 digit)"
+                    />
                   </FormField>
                 </div>
               </div>
@@ -1239,21 +1570,43 @@ function UbahPenjaminModal({
             {/* ── Section 5: Jaminan & SKDP ── */}
             {validSec === "jaminan" && (
               <div className="space-y-4">
-                <SectionHeader icon={Shield} iconCls="bg-amber-100 text-amber-600" title="Jaminan & SKDP" sub="COB, katarak, laka lantas, dan surat kontrol DPJP" />
+                <SectionHeader
+                  icon={Shield}
+                  iconCls="bg-amber-100 text-amber-600"
+                  title="Jaminan & SKDP"
+                  sub="COB, katarak, laka lantas, dan surat kontrol DPJP"
+                />
 
                 <div className="space-y-2">
-                  <ToggleField label="COB — Coordination of Benefit (cob.cob)" description="Peserta memiliki jaminan kesehatan lain" value={cob} onChange={setCob} />
-                  <ToggleField label="Katarak (katarak.katarak)" description="Kasus tindakan operasi katarak" value={katarak} onChange={setKatarak} />
+                  <ToggleField
+                    label="COB — Coordination of Benefit (cob.cob)"
+                    description="Peserta memiliki jaminan kesehatan lain"
+                    value={cob}
+                    onChange={setCob}
+                  />
+                  <ToggleField
+                    label="Katarak (katarak.katarak)"
+                    description="Kasus tindakan operasi katarak"
+                    value={katarak}
+                    onChange={setKatarak}
+                  />
                 </div>
 
                 <FormField label="Jenis Kecelakaan (jaminan.lakaLantas)">
                   <IconSelect
                     icon={Car}
                     value={lakaLantas}
-                    onChange={(e) => { setLakaLantas(e.target.value); if (e.target.value === "0") setSuplesi(false); }}
+                    onChange={(e) => {
+                      setLakaLantas(e.target.value);
+                      if (e.target.value === "0") setSuplesi(false);
+                    }}
                   >
-                    <option value="0">0 — Bukan Kecelakaan Lalu Lintas (BKLL)</option>
-                    <option value="1">1 — KLL, Bukan Kecelakaan Kerja (BKK)</option>
+                    <option value="0">
+                      0 — Bukan Kecelakaan Lalu Lintas (BKLL)
+                    </option>
+                    <option value="1">
+                      1 — KLL, Bukan Kecelakaan Kerja (BKK)
+                    </option>
                     <option value="2">2 — KLL dan Kecelakaan Kerja (KK)</option>
                     <option value="3">3 — Kecelakaan Kerja (KK)</option>
                   </IconSelect>
@@ -1270,12 +1623,17 @@ function UbahPenjaminModal({
                     >
                       <div className="flex items-center gap-2 border-b border-rose-100 pb-3">
                         <Car size={12} className="text-rose-500" />
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-rose-600">Data Kecelakaan (jaminan.penjamin)</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-rose-600">
+                          Data Kecelakaan (jaminan.penjamin)
+                        </p>
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
                         <FormField label="No. Laporan Polisi (noLP)">
-                          <IconInput icon={Hash} placeholder="No. LP dari kepolisian" />
+                          <IconInput
+                            icon={Hash}
+                            placeholder="No. LP dari kepolisian"
+                          />
                         </FormField>
                         <FormField label="Tanggal Kejadian (tglKejadian)">
                           <IconInput icon={Calendar} type="date" />
@@ -1283,7 +1641,7 @@ function UbahPenjaminModal({
                       </div>
                       <FormField label="Keterangan Kejadian (keterangan)">
                         <textarea
-                          className={cn(inputCls, "min-h-[64px] resize-none")}
+                          className={cn(inputCls, "min-h-16 resize-none")}
                           placeholder="Uraian singkat kejadian kecelakaan..."
                         />
                       </FormField>
@@ -1301,22 +1659,39 @@ function UbahPenjaminModal({
                             initial={{ opacity: 0, y: -6 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -6 }}
-                            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                            transition={{
+                              duration: 0.18,
+                              ease: [0.16, 1, 0.3, 1],
+                            }}
                             className="space-y-3 rounded-xl border border-amber-100 bg-amber-50/40 p-4"
                           >
                             <FormField label="No. SEP Suplesi (noSepSuplesi)">
-                              <IconInput icon={Hash} placeholder="Nomor SEP yang terkait" />
+                              <IconInput
+                                icon={Hash}
+                                placeholder="Nomor SEP yang terkait"
+                              />
                             </FormField>
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Lokasi Kejadian (lokasiLaka)</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                              Lokasi Kejadian (lokasiLaka)
+                            </p>
                             <div className="grid grid-cols-3 gap-2">
                               <FormField label="Kode Provinsi">
-                                <IconInput icon={MapPin} placeholder="kdPropinsi" />
+                                <IconInput
+                                  icon={MapPin}
+                                  placeholder="kdPropinsi"
+                                />
                               </FormField>
                               <FormField label="Kode Kabupaten">
-                                <IconInput icon={MapPin} placeholder="kdKabupaten" />
+                                <IconInput
+                                  icon={MapPin}
+                                  placeholder="kdKabupaten"
+                                />
                               </FormField>
                               <FormField label="Kode Kecamatan">
-                                <IconInput icon={MapPin} placeholder="kdKecamatan" />
+                                <IconInput
+                                  icon={MapPin}
+                                  placeholder="kdKecamatan"
+                                />
                               </FormField>
                             </div>
                           </motion.div>
@@ -1327,13 +1702,18 @@ function UbahPenjaminModal({
                 </AnimatePresence>
 
                 <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">SKDP — Surat Kontrol DPJP</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                    SKDP — Surat Kontrol DPJP
+                  </p>
                   <div className="grid grid-cols-2 gap-3">
                     <FormField label="No. Surat Kontrol (skdp.noSurat)">
                       <IconInput icon={FileText} placeholder="No. SKDP" />
                     </FormField>
                     <FormField label="Kode DPJP (skdp.kodeDPJP)">
-                      <IconInput icon={Stethoscope} placeholder="Kode dokter DPJP" />
+                      <IconInput
+                        icon={Stethoscope}
+                        placeholder="Kode dokter DPJP"
+                      />
                     </FormField>
                   </div>
                 </div>
@@ -1366,9 +1746,12 @@ function UbahPaketModal({ onClose }: { onClose: () => void }) {
           <Package size={15} className="text-indigo-600" />
         </div>
         <div>
-          <p className="text-[11px] font-bold text-indigo-800">Perubahan Paket Layanan</p>
+          <p className="text-[11px] font-bold text-indigo-800">
+            Perubahan Paket Layanan
+          </p>
           <p className="mt-0.5 text-[10px] leading-relaxed text-indigo-600">
-            Ubah paket layanan akan mempengaruhi tarif dan item tagihan kunjungan. Pastikan perubahan sudah mendapat persetujuan dokter.
+            Ubah paket layanan akan mempengaruhi tarif dan item tagihan
+            kunjungan. Pastikan perubahan sudah mendapat persetujuan dokter.
           </p>
         </div>
       </div>
@@ -1422,10 +1805,16 @@ function SuratRujukanModal({ onClose }: { onClose: () => void }) {
     >
       <div className="space-y-4">
         <FormField label="No. Surat Rujukan">
-          <IconInput icon={Hash} placeholder="Nomor surat rujukan dari fasyankes" />
+          <IconInput
+            icon={Hash}
+            placeholder="Nomor surat rujukan dari fasyankes"
+          />
         </FormField>
         <FormField label="Asal Fasyankes">
-          <IconInput icon={Building2} placeholder="Nama fasilitas kesehatan perujuk" />
+          <IconInput
+            icon={Building2}
+            placeholder="Nama fasilitas kesehatan perujuk"
+          />
         </FormField>
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Tanggal Rujukan">
@@ -1443,9 +1832,13 @@ function SuratRujukanModal({ onClose }: { onClose: () => void }) {
             <div className="text-center">
               <p className="text-[12px] text-slate-500">
                 Drag &amp; drop atau{" "}
-                <span className="font-semibold text-indigo-600">pilih file</span>
+                <span className="font-semibold text-indigo-600">
+                  pilih file
+                </span>
               </p>
-              <p className="mt-0.5 text-[10px] text-slate-400">PDF, JPG, PNG — maks. 5 MB</p>
+              <p className="mt-0.5 text-[10px] text-slate-400">
+                PDF, JPG, PNG — maks. 5 MB
+              </p>
             </div>
           </div>
         </FormField>
@@ -1462,18 +1855,28 @@ function KecelakaanModal({ onClose }: { onClose: () => void }) {
       icon={Car}
       onClose={onClose}
       variant="warning"
-      footer={<><BtnCancel onClick={onClose} /><BtnSave /></>}
+      footer={
+        <>
+          <BtnCancel onClick={onClose} />
+          <BtnSave />
+        </>
+      }
     >
       <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-linear-to-br from-amber-50 to-orange-50 p-3.5">
         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-100">
           <Info size={14} className="text-amber-600" />
         </div>
         <p className="text-[11px] leading-relaxed text-amber-700">
-          Data kecelakaan akan dilaporkan ke instansi terkait sesuai regulasi BPJS Ketenagakerjaan dan Jasa Raharja.
+          Data kecelakaan akan dilaporkan ke instansi terkait sesuai regulasi
+          BPJS Ketenagakerjaan dan Jasa Raharja.
         </p>
       </div>
 
-      <FormSection label="Identifikasi Kejadian" icon={AlertTriangle} variant="warning">
+      <FormSection
+        label="Identifikasi Kejadian"
+        icon={AlertTriangle}
+        variant="warning"
+      >
         <FormField label="Jenis Kecelakaan">
           <IconSelect icon={Car}>
             <option>Kecelakaan Lalu Lintas</option>
@@ -1525,7 +1928,12 @@ function UpdateModal({
       subtitle="Perbarui informasi kunjungan"
       icon={RefreshCw}
       onClose={onClose}
-      footer={<><BtnCancel onClick={onClose} /><BtnSave /></>}
+      footer={
+        <>
+          <BtnCancel onClick={onClose} />
+          <BtnSave />
+        </>
+      }
     >
       <FormField label="Tanggal Kunjungan">
         <IconInput icon={Calendar} type="date" />
@@ -1534,7 +1942,10 @@ function UpdateModal({
         <IconInput icon={Stethoscope} defaultValue={kunjungan.dokter} />
       </FormField>
       <FormField label="Cara Masuk">
-        <IconSelect icon={ClipboardList} defaultValue={kunjungan.caraMasuk ?? ""}>
+        <IconSelect
+          icon={ClipboardList}
+          defaultValue={kunjungan.caraMasuk ?? ""}
+        >
           <option>Datang Sendiri</option>
           <option>Rujukan Poli</option>
           <option>Rujukan Luar RS</option>
@@ -1573,13 +1984,20 @@ function UpdateSEPModal({
       icon={Calendar}
       onClose={onClose}
       variant="warning"
-      footer={<><BtnCancel onClick={onClose} /><BtnSave /></>}
+      footer={
+        <>
+          <BtnCancel onClick={onClose} />
+          <BtnSave />
+        </>
+      }
     >
       <FormSection label="No. SEP" icon={FileText} variant="info">
         <p className="font-mono text-sm font-bold tracking-wider text-indigo-700">
           {kunjungan.noSEP ?? "—"}
         </p>
-        <p className="mt-0.5 text-[10px] text-indigo-400">Nomor SEP tidak dapat diubah</p>
+        <p className="mt-0.5 text-[10px] text-indigo-400">
+          Nomor SEP tidak dapat diubah
+        </p>
       </FormSection>
 
       <FormField label="Tanggal Pulang">
@@ -1648,8 +2066,8 @@ function HapusModal({
           Hapus Data Ini Secara Permanen?
         </h3>
         <p className="mt-1.5 max-w-xs text-[12px] leading-relaxed text-slate-500">
-          Semua rekam medis, billing, dan dokumen yang terkait dengan kunjungan ini akan ikut
-          terhapus dan tidak dapat dipulihkan.
+          Semua rekam medis, billing, dan dokumen yang terkait dengan kunjungan
+          ini akan ikut terhapus dan tidak dapat dipulihkan.
         </p>
       </div>
 
@@ -1711,7 +2129,13 @@ function ActionModal({
 }) {
   switch (id) {
     case "ubah-penjamin":
-      return <UbahPenjaminModal patient={patient} kunjungan={kunjungan} onClose={onClose} />;
+      return (
+        <UbahPenjaminModal
+          patient={patient}
+          kunjungan={kunjungan}
+          onClose={onClose}
+        />
+      );
     case "ubah-paket":
       return <UbahPaketModal onClose={onClose} />;
     case "surat-rujukan":
@@ -1746,7 +2170,6 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
 
   return (
     <div className="flex h-full flex-col bg-slate-50">
-
       {/* ── Header ── */}
       <header className="shrink-0 border-b border-slate-200 bg-white">
         <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-3.5">
@@ -1761,19 +2184,33 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
             <div className="h-5 w-px shrink-0 bg-slate-200" />
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
-                <span className="truncate text-sm font-bold text-slate-800">{patient.name}</span>
+                <span className="truncate text-sm font-bold text-slate-800">
+                  {patient.name}
+                </span>
                 <span className="hidden shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-500 sm:inline">
                   {patient.noRM}
                 </span>
-                <span className="hidden shrink-0 text-slate-300 sm:inline">·</span>
-                <span className={cn("hidden shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold sm:inline", unit.bg, unit.text)}>
+                <span className="hidden shrink-0 text-slate-300 sm:inline">
+                  ·
+                </span>
+                <span
+                  className={cn(
+                    "hidden shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold sm:inline",
+                    unit.bg,
+                    unit.text,
+                  )}
+                >
                   {kunjungan.unit}
                 </span>
               </div>
               <div className="mt-0.5 flex items-center gap-1.5">
-                <span className="font-mono text-[11px] font-bold text-indigo-600">{kunjungan.noPendaftaran}</span>
+                <span className="font-mono text-[11px] font-bold text-indigo-600">
+                  {kunjungan.noPendaftaran}
+                </span>
                 <span className="hidden text-slate-300 sm:inline">·</span>
-                <span className="hidden text-[11px] text-slate-400 sm:inline">{kunjungan.tanggal}</span>
+                <span className="hidden text-[11px] text-slate-400 sm:inline">
+                  {kunjungan.tanggal}
+                </span>
               </div>
             </div>
           </div>
@@ -1795,7 +2232,6 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
 
       {/* ── Main ── */}
       <div className="flex flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
-
         {/* Left column — tabbed content */}
         <div className="flex flex-col lg:flex-1 lg:overflow-hidden">
           <div className="sticky top-0 z-10 shrink-0 border-b border-slate-100 bg-white px-4 py-3 sm:px-5 lg:static">
@@ -1813,7 +2249,9 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
                 {activeTab === "ringkasan" && (
                   <RingkasanTab kunjungan={kunjungan} unit={unit} />
                 )}
-                {activeTab === "penjamin" && <PenjaminTab kunjungan={kunjungan} />}
+                {activeTab === "penjamin" && (
+                  <PenjaminTab kunjungan={kunjungan} />
+                )}
                 {activeTab === "diagnosa" && (
                   <DiagnosaTab kunjungan={kunjungan} icdCodes={icdCodes} />
                 )}
@@ -1825,26 +2263,37 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
 
         {/* Right column — actions */}
         <div className="shrink-0 border-t border-slate-200 bg-white lg:flex lg:w-72 lg:flex-col lg:gap-5 lg:overflow-y-auto lg:border-l lg:border-t-0">
-
           {/* Desktop only: mini visit summary */}
           <div className="hidden p-5 pb-0 lg:block">
             <div className="overflow-hidden rounded-xl border border-slate-100 bg-linear-to-br from-slate-50 to-white">
               <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
-                <span className={cn("rounded-md px-2 py-0.5 text-[10px] font-bold", unit.bg, unit.text)}>
+                <span
+                  className={cn(
+                    "rounded-md px-2 py-0.5 text-[10px] font-bold",
+                    unit.bg,
+                    unit.text,
+                  )}
+                >
                   {kunjungan.unit}
                 </span>
                 <StatusBadge status={kunjungan.status} />
               </div>
               <div className="px-4 py-3">
-                <p className="font-mono text-[12px] font-bold text-indigo-600">{kunjungan.noPendaftaran}</p>
-                <p className="mt-0.5 text-[11px] text-slate-500">{kunjungan.tanggal}</p>
+                <p className="font-mono text-[12px] font-bold text-indigo-600">
+                  {kunjungan.noPendaftaran}
+                </p>
+                <p className="mt-0.5 text-[11px] text-slate-500">
+                  {kunjungan.tanggal}
+                </p>
               </div>
             </div>
           </div>
 
           {/* Mobile: section label */}
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5 lg:hidden">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Aksi & Dokumen</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Aksi & Dokumen
+            </span>
             <StatusBadge status={kunjungan.status} />
           </div>
 
@@ -1928,7 +2377,12 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
       {/* Modals */}
       <AnimatePresence>
         {modal && (
-          <ActionModal id={modal} patient={patient} kunjungan={kunjungan} onClose={close} />
+          <ActionModal
+            id={modal}
+            patient={patient}
+            kunjungan={kunjungan}
+            onClose={close}
+          />
         )}
       </AnimatePresence>
     </div>
