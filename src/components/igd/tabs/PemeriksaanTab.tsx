@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity, HeartPulse, ScanLine, FlaskConical,
@@ -40,6 +40,31 @@ function FieldGroup({ label, children }: { label: string; children: React.ReactN
       <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">{label}</p>
       {children}
     </div>
+  );
+}
+
+function AutoTextarea({
+  value, onChange, placeholder, className, minRows = 2,
+}: {
+  value: string; onChange: (v: string) => void;
+  placeholder?: string; className?: string; minRows?: number;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (!ref.current) return;
+    ref.current.style.height = "auto";
+    ref.current.style.height = `${Math.max(ref.current.scrollHeight, minRows * 22)}px`;
+  }, [value, minRows]);
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      rows={minRows}
+      style={{ overflow: "hidden", resize: "none" }}
+      className={className}
+    />
   );
 }
 
@@ -279,12 +304,12 @@ function FisikPane() {
       {/* Keadaan umum */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Keadaan Umum</p>
-        <textarea
-          rows={2}
+        <AutoTextarea
           value={keadaanUmum}
-          onChange={(e) => setKeadaanUmum(e.target.value)}
+          onChange={setKeadaanUmum}
           placeholder="Tampak sakit sedang/berat, kesadaran compos mentis..."
-          className="w-full resize-none border-b border-slate-200 bg-transparent py-1 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-indigo-400"
+          minRows={2}
+          className="w-full border-b border-slate-200 bg-transparent py-1 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-indigo-400"
         />
       </div>
 

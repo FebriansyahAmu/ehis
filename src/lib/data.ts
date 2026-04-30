@@ -545,12 +545,24 @@ export interface KontakDarurat {
 
 export interface KunjunganRecord {
   id: string;
+  noPendaftaran: string;
   noKunjungan: string;
   tanggal: string;
   unit: UnitKunjungan;
   dokter: string;
   keluhan: string;
   diagnosa: string;
+  penjamin?: string;
+  noPenjamin?: string;
+  noSEP?: string;
+  kodeICD?: string;
+  caraMasuk?: string;
+  klinisPath?: string;
+  dokumen?: {
+    generalConsent?: "Ditandatangani" | "Belum Ditandatangani" | "Digital";
+    rujukan?: "Ada" | "Tidak Ada";
+    pengantarPasien?: "Ada" | "Tidak Ada";
+  };
   status: "Selesai" | "Aktif" | "Dibatalkan";
   detailPath?: string;
 }
@@ -682,12 +694,12 @@ export const patientMasterData: Record<string, PatientMaster> = {
       alamat: "Jl. Merdeka No. 45, Kel. Motoboi Kecil, Kec. Kotamobagu Barat",
     },
     riwayatKunjungan: [
-      { id: "k1", noKunjungan: "IGD/2026/04/0023",  tanggal: "14 Apr 2026", unit: "IGD",           dokter: "dr. Hendra Wijaya, Sp.EM",  keluhan: "Nyeri dada hebat, sesak napas, keringat dingin",  diagnosa: "NSTEMI + Syok Kardiogenik",    status: "Aktif",   detailPath: "/ehis-care/igd/igd-1" },
-      { id: "k2", noKunjungan: "RJ/2026/02/1203",   tanggal: "20 Feb 2026", unit: "Rawat Jalan",   dokter: "dr. Anisa Putri, Sp.PD",    keluhan: "Kontrol hipertensi dan dislipidemia",            diagnosa: "Hipertensi, Dislipidemia",      status: "Selesai"  },
-      { id: "k3", noKunjungan: "RI/2025/11/0089",   tanggal: "05 Nov 2025", unit: "Rawat Inap",    dokter: "dr. Dewi Kusuma, Sp.JP",    keluhan: "Nyeri dada, sesak napas",                        diagnosa: "Unstable Angina Pectoris",      status: "Selesai"  },
-      { id: "k4", noKunjungan: "RJ/2025/09/0876",   tanggal: "18 Sep 2025", unit: "Rawat Jalan",   dokter: "dr. Anisa Putri, Sp.PD",    keluhan: "Kontrol rutin PJK",                              diagnosa: "PJK, Hipertensi, Dislipidemia", status: "Selesai"  },
-      { id: "k5", noKunjungan: "LAB/2025/09/0441",  tanggal: "18 Sep 2025", unit: "Laboratorium",  dokter: "dr. Anisa Putri, Sp.PD",    keluhan: "Pemeriksaan lab rutin",                          diagnosa: "Profil lipid terkontrol",       status: "Selesai"  },
-      { id: "k6", noKunjungan: "RAD/2025/11/0201",  tanggal: "06 Nov 2025", unit: "Radiologi",     dokter: "dr. Dewi Kusuma, Sp.JP",    keluhan: "Foto thorax pre-op",                             diagnosa: "Cardiomegaly ringan",           status: "Selesai"  },
+      { id: "k1", noPendaftaran: "REG-2026-00231", noKunjungan: "IGD/2026/04/0023",  tanggal: "14 Apr 2026", unit: "IGD",           dokter: "dr. Hendra Wijaya, Sp.EM",  keluhan: "Nyeri dada hebat, sesak napas, keringat dingin",  diagnosa: "NSTEMI + Syok Kardiogenik",    penjamin: "BPJS Non-PBI", noPenjamin: "0001234567890", noSEP: "0000000001100231", kodeICD: "I21.4, R57.0", caraMasuk: "Datang Sendiri", klinisPath: "/ehis-care/igd/igd-1", dokumen: { generalConsent: "Ditandatangani", rujukan: "Tidak Ada",  pengantarPasien: "Tidak Ada" }, status: "Aktif",   detailPath: "/ehis-care/pasien/RM-2025-005/kunjungan/k1" },
+      { id: "k2", noPendaftaran: "REG-2026-00082", noKunjungan: "RJ/2026/02/1203",   tanggal: "20 Feb 2026", unit: "Rawat Jalan",   dokter: "dr. Anisa Putri, Sp.PD",    keluhan: "Kontrol hipertensi dan dislipidemia",            diagnosa: "Hipertensi, Dislipidemia",      penjamin: "BPJS Non-PBI", noPenjamin: "0001234567890", noSEP: "0000000001100082", kodeICD: "I10, E78.5",        caraMasuk: "Datang Sendiri", dokumen: { generalConsent: "Ditandatangani", rujukan: "Tidak Ada",  pengantarPasien: "Tidak Ada" }, status: "Selesai", detailPath: "/ehis-care/pasien/RM-2025-005/kunjungan/k2" },
+      { id: "k3", noPendaftaran: "REG-2025-00891", noKunjungan: "RI/2025/11/0089",   tanggal: "05 Nov 2025", unit: "Rawat Inap",    dokter: "dr. Dewi Kusuma, Sp.JP",    keluhan: "Nyeri dada, sesak napas",                        diagnosa: "Unstable Angina Pectoris",      penjamin: "BPJS Non-PBI", noPenjamin: "0001234567890", noSEP: "0000000001100891", kodeICD: "I20.0",             caraMasuk: "Rujukan Poli",   dokumen: { generalConsent: "Ditandatangani", rujukan: "Ada",        pengantarPasien: "Ada"       }, status: "Selesai", detailPath: "/ehis-care/pasien/RM-2025-005/kunjungan/k3" },
+      { id: "k4", noPendaftaran: "REG-2025-00234", noKunjungan: "RJ/2025/09/0876",   tanggal: "18 Sep 2025", unit: "Rawat Jalan",   dokter: "dr. Anisa Putri, Sp.PD",    keluhan: "Kontrol rutin PJK",                              diagnosa: "PJK, Hipertensi, Dislipidemia", penjamin: "BPJS Non-PBI", noPenjamin: "0001234567890", noSEP: "0000000001100234", kodeICD: "I25.1, I10, E78.5", caraMasuk: "Datang Sendiri", dokumen: { generalConsent: "Ditandatangani", rujukan: "Tidak Ada",  pengantarPasien: "Tidak Ada" }, status: "Selesai", detailPath: "/ehis-care/pasien/RM-2025-005/kunjungan/k4" },
+      { id: "k5", noPendaftaran: "REG-2025-00235", noKunjungan: "LAB/2025/09/0441",  tanggal: "18 Sep 2025", unit: "Laboratorium",  dokter: "dr. Anisa Putri, Sp.PD",    keluhan: "Pemeriksaan lab rutin",                          diagnosa: "Profil lipid terkontrol",       penjamin: "BPJS Non-PBI", noPenjamin: "0001234567890",                              kodeICD: "E78.5",             caraMasuk: "Order Dokter",   dokumen: { generalConsent: "Ditandatangani", rujukan: "Tidak Ada",  pengantarPasien: "Tidak Ada" }, status: "Selesai", detailPath: "/ehis-care/pasien/RM-2025-005/kunjungan/k5" },
+      { id: "k6", noPendaftaran: "REG-2025-00290", noKunjungan: "RAD/2025/11/0201",  tanggal: "06 Nov 2025", unit: "Radiologi",     dokter: "dr. Dewi Kusuma, Sp.JP",    keluhan: "Foto thorax pre-op",                             diagnosa: "Cardiomegaly ringan",           penjamin: "BPJS Non-PBI", noPenjamin: "0001234567890", noSEP: "0000000001100290", kodeICD: "I51.7",             caraMasuk: "Order Dokter",   dokumen: { generalConsent: "Ditandatangani", rujukan: "Tidak Ada",  pengantarPasien: "Tidak Ada" }, status: "Selesai", detailPath: "/ehis-care/pasien/RM-2025-005/kunjungan/k6" },
     ],
     billing: [
       {
@@ -785,8 +797,8 @@ export const patientMasterData: Record<string, PatientMaster> = {
       alamat: "Jl. Veteran No. 12, Kel. Matali",
     },
     riwayatKunjungan: [
-      { id: "k1", noKunjungan: "IGD/2026/04/0024", tanggal: "14 Apr 2026", unit: "IGD",         dokter: "dr. Hendra Wijaya, Sp.EM", keluhan: "Penurunan kesadaran, GCS 10",  diagnosa: "Hipoglikemia berat", status: "Aktif",  detailPath: "/ehis-care/igd/igd-2" },
-      { id: "k2", noKunjungan: "RJ/2026/01/0521",  tanggal: "10 Jan 2026", unit: "Rawat Jalan", dokter: "dr. Anisa Putri, Sp.PD",   keluhan: "Kontrol DM tipe 2",           diagnosa: "DM Tipe 2",          status: "Selesai" },
+      { id: "k1", noPendaftaran: "REG-2026-00241", noKunjungan: "IGD/2026/04/0024", tanggal: "14 Apr 2026", unit: "IGD",         dokter: "dr. Hendra Wijaya, Sp.EM", keluhan: "Penurunan kesadaran, GCS 10",  diagnosa: "Hipoglikemia berat", penjamin: "Umum/Mandiri", noPenjamin: "UM-2026-00241", kodeICD: "E16.0", caraMasuk: "Datang Sendiri", klinisPath: "/ehis-care/igd/igd-2", dokumen: { generalConsent: "Ditandatangani", rujukan: "Tidak Ada", pengantarPasien: "Tidak Ada" }, status: "Aktif",  detailPath: "/ehis-care/pasien/RM-2025-012/kunjungan/k1" },
+      { id: "k2", noPendaftaran: "REG-2026-00047", noKunjungan: "RJ/2026/01/0521",  tanggal: "10 Jan 2026", unit: "Rawat Jalan", dokter: "dr. Anisa Putri, Sp.PD",   keluhan: "Kontrol DM tipe 2",           diagnosa: "DM Tipe 2",          penjamin: "Umum/Mandiri", noPenjamin: "UM-2026-00047", kodeICD: "E11.9", caraMasuk: "Datang Sendiri",                                      dokumen: { generalConsent: "Ditandatangani", rujukan: "Tidak Ada", pengantarPasien: "Tidak Ada" }, status: "Selesai", detailPath: "/ehis-care/pasien/RM-2025-012/kunjungan/k2" },
     ],
     billing: [
       {

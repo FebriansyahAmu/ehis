@@ -47,9 +47,10 @@ Shared layout: `Navbar` · `Sidebar` · `ModuleSwitcher` · `ModuleLayout` → `
 
 ### Pasien Master
 
-| File                                     | Status                         |
-| ---------------------------------------- | ------------------------------ |
-| `components/pasien/PatientDashboard.tsx` | ✅ Full (tabs, search, modals) |
+| File                                          | Status                                           |
+| --------------------------------------------- | ------------------------------------------------ |
+| `components/pasien/PatientDashboard.tsx`      | ✅ Full (tabs, search, modals, riwayat kunjungan) |
+| `components/pasien/KunjunganDetailPage.tsx`   | ✅ Halaman detail pendaftaran kunjungan (fullpage) |
 
 ---
 
@@ -59,12 +60,12 @@ Work items in priority order. Pick top item each session.
 
 ### 🔴 Now
 
-- [ ] **Redesign: IGD pasien page components components/igd/tabs/Diagnosa** — current: terdapat bug pada halaman diagnosa, ketika user memilih dropdown itu sepertinya, dropdownya ter cutting di card, jadi terlihat terpotong, yang mana ini tidak sesuai dengan user interaface yang friendly, perbaiki, terapkan frontend Design Skill
-  - Scope: `components/igd/DiagnosaTab.tsx`,
-
-### 🟡 Next (EHIS-Care)
-
 - [ ] **IGD → Admission flow** — dari DisposisiTab "Rawat Inap" trigger create rawat-inap record
+
+### ✅ Selesai (EHIS-Care)
+
+- [x] **Redesign: IGD tabs/PenilaianTab** — multi-tab (Fisik, Jantung, Kanker, dll.), two-panel layout, auto-resize textarea
+- [x] **Pasien → Detail Pendaftaran Kunjungan** — fullpage `/pasien/[id]/kunjungan/[kunjunganId]`, dokumen, aksi, cetak, modals
 
 ### 🟢 Backlog (Other Modules)
 

@@ -10,7 +10,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const patient = patientMasterData[decodeURIComponent(id)];
-  return { title: patient ? `Pasien · ${patient.name}` : "Pasien Tidak Ditemukan" };
+  return {
+    title: patient ? `Pasien · ${patient.name}` : "Pasien Tidak Ditemukan",
+  };
 }
 
 export default async function PatientDashboardPage({

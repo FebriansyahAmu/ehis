@@ -34,6 +34,8 @@ import {
   UserCheck,
   ClipboardList,
   Search,
+  Eye,
+  Hash,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -268,13 +270,14 @@ function ModalShell({
   subtitle?: string;
   onClose: () => void;
   children: React.ReactNode;
-  size?: "sm" | "md" | "lg" | "xl";
+  size?: "sm" | "md" | "lg" | "xl" | "2xl";
 }) {
   const maxW = {
-    sm: "max-w-sm",
-    md: "max-w-md",
-    lg: "max-w-2xl",
-    xl: "max-w-5xl",
+    sm:  "max-w-sm",
+    md:  "max-w-md",
+    lg:  "max-w-2xl",
+    xl:  "max-w-5xl",
+    "2xl": "max-w-4xl",
   }[size];
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
@@ -2148,7 +2151,7 @@ function RiwayatKunjunganModal({
       title="Riwayat Kunjungan"
       subtitle="Semua kunjungan pasien ini"
       onClose={onClose}
-      size="lg"
+      size="2xl"
     >
       <div className="flex shrink-0 flex-wrap gap-1.5 border-b border-slate-100 px-5 py-3">
         {FILTER_OPTS.map((opt) => {
@@ -2182,50 +2185,161 @@ function RiwayatKunjunganModal({
           );
         })}
       </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-2">
-        {filtered.map((k) => {
-          const uc = UNIT_CFG[k.unit];
-          const UIcon = uc.icon;
-          return (
-            <div
-              key={k.id}
-              className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-slate-300"
-            >
-              <div
-                className={cn(
-                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
-                  uc.bg,
-                )}
-              >
-                <UIcon size={16} className={uc.text} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-slate-800">{k.unit}</p>
-                <p className="font-mono text-[10px] text-slate-400">
-                  {k.noKunjungan}
-                </p>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="text-[11px] text-slate-500">{k.tanggal}</p>
-                <span
-                  className={cn(
-                    "mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                    KUNJUNGAN_STATUS[k.status],
-                  )}
-                >
-                  {STATUS_LABEL[k.status] ?? k.status}
-                </span>
-              </div>
-              <div className="text-slate-300">
-                <ChevronRight size={14} />
-              </div>
-            </div>
-          );
-        })}
-        {filtered.length === 0 && (
-          <p className="py-8 text-center text-xs text-slate-400">
+      <div className="flex-1 overflow-auto">
+        {filtered.length === 0 ? (
+          <p className="py-10 text-center text-xs text-slate-400">
             Tidak ada kunjungan.
           </p>
+        ) : (
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 z-10 bg-slate-50">
+              <tr className="border-b border-slate-200">
+                <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  No. Pendaftaran
+                </th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Tanggal
+                </th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Unit
+                </th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Penjamin &amp; No. SEP
+                </th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Status
+                </th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Aksi
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {filtered.map((k) => {
+                const uc = UNIT_CFG[k.unit];
+                const UIcon = uc.icon;
+                return (
+                  <tr
+                    key={k.id}
+                    className="group transition-colors hover:bg-indigo-50/40"
+                  >
+                    {/* No. Pendaftaran */}
+                    <td className="px-4 py-3">
+                      <p className="font-mono text-[11px] font-semibold text-slate-800">
+                        {k.noPendaftaran}
+                      </p>
+                      <p className="mt-0.5 font-mono text-[10px] text-slate-400">
+                        {k.noKunjungan}
+                      </p>
+                    </td>
+
+                    {/* Tanggal */}
+                    <td className="px-4 py-3 whitespace-nowrap text-[11px] text-slate-600">
+                      {k.tanggal}
+                    </td>
+
+                    {/* Unit */}
+                    <td className="px-4 py-3">
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold",
+                          uc.bg, uc.text,
+                        )}
+                      >
+                        <UIcon size={10} aria-hidden="true" />
+                        {k.unit}
+                      </span>
+                    </td>
+
+                    {/* Penjamin & SEP */}
+                    <td className="px-4 py-3">
+                      {k.penjamin ? (
+                        <div className="flex flex-col gap-0.5">
+                          <p className="text-[11px] font-semibold text-slate-700">
+                            {k.penjamin}
+                          </p>
+                          {k.noPenjamin && (
+                            <p className="font-mono text-[10px] text-slate-500">
+                              No. {k.noPenjamin}
+                            </p>
+                          )}
+                          {k.noSEP ? (
+                            <p className="font-mono text-[10px] tracking-widest text-emerald-700">
+                              SEP {k.noSEP}
+                            </p>
+                          ) : (
+                            <p className="text-[10px] italic text-slate-400">
+                              Tanpa SEP
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-slate-400">—</span>
+                      )}
+                    </td>
+
+                    {/* Status */}
+                    <td className="px-4 py-3">
+                      <span
+                        className={cn(
+                          "inline-block rounded-full px-2.5 py-0.5 text-[10px] font-semibold",
+                          KUNJUNGAN_STATUS[k.status],
+                        )}
+                      >
+                        {STATUS_LABEL[k.status] ?? k.status}
+                      </span>
+                    </td>
+
+                    {/* Aksi */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5">
+                        {/* Lihat */}
+                        {k.detailPath ? (
+                          <Link
+                            href={k.detailPath}
+                            onClick={onClose}
+                            className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold text-indigo-600 transition hover:bg-indigo-100 hover:border-indigo-300"
+                          >
+                            <Eye size={10} />
+                            Lihat
+                          </Link>
+                        ) : (
+                          <span className="inline-flex cursor-not-allowed items-center gap-1 rounded-md border border-slate-100 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-300">
+                            <Eye size={10} />
+                            Lihat
+                          </span>
+                        )}
+
+                        {/* ICD tooltip */}
+                        <div className="group/icd relative">
+                          <button className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600">
+                            <Hash size={10} />
+                            ICD
+                          </button>
+                          <div className="pointer-events-none absolute right-0 top-8 z-30 hidden w-60 rounded-xl border border-slate-200 bg-white p-3 shadow-xl group-hover/icd:block">
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
+                              Kode ICD-10
+                            </p>
+                            <p className="mt-1 font-mono text-sm font-bold text-indigo-700">
+                              {k.kodeICD ?? "—"}
+                            </p>
+                            <div className="mt-2 border-t border-slate-100 pt-2">
+                              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
+                                Diagnosa
+                              </p>
+                              <p className="mt-0.5 text-[11px] leading-snug text-slate-700">
+                                {k.diagnosa}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
       <div className="flex shrink-0 justify-end border-t border-slate-100 px-5 py-3">
