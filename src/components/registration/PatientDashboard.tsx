@@ -40,6 +40,7 @@ import {
   CalendarPlus,
   Building2,
   Info,
+  Calendar,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -177,6 +178,46 @@ const TAGIHAN_STATUS: Record<string, string> = {
   Ditanggung: "bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200",
 };
 
+type JadwalStatus = "Dijadwalkan" | "Selesai" | "Tidak Hadir" | "Batal";
+const JADWAL_CFG: Record<
+  JadwalStatus,
+  { label: string; badge: string; dot: string; border: string; cardBg: string }
+> = {
+  Dijadwalkan: {
+    label: "Mendatang",
+    badge: "bg-sky-100 text-sky-700",
+    dot: "bg-sky-500",
+    border: "border-sky-200",
+    cardBg: "bg-sky-50/60",
+  },
+  Selesai: {
+    label: "Selesai",
+    badge: "bg-emerald-100 text-emerald-700",
+    dot: "bg-emerald-500",
+    border: "border-slate-100",
+    cardBg: "bg-slate-50/40",
+  },
+  "Tidak Hadir": {
+    label: "Tidak Hadir",
+    badge: "bg-rose-100 text-rose-700",
+    dot: "bg-rose-400",
+    border: "border-rose-100",
+    cardBg: "bg-rose-50/30",
+  },
+  Batal: {
+    label: "Batal",
+    badge: "bg-slate-100 text-slate-400",
+    dot: "bg-slate-300",
+    border: "border-slate-100",
+    cardBg: "bg-slate-50/30",
+  },
+};
+
+const BULAN_IDX: Record<string, number> = {
+  Jan: 0, Feb: 1, Mar: 2, Apr: 3, Mei: 4, Jun: 5,
+  Jul: 6, Agu: 7, Sep: 8, Okt: 9, Nov: 10, Des: 11,
+};
+
 // ── Helpers ────────────────────────────────────────────────
 
 function fmtRp(n: number) {
@@ -185,6 +226,11 @@ function fmtRp(n: number) {
     currency: "IDR",
     minimumFractionDigits: 0,
   }).format(n);
+}
+
+function parseIndoDate(s: string): Date {
+  const [d, m, y] = s.split(" ");
+  return new Date(+y, BULAN_IDX[m] ?? 0, +d);
 }
 
 function calcKasir(kasir: KasirData) {
@@ -2358,6 +2404,182 @@ function RiwayatKunjunganModal({
   );
 }
 
+// ── Tambah Jadwal Kontrol Modal ────────────────────────────
+
+function TambahJadwalModal({
+  patient,
+  onClose,
+}: {
+  patient: PatientMaster;
+  onClose: () => void;
+}) {
+  const [tanggal, setTanggal] = useState("");
+  const [jam, setJam] = useState("09:00");
+  const [dokter, setDokter] = useState("");
+  const [unit, setUnit] = useState<"Rawat Jalan" | "Rawat Inap" | "IGD">(
+    "Rawat Jalan",
+  );
+  const [poli, setPoli] = useState("Poli Umum");
+  const [keterangan, setKeterangan] = useState("");
+  const [linkedKunjungan, setLinkedKunjungan] = useState(
+    patient.riwayatKunjungan[0]?.noKunjungan ?? "",
+  );
+
+  const kunjunganOpts = patient.riwayatKunjungan.map((k) => ({
+    value: k.noKunjungan,
+    label: `${k.noKunjungan} · ${k.tanggal} (${k.unit})`,
+  }));
+
+  const inputCls =
+    "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition hover:border-slate-300 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100";
+  const labelCls =
+    "mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400";
+
+  const canSave = !!tanggal && !!dokter.trim();
+
+  return (
+    <ModalShell
+      title="Tambah Jadwal Kontrol"
+      subtitle={`${patient.name} · ${patient.noRM}`}
+      onClose={onClose}
+      size="md"
+    >
+      <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        {/* Tanggal + Jam */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>Tanggal Kontrol <span className="text-rose-400 font-normal normal-case">*</span></label>
+            <input
+              type="date"
+              value={tanggal}
+              onChange={(e) => setTanggal(e.target.value)}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Jam</label>
+            <input
+              type="time"
+              value={jam}
+              onChange={(e) => setJam(e.target.value)}
+              className={inputCls}
+            />
+          </div>
+        </div>
+
+        {/* Dokter */}
+        <div>
+          <label className={labelCls}>Dokter <span className="text-rose-400 font-normal normal-case">*</span></label>
+          <input
+            type="text"
+            value={dokter}
+            onChange={(e) => setDokter(e.target.value)}
+            placeholder="dr. Nama Dokter, Sp.X"
+            className={inputCls}
+          />
+        </div>
+
+        {/* Unit */}
+        <div>
+          <label className={labelCls}>Unit Tujuan</label>
+          <div className="flex gap-1.5">
+            {(["Rawat Jalan", "Rawat Inap", "IGD"] as const).map((u) => (
+              <button
+                key={u}
+                onClick={() => setUnit(u)}
+                className={cn(
+                  "flex-1 cursor-pointer rounded-lg border py-2 text-[11px] font-semibold transition",
+                  unit === u
+                    ? "border-indigo-400 bg-indigo-50 text-indigo-700"
+                    : "border-slate-200 bg-white text-slate-500 hover:border-slate-300",
+                )}
+              >
+                {u}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Poli (only for Rawat Jalan) */}
+        <AnimatePresence>
+          {unit === "Rawat Jalan" && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.18 }}
+              className="overflow-hidden"
+            >
+              <label className={labelCls}>Poli Tujuan</label>
+              <select
+                value={poli}
+                onChange={(e) => setPoli(e.target.value)}
+                className={inputCls}
+              >
+                {POLI_OPTS.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Terkait kunjungan */}
+        <div>
+          <label className={labelCls}>Terkait Kunjungan</label>
+          <select
+            value={linkedKunjungan}
+            onChange={(e) => setLinkedKunjungan(e.target.value)}
+            className={inputCls}
+          >
+            {kunjunganOpts.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Keterangan */}
+        <div>
+          <label className={labelCls}>Keterangan / Catatan</label>
+          <textarea
+            value={keterangan}
+            onChange={(e) => setKeterangan(e.target.value)}
+            placeholder="Tujuan kontrol, pemeriksaan yang diperlukan..."
+            rows={2}
+            className={cn(inputCls, "resize-none")}
+          />
+        </div>
+      </div>
+
+      <div className="flex shrink-0 items-center justify-between border-t border-slate-100 bg-slate-50/80 px-5 py-3.5">
+        <p className="text-[10px] text-slate-400">
+          <span className="text-rose-400">*</span> Wajib diisi
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={onClose}
+            className="cursor-pointer rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+          >
+            Batal
+          </button>
+          <button
+            disabled={!canSave}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition",
+              canSave
+                ? "cursor-pointer bg-indigo-600 text-white hover:bg-indigo-700 active:scale-[0.98]"
+                : "cursor-not-allowed bg-slate-100 text-slate-400",
+            )}
+          >
+            <Calendar size={12} />
+            Simpan Jadwal
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
 // ── Daftar Kunjungan Baru Modal ─────────────────────────────
 
 type UnitDaftar = "IGD" | "Rawat Jalan" | "Rawat Inap";
@@ -2923,6 +3145,8 @@ export default function PatientDashboard({
     setRiwayat(false);
     setOpenBillingId(null);
     setShowSearch(false);
+    setShowTambahJadwal(false);
+    setJadwalShowAll(false);
   }
 
   function openPatient(p: PatientMaster) {
@@ -2961,6 +3185,8 @@ export default function PatientDashboard({
   const [showKasir, setKasir] = useState(false);
   const [showRiwayat, setRiwayat] = useState(false);
   const [showDaftarKunjungan, setDaftarKunjungan] = useState(false);
+  const [showTambahJadwal, setShowTambahJadwal] = useState(false);
+  const [jadwalShowAll, setJadwalShowAll] = useState(false);
   const [openBillingId, setOpenBillingId] = useState<string | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("Semua");
@@ -2990,6 +3216,30 @@ export default function PatientDashboard({
   const activeVisit = patient.riwayatKunjungan.find(
     (k) => k.status === "Aktif",
   );
+
+  const jadwalList = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return patient.riwayatKunjungan
+      .filter((k) => k.jadwalKontrol)
+      .map((k) => ({ ...k.jadwalKontrol!, fromKunjungan: k.noKunjungan }))
+      .sort((a, b) => {
+        const da = parseIndoDate(a.tanggal);
+        const db = parseIndoDate(b.tanggal);
+        const aUp = da >= today;
+        const bUp = db >= today;
+        if (aUp !== bUp) return aUp ? -1 : 1;
+        return aUp ? da.getTime() - db.getTime() : db.getTime() - da.getTime();
+      });
+  }, [patient.riwayatKunjungan]);
+
+  const upcomingCount = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return jadwalList.filter(
+      (j) => j.status === "Dijadwalkan" && parseIndoDate(j.tanggal) >= today,
+    ).length;
+  }, [jadwalList]);
 
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -3626,17 +3876,17 @@ export default function PatientDashboard({
                 </span>
               </div>
               <div className="p-4 space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-xl bg-indigo-50 p-3 text-center">
-                    <p className="text-xl font-black text-indigo-700">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-xl bg-indigo-50 p-2.5 text-center">
+                    <p className="text-lg font-black text-indigo-700">
                       {patient.riwayatKunjungan.length}
                     </p>
                     <p className="text-[9px] font-bold uppercase tracking-wider text-indigo-400">
                       Kunjungan
                     </p>
                   </div>
-                  <div className="rounded-xl bg-sky-50 p-3 text-center">
-                    <p className="text-xl font-black text-sky-700">
+                  <div className="rounded-xl bg-sky-50 p-2.5 text-center">
+                    <p className="text-lg font-black text-sky-700">
                       {
                         patient.riwayatKunjungan.filter(
                           (k) => k.status === "Aktif",
@@ -3645,6 +3895,33 @@ export default function PatientDashboard({
                     </p>
                     <p className="text-[9px] font-bold uppercase tracking-wider text-sky-400">
                       Aktif
+                    </p>
+                  </div>
+                  <div
+                    className={cn(
+                      "rounded-xl p-2.5 text-center",
+                      upcomingCount > 0 ? "bg-emerald-50" : "bg-slate-50",
+                    )}
+                  >
+                    <p
+                      className={cn(
+                        "text-lg font-black",
+                        upcomingCount > 0
+                          ? "text-emerald-700"
+                          : "text-slate-400",
+                      )}
+                    >
+                      {upcomingCount}
+                    </p>
+                    <p
+                      className={cn(
+                        "text-[9px] font-bold uppercase tracking-wider",
+                        upcomingCount > 0
+                          ? "text-emerald-400"
+                          : "text-slate-400",
+                      )}
+                    >
+                      Jadwal
                     </p>
                   </div>
                 </div>
@@ -3694,6 +3971,127 @@ export default function PatientDashboard({
                       ))}
                     </div>
                   </div>
+                )}
+              </div>
+            </div>
+
+            {/* Jadwal Kontrol */}
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                <div className="flex items-center gap-1.5">
+                  <Calendar size={12} className="text-slate-400" />
+                  <span className="text-xs font-semibold text-slate-700">
+                    Jadwal Kontrol
+                  </span>
+                  {upcomingCount > 0 && (
+                    <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-bold text-sky-700">
+                      {upcomingCount}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowTambahJadwal(true)}
+                  className="flex cursor-pointer items-center gap-0.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                >
+                  <Plus size={10} /> Tambah
+                </button>
+              </div>
+
+              <div className="p-3 space-y-2">
+                {jadwalList.length === 0 ? (
+                  <div className="flex flex-col items-center gap-1.5 py-5 text-center">
+                    <Calendar size={20} className="text-slate-200" />
+                    <p className="text-[10px] text-slate-400">
+                      Belum ada jadwal kontrol
+                    </p>
+                    <button
+                      onClick={() => setShowTambahJadwal(true)}
+                      className="cursor-pointer text-[10px] font-semibold text-indigo-500 transition hover:text-indigo-700"
+                    >
+                      + Tambah jadwal
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {(jadwalShowAll ? jadwalList : jadwalList.slice(0, 3)).map(
+                      (j, idx) => {
+                        const cfg = JADWAL_CFG[j.status as JadwalStatus];
+                        const isUpcoming = j.status === "Dijadwalkan";
+                        return (
+                          <div
+                            key={idx}
+                            className={cn(
+                              "rounded-lg border px-3 py-2 transition",
+                              cfg.border,
+                              cfg.cardBg,
+                            )}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={cn(
+                                  "h-1.5 w-1.5 shrink-0 rounded-full",
+                                  cfg.dot,
+                                )}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-1">
+                                  <p
+                                    className={cn(
+                                      "text-[11px] font-bold leading-tight",
+                                      isUpcoming
+                                        ? "text-sky-800"
+                                        : "text-slate-600",
+                                    )}
+                                  >
+                                    {j.tanggal}
+                                    {j.jam && (
+                                      <span className="ml-1 font-normal text-slate-400">
+                                        {j.jam}
+                                      </span>
+                                    )}
+                                  </p>
+                                  <span
+                                    className={cn(
+                                      "shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-bold",
+                                      cfg.badge,
+                                    )}
+                                  >
+                                    {cfg.label}
+                                  </span>
+                                </div>
+                                <p className="truncate text-[10px] text-slate-500">
+                                  {j.dokter}
+                                  {j.poli && (
+                                    <span className="text-slate-400">
+                                      {" · "}
+                                      {j.poli}
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      },
+                    )}
+                    {jadwalList.length > 3 && (
+                      <button
+                        onClick={() => setJadwalShowAll((v) => !v)}
+                        className="flex w-full cursor-pointer items-center justify-center gap-1 py-1 text-[10px] font-semibold text-slate-400 transition hover:text-slate-600"
+                      >
+                        {jadwalShowAll ? (
+                          <>
+                            <ChevronUp size={10} /> Sembunyikan
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown size={10} />{" "}
+                            {jadwalList.length - 3} lainnya
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -3913,6 +4311,12 @@ export default function PatientDashboard({
         <DaftarKunjunganModal
           patient={patient}
           onClose={() => setDaftarKunjungan(false)}
+        />
+      )}
+      {showTambahJadwal && (
+        <TambahJadwalModal
+          patient={patient}
+          onClose={() => setShowTambahJadwal(false)}
         />
       )}
       {openBillingId &&

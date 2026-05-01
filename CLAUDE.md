@@ -60,7 +60,20 @@ Work items in priority order. Pick top item each session.
 
 ### 🔴 Now
 
-- [ ] **IGD → Admission flow** — dari DisposisiTab "Rawat Inap" trigger create rawat-inap record
+- [ ] **ehis-registration → /PatientDashboard** — kalau kita liat di layout pasien dashboard, penjamin dan jaminan memiliki ukuran paling besar card, gimna kalau layoutnya kita buat :
+
+1. dua kolom saja yang sama besar,
+2. dua kolom tapi ada beberapa card yang memuat informasi
+3. jadi card penjamin dan jaminan itu kita buat simpel saja, jangan terlalu memakan ruang seperti yang sekarang,
+4. dua kolom, kolom kanan itu ada berupa profil, serta rincian tagihan,
+5. kolom kanan itu ada informasi pasien
+6. lalu akan kita bagi cardnya misal ada card, Riwayat History pendaftaran Kunjungan, yang akan memuat pendaftaran terakhir dengan beberapa informasi seperti Tanggal pendaftaran / kunjungan, Status seperti Nomor SEP nomor BPJS, aktif atau tidak dll.
+7. Riwayat kunjungan modal itu kita ganti dengan riwayat pendaftaran saja
+8. lalu tabel Riwayat kunjungan di bawah itu, kita buat saja button untuk trigger modalnya, dan show semua kunjungan berdasarkan statusnya,
+
+saya ingin, buat rapi dan ui uxnya interaktif, gunakan front end desing skills, buat presisi dan estetika, buat juga dia responsive di multidevice.
+
+terapkan best practices.
 
 ### ✅ Selesai (EHIS-Care)
 
