@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { patientMasterData } from "@/lib/data";
-import KunjunganDetailPage from "@/components/pasien/KunjunganDetailPage";
+import KunjunganDetailPage from "@/components/registration/KunjunganDetailPage";
 
 export async function generateMetadata({
   params,

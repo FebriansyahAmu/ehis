@@ -2175,7 +2175,7 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
         <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-3.5">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <Link
-              href={`/ehis-care/pasien/${patient.noRM}`}
+              href={`/ehis-registration/pasien/${patient.noRM}`}
               className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[12px] font-medium text-slate-600 transition hover:bg-slate-100 sm:px-3"
             >
               <ArrowLeft size={14} />

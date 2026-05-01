@@ -27,7 +27,7 @@ export default function PatientTable({ patients }: PatientTableProps) {
       <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
         <h2 className="font-semibold text-slate-800">Pasien Terbaru</h2>
         <Link
-          href="/ehis-care/pasien"
+          href="/ehis-registration/pasien"
           className="text-sm font-medium text-indigo-600 transition hover:text-indigo-800"
         >
           Lihat semua →

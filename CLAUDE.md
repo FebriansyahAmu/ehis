@@ -15,14 +15,14 @@ Utilities: `cn()` · `src/lib/utils.ts` | Navigation config: `src/lib/navigation
 
 ## Module Map
 
-| Route                | Module        | Layout                    | Status      |
-| -------------------- | ------------- | ------------------------- | ----------- |
-| `/ehis-dashboard`    | Dashboard     | ModuleLayout              | 🔧 Scaffold |
-| `/ehis-care`         | Clinical Care | Sidebar (main) + Fullpage | 🚧 Active   |
-| `/ehis-registration` | Registration  | ModuleLayout              | 🔧 Scaffold |
-| `/ehis-billing`      | Billing       | ModuleLayout              | 🔧 Scaffold |
-| `/ehis-master`       | Master Data   | ModuleLayout              | 🔧 Scaffold |
-| `/ehis-report`       | Reports       | ModuleLayout              | 🔧 Scaffold |
+| Route                | Module        | Layout                                  | Status      |
+| -------------------- | ------------- | --------------------------------------- | ----------- |
+| `/ehis-dashboard`    | Dashboard     | ModuleLayout                            | 🔧 Scaffold |
+| `/ehis-care`         | Clinical Care | Sidebar (main) + Fullpage               | 🚧 Active   |
+| `/ehis-registration` | Registration  | (main) ModuleLayout + (fullpage) Pasien | 🚧 Active   |
+| `/ehis-billing`      | Billing       | ModuleLayout                            | 🔧 Scaffold |
+| `/ehis-master`       | Master Data   | ModuleLayout                            | 🔧 Scaffold |
+| `/ehis-report`       | Reports       | ModuleLayout                            | 🔧 Scaffold |
 
 Shared layout: `Navbar` · `Sidebar` · `ModuleSwitcher` · `ModuleLayout` → `src/components/layout/`
 
@@ -45,12 +45,12 @@ Shared layout: `Navbar` · `Sidebar` · `ModuleSwitcher` · `ModuleLayout` → `
 | rujukan                                                          | `tabs/RujukanKeluarTab.tsx`          | ✅     |
 | Penandaan Gambar                                                 | tabs/penandaanGambar.tsx             | ✅     |
 
-### Pasien Master
+### Pasien Master (di bawah `ehis-registration`)
 
-| File                                          | Status                                           |
-| --------------------------------------------- | ------------------------------------------------ |
-| `components/pasien/PatientDashboard.tsx`      | ✅ Full (tabs, search, modals, riwayat kunjungan) |
-| `components/pasien/KunjunganDetailPage.tsx`   | ✅ Halaman detail pendaftaran kunjungan (fullpage) |
+| File                                              | Route                                                    | Status                                             |
+| ------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------- |
+| `components/registration/PatientDashboard.tsx`    | `/ehis-registration/pasien/[id]`                         | ✅ Full (tabs, search, modals, riwayat kunjungan)  |
+| `components/registration/KunjunganDetailPage.tsx` | `/ehis-registration/pasien/[id]/kunjungan/[kunjunganId]` | ✅ Halaman detail pendaftaran kunjungan (fullpage) |
 
 ---
 

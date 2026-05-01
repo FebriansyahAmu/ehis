@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { patientMasterData } from "@/lib/data";
-import PatientDashboard from "@/components/pasien/PatientDashboard";
+import PatientDashboard from "@/components/registration/PatientDashboard";
 
 export async function generateMetadata({
   params,
