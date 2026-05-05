@@ -14,6 +14,7 @@ import {
   Radiation,
   Users,
   UserCog,
+  UserPlus,
   Building2,
   Receipt,
   Wallet,
@@ -170,8 +171,9 @@ export const registrationNav: readonly NavGroup[] = [
   {
     label: "Loket",
     items: [
-      { label: "Antrian",      href: "/ehis-registration/antrian", icon: CalendarDays },
-      { label: "Pasien Baru",  href: "/ehis-registration/baru",    icon: Users        },
+      { label: "Pasien",      href: "/ehis-registration/pasien",   icon: Users        },
+      { label: "Antrian",     href: "/ehis-registration/antrian",  icon: CalendarDays },
+      { label: "Pasien Baru", href: "/ehis-registration/baru",     icon: UserPlus     },
     ],
   },
 ] as const;
