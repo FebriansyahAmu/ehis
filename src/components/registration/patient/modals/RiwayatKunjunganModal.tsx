@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import Link from "next/link";
 import { ClipboardList, Stethoscope, Hash } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -82,8 +82,10 @@ export function RiwayatKunjunganModal({
               {filtered.map((k) => {
                 const uc = UNIT_CFG[k.unit];
                 const UIcon = uc.icon;
+                const hasOrders = k.orderedServices && k.orderedServices.length > 0;
                 return (
-                  <tr key={k.id} className="group transition-colors hover:bg-indigo-50/40">
+                  <Fragment key={k.id}>
+                  <tr className="group transition-colors hover:bg-indigo-50/40">
                     <td className="px-4 py-3">
                       <p className="font-mono text-[11px] font-semibold text-slate-800">{k.noPendaftaran}</p>
                       <p className="mt-0.5 font-mono text-[10px] text-slate-400">{k.noKunjungan}</p>
@@ -161,6 +163,32 @@ export function RiwayatKunjunganModal({
                       </div>
                     </td>
                   </tr>
+                  {hasOrders && (
+                    <tr className="bg-slate-50/50">
+                      <td colSpan={6} className="px-6 pb-3 pt-1">
+                        <div className="flex items-start gap-2 ml-1 border-l-2 border-slate-200 pl-3">
+                          <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">Order:</span>
+                          <div className="flex flex-wrap gap-x-3 gap-y-1">
+                            {k.orderedServices!.map((svc) => {
+                              const sc = UNIT_CFG[svc.unit];
+                              const SIcon = sc.icon;
+                              return (
+                                <div key={svc.unit} className="flex items-center gap-1">
+                                  <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold", sc.bg, sc.text)}>
+                                    <SIcon size={8} /> {svc.unit}
+                                  </span>
+                                  <span className={cn("text-[8px] font-bold", svc.selesai ? "text-emerald-500" : "text-amber-500")}>
+                                    {svc.selesai ? "✓ Selesai" : "· Proses"}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
             </tbody>

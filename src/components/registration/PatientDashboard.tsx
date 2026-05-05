@@ -296,25 +296,23 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <PatientLeftPanel
             patient={patient}
+            upcomingCount={upcomingCount}
+            photoPreview={photoPreview}
+            photoRef={photoRef}
+            onInfoLengkap={() => setInfoLengkap(true)}
+            onDaftarKunjungan={() => setDaftarKunjungan(true)}
+            onKasir={() => setKasir(true)}
+            onOpenBilling={(id) => setOpenBillingId(id)}
+          />
+          <PatientRightPanel
+            patient={patient}
             jadwalList={jadwalList}
             jadwalShowAll={jadwalShowAll}
             upcomingCount={upcomingCount}
-            onEditData={() => setEditData(true)}
-            onEditKontak={() => setEditKontak(true)}
             onUbahPenjamin={() => setPenjamin(true)}
             onLihatRiwayat={() => setRiwayat(true)}
             onTambahJadwal={() => setShowTambahJadwal(true)}
             onToggleJadwal={() => setJadwalShowAll((v) => !v)}
-            onInfoLengkap={() => setInfoLengkap(true)}
-          />
-          <PatientRightPanel
-            patient={patient}
-            photoPreview={photoPreview}
-            photoRef={photoRef}
-            upcomingCount={upcomingCount}
-            onDaftarKunjungan={() => setDaftarKunjungan(true)}
-            onKasir={() => setKasir(true)}
-            onOpenBilling={(id) => setOpenBillingId(id)}
           />
         </div>
       </div>
