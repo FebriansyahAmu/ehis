@@ -60,7 +60,15 @@ Work items in priority order. Pick top item each session.
 
 ### 🔴 Now
 
-_(kosong — ambil dari backlog)_
+- [x] **ehis-care halaman igd** - mari kita tambahkan Button untuk + Triase, dan ketika di klik akan muncul modal yang besar untuk pengisian Triase (formatnya ada di components/igd/tabs/TriaseTab) jadi tujuannya :
+
+1. Triase ini akan dilakukan pertama kali saat pasien datang,
+2. Setelah melakukan Triase, dan pasien akan di daftarkan maka kita bisa ambil berdasarkan Triase itu untuk nama pasien
+3. saya ingin modal itu tidak bisa di close saat di klik di luar modal, harus klik batal untuk bisa keluar,
+4. saya ingin buat se-interaktif mungkin dan ui ux friendly, sehingga user bisa paham apa dan bagaimana melakukan pengisian, bahkan untuk user yang tidak terlalu paham soal aplikasi
+5. terapkan best practices dan gunakan FrontEnd design skills,
+6. jangan lupa juga buat se estetik mungkin, hindari modal yang terlalu template dan tidak interaktif
+7. jangan buat components yang lebih dari 700 line code, minimal dibawah itu
 
 ### ✅ Selesai (EHIS-Registration)
 

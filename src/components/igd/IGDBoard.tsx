@@ -32,9 +32,9 @@ interface IGDBoardProps {
 }
 
 export default function IGDBoard({ patients }: IGDBoardProps) {
-  const [triage, setTriage]   = useState<FilterTriage>("Semua");
-  const [status, setStatus]   = useState<FilterStatus>("Semua");
-  const [search, setSearch]   = useState("");
+  const [triage, setTriage] = useState<FilterTriage>("Semua");
+  const [status, setStatus] = useState<FilterStatus>("Semua");
+  const [search, setSearch] = useState("");
 
   const filtered = patients.filter((p) => {
     const matchTriage = triage === "Semua" || p.triage === triage;

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 
 import IGDBoard from "@/components/igd/IGDBoard";
 import IGDRuanganPanel from "@/components/igd/IGDRuanganPanel";
+import IGDTriaseButton from "@/components/igd/IGDTriaseButton";
 import { igdPatients, igdStats, igdRuangan } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
@@ -53,16 +54,19 @@ export default function IGDPage() {
           </p>
         </div>
 
-        {/* Bed indicator */}
-        <div className="hidden shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm sm:flex">
-          <BedDouble size={16} className="text-slate-400" aria-hidden="true" />
-          <div>
-            <p className="text-sm font-semibold text-slate-800">
-              {igdStats.bedsAvailable}
-              <span className="font-normal text-slate-400"> / {igdStats.bedsTotal}</span>
-            </p>
-            <p className="text-[11px] text-slate-400">Tempat tidur tersedia</p>
+        <div className="flex items-center gap-3">
+          {/* Bed indicator */}
+          <div className="hidden shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm sm:flex">
+            <BedDouble size={16} className="text-slate-400" aria-hidden="true" />
+            <div>
+              <p className="text-sm font-semibold text-slate-800">
+                {igdStats.bedsAvailable}
+                <span className="font-normal text-slate-400"> / {igdStats.bedsTotal}</span>
+              </p>
+              <p className="text-[11px] text-slate-400">Tempat tidur tersedia</p>
+            </div>
           </div>
+          <IGDTriaseButton />
         </div>
       </header>
 
