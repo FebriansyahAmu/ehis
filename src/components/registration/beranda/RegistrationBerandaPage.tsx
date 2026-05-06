@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Users, Activity, Shield, Wallet, ArrowRight, UserPlus, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { patientMasterData, recentPatients } from "@/lib/data";
+import { PasienBaruModal } from "@/components/registration/pasien-baru/PasienBaruModal";
 
 const STATUS_STYLE: Record<string, string> = {
   "Selesai":         "bg-slate-100 text-slate-500",
@@ -37,6 +38,7 @@ const PENJAMIN_COLOR: Record<string, string> = {
 };
 
 export default function RegistrationBerandaPage() {
+  const [modalOpen, setModalOpen] = useState(false);
   const patients = useMemo(() => Object.values(patientMasterData), []);
 
   const stats = useMemo(() => {
@@ -67,6 +69,7 @@ export default function RegistrationBerandaPage() {
   });
 
   return (
+    <>
     <div className="flex flex-col gap-5 p-6">
 
       {/* Header */}
@@ -183,13 +186,13 @@ export default function RegistrationBerandaPage() {
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <p className="mb-3 text-xs font-bold text-slate-800">Aksi Cepat</p>
             <div className="flex flex-col gap-2">
-              <Link
-                href="/ehis-registration/baru"
+              <button
+                onClick={() => setModalOpen(true)}
                 className="flex items-center gap-2.5 rounded-xl bg-indigo-600 px-3.5 py-2.5 text-xs font-semibold text-white transition hover:bg-indigo-700 active:scale-[0.98]"
               >
                 <UserPlus size={13} className="shrink-0" />
                 Daftar Pasien Baru
-              </Link>
+              </button>
               <Link
                 href="/ehis-registration/antrian"
                 className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98]"
@@ -210,5 +213,8 @@ export default function RegistrationBerandaPage() {
         </div>
       </div>
     </div>
+
+    <PasienBaruModal open={modalOpen} onClose={() => setModalOpen(false)} />
+    </>
   );
 }
