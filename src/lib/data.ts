@@ -1030,3 +1030,284 @@ export const patientMasterData: Record<string, PatientMaster> = {
     },
   },
 };
+
+// ── Rawat Inap types & mock data ──────────────────────────
+
+export type RIStatus   = "Aktif" | "Observasi" | "Kritis" | "Pulang Hari Ini" | "Konsultasi";
+export type RIPenjamin = "BPJS_PBI" | "BPJS_Non_PBI" | "Umum" | "Asuransi" | "Jamkesda";
+export type RIKelas    = "VIP" | "Kelas_1" | "Kelas_2" | "Kelas_3" | "ICU" | "HCU" | "Isolasi";
+
+export interface RawatInapPatient {
+  id:        string;
+  noRM:      string;
+  name:      string;
+  age:       number;
+  gender:    "L" | "P";
+  ruangan:   string;
+  kelas:     RIKelas;
+  noBed:     string;
+  dpjp:      string;
+  spesialis: string;
+  diagnosis: string;
+  kodeIcd:   string;
+  admitDate: string;
+  hariKe:    number;
+  status:    RIStatus;
+  penjamin:  RIPenjamin;
+  noBpjs?:   string;
+  catatan?:  string;
+}
+
+export interface RIBed {
+  id:             string;
+  nomor:          string;
+  status:         "Terisi" | "Tersedia" | "Maintenance" | "Dipesan";
+  pasienNama?:    string;
+  pasienRM?:      string;
+  hariKe?:        number;
+  penjamin?:      RIPenjamin;
+  isKritis?:      boolean;
+  rencanaKeluar?: boolean;
+}
+
+export interface RIRuangan {
+  id:    string;
+  nama:  string;
+  kelas: RIKelas;
+  beds:  RIBed[];
+}
+
+export interface RawatInapStats {
+  totalAktif:    number;
+  masukHariIni:  number;
+  rencanaKeluar: number;
+  bor:           number;
+  alos:          number;
+  bedsTotal:     number;
+  bedsAvailable: number;
+  kritis:        number;
+}
+
+export const rawatInapStats: RawatInapStats = {
+  totalAktif: 74, masukHariIni: 8, rencanaKeluar: 5,
+  bor: 78, alos: 4.2, bedsTotal: 95, bedsAvailable: 21, kritis: 2,
+};
+
+export const rawatInapPatients: RawatInapPatient[] = [
+  {
+    id: "ri-1", noRM: "RM-2025-003", name: "Ahmad Fauzi", age: 67, gender: "L",
+    ruangan: "Mawar A", kelas: "Kelas_2", noBed: "2A-1",
+    dpjp: "dr. Dewi Kusuma, Sp.JP", spesialis: "Sp.JP",
+    diagnosis: "Gagal Jantung Kongestif", kodeIcd: "I50.0",
+    admitDate: "2025-05-03", hariKe: 5, status: "Aktif", penjamin: "BPJS_Non_PBI",
+  },
+  {
+    id: "ri-2", noRM: "RM-2025-002", name: "Siti Rahayu", age: 32, gender: "P",
+    ruangan: "Melati A", kelas: "Kelas_1", noBed: "1A-2",
+    dpjp: "dr. Rizal Akbar, Sp.OT", spesialis: "Sp.OT",
+    diagnosis: "Fraktur Os Radius Dekstra", kodeIcd: "S52.1",
+    admitDate: "2025-05-06", hariKe: 2, status: "Aktif", penjamin: "BPJS_Non_PBI",
+  },
+  {
+    id: "ri-3", noRM: "RM-2025-007", name: "Hasan Basri", age: 72, gender: "L",
+    ruangan: "Ruang ICU", kelas: "ICU", noBed: "ICU-1",
+    dpjp: "dr. Hendra Wijaya, Sp.EM", spesialis: "Sp.EM",
+    diagnosis: "Syok Sepsis", kodeIcd: "A41.9",
+    admitDate: "2025-05-05", hariKe: 3, status: "Kritis", penjamin: "BPJS_PBI",
+    catatan: "Pasang ventilator, monitoring ketat",
+  },
+  {
+    id: "ri-4", noRM: "RM-2025-004", name: "Rina Marlina", age: 28, gender: "P",
+    ruangan: "Mawar B", kelas: "Kelas_2", noBed: "2B-1",
+    dpjp: "dr. Faisal Rahman, Sp.OG", spesialis: "Sp.OG",
+    diagnosis: "Partus Spontan Post SC", kodeIcd: "O82",
+    admitDate: "2025-05-07", hariKe: 1, status: "Pulang Hari Ini", penjamin: "BPJS_Non_PBI",
+  },
+  {
+    id: "ri-5", noRM: "RM-2025-020", name: "Bambang Sutrisno", age: 58, gender: "L",
+    ruangan: "Ruang Anggrek", kelas: "VIP", noBed: "VIP-2",
+    dpjp: "dr. Anisa Putri, Sp.PD", spesialis: "Sp.PD",
+    diagnosis: "DM Tipe 2 dengan Ulkus Diabetik", kodeIcd: "E11.7",
+    admitDate: "2025-05-01", hariKe: 7, status: "Aktif", penjamin: "Umum",
+  },
+  {
+    id: "ri-6", noRM: "RM-2025-022", name: "Kartika Sari", age: 45, gender: "P",
+    ruangan: "Ruang HCU", kelas: "HCU", noBed: "HCU-2",
+    dpjp: "dr. Dewi Kusuma, Sp.JP", spesialis: "Sp.JP",
+    diagnosis: "Aritmia Jantung", kodeIcd: "I49.9",
+    admitDate: "2025-05-06", hariKe: 2, status: "Observasi", penjamin: "Asuransi",
+  },
+  {
+    id: "ri-7", noRM: "RM-2025-038", name: "Doni Pratama", age: 34, gender: "L",
+    ruangan: "Kenanga A", kelas: "Kelas_3", noBed: "3A-5",
+    dpjp: "dr. Budianto, Sp.B", spesialis: "Sp.B",
+    diagnosis: "Apendisitis Akut Post Op", kodeIcd: "K35.8",
+    admitDate: "2025-05-07", hariKe: 1, status: "Aktif", penjamin: "BPJS_PBI",
+  },
+  {
+    id: "ri-8", noRM: "RM-2025-028", name: "Nur Aini", age: 55, gender: "P",
+    ruangan: "Melati B", kelas: "Kelas_1", noBed: "1B-3",
+    dpjp: "dr. Anisa Putri, Sp.PD", spesialis: "Sp.PD",
+    diagnosis: "Hipertensi Urgensi", kodeIcd: "I10",
+    admitDate: "2025-05-05", hariKe: 3, status: "Aktif", penjamin: "BPJS_Non_PBI",
+  },
+  {
+    id: "ri-9", noRM: "RM-2025-019", name: "Agus Setiawan", age: 48, gender: "L",
+    ruangan: "Kenanga B", kelas: "Kelas_3", noBed: "3B-2",
+    dpjp: "dr. Rizal Akbar, Sp.OT", spesialis: "Sp.OT",
+    diagnosis: "Fraktur Os Femur Sinistra", kodeIcd: "S72.0",
+    admitDate: "2025-05-04", hariKe: 4, status: "Aktif", penjamin: "BPJS_PBI",
+  },
+  {
+    id: "ri-10", noRM: "RM-2025-024", name: "Indah Pertiwi", age: 23, gender: "P",
+    ruangan: "Ruang Isolasi", kelas: "Isolasi", noBed: "ISO-1",
+    dpjp: "dr. Hendra Wijaya, Sp.EM", spesialis: "Sp.EM",
+    diagnosis: "Tuberkulosis Paru", kodeIcd: "A15.0",
+    admitDate: "2025-05-02", hariKe: 6, status: "Aktif", penjamin: "BPJS_PBI",
+  },
+  {
+    id: "ri-11", noRM: "RM-2025-043", name: "Slamet Riyadi", age: 63, gender: "L",
+    ruangan: "Ruang ICU", kelas: "ICU", noBed: "ICU-3",
+    dpjp: "dr. Hendra Wijaya, Sp.EM", spesialis: "Sp.EM",
+    diagnosis: "Stroke Iskemik", kodeIcd: "I63.9",
+    admitDate: "2025-05-03", hariKe: 5, status: "Kritis", penjamin: "BPJS_Non_PBI",
+    catatan: "Monitoring GCS, fisioterapi rutin",
+  },
+  {
+    id: "ri-12", noRM: "RM-2025-037", name: "Wulandari", age: 37, gender: "P",
+    ruangan: "Mawar A", kelas: "Kelas_2", noBed: "2A-6",
+    dpjp: "dr. Faisal Rahman, Sp.OG", spesialis: "Sp.OG",
+    diagnosis: "Preeklampsia Berat", kodeIcd: "O14.1",
+    admitDate: "2025-05-06", hariKe: 2, status: "Observasi", penjamin: "BPJS_PBI",
+  },
+  {
+    id: "ri-13", noRM: "RM-2025-031", name: "Rachmat Hidayat", age: 52, gender: "L",
+    ruangan: "Ruang Anggrek", kelas: "VIP", noBed: "VIP-4",
+    dpjp: "dr. Dewi Kusuma, Sp.JP", spesialis: "Sp.JP",
+    diagnosis: "STEMI Anterior", kodeIcd: "I21.0",
+    admitDate: "2025-05-02", hariKe: 6, status: "Pulang Hari Ini", penjamin: "Asuransi",
+  },
+  {
+    id: "ri-14", noRM: "RM-2025-039", name: "Fitri Andriani", age: 29, gender: "P",
+    ruangan: "Kenanga A", kelas: "Kelas_3", noBed: "3A-8",
+    dpjp: "dr. Budianto, Sp.B", spesialis: "Sp.B",
+    diagnosis: "Post Herniotomi", kodeIcd: "K40.9",
+    admitDate: "2025-05-06", hariKe: 2, status: "Aktif", penjamin: "BPJS_PBI",
+  },
+  {
+    id: "ri-15", noRM: "RM-2025-045", name: "Sumarno", age: 70, gender: "L",
+    ruangan: "Melati B", kelas: "Kelas_1", noBed: "1B-5",
+    dpjp: "dr. Anisa Putri, Sp.PD", spesialis: "Sp.PD",
+    diagnosis: "PPOK Eksaserbasi Akut", kodeIcd: "J44.1",
+    admitDate: "2025-05-04", hariKe: 4, status: "Konsultasi", penjamin: "Jamkesda",
+  },
+];
+
+export const rawatInapRuangan: RIRuangan[] = [
+  {
+    id: "ri-icu", nama: "Ruang ICU", kelas: "ICU",
+    beds: [
+      { id: "icu-1", nomor: "ICU-1", status: "Terisi",  pasienNama: "Hasan Basri",   pasienRM: "RM-2025-007", hariKe: 3, penjamin: "BPJS_PBI",     isKritis: true },
+      { id: "icu-2", nomor: "ICU-2", status: "Tersedia" },
+      { id: "icu-3", nomor: "ICU-3", status: "Terisi",  pasienNama: "Slamet Riyadi", pasienRM: "RM-2025-043", hariKe: 5, penjamin: "BPJS_Non_PBI", isKritis: true },
+      { id: "icu-4", nomor: "ICU-4", status: "Tersedia" },
+      { id: "icu-5", nomor: "ICU-5", status: "Tersedia" },
+      { id: "icu-6", nomor: "ICU-6", status: "Tersedia" },
+      { id: "icu-7", nomor: "ICU-7", status: "Maintenance" },
+      { id: "icu-8", nomor: "ICU-8", status: "Tersedia" },
+    ],
+  },
+  {
+    id: "ri-hcu", nama: "Ruang HCU", kelas: "HCU",
+    beds: [
+      { id: "hcu-1", nomor: "HCU-1", status: "Tersedia" },
+      { id: "hcu-2", nomor: "HCU-2", status: "Terisi",  pasienNama: "Kartika Sari", pasienRM: "RM-2025-022", hariKe: 2, penjamin: "Asuransi" },
+      { id: "hcu-3", nomor: "HCU-3", status: "Tersedia" },
+      { id: "hcu-4", nomor: "HCU-4", status: "Tersedia" },
+      { id: "hcu-5", nomor: "HCU-5", status: "Tersedia" },
+      { id: "hcu-6", nomor: "HCU-6", status: "Dipesan" },
+    ],
+  },
+  {
+    id: "ri-iso", nama: "Ruang Isolasi", kelas: "Isolasi",
+    beds: [
+      { id: "iso-1", nomor: "ISO-1", status: "Terisi",  pasienNama: "Indah Pertiwi", pasienRM: "RM-2025-024", hariKe: 6, penjamin: "BPJS_PBI" },
+      { id: "iso-2", nomor: "ISO-2", status: "Tersedia" },
+      { id: "iso-3", nomor: "ISO-3", status: "Tersedia" },
+      { id: "iso-4", nomor: "ISO-4", status: "Maintenance" },
+    ],
+  },
+  {
+    id: "ri-vip", nama: "Ruang Anggrek", kelas: "VIP",
+    beds: [
+      { id: "vip-1", nomor: "VIP-1", status: "Tersedia" },
+      { id: "vip-2", nomor: "VIP-2", status: "Terisi",  pasienNama: "Bambang Sutrisno", pasienRM: "RM-2025-020", hariKe: 7, penjamin: "Umum" },
+      { id: "vip-3", nomor: "VIP-3", status: "Tersedia" },
+      { id: "vip-4", nomor: "VIP-4", status: "Terisi",  pasienNama: "Rachmat Hidayat",  pasienRM: "RM-2025-031", hariKe: 6, penjamin: "Asuransi", rencanaKeluar: true },
+      { id: "vip-5", nomor: "VIP-5", status: "Maintenance" },
+    ],
+  },
+  {
+    id: "ri-k1", nama: "Melati A & B", kelas: "Kelas_1",
+    beds: [
+      { id: "ma1", nomor: "1A-1", status: "Tersedia" },
+      { id: "ma2", nomor: "1A-2", status: "Terisi",  pasienNama: "Siti Rahayu", pasienRM: "RM-2025-002", hariKe: 2, penjamin: "BPJS_Non_PBI" },
+      { id: "ma3", nomor: "1A-3", status: "Tersedia" },
+      { id: "ma4", nomor: "1A-4", status: "Dipesan" },
+      { id: "ma5", nomor: "1A-5", status: "Tersedia" },
+      { id: "ma6", nomor: "1A-6", status: "Tersedia" },
+      { id: "mb1", nomor: "1B-1", status: "Tersedia" },
+      { id: "mb2", nomor: "1B-2", status: "Tersedia" },
+      { id: "mb3", nomor: "1B-3", status: "Terisi",  pasienNama: "Nur Aini",  pasienRM: "RM-2025-028", hariKe: 3, penjamin: "BPJS_Non_PBI" },
+      { id: "mb4", nomor: "1B-4", status: "Tersedia" },
+      { id: "mb5", nomor: "1B-5", status: "Terisi",  pasienNama: "Sumarno",   pasienRM: "RM-2025-045", hariKe: 4, penjamin: "Jamkesda" },
+      { id: "mb6", nomor: "1B-6", status: "Tersedia" },
+    ],
+  },
+  {
+    id: "ri-k2", nama: "Mawar A & B", kelas: "Kelas_2",
+    beds: [
+      { id: "wa1", nomor: "2A-1", status: "Terisi",  pasienNama: "Ahmad Fauzi",  pasienRM: "RM-2025-003", hariKe: 5, penjamin: "BPJS_Non_PBI" },
+      { id: "wa2", nomor: "2A-2", status: "Tersedia" },
+      { id: "wa3", nomor: "2A-3", status: "Tersedia" },
+      { id: "wa4", nomor: "2A-4", status: "Tersedia" },
+      { id: "wa5", nomor: "2A-5", status: "Tersedia" },
+      { id: "wa6", nomor: "2A-6", status: "Terisi",  pasienNama: "Wulandari",   pasienRM: "RM-2025-037", hariKe: 2, penjamin: "BPJS_PBI" },
+      { id: "wa7", nomor: "2A-7", status: "Tersedia" },
+      { id: "wa8", nomor: "2A-8", status: "Tersedia" },
+      { id: "wb1", nomor: "2B-1", status: "Terisi",  pasienNama: "Rina Marlina", pasienRM: "RM-2025-004", hariKe: 1, penjamin: "BPJS_Non_PBI", rencanaKeluar: true },
+      { id: "wb2", nomor: "2B-2", status: "Tersedia" },
+      { id: "wb3", nomor: "2B-3", status: "Tersedia" },
+      { id: "wb4", nomor: "2B-4", status: "Tersedia" },
+      { id: "wb5", nomor: "2B-5", status: "Maintenance" },
+      { id: "wb6", nomor: "2B-6", status: "Tersedia" },
+      { id: "wb7", nomor: "2B-7", status: "Tersedia" },
+      { id: "wb8", nomor: "2B-8", status: "Tersedia" },
+    ],
+  },
+  {
+    id: "ri-k3", nama: "Kenanga A & B", kelas: "Kelas_3",
+    beds: [
+      { id: "ka1",  nomor: "3A-1",  status: "Terisi",  pasienNama: "Pasien A",       pasienRM: "RM-2025-050", hariKe: 3, penjamin: "BPJS_PBI" },
+      { id: "ka2",  nomor: "3A-2",  status: "Tersedia" },
+      { id: "ka3",  nomor: "3A-3",  status: "Terisi",  pasienNama: "Pasien B",       pasienRM: "RM-2025-051", hariKe: 1, penjamin: "BPJS_PBI" },
+      { id: "ka4",  nomor: "3A-4",  status: "Tersedia" },
+      { id: "ka5",  nomor: "3A-5",  status: "Terisi",  pasienNama: "Doni Pratama",   pasienRM: "RM-2025-038", hariKe: 1, penjamin: "BPJS_PBI" },
+      { id: "ka6",  nomor: "3A-6",  status: "Tersedia" },
+      { id: "ka7",  nomor: "3A-7",  status: "Tersedia" },
+      { id: "ka8",  nomor: "3A-8",  status: "Terisi",  pasienNama: "Fitri Andriani", pasienRM: "RM-2025-039", hariKe: 2, penjamin: "BPJS_PBI" },
+      { id: "ka9",  nomor: "3A-9",  status: "Tersedia" },
+      { id: "ka10", nomor: "3A-10", status: "Tersedia" },
+      { id: "kb1",  nomor: "3B-1",  status: "Tersedia" },
+      { id: "kb2",  nomor: "3B-2",  status: "Terisi",  pasienNama: "Agus Setiawan", pasienRM: "RM-2025-019", hariKe: 4, penjamin: "BPJS_PBI" },
+      { id: "kb3",  nomor: "3B-3",  status: "Tersedia" },
+      { id: "kb4",  nomor: "3B-4",  status: "Tersedia" },
+      { id: "kb5",  nomor: "3B-5",  status: "Terisi",  pasienNama: "Pasien C",      pasienRM: "RM-2025-052", hariKe: 2, penjamin: "BPJS_PBI" },
+      { id: "kb6",  nomor: "3B-6",  status: "Tersedia" },
+      { id: "kb7",  nomor: "3B-7",  status: "Tersedia" },
+      { id: "kb8",  nomor: "3B-8",  status: "Tersedia" },
+      { id: "kb9",  nomor: "3B-9",  status: "Maintenance" },
+      { id: "kb10", nomor: "3B-10", status: "Tersedia" },
+    ],
+  },
+];

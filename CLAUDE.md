@@ -60,15 +60,7 @@ Work items in priority order. Pick top item each session.
 
 ### 🔴 Now
 
-- [x] **ehis-care halaman igd** - mari kita tambahkan Button untuk + Triase, dan ketika di klik akan muncul modal yang besar untuk pengisian Triase (formatnya ada di components/igd/tabs/TriaseTab) jadi tujuannya :
-
-1. Triase ini akan dilakukan pertama kali saat pasien datang,
-2. Setelah melakukan Triase, dan pasien akan di daftarkan maka kita bisa ambil berdasarkan Triase itu untuk nama pasien
-3. saya ingin modal itu tidak bisa di close saat di klik di luar modal, harus klik batal untuk bisa keluar,
-4. saya ingin buat se-interaktif mungkin dan ui ux friendly, sehingga user bisa paham apa dan bagaimana melakukan pengisian, bahkan untuk user yang tidak terlalu paham soal aplikasi
-5. terapkan best practices dan gunakan FrontEnd design skills,
-6. jangan lupa juga buat se estetik mungkin, hindari modal yang terlalu template dan tidak interaktif
-7. jangan buat components yang lebih dari 700 line code, minimal dibawah itu
+- [ ] **Rawat Inap — fullpage detail pasien** — halaman `/ehis-care/rawat-inap/[id]` untuk rekam medis pasien rawat inap (tab CPPT, TTV, Asuhan Keperawatan, Obat, Lab, Discharge Planning)
 
 ### ✅ Selesai (EHIS-Registration)
 
@@ -76,6 +68,8 @@ Work items in priority order. Pick top item each session.
 
 ### ✅ Selesai (EHIS-Care)
 
+- [x] **IGD Triase Modal** — tombol "+ Triase" di page header IGD, modal fullscreen dengan primary survey (ABCDE), backdrop shake on outside-click, portal-based z-index, `IGDTriaseButton` client component, `TriaseModal` + `TriasePrimaryForm` components
+- [x] **Rawat Inap — halaman utama** — `/ehis-care/rawat-inap`: header + BOR gauge + 6 stats card, `RIRuanganPanel` (7 kelas dengan occupancy ring + bed map modal), `RIBoard` (filter status/kelas/DPJP/search + patient cards), mock data di `data.ts` (`rawatInapPatients`, `rawatInapRuangan`, `rawatInapStats`)
 - [x] **Redesign: IGD tabs/PenilaianTab** — multi-tab (Fisik, Jantung, Kanker, dll.), two-panel layout, auto-resize textarea
 - [x] **Pasien → Detail Pendaftaran Kunjungan** — fullpage `/pasien/[id]/kunjungan/[kunjunganId]`, dokumen, aksi, cetak, modals
 
@@ -104,7 +98,10 @@ Work items in priority order. Pick top item each session.
 
 **Core types** (semua di `src/lib/data.ts`):
 `IGDPatientDetail` · `PatientMaster` · `KunjunganRecord` · `BillingRecord` · `KasirData`  
+`RawatInapPatient` · `RIBed` · `RIRuangan` · `RawatInapStats`  
 `TipePenjamin`: `BPJS_Non_PBI | BPJS_PBI | Umum | Asuransi | Jamkesda`  
+`RIPenjamin`: `BPJS_PBI | BPJS_Non_PBI | Umum | Asuransi | Jamkesda`  
+`RIKelas`: `VIP | Kelas_1 | Kelas_2 | Kelas_3 | ICU | HCU | Isolasi`  
 `UnitKunjungan`: `IGD | Rawat Jalan | Rawat Inap | Laboratorium | Radiologi | Farmasi`
 
 ---
