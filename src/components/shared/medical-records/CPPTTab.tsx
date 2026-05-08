@@ -1,63 +1,48 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Pencil, X, CalendarDays } from "lucide-react";
+import { X, CalendarDays, Search, LayoutTemplate, ChevronDown, Flag } from "lucide-react";
 import type { CPPTEntry, CPPTProfesi } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { fmtDate, todayISO, PROFESI_CLS, PROFESI_LIST, SOAP_BADGE } from "./cpptShared";
+import CPPTEntryCard from "./CPPTEntryCard";
 
-// ── Constants ─────────────────────────────────────────────
+// ── SOAP Templates ────────────────────────────────────────
 
-const MONTHS_ID = [
-  "Januari","Februari","Maret","April","Mei","Juni",
-  "Juli","Agustus","September","Oktober","November","Desember",
-];
-
-function fmtDate(iso: string): string {
-  if (!iso) return "—";
-  const [y, m, d] = iso.split("-");
-  return `${parseInt(d)} ${MONTHS_ID[parseInt(m, 10) - 1]} ${y}`;
+interface CPPTTemplate {
+  id: string; label: string; profesi: CPPTProfesi;
+  fields: Partial<Pick<CPPTForm, "subjektif"|"objektif"|"asesmen"|"planning"|"instruksi">>;
 }
 
-function todayISO(): string {
-  return new Date().toISOString().split("T")[0];
-}
-
-const PROFESI_CLS: Record<CPPTProfesi, string> = {
-  Dokter:      "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200",
-  Perawat:     "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
-  Bidan:       "bg-pink-50 text-pink-700 ring-1 ring-pink-200",
-  Apoteker:    "bg-violet-50 text-violet-700 ring-1 ring-violet-200",
-  Gizi:        "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-  Fisioterapi: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-  Lainnya:     "bg-slate-100 text-slate-600",
-};
-
-const PROFESI_LIST: CPPTProfesi[] = [
-  "Dokter","Perawat","Bidan","Apoteker","Gizi","Fisioterapi","Lainnya",
+const CPPT_TEMPLATES: CPPTTemplate[] = [
+  { id: "visite", label: "Visite Harian", profesi: "Dokter", fields: {
+    subjektif: "Pasien mengeluh ..., riwayat ...",
+    objektif:  "KU: baik. TD: .../... mmHg, N: .../mnt, S: ...°C, SpO₂: ...%.",
+    asesmen:   "..., kondisi membaik/stabil.",
+    planning:  "Lanjutkan terapi ...",
+    instruksi: "Monitor TTV tiap ... jam.",
+  }},
+  { id: "pulang", label: "Siap Pulang", profesi: "Dokter", fields: {
+    subjektif: "Pasien merasa lebih baik, keluhan berkurang signifikan.",
+    objektif:  "TTV dalam batas normal. Pemeriksaan fisik tanpa kelainan akut.",
+    asesmen:   "Kondisi klinis stabil, layak dipulangkan.",
+    planning:  "Obat pulang: ..., kontrol poli ... dalam ... hari.",
+    instruksi: "Edukasi pasien dan keluarga tanda bahaya, anjuran diet dan aktivitas.",
+  }},
+  { id: "shift", label: "Laporan Shift", profesi: "Perawat", fields: {
+    objektif:  "TTV jam ...: TD .../..., N: ..., S: ...°C, SpO₂: ...%. Input/output: ...",
+    asesmen:   "Kondisi pasien ..., tidak ada / ada kejadian luar biasa: ...",
+    instruksi: "Observasi tiap ... jam. Hubungi DPJP bila ...",
+  }},
+  { id: "edukasi", label: "Edukasi Pasien", profesi: "Perawat", fields: {
+    subjektif: "Pasien/keluarga menyatakan paham/belum paham mengenai ...",
+    asesmen:   "Edukasi diberikan mengenai: ..., diet, aktivitas, tanda bahaya.",
+    instruksi: "Evaluasi ulang pemahaman pasien pada kunjungan berikutnya.",
+  }},
 ];
-
-const SOAP_BADGE: Record<string, string> = {
-  S: "bg-sky-100 text-sky-700",
-  O: "bg-violet-100 text-violet-700",
-  A: "bg-amber-100 text-amber-700",
-  P: "bg-emerald-100 text-emerald-700",
-  I: "bg-rose-100 text-rose-700",
-};
 
 // ── Sub-components ────────────────────────────────────────
-
-function SOAPRow({ letter, value }: { letter: string; value?: string }) {
-  if (!value) return null;
-  return (
-    <div className="flex gap-3">
-      <span className={cn("mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-[11px] font-bold", SOAP_BADGE[letter] ?? "bg-slate-100 text-slate-500")}>
-        {letter}
-      </span>
-      <p className="flex-1 text-sm leading-relaxed text-slate-700 whitespace-pre-line">{value}</p>
-    </div>
-  );
-}
 
 function FormArea({ label, value, onChange, placeholder, rows = 2, badge, badgeCls }: {
   label: string; value: string; onChange: (v: string) => void;
@@ -83,8 +68,6 @@ function FormArea({ label, value, onChange, placeholder, rows = 2, badge, badgeC
     </div>
   );
 }
-
-// ── Date separator ────────────────────────────────────────
 
 function DateSep({ iso }: { iso: string }) {
   return (
@@ -128,15 +111,22 @@ function entryToForm(e: CPPTEntry): CPPTForm {
 
 export interface CPPTTabProps {
   initialEntries: CPPTEntry[];
-  showDate?: boolean;  // RI mode: group entries by date, stamp new entries with today
+  showDate?: boolean;             // RI mode: group entries by date, stamp new entries with today
+  requiresVerification?: boolean; // SNARS: show DPJP co-sign UI per entry
 }
 
 // ── Component ─────────────────────────────────────────────
 
-export default function CPPTTab({ initialEntries, showDate = false }: CPPTTabProps) {
+export default function CPPTTab({ initialEntries, showDate = false, requiresVerification = false }: CPPTTabProps) {
   const [form, setForm]           = useState<CPPTForm>(EMPTY);
   const [entries, setEntries]     = useState<CPPTEntry[]>([...initialEntries]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  // Search & filter state
+  const [searchQuery, setSearchQuery]     = useState("");
+  const [filterProfesi, setFilterProfesi] = useState<CPPTProfesi | "Semua">("Semua");
+  const [onlyFlagged, setOnlyFlagged]     = useState(false);
 
   const set = <K extends keyof CPPTForm>(k: K, v: CPPTForm[K]) =>
     setForm((p) => ({ ...p, [k]: v }));
@@ -144,6 +134,23 @@ export default function CPPTTab({ initialEntries, showDate = false }: CPPTTabPro
   const handleCopy = (e: CPPTEntry) => { setForm(entryToForm(e)); setEditingId(null); };
   const handleEdit = (e: CPPTEntry) => { setForm(entryToForm(e)); setEditingId(e.id); };
   const handleCancelEdit = () => { setEditingId(null); setForm(EMPTY); };
+
+  const handleVerify = (id: string, verifiedBy: string, verifiedAt: string) => {
+    setEntries((prev) =>
+      prev.map((e) => e.id === id ? { ...e, verified: true, verifiedBy, verifiedAt } : e),
+    );
+  };
+
+  const handleFlag = (id: string) => {
+    setEntries((prev) =>
+      prev.map((e) => e.id === id ? { ...e, flagged: !e.flagged } : e),
+    );
+  };
+
+  const applyTemplate = (t: CPPTTemplate) => {
+    setForm((prev) => ({ ...prev, profesi: t.profesi, ...t.fields }));
+    setShowTemplates(false);
+  };
 
   const handleSubmit = () => {
     const hasContent = form.subjektif || form.objektif || form.asesmen || form.planning || form.instruksi;
@@ -158,31 +165,47 @@ export default function CPPTTab({ initialEntries, showDate = false }: CPPTTabPro
             ? { ...e, waktu, profesi: form.profesi, penulis: form.penulis,
                 subjektif: form.subjektif || undefined, objektif: form.objektif || undefined,
                 asesmen: form.asesmen || undefined, planning: form.planning || undefined,
-                instruksi: form.instruksi || undefined }
+                instruksi: form.instruksi || undefined,
+                ...(requiresVerification && { verified: false, verifiedBy: undefined, verifiedAt: undefined }) }
             : e,
         ),
       );
       setEditingId(null);
     } else {
       const newEntry: CPPTEntry = {
-        id:       `cppt-${Date.now()}`,
+        id:        `cppt-${Date.now()}`,
         waktu,
-        tanggal:  showDate ? todayISO() : undefined,
-        profesi:  form.profesi,
-        penulis:  form.penulis,
+        tanggal:   showDate ? todayISO() : undefined,
+        profesi:   form.profesi,
+        penulis:   form.penulis,
         subjektif: form.subjektif  || undefined,
         objektif:  form.objektif   || undefined,
         asesmen:   form.asesmen    || undefined,
         planning:  form.planning   || undefined,
         instruksi: form.instruksi  || undefined,
+        verified:  requiresVerification ? false : undefined,
+        flagged:   false,
       };
       setEntries((prev) => [newEntry, ...prev]);
     }
     setForm(EMPTY);
   };
 
-  // ── Build sorted+grouped display list ────────────────
-  const displayed = [...entries].sort((a, b) => {
+  // ── Filter + sort ─────────────────────────────────────
+  const filtered = useMemo(() => {
+    return entries.filter((e) => {
+      if (filterProfesi !== "Semua" && e.profesi !== filterProfesi) return false;
+      if (onlyFlagged && !e.flagged) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        return [e.penulis, e.subjektif, e.objektif, e.asesmen, e.planning, e.instruksi]
+          .some((f) => f?.toLowerCase().includes(q));
+      }
+      return true;
+    });
+  }, [entries, filterProfesi, onlyFlagged, searchQuery]);
+
+  const displayed = [...filtered].sort((a, b) => {
     if (showDate && a.tanggal && b.tanggal) {
       return b.tanggal.localeCompare(a.tanggal) || b.waktu.localeCompare(a.waktu);
     }
@@ -199,6 +222,7 @@ export default function CPPTTab({ initialEntries, showDate = false }: CPPTTabPro
     : {};
 
   const sortedDates = Object.keys(dateGroups).sort((a, b) => b.localeCompare(a));
+  const flaggedCount = entries.filter((e) => e.flagged).length;
 
   return (
     <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-5">
@@ -214,6 +238,7 @@ export default function CPPTTab({ initialEntries, showDate = false }: CPPTTabPro
           "rounded-xl border bg-white shadow-sm transition",
           editingId ? "border-amber-300 ring-2 ring-amber-100" : "border-slate-200",
         )}>
+          {/* Form header */}
           <div className={cn(
             "flex items-center justify-between gap-2 border-b px-5 py-3.5",
             editingId ? "border-amber-200 bg-amber-50/60" : "border-slate-100 bg-slate-50/60",
@@ -228,6 +253,22 @@ export default function CPPTTab({ initialEntries, showDate = false }: CPPTTabPro
                   {fmtDate(todayISO())}
                 </span>
               )}
+              {!editingId && (
+                <button
+                  type="button"
+                  onClick={() => setShowTemplates((v) => !v)}
+                  className={cn(
+                    "flex items-center gap-1 rounded-md border px-2.5 py-1 text-[11px] font-medium transition",
+                    showTemplates
+                      ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                      : "border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600",
+                  )}
+                >
+                  <LayoutTemplate size={11} />
+                  Template
+                  <ChevronDown size={10} className={cn("transition-transform", showTemplates && "rotate-180")} />
+                </button>
+              )}
               {editingId && (
                 <button
                   type="button"
@@ -239,6 +280,40 @@ export default function CPPTTab({ initialEntries, showDate = false }: CPPTTabPro
               )}
             </div>
           </div>
+
+          {/* Template panel */}
+          <AnimatePresence>
+            {showTemplates && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.15 }}
+                className="overflow-hidden border-b border-indigo-100 bg-indigo-50/40"
+              >
+                <div className="p-3">
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-indigo-400">
+                    Pilih Template SOAP
+                  </p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {CPPT_TEMPLATES.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => applyTemplate(t)}
+                        className="flex flex-col items-start rounded-lg border border-indigo-100 bg-white px-3 py-2 text-left transition hover:border-indigo-300 hover:bg-indigo-50"
+                      >
+                        <span className={cn("mb-1 rounded px-1.5 py-0.5 text-[10px] font-semibold", PROFESI_CLS[t.profesi])}>
+                          {t.profesi}
+                        </span>
+                        <span className="text-xs font-medium text-slate-700">{t.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div className="flex flex-col gap-4 p-5">
             {/* Profesi */}
@@ -310,46 +385,122 @@ export default function CPPTTab({ initialEntries, showDate = false }: CPPTTabPro
 
       {/* ── Right: History ── */}
       <div className="flex flex-1 flex-col gap-3 md:min-w-0">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold text-slate-700">Riwayat CPPT</h2>
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
-            {entries.length}
-          </span>
+
+        {/* History header + search/filter */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-slate-700">Riwayat CPPT</h2>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+              {filtered.length}
+              {filtered.length !== entries.length && (
+                <span className="text-slate-400"> / {entries.length}</span>
+              )}
+            </span>
+            {flaggedCount > 0 && (
+              <span className="flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-600 ring-1 ring-rose-200">
+                <Flag size={9} className="fill-rose-400 text-rose-400" />
+                {flaggedCount} tindak lanjut
+              </span>
+            )}
+          </div>
+
+          {/* Search input */}
+          <div className="relative">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Cari catatan..."
+              className="h-8 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          {/* Filter chips */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setOnlyFlagged((v) => !v)}
+              className={cn(
+                "flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition",
+                onlyFlagged
+                  ? "border-rose-300 bg-rose-50 text-rose-700"
+                  : "border-slate-200 bg-white text-slate-500 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600",
+              )}
+            >
+              <Flag size={10} className={onlyFlagged ? "fill-rose-400 text-rose-400" : ""} />
+              Tindak Lanjut
+            </button>
+
+            <div className="h-4 w-px bg-slate-200" />
+
+            {(["Semua", ...PROFESI_LIST] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setFilterProfesi(p as CPPTProfesi | "Semua")}
+                className={cn(
+                  "rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition",
+                  filterProfesi === p
+                    ? p === "Semua"
+                      ? "border-slate-400 bg-slate-100 text-slate-700"
+                      : PROFESI_CLS[p as CPPTProfesi]
+                    : "border-slate-200 bg-white text-slate-400 hover:border-slate-300 hover:text-slate-600",
+                )}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {entries.length === 0 ? (
+        {/* Entry list */}
+        {filtered.length === 0 ? (
           <motion.div
             className="rounded-xl border border-dashed border-slate-300 bg-white py-10 text-center text-sm text-slate-400"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           >
-            Belum ada catatan CPPT
+            {entries.length === 0 ? "Belum ada catatan CPPT" : "Tidak ada catatan yang cocok"}
           </motion.div>
         ) : showDate ? (
-          /* ── Grouped by date (RI mode) ── */
           sortedDates.map((date, di) => (
             <div key={date}>
               <DateSep iso={date} />
               {dateGroups[date].map((entry, idx) => (
-                <EntryCard
+                <CPPTEntryCard
                   key={entry.id}
                   entry={entry}
                   editingId={editingId}
                   onCopy={handleCopy}
                   onEdit={handleEdit}
+                  onVerify={handleVerify}
+                  onFlag={handleFlag}
+                  requiresVerification={requiresVerification}
                   delay={(di * 3 + idx) * 0.04}
                 />
               ))}
             </div>
           ))
         ) : (
-          /* ── Flat list (IGD mode) ── */
           displayed.map((entry, idx) => (
-            <EntryCard
+            <CPPTEntryCard
               key={entry.id}
               entry={entry}
               editingId={editingId}
               onCopy={handleCopy}
               onEdit={handleEdit}
+              onVerify={handleVerify}
+              onFlag={handleFlag}
+              requiresVerification={requiresVerification}
               delay={idx * 0.04}
             />
           ))
@@ -357,72 +508,5 @@ export default function CPPTTab({ initialEntries, showDate = false }: CPPTTabPro
       </div>
 
     </div>
-  );
-}
-
-// ── EntryCard ─────────────────────────────────────────────
-
-function EntryCard({ entry, editingId, onCopy, onEdit, delay }: {
-  entry: CPPTEntry;
-  editingId: string | null;
-  onCopy: (e: CPPTEntry) => void;
-  onEdit: (e: CPPTEntry) => void;
-  delay: number;
-}) {
-  const isEditing = editingId === entry.id;
-  return (
-    <motion.article
-      initial={{ opacity: 0, x: -8 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.2, delay, ease: "easeOut" }}
-      className={cn(
-        "mb-3 rounded-xl border bg-white shadow-sm transition",
-        isEditing ? "border-amber-300 ring-2 ring-amber-100" : "border-slate-200",
-      )}
-    >
-      <div className={cn(
-        "flex flex-wrap items-center gap-2 border-b px-4 py-3",
-        isEditing ? "border-amber-200 bg-amber-50/60" : "border-slate-100 bg-slate-50/60",
-      )}>
-        <span className="rounded-md bg-slate-100 px-2.5 py-0.5 font-mono text-xs font-semibold text-slate-600">
-          {entry.waktu}
-        </span>
-        <span className={cn("rounded-md px-2 py-0.5 text-xs font-semibold", PROFESI_CLS[entry.profesi])}>
-          {entry.profesi}
-        </span>
-        <span className="text-sm text-slate-500">{entry.penulis}</span>
-
-        <div className="ml-auto flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => onCopy(entry)}
-            title="Salin ke form baru"
-            className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-500 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
-          >
-            <Copy size={11} /> Salin
-          </button>
-          <button
-            type="button"
-            onClick={() => onEdit(entry)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium transition",
-              isEditing
-                ? "border-amber-400 bg-amber-50 text-amber-700"
-                : "border-slate-200 bg-white text-slate-500 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-600",
-            )}
-          >
-            <Pencil size={11} /> Edit
-          </button>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-3 p-4">
-        <SOAPRow letter="S" value={entry.subjektif} />
-        <SOAPRow letter="O" value={entry.objektif} />
-        <SOAPRow letter="A" value={entry.asesmen} />
-        <SOAPRow letter="P" value={entry.planning} />
-        <SOAPRow letter="I" value={entry.instruksi} />
-      </div>
-    </motion.article>
   );
 }

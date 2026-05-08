@@ -231,7 +231,7 @@ export interface IGDDiagnosa {
 export interface CPPTEntry {
   id: string;
   waktu: string;
-  tanggal?: string;   // "2025-05-08" ISO – used in Rawat Inap context
+  tanggal?: string;       // "2025-05-08" ISO – used in Rawat Inap context
   profesi: CPPTProfesi;
   penulis: string;
   subjektif?: string;
@@ -239,6 +239,10 @@ export interface CPPTEntry {
   asesmen?: string;
   planning?: string;
   instruksi?: string;
+  verified?: boolean;     // SNARS: co-sign verification by DPJP
+  verifiedBy?: string;
+  verifiedAt?: string;    // "8 Mei 2025, 17:00"
+  flagged?: boolean;      // tindak lanjut diperlukan
 }
 
 export interface IGDTindakanItem {
@@ -1408,24 +1412,28 @@ export const rawatInapPatientDetails: Record<string, RawatInapPatientDetail> = {
         objektif:   "TD 150/95 mmHg, Nadi 98x/mnt, SpO₂ 92% room air. Ronkhi basah bilateral, edema pretibial +2.",
         asesmen:    "Gagal Jantung Kongestif Akut – dekompensasi. Edema paru dan edema perifer.",
         planning:   "Furosemid 40mg IV bolus, O₂ 4L/mnt nasal kanul, diet rendah garam, restriksi cairan 1L/24jam.",
-        instruksi:  "Monitor balance cairan tiap 6 jam, timbang BB harian, cek elektrolit besok pagi." },
+        instruksi:  "Monitor balance cairan tiap 6 jam, timbang BB harian, cek elektrolit besok pagi.",
+        verified: true, verifiedBy: "dr. Dewi Kusuma, Sp.JP", verifiedAt: "3 Mei 2025, 17:00" },
       { id: "ri1-cppt-2", tanggal: "2025-05-03", waktu: "15:00", profesi: "Perawat", penulis: "Siti Rahayu, S.Kep",
         subjektif:  "Pasien masih sesak, merasa lebih nyaman dengan posisi semifowler.",
         objektif:   "SpO₂ 93–94%, diuresis 850mL dalam 6 jam post furosemid, edema sedikit berkurang.",
         asesmen:    "Respon diuretik baik, sesak berkurang bertahap.",
-        instruksi:  "Pertahankan posisi semifowler, monitor SpO₂ tiap 2 jam." },
+        instruksi:  "Pertahankan posisi semifowler, monitor SpO₂ tiap 2 jam.",
+        verified: true, verifiedBy: "dr. Dewi Kusuma, Sp.JP", verifiedAt: "3 Mei 2025, 18:00" },
       { id: "ri1-cppt-3", tanggal: "2025-05-06", waktu: "09:00", profesi: "Dokter", penulis: "dr. Dewi Kusuma, Sp.JP",
         subjektif:  "Sesak berkurang signifikan, dapat berbaring 1 bantal, kaki masih sedikit bengkak.",
         objektif:   "TD 138/85, Nadi 88, SpO₂ 95%. BB turun 2.5 kg dari awal masuk. Ronkhi minimal.",
         asesmen:    "GJK akut membaik dengan terapi. Target diuresis tercapai.",
         planning:   "Transisi furosemid oral 40mg/hari, tambah spironolakton 25mg, evaluasi ekokardiografi.",
-        instruksi:  "Lanjutkan monitoring, target BB stabil, edukasi pasien diet jantung." },
+        instruksi:  "Lanjutkan monitoring, target BB stabil, edukasi pasien diet jantung.",
+        verified: true, verifiedBy: "dr. Dewi Kusuma, Sp.JP", verifiedAt: "6 Mei 2025, 11:30" },
       { id: "ri1-cppt-4", tanggal: "2025-05-07", waktu: "08:45", profesi: "Dokter", penulis: "dr. Dewi Kusuma, Sp.JP",
         subjektif:  "Sesak minimal, toleransi aktivitas meningkat, bisa berjalan ke kamar mandi.",
         objektif:   "TD 128/78, Nadi 80, SpO₂ 97–98%. Ronkhi tidak terdengar, edema minimal.",
         asesmen:    "GJK terkompensasi baik. Kondisi stabil, layak rencana pulang 1–2 hari.",
         planning:   "Persiapkan discharge planning: obat pulang (bisoprolol, furosemid, spiro, ACEi), edukasi, kontrol poli jantung.",
-        instruksi:  "Persiapkan administrasi pulang, edukasi keluarga tanda bahaya GJK." },
+        instruksi:  "Persiapkan administrasi pulang, edukasi keluarga tanda bahaya GJK.",
+        verified: false, flagged: true },
     ],
     diagnosa: [
       { id: "ri1-d1", kodeIcd10: "I50.0", namaDiagnosis: "Gagal Jantung Kongestif",          tipe: "Utama"    },
@@ -1473,19 +1481,22 @@ export const rawatInapPatientDetails: Record<string, RawatInapPatientDetail> = {
         objektif:   "TD 70/45 (syok), Nadi 132, RR 32, Suhu 39.5°C, SpO₂ 85% NRM, GCS 7 (E1V2M4). Kultur darah diambil.",
         asesmen:    "Syok Sepsis (qSOFA 3). Sumber infeksi paru – foto thorax: infiltrat bilateral.",
         planning:   "Resusitasi cairan NS 30mL/kgBB dalam 3 jam, norepinephrine 0.1mcg/kgBB/mnt, intubasi + ventilasi mekanik, meropenem 1g/8jam IV. Transfer ICU.",
-        instruksi:  "Pasang CVC, arterial line, foley catheter, monitor ketat tiap 1 jam. Target MAP >65 mmHg." },
+        instruksi:  "Pasang CVC, arterial line, foley catheter, monitor ketat tiap 1 jam. Target MAP >65 mmHg.",
+        verified: true, verifiedBy: "dr. Hendra Wijaya, Sp.EM", verifiedAt: "5 Mei 2025, 20:00" },
       { id: "ri3-cppt-2", tanggal: "2025-05-06", waktu: "08:15", profesi: "Dokter", penulis: "dr. Hendra Wijaya, Sp.EM",
         subjektif:  "Pasien tersedasi, on ventilator, masih febris.",
         objektif:   "TD 82/52, MAP 62, NE 0.3mcg/kgBB/mnt. PEEP 8, FiO₂ 60%, PaO₂/FiO₂ 120 (ARDS sedang). Kultur: Klebsiella pneumoniae.",
         asesmen:    "Syok Sepsis berat + ARDS sedang. Hospital-acquired pneumonia gram negatif.",
         planning:   "Eskalasi antibiotik – tambah colistin IV, titrasi norepinephrine target MAP >65, prone positioning 16 jam. Konsul nefrologi (oliguria).",
-        instruksi:  "Prone positioning mulai 14.00. Balance cairan target -500mL/hari. Monitor laktat tiap 6 jam." },
+        instruksi:  "Prone positioning mulai 14.00. Balance cairan target -500mL/hari. Monitor laktat tiap 6 jam.",
+        verified: true, verifiedBy: "dr. Hendra Wijaya, Sp.EM", verifiedAt: "6 Mei 2025, 14:30" },
       { id: "ri3-cppt-3", tanggal: "2025-05-07", waktu: "09:00", profesi: "Dokter", penulis: "dr. Hendra Wijaya, Sp.EM",
         subjektif:  "Masih tersedasi, NE masih running, demam sedikit menurun.",
         objektif:   "TD 96/62, MAP 73. NE turun ke 0.25mcg/kgBB/mnt. PaO₂/FiO₂ 145 (membaik). Suhu 38.5°C. Kreatinin 3.2 – AKI persisten.",
         asesmen:    "Sepsis syok terkontrol sebagian. Vasopressor titrasi turun, hemodinamik membaik. AKI masih persisten.",
         planning:   "Lanjutkan antibiotik. Evaluasi weaning vasopressor. CRRT jika kreatinin terus naik.",
-        instruksi:  "Sedation holiday besok pukul 08.00, cek GCS pasca henti sedasi. Fisioterapi pasif hari ini." },
+        instruksi:  "Sedation holiday besok pukul 08.00, cek GCS pasca henti sedasi. Fisioterapi pasif hari ini.",
+        verified: false, flagged: true },
     ],
     diagnosa: [
       { id: "ri3-d1", kodeIcd10: "A41.9", namaDiagnosis: "Sepsis, organisme tidak ditentukan",     tipe: "Utama"      },

@@ -116,6 +116,7 @@ Work items in priority order. Pick top item each session.
 - [ ] Replace mock data (`src/lib/data.ts`) dengan Prisma queries bertahap, mulai dari `PatientMaster`
 - [ ] `SidebarContext` — belum dipakai konsisten di semua modul
 - [ ] Error boundary + loading skeleton untuk semua fullpage routes
+- [ ] **Skala Nyeri (0–10)** — tambahkan ke TTV form (IGD + RI) sebagai field wajib per SNARS. `skalaNyeri` sudah ada di `IGDVitalSigns` tapi belum ditampilkan/diisi di form TTVTab.
 
 ---
 
