@@ -206,6 +206,73 @@ export type Disposisi       = "Pulang" | "Rawat_Inap" | "Rujuk" | "Meninggal" | 
 export type CPPTProfesi     = "Dokter" | "Perawat" | "Bidan" | "Apoteker" | "Gizi" | "Fisioterapi" | "Lainnya";
 export type DiagnosaTipe    = "Utama" | "Sekunder" | "Komplikasi" | "Komorbid";
 export type DiagnosaStatus  = "Pasti" | "Dicurigai" | "Diferensial";
+export type StatusLuaran    = "Teratasi" | "Teratasi_Sebagian" | "Belum_Teratasi" | "Dipantau";
+export type ShiftType       = "Pagi" | "Siang" | "Malam";
+
+export interface EvaluasiShift {
+  id:           string;
+  tanggal:      string;
+  jam:          string;
+  shift:        ShiftType;
+  subjektif:    string;
+  objektif:     string;
+  statusLuaran: StatusLuaran;
+  perawat:      string;
+}
+
+export interface AsuhanKeperawatanEntry {
+  id:           string;
+  kodeSdki:     string;
+  dataMayor:    { subjektif: string; objektif: string };
+  dataMinor:    { subjektif: string; objektif: string };
+  faktorResiko: string;
+  diagnosa:     string;
+  penyebab:     string;
+  tujuanDurasi: string;
+  tujuanUnit:   "Jam" | "Hari";
+  selama:       string;
+  kriteriaHasil: string[];
+  intervensi:   { observasi: string[]; terapeutik: string[]; edukasi: string[]; kolaborasi: string[] };
+  tanggalInput: string;
+  perawat:      string;
+  verified:     boolean;
+  verifiedBy:   string;
+  verifiedAt:   string;
+  statusLuaran: StatusLuaran;
+  evaluasi:     EvaluasiShift[];
+  aktif:        boolean;
+}
+
+// ── Pemeriksaan Fisik types ───────────────────────────────
+
+export type KU          = "Baik" | "Sedang" | "Berat";
+export type KesadaranPF = "Composmentis" | "Apatis" | "Delirium" | "Somnolen" | "Sopor" | "Koma";
+export type StatusGizi  = "Baik" | "Kurang" | "Lebih" | "Obesitas";
+export type SistemFisikKey =
+  "kepala" | "mata" | "tht" | "leher" | "toraks_paru" |
+  "jantung" | "abdomen" | "urogenital" | "ekstremitas" | "neurologi" | "kulit";
+
+export interface OrientasiState {
+  waktu:  boolean;
+  tempat: boolean;
+  orang:  boolean;
+}
+
+export interface PemeriksaanFisikEntry {
+  id:             string;
+  tanggal:        string;
+  jam:            string;
+  dokter:         string;
+  perawat:        string;
+  ku:             KU;
+  kesadaran:      KesadaranPF;
+  gizi:           StatusGizi;
+  orientasi:      OrientasiState;
+  sistem:         Record<SistemFisikKey, string>;
+  temuanAbnormal: string[];
+  catatanUmum:    string;
+  bodyMarkings:   { region: string; label: string; catatan: string }[];
+}
 
 export interface IGDVitalSigns {
   tdSistolik: number;
@@ -1364,9 +1431,11 @@ export interface RawatInapPatientDetail {
   ttvHistory:       RITTVRecord[];
   cppt:             CPPTEntry[];
   diagnosa:         IGDDiagnosa[];
-  riwayatAlergi?:   string;
-  obatSaatIni?:     string;
-  catatan?:         string;
+  riwayatAlergi?:        string;
+  obatSaatIni?:          string;
+  catatan?:              string;
+  asuhanKeperawatan?:    AsuhanKeperawatanEntry[];
+  pemeriksaanFisik?:     PemeriksaanFisikEntry[];
 }
 
 // ── Rawat Inap Patient Detail mock data ──────────────
@@ -1444,6 +1513,149 @@ export const rawatInapPatientDetails: Record<string, RawatInapPatientDetail> = {
       { id: "ri1-d2", kodeIcd10: "I10",   namaDiagnosis: "Hipertensi Esensial",         tipe: "Komorbid", status: "Pasti",   alasan: "Riwayat 12 tahun, rutin amlodipine 10mg" },
       { id: "ri1-d3", kodeIcd10: "E11.9", namaDiagnosis: "DM Tipe 2 tanpa komplikasi", tipe: "Komorbid", status: "Pasti",   alasan: "HbA1c 7.8%, GDS terkontrol selama rawat inap" },
     ],
+    asuhanKeperawatan: [
+      {
+        id: "ri1-ak-1", kodeSdki: "D.0022", aktif: true,
+        diagnosa: "Hipervolemia b.d kelebihan asupan cairan d.d edema bilateral, sesak napas, ronkhi basah bilateral",
+        penyebab: "Kelebihan asupan cairan, gangguan mekanisme regulasi (gagal jantung EF 30%)",
+        dataMayor: { subjektif: "Pasien mengeluh sesak napas dan kedua kaki bengkak", objektif: "TD 150/95, edema pretibial +2, ronkhi basah bilateral, SpO2 92% room air" },
+        dataMinor: { subjektif: "Sulit tidur karena tidak bisa berbaring datar", objektif: "JVP meningkat, BJ S3 gallop terdengar" },
+        faktorResiko: "",
+        tujuanDurasi: "5", tujuanUnit: "Hari", selama: "pasien dirawat",
+        kriteriaHasil: [
+          "Edema ekstremitas berkurang / tidak ada",
+          "Berat badan menurun menuju target",
+          "Tekanan darah dalam batas normal",
+          "Ronkhi tidak terdengar",
+        ],
+        intervensi: {
+          observasi:  ["Periksa tanda dan gejala hipervolemia tiap shift (edema, dispnea, JVP)", "Monitor intake dan output cairan tiap shift", "Monitor berat badan harian pukul 06.00", "Monitor kecepatan infus secara ketat"],
+          terapeutik: ["Timbang berat badan setiap pagi", "Batasi asupan cairan 1L/24 jam sesuai program DPJP", "Tinggikan ekstremitas yang edema 20–30 derajat", "Pertahankan posisi semi-Fowler"],
+          edukasi:    ["Anjurkan melaporkan jika haluaran urine <30 mL/jam", "Ajarkan cara mencatat balance cairan sederhana"],
+          kolaborasi: ["Kolaborasi pemberian Furosemid IV sesuai program", "Kolaborasi pemeriksaan elektrolit harian"],
+        },
+        tanggalInput: "2025-05-03", perawat: "Siti Rahayu, S.Kep",
+        verified: true, verifiedBy: "dr. Dewi Kusuma, Sp.JP", verifiedAt: "3 Mei 2025, 18:00",
+        statusLuaran: "Teratasi_Sebagian",
+        evaluasi: [
+          { id: "ri1-eval-1-1", tanggal: "2025-05-06", jam: "06:30", shift: "Pagi",  perawat: "Siti Rahayu, S.Kep",
+            subjektif: "Pasien merasa sesak berkurang, masih ada bengkak di kedua kaki",
+            objektif:  "SpO2 95%, edema +1, BB turun 1.5 kg dari hari masuk, UO 1.2L/24 jam",
+            statusLuaran: "Teratasi_Sebagian" },
+          { id: "ri1-eval-1-2", tanggal: "2025-05-07", jam: "06:30", shift: "Pagi",  perawat: "Siti Rahayu, S.Kep",
+            subjektif: "Sesak minimal, kaki masih sedikit bengkak",
+            objektif:  "SpO2 97%, edema minimal, BB turun 2.5 kg total, TD 130/80",
+            statusLuaran: "Teratasi_Sebagian" },
+        ],
+      },
+      {
+        id: "ri1-ak-2", kodeSdki: "D.0056", aktif: true,
+        diagnosa: "Intoleransi Aktivitas b.d ketidakseimbangan suplai-kebutuhan oksigen d.d dispnea saat aktivitas ringan",
+        penyebab: "Ketidakseimbangan antara suplai dan kebutuhan oksigen (GJK, EF 30%)",
+        dataMayor: { subjektif: "Pasien mengeluh mudah lelah dan sesak saat bergerak sedikit", objektif: "Dispnea saat aktivitas ringan, SpO2 turun ke 91% saat berjalan ke kamar mandi" },
+        dataMinor: { subjektif: "Malu meminta bantuan ke kamar mandi", objektif: "HR meningkat >20 bpm dari baseline saat aktivitas" },
+        faktorResiko: "",
+        tujuanDurasi: "5", tujuanUnit: "Hari", selama: "pasien dirawat",
+        kriteriaHasil: [
+          "Dispnea saat aktivitas berkurang",
+          "Dapat berjalan ke kamar mandi secara mandiri",
+          "HR <100x/mnt saat aktivitas ringan",
+        ],
+        intervensi: {
+          observasi:  ["Monitor HR dan SpO2 sebelum, saat, dan setelah aktivitas tiap shift", "Identifikasi toleransi aktivitas setiap hari"],
+          terapeutik: ["Fasilitasi mobilisasi bertahap (duduk → berdiri → berjalan)", "Sediakan kursi di dekat bed", "Berikan oksigen tambahan saat aktivitas jika SpO2 <94%"],
+          edukasi:    ["Ajarkan teknik hemat energi saat beraktivitas", "Anjurkan istirahat di antara aktivitas"],
+          kolaborasi: ["Kolaborasi dengan fisioterapis untuk program latihan bertahap", "Kolaborasi target SpO2 minimal saat aktivitas dengan DPJP"],
+        },
+        tanggalInput: "2025-05-03", perawat: "Siti Rahayu, S.Kep",
+        verified: true, verifiedBy: "dr. Dewi Kusuma, Sp.JP", verifiedAt: "3 Mei 2025, 18:30",
+        statusLuaran: "Teratasi_Sebagian",
+        evaluasi: [
+          { id: "ri1-eval-2-1", tanggal: "2025-05-07", jam: "14:00", shift: "Siang", perawat: "Dini Amalia, S.Kep",
+            subjektif: "Pasien sudah bisa berjalan ke kamar mandi dengan bantuan minimal",
+            objektif:  "SpO2 97% istirahat, 94% saat berjalan, HR max 92x/mnt saat aktivitas",
+            statusLuaran: "Teratasi_Sebagian" },
+        ],
+      },
+      {
+        id: "ri1-ak-3", kodeSdki: "D.0142", aktif: true,
+        diagnosa: "Risiko Infeksi f.r tindakan invasif (akses infus perifer, riwayat DM)",
+        penyebab: "",
+        dataMayor: { subjektif: "", objektif: "" },
+        dataMinor: { subjektif: "", objektif: "" },
+        faktorResiko: "Pemasangan infus perifer hari ke-5, riwayat DM (imunosupresi relatif), usia lanjut",
+        tujuanDurasi: "5", tujuanUnit: "Hari", selama: "pasien dirawat",
+        kriteriaHasil: [
+          "Tidak ada tanda infeksi pada tempat insersi infus",
+          "Suhu tubuh dalam batas normal (36–37.5°C)",
+          "Leukosit dalam rentang normal",
+        ],
+        intervensi: {
+          observasi:  ["Monitor tanda infeksi pada insersi infus tiap shift", "Monitor suhu tiap shift", "Monitor hasil laboratorium leukosit"],
+          terapeutik: ["Pertahankan teknik aseptik saat perawatan akses IV", "Ganti balutan infus tiap 72 jam atau jika kotor", "Cuci tangan sebelum dan sesudah prosedur"],
+          edukasi:    ["Jelaskan tanda infeksi yang perlu dilaporkan (kemerahan, bengkak, nyeri, demam)", "Ajarkan teknik cuci tangan yang benar"],
+          kolaborasi: ["Kolaborasi ganti akses IV jika ada tanda infeksi lokal", "Kolaborasi cek laboratorium jika suhu >38.5°C"],
+        },
+        tanggalInput: "2025-05-03", perawat: "Siti Rahayu, S.Kep",
+        verified: false, verifiedBy: "", verifiedAt: "",
+        statusLuaran: "Dipantau",
+        evaluasi: [],
+      },
+    ],
+    pemeriksaanFisik: [
+      {
+        id: "pf-ri1-1", tanggal: "2025-05-03", jam: "09:30",
+        dokter: "dr. Budi Santoso, Sp.JP", perawat: "Siti Rahayu, S.Kep",
+        ku: "Berat", kesadaran: "Composmentis", gizi: "Lebih",
+        orientasi: { waktu: true, tempat: true, orang: true },
+        sistem: {
+          kepala:      "Normocephali, tidak ada nyeri tekan.",
+          mata:        "Konjungtiva tidak anemis, sklera tidak ikterik, pupil isokor ∅3mm, refleks cahaya +/+.",
+          tht:         "Mukosa lembab, faring tidak hiperemis. Hidung dan telinga dalam batas normal.",
+          leher:       "JVP meningkat (+3 cmH2O). Tidak ada pembesaran KGB. Tidak ada pembesaran tiroid.",
+          toraks_paru: "Fremitus menurun basal bilateral. Redup basal bilateral. Suara napas vesikuler, ronkhi basah basal +/+, wheezing -/-.",
+          jantung:     "Iktus kordis teraba di ICS VI 2cm lateral MCL kiri (kardiomegali). BJ S1 S2 melemah, reguler. S3 gallop (+). Tidak ada murmur.",
+          abdomen:     "Datar, supel. BU (+) normal. Hepatomegali 2 jari BAC, nyeri tekan (+). Asites minimal. Lien tidak teraba.",
+          urogenital:  "Tidak ada nyeri ketuk kostovertebra. BAK menurun, output ~200cc/8jam.",
+          ekstremitas: "Akral hangat. Edema pitting +2 bilateral pretibial. CRT 3 detik. Kekuatan motorik 5/5/5/5.",
+          neurologi:   "Kaku kuduk (-). Refleks fisiologis +/+ normal. Refleks patologis (-). Kekuatan motorik baik.",
+          kulit:       "Turgor kulit sedikit menurun. Tidak ikterik. Tidak sianosis. Tidak ada lesi.",
+        },
+        temuanAbnormal: ["edema", "ronkhi", "hepatomegali", "jvp_meningkat"],
+        catatanUmum: "Pasien GJK NYHA III, datang dengan sesak napas memberat dan edema bilateral. EF 30% per echo terakhir.",
+        bodyMarkings: [
+          { region: "dada_kiri",  label: "Dada Kiri",   catatan: "Ronkhi basah, redup basal" },
+          { region: "dada_kanan", label: "Dada Kanan",  catatan: "Ronkhi basah, redup basal" },
+          { region: "kaki_kiri",  label: "Kaki Kiri",   catatan: "Edema pitting +2" },
+          { region: "kaki_kanan", label: "Kaki Kanan",  catatan: "Edema pitting +2" },
+        ],
+      },
+      {
+        id: "pf-ri1-2", tanggal: "2025-05-06", jam: "08:00",
+        dokter: "dr. Budi Santoso, Sp.JP", perawat: "Ahmad Ridwan, S.Kep",
+        ku: "Sedang", kesadaran: "Composmentis", gizi: "Lebih",
+        orientasi: { waktu: true, tempat: true, orang: true },
+        sistem: {
+          kepala:      "Normocephali, tidak ada nyeri tekan.",
+          mata:        "Konjungtiva tidak anemis, sklera tidak ikterik, pupil isokor ∅3mm.",
+          tht:         "Mukosa lembab, faring tidak hiperemis.",
+          leher:       "JVP masih sedikit meningkat (+1 cmH2O). KGB tidak membesar.",
+          toraks_paru: "Simetris. Ronkhi basal bilateral berkurang (+/-). Wheezing (-).",
+          jantung:     "BJ S1 S2 melemah, reguler. S3 gallop masih terdengar samar.",
+          abdomen:     "Datar, supel. BU (+) normal. Hepatomegali masih ada, nyeri tekan berkurang. Asites minimal berkurang.",
+          urogenital:  "Output urine membaik ~400cc/8jam sejak furosemid IV digenapkan.",
+          ekstremitas: "Akral hangat. Edema pretibial bilateral berkurang (+1). CRT 2.5 detik.",
+          neurologi:   "Baik, sesuai status generalis. Refleks fisiologis +/+ normal.",
+          kulit:       "Turgor baik. Tidak ikterik, tidak sianosis. Tidak ada lesi baru.",
+        },
+        temuanAbnormal: ["edema", "ronkhi", "hepatomegali"],
+        catatanUmum: "Perbaikan klinis: sesak berkurang, diuresis membaik. Program furosemid IV lanjut. Target balance -500cc/hari.",
+        bodyMarkings: [
+          { region: "kaki_kiri",  label: "Kaki Kiri",   catatan: "Edema +1 (membaik)" },
+          { region: "kaki_kanan", label: "Kaki Kanan",  catatan: "Edema +1 (membaik)" },
+        ],
+      },
+    ],
   },
 
   "ri-3": {
@@ -1506,6 +1718,127 @@ export const rawatInapPatientDetails: Record<string, RawatInapPatientDetail> = {
       { id: "ri3-d1", kodeIcd10: "A41.9", namaDiagnosis: "Sepsis, organisme tidak ditentukan",    tipe: "Utama",      status: "Pasti",     alasan: "qSOFA ≥2, laktat 4.1, kultur darah pending", analisa: "Sumber dugaan fokus paru (pneumonia), terapi empiris meropenem + vancomycin" },
       { id: "ri3-d2", kodeIcd10: "J18.9", namaDiagnosis: "Pneumonia, organisme tidak ditentukan", tipe: "Sekunder",   status: "Pasti",     alasan: "Ro toraks: infiltrat bilateral, SpO2 82% sebelum masuk" },
       { id: "ri3-d3", kodeIcd10: "N17.9", namaDiagnosis: "Cedera Ginjal Akut, tidak ditentukan",  tipe: "Komplikasi", status: "Dicurigai", alasan: "Kreatinin naik 1.2 → 3.8 mg/dL dalam 48 jam, UO <0.5 cc/kg/jam" },
+    ],
+    asuhanKeperawatan: [
+      {
+        id: "ri3-ak-1", kodeSdki: "D.0003", aktif: true,
+        diagnosa: "Gangguan Pertukaran Gas b.d ketidakseimbangan ventilasi-perfusi d.d ARDS sedang, PaO2/FiO2 ratio 120",
+        penyebab: "Pneumonia bilateral + sepsis menyebabkan ARDS sedang (P/F ratio 120)",
+        dataMayor: { subjektif: "Tidak dapat dikaji — pasien tersedasi", objektif: "FiO2 60%, PEEP 8 cmH2O, P/F ratio 120, SpO2 88% on ventilator" },
+        dataMinor: { subjektif: "", objektif: "Sianosis perifer, gelisah saat sedation holiday" },
+        faktorResiko: "",
+        tujuanDurasi: "7", tujuanUnit: "Hari", selama: "dalam perawatan ICU",
+        kriteriaHasil: [
+          "P/F ratio meningkat (target >200 dari baseline 120)",
+          "SpO2 ≥ 94% on ventilator",
+          "FiO2 dapat diturunkan bertahap",
+          "Tidak ada sianosis perifer",
+        ],
+        intervensi: {
+          observasi:  ["Monitor SpO2 dan AGD tiap 6 jam", "Monitor parameter ventilator (PEEP, FiO2, Tidal Volume, RR) tiap shift", "Monitor perubahan status neurologis saat sedation holiday"],
+          terapeutik: ["Pertahankan posisi prone 16 jam sesuai program DPJP", "Suction endotrakeal jika diperlukan (<15 detik)", "Pertahankan kepatenan ETT — cek cuff pressure tiap shift", "Hindari desinkronisasi pasien-ventilator"],
+          edukasi:    ["Edukasi keluarga tentang kondisi dan tatalaksana ARDS", "Ajarkan keluarga pentingnya mobilisasi pasif"],
+          kolaborasi: ["Kolaborasi titrasi FiO2 dan PEEP bersama DPJP", "Kolaborasi pemeriksaan AGD tiap 6–12 jam sesuai indikasi"],
+        },
+        tanggalInput: "2025-05-05", perawat: "Ahmad Ridwan, S.Kep",
+        verified: true, verifiedBy: "dr. Hendra Wijaya, Sp.EM", verifiedAt: "5 Mei 2025, 22:00",
+        statusLuaran: "Belum_Teratasi",
+        evaluasi: [
+          { id: "ri3-eval-1-1", tanggal: "2025-05-06", jam: "06:00", shift: "Pagi",  perawat: "Ahmad Ridwan, S.Kep",
+            subjektif: "Tidak dapat dikaji — pasien tersedasi",
+            objektif:  "P/F ratio 120, SpO2 88% on vent FiO2 60% PEEP 8. Prone positioning dilaksanakan",
+            statusLuaran: "Belum_Teratasi" },
+          { id: "ri3-eval-1-2", tanggal: "2025-05-07", jam: "06:00", shift: "Pagi",  perawat: "Ahmad Ridwan, S.Kep",
+            subjektif: "Tidak dapat dikaji — masih tersedasi",
+            objektif:  "P/F ratio 145, SpO2 91% on vent FiO2 55% PEEP 8. Sedikit membaik",
+            statusLuaran: "Belum_Teratasi" },
+        ],
+      },
+      {
+        id: "ri3-ak-2", kodeSdki: "D.0142", aktif: true,
+        diagnosa: "Risiko Infeksi f.r tindakan invasif multipel (CVC, ETT, foley catheter, arterial line) dan imunosupresi akibat sepsis",
+        penyebab: "",
+        dataMayor: { subjektif: "", objektif: "" },
+        dataMinor: { subjektif: "", objektif: "" },
+        faktorResiko: "Pemasangan CVC, ETT, foley catheter, arterial line; imunosupresi akibat sepsis berat; antibiotik broad-spectrum",
+        tujuanDurasi: "7", tujuanUnit: "Hari", selama: "dalam perawatan ICU",
+        kriteriaHasil: [
+          "Tidak terjadi VAP (Ventilator-Associated Pneumonia)",
+          "Tidak terjadi CLABSI (infeksi bloodstream akibat CVC)",
+          "Tidak terjadi CAUTI (infeksi saluran kemih akibat kateter)",
+        ],
+        intervensi: {
+          observasi:  ["Monitor tanda infeksi pada semua tempat insersi tiap shift", "Monitor suhu core setiap jam", "Monitor hasil kultur (darah, sputum, urine, CVC tip)"],
+          terapeutik: [
+            "VAP Bundle: HOB 30–45°, oral hygiene klorheksidin 0.12% 4x/hari, cuff pressure tiap 8 jam",
+            "CLABSI Bundle: dressing CVC tiap 7 hari / jika kotor, hindari manipulasi kateter yang tidak perlu",
+            "CAUTI Bundle: perawatan kateter harian, urobag selalu di bawah kandung kemih, pertimbangkan early removal",
+          ],
+          edukasi:    ["Edukasi pengunjung: cuci tangan sebelum masuk ICU, batasi jumlah pengunjung"],
+          kolaborasi: ["Kolaborasi kultur ulang jika ada perubahan klinis", "Kolaborasi de-eskalasi antibiotik sesuai hasil kultur Klebsiella"],
+        },
+        tanggalInput: "2025-05-05", perawat: "Ahmad Ridwan, S.Kep",
+        verified: true, verifiedBy: "dr. Hendra Wijaya, Sp.EM", verifiedAt: "5 Mei 2025, 22:00",
+        statusLuaran: "Dipantau",
+        evaluasi: [
+          { id: "ri3-eval-2-1", tanggal: "2025-05-07", jam: "06:00", shift: "Pagi",  perawat: "Ahmad Ridwan, S.Kep",
+            subjektif: "Tidak dapat dikaji",
+            objektif:  "CVC site bersih tidak ada tanda infeksi, ETT terpasang baik, UO 0.4 mL/kgBB/jam. Kultur darah: Klebsiella sensitif meropenem",
+            statusLuaran: "Dipantau" },
+        ],
+      },
+      {
+        id: "ri3-ak-3", kodeSdki: "D.0054", aktif: true,
+        diagnosa: "Gangguan Mobilitas Fisik b.d penurunan kesadaran dan kelemahan umum akibat sepsis berat",
+        penyebab: "Penurunan kekuatan otot, penurunan kesadaran (GCS 7), sedasi terapeutik",
+        dataMayor: { subjektif: "Tidak dapat dikaji", objektif: "GCS 7 (E1V2M4), tidak dapat menggerakkan ekstremitas secara volunter, sedasi propofol" },
+        dataMinor: { subjektif: "", objektif: "Tonus otot lemah, risiko decubitus (Braden score 10)" },
+        faktorResiko: "",
+        tujuanDurasi: "7", tujuanUnit: "Hari", selama: "dalam perawatan ICU",
+        kriteriaHasil: [
+          "Tidak terjadi decubitus selama perawatan ICU",
+          "Kontraktur sendi tidak terjadi",
+          "ROM pasif dapat dilakukan penuh",
+        ],
+        intervensi: {
+          observasi:  ["Identifikasi kondisi umum sebelum melakukan mobilisasi", "Monitor kulit atas tekanan tiap 2 jam"],
+          terapeutik: ["Alih posisi tiap 2 jam (kanan → terlentang → kiri)", "Lakukan ROM pasif pada semua ekstremitas 2x sehari", "Gunakan matras anti-decubitus", "Pertahankan posisi anatomis dengan bantal penyangga"],
+          edukasi:    ["Ajarkan keluarga cara melakukan ROM pasif sederhana"],
+          kolaborasi: ["Kolaborasi dengan fisioterapis untuk ROM pasif dan mobilisasi bertahap", "Kolaborasi sedation holiday harian untuk evaluasi neurologis"],
+        },
+        tanggalInput: "2025-05-06", perawat: "Nisa Permata, S.Kep",
+        verified: false, verifiedBy: "", verifiedAt: "",
+        statusLuaran: "Dipantau",
+        evaluasi: [],
+      },
+    ],
+    pemeriksaanFisik: [
+      {
+        id: "pf-ri3-1", tanggal: "2025-05-05", jam: "16:00",
+        dokter: "dr. Hendra Wijaya, Sp.EM", perawat: "Ahmad Ridwan, S.Kep",
+        ku: "Berat", kesadaran: "Somnolen", gizi: "Kurang",
+        orientasi: { waktu: false, tempat: false, orang: false },
+        sistem: {
+          kepala:      "Normocephali. Pucat (+). Tidak ada trauma kepala.",
+          mata:        "Konjungtiva anemis +/+. Sklera tidak ikterik. Pupil isokor ∅3mm. Refleks cahaya +/+ lambat.",
+          tht:         "Mukosa kering. ETT terpasang, posisi baik. Tidak ada fokus infeksi.",
+          leher:       "Tidak ada pembesaran KGB. JVP tidak dapat dinilai (posisi supine). CVC subklavia kanan terpasang, dressing bersih.",
+          toraks_paru: "Asimetris: kanan tertinggal. Fremitus kanan menurun. Perkusi redup kanan bawah. Suara napas kanan melemah. Ronkhi (+/-). Suara ventilator terdengar bilateral.",
+          jantung:     "BJ S1 S2 reguler, takikardia (HR 132x/mnt). Tidak ada murmur. Vasopresor NE 0.2 mcg/kgBB/mnt via CVC.",
+          abdomen:     "Distensi minimal. BU menurun. NGT terpasang, posisi lambung. Tidak ada defence musculaire.",
+          urogenital:  "Kateter urin terpasang. Output 20cc/jam (oliguria berat). Urine gelap.",
+          ekstremitas: "Akral dingin. CRT >3 detik. Sianosis perifer (+). Infus perifer kiri + CVC subklavia kanan. Edema minimal.",
+          neurologi:   "GCS E3V2M4=9. Kaku kuduk (-). Refleks fisiologis menurun bilateral. Sedasi propofol via syringe pump.",
+          kulit:       "Turgor menurun. Pucat. Sianosis perifer (+). Lesi purpurik tersebar di ekstremitas (suspek DIC). Tidak ada dekubitus.",
+        },
+        temuanAbnormal: ["pucat", "ronkhi", "akral_dingin", "sianosis", "edema"],
+        catatanUmum: "Pasien ARDS + Syok Sepsis. On ventilasi mekanik, NE 0.2 mcg/kgBB/mnt. GCS 9. Oliguria berat. CVC + arterial line terpasang.",
+        bodyMarkings: [
+          { region: "dada_kanan", label: "Dada Kanan",  catatan: "Redup, suara napas melemah (efusi/atelektasis)" },
+          { region: "kaki_kiri",  label: "Kaki Kiri",   catatan: "Lesi purpurik, akral dingin, CRT >3 detik" },
+          { region: "kaki_kanan", label: "Kaki Kanan",  catatan: "Lesi purpurik, akral dingin, CRT >3 detik" },
+        ],
+      },
     ],
   },
 };

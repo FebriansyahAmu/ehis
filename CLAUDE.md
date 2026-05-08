@@ -70,8 +70,8 @@ Shared layout: `Navbar` · `Sidebar` · `ModuleSwitcher` · `ModuleLayout` → `
 | CPPT/SOAP        | `components/rawat-inap/tabs/CPPTTab.tsx`     | ✅ date-grouped, DPJP verify, template, search/filter, flag tindak lanjut |
 | TTV              | `components/rawat-inap/tabs/TTVTab.tsx`      | ✅ multi-shift history, expandable                                        |
 | Diagnosa         | `components/rawat-inap/tabs/DiagnosaTab.tsx` | ✅ thin wrapper → shared (ICD-10 + ICD-9, status, alasan, INA-CBG)        |
-| Asuhan Kep.      | tabs/KeperawatanTab.tsx                      | 🔜 (reuse shared)                                                         |
-| Pemeriksaan      | tabs/PemeriksaanTab.tsx                      | 🔜 (reuse shared)                                                         |
+| Asuhan Kep.      | `components/rawat-inap/tabs/KeperawatanTab.tsx` | ✅ SDKI katalog 15 dx, evaluasi per shift, status luaran badge, SLKI outcome |
+| Pemeriksaan      | `components/rawat-inap/tabs/PemeriksaanTab.tsx` | ✅ head-to-toe accordion per sistem, quick-normal template, body map, riwayat harian |
 | Intake/Output    | tabs/IntakeOutputTab.tsx                     | 🔜 new (RI-specific)                                                      |
 | Resep & Obat     | tabs/ResepTab.tsx                            | 🔜 (reuse shared)                                                         |
 | Order Lab        | tabs/OrderLabTab.tsx                         | 🔜 (reuse shared)                                                         |
@@ -318,8 +318,8 @@ Alur dokumentasi klinis lengkap per setting perawatan — menjadi acuan tab apa 
 
 | Tab                      | File Target                 | Standar                  | Prioritas |
 | ------------------------ | --------------------------- | ------------------------ | --------- |
-| **Asuhan Keperawatan**   | `tabs/KeperawatanTab.tsx`   | PPNI SDKI/SLKI/SIKI      | 🔴        |
-| **Pemeriksaan Fisik**    | `tabs/PemeriksaanTab.tsx`   | SNARS AP 1               | 🔴        |
+| ~~Asuhan Keperawatan~~   | `tabs/KeperawatanTab.tsx`   | PPNI SDKI/SLKI/SIKI      | ✅ Selesai |
+| ~~Pemeriksaan Fisik~~    | `tabs/PemeriksaanTab.tsx`   | SNARS AP 1               | ✅ Selesai |
 | **Intake / Output**      | `tabs/IntakeOutputTab.tsx`  | SNARS PP · fluid balance | 🔴        |
 | **Resep & Obat (+ MAR)** | `tabs/ResepTab.tsx`         | SNARS PP 3.1 · PMK obat  | 🔴        |
 | **Order Lab**            | `tabs/OrderLabTab.tsx`      | SNARS AP                 | 🟡        |
@@ -370,8 +370,8 @@ Work items in priority order. Pick top item each session.
 
 ### 🔴 Now — Rawat Inap Tabs (Urutan Pengerjaan)
 
-1. - [ ] **Asuhan Keperawatan** (`tabs/KeperawatanTab.tsx`) — SDKI diagnosa, SIKI intervensi, SLKI luaran, evaluasi. Reuse IGD pattern tapi RI-specific (evaluasi multi-shift, status harian)
-2. - [ ] **Pemeriksaan Fisik** (`tabs/PemeriksaanTab.tsx`) — head-to-toe, per-sistem. Reuse IGD `PemeriksaanTab`
+1. - [x] **Asuhan Keperawatan** (`tabs/KeperawatanTab.tsx`) — ✅ SDKI katalog 15 dx + auto-fill, evaluasi inline per shift, status luaran badge (Teratasi/Sebagian/Belum/Dipantau), SLKI kriteria hasil, verifikasi supervisor. Sub-components: `keperawatan/AsuhanForm.tsx` + `AsuhanCard.tsx`. Shared: `keperawatanShared.ts`
+2. - [x] **Pemeriksaan Fisik** (`tabs/PemeriksaanTab.tsx`) — ✅ Status generalis (KU/Kesadaran/Gizi/Orientasi pills), 11 sistem head-to-toe accordion, quick-normal template per sistem + "Semua Normal" global, temuan abnormal checklist, body map penandaan area, riwayat harian collapsible. Sub-components: `pemeriksaan/StatusFisikPane.tsx` + `BodyMapPane.tsx` + `RiwayatPane.tsx`. Types: `KU`, `KesadaranPF`, `StatusGizi`, `PemeriksaanFisikEntry` di `data.ts`.
 3. - [ ] **Intake / Output** (`tabs/IntakeOutputTab.tsx`) — cairan masuk (oral/IV/NGT) + keluar (urine/drain/IWL) per shift, balance cairan harian. RI-specific
 4. - [ ] **Resep & Obat** (`tabs/ResepTab.tsx`) — MAR (Medication Administration Record), rekonsiliasi obat masuk, pemberian obat per shift. Reuse IGD `ResepPasienTab`
 5. - [ ] **Order Lab** (`tabs/OrderLabTab.tsx`) — reuse IGD `OrderLabTab`
@@ -430,6 +430,7 @@ Work items in priority order. Pick top item each session.
 - [ ] Replace mock data (`src/lib/data.ts`) dengan Prisma queries bertahap, mulai dari `PatientMaster`
 - [ ] `SidebarContext` — belum dipakai konsisten di semua modul
 - [ ] Error boundary + loading skeleton untuk semua fullpage routes
+- [ ] **PemeriksaanTab IGD — Upgrade ke Head-to-Toe Lengkap** — Saat ini hanya 6 sistem gabungan (Kepala & Leher, Kardiovaskuler, Respirasi, Abdomen, Ekstremitas, Neurologi). Belum head-to-toe SNARS AP 1: Mata, THT, Toraks/Paru, Jantung, Urogenital, Kulit/Integumen terpisah. Upgrade ke 11 sistem seperti RI (reuse pola `SISTEM_DEF` dari `StatusFisikPane.tsx`) — cukup expand `SISTEM_FIELDS` di `PemeriksaanTab.tsx` IGD + tambahkan quick-normal template
 - [x] **Audit `PenilaianTab` IGD** — ✅ KONFIRMASI: Morse Fall Scale, Braden Scale, Barthel Index, NRS Skala Nyeri — semua sudah ada di `PenilaianTab.tsx`
 - [x] **Audit `EdukasiPane` IGD** — ✅ KONFIRMASI: `TOPIK_EDUKASI` checklist, `METODE_EDUKASI`, evaluasi pemahaman (paham/perlu_ulang/tidak_paham) sudah ada, sesuai standar HPK 2
 
