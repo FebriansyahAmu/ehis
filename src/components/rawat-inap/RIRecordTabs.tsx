@@ -10,8 +10,9 @@ import {
 import type { RawatInapPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
-import CPPTTab from "./tabs/CPPTTab";
-import TTVTab  from "./tabs/TTVTab";
+import CPPTTab     from "./tabs/CPPTTab";
+import TTVTab      from "./tabs/TTVTab";
+import DiagnosaTab from "./tabs/DiagnosaTab";
 
 // ── Tab definitions ───────────────────────────────────────
 
@@ -20,7 +21,7 @@ interface TabDef { id: string; label: string; icon: LucideIcon; done: boolean }
 const REKAM_MEDIS: TabDef[] = [
   { id: "cppt",         label: "CPPT / SOAP",         icon: FileText,       done: true  },
   { id: "ttv",          label: "TTV",                  icon: HeartPulse,     done: true  },
-  { id: "diagnosa",     label: "Diagnosa",             icon: Tag,            done: false },
+  { id: "diagnosa",     label: "Diagnosa",             icon: Tag,            done: true  },
   { id: "keperawatan",  label: "Asuhan Keperawatan",   icon: HeartHandshake, done: false },
   { id: "pemeriksaan",  label: "Pemeriksaan Fisik",    icon: ScanLine,       done: false },
   { id: "intake-output",label: "Intake / Output",      icon: Droplets,       done: false },
@@ -173,8 +174,9 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
           >
-            {active === "cppt"    && <CPPTTab patient={patient} />}
-            {active === "ttv"     && <TTVTab  patient={patient} />}
+            {active === "cppt"     && <CPPTTab     patient={patient} />}
+            {active === "ttv"      && <TTVTab      patient={patient} />}
+            {active === "diagnosa" && <DiagnosaTab patient={patient} />}
 
             {!activeTab.done && (
               <ComingSoon label={activeTab.label} icon={activeTab.icon} />

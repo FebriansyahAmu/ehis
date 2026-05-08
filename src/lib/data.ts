@@ -205,6 +205,7 @@ export type StatusKesadaran = "Compos_Mentis" | "Apatis" | "Somnolen" | "Sopor" 
 export type Disposisi       = "Pulang" | "Rawat_Inap" | "Rujuk" | "Meninggal" | "APS" | null;
 export type CPPTProfesi     = "Dokter" | "Perawat" | "Bidan" | "Apoteker" | "Gizi" | "Fisioterapi" | "Lainnya";
 export type DiagnosaTipe    = "Utama" | "Sekunder" | "Komplikasi" | "Komorbid";
+export type DiagnosaStatus  = "Pasti" | "Dicurigai" | "Diferensial";
 
 export interface IGDVitalSigns {
   tdSistolik: number;
@@ -226,6 +227,9 @@ export interface IGDDiagnosa {
   kodeIcd10: string;
   namaDiagnosis: string;
   tipe: DiagnosaTipe;
+  status?: DiagnosaStatus;
+  alasan?: string;
+  analisa?: string;
 }
 
 export interface CPPTEntry {
@@ -312,10 +316,10 @@ export const igdPatientDetails: Record<string, IGDPatientDetail> = {
     asesmenKlinis: "NSTEMI dengan Killip Class III, Syok Kardiogenik",
     rencanaTatalaksana: "1. O2 via NRM 15 lpm, target SpO2 >94%\n2. IVFD NaCl 0,9% loading 250cc\n3. Aspirin 300mg + Clopidogrel 300mg loading\n4. Morfin 3mg IV\n5. EKG serial, konsul kardiologi\n6. Persiapkan ICU",
     diagnosa: [
-      { id: "d1", kodeIcd10: "I21.4", namaDiagnosis: "Non-ST elevation myocardial infarction", tipe: "Utama" },
-      { id: "d2", kodeIcd10: "R57.0", namaDiagnosis: "Cardiogenic shock", tipe: "Sekunder" },
-      { id: "d3", kodeIcd10: "I10",   namaDiagnosis: "Essential (primary) hypertension", tipe: "Komorbid" },
-      { id: "d4", kodeIcd10: "E78.5", namaDiagnosis: "Hyperlipidaemia, unspecified", tipe: "Komorbid" },
+      { id: "d1", kodeIcd10: "I21.4", namaDiagnosis: "Non-ST elevation myocardial infarction", tipe: "Utama",    status: "Pasti",     alasan: "EKG: ST depresi V4-V6, troponin T 2.4 ng/mL" },
+      { id: "d2", kodeIcd10: "R57.0", namaDiagnosis: "Cardiogenic shock",                       tipe: "Sekunder", status: "Pasti",     alasan: "MAP <65 mmHg, akral dingin, UO menurun" },
+      { id: "d3", kodeIcd10: "I10",   namaDiagnosis: "Essential (primary) hypertension",         tipe: "Komorbid", status: "Pasti",     alasan: "Riwayat 10 tahun, rutin amlodipine" },
+      { id: "d4", kodeIcd10: "E78.5", namaDiagnosis: "Hyperlipidaemia, unspecified",              tipe: "Komorbid", status: "Dicurigai", alasan: "LDL belum ada hasil lab saat ini" },
     ],
     cppt: [
       {
@@ -369,8 +373,8 @@ export const igdPatientDetails: Record<string, IGDPatientDetail> = {
     asesmenKlinis: "Hipoglikemia berat dengan penurunan kesadaran pada pasien DM tipe 2",
     rencanaTatalaksana: "1. D40% 2 flakon IV bolus\n2. Infus D10% maintenance\n3. Monitor GDS tiap 30 menit\n4. Observasi 4 jam",
     diagnosa: [
-      { id: "d1", kodeIcd10: "E16.0", namaDiagnosis: "Drug-induced hypoglycaemia without coma", tipe: "Utama" },
-      { id: "d2", kodeIcd10: "E11.9", namaDiagnosis: "Type 2 diabetes mellitus without complications", tipe: "Komorbid" },
+      { id: "d1", kodeIcd10: "E16.0", namaDiagnosis: "Drug-induced hypoglycaemia without coma",        tipe: "Utama",    status: "Pasti", alasan: "GDS 32 mg/dL, riwayat injeksi insulin 2U malam kemarin" },
+      { id: "d2", kodeIcd10: "E11.9", namaDiagnosis: "Type 2 diabetes mellitus without complications", tipe: "Komorbid", status: "Pasti", alasan: "Riwayat 5 tahun, HbA1c terakhir 8.2%" },
     ],
     cppt: [
       {
@@ -1436,9 +1440,9 @@ export const rawatInapPatientDetails: Record<string, RawatInapPatientDetail> = {
         verified: false, flagged: true },
     ],
     diagnosa: [
-      { id: "ri1-d1", kodeIcd10: "I50.0", namaDiagnosis: "Gagal Jantung Kongestif",          tipe: "Utama"    },
-      { id: "ri1-d2", kodeIcd10: "I10",   namaDiagnosis: "Hipertensi Esensial",               tipe: "Komorbid" },
-      { id: "ri1-d3", kodeIcd10: "E11.9", namaDiagnosis: "DM Tipe 2 tanpa komplikasi",        tipe: "Komorbid" },
+      { id: "ri1-d1", kodeIcd10: "I50.0", namaDiagnosis: "Gagal Jantung Kongestif",    tipe: "Utama",    status: "Pasti",   alasan: "Echo: EF 30%, edema bilateral, ronki basah basal" },
+      { id: "ri1-d2", kodeIcd10: "I10",   namaDiagnosis: "Hipertensi Esensial",         tipe: "Komorbid", status: "Pasti",   alasan: "Riwayat 12 tahun, rutin amlodipine 10mg" },
+      { id: "ri1-d3", kodeIcd10: "E11.9", namaDiagnosis: "DM Tipe 2 tanpa komplikasi", tipe: "Komorbid", status: "Pasti",   alasan: "HbA1c 7.8%, GDS terkontrol selama rawat inap" },
     ],
   },
 
@@ -1499,9 +1503,9 @@ export const rawatInapPatientDetails: Record<string, RawatInapPatientDetail> = {
         verified: false, flagged: true },
     ],
     diagnosa: [
-      { id: "ri3-d1", kodeIcd10: "A41.9", namaDiagnosis: "Sepsis, organisme tidak ditentukan",     tipe: "Utama"      },
-      { id: "ri3-d2", kodeIcd10: "J18.9", namaDiagnosis: "Pneumonia, organisme tidak ditentukan",  tipe: "Sekunder"   },
-      { id: "ri3-d3", kodeIcd10: "N17.9", namaDiagnosis: "Cedera Ginjal Akut, tidak ditentukan",   tipe: "Komplikasi" },
+      { id: "ri3-d1", kodeIcd10: "A41.9", namaDiagnosis: "Sepsis, organisme tidak ditentukan",    tipe: "Utama",      status: "Pasti",     alasan: "qSOFA ≥2, laktat 4.1, kultur darah pending", analisa: "Sumber dugaan fokus paru (pneumonia), terapi empiris meropenem + vancomycin" },
+      { id: "ri3-d2", kodeIcd10: "J18.9", namaDiagnosis: "Pneumonia, organisme tidak ditentukan", tipe: "Sekunder",   status: "Pasti",     alasan: "Ro toraks: infiltrat bilateral, SpO2 82% sebelum masuk" },
+      { id: "ri3-d3", kodeIcd10: "N17.9", namaDiagnosis: "Cedera Ginjal Akut, tidak ditentukan",  tipe: "Komplikasi", status: "Dicurigai", alasan: "Kreatinin naik 1.2 → 3.8 mg/dL dalam 48 jam, UO <0.5 cc/kg/jam" },
     ],
   },
 };
