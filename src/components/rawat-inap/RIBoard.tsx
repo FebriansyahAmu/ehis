@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, BedDouble, Stethoscope, Clock, StickyNote,
-  AlertTriangle, LogOut, ChevronLeft, ChevronRight,
+  AlertTriangle, LogOut, ChevronLeft, ChevronRight, CalendarDays, X,
 } from "lucide-react";
 import type { RawatInapPatient, RIStatus, RIKelas, RIPenjamin } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -61,6 +63,17 @@ const ALL_STATUSES: (RIStatus | "Semua")[] = [
   "Semua", "Aktif", "Kritis", "Observasi", "Konsultasi", "Pulang Hari Ini",
 ];
 
+type DatePreset = "Semua" | "Hari Ini" | "3 Hari" | "7 Hari" | "Kustom";
+const DATE_PRESETS: DatePreset[] = ["Semua", "Hari Ini", "3 Hari", "7 Hari", "Kustom"];
+
+const DATE_PRESET_LABEL: Record<DatePreset, string> = {
+  Semua:    "Semua",
+  "Hari Ini": "Hari Ini",
+  "3 Hari": "3 Hari",
+  "7 Hari": "7 Hari",
+  Kustom:   "Rentang",
+};
+
 // ── Patient Card ──────────────────────────────────────────
 
 function PatientCard({ p }: { p: RawatInapPatient }) {
@@ -68,9 +81,14 @@ function PatientCard({ p }: { p: RawatInapPatient }) {
   const isKritis = p.status === "Kritis";
   const isPulang = p.status === "Pulang Hari Ini";
 
+  const admitFormatted = new Date(p.admitDate).toLocaleDateString("id-ID", {
+    day: "2-digit", month: "short", year: "numeric",
+  });
+
   return (
+    <Link href={`/ehis-care/rawat-inap/${p.id}`} className="block">
     <article className={cn(
-      "group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border-l-4",
+      "group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border-l-4 cursor-pointer",
       sc.border,
     )}>
       {/* Header row */}
@@ -127,7 +145,7 @@ function PatientCard({ p }: { p: RawatInapPatient }) {
         <p className="text-[10px] text-slate-400">ICD-10: {p.kodeIcd}</p>
       </div>
 
-      {/* DPJP + Hari */}
+      {/* DPJP + Hari + Admit date */}
       <div className="flex items-center gap-3 border-t border-slate-100 px-4 py-2.5">
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
           <Stethoscope size={11} className="shrink-0 text-slate-400" />
@@ -139,6 +157,12 @@ function PatientCard({ p }: { p: RawatInapPatient }) {
         </div>
       </div>
 
+      {/* Admit date row */}
+      <div className="flex items-center gap-1.5 border-t border-slate-100 px-4 py-2">
+        <CalendarDays size={10} className="shrink-0 text-slate-300" />
+        <p className="text-[10px] text-slate-400">Masuk: <span className="font-medium text-slate-500">{admitFormatted}</span></p>
+      </div>
+
       {/* Clinical note */}
       {p.catatan && (
         <div className="flex items-start gap-2 border-t border-slate-100 bg-rose-50/70 px-4 py-2">
@@ -147,6 +171,7 @@ function PatientCard({ p }: { p: RawatInapPatient }) {
         </div>
       )}
     </article>
+    </Link>
   );
 }
 
@@ -161,9 +186,14 @@ export default function RIBoard({ patients }: RIBoardProps) {
   const [kelasFilter,  setKelasFilter]  = useState<RIKelas  | "Semua">("Semua");
   const [dpjpFilter,   setDpjpFilter]   = useState("Semua");
   const [search,       setSearch]       = useState("");
+  const [datePreset,   setDatePreset]   = useState<DatePreset>("Semua");
+  const [dateFrom,     setDateFrom]     = useState("");
+  const [dateTo,       setDateTo]       = useState("");
   const [page,         setPage]         = useState(1);
 
-  useEffect(() => { setPage(1); }, [statusFilter, kelasFilter, dpjpFilter, search]);
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, kelasFilter, dpjpFilter, search, datePreset, dateFrom, dateTo]);
 
   const dpjpList = ["Semua", ...Array.from(new Set(patients.map((p) => p.dpjp)))];
 
@@ -178,6 +208,26 @@ export default function RIBoard({ patients }: RIBoardProps) {
         !p.noRM.toLowerCase().includes(q) &&
         !p.diagnosis.toLowerCase().includes(q)
       ) return false;
+    }
+    if (datePreset !== "Semua") {
+      const admit  = new Date(p.admitDate);
+      const today  = new Date(); today.setHours(0, 0, 0, 0);
+      if (datePreset === "Hari Ini") {
+        const next = new Date(today); next.setDate(next.getDate() + 1);
+        if (admit < today || admit >= next) return false;
+      } else if (datePreset === "3 Hari") {
+        const cutoff = new Date(today); cutoff.setDate(cutoff.getDate() - 2);
+        if (admit < cutoff) return false;
+      } else if (datePreset === "7 Hari") {
+        const cutoff = new Date(today); cutoff.setDate(cutoff.getDate() - 6);
+        if (admit < cutoff) return false;
+      } else if (datePreset === "Kustom") {
+        if (dateFrom && admit < new Date(dateFrom)) return false;
+        if (dateTo) {
+          const end = new Date(dateTo); end.setDate(end.getDate() + 1);
+          if (admit >= end) return false;
+        }
+      }
     }
     return true;
   });
@@ -195,10 +245,18 @@ export default function RIBoard({ patients }: RIBoardProps) {
   const startIdx = filtered.length === 0 ? 0 : (page - 1) * ITEMS_PER_PAGE + 1;
   const endIdx   = Math.min(page * ITEMS_PER_PAGE, filtered.length);
 
+  const hasDateActive = datePreset !== "Semua" || dateFrom || dateTo;
+
+  function clearDate() {
+    setDatePreset("Semua");
+    setDateFrom("");
+    setDateTo("");
+  }
+
   return (
     <div className="flex flex-col gap-4">
 
-      {/* Filter bar */}
+      {/* ── Primary filter bar ────────────────────────── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
 
         {/* Status tabs */}
@@ -267,20 +325,146 @@ export default function RIBoard({ patients }: RIBoardProps) {
         </div>
       </div>
 
-      {/* Cards */}
-      {visible.length > 0 ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {visible.map((p) => <PatientCard key={p.id} p={p} />)}
+      {/* ── Date filter bar ───────────────────────────── */}
+      <div className={cn(
+        "flex flex-wrap items-center gap-2 rounded-xl border px-4 py-2.5 transition-colors",
+        hasDateActive
+          ? "border-emerald-200 bg-emerald-50/60"
+          : "border-slate-100 bg-slate-50/60",
+      )}>
+        <div className="flex items-center gap-1.5">
+          <CalendarDays size={12} className={hasDateActive ? "text-emerald-500" : "text-slate-400"} />
+          <span className={cn(
+            "text-[11px] font-semibold",
+            hasDateActive ? "text-emerald-700" : "text-slate-500",
+          )}>
+            Tanggal Masuk
+          </span>
         </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 py-16 text-center">
-          <BedDouble size={32} className="mb-3 text-slate-300" />
-          <p className="font-medium text-slate-500">Tidak ada pasien ditemukan</p>
-          <p className="mt-1 text-sm text-slate-400">Coba ubah filter atau kata pencarian</p>
-        </div>
-      )}
 
-      {/* Pagination */}
+        <span className="h-3.5 w-px bg-slate-200" aria-hidden="true" />
+
+        {/* Preset chips */}
+        <div className="flex flex-wrap items-center gap-1">
+          {DATE_PRESETS.map((preset) => {
+            const isActive = datePreset === preset;
+            return (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => setDatePreset(preset)}
+                className={cn(
+                  "rounded-lg border px-2.5 py-1 text-[11px] font-medium transition",
+                  isActive
+                    ? "border-emerald-400 bg-emerald-600 text-white shadow-sm"
+                    : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700",
+                )}
+              >
+                {DATE_PRESET_LABEL[preset]}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Custom date range — revealed with animation */}
+        <AnimatePresence>
+          {datePreset === "Kustom" && (
+            <motion.div
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: "auto" }}
+              exit={{ opacity: 0, width: 0 }}
+              transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+              style={{ overflow: "hidden" }}
+              className="flex items-center gap-2"
+            >
+              <span className="w-2" />
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <CalendarDays size={11} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="h-8 rounded-lg border border-slate-200 bg-white pl-7 pr-2.5 text-xs text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                    aria-label="Dari tanggal"
+                  />
+                </div>
+                <span className="text-xs text-slate-400">–</span>
+                <div className="relative">
+                  <CalendarDays size={11} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    min={dateFrom || undefined}
+                    className="h-8 rounded-lg border border-slate-200 bg-white pl-7 pr-2.5 text-xs text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                    aria-label="Sampai tanggal"
+                  />
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Clear button — only when active */}
+        <AnimatePresence>
+          {hasDateActive && datePreset !== "Semua" && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.15 }}
+              type="button"
+              onClick={clearDate}
+              className="ml-auto flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-400 transition hover:border-slate-300 hover:text-slate-600"
+              aria-label="Hapus filter tanggal"
+            >
+              <X size={10} />
+              Hapus
+            </motion.button>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* ── Cards ─────────────────────────────────────── */}
+      <AnimatePresence mode="wait">
+        {visible.length > 0 ? (
+          <motion.div
+            key={`${statusFilter}|${kelasFilter}|${dpjpFilter}|${search}|${datePreset}|${dateFrom}|${dateTo}|${page}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
+          >
+            {visible.map((p, i) => (
+              <motion.div
+                key={p.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.04, duration: 0.2, ease: "easeOut" }}
+              >
+                <PatientCard p={p} />
+              </motion.div>
+            ))}
+          </motion.div>
+        ) : (
+          <motion.div
+            key="empty"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 py-16 text-center"
+          >
+            <BedDouble size={32} className="mb-3 text-slate-300" />
+            <p className="font-medium text-slate-500">Tidak ada pasien ditemukan</p>
+            <p className="mt-1 text-sm text-slate-400">Coba ubah filter atau kata pencarian</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Pagination ────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <p className="text-xs text-slate-400">
           {filtered.length === 0

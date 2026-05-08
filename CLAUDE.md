@@ -30,6 +30,13 @@ Shared layout: `Navbar` · `Sidebar` · `ModuleSwitcher` · `ModuleLayout` → `
 
 ## EHIS-Care: Component Status
 
+### Shared Medical Records (`src/components/shared/medical-records/`)
+
+| Component       | File            | Used By         | Notes                                      |
+| --------------- | --------------- | --------------- | ------------------------------------------ |
+| `CPPTTab`       | `CPPTTab.tsx`   | IGD · Rawat Inap | `showDate` prop: date-grouped mode for RI |
+| `TTVTab`        | `TTVTab.tsx`    | IGD · Rawat Inap | `history` prop: multi-shift timeline for RI |
+
 ### IGD (~90% done)
 
 | Layer                                                            | File                                 | Status |
@@ -39,11 +46,33 @@ Shared layout: `Navbar` · `Sidebar` · `ModuleSwitcher` · `ModuleLayout` → `
 | Room panel                                                       | `components/igd/IGDRuanganPanel.tsx` | ✅     |
 | Patient header                                                   | `components/igd/PatientHeader.tsx`   | ✅     |
 | Tab router                                                       | `components/igd/IGDRecordTabs.tsx`   | ✅     |
-| triase · ttv · asesmen · diagnosa · cppt                         | tabs/                                | ✅     |
+| triase · ttv · asesmen · diagnosa · cppt                         | tabs/ (ttv+cppt → thin wrappers)     | ✅     |
 | tindakan · disposisi · rekonsiliasi · keperawatan                | tabs/                                | ✅     |
 | pemeriksaan · penilaian · resep · order-lab · order-rad · pulang | tabs/                                | ✅     |
 | rujukan                                                          | `tabs/RujukanKeluarTab.tsx`          | ✅     |
 | Penandaan Gambar                                                 | tabs/penandaanGambar.tsx             | ✅     |
+
+### Rawat Inap (~30% done)
+
+| Layer          | File                                              | Status                               |
+| -------------- | ------------------------------------------------- | ------------------------------------ |
+| Board          | `components/rawat-inap/RIBoard.tsx`               | ✅ + link ke detail page             |
+| Bed panel      | `components/rawat-inap/RIRuanganPanel.tsx`        | ✅                                   |
+| Patient header | `components/rawat-inap/RIPatientHeader.tsx`       | ✅ status-based theme, vitals bar    |
+| Tab router     | `components/rawat-inap/RIRecordTabs.tsx`          | ✅ 2 tab aktif, 8 "Segera Hadir"     |
+| CPPT/SOAP      | `components/rawat-inap/tabs/CPPTTab.tsx`          | ✅ date-grouped, Framer Motion       |
+| TTV            | `components/rawat-inap/tabs/TTVTab.tsx`           | ✅ multi-shift history, expandable   |
+| Diagnosa       | tabs/DiagnosaTab.tsx                              | 🔜 next (reuse shared)               |
+| Asuhan Kep.    | tabs/KeperawatanTab.tsx                           | 🔜 (reuse shared)                    |
+| Pemeriksaan    | tabs/PemeriksaanTab.tsx                           | 🔜 (reuse shared)                    |
+| Intake/Output  | tabs/IntakeOutputTab.tsx                          | 🔜 new (RI-specific)                 |
+| Resep & Obat   | tabs/ResepTab.tsx                                 | 🔜 (reuse shared)                    |
+| Order Lab      | tabs/OrderLabTab.tsx                              | 🔜 (reuse shared)                    |
+| Order Radiologi| tabs/OrderRadTab.tsx                             | 🔜 (reuse shared)                    |
+| Konsultasi     | tabs/KonsultasiTab.tsx                            | 🔜 new (RI-specific)                 |
+| Discharge Plan | tabs/DischargePlanTab.tsx                         | 🔜 new (RI-specific)                 |
+| Route (fullpage)| `app/ehis-care/(fullpage)/rawat-inap/[id]/`      | ✅ page.tsx + layout.tsx             |
+| Mock data      | `data.ts` `rawatInapPatientDetails`               | ✅ ri-1 (GJK) + ri-3 (Syok Sepsis)  |
 
 ### Pasien Master (di bawah `ehis-registration`)
 
@@ -60,7 +89,7 @@ Work items in priority order. Pick top item each session.
 
 ### 🔴 Now
 
-- [ ] **Rawat Inap — fullpage detail pasien** — halaman `/ehis-care/rawat-inap/[id]` untuk rekam medis pasien rawat inap (tab CPPT, TTV, Asuhan Keperawatan, Obat, Lab, Discharge Planning)
+- [ ] **Rawat Inap — sisa 8 tabs** — Diagnosa, Asuhan Keperawatan, Pemeriksaan, Intake/Output, Resep & Obat, Order Lab, Order Radiologi, Discharge Planning (Konsultasi optional). Prioritas: Diagnosa (shared) → Asuhan Keperawatan → Discharge Planning
 
 ### ✅ Selesai (EHIS-Registration)
 
@@ -68,6 +97,7 @@ Work items in priority order. Pick top item each session.
 
 ### ✅ Selesai (EHIS-Care)
 
+- [x] **Rawat Inap — fullpage detail (CPPT + TTV)** — route `/ehis-care/rawat-inap/[id]`, `RIPatientHeader` (status-based theme, vitals bar, ward/bed chips), `RIRecordTabs` (10 tabs, 2 aktif), shared `CPPTTab` (date-grouped, Framer Motion stagger) + shared `TTVTab` (multi-shift history expandable rows, kesadaran selector). `RawatInapPatientDetail` type + mock data ri-1/ri-3 di `data.ts`.
 - [x] **IGD Triase Modal** — tombol "+ Triase" di page header IGD, modal fullscreen dengan primary survey (ABCDE), backdrop shake on outside-click, portal-based z-index, `IGDTriaseButton` client component, `TriaseModal` + `TriasePrimaryForm` components
 - [x] **Rawat Inap — halaman utama** — `/ehis-care/rawat-inap`: header + BOR gauge + 6 stats card, `RIRuanganPanel` (7 kelas dengan occupancy ring + bed map modal), `RIBoard` (filter status/kelas/DPJP/search + patient cards), mock data di `data.ts` (`rawatInapPatients`, `rawatInapRuangan`, `rawatInapStats`)
 - [x] **Redesign: IGD tabs/PenilaianTab** — multi-tab (Fisik, Jantung, Kanker, dll.), two-panel layout, auto-resize textarea

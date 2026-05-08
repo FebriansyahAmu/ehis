@@ -231,6 +231,7 @@ export interface IGDDiagnosa {
 export interface CPPTEntry {
   id: string;
   waktu: string;
+  tanggal?: string;   // "2025-05-08" ISO – used in Rawat Inap context
   profesi: CPPTProfesi;
   penulis: string;
   subjektif?: string;
@@ -1311,3 +1312,185 @@ export const rawatInapRuangan: RIRuangan[] = [
     ],
   },
 ];
+
+// ── Rawat Inap Patient Detail types ──────────────────
+
+export type RIShift = "Pagi" | "Siang" | "Malam";
+
+export interface RITTVRecord {
+  id:               string;
+  tanggal:          string;           // "2025-05-08"
+  jam:              string;           // "08:00"
+  shift:            RIShift;
+  perawat:          string;
+  vitalSigns:       IGDVitalSigns;
+  statusKesadaran:  StatusKesadaran;
+}
+
+export interface RawatInapPatientDetail {
+  id:               string;
+  noRM:             string;
+  noKunjungan:      string;
+  name:             string;
+  age:              number;
+  gender:           "L" | "P";
+  ruangan:          string;
+  kelas:            RIKelas;
+  noBed:            string;
+  dpjp:             string;
+  spesialis:        string;
+  diagnosis:        string;
+  kodeIcd:          string;
+  admitDate:        string;           // "2025-05-03" ISO
+  tglMasuk:         string;           // "3 Mei 2025" display
+  hariKe:           number;
+  status:           RIStatus;
+  penjamin:         RIPenjamin;
+  noBpjs?:          string;
+  namaKeluarga:     string;
+  hubunganKeluarga: string;
+  noHp:             string;
+  alamat:           string;
+  vitalSigns:       IGDVitalSigns;    // current / latest
+  statusKesadaran:  StatusKesadaran;
+  ttvHistory:       RITTVRecord[];
+  cppt:             CPPTEntry[];
+  diagnosa:         IGDDiagnosa[];
+  riwayatAlergi?:   string;
+  obatSaatIni?:     string;
+  catatan?:         string;
+}
+
+// ── Rawat Inap Patient Detail mock data ──────────────
+
+export const rawatInapPatientDetails: Record<string, RawatInapPatientDetail> = {
+  "ri-1": {
+    id: "ri-1", noRM: "RM-2025-003", noKunjungan: "RI/2025/05/001",
+    name: "Ahmad Fauzi", age: 67, gender: "L",
+    ruangan: "Mawar A", kelas: "Kelas_2", noBed: "2A-1",
+    dpjp: "dr. Dewi Kusuma, Sp.JP", spesialis: "Sp.JP",
+    diagnosis: "Gagal Jantung Kongestif", kodeIcd: "I50.0",
+    admitDate: "2025-05-03", tglMasuk: "3 Mei 2025", hariKe: 5,
+    status: "Aktif", penjamin: "BPJS_Non_PBI",
+    namaKeluarga: "Budi Fauzi", hubunganKeluarga: "Anak",
+    noHp: "0812-3456-7890", alamat: "Jl. Merpati No. 15, Bandung",
+    riwayatAlergi: "Aspirin (sesak napas)",
+    obatSaatIni: "Bisoprolol 5mg, Candesartan 8mg, Furosemid 40mg",
+    vitalSigns: {
+      tdSistolik: 125, tdDiastolik: 76, nadi: 78, respirasi: 17,
+      suhu: 36.5, spo2: 98, gcsEye: 4, gcsVerbal: 5, gcsMotor: 6,
+      skalaNyeri: 1, beratBadan: 68, tinggiBadan: 165,
+    },
+    statusKesadaran: "Compos_Mentis",
+    ttvHistory: [
+      { id: "ri1-ttv-1", tanggal: "2025-05-06", jam: "06:30", shift: "Pagi",  perawat: "Siti Rahayu, S.Kep",
+        statusKesadaran: "Compos_Mentis",
+        vitalSigns: { tdSistolik: 138, tdDiastolik: 85, nadi: 88, respirasi: 21, suhu: 37.0, spo2: 95, gcsEye: 4, gcsVerbal: 5, gcsMotor: 6, skalaNyeri: 3 } },
+      { id: "ri1-ttv-2", tanggal: "2025-05-06", jam: "14:00", shift: "Siang", perawat: "Dini Amalia, S.Kep",
+        statusKesadaran: "Compos_Mentis",
+        vitalSigns: { tdSistolik: 135, tdDiastolik: 83, nadi: 86, respirasi: 20, suhu: 36.8, spo2: 96, gcsEye: 4, gcsVerbal: 5, gcsMotor: 6, skalaNyeri: 2 } },
+      { id: "ri1-ttv-3", tanggal: "2025-05-06", jam: "20:00", shift: "Malam", perawat: "Rika Novita, S.Kep",
+        statusKesadaran: "Compos_Mentis",
+        vitalSigns: { tdSistolik: 132, tdDiastolik: 82, nadi: 85, respirasi: 19, suhu: 36.6, spo2: 96, gcsEye: 4, gcsVerbal: 5, gcsMotor: 6, skalaNyeri: 2 } },
+      { id: "ri1-ttv-4", tanggal: "2025-05-07", jam: "06:30", shift: "Pagi",  perawat: "Siti Rahayu, S.Kep",
+        statusKesadaran: "Compos_Mentis",
+        vitalSigns: { tdSistolik: 130, tdDiastolik: 80, nadi: 84, respirasi: 19, suhu: 36.7, spo2: 96, gcsEye: 4, gcsVerbal: 5, gcsMotor: 6, skalaNyeri: 2 } },
+      { id: "ri1-ttv-5", tanggal: "2025-05-07", jam: "14:00", shift: "Siang", perawat: "Dini Amalia, S.Kep",
+        statusKesadaran: "Compos_Mentis",
+        vitalSigns: { tdSistolik: 128, tdDiastolik: 78, nadi: 82, respirasi: 18, suhu: 36.5, spo2: 97, gcsEye: 4, gcsVerbal: 5, gcsMotor: 6, skalaNyeri: 1 } },
+      { id: "ri1-ttv-6", tanggal: "2025-05-07", jam: "20:00", shift: "Malam", perawat: "Rika Novita, S.Kep",
+        statusKesadaran: "Compos_Mentis",
+        vitalSigns: { tdSistolik: 125, tdDiastolik: 76, nadi: 80, respirasi: 17, suhu: 36.4, spo2: 97, gcsEye: 4, gcsVerbal: 5, gcsMotor: 6, skalaNyeri: 1 } },
+    ],
+    cppt: [
+      { id: "ri1-cppt-1", tanggal: "2025-05-03", waktu: "08:30", profesi: "Dokter", penulis: "dr. Dewi Kusuma, Sp.JP",
+        subjektif:  "Sesak napas memberat sejak 3 hari, kaki bengkak bilateral, sulit berbaring datar.",
+        objektif:   "TD 150/95 mmHg, Nadi 98x/mnt, SpO₂ 92% room air. Ronkhi basah bilateral, edema pretibial +2.",
+        asesmen:    "Gagal Jantung Kongestif Akut – dekompensasi. Edema paru dan edema perifer.",
+        planning:   "Furosemid 40mg IV bolus, O₂ 4L/mnt nasal kanul, diet rendah garam, restriksi cairan 1L/24jam.",
+        instruksi:  "Monitor balance cairan tiap 6 jam, timbang BB harian, cek elektrolit besok pagi." },
+      { id: "ri1-cppt-2", tanggal: "2025-05-03", waktu: "15:00", profesi: "Perawat", penulis: "Siti Rahayu, S.Kep",
+        subjektif:  "Pasien masih sesak, merasa lebih nyaman dengan posisi semifowler.",
+        objektif:   "SpO₂ 93–94%, diuresis 850mL dalam 6 jam post furosemid, edema sedikit berkurang.",
+        asesmen:    "Respon diuretik baik, sesak berkurang bertahap.",
+        instruksi:  "Pertahankan posisi semifowler, monitor SpO₂ tiap 2 jam." },
+      { id: "ri1-cppt-3", tanggal: "2025-05-06", waktu: "09:00", profesi: "Dokter", penulis: "dr. Dewi Kusuma, Sp.JP",
+        subjektif:  "Sesak berkurang signifikan, dapat berbaring 1 bantal, kaki masih sedikit bengkak.",
+        objektif:   "TD 138/85, Nadi 88, SpO₂ 95%. BB turun 2.5 kg dari awal masuk. Ronkhi minimal.",
+        asesmen:    "GJK akut membaik dengan terapi. Target diuresis tercapai.",
+        planning:   "Transisi furosemid oral 40mg/hari, tambah spironolakton 25mg, evaluasi ekokardiografi.",
+        instruksi:  "Lanjutkan monitoring, target BB stabil, edukasi pasien diet jantung." },
+      { id: "ri1-cppt-4", tanggal: "2025-05-07", waktu: "08:45", profesi: "Dokter", penulis: "dr. Dewi Kusuma, Sp.JP",
+        subjektif:  "Sesak minimal, toleransi aktivitas meningkat, bisa berjalan ke kamar mandi.",
+        objektif:   "TD 128/78, Nadi 80, SpO₂ 97–98%. Ronkhi tidak terdengar, edema minimal.",
+        asesmen:    "GJK terkompensasi baik. Kondisi stabil, layak rencana pulang 1–2 hari.",
+        planning:   "Persiapkan discharge planning: obat pulang (bisoprolol, furosemid, spiro, ACEi), edukasi, kontrol poli jantung.",
+        instruksi:  "Persiapkan administrasi pulang, edukasi keluarga tanda bahaya GJK." },
+    ],
+    diagnosa: [
+      { id: "ri1-d1", kodeIcd10: "I50.0", namaDiagnosis: "Gagal Jantung Kongestif",          tipe: "Utama"    },
+      { id: "ri1-d2", kodeIcd10: "I10",   namaDiagnosis: "Hipertensi Esensial",               tipe: "Komorbid" },
+      { id: "ri1-d3", kodeIcd10: "E11.9", namaDiagnosis: "DM Tipe 2 tanpa komplikasi",        tipe: "Komorbid" },
+    ],
+  },
+
+  "ri-3": {
+    id: "ri-3", noRM: "RM-2025-007", noKunjungan: "RI/2025/05/003",
+    name: "Hasan Basri", age: 72, gender: "L",
+    ruangan: "Ruang ICU", kelas: "ICU", noBed: "ICU-1",
+    dpjp: "dr. Hendra Wijaya, Sp.EM", spesialis: "Sp.EM",
+    diagnosis: "Syok Sepsis", kodeIcd: "A41.9",
+    admitDate: "2025-05-05", tglMasuk: "5 Mei 2025", hariKe: 3,
+    status: "Kritis", penjamin: "BPJS_PBI",
+    namaKeluarga: "Ahmad Basri", hubunganKeluarga: "Anak",
+    noHp: "0813-4567-8901", alamat: "Jl. Mekar No. 8, Bandung",
+    catatan: "Pasang ventilator, monitoring ketat, akses CVC dan arterial line.",
+    vitalSigns: {
+      tdSistolik: 96, tdDiastolik: 62, nadi: 110, respirasi: 24,
+      suhu: 38.5, spo2: 93, gcsEye: 3, gcsVerbal: 4, gcsMotor: 5, skalaNyeri: 6,
+    },
+    statusKesadaran: "Somnolen",
+    ttvHistory: [
+      { id: "ri3-ttv-1", tanggal: "2025-05-06", jam: "06:00", shift: "Pagi",  perawat: "Ahmad Ridwan, S.Kep",
+        statusKesadaran: "Koma",
+        vitalSigns: { tdSistolik: 76, tdDiastolik: 48, nadi: 128, respirasi: 30, suhu: 39.2, spo2: 87, gcsEye: 1, gcsVerbal: 2, gcsMotor: 4, skalaNyeri: 8 } },
+      { id: "ri3-ttv-2", tanggal: "2025-05-06", jam: "14:00", shift: "Siang", perawat: "Nisa Permata, S.Kep",
+        statusKesadaran: "Koma",
+        vitalSigns: { tdSistolik: 82, tdDiastolik: 52, nadi: 124, respirasi: 28, suhu: 39.0, spo2: 88, gcsEye: 2, gcsVerbal: 2, gcsMotor: 4, skalaNyeri: 7 } },
+      { id: "ri3-ttv-3", tanggal: "2025-05-06", jam: "20:00", shift: "Malam", perawat: "Doni Saputra, S.Kep",
+        statusKesadaran: "Sopor",
+        vitalSigns: { tdSistolik: 85, tdDiastolik: 55, nadi: 122, respirasi: 27, suhu: 38.9, spo2: 89, gcsEye: 2, gcsVerbal: 3, gcsMotor: 4, skalaNyeri: 7 } },
+      { id: "ri3-ttv-4", tanggal: "2025-05-07", jam: "06:00", shift: "Pagi",  perawat: "Ahmad Ridwan, S.Kep",
+        statusKesadaran: "Sopor",
+        vitalSigns: { tdSistolik: 88, tdDiastolik: 56, nadi: 118, respirasi: 26, suhu: 38.8, spo2: 90, gcsEye: 2, gcsVerbal: 3, gcsMotor: 5, skalaNyeri: 7 } },
+      { id: "ri3-ttv-5", tanggal: "2025-05-07", jam: "14:00", shift: "Siang", perawat: "Nisa Permata, S.Kep",
+        statusKesadaran: "Somnolen",
+        vitalSigns: { tdSistolik: 92, tdDiastolik: 60, nadi: 112, respirasi: 24, suhu: 38.5, spo2: 91, gcsEye: 2, gcsVerbal: 3, gcsMotor: 5, skalaNyeri: 6 } },
+    ],
+    cppt: [
+      { id: "ri3-cppt-1", tanggal: "2025-05-05", waktu: "15:30", profesi: "Dokter", penulis: "dr. Hendra Wijaya, Sp.EM",
+        subjektif:  "Pasien tidak kooperatif, penurunan kesadaran, demam tinggi.",
+        objektif:   "TD 70/45 (syok), Nadi 132, RR 32, Suhu 39.5°C, SpO₂ 85% NRM, GCS 7 (E1V2M4). Kultur darah diambil.",
+        asesmen:    "Syok Sepsis (qSOFA 3). Sumber infeksi paru – foto thorax: infiltrat bilateral.",
+        planning:   "Resusitasi cairan NS 30mL/kgBB dalam 3 jam, norepinephrine 0.1mcg/kgBB/mnt, intubasi + ventilasi mekanik, meropenem 1g/8jam IV. Transfer ICU.",
+        instruksi:  "Pasang CVC, arterial line, foley catheter, monitor ketat tiap 1 jam. Target MAP >65 mmHg." },
+      { id: "ri3-cppt-2", tanggal: "2025-05-06", waktu: "08:15", profesi: "Dokter", penulis: "dr. Hendra Wijaya, Sp.EM",
+        subjektif:  "Pasien tersedasi, on ventilator, masih febris.",
+        objektif:   "TD 82/52, MAP 62, NE 0.3mcg/kgBB/mnt. PEEP 8, FiO₂ 60%, PaO₂/FiO₂ 120 (ARDS sedang). Kultur: Klebsiella pneumoniae.",
+        asesmen:    "Syok Sepsis berat + ARDS sedang. Hospital-acquired pneumonia gram negatif.",
+        planning:   "Eskalasi antibiotik – tambah colistin IV, titrasi norepinephrine target MAP >65, prone positioning 16 jam. Konsul nefrologi (oliguria).",
+        instruksi:  "Prone positioning mulai 14.00. Balance cairan target -500mL/hari. Monitor laktat tiap 6 jam." },
+      { id: "ri3-cppt-3", tanggal: "2025-05-07", waktu: "09:00", profesi: "Dokter", penulis: "dr. Hendra Wijaya, Sp.EM",
+        subjektif:  "Masih tersedasi, NE masih running, demam sedikit menurun.",
+        objektif:   "TD 96/62, MAP 73. NE turun ke 0.25mcg/kgBB/mnt. PaO₂/FiO₂ 145 (membaik). Suhu 38.5°C. Kreatinin 3.2 – AKI persisten.",
+        asesmen:    "Sepsis syok terkontrol sebagian. Vasopressor titrasi turun, hemodinamik membaik. AKI masih persisten.",
+        planning:   "Lanjutkan antibiotik. Evaluasi weaning vasopressor. CRRT jika kreatinin terus naik.",
+        instruksi:  "Sedation holiday besok pukul 08.00, cek GCS pasca henti sedasi. Fisioterapi pasif hari ini." },
+    ],
+    diagnosa: [
+      { id: "ri3-d1", kodeIcd10: "A41.9", namaDiagnosis: "Sepsis, organisme tidak ditentukan",     tipe: "Utama"      },
+      { id: "ri3-d2", kodeIcd10: "J18.9", namaDiagnosis: "Pneumonia, organisme tidak ditentukan",  tipe: "Sekunder"   },
+      { id: "ri3-d3", kodeIcd10: "N17.9", namaDiagnosis: "Cedera Ginjal Akut, tidak ditentukan",   tipe: "Komplikasi" },
+    ],
+  },
+};

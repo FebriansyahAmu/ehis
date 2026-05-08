@@ -1,11 +1,12 @@
 import TTVTabShared from "@/components/shared/medical-records/TTVTab";
-import type { IGDPatientDetail } from "@/lib/data";
+import type { RawatInapPatientDetail } from "@/lib/data";
 
-export default function TTVTab({ patient }: { patient: IGDPatientDetail }) {
+export default function TTVTab({ patient }: { patient: RawatInapPatientDetail }) {
   return (
     <TTVTabShared
       vitalSigns={patient.vitalSigns}
       statusKesadaran={patient.statusKesadaran}
+      history={patient.ttvHistory}
     />
   );
 }

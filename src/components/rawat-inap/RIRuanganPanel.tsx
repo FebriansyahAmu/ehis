@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 import {
   BedDouble, Activity, HeartPulse, ShieldAlert, Crown, Star, Users,
-  X, Wrench, CalendarClock, AlertTriangle, LogOut,
+  X, Wrench, CalendarClock, AlertTriangle, LogOut, ChevronDown,
 } from "lucide-react";
 import type { RIKelas, RIRuangan, RIBed, RIPenjamin } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -249,8 +250,20 @@ function BedMapModal({ ruangan, onClose }: { ruangan: RIRuangan; onClose: () => 
   const [selectedBed, setSelectedBed] = useState<RIBed | null>(null);
 
   return (
-    <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
+      className="fixed inset-0 z-9999 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+    >
+      <motion.div
+        initial={{ scale: 0.96, y: 10 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.97, opacity: 0, y: 4 }}
+        transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+      >
 
         {/* Header */}
         <div className={cn("flex shrink-0 items-center justify-between px-5 py-4", cfg.header)}>
@@ -334,8 +347,8 @@ function BedMapModal({ ruangan, onClose }: { ruangan: RIRuangan; onClose: () => 
             </div>
           ))}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -345,6 +358,7 @@ const KELAS_ORDER: RIKelas[] = ["ICU", "HCU", "Isolasi", "VIP", "Kelas_1", "Kela
 
 export default function RIRuanganPanel({ ruangan }: { ruangan: RIRuangan[] }) {
   const [openRuangan, setOpenRuangan] = useState<RIRuangan | null>(null);
+  const [expanded,    setExpanded]    = useState(false);
 
   const byKelas = KELAS_ORDER.reduce<Partial<Record<RIKelas, RIRuangan>>>((acc, k) => {
     acc[k] = ruangan.find((r) => r.kelas === k);
@@ -359,38 +373,76 @@ export default function RIRuanganPanel({ ruangan }: { ruangan: RIRuangan[] }) {
     <>
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
 
-        {/* Panel header */}
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
+        {/* Panel header — always visible, acts as toggle */}
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="flex w-full items-center justify-between px-5 py-3.5 transition-colors hover:bg-slate-50"
+          aria-expanded={expanded}
+        >
           <div className="flex items-center gap-2">
             <BedDouble size={14} className="text-slate-500" />
-            <p className="text-sm font-bold text-slate-700">Sensus Kamar</p>
+            <p className="text-sm font-bold text-slate-700">Informasi Tempat Tidur</p>
           </div>
-          <div className="flex items-center gap-4 text-[11px] text-slate-500">
-            <span>
-              <span className="font-black tabular-nums text-slate-800">{totalTerisi}</span>
-              <span className="text-slate-400">/{totalBeds}</span>
-              {" "}terisi
-            </span>
-            <span className="text-emerald-600">
-              <span className="font-black tabular-nums">{totalTersedia}</span>
-              {" "}tersedia
-            </span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 text-[11px] text-slate-500">
+              <span>
+                <span className="font-black tabular-nums text-slate-800">{totalTerisi}</span>
+                <span className="text-slate-400">/{totalBeds}</span>
+                {" "}terisi
+              </span>
+              <span className="text-emerald-600">
+                <span className="font-black tabular-nums">{totalTersedia}</span>
+                {" "}tersedia
+              </span>
+            </div>
+            <ChevronDown
+              size={14}
+              className={cn(
+                "shrink-0 text-slate-400 transition-transform duration-200",
+                expanded && "rotate-180",
+              )}
+            />
           </div>
-        </div>
+        </button>
 
-        {/* Ward rows */}
-        <div className="divide-y divide-slate-50">
-          {KELAS_ORDER.map((k) => {
-            const r = byKelas[k];
-            if (!r) return null;
-            return <WardRow key={k} ruangan={r} onOpen={() => setOpenRuangan(r)} />;
-          })}
-        </div>
+        {/* Ward rows — collapsible */}
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.div
+              key="ward-rows"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+              style={{ overflow: "hidden" }}
+            >
+              <div className="divide-y divide-slate-50 border-t border-slate-100">
+                {KELAS_ORDER.map((k, i) => {
+                  const r = byKelas[k];
+                  if (!r) return null;
+                  return (
+                    <motion.div
+                      key={k}
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.04, duration: 0.18, ease: "easeOut" }}
+                    >
+                      <WardRow ruangan={r} onOpen={() => setOpenRuangan(r)} />
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {openRuangan && (
-        <BedMapModal ruangan={openRuangan} onClose={() => setOpenRuangan(null)} />
-      )}
+      <AnimatePresence>
+        {openRuangan && (
+          <BedMapModal ruangan={openRuangan} onClose={() => setOpenRuangan(null)} />
+        )}
+      </AnimatePresence>
     </>
   );
 }
