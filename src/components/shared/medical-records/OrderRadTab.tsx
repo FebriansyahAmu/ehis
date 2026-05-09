@@ -171,7 +171,7 @@ const ACTIVE_ORDERS_MOCK: Record<string, ActiveOrder[]> = {
       ],
     },
   ],
-  "RI-2025-001": [
+  "RM-2025-003": [
     {
       id: "ao-rad-ri-1",
       noOrder: "RAD/2026/05/0341",
@@ -284,7 +284,7 @@ const RIWAYAT_RAD_MOCK: Record<string, RiwayatOrder[]> = {
       ],
     },
   ],
-  "RI-2025-001": [
+  "RM-2025-003": [
     {
       id: "rr-ri-1",
       noOrder: "RAD/2026/05/0312",

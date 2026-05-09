@@ -19,6 +19,7 @@ import IntakeOutputTab  from "./tabs/IntakeOutputTab";
 import ResepTab         from "./tabs/ResepTab";
 import OrderLabTab      from "./tabs/OrderLabTab";
 import OrderRadTab      from "./tabs/OrderRadTab";
+import KonsultasiTab   from "./tabs/KonsultasiTab";
 
 // ── Tab definitions ───────────────────────────────────────
 
@@ -37,7 +38,7 @@ const LAYANAN: TabDef[] = [
   { id: "resep",        label: "Resep & Obat",         icon: Pill,           done: true  },
   { id: "order-lab",    label: "Order Lab",            icon: FlaskConical,   done: true  },
   { id: "order-rad",    label: "Order Radiologi",      icon: Radiation,      done: true  },
-  { id: "konsultasi",   label: "Konsultasi",           icon: MessageSquare,  done: false },
+  { id: "konsultasi",   label: "Konsultasi",           icon: MessageSquare,  done: true  },
   { id: "discharge",    label: "Discharge Planning",   icon: LogOut,         done: false },
 ];
 
@@ -189,6 +190,7 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
             {active === "resep"         && <ResepTab          patient={patient} />}
             {active === "order-lab"     && <OrderLabTab        patient={patient} />}
             {active === "order-rad"     && <OrderRadTab        patient={patient} />}
+            {active === "konsultasi"    && <KonsultasiTab     patient={patient} />}
 
             {!activeTab.done && (
               <ComingSoon label={activeTab.label} icon={activeTab.icon} />
