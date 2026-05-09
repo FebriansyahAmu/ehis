@@ -18,6 +18,7 @@ import PemeriksaanTab   from "./tabs/PemeriksaanTab";
 import IntakeOutputTab  from "./tabs/IntakeOutputTab";
 import ResepTab         from "./tabs/ResepTab";
 import OrderLabTab      from "./tabs/OrderLabTab";
+import OrderRadTab      from "./tabs/OrderRadTab";
 
 // ── Tab definitions ───────────────────────────────────────
 
@@ -35,7 +36,7 @@ const REKAM_MEDIS: TabDef[] = [
 const LAYANAN: TabDef[] = [
   { id: "resep",        label: "Resep & Obat",         icon: Pill,           done: true  },
   { id: "order-lab",    label: "Order Lab",            icon: FlaskConical,   done: true  },
-  { id: "order-rad",    label: "Order Radiologi",      icon: Radiation,      done: false },
+  { id: "order-rad",    label: "Order Radiologi",      icon: Radiation,      done: true  },
   { id: "konsultasi",   label: "Konsultasi",           icon: MessageSquare,  done: false },
   { id: "discharge",    label: "Discharge Planning",   icon: LogOut,         done: false },
 ];
@@ -53,8 +54,8 @@ function NavItem({ tab, active, onClick }: { tab: TabDef; active: boolean; onCli
       className={cn(
         "mx-2 flex w-[calc(100%-16px)] cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-all duration-150",
         active
-          ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200"
-          : "text-slate-500 hover:bg-indigo-50 hover:text-indigo-700",
+          ? "bg-sky-600 text-white shadow-sm shadow-sky-200"
+          : "text-slate-500 hover:bg-sky-50 hover:text-sky-700",
       )}
       aria-current={active ? "page" : undefined}
     >
@@ -117,8 +118,8 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
               className={cn(
                 "my-1.5 flex shrink-0 flex-col items-center gap-1 rounded-lg px-3 py-2 text-[10px] font-semibold transition-all duration-150",
                 active === tab.id
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "text-slate-400 hover:bg-indigo-50 hover:text-indigo-600",
+                  ? "bg-sky-600 text-white shadow-sm"
+                  : "text-slate-400 hover:bg-sky-50 hover:text-sky-600",
               )}
             >
               <Icon size={13} aria-hidden />
@@ -187,6 +188,7 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
             {active === "intake-output" && <IntakeOutputTab   patient={patient} />}
             {active === "resep"         && <ResepTab          patient={patient} />}
             {active === "order-lab"     && <OrderLabTab        patient={patient} />}
+            {active === "order-rad"     && <OrderRadTab        patient={patient} />}
 
             {!activeTab.done && (
               <ComingSoon label={activeTab.label} icon={activeTab.icon} />

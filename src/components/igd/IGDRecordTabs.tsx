@@ -69,8 +69,8 @@ function NavItem({ tab, active, onClick }: { tab: TabDef; active: boolean; onCli
       className={cn(
         "mx-2 flex w-[calc(100%-16px)] cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-all duration-150",
         active
-          ? "bg-emerald-600 text-white shadow-sm shadow-emerald-200"
-          : "text-slate-500 hover:bg-emerald-50 hover:text-emerald-700",
+          ? "bg-sky-600 text-white shadow-sm shadow-sky-200"
+          : "text-slate-500 hover:bg-sky-50 hover:text-sky-700",
       )}
       aria-current={active ? "page" : undefined}
     >
@@ -107,8 +107,8 @@ export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }
               className={cn(
                 "my-1.5 flex shrink-0 flex-col items-center gap-1 rounded-lg px-3 py-2 text-[10px] font-semibold transition-all duration-150",
                 active === tab.id
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "text-slate-400 hover:bg-indigo-50 hover:text-indigo-600",
+                  ? "bg-sky-600 text-white shadow-sm"
+                  : "text-slate-400 hover:bg-sky-50 hover:text-sky-600",
               )}
               aria-current={active === tab.id ? "page" : undefined}
             >

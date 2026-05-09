@@ -39,7 +39,7 @@ function NavItem({
       className={cn(
         "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
         active
-          ? "bg-indigo-50 text-indigo-700"
+          ? "bg-sky-50 text-sky-700"
           : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
       )}
     >
@@ -47,7 +47,7 @@ function NavItem({
         size={16}
         className={cn(
           "shrink-0 transition-colors",
-          active ? "text-indigo-600" : "text-slate-400 group-hover:text-slate-600",
+          active ? "text-sky-600" : "text-slate-400 group-hover:text-slate-600",
         )}
         aria-hidden="true"
       />
