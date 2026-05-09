@@ -72,7 +72,7 @@ Shared layout: `Navbar` · `Sidebar` · `ModuleSwitcher` · `ModuleLayout` → `
 | Diagnosa         | `components/rawat-inap/tabs/DiagnosaTab.tsx` | ✅ thin wrapper → shared (ICD-10 + ICD-9, status, alasan, INA-CBG)        |
 | Asuhan Kep.      | `components/rawat-inap/tabs/KeperawatanTab.tsx` | ✅ SDKI katalog 15 dx, evaluasi per shift, status luaran badge, SLKI outcome |
 | Pemeriksaan      | `components/rawat-inap/tabs/PemeriksaanTab.tsx` | ✅ head-to-toe accordion per sistem, quick-normal template, body map, riwayat harian |
-| Intake/Output    | tabs/IntakeOutputTab.tsx                     | 🔜 new (RI-specific)                                                      |
+| Intake/Output    | `tabs/IntakeOutputTab.tsx`                   | ✅ Entri per shift, IWL auto-calc (BB×10+demam), balance color-coded, target/restriksi DPJP + progress bar, riwayat harian collapsible multi-hari |
 | Resep & Obat     | tabs/ResepTab.tsx                            | 🔜 (reuse shared)                                                         |
 | Order Lab        | tabs/OrderLabTab.tsx                         | 🔜 (reuse shared)                                                         |
 | Order Radiologi  | tabs/OrderRadTab.tsx                         | 🔜 (reuse shared)                                                         |
@@ -320,7 +320,7 @@ Alur dokumentasi klinis lengkap per setting perawatan — menjadi acuan tab apa 
 | ------------------------ | --------------------------- | ------------------------ | --------- |
 | ~~Asuhan Keperawatan~~   | `tabs/KeperawatanTab.tsx`   | PPNI SDKI/SLKI/SIKI      | ✅ Selesai |
 | ~~Pemeriksaan Fisik~~    | `tabs/PemeriksaanTab.tsx`   | SNARS AP 1               | ✅ Selesai |
-| **Intake / Output**      | `tabs/IntakeOutputTab.tsx`  | SNARS PP · fluid balance | 🔴        |
+| ~~Intake / Output~~      | `tabs/IntakeOutputTab.tsx`  | SNARS PP · fluid balance | ✅ Selesai |
 | **Resep & Obat (+ MAR)** | `tabs/ResepTab.tsx`         | SNARS PP 3.1 · PMK obat  | 🔴        |
 | **Order Lab**            | `tabs/OrderLabTab.tsx`      | SNARS AP                 | 🟡        |
 | **Order Radiologi**      | `tabs/OrderRadTab.tsx`      | SNARS AP                 | 🟡        |
@@ -372,7 +372,7 @@ Work items in priority order. Pick top item each session.
 
 1. - [x] **Asuhan Keperawatan** (`tabs/KeperawatanTab.tsx`) — ✅ SDKI katalog 15 dx + auto-fill, evaluasi inline per shift, status luaran badge (Teratasi/Sebagian/Belum/Dipantau), SLKI kriteria hasil, verifikasi supervisor. Sub-components: `keperawatan/AsuhanForm.tsx` + `AsuhanCard.tsx`. Shared: `keperawatanShared.ts`
 2. - [x] **Pemeriksaan Fisik** (`tabs/PemeriksaanTab.tsx`) — ✅ Status generalis (KU/Kesadaran/Gizi/Orientasi pills), 11 sistem head-to-toe accordion, quick-normal template per sistem + "Semua Normal" global, temuan abnormal checklist, body map penandaan area, riwayat harian collapsible. Sub-components: `pemeriksaan/StatusFisikPane.tsx` + `BodyMapPane.tsx` + `RiwayatPane.tsx`. Types: `KU`, `KesadaranPF`, `StatusGizi`, `PemeriksaanFisikEntry` di `data.ts`.
-3. - [ ] **Intake / Output** (`tabs/IntakeOutputTab.tsx`) — cairan masuk (oral/IV/NGT) + keluar (urine/drain/IWL) per shift, balance cairan harian. RI-specific
+3. - [x] **Intake / Output** (`tabs/IntakeOutputTab.tsx`) — ✅ Entri intake/output per shift (Oral/IV/NGT/Transfusi + Urine/Drainase/Feses/Muntah/Perdarahan), IWL auto-calc (BB×10+koreksi demam, override manual), balance per shift + harian, target/restriksi DPJP + progress bar, riwayat multi-hari collapsible + kumulatif trend. Sub-components: `intakeOutput/EntriPane.tsx` + `RingkasanPane.tsx` + `RiwayatPane.tsx` + `ioShared.ts`. Types: `IOEntry`, `IOTargetDPJP`, `IntakeOutputData` di `data.ts`.
 4. - [ ] **Resep & Obat** (`tabs/ResepTab.tsx`) — MAR (Medication Administration Record), rekonsiliasi obat masuk, pemberian obat per shift. Reuse IGD `ResepPasienTab`
 5. - [ ] **Order Lab** (`tabs/OrderLabTab.tsx`) — reuse IGD `OrderLabTab`
 6. - [ ] **Order Radiologi** (`tabs/OrderRadTab.tsx`) — reuse IGD `OrderRadTab`

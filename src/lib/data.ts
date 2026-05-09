@@ -274,6 +274,36 @@ export interface PemeriksaanFisikEntry {
   bodyMarkings:   { region: string; label: string; catatan: string }[];
 }
 
+// ── Intake / Output types ─────────────────────────────────
+
+export type IntakeKategori = "Oral" | "IV" | "NGT" | "Transfusi" | "Lainnya";
+export type OutputKategori = "Urine" | "Drainase" | "Feses" | "Muntah" | "Perdarahan" | "Lainnya";
+
+export interface IOEntry {
+  id:           string;
+  waktu:        string;          // "HH:MM"
+  tanggal:      string;          // "YYYY-MM-DD"
+  shift:        RIShift;
+  tipe:         "intake" | "output";
+  kategori:     IntakeKategori | OutputKategori;
+  subKategori?: string;
+  volume:       number;          // mL
+  catatan?:     string;
+}
+
+export interface IOTargetDPJP {
+  restriksiIntake?: number;      // mL/24jam, undefined = no restriction
+  targetBalance?:   number;      // mL/24jam, negatif = target deficit
+  catatan?:         string;
+  updatedBy?:       string;
+  updatedAt?:       string;
+}
+
+export interface IntakeOutputData {
+  entries:     IOEntry[];
+  targetDPJP?: IOTargetDPJP;
+}
+
 export interface IGDVitalSigns {
   tdSistolik: number;
   tdDiastolik: number;
@@ -1436,6 +1466,7 @@ export interface RawatInapPatientDetail {
   catatan?:              string;
   asuhanKeperawatan?:    AsuhanKeperawatanEntry[];
   pemeriksaanFisik?:     PemeriksaanFisikEntry[];
+  intakeOutput?:         IntakeOutputData;
 }
 
 // ── Rawat Inap Patient Detail mock data ──────────────
@@ -1656,6 +1687,47 @@ export const rawatInapPatientDetails: Record<string, RawatInapPatientDetail> = {
         ],
       },
     ],
+    intakeOutput: {
+      targetDPJP: {
+        restriksiIntake: 1000,
+        targetBalance:   -500,
+        catatan: "Restriksi cairan 1L/24jam. Target balance -500cc/hari. Timbang BB setiap pagi.",
+        updatedBy: "dr. Dewi Kusuma, Sp.JP",
+        updatedAt: "2025-05-03T08:00",
+      },
+      entries: [
+        // ── D1 (2025-05-03) ─────────────────────────────
+        { id: "io-ri1-01", tanggal: "2025-05-03", waktu: "07:00", shift: "Pagi",  tipe: "intake", kategori: "IV",   subKategori: "NaCl 0.9%",       volume: 500, catatan: "Maintenance 20 tpm" },
+        { id: "io-ri1-02", tanggal: "2025-05-03", waktu: "08:00", shift: "Pagi",  tipe: "intake", kategori: "IV",   subKategori: "Antibiotik IV",    volume: 20,  catatan: "Furosemid 40mg bolus IV" },
+        { id: "io-ri1-03", tanggal: "2025-05-03", waktu: "09:00", shift: "Pagi",  tipe: "intake", kategori: "Oral", subKategori: "Minum",            volume: 200 },
+        { id: "io-ri1-04", tanggal: "2025-05-03", waktu: "10:00", shift: "Pagi",  tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",    volume: 300, catatan: "Post-furosemid" },
+        { id: "io-ri1-05", tanggal: "2025-05-03", waktu: "13:00", shift: "Pagi",  tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",    volume: 350 },
+        { id: "io-ri1-06", tanggal: "2025-05-03", waktu: "14:00", shift: "Siang", tipe: "intake", kategori: "IV",   subKategori: "NaCl 0.9%",        volume: 500 },
+        { id: "io-ri1-07", tanggal: "2025-05-03", waktu: "15:30", shift: "Siang", tipe: "intake", kategori: "Oral", subKategori: "Makan Cair",       volume: 150 },
+        { id: "io-ri1-08", tanggal: "2025-05-03", waktu: "16:00", shift: "Siang", tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",    volume: 280 },
+        { id: "io-ri1-09", tanggal: "2025-05-03", waktu: "20:00", shift: "Siang", tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",    volume: 250 },
+        { id: "io-ri1-10", tanggal: "2025-05-03", waktu: "21:00", shift: "Malam", tipe: "intake", kategori: "IV",   subKategori: "NaCl 0.9%",        volume: 500 },
+        { id: "io-ri1-11", tanggal: "2025-05-03", waktu: "23:00", shift: "Malam", tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",    volume: 300 },
+        // ── D2 (2025-05-04) ─────────────────────────────
+        { id: "io-ri1-12", tanggal: "2025-05-04", waktu: "07:00", shift: "Pagi",  tipe: "intake", kategori: "IV",   subKategori: "NaCl 0.9%",        volume: 250, catatan: "Restriksi dimulai" },
+        { id: "io-ri1-13", tanggal: "2025-05-04", waktu: "08:00", shift: "Pagi",  tipe: "intake", kategori: "IV",   subKategori: "Antibiotik IV",    volume: 20,  catatan: "Furosemid 40mg IV" },
+        { id: "io-ri1-14", tanggal: "2025-05-04", waktu: "09:00", shift: "Pagi",  tipe: "intake", kategori: "Oral", subKategori: "Minum",            volume: 200 },
+        { id: "io-ri1-15", tanggal: "2025-05-04", waktu: "08:30", shift: "Pagi",  tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",    volume: 400, catatan: "Diuresis baik post-furosemid" },
+        { id: "io-ri1-16", tanggal: "2025-05-04", waktu: "13:00", shift: "Pagi",  tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",    volume: 300 },
+        { id: "io-ri1-17", tanggal: "2025-05-04", waktu: "14:00", shift: "Siang", tipe: "intake", kategori: "IV",   subKategori: "NaCl 0.9%",        volume: 250 },
+        { id: "io-ri1-18", tanggal: "2025-05-04", waktu: "15:00", shift: "Siang", tipe: "intake", kategori: "Oral", subKategori: "Minum",            volume: 100 },
+        { id: "io-ri1-19", tanggal: "2025-05-04", waktu: "17:00", shift: "Siang", tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",    volume: 350 },
+        { id: "io-ri1-20", tanggal: "2025-05-04", waktu: "20:00", shift: "Siang", tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",    volume: 250 },
+        { id: "io-ri1-21", tanggal: "2025-05-04", waktu: "22:00", shift: "Malam", tipe: "intake", kategori: "IV",   subKategori: "NaCl 0.9%",        volume: 250 },
+        { id: "io-ri1-22", tanggal: "2025-05-04", waktu: "23:30", shift: "Malam", tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",    volume: 200 },
+        // ── D3 (2025-05-05) ─────────────────────────────
+        { id: "io-ri1-23", tanggal: "2025-05-05", waktu: "07:00", shift: "Pagi",  tipe: "intake", kategori: "IV",   subKategori: "NaCl 0.9%",        volume: 250 },
+        { id: "io-ri1-24", tanggal: "2025-05-05", waktu: "08:00", shift: "Pagi",  tipe: "intake", kategori: "IV",   subKategori: "Antibiotik IV",    volume: 20,  catatan: "Furosemid 40mg IV" },
+        { id: "io-ri1-25", tanggal: "2025-05-05", waktu: "09:00", shift: "Pagi",  tipe: "intake", kategori: "Oral", subKategori: "Minum",            volume: 200 },
+        { id: "io-ri1-26", tanggal: "2025-05-05", waktu: "09:30", shift: "Pagi",  tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",    volume: 350 },
+        { id: "io-ri1-27", tanggal: "2025-05-05", waktu: "13:00", shift: "Pagi",  tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",    volume: 300 },
+      ],
+    },
   },
 
   "ri-3": {
@@ -1672,6 +1744,7 @@ export const rawatInapPatientDetails: Record<string, RawatInapPatientDetail> = {
     vitalSigns: {
       tdSistolik: 96, tdDiastolik: 62, nadi: 110, respirasi: 24,
       suhu: 38.5, spo2: 93, gcsEye: 3, gcsVerbal: 4, gcsMotor: 5, skalaNyeri: 6,
+      beratBadan: 60, tinggiBadan: 170,
     },
     statusKesadaran: "Somnolen",
     ttvHistory: [
@@ -1840,5 +1913,43 @@ export const rawatInapPatientDetails: Record<string, RawatInapPatientDetail> = {
         ],
       },
     ],
+    intakeOutput: {
+      targetDPJP: {
+        targetBalance: -500,
+        catatan: "Target balance cairan -500cc/hari. Hindari overload cairan. Dopamin/NE titrasi ketat.",
+        updatedBy: "dr. Hendra Wijaya, Sp.EM",
+        updatedAt: "2025-05-06T07:00",
+      },
+      entries: [
+        // ── D1 (2025-05-05) — ICU admission, resusitasi ─
+        { id: "io-ri3-01", tanggal: "2025-05-05", waktu: "07:00", shift: "Pagi",  tipe: "intake", kategori: "IV",   subKategori: "NaCl 0.9%",       volume: 1500, catatan: "Resusitasi 30mL/kgBB dalam 3 jam" },
+        { id: "io-ri3-02", tanggal: "2025-05-05", waktu: "08:00", shift: "Pagi",  tipe: "intake", kategori: "IV",   subKategori: "Antibiotik IV",   volume: 100,  catatan: "Meropenem 1g/100mL" },
+        { id: "io-ri3-03", tanggal: "2025-05-05", waktu: "10:00", shift: "Pagi",  tipe: "intake", kategori: "IV",   subKategori: "NaCl 0.9%",       volume: 500,  catatan: "Maintenance" },
+        { id: "io-ri3-04", tanggal: "2025-05-05", waktu: "10:00", shift: "Pagi",  tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",   volume: 60,   catatan: "Oliguria berat — 20cc/jam × 3jam" },
+        { id: "io-ri3-05", tanggal: "2025-05-05", waktu: "14:00", shift: "Siang", tipe: "intake", kategori: "IV",   subKategori: "Norepinephrine",  volume: 50,   catatan: "NE 0.1mcg/kgBB/mnt, CVC" },
+        { id: "io-ri3-06", tanggal: "2025-05-05", waktu: "14:00", shift: "Siang", tipe: "intake", kategori: "IV",   subKategori: "NaCl 0.9%",       volume: 500 },
+        { id: "io-ri3-07", tanggal: "2025-05-05", waktu: "16:00", shift: "Siang", tipe: "intake", kategori: "IV",   subKategori: "Antibiotik IV",   volume: 100,  catatan: "Meropenem 1g q8h" },
+        { id: "io-ri3-08", tanggal: "2025-05-05", waktu: "21:00", shift: "Siang", tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",   volume: 140,  catatan: "20cc/jam × 7 jam" },
+        { id: "io-ri3-09", tanggal: "2025-05-05", waktu: "21:00", shift: "Malam", tipe: "intake", kategori: "IV",   subKategori: "NaCl 0.9%",       volume: 500 },
+        { id: "io-ri3-10", tanggal: "2025-05-05", waktu: "24:00", shift: "Malam", tipe: "intake", kategori: "IV",   subKategori: "Antibiotik IV",   volume: 100,  catatan: "Meropenem 1g (dosis ke-3)" },
+        { id: "io-ri3-11", tanggal: "2025-05-05", waktu: "06:00", shift: "Malam", tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",   volume: 200,  catatan: "10 jam malam × 20cc" },
+        // ── D2 (2025-05-06) — Stabilisasi ──────────────
+        { id: "io-ri3-12", tanggal: "2025-05-06", waktu: "07:00", shift: "Pagi",  tipe: "intake", kategori: "IV",   subKategori: "NaCl 0.9%",       volume: 500 },
+        { id: "io-ri3-13", tanggal: "2025-05-06", waktu: "07:00", shift: "Pagi",  tipe: "intake", kategori: "IV",   subKategori: "Norepinephrine",  volume: 50,   catatan: "NE 0.15mcg/kgBB/mnt" },
+        { id: "io-ri3-14", tanggal: "2025-05-06", waktu: "08:00", shift: "Pagi",  tipe: "intake", kategori: "IV",   subKategori: "Antibiotik IV",   volume: 100,  catatan: "Meropenem 1g" },
+        { id: "io-ri3-15", tanggal: "2025-05-06", waktu: "14:00", shift: "Pagi",  tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",   volume: 150,  catatan: "~21cc/jam, sedikit membaik" },
+        { id: "io-ri3-16", tanggal: "2025-05-06", waktu: "14:00", shift: "Siang", tipe: "intake", kategori: "IV",   subKategori: "NaCl 0.9%",       volume: 500 },
+        { id: "io-ri3-17", tanggal: "2025-05-06", waktu: "14:00", shift: "Siang", tipe: "intake", kategori: "IV",   subKategori: "Norepinephrine",  volume: 50 },
+        { id: "io-ri3-18", tanggal: "2025-05-06", waktu: "16:00", shift: "Siang", tipe: "intake", kategori: "IV",   subKategori: "Antibiotik IV",   volume: 100 },
+        { id: "io-ri3-19", tanggal: "2025-05-06", waktu: "21:00", shift: "Siang", tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",   volume: 150 },
+        { id: "io-ri3-20", tanggal: "2025-05-06", waktu: "21:00", shift: "Malam", tipe: "intake", kategori: "IV",   subKategori: "NaCl 0.9%",       volume: 500 },
+        { id: "io-ri3-21", tanggal: "2025-05-06", waktu: "24:00", shift: "Malam", tipe: "intake", kategori: "IV",   subKategori: "Antibiotik IV",   volume: 100 },
+        { id: "io-ri3-22", tanggal: "2025-05-06", waktu: "06:00", shift: "Malam", tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",   volume: 200 },
+        // ── D3 (2025-05-07) — Pagi ──────────────────────
+        { id: "io-ri3-23", tanggal: "2025-05-07", waktu: "07:00", shift: "Pagi",  tipe: "intake", kategori: "IV",   subKategori: "NaCl 0.9%",       volume: 500 },
+        { id: "io-ri3-24", tanggal: "2025-05-07", waktu: "08:00", shift: "Pagi",  tipe: "intake", kategori: "IV",   subKategori: "Antibiotik IV",   volume: 100,  catatan: "Meropenem 1g" },
+        { id: "io-ri3-25", tanggal: "2025-05-07", waktu: "14:00", shift: "Pagi",  tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",   volume: 175,  catatan: "~25cc/jam, membaik" },
+      ],
+    },
   },
 };

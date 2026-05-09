@@ -10,11 +10,12 @@ import {
 import type { RawatInapPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
-import CPPTTab        from "./tabs/CPPTTab";
-import TTVTab         from "./tabs/TTVTab";
-import DiagnosaTab    from "./tabs/DiagnosaTab";
-import KeperawatanTab from "./tabs/KeperawatanTab";
-import PemeriksaanTab from "./tabs/PemeriksaanTab";
+import CPPTTab          from "./tabs/CPPTTab";
+import TTVTab           from "./tabs/TTVTab";
+import DiagnosaTab      from "./tabs/DiagnosaTab";
+import KeperawatanTab   from "./tabs/KeperawatanTab";
+import PemeriksaanTab   from "./tabs/PemeriksaanTab";
+import IntakeOutputTab  from "./tabs/IntakeOutputTab";
 
 // ── Tab definitions ───────────────────────────────────────
 
@@ -26,7 +27,7 @@ const REKAM_MEDIS: TabDef[] = [
   { id: "diagnosa",     label: "Diagnosa",             icon: Tag,            done: true  },
   { id: "keperawatan",  label: "Asuhan Keperawatan",   icon: HeartHandshake, done: true  },
   { id: "pemeriksaan",  label: "Pemeriksaan Fisik",    icon: ScanLine,       done: true  },
-  { id: "intake-output",label: "Intake / Output",      icon: Droplets,       done: false },
+  { id: "intake-output",label: "Intake / Output",      icon: Droplets,       done: true  },
 ];
 
 const LAYANAN: TabDef[] = [
@@ -180,7 +181,8 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
             {active === "ttv"         && <TTVTab         patient={patient} />}
             {active === "diagnosa"    && <DiagnosaTab    patient={patient} />}
             {active === "keperawatan" && <KeperawatanTab patient={patient} />}
-            {active === "pemeriksaan" && <PemeriksaanTab patient={patient} />}
+            {active === "pemeriksaan"   && <PemeriksaanTab   patient={patient} />}
+            {active === "intake-output" && <IntakeOutputTab   patient={patient} />}
 
             {!activeTab.done && (
               <ComingSoon label={activeTab.label} icon={activeTab.icon} />
