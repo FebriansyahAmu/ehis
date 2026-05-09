@@ -304,6 +304,58 @@ export interface IntakeOutputData {
   targetDPJP?: IOTargetDPJP;
 }
 
+// ── Resep & Obat RI ────────────────────────────────────
+export type KategoriObat         = "Reguler" | "Narkotika" | "Psikotropika";
+export type StatusMAR            = "Diberikan" | "Ditunda" | "Ditolak" | "TidakTersedia" | "NA";
+export type DecisionRekonsiliasi = "Lanjutkan" | "Hentikan" | "Ganti" | "Tunda";
+
+export interface ResepRIItem {
+  id:           string;
+  namaObat:     string;
+  kodeObat:     string;
+  dosis:        string;
+  signa:        string;
+  jumlah:       number;
+  rute:         string;
+  aturanPakai:  string;
+  kategori:     KategoriObat;
+  keterangan?:  string;
+  durasiHari:   number;
+  tanggalOrder: string;
+  dokterPj:     string;
+  aktif:        boolean;
+}
+
+export interface MAREntry {
+  id:              string;
+  resepItemId:     string;
+  tanggal:         string;
+  shift:           RIShift;
+  status:          StatusMAR;
+  waktuPemberian?: string;
+  perawat?:        string;
+  catatan?:        string;
+}
+
+export interface RekonsiliasItem {
+  id:           string;
+  namaObat:     string;
+  dosis:        string;
+  signa:        string;
+  sumber:       "Rumah" | "IGD" | "Rawat Jalan";
+  decision:     DecisionRekonsiliasi;
+  gantiDengan?: string;
+  alasan?:      string;
+  dokterPj?:    string;
+  tanggal?:     string;
+}
+
+export interface ResepRIData {
+  items:        ResepRIItem[];
+  mar:          MAREntry[];
+  rekonsiliasi: RekonsiliasItem[];
+}
+
 export interface IGDVitalSigns {
   tdSistolik: number;
   tdDiastolik: number;
@@ -1467,6 +1519,7 @@ export interface RawatInapPatientDetail {
   asuhanKeperawatan?:    AsuhanKeperawatanEntry[];
   pemeriksaanFisik?:     PemeriksaanFisikEntry[];
   intakeOutput?:         IntakeOutputData;
+  resepRI?:              ResepRIData;
 }
 
 // ── Rawat Inap Patient Detail mock data ──────────────
@@ -1728,6 +1781,38 @@ export const rawatInapPatientDetails: Record<string, RawatInapPatientDetail> = {
         { id: "io-ri1-27", tanggal: "2025-05-05", waktu: "13:00", shift: "Pagi",  tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",    volume: 300 },
       ],
     },
+    resepRI: {
+      items: [
+        { id: "rx-ri1-1", namaObat: "Bisoprolol 5mg",      kodeObat: "FAR-B01", dosis: "5 mg",   signa: "1×1",    jumlah: 30, rute: "Oral",     aturanPakai: "AC (Sebelum Makan)", kategori: "Reguler",  keterangan: "Minum pagi sebelum makan", durasiHari: 30, tanggalOrder: "2025-05-03", dokterPj: "dr. Dewi Kusuma, Sp.JP", aktif: true  },
+        { id: "rx-ri1-2", namaObat: "Candesartan 8mg",     kodeObat: "FAR-C02", dosis: "8 mg",   signa: "1×1",    jumlah: 30, rute: "Oral",     aturanPakai: "AC (Sebelum Makan)", kategori: "Reguler",  durasiHari: 30, tanggalOrder: "2025-05-03", dokterPj: "dr. Dewi Kusuma, Sp.JP", aktif: true  },
+        { id: "rx-ri1-3", namaObat: "Furosemide 40mg Inj", kodeObat: "FAR-012", dosis: "40 mg",  signa: "1×1",    jumlah: 7,  rute: "IV Bolus", aturanPakai: "Terlepas dari Makan",kategori: "Reguler",  keterangan: "IV bolus perlahan, pantau balance & diuresis", durasiHari: 7,  tanggalOrder: "2025-05-03", dokterPj: "dr. Dewi Kusuma, Sp.JP", aktif: true  },
+        { id: "rx-ri1-4", namaObat: "Spironolactone 25mg", kodeObat: "FAR-S04", dosis: "25 mg",  signa: "1×1",    jumlah: 30, rute: "Oral",     aturanPakai: "PC (Sesudah Makan)", kategori: "Reguler",  durasiHari: 30, tanggalOrder: "2025-05-03", dokterPj: "dr. Dewi Kusuma, Sp.JP", aktif: true  },
+        { id: "rx-ri1-5", namaObat: "Pantoprazole 40mg Inj",kodeObat:"FAR-P05", dosis: "40 mg",  signa: "1×1",    jumlah: 5,  rute: "IV Drip",  aturanPakai: "AC (Sebelum Makan)", kategori: "Reguler",  keterangan: "Stres ulcer prophylaxis, stop jika oral sudah bisa", durasiHari: 5,  tanggalOrder: "2025-05-03", dokterPj: "dr. Dewi Kusuma, Sp.JP", aktif: false },
+      ],
+      mar: [
+        { id: "mar-ri1-01", resepItemId: "rx-ri1-1", tanggal: "2025-05-03", shift: "Pagi",  status: "Diberikan",     waktuPemberian: "07:00", perawat: "Siti Rahayu, S.Kep" },
+        { id: "mar-ri1-02", resepItemId: "rx-ri1-2", tanggal: "2025-05-03", shift: "Pagi",  status: "Diberikan",     waktuPemberian: "07:05", perawat: "Siti Rahayu, S.Kep" },
+        { id: "mar-ri1-03", resepItemId: "rx-ri1-3", tanggal: "2025-05-03", shift: "Pagi",  status: "Diberikan",     waktuPemberian: "08:00", perawat: "Siti Rahayu, S.Kep", catatan: "IV bolus 40mg" },
+        { id: "mar-ri1-04", resepItemId: "rx-ri1-4", tanggal: "2025-05-03", shift: "Pagi",  status: "Diberikan",     waktuPemberian: "12:00", perawat: "Siti Rahayu, S.Kep" },
+        { id: "mar-ri1-05", resepItemId: "rx-ri1-5", tanggal: "2025-05-03", shift: "Pagi",  status: "Diberikan",     waktuPemberian: "06:55", perawat: "Siti Rahayu, S.Kep" },
+        { id: "mar-ri1-06", resepItemId: "rx-ri1-1", tanggal: "2025-05-04", shift: "Pagi",  status: "Diberikan",     waktuPemberian: "07:00", perawat: "Siti Rahayu, S.Kep" },
+        { id: "mar-ri1-07", resepItemId: "rx-ri1-2", tanggal: "2025-05-04", shift: "Pagi",  status: "Diberikan",     waktuPemberian: "07:05", perawat: "Siti Rahayu, S.Kep" },
+        { id: "mar-ri1-08", resepItemId: "rx-ri1-3", tanggal: "2025-05-04", shift: "Pagi",  status: "Ditunda",       catatan: "Pasien sedang prosedur EKG, dijadwal ulang 10:00" },
+        { id: "mar-ri1-09", resepItemId: "rx-ri1-3", tanggal: "2025-05-04", shift: "Siang", status: "Diberikan",     waktuPemberian: "10:00", perawat: "Dini Amalia, S.Kep", catatan: "Dijadwal ulang dari shift Pagi" },
+        { id: "mar-ri1-10", resepItemId: "rx-ri1-4", tanggal: "2025-05-04", shift: "Pagi",  status: "Diberikan",     waktuPemberian: "12:00", perawat: "Siti Rahayu, S.Kep" },
+        { id: "mar-ri1-11", resepItemId: "rx-ri1-5", tanggal: "2025-05-04", shift: "Pagi",  status: "Diberikan",     waktuPemberian: "07:00", perawat: "Siti Rahayu, S.Kep" },
+        { id: "mar-ri1-12", resepItemId: "rx-ri1-1", tanggal: "2025-05-05", shift: "Pagi",  status: "Diberikan",     waktuPemberian: "07:00", perawat: "Dini Amalia, S.Kep" },
+        { id: "mar-ri1-13", resepItemId: "rx-ri1-2", tanggal: "2025-05-05", shift: "Pagi",  status: "Diberikan",     waktuPemberian: "07:05", perawat: "Dini Amalia, S.Kep" },
+        { id: "mar-ri1-14", resepItemId: "rx-ri1-3", tanggal: "2025-05-05", shift: "Pagi",  status: "Diberikan",     waktuPemberian: "08:00", perawat: "Dini Amalia, S.Kep" },
+        { id: "mar-ri1-15", resepItemId: "rx-ri1-4", tanggal: "2025-05-05", shift: "Pagi",  status: "Diberikan",     waktuPemberian: "12:00", perawat: "Dini Amalia, S.Kep" },
+        { id: "mar-ri1-16", resepItemId: "rx-ri1-5", tanggal: "2025-05-05", shift: "Pagi",  status: "TidakTersedia", catatan: "Stok depo habis, droping dari apotek utama" },
+      ],
+      rekonsiliasi: [
+        { id: "rk-ri1-1", namaObat: "Bisoprolol 5mg",      dosis: "5 mg",  signa: "1×1", sumber: "Rumah", decision: "Lanjutkan", dokterPj: "dr. Dewi Kusuma, Sp.JP", tanggal: "2025-05-03" },
+        { id: "rk-ri1-2", namaObat: "Candesartan 8mg",     dosis: "8 mg",  signa: "1×1", sumber: "Rumah", decision: "Lanjutkan", dokterPj: "dr. Dewi Kusuma, Sp.JP", tanggal: "2025-05-03" },
+        { id: "rk-ri1-3", namaObat: "Furosemid 40mg (oral)",dosis:"40 mg", signa: "1×1", sumber: "Rumah", decision: "Ganti",    gantiDengan: "Furosemide 40mg IV Bolus", alasan: "Edema paru akut — absorpsi oral tidak memadai pada kondisi kongesti GJK berat, diganti IV untuk onset lebih cepat", dokterPj: "dr. Dewi Kusuma, Sp.JP", tanggal: "2025-05-03" },
+      ],
+    },
   },
 
   "ri-3": {
@@ -1949,6 +2034,30 @@ export const rawatInapPatientDetails: Record<string, RawatInapPatientDetail> = {
         { id: "io-ri3-23", tanggal: "2025-05-07", waktu: "07:00", shift: "Pagi",  tipe: "intake", kategori: "IV",   subKategori: "NaCl 0.9%",       volume: 500 },
         { id: "io-ri3-24", tanggal: "2025-05-07", waktu: "08:00", shift: "Pagi",  tipe: "intake", kategori: "IV",   subKategori: "Antibiotik IV",   volume: 100,  catatan: "Meropenem 1g" },
         { id: "io-ri3-25", tanggal: "2025-05-07", waktu: "14:00", shift: "Pagi",  tipe: "output", kategori: "Urine",subKategori: "Kateter Foley",   volume: 175,  catatan: "~25cc/jam, membaik" },
+      ],
+    },
+    resepRI: {
+      items: [
+        { id: "rx-ri3-1", namaObat: "Norepinephrine 4mg/4mL",kodeObat:"FAR-N01", dosis: "4 mg/4mL", signa: "Titrasi", jumlah: 3,  rute: "IV Drip", aturanPakai: "Terlepas dari Makan", kategori: "Reguler",  keterangan: "Mulai 0.1 mcg/kgBB/mnt via CVC, titrasi MAP ≥65 mmHg",         durasiHari: 3,  tanggalOrder: "2025-05-05", dokterPj: "dr. Hendra Wijaya, Sp.EM", aktif: true  },
+        { id: "rx-ri3-2", namaObat: "Meropenem 1g Inj",       kodeObat:"FAR-M02", dosis: "1 g",      signa: "3×1",     jumlah: 30, rute: "IV Drip", aturanPakai: "Terlepas dari Makan", kategori: "Reguler",  keterangan: "q8h (jam 08-16-24), infus 30 menit. Panduan kultur dan sensitivitas",durasiHari: 10, tanggalOrder: "2025-05-05", dokterPj: "dr. Hendra Wijaya, Sp.EM", aktif: true  },
+        { id: "rx-ri3-3", namaObat: "Pantoprazole 40mg Inj",  kodeObat:"FAR-P05", dosis: "40 mg",    signa: "1×1",     jumlah: 7,  rute: "IV Drip", aturanPakai: "Terlepas dari Makan", kategori: "Reguler",  keterangan: "Stres ulcer prophylaxis ICU",                                    durasiHari: 7,  tanggalOrder: "2025-05-05", dokterPj: "dr. Hendra Wijaya, Sp.EM", aktif: true  },
+        { id: "rx-ri3-4", namaObat: "NaCl 0.9% 500mL",        kodeObat:"FAR-013", dosis: "500 mL",   signa: "Titrasi", jumlah: 6,  rute: "IV Drip", aturanPakai: "Terlepas dari Makan", kategori: "Reguler",  keterangan: "Maintenance 20 tpm, sesuaikan balance harian",                   durasiHari: 3,  tanggalOrder: "2025-05-05", dokterPj: "dr. Hendra Wijaya, Sp.EM", aktif: false },
+      ],
+      mar: [
+        { id: "mar-ri3-01", resepItemId: "rx-ri3-2", tanggal: "2025-05-05", shift: "Pagi",  status: "Diberikan", waktuPemberian: "08:00", perawat: "Ahmad Ridwan, S.Kep" },
+        { id: "mar-ri3-02", resepItemId: "rx-ri3-2", tanggal: "2025-05-05", shift: "Siang", status: "Diberikan", waktuPemberian: "16:00", perawat: "Nisa Permata, S.Kep" },
+        { id: "mar-ri3-03", resepItemId: "rx-ri3-2", tanggal: "2025-05-05", shift: "Malam", status: "Diberikan", waktuPemberian: "24:00", perawat: "Rudi Harmoko, S.Kep" },
+        { id: "mar-ri3-04", resepItemId: "rx-ri3-3", tanggal: "2025-05-05", shift: "Pagi",  status: "Diberikan", waktuPemberian: "08:30", perawat: "Ahmad Ridwan, S.Kep" },
+        { id: "mar-ri3-05", resepItemId: "rx-ri3-2", tanggal: "2025-05-06", shift: "Pagi",  status: "Diberikan", waktuPemberian: "08:00", perawat: "Ahmad Ridwan, S.Kep" },
+        { id: "mar-ri3-06", resepItemId: "rx-ri3-2", tanggal: "2025-05-06", shift: "Siang", status: "Diberikan", waktuPemberian: "16:00", perawat: "Nisa Permata, S.Kep" },
+        { id: "mar-ri3-07", resepItemId: "rx-ri3-2", tanggal: "2025-05-06", shift: "Malam", status: "Ditunda",   catatan: "Pasien instabil saat penjadwalan, ditunda 30 menit" },
+        { id: "mar-ri3-08", resepItemId: "rx-ri3-2", tanggal: "2025-05-06", shift: "Malam", status: "Diberikan", waktuPemberian: "00:30", perawat: "Rudi Harmoko, S.Kep", catatan: "Diberikan 30 menit setelah penundaan" },
+        { id: "mar-ri3-09", resepItemId: "rx-ri3-3", tanggal: "2025-05-06", shift: "Pagi",  status: "Diberikan", waktuPemberian: "08:30", perawat: "Ahmad Ridwan, S.Kep" },
+        { id: "mar-ri3-10", resepItemId: "rx-ri3-2", tanggal: "2025-05-07", shift: "Pagi",  status: "Diberikan", waktuPemberian: "08:00", perawat: "Ahmad Ridwan, S.Kep" },
+        { id: "mar-ri3-11", resepItemId: "rx-ri3-3", tanggal: "2025-05-07", shift: "Pagi",  status: "Diberikan", waktuPemberian: "08:30", perawat: "Ahmad Ridwan, S.Kep" },
+      ],
+      rekonsiliasi: [
+        { id: "rk-ri3-1", namaObat: "Riwayat obat tidak terdokumentasi", dosis: "-", signa: "-", sumber: "Rumah", decision: "Tunda", alasan: "Pasien tidak sadar saat masuk ICU, keluarga tidak mengetahui riwayat obat lengkap. Rekonsiliasi akan dilengkapi setelah keluarga dapat dikonfirmasi atau rekam medis lama ditemukan.", dokterPj: "dr. Hendra Wijaya, Sp.EM", tanggal: "2025-05-05" },
       ],
     },
   },

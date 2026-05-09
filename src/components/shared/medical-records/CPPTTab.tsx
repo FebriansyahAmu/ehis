@@ -463,48 +463,50 @@ export default function CPPTTab({ initialEntries, showDate = false, requiresVeri
           </div>
         </div>
 
-        {/* Entry list */}
-        {filtered.length === 0 ? (
-          <motion.div
-            className="rounded-xl border border-dashed border-slate-300 bg-white py-10 text-center text-sm text-slate-400"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          >
-            {entries.length === 0 ? "Belum ada catatan CPPT" : "Tidak ada catatan yang cocok"}
-          </motion.div>
-        ) : showDate ? (
-          sortedDates.map((date, di) => (
-            <div key={date}>
-              <DateSep iso={date} />
-              {dateGroups[date].map((entry, idx) => (
-                <CPPTEntryCard
-                  key={entry.id}
-                  entry={entry}
-                  editingId={editingId}
-                  onCopy={handleCopy}
-                  onEdit={handleEdit}
-                  onVerify={handleVerify}
-                  onFlag={handleFlag}
-                  requiresVerification={requiresVerification}
-                  delay={(di * 3 + idx) * 0.04}
-                />
-              ))}
-            </div>
-          ))
-        ) : (
-          displayed.map((entry, idx) => (
-            <CPPTEntryCard
-              key={entry.id}
-              entry={entry}
-              editingId={editingId}
-              onCopy={handleCopy}
-              onEdit={handleEdit}
-              onVerify={handleVerify}
-              onFlag={handleFlag}
-              requiresVerification={requiresVerification}
-              delay={idx * 0.04}
-            />
-          ))
-        )}
+        {/* Entry list — independently scrollable */}
+        <div className="flex flex-col gap-3 md:max-h-[calc(100vh-280px)] md:overflow-y-auto md:pr-1">
+          {filtered.length === 0 ? (
+            <motion.div
+              className="rounded-xl border border-dashed border-slate-300 bg-white py-10 text-center text-sm text-slate-400"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            >
+              {entries.length === 0 ? "Belum ada catatan CPPT" : "Tidak ada catatan yang cocok"}
+            </motion.div>
+          ) : showDate ? (
+            sortedDates.map((date, di) => (
+              <div key={date}>
+                <DateSep iso={date} />
+                {dateGroups[date].map((entry, idx) => (
+                  <CPPTEntryCard
+                    key={entry.id}
+                    entry={entry}
+                    editingId={editingId}
+                    onCopy={handleCopy}
+                    onEdit={handleEdit}
+                    onVerify={handleVerify}
+                    onFlag={handleFlag}
+                    requiresVerification={requiresVerification}
+                    delay={(di * 3 + idx) * 0.04}
+                  />
+                ))}
+              </div>
+            ))
+          ) : (
+            displayed.map((entry, idx) => (
+              <CPPTEntryCard
+                key={entry.id}
+                entry={entry}
+                editingId={editingId}
+                onCopy={handleCopy}
+                onEdit={handleEdit}
+                onVerify={handleVerify}
+                onFlag={handleFlag}
+                requiresVerification={requiresVerification}
+                delay={idx * 0.04}
+              />
+            ))
+          )}
+        </div>
       </div>
 
     </div>
