@@ -59,7 +59,7 @@ Shared layout: `Navbar` · `Sidebar` · `ModuleSwitcher` · `ModuleLayout` → `
 | rujukan                                                          | `tabs/RujukanKeluarTab.tsx`          | ✅     |
 | Penandaan Gambar                                                 | tabs/penandaanGambar.tsx             | ✅     |
 
-### Rawat Inap (~90% done)
+### Rawat Inap (~100% done — semua 11 tab aktif)
 
 | Layer            | File                                         | Status                                                                    |
 | ---------------- | -------------------------------------------- | ------------------------------------------------------------------------- |
@@ -332,7 +332,7 @@ Alur dokumentasi klinis lengkap per setting perawatan — menjadi acuan tab apa 
 | ~~**Order Lab**~~        | `tabs/OrderLabTab.tsx`      | SNARS AP                 | ✅ Selesai |
 | ~~**Order Radiologi**~~  | `tabs/OrderRadTab.tsx`      | SNARS AP                 | ✅ Selesai |
 | ~~**Konsultasi SMF**~~   | `tabs/KonsultasiTab.tsx`    | SNARS PP 1 · SKP 2       | ✅ Selesai |
-| **Discharge Planning**   | `tabs/DischargePlanTab.tsx` | SNARS ARK 5              | 🔴        |
+| ~~**Discharge Planning**~~ | `tabs/DischargePlanTab.tsx` | SNARS ARK 5              | ✅ Selesai |
 
 #### ❌ Gap RI — Tab Belum Direncanakan tapi Wajib Standar
 
@@ -376,8 +376,8 @@ Keputusan yang sudah dan belum diambil terkait scope dan arsitektur modul EHIS.
 
 Work items in priority order. Pick top item each session.
 
-### 🔴 Now — Rawat Inap Tabs (Urutan Pengerjaan)
-> 10/11 tab selesai. Sisa: Discharge Planning.
+### ✅ Selesai — Rawat Inap Tabs (Semua 11 Tab)
+> Semua tab Rawat Inap selesai. Beralih ke gap kritis berikutnya.
 
 1. - [x] **Asuhan Keperawatan** (`tabs/KeperawatanTab.tsx`) — ✅ SDKI katalog 15 dx + auto-fill, evaluasi inline per shift, status luaran badge (Teratasi/Sebagian/Belum/Dipantau), SLKI kriteria hasil, verifikasi supervisor. Sub-components: `keperawatan/AsuhanForm.tsx` + `AsuhanCard.tsx`. Shared: `keperawatanShared.ts`
 2. - [x] **Pemeriksaan Fisik** (`tabs/PemeriksaanTab.tsx`) — ✅ Status generalis (KU/Kesadaran/Gizi/Orientasi pills), 11 sistem head-to-toe accordion, quick-normal template per sistem + "Semua Normal" global, temuan abnormal checklist, body map penandaan area, riwayat harian collapsible. Sub-components: `pemeriksaan/StatusFisikPane.tsx` + `BodyMapPane.tsx` + `RiwayatPane.tsx`. Types: `KU`, `KesadaranPF`, `StatusGizi`, `PemeriksaanFisikEntry` di `data.ts`.
@@ -386,7 +386,7 @@ Work items in priority order. Pick top item each session.
 5. - [x] **Order Lab** (`tabs/OrderLabTab.tsx`) — ✅ `shared/medical-records/OrderLabTab.tsx` dengan `OrderLabPatient` interface, IGD + RI thin wrappers, mock data RM-2025-003 (BNP/Ureum/Kreatinin aktif + riwayat abnormal)
 6. - [x] **Order Radiologi** (`tabs/OrderRadTab.tsx`) — ✅ `shared/medical-records/OrderRadTab.tsx` dengan `OrderRadPatient` interface, IGD + RI thin wrappers, mock data RM-2025-003 (Thorax PA + Echo GJK, riwayat 2 order dengan hasil ekspertise)
 7. - [x] **Konsultasi Antar SMF** (`tabs/KonsultasiTab.tsx`) — ✅ SBAR 4-field + closed-loop (Terkirim→Diterima→Dijawab→Selesai) + 22 SMF dropdown + response timer + CPPT auto-notif + Framer Motion + mock data RM-2025-003 (GIZ Selesai + RM Dijawab). Sub: `konsultasi/RequestPane.tsx` + `DetailPane.tsx` + `konsultasiShared.ts`
-8. - [ ] **Discharge Planning** (`tabs/DischargePlanTab.tsx`) — edukasi, home care, obat pulang, follow-up, resume medis. RI-specific
+8. - [x] **Discharge Planning** (`tabs/DischargePlanTab.tsx`) — ✅ Stepper 5 langkah (Asesmen → Edukasi → Obat Pulang → Follow-up → Resume Medis), Framer Motion direction-aware transitions, auto-pull obat dari ResepTab, DPJP sign-off, print preview PMK 269/2008, finalize discharge, mock data RM-2025-003. Sub: `discharge/{dischargeShared,StepAsesmen,StepEdukasi,StepObatPulang,StepFollowUp,StepResumeMedis}.tsx`
 
 ### 🟠 Berikutnya — Gap Kritis (Post RI Tabs)
 

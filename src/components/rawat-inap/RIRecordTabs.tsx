@@ -19,7 +19,8 @@ import IntakeOutputTab  from "./tabs/IntakeOutputTab";
 import ResepTab         from "./tabs/ResepTab";
 import OrderLabTab      from "./tabs/OrderLabTab";
 import OrderRadTab      from "./tabs/OrderRadTab";
-import KonsultasiTab   from "./tabs/KonsultasiTab";
+import KonsultasiTab    from "./tabs/KonsultasiTab";
+import DischargePlanTab from "./tabs/DischargePlanTab";
 
 // ── Tab definitions ───────────────────────────────────────
 
@@ -39,7 +40,7 @@ const LAYANAN: TabDef[] = [
   { id: "order-lab",    label: "Order Lab",            icon: FlaskConical,   done: true  },
   { id: "order-rad",    label: "Order Radiologi",      icon: Radiation,      done: true  },
   { id: "konsultasi",   label: "Konsultasi",           icon: MessageSquare,  done: true  },
-  { id: "discharge",    label: "Discharge Planning",   icon: LogOut,         done: false },
+  { id: "discharge",    label: "Discharge Planning",   icon: LogOut,         done: true  },
 ];
 
 const ALL_TABS = [...REKAM_MEDIS, ...LAYANAN];
@@ -69,30 +70,6 @@ function NavItem({ tab, active, onClick }: { tab: TabDef; active: boolean; onCli
       )}
       {active && tab.done && <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-white/60" />}
     </button>
-  );
-}
-
-// ── ComingSoon placeholder ────────────────────────────────
-
-function ComingSoon({ label, icon: Icon }: { label: string; icon: LucideIcon }) {
-  return (
-    <motion.div
-      className="flex flex-col items-center justify-center gap-4 py-24 text-center"
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-    >
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 shadow-inner">
-        <Icon size={26} className="text-slate-400" />
-      </div>
-      <div>
-        <p className="text-sm font-semibold text-slate-700">{label}</p>
-        <p className="mt-0.5 text-xs text-slate-400">Fitur ini sedang dalam pengembangan</p>
-      </div>
-      <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-200">
-        Segera Hadir
-      </span>
-    </motion.div>
   );
 }
 
@@ -191,10 +168,7 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
             {active === "order-lab"     && <OrderLabTab        patient={patient} />}
             {active === "order-rad"     && <OrderRadTab        patient={patient} />}
             {active === "konsultasi"    && <KonsultasiTab     patient={patient} />}
-
-            {!activeTab.done && (
-              <ComingSoon label={activeTab.label} icon={activeTab.icon} />
-            )}
+            {active === "discharge"     && <DischargePlanTab  patient={patient} />}
           </motion.div>
         </AnimatePresence>
       </main>
