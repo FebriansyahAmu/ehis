@@ -5,26 +5,32 @@ export type HubunganCaregiver =
   | "Suami" | "Istri" | "Anak" | "Orang Tua" | "Saudara" | "Lainnya";
 
 export type KemampuanCaregiver = "Mampu" | "Perlu Pendampingan" | "Tidak Mampu";
-export type KondisiSosEk       = "Baik" | "Cukup" | "Kurang";
 export type MetodeEdukasi      = "Lisan" | "Demonstrasi" | "Leaflet" | "Video";
 export type PenerimaEdukasi    = "Pasien" | "Keluarga" | "Keduanya";
 export type PemahamanEdukasi   = "Paham" | "Perlu Ulang" | "Tidak Paham";
 
+// Re-admisi risk screening (menggantikan Aksesibilitas & Sosial — SNARS ARK 5)
+export type DukunganKeluarga = "Ada & Mampu" | "Ada tapi Terbatas" | "Tidak Ada";
+export type KepatuhanObat    = "Patuh" | "Kadang" | "Tidak Patuh";
+export type RiwayatReadmisi  = "Tidak" | "1x" | ">1x";
+export type RisikoReadmisi   = "RENDAH" | "SEDANG" | "TINGGI";
+
 // ── Core interfaces ───────────────────────────────────────
 
 export interface DischargeAsesmen {
-  tanggalRencanaKRS:  string;
-  kondisiPulang:      KondisiPulang | "";
-  caregiverNama:      string;
-  caregiverHubungan:  HubunganCaregiver | "";
-  caregiverKemampuan: KemampuanCaregiver | "";
-  kebutuhanHomecare:  boolean;
-  jenisHomecare:      string[];
-  kebutuhanAlatBantu: boolean;
-  alatBantu:          string[];
-  jarakFaskes:        string;
-  kondisiSosEk:       KondisiSosEk | "";
-  catatan:            string;
+  tanggalRencanaKRS:        string;
+  kondisiPulang:            KondisiPulang | "";
+  caregiverNama:            string;
+  caregiverHubungan:        HubunganCaregiver | "";
+  caregiverKemampuan:       KemampuanCaregiver | "";
+  kebutuhanHomecare:        boolean;
+  jenisHomecare:            string[];
+  kebutuhanAlatBantu:       boolean;
+  alatBantu:                string[];
+  dukunganKeluarga:         DukunganKeluarga | "";
+  kepatuhanObatSebelumnya:  KepatuhanObat | "";
+  riwayatReadmisi:          RiwayatReadmisi | "";
+  catatan:                  string;
 }
 
 export interface EdukasiItem {
@@ -77,13 +83,16 @@ export interface DischargeFollowUp {
 export interface ResumeMedis {
   diagnosaMasuk:        string;
   diagnosaAkhir:        string;
+  kodeIcd10Akhir:       string;    // PMK 24/2022: kode ICD-10 eksplisit
   prosedurUtama:        string;
   ringkasanPenyakit:    string;
   kondisiSaatPulang:    string;
+  statusFungsional:     string;    // PMK 24/2022: status fungsional/ADL saat pulang
   terapiYangDiberikan:  string;
   instruksiPulang:      string;
   pembatasanAktivitas:  string;
   dietPulang:           string;
+  tandaTanganPasien:    boolean;   // PMK 24/2022: TTD pasien/keluarga
   dpjpApproved:         boolean;
   dpjpApprovedAt:       string;
 }
@@ -129,6 +138,14 @@ export const ALAT_BANTU_OPTIONS = [
   "Nebulizer", "Tensimeter", "Pulse Oximeter", "Kateter Urine",
 ];
 
+export const RISIKO_CONFIG: Record<RisikoReadmisi, {
+  bg: string; border: string; text: string; dot: string;
+}> = {
+  RENDAH: { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500" },
+  SEDANG: { bg: "bg-amber-50",   border: "border-amber-200",   text: "text-amber-700",   dot: "bg-amber-500"  },
+  TINGGI: { bg: "bg-red-50",     border: "border-red-200",     text: "text-red-700",     dot: "bg-red-500"    },
+};
+
 export const TOPIK_EDUKASI_TEMPLATE: Array<{
   id: string; topik: string; kategori: string;
 }> = [
@@ -151,7 +168,7 @@ export const KATEGORI_COLOR: Record<string, string> = {
   Farmasi:       "bg-violet-100 text-violet-700",
   Nutrisi:       "bg-emerald-100 text-emerald-700",
   Rehabilitasi:  "bg-sky-100 text-sky-700",
-  Keperawatan:   "bg-indigo-100 text-indigo-700",
+  Keperawatan:   "bg-sky-100 text-sky-700",
   Administratif: "bg-amber-100 text-amber-700",
   Preventif:     "bg-teal-100 text-teal-700",
 };
@@ -173,6 +190,13 @@ export function makeInitialEdukasi(): EdukasiItem[] {
     pemahaman: "",
     catatan: "",
   }));
+}
+
+export function calcRisikoReadmisi(d: DischargeAsesmen): RisikoReadmisi | null {
+  if (!d.dukunganKeluarga && !d.kepatuhanObatSebelumnya && !d.riwayatReadmisi) return null;
+  if (d.dukunganKeluarga === "Tidak Ada" || d.kepatuhanObatSebelumnya === "Tidak Patuh" || d.riwayatReadmisi === ">1x") return "TINGGI";
+  if (d.dukunganKeluarga === "Ada tapi Terbatas" || d.kepatuhanObatSebelumnya === "Kadang" || d.riwayatReadmisi === "1x") return "SEDANG";
+  return "RENDAH";
 }
 
 export function isAsesmenComplete(a: DischargeAsesmen): boolean {
@@ -200,18 +224,19 @@ export function isResumeComplete(r: ResumeMedis): boolean {
 export const DISCHARGE_MOCK: Record<string, DischargePlanData> = {
   "RM-2025-003": {
     asesmen: {
-      tanggalRencanaKRS:  "2026-05-12",
-      kondisiPulang:      "Membaik",
-      caregiverNama:      "Budi Fauzi",
-      caregiverHubungan:  "Anak",
-      caregiverKemampuan: "Mampu",
-      kebutuhanHomecare:  false,
-      jenisHomecare:      [],
-      kebutuhanAlatBantu: true,
-      alatBantu:          ["Tensimeter", "Pulse Oximeter"],
-      jarakFaskes:        "< 5 km",
-      kondisiSosEk:       "Cukup",
-      catatan:            "Pasien tinggal di rumah 1 lantai. Anak (Budi Fauzi) mampu merawat secara mandiri dan memahami kondisi ayah.",
+      tanggalRencanaKRS:       "2026-05-12",
+      kondisiPulang:           "Membaik",
+      caregiverNama:           "Budi Fauzi",
+      caregiverHubungan:       "Anak",
+      caregiverKemampuan:      "Mampu",
+      kebutuhanHomecare:       false,
+      jenisHomecare:           [],
+      kebutuhanAlatBantu:      true,
+      alatBantu:               ["Tensimeter", "Pulse Oximeter"],
+      dukunganKeluarga:        "Ada & Mampu",
+      kepatuhanObatSebelumnya: "Kadang",
+      riwayatReadmisi:         "1x",
+      catatan: "Pasien tinggal di rumah 1 lantai. Anak (Budi Fauzi) mampu merawat secara mandiri dan memahami kondisi ayah.",
     },
     edukasi: makeInitialEdukasi(),
     obatPulang: [
@@ -239,13 +264,16 @@ export const DISCHARGE_MOCK: Record<string, DischargePlanData> = {
     resume: {
       diagnosaMasuk:       "Sesak napas memberat, edema tungkai bilateral",
       diagnosaAkhir:       "Gagal Jantung Kongestif Dekompensata NYHA III (EF 28%), Hipertensi tidak terkontrol, Diabetes Melitus Tipe 2",
+      kodeIcd10Akhir:      "I50.0",
       prosedurUtama:       "Terapi medikamentosa GJK (diuretik IV → oral), Ekokardiografi (5 Mei 2026), Rehabilitasi Kardiak Fase I",
       ringkasanPenyakit:   "Pasien laki-laki 67 tahun masuk dengan keluhan sesak napas memberat sejak 3 hari dan kaki bengkak bilateral. Pemeriksaan: TD 150/95 mmHg, Nadi 98×/mnt, SpO₂ 92% room air, ronkhi basah bilateral, edema pretibial +2. Ekokardiografi: EF 28%. Terapi: Furosemide 40 mg IV bolus, O₂ 4 L/mnt, restriksi cairan 1.000 ml/hari. Transisi ke terapi oral: Furosemide + Candesartan + Bisoprolol + Spironolactone. Konsultasi gizi: Diet Jantung III 1.700 kkal/hari, Na < 2 g/hari. Konsultasi rehab medik: Cardiac Rehab Fase I dimulai hari ke-5. Kondisi membaik bertahap: edema berkurang, sesak berkurang, TD terkontrol.",
       kondisiSaatPulang:   "Kondisi umum membaik. TD 128/80 mmHg, Nadi 80×/mnt reguler, RR 17×/mnt, SpO₂ 97% room air. Edema tungkai minimal grade I. Sesak napas minimal saat aktivitas sedang. BB turun 3 kg dari saat masuk.",
+      statusFungsional:    "ADL terbatas (Barthel 65/100). Masih memerlukan bantuan mandi dan berpakaian. Mobilisasi dengan pendampingan 1 orang. Dianjutkan Cardiac Rehab Fase II outpatient.",
       terapiYangDiberikan: "Furosemide 40 mg IV → oral, Candesartan 8 mg oral, Bisoprolol 5 mg oral, Spironolactone 25 mg oral, Pantoprazole 40 mg IV (dihentikan).",
       instruksiPulang:     "1. Minum obat teratur sesuai resep — jangan dihentikan tanpa konsultasi dokter\n2. Timbang berat badan setiap pagi sebelum makan, catat hasilnya\n3. Restriksi cairan: maks 1.500 ml/hari di rumah\n4. Diet rendah garam: Na < 2 g/hari\n5. Aktivitas bertahap sesuai program Cardiac Rehab\n6. Kontrol Poliklinik Jantung 19 Mei 2026",
       pembatasanAktivitas: "Aktivitas ringan-sedang. Hindari mengangkat beban berat. Lanjutkan Cardiac Rehab Fase II (outpatient).",
       dietPulang:          "Diet Jantung III 1.700 kkal/hari. Restriksi Na < 2 g/hari. Restriksi cairan 1.500 ml/hari. Diet DM: karbohidrat kompleks, hindari gula sederhana.",
+      tandaTanganPasien:   false,
       dpjpApproved:        false,
       dpjpApprovedAt:      "",
     },

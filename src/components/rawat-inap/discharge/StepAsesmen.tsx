@@ -2,14 +2,16 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Heart, User, Home, MapPin, Stethoscope, Calendar, BedDouble, FileText,
+  Heart, User, Home, Activity, Stethoscope, Calendar, BedDouble, FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RawatInapPatientDetail } from "@/lib/data";
 import {
   type DischargeAsesmen, type HubunganCaregiver, type KemampuanCaregiver,
-  type KondisiSosEk, KONDISI_PULANG_LIST, KONDISI_PULANG_CONFIG,
+  type DukunganKeluarga, type KepatuhanObat, type RiwayatReadmisi,
+  KONDISI_PULANG_LIST, KONDISI_PULANG_CONFIG,
   KEMAMPUAN_CONFIG, HOMECARE_OPTIONS, ALAT_BANTU_OPTIONS,
+  calcRisikoReadmisi, RISIKO_CONFIG,
 } from "./dischargeShared";
 
 type Props = {
@@ -20,30 +22,51 @@ type Props = {
 
 const HUBUNGAN_OPTIONS: HubunganCaregiver[] = ["Suami", "Istri", "Anak", "Orang Tua", "Saudara", "Lainnya"];
 const KEMAMPUAN_LIST: KemampuanCaregiver[]  = ["Mampu", "Perlu Pendampingan", "Tidak Mampu"];
-const JARAK_OPTIONS = ["< 5 km", "5–15 km", "> 15 km"];
-const SOSEK_OPTIONS: KondisiSosEk[] = ["Baik", "Cukup", "Kurang"];
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+const DUKUNGAN_OPTIONS: DukunganKeluarga[] = ["Ada & Mampu", "Ada tapi Terbatas", "Tidak Ada"];
+const KEPATUHAN_OPTIONS: KepatuhanObat[]   = ["Patuh", "Kadang", "Tidak Patuh"];
+const READMISI_OPTIONS: RiwayatReadmisi[]  = ["Tidak", "1x", ">1x"];
+
+const DUKUNGAN_CONFIG: Record<DukunganKeluarga, { sel: string }> = {
+  "Ada & Mampu":       { sel: "border-emerald-300 bg-emerald-50 text-emerald-700" },
+  "Ada tapi Terbatas": { sel: "border-amber-300 bg-amber-50 text-amber-700" },
+  "Tidak Ada":         { sel: "border-red-300 bg-red-50 text-red-700" },
+};
+const KEPATUHAN_CONFIG: Record<KepatuhanObat, { sel: string }> = {
+  "Patuh":       { sel: "border-emerald-300 bg-emerald-50 text-emerald-700" },
+  "Kadang":      { sel: "border-amber-300 bg-amber-50 text-amber-700" },
+  "Tidak Patuh": { sel: "border-red-300 bg-red-50 text-red-700" },
+};
+const READMISI_CONFIG: Record<RiwayatReadmisi, { sel: string }> = {
+  "Tidak": { sel: "border-emerald-300 bg-emerald-50 text-emerald-700" },
+  "1x":    { sel: "border-amber-300 bg-amber-50 text-amber-700" },
+  ">1x":   { sel: "border-red-300 bg-red-50 text-red-700" },
+};
+
+const RISIKO_DESC: Record<string, string> = {
+  RENDAH: "Kondisi mendukung pemulangan. Tetap edukasi dan jadwalkan kontrol.",
+  SEDANG: "Perlu perhatian lebih. Pastikan jadwal kontrol dan edukasi keluarga.",
+  TINGGI: "Risiko tinggi. Pertimbangkan homecare atau rujukan FKTP intensif.",
+};
+
+function Toggle({ checked }: { checked: boolean }) {
   return (
-    <button
-      onClick={() => onChange(!checked)}
-      className={cn(
-        "relative h-5 w-9 shrink-0 rounded-full transition-colors duration-200",
-        checked ? "bg-indigo-500" : "bg-slate-300",
-      )}
-    >
+    <div className={cn(
+      "pointer-events-none relative h-5 w-9 shrink-0 rounded-full transition-colors duration-200",
+      checked ? "bg-sky-500" : "bg-slate-300",
+    )}>
       <span className={cn(
         "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200",
         checked ? "translate-x-4" : "translate-x-0.5",
       )} />
-    </button>
+    </div>
   );
 }
 
 function SectionLabel({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
   return (
     <div className="mb-3 flex items-center gap-2 border-b border-slate-100 pb-2">
-      <Icon size={12} className="text-indigo-400" />
+      <Icon size={12} className="text-sky-500" />
       <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
     </div>
   );
@@ -74,6 +97,7 @@ export default function StepAsesmen({ data, onChange, patient }: Props) {
   const kondisiCfg = data.kondisiPulang ? KONDISI_PULANG_CONFIG[data.kondisiPulang] : null;
   const initials   = patient.name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase();
   const lama       = hariDirawat(patient.tglMasuk);
+  const risiko     = calcRisikoReadmisi(data);
 
   return (
     <div className="flex flex-col gap-4 xl:flex-row">
@@ -96,6 +120,7 @@ export default function StepAsesmen({ data, onChange, patient }: Props) {
                   return (
                     <button
                       key={k}
+                      type="button"
                       onClick={() => set("kondisiPulang", k)}
                       className={cn(
                         "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all duration-150",
@@ -116,7 +141,7 @@ export default function StepAsesmen({ data, onChange, patient }: Props) {
                 type="date"
                 value={data.tanggalRencanaKRS}
                 onChange={e => set("tanggalRencanaKRS", e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
               />
             </div>
           </div>
@@ -133,7 +158,7 @@ export default function StepAsesmen({ data, onChange, patient }: Props) {
                   value={data.caregiverNama}
                   onChange={e => set("caregiverNama", e.target.value)}
                   placeholder="Nama penanggung jawab..."
-                  className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
                 />
               </div>
               <div>
@@ -141,7 +166,7 @@ export default function StepAsesmen({ data, onChange, patient }: Props) {
                 <select
                   value={data.caregiverHubungan}
                   onChange={e => set("caregiverHubungan", e.target.value as HubunganCaregiver)}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
                 >
                   <option value="">Pilih...</option>
                   {HUBUNGAN_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
@@ -154,6 +179,7 @@ export default function StepAsesmen({ data, onChange, patient }: Props) {
                 {KEMAMPUAN_LIST.map(k => (
                   <button
                     key={k}
+                    type="button"
                     onClick={() => set("caregiverKemampuan", k)}
                     className={cn(
                       "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all duration-150",
@@ -174,16 +200,21 @@ export default function StepAsesmen({ data, onChange, patient }: Props) {
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <SectionLabel icon={Home} label="Kebutuhan Pasca Pulang" />
           <div className="space-y-2">
-            <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2.5">
+            <button
+              type="button"
+              onClick={() => set("kebutuhanHomecare", !data.kebutuhanHomecare)}
+              className="flex w-full items-center justify-between rounded-lg bg-slate-50 px-3 py-2.5 text-left transition hover:bg-slate-100 active:bg-slate-200"
+            >
               <div>
                 <p className="text-xs font-semibold text-slate-700">Perlu Home Care</p>
                 <p className="text-[11px] text-slate-400">Perawatan oleh nakes di rumah</p>
               </div>
-              <Toggle checked={data.kebutuhanHomecare} onChange={v => set("kebutuhanHomecare", v)} />
-            </div>
-            <AnimatePresence>
+              <Toggle checked={data.kebutuhanHomecare} />
+            </button>
+            <AnimatePresence initial={false}>
               {data.kebutuhanHomecare && (
                 <motion.div
+                  key="homecare-options"
                   initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}
                   className="overflow-hidden"
@@ -192,11 +223,12 @@ export default function StepAsesmen({ data, onChange, patient }: Props) {
                     {HOMECARE_OPTIONS.map(opt => (
                       <button
                         key={opt}
+                        type="button"
                         onClick={() => toggleOption("jenisHomecare", opt)}
                         className={cn(
                           "rounded-lg border px-2.5 py-1 text-xs font-medium transition-all",
                           data.jenisHomecare.includes(opt)
-                            ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                            ? "border-sky-300 bg-sky-50 text-sky-700"
                             : "border-slate-200 bg-white text-slate-500 hover:border-slate-300",
                         )}
                       >
@@ -208,16 +240,21 @@ export default function StepAsesmen({ data, onChange, patient }: Props) {
               )}
             </AnimatePresence>
 
-            <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2.5">
+            <button
+              type="button"
+              onClick={() => set("kebutuhanAlatBantu", !data.kebutuhanAlatBantu)}
+              className="flex w-full items-center justify-between rounded-lg bg-slate-50 px-3 py-2.5 text-left transition hover:bg-slate-100 active:bg-slate-200"
+            >
               <div>
                 <p className="text-xs font-semibold text-slate-700">Perlu Alat Bantu</p>
                 <p className="text-[11px] text-slate-400">Peralatan medis / mobilitas</p>
               </div>
-              <Toggle checked={data.kebutuhanAlatBantu} onChange={v => set("kebutuhanAlatBantu", v)} />
-            </div>
-            <AnimatePresence>
+              <Toggle checked={data.kebutuhanAlatBantu} />
+            </button>
+            <AnimatePresence initial={false}>
               {data.kebutuhanAlatBantu && (
                 <motion.div
+                  key="alatbantu-options"
                   initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}
                   className="overflow-hidden"
@@ -226,11 +263,12 @@ export default function StepAsesmen({ data, onChange, patient }: Props) {
                     {ALAT_BANTU_OPTIONS.map(opt => (
                       <button
                         key={opt}
+                        type="button"
                         onClick={() => toggleOption("alatBantu", opt)}
                         className={cn(
                           "rounded-lg border px-2.5 py-1 text-xs font-medium transition-all",
                           data.alatBantu.includes(opt)
-                            ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                            ? "border-sky-300 bg-sky-50 text-sky-700"
                             : "border-slate-200 bg-white text-slate-500 hover:border-slate-300",
                         )}
                       >
@@ -244,60 +282,110 @@ export default function StepAsesmen({ data, onChange, patient }: Props) {
           </div>
         </div>
 
-        {/* Aksesibilitas & Catatan */}
+        {/* Skrining Risiko Re-admisi */}
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <SectionLabel icon={MapPin} label="Aksesibilitas & Sosial" />
+          <SectionLabel icon={Activity} label="Skrining Risiko Re-admisi" />
           <div className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <p className="mb-1.5 text-[11px] font-semibold text-slate-500">Jarak ke Faskes</p>
-                <div className="flex gap-1.5">
-                  {JARAK_OPTIONS.map(j => (
-                    <button
-                      key={j}
-                      onClick={() => set("jarakFaskes", j)}
-                      className={cn(
-                        "flex-1 rounded-lg border py-1.5 text-xs font-medium transition-all",
-                        data.jarakFaskes === j
-                          ? "border-indigo-300 bg-indigo-50 text-indigo-700"
-                          : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300",
-                      )}
-                    >
-                      {j}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="mb-1.5 text-[11px] font-semibold text-slate-500">Kondisi Sosek</p>
-                <div className="flex gap-1.5">
-                  {SOSEK_OPTIONS.map(s => (
-                    <button
-                      key={s}
-                      onClick={() => set("kondisiSosEk", s)}
-                      className={cn(
-                        "flex-1 rounded-lg border py-1.5 text-xs font-medium transition-all",
-                        data.kondisiSosEk === s
-                          ? "border-indigo-300 bg-indigo-50 text-indigo-700"
-                          : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300",
-                      )}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
+
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold text-slate-500">Dukungan keluarga / caregiver di rumah</p>
+              <div className="flex flex-wrap gap-1.5">
+                {DUKUNGAN_OPTIONS.map(opt => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => set("dukunganKeluarga", opt)}
+                    className={cn(
+                      "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all duration-150",
+                      data.dukunganKeluarga === opt
+                        ? `${DUKUNGAN_CONFIG[opt].sel} border shadow-sm`
+                        : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300",
+                    )}
+                  >
+                    {opt}
+                  </button>
+                ))}
               </div>
             </div>
+
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold text-slate-500">Kepatuhan minum obat sebelumnya</p>
+              <div className="flex flex-wrap gap-1.5">
+                {KEPATUHAN_OPTIONS.map(opt => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => set("kepatuhanObatSebelumnya", opt)}
+                    className={cn(
+                      "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all duration-150",
+                      data.kepatuhanObatSebelumnya === opt
+                        ? `${KEPATUHAN_CONFIG[opt].sel} border shadow-sm`
+                        : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300",
+                    )}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold text-slate-500">Riwayat rawat inap ulang dalam 30 hari terakhir</p>
+              <div className="flex flex-wrap gap-1.5">
+                {READMISI_OPTIONS.map(opt => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => set("riwayatReadmisi", opt)}
+                    className={cn(
+                      "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all duration-150",
+                      data.riwayatReadmisi === opt
+                        ? `${READMISI_CONFIG[opt].sel} border shadow-sm`
+                        : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300",
+                    )}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <AnimatePresence>
+              {risiko && (
+                <motion.div
+                  key="risiko-result"
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className={cn(
+                    "flex items-start gap-2.5 rounded-lg border px-3 py-2.5",
+                    RISIKO_CONFIG[risiko].bg, RISIKO_CONFIG[risiko].border,
+                  )}
+                >
+                  <div className={cn("mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full", RISIKO_CONFIG[risiko].dot)} />
+                  <div>
+                    <p className={cn("text-xs font-bold", RISIKO_CONFIG[risiko].text)}>
+                      Risiko Re-admisi: {risiko}
+                    </p>
+                    <p className={cn("text-[11px]", RISIKO_CONFIG[risiko].text)}>
+                      {RISIKO_DESC[risiko]}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <div>
               <p className="mb-1 text-[11px] font-semibold text-slate-500">Catatan Khusus</p>
               <textarea
                 value={data.catatan}
                 onChange={e => set("catatan", e.target.value)}
                 rows={3}
-                placeholder="Kondisi rumah, lingkungan, dukungan keluarga, kendala khusus..."
-                className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                placeholder="Kondisi rumah, lingkungan, kendala khusus, catatan nakes..."
+                className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
               />
             </div>
+
           </div>
         </div>
 
@@ -310,7 +398,7 @@ export default function StepAsesmen({ data, onChange, patient }: Props) {
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Informasi Pasien</p>
           <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-sm font-bold text-white">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-600 text-sm font-bold text-white">
               {initials}
             </div>
             <div className="min-w-0">
@@ -411,6 +499,38 @@ export default function StepAsesmen({ data, onChange, patient }: Props) {
                     Alat Bantu: {data.alatBantu.length > 0 ? data.alatBantu.join(", ") : "Jenis belum dipilih"}
                   </p>
                 )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Risiko re-admisi preview */}
+        <AnimatePresence>
+          {risiko && (
+            <motion.div
+              key="risiko-preview"
+              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className={cn(
+                "rounded-xl border p-3.5",
+                RISIKO_CONFIG[risiko].bg, RISIKO_CONFIG[risiko].border,
+              )}
+            >
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">Risiko Re-admisi</p>
+              <div className="flex items-center gap-2 mb-2">
+                <div className={cn("h-3 w-3 shrink-0 rounded-full", RISIKO_CONFIG[risiko].dot)} />
+                <p className={cn("text-sm font-bold", RISIKO_CONFIG[risiko].text)}>{risiko}</p>
+              </div>
+              <div className="space-y-1">
+                {[
+                  { label: "Dukungan", val: data.dukunganKeluarga },
+                  { label: "Kepatuhan Obat", val: data.kepatuhanObatSebelumnya },
+                  { label: "Readmisi 30hr", val: data.riwayatReadmisi },
+                ].filter(r => r.val).map(({ label, val }) => (
+                  <div key={label} className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-slate-500">{label}</span>
+                    <span className={cn("text-[10px] font-semibold", RISIKO_CONFIG[risiko].text)}>{val}</span>
+                  </div>
+                ))}
               </div>
             </motion.div>
           )}

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  FileText, CheckCircle2, Printer, ShieldCheck, Lock, AlertCircle, X,
+  FileText, CheckCircle2, Printer, ShieldCheck, Lock, AlertCircle, X, UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RawatInapPatientDetail } from "@/lib/data";
@@ -44,8 +44,22 @@ function FormField({
         onChange={e => onChange(e.target.value)}
         rows={rows}
         placeholder={placeholder}
-        className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+        className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
       />
+    </div>
+  );
+}
+
+function Toggle({ checked }: { checked: boolean }) {
+  return (
+    <div className={cn(
+      "pointer-events-none relative h-5 w-9 shrink-0 rounded-full transition-colors duration-200",
+      checked ? "bg-sky-500" : "bg-slate-300",
+    )}>
+      <span className={cn(
+        "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200",
+        checked ? "translate-x-4" : "translate-x-0.5",
+      )} />
     </div>
   );
 }
@@ -72,14 +86,12 @@ function LivePreview({
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      {/* Paper header */}
       <div className="border-b-2 border-slate-700 bg-slate-800 px-4 py-2.5 text-center">
         <p className="text-[9px] font-bold uppercase tracking-widest text-white">Resume Medis Rawat Inap</p>
-        <p className="text-[8px] text-slate-400">PMK 269/2008</p>
+        <p className="text-[8px] text-slate-400">PMK 24/2022</p>
       </div>
 
       <div className="space-y-3 p-4">
-        {/* Patient identity */}
         <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 rounded-lg border border-slate-100 bg-slate-50 p-2.5">
           {[
             ["Pasien",   patient.name],
@@ -93,12 +105,11 @@ function LivePreview({
           ].map(([label, val]) => (
             <div key={label}>
               <p className="text-[8px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
-              <p className="text-[10px] font-medium text-slate-700 leading-tight">{val}</p>
+              <p className="text-[10px] font-medium leading-tight text-slate-700">{val}</p>
             </div>
           ))}
         </div>
 
-        {/* Kondisi badge */}
         {kondisiCfg && (
           <div className="flex items-center gap-2">
             <p className="text-[8px] font-bold uppercase tracking-wide text-slate-400">Kondisi Pulang:</p>
@@ -109,30 +120,43 @@ function LivePreview({
         )}
 
         <div className="space-y-2.5">
-          <PreviewField label="Diagnosis Masuk"   value={data.diagnosaMasuk} />
-          <PreviewField label="Diagnosis Akhir"   value={data.diagnosaAkhir} />
-          <PreviewField label="Prosedur"           value={data.prosedurUtama} />
-          <PreviewField label="Ringkasan Penyakit" value={data.ringkasanPenyakit.slice(0, 300) + (data.ringkasanPenyakit.length > 300 ? "..." : "")} />
+          <PreviewField label="Diagnosis Masuk"    value={data.diagnosaMasuk} />
+          <PreviewField label="Diagnosis Akhir"    value={data.diagnosaAkhir} />
+          {data.kodeIcd10Akhir && <PreviewField label="Kode ICD-10"     value={data.kodeIcd10Akhir} />}
+          <PreviewField label="Prosedur"            value={data.prosedurUtama} />
+          <PreviewField label="Ringkasan Penyakit"  value={data.ringkasanPenyakit.slice(0, 300) + (data.ringkasanPenyakit.length > 300 ? "..." : "")} />
           <PreviewField label="Kondisi Saat Pulang" value={data.kondisiSaatPulang} />
-          <PreviewField label="Instruksi Pulang"   value={data.instruksiPulang.slice(0, 200) + (data.instruksiPulang.length > 200 ? "..." : "")} />
+          {data.statusFungsional && <PreviewField label="Status Fungsional" value={data.statusFungsional} />}
+          <PreviewField label="Instruksi Pulang"    value={data.instruksiPulang.slice(0, 200) + (data.instruksiPulang.length > 200 ? "..." : "")} />
           {data.pembatasanAktivitas && <PreviewField label="Pembatasan Aktivitas" value={data.pembatasanAktivitas} />}
-          {data.dietPulang          && <PreviewField label="Diet Pulang"           value={data.dietPulang}          />}
+          {data.dietPulang          && <PreviewField label="Diet Pulang"           value={data.dietPulang} />}
         </div>
 
-        {/* Signature */}
         <div className="grid grid-cols-2 gap-3 pt-1">
-          <div className="rounded-lg border border-slate-200 p-2 text-center">
-            <p className="text-[8px] font-bold uppercase text-slate-400">Perawat / PPA</p>
-            <div className="my-5" />
-            <div className="border-t border-slate-300" />
-            <p className="mt-1 text-[8px] text-slate-400">( _________ )</p>
+          <div className={cn(
+            "rounded-lg border p-2 text-center",
+            data.tandaTanganPasien ? "border-sky-200 bg-sky-50" : "border-slate-200",
+          )}>
+            <p className="text-[8px] font-bold uppercase text-slate-400">Pasien / Keluarga</p>
+            {data.tandaTanganPasien ? (
+              <div className="my-2 flex flex-col items-center gap-0.5">
+                <CheckCircle2 size={12} className="text-sky-500" />
+                <p className="text-[8px] font-semibold text-sky-600">Telah Menandatangani</p>
+              </div>
+            ) : (
+              <>
+                <div className="my-5" />
+                <div className="border-t border-slate-300" />
+                <p className="mt-1 text-[8px] text-slate-400">( _________ )</p>
+              </>
+            )}
           </div>
           <div className={cn(
             "rounded-lg border p-2 text-center",
             data.dpjpApproved ? "border-emerald-200 bg-emerald-50" : "border-slate-200",
           )}>
             <p className="text-[8px] font-bold uppercase text-slate-400">DPJP</p>
-            <p className="text-[9px] font-medium text-slate-700 mt-0.5 leading-tight">{patient.dpjp}</p>
+            <p className="mt-0.5 text-[9px] font-medium leading-tight text-slate-700">{patient.dpjp}</p>
             <div className="my-3" />
             {data.dpjpApproved ? (
               <div className="flex flex-col items-center gap-0.5">
@@ -187,17 +211,25 @@ function PrintModal({
         >
           <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
             <div className="flex items-center gap-2.5">
-              <FileText size={16} className="text-indigo-600" />
+              <FileText size={16} className="text-sky-600" />
               <div>
                 <p className="text-sm font-bold text-slate-800">Preview Resume Medis</p>
-                <p className="text-[11px] text-slate-500">PMK 269/2008 — Dokumen wajib saat pemulangan</p>
+                <p className="text-[11px] text-slate-500">PMK 24/2022 — Dokumen wajib selesai 1×24 jam setelah pemulangan</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={handlePrint} className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-indigo-700">
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="flex items-center gap-2 rounded-xl bg-sky-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-sky-700"
+              >
                 <Printer size={13} /> Print / Cetak
               </button>
-              <button onClick={onClose} className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+              >
                 <X size={16} />
               </button>
             </div>
@@ -212,7 +244,16 @@ function PrintModal({
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                {[["Nama Pasien", patient.name], ["No. Rekam Medis", patient.noRM], ["Kelamin / Usia", `${patient.gender === "L" ? "Laki-laki" : "Perempuan"}, ${patient.age} tahun`], ["No. Kunjungan", patient.noKunjungan], ["Ruangan / Bed", `${patient.ruangan} / ${patient.noBed} (${patient.kelas.replace(/_/g, " ")})`], ["DPJP", patient.dpjp], ["Tanggal MRS", patient.tglMasuk], ["Tanggal KRS", asesmen.tanggalRencanaKRS ? new Date(asesmen.tanggalRencanaKRS).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "—"]].map(([label, val]) => (
+                {[
+                  ["Nama Pasien", patient.name],
+                  ["No. Rekam Medis", patient.noRM],
+                  ["Kelamin / Usia", `${patient.gender === "L" ? "Laki-laki" : "Perempuan"}, ${patient.age} tahun`],
+                  ["No. Kunjungan", patient.noKunjungan],
+                  ["Ruangan / Bed", `${patient.ruangan} / ${patient.noBed} (${patient.kelas.replace(/_/g, " ")})`],
+                  ["DPJP", patient.dpjp],
+                  ["Tanggal MRS", patient.tglMasuk],
+                  ["Tanggal KRS", asesmen.tanggalRencanaKRS ? new Date(asesmen.tanggalRencanaKRS).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "—"],
+                ].map(([label, val]) => (
                   <div key={label}>
                     <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
                     <p className="text-xs font-medium text-slate-700">{val}</p>
@@ -226,26 +267,40 @@ function PrintModal({
                 </div>
               )}
               <hr className="border-slate-200" />
-              {[{ label: "Diagnosis Masuk", val: data.diagnosaMasuk }, { label: "Diagnosis Akhir (ICD-10)", val: data.diagnosaAkhir }, { label: "Prosedur / Tindakan", val: data.prosedurUtama }].map(({ label, val }) => (
+              {[
+                { label: "Diagnosis Masuk",                 val: data.diagnosaMasuk  },
+                { label: "Diagnosis Akhir",                 val: data.diagnosaAkhir  },
+                { label: "Kode ICD-10 Akhir",               val: data.kodeIcd10Akhir },
+                { label: "Prosedur / Tindakan",             val: data.prosedurUtama  },
+              ].map(({ label, val }) => val ? (
                 <div key={label}>
                   <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
-                  <p className="mt-0.5 text-xs text-slate-700 leading-relaxed">{val || "—"}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-slate-700">{val}</p>
                 </div>
-              ))}
+              ) : null)}
               <hr className="border-slate-200" />
               <div><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Ringkasan Perjalanan Penyakit & Tatalaksana</p><p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-slate-700">{data.ringkasanPenyakit || "—"}</p></div>
               <div><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Kondisi Saat Pulang</p><p className="mt-0.5 text-xs leading-relaxed text-slate-700">{data.kondisiSaatPulang || "—"}</p></div>
+              {data.statusFungsional && <div><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Status Fungsional (ADL)</p><p className="mt-0.5 text-xs leading-relaxed text-slate-700">{data.statusFungsional}</p></div>}
               <div><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Terapi yang Diberikan</p><p className="mt-0.5 text-xs leading-relaxed text-slate-700">{data.terapiYangDiberikan || "—"}</p></div>
               <hr className="border-slate-200" />
               <div><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Instruksi Pulang</p><p className="mt-0.5 whitespace-pre-wrap text-xs leading-relaxed text-slate-700">{data.instruksiPulang || "—"}</p></div>
               {data.pembatasanAktivitas && <div><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Pembatasan Aktivitas</p><p className="mt-0.5 text-xs text-slate-700">{data.pembatasanAktivitas}</p></div>}
               {data.dietPulang && <div><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Diet Pulang</p><p className="mt-0.5 text-xs text-slate-700">{data.dietPulang}</p></div>}
               <div className="mt-6 grid grid-cols-2 gap-8">
-                <div className="rounded-lg border border-slate-200 p-3 text-center">
-                  <p className="mb-1 text-[9px] font-bold uppercase tracking-wide text-slate-400">Diverifikasi Oleh</p>
-                  <p className="text-[10px] text-slate-500">Perawat / PPA</p>
-                  <div className="my-8 border-b border-slate-300" />
-                  <p className="text-[10px] font-medium text-slate-700">( _________________ )</p>
+                <div className={cn("rounded-lg border p-3 text-center", data.tandaTanganPasien ? "border-sky-200 bg-sky-50" : "border-slate-200")}>
+                  <p className="mb-1 text-[9px] font-bold uppercase tracking-wide text-slate-400">Pasien / Keluarga</p>
+                  {data.tandaTanganPasien ? (
+                    <div className="flex flex-col items-center gap-1 py-4">
+                      <CheckCircle2 size={16} className="text-sky-500" />
+                      <p className="text-[9px] font-semibold text-sky-600">Telah Menandatangani</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="my-8 border-b border-slate-300" />
+                      <p className="text-[10px] font-medium text-slate-700">( _________________ )</p>
+                    </>
+                  )}
                 </div>
                 <div className={cn("rounded-lg border p-3 text-center", data.dpjpApproved ? "border-emerald-200 bg-emerald-50" : "border-slate-200")}>
                   <p className="mb-1 text-[9px] font-bold uppercase tracking-wide text-slate-400">DPJP</p>
@@ -279,9 +334,11 @@ export default function StepResumeMedis({ data, patient, asesmen, onChange }: Pr
     onChange({ ...data, [key]: val });
   }
 
-  const canApprove = data.ringkasanPenyakit.trim().length > 0 &&
+  const canApprove =
+    data.ringkasanPenyakit.trim().length > 0 &&
     data.kondisiSaatPulang.trim().length > 0 &&
-    data.instruksiPulang.trim().length > 0;
+    data.instruksiPulang.trim().length > 0 &&
+    data.kodeIcd10Akhir.trim().length > 0;
 
   function handleApprove() {
     if (!canApprove) return;
@@ -298,11 +355,11 @@ export default function StepResumeMedis({ data, patient, asesmen, onChange }: Pr
         {/* ── Left: Form ── */}
         <div className="min-w-0 flex-1 space-y-3">
 
-          {/* Auto-fill info */}
+          {/* Auto-fill identity */}
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <FileText size={13} className="text-indigo-600" />
+                <FileText size={13} className="text-sky-600" />
                 <p className="text-xs font-bold text-slate-700">Identitas & Data Episode</p>
               </div>
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-500">Auto-fill</span>
@@ -322,13 +379,78 @@ export default function StepResumeMedis({ data, patient, asesmen, onChange }: Pr
             <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Ringkasan Klinis</p>
             <div className="space-y-3">
               <div className="grid gap-3 sm:grid-cols-2">
-                <FormField label="Diagnosis Masuk" value={data.diagnosaMasuk} onChange={v => set("diagnosaMasuk", v)} rows={2} placeholder="Keluhan / diagnosis saat masuk RS..." />
-                <FormField label="Diagnosis Akhir (ICD-10)" value={data.diagnosaAkhir} onChange={v => set("diagnosaAkhir", v)} rows={2} placeholder="Diagnosis akhir ICD-10..." />
+                <FormField
+                  label="Diagnosis Masuk"
+                  value={data.diagnosaMasuk}
+                  onChange={v => set("diagnosaMasuk", v)}
+                  rows={2}
+                  placeholder="Keluhan / diagnosis saat masuk RS..."
+                />
+                <FormField
+                  label="Diagnosis Akhir"
+                  value={data.diagnosaAkhir}
+                  onChange={v => set("diagnosaAkhir", v)}
+                  rows={2}
+                  placeholder="Nama diagnosis akhir lengkap..."
+                />
               </div>
-              <FormField label="Prosedur / Tindakan" value={data.prosedurUtama} onChange={v => set("prosedurUtama", v)} rows={2} placeholder="Prosedur diagnostik dan terapeutik..." />
-              <FormField label="Ringkasan Perjalanan Penyakit & Tatalaksana" value={data.ringkasanPenyakit} onChange={v => set("ringkasanPenyakit", v)} rows={6} required placeholder="Anamnesis, pemeriksaan, terapi, dan perkembangan klinis..." />
-              <FormField label="Kondisi Saat Pulang" value={data.kondisiSaatPulang} onChange={v => set("kondisiSaatPulang", v)} rows={3} required placeholder="Tanda vital, status umum, kondisi klinis saat dipulangkan..." />
-              <FormField label="Terapi yang Diberikan" value={data.terapiYangDiberikan} onChange={v => set("terapiYangDiberikan", v)} rows={2} placeholder="Obat dan terapi selama perawatan..." />
+              {/* PMK 24/2022: kode ICD-10 akhir wajib eksplisit */}
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                  Kode ICD-10 Akhir <span className="text-red-400">*</span>
+                  <span className="ml-1.5 rounded-full bg-sky-100 px-1.5 py-0.5 text-[8px] font-semibold text-sky-700 normal-case tracking-normal">PMK 24/2022</span>
+                </label>
+                <input
+                  value={data.kodeIcd10Akhir}
+                  onChange={e => set("kodeIcd10Akhir", e.target.value)}
+                  placeholder="cth. I50.0, J18.9, A41.9..."
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 sm:w-1/2"
+                />
+              </div>
+              <FormField
+                label="Prosedur / Tindakan"
+                value={data.prosedurUtama}
+                onChange={v => set("prosedurUtama", v)}
+                rows={2}
+                placeholder="Prosedur diagnostik dan terapeutik..."
+              />
+              <FormField
+                label="Ringkasan Perjalanan Penyakit & Tatalaksana"
+                value={data.ringkasanPenyakit}
+                onChange={v => set("ringkasanPenyakit", v)}
+                rows={6}
+                required
+                placeholder="Anamnesis, pemeriksaan, terapi, dan perkembangan klinis..."
+              />
+              <FormField
+                label="Kondisi Saat Pulang"
+                value={data.kondisiSaatPulang}
+                onChange={v => set("kondisiSaatPulang", v)}
+                rows={3}
+                required
+                placeholder="Tanda vital, status umum, kondisi klinis saat dipulangkan..."
+              />
+              {/* PMK 24/2022: status fungsional / ADL saat pulang */}
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                  Status Fungsional (ADL)
+                  <span className="ml-1.5 rounded-full bg-sky-100 px-1.5 py-0.5 text-[8px] font-semibold text-sky-700 normal-case tracking-normal">PMK 24/2022</span>
+                </label>
+                <textarea
+                  value={data.statusFungsional}
+                  onChange={e => set("statusFungsional", e.target.value)}
+                  rows={2}
+                  placeholder="Kemampuan ADL saat pulang: mandiri / perlu bantuan / tergantung penuh. Skor Barthel jika tersedia..."
+                  className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                />
+              </div>
+              <FormField
+                label="Terapi yang Diberikan"
+                value={data.terapiYangDiberikan}
+                onChange={v => set("terapiYangDiberikan", v)}
+                rows={2}
+                placeholder="Obat dan terapi selama perawatan..."
+              />
             </div>
           </div>
 
@@ -336,25 +458,62 @@ export default function StepResumeMedis({ data, patient, asesmen, onChange }: Pr
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Instruksi Pasca Pulang</p>
             <div className="space-y-3">
-              <FormField label="Instruksi Pulang" value={data.instruksiPulang} onChange={v => set("instruksiPulang", v)} rows={5} required placeholder="Instruksi yang harus diikuti pasien setelah pulang..." />
+              <FormField
+                label="Instruksi Pulang"
+                value={data.instruksiPulang}
+                onChange={v => set("instruksiPulang", v)}
+                rows={5}
+                required
+                placeholder="Instruksi yang harus diikuti pasien setelah pulang..."
+              />
               <div className="grid gap-3 sm:grid-cols-2">
-                <FormField label="Pembatasan Aktivitas" value={data.pembatasanAktivitas} onChange={v => set("pembatasanAktivitas", v)} rows={3} placeholder="Aktivitas yang perlu dibatasi..." />
-                <FormField label="Diet Pulang" value={data.dietPulang} onChange={v => set("dietPulang", v)} rows={3} placeholder="Panduan diet pasca pulang..." />
+                <FormField
+                  label="Pembatasan Aktivitas"
+                  value={data.pembatasanAktivitas}
+                  onChange={v => set("pembatasanAktivitas", v)}
+                  rows={3}
+                  placeholder="Aktivitas yang perlu dibatasi..."
+                />
+                <FormField
+                  label="Diet Pulang"
+                  value={data.dietPulang}
+                  onChange={v => set("dietPulang", v)}
+                  rows={3}
+                  placeholder="Panduan diet pasca pulang..."
+                />
               </div>
             </div>
           </div>
 
-          {/* DPJP Approve */}
+          {/* Signatures & Approval */}
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <ShieldCheck size={13} className="text-indigo-600" />
-              <p className="text-xs font-bold text-slate-700">Persetujuan DPJP</p>
+              <ShieldCheck size={13} className="text-sky-600" />
+              <p className="text-xs font-bold text-slate-700">Tanda Tangan & Persetujuan</p>
             </div>
+
+            {/* PMK 24/2022: tanda tangan pasien/keluarga */}
+            <button
+              type="button"
+              onClick={() => set("tandaTanganPasien", !data.tandaTanganPasien)}
+              className="mb-4 flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-slate-100 active:bg-slate-200"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-50">
+                  <UserCheck size={13} className="text-sky-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-700">Tanda Tangan Pasien / Keluarga</p>
+                  <p className="text-[10px] text-slate-400">Wajib per PMK 24/2022 — konfirmasi penerimaan resume</p>
+                </div>
+              </div>
+              <Toggle checked={data.tandaTanganPasien} />
+            </button>
 
             {!canApprove && (
               <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
                 <AlertCircle size={13} className="mt-0.5 shrink-0 text-amber-600" />
-                <p className="text-xs text-amber-700">Lengkapi ringkasan penyakit, kondisi pulang, dan instruksi untuk mengaktifkan persetujuan.</p>
+                <p className="text-xs text-amber-700">Lengkapi kode ICD-10 akhir, ringkasan penyakit, kondisi pulang, dan instruksi untuk mengaktifkan persetujuan DPJP.</p>
               </div>
             )}
 
@@ -373,12 +532,13 @@ export default function StepResumeMedis({ data, patient, asesmen, onChange }: Pr
               </div>
             ) : (
               <button
+                type="button"
                 onClick={handleApprove}
                 disabled={!canApprove}
                 className={cn(
                   "flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-all",
                   canApprove
-                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.99]"
+                    ? "bg-sky-600 text-white shadow-sm shadow-sky-200 hover:bg-sky-700 active:scale-[0.99]"
                     : "cursor-not-allowed bg-slate-100 text-slate-400",
                 )}
               >
@@ -387,7 +547,7 @@ export default function StepResumeMedis({ data, patient, asesmen, onChange }: Pr
             )}
 
             <p className="mt-2 text-center text-[11px] text-slate-400">
-              PMK 269/2008 · Resume medis wajib tersedia saat pemulangan
+              PMK 24/2022 · Resume medis wajib diselesaikan 1×24 jam setelah pemulangan
             </p>
           </div>
 
@@ -399,8 +559,9 @@ export default function StepResumeMedis({ data, patient, asesmen, onChange }: Pr
             <div className="flex items-center justify-between">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Preview Dokumen</p>
               <button
+                type="button"
                 onClick={() => setShowPrint(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
               >
                 <Printer size={11} /> Cetak
               </button>

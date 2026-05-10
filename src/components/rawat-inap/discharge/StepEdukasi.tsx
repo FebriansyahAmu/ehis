@@ -39,16 +39,17 @@ function EdukasiRow({
   return (
     <div className={cn(
       "overflow-hidden rounded-xl border transition-all duration-200",
-      item.diberikan ? "border-indigo-200 bg-indigo-50/40" : "border-slate-200 bg-white",
+      item.diberikan ? "border-sky-200 bg-sky-50/40" : "border-slate-200 bg-white",
     )}>
       <div className="flex cursor-pointer items-center gap-3 px-4 py-3">
         <button
+          type="button"
           onClick={e => { e.stopPropagation(); handleToggle(); }}
           className={cn(
             "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-all",
             item.diberikan
-              ? "border-indigo-500 bg-indigo-500 text-white"
-              : "border-slate-300 bg-white hover:border-indigo-400",
+              ? "border-sky-500 bg-sky-500 text-white"
+              : "border-slate-300 bg-white hover:border-sky-400",
           )}
         >
           {item.diberikan && (
@@ -87,7 +88,7 @@ function EdukasiRow({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="border-t border-indigo-100 px-4 pb-3 pt-3">
+            <div className="border-t border-sky-100 px-4 pb-3 pt-3">
               <div className="grid gap-3 sm:grid-cols-3">
                 <div>
                   <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-slate-500">Metode</label>
@@ -95,11 +96,12 @@ function EdukasiRow({
                     {METODE_OPTIONS.map(m => (
                       <button
                         key={m}
+                        type="button"
                         onClick={() => set("metode", item.metode === m ? "" : m)}
                         className={cn(
                           "rounded-md border px-2 py-1 text-[11px] font-medium transition-all",
                           item.metode === m
-                            ? "border-indigo-300 bg-indigo-100 text-indigo-700"
+                            ? "border-sky-300 bg-sky-100 text-sky-700"
                             : "border-slate-200 bg-white text-slate-500 hover:border-slate-300",
                         )}
                       >
@@ -114,11 +116,12 @@ function EdukasiRow({
                     {PENERIMA_OPTIONS.map(p => (
                       <button
                         key={p}
+                        type="button"
                         onClick={() => set("penerima", item.penerima === p ? "" : p)}
                         className={cn(
                           "rounded-md border px-2 py-1 text-[11px] font-medium transition-all",
                           item.penerima === p
-                            ? "border-indigo-300 bg-indigo-100 text-indigo-700"
+                            ? "border-sky-300 bg-sky-100 text-sky-700"
                             : "border-slate-200 bg-white text-slate-500 hover:border-slate-300",
                         )}
                       >
@@ -133,6 +136,7 @@ function EdukasiRow({
                     {PEMAHAMAN_OPTIONS.map(p => (
                       <button
                         key={p}
+                        type="button"
                         onClick={() => set("pemahaman", item.pemahaman === p ? "" : p)}
                         className={cn(
                           "rounded-md border px-2 py-1 text-[11px] font-medium transition-all",
@@ -152,7 +156,7 @@ function EdukasiRow({
                   value={item.catatan}
                   onChange={e => set("catatan", e.target.value)}
                   placeholder="Catatan tambahan (opsional)..."
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-sky-300 focus:ring-1 focus:ring-sky-100"
                 />
               </div>
             </div>
@@ -218,7 +222,7 @@ export default function StepEdukasi({ items, onChange }: Props) {
                 <motion.circle
                   cx="18" cy="18" r="15"
                   fill="none"
-                  stroke={totalTidakPaham > 0 ? "#f87171" : totalPerluUlang > 0 ? "#fbbf24" : "#6366f1"}
+                  stroke={totalTidakPaham > 0 ? "#f87171" : totalPerluUlang > 0 ? "#fbbf24" : "#0ea5e9"}
                   strokeWidth="3.5"
                   strokeLinecap="round"
                   initial={{ strokeDasharray: `0 ${circumference}` }}
@@ -237,7 +241,7 @@ export default function StepEdukasi({ items, onChange }: Props) {
               </p>
               <p className="text-xs text-slate-500">topik selesai</p>
               {totalDiberikan > 0 && totalDiberikan < items.length && (
-                <p className="mt-0.5 text-[11px] text-indigo-600">{items.length - totalDiberikan} tersisa</p>
+                <p className="mt-0.5 text-[11px] text-sky-600">{items.length - totalDiberikan} tersisa</p>
               )}
             </div>
           </div>
@@ -279,7 +283,7 @@ export default function StepEdukasi({ items, onChange }: Props) {
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
                   <motion.div
-                    className="h-full rounded-full bg-indigo-400"
+                    className="h-full rounded-full bg-sky-400"
                     initial={{ width: 0 }}
                     animate={{ width: diberikan === 0 ? "0%" : `${(diberikan / total) * 100}%` }}
                     transition={{ duration: 0.4, ease: "easeOut" }}
@@ -291,12 +295,12 @@ export default function StepEdukasi({ items, onChange }: Props) {
         </div>
 
         {/* SNARS note */}
-        <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3.5">
+        <div className="rounded-xl border border-sky-100 bg-sky-50 p-3.5">
           <div className="flex items-start gap-2">
-            <BookOpen size={13} className="mt-0.5 shrink-0 text-indigo-500" />
+            <BookOpen size={13} className="mt-0.5 shrink-0 text-sky-500" />
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wide text-indigo-700">SNARS HPK 2</p>
-              <p className="mt-1 text-[11px] leading-relaxed text-indigo-700">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-sky-700">SNARS HPK 2</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-sky-700">
                 Edukasi pasien & keluarga wajib didokumentasikan dengan verifikasi pemahaman di setiap topik.
               </p>
             </div>

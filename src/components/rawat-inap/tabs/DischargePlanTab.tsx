@@ -34,7 +34,7 @@ const STEPS: StepDef[] = [
   { id: "edukasi",   label: "Edukasi Pasien",     short: "Edukasi",   icon: BookOpen,      std: "SNARS HPK 2"   },
   { id: "obat",      label: "Obat Pulang",         short: "Obat",      icon: Pill,          std: "PMK 72/2016"   },
   { id: "followup",  label: "Follow-up",           short: "Follow-up", icon: CalendarClock, std: "SNARS ARK 3"   },
-  { id: "resume",    label: "Resume Medis",        short: "Resume",    icon: FileText,      std: "PMK 269/2008"  },
+  { id: "resume",    label: "Resume Medis",        short: "Resume",    icon: FileText,      std: "PMK 24/2022"   },
 ];
 
 // ── Slide animation variants ──────────────────────────────
@@ -71,7 +71,7 @@ function StepperHeader({
                 className={cn(
                   "flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150",
                   active
-                    ? "bg-indigo-50"
+                    ? "bg-sky-50"
                     : clickable
                       ? "hover:bg-slate-50"
                       : "cursor-default opacity-50",
@@ -81,7 +81,7 @@ function StepperHeader({
                 <div className={cn(
                   "flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all duration-200",
                   active
-                    ? "border-indigo-500 bg-indigo-500 text-white shadow-md shadow-indigo-200"
+                    ? "border-sky-500 bg-sky-500 text-white shadow-md shadow-sky-200"
                     : done
                       ? "border-emerald-500 bg-emerald-500 text-white"
                       : "border-slate-300 bg-white text-slate-400",
@@ -94,7 +94,7 @@ function StepperHeader({
                 {/* Label */}
                 <span className={cn(
                   "text-[10px] font-semibold whitespace-nowrap",
-                  active ? "text-indigo-700" : done ? "text-emerald-600" : "text-slate-400",
+                  active ? "text-sky-700" : done ? "text-emerald-600" : "text-slate-400",
                 )}>
                   {step.short}
                 </span>
@@ -132,7 +132,7 @@ function FinalizeBanner({ allDone, patientName }: { allDone: boolean; patientNam
         "mx-4 mb-3 rounded-xl border p-4",
         finalized
           ? "border-emerald-200 bg-emerald-50"
-          : "border-indigo-200 bg-indigo-50",
+          : "border-sky-200 bg-sky-50",
       )}
     >
       {finalized ? (
@@ -146,15 +146,15 @@ function FinalizeBanner({ allDone, patientName }: { allDone: boolean; patientNam
       ) : (
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <LogOut size={18} className="shrink-0 text-indigo-600" />
+            <LogOut size={18} className="shrink-0 text-sky-600" />
             <div>
-              <p className="text-sm font-bold text-indigo-800">Semua langkah selesai!</p>
-              <p className="text-xs text-indigo-700">Finalisasi discharge planning untuk {patientName}.</p>
+              <p className="text-sm font-bold text-sky-800">Semua langkah selesai!</p>
+              <p className="text-xs text-sky-700">Finalisasi discharge planning untuk {patientName}.</p>
             </div>
           </div>
           <button
             onClick={() => setFinalized(true)}
-            className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-indigo-700 active:scale-95"
+            className="shrink-0 rounded-xl bg-sky-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-sky-700 active:scale-95"
           >
             Finalisasi Discharge
           </button>
@@ -172,7 +172,8 @@ export default function DischargePlanTab({ patient }: { patient: RawatInapPatien
       tanggalRencanaKRS: "", kondisiPulang: "", caregiverNama: "",
       caregiverHubungan: "", caregiverKemampuan: "", kebutuhanHomecare: false,
       jenisHomecare: [], kebutuhanAlatBantu: false, alatBantu: [],
-      jarakFaskes: "", kondisiSosEk: "", catatan: "",
+      dukunganKeluarga: "", kepatuhanObatSebelumnya: "", riwayatReadmisi: "",
+      catatan: "",
     },
     edukasi:    makeInitialEdukasi(),
     obatPulang: [],
@@ -181,9 +182,10 @@ export default function DischargePlanTab({ patient }: { patient: RawatInapPatien
       fktpNama: "", fktpTujuan: "", instruksiKhusus: "",
     },
     resume: {
-      diagnosaMasuk: patient.diagnosis, diagnosaAkhir: "", prosedurUtama: "",
-      ringkasanPenyakit: "", kondisiSaatPulang: "", terapiYangDiberikan: "",
-      instruksiPulang: "", pembatasanAktivitas: "", dietPulang: "",
+      diagnosaMasuk: patient.diagnosis, diagnosaAkhir: "", kodeIcd10Akhir: "",
+      prosedurUtama: "", ringkasanPenyakit: "", kondisiSaatPulang: "",
+      statusFungsional: "", terapiYangDiberikan: "", instruksiPulang: "",
+      pembatasanAktivitas: "", dietPulang: "", tandaTanganPasien: false,
       dpjpApproved: false, dpjpApprovedAt: "",
     },
   } satisfies DischargePlanData;
@@ -323,7 +325,7 @@ export default function DischargePlanTab({ patient }: { patient: RawatInapPatien
               className={cn(
                 "rounded-full transition-all duration-200",
                 i === currentStep
-                  ? "h-2 w-5 bg-indigo-500"
+                  ? "h-2 w-5 bg-sky-500"
                   : completions[i]
                     ? "h-2 w-2 bg-emerald-400"
                     : "h-2 w-2 bg-slate-300 hover:bg-slate-400",
@@ -342,7 +344,7 @@ export default function DischargePlanTab({ patient }: { patient: RawatInapPatien
         ) : (
           <button
             onClick={next}
-            className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 active:scale-95"
+            className="flex items-center gap-1.5 rounded-xl bg-sky-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-sky-700 active:scale-95"
           >
             Berikutnya <ChevronRight size={15} />
           </button>

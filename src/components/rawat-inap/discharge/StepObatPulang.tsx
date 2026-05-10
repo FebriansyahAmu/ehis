@@ -83,13 +83,15 @@ function ObatCard({
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
           <button
+            type="button"
             onClick={() => { setDraft(item.instruksi); setEditing(e => !e); }}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-sky-50 hover:text-sky-600"
           >
             <Pencil size={11} />
           </button>
           {!item.fromResep && (
             <button
+              type="button"
               onClick={onDelete}
               className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-500"
             >
@@ -115,13 +117,13 @@ function ObatCard({
                   value={draft}
                   onChange={e => setDraft(e.target.value)}
                   rows={3}
-                  className="flex-1 resize-none rounded-lg border border-indigo-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none ring-2 ring-indigo-100"
+                  className="flex-1 resize-none rounded-lg border border-sky-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none ring-2 ring-sky-100"
                 />
                 <div className="flex flex-col gap-1">
-                  <button onClick={saveInstruksi} className="rounded-lg bg-indigo-500 p-1.5 text-white transition hover:bg-indigo-600">
+                  <button type="button" onClick={saveInstruksi} className="rounded-lg bg-sky-500 p-1.5 text-white transition hover:bg-sky-600">
                     <Check size={11} />
                   </button>
-                  <button onClick={() => { setDraft(item.instruksi); setEditing(false); }} className="rounded-lg bg-slate-200 p-1.5 text-slate-600 transition hover:bg-slate-300">
+                  <button type="button" onClick={() => { setDraft(item.instruksi); setEditing(false); }} className="rounded-lg bg-slate-200 p-1.5 text-slate-600 transition hover:bg-slate-300">
                     <X size={11} />
                   </button>
                 </div>
@@ -148,32 +150,32 @@ function AddObatForm({
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-      className="rounded-xl border-2 border-dashed border-indigo-300 bg-indigo-50/40 p-4"
+      className="rounded-xl border-2 border-dashed border-sky-300 bg-sky-50/40 p-4"
     >
-      <p className="mb-3 text-xs font-bold text-indigo-700">Tambah Obat Manual</p>
+      <p className="mb-3 text-xs font-bold text-sky-700">Tambah Obat Manual</p>
       <div className="grid gap-2 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <input
             value={form.namaObat}
             onChange={e => setF("namaObat", e.target.value)}
             placeholder="Nama obat & kekuatan (mis. Metformin 500 mg) *"
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-100"
           />
         </div>
-        <input value={form.dosis}     onChange={e => setF("dosis", e.target.value)}     placeholder="Dosis" className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100" />
-        <input value={form.frekuensi} onChange={e => setF("frekuensi", e.target.value)} placeholder="Frekuensi (mis. 3×1)" className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100" />
-        <input value={form.durasi}    onChange={e => setF("durasi", e.target.value)}    placeholder="Durasi (mis. 30 hari)" className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100" />
+        <input value={form.dosis}     onChange={e => setF("dosis", e.target.value)}     placeholder="Dosis"               className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-100" />
+        <input value={form.frekuensi} onChange={e => setF("frekuensi", e.target.value)} placeholder="Frekuensi (mis. 3×1)" className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-100" />
+        <input value={form.durasi}    onChange={e => setF("durasi", e.target.value)}    placeholder="Durasi (mis. 30 hari)" className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-100" />
         <label className="flex items-center gap-2 self-center">
           <input type="checkbox" checked={form.isHAM} onChange={e => setF("isHAM", e.target.checked)} className="accent-red-500" />
           <span className="text-xs text-slate-600">High-Alert (HAM)</span>
         </label>
         <div className="sm:col-span-2">
-          <textarea value={form.instruksi} onChange={e => setF("instruksi", e.target.value)} placeholder="Instruksi penggunaan..." rows={2} className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100" />
+          <textarea value={form.instruksi} onChange={e => setF("instruksi", e.target.value)} placeholder="Instruksi penggunaan..." rows={2} className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-100" />
         </div>
       </div>
       <div className="mt-3 flex justify-end gap-2">
-        <button onClick={onCancel} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50">Batal</button>
-        <button onClick={() => { if (!form.namaObat.trim()) return; onAdd({ ...form, id: `op-manual-${Date.now()}` }); }} disabled={!form.namaObat.trim()} className="rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-indigo-600 disabled:opacity-40">Tambah Obat</button>
+        <button type="button" onClick={onCancel} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50">Batal</button>
+        <button type="button" onClick={() => { if (!form.namaObat.trim()) return; onAdd({ ...form, id: `op-manual-${Date.now()}` }); }} disabled={!form.namaObat.trim()} className="rounded-lg bg-sky-500 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-sky-600 disabled:opacity-40">Tambah Obat</button>
       </div>
     </motion.div>
   );
@@ -242,8 +244,9 @@ export default function StepObatPulang({ items, onChange }: Props) {
 
         {!showAdd && (
           <button
+            type="button"
             onClick={() => setShowAdd(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 py-3 text-xs font-semibold text-slate-500 transition hover:border-indigo-300 hover:text-indigo-600"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 py-3 text-xs font-semibold text-slate-500 transition hover:border-sky-300 hover:text-sky-600"
           >
             <Plus size={13} /> Tambah Obat Manual
           </button>
@@ -263,9 +266,9 @@ export default function StepObatPulang({ items, onChange }: Props) {
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Ringkasan Resep Pulang</p>
           <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-lg bg-indigo-50 p-3 text-center">
-              <p className="text-2xl font-bold text-indigo-700">{items.length}</p>
-              <p className="text-[10px] font-medium text-indigo-600">Total Obat</p>
+            <div className="rounded-lg bg-sky-50 p-3 text-center">
+              <p className="text-2xl font-bold text-sky-700">{items.length}</p>
+              <p className="text-[10px] font-medium text-sky-600">Total Obat</p>
             </div>
             <div className={cn("rounded-lg p-3 text-center", hamCount > 0 ? "bg-red-50" : "bg-slate-50")}>
               <p className={cn("text-2xl font-bold", hamCount > 0 ? "text-red-600" : "text-slate-400")}>{hamCount}</p>
@@ -285,8 +288,8 @@ export default function StepObatPulang({ items, onChange }: Props) {
         {/* Order panel */}
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-50">
-              <Send size={12} className="text-indigo-600" />
+            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-sky-50">
+              <Send size={12} className="text-sky-600" />
             </div>
             <p className="text-xs font-bold text-slate-700">Order ke Depo Farmasi Central</p>
           </div>
@@ -307,7 +310,7 @@ export default function StepObatPulang({ items, onChange }: Props) {
                   <div className={cn(
                     "flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-all duration-300",
                     isDone   ? "bg-emerald-500"
-                    : isActive ? "bg-indigo-600 ring-4 ring-indigo-100"
+                    : isActive ? "bg-sky-600 ring-4 ring-sky-100"
                     : "bg-slate-200",
                   )}>
                     {isDone
@@ -318,7 +321,7 @@ export default function StepObatPulang({ items, onChange }: Props) {
                   <p className={cn(
                     "text-xs transition-colors",
                     isDone   ? "font-medium text-emerald-600"
-                    : isActive ? "font-semibold text-indigo-700"
+                    : isActive ? "font-semibold text-sky-700"
                     : "text-slate-400",
                   )}>
                     {label}
@@ -331,12 +334,13 @@ export default function StepObatPulang({ items, onChange }: Props) {
           {/* Action area */}
           {orderStatus === "draft" ? (
             <button
+              type="button"
               onClick={() => setOrderStatus("terkirim")}
               disabled={items.length === 0}
               className={cn(
                 "flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-all",
                 items.length > 0
-                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.98]"
+                  ? "bg-sky-600 text-white shadow-sm shadow-sky-200 hover:bg-sky-700 active:scale-[0.98]"
                   : "cursor-not-allowed bg-slate-100 text-slate-400",
               )}
             >
@@ -347,7 +351,7 @@ export default function StepObatPulang({ items, onChange }: Props) {
               <div className="flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 py-2.5 text-xs font-medium text-amber-700">
                 <Clock size={12} /> Menunggu konfirmasi apoteker...
               </div>
-              <button onClick={() => setOrderStatus("dikonfirmasi")} className="w-full rounded-xl border border-slate-200 py-2 text-xs text-slate-400 transition hover:text-slate-600">
+              <button type="button" onClick={() => setOrderStatus("dikonfirmasi")} className="w-full rounded-xl border border-slate-200 py-2 text-xs text-slate-400 transition hover:text-slate-600">
                 Simulasi: Konfirmasi →
               </button>
             </div>
@@ -356,7 +360,7 @@ export default function StepObatPulang({ items, onChange }: Props) {
               <div className="flex items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 py-2.5 text-xs font-medium text-sky-700">
                 <Package size={12} /> Sedang disiapkan di Farmasi...
               </div>
-              <button onClick={() => setOrderStatus("siap")} className="w-full rounded-xl border border-slate-200 py-2 text-xs text-slate-400 transition hover:text-slate-600">
+              <button type="button" onClick={() => setOrderStatus("siap")} className="w-full rounded-xl border border-slate-200 py-2 text-xs text-slate-400 transition hover:text-slate-600">
                 Simulasi: Obat Siap →
               </button>
             </div>
@@ -367,7 +371,7 @@ export default function StepObatPulang({ items, onChange }: Props) {
           )}
 
           {orderStatus !== "draft" && (
-            <button onClick={() => setOrderStatus("draft")} className="mt-2 w-full rounded-lg py-1.5 text-[11px] text-slate-400 transition hover:text-slate-600">
+            <button type="button" onClick={() => setOrderStatus("draft")} className="mt-2 w-full rounded-lg py-1.5 text-[11px] text-slate-400 transition hover:text-slate-600">
               Reset order
             </button>
           )}

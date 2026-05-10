@@ -14,20 +14,17 @@ type Props = {
   onChange: (d: DischargeFollowUp) => void;
 };
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ checked }: { checked: boolean }) {
   return (
-    <button
-      onClick={() => onChange(!checked)}
-      className={cn(
-        "relative h-5 w-9 shrink-0 rounded-full transition-colors duration-200",
-        checked ? "bg-indigo-500" : "bg-slate-300",
-      )}
-    >
+    <div className={cn(
+      "pointer-events-none relative h-5 w-9 shrink-0 rounded-full transition-colors duration-200",
+      checked ? "bg-sky-500" : "bg-slate-300",
+    )}>
       <span className={cn(
         "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200",
         checked ? "translate-x-4" : "translate-x-0.5",
       )} />
-    </button>
+    </div>
   );
 }
 
@@ -47,7 +44,7 @@ function daysUntil(iso: string): number {
 function DaysBadge({ days }: { days: number }) {
   if (days < 0)  return <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold text-slate-500">Lewat</span>;
   if (days === 0) return <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold text-amber-700">Hari ini</span>;
-  if (days <= 7)  return <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[9px] font-bold text-indigo-700">{days} hari lagi</span>;
+  if (days <= 7)  return <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[9px] font-bold text-sky-700">{days} hari lagi</span>;
   return <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-medium text-slate-500">{days} hari lagi</span>;
 }
 
@@ -62,21 +59,23 @@ function CollapsibleSection({
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <button
+        type="button"
         onClick={onToggle}
         className="flex w-full items-center gap-2.5 px-4 py-3"
       >
-        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-indigo-50">
-          <Icon size={12} className="text-indigo-600" />
+        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-sky-50">
+          <Icon size={12} className="text-sky-600" />
         </div>
         <p className="flex-1 text-left text-xs font-semibold text-slate-700">{title}</p>
         {count !== undefined && count > 0 && (
-          <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-bold text-white">{count}</span>
+          <span className="rounded-full bg-sky-600 px-2 py-0.5 text-[10px] font-bold text-white">{count}</span>
         )}
         <ChevronDown size={14} className={cn("shrink-0 text-slate-400 transition-transform", open && "rotate-180")} />
       </button>
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
+            key="section-content"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -106,12 +105,37 @@ function AddKontrolInline({ onAdd }: { onAdd: (j: JadwalKontrol) => void }) {
   return (
     <div className="space-y-2.5">
       <div className="grid gap-2 sm:grid-cols-2">
-        <input type="date" value={form.tanggal} onChange={e => setF("tanggal", e.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100" />
-        <input value={form.poli} onChange={e => setF("poli", e.target.value)} placeholder="Poliklinik / unit tujuan *" className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs placeholder:text-slate-400 outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100" />
-        <input value={form.dokter} onChange={e => setF("dokter", e.target.value)} placeholder="Nama dokter (opsional)" className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs placeholder:text-slate-400 outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100" />
-        <input value={form.catatan} onChange={e => setF("catatan", e.target.value)} placeholder="Catatan / persiapan" className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs placeholder:text-slate-400 outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100" />
+        <input
+          type="date"
+          value={form.tanggal}
+          onChange={e => setF("tanggal", e.target.value)}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-100"
+        />
+        <input
+          value={form.poli}
+          onChange={e => setF("poli", e.target.value)}
+          placeholder="Poliklinik / unit tujuan *"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-100"
+        />
+        <input
+          value={form.dokter}
+          onChange={e => setF("dokter", e.target.value)}
+          placeholder="Nama dokter (opsional)"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-100"
+        />
+        <input
+          value={form.catatan}
+          onChange={e => setF("catatan", e.target.value)}
+          placeholder="Catatan / persiapan"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-100"
+        />
       </div>
-      <button onClick={handleAdd} disabled={!form.poli.trim()} className="flex items-center gap-1.5 rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-40">
+      <button
+        type="button"
+        onClick={handleAdd}
+        disabled={!form.poli.trim()}
+        className="flex items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-sky-600 disabled:opacity-40"
+      >
         <Plus size={12} /> Tambah Jadwal
       </button>
     </div>
@@ -131,15 +155,39 @@ function AddPeriksaInline({ onAdd }: { onAdd: (j: JadwalPemeriksaan) => void }) 
   return (
     <div className="space-y-2.5">
       <div className="grid gap-2 sm:grid-cols-2">
-        <select value={form.jenis} onChange={e => setF("jenis", e.target.value as "Lab" | "Radiologi")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100">
+        <select
+          value={form.jenis}
+          onChange={e => setF("jenis", e.target.value as "Lab" | "Radiologi")}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-100"
+        >
           <option value="Lab">Laboratorium</option>
           <option value="Radiologi">Radiologi</option>
         </select>
-        <input type="date" value={form.tanggal} onChange={e => setF("tanggal", e.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100" />
-        <input value={form.nama} onChange={e => setF("nama", e.target.value)} placeholder="Nama pemeriksaan *" className="sm:col-span-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs placeholder:text-slate-400 outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100" />
-        <input value={form.catatan} onChange={e => setF("catatan", e.target.value)} placeholder="Catatan / indikasi" className="sm:col-span-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs placeholder:text-slate-400 outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100" />
+        <input
+          type="date"
+          value={form.tanggal}
+          onChange={e => setF("tanggal", e.target.value)}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-100"
+        />
+        <input
+          value={form.nama}
+          onChange={e => setF("nama", e.target.value)}
+          placeholder="Nama pemeriksaan *"
+          className="sm:col-span-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-100"
+        />
+        <input
+          value={form.catatan}
+          onChange={e => setF("catatan", e.target.value)}
+          placeholder="Catatan / indikasi"
+          className="sm:col-span-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-100"
+        />
       </div>
-      <button onClick={handleAdd} disabled={!form.nama.trim()} className="flex items-center gap-1.5 rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-40">
+      <button
+        type="button"
+        onClick={handleAdd}
+        disabled={!form.nama.trim()}
+        className="flex items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-sky-600 disabled:opacity-40"
+      >
         <Plus size={12} /> Tambah Pemeriksaan
       </button>
     </div>
@@ -157,9 +205,9 @@ function AppointmentCard({
   const days = daysUntil(date);
 
   const cfg = {
-    kontrol: { bg: "bg-indigo-50", border: "border-indigo-200", icon: CalendarClock, iconCls: "text-indigo-600", iconBg: "bg-indigo-100" },
-    lab:     { bg: "bg-emerald-50", border: "border-emerald-200", icon: FlaskConical, iconCls: "text-emerald-600", iconBg: "bg-emerald-100" },
-    rad:     { bg: "bg-violet-50",  border: "border-violet-200",  icon: Scan,         iconCls: "text-violet-600",  iconBg: "bg-violet-100"  },
+    kontrol: { bg: "bg-sky-50",     border: "border-sky-200",     icon: CalendarClock, iconCls: "text-sky-600",     iconBg: "bg-sky-100"     },
+    lab:     { bg: "bg-emerald-50", border: "border-emerald-200", icon: FlaskConical,  iconCls: "text-emerald-600", iconBg: "bg-emerald-100" },
+    rad:     { bg: "bg-violet-50",  border: "border-violet-200",  icon: Scan,          iconCls: "text-violet-600",  iconBg: "bg-violet-100"  },
   }[type];
 
   const Icon = cfg.icon;
@@ -177,6 +225,7 @@ function AppointmentCard({
       )}
     >
       <button
+        type="button"
         onClick={onDelete}
         className="absolute right-2 top-2 hidden rounded-lg p-1 text-slate-400 transition hover:bg-white/60 hover:text-red-500 group-hover:flex"
       >
@@ -187,8 +236,8 @@ function AppointmentCard({
         <Icon size={14} className={cfg.iconCls} />
       </div>
 
-      <p className="text-xs font-bold leading-tight text-slate-800 pr-5">{title}</p>
-      {subtitle && <p className="mt-0.5 text-[10px] text-slate-500 truncate">{subtitle}</p>}
+      <p className="pr-5 text-xs font-bold leading-tight text-slate-800">{title}</p>
+      {subtitle && <p className="mt-0.5 truncate text-[10px] text-slate-500">{subtitle}</p>}
 
       <div className="mt-2.5 flex items-center justify-between gap-1">
         <p className="text-[10px] font-medium text-slate-600">{formatTanggal(date)}</p>
@@ -208,18 +257,10 @@ export default function StepFollowUp({ data, onChange }: Props) {
     onChange({ ...data, [key]: val });
   }
 
-  function addKontrol(j: JadwalKontrol) {
-    set("jadwalKontrol", [...data.jadwalKontrol, j]);
-  }
-  function removeKontrol(id: string) {
-    set("jadwalKontrol", data.jadwalKontrol.filter(j => j.id !== id));
-  }
-  function addPemeriksaan(j: JadwalPemeriksaan) {
-    set("jadwalPemeriksaan", [...data.jadwalPemeriksaan, j]);
-  }
-  function removePemeriksaan(id: string) {
-    set("jadwalPemeriksaan", data.jadwalPemeriksaan.filter(j => j.id !== id));
-  }
+  function addKontrol(j: JadwalKontrol) { set("jadwalKontrol", [...data.jadwalKontrol, j]); }
+  function removeKontrol(id: string) { set("jadwalKontrol", data.jadwalKontrol.filter(j => j.id !== id)); }
+  function addPemeriksaan(j: JadwalPemeriksaan) { set("jadwalPemeriksaan", [...data.jadwalPemeriksaan, j]); }
+  function removePemeriksaan(id: string) { set("jadwalPemeriksaan", data.jadwalPemeriksaan.filter(j => j.id !== id)); }
 
   const allAppointments = [
     ...data.jadwalKontrol.map(j => ({
@@ -250,12 +291,12 @@ export default function StepFollowUp({ data, onChange }: Props) {
             <div className="mb-3 space-y-1.5">
               {data.jadwalKontrol.map(j => (
                 <div key={j.id} className="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                  <CalendarClock size={12} className="shrink-0 text-indigo-500" />
-                  <div className="flex-1 min-w-0">
+                  <CalendarClock size={12} className="shrink-0 text-sky-500" />
+                  <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-semibold text-slate-800">{j.poli}</p>
                     <p className="text-[10px] text-slate-500">{j.dokter && `${j.dokter} · `}{formatTanggal(j.tanggal)}</p>
                   </div>
-                  <button onClick={() => removeKontrol(j.id)} className="shrink-0 rounded p-1 text-slate-400 hover:text-red-500">
+                  <button type="button" onClick={() => removeKontrol(j.id)} className="shrink-0 rounded p-1 text-slate-400 hover:text-red-500">
                     <Trash2 size={11} />
                   </button>
                 </div>
@@ -282,11 +323,11 @@ export default function StepFollowUp({ data, onChange }: Props) {
                     ? <FlaskConical size={12} className="shrink-0 text-emerald-500" />
                     : <Scan size={12} className="shrink-0 text-violet-500" />
                   }
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-semibold text-slate-800">{j.nama}</p>
                     <p className="text-[10px] text-slate-500">{j.jenis} · {formatTanggal(j.tanggal)}</p>
                   </div>
-                  <button onClick={() => removePemeriksaan(j.id)} className="shrink-0 rounded p-1 text-slate-400 hover:text-red-500">
+                  <button type="button" onClick={() => removePemeriksaan(j.id)} className="shrink-0 rounded p-1 text-slate-400 hover:text-red-500">
                     <Trash2 size={11} />
                   </button>
                 </div>
@@ -298,22 +339,24 @@ export default function StepFollowUp({ data, onChange }: Props) {
 
         {/* Rujukan FKTP */}
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-indigo-50">
-              <Building2 size={12} className="text-indigo-600" />
+          <button
+            type="button"
+            onClick={() => set("adaRujukanFKTP", !data.adaRujukanFKTP)}
+            className="flex w-full items-center gap-2.5 text-left transition"
+          >
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-sky-50">
+              <Building2 size={12} className="text-sky-600" />
             </div>
             <div className="flex-1">
               <p className="text-xs font-semibold text-slate-700">Rujukan ke FKTP / Fasilitas Lain</p>
               <p className="text-[11px] text-slate-400">Puskesmas atau klinik pratama terdekat</p>
             </div>
-            <Toggle
-              checked={data.adaRujukanFKTP}
-              onChange={v => set("adaRujukanFKTP", v)}
-            />
-          </div>
-          <AnimatePresence>
+            <Toggle checked={data.adaRujukanFKTP} />
+          </button>
+          <AnimatePresence initial={false}>
             {data.adaRujukanFKTP && (
               <motion.div
+                key="fktp-fields"
                 initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}
                 className="overflow-hidden"
@@ -323,13 +366,13 @@ export default function StepFollowUp({ data, onChange }: Props) {
                     value={data.fktpNama}
                     onChange={e => set("fktpNama", e.target.value)}
                     placeholder="Nama FKTP / fasilitas rujukan"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs placeholder:text-slate-400 outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-100"
                   />
                   <input
                     value={data.fktpTujuan}
                     onChange={e => set("fktpTujuan", e.target.value)}
                     placeholder="Tujuan rujukan / yang perlu dipantau..."
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs placeholder:text-slate-400 outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-100"
                   />
                 </div>
               </motion.div>
@@ -340,8 +383,8 @@ export default function StepFollowUp({ data, onChange }: Props) {
         {/* Instruksi Khusus */}
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center gap-2">
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-indigo-50">
-              <MessageSquare size={12} className="text-indigo-600" />
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-sky-50">
+              <MessageSquare size={12} className="text-sky-600" />
             </div>
             <p className="text-xs font-semibold text-slate-700">Instruksi & Pesan Khusus</p>
           </div>
@@ -350,7 +393,7 @@ export default function StepFollowUp({ data, onChange }: Props) {
             onChange={e => set("instruksiKhusus", e.target.value)}
             rows={4}
             placeholder="Instruksi spesifik pasca pulang: tanda bahaya, target klinis, kapan harus ke IGD..."
-            className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+            className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
           />
         </div>
 
@@ -360,10 +403,10 @@ export default function StepFollowUp({ data, onChange }: Props) {
       <div className="w-full shrink-0 xl:w-72">
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center gap-2">
-            <CalendarDays size={14} className="text-indigo-600" />
+            <CalendarDays size={14} className="text-sky-600" />
             <p className="text-xs font-bold text-slate-700">Jadwal Mendatang</p>
             {allAppointments.length > 0 && (
-              <span className="ml-auto rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-bold text-white">
+              <span className="ml-auto rounded-full bg-sky-600 px-2 py-0.5 text-[10px] font-bold text-white">
                 {allAppointments.length}
               </span>
             )}
@@ -395,13 +438,13 @@ export default function StepFollowUp({ data, onChange }: Props) {
           {/* FKTP summary */}
           {data.adaRujukanFKTP && data.fktpNama && (
             <div className="mt-3 rounded-lg border border-teal-200 bg-teal-50 p-3">
-              <div className="flex items-center gap-2 mb-1">
+              <div className="mb-1 flex items-center gap-2">
                 <Building2 size={11} className="shrink-0 text-teal-600" />
                 <p className="text-[10px] font-bold uppercase tracking-wide text-teal-700">Rujukan FKTP</p>
               </div>
               <p className="text-xs font-semibold text-teal-800">{data.fktpNama}</p>
               {data.fktpTujuan && (
-                <p className="mt-0.5 text-[11px] text-teal-700 line-clamp-2">{data.fktpTujuan}</p>
+                <p className="mt-0.5 line-clamp-2 text-[11px] text-teal-700">{data.fktpTujuan}</p>
               )}
             </div>
           )}
