@@ -20,10 +20,10 @@ export type PenerimaEdukasi    = "Pasien" | "Keluarga" | "Keduanya";
 export type PemahamanEdukasi   = "Paham" | "Perlu Ulang" | "Tidak Paham";
 export type ProfesiEdukasi     = "Perawat" | "Dokter" | "Apoteker" | "Ahli Gizi" | "Fisioterapis";
 
-export type DukunganKeluarga  = "Ada & Mampu" | "Ada tapi Terbatas" | "Tidak Ada";
-export type KepatuhanObat     = "Patuh" | "Kadang" | "Tidak Patuh";
-export type RiwayatReadmisi   = "Tidak" | "1x" | ">1x";
-export type RisikoReadmisi    = "RENDAH" | "SEDANG" | "TINGGI";
+export type DukunganKeluarga = "Ada & Mampu" | "Ada tapi Terbatas" | "Tidak Ada";
+export type KepatuhanObat    = "Patuh" | "Kadang" | "Tidak Patuh";
+export type RiwayatReadmisi  = "Tidak" | "1x" | ">1x";
+export type RisikoReadmisi   = "RENDAH" | "SEDANG" | "TINGGI";
 
 export const PROFESI_EDUKASI_OPTIONS: ProfesiEdukasi[] = [
   "Perawat", "Dokter", "Apoteker", "Ahli Gizi", "Fisioterapis",
@@ -47,10 +47,9 @@ export interface DischargeAsesmen {
   catatan:                 string;
 }
 
-/** Satu sesi pemberian edukasi (1 kali tatap muka / interaksi) */
 export interface EdukasiLog {
   id:        string;
-  tanggal:   string;           // ISO date YYYY-MM-DD
+  tanggal:   string;
   petugas:   string;
   profesi:   ProfesiEdukasi;
   metode:    MetodeEdukasi;
@@ -59,7 +58,6 @@ export interface EdukasiLog {
   catatan:   string;
 }
 
-/** Satu topik edukasi; logs berisi riwayat pemberian dari hari ke hari */
 export interface EdukasiItem {
   id:       string;
   topik:    string;
@@ -67,76 +65,36 @@ export interface EdukasiItem {
   logs:     EdukasiLog[];
 }
 
-export interface ObatPulangItem {
+export interface ChecklistItem {
   id:        string;
-  namaObat:  string;
-  dosis:     string;
-  frekuensi: string;
-  durasi:    string;
-  instruksi: string;
-  isHAM:     boolean;
-  fromResep: boolean;
+  label:     string;
+  sublabel:  string;
+  required:  boolean;
+  confirmed: boolean;
+  catatan:   string;
 }
 
-export interface JadwalKontrol {
-  id:      string;
-  tanggal: string;
-  poli:    string;
-  dokter:  string;
-  catatan: string;
-}
-
-export interface JadwalPemeriksaan {
-  id:      string;
-  jenis:   "Lab" | "Radiologi";
-  nama:    string;
-  tanggal: string;
-  catatan: string;
-}
-
-/** Rencana pulang: obat + jadwal kontrol + FKTP + instruksi (Fase 3 — H-1 Pulang) */
-export interface DischargeRencanaPulang {
-  obatPulang:        ObatPulangItem[];
-  jadwalKontrol:     JadwalKontrol[];
-  jadwalPemeriksaan: JadwalPemeriksaan[];
-  adaRujukanFKTP:    boolean;
-  fktpNama:          string;
-  fktpTujuan:        string;
-  instruksiKhusus:   string;
-}
-
-export interface ResumeMedis {
-  diagnosaMasuk:       string;
-  diagnosaAkhir:       string;
-  kodeIcd10Akhir:      string;
-  prosedurUtama:       string;
-  ringkasanPenyakit:   string;
-  kondisiSaatPulang:   string;
-  statusFungsional:    string;
-  terapiYangDiberikan: string;
-  instruksiPulang:     string;
-  pembatasanAktivitas: string;
-  dietPulang:          string;
-  tandaTanganPasien:   boolean;
-  dpjpApproved:        boolean;
-  dpjpApprovedAt:      string;
+export interface DischargeChecklist {
+  items:         ChecklistItem[];
+  catatanKhusus: string;
+  confirmedBy:   string;
+  confirmedAt:   string;
 }
 
 export interface DischargePlanData {
-  asesmen:      DischargeAsesmen;
-  edukasi:      EdukasiItem[];
-  rencanaPulang: DischargeRencanaPulang;
-  resume:       ResumeMedis;
+  asesmen:   DischargeAsesmen;
+  edukasi:   EdukasiItem[];
+  checklist: DischargeChecklist;
 }
 
 // ── Step phase config ─────────────────────────────────────
 
-export type PhaseColor = "sky" | "emerald" | "amber" | "orange";
+export type PhaseColor = "sky" | "emerald" | "amber";
 
 export const STEP_PHASES: Array<{
   phase: string;
-  desc: string;
-  std: string;
+  desc:  string;
+  std:   string;
   color: PhaseColor;
 }> = [
   {
@@ -153,15 +111,9 @@ export const STEP_PHASES: Array<{
   },
   {
     phase: "H-1 Pulang",
-    desc:  "Finalisasi 1 hari sebelum rencana kepulangan",
+    desc:  "Konfirmasi kesiapan & checklist sehari sebelum kepulangan",
     std:   "SNARS ARK 3",
     color: "amber",
-  },
-  {
-    phase: "Hari Pulang",
-    desc:  "Diselesaikan dan ditandatangani saat hari kepulangan",
-    std:   "PMK 24/2022",
-    color: "orange",
   },
 ];
 
@@ -237,17 +189,39 @@ export const PEMAHAMAN_CONFIG: Record<PemahamanEdukasi, string> = {
 };
 
 export const PROFESI_COLOR: Record<ProfesiEdukasi, string> = {
-  "Perawat":     "bg-sky-100 text-sky-700",
-  "Dokter":      "bg-violet-100 text-violet-700",
-  "Apoteker":    "bg-emerald-100 text-emerald-700",
-  "Ahli Gizi":   "bg-teal-100 text-teal-700",
-  "Fisioterapis":"bg-orange-100 text-orange-700",
+  "Perawat":      "bg-sky-100 text-sky-700",
+  "Dokter":       "bg-violet-100 text-violet-700",
+  "Apoteker":     "bg-emerald-100 text-emerald-700",
+  "Ahli Gizi":    "bg-teal-100 text-teal-700",
+  "Fisioterapis": "bg-orange-100 text-orange-700",
 };
+
+export const CHECKLIST_TEMPLATE: Array<Omit<ChecklistItem, "confirmed" | "catatan">> = [
+  { id: "ck-01", label: "Edukasi pasien & keluarga selesai",          sublabel: "Semua topik esensial sudah diberikan dan dipahami",                          required: true  },
+  { id: "ck-02", label: "Rekonsiliasi obat final sudah dilakukan",    sublabel: "Daftar obat pulang sudah diverifikasi oleh apoteker / DPJP",                 required: true  },
+  { id: "ck-03", label: "Pasien/keluarga memahami tanda bahaya",      sublabel: "Kondisi yang memerlukan kembali ke IGD sudah dijelaskan & dipahami",         required: true  },
+  { id: "ck-04", label: "Berkas jaminan / BPJS / asuransi selesai",   sublabel: "Administrasi kepulangan sudah diproses oleh tim kasir",                     required: true  },
+  { id: "ck-05", label: "Transportasi pulang sudah disiapkan",        sublabel: "Ambulans / kendaraan keluarga sudah dikonfirmasi dan siap",                 required: true  },
+  { id: "ck-06", label: "Resep obat pulang sudah disiapkan",          sublabel: "Resep sudah dikirim ke farmasi dan obat sudah dapat diambil keluarga",      required: true  },
+  { id: "ck-07", label: "Kontrol pertama sudah dijadwalkan",          sublabel: "Jadwal kontrol poliklinik sudah diberikan kepada pasien / keluarga",        required: true  },
+  { id: "ck-08", label: "Alat bantu / perlengkapan tersedia",         sublabel: "Alat bantu yang dibutuhkan di rumah sudah disiapkan keluarga",              required: false },
+  { id: "ck-09", label: "Homecare sudah diarrange",                   sublabel: "Perawatan luka / injeksi / fisioterapi rumah sudah dijadwalkan",            required: false },
+  { id: "ck-10", label: "FKTP sudah dihubungi / dirujuk",             sublabel: "Puskesmas / faskes primer sudah mendapat informasi kepulangan pasien",      required: false },
+];
 
 // ── Helpers ───────────────────────────────────────────────
 
 export function makeInitialEdukasi(): EdukasiItem[] {
   return TOPIK_EDUKASI_TEMPLATE.map(t => ({ ...t, logs: [] }));
+}
+
+export function makeInitialChecklist(): DischargeChecklist {
+  return {
+    items:         CHECKLIST_TEMPLATE.map(t => ({ ...t, confirmed: false, catatan: "" })),
+    catatanKhusus: "",
+    confirmedBy:   "",
+    confirmedAt:   "",
+  };
 }
 
 export function getLatestLog(item: EdukasiItem): EdukasiLog | null {
@@ -278,28 +252,22 @@ export function isEdukasiComplete(items: EdukasiItem[]): boolean {
   return items.some(i => i.logs.length > 0);
 }
 
-export function isRencanaPulangComplete(r: DischargeRencanaPulang): boolean {
-  return r.obatPulang.length > 0 && r.jadwalKontrol.length > 0;
-}
-
-export function isResumeComplete(r: ResumeMedis): boolean {
-  return r.ringkasanPenyakit.trim() !== "" && r.dpjpApproved;
+export function isChecklistComplete(c: DischargeChecklist): boolean {
+  return c.items.filter(i => i.required).every(i => i.confirmed);
 }
 
 export function calcDischargeReadiness(data: DischargePlanData): number {
-  const covered   = data.edukasi.filter(i => i.logs.length > 0).length;
-  const eduScore  = data.edukasi.length > 0
-    ? Math.round((covered / data.edukasi.length) * 25)
+  const covered  = data.edukasi.filter(i => i.logs.length > 0).length;
+  const eduScore = data.edukasi.length > 0
+    ? Math.round((covered / data.edukasi.length) * 34)
     : 0;
   return (
-    (isAsesmenComplete(data.asesmen)            ? 25 : 0) +
-    eduScore                                               +
-    (isRencanaPulangComplete(data.rencanaPulang) ? 25 : 0) +
-    (isResumeComplete(data.resume)               ? 25 : 0)
+    (isAsesmenComplete(data.asesmen)       ? 33 : 0) +
+    eduScore                                         +
+    (isChecklistComplete(data.checklist)   ? 33 : 0)
   );
 }
 
-/** Hitung hari dirawat dari format "5 Mei 2026" */
 export function daysAdmitted(tglMasuk: string): number {
   const BULAN: Record<string, number> = {
     Januari: 0, Februari: 1, Maret: 2, April: 3, Mei: 4, Juni: 5,
@@ -316,7 +284,6 @@ export function daysAdmitted(tglMasuk: string): number {
 
 function makeMockEdukasiRM2025003(): EdukasiItem[] {
   const items = makeInitialEdukasi();
-
   const patch = (id: string, logs: EdukasiLog[]) => {
     const item = items.find(i => i.id === id);
     if (item) item.logs = logs;
@@ -334,23 +301,20 @@ function makeMockEdukasiRM2025003(): EdukasiItem[] {
       catatan: "Penjelasan ulang lengkap kepada pasien dan anak (Budi Fauzi). Semua pertanyaan terjawab.",
     },
   ]);
-
   patch("edu-02", [
     {
       id: "log-02a", tanggal: "2026-05-10", petugas: "Ns. Dewi Rahayu, S.Kep", profesi: "Perawat",
       metode: "Leaflet", penerima: "Keduanya", pemahaman: "Paham",
-      catatan: "Tanda bahaya: sesak mendadak, BB naik >2kg/3hari, kaki bengkak. Pasien dan keluarga memahami kapan harus ke IGD.",
+      catatan: "Tanda bahaya: sesak mendadak, BB naik >2kg/3hari, kaki bengkak.",
     },
   ]);
-
   patch("edu-03", [
     {
       id: "log-03a", tanggal: "2026-05-07", petugas: "apt. Rina Sari, S.Farm", profesi: "Apoteker",
       metode: "Demonstrasi", penerima: "Keduanya", pemahaman: "Paham",
-      catatan: "Penjelasan Bisoprolol (HAM), Candesartan, Furosemide, Spironolactone — waktu, dosis, efek samping utama.",
+      catatan: "Penjelasan Bisoprolol (HAM), Candesartan, Furosemide, Spironolactone.",
     },
   ]);
-
   patch("edu-05", [
     {
       id: "log-05a", tanggal: "2026-05-08", petugas: "dr. Anisa Putri, Sp.GK", profesi: "Ahli Gizi",
@@ -358,12 +322,11 @@ function makeMockEdukasiRM2025003(): EdukasiItem[] {
       catatan: "Diet Jantung III 1.700 kkal, Na <2g/hari, restriksi cairan 1.500 ml/hari.",
     },
   ]);
-
   patch("edu-07", [
     {
       id: "log-07a", tanggal: "2026-05-10", petugas: "Bambang Setiawan, AMF", profesi: "Fisioterapis",
       metode: "Demonstrasi", penerima: "Pasien", pemahaman: "Perlu Ulang",
-      catatan: "Cardiac Rehab Fase I: teknik napas, latihan duduk di bed. Masih takut bergerak — perlu pendampingan besok.",
+      catatan: "Cardiac Rehab Fase I: teknik napas, latihan duduk di bed.",
     },
   ]);
 
@@ -388,87 +351,15 @@ export const DISCHARGE_MOCK: Record<string, DischargePlanData> = {
       catatan:                 "Pasien tinggal di rumah 1 lantai. Anak (Budi Fauzi) mampu merawat secara mandiri.",
     },
     edukasi: makeMockEdukasiRM2025003(),
-    rencanaPulang: {
-      obatPulang: [
-        {
-          id: "op-1", namaObat: "Bisoprolol 5 mg", dosis: "5 mg", frekuensi: "1×1 pagi",
-          durasi: "30 hari", isHAM: true, fromResep: true,
-          instruksi: "JANGAN dihentikan mendadak. Pantau nadi — hubungi dokter jika nadi < 50×/mnt.",
-        },
-        {
-          id: "op-2", namaObat: "Candesartan 8 mg", dosis: "8 mg", frekuensi: "1×1 pagi",
-          durasi: "30 hari", isHAM: false, fromResep: true,
-          instruksi: "Pantau tekanan darah. Minum sebelum makan.",
-        },
-        {
-          id: "op-3", namaObat: "Furosemide 40 mg tab", dosis: "40 mg", frekuensi: "1×1 pagi",
-          durasi: "30 hari", isHAM: false, fromResep: true,
-          instruksi: "Minum pagi hari. Pantau BAK — lapor jika < 400 ml/hari. Timbang BB tiap pagi.",
-        },
-        {
-          id: "op-4", namaObat: "Spironolactone 25 mg", dosis: "25 mg", frekuensi: "1×1 pagi",
-          durasi: "30 hari", isHAM: false, fromResep: true,
-          instruksi: "Hindari konsumsi kalium berlebihan (pisang, kelapa muda).",
-        },
-      ],
-      jadwalKontrol: [
-        {
-          id: "jk-1", tanggal: "2026-05-19", poli: "Poliklinik Jantung",
-          dokter: "dr. Dewi Kusuma, Sp.JP",
-          catatan: "Kontrol 1 minggu pasca pulang. Bawa semua obat yang dikonsumsi.",
-        },
-        {
-          id: "jk-2", tanggal: "2026-05-26", poli: "Poliklinik Gizi Klinik",
-          dokter: "dr. Anisa Putri, Sp.GK",
-          catatan: "Evaluasi diet jantung & status nutrisi 2 minggu pasca pulang.",
-        },
-      ],
-      jadwalPemeriksaan: [
-        {
-          id: "jp-1", jenis: "Lab", nama: "Elektrolit (Na, K, Mg)", tanggal: "2026-05-26",
-          catatan: "Monitoring efek diuretik.",
-        },
-        {
-          id: "jp-2", jenis: "Lab", nama: "Fungsi Ginjal (Ureum, Kreatinin)", tanggal: "2026-05-26",
-          catatan: "Monitoring ACE inhibitor (Candesartan).",
-        },
-        {
-          id: "jp-3", jenis: "Lab", nama: "BNP / NT-proBNP", tanggal: "2026-06-09",
-          catatan: "Evaluasi marker gagal jantung 4 minggu pasca pulang.",
-        },
-        {
-          id: "jp-4", jenis: "Radiologi", nama: "Foto Thorax PA", tanggal: "2026-06-09",
-          catatan: "Evaluasi kardiomegali dan efusi pleura.",
-        },
-      ],
-      adaRujukanFKTP: true,
-      fktpNama:       "Puskesmas Kecamatan Menteng",
-      fktpTujuan:     "Monitoring rutin TTV, BB harian, kepatuhan minum obat, dan edukasi berkelanjutan.",
-      instruksiKhusus:
-        "Timbang BB setiap pagi sebelum makan. Segera ke IGD RS jika: BB naik > 2 kg dalam 3 hari, sesak napas baru/memberat, kaki bengkak kembali, atau nyeri dada.",
-    },
-    resume: {
-      diagnosaMasuk:       "Sesak napas memberat, edema tungkai bilateral",
-      diagnosaAkhir:       "Gagal Jantung Kongestif Dekompensata NYHA III (EF 28%), Hipertensi tidak terkontrol, Diabetes Melitus Tipe 2",
-      kodeIcd10Akhir:      "I50.0",
-      prosedurUtama:       "Terapi medikamentosa GJK (diuretik IV → oral), Ekokardiografi (5 Mei 2026), Rehabilitasi Kardiak Fase I",
-      ringkasanPenyakit:
-        "Pasien laki-laki 67 tahun masuk dengan keluhan sesak napas memberat sejak 3 hari dan kaki bengkak bilateral. Pemeriksaan: TD 150/95 mmHg, Nadi 98×/mnt, SpO₂ 92% room air, ronkhi basah bilateral, edema pretibial +2. Ekokardiografi: EF 28%. Terapi: Furosemide 40 mg IV bolus, O₂ 4 L/mnt, restriksi cairan 1.000 ml/hari. Transisi ke terapi oral. Konsultasi gizi: Diet Jantung III 1.700 kkal/hari. Konsultasi rehab medik: Cardiac Rehab Fase I dimulai hari ke-5. Kondisi membaik bertahap.",
-      kondisiSaatPulang:
-        "Kondisi umum membaik. TD 128/80 mmHg, Nadi 80×/mnt reguler, RR 17×/mnt, SpO₂ 97% room air. Edema tungkai minimal grade I. Sesak napas minimal saat aktivitas sedang.",
-      statusFungsional:
-        "ADL terbatas (Barthel 65/100). Masih memerlukan bantuan mandi dan berpakaian. Mobilisasi dengan pendampingan. Dianjutkan Cardiac Rehab Fase II outpatient.",
-      terapiYangDiberikan:
-        "Furosemide 40 mg IV → oral, Candesartan 8 mg oral, Bisoprolol 5 mg oral, Spironolactone 25 mg oral.",
-      instruksiPulang:
-        "1. Minum obat teratur sesuai resep — jangan dihentikan tanpa konsultasi dokter\n2. Timbang berat badan setiap pagi sebelum makan, catat hasilnya\n3. Restriksi cairan: maks 1.500 ml/hari di rumah\n4. Diet rendah garam: Na < 2 g/hari\n5. Aktivitas bertahap sesuai program Cardiac Rehab\n6. Kontrol Poliklinik Jantung 19 Mei 2026",
-      pembatasanAktivitas:
-        "Aktivitas ringan-sedang. Hindari mengangkat beban berat. Lanjutkan Cardiac Rehab Fase II (outpatient).",
-      dietPulang:
-        "Diet Jantung III 1.700 kkal/hari. Restriksi Na < 2 g/hari. Restriksi cairan 1.500 ml/hari. Diet DM: karbohidrat kompleks, hindari gula sederhana.",
-      tandaTanganPasien: false,
-      dpjpApproved:      false,
-      dpjpApprovedAt:    "",
+    checklist: {
+      items: CHECKLIST_TEMPLATE.map(t => ({
+        ...t,
+        confirmed: ["ck-01", "ck-02", "ck-03"].includes(t.id),
+        catatan:   "",
+      })),
+      catatanKhusus: "Pasien dan keluarga sudah memahami kondisi dan rencana pulang.",
+      confirmedBy:   "",
+      confirmedAt:   "",
     },
   },
 };

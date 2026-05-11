@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText, HeartPulse, Tag, HeartHandshake, ScanLine,
   Pill, FlaskConical, Radiation, ClipboardList, LogOut,
-  MessageSquare, Droplets, type LucideIcon,
+  MessageSquare, Droplets, DoorOpen, type LucideIcon,
 } from "lucide-react";
 import type { RawatInapPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,8 @@ import ResepTab         from "./tabs/ResepTab";
 import OrderLabTab      from "./tabs/OrderLabTab";
 import OrderRadTab      from "./tabs/OrderRadTab";
 import KonsultasiTab    from "./tabs/KonsultasiTab";
-import DischargePlanTab from "./tabs/DischargePlanTab";
+import DischargePlanTab  from "./tabs/DischargePlanTab";
+import PasienPulangTab  from "./tabs/PasienPulangTab";
 
 // ── Tab definitions ───────────────────────────────────────
 
@@ -41,6 +42,7 @@ const LAYANAN: TabDef[] = [
   { id: "order-rad",    label: "Order Radiologi",      icon: Radiation,      done: true  },
   { id: "konsultasi",   label: "Konsultasi",           icon: MessageSquare,  done: true  },
   { id: "discharge",    label: "Discharge Planning",   icon: LogOut,         done: true  },
+  { id: "pasien-pulang",label: "Pasien Pulang",        icon: DoorOpen,       done: true  },
 ];
 
 const ALL_TABS = [...REKAM_MEDIS, ...LAYANAN];
@@ -169,6 +171,7 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
             {active === "order-rad"     && <OrderRadTab        patient={patient} />}
             {active === "konsultasi"    && <KonsultasiTab     patient={patient} />}
             {active === "discharge"     && <DischargePlanTab  patient={patient} />}
+            {active === "pasien-pulang" && <PasienPulangTab   patient={patient} />}
           </motion.div>
         </AnimatePresence>
       </main>
