@@ -10,9 +10,8 @@ import { cn } from "@/lib/utils";
 import type { RawatInapPatientDetail } from "@/lib/data";
 import {
   type PasienPulangData, type ResumeMedisRI,
-  checkResumeCompletion,
+  checkResumeCompletion, STATUS_KEPULANGAN_CONFIG,
 } from "./pasienPulangShared";
-import { STATUS_KEPULANGAN_CONFIG } from "./pasienPulangShared";
 
 type Props = {
   data:     PasienPulangData;
@@ -80,7 +79,7 @@ function PrintPreviewModal({
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3">
           <div className="flex items-center gap-2">
             <FileText size={14} className="text-slate-500" />
-            <p className="text-sm font-bold text-slate-700">Resume Medis — Preview</p>
+            <p className="text-sm font-bold text-slate-700">Resume Pulang — Preview</p>
           </div>
           <div className="flex items-center gap-2">
             <button className="flex items-center gap-1.5 rounded-xl bg-orange-500 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-orange-600">
@@ -96,7 +95,8 @@ function PrintPreviewModal({
         <div className="p-8 font-mono text-xs leading-relaxed text-slate-800">
           {/* Header RS */}
           <div className="mb-4 border-b-2 border-slate-800 pb-3 text-center">
-            <p className="text-base font-bold uppercase tracking-wider">RESUME MEDIS PASIEN RAWAT INAP</p>
+            <p className="text-base font-bold uppercase tracking-wider">RESUME PULANG RAWAT INAP</p>
+            <p className="text-[10px] text-slate-500">Salinan untuk Pasien · PMK 24/2022</p>
             <p className="text-[10px] text-slate-500">Rumah Sakit EHIS · Jl. Kesehatan No. 1, Jakarta</p>
           </div>
 
@@ -121,7 +121,7 @@ function PrintPreviewModal({
               <div><span className="font-bold">Lama Rawat</span>    : {lamaRawat}</div>
               <div><span className="font-bold">Ruangan / Kelas</span>: {patient.ruangan} / {patient.kelas.replace("_", " ")}</div>
               <div><span className="font-bold">DPJP</span>          : {patient.dpjp}</div>
-              <div><span className="font-bold">Status Pulang</span> : {data.status || "—"}</div>
+              <div><span className="font-bold">Status Pulang</span> : {data.status || "—"}{statusCfg ? "" : ""}</div>
             </div>
           </section>
 
@@ -141,13 +141,13 @@ function PrintPreviewModal({
 
           {/* Klinis */}
           {[
-            ["IV. ANAMNESIS SINGKAT & PEMERIKSAAN FISIK", data.resume.ringkasanAnamnesis],
-            ["V. HASIL PENUNJANG BERMAKNA",               data.resume.hasilPemeriksaan],
-            ["VI. TERAPI YANG DIBERIKAN",                 data.resume.terapiDiberikan],
-            ["VII. KONDISI SAAT PULANG",                  data.resume.kondisiSaatPulang],
-            ["VIII. INSTRUKSI & ANJURAN",                 data.resume.instruksiPulang],
-            ["IX. PEMBATASAN AKTIVITAS",                  data.resume.pembatasanAktivitas],
-            ["X. DIET",                                   data.resume.dietPulang],
+            ["IV. ANAMNESIS SINGKAT & PEMERIKSAAN FISIK", data.resumePulang.ringkasanAnamnesis],
+            ["V. HASIL PENUNJANG BERMAKNA",               data.resumePulang.hasilPemeriksaan],
+            ["VI. TERAPI YANG DIBERIKAN",                 data.resumePulang.terapiDiberikan],
+            ["VII. KONDISI SAAT PULANG",                  data.resumePulang.kondisiSaatPulang],
+            ["VIII. INSTRUKSI & ANJURAN",                 data.resumePulang.instruksiPulang],
+            ["IX. PEMBATASAN AKTIVITAS",                  data.resumePulang.pembatasanAktivitas],
+            ["X. DIET",                                   data.resumePulang.dietPulang],
           ].map(([title, content]) => (
             <section key={title} className="mb-4">
               <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">{title}</p>
@@ -199,8 +199,8 @@ function PrintPreviewModal({
                 <p>{patient.dpjp}</p>
                 <div className="my-8" />
                 <p className="border-t border-slate-400 pt-1">( {patient.dpjp} )</p>
-                {statusCfg && data.resume.dpjpApproved && (
-                  <p className="mt-1 text-[9px] text-emerald-600">Ditandatangani: {data.resume.dpjpApprovedAt}</p>
+                {data.resumePulang.dpjpApproved && (
+                  <p className="mt-1 text-[9px] text-emerald-600">Ditandatangani: {data.resumePulang.dpjpApprovedAt}</p>
                 )}
               </div>
             </div>
@@ -218,21 +218,20 @@ export default function ResumeMedisPane({ data, onChange, patient }: Props) {
   const [showPrint, setShowPrint] = useState(false);
 
   function setResume<K extends keyof ResumeMedisRI>(key: K, val: ResumeMedisRI[K]) {
-    onChange({ ...data, resume: { ...data.resume, [key]: val } });
+    onChange({ ...data, resumePulang: { ...data.resumePulang, [key]: val } });
   }
 
   function handleApprove() {
     const now = new Date().toLocaleDateString("id-ID", {
       day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
     });
-    onChange({ ...data, resume: { ...data.resume, dpjpApproved: true, dpjpApprovedAt: now } });
+    onChange({ ...data, resumePulang: { ...data.resumePulang, dpjpApproved: true, dpjpApprovedAt: now } });
   }
 
-  const hasDiagnosa   = patient.diagnosa.length > 0;
-  const completions   = checkResumeCompletion(data, hasDiagnosa);
-  const doneCount     = completions.filter(c => c.done).length;
-  const canPrint      = completions.every(c => c.done);
-  const diagnosaPrimer = patient.diagnosa.find(d => d.tipe === "Utama");
+  const hasDiagnosa = patient.diagnosa.length > 0;
+  const completions = checkResumeCompletion(data, hasDiagnosa);
+  const doneCount   = completions.filter(c => c.done).length;
+  const canPrint    = completions.every(c => c.done);
 
   return (
     <>
@@ -284,13 +283,13 @@ export default function ResumeMedisPane({ data, onChange, patient }: Props) {
             <div className="space-y-3">
               <FormArea
                 label="Anamnesis Singkat & Pemeriksaan Fisik" rows={4}
-                value={data.resume.ringkasanAnamnesis}
+                value={data.resumePulang.ringkasanAnamnesis}
                 onChange={v => setResume("ringkasanAnamnesis", v)}
                 placeholder="Keluhan masuk, riwayat singkat, pemeriksaan fisik bermakna saat masuk..."
               />
               <FormArea
                 label="Hasil Penunjang Bermakna" rows={3}
-                value={data.resume.hasilPemeriksaan}
+                value={data.resumePulang.hasilPemeriksaan}
                 onChange={v => setResume("hasilPemeriksaan", v)}
                 placeholder="Lab, radiologi, dan pemeriksaan khusus yang bermakna..."
               />
@@ -302,13 +301,13 @@ export default function ResumeMedisPane({ data, onChange, patient }: Props) {
             <div className="space-y-3">
               <FormArea
                 label="Terapi yang Diberikan *" rows={3} required
-                value={data.resume.terapiDiberikan}
+                value={data.resumePulang.terapiDiberikan}
                 onChange={v => setResume("terapiDiberikan", v)}
                 placeholder="Obat, tindakan, prosedur, konsultasi yang dilakukan selama rawat inap..."
               />
               <FormArea
                 label="Kondisi Saat Pulang *" rows={3} required
-                value={data.resume.kondisiSaatPulang}
+                value={data.resumePulang.kondisiSaatPulang}
                 onChange={v => setResume("kondisiSaatPulang", v)}
                 placeholder="Kondisi objektif pasien saat pulang (TTV, keluhan, status fungsional)..."
               />
@@ -320,19 +319,19 @@ export default function ResumeMedisPane({ data, onChange, patient }: Props) {
             <div className="space-y-3">
               <FormArea
                 label="Instruksi & Anjuran Pulang *" rows={4} required
-                value={data.resume.instruksiPulang}
+                value={data.resumePulang.instruksiPulang}
                 onChange={v => setResume("instruksiPulang", v)}
                 placeholder="Instruksi kepulangan, anjuran, tanda bahaya yang harus segera ke RS..."
               />
               <FormArea
                 label="Pembatasan Aktivitas" rows={2}
-                value={data.resume.pembatasanAktivitas}
+                value={data.resumePulang.pembatasanAktivitas}
                 onChange={v => setResume("pembatasanAktivitas", v)}
                 placeholder="Aktivitas yang diperbolehkan / dibatasi..."
               />
               <FormArea
                 label="Diet Pulang" rows={2}
-                value={data.resume.dietPulang}
+                value={data.resumePulang.dietPulang}
                 onChange={v => setResume("dietPulang", v)}
                 placeholder="Anjuran diet di rumah..."
               />
@@ -390,13 +389,13 @@ export default function ResumeMedisPane({ data, onChange, patient }: Props) {
           {/* DPJP sign-off */}
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">TTD DPJP</p>
-            {data.resume.dpjpApproved ? (
+            {data.resumePulang.dpjpApproved ? (
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
                 <div className="flex items-center gap-2">
                   <ShieldCheck size={14} className="text-emerald-500" />
                   <div>
                     <p className="text-[11px] font-bold text-emerald-800">Ditandatangani</p>
-                    <p className="text-[10px] text-emerald-600">{data.resume.dpjpApprovedAt}</p>
+                    <p className="text-[10px] text-emerald-600">{data.resumePulang.dpjpApprovedAt}</p>
                   </div>
                 </div>
               </div>
@@ -412,7 +411,7 @@ export default function ResumeMedisPane({ data, onChange, patient }: Props) {
                 )}
               >
                 {completions.filter(c => c.id !== "c7").every(c => c.done)
-                  ? "Tandatangani Resume Medis"
+                  ? "Tandatangani Resume Pulang"
                   : "Lengkapi data terlebih dahulu"
                 }
               </button>
@@ -431,7 +430,7 @@ export default function ResumeMedisPane({ data, onChange, patient }: Props) {
             )}
           >
             {canPrint ? (
-              <><Printer size={14} /> Cetak Resume Medis</>
+              <><Printer size={14} /> Cetak Resume Pulang</>
             ) : (
               <><Lock size={13} /> {completions.length - doneCount} item belum lengkap</>
             )}
@@ -442,6 +441,14 @@ export default function ResumeMedisPane({ data, onChange, patient }: Props) {
               Lengkapi semua item di atas untuk mengaktifkan cetak
             </p>
           )}
+
+          {/* Info */}
+          <div className="rounded-xl border border-orange-100 bg-orange-50 p-3">
+            <p className="text-[10px] font-semibold text-orange-700">Dokumen Pasien</p>
+            <p className="mt-1 text-[10px] text-orange-600">
+              Resume Pulang adalah salinan untuk pasien berisi instruksi, obat, dan jadwal kontrol. Untuk kelengkapan klaim BPJS, gunakan tab Resume Medik.
+            </p>
+          </div>
 
         </div>
       </div>

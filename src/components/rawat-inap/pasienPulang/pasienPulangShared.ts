@@ -11,6 +11,8 @@ export type JenisSurat =
   | "Surat Rujukan Balik"
   | "Surat Kematian";
 
+export type AsalMasuk = "IGD" | "Poliklinik" | "Transfer RS Lain" | "Langsung";
+
 // ── Core interfaces ───────────────────────────────────────
 
 export interface ObatPulangItem {
@@ -48,6 +50,8 @@ export interface SuratPulang {
   diterbitkanAt: string;
 }
 
+// ── Resume Pulang (salinan untuk pasien) ──────────────────
+
 export interface ResumeMedisRI {
   ringkasanAnamnesis:  string;
   hasilPemeriksaan:    string;
@@ -60,6 +64,76 @@ export interface ResumeMedisRI {
   dpjpApproved:        boolean;
   dpjpApprovedAt:      string;
 }
+
+// ── Resume Medik (kelengkapan RM + klaim BPJS) ────────────
+
+export interface TVVSummaryItem {
+  label:        "Masuk" | "Pulang";
+  tanggal:      string;
+  tekananDarah: string;
+  nadi:         number;
+  rr:           number;
+  suhu:         number;
+  spo2:         number;
+  gcs:          number;
+  kesadaran:    string;
+}
+
+export interface HasilLabSummary {
+  nama:    string;
+  nilai:   string;
+  satuan:  string;
+  rujukan: string;
+  flag:    "normal" | "tinggi" | "rendah" | "kritis";
+  tanggal: string;
+}
+
+export interface HasilRadSummary {
+  jenis:      string;
+  tanggal:    string;
+  kesimpulan: string;
+}
+
+export interface ObatSelamaRawat {
+  namaObat:     string;
+  dosis:        string;
+  rute:         string;
+  mulaiTanggal: string;
+  akhirTanggal: string;
+  isHAM:        boolean;
+}
+
+export interface TindakanResume {
+  kodeIcd9:     string;
+  namaTindakan: string;
+  tanggal:      string;
+}
+
+export interface ResumeMedikData {
+  // Asal masuk — manual
+  asalMasuk:       AsalMasuk | "";
+  tanggalMasukIGD: string;
+  diagnosisIGD:    string;
+
+  // Auto-aggregated dari tab terkait
+  ttvMasuk:         TVVSummaryItem | null;
+  ttvPulang:        TVVSummaryItem | null;
+  hasilLabAbnormal: HasilLabSummary[];
+  hasilRad:         HasilRadSummary[];
+  obatSelamaRawat:  ObatSelamaRawat[];
+  tindakan:         TindakanResume[];
+
+  // Manual — diisi DPJP
+  kondisiMasuk:    string;
+  kondisiPulang:   string;
+  ringkasanKlinis: string;
+
+  // Sign-off
+  dpjpApproved:   boolean;
+  dpjpApprovedAt: string;
+}
+
+// ── Main composite type ───────────────────────────────────
 
 export interface PasienPulangData {
   status:                StatusKepulangan | "";
@@ -74,7 +148,8 @@ export interface PasienPulangData {
   fktpNama:              string;
   fktpTujuan:            string;
   surat:                 SuratPulang[];
-  resume:                ResumeMedisRI;
+  resumePulang:          ResumeMedisRI;
+  resumeMedik:           ResumeMedikData;
 }
 
 // ── Display config ────────────────────────────────────────
@@ -133,7 +208,7 @@ export function makeInitialSurat(): SuratPulang[] {
   return SURAT_TEMPLATE.map(t => ({ ...t, diterbitkan: false, diterbitkanAt: "" }));
 }
 
-// ── Completion checker ────────────────────────────────────
+// ── Completion checkers ───────────────────────────────────
 
 export interface CompletionItem {
   id:   string;
@@ -148,13 +223,39 @@ export function checkResumeCompletion(
   hasDiagnosa: boolean,
 ): CompletionItem[] {
   return [
-    { id: "c1", label: "Status kepulangan",       hint: "Pilih status kepulangan di tab Status",              done: data.status !== "",                                 tab: "status" },
-    { id: "c2", label: "Diagnosa akhir ICD-10",   hint: "Isi diagnosa di tab Diagnosa rekam medis",           done: hasDiagnosa },
-    { id: "c3", label: "Kondisi saat pulang",      hint: "Isi kondisi objektif pasien saat pulang",            done: data.resume.kondisiSaatPulang.trim().length > 0 },
-    { id: "c4", label: "Terapi yang diberikan",    hint: "Ringkasan terapi selama rawat inap",                 done: data.resume.terapiDiberikan.trim().length > 0 },
-    { id: "c5", label: "Instruksi pulang",         hint: "Instruksi dan anjuran untuk pasien",                 done: data.resume.instruksiPulang.trim().length > 0 },
-    { id: "c6", label: "Minimal 1 obat pulang",   hint: "Tambahkan obat pulang di tab Obat & Jadwal",         done: data.obatPulang.length > 0,                         tab: "obat" },
-    { id: "c7", label: "TTD / Persetujuan DPJP",  hint: "DPJP belum menandatangani resume medis",             done: data.resume.dpjpApproved },
+    { id: "c1", label: "Status kepulangan",      hint: "Pilih status kepulangan di tab Status",         done: data.status !== "",                                   tab: "status" },
+    { id: "c2", label: "Diagnosa akhir ICD-10",  hint: "Isi diagnosa di tab Diagnosa rekam medis",      done: hasDiagnosa },
+    { id: "c3", label: "Kondisi saat pulang",     hint: "Isi kondisi objektif pasien saat pulang",       done: data.resumePulang.kondisiSaatPulang.trim().length > 0 },
+    { id: "c4", label: "Terapi yang diberikan",   hint: "Ringkasan terapi selama rawat inap",            done: data.resumePulang.terapiDiberikan.trim().length > 0 },
+    { id: "c5", label: "Instruksi pulang",        hint: "Instruksi dan anjuran untuk pasien",            done: data.resumePulang.instruksiPulang.trim().length > 0 },
+    { id: "c6", label: "Minimal 1 obat pulang",  hint: "Tambahkan obat pulang di tab Obat & Jadwal",    done: data.obatPulang.length > 0,                           tab: "obat" },
+    { id: "c7", label: "TTD / Persetujuan DPJP", hint: "DPJP belum menandatangani resume pulang",       done: data.resumePulang.dpjpApproved },
+  ];
+}
+
+export interface ResumeMedikCompletionItem {
+  id:     string;
+  label:  string;
+  hint:   string;
+  done:   boolean;
+  source: "tab-lain" | "form-ini";
+  tab?:   string;
+}
+
+export function checkResumeMedikCompletion(
+  data:        PasienPulangData,
+  hasDiagnosa: boolean,
+): ResumeMedikCompletionItem[] {
+  const rm = data.resumeMedik;
+  return [
+    { id: "m1", label: "Status + tanggal pulang",  hint: "Lengkapi di tab Status Kepulangan",           done: data.status !== "" && !!data.tanggalPulang && !!data.jamPulang, source: "tab-lain", tab: "status" },
+    { id: "m2", label: "Diagnosa ICD-10",           hint: "Isi minimal 1 diagnosa di tab Diagnosa RM",  done: hasDiagnosa,                                                    source: "tab-lain" },
+    { id: "m3", label: "Obat pulang",               hint: "Tambah obat di tab Obat & Jadwal",            done: data.obatPulang.length > 0,                                     source: "tab-lain", tab: "obat" },
+    { id: "m4", label: "Asal masuk",                hint: "Pilih asal masuk pasien di form ini",         done: rm.asalMasuk !== "",                                            source: "form-ini" },
+    { id: "m5", label: "Kondisi masuk",             hint: "Isi kondisi klinis saat masuk RS",            done: rm.kondisiMasuk.trim().length > 10,                             source: "form-ini" },
+    { id: "m6", label: "Kondisi pulang",            hint: "Isi kondisi klinis saat pulang",              done: rm.kondisiPulang.trim().length > 10,                            source: "form-ini" },
+    { id: "m7", label: "Ringkasan klinis DPJP",    hint: "Isi ringkasan perjalanan klinis oleh DPJP",   done: rm.ringkasanKlinis.trim().length > 10,                          source: "form-ini" },
+    { id: "m8", label: "TTD DPJP",                  hint: "DPJP belum menandatangani Resume Medik",      done: rm.dpjpApproved,                                                source: "form-ini" },
   ];
 }
 
@@ -187,7 +288,8 @@ export const PASIEN_PULANG_MOCK: Record<string, PasienPulangData> = {
     fktpNama:       "Puskesmas Kecamatan Menteng",
     fktpTujuan:     "Monitoring rutin TTV, BB harian, kepatuhan minum obat, dan edukasi berkelanjutan.",
     surat: makeInitialSurat(),
-    resume: {
+
+    resumePulang: {
       ringkasanAnamnesis:
         "Pasien laki-laki 67 tahun masuk dengan keluhan sesak napas memberat sejak 3 hari dan kaki bengkak bilateral. TD 150/95 mmHg, Nadi 98×/mnt, SpO₂ 92% room air, ronkhi basah bilateral, edema pretibial +2. Ekokardiografi: EF 28%.",
       hasilPemeriksaan:
@@ -205,6 +307,60 @@ export const PASIEN_PULANG_MOCK: Record<string, PasienPulangData> = {
       tandaTanganPasien: false,
       dpjpApproved:      false,
       dpjpApprovedAt:    "",
+    },
+
+    resumeMedik: {
+      asalMasuk:       "IGD",
+      tanggalMasukIGD: "10 Mei 2025",
+      diagnosisIGD:    "Acute Decompensated Heart Failure (ADHF)",
+
+      ttvMasuk: {
+        label: "Masuk", tanggal: "10/05/2025 14:30",
+        tekananDarah: "160/100", nadi: 112, rr: 28, suhu: 36.8, spo2: 88, gcs: 15,
+        kesadaran: "Composmentis",
+      },
+      ttvPulang: {
+        label: "Pulang", tanggal: "17/05/2025 09:00",
+        tekananDarah: "130/80", nadi: 78, rr: 18, suhu: 36.5, spo2: 97, gcs: 15,
+        kesadaran: "Composmentis",
+      },
+
+      hasilLabAbnormal: [
+        { nama: "BNP",           nilai: "1.250", satuan: "pg/mL", rujukan: "< 100",    flag: "kritis", tanggal: "10/05/2025" },
+        { nama: "Ureum",         nilai: "52",    satuan: "mg/dL", rujukan: "10–50",    flag: "tinggi", tanggal: "10/05/2025" },
+        { nama: "Kreatinin",     nilai: "1,8",   satuan: "mg/dL", rujukan: "0,6–1,2",  flag: "tinggi", tanggal: "10/05/2025" },
+        { nama: "BNP (kontrol)", nilai: "320",   satuan: "pg/mL", rujukan: "< 100",    flag: "tinggi", tanggal: "15/05/2025" },
+      ],
+
+      hasilRad: [
+        { jenis: "Foto Thorax PA",  tanggal: "10/05/2025", kesimpulan: "Kardiomegali (CTR 60%), gambaran edema pulmonal bilateral, efusi pleura bilateral" },
+        { jenis: "Echokardiografi", tanggal: "11/05/2025", kesimpulan: "Fraksi ejeksi (EF) 25%, dilatasi ventrikel kiri, regurgitasi mitral sedang" },
+      ],
+
+      obatSelamaRawat: [
+        { namaObat: "Furosemide IV",    dosis: "40 mg/12 jam",      rute: "IV",      mulaiTanggal: "10/05/2025", akhirTanggal: "14/05/2025", isHAM: false },
+        { namaObat: "Dobutamine drip",  dosis: "5 mcg/kgBB/mnt",    rute: "IV Drip", mulaiTanggal: "10/05/2025", akhirTanggal: "12/05/2025", isHAM: true  },
+        { namaObat: "Bisoprolol",       dosis: "2,5 mg/24 jam",      rute: "PO",      mulaiTanggal: "11/05/2025", akhirTanggal: "17/05/2025", isHAM: false },
+        { namaObat: "Candesartan",      dosis: "8 mg/24 jam",        rute: "PO",      mulaiTanggal: "11/05/2025", akhirTanggal: "17/05/2025", isHAM: false },
+        { namaObat: "Spironolactone",   dosis: "25 mg/24 jam",       rute: "PO",      mulaiTanggal: "12/05/2025", akhirTanggal: "17/05/2025", isHAM: false },
+      ],
+
+      tindakan: [
+        { kodeIcd9: "89.52", namaTindakan: "Elektrokardiografi (EKG)",       tanggal: "10/05/2025" },
+        { kodeIcd9: "88.72", namaTindakan: "Echokardiografi",                tanggal: "11/05/2025" },
+        { kodeIcd9: "99.04", namaTindakan: "Transfusi Cairan Intravena",     tanggal: "10/05/2025" },
+        { kodeIcd9: "93.89", namaTindakan: "Rehabilitasi Kardiak Fase I",    tanggal: "13/05/2025" },
+      ],
+
+      kondisiMasuk:
+        "Pasien datang via IGD dengan sesak napas memberat 3 hari, ortopnea, edema tungkai bilateral. TD 160/100 mmHg, Nadi 112×/mnt ireguler, RR 28×/mnt, SpO₂ 88% room air. Ronkhi basah halus bilateral +/+, edema pretibial grade 2.",
+      kondisiPulang:
+        "Kondisi umum membaik. Sesak napas berkurang signifikan, tidak ada ortopnea. TD 130/80 mmHg, Nadi 78×/mnt reguler, RR 18×/mnt, SpO₂ 97% room air. Edema tungkai minimal grade 1.",
+      ringkasanKlinis:
+        "Pasien laki-laki 67 tahun dengan riwayat hipertensi + DM tipe 2, dirawat 7 hari atas indikasi ADHF NYHA III–IV dengan EF 25% (HFrEF). Diberikan terapi diuretik IV, inotropik dobutamine 48 jam, dan optimasi GDMT (bisoprolol, candesartan, spironolactone). Terjadi perbaikan klinis bermakna. Konsultasi Gizi Klinik dan Rehab Medik. Pasien dipulangkan dalam kondisi stabil dengan tatalaksana oral.",
+
+      dpjpApproved:   false,
+      dpjpApprovedAt: "",
     },
   },
 };

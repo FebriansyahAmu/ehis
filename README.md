@@ -4,15 +4,4 @@ Sistem informasi kesehatan berbasis web untuk manajemen rekam medis klinis rumah
 
 Dibangun dengan Next.js 16 App Router · React 19 · TypeScript · Tailwind CSS v4 · Prisma.
 
-## Menjalankan
-
-```bash
-npm install
-npm run dev
-```
-
-Buka [http://localhost:3000](http://localhost:3000).
-
----
-
-*Dikembangkan oleh Febriansyah · 2025*
+_Dikembangkan oleh Febriansyah · 2026_

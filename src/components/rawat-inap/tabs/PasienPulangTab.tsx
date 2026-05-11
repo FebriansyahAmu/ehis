@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  CalendarCheck, ClipboardList, FileText, LogOut,
+  CalendarCheck, ClipboardList, FileCheck2, FileText, LogOut,
   Pill, type LucideIcon,
 } from "lucide-react";
 import type { RawatInapPatientDetail } from "@/lib/data";
@@ -14,27 +14,29 @@ import {
   makeInitialSurat,
   STATUS_KEPULANGAN_CONFIG,
 } from "../pasienPulang/pasienPulangShared";
-import StatusPane     from "../pasienPulang/StatusPane";
-import ObatJadwalPane from "../pasienPulang/ObatJadwalPane";
-import SuratPane      from "../pasienPulang/SuratPane";
+import StatusPane      from "../pasienPulang/StatusPane";
+import ObatJadwalPane  from "../pasienPulang/ObatJadwalPane";
+import SuratPane       from "../pasienPulang/SuratPane";
+import ResumeMedikPane from "../pasienPulang/ResumeMedikPane";
 import ResumeMedisPane from "../pasienPulang/ResumeMedisPane";
 
 // ── Tab definitions ───────────────────────────────────────
 
-type TabId = "status" | "obat" | "surat" | "resume";
+type TabId = "status" | "obat" | "surat" | "resume-medik" | "resume-pulang";
 
 interface TabDef { id: TabId; label: string; icon: LucideIcon }
 
 const TABS: TabDef[] = [
-  { id: "status", label: "Status Pulang",  icon: LogOut        },
-  { id: "obat",   label: "Obat & Jadwal",  icon: Pill          },
-  { id: "surat",  label: "Surat-surat",    icon: ClipboardList },
-  { id: "resume", label: "Resume Medis",   icon: FileText      },
+  { id: "status",        label: "Status Pulang",  icon: LogOut        },
+  { id: "obat",          label: "Obat & Jadwal",  icon: Pill          },
+  { id: "surat",         label: "Surat-surat",    icon: ClipboardList },
+  { id: "resume-medik",  label: "Resume Medik",   icon: FileCheck2    },
+  { id: "resume-pulang", label: "Resume Pulang",  icon: FileText      },
 ];
 
 // ── Header ────────────────────────────────────────────────
 
-function PasienPulangHeader({ data, patient }: { data: PasienPulangData; patient: RawatInapPatientDetail }) {
+function PasienPulangHeader({ data }: { data: PasienPulangData }) {
   const statusCfg = data.status ? STATUS_KEPULANGAN_CONFIG[data.status] : null;
 
   return (
@@ -84,10 +86,18 @@ export default function PasienPulangTab({ patient }: { patient: RawatInapPatient
     obatPulang: [], jadwalKontrol: [], jadwalPemeriksaan: [],
     adaRujukanFKTP: false, fktpNama: "", fktpTujuan: "",
     surat: makeInitialSurat(),
-    resume: {
+    resumePulang: {
       ringkasanAnamnesis: "", hasilPemeriksaan: "", terapiDiberikan: "",
       kondisiSaatPulang: "", instruksiPulang: "", pembatasanAktivitas: "", dietPulang: "",
       tandaTanganPasien: false, dpjpApproved: false, dpjpApprovedAt: "",
+    },
+    resumeMedik: {
+      asalMasuk: "", tanggalMasukIGD: "", diagnosisIGD: "",
+      ttvMasuk: null, ttvPulang: null,
+      hasilLabAbnormal: [], hasilRad: [],
+      obatSelamaRawat: [], tindakan: [],
+      kondisiMasuk: "", kondisiPulang: "", ringkasanKlinis: "",
+      dpjpApproved: false, dpjpApprovedAt: "",
     },
   };
 
@@ -98,11 +108,11 @@ export default function PasienPulangTab({ patient }: { patient: RawatInapPatient
     <div className="flex h-full flex-col overflow-hidden">
 
       {/* Header */}
-      <PasienPulangHeader data={data} patient={patient} />
+      <PasienPulangHeader data={data} />
 
       {/* Sub-tab nav */}
-      <div className="shrink-0 border-b border-slate-200 bg-white px-4">
-        <div className="flex gap-0">
+      <div className="shrink-0 overflow-x-auto border-b border-slate-200 bg-white px-4">
+        <div className="flex min-w-max gap-0">
           {TABS.map(tab => {
             const Icon   = tab.icon;
             const active = activeTab === tab.id;
@@ -111,7 +121,7 @@ export default function PasienPulangTab({ patient }: { patient: RawatInapPatient
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "flex items-center gap-2 border-b-2 px-4 py-2.5 text-[12px] font-semibold transition-all",
+                  "flex items-center gap-2 border-b-2 px-4 py-2.5 text-[12px] font-semibold transition-all whitespace-nowrap",
                   active
                     ? "border-orange-500 text-orange-600"
                     : "border-transparent text-slate-500 hover:text-slate-700",
@@ -145,7 +155,10 @@ export default function PasienPulangTab({ patient }: { patient: RawatInapPatient
               {activeTab === "surat" && (
                 <SuratPane data={data} onChange={setData} />
               )}
-              {activeTab === "resume" && (
+              {activeTab === "resume-medik" && (
+                <ResumeMedikPane data={data} onChange={setData} patient={patient} />
+              )}
+              {activeTab === "resume-pulang" && (
                 <ResumeMedisPane data={data} onChange={setData} patient={patient} />
               )}
             </motion.div>
