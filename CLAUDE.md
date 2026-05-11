@@ -59,14 +59,15 @@ Shared layout: `Navbar` · `Sidebar` · `ModuleSwitcher` · `ModuleLayout` → `
 | rujukan                                                          | `tabs/RujukanKeluarTab.tsx`          | ✅     |
 | Penandaan Gambar                                                 | tabs/penandaanGambar.tsx             | ✅     |
 
-### Rawat Inap (~100% done — semua 12 tab aktif)
+### Rawat Inap (~100% done — semua 13 tab aktif)
 
 | Layer            | File                                         | Status                                                                    |
 | ---------------- | -------------------------------------------- | ------------------------------------------------------------------------- |
 | Board            | `components/rawat-inap/RIBoard.tsx`          | ✅ + link ke detail page                                                  |
 | Bed panel        | `components/rawat-inap/RIRuanganPanel.tsx`   | ✅                                                                        |
 | Patient header   | `components/rawat-inap/RIPatientHeader.tsx`  | ✅ status-based theme, vitals bar                                         |
-| Tab router       | `components/rawat-inap/RIRecordTabs.tsx`     | ✅ 12 tab aktif                                                           |
+| Tab router       | `components/rawat-inap/RIRecordTabs.tsx`     | ✅ 13 tab aktif                                                           |
+| Asesmen Awal     | `tabs/AsesmenAwalTab.tsx` + `asesmenAwal/{AnamnesisPaneRI,SkriningPane,PenilaianRisikoPane,asesmenAwalShared}.tsx` + `shared/asesmen/{AllergyPane,RiwayatPane,GiziPane,asesmenShared}.tsx` | ✅ 5 sub-tab (Anamnesis / Riwayat Medis / Alergi / Skrining / Penilaian Risiko), per-tab completion tracking, global progress bar %, Framer Motion direction-aware, SNARS AP 1.1–1.5 + PP (Braden) |
 | CPPT/SOAP        | `components/rawat-inap/tabs/CPPTTab.tsx`     | ✅ date-grouped, DPJP verify, template, search/filter, flag tindak lanjut |
 | TTV              | `components/rawat-inap/tabs/TTVTab.tsx`      | ✅ multi-shift history, expandable                                        |
 | Diagnosa         | `components/rawat-inap/tabs/DiagnosaTab.tsx` | ✅ thin wrapper → shared (ICD-10 + ICD-9, status, alasan, INA-CBG)        |
@@ -395,7 +396,7 @@ Work items in priority order. Pick top item each session.
 
 ### 🟠 Berikutnya — Gap Kritis (Post RI Tabs)
 
-- [ ] **Asesmen Awal RI (MRS)** — Tab baru RI: anamnesis lengkap, pemfis masuk, ADL Barthel, MST gizi, Morse jatuh, Braden decubitus. Wajib per SNARS AP 1 (24 jam pertama). Perlu type baru di `data.ts`
+- [x] **Asesmen Awal RI (MRS)** — ✅ Tab baru RI: 5 sub-tab (Anamnesis / Riwayat Medis / Alergi / Skrining Gizi+Nyeri / Penilaian Risiko Barthel+Morse+Braden), per-tab completion dots, global progress bar, Framer Motion direction-aware, shared components di `shared/asesmen/`. SNARS AP 1.1–1.5 + PP.
 - [x] **Konsultasi Antar SMF** (`tabs/KonsultasiTab.tsx`) — ✅ dipindah ke 🔴 Now item #7
 - [ ] **Skala Nyeri di TTVTab** — tambahkan field `skalaNyeri` (0–10) ke form TTVTab shared (IGD + RI). Type sudah ada di `IGDVitalSigns`. Wajib SNARS AP 1.2
 - [ ] **SBAR Transfer IGD→RI** — form transfer internal yang terintegrasi dengan tab Pasien Pulang IGD (pilih "Rawat Inap") + trigger ke penerimaan RI. Standar SKP 2

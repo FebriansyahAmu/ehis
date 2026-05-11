@@ -5,11 +5,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText, HeartPulse, Tag, HeartHandshake, ScanLine,
   Pill, FlaskConical, Radiation, ClipboardList, LogOut,
-  MessageSquare, Droplets, DoorOpen, type LucideIcon,
+  MessageSquare, Droplets, DoorOpen, Stethoscope, type LucideIcon,
 } from "lucide-react";
 import type { RawatInapPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
+import AsesmenAwalTab   from "./tabs/AsesmenAwalTab";
 import CPPTTab          from "./tabs/CPPTTab";
 import TTVTab           from "./tabs/TTVTab";
 import DiagnosaTab      from "./tabs/DiagnosaTab";
@@ -28,6 +29,7 @@ import PasienPulangTab  from "./tabs/PasienPulangTab";
 interface TabDef { id: string; label: string; icon: LucideIcon; done: boolean }
 
 const REKAM_MEDIS: TabDef[] = [
+  { id: "asesmen-awal", label: "Asesmen Awal",         icon: Stethoscope,    done: true  },
   { id: "cppt",         label: "CPPT / SOAP",         icon: FileText,       done: true  },
   { id: "ttv",          label: "TTV",                  icon: HeartPulse,     done: true  },
   { id: "diagnosa",     label: "Diagnosa",             icon: Tag,            done: true  },
@@ -160,6 +162,7 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
           >
+            {active === "asesmen-awal" && <AsesmenAwalTab  patient={patient} />}
             {active === "cppt"        && <CPPTTab        patient={patient} />}
             {active === "ttv"         && <TTVTab         patient={patient} />}
             {active === "diagnosa"    && <DiagnosaTab    patient={patient} />}
