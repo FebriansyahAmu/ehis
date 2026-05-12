@@ -6,6 +6,7 @@ export default function TTVTab({ patient }: { patient: IGDPatientDetail }) {
     <TTVTabShared
       vitalSigns={patient.vitalSigns}
       statusKesadaran={patient.statusKesadaran}
+      history={patient.ttvHistory ?? []}
     />
   );
 }

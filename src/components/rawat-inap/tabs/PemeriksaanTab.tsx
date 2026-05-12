@@ -6,7 +6,7 @@ import { ScanLine, MapPin, History } from "lucide-react";
 import type { RawatInapPatientDetail, PemeriksaanFisikEntry } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
-import StatusFisikPane, { type PemeriksaanFormState, emptyFormState } from "./pemeriksaan/StatusFisikPane";
+import StatusFisikPane, { type PemeriksaanFormState, emptyFormState } from "@/components/shared/medical-records/pemeriksaan/StatusFisikPane";
 import BodyMapPane from "./pemeriksaan/BodyMapPane";
 import RiwayatPane from "./pemeriksaan/RiwayatPane";
 

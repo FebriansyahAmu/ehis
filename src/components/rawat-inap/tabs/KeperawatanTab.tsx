@@ -9,8 +9,8 @@ import {
 import type { RawatInapPatientDetail, AsuhanKeperawatanEntry, EvaluasiShift } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { STATUS_LUARAN_CONFIG, emptyForm, type AsuhanFormState } from "@/components/shared/medical-records/keperawatanShared";
-import AsuhanForm, { type FormMode } from "./keperawatan/AsuhanForm";
-import AsuhanCard from "./keperawatan/AsuhanCard";
+import AsuhanForm, { type FormMode } from "@/components/shared/medical-records/keperawatan/AsuhanForm";
+import AsuhanCard from "@/components/shared/medical-records/keperawatan/AsuhanCard";
 
 // ── Helpers ────────────────────────────────────────────────
 

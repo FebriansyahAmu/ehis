@@ -434,6 +434,8 @@ export interface IGDPatientDetail extends IGDPatient {
   cppt: CPPTEntry[];
   tindakan: IGDTindakanItem[];
   disposisi: Disposisi;
+  ttvHistory?: RITTVRecord[];
+  asuhanKeperawatan?: AsuhanKeperawatanEntry[];
 }
 
 export const igdPatientDetails: Record<string, IGDPatientDetail> = {
@@ -493,6 +495,23 @@ export const igdPatientDetails: Record<string, IGDPatientDetail> = {
       { id: "t4", nama: "Pemeriksaan Darah Lengkap + Troponin", kode: "LAB-001", waktu: "10:35", dilakukanOleh: "dr. Hendra Wijaya, Sp.EM", jumlah: 1 },
     ],
     disposisi: "Rawat_Inap",
+    ttvHistory: [
+      {
+        id: "igd1-ttv-3", tanggal: "2026-04-14", jam: "10:52", shift: "Pagi",
+        perawat: "Ns. Ratih Permata", statusKesadaran: "Compos_Mentis",
+        vitalSigns: { tdSistolik: 85, tdDiastolik: 55, nadi: 118, respirasi: 28, suhu: 36.3, spo2: 90, gcsEye: 4, gcsVerbal: 4, gcsMotor: 5, skalaNyeri: 8, beratBadan: 72, tinggiBadan: 168 },
+      },
+      {
+        id: "igd1-ttv-2", tanggal: "2026-04-14", jam: "10:37", shift: "Pagi",
+        perawat: "Ns. Ratih Permata", statusKesadaran: "Compos_Mentis",
+        vitalSigns: { tdSistolik: 90, tdDiastolik: 60, nadi: 115, respirasi: 26, suhu: 36.4, spo2: 92, gcsEye: 4, gcsVerbal: 5, gcsMotor: 5, skalaNyeri: 9, beratBadan: 72, tinggiBadan: 168 },
+      },
+      {
+        id: "igd1-ttv-1", tanggal: "2026-04-14", jam: "10:22", shift: "Pagi",
+        perawat: "Ns. Ratih Permata", statusKesadaran: "Compos_Mentis",
+        vitalSigns: { tdSistolik: 95, tdDiastolik: 65, nadi: 110, respirasi: 24, suhu: 36.5, spo2: 93, gcsEye: 4, gcsVerbal: 5, gcsMotor: 6, skalaNyeri: 9, beratBadan: 72, tinggiBadan: 168 },
+      },
+    ],
   },
   "igd-2": {
     id: "igd-2", noRM: "RM-2025-012", name: "Kartini Wulandari", age: 38, gender: "P",
@@ -540,6 +559,18 @@ export const igdPatientDetails: Record<string, IGDPatientDetail> = {
       { id: "t3", nama: "Pemberian Dextrose 40% IV Bolus", kode: "FAR-D40", waktu: "11:12", dilakukanOleh: "Ns. Dina Safitri", jumlah: 2 },
     ],
     disposisi: null,
+    ttvHistory: [
+      {
+        id: "igd2-ttv-2", tanggal: "2026-04-14", jam: "11:35", shift: "Pagi",
+        perawat: "Ns. Dina Safitri", statusKesadaran: "Somnolen",
+        vitalSigns: { tdSistolik: 98, tdDiastolik: 65, nadi: 100, respirasi: 20, suhu: 36.7, spo2: 96, gcsEye: 3, gcsVerbal: 4, gcsMotor: 3, skalaNyeri: 0, beratBadan: 58, tinggiBadan: 160 },
+      },
+      {
+        id: "igd2-ttv-1", tanggal: "2026-04-14", jam: "11:05", shift: "Pagi",
+        perawat: "Ns. Dina Safitri", statusKesadaran: "Sopor",
+        vitalSigns: { tdSistolik: 88, tdDiastolik: 58, nadi: 104, respirasi: 22, suhu: 36.6, spo2: 94, gcsEye: 2, gcsVerbal: 3, gcsMotor: 3, skalaNyeri: 0, beratBadan: 58, tinggiBadan: 160 },
+      },
+    ],
   },
 };
 
