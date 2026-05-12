@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Pill, Utensils, ShieldAlert, AlertTriangle,
   Trash2, Plus, CheckCircle2, HelpCircle, ShieldCheck,
-  Check, X,
+  Check, X, ChevronDown, FileText, Sparkles,
+  ClipboardList, History, Salad, BookOpen,
   type LucideIcon,
 } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
@@ -22,14 +23,15 @@ function Label({ children, required }: { children: React.ReactNode; required?: b
   );
 }
 
-function Block({ title, children, className }: {
-  title?: string; children: React.ReactNode; className?: string;
+function Block({ title, badge, children, className }: {
+  title?: string; badge?: string; children: React.ReactNode; className?: string;
 }) {
   return (
     <div className={cn("rounded-xl border border-slate-200 bg-white shadow-sm", className)}>
       {title && (
-        <div className="border-b border-slate-100 bg-slate-50/60 px-4 py-2.5">
+        <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-2.5">
           <span className="text-xs font-semibold text-slate-700">{title}</span>
+          {badge && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-700">{badge}</span>}
         </div>
       )}
       <div className="flex flex-col gap-3 p-4">{children}</div>
@@ -49,7 +51,7 @@ function TA({ label, value, onChange, placeholder, rows = 2, required }: {
         onChange={onChange ? (e) => onChange(e.target.value) : undefined}
         readOnly={!onChange}
         placeholder={placeholder}
-        className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+        className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
       />
     </div>
   );
@@ -67,16 +69,206 @@ function TI({ label, value, onChange, placeholder, required }: {
         onChange={onChange ? (e) => onChange(e.target.value) : undefined}
         readOnly={!onChange}
         placeholder={placeholder}
-        className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+        className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
       />
     </div>
   );
 }
 
-// ── Sub-tab types ─────────────────────────────────────────
+// ── Sub-tab definitions ───────────────────────────────────
 
-const SUB_TABS = ["Anamnesis", "Riwayat", "Alergi", "Edukasi", "Skrining Gizi Awal"] as const;
-type SubTab = typeof SUB_TABS[number];
+type SubTabId = "anamnesis" | "riwayat" | "alergi" | "skrining" | "edukasi";
+
+interface SubTabDef {
+  id: SubTabId;
+  label: string;
+  sublabel: string;
+  icon: LucideIcon;
+  standard: string;
+}
+
+const SUB_TABS: SubTabDef[] = [
+  { id: "anamnesis", label: "Anamnesis",     sublabel: "Keluhan & Anamnesis", icon: ClipboardList, standard: "AP 1.1"   },
+  { id: "riwayat",   label: "Riwayat Medis", sublabel: "RPD · Obat · Kel.",   icon: History,       standard: "AP 1.1"   },
+  { id: "alergi",    label: "Alergi",         sublabel: "Riwayat Alergi",     icon: AlertTriangle, standard: "AP 1.1"   },
+  { id: "skrining",  label: "Skrining Gizi",  sublabel: "MUST · Nutrisi",     icon: Salad,         standard: "AP 1.3"   },
+  { id: "edukasi",   label: "Edukasi",        sublabel: "Informasi Pasien",   icon: BookOpen,      standard: "HPK 2"    },
+];
+
+// ── SubNavItem ────────────────────────────────────────────
+
+function SubNavItem({
+  tab, active, done, onClick,
+}: { tab: SubTabDef; active: boolean; done: boolean; onClick: () => void }) {
+  const Icon = tab.icon;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "group relative flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all duration-150",
+        active
+          ? "border-sky-300 bg-sky-600 shadow-md shadow-sky-100"
+          : done
+          ? "border-emerald-200 bg-emerald-50 hover:border-emerald-300 hover:bg-emerald-100/70"
+          : "border-slate-200 bg-white hover:border-sky-200 hover:bg-sky-50/50",
+      )}
+    >
+      <div className={cn(
+        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold transition-colors",
+        active ? "bg-white/20 text-white"
+          : done ? "bg-emerald-100 text-emerald-700"
+          : "bg-slate-100 text-slate-500",
+      )}>
+        {done && !active ? <CheckCircle2 size={14} /> : <Icon size={14} />}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className={cn(
+          "text-[11px] font-bold leading-tight",
+          active ? "text-white" : done ? "text-emerald-800" : "text-slate-700",
+        )}>
+          {tab.label}
+        </p>
+        <p className={cn(
+          "mt-0.5 truncate text-[9px] font-medium leading-tight",
+          active ? "text-white/70" : done ? "text-emerald-600" : "text-slate-400",
+        )}>
+          {tab.sublabel}
+        </p>
+      </div>
+      <span className={cn(
+        "shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-bold",
+        active ? "bg-white/20 text-white/90"
+          : done ? "bg-emerald-100 text-emerald-700"
+          : "bg-slate-100 text-slate-500",
+      )}>
+        {tab.standard}
+      </span>
+      {active && (
+        <span className="absolute inset-y-0 left-0 w-0.5 rounded-full bg-white/50" />
+      )}
+    </button>
+  );
+}
+
+// ── ProgressHeader ────────────────────────────────────────
+
+function ProgressHeader({ doneCount, total }: { doneCount: number; total: number }) {
+  const pct     = Math.round((doneCount / total) * 100);
+  const allDone = doneCount === total;
+
+  return (
+    <div className={cn(
+      "rounded-xl border p-4 transition-colors",
+      allDone ? "border-emerald-200 bg-emerald-50" : "border-sky-100 bg-linear-to-r from-sky-50 to-white",
+    )}>
+      <div className="mb-2 flex items-center justify-between">
+        <div>
+          <p className={cn("text-xs font-bold", allDone ? "text-emerald-800" : "text-sky-800")}>
+            {allDone ? "Asesmen Medis Lengkap" : "Asesmen Medis IGD"}
+          </p>
+          <p className={cn("mt-0.5 text-[10px]", allDone ? "text-emerald-600" : "text-sky-600")}>
+            {allDone
+              ? "Semua komponen asesmen telah diisi — PMK 47/2018 terpenuhi"
+              : `${doneCount} dari ${total} komponen selesai · Selesaikan sebelum pasien dipindahkan`}
+          </p>
+        </div>
+        <div className={cn(
+          "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 font-black text-sm tabular-nums",
+          allDone ? "border-emerald-400 bg-emerald-100 text-emerald-700" : "border-sky-300 bg-white text-sky-700",
+        )}>
+          {pct}<span className="text-[8px] font-bold">%</span>
+        </div>
+      </div>
+      <div className="flex gap-1">
+        {SUB_TABS.map((tab, i) => {
+          const segDone = i < doneCount;
+          return (
+            <div
+              key={tab.id}
+              className={cn(
+                "h-[5px] flex-1 rounded-full transition-colors duration-300",
+                segDone ? (allDone ? "bg-emerald-400" : "bg-sky-400") : "bg-slate-200",
+              )}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── IGD Anamnesis Templates ───────────────────────────────
+
+const IGD_TEMPLATES = [
+  {
+    id: "nyeri-dada", label: "Nyeri Dada / Angina",
+    keluhanUtama: "Nyeri dada kiri menjalar ke lengan kiri",
+    rps: "Pasien mengeluh nyeri dada kiri seperti ditekan sejak ± 1 jam. Nyeri menjalar ke lengan kiri. Disertai keringat dingin dan mual. Tidak membaik dengan istirahat.",
+    onsetDurasi: "Mendadak, ± 1 jam", mekanismeCedera: "",
+    faktorPemberat: "Aktivitas fisik, emosi", faktorPemerut: "Istirahat, nitrogliserin sublingual",
+    statusGeneralis: "Tampak sakit sedang, kompos mentis, akral dingin, diaforesis",
+  },
+  {
+    id: "sesak-napas", label: "Sesak Napas Akut",
+    keluhanUtama: "Sesak napas mendadak",
+    rps: "Pasien mengeluh sesak napas mendadak sejak ± 2 jam. Sesak memberat saat berbaring (ortopnea). Disertai batuk dan bengkak kedua tungkai.",
+    onsetDurasi: "Mendadak, ± 2 jam", mekanismeCedera: "",
+    faktorPemberat: "Berbaring, aktivitas fisik", faktorPemerut: "Posisi duduk tegak",
+    statusGeneralis: "Tampak sakit berat, kompos mentis, sesak, RR meningkat, SpO2 turun",
+  },
+  {
+    id: "nyeri-abdomen", label: "Nyeri Abdomen Akut",
+    keluhanUtama: "Nyeri perut hebat, mual, muntah",
+    rps: "Pasien mengeluh nyeri perut sejak ± 4 jam. Nyeri di perut kanan bawah / epigastrium. Disertai mual, muntah, dan demam.",
+    onsetDurasi: "Bertahap, ± 4–6 jam", mekanismeCedera: "",
+    faktorPemberat: "Makan, gerakan", faktorPemerut: "Posisi tertentu",
+    statusGeneralis: "Tampak sakit sedang, kompos mentis, demam, abdomen tegang saat palpasi",
+  },
+  {
+    id: "trauma", label: "Trauma / Kecelakaan",
+    keluhanUtama: "Nyeri setelah trauma / kecelakaan",
+    rps: "Pasien datang dengan nyeri akibat trauma. Mekanisme cedera: kecelakaan lalu lintas / jatuh / benturan langsung. Disertai perdarahan / deformitas / keterbatasan gerak.",
+    onsetDurasi: "Akut, segera setelah trauma", mekanismeCedera: "Benturan langsung / KLL",
+    faktorPemberat: "Pergerakan, penekanan", faktorPemerut: "Immobilisasi, kompres",
+    statusGeneralis: "Tampak sakit sedang–berat, kesadaran sesuai GCS, terdapat luka / deformitas",
+  },
+] as const;
+
+type IGDTemplate = typeof IGD_TEMPLATES[number];
+
+// ── Template picker ───────────────────────────────────────
+
+function TemplatePicker({ onApply }: { onApply: (t: IGDTemplate) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100">
+        <Sparkles size={12} /> Template Cepat
+        <ChevronDown size={11} className={cn("transition-transform", open && "rotate-180")} />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.97 }} transition={{ duration: 0.15 }}
+            className="absolute left-0 top-8 z-20 w-56 rounded-xl border border-slate-200 bg-white shadow-lg"
+          >
+            {IGD_TEMPLATES.map(t => (
+              <button key={t.id} type="button"
+                onClick={() => { onApply(t); setOpen(false); }}
+                className="flex w-full items-start gap-2.5 px-4 py-3 text-left text-xs transition hover:bg-sky-50 first:rounded-t-xl last:rounded-b-xl">
+                <FileText size={13} className="mt-0.5 shrink-0 text-sky-500" />
+                <span className="font-semibold text-slate-700">{t.label}</span>
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 // ── Mock: previous medical notes ─────────────────────────
 
@@ -105,92 +297,134 @@ const PREV_NOTES = [
 // ANAMNESIS sub-tab
 // ─────────────────────────────────────────────────────────
 
-function AnamnesisPane({ patient }: { patient: IGDPatientDetail }) {
-  const [form, setForm] = useState({
+type SumberAnamnesis = "Pasien" | "Keluarga" | "Pengantar" | "Rekam Medis";
+
+interface AnamnesisIGDForm {
+  sumberAnamnesis: SumberAnamnesis | "";
+  keluhanUtama: string;
+  rps: string;
+  onsetDurasi: string;
+  mekanismeCedera: string;
+  faktorPemberat: string;
+  faktorPemerut: string;
+  statusGeneralis: string;
+  obatSaatIni: string;
+}
+
+function AnamnesisPane({
+  patient, onComplete,
+}: { patient: IGDPatientDetail; onComplete?: (done: boolean) => void }) {
+  const [form, setForm] = useState<AnamnesisIGDForm>({
+    sumberAnamnesis: "Pasien",
     keluhanUtama: patient.complaint,
     rps: patient.riwayatPenyakitSekarang,
-    mekanisme: patient.mekanismeCedera ?? "",
-    alergi: patient.riwayatAlergi ?? "",
+    onsetDurasi: "",
+    mekanismeCedera: patient.mekanismeCedera ?? "",
+    faktorPemberat: "",
+    faktorPemerut: "",
+    statusGeneralis: patient.pemeriksaanFisikUmum,
     obatSaatIni: patient.obatSaatIni ?? "",
-    keadaanUmum: patient.pemeriksaanFisikUmum,
-    sistemKepalaLeher: "", sistemKardio: "", sistemRespirasi: "",
-    sistemAbdomen: "", sistemEkstremitas: "", sistemNeurologi: "",
-    asesmenKlinis: patient.asesmenKlinis,
-    rencanaTatalaksana: patient.rencanaTatalaksana,
   });
-  const set = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
+
+  function set<K extends keyof AnamnesisIGDForm>(k: K, v: AnamnesisIGDForm[K]) {
+    const updated = { ...form, [k]: v };
+    setForm(updated);
+    const done = updated.keluhanUtama.trim().length > 3 && updated.rps.trim().length > 10 && updated.statusGeneralis.trim().length > 3;
+    onComplete?.(done);
+  }
+
+  function applyTemplate(t: IGDTemplate) {
+    const updated: AnamnesisIGDForm = {
+      ...form,
+      keluhanUtama:    t.keluhanUtama,
+      rps:             t.rps,
+      onsetDurasi:     t.onsetDurasi,
+      mekanismeCedera: t.mekanismeCedera,
+      faktorPemberat:  t.faktorPemberat,
+      faktorPemerut:   t.faktorPemerut,
+      statusGeneralis: t.statusGeneralis,
+    };
+    setForm(updated);
+    onComplete?.(updated.keluhanUtama.length > 3 && updated.rps.length > 10);
+  }
 
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-start md:gap-4">
 
       {/* ── Left: form ── */}
       <div className="flex flex-col gap-3 md:flex-1 md:min-w-0">
-        <Block title="Keluhan & Anamnesis">
+
+        {/* Sumber anamnesis — IGD-specific: siapa yang memberi keterangan */}
+        <div className="flex flex-wrap gap-2">
+          <p className="w-full text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            Sumber Anamnesis<span className="ml-0.5 text-rose-400">*</span>
+          </p>
+          {(["Pasien", "Keluarga", "Pengantar", "Rekam Medis"] as SumberAnamnesis[]).map(s => (
+            <button key={s} type="button" onClick={() => set("sumberAnamnesis", s)}
+              className={cn(
+                "rounded-lg border px-3 py-1.5 text-xs font-semibold transition",
+                form.sumberAnamnesis === s
+                  ? "border-sky-400 bg-sky-50 text-sky-700"
+                  : "border-slate-200 bg-white text-slate-500 hover:border-sky-200 hover:bg-sky-50/40",
+              )}>
+              {s}
+            </button>
+          ))}
+        </div>
+
+        {/* Keluhan & RPS */}
+        <Block title="Keluhan & Anamnesis" badge="Wajib">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-400">Lengkapi riwayat penyakit sekarang</span>
+            <TemplatePicker onApply={applyTemplate} />
+          </div>
           <TA label="Keluhan Utama" required value={form.keluhanUtama}
-            onChange={(v) => set("keluhanUtama", v)} placeholder="Keluhan utama pasien..." />
-          <TA label="Riwayat Penyakit Sekarang (RPS)" rows={3} value={form.rps}
-            onChange={(v) => set("rps", v)} placeholder="Kronologis keluhan saat ini..." />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <TI label="Mekanisme / Onset" value={form.mekanisme}
-              onChange={(v) => set("mekanisme", v)} placeholder="Contoh: mendadak, 2 jam lalu..." />
-            <TI label="Riwayat Alergi" value={form.alergi}
-              onChange={(v) => set("alergi", v)} placeholder="Obat, makanan, lainnya..." />
+            onChange={v => set("keluhanUtama", v)} placeholder="Keluhan utama yang membawa pasien ke IGD..." />
+          <TA label="Riwayat Penyakit Sekarang (RPS)" rows={4} required value={form.rps}
+            onChange={v => set("rps", v)}
+            placeholder="Kronologis keluhan: kapan mulai, bagaimana perkembangannya, gejala penyerta, sudah berobat sebelumnya..." />
+          <div className="grid gap-3 sm:grid-cols-3">
+            <TA label="Onset / Durasi" value={form.onsetDurasi}
+              onChange={v => set("onsetDurasi", v)} placeholder="Mendadak, ± 2 jam..." />
+            <TA label="Faktor Pemberat" value={form.faktorPemberat}
+              onChange={v => set("faktorPemberat", v)} placeholder="Aktivitas, posisi..." />
+            <TA label="Faktor Peringan" value={form.faktorPemerut}
+              onChange={v => set("faktorPemerut", v)} placeholder="Istirahat, obat..." />
           </div>
-          <TA label="Obat yang Sedang Diminum" value={form.obatSaatIni}
-            onChange={(v) => set("obatSaatIni", v)} placeholder="Nama obat, dosis, frekuensi..." />
+          {/* Mekanisme cedera — hanya relevan jika trauma */}
+          <TA label="Mekanisme Cedera (jika trauma)" value={form.mekanismeCedera}
+            onChange={v => set("mekanismeCedera", v)}
+            placeholder="Contoh: KLL, jatuh dari ketinggian, benturan langsung — kosongkan jika bukan trauma" />
         </Block>
 
-        <Block title="Pemeriksaan Fisik">
-          <TA label="Keadaan Umum" value={form.keadaanUmum}
-            onChange={(v) => set("keadaanUmum", v)} placeholder="Tampak sakit sedang/berat, kesadaran..." />
-          <div>
-            <Label>Pemeriksaan Per Sistem</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {(
-                [
-                  ["sistemKepalaLeher", "Kepala & Leher"],
-                  ["sistemKardio",      "Kardiovaskuler"],
-                  ["sistemRespirasi",   "Respirasi"],
-                  ["sistemAbdomen",     "Abdomen"],
-                  ["sistemEkstremitas", "Ekstremitas"],
-                  ["sistemNeurologi",   "Neurologi"],
-                ] as [keyof typeof form, string][]
-              ).map(([key, lbl]) => (
-                <div key={key} className="rounded-md border border-slate-200 bg-slate-50 p-2">
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{lbl}</p>
-                  <textarea
-                    rows={2}
-                    value={form[key]}
-                    onChange={(e) => set(key, e.target.value)}
-                    placeholder="—"
-                    className="w-full resize-none bg-transparent text-xs text-slate-700 placeholder:text-slate-300 outline-none"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
+        {/* Status Generalis */}
+        <Block title="Status Generalis" badge="Wajib">
+          <p className="text-[11px] text-slate-400">Deskripsi singkat keadaan umum pasien. Pemeriksaan fisik lengkap ada di tab Pemeriksaan Fisik.</p>
+          <TA label="Keadaan Umum" rows={2} required value={form.statusGeneralis}
+            onChange={v => set("statusGeneralis", v)}
+            placeholder="Tampak sakit sedang/berat, kesadaran, tanda vital awal, kondisi umum..." />
         </Block>
 
-        <Block title="Asesmen & Rencana Tatalaksana">
-          <TA label="Asesmen Klinis (A)" rows={2} value={form.asesmenKlinis}
-            onChange={(v) => set("asesmenKlinis", v)} placeholder="Diagnosis kerja / masalah klinis..." />
-          <TA label="Rencana Tatalaksana (P)" rows={3} value={form.rencanaTatalaksana}
-            onChange={(v) => set("rencanaTatalaksana", v)}
-            placeholder="1. ...\n2. ...\n3. ..." />
+        {/* Obat saat ini */}
+        <Block title="Obat yang Sedang Diminum">
+          <TA label="Daftar Obat" rows={3} value={form.obatSaatIni}
+            onChange={v => set("obatSaatIni", v)}
+            placeholder="Nama obat, dosis, frekuensi — satu per baris..." />
+          <p className="text-[11px] text-slate-400">Riwayat obat lengkap dengan indikasi ada di sub-tab Riwayat Medis.</p>
         </Block>
 
         <div className="flex justify-end">
           <button type="button"
-            className="rounded-lg bg-indigo-600 px-5 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-indigo-700">
-            Simpan Asesmen
+            className="rounded-lg bg-sky-600 px-5 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-sky-700">
+            Simpan Anamnesis
           </button>
         </div>
       </div>
 
       {/* ── Right: previous notes ── */}
-      <div className="flex flex-col gap-2 md:w-96 md:shrink-0">
+      <div className="flex flex-col gap-2 md:w-80 md:shrink-0">
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 bg-slate-50/60 px-4 py-3">
+          <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-3">
             <span className="text-xs font-semibold text-slate-700">Catatan Medis Sebelumnya</span>
           </div>
           <div className="flex flex-col divide-y divide-slate-100">
@@ -200,7 +434,7 @@ function AnamnesisPane({ patient }: { patient: IGDPatientDetail }) {
                   <span className="rounded-md bg-slate-100 px-2.5 py-1 font-mono text-xs font-semibold text-slate-600">
                     {note.tanggal}
                   </span>
-                  <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-600">
+                  <span className="rounded-md bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-600">
                     {note.unit}
                   </span>
                 </div>
@@ -224,7 +458,7 @@ function AnamnesisPane({ patient }: { patient: IGDPatientDetail }) {
 function SaveRwyBtn() {
   return (
     <div className="flex justify-end pt-1">
-      <button type="button" className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-indigo-700 active:scale-95">
+      <button type="button" className="rounded-lg bg-sky-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-sky-700 active:scale-95">
         Simpan
       </button>
     </div>
@@ -237,13 +471,13 @@ function ChkBtn({ label, checked, onChange }: { label: string; checked: boolean;
       className={cn(
         "flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs font-medium transition",
         checked
-          ? "border-indigo-300 bg-indigo-50 text-indigo-700"
-          : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50/40",
+          ? "border-sky-300 bg-sky-50 text-sky-700"
+          : "border-slate-200 bg-white text-slate-600 hover:border-sky-200 hover:bg-sky-50/40",
       )}
     >
       <span className={cn(
         "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition",
-        checked ? "border-indigo-500 bg-indigo-500" : "border-slate-300",
+        checked ? "border-sky-500 bg-sky-500" : "border-slate-300",
       )}>
         {checked && <Check size={10} className="text-white" />}
       </span>
@@ -274,7 +508,7 @@ function YesNoRadio({
   );
 }
 
-const INPUT_CLS = "h-8 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50";
+const INPUT_CLS = "h-8 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100";
 
 // ─────────────────────────────────────────────────────────
 // RIWAYAT — sub-panes
@@ -363,7 +597,7 @@ function PemberianObatPane() {
             </div>
           ))}
           <button type="button" onClick={add}
-            className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-2.5 text-xs font-medium text-slate-400 transition hover:border-indigo-300 hover:text-indigo-500">
+            className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-2.5 text-xs font-medium text-slate-400 transition hover:border-sky-300 hover:text-sky-500">
             <Plus size={15} /> Tambah Obat
           </button>
         </div>
@@ -515,7 +749,7 @@ function PenyakitKeluargaPane({ patient }: { patient: IGDPatientDetail }) {
                 {PENYAKIT_KELUARGA_LIST.map(p => (
                   <button key={p} type="button" onClick={() => toggleP(idx, p)}
                     className={cn("rounded-md border px-2.5 py-1 text-xs font-medium transition",
-                      e.penyakit.includes(p) ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-500 hover:bg-indigo-50/40")}>
+                      e.penyakit.includes(p) ? "border-sky-300 bg-sky-50 text-sky-700" : "border-slate-200 bg-white text-slate-500 hover:bg-sky-50/40")}>
                     {p}
                   </button>
                 ))}
@@ -662,7 +896,7 @@ function GinekologiPane() {
               {(["Reguler", "Tidak Reguler", "Menopause", "Belum Menstruasi"] as const).map(s => (
                 <button key={s} type="button" onClick={() => setStatusMens(s)}
                   className={cn("rounded-lg border px-3.5 py-1.5 text-xs font-semibold transition",
-                    statusMens === s ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50")}>
+                    statusMens === s ? "border-sky-400 bg-sky-50 text-sky-700" : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50")}>
                   {s}
                 </button>
               ))}
@@ -754,7 +988,7 @@ function PerawatanTindakanPane() {
               </div>
             </div>
           ))}
-          <button type="button" onClick={addR} className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-2.5 text-xs font-medium text-slate-400 transition hover:border-indigo-300 hover:text-indigo-500">
+          <button type="button" onClick={addR} className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-2.5 text-xs font-medium text-slate-400 transition hover:border-sky-300 hover:text-sky-500">
             <Plus size={15} /> Tambah Riwayat Perawatan
           </button>
         </div>
@@ -778,7 +1012,7 @@ function PerawatanTindakanPane() {
               </div>
             </div>
           ))}
-          <button type="button" onClick={addB} className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-2.5 text-xs font-medium text-slate-400 transition hover:border-indigo-300 hover:text-indigo-500">
+          <button type="button" onClick={addB} className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-2.5 text-xs font-medium text-slate-400 transition hover:border-sky-300 hover:text-sky-500">
             <Plus size={15} /> Tambah Riwayat Pembedahan
           </button>
         </div>
@@ -811,7 +1045,7 @@ function ObstetriPane() {
               {METODE_KB.map(m => (
                 <button key={m} type="button" onClick={() => setMetodeKB(m)}
                   className={cn("rounded-lg border px-3 py-1.5 text-xs font-medium transition",
-                    metodeKB === m ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-500 hover:bg-indigo-50/40")}>
+                    metodeKB === m ? "border-sky-400 bg-sky-50 text-sky-700" : "border-slate-200 bg-white text-slate-500 hover:bg-sky-50/40")}>
                   {m}
                 </button>
               ))}
@@ -867,7 +1101,7 @@ function ObstetriPane() {
                   </div>
                 </div>
               ))}
-              <button type="button" onClick={addPs} className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-2.5 text-xs font-medium text-slate-400 transition hover:border-indigo-300 hover:text-indigo-500">
+              <button type="button" onClick={addPs} className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-2.5 text-xs font-medium text-slate-400 transition hover:border-sky-300 hover:text-sky-500">
                 <Plus size={15} /> Tambah Riwayat Persalinan
               </button>
             </div>
@@ -900,8 +1134,15 @@ const RWY_TABS = [
 ] as const;
 type RwyTab = typeof RWY_TABS[number];
 
-function RiwayatPane({ patient }: { patient: IGDPatientDetail }) {
+function RiwayatPane({ patient, onComplete }: { patient: IGDPatientDetail; onComplete?: (done: boolean) => void }) {
   const [activeTab, setActiveTab] = useState<RwyTab>("Penyakit Dahulu");
+  const [done, setDone] = useState(false);
+
+  function markDone() {
+    setDone(true);
+    onComplete?.(true);
+  }
+
   return (
     <div className="flex flex-col gap-3">
       {/* Inner tab strip */}
@@ -911,7 +1152,7 @@ function RiwayatPane({ patient }: { patient: IGDPatientDetail }) {
             className={cn(
               "shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition",
               activeTab === tab
-                ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200/80"
+                ? "bg-white text-sky-700 shadow-sm ring-1 ring-slate-200/80"
                 : "text-slate-500 hover:text-slate-700",
             )}
           >
@@ -933,6 +1174,20 @@ function RiwayatPane({ patient }: { patient: IGDPatientDetail }) {
           {activeTab === "Obstetri"             && <ObstetriPane />}
         </motion.div>
       </AnimatePresence>
+      {/* Mark done */}
+      {!done ? (
+        <div className="flex justify-end">
+          <button type="button" onClick={markDone}
+            className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-700">
+            <CheckCircle2 size={13} /> Tandai Riwayat Selesai
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5">
+          <CheckCircle2 size={14} className="text-emerald-500" />
+          <span className="text-xs font-semibold text-emerald-700">Riwayat Medis selesai diisi</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -974,7 +1229,7 @@ const SNOMED_CODES: { code: string; display: string }[] = [
 // ── Allergy config ────────────────────────────────────────
 
 const CAT_CFG: Record<AllergyCategory, { icon: LucideIcon; label: string; activeCls: string; iconCls: string }> = {
-  Obat:    { icon: Pill,        label: "Obat",    activeCls: "border-indigo-400 bg-indigo-50 text-indigo-700", iconCls: "text-indigo-500" },
+  Obat:    { icon: Pill,        label: "Obat",    activeCls: "border-sky-400 bg-sky-50 text-sky-700", iconCls: "text-sky-500" },
   Makanan: { icon: Utensils,    label: "Makanan", activeCls: "border-orange-300 bg-orange-50 text-orange-700", iconCls: "text-orange-500" },
   Lainnya: { icon: ShieldAlert, label: "Lainnya", activeCls: "border-teal-400   bg-teal-50   text-teal-700",   iconCls: "text-teal-500"   },
 };
@@ -1166,7 +1421,7 @@ function AllergyCard({
 
 // ── Allergy pane ──────────────────────────────────────────
 
-function AllergyPane({ patient }: { patient: IGDPatientDetail }) {
+function AllergyPane({ patient, onComplete }: { patient: IGDPatientDetail; onComplete?: (done: boolean) => void }) {
   const [entries, setEntries] = useState<AllergyEntry[]>(
     () => structuredClone(ALLERGY_MOCK[patient.noRM] ?? []),
   );
@@ -1305,7 +1560,7 @@ function AllergyPane({ patient }: { patient: IGDPatientDetail }) {
                 value={form.allergen}
                 onChange={(e) => setF("allergen", e.target.value)}
                 placeholder="Ketik nama alergen..."
-                className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
               />
               {/* Quick picks */}
               <div className="mt-1.5 flex flex-wrap gap-1">
@@ -1317,8 +1572,8 @@ function AllergyPane({ patient }: { patient: IGDPatientDetail }) {
                     className={cn(
                       "rounded-md px-2 py-0.5 text-[10px] font-medium transition",
                       form.allergen === pick
-                        ? "bg-indigo-100 text-indigo-700"
-                        : "bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600",
+                        ? "bg-sky-100 text-sky-700"
+                        : "bg-slate-100 text-slate-500 hover:bg-sky-50 hover:text-sky-600",
                     )}
                   >
                     {pick}
@@ -1333,7 +1588,7 @@ function AllergyPane({ patient }: { patient: IGDPatientDetail }) {
               <select
                 value={form.snomedCode}
                 onChange={(e) => setF("snomedCode", e.target.value)}
-                className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-xs text-slate-800 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-xs text-slate-800 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
               >
                 <option value="">— Pilih kode SNOMED CT —</option>
                 {SNOMED_CODES.map((s) => (
@@ -1410,7 +1665,7 @@ function AllergyPane({ patient }: { patient: IGDPatientDetail }) {
                       className={cn(
                         "flex items-center justify-center gap-1 rounded-lg border py-1.5 text-[11px] font-semibold transition",
                         active
-                          ? "border-indigo-400 bg-indigo-50 text-indigo-700"
+                          ? "border-sky-400 bg-sky-50 text-sky-700"
                           : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
                       )}
                     >
@@ -1430,7 +1685,7 @@ function AllergyPane({ patient }: { patient: IGDPatientDetail }) {
                 value={form.keterangan}
                 onChange={(e) => setF("keterangan", e.target.value)}
                 placeholder="Catatan tambahan, kondisi khusus..."
-                className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
               />
             </div>
 
@@ -1545,9 +1800,22 @@ function AllergyPane({ patient }: { patient: IGDPatientDetail }) {
             <div className="flex justify-end">
               <button
                 type="button"
-                className="rounded-lg bg-indigo-600 px-5 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-indigo-700"
+                onClick={() => onComplete?.(true)}
+                className="rounded-lg bg-sky-600 px-5 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-sky-700"
               >
                 Simpan Data Alergi
+              </button>
+            </div>
+          )}
+          {/* NKA counts as done too */}
+          {noKA && entries.length === 0 && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => onComplete?.(true)}
+                className="rounded-lg bg-sky-600 px-5 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-sky-700"
+              >
+                Konfirmasi NKA
               </button>
             </div>
           )}
@@ -1598,7 +1866,7 @@ const RISK: Record<number, { label: string; cls: string; action: string }> = {
   1: { label: "Risiko Sedang",  cls: "bg-amber-50 text-amber-700 border-amber-200",       action: "Monitor dan dokumentasi asupan. Pertimbangkan konsultasi gizi." },
 };
 
-function GiziPane() {
+function GiziPane({ onComplete }: { onComplete?: (done: boolean) => void }) {
   const [scores, setScores] = useState<Record<"bmi" | "bb" | "akut", GiziScore | null>>({ bmi: null, bb: null, akut: null });
   const [ahliGizi, setAhliGizi] = useState("");
   const [catatan, setCatatan] = useState("");
@@ -1624,7 +1892,7 @@ function GiziPane() {
                       className={cn(
                         "flex items-center justify-between rounded-md border px-3 py-2 text-left text-xs font-medium transition",
                         scores[q.key] === opt.score
-                          ? "border-indigo-400 bg-indigo-50 text-indigo-700"
+                          ? "border-sky-400 bg-sky-50 text-sky-700"
                           : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
                       )}
                     >
@@ -1696,16 +1964,18 @@ function GiziPane() {
               <div>
                 <Label>Nama Petugas</Label>
                 <input type="text" placeholder="Nama..."
-                  className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+                  className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100" />
               </div>
               <div>
                 <Label>Tanggal Skrining</Label>
                 <input type="date"
-                  className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+                  className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100" />
               </div>
             </div>
             <button type="button"
-              className="w-full rounded-md bg-indigo-600 py-1.5 text-xs font-medium text-white transition hover:bg-indigo-700">
+              disabled={!allFilled}
+              onClick={() => onComplete?.(allFilled)}
+              className="w-full rounded-md bg-sky-600 py-1.5 text-xs font-medium text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40">
               Simpan Skrining Gizi
             </button>
           </Block>
@@ -1720,34 +1990,81 @@ function GiziPane() {
 // ─────────────────────────────────────────────────────────
 
 export default function AsesmenMedisTab({ patient }: { patient: IGDPatientDetail }) {
-  const [active, setActive] = useState<SubTab>("Anamnesis");
+  const [active,  setActive]  = useState<SubTabId>("anamnesis");
+  const [prevTab, setPrevTab] = useState<SubTabId>("anamnesis");
+
+  const [doneAnamnesis, setDoneAnamnesis] = useState(false);
+  const [doneRiwayat,   setDoneRiwayat]   = useState(false);
+  const [doneAlergi,    setDoneAlergi]    = useState(false);
+  const [doneGizi,      setDoneGizi]      = useState(false);
+
+  const DONE_MAP: Record<SubTabId, boolean> = {
+    anamnesis: doneAnamnesis,
+    riwayat:   doneRiwayat,
+    alergi:    doneAlergi,
+    skrining:  doneGizi,
+    edukasi:   false,
+  };
+
+  const doneCount  = Object.values(DONE_MAP).filter(Boolean).length;
+  const activeIdx  = SUB_TABS.findIndex(t => t.id === active);
+  const prevIdx    = SUB_TABS.findIndex(t => t.id === prevTab);
+  const direction  = activeIdx >= prevIdx ? 1 : -1;
+
+  function navigate(id: SubTabId) {
+    setPrevTab(active);
+    setActive(id);
+  }
 
   return (
-    <div className="flex flex-col gap-3">
-      {/* Sub-tab nav — segmented control */}
-      <div className="flex overflow-x-auto rounded-xl bg-slate-100 p-1 shadow-sm">
-        {SUB_TABS.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActive(tab)}
-            className={cn(
-              "shrink-0 rounded-lg px-4 py-2 text-xs font-semibold transition",
-              active === tab
-                ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200/80"
-                : "text-slate-500 hover:text-slate-700",
-            )}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
+    <div className="flex flex-col gap-4">
 
-      {/* Content */}
-      {active === "Anamnesis"          && <AnamnesisPane patient={patient} />}
-      {active === "Riwayat"            && <RiwayatPane   patient={patient} />}
-      {active === "Alergi"             && <AllergyPane   patient={patient} />}
-      {active === "Edukasi"            && <EdukasiPane />}
-      {active === "Skrining Gizi Awal" && <GiziPane />}
+      <ProgressHeader doneCount={doneCount} total={SUB_TABS.length} />
+
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+
+        {/* ── Vertical sub-nav ── */}
+        <nav
+          className="flex gap-2 overflow-x-auto pb-1 lg:w-52 lg:shrink-0 lg:flex-col lg:pb-0"
+          aria-label="Asesmen Medis IGD sub-tab"
+        >
+          {SUB_TABS.map(tab => (
+            <SubNavItem
+              key={tab.id}
+              tab={tab}
+              active={active === tab.id}
+              done={DONE_MAP[tab.id]}
+              onClick={() => navigate(tab.id)}
+            />
+          ))}
+        </nav>
+
+        {/* ── Content area ── */}
+        <div className="min-w-0 flex-1">
+          <AnimatePresence mode="wait" initial={false} custom={direction}>
+            <motion.div
+              key={active}
+              custom={direction}
+              variants={{
+                enter:  (d: number) => ({ opacity: 0, x: d * 20 }),
+                center: { opacity: 1, x: 0 },
+                exit:   (d: number) => ({ opacity: 0, x: d * -16 }),
+              }}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.18, ease: "easeOut" }}
+            >
+              {active === "anamnesis" && <AnamnesisPane patient={patient} onComplete={setDoneAnamnesis} />}
+              {active === "riwayat"   && <RiwayatPane   patient={patient} onComplete={setDoneRiwayat}   />}
+              {active === "alergi"    && <AllergyPane   patient={patient} onComplete={setDoneAlergi}    />}
+              {active === "skrining"  && <GiziPane      onComplete={setDoneGizi}                        />}
+              {active === "edukasi"   && <EdukasiPane />}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+      </div>
     </div>
   );
 }

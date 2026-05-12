@@ -31,6 +31,42 @@ export const PROFESI_EDUKASI_OPTIONS: ProfesiEdukasi[] = [
 
 // ── Core interfaces ───────────────────────────────────────
 
+export interface JadwalKontrol {
+  id:       string;
+  tanggal:  string;
+  poli:     string;
+  dokter:   string;
+  catatan:  string;
+}
+
+export interface JadwalPemeriksaan {
+  id:       string;
+  jenis:    "Lab" | "Radiologi";
+  nama:     string;
+  tanggal:  string;
+  catatan:  string;
+}
+
+export interface DischargeFollowUp {
+  jadwalKontrol:     JadwalKontrol[];
+  jadwalPemeriksaan: JadwalPemeriksaan[];
+  adaRujukanFKTP:    boolean;
+  fktpNama:          string;
+  fktpTujuan:        string;
+  instruksiKhusus:   string;
+}
+
+export interface ObatPulangItem {
+  id:        string;
+  namaObat:  string;
+  dosis:     string;
+  frekuensi: string;
+  durasi:    string;
+  instruksi: string;
+  isHAM:     boolean;
+  fromResep: boolean;
+}
+
 export interface DischargeAsesmen {
   tanggalRencanaKRS:       string;
   kondisiPulang:           KondisiPulang | "";
