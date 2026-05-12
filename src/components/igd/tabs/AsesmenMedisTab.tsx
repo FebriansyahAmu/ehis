@@ -2059,7 +2059,7 @@ export default function AsesmenMedisTab({ patient }: { patient: IGDPatientDetail
               {active === "riwayat"   && <RiwayatPane   patient={patient} onComplete={setDoneRiwayat}   />}
               {active === "alergi"    && <AllergyPane   patient={patient} onComplete={setDoneAlergi}    />}
               {active === "skrining"  && <GiziPane      onComplete={setDoneGizi}                        />}
-              {active === "edukasi"   && <EdukasiPane />}
+              {active === "edukasi"   && <EdukasiPane patient={patient} />}
             </motion.div>
           </AnimatePresence>
         </div>

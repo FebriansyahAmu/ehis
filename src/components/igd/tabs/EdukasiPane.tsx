@@ -4,10 +4,13 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, Zap, FileText, Heart, Plus, CheckCircle2,
-  AlertTriangle, User, Phone, BookOpen, Shield, Activity,
+  AlertTriangle, User, BookOpen, ShieldCheck, Activity,
   X, Info, Calendar, Edit3, Stethoscope, Printer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { IGDPatientDetail } from "@/lib/data";
+import type { ICConsentResult } from "@/lib/informed-consent/types";
+import InformedConsentModal from "@/components/shared/informed-consent/InformedConsentModal";
 
 // ── Shared primitives ─────────────────────────────────────
 
@@ -676,7 +679,9 @@ interface ConsentRecord {
   waktu: string;
 }
 
-function InformedConsentPane() {
+function InformedConsentPane({ patient }: { patient: IGDPatientDetail }) {
+  const [showICModal,  setShowICModal]  = useState(false);
+  const [icResult,     setIcResult]     = useState<ICConsentResult | null>(null);
   const [records, setRecords] = useState<ConsentRecord[]>([]);
   const [form, setForm] = useState({
     noFormulir:        `IC-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9999)).padStart(4, "0")}`,
@@ -727,7 +732,7 @@ function InformedConsentPane() {
       {/* Legal header */}
       <div className="flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50/60 px-4 py-3">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-100">
-          <Shield size={14} className="text-sky-600" />
+          <ShieldCheck size={14} className="text-sky-600" />
         </div>
         <div className="flex-1">
           <p className="text-xs font-bold text-sky-800">Formulir Persetujuan Tindakan Medis</p>
@@ -888,20 +893,83 @@ function InformedConsentPane() {
 
             {/* Signature boxes */}
             <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: "Tanda Tangan Pasien/Wali", sub: form.namaPasienWali || "—" },
-                { label: "Tanda Tangan Dokter/DPJP", sub: form.namaDokter || "—" },
-              ].map(({ label, sub }) => (
-                <div
-                  key={label}
-                  className="flex flex-col items-center gap-1.5 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/60 px-2 py-5 text-center"
-                >
-                  <Edit3 size={14} className="text-slate-300" />
-                  <p className="text-[10px] font-semibold text-slate-400">{label}</p>
-                  <p className="text-[10px] text-slate-500 font-medium">{sub}</p>
-                </div>
-              ))}
+
+              {/* Tanda Tangan Pasien/Wali — IC Modal trigger */}
+              <AnimatePresence mode="wait">
+                {icResult ? (
+                  <motion.div
+                    key="ic-done"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 22 }}
+                    className="flex flex-col items-center gap-2 rounded-xl border-2 border-emerald-200 bg-emerald-50 px-2 py-3 text-center"
+                  >
+                    <div className="h-14 w-28 overflow-hidden rounded-lg border border-emerald-200 bg-white shadow-inner">
+                      <img src={icResult.signatureImagePng} alt="TTD Pasien/Wali" className="h-full w-full object-contain" />
+                    </div>
+                    <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
+                      <CheckCircle2 size={9} /> IC Tersimpan
+                    </span>
+                    <p className="text-[9px] font-medium text-emerald-700">{icResult.namaPenanda}</p>
+                    <p className="text-[9px] text-emerald-500">{icResult.hubungan}</p>
+                    <button
+                      type="button"
+                      onClick={() => setIcResult(null)}
+                      className="text-[10px] text-emerald-500 underline transition hover:text-emerald-700"
+                    >
+                      Ganti TTD
+                    </button>
+                  </motion.div>
+                ) : (
+                  <motion.button
+                    key="ic-empty"
+                    type="button"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    whileTap={form.tindakan.trim() ? { scale: 0.97 } : undefined}
+                    onClick={() => form.tindakan.trim() && setShowICModal(true)}
+                    disabled={!form.tindakan.trim()}
+                    className={cn(
+                      "flex flex-col items-center gap-2 rounded-xl border-2 px-2 py-5 text-center transition-all",
+                      form.tindakan.trim()
+                        ? "border-dashed border-sky-300 bg-sky-50/60 hover:border-sky-400 hover:bg-sky-100/60"
+                        : "cursor-not-allowed border-dashed border-slate-200 bg-slate-50/60 opacity-50",
+                    )}
+                  >
+                    <ShieldCheck size={18} className={form.tindakan.trim() ? "text-sky-400" : "text-slate-300"} />
+                    <p className="text-[10px] font-semibold text-slate-500">Tanda Tangan Pasien/Wali</p>
+                    <p className="text-[10px] text-slate-400">{form.namaPasienWali || "—"}</p>
+                    {form.tindakan.trim() ? (
+                      <span className="rounded-lg bg-sky-100 px-2 py-0.5 text-[9px] font-bold text-sky-600">
+                        Klik untuk TTD
+                      </span>
+                    ) : (
+                      <span className="text-[9px] text-slate-300">Isi nama tindakan dulu</span>
+                    )}
+                  </motion.button>
+                )}
+              </AnimatePresence>
+
+              {/* Tanda Tangan Dokter/DPJP — tetap statis */}
+              <div className="flex flex-col items-center gap-1.5 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/60 px-2 py-5 text-center">
+                <Edit3 size={14} className="text-slate-300" />
+                <p className="text-[10px] font-semibold text-slate-400">Tanda Tangan Dokter/DPJP</p>
+                <p className="text-[10px] font-medium text-slate-500">{form.namaDokter || "—"}</p>
+              </div>
             </div>
+
+            {/* IC Modal */}
+            <InformedConsentModal
+              isOpen={showICModal}
+              onClose={() => setShowICModal(false)}
+              onSave={(result) => { setIcResult(result); setShowICModal(false); }}
+              tindakan={form.tindakan || "Tindakan Medis"}
+              deskripsiTindakan={form.tujuan || undefined}
+              dokterPelaksana={form.namaDokter || "dr. Dokter DPJP"}
+              pasienNama={patient.name}
+              pasienNoRM={patient.noRM}
+              risiko={form.risiko.length > 0 ? form.risiko : undefined}
+            />
           </Block>
 
           <Block title="Dokter, Saksi & Waktu" icon={Calendar} accent="slate">
@@ -1395,7 +1463,7 @@ const ACTIVE_STYLES: Record<string, string> = {
   rose:   "bg-white text-rose-700 shadow-sm ring-1 ring-slate-200/80",
 };
 
-export default function EdukasiPane() {
+export default function EdukasiPane({ patient }: { patient: IGDPatientDetail }) {
   const [active, setActive] = useState<EduTabKey>("pk");
 
   return (
@@ -1432,7 +1500,7 @@ export default function EdukasiPane() {
         >
           {active === "pk"        && <PasienKeluargaPane />}
           {active === "emergency" && <EmergencyPane />}
-          {active === "consent"   && <InformedConsentPane />}
+          {active === "consent"   && <InformedConsentPane patient={patient} />}
           {active === "eol"       && <EndOfLifePane />}
         </motion.div>
       </AnimatePresence>
