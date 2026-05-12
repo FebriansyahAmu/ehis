@@ -34,14 +34,15 @@ Shared layout: `Navbar` · `Sidebar` · `ModuleSwitcher` · `ModuleLayout` → `
 
 ### Shared Medical Records (`src/components/shared/medical-records/`)
 
-| Component        | File                | Used By          | Notes                                                                         |
-| ---------------- | ------------------- | ---------------- | ----------------------------------------------------------------------------- |
-| `CPPTTab`        | `CPPTTab.tsx`       | IGD · Rawat Inap | `showDate`: date-grouped for RI · `requiresVerification`: DPJP co-sign for RI |
-| `CPPTEntryCard`  | `CPPTEntryCard.tsx` | CPPTTab          | Sub-component: flag, verification footer, SOAP rows                           |
-| `cpptShared`     | `cpptShared.ts`     | CPPTTab · Card   | Constants: `PROFESI_CLS`, `SOAP_BADGE`, `fmtDate`, `todayISO`                 |
-| `TTVTab`         | `TTVTab.tsx`        | IGD · Rawat Inap | `history` prop: multi-shift timeline for RI                                   |
-| `DiagnosaTab`    | `DiagnosaTab.tsx`   | IGD · Rawat Inap | ICD-10 + ICD-9, status kepastian, alasan/analisa inline, INA-CBG preview      |
-| `diagnosaShared` | `diagnosaShared.ts` | DiagnosaTab      | Katalog ICD10/ICD9, `TIPE_CONFIG`, `STATUS_CONFIG`, `INA_CBG_MAP`             |
+| Component        | File                                      | Used By          | Notes                                                                                      |
+| ---------------- | ----------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------ |
+| `CPPTTab`        | `CPPTTab.tsx`                             | IGD · Rawat Inap | `showDate`: date-grouped for RI · `requiresVerification`: DPJP co-sign (IGD + RI, keduanya pass prop ini) |
+| `CPPTEntryCard`  | `CPPTEntryCard.tsx`                       | CPPTTab          | Sub-component: flag, verification footer, SOAP rows                                        |
+| `cpptShared`     | `cpptShared.ts`                           | CPPTTab · Card   | Constants: `PROFESI_CLS`, `SOAP_BADGE`, `fmtDate`, `todayISO`                              |
+| `TTVTab`         | `TTVTab.tsx`                              | IGD · Rawat Inap | `history` prop: multi-shift timeline for RI                                                |
+| `DiagnosaTab`    | `DiagnosaTab.tsx`                         | IGD · Rawat Inap | ICD-10 + ICD-9, status kepastian, alasan/analisa inline, INA-CBG preview                   |
+| `diagnosaShared` | `diagnosaShared.ts`                       | DiagnosaTab      | Katalog ICD10/ICD9, `TIPE_CONFIG`, `STATUS_CONFIG`, `INA_CBG_MAP`                          |
+| `StatusFisikPane`| `pemeriksaan/StatusFisikPane.tsx`         | IGD · Rawat Inap | 11-sistem head-to-toe accordion, quick-normal, temuan abnormal. Exports: `PemeriksaanFormState`, `emptyFormState()`, `SISTEM_DEF` |
 
 ### IGD (~95% done)
 
@@ -52,10 +53,10 @@ Shared layout: `Navbar` · `Sidebar` · `ModuleSwitcher` · `ModuleLayout` → `
 | Room panel                                                       | `components/igd/IGDRuanganPanel.tsx` | ✅     |
 | Patient header                                                   | `components/igd/PatientHeader.tsx`   | ✅     |
 | Tab router                                                       | `components/igd/IGDRecordTabs.tsx`   | ✅     |
-| triase · ttv · asesmen · cppt                                    | tabs/ (ttv+cppt → thin wrappers)     | ✅     |
+| triase · ttv · asesmen · cppt                                    | tabs/ (ttv+cppt → thin wrappers; cppt: `requiresVerification` ✅ `showDate` ✗ single-session) | ✅     |
 | diagnosa                                                         | tabs/ (thin wrapper → shared)        | ✅     |
 | tindakan · disposisi · rekonsiliasi · keperawatan                | tabs/                                | ✅     |
-| pemeriksaan · penilaian · resep · order-lab · order-rad · pulang | tabs/                                | ✅     |
+| pemeriksaan · penilaian · resep · order-lab · order-rad · pulang | tabs/ (pemeriksaan: `StatusFisikPane` shared 11-sistem + MetaHeader + Anatomi + Penunjang) | ✅     |
 | rujukan                                                          | `tabs/RujukanKeluarTab.tsx`          | ✅     |
 | Penandaan Gambar                                                 | tabs/penandaanGambar.tsx             | ✅     |
 
@@ -448,13 +449,15 @@ Work items in priority order. Pick top item each session.
 - [ ] Replace mock data (`src/lib/data.ts`) dengan Prisma queries bertahap, mulai dari `PatientMaster`
 - [ ] `SidebarContext` — belum dipakai konsisten di semua modul
 - [ ] Error boundary + loading skeleton untuk semua fullpage routes
-- [ ] **PemeriksaanTab IGD — Upgrade ke Head-to-Toe Lengkap** — Saat ini hanya 6 sistem gabungan (Kepala & Leher, Kardiovaskuler, Respirasi, Abdomen, Ekstremitas, Neurologi). Belum head-to-toe SNARS AP 1: Mata, THT, Toraks/Paru, Jantung, Urogenital, Kulit/Integumen terpisah. Upgrade ke 11 sistem seperti RI (reuse pola `SISTEM_DEF` dari `StatusFisikPane.tsx`) — cukup expand `SISTEM_FIELDS` di `PemeriksaanTab.tsx` IGD + tambahkan quick-normal template
+- [x] **PemeriksaanTab IGD — Upgrade ke Head-to-Toe Lengkap** — ✅ `StatusFisikPane` dipindah ke `shared/medical-records/pemeriksaan/StatusFisikPane.tsx`. IGD `PemeriksaanTab` sub-tab Fisik sekarang memakai shared StatusFisikPane (11 sistem head-to-toe, quick-normal, temuan abnormal), menggantikan `FisikPane` lama yang hanya 6 sistem. RI `PemeriksaanTab` diupdate import path ke shared. Sub-tab Anatomi + Penunjang tetap IGD-spesifik.
 - [x] **Audit `PenilaianTab` IGD** — ✅ KONFIRMASI: Morse Fall Scale, Braden Scale, Barthel Index, NRS Skala Nyeri — semua sudah ada di `PenilaianTab.tsx`
 - [x] **Audit `EdukasiPane` IGD** — ✅ KONFIRMASI: `TOPIK_EDUKASI` checklist, `METODE_EDUKASI`, evaluasi pemahaman (paham/perlu_ulang/tidak_paham) sudah ada, sesuai standar HPK 2
 
 #### 🔁 Arsitektur — IGD Shared Component Refactor
 
-> Konteks: shared components (CPPT, TTV, Diagnosa, OrderLab, OrderRad) dibuat *reactively* saat RI dibangun. IGD belum di-refactor untuk ikut menggunakannya pada sub-pane yang seharusnya bisa di-share. Tiga kandidat utama:
+> Konteks: shared components (CPPT, TTV, Diagnosa, OrderLab, OrderRad) dibuat *reactively* saat RI dibangun. IGD belum di-refactor untuk ikut menggunakannya pada sub-pane yang seharusnya bisa di-share. Kandidat utama (✅ = sudah selesai):
+>
+> ✅ **StatusFisikPane** — sudah dipindah ke `shared/medical-records/pemeriksaan/`. IGD + RI keduanya import dari shared. IGD tetap memiliki sub-tab Anatomi + Penunjang tersendiri.
 
 - [ ] **AsesmenMedisTab IGD — Reuse Sub-pane Shared** — `AsesmenMedisTab.tsx` (IGD standalone) saat ini kemungkinan reimplements Alergi dan Skrining Gizi sendiri, padahal `shared/asesmen/AllergyPane.tsx` + `GiziPane.tsx` sudah ada dan dipakai RI. Audit dulu isi `AsesmenMedisTab.tsx`, lalu refactor sub-pane Alergi + Gizi menjadi thin wrapper ke shared panes tersebut. Sub-pane Anamnesis dan Riwayat Medis tetap IGD-spesifik (konten berbeda: RPS saja vs RPD+RPK+sosial di RI).
 - [ ] **RekonsiliasTab IGD — Audit Duplikasi dengan RekonsiliasiPane RI** — `tabs/RekonsiliasTab.tsx` (IGD) dan `resep/RekonsiliasiPane.tsx` (RI) kemungkinan besar menduplikasi logika rekonsiliasi obat (SNARS PP 3.1: Lanjutkan/Hentikan/Ganti/Tunda). Audit keduanya: jika konten identik atau hampir sama, promosikan ke `shared/medical-records/` dan buat IGD + RI sebagai thin wrappers. Konteks: IGD rekonsiliasi lebih singkat (obat sebelum masuk), RI lebih lengkap (MAR + riwayat shift) — pastikan scope sebelum merge.
