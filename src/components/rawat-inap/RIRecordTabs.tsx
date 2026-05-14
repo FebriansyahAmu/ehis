@@ -6,7 +6,7 @@ import {
   FileText, HeartPulse, Tag, HeartHandshake, ScanLine,
   Pill, FlaskConical, Radiation, ClipboardList, LogOut,
   MessageSquare, Droplets, DoorOpen, Stethoscope, ArrowRightLeft,
-  ListChecks, ShieldCheck, type LucideIcon,
+  ListChecks, ShieldCheck, Repeat, Target, Salad, Activity, type LucideIcon,
 } from "lucide-react";
 import type { RawatInapPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -27,21 +27,29 @@ import PasienPulangTab  from "./tabs/PasienPulangTab";
 import HandoverTab          from "./tabs/HandoverTab";
 import DaftarOrderTab       from "./tabs/DaftarOrderTab";
 import InformedConsentTab   from "./tabs/InformedConsentTab";
+import RekonsiliasTab       from "./tabs/RekonsiliasTab";
+import CarePlanTab          from "./tabs/CarePlanTab";
+import GiziNutrisiTab      from "./tabs/GiziNutrisiTab";
+import ICUScoringTab       from "./tabs/ICUScoringTab";
 
 // ── Tab definitions ───────────────────────────────────────
 
-interface TabDef { id: string; label: string; icon: LucideIcon; done: boolean }
+interface TabDef { id: string; label: string; icon: LucideIcon; done: boolean; showFor?: string[] }
 
 const REKAM_MEDIS: TabDef[] = [
   { id: "asesmen-awal", label: "Asesmen Awal",         icon: Stethoscope,    done: true  },
-  { id: "cppt",         label: "CPPT / SOAP",         icon: FileText,       done: true  },
+  { id: "care-plan",   label: "Rencana Asuhan",       icon: Target,         done: true  },
+  { id: "cppt",        label: "CPPT / SOAP",          icon: FileText,       done: true  },
   { id: "ttv",          label: "TTV",                  icon: HeartPulse,     done: true  },
   { id: "diagnosa",     label: "Diagnosa",             icon: Tag,            done: true  },
   { id: "keperawatan",  label: "Asuhan Keperawatan",   icon: HeartHandshake, done: true  },
   { id: "pemeriksaan",  label: "Pemeriksaan Fisik",    icon: ScanLine,       done: true  },
   { id: "intake-output",label: "Intake / Output",      icon: Droplets,       done: true  },
+  { id: "gizi-nutrisi", label: "Gizi & Nutrisi",       icon: Salad,          done: true  },
+  { id: "icu-scoring",  label: "ICU Scoring",          icon: Activity,       done: true, showFor: ["ICU", "HCU"] },
   { id: "handover",          label: "Serah Terima Shift",  icon: ArrowRightLeft, done: true },
   { id: "informed-consent",  label: "Informed Consent",    icon: ShieldCheck,    done: true },
+  { id: "rekonsiliasi",      label: "Rekonsiliasi Obat",   icon: Repeat,         done: true },
 ];
 
 const LAYANAN: TabDef[] = [
@@ -89,6 +97,9 @@ function NavItem({ tab, active, onClick }: { tab: TabDef; active: boolean; onCli
 export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDetail }) {
   const [active, setActive] = useState<TabId>("cppt");
 
+  const visibleRM     = REKAM_MEDIS.filter((t) => !t.showFor || t.showFor.includes(patient.kelas));
+  const visibleTabs   = [...visibleRM, ...LAYANAN];
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
 
@@ -97,7 +108,7 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
         className="flex shrink-0 overflow-x-auto border-b border-slate-200 bg-white px-2 md:hidden"
         aria-label="Navigasi rekam medis rawat inap"
       >
-        {ALL_TABS.map((tab) => {
+        {visibleTabs.map((tab) => {
           const Icon = tab.icon;
           return (
             <button
@@ -138,7 +149,7 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
         {/* Rekam Medis group */}
         <div className="mb-2">
           <p className="mb-1 px-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Rekam Medis</p>
-          {REKAM_MEDIS.map((tab) => (
+          {visibleRM.map((tab) => (
             <NavItem key={tab.id} tab={tab} active={active === tab.id} onClick={() => setActive(tab.id)} />
           ))}
         </div>
@@ -169,14 +180,18 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
             transition={{ duration: 0.15, ease: "easeOut" }}
           >
             {active === "asesmen-awal" && <AsesmenAwalTab  patient={patient} />}
+            {active === "care-plan"   && <CarePlanTab    patient={patient} />}
             {active === "cppt"        && <CPPTTab        patient={patient} />}
             {active === "ttv"         && <TTVTab         patient={patient} />}
             {active === "diagnosa"    && <DiagnosaTab    patient={patient} />}
             {active === "keperawatan" && <KeperawatanTab patient={patient} />}
             {active === "pemeriksaan"   && <PemeriksaanTab   patient={patient} />}
             {active === "intake-output" && <IntakeOutputTab   patient={patient} />}
+            {active === "gizi-nutrisi"  && <GiziNutrisiTab   patient={patient} />}
+            {active === "icu-scoring"   && <ICUScoringTab    patient={patient} />}
             {active === "handover"         && <HandoverTab         patient={patient} />}
             {active === "informed-consent" && <InformedConsentTab   patient={patient} />}
+            {active === "rekonsiliasi"     && <RekonsiliasTab       patient={patient} />}
             {active === "daftar-order"  && <DaftarOrderTab    patient={patient} />}
             {active === "resep"         && <ResepTab          patient={patient} />}
             {active === "order-lab"     && <OrderLabTab        patient={patient} />}

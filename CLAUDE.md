@@ -44,7 +44,8 @@ Shared layout: `Navbar` · `Sidebar` · `ModuleSwitcher` · `ModuleLayout` → `
 | `DaftarOrderTab`     | `DaftarOrderTab.tsx`              | IGD · RI | Animated expand/collapse, search, stats cards, cancel dialog                  |
 | `OrderLabTab`        | `OrderLabTab.tsx`                 | IGD · RI | `OrderLabPatient` interface                                                   |
 | `OrderRadTab`        | `OrderRadTab.tsx`                 | IGD · RI | `OrderRadPatient` interface                                                   |
-| `InformedConsentTab` | `InformedConsentTab.tsx`          | IGD      | Template per tindakan, TTD + saksi + nomor IC. PMK 290/2008                   |
+| `InformedConsentTab` | `InformedConsentTab.tsx`          | IGD · RI | Template per tindakan, TTD + saksi + nomor IC. PMK 290/2008                   |
+| `RekonsiliasTab`     | `RekonsiliasTab.tsx`              | IGD · RI | `context:"igd"\|"ri"` → phase labels · 3 fase (admisi/transfer/discharge) · HAM badge+banner · progress bar · `RekonPatient` interface. Sub: `rekonsiliasi/{rekonsiliasiShared,ObatEntryRow,RekonSection}` |
 | `StatusFisikPane`    | `pemeriksaan/StatusFisikPane.tsx` | IGD · RI | 11-sistem head-to-toe, quick-normal, temuan abnormal                          |
 | `CPPTEntryCard`      | `CPPTEntryCard.tsx`               | CPPTTab  | Flag, verification footer, SOAP rows                                          |
 | `cpptShared`         | `cpptShared.ts`                   | CPPT     | `PROFESI_CLS`, `SOAP_BADGE`, `fmtDate`, `todayISO`                            |
@@ -58,10 +59,11 @@ Files: `src/components/igd/` — `IGDBoard` · `PatientCard` · `IGDRuanganPanel
 Tabs: `triase · ttv · asesmen · diagnosa · cppt · tindakan · informed-consent · rekonsiliasi · keperawatan · pemeriksaan · penilaian · penandaan · handover · daftar-order · resep · order-lab · order-rad · rujukan · pulang`  
 Key arch: TTVTab passes `triage={patient.triage}` for timed obs mode · SBAR Transfer IGD→RI via `pasienPulang/SBARTransferPanel.tsx`
 
-### Rawat Inap (✅ 100% — semua 14 tab aktif)
+### Rawat Inap (✅ 100% — semua 19 tab aktif)
 
 Files: `src/components/rawat-inap/` — `RIBoard` · `RIRuanganPanel` · `RIPatientHeader` · `RIRecordTabs`  
-Tabs: `asesmen-awal · cppt · ttv · diagnosa · keperawatan · pemeriksaan · intake-output · resep · order-lab · order-rad · konsultasi · discharge-plan · daftar-order · handover · pasien-pulang`  
+Tabs (Rekam Medis): `asesmen-awal · care-plan · cppt · ttv · diagnosa · keperawatan · pemeriksaan · intake-output · gizi-nutrisi · handover · informed-consent · rekonsiliasi`  
+Tabs (Layanan): `daftar-order · resep · order-lab · order-rad · konsultasi · discharge · pasien-pulang`  
 Route: `app/ehis-care/(fullpage)/rawat-inap/[id]/`
 
 ### Rawat Jalan (🔜 Planned — ~0%)
@@ -97,15 +99,14 @@ Route: `app/ehis-care/(fullpage)/rawat-inap/[id]/`
 ### 🔴 Next — Tier 2 (Poin SNARS Berkurang Kalau Tidak Ada)
 
 - [x] **GCS + NEWS2 Auto-calculation** ✅ — total GCS otomatis (E+V+M) + NEWS2/MEWS score dari TTV (TD sistol, RR, SpO2, suhu, kesadaran) + badge warna hijau/kuning/merah di shared TTVTab. Benefit IGD + RI sekaligus. SNARS AP 2 · Clinical decision support
-- [ ] **HAM Label IGD Resep & Rekonsiliasi** — pelabelan High-Alert Medication + peringatan double-check di `ResepPasienTab` + `RekonsiliasTab` IGD. RI sudah ada HAM badge. SKP 3 · PMK 72/2016
+- [x] **Shared RekonsiliasTab (IGD + RI)** ✅ — single source of truth `shared/medical-records/RekonsiliasTab.tsx` + 3 sub-components. 3 fase per context (`admisi/transfer/discharge` IGD · `MRS/Transfer/KLRS` RI), HAM detection badge + banner + count, progress bar animated, accordion per fase, ObatSearch inline, RI home-meds banner. Hapus `RekonsiliasiPane.tsx` + sub-tab dari ResepTab. SNARS PP 3.1 · SKP 3 · PMK 72/2016
+- [ ] **HAM Label IGD ResepTab** — pelabelan High-Alert Medication + peringatan double-check di `ResepPasienTab` IGD. (Rekonsiliasi part sudah ✅ via shared component.) SKP 3 · PMK 72/2016
 - [ ] **Isolasi dan PPI Documentation (RI)** — jenis isolasi (Contact/Droplet/Airborne) + bundle VAP/CAUTI/CLABSI. Tab baru RI. SNARS PPI 1–7
-- [ ] **Rencana Asuhan Terintegrasi / Care Plan (RI)** — care plan bersama DPJP + Perawat + PPA, target outcome harian. Sub-tab di CPPTTab atau tab baru. SNARS PP 1
-- [ ] **Print / Export Rekam Medis PDF (RI)** — cetak dokumen legal: CPPT, TTV, Resume Medis. PMK 269/2008
-
+- [x] **Rencana Asuhan Terintegrasi / Care Plan (RI)** ✅ — tab baru `CarePlanTab` di REKAM_MEDIS (antara Asesmen Awal & CPPT). Masalah aktif list, 3 fase accordion (Admisi/Perawatan/Pre-Discharge) masing-masing dengan DPJP panel + Perawat panel + evaluasi + status, progress bar animated, sign-off DPJP muncul saat semua fase selesai. Files: `tabs/CarePlanTab.tsx` + `carePlan/{carePlanShared,PhaseSection}`. SNARS PP 1
 ### 🟠 Backlog — Tier 3 (Klinis Penting, Sprint Berikutnya)
 
-- [ ] **Konsultasi Gizi / Monitoring Nutrisi (RI)** — konsultasi dietitian + rencana diet harian + monitoring asupan vs I/O. SNARS AP 1.4
-- [ ] **ICU/HCU Scoring APACHE II / SOFA (RI)** — severity scoring harian + trending (ri-3 Syok Sepsis kandidat). SNARS PP · ICU international
+- [x] **Konsultasi Gizi / Monitoring Nutrisi (RI)** ✅ — `GiziNutrisiTab` + 3 sub-components (`giziNutrisiShared.ts` · `DietOrderPane.tsx` · `MonitoringPane.tsx`). NRS summary card + rujuk dietitian toggle, diet order form (tipe+kalori+tekstur+batasan), dietitian addendum collapsible, week strip 7-hari color dots, monitoring harian % per makan (pagi/siang/malam), mini bar chart collapsible history. SNARS AP 1.4
+- [x] **ICU/HCU Scoring APACHE II / SOFA (RI)** ✅ — `ICUScoringTab` (conditional: `kelas ICU | HCU`). Input nilai aktual terukur dengan auto-kalkulasi standar internasional. SOFA: PaO₂/FiO₂/vent → P/F ratio, trombosit, bilirubin, MAP+vasopressor+dosis, GCS, kreatinin+UO → higher wins. APACHE II: 9 param bidirectional Knaus 1985 range tables + oxygenation (A-aDO₂ = (713×FiO₂/100)−(PaCO₂/0.8)−PaO₂ bila FiO₂≥50%) + creatinine×2 bila AKI (max 8) + GCS contrib 15−GCS (0–12) + age NumInput → auto agePoints + kronik selector. Mortalitas: ln(odds) = −3.517 + total×0.146. Trend 7-hari bar chart + summary table. Files: `tabs/ICUScoringTab.tsx` + `icuScoring/{icuScoringShared,SOFAPane,APACHEPane,TrendPane}`. Mock ri-3 (RM-2025-007, nilai aktual). SNARS PP · ICU international
 - [ ] **Clinical Pathway Integration (RI)** — alur tatalaksana standar per diagnosis, CBG-aligned. PERMENKES 1438/2010
 - [ ] **Identifikasi 2 Identitas Sebelum Tindakan (IGD)** — konfirmasi nama + tgl lahir/noRM sebelum prosedur. SKP 1 · JCI IPSG 1
 
@@ -118,11 +119,17 @@ Route: `app/ehis-care/(fullpage)/rawat-inap/[id]/`
 ### ⚙️ Tech Debt
 
 - [ ] **AllergyPane IGD** — masih local, padahal `shared/asesmen/AllergyPane.tsx` sudah ada. Refactor `AsesmenMedisTab` sub-pane Alergi ke thin wrapper.
-- [ ] **RekonsiliasTab IGD** — audit duplikasi dengan `resep/RekonsiliasiPane.tsx` RI (SNARS PP 3.1). Jika scope serupa, promote ke shared.
+- [x] **RekonsiliasTab IGD** ✅ — resolve: promote ke shared `shared/medical-records/RekonsiliasTab.tsx`, `RekonsiliasiPane.tsx` RI dihapus.
 - [ ] **PenilaianTab IGD** — audit overlap Morse/Braden/Barthel dengan `PenilaianRisikoPane.tsx` RI. Ekstrak konstanta ke `shared/asesmen/penilaianShared.ts`.
+- [ ] **CarePlanTab — Link ke DiagnosaTab** — masalah aktif di RAT idealnya pull dari entri ICD-10 di `DiagnosaTab` (bukan diketik ulang). Perlu shared state atau props `diagnosaList` dari parent `RIRecordTabs` diteruskan ke `CarePlanTab`.
+- [ ] **CarePlanTab — Template per diagnosis** — library template RAT per diagnosis umum (GJK, Pneumonia, Sepsis, App Akut, dll). Target/intervensi pre-fill saat masalah dikenali. Kandidat: `carePlan/careplanTemplates.ts`.
+- [ ] **CarePlanTab — Multi-PPA** — tambah kolom Gizi, Farmasi, Fisioterapis saat modul tersebut aktif. `PPASection` sudah generic — tinggal extend `PhaseData` dan tambah panel baru di `PhaseSection`.
+- [ ] **CarePlanTab — Riwayat revisi / audit trail** — RAT bisa berubah saat kondisi pasien berubah drastis; simpan snapshot per-edit dengan `revisedAt` + `revisedBy`. Perlu Prisma schema.
 - [ ] Replace mock data dengan Prisma queries, mulai dari `PatientMaster`
 - [ ] Error boundary + loading skeleton untuk semua fullpage routes
 - [ ] `SidebarContext` — belum dipakai konsisten di semua modul
+- [ ] **GiziNutrisiTab — Diet Order dari DaftarOrderTab** — saat ini diet order diisi standalone di GiziTab. Idealnya DPJP order diet dari `DaftarOrderTab` (tipe baru `"Diet"`), GiziTab hanya membaca order aktif (read-only) + dietitian addendum + monitoring tetap di sini. Perlu: tambah tipe `"Diet"` di `daftarOrderShared.ts`, filter di `GiziNutrisiTab`, hapus form `DietOrderForm`. Kerjakan saat DaftarOrder pakai real data.
+- [ ] **Print / Export Dokumen PDF** — cetak dokumen legal per tab: CPPT (per tanggal), TTV chart, Resume Medis (INA-CBG), Resume Pulang (PMK 24/2022), Surat-surat (Keterangan Sakit, Rujukan, dll), Informed Consent, RAT. Kandidat: `window.print()` + print stylesheet, atau `@react-pdf/renderer`. PMK 269/2008 · PMK 24/2022
 
 ### 🟢 Backlog (Other Modules)
 

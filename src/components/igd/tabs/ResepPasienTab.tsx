@@ -11,6 +11,7 @@ import {
   Calendar,
   FlaskConical,
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   FileText,
   X,
@@ -26,7 +27,7 @@ import type { IGDPatientDetail, KategoriObat } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import {
   OBAT_CATALOG, SIGNA_OPTIONS, ATURAN_WAKTU, RUTE_OPTIONS, DEPO_OPTIONS,
-  ATURAN_PANDUAN, KATEGORI_BADGE, type ObatCatalog,
+  ATURAN_PANDUAN, KATEGORI_BADGE, HAM_BADGE, type ObatCatalog,
 } from "@/components/shared/resep/resepShared";
 
 // ── Types ─────────────────────────────────────────────────
@@ -44,11 +45,13 @@ interface ResepItem {
   aturanPakai: string;
   keterangan: string;
   kategori: KategoriObat;
+  isHAM: boolean;
   historyItemId?: string;
 }
 
-interface RiwayatResepItem extends Omit<ResepItem, "id"> {
+interface RiwayatResepItem extends Omit<ResepItem, "id" | "isHAM"> {
   id: string;
+  isHAM?: boolean;
 }
 
 interface RiwayatResep {
@@ -426,6 +429,7 @@ function ResepRow({
             <p className="text-xs font-semibold text-slate-800">
               {item.namaObat}
             </p>
+            {item.isHAM && <span className={HAM_BADGE}>⚠ HAM</span>}
             <span
               className={cn(
                 "rounded px-1.5 py-0.5 text-[10px] font-medium",
@@ -434,7 +438,7 @@ function ResepRow({
             >
               {item.kategori}
             </span>
-            {item.kategori !== "Reguler" && (
+            {item.kategori !== "Reguler" && !item.isHAM && (
               <span className="flex items-center gap-0.5 text-[10px] text-amber-600">
                 <AlertCircle size={9} />
                 Perlu persetujuan khusus
@@ -594,6 +598,82 @@ function EmptyResep() {
       <p className="text-[11px] text-slate-300">
         Cari obat di form kiri, atau salin dari riwayat di bawah
       </p>
+    </div>
+  );
+}
+
+// ── HAM Double-check Modal ────────────────────────────────
+
+function HAMConfirmModal({
+  hamItems,
+  onConfirm,
+  onCancel,
+}: {
+  hamItems: ResepItem[];
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const [checked, setChecked] = useState(false);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-start gap-3 border-b border-slate-100 p-5">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-600">
+            <AlertTriangle size={20} />
+          </span>
+          <div>
+            <p className="text-sm font-bold text-slate-800">Double-Check HAM Wajib</p>
+            <p className="mt-0.5 text-[11px] text-slate-500">
+              Resep mengandung High-Alert Medication. Konfirmasi double-check sebelum order. SKP 3 · PMK 72/2016
+            </p>
+          </div>
+        </div>
+
+        <div className="p-5">
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-red-600">
+              Obat HAM dalam resep ini:
+            </p>
+            <div className="flex flex-col gap-1.5">
+              {hamItems.map((item) => (
+                <div key={item.id} className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
+                  <span className="text-xs font-semibold text-slate-700">{item.namaObat}</span>
+                  <span className="text-[11px] text-slate-400">{item.dosis} · {item.signa}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <label className="mb-5 flex cursor-pointer items-start gap-2.5">
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={(e) => setChecked(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded accent-red-600"
+            />
+            <span className="text-xs leading-relaxed text-slate-700">
+              Saya konfirmasi telah dilakukan <strong>double-check</strong> dengan petugas lain sesuai SOP HAM rumah sakit
+            </span>
+          </label>
+
+          <div className="flex gap-2">
+            <button
+              onClick={onCancel}
+              className="flex-1 rounded-lg border border-slate-200 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+            >
+              Batal
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={!checked}
+              className="flex-1 rounded-lg bg-red-600 py-2 text-xs font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Konfirmasi & Order
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -812,6 +892,7 @@ const EMPTY_FORM = {
   jumlah: 1,
   keterangan: "",
   kategori: "Reguler" as KategoriObat,
+  isHAM: false,
 };
 
 // ── Main component ────────────────────────────────────────
@@ -827,6 +908,7 @@ export default function ResepPasienTab({
   const [catatan, setCatatan] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [copiedIds, setCopiedIds] = useState<Set<string>>(new Set());
+  const [showHAMModal, setShowHAMModal] = useState(false);
 
   const riwayat = RIWAYAT_MOCK[patient.noRM] ?? [];
 
@@ -842,6 +924,7 @@ export default function ResepPasienTab({
       kodeObat: obat.kode,
       dosis: `${obat.dosis} ${obat.satuan}`,
       kategori: obat.kategori,
+      isHAM: obat.isHAM ?? false,
     }));
   };
 
@@ -888,6 +971,7 @@ export default function ResepPasienTab({
       aturanPakai: histItem.aturanPakai,
       keterangan: histItem.keterangan,
       kategori: histItem.kategori,
+      isHAM: histItem.isHAM ?? false,
       historyItemId: histItem.id,
     };
     setItems((prev) => [...prev, newItem]);
@@ -907,6 +991,7 @@ export default function ResepPasienTab({
       aturanPakai: h.aturanPakai,
       keterangan: h.keterangan,
       kategori: h.kategori,
+      isHAM: h.isHAM ?? false,
       historyItemId: h.id,
     }));
     setItems((prev) => [...prev, ...newItems]);
@@ -919,6 +1004,7 @@ export default function ResepPasienTab({
 
   const handleOrder = () => {
     if (items.length === 0) return;
+    if (items.some((i) => i.isHAM)) { setShowHAMModal(true); return; }
     setSubmitted(true);
   };
 
@@ -960,6 +1046,13 @@ export default function ResepPasienTab({
 
   return (
     <div className="flex flex-col gap-4">
+      {showHAMModal && (
+        <HAMConfirmModal
+          hamItems={items.filter((i) => i.isHAM)}
+          onConfirm={() => { setShowHAMModal(false); setSubmitted(true); }}
+          onCancel={() => setShowHAMModal(false)}
+        />
+      )}
       {/* ── Prescriber info header ── */}
       <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">

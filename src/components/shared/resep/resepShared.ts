@@ -9,6 +9,7 @@ export interface ObatCatalog {
   satuan:   string;
   stok:     number;
   kategori: KategoriObat;
+  isHAM?:   boolean;
 }
 
 export const OBAT_CATALOG: ObatCatalog[] = [
@@ -26,13 +27,13 @@ export const OBAT_CATALOG: ObatCatalog[] = [
   { kode: "FAR-012", nama: "Furosemide 40mg",        dosis: "40",   satuan: "mg",     stok: 100, kategori: "Reguler"      },
   { kode: "FAR-013", nama: "NaCl 0.9% 500mL",        dosis: "500",  satuan: "mL",     stok: 80,  kategori: "Reguler"      },
   { kode: "FAR-014", nama: "Dextrose 5% 500mL",      dosis: "500",  satuan: "mL",     stok: 60,  kategori: "Reguler"      },
-  { kode: "FAR-015", nama: "Dopamin 200mg/5mL",      dosis: "200",  satuan: "mg/5mL", stok: 25,  kategori: "Reguler"      },
-  { kode: "FAR-016", nama: "Morfin 10mg/mL Inj",     dosis: "10",   satuan: "mg/mL",  stok: 20,  kategori: "Narkotika"    },
-  { kode: "FAR-017", nama: "Fentanyl 100mcg Inj",    dosis: "100",  satuan: "mcg",    stok: 15,  kategori: "Narkotika"    },
-  { kode: "FAR-018", nama: "Codein 10mg",             dosis: "10",   satuan: "mg",     stok: 40,  kategori: "Narkotika"    },
-  { kode: "FAR-019", nama: "Midazolam 5mg/5mL",      dosis: "5",    satuan: "mg/5mL", stok: 30,  kategori: "Psikotropika" },
-  { kode: "FAR-020", nama: "Diazepam 5mg",            dosis: "5",    satuan: "mg",     stok: 50,  kategori: "Psikotropika" },
-  { kode: "FAR-021", nama: "Alprazolam 0.5mg",        dosis: "0.5",  satuan: "mg",     stok: 35,  kategori: "Psikotropika" },
+  { kode: "FAR-015", nama: "Dopamin 200mg/5mL",      dosis: "200",  satuan: "mg/5mL", stok: 25,  kategori: "Reguler",      isHAM: true },
+  { kode: "FAR-016", nama: "Morfin 10mg/mL Inj",     dosis: "10",   satuan: "mg/mL",  stok: 20,  kategori: "Narkotika",    isHAM: true },
+  { kode: "FAR-017", nama: "Fentanyl 100mcg Inj",    dosis: "100",  satuan: "mcg",    stok: 15,  kategori: "Narkotika",    isHAM: true },
+  { kode: "FAR-018", nama: "Codein 10mg",             dosis: "10",   satuan: "mg",     stok: 40,  kategori: "Narkotika",    isHAM: true },
+  { kode: "FAR-019", nama: "Midazolam 5mg/5mL",      dosis: "5",    satuan: "mg/5mL", stok: 30,  kategori: "Psikotropika", isHAM: true },
+  { kode: "FAR-020", nama: "Diazepam 5mg",            dosis: "5",    satuan: "mg",     stok: 50,  kategori: "Psikotropika", isHAM: true },
+  { kode: "FAR-021", nama: "Alprazolam 0.5mg",        dosis: "0.5",  satuan: "mg",     stok: 35,  kategori: "Psikotropika", isHAM: true },
 ];
 
 // ── Form options ─────────────────────────────────────────
@@ -85,6 +86,8 @@ export const KATEGORI_BADGE: Record<KategoriObat, string> = {
   Narkotika:   "bg-rose-100 text-rose-700 ring-1 ring-rose-200",
   Psikotropika:"bg-amber-100 text-amber-700 ring-1 ring-amber-200",
 };
+
+export const HAM_BADGE = "bg-red-600 text-white text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded";
 
 export const MAR_CONFIG: Record<StatusMAR, { label: string; cls: string; dot: string }> = {
   Diberikan:     { label: "✓",  cls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200", dot: "bg-emerald-400" },

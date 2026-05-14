@@ -2,42 +2,35 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Pill, CalendarCheck, RefreshCw } from "lucide-react";
-import type { RawatInapPatientDetail, ResepRIItem, MAREntry, RekonsiliasItem } from "@/lib/data";
+import { Pill, CalendarCheck } from "lucide-react";
+import type { RawatInapPatientDetail, ResepRIItem, MAREntry } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
-import ResepPane       from "./resep/ResepPane";
-import MARPane         from "./resep/MARPane";
-import RekonsiliasiPane from "./resep/RekonsiliasiPane";
+import ResepPane from "./resep/ResepPane";
+import MARPane   from "./resep/MARPane";
 
 // ── Sub-tab definition ───────────────────────────────────
 
-type SubTab = "resep" | "mar" | "rekonsiliasi";
+type SubTab = "resep" | "mar";
 
 const SUB_TABS: { id: SubTab; label: string; Icon: React.ElementType }[] = [
-  { id: "resep",        label: "Resep Aktif",   Icon: Pill         },
-  { id: "mar",          label: "MAR Harian",    Icon: CalendarCheck },
-  { id: "rekonsiliasi", label: "Rekonsiliasi",  Icon: RefreshCw    },
+  { id: "resep", label: "Resep Aktif",  Icon: Pill         },
+  { id: "mar",   label: "MAR Harian",  Icon: CalendarCheck },
 ];
 
 // ── Main ─────────────────────────────────────────────────
 
 export default function ResepTab({ patient }: { patient: RawatInapPatientDetail }) {
-  const [active,        setActive]        = useState<SubTab>("resep");
-  const [items,         setItems]         = useState<ResepRIItem[]>(patient.resepRI?.items ?? []);
-  const [marEntries,    setMarEntries]    = useState<MAREntry[]>(patient.resepRI?.mar ?? []);
-  const [rekonsiliasi,  setRekonsiliasi]  = useState<RekonsiliasItem[]>(patient.resepRI?.rekonsiliasi ?? []);
+  const [active,     setActive]     = useState<SubTab>("resep");
+  const [items,      setItems]      = useState<ResepRIItem[]>(patient.resepRI?.items ?? []);
+  const [marEntries, setMarEntries] = useState<MAREntry[]>(patient.resepRI?.mar ?? []);
 
   const activeItems = items.filter((i) => i.aktif);
 
-  function handleSendOrder(draft: ResepRIItem[])      { setItems((p) => [...draft, ...p]); }
-  function handleToggleAktif(id: string)              { setItems((p) => p.map((i) => i.id === id ? { ...i, aktif: !i.aktif } : i)); }
-  function handleAddMAR(entry: MAREntry)              { setMarEntries((p) => [...p, entry]); }
-  function handleUpdateMAR(entry: MAREntry)           { setMarEntries((p) => p.map((e) => e.id === entry.id ? entry : e)); }
-  function handleUpdateRekonsiliasi(updated: RekonsiliasItem) {
-    setRekonsiliasi((p) => p.map((r) => r.id === updated.id ? updated : r));
-  }
-  function handleAddRekonsiliasi(item: RekonsiliasItem) { setRekonsiliasi((p) => [...p, item]); }
+  function handleSendOrder(draft: ResepRIItem[]) { setItems((p) => [...draft, ...p]); }
+  function handleToggleAktif(id: string)         { setItems((p) => p.map((i) => i.id === id ? { ...i, aktif: !i.aktif } : i)); }
+  function handleAddMAR(entry: MAREntry)         { setMarEntries((p) => [...p, entry]); }
+  function handleUpdateMAR(entry: MAREntry)      { setMarEntries((p) => p.map((e) => e.id === entry.id ? entry : e)); }
 
   return (
     <div className="flex flex-col gap-3">
@@ -57,7 +50,7 @@ export default function ResepTab({ patient }: { patient: RawatInapPatientDetail 
 
       {/* ── Sub-tab nav ── */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
-        <div className="flex overflow-x-auto">
+        <div className="flex">
           {SUB_TABS.map(({ id, label, Icon }) => (
             <button
               key={id}
@@ -116,14 +109,6 @@ export default function ResepTab({ patient }: { patient: RawatInapPatientDetail 
               patient={patient}
               onAdd={handleAddMAR}
               onUpdate={handleUpdateMAR}
-            />
-          )}
-          {active === "rekonsiliasi" && (
-            <RekonsiliasiPane
-              rekonsiliasi={rekonsiliasi}
-              patient={patient}
-              onUpdate={handleUpdateRekonsiliasi}
-              onAdd={handleAddRekonsiliasi}
             />
           )}
         </motion.div>
