@@ -37,8 +37,8 @@
 
 | Gap                                             | Standar                   | Prioritas  | Keterangan                                                                                           |
 | ----------------------------------------------- | ------------------------- | ---------- | ---------------------------------------------------------------------------------------------------- |
-| **GCS Total Auto-calculate**                    | Clinical best practice    | 🟡 Sedang  | Total GCS tidak dihitung otomatis dari Eye + Verbal + Motor. Dikerjakan bersamaan dengan NEWS2.      |
-| **NEWS2 / MEWS Auto-score**                     | Clinical decision support | 🟡 Sedang  | Tidak ada early warning score otomatis dari nilai TTV. → Tier 2 aktif                               |
+| ~~**GCS Total Auto-calculate**~~ ✅             | Clinical best practice    | ✅ Selesai | `calcNEWS2()` di shared TTVTab. GCS live total badge (E+V+M) di form. IGD + RI.                     |
+| ~~**NEWS2 / MEWS Auto-score**~~ ✅              | Clinical decision support | ✅ Selesai | NEWS2 badge di current vitals, history rows, live preview form. Red-flag logic. SNARS AP 2 ✅         |
 | **High-Alert Medication (HAM) Label**           | SKP 3                     | 🟡 Sedang  | Pelabelan HAM di Resep/Rekonsiliasi IGD. RI sudah ada. → Tier 2 aktif                               |
 | **Identifikasi Pasien sebelum Tindakan**        | SKP 1 · JCI IPSG 1        | 🟡 Sedang  | Konfirmasi 2 identitas (nama + tgl lahir / noRM) sebelum prosedur. → Tier 3 Backlog                 |
 | **TBaK (Tulis Baca Konfirmasi)**                | SKP 2                     | 🟢 Rendah  | Dokumentasi instruksi verbal dokter. Bisa diintegrasikan ke CPPT                                    |
@@ -74,7 +74,7 @@
 
 | Gap                                                | Standar                       | Prioritas  | Keterangan                                                                              |
 | -------------------------------------------------- | ----------------------------- | ---------- | --------------------------------------------------------------------------------------- |
-| **GCS + NEWS2 Auto-score**                         | SNARS AP 2                    | 🟡 Sedang  | TTV per shift sudah ada; perlu NEWS2/MEWS score otomatis. → Tier 2 aktif               |
+| ~~**GCS + NEWS2 Auto-score**~~ ✅                  | SNARS AP 2                    | ✅ Selesai | shared TTVTab — `calcNEWS2()`, badge current vitals + history rows + form live preview. |
 | **Informed Consent (IC) di RI**                    | PMK 290/2008 · HPK 2.1–2.2    | 🔴 Tinggi  | IC wajib untuk tindakan invasif selama RI. Belum direncanakan. Shared IC tab bisa reuse |
 | **Isolasi dan Precaution (PPI)**                   | SNARS PPI 1–7                 | 🟡 Sedang  | Jenis isolasi (Contact/Droplet/Airborne) + bundle VAP/CAUTI/CLABSI. → Tier 2 aktif     |
 | **Rencana Asuhan Terintegrasi / Care Plan**        | SNARS PP 1                    | 🟡 Sedang  | Care plan DPJP + Perawat + PPA, target outcome harian. → Tier 2 aktif                  |

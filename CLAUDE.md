@@ -96,7 +96,7 @@ Route: `app/ehis-care/(fullpage)/rawat-inap/[id]/`
 
 ### 🔴 Next — Tier 2 (Poin SNARS Berkurang Kalau Tidak Ada)
 
-- [ ] **GCS + NEWS2 Auto-calculation** — total GCS otomatis (E+V+M) + NEWS2/MEWS score dari TTV (TD sistol, RR, SpO2, suhu, kesadaran) + badge warna hijau/kuning/merah di shared TTVTab. Benefit IGD + RI sekaligus. SNARS AP 2 · Clinical decision support
+- [x] **GCS + NEWS2 Auto-calculation** ✅ — total GCS otomatis (E+V+M) + NEWS2/MEWS score dari TTV (TD sistol, RR, SpO2, suhu, kesadaran) + badge warna hijau/kuning/merah di shared TTVTab. Benefit IGD + RI sekaligus. SNARS AP 2 · Clinical decision support
 - [ ] **HAM Label IGD Resep & Rekonsiliasi** — pelabelan High-Alert Medication + peringatan double-check di `ResepPasienTab` + `RekonsiliasTab` IGD. RI sudah ada HAM badge. SKP 3 · PMK 72/2016
 - [ ] **Isolasi dan PPI Documentation (RI)** — jenis isolasi (Contact/Droplet/Airborne) + bundle VAP/CAUTI/CLABSI. Tab baru RI. SNARS PPI 1–7
 - [ ] **Rencana Asuhan Terintegrasi / Care Plan (RI)** — care plan bersama DPJP + Perawat + PPA, target outcome harian. Sub-tab di CPPTTab atau tab baru. SNARS PP 1

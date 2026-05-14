@@ -35,6 +35,32 @@ const STATUS_DOT: Record<VStatus, string> = {
   normal: "bg-emerald-400", warning: "bg-amber-400", critical: "bg-rose-500 animate-pulse",
 };
 
+// ── NEWS2 calculation ─────────────────────────────────────
+
+type NEWS2Level = "low" | "medium" | "high";
+
+function calcNEWS2(vs: IGDVitalSigns, kes: StatusKesadaran): { score: number; level: NEWS2Level } {
+  let score = 0;
+  let redFlag = false;
+  const add = (pts: number) => { score += pts; if (pts === 3) redFlag = true; };
+
+  add(vs.respirasi <= 8 ? 3 : vs.respirasi <= 11 ? 1 : vs.respirasi <= 20 ? 0 : vs.respirasi <= 24 ? 2 : 3);
+  add(vs.spo2     <= 91 ? 3 : vs.spo2     <= 93 ? 2 : vs.spo2     <= 95 ? 1 : 0);
+  add(vs.tdSistolik <= 90 ? 3 : vs.tdSistolik <= 100 ? 2 : vs.tdSistolik <= 110 ? 1 : vs.tdSistolik <= 219 ? 0 : 3);
+  add(vs.nadi <= 40 ? 3 : vs.nadi <= 50 ? 1 : vs.nadi <= 90 ? 0 : vs.nadi <= 110 ? 1 : vs.nadi <= 130 ? 2 : 3);
+  add(vs.suhu <= 35.0 ? 3 : vs.suhu <= 36.0 ? 1 : vs.suhu <= 38.0 ? 0 : vs.suhu <= 39.0 ? 1 : 2);
+  add(kes === "Compos_Mentis" ? 0 : 3);
+
+  const level: NEWS2Level = score >= 7 ? "high" : (score >= 5 || redFlag) ? "medium" : "low";
+  return { score, level };
+}
+
+const NEWS2_META: Record<NEWS2Level, { badge: string; dot: string; label: string }> = {
+  low:    { badge: "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200", dot: "bg-emerald-400",               label: "Rendah"   },
+  medium: { badge: "bg-amber-50  text-amber-800  ring-1 ring-amber-300",    dot: "bg-amber-400",                 label: "Sedang"   },
+  high:   { badge: "bg-rose-50   text-rose-800   ring-1 ring-rose-300",     dot: "bg-rose-500 animate-pulse",    label: "Kritis"   },
+};
+
 // ── Pain scale helpers ────────────────────────────────────
 
 type PainLevel = "zero" | "mild" | "moderate" | "severe";
@@ -234,6 +260,7 @@ function HistoryRow({ rec, delay, hideShift = false }: {
   const gcs      = vs.gcsEye + vs.gcsVerbal + vs.gcsMotor;
   const kes      = KESADARAN_LABEL[rec.statusKesadaran];
   const nrsMeta  = PAIN_META[painLevel(vs.skalaNyeri)];
+  const news2    = calcNEWS2(vs, rec.statusKesadaran);
 
   const worst: VStatus =
     [tdStatus(vs.tdSistolik, vs.tdDiastolik), nadiStatus(vs.nadi), spo2Status(vs.spo2), gcsStatus(gcs), nyeriStatus(vs.skalaNyeri)]
@@ -291,6 +318,10 @@ function HistoryRow({ rec, delay, hideShift = false }: {
                 NRS {vs.skalaNyeri}
               </span>
             )}
+            <span className={cn("flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold", NEWS2_META[news2.level].badge)}>
+              <span className={cn("h-1.5 w-1.5 rounded-full", NEWS2_META[news2.level].dot)} />
+              NEWS2 {news2.score}
+            </span>
           </div>
           <ChevronDown
             size={14}
@@ -376,6 +407,7 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history, triage }:
   const bmi = vs.beratBadan && vs.tinggiBadan
     ? (vs.beratBadan / Math.pow(vs.tinggiBadan / 100, 2)).toFixed(1)
     : null;
+  const currentNEWS2 = calcNEWS2(vs, currentKes);
 
   const [form, setForm] = useState({
     tdS: String(vs.tdSistolik), tdD: String(vs.tdDiastolik),
@@ -521,6 +553,19 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history, triage }:
               <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{bmi} kg/m²</span>
             </div>
           )}
+          <motion.div
+            key={currentNEWS2.score}
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.18 }}
+            className="ml-auto flex items-center gap-2"
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">NEWS2</p>
+            <span className={cn("flex items-center gap-1.5 rounded-lg px-3 py-1 text-sm font-bold", NEWS2_META[currentNEWS2.level].badge)}>
+              <span className={cn("h-2 w-2 rounded-full", NEWS2_META[currentNEWS2.level].dot)} />
+              {currentNEWS2.score} · {NEWS2_META[currentNEWS2.level].label}
+            </span>
+          </motion.div>
         </div>
 
         {/* Pain scale read-only — current value */}
@@ -609,10 +654,34 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history, triage }:
           <NumInput label="SpO₂" unit="%" value={form.spo2} onChange={(v) => set("spo2", v)} />
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-3 sm:max-w-sm">
-          <NumInput label="Eye (E)" unit="/4" value={form.gcsE} onChange={(v) => set("gcsE", v)} />
-          <NumInput label="Verbal (V)" unit="/5" value={form.gcsV} onChange={(v) => set("gcsV", v)} />
-          <NumInput label="Motor (M)" unit="/6" value={form.gcsM} onChange={(v) => set("gcsM", v)} />
+        <div className="mt-4">
+          {(() => {
+            const formGcsTotal = (Number(form.gcsE) || 0) + (Number(form.gcsV) || 0) + (Number(form.gcsM) || 0);
+            return (
+              <>
+                <div className="mb-1.5 flex items-center gap-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">GCS (Eye + Verbal + Motor)</p>
+                  <motion.span
+                    key={formGcsTotal}
+                    initial={{ scale: 0.88, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.14 }}
+                    className={cn("rounded-md px-2 py-0.5 text-xs font-bold",
+                      VCARD_CLS[gcsStatus(formGcsTotal)].card,
+                      VCARD_CLS[gcsStatus(formGcsTotal)].value,
+                    )}
+                  >
+                    Total {formGcsTotal}/15
+                  </motion.span>
+                </div>
+                <div className="grid grid-cols-3 gap-3 sm:max-w-sm">
+                  <NumInput label="Eye (E)" unit="/4" value={form.gcsE} onChange={(v) => set("gcsE", v)} />
+                  <NumInput label="Verbal (V)" unit="/5" value={form.gcsV} onChange={(v) => set("gcsV", v)} />
+                  <NumInput label="Motor (M)" unit="/6" value={form.gcsM} onChange={(v) => set("gcsM", v)} />
+                </div>
+              </>
+            );
+          })()}
         </div>
 
         {/* Skala Nyeri — interactive visual selector */}
@@ -649,7 +718,40 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history, triage }:
           </div>
         )}
 
-        <div className="mt-5 flex justify-end">
+        {/* Live NEWS2 preview */}
+        {(() => {
+          const previewVS: IGDVitalSigns = {
+            tdSistolik:  Number(form.tdS)  || vs.tdSistolik,
+            tdDiastolik: Number(form.tdD)  || vs.tdDiastolik,
+            nadi:        Number(form.nadi) || vs.nadi,
+            respirasi:   Number(form.rr)   || vs.respirasi,
+            suhu:        Number(form.suhu) || vs.suhu,
+            spo2:        Number(form.spo2) || vs.spo2,
+            gcsEye:      Number(form.gcsE) || vs.gcsEye,
+            gcsVerbal:   Number(form.gcsV) || vs.gcsVerbal,
+            gcsMotor:    Number(form.gcsM) || vs.gcsMotor,
+            skalaNyeri:  Number(form.nyeri),
+          };
+          const preview = calcNEWS2(previewVS, form.kesadaran as StatusKesadaran);
+          return (
+            <motion.div
+              key={preview.score}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.15 }}
+              className="mt-4 flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-4 py-2.5"
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Prediksi NEWS2</p>
+              <span className={cn("flex items-center gap-1.5 rounded-md px-2.5 py-0.5 text-xs font-bold", NEWS2_META[preview.level].badge)}>
+                <span className={cn("h-1.5 w-1.5 rounded-full", NEWS2_META[preview.level].dot)} />
+                {preview.score} · {NEWS2_META[preview.level].label}
+              </span>
+              <span className="ml-auto text-[11px] text-slate-400">Score dihitung otomatis dari nilai TTV di atas</span>
+            </motion.div>
+          );
+        })()}
+
+        <div className="mt-4 flex justify-end">
           <button type="button" onClick={handleSave}
             className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700">
             {isIGDMode ? "Catat Observasi" : showShift ? "Simpan Rekaman TTV" : "Simpan TTV"}
