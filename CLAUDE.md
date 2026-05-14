@@ -57,6 +57,7 @@ Shared layout: `Navbar` · `Sidebar` · `ModuleSwitcher` · `ModuleLayout` → `
 | diagnosa                                                         | tabs/ (thin wrapper → shared)        | ✅     |
 | tindakan · disposisi · rekonsiliasi · keperawatan                | tabs/                                | ✅     |
 | pemeriksaan · penilaian · resep · order-lab · order-rad · pulang | tabs/ (pemeriksaan: `StatusFisikPane` shared 11-sistem + MetaHeader + Anatomi + Penunjang) | ✅     |
+| SBAR Transfer IGD→RI (via Pasien Pulang → status Rawat Inap)     | `pasienPulang/SBARTransferPanel.tsx` (4 seksi, Framer Motion, auto-populate TTV+GCS+NRS) | ✅     |
 | rujukan                                                          | `tabs/RujukanKeluarTab.tsx`          | ✅     |
 | Penandaan Gambar                                                 | tabs/penandaanGambar.tsx             | ✅     |
 
@@ -280,7 +281,7 @@ Alur dokumentasi klinis lengkap per setting perawatan — menjadi acuan tab apa 
 | Order Lab                                                           | `OrderLabTab.tsx`        | SNARS AP                   |
 | Order Radiologi                                                     | `OrderRadTab.tsx`        | SNARS AP                   |
 | Rujukan Keluar (SBAR-based)                                         | `RujukanKeluarTab.tsx`   | PMK 47/2018 · SKP 2        |
-| Pasien Pulang (6 status)                                            | `PasienPulangTab.tsx`    | PMK 269/2008 · ARK 5       |
+| Pasien Pulang (6 status) + SBAR Transfer IGD→RI                     | `PasienPulangTab.tsx` + `pasienPulang/` | PMK 269/2008 · ARK 5 · SKP 2 |
 | Morse Fall Scale (risiko jatuh)                                     | `PenilaianTab.tsx`       | SKP 6 · SNARS AP 1.5       |
 | Braden Scale (risiko dekubitus)                                     | `PenilaianTab.tsx`       | SNARS PP                   |
 | Barthel Index (status fungsional / ADL)                             | `PenilaianTab.tsx`       | SNARS AP 1                 |
@@ -293,7 +294,7 @@ Alur dokumentasi klinis lengkap per setting perawatan — menjadi acuan tab apa 
 | ----------------------------------------------- | -------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | **Skala Nyeri di form TTV**                     | SNARS AP 1.2               | 🔴 Kritis | Field `skalaNyeri` ada di type tapi tidak muncul/diisi di TTVTab. Wajib per SNARS                                               |
 | **Informed Consent (IC)**                       | PMK 290/2008 · HPK 2.1–2.2 | 🔴 Tinggi | IC tertulis wajib untuk semua tindakan invasif. Belum ada form IC sama sekali                                                   |
-| **SBAR Transfer (IGD → Rawat Inap)**            | SKP 2 · PMK 11/2017        | 🔴 Tinggi | Saat ini tidak ada form transfer SBAR internal. Rujukan Keluar sudah ada tapi hanya eksternal                                   |
+| ~~**SBAR Transfer (IGD → Rawat Inap)**~~         | SKP 2 · PMK 11/2017        | ✅ Selesai | `SBARTransferPanel.tsx` di `pasienPulang/` — 4 seksi warna (S=violet/B=sky/A=amber/R=emerald), Framer Motion progress bar, auto-populate TTV+GCS+NRS+diagnosa dari patient data, read-back confirmation gate, canSubmit di parent |
 | **Monitoring Observasi Terjadwal**              | SNARS AP 2                 | 🔴 Tinggi | Re-asesmen berkala wajib: P1=15 mnt, P2=30 mnt, P3=60 mnt. TTV saat ini hanya single-entry                                      |
 | **GCS Total Auto-calculate**                    | Clinical best practice     | 🟡 Sedang | Total GCS tidak dihitung otomatis dari Eye + Verbal + Motor                                                                     |
 | **NEWS2 / MEWS Auto-score**                     | Clinical decision support  | 🟡 Sedang | Tidak ada early warning score otomatis dari nilai TTV yang dimasukkan                                                           |
@@ -401,8 +402,8 @@ Work items in priority order. Pick top item each session.
 - [x] **Asesmen Awal RI (MRS)** — ✅ Tab baru RI: 5 sub-tab (Anamnesis / Riwayat Medis / Alergi / Skrining Gizi+Nyeri / Penilaian Risiko Barthel+Morse+Braden), per-tab completion dots, global progress bar, Framer Motion direction-aware, shared components di `shared/asesmen/`. SNARS AP 1.1–1.5 + PP. **Iterasi UX:** PenilaianRisikoPane rebuild → tab-per-skala (3 tab buttons) + compact horizontal chip options + dashed border unfilled + AnimatePresence inline detail. **Bug fix:** AnamnesisPaneRI — form input text invisible (white) → fixed `text-slate-900` di `INPUT_CLS` + semua `TA` textareas.
 - [x] **Konsultasi Antar SMF** (`tabs/KonsultasiTab.tsx`) — ✅ dipindah ke 🔴 Now item #7
 - [x] **Redesign /ehis-care/igd page** — ✅ `IGDBoard.tsx`: tambah DPJP filter dropdown (derived dari patients), pagination 9/hal, Framer Motion AnimatePresence pada grid. `PatientCard.tsx`: seluruh card jadi `<Link>` clickable (hapus button "Lihat Detail"), urgency indicator (pulsing dot P1/P2 kritis, wait time text rose/amber/slate sesuai triage × waktu), boarding badge ≥6 jam, doctor name lebih prominent. `IGDRuanganPanel.tsx`: collapse toggle di header (ChevronDown + AnimatePresence height transition), summary "{terisi}/{total}" saat collapsed.
-- [ ] **Skala Nyeri di TTVTab** — tambahkan field `skalaNyeri` (0–10) ke form TTVTab shared (IGD + RI). Type sudah ada di `IGDVitalSigns`. Wajib SNARS AP 1.2
-- [ ] **SBAR Transfer IGD→RI** — form transfer internal yang terintegrasi dengan tab Pasien Pulang IGD (pilih "Rawat Inap") + trigger ke penerimaan RI. Standar SKP 2
+- [x] **Skala Nyeri di TTVTab** — ✅ `PainScale` component interaktif di `shared/medical-records/TTVTab.tsx`: grid 11 tombol NRS 0–10, warna per level (zero/mild/moderate/severe), badge NRS di summary header saat >0, read-only di history card, interactive di form entri baru. `skalaNyeri` mapped ke `form.nyeri`, disimpan ke `IGDVitalSigns`. SNARS AP 1.2 ✅
+- [x] **SBAR Transfer IGD→RI** — ✅ `SBARTransferPanel.tsx` (497 ln) + refactor `PasienPulangTab.tsx` (1271→472 ln, split 7 file). 4 seksi SBAR warna, Framer Motion progress bar, auto-populate dari `patient.vitalSigns` + `patient.diagnosa`, GCS auto-calc, read-back gate, `canSubmit` di parent. Standar SKP 2 ✅
 - [ ] **Link Hasil Lab/Rad ke EHIS-Lab/EHIS-Rad** — tambahkan referensi/link di rekam medis IGD dan RI ke hasil pemeriksaan di modul terpisah. Arsitektur: tidak embed, hanya reference link
 - [ ] **SBAR Serah Terima Shift (Handover)** — dokumentasi handover pasien antar shift. Wajib SKP 2. Dapat terintegrasi dengan CPPT atau sub-tab tersendiri di RI
 
@@ -445,7 +446,7 @@ Work items in priority order. Pick top item each session.
 
 ### ⚙️ Tech Debt
 
-- [ ] **Skala Nyeri (0–10)** — `skalaNyeri` ada di `IGDVitalSigns` tapi tidak muncul di form TTVTab. Tambahkan sebagai field wajib per SNARS AP 1.2
+- [x] **Skala Nyeri (0–10)** — ✅ `PainScale` component interaktif + read-only sudah ada di shared `TTVTab.tsx`. SNARS AP 1.2 ✅
 - [ ] Replace mock data (`src/lib/data.ts`) dengan Prisma queries bertahap, mulai dari `PatientMaster`
 - [ ] `SidebarContext` — belum dipakai konsisten di semua modul
 - [ ] Error boundary + loading skeleton untuk semua fullpage routes

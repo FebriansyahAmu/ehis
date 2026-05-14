@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, CalendarDays, Clock } from "lucide-react";
+import { ChevronDown, CalendarDays } from "lucide-react";
 import type { IGDVitalSigns, StatusKesadaran, RITTVRecord, RIShift } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 
 type VStatus = "normal" | "warning" | "critical";
 
-const tdStatus  = (s: number, d: number): VStatus =>
+const tdStatus   = (s: number, d: number): VStatus =>
   (s < 90 || d < 60) ? "critical" : (s > 140 || d > 90) ? "warning" : "normal";
 const nadiStatus = (v: number): VStatus =>
   (v > 120 || v < 50) ? "critical" : (v > 100 || v < 60) ? "warning" : "normal";
@@ -22,6 +22,8 @@ const spo2Status = (v: number): VStatus =>
   v < 90 ? "critical" : v < 95 ? "warning" : "normal";
 const gcsStatus  = (v: number): VStatus =>
   v <= 8 ? "critical" : v <= 12 ? "warning" : "normal";
+const nyeriStatus = (v: number): VStatus =>
+  v >= 7 ? "critical" : v >= 4 ? "warning" : "normal";
 
 const VCARD_CLS: Record<VStatus, { card: string; value: string; label: string }> = {
   normal:   { card: "border-emerald-200 bg-emerald-50", value: "text-emerald-800", label: "text-emerald-600" },
@@ -31,6 +33,24 @@ const VCARD_CLS: Record<VStatus, { card: string; value: string; label: string }>
 
 const STATUS_DOT: Record<VStatus, string> = {
   normal: "bg-emerald-400", warning: "bg-amber-400", critical: "bg-rose-500 animate-pulse",
+};
+
+// ── Pain scale helpers ────────────────────────────────────
+
+type PainLevel = "zero" | "mild" | "moderate" | "severe";
+
+function painLevel(v: number): PainLevel {
+  if (v === 0) return "zero";
+  if (v <= 3)  return "mild";
+  if (v <= 6)  return "moderate";
+  return "severe";
+}
+
+const PAIN_META: Record<PainLevel, { text: string; badge: string; btn: string; hover: string }> = {
+  zero:     { text: "Tidak Nyeri",  badge: "bg-slate-100 text-slate-600",    btn: "bg-slate-500 text-white ring-2 ring-slate-300",    hover: "hover:bg-slate-100 hover:text-slate-600"    },
+  mild:     { text: "Nyeri Ringan", badge: "bg-emerald-100 text-emerald-700", btn: "bg-emerald-500 text-white ring-2 ring-emerald-300", hover: "hover:bg-emerald-50 hover:text-emerald-700" },
+  moderate: { text: "Nyeri Sedang", badge: "bg-amber-100 text-amber-700",    btn: "bg-amber-400 text-white ring-2 ring-amber-200",    hover: "hover:bg-amber-50 hover:text-amber-700"    },
+  severe:   { text: "Nyeri Berat",  badge: "bg-rose-100 text-rose-700",      btn: "bg-rose-500 text-white ring-2 ring-rose-300",      hover: "hover:bg-rose-50 hover:text-rose-700"      },
 };
 
 // ── VitalCard ─────────────────────────────────────────────
@@ -53,29 +73,72 @@ function VitalCard({ label, value, unit, status, sub }: {
   );
 }
 
-// ── PainScale ─────────────────────────────────────────────
+// ── PainScale — interactive or read-only ─────────────────
 
-function PainScale({ value }: { value: number }) {
+function PainScale({ value, onSelect }: { value: number; onSelect?: (v: number) => void }) {
+  const [hovered, setHovered] = useState<number | null>(null);
+  const interactive = !!onSelect;
+  const display = hovered ?? value;
+  const meta    = PAIN_META[painLevel(display)];
+
   return (
     <div>
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Skala Nyeri (VAS)</p>
-      <div className="flex gap-1">
-        {Array.from({ length: 11 }, (_, i) => (
-          <div key={i} className={cn(
-            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold",
-            i === value
-              ? i <= 3 ? "bg-emerald-500 text-white ring-2 ring-emerald-300"
-                : i <= 6 ? "bg-amber-400 text-white ring-2 ring-amber-200"
-                : "bg-rose-500 text-white ring-2 ring-rose-300"
-              : "bg-slate-100 text-slate-400",
-          )}>
-            {i}
-          </div>
-        ))}
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          Skala Nyeri NRS (0–10)
+        </p>
+        <motion.span
+          key={display}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.15 }}
+          className={cn("shrink-0 rounded-md px-2 py-0.5 text-xs font-bold", meta.badge)}
+        >
+          {display}/10 · {meta.text}
+        </motion.span>
       </div>
-      <p className="mt-1.5 text-xs text-slate-400">
-        {value === 0 ? "Tidak nyeri" : value <= 3 ? "Nyeri ringan" : value <= 6 ? "Nyeri sedang" : "Nyeri berat"}
-      </p>
+
+      <div className="mb-1.5 flex justify-between px-0.5">
+        <span className="text-[10px] text-slate-400">Tidak nyeri</span>
+        <span className="text-[10px] text-slate-400">Sangat nyeri</span>
+      </div>
+
+      {/* grid-cols-11 makes buttons always fill container width — responsive by default */}
+      <div className="grid grid-cols-11 gap-0.5 sm:gap-1">
+        {Array.from({ length: 11 }, (_, i) => {
+          const m        = PAIN_META[painLevel(i)];
+          const isActive = i === value;
+          return (
+            <motion.button
+              key={i}
+              type="button"
+              disabled={!interactive}
+              onClick={() => onSelect?.(i)}
+              onMouseEnter={() => interactive && setHovered(i)}
+              onMouseLeave={() => interactive && setHovered(null)}
+              whileHover={interactive ? { scale: 1.1 } : {}}
+              whileTap={interactive ? { scale: 0.92 } : {}}
+              className={cn(
+                "flex h-9 items-center justify-center rounded-lg text-xs font-bold transition-colors",
+                isActive
+                  ? m.btn
+                  : cn("bg-slate-100 text-slate-400", interactive && m.hover),
+                interactive ? "cursor-pointer" : "cursor-default",
+              )}
+            >
+              {i}
+            </motion.button>
+          );
+        })}
+      </div>
+
+      <div className="mt-2 h-1.5 w-full rounded-full bg-linear-to-r from-emerald-400 via-amber-400 to-rose-500 opacity-60" />
+
+      {interactive && (
+        <p className="mt-1.5 text-[11px] text-slate-400">
+          Klik angka untuk memilih skala nyeri (0 = tidak nyeri, 10 = sangat nyeri)
+        </p>
+      )}
     </div>
   );
 }
@@ -91,10 +154,10 @@ const KESADARAN_LABEL: Record<StatusKesadaran, { label: string; cls: string }> =
 };
 
 const KESADARAN_LIST: StatusKesadaran[] = [
-  "Compos_Mentis","Apatis","Somnolen","Sopor","Koma",
+  "Compos_Mentis", "Apatis", "Somnolen", "Sopor", "Koma",
 ];
 
-// ── NumInput ─────────────────────────────────────────────
+// ── NumInput ──────────────────────────────────────────────
 
 function NumInput({ label, unit, value, onChange }: {
   label: string; unit: string; value: string; onChange: (v: string) => void;
@@ -133,14 +196,15 @@ function fmtDate(iso: string): string {
 
 function HistoryRow({ rec, delay }: { rec: RITTVRecord; delay: number }) {
   const [open, setOpen] = useState(false);
-  const vs  = rec.vitalSigns;
-  const gcs = vs.gcsEye + vs.gcsVerbal + vs.gcsMotor;
-  const kes = KESADARAN_LABEL[rec.statusKesadaran];
+  const vs       = rec.vitalSigns;
+  const gcs      = vs.gcsEye + vs.gcsVerbal + vs.gcsMotor;
+  const kes      = KESADARAN_LABEL[rec.statusKesadaran];
+  const nrsMeta  = PAIN_META[painLevel(vs.skalaNyeri)];
 
   const worst: VStatus =
-    [tdStatus(vs.tdSistolik, vs.tdDiastolik), nadiStatus(vs.nadi), spo2Status(vs.spo2), gcsStatus(gcs)]
+    [tdStatus(vs.tdSistolik, vs.tdDiastolik), nadiStatus(vs.nadi), spo2Status(vs.spo2), gcsStatus(gcs), nyeriStatus(vs.skalaNyeri)]
       .includes("critical") ? "critical"
-    : [tdStatus(vs.tdSistolik, vs.tdDiastolik), nadiStatus(vs.nadi), spo2Status(vs.spo2)]
+    : [tdStatus(vs.tdSistolik, vs.tdDiastolik), nadiStatus(vs.nadi), spo2Status(vs.spo2), nyeriStatus(vs.skalaNyeri)]
       .includes("warning") ? "warning" : "normal";
 
   const borderCls = worst === "critical" ? "border-rose-200" : worst === "warning" ? "border-amber-200" : "border-slate-200";
@@ -150,23 +214,23 @@ function HistoryRow({ rec, delay }: { rec: RITTVRecord; delay: number }) {
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, delay, ease: "easeOut" }}
-      className={cn("rounded-xl border bg-white shadow-sm overflow-hidden", borderCls)}
+      className={cn("overflow-hidden rounded-xl border bg-white shadow-sm", borderCls)}
     >
       {/* Row header */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-slate-50 transition-colors"
+        className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-slate-50"
       >
         <span className={cn("rounded-md px-2 py-0.5 text-[11px] font-bold", SHIFT_CLS[rec.shift])}>
           {rec.shift}
         </span>
         <span className="font-mono text-xs font-semibold text-slate-500">{rec.jam}</span>
-        <span className="text-xs text-slate-500 truncate">{rec.perawat}</span>
+        <span className="truncate text-xs text-slate-500">{rec.perawat}</span>
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
           {/* Compact vital preview */}
-          <div className="hidden items-center gap-2 sm:flex">
+          <div className="hidden items-center gap-1.5 sm:flex">
             <span className={cn(
               "rounded-md px-2 py-0.5 text-[11px] font-bold tabular-nums",
               VCARD_CLS[tdStatus(vs.tdSistolik, vs.tdDiastolik)].card,
@@ -181,6 +245,12 @@ function HistoryRow({ rec, delay }: { rec: RITTVRecord; delay: number }) {
             )}>
               SpO₂ {vs.spo2}%
             </span>
+            {/* Pain badge — shown only when pain > 0 */}
+            {vs.skalaNyeri > 0 && (
+              <span className={cn("rounded-md px-2 py-0.5 text-[11px] font-bold", nrsMeta.badge)}>
+                NRS {vs.skalaNyeri}
+              </span>
+            )}
           </div>
           <ChevronDown
             size={14}
@@ -219,9 +289,17 @@ function HistoryRow({ rec, delay }: { rec: RITTVRecord; delay: number }) {
                 <VitalCard label="GCS" unit="/ 15" value={String(gcs)}
                   status={gcsStatus(gcs)} sub={`E${vs.gcsEye} V${vs.gcsVerbal} M${vs.gcsMotor}`} />
               </div>
-              <div className="mt-3 flex items-center gap-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Kesadaran</p>
-                <span className={cn("rounded-md px-2.5 py-0.5 text-xs font-semibold", kes.cls)}>{kes.label}</span>
+
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Kesadaran</p>
+                  <span className={cn("rounded-md px-2.5 py-0.5 text-xs font-semibold", kes.cls)}>{kes.label}</span>
+                </div>
+              </div>
+
+              {/* Pain scale read-only display */}
+              <div className="mt-3 border-t border-slate-100 pt-3">
+                <PainScale value={vs.skalaNyeri} />
               </div>
             </div>
           </motion.div>
@@ -234,9 +312,9 @@ function HistoryRow({ rec, delay }: { rec: RITTVRecord; delay: number }) {
 // ── Props ─────────────────────────────────────────────────
 
 export interface TTVTabProps {
-  vitalSigns:       IGDVitalSigns;
-  statusKesadaran:  StatusKesadaran;
-  history?:         RITTVRecord[];   // RI mode: show history + shift fields in form
+  vitalSigns:      IGDVitalSigns;
+  statusKesadaran: StatusKesadaran;
+  history?:        RITTVRecord[];  // RI mode: show history + shift fields in form
 }
 
 // ── Component ─────────────────────────────────────────────
@@ -244,7 +322,7 @@ export interface TTVTabProps {
 export default function TTVTab({ vitalSigns, statusKesadaran, history }: TTVTabProps) {
   const showShift = history !== undefined;
 
-  const [currentVS, setCurrentVS]  = useState(vitalSigns);
+  const [currentVS,  setCurrentVS]  = useState(vitalSigns);
   const [currentKes, setCurrentKes] = useState(statusKesadaran);
   const [localHistory, setLocalHistory] = useState<RITTVRecord[]>(history ?? []);
 
@@ -281,8 +359,8 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history }: TTVTabP
     const kes = form.kesadaran as StatusKesadaran;
 
     if (showShift) {
-      const now  = new Date();
-      const jam  = now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+      const now     = new Date();
+      const jam     = now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
       const tanggal = now.toISOString().split("T")[0];
       const newRec: RITTVRecord = {
         id: `ttv-${Date.now()}`, tanggal, jam,
@@ -296,7 +374,6 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history }: TTVTabP
     setCurrentKes(kes);
   };
 
-  // Group history by date
   const histGroups: Record<string, RITTVRecord[]> = localHistory.reduce((acc, r) => {
     if (!acc[r.tanggal]) acc[r.tanggal] = [];
     acc[r.tanggal].push(r);
@@ -318,11 +395,11 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history }: TTVTabP
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {[
             { label: "Tekanan Darah", unit: "mmHg", value: `${vs.tdSistolik}/${vs.tdDiastolik}`, status: tdStatus(vs.tdSistolik, vs.tdDiastolik), sub: vs.tdSistolik < 90 ? "Hipotensi" : vs.tdSistolik > 140 ? "Hipertensi" : "Normal" },
-            { label: "Nadi",          unit: "×/mnt", value: String(vs.nadi),       status: nadiStatus(vs.nadi),       sub: vs.nadi > 100 ? "Takikardia" : vs.nadi < 60 ? "Bradikardia" : "Normal" },
-            { label: "Respirasi",     unit: "×/mnt", value: String(vs.respirasi),  status: rrStatus(vs.respirasi),    sub: vs.respirasi > 20 ? "Takipnea" : "Normal" },
-            { label: "Suhu",          unit: "°C",    value: String(vs.suhu),       status: suhuStatus(vs.suhu),       sub: vs.suhu >= 37.5 ? "Febris" : "Afebris" },
-            { label: "SpO₂",          unit: "%",     value: String(vs.spo2),       status: spo2Status(vs.spo2),       sub: vs.spo2 < 90 ? "Hipoksemia berat" : vs.spo2 < 95 ? "Hipoksemia" : "Normal" },
-            { label: "GCS",           unit: "/ 15",  value: String(gcs),           status: gcsStatus(gcs),            sub: `E${vs.gcsEye} V${vs.gcsVerbal} M${vs.gcsMotor}` },
+            { label: "Nadi",          unit: "×/mnt", value: String(vs.nadi),      status: nadiStatus(vs.nadi),      sub: vs.nadi > 100 ? "Takikardia" : vs.nadi < 60 ? "Bradikardia" : "Normal" },
+            { label: "Respirasi",     unit: "×/mnt", value: String(vs.respirasi), status: rrStatus(vs.respirasi),   sub: vs.respirasi > 20 ? "Takipnea" : "Normal" },
+            { label: "Suhu",          unit: "°C",    value: String(vs.suhu),      status: suhuStatus(vs.suhu),      sub: vs.suhu >= 37.5 ? "Febris" : "Afebris" },
+            { label: "SpO₂",          unit: "%",     value: String(vs.spo2),      status: spo2Status(vs.spo2),      sub: vs.spo2 < 90 ? "Hipoksemia berat" : vs.spo2 < 95 ? "Hipoksemia" : "Normal" },
+            { label: "GCS",           unit: "/ 15",  value: String(gcs),          status: gcsStatus(gcs),           sub: `E${vs.gcsEye} V${vs.gcsVerbal} M${vs.gcsMotor}` },
           ].map((card, i) => (
             <motion.div key={card.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.18, delay: i * 0.04, ease: "easeOut" }}>
@@ -343,6 +420,8 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history }: TTVTabP
             </div>
           )}
         </div>
+
+        {/* Pain scale read-only — current value */}
         <div className="mt-4 border-t border-slate-100 pt-4">
           <PainScale value={vs.skalaNyeri} />
         </div>
@@ -361,7 +440,6 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history }: TTVTabP
 
         {showShift && (
           <div className="mb-4 grid grid-cols-2 gap-3">
-            {/* Shift selector */}
             <div>
               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Shift</p>
               <div className="flex gap-1.5">
@@ -376,12 +454,11 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history }: TTVTabP
                 ))}
               </div>
             </div>
-            {/* Perawat */}
             <div>
               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Nama Perawat</p>
               <input type="text" value={form.perawat} onChange={(e) => set("perawat", e.target.value)}
                 placeholder="Nama lengkap..."
-                className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
+                className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
             </div>
           </div>
         )}
@@ -392,11 +469,11 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history }: TTVTabP
           <div className="flex items-center gap-2">
             <input type="number" value={form.tdS} onChange={(e) => set("tdS", e.target.value)}
               placeholder="Sistolik"
-              className="h-9 w-28 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
+              className="h-9 w-28 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
             <span className="text-slate-400">/</span>
             <input type="number" value={form.tdD} onChange={(e) => set("tdD", e.target.value)}
               placeholder="Diastolik"
-              className="h-9 w-28 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
+              className="h-9 w-28 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
             <span className="text-xs text-slate-400">mmHg</span>
           </div>
         </div>
@@ -414,8 +491,15 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history }: TTVTabP
           <NumInput label="Motor (M)" unit="/6" value={form.gcsM} onChange={(v) => set("gcsM", v)} />
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <NumInput label="Skala Nyeri (VAS)" unit="/10" value={form.nyeri} onChange={(v) => set("nyeri", v)} />
+        {/* Skala Nyeri — interactive visual selector */}
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <PainScale
+            value={Number(form.nyeri)}
+            onSelect={(v) => set("nyeri", String(v))}
+          />
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:max-w-xs">
           <NumInput label="Berat Badan" unit="kg" value={form.bb} onChange={(v) => set("bb", v)} />
           <NumInput label="Tinggi Badan" unit="cm" value={form.tb} onChange={(v) => set("tb", v)} />
         </div>
