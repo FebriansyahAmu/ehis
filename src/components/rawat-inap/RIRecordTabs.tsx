@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText, HeartPulse, Tag, HeartHandshake, ScanLine,
   Pill, FlaskConical, Radiation, ClipboardList, LogOut,
-  MessageSquare, Droplets, DoorOpen, Stethoscope, type LucideIcon,
+  MessageSquare, Droplets, DoorOpen, Stethoscope, ArrowRightLeft, type LucideIcon,
 } from "lucide-react";
 import type { RawatInapPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -23,6 +23,7 @@ import OrderRadTab      from "./tabs/OrderRadTab";
 import KonsultasiTab    from "./tabs/KonsultasiTab";
 import DischargePlanTab  from "./tabs/DischargePlanTab";
 import PasienPulangTab  from "./tabs/PasienPulangTab";
+import HandoverTab      from "./tabs/HandoverTab";
 
 // ── Tab definitions ───────────────────────────────────────
 
@@ -36,6 +37,7 @@ const REKAM_MEDIS: TabDef[] = [
   { id: "keperawatan",  label: "Asuhan Keperawatan",   icon: HeartHandshake, done: true  },
   { id: "pemeriksaan",  label: "Pemeriksaan Fisik",    icon: ScanLine,       done: true  },
   { id: "intake-output",label: "Intake / Output",      icon: Droplets,       done: true  },
+  { id: "handover",     label: "Serah Terima Shift",  icon: ArrowRightLeft, done: true  },
 ];
 
 const LAYANAN: TabDef[] = [
@@ -81,7 +83,6 @@ function NavItem({ tab, active, onClick }: { tab: TabDef; active: boolean; onCli
 
 export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDetail }) {
   const [active, setActive] = useState<TabId>("cppt");
-  const activeTab = ALL_TABS.find((t) => t.id === active)!;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
@@ -169,6 +170,7 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
             {active === "keperawatan" && <KeperawatanTab patient={patient} />}
             {active === "pemeriksaan"   && <PemeriksaanTab   patient={patient} />}
             {active === "intake-output" && <IntakeOutputTab   patient={patient} />}
+            {active === "handover"      && <HandoverTab       patient={patient} />}
             {active === "resep"         && <ResepTab          patient={patient} />}
             {active === "order-lab"     && <OrderLabTab        patient={patient} />}
             {active === "order-rad"     && <OrderRadTab        patient={patient} />}
