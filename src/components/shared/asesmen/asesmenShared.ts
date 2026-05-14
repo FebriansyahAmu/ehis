@@ -229,3 +229,52 @@ export function getGiziRisk(total: number, allFilled: boolean) {
   if (total === 1) return GIZI_RISK.mid;
   return GIZI_RISK.low;
 }
+
+// ── Gizi History ──────────────────────────────────────────
+
+export type GiziRiskKey = "low" | "mid" | "high";
+
+export interface GiziHistoryEntry {
+  id: string;
+  savedAt: string;
+  tanggal: string;
+  petugas: string;
+  scores: GiziState;
+  total: number;
+  risk: GiziRiskKey;
+  ahliGizi: string;
+  catatan: string;
+}
+
+export function getGiziRiskKey(total: number): GiziRiskKey {
+  if (total >= 2) return "high";
+  if (total === 1) return "mid";
+  return "low";
+}
+
+export const GIZI_HISTORY_MOCK: Record<string, GiziHistoryEntry[]> = {
+  "RM-2025-003": [
+    {
+      id: "gizi-h1",
+      savedAt: "2026-05-13T08:30:00",
+      tanggal: "2026-05-13",
+      petugas: "Ns. Siti Rahayu, S.Kep",
+      scores: { bmi: 2, bb: 1, akut: 2 },
+      total: 5,
+      risk: "high",
+      ahliGizi: "Dr. Amalia Nurhasanah, SGz",
+      catatan: "Pasien tampak kurus, intake oral sangat minimal sejak masuk. Dirujuk ahli gizi untuk rencana intervensi nutrisi parsial.",
+    },
+    {
+      id: "gizi-h2",
+      savedAt: "2026-05-12T14:20:00",
+      tanggal: "2026-05-12",
+      petugas: "Ns. Budi Santoso, S.Kep",
+      scores: { bmi: 1, bb: 1, akut: 0 },
+      total: 2,
+      risk: "high",
+      ahliGizi: "Tidak dirujuk saat ini",
+      catatan: "Skrining awal MRS. Akan dimonitor asupan makan setiap shift.",
+    },
+  ],
+};

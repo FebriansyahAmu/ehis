@@ -12,6 +12,7 @@ import {
 import type { IGDPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import EdukasiPane from "@/components/igd/tabs/EdukasiPane";
+import GiziPane    from "@/components/shared/asesmen/GiziPane";
 
 // ── Shared compact primitives ─────────────────────────────
 
@@ -1827,165 +1828,6 @@ function AllergyPane({ patient, onComplete }: { patient: IGDPatientDetail; onCom
 }
 
 // ─────────────────────────────────────────────────────────
-// SKRINING GIZI AWAL sub-tab (MUST)
-// ─────────────────────────────────────────────────────────
-
-type GiziScore = 0 | 1 | 2;
-
-const MUST_Q = [
-  {
-    key: "bmi" as const,
-    label: "1. Indeks Massa Tubuh (BMI)",
-    options: [
-      { label: "BMI > 20 kg/m²", score: 0 as GiziScore },
-      { label: "BMI 18.5 – 20 kg/m²", score: 1 as GiziScore },
-      { label: "BMI < 18.5 kg/m²", score: 2 as GiziScore },
-    ],
-  },
-  {
-    key: "bb" as const,
-    label: "2. Penurunan Berat Badan (3–6 bulan terakhir)",
-    options: [
-      { label: "< 5%", score: 0 as GiziScore },
-      { label: "5 – 10%", score: 1 as GiziScore },
-      { label: "> 10%", score: 2 as GiziScore },
-    ],
-  },
-  {
-    key: "akut" as const,
-    label: "3. Efek Penyakit Akut",
-    options: [
-      { label: "Tidak ada penyakit akut / asupan tetap adekuat", score: 0 as GiziScore },
-      { label: "Sakit akut — asupan sangat kurang > 5 hari", score: 2 as GiziScore },
-    ],
-  },
-];
-
-const RISK: Record<number, { label: string; cls: string; action: string }> = {
-  0: { label: "Risiko Rendah",  cls: "bg-emerald-50 text-emerald-700 border-emerald-200", action: "Monitor dan catat asupan secara rutin." },
-  1: { label: "Risiko Sedang",  cls: "bg-amber-50 text-amber-700 border-amber-200",       action: "Monitor dan dokumentasi asupan. Pertimbangkan konsultasi gizi." },
-};
-
-function GiziPane({ onComplete }: { onComplete?: (done: boolean) => void }) {
-  const [scores, setScores] = useState<Record<"bmi" | "bb" | "akut", GiziScore | null>>({ bmi: null, bb: null, akut: null });
-  const [ahliGizi, setAhliGizi] = useState("");
-  const [catatan, setCatatan] = useState("");
-
-  const total = Object.values(scores).reduce<number>((acc, v) => acc + (v ?? 0), 0);
-  const allFilled = Object.values(scores).every((v) => v !== null);
-  const risk = allFilled ? (total >= 2 ? { label: "Risiko Tinggi", cls: "bg-rose-50 text-rose-700 border-rose-200", action: "Rujuk ke Ahli Gizi. Buat rencana intervensi gizi segera." } : RISK[total]) : null;
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="grid gap-3 md:grid-cols-2">
-        <Block title="MUST — Malnutrition Universal Screening Tool">
-          <div className="flex flex-col gap-4">
-            {MUST_Q.map((q) => (
-              <div key={q.key}>
-                <Label>{q.label}</Label>
-                <div className="flex flex-col gap-1">
-                  {q.options.map((opt) => (
-                    <button
-                      key={opt.score}
-                      type="button"
-                      onClick={() => setScores((p) => ({ ...p, [q.key]: opt.score }))}
-                      className={cn(
-                        "flex items-center justify-between rounded-md border px-3 py-2 text-left text-xs font-medium transition",
-                        scores[q.key] === opt.score
-                          ? "border-sky-400 bg-sky-50 text-sky-700"
-                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
-                      )}
-                    >
-                      <span>{opt.label}</span>
-                      <span className={cn(
-                        "ml-2 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-bold",
-                        opt.score === 0 ? "bg-slate-100 text-slate-500"
-                          : opt.score === 1 ? "bg-amber-100 text-amber-700"
-                          : "bg-rose-100 text-rose-700",
-                      )}>
-                        Skor {opt.score}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </Block>
-
-        <div className="flex flex-col gap-3">
-          {/* Score result */}
-          <Block title="Hasil Skrining">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-slate-500">Total Skor MUST</span>
-              <span className={cn(
-                "rounded-lg border px-3 py-1 text-lg font-bold",
-                !allFilled ? "border-slate-200 bg-slate-50 text-slate-400"
-                  : total === 0 ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : total === 1 ? "border-amber-200 bg-amber-50 text-amber-700"
-                  : "border-rose-200 bg-rose-50 text-rose-700",
-              )}>
-                {total}
-              </span>
-            </div>
-
-            {risk ? (
-              <div className={cn("rounded-md border p-3", risk.cls)}>
-                <p className="text-xs font-bold">{risk.label}</p>
-                <p className="mt-0.5 text-[11px] leading-relaxed opacity-80">{risk.action}</p>
-              </div>
-            ) : (
-              <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-center text-[11px] text-slate-400">
-                Isi semua pertanyaan untuk melihat hasil
-              </div>
-            )}
-
-            {/* Score legend */}
-            <div className="flex gap-2 text-[10px]">
-              {[
-                { s: "0", l: "Rendah",  cls: "bg-emerald-50 text-emerald-700" },
-                { s: "1", l: "Sedang",  cls: "bg-amber-50 text-amber-700" },
-                { s: "≥2", l: "Tinggi", cls: "bg-rose-50 text-rose-700" },
-              ].map((r) => (
-                <span key={r.s} className={cn("rounded-md px-2 py-0.5 font-semibold", r.cls)}>
-                  {r.s} – {r.l}
-                </span>
-              ))}
-            </div>
-          </Block>
-
-          <Block title="Tindak Lanjut">
-            <TI label="Dirujuk ke Ahli Gizi" value={ahliGizi}
-              onChange={setAhliGizi} placeholder="Nama ahli gizi / Tidak dirujuk" />
-            <TA label="Catatan / Rencana Intervensi Gizi" rows={3}
-              value={catatan} onChange={setCatatan}
-              placeholder="Rencana diet, suplemen, konsultasi lanjutan..." />
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label>Nama Petugas</Label>
-                <input type="text" placeholder="Nama..."
-                  className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100" />
-              </div>
-              <div>
-                <Label>Tanggal Skrining</Label>
-                <input type="date"
-                  className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100" />
-              </div>
-            </div>
-            <button type="button"
-              disabled={!allFilled}
-              onClick={() => onComplete?.(allFilled)}
-              className="w-full rounded-md bg-sky-600 py-1.5 text-xs font-medium text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40">
-              Simpan Skrining Gizi
-            </button>
-          </Block>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────────────────
 
@@ -2058,7 +1900,7 @@ export default function AsesmenMedisTab({ patient }: { patient: IGDPatientDetail
               {active === "anamnesis" && <AnamnesisPane patient={patient} onComplete={setDoneAnamnesis} />}
               {active === "riwayat"   && <RiwayatPane   patient={patient} onComplete={setDoneRiwayat}   />}
               {active === "alergi"    && <AllergyPane   patient={patient} onComplete={setDoneAlergi}    />}
-              {active === "skrining"  && <GiziPane      onComplete={setDoneGizi}                        />}
+              {active === "skrining"  && <GiziPane      noRM={patient.noRM} onComplete={setDoneGizi}    />}
               {active === "edukasi"   && <EdukasiPane patient={patient} />}
             </motion.div>
           </AnimatePresence>

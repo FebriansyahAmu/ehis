@@ -52,9 +52,9 @@ const SUB_TABS: SubTabDef[] = [
   {
     id: "skrining",
     label: "Skrining",
-    sublabel: "Gizi · Nyeri",
+    sublabel: "Gizi",
     icon: Salad,
-    standard: "AP 1.2–1.3",
+    standard: "AP 1.3",
   },
   {
     id: "penilaian",
@@ -217,11 +217,9 @@ export default function AsesmenAwalTab({ patient }: AsesmenAwalTabProps) {
   const [doneRiwayat,    setDoneRiwayat]    = useState(false);
   const [doneAlergi,     setDoneAlergi]     = useState(false);
   const [doneGizi,       setDoneGizi]       = useState(false);
-  const [doneNyeri,      setDoneNyeri]      = useState(false);
   const [donePenilaian,  setDonePenilaian]  = useState(false);
 
-  // Skrining = done when both gizi AND nyeri are done
-  const doneSkrining = doneGizi && doneNyeri;
+  const doneSkrining = doneGizi;
 
   const DONE_MAP: Record<SubTabId, boolean> = {
     anamnesis: doneAnamnesis,
@@ -306,8 +304,8 @@ export default function AsesmenAwalTab({ patient }: AsesmenAwalTabProps) {
               )}
               {active === "skrining" && (
                 <SkriningPane
+                  noRM={patient.noRM}
                   onGiziComplete={setDoneGizi}
-                  onNyeriComplete={setDoneNyeri}
                 />
               )}
               {active === "penilaian" && (
