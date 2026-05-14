@@ -34,32 +34,32 @@ Shared layout: `Navbar` · `Sidebar` · `ModuleSwitcher` · `ModuleLayout` → `
 
 ### Shared Medical Records (`src/components/shared/medical-records/`)
 
-| Component        | File                                      | Used By          | Notes                                                                                      |
-| ---------------- | ----------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------ |
-| `CPPTTab`        | `CPPTTab.tsx`                             | IGD · Rawat Inap | `showDate`: date-grouped for RI · `requiresVerification`: DPJP co-sign (IGD + RI, keduanya pass prop ini) |
-| `CPPTEntryCard`  | `CPPTEntryCard.tsx`                       | CPPTTab          | Sub-component: flag, verification footer, SOAP rows                                        |
-| `cpptShared`     | `cpptShared.ts`                           | CPPTTab · Card   | Constants: `PROFESI_CLS`, `SOAP_BADGE`, `fmtDate`, `todayISO`                              |
-| `TTVTab`         | `TTVTab.tsx`                              | IGD · Rawat Inap | `history` prop: multi-shift timeline for RI                                                |
-| `DiagnosaTab`    | `DiagnosaTab.tsx`                         | IGD · Rawat Inap | ICD-10 + ICD-9, status kepastian, alasan/analisa inline, INA-CBG preview                   |
-| `diagnosaShared` | `diagnosaShared.ts`                       | DiagnosaTab      | Katalog ICD10/ICD9, `TIPE_CONFIG`, `STATUS_CONFIG`, `INA_CBG_MAP`                          |
-| `StatusFisikPane`| `pemeriksaan/StatusFisikPane.tsx`         | IGD · Rawat Inap | 11-sistem head-to-toe accordion, quick-normal, temuan abnormal. Exports: `PemeriksaanFormState`, `emptyFormState()`, `SISTEM_DEF` |
+| Component         | File                              | Used By          | Notes                                                                                                                             |
+| ----------------- | --------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `CPPTTab`         | `CPPTTab.tsx`                     | IGD · Rawat Inap | `showDate`: date-grouped for RI · `requiresVerification`: DPJP co-sign (IGD + RI, keduanya pass prop ini)                         |
+| `CPPTEntryCard`   | `CPPTEntryCard.tsx`               | CPPTTab          | Sub-component: flag, verification footer, SOAP rows                                                                               |
+| `cpptShared`      | `cpptShared.ts`                   | CPPTTab · Card   | Constants: `PROFESI_CLS`, `SOAP_BADGE`, `fmtDate`, `todayISO`                                                                     |
+| `TTVTab`          | `TTVTab.tsx`                      | IGD · Rawat Inap | `history` prop: multi-shift timeline for RI                                                                                       |
+| `DiagnosaTab`     | `DiagnosaTab.tsx`                 | IGD · Rawat Inap | ICD-10 + ICD-9, status kepastian, alasan/analisa inline, INA-CBG preview                                                          |
+| `diagnosaShared`  | `diagnosaShared.ts`               | DiagnosaTab      | Katalog ICD10/ICD9, `TIPE_CONFIG`, `STATUS_CONFIG`, `INA_CBG_MAP`                                                                 |
+| `StatusFisikPane` | `pemeriksaan/StatusFisikPane.tsx` | IGD · Rawat Inap | 11-sistem head-to-toe accordion, quick-normal, temuan abnormal. Exports: `PemeriksaanFormState`, `emptyFormState()`, `SISTEM_DEF` |
 
 ### IGD (~95% done)
 
-| Layer                                                            | File                                 | Status |
-| ---------------------------------------------------------------- | ------------------------------------ | ------ |
-| Board                                                            | `components/igd/IGDBoard.tsx`        | ✅     |
-| Patient card                                                     | `components/igd/PatientCard.tsx`     | ✅     |
-| Room panel                                                       | `components/igd/IGDRuanganPanel.tsx` | ✅     |
-| Patient header                                                   | `components/igd/PatientHeader.tsx`   | ✅     |
-| Tab router                                                       | `components/igd/IGDRecordTabs.tsx`   | ✅     |
+| Layer                                                            | File                                                                                          | Status |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------ |
+| Board                                                            | `components/igd/IGDBoard.tsx`                                                                 | ✅     |
+| Patient card                                                     | `components/igd/PatientCard.tsx`                                                              | ✅     |
+| Room panel                                                       | `components/igd/IGDRuanganPanel.tsx`                                                          | ✅     |
+| Patient header                                                   | `components/igd/PatientHeader.tsx`                                                            | ✅     |
+| Tab router                                                       | `components/igd/IGDRecordTabs.tsx`                                                            | ✅     |
 | triase · ttv · asesmen · cppt                                    | tabs/ (ttv+cppt → thin wrappers; cppt: `requiresVerification` ✅ `showDate` ✗ single-session) | ✅     |
-| diagnosa                                                         | tabs/ (thin wrapper → shared)        | ✅     |
-| tindakan · disposisi · rekonsiliasi · keperawatan                | tabs/                                | ✅     |
-| pemeriksaan · penilaian · resep · order-lab · order-rad · pulang | tabs/ (pemeriksaan: `StatusFisikPane` shared 11-sistem + MetaHeader + Anatomi + Penunjang) | ✅     |
-| SBAR Transfer IGD→RI (via Pasien Pulang → status Rawat Inap)     | `pasienPulang/SBARTransferPanel.tsx` (4 seksi, Framer Motion, auto-populate TTV+GCS+NRS) | ✅     |
-| rujukan                                                          | `tabs/RujukanKeluarTab.tsx`          | ✅     |
-| Penandaan Gambar                                                 | tabs/penandaanGambar.tsx             | ✅     |
+| diagnosa                                                         | tabs/ (thin wrapper → shared)                                                                 | ✅     |
+| tindakan · disposisi · rekonsiliasi · keperawatan                | tabs/                                                                                         | ✅     |
+| pemeriksaan · penilaian · resep · order-lab · order-rad · pulang | tabs/ (pemeriksaan: `StatusFisikPane` shared 11-sistem + MetaHeader + Anatomi + Penunjang)    | ✅     |
+| SBAR Transfer IGD→RI (via Pasien Pulang → status Rawat Inap)     | `pasienPulang/SBARTransferPanel.tsx` (4 seksi, Framer Motion, auto-populate TTV+GCS+NRS)      | ✅     |
+| rujukan                                                          | `tabs/RujukanKeluarTab.tsx`                                                                   | ✅     |
+| Penandaan Gambar                                                 | tabs/penandaanGambar.tsx                                                                      | ✅     |
 
 ### Rawat Inap (~100% done — semua 14 tab aktif)
 
@@ -263,48 +263,48 @@ Alur dokumentasi klinis lengkap per setting perawatan — menjadi acuan tab apa 
 
 #### ✅ Tab / Fitur Sudah Ada
 
-| Tab                                                                 | File                     | Standar Terpenuhi          |
-| ------------------------------------------------------------------- | ------------------------ | -------------------------- |
-| Triase (P1-P4, ABCDE, keluhan)                                      | `TriaseTab.tsx`          | PMK 47/2018 · ESI          |
-| TTV (TD, nadi, RR, suhu, SpO2, GCS, BB/TB)                          | shared `TTVTab.tsx`      | SNARS AP 1                 |
-| Asesmen Medis (Anamnesis, Riwayat, Alergi, Skrining Gizi, Edukasi)  | `AsesmenMedisTab.tsx`    | SNARS AP 1.1 · AP 1.4      |
-| Diagnosa ICD-10 + ICD-9, status kepastian, alasan, INA-CBG          | shared `DiagnosaTab.tsx` | PMK 269/2008 · PMK 76/2016 |
-| CPPT/SOAP + DPJP verify + template + flag                           | shared `CPPTTab.tsx`     | SNARS AP 2                 |
-| Tindakan / Prosedur                                                 | `TindakanTab.tsx`        | INA-CBG prosedur           |
-| Rekonsiliasi Obat                                                   | `RekonsiliasTab.tsx`     | SNARS PP 3.1               |
-| Asuhan Keperawatan (SDKI-based)                                     | `KeperawatanTab.tsx`     | PPNI SDKI/SLKI/SIKI        |
-| Pemeriksaan Fisik (per-sistem)                                      | `PemeriksaanTab.tsx`     | SNARS AP 1                 |
-| Penilaian / Scoring (multi-tab)                                     | `PenilaianTab.tsx`       | Clinical decision support  |
-| Penandaan Gambar (body diagram)                                     | `PenandaanGambarTab.tsx` | Dokumentasi trauma/luka    |
-| Daftar Order (order tracker)                                        | `DaftarOrderTab.tsx`     | PP 1                       |
-| Resep Pasien                                                        | `ResepPasienTab.tsx`     | PP obat                    |
-| Order Lab                                                           | `OrderLabTab.tsx`        | SNARS AP                   |
-| Order Radiologi                                                     | `OrderRadTab.tsx`        | SNARS AP                   |
-| Rujukan Keluar (SBAR-based)                                         | `RujukanKeluarTab.tsx`   | PMK 47/2018 · SKP 2        |
+| Tab                                                                 | File                                    | Standar Terpenuhi            |
+| ------------------------------------------------------------------- | --------------------------------------- | ---------------------------- |
+| Triase (P1-P4, ABCDE, keluhan)                                      | `TriaseTab.tsx`                         | PMK 47/2018 · ESI            |
+| TTV (TD, nadi, RR, suhu, SpO2, GCS, BB/TB)                          | shared `TTVTab.tsx`                     | SNARS AP 1                   |
+| Asesmen Medis (Anamnesis, Riwayat, Alergi, Skrining Gizi, Edukasi)  | `AsesmenMedisTab.tsx`                   | SNARS AP 1.1 · AP 1.4        |
+| Diagnosa ICD-10 + ICD-9, status kepastian, alasan, INA-CBG          | shared `DiagnosaTab.tsx`                | PMK 269/2008 · PMK 76/2016   |
+| CPPT/SOAP + DPJP verify + template + flag                           | shared `CPPTTab.tsx`                    | SNARS AP 2                   |
+| Tindakan / Prosedur                                                 | `TindakanTab.tsx`                       | INA-CBG prosedur             |
+| Rekonsiliasi Obat                                                   | `RekonsiliasTab.tsx`                    | SNARS PP 3.1                 |
+| Asuhan Keperawatan (SDKI-based)                                     | `KeperawatanTab.tsx`                    | PPNI SDKI/SLKI/SIKI          |
+| Pemeriksaan Fisik (per-sistem)                                      | `PemeriksaanTab.tsx`                    | SNARS AP 1                   |
+| Penilaian / Scoring (multi-tab)                                     | `PenilaianTab.tsx`                      | Clinical decision support    |
+| Penandaan Gambar (body diagram)                                     | `PenandaanGambarTab.tsx`                | Dokumentasi trauma/luka      |
+| Daftar Order (order tracker)                                        | `DaftarOrderTab.tsx`                    | PP 1                         |
+| Resep Pasien                                                        | `ResepPasienTab.tsx`                    | PP obat                      |
+| Order Lab                                                           | `OrderLabTab.tsx`                       | SNARS AP                     |
+| Order Radiologi                                                     | `OrderRadTab.tsx`                       | SNARS AP                     |
+| Rujukan Keluar (SBAR-based)                                         | `RujukanKeluarTab.tsx`                  | PMK 47/2018 · SKP 2          |
 | Pasien Pulang (6 status) + SBAR Transfer IGD→RI                     | `PasienPulangTab.tsx` + `pasienPulang/` | PMK 269/2008 · ARK 5 · SKP 2 |
-| Morse Fall Scale (risiko jatuh)                                     | `PenilaianTab.tsx`       | SKP 6 · SNARS AP 1.5       |
-| Braden Scale (risiko dekubitus)                                     | `PenilaianTab.tsx`       | SNARS PP                   |
-| Barthel Index (status fungsional / ADL)                             | `PenilaianTab.tsx`       | SNARS AP 1                 |
-| Skala Nyeri NRS (0–10) sebagai scoring panel                        | `PenilaianTab.tsx`       | SNARS AP 1.2               |
-| Edukasi Terstruktur (topik checklist + metode + evaluasi pemahaman) | `EdukasiPane.tsx`        | HPK 2                      |
+| Morse Fall Scale (risiko jatuh)                                     | `PenilaianTab.tsx`                      | SKP 6 · SNARS AP 1.5         |
+| Braden Scale (risiko dekubitus)                                     | `PenilaianTab.tsx`                      | SNARS PP                     |
+| Barthel Index (status fungsional / ADL)                             | `PenilaianTab.tsx`                      | SNARS AP 1                   |
+| Skala Nyeri NRS (0–10) sebagai scoring panel                        | `PenilaianTab.tsx`                      | SNARS AP 1.2                 |
+| Edukasi Terstruktur (topik checklist + metode + evaluasi pemahaman) | `EdukasiPane.tsx`                       | HPK 2                        |
 
 #### ❌ Gap IGD — Belum Ada / Belum Sesuai Standar
 
-| Gap                                             | Standar                    | Prioritas | Keterangan                                                                                                                      |
-| ----------------------------------------------- | -------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| **Skala Nyeri di form TTV**                     | SNARS AP 1.2               | 🔴 Kritis | Field `skalaNyeri` ada di type tapi tidak muncul/diisi di TTVTab. Wajib per SNARS                                               |
-| **Informed Consent (IC)**                       | PMK 290/2008 · HPK 2.1–2.2 | 🔴 Tinggi | IC tertulis wajib untuk semua tindakan invasif. Belum ada form IC sama sekali                                                   |
-| ~~**SBAR Transfer (IGD → Rawat Inap)**~~         | SKP 2 · PMK 11/2017        | ✅ Selesai | `SBARTransferPanel.tsx` di `pasienPulang/` — 4 seksi warna (S=violet/B=sky/A=amber/R=emerald), Framer Motion progress bar, auto-populate TTV+GCS+NRS+diagnosa dari patient data, read-back confirmation gate, canSubmit di parent |
-| **Monitoring Observasi Terjadwal**              | SNARS AP 2                 | 🔴 Tinggi | Re-asesmen berkala wajib: P1=15 mnt, P2=30 mnt, P3=60 mnt. TTV saat ini hanya single-entry                                      |
-| **GCS Total Auto-calculate**                    | Clinical best practice     | 🟡 Sedang | Total GCS tidak dihitung otomatis dari Eye + Verbal + Motor                                                                     |
-| **NEWS2 / MEWS Auto-score**                     | Clinical decision support  | 🟡 Sedang | Tidak ada early warning score otomatis dari nilai TTV yang dimasukkan                                                           |
-| **High-Alert Medication (HAM) Label**           | SKP 3                      | 🟡 Sedang | Pelabelan HAM di Resep/Rekonsiliasi, peringatan double-check belum ada                                                          |
-| **Hasil Lab / Rad — Link ke EHIS-Lab/EHIS-Rad** | SNARS AP 5                 | ⏸ Ditunda | Hasil sudah ada di tab Order Lab/Rad. Integrasi surface ke CPPT/header ditunda sampai modul EHIS-Lab/EHIS-Rad real dibangun |
-| **SBAR Serah Terima Shift (Handover)**          | SKP 2 · SNARS IPSG 2       | 🔴 Tinggi | Tidak ada dokumentasi handover pasien antar shift. Wajib per SKP 2 untuk keselamatan komunikasi efektif                         |
-| **Identifikasi Pasien sebelum Tindakan**        | SKP 1 · JCI IPSG 1         | 🟡 Sedang | Konfirmasi 2 identitas (nama + tgl lahir / noRM) sebelum setiap prosedur. Perlu mekanisme verifikasi di UI                      |
-| **Laporan Insiden Keselamatan Pasien (IKP)**    | PMK 11/2017 · SNARS SKP    | 🟡 Sedang | Form pelaporan KTD / KNC / Sentinel event. Dapat menjadi sub-form rekam medis atau modul EHIS-Safety                            |
-| **TBaK (Tulis Baca Konfirmasi)**                | SKP 2                      | 🟢 Rendah | Dokumentasi instruksi verbal dokter. Bisa diintegrasikan ke CPPT                                                                |
-| **DNR / Advance Directive**                     | HPK 2.4                    | 🟢 Rendah | Form keputusan akhir hidup untuk pasien terminal                                                                                |
+| Gap                                             | Standar                    | Prioritas  | Keterangan                                                                                                                                                                                                                        |
+| ----------------------------------------------- | -------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Skala Nyeri di form TTV**                     | SNARS AP 1.2               | 🔴 Kritis  | Field `skalaNyeri` ada di type tapi tidak muncul/diisi di TTVTab. Wajib per SNARS                                                                                                                                                 |
+| **Informed Consent (IC)**                       | PMK 290/2008 · HPK 2.1–2.2 | 🔴 Tinggi  | IC tertulis wajib untuk semua tindakan invasif. Belum ada form IC sama sekali                                                                                                                                                     |
+| ~~**SBAR Transfer (IGD → Rawat Inap)**~~        | SKP 2 · PMK 11/2017        | ✅ Selesai | `SBARTransferPanel.tsx` di `pasienPulang/` — 4 seksi warna (S=violet/B=sky/A=amber/R=emerald), Framer Motion progress bar, auto-populate TTV+GCS+NRS+diagnosa dari patient data, read-back confirmation gate, canSubmit di parent |
+| **Monitoring Observasi Terjadwal**              | SNARS AP 2                 | 🔴 Tinggi  | Re-asesmen berkala wajib: P1=15 mnt, P2=30 mnt, P3=60 mnt. TTV saat ini hanya single-entry                                                                                                                                        |
+| **GCS Total Auto-calculate**                    | Clinical best practice     | 🟡 Sedang  | Total GCS tidak dihitung otomatis dari Eye + Verbal + Motor                                                                                                                                                                       |
+| **NEWS2 / MEWS Auto-score**                     | Clinical decision support  | 🟡 Sedang  | Tidak ada early warning score otomatis dari nilai TTV yang dimasukkan                                                                                                                                                             |
+| **High-Alert Medication (HAM) Label**           | SKP 3                      | 🟡 Sedang  | Pelabelan HAM di Resep/Rekonsiliasi, peringatan double-check belum ada                                                                                                                                                            |
+| **Hasil Lab / Rad — Link ke EHIS-Lab/EHIS-Rad** | SNARS AP 5                 | ⏸ Ditunda  | Hasil sudah ada di tab Order Lab/Rad. Integrasi surface ke CPPT/header ditunda sampai modul EHIS-Lab/EHIS-Rad real dibangun                                                                                                       |
+| **SBAR Serah Terima Shift (Handover)**          | SKP 2 · SNARS IPSG 2       | 🔴 Tinggi  | Tidak ada dokumentasi handover pasien antar shift. Wajib per SKP 2 untuk keselamatan komunikasi efektif                                                                                                                           |
+| **Identifikasi Pasien sebelum Tindakan**        | SKP 1 · JCI IPSG 1         | 🟡 Sedang  | Konfirmasi 2 identitas (nama + tgl lahir / noRM) sebelum setiap prosedur. Perlu mekanisme verifikasi di UI                                                                                                                        |
+| **Laporan Insiden Keselamatan Pasien (IKP)**    | PMK 11/2017 · SNARS SKP    | 🟡 Sedang  | Form pelaporan KTD / KNC / Sentinel event. Dapat menjadi sub-form rekam medis atau modul EHIS-Safety                                                                                                                              |
+| **TBaK (Tulis Baca Konfirmasi)**                | SKP 2                      | 🟢 Rendah  | Dokumentasi instruksi verbal dokter. Bisa diintegrasikan ke CPPT                                                                                                                                                                  |
+| **DNR / Advance Directive**                     | HPK 2.4                    | 🟢 Rendah  | Form keputusan akhir hidup untuk pasien terminal                                                                                                                                                                                  |
 
 ---
 
@@ -326,7 +326,7 @@ Alur dokumentasi klinis lengkap per setting perawatan — menjadi acuan tab apa 
 | Konsultasi Antar SMF (SBAR + closed-loop + 22 SMF + response timer)          | `tabs/KonsultasiTab.tsx` + `konsultasi/`      | SNARS PP 1 · SKP 2         |
 | Discharge Planning 3-step (Asesmen / Edukasi / Checklist H-1)                | `tabs/DischargePlanTab.tsx` + `discharge/`    | SNARS ARK 5                |
 | Pasien Pulang (Status + Obat & Jadwal + Surat + Resume Medis)                | `tabs/PasienPulangTab.tsx` + `pasienPulang/`  | PMK 269/2008 · PMK 24/2022 |
-| Serah Terima Shift SBAR (Handover) — date nav, 3 shift, card + form         | `tabs/HandoverTab.tsx` + `handover/`          | SKP 2 · SNARS IPSG 2       |
+| Serah Terima Shift SBAR (Handover) — date nav, 3 shift, card + form          | `tabs/HandoverTab.tsx` + `handover/`          | SKP 2 · SNARS IPSG 2       |
 
 #### ❌ Gap RI — Tab Direncanakan (Semua Selesai)
 
@@ -344,23 +344,23 @@ Alur dokumentasi klinis lengkap per setting perawatan — menjadi acuan tab apa 
 
 #### ❌ Gap RI — Tab Belum Direncanakan tapi Wajib Standar
 
-| Tab                                                  | Standar                       | Prioritas   | Keterangan                                                                                                                                                                              |
-| ---------------------------------------------------- | ----------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Asesmen Awal RI (MRS Assessment)**                 | SNARS AP 1 — wajib 24 jam     | 🔴 Kritis   | Anamnesis lengkap (RPS, RPD, RPK, sosek, spiritual), pemfis awal masuk, ADL Barthel, MST gizi, Morse jatuh, Braden decubitus. **Tab ini belum ada sama sekali**                         |
-| ~~**Konsultasi Antar SMF**~~                         | SNARS PP 1 · ARK              | ✅ Selesai  | `tabs/KonsultasiTab.tsx` + `konsultasi/` — SBAR, closed-loop, 22 SMF, response timer, mock data RM-2025-003                                                                             |
-| ~~**Resume Medis / Surat Pulang**~~                  | PMK 269/2008 — wajib          | ✅ Selesai  | Dipisah menjadi dua: `ResumeMedikPane.tsx` (klaim BPJS/INA-CBG, auto-aggregated, prerequisite gate dari tab lain) + `ResumeMedisPane.tsx` (Resume Pulang — salinan pasien, PMK 24/2022) |
-| **Rencana Asuhan Terintegrasi**                      | SNARS PP 1                    | 🟡 Sedang   | Care plan bersama DPJP + Perawat + PPA lain, target outcome harian, clinical pathway                                                                                                    |
-| **Monitoring Harian / Observasi**                    | SNARS AP 2                    | 🟡 Sedang   | TTV per shift sudah ada; perlu tambah monitoring nyeri per shift + NEWS2/MEWS score otomatis                                                                                            |
-| **Transfusi Darah**                                  | SNARS PP 4                    | 🟢 Opsional | Pre/intra/post-transfusi checklist. Relevan untuk pasien tertentu (anemia, perdarahan)                                                                                                  |
-| **Hasil Lab / Rad — Link ke EHIS-Lab/EHIS-Rad**      | SNARS AP 5                    | ⏸ Ditunda   | Ditunda sampai EHIS-Lab/EHIS-Rad real dibangun. Saat ini hasil cukup via tab Order Lab/Rad + Resume Medis aggregate                                                                     |
-| ~~**SBAR Serah Terima Antar Shift (Nursing Handover)**~~ | SKP 2 · SNARS IPSG 2      | ✅ Selesai  | `HandoverTab.tsx` + `handover/{HandoverCard,HandoverForm,handoverShared}` — date nav, 3 shift, SBAR form, auto-populate TTV, mock data RM-2025-003                                      |
-| **Informed Consent (IC) di Rawat Inap**              | PMK 290/2008 · HPK 2.1–2.2    | 🔴 Tinggi   | IC wajib untuk tindakan invasif selama RI. Belum direncanakan sama sekali untuk modul RI                                                                                                |
-| **Clinical Pathway (CP) Integration**                | PERMENKES 1438/2010 · INA-CBG | 🟡 Sedang   | Alur tatalaksana standar per diagnosis (CBG-aligned); audit kepatuhan + optimasi klaim BPJS                                                                                             |
-| **ICU/HCU Severity Scoring (APACHE II / SOFA)**      | SNARS PP · ICU international  | 🟡 Sedang   | Untuk pasien ICU/HCU: scoring APACHE II + SOFA harian + trending. Ada di standar tapi belum ada dalam plan                                                                              |
-| **Isolasi dan Precaution (PPI)**                     | SNARS PPI 1–7                 | 🟡 Sedang   | Dokumentasi jenis isolasi (Contact/Droplet/Airborne), bundle VAP/CAUTI/CLABSI. Wajib akreditasi SNARS                                                                                   |
-| **Konsultasi Gizi / Monitoring Nutrisi**             | SNARS AP 1.4 · PMK gizi       | 🟡 Sedang   | Berbeda dari skrining gizi awal: form konsultasi dietitian + rencana diet + monitoring asupan, terintegrasi I/O                                                                         |
-| **Print / Export Rekam Medis (PDF)**                 | PMK 269/2008 — wajib          | 🟡 Sedang   | Rekam medis harus dapat dicetak/dieksport sebagai dokumen legal (CPPT, TTV, diagnosa, resume medis)                                                                                     |
-| **Laporan Insiden Keselamatan Pasien (IKP)**         | PMK 11/2017 · SNARS SKP       | 🟡 Sedang   | Form pelaporan KTD/KNC/Sentinel. Dapat menjadi modul EHIS-Safety atau fitur dalam rekam medis                                                                                           |
+| Tab                                                      | Standar                       | Prioritas   | Keterangan                                                                                                                                                                              |
+| -------------------------------------------------------- | ----------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Asesmen Awal RI (MRS Assessment)**                     | SNARS AP 1 — wajib 24 jam     | 🔴 Kritis   | Anamnesis lengkap (RPS, RPD, RPK, sosek, spiritual), pemfis awal masuk, ADL Barthel, MST gizi, Morse jatuh, Braden decubitus. **Tab ini belum ada sama sekali**                         |
+| ~~**Konsultasi Antar SMF**~~                             | SNARS PP 1 · ARK              | ✅ Selesai  | `tabs/KonsultasiTab.tsx` + `konsultasi/` — SBAR, closed-loop, 22 SMF, response timer, mock data RM-2025-003                                                                             |
+| ~~**Resume Medis / Surat Pulang**~~                      | PMK 269/2008 — wajib          | ✅ Selesai  | Dipisah menjadi dua: `ResumeMedikPane.tsx` (klaim BPJS/INA-CBG, auto-aggregated, prerequisite gate dari tab lain) + `ResumeMedisPane.tsx` (Resume Pulang — salinan pasien, PMK 24/2022) |
+| **Rencana Asuhan Terintegrasi**                          | SNARS PP 1                    | 🟡 Sedang   | Care plan bersama DPJP + Perawat + PPA lain, target outcome harian, clinical pathway                                                                                                    |
+| **Monitoring Harian / Observasi**                        | SNARS AP 2                    | 🟡 Sedang   | TTV per shift sudah ada; perlu tambah monitoring nyeri per shift + NEWS2/MEWS score otomatis                                                                                            |
+| **Transfusi Darah**                                      | SNARS PP 4                    | 🟢 Opsional | Pre/intra/post-transfusi checklist. Relevan untuk pasien tertentu (anemia, perdarahan)                                                                                                  |
+| **Hasil Lab / Rad — Link ke EHIS-Lab/EHIS-Rad**          | SNARS AP 5                    | ⏸ Ditunda   | Ditunda sampai EHIS-Lab/EHIS-Rad real dibangun. Saat ini hasil cukup via tab Order Lab/Rad + Resume Medis aggregate                                                                     |
+| ~~**SBAR Serah Terima Antar Shift (Nursing Handover)**~~ | SKP 2 · SNARS IPSG 2          | ✅ Selesai  | `HandoverTab.tsx` + `handover/{HandoverCard,HandoverForm,handoverShared}` — date nav, 3 shift, SBAR form, auto-populate TTV, mock data RM-2025-003                                      |
+| **Informed Consent (IC) di Rawat Inap**                  | PMK 290/2008 · HPK 2.1–2.2    | 🔴 Tinggi   | IC wajib untuk tindakan invasif selama RI. Belum direncanakan sama sekali untuk modul RI                                                                                                |
+| **Clinical Pathway (CP) Integration**                    | PERMENKES 1438/2010 · INA-CBG | 🟡 Sedang   | Alur tatalaksana standar per diagnosis (CBG-aligned); audit kepatuhan + optimasi klaim BPJS                                                                                             |
+| **ICU/HCU Severity Scoring (APACHE II / SOFA)**          | SNARS PP · ICU international  | 🟡 Sedang   | Untuk pasien ICU/HCU: scoring APACHE II + SOFA harian + trending. Ada di standar tapi belum ada dalam plan                                                                              |
+| **Isolasi dan Precaution (PPI)**                         | SNARS PPI 1–7                 | 🟡 Sedang   | Dokumentasi jenis isolasi (Contact/Droplet/Airborne), bundle VAP/CAUTI/CLABSI. Wajib akreditasi SNARS                                                                                   |
+| **Konsultasi Gizi / Monitoring Nutrisi**                 | SNARS AP 1.4 · PMK gizi       | 🟡 Sedang   | Berbeda dari skrining gizi awal: form konsultasi dietitian + rencana diet + monitoring asupan, terintegrasi I/O                                                                         |
+| **Print / Export Rekam Medis (PDF)**                     | PMK 269/2008 — wajib          | 🟡 Sedang   | Rekam medis harus dapat dicetak/dieksport sebagai dokumen legal (CPPT, TTV, diagnosa, resume medis)                                                                                     |
+| **Laporan Insiden Keselamatan Pasien (IKP)**             | PMK 11/2017 · SNARS SKP       | 🟡 Sedang   | Form pelaporan KTD/KNC/Sentinel. Dapat menjadi modul EHIS-Safety atau fitur dalam rekam medis                                                                                           |
 
 ---
 
@@ -409,6 +409,10 @@ Work items in priority order. Pick top item each session.
 - [x] **SBAR Transfer IGD→RI** — ✅ `SBARTransferPanel.tsx` (497 ln) + refactor `PasienPulangTab.tsx` (1271→472 ln, split 7 file). 4 seksi SBAR warna, Framer Motion progress bar, auto-populate dari `patient.vitalSigns` + `patient.diagnosa`, GCS auto-calc, read-back gate, `canSubmit` di parent. Standar SKP 2 ✅
 - [ ] ~~**Link Hasil Lab/Rad ke EHIS-Lab/EHIS-Rad**~~ — ⏸ Ditunda. Hasil sudah visible di tab Order Lab/Rad masing-masing. Resume Medis RI sudah auto-aggregate lab abnormal + rad kesimpulan untuk klaim BPJS. Surface di titik keputusan (CPPT/header) akan dikerjakan saat integrasi EHIS-Lab/EHIS-Rad real dimulai.
 - [x] **SBAR Serah Terima Shift (Handover)** — ✅ Tab baru RI (`HandoverTab.tsx` + `handover/`): date navigator prev/next, 3 shift pills (Pagi=sky/Siang=amber/Malam=indigo), `HandoverCard` (collapsible SBAR detail + TTV strip), `HandoverForm` (SBAR 4-seksi, auto-populate TTV dari `patient.vitalSigns`, progress bar per seksi, canSubmit gate), daily summary chips. Mock data RM-2025-003 (4 entry: 3 kemarin + 1 hari ini). SKP 2 ✅
+
+### 🔴 Next
+
+- [x] **Tab daftar Order RI** — ✅ Shared `DaftarOrderTab` di `shared/medical-records/`. IGD refactor thin wrapper (902→12 ln). RI thin wrapper baru. 4 sub-components: `daftarOrderShared.ts` (types+configs+mock IGD+RI), `OrderRow.tsx` (animated expand/collapse, item stagger), `OrderStats.tsx` (Framer Motion StatCard), `CancelDialog.tsx` (confirm modal+toast). Main tab ~230 ln. Enhancements: search bar, stagger list animation, animated chevron, AnimatePresence height expand, date separator+count badge, matchesSearch. RI mock RM-2025-003 GJK hari ke-1..7 (14 order, 4 tipe). RIRecordTabs: tab "Daftar Order" ditambah ke LAYANAN.
 
 ### 🟡 Backlog EHIS-Care (Gap Standar Sedang)
 
@@ -459,7 +463,7 @@ Work items in priority order. Pick top item each session.
 
 #### 🔁 Arsitektur — IGD Shared Component Refactor
 
-> Konteks: shared components (CPPT, TTV, Diagnosa, OrderLab, OrderRad) dibuat *reactively* saat RI dibangun. IGD belum di-refactor untuk ikut menggunakannya pada sub-pane yang seharusnya bisa di-share. Kandidat utama (✅ = sudah selesai):
+> Konteks: shared components (CPPT, TTV, Diagnosa, OrderLab, OrderRad) dibuat _reactively_ saat RI dibangun. IGD belum di-refactor untuk ikut menggunakannya pada sub-pane yang seharusnya bisa di-share. Kandidat utama (✅ = sudah selesai):
 >
 > ✅ **StatusFisikPane** — sudah dipindah ke `shared/medical-records/pemeriksaan/`. IGD + RI keduanya import dari shared. IGD tetap memiliki sub-tab Anatomi + Penunjang tersendiri.
 
