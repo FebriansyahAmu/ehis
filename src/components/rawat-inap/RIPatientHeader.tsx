@@ -2,19 +2,22 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   X, CreditCard, Phone, MapPin, Pencil, Check,
   Stethoscope, CalendarDays, BedDouble, Clock,
   Activity, Heart, Wind, Gauge, Thermometer, Zap, Layers,
   ChevronRight, AlertTriangle, Eye, LogOut, MessageSquare,
-  CheckCircle2,
+  CheckCircle2, ShieldAlert, Shield, ChevronDown,
 } from "lucide-react";
 import type {
   RawatInapPatientDetail, RIStatus,
-  IGDVitalSigns,
 } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import {
+  ISOLASI_CFG, ISOLASI_OPTIONS,
+  type IsolasiTipe,
+} from "@/components/rawat-inap/ppiIsolasi/ppiIsolasiShared";
 
 // ── Status config ─────────────────────────────────────────
 
@@ -167,13 +170,124 @@ function AdmitCard({ tglMasuk, hariKe }: { tglMasuk: string; hariKe: number }) {
   );
 }
 
+// ── Isolasi form panel ────────────────────────────────────
+
+function IsolasiPanel({
+  current,
+  onSave,
+  onClose,
+}: {
+  current: IsolasiTipe | null;
+  onSave: (tipe: IsolasiTipe, tanggal: string, alasan: string, dokter: string) => void;
+  onClose: () => void;
+}) {
+  const [tipe,    setTipe]    = useState<IsolasiTipe>(current ?? "Contact");
+  const [tanggal, setTanggal] = useState(new Date().toISOString().slice(0, 10));
+  const [alasan,  setAlasan]  = useState("");
+  const [dokter,  setDokter]  = useState("");
+
+  const cfg = ISOLASI_CFG[tipe];
+
+  return (
+    <div className={cn("border-t px-3 pb-3 pt-2.5 md:px-4", cfg.formBg, cfg.formBorder)}>
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center gap-1.5">
+          <ShieldAlert size={13} className="text-slate-600" />
+          <p className="text-xs font-bold text-slate-700">Kewaspadaan Isolasi</p>
+          <span className="text-[10px] text-slate-400">SNARS PPI 5</span>
+        </div>
+        <button onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-white/60 hover:text-slate-600 transition">
+          <X size={13} />
+        </button>
+      </div>
+
+      {/* Type selector */}
+      <div className="flex gap-1.5 mb-3">
+        {ISOLASI_OPTIONS.map((t) => {
+          const c = ISOLASI_CFG[t];
+          return (
+            <button
+              key={t}
+              onClick={() => setTipe(t)}
+              className={cn(
+                "flex-1 rounded-lg border px-2.5 py-2 text-left transition",
+                tipe === t
+                  ? cn("ring-2", c.formBorder, c.formBg)
+                  : "border-slate-200 bg-white hover:bg-slate-50",
+              )}
+            >
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className={cn("h-2 w-2 rounded-full shrink-0", c.dot)} />
+                <p className={cn("text-xs font-bold", tipe === t ? "" : "text-slate-700")}>{c.label}</p>
+                {tipe === t && <Check size={10} className="ml-auto text-slate-600 shrink-0" />}
+              </div>
+              <p className="text-[10px] text-slate-500 leading-tight">{c.subdesc}</p>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Form fields */}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div>
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Tanggal Mulai</p>
+          <input
+            type="date"
+            value={tanggal}
+            onChange={(e) => setTanggal(e.target.value)}
+            className="h-8 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800 outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-300"
+          />
+        </div>
+        <div>
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Alasan Klinis</p>
+          <input
+            value={alasan}
+            onChange={(e) => setAlasan(e.target.value)}
+            placeholder="Suspek TB, MRSA, dll..."
+            className="h-8 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800 outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-300"
+          />
+        </div>
+        <div>
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Dokter Penetap</p>
+          <input
+            value={dokter}
+            onChange={(e) => setDokter(e.target.value)}
+            placeholder="Nama dokter..."
+            className="h-8 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800 outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-300"
+          />
+        </div>
+      </div>
+
+      <div className="mt-2.5 flex items-center justify-end gap-2">
+        {current && (
+          <button
+            onClick={() => { onSave(tipe, "", "", ""); onClose(); }}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-rose-600 hover:bg-rose-50 transition"
+          >
+            Cabut Isolasi
+          </button>
+        )}
+        <button
+          onClick={() => { onSave(tipe, tanggal, alasan, dokter); onClose(); }}
+          className="flex items-center gap-1 rounded-lg bg-slate-800 px-4 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-900 transition"
+        >
+          <Check size={11} /> Tetapkan Isolasi
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────
 
 export default function RIPatientHeader({ patient }: { patient: RawatInapPatientDetail }) {
-  const cfg     = STATUS_CFG[patient.status];
+  const cfg        = STATUS_CFG[patient.status];
   const StatusIcon = cfg.icon;
-  const vs      = patient.vitalSigns;
-  const gcsTotal = vs.gcsEye + vs.gcsVerbal + vs.gcsMotor;
+  const vs         = patient.vitalSigns;
+  const gcsTotal   = vs.gcsEye + vs.gcsVerbal + vs.gcsMotor;
+
+  const [isolasiTipe,     setIsolasiTipe]     = useState<IsolasiTipe | null>(null);
+  const [showIsolasiForm, setShowIsolasiForm] = useState(false);
 
   const initials = patient.name
     .split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
@@ -303,6 +417,22 @@ export default function RIPatientHeader({ patient }: { patient: RawatInapPatient
                     value={patient.alamat}
                     cls="bg-teal-50 ring-teal-200 text-teal-800"
                   />
+                  {/* Isolasi chip */}
+                  <button
+                    onClick={() => setShowIsolasiForm((v) => !v)}
+                    className={cn(
+                      "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold shadow-sm ring-1 transition",
+                      isolasiTipe
+                        ? ISOLASI_CFG[isolasiTipe].chip
+                        : "bg-white ring-slate-200 text-slate-400 hover:ring-slate-300 hover:text-slate-600 border border-dashed border-slate-300",
+                    )}
+                  >
+                    {isolasiTipe
+                      ? <ShieldAlert size={11} className="shrink-0" />
+                      : <Shield size={11} className="shrink-0" />}
+                    {isolasiTipe ? `Isolasi ${ISOLASI_CFG[isolasiTipe].label}` : "Set Isolasi"}
+                    <ChevronDown size={10} className={cn("shrink-0 transition-transform", showIsolasiForm && "rotate-180")} />
+                  </button>
                 </div>
               </motion.div>
 
@@ -317,6 +447,27 @@ export default function RIPatientHeader({ patient }: { patient: RawatInapPatient
                 <AdmitCard tglMasuk={patient.tglMasuk} hariKe={patient.hariKe} />
               </motion.div>
             </div>
+
+            {/* Isolasi panel — expands below the grid */}
+            <AnimatePresence>
+              {showIsolasiForm && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.18, ease: "easeOut" }}
+                  style={{ overflow: "hidden" }}
+                >
+                  <IsolasiPanel
+                    current={isolasiTipe}
+                    onSave={(tipe, tanggal, alasan, dokter) => {
+                      setIsolasiTipe(tanggal ? tipe : null);
+                    }}
+                    onClose={() => setShowIsolasiForm(false)}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Vitals bar */}

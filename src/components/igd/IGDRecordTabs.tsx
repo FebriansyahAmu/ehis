@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import IdentitasVerifikasiBanner, { type VerifikasiInfo } from "@/components/shared/medical-records/IdentitasVerifikasiBanner";
 
 import TriaseTab        from "./tabs/TriaseTab";
 import TTVTab           from "./tabs/TTVTab";
@@ -94,6 +95,43 @@ function NavItem({ tab, active, onClick }: { tab: TabDef; active: boolean; onCli
 
 export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }) {
   const [active, setActive] = useState<TabId>("triase");;
+
+  // ── Identitas verifikasi ──────────────────────────────────
+  const [identitasVerified, setIdentitasVerified] = useState(false);
+  const [verifikasiInfo,    setVerifikasiInfo]    = useState<VerifikasiInfo | null>(null);
+
+  function handleVerifikasiIdentitas(perawat: string) {
+    setIdentitasVerified(true);
+    setVerifikasiInfo({
+      perawat,
+      waktu: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+    });
+  }
+
+  function withIdentitas(content: React.ReactNode) {
+    return (
+      <div>
+        <IdentitasVerifikasiBanner
+          namaLengkap={patient.name}
+          tanggalLahir={patient.tanggalLahir}
+          noRM={patient.noRM}
+          isVerified={identitasVerified}
+          verifikasiInfo={verifikasiInfo ?? undefined}
+          onVerify={handleVerifikasiIdentitas}
+        />
+        <motion.div
+          animate={{
+            opacity: identitasVerified ? 1 : 0.12,
+            filter:  identitasVerified ? "blur(0px)" : "blur(3px)",
+          }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          style={{ pointerEvents: identitasVerified ? "auto" : "none" }}
+        >
+          {content}
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
@@ -182,12 +220,12 @@ export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }
             {active === "asesmen"      && <AsesmenMedisTab patient={patient} />}
             {active === "diagnosa"     && <DiagnosaTab     patient={patient} />}
             {active === "cppt"         && <CPPTTab         patient={patient} />}
-            {active === "tindakan"         && <TindakanTab         patient={patient} />}
+            {active === "tindakan"         && withIdentitas(<TindakanTab   patient={patient} />)}
             {active === "informed-consent" && <InformedConsentTab   patient={patient} />}
             {active === "daftar-order"     && <DaftarOrderTab       patient={patient} />}
-            {active === "resep"        && <ResepPasienTab  patient={patient} />}
-            {active === "order-lab"    && <OrderLabTab     patient={patient} />}
-            {active === "order-rad"    && <OrderRadTab     patient={patient} />}
+            {active === "resep"        && withIdentitas(<ResepPasienTab patient={patient} />)}
+            {active === "order-lab"    && withIdentitas(<OrderLabTab    patient={patient} />)}
+            {active === "order-rad"    && withIdentitas(<OrderRadTab    patient={patient} />)}
             {active === "pulang"       && <PasienPulangTab patient={patient} />}
             {active === "rekonsiliasi" && <RekonsiliasTab  patient={patient} />}
             {active === "keperawatan"  && <KeperawatanTab  patient={patient} />}

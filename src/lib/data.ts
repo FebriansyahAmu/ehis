@@ -1537,6 +1537,7 @@ export interface RawatInapPatientDetail {
   noBpjs?:          string;
   namaKeluarga:     string;
   hubunganKeluarga: string;
+  tanggalLahir:     string;
   noHp:             string;
   alamat:           string;
   vitalSigns:       IGDVitalSigns;    // current / latest
@@ -1565,6 +1566,7 @@ export const rawatInapPatientDetails: Record<string, RawatInapPatientDetail> = {
     admitDate: "2025-05-03", tglMasuk: "3 Mei 2025", hariKe: 5,
     status: "Aktif", penjamin: "BPJS_Non_PBI",
     namaKeluarga: "Budi Fauzi", hubunganKeluarga: "Anak",
+    tanggalLahir: "15 Agustus 1958",
     noHp: "0812-3456-7890", alamat: "Jl. Merpati No. 15, Bandung",
     riwayatAlergi: "Aspirin (sesak napas)",
     obatSaatIni: "Bisoprolol 5mg, Candesartan 8mg, Furosemid 40mg",
@@ -1855,6 +1857,7 @@ export const rawatInapPatientDetails: Record<string, RawatInapPatientDetail> = {
     admitDate: "2025-05-05", tglMasuk: "5 Mei 2025", hariKe: 3,
     status: "Kritis", penjamin: "BPJS_PBI",
     namaKeluarga: "Ahmad Basri", hubunganKeluarga: "Anak",
+    tanggalLahir: "3 Maret 1953",
     noHp: "0813-4567-8901", alamat: "Jl. Mekar No. 8, Bandung",
     catatan: "Pasang ventilator, monitoring ketat, akses CVC dan arterial line.",
     vitalSigns: {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import IdentitasVerifikasiBanner, { type VerifikasiInfo } from "@/components/shared/medical-records/IdentitasVerifikasiBanner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText, HeartPulse, Tag, HeartHandshake, ScanLine,
@@ -97,8 +98,45 @@ function NavItem({ tab, active, onClick }: { tab: TabDef; active: boolean; onCli
 export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDetail }) {
   const [active, setActive] = useState<TabId>("cppt");
 
-  const visibleRM     = REKAM_MEDIS.filter((t) => !t.showFor || t.showFor.includes(patient.kelas));
-  const visibleTabs   = [...visibleRM, ...LAYANAN];
+  const visibleRM   = REKAM_MEDIS.filter((t) => !t.showFor || t.showFor.includes(patient.kelas));
+  const visibleTabs = [...visibleRM, ...LAYANAN];
+
+  // ── Identitas verifikasi ──────────────────────────────────
+  const [identitasVerified, setIdentitasVerified] = useState(false);
+  const [verifikasiInfo,    setVerifikasiInfo]    = useState<VerifikasiInfo | null>(null);
+
+  function handleVerifikasiIdentitas(perawat: string) {
+    setIdentitasVerified(true);
+    setVerifikasiInfo({
+      perawat,
+      waktu: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+    });
+  }
+
+  function withIdentitas(content: React.ReactNode) {
+    return (
+      <div>
+        <IdentitasVerifikasiBanner
+          namaLengkap={patient.name}
+          tanggalLahir={patient.tanggalLahir}
+          noRM={patient.noRM}
+          isVerified={identitasVerified}
+          verifikasiInfo={verifikasiInfo ?? undefined}
+          onVerify={handleVerifikasiIdentitas}
+        />
+        <motion.div
+          animate={{
+            opacity: identitasVerified ? 1 : 0.12,
+            filter:  identitasVerified ? "blur(0px)" : "blur(3px)",
+          }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          style={{ pointerEvents: identitasVerified ? "auto" : "none" }}
+        >
+          {content}
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
@@ -193,12 +231,12 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
             {active === "informed-consent" && <InformedConsentTab   patient={patient} />}
             {active === "rekonsiliasi"     && <RekonsiliasTab       patient={patient} />}
             {active === "daftar-order"  && <DaftarOrderTab    patient={patient} />}
-            {active === "resep"         && <ResepTab          patient={patient} />}
-            {active === "order-lab"     && <OrderLabTab        patient={patient} />}
-            {active === "order-rad"     && <OrderRadTab        patient={patient} />}
+            {active === "resep"         && withIdentitas(<ResepTab       patient={patient} />)}
+            {active === "order-lab"     && withIdentitas(<OrderLabTab    patient={patient} />)}
+            {active === "order-rad"     && withIdentitas(<OrderRadTab    patient={patient} />)}
             {active === "konsultasi"    && <KonsultasiTab     patient={patient} />}
             {active === "discharge"     && <DischargePlanTab  patient={patient} />}
-            {active === "pasien-pulang" && <PasienPulangTab   patient={patient} />}
+            {active === "pasien-pulang" && withIdentitas(<PasienPulangTab patient={patient} />)}
           </motion.div>
         </AnimatePresence>
       </main>

@@ -8,9 +8,10 @@ import {
 } from "lucide-react";
 import type { RawatInapPatientDetail, AsuhanKeperawatanEntry, EvaluasiShift } from "@/lib/data";
 import { cn } from "@/lib/utils";
-import { STATUS_LUARAN_CONFIG, emptyForm, type AsuhanFormState } from "@/components/shared/medical-records/keperawatanShared";
+import { STATUS_LUARAN_CONFIG, type AsuhanFormState } from "@/components/shared/medical-records/keperawatanShared";
 import AsuhanForm, { type FormMode } from "@/components/shared/medical-records/keperawatan/AsuhanForm";
 import AsuhanCard from "@/components/shared/medical-records/keperawatan/AsuhanCard";
+import BundleHAISection from "@/components/rawat-inap/ppiIsolasi/BundleHAISection";
 
 // ── Helpers ────────────────────────────────────────────────
 
@@ -250,7 +251,7 @@ export default function KeperawatanTab({ patient }: { patient: RawatInapPatientD
                   <HeartHandshake size={24} className="text-slate-300" />
                 </div>
                 <p className="text-sm font-semibold text-slate-400">Belum ada asuhan</p>
-                <p className="mt-1.5 max-w-[180px] text-xs leading-relaxed text-slate-400">
+                <p className="mt-1.5 max-w-45 text-xs leading-relaxed text-slate-400">
                   Pilih diagnosa dari katalog SDKI di sebelah kiri, lalu simpan untuk menambah asuhan keperawatan
                 </p>
               </motion.div>
@@ -278,6 +279,11 @@ export default function KeperawatanTab({ patient }: { patient: RawatInapPatientD
         </div>
 
       </div>
+
+      {/* Bundle HAI — hanya ICU / HCU */}
+      {(patient.kelas === "ICU" || patient.kelas === "HCU") && (
+        <BundleHAISection noRM={patient.noRM} />
+      )}
     </div>
   );
 }
