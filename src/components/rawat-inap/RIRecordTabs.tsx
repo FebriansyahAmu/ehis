@@ -6,7 +6,7 @@ import {
   FileText, HeartPulse, Tag, HeartHandshake, ScanLine,
   Pill, FlaskConical, Radiation, ClipboardList, LogOut,
   MessageSquare, Droplets, DoorOpen, Stethoscope, ArrowRightLeft,
-  ListChecks, type LucideIcon,
+  ListChecks, ShieldCheck, type LucideIcon,
 } from "lucide-react";
 import type { RawatInapPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -24,8 +24,9 @@ import OrderRadTab      from "./tabs/OrderRadTab";
 import KonsultasiTab    from "./tabs/KonsultasiTab";
 import DischargePlanTab  from "./tabs/DischargePlanTab";
 import PasienPulangTab  from "./tabs/PasienPulangTab";
-import HandoverTab      from "./tabs/HandoverTab";
-import DaftarOrderTab  from "./tabs/DaftarOrderTab";
+import HandoverTab          from "./tabs/HandoverTab";
+import DaftarOrderTab       from "./tabs/DaftarOrderTab";
+import InformedConsentTab   from "./tabs/InformedConsentTab";
 
 // ── Tab definitions ───────────────────────────────────────
 
@@ -39,7 +40,8 @@ const REKAM_MEDIS: TabDef[] = [
   { id: "keperawatan",  label: "Asuhan Keperawatan",   icon: HeartHandshake, done: true  },
   { id: "pemeriksaan",  label: "Pemeriksaan Fisik",    icon: ScanLine,       done: true  },
   { id: "intake-output",label: "Intake / Output",      icon: Droplets,       done: true  },
-  { id: "handover",     label: "Serah Terima Shift",  icon: ArrowRightLeft, done: true  },
+  { id: "handover",          label: "Serah Terima Shift",  icon: ArrowRightLeft, done: true },
+  { id: "informed-consent",  label: "Informed Consent",    icon: ShieldCheck,    done: true },
 ];
 
 const LAYANAN: TabDef[] = [
@@ -173,7 +175,8 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
             {active === "keperawatan" && <KeperawatanTab patient={patient} />}
             {active === "pemeriksaan"   && <PemeriksaanTab   patient={patient} />}
             {active === "intake-output" && <IntakeOutputTab   patient={patient} />}
-            {active === "handover"      && <HandoverTab       patient={patient} />}
+            {active === "handover"         && <HandoverTab         patient={patient} />}
+            {active === "informed-consent" && <InformedConsentTab   patient={patient} />}
             {active === "daftar-order"  && <DaftarOrderTab    patient={patient} />}
             {active === "resep"         && <ResepTab          patient={patient} />}
             {active === "order-lab"     && <OrderLabTab        patient={patient} />}

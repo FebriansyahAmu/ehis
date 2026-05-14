@@ -7,6 +7,7 @@ export default function TTVTab({ patient }: { patient: IGDPatientDetail }) {
       vitalSigns={patient.vitalSigns}
       statusKesadaran={patient.statusKesadaran}
       history={patient.ttvHistory ?? []}
+      triage={patient.triage}
     />
   );
 }

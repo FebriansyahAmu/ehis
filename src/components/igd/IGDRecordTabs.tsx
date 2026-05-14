@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ClipboardList, HeartPulse, Stethoscope, Tag, FileText, Zap,
   Pill, FlaskConical, Radiation, Send, Home,
-  Repeat, HeartHandshake, ScanLine, ClipboardCheck, ScanEye, ListChecks,
+  Repeat, HeartHandshake, ScanLine, ClipboardCheck, ScanEye, ListChecks, ShieldCheck,
+  ArrowRightLeft,
   type LucideIcon,
 } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
@@ -28,6 +29,8 @@ import PenilaianTab      from "./tabs/PenilaianTab";
 import RujukanKeluarTab      from "./tabs/RujukanKeluarTab";
 import PenandaanGambarTab   from "./tabs/PenandaanGambarTab";
 import DaftarOrderTab        from "./tabs/DaftarOrderTab";
+import InformedConsentTab   from "./tabs/InformedConsentTab";
+import HandoverTab           from "./tabs/HandoverTab";
 
 // ── Tab groups ────────────────────────────────────────────
 
@@ -39,12 +42,14 @@ const REKAM_MEDIS: TabDef[] = [
   { id: "asesmen",       label: "Asesmen Medis",   icon: Stethoscope    },
   { id: "diagnosa",      label: "Diagnosa",        icon: Tag            },
   { id: "cppt",          label: "CPPT / SOAP",     icon: FileText       },
-  { id: "tindakan",      label: "Tindakan IGD",    icon: Zap            },
+  { id: "tindakan",        label: "Tindakan IGD",      icon: Zap        },
+  { id: "informed-consent", label: "Informed Consent", icon: ShieldCheck },
   { id: "rekonsiliasi",  label: "Rekonsiliasi",    icon: Repeat         },
   { id: "keperawatan",   label: "Keperawatan",     icon: HeartHandshake },
   { id: "pemeriksaan",   label: "Pemeriksaan",     icon: ScanLine       },
-  { id: "penilaian",     label: "Penilaian",       icon: ClipboardCheck },
-  { id: "penandaan",    label: "Penandaan Gambar", icon: ScanEye        },
+  { id: "penilaian",     label: "Penilaian",       icon: ClipboardCheck  },
+  { id: "penandaan",    label: "Penandaan Gambar", icon: ScanEye         },
+  { id: "handover",     label: "Serah Terima",     icon: ArrowRightLeft  },
 ];
 
 const LAYANAN: TabDef[] = [
@@ -177,8 +182,9 @@ export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }
             {active === "asesmen"      && <AsesmenMedisTab patient={patient} />}
             {active === "diagnosa"     && <DiagnosaTab     patient={patient} />}
             {active === "cppt"         && <CPPTTab         patient={patient} />}
-            {active === "tindakan"     && <TindakanTab     patient={patient} />}
-            {active === "daftar-order" && <DaftarOrderTab   patient={patient} />}
+            {active === "tindakan"         && <TindakanTab         patient={patient} />}
+            {active === "informed-consent" && <InformedConsentTab   patient={patient} />}
+            {active === "daftar-order"     && <DaftarOrderTab       patient={patient} />}
             {active === "resep"        && <ResepPasienTab  patient={patient} />}
             {active === "order-lab"    && <OrderLabTab     patient={patient} />}
             {active === "order-rad"    && <OrderRadTab     patient={patient} />}
@@ -189,6 +195,7 @@ export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }
             {active === "penilaian"    && <PenilaianTab    patient={patient} />}
             {active === "rujukan"      && <RujukanKeluarTab    patient={patient} />}
             {active === "penandaan"   && <PenandaanGambarTab patient={patient} />}
+            {active === "handover"    && <HandoverTab        patient={patient} />}
           </motion.div>
         </AnimatePresence>
       </main>

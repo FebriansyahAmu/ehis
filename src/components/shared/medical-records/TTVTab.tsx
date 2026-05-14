@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, CalendarDays } from "lucide-react";
-import type { IGDVitalSigns, StatusKesadaran, RITTVRecord, RIShift } from "@/lib/data";
+import { ChevronDown, CalendarDays, Clock, AlertCircle } from "lucide-react";
+import type { IGDVitalSigns, StatusKesadaran, RITTVRecord, RIShift, TriageLevel } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
 // ── Vital status helpers ──────────────────────────────────
@@ -103,7 +103,6 @@ function PainScale({ value, onSelect }: { value: number; onSelect?: (v: number) 
         <span className="text-[10px] text-slate-400">Sangat nyeri</span>
       </div>
 
-      {/* grid-cols-11 makes buttons always fill container width — responsive by default */}
       <div className="grid grid-cols-11 gap-0.5 sm:gap-1">
         {Array.from({ length: 11 }, (_, i) => {
           const m        = PAIN_META[painLevel(i)];
@@ -192,9 +191,44 @@ function fmtDate(iso: string): string {
   return `${parseInt(d)} ${MONTHS_ID[parseInt(m, 10) - 1]} ${y}`;
 }
 
+// ── Triage observation config (IGD mode) ─────────────────
+
+const TRIAGE_OBS: Record<TriageLevel, { minutes: number; intervalLabel: string; triageLabel: string; cls: string }> = {
+  P1: { minutes: 15, intervalLabel: "15 mnt", triageLabel: "P1 · Kritis",      cls: "bg-rose-100 text-rose-700 ring-1 ring-rose-200"    },
+  P2: { minutes: 30, intervalLabel: "30 mnt", triageLabel: "P2 · Gawat",       cls: "bg-amber-100 text-amber-700 ring-1 ring-amber-200"  },
+  P3: { minutes: 60, intervalLabel: "60 mnt", triageLabel: "P3 · Tidak Gawat", cls: "bg-sky-100 text-sky-700 ring-1 ring-sky-200"        },
+  P4: { minutes: 60, intervalLabel: "60 mnt", triageLabel: "P4 · Hijau",       cls: "bg-slate-100 text-slate-600 ring-1 ring-slate-200"  },
+};
+
+function timeToShift(jam: string): RIShift {
+  const [h] = jam.split(":").map(Number);
+  if (h >= 7 && h < 14)  return "Pagi";
+  if (h >= 14 && h < 21) return "Siang";
+  return "Malam";
+}
+
+function getNextDue(lastJam: string, minutes: number): { time: string; overdue: boolean } {
+  const [h, m] = lastJam.split(":").map(Number);
+  const totalMin = h * 60 + m + minutes;
+  const dueH = Math.floor(totalMin / 60) % 24;
+  const dueM = totalMin % 60;
+  const dueTime = `${String(dueH).padStart(2, "0")}:${String(dueM).padStart(2, "0")}`;
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const dueMin = dueH * 60 + dueM;
+  return { time: dueTime, overdue: nowMin >= dueMin };
+}
+
+function nowTime(): string {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+}
+
 // ── HistoryRow (expandable) ───────────────────────────────
 
-function HistoryRow({ rec, delay }: { rec: RITTVRecord; delay: number }) {
+function HistoryRow({ rec, delay, hideShift = false }: {
+  rec: RITTVRecord; delay: number; hideShift?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const vs       = rec.vitalSigns;
   const gcs      = vs.gcsEye + vs.gcsVerbal + vs.gcsMotor;
@@ -222,10 +256,17 @@ function HistoryRow({ rec, delay }: { rec: RITTVRecord; delay: number }) {
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-slate-50"
       >
-        <span className={cn("rounded-md px-2 py-0.5 text-[11px] font-bold", SHIFT_CLS[rec.shift])}>
-          {rec.shift}
+        {!hideShift && (
+          <span className={cn("rounded-md px-2 py-0.5 text-[11px] font-bold", SHIFT_CLS[rec.shift])}>
+            {rec.shift}
+          </span>
+        )}
+        <span className={cn(
+          "font-mono text-xs font-semibold",
+          hideShift ? "text-slate-700" : "text-slate-500",
+        )}>
+          {rec.jam}
         </span>
-        <span className="font-mono text-xs font-semibold text-slate-500">{rec.jam}</span>
         <span className="truncate text-xs text-slate-500">{rec.perawat}</span>
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
@@ -245,7 +286,6 @@ function HistoryRow({ rec, delay }: { rec: RITTVRecord; delay: number }) {
             )}>
               SpO₂ {vs.spo2}%
             </span>
-            {/* Pain badge — shown only when pain > 0 */}
             {vs.skalaNyeri > 0 && (
               <span className={cn("rounded-md px-2 py-0.5 text-[11px] font-bold", nrsMeta.badge)}>
                 NRS {vs.skalaNyeri}
@@ -314,13 +354,17 @@ function HistoryRow({ rec, delay }: { rec: RITTVRecord; delay: number }) {
 export interface TTVTabProps {
   vitalSigns:      IGDVitalSigns;
   statusKesadaran: StatusKesadaran;
-  history?:        RITTVRecord[];  // RI mode: show history + shift fields in form
+  history?:        RITTVRecord[];  // multi-entry mode: RI (with shift) or IGD obs (with triage)
+  triage?:         TriageLevel;    // when set + history present: IGD timed observation mode
 }
 
 // ── Component ─────────────────────────────────────────────
 
-export default function TTVTab({ vitalSigns, statusKesadaran, history }: TTVTabProps) {
-  const showShift = history !== undefined;
+export default function TTVTab({ vitalSigns, statusKesadaran, history, triage }: TTVTabProps) {
+  const isRIMode    = history !== undefined && !triage;
+  const isIGDMode   = history !== undefined && !!triage;
+  const showShift   = isRIMode;
+  const showHistory = history !== undefined;
 
   const [currentVS,  setCurrentVS]  = useState(vitalSigns);
   const [currentKes, setCurrentKes] = useState(statusKesadaran);
@@ -343,8 +387,14 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history }: TTVTabP
     shift: "Pagi" as RIShift,
     perawat: "",
     kesadaran: currentKes,
+    jam: nowTime(),
   });
   const set = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
+
+  // IGD observation mode derived state
+  const obsConfig   = triage ? TRIAGE_OBS[triage] : null;
+  const latestEntry = isIGDMode ? localHistory[0] : undefined;
+  const nextDue     = obsConfig && latestEntry ? getNextDue(latestEntry.jam, obsConfig.minutes) : null;
 
   const handleSave = () => {
     const newVS: IGDVitalSigns = {
@@ -356,22 +406,22 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history }: TTVTabP
       beratBadan:  form.bb ? Number(form.bb) : undefined,
       tinggiBadan: form.tb ? Number(form.tb) : undefined,
     };
-    const kes = form.kesadaran as StatusKesadaran;
+    const newKes = form.kesadaran as StatusKesadaran;
 
-    if (showShift) {
+    if (isRIMode || isIGDMode) {
       const now     = new Date();
-      const jam     = now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+      const jam     = isIGDMode ? form.jam : now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
       const tanggal = now.toISOString().split("T")[0];
       const newRec: RITTVRecord = {
         id: `ttv-${Date.now()}`, tanggal, jam,
-        shift: form.shift as RIShift,
+        shift: isIGDMode ? timeToShift(jam) : form.shift as RIShift,
         perawat: form.perawat || "—",
-        vitalSigns: newVS, statusKesadaran: kes,
+        vitalSigns: newVS, statusKesadaran: newKes,
       };
       setLocalHistory((prev) => [newRec, ...prev]);
     }
     setCurrentVS(newVS);
-    setCurrentKes(kes);
+    setCurrentKes(newKes);
   };
 
   const histGroups: Record<string, RITTVRecord[]> = localHistory.reduce((acc, r) => {
@@ -383,6 +433,58 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history }: TTVTabP
 
   return (
     <div className="flex flex-col gap-4">
+
+      {/* ── IGD timed observation strip ── */}
+      {isIGDMode && obsConfig && (
+        <motion.div
+          className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Clock size={13} className="shrink-0 text-slate-400" />
+              <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                Monitoring Observasi Terjadwal
+              </p>
+              <span className={cn("rounded-md px-2 py-0.5 text-[11px] font-bold", obsConfig.cls)}>
+                {obsConfig.triageLabel}
+              </span>
+              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                Interval {obsConfig.intervalLabel}
+              </span>
+            </div>
+
+            {nextDue ? (
+              nextDue.overdue ? (
+                <motion.span
+                  animate={{ opacity: [1, 0.6, 1] }}
+                  transition={{ repeat: Infinity, duration: 1.4 }}
+                  className="flex items-center gap-1.5 rounded-lg bg-rose-100 px-3 py-1.5 text-xs font-bold text-rose-700"
+                >
+                  <AlertCircle size={13} />
+                  Terlambat — Observasi Segera!
+                </motion.span>
+              ) : (
+                <span className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                  Observasi berikutnya {nextDue.time}
+                </span>
+              )
+            ) : (
+              <span className="text-[11px] text-slate-400">
+                Mulai observasi pertama
+              </span>
+            )}
+          </div>
+
+          {latestEntry && (
+            <p className="mt-1.5 text-[11px] text-slate-400">
+              Terakhir: {latestEntry.jam} · {latestEntry.perawat}
+            </p>
+          )}
+        </motion.div>
+      )}
 
       {/* ── Current vitals display ── */}
       <motion.section
@@ -435,9 +537,31 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history }: TTVTabP
         transition={{ duration: 0.2, delay: 0.08 }}
       >
         <h2 className="mb-4 text-sm font-semibold text-slate-700">
-          {showShift ? "Catat TTV Baru" : "Perbarui TTV"}
+          {isIGDMode ? "Catat Observasi TTV" : showShift ? "Catat TTV Baru" : "Perbarui TTV"}
         </h2>
 
+        {/* IGD obs mode: jam + perawat (no shift selector) */}
+        {isIGDMode && (
+          <div className="mb-4 grid grid-cols-2 gap-3">
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Jam Observasi</p>
+              <input
+                type="time"
+                value={form.jam}
+                onChange={(e) => set("jam", e.target.value)}
+                className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+              />
+            </div>
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Nama Perawat</p>
+              <input type="text" value={form.perawat} onChange={(e) => set("perawat", e.target.value)}
+                placeholder="Nama lengkap..."
+                className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
+            </div>
+          </div>
+        )}
+
+        {/* RI mode: shift + perawat */}
         {showShift && (
           <div className="mb-4 grid grid-cols-2 gap-3">
             <div>
@@ -504,7 +628,8 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history }: TTVTabP
           <NumInput label="Tinggi Badan" unit="cm" value={form.tb} onChange={(v) => set("tb", v)} />
         </div>
 
-        {showShift && (
+        {/* Kesadaran selector — shown in both RI and IGD obs modes */}
+        {showHistory && (
           <div className="mt-4">
             <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Tingkat Kesadaran</p>
             <div className="flex flex-wrap gap-1.5">
@@ -527,13 +652,13 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history }: TTVTabP
         <div className="mt-5 flex justify-end">
           <button type="button" onClick={handleSave}
             className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700">
-            {showShift ? "Simpan Rekaman TTV" : "Simpan TTV"}
+            {isIGDMode ? "Catat Observasi" : showShift ? "Simpan Rekaman TTV" : "Simpan TTV"}
           </button>
         </div>
       </motion.section>
 
-      {/* ── History (RI mode only) ── */}
-      {showShift && (
+      {/* ── History / Timeline ── */}
+      {showHistory && (
         <motion.section
           className="flex flex-col gap-2"
           initial={{ opacity: 0 }}
@@ -541,7 +666,9 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history }: TTVTabP
           transition={{ delay: 0.12 }}
         >
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-slate-700">Riwayat TTV</h2>
+            <h2 className="text-sm font-semibold text-slate-700">
+              {isIGDMode ? "Timeline Observasi" : "Riwayat TTV"}
+            </h2>
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
               {localHistory.length}
             </span>
@@ -549,7 +676,7 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history }: TTVTabP
 
           {localHistory.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 bg-white py-8 text-center text-sm text-slate-400">
-              Belum ada rekaman TTV
+              {isIGDMode ? "Belum ada observasi tercatat" : "Belum ada rekaman TTV"}
             </div>
           ) : (
             sortedDates.map((date) => (
@@ -558,9 +685,10 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history }: TTVTabP
                   <CalendarDays size={11} className="text-slate-400" />
                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{fmtDate(date)}</span>
                   <div className="h-px flex-1 bg-slate-100" />
+                  <span className="text-[10px] text-slate-300">{histGroups[date].length} entri</span>
                 </div>
                 {histGroups[date].map((rec, i) => (
-                  <HistoryRow key={rec.id} rec={rec} delay={i * 0.05} />
+                  <HistoryRow key={rec.id} rec={rec} delay={i * 0.05} hideShift={isIGDMode} />
                 ))}
               </div>
             ))
