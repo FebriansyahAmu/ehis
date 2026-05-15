@@ -538,7 +538,7 @@ function PanelSidebarNav<T extends string>({
   activeColor?: "sky" | "amber";
 }) {
   const idx = sections.findIndex((s) => s.id === active);
-  const activeBg = activeColor === "amber" ? "bg-amber-600 shadow-amber-200" : "bg-sky-600 shadow-sky-200";
+  const activeBg = activeColor === "amber" ? "bg-amber-600" : "bg-sky-600";
   const dotActive = activeColor === "amber" ? "bg-amber-500" : "bg-sky-500";
   const dotIdle = activeColor === "amber" ? "bg-amber-200 hover:bg-amber-300" : "bg-slate-300 hover:bg-slate-400";
   const dotText = activeColor === "amber" ? "text-amber-400" : "text-slate-400";
@@ -800,7 +800,7 @@ function ToggleField({
 
 function BtnSave({ label = "Simpan Perubahan" }: { label?: string }) {
   return (
-    <button className="rounded-xl bg-linear-to-b from-sky-500 to-sky-600 px-5 py-2 text-[12px] font-bold text-white shadow-sm shadow-sky-200 transition hover:from-sky-600 hover:to-sky-700 hover:shadow-md hover:shadow-sky-200">
+    <button className="rounded-xl bg-sky-600 px-5 py-2 text-[12px] font-bold text-white transition hover:bg-sky-700 active:bg-sky-800">
       {label}
     </button>
   );
@@ -1581,7 +1581,7 @@ function HapusModal({ kunjungan, onClose }: { kunjungan: KunjunganRecord; onClos
             className={cn(
               "rounded-xl px-5 py-2 text-[12px] font-bold transition",
               ready
-                ? "bg-linear-to-b from-rose-500 to-rose-600 text-white shadow-sm shadow-rose-200 hover:from-rose-600 hover:to-rose-700 hover:shadow-md"
+                ? "bg-rose-600 text-white hover:bg-rose-700 active:bg-rose-800"
                 : "cursor-not-allowed bg-rose-200 text-rose-400",
             )}
           >
