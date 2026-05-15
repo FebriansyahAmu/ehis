@@ -50,6 +50,8 @@ Shared layout: `Navbar` · `Sidebar` · `ModuleSwitcher` · `ModuleLayout` → `
 | `CPPTEntryCard`      | `CPPTEntryCard.tsx`               | CPPTTab  | Flag, verification footer, SOAP rows                                          |
 | `cpptShared`         | `cpptShared.ts`                   | CPPT     | `PROFESI_CLS`, `SOAP_BADGE`, `fmtDate`, `todayISO`                            |
 | `diagnosaShared`     | `diagnosaShared.ts`               | Diagnosa | Katalog ICD10/ICD9, `TIPE_CONFIG`, `STATUS_CONFIG`, `INA_CBG_MAP`             |
+| `KonsultasiTab`      | `KonsultasiTab.tsx`               | RI · RJ  | `noRM` + `dokterPeminta` props. Promote dari RI ke shared.                    |
+| `SuratDokumenTab`    | `SuratDokumenTab.tsx`             | RJ       | `SuratPatient` interface · 4 jenis surat · sub: `suratDokumen/{suratDokumenShared,SuratFormPane,SuratHistoryPane}` · PMK 269/2008 |
 
 Shared asesmen: `src/components/shared/asesmen/` → `AllergyPane` · `RiwayatPane` · `GiziPane` · `asesmenShared.ts`
 
@@ -66,7 +68,7 @@ Tabs (Rekam Medis): `asesmen-awal · care-plan · cppt · ttv · diagnosa · kep
 Tabs (Layanan): `daftar-order · resep · order-lab · order-rad · konsultasi · discharge · pasien-pulang`  
 Route: `app/ehis-care/(fullpage)/rawat-inap/[id]/`
 
-### Rawat Jalan (🚧 Active — fondasi dalam pengerjaan)
+### Rawat Jalan (🚧 Active — 12/13 tab selesai)
 
 Scope: rekam medis per-kunjungan (board/antrian = modul tersendiri nanti).  
 Route: `app/ehis-care/(fullpage)/rawat-jalan/[id]/`  
@@ -74,23 +76,23 @@ Mock IDs: `rj-1` · `rj-2`
 
 | # | Tab              | File                                              | Source                        | Status |
 | - | ---------------- | ------------------------------------------------- | ----------------------------- | ------ |
-| — | Patient Header   | `rawat-jalan/RJPatientHeader.tsx`                 | 🆕 baru                       | 🔜     |
-| — | Tab Router       | `rawat-jalan/RJRecordTabs.tsx`                    | 🆕 baru                       | 🔜     |
-| 1 | Asesmen Awal     | `rawat-jalan/tabs/AsesmenAwalTab.tsx`             | 🔁 adapt dari RI (3 sub-tab)  | 🔜     |
-| 2 | TTV              | `shared/medical-records/TTVTab.tsx`               | ✅ shared                     | 🔜     |
-| 3 | CPPT / SOAP      | `shared/medical-records/CPPTTab.tsx`              | ✅ shared                     | 🔜     |
-| 4 | Diagnosa         | `shared/medical-records/DiagnosaTab.tsx`          | ✅ shared                     | 🔜     |
-| 5 | Pemeriksaan Fisik| `shared/medical-records/pemeriksaan/`             | ✅ shared (StatusFisikPane)   | 🔜     |
-| 6 | Konsultasi       | `shared/medical-records/KonsultasiTab.tsx`        | 🔁 promote dari RI            | 🔜     |
-| 7 | Informed Consent | `shared/medical-records/InformedConsentTab.tsx`   | ✅ shared                     | 🔜     |
-| 8 | Daftar Order     | `shared/medical-records/DaftarOrderTab.tsx`       | ✅ shared                     | 🔜     |
-| 9 | Resep & Obat     | `shared/.../ResepTab`                             | ✅ shared + withIdentitas     | 🔜     |
-| 10| Order Lab        | `shared/medical-records/OrderLabTab.tsx`          | ✅ shared + withIdentitas     | 🔜     |
-| 11| Order Radiologi  | `shared/medical-records/OrderRadTab.tsx`          | ✅ shared + withIdentitas     | 🔜     |
-| 12| Surat & Dokumen  | `rawat-jalan/tabs/SuratDokumenTab.tsx`            | 🆕 baru                       | 🔜     |
+| — | Patient Header   | `rawat-jalan/RJPatientHeader.tsx`                 | 🆕 baru                       | ✅     |
+| — | Tab Router       | `rawat-jalan/RJRecordTabs.tsx`                    | 🆕 baru                       | ✅     |
+| 1 | Asesmen Awal     | `rawat-jalan/tabs/AsesmenAwalRJTab.tsx`           | 🔁 adapt dari RI (3 sub-tab)  | ✅     |
+| 2 | TTV              | `shared/medical-records/TTVTab.tsx`               | ✅ shared                     | ✅     |
+| 3 | CPPT / SOAP      | `shared/medical-records/CPPTTab.tsx`              | ✅ shared                     | ✅     |
+| 4 | Diagnosa         | `shared/medical-records/DiagnosaTab.tsx`          | ✅ shared                     | ✅     |
+| 5 | Pemeriksaan Fisik| `rawat-jalan/tabs/PemeriksaanRJTab.tsx`           | ✅ shared (StatusFisikPane)   | ✅     |
+| 6 | Konsultasi       | `shared/medical-records/KonsultasiTab.tsx`        | 🔁 promote dari RI            | ✅     |
+| 7 | Informed Consent | `shared/medical-records/InformedConsentTab.tsx`   | ✅ shared                     | ✅     |
+| 8 | Daftar Order     | `shared/medical-records/DaftarOrderTab.tsx`       | ✅ shared                     | ✅     |
+| 9 | Resep & Obat     | `shared/medical-records/ResepTab.tsx`             | ✅ shared + withIdentitas     | ✅     |
+| 10| Order Lab        | `shared/medical-records/OrderLabTab.tsx`          | ✅ shared + withIdentitas     | ✅     |
+| 11| Order Radiologi  | `shared/medical-records/OrderRadTab.tsx`          | ✅ shared + withIdentitas     | ✅     |
+| 12| Surat & Dokumen  | `shared/medical-records/SuratDokumenTab.tsx`      | 🆕 baru (shared)              | ✅     |
 | 13| Disposisi        | `rawat-jalan/tabs/DisposisiRJTab.tsx`             | 🔁 adapt dari IGD (Rujuk + RI)| 🔜     |
 
-Urutan pengerjaan: Fondasi → Promote KonsultasiTab → AsesmenAwalTab → SuratDokumenTab → DisposisiRJTab
+Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → ✅ SuratDokumenTab → **DisposisiRJTab** (sisa)
 
 ### Pasien Master (`ehis-registration`)
 
@@ -118,10 +120,10 @@ Urutan pengerjaan: Fondasi → Promote KonsultasiTab → AsesmenAwalTab → Sura
 
 ### 🔴 Active — Rawat Jalan (Poliklinik)
 
-- [ ] **Fondasi RJ** — `RJPatientDetail` type + mock data (rj-1, rj-2) + route `/ehis-care/rawat-jalan/[id]` + `RJPatientHeader` + `RJRecordTabs` skeleton (13 tab router, semua shared di-wire)
-- [ ] **Promote KonsultasiTab → shared** — pindah `rawat-inap/tabs/KonsultasiTab.tsx` + `rawat-inap/konsultasi/{konsultasiShared,RequestPane,DetailPane}` → `shared/medical-records/`. Update import RI.
-- [ ] **AsesmenAwalTab RJ** — adapt dari RI: hanya 3 sub-tab (Anamnesis + Riwayat + Alergi). Tanpa Skrining Gizi + Penilaian Risiko. SNARS AP 1.1
-- [ ] **SuratDokumenTab** — baru: Surat Keterangan Sakit · Surat Kontrol · Surat Keterangan Sehat · Resume Medis Kunjungan. PMK 269/2008
+- [x] **Fondasi RJ** ✅ — `RJPatientDetail` type + mock data (rj-1, rj-2) + route `/ehis-care/rawat-jalan/[id]` + `RJPatientHeader` + `RJRecordTabs` skeleton (13 tab router, semua shared di-wire)
+- [x] **Promote KonsultasiTab → shared** ✅ — pindah `rawat-inap/tabs/KonsultasiTab.tsx` + `rawat-inap/konsultasi/{konsultasiShared,RequestPane,DetailPane}` → `shared/medical-records/`. Update import RI.
+- [x] **AsesmenAwalTab RJ** ✅ — adapt dari RI: hanya 3 sub-tab (Anamnesis + Riwayat + Alergi). Tanpa Skrining Gizi + Penilaian Risiko. SNARS AP 1.1
+- [x] **SuratDokumenTab** ✅ — baru (shared): Surat Keterangan Sakit · Surat Kontrol · Surat Keterangan Sehat · Resume Medis Kunjungan. 4-card selector + form auto-fill + riwayat expandable + cetak. Sub: `suratDokumen/{suratDokumenShared,SuratFormPane,SuratHistoryPane}`. PMK 269/2008
 - [ ] **DisposisiRJTab** — adapt dari IGD: Rujuk Internal (poli tujuan) + Rujuk Eksternal (FKRTL/RS lain) + Admisi Rawat Inap. Tanpa Pulang/APS/Meninggal.
 
 ### ⏸ Ditunda / Roadmap

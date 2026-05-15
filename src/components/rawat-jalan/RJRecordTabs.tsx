@@ -23,6 +23,7 @@ import DaftarOrderTab    from "@/components/shared/medical-records/DaftarOrderTa
 import ResepTab          from "@/components/shared/medical-records/ResepTab";
 import OrderLabTab       from "@/components/shared/medical-records/OrderLabTab";
 import OrderRadTab       from "@/components/shared/medical-records/OrderRadTab";
+import SuratDokumenTab  from "@/components/shared/medical-records/SuratDokumenTab";
 
 // ── Tab definitions ───────────────────────────────────────
 
@@ -43,7 +44,7 @@ const LAYANAN: TabDef[] = [
   { id: "resep",        label: "Resep & Obat",     icon: Pill,        done: true  },
   { id: "order-lab",    label: "Order Lab",        icon: FlaskConical,done: true  },
   { id: "order-rad",    label: "Order Radiologi",  icon: Radiation,   done: true  },
-  { id: "surat",        label: "Surat & Dokumen",  icon: ScrollText,  done: false },
+  { id: "surat",        label: "Surat & Dokumen",  icon: ScrollText,  done: true  },
   { id: "disposisi",    label: "Disposisi",        icon: Navigation,  done: false },
 ];
 
@@ -218,7 +219,17 @@ export default function RJRecordTabs({ patient }: { patient: RJPatientDetail }) 
               tglOrder:     patient.tanggalKunjungan,
               unitPengirim: patient.poli.replace(/_/g, " "),
             }} />)}
-            {active !== "asesmen-awal" && active !== "ttv" && active !== "cppt" && active !== "diagnosa" && active !== "pemeriksaan" && active !== "konsultasi" && active !== "informed-consent" && active !== "daftar-order" && active !== "resep" && active !== "order-lab" && active !== "order-rad" && (
+            {active === "surat" && <SuratDokumenTab patient={{
+              noRM:             patient.noRM,
+              name:             patient.name,
+              age:              patient.age,
+              gender:           patient.gender,
+              tanggalLahir:     patient.tanggalLahir,
+              dokter:           patient.dokter,
+              diagnosa:         patient.diagnosa.find(d => d.tipe === "Utama")?.namaDiagnosis,
+              tanggalKunjungan: patient.tanggalKunjungan,
+            }} />}
+            {active !== "asesmen-awal" && active !== "ttv" && active !== "cppt" && active !== "diagnosa" && active !== "pemeriksaan" && active !== "konsultasi" && active !== "informed-consent" && active !== "daftar-order" && active !== "resep" && active !== "order-lab" && active !== "order-rad" && active !== "surat" && (
               <ComingSoon label={activeTab.label} />
             )}
           </motion.div>
