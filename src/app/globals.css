@@ -52,7 +52,11 @@
 body {
   background-color: var(--bg);
   color: var(--text);
-  font-family: var(--font-geist-sans, system-ui, sans-serif);
+  font-family: var(--font-inter, system-ui, sans-serif);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-poppins, var(--font-inter, system-ui, sans-serif));
 }
 
 /* ── Animations ─────────────────────────────────────────── */
