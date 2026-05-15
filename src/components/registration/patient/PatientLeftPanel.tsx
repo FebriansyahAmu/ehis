@@ -146,7 +146,7 @@ export function PatientLeftPanel({
             {patient.idSatusehat && (
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-slate-400">ID Satusehat</span>
-                <span className="font-mono text-xs font-semibold text-indigo-600">{patient.idSatusehat}</span>
+                <span className="font-mono text-xs font-semibold text-sky-600">{patient.idSatusehat}</span>
               </div>
             )}
             <div className="flex items-center justify-between gap-2">

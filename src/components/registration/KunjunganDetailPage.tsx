@@ -62,7 +62,7 @@ const UNIT_CFG: Record<UnitKunjungan, { bg: string; text: string }> = {
   "Rawat Inap": { bg: "bg-emerald-100", text: "text-emerald-700" },
   Laboratorium: { bg: "bg-teal-100", text: "text-teal-700" },
   Radiologi: { bg: "bg-orange-100", text: "text-orange-700" },
-  Farmasi: { bg: "bg-violet-100", text: "text-violet-700" },
+  Farmasi: { bg: "bg-cyan-100", text: "text-cyan-700" },
 };
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
@@ -72,7 +72,7 @@ const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: "dokumen", label: "Dokumen", icon: FileText },
 ];
 
-// ─── Shared primitives ──────────────────────────────────────
+// ─── Primitives ─────────────────────────────────────────────
 
 function InfoCard({
   label,
@@ -84,13 +84,8 @@ function InfoCard({
   className?: string;
 }) {
   return (
-    <div
-      className={cn(
-        "rounded-xl border border-slate-100 bg-slate-50/60 p-3.5",
-        className,
-      )}
-    >
-      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+    <div className={cn("rounded-xl border border-slate-100 bg-white p-3.5", className)}>
+      <p className="mb-1.5 text-[9.5px] font-bold uppercase tracking-widest text-slate-400">
         {label}
       </p>
       <div className="text-[13px] font-medium text-slate-800">{children}</div>
@@ -100,36 +95,21 @@ function InfoCard({
 
 function RightTitle({ label }: { label: string }) {
   return (
-    <div className="mb-3 flex items-center gap-2.5">
-      <span className="h-px flex-1 bg-slate-100" />
-      <p className="text-[9.5px] font-bold uppercase tracking-[0.15em] text-slate-400">
-        {label}
-      </p>
-      <span className="h-px flex-1 bg-slate-100" />
-    </div>
+    <p className="mb-2 text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">
+      {label}
+    </p>
   );
 }
 
 function StatusBadge({ status }: { status: KunjunganRecord["status"] }) {
   const cfg = {
-    Aktif: { cls: "bg-sky-100 text-sky-700 ring-1 ring-sky-300", dot: true },
-    Selesai: {
-      cls: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300",
-      dot: false,
-    },
-    Dibatalkan: {
-      cls: "bg-slate-100 text-slate-500 ring-1 ring-slate-300",
-      dot: false,
-    },
+    Aktif: { cls: "bg-sky-100 text-sky-700 ring-1 ring-sky-200", dot: true },
+    Selesai: { cls: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200", dot: false },
+    Dibatalkan: { cls: "bg-slate-100 text-slate-500 ring-1 ring-slate-200", dot: false },
   }[status];
 
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold",
-        cfg.cls,
-      )}
-    >
+    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold", cfg.cls)}>
       {cfg.dot && (
         <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-sky-500" />
       )}
@@ -153,22 +133,19 @@ function ActionBtn({
   onClick?: () => void;
   disabled?: boolean;
 }) {
-  const iconCls = {
-    default:
-      "bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white",
-    warning:
-      "bg-amber-50 text-amber-600 group-hover:bg-amber-500 group-hover:text-white",
-    danger:
-      "bg-rose-50 text-rose-600 group-hover:bg-rose-500 group-hover:text-white",
-  }[variant];
-
-  const containerCls = {
-    default:
-      "border-slate-200 bg-white hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-50",
-    warning:
-      "border-amber-100 bg-amber-50/40 hover:border-amber-200 hover:shadow-md hover:shadow-amber-50",
-    danger:
-      "border-rose-100 bg-rose-50/40 hover:border-rose-200 hover:shadow-md hover:shadow-rose-50",
+  const cfg = {
+    default: {
+      icon: "bg-sky-50 text-sky-600 group-hover:bg-sky-600 group-hover:text-white",
+      border: "border-slate-200 bg-white hover:border-sky-200 hover:shadow-sm hover:shadow-sky-50/60",
+    },
+    warning: {
+      icon: "bg-amber-50 text-amber-600 group-hover:bg-amber-500 group-hover:text-white",
+      border: "border-amber-100 bg-amber-50/40 hover:border-amber-200 hover:shadow-sm",
+    },
+    danger: {
+      icon: "bg-rose-50 text-rose-600 group-hover:bg-rose-500 group-hover:text-white",
+      border: "border-rose-100 bg-rose-50/40 hover:border-rose-200 hover:shadow-sm",
+    },
   }[variant];
 
   return (
@@ -176,34 +153,22 @@ function ActionBtn({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "group flex w-full items-center rounded-xl border transition-all duration-150",
-        "flex-col gap-1.5 px-2 py-3 text-center",
-        "lg:flex-row lg:gap-3 lg:px-3 lg:py-2.5 lg:text-left",
-        containerCls,
-        disabled &&
-          "cursor-not-allowed opacity-40 hover:border-slate-200! hover:bg-white! hover:shadow-none!",
+        "group flex w-full cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-all duration-150",
+        cfg.border,
+        disabled && "cursor-not-allowed opacity-40 hover:border-slate-200! hover:bg-white! hover:shadow-none!",
       )}
     >
-      <div
-        className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all duration-150",
-          iconCls,
-        )}
-      >
-        <Icon size={14} />
+      <div className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all duration-150", cfg.icon)}>
+        <Icon size={13} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-semibold leading-tight text-slate-700">
-          {label}
-        </p>
+        <p className="text-[11px] font-semibold text-slate-700">{label}</p>
         {sublabel && (
-          <p className="mt-0.5 hidden text-[10px] text-slate-400 lg:block">
-            {sublabel}
-          </p>
+          <p className="mt-0.5 hidden text-[9px] text-slate-400 lg:block">{sublabel}</p>
         )}
       </div>
       <ChevronRight
-        size={12}
+        size={11}
         className="hidden shrink-0 text-slate-300 transition-transform duration-150 group-hover:translate-x-0.5 lg:block"
       />
     </button>
@@ -215,49 +180,46 @@ function PrintBtn({ label, disabled }: { label: string; disabled?: boolean }) {
     <button
       disabled={disabled}
       className={cn(
-        "group flex w-full items-center rounded-xl border border-slate-200 bg-white transition-all duration-150",
-        "flex-col gap-1.5 px-2 py-3 text-center",
-        "hover:border-slate-300 hover:shadow-sm",
-        "lg:flex-row lg:gap-3 lg:px-3 lg:py-2.5 lg:text-left",
+        "group flex w-full cursor-pointer items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left transition hover:border-slate-300 hover:bg-slate-50",
         disabled && "cursor-not-allowed opacity-40",
       )}
     >
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-all duration-150 group-hover:bg-slate-800 group-hover:text-white">
-        <Printer size={13} />
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 transition group-hover:bg-slate-800">
+        <Printer size={12} className="text-slate-500 transition group-hover:text-white" />
       </div>
-      <span className="flex-1 text-[11px] font-medium leading-tight text-slate-600 lg:text-[12px]">
-        {label}
-      </span>
+      <span className="flex-1 text-[11px] font-medium text-slate-600">{label}</span>
     </button>
   );
 }
 
-// ─── Tab navigation ─────────────────────────────────────────
+// ─── Tab navigation — spring underline ──────────────────────
 
-function TabNav({
-  active,
-  onChange,
-}: {
-  active: TabId;
-  onChange: (id: TabId) => void;
-}) {
+function TabNav({ active, onChange }: { active: TabId; onChange: (id: TabId) => void }) {
   return (
-    <div className="flex gap-1 rounded-xl bg-slate-100/80 p-1">
-      {TABS.map((tab) => (
-        <button
-          key={tab.id}
-          onClick={() => onChange(tab.id)}
-          className={cn(
-            "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[11px] font-semibold transition-all duration-150",
-            active === tab.id
-              ? "bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200"
-              : "text-slate-500 hover:text-slate-700",
-          )}
-        >
-          <tab.icon size={13} />
-          <span className="hidden sm:inline">{tab.label}</span>
-        </button>
-      ))}
+    <div className="flex border-b border-slate-100">
+      {TABS.map((tab) => {
+        const isActive = active === tab.id;
+        return (
+          <button
+            key={tab.id}
+            onClick={() => onChange(tab.id)}
+            className={cn(
+              "relative flex flex-1 cursor-pointer items-center justify-center gap-1.5 px-3 py-3 text-[11px] font-semibold transition-colors sm:flex-none sm:justify-start sm:px-5",
+              isActive ? "text-sky-600" : "text-slate-400 hover:text-slate-700",
+            )}
+          >
+            <tab.icon size={13} className="shrink-0" />
+            <span className="hidden sm:inline">{tab.label}</span>
+            {isActive && (
+              <motion.div
+                layoutId="kunjungan-tab-underline"
+                className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-sky-500"
+                transition={{ type: "spring", stiffness: 500, damping: 38 }}
+              />
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -273,55 +235,49 @@ function RingkasanTab({
 }) {
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-        <InfoCard label="No. Pendaftaran">
-          <span className="font-mono font-bold text-indigo-700">
-            {kunjungan.noPendaftaran}
-          </span>
-        </InfoCard>
-        <InfoCard label="No. Kunjungan">
-          <span className="font-mono text-slate-600">
-            {kunjungan.noKunjungan}
-          </span>
-        </InfoCard>
+      {/* ID Hero */}
+      <div className="rounded-2xl border border-sky-100 bg-linear-to-br from-sky-50 to-white p-4">
+        <p className="text-[9.5px] font-bold uppercase tracking-widest text-sky-400">No. Pendaftaran</p>
+        <p className="mt-0.5 font-mono text-xl font-black text-sky-700">{kunjungan.noPendaftaran}</p>
+        <div className="mt-2 flex items-center gap-2 border-t border-sky-100 pt-2">
+          <span className="text-[9.5px] text-slate-400">No. Kunjungan</span>
+          <span className="font-mono text-[11px] font-semibold text-slate-600">{kunjungan.noKunjungan}</span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-        <InfoCard label="Tanggal">
-          <span className="text-[12px]">{kunjungan.tanggal}</span>
-        </InfoCard>
-        <InfoCard label="Unit Layanan">
-          <span
-            className={cn(
-              "inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold",
-              unit.bg,
-              unit.text,
-            )}
-          >
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-xl border border-slate-100 bg-white p-3">
+          <p className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">Tanggal</p>
+          <p className="mt-1 text-[12px] font-semibold text-slate-700">{kunjungan.tanggal}</p>
+        </div>
+        <div className="rounded-xl border border-slate-100 bg-white p-3">
+          <p className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">Unit</p>
+          <span className={cn("mt-1 inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold", unit.bg, unit.text)}>
             {kunjungan.unit}
           </span>
-        </InfoCard>
-        <InfoCard label="Cara Masuk">
-          <span className="text-[12px]">{kunjungan.caraMasuk ?? "—"}</span>
-        </InfoCard>
+        </div>
+        <div className="rounded-xl border border-slate-100 bg-white p-3">
+          <p className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">Cara Masuk</p>
+          <p className="mt-1 text-[12px] font-semibold text-slate-700">{kunjungan.caraMasuk ?? "—"}</p>
+        </div>
       </div>
 
-      <InfoCard label="Dokter Penanggungjawab">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-50">
-            <Stethoscope size={13} className="text-indigo-600" />
-          </div>
-          <span>{kunjungan.dokter}</span>
+      {/* Dokter */}
+      <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-50">
+          <Stethoscope size={15} className="text-teal-600" />
         </div>
-      </InfoCard>
+        <div>
+          <p className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">Dokter Penanggungjawab</p>
+          <p className="mt-0.5 text-[13px] font-semibold text-slate-800">{kunjungan.dokter}</p>
+        </div>
+      </div>
 
-      <div className="rounded-xl border border-slate-100 bg-linear-to-br from-slate-50 to-white p-4">
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-          Keluhan Utama
-        </p>
-        <p className="text-[13px] leading-relaxed text-slate-700">
-          {kunjungan.keluhan}
-        </p>
+      {/* Keluhan */}
+      <div className="rounded-xl border-l-4 border-l-amber-400 bg-amber-50/50 px-4 py-3.5">
+        <p className="mb-1.5 text-[9.5px] font-bold uppercase tracking-widest text-amber-600">Keluhan Utama</p>
+        <p className="text-[13px] leading-relaxed text-slate-700">{kunjungan.keluhan}</p>
       </div>
     </div>
   );
@@ -332,55 +288,43 @@ function PenjaminTab({ kunjungan }: { kunjungan: KunjunganRecord }) {
 
   return (
     <div className="space-y-3">
-      {/* Insurance card — gradient visual */}
-      <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-indigo-600 via-indigo-700 to-violet-800 p-5 text-white shadow-lg shadow-indigo-200/60">
+      {/* Dark steel insurance card */}
+      <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-slate-800 to-slate-900 p-5 text-white shadow-lg shadow-slate-900/20">
         <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-white/5" />
         <div className="absolute -bottom-8 right-4 h-24 w-24 rounded-full bg-white/5" />
         <div className="absolute right-20 top-4 h-12 w-12 rounded-full bg-white/5" />
         <div className="relative">
           <div className="mb-5 flex items-start justify-between">
             <div>
-              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-indigo-300">
-                Jenis Penjamin
-              </p>
-              <p className="mt-0.5 text-base font-bold">
-                {kunjungan.penjamin ?? "Tidak Ditentukan"}
-              </p>
+              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Jenis Penjamin</p>
+              <p className="mt-0.5 text-base font-bold">{kunjungan.penjamin ?? "Tidak Ditentukan"}</p>
             </div>
-            <Shield size={22} className="opacity-30" />
+            <Shield size={22} className="opacity-20" />
           </div>
           {kunjungan.noPenjamin ? (
             <div>
-              <p className="mb-0.5 text-[9px] font-semibold text-indigo-300">
-                No. Kepesertaan
-              </p>
-              <p className="font-mono text-sm tracking-wider">
-                {kunjungan.noPenjamin}
-              </p>
+              <p className="mb-0.5 text-[9px] font-semibold text-slate-400">No. Kepesertaan</p>
+              <p className="font-mono text-sm tracking-wider">{kunjungan.noPenjamin}</p>
             </div>
           ) : (
-            <p className="text-[11px] italic text-indigo-300">
-              No. kepesertaan belum diisi
-            </p>
+            <p className="text-[11px] italic text-slate-500">No. kepesertaan belum diisi</p>
           )}
         </div>
       </div>
 
-      {/* SEP status */}
+      {/* SEP */}
       {hasSEP ? (
-        <div className="rounded-2xl border border-emerald-200 bg-linear-to-br from-emerald-50 to-teal-50 p-4">
+        <div className="rounded-2xl border border-teal-200 bg-linear-to-br from-teal-50 to-emerald-50 p-4">
           <div className="mb-3 flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-emerald-100">
-              <FileText size={14} className="text-emerald-600" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-teal-100">
+              <FileText size={14} className="text-teal-600" />
             </div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-teal-700">
               Surat Eligibilitas Peserta (SEP)
             </p>
           </div>
-          <p className="font-mono text-lg font-bold tracking-wider text-emerald-800">
-            {kunjungan.noSEP}
-          </p>
-          <p className="mt-1 text-[10px] text-emerald-600">SEP aktif</p>
+          <p className="font-mono text-lg font-bold tracking-wider text-teal-800">{kunjungan.noSEP}</p>
+          <p className="mt-1 text-[10px] text-teal-600">SEP aktif</p>
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 py-10 text-center">
@@ -388,12 +332,8 @@ function PenjaminTab({ kunjungan }: { kunjungan: KunjunganRecord }) {
             <FileText size={20} className="text-slate-400" />
           </div>
           <div>
-            <p className="text-[12px] font-semibold text-slate-600">
-              Belum ada SEP
-            </p>
-            <p className="mt-0.5 text-[11px] text-slate-400">
-              Buat SEP melalui menu Ubah Penjamin
-            </p>
+            <p className="text-[12px] font-semibold text-slate-600">Belum ada SEP</p>
+            <p className="mt-0.5 text-[11px] text-slate-400">Buat SEP melalui menu Penjamin / SEP</p>
           </div>
         </div>
       )}
@@ -401,13 +341,7 @@ function PenjaminTab({ kunjungan }: { kunjungan: KunjunganRecord }) {
   );
 }
 
-function DiagnosaTab({
-  kunjungan,
-  icdCodes,
-}: {
-  kunjungan: KunjunganRecord;
-  icdCodes: string[];
-}) {
+function DiagnosaTab({ kunjungan, icdCodes }: { kunjungan: KunjunganRecord; icdCodes: string[] }) {
   const empty = icdCodes.length === 0 && !kunjungan.diagnosa;
 
   if (empty) {
@@ -417,12 +351,8 @@ function DiagnosaTab({
           <Hash size={24} className="text-slate-400" />
         </div>
         <div>
-          <p className="text-[13px] font-semibold text-slate-600">
-            Belum ada diagnosa
-          </p>
-          <p className="mt-0.5 text-[11px] text-slate-400">
-            Diagnosa akan tersedia setelah pemeriksaan
-          </p>
+          <p className="text-[13px] font-semibold text-slate-600">Belum ada diagnosa</p>
+          <p className="mt-0.5 text-[11px] text-slate-400">Diagnosa akan tersedia setelah pemeriksaan</p>
         </div>
       </div>
     );
@@ -432,21 +362,15 @@ function DiagnosaTab({
     <div className="space-y-4">
       {icdCodes.length > 0 && (
         <div>
-          <p className="mb-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-            Kode ICD-10
-          </p>
+          <p className="mb-2.5 text-[9.5px] font-bold uppercase tracking-widest text-slate-400">Kode ICD-10</p>
           <div className="flex flex-wrap gap-2">
             {icdCodes.map((code, i) => (
               <div
                 key={code}
-                className="flex items-center gap-2 rounded-xl border border-indigo-200 bg-linear-to-br from-indigo-50 to-violet-50 px-3.5 py-2.5"
+                className="flex items-center gap-2 rounded-xl border border-teal-200 bg-linear-to-br from-teal-50 to-sky-50 px-3.5 py-2.5"
               >
-                <span className="text-[9px] font-bold text-indigo-400">
-                  #{i + 1}
-                </span>
-                <span className="font-mono text-[13px] font-bold text-indigo-700">
-                  {code}
-                </span>
+                <span className="text-[9px] font-bold text-teal-400">#{i + 1}</span>
+                <span className="font-mono text-[13px] font-bold text-teal-700">{code}</span>
               </div>
             ))}
           </div>
@@ -454,13 +378,9 @@ function DiagnosaTab({
       )}
 
       {kunjungan.diagnosa && (
-        <div className="rounded-xl border border-slate-100 bg-linear-to-br from-slate-50 to-white p-4">
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-            Deskripsi Diagnosa
-          </p>
-          <p className="text-[13px] leading-relaxed text-slate-700">
-            {kunjungan.diagnosa}
-          </p>
+        <div className="rounded-xl border border-slate-100 bg-white p-4">
+          <p className="mb-2 text-[9.5px] font-bold uppercase tracking-widest text-slate-400">Deskripsi Diagnosa</p>
+          <p className="text-[13px] leading-relaxed text-slate-700">{kunjungan.diagnosa}</p>
         </div>
       )}
     </div>
@@ -477,49 +397,30 @@ function DokumenTab({ doc }: { doc: KunjunganRecord["dokumen"] }) {
   return (
     <div className="space-y-2.5">
       {items.map(({ label, status }) => {
-        const ok =
-          !!status &&
-          status !== "Tidak Ada" &&
-          status !== "Belum Ditandatangani";
+        const ok = !!status && status !== "Tidak Ada" && status !== "Belum Ditandatangani";
         return (
           <div
             key={label}
             className={cn(
-              "flex items-center justify-between gap-3 rounded-xl border p-4 transition",
-              ok
-                ? "border-emerald-100 bg-linear-to-r from-emerald-50/70 to-teal-50/40"
-                : "border-slate-100 bg-slate-50/40",
+              "flex items-center gap-3 rounded-xl border p-4 transition",
+              ok ? "border-emerald-100 bg-linear-to-r from-emerald-50/70 to-teal-50/40" : "border-slate-100 bg-slate-50/40",
             )}
           >
-            <div className="flex items-center gap-3">
-              <div
-                className={cn(
-                  "flex h-9 w-9 items-center justify-center rounded-xl",
-                  ok ? "bg-emerald-100" : "bg-slate-100",
-                )}
-              >
-                {ok ? (
-                  <CheckCircle size={18} className="text-emerald-600" />
-                ) : (
-                  <XCircle size={18} className="text-slate-400" />
-                )}
-              </div>
-              <div>
-                <p className="text-[12px] font-semibold text-slate-700">
-                  {label}
-                </p>
-                <p
-                  className={cn(
-                    "mt-0.5 text-[10px] font-medium",
-                    ok ? "text-emerald-600" : "text-slate-400",
-                  )}
-                >
-                  {status ?? "Tidak Ada"}
-                </p>
-              </div>
+            <div className={cn("flex h-9 w-9 items-center justify-center rounded-xl", ok ? "bg-emerald-100" : "bg-slate-100")}>
+              {ok ? (
+                <CheckCircle size={18} className="text-emerald-600" />
+              ) : (
+                <XCircle size={18} className="text-slate-400" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[12px] font-semibold text-slate-700">{label}</p>
+              <p className={cn("mt-0.5 text-[10px] font-medium", ok ? "text-emerald-600" : "text-slate-400")}>
+                {status ?? "Tidak Ada"}
+              </p>
             </div>
             {ok && (
-              <button className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[11px] font-semibold text-indigo-600 shadow-sm ring-1 ring-slate-100 transition hover:shadow-md">
+              <button className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[11px] font-semibold text-sky-600 shadow-sm ring-1 ring-slate-100 transition hover:shadow-md">
                 <FileText size={11} />
                 Lihat
               </button>
@@ -554,26 +455,21 @@ function ModalShell({
   size?: "sm" | "md" | "lg" | "xl";
   noPadding?: boolean;
 }) {
-  const maxW = {
-    sm: "max-w-sm",
-    md: "max-w-lg",
-    lg: "max-w-2xl",
-    xl: "max-w-4xl",
-  }[size];
+  const maxW = { sm: "max-w-sm", md: "max-w-lg", lg: "max-w-2xl", xl: "max-w-4xl" }[size];
 
   const accentCls =
     variant === "danger"
       ? "from-rose-500 to-rose-600"
       : variant === "warning"
         ? "from-amber-400 to-orange-500"
-        : "from-indigo-500 to-violet-600";
+        : "from-sky-500 to-teal-600";
 
   const iconCls =
     variant === "danger"
       ? "bg-rose-100 text-rose-600"
       : variant === "warning"
         ? "bg-amber-100 text-amber-600"
-        : "bg-indigo-100 text-indigo-600";
+        : "bg-sky-100 text-sky-600";
 
   return (
     <motion.div
@@ -585,10 +481,7 @@ function ModalShell({
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <motion.div
-        className={cn(
-          "flex max-h-[88vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5",
-          maxW,
-        )}
+        className={cn("flex max-h-[88vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5", maxW)}
         initial={{ opacity: 0, scale: 0.96, y: 14 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 14 }}
@@ -597,54 +490,40 @@ function ModalShell({
         <div className={cn("h-1 w-full shrink-0 bg-linear-to-r", accentCls)} />
         <div className="flex shrink-0 items-start gap-3.5 border-b border-slate-100 px-5 py-4">
           {Icon && (
-            <div
-              className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
-                iconCls,
-              )}
-            >
+            <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", iconCls)}>
               <Icon size={17} />
             </div>
           )}
           <div className="min-w-0 flex-1 pt-0.5">
             <h2 className="text-[14px] font-bold text-slate-800">{title}</h2>
-            {subtitle && (
-              <p className="mt-0.5 text-[11px] text-slate-400">{subtitle}</p>
-            )}
+            {subtitle && <p className="mt-0.5 text-[11px] text-slate-400">{subtitle}</p>}
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-          >
+          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
             <X size={16} />
           </button>
         </div>
 
         {noPadding ? (
-          <div className="flex flex-1 flex-col overflow-hidden sm:flex-row">
-            {children}
-          </div>
+          <div className="flex flex-1 flex-col overflow-hidden sm:flex-row">{children}</div>
         ) : (
           <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
         )}
 
         {footer && (
-          <div className="flex shrink-0 items-center border-t border-slate-100 bg-slate-50/80 px-5 py-3.5">
-            {footer}
-          </div>
+          <div className="flex shrink-0 items-center border-t border-slate-100 bg-slate-50/80 px-5 py-3.5">{footer}</div>
         )}
       </motion.div>
     </motion.div>
   );
 }
 
-// ─── Two-panel sidebar nav (shared pattern) ──────────────────
+// ─── Two-panel sidebar nav ───────────────────────────────────
 
 function PanelSidebarNav<T extends string>({
   sections,
   active,
   onChange,
-  activeColor = "indigo",
+  activeColor = "sky",
 }: {
   sections: {
     id: T;
@@ -656,18 +535,12 @@ function PanelSidebarNav<T extends string>({
   }[];
   active: T;
   onChange: (id: T) => void;
-  activeColor?: "indigo" | "amber";
+  activeColor?: "sky" | "amber";
 }) {
   const idx = sections.findIndex((s) => s.id === active);
-  const activeBg =
-    activeColor === "amber"
-      ? "bg-amber-600 shadow-amber-200"
-      : "bg-indigo-600 shadow-indigo-200";
-  const dotActive = activeColor === "amber" ? "bg-amber-500" : "bg-indigo-500";
-  const dotIdle =
-    activeColor === "amber"
-      ? "bg-amber-200 hover:bg-amber-300"
-      : "bg-slate-300 hover:bg-slate-400";
+  const activeBg = activeColor === "amber" ? "bg-amber-600 shadow-amber-200" : "bg-sky-600 shadow-sky-200";
+  const dotActive = activeColor === "amber" ? "bg-amber-500" : "bg-sky-500";
+  const dotIdle = activeColor === "amber" ? "bg-amber-200 hover:bg-amber-300" : "bg-slate-300 hover:bg-slate-400";
   const dotText = activeColor === "amber" ? "text-amber-400" : "text-slate-400";
 
   return (
@@ -682,9 +555,7 @@ function PanelSidebarNav<T extends string>({
               onClick={() => onChange(s.id)}
               className={cn(
                 "flex cursor-pointer items-start gap-2.5 rounded-xl p-3 text-left transition-all duration-150",
-                isActive
-                  ? `${activeBg} shadow-sm text-white`
-                  : "text-slate-500 hover:bg-white hover:shadow-xs",
+                isActive ? `${activeBg} shadow-sm text-white` : "text-slate-500 hover:bg-white hover:shadow-xs",
               )}
             >
               <div
@@ -693,32 +564,17 @@ function PanelSidebarNav<T extends string>({
                   isActive ? "bg-white/20" : s.iconBg,
                 )}
               >
-                <SIcon
-                  size={12}
-                  className={isActive ? "text-white" : s.iconText}
-                />
+                <SIcon size={12} className={isActive ? "text-white" : s.iconText} />
               </div>
               <div className="min-w-0">
-                <p
-                  className={cn(
-                    "text-[11px] font-bold leading-tight",
-                    isActive ? "text-white" : "text-slate-700",
-                  )}
-                >
+                <p className={cn("text-[11px] font-bold leading-tight", isActive ? "text-white" : "text-slate-700")}>
                   {s.label}
                 </p>
-                <p
-                  className={cn(
-                    "mt-0.5 text-[10px] leading-tight",
-                    isActive ? "text-white/60" : "text-slate-400",
-                  )}
-                >
+                <p className={cn("mt-0.5 text-[10px] leading-tight", isActive ? "text-white/60" : "text-slate-400")}>
                   {s.desc}
                 </p>
               </div>
-              {isActive && (
-                <span className="ml-auto mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-white/60" />
-              )}
+              {isActive && <span className="ml-auto mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-white/60" />}
             </button>
           );
         })}
@@ -742,7 +598,7 @@ function PanelSidebarNav<T extends string>({
   );
 }
 
-// ─── Two-panel footer nav ─────────────────────────────────────
+// ─── Two-panel footer nav ────────────────────────────────────
 
 function PanelFooter<T extends string>({
   sections,
@@ -787,17 +643,11 @@ function PanelFooter<T extends string>({
 // ─── Form primitives ────────────────────────────────────────
 
 const inputCls =
-  "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-300 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition";
+  "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-300 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100 transition";
 const selectCls =
-  "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition cursor-pointer";
+  "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100 transition cursor-pointer";
 
-function FormField({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="mb-4 last:mb-0">
       <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
@@ -822,7 +672,7 @@ function FormSection({
   const cfg = {
     default: "border-slate-100 bg-slate-50/60",
     warning: "border-amber-100 bg-amber-50/40",
-    info: "border-indigo-100 bg-indigo-50/30",
+    info: "border-sky-100 bg-sky-50/30",
   }[variant];
 
   return (
@@ -831,9 +681,7 @@ function FormSection({
         <div className="mb-3.5 flex items-center gap-2 border-b border-slate-200 pb-3">
           {Icon && <Icon size={12} className="text-slate-400" />}
           {label && (
-            <p className="text-[9.5px] font-bold uppercase tracking-widest text-slate-400">
-              {label}
-            </p>
+            <p className="text-[9.5px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
           )}
         </div>
       )}
@@ -857,12 +705,7 @@ function IconInput({
       )}
       <input
         readOnly={readOnly}
-        className={cn(
-          inputCls,
-          Icon && "pl-10",
-          readOnly && "cursor-not-allowed bg-slate-50 text-slate-500",
-          className,
-        )}
+        className={cn(inputCls, Icon && "pl-10", readOnly && "cursor-not-allowed bg-slate-50 text-slate-500", className)}
         {...props}
       />
     </div>
@@ -874,10 +717,7 @@ function IconSelect({
   children,
   className,
   ...props
-}: React.SelectHTMLAttributes<HTMLSelectElement> & {
-  icon?: React.ElementType;
-  children: React.ReactNode;
-}) {
+}: React.SelectHTMLAttributes<HTMLSelectElement> & { icon?: React.ElementType; children: React.ReactNode }) {
   return (
     <div className="relative">
       {Icon && (
@@ -905,12 +745,7 @@ function SectionHeader({
 }) {
   return (
     <div className="mb-5 flex items-center gap-2.5 border-b border-slate-100 pb-4">
-      <div
-        className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-xl",
-          iconCls,
-        )}
-      >
+      <div className={cn("flex h-8 w-8 items-center justify-center rounded-xl", iconCls)}>
         <Icon size={14} />
       </div>
       <div>
@@ -921,20 +756,14 @@ function SectionHeader({
   );
 }
 
-function Toggle({
-  value,
-  onChange,
-}: {
-  value: boolean;
-  onChange: (v: boolean) => void;
-}) {
+function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
       type="button"
       onClick={() => onChange(!value)}
       className={cn(
         "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none",
-        value ? "bg-indigo-600" : "bg-slate-200",
+        value ? "bg-sky-600" : "bg-slate-200",
       )}
     >
       <span
@@ -962,9 +791,7 @@ function ToggleField({
     <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3">
       <div>
         <p className="text-[12px] font-semibold text-slate-700">{label}</p>
-        {description && (
-          <p className="mt-0.5 text-[10px] text-slate-400">{description}</p>
-        )}
+        {description && <p className="mt-0.5 text-[10px] text-slate-400">{description}</p>}
       </div>
       <Toggle value={value} onChange={onChange} />
     </div>
@@ -973,7 +800,7 @@ function ToggleField({
 
 function BtnSave({ label = "Simpan Perubahan" }: { label?: string }) {
   return (
-    <button className="rounded-xl bg-linear-to-b from-indigo-500 to-indigo-600 px-5 py-2 text-[12px] font-bold text-white shadow-sm shadow-indigo-200 transition hover:from-indigo-600 hover:to-indigo-700 hover:shadow-md hover:shadow-indigo-200">
+    <button className="rounded-xl bg-linear-to-b from-sky-500 to-sky-600 px-5 py-2 text-[12px] font-bold text-white shadow-sm shadow-sky-200 transition hover:from-sky-600 hover:to-sky-700 hover:shadow-md hover:shadow-sky-200">
       {label}
     </button>
   );
@@ -1001,24 +828,14 @@ function UbahPenjaminModal({
   kunjungan: KunjunganRecord;
   onClose: () => void;
 }) {
-  type SecId =
-    | "penjamin"
-    | "peserta"
-    | "pelayanan"
-    | "poli-rujukan"
-    | "jaminan";
+  type SecId = "penjamin" | "peserta" | "pelayanan" | "poli-rujukan" | "jaminan";
 
-  const [penjaminType, setPenjaminType] = useState<string>(
-    kunjungan.penjamin ?? "BPJS Non-PBI",
-  );
+  const [penjaminType, setPenjaminType] = useState<string>(kunjungan.penjamin ?? "BPJS Non-PBI");
   const [sec, setSec] = useState<SecId>("penjamin");
-  // klsRawat
   const [klsRawatNaik, setKlsRawatNaik] = useState<string>("");
   const [pembiayaan, setPembiayaan] = useState<string>("1");
-  // pelayanan
   const [jnsPelayanan, setJnsPelayanan] = useState<string>("2");
   const [tujuanKunj, setTujuanKunj] = useState<string>("0");
-  // jaminan
   const [lakaLantas, setLakaLantas] = useState<string>("0");
   const [suplesi, setSuplesi] = useState(false);
   const [cob, setCob] = useState(false);
@@ -1038,46 +855,11 @@ function UbahPenjaminModal({
     iconBg: string;
     iconText: string;
   }[] = [
-    {
-      id: "penjamin",
-      label: "Data Penjamin",
-      icon: CreditCard,
-      desc: "Jenis & kepesertaan",
-      iconBg: "bg-sky-100",
-      iconText: "text-sky-600",
-    },
-    {
-      id: "peserta",
-      label: "Peserta & Kunjungan",
-      icon: Calendar,
-      desc: "Tgl SEP, PPK & kontak",
-      iconBg: "bg-violet-100",
-      iconText: "text-violet-600",
-    },
-    {
-      id: "pelayanan",
-      label: "Pelayanan & Diagnosa",
-      icon: Stethoscope,
-      desc: "Jenis layanan & diagnosa awal",
-      iconBg: "bg-indigo-100",
-      iconText: "text-indigo-600",
-    },
-    {
-      id: "poli-rujukan",
-      label: "Poli & Rujukan",
-      icon: Building2,
-      desc: "Poli tujuan & data rujukan",
-      iconBg: "bg-teal-100",
-      iconText: "text-teal-600",
-    },
-    {
-      id: "jaminan",
-      label: "Jaminan & SKDP",
-      icon: Shield,
-      desc: "COB, laka lantas & SKDP",
-      iconBg: "bg-amber-100",
-      iconText: "text-amber-600",
-    },
+    { id: "penjamin",    label: "Data Penjamin",       icon: CreditCard,   desc: "Jenis & kepesertaan",       iconBg: "bg-sky-100",    iconText: "text-sky-600"    },
+    { id: "peserta",     label: "Peserta & Kunjungan", icon: Calendar,     desc: "Tgl SEP, PPK & kontak",     iconBg: "bg-sky-100",    iconText: "text-sky-600"    },
+    { id: "pelayanan",   label: "Pelayanan & Diagnosa",icon: Stethoscope,  desc: "Jenis layanan & diagnosa awal", iconBg: "bg-indigo-100", iconText: "text-indigo-600" },
+    { id: "poli-rujukan",label: "Poli & Rujukan",      icon: Building2,    desc: "Poli tujuan & data rujukan", iconBg: "bg-teal-100",   iconText: "text-teal-600"   },
+    { id: "jaminan",     label: "Jaminan & SKDP",      icon: Shield,       desc: "COB, laka lantas & SKDP",   iconBg: "bg-amber-100",  iconText: "text-amber-600"  },
   ];
 
   const PLAIN_SECTIONS: {
@@ -1088,14 +870,7 @@ function UbahPenjaminModal({
     iconBg: string;
     iconText: string;
   }[] = [
-    {
-      id: "penjamin",
-      label: "Data Penjamin",
-      icon: CreditCard,
-      desc: "Jenis & data penjamin",
-      iconBg: "bg-sky-100",
-      iconText: "text-sky-600",
-    },
+    { id: "penjamin", label: "Data Penjamin", icon: CreditCard, desc: "Jenis & data penjamin", iconBg: "bg-sky-100", iconText: "text-sky-600" },
   ];
 
   const SECTIONS = isBpjs ? BPJS_SECTIONS : PLAIN_SECTIONS;
@@ -1131,38 +906,26 @@ function UbahPenjaminModal({
         />
       }
     >
-      {/* ── Left sidebar ── */}
+      {/* Left sidebar */}
       <div className="hidden w-56 shrink-0 flex-col border-r border-slate-100 bg-slate-50/80 sm:flex">
         <div className="flex flex-col gap-2.5 border-b border-slate-100 px-4 py-5">
-          <span
-            className={cn(
-              "inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[10px] font-bold",
-              unit.bg,
-              unit.text,
-            )}
-          >
+          <span className={cn("inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[10px] font-bold", unit.bg, unit.text)}>
             {kunjungan.unit}
           </span>
           <div>
-            <p className="font-mono text-[13px] font-bold text-slate-800">
-              {kunjungan.noPendaftaran}
-            </p>
-            <p className="mt-0.5 text-[10px] text-slate-400">
-              {kunjungan.tanggal}
-            </p>
+            <p className="font-mono text-[13px] font-bold text-slate-800">{kunjungan.noPendaftaran}</p>
+            <p className="mt-0.5 text-[10px] text-slate-400">{kunjungan.tanggal}</p>
           </div>
-          <div className="flex items-center gap-1.5 rounded-lg border border-indigo-100 bg-indigo-50 px-2.5 py-2">
-            <Shield size={11} className="shrink-0 text-indigo-500" />
-            <span className="text-[10px] font-semibold leading-tight text-indigo-700">
+          <div className="flex items-center gap-1.5 rounded-lg border border-sky-100 bg-sky-50 px-2.5 py-2">
+            <Shield size={11} className="shrink-0 text-sky-500" />
+            <span className="text-[10px] font-semibold leading-tight text-sky-700">
               {penjaminType || "Belum diatur"}
             </span>
           </div>
           {kunjungan.noSEP ? (
             <div className="flex items-center gap-1.5 rounded-lg border border-emerald-100 bg-emerald-50 px-2.5 py-2">
               <CheckCircle size={11} className="shrink-0 text-emerald-500" />
-              <span className="truncate font-mono text-[9px] font-bold text-emerald-700">
-                {kunjungan.noSEP}
-              </span>
+              <span className="truncate font-mono text-[9px] font-bold text-emerald-700">{kunjungan.noSEP}</span>
             </div>
           ) : (
             <div className="flex items-center gap-1.5 rounded-lg border border-amber-100 bg-amber-50 px-2.5 py-2">
@@ -1171,14 +934,10 @@ function UbahPenjaminModal({
             </div>
           )}
         </div>
-        <PanelSidebarNav
-          sections={SECTIONS}
-          active={validSec}
-          onChange={setSec}
-        />
+        <PanelSidebarNav sections={SECTIONS} active={validSec} onChange={setSec} />
       </div>
 
-      {/* ── Right content ── */}
+      {/* Right content */}
       <div className="flex-1 overflow-y-auto p-6">
         <AnimatePresence mode="wait">
           <motion.div
@@ -1188,21 +947,12 @@ function UbahPenjaminModal({
             exit={{ opacity: 0, x: -10 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
           >
-            {/* ── Section 1: Data Penjamin ── */}
+            {/* Section 1: Data Penjamin */}
             {validSec === "penjamin" && (
               <div className="space-y-4">
-                <SectionHeader
-                  icon={CreditCard}
-                  iconCls="bg-sky-100 text-sky-600"
-                  title="Data Penjamin"
-                  sub="Jenis penjamin dan kepesertaan pasien"
-                />
+                <SectionHeader icon={CreditCard} iconCls="bg-sky-100 text-sky-600" title="Data Penjamin" sub="Jenis penjamin dan kepesertaan pasien" />
                 <FormField label="Jenis Penjamin">
-                  <IconSelect
-                    icon={Shield}
-                    value={penjaminType}
-                    onChange={(e) => handlePenjaminChange(e.target.value)}
-                  >
+                  <IconSelect icon={Shield} value={penjaminType} onChange={(e) => handlePenjaminChange(e.target.value)}>
                     <option>BPJS Non-PBI</option>
                     <option>BPJS PBI</option>
                     <option>Umum / Mandiri</option>
@@ -1214,17 +964,11 @@ function UbahPenjaminModal({
                 {isBpjs ? (
                   <>
                     <FormField label="No. Kartu BPJS (noKartu)">
-                      <IconInput
-                        icon={Hash}
-                        defaultValue={kunjungan.noPenjamin ?? ""}
-                        placeholder="13 digit nomor kartu peserta"
-                      />
+                      <IconInput icon={Hash} defaultValue={kunjungan.noPenjamin ?? ""} placeholder="13 digit nomor kartu peserta" />
                     </FormField>
 
                     <div className="space-y-3 rounded-xl border border-sky-100 bg-sky-50/30 p-4">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-sky-600">
-                        Kelas Rawat
-                      </p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-sky-600">Kelas Rawat</p>
                       <div className="grid grid-cols-2 gap-3">
                         <FormField label="Kelas Rawat Hak">
                           <IconSelect icon={Layers}>
@@ -1234,11 +978,7 @@ function UbahPenjaminModal({
                           </IconSelect>
                         </FormField>
                         <FormField label="Naik Kelas">
-                          <IconSelect
-                            icon={Layers}
-                            value={klsRawatNaik}
-                            onChange={(e) => setKlsRawatNaik(e.target.value)}
-                          >
+                          <IconSelect icon={Layers} value={klsRawatNaik} onChange={(e) => setKlsRawatNaik(e.target.value)}>
                             <option value="">Tidak Naik Kelas</option>
                             <option value="1">1 — VVIP</option>
                             <option value="2">2 — VIP</option>
@@ -1258,31 +998,18 @@ function UbahPenjaminModal({
                             initial={{ opacity: 0, y: -6 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -6 }}
-                            transition={{
-                              duration: 0.18,
-                              ease: [0.16, 1, 0.3, 1],
-                            }}
+                            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                             className="grid grid-cols-2 gap-3 pt-1"
                           >
                             <FormField label="Pembiayaan">
-                              <IconSelect
-                                icon={CreditCard}
-                                value={pembiayaan}
-                                onChange={(e) => setPembiayaan(e.target.value)}
-                              >
+                              <IconSelect icon={CreditCard} value={pembiayaan} onChange={(e) => setPembiayaan(e.target.value)}>
                                 <option value="1">1 — Pribadi</option>
                                 <option value="2">2 — Pemberi Kerja</option>
-                                <option value="3">
-                                  3 — Asuransi Kesehatan Tambahan
-                                </option>
+                                <option value="3">3 — Asuransi Kesehatan Tambahan</option>
                               </IconSelect>
                             </FormField>
                             <FormField label="Penanggung Jawab">
-                              <IconInput
-                                icon={User}
-                                readOnly
-                                value={PEMBIAYAAN_LABEL[pembiayaan] ?? ""}
-                              />
+                              <IconInput icon={User} readOnly value={PEMBIAYAAN_LABEL[pembiayaan] ?? ""} />
                             </FormField>
                           </motion.div>
                         )}
@@ -1291,25 +1018,18 @@ function UbahPenjaminModal({
 
                     <div className="rounded-xl border border-sky-100 bg-sky-50/50 px-4 py-3">
                       <p className="text-[10px] leading-relaxed text-sky-700">
-                        Lanjutkan ke tab berikutnya untuk mengisi data SEP.
-                        Pastikan nomor kartu BPJS sesuai dengan kartu fisik
-                        peserta.
+                        Lanjutkan ke tab berikutnya untuk mengisi data SEP. Pastikan nomor kartu BPJS sesuai dengan kartu fisik peserta.
                       </p>
                     </div>
                   </>
                 ) : (
                   <>
                     <FormField label="No. Referensi / Polis">
-                      <IconInput
-                        icon={Hash}
-                        defaultValue={kunjungan.noPenjamin ?? ""}
-                        placeholder="Nomor polis / referensi penjamin"
-                      />
+                      <IconInput icon={Hash} defaultValue={kunjungan.noPenjamin ?? ""} placeholder="Nomor polis / referensi penjamin" />
                     </FormField>
                     <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3">
                       <p className="text-[10px] leading-relaxed text-slate-500">
-                        Penjamin non-BPJS tidak memerlukan pembuatan SEP.
-                        Pastikan data penjamin sesuai untuk keperluan penagihan.
+                        Penjamin non-BPJS tidak memerlukan pembuatan SEP. Pastikan data penjamin sesuai untuk keperluan penagihan.
                       </p>
                     </div>
                   </>
@@ -1317,28 +1037,16 @@ function UbahPenjaminModal({
               </div>
             )}
 
-            {/* ── Section 2: Peserta & Kunjungan ── */}
+            {/* Section 2: Peserta & Kunjungan */}
             {validSec === "peserta" && (
               <div className="space-y-4">
-                <SectionHeader
-                  icon={Calendar}
-                  iconCls="bg-violet-100 text-violet-600"
-                  title="Peserta & Kunjungan"
-                  sub="Data kunjungan untuk pengajuan SEP ke BPJS"
-                />
+                <SectionHeader icon={Calendar} iconCls="bg-sky-100 text-sky-600" title="Peserta & Kunjungan" sub="Data kunjungan untuk pengajuan SEP ke BPJS" />
                 <div className="grid grid-cols-2 gap-3">
                   <FormField label="Tanggal SEP (tglSep)">
-                    <IconInput
-                      icon={Calendar}
-                      type="date"
-                      defaultValue={new Date().toISOString().split("T")[0]}
-                    />
+                    <IconInput icon={Calendar} type="date" defaultValue={new Date().toISOString().split("T")[0]} />
                   </FormField>
                   <FormField label="Kode PPK Pelayanan">
-                    <IconInput
-                      icon={Building2}
-                      placeholder="Kode faskes (8 digit)"
-                    />
+                    <IconInput icon={Building2} placeholder="Kode faskes (8 digit)" />
                   </FormField>
                 </div>
                 <FormField label="No. Medical Record (noMR)">
@@ -1346,42 +1054,28 @@ function UbahPenjaminModal({
                 </FormField>
                 <div className="grid grid-cols-2 gap-3">
                   <FormField label="No. Telepon (noTelp)">
-                    <IconInput
-                      icon={Phone}
-                      type="tel"
-                      placeholder="08xxxxxxxxxx"
-                    />
+                    <IconInput icon={Phone} type="tel" placeholder="08xxxxxxxxxx" />
                   </FormField>
                   <FormField label="User Pembuat (user)">
                     <IconInput icon={User} readOnly defaultValue="admin_rs" />
                   </FormField>
                 </div>
-                <div className="rounded-xl border border-violet-100 bg-violet-50/50 px-4 py-3">
-                  <p className="text-[10px] leading-relaxed text-violet-700">
-                    Kode PPK adalah kode faskes RS ini di sistem BPJS. No. MR
-                    dan User diisi otomatis dari sistem.
+                <div className="rounded-xl border border-sky-100 bg-sky-50/50 px-4 py-3">
+                  <p className="text-[10px] leading-relaxed text-sky-700">
+                    Kode PPK adalah kode faskes RS ini di sistem BPJS. No. MR dan User diisi otomatis dari sistem.
                   </p>
                 </div>
               </div>
             )}
 
-            {/* ── Section 3: Pelayanan & Diagnosa ── */}
+            {/* Section 3: Pelayanan & Diagnosa */}
             {validSec === "pelayanan" && (
               <div className="space-y-4">
-                <SectionHeader
-                  icon={Stethoscope}
-                  iconCls="bg-indigo-100 text-indigo-600"
-                  title="Pelayanan & Diagnosa"
-                  sub="Jenis pelayanan, diagnosa, dan tujuan kunjungan"
-                />
+                <SectionHeader icon={Stethoscope} iconCls="bg-indigo-100 text-indigo-600" title="Pelayanan & Diagnosa" sub="Jenis pelayanan, diagnosa, dan tujuan kunjungan" />
 
                 <div className="grid grid-cols-2 gap-3">
                   <FormField label="Jenis Pelayanan (jnsPelayanan)">
-                    <IconSelect
-                      icon={ClipboardList}
-                      value={jnsPelayanan}
-                      onChange={(e) => setJnsPelayanan(e.target.value)}
-                    >
+                    <IconSelect icon={ClipboardList} value={jnsPelayanan} onChange={(e) => setJnsPelayanan(e.target.value)}>
                       <option value="1">1 — Rawat Inap</option>
                       <option value="2">2 — Rawat Jalan</option>
                     </IconSelect>
@@ -1393,11 +1087,7 @@ function UbahPenjaminModal({
 
                 <div className="grid grid-cols-2 gap-3">
                   <FormField label="Tujuan Kunjungan (tujuanKunj)">
-                    <IconSelect
-                      icon={ClipboardList}
-                      value={tujuanKunj}
-                      onChange={(e) => setTujuanKunj(e.target.value)}
-                    >
+                    <IconSelect icon={ClipboardList} value={tujuanKunj} onChange={(e) => setTujuanKunj(e.target.value)}>
                       <option value="0">0 — Normal</option>
                       <option value="1">1 — Prosedur</option>
                       <option value="2">2 — Konsul Dokter</option>
@@ -1405,21 +1095,15 @@ function UbahPenjaminModal({
                   </FormField>
                   {isRajal ? (
                     <FormField label="DPJP Layanan (dpjpLayan)">
-                      <IconInput
-                        icon={Stethoscope}
-                        placeholder="Kode dokter DPJP layanan"
-                      />
+                      <IconInput icon={Stethoscope} placeholder="Kode dokter DPJP layanan" />
                     </FormField>
                   ) : (
                     <div className="flex items-end pb-4">
-                      <p className="text-[10px] italic text-slate-400">
-                        dpjpLayan tidak diisi untuk Rawat Inap
-                      </p>
+                      <p className="text-[10px] italic text-slate-400">dpjpLayan tidak diisi untuk Rawat Inap</p>
                     </div>
                   )}
                 </div>
 
-                {/* flagProcedure & kdPenunjang — diisi jika tujuanKunj ≠ "0" */}
                 <AnimatePresence>
                   {tujuanKunj !== "0" && (
                     <motion.div
@@ -1429,9 +1113,7 @@ function UbahPenjaminModal({
                       transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                       className="space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/30 p-4"
                     >
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-600">
-                        Prosedur / Penunjang
-                      </p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-600">Prosedur / Penunjang</p>
                       <div className="grid grid-cols-2 gap-3">
                         <FormField label="Flag Procedure">
                           <IconSelect icon={ClipboardList}>
@@ -1445,9 +1127,7 @@ function UbahPenjaminModal({
                             <option value="1">1 — Radioterapi</option>
                             <option value="2">2 — Kemoterapi</option>
                             <option value="3">3 — Rehabilitasi Medik</option>
-                            <option value="4">
-                              4 — Rehabilitasi Psikososial
-                            </option>
+                            <option value="4">4 — Rehabilitasi Psikososial</option>
                             <option value="5">5 — Transfusi Darah</option>
                             <option value="6">6 — Pelayanan Gigi</option>
                             <option value="7">7 — Laboratorium</option>
@@ -1463,7 +1143,6 @@ function UbahPenjaminModal({
                   )}
                 </AnimatePresence>
 
-                {/* assesmentPel — diisi jika tujuanKunj = "0" atau "2" */}
                 <AnimatePresence>
                   {(tujuanKunj === "0" || tujuanKunj === "2") && (
                     <motion.div
@@ -1474,18 +1153,10 @@ function UbahPenjaminModal({
                     >
                       <FormField label="Assesment Pelayanan (assesmentPel)">
                         <IconSelect icon={ClipboardList}>
-                          <option value="">
-                            — Pilih alasan (jika berlaku) —
-                          </option>
-                          <option value="1">
-                            1 — Poli spesialis tidak tersedia hari sebelumnya
-                          </option>
-                          <option value="2">
-                            2 — Jam poli telah berakhir hari sebelumnya
-                          </option>
-                          <option value="3">
-                            3 — Dokter spesialis tidak praktek hari sebelumnya
-                          </option>
+                          <option value="">— Pilih alasan (jika berlaku) —</option>
+                          <option value="1">1 — Poli spesialis tidak tersedia hari sebelumnya</option>
+                          <option value="2">2 — Jam poli telah berakhir hari sebelumnya</option>
+                          <option value="3">3 — Dokter spesialis tidak praktek hari sebelumnya</option>
                           <option value="4">4 — Atas instruksi RS</option>
                           <option value="5">5 — Tujuan Kontrol</option>
                         </IconSelect>
@@ -1495,33 +1166,20 @@ function UbahPenjaminModal({
                 </AnimatePresence>
 
                 <FormField label="Catatan Peserta (catatan)">
-                  <textarea
-                    className={cn(inputCls, "min-h-18 resize-none")}
-                    placeholder="Catatan tambahan peserta BPJS (opsional)..."
-                  />
+                  <textarea className={cn(inputCls, "min-h-18 resize-none")} placeholder="Catatan tambahan peserta BPJS (opsional)..." />
                 </FormField>
               </div>
             )}
 
-            {/* ── Section 4: Poli & Rujukan ── */}
+            {/* Section 4: Poli & Rujukan */}
             {validSec === "poli-rujukan" && (
               <div className="space-y-4">
-                <SectionHeader
-                  icon={Building2}
-                  iconCls="bg-teal-100 text-teal-600"
-                  title="Poli & Rujukan"
-                  sub="Poli tujuan dan data surat rujukan"
-                />
+                <SectionHeader icon={Building2} iconCls="bg-teal-100 text-teal-600" title="Poli & Rujukan" sub="Poli tujuan dan data surat rujukan" />
 
                 <div className="space-y-3 rounded-xl border border-teal-100 bg-teal-50/30 p-4">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-teal-600">
-                    Data Poli
-                  </p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-teal-600">Data Poli</p>
                   <FormField label="Kode Poli Tujuan (poli.tujuan)">
-                    <IconInput
-                      icon={Building2}
-                      placeholder="Kode poli (lihat referensi BPJS)"
-                    />
+                    <IconInput icon={Building2} placeholder="Kode poli (lihat referensi BPJS)" />
                   </FormField>
                   <ToggleField
                     label="Poli Eksekutif (poli.eksekutif)"
@@ -1532,18 +1190,12 @@ function UbahPenjaminModal({
                 </div>
 
                 <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                    Data Rujukan
-                  </p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Data Rujukan</p>
                   <FormField label="Asal Rujukan (rujukan.asalRujukan)">
                     <IconSelect icon={MapPin}>
                       <option value="">— Pilih asal rujukan —</option>
-                      <option value="1">
-                        1 — Faskes Tingkat 1 (Puskesmas / Klinik)
-                      </option>
-                      <option value="2">
-                        2 — Faskes Tingkat 2 (Rumah Sakit)
-                      </option>
+                      <option value="1">1 — Faskes Tingkat 1 (Puskesmas / Klinik)</option>
+                      <option value="2">2 — Faskes Tingkat 2 (Rumah Sakit)</option>
                     </IconSelect>
                   </FormField>
                   <div className="grid grid-cols-2 gap-3">
@@ -1551,62 +1203,34 @@ function UbahPenjaminModal({
                       <IconInput icon={Calendar} type="date" />
                     </FormField>
                     <FormField label="No. Rujukan (noRujukan)">
-                      <IconInput
-                        icon={Hash}
-                        placeholder="Nomor surat rujukan"
-                      />
+                      <IconInput icon={Hash} placeholder="Nomor surat rujukan" />
                     </FormField>
                   </div>
                   <FormField label="Kode PPK Rujukan (ppkRujukan)">
-                    <IconInput
-                      icon={Building2}
-                      placeholder="Kode faskes perujuk (8 digit)"
-                    />
+                    <IconInput icon={Building2} placeholder="Kode faskes perujuk (8 digit)" />
                   </FormField>
                 </div>
               </div>
             )}
 
-            {/* ── Section 5: Jaminan & SKDP ── */}
+            {/* Section 5: Jaminan & SKDP */}
             {validSec === "jaminan" && (
               <div className="space-y-4">
-                <SectionHeader
-                  icon={Shield}
-                  iconCls="bg-amber-100 text-amber-600"
-                  title="Jaminan & SKDP"
-                  sub="COB, katarak, laka lantas, dan surat kontrol DPJP"
-                />
+                <SectionHeader icon={Shield} iconCls="bg-amber-100 text-amber-600" title="Jaminan & SKDP" sub="COB, katarak, laka lantas, dan surat kontrol DPJP" />
 
                 <div className="space-y-2">
-                  <ToggleField
-                    label="COB — Coordination of Benefit (cob.cob)"
-                    description="Peserta memiliki jaminan kesehatan lain"
-                    value={cob}
-                    onChange={setCob}
-                  />
-                  <ToggleField
-                    label="Katarak (katarak.katarak)"
-                    description="Kasus tindakan operasi katarak"
-                    value={katarak}
-                    onChange={setKatarak}
-                  />
+                  <ToggleField label="COB — Coordination of Benefit (cob.cob)" description="Peserta memiliki jaminan kesehatan lain" value={cob} onChange={setCob} />
+                  <ToggleField label="Katarak (katarak.katarak)" description="Kasus tindakan operasi katarak" value={katarak} onChange={setKatarak} />
                 </div>
 
                 <FormField label="Jenis Kecelakaan (jaminan.lakaLantas)">
                   <IconSelect
                     icon={Car}
                     value={lakaLantas}
-                    onChange={(e) => {
-                      setLakaLantas(e.target.value);
-                      if (e.target.value === "0") setSuplesi(false);
-                    }}
+                    onChange={(e) => { setLakaLantas(e.target.value); if (e.target.value === "0") setSuplesi(false); }}
                   >
-                    <option value="0">
-                      0 — Bukan Kecelakaan Lalu Lintas (BKLL)
-                    </option>
-                    <option value="1">
-                      1 — KLL, Bukan Kecelakaan Kerja (BKK)
-                    </option>
+                    <option value="0">0 — Bukan Kecelakaan Lalu Lintas (BKLL)</option>
+                    <option value="1">1 — KLL, Bukan Kecelakaan Kerja (BKK)</option>
                     <option value="2">2 — KLL dan Kecelakaan Kerja (KK)</option>
                     <option value="3">3 — Kecelakaan Kerja (KK)</option>
                   </IconSelect>
@@ -1623,35 +1247,20 @@ function UbahPenjaminModal({
                     >
                       <div className="flex items-center gap-2 border-b border-rose-100 pb-3">
                         <Car size={12} className="text-rose-500" />
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-rose-600">
-                          Data Kecelakaan (jaminan.penjamin)
-                        </p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-rose-600">Data Kecelakaan (jaminan.penjamin)</p>
                       </div>
-
                       <div className="grid grid-cols-2 gap-3">
                         <FormField label="No. Laporan Polisi (noLP)">
-                          <IconInput
-                            icon={Hash}
-                            placeholder="No. LP dari kepolisian"
-                          />
+                          <IconInput icon={Hash} placeholder="No. LP dari kepolisian" />
                         </FormField>
                         <FormField label="Tanggal Kejadian (tglKejadian)">
                           <IconInput icon={Calendar} type="date" />
                         </FormField>
                       </div>
                       <FormField label="Keterangan Kejadian (keterangan)">
-                        <textarea
-                          className={cn(inputCls, "min-h-16 resize-none")}
-                          placeholder="Uraian singkat kejadian kecelakaan..."
-                        />
+                        <textarea className={cn(inputCls, "min-h-16 resize-none")} placeholder="Uraian singkat kejadian kecelakaan..." />
                       </FormField>
-
-                      <ToggleField
-                        label="Suplesi (suplesi.suplesi)"
-                        description="Ada SEP sebelumnya untuk kasus yang sama?"
-                        value={suplesi}
-                        onChange={setSuplesi}
-                      />
+                      <ToggleField label="Suplesi (suplesi.suplesi)" description="Ada SEP sebelumnya untuk kasus yang sama?" value={suplesi} onChange={setSuplesi} />
 
                       <AnimatePresence>
                         {suplesi && (
@@ -1659,39 +1268,21 @@ function UbahPenjaminModal({
                             initial={{ opacity: 0, y: -6 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -6 }}
-                            transition={{
-                              duration: 0.18,
-                              ease: [0.16, 1, 0.3, 1],
-                            }}
+                            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                             className="space-y-3 rounded-xl border border-amber-100 bg-amber-50/40 p-4"
                           >
                             <FormField label="No. SEP Suplesi (noSepSuplesi)">
-                              <IconInput
-                                icon={Hash}
-                                placeholder="Nomor SEP yang terkait"
-                              />
+                              <IconInput icon={Hash} placeholder="No. SEP sebelumnya" />
                             </FormField>
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                              Lokasi Kejadian (lokasiLaka)
-                            </p>
-                            <div className="grid grid-cols-3 gap-2">
-                              <FormField label="Kode Provinsi">
-                                <IconInput
-                                  icon={MapPin}
-                                  placeholder="kdPropinsi"
-                                />
+                            <div className="grid grid-cols-3 gap-3">
+                              <FormField label="Kode Propinsi">
+                                <IconInput icon={MapPin} placeholder="kdPropinsi" />
                               </FormField>
                               <FormField label="Kode Kabupaten">
-                                <IconInput
-                                  icon={MapPin}
-                                  placeholder="kdKabupaten"
-                                />
+                                <IconInput icon={MapPin} placeholder="kdKabupaten" />
                               </FormField>
                               <FormField label="Kode Kecamatan">
-                                <IconInput
-                                  icon={MapPin}
-                                  placeholder="kdKecamatan"
-                                />
+                                <IconInput icon={MapPin} placeholder="kdKecamatan" />
                               </FormField>
                             </div>
                           </motion.div>
@@ -1702,18 +1293,13 @@ function UbahPenjaminModal({
                 </AnimatePresence>
 
                 <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                    SKDP — Surat Kontrol DPJP
-                  </p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">SKDP — Surat Kontrol DPJP</p>
                   <div className="grid grid-cols-2 gap-3">
                     <FormField label="No. Surat Kontrol (skdp.noSurat)">
                       <IconInput icon={FileText} placeholder="No. SKDP" />
                     </FormField>
                     <FormField label="Kode DPJP (skdp.kodeDPJP)">
-                      <IconInput
-                        icon={Stethoscope}
-                        placeholder="Kode dokter DPJP"
-                      />
+                      <IconInput icon={Stethoscope} placeholder="Kode dokter DPJP" />
                     </FormField>
                   </div>
                 </div>
@@ -1741,17 +1327,14 @@ function UbahPaketModal({ onClose }: { onClose: () => void }) {
         </div>
       }
     >
-      <div className="mb-5 flex items-start gap-3 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-100">
-          <Package size={15} className="text-indigo-600" />
+      <div className="mb-5 flex items-start gap-3 rounded-xl border border-sky-100 bg-sky-50/60 p-4">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-sky-100">
+          <Package size={15} className="text-sky-600" />
         </div>
         <div>
-          <p className="text-[11px] font-bold text-indigo-800">
-            Perubahan Paket Layanan
-          </p>
-          <p className="mt-0.5 text-[10px] leading-relaxed text-indigo-600">
-            Ubah paket layanan akan mempengaruhi tarif dan item tagihan
-            kunjungan. Pastikan perubahan sudah mendapat persetujuan dokter.
+          <p className="text-[11px] font-bold text-sky-800">Perubahan Paket Layanan</p>
+          <p className="mt-0.5 text-[10px] leading-relaxed text-sky-600">
+            Ubah paket layanan akan mempengaruhi tarif dan item tagihan kunjungan. Pastikan perubahan sudah mendapat persetujuan dokter.
           </p>
         </div>
       </div>
@@ -1778,10 +1361,7 @@ function UbahPaketModal({ onClose }: { onClose: () => void }) {
           </IconSelect>
         </FormField>
         <FormField label="Keterangan Tambahan">
-          <textarea
-            className={cn(inputCls, "min-h-24 resize-none")}
-            placeholder="Catatan perubahan paket layanan..."
-          />
+          <textarea className={cn(inputCls, "min-h-24 resize-none")} placeholder="Catatan perubahan paket layanan..." />
         </FormField>
       </div>
     </ModalShell>
@@ -1805,16 +1385,10 @@ function SuratRujukanModal({ onClose }: { onClose: () => void }) {
     >
       <div className="space-y-4">
         <FormField label="No. Surat Rujukan">
-          <IconInput
-            icon={Hash}
-            placeholder="Nomor surat rujukan dari fasyankes"
-          />
+          <IconInput icon={Hash} placeholder="Nomor surat rujukan dari fasyankes" />
         </FormField>
         <FormField label="Asal Fasyankes">
-          <IconInput
-            icon={Building2}
-            placeholder="Nama fasilitas kesehatan perujuk"
-          />
+          <IconInput icon={Building2} placeholder="Nama fasilitas kesehatan perujuk" />
         </FormField>
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Tanggal Rujukan">
@@ -1825,20 +1399,15 @@ function SuratRujukanModal({ onClose }: { onClose: () => void }) {
           </FormField>
         </div>
         <FormField label="Dokumen Rujukan">
-          <div className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-8 transition hover:border-indigo-300 hover:bg-indigo-50/40">
+          <div className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-8 transition hover:border-sky-300 hover:bg-sky-50/40">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
               <Upload size={18} className="text-slate-400" />
             </div>
             <div className="text-center">
               <p className="text-[12px] text-slate-500">
-                Drag &amp; drop atau{" "}
-                <span className="font-semibold text-indigo-600">
-                  pilih file
-                </span>
+                Drag &amp; drop atau <span className="font-semibold text-sky-600">pilih file</span>
               </p>
-              <p className="mt-0.5 text-[10px] text-slate-400">
-                PDF, JPG, PNG — maks. 5 MB
-              </p>
+              <p className="mt-0.5 text-[10px] text-slate-400">PDF, JPG, PNG — maks. 5 MB</p>
             </div>
           </div>
         </FormField>
@@ -1867,16 +1436,11 @@ function KecelakaanModal({ onClose }: { onClose: () => void }) {
           <Info size={14} className="text-amber-600" />
         </div>
         <p className="text-[11px] leading-relaxed text-amber-700">
-          Data kecelakaan akan dilaporkan ke instansi terkait sesuai regulasi
-          BPJS Ketenagakerjaan dan Jasa Raharja.
+          Data kecelakaan akan dilaporkan ke instansi terkait sesuai regulasi BPJS Ketenagakerjaan dan Jasa Raharja.
         </p>
       </div>
 
-      <FormSection
-        label="Identifikasi Kejadian"
-        icon={AlertTriangle}
-        variant="warning"
-      >
+      <FormSection label="Identifikasi Kejadian" icon={AlertTriangle} variant="warning">
         <FormField label="Jenis Kecelakaan">
           <IconSelect icon={Car}>
             <option>Kecelakaan Lalu Lintas</option>
@@ -1905,23 +1469,14 @@ function KecelakaanModal({ onClose }: { onClose: () => void }) {
           </IconSelect>
         </FormField>
         <FormField label="Kronologi Singkat">
-          <textarea
-            className={cn(inputCls, "min-h-20 resize-none")}
-            placeholder="Uraikan kronologi kecelakaan secara singkat..."
-          />
+          <textarea className={cn(inputCls, "min-h-20 resize-none")} placeholder="Uraikan kronologi kecelakaan secara singkat..." />
         </FormField>
       </FormSection>
     </ModalShell>
   );
 }
 
-function UpdateModal({
-  kunjungan,
-  onClose,
-}: {
-  kunjungan: KunjunganRecord;
-  onClose: () => void;
-}) {
+function UpdateModal({ kunjungan, onClose }: { kunjungan: KunjunganRecord; onClose: () => void }) {
   return (
     <ModalShell
       title="Update Data Kunjungan"
@@ -1942,10 +1497,7 @@ function UpdateModal({
         <IconInput icon={Stethoscope} defaultValue={kunjungan.dokter} />
       </FormField>
       <FormField label="Cara Masuk">
-        <IconSelect
-          icon={ClipboardList}
-          defaultValue={kunjungan.caraMasuk ?? ""}
-        >
+        <IconSelect icon={ClipboardList} defaultValue={kunjungan.caraMasuk ?? ""}>
           <option>Datang Sendiri</option>
           <option>Rujukan Poli</option>
           <option>Rujukan Luar RS</option>
@@ -1961,22 +1513,13 @@ function UpdateModal({
         </IconSelect>
       </FormField>
       <FormField label="Alasan Perubahan">
-        <textarea
-          className={cn(inputCls, "min-h-20 resize-none")}
-          placeholder="Catatan alasan perubahan data..."
-        />
+        <textarea className={cn(inputCls, "min-h-20 resize-none")} placeholder="Catatan alasan perubahan data..." />
       </FormField>
     </ModalShell>
   );
 }
 
-function UpdateSEPModal({
-  kunjungan,
-  onClose,
-}: {
-  kunjungan: KunjunganRecord;
-  onClose: () => void;
-}) {
+function UpdateSEPModal({ kunjungan, onClose }: { kunjungan: KunjunganRecord; onClose: () => void }) {
   return (
     <ModalShell
       title="Update Tanggal Pulang SEP"
@@ -1992,12 +1535,8 @@ function UpdateSEPModal({
       }
     >
       <FormSection label="No. SEP" icon={FileText} variant="info">
-        <p className="font-mono text-sm font-bold tracking-wider text-indigo-700">
-          {kunjungan.noSEP ?? "—"}
-        </p>
-        <p className="mt-0.5 text-[10px] text-indigo-400">
-          Nomor SEP tidak dapat diubah
-        </p>
+        <p className="font-mono text-sm font-bold tracking-wider text-sky-700">{kunjungan.noSEP ?? "—"}</p>
+        <p className="mt-0.5 text-[10px] text-sky-400">Nomor SEP tidak dapat diubah</p>
       </FormSection>
 
       <FormField label="Tanggal Pulang">
@@ -2023,13 +1562,7 @@ function UpdateSEPModal({
   );
 }
 
-function HapusModal({
-  kunjungan,
-  onClose,
-}: {
-  kunjungan: KunjunganRecord;
-  onClose: () => void;
-}) {
+function HapusModal({ kunjungan, onClose }: { kunjungan: KunjunganRecord; onClose: () => void }) {
   const [confirm, setConfirm] = useState("");
   const ready = confirm === "HAPUS";
 
@@ -2057,34 +1590,23 @@ function HapusModal({
         </>
       }
     >
-      {/* Central danger icon */}
       <div className="mb-5 flex flex-col items-center text-center">
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-rose-100 ring-8 ring-rose-50">
           <Trash2 size={28} className="text-rose-600" />
         </div>
-        <h3 className="text-[15px] font-bold text-slate-800">
-          Hapus Data Ini Secara Permanen?
-        </h3>
+        <h3 className="text-[15px] font-bold text-slate-800">Hapus Data Ini Secara Permanen?</h3>
         <p className="mt-1.5 max-w-xs text-[12px] leading-relaxed text-slate-500">
-          Semua rekam medis, billing, dan dokumen yang terkait dengan kunjungan
-          ini akan ikut terhapus dan tidak dapat dipulihkan.
+          Semua rekam medis, billing, dan dokumen yang terkait dengan kunjungan ini akan ikut terhapus dan tidak dapat dipulihkan.
         </p>
       </div>
 
-      {/* Visit info */}
       <div className="mb-5 overflow-hidden rounded-xl border border-rose-200 bg-rose-50">
         <div className="flex items-center justify-between border-b border-rose-100 px-4 py-2.5">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-rose-500">
-            No. Pendaftaran
-          </span>
-          <span className="font-mono text-[12px] font-bold text-rose-800">
-            {kunjungan.noPendaftaran}
-          </span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-rose-500">No. Pendaftaran</span>
+          <span className="font-mono text-[12px] font-bold text-rose-800">{kunjungan.noPendaftaran}</span>
         </div>
         <div className="flex items-center justify-between px-4 py-2.5">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-rose-500">
-            Tanggal
-          </span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-rose-500">Tanggal</span>
           <span className="text-[12px] text-rose-700">{kunjungan.tanggal}</span>
         </div>
       </div>
@@ -2102,14 +1624,10 @@ function HapusModal({
           maxLength={5}
         />
         {confirm.length > 0 && !ready && (
-          <p className="mt-1.5 text-center text-[10px] text-rose-400">
-            {5 - confirm.length} karakter lagi...
-          </p>
+          <p className="mt-1.5 text-center text-[10px] text-rose-400">{5 - confirm.length} karakter lagi...</p>
         )}
         {ready && (
-          <p className="mt-1.5 text-center text-[10px] font-bold text-rose-600">
-            ✓ Konfirmasi berhasil — siap dihapus
-          </p>
+          <p className="mt-1.5 text-center text-[10px] font-bold text-rose-600">✓ Konfirmasi berhasil — siap dihapus</p>
         )}
       </FormField>
     </ModalShell>
@@ -2129,13 +1647,7 @@ function ActionModal({
 }) {
   switch (id) {
     case "ubah-penjamin":
-      return (
-        <UbahPenjaminModal
-          patient={patient}
-          kunjungan={kunjungan}
-          onClose={onClose}
-        />
-      );
+      return <UbahPenjaminModal patient={patient} kunjungan={kunjungan} onClose={onClose} />;
     case "ubah-paket":
       return <UbahPaketModal onClose={onClose} />;
     case "surat-rujukan":
@@ -2170,55 +1682,60 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
 
   return (
     <div className="flex h-full flex-col bg-slate-50">
+
       {/* ── Header ── */}
       <header className="shrink-0 border-b border-slate-200 bg-white">
-        <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-3.5">
-          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <Link
-              href={`/ehis-registration/pasien/${patient.noRM}`}
-              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[12px] font-medium text-slate-600 transition hover:bg-slate-100 sm:px-3"
-            >
-              <ArrowLeft size={14} />
-              <span className="hidden sm:inline">Kembali</span>
-            </Link>
-            <div className="h-5 w-px shrink-0 bg-slate-200" />
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
-                <span className="truncate text-sm font-bold text-slate-800">
-                  {patient.name}
-                </span>
-                <span className="hidden shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-500 sm:inline">
-                  {patient.noRM}
-                </span>
-                <span className="hidden shrink-0 text-slate-300 sm:inline">
-                  ·
-                </span>
-                <span
-                  className={cn(
-                    "hidden shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold sm:inline",
-                    unit.bg,
-                    unit.text,
-                  )}
-                >
-                  {kunjungan.unit}
-                </span>
-              </div>
-              <div className="mt-0.5 flex items-center gap-1.5">
-                <span className="font-mono text-[11px] font-bold text-indigo-600">
-                  {kunjungan.noPendaftaran}
-                </span>
-                <span className="hidden text-slate-300 sm:inline">·</span>
-                <span className="hidden text-[11px] text-slate-400 sm:inline">
-                  {kunjungan.tanggal}
-                </span>
-              </div>
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-1.5 border-b border-slate-100 px-4 py-1.5 text-[11px] text-slate-400">
+          <Link href="/ehis-registration" className="transition hover:text-slate-600">Beranda</Link>
+          <ChevronRight size={10} className="shrink-0 text-slate-300" />
+          <Link
+            href={`/ehis-registration/pasien/${patient.noRM}`}
+            className="truncate transition hover:text-slate-600"
+          >
+            {patient.name}
+          </Link>
+          <ChevronRight size={10} className="shrink-0 text-slate-300" />
+          <span className="font-medium text-slate-600">Kunjungan</span>
+          <Link
+            href="/ehis-registration"
+            className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
+          >
+            <X size={12} />
+          </Link>
+        </div>
+
+        {/* Main row */}
+        <div className="flex items-center gap-3 px-4 py-3 sm:px-5">
+          <Link
+            href={`/ehis-registration/pasien/${patient.noRM}`}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[12px] font-medium text-slate-600 transition hover:bg-slate-100"
+          >
+            <ArrowLeft size={14} />
+            <span className="hidden sm:inline">Kembali</span>
+          </Link>
+          <div className="h-5 w-px shrink-0 bg-slate-200" />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="truncate text-sm font-bold text-slate-800">{patient.name}</span>
+              <span className="hidden shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-500 sm:inline">
+                {patient.noRM}
+              </span>
+              <span className={cn("hidden shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold sm:inline", unit.bg, unit.text)}>
+                {kunjungan.unit}
+              </span>
+            </div>
+            <div className="mt-0.5 flex items-center gap-1.5">
+              <span className="font-mono text-[11px] font-bold text-sky-600">{kunjungan.noPendaftaran}</span>
+              <span className="hidden text-slate-300 sm:inline">·</span>
+              <span className="hidden text-[11px] text-slate-400 sm:inline">{kunjungan.tanggal}</span>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {kunjungan.klinisPath && (
               <Link
                 href={kunjungan.klinisPath}
-                className="flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-[11px] font-semibold text-indigo-600 transition hover:bg-indigo-100"
+                className="flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-[11px] font-semibold text-sky-600 transition hover:bg-sky-100"
               >
                 <Stethoscope size={13} />
                 <span className="hidden md:inline">Rekam Medis Klinis</span>
@@ -2230,77 +1747,43 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
         </div>
       </header>
 
-      {/* ── Main ── */}
+      {/* ── Body ── */}
       <div className="flex flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
-        {/* Left column — tabbed content */}
+
+        {/* Left — tabs + content */}
         <div className="flex flex-col lg:flex-1 lg:overflow-hidden">
-          <div className="sticky top-0 z-10 shrink-0 border-b border-slate-100 bg-white px-4 py-3 sm:px-5 lg:static">
+          <div className="sticky top-0 z-10 shrink-0 bg-white px-4 sm:px-5 lg:static">
             <TabNav active={activeTab} onChange={setActiveTab} />
           </div>
           <div className="p-4 sm:p-5 lg:flex-1 lg:overflow-y-auto">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab}
-                initial={{ opacity: 0, y: 8 }}
+                initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
+                exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.15 }}
               >
-                {activeTab === "ringkasan" && (
-                  <RingkasanTab kunjungan={kunjungan} unit={unit} />
-                )}
-                {activeTab === "penjamin" && (
-                  <PenjaminTab kunjungan={kunjungan} />
-                )}
-                {activeTab === "diagnosa" && (
-                  <DiagnosaTab kunjungan={kunjungan} icdCodes={icdCodes} />
-                )}
+                {activeTab === "ringkasan" && <RingkasanTab kunjungan={kunjungan} unit={unit} />}
+                {activeTab === "penjamin" && <PenjaminTab kunjungan={kunjungan} />}
+                {activeTab === "diagnosa" && <DiagnosaTab kunjungan={kunjungan} icdCodes={icdCodes} />}
                 {activeTab === "dokumen" && <DokumenTab doc={doc} />}
               </motion.div>
             </AnimatePresence>
           </div>
         </div>
 
-        {/* Right column — actions */}
-        <div className="shrink-0 border-t border-slate-200 bg-white lg:flex lg:w-72 lg:flex-col lg:gap-5 lg:overflow-y-auto lg:border-l lg:border-t-0">
-          {/* Desktop only: mini visit summary */}
-          <div className="hidden p-5 pb-0 lg:block">
-            <div className="overflow-hidden rounded-xl border border-slate-100 bg-linear-to-br from-slate-50 to-white">
-              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
-                <span
-                  className={cn(
-                    "rounded-md px-2 py-0.5 text-[10px] font-bold",
-                    unit.bg,
-                    unit.text,
-                  )}
-                >
-                  {kunjungan.unit}
-                </span>
-                <StatusBadge status={kunjungan.status} />
-              </div>
-              <div className="px-4 py-3">
-                <p className="font-mono text-[12px] font-bold text-indigo-600">
-                  {kunjungan.noPendaftaran}
-                </p>
-                <p className="mt-0.5 text-[11px] text-slate-500">
-                  {kunjungan.tanggal}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Mobile: section label */}
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5 lg:hidden">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Aksi & Dokumen
-            </span>
-            <StatusBadge status={kunjungan.status} />
+        {/* Right — action sidebar */}
+        <aside className="shrink-0 border-t border-slate-200 bg-white lg:flex lg:w-64 lg:flex-col lg:overflow-y-auto lg:border-l lg:border-t-0">
+          {/* Mobile section label */}
+          <div className="flex items-center border-b border-slate-100 px-4 py-2.5 lg:hidden">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Aksi & Dokumen</span>
           </div>
 
           {/* Aksi Kunjungan */}
-          <div className="p-4 sm:p-5 lg:px-5 lg:py-0">
+          <div className="p-4 sm:p-5 lg:px-4 lg:py-5">
             <RightTitle label="Aksi Kunjungan" />
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:flex lg:flex-col">
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 lg:flex lg:flex-col">
               <ActionBtn
                 icon={CreditCard}
                 label="Penjamin / SEP"
@@ -2321,7 +1804,7 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
               />
               <ActionBtn
                 icon={Car}
-                label="Kecelakaan"
+                label="Data Kecelakaan"
                 sublabel="Isi data kecelakaan"
                 variant="warning"
                 onClick={() => open("kecelakaan")}
@@ -2329,12 +1812,12 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
             </div>
           </div>
 
-          <div className="hidden border-t border-dashed border-slate-200 lg:block" />
+          <div className="mx-4 hidden border-t border-dashed border-slate-200 lg:block" />
 
           {/* Manajemen Data */}
-          <div className="p-4 pt-0 sm:p-5 sm:pt-0 lg:px-5 lg:py-0">
+          <div className="p-4 pt-0 sm:p-5 sm:pt-0 lg:px-4 lg:py-4 lg:pt-0">
             <RightTitle label="Manajemen Data" />
-            <div className="grid grid-cols-3 gap-2 lg:flex lg:flex-col">
+            <div className="grid grid-cols-3 gap-1.5 lg:flex lg:flex-col">
               <ActionBtn
                 icon={RefreshCw}
                 label="Update Kunjungan"
@@ -2344,7 +1827,7 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
               <ActionBtn
                 icon={Calendar}
                 label="Update SEP"
-                sublabel={hasSEP ? "Perbarui tgl pulang BPJS" : "Tidak ada SEP"}
+                sublabel={hasSEP ? "Perbarui tgl pulang" : "Tidak ada SEP"}
                 variant="warning"
                 onClick={() => open("update-sep")}
                 disabled={!hasSEP}
@@ -2359,22 +1842,22 @@ export default function KunjunganDetailPage({ patient, kunjungan }: Props) {
             </div>
           </div>
 
-          <div className="hidden border-t border-dashed border-slate-200 lg:block" />
+          <div className="mx-4 hidden border-t border-dashed border-slate-200 lg:block" />
 
           {/* Cetak Dokumen */}
-          <div className="p-4 pt-0 pb-6 sm:p-5 sm:pt-0 lg:px-5 lg:py-0 lg:pb-5">
+          <div className="p-4 pt-0 pb-6 sm:p-5 sm:pt-0 lg:px-4 lg:py-4 lg:pt-0 lg:pb-6">
             <RightTitle label="Cetak Dokumen" />
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:flex lg:flex-col">
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 lg:flex lg:flex-col">
               <PrintBtn label="Bukti Pendaftaran" />
               <PrintBtn label="Barcode Pasien" />
               <PrintBtn label="Trecert" />
               <PrintBtn label="SEP" disabled={!hasSEP} />
             </div>
           </div>
-        </div>
+        </aside>
       </div>
 
-      {/* Modals */}
+      {/* ── Modals ── */}
       <AnimatePresence>
         {modal && (
           <ActionModal

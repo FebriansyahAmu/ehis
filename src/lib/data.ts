@@ -967,7 +967,7 @@ export const patientMasterData: Record<string, PatientMaster> = {
     pendidikan: "S1", suku: "Jawa", kewarganegaraan: "WNI",
     alamat: "Jl. Diponegoro No. 21", kelurahan: "Gogagoman",
     kecamatan: "Kotamobagu Barat", kota: "Kotamobagu", provinsi: "Sulawesi Utara", kodePos: "95711",
-    noHp: "081234001001", terdaftar: "10 Maret 2021",
+    noHp: "081234001001", idSatusehat: "P02029S00001236", terdaftar: "10 Maret 2021",
     penjamin: { tipe: "Umum", nama: "Umum / Mandiri" },
     kontakDarurat: { nama: "Sri Santoso", hubungan: "Istri", noHp: "081234001002" },
     riwayatKunjungan: [
