@@ -12,6 +12,8 @@ import type { RJPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
 import AsesmenAwalRJTab from "./tabs/AsesmenAwalRJTab";
+import TTVTab           from "@/components/shared/medical-records/TTVTab";
+import CPPTTab          from "@/components/shared/medical-records/CPPTTab";
 
 // ── Tab definitions ───────────────────────────────────────
 
@@ -19,8 +21,8 @@ interface TabDef { id: string; label: string; icon: LucideIcon; done: boolean }
 
 const REKAM_MEDIS: TabDef[] = [
   { id: "asesmen-awal",     label: "Asesmen Awal",      icon: Stethoscope,   done: true  },
-  { id: "ttv",              label: "TTV",               icon: HeartPulse,    done: false },
-  { id: "cppt",             label: "CPPT / SOAP",       icon: FileText,      done: false },
+  { id: "ttv",              label: "TTV",               icon: HeartPulse,    done: true  },
+  { id: "cppt",             label: "CPPT / SOAP",       icon: FileText,      done: true  },
   { id: "diagnosa",         label: "Diagnosa",          icon: Tag,           done: false },
   { id: "pemeriksaan",      label: "Pemeriksaan Fisik", icon: ScanLine,      done: false },
   { id: "konsultasi",       label: "Konsultasi",        icon: MessageSquare, done: false },
@@ -132,7 +134,18 @@ export default function RJRecordTabs({ patient }: { patient: RJPatientDetail }) 
             className="flex-1 p-4 md:p-6"
           >
             {active === "asesmen-awal" && <AsesmenAwalRJTab patient={patient} />}
-            {active !== "asesmen-awal" && <ComingSoon label={activeTab.label} />}
+            {active === "ttv" && (
+              <TTVTab
+                vitalSigns={patient.vitalSigns}
+                statusKesadaran={patient.statusKesadaran}
+              />
+            )}
+            {active === "cppt" && (
+              <CPPTTab initialEntries={patient.cppt} />
+            )}
+            {active !== "asesmen-awal" && active !== "ttv" && active !== "cppt" && (
+              <ComingSoon label={activeTab.label} />
+            )}
           </motion.div>
         </AnimatePresence>
       </div>

@@ -2245,6 +2245,9 @@ export interface RJPatientDetail extends RJPatient {
   riwayatAlergi?: string;
   obatSaatIni?: string;
   riwayatKunjungan: RJKunjunganHistory[];
+  vitalSigns: IGDVitalSigns;
+  statusKesadaran: StatusKesadaran;
+  cppt: CPPTEntry[];
 }
 
 export const rawatJalanPatientDetails: Record<string, RJPatientDetail> = {
@@ -2261,6 +2264,29 @@ export const rawatJalanPatientDetails: Record<string, RJPatientDetail> = {
     noBpjs: "0001-2345-6789-0001",
     riwayatAlergi: "Aspirin — reaksi kemerahan kulit",
     obatSaatIni: "Amlodipine 5mg (1x1 malam)\nBisoprolol 2.5mg (1x1 pagi)\nAtorvastatin 20mg (1x1 malam)",
+    vitalSigns: {
+      tdSistolik: 148, tdDiastolik: 92, nadi: 88, respirasi: 18,
+      suhu: 36.8, spo2: 97, gcsEye: 4, gcsVerbal: 5, gcsMotor: 6,
+      skalaNyeri: 4, beratBadan: 72, tinggiBadan: 165,
+    },
+    statusKesadaran: "Compos_Mentis",
+    cppt: [
+      {
+        id: "cppt-rj1-1", waktu: "08:05", profesi: "Perawat", penulis: "Ns. Dian Pratiwi",
+        subjektif: "Pasien mengeluh nyeri dada kiri sejak 2 hari, menjalar ke bahu kiri. Skala nyeri 4/10. Tidak ada sesak napas.",
+        objektif: "TD 148/92 mmHg, Nadi 88×/mnt, RR 18×/mnt, Suhu 36,8°C, SpO₂ 97%. GCS 15. Kesadaran CM.",
+        asesmen: "Nyeri dada pada pasien CAD dengan riwayat stent koroner. Hipertensi grade II.",
+        planning: "Monitoring TTV tiap 30 menit. Posisikan pasien semi-fowler. EKG 12 lead. Pasang IV line. Lapor dokter.",
+      },
+      {
+        id: "cppt-rj1-2", waktu: "08:30", profesi: "Dokter", penulis: "dr. Ahmad Fauzi, Sp.JP",
+        subjektif: "Pasien laki-laki 58 tahun, nyeri dada kiri 2 hari menjalar ke bahu. Skala nyeri 4/10. Riwayat CAD post stent 1 tahun lalu.",
+        objektif: "TD 148/92, N 88, RR 18, SpO₂ 97%. Cor: S1 S2 reguler, murmur (-). Pulmo: vesikuler, ronkhi (-). EKG: SR, RBBB lama.",
+        asesmen: "Unstable angina DD/ NSTEMI pada CAD multi-vessel post stent. Hipertensi Grade II.",
+        planning: "Troponin I serial (0 & 6 jam). Echocardiography. Aspirin 80 mg (loading 320 mg). Bisoprolol 5 mg. ISDN sublingual PRN. Konsul SpJP senior. Edukasi pasien & keluarga.",
+        flagged: true,
+      },
+    ],
     riwayatKunjungan: [
       { tanggal: "10 Mar 2025", unit: "Poli Jantung", dokter: "dr. Ahmad Fauzi, Sp.JP", diagnosa: "CAD, Hipertensi Grade II", catatan: "Kontrol rutin. TD 145/90 mmHg. Terapi dilanjutkan. Anjuran diet rendah garam dan rendah lemak." },
       { tanggal: "15 Jan 2025", unit: "Poli Jantung", dokter: "dr. Ahmad Fauzi, Sp.JP", diagnosa: "CAD Post Stent, Dislipidemia", catatan: "Kontrol pasca PCI 6 bulan. EKG: SR normal. Echocardiography: EF 52%. Obat dilanjutkan." },
@@ -2279,6 +2305,28 @@ export const rawatJalanPatientDetails: Record<string, RJPatientDetail> = {
     hubunganKeluarga: "Suami",
     riwayatAlergi: "Tidak ada riwayat alergi yang diketahui",
     obatSaatIni: "Vitamin C 500mg (1x1)",
+    vitalSigns: {
+      tdSistolik: 110, tdDiastolik: 72, nadi: 96, respirasi: 22,
+      suhu: 38.4, spo2: 98, gcsEye: 4, gcsVerbal: 5, gcsMotor: 6,
+      skalaNyeri: 3, beratBadan: 55, tinggiBadan: 158,
+    },
+    statusKesadaran: "Compos_Mentis",
+    cppt: [
+      {
+        id: "cppt-rj2-1", waktu: "08:20", profesi: "Perawat", penulis: "Ns. Rina Susanti",
+        subjektif: "Pasien mengeluh demam 3 hari, batuk berdahak warna kuning-hijau, hidung tersumbat. Demam dirasakan terutama malam hari.",
+        objektif: "TD 110/72 mmHg, Nadi 96×/mnt, RR 22×/mnt, Suhu 38,4°C, SpO₂ 98%. GCS 15.",
+        asesmen: "ISPA dengan febris. Kemungkinan infeksi bakteri berdasarkan warna dahak.",
+        planning: "Kompres hangat. Anjurkan banyak minum. Monitoring suhu tiap jam. Lapor dokter.",
+      },
+      {
+        id: "cppt-rj2-2", waktu: "08:50", profesi: "Dokter", penulis: "dr. Rini Kusuma",
+        subjektif: "Perempuan 34 tahun, demam 3 hari, batuk berdahak kuning-hijau, hidung tersumbat. Tidak ada sesak napas.",
+        objektif: "Suhu 38,4°C, N 96×/mnt, RR 22×/mnt. Faring hiperemis, tonsil T1-T1. Pulmo: vesikuler, ronkhi halus basal kanan.",
+        asesmen: "Community-acquired pneumonia (CAP) ringan. DD/ Faringotonsilitis bakterial.",
+        planning: "Amoksisilin 500 mg 3×1 selama 7 hari. Paracetamol 500 mg 3×1 k/p. Ambroksol 3×1. Foto toraks PA. Follow-up 3 hari. Edukasi istirahat cukup dan hidrasi.",
+      },
+    ],
     riwayatKunjungan: [
       { tanggal: "20 Feb 2025", unit: "Poli Umum", dokter: "dr. Rini Kusuma", diagnosa: "ISPA Ringan", catatan: "Batuk pilek, tidak demam. Terapi simtomatik. Sembuh dalam 5 hari." },
       { tanggal: "10 Sep 2024", unit: "Poli Umum", dokter: "dr. Hendra Wijaya", diagnosa: "Dyspepsia Fungsional", catatan: "Nyeri ulu hati berulang. Anjuran modifikasi diet. Diberikan antasida + PPI 2 minggu." },
