@@ -56,27 +56,32 @@ export function PatientLeftPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Card: Profil Pasien */}
+      {/* ── Profil card ── */}
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+        {/* Cover — no overflow-hidden so avatar can bleed below */}
         <div
           className={cn(
-            "relative h-20 bg-linear-to-br",
+            "relative h-24 bg-linear-to-br",
             patient.gender === "L"
               ? "from-slate-600 to-teal-800"
               : "from-pink-500 to-rose-600",
           )}
         >
-          <div className="absolute -bottom-7 left-4 group">
+          <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10" />
+          <div className="absolute -right-3 bottom-0 h-20 w-20 rounded-full bg-white/6" />
+
+          {/* Avatar */}
+          <div className="absolute -bottom-8 left-4 group">
             {photoPreview ? (
               <img
                 src={photoPreview}
                 alt={patient.name}
-                className="h-14 w-14 rounded-full object-cover ring-3 ring-white shadow-md"
+                className="h-16 w-16 rounded-full object-cover ring-2 ring-white shadow-lg"
               />
             ) : (
               <div
                 className={cn(
-                  "flex h-14 w-14 items-center justify-center rounded-full text-base font-black ring-3 ring-white shadow-md",
+                  "flex h-16 w-16 items-center justify-center rounded-full text-base font-black ring-2 ring-white shadow-lg",
                   patient.gender === "L"
                     ? "bg-sky-100 text-sky-700"
                     : "bg-pink-100 text-pink-700",
@@ -87,22 +92,30 @@ export function PatientLeftPanel({
             )}
             <button
               onClick={() => photoRef.current?.click()}
+              aria-label="Ubah foto pasien"
               className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-full bg-black/0 transition group-hover:bg-black/30"
             >
-              <Camera size={12} className="text-white opacity-0 transition group-hover:opacity-100" />
+              <Camera size={14} className="text-white opacity-0 transition group-hover:opacity-100" />
             </button>
           </div>
-          <div className="absolute right-2 top-2">
+
+          {/* Top-right: gender chip + print */}
+          <div className="absolute right-2 top-2 flex items-center gap-1.5">
+            <span className="rounded-md bg-black/20 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-sm">
+              {patient.gender === "L" ? "Laki-laki" : "Perempuan"}
+            </span>
             <button
               onClick={() => window.print()}
-              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-white/15 text-white/80 transition hover:bg-white/25"
+              aria-label="Cetak kartu"
+              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-white/15 text-white/80 backdrop-blur-sm transition hover:bg-white/30 active:scale-95"
             >
               <Printer size={11} />
             </button>
           </div>
         </div>
 
-        <div className="px-4 pt-9 pb-4">
+        <div className="px-4 pt-10 pb-4">
+          {/* Name + badges */}
           <div className="mb-3">
             <h2 className="text-sm font-bold leading-snug text-slate-900 line-clamp-2 wrap-break-words">
               {patient.name}
@@ -120,39 +133,48 @@ export function PatientLeftPanel({
             </div>
           </div>
 
+          {/* ID info */}
           <div className="rounded-xl bg-slate-50 px-3 py-2.5 space-y-1.5">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] text-slate-400">No. Rekam Medis</span>
-              <span className="font-mono text-[11px] font-bold text-slate-800">{patient.noRM}</span>
+              <span className="text-xs text-slate-400">No. Rekam Medis</span>
+              <span className="font-mono text-xs font-bold text-slate-800">{patient.noRM}</span>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] text-slate-400">NIK</span>
-              <span className="font-mono text-[11px] text-slate-600">{patient.nik}</span>
+              <span className="text-xs text-slate-400">NIK</span>
+              <span className="font-mono text-xs text-slate-600">{patient.nik}</span>
             </div>
             {patient.idSatusehat && (
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] text-slate-400">ID Satusehat</span>
-                <span className="font-mono text-[11px] font-semibold text-indigo-600">{patient.idSatusehat}</span>
+                <span className="text-xs text-slate-400">ID Satusehat</span>
+                <span className="font-mono text-xs font-semibold text-indigo-600">{patient.idSatusehat}</span>
               </div>
             )}
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] text-slate-400">Terdaftar</span>
-              <span className="text-[11px] text-slate-600">{patient.terdaftar}</span>
+              <span className="text-xs text-slate-400">Terdaftar</span>
+              <span className="text-xs text-slate-600">{patient.terdaftar}</span>
             </div>
           </div>
 
+          {/* Stats */}
           <div className="mt-3 grid grid-cols-3 gap-2">
-            <div className="rounded-xl bg-indigo-50 p-2.5 text-center">
+            <div className="rounded-xl bg-indigo-50 p-2.5 text-center ring-1 ring-inset ring-indigo-100">
               <p className="text-base font-black text-indigo-700">{patient.riwayatKunjungan.length}</p>
               <p className="text-[9px] font-bold uppercase tracking-wider text-indigo-400">Kunjungan</p>
             </div>
-            <div className="rounded-xl bg-sky-50 p-2.5 text-center">
+            <div className="rounded-xl bg-sky-50 p-2.5 text-center ring-1 ring-inset ring-sky-100">
               <p className="text-base font-black text-sky-700">
                 {patient.riwayatKunjungan.filter((k) => k.status === "Aktif").length}
               </p>
               <p className="text-[9px] font-bold uppercase tracking-wider text-sky-400">Aktif</p>
             </div>
-            <div className={cn("rounded-xl p-2.5 text-center", upcomingCount > 0 ? "bg-emerald-50" : "bg-slate-50")}>
+            <div
+              className={cn(
+                "rounded-xl p-2.5 text-center ring-1 ring-inset",
+                upcomingCount > 0
+                  ? "bg-emerald-50 ring-emerald-100"
+                  : "bg-slate-50 ring-slate-100",
+              )}
+            >
               <p className={cn("text-base font-black", upcomingCount > 0 ? "text-emerald-700" : "text-slate-400")}>
                 {upcomingCount}
               </p>
@@ -162,14 +184,16 @@ export function PatientLeftPanel({
             </div>
           </div>
 
+          {/* Primary CTA */}
           <button
             onClick={onDaftarKunjungan}
-            className="group mt-3 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-emerald-700 active:scale-[0.98]"
+            className="group mt-3 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-sky-600 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-sky-700 active:scale-[0.98]"
           >
-            <CalendarPlus size={11} className="transition group-hover:rotate-6" />{" "}
+            <CalendarPlus size={12} className="transition group-hover:scale-110" />
             Daftar Kunjungan Baru
           </button>
 
+          {/* Secondary actions */}
           <div className="mt-2 grid grid-cols-2 gap-1.5">
             {[
               { icon: Camera,        label: "Ubah Foto",   onClick: () => photoRef.current?.click() },
@@ -180,7 +204,7 @@ export function PatientLeftPanel({
               <button
                 key={label}
                 onClick={onClick}
-                className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-100 px-3 py-2 text-[11px] font-medium text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-100 px-3 py-2 text-[11px] font-medium text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 active:scale-[0.97]"
               >
                 <Icon size={11} className="shrink-0 text-slate-400" />
                 {label}
@@ -190,7 +214,7 @@ export function PatientLeftPanel({
         </div>
       </div>
 
-      {/* Card: Rincian Tagihan */}
+      {/* ── Tagihan card ── */}
       {patient.billing.length > 0 ? (
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
@@ -233,7 +257,7 @@ export function PatientLeftPanel({
                   <button
                     onClick={() => (isActive ? onKasir() : onOpenBilling(b.id))}
                     title={isActive ? "Buka kasir lengkap" : "Lihat rincian"}
-                    className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-teal-300 hover:bg-teal-50 hover:text-teal-600"
+                    className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-teal-300 hover:bg-teal-50 hover:text-teal-600 active:scale-95"
                   >
                     <ArrowRight size={12} />
                   </button>

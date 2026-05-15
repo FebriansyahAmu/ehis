@@ -48,7 +48,6 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
     setOpenBillingId(null);
     setShowSearch(false);
     setShowTambahJadwal(false);
-    setJadwalShowAll(false);
   }
 
   function openPatient(p: PatientMaster) {
@@ -89,7 +88,6 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
   const [showDaftarKunjungan, setDaftarKunjungan] = useState(false);
   const [showTambahJadwal, setShowTambahJadwal] = useState(false);
   const [showInfoLengkap, setInfoLengkap] = useState(false);
-  const [jadwalShowAll, setJadwalShowAll] = useState(false);
   const [openBillingId, setOpenBillingId] = useState<string | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
@@ -307,12 +305,10 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
           <PatientRightPanel
             patient={patient}
             jadwalList={jadwalList}
-            jadwalShowAll={jadwalShowAll}
             upcomingCount={upcomingCount}
             onUbahPenjamin={() => setPenjamin(true)}
             onLihatRiwayat={() => setRiwayat(true)}
             onTambahJadwal={() => setShowTambahJadwal(true)}
-            onToggleJadwal={() => setJadwalShowAll((v) => !v)}
           />
         </div>
       </div>
