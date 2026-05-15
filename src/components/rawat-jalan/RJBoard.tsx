@@ -109,7 +109,7 @@ export default function RJBoard({ patients }: { patients: RJPatient[] }) {
         {/* Secondary filters */}
         <div className="flex flex-wrap items-center gap-2">
           <select value={dokterFilter} onChange={e => setDokterFilter(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
             aria-label="Filter dokter"
           >
             {dokterList.map(d => (
@@ -118,7 +118,7 @@ export default function RJBoard({ patients }: { patients: RJPatient[] }) {
           </select>
 
           <select value={penjaminFilter} onChange={e => setPenjaminFilter(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
             aria-label="Filter penjamin"
           >
             <option value="Semua">Semua Penjamin</option>
@@ -132,7 +132,7 @@ export default function RJBoard({ patients }: { patients: RJPatient[] }) {
             <input
               type="search" value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Cari nama / No. RM…"
-              className="h-8 w-52 rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-xs placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+              className="h-8 w-52 rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-xs placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
               aria-label="Cari pasien rawat jalan"
             />
           </div>
@@ -207,7 +207,7 @@ export default function RJBoard({ patients }: { patients: RJPatient[] }) {
                 className={cn(
                   "flex h-8 min-w-8 items-center justify-center rounded-lg border px-2 text-xs font-semibold transition",
                   n === page
-                    ? "border-indigo-500 bg-indigo-600 text-white"
+                    ? "border-sky-500 bg-sky-600 text-white"
                     : "border-slate-200 text-slate-600 hover:bg-slate-50",
                 )}
               >

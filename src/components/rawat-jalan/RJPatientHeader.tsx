@@ -18,7 +18,7 @@ const HEADER_STATUS: Record<RJStatus, {
   Menunggu_Skrining: { stripe: "bg-amber-400",   topBar: "bg-amber-50/50",   identityWash: "from-amber-50/30",   avatarRing: "ring-amber-200"   },
   Skrining:          { stripe: "bg-sky-500",      topBar: "bg-sky-50/50",     identityWash: "from-sky-50/30",     avatarRing: "ring-sky-200"     },
   Menunggu_Dokter:   { stripe: "bg-orange-500",   topBar: "bg-orange-50/50",  identityWash: "from-orange-50/30",  avatarRing: "ring-orange-200"  },
-  Sedang_Diperiksa:  { stripe: "bg-indigo-600",   topBar: "bg-indigo-50/50",  identityWash: "from-indigo-50/30",  avatarRing: "ring-indigo-200", pulse: true },
+  Sedang_Diperiksa:  { stripe: "bg-sky-500",      topBar: "bg-sky-50/50",     identityWash: "from-sky-50/30",     avatarRing: "ring-sky-200",   pulse: true },
   Selesai:           { stripe: "bg-emerald-500",  topBar: "bg-emerald-50/40", identityWash: "from-emerald-50/20", avatarRing: "ring-emerald-200" },
 };
 
@@ -69,20 +69,20 @@ function AntrianCard({ nomor, status, poli }: { nomor: number; status: RJStatus;
 
 function DokterCard({ dokter, waktu, tanggal }: { dokter: string; waktu: string; tanggal: string }) {
   return (
-    <div className="relative min-w-0 flex-1 overflow-hidden rounded-xl bg-linear-to-br from-indigo-600 to-indigo-800 shadow-md">
+    <div className="relative min-w-0 flex-1 overflow-hidden rounded-xl bg-linear-to-br from-sky-500 to-sky-700 shadow-md">
       <Stethoscope size={72} className="pointer-events-none absolute -right-4 -top-4 rotate-12 text-white/[0.07]" />
       <div className="relative flex h-full flex-col px-3 py-2.5">
-        <span className="mb-1.5 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-indigo-200">
+        <span className="mb-1.5 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-sky-100">
           <Stethoscope size={9} /> Dokter
         </span>
         <p className="truncate text-sm font-bold leading-tight text-white">{dokter}</p>
         <div className="mt-auto flex items-center gap-2 pt-2">
-          <div className="flex items-center gap-1 text-[10px] text-indigo-200">
+          <div className="flex items-center gap-1 text-[10px] text-sky-100">
             <CalendarDays size={9} />
             <span>{tanggal}</span>
           </div>
-          <span className="text-indigo-300/50">·</span>
-          <span className="text-[10px] font-semibold text-indigo-100">{waktu}</span>
+          <span className="text-sky-200/60">·</span>
+          <span className="text-[10px] font-semibold text-white">{waktu}</span>
         </div>
       </div>
     </div>
@@ -181,8 +181,8 @@ export default function RJPatientHeader({ patient }: { patient: RJPatientDetail 
                     {initials}
                     {hdr.pulse && (
                       <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-60" />
-                        <span className="relative inline-flex h-3 w-3 rounded-full bg-indigo-500" />
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-60" />
+                        <span className="relative inline-flex h-3 w-3 rounded-full bg-sky-500" />
                       </span>
                     )}
                   </div>

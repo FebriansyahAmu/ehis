@@ -16,7 +16,7 @@ type Variant = "default" | "warning" | "active" | "success" | "info";
 const VARIANT_CLS: Record<Variant, { card: string; text: string; lbl: string; ico: string }> = {
   default: { card: "border-slate-200 bg-white",         text: "text-slate-900",   lbl: "text-slate-600",   ico: "text-slate-400"   },
   warning: { card: "border-amber-200 bg-amber-50",      text: "text-amber-700",   lbl: "text-amber-600",   ico: "text-amber-500"   },
-  active:  { card: "border-indigo-200 bg-indigo-50",    text: "text-indigo-700",  lbl: "text-indigo-600",  ico: "text-indigo-500"  },
+  active:  { card: "border-sky-200 bg-sky-50",          text: "text-sky-700",     lbl: "text-sky-600",     ico: "text-sky-500"     },
   success: { card: "border-emerald-200 bg-emerald-50",  text: "text-emerald-700", lbl: "text-emerald-600", ico: "text-emerald-500" },
   info:    { card: "border-sky-200 bg-sky-50",           text: "text-sky-700",     lbl: "text-sky-600",     ico: "text-sky-500"    },
 };
@@ -54,8 +54,8 @@ export default function RawatJalanPage() {
       <header className="animate-fade-in flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100">
-              <Stethoscope size={16} className="text-indigo-600" aria-hidden="true" />
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-100">
+              <Stethoscope size={16} className="text-sky-600" aria-hidden="true" />
             </span>
             <h1 className="text-xl font-bold text-slate-900">Rawat Jalan</h1>
           </div>
@@ -65,7 +65,7 @@ export default function RawatJalanPage() {
         </div>
         <button
           type="button"
-          className="flex shrink-0 items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95"
+          className="flex shrink-0 items-center gap-1.5 rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 active:scale-95"
         >
           <Plus size={14} strokeWidth={2.5} />
           Kunjungan Baru

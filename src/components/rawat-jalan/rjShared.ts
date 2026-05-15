@@ -34,10 +34,10 @@ export const STATUS_CFG: Record<RJStatus, StatusDef> = {
   },
   Sedang_Diperiksa: {
     label:  "Sedang Diperiksa",
-    badge:  "bg-indigo-100 text-indigo-700",
-    border: "border-l-indigo-400",
-    dot:    "bg-indigo-400",
-    active: "bg-indigo-600 text-white border-indigo-600",
+    badge:  "bg-sky-100 text-sky-700",
+    border: "border-l-sky-400",
+    dot:    "bg-sky-400",
+    active: "bg-sky-600 text-white border-sky-600",
   },
   Selesai: {
     label:  "Selesai",

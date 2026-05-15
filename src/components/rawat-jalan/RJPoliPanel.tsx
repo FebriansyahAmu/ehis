@@ -56,7 +56,7 @@ function PoliCard({
       className={cn(
         "flex w-48 shrink-0 flex-col rounded-xl border p-3 text-left transition-all duration-150",
         isSelected
-          ? "border-indigo-300 bg-indigo-50 shadow-sm ring-1 ring-indigo-200"
+          ? "border-sky-300 bg-sky-50 shadow-sm ring-1 ring-sky-200"
           : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
       )}
     >
@@ -80,8 +80,8 @@ function PoliCard({
           </span>
         )}
         {stat.aktif > 0 && (
-          <span className="flex items-center gap-1 text-indigo-600 font-medium">
-            <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
+          <span className="flex items-center gap-1 text-sky-600 font-medium">
+            <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
             {stat.aktif} aktif
           </span>
         )}
@@ -131,14 +131,14 @@ export default function RJPoliPanel({ patients, selected, onSelect }: Props) {
           className={cn(
             "flex h-full shrink-0 flex-col justify-center rounded-xl border px-4 py-3 text-left transition-all duration-150",
             selected === "Semua"
-              ? "border-indigo-300 bg-indigo-600 text-white shadow-sm"
+              ? "border-sky-300 bg-sky-600 text-white shadow-sm"
               : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50",
           )}
         >
           <p className="text-xs font-bold">Semua Poli</p>
           <p className={cn(
             "text-[10px]",
-            selected === "Semua" ? "text-indigo-200" : "text-slate-400",
+            selected === "Semua" ? "text-sky-200" : "text-slate-400",
           )}>
             {patients.length} pasien
           </p>

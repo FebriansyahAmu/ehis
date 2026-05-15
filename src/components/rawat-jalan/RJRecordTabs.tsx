@@ -49,8 +49,8 @@ function NavItem({ tab, active, onClick }: { tab: TabDef; active: boolean; onCli
       className={cn(
         "mx-2 flex w-[calc(100%-16px)] cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-all duration-150",
         active
-          ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200"
-          : "text-slate-500 hover:bg-indigo-50 hover:text-indigo-700",
+          ? "bg-sky-600 text-white shadow-sm shadow-sky-200"
+          : "text-slate-500 hover:bg-sky-50 hover:text-sky-700",
       )}
     >
       <Icon size={14} className="shrink-0" />
