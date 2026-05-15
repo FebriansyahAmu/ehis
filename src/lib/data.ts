@@ -2096,3 +2096,192 @@ export const rawatInapPatientDetails: Record<string, RawatInapPatientDetail> = {
     },
   },
 };
+
+// ══════════════════════════════════════════════════════════════
+// RAWAT JALAN
+// ══════════════════════════════════════════════════════════════
+
+export type RJStatus =
+  | "Menunggu_Skrining"
+  | "Skrining"
+  | "Menunggu_Dokter"
+  | "Sedang_Diperiksa"
+  | "Selesai";
+
+export type RJPoli =
+  | "Poli_Umum"
+  | "Poli_Dalam"
+  | "Poli_Jantung"
+  | "Poli_Paru"
+  | "Poli_Bedah"
+  | "Poli_Saraf"
+  | "Poli_Anak"
+  | "Poli_THT"
+  | "Poli_Mata"
+  | "Poli_Obgyn";
+
+export interface RJPatient {
+  id:               string;
+  noRM:             string;
+  name:             string;
+  age:              number;
+  gender:           "L" | "P";
+  tanggalLahir:     string;
+  poli:             RJPoli;
+  dokter:           string;
+  nomorAntrian:     number;
+  status:           RJStatus;
+  keluhan:          string;
+  penjamin:         TipePenjamin;
+  tanggalKunjungan: string;
+  waktuDaftar:      string;
+}
+
+export interface RJStats {
+  totalHariIni: number;
+  menunggu:     number;
+  aktif:        number;
+  selesai:      number;
+  poliAktif:    number;
+}
+
+export const rjPatients: RJPatient[] = [
+  {
+    id: "rj-1", noRM: "RM-2025-021", name: "Budiman Santoso",    age: 58, gender: "L",
+    tanggalLahir: "12 Maret 1967",   poli: "Poli_Jantung",       dokter: "dr. Ahmad Fauzi, Sp.JP",
+    nomorAntrian: 3, status: "Menunggu_Dokter",
+    keluhan: "Nyeri dada kiri sejak 2 hari, menjalar ke bahu kiri",
+    penjamin: "BPJS_Non_PBI", tanggalKunjungan: "2025-05-15", waktuDaftar: "07:45",
+  },
+  {
+    id: "rj-2", noRM: "RM-2025-034", name: "Dewi Rahmawati",     age: 34, gender: "P",
+    tanggalLahir: "5 November 1990", poli: "Poli_Umum",           dokter: "dr. Rini Kusuma",
+    nomorAntrian: 7, status: "Sedang_Diperiksa",
+    keluhan: "Demam 3 hari, batuk berdahak, hidung tersumbat",
+    penjamin: "Umum", tanggalKunjungan: "2025-05-15", waktuDaftar: "08:10",
+  },
+  {
+    id: "rj-3", noRM: "RM-2025-018", name: "Hendra Gunawan",     age: 45, gender: "L",
+    tanggalLahir: "22 Juli 1979",    poli: "Poli_Paru",           dokter: "dr. Susanto, Sp.P",
+    nomorAntrian: 2, status: "Menunggu_Skrining",
+    keluhan: "Sesak napas, batuk kronik lebih dari 3 bulan, riwayat TB",
+    penjamin: "BPJS_PBI", tanggalKunjungan: "2025-05-15", waktuDaftar: "08:30",
+  },
+  {
+    id: "rj-4", noRM: "RM-2025-009", name: "Anita Wahyuni",      age: 62, gender: "P",
+    tanggalLahir: "8 Januari 1963",  poli: "Poli_Saraf",          dokter: "dr. Budi Hartono, Sp.S",
+    nomorAntrian: 1, status: "Selesai",
+    keluhan: "Sakit kepala hebat disertai pusing berputar, riwayat hipertensi",
+    penjamin: "BPJS_Non_PBI", tanggalKunjungan: "2025-05-15", waktuDaftar: "07:20",
+  },
+  {
+    id: "rj-5", noRM: "RM-2025-042", name: "Eko Prasetyo",       age: 39, gender: "L",
+    tanggalLahir: "17 April 1986",   poli: "Poli_Bedah",          dokter: "dr. Indra Kurniawan, Sp.B",
+    nomorAntrian: 4, status: "Skrining",
+    keluhan: "Benjolan di leher kanan sejak 1 bulan, tidak nyeri, tidak demam",
+    penjamin: "Asuransi", tanggalKunjungan: "2025-05-15", waktuDaftar: "08:55",
+  },
+  {
+    id: "rj-6", noRM: "RM-2025-027", name: "Sari Kusumawati",    age: 51, gender: "P",
+    tanggalLahir: "30 September 1973", poli: "Poli_Dalam",        dokter: "dr. Yudi Santosa, Sp.PD",
+    nomorAntrian: 5, status: "Menunggu_Dokter",
+    keluhan: "Kontrol DM tipe 2, gula darah tidak terkontrol, mudah lelah",
+    penjamin: "BPJS_Non_PBI", tanggalKunjungan: "2025-05-15", waktuDaftar: "07:55",
+  },
+  {
+    id: "rj-7", noRM: "RM-2025-056", name: "Fahmi Rizki",        age: 8,  gender: "L",
+    tanggalLahir: "3 Februari 2017", poli: "Poli_Anak",           dokter: "dr. Ratna Dewi, Sp.A",
+    nomorAntrian: 6, status: "Selesai",
+    keluhan: "Diare 2 hari disertai muntah-muntah dan rewel",
+    penjamin: "BPJS_PBI", tanggalKunjungan: "2025-05-15", waktuDaftar: "07:30",
+  },
+  {
+    id: "rj-8", noRM: "RM-2025-063", name: "Mariana Putri",      age: 29, gender: "P",
+    tanggalLahir: "15 Juni 1996",    poli: "Poli_THT",            dokter: "dr. Agus Setiawan, Sp.THT",
+    nomorAntrian: 3, status: "Menunggu_Skrining",
+    keluhan: "Telinga berdenging, pendengaran berkurang, rasa penuh di telinga",
+    penjamin: "Umum", tanggalKunjungan: "2025-05-15", waktuDaftar: "09:05",
+  },
+  {
+    id: "rj-9", noRM: "RM-2025-011", name: "Bambang Sutrisno",   age: 67, gender: "L",
+    tanggalLahir: "25 Desember 1957", poli: "Poli_Jantung",       dokter: "dr. Ahmad Fauzi, Sp.JP",
+    nomorAntrian: 1, status: "Selesai",
+    keluhan: "Kontrol rutin pasca pemasangan stent koroner, sesak ringan",
+    penjamin: "BPJS_Non_PBI", tanggalKunjungan: "2025-05-15", waktuDaftar: "07:15",
+  },
+  {
+    id: "rj-10", noRM: "RM-2025-071", name: "Yuliana Sari",      age: 43, gender: "P",
+    tanggalLahir: "9 Agustus 1981",  poli: "Poli_Dalam",          dokter: "dr. Yudi Santosa, Sp.PD",
+    nomorAntrian: 8, status: "Menunggu_Skrining",
+    keluhan: "Kontrol tiroid, berat badan turun signifikan dalam 2 bulan",
+    penjamin: "Asuransi", tanggalKunjungan: "2025-05-15", waktuDaftar: "09:15",
+  },
+];
+
+export const rjStats: RJStats = {
+  totalHariIni: rjPatients.length,
+  menunggu:    rjPatients.filter(p => p.status === "Menunggu_Skrining" || p.status === "Menunggu_Dokter").length,
+  aktif:       rjPatients.filter(p => p.status === "Skrining"          || p.status === "Sedang_Diperiksa").length,
+  selesai:     rjPatients.filter(p => p.status === "Selesai").length,
+  poliAktif:   new Set(rjPatients.filter(p => p.status !== "Selesai").map(p => p.poli)).size,
+};
+
+// ── Rawat Jalan Patient Detail ─────────────────────────────
+
+export interface RJKunjunganHistory {
+  tanggal: string;
+  unit: string;
+  dokter: string;
+  diagnosa: string;
+  catatan: string;
+}
+
+export interface RJPatientDetail extends RJPatient {
+  alamat: string;
+  noTelp: string;
+  namaKeluarga: string;
+  hubunganKeluarga: string;
+  noBpjs?: string;
+  riwayatAlergi?: string;
+  obatSaatIni?: string;
+  riwayatKunjungan: RJKunjunganHistory[];
+}
+
+export const rawatJalanPatientDetails: Record<string, RJPatientDetail> = {
+  "rj-1": {
+    id: "rj-1", noRM: "RM-2025-021", name: "Budiman Santoso", age: 58, gender: "L",
+    tanggalLahir: "12 Maret 1967", poli: "Poli_Jantung", dokter: "dr. Ahmad Fauzi, Sp.JP",
+    nomorAntrian: 3, status: "Menunggu_Dokter",
+    keluhan: "Nyeri dada kiri sejak 2 hari, menjalar ke bahu kiri",
+    penjamin: "BPJS_Non_PBI", tanggalKunjungan: "2025-05-15", waktuDaftar: "07:45",
+    alamat: "Jl. Mawar No. 12, Kel. Sukamaju, Kec. Cibeunying, Bandung",
+    noTelp: "0812-3456-7890",
+    namaKeluarga: "Siti Aminah",
+    hubunganKeluarga: "Istri",
+    noBpjs: "0001-2345-6789-0001",
+    riwayatAlergi: "Aspirin — reaksi kemerahan kulit",
+    obatSaatIni: "Amlodipine 5mg (1x1 malam)\nBisoprolol 2.5mg (1x1 pagi)\nAtorvastatin 20mg (1x1 malam)",
+    riwayatKunjungan: [
+      { tanggal: "10 Mar 2025", unit: "Poli Jantung", dokter: "dr. Ahmad Fauzi, Sp.JP", diagnosa: "CAD, Hipertensi Grade II", catatan: "Kontrol rutin. TD 145/90 mmHg. Terapi dilanjutkan. Anjuran diet rendah garam dan rendah lemak." },
+      { tanggal: "15 Jan 2025", unit: "Poli Jantung", dokter: "dr. Ahmad Fauzi, Sp.JP", diagnosa: "CAD Post Stent, Dislipidemia", catatan: "Kontrol pasca PCI 6 bulan. EKG: SR normal. Echocardiography: EF 52%. Obat dilanjutkan." },
+      { tanggal: "05 Nov 2024", unit: "IGD", dokter: "dr. Rizal, Sp.EM", diagnosa: "Nyeri Dada Tipikal — r/o ACS", catatan: "EKG: RBBB baru. Troponin I negatif (serial 6 jam). Dipulangkan + rujuk elektif Poli Jantung." },
+    ],
+  },
+  "rj-2": {
+    id: "rj-2", noRM: "RM-2025-034", name: "Dewi Rahmawati", age: 34, gender: "P",
+    tanggalLahir: "5 November 1990", poli: "Poli_Umum", dokter: "dr. Rini Kusuma",
+    nomorAntrian: 7, status: "Sedang_Diperiksa",
+    keluhan: "Demam 3 hari, batuk berdahak, hidung tersumbat",
+    penjamin: "Umum", tanggalKunjungan: "2025-05-15", waktuDaftar: "08:10",
+    alamat: "Jl. Anggrek Raya No. 5, RT 03/08, Kel. Cipete, Jakarta Selatan",
+    noTelp: "0821-5678-9012",
+    namaKeluarga: "Ahmad Rahmawati",
+    hubunganKeluarga: "Suami",
+    riwayatAlergi: "Tidak ada riwayat alergi yang diketahui",
+    obatSaatIni: "Vitamin C 500mg (1x1)",
+    riwayatKunjungan: [
+      { tanggal: "20 Feb 2025", unit: "Poli Umum", dokter: "dr. Rini Kusuma", diagnosa: "ISPA Ringan", catatan: "Batuk pilek, tidak demam. Terapi simtomatik. Sembuh dalam 5 hari." },
+      { tanggal: "10 Sep 2024", unit: "Poli Umum", dokter: "dr. Hendra Wijaya", diagnosa: "Dyspepsia Fungsional", catatan: "Nyeri ulu hati berulang. Anjuran modifikasi diet. Diberikan antasida + PPI 2 minggu." },
+    ],
+  },
+};
