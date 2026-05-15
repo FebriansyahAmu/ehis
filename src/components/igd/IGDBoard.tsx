@@ -140,7 +140,7 @@ export default function IGDBoard({ patients }: IGDBoardProps) {
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={gridKey}
-            className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
