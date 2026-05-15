@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import IdentitasVerifikasiBanner, { type VerifikasiInfo } from "@/components/shared/medical-records/IdentitasVerifikasiBanner";
 import {
   Stethoscope, HeartPulse, FileText, Tag, ScanLine,
   MessageSquare, ShieldCheck, ListChecks, Pill,
@@ -14,6 +15,14 @@ import { cn } from "@/lib/utils";
 import AsesmenAwalRJTab from "./tabs/AsesmenAwalRJTab";
 import TTVTab           from "@/components/shared/medical-records/TTVTab";
 import CPPTTab          from "@/components/shared/medical-records/CPPTTab";
+import DiagnosaTab      from "@/components/shared/medical-records/DiagnosaTab";
+import PemeriksaanRJTab from "./tabs/PemeriksaanRJTab";
+import KonsultasiTab      from "@/components/shared/medical-records/KonsultasiTab";
+import InformedConsentTab from "@/components/shared/medical-records/InformedConsentTab";
+import DaftarOrderTab    from "@/components/shared/medical-records/DaftarOrderTab";
+import ResepTab          from "@/components/shared/medical-records/ResepTab";
+import OrderLabTab       from "@/components/shared/medical-records/OrderLabTab";
+import OrderRadTab       from "@/components/shared/medical-records/OrderRadTab";
 
 // ── Tab definitions ───────────────────────────────────────
 
@@ -23,17 +32,17 @@ const REKAM_MEDIS: TabDef[] = [
   { id: "asesmen-awal",     label: "Asesmen Awal",      icon: Stethoscope,   done: true  },
   { id: "ttv",              label: "TTV",               icon: HeartPulse,    done: true  },
   { id: "cppt",             label: "CPPT / SOAP",       icon: FileText,      done: true  },
-  { id: "diagnosa",         label: "Diagnosa",          icon: Tag,           done: false },
-  { id: "pemeriksaan",      label: "Pemeriksaan Fisik", icon: ScanLine,      done: false },
-  { id: "konsultasi",       label: "Konsultasi",        icon: MessageSquare, done: false },
-  { id: "informed-consent", label: "Informed Consent",  icon: ShieldCheck,   done: false },
+  { id: "diagnosa",         label: "Diagnosa",          icon: Tag,           done: true  },
+  { id: "pemeriksaan",      label: "Pemeriksaan Fisik", icon: ScanLine,      done: true  },
+  { id: "konsultasi",       label: "Konsultasi",        icon: MessageSquare, done: true  },
+  { id: "informed-consent", label: "Informed Consent",  icon: ShieldCheck,   done: true  },
 ];
 
 const LAYANAN: TabDef[] = [
-  { id: "daftar-order", label: "Daftar Order",     icon: ListChecks,  done: false },
-  { id: "resep",        label: "Resep & Obat",     icon: Pill,        done: false },
-  { id: "order-lab",    label: "Order Lab",        icon: FlaskConical,done: false },
-  { id: "order-rad",    label: "Order Radiologi",  icon: Radiation,   done: false },
+  { id: "daftar-order", label: "Daftar Order",     icon: ListChecks,  done: true  },
+  { id: "resep",        label: "Resep & Obat",     icon: Pill,        done: true  },
+  { id: "order-lab",    label: "Order Lab",        icon: FlaskConical,done: true  },
+  { id: "order-rad",    label: "Order Radiologi",  icon: Radiation,   done: true  },
   { id: "surat",        label: "Surat & Dokumen",  icon: ScrollText,  done: false },
   { id: "disposisi",    label: "Disposisi",        icon: Navigation,  done: false },
 ];
@@ -103,6 +112,43 @@ export default function RJRecordTabs({ patient }: { patient: RJPatientDetail }) 
 
   const activeTab = ALL_TABS.find(t => t.id === active)!;
 
+  // ── Identitas verifikasi (untuk tab aksi: Resep, Order Lab, Order Rad) ──
+  const [identitasVerified, setIdentitasVerified] = useState(false);
+  const [verifikasiInfo,    setVerifikasiInfo]    = useState<VerifikasiInfo | null>(null);
+
+  function handleVerifikasiIdentitas(perawat: string) {
+    setIdentitasVerified(true);
+    setVerifikasiInfo({
+      perawat,
+      waktu: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+    });
+  }
+
+  function withIdentitas(content: React.ReactNode) {
+    return (
+      <div>
+        <IdentitasVerifikasiBanner
+          namaLengkap={patient.name}
+          tanggalLahir={patient.tanggalLahir}
+          noRM={patient.noRM}
+          isVerified={identitasVerified}
+          verifikasiInfo={verifikasiInfo ?? undefined}
+          onVerify={handleVerifikasiIdentitas}
+        />
+        <motion.div
+          animate={{
+            opacity: identitasVerified ? 1 : 0.12,
+            filter:  identitasVerified ? "blur(0px)" : "blur(3px)",
+          }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          style={{ pointerEvents: identitasVerified ? "auto" : "none" }}
+        >
+          {content}
+        </motion.div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex min-h-0 flex-1">
 
@@ -143,7 +189,36 @@ export default function RJRecordTabs({ patient }: { patient: RJPatientDetail }) 
             {active === "cppt" && (
               <CPPTTab initialEntries={patient.cppt} />
             )}
-            {active !== "asesmen-awal" && active !== "ttv" && active !== "cppt" && (
+            {active === "diagnosa" && (
+              <DiagnosaTab initialDiagnosa={patient.diagnosa} />
+            )}
+            {active === "pemeriksaan" && <PemeriksaanRJTab patient={patient} />}
+            {active === "konsultasi"      && <KonsultasiTab noRM={patient.noRM} dokterPeminta={patient.dokter} />}
+            {active === "informed-consent" && <InformedConsentTab patient={patient} />}
+            {active === "daftar-order" && <DaftarOrderTab patient={{ noRM: patient.noRM, name: patient.name, dpjp: patient.dokter }} />}
+            {active === "resep"        && withIdentitas(<ResepTab
+              showMAR={false}
+              patient={{ noRM: patient.noRM, name: patient.name, dpjp: patient.dokter, riwayatAlergi: patient.riwayatAlergi }}
+            />)}
+            {active === "order-lab" && withIdentitas(<OrderLabTab patient={{
+              doctor:       patient.dokter,
+              name:         patient.name,
+              noRM:         patient.noRM,
+              age:          patient.age,
+              gender:       patient.gender,
+              tglOrder:     patient.tanggalKunjungan,
+              unitPengirim: patient.poli.replace(/_/g, " "),
+            }} />)}
+            {active === "order-rad" && withIdentitas(<OrderRadTab patient={{
+              doctor:       patient.dokter,
+              name:         patient.name,
+              noRM:         patient.noRM,
+              age:          patient.age,
+              gender:       patient.gender,
+              tglOrder:     patient.tanggalKunjungan,
+              unitPengirim: patient.poli.replace(/_/g, " "),
+            }} />)}
+            {active !== "asesmen-awal" && active !== "ttv" && active !== "cppt" && active !== "diagnosa" && active !== "pemeriksaan" && active !== "konsultasi" && active !== "informed-consent" && active !== "daftar-order" && active !== "resep" && active !== "order-lab" && active !== "order-rad" && (
               <ComingSoon label={activeTab.label} />
             )}
           </motion.div>

@@ -1,4 +1,15 @@
-import type { KategoriObat, StatusMAR, DecisionRekonsiliasi } from "@/lib/data";
+import type { KategoriObat, StatusMAR, DecisionRekonsiliasi, ResepRIItem, MAREntry } from "@/lib/data";
+
+// ── Shared patient interface (minimal — RI, IGD, RJ all satisfy) ──
+
+export interface ResepPatient {
+  noRM:           string;
+  name:           string;
+  dpjp:           string;
+  riwayatAlergi?: string;
+  resepRI?:       { items: ResepRIItem[]; mar: MAREntry[] };
+  perawatJaga?:   string;
+}
 
 // ── Obat catalog ─────────────────────────────────────────
 

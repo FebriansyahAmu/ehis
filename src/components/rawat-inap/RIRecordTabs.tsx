@@ -19,10 +19,10 @@ import DiagnosaTab      from "./tabs/DiagnosaTab";
 import KeperawatanTab   from "./tabs/KeperawatanTab";
 import PemeriksaanTab   from "./tabs/PemeriksaanTab";
 import IntakeOutputTab  from "./tabs/IntakeOutputTab";
-import ResepTab         from "./tabs/ResepTab";
+import ResepTab         from "@/components/shared/medical-records/ResepTab";
 import OrderLabTab      from "./tabs/OrderLabTab";
 import OrderRadTab      from "./tabs/OrderRadTab";
-import KonsultasiTab    from "./tabs/KonsultasiTab";
+import KonsultasiTab    from "@/components/shared/medical-records/KonsultasiTab";
 import DischargePlanTab  from "./tabs/DischargePlanTab";
 import PasienPulangTab  from "./tabs/PasienPulangTab";
 import HandoverTab          from "./tabs/HandoverTab";
@@ -231,10 +231,17 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
             {active === "informed-consent" && <InformedConsentTab   patient={patient} />}
             {active === "rekonsiliasi"     && <RekonsiliasTab       patient={patient} />}
             {active === "daftar-order"  && <DaftarOrderTab    patient={patient} />}
-            {active === "resep"         && withIdentitas(<ResepTab       patient={patient} />)}
+            {active === "resep"         && withIdentitas(<ResepTab patient={{
+              noRM:          patient.noRM,
+              name:          patient.name,
+              dpjp:          patient.dpjp,
+              riwayatAlergi: patient.riwayatAlergi,
+              resepRI:       patient.resepRI ? { items: patient.resepRI.items, mar: patient.resepRI.mar } : undefined,
+              perawatJaga:   patient.ttvHistory?.[0]?.perawat,
+            }} />)}
             {active === "order-lab"     && withIdentitas(<OrderLabTab    patient={patient} />)}
             {active === "order-rad"     && withIdentitas(<OrderRadTab    patient={patient} />)}
-            {active === "konsultasi"    && <KonsultasiTab     patient={patient} />}
+            {active === "konsultasi"    && <KonsultasiTab     noRM={patient.noRM} dokterPeminta={patient.dpjp} />}
             {active === "discharge"     && <DischargePlanTab  patient={patient} />}
             {active === "pasien-pulang" && withIdentitas(<PasienPulangTab patient={patient} />)}
           </motion.div>

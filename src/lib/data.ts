@@ -2248,6 +2248,8 @@ export interface RJPatientDetail extends RJPatient {
   vitalSigns: IGDVitalSigns;
   statusKesadaran: StatusKesadaran;
   cppt: CPPTEntry[];
+  diagnosa: IGDDiagnosa[];
+  pemeriksaanFisik?: PemeriksaanFisikEntry;
 }
 
 export const rawatJalanPatientDetails: Record<string, RJPatientDetail> = {
@@ -2286,6 +2288,11 @@ export const rawatJalanPatientDetails: Record<string, RJPatientDetail> = {
         planning: "Troponin I serial (0 & 6 jam). Echocardiography. Aspirin 80 mg (loading 320 mg). Bisoprolol 5 mg. ISDN sublingual PRN. Konsul SpJP senior. Edukasi pasien & keluarga.",
         flagged: true,
       },
+    ],
+    diagnosa: [
+      { id: "dg-rj1-1", kodeIcd10: "I20.0", namaDiagnosis: "Unstable Angina", tipe: "Utama", status: "Dicurigai", analisa: "Nyeri dada tipikal dengan riwayat CAD. Troponin serial pending." },
+      { id: "dg-rj1-2", kodeIcd10: "I25.1", namaDiagnosis: "Coronary Artery Disease with Angina Pectoris", tipe: "Komorbid", status: "Pasti" },
+      { id: "dg-rj1-3", kodeIcd10: "I10",   namaDiagnosis: "Hipertensi Esensial", tipe: "Komorbid", status: "Pasti" },
     ],
     riwayatKunjungan: [
       { tanggal: "10 Mar 2025", unit: "Poli Jantung", dokter: "dr. Ahmad Fauzi, Sp.JP", diagnosa: "CAD, Hipertensi Grade II", catatan: "Kontrol rutin. TD 145/90 mmHg. Terapi dilanjutkan. Anjuran diet rendah garam dan rendah lemak." },
@@ -2326,6 +2333,10 @@ export const rawatJalanPatientDetails: Record<string, RJPatientDetail> = {
         asesmen: "Community-acquired pneumonia (CAP) ringan. DD/ Faringotonsilitis bakterial.",
         planning: "Amoksisilin 500 mg 3×1 selama 7 hari. Paracetamol 500 mg 3×1 k/p. Ambroksol 3×1. Foto toraks PA. Follow-up 3 hari. Edukasi istirahat cukup dan hidrasi.",
       },
+    ],
+    diagnosa: [
+      { id: "dg-rj2-1", kodeIcd10: "J18.9", namaDiagnosis: "Pneumonia, Unspecified Organism", tipe: "Utama", status: "Dicurigai", analisa: "Febris + batuk produktif + ronkhi basal kanan. Foto toraks pending konfirmasi." },
+      { id: "dg-rj2-2", kodeIcd10: "J06.9", namaDiagnosis: "Acute Upper Respiratory Infection, Unspecified", tipe: "Sekunder", status: "Diferensial" },
     ],
     riwayatKunjungan: [
       { tanggal: "20 Feb 2025", unit: "Poli Umum", dokter: "dr. Rini Kusuma", diagnosa: "ISPA Ringan", catatan: "Batuk pilek, tidak demam. Terapi simtomatik. Sembuh dalam 5 hari." },

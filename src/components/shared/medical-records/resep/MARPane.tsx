@@ -2,17 +2,19 @@
 
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { CalendarDays, Pill, CheckCircle2, AlertTriangle, XCircle, MinusCircle, Clock, Plus, Info } from "lucide-react";
-import type { RawatInapPatientDetail, ResepRIItem, MAREntry, StatusMAR, RIShift } from "@/lib/data";
+import {
+  CalendarDays, Pill, CheckCircle2, AlertTriangle, XCircle, MinusCircle, Clock, Plus, Info,
+} from "lucide-react";
+import type { ResepRIItem, MAREntry, StatusMAR, RIShift } from "@/lib/data";
 import { cn } from "@/lib/utils";
-import { MAR_CONFIG, fmtTanggalRI } from "@/components/shared/resep/resepShared";
+import { MAR_CONFIG, fmtTanggalRI, type ResepPatient } from "@/components/shared/resep/resepShared";
 
 // ── Types ─────────────────────────────────────────────────
 
 interface Props {
   items:      ResepRIItem[];
   marEntries: MAREntry[];
-  patient:    RawatInapPatientDetail;
+  patient:    ResepPatient;
   onAdd:      (entry: MAREntry) => void;
   onUpdate:   (entry: MAREntry) => void;
 }
@@ -151,28 +153,27 @@ export default function MARPane({ items, marEntries, patient, onAdd, onUpdate }:
     const existing = marEntries.find(
       (e) => e.resepItemId === itemId && e.tanggal === tanggal && e.shift === shift,
     );
-    const perawat = patient.ttvHistory[0]?.perawat ?? "Perawat Jaga";
+    const perawat = patient.perawatJaga ?? "Perawat Jaga";
     if (existing) {
       onUpdate({ ...existing, status, waktuPemberian: waktu, catatan });
     } else {
       onAdd({
-        id:              genMarId(),
-        resepItemId:     itemId,
+        id:             genMarId(),
+        resepItemId:    itemId,
         tanggal,
         shift,
         status,
-        waktuPemberian:  waktu,
+        waktuPemberian: waktu,
         perawat,
         catatan,
       });
     }
   }
 
-  // Build stats for selected day
-  const dayEntries = marEntries.filter((e) => e.tanggal === selectedDay);
-  const givenCount    = dayEntries.filter((e) => e.status === "Diberikan").length;
-  const pendingCount  = dayEntries.filter((e) => e.status === "Ditunda").length;
-  const issueCount    = dayEntries.filter((e) => e.status === "Ditolak" || e.status === "TidakTersedia").length;
+  const dayEntries   = marEntries.filter((e) => e.tanggal === selectedDay);
+  const givenCount   = dayEntries.filter((e) => e.status === "Diberikan").length;
+  const pendingCount = dayEntries.filter((e) => e.status === "Ditunda").length;
+  const issueCount   = dayEntries.filter((e) => e.status === "Ditolak" || e.status === "TidakTersedia").length;
 
   if (activeItems.length === 0) {
     return (
@@ -293,8 +294,6 @@ export default function MARPane({ items, marEntries, patient, onAdd, onUpdate }:
 
       {/* Panduan Pencatatan */}
       <div className="grid gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-xs sm:grid-cols-2">
-
-        {/* Left: steps */}
         <div>
           <div className="mb-2.5 flex items-center gap-1.5">
             <Info size={12} className="text-indigo-400" />
@@ -315,8 +314,6 @@ export default function MARPane({ items, marEntries, patient, onAdd, onUpdate }:
             ))}
           </ol>
         </div>
-
-        {/* Right: status badge examples */}
         <div>
           <p className="mb-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-600">Status Pemberian</p>
           <div className="grid grid-cols-2 gap-1.5">

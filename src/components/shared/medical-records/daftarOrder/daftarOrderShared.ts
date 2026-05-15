@@ -407,4 +407,88 @@ export const ORDERS_MOCK: Record<string, Order[]> = {
       ],
     },
   ],
+
+  // ── Rawat Jalan: Budiman Santoso · Poli Jantung · CAD (rj-1) ──
+  "RM-2025-021": [
+    {
+      id: "rj1-lab-1", type: "Lab", noOrder: "LAB/2026/05/1041",
+      tanggal: "15 Mei 2026", jam: "08:45",
+      dokter: "dr. Ahmad Fauzi, Sp.JP",
+      status: "Menunggu", catatan: "Workup angina tidak stabil — CITO Troponin",
+      tujuan: "Laboratorium Klinik",
+      items: [
+        { id: "rj1-li-1", nama: "Troponin I (CITO)",    detail: "LAB-K018 · 30 mnt", isSpecial: true },
+        { id: "rj1-li-2", nama: "Darah Lengkap (DL)",   detail: "LAB-H001 · 1–2 jam" },
+        { id: "rj1-li-3", nama: "Kolesterol Total",      detail: "LAB-K011 · 1 jam" },
+        { id: "rj1-li-4", nama: "LDL Kolesterol",        detail: "LAB-K014 · 1 jam" },
+        { id: "rj1-li-5", nama: "Kreatinin",             detail: "LAB-K008 · 1 jam" },
+        { id: "rj1-li-6", nama: "Elektrolit (Na/K/Cl)", detail: "LAB-K009 · 1 jam" },
+      ],
+    },
+    {
+      id: "rj1-rad-1", type: "Radiologi", noOrder: "RAD/2026/05/0301",
+      tanggal: "15 Mei 2026", jam: "08:50",
+      dokter: "dr. Ahmad Fauzi, Sp.JP",
+      status: "Diproses", catatan: "Evaluasi kardiomegali & iskemia",
+      tujuan: "Instalasi Radiologi",
+      items: [
+        { id: "rj1-ri-1", nama: "EKG 12 Lead",     detail: "RAD-011" },
+        { id: "rj1-ri-2", nama: "Foto Thorax PA",   detail: "RAD-001" },
+      ],
+    },
+    {
+      id: "rj1-rx-1", type: "Resep", noOrder: "RES/2026/05/0721",
+      tanggal: "15 Mei 2026", jam: "09:15",
+      dokter: "dr. Ahmad Fauzi, Sp.JP",
+      status: "Menunggu", catatan: "Terapi CAD + anti-angina",
+      tujuan: "Apotek Rawat Jalan",
+      items: [
+        { id: "rj1-rxi-1", nama: "Aspirin 100mg",          detail: "1×1 · Oral · ×30",  keterangan: "Sesudah makan" },
+        { id: "rj1-rxi-2", nama: "Clopidogrel 75mg",       detail: "1×1 · Oral · ×30",  keterangan: "DAPT" },
+        { id: "rj1-rxi-3", nama: "Bisoprolol 5mg",         detail: "1×1 · Oral · ×30" },
+        { id: "rj1-rxi-4", nama: "Atorvastatin 40mg",      detail: "1×1 · Malam · ×30" },
+        { id: "rj1-rxi-5", nama: "Nitrogliserin 0,5mg SL", detail: "PRN — saat nyeri dada", keterangan: "Max 3× per 15 mnt", isSpecial: true },
+      ],
+    },
+  ],
+
+  // ── Rawat Jalan: Dewi Rahmawati · Poli Umum · CAP (rj-2) ──
+  "RM-2025-034": [
+    {
+      id: "rj2-lab-1", type: "Lab", noOrder: "LAB/2026/05/1058",
+      tanggal: "15 Mei 2026", jam: "09:10",
+      dokter: "dr. Rini Kusuma, Sp.PD",
+      status: "Diproses", catatan: "Workup pneumonia komunitas",
+      tujuan: "Laboratorium Klinik",
+      items: [
+        { id: "rj2-li-1", nama: "Darah Lengkap (DL)",  detail: "LAB-H001 · 1–2 jam" },
+        { id: "rj2-li-2", nama: "CRP Kuantitatif",     detail: "LAB-I003 · 1 jam",  isSpecial: true },
+        { id: "rj2-li-3", nama: "LED (Laju Endap Darah)", detail: "LAB-H003 · 1 jam" },
+        { id: "rj2-li-4", nama: "SGOT / SGPT",         detail: "LAB-K015 · 1 jam" },
+      ],
+    },
+    {
+      id: "rj2-rad-1", type: "Radiologi", noOrder: "RAD/2026/05/0318",
+      tanggal: "15 Mei 2026", jam: "09:05",
+      dokter: "dr. Rini Kusuma, Sp.PD",
+      status: "Selesai", catatan: "Konfirmasi infiltrat pneumonia",
+      tujuan: "Instalasi Radiologi",
+      items: [
+        { id: "rj2-ri-1", nama: "Foto Thorax PA/Lateral", detail: "RAD-001" },
+      ],
+    },
+    {
+      id: "rj2-rx-1", type: "Resep", noOrder: "RES/2026/05/0738",
+      tanggal: "15 Mei 2026", jam: "09:30",
+      dokter: "dr. Rini Kusuma, Sp.PD",
+      status: "Menunggu", catatan: "Empiris CAP derajat ringan-sedang",
+      tujuan: "Apotek Rawat Jalan",
+      items: [
+        { id: "rj2-rxi-1", nama: "Amoxicillin-Clavulanat 625mg", detail: "3×1 · Oral · ×7", keterangan: "Sesudah makan" },
+        { id: "rj2-rxi-2", nama: "Azithromycin 500mg",           detail: "1×1 · Oral · ×5", keterangan: "Atypical coverage" },
+        { id: "rj2-rxi-3", nama: "Paracetamol 500mg",            detail: "3×1 · Oral · ×10", keterangan: "PRN demam/nyeri" },
+        { id: "rj2-rxi-4", nama: "Ambroxol 30mg",               detail: "3×1 · Oral · ×5",  keterangan: "Mukolitik" },
+      ],
+    },
+  ],
 };

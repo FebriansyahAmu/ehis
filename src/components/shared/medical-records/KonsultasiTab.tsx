@@ -5,14 +5,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Search, MessageSquare, Clock, CheckCircle2, AlertCircle, ChevronRight,
 } from "lucide-react";
-import type { RawatInapPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import {
   KONSULTASI_MOCK, URGENCY_CONFIG, STATUS_CONFIG, elapsedSince,
   type KonsultasiItem, type StatusKonsultasi,
-} from "../konsultasi/konsultasiShared";
-import RequestPane from "../konsultasi/RequestPane";
-import DetailPane  from "../konsultasi/DetailPane";
+} from "./konsultasi/konsultasiShared";
+import RequestPane from "./konsultasi/RequestPane";
+import DetailPane  from "./konsultasi/DetailPane";
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -26,6 +25,11 @@ const STATUS_FILTERS: { label: string; value: FilterVal }[] = [
   { label: "Dijawab",  value: "Dijawab"  },
   { label: "Selesai",  value: "Selesai"  },
 ];
+
+export interface KonsultasiTabProps {
+  noRM: string;
+  dokterPeminta: string;
+}
 
 // ── KonsultasiCard ────────────────────────────────────────
 
@@ -83,13 +87,13 @@ function KonsultasiCard({
 
 // ── Main ─────────────────────────────────────────────────
 
-export default function KonsultasiTab({ patient }: { patient: RawatInapPatientDetail }) {
-  const [items,           setItems]           = useState<KonsultasiItem[]>(KONSULTASI_MOCK[patient.noRM] ?? []);
-  const [mode,            setMode]            = useState<Mode>("idle");
-  const [selectedId,      setSelectedId]      = useState<string | null>(null);
-  const [search,          setSearch]          = useState("");
-  const [statusFilter,    setStatusFilter]    = useState<FilterVal>("all");
-  const [showMobileDetail,setShowMobileDetail] = useState(false);
+export default function KonsultasiTab({ noRM, dokterPeminta }: KonsultasiTabProps) {
+  const [items,            setItems]           = useState<KonsultasiItem[]>(KONSULTASI_MOCK[noRM] ?? []);
+  const [mode,             setMode]            = useState<Mode>("idle");
+  const [selectedId,       setSelectedId]      = useState<string | null>(null);
+  const [search,           setSearch]          = useState("");
+  const [statusFilter,     setStatusFilter]    = useState<FilterVal>("all");
+  const [showMobileDetail, setShowMobileDetail] = useState(false);
 
   const selectedItem = items.find(i => i.id === selectedId) ?? null;
 
@@ -268,8 +272,8 @@ export default function KonsultasiTab({ patient }: { patient: RawatInapPatientDe
             {mode === "new" && (
               <RequestPane
                 key="new"
-                noRM={patient.noRM}
-                dokterPeminta={patient.dpjp}
+                noRM={noRM}
+                dokterPeminta={dokterPeminta}
                 onSubmit={handleNewRequest}
                 onCancel={() => { setMode("idle"); setShowMobileDetail(false); }}
               />

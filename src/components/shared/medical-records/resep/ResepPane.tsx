@@ -6,11 +6,11 @@ import {
   Plus, Pill, User, AlertCircle, X, ChevronDown, ChevronRight,
   Copy, Check, Clock, Stethoscope, Send,
 } from "lucide-react";
-import type { RawatInapPatientDetail, ResepRIItem } from "@/lib/data";
+import type { ResepRIItem } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import {
   SIGNA_OPTIONS, ATURAN_WAKTU, RUTE_OPTIONS, DEPO_OPTIONS, ATURAN_PANDUAN,
-  KATEGORI_BADGE, genResepId, todayISO, fmtTanggalRI, type ObatCatalog,
+  KATEGORI_BADGE, genResepId, todayISO, fmtTanggalRI, type ObatCatalog, type ResepPatient,
 } from "@/components/shared/resep/resepShared";
 import ObatSearch   from "@/components/shared/resep/ObatSearch";
 import ResepItemRow from "@/components/shared/resep/ResepItemRow";
@@ -18,10 +18,10 @@ import ResepItemRow from "@/components/shared/resep/ResepItemRow";
 // ── Types ─────────────────────────────────────────────────
 
 interface Props {
-  patient:       RawatInapPatientDetail;
-  items:         ResepRIItem[];                  // confirmed/sent orders — riwayat + MAR source
-  onSend:        (draft: ResepRIItem[]) => void; // send draft → confirmed
-  onToggleAktif: (id: string) => void;           // toggle aktif on confirmed items
+  patient:       ResepPatient;
+  items:         ResepRIItem[];
+  onSend:        (draft: ResepRIItem[]) => void;
+  onToggleAktif: (id: string) => void;
 }
 
 interface RiwayatGroup {
@@ -91,7 +91,6 @@ function RiwayatSection({
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      {/* Section header */}
       <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5">
         <Clock size={13} className="text-slate-400" />
         <p className="text-xs font-semibold text-slate-700">Riwayat Order Obat</p>
@@ -109,7 +108,6 @@ function RiwayatSection({
 
           return (
             <div key={group.key}>
-              {/* Group row */}
               <div className="flex items-center gap-2 px-4 py-2.5 transition hover:bg-slate-50">
                 <button
                   type="button"
@@ -154,7 +152,6 @@ function RiwayatSection({
                 </div>
               </div>
 
-              {/* Animated items panel */}
               <AnimatePresence initial={false}>
                 {open && (
                   <motion.div
@@ -232,16 +229,13 @@ function RiwayatSection({
 // ── Main ─────────────────────────────────────────────────
 
 export default function ResepPane({ patient, items, onSend, onToggleAktif }: Props) {
-  const [form,       setForm]       = useState({ ...EMPTY_FORM });
-  const [depo,       setDepo]       = useState<string>("Depo Rawat Inap");
-  const [showGuide,  setShowGuide]  = useState(false);
+  const [form,           setForm]           = useState({ ...EMPTY_FORM });
+  const [depo,           setDepo]           = useState<string>("Depo Rawat Inap");
+  const [showGuide,      setShowGuide]      = useState(false);
   const [draftItems,     setDraftItems]     = useState<ResepRIItem[]>([]);
-  const [draftSourceMap, setDraftSourceMap] = useState<Map<string, string>>(new Map()); // draftId → sourceRiwayatId
+  const [draftSourceMap, setDraftSourceMap] = useState<Map<string, string>>(new Map());
 
-  // Derived: a riwayat item is "copied" only if a draft that came from it still exists
-  const copiedIds = new Set(draftSourceMap.values());
-
-  // Riwayat + stopped items are derived from confirmed (parent) items only
+  const copiedIds     = new Set(draftSourceMap.values());
   const riwayatGroups = buildGroups(items);
   const stoppedItems  = items.filter((i) => !i.aktif);
 
@@ -261,7 +255,6 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
 
   function clearObat() { setForm({ ...EMPTY_FORM }); }
 
-  // Draft handlers — local only, never touch parent items
   function addDraft(item: ResepRIItem)     { setDraftItems((p) => [item, ...p]); }
   function editDraft(updated: ResepRIItem) { setDraftItems((p) => p.map((i) => i.id === updated.id ? updated : i)); }
 
@@ -323,7 +316,7 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
             <User size={14} />
           </span>
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">DPJP / Penulis</p>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Dokter Penulis</p>
             <p className="text-xs font-semibold text-slate-800">{patient.dpjp}</p>
           </div>
         </div>
@@ -346,13 +339,12 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
         </div>
       </div>
 
-      {/* ── Two-column: form (left) + active list (right) ── */}
+      {/* Two-column: form (left) + active list (right) */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
 
         {/* Left: order form */}
         <div className="flex flex-col gap-3">
 
-          {/* Panduan toggle */}
           <button type="button" onClick={() => setShowGuide((v) => !v)}
             className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50/60 px-4 py-2.5 text-left transition hover:bg-amber-50">
             <p className="text-[11px] font-bold uppercase tracking-widest text-amber-700">Panduan Aturan Resep</p>
@@ -374,7 +366,6 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
             )}
           </AnimatePresence>
 
-          {/* Form card */}
           <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
             <p className="text-xs font-semibold text-slate-700">Tambah Order Obat</p>
 
@@ -485,7 +476,6 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
         {/* Right: draft queue + stopped confirmed items */}
         <div className="flex flex-col gap-3">
 
-          {/* Draft order list */}
           <div className="rounded-xl border border-slate-200 bg-white shadow-xs">
             <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5">
               <p className="text-xs font-semibold text-slate-700">Daftar Order Aktif</p>
@@ -522,7 +512,6 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
             </div>
           </div>
 
-          {/* Stopped confirmed items (from parent) */}
           {stoppedItems.length > 0 && (
             <div className="rounded-xl border border-slate-100 bg-slate-50/50 shadow-xs">
               <div className="border-b border-slate-100 px-4 py-2.5">
@@ -543,14 +532,13 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
         </div>
       </div>
 
-      {/* ── Riwayat order — full width below grid ── */}
+      {/* Riwayat order — full width */}
       <RiwayatSection
         groups={riwayatGroups}
         copiedIds={copiedIds}
         onCopy={copyItem}
         onCopyAll={copyAll}
       />
-
     </div>
   );
 }
