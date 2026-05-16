@@ -15,8 +15,9 @@ import { SepStep2, SepStep3, SepStep4 } from "./sep/SepSteps";
 import { StepIndicator } from "./sep/SepShared";
 import { BLANK_DRAFT, SLIDE_VARIANTS, type SepDraft, type BpjsData } from "./sep/sepTypes";
 
-export { PaketForm }   from "./PaketForm";
-export { RujukanForm } from "./RujukanForm";
+export { PaketForm }       from "./PaketForm";
+export { RujukanForm }    from "./RujukanForm";
+export { KecelakaanForm } from "./KecelakaanForm";
 
 // ─── Shared form primitives ───────────────────────────────────
 
@@ -194,37 +195,6 @@ export function PenjaminForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
 }
 
 // RujukanForm is now a full redesigned component in ./RujukanForm.tsx
-
-// ─── Kecelakaan form ──────────────────────────────────────────
-
-export function KecelakaanForm() {
-  return (
-    <div className="space-y-4">
-      <SectionHead title="Data Kecelakaan" desc="Lengkapi informasi untuk kasus kecelakaan" />
-      <p className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-700 ring-1 ring-amber-200">
-        Diperlukan untuk pelaporan dan klaim Jasa Raharja / BPJS Ketenagakerjaan.
-      </p>
-      <FieldGrid>
-        <span className={lbl}>Jenis</span>
-        <select className={smSel}>
-          <option value="">Pilih jenis...</option>
-          <option>Kecelakaan Lalu Lintas</option>
-          <option>Kecelakaan Kerja</option>
-          <option>Lainnya</option>
-        </select>
-        <span className={lbl}>Tanggal</span>
-        <input type="date" className={sm} />
-        <span className={lbl}>Lokasi</span>
-        <input className={sm} placeholder="Alamat / nama jalan kejadian..." />
-        <span className={lbl}>No. LP</span>
-        <input className={sm} placeholder="LP-XXXX/XX/XXXX" />
-        <span className={lblTop}>Keterangan</span>
-        <textarea className={cn(sm, "min-h-16 resize-none")} placeholder="Kronologi singkat kejadian..." />
-      </FieldGrid>
-      <SaveBtn text="Simpan Data Kecelakaan" />
-    </div>
-  );
-}
 
 // ─── Update data form ─────────────────────────────────────────
 
