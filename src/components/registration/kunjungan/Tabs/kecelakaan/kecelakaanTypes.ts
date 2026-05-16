@@ -2,7 +2,9 @@
 
 export type JenisKecelakaan = "kll" | "kerja" | "lainnya";
 
-export type StatusKlaim = "belum" | "proses" | "selesai" | "ditolak";
+export type StatusKlaim       = "belum" | "proses" | "selesai" | "ditolak";
+export type StatusLP          = "belum" | "proses" | "ada";
+export type StatusKoordinasiJR = "belum" | "dijadwalkan" | "verifikasi";
 
 export interface KendaraanItem {
   jenis: string;
@@ -19,9 +21,12 @@ export interface KecelakaanDraft {
   kronologi:        string;
   mekanismeTrauma:  string;
   // KLL
-  noLapPol:         string;
-  satuanPolisi:     string;
-  kendaraan:        KendaraanItem[];
+  statusLP:           StatusLP;
+  noLapPol:           string;
+  satuanPolisi:       string;
+  kendaraan:          KendaraanItem[];
+  penjaminLanjutan:   string;
+  statusKoordinasiJR: StatusKoordinasiJR;
   // KK
   namaPerusahaan:   string;
   noKpj:            string;
@@ -40,9 +45,12 @@ export const BLANK_DRAFT: KecelakaanDraft = {
   lokasi:          "",
   kronologi:       "",
   mekanismeTrauma: "",
-  noLapPol:        "",
-  satuanPolisi:    "",
-  kendaraan:       [],
+  statusLP:           "belum",
+  noLapPol:           "",
+  satuanPolisi:       "",
+  kendaraan:          [],
+  penjaminLanjutan:   "",
+  statusKoordinasiJR: "belum",
   namaPerusahaan:  "",
   noKpj:           "",
   jenisPekerjaan:  "",
@@ -123,6 +131,22 @@ export type StatusConfig = {
   label: string;
   chipCls: string;
   dot: string;
+};
+
+export type LPConfig = { label: string; chipCls: string; dot: string };
+
+export const STATUS_LP_CONFIG: Record<StatusLP, LPConfig> = {
+  belum:  { label: "Belum Ada",        chipCls: "border-slate-200 bg-slate-50 text-slate-600",        dot: "bg-slate-400"   },
+  proses: { label: "Sedang Diproses",  chipCls: "border-amber-200 bg-amber-50 text-amber-700",        dot: "bg-amber-400"   },
+  ada:    { label: "Sudah Ada",        chipCls: "border-emerald-200 bg-emerald-50 text-emerald-700",  dot: "bg-emerald-500" },
+};
+
+export type JRConfig = { label: string; chipCls: string; dot: string };
+
+export const STATUS_JR_CONFIG: Record<StatusKoordinasiJR, JRConfig> = {
+  belum:       { label: "Belum Dihubungi",     chipCls: "border-slate-200 bg-slate-50 text-slate-600",        dot: "bg-slate-400"   },
+  dijadwalkan: { label: "Surveyor Dijadwalkan", chipCls: "border-amber-200 bg-amber-50 text-amber-700",        dot: "bg-amber-400"   },
+  verifikasi:  { label: "Sudah Diverifikasi",   chipCls: "border-emerald-200 bg-emerald-50 text-emerald-700",  dot: "bg-emerald-500" },
 };
 
 export const STATUS_CONFIG: Record<StatusKlaim, StatusConfig> = {

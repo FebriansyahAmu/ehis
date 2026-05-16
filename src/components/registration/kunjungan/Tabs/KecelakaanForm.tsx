@@ -9,6 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 import { KLLPanel } from "./kecelakaan/KLLPanel";
 import { KKPanel } from "./kecelakaan/KKPanel";
+import { SuratJRModal } from "./kecelakaan/SuratJRModal";
 import {
   type JenisKecelakaan, type KecelakaanDraft, type StatusKlaim,
   BLANK_DRAFT, PROVINSI_LIST, STATUS_CONFIG,
@@ -299,8 +300,9 @@ function StatusKlaimSection({
 // ─── KecelakaanForm ───────────────────────────────────────────
 
 export function KecelakaanForm() {
-  const [draft,     setDraft]     = useState<KecelakaanDraft>({ ...BLANK_DRAFT });
-  const [submitted, setSubmitted] = useState(false);
+  const [draft,       setDraft]       = useState<KecelakaanDraft>({ ...BLANK_DRAFT });
+  const [submitted,   setSubmitted]   = useState(false);
+  const [showJRModal, setShowJRModal] = useState(false);
 
   if (submitted) {
     return (
@@ -366,12 +368,18 @@ export function KecelakaanForm() {
       {/* Status Klaim */}
       <StatusKlaimSection draft={draft} setDraft={setDraft} />
 
+      {/* JR Modal */}
+      {showJRModal && (
+        <SuratJRModal draft={draft} onClose={() => setShowJRModal(false)} />
+      )}
+
       {/* Actions */}
       <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
         <div>
           {draft.jenis === "kll" && (
             <button
               type="button"
+              onClick={() => setShowJRModal(true)}
               className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100 active:scale-95"
             >
               <FileText size={12} />
