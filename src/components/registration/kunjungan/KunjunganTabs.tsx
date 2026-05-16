@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ClipboardList, CreditCard, Package, Navigation, Car,
-  RefreshCw, Upload, Printer, Trash2,
+  Upload, Printer, Trash2,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,7 @@ import type { KunjunganRecord } from "@/lib/data";
 import { OverviewTab } from "./Tabs/OverviewTab";
 import {
   PenjaminForm, PaketForm, RujukanForm, KecelakaanForm,
-  UpdateForm, UpdateSEPForm, CetakTab, HapusForm,
+  UpdateSEPForm, CetakTab, HapusForm,
 } from "./Tabs/ActionForms";
 
 // ─── Tab definitions ──────────────────────────────────────────
@@ -20,7 +20,7 @@ import {
 type TabId =
   | "overview"
   | "penjamin" | "paket" | "rujukan" | "kecelakaan"
-  | "update" | "update-sep" | "cetak" | "hapus";
+  | "update-sep" | "cetak" | "hapus";
 
 interface TabDef {
   id: TabId;
@@ -41,10 +41,9 @@ const AKSI_TABS: TabDef[] = [
 ];
 
 const MGMT_TABS: TabDef[] = [
-  { id: "update",     label: "Update Data",         icon: RefreshCw               },
-  { id: "update-sep", label: "Update SEP",          icon: Upload                  },
-  { id: "cetak",      label: "Cetak Dokumen",        icon: Printer                 },
-  { id: "hapus",      label: "Hapus Kunjungan",      icon: Trash2, variant: "danger" },
+  { id: "update-sep", label: "Update SEP",     icon: Upload                  },
+  { id: "cetak",      label: "Cetak Dokumen",  icon: Printer                 },
+  { id: "hapus",      label: "Hapus Kunjungan", icon: Trash2, variant: "danger" },
 ];
 
 // ─── NavItem ──────────────────────────────────────────────────
@@ -122,7 +121,6 @@ function TabContent({
         {active === "paket"       && <PaketForm kunjungan={kunjungan} />}
         {active === "rujukan"     && <RujukanForm kunjungan={kunjungan} />}
         {active === "kecelakaan"  && <KecelakaanForm />}
-        {active === "update"      && <UpdateForm kunjungan={kunjungan} />}
         {active === "update-sep"  && <UpdateSEPForm kunjungan={kunjungan} />}
         {active === "cetak"       && <CetakTab kunjungan={kunjungan} />}
         {active === "hapus"       && <HapusForm kunjungan={kunjungan} />}
