@@ -15,6 +15,8 @@ import { SepStep2, SepStep3, SepStep4 } from "./sep/SepSteps";
 import { StepIndicator } from "./sep/SepShared";
 import { BLANK_DRAFT, SLIDE_VARIANTS, type SepDraft, type BpjsData } from "./sep/sepTypes";
 
+export { PaketForm } from "./PaketForm";
+
 // ─── Shared form primitives ───────────────────────────────────
 
 function SectionHead({ title, desc }: { title: string; desc: string }) {
@@ -186,33 +188,6 @@ export function PenjaminForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
       </AnimatePresence>
 
       {selected !== "bpjs-jkn" && <SaveBtn text="Simpan Perubahan" />}
-    </div>
-  );
-}
-
-// ─── Paket form ───────────────────────────────────────────────
-
-export function PaketForm() {
-  return (
-    <div className="space-y-4">
-      <SectionHead title="Ubah Paket Layanan" desc="Ubah paket atau kelas layanan untuk kunjungan ini" />
-      <FieldGrid>
-        <span className={lbl}>Paket</span>
-        <select className={smSel}>
-          <option value="">Pilih paket...</option>
-          <option>Reguler</option><option>Eksekutif</option>
-          <option>VIP</option><option>BPJS Non-PBI</option><option>BPJS PBI</option>
-        </select>
-        <span className={lbl}>Kelas</span>
-        <select className={smSel}>
-          <option value="">Pilih kelas...</option>
-          <option>Kelas 1</option><option>Kelas 2</option>
-          <option>Kelas 3</option><option>VIP</option><option>ICU</option>
-        </select>
-        <span className={lblTop}>Catatan</span>
-        <textarea className={cn(sm, "min-h-16 resize-none")} placeholder="Alasan perubahan paket..." />
-      </FieldGrid>
-      <SaveBtn text="Simpan Perubahan" />
     </div>
   );
 }
