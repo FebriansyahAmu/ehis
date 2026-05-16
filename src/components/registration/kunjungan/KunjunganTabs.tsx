@@ -120,7 +120,7 @@ function TabContent({
         {active === "overview"    && <OverviewTab kunjungan={kunjungan} icdCodes={icdCodes} />}
         {active === "penjamin"    && <PenjaminForm kunjungan={kunjungan} />}
         {active === "paket"       && <PaketForm kunjungan={kunjungan} />}
-        {active === "rujukan"     && <RujukanForm />}
+        {active === "rujukan"     && <RujukanForm kunjungan={kunjungan} />}
         {active === "kecelakaan"  && <KecelakaanForm />}
         {active === "update"      && <UpdateForm kunjungan={kunjungan} />}
         {active === "update-sep"  && <UpdateSEPForm kunjungan={kunjungan} />}

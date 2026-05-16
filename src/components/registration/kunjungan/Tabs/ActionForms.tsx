@@ -15,7 +15,8 @@ import { SepStep2, SepStep3, SepStep4 } from "./sep/SepSteps";
 import { StepIndicator } from "./sep/SepShared";
 import { BLANK_DRAFT, SLIDE_VARIANTS, type SepDraft, type BpjsData } from "./sep/sepTypes";
 
-export { PaketForm } from "./PaketForm";
+export { PaketForm }   from "./PaketForm";
+export { RujukanForm } from "./RujukanForm";
 
 // ─── Shared form primitives ───────────────────────────────────
 
@@ -192,33 +193,7 @@ export function PenjaminForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
   );
 }
 
-// ─── Rujukan form ─────────────────────────────────────────────
-
-export function RujukanForm() {
-  return (
-    <div className="space-y-4">
-      <SectionHead title="Surat Rujukan" desc="Buat atau perbarui surat rujukan untuk kunjungan ini" />
-      <FieldGrid>
-        <span className={lbl}>Jenis</span>
-        <select className={smSel}>
-          <option value="">Pilih jenis...</option>
-          <option>Rujukan Internal (Antar Poli)</option>
-          <option>Rujukan Eksternal</option>
-          <option>Rujukan Balik</option>
-        </select>
-        <span className={lbl}>Tujuan</span>
-        <input className={sm} placeholder="Nama poli / faskes tujuan..." />
-        <span className={lbl}>ICD-10</span>
-        <input className={sm} placeholder="Mis. J06.9 – ISPA" />
-        <span className={lblTop}>Alasan</span>
-        <textarea className={cn(sm, "min-h-16 resize-none")} placeholder="Jelaskan alasan perujukan..." />
-        <span className={lbl}>Tanggal</span>
-        <input type="date" className={sm} />
-      </FieldGrid>
-      <SaveBtn text="Buat Surat Rujukan" />
-    </div>
-  );
-}
+// RujukanForm is now a full redesigned component in ./RujukanForm.tsx
 
 // ─── Kecelakaan form ──────────────────────────────────────────
 
