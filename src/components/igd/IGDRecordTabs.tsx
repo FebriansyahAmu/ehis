@@ -6,7 +6,7 @@ import {
   ClipboardList, HeartPulse, Stethoscope, Tag, FileText, Zap,
   Pill, FlaskConical, Radiation, Send, Home,
   Repeat, HeartHandshake, ScanLine, ClipboardCheck, ScanEye, ListChecks, ShieldCheck,
-  ArrowRightLeft,
+  ArrowRightLeft, Tablets,
   type LucideIcon,
 } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
@@ -32,6 +32,7 @@ import PenandaanGambarTab   from "./tabs/PenandaanGambarTab";
 import DaftarOrderTab        from "./tabs/DaftarOrderTab";
 import InformedConsentTab   from "./tabs/InformedConsentTab";
 import HandoverTab           from "./tabs/HandoverTab";
+import FarmasiTab           from "@/components/shared/medical-records/FarmasiTab";
 
 // ── Tab groups ────────────────────────────────────────────
 
@@ -56,6 +57,7 @@ const REKAM_MEDIS: TabDef[] = [
 const LAYANAN: TabDef[] = [
   { id: "daftar-order", label: "Daftar Order",    icon: ListChecks   },
   { id: "resep",        label: "Resep Pasien",    icon: Pill         },
+  { id: "farmasi",      label: "Status Farmasi",  icon: Tablets      },
   { id: "order-lab",    label: "Order Lab",       icon: FlaskConical },
   { id: "order-rad",    label: "Order Radiologi", icon: Radiation    },
   { id: "rujukan",      label: "Rujukan Keluar",  icon: Send         },
@@ -223,6 +225,7 @@ export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }
             {active === "tindakan"         && withIdentitas(<TindakanTab   patient={patient} />)}
             {active === "informed-consent" && <InformedConsentTab   patient={patient} />}
             {active === "daftar-order"     && <DaftarOrderTab       patient={patient} />}
+            {active === "farmasi"      && <FarmasiTab patient={{ noRM: patient.noRM, name: patient.name, context: "igd" }} />}
             {active === "resep"        && withIdentitas(<ResepPasienTab patient={patient} />)}
             {active === "order-lab"    && withIdentitas(<OrderLabTab    patient={patient} />)}
             {active === "order-rad"    && withIdentitas(<OrderRadTab    patient={patient} />)}

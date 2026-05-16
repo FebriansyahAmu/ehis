@@ -20,6 +20,7 @@ Utilities: `cn()` · `src/lib/utils.ts` | Navigation: `src/lib/navigation.ts` | 
 | -------------------- | ------------- | --------------------------------------- | ----------- |
 | `/ehis-dashboard`    | Dashboard     | ModuleLayout                            | 🔧 Scaffold |
 | `/ehis-care`         | Clinical Care | Sidebar (main) + Fullpage               | 🚧 Active   |
+| `/ehis-care/farmasi` | Farmasi       | ModuleLayout (main)                     | ✅ Done     |
 | `/ehis-registration` | Registration  | (main) ModuleLayout + (fullpage) Pasien | 🚧 Active   |
 | `/ehis-billing`      | Billing       | ModuleLayout                            | 🔧 Scaffold |
 | `/ehis-master`       | Master Data   | ModuleLayout                            | 🔧 Scaffold |
@@ -128,7 +129,30 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 - [x] **SuratDokumenTab** ✅ — baru (shared): Surat Keterangan Sakit · Surat Kontrol · Surat Keterangan Sehat · Resume Medis Kunjungan. 4-card selector + form auto-fill + riwayat expandable + cetak. Sub: `suratDokumen/{suratDokumenShared,SuratFormPane,SuratHistoryPane}`. PMK 269/2008
 - [x] **DisposisiRJTab** ✅ — adapt dari IGD: Rujuk Internal (poli tujuan, prioritas Segera/Elektif/Konsultasi) + Rujuk Eksternal (surat rujukan full: jenis pelayanan 4 opsi, jenis rujukan 5 opsi, live preview, tujuan PPK/poli, diagnosa multi-select) + Admisi Rawat Inap (kelas 7 opsi, konfirmasi dokter, pengantar admisi). Tanpa Pulang/APS/Meninggal. File: `rawat-jalan/tabs/DisposisiRJTab.tsx`.
 
-### 🔴 Active — Dashboard & Modul Pendukung
+### ✅ Selesai — Farmasi Worklist (`/ehis-care/farmasi`)
+
+**Layer 1 — Halaman Apoteker (cross-patient worklist):** ✅
+- [x] **`farmasiShared.ts`** ✅ — Types + config maps + `deriveResepOrders()` + `updateFarmasiWorkflow()` + `workflowStore`. Tidak ada static mock — data diturunkan langsung dari `ORDERS_MOCK`. HAM auto-detect (keyword match), kategori (Narkotika/Psikotropika/Reguler), tujuan→depo mapping. `src/components/farmasi/`
+- [x] **`OrderCard.tsx`** ✅ — Card per order: HAM badge, status badge, progress bar, action button.
+- [x] **`TelaahModal.tsx`** ✅ — 3-checklist accordion (Adm/Farm/Klin) + HAM warning + Setujui/Kembalikan.
+- [x] **`DispensasiModal.tsx`** ✅ — 2-step: lot/batch/expired/label → serah terima (nama perawat).
+- [x] **`FarmasiBoard.tsx`** ✅ — Stat bar + depo tabs + filter + HAM toggle + search + grid + pagination + modals. Submit sync ke `workflowStore` + `updateOrderStatus()`.
+- [x] **`page.tsx`** ✅ — Route `src/app/ehis-care/(main)/farmasi/page.tsx`. Workflow guide strip + header stats dari `deriveResepOrders()`.
+
+**Layer 2 — Tab Farmasi di rekam medis pasien (per-patient status tracker):** ✅
+- [x] **`FarmasiTab.tsx`** ✅ (shared) — Summary cards + order list accordion + catatan apoteker + link ke halaman farmasi. Pakai `deriveResepOrders(noRM)`. `src/components/shared/medical-records/FarmasiTab.tsx`
+- [x] **Wire ke IGDRecordTabs + RIRecordTabs + RJRecordTabs** ✅ — Tab "Status Farmasi" (icon: Tablets) di grup LAYANAN ketiga modul.
+
+**Layer 3 — Data Bridge (ORDERS_MOCK ↔ Farmasi):** ✅
+- [x] **Standarisasi tujuan** ✅ — `"Depo Rawat Inap"` → `"Apotek RI"`, `"Apotek Rawat Jalan"` → `"Apotek RJ"` di `daftarOrderShared.ts`.
+- [x] **`updateOrderStatus()`** ✅ — fungsi mutasi status order di `ORDERS_MOCK`, dipanggil saat apoteker submit telaah/dispensasi → `DaftarOrderTab` pasien ikut terupdate dalam sesi yang sama.
+- [x] **Single source of truth** ✅ — `ORDERS_MOCK` adalah satu-satunya sumber. Saat migrasi ke DB, cukup ganti `ORDERS_MOCK` dengan Prisma query — semua UI tidak perlu disentuh.
+
+> Alur data: Dokter order resep di `DaftarOrderTab` → `ORDERS_MOCK` → `deriveResepOrders()` → FarmasiBoard (apoteker telaah + dispensasi) → `workflowStore` overlay → FarmasiTab per pasien (perawat lihat status). PMK 72/2016 · SKP 3
+
+### 🔴 Active — Dashboard (`/ehis-dashboard`)
+
+### 🟡 Next — Dashboard & Modul Pendukung
 
 - [ ] **Dashboard (`ehis-dashboard`)** — stats cards (pasien hari ini per unit: IGD/RI/RJ), BOR chart (bed occupancy rate), recent activity feed, quick-nav ke masing-masing modul. Route: `/ehis-dashboard`. Layout: ModuleLayout sudah ada.
 - [ ] **Billing Kasir (`ehis-billing`)** — invoice per kunjungan, rincian tindakan + obat, status pembayaran (Lunas/Proses Klaim/Belum), print struk. `KasirData` type + mock sudah tersedia di `data.ts`.
@@ -172,6 +196,7 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 - RI: `ri-1` (GJK NYHA III, dr. Budi Santoso Sp.JP, `RM-2025-003`) · `ri-3` (Syok Sepsis, dr. Hendra Wijaya Sp.EM, `RM-2025-007`)
 - Mock keyed by `RM-2025-003`: `KONSULTASI_MOCK` · `OrderLabMock` · `OrderRadMock` · `DISCHARGE_MOCK` · `PASIEN_PULANG_MOCK` · `GIZI_HISTORY_MOCK`
 - Mock keyed by `RM-2025-005`: `HANDOVER_MOCK` (IGD)
+- Farmasi mock orders: 5 order lintas unit — `igd-1` (HAM, Depo IGD) · `igd-2` (Depo IGD) · `ri-1` (HAM, Apotek RI) · `ri-3` (Apotek RI) · `rj-1` (Apotek RJ) → di `farmasi/farmasiShared.ts`
 
 **Core types** (semua di `src/lib/data.ts`):  
 `IGDPatientDetail` · `PatientMaster` · `KunjunganRecord` · `RawatInapPatientDetail`  

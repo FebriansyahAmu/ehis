@@ -280,7 +280,7 @@ export const ORDERS_MOCK: Record<string, Order[]> = {
       tanggal: "14 Mei 2026", jam: "07:15",
       dokter: "dr. Budi Santoso, Sp.JP",
       status: "Menunggu", catatan: "Eskalasi dosis furosemide — respons diuretik belum optimal",
-      tujuan: "Depo Rawat Inap",
+      tujuan: "Apotek RI",
       items: [
         { id: "rr-1", nama: "Furosemide 80mg Injeksi", detail: "2×1 · IV bolus · 2 ampul", keterangan: "Naikkan dari 40mg", isSpecial: true },
         { id: "rr-2", nama: "KCl 25 mEq",              detail: "Addmix NaCl 0,9% 500mL",   keterangan: "Monitor kalium" },
@@ -397,7 +397,7 @@ export const ORDERS_MOCK: Record<string, Order[]> = {
       tanggal: "8 Mei 2026", jam: "12:00",
       dokter: "dr. Budi Santoso, Sp.JP",
       status: "Selesai", catatan: "Terapi awal GJK akut dekompensasi",
-      tujuan: "Depo Rawat Inap",
+      tujuan: "Apotek RI",
       items: [
         { id: "rr-7",  nama: "Furosemide 40mg Injeksi",     detail: "4×1 · IV bolus",             isSpecial: true },
         { id: "rr-8",  nama: "Dobutamine 250mg/20mL Inj",   detail: "Syringe pump 5mcg/kgBB/min", isSpecial: true },
@@ -441,7 +441,7 @@ export const ORDERS_MOCK: Record<string, Order[]> = {
       tanggal: "15 Mei 2026", jam: "09:15",
       dokter: "dr. Ahmad Fauzi, Sp.JP",
       status: "Menunggu", catatan: "Terapi CAD + anti-angina",
-      tujuan: "Apotek Rawat Jalan",
+      tujuan: "Apotek RJ",
       items: [
         { id: "rj1-rxi-1", nama: "Aspirin 100mg",          detail: "1×1 · Oral · ×30",  keterangan: "Sesudah makan" },
         { id: "rj1-rxi-2", nama: "Clopidogrel 75mg",       detail: "1×1 · Oral · ×30",  keterangan: "DAPT" },
@@ -482,7 +482,7 @@ export const ORDERS_MOCK: Record<string, Order[]> = {
       tanggal: "15 Mei 2026", jam: "09:30",
       dokter: "dr. Rini Kusuma, Sp.PD",
       status: "Menunggu", catatan: "Empiris CAP derajat ringan-sedang",
-      tujuan: "Apotek Rawat Jalan",
+      tujuan: "Apotek RJ",
       items: [
         { id: "rj2-rxi-1", nama: "Amoxicillin-Clavulanat 625mg", detail: "3×1 · Oral · ×7", keterangan: "Sesudah makan" },
         { id: "rj2-rxi-2", nama: "Azithromycin 500mg",           detail: "1×1 · Oral · ×5", keterangan: "Atypical coverage" },
@@ -492,3 +492,10 @@ export const ORDERS_MOCK: Record<string, Order[]> = {
     },
   ],
 };
+
+export function updateOrderStatus(orderId: string, status: OrderStatus): void {
+  for (const orders of Object.values(ORDERS_MOCK)) {
+    const order = orders.find((o) => o.id === orderId);
+    if (order) { order.status = status; return; }
+  }
+}

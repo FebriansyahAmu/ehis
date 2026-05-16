@@ -6,7 +6,7 @@ import IdentitasVerifikasiBanner, { type VerifikasiInfo } from "@/components/sha
 import {
   Stethoscope, HeartPulse, FileText, Tag, ScanLine,
   MessageSquare, ShieldCheck, ListChecks, Pill,
-  FlaskConical, Radiation, ScrollText, Navigation,
+  FlaskConical, Radiation, ScrollText, Navigation, Tablets,
   type LucideIcon,
 } from "lucide-react";
 import type { RJPatientDetail } from "@/lib/data";
@@ -25,6 +25,7 @@ import OrderLabTab       from "@/components/shared/medical-records/OrderLabTab";
 import OrderRadTab       from "@/components/shared/medical-records/OrderRadTab";
 import SuratDokumenTab  from "@/components/shared/medical-records/SuratDokumenTab";
 import DisposisiRJTab  from "./tabs/DisposisiRJTab";
+import FarmasiTab      from "@/components/shared/medical-records/FarmasiTab";
 
 // ── Tab definitions ───────────────────────────────────────
 
@@ -43,6 +44,7 @@ const REKAM_MEDIS: TabDef[] = [
 const LAYANAN: TabDef[] = [
   { id: "daftar-order", label: "Daftar Order",     icon: ListChecks,  done: true  },
   { id: "resep",        label: "Resep & Obat",     icon: Pill,        done: true  },
+  { id: "farmasi",      label: "Status Farmasi",   icon: Tablets,     done: true  },
   { id: "order-lab",    label: "Order Lab",        icon: FlaskConical,done: true  },
   { id: "order-rad",    label: "Order Radiologi",  icon: Radiation,   done: true  },
   { id: "surat",        label: "Surat & Dokumen",  icon: ScrollText,  done: true  },
@@ -179,6 +181,7 @@ export default function RJRecordTabs({ patient }: { patient: RJPatientDetail }) 
             {active === "konsultasi"      && <KonsultasiTab noRM={patient.noRM} dokterPeminta={patient.dokter} />}
             {active === "informed-consent" && <InformedConsentTab patient={patient} />}
             {active === "daftar-order" && <DaftarOrderTab patient={{ noRM: patient.noRM, name: patient.name, dpjp: patient.dokter }} />}
+            {active === "farmasi"      && <FarmasiTab patient={{ noRM: patient.noRM, name: patient.name, context: "rj" }} />}
             {active === "resep"        && withIdentitas(<ResepTab
               showMAR={false}
               patient={{ noRM: patient.noRM, name: patient.name, dpjp: patient.dokter, riwayatAlergi: patient.riwayatAlergi }}

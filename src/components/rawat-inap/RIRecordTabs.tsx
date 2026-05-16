@@ -7,7 +7,7 @@ import {
   FileText, HeartPulse, Tag, HeartHandshake, ScanLine,
   Pill, FlaskConical, Radiation, ClipboardList, LogOut,
   MessageSquare, Droplets, DoorOpen, Stethoscope, ArrowRightLeft,
-  ListChecks, ShieldCheck, Repeat, Target, Salad, Activity, type LucideIcon,
+  ListChecks, ShieldCheck, Repeat, Target, Salad, Activity, Tablets, type LucideIcon,
 } from "lucide-react";
 import type { RawatInapPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,7 @@ import RekonsiliasTab       from "./tabs/RekonsiliasTab";
 import CarePlanTab          from "./tabs/CarePlanTab";
 import GiziNutrisiTab      from "./tabs/GiziNutrisiTab";
 import ICUScoringTab       from "./tabs/ICUScoringTab";
+import FarmasiTab          from "@/components/shared/medical-records/FarmasiTab";
 
 // ── Tab definitions ───────────────────────────────────────
 
@@ -56,6 +57,7 @@ const REKAM_MEDIS: TabDef[] = [
 const LAYANAN: TabDef[] = [
   { id: "daftar-order", label: "Daftar Order",          icon: ListChecks,     done: true  },
   { id: "resep",        label: "Resep & Obat",         icon: Pill,           done: true  },
+  { id: "farmasi",      label: "Status Farmasi",       icon: Tablets,        done: true  },
   { id: "order-lab",    label: "Order Lab",            icon: FlaskConical,   done: true  },
   { id: "order-rad",    label: "Order Radiologi",      icon: Radiation,      done: true  },
   { id: "konsultasi",   label: "Konsultasi",           icon: MessageSquare,  done: true  },
@@ -231,6 +233,7 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
             {active === "informed-consent" && <InformedConsentTab   patient={patient} />}
             {active === "rekonsiliasi"     && <RekonsiliasTab       patient={patient} />}
             {active === "daftar-order"  && <DaftarOrderTab    patient={patient} />}
+            {active === "farmasi"       && <FarmasiTab        patient={{ noRM: patient.noRM, name: patient.name, context: "ri" }} />}
             {active === "resep"         && withIdentitas(<ResepTab patient={{
               noRM:          patient.noRM,
               name:          patient.name,
