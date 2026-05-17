@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Pill, FileText, type LucideIcon } from "lucide-react";
+import { Pill, FileText, Activity, ShieldAlert, ClipboardList, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   deriveResepOrders, updateFarmasiWorkflow,
@@ -10,19 +10,25 @@ import {
   type FarmasiOrderItem, type SerahTerima, type CatatanFarmasi,
 } from "./farmasiShared";
 import { updateOrderStatus } from "@/components/shared/medical-records/daftarOrder/daftarOrderShared";
-import CPPTTab    from "@/components/shared/medical-records/CPPTTab";
+import CPPTTab           from "@/components/shared/medical-records/CPPTTab";
 import LayananFarmasiTab from "./tabs/LayananFarmasiTab";
+import PTOPane           from "./tabs/PTOPane";
+import MESOPane          from "./tabs/MESOPane";
+import DRPPane           from "./tabs/DRPPane";
 
 // ── Tab definitions ───────────────────────────────────────
 
-interface TabDef { id: string; label: string; icon: LucideIcon }
+interface TabDef { id: string; label: string; icon: LucideIcon; group: "workflow" | "klinis" }
 
 const TABS: TabDef[] = [
-  { id: "layanan", label: "Layanan Farmasi", icon: Pill      },
-  { id: "cppt",    label: "CPPT Apoteker",   icon: FileText  },
+  { id: "layanan", label: "Layanan Farmasi",       icon: Pill,          group: "workflow" },
+  { id: "cppt",    label: "CPPT Apoteker",          icon: FileText,      group: "workflow" },
+  { id: "pto",     label: "Monitoring Terapi",      icon: Activity,      group: "klinis"  },
+  { id: "meso",    label: "Pelaporan ESO",           icon: ShieldAlert,   group: "klinis"  },
+  { id: "drp",     label: "Masalah Terkait Obat",   icon: ClipboardList, group: "klinis"  },
 ];
 
-type TabId = "layanan" | "cppt";
+type TabId = "layanan" | "cppt" | "pto" | "meso" | "drp";
 
 // ── Nav item ──────────────────────────────────────────────
 
@@ -41,6 +47,14 @@ function NavItem({ tab, active, onClick }: { tab: TabDef; active: boolean; onCli
       <Icon size={14} className="shrink-0" />
       <span className="truncate">{tab.label}</span>
     </button>
+  );
+}
+
+function GroupSeparator({ label }: { label: string }) {
+  return (
+    <p className="mb-1 mt-3 px-4 text-[9px] font-bold uppercase tracking-widest text-slate-400">
+      {label}
+    </p>
   );
 }
 
@@ -104,16 +118,13 @@ export default function FarmasiOrderTabs({ orderId }: { orderId: string }) {
         className="flex w-52 shrink-0 flex-col overflow-y-auto border-r border-slate-100 bg-slate-50/60 pb-6"
         aria-label="Tab layanan farmasi"
       >
-        <p className="mb-1 mt-4 px-4 text-[9px] font-bold uppercase tracking-widest text-slate-400">
-          Pelayanan Farmasi
-        </p>
-        {TABS.map((tab) => (
-          <NavItem
-            key={tab.id}
-            tab={tab}
-            active={active === tab.id}
-            onClick={() => setActive(tab.id as TabId)}
-          />
+        <GroupSeparator label="Pelayanan Farmasi" />
+        {TABS.filter((t) => t.group === "workflow").map((tab) => (
+          <NavItem key={tab.id} tab={tab} active={active === tab.id} onClick={() => setActive(tab.id as TabId)} />
+        ))}
+        <GroupSeparator label="Klinis" />
+        {TABS.filter((t) => t.group === "klinis").map((tab) => (
+          <NavItem key={tab.id} tab={tab} active={active === tab.id} onClick={() => setActive(tab.id as TabId)} />
         ))}
       </nav>
 
@@ -128,12 +139,11 @@ export default function FarmasiOrderTabs({ orderId }: { orderId: string }) {
             transition={{ duration: 0.15 }}
             className="flex-1 p-4 md:p-6"
           >
-            {active === "layanan" && (
-              <LayananFarmasiTab order={order} callbacks={callbacks} />
-            )}
-            {active === "cppt" && (
-              <CPPTTab initialEntries={[]} showDate={true} />
-            )}
+            {active === "layanan" && <LayananFarmasiTab order={order} callbacks={callbacks} />}
+            {active === "cppt"    && <CPPTTab initialEntries={[]} showDate={true} />}
+            {active === "pto"     && <PTOPane  items={order.items} noRM={order.noRM} />}
+            {active === "meso"    && <MESOPane order={order} />}
+            {active === "drp"     && <DRPPane  order={order} />}
           </motion.div>
         </AnimatePresence>
       </div>

@@ -491,6 +491,76 @@ export const ORDERS_MOCK: Record<string, Order[]> = {
       ],
     },
   ],
+
+  // ── ICU: Hasan Basri · RM-2025-007 · Sepsis + ARDS ──────
+  "RM-2025-007": [
+    {
+      id: "icu-rx-h3a", type: "Resep", noOrder: "RES/2025/05/0544",
+      tanggal: "7 Mei 2025", jam: "08:30",
+      dokter: "dr. Hendra Wijaya, Sp.EM",
+      status: "Diproses", catatan: "CITO — Lanjut terapi sepsis ICU hari ke-3",
+      tujuan: "Apotek RI",
+      items: [
+        { id: "icu-rr-1", nama: "Norepinephrine 4mg/4mL",  detail: "Titrasi 0.25 mcg/kgBB/mnt · IV Drip CVC", keterangan: "HAM — titrasi MAP ≥65 mmHg", isSpecial: true },
+        { id: "icu-rr-2", nama: "Meropenem 1g Inj",         detail: "q12h (disesuaikan AKI) · IV Drip 30 mnt",  keterangan: "Panduan kultur: Klebsiella sensitif" },
+        { id: "icu-rr-3", nama: "Midazolam 15mg/3mL",       detail: "Sedasi 0.04 mg/kgBB/jam · IV Drip CVC",   keterangan: "Target RASS -2 s/d -3" },
+        { id: "icu-rr-4", nama: "Pantoprazole 40mg Inj",    detail: "1×1 · IV Drip",                            keterangan: "Profilaksis ulkus stres" },
+      ],
+    },
+    {
+      id: "icu-rx-h1a", type: "Resep", noOrder: "RES/2025/05/0518",
+      tanggal: "5 Mei 2025", jam: "16:00",
+      dokter: "dr. Hendra Wijaya, Sp.EM",
+      status: "Selesai", catatan: "Terapi awal sepsis — resusitasi dan stabilisasi",
+      tujuan: "Apotek RI",
+      items: [
+        { id: "icu-rr-5", nama: "Norepinephrine 4mg/4mL", detail: "Mulai 0.1 mcg/kgBB/mnt · IV Drip CVC",  keterangan: "HAM", isSpecial: true },
+        { id: "icu-rr-6", nama: "Meropenem 1g Inj",       detail: "q8h · IV Drip 30 mnt",                   keterangan: "Empiris sepsis" },
+        { id: "icu-rr-7", nama: "Vancomycin 1g Inj",      detail: "q12h · IV Drip 1 jam",                   keterangan: "Coverage MRSA (kultur pending)", isSpecial: true },
+      ],
+    },
+    {
+      id: "icu-lab-h1a", type: "Lab", noOrder: "LAB/2025/05/0631",
+      tanggal: "5 Mei 2025", jam: "15:45",
+      dokter: "dr. Hendra Wijaya, Sp.EM",
+      status: "Selesai", catatan: "CITO Panel Sepsis — kultur darah, CBC, laktat",
+      tujuan: "Laboratorium Klinik",
+      items: [
+        { id: "icu-li-1", nama: "Kultur Darah × 2 botol",        detail: "LAB-M001 · 48–72 jam", isSpecial: true },
+        { id: "icu-li-2", nama: "Darah Lengkap (DL)",            detail: "LAB-H001 · 1–2 jam" },
+        { id: "icu-li-3", nama: "Laktat",                         detail: "LAB-K022 · 30 mnt",    isSpecial: true },
+        { id: "icu-li-4", nama: "Kreatinin + BUN",               detail: "LAB-K008 · 1 jam" },
+        { id: "icu-li-5", nama: "Elektrolit (Na/K/Cl)",          detail: "LAB-K009 · 1 jam" },
+        { id: "icu-li-6", nama: "CRP Kuantitatif",               detail: "LAB-I003 · 1 jam" },
+        { id: "icu-li-7", nama: "PT / APTT / Fibrinogen",        detail: "LAB-G001/G002 · 1 jam" },
+        { id: "icu-li-8", nama: "Procalcitonin (PCT)",           detail: "LAB-I004 · 1 jam", isSpecial: true },
+      ],
+    },
+    {
+      id: "icu-lab-h3a", type: "Lab", noOrder: "LAB/2025/05/0662",
+      tanggal: "7 Mei 2025", jam: "06:00",
+      dokter: "dr. Hendra Wijaya, Sp.EM",
+      status: "Selesai", catatan: "Monitor AKI + respons antibiotik hari ke-3",
+      tujuan: "Laboratorium Klinik",
+      items: [
+        { id: "icu-li-9",  nama: "Kreatinin + BUN",              detail: "LAB-K008 · 1 jam" },
+        { id: "icu-li-10", nama: "Elektrolit (Na/K/Cl)",         detail: "LAB-K009 · 1 jam" },
+        { id: "icu-li-11", nama: "Procalcitonin (PCT)",          detail: "LAB-I004 · 1 jam", isSpecial: true },
+        { id: "icu-li-12", nama: "Darah Lengkap (DL)",           detail: "LAB-H001 · 1–2 jam" },
+      ],
+    },
+    {
+      id: "icu-rad-h1a", type: "Radiologi", noOrder: "RAD/2025/05/0218",
+      tanggal: "5 Mei 2025", jam: "16:30",
+      dokter: "dr. Hendra Wijaya, Sp.EM",
+      status: "Selesai", catatan: "Konfirmasi infiltrat bilateral — ARDS assessment",
+      tujuan: "Instalasi Radiologi",
+      items: [
+        { id: "icu-ri-1", nama: "Foto Thorax AP (Bedside)",      detail: "RAD-001" },
+        { id: "icu-ri-2", nama: "USG Bedside (Lung + FAST)",     detail: "RAD-026", isSpecial: true },
+      ],
+    },
+  ],
 };
 
 export function updateOrderStatus(orderId: string, status: OrderStatus): void {
