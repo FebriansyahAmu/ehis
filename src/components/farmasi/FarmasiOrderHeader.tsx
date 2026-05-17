@@ -9,9 +9,69 @@ import {
 import { cn } from "@/lib/utils";
 import {
   STATUS_CFG, DEPO_CFG, PRIORITAS_CFG,
-  getPatientInfo,
+  getPatientInfo, calcTATMenit, getTATStatus, TAT_TARGET_UNIT,
   type FarmasiOrder,
 } from "./farmasiShared";
+
+// ── TAT Timeline ──────────────────────────────────────────
+
+function TATTimeline({ order }: { order: FarmasiOrder }) {
+  const ts = order.timestamps;
+  if (!ts) return null;
+  const menit  = calcTATMenit(ts);
+  const status = getTATStatus(menit, order.unit);
+  const target = TAT_TARGET_UNIT[order.unit];
+
+  const TAT_CFG = {
+    ok:      { cls: "text-emerald-700 bg-emerald-50 ring-emerald-200", pulse: "bg-emerald-500" },
+    warning: { cls: "text-amber-700 bg-amber-50 ring-amber-200",       pulse: "bg-amber-500"   },
+    over:    { cls: "text-rose-700 bg-rose-50 ring-rose-200",           pulse: "bg-rose-500"    },
+    pending: { cls: "text-slate-500 bg-slate-50 ring-slate-200",        pulse: "bg-sky-400"     },
+  }[status];
+
+  const steps: { label: string; time?: string }[] = [
+    { label: "Masuk",      time: ts.masuk       },
+    { label: "Telaah",     time: ts.telaah      },
+    { label: "Dispensing", time: ts.dispensing  },
+    { label: "Serah",      time: ts.serahTerima },
+  ];
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-100 px-5 py-2">
+      <div className="flex items-center gap-2 min-w-0">
+        <Clock size={10} className="shrink-0 text-slate-400" />
+        <div className="flex items-center gap-0">
+          {steps.map((step, i) => (
+            <div key={step.label} className="flex items-center">
+              <div className="flex flex-col items-center gap-0.5">
+                <div className={cn("h-1.5 w-1.5 rounded-full transition-colors", step.time ? "bg-sky-500" : "bg-slate-200")} />
+                <span className={cn("text-[9px] font-semibold whitespace-nowrap", step.time ? "text-sky-600" : "text-slate-300")}>
+                  {step.time ?? step.label}
+                </span>
+              </div>
+              {i < steps.length - 1 && (
+                <div className={cn("mx-1.5 mb-3.5 h-px w-4", steps[i + 1]?.time ? "bg-sky-300" : "bg-slate-200")} />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {menit !== null ? (
+        <span className={cn("shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold ring-1", TAT_CFG.cls)}>
+          TAT {menit} mnt / target {target} mnt
+        </span>
+      ) : (
+        <span className="flex shrink-0 items-center gap-1 text-[10px] text-slate-400">
+          <span className={cn("h-1.5 w-1.5 rounded-full animate-pulse", TAT_CFG.pulse)} />
+          Target ≤{target} mnt
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ── Progress stepper ──────────────────────────────────────
 
 const WORKFLOW_STEPS = [
   { label: "Telaah",     s: 0 },
@@ -179,6 +239,9 @@ export default function FarmasiOrderHeader({ order }: { order: FarmasiOrder }) {
           }
         </div>
       </div>
+
+      {/* TAT timeline */}
+      <TATTimeline order={order} />
     </motion.header>
   );
 }

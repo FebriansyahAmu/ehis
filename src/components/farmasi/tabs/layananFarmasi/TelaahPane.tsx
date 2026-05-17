@@ -5,13 +5,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2, XCircle, AlertTriangle, ChevronDown,
   Check, ShieldAlert, RefreshCw, Pill, ChevronRight,
-  ClipboardList, Stethoscope,
+  ClipboardList, Stethoscope, BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   TELAAH_ADM_ITEMS, TELAAH_FARM_ITEMS, TELAAH_KLIN_ITEMS,
+  getLASAPair,
   type FarmasiOrder, type TelaahData, type TelaahCheck,
-  type AllergiPasien, type SubstitusiItem,
+  type AllergiPasien, type SubstitusiItem, type FarmasiOrderItem,
 } from "@/components/farmasi/farmasiShared";
 
 interface Props {
@@ -382,6 +383,133 @@ function CheckSection({ title, items, checked, onChange, onCheckAll }: SectionPr
   );
 }
 
+// ── LASA confirm panel ─────────────────────────────────────
+
+function LASAConfirmPanel({ items, confirmed, onChange }: {
+  items:     FarmasiOrderItem[];
+  confirmed: Record<string, boolean>;
+  onChange:  (id: string, v: boolean) => void;
+}) {
+  const lasaItems = items.filter((i) => i.isLASA);
+  if (lasaItems.length === 0) return null;
+  const done = lasaItems.filter((i) => confirmed[i.id]).length;
+  const all  = done === lasaItems.length;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+      className={cn(
+        "overflow-hidden rounded-xl border-2 transition-all",
+        all ? "border-emerald-200 bg-emerald-50/30" : "border-amber-300 bg-amber-50/60",
+      )}
+    >
+      <div className="flex items-center gap-2 px-4 py-2.5">
+        <AlertTriangle size={12} className={cn("shrink-0", all ? "text-emerald-600" : "text-amber-600")} />
+        <p className={cn("flex-1 text-xs font-bold", all ? "text-emerald-700" : "text-amber-700")}>
+          LASA — Konfirmasi Tidak Tertukar
+        </p>
+        <span className={cn(
+          "rounded-full px-2 py-0.5 text-[10px] font-black",
+          all ? "bg-emerald-100 text-emerald-700" : "bg-amber-200 text-amber-800",
+        )}>
+          {done}/{lasaItems.length}
+        </span>
+      </div>
+      <div className="divide-y divide-amber-100/60 border-t border-amber-200/60">
+        {lasaItems.map((item) => {
+          const pair    = getLASAPair(item.namaObat);
+          const checked = !!confirmed[item.id];
+          return (
+            <motion.button
+              key={item.id} whileHover={{ x: 2 }}
+              onClick={() => onChange(item.id, !checked)}
+              className={cn(
+                "flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors",
+                checked ? "bg-emerald-50/50" : "hover:bg-amber-50/80",
+              )}
+            >
+              <div className={cn(
+                "flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-all",
+                checked ? "border-emerald-500 bg-emerald-500" : "border-amber-400",
+              )}>
+                {checked && <Check size={9} className="text-white" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-xs font-semibold text-slate-800">{item.namaObat}</span>
+                {pair && (
+                  <span className="ml-2 text-[10px] text-amber-600">
+                    ≠ <span className="font-semibold">{pair}</span>
+                  </span>
+                )}
+              </div>
+              <span className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-black bg-amber-100 text-amber-700">LASA</span>
+            </motion.button>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Formularium panel ──────────────────────────────────────
+
+function FormulariumPanel({ items, justifikasi, onChange }: {
+  items:      FarmasiOrderItem[];
+  justifikasi: Record<string, string>;
+  onChange:    (id: string, v: string) => void;
+}) {
+  const nonForm    = items.filter((i) => i.isFormularium === false);
+  const hasNonForm = nonForm.length > 0;
+  const allOk      = nonForm.every((i) => !!justifikasi[i.id]?.trim());
+
+  return (
+    <div className={cn(
+      "overflow-hidden rounded-xl border transition-colors",
+      hasNonForm && !allOk ? "border-rose-200" : hasNonForm ? "border-amber-200" : "border-emerald-200",
+    )}>
+      <div className={cn(
+        "flex items-center gap-2 px-3 py-2.5",
+        hasNonForm ? "bg-rose-50/40" : "bg-emerald-50/40",
+      )}>
+        <BookOpen size={11} className={cn("shrink-0", hasNonForm ? "text-rose-500" : "text-emerald-500")} />
+        <p className={cn("flex-1 text-xs font-semibold", hasNonForm ? "text-rose-700" : "text-emerald-700")}>
+          Formularium RS
+        </p>
+        <span className={cn(
+          "rounded px-1.5 py-0.5 text-[9px] font-black",
+          hasNonForm ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700",
+        )}>
+          {hasNonForm ? `${nonForm.length} NON-FORM` : "SEMUA FORM"}
+        </span>
+      </div>
+      <div className="divide-y divide-slate-50 border-t border-slate-100 px-2 pb-2 pt-1">
+        {items.map((item) => (
+          <div key={item.id} className="py-1.5">
+            <div className="flex items-center gap-2">
+              <span className={cn(
+                "shrink-0 rounded px-1.5 py-0.5 text-[8px] font-black",
+                item.isFormularium !== false ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700",
+              )}>
+                {item.isFormularium !== false ? "FORM" : "NON-FORM"}
+              </span>
+              <p className="flex-1 truncate text-[11px] font-medium text-slate-700">{item.namaObat}</p>
+            </div>
+            {item.isFormularium === false && (
+              <input
+                type="text"
+                value={justifikasi[item.id] ?? ""}
+                onChange={(e) => onChange(item.id, e.target.value)}
+                placeholder="Justifikasi non-formularium *"
+                className="mt-1.5 w-full rounded-lg border border-rose-200 bg-rose-50/50 px-2.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-rose-400 focus:ring-1 focus:ring-rose-100 transition"
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Panel wrapper ──────────────────────────────────────────
 
 interface PanelProps {
@@ -419,7 +547,9 @@ export default function TelaahPane({ order, onSubmit }: Props) {
   const [catatan,       setCatatan]       = useState(existing?.catatan       ?? "");
   const [alasanKembali, setAlasanKembali] = useState(existing?.alasanKembali ?? "");
   const [result, setResult] = useState<"Disetujui" | "Dikembalikan" | null>(existing?.result ?? null);
-  const [substitusiState, setSubstitusiState] = useState<Record<string, SubstitusiState | undefined>>({});
+  const [substitusiState,       setSubstitusiState]       = useState<Record<string, SubstitusiState | undefined>>({});
+  const [lasaConfirmed,         setLasaConfirmed]         = useState<Record<string, boolean>>({});
+  const [formulariumJustifikasi,setFormulariumJustifikasi] = useState<Record<string, string>>({});
 
   const toggle = (setter: React.Dispatch<React.SetStateAction<boolean[]>>, i: number) =>
     setter((prev) => prev.map((v, idx) => idx === i ? !v : v));
@@ -429,10 +559,14 @@ export default function TelaahPane({ order, onSubmit }: Props) {
     setter(current.map(() => !all));
   };
 
-  const allDone   = adm.every(Boolean) && farm.every(Boolean) && klin.every(Boolean);
-  const hamItems  = order.items.filter((i) => i.isHAM);
-  const allergies = order.alergiPasien ?? [];
-  const itemNames = order.items.map((i) => i.namaObat);
+  const lasaItems   = order.items.filter((i) => i.isLASA);
+  const nonFormItems = order.items.filter((i) => i.isFormularium === false);
+  const allLasaDone  = lasaItems.length === 0 || lasaItems.every((i) => lasaConfirmed[i.id]);
+  const allFormDone  = nonFormItems.every((i) => !!formulariumJustifikasi[i.id]?.trim());
+  const allDone      = adm.every(Boolean) && farm.every(Boolean) && klin.every(Boolean) && allLasaDone && allFormDone;
+  const hamItems     = order.items.filter((i) => i.isHAM);
+  const allergies    = order.alergiPasien ?? [];
+  const itemNames    = order.items.map((i) => i.namaObat);
 
   function handleSubstitusiChange(id: string, s: SubstitusiState | undefined) {
     setSubstitusiState((prev) => ({ ...prev, [id]: s }));
@@ -461,6 +595,8 @@ export default function TelaahPane({ order, onSubmit }: Props) {
       waktu:         new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
       result,
       substitusi:    substitusi.length > 0 ? substitusi : undefined,
+      justifikasiNonFormularium: nonFormItems.length > 0 ? formulariumJustifikasi : undefined,
+      lasaKonfirmasi:            lasaItems.length > 0 ? allLasaDone : undefined,
     });
   }
 
@@ -542,6 +678,13 @@ export default function TelaahPane({ order, onSubmit }: Props) {
         </motion.div>
       )}
 
+      {/* LASA confirm — full width */}
+      <LASAConfirmPanel
+        items={order.items}
+        confirmed={lasaConfirmed}
+        onChange={(id, v) => setLasaConfirmed((p) => ({ ...p, [id]: v }))}
+      />
+
       {/* Two-panel grid */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
 
@@ -564,6 +707,11 @@ export default function TelaahPane({ order, onSubmit }: Props) {
             checked={farm}
             onChange={(i) => toggle(setFarm, i)}
             onCheckAll={() => checkAll(setFarm, farm)}
+          />
+          <FormulariumPanel
+            items={order.items}
+            justifikasi={formulariumJustifikasi}
+            onChange={(id, v) => setFormulariumJustifikasi((p) => ({ ...p, [id]: v }))}
           />
         </Panel>
 

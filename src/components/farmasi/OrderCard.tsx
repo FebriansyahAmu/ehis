@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   type FarmasiOrder,
   STATUS_CFG, DEPO_CFG, PRIORITAS_CFG,
+  calcTATMenit, getTATStatus, TAT_TARGET_UNIT,
 } from "./farmasiShared";
 
 // ── Unit badge ────────────────────────────────────────────
@@ -37,14 +38,51 @@ function StatusProgress({ step }: { step: number }) {
   );
 }
 
-// ── HAM badge ─────────────────────────────────────────────
+// ── Drug warning badges ───────────────────────────────────
 
 function HAMBadge() {
   return (
     <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-700 ring-1 ring-rose-200">
-      <AlertTriangle size={9} aria-hidden="true" />
-      HAM
+      <AlertTriangle size={9} aria-hidden="true" />HAM
     </span>
+  );
+}
+
+function LASABadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-200">
+      <AlertTriangle size={9} aria-hidden="true" />LASA
+    </span>
+  );
+}
+
+// ── TAT chip ──────────────────────────────────────────────
+
+function TATChip({ order }: { order: FarmasiOrder }) {
+  const ts = order.timestamps;
+  if (!ts) return null;
+  const menit  = calcTATMenit(ts);
+  const status = getTATStatus(menit, order.unit);
+  const target = TAT_TARGET_UNIT[order.unit];
+
+  if (status === "pending") {
+    return (
+      <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+        <Clock size={10} className="text-slate-300" aria-hidden="true" />
+        <span>Masuk {ts.masuk} · target ≤{target} mnt</span>
+      </div>
+    );
+  }
+  const cfg = {
+    ok:      "border-emerald-200 bg-emerald-50 text-emerald-700",
+    warning: "border-amber-200 bg-amber-50 text-amber-700",
+    over:    "border-rose-200 bg-rose-50 text-rose-700",
+  }[status];
+  return (
+    <div className={cn("flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[10px] font-semibold", cfg)}>
+      <Clock size={10} aria-hidden="true" />
+      TAT {menit} mnt / target {target} mnt
+    </div>
   );
 }
 
@@ -62,6 +100,7 @@ export default function OrderCard({ order, index = 0 }: OrderCardProps) {
   const unitCfg   = UNIT_CFG[order.unit];
   const priorCfg  = PRIORITAS_CFG[order.prioritas];
   const hamCount  = order.items.filter((i) => i.isHAM).length;
+  const hasLASA   = order.items.some((i) => i.isLASA);
 
   const borderCls = {
     Menunggu:          "border-l-amber-400",
@@ -92,6 +131,7 @@ export default function OrderCard({ order, index = 0 }: OrderCardProps) {
             {unitCfg.short}
           </span>
           {order.hasHAM && <HAMBadge />}
+          {hasLASA     && <LASABadge />}
         </div>
         <span className={cn("shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold", cfg.badge)}>
           {cfg.label}
@@ -149,6 +189,9 @@ export default function OrderCard({ order, index = 0 }: OrderCardProps) {
           Diserahkan ke {order.serahTerima.perawatPenerima} · {order.serahTerima.waktu}
         </div>
       )}
+
+      {/* TAT chip */}
+      <TATChip order={order} />
 
       {/* Row 6 — doctor + time + action */}
       <div className="flex items-center justify-between gap-2 pt-0.5">
