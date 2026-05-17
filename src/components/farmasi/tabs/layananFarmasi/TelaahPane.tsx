@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2, XCircle, AlertTriangle, ChevronDown,
   Check, ShieldAlert, RefreshCw, Pill, ChevronRight,
+  ClipboardList, Stethoscope,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -273,7 +274,6 @@ function CheckSection({ title, items, checked, onChange, onCheckAll }: SectionPr
         "flex items-center gap-2 px-3 py-2.5 transition-colors",
         allDone ? "bg-emerald-50/60" : "bg-white",
       )}>
-        {/* Done badge */}
         <motion.div
           animate={{ scale: allDone ? [1, 1.2, 1] : 1 }}
           transition={{ duration: 0.25 }}
@@ -285,7 +285,6 @@ function CheckSection({ title, items, checked, onChange, onCheckAll }: SectionPr
           {allDone ? <Check size={9} /> : done}
         </motion.div>
 
-        {/* Title + count + progress — clickable to toggle collapse */}
         <button
           onClick={() => setOpen((v) => !v)}
           className="flex flex-1 items-center gap-2 text-left min-w-0"
@@ -299,7 +298,7 @@ function CheckSection({ title, items, checked, onChange, onCheckAll }: SectionPr
           )}>
             {done}/{total}
           </span>
-          <div className="hidden sm:flex flex-1 max-w-20">
+          <div className="hidden sm:flex flex-1 max-w-16">
             <div className="h-1 w-full overflow-hidden rounded-full bg-slate-100">
               <motion.div
                 animate={{ width: `${pct}%` }}
@@ -310,7 +309,6 @@ function CheckSection({ title, items, checked, onChange, onCheckAll }: SectionPr
           </div>
         </button>
 
-        {/* Check-all toggle */}
         <button
           onClick={onCheckAll}
           className={cn(
@@ -320,10 +318,9 @@ function CheckSection({ title, items, checked, onChange, onCheckAll }: SectionPr
               : "text-sky-600 hover:bg-sky-50",
           )}
         >
-          {allDone ? "Hapus Semua" : "Centang Semua"}
+          {allDone ? "Hapus" : "Semua"}
         </button>
 
-        {/* Collapse chevron */}
         <button onClick={() => setOpen((v) => !v)} className="shrink-0 p-0.5">
           <ChevronDown
             size={13}
@@ -335,7 +332,6 @@ function CheckSection({ title, items, checked, onChange, onCheckAll }: SectionPr
         </button>
       </div>
 
-      {/* Checklist items */}
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
@@ -382,6 +378,29 @@ function CheckSection({ title, items, checked, onChange, onCheckAll }: SectionPr
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+// ── Panel wrapper ──────────────────────────────────────────
+
+interface PanelProps {
+  icon:     React.ReactNode;
+  label:    string;
+  accent:   string;
+  children: React.ReactNode;
+}
+
+function Panel({ icon, label, accent, children }: PanelProps) {
+  return (
+    <div className="flex flex-col gap-2.5 rounded-2xl border border-slate-100 bg-slate-50/40 p-3">
+      <div className="flex items-center gap-2 px-0.5">
+        <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-lg", accent)}>
+          {icon}
+        </span>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
+      </div>
+      {children}
     </div>
   );
 }
@@ -505,6 +524,7 @@ export default function TelaahPane({ order, onSubmit }: Props) {
 
   return (
     <div className="space-y-3">
+      {/* Alerts — full width */}
       {allergies.length > 0 && (
         <AllergyBanner allergies={allergies} itemNames={itemNames} />
       )}
@@ -522,47 +542,66 @@ export default function TelaahPane({ order, onSubmit }: Props) {
         </motion.div>
       )}
 
-      <CheckSection
-        title="Administratif"
-        items={TELAAH_ADM_ITEMS}
-        checked={adm}
-        onChange={(i) => toggle(setAdm, i)}
-        onCheckAll={() => checkAll(setAdm, adm)}
-      />
-      <CheckSection
-        title="Farmasetis"
-        items={TELAAH_FARM_ITEMS}
-        checked={farm}
-        onChange={(i) => toggle(setFarm, i)}
-        onCheckAll={() => checkAll(setFarm, farm)}
-      />
-      <CheckSection
-        title="Klinis"
-        items={TELAAH_KLIN_ITEMS}
-        checked={klin}
-        onChange={(i) => toggle(setKlin, i)}
-        onCheckAll={() => checkAll(setKlin, klin)}
-      />
+      {/* Two-panel grid */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
 
-      <SubstitusiPanel
-        items={order.items}
-        value={substitusiState}
-        onChange={handleSubstitusiChange}
-      />
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2 sm:col-span-1">
-          <label className="mb-1.5 block text-xs font-medium text-slate-500">Catatan Apoteker (opsional)</label>
-          <textarea
-            value={catatan}
-            onChange={(e) => setCatatan(e.target.value)}
-            rows={2}
-            placeholder="Catatan klinis tambahan…"
-            className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+        {/* Left panel — Administratif & Farmasetis */}
+        <Panel
+          label="Administratif & Farmasetis"
+          accent="bg-sky-100"
+          icon={<ClipboardList size={11} className="text-sky-600" />}
+        >
+          <CheckSection
+            title="Administratif"
+            items={TELAAH_ADM_ITEMS}
+            checked={adm}
+            onChange={(i) => toggle(setAdm, i)}
+            onCheckAll={() => checkAll(setAdm, adm)}
           />
-        </div>
+          <CheckSection
+            title="Farmasetis"
+            items={TELAAH_FARM_ITEMS}
+            checked={farm}
+            onChange={(i) => toggle(setFarm, i)}
+            onCheckAll={() => checkAll(setFarm, farm)}
+          />
+        </Panel>
 
-        <div className="col-span-2 sm:col-span-1 flex flex-col justify-end gap-2">
+        {/* Right panel — Klinis & Keputusan */}
+        <Panel
+          label="Klinis & Keputusan"
+          accent="bg-emerald-100"
+          icon={<Stethoscope size={11} className="text-emerald-600" />}
+        >
+          <CheckSection
+            title="Klinis"
+            items={TELAAH_KLIN_ITEMS}
+            checked={klin}
+            onChange={(i) => toggle(setKlin, i)}
+            onCheckAll={() => checkAll(setKlin, klin)}
+          />
+
+          <SubstitusiPanel
+            items={order.items}
+            value={substitusiState}
+            onChange={handleSubstitusiChange}
+          />
+
+          {/* Catatan */}
+          <div>
+            <label className="mb-1.5 block text-[10px] font-medium text-slate-500">
+              Catatan Apoteker <span className="text-slate-300">(opsional)</span>
+            </label>
+            <textarea
+              value={catatan}
+              onChange={(e) => setCatatan(e.target.value)}
+              rows={2}
+              placeholder="Catatan klinis tambahan…"
+              className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+            />
+          </div>
+
+          {/* Setujui / Kembalikan */}
           <div className="flex gap-2">
             <motion.button
               whileHover={allDone ? { scale: 1.01 } : {}}
@@ -570,31 +609,32 @@ export default function TelaahPane({ order, onSubmit }: Props) {
               onClick={() => setResult("Disetujui")}
               disabled={!allDone}
               className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold transition-all",
+                "flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold transition-all",
                 result === "Disetujui"
                   ? "bg-emerald-600 text-white shadow-sm shadow-emerald-200"
                   : "border border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40",
               )}
             >
-              <CheckCircle2 size={14} />Setujui
+              <CheckCircle2 size={13} />Setujui
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setResult("Dikembalikan")}
               className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold transition-all",
+                "flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold transition-all",
                 result === "Dikembalikan"
                   ? "bg-rose-600 text-white shadow-sm shadow-rose-200"
                   : "border border-rose-200 text-rose-700 hover:bg-rose-50",
               )}
             >
-              <XCircle size={14} />Kembalikan
+              <XCircle size={13} />Kembalikan
             </motion.button>
           </div>
-        </div>
+        </Panel>
       </div>
 
+      {/* Alasan dikembalikan — full width */}
       <AnimatePresence>
         {result === "Dikembalikan" && (
           <motion.div
@@ -614,6 +654,7 @@ export default function TelaahPane({ order, onSubmit }: Props) {
         )}
       </AnimatePresence>
 
+      {/* Simpan — full width */}
       <motion.button
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.98 }}

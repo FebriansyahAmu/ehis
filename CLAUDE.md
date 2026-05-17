@@ -152,12 +152,11 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 - [x] **Route fullpage** ✅ — `app/ehis-care/(fullpage)/farmasi/[id]/` layout + page. Server component, `getOrderById(id)`.
 - [x] **`FarmasiOrderHeader.tsx`** ✅ — Back button, patient info (nama, RM, usia, gender, ruangan, bed), order info (dokter, depo, tanggal, jam, item count), status badge animated, HAM + prioritas badge, progress strip 4-step.
 - [x] **`FarmasiOrderTabs.tsx`** ✅ — Sidebar 2 tab (Layanan Farmasi · CPPT Apoteker) + AnimatePresence content. Live order re-derived dari `workflowStore` client-side. Callbacks: `onTelaahSubmit`, `onDispensasiSubmit`, `onCatatanAdd`.
-- [x] **`tabs/LayananFarmasiTab.tsx`** ✅ — 5 sub-tab card nav: Telaah Resep · Dispensing & Harga · Serah Terima · Riwayat Order · Cetak Dokumen.
-- [x] **`TelaahPane.tsx`** ✅ — Accordion 3 seksi (Adm/Farm/Klin) + HAM banner + Setujui/Kembalikan + alasan. Locked view setelah submit.
-- [x] **`DispensingPane.tsx`** ✅ — Tabel obat (nama, stok warna, aturan pakai, jml, satuan, harga satuan, total) + input Lot/Batch + Exp date + checkbox label. Footer: total tagihan IDR. Locked setelah selesai.
-- [x] **`SerahTerimaPane.tsx`** ✅ — Form penerima + cara pemberian + edukasi checklist + catatan. Item summary grid. Confirmation view post-submit.
-- [x] **`RiwayatPane.tsx`** ✅ — Semua order pasien grouped by date, expandable accordion per order, summary cards (Resep/Lab/Rad count).
-- [x] **`CetakPane.tsx`** ✅ — 4 print options (Resep, Kwitansi, Label, Etiket) + Cetak Semua. Patient/order summary + item list + total tagihan. Printed state tracking.
+- [x] **`tabs/LayananFarmasiTab.tsx`** ✅ — 4-tab card nav: Telaah Resep (step 1) · Dispensing & Serah (step 2) · Dokumen (step 3) · Riwayat Resep (info tab). `step: number | null` pattern — null = non-workflow tab (no step badge, icon always visible). `TabBtn` handles both variants.
+- [x] **`TelaahPane.tsx`** ✅ — Two-panel layout (`sm:grid-cols-2`): alerts (AllergyBanner + HAM) full width · Left panel `Administratif & Farmasetis` · Right panel `Klinis & Keputusan` (Klinis + Substitusi + catatan + Setujui/Kembalikan). Centang Semua per seksi. Alasan dikembalikan + Simpan Simpan button full width. Locked view setelah submit.
+- [x] **`DispensingSerahPane.tsx`** ✅ *(menggantikan DispensingPane.tsx + SerahTerimaPane.tsx)* — Combined pane: tabel obat + Lot/Batch/Exp/label input → serah terima form (penerima + cara pemberian + edukasi checklist). Footer: total tagihan IDR. Locked setelah selesai.
+- [x] **`RiwayatResepPane.tsx`** ✅ *(menggantikan RiwayatPane.tsx)* — Dedicated 4th sub-tab. Stats strip (Total/Selesai/Aktif/Dikembalikan). `OrderHistCard` per order: prioritas/HAM/status badges, item chips, dispensing overview (LOT+label count), serah overview (penerima+waktu+verifikatorAkhir), expandable per-item detail. Current order highlighted sky. Link ke halaman detail.
+- [x] **`DokumenPane.tsx`** ✅ *(menggantikan CetakPane.tsx)* — Pure cetak dokumen: 4 DocCard (Resep, Kwitansi, Label Obat, Etiket Aturan Pakai) + Cetak Semua. Order summary grid. Printed state tracking. Riwayat Resep dipindah ke tab tersendiri.
 - [x] **CPPT Apoteker** ✅ — Shared `CPPTTab` dengan `initialEntries=[]` + `showDate=true`.
 
 > Alur data: Dokter order resep di `DaftarOrderTab` → `ORDERS_MOCK` → `deriveResepOrders()` → FarmasiBoard overview → klik action → halaman detail `/farmasi/[id]` → Telaah + Dispensasi + Serah Terima → `workflowStore` + `ORDERS_MOCK` sync → FarmasiTab pasien terupdate. PMK 72/2016 · SKP 3
@@ -168,6 +167,31 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 
 - [ ] **Dashboard (`ehis-dashboard`)** — stats cards (pasien hari ini per unit: IGD/RI/RJ), BOR chart (bed occupancy rate), recent activity feed, quick-nav ke masing-masing modul. Route: `/ehis-dashboard`. Layout: ModuleLayout sudah ada.
 - [ ] **Billing Kasir (`ehis-billing`)** — invoice per kunjungan, rincian tindakan + obat, status pembayaran (Lunas/Proses Klaim/Belum), print struk. `KasirData` type + mock sudah tersedia di `data.ts`.
+
+### 🟡 Farmasi — Gap SNARS / PMK 72/2016 (Hasil Gap Analysis 2026-05-17)
+
+> Core workflow farmasi sudah selesai (telaah → dispensing → serah terima). Items di bawah adalah gap yang ditemukan dari komparasi PMK 72/2016, SNARS PKPO, dan praktik RS terakreditasi di Indonesia.
+
+**Tier 1 — Kritis (wajib akreditasi / legal requirement):**
+
+- [ ] **MAR (Medication Administration Record)** — pencatatan pemberian obat aktual per shift oleh perawat. Gap antara "diserahkan farmasi" dan "diberikan ke pasien". Grid per shift (Pagi/Siang/Malam) × per obat × per waktu sesuai signa. Input: diberikan ✓ / tidak diberikan + alasan. Double-check HAM saat pemberian. File kandidat: `shared/medical-records/MARTab.tsx` + `mar/marShared.ts`. Wire ke RI KeperawatanTab atau tab tersendiri. SNARS PKPO 6 · PMK 72/2016 Ps. 25
+- [ ] **Register Narkotika & Psikotropika** — buku register digital N/P: pencatatan otomatis setiap pengeluaran dari resep (no. urut, tanggal, nama pasien/RM, dokter, nama obat, jumlah keluar, saldo, nama pengambil). Stok opname + cetak laporan bulanan (format pelaporan BPOM/Dinkes). Tab baru di `/ehis-care/farmasi`. UU 35/2009 · UU 5/1997 · PMK 3/2015
+- [ ] **LASA Warning System** — extend `farmasiShared.ts` dengan `LASA_PAIRS: [namaA, namaB][]`. Badge `LASA` amber di item obat (terpisah dari HAM). Popup konfirmasi saat dispensing item LASA. Checklist "Konfirmasi bukan tertukar LASA" di TelaahPane. PMK 72/2016 Ps. 8 · SKP 3
+- [ ] **Formularium RS Check + Non-Formularium Justification** — `FORMULARIUM_LIST` di `farmasiShared.ts`. Auto-badge per item: "Formularium" (emerald) / "Non-Formularium" (rose) di TelaahPane. Field justifikasi wajib dokter/apoteker jika ada item non-formularium. SNARS PKPO 2 · PMK 72/2016 Ps. 5-7
+- [ ] **TAT Tracking (Waktu Tunggu Pelayanan)** — tambah `timestampMasuk/Telaah/Dispensing/SerahTerima` ke `FarmasiOrder`. Kalkulasi TAT → badge hijau (≤target) / merah (>target) di FarmasiBoard. Timeline strip antar-step di FarmasiOrderHeader. Standar: IGD/CITO ≤30 mnt · RI ≤60 mnt · RJ ≤30 mnt. SNARS PKPO 6 · Indikator mutu RS
+
+**Tier 2 — Klinis Penting (SNARS bintang 2+):**
+
+- [ ] **PTO (Pemantauan Terapi Obat)** — monitoring terstruktur per parameter per obat (bukan CPPT bebas). Jadwal monitoring, parameter target (misal INR untuk Warfarin, kreatinin untuk Aminoglikosida), catatan observasi apoteker, tindak lanjut. SNARS PKPO 7 · PMK 72/2016 Ps. 30-32
+- [ ] **MESO (Monitoring Efek Samping Obat)** — form pelaporan ADR terstruktur: onset, deskripsi ESO, tingkat severitas, kausalitas WHO-UMC (Certain/Probable/Possible). Integrasi ke pelaporan insiden (IKP). Output laporan ke BPOM farmakovigilans. PMK 72/2016 Ps. 33
+- [ ] **DRP (Drug-Related Problems) Documentation** — extend `CatatanFarmasi` + `IntervensiType` ke klasifikasi DRP terstruktur (PCNE V9): indikasi tanpa terapi, terapi tanpa indikasi, overdosis, underdosis, efek samping aktual, interaksi aktual, ketidakpatuhan. PMK 72/2016
+- [ ] **Konseling Obat Pulang (Discharge Counseling)** — dokumentasi konseling saat pasien pulang: topik dikonseling, metode (verbal/tertulis), tingkat pemahaman pasien, bahasa, durasi, tanda tangan pasien. Trigger dari tab PasienPulang RI. SNARS PP 5 · PMK 72/2016 Ps. 27
+
+**Tier 3 — Operasional/Infrastruktur (scope besar):**
+
+- [ ] **Pengembalian Obat Pasien Pulang** — workflow obat sisa yang dikembalikan: quantity returned per item, alasan, stok depo terupdate, catatan apoteker. Integrasi ke tab PasienPulang / Farmasi. PMK 72/2016 Ps. 20
+- [ ] **PIO Log (Pelayanan Informasi Obat)** — log pertanyaan informasi obat dari nakes/pasien, jawaban apoteker, referensi yang digunakan, waktu respons. Tab tersendiri di `/ehis-care/farmasi`. PMK 72/2016 Ps. 27-29
+- [ ] **Gudang Farmasi (Inventory & Stok)** — modul terpisah: kartu stok digital per depo, FEFO/FIFO enforcement, min-max stock alert, permintaan depo ke gudang, transfer antar depo, penerimaan dari supplier. Scope: modul baru atau sub-modul di `/ehis-care/farmasi`. PMK 72/2016 Bab IV (Manajemen Perbekalan Farmasi)
 
 ### ⏸ Ditunda / Roadmap
 
