@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Pill, Clock, AlertTriangle, TrendingUp } from "lucide-react";
-import FarmasiBoard from "@/components/farmasi/FarmasiBoard";
+import FarmasiViewTabs from "@/components/farmasi/FarmasiViewTabs";
 import { deriveResepOrders } from "@/components/farmasi/farmasiShared";
 import { cn } from "@/lib/utils";
 
@@ -110,9 +110,9 @@ export default function FarmasiPage() {
         ))}
       </div>
 
-      {/* ── Board ── */}
+      {/* ── Main content (Worklist + Register N/P) ── */}
       <div className="animate-fade-in" style={{ animationDelay: "120ms" }}>
-        <FarmasiBoard />
+        <FarmasiViewTabs />
       </div>
     </div>
   );
