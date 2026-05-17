@@ -1,0 +1,628 @@
+"use client";
+
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  CheckCircle2, XCircle, AlertTriangle, ChevronDown,
+  Check, ShieldAlert, RefreshCw, Pill, ChevronRight,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  TELAAH_ADM_ITEMS, TELAAH_FARM_ITEMS, TELAAH_KLIN_ITEMS,
+  type FarmasiOrder, type TelaahData, type TelaahCheck,
+  type AllergiPasien, type SubstitusiItem,
+} from "@/components/farmasi/farmasiShared";
+
+interface Props {
+  order:    FarmasiOrder;
+  onSubmit: (orderId: string, data: TelaahData) => void;
+}
+
+// ── Allergy banner ─────────────────────────────────────────
+
+const TINGKAT_CFG = {
+  Berat:  { cls: "border-rose-200 bg-rose-50",     text: "text-rose-700",   badge: "bg-rose-500 text-white",  dot: "bg-rose-500"   },
+  Sedang: { cls: "border-amber-200 bg-amber-50",   text: "text-amber-700",  badge: "bg-amber-400 text-white", dot: "bg-amber-400"  },
+  Ringan: { cls: "border-yellow-200 bg-yellow-50", text: "text-yellow-700", badge: "bg-yellow-400 text-white",dot: "bg-yellow-400" },
+};
+
+function allergyMatchesItem(alergen: string, namaObat: string): boolean {
+  const a = alergen.toLowerCase();
+  const n = namaObat.toLowerCase();
+  return n.includes(a) || a.includes(n.split(" ")[0]);
+}
+
+function AllergyBanner({ allergies, itemNames }: { allergies: AllergiPasien[]; itemNames: string[] }) {
+  const [open, setOpen] = useState(true);
+  const matches = allergies.filter((a) => itemNames.some((n) => allergyMatchesItem(a.alergen, n)));
+  const worst   = matches.some((a) => a.tingkat === "Berat") ? "Berat"
+                : matches.some((a) => a.tingkat === "Sedang") ? "Sedang"
+                : allergies.some((a) => a.tingkat === "Berat") ? "Berat"
+                : "Sedang";
+  const cfg = TINGKAT_CFG[worst];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={cn("overflow-hidden rounded-xl border", cfg.cls)}
+    >
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left"
+      >
+        <ShieldAlert size={13} className={cn("shrink-0", cfg.text)} />
+        <div className="flex flex-1 items-center gap-2 min-w-0">
+          <p className={cn("text-xs font-semibold", cfg.text)}>
+            {matches.length > 0
+              ? `${matches.length} item berpotensi bereaksi dengan alergi pasien`
+              : `${allergies.length} catatan alergi`}
+          </p>
+          {matches.length > 0 && (
+            <motion.span
+              animate={{ scale: [1, 1.06, 1] }}
+              transition={{ repeat: Infinity, duration: 2 }}
+              className="rounded-full bg-rose-500 px-1.5 py-0.5 text-[9px] font-black text-white"
+            >
+              KRITIS
+            </motion.span>
+          )}
+        </div>
+        <ChevronDown
+          size={12}
+          className={cn("shrink-0 transition-transform duration-200", cfg.text, open && "rotate-180")}
+        />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="overflow-hidden"
+          >
+            <div className="grid grid-cols-2 gap-2 border-t border-black/5 px-4 pb-3 pt-2 sm:grid-cols-3">
+              {allergies.map((a, i) => {
+                const hit = itemNames.some((n) => allergyMatchesItem(a.alergen, n));
+                const c   = TINGKAT_CFG[a.tingkat];
+                return (
+                  <div key={i} className={cn(
+                    "rounded-lg border px-2.5 py-2 text-xs",
+                    hit ? "border-rose-300 bg-rose-100/60" : "border-black/5 bg-white/70",
+                  )}>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", c.dot)} />
+                      <p className="font-semibold text-slate-800">{a.alergen}</p>
+                      {hit && <AlertTriangle size={9} className="text-rose-600 shrink-0" />}
+                    </div>
+                    <p className="text-[11px] text-slate-500">{a.reaksi}</p>
+                    <span className={cn("mt-1 inline-block rounded px-1.5 py-0.5 text-[9px] font-bold", c.badge)}>
+                      {a.tingkat}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {matches.length > 0 && (
+              <div className="border-t border-rose-200 bg-rose-100/40 px-4 py-2">
+                <p className="text-[11px] font-medium text-rose-700">
+                  Verifikasi bersama dokter sebelum melanjutkan dispensing.
+                </p>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+// ── Substitution panel ─────────────────────────────────────
+
+interface SubstitusiState { namaGenerik: string; alasan: string }
+
+function SubstitusiPanel({
+  items, value, onChange,
+}: {
+  items:    FarmasiOrder["items"];
+  value:    Record<string, SubstitusiState | undefined>;
+  onChange: (id: string, s: SubstitusiState | undefined) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const count = Object.values(value).filter(Boolean).length;
+
+  return (
+    <div className={cn(
+      "overflow-hidden rounded-xl border transition-colors",
+      count > 0 ? "border-sky-200" : "border-slate-200",
+    )}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors",
+          count > 0 ? "bg-sky-50/40 hover:bg-sky-50" : "bg-white hover:bg-slate-50/60",
+        )}
+      >
+        <RefreshCw size={12} className={cn("shrink-0", count > 0 ? "text-sky-600" : "text-slate-400")} />
+        <p className={cn("flex-1 text-xs font-semibold", count > 0 ? "text-sky-700" : "text-slate-600")}>
+          Substitusi Generik
+          <span className="ml-1 font-normal text-slate-400">(opsional)</span>
+        </p>
+        {count > 0 && (
+          <span className="rounded-full bg-sky-500 px-1.5 py-0.5 text-[9px] font-black text-white">
+            {count}
+          </span>
+        )}
+        <ChevronDown
+          size={12}
+          className={cn("shrink-0 text-slate-400 transition-transform duration-200", open && "rotate-180")}
+        />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-2 border-t border-slate-100 px-4 pb-4 pt-3">
+              <p className="text-[10px] text-slate-400">
+                Tandai item yang akan diganti ke generik. Perlu konfirmasi dokter sebelum dispensing.
+              </p>
+              {items.map((item) => {
+                const active = !!value[item.id];
+                return (
+                  <div key={item.id} className={cn(
+                    "overflow-hidden rounded-lg border transition-all",
+                    active ? "border-sky-200 bg-sky-50/30" : "border-slate-100 bg-white",
+                  )}>
+                    <button
+                      onClick={() => onChange(item.id, active ? undefined : { namaGenerik: "", alasan: "" })}
+                      className="flex w-full items-center gap-3 px-3 py-2 text-left"
+                    >
+                      <div className={cn(
+                        "flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-all",
+                        active ? "border-sky-500 bg-sky-500" : "border-slate-300",
+                      )}>
+                        {active && <Check size={9} className="text-white" />}
+                      </div>
+                      <div className="flex flex-1 items-center gap-2 min-w-0">
+                        <Pill size={11} className="shrink-0 text-slate-400" />
+                        <p className="truncate text-xs font-medium text-slate-800">{item.namaObat}</p>
+                        <span className="shrink-0 text-[10px] text-slate-400">{item.dosis}</span>
+                      </div>
+                      <ChevronRight size={11} className={cn("shrink-0 text-slate-300 transition-transform", active && "rotate-90")} />
+                    </button>
+
+                    <AnimatePresence>
+                      {active && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.15 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="grid grid-cols-2 gap-2 border-t border-sky-100 px-3 pb-3 pt-2">
+                            <div>
+                              <label className="mb-1 block text-[10px] font-medium text-slate-500">
+                                Nama Generik <span className="text-rose-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={value[item.id]?.namaGenerik ?? ""}
+                                onChange={(e) => onChange(item.id, { ...value[item.id]!, namaGenerik: e.target.value })}
+                                placeholder="Mis: Paracetamol 500mg"
+                                className="w-full rounded-lg border border-sky-200 bg-white px-2.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-100"
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-[10px] font-medium text-slate-500">Alasan</label>
+                              <input
+                                type="text"
+                                value={value[item.id]?.alasan ?? ""}
+                                onChange={(e) => onChange(item.id, { ...value[item.id]!, alasan: e.target.value })}
+                                placeholder="Mis: Stok habis, efisiensi"
+                                className="w-full rounded-lg border border-sky-200 bg-white px-2.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-100"
+                              />
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ── Checklist section ──────────────────────────────────────
+
+interface SectionProps {
+  title:      string;
+  items:      string[];
+  checked:    boolean[];
+  onChange:   (i: number) => void;
+  onCheckAll: () => void;
+}
+
+function CheckSection({ title, items, checked, onChange, onCheckAll }: SectionProps) {
+  const [open, setOpen] = useState(true);
+  const done    = checked.filter(Boolean).length;
+  const total   = items.length;
+  const pct     = total > 0 ? (done / total) * 100 : 0;
+  const allDone = done === total;
+
+  return (
+    <div className={cn(
+      "overflow-hidden rounded-xl border transition-colors duration-300",
+      allDone ? "border-emerald-200" : "border-slate-200",
+    )}>
+      {/* Header row */}
+      <div className={cn(
+        "flex items-center gap-2 px-3 py-2.5 transition-colors",
+        allDone ? "bg-emerald-50/60" : "bg-white",
+      )}>
+        {/* Done badge */}
+        <motion.div
+          animate={{ scale: allDone ? [1, 1.2, 1] : 1 }}
+          transition={{ duration: 0.25 }}
+          className={cn(
+            "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-black transition-all",
+            allDone ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-500",
+          )}
+        >
+          {allDone ? <Check size={9} /> : done}
+        </motion.div>
+
+        {/* Title + count + progress — clickable to toggle collapse */}
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="flex flex-1 items-center gap-2 text-left min-w-0"
+        >
+          <p className={cn("text-xs font-bold", allDone ? "text-emerald-700" : "text-slate-700")}>
+            {title}
+          </p>
+          <span className={cn(
+            "rounded px-1.5 py-0.5 text-[9px] font-semibold",
+            allDone ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-500",
+          )}>
+            {done}/{total}
+          </span>
+          <div className="hidden sm:flex flex-1 max-w-20">
+            <div className="h-1 w-full overflow-hidden rounded-full bg-slate-100">
+              <motion.div
+                animate={{ width: `${pct}%` }}
+                transition={{ duration: 0.3 }}
+                className={cn("h-full rounded-full", allDone ? "bg-emerald-500" : "bg-sky-400")}
+              />
+            </div>
+          </div>
+        </button>
+
+        {/* Check-all toggle */}
+        <button
+          onClick={onCheckAll}
+          className={cn(
+            "shrink-0 rounded-lg px-2 py-1 text-[10px] font-semibold transition-all duration-150",
+            allDone
+              ? "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+              : "text-sky-600 hover:bg-sky-50",
+          )}
+        >
+          {allDone ? "Hapus Semua" : "Centang Semua"}
+        </button>
+
+        {/* Collapse chevron */}
+        <button onClick={() => setOpen((v) => !v)} className="shrink-0 p-0.5">
+          <ChevronDown
+            size={13}
+            className={cn(
+              "text-slate-400 transition-transform duration-200",
+              open && "rotate-180",
+            )}
+          />
+        </button>
+      </div>
+
+      {/* Checklist items */}
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="overflow-hidden"
+          >
+            <div className="divide-y divide-slate-50 border-t border-slate-100 px-2 pb-2 pt-1">
+              {items.map((item, i) => (
+                <button
+                  key={i}
+                  onClick={() => onChange(i)}
+                  className={cn(
+                    "flex w-full items-start gap-3 rounded-lg px-2 py-2.5 text-left transition-colors duration-100",
+                    checked[i] ? "bg-emerald-50/50" : "hover:bg-slate-50/70",
+                  )}
+                >
+                  <div className={cn(
+                    "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-all duration-200",
+                    checked[i] ? "border-emerald-500 bg-emerald-500" : "border-slate-300 hover:border-sky-400",
+                  )}>
+                    <AnimatePresence>
+                      {checked[i] && (
+                        <motion.div
+                          initial={{ scale: 0, rotate: -20 }}
+                          animate={{ scale: 1, rotate: 0 }}
+                          exit={{ scale: 0 }}
+                          transition={{ type: "spring", stiffness: 600, damping: 20 }}
+                        >
+                          <Check size={9} className="text-white" />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  <span className={cn(
+                    "text-xs leading-relaxed transition-colors",
+                    checked[i] ? "text-emerald-600/70 line-through" : "text-slate-600",
+                  )}>{item}</span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ── Main ──────────────────────────────────────────────────
+
+export default function TelaahPane({ order, onSubmit }: Props) {
+  const existing = order.telaah;
+  const isLocked = !!existing;
+
+  const init = (items: string[]) => items.map(() => false);
+
+  const [adm,  setAdm]  = useState<boolean[]>(() => init(TELAAH_ADM_ITEMS));
+  const [farm, setFarm] = useState<boolean[]>(() => init(TELAAH_FARM_ITEMS));
+  const [klin, setKlin] = useState<boolean[]>(() => init(TELAAH_KLIN_ITEMS));
+  const [catatan,       setCatatan]       = useState(existing?.catatan       ?? "");
+  const [alasanKembali, setAlasanKembali] = useState(existing?.alasanKembali ?? "");
+  const [result, setResult] = useState<"Disetujui" | "Dikembalikan" | null>(existing?.result ?? null);
+  const [substitusiState, setSubstitusiState] = useState<Record<string, SubstitusiState | undefined>>({});
+
+  const toggle = (setter: React.Dispatch<React.SetStateAction<boolean[]>>, i: number) =>
+    setter((prev) => prev.map((v, idx) => idx === i ? !v : v));
+
+  const checkAll = (setter: React.Dispatch<React.SetStateAction<boolean[]>>, current: boolean[]) => {
+    const all = current.every(Boolean);
+    setter(current.map(() => !all));
+  };
+
+  const allDone   = adm.every(Boolean) && farm.every(Boolean) && klin.every(Boolean);
+  const hamItems  = order.items.filter((i) => i.isHAM);
+  const allergies = order.alergiPasien ?? [];
+  const itemNames = order.items.map((i) => i.namaObat);
+
+  function handleSubstitusiChange(id: string, s: SubstitusiState | undefined) {
+    setSubstitusiState((prev) => ({ ...prev, [id]: s }));
+  }
+
+  function handleSubmit() {
+    if (!result) return;
+    const checks: TelaahCheck = {
+      administratif: adm.every(Boolean),
+      farmasetis:    farm.every(Boolean),
+      klinis:        klin.every(Boolean),
+    };
+    const substitusi: SubstitusiItem[] = Object.entries(substitusiState)
+      .filter(([, v]) => v?.namaGenerik)
+      .map(([itemId, v]) => ({
+        itemId,
+        namaAsli:    order.items.find((i) => i.id === itemId)?.namaObat ?? "",
+        namaGenerik: v!.namaGenerik,
+        alasan:      v?.alasan || undefined,
+      }));
+    onSubmit(order.id, {
+      checks,
+      catatan:       catatan || undefined,
+      alasanKembali: result === "Dikembalikan" ? alasanKembali : undefined,
+      apoteker:      "Apt. Dewi Rahayu, S.Farm",
+      waktu:         new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+      result,
+      substitusi:    substitusi.length > 0 ? substitusi : undefined,
+    });
+  }
+
+  // ── Locked view ────────────────────────────────────────
+
+  if (isLocked) {
+    const isApproved = existing.result === "Disetujui";
+    return (
+      <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+        <div className={cn(
+          "rounded-xl border p-4",
+          isApproved ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50",
+        )}>
+          <div className="flex items-center gap-2.5">
+            {isApproved
+              ? <CheckCircle2 size={16} className="text-emerald-600" />
+              : <XCircle      size={16} className="text-rose-600" />}
+            <div>
+              <p className={cn("text-sm font-bold", isApproved ? "text-emerald-700" : "text-rose-700")}>
+                Telaah {existing.result}
+              </p>
+              <p className={cn("mt-0.5 text-xs", isApproved ? "text-emerald-600/80" : "text-rose-600/80")}>
+                {existing.apoteker} · {existing.waktu}
+              </p>
+            </div>
+          </div>
+          {existing.catatan && (
+            <p className={cn("mt-2 text-xs italic", isApproved ? "text-emerald-700" : "text-rose-700")}>
+              "{existing.catatan}"
+            </p>
+          )}
+          {existing.alasanKembali && (
+            <p className="mt-2 rounded-lg bg-rose-100 px-3 py-2 text-xs font-medium text-rose-800">
+              Alasan: {existing.alasanKembali}
+            </p>
+          )}
+        </div>
+
+        {existing.substitusi && existing.substitusi.length > 0 && (
+          <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-4">
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-sky-700">
+              <RefreshCw size={11} />
+              Substitusi Generik ({existing.substitusi.length} item)
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {existing.substitusi.map((s) => (
+                <div key={s.itemId} className="rounded-lg border border-sky-100 bg-white px-3 py-2 text-xs">
+                  <p className="text-[11px] text-slate-400 line-through">{s.namaAsli}</p>
+                  <p className="font-semibold text-sky-700">{s.namaGenerik}</p>
+                  {s.alasan && <p className="mt-0.5 text-[10px] text-slate-400">{s.alasan}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </motion.div>
+    );
+  }
+
+  // ── Active form ────────────────────────────────────────
+
+  return (
+    <div className="space-y-3">
+      {allergies.length > 0 && (
+        <AllergyBanner allergies={allergies} itemNames={itemNames} />
+      )}
+
+      {hamItems.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5"
+        >
+          <AlertTriangle size={13} className="shrink-0 text-rose-600" />
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-rose-700">High Alert Medication — verifikasi ganda wajib</p>
+            <p className="mt-0.5 text-[10px] text-rose-500">{hamItems.map((i) => i.namaObat).join(" · ")}</p>
+          </div>
+        </motion.div>
+      )}
+
+      <CheckSection
+        title="Administratif"
+        items={TELAAH_ADM_ITEMS}
+        checked={adm}
+        onChange={(i) => toggle(setAdm, i)}
+        onCheckAll={() => checkAll(setAdm, adm)}
+      />
+      <CheckSection
+        title="Farmasetis"
+        items={TELAAH_FARM_ITEMS}
+        checked={farm}
+        onChange={(i) => toggle(setFarm, i)}
+        onCheckAll={() => checkAll(setFarm, farm)}
+      />
+      <CheckSection
+        title="Klinis"
+        items={TELAAH_KLIN_ITEMS}
+        checked={klin}
+        onChange={(i) => toggle(setKlin, i)}
+        onCheckAll={() => checkAll(setKlin, klin)}
+      />
+
+      <SubstitusiPanel
+        items={order.items}
+        value={substitusiState}
+        onChange={handleSubstitusiChange}
+      />
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2 sm:col-span-1">
+          <label className="mb-1.5 block text-xs font-medium text-slate-500">Catatan Apoteker (opsional)</label>
+          <textarea
+            value={catatan}
+            onChange={(e) => setCatatan(e.target.value)}
+            rows={2}
+            placeholder="Catatan klinis tambahan…"
+            className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+          />
+        </div>
+
+        <div className="col-span-2 sm:col-span-1 flex flex-col justify-end gap-2">
+          <div className="flex gap-2">
+            <motion.button
+              whileHover={allDone ? { scale: 1.01 } : {}}
+              whileTap={allDone ? { scale: 0.98 } : {}}
+              onClick={() => setResult("Disetujui")}
+              disabled={!allDone}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold transition-all",
+                result === "Disetujui"
+                  ? "bg-emerald-600 text-white shadow-sm shadow-emerald-200"
+                  : "border border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40",
+              )}
+            >
+              <CheckCircle2 size={14} />Setujui
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setResult("Dikembalikan")}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold transition-all",
+                result === "Dikembalikan"
+                  ? "bg-rose-600 text-white shadow-sm shadow-rose-200"
+                  : "border border-rose-200 text-rose-700 hover:bg-rose-50",
+              )}
+            >
+              <XCircle size={14} />Kembalikan
+            </motion.button>
+          </div>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {result === "Dikembalikan" && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+          >
+            <label className="mb-1.5 block text-xs font-semibold text-rose-600">Alasan dikembalikan *</label>
+            <textarea
+              value={alasanKembali}
+              onChange={(e) => setAlasanKembali(e.target.value)}
+              rows={2}
+              placeholder="Mis: Dosis melebihi batas maksimal, perlu koreksi dokter…"
+              className="w-full resize-none rounded-xl border border-rose-200 bg-rose-50/50 px-3 py-2 text-xs text-rose-700 outline-none focus:ring-2 focus:ring-rose-100"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <motion.button
+        whileHover={{ scale: 1.01 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={handleSubmit}
+        disabled={!result || (result === "Dikembalikan" && !alasanKembali)}
+        className="w-full rounded-xl bg-sky-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        Simpan Hasil Telaah
+      </motion.button>
+    </div>
+  );
+}

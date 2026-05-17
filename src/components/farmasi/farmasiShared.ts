@@ -10,6 +10,20 @@ export type DepoTujuan     = "Depo IGD" | "Apotek RI" | "Apotek RJ";
 export type UnitAsal       = "IGD" | "Rawat Inap" | "Rawat Jalan";
 export type PrioritasOrder = "CITO" | "Segera" | "Rutin";
 export type IntervensiType = "Dose_Adjustment" | "Substitusi" | "Interaksi" | "Efek_Samping" | "Rekomendasi";
+export type TingkatAlergi  = "Ringan" | "Sedang" | "Berat";
+
+export interface AllergiPasien {
+  alergen: string;
+  reaksi:  string;
+  tingkat: TingkatAlergi;
+}
+
+export interface SubstitusiItem {
+  itemId:      string;
+  namaAsli:    string;
+  namaGenerik: string;
+  alasan?:     string;
+}
 
 export interface FarmasiOrderItem {
   id:            string;
@@ -24,6 +38,9 @@ export interface FarmasiOrderItem {
   lotNo?:        string;
   expiredDate?:  string;
   labelDicetak?: boolean;
+  stokTersedia?: number;
+  hargaSatuan?:  number;
+  satuanObat?:   string;
 }
 
 export interface TelaahCheck {
@@ -39,13 +56,16 @@ export interface TelaahData {
   waktu:           string;
   result:          "Disetujui" | "Dikembalikan";
   alasanKembali?:  string;
+  substitusi?:     SubstitusiItem[];
 }
 
 export interface SerahTerima {
-  waktu:           string;
-  perawatPenerima: string;
-  apoteker:        string;
-  catatan?:        string;
+  waktu:             string;
+  perawatPenerima:   string;
+  apoteker:          string;
+  catatan?:          string;
+  petugas2NAR?:      string;
+  verifikatorAkhir?: string;
 }
 
 export interface CatatanFarmasi {
@@ -75,6 +95,7 @@ export interface FarmasiOrder {
   telaah?:        TelaahData;
   serahTerima?:   SerahTerima;
   catatan?:       CatatanFarmasi[];
+  alergiPasien?:  AllergiPasien[];
 }
 
 // ── Config maps ───────────────────────────────────────────
@@ -87,9 +108,9 @@ export const STATUS_CFG: Record<FarmasiStatus, {
   action:   string;
   actionCls: string;
 }> = {
-  Menunggu:          { label: "Menunggu Telaah",  badge: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",         dot: "bg-amber-400",   step: 0, action: "Telaah",     actionCls: "bg-indigo-600 hover:bg-indigo-700 text-white"         },
+  Menunggu:          { label: "Menunggu Telaah",  badge: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",         dot: "bg-amber-400",   step: 0, action: "Telaah",     actionCls: "bg-sky-600 hover:bg-sky-700 text-white"               },
   Ditelaah:          { label: "Siap Dispensasi",  badge: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",               dot: "bg-sky-500",     step: 1, action: "Dispensasi", actionCls: "bg-sky-600 hover:bg-sky-700 text-white"               },
-  "Siap Diserahkan": { label: "Siap Diserahkan",  badge: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200",      dot: "bg-indigo-500",  step: 2, action: "Serahkan",   actionCls: "bg-emerald-600 hover:bg-emerald-700 text-white"       },
+  "Siap Diserahkan": { label: "Siap Diserahkan",  badge: "bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200",            dot: "bg-cyan-500",    step: 2, action: "Serahkan",   actionCls: "bg-emerald-600 hover:bg-emerald-700 text-white"       },
   Selesai:           { label: "Diserahkan",        badge: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",   dot: "bg-emerald-500", step: 3, action: "Detail",     actionCls: "bg-slate-100 hover:bg-slate-200 text-slate-700"       },
   Dikembalikan:      { label: "Dikembalikan",      badge: "bg-rose-50 text-rose-700 ring-1 ring-rose-200",            dot: "bg-rose-500",    step:-1, action: "Detail",     actionCls: "bg-slate-100 hover:bg-slate-200 text-slate-700"       },
 };
@@ -111,23 +132,56 @@ export const INTERVENSI_CFG: Record<IntervensiType, { label: string; badge: stri
   Substitusi:      { label: "Substitusi Obat",   badge: "bg-sky-50 text-sky-700 ring-1 ring-sky-200"           },
   Interaksi:       { label: "Interaksi Obat",    badge: "bg-rose-50 text-rose-700 ring-1 ring-rose-200"        },
   Efek_Samping:    { label: "Efek Samping",       badge: "bg-orange-50 text-orange-700 ring-1 ring-orange-200" },
-  Rekomendasi:     { label: "Rekomendasi",        badge: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200" },
+  Rekomendasi:     { label: "Rekomendasi",        badge: "bg-sky-50 text-sky-700 ring-1 ring-sky-200"           },
 };
 
 export const TELAAH_ADM_ITEMS  = ["Nama lengkap & identitas pasien", "No. RM sesuai gelang", "Tanggal penulisan resep", "Nama & paraf dokter penulis"];
 export const TELAAH_FARM_ITEMS = ["Dosis dalam rentang normal", "Bentuk sediaan sesuai kondisi", "Rute & cara pemberian tepat", "Aturan pakai & durasi jelas"];
 export const TELAAH_KLIN_ITEMS = ["Indikasi sesuai diagnosa", "Tidak ada kontraindikasi absolut", "Tidak ada interaksi signifikan", "Tidak ada duplikasi terapi"];
 
+// ── Patient allergies ─────────────────────────────────────
+
+const PATIENT_ALLERGIES: Record<string, AllergiPasien[]> = {
+  "RM-2025-005": [
+    { alergen: "Penisilin",  reaksi: "Urtikaria & angioedema",  tingkat: "Berat"   },
+    { alergen: "Aspirin",    reaksi: "Bronkospasme",             tingkat: "Berat"   },
+  ],
+  "RM-2025-003": [
+    { alergen: "Sulfonamida", reaksi: "Ruam makulopapular",     tingkat: "Ringan"  },
+    { alergen: "Codein",      reaksi: "Mual muntah berat",      tingkat: "Sedang"  },
+  ],
+  "RM-2025-007": [
+    { alergen: "Morfin",      reaksi: "Depresi napas & mual",   tingkat: "Berat"   },
+  ],
+};
+
+export function getPatientAllergies(noRM: string): AllergiPasien[] {
+  return PATIENT_ALLERGIES[noRM] ?? [];
+}
+
 // ── Patient lookup ────────────────────────────────────────
 
-const PATIENT_INFO: Record<string, { namaPasien: string; unit: UnitAsal }> = {
-  "RM-2025-005": { namaPasien: "Joko Prasetyo",   unit: "IGD"         },
-  "RM-2025-012": { namaPasien: "Siti Rahayu",     unit: "IGD"         },
-  "RM-2025-003": { namaPasien: "Ahmad Fauzi",     unit: "Rawat Inap"  },
-  "RM-2025-007": { namaPasien: "Hasan Basri",     unit: "Rawat Inap"  },
-  "RM-2025-021": { namaPasien: "Budiman Santoso", unit: "Rawat Jalan" },
-  "RM-2025-034": { namaPasien: "Dewi Rahmawati",  unit: "Rawat Jalan" },
+export interface PatientInfoEntry {
+  namaPasien:    string;
+  unit:          UnitAsal;
+  usia?:         string;
+  jenisKelamin?: "L" | "P";
+  ruangan?:      string;
+  noBed?:        string;
+}
+
+const PATIENT_INFO: Record<string, PatientInfoEntry> = {
+  "RM-2025-005": { namaPasien: "Joko Prasetyo",   unit: "IGD",         usia: "55 thn", jenisKelamin: "L", ruangan: "Triase A",    noBed: "T-03"   },
+  "RM-2025-012": { namaPasien: "Siti Rahayu",     unit: "IGD",         usia: "32 thn", jenisKelamin: "P", ruangan: "Triase B",    noBed: "T-07"   },
+  "RM-2025-003": { namaPasien: "Ahmad Fauzi",     unit: "Rawat Inap",  usia: "62 thn", jenisKelamin: "L", ruangan: "Mawar",       noBed: "3B-02"  },
+  "RM-2025-007": { namaPasien: "Hasan Basri",     unit: "Rawat Inap",  usia: "45 thn", jenisKelamin: "L", ruangan: "ICU",         noBed: "ICU-01" },
+  "RM-2025-021": { namaPasien: "Budiman Santoso", unit: "Rawat Jalan", usia: "58 thn", jenisKelamin: "L", ruangan: "Poli Jantung"                  },
+  "RM-2025-034": { namaPasien: "Dewi Rahmawati",  unit: "Rawat Jalan", usia: "38 thn", jenisKelamin: "P", ruangan: "Poli Umum"                     },
 };
+
+export function getPatientInfo(noRM: string): PatientInfoEntry | undefined {
+  return PATIENT_INFO[noRM];
+}
 
 // ── Tujuan → Depo mapping ─────────────────────────────────
 
@@ -157,6 +211,48 @@ function kategoriObat(name: string): FarmasiOrderItem["kategori"] {
   if (NARKOTIKA_KW.some((kw)    => low.includes(kw))) return "Narkotika";
   if (PSIKOTROPIKA_KW.some((kw) => low.includes(kw))) return "Psikotropika";
   return "Reguler";
+}
+
+// ── Pricing / stock helpers ───────────────────────────────
+
+const DRUG_PRICE_KW: [string, number][] = [
+  ["morfin",         45000], ["dobutamine",   185000], ["nitrogliserin",  3500],
+  ["isdn",           22000], ["kcl",           15000], ["heparin",       65000],
+  ["warfarin",       25000], ["insulin",       85000], ["oksitosin",     12000],
+  ["magnesium",      18000], ["furosemide 80", 12000], ["furosemide",     8500],
+  ["bisoprolol",      3500], ["ramipril",       4200], ["spironolakton",  2800],
+  ["atorvastatin",    5200], ["amlodipine",     2800], ["clopidogrel",    8500],
+  ["aspirin",           500], ["amoxicillin",   7500], ["azithromycin",  12000],
+  ["paracetamol",      500], ["ambroxol",       1200], ["metformin",        800],
+  ["omeprazole",      3200], ["nacl",           2500], ["ringer",         3500],
+];
+
+const DRUG_STOCK_KW: [string, number][] = [
+  ["morfin",   20], ["dobutamine",  12], ["nitrogliserin", 35],
+  ["kcl",      55], ["isdn",        42], ["insulin",       48],
+  ["heparin",  18], ["warfarin",    30], ["furosemide",    75],
+  ["bisoprolol", 110], ["aspirin",  180], ["paracetamol",  320],
+  ["amoxicillin", 140], ["azithromycin", 85],
+];
+
+function lookupPrice(nama: string): number {
+  const low = nama.toLowerCase();
+  for (const [kw, p] of DRUG_PRICE_KW) if (low.includes(kw)) return p;
+  return 3000;
+}
+
+function lookupStock(nama: string): number {
+  const low = nama.toLowerCase();
+  for (const [kw, s] of DRUG_STOCK_KW) if (low.includes(kw)) return s;
+  return 100;
+}
+
+function parseSatuan(nama: string): string {
+  const low = nama.toLowerCase();
+  if (low.includes("inj") || low.includes("/ml"))         return "Ampul";
+  if (low.includes("infus") || low.includes("500ml") || low.includes("ringer")) return "Botol";
+  if (low.includes("kapsul") || low.includes("cap"))      return "Kap";
+  return "Tab";
 }
 
 function parseJumlah(detail?: string): number {
@@ -204,15 +300,18 @@ function mapOrderStatus(s: string): FarmasiStatus {
 function deriveItems(order: Order, wf?: WorkflowData): FarmasiOrderItem[] {
   if (wf?.items) return wf.items;
   return order.items.map((item): FarmasiOrderItem => ({
-    id:       item.id,
-    namaObat: item.nama,
-    kodeObat: `RX-${item.id}`,
-    dosis:    item.detail ?? "",
-    signa:    item.keterangan ?? "",
-    jumlah:   parseJumlah(item.detail),
-    rute:     parseRute(item.detail),
-    kategori: kategoriObat(item.nama),
-    isHAM:    isHAMDrug(item.nama),
+    id:           item.id,
+    namaObat:     item.nama,
+    kodeObat:     `RX-${item.id}`,
+    dosis:        item.detail ?? "",
+    signa:        item.keterangan ?? "",
+    jumlah:       parseJumlah(item.detail),
+    rute:         parseRute(item.detail),
+    kategori:     kategoriObat(item.nama),
+    isHAM:        isHAMDrug(item.nama),
+    stokTersedia: lookupStock(item.nama),
+    hargaSatuan:  lookupPrice(item.nama),
+    satuanObat:   parseSatuan(item.nama),
   }));
 }
 
@@ -246,7 +345,12 @@ export function deriveResepOrders(noRM?: string): FarmasiOrder[] {
           telaah:        wf?.telaah,
           serahTerima:   wf?.serahTerima,
           catatan:       wf?.catatan,
+          alergiPasien:  getPatientAllergies(rm),
         };
       }),
   );
+}
+
+export function getOrderById(id: string): FarmasiOrder | undefined {
+  return deriveResepOrders().find((o) => o.id === id);
 }

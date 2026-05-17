@@ -20,7 +20,7 @@ Utilities: `cn()` · `src/lib/utils.ts` | Navigation: `src/lib/navigation.ts` | 
 | -------------------- | ------------- | --------------------------------------- | ----------- |
 | `/ehis-dashboard`    | Dashboard     | ModuleLayout                            | 🔧 Scaffold |
 | `/ehis-care`         | Clinical Care | Sidebar (main) + Fullpage               | 🚧 Active   |
-| `/ehis-care/farmasi` | Farmasi       | ModuleLayout (main)                     | ✅ Done     |
+| `/ehis-care/farmasi` | Farmasi       | ModuleLayout (main) + Fullpage detail   | ✅ Done     |
 | `/ehis-registration` | Registration  | (main) ModuleLayout + (fullpage) Pasien | 🚧 Active   |
 | `/ehis-billing`      | Billing       | ModuleLayout                            | 🔧 Scaffold |
 | `/ehis-master`       | Master Data   | ModuleLayout                            | 🔧 Scaffold |
@@ -129,14 +129,14 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 - [x] **SuratDokumenTab** ✅ — baru (shared): Surat Keterangan Sakit · Surat Kontrol · Surat Keterangan Sehat · Resume Medis Kunjungan. 4-card selector + form auto-fill + riwayat expandable + cetak. Sub: `suratDokumen/{suratDokumenShared,SuratFormPane,SuratHistoryPane}`. PMK 269/2008
 - [x] **DisposisiRJTab** ✅ — adapt dari IGD: Rujuk Internal (poli tujuan, prioritas Segera/Elektif/Konsultasi) + Rujuk Eksternal (surat rujukan full: jenis pelayanan 4 opsi, jenis rujukan 5 opsi, live preview, tujuan PPK/poli, diagnosa multi-select) + Admisi Rawat Inap (kelas 7 opsi, konfirmasi dokter, pengantar admisi). Tanpa Pulang/APS/Meninggal. File: `rawat-jalan/tabs/DisposisiRJTab.tsx`.
 
-### ✅ Selesai — Farmasi Worklist (`/ehis-care/farmasi`)
+### ✅ Selesai — Farmasi Worklist + Detail (`/ehis-care/farmasi`)
 
 **Layer 1 — Halaman Apoteker (cross-patient worklist):** ✅
-- [x] **`farmasiShared.ts`** ✅ — Types + config maps + `deriveResepOrders()` + `updateFarmasiWorkflow()` + `workflowStore`. Tidak ada static mock — data diturunkan langsung dari `ORDERS_MOCK`. HAM auto-detect (keyword match), kategori (Narkotika/Psikotropika/Reguler), tujuan→depo mapping. `src/components/farmasi/`
-- [x] **`OrderCard.tsx`** ✅ — Card per order: HAM badge, status badge, progress bar, action button.
+- [x] **`farmasiShared.ts`** ✅ — Types + config maps + `deriveResepOrders()` + `updateFarmasiWorkflow()` + `workflowStore` + `getOrderById()` + `getPatientInfo()`. Pricing/stock mock (`lookupPrice`, `lookupStock`, `parseSatuan`). `PatientInfoEntry` dengan demographics (usia, jenisKelamin, ruangan, noBed). `src/components/farmasi/`
+- [x] **`OrderCard.tsx`** ✅ — Card per order: HAM badge, status badge, progress bar, **action button → Link navigasi ke `/ehis-care/farmasi/[id]`** (tidak ada modal lagi).
 - [x] **`TelaahModal.tsx`** ✅ — 3-checklist accordion (Adm/Farm/Klin) + HAM warning + Setujui/Kembalikan.
 - [x] **`DispensasiModal.tsx`** ✅ — 2-step: lot/batch/expired/label → serah terima (nama perawat).
-- [x] **`FarmasiBoard.tsx`** ✅ — Stat bar + depo tabs + filter + HAM toggle + search + grid + pagination + modals. Submit sync ke `workflowStore` + `updateOrderStatus()`.
+- [x] **`FarmasiBoard.tsx`** ✅ — Stat bar + depo tabs + filter + HAM toggle + search + grid + pagination. Modals dihapus — workflow pindah ke halaman detail.
 - [x] **`page.tsx`** ✅ — Route `src/app/ehis-care/(main)/farmasi/page.tsx`. Workflow guide strip + header stats dari `deriveResepOrders()`.
 
 **Layer 2 — Tab Farmasi di rekam medis pasien (per-patient status tracker):** ✅
@@ -148,7 +148,19 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 - [x] **`updateOrderStatus()`** ✅ — fungsi mutasi status order di `ORDERS_MOCK`, dipanggil saat apoteker submit telaah/dispensasi → `DaftarOrderTab` pasien ikut terupdate dalam sesi yang sama.
 - [x] **Single source of truth** ✅ — `ORDERS_MOCK` adalah satu-satunya sumber. Saat migrasi ke DB, cukup ganti `ORDERS_MOCK` dengan Prisma query — semua UI tidak perlu disentuh.
 
-> Alur data: Dokter order resep di `DaftarOrderTab` → `ORDERS_MOCK` → `deriveResepOrders()` → FarmasiBoard (apoteker telaah + dispensasi) → `workflowStore` overlay → FarmasiTab per pasien (perawat lihat status). PMK 72/2016 · SKP 3
+**Layer 4 — Halaman Detail Order Farmasi (`/ehis-care/farmasi/[id]`):** ✅
+- [x] **Route fullpage** ✅ — `app/ehis-care/(fullpage)/farmasi/[id]/` layout + page. Server component, `getOrderById(id)`.
+- [x] **`FarmasiOrderHeader.tsx`** ✅ — Back button, patient info (nama, RM, usia, gender, ruangan, bed), order info (dokter, depo, tanggal, jam, item count), status badge animated, HAM + prioritas badge, progress strip 4-step.
+- [x] **`FarmasiOrderTabs.tsx`** ✅ — Sidebar 2 tab (Layanan Farmasi · CPPT Apoteker) + AnimatePresence content. Live order re-derived dari `workflowStore` client-side. Callbacks: `onTelaahSubmit`, `onDispensasiSubmit`, `onCatatanAdd`.
+- [x] **`tabs/LayananFarmasiTab.tsx`** ✅ — 5 sub-tab card nav: Telaah Resep · Dispensing & Harga · Serah Terima · Riwayat Order · Cetak Dokumen.
+- [x] **`TelaahPane.tsx`** ✅ — Accordion 3 seksi (Adm/Farm/Klin) + HAM banner + Setujui/Kembalikan + alasan. Locked view setelah submit.
+- [x] **`DispensingPane.tsx`** ✅ — Tabel obat (nama, stok warna, aturan pakai, jml, satuan, harga satuan, total) + input Lot/Batch + Exp date + checkbox label. Footer: total tagihan IDR. Locked setelah selesai.
+- [x] **`SerahTerimaPane.tsx`** ✅ — Form penerima + cara pemberian + edukasi checklist + catatan. Item summary grid. Confirmation view post-submit.
+- [x] **`RiwayatPane.tsx`** ✅ — Semua order pasien grouped by date, expandable accordion per order, summary cards (Resep/Lab/Rad count).
+- [x] **`CetakPane.tsx`** ✅ — 4 print options (Resep, Kwitansi, Label, Etiket) + Cetak Semua. Patient/order summary + item list + total tagihan. Printed state tracking.
+- [x] **CPPT Apoteker** ✅ — Shared `CPPTTab` dengan `initialEntries=[]` + `showDate=true`.
+
+> Alur data: Dokter order resep di `DaftarOrderTab` → `ORDERS_MOCK` → `deriveResepOrders()` → FarmasiBoard overview → klik action → halaman detail `/farmasi/[id]` → Telaah + Dispensasi + Serah Terima → `workflowStore` + `ORDERS_MOCK` sync → FarmasiTab pasien terupdate. PMK 72/2016 · SKP 3
 
 ### 🔴 Active — Dashboard (`/ehis-dashboard`)
 

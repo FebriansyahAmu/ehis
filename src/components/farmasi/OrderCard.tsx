@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { Pill, Clock, Stethoscope, MapPin, AlertTriangle, Package, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -50,12 +51,12 @@ function HAMBadge() {
 // ── Main component ────────────────────────────────────────
 
 interface OrderCardProps {
-  order:   FarmasiOrder;
-  index?:  number;
-  onAction: (order: FarmasiOrder) => void;
+  order:    FarmasiOrder;
+  index?:   number;
+  onAction?: (order: FarmasiOrder) => void;
 }
 
-export default function OrderCard({ order, index = 0, onAction }: OrderCardProps) {
+export default function OrderCard({ order, index = 0 }: OrderCardProps) {
   const cfg       = STATUS_CFG[order.status];
   const depoCfg   = DEPO_CFG[order.depo];
   const unitCfg   = UNIT_CFG[order.unit];
@@ -164,9 +165,9 @@ export default function OrderCard({ order, index = 0, onAction }: OrderCardProps
       {/* No order */}
       <p className="text-[10px] text-slate-400 font-mono">{order.noOrder}</p>
 
-      {/* Action button */}
-      <button
-        onClick={() => onAction(order)}
+      {/* Action button → navigates to detail page */}
+      <Link
+        href={`/ehis-care/farmasi/${order.id}`}
         className={cn(
           "flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all duration-150 active:scale-95",
           cfg.actionCls,
@@ -175,7 +176,7 @@ export default function OrderCard({ order, index = 0, onAction }: OrderCardProps
       >
         {cfg.action}
         <ChevronRight size={13} aria-hidden="true" />
-      </button>
+      </Link>
     </motion.article>
   );
 }
