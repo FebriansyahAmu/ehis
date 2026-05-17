@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BookOpen, AlertTriangle, Clock, ChevronLeft, ChevronRight,
@@ -41,6 +41,24 @@ function getShiftCols(items: ResepRIItem[], shift: MARShift): string[] {
         .forEach((s) => slots.add(s.waktu));
     });
   return Array.from(slots).sort();
+}
+
+// ── Drug groups ───────────────────────────────────────────
+
+const GROUP_ORDER = ["scheduled", "continuous", "prn"] as const;
+type DrugGroup = typeof GROUP_ORDER[number];
+
+const GROUP_CFG: Record<DrugGroup, { label: string; cls: string; flexLabel: string }> = {
+  scheduled:  { label: "Terjadwal",         cls: "text-slate-500", flexLabel: "Kontinu / Titrasi" },
+  continuous: { label: "Kontinu / Titrasi", cls: "text-sky-600",   flexLabel: "Kontinu / Titrasi" },
+  prn:        { label: "PRN / k/p",          cls: "text-amber-600", flexLabel: "Sesuai kebutuhan (k/p)" },
+};
+
+function getMARGroup(signa: string): DrugGroup {
+  const s = signa.toLowerCase();
+  if (/k\/p|prn|bila perlu/.test(s)) return "prn";
+  if (/kontinu|drip|titrasi/.test(s)) return "continuous";
+  return "scheduled";
 }
 
 // ── Cell styles ───────────────────────────────────────────
@@ -108,9 +126,10 @@ function SlotCell({
 // ── Drug row ──────────────────────────────────────────────
 
 function DrugRow({
-  item, shiftCols, entry, isHAM, isToday, onCellClick, index,
+  item, group, shiftCols, entry, isHAM, isToday, onCellClick, index,
 }: {
   item: ResepRIItem;
+  group: DrugGroup;
   shiftCols: string[];
   entry?: MAREntry;
   isHAM: boolean;
@@ -166,7 +185,7 @@ function DrugRow({
       {flexible ? (
         <td colSpan={colCount} className="px-3 py-2.5">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] italic text-slate-400">Kontinu / Titrasi</span>
+            <span className="text-[10px] italic text-slate-400">{GROUP_CFG[group].flexLabel}</span>
             {isToday && (
               <button
                 onClick={() => onCellClick(item, null)}
@@ -338,7 +357,7 @@ function InputModal({
               <input
                 type="time" value={form.waktu}
                 onChange={(e) => setForm((f) => ({ ...f, waktu: e.target.value }))}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
               />
             </div>
           )}
@@ -351,7 +370,7 @@ function InputModal({
               type="text" value={form.perawat}
               onChange={(e) => setForm((f) => ({ ...f, perawat: e.target.value }))}
               placeholder="Ns. Sari Dewi, S.Kep"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
             />
           </div>
 
@@ -365,7 +384,7 @@ function InputModal({
                 type="text" value={form.perawat2}
                 onChange={(e) => setForm((f) => ({ ...f, perawat2: e.target.value }))}
                 placeholder="Perawat verifikator (berbeda)"
-                className="w-full rounded-lg border border-rose-200 bg-rose-50/40 px-3 py-2 text-sm placeholder:text-slate-400 outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
+                className="w-full rounded-lg border border-rose-200 bg-rose-50/40 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
               />
             </div>
           )}
@@ -378,7 +397,7 @@ function InputModal({
               rows={2} value={form.catatan}
               onChange={(e) => setForm((f) => ({ ...f, catatan: e.target.value }))}
               placeholder="Observasi atau keterangan khusus"
-              className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+              className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
             />
           </div>
         </div>
@@ -469,6 +488,10 @@ export default function MARTab({ patient }: MARTabProps) {
   }
 
   const shiftCols = getShiftCols(activeItems, activeShift);
+  const totalCols = Math.max(shiftCols.length, 1) + 2;
+  const grouped   = GROUP_ORDER
+    .map((g) => ({ group: g, items: activeItems.filter((i) => getMARGroup(i.signa) === g) }))
+    .filter(({ items }) => items.length > 0);
 
   const entriesNow = localMAR.filter((e) => e.tanggal === activeDate && e.shift === activeShift);
   const diberikan  = entriesNow.filter((e) => e.status === "Diberikan").length;
@@ -619,17 +642,30 @@ export default function MARTab({ patient }: MARTabProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {activeItems.map((item, i) => (
-                    <DrugRow
-                      key={item.id}
-                      item={item}
-                      shiftCols={shiftCols}
-                      entry={getEntry(item.id)}
-                      isHAM={isHAMDrug(item.namaObat)}
-                      isToday={isToday}
-                      onCellClick={(it, slot) => setCellTarget({ item: it, slotWaktu: slot })}
-                      index={i}
-                    />
+                  {grouped.map(({ group, items }) => (
+                    <Fragment key={group}>
+                      <tr className="border-b border-slate-100 bg-slate-50/70">
+                        <td colSpan={totalCols} className="px-3 py-1.5">
+                          <span className={cn("text-[9px] font-bold uppercase tracking-widest", GROUP_CFG[group].cls)}>
+                            {GROUP_CFG[group].label}
+                          </span>
+                          <span className="ml-1.5 text-[9px] text-slate-300">({items.length})</span>
+                        </td>
+                      </tr>
+                      {items.map((item, i) => (
+                        <DrugRow
+                          key={item.id}
+                          item={item}
+                          group={group}
+                          shiftCols={shiftCols}
+                          entry={getEntry(item.id)}
+                          isHAM={isHAMDrug(item.namaObat)}
+                          isToday={isToday}
+                          onCellClick={(it, slot) => setCellTarget({ item: it, slotWaktu: slot })}
+                          index={i}
+                        />
+                      ))}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
