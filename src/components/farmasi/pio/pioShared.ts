@@ -7,6 +7,7 @@ export type UrgensipIO       = "Urgent" | "Reguler";
 
 export interface LogPIO {
   id:               string;
+  noRM?:            string;
   tanggal:          string;
   jam:              string;
   urgensi:          UrgensipIO;
@@ -66,6 +67,7 @@ export const SUMBER_LIST: SumberPertanyaan[] = ["Dokter", "Perawat", "Pasien", "
 export const PIO_MOCK: LogPIO[] = [
   {
     id: "pio-1",
+    noRM: "RM-2025-003",
     tanggal: "2026-05-18", jam: "08:10",
     urgensi: "Urgent", sumber: "Dokter",
     namaPenanya: "dr. Budi Santoso, Sp.JP", unitAsal: "Rawat Inap – Jantung",
@@ -78,6 +80,7 @@ export const PIO_MOCK: LogPIO[] = [
   },
   {
     id: "pio-2",
+    noRM: "RM-2025-003",
     tanggal: "2026-05-18", jam: "09:45",
     urgensi: "Reguler", sumber: "Perawat",
     namaPenanya: "Ns. Ratna", unitAsal: "Bangsal Jantung Kelas 1",
@@ -90,6 +93,7 @@ export const PIO_MOCK: LogPIO[] = [
   },
   {
     id: "pio-3",
+    noRM: "RM-2025-003",
     tanggal: "2026-05-17", jam: "14:20",
     urgensi: "Reguler", sumber: "Pasien",
     namaPenanya: "Ny. Sri Wahyuni (RM-2025-003)", unitAsal: "Rawat Inap",
@@ -102,6 +106,7 @@ export const PIO_MOCK: LogPIO[] = [
   },
   {
     id: "pio-4",
+    noRM: "RM-2025-007",
     tanggal: "2026-05-17", jam: "16:55",
     urgensi: "Urgent", sumber: "Dokter",
     namaPenanya: "dr. Hendra Wijaya, Sp.EM", unitAsal: "ICU",
@@ -114,6 +119,7 @@ export const PIO_MOCK: LogPIO[] = [
   },
   {
     id: "pio-5",
+    noRM: "RM-2025-007",
     tanggal: "2026-05-16", jam: "11:30",
     urgensi: "Reguler", sumber: "Perawat",
     namaPenanya: "Ns. Dewi ICU", unitAsal: "ICU",
@@ -126,6 +132,7 @@ export const PIO_MOCK: LogPIO[] = [
   },
   {
     id: "pio-6",
+    noRM: "RM-2025-007",
     tanggal: "2026-05-18", jam: "11:00",
     urgensi: "Reguler", sumber: "Keluarga",
     namaPenanya: "Tn. Budi (keluarga Tn. Hasan Basri)", unitAsal: "ICU",
@@ -136,3 +143,15 @@ export const PIO_MOCK: LogPIO[] = [
     apoteker: "Apt. Sari S.Farm.", status: "Pending",
   },
 ];
+
+// ── Mutable store ─────────────────────────────────────────
+
+const _pioStore: LogPIO[] = [...PIO_MOCK];
+
+export function getPIOLogs(): LogPIO[]                           { return [..._pioStore]; }
+export function getPIOLogsForRM(noRM: string): LogPIO[]          { return _pioStore.filter((l) => l.noRM === noRM); }
+export function addPIOEntry(entry: LogPIO): void                 { _pioStore.unshift(entry); }
+export function updatePIOEntry(id: string, patch: Partial<LogPIO>): void {
+  const idx = _pioStore.findIndex((l) => l.id === id);
+  if (idx !== -1) _pioStore[idx] = { ..._pioStore[idx], ...patch };
+}

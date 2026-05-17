@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  PIO_MOCK,
+  getPIOLogs, addPIOEntry, updatePIOEntry,
   KATEGORI_CFG, STATUS_PIO_CFG, URGENSI_CFG, SUMBER_CFG,
   KATEGORI_LIST, SUMBER_LIST,
   type LogPIO, type KategoriPIO, type SumberPertanyaan,
@@ -75,9 +75,22 @@ function LogItem({
 
 // ── Detail panel ──────────────────────────────────────────
 
-function DetailPanel({ entry, onClose }: { entry: LogPIO; onClose: () => void }) {
+function DetailPanel({
+  entry, onClose, onAnswer,
+}: {
+  entry:    LogPIO;
+  onClose:  () => void;
+  onAnswer: (id: string, jawaban: string, referensi: string[], apoteker: string) => void;
+}) {
   const kCfg = KATEGORI_CFG[entry.kategori];
   const sCfg = STATUS_PIO_CFG[entry.status];
+
+  const [jawaban,   setJawaban]   = useState(entry.jawaban  ?? "");
+  const [referensi, setReferensi] = useState(entry.referensi?.join(", ") ?? "");
+  const [apoteker,  setApoteker]  = useState(entry.apoteker === "—" ? "" : (entry.apoteker ?? ""));
+
+  const inputCls = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 placeholder:text-slate-400";
+  const canAnswer = jawaban.trim().length > 0 && apoteker.trim().length > 0;
 
   return (
     <motion.div
@@ -136,38 +149,81 @@ function DetailPanel({ entry, onClose }: { entry: LogPIO; onClose: () => void })
         <p className="text-sm text-slate-700 leading-relaxed">{entry.pertanyaan}</p>
       </div>
 
-      {/* Jawaban */}
-      {entry.jawaban ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-1">
-          <div className="flex items-center gap-2 mb-2">
-            <CheckCircle2 size={13} className="text-emerald-600" />
-            <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">Jawaban Apoteker</p>
-            <span className="ml-auto text-[10px] text-emerald-600 font-medium">{entry.apoteker}</span>
+      {/* Jawaban — sudah ada */}
+      {entry.status === "Terjawab" && entry.jawaban && (
+        <>
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-1">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle2 size={13} className="text-emerald-600" />
+              <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">Jawaban Apoteker</p>
+              <span className="ml-auto text-[10px] text-emerald-600 font-medium">{entry.apoteker}</span>
+            </div>
+            <p className="text-sm text-emerald-800 leading-relaxed">{entry.jawaban}</p>
           </div>
-          <p className="text-sm text-emerald-800 leading-relaxed">{entry.jawaban}</p>
-        </div>
-      ) : (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <div className="flex items-center gap-2">
-            <AlertCircle size={13} className="text-amber-600 shrink-0" />
-            <p className="text-xs font-medium text-amber-700">Belum dijawab — sedang diproses</p>
-          </div>
-        </div>
+
+          {entry.referensi && entry.referensi.length > 0 && (
+            <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <BookMarked size={12} className="text-slate-400" />
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Referensi</p>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {entry.referensi.map((r) => (
+                  <span key={r} className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600">{r}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
-      {/* Referensi */}
-      {entry.referensi && entry.referensi.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+      {/* Jawaban — form untuk Pending (sisi apoteker) */}
+      {entry.status === "Pending" && (
+        <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <BookMarked size={12} className="text-slate-400" />
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Referensi</p>
+            <AlertCircle size={13} className="text-amber-500 shrink-0" />
+            <p className="text-xs font-semibold text-slate-700">Belum dijawab — isi jawaban di bawah</p>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {entry.referensi.map((r) => (
-              <span key={r} className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600">
-                {r}
-              </span>
-            ))}
+          <div className="space-y-2">
+            <div>
+              <label className="text-[11px] font-semibold text-slate-500 block mb-1">Jawaban <span className="text-rose-400">*</span></label>
+              <textarea
+                value={jawaban}
+                onChange={(e) => setJawaban(e.target.value)}
+                rows={4}
+                placeholder="Tulis jawaban berbasis evidens..."
+                className={cn(inputCls, "resize-none")}
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold text-slate-500 block mb-1">Referensi (pisah koma)</label>
+              <input
+                value={referensi}
+                onChange={(e) => setReferensi(e.target.value)}
+                placeholder="UpToDate 2025, Sanford Guide, BNF 84"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold text-slate-500 block mb-1">Apoteker <span className="text-rose-400">*</span></label>
+              <input
+                value={apoteker}
+                onChange={(e) => setApoteker(e.target.value)}
+                placeholder="Apt. nama S.Farm."
+                className={inputCls}
+              />
+            </div>
+            <button
+              disabled={!canAnswer}
+              onClick={() => {
+                const refs = referensi.split(",").map((r) => r.trim()).filter(Boolean);
+                onAnswer(entry.id, jawaban, refs, apoteker);
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Send size={13} />
+              Simpan Jawaban
+            </button>
           </div>
         </div>
       )}
@@ -310,7 +366,7 @@ function StatsStrip({ logs }: { logs: LogPIO[] }) {
 // ── Main ──────────────────────────────────────────────────
 
 export default function PIOPane() {
-  const [logs,        setLogs]        = useState<LogPIO[]>(PIO_MOCK);
+  const [logs,        setLogs]        = useState<LogPIO[]>(() => getPIOLogs());
   const [selected,    setSelected]    = useState<LogPIO | null>(logs[0] ?? null);
   const [showForm,    setShowForm]    = useState(false);
   const [filterK,     setFilterK]     = useState<KategoriPIO | "">("");
@@ -325,9 +381,22 @@ export default function PIOPane() {
   );
 
   function handleNewEntry(entry: LogPIO) {
-    setLogs((prev) => [entry, ...prev]);
+    addPIOEntry(entry);
+    setLogs(getPIOLogs());
     setSelected(entry);
     setShowForm(false);
+  }
+
+  function handleAnswer(id: string, jawaban: string, referensi: string[], apoteker: string) {
+    const now = new Date();
+    const original = logs.find((l) => l.id === id);
+    const submittedAt = original
+      ? Math.round((now.getTime() - new Date(`${original.tanggal}T${original.jam}`).getTime()) / 60000)
+      : undefined;
+    updatePIOEntry(id, { jawaban, referensi, apoteker, status: "Terjawab", waktuResponsMenit: submittedAt });
+    const updated = getPIOLogs();
+    setLogs(updated);
+    setSelected(updated.find((l) => l.id === id) ?? null);
   }
 
   return (
@@ -418,7 +487,7 @@ export default function PIOPane() {
         <aside className="sticky top-0 self-start">
           <AnimatePresence mode="wait">
             {selected ? (
-              <DetailPanel key={selected.id} entry={selected} onClose={() => setSelected(null)} />
+              <DetailPanel key={selected.id} entry={selected} onClose={() => setSelected(null)} onAnswer={handleAnswer} />
             ) : (
               <motion.div
                 key="empty-detail"
