@@ -189,8 +189,8 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 
 **Tier 3 — Operasional/Infrastruktur (scope besar):**
 
-- [ ] **Pengembalian Obat Pasien Pulang** — workflow obat sisa yang dikembalikan: quantity returned per item, alasan, stok depo terupdate, catatan apoteker. Integrasi ke tab PasienPulang / Farmasi. PMK 72/2016 Ps. 20
-- [ ] **PIO Log (Pelayanan Informasi Obat)** — log pertanyaan informasi obat dari nakes/pasien, jawaban apoteker, referensi yang digunakan, waktu respons. Tab tersendiri di `/ehis-care/farmasi`. PMK 72/2016 Ps. 27-29
+- [x] **Pengembalian Obat Pasien Pulang** ✅ — `farmasi/pengembalian/pengembalianShared.ts` + `PengembalianPane.tsx`. Two-panel: kiri list item per resep (jumlah dispensasi/diberikan/dikembalikan, kondisi Baik/Rusak/Kadaluarsa, alasan, HAM double-check) + kanan summary card + panduan prosedur 5-step. Tab "Kembalian Obat" di PasienPulangTab RI. Verifikasi apoteker per record. PMK 72/2016 Ps. 20
+- [x] **PIO Log (Pelayanan Informasi Obat)** ✅ — `farmasi/pio/pioShared.ts` + `PIOPane.tsx`. Two-panel: kiri log list (filter kategori + status, stats strip avg respons) + kanan detail jawaban + referensi. Form tambah inline. 6 mock entries (Dosis, Interaksi, ESO, Farmakokinetik, Ketersediaan). Tab "Pelayanan Informasi Obat" di FarmasiViewTabs. PMK 72/2016 Ps. 27-29
 - [ ] **Gudang Farmasi (Inventory & Stok)** — modul terpisah: kartu stok digital per depo, FEFO/FIFO enforcement, min-max stock alert, permintaan depo ke gudang, transfer antar depo, penerimaan dari supplier. Scope: modul baru atau sub-modul di `/ehis-care/farmasi`. PMK 72/2016 Bab IV (Manajemen Perbekalan Farmasi)
 
 ### ⏸ Ditunda / Roadmap

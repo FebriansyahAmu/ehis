@@ -450,16 +450,19 @@ export default function ObatJadwalPane({ data, onChange }: Props) {
         {/* FKTP */}
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <SectionTitle icon={Building2} label="Rujukan FKTP" />
-          <button
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => set("adaRujukanFKTP", !data.adaRujukanFKTP)}
-            className="mb-3 flex w-full items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5"
+            onKeyDown={(e) => e.key === "Enter" && set("adaRujukanFKTP", !data.adaRujukanFKTP)}
+            className="mb-3 flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5"
           >
             <div className="text-left">
               <p className="text-[11px] font-semibold text-slate-700">Rujukan ke FKTP</p>
               <p className="text-[10px] text-slate-400">Puskesmas / faskes primer</p>
             </div>
             <Toggle checked={data.adaRujukanFKTP} onChange={v => set("adaRujukanFKTP", v)} />
-          </button>
+          </div>
           <AnimatePresence>
             {data.adaRujukanFKTP && (
               <motion.div

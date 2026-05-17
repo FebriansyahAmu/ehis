@@ -14,21 +14,23 @@ import {
   makeInitialSurat,
   STATUS_KEPULANGAN_CONFIG,
 } from "../pasienPulang/pasienPulangShared";
-import StatusPane      from "../pasienPulang/StatusPane";
-import ObatJadwalPane  from "../pasienPulang/ObatJadwalPane";
-import SuratPane       from "../pasienPulang/SuratPane";
-import ResumeMedikPane from "../pasienPulang/ResumeMedikPane";
-import ResumeMedisPane from "../pasienPulang/ResumeMedisPane";
+import StatusPane        from "../pasienPulang/StatusPane";
+import ObatJadwalPane    from "../pasienPulang/ObatJadwalPane";
+import SuratPane         from "../pasienPulang/SuratPane";
+import ResumeMedikPane   from "../pasienPulang/ResumeMedikPane";
+import ResumeMedisPane   from "../pasienPulang/ResumeMedisPane";
+import PengembalianPane  from "@/components/farmasi/pengembalian/PengembalianPane";
 
 // ── Tab definitions ───────────────────────────────────────
 
-type TabId = "status" | "obat" | "surat" | "resume-medik" | "resume-pulang";
+type TabId = "status" | "obat" | "surat" | "resume-medik" | "resume-pulang" | "pengembalian";
 
 interface TabDef { id: TabId; label: string; icon: LucideIcon }
 
 const TABS: TabDef[] = [
   { id: "status",        label: "Status Pulang",  icon: LogOut        },
   { id: "obat",          label: "Obat & Jadwal",  icon: Pill          },
+  { id: "pengembalian",  label: "Kembalian Obat", icon: CalendarCheck },
   { id: "surat",         label: "Surat-surat",    icon: ClipboardList },
   { id: "resume-medik",  label: "Resume Medik",   icon: FileCheck2    },
   { id: "resume-pulang", label: "Resume Pulang",  icon: FileText      },
@@ -151,6 +153,9 @@ export default function PasienPulangTab({ patient }: { patient: RawatInapPatient
               )}
               {activeTab === "obat" && (
                 <ObatJadwalPane data={data} onChange={setData} />
+              )}
+              {activeTab === "pengembalian" && (
+                <PengembalianPane noRM={patient.noRM} />
               )}
               {activeTab === "surat" && (
                 <SuratPane data={data} onChange={setData} />
