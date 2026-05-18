@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Award, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
+import { Award, CheckCircle2, AlertTriangle, Clock, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type EQAProvider, type EQASiklus, EQA_PROVIDERS, EQA_STATUS_CFG } from "./manajemenShared";
 
@@ -167,7 +167,11 @@ export default function EQAPane() {
   const totalTidakLulus = EQA_PROVIDERS.flatMap((p) => p.siklus).filter((s) => s.status === "Tidak Lulus").length;
 
   return (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-[240px_1fr]">
+    <div className="relative">
+
+      {/* Dimmed content — not interactive */}
+      <div className="pointer-events-none select-none opacity-30">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-[240px_1fr]">
 
       {/* Left — provider list */}
       <div className="space-y-3">
@@ -246,6 +250,38 @@ export default function EQAPane() {
           )}
         </motion.div>
       </AnimatePresence>
+      </div> {/* end grid */}
+      </div> {/* end dimmed wrapper */}
+
+      {/* Disabled overlay */}
+      <div className="absolute inset-0 flex items-start justify-center pt-20">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.2 }}
+          className="mx-4 w-full max-w-sm rounded-2xl border border-slate-200 bg-white/95 p-6 text-center shadow-xl backdrop-blur-sm"
+        >
+          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-slate-100">
+            <Lock size={20} className="text-slate-400" />
+          </div>
+          <p className="text-sm font-bold text-slate-700">Fitur Belum Diaktifkan</p>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
+            RS belum terdaftar pada program EQA / Proficiency Testing.
+            Fitur ini tersedia dan siap digunakan setelah pendaftaran ke <span className="font-semibold text-slate-600">PNPME-BLK</span> atau program EQA lainnya.
+          </p>
+          <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-left">
+            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Cara Mendaftar</p>
+            <div className="space-y-1 text-[10px] text-slate-500">
+              <p>1. Hubungi BBLK terdekat (Jakarta / Surabaya / Makassar)</p>
+              <p>2. Daftarkan laboratorium RS via website PNPME-BLK</p>
+              <p>3. Pilih program: Hematologi · Kimia Klinik · Urinalisis</p>
+              <p>4. Aktifkan tab ini setelah terdaftar</p>
+            </div>
+          </div>
+          <p className="mt-3 text-[9px] text-slate-400">ISO 15189:2022 §5.6.4 · SNARS AP 5</p>
+        </motion.div>
+      </div>
+
     </div>
   );
 }

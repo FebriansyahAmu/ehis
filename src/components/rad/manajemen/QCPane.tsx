@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Wrench, CheckCircle2, AlertTriangle, Clock, Plus, ChevronDown,
-  ChevronUp, FileCheck, X,
+  Wrench, CheckCircle2, AlertTriangle, Plus, ChevronDown,
+  ChevronUp, FileCheck, X, Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -372,7 +372,11 @@ export default function QCPane() {
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="relative">
+
+      {/* Dimmed content — not interactive */}
+      <div className="pointer-events-none select-none opacity-30">
+      <div className="flex flex-col gap-4">
       {/* Stats bar */}
       <div className="grid grid-cols-3 gap-3">
         {[
@@ -410,6 +414,38 @@ export default function QCPane() {
           </AnimatePresence>
         </div>
       </div>
+    </div> {/* end flex col */}
+    </div> {/* end dimmed wrapper */}
+
+      {/* Disabled overlay */}
+      <div className="absolute inset-0 flex items-start justify-center pt-20">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.2 }}
+          className="mx-4 w-full max-w-sm rounded-2xl border border-slate-200 bg-white/95 p-6 text-center shadow-xl backdrop-blur-sm"
+        >
+          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-slate-100">
+            <Lock size={20} className="text-slate-400" />
+          </div>
+          <p className="text-sm font-bold text-slate-700">Fitur Belum Diaktifkan</p>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
+            QC Pesawat memerlukan setup awal bersama vendor kalibrasi dan Fisikawan Medik sebelum dapat digunakan.
+            Aktifkan setelah jadwal kalibrasi pertama terdokumentasi.
+          </p>
+          <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-left">
+            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Langkah Aktivasi</p>
+            <div className="space-y-1 text-[10px] text-slate-500">
+              <p>1. Hubungi BAPETEN atau vendor alat untuk jadwal kalibrasi</p>
+              <p>2. Dokumentasikan sertifikat kalibrasi pertama</p>
+              <p>3. Tetapkan Fisikawan Medik penanggung jawab</p>
+              <p>4. Aktifkan tab ini setelah record pertama tersedia</p>
+            </div>
+          </div>
+          <p className="mt-3 text-[9px] text-slate-400">Perka BAPETEN No. 2/2018 · IAEA HH-19 §7</p>
+        </motion.div>
+      </div>
+
     </div>
   );
 }
