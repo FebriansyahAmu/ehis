@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { FlaskConical, Clock, AlertTriangle, CheckCircle2, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
-import LabBoard from "@/components/lab/LabBoard";
+import LabPageView from "@/components/lab/LabPageView";
 import { deriveLabOrders } from "@/components/lab/labShared";
 
 export const metadata: Metadata = { title: "Laboratorium" };
@@ -99,7 +99,7 @@ export default function LaboratoriumPage() {
         <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
           Alur Total Testing Process (TTP) · ISO 15189:2022
         </p>
-        <div className="flex min-w-[600px] items-start gap-1">
+        <div className="flex min-w-150 items-start gap-1">
           {[
             { n: "01", label: "Pra-Analitik", items: ["Order dokter", "Verifikasi identitas (SKP 1)", "Pengambilan sampel"] },
             { n: "02", label: "Analitik",     items: ["Registrasi & labeling", "Pemeriksaan", "QC internal"] },
@@ -123,8 +123,8 @@ export default function LaboratoriumPage() {
         </div>
       </div>
 
-      {/* Board */}
-      <LabBoard />
+      {/* Board + QC Manajemen */}
+      <LabPageView />
     </div>
   );
 }

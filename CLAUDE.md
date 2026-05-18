@@ -192,18 +192,23 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 
 `LabOrderTabs.tsx` diperbarui: sidebar tambah grup **Klinis** (Trend & Delta · POCT Bedside · Add-on Test) antara Proses Lab dan Dokumen.
 
-**Tier 3 — Operasional / Quality Management:**
+**Tier 3 — Operasional / Quality Management:** ✅ Selesai
 
-- [ ] **Internal QC** — Levey-Jennings chart per parameter per alat, Westgard rules alert (1-2s, 1-3s, 2-2s, R-4s, 4-1s, 10x). ISO 15189 §5.6.3
-- [ ] **Register Pemeriksaan** — log harian/bulanan: volume per jenis, TAT statistik (rata-rata/min/max/% dalam target), distribusi per unit pengirim. PMK 43/2013
-- [ ] **Manajemen Reagen** — kartu stok per alat, lot number, tanggal kadaluarsa, alert minimum stock. ISO 15189 §5.3.2
-- [ ] **Kalibrasi Alat** — jadwal kalibrasi, log hasil, status valid/overdue per alat. ISO 15189 §5.3.4
-- [ ] **EQA / Proficiency Testing** — log partisipasi uji profisiensi eksternal, hasil per siklus, status lulus/tidak. ISO 15189 §5.6.4
-- [ ] **Laporan Bulanan** — volume, TAT compliance, critical value response time, untuk manajemen RS + Dinas Kesehatan. PMK 43/2013
+- [x] **Internal QC** ✅ — `manajemen/InternalQCPane.tsx`. Levey-Jennings SVG chart per parameter (mean ±1/2/3SD color bands). Westgard auto-check (6 rules: 1-2s warning + 1-3s/2-2s/R-4s/4-1s/10x reject). Violation log per run. In-Control badge. ISO 15189 §5.6.3
+- [x] **Register Pemeriksaan** ✅ — `manajemen/RegisterPane.tsx`. Filter 1/7/30 hari. Stats cards (total, TAT avg, % dalam target, kritis). Horizontal bar chart distribusi kategori + unit. Volume sparkline + log tabel harian. PMK 43/2013
+- [x] **Manajemen Reagen** ✅ — `manajemen/ReagenPane.tsx`. Kartu stok per alat + stock progress bar, alert stok kritis (<min) + kadaluarsa + <60 hari. Form penerimaan reagen. Summary panel. ISO 15189 §5.3.2
+- [x] **Kalibrasi Alat** ✅ — `manajemen/KalibrasiPane.tsx`. List instrumen + status Valid/Overdue/Segera + days-until. Detail panel: log kalibrasi 2 entry, form tambah record. Alert Overdue merah + Segera amber. ISO 15189 §5.3.4
+- [x] **EQA / Proficiency Testing** ✅ — `manajemen/EQAPane.tsx`. Provider list (PNPME-BLK, EQAS-labQ). Siklus table per provider: nilai RS vs target, deviasi bar bidirectional (hijau <5% / amber 5-10% / merah >10%), status Lulus/Tidak Lulus/Pending. CAPA banner otomatis jika ada tidak lulus. ISO 15189 §5.6.4
+- [x] **Laporan Bulanan** ✅ — `manajemen/LaporanPane.tsx`. KPI cards (total, TAT avg, % target, nilai kritis). Mini bar chart volume 7 hari. Distribusi per unit + per kategori. TAT + kritis tabel harian. Tombol Cetak. PMK 43/2013
 
-### 🟡 Next — Dashboard & Modul Pendukung
+`LabManajemenTabs.tsx` — sidebar 6 tab (QC Internal · Register · Reagen · Kalibrasi · EQA · Laporan). `LabPageView.tsx` — view switcher Worklist ↔ QC & Manajemen di `/ehis-care/laboratorium`.
 
-- [ ] **Dashboard (`ehis-dashboard`)** — stats cards (pasien hari ini per unit: IGD/RI/RJ), BOR chart (bed occupancy rate), recent activity feed, quick-nav ke masing-masing modul. Route: `/ehis-dashboard`. Layout: ModuleLayout sudah ada.
+### 🔴 Active — Dashboard (`/ehis-dashboard`)
+
+- [ ] **Dashboard** — stats cards (pasien hari ini per unit: IGD/RI/RJ), BOR chart (bed occupancy rate), recent activity feed, quick-nav ke masing-masing modul. Route: `/ehis-dashboard`. Layout: ModuleLayout sudah ada.
+
+### 🟡 Next — Modul Pendukung
+
 - [ ] **Billing Kasir (`ehis-billing`)** — invoice per kunjungan, rincian tindakan + obat, status pembayaran (Lunas/Proses Klaim/Belum), print struk. `KasirData` type + mock sudah tersedia di `data.ts`.
 
 ### 🟡 Farmasi — Gap SNARS / PMK 72/2016 (Hasil Gap Analysis 2026-05-17)
