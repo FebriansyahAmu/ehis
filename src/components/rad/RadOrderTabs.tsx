@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShieldCheck, Settings, Camera, FileText, Award,
-  History, Radiation, type LucideIcon,
+  History, Radiation, Monitor, Syringe, type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type RadOrder, getRadOrderById, RAD_STATUS_CFG } from "./radShared";
@@ -15,6 +15,8 @@ import AkuisisiPane    from "./tabs/AkuisisiPane";
 import EkspertasiPane  from "./tabs/EkspertasiPane";
 import ValidasiPane    from "./tabs/ValidasiPane";
 import RiwayatRadPane  from "./tabs/RiwayatRadPane";
+import ViewerPane      from "./tabs/ViewerPane";
+import KontrasPane     from "./tabs/KontrasPane";
 
 // ── Tab definitions ───────────────────────────────────────
 
@@ -23,7 +25,7 @@ interface TabDef {
   label: string;
   icon:  LucideIcon;
   step?: number;
-  group: "workflow" | "dokumen";
+  group: "workflow" | "klinis" | "dokumen";
 }
 
 const TABS: TabDef[] = [
@@ -32,7 +34,9 @@ const TABS: TabDef[] = [
   { id: "akuisisi",    label: "Akuisisi & Dosis",       icon: Camera,      step: 3, group: "workflow" },
   { id: "ekspertasi",  label: "Expertise SpRad",        icon: FileText,    step: 4, group: "workflow" },
   { id: "validasi",    label: "Validasi & Rilis",        icon: Award,       step: 5, group: "workflow" },
-  { id: "riwayat",     label: "Riwayat & Cetak",        icon: History,              group: "dokumen"  },
+  { id: "viewer",      label: "Image Viewer",            icon: Monitor,              group: "klinis"   },
+  { id: "kontras",     label: "Alergi Kontras",          icon: Syringe,              group: "klinis"   },
+  { id: "riwayat",     label: "Riwayat & Cetak",         icon: History,              group: "dokumen"  },
 ];
 
 type TabId = typeof TABS[number]["id"];
@@ -103,6 +107,7 @@ export default function RadOrderTabs({ initialOrder }: { initialOrder: RadOrder 
   }, [initialOrder.id]);
 
   const WORKFLOW = TABS.filter((t) => t.group === "workflow");
+  const KLINIS   = TABS.filter((t) => t.group === "klinis");
   const DOKUMEN  = TABS.filter((t) => t.group === "dokumen");
 
   return (
@@ -175,6 +180,19 @@ export default function RadOrderTabs({ initialOrder }: { initialOrder: RadOrder 
           ))}
         </div>
 
+        <NavDivider label="Klinis" />
+
+        <div className="mb-1">
+          {KLINIS.map((tab) => (
+            <NavItem
+              key={tab.id} tab={tab}
+              active={active === tab.id}
+              onClick={() => setActive(tab.id)}
+              currentStep={currentStep}
+            />
+          ))}
+        </div>
+
         <NavDivider label="Dokumen" />
 
         <div>
@@ -204,6 +222,8 @@ export default function RadOrderTabs({ initialOrder }: { initialOrder: RadOrder 
             {active === "akuisisi"    && <AkuisisiPane    order={order} onStatusChange={refresh} />}
             {active === "ekspertasi"  && <EkspertasiPane  order={order} onStatusChange={refresh} />}
             {active === "validasi"    && <ValidasiPane    order={order} onStatusChange={refresh} />}
+            {active === "viewer"      && <ViewerPane      order={order} />}
+            {active === "kontras"     && <KontrasPane     order={order} />}
             {active === "riwayat"     && <RiwayatRadPane  order={order} />}
           </motion.div>
         </AnimatePresence>
