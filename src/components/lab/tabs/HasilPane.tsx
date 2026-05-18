@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Save, AlertTriangle, CheckCircle2, Lock,
-  PhoneCall, MessageSquare, Users, Monitor,
-  X,
+  PhoneCall, MessageSquare, Users,
+  X, TrendingUp, TrendingDown,
 } from "lucide-react";
+import { getPreviousResult, calcDelta } from "../trend/trendShared";
 import { cn } from "@/lib/utils";
 import {
   type LabOrder, type HasilItem, type CriticalNotif,
@@ -243,7 +244,6 @@ export default function HasilPane({ order, onStatusChange }: Props) {
   const [showCritical,  setShowCritical]  = useState(false);
   const [analis,        setAnalis]        = useState(order.analis ?? "");
   const [saving,        setSaving]        = useState(false);
-  const [saved,         setSaved]         = useState(isLocked);
 
   const pendingCritical = useMemo(
     () => hasil.filter((h) => {
@@ -261,6 +261,24 @@ export default function HasilPane({ order, onStatusChange }: Props) {
   );
 
   const alreadyConfirmed = order.criticalNotifs?.filter((n) => n.confirmed) ?? [];
+
+  const deltaAlerts = useMemo(() =>
+    hasil
+      .filter((h) => {
+        if (!h.nilai) return false;
+        const v = parseFloat(h.nilai);
+        if (isNaN(v)) return false;
+        const prev = getPreviousResult(order.noRM, h.nama);
+        if (!prev) return false;
+        return calcDelta(v, prev.nilai, h.nama)?.triggered ?? false;
+      })
+      .map((h) => {
+        const v    = parseFloat(h.nilai!);
+        const prev = getPreviousResult(order.noRM, h.nama)!;
+        return { nama: h.nama, delta: calcDelta(v, prev.nilai, h.nama)! };
+      }),
+    [hasil, order.noRM],
+  );
 
   function updateNilai(kode: string, nilai: string) {
     setHasil((prev) =>
@@ -298,7 +316,6 @@ export default function HasilPane({ order, onStatusChange }: Props) {
         timestamps: { analisa: new Date().toISOString().slice(0, 16) },
       });
       setSaving(false);
-      setSaved(true);
       setShowCritical(false);
       onStatusChange();
     }, 600);
@@ -358,6 +375,34 @@ export default function HasilPane({ order, onStatusChange }: Props) {
                 </p>
               ))}
             </div>
+          )}
+
+          {/* Delta check alert */}
+          {deltaAlerts.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-xl border border-amber-200 bg-amber-50 p-3"
+            >
+              <div className="mb-1.5 flex items-center gap-2">
+                <TrendingUp size={13} className="text-amber-600" />
+                <p className="text-[11px] font-bold text-amber-800">Delta Check Terpicu</p>
+              </div>
+              <div className="space-y-0.5">
+                {deltaAlerts.map((a, i) => (
+                  <p key={i} className="flex items-center gap-1 text-[11px] text-amber-700">
+                    {a.delta.direction === "up"
+                      ? <TrendingUp size={9} className="shrink-0" />
+                      : <TrendingDown size={9} className="shrink-0" />}
+                    {a.nama}: {a.delta.direction === "up" ? "+" : "-"}{a.delta.absolute}
+                    <span className="text-amber-500">— {a.delta.thresholdLabel}</span>
+                  </p>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[9px] text-amber-600">
+                Review konsistensi klinis sebelum simpan · ISO 15189 §5.6.2
+              </p>
+            </motion.div>
           )}
 
           {/* Tables per category */}

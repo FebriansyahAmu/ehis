@@ -182,13 +182,15 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 - [x] **Critical Value / Panic Value Alert** ✅ — `CriticalValueModal` di `HasilPane.tsx`: intercept wajib sebelum save, tidak bisa dismiss, per-test konfirmasi (metode Telepon/SMS/WA/Langsung + nama dokter + pelapor), log tersimpan. SNARS AP 5.9 · ISO 15189 §5.6.2
 - [x] **TAT Tracking** ✅ — `LabTimestamps` (7 fase), `calcTATMenit()` · `getTATStatus()` · `getTATElapsed()`. `TATTimeline` strip di `LabOrderHeader`. `TATChip` di `LabOrderCard`. CITO ≤60 mnt · RI/RJ ≤120 mnt. SNARS AP 5.11
 
-**Tier 2 — Klinis Penting (SNARS 2+):**
+**Tier 2 — Klinis Penting (SNARS 2+):** ✅ Selesai
 
-- [ ] **Trend & Riwayat Hasil** — sparkline per parameter lintas kunjungan (Hb, kreatinin, GDS, dll), tabel riwayat + delta vs hasil sebelumnya. ISO 15189 · clinical best practice
-- [ ] **Delta Check** — bandingkan hasil baru vs hasil terakhir per parameter, alert jika melebihi threshold klinis (Hb turun >2 g/dL, Natrium berubah >10 mEq/L, dll). ISO 15189 §5.6.2
-- [ ] **Add-on Test** — tambah pemeriksaan pada sampel yang sudah ada tanpa ambil ulang (syarat: sampel masih valid). Operational best practice
-- [ ] **POCT (Point of Care Testing)** — input hasil bedside: GDS, Blood Gas, Rapid Antigen/Antibodi, dengan flag "POCT" + alat yang digunakan. PMK 43/2013
-- [ ] **Cetak Hasil Lab (PDF)** — format standar: KOP RS, data pasien, parameter + nilai + rujukan + flag, TTD analis/SpPK, watermark "HASIL RESMI". PMK 269/2008 · PMK 43/2013
+- [x] **Trend & Riwayat Hasil** ✅ — `trend/trendShared.ts` + `tabs/TrendPane.tsx`. Mini sparkline per parameter (left panel) + full sparkline + history table (right panel). Mock data 3 pasien lintas kunjungan. Click-to-select parameter. ISO 15189 · clinical best practice
+- [x] **Delta Check** ✅ — `DELTA_THRESHOLDS` (15 parameter) di `trendShared.ts`. `calcDelta()` + `getPreviousResult()`. Inline amber banner real-time di `HasilPane.tsx` saat threshold terpicu. Badge ⚠ di TrendPane per parameter. `TrendingUp`/`TrendingDown` icon. ISO 15189 §5.6.2
+- [x] **Add-on Test** ✅ — `tabs/AddOnPane.tsx`. Catalog 30 pemeriksaan lintas kategori. Specimen validity check per jenis tabung (EDTA 4 jam, SST 6 jam, dll). Search + add + remove cart. Ajukan add-on button. Operational best practice
+- [x] **POCT (Point of Care Testing)** ✅ — `poct/poctShared.ts` + `tabs/POCTPane.tsx`. 10 jenis tes (GDS/GDP/HbA1c/Blood Gas/Troponin Rapid/D-Dimer/CRP/Antigen). 7 device config. Auto-flag N/H/L/C real-time. Entry history per order. Critical value warning inline. PMK 43/2013 · ISO 15189 §5.7
+- [x] **Cetak Hasil Lab** ✅ — `PrintPreviewModal` di `RiwayatPane.tsx`. Preview terformat: KOP RS, info pasien, tabel hasil per kategori (nilai+rujukan+flag), catatan validator, kolom TTD, watermark "HASIL RESMI". Print via iframe+srcdoc (no document.write). PMK 269/2008 · PMK 43/2013
+
+`LabOrderTabs.tsx` diperbarui: sidebar tambah grup **Klinis** (Trend & Delta · POCT Bedside · Add-on Test) antara Proses Lab dan Dokumen.
 
 **Tier 3 — Operasional / Quality Management:**
 

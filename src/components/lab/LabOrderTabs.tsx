@@ -3,8 +3,9 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ShieldCheck, Syringe, FlaskConical,
-  Award, History, ClipboardList, type LucideIcon,
+  ShieldCheck, Syringe, FlaskConical, Award, History,
+  ClipboardList, TrendingUp, Activity, PlusCircle,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type LabOrder, getLabOrderById, LAB_STATUS_CFG } from "./labShared";
@@ -14,23 +15,29 @@ import SampelPane     from "./tabs/SampelPane";
 import HasilPane      from "./tabs/HasilPane";
 import ValidasiPane   from "./tabs/ValidasiPane";
 import RiwayatPane    from "./tabs/RiwayatPane";
+import TrendPane      from "./tabs/TrendPane";
+import POCTPane       from "./tabs/POCTPane";
+import AddOnPane      from "./tabs/AddOnPane";
 
 // ── Tab definitions ───────────────────────────────────────
 
 interface TabDef {
-  id:     string;
-  label:  string;
-  icon:   LucideIcon;
-  step?:  number;
-  group:  "workflow" | "dokumen";
+  id:    string;
+  label: string;
+  icon:  LucideIcon;
+  step?: number;
+  group: "workflow" | "klinis" | "dokumen";
 }
 
 const TABS: TabDef[] = [
-  { id: "penerimaan", label: "Penerimaan",            icon: ShieldCheck,  step: 1, group: "workflow" },
-  { id: "sampel",     label: "Pengambilan & Sampel",  icon: Syringe,      step: 2, group: "workflow" },
-  { id: "hasil",      label: "Entry Hasil",            icon: FlaskConical, step: 3, group: "workflow" },
-  { id: "validasi",   label: "Validasi",               icon: Award,        step: 4, group: "workflow" },
-  { id: "riwayat",    label: "Riwayat & Cetak",        icon: History,      group: "dokumen" },
+  { id: "penerimaan", label: "Penerimaan",           icon: ShieldCheck,  step: 1, group: "workflow" },
+  { id: "sampel",     label: "Pengambilan & Sampel", icon: Syringe,      step: 2, group: "workflow" },
+  { id: "hasil",      label: "Entry Hasil",           icon: FlaskConical, step: 3, group: "workflow" },
+  { id: "validasi",   label: "Validasi",              icon: Award,        step: 4, group: "workflow" },
+  { id: "trend",      label: "Trend & Delta",         icon: TrendingUp,            group: "klinis"   },
+  { id: "poct",       label: "POCT Bedside",          icon: Activity,              group: "klinis"   },
+  { id: "addon",      label: "Add-on Test",           icon: PlusCircle,            group: "klinis"   },
+  { id: "riwayat",    label: "Riwayat & Cetak",       icon: History,               group: "dokumen"  },
 ];
 
 type TabId = typeof TABS[number]["id"];
@@ -40,7 +47,7 @@ type TabId = typeof TABS[number]["id"];
 function NavItem({ tab, active, onClick, currentStep }: {
   tab: TabDef; active: boolean; onClick: () => void; currentStep: number;
 }) {
-  const Icon = tab.icon;
+  const Icon        = tab.icon;
   const isCompleted = tab.step !== undefined && tab.step < currentStep;
   const isCurrent   = tab.step !== undefined && tab.step === currentStep;
 
@@ -61,7 +68,7 @@ function NavItem({ tab, active, onClick, currentStep }: {
 
       {tab.step && (
         <span className={cn(
-          "ml-auto shrink-0 rounded-full text-[9px] font-bold px-1.5 py-0.5",
+          "ml-auto shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold",
           active      ? "bg-white/20 text-white" :
           isCompleted ? "bg-emerald-100 text-emerald-700" :
           isCurrent   ? "bg-sky-100 text-sky-700" :
@@ -78,27 +85,39 @@ function NavItem({ tab, active, onClick, currentStep }: {
   );
 }
 
+// ── Divider ───────────────────────────────────────────────
+
+function NavDivider({ label }: { label: string }) {
+  return (
+    <div className="mx-3 my-2 flex items-center gap-2">
+      <div className="h-px flex-1 bg-slate-100" />
+      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-300">{label}</span>
+      <div className="h-px flex-1 bg-slate-100" />
+    </div>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────
 
 export default function LabOrderTabs({ initialOrder }: { initialOrder: LabOrder }) {
-  const [active,  setActive]  = useState<TabId>("penerimaan");
-  const [order,   setOrder]   = useState<LabOrder>(initialOrder);
+  const [active, setActive] = useState<TabId>("penerimaan");
+  const [order,  setOrder]  = useState<LabOrder>(initialOrder);
 
   const currentStep = LAB_STATUS_CFG[order.status].step;
 
-  // Refresh order from store when sub-pane reports a status change
   const refresh = useCallback(() => {
     const fresh = getLabOrderById(initialOrder.id);
     if (fresh) setOrder(fresh);
   }, [initialOrder.id]);
 
-  const REKAM  = TABS.filter((t) => t.group === "workflow");
-  const DOKUMEN = TABS.filter((t) => t.group === "dokumen");
+  const WORKFLOW = TABS.filter((t) => t.group === "workflow");
+  const KLINIS   = TABS.filter((t) => t.group === "klinis");
+  const DOKUMEN  = TABS.filter((t) => t.group === "dokumen");
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
 
-      {/* Mobile: horizontal scroll tab bar */}
+      {/* Mobile: horizontal scroll */}
       <nav
         className="flex shrink-0 overflow-x-auto border-b border-slate-200 bg-white px-2 md:hidden"
         aria-label="Navigasi lab order"
@@ -155,10 +174,9 @@ export default function LabOrderTabs({ initialOrder }: { initialOrder: LabOrder 
         {/* Workflow group */}
         <div className="mb-1">
           <p className="mb-1 px-4 text-[9px] font-bold uppercase tracking-widest text-slate-400">Proses Lab</p>
-          {REKAM.map((tab) => (
+          {WORKFLOW.map((tab) => (
             <NavItem
-              key={tab.id}
-              tab={tab}
+              key={tab.id} tab={tab}
               active={active === tab.id}
               onClick={() => setActive(tab.id)}
               currentStep={currentStep}
@@ -166,19 +184,27 @@ export default function LabOrderTabs({ initialOrder }: { initialOrder: LabOrder 
           ))}
         </div>
 
-        {/* Divider */}
-        <div className="mx-3 my-2 flex items-center gap-2">
-          <div className="h-px flex-1 bg-slate-100" />
-          <span className="text-[9px] font-bold uppercase tracking-widest text-slate-300">Dokumen</span>
-          <div className="h-px flex-1 bg-slate-100" />
+        <NavDivider label="Klinis" />
+
+        {/* Klinis group */}
+        <div className="mb-1">
+          {KLINIS.map((tab) => (
+            <NavItem
+              key={tab.id} tab={tab}
+              active={active === tab.id}
+              onClick={() => setActive(tab.id)}
+              currentStep={currentStep}
+            />
+          ))}
         </div>
+
+        <NavDivider label="Dokumen" />
 
         {/* Dokumen group */}
         <div>
           {DOKUMEN.map((tab) => (
             <NavItem
-              key={tab.id}
-              tab={tab}
+              key={tab.id} tab={tab}
               active={active === tab.id}
               onClick={() => setActive(tab.id)}
               currentStep={currentStep}
@@ -197,21 +223,14 @@ export default function LabOrderTabs({ initialOrder }: { initialOrder: LabOrder 
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
           >
-            {active === "penerimaan" && (
-              <PenerimaanPane order={order} onStatusChange={refresh} />
-            )}
-            {active === "sampel" && (
-              <SampelPane order={order} onStatusChange={refresh} />
-            )}
-            {active === "hasil" && (
-              <HasilPane order={order} onStatusChange={refresh} />
-            )}
-            {active === "validasi" && (
-              <ValidasiPane order={order} onStatusChange={refresh} />
-            )}
-            {active === "riwayat" && (
-              <RiwayatPane order={order} />
-            )}
+            {active === "penerimaan" && <PenerimaanPane order={order} onStatusChange={refresh} />}
+            {active === "sampel"     && <SampelPane     order={order} onStatusChange={refresh} />}
+            {active === "hasil"      && <HasilPane       order={order} onStatusChange={refresh} />}
+            {active === "validasi"   && <ValidasiPane    order={order} onStatusChange={refresh} />}
+            {active === "trend"      && <TrendPane       order={order} />}
+            {active === "poct"       && <POCTPane        order={order} />}
+            {active === "addon"      && <AddOnPane       order={order} />}
+            {active === "riwayat"    && <RiwayatPane     order={order} />}
           </motion.div>
         </AnimatePresence>
       </main>
