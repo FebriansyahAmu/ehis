@@ -248,17 +248,17 @@ export default function AkuisisiPane({
                     <label className="mb-1 block text-[10px] font-bold text-slate-500">Radiografer</label>
                     <input type="text" placeholder="Nama + gelar" value={radiografer}
                       onChange={(e) => setRadiografer(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" />
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" />
                   </div>
                   <div>
                     <label className="mb-1 block text-[10px] font-bold text-slate-500">Mulai</label>
                     <input type="time" value={waktuMulai} onChange={(e) => setWaktuMulai(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" />
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" />
                   </div>
                   <div>
                     <label className="mb-1 block text-[10px] font-bold text-slate-500">Selesai</label>
                     <input type="time" value={waktuSelesai} onChange={(e) => setWaktuSelesai(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" />
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" />
                   </div>
                 </div>
               </div>
@@ -270,38 +270,38 @@ export default function AkuisisiPane({
                   {mod === "CT" && (<>
                     <div><label className="mb-1 block text-[10px] font-bold text-slate-500">kVp</label>
                       <input type="number" placeholder="mis. 120" value={kvp} onChange={(e) => setKvp(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
                     <div><label className="mb-1 block text-[10px] font-bold text-slate-500">mAs efektif</label>
                       <input type="number" placeholder="mis. 250" value={mas} onChange={(e) => setMas(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
                     <div><label className="mb-1 block text-[10px] font-bold text-slate-500">FOV</label>
                       <input type="text" placeholder="mis. 36 cm" value={fov} onChange={(e) => setFov(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
                     <div><label className="mb-1 block text-[10px] font-bold text-slate-500">Tebal Irisan</label>
                       <input type="text" placeholder="mis. 1.25 mm" value={slice} onChange={(e) => setSlice(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
                   </>)}
                   {mod === "USG" && (<>
                     <div><label className="mb-1 block text-[10px] font-bold text-slate-500">Jenis Probe</label>
                       <input type="text" placeholder="mis. Linear 7.5 MHz" value={probe} onChange={(e) => setProbe(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
                     <div><label className="mb-1 block text-[10px] font-bold text-slate-500">Frekuensi</label>
                       <input type="text" placeholder="mis. 7.5 MHz" value={freq} onChange={(e) => setFreq(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
                   </>)}
                   {mod === "Konvensional" && (<>
                     <div><label className="mb-1 block text-[10px] font-bold text-slate-500">kV</label>
                       <input type="number" placeholder="mis. 70" value={kv} onChange={(e) => setKv(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
                     <div><label className="mb-1 block text-[10px] font-bold text-slate-500">mAs</label>
                       <input type="number" placeholder="mis. 16" value={mAs} onChange={(e) => setMAs(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
                   </>)}
                   {(mod === "MRI") && (
                     <div className="sm:col-span-2">
                       <label className="mb-1 block text-[10px] font-bold text-slate-500">Sekuens MRI (pisahkan koma)</label>
                       <input type="text" placeholder="mis. T1 axial, T2 FLAIR, DWI, T1 CE"
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" />
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" />
                     </div>
                   )}
                 </div>
@@ -315,23 +315,23 @@ export default function AkuisisiPane({
                     {mod === "CT" && (<>
                       <div><label className="mb-1 block text-[10px] font-bold text-slate-500">CTDIvol (mGy)</label>
                         <input type="number" step="0.1" placeholder={`DRL: ${DRL.ctdiVol}`} value={ctdiVol} onChange={(e) => setCtdiVol(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
                       <div><label className="mb-1 block text-[10px] font-bold text-slate-500">DLP (mGy·cm)</label>
                         <input type="number" step="1" placeholder={`DRL: ${DRL.dlp}`} value={dlp} onChange={(e) => setDlp(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
                     </>)}
                     {mod === "Fluoroskopi" && (<>
                       <div><label className="mb-1 block text-[10px] font-bold text-slate-500">DAP (mGy·cm²)</label>
                         <input type="number" value={dap} onChange={(e) => setDap(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
                       <div><label className="mb-1 block text-[10px] font-bold text-slate-500">Waktu Fluoroskopi (detik)</label>
                         <input type="number" value={wFluoro} onChange={(e) => setWFluoro(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
                     </>)}
                     {(mod === "Konvensional" || mod === "Mammografi") && (
                       <div><label className="mb-1 block text-[10px] font-bold text-slate-500">Entrance Surface Dose (mGy)</label>
                         <input type="number" step="0.01" placeholder={`DRL: ${DRL.doseEntrance}`} value={dose} onChange={(e) => setDose(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" /></div>
                     )}
                   </div>
                 </div>
