@@ -4,7 +4,8 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LayoutList, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import RadBoard from "./RadBoard";
+import RadBoard          from "./RadBoard";
+import RadManajemenTabs  from "./RadManajemenTabs";
 
 type View = "worklist" | "manajemen";
 
@@ -45,13 +46,7 @@ export default function RadPageView() {
           transition={{ duration: 0.15 }}
         >
           {view === "worklist" && <RadBoard />}
-          {view === "manajemen" && (
-            <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 py-20 text-slate-400">
-              <Settings2 size={28} className="text-slate-300" />
-              <p className="text-sm font-medium">QC & Manajemen Radiologi</p>
-              <p className="text-[12px] text-slate-400">Tersedia pada Tier 3</p>
-            </div>
-          )}
+          {view === "manajemen" && <RadManajemenTabs />}
         </motion.div>
       </AnimatePresence>
     </div>
