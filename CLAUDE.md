@@ -25,7 +25,7 @@ Utilities: `cn()` · `src/lib/utils.ts` | Navigation: `src/lib/navigation.ts` | 
 | `/ehis-billing`      | Billing       | ModuleLayout                            | 🔧 Scaffold |
 | `/ehis-master`       | Master Data   | ModuleLayout                            | 🔧 Scaffold |
 | `/ehis-report`       | Reports       | ModuleLayout                            | 🔧 Scaffold |
-| `/ehis-lab`          | Laboratorium  | ModuleLayout                            | 🔧 Scaffold |
+| `/ehis-care/laboratorium` | Laboratorium | ModuleLayout (main) + Fullpage detail  | 🚧 Active   |
 | `/ehis-rad`          | Radiologi     | ModuleLayout                            | 🔧 Scaffold |
 
 Shared layout: `Navbar` · `Sidebar` · `ModuleSwitcher` · `ModuleLayout` → `src/components/layout/`
@@ -161,7 +161,43 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 
 > Alur data: Dokter order resep di `DaftarOrderTab` → `ORDERS_MOCK` → `deriveResepOrders()` → FarmasiBoard overview → klik action → halaman detail `/farmasi/[id]` → Telaah + Dispensasi + Serah Terima → `workflowStore` + `ORDERS_MOCK` sync → FarmasiTab pasien terupdate. PMK 72/2016 · SKP 3
 
-### 🔴 Active — Dashboard (`/ehis-dashboard`)
+### 🔴 Active — Laboratorium (`/ehis-care/laboratorium`)
+
+> Arsitektur mengikuti pola farmasi: worklist cross-patient → detail per-order → hasil tampil di `OrderLabTab` pasien (sudah ada).
+> Alur: Dokter order via `OrderLabTab` → `ORDERS_MOCK` → Lab Worklist → proses tiap fase → hasil rilis → `OrderLabTab` pasien terupdate.
+> Standar: ISO 15189:2022 · SNARS AP 5.9 · SNARS AP 5.11 · PMK 43/2013 · JCI AOP.5
+
+**Tier 1 — Kritis (Wajib Akreditasi):** ✅ Selesai
+
+- [x] **`labShared.ts`** ✅ — `LabOrder` · `HasilItem` · `SpecimenInfo` · `PenolakanInfo` · `CriticalNotif` · `LabTimestamps` types. Config maps (8 status · 7 kategori · prioritas · unit · flag). `deriveLabOrders()` · `getLabOrderById()` · `updateLabWorkflow()`. `autoFlag()` · `calcTATMenit()` · `getTATStatus()` · `hasCriticalResult()`. 6 mock orders lintas unit. `src/components/lab/`
+- [x] **Lab Worklist (`LabBoard.tsx`)** ✅ — Stats bar (CITO aktif/Antrian/Proses/Selesai). Critical value alert banner. Filter unit (IGD/RI/RJ) + status group + CITO toggle + search. Skeleton loading. Pagination. `LabOrderCard.tsx` dengan TAT chip + progress bar + CITO stripe. Route: `/ehis-care/laboratorium`
+- [x] **Lab Order Detail Page** ✅ — Route `/ehis-care/laboratorium/[id]`. `LabOrderHeader` (TAT timeline 7-step + status progress bar). `LabOrderTabs` sidebar (4 workflow tabs + 1 dokumen tab). ISO 15189
+- [x] **Penerimaan Order + Verifikasi Identitas** ✅ — `PenerimaanPane.tsx`: 3 identity cards (Nama/Tgl Lahir/No RM) + 3-checkbox confirm + petugas input. Locked view setelah terverifikasi. SKP 1 · ISO 15189
+- [x] **Pengambilan Sampel** ✅ — `SampelPane.tsx` Step A: jenis tabung, volume, waktu ambil, petugas flebotomi, lokasi. ISO 15189 §5.4
+- [x] **Penerimaan & Registrasi Sampel di Lab** ✅ — `SampelPane.tsx` Step B: no. registrasi, waktu terima, kondisi sampel. ISO 15189 §5.4
+- [x] **Penolakan Sampel (Specimen Rejection)** ✅ — kondisi dropdown (Hemolisis/Lipemia/Bekuan/Volume Kurang/Salah Tabung/Label Rusak/Lainnya) → reject flow dengan instruksi pengambilan ulang. ISO 15189 §5.4.5
+- [x] **Entry Hasil Pemeriksaan** ✅ — `HasilPane.tsx`: tabel per kategori, input nilai, `autoFlag()` N/H/L/C real-time, warna row per flag. ISO 15189 §5.5
+- [x] **Validasi Hasil** ✅ — `ValidasiPane.tsx`: review semua hasil read-only, catatan klinis SpPK, 2-checkbox confirm, TTD digital → rilis. Locked setelah selesai. ISO 15189 §5.6
+- [x] **Pelaporan ke Rekam Medis** ✅ — status → "Selesai" setelah validasi via `updateLabWorkflow()`. `RiwayatPane.tsx` menampilkan riwayat order per pasien. SNARS AP 5
+- [x] **Critical Value / Panic Value Alert** ✅ — `CriticalValueModal` di `HasilPane.tsx`: intercept wajib sebelum save, tidak bisa dismiss, per-test konfirmasi (metode Telepon/SMS/WA/Langsung + nama dokter + pelapor), log tersimpan. SNARS AP 5.9 · ISO 15189 §5.6.2
+- [x] **TAT Tracking** ✅ — `LabTimestamps` (7 fase), `calcTATMenit()` · `getTATStatus()` · `getTATElapsed()`. `TATTimeline` strip di `LabOrderHeader`. `TATChip` di `LabOrderCard`. CITO ≤60 mnt · RI/RJ ≤120 mnt. SNARS AP 5.11
+
+**Tier 2 — Klinis Penting (SNARS 2+):**
+
+- [ ] **Trend & Riwayat Hasil** — sparkline per parameter lintas kunjungan (Hb, kreatinin, GDS, dll), tabel riwayat + delta vs hasil sebelumnya. ISO 15189 · clinical best practice
+- [ ] **Delta Check** — bandingkan hasil baru vs hasil terakhir per parameter, alert jika melebihi threshold klinis (Hb turun >2 g/dL, Natrium berubah >10 mEq/L, dll). ISO 15189 §5.6.2
+- [ ] **Add-on Test** — tambah pemeriksaan pada sampel yang sudah ada tanpa ambil ulang (syarat: sampel masih valid). Operational best practice
+- [ ] **POCT (Point of Care Testing)** — input hasil bedside: GDS, Blood Gas, Rapid Antigen/Antibodi, dengan flag "POCT" + alat yang digunakan. PMK 43/2013
+- [ ] **Cetak Hasil Lab (PDF)** — format standar: KOP RS, data pasien, parameter + nilai + rujukan + flag, TTD analis/SpPK, watermark "HASIL RESMI". PMK 269/2008 · PMK 43/2013
+
+**Tier 3 — Operasional / Quality Management:**
+
+- [ ] **Internal QC** — Levey-Jennings chart per parameter per alat, Westgard rules alert (1-2s, 1-3s, 2-2s, R-4s, 4-1s, 10x). ISO 15189 §5.6.3
+- [ ] **Register Pemeriksaan** — log harian/bulanan: volume per jenis, TAT statistik (rata-rata/min/max/% dalam target), distribusi per unit pengirim. PMK 43/2013
+- [ ] **Manajemen Reagen** — kartu stok per alat, lot number, tanggal kadaluarsa, alert minimum stock. ISO 15189 §5.3.2
+- [ ] **Kalibrasi Alat** — jadwal kalibrasi, log hasil, status valid/overdue per alat. ISO 15189 §5.3.4
+- [ ] **EQA / Proficiency Testing** — log partisipasi uji profisiensi eksternal, hasil per siklus, status lulus/tidak. ISO 15189 §5.6.4
+- [ ] **Laporan Bulanan** — volume, TAT compliance, critical value response time, untuk manajemen RS + Dinas Kesehatan. PMK 43/2013
 
 ### 🟡 Next — Dashboard & Modul Pendukung
 
@@ -191,7 +227,6 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 
 - [x] **Pengembalian Obat Pasien Pulang** ✅ — `farmasi/pengembalian/pengembalianShared.ts` + `PengembalianPane.tsx`. Two-panel: kiri list item per resep (jumlah dispensasi/diberikan/dikembalikan, kondisi Baik/Rusak/Kadaluarsa, alasan, HAM double-check) + kanan summary card + panduan prosedur 5-step. Tab "Kembalian Obat" di PasienPulangTab RI. Verifikasi apoteker per record. PMK 72/2016 Ps. 20
 - [x] **PIO Log (Pelayanan Informasi Obat)** ✅ — `farmasi/pio/pioShared.ts` + `PIOPane.tsx`. Two-panel: kiri log list (filter kategori + status, stats strip avg respons) + kanan detail jawaban + referensi. Form tambah inline. 6 mock entries (Dosis, Interaksi, ESO, Farmakokinetik, Ketersediaan). Tab "Pelayanan Informasi Obat" di FarmasiViewTabs. PMK 72/2016 Ps. 27-29
-- [ ] **Gudang Farmasi (Inventory & Stok)** — modul terpisah: kartu stok digital per depo, FEFO/FIFO enforcement, min-max stock alert, permintaan depo ke gudang, transfer antar depo, penerimaan dari supplier. Scope: modul baru atau sub-modul di `/ehis-care/farmasi`. PMK 72/2016 Bab IV (Manajemen Perbekalan Farmasi)
 
 ### ⏸ Ditunda / Roadmap
 
@@ -200,6 +235,7 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 
 ### ⚙️ Tech Debt
 
+- [ ] **Gudang Farmasi (Inventory & Stok)** — modul terpisah: kartu stok digital per depo, FEFO/FIFO enforcement, min-max stock alert, permintaan depo ke gudang, transfer antar depo, penerimaan dari supplier. PMK 72/2016 Bab IV
 - [ ] **AllergyPane IGD** — masih local, padahal `shared/asesmen/AllergyPane.tsx` sudah ada. Refactor `AsesmenMedisTab` sub-pane Alergi ke thin wrapper.
 - [x] **RekonsiliasTab IGD** ✅ — resolve: promote ke shared `shared/medical-records/RekonsiliasTab.tsx`, `RekonsiliasiPane.tsx` RI dihapus.
 - [ ] **PenilaianTab IGD** — audit overlap Morse/Braden/Barthel dengan `PenilaianRisikoPane.tsx` RI. Ekstrak konstanta ke `shared/asesmen/penilaianShared.ts`.
@@ -209,7 +245,6 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 - [ ] **CarePlanTab — Riwayat revisi / audit trail** — RAT bisa berubah saat kondisi pasien berubah drastis; simpan snapshot per-edit dengan `revisedAt` + `revisedBy`. Perlu Prisma schema.
 - [ ] **MAR — Gate dispensasi selesai** — obat seharusnya muncul di MAR hanya setelah farmasi `status: "Selesai"` (serah terima sudah dilakukan). Saat ini `MARTab` langsung baca `resepRI.items` tanpa cek status farmasi. Fix: tambah filter `isDispensed(item.id)` yang cek `workflowStore` atau field status di `ResepRIItem`. Tanpa ini perawat bisa "mencatat pemberian" obat yang belum diterima dari apotek.
 - [ ] **MAR — Overdue alert** — tidak ada indikasi obat yang jadwal jam-nya sudah lewat tapi belum dicatat. Tambah visual `overdue` di `DrugCard`: jika `timeSlot.waktu < now` dan belum ada entri untuk slot itu, tampilkan ring amber + label "Terlambat X mnt" di samping time chip. Hanya aktif di tab "Hari ini".
-- [ ] **MAR → FarmasiTab bridge** — tab "Status Farmasi" di rekam medis pasien tidak menampilkan ringkasan administrasi MAR. Tambah section "Administrasi Hari Ini" di `FarmasiTab`: 3 shift dots (Pagi/Siang/Malam) dengan `X/total diberikan`, pull dari `resepRI.mar` filtered by today. Link ke tab MAR.
 - [ ] Replace mock data dengan Prisma queries, mulai dari `PatientMaster`
 - [ ] Error boundary + loading skeleton untuk semua fullpage routes
 - [ ] `SidebarContext` — belum dipakai konsisten di semua modul
@@ -222,8 +257,7 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 - [ ] `ehis-registration` — form pendaftaran pasien baru + kunjungan, search existing
 - [ ] `ehis-master` — CRUD: dokter, ruangan, tarif, obat/lab catalog
 - [ ] `ehis-report` — laporan per periode, export Excel/PDF
-- [ ] `ehis-lab` — order tracking, entry hasil, verifikasi, history per pasien
-- [ ] `ehis-rad` — order tracking, upload/view hasil, verifikasi
+- [ ] `ehis-rad` — Radiologi: worklist cross-patient, penerimaan, hasil, validasi radiolog, upload gambar
 
 ---
 
