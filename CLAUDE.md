@@ -26,7 +26,7 @@ Utilities: `cn()` · `src/lib/utils.ts` | Navigation: `src/lib/navigation.ts` | 
 | `/ehis-master`       | Master Data   | ModuleLayout                            | 🔧 Scaffold |
 | `/ehis-report`       | Reports       | ModuleLayout                            | 🔧 Scaffold |
 | `/ehis-care/laboratorium` | Laboratorium | ModuleLayout (main) + Fullpage detail  | 🚧 Active   |
-| `/ehis-rad`          | Radiologi     | ModuleLayout                            | 🔧 Scaffold |
+| `/ehis-care/radiologi` | Radiologi   | ModuleLayout (main) + Fullpage detail   | 🚧 Active   |
 
 Shared layout: `Navbar` · `Sidebar` · `ModuleSwitcher` · `ModuleLayout` → `src/components/layout/`
 
@@ -203,6 +203,49 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 
 `LabManajemenTabs.tsx` — sidebar 6 tab (QC Internal · Register · Reagen · Kalibrasi · EQA · Laporan). `LabPageView.tsx` — view switcher Worklist ↔ QC & Manajemen di `/ehis-care/laboratorium`.
 
+### 🔴 Active — Radiologi (`/ehis-care/radiologi`)
+
+> Arsitektur mengikuti pola Lab: worklist cross-patient → detail per-order → hasil tampil di `OrderRadTab` pasien (sudah ada di shared).
+> Alur: Dokter order via `OrderRadTab` → `ORDERS_MOCK` → `deriveRadOrders()` → RadBoard → proses tiap fase → laporan rilis → `OrderRadTab` pasien terupdate.
+> Standar: SNARS AP 6 · PMK 1014/2008 · PMK 24/2020 · Perka BAPETEN No. 2/2018 · JCI AOP.6 · ACR Practice Parameters · IAEA HH-19
+
+**Jenis Modalitas:** Konvensional (X-Ray) · USG · CT Scan · MRI · Fluoroskopi (HSG/Colon in Loop) · Mammografi · Bone Densitometry (DEXA)  
+**Urgensi & TAT:** CITO ≤60 mnt (akuisisi→laporan) · Semi-Cito ≤180 mnt · Rutin ≤360 mnt · Foto Thorax IGD ≤30 mnt (akuisisi→bisa dibaca)  
+**9 Status:** `Menunggu → Dijadwalkan → Verifikasi → Persiapan → Akuisisi → Expertise → Verifikasi Hasil → Selesai | Ditolak`
+
+**Tier 1 — Kritis (Wajib Akreditasi):** ✅ Selesai
+
+- [x] **`radShared.ts`** ✅ — `RadOrder` · `KontrasInfo` · `DosisLog` · `CriticalFinding` · `RadTimestamps` · `EkspertasiData` · `ValidasiData` · `PersiapanData` · `AkuisisiData` types. Config maps (9 status · 7 modalitas · urgensi · DRL values PMK 1014/2008). `deriveRadOrders()` · `getRadOrderById()` · `updateRadWorkflow()` · `calcTATMenit()` · `getTATStatus()` · `hasCriticalFinding()` · `getStatusStep()` · `fmtTimestamp()`. `PROTAP_MAP` per modalitas. `CRITICAL_KATEGORI_LIST` 8 temuan. 5 mock orders. `src/components/rad/`
+- [x] **Rad Worklist (`RadBoard.tsx`)** ✅ — Stats bar (CITO aktif / Antrian / Proses / Selesai). Critical finding alert banner (AnimatePresence). Filter unit + modalitas + CITO toggle + search. `RadOrderCard.tsx` (CITO stripe, TATChip, progress bar, Link ke detail). `RadPageView.tsx` switcher. Route: `/ehis-care/radiologi`. SNARS AP 6 · PMK 1014/2008
+- [x] **Rad Order Detail Page** ✅ — Route `/ehis-care/radiologi/[id]`. `RadOrderHeader` (8-step TATTimeline + animated progress bar + patient info grid). `RadOrderTabs` sidebar (5 workflow tabs + 1 dokumen tab, teal-600 branded, step badges ✓ completed). JCI AOP.6
+- [x] **Verifikasi Identitas di Radiologi** ✅ — `VerifikasiPane.tsx`: 3 identity cards (Nama/Tgl Lahir/No RM) + 3-checkbox confirm + petugas radiografer. Animated done state (emerald chips). `updateRadWorkflow` → status: "Persiapan". SKP 1 · SNARS AP 6
+- [x] **Persiapan Pasien & Manajemen Kontras** ✅ — `PersiapanPane.tsx` + `persiapan/KontrasPanel.tsx`: protap per modalitas auto-populated dari `PROTAP_MAP`. Jadwal pemeriksaan. Kontras panel: jenis (Iodinasi IV/oral/rektal/Gadolinium), dosis, kecepatan, premedikasi, reaksi intra-prosedur grading. Kontraindikasi checklist. Right panel: allergy warning + TAT targets. PMK 24/2020 · ACR Manual on Contrast Media
+- [x] **Akuisisi Gambar + Proteksi Radiasi** ✅ — `AkuisisiPane.tsx`: parameter teknis per modalitas (CT: kVp/mAs/FOV/slice · USG: probe/frekuensi · MRI: sekuens · Konvensional: kV/mAs). `DRLGauge` component: CTDIvol+DLP (CT) · DAP+waktu (Fluoroskopi) · entrance dose (Konvensional/Mammografi). Auto-alert DRL exceeded. Proteksi checklist (apron/collar/gonadShield/thyroidShield). ALARA reminder. Perka BAPETEN No. 2/2018 · IAEA HH-19
+- [x] **Expertise / Entry Laporan Radiolog** ✅ — `EkspertasiPane.tsx`: 5 report fields (Indikasi Klinis · Teknik · Temuan · Kesan · Saran). SpRad nama + SIP. "Simpan Draft" + Submit. `CriticalFindingSelector` grid 8 kategori di right panel. If critical selected → `CriticalFindingModal` intercept. SNARS AP 6 · ACR Practice Parameters
+- [x] **Critical Findings Alert (Temuan Kritis)** ✅ — `CriticalFindingModal.tsx`: blocking full-screen rose-600 modal. `FindingRow` per temuan (metode Telepon/SMS/WA/Langsung + nama dokter + pelapor + jamLapor + confirm button). Progress bar animated. Cannot dismiss without confirming all. "Semua Dikonfirmasi — Terbitkan Laporan" CTA. Log tersimpan. SNARS AP 6.1 · JCI AOP.6
+- [x] **Validasi & Verifikasi Laporan** ✅ — `ValidasiPane.tsx`: review laporan read-only + critical findings recap. 2-checkbox (klinis konsisten + laporan lengkap) + validator name. Animated emerald done state. `updateRadWorkflow` → status: "Selesai". Locked setelah rilis. SNARS AP 6 · PMK 1014/2008
+- [x] **Pelaporan ke Rekam Medis** ✅ — status → "Selesai" setelah validasi. `RiwayatRadPane.tsx` menampilkan riwayat order per pasien (filter noRM). Stats strip Total/Selesai/Aktif/Kritis. Expandable `HistCard` per order. SNARS AP 6
+- [x] **TAT Tracking** ✅ — `RadTimestamps` (8 fase), `calcTATMenit()` · `getTATStatus()` · `getStatusStep()`. `TATTimeline` strip di `RadOrderHeader`. `TATChip` di `RadOrderCard`. CITO ≤60 mnt · Semi_Cito ≤180 mnt · Rutin ≤360 mnt. SNARS AP 6 · PMK 1014/2008
+
+**Tier 2 — Klinis Penting (SNARS AP 6+):**
+
+- [x] **Riwayat & Perbandingan Pemeriksaan** ✅ — `tabs/RiwayatRadPane.tsx`. Stats strip (Total/Selesai/Aktif/Kritis). `HistCard` expandable: kesan, temuan kritis, timestamps. Current order highlighted (teal ring). ACR Practice Parameters · clinical best practice
+- [x] **Cetak Laporan Radiologi** ✅ — `PrintPreviewModal` di `RiwayatRadPane.tsx`. iframe-based print: KOP RS, info pasien, laporan terformat, kolom TTD SpRad, watermark "LAPORAN RESMI". Preview modal dengan summary grid. Tersedia hanya jika status "Selesai". PMK 269/2008 · PMK 24/2020
+- [ ] **Image Viewer (Basic DICOM Preview)** — `tabs/ViewerPane.tsx`. Upload gambar hasil scan (PNG/JPG/DICOM thumbnail). Grid viewer 1×1 / 2×2 / 3×3. Pan/zoom controls. Window width/level preset (Lung/Mediastinum/Bone/Brain). Annotation text overlay. Watermark "HANYA PREVIEW — BUKAN PENGGANTI DICOM VIEWER". ACR · IAEA
+- [ ] **Alergi Kontras & Premedikasi Tracker** — `tabs/KontrasPane.tsx`. Riwayat reaksi kontras per pasien (pull dari `AllergyPane` + tambah entry spesifik kontras). Grading reaksi: Ringan (mual/urtikaria ringan) / Sedang (urtikaria luas/bronkospasme) / Berat (anafilaksis/syok). Protokol premedikasi auto-suggest (steroid 13-7-1 jam sebelum + difenhidramin 1 jam sebelum). Log reaksi intra-prosedur. ACR Manual on Contrast Media Ed. 11
+
+**Tier 3 — Operasional / Quality Management:**
+
+- [ ] **QC Pesawat (Kalibrasi & Uji Kesesuaian)** — `manajemen/QCPane.tsx`. List pesawat per modalitas (X-Ray konvensional, CR/DR, CT, USG, MRI, Mammografi). Status kalibrasi: Valid/Overdue/Segera + days-until. Log uji kesesuaian (sesuai/tidak sesuai per parameter — kolimasi, keluaran radiasi, resolusi, HVL). Form tambah record kalibrasi. Alert Overdue merah + Segera amber. BAPETEN Perka No. 2/2018 · IAEA HH-19 §7
+- [ ] **Register Pemeriksaan** — `manajemen/RegisterPane.tsx`. Filter 1/7/30 hari. Stats cards (total, TAT avg, % dalam target, temuan kritis, rejection rate). Horizontal bar chart distribusi modalitas + unit. Volume sparkline + log tabel harian per modalitas. PMK 1014/2008 · PMK 24/2020
+- [ ] **Log Dosis Radiasi (DRL Monitoring)** — `manajemen/DosisPane.tsx`. Log per pemeriksaan: CTDIvol + DLP (CT) · DAP + waktu fluoroskopi · entrance dose (konvensional). Rata-rata per modalitas/proyeksi vs DRL nasional PMK 1014/2008. Alert merah jika rata-rata >DRL. Chart distribusi dosis 30 hari. Perka BAPETEN No. 2/2018 · IAEA Safety Reports 39
+- [ ] **EQA / Phantom Test** — `manajemen/EQAPane.tsx`. Program phantom test per modalitas (AAPM CT phantom, SMPTE pattern USG, ACR MRI phantom). Siklus table: nilai terukur vs nilai acuan, deviasi %, status Lulus/Tidak Lulus/Pending. CAPA banner jika ada tidak lulus. IAEA HH-19 · ACR Accreditation
+- [ ] **Laporan Bulanan** — `manajemen/LaporanPane.tsx`. KPI cards (total pemeriksaan, TAT avg, % dalam target, rejection rate, temuan kritis). Mini bar chart volume 7 hari. Distribusi per modalitas + per unit + per urgensi. Dosis rata-rata vs DRL. Tombol Cetak. PMK 1014/2008
+
+`RadManajemenTabs.tsx` — sidebar 5 tab (QC Pesawat · Register · Dosis Radiasi · EQA · Laporan). `RadPageView.tsx` — view switcher Worklist ↔ QC & Manajemen di `/ehis-care/radiologi`.
+
+> Alur data: Dokter order via `OrderRadTab` → `ORDERS_MOCK` → `deriveRadOrders()` → RadBoard → klik action → halaman detail `/ehis-care/radiologi/[id]` → Verifikasi → Persiapan (kontras) → Akuisisi (dosis log) → Expertise (laporan + critical findings) → Validasi → rilis → `OrderRadTab` pasien terupdate. SNARS AP 6 · PMK 1014/2008 · PMK 24/2020 · Perka BAPETEN No. 2/2018 · JCI AOP.6
+
 ### 🔴 Active — Dashboard (`/ehis-dashboard`)
 
 - [ ] **Dashboard** — stats cards (pasien hari ini per unit: IGD/RI/RJ), BOR chart (bed occupancy rate), recent activity feed, quick-nav ke masing-masing modul. Route: `/ehis-dashboard`. Layout: ModuleLayout sudah ada.
@@ -264,7 +307,7 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 - [ ] `ehis-registration` — form pendaftaran pasien baru + kunjungan, search existing
 - [ ] `ehis-master` — CRUD: dokter, ruangan, tarif, obat/lab catalog
 - [ ] `ehis-report` — laporan per periode, export Excel/PDF
-- [ ] `ehis-rad` — Radiologi: worklist cross-patient, penerimaan, hasil, validasi radiolog, upload gambar
+- [ ] `ehis-rad` — route lama; modul radiologi dipindah ke `/ehis-care/radiologi` (lihat section 🔴 Active di atas)
 
 ---
 
@@ -277,6 +320,7 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 - Mock keyed by `RM-2025-003`: `KONSULTASI_MOCK` · `OrderLabMock` · `OrderRadMock` · `DISCHARGE_MOCK` · `PASIEN_PULANG_MOCK` · `GIZI_HISTORY_MOCK`
 - Mock keyed by `RM-2025-005`: `HANDOVER_MOCK` (IGD)
 - Farmasi mock orders: 5 order lintas unit — `igd-1` (HAM, Depo IGD) · `igd-2` (Depo IGD) · `ri-1` (HAM, Apotek RI) · `ri-3` (Apotek RI) · `rj-1` (Apotek RJ) → di `farmasi/farmasiShared.ts`
+- Radiologi mock orders: 5 order lintas unit — `igd-1` (Foto Thorax AP CITO) · `igd-2` (USG Abdomen Semi-Cito) · `ri-1` (CT Thorax kontras Rutin) · `ri-3` (Foto BNO 3 posisi Rutin) · `rj-1` (USG Tiroid Rutin) → di `rad/radShared.ts`
 
 **Core types** (semua di `src/lib/data.ts`):  
 `IGDPatientDetail` · `PatientMaster` · `KunjunganRecord` · `RawatInapPatientDetail`  
