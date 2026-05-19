@@ -163,6 +163,12 @@ export const masterNav: readonly NavGroup[] = [
     ],
   },
   {
+    label: "Katalog Klinis",
+    items: [
+      { label: "Katalog Obat", href: "/ehis-master/katalog-obat", icon: Pill },
+    ],
+  },
+  {
     label: "Penugasan",
     items: [
       { label: "Mapping Hub", href: "/ehis-master/mapping", icon: Network },
