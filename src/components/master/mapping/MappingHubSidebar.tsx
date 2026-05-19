@@ -17,8 +17,8 @@ export default function MappingHubSidebar({ activeKey, onSelect }: MappingHubSid
   return (
     <aside className="flex h-full w-full shrink-0 flex-col rounded-2xl border border-slate-200 bg-white shadow-sm lg:w-[260px]">
       <div className="border-b border-slate-100 px-4 py-3">
-        <p className="text-xs font-bold text-slate-800">Mapping Hub</p>
-        <p className="text-[10px] text-slate-400">
+        <p className="m-sm font-bold text-slate-800">Mapping Hub</p>
+        <p className="m-tiny text-slate-400">
           {ready.length} aktif · {soon.length} segera
         </p>
       </div>
@@ -48,7 +48,7 @@ export default function MappingHubSidebar({ activeKey, onSelect }: MappingHubSid
       </div>
 
       <div className="border-t border-slate-100 px-4 py-2.5">
-        <p className="text-[9px] leading-relaxed text-slate-400">
+        <p className="m-mini leading-relaxed text-slate-400">
           Mapping = relasi antar entitas master. Source of truth tunggal di sini.
         </p>
       </div>
@@ -67,7 +67,7 @@ function Section({
 }) {
   return (
     <div className={className}>
-      <p className="mb-1 px-2.5 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
+      <p className="mb-1 px-2.5 m-mini font-semibold uppercase tracking-widest text-slate-400">
         {label}
       </p>
       <div className="flex flex-col gap-0.5">{children}</div>
@@ -113,7 +113,7 @@ function SidebarItem({
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-1.5">
-          <p className={cn("truncate text-[11px] font-semibold", active && "font-bold")}>
+          <p className={cn("truncate m-xs font-semibold", active && "font-bold")}>
             {config.label}
           </p>
           <StatusIcon
@@ -125,14 +125,14 @@ function SidebarItem({
           />
         </div>
         <p className={cn(
-          "mt-0.5 truncate text-[9px] leading-tight",
+          "mt-0.5 truncate m-mini leading-tight",
           active ? "opacity-80" : "text-slate-400",
         )}>
           {config.desc}
         </p>
         {!ready && config.dependsOn && (
           <p className={cn(
-            "mt-0.5 truncate text-[9px] font-medium",
+            "mt-0.5 truncate m-mini font-medium",
             active ? "opacity-70" : "text-slate-400",
           )}>
             Butuh: {config.dependsOn}

@@ -66,8 +66,8 @@ export default function UnitListPanel({
     <aside className="flex h-full w-full shrink-0 flex-col rounded-2xl border border-slate-200 bg-white shadow-sm lg:w-[300px]">
       {/* Header */}
       <div className="shrink-0 border-b border-slate-100 px-3 py-2.5">
-        <p className="text-[11px] font-bold text-slate-800">Unit / Poli</p>
-        <p className="text-[10px] text-slate-400">{units.length} unit total</p>
+        <p className="m-xs font-bold text-slate-800">Unit / Poli</p>
+        <p className="m-tiny text-slate-400">{units.length} unit total</p>
       </div>
 
       {/* Search */}
@@ -79,7 +79,7 @@ export default function UnitListPanel({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Cari unit..."
-            className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-7 pr-3 text-[11px] text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100"
+            className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-7 pr-3 m-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100"
           />
         </div>
       </div>
@@ -87,7 +87,7 @@ export default function UnitListPanel({
       {/* List grouped by category */}
       <div className="flex-1 overflow-y-auto px-2 pb-3">
         {filtered.length === 0 ? (
-          <p className="px-3 py-8 text-center text-[11px] text-slate-400">
+          <p className="px-3 py-8 text-center m-xs text-slate-400">
             Tidak ada unit cocok
           </p>
         ) : (
@@ -97,7 +97,7 @@ export default function UnitListPanel({
             const catCfg = CATEGORY_CFG[cat];
             return (
               <div key={cat} className="mt-2">
-                <p className="mb-1 flex items-center gap-1 px-2 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
+                <p className="mb-1 flex items-center gap-1 px-2 m-mini font-semibold uppercase tracking-widest text-slate-400">
                   {catCfg.label}
                   <span className="text-slate-300">({items.length})</span>
                 </p>
@@ -154,7 +154,7 @@ function UnitRow({
       </span>
       <div className="min-w-0 flex-1">
         <p className={cn(
-          "truncate text-[11px] font-semibold",
+          "truncate m-xs font-semibold",
           selected ? "text-teal-800" : "text-slate-800",
         )}>
           {unit.nama}
@@ -169,7 +169,7 @@ function UnitRow({
             />
           </div>
           <span className={cn(
-            "shrink-0 font-mono text-[9px] font-semibold",
+            "shrink-0 font-mono m-mini font-semibold",
             count > 0 ? "text-teal-700" : "text-slate-400",
           )}>
             {count}

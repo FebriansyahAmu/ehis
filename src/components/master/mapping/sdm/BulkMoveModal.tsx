@@ -79,10 +79,10 @@ export default function BulkMoveModal({
                   <Users size={16} className="text-teal-600" />
                 </span>
                 <div>
-                  <p id="bulk-move-title" className="text-sm font-bold text-slate-900">
+                  <p id="bulk-move-title" className="m-base font-bold text-slate-900">
                     Pindahkan {selectedSDMs.length} SDM
                   </p>
-                  <p className="text-[10px] text-slate-500">
+                  <p className="m-tiny text-slate-500">
                     Dari <span className="font-semibold text-slate-700">{fromUnit.nama}</span> ke unit lain
                   </p>
                 </div>
@@ -101,23 +101,23 @@ export default function BulkMoveModal({
             <div className="flex min-h-0 flex-1 flex-col">
               {/* SDM preview */}
               <div className="shrink-0 border-b border-slate-100 px-5 py-3">
-                <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-wide text-slate-400">
+                <p className="mb-1.5 m-mini font-semibold uppercase tracking-wide text-slate-400">
                   SDM yang Dipindah
                 </p>
                 <div className="flex max-h-16 flex-wrap gap-1 overflow-y-auto">
                   {selectedSDMs.slice(0, 6).map((s) => (
                     <span
                       key={s.id}
-                      className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-700"
+                      className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 m-tiny text-slate-700"
                     >
-                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-slate-300 text-[7px] font-black text-white">
+                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-slate-300 m-mini font-black text-white">
                         {s.initials}
                       </span>
                       <span className="font-semibold">{s.nama.replace(/^dr\.\s+/i, "").split(",")[0]}</span>
                     </span>
                   ))}
                   {selectedSDMs.length > 6 && (
-                    <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
+                    <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 m-tiny font-bold text-slate-600">
                       +{selectedSDMs.length - 6} lagi
                     </span>
                   )}
@@ -126,7 +126,7 @@ export default function BulkMoveModal({
 
               {/* Arrow + Search destination */}
               <div className="shrink-0 px-5 pb-2 pt-3">
-                <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold text-slate-500">
+                <div className="mb-2 flex items-center gap-2 m-tiny font-semibold text-slate-500">
                   <span className="font-mono text-slate-700">{fromUnit.nama}</span>
                   <ArrowRight size={11} className="text-teal-500" />
                   <span>Pilih unit tujuan</span>
@@ -138,7 +138,7 @@ export default function BulkMoveModal({
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Cari unit tujuan..."
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-7 pr-3 text-[11px] text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100"
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-7 pr-3 m-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100"
                   />
                 </div>
               </div>
@@ -146,7 +146,7 @@ export default function BulkMoveModal({
               {/* Unit list */}
               <div className="flex-1 overflow-y-auto px-3 pb-3">
                 {filteredUnits.length === 0 ? (
-                  <p className="px-3 py-6 text-center text-[11px] text-slate-400">
+                  <p className="px-3 py-6 text-center m-xs text-slate-400">
                     Tidak ada unit cocok
                   </p>
                 ) : (
@@ -167,12 +167,12 @@ export default function BulkMoveModal({
                         >
                           <div className="min-w-0 flex-1">
                             <p className={cn(
-                              "truncate text-[11px] font-semibold",
+                              "truncate m-xs font-semibold",
                               active ? "text-teal-800" : "text-slate-800",
                             )}>
                               {u.nama}
                             </p>
-                            <p className="font-mono text-[9px] text-slate-400">{u.kode}</p>
+                            <p className="font-mono m-mini text-slate-400">{u.kode}</p>
                           </div>
                           {active && <CheckCircle2 size={13} className="shrink-0 text-teal-600" />}
                         </button>
@@ -192,10 +192,10 @@ export default function BulkMoveModal({
                     className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-slate-300 text-teal-600 focus:ring-1 focus:ring-teal-200"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-semibold text-slate-700">
+                    <p className="m-xs font-semibold text-slate-700">
                       Hapus dari {fromUnit.nama}
                     </p>
-                    <p className="mt-0.5 text-[10px] text-slate-500">
+                    <p className="mt-0.5 m-tiny text-slate-500">
                       Jika tidak dicentang, SDM akan ditugaskan ke <span className="font-semibold">dua unit</span> sekaligus.
                     </p>
                   </div>
@@ -208,7 +208,7 @@ export default function BulkMoveModal({
               <button
                 type="button"
                 onClick={handleClose}
-                className="rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                className="rounded-lg border border-slate-200 bg-white px-3.5 py-2 m-sm font-semibold text-slate-600 transition hover:bg-slate-50"
               >
                 Batal
               </button>
@@ -217,7 +217,7 @@ export default function BulkMoveModal({
                 onClick={handleConfirm}
                 disabled={!toKode}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold shadow-sm transition",
+                  "flex items-center gap-1.5 rounded-lg px-3.5 py-2 m-sm font-semibold shadow-sm transition",
                   toKode
                     ? "bg-teal-600 text-white hover:bg-teal-700 active:scale-[0.98]"
                     : "cursor-not-allowed bg-slate-200 text-slate-400",

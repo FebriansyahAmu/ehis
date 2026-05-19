@@ -34,12 +34,12 @@ export default function ComingSoonPane({ config }: ComingSoonPaneProps) {
       </motion.span>
 
       <div className="mt-4 max-w-md">
-        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 m-tiny font-bold uppercase tracking-wider text-slate-500">
           <Clock size={9} />
           Segera Hadir
         </span>
-        <h2 className="mt-2.5 text-base font-bold text-slate-900">{config.label}</h2>
-        <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
+        <h2 className="mt-2.5 m-lg font-bold text-slate-900">{config.label}</h2>
+        <p className="mt-1.5 m-xs leading-relaxed text-slate-500">
           {config.desc}
         </p>
       </div>
@@ -51,11 +51,11 @@ export default function ComingSoonPane({ config }: ComingSoonPaneProps) {
           transition={{ duration: 0.3, delay: 0.15 }}
           className="mt-5 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5"
         >
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+          <span className="m-tiny font-semibold uppercase tracking-wide text-slate-500">
             Dependency
           </span>
           <ArrowRight size={11} className="text-slate-400" />
-          <span className="text-[11px] font-semibold text-slate-700">
+          <span className="m-xs font-semibold text-slate-700">
             {config.dependsOn}
           </span>
         </motion.div>
@@ -65,7 +65,7 @@ export default function ComingSoonPane({ config }: ComingSoonPaneProps) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3, delay: 0.25 }}
-        className="mt-6 max-w-xs text-[10px] leading-relaxed text-slate-400"
+        className="mt-6 max-w-xs m-tiny leading-relaxed text-slate-400"
       >
         Modul ini akan dibuka setelah master data prasyarat tersedia.
         Sementara, fokus pada SDM Assignment yang sudah aktif.

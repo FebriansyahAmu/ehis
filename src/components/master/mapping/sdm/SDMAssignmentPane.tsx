@@ -135,8 +135,8 @@ function PaneHeader({
     >
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold text-slate-900">SDM Assignment</h2>
-          <p className="mt-0.5 text-[10px] text-slate-500">
+          <h2 className="m-base font-bold text-slate-900">SDM Assignment</h2>
+          <p className="mt-0.5 m-tiny text-slate-500">
             Pilih unit di kiri → tambah / lepas SDM di kanan. Bulk action di-aktifkan saat
             ada SDM dipilih.
           </p>
@@ -165,8 +165,8 @@ function Stat({
         <Icon size={12} />
       </span>
       <div>
-        <p className="text-[9px] font-medium uppercase tracking-wide text-slate-400">{label}</p>
-        <p className="text-sm font-black leading-none text-slate-900">{value}</p>
+        <p className="m-mini font-medium uppercase tracking-wide text-slate-400">{label}</p>
+        <p className="m-base font-black leading-none text-slate-900">{value}</p>
       </div>
     </div>
   );
@@ -179,8 +179,8 @@ function EmptyUnitSelection() {
         <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100">
           <Building2 size={20} className="text-slate-400" />
         </span>
-        <p className="mt-3 text-xs font-semibold text-slate-700">Pilih unit di kiri</p>
-        <p className="mt-1 text-[10px] text-slate-400">untuk melihat & mengelola SDM</p>
+        <p className="mt-3 m-sm font-semibold text-slate-700">Pilih unit di kiri</p>
+        <p className="mt-1 m-tiny text-slate-400">untuk melihat & mengelola SDM</p>
       </div>
     </section>
   );

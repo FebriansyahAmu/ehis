@@ -99,13 +99,13 @@ export default function SDMRosterPanel({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-teal-600">
+              <p className="m-tiny font-semibold uppercase tracking-wider text-teal-600">
                 {unit.category}
               </p>
-              <span className="font-mono text-[9px] text-slate-400">{unit.kode}</span>
+              <span className="font-mono m-mini text-slate-400">{unit.kode}</span>
             </div>
-            <h2 className="mt-0.5 truncate text-sm font-bold text-slate-900">{unit.nama}</h2>
-            <p className="mt-0.5 text-[10px] text-slate-500">
+            <h2 className="mt-0.5 truncate m-base font-bold text-slate-900">{unit.nama}</h2>
+            <p className="mt-0.5 m-tiny text-slate-500">
               <span className="font-semibold text-teal-700">{assignedCount}</span> SDM terdaftar
               · <span className="text-slate-600">{availableCount}</span> tersedia
             </p>
@@ -138,7 +138,7 @@ export default function SDMRosterPanel({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Cari nama / peran..."
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-7 pr-3 text-[11px] text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100"
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-7 pr-3 m-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100"
             />
           </div>
           <div className="flex flex-wrap gap-1">
@@ -150,7 +150,7 @@ export default function SDMRosterPanel({
                   type="button"
                   onClick={() => setCategoryFilter(f.value)}
                   className={cn(
-                    "rounded-md px-2 py-1 text-[10px] font-semibold transition",
+                    "rounded-md px-2 py-1 m-tiny font-semibold transition",
                     active
                       ? "bg-teal-600 text-white shadow-sm"
                       : "border border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
@@ -175,21 +175,21 @@ export default function SDMRosterPanel({
             className="shrink-0 overflow-hidden border-b border-teal-200 bg-teal-50/60"
           >
             <div className="flex items-center justify-between gap-2 px-4 py-2">
-              <p className="text-[11px] font-semibold text-teal-800">
+              <p className="m-xs font-semibold text-teal-800">
                 {selectedIds.size} SDM dipilih
               </p>
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => setSelectedIds(new Set())}
-                  className="rounded-md border border-teal-200 bg-white px-2 py-1 text-[10px] font-semibold text-teal-700 transition hover:bg-teal-50"
+                  className="rounded-md border border-teal-200 bg-white px-2 py-1 m-tiny font-semibold text-teal-700 transition hover:bg-teal-50"
                 >
                   Batal
                 </button>
                 <button
                   type="button"
                   onClick={handleBulkMove}
-                  className="flex items-center gap-1 rounded-md bg-teal-600 px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm transition hover:bg-teal-700 active:scale-[0.98]"
+                  className="flex items-center gap-1 rounded-md bg-teal-600 px-2.5 py-1 m-tiny font-semibold text-white shadow-sm transition hover:bg-teal-700 active:scale-[0.98]"
                 >
                   <ArrowRightLeft size={10} />
                   Pindahkan
@@ -207,7 +207,7 @@ export default function SDMRosterPanel({
             type="button"
             onClick={toggleSelectAll}
             aria-label={allSelected ? "Batal pilih semua" : "Pilih semua"}
-            className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-500 transition hover:text-slate-700"
+            className="flex items-center gap-1.5 m-tiny font-semibold text-slate-500 transition hover:text-slate-700"
           >
             {allSelected
               ? <CheckSquare size={12} className="text-teal-600" />
@@ -257,7 +257,7 @@ function ViewModeButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-md px-2.5 py-1 text-[10px] font-semibold transition",
+        "rounded-md px-2.5 py-1 m-tiny font-semibold transition",
         active
           ? "bg-white text-slate-800 shadow-sm"
           : "text-slate-500 hover:text-slate-700",
@@ -311,7 +311,7 @@ function SDMRow({
 
       {/* Avatar */}
       <div className={cn(
-        "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[10px] font-black",
+        "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl m-tiny font-black",
         cat.bg, cat.text,
       )}>
         {sdm.initials}
@@ -320,24 +320,24 @@ function SDMRow({
       {/* Info */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <p className="truncate text-[11px] font-bold text-slate-800">{sdm.nama}</p>
-          <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold", status.bg, status.text)}>
+          <p className="truncate m-xs font-bold text-slate-800">{sdm.nama}</p>
+          <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 m-mini font-semibold", status.bg, status.text)}>
             {status.label}
           </span>
         </div>
         <div className="mt-0.5 flex items-center gap-1.5">
-          <span className={cn("inline-flex items-center gap-1 text-[10px] font-medium", cat.text)}>
+          <span className={cn("inline-flex items-center gap-1 m-tiny font-medium", cat.text)}>
             <span className={cn("h-1.5 w-1.5 rounded-full", cat.dot)} />
             {sdm.roleLabel}
           </span>
           {sdm.sinceISO && viewMode === "assigned" && (
-            <span className="flex items-center gap-0.5 text-[9px] text-slate-400">
+            <span className="flex items-center gap-0.5 m-mini text-slate-400">
               <Calendar size={8} />
               {fmtSince(sdm.sinceISO)}
             </span>
           )}
           {viewMode === "available" && allUnitsCount > 0 && (
-            <span className="text-[9px] text-slate-400">
+            <span className="m-mini text-slate-400">
               · di {allUnitsCount} unit lain
             </span>
           )}
@@ -349,7 +349,7 @@ function SDMRow({
         type="button"
         onClick={onToggleAssign}
         className={cn(
-          "flex shrink-0 items-center gap-1 rounded-md px-2 py-1.5 text-[10px] font-semibold transition",
+          "flex shrink-0 items-center gap-1 rounded-md px-2 py-1.5 m-tiny font-semibold transition",
           viewMode === "assigned"
             ? "border border-rose-200 bg-white text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100"
             : "bg-teal-600 text-white shadow-sm hover:bg-teal-700 active:scale-[0.98]",
@@ -378,12 +378,12 @@ function EmptyList({ viewMode, unitName }: { viewMode: ViewMode; unitName: strin
           : <CheckCircle2 size={20} className="text-teal-500" />}
       </span>
       <div className="max-w-xs">
-        <p className="text-xs font-semibold text-slate-700">
+        <p className="m-sm font-semibold text-slate-700">
           {viewMode === "assigned"
             ? `Belum ada SDM di ${unitName}`
             : "Semua SDM sudah ter-assign"}
         </p>
-        <p className="mt-1 text-[10px] text-slate-500">
+        <p className="mt-1 m-tiny text-slate-500">
           {viewMode === "assigned"
             ? "Switch ke tab Tersedia untuk meng-assign SDM ke unit ini."
             : "Tidak ada SDM yang belum ditugaskan ke unit ini."}

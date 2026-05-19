@@ -78,3 +78,44 @@ h1, h2, h3, h4, h5, h6 {
 .animate-fade-in      { animation: fade-in 0.35s ease both; }
 .animate-slide-left   { animation: slide-in-left 0.3s ease both; }
 .animate-skeleton     { animation: skeleton-pulse 1.6s ease-in-out infinite; }
+
+/* ── Density Scale (Mapping Hub) ────────────────────────── */
+/*
+ * 6-step font scale yang berubah berdasarkan data-density attribute.
+ * Default = comfortable. Component pakai class `m-mini` / `m-tiny` / `m-xs`
+ * / `m-sm` / `m-base` / `m-lg` instead of text-[*px].
+ *
+ * Aktifkan dengan: <div data-density="cozy">…</div>
+ */
+[data-density="compact"] {
+  --m-mini:  9px;
+  --m-tiny: 10px;
+  --m-xs:   11px;
+  --m-sm:   12px;
+  --m-base: 14px;
+  --m-lg:   16px;
+}
+[data-density="comfortable"], [data-density=""] {
+  --m-mini: 10px;
+  --m-tiny: 11px;
+  --m-xs:   12px;
+  --m-sm:   13px;
+  --m-base: 15px;
+  --m-lg:   17px;
+}
+[data-density="cozy"] {
+  --m-mini: 11px;
+  --m-tiny: 12px;
+  --m-xs:   13px;
+  --m-sm:   14px;
+  --m-base: 16px;
+  --m-lg:   18px;
+}
+
+/* Font-size utility classes — hanya font-size + line-height, weight ikut component */
+.m-mini { font-size: var(--m-mini, 10px); line-height: 1.35; }
+.m-tiny { font-size: var(--m-tiny, 11px); line-height: 1.4; }
+.m-xs   { font-size: var(--m-xs,   12px); line-height: 1.45; }
+.m-sm   { font-size: var(--m-sm,   13px); line-height: 1.5; }
+.m-base { font-size: var(--m-base, 15px); line-height: 1.45; }
+.m-lg   { font-size: var(--m-lg,   17px); line-height: 1.35; }
