@@ -20,6 +20,7 @@ import {
   Wallet,
   TrendingUp,
   CalendarDays,
+  Network,
   type LucideIcon,
 } from "lucide-react";
 
@@ -156,9 +157,15 @@ export const masterNav: readonly NavGroup[] = [
   {
     label: "Sumber Daya",
     items: [
-      { label: "Pengguna", href: "/ehis-master/pengguna", icon: Users     },
-      { label: "Dokter",   href: "/ehis-master/dokter",   icon: UserCog   },
-      { label: "Ruangan",  href: "/ehis-master/ruangan",  icon: Building2 },
+      { label: "Unit & Ruangan", href: "/ehis-master/ruangan",  icon: Building2 },
+      { label: "Dokter & Nakes", href: "/ehis-master/dokter",   icon: UserCog   },
+      { label: "Pengguna",       href: "/ehis-master/pengguna", icon: Users     },
+    ],
+  },
+  {
+    label: "Penugasan",
+    items: [
+      { label: "Mapping Hub", href: "/ehis-master/mapping", icon: Network },
     ],
   },
 ] as const;
