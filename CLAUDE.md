@@ -23,7 +23,7 @@ Utilities: `cn()` · `src/lib/utils.ts` | Navigation: `src/lib/navigation.ts` | 
 | `/ehis-care/farmasi` | Farmasi       | ModuleLayout (main) + Fullpage detail   | ✅ Done     |
 | `/ehis-registration` | Registration  | (main) ModuleLayout + (fullpage) Pasien | 🚧 Active   |
 | `/ehis-billing`      | Billing       | ModuleLayout                            | 🔧 Scaffold |
-| `/ehis-master`       | Master Data   | ModuleLayout                            | 🔧 Scaffold |
+| `/ehis-master`       | Master Data   | ModuleLayout                            | 🚧 Active   |
 | `/ehis-report`       | Reports       | ModuleLayout                            | 🔧 Scaffold |
 | `/ehis-care/laboratorium` | Laboratorium | ModuleLayout (main) + Fullpage detail  | 🚧 Active   |
 | `/ehis-care/radiologi` | Radiologi   | ModuleLayout (main) + Fullpage detail   | 🚧 Active   |
@@ -250,6 +250,49 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 
 - [ ] **Dashboard** — stats cards (pasien hari ini per unit: IGD/RI/RJ), BOR chart (bed occupancy rate), recent activity feed, quick-nav ke masing-masing modul. Route: `/ehis-dashboard`. Layout: ModuleLayout sudah ada.
 
+### 🔴 Active — Master Data (`/ehis-master`)
+
+> Arsitektur: **Unified Tree** untuk Organization & Location (1 halaman, 3 level: Unit → Ruangan → Bed). **Adapter Pattern** untuk FHIR SatuSehat — schema DB EHIS-first, `lib/fhir/adapters/` untuk transform saat sync. Practitioner: GET by NIK dari SatuSehat.
+> File structure: `src/components/master/{ruangan,dokter,pengguna,katalog-obat,katalog-lab,icd,poli,tarif,penjamin,profil-rs}/` · `src/lib/fhir/adapters/` · `src/lib/fhir/types/fhir.types.ts` · `src/lib/fhir/client.ts`
+
+**Keputusan Arsitektur (jangan diubah tanpa diskusi):**
+- **Organization & Location UI**: Unified Tree — 1 route `/ehis-master/ruangan`, left panel tree, right panel form kontekstual per node type
+- **FHIR Strategy**: Adapter Pattern — `toFhirOrganization()` · `toFhirLocation()` di `lib/fhir/adapters/`, DB tetap EHIS-first
+- **Address**: Convention over Configuration — inherit dari parent Organization secara default, override per record via flag
+- **GPS**: Opsional, collapsible section — tidak memblokir sync SatuSehat
+- **Kode wilayah**: Cascading dropdown Kemendagri (embed JSON ~500KB), bukan free text — kode numerik wajib untuk FHIR `administrativeCode`
+- **Sync**: Lazy on-demand, simpan FHIR ID dari response server — jangan generate sendiri
+- **Bed status operasional** (`Tersedia/Terisi`): dikelola workflow klinis saat admisi/pulang, **bukan** form master
+- **Urutan FHIR wajib**: Organization harus sync & dapat FHIR ID dulu → baru Location bisa sync (hard constraint)
+- **Practitioner**: Akun EHIS yang didaftarkan → GET by NIK dari SatuSehat → auto-populate → simpan Practitioner ID
+
+**Tier 0 — Beranda Master:**
+
+- [ ] **Beranda** — stats cards (total unit/ruangan/dokter/obat), quick-nav grid ke semua section, FHIR sync overview (berapa record belum sync). Skeleton loading + Framer Motion. Route: `/ehis-master`
+
+**Tier 1 — FHIR Foundation (semua resource klinis bergantung pada ini):**
+
+- [ ] **Update masterNav** — extend dari 3 item ke grouped nav: `Utama` · `FHIR Resource` (Unit & Ruangan · Dokter & Nakes · Pengguna) · `Katalog Klinis` (Katalog Obat · Katalog Lab · ICD-10 & ICD-9) · `Operasional` (Poli & Jadwal · Tarif & Paket · Penjamin) · `Konfigurasi` (Profil RS). Update `src/lib/navigation.ts` `masterNav`.
+- [ ] **Unit & Ruangan — Unified Tree** — `src/components/master/ruangan/`. Left panel: tree hierarchy (Unit/Organization → Ruangan/Location → Bed/Location), collapsible, tombol add child per level. Right panel: form kontekstual (`OrganizationForm` / `LocationForm` / `BedForm`). FHIR sync button disabled jika parent belum sync. Sync status badge (Belum/Tersync/Gagal). `lib/fhir/adapters/organization.adapter.ts` + `location.adapter.ts`. Cascading wilayah dropdown. Inherit address flag (CoC — logic di adapter bukan DB). Route: `/ehis-master/ruangan`
+- [ ] **Dokter & Nakes** — NIK lookup → GET SatuSehat `/Practitioner?identifier=NIK` → auto-populate (nama, STR, kualifikasi) → input lokal (SIP, poli assignment, jadwal, status aktif/cuti). Badge "Terverifikasi SatuSehat" / "Tidak Ditemukan". Two-panel list+detail. Route: `/ehis-master/dokter`
+- [ ] **Pengguna Sistem** — CRUD akun internal EHIS, role (Admin · Dokter · Perawat · Apoteker · Radiografer · SpPK · SpRad · Kasir), unit assignment, status aktif. Non-FHIR resource. Route: `/ehis-master/pengguna` (sudah di nav)
+
+**Tier 2 — Katalog Klinis (unblock hardcoded constants di codebase):**
+
+- [ ] **Katalog Obat** — unblock `FORMULARIUM_LIST`, `HAM_LIST`, `LASA_PAIRS` di `farmasiShared.ts` + katalog mock di `resepShared.ts`. Fields: nama generik, nama dagang, satuan, kategori terapeutik, flag `isFormularium` / `isHAM` / `isLASA`, LASA pair relation (many-to-many). Route: `/ehis-master/katalog-obat`
+- [ ] **Katalog Laboratorium** — unblock `LAB_CATALOG`, nilai rujukan, `DELTA_THRESHOLDS` di `labShared.ts`. Fields: kode, nama, kategori (Hematologi/Kimia/Urin/dll), satuan, nilai rujukan per gender + range usia, `criticalLow` / `criticalHigh`, delta threshold %. Route: `/ehis-master/katalog-lab`
+- [ ] **Katalog ICD-10 & ICD-9** — unblock `ICD10_CATALOG` (30 item hardcoded) di `diagnosaShared.ts`. Dataset besar (~15.000 kode ICD-10) → import dari CSV/Excel, bukan input manual. UI: search + filter by chapter/blok. Route: `/ehis-master/icd`
+
+**Tier 3 — Operasional:**
+
+- [ ] **Poliklinik & Jadwal Dokter** — kapasitas antrian per poli per hari, jadwal buka (hari + jam mulai/selesai), assignment dokter per slot, libur/cuti override. Weekly schedule grid. Unblock Registration antrian real. Route: `/ehis-master/poli`
+- [ ] **Tarif & Paket Layanan** — tarif per unit, dual tarif (Umum vs BPJS INA-CBG reference), kategori (Tindakan/Obat/Lab/Rad/Kamar/Jasa Dokter), paket bundling beberapa tindakan. Unblock Billing kasir. Route: `/ehis-master/tarif`
+- [ ] **Penjamin & Kontrak** — BPJS config (kelas, kode faskes, Org_id), asuransi swasta (nama, coverage list, batas klaim, kontak verifikasi). Route: `/ehis-master/penjamin`
+
+**Tier 4 — Konfigurasi RS:**
+
+- [ ] **Profil RS** — nama, alamat, logo, nomor izin, kelas RS, SatuSehat Org_id root (dari Kemkes — prerequisite semua FHIR sync Organization/Location), kode wilayah RS, shift config (unblock `SHIFT_CFG` hardcode di `ppiIsolasiShared.ts`: jam Pagi/Siang/Malam), KOP surat untuk semua `PrintPreviewModal`. Route: `/ehis-master/profil-rs`
+
 ### 🟡 Next — Modul Pendukung
 
 - [ ] **Billing Kasir (`ehis-billing`)** — invoice per kunjungan, rincian tindakan + obat, status pembayaran (Lunas/Proses Klaim/Belum), print struk. `KasirData` type + mock sudah tersedia di `data.ts`.
@@ -305,7 +348,6 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 ### 🟢 Backlog (Other Modules)
 
 - [ ] `ehis-registration` — form pendaftaran pasien baru + kunjungan, search existing
-- [ ] `ehis-master` — CRUD: dokter, ruangan, tarif, obat/lab catalog
 - [ ] `ehis-report` — laporan per periode, export Excel/PDF
 - [ ] `ehis-rad` — route lama; modul radiologi dipindah ke `/ehis-care/radiologi` (lihat section 🔴 Active di atas)
 
