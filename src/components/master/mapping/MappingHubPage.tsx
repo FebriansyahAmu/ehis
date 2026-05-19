@@ -8,6 +8,8 @@ import {
 } from "./mappingShared";
 import MappingHubSidebar from "./MappingHubSidebar";
 import SDMAssignmentPane from "./sdm/SDMAssignmentPane";
+import KewenanganPane from "./kewenangan/KewenanganPane";
+import LayananUnitPane from "./layanan/LayananUnitPane";
 import ComingSoonPane from "./ComingSoonPane";
 import DensityToggle, { useDensity } from "./DensityToggle";
 
@@ -111,9 +113,11 @@ export default function MappingHubPage() {
 }
 
 function renderPane(key: SubpageKey) {
-  if (key === "sdm") return <SDMAssignmentPane />;
+  if (key === "sdm")        return <SDMAssignmentPane />;
+  if (key === "kewenangan") return <KewenanganPane />;
+  if (key === "layanan")    return <LayananUnitPane />;
 
-  // Untuk 6 sub-page lain → ComingSoonPane
+  // Untuk 4 sub-page lain → ComingSoonPane
   const config = getSubpage(key);
   return (
     <div className="flex min-h-0 flex-1 items-stretch overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

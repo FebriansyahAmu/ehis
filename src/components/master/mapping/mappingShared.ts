@@ -42,8 +42,7 @@ export const SUBPAGE_REGISTRY: SubpageConfig[] = [
     label: "Kewenangan Klinis",
     desc: "Dokter ↔ Tindakan (SNARS PMK 755)",
     icon: ShieldCheck,
-    status: "soon",
-    dependsOn: "Katalog Tindakan",
+    status: "ready",
     accent: { bg: "bg-sky-50", text: "text-sky-700", ring: "ring-sky-200" },
   },
   {
@@ -51,8 +50,7 @@ export const SUBPAGE_REGISTRY: SubpageConfig[] = [
     label: "Layanan Unit",
     desc: "Tindakan ↔ Unit (lokasi pelaksanaan)",
     icon: Activity,
-    status: "soon",
-    dependsOn: "Katalog Tindakan",
+    status: "ready",
     accent: { bg: "bg-emerald-50", text: "text-emerald-700", ring: "ring-emerald-200" },
   },
   {
