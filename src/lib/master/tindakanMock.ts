@@ -35,6 +35,25 @@ export interface TindakanRecord {
   spesialisDefault: SpesialisCode[];
   /** Unit yang umumnya bisa lakukan (untuk auto-layanan unit default) */
   unitDefault: string[];
+  /** Deskripsi singkat prosedur / indikasi umum */
+  deskripsi?: string;
+  /** Status aktif di katalog RS */
+  status?: "Aktif" | "NonAktif";
+}
+
+let _idCounter = 200;
+export function emptyTindakanRecord(): TindakanRecord {
+  return {
+    id: `tnd-${++_idCounter}`,
+    kode: "",
+    nama: "",
+    kategori: "Konsultasi",
+    kompleksitas: "Sederhana",
+    spesialisDefault: [],
+    unitDefault: [],
+    deskripsi: "",
+    status: "Aktif",
+  };
 }
 
 // ── Config Maps ───────────────────────────────────────────

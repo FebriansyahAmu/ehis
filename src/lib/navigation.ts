@@ -21,6 +21,7 @@ import {
   TrendingUp,
   CalendarDays,
   Network,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 
@@ -165,7 +166,8 @@ export const masterNav: readonly NavGroup[] = [
   {
     label: "Katalog Klinis",
     items: [
-      { label: "Katalog Obat", href: "/ehis-master/katalog-obat", icon: Pill },
+      { label: "Katalog Obat",      href: "/ehis-master/katalog-obat",      icon: Pill },
+      { label: "Katalog Tindakan",  href: "/ehis-master/katalog-tindakan",  icon: Zap  },
     ],
   },
   {
