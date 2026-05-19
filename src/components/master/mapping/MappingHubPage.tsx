@@ -10,6 +10,10 @@ import MappingHubSidebar from "./MappingHubSidebar";
 import SDMAssignmentPane from "./sdm/SDMAssignmentPane";
 import KewenanganPane from "./kewenangan/KewenanganPane";
 import LayananUnitPane from "./layanan/LayananUnitPane";
+import TarifPane from "./tarif/TarifPane";
+import FormulariumPane from "./formularium/FormulariumPane";
+import DistribusiPane from "./distribusi/DistribusiPane";
+import RBACPane from "./rbac/RBACPane";
 import ComingSoonPane from "./ComingSoonPane";
 import DensityToggle, { useDensity } from "./DensityToggle";
 
@@ -113,11 +117,15 @@ export default function MappingHubPage() {
 }
 
 function renderPane(key: SubpageKey) {
-  if (key === "sdm")        return <SDMAssignmentPane />;
-  if (key === "kewenangan") return <KewenanganPane />;
-  if (key === "layanan")    return <LayananUnitPane />;
+  if (key === "sdm")         return <SDMAssignmentPane />;
+  if (key === "kewenangan")  return <KewenanganPane />;
+  if (key === "layanan")     return <LayananUnitPane />;
+  if (key === "tarif")       return <TarifPane />;
+  if (key === "formularium") return <FormulariumPane />;
+  if (key === "distribusi")  return <DistribusiPane />;
+  if (key === "rbac")        return <RBACPane />;
 
-  // Untuk 4 sub-page lain → ComingSoonPane
+  // Fallback (semua sub-page sekarang sudah ready)
   const config = getSubpage(key);
   return (
     <div className="flex min-h-0 flex-1 items-stretch overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

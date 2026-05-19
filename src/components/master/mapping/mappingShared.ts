@@ -58,8 +58,7 @@ export const SUBPAGE_REGISTRY: SubpageConfig[] = [
     label: "Tarif Matrix",
     desc: "Tindakan × Penjamin × Kelas → Harga",
     icon: BadgePercent,
-    status: "soon",
-    dependsOn: "Tarif + Penjamin",
+    status: "ready",
     accent: { bg: "bg-amber-50", text: "text-amber-700", ring: "ring-amber-200" },
   },
   {
@@ -67,8 +66,7 @@ export const SUBPAGE_REGISTRY: SubpageConfig[] = [
     label: "Formularium",
     desc: "Obat × Kelas Penjamin → boleh/tidak",
     icon: Pill,
-    status: "soon",
-    dependsOn: "Katalog Obat + Penjamin",
+    status: "ready",
     accent: { bg: "bg-violet-50", text: "text-violet-700", ring: "ring-violet-200" },
   },
   {
@@ -76,8 +74,7 @@ export const SUBPAGE_REGISTRY: SubpageConfig[] = [
     label: "Distribusi Obat",
     desc: "Obat ↔ Depo Farmasi (stock & restock)",
     icon: PackageSearch,
-    status: "soon",
-    dependsOn: "Katalog Obat",
+    status: "ready",
     accent: { bg: "bg-rose-50", text: "text-rose-700", ring: "ring-rose-200" },
   },
   {
@@ -85,7 +82,7 @@ export const SUBPAGE_REGISTRY: SubpageConfig[] = [
     label: "RBAC",
     desc: "Role × Permission per modul",
     icon: Lock,
-    status: "soon",
+    status: "ready",
     accent: { bg: "bg-slate-100", text: "text-slate-700", ring: "ring-slate-200" },
   },
 ];

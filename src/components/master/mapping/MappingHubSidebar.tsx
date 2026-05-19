@@ -35,16 +35,18 @@ export default function MappingHubSidebar({ activeKey, onSelect }: MappingHubSid
           ))}
         </Section>
 
-        <Section label="Segera Hadir" className="mt-3">
-          {soon.map((sp) => (
-            <SidebarItem
-              key={sp.key}
-              config={sp}
-              active={activeKey === sp.key}
-              onClick={() => onSelect(sp.key)}
-            />
-          ))}
-        </Section>
+        {soon.length > 0 && (
+          <Section label="Segera Hadir" className="mt-3">
+            {soon.map((sp) => (
+              <SidebarItem
+                key={sp.key}
+                config={sp}
+                active={activeKey === sp.key}
+                onClick={() => onSelect(sp.key)}
+              />
+            ))}
+          </Section>
+        )}
       </div>
 
       <div className="border-t border-slate-100 px-4 py-2.5">
