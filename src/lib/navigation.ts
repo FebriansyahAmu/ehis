@@ -24,6 +24,7 @@ import {
   Zap,
   TestTube,
   Settings2,
+  Landmark,
   type LucideIcon,
 } from "lucide-react";
 
@@ -182,7 +183,8 @@ export const masterNav: readonly NavGroup[] = [
   {
     label: "Konfigurasi",
     items: [
-      { label: "Profil RS", href: "/ehis-master/profil-rs", icon: Settings2 },
+      { label: "Profil RS",           href: "/ehis-master/profil-rs", icon: Settings2 },
+      { label: "Faskes Rujukan (PPK)", href: "/ehis-master/ppk",       icon: Landmark  },
     ],
   },
 ] as const;
