@@ -1,5 +1,5 @@
 export type JenisFaskes       = "RS Umum" | "RS Khusus" | "RSIA" | "Puskesmas" | "Klinik Pratama" | "Klinik Utama" | "Balai Kesehatan" | "Lab Klinik";
-export type TipePPK           = "PPK I" | "PPK II" | "PPK III";
+export type TipePPK           = "Pratama" | "Utama" | "Umum" | "Khusus";
 export type KelasFaskes       = "A" | "B" | "C" | "D" | "-";
 export type KepemilikanFaskes = "Pemerintah" | "Swasta" | "BUMN" | "TNI/Polri";
 
@@ -27,7 +27,7 @@ export const PPK_INITIAL: PPKRecord[] = [
     nama:        "Puskesmas Menteng",
     jenis:       "Puskesmas",
     kepemilikan: "Pemerintah",
-    tipe:        "PPK I",
+    tipe:        "Pratama",
     kelas:       "-",
     alamat:      "Jl. Menteng Raya No. 48",
     rt: "001", rw: "002",
@@ -41,7 +41,7 @@ export const PPK_INITIAL: PPKRecord[] = [
     nama:        "Klinik Pratama Sehat Abadi",
     jenis:       "Klinik Pratama",
     kepemilikan: "Swasta",
-    tipe:        "PPK I",
+    tipe:        "Pratama",
     kelas:       "-",
     alamat:      "Jl. Cikini Raya No. 15",
     rt: "003", rw: "004",
@@ -55,7 +55,7 @@ export const PPK_INITIAL: PPKRecord[] = [
     nama:        "RSUPN Dr. Cipto Mangunkusumo",
     jenis:       "RS Umum",
     kepemilikan: "Pemerintah",
-    tipe:        "PPK III",
+    tipe:        "Umum",
     kelas:       "A",
     alamat:      "Jl. Diponegoro No. 71",
     rt: "002", rw: "001",
@@ -70,7 +70,7 @@ export const PPK_INITIAL: PPKRecord[] = [
     nama:        "RSPAD Gatot Subroto",
     jenis:       "RS Umum",
     kepemilikan: "TNI/Polri",
-    tipe:        "PPK II",
+    tipe:        "Umum",
     kelas:       "A",
     alamat:      "Jl. Abdul Rahman Saleh No. 24",
     rt: "001", rw: "003",

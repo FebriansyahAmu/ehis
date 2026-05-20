@@ -14,14 +14,15 @@ import {
 } from "@/lib/master/ppkStore";
 
 const JENIS_OPTIONS: JenisFaskes[]       = ["RS Umum", "RS Khusus", "RSIA", "Puskesmas", "Klinik Pratama", "Klinik Utama", "Balai Kesehatan", "Lab Klinik"];
-const TIPE_OPTIONS:  TipePPK[]           = ["PPK I", "PPK II", "PPK III"];
+const TIPE_OPTIONS:  TipePPK[]           = ["Pratama", "Utama", "Umum", "Khusus"];
 const KELAS_OPTIONS: KelasFaskes[]       = ["A", "B", "C", "D", "-"];
 const KEPEMILIKAN_OPTIONS: KepemilikanFaskes[] = ["Pemerintah", "Swasta", "BUMN", "TNI/Polri"];
 
 const TIPE_CFG: Record<TipePPK, string> = {
-  "PPK I":   "bg-sky-100 text-sky-700",
-  "PPK II":  "bg-amber-100 text-amber-700",
-  "PPK III": "bg-rose-100 text-rose-700",
+  "Pratama": "bg-sky-100 text-sky-700",
+  "Utama":   "bg-teal-100 text-teal-700",
+  "Umum":    "bg-amber-100 text-amber-700",
+  "Khusus":  "bg-violet-100 text-violet-700",
 };
 
 const base =
@@ -84,7 +85,7 @@ function emptyPPK(): PPKRecord {
     nama:        "",
     jenis:       "RS Umum",
     kepemilikan: "Pemerintah",
-    tipe:        "PPK II",
+    tipe:        "Umum",
     kelas:       "B",
     alamat:      "",
     kota:        "",
@@ -156,8 +157,8 @@ export default function PPKPage() {
   const patch = (p: Partial<PPKRecord>) =>
     setDraft((prev) => (prev ? { ...prev, ...p } : null));
 
-  const ppk1Count  = items.filter((p) => p.tipe === "PPK I").length;
-  const ppk23Count = items.filter((p) => p.tipe !== "PPK I").length;
+  const pratamaCnt  = items.filter((p) => p.tipe === "Pratama").length;
+  const lanjutanCnt = items.filter((p) => p.tipe !== "Pratama").length;
 
   return (
     <div className="flex h-full flex-col">
@@ -192,8 +193,8 @@ export default function PPKPage() {
               </div>
               <div className="flex shrink-0 gap-2">
                 <StatCard label="Total Faskes" value={items.length} />
-                <StatCard label="PPK I" value={ppk1Count} sub="Primer" />
-                <StatCard label="PPK II / III" value={ppk23Count} sub="Lanjut" />
+                <StatCard label="Pratama" value={pratamaCnt} sub="Puskesmas · Klinik" />
+                <StatCard label="Lanjutan" value={lanjutanCnt} sub="Umum · Khusus · Utama" />
               </div>
             </motion.div>
 
