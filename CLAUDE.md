@@ -293,7 +293,7 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 **Tier 3 — Operasional:**
 
 - [ ] **Poliklinik & Jadwal Dokter** — kapasitas antrian per poli per hari, jadwal buka (hari + jam mulai/selesai), assignment dokter per slot, libur/cuti override. Weekly schedule grid. Unblock Registration antrian real. Route: `/ehis-master/poli`
-- [ ] **Tarif & Paket Layanan** — tarif per unit, dual tarif (Umum vs BPJS INA-CBG reference), kategori (Tindakan/Obat/Lab/Rad/Kamar/Jasa Dokter), paket bundling beberapa tindakan. Unblock Billing kasir. Route: `/ehis-master/tarif`
+- [x] **Tarif & Paket Layanan** ✅ — `src/lib/master/tarifMock.ts` (18 item lintas 7 kategori + 3 paket) + `src/components/master/tarif/` (TarifPage · TarifList · TarifDetail · PaketList · PaketDetail · tarifShared). Two-panel layout: view switcher Tarif Dasar ↔ Paket Layanan. Tarif: 4 stat cards, list dengan kategori filter chips, detail 2 tab (Identitas + Harga 2×2 price grid + margin %). Paket: list + detail 2 tab (Identitas + Komposisi — search add, qty adjust, summary auto-calc). Skeleton 500ms. Route: `/ehis-master/tarif`. `masterNav` group baru "Operasional". Indonesian billing standard · INA-CBG reference
 - [ ] **Penjamin & Kontrak** — BPJS config (kelas, kode faskes, Org_id), asuransi swasta (nama, coverage list, batas klaim, kontak verifikasi). Route: `/ehis-master/penjamin`
 
 **Tier 4 — Konfigurasi RS:**

@@ -25,6 +25,7 @@ import {
   TestTube,
   Settings2,
   Landmark,
+  Tag,
   type LucideIcon,
 } from "lucide-react";
 
@@ -178,6 +179,12 @@ export const masterNav: readonly NavGroup[] = [
     label: "Penugasan",
     items: [
       { label: "Mapping Hub", href: "/ehis-master/mapping", icon: Network },
+    ],
+  },
+  {
+    label: "Operasional",
+    items: [
+      { label: "Tarif & Layanan", href: "/ehis-master/tarif", icon: Tag },
     ],
   },
   {
