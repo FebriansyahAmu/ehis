@@ -23,6 +23,7 @@ import {
   Network,
   Zap,
   TestTube,
+  Settings2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -176,6 +177,12 @@ export const masterNav: readonly NavGroup[] = [
     label: "Penugasan",
     items: [
       { label: "Mapping Hub", href: "/ehis-master/mapping", icon: Network },
+    ],
+  },
+  {
+    label: "Konfigurasi",
+    items: [
+      { label: "Profil RS", href: "/ehis-master/profil-rs", icon: Settings2 },
     ],
   },
 ] as const;

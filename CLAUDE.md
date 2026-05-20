@@ -298,7 +298,7 @@ Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → 
 
 **Tier 4 — Konfigurasi RS:**
 
-- [ ] **Profil RS** — nama, alamat, logo, nomor izin, kelas RS, kode wilayah RS, shift config (unblock `SHIFT_CFG` hardcode di `ppiIsolasiShared.ts`: jam Pagi/Siang/Malam), KOP surat untuk semua `PrintPreviewModal`. Route: `/ehis-master/profil-rs`. (SatuSehat Org_id root pindah ke modul `/ehis-fhir`)
+- [x] **Profil RS** ✅ — `src/lib/master/rsProfilStore.ts` (types `RSProfil`/`RSAlamat`/`RSAkreditasi`/`RSKop`/`ShiftJam` + `RS_PROFIL_INITIAL` data) + `src/components/master/profil-rs/` + route `/ehis-master/profil-rs`. **5 seksi via sidebar nav** (two-panel layout: `ProfilRsSidebar` 260px + right panel AnimatePresence): **Identitas RS** (nama/kode/kelas segmented/tipe/kepemilikan/kontak) · **Alamat & Lokasi** (full address + preview chip) · **Akreditasi & Izin** (nomor izin + KARS/JCI dropdown + sertifikat + masa berlaku dengan expiry chip warna Expired/Soon/Valid + toggle Paripurna) · **Konfigurasi Shift** (jam Pagi/Siang/Malam editable + durasi auto-calc — unblocks `SHIFT_CFG` hardcode di `ppiIsolasiShared.ts` & `marShared.ts`) · **KOP Surat** (subtitle/alamat/kepala RS + live print preview — unblocks semua `PrintPreviewModal`). Skeleton 500ms. Accent teal. `masterNav` group baru "Konfigurasi" → Profil RS (icon Settings2). PMK 1045/2006 · UU 44/2009
 
 **Tier 5 — Mapping Hub Terpadu (`/ehis-master/mapping`):** Depends on Tier 1+2+3
 
