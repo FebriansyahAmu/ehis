@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Save, Trash2, TrendingUp, TrendingDown, Minus, Info } from "lucide-react";
+import { Save, Trash2, TrendingUp, TrendingDown, Info } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { TarifRecord } from "@/lib/master/tarifMock";
@@ -56,12 +56,30 @@ function PreviewCard({ draft }: { draft: TarifRecord }) {
         </div>
       </div>
 
-      {/* Price highlight */}
+      {/* Primary price band */}
       {draft.tarifUmum > 0 && (
-        <div className="border-b border-slate-100 bg-slate-50 px-4 py-3 text-center">
+        <div className="border-b border-slate-100 bg-white px-4 py-3 text-center">
           <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400">Tarif Umum</p>
           <p className="mt-0.5 text-base font-black text-teal-700">{fmtIDR(draft.tarifUmum)}</p>
           <p className="text-[10px] text-slate-400">{draft.satuan}</p>
+        </div>
+      )}
+
+      {/* Secondary tarifs grid */}
+      {(draft.tarifBPJS || draft.tarifAsuransi) && (
+        <div className="grid grid-cols-2 gap-px border-b border-slate-100 bg-slate-100">
+          {draft.tarifBPJS && (
+            <div className="bg-sky-50/60 px-3 py-2.5 text-center">
+              <p className="text-[9px] font-semibold uppercase text-sky-500/70">BPJS</p>
+              <p className="mt-0.5 text-xs font-bold text-sky-700">{fmtIDRShort(draft.tarifBPJS)}</p>
+            </div>
+          )}
+          {draft.tarifAsuransi && (
+            <div className="bg-violet-50/60 px-3 py-2.5 text-center">
+              <p className="text-[9px] font-semibold uppercase text-violet-500/70">Asuransi</p>
+              <p className="mt-0.5 text-xs font-bold text-violet-700">{fmtIDRShort(draft.tarifAsuransi)}</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -103,73 +121,99 @@ function PreviewCard({ draft }: { draft: TarifRecord }) {
   );
 }
 
-function PriceCompareCard({ draft }: { draft: TarifRecord }) {
+function PriceSummaryCard({ draft }: { draft: TarifRecord }) {
   const margin = draft.hpp ? calcMarginPct(draft.tarifUmum, draft.hpp) : null;
-  const entries: { label: string; value?: number; cls: string }[] = [
-    { label: "Umum",     value: draft.tarifUmum,      cls: "bg-teal-500"   },
-    { label: "BPJS",     value: draft.tarifBPJS,      cls: "bg-sky-400"    },
-    { label: "Asuransi", value: draft.tarifAsuransi,  cls: "bg-violet-400" },
-    { label: "HPP",      value: draft.hpp,            cls: "bg-amber-400"  },
+
+  const priceItems = [
+    { key: "umum",     label: "Umum",     value: draft.tarifUmum,     barCls: "bg-teal-500",   cardBg: "bg-teal-50",   cardBorder: "border-teal-100",   valCls: "text-teal-700"   },
+    { key: "bpjs",     label: "BPJS",     value: draft.tarifBPJS,     barCls: "bg-sky-400",    cardBg: "bg-sky-50",    cardBorder: "border-sky-100",    valCls: "text-sky-700"    },
+    { key: "asuransi", label: "Asuransi", value: draft.tarifAsuransi, barCls: "bg-violet-400", cardBg: "bg-violet-50", cardBorder: "border-violet-100", valCls: "text-violet-700" },
+    { key: "hpp",      label: "HPP",      value: draft.hpp,           barCls: "bg-amber-400",  cardBg: "bg-amber-50",  cardBorder: "border-amber-100",  valCls: "text-amber-700"  },
   ];
-  const maxVal = Math.max(...entries.map((e) => e.value ?? 0));
+
+  const maxVal = Math.max(...priceItems.map((e) => e.value ?? 0));
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-4">
-      <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Perbandingan Harga</p>
+    <div className="flex flex-col gap-3">
+      <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Ringkasan Harga</p>
 
-      <div className="space-y-2.5">
-        {entries.map(({ label, value, cls }) => {
-          const pct = maxVal > 0 && value ? Math.round((value / maxVal) * 100) : 0;
-          const diffBpjs = label === "BPJS" && value && draft.tarifUmum
-            ? calcDiffPct(draft.tarifUmum, value) : null;
-          const diffAs = label === "Asuransi" && value && draft.tarifUmum
-            ? calcDiffPct(draft.tarifUmum, value) : null;
-          return (
-            <div key={label}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-semibold text-slate-500">{label}</span>
-                <div className="flex items-center gap-1">
-                  {(diffBpjs !== null) && (
-                    <span className={cn("text-[9px] font-semibold", diffBpjs < 0 ? "text-rose-500" : "text-emerald-600")}>
-                      {diffBpjs > 0 ? "+" : ""}{diffBpjs}%
-                    </span>
-                  )}
-                  {(diffAs !== null) && (
-                    <span className={cn("text-[9px] font-semibold", diffAs > 0 ? "text-emerald-600" : "text-rose-500")}>
-                      {diffAs > 0 ? "+" : ""}{diffAs}%
-                    </span>
-                  )}
-                  <span className="text-[10px] font-bold text-slate-700">
-                    {value ? fmtIDRShort(value) : "—"}
-                  </span>
-                </div>
-              </div>
-              <div className="h-1.5 w-full rounded-full bg-slate-200">
-                <motion.div
-                  className={cn("h-full rounded-full", cls)}
-                  initial={{ width: 0 }}
-                  animate={{ width: `${pct}%` }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
-                />
-              </div>
-            </div>
-          );
-        })}
+      {/* 2×2 price mini-cards */}
+      <div className="grid grid-cols-2 gap-2">
+        {priceItems.map(({ key, label, value, cardBg, cardBorder, valCls }) => (
+          <div key={key} className={cn("rounded-xl border p-3", cardBg, cardBorder)}>
+            <p className="text-[9px] font-semibold uppercase text-slate-400">{label}</p>
+            <p className={cn("mt-1 text-sm font-black leading-none", value ? valCls : "text-slate-300")}>
+              {value ? fmtIDRShort(value) : "—"}
+            </p>
+          </div>
+        ))}
       </div>
 
+      {/* Comparison bars */}
+      {maxVal > 0 && (
+        <div className="space-y-2.5 rounded-xl border border-slate-100 bg-slate-50 p-3">
+          <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Perbandingan</p>
+          {priceItems
+            .filter((e) => e.value)
+            .map(({ key, label, value, barCls }) => {
+              const pct = maxVal > 0 && value ? Math.round((value / maxVal) * 100) : 0;
+              const diff = label !== "Umum" && value && draft.tarifUmum
+                ? calcDiffPct(draft.tarifUmum, value) : null;
+              return (
+                <div key={key}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", barCls)} />
+                      <span className="text-[10px] font-semibold text-slate-500">{label}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {diff !== null && (
+                        <span className={cn(
+                          "text-[9px] font-semibold",
+                          label === "BPJS"
+                            ? (diff < 0 ? "text-rose-500" : "text-emerald-600")
+                            : (diff > 0 ? "text-emerald-600" : "text-rose-500"),
+                        )}>
+                          {diff > 0 ? "+" : ""}{diff}%
+                        </span>
+                      )}
+                      <span className="text-[10px] font-bold text-slate-700">
+                        {fmtIDRShort(value!)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="h-1.5 w-full rounded-full bg-white ring-1 ring-slate-200">
+                    <motion.div
+                      className={cn("h-full rounded-full", barCls)}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${pct}%` }}
+                      transition={{ duration: 0.4, ease: "easeOut" }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+      )}
+
+      {/* Margin badge */}
       {margin !== null && draft.tarifUmum > 0 && (
         <div className={cn(
-          "mt-1 flex items-center gap-1.5 border-t border-slate-100 pt-3 text-xs font-bold",
-          margin >= 30 ? "text-emerald-600" : margin >= 10 ? "text-amber-600" : "text-rose-600",
+          "flex items-center gap-1.5 rounded-xl border p-3 text-xs font-bold",
+          margin >= 30
+            ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+            : margin >= 10
+            ? "border-amber-100 bg-amber-50 text-amber-700"
+            : "border-rose-100 bg-rose-50 text-rose-700",
         )}>
           {margin >= 0 ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
           Margin {margin}%
-          <span className="ml-auto text-[10px] font-normal text-slate-400">dari Tarif Umum</span>
+          <span className="ml-auto text-[10px] font-normal opacity-60">vs HPP</span>
         </div>
       )}
 
       {!draft.tarifUmum && (
-        <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+        <div className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-3 text-[10px] text-slate-400">
           <Info size={11} /> Isi Tarif Umum untuk melihat perbandingan
         </div>
       )}
@@ -186,7 +230,7 @@ export default function TarifDetail({ draft, isNew, isDirty, onPatch, onSave, on
   const valid  = isTarifValid(draft);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
 
       {/* Header strip */}
       <div className="shrink-0 border-b border-slate-100 px-5 py-3.5">
@@ -227,155 +271,170 @@ export default function TarifDetail({ draft, isNew, isDirty, onPatch, onSave, on
         </div>
       </div>
 
-      {/* Tab content — two-section layout */}
+      {/* Tab content — full-width grid layout */}
       <div className="flex-1 overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div key={tab} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.15 }}
-            className="flex h-full gap-0">
+            className="h-full">
 
-            {/* ── Left: form ──────────────────────────────── */}
-            <div className="flex-1 overflow-y-auto border-r border-slate-100 p-5 space-y-4">
+            <div className="grid h-full grid-cols-[1fr_260px]">
 
-              {tab === "identitas" && (
-                <>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className={LABEL}>Kode<span className="ml-0.5 text-rose-500">*</span></label>
-                      <input value={draft.kode} onChange={(e) => onPatch({ kode: e.target.value })}
-                        placeholder="cth. TM-001" className={INPUT} />
-                    </div>
-                    <div>
-                      <label className={LABEL}>Satuan</label>
-                      <select value={draft.satuan} onChange={(e) => onPatch({ satuan: e.target.value as TarifRecord["satuan"] })}
-                        className={SELECT}>
-                        {SATUAN_LIST.map((s) => <option key={s}>{s}</option>)}
-                      </select>
-                    </div>
-                  </div>
+              {/* ── Left: form ──────────────────────────────── */}
+              <div className="overflow-y-auto border-r border-slate-100 p-5 space-y-4">
 
-                  <div>
-                    <label className={LABEL}>Nama Tarif<span className="ml-0.5 text-rose-500">*</span></label>
-                    <input value={draft.nama} onChange={(e) => onPatch({ nama: e.target.value })}
-                      placeholder="Nama layanan / tindakan" className={INPUT} />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className={LABEL}>Kategori</label>
-                      <select value={draft.kategori} onChange={(e) => onPatch({ kategori: e.target.value as TarifRecord["kategori"] })}
-                        className={SELECT}>
-                        {KATEGORI_LIST.map((k) => <option key={k}>{k}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={LABEL}>Status</label>
-                      <div className="flex gap-1.5 flex-wrap">
-                        {STATUS_LIST.map((s) => (
-                          <button key={s} onClick={() => onPatch({ status: s })}
-                            className={cn(
-                              "rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition",
-                              draft.status === s
-                                ? cn(STATUS_CFG[s].bg, STATUS_CFG[s].text, "border-transparent")
-                                : "border-slate-200 text-slate-500 hover:border-slate-300",
-                            )}>{s}</button>
-                        ))}
+                {tab === "identitas" && (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={LABEL}>Kode<span className="ml-0.5 text-rose-500">*</span></label>
+                        <input value={draft.kode} onChange={(e) => onPatch({ kode: e.target.value })}
+                          placeholder="cth. TM-001" className={INPUT} />
+                      </div>
+                      <div>
+                        <label className={LABEL}>Satuan</label>
+                        <select value={draft.satuan} onChange={(e) => onPatch({ satuan: e.target.value as TarifRecord["satuan"] })}
+                          className={SELECT}>
+                          {SATUAN_LIST.map((s) => <option key={s}>{s}</option>)}
+                        </select>
                       </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <label className={LABEL}>Kode ICD (opsional)</label>
-                    <input value={draft.kodeICD ?? ""} onChange={(e) => onPatch({ kodeICD: e.target.value || undefined })}
-                      placeholder="cth. 89.52" className={cn(INPUT, "max-w-[160px]")} />
-                  </div>
-
-                  <div>
-                    <label className={LABEL}>Deskripsi</label>
-                    <textarea value={draft.deskripsi ?? ""} onChange={(e) => onPatch({ deskripsi: e.target.value || undefined })}
-                      rows={2} placeholder="Keterangan singkat..."
-                      className={cn(INPUT, "resize-none")} />
-                  </div>
-
-                  <div>
-                    <label className={LABEL}>Unit Terkait</label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {UNIT_OPTIONS.map((u) => {
-                        const on = draft.unitTerkait.includes(u);
-                        return (
-                          <button key={u}
-                            onClick={() => onPatch({ unitTerkait: on
-                              ? draft.unitTerkait.filter((x) => x !== u)
-                              : [...draft.unitTerkait, u] })}
-                            className={cn(
-                              "rounded-full border px-2.5 py-1 text-[11px] font-semibold transition",
-                              on ? "border-teal-400 bg-teal-50 text-teal-700"
-                                 : "border-slate-200 text-slate-500 hover:border-teal-300",
-                            )}>{u}</button>
-                        );
-                      })}
+                    <div>
+                      <label className={LABEL}>Nama Tarif<span className="ml-0.5 text-rose-500">*</span></label>
+                      <input value={draft.nama} onChange={(e) => onPatch({ nama: e.target.value })}
+                        placeholder="Nama layanan / tindakan" className={INPUT} />
                     </div>
-                  </div>
-                </>
-              )}
 
-              {tab === "harga" && (
-                <>
-                  <div>
-                    <label className={LABEL}>Tarif Umum<span className="ml-0.5 text-rose-500">*</span></label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-400">Rp</span>
-                      <input type="number" min={0} value={draft.tarifUmum || ""}
-                        onChange={(e) => onPatch({ tarifUmum: Number(e.target.value) })}
-                        className={cn(INPUT, "pl-8")} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={LABEL}>Kategori</label>
+                        <select value={draft.kategori} onChange={(e) => onPatch({ kategori: e.target.value as TarifRecord["kategori"] })}
+                          className={SELECT}>
+                          {KATEGORI_LIST.map((k) => <option key={k}>{k}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={LABEL}>Status</label>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {STATUS_LIST.map((s) => (
+                            <button key={s} onClick={() => onPatch({ status: s })}
+                              className={cn(
+                                "rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition",
+                                draft.status === s
+                                  ? cn(STATUS_CFG[s].bg, STATUS_CFG[s].text, "border-transparent")
+                                  : "border-slate-200 text-slate-500 hover:border-slate-300",
+                              )}>{s}</button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <label className={LABEL}>BPJS INA-CBG (Referensi)</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-400">Rp</span>
-                      <input type="number" min={0} value={draft.tarifBPJS ?? ""}
-                        onChange={(e) => onPatch({ tarifBPJS: e.target.value ? Number(e.target.value) : undefined })}
-                        className={cn(INPUT, "pl-8")} />
+                    <div>
+                      <label className={LABEL}>Kode ICD (opsional)</label>
+                      <input value={draft.kodeICD ?? ""} onChange={(e) => onPatch({ kodeICD: e.target.value || undefined })}
+                        placeholder="cth. 89.52" className={cn(INPUT, "max-w-40")} />
                     </div>
-                  </div>
 
-                  <div>
-                    <label className={LABEL}>Tarif Asuransi</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-400">Rp</span>
-                      <input type="number" min={0} value={draft.tarifAsuransi ?? ""}
-                        onChange={(e) => onPatch({ tarifAsuransi: e.target.value ? Number(e.target.value) : undefined })}
-                        className={cn(INPUT, "pl-8")} />
+                    <div>
+                      <label className={LABEL}>Deskripsi</label>
+                      <textarea value={draft.deskripsi ?? ""} onChange={(e) => onPatch({ deskripsi: e.target.value || undefined })}
+                        rows={2} placeholder="Keterangan singkat..."
+                        className={cn(INPUT, "resize-none")} />
                     </div>
-                  </div>
 
-                  <div>
-                    <label className={LABEL}>HPP / Biaya Pokok</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-400">Rp</span>
-                      <input type="number" min={0} value={draft.hpp ?? ""}
-                        onChange={(e) => onPatch({ hpp: e.target.value ? Number(e.target.value) : undefined })}
-                        className={cn(INPUT, "pl-8")} />
+                    <div>
+                      <label className={LABEL}>Unit Terkait</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {UNIT_OPTIONS.map((u) => {
+                          const on = draft.unitTerkait.includes(u);
+                          return (
+                            <button key={u}
+                              onClick={() => onPatch({ unitTerkait: on
+                                ? draft.unitTerkait.filter((x) => x !== u)
+                                : [...draft.unitTerkait, u] })}
+                              className={cn(
+                                "rounded-full border px-2.5 py-1 text-[11px] font-semibold transition",
+                                on ? "border-teal-400 bg-teal-50 text-teal-700"
+                                   : "border-slate-200 text-slate-500 hover:border-teal-300",
+                              )}>{u}</button>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <p className="mt-1 text-[10px] text-slate-400">Digunakan untuk menghitung margin keuntungan</p>
-                  </div>
-                </>
-              )}
+                  </>
+                )}
+
+                {tab === "harga" && (
+                  <>
+                    {/* Primary tariff */}
+                    <div className="rounded-xl border border-teal-100 bg-teal-50/40 p-4">
+                      <label className="block text-[10px] font-semibold uppercase tracking-wide text-teal-600 mb-1">
+                        Tarif Umum<span className="ml-0.5 text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-400">Rp</span>
+                        <input type="number" min={0} value={draft.tarifUmum || ""}
+                          onChange={(e) => onPatch({ tarifUmum: Number(e.target.value) })}
+                          className={cn(INPUT, "pl-8 font-bold")} />
+                      </div>
+                      <p className="mt-1.5 text-[10px] text-teal-600/70">Tarif default untuk pasien umum / non-tanggungan</p>
+                    </div>
+
+                    {/* Reference tariffs */}
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-2">Tarif Referensi</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-semibold text-sky-600 mb-1">BPJS INA-CBG</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-400">Rp</span>
+                            <input type="number" min={0} value={draft.tarifBPJS ?? ""}
+                              onChange={(e) => onPatch({ tarifBPJS: e.target.value ? Number(e.target.value) : undefined })}
+                              className={cn(INPUT, "pl-8")} />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold text-violet-600 mb-1">Asuransi</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-400">Rp</span>
+                            <input type="number" min={0} value={draft.tarifAsuransi ?? ""}
+                              onChange={(e) => onPatch({ tarifAsuransi: e.target.value ? Number(e.target.value) : undefined })}
+                              className={cn(INPUT, "pl-8")} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* HPP */}
+                    <div className="rounded-xl border border-amber-100 bg-amber-50/30 p-4">
+                      <label className="block text-[10px] font-semibold uppercase tracking-wide text-amber-700 mb-1">
+                        HPP / Biaya Pokok
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-400">Rp</span>
+                        <input type="number" min={0} value={draft.hpp ?? ""}
+                          onChange={(e) => onPatch({ hpp: e.target.value ? Number(e.target.value) : undefined })}
+                          className={cn(INPUT, "pl-8")} />
+                      </div>
+                      <p className="mt-1.5 text-[10px] text-amber-700/70">Digunakan untuk menghitung margin keuntungan</p>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* ── Right: preview / comparison ─────────────── */}
+              <div className="overflow-y-auto bg-slate-50/30 p-4">
+                <AnimatePresence mode="wait">
+                  <motion.div key={tab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}>
+                    {tab === "identitas" && <PreviewCard draft={draft} />}
+                    {tab === "harga"     && <PriceSummaryCard draft={draft} />}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+
             </div>
-
-            {/* ── Right: preview / comparison ─────────────── */}
-            <div className="w-56 shrink-0 overflow-y-auto bg-slate-50/30 p-4">
-              <AnimatePresence mode="wait">
-                <motion.div key={tab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}>
-                  {tab === "identitas" && <PreviewCard draft={draft} />}
-                  {tab === "harga"     && <PriceCompareCard draft={draft} />}
-                </motion.div>
-              </AnimatePresence>
-            </div>
-
           </motion.div>
         </AnimatePresence>
       </div>
