@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
@@ -13,6 +14,7 @@ import LayananUnitPane from "./layanan/LayananUnitPane";
 import TarifPane from "./tarif/TarifPane";
 import FormulariumPane from "./formularium/FormulariumPane";
 import DistribusiPane from "./distribusi/DistribusiPane";
+import PenjaminRuanganPane from "./penjamin-ruangan/PenjaminRuanganPane";
 import RBACPane from "./rbac/RBACPane";
 import ComingSoonPane from "./ComingSoonPane";
 import DensityToggle, { useDensity } from "./DensityToggle";
@@ -42,10 +44,27 @@ function PageSkeleton() {
 
 // ── Page ───────────────────────────────────────────────────
 
+const VALID_KEYS = new Set<SubpageKey>(SUBPAGE_REGISTRY.map((s) => s.key));
+
 export default function MappingHubPage() {
-  const [activeKey, setActiveKey] = useState<SubpageKey>("sdm");
+  const searchParams = useSearchParams();
+  const initialKey = (() => {
+    const param = searchParams?.get("sub") as SubpageKey | null;
+    return param && VALID_KEYS.has(param) ? param : "sdm";
+  })();
+
+  const [activeKey, setActiveKey] = useState<SubpageKey>(initialKey);
   const [loaded, setLoaded] = useState(false);
   const { density, setDensity, mounted } = useDensity();
+
+  // Sync state when URL query changes (e.g., deep-link from Penjamin Page)
+  useEffect(() => {
+    const param = searchParams?.get("sub") as SubpageKey | null;
+    if (param && VALID_KEYS.has(param) && param !== activeKey) {
+      setActiveKey(param);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   useEffect(() => {
     const t = setTimeout(() => setLoaded(true), 500);
@@ -123,6 +142,7 @@ function renderPane(key: SubpageKey) {
   if (key === "tarif")       return <TarifPane />;
   if (key === "formularium") return <FormulariumPane />;
   if (key === "distribusi")  return <DistribusiPane />;
+  if (key === "penjamin-ruangan") return <PenjaminRuanganPane />;
   if (key === "rbac")        return <RBACPane />;
 
   // Fallback (semua sub-page sekarang sudah ready)

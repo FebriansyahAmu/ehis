@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Users, ShieldCheck, Activity, BadgePercent, Pill, PackageSearch, Lock,
+  Users, ShieldCheck, Activity, BadgePercent, Pill, PackageSearch, Lock, Building,
 } from "lucide-react";
 
 // ── Sub-page Registry ─────────────────────────────────────
@@ -12,6 +12,7 @@ export type SubpageKey =
   | "tarif"
   | "formularium"
   | "distribusi"
+  | "penjamin-ruangan"
   | "rbac";
 
 export type SubpageStatus = "ready" | "soon";
@@ -76,6 +77,14 @@ export const SUBPAGE_REGISTRY: SubpageConfig[] = [
     icon: PackageSearch,
     status: "ready",
     accent: { bg: "bg-rose-50", text: "text-rose-700", ring: "ring-rose-200" },
+  },
+  {
+    key: "penjamin-ruangan",
+    label: "Penjamin × Ruangan",
+    desc: "Kode SMF/Ruangan penjamin (BPJS V-Claim) → Ruangan RS",
+    icon: Building,
+    status: "ready",
+    accent: { bg: "bg-emerald-50", text: "text-emerald-700", ring: "ring-emerald-200" },
   },
   {
     key: "rbac",

@@ -184,7 +184,8 @@ export const masterNav: readonly NavGroup[] = [
   {
     label: "Operasional",
     items: [
-      { label: "Tarif & Layanan", href: "/ehis-master/tarif", icon: Tag },
+      { label: "Tarif & Layanan",   href: "/ehis-master/tarif",    icon: Tag    },
+      { label: "Penjamin & Kontrak", href: "/ehis-master/penjamin", icon: Wallet },
     ],
   },
   {
