@@ -6,9 +6,10 @@ import { X, UserPlus, UserCog2, Mail, Phone, KeyRound, CheckCircle2 } from "luci
 import { cn } from "@/lib/utils";
 import {
   type PenggunaRecord, type UserRole, type UserStatus,
-  ROLE_CFG, UNIT_LIST, newUserId,
+  ROLE_CFG, newUserId,
 } from "./penggunaShared";
 import { Field, FormSection, fieldCls, selectCls } from "../ruangan/forms/OrganizationForm";
+import MappingSourceBadge from "../shared/MappingSourceBadge";
 
 interface PenggunaFormModalProps {
   open: boolean;
@@ -56,13 +57,6 @@ export default function PenggunaFormModal({
     setForm((f) => ({ ...f, [key]: value }));
   };
 
-  const toggleUnit = (kode: string) => {
-    const has = form.unitAssignment.includes(kode);
-    update("unitAssignment", has
-      ? form.unitAssignment.filter((u) => u !== kode)
-      : [...form.unitAssignment, kode]);
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit(form);
@@ -92,13 +86,15 @@ export default function PenggunaFormModal({
             role="dialog"
             aria-modal="true"
             aria-labelledby="pengguna-form-title"
-            className="fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="fixed left-1/2 top-1/2 z-50 flex max-h-[88vh] w-[92vw] max-w-xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
           >
             {/* Header */}
             <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-3.5">
               <div className="flex items-center gap-2.5">
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 ring-2 ring-teal-100">
-                  {isEdit ? <UserCog2 size={16} className="text-teal-600" /> : <UserPlus size={16} className="text-teal-600" />}
+                  {isEdit
+                    ? <UserCog2 size={16} className="text-teal-600" />
+                    : <UserPlus size={16} className="text-teal-600" />}
                 </span>
                 <div>
                   <p id="pengguna-form-title" className="text-sm font-bold text-slate-900">
@@ -113,7 +109,7 @@ export default function PenggunaFormModal({
                 type="button"
                 onClick={onClose}
                 aria-label="Tutup"
-                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
               >
                 <X size={16} />
               </button>
@@ -174,8 +170,15 @@ export default function PenggunaFormModal({
                     </div>
                   </FormSection>
 
-                  <FormSection title={isEdit ? "Reset Password (opsional)" : "Password Awal"} icon={<KeyRound size={11} />}>
-                    <Field label={isEdit ? "Password Baru" : "Password"} required={!isEdit} hint={isEdit ? "Kosongkan jika tidak ingin mengubah" : "Minimal 8 karakter, kombinasi huruf & angka"}>
+                  <FormSection
+                    title={isEdit ? "Reset Password (opsional)" : "Password Awal"}
+                    icon={<KeyRound size={11} />}
+                  >
+                    <Field
+                      label={isEdit ? "Password Baru" : "Password"}
+                      required={!isEdit}
+                      hint={isEdit ? "Kosongkan jika tidak ingin mengubah" : "Minimal 8 karakter, kombinasi huruf & angka"}
+                    >
                       <input
                         type="password"
                         value={password}
@@ -183,7 +186,7 @@ export default function PenggunaFormModal({
                         required={!isEdit}
                         minLength={isEdit ? 0 : 8}
                         autoComplete="new-password"
-                        className={cn(fieldCls, "font-mono")}
+                        className={cn(fieldCls, "max-w-sm font-mono")}
                       />
                     </Field>
                   </FormSection>
@@ -200,7 +203,7 @@ export default function PenggunaFormModal({
                               type="button"
                               onClick={() => update("role", r)}
                               className={cn(
-                                "rounded-lg border px-2.5 py-2 text-left transition",
+                                "rounded-lg border px-2.5 py-2 text-left transition outline-none focus-visible:ring-2 focus-visible:ring-teal-300",
                                 active
                                   ? cn("border-transparent ring-2 ring-offset-1 ring-teal-300", cfg.bg, cfg.text)
                                   : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50",
@@ -219,7 +222,7 @@ export default function PenggunaFormModal({
                         <select
                           value={form.status}
                           onChange={(e) => update("status", e.target.value as UserStatus)}
-                          className={selectCls}
+                          className={cn(selectCls, "max-w-xs")}
                         >
                           {STATUS_OPTIONS.map((s) => (
                             <option key={s} value={s}>
@@ -231,34 +234,17 @@ export default function PenggunaFormModal({
                     </div>
                   </FormSection>
 
-                  <FormSection title="Penugasan Unit">
-                    <div className="flex flex-wrap gap-1.5">
-                      {UNIT_LIST.map((u) => {
-                        const active = form.unitAssignment.includes(u.kode);
-                        return (
-                          <button
-                            key={u.kode}
-                            type="button"
-                            onClick={() => toggleUnit(u.kode)}
-                            className={cn(
-                              "flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition",
-                              active
-                                ? "border-teal-300 bg-teal-50 text-teal-700"
-                                : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50",
-                            )}
-                          >
-                            {active && <CheckCircle2 size={10} />}
-                            {u.nama}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {form.unitAssignment.length === 0 && (
-                      <p className="mt-2 text-[10px] text-amber-600">
-                        Pilih minimal 1 unit. Pengguna tanpa unit tidak bisa akses modul apapun.
-                      </p>
-                    )}
-                  </FormSection>
+                  {/* Penugasan Unit → Mapping Hub (single source of truth) */}
+                  <MappingSourceBadge
+                    subpage="sdm"
+                    title="Penugasan Unit"
+                    description={
+                      isEdit
+                        ? "Penugasan pengguna ke unit/poli dikelola di Mapping Hub → SDM Assignment. Sesuaikan setelah simpan."
+                        : "Setelah pengguna dibuat, atur penugasan ke unit/poli di Mapping Hub → SDM Assignment. Pengguna tanpa unit aktif tidak bisa akses modul klinis."
+                    }
+                    ctaLabel={isEdit ? "Atur Penugasan" : "Buka Setelah Simpan"}
+                  />
                 </div>
               </div>
 
@@ -267,19 +253,13 @@ export default function PenggunaFormModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                  className="rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  disabled={form.unitAssignment.length === 0}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold shadow-sm transition",
-                    form.unitAssignment.length > 0
-                      ? "bg-teal-600 text-white hover:bg-teal-700 active:scale-[0.98]"
-                      : "cursor-not-allowed bg-slate-200 text-slate-400",
-                  )}
+                  className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-700 active:scale-[0.98] outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
                 >
                   <CheckCircle2 size={12} />
                   {isEdit ? "Simpan Perubahan" : "Buat Pengguna"}
