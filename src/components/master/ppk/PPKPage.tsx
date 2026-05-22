@@ -164,7 +164,7 @@ export default function PPKPage() {
     <div className="flex h-full flex-col">
       <AnimatePresence mode="wait">
         {!loaded ? (
-          <motion.div key="skel" exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+          <motion.div key="skel" exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="h-full">
             <PageSkeleton />
           </motion.div>
         ) : (

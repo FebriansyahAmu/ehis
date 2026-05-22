@@ -4,6 +4,7 @@
 > **Before switching tasks:** (1) check off completed items, (2) promote next item to 🔴 Now, (3) add findings to Tech Debt.
 > References: Clinical standards → `.claude/STANDARDS.md` | Gap analysis → `.claude/GAP_ANALYSIS.md` | Completed history → `.claude/DONE.md`
 > Skill refs: `@.claude/skills/frontend-design/SKILL.md`
+> **Master Konsolidasi Phase Roadmap:** [TODO.md](TODO.md) — 30 task lintas 4 phase (Foundation/Refactor/13 Master Baru/Polish). Centang `[x]` di sana setiap task selesai.
 
 ---
 
