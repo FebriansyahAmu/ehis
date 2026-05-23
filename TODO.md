@@ -321,10 +321,11 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
 - [x] **Total**: 10 grup × 26 item. Verifikasi semua href punya route real (no dead links).
 - [x] Sinkronisasi struktur ke [berandaShared.ts](src/components/master/beranda/berandaShared.ts) `getQuickNavGroups()` — sumber sama biar Beranda Master & sidebar nav konsisten. Update desc Referensi → "Referensi asesmen klinis terstandar"; Katalog Klinis → "Obat, tindakan, penunjang, dan kode diagnosa".
 
-### 3.4 Update CLAUDE.md
-- [ ] Tambah pointer ke TODO.md di header CLAUDE.md ("Detail Phase Master: lihat [TODO.md](TODO.md)")
-- [ ] Update Tier 2 status setelah Phase 2 selesai
-- [ ] Mark Tier 0 Beranda Master done setelah 3.1
+### 3.4 Update CLAUDE.md ✅ Selesai (2026-05-24)
+- [x] **Pointer ke TODO.md** sudah ada di header CLAUDE.md baris 7 ("Master Konsolidasi Phase Roadmap: TODO.md — 30 task lintas 4 phase"). Tambahan sejak awal Phase 0.
+- [x] **Tier 0 Beranda Master** ✅ — entry di [CLAUDE.md:270-272](CLAUDE.md#L270-L272) diupdate dari `- [ ] Beranda — stats cards…` jadi `- [x] Beranda ✅` dengan detail full implementasi (KPI Strip · Quick-Nav Grid · Mapping Coverage Panel · Recent Edits Panel · 6 file <300L · responsive mobile-first · aggregator helpers).
+- [x] **Tier 2 ICD-10 & ICD-9** ✅ — sudah selesai sejak Phase 2 Kategori B (cross-ref ke section "Reference Klinis"). Status di Tier 2 list diubah dari `- [ ]` → `- [x] ✅` dengan catatan "sample mock 80-120 entry, schema 1:1 dengan target real WHO dataset, Phase 3 dapat tambah Import CSV saat backend ready".
+- [x] **Tier 2 Banner default-flag Katalog Obat** ✅ — selesai di Phase 3.2 hari ini. Status diubah jadi `- [x] ✅` dengan detail layout (Formularium row `sm:col-span-2`), copy banner (title + desc + CTA), dan catatan pattern siap di-replicate ke katalog lain.
 
 ---
 
@@ -335,10 +336,10 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
 | Phase 0 — Foundation | 7 | 7 | 100% |
 | Phase 1 — Refactor | 6 | 6 | 100% |
 | Phase 2 — Master Baru | 13 | 13 | 100% |
-| Phase 3 — Polish | 4 | 3 | 75% |
-| **Total** | **30** | **29** | **97%** |
+| Phase 3 — Polish | 4 | 4 | 100% |
+| **Total** | **30** | **30** | **100%** |
 
-**Phase 3 progress:** 3/4 — ✅ 3.1 Beranda Master + ✅ 3.2 Banner Default-Flag Katalog Obat + ✅ 3.3 Restruktur masterNav (2026-05-24). Sisa: 3.4 Update CLAUDE.md final.
+**🎉 Phase 3 selesai 100% (2026-05-24).** Semua 30 task lintas 4 phase tuntas: Phase 0 Foundation ✅ · Phase 1 Refactor ✅ · Phase 2 Master Baru (13/13) ✅ · Phase 3 Polish (Beranda Master + Banner Default-Flag + Restruktur masterNav + Update CLAUDE.md) ✅. Codebase EHIS Master siap untuk integrasi backend (Prisma + API routes). Lihat section "🔗 Roadmap Berikutnya" di bawah untuk next steps.
 
 ---
 
