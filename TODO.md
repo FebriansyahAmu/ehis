@@ -289,13 +289,16 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
 
 **Effort:** ~1 minggu
 
-### 3.1 Beranda Master — `/ehis-master`
-- [ ] Replace placeholder violet box di [app/ehis-master/page.tsx](src/app/ehis-master/page.tsx)
-- [ ] Stats cards: total unit/dokter/obat/tindakan/lab/rad/skala/template
-- [ ] Quick-nav grid (~19 sub-modul setelah Phase 2 selesai)
-- [ ] **Mapping Coverage tile** — % cell terisi per matriks Mapping Hub (Tarif/Formularium/Distribusi/Kewenangan)
-- [ ] Recent-edit feed master (audit trail jika ready)
-- [ ] Skeleton loading + Framer Motion
+### 3.1 Beranda Master — `/ehis-master` ✅ Selesai (2026-05-24)
+- [x] Replace placeholder violet box di [app/ehis-master/page.tsx](src/app/ehis-master/page.tsx) → `BerandaMasterPage`
+- [x] **KPI Strip** 5 hero card animated (Sumber Daya · Katalog Klinis · Reference · Mapping Coverage · Operasional) dengan number padded eyebrow + accent bar hover transform
+- [x] **Quick-Nav Grid** 9 kelompok per `masterNav` (Sumber Daya teal · Katalog Klinis sky · Skala Klinis violet · Reference rose · Template & Enum indigo · Workflow Klinis amber · Penugasan emerald · Operasional pink · Konfigurasi slate) — total 24 nav card. Tiap card: icon ring-1 hover-scale, label, subLabel/count, badge counter mono, ChevronRight translate hover. Hover border-tone untuk depth.
+- [x] **Mapping Coverage Panel** sidebar — 8 mini-meter per sub-page (SDM/Kewenangan/Layanan/Tarif/Formularium/Distribusi/Penjamin-Ruangan/RBAC). Progress bar animated (`width 0→%` ease-out delay-stagger 20ms). Color tone semantik: rose <25% / amber <60% / emerald ≥60%. Header summary `filled/total cell` + avg %. CTA "Buka Mapping Hub" footer. Klik baris → deep-link `?sub=<key>`.
+- [x] **Recent Edits Panel** sidebar — activity feed 8 entri mock dengan timeline rail vertical (absolute span 100%). Action chip 3-warna (Tambah emerald · Edit sky · Hapus rose) + Icon (Plus/Pencil/Trash2). Initials avatar dari nama user (strip "dr." prefix). `fmtAgo()` relatif (mnt/jam/hari). Klik → deep-link ke route master. Footer audit-trail note italic.
+- [x] **Skeleton + Framer Motion** — `useSkeletonDelay(500)` + AnimatePresence fade swap. Layout custom **bukan** `MasterPageLayout` (dashboard, bukan list+detail). Hero header: icon-prefix eyebrow violet + h1 tracking-tight + description max-w-2xl + timestamp pill mono jam HH:mm (hidden mobile).
+- [x] **Aggregator helpers** di [berandaShared.ts](src/components/master/beranda/berandaShared.ts) — `getBerandaStats()` consume 16+ mock source (DOKTER_MOCK/PENGGUNA_MOCK/OBAT_MOCK/TINDAKAN_MOCK/LAB_KATALOG_MOCK/RAD_KATALOG_MOCK/ICD_MOCK/ASESMEN_KATALOG_MOCK/SDKI_MOCK/SKALA_RISIKO_MOCK/SKALA_UMUM_MOCK/SKALA_PENYAKIT_MOCK/TRIASE_MOCK/STATUS_ENUM_GROUPS/TEMPLATE_ANAMNESIS_MOCK/TEMPLATE_FORM_MOCK/EDUKASI_COLLECTIONS/OPERASIONAL_INITIAL_STATE/TARIF_MOCK/PAKET_MOCK/PENJAMIN_INITIAL/PPK_INITIAL). `getQuickNavGroups()` denormalisasi nav + count + accent. `MAPPING_COVERAGE` 8 entries dengan estimasi filled/total. `RECENT_EDITS_MOCK` 8 entries lintas master. `TONE_PALETTE` 9 tone static (purge-safe).
+- [x] **Responsive** mobile-first: KPI grid `2→3→5` cols, body grid `1→12` (lg: nav col-span-8 + sidebar col-span-4), nav items `1→2→3` cols per kelompok, hero timestamp hidden <sm.
+- [x] **Komponen** (6 file, semua <300 lines): [BerandaMasterPage.tsx](src/components/master/beranda/BerandaMasterPage.tsx) 133L · [berandaShared.ts](src/components/master/beranda/berandaShared.ts) 286L · [KPIStrip.tsx](src/components/master/beranda/KPIStrip.tsx) 71L · [QuickNavGrid.tsx](src/components/master/beranda/QuickNavGrid.tsx) 109L · [MappingCoveragePanel.tsx](src/components/master/beranda/MappingCoveragePanel.tsx) 111L · [RecentEditsPanel.tsx](src/components/master/beranda/RecentEditsPanel.tsx) 127L. TypeScript clean.
 
 ### 3.2 Banner Default-Flag Katalog Obat
 - [ ] Tambah `<MappingSourceBadge subpage="formularium" />` inline pada ToggleSwitch `isFormularium` di tab Klasifikasi Katalog Obat
@@ -328,10 +331,10 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
 | Phase 0 — Foundation | 7 | 7 | 100% |
 | Phase 1 — Refactor | 6 | 6 | 100% |
 | Phase 2 — Master Baru | 13 | 13 | 100% |
-| Phase 3 — Polish | 4 | 0 | 0% |
-| **Total** | **30** | **26** | **87%** |
+| Phase 3 — Polish | 4 | 1 | 25% |
+| **Total** | **30** | **27** | **90%** |
 
-**Phase 2 progress:** ✅ **Selesai 100%.** Kategori A (Klinis Penilaian) ✅ 4/4 + Kategori B (Reference Klinis) ✅ 3/3 + Kategori C (Template & Enum) ✅ 3/3 + Kategori D ✅ 3/3 (Workflow Edukasi · Discharge Klasifikasi · Operasional Klinis). Berikutnya: **Phase 3 — UX Polish** (Beranda Master + Banner Default-Flag + Restruktur masterNav + Update CLAUDE.md).
+**Phase 3 progress:** 1/4 — ✅ 3.1 Beranda Master selesai (2026-05-24). Sisa: 3.2 Banner Default-Flag Katalog Obat · 3.3 Restruktur masterNav · 3.4 Update CLAUDE.md final.
 
 ---
 
