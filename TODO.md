@@ -251,16 +251,21 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
   - [ ] [EdukasiPane.tsx (IGD):146-189](src/components/igd/tabs/EdukasiPane.tsx#L146) `TOPIK_EDUKASI`/`MEDIA_EDUKASI`/`METODE_EDUKASI`/`HAMBATAN_KOMUNIKASI`/`PEMAHAMAN_CFG`/`TANDA_BAHAYA`/`TIPE_INSTRUKSI`
   - [ ] [dischargeShared.ts:196-219](src/components/rawat-inap/discharge/dischargeShared.ts#L196) `TOPIK_EDUKASI_TEMPLATE` + `KATEGORI_COLOR` + `PEMAHAMAN_CONFIG` duplicate
 
-#### 2.12 Master Discharge Klasifikasi — `/ehis-master/discharge`
+#### 2.12 Master Discharge Klasifikasi — `/ehis-master/discharge` ✅ Selesai (2026-05-24)
 **Konsumen:** RI DischargePlanTab + PasienPulangTab
 
-- [ ] 5 sub-tab:
-  - [ ] **Homecare Services** (8+ jenis)
-  - [ ] **Alat Bantu Pulang** (8+ jenis)
-  - [ ] **Discharge Checklist Template** (10+ items, required toggle)
-  - [ ] **Phase Discharge Planning** (Hari 1-2 MRS / Sepanjang Rawat / H-1 Pulang)
-  - [ ] **Risiko Readmisi Config** (RENDAH/SEDANG/TINGGI rules)
-- [ ] Sumber: [dischargeShared.ts:170-246](src/components/rawat-inap/discharge/dischargeShared.ts#L170)
+- [x] 5 sub-master (sidebar nav + switch-by-key pane render, **bukan force-fit table**):
+  - [x] **Homecare Services** (10 entries) — flat list table CRUD: Perawatan Luka/Injeksi/Monitoring TTV/Fisioterapi/Nebulisasi/Ganti Kateter/NGT/Stoma/Edukasi Rumah/Paliatif
+  - [x] **Alat Bantu Pulang** (9 entries) — flat list table CRUD: Kursi Roda/Kruk/Walker/Oksigen/Nebulizer/Tensimeter/Oximeter/Kateter/Hospital Bed
+  - [x] **Discharge Checklist Template** (11 entries dengan `required:boolean` flag + `sublabel` field) — table dengan extra column "Wajib" + sub-filter Wajib/Opsional + toggle inline per-row
+  - [x] **Phase Discharge Planning** (3 fase × 11 target items) — **3-card horizontal timeline kanban**: sky/emerald/amber color-stripe + numbered step badge + standar SNARS chip + ChevronRight connector + per-fase target list dengan inline add/edit/reorder + PhaseHeaderEditor untuk edit metadata fase (nama/desc/standar/warna)
+  - [x] **Risiko Readmisi Config** (3 parameter × 9 rules × 3 level) — **rule matrix builder** 3-card horizontal (RENDAH emerald / SEDANG amber / TINGGI rose) + per-card add rule form (parameter dropdown × value dropdown auto-exclude used) + level mini-dropdown untuk pindah rule antar level + **live calculator** dengan 3 ParameterPicker → ArrowRight → animated ResultBadge + TriggeredRulesPanel explainer per rule cocok
+- [x] Components: `DischargePage` orchestrator (4 StatCard Homecare/AlatBantu/Checklist/Fase-Target) + `DischargeSidebar` 280px (5 sub-master dengan icon + count label per shape) + `panes/ListCollectionPane` (shared untuk 3 koleksi flat-list dengan conditional `hasRequired`/`hasSublabel` props) + `panes/ListEntryForm` (form dengan conditional required toggle + sublabel field) + `panes/PhasePlanningPane` (3-card timeline + ReferenceItem SNARS legend) + `panes/PhaseHeaderEditor` (inline edit fase metadata + color picker) + `panes/RisikoReadmisiPane` (rule matrix + LiveCalculator + TriggeredRulesPanel). Accent **emerald** (positive completion / ready to go home).
+- [x] **Sumber siap replace:**
+  - [ ] [dischargeShared.ts:180-188](src/components/rawat-inap/discharge/dischargeShared.ts#L180) `HOMECARE_OPTIONS` + `ALAT_BANTU_OPTIONS`
+  - [ ] [dischargeShared.ts:235-246](src/components/rawat-inap/discharge/dischargeShared.ts#L235) `CHECKLIST_TEMPLATE` (10 items + required flag)
+  - [ ] [dischargeShared.ts:130-154](src/components/rawat-inap/discharge/dischargeShared.ts#L130) `STEP_PHASES` (3 fase) — perlu extend dengan `targets[]` per fase
+  - [ ] [dischargeShared.ts:268-281](src/components/rawat-inap/discharge/dischargeShared.ts#L268) `calcRisikoReadmisi()` hard-coded rules → derive dari `risikoRules[]` master
 
 #### 2.13 Master Operasional Klinis — `/ehis-master/operasional`
 **Konsumen:** IntakeOutputTab · GiziNutrisiTab · PPI Isolasi
@@ -324,11 +329,11 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
 |---|---|---|---|
 | Phase 0 — Foundation | 7 | 7 | 100% |
 | Phase 1 — Refactor | 6 | 6 | 100% |
-| Phase 2 — Master Baru | 13 | 11 | 85% |
+| Phase 2 — Master Baru | 13 | 12 | 92% |
 | Phase 3 — Polish | 4 | 0 | 0% |
-| **Total** | **30** | **24** | **80%** |
+| **Total** | **30** | **25** | **83%** |
 
-**Phase 2 progress:** Kategori A (Klinis Penilaian) ✅ 4/4 + Kategori B (Reference Klinis) ✅ 3/3 + Kategori C (Template & Enum) ✅ 3/3 + Kategori D 1/3 (Workflow Edukasi ✅). Berikutnya: Discharge Klasifikasi · Operasional Klinis.
+**Phase 2 progress:** Kategori A (Klinis Penilaian) ✅ 4/4 + Kategori B (Reference Klinis) ✅ 3/3 + Kategori C (Template & Enum) ✅ 3/3 + Kategori D 2/3 (Workflow Edukasi ✅ · Discharge Klasifikasi ✅). Berikutnya: Operasional Klinis.
 
 ---
 
