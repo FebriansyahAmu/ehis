@@ -304,18 +304,20 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
 - [ ] Tambah `<MappingSourceBadge subpage="formularium" />` inline pada ToggleSwitch `isFormularium` di tab Klasifikasi Katalog Obat
 - [ ] Copy: "Flag ini = default global. Coverage final per-penjamin × kelas dikelola di Mapping Hub → Formularium"
 
-### 3.3 Update masterNav (`lib/navigation.ts`)
-- [ ] Restruktur group dengan tambahan Phase 2:
-  - Utama: Beranda
-  - Sumber Daya: Unit & Ruangan · Dokter & Nakes · Pengguna
-  - Katalog Klinis: Obat · Tindakan · Lab · Radiologi · ICD-10 · SDKI
-  - Skala Klinis: Skala Risiko · Skala Umum · Skala Penyakit · Triase IGD
-  - Template & Enum: Status Enum · Template Anamnesis · Template Form
-  - Workflow Klinis: Workflow Edukasi · Discharge · Operasional
-  - Reference: Asesmen Katalog
-  - Penugasan: Mapping Hub
-  - Operasional: Tarif · Penjamin · Poliklinik (Tier 3)
-  - Konfigurasi: Profil RS · PPK
+### 3.3 Update masterNav (`lib/navigation.ts`) ✅ Selesai (2026-05-24)
+- [x] Restruktur group sesuai Phase 2 final di [navigation.ts:168-242](src/lib/navigation.ts#L168-L242):
+  - Utama → Beranda (1)
+  - Sumber Daya → Unit & Ruangan · Dokter & Nakes · Pengguna (3)
+  - Katalog Klinis → Katalog Obat · Tindakan · Laboratorium · Radiologi · **ICD-10 & ICD-9** · **SDKI / SIKI / SLKI** (6) — ICD & SDKI dipindah dari "Reference" karena lebih semantik di katalog (data aktif dipilih saat entry klinis, bukan lookup pasif)
+  - Skala Klinis → Skala Risiko · Skala Umum · Skala Penyakit · Triase IGD (4)
+  - **Referensi** (rename dari "Reference" untuk konsistensi Bahasa Indonesia) → Asesmen Katalog (1)
+  - Template & Enum → Status Enum · Template Anamnesis · Template Form (3)
+  - Workflow Klinis → Workflow Edukasi · Discharge Klasifikasi · Operasional Klinis (3)
+  - Penugasan → Mapping Hub (1)
+  - Operasional → Tarif & Layanan · Penjamin & Kontrak (2) — Poliklinik (Tier 3) belum dibangun, skip dulu agar tidak dead-link
+  - Konfigurasi → Profil RS · Faskes Rujukan (PPK) (2)
+- [x] **Total**: 10 grup × 26 item. Verifikasi semua href punya route real (no dead links).
+- [x] Sinkronisasi struktur ke [berandaShared.ts](src/components/master/beranda/berandaShared.ts) `getQuickNavGroups()` — sumber sama biar Beranda Master & sidebar nav konsisten. Update desc Referensi → "Referensi asesmen klinis terstandar"; Katalog Klinis → "Obat, tindakan, penunjang, dan kode diagnosa".
 
 ### 3.4 Update CLAUDE.md
 - [ ] Tambah pointer ke TODO.md di header CLAUDE.md ("Detail Phase Master: lihat [TODO.md](TODO.md)")
@@ -331,10 +333,10 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
 | Phase 0 — Foundation | 7 | 7 | 100% |
 | Phase 1 — Refactor | 6 | 6 | 100% |
 | Phase 2 — Master Baru | 13 | 13 | 100% |
-| Phase 3 — Polish | 4 | 1 | 25% |
-| **Total** | **30** | **27** | **90%** |
+| Phase 3 — Polish | 4 | 2 | 50% |
+| **Total** | **30** | **28** | **93%** |
 
-**Phase 3 progress:** 1/4 — ✅ 3.1 Beranda Master selesai (2026-05-24). Sisa: 3.2 Banner Default-Flag Katalog Obat · 3.3 Restruktur masterNav · 3.4 Update CLAUDE.md final.
+**Phase 3 progress:** 2/4 — ✅ 3.1 Beranda Master + ✅ 3.3 Restruktur masterNav (2026-05-24). Sisa: 3.2 Banner Default-Flag Katalog Obat (skip dulu) · 3.4 Update CLAUDE.md final.
 
 ---
 

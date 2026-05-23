@@ -133,12 +133,14 @@ export function getQuickNavGroups(): QuickNavGroup[] {
     {
       label: "Katalog Klinis",
       tone: "sky",
-      desc: "Obat, tindakan, dan pemeriksaan penunjang",
+      desc: "Obat, tindakan, penunjang, dan kode diagnosa",
       items: [
-        { label: "Katalog Obat",        href: "/ehis-master/katalog-obat",      icon: Pill,      count: OBAT_MOCK.length },
-        { label: "Katalog Tindakan",    href: "/ehis-master/katalog-tindakan",  icon: Zap,       count: TINDAKAN_MOCK.length },
-        { label: "Katalog Laboratorium",href: "/ehis-master/katalog-lab",       icon: TestTube,  count: LAB_KATALOG_MOCK.length },
-        { label: "Katalog Radiologi",   href: "/ehis-master/katalog-radiologi", icon: Radiation, count: RAD_KATALOG_MOCK.length },
+        { label: "Katalog Obat",         href: "/ehis-master/katalog-obat",      icon: Pill,      count: OBAT_MOCK.length },
+        { label: "Katalog Tindakan",     href: "/ehis-master/katalog-tindakan",  icon: Zap,       count: TINDAKAN_MOCK.length },
+        { label: "Katalog Laboratorium", href: "/ehis-master/katalog-lab",       icon: TestTube,  count: LAB_KATALOG_MOCK.length },
+        { label: "Katalog Radiologi",    href: "/ehis-master/katalog-radiologi", icon: Radiation, count: RAD_KATALOG_MOCK.length },
+        { label: "ICD-10 & ICD-9",       href: "/ehis-master/icd",               icon: BookText,  count: ICD_MOCK.length },
+        { label: "SDKI / SIKI / SLKI",   href: "/ehis-master/sdki",              icon: Workflow,  count: SDKI_MOCK.length },
       ],
     },
     {
@@ -153,13 +155,11 @@ export function getQuickNavGroups(): QuickNavGroup[] {
       ],
     },
     {
-      label: "Reference",
+      label: "Referensi",
       tone: "rose",
-      desc: "Standar internasional dan nasional",
+      desc: "Referensi asesmen klinis terstandar",
       items: [
-        { label: "ICD-10 & ICD-9",     href: "/ehis-master/icd",             icon: BookText,      count: ICD_MOCK.length },
-        { label: "Asesmen Katalog",    href: "/ehis-master/asesmen-katalog", icon: ClipboardList, count: ASESMEN_KATALOG_MOCK.length },
-        { label: "SDKI / SIKI / SLKI", href: "/ehis-master/sdki",            icon: Workflow,      count: SDKI_MOCK.length },
+        { label: "Asesmen Katalog", href: "/ehis-master/asesmen-katalog", icon: ClipboardList, count: ASESMEN_KATALOG_MOCK.length },
       ],
     },
     {

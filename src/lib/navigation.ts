@@ -185,6 +185,8 @@ export const masterNav: readonly NavGroup[] = [
       { label: "Katalog Tindakan",     href: "/ehis-master/katalog-tindakan",   icon: Zap        },
       { label: "Katalog Laboratorium", href: "/ehis-master/katalog-lab",        icon: TestTube   },
       { label: "Katalog Radiologi",    href: "/ehis-master/katalog-radiologi",  icon: Radiation  },
+      { label: "ICD-10 & ICD-9",       href: "/ehis-master/icd",                icon: BookText   },
+      { label: "SDKI / SIKI / SLKI",   href: "/ehis-master/sdki",               icon: Workflow   },
     ],
   },
   {
@@ -197,11 +199,9 @@ export const masterNav: readonly NavGroup[] = [
     ],
   },
   {
-    label: "Reference",
+    label: "Referensi",
     items: [
-      { label: "ICD-10 & ICD-9",   href: "/ehis-master/icd",             icon: BookText       },
-      { label: "Asesmen Katalog",  href: "/ehis-master/asesmen-katalog", icon: ClipboardList  },
-      { label: "SDKI / SIKI / SLKI", href: "/ehis-master/sdki",          icon: Workflow       },
+      { label: "Asesmen Katalog", href: "/ehis-master/asesmen-katalog", icon: ClipboardList },
     ],
   },
   {
