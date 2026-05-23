@@ -6,7 +6,7 @@
 >
 > **Last updated:** 2026-05-23
 > **Estimasi total:** ~6 minggu (Phase 0–3)
-> **Status global:** Phase 2 — Kategori A (Skala Risiko/Umum/Penyakit + Triase IGD) ✅ Selesai
+> **Status global:** Phase 2 — Kategori A + B + C ✅ Selesai (10/13 master baru, 77% Phase 2)
 
 ---
 
@@ -174,43 +174,64 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
 - [x] **Sumber siap replace:**
   - [ ] [keperawatanShared.ts:77](src/components/shared/medical-records/keperawatanShared.ts#L77) `SDKI_CATALOG` (15 hardcoded di codebase, master menyediakan 30)
 
-### Kategori C — Template & Enum (3 master)
+### Kategori C — Template & Enum (3 master) ✅ Selesai (2026-05-23)
 
-#### 2.8 Master Status Enum — `/ehis-master/status-enum`
-**Konsumen:** semua modul · 1 page multi-tab untuk enum kecil
+**Strategi (2026-05-23):** 3 master dengan struktur sangat berbeda → masing-masing punya layout tersendiri (tidak share components seperti Kategori A skala). Status Enum & Template Form pakai sidebar nav (multi-collection per page); Template Anamnesis pakai 2-panel klasik list+detail. Semua reuse `MasterPageLayout` + `MasterListPanel` + `FormPrimitives` shared.
 
-- [ ] 9 sub-tab:
-  - [ ] **Status Pulang** (Sembuh/Membaik/Rawat Inap/Dirujuk/APS/Meninggal/Belum Sembuh) — unify IGD + RI
-  - [ ] **Kondisi Umum** (Baik/Sedang/Buruk/Kritis)
-  - [ ] **Tingkat Kesadaran** (6 level — share dengan Skala Umum?)
-  - [ ] **Kondisi Transfer** (Stabil/Tidak Stabil/Kritis)
-  - [ ] **Mode Transport** (Brankar/Kursi Roda/Jalan Kaki/Ambulance Internal/Ambulance Eksternal)
-  - [ ] **Kelas Perawatan** (replace `RIKelas` hardcoded enum)
-  - [ ] **Hubungan Keluarga / Caregiver** (Suami/Istri/Anak/Ortu/Saudara/Wali/Lainnya)
-  - [ ] **Profesi Edukator** (Perawat/Dokter/Apoteker/Ahli Gizi/Fisioterapis/Psikolog)
-  - [ ] **Rute Pemberian Obat** (Oral/IV/IM/SC/Sublingual/Topikal/Inhalasi/Rektal/Per Nasal/Per NGT)
-- [ ] Sumber: [pasienPulangShared.tsx (IGD):35](src/components/igd/tabs/pasienPulang/pasienPulangShared.tsx#L35) · [dischargeShared.ts:1-30](src/components/rawat-inap/discharge/dischargeShared.ts) · [pasienPulangShared.ts (RI):187](src/components/rawat-inap/pasienPulang/pasienPulangShared.ts#L187) · `data.ts` RIKelas type
+#### 2.8 Master Status Enum — `/ehis-master/status-enum` ✅ (2026-05-23)
+**Konsumen:** semua modul · 1 page multi-enum sidebar nav · Accent **violet**
 
-#### 2.9 Master Template Anamnesis — `/ehis-master/template-anamnesis`
-**Konsumen:** AnamnesisPane (IGD+RI+RJ)
+- [x] Schema `lib/master/statusEnumMock.ts`: `EnumEntry` (id/kode/label/deskripsi?/tone/urutan/status/icon?) + `EnumGroup` (key/label/deskripsi/icon/konsumen[]/entries[]); 9 tone palette + 30+ icon registry (Lucide string→component)
+- [x] 9 enum group mock:
+  - [x] **Status Pulang** (7 entries — Sembuh/Membaik/Rawat Inap/Dirujuk/APS/Belum Sembuh/Meninggal)
+  - [x] **Kondisi Umum / KU** (4 — Baik/Sedang/Buruk/Kritis)
+  - [x] **Tingkat Kesadaran** (6 — Compos Mentis/Apatis/Delirium/Somnolen/Sopor/Koma)
+  - [x] **Kondisi Transfer** (3 — Stabil/Tidak Stabil/Kritis)
+  - [x] **Mode Transport** (5 — Jalan Kaki/Kursi Roda/Brankar/Ambulance Internal/Ambulance Eksternal)
+  - [x] **Kelas Perawatan** (7 — VIP/Kelas 1-3/ICU/HCU/Isolasi — replaces `RIKelas`)
+  - [x] **Hubungan Keluarga** (7 — Suami/Istri/Anak/Ortu/Saudara/Wali/Lainnya)
+  - [x] **Profesi Edukator** (6 — Dokter/Perawat/Apoteker/Ahli Gizi/Fisioterapis/Psikolog)
+  - [x] **Rute Pemberian Obat** (10 — Oral/IV/IM/SC/Sublingual/Topikal/Inhalasi/Rektal/Nasal/NGT)
+- [x] Components: `StatusEnumPage` (~50 lines) + `EnumSidebar` (280px, group list dengan icon+count+aktif-ratio) + `EnumTable` (search/filter/CRUD table dengan inline edit + add form collapsible + reorder up/down + drag-handle) + `EnumEntryForm` (label→auto-slug kode + tone swatch picker 9 opsi + icon select + urutan + live preview chip)
+- [x] **Sumber siap replace** (saat backend ready):
+  - [ ] [pasienPulangShared.tsx (IGD):35](src/components/igd/tabs/pasienPulang/pasienPulangShared.tsx#L35) STATUS_OPTIONS
+  - [ ] [dischargeShared.ts:1-30](src/components/rawat-inap/discharge/dischargeShared.ts) KondisiPulang+HubunganCaregiver+ProfesiEdukasi
+  - [ ] [pasienPulangShared.ts (RI):187](src/components/rawat-inap/pasienPulang/pasienPulangShared.ts#L187) STATUS_KEPULANGAN_LIST
+  - [ ] `data.ts` `RIKelas` type
 
-- [ ] Schema: `AnamnesisTemplate` dengan id + label + context_tags ["IGD","RI","RJ"] + keluhanUtama + rps + onsetDurasi + faktorPemberat + faktorPemerut + statusGeneralis
-- [ ] Mock templates:
-  - [ ] **IGD:** Sesak (GJK) · Demam (Sepsis) · Stroke · Nyeri Dada · Kejang · Trauma · Syok
-  - [ ] **RI:** Long-form admission GJK · Pneumonia · ACS · DM Komplikasi
-  - [ ] **RJ:** ISPA · Nyeri Dada · Kontrol DM · Kontrol Hipertensi · Lanjutan PCT
-- [ ] UI: search + filter chip per context (IGD/RI/RJ) + filter per chief complaint
-- [ ] Sumber: [asesmenAwalShared.ts:151](src/components/rawat-inap/asesmenAwal/asesmenAwalShared.ts#L151) · [AsesmenMedisTab.tsx:204](src/components/igd/tabs/AsesmenMedisTab.tsx#L204) `IGD_TEMPLATES` · [asesmenAwalRJShared.ts:18](src/components/rawat-jalan/asesmenAwal/asesmenAwalRJShared.ts#L18)
+#### 2.9 Master Template Anamnesis — `/ehis-master/template-anamnesis` ✅ (2026-05-23)
+**Konsumen:** AnamnesisPane (IGD+RI+RJ) · Accent **teal**
 
-#### 2.10 Master Template Form — `/ehis-master/template-form`
-**Konsumen:** HandoverTab · KonsultasiTab · InformedConsentTab · PasienPulang · CPPT
+- [x] Schema `lib/master/templateAnamnesisMock.ts`: `TemplateAnamnesisItem` dengan id/label/kategori (12 enum)/contextTags (IGD/RI/RJ multi)/keluhanUtama/rps/onsetDurasi/mekanismeCedera?/faktorPemberat/faktorPemerut/statusGeneralis/catatanPerawat?
+- [x] 17 template mock lintas context × kategori:
+  - [x] **IGD (8):** Nyeri Dada/Sesak Napas/Nyeri Abdomen/Trauma/Stroke/Kejang/Syok/Demam
+  - [x] **RI (4):** Gagal Jantung/Pneumonia/ACS/DM Komplikasi (admission long-form)
+  - [x] **RJ (5):** ISPA/Nyeri Dada/Kontrol DM/Kontrol Hipertensi/Kontrol Pasca Rawat
+- [x] Components: `TemplateAnamnesisPage` orchestrator + `TemplateAnamnesisList` (chip filter per context dengan count + dropdown kategori + status filter) + `TemplateAnamnesisDetail` 3-tab structure: `IdentitasTab` (label+kategori+context multi-select chip dengan badge), `KontenTab` (keluhan+RPS+onset+faktor+statusGeneralis+mekanismeCedera conditional), `PreviewTab` (catatan perawat + live preview lengkap dengan semua field + reminder card)
+- [x] **Sumber siap replace:**
+  - [ ] [asesmenAwalShared.ts:151](src/components/rawat-inap/asesmenAwal/asesmenAwalShared.ts#L151) `ANAMNESIS_TEMPLATES` RI (3 hardcoded)
+  - [ ] [AsesmenMedisTab.tsx:204](src/components/igd/tabs/AsesmenMedisTab.tsx#L204) `IGD_TEMPLATES` (7 hardcoded)
+  - [ ] [asesmenAwalRJShared.ts:18](src/components/rawat-jalan/asesmenAwal/asesmenAwalRJShared.ts#L18) `ANAMNESIS_RJ_TEMPLATES` (4 hardcoded)
 
-- [ ] 4 sub-tab:
-  - [ ] **SBAR Template** — context (handover/konsultasi/transfer IGD→RI), 4 section (S/B/A/R) dengan deskripsi tiap section
-  - [ ] **Informed Consent Risiko** — risiko library per Tindakan (link ke Katalog Tindakan) + risiko umum default
-  - [ ] **Surat Pulang** — 5 jenis (Kontrol/Sakit/Dirawat/Rujukan Balik/Kematian) — body template dengan placeholder
-  - [ ] **CPPT Quick-text** — smart phrases "/normal-thorax", "/normal-abdomen" yang auto-expand
-- [ ] Sumber: [handoverShared.ts:47](src/components/rawat-inap/tabs/handover/handoverShared.ts#L47) + IGD SBARTransferPanel + RI konsultasiShared · [InformedConsentTab.tsx:104](src/components/shared/medical-records/InformedConsentTab.tsx#L104) `RISIKO_UMUM` · [pasienPulangShared.ts:199](src/components/rawat-inap/pasienPulang/pasienPulangShared.ts#L199) `SURAT_TEMPLATE`
+#### 2.10 Master Template Form — `/ehis-master/template-form` ✅ (2026-05-23)
+**Konsumen:** HandoverTab · KonsultasiTab · SBARTransferPanel · InformedConsentTab · PasienPulangTab · SuratDokumenTab · CPPTTab · Accent **sky** (per-jenis: violet/rose/sky/amber)
+
+- [x] Schema `lib/master/templateFormMock.ts`: discriminated union `TemplateFormItem` (jenis: "sbar"|"ic-risiko"|"surat"|"quick-text") — 4 schema berbeda per jenis dengan kolom spesifik (SBAR: S/B/A/R + context; IC: risikoSpesifik[]+manfaat+alternatif+konsekuensiTolak; Surat: body template dengan placeholder; QuickText: shortcut+expansion+kategori)
+- [x] 20 mock template (3 SBAR + 4 IC + 5 Surat + 8 QuickText):
+  - [x] **SBAR:** Handover Shift RI + Konsultasi DPJP Telepon + Transfer IGD→RI
+  - [x] **IC Risiko:** Apendektomi + PCI Kateterisasi Jantung + Transfusi Darah + Ventilator Mekanik
+  - [x] **Surat Pulang:** Kontrol/Sakit/Dirawat BPJS/Rujukan Balik FKTP/Kematian (full body dengan `${nama}`/`${noRM}`/`${diagnosis}`/dst placeholder)
+  - [x] **CPPT Quick-text:** /normal-thorax /normal-abdomen /normal-neuro /normal-mental /anjuran-jantung /anjuran-dm /plan-obs /plan-pulang
+- [x] Components: `TemplateFormPage` orchestrator (custom state, bukan useMasterCrud karena multi-collection per jenis) + `TemplateFormSidebar` 260px (4 jenis dengan icon+deskripsi+count+aktif-ratio + active ring per color) + `TemplateFormList` 320px adaptive sub-label per jenis + `TemplateFormDetail` switch-by-discriminator render 4 pane berbeda + 4 panes terpisah:
+  - [x] `SBARPane` 4-section card (S/B/A/R) accent berbeda + tips writing
+  - [x] `ICRisikoPane` tag-list builder untuk risikoSpesifik + Heart/GitBranch/Ban section untuk manfaat/alternatif/konsekuensi + PMK 290 reminder
+  - [x] `SuratPane` 2-column editor+preview + placeholder picker dengan visual indicator (hijau = sudah dipakai)
+  - [x] `QuickTextPane` shortcut validator real-time (no space, starts with /, unique) + word/char counter + preview "ketik shortcut → auto-expand"
+- [x] **Sumber siap replace:**
+  - [ ] [handoverShared.ts:47](src/components/rawat-inap/tabs/handover/handoverShared.ts#L47) SBAR_DEF
+  - [ ] [InformedConsentTab.tsx:104](src/components/shared/medical-records/InformedConsentTab.tsx#L104) `RISIKO_UMUM` (9 generic) + perlu split per-tindakan
+  - [ ] [pasienPulangShared.ts:199](src/components/rawat-inap/pasienPulang/pasienPulangShared.ts#L199) `SURAT_TEMPLATE` (RI) + [SuratDokumenTab.tsx]() RJ — saat backend ready
+  - [ ] CPPT Quick-text: belum ada implementasi auto-expand di codebase — master ini menyiapkan data, fitur expand jadi enhancement client-side ke depan
 
 ### Kategori D — Workflow & Operasional (3 master)
 
@@ -300,11 +321,11 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
 |---|---|---|---|
 | Phase 0 — Foundation | 7 | 7 | 100% |
 | Phase 1 — Refactor | 6 | 6 | 100% |
-| Phase 2 — Master Baru | 13 | 7 | 54% |
+| Phase 2 — Master Baru | 13 | 10 | 77% |
 | Phase 3 — Polish | 4 | 0 | 0% |
-| **Total** | **30** | **20** | **67%** |
+| **Total** | **30** | **23** | **77%** |
 
-**Phase 2 progress:** Kategori A (Klinis Penilaian) ✅ 4/4 + Kategori B (Reference Klinis) ✅ 3/3. Berikutnya: Kategori C (Status Enum · Template Anamnesis · Template Form) + Kategori D (Workflow Edukasi · Discharge · Operasional).
+**Phase 2 progress:** Kategori A (Klinis Penilaian) ✅ 4/4 + Kategori B (Reference Klinis) ✅ 3/3 + Kategori C (Template & Enum) ✅ 3/3. Berikutnya: Kategori D (Workflow Edukasi · Discharge · Operasional).
 
 ---
 

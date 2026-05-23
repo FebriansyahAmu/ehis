@@ -31,6 +31,9 @@ import {
   Microscope,
   BookText,
   Workflow,
+  Layers,
+  FileText,
+  MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 
@@ -196,6 +199,14 @@ export const masterNav: readonly NavGroup[] = [
       { label: "ICD-10 & ICD-9",   href: "/ehis-master/icd",             icon: BookText       },
       { label: "Asesmen Katalog",  href: "/ehis-master/asesmen-katalog", icon: ClipboardList  },
       { label: "SDKI / SIKI / SLKI", href: "/ehis-master/sdki",          icon: Workflow       },
+    ],
+  },
+  {
+    label: "Template & Enum",
+    items: [
+      { label: "Status Enum",         href: "/ehis-master/status-enum",         icon: Layers        },
+      { label: "Template Anamnesis",  href: "/ehis-master/template-anamnesis",  icon: MessageSquare },
+      { label: "Template Form",       href: "/ehis-master/template-form",       icon: FileText      },
     ],
   },
   {
