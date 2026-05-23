@@ -10,6 +10,7 @@ import {
 } from "@/lib/master/obatMock";
 import {
   Field, Select, ToggleSwitch, SectionGroup,
+  MappingSourceBadge,
 } from "@/components/master/shared";
 
 interface KlasifikasiTabProps {
@@ -31,13 +32,23 @@ export default function KlasifikasiTab({ draft, onPatch }: KlasifikasiTabProps) 
         desc="Flag-flag yang men-trigger workflow khusus di farmasi (HAM double-check, LASA warning, dst)."
       >
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <ToggleSwitch
-            value={draft.isFormularium}
-            onChange={(v) => onPatch({ isFormularium: v })}
-            label="Formularium RS"
-            desc="Termasuk formularium nasional / RS. Non-form perlu justifikasi."
-            accent="emerald"
-          />
+          {/* Formularium row — full width sehingga banner mapping source ikut flush di bawahnya */}
+          <div className="flex flex-col gap-2 sm:col-span-2">
+            <ToggleSwitch
+              value={draft.isFormularium}
+              onChange={(v) => onPatch({ isFormularium: v })}
+              label="Formularium RS"
+              desc="Termasuk formularium nasional / RS. Non-form perlu justifikasi."
+              accent="emerald"
+            />
+            <MappingSourceBadge
+              subpage="formularium"
+              variant="banner"
+              title="Default global — coverage final dikelola di Mapping Hub"
+              description="Flag ini hanya seed default per obat. Apakah obat tertanggung untuk tiap penjamin × kelas (BPJS · Asuransi · Umum) di-set di Mapping Hub → Formularium."
+              ctaLabel="Atur Coverage"
+            />
+          </div>
           <ToggleSwitch
             value={draft.isHAM}
             onChange={(v) => onPatch({ isHAM: v })}

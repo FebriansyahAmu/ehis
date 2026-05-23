@@ -300,9 +300,11 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
 - [x] **Responsive** mobile-first: KPI grid `2→3→5` cols, body grid `1→12` (lg: nav col-span-8 + sidebar col-span-4), nav items `1→2→3` cols per kelompok, hero timestamp hidden <sm.
 - [x] **Komponen** (6 file, semua <300 lines): [BerandaMasterPage.tsx](src/components/master/beranda/BerandaMasterPage.tsx) 133L · [berandaShared.ts](src/components/master/beranda/berandaShared.ts) 286L · [KPIStrip.tsx](src/components/master/beranda/KPIStrip.tsx) 71L · [QuickNavGrid.tsx](src/components/master/beranda/QuickNavGrid.tsx) 109L · [MappingCoveragePanel.tsx](src/components/master/beranda/MappingCoveragePanel.tsx) 111L · [RecentEditsPanel.tsx](src/components/master/beranda/RecentEditsPanel.tsx) 127L. TypeScript clean.
 
-### 3.2 Banner Default-Flag Katalog Obat
-- [ ] Tambah `<MappingSourceBadge subpage="formularium" />` inline pada ToggleSwitch `isFormularium` di tab Klasifikasi Katalog Obat
-- [ ] Copy: "Flag ini = default global. Coverage final per-penjamin × kelas dikelola di Mapping Hub → Formularium"
+### 3.2 Banner Default-Flag Katalog Obat ✅ Selesai (2026-05-24)
+- [x] Tambah `<MappingSourceBadge subpage="formularium" variant="banner" />` di [KlasifikasiTab.tsx:33-50](src/components/master/katalog-obat/tabs/KlasifikasiTab.tsx#L33-L50) — flush di bawah ToggleSwitch `isFormularium`.
+- [x] **Layout**: Formularium row dibungkus `<div className="sm:col-span-2 flex flex-col gap-2">` sehingga toggle + banner mengambil full 2 kolom grid, sementara 4 toggle lain (HAM/LASA/ColdChain/Restricted) tetap di 2-col grid normal.
+- [x] **Copy**: title "Default global — coverage final dikelola di Mapping Hub" + description "Flag ini hanya seed default per obat. Apakah obat tertanggung untuk tiap penjamin × kelas (BPJS · Asuransi · Umum) di-set di Mapping Hub → Formularium." + CTA "Atur Coverage" → deep-link `/ehis-master/mapping?sub=formularium`.
+- [x] Pattern siap di-replicate ke katalog lain (Tindakan ↔ Tarif Matrix, Obat ↔ Distribusi Obat) saat di-polish nanti.
 
 ### 3.3 Update masterNav (`lib/navigation.ts`) ✅ Selesai (2026-05-24)
 - [x] Restruktur group sesuai Phase 2 final di [navigation.ts:168-242](src/lib/navigation.ts#L168-L242):
@@ -333,10 +335,10 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
 | Phase 0 — Foundation | 7 | 7 | 100% |
 | Phase 1 — Refactor | 6 | 6 | 100% |
 | Phase 2 — Master Baru | 13 | 13 | 100% |
-| Phase 3 — Polish | 4 | 2 | 50% |
-| **Total** | **30** | **28** | **93%** |
+| Phase 3 — Polish | 4 | 3 | 75% |
+| **Total** | **30** | **29** | **97%** |
 
-**Phase 3 progress:** 2/4 — ✅ 3.1 Beranda Master + ✅ 3.3 Restruktur masterNav (2026-05-24). Sisa: 3.2 Banner Default-Flag Katalog Obat (skip dulu) · 3.4 Update CLAUDE.md final.
+**Phase 3 progress:** 3/4 — ✅ 3.1 Beranda Master + ✅ 3.2 Banner Default-Flag Katalog Obat + ✅ 3.3 Restruktur masterNav (2026-05-24). Sisa: 3.4 Update CLAUDE.md final.
 
 ---
 
