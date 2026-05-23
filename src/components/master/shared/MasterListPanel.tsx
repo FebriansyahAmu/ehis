@@ -51,6 +51,12 @@ export interface MasterListPanelProps {
   // ── Add CTA ───────────────────────────────────────────
   onAddNew: () => void;
   addLabel?: string;
+  /**
+   * Slot opsional untuk action sekunder yang SELALU terlihat di bawah Add CTA.
+   * Contoh: tombol Import, Export, Bulk Edit, notice banner setelah aksi sukses.
+   * Render di container yang sama dengan Add CTA — tanpa divider tambahan.
+   */
+  secondaryAction?: React.ReactNode;
 
   // ── Rows ──────────────────────────────────────────────
   /** Konten list rows (ul/ol/div) yang di-scroll. */
@@ -80,6 +86,7 @@ export default function MasterListPanel({
   totalCount,
   onAddNew,
   addLabel = "Tambah Baru",
+  secondaryAction,
   children,
   isEmpty = false,
   emptyTitle = "Tidak ada hasil",
@@ -174,8 +181,8 @@ export default function MasterListPanel({
         )}
       </div>
 
-      {/* Add CTA */}
-      <div className="shrink-0 border-b border-slate-100 px-3 py-2">
+      {/* Add CTA + Secondary actions (always visible) */}
+      <div className="flex shrink-0 flex-col gap-1.5 border-b border-slate-100 px-3 py-2">
         <button
           type="button"
           onClick={onAddNew}
@@ -190,6 +197,7 @@ export default function MasterListPanel({
           <Plus size={13} />
           {addLabel}
         </button>
+        {secondaryAction}
       </div>
 
       {/* Body: List / Empty */}

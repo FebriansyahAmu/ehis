@@ -29,6 +29,8 @@ import {
   Gauge,
   Activity,
   Microscope,
+  BookText,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 
@@ -186,6 +188,14 @@ export const masterNav: readonly NavGroup[] = [
       { label: "Skala Umum",     href: "/ehis-master/skala-umum",     icon: Activity   },
       { label: "Skala Penyakit", href: "/ehis-master/skala-penyakit", icon: Microscope },
       { label: "Triase IGD",     href: "/ehis-master/triase-igd",     icon: Siren      },
+    ],
+  },
+  {
+    label: "Reference",
+    items: [
+      { label: "ICD-10 & ICD-9",   href: "/ehis-master/icd",             icon: BookText       },
+      { label: "Asesmen Katalog",  href: "/ehis-master/asesmen-katalog", icon: ClipboardList  },
+      { label: "SDKI / SIKI / SLKI", href: "/ehis-master/sdki",          icon: Workflow       },
     ],
   },
   {

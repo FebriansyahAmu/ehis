@@ -132,45 +132,47 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
 - [x] Components: `TriaseIGDPage` + `TriaseList` (color-stripe badges per level) + `TriaseDetail` 2-tab (Identitas + Matrix) + `MatrixTab` (sticky header + sticky first col, level editor collapsible dengan tone swatch picker, inline textarea cells)
 - [x] **Sumber hardcoded** (siap replace): [TriaseTab.tsx:178-298](src/components/igd/tabs/TriaseTab.tsx#L178) — COL_HEADERS + CRITERIA_ROWS
 
-### Kategori B — Reference Klinis (3 master)
+### Kategori B — Reference Klinis (3 master) ✅ Selesai (2026-05-23)
 
-#### 2.5 Master ICD-10 & ICD-9 — `/ehis-master/icd`
-**Konsumen:** DiagnosaTab (semua modul) · Resume Medik · INA-CBG mapping
+**Strategi mock representative (2026-05-23):** alih-alih import full dataset (besar, lambat dev/bundle), Kategori B pakai mock sample 80–120 entry per master. Schema 1:1 dengan target real dataset → saat backend ready cukup swap mock array dengan API call (`prisma.X.findMany()`). Pola sudah teruji di Katalog Obat (30/ribuan), Lab (31), Tindakan (35). Phase 3 dapat tambah "Import CSV" UI untuk admin yang ingin populate dataset real.
 
-- [ ] Schema: `IcdRecord` dengan kode (canonical) + nama (ID/EN) + chapter + blok + parent kode + status active
-- [ ] Import dataset CSV/Excel resmi WHO/Kemkes (~15.000 ICD-10 + ~4.000 ICD-9-CM)
-- [ ] UI: search engine dengan filter chapter/blok + tree view chapter expand · pagination · status toggle
-- [ ] Special: INA-CBG mapping preview (link ke `INA_CBG_MAP` existing)
-- [ ] Sumber: [diagnosaShared.ts](src/components/shared/medical-records/diagnosaShared.ts) `ICD10_CATALOG` (30 hardcoded, butuh 15.000+)
-- [ ] **Catatan dataset:** butuh konfirmasi user — sumber file CSV mana yang dipakai (Kemkes-style atau WHO-style)
+#### 2.5 Master ICD-10 & ICD-9 — `/ehis-master/icd` ✅ (2026-05-23)
+**Konsumen:** DiagnosaTab (semua modul) · Resume Medik · INA-CBG mapping · Accent **sky**
 
-#### 2.6 Master Asesmen Katalog — `/ehis-master/asesmen-katalog`
-**Konsumen:** AllergyPane · RiwayatPane · AsesmenMedisTab (shared+IGD)
+- [x] Schema `lib/master/icdMock.ts`: `IcdItem` dengan `jenis: "ICD-10"|"ICD-9"` discriminator + kode + nama Indonesia/Inggris + chapter + blok? + inaCbg?
+- [x] Mock representative ~80 entries:
+  - [x] **ICD-10 (~60 kode)** lintas 22 chapter WHO (Infeksi/Neoplasma/Darah/Endokrin/Mental/Saraf/Mata/Telinga/Sirkulasi/Pernapasan/Pencernaan/Kulit/Muskuloskeletal/Genitourinari/Kehamilan/Perinatal/Kongenital/Gejala/Cedera/Sebab Luar/Status Kesehatan)
+  - [x] **ICD-9-CM (~30 kode)** lintas 5 kategori prosedur (Diagnostik/Radiologi/Laboratorium/Terapi/Prosedur Bedah)
+  - [x] Beberapa entry punya `inaCbg` code (mapping klaim BPJS)
+- [x] Components: `IcdPage` + `IcdList` (jenis switcher dengan icon + count + chapter dropdown filter + status filter) + `IcdDetail` (jenis picker + kode/nama bilingual + chapter/blok + INA-CBG conditional untuk ICD-10) + `icdShared.ts` (JENIS_CFG sky/amber palette)
+- [x] **Sumber siap replace** (saat backend ready):
+  - [ ] [diagnosaShared.ts:17-56](src/components/shared/medical-records/diagnosaShared.ts#L17) ICD10 catalog (37 hardcoded)
+  - [ ] [diagnosaShared.ts:60-86](src/components/shared/medical-records/diagnosaShared.ts#L60) ICD9 catalog (25 hardcoded)
+- [ ] **Phase 3 enhancement:** tombol "Import CSV" untuk admin upload dataset full WHO/Kemkes
 
-- [ ] **Sub-tab Alergi:**
-  - [ ] Allergen library dengan kategori (Obat/Makanan/Lainnya) + SNOMED code mapping
-  - [ ] Quick picks per kategori (default penicillin/aspirin/peanut/lateks/dll)
-  - [ ] Reactions library (10+ jenis reaksi)
-  - [ ] Severity config (Ringan/Sedang/Berat)
-- [ ] **Sub-tab Penyakit:**
-  - [ ] Penyakit Dahulu (20+ items)
-  - [ ] Penyakit Beresiko (12+)
-  - [ ] Penyakit Keluarga (10+)
-  - [ ] Perilaku Beresiko (8+)
-- [ ] **Sub-tab Obstetri & Reproduksi:**
-  - [ ] Metode KB (9 opsi)
-  - [ ] Jenis Persalinan (5 opsi)
-- [ ] **Sub-tab Anggota Keluarga:** Suami/Istri/Anak/Ortu/Saudara/Kakek-Nenek per garis
-- [ ] Sumber: [asesmenShared.ts:88-188](src/components/shared/asesmen/asesmenShared.ts#L88) (sudah dedup) + IGD AsesmenMedisTab local duplicate
+#### 2.6 Master Asesmen Katalog — `/ehis-master/asesmen-katalog` ✅ (2026-05-23)
+**Konsumen:** AllergyPane · RiwayatPane · AsesmenMedisTab (shared+IGD) · Accent **violet**
 
-#### 2.7 Master SDKI/SIKI/SLKI — `/ehis-master/sdki`
-**Konsumen:** KeperawatanTab RI
+- [x] Schema unified `lib/master/asesmenKatalogMock.ts`: `AsesmenItem` dengan kategori discriminator (11 kategori), kode, nama, deskripsi?, snomedCode? (allergen), severityDefault? (reaksi)
+- [x] Mock 120 entries lintas 11 kategori (4 grup): **Alergi** (Allergen Obat 15 + Makanan 10 + Lainnya 8 + Reaksi 12) · **Penyakit** (Dahulu 20 + Beresiko 12 + Keluarga 10 + Perilaku Beresiko 8) · **Sosial** (Anggota Keluarga 8) · **Reproduksi** (Metode KB 9 + Jenis Persalinan 5)
+- [x] SNOMED CT mapping pada 10 allergen tervalidasi (untuk FHIR AllergyIntolerance interoperability)
+- [x] Components: `AsesmenKatalogPage` + `AsesmenList` (kategori filter chips grouped per grup, search NIK/SNOMED, status filter) + `AsesmenDetail` (kategori picker + conditional SNOMED field untuk Allergen + conditional Severity chip untuk Reaksi)
+- [x] **Sumber siap replace:**
+  - [ ] [asesmenShared.ts:88-188](src/components/shared/asesmen/asesmenShared.ts#L88) — QUICK_PICKS, REACTIONS, PENYAKIT_*, ANGGOTA_KELUARGA, METODE_KB, JENIS_PERSALINAN, SNOMED_CODES
 
-- [ ] Schema: `SdkiRecord` dengan kode (D.NNNN) + nama + penyebab umum + kriteriaHasil[] (SLKI) + intervensi (observasi/terapeutik/edukasi/kolaborasi, SIKI)
-- [ ] Dataset PPNI 200+ diagnosa keperawatan resmi
-- [ ] UI: search + filter per kategori SDKI (Fisiologis/Psikologis/Perilaku/Relasional/Lingkungan) + detail view dengan 4 kolom intervensi
-- [ ] **Catatan dataset:** butuh PPNI SDKI/SIKI/SLKI book reference (PDF/CSV) atau procurement license
-- [ ] Sumber: [keperawatanShared.ts:77](src/components/shared/medical-records/keperawatanShared.ts#L77) `SDKI_CATALOG` (15 hardcoded)
+#### 2.7 Master SDKI/SIKI/SLKI — `/ehis-master/sdki` ✅ (2026-05-23)
+**Konsumen:** KeperawatanTab RI · CarePlanTab template · Accent **rose**
+
+- [x] Schema `lib/master/sdkiMock.ts`: `SdkiItem` dengan kode D.NNNN, kategori (5 levels: Fisiologis/Psikologis/Perilaku/Relasional/Lingkungan), subKategori, jenis (Aktual/Risiko/Promosi_Kesehatan), penyebabUmum, faktorResiko?, **dataMayor + dataMinor** (subjektif/objektif), **kriteriaHasil[]** (SLKI), **intervensi** (observasi/terapeutik/edukasi/kolaborasi — SIKI 4 kategori)
+- [x] Mock ~30 diagnosa lintas semua kategori:
+  - [x] Fisiologis Respirasi (D.0001, D.0003, D.0005), Sirkulasi (D.0008, D.0009), Nutrisi/Cairan (D.0019, D.0022, D.0023), Aktivitas (D.0054, D.0056, D.0109), Neurosensori (D.0077, D.0078), Termoregulasi/Integumen (D.0129, D.0130), Eliminasi (D.0040), Risiko Keamanan (D.0142, D.0143, D.0144)
+  - [x] Psikologis (D.0080 Ansietas, D.0084 Gangguan Citra Tubuh)
+  - [x] Perilaku (D.0111 Defisit Pengetahuan, D.0112 Kesiapan Peningkatan, D.0114 Ketidakpatuhan)
+  - [x] Relasional (D.0119 Gangguan Interaksi, D.0121 Ketegangan Pemberi Asuhan)
+  - [x] Lingkungan (D.0148 Risiko Cedera Lingkungan)
+- [x] Components: 3-tab structure — `IdentitasTab` (kategori grid + jenis selector + conditional faktorResiko untuk diagnosa Risiko) + `KlinisTab` (data mayor/minor 2-column + kriteria SLKI full-width + auto-hide data klinis untuk diagnosa Risiko + info bar) + `IntervensiTab` (4 sub-card SIKI dalam 2-column grid: Observasi/Terapeutik/Edukasi/Kolaborasi) + shared `ListEditor` reusable component (animated row add/remove/reorder)
+- [x] **Sumber siap replace:**
+  - [ ] [keperawatanShared.ts:77](src/components/shared/medical-records/keperawatanShared.ts#L77) `SDKI_CATALOG` (15 hardcoded di codebase, master menyediakan 30)
 
 ### Kategori C — Template & Enum (3 master)
 
@@ -298,11 +300,11 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
 |---|---|---|---|
 | Phase 0 — Foundation | 7 | 7 | 100% |
 | Phase 1 — Refactor | 6 | 6 | 100% |
-| Phase 2 — Master Baru | 13 | 4 | 31% |
+| Phase 2 — Master Baru | 13 | 7 | 54% |
 | Phase 3 — Polish | 4 | 0 | 0% |
-| **Total** | **30** | **17** | **57%** |
+| **Total** | **30** | **20** | **67%** |
 
-**Phase 2 progress:** Kategori A (Klinis Penilaian) ✅ 4/4. Berikutnya: Kategori B (ICD-10 · Asesmen Katalog · SDKI/SIKI/SLKI), C (Status Enum · Template Anamnesis · Template Form), D (Workflow Edukasi · Discharge · Operasional).
+**Phase 2 progress:** Kategori A (Klinis Penilaian) ✅ 4/4 + Kategori B (Reference Klinis) ✅ 3/3. Berikutnya: Kategori C (Status Enum · Template Anamnesis · Template Form) + Kategori D (Workflow Edukasi · Discharge · Operasional).
 
 ---
 
