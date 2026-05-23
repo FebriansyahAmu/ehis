@@ -83,7 +83,7 @@
 
 - [ ] **Laporan IKP** — form KTD/KNC/Sentinel. Kemungkinan modul EHIS-Safety. PMK 11/2017
 - [ ] **Transfusi Darah (RI)** — pre/intra/post-transfusi checklist. SNARS PP 4
-- [ ] **Billing Kasir (`ehis-billing`)** — invoice per kunjungan, rincian tindakan + obat, status pembayaran (Lunas/Proses Klaim/Belum), print struk. `KasirData` type + mock sudah tersedia di `data.ts`.
+- [ ] **Billing Kasir (`ehis-billing`)** — invoice per kunjungan, rincian tindakan + obat, status pembayaran (Lunas/Proses Klaim/Belum), print struk + klaim BPJS V-Claim + INA-CBG calc + shift kasir + adjustment. `KasirData` type + mock sudah tersedia di `data.ts`. **Roadmap lengkap di [TODO-BILLING.md](TODO-BILLING.md)** — 10 fase (BL0 Foundation → BL9 UX Polish), 40 task, dependency: Master Tarif + Mapping Hub Tarif/Formularium (sudah ✅) + RS Profil KOP (sudah ✅).
 - [ ] **`ehis-registration`** — form pendaftaran pasien baru + kunjungan, search existing
 - [ ] **`ehis-report`** — laporan per periode, export Excel/PDF
 - [ ] **`ehis-dashboard`** — stats cards (pasien hari ini per unit IGD/RI/RJ), BOR chart (bed occupancy rate), recent activity feed, quick-nav ke masing-masing modul. Route: `/ehis-dashboard`. Layout: ModuleLayout sudah ada.

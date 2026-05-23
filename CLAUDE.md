@@ -9,6 +9,7 @@
 |---|---|
 | [CLAUDE.md](CLAUDE.md) | **You are here.** Current state · active work · key data contracts. |
 | [TODO.md](TODO.md) | Master phase roadmap — Phase 0–3 frontend ✅ 100% (30/30). |
+| [TODO-BILLING.md](TODO-BILLING.md) | **Billing Kasir roadmap** — Fase BL0–BL9 (40 task, ~4–5 minggu). |
 | [TECH_DEBT.md](TECH_DEBT.md) | Tech debt registry per-modul + cross-cutting. |
 | [TODOS_BACKEND.md](TODOS_BACKEND.md) | Backend implementation roadmap (B0–B4, ~5–7 bulan). |
 | [.claude/DONE.md](.claude/DONE.md) | Completed work archive (history per modul). |
@@ -39,7 +40,7 @@ Next.js 16.2.3 App Router · React 19.2.4 · TypeScript 5 · Tailwind v4 (`@tail
 | `/ehis-master`             | Master Data      | ✅ 100% (25 sub-master + 8 mapping + Beranda) |
 | `/ehis-registration`       | Registration     | 🚧 PatientDashboard + KunjunganDetail ✅, board belum |
 | `/ehis-dashboard`          | Dashboard        | 🔧 Scaffold (belum dibangun)    |
-| `/ehis-billing`            | Billing Kasir    | 🔧 Scaffold (belum dibangun)    |
+| `/ehis-billing`            | Billing Kasir    | 🔧 Scaffold — roadmap BL0–BL9 di [TODO-BILLING.md](TODO-BILLING.md) |
 | `/ehis-report`             | Reports          | 🔧 Scaffold (belum dibangun)    |
 | `/ehis-fhir`               | FHIR Integration | 📋 Planned (terpisah dari master) |
 
@@ -59,7 +60,7 @@ Frontend Phase 0–3 master sudah selesai 100%. Workload selanjutnya bisa dipili
 
 ### Modul Baru (frontend lanjutan)
 - [ ] **`ehis-dashboard`** — stats cards (pasien hari ini per unit IGD/RI/RJ) + BOR chart + recent activity feed + quick-nav ke modul lain.
-- [ ] **`ehis-billing`** Kasir — invoice per kunjungan + rincian + status pembayaran + print struk.
+- [ ] **`ehis-billing`** Kasir — invoice per kunjungan + rincian + status pembayaran + print struk + klaim BPJS/Asuransi. **Roadmap lengkap di [TODO-BILLING.md](TODO-BILLING.md)** (40 task, fase BL0–BL9).
 - [ ] **`ehis-registration`** board + form pendaftaran pasien baru.
 - [ ] **`ehis-report`** — laporan per periode + export Excel/PDF.
 - [ ] **`ehis-fhir`** — modul integrasi SatuSehat (kredensial · sync resource · NIK lookup · sync log · conflict resolution).
