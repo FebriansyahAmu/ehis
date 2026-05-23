@@ -6,7 +6,7 @@
 >
 > **Last updated:** 2026-05-23
 > **Estimasi total:** ~6 minggu (Phase 0–3)
-> **Status global:** Phase 0 — Foundation (belum dimulai)
+> **Status global:** Phase 2 — Kategori A (Skala Risiko/Umum/Penyakit + Triase IGD) ✅ Selesai
 
 ---
 
@@ -41,41 +41,33 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
 
 **Acceptance:** ✅ Bisa import `<MasterPageLayout>` + `useMasterCrud()` dari `@/components/master/shared` dan compose halaman master baru dengan ~80 lines orchestrator + 3-5 tab files. Total 9 file (1946 lines), terbesar 395 lines (FormPrimitives), jauh di bawah 800 limit. TypeScript clean.
 
-### 0.2 Refactor 4 katalog existing ke template layer
+### 0.2 Refactor 4 katalog existing ke template layer ✅ Selesai (2026-05-23)
 
-- [ ] **Katalog Obat** — replace `KatalogObatPage` orchestrator + local FormPrimitives → pakai shared
-- [ ] **Katalog Tindakan** — sama
-- [ ] **Katalog Laboratorium** — sama
-- [ ] **Katalog Radiologi** — sama (yang baru dibuat, paling fresh, paling mudah)
+- [x] **Katalog Radiologi** ✅ (blueprint refactor — paling fresh) — `KatalogRadiologiPage` 229→91 (-60%), `RadiologiDetail` 194→137 (-29%), `RadiologiList` 259→210 (-19%), `RadiologiEmptyState` 54→24 (-55%), `FormPrimitives` 244→**deleted**. 3 tab files (Identitas/PersiapanDRL/ReportingTemplate) di-update import path `../FormPrimitives` → `@/components/master/shared`. Accent `rose`. Total 980 → 462 lines (**-53%**).
+- [x] **Katalog Laboratorium** ✅ — `KatalogLabPage` 226→90 (-60%), `LabItemDetail` 190→132 (-30%), `LabItemList` 245→209 (-15%), `LabItemEmptyState` 31→24 (-23%). Tabs (LabIdentitas/NilaiRujukan/DeltaKritis) sudah custom — tidak perlu update. Accent `sky`. Total 692 → 455 lines (**-34%**).
+- [x] **Katalog Tindakan** ✅ — `KatalogTindakanPage` 229→96 (-58%), `TindakanDetail` 419→114 (-73%, **split** ke `tabs/TindakanIdentitasTab.tsx` 144 + `tabs/TindakanRelasiTab.tsx` 146), `TindakanList` 257→203 (-21%), `TindakanEmptyState` 53→24 (-55%). Tab state di-lift dari Detail ke Page (konsisten pattern Radiologi/Lab). Tabs pakai shared FormPrimitives. Accent `teal`. Total 958 → 727 lines (**-24%**, includes 290 baris baru di tabs/).
+- [x] **Katalog Obat** ✅ — `KatalogObatPage` 231→95 (-59%), `ObatDetail` 228→154 (-32%), `ObatList` 287→209 (-27%), `ObatEmptyState` 70→24 (-66%), `FormPrimitives` 207→**deleted**. Tab state di-lift dari Detail ke Page. 4 tab files (Identitas/Klasifikasi/Klinis/Harga) di-update import path. 6 `ToggleSwitch checked=` → `value=` (shared API). Accent `violet`. Total 1023 → 482 lines non-tabs (**-53%**).
 
-**Acceptance:** 4 katalog masih jalan persis sama, tapi code 30-40% lebih ringkas. Tidak ada regresi visual.
+**Acceptance:** ✅ 4 katalog masih jalan persis sama. TypeScript clean across all files. Total non-shared/non-tabs: **3653 → 2126 lines (-42%, -1527 baris)**. Largest file 237 lines (KlasifikasiTab di Obat), jauh di bawah 800 limit. 2 file `FormPrimitives.tsx` lokal (~450 lines) dihapus — single source of truth di `@/components/master/shared`. Pattern blueprint sudah teruji di 4 katalog dengan accent berbeda (rose/sky/teal/violet) — siap pakai untuk 13 master baru di Phase 2.
 
 ---
 
-## Phase 1 — Refactor Wiring (consume master existing)
+## Phase 1 — Refactor Wiring (consume master existing) ✅ Selesai (2026-05-23)
 
-**Effort:** ~1 minggu · **ROI:** -200 lines hardcoded, satu sumber kebenaran
+**Effort:** Selesai · **ROI:** -250+ lines hardcoded, satu sumber kebenaran untuk 6 area
 
-- [ ] **R1: IGD `TindakanTab` → Katalog Tindakan** — replace [TindakanTab.tsx:32](src/components/igd/tabs/TindakanTab.tsx#L32) `CATALOG` (25 item ICD-9-CM hardcoded) dengan `TINDAKAN_MOCK` dari `lib/master/tindakanMock.ts`
-- [ ] **R2: OrderLabTab → Katalog Lab** — replace [OrderLabTab.tsx:82](src/components/shared/medical-records/OrderLabTab.tsx#L82) `LAB_CATALOG` (~50 item) dengan `LAB_KATALOG_MOCK` dari `lib/master/labCatalogMock.ts`. Dipakai IGD + RI + RJ via shared.
-- [ ] **R3: OrderRadTab → Katalog Radiologi** — replace [OrderRadTab.tsx:89](src/components/shared/medical-records/OrderRadTab.tsx#L89) `RAD_CATALOG` (~60 item) dengan `RAD_KATALOG_MOCK` dari `lib/master/radCatalogMock.ts`. Dipakai IGD + RI + RJ via shared.
-- [ ] **R4: Shift configs unify → Profil RS** — 7 file punya duplicate SHIFT_CFG/SHIFT_CLS:
-  - [ ] `rawat-inap/tabs/handover/handoverShared.ts:6`
-  - [ ] `rawat-inap/ppiIsolasi/ppiIsolasiShared.ts:11`
-  - [ ] `shared/medical-records/TTVTab.tsx:204`
-  - [ ] `rawat-inap/tabs/intakeOutput/ioShared.ts:9`
-  - [ ] `shared/medical-records/mar/marShared.ts:7`
-  - [ ] `shared/medical-records/keperawatan/AsuhanCard.tsx:16`
-  - [ ] `shared/medical-records/keperawatanShared.ts`
-  - Single source: `lib/master/rsProfilStore.ts` → `RS_PROFIL.shift`
-- [ ] **R5: SMF → Master Dokter Spesialis** — replace [konsultasiShared.ts:42](src/components/shared/medical-records/konsultasi/konsultasiShared.ts#L42) `SMF_LIST` (23 SMF) — derive dari `SPESIALIS_LABEL` di `dokterShared.ts` + tambah subkategori bedah jika perlu
-- [ ] **R6: RUTE_OBAT unify → Katalog Obat** — 3 duplicate:
-  - [ ] `shared/asesmen/asesmenShared.ts:176`
-  - [ ] `igd/tabs/AsesmenMedisTab.tsx:549`
-  - [ ] `katalog-obat/katalogObatShared.ts` `RutePemberian` type
-  - Single source: tipe `RutePemberian` di katalog-obat
+- [x] **R1: IGD `TindakanTab` → Katalog Tindakan** ✅ — replace [TindakanTab.tsx:32](src/components/igd/tabs/TindakanTab.tsx#L32) `CATALOG` (25 item hardcoded) dengan derivation dari `TINDAKAN_MOCK` di `lib/master/tindakanMock.ts`. Adapter `IGD_KATEGORI_MAP` map 11 enum master → 4 display kategori IGD (Diagnostik/Terapi/Prosedur; Radiologi & Laboratorium dihapus karena seharusnya di-order via DaftarOrderTab, bukan dicatat sebagai tindakan). −50 lines hardcoded.
+- [x] **R2: OrderLabTab → Katalog Lab** ✅ — replace [OrderLabTab.tsx](src/components/shared/medical-records/OrderLabTab.tsx) `LAB_CATALOG` (46 item) dengan derivation dari `LAB_KATALOG_MOCK` di `lib/master/labCatalogMock.ts`. Helper `DEFAULT_WAKTU_TUNGGU` per kategori untuk item master tanpa `waktuTunggu` field. Dipakai IGD + RI + RJ via shared. −50 lines hardcoded.
+- [x] **R3: OrderRadTab → Katalog Radiologi** ✅ — replace [OrderRadTab.tsx](src/components/shared/medical-records/OrderRadTab.tsx) `RAD_CATALOG` (38 item) dengan derivation dari `RAD_KATALOG_MOCK` di `lib/master/radCatalogMock.ts`. Adapter `MODALITAS_DISPLAY_MAP` map 8 master modalitas → 5 display lokal (Mammografi/DEXA → X-Ray, Intervensi → Fluoroskopi). Helper `formatTAT()` (menit→jam) + `summarizePersiapan()` (puasa+premedikasi+instruksi). Dipakai IGD + RI + RJ via shared. −60 lines hardcoded.
+- [x] **R4: Shift configs unify → Profil RS** ✅ — pendekatan **selective unify**: HOURS & DETECTION → single source di `rsProfilStore.ts`, VISUAL CFGs tetap per-context (intentional varian, bukan duplikasi).
+  - **Tambah ke `lib/master/rsProfilStore.ts`**: `detectShiftFromMinute()` · `getCurrentShift()` · `detectShiftFromJam()` — semua membaca `RS_PROFIL.shift` jam (07:00-14:59 / 15:00-21:59 / 22:00-06:59)
+  - **Refactor `ppiIsolasiShared.ts:currentShift()`** → delegasi ke `getCurrentShift()`. `Shift` type sekarang re-export `ShiftKey` dari rsProfilStore.
+  - **Refactor `ioShared.ts:detectShift()`** → delegasi ke `detectShiftFromJam()` (sebelumnya pakai batas 07/14/21, sekarang seragam 07/15/22)
+  - **Tidak diubah**: `mar/marShared.ts:SHIFT_CFG` · `handover/handoverShared.ts:SHIFT_CONFIG` · `TTVTab.tsx:SHIFT_CLS` — semua punya field berbeda untuk kebutuhan UI berbeda (amber/sky/indigo vs amber/sky/violet vs simple cls). Inilah varian visual yang valid, bukan duplikasi data.
+- [x] **R5: SMF → derive dari SPESIALIS_LABEL Dokter** ✅ — replace [konsultasiShared.ts:42](src/components/shared/medical-records/konsultasi/konsultasiShared.ts#L42) `SMF_LIST` hardcoded (23 entry) dengan 2-tier derivation: **(1)** `SMF_FROM_DOKTER` map 16 `SpesialisCode` → SMF entry (auto-sync dari master); **(2)** `SMF_EXTENSION` 10 sub-spesialis yang belum punya kode (Paru/Bedah Digestif/BTKV/Bedah Saraf/Bedah Plastik/Ortopedi/Rehab Medik/Gizi Klinik/Farmasi Klinik/Onkologi Medik). Saat dokter master diperluas → pindahkan entry dari SMF_EXTENSION ke SPESIALIS_LABEL.
+- [x] **R6: RUTE_OBAT unify → Katalog Obat** ✅ — single source di [obatMock.ts](src/lib/master/obatMock.ts) `RUTE_LABELS` (derived dari `RUTE_CFG[r].label` + `RUTE_ORDER` array). `asesmenShared.ts` sekarang `export { RUTE_LABELS as RUTE_OBAT } from "@/lib/master/obatMock"`. `igd/tabs/AsesmenMedisTab.tsx` hapus local `RUTE_OBAT` array → import dari asesmenShared. 3 lokasi sekarang single source.
 
-**Acceptance:** Workflow lab/rad/tindakan masih jalan sama, tapi data diambil dari master. Shift labels seragam lintas 7 file.
+**Acceptance:** ✅ Workflow lab/rad/tindakan masih jalan sama, tapi data 100% dari master. Shift detection seragam lintas RI/PPI (07/15/22). SMF konsultasi auto-sync saat dokter master diperluas. RUTE_OBAT single source di katalog-obat. **TypeScript clean across all changed files.** Total estimated: ~250+ lines hardcoded dihapus / di-replace dengan derivation pattern.
 
 ---
 
@@ -83,58 +75,62 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
 
 **Effort:** 3-4 minggu (asumsi 1 master/hari dengan template) · **Output:** 13 halaman master baru
 
-### Kategori A — Klinis Penilaian (4 master, prioritas tinggi)
+### Kategori A — Klinis Penilaian (4 master, prioritas tinggi) ✅ Selesai (2026-05-23)
 
-#### 2.1 Master Skala Risiko — `/ehis-master/skala-risiko`
-**Konsumen:** IGD `PenilaianTab` · RI `PenilaianRisikoPane` · RJ skrining
+**Refactor shared layer (2026-05-23):** karena 3 master skala (Risiko/Umum/Penyakit) punya struktur data identik (items + opsi skor + interpretasi), schema diekstrak ke `lib/master/skalaCommon.ts` dan components diekstrak ke `components/master/skala-shared/` (SkalaList · SkalaDetail · SkalaEmptyState · 3 tabs). 3 master page jadi thin wrapper ~110 lines yang pass `accent` + branded classes + copy. Triase IGD struktur beda (matrix level × parameter), terisolasi di folder sendiri.
 
-- [ ] Schema `lib/master/skalaRisikoMock.ts`: `SkalaRisikoRecord` dengan items (label + scoring options + maxScore) + interpretasi (threshold + action)
-- [ ] 5 skala mock:
-  - [ ] **Barthel Index** (ADL) — 10 items, 5-tier interpretasi
-  - [ ] **Morse Fall Scale** (risiko jatuh) — 6 items, 3-tier
-  - [ ] **Braden Scale** (risiko dekubitus, inverse) — 6 items, 5-tier
-  - [ ] **NRS Pain Scale** (0–10) — 11 level labels
-  - [ ] **MUST** (skrining gizi) — 3 pertanyaan, 3-tier
-- [ ] Components: `KatalogSkalaRisikoPage.tsx` + `SkalaRisikoList.tsx` + `SkalaRisikoDetail.tsx` + tabs (Identitas/Items/Interpretasi)
-- [ ] Sumber hardcoded yang di-replace:
-  - [ ] `rawat-inap/asesmenAwal/asesmenAwalShared.ts:62-142`
-  - [ ] `igd/tabs/PenilaianTab.tsx:481-665` (Morse/Braden/Barthel duplicate)
+#### 2.1 Master Skala Risiko — `/ehis-master/skala-risiko` ✅ (2026-05-23)
+**Konsumen:** IGD `PenilaianTab` · RI `PenilaianRisikoPane` · RJ skrining · Accent **teal**
 
-#### 2.2 Master Skala Umum — `/ehis-master/skala-umum`
-**Konsumen:** TTVTab (semua modul) · StatusFisikPane · IGD Triase preview
+- [x] Schema `lib/master/skalaCommon.ts` (shared) + `lib/master/skalaRisikoMock.ts` (alias + mock 5 skala)
+- [x] 5 skala mock tervalidasi:
+  - [x] **Barthel Index** (ADL) — 10 items, 6-tier interpretasi (Mandiri Penuh → Ketergantungan Penuh)
+  - [x] **Morse Fall Scale** (risiko jatuh) — 6 items, 3-tier (Rendah/Sedang/Tinggi)
+  - [x] **Braden Scale** (risiko dekubitus, INVERSE) — 6 items, 5-tier
+  - [x] **NRS Pain Scale** (0–10) — `select_value` mode, 11 opsi nilai, 4-tier (Tidak/Ringan/Sedang/Berat)
+  - [x] **MUST** (skrining gizi) — 3 items, 3-tier (Rendah/Sedang/Tinggi)
+- [x] Components: `SkalaRisikoPage.tsx` thin wrapper → consume `skala-shared/{SkalaList,SkalaDetail,SkalaEmptyState}`
+- [x] **Sumber hardcoded yang siap di-replace** (kerjakan saat backend ready):
+  - [ ] `rawat-inap/asesmenAwal/asesmenAwalShared.ts:62-142` — BARTHEL_ITEMS · MORSE_ITEMS · BRADEN_ITEMS
+  - [ ] `igd/tabs/PenilaianTab.tsx:481-665` — duplicate Morse/Braden/Barthel
 
-- [ ] Schema: similar Skala Risiko tapi lebih sederhana (kategori label + threshold)
-- [ ] 5 skala mock:
-  - [ ] **GCS** (Glasgow Coma Scale) — Eye/Verbal/Motor + total interpretasi
-  - [ ] **Tingkat Kesadaran Klinis** — Compos Mentis/Apatis/Delirium/Somnolen/Sopor/Koma (6 level)
-  - [ ] **Keadaan Umum (KU)** — Baik/Sedang/Berat/Kritis (4 level)
-  - [ ] **NEWS2** — National Early Warning Score 2 (param: RR/SpO2/Suhu/TD/HR/Kesadaran)
-  - [ ] **MEWS** — Modified Early Warning Score
-- [ ] Sumber hardcoded:
-  - [ ] `shared/medical-records/TTVTab.tsx:175-183`
-  - [ ] `rawat-inap/tabs/pemeriksaan/StatusFisikPane.tsx:14-16`
+#### 2.2 Master Skala Umum — `/ehis-master/skala-umum` ✅ (2026-05-23)
+**Konsumen:** TTVTab (semua modul) · StatusFisikPane · IGD Triase preview · Accent **sky**
 
-#### 2.3 Master Skala Penyakit — `/ehis-master/skala-penyakit`
-**Konsumen:** IGD `PenilaianTab` JantungPanel + OnkoPanel
+- [x] `lib/master/skalaUmumMock.ts` pakai `SkalaRecord` dari `skalaCommon.ts` (zero duplikasi types)
+- [x] 5 skala mock:
+  - [x] **GCS** (Glasgow Coma Scale) — Eye/Verbal/Motor sum 3-15, 3-tier (Berat/Sedang/Ringan)
+  - [x] **Tingkat Kesadaran Klinis** — 6 level (Compos Mentis/Apatis/Delirium/Somnolen/Sopor/Koma), `select_value`
+  - [x] **Keadaan Umum (KU)** — 4 level (Baik/Sedang/Berat/Kritis), `select_value`
+  - [x] **NEWS2** — 7 parameter (RR/SpO2/O2/Suhu/TD/HR/Kesadaran) sum, 4-tier risk
+  - [x] **MEWS** — 5 parameter sum, 3-tier risk
+- [x] `SkalaUmumPage.tsx` thin wrapper accent sky
+- [x] **Sumber hardcoded** (siap replace saat backend ready):
+  - [ ] `shared/medical-records/TTVTab.tsx:175-183` — KESADARAN_LABEL
+  - [ ] `rawat-inap/tabs/pemeriksaan/StatusFisikPane.tsx:14-16` — KU/KESADARAN/GIZI options
 
-- [ ] Schema dengan sub-kategori per spesialisasi (Kardio · Onko · Neuro · etc)
-- [ ] Skala mock:
-  - [ ] **Kardiologi:** Killip Class (I-IV) + NYHA (I-IV) + TIMI Score (7 items)
-  - [ ] **Onkologi:** ECOG Performance Status (0-5) + TNM Staging (T0-T4 / N0-N3 / M0-M1) + Stadium (0-IV) + Histologi opts + Lateralitas + Grade
-  - [ ] **Lainnya** (placeholder untuk skala specialty lain — Neuro mRS, Endo HbA1c target, dll)
-- [ ] Sumber hardcoded:
-  - [ ] `igd/tabs/PenilaianTab.tsx:685-707` (kardio)
-  - [ ] `igd/tabs/PenilaianTab.tsx:933-946` (onko)
+#### 2.3 Master Skala Penyakit — `/ehis-master/skala-penyakit` ✅ (2026-05-23)
+**Konsumen:** IGD `PenilaianTab` JantungPanel + KankerPanel · Accent **violet**
 
-#### 2.4 Master Triase IGD — `/ehis-master/triase-igd`
-**Konsumen:** IGD `TriaseTab` + `TriaseModal` · IGD Board urgensi indicator
+- [x] `lib/master/skalaPenyakitMock.ts` pakai `SkalaRecord` dari common
+- [x] Skala mock (5 entry lintas spesialisasi):
+  - [x] **Kardiologi:** Killip Class (I-IV) · NYHA (I-IV) · TIMI Risk Score 7 items
+  - [x] **Onkologi:** ECOG Performance Status (0-5) · Stadium Kanker AJCC 8th ed. (0/I/II/III/IV variants)
+  - [ ] TNM Staging detail (T/N/M sub-pick) — di-defer; saat ini stadium tunggal sudah cukup, TNM full grid bisa dikerjakan terpisah saat dibutuhkan klinis
+- [x] `SkalaPenyakitPage.tsx` thin wrapper accent violet
+- [x] **Sumber hardcoded** (siap replace):
+  - [ ] `igd/tabs/PenilaianTab.tsx:685-707` (kardio: KILLIP_ITEMS/NYHA_ITEMS/TIMI_ITEMS)
+  - [ ] `igd/tabs/PenilaianTab.tsx:933-946` (onko: ECOG_ITEMS/STADIUM_OPTS)
 
-- [ ] Schema: `TriaseLevel` (5-6 level: Resusitasi/Emergency/Urgent/Less Urgent/Non Urgent/DOA) + matrix criteria per parameter
-- [ ] Mock content:
-  - [ ] 6 level dengan warna + waktu respons (Segera/<10mnt/<30mnt/<60mnt/<120mnt/Verifikasi)
-  - [ ] 8 parameter kriteria: Airway · Breathing/RR · Sirkulasi/TD · Nadi · Kesadaran/GCS · Skala Nyeri VAS · Waktu Respons · Contoh Kasus
-- [ ] UI: Matrix table (parameter × level) inline editable, atau two-panel: kiri level list + kanan kriteria editor per level
-- [ ] Sumber: [TriaseTab.tsx:178-208](src/components/igd/tabs/TriaseTab.tsx#L178)
+#### 2.4 Master Triase IGD — `/ehis-master/triase-igd` ✅ (2026-05-23)
+**Konsumen:** IGD `TriaseTab` + `TriaseModal` · IGD Board urgensi indicator · Accent **amber**
+
+- [x] `lib/master/triaseMock.ts` — `TriaseRecord` (levels[] + parameters[] dengan `values: Record<levelKode, string>`), `TRIASE_TONE_CFG` 7 tone (red-dark/rose/amber/emerald/sky/slate/violet), `isTriaseValid`, helpers
+- [x] 1 mock protokol default ("Protokol Triase IGD RS"):
+  - [x] 6 level: Resusitasi/Emergency/Urgent/Less Urgent/Non Urgent/DOA + responsTime per level
+  - [x] 8 parameter: Airway · Breathing · Sirkulasi · Nadi · Kesadaran · Nyeri · Waktu Respons · Contoh Kasus
+- [x] Components: `TriaseIGDPage` + `TriaseList` (color-stripe badges per level) + `TriaseDetail` 2-tab (Identitas + Matrix) + `MatrixTab` (sticky header + sticky first col, level editor collapsible dengan tone swatch picker, inline textarea cells)
+- [x] **Sumber hardcoded** (siap replace): [TriaseTab.tsx:178-298](src/components/igd/tabs/TriaseTab.tsx#L178) — COL_HEADERS + CRITERIA_ROWS
 
 ### Kategori B — Reference Klinis (3 master)
 
@@ -300,11 +296,13 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
 
 | Phase | Tasks | Done | % |
 |---|---|---|---|
-| Phase 0 — Foundation | 7 | 0 | 0% |
-| Phase 1 — Refactor | 6 | 0 | 0% |
-| Phase 2 — Master Baru | 13 | 0 | 0% |
+| Phase 0 — Foundation | 7 | 7 | 100% |
+| Phase 1 — Refactor | 6 | 6 | 100% |
+| Phase 2 — Master Baru | 13 | 4 | 31% |
 | Phase 3 — Polish | 4 | 0 | 0% |
-| **Total** | **30** | **0** | **0%** |
+| **Total** | **30** | **17** | **57%** |
+
+**Phase 2 progress:** Kategori A (Klinis Penilaian) ✅ 4/4. Berikutnya: Kategori B (ICD-10 · Asesmen Katalog · SDKI/SIKI/SLKI), C (Status Enum · Template Anamnesis · Template Form), D (Workflow Edukasi · Discharge · Operasional).
 
 ---
 

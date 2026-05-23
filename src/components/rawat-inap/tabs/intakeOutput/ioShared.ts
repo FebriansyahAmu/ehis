@@ -1,4 +1,10 @@
 // ── Intake / Output — shared constants + helpers ──────────
+//
+// Note: `detectShift()` di-delegasi ke Master Profil RS supaya batas
+// shift seragam lintas modul (sebelumnya RI pakai 07/14/21 sedangkan
+// PPI pakai 07/15/22 — inkonsisten).
+
+import { detectShiftFromJam, type ShiftKey } from "@/lib/master/rsProfilStore";
 
 export function calcIWL(bb: number, suhu: number): number {
   const basal   = bb * 10;
@@ -6,11 +12,8 @@ export function calcIWL(bb: number, suhu: number): number {
   return Math.round(basal + koreksi);
 }
 
-export function detectShift(jam: string): "Pagi" | "Siang" | "Malam" {
-  const h = parseInt(jam.slice(0, 2), 10);
-  if (h >= 7 && h < 14) return "Pagi";
-  if (h >= 14 && h < 21) return "Siang";
-  return "Malam";
+export function detectShift(jam: string): ShiftKey {
+  return detectShiftFromJam(jam);
 }
 
 export function fmtVol(mL: number): string {

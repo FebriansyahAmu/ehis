@@ -9,6 +9,7 @@ import {
   Syringe, BarChart3, Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LAB_KATALOG_MOCK } from "@/lib/master/labCatalogMock";
 
 // ── Normalized patient interface ──────────────────────────
 
@@ -36,6 +37,17 @@ interface LabTest {
   satuan?: string;
   nilaiNormal?: string;
 }
+
+/** Default TAT per kategori untuk item master yang tidak punya `waktuTunggu`. */
+const DEFAULT_WAKTU_TUNGGU: Record<KategoriLab, string> = {
+  Hematologi:          "30 mnt",
+  "Kimia Klinik":      "1 jam",
+  Urinalisis:          "30 mnt",
+  Mikrobiologi:        "2–3 hari",
+  Serologi:            "2 jam",
+  Koagulasi:           "1 jam",
+  "Analisa Gas Darah": "30 mnt",
+};
 
 interface OrderItem {
   id: string;
@@ -77,57 +89,21 @@ interface ActiveOrder {
   items: OrderItem[];
 }
 
-// ── Mock catalog ──────────────────────────────────────────
+// ── Catalog (derived dari Master Katalog Laboratorium) ────
+//
+// Source-of-truth: src/lib/master/labCatalogMock.ts (LAB_KATALOG_MOCK).
+// Hanya item dengan status "Aktif" yang ditampilkan. Item tanpa
+// `waktuTunggu` di master pakai default per kategori (DEFAULT_WAKTU_TUNGGU).
 
-const LAB_CATALOG: LabTest[] = [
-  { kode: "LAB-H001", nama: "Darah Lengkap (DL)", kategori: "Hematologi", waktuTunggu: "1–2 jam" },
-  { kode: "LAB-H002", nama: "Hemoglobin (Hb)", kategori: "Hematologi", waktuTunggu: "30 mnt" },
-  { kode: "LAB-H003", nama: "Hematokrit", kategori: "Hematologi", waktuTunggu: "30 mnt" },
-  { kode: "LAB-H004", nama: "Trombosit", kategori: "Hematologi", waktuTunggu: "30 mnt" },
-  { kode: "LAB-H005", nama: "Leukosit", kategori: "Hematologi", waktuTunggu: "30 mnt" },
-  { kode: "LAB-H006", nama: "Diff Count", kategori: "Hematologi", waktuTunggu: "1 jam" },
-  { kode: "LAB-H007", nama: "Retikulosit", kategori: "Hematologi", waktuTunggu: "2 jam" },
-  { kode: "LAB-K001", nama: "GDS (Gula Darah Sewaktu)", kategori: "Kimia Klinik", waktuTunggu: "15 mnt" },
-  { kode: "LAB-K002", nama: "GDP (Gula Darah Puasa)", kategori: "Kimia Klinik", waktuTunggu: "15 mnt" },
-  { kode: "LAB-K003", nama: "HbA1c", kategori: "Kimia Klinik", waktuTunggu: "2 jam" },
-  { kode: "LAB-K004", nama: "Ureum / BUN", kategori: "Kimia Klinik", waktuTunggu: "1 jam" },
-  { kode: "LAB-K005", nama: "Kreatinin", kategori: "Kimia Klinik", waktuTunggu: "1 jam" },
-  { kode: "LAB-K006", nama: "SGOT / AST", kategori: "Kimia Klinik", waktuTunggu: "1 jam" },
-  { kode: "LAB-K007", nama: "SGPT / ALT", kategori: "Kimia Klinik", waktuTunggu: "1 jam" },
-  { kode: "LAB-K008", nama: "Natrium (Na)", kategori: "Kimia Klinik", waktuTunggu: "1 jam" },
-  { kode: "LAB-K009", nama: "Kalium (K)", kategori: "Kimia Klinik", waktuTunggu: "1 jam" },
-  { kode: "LAB-K010", nama: "Klorida (Cl)", kategori: "Kimia Klinik", waktuTunggu: "1 jam" },
-  { kode: "LAB-K011", nama: "Kolesterol Total", kategori: "Kimia Klinik", waktuTunggu: "1 jam" },
-  { kode: "LAB-K012", nama: "Trigliserida", kategori: "Kimia Klinik", waktuTunggu: "1 jam" },
-  { kode: "LAB-K013", nama: "HDL Kolesterol", kategori: "Kimia Klinik", waktuTunggu: "1 jam" },
-  { kode: "LAB-K014", nama: "LDL Kolesterol", kategori: "Kimia Klinik", waktuTunggu: "1 jam" },
-  { kode: "LAB-K015", nama: "Asam Urat", kategori: "Kimia Klinik", waktuTunggu: "1 jam" },
-  { kode: "LAB-K016", nama: "Protein Total", kategori: "Kimia Klinik", waktuTunggu: "1 jam" },
-  { kode: "LAB-K017", nama: "Albumin", kategori: "Kimia Klinik", waktuTunggu: "1 jam" },
-  { kode: "LAB-K018", nama: "Troponin I / T", kategori: "Kimia Klinik", waktuTunggu: "30 mnt" },
-  { kode: "LAB-K019", nama: "CK-MB", kategori: "Kimia Klinik", waktuTunggu: "1 jam" },
-  { kode: "LAB-K020", nama: "BNP / NT-proBNP", kategori: "Kimia Klinik", waktuTunggu: "2 jam" },
-  { kode: "LAB-K021", nama: "D-Dimer", kategori: "Kimia Klinik", waktuTunggu: "2 jam" },
-  { kode: "LAB-K022", nama: "CRP (C-Reactive Protein)", kategori: "Kimia Klinik", waktuTunggu: "2 jam" },
-  { kode: "LAB-K023", nama: "Procalcitonin (PCT)", kategori: "Kimia Klinik", waktuTunggu: "2 jam" },
-  { kode: "LAB-U001", nama: "Urinalisis Lengkap", kategori: "Urinalisis", waktuTunggu: "30 mnt" },
-  { kode: "LAB-U002", nama: "Sedimen Urin", kategori: "Urinalisis", waktuTunggu: "45 mnt" },
-  { kode: "LAB-U003", nama: "Protein Urin Kuantitatif", kategori: "Urinalisis", waktuTunggu: "1 jam" },
-  { kode: "LAB-M001", nama: "Kultur Darah (Blood Culture)", kategori: "Mikrobiologi", waktuTunggu: "3–5 hari" },
-  { kode: "LAB-M002", nama: "Kultur Urin", kategori: "Mikrobiologi", waktuTunggu: "2–3 hari" },
-  { kode: "LAB-M003", nama: "Gram Staining", kategori: "Mikrobiologi", waktuTunggu: "2 jam" },
-  { kode: "LAB-S001", nama: "Widal Test", kategori: "Serologi", waktuTunggu: "2 jam" },
-  { kode: "LAB-S002", nama: "HBsAg", kategori: "Serologi", waktuTunggu: "2 jam" },
-  { kode: "LAB-S003", nama: "Anti HCV", kategori: "Serologi", waktuTunggu: "2 jam" },
-  { kode: "LAB-S004", nama: "HIV Rapid Test", kategori: "Serologi", waktuTunggu: "1 jam" },
-  { kode: "LAB-S005", nama: "Dengue NS1 / IgM / IgG", kategori: "Serologi", waktuTunggu: "2 jam" },
-  { kode: "LAB-C001", nama: "PT (Prothrombin Time)", kategori: "Koagulasi", waktuTunggu: "1 jam" },
-  { kode: "LAB-C002", nama: "APTT", kategori: "Koagulasi", waktuTunggu: "1 jam" },
-  { kode: "LAB-C003", nama: "INR", kategori: "Koagulasi", waktuTunggu: "1 jam" },
-  { kode: "LAB-C004", nama: "Fibrinogen", kategori: "Koagulasi", waktuTunggu: "2 jam" },
-  { kode: "LAB-A001", nama: "Analisa Gas Darah (AGD)", kategori: "Analisa Gas Darah", waktuTunggu: "30 mnt" },
-  { kode: "LAB-A002", nama: "Laktat", kategori: "Analisa Gas Darah", waktuTunggu: "30 mnt" },
-];
+const LAB_CATALOG: LabTest[] = LAB_KATALOG_MOCK
+  .filter((i) => (i.status ?? "Aktif") === "Aktif")
+  .map((i) => ({
+    kode: i.kode,
+    nama: i.nama,
+    kategori: i.kategori as KategoriLab,
+    waktuTunggu: i.waktuTunggu || DEFAULT_WAKTU_TUNGGU[i.kategori as KategoriLab] || "1 jam",
+    satuan: i.satuan,
+  }));
 
 // ── Mock active orders per patient ────────────────────────
 

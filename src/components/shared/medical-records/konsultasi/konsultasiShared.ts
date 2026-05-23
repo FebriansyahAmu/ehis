@@ -1,3 +1,5 @@
+import { SPESIALIS_LABEL, type SpesialisCode } from "@/components/master/dokter/dokterShared";
+
 export type UrgencyKonsultasi = "CITO" | "Urgen" | "Rutin";
 export type StatusKonsultasi = "Terkirim" | "Diterima" | "Dijawab" | "Selesai" | "Ditolak";
 
@@ -38,30 +40,63 @@ export interface KonsultasiItem {
 }
 
 // ── SMF List ──────────────────────────────────────────────
+//
+// Primary entries: derived dari `SPESIALIS_LABEL` di Master Dokter
+// (single source of truth untuk spesialisasi yang punya SpesialisCode).
+//
+// Extension entries: sub-spesialis bedah & layanan klinik yang belum
+// di-model di dokter master (Bedah Digestif, BTKV, Bedah Saraf, Bedah
+// Plastik, Rehab Medik, Gizi Klinik, Farmasi Klinik, Onkologi Medik).
+// Saat dokter master diperluas, pindahkan entri ini ke SPESIALIS_LABEL
+// dan hapus dari `SMF_EXTENSION`.
 
-export const SMF_LIST: SmfOption[] = [
-  { id: "ipd",      nama: "Penyakit Dalam",                  singkatan: "IPD" },
-  { id: "bedah",    nama: "Bedah Umum",                      singkatan: "BDH" },
-  { id: "kardio",   nama: "Kardiologi",                      singkatan: "KAR" },
-  { id: "neuro",    nama: "Neurologi",                       singkatan: "NEU" },
+const SMF_FROM_DOKTER: Record<SpesialisCode, { id: string; singkatan: string; nama: string }> = {
+  Umum:  { id: "umum",     singkatan: "UMU", nama: "Dokter Umum" },
+  SpPD:  { id: "ipd",      singkatan: "IPD", nama: "Penyakit Dalam" },
+  SpB:   { id: "bedah",    singkatan: "BDH", nama: "Bedah Umum" },
+  SpJP:  { id: "kardio",   singkatan: "KAR", nama: "Kardiologi" },
+  SpS:   { id: "neuro",    singkatan: "NEU", nama: "Neurologi" },
+  // Paru — belum ada SpP code di SPESIALIS_LABEL; entry tetap di extension.
+  SpOG:  { id: "obgyn",    singkatan: "OBG", nama: "Obstetri & Ginekologi" },
+  SpA:   { id: "anak",     singkatan: "ANK", nama: "Anak (Pediatri)" },
+  SpTHT: { id: "tht",      singkatan: "THT", nama: "THT – Kepala Leher" },
+  SpM:   { id: "mata",     singkatan: "MAT", nama: "Mata (Oftalmologi)" },
+  SpKK:  { id: "kulit",    singkatan: "KUL", nama: "Kulit & Kelamin" },
+  SpU:   { id: "urologi",  singkatan: "URO", nama: "Urologi" },
+  SpAn:  { id: "anestesi", singkatan: "ANE", nama: "Anestesiologi & Terapi Intensif" },
+  SpKJ:  { id: "psikiatri",singkatan: "PSI", nama: "Kedokteran Jiwa (Psikiatri)" },
+  SpEM:  { id: "em",       singkatan: "EM",  nama: "Emergency Medicine" },
+  SpPK:  { id: "pk",       singkatan: "PK",  nama: "Patologi Klinik" },
+  SpRad: { id: "radiologi",singkatan: "RAD", nama: "Radiologi" },
+};
+
+/** Sub-spesialis & layanan klinik yang belum punya SpesialisCode tersendiri. */
+const SMF_EXTENSION: SmfOption[] = [
   { id: "paru",     nama: "Paru",                            singkatan: "PAR" },
   { id: "ortho",    nama: "Ortopedi & Traumatologi",         singkatan: "ORT" },
-  { id: "obgyn",    nama: "Obstetri & Ginekologi",           singkatan: "OBG" },
-  { id: "anak",     nama: "Anak (Pediatri)",                 singkatan: "ANK" },
-  { id: "tht",      nama: "THT – Kepala Leher",              singkatan: "THT" },
-  { id: "mata",     nama: "Mata (Oftalmologi)",              singkatan: "MAT" },
-  { id: "kulit",    nama: "Kulit & Kelamin",                 singkatan: "KUL" },
-  { id: "urologi",  nama: "Urologi",                         singkatan: "URO" },
   { id: "bedigif",  nama: "Bedah Digestif",                  singkatan: "BDG" },
   { id: "btkvs",    nama: "Bedah Thorax & Kardiovaskular",   singkatan: "BTV" },
   { id: "bsaraf",   nama: "Bedah Saraf (Neurosurgery)",      singkatan: "BSF" },
   { id: "bplastik", nama: "Bedah Plastik & Rekonstruksi",    singkatan: "BPL" },
-  { id: "anestesi", nama: "Anestesiologi & Terapi Intensif", singkatan: "ANE" },
   { id: "rm",       nama: "Rehabilitasi Medik",              singkatan: "RM"  },
-  { id: "psikiatri",nama: "Kedokteran Jiwa (Psikiatri)",     singkatan: "PSI" },
   { id: "gizi",     nama: "Gizi Klinik",                     singkatan: "GIZ" },
   { id: "farmasi",  nama: "Farmasi Klinik",                  singkatan: "FAR" },
   { id: "onko",     nama: "Onkologi Medik",                  singkatan: "ONK" },
+];
+
+/** Ambil entri SMF dari kode spesialis Master Dokter; fallback ke label master. */
+function smfFromCode(code: SpesialisCode): SmfOption {
+  const cfg = SMF_FROM_DOKTER[code];
+  if (cfg) return cfg;
+  return { id: code.toLowerCase(), nama: SPESIALIS_LABEL[code], singkatan: code.toUpperCase() };
+}
+
+export const SMF_LIST: SmfOption[] = [
+  // Skip "Umum" — bukan SMF kunsultan tetapi dokter umum.
+  ...(Object.keys(SMF_FROM_DOKTER) as SpesialisCode[])
+    .filter((c) => c !== "Umum")
+    .map(smfFromCode),
+  ...SMF_EXTENSION,
 ];
 
 // ── Config ────────────────────────────────────────────────

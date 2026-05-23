@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Info, Baby, User, AlertCircle, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ObatRecord } from "@/lib/master/obatMock";
-import { Field, TextArea, SectionGroup } from "../FormPrimitives";
+import { Field, TextArea, SectionGroup } from "@/components/master/shared";
 
 interface KlinisTabProps {
   draft: ObatRecord;

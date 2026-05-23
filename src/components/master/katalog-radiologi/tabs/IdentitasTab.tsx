@@ -9,7 +9,7 @@ import {
 } from "../katalogRadiologiShared";
 import {
   Field, TextInput, NumberInput, TextArea, Select, SectionGroup, ChipToggle,
-} from "../FormPrimitives";
+} from "@/components/master/shared";
 
 interface Props {
   draft: RadCatalogRecord;

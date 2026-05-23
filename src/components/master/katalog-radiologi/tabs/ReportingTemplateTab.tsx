@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { FileText, LayoutList, Eye, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RadCatalogRecord, ReportingTemplate } from "@/lib/master/radCatalogMock";
-import { Field, TextArea, SectionGroup } from "../FormPrimitives";
+import { Field, TextArea, SectionGroup } from "@/components/master/shared";
 
 interface Props {
   draft: RadCatalogRecord;

@@ -10,7 +10,7 @@ import {
 } from "@/lib/master/obatMock";
 import {
   Field, Select, ToggleSwitch, SectionGroup,
-} from "../FormPrimitives";
+} from "@/components/master/shared";
 
 interface KlasifikasiTabProps {
   draft: ObatRecord;
@@ -32,35 +32,35 @@ export default function KlasifikasiTab({ draft, onPatch }: KlasifikasiTabProps) 
       >
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <ToggleSwitch
-            checked={draft.isFormularium}
+            value={draft.isFormularium}
             onChange={(v) => onPatch({ isFormularium: v })}
             label="Formularium RS"
             desc="Termasuk formularium nasional / RS. Non-form perlu justifikasi."
             accent="emerald"
           />
           <ToggleSwitch
-            checked={draft.isHAM}
+            value={draft.isHAM}
             onChange={(v) => onPatch({ isHAM: v })}
             label="HAM (High-Alert Medication)"
             desc="Wajib double-check 2 petugas. Banner warning di resep."
             accent="rose"
           />
           <ToggleSwitch
-            checked={draft.isLASA ?? false}
+            value={draft.isLASA ?? false}
             onChange={(v) => onPatch({ isLASA: v, lasaPairIds: v ? draft.lasaPairIds : undefined })}
             label="LASA (Look-Alike Sound-Alike)"
             desc="Mirip dengan obat lain. Atur pasangan di bawah."
             accent="amber"
           />
           <ToggleSwitch
-            checked={draft.isColdChain ?? false}
+            value={draft.isColdChain ?? false}
             onChange={(v) => onPatch({ isColdChain: v })}
             label="Cold Chain (2-8°C)"
             desc="Butuh penyimpanan rantai dingin."
             accent="sky"
           />
           <ToggleSwitch
-            checked={draft.isRestricted ?? false}
+            value={draft.isRestricted ?? false}
             onChange={(v) => onPatch({ isRestricted: v })}
             label="Restricted"
             desc="Perlu approval DPJP / SpFK sebelum dispense."

@@ -26,6 +26,9 @@ import {
   Settings2,
   Landmark,
   Tag,
+  Gauge,
+  Activity,
+  Microscope,
   type LucideIcon,
 } from "lucide-react";
 
@@ -174,6 +177,15 @@ export const masterNav: readonly NavGroup[] = [
       { label: "Katalog Tindakan",     href: "/ehis-master/katalog-tindakan",   icon: Zap        },
       { label: "Katalog Laboratorium", href: "/ehis-master/katalog-lab",        icon: TestTube   },
       { label: "Katalog Radiologi",    href: "/ehis-master/katalog-radiologi",  icon: Radiation  },
+    ],
+  },
+  {
+    label: "Skala Klinis",
+    items: [
+      { label: "Skala Risiko",   href: "/ehis-master/skala-risiko",   icon: Gauge      },
+      { label: "Skala Umum",     href: "/ehis-master/skala-umum",     icon: Activity   },
+      { label: "Skala Penyakit", href: "/ehis-master/skala-penyakit", icon: Microscope },
+      { label: "Triase IGD",     href: "/ehis-master/triase-igd",     icon: Siren      },
     ],
   },
   {

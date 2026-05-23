@@ -9,6 +9,10 @@ import {
   Microscope, Layers, Zap, Check, Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  RAD_KATALOG_MOCK,
+  type RadModalitas,
+} from "@/lib/master/radCatalogMock";
 
 // ── Normalized patient interface ──────────────────────────
 
@@ -31,6 +35,18 @@ type ModalitasRad =
   | "USG"
   | "Fluoroskopi"
   | "Kedokteran Nuklir";
+
+/** Map master `RadModalitas` (8 opsi) ke `ModalitasRad` display lokal (6 opsi). */
+const MODALITAS_DISPLAY_MAP: Record<RadModalitas, ModalitasRad> = {
+  Konvensional: "X-Ray",
+  CT:           "CT Scan",
+  MRI:          "MRI",
+  USG:          "USG",
+  Fluoroskopi:  "Fluoroskopi",
+  Mammografi:   "X-Ray",
+  DEXA:         "X-Ray",
+  Intervensi:   "Fluoroskopi",
+};
 
 type StatusOrder = "Menunggu" | "Diterima" | "Diproses" | "Selesai" | "Dibatalkan";
 
@@ -84,61 +100,38 @@ interface ActiveOrder {
   items: OrderItem[];
 }
 
-// ── Mock catalog ──────────────────────────────────────────
+// ── Catalog (derived dari Master Katalog Radiologi) ───────
+//
+// Source-of-truth: src/lib/master/radCatalogMock.ts (RAD_KATALOG_MOCK).
+// `waktuTunggu` di-derive dari `tatTargetMenit.rutin` (di-format ke jam/menit
+// human-readable). `persiapan` di-rangkum dari `persiapan.puasaJam` +
+// `instruksiPasien` jika ada.
 
-const RAD_CATALOG: RadTest[] = [
-  // X-Ray
-  { kode: "RAD-XR001", nama: "Foto Thorax PA", modalitas: "X-Ray", waktuTunggu: "30–60 mnt" },
-  { kode: "RAD-XR002", nama: "Foto Thorax AP + Lateral", modalitas: "X-Ray", waktuTunggu: "30–60 mnt" },
-  { kode: "RAD-XR003", nama: "Foto Abdomen 3 Posisi", modalitas: "X-Ray", waktuTunggu: "45 mnt" },
-  { kode: "RAD-XR004", nama: "Foto Cervical AP + Lateral", modalitas: "X-Ray", waktuTunggu: "30 mnt" },
-  { kode: "RAD-XR005", nama: "Foto Pelvis AP", modalitas: "X-Ray", waktuTunggu: "30 mnt" },
-  { kode: "RAD-XR006", nama: "Foto Femur AP + Lateral", modalitas: "X-Ray", waktuTunggu: "30 mnt" },
-  { kode: "RAD-XR007", nama: "Foto Tibia-Fibula AP + Lateral", modalitas: "X-Ray", waktuTunggu: "30 mnt" },
-  { kode: "RAD-XR008", nama: "Foto Humerus AP + Lateral", modalitas: "X-Ray", waktuTunggu: "30 mnt" },
-  { kode: "RAD-XR009", nama: "Foto Genu AP + Lateral", modalitas: "X-Ray", waktuTunggu: "30 mnt" },
-  { kode: "RAD-XR010", nama: "Foto Skull AP + Lateral", modalitas: "X-Ray", waktuTunggu: "30 mnt" },
-  { kode: "RAD-XR011", nama: "Foto Cruris AP + Lateral", modalitas: "X-Ray", waktuTunggu: "30 mnt" },
-  { kode: "RAD-XR012", nama: "Foto Antebrachii AP + Lateral", modalitas: "X-Ray", waktuTunggu: "30 mnt" },
+function formatTAT(menit: number): string {
+  if (menit < 60) return `${menit} mnt`;
+  const jam = Math.floor(menit / 60);
+  const sisa = menit % 60;
+  if (sisa === 0) return `${jam} jam`;
+  return `${jam}–${jam + 1} jam`;
+}
 
-  // CT Scan
-  { kode: "RAD-CT001", nama: "CT Scan Kepala Non-Kontras", modalitas: "CT Scan", waktuTunggu: "1–2 jam" },
-  { kode: "RAD-CT002", nama: "CT Scan Kepala + Kontras", modalitas: "CT Scan", waktuTunggu: "1–2 jam", persiapan: "Cek fungsi ginjal sebelum kontras" },
-  { kode: "RAD-CT003", nama: "CT Scan Thorax Non-Kontras", modalitas: "CT Scan", waktuTunggu: "1–2 jam" },
-  { kode: "RAD-CT004", nama: "CT Scan Thorax + Kontras (CTPA)", modalitas: "CT Scan", waktuTunggu: "1–2 jam", persiapan: "Cek fungsi ginjal, puasa 4 jam" },
-  { kode: "RAD-CT005", nama: "CT Scan Abdomen Non-Kontras", modalitas: "CT Scan", waktuTunggu: "1–2 jam" },
-  { kode: "RAD-CT006", nama: "CT Scan Abdomen + Kontras", modalitas: "CT Scan", waktuTunggu: "2 jam", persiapan: "Puasa 4 jam, cek fungsi ginjal" },
-  { kode: "RAD-CT007", nama: "CT Scan Whole Abdomen Triphasic", modalitas: "CT Scan", waktuTunggu: "2–3 jam", persiapan: "Puasa 4 jam, cek fungsi ginjal" },
-  { kode: "RAD-CT008", nama: "CT Scan Pelvis + Kontras", modalitas: "CT Scan", waktuTunggu: "2 jam", persiapan: "Puasa 4 jam, cek fungsi ginjal" },
-  { kode: "RAD-CT009", nama: "CT Scan Cervical Non-Kontras", modalitas: "CT Scan", waktuTunggu: "1–2 jam" },
-  { kode: "RAD-CT010", nama: "CT Scan Thoracolumbar", modalitas: "CT Scan", waktuTunggu: "1–2 jam" },
-  { kode: "RAD-CT011", nama: "CT Angiografi Kepala (CTA)", modalitas: "CT Scan", waktuTunggu: "2–3 jam", persiapan: "Cek fungsi ginjal, puasa 4 jam" },
+function summarizePersiapan(p: { puasaJam?: number; instruksiPasien?: string; premedikasi?: string }): string | undefined {
+  const parts: string[] = [];
+  if (p.puasaJam) parts.push(`Puasa ${p.puasaJam} jam`);
+  if (p.premedikasi) parts.push(p.premedikasi);
+  if (p.instruksiPasien) parts.push(p.instruksiPasien);
+  return parts.length > 0 ? parts.join(", ") : undefined;
+}
 
-  // MRI
-  { kode: "RAD-MR001", nama: "MRI Kepala Non-Kontras", modalitas: "MRI", waktuTunggu: "3–4 jam", persiapan: "Lepas semua logam; pasien kooperatif" },
-  { kode: "RAD-MR002", nama: "MRI Kepala + Kontras", modalitas: "MRI", waktuTunggu: "3–4 jam", persiapan: "Cek fungsi ginjal, lepas logam" },
-  { kode: "RAD-MR003", nama: "MRI Lumbosacral", modalitas: "MRI", waktuTunggu: "3–4 jam", persiapan: "Lepas semua logam" },
-  { kode: "RAD-MR004", nama: "MRI Cervical", modalitas: "MRI", waktuTunggu: "3–4 jam", persiapan: "Lepas semua logam" },
-  { kode: "RAD-MR005", nama: "MRI Abdomen", modalitas: "MRI", waktuTunggu: "4–5 jam", persiapan: "Puasa 4–6 jam, lepas logam" },
-
-  // USG
-  { kode: "RAD-US001", nama: "USG Abdomen Atas", modalitas: "USG", waktuTunggu: "1–2 jam", persiapan: "Puasa minimal 6 jam" },
-  { kode: "RAD-US002", nama: "USG Abdomen Bawah", modalitas: "USG", waktuTunggu: "1–2 jam", persiapan: "Kandung kemih penuh" },
-  { kode: "RAD-US003", nama: "USG Whole Abdomen", modalitas: "USG", waktuTunggu: "1–2 jam", persiapan: "Puasa 6 jam + kandung kemih penuh" },
-  { kode: "RAD-US004", nama: "USG Thorax", modalitas: "USG", waktuTunggu: "1 jam" },
-  { kode: "RAD-US005", nama: "USG Ginjal", modalitas: "USG", waktuTunggu: "1 jam" },
-  { kode: "RAD-US006", nama: "USG FAST (Trauma)", modalitas: "USG", waktuTunggu: "30 mnt" },
-  { kode: "RAD-US007", nama: "Echocardiografi", modalitas: "USG", waktuTunggu: "2–3 jam" },
-
-  // Fluoroskopi
-  { kode: "RAD-FL001", nama: "BNO–IVP", modalitas: "Fluoroskopi", waktuTunggu: "3–4 jam", persiapan: "Puasa, persiapan usus, cek fungsi ginjal" },
-  { kode: "RAD-FL002", nama: "Colon In Loop", modalitas: "Fluoroskopi", waktuTunggu: "4–5 jam", persiapan: "Persiapan usus 2–3 hari" },
-  { kode: "RAD-FL003", nama: "Myelografi", modalitas: "Fluoroskopi", waktuTunggu: "4–5 jam", persiapan: "Puasa, informed consent" },
-
-  // Kedokteran Nuklir
-  { kode: "RAD-NM001", nama: "Bone Scan", modalitas: "Kedokteran Nuklir", waktuTunggu: "1–2 hari", persiapan: "Injeksi radiofarmaka 3 jam sebelum scan" },
-  { kode: "RAD-NM002", nama: "Thyroid Scan", modalitas: "Kedokteran Nuklir", waktuTunggu: "1 hari", persiapan: "Stop obat tiroid 2 minggu sebelum" },
-];
+const RAD_CATALOG: RadTest[] = RAD_KATALOG_MOCK
+  .filter((r) => r.status === "Aktif")
+  .map((r) => ({
+    kode: r.kode,
+    nama: r.nama,
+    modalitas: MODALITAS_DISPLAY_MAP[r.modalitas],
+    waktuTunggu: formatTAT(r.tatTargetMenit.rutin),
+    persiapan: summarizePersiapan(r.persiapan),
+  }));
 
 // ── Mock active orders per noRM ───────────────────────────
 

@@ -1,12 +1,20 @@
 // PPI Isolasi + Bundle HAI — shared types, configs, mock history
+//
+// Note: `Shift` type & jam (07/15/22) di-source dari Master Profil RS
+// (src/lib/master/rsProfilStore.ts). SHIFT_CFG visual di bawah adalah
+// dekorasi UI khusus konteks PPI (amber/sky/indigo) — bukan duplikasi
+// data, tapi varian intentional per modul. Visual MAR / Handover / TTV
+// punya skema warna sendiri.
+
+import { getCurrentShift, type ShiftKey } from "@/lib/master/rsProfilStore";
 
 export type IsolasiTipe = "Contact" | "Droplet" | "Airborne";
 export type BundleTipe  = "VAP" | "CAUTI" | "CLABSI";
-export type Shift       = "Pagi" | "Siang" | "Malam";
+export type Shift       = ShiftKey;
 
 export const SHIFT_ORDER: Shift[] = ["Pagi", "Siang", "Malam"];
 
-// ── Shift config ────────────────────────────────────────────
+// ── Shift config (UI dekorasi spesifik PPI) ─────────────────
 
 export const SHIFT_CFG: Record<Shift, { label: string; chip: string; dot: string; short: string }> = {
   Pagi:  { label: "Pagi",  short: "P", chip: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",   dot: "bg-amber-400"  },
@@ -14,11 +22,9 @@ export const SHIFT_CFG: Record<Shift, { label: string; chip: string; dot: string
   Malam: { label: "Malam", short: "M", chip: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200", dot: "bg-indigo-500" },
 };
 
+/** Re-export untuk backward compat — delegasi ke Master Profil RS. */
 export function currentShift(): Shift {
-  const h = new Date().getHours();
-  if (h >= 7 && h < 15) return "Pagi";
-  if (h >= 15 && h < 22) return "Siang";
-  return "Malam";
+  return getCurrentShift();
 }
 
 // ── Isolasi Precaution config ───────────────────────────────

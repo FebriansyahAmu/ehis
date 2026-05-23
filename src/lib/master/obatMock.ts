@@ -166,6 +166,18 @@ export const RUTE_CFG: Record<RutePemberian, { label: string; short: string }> =
   Telinga:    { label: "Tetes Telinga",   short: "AS" },
 };
 
+/** Urutan rute klinis preferred (Oral dulu). Dipakai untuk dropdown form. */
+export const RUTE_ORDER: RutePemberian[] = [
+  "PO", "IV", "IM", "SC", "Sublingual", "Topikal", "Inhalasi", "Rektal",
+  "Vaginal", "Mata", "Telinga",
+];
+
+/**
+ * Label rute siap-pakai untuk dropdown form `<option>`. Single source of
+ * truth — dipakai oleh asesmenShared.RUTE_OBAT.
+ */
+export const RUTE_LABELS: string[] = RUTE_ORDER.map((r) => RUTE_CFG[r].label);
+
 export const SATUAN_LIST: SatuanTerkecil[] = [
   "Tablet", "Kapsul", "Botol", "Vial", "Ampul", "Sachet", "Tube", "Strip", "Pcs", "ml",
 ];

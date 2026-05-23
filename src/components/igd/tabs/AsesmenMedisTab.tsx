@@ -13,6 +13,7 @@ import type { IGDPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import EdukasiPane from "@/components/igd/tabs/EdukasiPane";
 import GiziPane    from "@/components/shared/asesmen/GiziPane";
+import { RUTE_OBAT } from "@/components/shared/asesmen/asesmenShared";
 
 // ── Shared compact primitives ─────────────────────────────
 
@@ -546,7 +547,6 @@ function PenyakitDahuluPane({ patient }: { patient: IGDPatientDetail }) {
 }
 
 interface ObatEntry { id: string; nama: string; dosis: string; frekuensi: string; rute: string; sejak: string; indikasi: string; }
-const RUTE_OBAT = ["Oral", "IV", "IM", "SC", "Sublingual", "Topikal", "Inhalasi", "Rektal"];
 
 function PemberianObatPane() {
   const [obats, setObats] = useState<ObatEntry[]>([

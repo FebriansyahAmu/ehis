@@ -67,6 +67,49 @@ export interface RSProfil {
   kop:          RSKop;
 }
 
+// ── Shift helpers (single source of truth) ───────────────
+//
+// Berbasis `RS_PROFIL.shift` (jam mulai/selesai per shift). Dipakai oleh
+// ppiIsolasiShared.currentShift() dan ioShared.detectShift() — bukan
+// hardcoded di tiap file.
+
+/** Parse "HH:mm" ke menit-dari-tengah-malam. */
+function parseHHmm(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map((n) => parseInt(n, 10));
+  return (h ?? 0) * 60 + (m ?? 0);
+}
+
+/**
+ * Tentukan shift berdasarkan menit-dari-tengah-malam (0–1439).
+ * Shift malam bisa wrap (mis. 22:00–06:59) — di-handle dengan kondisi melintas
+ * tengah malam.
+ */
+export function detectShiftFromMinute(minute: number, shifts: Record<ShiftKey, ShiftJam>): ShiftKey {
+  for (const key of SHIFT_KEYS) {
+    const s = shifts[key];
+    const start = parseHHmm(s.mulai);
+    const end   = parseHHmm(s.selesai);
+    if (start <= end) {
+      if (minute >= start && minute <= end) return key;
+    } else {
+      // Wrap (mis. 22:00–06:59)
+      if (minute >= start || minute <= end) return key;
+    }
+  }
+  return "Pagi"; // safe fallback
+}
+
+/** Tentukan shift sekarang dari sistem clock + jam RS profil. */
+export function getCurrentShift(shifts: Record<ShiftKey, ShiftJam> = RS_PROFIL_INITIAL.shift): ShiftKey {
+  const now = new Date();
+  return detectShiftFromMinute(now.getHours() * 60 + now.getMinutes(), shifts);
+}
+
+/** Tentukan shift dari string jam "HH:mm". */
+export function detectShiftFromJam(jam: string, shifts: Record<ShiftKey, ShiftJam> = RS_PROFIL_INITIAL.shift): ShiftKey {
+  return detectShiftFromMinute(parseHHmm(jam), shifts);
+}
+
 export const RS_PROFIL_INITIAL: RSProfil = {
   nama:        "RS Harapan Sehat",
   namaInggris: "Harapan Sehat Hospital",

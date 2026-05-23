@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { IGDPatientDetail, IGDTindakanItem } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { TINDAKAN_MOCK, type TindakanKategori } from "@/lib/master/tindakanMock";
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -27,47 +28,35 @@ interface TindakanEntry {
 }
 type LocalTindakan = IGDTindakanItem & { kategori?: string };
 
-// ── Catalog ───────────────────────────────────────────────
+// ── Catalog (derived dari Master Katalog Tindakan) ────────
+//
+// Source-of-truth: src/lib/master/tindakanMock.ts (TINDAKAN_MOCK).
+// IGD memetakan enum master `TindakanKategori` (11 opsi) ke 5 kategori
+// tampilan: Diagnostik / Radiologi / Terapi / Prosedur / Laboratorium.
+// Master tidak punya kategori "Radiologi" / "Laboratorium" — keduanya
+// di-order via DaftarOrderTab, bukan dicatat sebagai tindakan.
 
-const CATALOG: TindakanEntry[] = [
-  { kode: "89.52", nama: "Elektrokardiogram (EKG)", kategori: "Diagnostik" },
-  { kode: "89.61", nama: "Pemeriksaan tekanan darah", kategori: "Diagnostik" },
-  { kode: "89.39", nama: "Observasi dan evaluasi", kategori: "Diagnostik" },
-  { kode: "88.72", nama: "CT Scan toraks", kategori: "Radiologi" },
-  { kode: "88.71", nama: "CT Scan kepala", kategori: "Radiologi" },
-  { kode: "87.44", nama: "Foto rontgen toraks", kategori: "Radiologi" },
-  { kode: "88.76", nama: "CT Scan abdomen", kategori: "Radiologi" },
-  { kode: "88.79", nama: "USG abdomen", kategori: "Radiologi" },
-  {
-    kode: "93.90",
-    nama: "Pemberian oksigen (NRM / nasal canul)",
-    kategori: "Terapi",
-  },
-  { kode: "99.15", nama: "Infus dekstrosa", kategori: "Terapi" },
-  { kode: "99.18", nama: "Injeksi / infus elektrolit", kategori: "Terapi" },
-  { kode: "99.21", nama: "Injeksi insulin", kategori: "Terapi" },
-  { kode: "99.29", nama: "Injeksi obat lainnya", kategori: "Terapi" },
-  {
-    kode: "38.93",
-    nama: "Pemasangan akses vena sentral",
-    kategori: "Prosedur",
-  },
-  { kode: "38.99", nama: "Pemasangan IV line perifer", kategori: "Prosedur" },
-  { kode: "96.04", nama: "Intubasi trakea", kategori: "Prosedur" },
-  { kode: "96.71", nama: "Ventilasi mekanik < 96 jam", kategori: "Prosedur" },
-  { kode: "57.94", nama: "Pemasangan kateter urin", kategori: "Prosedur" },
-  { kode: "54.91", nama: "Aspirasi peritoneal", kategori: "Prosedur" },
-  { kode: "86.59", nama: "Penutupan luka / hecting", kategori: "Prosedur" },
-  { kode: "79.39", nama: "Reposisi fraktur tertutup", kategori: "Prosedur" },
-  { kode: "90.59", nama: "Darah lengkap", kategori: "Laboratorium" },
-  {
-    kode: "90.55",
-    nama: "Kimia darah — enzim jantung / troponin",
-    kategori: "Laboratorium",
-  },
-  { kode: "90.51", nama: "Gula darah sewaktu", kategori: "Laboratorium" },
-  { kode: "90.09", nama: "Analisis gas darah (AGD)", kategori: "Laboratorium" },
-];
+const IGD_KATEGORI_MAP: Record<TindakanKategori, string> = {
+  Konsultasi:     "Diagnostik",
+  Diagnostik:     "Diagnostik",
+  Pediatrik:      "Diagnostik",
+  Spesialistik:   "Diagnostik",
+  Resusitasi:     "Terapi",
+  Anestesi:       "Terapi",
+  Tindakan_Medis: "Prosedur",
+  Bedah_Minor:    "Prosedur",
+  Bedah_Mayor:    "Prosedur",
+  Bedah_Khusus:   "Prosedur",
+  Obstetri:       "Prosedur",
+};
+
+const CATALOG: TindakanEntry[] = TINDAKAN_MOCK
+  .filter((t) => (t.status ?? "Aktif") === "Aktif")
+  .map((t) => ({
+    kode: t.kode,
+    nama: t.nama,
+    kategori: IGD_KATEGORI_MAP[t.kategori],
+  }));
 
 const KODE_TO_ENTRY = new Map(CATALOG.map((e) => [e.kode, e]));
 

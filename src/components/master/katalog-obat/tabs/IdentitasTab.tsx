@@ -8,7 +8,7 @@ import {
 } from "@/lib/master/obatMock";
 import {
   Field, TextInput, Select, SectionGroup,
-} from "../FormPrimitives";
+} from "@/components/master/shared";
 
 interface IdentitasTabProps {
   draft: ObatRecord;

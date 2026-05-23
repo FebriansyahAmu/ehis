@@ -173,7 +173,8 @@ export const ANGGOTA_KELUARGA = [
   "Nenek (Paternal)", "Kakek (Maternal)", "Nenek (Maternal)",
 ];
 
-export const RUTE_OBAT = ["Oral", "IV", "IM", "SC", "Sublingual", "Topikal", "Inhalasi", "Rektal"];
+// Re-export dari master Katalog Obat (single source of truth: src/lib/master/obatMock.ts).
+export { RUTE_LABELS as RUTE_OBAT } from "@/lib/master/obatMock";
 
 export const METODE_KB = [
   "IUD / Spiral", "Pil KB", "Suntik KB", "Implan / Susuk",

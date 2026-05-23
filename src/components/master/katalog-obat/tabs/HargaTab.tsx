@@ -9,7 +9,7 @@ import {
 } from "@/lib/master/obatMock";
 import {
   Field, NumberInput, TextInput, Select, ToggleSwitch, SectionGroup,
-} from "../FormPrimitives";
+} from "@/components/master/shared";
 import { fmtIDR, calcMargin } from "../katalogObatShared";
 
 interface HargaTabProps {
@@ -111,7 +111,7 @@ export default function HargaTab({ draft, onPatch }: HargaTabProps) {
       >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <ToggleSwitch
-            checked={draft.bpjsCoverage ?? false}
+            value={draft.bpjsCoverage ?? false}
             onChange={(v) => onPatch({ bpjsCoverage: v })}
             label="BPJS Coverage"
             desc="Termasuk dalam Fornas — di-cover BPJS."

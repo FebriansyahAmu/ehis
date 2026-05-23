@@ -14,7 +14,7 @@ import {
 } from "../katalogRadiologiShared";
 import {
   Field, TextInput, NumberInput, TextArea, Select, SectionGroup,
-} from "../FormPrimitives";
+} from "@/components/master/shared";
 
 interface Props {
   draft: RadCatalogRecord;
