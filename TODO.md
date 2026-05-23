@@ -2,11 +2,16 @@
 
 > **Source of truth untuk konsolidasi master data EHIS.**
 > Dokumen ini di-update setiap menyelesaikan task. Centang `[x]` saat done, tambah catatan ringkas + tanggal.
-> Konteks proyek & convention: lihat [CLAUDE.md](CLAUDE.md). Skill design: `.claude/skills/frontend-design`.
 >
-> **Last updated:** 2026-05-23
-> **Estimasi total:** ~6 minggu (Phase 0–3)
-> **Status global:** Phase 2 — Kategori A + B + C ✅ Selesai (10/13 master baru, 77% Phase 2)
+> **Workflow docs:**
+> - [CLAUDE.md](CLAUDE.md) — current state + active work + key data contracts
+> - [TECH_DEBT.md](TECH_DEBT.md) — tech debt registry per-modul
+> - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend implementation roadmap
+> - [.claude/DONE.md](.claude/DONE.md) — completed work archive
+> - [.claude/GAP_ANALYSIS.md](.claude/GAP_ANALYSIS.md) · [.claude/STANDARDS.md](.claude/STANDARDS.md)
+>
+> **Last updated:** 2026-05-24
+> **Status:** Phase 0–3 ✅ **Selesai 100%** (30/30 task). Master Data frontend lengkap, siap untuk integrasi backend.
 
 ---
 

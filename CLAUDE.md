@@ -1,468 +1,149 @@
-# EHIS — Project Context & Work Queue
+# EHIS — Project Context & Active Work
 
-> **Read this first every new session.**
-> **Before switching tasks:** (1) check off completed items, (2) promote next item to 🔴 Now, (3) add findings to Tech Debt.
-> References: Clinical standards → `.claude/STANDARDS.md` | Gap analysis → `.claude/GAP_ANALYSIS.md` | Completed history → `.claude/DONE.md`
-> Skill refs: `@.claude/skills/frontend-design/SKILL.md`
-> **Master Konsolidasi Phase Roadmap:** [TODO.md](TODO.md) — 30 task lintas 4 phase (Foundation/Refactor/13 Master Baru/Polish). Centang `[x]` di sana setiap task selesai.
+> **Read this first every new session.** Lean overview — state of the project + active work only.
+> **Before switching tasks:** (1) check off completed items, (2) move them to [.claude/DONE.md](.claude/DONE.md), (3) add new findings to [TECH_DEBT.md](TECH_DEBT.md).
+
+## 🧭 Workflow Docs
+
+| File | Purpose |
+|---|---|
+| [CLAUDE.md](CLAUDE.md) | **You are here.** Current state · active work · key data contracts. |
+| [TODO.md](TODO.md) | Master phase roadmap — Phase 0–3 frontend ✅ 100% (30/30). |
+| [TECH_DEBT.md](TECH_DEBT.md) | Tech debt registry per-modul + cross-cutting. |
+| [TODOS_BACKEND.md](TODOS_BACKEND.md) | Backend implementation roadmap (B0–B4, ~5–7 bulan). |
+| [.claude/DONE.md](.claude/DONE.md) | Completed work archive (history per modul). |
+| [.claude/GAP_ANALYSIS.md](.claude/GAP_ANALYSIS.md) | Clinical gap audit (SNARS/PMK/ISO). |
+| [.claude/STANDARDS.md](.claude/STANDARDS.md) | Clinical standards reference. |
+| `@.claude/skills/frontend-design/SKILL.md` | Frontend design skill. |
 
 ---
 
-## Stack
+## 🛠 Stack
 
-Next.js 16.2.3 App Router · React 19.2.4 · TypeScript 5 · Tailwind v4 (`@tailwindcss/postcss`) · Framer Motion 12 · Lucide React 1.8 · Prisma 7.7 (generated at `src/generated/prisma/`) · ESLint 9  
-Utilities: `cn()` · `src/lib/utils.ts` | Navigation: `src/lib/navigation.ts` | Mock data: `src/lib/data.ts`
+Next.js 16.2.3 App Router · React 19.2.4 · TypeScript 5 · Tailwind v4 (`@tailwindcss/postcss`) · Framer Motion 12 · Lucide React 1.8 · Prisma 7.7 (generated at `src/generated/prisma/`) · ESLint 9
+
+**Convention:** `cn()` di `src/lib/utils.ts` · Navigation di `src/lib/navigation.ts` · Mock data klinis di `src/lib/data.ts` · Mock master di `src/lib/master/*Mock.ts` · Shared medical-records di `src/components/shared/medical-records/` · Master Template Layer di `src/components/master/shared/`.
 
 ---
 
-## Module Map
+## 📦 Module Map
 
-| Route                | Module        | Layout                                  | Status      |
-| -------------------- | ------------- | --------------------------------------- | ----------- |
-| `/ehis-dashboard`    | Dashboard     | ModuleLayout                            | 🔧 Scaffold |
-| `/ehis-care`         | Clinical Care | Sidebar (main) + Fullpage               | 🚧 Active   |
-| `/ehis-care/farmasi` | Farmasi       | ModuleLayout (main) + Fullpage detail   | ✅ Done     |
-| `/ehis-registration` | Registration  | (main) ModuleLayout + (fullpage) Pasien | 🚧 Active   |
-| `/ehis-billing`      | Billing       | ModuleLayout                            | 🔧 Scaffold |
-| `/ehis-master`       | Master Data   | ModuleLayout                            | 🚧 Active   |
-| `/ehis-report`       | Reports       | ModuleLayout                            | 🔧 Scaffold |
-| `/ehis-care/laboratorium` | Laboratorium | ModuleLayout (main) + Fullpage detail  | 🚧 Active   |
-| `/ehis-care/radiologi` | Radiologi   | ModuleLayout (main) + Fullpage detail   | 🚧 Active   |
-| `/ehis-fhir`         | FHIR Integration | ModuleLayout                       | 📋 Planned  |
+| Route                      | Module           | Status                          |
+| -------------------------- | ---------------- | ------------------------------- |
+| `/ehis-care/igd`           | IGD              | ✅ 100% (19 tab aktif)          |
+| `/ehis-care/rawat-inap`    | Rawat Inap       | ✅ 100% (19 tab aktif)          |
+| `/ehis-care/rawat-jalan`   | Rawat Jalan      | ✅ 100% (13 tab aktif)          |
+| `/ehis-care/farmasi`       | Farmasi          | ✅ 100% (4 layer + Gap SNARS T1–T3) |
+| `/ehis-care/laboratorium`  | Laboratorium     | ✅ 100% (Tier 1+2+3)            |
+| `/ehis-care/radiologi`     | Radiologi        | ✅ 100% (Tier 1+2+3)            |
+| `/ehis-master`             | Master Data      | ✅ 100% (25 sub-master + 8 mapping + Beranda) |
+| `/ehis-registration`       | Registration     | 🚧 PatientDashboard + KunjunganDetail ✅, board belum |
+| `/ehis-dashboard`          | Dashboard        | 🔧 Scaffold (belum dibangun)    |
+| `/ehis-billing`            | Billing Kasir    | 🔧 Scaffold (belum dibangun)    |
+| `/ehis-report`             | Reports          | 🔧 Scaffold (belum dibangun)    |
+| `/ehis-fhir`               | FHIR Integration | 📋 Planned (terpisah dari master) |
 
 Shared layout: `Navbar` · `Sidebar` · `ModuleSwitcher` · `ModuleLayout` → `src/components/layout/`
 
+**Detail tab/feature per modul yang ✅ Done:** lihat [.claude/DONE.md](.claude/DONE.md).
+
 ---
 
-## Component Status
+## 🔴 Active Work / Next Up
+
+Frontend Phase 0–3 master sudah selesai 100%. Workload selanjutnya bisa dipilih dari:
+
+### Backend Integration (rekomendasi utama)
+- Mulai dari [TODOS_BACKEND.md](TODOS_BACKEND.md) Phase B0 — Foundation (Prisma + Auth + RBAC + Infra).
+- Schema mock sudah 1:1 dengan target — swap `import { X_MOCK }` → `await prisma.x.findMany()` tanpa refactor UI.
+
+### Modul Baru (frontend lanjutan)
+- [ ] **`ehis-dashboard`** — stats cards (pasien hari ini per unit IGD/RI/RJ) + BOR chart + recent activity feed + quick-nav ke modul lain.
+- [ ] **`ehis-billing`** Kasir — invoice per kunjungan + rincian + status pembayaran + print struk.
+- [ ] **`ehis-registration`** board + form pendaftaran pasien baru.
+- [ ] **`ehis-report`** — laporan per periode + export Excel/PDF.
+- [ ] **`ehis-fhir`** — modul integrasi SatuSehat (kredensial · sync resource · NIK lookup · sync log · conflict resolution).
+- [ ] **Master Tier 3 — Poliklinik & Jadwal Dokter** — kapasitas antrian per poli per hari, jadwal buka, weekly schedule grid. Lihat [TECH_DEBT.md](TECH_DEBT.md#master--other).
+
+### Tech Debt Resolution
+- Lihat [TECH_DEBT.md](TECH_DEBT.md) untuk daftar lengkap per-modul + cross-cutting.
+
+---
+
+## 🏗 Key Architecture Decisions (jangan diubah tanpa diskusi)
+
+### Master Data
+- **Organization & Location UI**: Unified Tree — 1 route `/ehis-master/ruangan`, n-level Organization nested via `parentId`, Bed sebagai sub-collection `LocationNode.beds[]`. (2026-05-19)
+- **FHIR Strategy**: SEMUA interaksi FHIR/SatuSehat (sync action, NIK lookup, Org_id config, mapping config) **pindah ke modul terpisah `/ehis-fhir`** (belum dibangun). Master pages = data RS murni. Adapter Pattern (`toFhirOrganization()`/dst) tetap di `lib/fhir/adapters/` saat backend ready. (2026-05-19, revisi dari rencana awal yang embed FHIR di master)
+- **Mapping Strategy (Opsi A — Mapping Hub Terpadu)**: Semua relasi N:N antar entitas master di-host di 1 hub `/ehis-master/mapping` dengan sidebar internal. Source of truth tetap di Hub — UI edit penugasan di entitas master **dihapus** (DokterDetail.poliAssignment + PenggunaFormModal.unitAssignment hanya tinggal MappingSourceBadge cross-link). Field tetap di schema sebagai seed default. (2026-05-22)
+- **Address**: Convention over Configuration — Location inherit dari parent Organization secara default, override per record via flag.
+- **Kode wilayah**: Cascading dropdown Kemendagri (embed JSON ~500KB), bukan free text — kode numerik wajib untuk FHIR `administrativeCode`.
+- **Bed status operasional** (`Tersedia/Terisi`): dikelola workflow klinis saat admisi/pulang, **bukan** form master.
+- **Practitioner master**: data dokter manual input. NIK lookup ke SatuSehat untuk verifikasi/auto-populate **pindah ke modul `/ehis-fhir`**.
+
+### Data Flow
+- **`ORDERS_MOCK` = single source of truth** untuk Lab/Rad/Farmasi/Resep. Saat migrasi ke DB, tabel `Order` jadi single source — UI tidak berubah.
+- **Workflow store pattern**: state mutasi (telaah farmasi, hasil lab, dosis rad) saat ini di `workflowStore` client-side. Backend perlu commit ke database + push update via WebSocket/SSE atau polling.
+- **Mock-first → swap pattern**: semua mock di `src/lib/master/*Mock.ts` punya schema 1:1 dengan target Prisma. Migrasi = ganti import. Zero refactor UI.
+
+### UI
+- **Density tokens** (`m-mini/m-tiny/m-xs/m-sm/m-base/m-lg`): utility classes berbasis CSS custom properties di `globals.css`. Mengikuti `data-density` attribute (Compact/Comfortable/Cozy). Toggle di Mapping Hub header.
+- **Skeleton 500ms** via `useSkeletonDelay()` untuk semua master pages + farmasi/lab/rad worklist.
+- **MappingSourceBadge** (3 variant: card/banner/inline) untuk cross-link entitas → Mapping Hub sub-page. Tegaskan "source of truth ada di Hub".
+
+---
+
+## 🗂 Key Data Contracts
+
+### Mock IDs (jangan ubah tanpa update semua tab)
+
+- **IGD**: `igd-1` (Joko Prasetyo ♂55, `RM-2025-005`) · `igd-2` (Siti Rahayu ♀32, `RM-2025-012`)
+- **RI**: `ri-1` (GJK NYHA III, dr. Budi Santoso Sp.JP, `RM-2025-003`) · `ri-3` (Syok Sepsis, dr. Hendra Wijaya Sp.EM, `RM-2025-007`)
+- **RJ**: `rj-1` · `rj-2`
+- **Mock keyed by `RM-2025-003`**: `KONSULTASI_MOCK` · `OrderLabMock` · `OrderRadMock` · `DISCHARGE_MOCK` · `PASIEN_PULANG_MOCK` · `GIZI_HISTORY_MOCK`
+- **Mock keyed by `RM-2025-005`**: `HANDOVER_MOCK` (IGD)
+- **Farmasi orders**: 5 lintas unit — `igd-1` (HAM, Depo IGD) · `igd-2` (Depo IGD) · `ri-1` (HAM, Apotek RI) · `ri-3` (Apotek RI) · `rj-1` (Apotek RJ) → `farmasi/farmasiShared.ts`
+- **Radiologi orders**: 5 lintas unit — `igd-1` (Foto Thorax AP CITO) · `igd-2` (USG Abdomen Semi-Cito) · `ri-1` (CT Thorax kontras Rutin) · `ri-3` (Foto BNO 3 posisi) · `rj-1` (USG Tiroid) → `rad/radShared.ts`
+
+### Core Types (semua di `src/lib/data.ts`)
+
+- `IGDPatientDetail` · `PatientMaster` · `KunjunganRecord` · `RawatInapPatientDetail` · `RJPatientDetail`
+- `TipePenjamin`: `BPJS_Non_PBI | BPJS_PBI | Umum | Asuransi | Jamkesda`
+- `RIKelas`: `VIP | Kelas_1 | Kelas_2 | Kelas_3 | ICU | HCU | Isolasi`
+- `DiagnosaTipe`: `Utama | Sekunder | Komplikasi | Komorbid`
+- `DiagnosaStatus`: `Pasti | Dicurigai | Diferensial`
+- `IGDDiagnosa`: `id · kodeIcd10 · namaDiagnosis · tipe · status? · alasan? · analisa?`
+- `CPPTEntry`: `id · waktu · tanggal? · profesi · penulis · SOAP fields · verified? · verifiedBy? · verifiedAt? · flagged?`
 
 ### Shared Medical Records (`src/components/shared/medical-records/`)
 
-| Component            | File                              | Used By  | Key Props / Notes                                                             |
-| -------------------- | --------------------------------- | -------- | ----------------------------------------------------------------------------- |
-| `TTVTab`             | `TTVTab.tsx`                      | IGD · RI | `triage?` → IGD obs mode (interval strip) · `history?` → multi-shift RI mode |
-| `CPPTTab`            | `CPPTTab.tsx`                     | IGD · RI | `showDate` date-grouped (RI) · `requiresVerification` DPJP co-sign           |
-| `DiagnosaTab`        | `DiagnosaTab.tsx`                 | IGD · RI | ICD-10 + ICD-9, status kepastian, alasan/analisa, INA-CBG preview             |
-| `HandoverTab`        | `HandoverTab.tsx`                 | IGD · RI | `HandoverPatient` interface, date nav, 3 shift, SBAR, auto-populate TTV       |
-| `DaftarOrderTab`     | `DaftarOrderTab.tsx`              | IGD · RI | Animated expand/collapse, search, stats cards, cancel dialog                  |
-| `OrderLabTab`        | `OrderLabTab.tsx`                 | IGD · RI | `OrderLabPatient` interface                                                   |
-| `OrderRadTab`        | `OrderRadTab.tsx`                 | IGD · RI | `OrderRadPatient` interface                                                   |
-| `InformedConsentTab` | `InformedConsentTab.tsx`          | IGD · RI | Template per tindakan, TTD + saksi + nomor IC. PMK 290/2008                   |
-| `RekonsiliasTab`     | `RekonsiliasTab.tsx`              | IGD · RI | `context:"igd"\|"ri"` → phase labels · 3 fase (admisi/transfer/discharge) · HAM badge+banner · progress bar · `RekonPatient` interface. Sub: `rekonsiliasi/{rekonsiliasiShared,ObatEntryRow,RekonSection}` |
-| `StatusFisikPane`    | `pemeriksaan/StatusFisikPane.tsx` | IGD · RI | 11-sistem head-to-toe, quick-normal, temuan abnormal                          |
-| `CPPTEntryCard`      | `CPPTEntryCard.tsx`               | CPPTTab  | Flag, verification footer, SOAP rows                                          |
-| `cpptShared`         | `cpptShared.ts`                   | CPPT     | `PROFESI_CLS`, `SOAP_BADGE`, `fmtDate`, `todayISO`                            |
-| `diagnosaShared`     | `diagnosaShared.ts`               | Diagnosa | Katalog ICD10/ICD9, `TIPE_CONFIG`, `STATUS_CONFIG`, `INA_CBG_MAP`             |
-| `KonsultasiTab`      | `KonsultasiTab.tsx`               | RI · RJ  | `noRM` + `dokterPeminta` props. Promote dari RI ke shared.                    |
-| `SuratDokumenTab`    | `SuratDokumenTab.tsx`             | RJ       | `SuratPatient` interface · 4 jenis surat · sub: `suratDokumen/{suratDokumenShared,SuratFormPane,SuratHistoryPane}` · PMK 269/2008 |
-| `ResepTab`           | `ResepTab.tsx`                    | IGD · RI · RJ | `showMAR` flag · HAM badge + HAMConfirmModal · `withIdentitas` wrapper di RJ |
+| Component | Used By | Notes |
+|---|---|---|
+| `TTVTab` | IGD · RI · RJ | `triage?` IGD obs mode · `history?` RI multi-shift · GCS auto-calc + NEWS2 score |
+| `CPPTTab` | IGD · RI · RJ | `showDate` RI · `requiresVerification` DPJP co-sign |
+| `DiagnosaTab` | IGD · RI · RJ | ICD-10 + ICD-9 + status + INA-CBG preview |
+| `HandoverTab` | IGD · RI | SBAR 4-seksi + auto-populate TTV |
+| `DaftarOrderTab` | IGD · RI · RJ | Single source via `ORDERS_MOCK` |
+| `OrderLabTab` · `OrderRadTab` | IGD · RI · RJ | Mirror dari worklist lab/rad |
+| `InformedConsentTab` | IGD · RI · RJ | Template per tindakan + TTD digital. PMK 290/2008 |
+| `RekonsiliasTab` | IGD · RI | `context:"igd"\|"ri"` → phase labels berbeda. HAM badge + progress bar |
+| `KonsultasiTab` | RI · RJ | SBAR closed-loop + 22 SMF dropdown |
+| `SuratDokumenTab` | RJ | 4 jenis surat. PMK 269/2008 |
+| `ResepTab` | IGD · RI · RJ | `showMAR` flag · HAM badge + HAMConfirmModal |
+| `FarmasiTab` | IGD · RI · RJ | Per-patient status tracker dari `workflowStore` |
+| `MARTab` | RI | Medication Administration Record per shift. SNARS PKPO 6 |
+| `KonselingTab` | RI | Discharge counseling. SNARS PP 5 |
+| `IdentitasVerifikasiBanner` | IGD · RI | Lazy intercept tab aksi (SKP 1 · JCI IPSG 1) |
+| `StatusFisikPane` | IGD · RI · RJ | 11-sistem head-to-toe |
 
-Shared asesmen: `src/components/shared/asesmen/` → `AllergyPane` · `RiwayatPane` · `GiziPane` · `asesmenShared.ts`
-
-### IGD (✅ 100% — semua tab aktif)
-
-Files: `src/components/igd/` — `IGDBoard` · `PatientCard` · `IGDRuanganPanel` · `PatientHeader` · `IGDRecordTabs`  
-Tabs: `triase · ttv · asesmen · diagnosa · cppt · tindakan · informed-consent · rekonsiliasi · keperawatan · pemeriksaan · penilaian · penandaan · handover · daftar-order · resep · order-lab · order-rad · rujukan · pulang`  
-Key arch: TTVTab passes `triage={patient.triage}` for timed obs mode · SBAR Transfer IGD→RI via `pasienPulang/SBARTransferPanel.tsx`
-
-### Rawat Inap (✅ 100% — semua 19 tab aktif)
-
-Files: `src/components/rawat-inap/` — `RIBoard` · `RIRuanganPanel` · `RIPatientHeader` · `RIRecordTabs`  
-Tabs (Rekam Medis): `asesmen-awal · care-plan · cppt · ttv · diagnosa · keperawatan · pemeriksaan · intake-output · gizi-nutrisi · handover · informed-consent · rekonsiliasi`  
-Tabs (Layanan): `daftar-order · resep · order-lab · order-rad · konsultasi · discharge · pasien-pulang`  
-Route: `app/ehis-care/(fullpage)/rawat-inap/[id]/`
-
-### Rawat Jalan (✅ 100% — semua 13 tab aktif)
-
-Scope: rekam medis per-kunjungan (board/antrian = modul tersendiri nanti).  
-Route: `app/ehis-care/(fullpage)/rawat-jalan/[id]/`  
-Mock IDs: `rj-1` · `rj-2`
-
-| # | Tab              | File                                              | Source                        | Status |
-| - | ---------------- | ------------------------------------------------- | ----------------------------- | ------ |
-| — | Patient Header   | `rawat-jalan/RJPatientHeader.tsx`                 | 🆕 baru                       | ✅     |
-| — | Tab Router       | `rawat-jalan/RJRecordTabs.tsx`                    | 🆕 baru                       | ✅     |
-| 1 | Asesmen Awal     | `rawat-jalan/tabs/AsesmenAwalRJTab.tsx`           | 🔁 adapt dari RI (3 sub-tab)  | ✅     |
-| 2 | TTV              | `shared/medical-records/TTVTab.tsx`               | ✅ shared                     | ✅     |
-| 3 | CPPT / SOAP      | `shared/medical-records/CPPTTab.tsx`              | ✅ shared                     | ✅     |
-| 4 | Diagnosa         | `shared/medical-records/DiagnosaTab.tsx`          | ✅ shared                     | ✅     |
-| 5 | Pemeriksaan Fisik| `rawat-jalan/tabs/PemeriksaanRJTab.tsx`           | ✅ shared (StatusFisikPane)   | ✅     |
-| 6 | Konsultasi       | `shared/medical-records/KonsultasiTab.tsx`        | 🔁 promote dari RI            | ✅     |
-| 7 | Informed Consent | `shared/medical-records/InformedConsentTab.tsx`   | ✅ shared                     | ✅     |
-| 8 | Daftar Order     | `shared/medical-records/DaftarOrderTab.tsx`       | ✅ shared                     | ✅     |
-| 9 | Resep & Obat     | `shared/medical-records/ResepTab.tsx`             | ✅ shared + withIdentitas     | ✅     |
-| 10| Order Lab        | `shared/medical-records/OrderLabTab.tsx`          | ✅ shared + withIdentitas     | ✅     |
-| 11| Order Radiologi  | `shared/medical-records/OrderRadTab.tsx`          | ✅ shared + withIdentitas     | ✅     |
-| 12| Surat & Dokumen  | `shared/medical-records/SuratDokumenTab.tsx`      | 🆕 baru (shared)              | ✅     |
-| 13| Disposisi        | `rawat-jalan/tabs/DisposisiRJTab.tsx`             | 🔁 adapt dari IGD (Rujuk + RI)| ✅     |
-
-Urutan pengerjaan: ✅ Fondasi → ✅ KonsultasiTab → ✅ AsesmenAwalTab → ✅ SuratDokumenTab → ✅ DisposisiRJTab
-
-### Pasien Master (`ehis-registration`)
-
-| File                                  | Route                                               | Status |
-| ------------------------------------- | --------------------------------------------------- | ------ |
-| `registration/PatientDashboard.tsx`   | `/ehis-registration/pasien/[id]`                    | ✅     |
-| `registration/KunjunganDetailPage.tsx`| `/ehis-registration/pasien/[id]/kunjungan/[id]`     | ✅     |
+Shared asesmen: `src/components/shared/asesmen/` → `AllergyPane` · `RiwayatPane` · `GiziPane` · `asesmenShared.ts`.
 
 ---
 
-## TODO Queue
-
-### ✅ Selesai — Tier 2 (Poin SNARS Berkurang Kalau Tidak Ada)
-
-- [x] **GCS + NEWS2 Auto-calculation** ✅ — total GCS otomatis (E+V+M) + NEWS2/MEWS score dari TTV (TD sistol, RR, SpO2, suhu, kesadaran) + badge warna hijau/kuning/merah di shared TTVTab. Benefit IGD + RI sekaligus. SNARS AP 2 · Clinical decision support
-- [x] **Shared RekonsiliasTab (IGD + RI)** ✅ — single source of truth `shared/medical-records/RekonsiliasTab.tsx` + 3 sub-components. 3 fase per context (`admisi/transfer/discharge` IGD · `MRS/Transfer/KLRS` RI), HAM detection badge + banner + count, progress bar animated, accordion per fase, ObatSearch inline, RI home-meds banner. Hapus `RekonsiliasiPane.tsx` + sub-tab dari ResepTab. SNARS PP 3.1 · SKP 3 · PMK 72/2016
-- [x] **HAM Label IGD ResepTab** ✅ — badge `⚠ HAM` merah di setiap item obat HAM + `HAMConfirmModal` double-check wajib (checkbox konfirmasi + daftar obat HAM) intercept sebelum order. 7 obat HAM di-flag di `resepShared.ts` katalog. `HAM_BADGE` shared style. SKP 3 · PMK 72/2016
-- [x] **Isolasi dan PPI Documentation (RI)** ✅ — isolasi flag chip (Contact/Droplet/Airborne) di `RIPatientHeader` + inline form (tanggal, alasan, dokter, cabut) · Bundle HAI (VAP 5 item / CAUTI 3 item / CLABSI 4 item) di `KeperawatanTab` kondisional ICU/HCU, toggle per alat terpasang · **checklist per shift** (Pagi 07–14 / Siang 15–21 / Malam 22–06) dengan auto-detect `currentShift()` + manual selector + reset ke otomatis · SummaryCard real-time shift dots P/S/M per bundle · history strip 7-hari (3 squares/hari) + history list grouped-by-date · simpan per perawat·shift · liveChecks reset otomatis setelah simpan (shift berikutnya mulai bersih) · badge "X/3 shift kmrn" di card header. Files: `ppiIsolasi/{ppiIsolasiShared,BundleHAISection}`. Types: `Shift` · `SHIFT_ORDER` · `SHIFT_CFG` · `DailyRecord.shift`. Mock history ri-3 (3 shift/hari, 6 hari). SNARS PPI 1–7
-- [x] **Rencana Asuhan Terintegrasi / Care Plan (RI)** ✅ — tab baru `CarePlanTab` di REKAM_MEDIS (antara Asesmen Awal & CPPT). Masalah aktif list, 3 fase accordion (Admisi/Perawatan/Pre-Discharge) masing-masing dengan DPJP panel + Perawat panel + evaluasi + status, progress bar animated, sign-off DPJP muncul saat semua fase selesai. Files: `tabs/CarePlanTab.tsx` + `carePlan/{carePlanShared,PhaseSection}`. SNARS PP 1
-
-### ✅ Selesai — Tier 3
-
-- [x] **Konsultasi Gizi / Monitoring Nutrisi (RI)** ✅ — `GiziNutrisiTab` + 3 sub-components (`giziNutrisiShared.ts` · `DietOrderPane.tsx` · `MonitoringPane.tsx`). NRS summary card + rujuk dietitian toggle, diet order form (tipe+kalori+tekstur+batasan), dietitian addendum collapsible, week strip 7-hari color dots, monitoring harian % per makan (pagi/siang/malam), mini bar chart collapsible history. SNARS AP 1.4
-- [x] **ICU/HCU Scoring APACHE II / SOFA (RI)** ✅ — `ICUScoringTab` (conditional: `kelas ICU | HCU`). Input nilai aktual terukur dengan auto-kalkulasi standar internasional. SOFA: PaO₂/FiO₂/vent → P/F ratio, trombosit, bilirubin, MAP+vasopressor+dosis, GCS, kreatinin+UO → higher wins. APACHE II: 9 param bidirectional Knaus 1985 range tables + oxygenation (A-aDO₂ = (713×FiO₂/100)−(PaCO₂/0.8)−PaO₂ bila FiO₂≥50%) + creatinine×2 bila AKI (max 8) + GCS contrib 15−GCS (0–12) + age NumInput → auto agePoints + kronik selector. Mortalitas: ln(odds) = −3.517 + total×0.146. Trend 7-hari bar chart + summary table. Files: `tabs/ICUScoringTab.tsx` + `icuScoring/{icuScoringShared,SOFAPane,APACHEPane,TrendPane}`. Mock ri-3 (RM-2025-007, nilai aktual). SNARS PP · ICU international
-- [x] **Identifikasi 2 Identitas Sebelum Tindakan (IGD + RI)** ✅ — lazy intercept: banner amber muncul saat masuk tab aksi (Tindakan · Resep · Order Lab · Order Rad · Pasien Pulang), bukan saat buka rekam medis. Banner tampilkan 3 identity card (Nama / Tgl Lahir / No RM) dengan staggered animation + checkbox konfirmasi + input nama perawat. Setelah verifikasi: banner collapse smooth → emerald chip "Identitas terverifikasi · [perawat] · [jam]" · konten tab di-blur + `pointer-events:none` sampai terverifikasi · state shared antar tab dalam satu sesi. `RawatInapPatientDetail` ditambah field `tanggalLahir`. Files: `shared/medical-records/IdentitasVerifikasiBanner.tsx` · modifikasi `IGDRecordTabs.tsx` + `RIRecordTabs.tsx`. SKP 1 · JCI IPSG 1
-
-### ✅ Selesai — Rawat Jalan (Poliklinik)
-
-- [x] **Fondasi RJ** ✅ — `RJPatientDetail` type + mock data (rj-1, rj-2) + route `/ehis-care/rawat-jalan/[id]` + `RJPatientHeader` + `RJRecordTabs` skeleton (13 tab router, semua shared di-wire)
-- [x] **Promote KonsultasiTab → shared** ✅ — pindah `rawat-inap/tabs/KonsultasiTab.tsx` + `rawat-inap/konsultasi/{konsultasiShared,RequestPane,DetailPane}` → `shared/medical-records/`. Update import RI.
-- [x] **AsesmenAwalTab RJ** ✅ — adapt dari RI: hanya 3 sub-tab (Anamnesis + Riwayat + Alergi). Tanpa Skrining Gizi + Penilaian Risiko. SNARS AP 1.1
-- [x] **SuratDokumenTab** ✅ — baru (shared): Surat Keterangan Sakit · Surat Kontrol · Surat Keterangan Sehat · Resume Medis Kunjungan. 4-card selector + form auto-fill + riwayat expandable + cetak. Sub: `suratDokumen/{suratDokumenShared,SuratFormPane,SuratHistoryPane}`. PMK 269/2008
-- [x] **DisposisiRJTab** ✅ — adapt dari IGD: Rujuk Internal (poli tujuan, prioritas Segera/Elektif/Konsultasi) + Rujuk Eksternal (surat rujukan full: jenis pelayanan 4 opsi, jenis rujukan 5 opsi, live preview, tujuan PPK/poli, diagnosa multi-select) + Admisi Rawat Inap (kelas 7 opsi, konfirmasi dokter, pengantar admisi). Tanpa Pulang/APS/Meninggal. File: `rawat-jalan/tabs/DisposisiRJTab.tsx`.
-
-### ✅ Selesai — Farmasi Worklist + Detail (`/ehis-care/farmasi`)
-
-**Layer 1 — Halaman Apoteker (cross-patient worklist):** ✅
-- [x] **`farmasiShared.ts`** ✅ — Types + config maps + `deriveResepOrders()` + `updateFarmasiWorkflow()` + `workflowStore` + `getOrderById()` + `getPatientInfo()`. Pricing/stock mock (`lookupPrice`, `lookupStock`, `parseSatuan`). `PatientInfoEntry` dengan demographics (usia, jenisKelamin, ruangan, noBed). `src/components/farmasi/`
-- [x] **`OrderCard.tsx`** ✅ — Card per order: HAM badge, status badge, progress bar, **action button → Link navigasi ke `/ehis-care/farmasi/[id]`** (tidak ada modal lagi).
-- [x] **`TelaahModal.tsx`** ✅ — 3-checklist accordion (Adm/Farm/Klin) + HAM warning + Setujui/Kembalikan.
-- [x] **`DispensasiModal.tsx`** ✅ — 2-step: lot/batch/expired/label → serah terima (nama perawat).
-- [x] **`FarmasiBoard.tsx`** ✅ — Stat bar + depo tabs + filter + HAM toggle + search + grid + pagination. Modals dihapus — workflow pindah ke halaman detail.
-- [x] **`page.tsx`** ✅ — Route `src/app/ehis-care/(main)/farmasi/page.tsx`. Workflow guide strip + header stats dari `deriveResepOrders()`.
-
-**Layer 2 — Tab Farmasi di rekam medis pasien (per-patient status tracker):** ✅
-- [x] **`FarmasiTab.tsx`** ✅ (shared) — Summary cards + order list accordion + catatan apoteker + link ke halaman farmasi. Pakai `deriveResepOrders(noRM)`. `src/components/shared/medical-records/FarmasiTab.tsx`
-- [x] **Wire ke IGDRecordTabs + RIRecordTabs + RJRecordTabs** ✅ — Tab "Status Farmasi" (icon: Tablets) di grup LAYANAN ketiga modul.
-
-**Layer 3 — Data Bridge (ORDERS_MOCK ↔ Farmasi):** ✅
-- [x] **Standarisasi tujuan** ✅ — `"Depo Rawat Inap"` → `"Apotek RI"`, `"Apotek Rawat Jalan"` → `"Apotek RJ"` di `daftarOrderShared.ts`.
-- [x] **`updateOrderStatus()`** ✅ — fungsi mutasi status order di `ORDERS_MOCK`, dipanggil saat apoteker submit telaah/dispensasi → `DaftarOrderTab` pasien ikut terupdate dalam sesi yang sama.
-- [x] **Single source of truth** ✅ — `ORDERS_MOCK` adalah satu-satunya sumber. Saat migrasi ke DB, cukup ganti `ORDERS_MOCK` dengan Prisma query — semua UI tidak perlu disentuh.
-
-**Layer 4 — Halaman Detail Order Farmasi (`/ehis-care/farmasi/[id]`):** ✅
-- [x] **Route fullpage** ✅ — `app/ehis-care/(fullpage)/farmasi/[id]/` layout + page. Server component, `getOrderById(id)`.
-- [x] **`FarmasiOrderHeader.tsx`** ✅ — Back button, patient info (nama, RM, usia, gender, ruangan, bed), order info (dokter, depo, tanggal, jam, item count), status badge animated, HAM + prioritas badge, progress strip 4-step.
-- [x] **`FarmasiOrderTabs.tsx`** ✅ — Sidebar 2 tab (Layanan Farmasi · CPPT Apoteker) + AnimatePresence content. Live order re-derived dari `workflowStore` client-side. Callbacks: `onTelaahSubmit`, `onDispensasiSubmit`, `onCatatanAdd`.
-- [x] **`tabs/LayananFarmasiTab.tsx`** ✅ — 4-tab card nav: Telaah Resep (step 1) · Dispensing & Serah (step 2) · Dokumen (step 3) · Riwayat Resep (info tab). `step: number | null` pattern — null = non-workflow tab (no step badge, icon always visible). `TabBtn` handles both variants.
-- [x] **`TelaahPane.tsx`** ✅ — Two-panel layout (`sm:grid-cols-2`): alerts (AllergyBanner + HAM) full width · Left panel `Administratif & Farmasetis` · Right panel `Klinis & Keputusan` (Klinis + Substitusi + catatan + Setujui/Kembalikan). Centang Semua per seksi. Alasan dikembalikan + Simpan Simpan button full width. Locked view setelah submit.
-- [x] **`DispensingSerahPane.tsx`** ✅ *(menggantikan DispensingPane.tsx + SerahTerimaPane.tsx)* — Combined pane: tabel obat + Lot/Batch/Exp/label input → serah terima form (penerima + cara pemberian + edukasi checklist). Footer: total tagihan IDR. Locked setelah selesai.
-- [x] **`RiwayatResepPane.tsx`** ✅ *(menggantikan RiwayatPane.tsx)* — Dedicated 4th sub-tab. Stats strip (Total/Selesai/Aktif/Dikembalikan). `OrderHistCard` per order: prioritas/HAM/status badges, item chips, dispensing overview (LOT+label count), serah overview (penerima+waktu+verifikatorAkhir), expandable per-item detail. Current order highlighted sky. Link ke halaman detail.
-- [x] **`DokumenPane.tsx`** ✅ *(menggantikan CetakPane.tsx)* — Pure cetak dokumen: 4 DocCard (Resep, Kwitansi, Label Obat, Etiket Aturan Pakai) + Cetak Semua. Order summary grid. Printed state tracking. Riwayat Resep dipindah ke tab tersendiri.
-- [x] **CPPT Apoteker** ✅ — Shared `CPPTTab` dengan `initialEntries=[]` + `showDate=true`.
-
-> Alur data: Dokter order resep di `DaftarOrderTab` → `ORDERS_MOCK` → `deriveResepOrders()` → FarmasiBoard overview → klik action → halaman detail `/farmasi/[id]` → Telaah + Dispensasi + Serah Terima → `workflowStore` + `ORDERS_MOCK` sync → FarmasiTab pasien terupdate. PMK 72/2016 · SKP 3
-
-### 🔴 Active — Laboratorium (`/ehis-care/laboratorium`)
-
-> Arsitektur mengikuti pola farmasi: worklist cross-patient → detail per-order → hasil tampil di `OrderLabTab` pasien (sudah ada).
-> Alur: Dokter order via `OrderLabTab` → `ORDERS_MOCK` → Lab Worklist → proses tiap fase → hasil rilis → `OrderLabTab` pasien terupdate.
-> Standar: ISO 15189:2022 · SNARS AP 5.9 · SNARS AP 5.11 · PMK 43/2013 · JCI AOP.5
-
-**Tier 1 — Kritis (Wajib Akreditasi):** ✅ Selesai
-
-- [x] **`labShared.ts`** ✅ — `LabOrder` · `HasilItem` · `SpecimenInfo` · `PenolakanInfo` · `CriticalNotif` · `LabTimestamps` types. Config maps (8 status · 7 kategori · prioritas · unit · flag). `deriveLabOrders()` · `getLabOrderById()` · `updateLabWorkflow()`. `autoFlag()` · `calcTATMenit()` · `getTATStatus()` · `hasCriticalResult()`. 6 mock orders lintas unit. `src/components/lab/`
-- [x] **Lab Worklist (`LabBoard.tsx`)** ✅ — Stats bar (CITO aktif/Antrian/Proses/Selesai). Critical value alert banner. Filter unit (IGD/RI/RJ) + status group + CITO toggle + search. Skeleton loading. Pagination. `LabOrderCard.tsx` dengan TAT chip + progress bar + CITO stripe. Route: `/ehis-care/laboratorium`
-- [x] **Lab Order Detail Page** ✅ — Route `/ehis-care/laboratorium/[id]`. `LabOrderHeader` (TAT timeline 7-step + status progress bar). `LabOrderTabs` sidebar (4 workflow tabs + 1 dokumen tab). ISO 15189
-- [x] **Penerimaan Order + Verifikasi Identitas** ✅ — `PenerimaanPane.tsx`: 3 identity cards (Nama/Tgl Lahir/No RM) + 3-checkbox confirm + petugas input. Locked view setelah terverifikasi. SKP 1 · ISO 15189
-- [x] **Pengambilan Sampel** ✅ — `SampelPane.tsx` Step A: jenis tabung, volume, waktu ambil, petugas flebotomi, lokasi. ISO 15189 §5.4
-- [x] **Penerimaan & Registrasi Sampel di Lab** ✅ — `SampelPane.tsx` Step B: no. registrasi, waktu terima, kondisi sampel. ISO 15189 §5.4
-- [x] **Penolakan Sampel (Specimen Rejection)** ✅ — kondisi dropdown (Hemolisis/Lipemia/Bekuan/Volume Kurang/Salah Tabung/Label Rusak/Lainnya) → reject flow dengan instruksi pengambilan ulang. ISO 15189 §5.4.5
-- [x] **Entry Hasil Pemeriksaan** ✅ — `HasilPane.tsx`: tabel per kategori, input nilai, `autoFlag()` N/H/L/C real-time, warna row per flag. ISO 15189 §5.5
-- [x] **Validasi Hasil** ✅ — `ValidasiPane.tsx`: review semua hasil read-only, catatan klinis SpPK, 2-checkbox confirm, TTD digital → rilis. Locked setelah selesai. ISO 15189 §5.6
-- [x] **Pelaporan ke Rekam Medis** ✅ — status → "Selesai" setelah validasi via `updateLabWorkflow()`. `RiwayatPane.tsx` menampilkan riwayat order per pasien. SNARS AP 5
-- [x] **Critical Value / Panic Value Alert** ✅ — `CriticalValueModal` di `HasilPane.tsx`: intercept wajib sebelum save, tidak bisa dismiss, per-test konfirmasi (metode Telepon/SMS/WA/Langsung + nama dokter + pelapor), log tersimpan. SNARS AP 5.9 · ISO 15189 §5.6.2
-- [x] **TAT Tracking** ✅ — `LabTimestamps` (7 fase), `calcTATMenit()` · `getTATStatus()` · `getTATElapsed()`. `TATTimeline` strip di `LabOrderHeader`. `TATChip` di `LabOrderCard`. CITO ≤60 mnt · RI/RJ ≤120 mnt. SNARS AP 5.11
-
-**Tier 2 — Klinis Penting (SNARS 2+):** ✅ Selesai
-
-- [x] **Trend & Riwayat Hasil** ✅ — `trend/trendShared.ts` + `tabs/TrendPane.tsx`. Mini sparkline per parameter (left panel) + full sparkline + history table (right panel). Mock data 3 pasien lintas kunjungan. Click-to-select parameter. ISO 15189 · clinical best practice
-- [x] **Delta Check** ✅ — `DELTA_THRESHOLDS` (15 parameter) di `trendShared.ts`. `calcDelta()` + `getPreviousResult()`. Inline amber banner real-time di `HasilPane.tsx` saat threshold terpicu. Badge ⚠ di TrendPane per parameter. `TrendingUp`/`TrendingDown` icon. ISO 15189 §5.6.2
-- [x] **Add-on Test** ✅ — `tabs/AddOnPane.tsx`. Catalog 30 pemeriksaan lintas kategori. Specimen validity check per jenis tabung (EDTA 4 jam, SST 6 jam, dll). Search + add + remove cart. Ajukan add-on button. Operational best practice
-- [x] **POCT (Point of Care Testing)** ✅ — `poct/poctShared.ts` + `tabs/POCTPane.tsx`. 10 jenis tes (GDS/GDP/HbA1c/Blood Gas/Troponin Rapid/D-Dimer/CRP/Antigen). 7 device config. Auto-flag N/H/L/C real-time. Entry history per order. Critical value warning inline. PMK 43/2013 · ISO 15189 §5.7
-- [x] **Cetak Hasil Lab** ✅ — `PrintPreviewModal` di `RiwayatPane.tsx`. Preview terformat: KOP RS, info pasien, tabel hasil per kategori (nilai+rujukan+flag), catatan validator, kolom TTD, watermark "HASIL RESMI". Print via iframe+srcdoc (no document.write). PMK 269/2008 · PMK 43/2013
-
-`LabOrderTabs.tsx` diperbarui: sidebar tambah grup **Klinis** (Trend & Delta · POCT Bedside · Add-on Test) antara Proses Lab dan Dokumen.
-
-**Tier 3 — Operasional / Quality Management:** ✅ Selesai
-
-- [x] **Internal QC** ✅ — `manajemen/InternalQCPane.tsx`. Levey-Jennings SVG chart per parameter (mean ±1/2/3SD color bands). Westgard auto-check (6 rules: 1-2s warning + 1-3s/2-2s/R-4s/4-1s/10x reject). Violation log per run. In-Control badge. **Form input run QC baru**: slide-in AnimatePresence, WestgardPreview real-time (prediksi In-Control/Warning/Reject + SD position saat mengetik nilai), lot reference strip, shift+tanggal+petugas. State mutable `useState<QCParameter[]>` → chart & violations update instan. ISO 15189 §5.6.3
-- [x] **Register Pemeriksaan** ✅ — `manajemen/RegisterPane.tsx`. Filter 1/7/30 hari. Stats cards (total, TAT avg, % dalam target, kritis). Horizontal bar chart distribusi kategori + unit. Volume sparkline + log tabel harian. PMK 43/2013
-- [x] **Manajemen Reagen** ✅ — `manajemen/ReagenPane.tsx`. Kartu stok per alat + stock progress bar, alert stok kritis (<min) + kadaluarsa + <60 hari. Form penerimaan reagen. Summary panel. ISO 15189 §5.3.2
-- [x] **Kalibrasi Alat** ✅ — `manajemen/KalibrasiPane.tsx`. List instrumen + status Valid/Overdue/Segera + days-until. Detail panel: log kalibrasi 2 entry, form tambah record. Alert Overdue merah + Segera amber. ISO 15189 §5.3.4
-- [x] **EQA / Proficiency Testing** ✅ — `manajemen/EQAPane.tsx`. Provider list (PNPME-BLK, EQAS-labQ). Siklus table per provider: nilai RS vs target, deviasi bar bidirectional (hijau <5% / amber 5-10% / merah >10%), status Lulus/Tidak Lulus/Pending. CAPA banner otomatis jika ada tidak lulus. ISO 15189 §5.6.4
-- [x] **Laporan Bulanan** ✅ — `manajemen/LaporanPane.tsx`. KPI cards (total, TAT avg, % target, nilai kritis). Mini bar chart volume 7 hari. Distribusi per unit + per kategori. TAT + kritis tabel harian. Tombol Cetak. PMK 43/2013
-
-`LabManajemenTabs.tsx` — sidebar 6 tab (QC Internal · Register · Reagen · Kalibrasi · EQA · Laporan). `LabPageView.tsx` — view switcher Worklist ↔ QC & Manajemen di `/ehis-care/laboratorium`.
-
-### 🔴 Active — Radiologi (`/ehis-care/radiologi`)
-
-> Arsitektur mengikuti pola Lab: worklist cross-patient → detail per-order → hasil tampil di `OrderRadTab` pasien (sudah ada di shared).
-> Alur: Dokter order via `OrderRadTab` → `ORDERS_MOCK` → `deriveRadOrders()` → RadBoard → proses tiap fase → laporan rilis → `OrderRadTab` pasien terupdate.
-> Standar: SNARS AP 6 · PMK 1014/2008 · PMK 24/2020 · Perka BAPETEN No. 2/2018 · JCI AOP.6 · ACR Practice Parameters · IAEA HH-19
-
-**Jenis Modalitas:** Konvensional (X-Ray) · USG · CT Scan · MRI · Fluoroskopi (HSG/Colon in Loop) · Mammografi · Bone Densitometry (DEXA)  
-**Urgensi & TAT:** CITO ≤60 mnt (akuisisi→laporan) · Semi-Cito ≤180 mnt · Rutin ≤360 mnt · Foto Thorax IGD ≤30 mnt (akuisisi→bisa dibaca)  
-**9 Status:** `Menunggu → Dijadwalkan → Verifikasi → Persiapan → Akuisisi → Expertise → Verifikasi Hasil → Selesai | Ditolak`
-
-**Tier 1 — Kritis (Wajib Akreditasi):** ✅ Selesai
-
-- [x] **`radShared.ts`** ✅ — `RadOrder` · `KontrasInfo` · `DosisLog` · `CriticalFinding` · `RadTimestamps` · `EkspertasiData` · `ValidasiData` · `PersiapanData` · `AkuisisiData` types. Config maps (9 status · 7 modalitas · urgensi · DRL values PMK 1014/2008). `deriveRadOrders()` · `getRadOrderById()` · `updateRadWorkflow()` · `calcTATMenit()` · `getTATStatus()` · `hasCriticalFinding()` · `getStatusStep()` · `fmtTimestamp()`. `PROTAP_MAP` per modalitas. `CRITICAL_KATEGORI_LIST` 8 temuan. 5 mock orders. `src/components/rad/`
-- [x] **Rad Worklist (`RadBoard.tsx`)** ✅ — Stats bar (CITO aktif / Antrian / Proses / Selesai). Critical finding alert banner (AnimatePresence). Filter unit + modalitas + CITO toggle + search. `RadOrderCard.tsx` (CITO stripe, TATChip, progress bar, Link ke detail). `RadPageView.tsx` switcher. Route: `/ehis-care/radiologi`. SNARS AP 6 · PMK 1014/2008
-- [x] **Rad Order Detail Page** ✅ — Route `/ehis-care/radiologi/[id]`. `RadOrderHeader` (8-step TATTimeline + animated progress bar + patient info grid). `RadOrderTabs` sidebar (5 workflow tabs + 1 dokumen tab, teal-600 branded, step badges ✓ completed). JCI AOP.6
-- [x] **Verifikasi Identitas di Radiologi** ✅ — `VerifikasiPane.tsx`: 3 identity cards (Nama/Tgl Lahir/No RM) + 3-checkbox confirm + petugas radiografer. Animated done state (emerald chips). `updateRadWorkflow` → status: "Persiapan". SKP 1 · SNARS AP 6
-- [x] **Persiapan Pasien & Manajemen Kontras** ✅ — `PersiapanPane.tsx` + `persiapan/KontrasPanel.tsx`: protap per modalitas auto-populated dari `PROTAP_MAP`. Jadwal pemeriksaan. Kontras panel: jenis (Iodinasi IV/oral/rektal/Gadolinium), dosis, kecepatan, premedikasi, reaksi intra-prosedur grading. Kontraindikasi checklist. Right panel: allergy warning + TAT targets. PMK 24/2020 · ACR Manual on Contrast Media
-- [x] **Akuisisi Gambar + Proteksi Radiasi** ✅ — `AkuisisiPane.tsx`: parameter teknis per modalitas (CT: kVp/mAs/FOV/slice · USG: probe/frekuensi · MRI: sekuens · Konvensional: kV/mAs). `DRLGauge` component: CTDIvol+DLP (CT) · DAP+waktu (Fluoroskopi) · entrance dose (Konvensional/Mammografi). Auto-alert DRL exceeded. Proteksi checklist (apron/collar/gonadShield/thyroidShield). ALARA reminder. Perka BAPETEN No. 2/2018 · IAEA HH-19
-- [x] **Expertise / Entry Laporan Radiolog** ✅ — `EkspertasiPane.tsx`: 5 report fields (Indikasi Klinis · Teknik · Temuan · Kesan · Saran). SpRad nama + SIP. "Simpan Draft" + Submit. `CriticalFindingSelector` grid 8 kategori di right panel. If critical selected → `CriticalFindingModal` intercept. SNARS AP 6 · ACR Practice Parameters
-- [x] **Critical Findings Alert (Temuan Kritis)** ✅ — `CriticalFindingModal.tsx`: blocking full-screen rose-600 modal. `FindingRow` per temuan (metode Telepon/SMS/WA/Langsung + nama dokter + pelapor + jamLapor + confirm button). Progress bar animated. Cannot dismiss without confirming all. "Semua Dikonfirmasi — Terbitkan Laporan" CTA. Log tersimpan. SNARS AP 6.1 · JCI AOP.6
-- [x] **Validasi & Verifikasi Laporan** ✅ — `ValidasiPane.tsx`: review laporan read-only + critical findings recap. 2-checkbox (klinis konsisten + laporan lengkap) + validator name. Animated emerald done state. `updateRadWorkflow` → status: "Selesai". Locked setelah rilis. SNARS AP 6 · PMK 1014/2008
-- [x] **Pelaporan ke Rekam Medis** ✅ — status → "Selesai" setelah validasi. `RiwayatRadPane.tsx` menampilkan riwayat order per pasien (filter noRM). Stats strip Total/Selesai/Aktif/Kritis. Expandable `HistCard` per order. SNARS AP 6
-- [x] **TAT Tracking** ✅ — `RadTimestamps` (8 fase), `calcTATMenit()` · `getTATStatus()` · `getStatusStep()`. `TATTimeline` strip di `RadOrderHeader`. `TATChip` di `RadOrderCard`. CITO ≤60 mnt · Semi_Cito ≤180 mnt · Rutin ≤360 mnt. SNARS AP 6 · PMK 1014/2008
-
-**Tier 2 — Klinis Penting (SNARS AP 6+):**
-
-- [x] **Riwayat & Perbandingan Pemeriksaan** ✅ — `tabs/RiwayatRadPane.tsx`. Stats strip (Total/Selesai/Aktif/Kritis). `HistCard` expandable: kesan, temuan kritis, timestamps. Current order highlighted (teal ring). ACR Practice Parameters · clinical best practice
-- [x] **Cetak Laporan Radiologi** ✅ — `PrintPreviewModal` di `RiwayatRadPane.tsx`. iframe-based print: KOP RS, info pasien, laporan terformat, kolom TTD SpRad, watermark "LAPORAN RESMI". Preview modal dengan summary grid. Tersedia hanya jika status "Selesai". PMK 269/2008 · PMK 24/2020
-- [x] **Image Viewer (Basic DICOM Preview)** ✅ — `tabs/ViewerPane.tsx` + `tabs/viewer/MockImage.tsx`. Grid viewer 1×1/2×2 toggle. CSS window/level presets (Standard/Paru/Mediastinum/Tulang/Otak/Jaringan Lunak via brightness+contrast filter). Zoom ±0.25 dengan progress bar. Mode anotasi: klik gambar → input teks → label kuning; hapus per klik. Upload PNG/JPG/DICOM thumbnail. Watermark "HANYA PREVIEW — BUKAN PENGGANTI DICOM VIEWER". Mock SVG anatomy per modalitas (X-Ray/CT/USG/MRI/Mammografi). `getMockSeries()` returns per-modalitas series list. Tab "Image Viewer" di grup Klinis sidebar. ACR · IAEA
-- [x] **Alergi Kontras & Premedikasi Tracker** ✅ — `tabs/KontrasPane.tsx`. Two-panel. Kiri: banner peringatan (rose jika ada riwayat), current order kontras info card, history list expandable `ReaksiCard` per kejadian. `AddReaksiForm`: grade selector (Ringan/Sedang/Berat) + manifestasi chips + onset + tatalaksana + dokter. Kanan: risk summary card, protokol premedikasi steroid 3-step (−13/−7/−1 jam) auto-muncul jika ada riwayat, klasifikasi reaksi reference. Mock `KONTRAS_HISTORY_MOCK` keyed by noRM. Tab "Alergi Kontras" di grup Klinis sidebar. ACR Manual on Contrast Media Ed. 11
-
-**Tier 3 — Operasional / Quality Management:** ✅ Selesai
-
-- [x] **QC Pesawat (Kalibrasi & Uji Kesesuaian)** ✅ — `manajemen/QCPane.tsx`. Two-panel: kiri list 5 pesawat per modalitas (Konvensional CR/DR · CT 128-slice · USG · MRI 1.5T · Mammografi FFDM) dengan status Valid/Overdue/Segera + days-until + alert banner. Kanan: detail panel (info card, uji kesesuaian expandable per parameter — kolimasi/keluaran/resolusi/HVL/CTDIvol/SNR, log kalibrasi, form tambah record kalibrasi). `radManajemenShared.ts` — `Pesawat`, `KalibrasiLog`, `UjiKesesuaian` types + `KALIBRASI_STATUS_CFG`. BAPETEN Perka No. 2/2018 · IAEA HH-19 §7
-- [x] **Register Pemeriksaan** ✅ — `manajemen/RegisterPane.tsx`. Filter 1/7/30 hari. Stats cards (total, TAT avg, % target, kritis, ditolak). Volume sparkline SVG. Horizontal bar chart distribusi modalitas (teal/sky/violet/rose/pink) + unit. Log tabel harian 14 baris (total, TAT, % target, kritis, ditolak). Deterministic mock 30 hari `REGISTER_MOCK`. PMK 1014/2008 · PMK 24/2020
-- [x] **Log Dosis Radiasi (DRL Monitoring)** ✅ — `manajemen/DosisPane.tsx`. Two-panel: kiri dose log list (filter per modalitas). Kanan: detail entry (exceeded alert rose, patient info, DRLGauge animated per parameter: CTDIvol/DLP/entrance dose, ALARA reminder card). `DRLSummary` panel (total/exceeded/%, rata-rata CTDIvol, DRL referensi tabel). `DRL_CT` + `DRL_ENTRANCE` PMK 1014/2008 values. 12 mock entries `DOSIS_LOG_MOCK`. **Form Tambah Log**: slide-in AnimatePresence, modalitas selector (CT/Konvensional/Mammografi/Fluoroskopi), region dropdown dinamis per modalitas, dose fields dinamis per modalitas, `DRLPreview` real-time gauge saat user mengetik nilai (perbandingan vs DRL PMK 1014/2008), auto-calculate `exceeded`, entry baru prepend ke list + auto-select di right panel. State mutable `useState<DosisLogEntry[]>`. Perka BAPETEN No. 2/2018 · IAEA Safety Reports 39
-- [x] **EQA / Phantom Test** ✅ — `manajemen/EQAPane.tsx`. 3 program (AAPM CT Phantom · SMPTE USG · ACR MRI). `ProgramCard` collapsible per program: stats lulus/tidak/pending. `SiklusTable`: grid (parameter + nilai RS + deviasi bar bidirectional hijau<5%/amber5-10%/merah>10% + status badge) + expandable catatan. CAPA banner rose otomatis jika ada tidak lulus. Reference info 3 kolom. IAEA HH-19 · ACR Accreditation
-- [x] **Laporan Bulanan** ✅ — `manajemen/LaporanPane.tsx`. KPI 5 cards (total, TAT avg, % target, kritis, DRL exceeded). Mini bar chart 7 hari (Framer Motion animated). Distribusi modalitas + unit + urgensi (DistrBar). Tabel rekapitulasi DRL per modalitas (total/exceeded/%). `PrintContent` hidden div untuk `window.print()`. Tombol Cetak dengan printed state. PMK 1014/2008
-
-`RadManajemenTabs.tsx` ✅ — sidebar 5 tab (QC Pesawat · Register · Log Dosis · EQA / Phantom · Laporan Bulanan) + branded Rad header + regulasi footer. `RadPageView.tsx` ✅ — view switcher Worklist ↔ QC & Manajemen aktif menampilkan `RadManajemenTabs`.
-
-> Alur data: Dokter order via `OrderRadTab` → `ORDERS_MOCK` → `deriveRadOrders()` → RadBoard → klik action → halaman detail `/ehis-care/radiologi/[id]` → Verifikasi → Persiapan (kontras) → Akuisisi (dosis log) → Expertise (laporan + critical findings) → Validasi → rilis → `OrderRadTab` pasien terupdate. SNARS AP 6 · PMK 1014/2008 · PMK 24/2020 · Perka BAPETEN No. 2/2018 · JCI AOP.6
-
-### 🔴 Active — Dashboard (`/ehis-dashboard`)
-
-- [ ] **Dashboard** — stats cards (pasien hari ini per unit: IGD/RI/RJ), BOR chart (bed occupancy rate), recent activity feed, quick-nav ke masing-masing modul. Route: `/ehis-dashboard`. Layout: ModuleLayout sudah ada.
-
-### 🔴 Active — Master Data (`/ehis-master`)
-
-> Arsitektur: **Unified Tree** untuk Organization & Location (1 halaman, 3 level: Unit → Ruangan → Bed). **Adapter Pattern** untuk FHIR SatuSehat — schema DB EHIS-first, `lib/fhir/adapters/` untuk transform saat sync. Practitioner: GET by NIK dari SatuSehat.
-> File structure: `src/components/master/{ruangan,dokter,pengguna,katalog-obat,katalog-lab,icd,poli,tarif,penjamin,profil-rs}/` · `src/lib/fhir/adapters/` · `src/lib/fhir/types/fhir.types.ts` · `src/lib/fhir/client.ts`
-
-**Keputusan Arsitektur (jangan diubah tanpa diskusi):**
-- **Organization & Location UI**: Unified Tree — 1 route `/ehis-master/ruangan`, left panel tree, right panel form kontekstual per node type
-- **FHIR Strategy**: SEMUA interaksi FHIR/SatuSehat (sync action, NIK lookup, Org_id config, mapping config) **pindah ke modul terpisah `/ehis-fhir`** (akan dibangun nanti). Master pages = data RS murni tanpa konsep FHIR. Adapter Pattern (`toFhirOrganization()`/dst) tetap di `lib/fhir/adapters/` saat backend ready. (2026-05-19 sore, revisi dari rencana awal yang embed FHIR di master)
-- **Mapping Strategy (Opsi A — Mapping Hub Terpadu)**: Semua relasi N:N antar entitas master di-host di 1 hub `/ehis-master/mapping` dengan sidebar internal. Relasi simple 1:N (mis. Dokter.poliAssignment) tetap bisa di-set shortcut dari entitas, tapi source of truth tetap di Hub. Alasan: matrix view (Tarif × Penjamin × Kelas) tidak muat di form entitas, sekalian unifikasi semua mapping di 1 tempat — admin medis/billing punya satu pintu. (2026-05-19 sore)
-- **Address**: Convention over Configuration — inherit dari parent Organization secara default, override per record via flag
-- **GPS**: Opsional, collapsible section — tidak memblokir sync SatuSehat
-- **Kode wilayah**: Cascading dropdown Kemendagri (embed JSON ~500KB), bukan free text — kode numerik wajib untuk FHIR `administrativeCode`
-- **Bed status operasional** (`Tersedia/Terisi`): dikelola workflow klinis saat admisi/pulang, **bukan** form master
-- **Practitioner master**: data dokter (nama, NIK, STR, SIP, jadwal) di-input manual. NIK lookup ke SatuSehat untuk verifikasi/auto-populate **pindah ke modul `/ehis-fhir`**.
-
-**Tier 0 — Beranda Master:** ✅ Selesai (2026-05-24)
-
-- [x] **Beranda** ✅ — `src/components/master/beranda/` + route `/ehis-master`. Dashboard custom 12-col (bukan `MasterPageLayout` karena landing, bukan list+detail). **Hero** violet eyebrow + h1 + max-w-2xl desc + Snapshot timestamp pill mono jam HH:mm. **KPI Strip** 5 hero card animated (Sumber Daya · Katalog Klinis · Reference · Mapping Coverage · Operasional) — numbered eyebrow + accent bar hover transform. **Quick-Nav Grid** 9 kelompok per `masterNav` (teal/sky/violet/rose/indigo/amber/emerald/pink/slate) × 24 nav card — header dot+title+count+desc truncate-ml-auto, card icon ring-1 hover-scale, label + subLabel/count, badge mono, ChevronRight translate hover. **Mapping Coverage Panel** sidebar — 8 mini-meter per sub-page Mapping Hub (SDM/Kewenangan/Layanan/Tarif/Formularium/Distribusi/Penjamin-Ruangan/RBAC). Progress bar animated width-0→% ease-out, color tone semantik rose<25%/amber<60%/emerald≥60%. Header `filled/total cell` + avg %. CTA "Buka Mapping Hub" footer. **Recent Edits Panel** sidebar — activity feed 8 entri mock dengan timeline rail vertical absolute. Action chip 3-warna (Tambah emerald · Edit sky · Hapus rose) + Plus/Pencil/Trash2 icon. Initials avatar dari nama user (strip "dr." prefix). `fmtAgo()` relatif (mnt/jam/hari). Klik → deep-link ke route master. **Aggregator** `getBerandaStats()` consume 20+ mock source. `MAPPING_COVERAGE` 8 entries estimasi filled/total. `RECENT_EDITS_MOCK` 8 entries lintas master. **TONE_PALETTE** 9 tone purge-safe static. **Responsive** mobile-first: KPI 2→3→5 cols, body grid 1→12 (lg: nav col-span-8 + sidebar col-span-4), nav items 1→2→3 cols per kelompok, hero timestamp hidden <sm. Skeleton 500ms + AnimatePresence fade swap. **6 file, semua <300L**: BerandaMasterPage 133L · berandaShared 286L · KPIStrip 71L · QuickNavGrid 109L · MappingCoveragePanel 111L · RecentEditsPanel 127L. Catatan: FHIR sync overview **pindah ke modul `/ehis-fhir`** (dipisah sejak refactor Strip FHIR 2026-05-19).
-
-**🔴 Refactor Strip FHIR dari Master:** ✅ Selesai (2026-05-19 sore)
-
-- [x] **Strip FHIR dari Ruangan** ✅ — hapus `SyncSection.tsx` (file dihapus), hapus `SYNC_CFG` / `SyncStatus` / `canSyncNode` / `countSyncedAll` dari `ruanganShared.ts`, hapus `fhirId` + `syncStatus` dari `OrganizationNode` / `LocationNode` / `BedSubRecord`. Hapus per-bed sync chip+button dari `BedManagerPanel` (jadi name/kode + status segmented + delete). Hapus stat card "Tersync ke SatuSehat" dari `RuanganPage` → diganti `BedSingle` "Bed Terdaftar" + active count. Hapus sync dot indicator + sync legend footer dari `TreeNode`/`TreePanel` → diganti badge `Non-Aktif` di node yang inactive. RS root banner di-rephrase: "Profil RS — Read Only" tanpa mention FHIR. **TETAP**: `Organization.active` toggle + `Organization.type` dropdown (universal masterdata).
-- [x] **Strip FHIR dari Dokter & Nakes** ✅ — hapus `NIKLookupPanel.tsx` (file dihapus), hapus `SatuSehatPractitioner` interface + `SATUSEHAT_PRACTITIONER_DB` + `lookupSatuSehatByNIK()` dari `dokterShared.ts`, hapus `fhirId` + `verifiedAt` dari `DokterRecord`. `DokterDetail` di-restruktur: section "Data dari SatuSehat" read-only diganti dengan section "Data Profesi" editable (NIK + tanggal lahir + jenis kelamin + STR + spesialis + kualifikasi semua manual input). Hapus `BadgeCheck` sync indicator dari `DokterList`. `DokterPage` stat card "Terverifikasi SatuSehat" diganti "Dokter Spesialis" (count non-Umum). Header copy di-rephrase dari "verifikasi NIK ke SatuSehat" → "identitas, profesi (STR/SIP), penugasan unit, dan jadwal".
-- [x] **Strip rsConfig.ts** ✅ — hapus `fhirId`, `SATUSEHAT_ORG_IDENTIFIER_SYSTEM`, `SATUSEHAT_LOC_IDENTIFIER_SYSTEM`. RS_PROFIL sekarang hanya berisi data RS (nama/kode/alamat/telp/email) sebagai seed root Organization. Catatan inline: konfigurasi SatuSehat akan dikelola di modul `/ehis-fhir`.
-
-**Tier 1 — Foundation Master (Resource klinis dasar):** ✅ Frontend selesai (akan di-refactor strip FHIR)
-
-- [x] **Update masterNav** ✅ — `src/lib/navigation.ts` `masterNav` direstruktur: grup `Utama` (Beranda) + `FHIR Resource` (Unit & Ruangan · Dokter & Nakes · Pengguna). Grup `Katalog Klinis` · `Operasional` · `Konfigurasi` akan ditambah saat tier masing-masing dikerjakan, hindari dead link sebelum routes ada.
-- [x] **Unit & Ruangan — Unified Tree** ✅ — `src/components/master/ruangan/` + route `/ehis-master/ruangan`. **Arsitektur FHIR-faithful (2026-05-19):** RS Induk root virtual dari `lib/master/rsConfig.ts` (Org_id SatuSehat hard-coded sementara — `1fdc1d5d-4d41-4b1c-b976-2118779619d2`), Organization n-level nested via `partOf` (mendukung pola flat / SOTK 3-level / teaching 4-level), Bed dipindah keluar dari hirarki tree jadi sub-collection `LocationNode.beds[]` (lebih ringkas, sync per-bed di inline panel kanan). Pemisahan: Direktur/Kabid/Kepala Instalasi = PractitionerRole bukan Organization. `ruanganShared.ts` (types `OrganizationNode` dengan `active`+`orgType` FHIR + nested parentId / `LocationNode` dengan `beds: BedSubRecord[]` / hapus `BedNode` standalone, `ORG_TYPE_CFG` 4 jenis dept/dept-clin/team/prov, mock RS Induk → Direktorat Yanmed (contoh nested) → IGD/RI/RJ, `KOTA_BY_PROVINSI` cascading Kemendagri 5 provinsi, helpers `canSyncNode`/`getEffectiveAlamat`/`countDescendants`/`countAllBeds`/`countSyncedAll`/`getAncestors`/`isRSRoot`). `RuanganPage` skeleton 600ms + 3 stat card (units/synced%/total) + 2-panel + proteksi RS root (cannot delete/sync). `TreePanel` 360px: search recursive ancestor matcher + tombol "+ Unit" (selalu di bawah RS Induk) + sync legend footer. `TreeNode` recursive collapsible dengan dropdown menu "+ Ruangan / Sub-Unit" pada Organization (Location tidak punya children di tree), sync dot per node, bed count badge per Location, RS root pakai icon Hospital + warna violet. `OrganizationForm` 5 section: Identitas + Klasifikasi FHIR (`orgType` 4-button + `active` toggle) + Alamat (full Kemendagri cascading + kode wilayah 10-digit) + GPS collapsible + FHIR Sync. Breadcrumb ancestor chain. RS Root mode = readonly dengan banner "dikelola Profil RS T4". `LocationForm` inherit-address checkbox (CoC pattern) + tipe ruangan 8 opsi + kelas 4 opsi + override alamat + `BedManagerPanel` embed. `BedManagerPanel` inline CRUD: add form slide-in dengan capacity validation + bed row (name/kode input + 3-btn status segmented compact + sync chip+button mini + delete) + sync per-bed di-gate harus parent Location tersync dulu. `SyncSection` gate parent-must-sync + simulasi 1.2s + Re-sync untuk Tersync + readonly mode untuk RS root. SatuSehat · FHIR R4 · ISO 3166-2 ID
-- [x] **Dokter & Nakes** ✅ — `src/components/master/dokter/` + route `/ehis-master/dokter`. `dokterShared.ts` (types, 15 kode spesialis, `SATUSEHAT_PRACTITIONER_DB` mock 3 NIK lookup, `lookupSatuSehatByNIK` simulasi 1.4s). `DokterPage` skeleton + 3 stat card (total/verified%/active) + 2-panel. `DokterList` 380px: search NIK/STR/SIP/nama + filter status dropdown + avatar initials + sync BadgeCheck violet. `DokterDetail` 4 section: NIK Lookup (jika belum verified) → Data SatuSehat read-only grid (jika verified) → Data Lokal RS (SIP, email, telp, status segmented 3-btn) → Poli Assignment multi-select 10 opsi chips → Jadwal Praktik dinamis (add/remove slot per hari + jam). `NIKLookupPanel` input 16-digit + counter + 3-state animated (idle/found/notfound) + tombol "Gunakan Data Ini" auto-populate semua field SatuSehat. 4 mock dokter (3 verified, 1 belum). SatuSehat Practitioner · SNARS
-- [x] **Pengguna Sistem** ✅ — `src/components/master/pengguna/` + route `/ehis-master/pengguna`. `penggunaShared.ts` (9 role dengan deskripsi, 3 status, 10 unit, `fmtRelative` untuk last-login). `PenggunaPage` table-based: skeleton + 3 stat card (total/aktif/admin) + toolbar (search + 3 filter dropdown role/status/unit) + table 5 kolom (Pengguna/Role/Unit/Status/Login Terakhir + menu aksi 3 dot). Row menu: Edit · Suspend/Aktifkan · Hapus. `PenggunaFormModal` slide-in scrollable: Identitas (nama, username auto-slug lowercase, email, telp) → Password (required new / optional edit) → Role 9 opsi grid + status segmented → Penugasan Unit chips multi-select (validasi min 1). 10 mock pengguna lintas role. Non-FHIR resource — link `dokterId` opsional untuk role klinis.
-
-**Skala Klinis (Phase 2 Kategori A) ✅ Selesai (2026-05-23):**
-
-- [x] **Skala Risiko** ✅ — `/ehis-master/skala-risiko` accent **teal**. `lib/master/skalaCommon.ts` (shared types `SkalaRecord` + helpers `deriveTotalMax`/`findInterpretasi`/`detectRangeIssues`) + `skalaRisikoMock.ts` (5 skala: Barthel/Morse/Braden/NRS/MUST). Konsumen: IGD `PenilaianTab` + RI `PenilaianRisikoPane`. Standar: Mahoney 1965 · Morse 1989 · Braden 1987 · BAPEN MUST.
-- [x] **Skala Umum** ✅ — `/ehis-master/skala-umum` accent **sky**. `skalaUmumMock.ts` (5 skala: GCS/Kesadaran/KU/NEWS2/MEWS). Konsumen: TTVTab semua modul + StatusFisikPane. Standar: Teasdale 1974 · RCP 2017 · Subbe 2001.
-- [x] **Skala Penyakit** ✅ — `/ehis-master/skala-penyakit` accent **violet**. `skalaPenyakitMock.ts` (5 skala lintas spesialisasi: Killip/NYHA/TIMI/ECOG/Stadium Kanker). Konsumen: IGD PenilaianTab Kardio + Onko. Standar: AJCC 8th ed. 2017.
-- [x] **Triase IGD** ✅ — `/ehis-master/triase-igd` accent **amber**. `triaseMock.ts` (`TriaseRecord` dengan `levels[]` × `parameters[]` matrix; `TRIASE_TONE_CFG` 7 tone). 1 protokol default 6 level × 8 parameter (ESI + DOA). Components: `TriaseList` (color-stripe per level) + `TriaseDetail` 2-tab (Identitas + Matrix) + `MatrixTab` (sticky header/first-col + tone swatch picker + inline textarea cells + collapsible level editor).
-
-**Shared layer (zero-duplication strategy):** 3 master skala (Risiko/Umum/Penyakit) struktur data identik → ekstraksi ke `components/master/skala-shared/` (`SkalaList` · `SkalaDetail` · `SkalaEmptyState` + 3 tabs Identitas/Items/Interpretasi parameterized accent). Per-master page jadi thin wrapper ~113 lines (mock import + branded classes + copy text). Triase IGD struktur beda (matrix vs scoring) → isolated folder sendiri. File terbesar: `MatrixTab.tsx` 601 lines (di bawah 800 limit). Sumber hardcoded di IGD `PenilaianTab` + RI `asesmenAwalShared` + TTVTab + StatusFisikPane + TriaseTab siap di-replace via derivation pattern saat backend ready.
-
-**Reference Klinis (Phase 2 Kategori B) ✅ Selesai (2026-05-23):**
-
-- [x] **ICD-10 & ICD-9-CM** ✅ — `/ehis-master/icd` accent **sky**. `lib/master/icdMock.ts` ~80 ICD-10 (lintas 22 chapter WHO) + ~30 ICD-9-CM. `IcdItem` dengan `jenis` discriminator + chapter/blok + `inaCbg?` mapping BPJS. Components: `IcdList` dengan jenis switcher (BookText/Stethoscope icon) + chapter dropdown + status filter; `IcdDetail` dengan kode/nama bilingual ID/EN + INA-CBG conditional untuk ICD-10. Replace target: [diagnosaShared.ts](src/components/shared/medical-records/diagnosaShared.ts) ICD10/ICD9 catalogs.
-- [x] **Asesmen Katalog** ✅ — `/ehis-master/asesmen-katalog` accent **violet**. `lib/master/asesmenKatalogMock.ts` 120 entries lintas 11 kategori (Alergi 45 · Penyakit 50 · Sosial 8 · Reproduksi 14). SNOMED CT mapping pada 10 allergen tervalidasi. Components: kategori filter chips grouped per grup di list + conditional field rendering di detail (SNOMED untuk Allergen, Severity untuk Reaksi). Replace target: [asesmenShared.ts:88-188](src/components/shared/asesmen/asesmenShared.ts#L88) QUICK_PICKS/REACTIONS/PENYAKIT_*/ANGGOTA_KELUARGA/METODE_KB/JENIS_PERSALINAN/SNOMED_CODES.
-- [x] **SDKI/SIKI/SLKI** ✅ — `/ehis-master/sdki` accent **rose**. `lib/master/sdkiMock.ts` ~30 diagnosa lintas 5 kategori SDKI (Fisiologis/Psikologis/Perilaku/Relasional/Lingkungan) × 3 jenis (Aktual/Risiko/Promosi_Kesehatan). Schema lengkap: dataMayor + dataMinor (subjektif/objektif) + kriteriaHasil (SLKI) + intervensi (SIKI 4 sub-kategori observasi/terapeutik/edukasi/kolaborasi). Components: 3-tab structure (IdentitasTab + KlinisTab + IntervensiTab) + shared `ListEditor` reusable component dengan animated row add/remove/reorder. Diagnosa jenis Risiko auto-hide data mayor/minor + tampilkan faktorResiko. Replace target: [keperawatanShared.ts:77](src/components/shared/medical-records/keperawatanShared.ts#L77) `SDKI_CATALOG`.
-
-**Strategi mock representative (untuk dataset besar):** alih-alih import full dataset (15.000 ICD-10, 149 SDKI PPNI, dll yang bikin bundle bengkak + dev server lambat), Kategori B pakai mock sample 30–120 entry per master dengan schema 1:1 ke target real dataset. Saat backend ready, swap mock array dengan `prisma.X.findMany()` — zero refactor di components. Phase 3 dapat tambah "Import CSV" UI untuk admin populate full dataset. Pattern ini sudah teruji di Katalog Obat (30/ribuan), Lab (31/ratusan), Tindakan (35).
-
-**Template & Enum (Phase 2 Kategori C) ✅ Selesai (2026-05-23):**
-
-- [x] **Status Enum** ✅ — `/ehis-master/status-enum` accent **violet**. `lib/master/statusEnumMock.ts` 9 enum group (Status Pulang/KU/Tingkat Kesadaran/Kondisi Transfer/Mode Transport/Kelas Perawatan/Hubungan Keluarga/Profesi Edukator/Rute Obat), 50 entries total, 9 tone palette + 30+ icon registry. Components: `StatusEnumPage` orchestrator + `EnumSidebar` (280px, group list dengan icon+aktif/total ratio) + `EnumTable` (search/filter + CRUD inline edit + reorder up/down + add form collapsible) + `EnumEntryForm` (label→auto-slug kode + tone swatch picker + icon select + urutan + live preview chip). Replace target: pasienPulangShared IGD/RI + dischargeShared.
-- [x] **Template Anamnesis** ✅ — `/ehis-master/template-anamnesis` accent **teal**. `lib/master/templateAnamnesisMock.ts` 17 template lintas 3 context (IGD 8 · RI 4 · RJ 5) × 12 kategori keluhan (Kardiovaskular/Respirasi/Neurologi/Pencernaan/Endokrin/Infeksi/Trauma/dst). Schema dengan `contextTags[]` multi-context + chief complaint kategori + placeholder ___ untuk field user. Components: 3-tab Detail (IdentitasTab — kategori grid + context multi-select chip; KontenTab — keluhan utama + RPS + onset + faktor + statusGeneralis + mekanismeCedera conditional; PreviewTab — catatan perawat + live preview lengkap). Filter chip per context + dropdown kategori di List. Replace target: asesmenAwalShared (RI) + AsesmenMedisTab (IGD) + asesmenAwalRJShared.
-- [x] **Template Form** ✅ — `/ehis-master/template-form` accent **sky** (per-jenis: violet/rose/sky/amber). `lib/master/templateFormMock.ts` discriminated union (`jenis: "sbar"|"ic-risiko"|"surat"|"quick-text"`), 20 mock template (3 SBAR + 4 IC + 5 Surat + 8 QuickText). Custom orchestrator (bukan useMasterCrud — multi-collection per jenis). Components: `TemplateFormSidebar` 260px (4 jenis card dengan icon+deskripsi+count+ring color), `TemplateFormList` 320px adaptive sub-label per jenis, `TemplateFormDetail` switch-by-discriminator render 4 pane berbeda — `SBARPane` (4-section card S/B/A/R + tips writing), `ICRisikoPane` (tag-list builder risiko + manfaat/alternatif/konsekuensi + PMK 290 reminder), `SuratPane` (2-column editor+preview + placeholder picker hijau=sudah dipakai), `QuickTextPane` (shortcut validator real-time no-space/starts-with-/, unique + word counter + preview "ketik→expand"). Replace target: handoverShared SBAR_DEF, InformedConsentTab RISIKO_UMUM, pasienPulangShared SURAT_TEMPLATE.
-
-**Workflow Klinis (Phase 2 Kategori D) ✅ Selesai (2026-05-24):**
-
-- [x] **Discharge Klasifikasi** ✅ — `/ehis-master/discharge` accent **emerald** ("ready to go home / positive completion"). `lib/master/dischargeKlasifikasiMock.ts` 5 sub-master dengan **shape berbeda** (bukan force-fit ke 1 pattern): (1) Homecare Services 10 entries flat list; (2) Alat Bantu Pulang 9 entries flat list; (3) Checklist Template 11 entries dengan `required:boolean` flag + `sublabel` field; (4) Phase Planning 3 fase × 11 target items (PhaseDefinition dengan `color: sky|emerald|amber` + `targets[]` + `standar` SNARS); (5) Risiko Readmisi rule engine — 3 RisikoParameter (dukungan-keluarga/kepatuhan-obat/riwayat-readmisi) × value options × output level (RENDAH emerald / SEDANG amber / TINGGI rose), `computeRisikoLevel()` helper higher-priority-wins. Pattern: **sidebar nav + switch-by-key pane** (mirip TemplateForm). Components: `DischargePage` orchestrator (4 StatCard) + `DischargeSidebar` 280px (5 sub-master cards dengan count adaptive label per shape "entri/fase/rule") + 3 panes berbeda: **`ListCollectionPane`** shared untuk 3 flat-list dengan conditional `hasRequired`/`hasSublabel` props + sub-filter Wajib/Opsional inline + toggle Required column dengan Star icon + sortable urutan; **`ListEntryForm`** dengan conditional Required 2-button segmented + Sublabel field conditional + live preview chip; **`PhasePlanningPane`** 3-card **horizontal timeline kanban** (sky→emerald→amber) dengan numbered step badge + ChevronRight connector circle + per-card stripe top + SNARS standar chip + per-fase target list (TargetRow dengan layout motion + add/edit/reorder inline via TargetInlineForm) + ReferenceItem SNARS legend footer; **`PhaseHeaderEditor`** inline edit fase metadata (nama/desc/standar/color picker 3-button); **`RisikoReadmisiPane`** **rule matrix builder** 3-card per level + per-card LevelColumn dengan add rule form (parameter dropdown × value dropdown auto-exclude `usedValues` Set) + LevelMiniDropdown untuk pindah rule antar level + **Live Calculator** card gradient emerald→amber dengan 3 ParameterPicker → ArrowRight → animated ResultBadge (motion scale entry) + TriggeredRulesPanel explainer per rule cocok + Info card cara kerja "higher priority wins". `masterNav` group `Workflow Klinis` tambah item ke-2 Discharge Klasifikasi (icon LogOut). Largest file: 470 lines (RisikoReadmisiPane). Replace target: [dischargeShared.ts:180-188 HOMECARE_OPTIONS+ALAT_BANTU_OPTIONS](src/components/rawat-inap/discharge/dischargeShared.ts#L180) · [:235-246 CHECKLIST_TEMPLATE](src/components/rawat-inap/discharge/dischargeShared.ts#L235) · [:130-154 STEP_PHASES](src/components/rawat-inap/discharge/dischargeShared.ts#L130) · [:268-281 calcRisikoReadmisi()](src/components/rawat-inap/discharge/dischargeShared.ts#L268). SNARS ARK 3 · ARK 5 · HPK 2
-
-- [x] **Operasional Klinis** ✅ — `/ehis-master/operasional` accent **slate** (utility/operasional — defer ke palette internal per discriminator). `lib/master/operasionalKlinisMock.ts` 4 sub-koleksi (semua flat list dengan discriminator field, total 77 entries): (1) **Sumber Cairan & Output** 31 entries — `tipe: Intake|Output` × `kategori` (Intake: Oral 3/IV 8/NGT 3/Transfusi 4; Output: Urine 2/Drainase 3/Feses 3/Muntah 2/Perdarahan 3) + 7-tone palette per kategori (emerald/sky/amber/rose/slate/violet/orange); (2) **Diet & Tekstur** 16 entries — `jenis: Diet|Tekstur` dengan conditional fields (Diet: kaloriDefault+batasanDefault · Tekstur: tone slate/sky/amber/indigo), 12 Diet (DJR I-III, DM, RP, RL, TP, DGK, DH, DPO, MB, Lainnya) + 4 Tekstur (Biasa/Lunak/Saring/Cair); (3) **Bundle HAI** 12 items — `bundle: VAP|CAUTI|CLABSI` + `detail` instruksi (VAP 5/CAUTI 3/CLABSI 4), `BUNDLE_CFG_MASTER` per bundle (rose/amber/indigo); (4) **Penyakit Wajib Isolasi** 18 entries — `mode: Contact|Droplet|Airborne` + `patogen` + `durasiHariMin/Max` + `catatan` (Contact 6 MRSA/VRE/C.diff/ESBL/Scabies/Luka · Droplet 6 Influenza/Meningitis/Pertussis/Mumps/Rubella/Difteri · Airborne 6 TB Paru/MDR-TB/Campak/Varicella/COVID-Aerosol/SARS), `ISOLASI_MODE_CFG` 3-tone (amber/orange/red). Pattern: **sidebar nav + switch-by-key pane** (mirip Discharge/TemplateForm) tapi semua 4 pane self-contained CRUD (bukan shared) karena field per discriminator beda banyak. Components: `OperasionalPage` orchestrator (4 StatCard) + `OperasionalSidebar` 280px (4 sub-master cards dengan icon + aktif/total ratio + `layoutId="operasional-active-indicator"` motion dot) + `operasionalShared.ts` helpers (sortByUrutan/suggestKode/isEntryValid/isDuplicateKode) + 4 pane × 2 file pattern (Pane + Form): **`SumberCairanPane/Form`** (segmented Tipe + chip-strip Kategori dinamis per-tipe + sticky-header table dengan kolom Tipe+Kategori chip · form: 2-button Tipe segmented + chip Kategori filter sesuai tipe + auto-slug INT/OUT prefix), **`DietTeksturPane/Form`** (chip Jenis filter + table kolom Kalori/Tone per jenis · form: 2-button Jenis + conditional Kalori NumInput+Batasan untuk Diet · ChipToggle 4-tone untuk Tekstur), **`BundleHAIPane/Form`** (**3-card interactive summary** klik-untuk-filter dengan count chip + trigger info amber banner saat filter aktif · form: 3-card Bundle picker border-l-4 + trigger banner kontekstual + textarea detail), **`PenyakitIsolasiPane/Form`** (**3-card interactive summary** dengan icon Mode + desc + count · form: 3-card Mode picker + durasi range NumInput dengan validation min≤max + catatan lepas isolasi). Form pattern shared: header dengan mode-badge (create/edit) + dup-kode detection real-time + Save disabled saat tidak valid + auto-slug kode dari label per prefix per discriminator. `masterNav` group `Workflow Klinis` tambah item ke-3 Operasional Klinis (icon ClipboardCheck). Largest file: 451L (mock), pane terbesar 412L (SumberCairanPane). Replace target: [ioShared.ts:42-112](src/components/rawat-inap/tabs/intakeOutput/ioShared.ts#L42) `INTAKE_CATS`+`OUTPUT_CATS`+chips + [giziNutrisiShared.ts:50-70](src/components/rawat-inap/tabs/giziNutrisi/giziNutrisiShared.ts#L50) `TIPE_DIET_OPTIONS`+`TEKSTUR_CFG` + [ppiIsolasiShared.ts:35-140](src/components/rawat-inap/ppiIsolasi/ppiIsolasiShared.ts#L35) `ISOLASI_CFG`+`VAP/CAUTI/CLABSI_ITEMS`+`BUNDLE_CFG`. SNARS PPI 1-7 · CDC Isolation Precautions 2007
-
-- [x] **Workflow Edukasi** ✅ — `/ehis-master/workflow-edukasi` accent **amber**. `lib/master/edukasiMock.ts` 7 koleksi (57 entries total) lintas workflow edukasi: **Topik Edukasi** (14 entries × 7 kategori Medis/Farmasi/Nutrisi/Rehabilitasi/Keperawatan/Administratif/Preventif) · **Media Edukasi** (7 — Verbal/Leaflet/Booklet/Demo/Video/Poster/Aplikasi Digital) · **Metode Edukasi** (5 — Ceramah/Diskusi/Demo/Simulasi/Tanya Jawab) · **Hambatan Komunikasi** (8 — Tidak Ada/Bahasa/Pendengaran/Penglihatan/Kognitif/Emosional/Fisik/Pendidikan) · **Tingkat Pemahaman** (3 dengan `tone` semantik emerald/amber/rose) · **Tanda Bahaya** (14 entries × 7 kondisi Umum/Kardiovaskular/Respirasi/Neurologi/Pencernaan/Bedah/Obstetri) · **Tipe Instruksi Pulang** (6 — Discharge/Follow-up/Emergency/Pra-Tindakan/Admisi RI/Rujukan). Schema flat `EdukasiEntry` (id/kode/label/deskripsi/urutan/status) + optional discriminator field per koleksi (`kategori?`/`tone?`/`kondisi?`). `EdukasiCollection` punya `hasKategori`/`hasTone`/`hasKondisi` flag untuk conditional column rendering. Components: `WorkflowEdukasiPage` orchestrator (4 StatCard Kategori/Total/Aktif/NonAktif) + `EdukasiSidebar` 280px (7 koleksi card dengan icon + aktif/total ratio + `layoutId="edukasi-active-indicator"` motion dot) + `EdukasiTable` (search + filter status 3-segmented + sub-filter chip strip kategori/tone/kondisi conditional dengan colored dot + add form collapsible AnimatePresence + sticky-header table dengan extra column conditional `Kategori`/`Tone`/`Kondisi` + footer count) + `EdukasiRow` (split file untuk row + ExtraCell switch-by-flag render chip kategori/tone/kondisi dengan KATEGORI_CFG/TONE_CFG/KONDISI_CFG palette) + `EdukasiEntryForm` (label→auto-slug kode + per-koleksi conditional field render kategori chip-grid 7 / tone picker 3 / kondisi chip-grid 7 + live preview block dengan dynamic chip). `edukasiShared.ts` helpers (`sortEntries`/`suggestKode`). `masterNav` group baru "Workflow Klinis" → Workflow Edukasi (icon GraduationCap). Largest file: 332 lines (EdukasiEntryForm). Replace target: [EdukasiPane.tsx (IGD):146-189](src/components/igd/tabs/EdukasiPane.tsx#L146) `TOPIK_EDUKASI`/`MEDIA_EDUKASI`/`METODE_EDUKASI`/`HAMBATAN_KOMUNIKASI`/`PEMAHAMAN_CFG`/`TANDA_BAHAYA`/`TIPE_INSTRUKSI` + [dischargeShared.ts:196-219](src/components/rawat-inap/discharge/dischargeShared.ts#L196) `TOPIK_EDUKASI_TEMPLATE` + `KATEGORI_COLOR` + `PEMAHAMAN_CONFIG` duplicate. SNARS PP 5 · PMK 269/2008
-
-**Tier 1 — Revisi Duplikasi vs Mapping Hub (Hasil Analisis 2026-05-22):** ✅ Selesai (2026-05-22)
-
-> **Keputusan final (2026-05-22):** prinsip "satu pintu mapping" — UI edit penugasan unit/poli **dihapus** dari entitas master, hanya tinggal di Mapping Hub → SDM Assignment. Pattern shortcut+banner ditolak: editable di 2 tempat bikin source-of-truth bingung. Field `poliAssignment` / `unitAssignment` tetap di schema sebagai seed awal SDM Map.
-
-- [x] **Shared component `MappingSourceBadge`** ✅ — `src/components/master/shared/MappingSourceBadge.tsx`. 3 variant (`card` default · `banner` slim · `inline` chip), prop `subpage: SubpageKey` auto-pick icon + label + desc dari `SUBPAGE_REGISTRY`, palette per-subpage (teal/sky/emerald/amber/violet/rose/slate) untuk stripe + icon + CTA, deep-link via `next/link` ke `/ehis-master/mapping?sub=<key>`, Framer Motion entry animation, prop override `title`/`description`/`ctaLabel`/`className`. Reusable di DokterDetail · PenggunaFormModal · (calon) TindakanDetail · KatalogObat · KatalogLab.
-- [x] **DokterDetail — hapus Penugasan Poli/Unit + refactor ke tabs** ✅ — section "Penugasan Poli/Unit" **dihapus total** (bukan banner-only). [DokterDetail.tsx](src/components/master/dokter/DokterDetail.tsx) di-refactor jadi orchestrator tipis (~190 lines): header avatar+name+spesialis chip+status pill, `MappingSourceBadge` card pointer ke SDM Assignment, 2-tab nav (`Profil & Lisensi` / `Jadwal Praktik`), AnimatePresence transition, footer dirty indicator + Save. Tab content dipisah ke [sections/ProfilLisensiTab.tsx](src/components/master/dokter/sections/ProfilLisensiTab.tsx) (Identitas + Profesi & Lisensi 2-column + SIP & Kontak full-width 4-column, semua field `max-w-md`/`max-w-xs`/`max-w-sm` cap) dan [sections/JadwalTab.tsx](src/components/master/dokter/sections/JadwalTab.tsx) (jadwal slot list + `hitungDurasi()` total jam/minggu + animated `JadwalRow`). Hilangkan long-scroll. Field `poliAssignment` tetap di schema (initial seed untuk SDM Map).
-- [x] **PenggunaFormModal — hapus Penugasan Unit + validasi terkait** ✅ — section chip-select `unitAssignment` (sebelumnya line 234-261) **dihapus total**. Tombol submit yang sebelumnya disabled saat `unitAssignment.length === 0` sekarang selalu enabled (validasi dipindah ke Mapping Hub). [PenggunaFormModal.tsx](src/components/master/pengguna/PenggunaFormModal.tsx) sekarang berisi 3 FormSection (Identitas Akun + Password + Peran & Status) + `MappingSourceBadge` card di slot terakhir dengan copy berbeda untuk Edit vs Buat Baru ("Atur Penugasan" / "Buka Setelah Simpan"). Modal max-width diciutkan dari `max-w-2xl` → `max-w-xl`. Import `UNIT_LIST` dihapus (tetap dipakai di `PenggunaPage` untuk filter dropdown — read-only discovery, bukan edit, jadi tidak konflik prinsip satu-pintu).
-- [ ] **Bidirectional sync helper** — Saat backend ready: edit di Mapping Hub → SDM Assignment harus push ke `DokterRecord.poliAssignment` / `PenggunaRecord.unitAssignment`. Sumber kebenaran tetap Mapping Hub; field di entitas adalah **derived view** dari SDM Map untuk konsumsi cepat di workflow klinis. Helper kandidat: `syncAssignmentFromMapping(sdmId)`. Lihat juga Tech Debt Mapping Hub — Bidirectional sync.
-
-**Tier 2 — Katalog Klinis (unblock hardcoded constants di codebase):**
-
-- [x] **Katalog Obat** ✅ — `src/components/master/katalog-obat/` + route `/ehis-master/katalog-obat`. Schema full di `src/lib/master/obatMock.ts` (extended dari lightweight mock, backward-compatible untuk Formularium & Distribusi mapping pages): `ObatRecord` 25+ field optional, 11 type/enum (`ObatKategori`/`SediaanBentuk`/`SatuanTerkecil`/`RutePemberian`/`GolonganObat` 11 opsi dengan severity 0-3/`StatusObat`), `GOLONGAN_CFG` UU 35/2009 + PMK 3/2015 compliance (Narkotika I-III, Psikotropika I-IV, OOT, Keras G, Bebas Terbatas, Bebas). 30 mock obat dengan beberapa data klinis full (Amoxiclav, Paracetamol, Morfin, Enoxaparin, Insulin, Diazepam). LASA pairs di-patch programmatic (Actrapid↔Lantus, Morfin↔Fentanil). `katalogObatShared.ts` UI helpers: `TAB_REGISTRY` 4 tab dengan icon+accent, `tabCompleteness()` per-tab progress chip, `isObatValid()` validasi field wajib, `fmtIDR`/`calcMargin`/`obatInitials`. `FormPrimitives.tsx` shared input components (Field/TextInput/NumberInput/TextArea/Select dengan SVG chevron/ToggleSwitch 5 accent/SectionGroup) dengan max-w cap (220-420px) untuk hindari form lebar berlebihan. `KatalogObatPage` skeleton 500ms + header 4 stat (Total/Formularium/HAM+NarPsi/Avg Harga) + 2-panel layout. `ObatList` 340px (left): search nama/kode/pabrik + add CTA violet + collapsible filter section (kategori 10 chips + flag 6 chips: Formularium/Non-Form/HAM/LASA/Nar-Psi) + rows dengan avatar initials + badge HAM/LASA + Nar-Psi alert chip. `ObatDetail` (right): header card dengan avatar 12×12, status banner (Obat Baru/Edit, "Perubahan belum tersimpan" amber), badges chips kategori+bentuk+kekuatan+rute+HAM/LASA + action buttons (Hapus rose / Batal / Simpan disabled saat tidak valid/dirty). **4 tabs dengan progress chip** (filled count atau ✓ kalau lengkap): **Identitas** (3 section: Identitas Dasar + Sediaan & Rute + Preview Card live), **Klasifikasi** (Safety Flags 5 ToggleSwitch + LASAPairSelector conditional + Golongan dropdown + GolonganBanner conditional dengan severity check rose untuk Narkotika/Psikotropika), **Klinis** (Indikasi+Kontraindikasi grid, Dosis Dewasa+Anak grid, ESO+Interaksi grid, Catatan Khusus full-width — semua ClinicalField dengan icon+iconCls colored), **Harga** (3 NumberInput Harga/HPP/HET + 3 PriceCard live preview Harga+Margin (calcMargin)+HET dengan warning rose jika exceed HET; BPJS ToggleSwitch + Kode Fornas + Batas Resep; Status dropdown). `ObatEmptyState` ketika no selection: gradient violet icon + total count chip + add CTA. `masterNav` group baru "Katalog Klinis" → Katalog Obat (icon Pill). State: items mutable `useState<ObatRecord[]>`, draft mutable, `isDirty` JSON.stringify compare, `structuredClone` saat select untuk isolasi draft dari source. PMK 72/2016 · UU 35/2009 · BPOM HET · Fornas BPJS · PMK 3/2015
-- [x] **Katalog Tindakan** ✅ — `src/components/master/katalog-tindakan/` + route `/ehis-master/katalog-tindakan`. `TindakanRecord` extend: `deskripsi?` + `status?: "Aktif"|"NonAktif"` + `emptyTindakanRecord()`. `katalogTindakanShared.ts` (tab registry 2 tab, `SPESIALIS_SHORT` 16 kode, `isTindakanValid`, `tindakanInitials`, `getStatusCfg`). `TindakanList` 320px (search + filter kategori/kompleksitas collapsible). `TindakanDetail` 2 tab: **Identitas** (kode ICD-9-CM, nama, kategori select, kompleksitas 4-button segmented, deskripsi, status Aktif/NonAktif) + **Relasi Default** (spesialis chip-select 16 opsi + unit chip-select 14 opsi grouped Klinis/Poli/Penunjang, info banner link ke Mapping Hub). Stats: Total/Aktif/Bedah/Khusus-Canggih. Accent teal. Framer Motion skeleton 500ms + AnimatePresence tab. `masterNav` Katalog Klinis tambah item Katalog Tindakan (icon Zap). Source-of-truth untuk Kewenangan Klinis + Layanan Unit + Tarif Matrix. PMK 755 · SNARS · ICD-9-CM
-- [x] **Katalog Laboratorium** ✅ — `src/lib/master/labCatalogMock.ts` (31 item lintas 4 kategori, nilai rujukan per gender/usia, criticalLow/criticalHigh, deltaAbsolute/deltaPercent). `src/components/master/katalog-lab/` + route `/ehis-master/katalog-lab`. 3 tab: **Identitas** (kode/nama/kategori/satuan/TAT/status) · **Nilai Rujukan** (tabel inline-editable per gender+usia, add/remove row, preview chips) · **Delta & Kritis** (critical values rose card + delta check amber card, visualisasi range, info SNARS). Stats: Total/Aktif/Nilai Kritis/Delta Check. Accent sky. Framer Motion skeleton 500ms + AnimatePresence tab. ISO 15189:2022 · SNARS AP 5.9 · PMK 43/2013
-- [x] **Katalog Radiologi** ✅ — `src/lib/master/radCatalogMock.ts` (15 pemeriksaan lintas 7 modalitas — Konvensional/CT/MRI/USG/Fluoroskopi/Mammografi/DEXA; `RadCatalogRecord` type lengkap dengan `PersiapanProtap` + `KontrasInfo` + `DRLReferensi` + `ReportingTemplate`; DRL values referensi PMK 1014/2008 per pemeriksaan). `src/components/master/katalog-radiologi/` + route `/ehis-master/katalog-radiologi`. **3 tab dengan completeness badge**: **Identitas** (kode/nama/modalitas 8-chip dengan icon/region/kategori/status + grup TAT 4-input CITO/SemiCito/Rutin/Estimasi + live preview chip) · **Persiapan & DRL** (2-column layout — kiri Persiapan & Protap dengan tag-input kontraindikasi animated chips + puasa + premedikasi + instruksi pasien + catatan; kanan stacked Kontras conditional fields per jenis + premed steroid toggle + DRL conditional per modalitas (CT=CTDIvol+DLP, Fluoroskopi=DAP+waktu, Konvensional/Mammografi/DEXA=entrance dose, USG/MRI=non-applicable info card) + reference card PMK 1014/2008) · **Reporting Template** (2-column — kiri editor: struktur 5-section editable inline + template Temuan textarea monospace + tombol "Pakai Default"; kanan live Preview kop laporan + sections animated + tips reporting card). Stats header: Total/Aktif/Dengan DRL/Pakai Kontras. **Lokal FormPrimitives** dengan rose accent (Field/TextInput/NumberInput dengan suffix/TextArea monospace optional/Select dengan SVG chevron/SectionGroup dengan icon+action slot/ChipToggle 5-accent). `MODALITAS_CFG` 8 modalitas dengan icon+color per: Konvensional=slate, CT=rose, MRI=violet, USG=emerald, Fluoroskopi=amber, Mammografi=pink, DEXA=teal, Intervensi=rose-dark. `MappingHubSidebar` skeleton 500ms + AnimatePresence tab transition. `masterNav` group `Katalog Klinis` tambah item ke-4 Katalog Radiologi (icon Radiation). PMK 1014/2008 · PMK 24/2020 · BAPETEN No. 2/2018 · IAEA HH-19 · ACR Practice Parameters
-- [x] **Katalog ICD-10 & ICD-9** ✅ Selesai (Phase 2 Kategori B, 2026-05-23) — built sebagai sample mock 80–120 entry (bukan full ~15.000 WHO dataset; schema 1:1 dengan target real). Lihat entry **ICD-10 & ICD-9-CM** di section "Reference Klinis (Phase 2 Kategori B)" di atas untuk detail. Route: `/ehis-master/icd`. Phase 3 dapat tambah "Import CSV" UI saat backend ready.
-- [x] **Banner default-flag di Katalog Obat (`isFormularium`)** ✅ Selesai (Phase 3.2, 2026-05-24) — `<MappingSourceBadge subpage="formularium" variant="banner" />` ditambahkan di [KlasifikasiTab.tsx:33-50](src/components/master/katalog-obat/tabs/KlasifikasiTab.tsx#L33-L50). Layout: Formularium row dibungkus `sm:col-span-2 flex flex-col gap-2` sehingga banner mengambil full 2 kolom grid flush di bawah ToggleSwitch (4 toggle lain HAM/LASA/ColdChain/Restricted tetap di 2-col grid normal). Copy: title "Default global — coverage final dikelola di Mapping Hub" + desc "Flag ini hanya seed default per obat. Apakah obat tertanggung untuk tiap penjamin × kelas (BPJS · Asuransi · Umum) di-set di Mapping Hub → Formularium." + CTA "Atur Coverage" → deep-link `/ehis-master/mapping?sub=formularium`. Pattern siap di-replicate ke katalog lain (Tindakan ↔ Tarif Matrix, Obat ↔ Distribusi Obat).
-
-**Tier 3 — Operasional:**
-
-- [ ] **Poliklinik & Jadwal Dokter** — kapasitas antrian per poli per hari, jadwal buka (hari + jam mulai/selesai), assignment dokter per slot, libur/cuti override. Weekly schedule grid. Unblock Registration antrian real. Route: `/ehis-master/poli`
-- [ ] **Promote Jadwal Praktik dari DokterDetail → Poliklinik atau Mapping Hub** — section "Jadwal Praktik" di [DokterDetail.tsx:316-342](src/components/master/dokter/DokterDetail.tsx#L316-L342) saat ini per-dokter, sulit lihat clash jadwal antar dokter. Promote ke weekly grid global (Poliklinik module ATAU Mapping Hub sub-page "Jadwal Praktik Dokter"). Decide saat Poliklinik dikerjakan — jika cakupan jadwal lebih cocok di Poli (operasional Registration), tetap di sana; jika perlu cross-poli view, masuk Mapping Hub.
-- [x] **Tarif & Paket Layanan** ✅ — `src/lib/master/tarifMock.ts` (18 item lintas 7 kategori + 3 paket) + `src/components/master/tarif/` (TarifPage · TarifList · TarifDetail · PaketList · PaketDetail · tarifShared). Two-panel layout: view switcher Tarif Dasar ↔ Paket Layanan. Tarif: 4 stat cards, list dengan kategori filter chips, detail 2 tab (Identitas + Harga 2×2 price grid + margin %). Paket: list + detail 2 tab (Identitas + Komposisi — search add, qty adjust, summary auto-calc). Skeleton 500ms. Route: `/ehis-master/tarif`. `masterNav` group baru "Operasional". Indonesian billing standard · INA-CBG reference
-- [x] **Penjamin & Kontrak** ✅ — `src/lib/master/penjaminStore.ts` (`PenjaminRecord` + 7 mock: BPJS/Umum/Allianz/AXA/Inhealth/Jamkesda/Astra-suspended, `MappingRuanganRecord` + 15 mock) + `src/lib/master/bpjsRuanganCatalog.ts` (**40+ kode SMF/Poli BPJS V-Claim standar** lintas 6 kategori — Spesialis_Dasar / Spesialis_Lain / Bedah / Khusus / Penunjang / Ruangan; INT/ANA/BED/OBG/MAT/THT/SAR/JAN/PAR/KUL/JIW/GIG/URO/GER + BDA/BDM/BDP/BDS/BDT/BDU/ORT + ANE/RHB/GZK/AKU/ONK/HEM/VCT/TBC + RAD/LAB/PAT/FAR + IGD/IRJ/IRI/ICU/ICCU/NICU/PICU/HCU/OK/VK/ISO; KATEGORI_RUANGAN_CFG 6 warna) + `src/components/master/penjamin/` (PenjaminPage + PenjaminList + PenjaminDetail + penjaminShared + 4 panes: Identitas / KelasCoverage / Kontrak / BPJS + FormPrimitives). Route: `/ehis-master/penjamin`. **Pure CRUD (single-view)** sejak refactor "satu pintu mapping" — view switcher dihapus, mapping pindah ke Mapping Hub `?sub=penjamin-ruangan` (lihat entry Mapping Hub). 2-panel List 340px (search + filter tipe collapsible 4 chips + add CTA + stats footer) + Detail 4-tab (Identitas+PIC · Kelas&Coverage · Kontrak PKS · BPJS Config conditional). **Kelas Penjamin**: untuk BPJS — tombol "Katalog BPJS" buka collapsible picker (search + filter kategori + 2-3 kolom grid items dengan kategori badge warna; used codes di-disable + checkmark); untuk asuransi — manual entry tier produk. Kategori badge tampil pada kelas yang di-pick dari katalog. **Cross-link banner** emerald di header page → deep-link ke Mapping Hub `?sub=penjamin-ruangan`. Accent emerald. Skeleton 500ms. BPJS Kesehatan V-Claim · PMK 56/2014 · PMK 28/2014 · INA-CBG
-
-**Tier 4 — Konfigurasi RS:**
-
-- [x] **Profil RS** ✅ — `src/lib/master/rsProfilStore.ts` (types `RSProfil`/`RSAlamat`/`RSAkreditasi`/`RSKop`/`ShiftJam` + `RS_PROFIL_INITIAL` data) + `src/components/master/profil-rs/` + route `/ehis-master/profil-rs`. **5 seksi via sidebar nav** (two-panel layout: `ProfilRsSidebar` 260px + right panel AnimatePresence): **Identitas RS** (nama/kode/kelas segmented/tipe/kepemilikan/kontak) · **Alamat & Lokasi** (full address + preview chip) · **Akreditasi & Izin** (nomor izin + KARS/JCI dropdown + sertifikat + masa berlaku dengan expiry chip warna Expired/Soon/Valid + toggle Paripurna) · **Konfigurasi Shift** (jam Pagi/Siang/Malam editable + durasi auto-calc — unblocks `SHIFT_CFG` hardcode di `ppiIsolasiShared.ts` & `marShared.ts`) · **KOP Surat** (subtitle/alamat/kepala RS + live print preview — unblocks semua `PrintPreviewModal`). Skeleton 500ms. Accent teal. `masterNav` group baru "Konfigurasi" → Profil RS (icon Settings2). PMK 1045/2006 · UU 44/2009
-
-**Tier 5 — Mapping Hub Terpadu (`/ehis-master/mapping`):** Depends on Tier 1+2+3
-
-> Arsitektur: 1 route hub dengan sidebar internal (mirip `FarmasiViewTabs` / `LabManajemenTabs`). Setiap sub-page = 1 relasi master. Pattern UI konsisten: search + filter + table/matrix view + bulk action. Source of truth ada di sini — entitas master (DokterForm.poliAssignment dll) hanya jadi shortcut quick-edit dengan label "synced from Mapping Hub".
-
-**Sub-pages prioritas (urutan implementasi):**
-
-- [x] **MappingHubPage + sidebar shell** ✅ — `src/components/master/mapping/` + route `/ehis-master/mapping`. `mappingShared.ts` (`SUBPAGE_REGISTRY` 7 entri dengan icon + accent color + status `ready`/`soon` + `dependsOn` info). `MappingHubSidebar` 260px: 2 group (Aktif · Segera Hadir) dengan icon per sub-page + status icon (CheckCircle2 hijau / Clock) + label "Butuh: …" untuk dependency. `MappingHubPage` skeleton 500ms + header + 2-panel layout dengan AnimatePresence tab transition. `ComingSoonPane` shared component dipakai 6 sub-page yang belum ready (icon besar + badge "Segera Hadir" + dependency chip). `masterNav` dapat group baru `Penugasan` dengan 1 item Mapping Hub. Sub-page key terdaftar: `sdm`/`kewenangan`/`layanan`/`tarif`/`formularium`/`distribusi`/`rbac`. **Density Toggle (2026-05-19 sore)**: `DensityToggle.tsx` + `useDensity()` hook dengan localStorage persist (`ehis-mapping-density`). 3 level: Compact (9–16px) / Comfortable default (10–17px) / Cozy (11–18px). Implementasi via CSS custom properties di `globals.css` yang berubah berdasarkan `data-density` attribute di root container — utility classes `.m-mini` / `.m-tiny` / `.m-xs` / `.m-sm` / `.m-base` / `.m-lg` pakai `font-size: var(--m-*)`. Semua text-* di 6 file mapping di-replace dengan `m-*` utility (sed bulk replace). Toggle button di top-right header MappingHubPage dengan dropdown menu radio-select. Scaling otomatis ke semua sub-page mapping tanpa perlu touch component.
-- [x] **SDM Assignment** ✅ — `src/components/master/mapping/sdm/`. `sdmShared.ts` (unified `SDMItem` types + `deriveSDMList()` dari `DOKTER_MOCK` + `PENGGUNA_MOCK` (skip role Admin, dedupe by email), `deriveUnitList()` merge `POLI_LIST` + `UNIT_LIST` dengan kategori (Unit Klinis/Poli/Penunjang/Operasional), `AssignmentMap` helpers (`initAssignmentMap`/`getSDMsInUnit`/`countSDMPerUnit`/`countTotalAssignments`)). `SDMAssignmentPane` two-panel container + PaneHeader inline stats (Total SDM · Assignment · Unit Aktif) — NO scroll panjang, header compact. `UnitListPanel` 300px: search + grouped list per kategori dengan progress bar count per unit (animated width). `SDMRosterPanel` flex-1: tab view-mode `Bertugas`/`Tersedia` + search + 7 chip filter kategori role + checkbox select-all + bulk action bar (slide-in saat ada selection) + list rows dengan avatar+nama+role+status+since date, action button `Lepas` (hover-only) atau `Assign`. `BulkMoveModal` slide-in: preview chips SDM dipilih + search unit tujuan + list selector + toggle "Hapus dari unit asal" (true = pindah, false = duplikasi assign). State mutable `useState<AssignmentMap>` (initialized dari mock, perubahan tidak persist ke source). SDM 13 entries (4 dokter + 9 pengguna non-admin), unit 18 entries (8 Poli + 10 unit operasional). Tab transition AnimatePresence, layout fixed-height (no long scroll), kategori filter visible inline. **Tech Debt**: period mulai/sampai per-assignment hanya `sinceISO` (display-only); UI edit period belum, kandidat panel inline expandable atau modal. **TODO bidirectional sync**: source `DokterRecord.poliAssignment` & `PenggunaRecord.unitAssignment` belum di-update saat user edit di sini (state lokal only) — perlu sync helper saat backend ready.
-- [x] **Kewenangan Klinis** ✅ — `src/components/master/mapping/kewenangan/`. Mock Katalog Tindakan di `src/lib/master/tindakanMock.ts` (35 tindakan ICD-9-CM lintas 11 kategori — Konsultasi/Tindakan_Medis/Diagnostik/Pediatrik/Obstetri/Bedah_Minor/Mayor/Khusus/Resusitasi/Anestesi/Spesialistik, 4 level kompleksitas Sederhana/Sedang/Khusus/Canggih, `spesialisDefault[]` + `unitDefault[]` untuk auto-credentialing). `kewenanganShared.ts` (`KewenanganMap` `Record<dokterId, tindakanId[]>` + `initKewenanganMap()` default berdasarkan match spesialis dokter + helpers `hasKewenangan`/`countKewenangan`/`countDokterPerTindakan`/`countAllGranted`). `KewenanganPane` two-panel + header inline stats (Dokter aktif/Tindakan/Coverage%). `DokterListPanel` 320px: search nama/NIK + filter dropdown per spesialis + row dengan progress bar count kewenangan. `KewenanganMatrix` (right panel) per-dokter view dengan kategori accordion collapsible (default expanded untuk kategori yang ada granted, collapsed sisanya — hindari long scroll), 3-filter status (Semua/Diberi/Belum), search tindakan/kode, bulk actions per-kategori (CheckCheck "Centang Semua" + Square "Cabut Semua"), bulk global "Sesuai Spesialis" (reset ke default) + "Hapus Semua". Tindakan row: checkbox-style toggle button (teal-600 saat granted) + ShieldCheck icon + nama + ICD code + kompleksitas badge. SNARS PMK 755 · Credentialing standard
-- [x] **Layanan Unit** ✅ — `src/components/master/mapping/layanan/`. `CLINICAL_UNITS_FOR_LAYANAN` 14 unit (IGD/ICU/HCU/OK/RI/RJ + 6 Poli + RAD/LAB) di `tindakanMock.ts`. `layananShared.ts` (`LayananMap` `Record<tindakanId, unitKode[]>` + `initLayananMap()` default dari `tindakan.unitDefault`). `LayananUnitPane` toolbar (search + reset default + 11 kategori filter chip + "Semua"/"Kosong" preset) + matrix container. `LayananUnitMatrix` **compact matrix table dengan sticky header & sticky first column** untuk avoid long scroll: rows = tindakan grouped by kategori (kategori header row dengan dot + label), cols = 14 unit (header dengan Building2 icon + short label + count). Cells: 6×6 toggle button (teal-600 filled saat boleh, white border saat tidak). Bulk: klik judul kolom → toggle semua tindakan visible di unit tsb; klik judul baris → toggle semua unit di tindakan tsb. Legenda footer + hint. Visual heatmap style — quick scan "operasi besar hanya di OK" jelas terlihat dari pattern cell. SNARS · operational best practice
-
-- [x] **Tarif Matrix** ✅ — `src/components/master/mapping/tarif/`. Mock Penjamin & Kelas di `src/lib/master/penjaminMock.ts` (6 penjamin × 4 tipe — Umum/BPJS/Asuransi_Swasta/Jamkesda + 7 KELAS_LIST VIP/K1/K2/K3/ICU/HCU/RJ + helpers `fmtRupiah`/`fmtRupiahShort`). `tarifShared.ts` (3D map `TarifMap[penjaminId][tindakanId][kelasId] → number`, `initTarifMap()` default dihitung dari multiplier kompleksitas × kelas × penjamin (BPJS 0.78 INA-CBG, Allianz 1.20, dll), `setTarif`/`bulkAdjustTarif` (rounded ke kelipatan Rp 500) / `resetTarifPenjamin` / `calcStats`). `TarifPane` orchestrator: PaneHeader stats inline (Tindakan/Penjamin/Avg Tarif), **Penjamin tabs scroll horizontal** dengan kode chip + tipe dot + active ring, toolbar (search + Bulk Update CTA + Reset Default), kategori filter chips dari `KATEGORI_ORDER` (Semua/Kosong preset). `TarifMatrix` sticky header (KELAS_LIST kolom + label) & sticky first column (tindakan + kompleksitas badge), **inline-edit cell**: klik harga → input number dengan ✓/✗ button (Enter commit / Esc cancel), `fmtRupiahShort` display (mis. "1.2 jt"). `BulkAdjustModal` slide-in centered: penjamin chip preview + affected count + percent stepper (−/+ buttons + manual number input) + 5 preset chips (−10/−5/+5/+10/+15) + TrendingUp/Down icon + warning amber pembulatan otomatis. Bulk hanya affect tindakan visible (kategori difilter). State mutable `useState<TarifMap>`. Largest file 275 lines. Indonesian billing standard · INA-CBG reference
-- [x] **Formularium Penjamin** ✅ — `src/components/master/mapping/formularium/`. Mock Katalog Obat di `src/lib/master/obatMock.ts` (30 obat lintas 10 kategori ATC-style — Antibiotik/Analgesik/Antihipertensi/Kardiovaskular/Antidiabetik/Saluran_Cerna/Saluran_Nafas/Neurologi/Vitamin_Cairan/Lainnya, flag `isFormularium` + `isHAM`, harga satuan IDR + bentuk sediaan + kekuatan). `formulariumShared.ts` (`FormulariumMap[penjaminId][obatId][kelasId] → { allowed, alasan? }`, `initFormulariumMap()` default rules per tipe penjamin: Umum=all, BPJS=formularium-only+no VIP, Asuransi=allow kecuali HAM di Kelas_3, Jamkesda=formularium-only+Kelas 2-3+RJ, `toggleCell` (auto-set alasan saat revoke) / `bulkSetRow` / `bulkSetColumn` / `calcCoverage`). `FormulariumPane` orchestrator: PaneHeader stats (Obat/Penjamin/Coverage%), Penjamin tabs scroll horizontal, toolbar search + Reset Default, kategori filter chips dari `KATEGORI_OBAT_ORDER`. `FormulariumMatrix` sticky header (7 kelas kolom + count granted visible per kolom) & sticky first column (nama generik + HAM badge rose + NF badge slate untuk non-formularium + bentuk+kekuatan + count granted/total). Cell 3-state: violet-600 (allowed) / amber-50+AlertCircle (revoked with reason) / white border (revoked tanpa reason). Bulk: klik judul kolom → toggle all visible obat di kelas tsb; klik baris obat → toggle all kelas. Legenda footer 3-state + hint. PMK 51/2009 · SNARS PKPO 2 · BPJS Fornas
-- [x] **Distribusi Obat** ✅ — `src/components/master/mapping/distribusi/`. Mock Depo di `src/lib/master/depoMock.ts` (6 depo — Gudang Pusat + Depo IGD/ICU/OK + Apotek RI/RJ, dengan tipe Gudang/Depo_Unit/Apotek_Layanan + lokasi + PIC + jam operasional). `distribusiShared.ts` (`DistribusiMap[depoId][obatId] → StokCell { stok, min, max } | undefined`, `shouldStockInDepo()` default rules per depo: Gudang=all, IGD=emergency+HAM+antibiotik IV, ICU=HAM+CV+pulmonary+critical, OK=anestesi+HAM+analgesik IV, Apotek RI=all, Apotek RJ=oral only, `getStokStatus()` returns `Habis/Kritis/Rendah/Aman/Penuh/TidakStock` dengan `STOK_STATUS_CFG` 6 warna, `toggleStock`/`setStock`/`calcStats`). `DistribusiPane` orchestrator: PaneHeader stats (Obat/Depo/Kritis dengan warna conditional rose saat kritis>0), **Depo tabs** dengan "Semua Depo" option + per-depo chip dengan kritis badge inline jika ada, toolbar search + Reset Default + kategori filter. `DistribusiMatrix` sticky header (depo kolom dengan kode + count item) & sticky first column (obat dengan HAM badge + count stocked depo). Cell 2-mode: empty (button dashed border "+Stock" untuk tambah) / stocked (chip warna sesuai status + stok/max ratio + animated progress bar + Minus icon hover untuk hapus). Legenda 6-status di footer + hint. Operational best practice · PMK 72/2016 Bab IV
-- [x] **RBAC (Role × Permission)** ✅ — `src/components/master/mapping/rbac/`. `rbacShared.ts` (`PERMISSION_TREE` 5 modul × total 27 leaf permission: Klinis (IGD/RI/RJ/CPPT/Diagnosa/Tindakan/Resep) · Penunjang (Lab worklist/validate/critical, Rad worklist/expertise, Farmasi telaah/serah) · Registrasi & Billing (pasien/kunjungan/invoice/kasir/klaim) · Master Data (ruangan/dokter/pengguna/mapping/katalog/tarif) · Laporan (clinical/financial/audit), `CrudAction` 5 actions read/create/update/delete/export dengan `ACTION_CFG` warna, `RBACMap[role][leafKey] → CrudAction[]`, `ROLE_DEFAULT_GRANTS` per 9 role di `penggunaShared.ts` dengan permission terdefault realistis (Admin=full, Dokter=klinis full + farmasi read, Apoteker=farmasi full, SpPK/SpRad=validasi penunjang masing-masing, dst), helpers `toggleAction`/`setLeafAll`/`setModuleAll`/`countLeafGrants`/`countModuleGrants`/`countTotalGrants`). `RBACPane` two-panel: PaneHeader stats (Role/Permission total/Aktif Role %), search bar (filter leaf by label atau key). `RoleListPanel` 280px: 9 role rows dengan icon Lock + label + desc + percent badge + **animated progress bar** per role (granted/total). `PermissionMatrix` (right): header strip per-role accented dengan Reset Default Role button, modul accordion collapsible (default expanded jika ada granted), header modul: Folder icon + label + sub-modul count + granted/total badge (emerald/amber/slate by coverage) + CheckCheck (grant module) + Square (revoke module) bulk buttons. `LeafRow`: dot status (emerald/amber/slate) + label + key mono + 5 action toggle chips (R/C/U/D/E) bordered ketat dengan ACTION_CFG warna saat granted. Footer legenda 5 action. Largest file 266 lines. NIST RBAC · best practice
-
-`MappingHubPage.renderPane()` di-update untuk wire semua 8 sub-page. `SUBPAGE_REGISTRY` status: semua 8 sub-page → `"ready"`. `MappingHubSidebar` hide section "Segera Hadir" jika `soon.length === 0` (semua sudah aktif). **Query-param routing**: `MappingHubPage` baca `?sub=<key>` dari URL untuk deep-link (mis. Penjamin Page link ke `?sub=penjamin-ruangan`), validasi via `VALID_KEYS` set, `useSearchParams` re-sync saat URL berubah, route wrapped dengan `Suspense`. ✅ TypeScript clean. Largest pane file: 275 lines (TarifPane), jauh di bawah 800 limit.
-
-- [x] **Penjamin × Ruangan (sub-page ke-8)** ✅ — `src/components/master/mapping/penjamin-ruangan/PenjaminRuanganPane.tsx`. Pindah dari Penjamin Page demi prinsip "satu pintu untuk mapping". Pakai `MAPPING_INITIAL` + `PENJAMIN_INITIAL` dari `penjaminStore.ts`. Filter penjamin dropdown + status segmented + search. AddForm slide-in dengan cascading penjamin → kelas/SMF → ruangan. Sticky-header table, inline edit (kelas dropdown / ruangan dropdown / status toggle / delete). Density-aware `m-*` utility classes konsisten dengan sub-page Hub lain. Accent emerald. PaneHeader inline stats (Mapping / Aktif / Penjamin / Ruangan). `MAPPING_INITIAL` pakai kode SMF BPJS V-Claim (INT/IGD/ICU/JAN/ANA). Penjamin Page (`/ehis-master/penjamin`) sekarang **pure CRUD** (List + Detail, no view switcher) + cross-link banner emerald di header "Buka Mapping Hub →" yang deep-link via `?sub=penjamin-ruangan`. BPJS V-Claim · PMK 56/2014
-
-**Sub-page Baru Mapping Hub — Hasil Analisis Duplikasi (2026-05-22):**
-
-> Sub-page tambahan untuk melengkapi cakupan relasi master. Tambahkan ke `SUBPAGE_REGISTRY` di `mappingShared.ts` + wire ke `MappingHubPage.renderPane()`. Status awal `"soon"` sampai dependency siap.
-
-- [ ] **Beranda Mapping** (sidebar item pertama) — coverage dashboard pane. % cell terisi per matriks (Tarif 1470 cell · Formularium · Distribusi · Kewenangan · Layanan Unit), heatmap mini per matriks (8 grid kecil), stat strip global (total relasi · entitas terhubung · cell kosong kritis), recent-edit feed dari audit trail. Entry point yang sekarang langsung ke SDM Assignment — perlu landing dengan overview. Tanpa ini admin tidak tahu progres mapping mana yang masih kosong.
-- [ ] **Mapping Validator / Health Check** — diagnostic pane dengan severity warna. Aturan: Dokter aktif tanpa unit assignment · Tindakan tanpa unit pelaksana · Obat formularium BPJS tapi di Apotek RJ stok kosong · Kewenangan diberikan ke dokter yang tidak punya spesialis terkait · Tarif kosong untuk kombinasi Tindakan × Kelas wajib · Penjamin × Ruangan duplikat (kelas-SMF sama ke ruangan beda). Setiap finding ada action "Fix di sub-page X" deep-link via `?sub=...`. Cegah data inkonsisten masuk ke workflow klinis.
-- [ ] **Jadwal Praktik Dokter** — weekly grid Dokter × Hari × Jam (lihat juga Tier 3). Konsumsi `DokterRecord.jadwal` cross-dokter, deteksi clash (≥2 dokter spesialis sama overlap), highlight slot bentrok rose. Filter per poli/spesialis. Depends on Poliklinik Tier 3 (kapasitas slot per poli).
-- [ ] **Tindakan × Penjamin (Coverage)** — matrix exclude/include sederhana (mis. bedah kosmetik tidak di-cover BPJS). Saat ini hanya bisa di-deduce dari Tarif Matrix dengan harga 0 — UX kurang jelas. Pane khusus visualisasi cover/non-cover + opsi alasan exclude (non-medical / cosmetic / experimental). Konsumsi `TINDAKAN_LIST` + `PENJAMIN_INITIAL`.
-- [ ] **Dokter × Penjamin (Rekanan)** — beberapa asuransi punya dokter rekanan khusus. Belum ada slot mapping di mana pun. Matrix Dokter × Penjamin dengan toggle "Rekanan" + tier (Gold/Silver/Standard) per cell. Akan dipakai Registration saat verifikasi cover asuransi.
-- [ ] **PPK × Spesialis** — RS rujukan A terima spesialis apa saja. Untuk lookup saat `DisposisiRJTab` / Rujuk IGD eksternal pilih PPK tujuan. Depends on PPK module (sudah ada di `/ehis-master/ppk`) + `SPESIALIS_LABEL` dari `dokterShared.ts`. Matrix PPK × Spesialis sederhana, toggle terima/tidak.
-- [ ] **RBAC granularitas — Role × Unit Scope** — extend RBAC sub-page existing. Saat ini RBAC = Role × Permission flat. Tapi role yang sama bisa di-scope ke unit tertentu (mis. "Perawat" boleh akses RI tapi hanya ICU bukan semua RI). Field `unitScope: string[]` per role-permission cell. Saat ini scope ada di `PenggunaRecord.unitAssignment` tapi tidak granular per permission. Refactor `RBACMap` jadi 3D: `[role][leafKey] → { actions, unitScope? }`.
-- [ ] **Tarif Matrix — pull base price dari `/ehis-master/tarif`** — refactor `initTarifMap()` (saat ini multiplier hard-coded kompleksitas × kelas × penjamin). Base price diambil dari `TARIF_MOCK` (master tarif), Mapping Hub hanya define `multiplier[penjamin][kelas]`. Saat backend ready, derive harga dari `tarif.hargaBase × multiplier[penjamin][kelas]`. Bonus: tambah override per-cell untuk kasus khusus.
-
-> Cross-cutting: tambahkan label "Source: Mapping Hub" di shortcut field entitas (DokterDetail.poliAssignment, dst) supaya user paham source of truth. Audit trail per relasi (siapa edit kapan) — kandidat shared component `mapping/MappingAuditPane.tsx`. Lihat Tier 1 — Revisi Duplikasi untuk daftar field yang perlu badge.
-
-**Tech Debt Mapping Hub:**
-- [ ] **Mocks lightweight** — `penjaminMock.ts` (6 penjamin), `obatMock.ts` (30 obat), `depoMock.ts` (6 depo) dibikin sebagai placeholder sebelum Tier 2/3 dibangun. Saat Katalog Obat/Penjamin/Depo real ready, migrate import path. Field schema sengaja diselaraskan dengan rencana Tier 2/3 (kode/nama/kategori/flags) supaya replace tidak break consumers.
-- [ ] **Bidirectional sync** — Map perubahan di Tarif/Formularium/Distribusi/RBAC belum push back ke source entity (state lokal only). Saat backend ready, perlu sync helper + audit log per relasi.
-- [ ] **Import/export Excel** — Tarif Matrix paling butuh (admin billing biasa kerja via Excel). Kandidat: `xlsx` library + helper `tarifToWorkbook()` / `parseTarifWorkbook()`. Bisa di-extend ke Formularium + Distribusi.
-- [ ] **Audit trail** — siapa edit cell apa kapan. Kandidat shared `mapping/MappingAuditPane.tsx` consume audit log dari semua mapping operations. Dipakai oleh Beranda Mapping (recent-edit feed) dan Mapping Validator (root cause finding).
-- [ ] **Snapshot / Template per RS Tipe** — backup full mapping state, restore "RS Tipe C default" / "RS Khusus Jantung default" / "RS Tipe B Pendidikan default". Sangat membantu onboarding RS baru — minimal seed state ada vs blank. Kandidat: JSON export/import `MappingSnapshot` yang berisi semua 8 Map (sdm/kewenangan/layanan/tarif/formularium/distribusi/penjamin-ruangan/rbac). UI: pane di Beranda Mapping dengan list template + tombol Apply/Save Snapshot.
-
-### 🟡 Next — Modul Pendukung
-
-- [ ] **Billing Kasir (`ehis-billing`)** — invoice per kunjungan, rincian tindakan + obat, status pembayaran (Lunas/Proses Klaim/Belum), print struk. `KasirData` type + mock sudah tersedia di `data.ts`.
-
-### 🟡 Farmasi — Gap SNARS / PMK 72/2016 (Hasil Gap Analysis 2026-05-17)
-
-> Core workflow farmasi sudah selesai (telaah → dispensing → serah terima). Items di bawah adalah gap yang ditemukan dari komparasi PMK 72/2016, SNARS PKPO, dan praktik RS terakreditasi di Indonesia.
-
-**Tier 1 — Kritis (wajib akreditasi / legal requirement):**
-
-- [x] **MAR (Medication Administration Record)** ✅ — `shared/medical-records/MARTab.tsx` + `mar/marShared.ts`. Shift tabs (Pagi/Siang/Malam) + date nav 7 hari. Drug cards per obat aktif dari `resepRI.items` dengan time slot per signa. Input modal: status (Diberikan/Ditunda/Ditolak/TidakTersedia) + waktu + perawat + catatan. HAM double-check: field perawat ke-2 wajib. Read-only history view untuk tanggal lampau. Stats bar: obat aktif / diberikan / tertunda. Ringkasan hari ini 3 shift. Tab "MAR" di RIRecordTabs grup LAYANAN. SNARS PKPO 6 · PMK 72/2016 Ps. 25
-- [x] **Register Narkotika & Psikotropika** ✅ — `farmasi/narPsi/narPsiShared.ts` + `RegisterNarPsiPane.tsx`. Catalog 5 N + 5 P drugs. Register table dengan kolom: no. urut, tanggal, jenis mutasi, pasien/RM, jumlah keluar, saldo. Expandable row untuk detail (dokter, no. resep, pengambil). Filter per obat. Saldo card per obat + alert stok minimum. Tambah Pengeluaran modal (no. RM, pasien, dokter, no. resep, pengambil). Stok Opname modal + selisih alert. Cetak Laporan Bulanan. Tab "Register N/P" di FarmasiViewTabs (tab ke-2 farmasi page). UU 35/2009 · UU 5/1997 · PMK 3/2015
-- [x] **LASA Warning System** ✅ — `LASA_PAIRS` + `getLASAPair()` di `farmasiShared.ts`. `isLASA` auto-detect di `deriveItems()`. `LASAConfirmPanel` (full-width, per-item confirm) di TelaahPane. Toggle LASA per item di DispensingSerahPane Step 1 + hint pair. Badge amber di OrderCard + TelaahAkhirItem. PMK 72/2016 Ps. 8 · SKP 3
-- [x] **Formularium RS Check + Non-Formularium Justification** ✅ — `FORMULARIUM_LIST` + `isFormularium` auto-detect di `farmasiShared.ts`. `FormulariumPanel` di left panel TelaahPane: badge FORM/NON-FORM per item, justifikasi wajib untuk non-formularium (blocks submit). Data disimpan di `TelaahData.justifikasiNonFormularium`. SNARS PKPO 2 · PMK 72/2016 Ps. 5-7
-- [x] **TAT Tracking (Waktu Tunggu Pelayanan)** ✅ — `OrderTimestamps` + `calcTATMenit()` + `getTATStatus()` + `TAT_TARGET_UNIT` + `deriveMockTimestamps()` di `farmasiShared.ts`. `TATTimeline` strip di `FarmasiOrderHeader`. `TATChip` di `OrderCard`. `workflowStore` merge timestamps. Standar: IGD ≤30 mnt · RI ≤60 mnt · RJ ≤30 mnt. SNARS PKPO 6 · Indikator mutu RS
-
-**Tier 2 — Klinis Penting (SNARS bintang 2+):** ✅ Selesai
-
-- [x] **PTO (Pemantauan Terapi Obat)** ✅ — `farmasi/pto/ptoShared.ts` + `tabs/PTOPane.tsx`. Two-panel: kiri drug cards + status terbaru, kanan sparkline SVG trend + riwayat observasi + form tambah. Drug-to-parameter template 9 drug class. `calcPTOStatus()` dengan Kritis/Tinggi/Rendah/Normal. Tab "Monitoring Terapi" di sidebar klinis `FarmasiOrderTabs`. Mock ri-1: Heparin aPTT + KSR K+. SNARS PKPO 7 · PMK 72/2016 Ps. 30–32
-- [x] **MESO (Monitoring Efek Samping Obat)** ✅ — `farmasi/meso/mesoShared.ts` + `tabs/MESOPane.tsx`. Two-panel: kiri timeline laporan + severitas badge, kanan form baru atau detail. WHO-UMC causality 5 level. Severitas Ringan/Sedang/Berat/Fatal. Outcome + tindakan diambil. Flag dikirim BPOM. Tab "Pelaporan ESO" di sidebar klinis. PMK 72/2016 Ps. 33
-- [x] **DRP (Drug-Related Problems) Documentation** ✅ — `farmasi/drp/drpShared.ts` + `tabs/DRPPane.tsx`. PCNE V9: 9 problem code (P1–P3), 13 cause code (C1–C5), 6 intervensi code (I0–I3), 4 outcome (O0–O3). Two-panel: kiri problem list + domain tag, kanan detail + form baru. Tab "Masalah Terkait Obat" di sidebar klinis. PMK 72/2016
-- [x] **Konseling Obat Pulang (Discharge Counseling)** ✅ — `konseling/konselingShared.ts` + `shared/medical-records/KonselingTab.tsx`. Two-panel: kiri drug checklist dari resepRI.items aktif, kanan info obat (indikasi/ESO/penyimpanan) + form penilaian (metode/penerima/pemahaman Baik/Cukup/Kurang/durasi/TTD). `getDrugInfo()` lookup 6 drug class. Tab "Konseling Obat" di RIRecordTabs LAYANAN. SNARS PP 5 · PMK 72/2016 Ps. 27
-
-**Tier 3 — Operasional/Infrastruktur (scope besar):**
-
-- [x] **Pengembalian Obat Pasien Pulang** ✅ — `farmasi/pengembalian/pengembalianShared.ts` + `PengembalianPane.tsx`. Two-panel: kiri list item per resep (jumlah dispensasi/diberikan/dikembalikan, kondisi Baik/Rusak/Kadaluarsa, alasan, HAM double-check) + kanan summary card + panduan prosedur 5-step. Tab "Kembalian Obat" di PasienPulangTab RI. Verifikasi apoteker per record. PMK 72/2016 Ps. 20
-- [x] **PIO Log (Pelayanan Informasi Obat)** ✅ — `farmasi/pio/pioShared.ts` + `PIOPane.tsx`. Two-panel: kiri log list (filter kategori + status, stats strip avg respons) + kanan detail jawaban + referensi. Form tambah inline. 6 mock entries (Dosis, Interaksi, ESO, Farmakokinetik, Ketersediaan). Tab "Pelayanan Informasi Obat" di FarmasiViewTabs. PMK 72/2016 Ps. 27-29
-
-### ⏸ Ditunda / Roadmap
-
-- [ ] **Laporan IKP** — form KTD/KNC/Sentinel. Kemungkinan modul EHIS-Safety. PMK 11/2017
-- [ ] **Transfusi Darah (RI)** — pre/intra/post-transfusi checklist. SNARS PP 4
-
-### ⚙️ Tech Debt
-
-- [ ] **Gudang Farmasi (Inventory & Stok)** — modul terpisah: kartu stok digital per depo, FEFO/FIFO enforcement, min-max stock alert, permintaan depo ke gudang, transfer antar depo, penerimaan dari supplier. PMK 72/2016 Bab IV
-- [ ] **AllergyPane IGD** — masih local, padahal `shared/asesmen/AllergyPane.tsx` sudah ada. Refactor `AsesmenMedisTab` sub-pane Alergi ke thin wrapper.
-- [x] **RekonsiliasTab IGD** ✅ — resolve: promote ke shared `shared/medical-records/RekonsiliasTab.tsx`, `RekonsiliasiPane.tsx` RI dihapus.
-- [ ] **PenilaianTab IGD** — audit overlap Morse/Braden/Barthel dengan `PenilaianRisikoPane.tsx` RI. Ekstrak konstanta ke `shared/asesmen/penilaianShared.ts`.
-- [ ] **CarePlanTab — Link ke DiagnosaTab** — masalah aktif di RAT idealnya pull dari entri ICD-10 di `DiagnosaTab` (bukan diketik ulang). Perlu shared state atau props `diagnosaList` dari parent `RIRecordTabs` diteruskan ke `CarePlanTab`.
-- [ ] **CarePlanTab — Template per diagnosis** — library template RAT per diagnosis umum (GJK, Pneumonia, Sepsis, App Akut, dll). Target/intervensi pre-fill saat masalah dikenali. Kandidat: `carePlan/careplanTemplates.ts`.
-- [ ] **CarePlanTab — Multi-PPA** — tambah kolom Gizi, Farmasi, Fisioterapis saat modul tersebut aktif. `PPASection` sudah generic — tinggal extend `PhaseData` dan tambah panel baru di `PhaseSection`.
-- [ ] **CarePlanTab — Riwayat revisi / audit trail** — RAT bisa berubah saat kondisi pasien berubah drastis; simpan snapshot per-edit dengan `revisedAt` + `revisedBy`. Perlu Prisma schema.
-- [ ] **MAR — Gate dispensasi selesai** — obat seharusnya muncul di MAR hanya setelah farmasi `status: "Selesai"` (serah terima sudah dilakukan). Saat ini `MARTab` langsung baca `resepRI.items` tanpa cek status farmasi. Fix: tambah filter `isDispensed(item.id)` yang cek `workflowStore` atau field status di `ResepRIItem`. Tanpa ini perawat bisa "mencatat pemberian" obat yang belum diterima dari apotek.
-- [ ] **MAR — Overdue alert** — tidak ada indikasi obat yang jadwal jam-nya sudah lewat tapi belum dicatat. Tambah visual `overdue` di `DrugCard`: jika `timeSlot.waktu < now` dan belum ada entri untuk slot itu, tampilkan ring amber + label "Terlambat X mnt" di samping time chip. Hanya aktif di tab "Hari ini".
-- [ ] Replace mock data dengan Prisma queries, mulai dari `PatientMaster`
-- [ ] Error boundary + loading skeleton untuk semua fullpage routes
-- [ ] `SidebarContext` — belum dipakai konsisten di semua modul
-- [ ] **GiziNutrisiTab — Diet Order dari DaftarOrderTab** — saat ini diet order diisi standalone di GiziTab. Idealnya DPJP order diet dari `DaftarOrderTab` (tipe baru `"Diet"`), GiziTab hanya membaca order aktif (read-only) + dietitian addendum + monitoring tetap di sini. Perlu: tambah tipe `"Diet"` di `daftarOrderShared.ts`, filter di `GiziNutrisiTab`, hapus form `DietOrderForm`. Kerjakan saat DaftarOrder pakai real data.
-- [ ] **Print / Export Dokumen PDF** — cetak dokumen legal per tab: CPPT (per tanggal), TTV chart, Resume Medis (INA-CBG), Resume Pulang (PMK 24/2022), Surat-surat (Keterangan Sakit, Rujukan, dll), Informed Consent, RAT. Kandidat: `window.print()` + print stylesheet, atau `@react-pdf/renderer`. PMK 269/2008 · PMK 24/2022
-- [ ] **Clinical Pathway Integration (RI)** — alur tatalaksana standar per diagnosis (GJK, Pneumonia, Sepsis, dll), CBG-aligned. Kandidat: tab baru di RI, pull diagnosis dari `DiagnosaTab`, template per ICD-10. PERMENKES 1438/2010
-
-### 🟢 Backlog (Other Modules)
-
-- [ ] `ehis-registration` — form pendaftaran pasien baru + kunjungan, search existing
-- [ ] `ehis-report` — laporan per periode, export Excel/PDF
-- [ ] `ehis-rad` — route lama; modul radiologi dipindah ke `/ehis-care/radiologi` (lihat section 🔴 Active di atas)
-- [ ] **`ehis-fhir` — Integrasi SatuSehat (modul terpisah dari master)** — semua interaksi FHIR/SatuSehat di sini supaya master pages bersih. Calon sub-pages: Beranda (overview status sync per resource) · Konfigurasi (kredensial API + env sandbox/prod + **Org_id Root SatuSehat dari Kemkes**, sekarang sementara di `lib/master/rsConfig.ts`) · Sync Resource (Organization/Location, Practitioner via NIK lookup, HealthcareService, dll — list + tombol sync per item / bulk + status badge) · Sync Log (audit trail tiap sync attempt + response payload) · Conflict Resolution (payload diff bila inconsistency). Adapter layer di `lib/fhir/adapters/` (`toFhirOrganization`/`toFhirLocation`/`toFhirPractitioner`) — single point transform DB EHIS-first → FHIR R4 payload. User profile target: IT integrator, bukan admin RS. (Decision 2026-05-19 sore)
-
----
-
-## Key Data Contracts
-
-**Mock IDs** (jangan ubah tanpa update semua tab):
-
-- IGD: `igd-1` (Joko Prasetyo ♂55, `RM-2025-005`) · `igd-2` (Siti Rahayu ♀32, `RM-2025-012`)
-- RI: `ri-1` (GJK NYHA III, dr. Budi Santoso Sp.JP, `RM-2025-003`) · `ri-3` (Syok Sepsis, dr. Hendra Wijaya Sp.EM, `RM-2025-007`)
-- Mock keyed by `RM-2025-003`: `KONSULTASI_MOCK` · `OrderLabMock` · `OrderRadMock` · `DISCHARGE_MOCK` · `PASIEN_PULANG_MOCK` · `GIZI_HISTORY_MOCK`
-- Mock keyed by `RM-2025-005`: `HANDOVER_MOCK` (IGD)
-- Farmasi mock orders: 5 order lintas unit — `igd-1` (HAM, Depo IGD) · `igd-2` (Depo IGD) · `ri-1` (HAM, Apotek RI) · `ri-3` (Apotek RI) · `rj-1` (Apotek RJ) → di `farmasi/farmasiShared.ts`
-- Radiologi mock orders: 5 order lintas unit — `igd-1` (Foto Thorax AP CITO) · `igd-2` (USG Abdomen Semi-Cito) · `ri-1` (CT Thorax kontras Rutin) · `ri-3` (Foto BNO 3 posisi Rutin) · `rj-1` (USG Tiroid Rutin) → di `rad/radShared.ts`
-
-**Core types** (semua di `src/lib/data.ts`):  
-`IGDPatientDetail` · `PatientMaster` · `KunjunganRecord` · `RawatInapPatientDetail`  
-`TipePenjamin`: `BPJS_Non_PBI | BPJS_PBI | Umum | Asuransi | Jamkesda`  
-`RIKelas`: `VIP | Kelas_1 | Kelas_2 | Kelas_3 | ICU | HCU | Isolasi`  
-`DiagnosaTipe`: `Utama | Sekunder | Komplikasi | Komorbid`  
-`DiagnosaStatus`: `Pasti | Dicurigai | Diferensial`  
-`IGDDiagnosa`: `id · kodeIcd10 · namaDiagnosis · tipe · status? · alasan? · analisa?`  
-`CPPTEntry`: `id · waktu · tanggal? · profesi · penulis · SOAP fields · verified? · verifiedBy? · verifiedAt? · flagged?`
+## 🚦 Workflow
+
+- **Saat menyelesaikan task**: (1) centang di file aktif (CLAUDE.md atau TODO.md), (2) pindahkan deskripsi detail ke [.claude/DONE.md](.claude/DONE.md), (3) catat tech debt baru di [TECH_DEBT.md](TECH_DEBT.md).
+- **Saat menemukan gap klinis**: catat di [.claude/GAP_ANALYSIS.md](.claude/GAP_ANALYSIS.md) sebelum mulai implementasi.
+- **Saat mulai modul baru**: cek [TODOS_BACKEND.md](TODOS_BACKEND.md) untuk lihat dependensi backend yang perlu diketahui.
+- **Sebelum commit**: jalankan `npx tsc --noEmit` untuk verifikasi types clean.
+- **Komitmen file size**: tidak ada file >800 line. Jika lewat → split jadi sub-components (lihat pola di `farmasi/`, `lab/`, `rad/`, `master/mapping/`).
