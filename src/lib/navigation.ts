@@ -36,6 +36,7 @@ import {
   MessageSquare,
   GraduationCap,
   LogOut,
+  ClipboardCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -214,8 +215,9 @@ export const masterNav: readonly NavGroup[] = [
   {
     label: "Workflow Klinis",
     items: [
-      { label: "Workflow Edukasi",     href: "/ehis-master/workflow-edukasi", icon: GraduationCap },
-      { label: "Discharge Klasifikasi", href: "/ehis-master/discharge",        icon: LogOut        },
+      { label: "Workflow Edukasi",     href: "/ehis-master/workflow-edukasi", icon: GraduationCap   },
+      { label: "Discharge Klasifikasi", href: "/ehis-master/discharge",        icon: LogOut          },
+      { label: "Operasional Klinis",    href: "/ehis-master/operasional",      icon: ClipboardCheck  },
     ],
   },
   {

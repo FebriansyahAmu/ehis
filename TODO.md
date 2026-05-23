@@ -267,23 +267,21 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
   - [ ] [dischargeShared.ts:130-154](src/components/rawat-inap/discharge/dischargeShared.ts#L130) `STEP_PHASES` (3 fase) — perlu extend dengan `targets[]` per fase
   - [ ] [dischargeShared.ts:268-281](src/components/rawat-inap/discharge/dischargeShared.ts#L268) `calcRisikoReadmisi()` hard-coded rules → derive dari `risikoRules[]` master
 
-#### 2.13 Master Operasional Klinis — `/ehis-master/operasional`
+#### 2.13 Master Operasional Klinis — `/ehis-master/operasional` ✅ Selesai (2026-05-24)
 **Konsumen:** IntakeOutputTab · GiziNutrisiTab · PPI Isolasi
 
-- [ ] 4 sub-tab:
-  - [ ] **Sumber Cairan & Output:**
-    - Intake: Oral · IV (NaCl/RL/D5/D10/Albumin/Norepi/Dobutamin/Antibiotik) · NGT (Formula/Air/Obat) · Transfusi (PRC/FFP/TC/Whole Blood)
-    - Output: Urine · Drainase (NGT/WSD/Drain Bedah/CVC) · Feses · Muntah · Perdarahan
-  - [ ] **Tipe Diet & Tekstur** — 12 diet + 4 tekstur (biasa/lunak/saring/cair)
-  - [ ] **Bundle HAI Items:**
-    - VAP Bundle (5 items)
-    - CAUTI Bundle (3 items)
-    - CLABSI Bundle (4 items)
-  - [ ] **Penyakit Wajib Isolasi:**
-    - Contact (MRSA/VRE/C.diff/Luka Terbuka)
-    - Droplet (Influenza/Meningitis/Pertussis)
-    - Airborne (TB Paru/Campak/Aerosol COVID-19)
-- [ ] Sumber: [ioShared.ts:42-112](src/components/rawat-inap/tabs/intakeOutput/ioShared.ts#L42) · [giziNutrisiShared.ts:50-70](src/components/rawat-inap/tabs/giziNutrisi/giziNutrisiShared.ts#L50) · [ppiIsolasiShared.ts:35-135](src/components/rawat-inap/ppiIsolasi/ppiIsolasiShared.ts#L35)
+- [x] 4 sub-koleksi dengan discriminator field (semua flat list):
+  - [x] **Sumber Cairan & Output** (31 entries) — Intake 18 (Oral 3 / IV 8 / NGT 3 / Transfusi 4) + Output 13 (Urine 2 / Drainase 3 / Feses 3 / Muntah 2 / Perdarahan 3). Schema `tipe: Intake|Output` + `kategori: string` + per-kategori tone palette (emerald/sky/amber/rose/slate/violet/orange).
+  - [x] **Tipe Diet & Tekstur** (16 entries) — 12 Diet (DJR I-III, DM, RP, RL, TP, DGK, DH, DPO, MB, Lainnya) dengan `kaloriDefault` + `batasanDefault` + 4 Tekstur (Biasa/Lunak/Saring/Cair) dengan `tone: slate|sky|amber|indigo`. Schema `jenis: Diet|Tekstur` dengan conditional fields per jenis.
+  - [x] **Bundle HAI Items** (12 items) — VAP 5 / CAUTI 3 / CLABSI 4. Schema `bundle: VAP|CAUTI|CLABSI` + `detail` instruksi operasional. Master `BUNDLE_CFG_MASTER` per bundle: label/fullName/trigger/colors (rose/amber/indigo).
+  - [x] **Penyakit Wajib Isolasi** (18 penyakit) — Contact 6 (MRSA/VRE/C.diff/ESBL/Scabies/Luka) + Droplet 6 (Influenza/Meningitis/Pertussis/Mumps/Rubella/Difteri) + Airborne 6 (TB Paru/MDR-TB/Campak/Varicella/COVID Aerosol/SARS). Schema `mode: Contact|Droplet|Airborne` + `patogen` + `durasiHariMin/Max` + `catatan` (kapan lepas isolasi). Master `ISOLASI_MODE_CFG` per mode (amber/orange/red).
+- [x] **Arsitektur:** sidebar nav (`OperasionalSidebar` 280px, `motion.layoutId="operasional-active-indicator"`) + 4 dedicated panes via switch-by-key pane render. Setiap pane self-contained CRUD: search + status filter + discriminator sub-filter (button chips untuk Tipe/Jenis · interactive **summary cards** untuk Bundle/Mode) + add CTA + sticky-header table + animated add form. Form per sub-master: discriminator picker (segmented 2-button untuk Tipe/Jenis · 3-card untuk Bundle/Mode) + auto-slug kode dari label (prefix INT/OUT/TX/VAP/CTI/CLB) + conditional field render per discriminator. Dup-kode detection real-time + validation banner.
+- [x] **Components:** `OperasionalPage` orchestrator (4 StatCard Cairan/Diet-Tekstur/Bundle/Isolasi) + `OperasionalSidebar` (4 sub-master dengan icon + aktif/total ratio) + `operasionalShared.ts` (sortByUrutan/suggestKode/isEntryValid/isDuplicateKode) + 4 pane × 2 file (Pane + Form): `SumberCairanPane/Form` · `DietTeksturPane/Form` · `BundleHAIPane/Form` · `PenyakitIsolasiPane/Form`. Accent **slate** (operasional/utility — defer ke palette internal per discriminator). Bundle HAI + Penyakit Isolasi panes pakai **interactive summary cards** klik-untuk-filter (3-card border-l-4 dengan count chip + trigger info) — UX lebih engaging dibanding plain chip strip. Largest file 451L (mock), pane terbesar 412L (SumberCairanPane), semua jauh di bawah 800 limit.
+- [x] `masterNav` group `Workflow Klinis` tambah item ke-3 Operasional Klinis (icon ClipboardCheck).
+- [x] **Sumber siap replace:**
+  - [ ] [ioShared.ts:42-112](src/components/rawat-inap/tabs/intakeOutput/ioShared.ts#L42) `INTAKE_CATS` + `OUTPUT_CATS` + `INTAKE_CHIP` + `OUTPUT_CHIP` → derive dari `CAIRAN_INITIAL` + `CAIRAN_KATEGORI` + `CAIRAN_TONE_CFG`
+  - [ ] [giziNutrisiShared.ts:50-70](src/components/rawat-inap/tabs/giziNutrisi/giziNutrisiShared.ts#L50) `TIPE_DIET_OPTIONS` + `TEKSTUR_CFG` → derive dari `DIET_TEKSTUR_INITIAL` (filter `jenis === "Diet" | "Tekstur"`)
+  - [ ] [ppiIsolasiShared.ts:35-140](src/components/rawat-inap/ppiIsolasi/ppiIsolasiShared.ts#L35) `ISOLASI_CFG` + `VAP_ITEMS` + `CAUTI_ITEMS` + `CLABSI_ITEMS` + `BUNDLE_CFG` → derive dari `BUNDLE_HAI_INITIAL` (groupBy `bundle`) + `ISOLASI_MODE_CFG` + `BUNDLE_CFG_MASTER`
 
 ---
 
@@ -329,11 +327,11 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
 |---|---|---|---|
 | Phase 0 — Foundation | 7 | 7 | 100% |
 | Phase 1 — Refactor | 6 | 6 | 100% |
-| Phase 2 — Master Baru | 13 | 12 | 92% |
+| Phase 2 — Master Baru | 13 | 13 | 100% |
 | Phase 3 — Polish | 4 | 0 | 0% |
-| **Total** | **30** | **25** | **83%** |
+| **Total** | **30** | **26** | **87%** |
 
-**Phase 2 progress:** Kategori A (Klinis Penilaian) ✅ 4/4 + Kategori B (Reference Klinis) ✅ 3/3 + Kategori C (Template & Enum) ✅ 3/3 + Kategori D 2/3 (Workflow Edukasi ✅ · Discharge Klasifikasi ✅). Berikutnya: Operasional Klinis.
+**Phase 2 progress:** ✅ **Selesai 100%.** Kategori A (Klinis Penilaian) ✅ 4/4 + Kategori B (Reference Klinis) ✅ 3/3 + Kategori C (Template & Enum) ✅ 3/3 + Kategori D ✅ 3/3 (Workflow Edukasi · Discharge Klasifikasi · Operasional Klinis). Berikutnya: **Phase 3 — UX Polish** (Beranda Master + Banner Default-Flag + Restruktur masterNav + Update CLAUDE.md).
 
 ---
 
