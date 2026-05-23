@@ -235,18 +235,21 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
 
 ### Kategori D — Workflow & Operasional (3 master)
 
-#### 2.11 Master Workflow Edukasi — `/ehis-master/workflow-edukasi`
+#### 2.11 Master Workflow Edukasi — `/ehis-master/workflow-edukasi` ✅ Selesai (2026-05-23)
 **Konsumen:** EdukasiPane (IGD + RI Discharge)
 
-- [ ] 7 sub-tab:
-  - [ ] **Topik Edukasi** + kategori (Medis/Farmasi/Nutrisi/Rehabilitasi/Keperawatan/Administratif/Preventif)
-  - [ ] **Media Edukasi** (Verbal/Leaflet/Booklet/Demo/Video/Poster/Aplikasi Digital)
-  - [ ] **Metode Edukasi** (Ceramah/Diskusi/Demo/Simulasi/Tanya Jawab)
-  - [ ] **Hambatan Komunikasi** (8 jenis)
-  - [ ] **Tingkat Pemahaman** (Paham/Perlu Ulang/Tidak Paham)
-  - [ ] **Tanda Bahaya** per kondisi (untuk discharge education)
-  - [ ] **Tipe Instruksi Pulang**
-- [ ] Sumber: [EdukasiPane.tsx (IGD):146-189](src/components/igd/tabs/EdukasiPane.tsx#L146) · [dischargeShared.ts:196](src/components/rawat-inap/discharge/dischargeShared.ts#L196) duplicate
+- [x] 7 sub-tab (sidebar nav multi-collection, single page):
+  - [x] **Topik Edukasi** (14 entries) + kategori (Medis/Farmasi/Nutrisi/Rehabilitasi/Keperawatan/Administratif/Preventif)
+  - [x] **Media Edukasi** (7 entries — Verbal/Leaflet/Booklet/Demo/Video/Poster/Aplikasi Digital)
+  - [x] **Metode Edukasi** (5 entries — Ceramah/Diskusi/Demo/Simulasi/Tanya Jawab)
+  - [x] **Hambatan Komunikasi** (8 entries — Tidak Ada/Bahasa/Pendengaran/Penglihatan/Kognitif/Emosional/Fisik/Pendidikan)
+  - [x] **Tingkat Pemahaman** (3 entries — Paham/Perlu Ulang/Tidak Paham) dengan tone semantik emerald/amber/rose
+  - [x] **Tanda Bahaya** (14 entries) per kondisi 7 kelompok (Umum/Kardiovaskular/Respirasi/Neurologi/Pencernaan/Bedah/Obstetri)
+  - [x] **Tipe Instruksi Pulang** (6 entries — Discharge/Follow-up/Emergency/Pra-Tindakan/Admisi RI/Rujukan)
+- [x] Components: `WorkflowEdukasiPage` orchestrator + `EdukasiSidebar` 280px (7 koleksi card icon+aktif-ratio + active indicator layoutId) + `EdukasiTable` (search + filter status + sub-filter kategori/tone/kondisi conditional + add form collapsible + sticky-header table dengan extra column conditional per koleksi) + `EdukasiRow` (move up/down, edit inline, delete, ExtraCell switch-by-flag render kategori/tone/kondisi chip) + `EdukasiEntryForm` (label→auto-slug kode + per-koleksi conditional field render kategori chip-grid / tone picker / kondisi chip-grid + live preview chip). Accent **amber** (warmth/guidance theme untuk edukasi).
+- [x] **Sumber siap replace:**
+  - [ ] [EdukasiPane.tsx (IGD):146-189](src/components/igd/tabs/EdukasiPane.tsx#L146) `TOPIK_EDUKASI`/`MEDIA_EDUKASI`/`METODE_EDUKASI`/`HAMBATAN_KOMUNIKASI`/`PEMAHAMAN_CFG`/`TANDA_BAHAYA`/`TIPE_INSTRUKSI`
+  - [ ] [dischargeShared.ts:196-219](src/components/rawat-inap/discharge/dischargeShared.ts#L196) `TOPIK_EDUKASI_TEMPLATE` + `KATEGORI_COLOR` + `PEMAHAMAN_CONFIG` duplicate
 
 #### 2.12 Master Discharge Klasifikasi — `/ehis-master/discharge`
 **Konsumen:** RI DischargePlanTab + PasienPulangTab
@@ -321,11 +324,11 @@ Prinsip: **"satu pintu master"** — semua data referensi klinis di `/ehis-maste
 |---|---|---|---|
 | Phase 0 — Foundation | 7 | 7 | 100% |
 | Phase 1 — Refactor | 6 | 6 | 100% |
-| Phase 2 — Master Baru | 13 | 10 | 77% |
+| Phase 2 — Master Baru | 13 | 11 | 85% |
 | Phase 3 — Polish | 4 | 0 | 0% |
-| **Total** | **30** | **23** | **77%** |
+| **Total** | **30** | **24** | **80%** |
 
-**Phase 2 progress:** Kategori A (Klinis Penilaian) ✅ 4/4 + Kategori B (Reference Klinis) ✅ 3/3 + Kategori C (Template & Enum) ✅ 3/3. Berikutnya: Kategori D (Workflow Edukasi · Discharge · Operasional).
+**Phase 2 progress:** Kategori A (Klinis Penilaian) ✅ 4/4 + Kategori B (Reference Klinis) ✅ 3/3 + Kategori C (Template & Enum) ✅ 3/3 + Kategori D 1/3 (Workflow Edukasi ✅). Berikutnya: Discharge Klasifikasi · Operasional Klinis.
 
 ---
 

@@ -34,6 +34,7 @@ import {
   Layers,
   FileText,
   MessageSquare,
+  GraduationCap,
   type LucideIcon,
 } from "lucide-react";
 
@@ -207,6 +208,12 @@ export const masterNav: readonly NavGroup[] = [
       { label: "Status Enum",         href: "/ehis-master/status-enum",         icon: Layers        },
       { label: "Template Anamnesis",  href: "/ehis-master/template-anamnesis",  icon: MessageSquare },
       { label: "Template Form",       href: "/ehis-master/template-form",       icon: FileText      },
+    ],
+  },
+  {
+    label: "Workflow Klinis",
+    items: [
+      { label: "Workflow Edukasi", href: "/ehis-master/workflow-edukasi", icon: GraduationCap },
     ],
   },
   {
