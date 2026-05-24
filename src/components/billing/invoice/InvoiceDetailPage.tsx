@@ -2,13 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Construction } from "lucide-react";
 import { useSkeletonDelay } from "@/components/master/shared";
 import PatientBannerBilling from "./PatientBannerBilling";
 import InvoiceTabs, { type InvoiceTabKey } from "./InvoiceTabs";
 import RincianChargeTab from "./tabs/RincianChargeTab";
 import PembayaranTab from "./tabs/PembayaranTab";
 import KlaimStatusTab from "./tabs/KlaimStatusTab";
+import RiwayatAuditTab from "./tabs/RiwayatAuditTab";
 import AddItemModal from "./modals/AddItemModal";
 import DiskonItemModal from "./modals/DiskonItemModal";
 import VoidItemModal from "./modals/VoidItemModal";
@@ -230,10 +230,7 @@ export default function InvoiceDetailPage({ initialDetail }: Props) {
                 />
               )}
               {activeTab === "riwayat" && (
-                <TabPlaceholder
-                  title="Riwayat Audit"
-                  hint="Timeline lengkap semua event create/edit/void/payment — akan dibangun di BL2.5."
-                />
+                <RiwayatAuditTab detail={detail} />
               )}
             </div>
           </motion.div>
@@ -311,16 +308,3 @@ function SkeletonShell() {
   );
 }
 
-function TabPlaceholder({ title, hint }: { title: string; hint: string }) {
-  return (
-    <div className="flex flex-1 items-center justify-center px-6 py-12">
-      <div className="max-w-md rounded-xl border border-dashed border-amber-200 bg-amber-50/40 px-6 py-8 text-center dark:border-amber-900/40 dark:bg-amber-950/15">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-          <Construction size={20} />
-        </div>
-        <h3 className="text-[14px] font-semibold text-slate-800 dark:text-slate-100">{title}</h3>
-        <p className="mt-1 text-[12px] text-slate-600 dark:text-slate-400">{hint}</p>
-      </div>
-    </div>
-  );
-}

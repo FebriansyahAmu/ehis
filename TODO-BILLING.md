@@ -12,7 +12,7 @@
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
 > **Last updated:** 2026-05-24
-> **Status:** 🚧 BL1 ✅ + BL2.1-2.4 ✅ — Banner/Timeline + Rincian Charge + Pembayaran + Klaim Status Tab (read-only lite). **Klaim Penjamin (workflow penuh) DIPISAH ke modul baru `/ehis-eklaim`** (lihat [TODO-EKLAIM.md](TODO-EKLAIM.md)) karena workflow batch + persona terpisah (Tim Klaim/Coder ≠ Kasir). Next: BL2.5 Riwayat Audit · BL2.6 Print Preview · atau BL0 Foundation (sourceAdapter/hargaResolver).
+> **Status:** 🚧 BL1 ✅ + BL2.1-2.5 ✅ — Banner/Timeline + Rincian Charge + Pembayaran + Klaim Status Tab (read-only lite) + Riwayat Audit Tab (timeline + filter + CSV export). **Klaim Penjamin (workflow penuh) DIPISAH ke modul baru `/ehis-eklaim`** (lihat [TODO-EKLAIM.md](TODO-EKLAIM.md)) karena workflow batch + persona terpisah (Tim Klaim/Coder ≠ Kasir). Next: BL2.6 Print Preview (selesaikan BL2 100%) atau BL0 Foundation (sourceAdapter/hargaResolver).
 > **Target effort:** ~3 minggu (frontend full, after split) · paralel dengan backend B0/B1.7/B1.9 dapat dimulai.
 
 > ### 🔀 Scope Split (2026-05-24)
@@ -502,12 +502,68 @@
 - **Stub handler `console.log` saat /ehis-eklaim belum ada** — hindari 404 dev runtime. Wire `router.push(href)` saat EK0 route entry siap (single-line change di `handleOpenEklaim`).
 - **Cache pattern di `claimReadCache.ts`** — schema 1:1 dengan target `ClaimRecord` di EKLAIM. Swap `MOCK_CLAIMS[id]` → `await fetch('/api/eklaim/claim?invoiceId=...')` saat backend ready. Zero refactor UI.
 
-### BL2.5 Tab 4: Riwayat Audit
+### BL2.5 Tab 4: Riwayat Audit ✅ Selesai (2026-05-24)
 
-- [ ] **Timeline vertikal** semua event: create/edit item/diskon/void/payment/refund/submit klaim/finalize.
-- [ ] **Per-entry**: timestamp + actor avatar + action chip + diff jika edit (before/after value).
-- [ ] **Filter by actor / action type / date range**.
-- [ ] **Export CSV** audit trail.
+- [x] **Timeline vertikal grouped by date** ✅ — [AuditTimeline.tsx](src/components/billing/invoice/tabs/audit/AuditTimeline.tsx) (111L):
+  - Group per tanggal via `groupAuditByDate(events)` di [auditTrail.ts](src/lib/billing/auditTrail.ts) — return `{ dateISO, dateLabel ("Sabtu, 24 Mei 2026"), events[] }` sorted DESC
+  - Date header sticky `top-0` dengan backdrop-blur — pill berisi ISO date mono + label panjang + count badge per-group
+  - Vertical line absolute di kolom-2 (gradient from-slate-200 via-slate-200 to-transparent) — di belakang dot tiap row
+  - Stagger animation: `Math.min(0.3, groupIdx * 0.08 + idx * 0.03)` per event (clamp untuk perf di list panjang)
+  - Empty states: berbeda copy untuk `hasActiveFilters` (SearchX icon + CTA reset) vs initial empty (Inbox icon + hint workflow)
+- [x] **Per-entry: AuditEventRow** ✅ — [AuditEventRow.tsx](src/components/billing/invoice/tabs/audit/AuditEventRow.tsx) (149L):
+  - Grid 3-col: `[44px time mono | 24px dot | 1fr body card]`
+  - **Time** mono right-align HH:MM (formatTime)
+  - **Dot** 3.5×3.5 dengan ring-4 ring-white (memotong vertical line di belakangnya) — warna sesuai tone action
+  - **Body card** white rounded border hover dengan:
+    - Avatar circle 7×7 inisial 2-letter (`actorInitials`) — bg per-tone
+    - Actor name bold + role muted + action chip (icon + label) dengan palette per kategori
+    - Summary text 1-liner
+    - Right meta: nominal mono (rose untuk refund/diskon, emerald untuk pembayaran/add)
+  - **Bottom strip** (slate-50) conditional: target ref (Receipt icon + label + type uppercase) · noKwitansi (Hash icon) · reason (MessageSquareWarning amber + italic quote) · diff block
+- [x] **AuditDiffBlock (before/after)** ✅ — [AuditDiffBlock.tsx](src/components/billing/invoice/tabs/audit/AuditDiffBlock.tsx) (75L):
+  - Grid 2-col `[110px field | 1fr values]` per diff
+  - Field label uppercase mono kecil + 2 chip: before (strikethrough rose ring) → ArrowRight → after (emerald bold ring)
+  - Conditional render: `isAddOnly` (cuma after) · `isRemoveOnly` (cuma "dihapus" italic) · normal (before → after)
+  - Money formatting (`isMoney=true` → `fmtRupiah`)
+- [x] **Filter by actor / action / date range** ✅ — [AuditFilterBar.tsx](src/components/billing/invoice/tabs/audit/AuditFilterBar.tsx) (306L):
+  - **Action chips multi-select** (12 kinds dari `AUDIT_ACTION_ORDER`): rounded-full pill icon+label, per-tone palette saat active (slate/amber/emerald/sky/rose/violet/teal), check icon ke kanan saat aktif, tooltip per `description`
+  - **Actor multi-select dropdown**: button styled (border amber-300 saat ada selection) + chevron rotate · panel max-h-64 internal scroll · per-actor name+role · check kanan + bg amber saat selected · outside-click + ESC close
+  - **Date range** dengan 2 native `<input type="date">` + ArrowRight separator + CalendarDays icon prefix · auto-clamp via `max={to}` / `min={from}`
+  - Header: title + count "X / Y event" + chip "N aktif" amber jika ada filter
+  - Actions kanan: Reset (disabled jika 0 aktif) + **Export CSV** amber primary (disabled jika 0 events)
+- [x] **Export CSV** ✅ — `exportAuditCsv(events, invoiceNo, filename?)` di [auditTrail.ts](src/lib/billing/auditTrail.ts):
+  - Header 11 kolom: Timestamp/Aktor/Peran/Aksi/Kategori/Target/Ringkasan/Nominal/Alasan/Diff/NoKwitansi
+  - Diff serialized `"Field: before → after | Field: before → after"`
+  - Money formatted Indonesian via `Intl.NumberFormat` saat `isMoney=true`
+  - BOM UTF-8 → Excel kenali Rupiah/unicode aman
+  - Auto-filename `audit-{invoiceNo-sanitized}-{YYYY-MM-DD}.csv`
+- [x] **Helper layer auditTrail.ts** ✅ — [src/lib/billing/auditTrail.ts](src/lib/billing/auditTrail.ts) (482L):
+  - 12 `AuditActionKind` dengan `AUDIT_ACTION_CFG` (label/icon/category/tone/description per kind)
+  - `AUDIT_TONE_PALETTE` 7-tone (bg/text/ring/dot/avatarBg)
+  - Types: `AuditActor`, `AuditDiff` (field/before/after/isMoney), `AuditEvent` (id/at/invoiceId/actor/action/summary/target/amount/reason/diff/noKwitansi)
+  - `AUDIT_EVENTS_MOCK`: 18 events INV-009 (multi-day ICU lifecycle: create→add×6→diskon item→add×3→payment×2→refund→add→diskon invoice→finalize→klaim submit→klaim status×2) + 5 events INV-001 (single-day IGD: create→add×2→finalize→payment)
+  - Helpers: `getAuditEventsForInvoice` (sorted DESC) · `applyAuditFilters` · `countActiveAuditFilters` · `uniqueActors` (sorted alfabet) · `groupAuditByDate` · `actorInitials` · `formatTime` · `exportAuditCsv`
+- [x] **RiwayatAuditTab orchestrator** ✅ — [RiwayatAuditTab.tsx](src/components/billing/invoice/tabs/RiwayatAuditTab.tsx) (85L):
+  - `useMemo` chain: `getAuditEventsForInvoice` → `uniqueActors` → `applyAuditFilters`
+  - State `filters` (AuditFilterState) dengan `defaultAuditFilters()` initial
+  - `hasActiveFilters` derived (actor/action length OR dateFrom/dateTo set)
+  - Handlers: `handleReset` · `handleExport` (call `exportAuditCsv` + console log)
+  - Layout vertikal: AuditFilterBar (top) + AuditTimeline (body) + footnote UU PDP compliance
+- [x] **InvoiceDetailPage wiring** ✅ — `<TabPlaceholder>` riwayat replaced dengan `<RiwayatAuditTab detail={detail} />`. Cleanup: `Construction` import + `TabPlaceholder` sub-function dihapus (sudah tidak ada caller setelah BL2.4 + BL2.5 done).
+
+**File sizes BL2.5:** auditTrail 482L · RiwayatAuditTab 85L · AuditFilterBar 306L · AuditTimeline 111L · AuditEventRow 149L · AuditDiffBlock 75L. Total ~1208L lintas 6 file, semua jauh di bawah 800 limit. TS clean (`npx tsc --noEmit` exit 0).
+
+**Design decisions:**
+- **Timeline pattern dengan vertical line + dot ring-4 putih** — visual classic Gmail/Linear, mudah scan kronologi. Ring putih memotong line tipis di belakang dot, bukan tertindih.
+- **Grouped per date dengan sticky header pill** — kasir/auditor scrolling 18+ events tidak loose context tanggal. Pill mono+label memudahkan reference verbal ("event di 24 Mei jam 09:10").
+- **Action chips per tone** (12 warna konsisten dengan kategori: payment=emerald, void=rose, klaim=sky/teal, diskon=violet, finalize=amber) — visual cluster langsung tahu jenis aksi sebelum baca label.
+- **Multi-select untuk actor + action** (bukan single) — auditor sering need "tampilkan semua aksi `Sari` + `Bambang` selama Mei" tanpa multiple pass.
+- **Avatar inisial 2-letter** dengan bg per-tone-action — visual cue siapa actor + jenis aksi simultan, hindari overhead foto.
+- **Diff block 2-chip strikethrough → bold** — pattern git diff klasik, instant readability untuk "Status: Draft → Final".
+- **Nominal rose untuk refund/diskon · emerald untuk pembayaran/add** — semantic finansial: keluar (rose) vs masuk/positif (emerald). Prefix "−" untuk refund.
+- **CSV export 11 kolom dengan diff serialized "Field: before → after"** — Excel-friendly, copy ke auditor tanpa konversi.
+- **Footer disclaimer compliance UU PDP 27/2022** — tegaskan ke user audit trail bersifat immutable + retensi 5 tahun, bukan sekedar log informasi.
+- **Stagger animation clamp `Math.min(0.3, ...)`** — list 18 events di INV-009 jika di-stagger linear bisa 0.6s+ delay terakhir, clamp untuk UX cepat tapi tetap ada efek.
 
 ### BL2.6 Print Preview
 
@@ -730,7 +786,7 @@
 |---|---|---|---|
 | BL0 — Foundation | 4 | 0 | 0% |
 | BL1 — Tagihan Board | 4 | 4 | 100% ✅ |
-| BL2 — Invoice Detail | 6 | 4 | 67% |
+| BL2 — Invoice Detail | 6 | 5 | 83% |
 | BL3 — Pembayaran | 4 | 0 | 0% |
 | ~~BL4~~ — Klaim Penjamin | ~~4~~ | — | → [TODO-EKLAIM.md](TODO-EKLAIM.md) |
 | BL5 — Adjustment | 3 | 0 | 0% |
@@ -738,7 +794,7 @@
 | BL7 — Reports | 4 | 0 | 0% |
 | BL8 — Beranda Billing | 3 | 0 | 0% |
 | BL9 — UX Polish | 4 | 0 | 0% |
-| **Total** | **35** | **8** | **23%** |
+| **Total** | **35** | **9** | **26%** |
 
 **Catatan:** Total turun dari 40 → 35 task (−4 BL4 + −1 BL7.3 yang pindah ke EKLAIM). Effort billing turun ~4-5 minggu → ~3 minggu.
 

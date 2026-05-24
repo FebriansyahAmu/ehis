@@ -1,0 +1,85 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { motion } from "framer-motion";
+import {
+  applyAuditFilters, defaultAuditFilters, exportAuditCsv,
+  getAuditEventsForInvoice, uniqueActors,
+  type AuditFilterState,
+} from "@/lib/billing/auditTrail";
+import type { InvoiceDetail } from "../invoiceShared";
+import AuditFilterBar from "./audit/AuditFilterBar";
+import AuditTimeline from "./audit/AuditTimeline";
+
+interface Props {
+  detail: InvoiceDetail;
+}
+
+/**
+ * Tab 4 — Riwayat Audit (BL2.5).
+ *
+ * Read-only timeline semua mutasi invoice (PMK 269/2008 + UU PDP 27/2022 audit trail).
+ * Filter by actor / action type / date range. Export ke CSV.
+ *
+ * Source: `getAuditEventsForInvoice(invoiceId)` — mock saat ini, swap ke
+ * `prisma.auditLog.findMany({ where: { invoiceId } })` saat backend ready.
+ */
+export default function RiwayatAuditTab({ detail }: Props) {
+  const allEvents = useMemo(() => getAuditEventsForInvoice(detail.id), [detail.id]);
+  const actors = useMemo(() => uniqueActors(allEvents), [allEvents]);
+
+  const [filters, setFilters] = useState<AuditFilterState>(() => defaultAuditFilters());
+
+  const filteredEvents = useMemo(
+    () => applyAuditFilters(allEvents, filters),
+    [allEvents, filters],
+  );
+
+  const hasActiveFilters =
+    filters.actors.length > 0
+    || filters.actions.length > 0
+    || !!filters.dateFrom
+    || !!filters.dateTo;
+
+  const handleReset = () => setFilters(defaultAuditFilters());
+
+  const handleExport = () => {
+    exportAuditCsv(filteredEvents, detail.noTagihan);
+    console.log("[BL2.5] Export audit CSV:", filteredEvents.length, "events");
+  };
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="space-y-3.5 px-5 py-4"
+        >
+          <AuditFilterBar
+            filters={filters}
+            onChange={setFilters}
+            onReset={handleReset}
+            onExport={handleExport}
+            actors={actors}
+            totalEvents={allEvents.length}
+            filteredEvents={filteredEvents.length}
+          />
+
+          <AuditTimeline
+            events={filteredEvents}
+            hasActiveFilters={hasActiveFilters}
+            onResetFilters={handleReset}
+          />
+
+          {/* Footer disclaimer */}
+          <p className="pb-2 text-center text-[10.5px] text-slate-400">
+            Audit trail bersifat <strong>immutable</strong> sesuai UU PDP 27/2022 ·
+            retensi minimum 5 tahun. Semua aksi finansial otomatis ter-log.
+          </p>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
