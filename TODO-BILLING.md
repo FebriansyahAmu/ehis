@@ -12,7 +12,7 @@
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
 > **Last updated:** 2026-05-24
-> **Status:** 🚧 BL1 ✅ + BL2.1-2.5 ✅ — Banner/Timeline + Rincian Charge + Pembayaran + Klaim Status Tab (read-only lite) + Riwayat Audit Tab (timeline + filter + CSV export). **Klaim Penjamin (workflow penuh) DIPISAH ke modul baru `/ehis-eklaim`** (lihat [TODO-EKLAIM.md](TODO-EKLAIM.md)) karena workflow batch + persona terpisah (Tim Klaim/Coder ≠ Kasir). Next: BL2.6 Print Preview (selesaikan BL2 100%) atau BL0 Foundation (sourceAdapter/hargaResolver).
+> **Status:** ✅ BL1 + BL2 selesai 100% — Tagihan Board + Invoice Detail (Banner/Timeline + 4 tab Rincian/Pembayaran/Klaim-lite/Riwayat Audit + Print Preview InvoiceSheet+KwitansiSheet dengan KOP RS A4/A5). **Klaim Penjamin (workflow penuh) DIPISAH ke modul baru `/ehis-eklaim`** (lihat [TODO-EKLAIM.md](TODO-EKLAIM.md)). Next: BL3 Pembayaran Counter (kasir shift + quick search) atau BL0 Foundation (sourceAdapter/hargaResolver) atau BL6 Charge Ingestion (wire klinis → billing).
 > **Target effort:** ~3 minggu (frontend full, after split) · paralel dengan backend B0/B1.7/B1.9 dapat dimulai.
 
 > ### 🔀 Scope Split (2026-05-24)
@@ -565,16 +565,61 @@
 - **Footer disclaimer compliance UU PDP 27/2022** — tegaskan ke user audit trail bersifat immutable + retensi 5 tahun, bukan sekedar log informasi.
 - **Stagger animation clamp `Math.min(0.3, ...)`** — list 18 events di INV-009 jika di-stagger linear bisa 0.6s+ delay terakhir, clamp untuk UX cepat tapi tetap ada efek.
 
-### BL2.6 Print Preview
+### BL2.6 Print Preview ✅ Selesai (2026-05-24)
 
-- [ ] **`InvoicePrintModal`** — preview struk A5/A4 dengan KOP RS (consume `RS_PROFIL.kop`):
-  - Header KOP + No invoice + tanggal
-  - Pasien identitas (nama/RM/penjamin)
-  - Tabel rincian (group per kategori, total per kategori, grand total)
-  - Pembayaran history
-  - Sisa + tanda tangan kasir + pasien
-- [ ] **`window.print()` + print stylesheet** — A5 default, A4 toggle.
-- [ ] **`KwitansiPrintModal`** — per-deposit kwitansi.
+- [x] **InvoicePrintModal** ✅ — [InvoicePrintModal.tsx](src/components/billing/invoice/modals/InvoicePrintModal.tsx) (38L) thin wrapper di atas `PrintModalShell` + `<InvoiceSheet />`. Paper default A5 (struk kasir), toggle A4 untuk surat resmi.
+- [x] **InvoiceSheet (konten struk)** ✅ — [InvoiceSheet.tsx](src/components/billing/invoice/modals/print/InvoiceSheet.tsx) (363L):
+  - **KOP** via `<KopSurat />` shared — logo placeholder + nama RS + subtitle akreditasi + alamat + meta-info (telp/fax/email/web) + double border bawah klasik
+  - **Title strip** centered: "Struk Tagihan Pasien" + No invoice mono + tanggal+jam + no kunjungan
+  - **Identitas pasien grid 2-col** dalam border slate-300 bg-slate-50/40: 10 field (Nama/RM/Gender/Usia/Unit/Kelas/Penjamin/SEP/DPJP/Kunjungan)
+  - **Tabel rincian** 7 kolom (No/Tgl/Item/Qty/Satuan/Harga/Subtotal) dengan **section header per kategori** (CategoryGroup) — running number reset per section · subtotal per kategori footer bg-slate-50/60 · diskon item displayed italic rose inline · voided items di-skip dari print
+  - **Breakdown totals** right-aligned table: Subtotal gross · Diskon Item (rose) · Subtotal Setelah Diskon · Diskon Invoice (rose + alasan hint) · PPN % (conditional) · Materai (conditional) · double-border separator · **GRAND TOTAL** bold uppercase + **Terbilang** italic Indonesia via `terbilang()`
+  - **Pembayaran history** table 5-col: Tgl/Metode/NoKwitansi/Kasir/Nominal — voided row strikethrough + refund nominal rose dengan prefix "−" · footer Total Dibayar + Sisa Tagihan dengan tone emerald-jika-lunas / rose-jika-belum
+  - **Signature block** 2-col (Pasien/Penanggung kiri, Petugas Kasir kanan dengan auto-fill nama kasir terakhir + lokasi+tanggal)
+  - **Footer** disclaimer kecil "Struk sah & berlaku" + timestamp auto-generate
+- [x] **KwitansiPrintModal** ✅ — [KwitansiPrintModal.tsx](src/components/billing/invoice/modals/KwitansiPrintModal.tsx) (36L) wrapper untuk `<KwitansiSheet />`.
+- [x] **KwitansiSheet** ✅ — [KwitansiSheet.tsx](src/components/billing/invoice/modals/print/KwitansiSheet.tsx) (162L):
+  - **KOP** sama dengan invoice (`<KopSurat />` shared)
+  - **Title** besar uppercase tracking-widest: "KWITANSI" atau "KWITANSI REFUND" · No kwitansi mono di bawah
+  - **VOIDED banner** rose bordered jika `payment.voided` ("VOIDED · TIDAK BERLAKU")
+  - **Body** format Indonesian klasik dengan `<Row label>`: Telah diterima dari (nama uppercase + RM) · Sejumlah (nominal Rupiah 20px bold mono, prefix "−" untuk refund) · Terbilang (italic dalam border-l klasik bg-slate-50) · Untuk pembayaran (description per kategori Deposit/Pembayaran/Refund + ref tagihan+kunjungan+unit+kelas + catatan italic) · Metode (+ bank + noRef conditional) · Tanggal terima (long format) · Refund atas kwitansi (conditional via `refundOf` lookup)
+  - **Signature** 2-col (Penyetor/Pasien kiri, Kasir kanan dengan auto-fill `payment.kasir`)
+  - **Footer** disclaimer + 1×24h reporting hint + dicetak otomatis EHIS timestamp
+- [x] **PrintModalShell shared** ✅ — [PrintModalShell.tsx](src/components/billing/invoice/modals/print/PrintModalShell.tsx) (155L):
+  - Full-viewport modal (inset-3 / md:inset-6) — preview area scrollable bg-slate-200/60 yang simulate kertas dengan width per-paper (PAPER_CFG.screenWidthPx: A5=520px / A4=720px)
+  - **Toolbar `.no-print`**: ikon printer ring + title + sub "Format A4/A5 · description" + **PaperSegmented control** (A5/A4 toggle) + button **Cetak** amber primary (trigger `window.print()` dengan delay 60ms framer settle) + **X close** + ESC handler
+  - **Footer tip `.no-print`**: "Save as PDF di browser dialog" + kbd Esc shortcut hint
+  - Children diharapkan punya `.print-area` root → @media print rule hide semua kecuali element ini
+- [x] **KopSurat shared** ✅ — [KopSurat.tsx](src/components/billing/invoice/modals/print/KopSurat.tsx) (64L): consume `RS_PROFIL_INITIAL` dari [rsProfilStore](src/lib/master/rsProfilStore.ts). Logo placeholder 20×20 (Building2 icon + 4-letter kode RS) + identity centered (nama uppercase 20px + nama inggris italic + subtitle akreditasi + kelas + alamat kop + telp/fax/email/web) + double-border bawah `border-b-[3px] border-double border-slate-800` (style dokumen RS pemerintah klasik).
+- [x] **SignatureBlock shared** ✅ — [SignatureBlock.tsx](src/components/billing/invoice/modals/print/SignatureBlock.tsx) (71L): grid 2-col, slot kanan menampilkan lokasi+tanggal di atas. Signature space dengan dotted underline placeholder + nama uppercase + top-border + hint italic.
+- [x] **printShared.ts** ✅ — [printShared.ts](src/components/billing/invoice/modals/print/printShared.ts) (78L): `PaperSize` ("A4" | "A5") · `PAPER_CFG` (label/description/screenWidthPx) · `PAPER_ORDER` ["A5", "A4"] · format helpers `fmtTanggalLong`/`fmtTanggalShort`/`fmtTanggalJam`/`fmtJamWib` · `triggerPrint(delayMs=60)` (window.print dengan delay untuk frame settle) · re-export `terbilang`.
+- [x] **`@media print` stylesheet** ✅ — [globals.css](src/app/globals.css):
+  - Reset: `body *` visibility hidden, `.print-area *` visibility visible — print area absolute positioned full-width
+  - `.no-print` display:none saat print — buat semua toolbar/overlay/footer-hint exclude
+  - Color-adjust: exact (force tone print)
+  - `@page` margin 12mm × 10mm
+  - Paper width via `data-paper="A4"|"A5"` di `.print-area` (190mm A4 / 138mm A5)
+  - Helpers: `.page-break-before` (always) · `.page-break-avoid` (inside) — dipakai untuk hindari section terpotong di tengah
+- [x] **Wiring di InvoiceDetailPage** ✅ — `ModalKey` extended `"print" | "kwitansi"`. `handlePrint` (banner button) → `setModal("print")` · `handlePaymentAction(action="print")` (PaymentRow kebab "Cetak Kwitansi") → `setModal("kwitansi")` (sudah set `targetPayment` di scope). Kedua modal mount di akhir component tree.
+
+**File sizes BL2.6:** InvoicePrintModal 38L · KwitansiPrintModal 36L · InvoiceSheet 363L · KwitansiSheet 162L · PrintModalShell 155L · KopSurat 64L · SignatureBlock 71L · printShared 78L. Total ~967L lintas 8 file, semua jauh di bawah 800 limit. TS clean (`npx tsc --noEmit` exit 0). Plus +52L di globals.css (@media print + @page rules).
+
+**Design decisions:**
+- **Sheet sebagai konten dipisah dari modal wrapper** — `<InvoiceSheet />` reusable jika nanti dipakai untuk preview di tab lain atau halaman dedicated cetak. Modal hanya kerangka.
+- **`.print-area` whitelist pattern** di @media print — hide semua dulu, lalu un-hide hanya area print + childrennya. Robust untuk apa pun yang ada di app shell (sidebar, navbar, framer-motion overlay) — semua otomatis hilang dari print.
+- **`.no-print` blacklist** di toolbar/overlay/footer-tip — gampang scan untuk identifikasi "ini element UI, bukan konten print".
+- **`triggerPrint(delayMs=60)`** — framer-motion masih animating saat `window.print()` dipanggil kadang preview blank/partial di Chrome. Delay 60ms buat frame settle.
+- **Paper size via `data-paper` attribute** di `.print-area` — CSS-only switch, tidak perlu rerender React saat user toggle A4/A5. Preview frame width juga update via inline style.
+- **A5 default** untuk struk kasir (paling sering dicetak ke printer struk Epson TM-U220 atau Star TSP143) · A4 toggle untuk surat resmi BPJS/asuransi reimburse.
+- **Voided items SKIPPED dari print** (bukan strikethrough) — print untuk pasien tidak perlu lihat noise audit · audit lengkap di tab Riwayat Audit BL2.5.
+- **Voided payment TETAP tampil** dengan strikethrough — penting untuk transparency saldo (kalau di-skip, total dibayar tidak match dengan jumlah row visible — pasien bingung).
+- **Kasir name auto-fill dari payment terakhir** di InvoiceSheet — saat ini mock, backend ganti dengan session active kasir.
+- **KopSurat reusable** untuk fase BL3 LaporanKasShift + BL5 ApprovalAdjustment + BL7 reports — DRY.
+- **Border-double + tracking-[0.2em] uppercase** untuk header — convey "dokumen resmi RS pemerintah" tanpa overhead grafis.
+- **Terbilang Indonesia di Grand Total + Kwitansi nominal** — wajib di RS pemerintah/BLUD per konvensi audit BPK.
+- **PaymentRow kebab "Cetak Kwitansi" sudah ada dari BL2.3** — hanya wire ulang dispatcher (sebelumnya log only, sekarang real modal).
+
+**Acceptance BL2 ✅:** buka invoice INV-009, scroll 4 tab smooth (Rincian 14 items+totals+sticky footer · Pembayaran form+history+filter · Klaim Status read-only+deep link · Riwayat Audit 18-event timeline+filter+CSV export), banner button "Print Struk" → modal preview A5/A4 dengan KOP RS Harapan Sehat · PaymentRow kebab "Cetak Kwitansi" → kwitansi modal dengan terbilang. Browser print dialog tampil hanya `.print-area` (sidebar/navbar/toolbar/overlay otomatis exclude).
 
 **Acceptance BL2:** buka invoice `RM-2025-005`, auto-pull 14 items dari mock klinis, tampilkan grand total benar, tambah pembayaran 200rb update sisa real-time, tab Klaim BPJS INA-CBG resolved, print preview tampil dengan KOP RS.
 
@@ -786,7 +831,7 @@
 |---|---|---|---|
 | BL0 — Foundation | 4 | 0 | 0% |
 | BL1 — Tagihan Board | 4 | 4 | 100% ✅ |
-| BL2 — Invoice Detail | 6 | 5 | 83% |
+| BL2 — Invoice Detail | 6 | 6 | 100% ✅ |
 | BL3 — Pembayaran | 4 | 0 | 0% |
 | ~~BL4~~ — Klaim Penjamin | ~~4~~ | — | → [TODO-EKLAIM.md](TODO-EKLAIM.md) |
 | BL5 — Adjustment | 3 | 0 | 0% |
@@ -794,7 +839,7 @@
 | BL7 — Reports | 4 | 0 | 0% |
 | BL8 — Beranda Billing | 3 | 0 | 0% |
 | BL9 — UX Polish | 4 | 0 | 0% |
-| **Total** | **35** | **9** | **26%** |
+| **Total** | **35** | **10** | **29%** |
 
 **Catatan:** Total turun dari 40 → 35 task (−4 BL4 + −1 BL7.3 yang pindah ke EKLAIM). Effort billing turun ~4-5 minggu → ~3 minggu.
 

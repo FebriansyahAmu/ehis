@@ -119,3 +119,55 @@ h1, h2, h3, h4, h5, h6 {
 .m-sm   { font-size: var(--m-sm,   13px); line-height: 1.5; }
 .m-base { font-size: var(--m-base, 15px); line-height: 1.45; }
 .m-lg   { font-size: var(--m-lg,   17px); line-height: 1.35; }
+
+/* ── Print stylesheet (BL2.6) ───────────────────────────── */
+/* Hide everything except .print-area. Used by InvoicePrintModal &
+   KwitansiPrintModal — `.print-area` wraps the sheet. `.no-print` excludes
+   toolbar/buttons/overlay from print output. */
+
+@media print {
+  /* Reset: hide ALL visible elements; selectively un-hide print area */
+  body * {
+    visibility: hidden;
+  }
+  .print-area, .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  /* Force light tones — printer hates dark backgrounds */
+  .print-area * {
+    color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* Page break helpers */
+  .page-break-before { page-break-before: always; }
+  .page-break-avoid  { page-break-inside: avoid; }
+}
+
+/* Paper size — applied via data-attribute on .print-area */
+@page {
+  margin: 12mm 10mm;
+}
+.print-area[data-paper="A4"] { width: 190mm; min-height: 273mm; }
+.print-area[data-paper="A5"] { width: 138mm; min-height: 190mm; }
+@media print {
+  /* Override @page based on selected paper */
+  .print-area[data-paper="A4"] ~ style[data-page="A4"],
+  .print-area[data-paper="A5"] ~ style[data-page="A5"] {
+    display: block;
+  }
+}

@@ -14,6 +14,8 @@ import DiskonItemModal from "./modals/DiskonItemModal";
 import VoidItemModal from "./modals/VoidItemModal";
 import RefundModal from "./modals/RefundModal";
 import VoidPaymentModal from "./modals/VoidPaymentModal";
+import InvoicePrintModal from "./modals/InvoicePrintModal";
+import KwitansiPrintModal from "./modals/KwitansiPrintModal";
 import type {
   InvoiceDetail, ChargeItem, KategoriCharge, PaymentRecord, MetodeBayar,
 } from "./invoiceShared";
@@ -25,7 +27,7 @@ interface Props {
   initialDetail: InvoiceDetail;
 }
 
-type ModalKey = "add" | "diskon" | "void" | "refund" | "void-payment" | null;
+type ModalKey = "add" | "diskon" | "void" | "refund" | "void-payment" | "print" | "kwitansi" | null;
 
 export default function InvoiceDetailPage({ initialDetail }: Props) {
   const ready = useSkeletonDelay(400);
@@ -159,13 +161,11 @@ export default function InvoiceDetailPage({ initialDetail }: Props) {
     setTargetPayment(payment);
     if (action === "refund") setModal("refund");
     else if (action === "void") setModal("void-payment");
-    else if (action === "print") {
-      console.log("[BL2.3] Print kwitansi → BL2.6 modal", payment.noKwitansi);
-    }
+    else if (action === "print") setModal("kwitansi");
   };
 
-  // ── Banner actions (stubs untuk BL2.4-2.6) ──
-  const handlePrint        = () => console.log("[BL2.1] Print struk → BL2.6 modal");
+  // ── Banner actions ──
+  const handlePrint        = () => { setModal("print"); };
   const handleSubmitKlaim  = () => { setActiveTab("klaim"); };
   const handleRefund       = () => { setActiveTab("pembayaran"); };
   const handleApplyDiskInv = () => console.log("[BL2.2] Diskon invoice — modal akan dibuat di follow-up");
@@ -268,6 +268,17 @@ export default function InvoiceDetailPage({ initialDetail }: Props) {
         payment={targetPayment}
         onClose={() => setModal(null)}
         onVoid={voidPayment}
+      />
+      <InvoicePrintModal
+        open={modal === "print"}
+        detail={detail}
+        onClose={() => setModal(null)}
+      />
+      <KwitansiPrintModal
+        open={modal === "kwitansi"}
+        detail={detail}
+        payment={targetPayment}
+        onClose={() => setModal(null)}
       />
     </div>
   );
