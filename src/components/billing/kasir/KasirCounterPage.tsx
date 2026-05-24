@@ -10,10 +10,14 @@ import QuickBayarPanel from "./quick/QuickBayarPanel";
 import DepositAwalPanel from "./deposit/DepositAwalPanel";
 import BukaShiftModal, { type BukaShiftInput } from "./modals/BukaShiftModal";
 import TutupShiftModal, { type TutupShiftInput } from "./modals/TutupShiftModal";
+import LaporanKasShiftModal from "./modals/LaporanKasShiftModal";
+import SetoranFormModal from "./modals/SetoranFormModal";
+import SetoranSlipPrintModal from "./modals/SetoranSlipPrintModal";
+import type { ShiftRowAction } from "./RecentShiftsTable";
 import KwitansiPrintModal from "../invoice/modals/KwitansiPrintModal";
 import {
   KASIR_SHIFT_MOCK, getOpenShift, recentClosedShifts,
-  type KasirShift, type ShiftMetodeBreakdown,
+  type KasirShift, type ShiftMetodeBreakdown, type SetoranRecord,
 } from "@/lib/billing/kasirShiftMock";
 import { PASIEN_ADMISI_MOCK } from "@/lib/billing/depositMock";
 import { getShiftPayments } from "@/lib/billing/shiftPaymentsMock";
@@ -45,6 +49,12 @@ export default function KasirCounterPage() {
   // Kwitansi preview context (auto-buka setelah save QuickBayar / Deposit,
   // atau manual dari Recent Feed reprint button).
   const [kwitansiCtx, setKwitansiCtx] = useState<KwitansiContext | null>(null);
+  // BL3.4 — Laporan Tutup Kas / Setoran Kas:
+  // 1 state per target (action + shift) — kebab di RecentShiftsTable trigger 1 dari 3 modal.
+  const [shiftActionState, setShiftActionState] = useState<{
+    action: ShiftRowAction;
+    shift: KasirShift;
+  } | null>(null);
 
   const activeShift = useMemo(
     () => getOpenShift(shifts, SESSION_KASIR),
@@ -100,6 +110,27 @@ export default function KasirCounterPage() {
       ),
     );
     console.log("[BL3.1] Tutup shift:", input);
+  };
+
+  // ── Mutations: setoran (dari kebab Recent Shifts → SetoranFormModal) ──
+  const handleRecordSetoran = (shiftId: string, setoran: SetoranRecord) => {
+    setShifts((prev) =>
+      prev.map((s) => (s.id === shiftId ? { ...s, setoran } : s)),
+    );
+    // Auto-pivot ke print slip setelah save (mirror auto-print kwitansi di BL3.2/3.3).
+    const updated = shifts.find((s) => s.id === shiftId);
+    if (updated) {
+      setShiftActionState({
+        action: "setoran-slip",
+        shift: { ...updated, setoran },
+      });
+    }
+    console.log("[BL3.4] Setoran tercatat:", { shiftId, setoran });
+  };
+
+  // ── Kebab Recent Shifts dispatcher ──
+  const handleShiftAction = (action: ShiftRowAction, shift: KasirShift) => {
+    setShiftActionState({ action, shift });
   };
 
   // ── Mutations: payment accumulator (dari QuickBayar / Deposit) ──
@@ -167,6 +198,7 @@ export default function KasirCounterPage() {
                       excludeKasir={SESSION_KASIR}
                       onBukaShift={() => setModal("buka")}
                       onTutupShift={() => setModal("tutup")}
+                      onShiftAction={handleShiftAction}
                     />
                   </motion.div>
                 )}
@@ -225,6 +257,24 @@ export default function KasirCounterPage() {
         detail={kwitansiCtx?.detail ?? null}
         payment={kwitansiCtx?.payment ?? null}
         onClose={() => setKwitansiCtx(null)}
+      />
+
+      {/* BL3.4 — Laporan Tutup Kas + Setoran */}
+      <LaporanKasShiftModal
+        open={shiftActionState?.action === "laporan"}
+        shift={shiftActionState?.action === "laporan" ? shiftActionState.shift : null}
+        onClose={() => setShiftActionState(null)}
+      />
+      <SetoranFormModal
+        open={shiftActionState?.action === "setoran-form"}
+        shift={shiftActionState?.action === "setoran-form" ? shiftActionState.shift : null}
+        onClose={() => setShiftActionState(null)}
+        onSubmit={handleRecordSetoran}
+      />
+      <SetoranSlipPrintModal
+        open={shiftActionState?.action === "setoran-slip"}
+        shift={shiftActionState?.action === "setoran-slip" ? shiftActionState.shift : null}
+        onClose={() => setShiftActionState(null)}
       />
     </div>
   );

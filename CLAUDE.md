@@ -41,7 +41,7 @@ Next.js 16.2.3 App Router · React 19.2.4 · TypeScript 5 · Tailwind v4 (`@tail
 | `/ehis-master`             | Master Data      | ✅ 100% (25 sub-master + 8 mapping + Beranda) |
 | `/ehis-registration`       | Registration     | 🚧 PatientDashboard + KunjunganDetail ✅, board belum |
 | `/ehis-dashboard`          | Dashboard        | 🔧 Scaffold (belum dibangun)    |
-| `/ehis-billing`            | Billing Kasir    | 🚧 BL1 ✅ + BL2 ✅ + BL3.1-3.3 ✅ + Print Flow B1+2 ✅ — Tagihan board + Invoice detail 4-tab + Print Preview + Kasir Counter 3-tab + auto-print kwitansi (Quick/Deposit/reprint) + Management Banner + `source` provenance. Roadmap [TODO-BILLING.md](TODO-BILLING.md) |
+| `/ehis-billing`            | Billing Kasir    | 🚧 BL1 ✅ + BL2 ✅ + **BL3 ✅ 100%** — Tagihan board + Invoice detail 4-tab + Print Preview + Kasir Counter 3-tab + auto-print kwitansi (Quick/Deposit/reprint) + Management Banner + `source` provenance + **Laporan Tutup Kas A4 + Setoran Slip A5** (kebab di Recent Shifts). Roadmap [TODO-BILLING.md](TODO-BILLING.md) |
 | `/ehis-eklaim`             | E-Klaim          | 📋 Planned — modul baru hasil scope-split dari billing. Roadmap [TODO-EKLAIM.md](TODO-EKLAIM.md) |
 | `/ehis-report`             | Reports          | 🔧 Scaffold (belum dibangun)    |
 | `/ehis-fhir`               | FHIR Integration | 📋 Planned (terpisah dari master) |
@@ -62,7 +62,7 @@ Frontend Phase 0–3 master sudah selesai 100%. Workload selanjutnya bisa dipili
 
 ### Modul Baru (frontend lanjutan)
 - [ ] **`ehis-dashboard`** — stats cards (pasien hari ini per unit IGD/RI/RJ) + BOR chart + recent activity feed + quick-nav ke modul lain.
-- [🚧] **`ehis-billing`** Kasir — invoice per kunjungan + rincian + pembayaran + print struk + kasir counter 3-tab. **Roadmap [TODO-BILLING.md](TODO-BILLING.md)** (35 task, fase BL0–BL9). BL1 ✅ + BL2 ✅ + BL3.1-3.3 ✅ + Print Flow Batch 1+2 ✅ (auto-print kwitansi · reprint feed · Management Banner · `source` field provenance). Next: BL3.4 Laporan Tutup Kas (print modal) · atau Batch 3 (demote inline form · promote refund/void · auto-print toggle) · atau BL0 Foundation / BL6 Charge Ingestion.
+- [🚧] **`ehis-billing`** Kasir — invoice per kunjungan + rincian + pembayaran + print struk + kasir counter 3-tab. **Roadmap [TODO-BILLING.md](TODO-BILLING.md)** (35 task, 14/35 = 40%). BL1 ✅ + BL2 ✅ + **BL3 ✅ 100%** (Counter Dashboard + Quick Bayar + Deposit Awal + Print Flow Batch 1+2 + **BL3.4 Laporan Tutup Kas A4 & Setoran Slip A5** dengan kebab actions di Recent Shifts). Next: BL0 Foundation (data contracts + `sourceAdapter`) · BL6 Charge Ingestion (silent wiring lintas modul) · atau BL5 Adjustment workflow.
 - [📋] **`ehis-eklaim`** Klaim — modul baru hasil scope-split dari billing (workflow batch + persona Tim Klaim/Coder berbeda). **Roadmap [TODO-EKLAIM.md](TODO-EKLAIM.md)** (38 task, fase EK0–EK9). Belum dimulai.
 - [ ] **`ehis-registration`** board + form pendaftaran pasien baru.
 - [ ] **`ehis-report`** — laporan per periode + export Excel/PDF.

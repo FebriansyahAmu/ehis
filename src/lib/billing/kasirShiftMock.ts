@@ -47,6 +47,26 @@ export interface ShiftMetodeBreakdown {
   Voucher:  number;
 }
 
+/**
+ * Setoran kas ke keuangan — bukti serah-terima kas fisik dari kasir ke
+ * bendahara/keuangan setelah shift Closed.
+ *
+ * Workflow:
+ *   1. Shift di-Closed → status "Closed", saldo & selisih final.
+ *   2. Kasir + Bendahara serah-terima cash → catat setoran (noSetor + tanggalSerah).
+ *   3. Cetak slip setoran (A5) → 2 copy (kasir & keuangan).
+ *
+ * Saat backend ready: pisah jadi tabel `SetoranKas` 1:1 dengan shiftId FK,
+ * agar 1 shift bisa di-cancel-setoran & re-issue dengan trail audit.
+ */
+export interface SetoranRecord {
+  noSetor: string;              // STR/YYYY/MM/NNNNN
+  tanggalSerah: string;         // ISO datetime
+  penerima: string;             // nama bendahara/keuangan
+  nominal: number;              // kas tunai yang diserahkan (= tutupSaldoAkhir − bukaSaldoAwal kalau standard)
+  catatan?: string;
+}
+
 export interface KasirShift {
   id: string;
   counter: CounterId;
@@ -66,6 +86,8 @@ export interface KasirShift {
   selisih?: number;           // tutupSaldoAkhir − (bukaSaldoAwal + totalTunai − totalRefundTunai)
   tutupCatatan?: string;
   supervisor?: string;        // verifikator tutup shift
+  // Setoran (Closed only, optional — pending sebelum di-setor)
+  setoran?: SetoranRecord;
 }
 
 // ── Mock data ──────────────────────────────────────────
@@ -139,6 +161,7 @@ export const KASIR_SHIFT_MOCK: KasirShift[] = [
     selisih: 0,
     tutupCatatan: "Balance — serah-terima ke shift pagi",
     supervisor: "dr. Indra (Supervisor Keuangan)",
+    // Belum disetor — kasir IGD biasanya nunggu jam kantor keuangan buka.
   },
 
   // ── CLOSED: shift kemarin sore (Sari · Kasir-1) ──
@@ -163,6 +186,13 @@ export const KASIR_SHIFT_MOCK: KasirShift[] = [
     selisih: 0,
     tutupCatatan: "Balance — selisih nol",
     supervisor: "dr. Indra (Supervisor Keuangan)",
+    setoran: {
+      noSetor: "STR/2026/05/00041",
+      tanggalSerah: `${today}T08:15`,
+      penerima: "Hari Mulyana (Bendahara Penerima)",
+      nominal: 3_300_000,
+      catatan: "Setoran shift sore — diterima utuh, slip ditandatangani 2 pihak.",
+    },
   },
 
   // ── CLOSED: shift kemarin pagi dengan selisih MINUS ──
@@ -211,6 +241,13 @@ export const KASIR_SHIFT_MOCK: KasirShift[] = [
     selisih: 35_000,
     tutupCatatan: "Surplus Rp 35.000 — kemungkinan tip pasien (sudah dicatat)",
     supervisor: "dr. Indra (Supervisor Keuangan)",
+    setoran: {
+      noSetor: "STR/2026/05/00040",
+      tanggalSerah: `${dayBefore}T14:30`,
+      penerima: "Hari Mulyana (Bendahara Penerima)",
+      nominal: 2_815_000,
+      catatan: "Surplus Rp 35.000 termasuk dalam setoran — dicatat di buku kas surplus.",
+    },
   },
 ];
 
@@ -328,6 +365,43 @@ export function aggregateHariIni(
     totalAll: totalTunai + totalNonTunai,
     countersAktif: countersSet.size,
   };
+}
+
+/**
+ * Generate sequential nomor setoran `STR/YYYY/MM/NNNNN`.
+ * Scan setoran existing pada bulan yang sama → ambil max running number + 1.
+ *
+ * Mock-only: backend ganti `prisma.setoran.findFirst({ orderBy: { noSetor: "desc" } })`
+ * dalam transaction supaya tidak conflict pada concurrent setor.
+ */
+export function nextNoSetor(
+  shifts: KasirShift[] = KASIR_SHIFT_MOCK,
+  refDate: Date = new Date(),
+): string {
+  const yyyy = refDate.getFullYear();
+  const mm = String(refDate.getMonth() + 1).padStart(2, "0");
+  const prefix = `STR/${yyyy}/${mm}/`;
+  let maxN = 0;
+  for (const s of shifts) {
+    const no = s.setoran?.noSetor;
+    if (!no || !no.startsWith(prefix)) continue;
+    const tail = no.slice(prefix.length);
+    const n = Number(tail);
+    if (!Number.isNaN(n) && n > maxN) maxN = n;
+  }
+  return `${prefix}${String(maxN + 1).padStart(5, "0")}`;
+}
+
+/**
+ * Filter shift Closed yang belum di-setor — input untuk SetoranFormModal
+ * dropdown "Pilih Shift untuk Disetor".
+ */
+export function shiftsBelumDisetor(
+  shifts: KasirShift[] = KASIR_SHIFT_MOCK,
+): KasirShift[] {
+  return shifts
+    .filter((s) => s.status === "Closed" && !s.setoran)
+    .sort((a, b) => b.bukaAt.localeCompare(a.bukaAt));
 }
 
 /** Re-export untuk konsumen. */

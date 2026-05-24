@@ -4,7 +4,7 @@ import ActiveShiftCard from "./ActiveShiftCard";
 import EmptyShiftState from "./EmptyShiftState";
 import ShiftKPIStrip from "./ShiftKPIStrip";
 import ShiftMethodBreakdown from "./ShiftMethodBreakdown";
-import RecentShiftsTable from "./RecentShiftsTable";
+import RecentShiftsTable, { type ShiftRowAction } from "./RecentShiftsTable";
 import type { KasirShift } from "@/lib/billing/kasirShiftMock";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,7 @@ interface Props {
   excludeKasir: string;
   onBukaShift: () => void;
   onTutupShift: () => void;
+  onShiftAction?: (action: ShiftRowAction, shift: KasirShift) => void;
 }
 
 /**
@@ -22,7 +23,7 @@ interface Props {
  * modular. Layout 2-col: Left ActiveShift + Breakdown + Recent · Right KPI + OtherCounters.
  */
 export default function DashboardPanel({
-  activeShift, recents, shifts, excludeKasir, onBukaShift, onTutupShift,
+  activeShift, recents, shifts, excludeKasir, onBukaShift, onTutupShift, onShiftAction,
 }: Props) {
   return (
     <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
@@ -37,7 +38,7 @@ export default function DashboardPanel({
           <EmptyShiftState onBukaShift={onBukaShift} />
         )}
 
-        <RecentShiftsTable shifts={recents} />
+        <RecentShiftsTable shifts={recents} onAction={onShiftAction} />
       </div>
 
       {/* Right column */}

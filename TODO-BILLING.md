@@ -12,7 +12,7 @@
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
 > **Last updated:** 2026-05-25
-> **Status:** ✅ BL1 + BL2 selesai 100% · 🚧 BL3.1-3.3 ✅ + ChargeSummary enrichment ✅ + **Print Flow Batch 1+2 ✅** — Kasir Counter Dashboard + Quick Bayar (search + form inline + **ChargeSummaryCard breakdown per-kategori** + recent feed + **auto-print kwitansi setelah save** + **reprint dari feed**) + Deposit Awal Admisi (search + form deposit + **EstimateChargeCard projection LOS × rate** + **auto-print kwitansi deposit setelah save**). 3-tab orchestrator dengan shift accumulator live. **Tab Pembayaran (invoice detail) sekarang punya Management Banner** untuk clarify peran vs Quick Bayar + cross-link, plus **`source` field di PaymentRecord** (Quick/Detail/Deposit/Refund) dengan badge "via Quick" / "via Detail". **Klaim Penjamin (workflow penuh) DIPISAH ke modul baru `/ehis-eklaim`** (lihat [TODO-EKLAIM.md](TODO-EKLAIM.md)). Next: BL3.4 Laporan Tutup Kas (print modal) · atau BL0 Foundation / BL6 Charge Ingestion.
+> **Status:** ✅ BL1 + BL2 + **BL3 selesai 100%** · 🚧 — Kasir Counter Dashboard + Quick Bayar (search + form inline + ChargeSummaryCard breakdown per-kategori + recent feed + auto-print kwitansi setelah save + reprint dari feed) + Deposit Awal Admisi (search + form deposit + EstimateChargeCard projection LOS × rate + auto-print kwitansi deposit setelah save) + **BL3.4 Laporan Tutup Kas A4 + Setoran Form + Slip Setoran A5** (kebab actions di Recent Shifts · auto-pivot ke print slip setelah catat setoran · type `SetoranRecord` + helpers `nextNoSetor`/`shiftsBelumDisetor`). 3-tab orchestrator dengan shift accumulator live. Tab Pembayaran (invoice detail) punya Management Banner untuk clarify peran vs Quick Bayar + cross-link, plus `source` field di PaymentRecord (Quick/Detail/Deposit/Refund) dengan badge "via Quick" / "via Detail". **Klaim Penjamin (workflow penuh) DIPISAH ke modul baru `/ehis-eklaim`** (lihat [TODO-EKLAIM.md](TODO-EKLAIM.md)). Next: BL0 Foundation (data contracts) · BL6 Charge Ingestion (silent wiring lintas modul) · atau BL5 Adjustment.
 > **Target effort:** ~3 minggu (frontend full, after split) · paralel dengan backend B0/B1.7/B1.9 dapat dimulai.
 
 > ### 🔀 Scope Split (2026-05-24)
@@ -856,12 +856,72 @@
 - **Layout 2-col `[3fr_2fr]`** consistent di Quick + Deposit panel — predictable UX antar tab.
 - **AnimatePresence mode="wait"** antar list↔form dan antar tab — smooth transition tanpa overlap.
 
-### BL3.4 Laporan Tutup Kas
+### BL3.4 Laporan Tutup Kas ✅ Selesai (2026-05-25)
 
-- [ ] **`LaporanKasShift` print modal** — breakdown: Tunai/Transfer/QRIS/EDC + selisih + signature kasir + supervisor.
-- [ ] **Setoran ke keuangan** form — pilih shift closed + input no setor + tanggal serah.
+- [x] **`LaporanKasShift` print modal** ✅ — [LaporanKasShiftModal.tsx](src/components/billing/kasir/modals/LaporanKasShiftModal.tsx) (24L) wrapper di atas `PrintModalShell` + [LaporanKasShiftSheet.tsx](src/components/billing/kasir/print/LaporanKasShiftSheet.tsx) (256L). A4 default (dokumen arsip resmi), A5 toggle untuk fit struk printer.
+  - **KOP RS** via `KopSurat` shared
+  - **Title strip** centered: "LAPORAN TUTUP KAS" uppercase tracking-[0.3em] + Shift ID mono + timestamp cetak
+  - **Section 1 — Identitas Shift** grid 2-col dalam border slate-300 bg-slate-50/40: Counter+lokasi · Kasir+Supervisor · Buka→Tutup+Durasi · Total Transaksi
+  - **Section 2 — Rincian Transaksi per Metode** tabel 4-kolom border-solid (No/Metode/Keterangan/Nominal). 5 metode (Tunai/Transfer/QRIS/EDC/Voucher) + row refund conditional (rose) + footer **TOTAL PENERIMAAN BERSIH** bold dengan border-2 slate-700. Terbilang Indonesia di bawah.
+  - **Section 3 — Rekonsiliasi Kas Tunai** tabel 6-baris equation: Saldo Awal + Tunai − Refund Tunai = **Saldo Tunai Seharusnya** (Expected, amber bordered) · Saldo Akhir Aktual · **Selisih** dengan 3-tone palette (Balance emerald · Surplus sky · Minus rose) + ikon. Footer mini-grid: Total Non-Tunai + Saldo Wajib Disetor.
+  - **Section 4 — Catatan** kasir tutup + buka shift (italic quote)
+  - **Signature** 2-col via `SignatureBlock` shared (Kasir · Supervisor) dengan lokasi+tanggal di kanan
+  - **Footer compliance** disclaimer: BLUD Permendagri 27/2013 (arsip 5 tahun) + UU PDP 27/2022 + Berita Acara Audit jika selisih ≠ 0
+- [x] **`SetoranFormModal` + Setoran ke keuangan flow** ✅ — [SetoranFormModal.tsx](src/components/billing/kasir/modals/SetoranFormModal.tsx) (252L):
+  - **Shift context card** amber dengan icon Wallet + counter nama + kasir + shift ID mono + 4-stat grid (Saldo Akhir · Saldo Awal · Selisih Shift · **Net Tunai (suggest)** amber bold)
+  - **Form 4 field**: No Setoran (auto-gen `STR/YYYY/MM/NNNNN` via `nextNoSetor`, editable mono) · Tanggal Serah (`datetime-local` default now) · Penerima (select 3 bendahara mock: Hari Mulyana/Ningsih Pratiwi/Agus Setiawan) · Nominal Rp (default `tutupSaldoAkhir − bukaSaldoAwal`, large right-align mono dengan badge "ikut saran" amber atau link "← Pakai saran" untuk reset) + Catatan opsional 2-row
+  - **Live terbilang** Indonesia italic saat nominal > 0
+  - **Sky warning banner** jika nominal manual ≠ saran sistem ("Pastikan catatan menyertakan alasan perbedaan")
+  - **Validation real-time**: noSetor + tanggalSerah + penerima wajib, nominal > 0
+  - **Submit "Catat & Cetak Slip"** dengan icon PiggyBank — auto-pivot ke `SetoranSlipPrintModal` setelah save (mirror pattern auto-print kwitansi di BL3.2/3.3)
+  - Reuse `ModalShell` / `Field` / `ModalFooter` / `inputCn` / `selectCn` dari `AddItemModal` (DRY)
+- [x] **`SetoranSlipPrintModal` + `SetoranSlipSheet`** ✅ — [SetoranSlipPrintModal.tsx](src/components/billing/kasir/modals/SetoranSlipPrintModal.tsx) (24L) wrapper + [SetoranSlipSheet.tsx](src/components/billing/kasir/print/SetoranSlipSheet.tsx) (138L). A5 default (compact 1-halaman untuk arsip keuangan), A4 toggle.
+  - **KOP RS** + Title "SLIP SETORAN KAS" + No Setoran mono
+  - **Body 6 Row klasik**: Telah diterima dari (kasir nama + counter) · Diterima oleh (bendahara) · Sejumlah (nominal Rupiah 20px bold mono) · Terbilang (italic dalam border-l klasik) · Sumber kas (shift ID + counter + jam buka/tutup; conditional catatan selisih) · Tanggal serah (long format + jam) · Catatan opsional
+  - **Signature** 2-col (Penyetor/Kasir · Penerima/Bendahara)
+  - **Footer compliance** disclaimer 2 copy + arsip 5 tahun + 1×24h reporting selisih
+- [x] **Kebab actions di `RecentShiftsTable`** ✅ — [RecentShiftsTable.tsx](src/components/billing/kasir/RecentShiftsTable.tsx) extended dengan kolom **Setoran** (badge "Disetor" emerald PiggyBank icon / "Belum" amber Clock4 icon + tooltip `noSetor + penerima`) + kolom **Aksi** (MoreVertical kebab dropdown):
+  - **"Cetak Laporan Tutup Kas"** (FileText icon) — selalu available
+  - **"Catat Setoran"** (PiggyBank icon, accent amber) — jika belum disetor → buka SetoranFormModal
+  - **"Cetak Slip Setoran"** (Printer icon) — jika sudah disetor → langsung buka SetoranSlipPrintModal
+  - Outside-click + ESC close
+  - Status pill (Open/Closed) + Supervisor truncate di-pindah ke kolom Setoran (1 kolom merge untuk hemat ruang horizontal)
+- [x] **Extend type `KasirShift`** ✅ — [kasirShiftMock.ts](src/lib/billing/kasirShiftMock.ts) tambah optional `setoran?: SetoranRecord` field:
+  ```ts
+  interface SetoranRecord {
+    noSetor: string;        // STR/YYYY/MM/NNNNN
+    tanggalSerah: string;   // ISO
+    penerima: string;
+    nominal: number;
+    catatan?: string;
+  }
+  ```
+  Schema 1:1 dengan target Prisma — backend siap pisah jadi tabel `SetoranKas` dengan FK ke `shiftId`.
+- [x] **Helpers baru** ✅ — di [kasirShiftMock.ts](src/lib/billing/kasirShiftMock.ts):
+  - `nextNoSetor(shifts, refDate?)` — scan setoran bulan ini → max running number + 1, format `STR/YYYY/MM/NNNNN`. Backend ganti `prisma.setoran.findFirst({ orderBy: { noSetor: "desc" } })` dalam transaction.
+  - `shiftsBelumDisetor(shifts)` — filter Closed + !setoran, sorted DESC by bukaAt. Untuk future "Setoran Queue" view (BL8 dashboard).
+- [x] **Mock seed extend** ✅ — 2 dari 4 closed shift sudah punya `setoran`: `shift-2026-0523-sore` (Sari, balance, STR/2026/05/00041) + `shift-2026-0522-pagi` (Bambang, surplus 35K, STR/2026/05/00040). 2 closed shift sengaja belum disetor (`shift-2026-0523-malam` IGD nunggu jam keuangan buka + `shift-2026-0523-pagi` Rian minus 50K) — demo flow "Catat Setoran" baru.
+- [x] **Wiring di `KasirCounterPage`** ✅ — state `shiftActionState: { action, shift } | null` + handler `handleShiftAction` (dispatcher dari kebab → set state) + handler `handleRecordSetoran` (immutable mutate `shifts[].setoran` + auto-pivot ke setoran-slip print modal). Pass `onShiftAction` ke `DashboardPanel` → `RecentShiftsTable`. 3 modal mount di akhir component tree dengan `open` derived dari `action`.
 
-**Acceptance BL3:** kasir bisa buka shift, terima pembayaran, tutup shift dengan saldo balanced, cetak laporan.
+**File sizes BL3.4:** LaporanKasShiftSheet 256L · LaporanKasShiftModal 24L · SetoranSlipSheet 138L · SetoranSlipPrintModal 24L · SetoranFormModal 252L · RecentShiftsTable rewrite 320L (185L→320L, +135L untuk kolom Setoran + ShiftRowActions kebab) · kasirShiftMock +60L (type SetoranRecord + 2 setoran mock seed + nextNoSetor + shiftsBelumDisetor + 394L total) · KasirCounterPage +35L (state shiftActionState + handler handleRecordSetoran/handleShiftAction + 3 modal render) · DashboardPanel +3L (onShiftAction prop drill). Total ~860L baru + 230L extension lintas 8 file, semua jauh di bawah 800 limit. TS clean (`npx tsc --noEmit` source files 0 error).
+
+**Design decisions:**
+- **Laporan A4 default · Slip Setoran A5 default** — laporan = dokumen arsip resmi (perlu space untuk reconciliation table + signature 2-col); slip = kompak 1-halaman cocok printer struk + folder arsip keuangan.
+- **Section numbering 1-4 di laporan** + border solid tabel — convey "dokumen audit formal", BLUD compliance. Bukan UI dashboard.
+- **Reconciliation table dengan ReconRow + 3-tone selisih** — kasir + auditor visual scan: Expected vs Aktual + selisih jelas dengan ikon (CheckCircle2/TrendingUp/AlertTriangle). Selisih ≠ 0 → row rose + label "Audit Required" eksplisit.
+- **Total Penerimaan Bersih = total − refund** (bukan total gross) — refund self-cancel dari penerimaan, biar reconciliation accurate.
+- **Auto-pivot setelah `handleRecordSetoran`** — save → langsung buka SetoranSlipPrintModal. Mirror pattern BL3.2/3.3 auto-print kwitansi: kasir tidak perlu klik 2x untuk cetak slip post-save. Bendahara langsung dapat cetakan untuk tanda-tangan.
+- **Default nominal setoran = `tutupSaldoAkhir − bukaSaldoAwal`** — convention RS BLUD (saldo awal kembali ke next shift, net cash income disetor). User bisa override dengan badge indikator "manual override" vs "ikut saran" + alasan wajib di catatan.
+- **3 bendahara mock dengan role berbeda** (Bendahara Penerima · Staf Keuangan · Kasubag Keuangan) — RS biasanya hierarki: hari biasa staf/penerima, weekend/cito kasubag. Backend ganti dengan filter role + master pegawai.
+- **`nextNoSetor` scan bulan-ini saja** (bukan global) — running number reset per bulan, sesuai konvensi nomor surat RS pemerintah `STR/YYYY/MM/NNNNN`.
+- **2 mock setoran + 2 sengaja belum disetor** — demonstrate 2 state realistic: badge Disetor (emerald) vs Belum (amber), kebab action pilihan berbeda.
+- **Kebab "Catat Setoran" pakai accent amber** (bukan slate netral) — visual cue: ini action utama yang dibutuhkan operationally setelah tutup shift. "Cetak Laporan" + "Cetak Slip Setoran" netral karena read-only.
+- **Kolom Setoran merge dengan Supervisor + Status** — hemat horizontal space (table jadi 7 kolom saja), supervisor truncate 22 char, status sebagai mini dot pill di bawah badge setoran. Trade-off compactness vs readability — laporan detail lengkap tetap ada di print preview.
+- **3-state modal dispatcher via discriminated union** `{ action: ShiftRowAction, shift: KasirShift } | null` — 1 state object, modal `open` derived dari `action === "laporan"` dll. Lebih clean dari 3 state terpisah.
+
+**Acceptance BL3.4 ✅:** klik kebab Aksi di Recent Shifts → 3 menu (laporan / setoran-form atau setoran-slip). "Cetak Laporan Tutup Kas" tampil A4 sheet lengkap dengan rekonsiliasi 5-metode + selisih palette + signature kasir+supervisor. "Catat Setoran" buka form dengan auto-gen STR/2026/05/00042, default nominal net cash, save → langsung cetak slip A5. "Cetak Slip Setoran" untuk shift sudah disetor tampil slip dengan no setoran + bendahara + nominal + terbilang.
+
+**Acceptance BL3:** kasir bisa buka shift, terima pembayaran, tutup shift dengan saldo balanced, cetak laporan **+ catat setoran ke bendahara + cetak slip setoran**.
 
 ---
 
@@ -1040,14 +1100,14 @@
 | BL0 — Foundation | 4 | 0 | 0% |
 | BL1 — Tagihan Board | 4 | 4 | 100% ✅ |
 | BL2 — Invoice Detail | 6 | 6 | 100% ✅ |
-| BL3 — Pembayaran | 4 | 3 | 75% |
+| BL3 — Pembayaran | 4 | 4 | 100% ✅ |
 | ~~BL4~~ — Klaim Penjamin | ~~4~~ | — | → [TODO-EKLAIM.md](TODO-EKLAIM.md) |
 | BL5 — Adjustment | 3 | 0 | 0% |
 | BL6 — Integrasi Lintas Modul | 3 | 0 | 0% |
 | BL7 — Reports | 4 | 0 | 0% |
 | BL8 — Beranda Billing | 3 | 0 | 0% |
 | BL9 — UX Polish | 4 | 0 | 0% |
-| **Total** | **35** | **13** | **37%** |
+| **Total** | **35** | **14** | **40%** |
 
 **Catatan:** Total turun dari 40 → 35 task (−4 BL4 + −1 BL7.3 yang pindah ke EKLAIM). Effort billing turun ~4-5 minggu → ~3 minggu.
 
