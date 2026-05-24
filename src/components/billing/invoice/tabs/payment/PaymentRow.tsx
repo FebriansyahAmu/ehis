@@ -7,9 +7,21 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { METODE_CFG, fmtRupiah } from "../../invoiceShared";
-import type { PaymentRecord } from "../../invoiceShared";
+import type { PaymentRecord, PaymentSource } from "../../invoiceShared";
 
 export type PaymentRowAction = "print" | "refund" | "void";
+
+/**
+ * Visual cue untuk asal-usul pembayaran — kasir bisa langsung tahu apakah
+ * pembayaran masuk via Quick Counter atau Detail Invoice. Refund + Deposit
+ * sudah punya kategori badge tersendiri jadi tidak duplikat di sini.
+ */
+const SOURCE_CFG: Record<PaymentSource, { label: string; bg: string; text: string }> = {
+  Quick:   { label: "Quick",   bg: "bg-amber-50",   text: "text-amber-700" },
+  Detail:  { label: "Detail",  bg: "bg-indigo-50",  text: "text-indigo-700" },
+  Deposit: { label: "Deposit", bg: "bg-sky-50",     text: "text-sky-700" },
+  Refund:  { label: "Refund",  bg: "bg-orange-50",  text: "text-orange-700" },
+};
 
 interface Props {
   payment: PaymentRecord;
@@ -63,6 +75,17 @@ export default function PaymentRow({ payment, index, isRefundedFrom, onAction }:
             )}
           </span>
           <span className="font-mono text-[10.5px] text-slate-400">{payment.noKwitansi}</span>
+          {payment.source && payment.kategori === "Pembayaran" && (
+            <span
+              title={`Pembayaran diterima via ${SOURCE_CFG[payment.source].label}`}
+              className={cn(
+                "inline-flex items-center rounded-sm px-1 py-px text-[9.5px] font-semibold uppercase tracking-wide ring-1 ring-current/15",
+                SOURCE_CFG[payment.source].bg, SOURCE_CFG[payment.source].text,
+              )}
+            >
+              via {SOURCE_CFG[payment.source].label}
+            </span>
+          )}
         </div>
 
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-slate-500 dark:text-slate-400">

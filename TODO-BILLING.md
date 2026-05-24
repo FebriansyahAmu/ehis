@@ -11,8 +11,8 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (Billing depend B0/B1.7/B1.9)
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
-> **Last updated:** 2026-05-24
-> **Status:** ✅ BL1 + BL2 selesai 100% · 🚧 BL3.1 Counter Dashboard ✅ — Tagihan Board + Invoice Detail (4 tab + Print Preview) + Kasir Counter Dashboard (ActiveShiftCard + ShiftKPIStrip + MethodBreakdown + RecentShifts + Buka/Tutup Shift modal dengan selisih calc). **Klaim Penjamin (workflow penuh) DIPISAH ke modul baru `/ehis-eklaim`** (lihat [TODO-EKLAIM.md](TODO-EKLAIM.md)). Next: BL3.2 Quick Search Pembayaran · BL3.3 Deposit Awal Admisi · BL3.4 Laporan Tutup Kas · atau BL0 Foundation/BL6 Charge Ingestion.
+> **Last updated:** 2026-05-25
+> **Status:** ✅ BL1 + BL2 selesai 100% · 🚧 BL3.1-3.3 ✅ + ChargeSummary enrichment ✅ + **Print Flow Batch 1+2 ✅** — Kasir Counter Dashboard + Quick Bayar (search + form inline + **ChargeSummaryCard breakdown per-kategori** + recent feed + **auto-print kwitansi setelah save** + **reprint dari feed**) + Deposit Awal Admisi (search + form deposit + **EstimateChargeCard projection LOS × rate** + **auto-print kwitansi deposit setelah save**). 3-tab orchestrator dengan shift accumulator live. **Tab Pembayaran (invoice detail) sekarang punya Management Banner** untuk clarify peran vs Quick Bayar + cross-link, plus **`source` field di PaymentRecord** (Quick/Detail/Deposit/Refund) dengan badge "via Quick" / "via Detail". **Klaim Penjamin (workflow penuh) DIPISAH ke modul baru `/ehis-eklaim`** (lihat [TODO-EKLAIM.md](TODO-EKLAIM.md)). Next: BL3.4 Laporan Tutup Kas (print modal) · atau BL0 Foundation / BL6 Charge Ingestion.
 > **Target effort:** ~3 minggu (frontend full, after split) · paralel dengan backend B0/B1.7/B1.9 dapat dimulai.
 
 > ### 🔀 Scope Split (2026-05-24)
@@ -692,17 +692,169 @@
 - **2 shift Open di mock** (Sari + Bambang) — demonstrate scenario realistic, biasanya RS punya 2-4 counter buka simultan.
 - **Mock cover 3 selisih cases**: balance (24/05 Sari + Yanti) · minus (Rian Rp -50K) · surplus (Bambang Rp +35K) — sebagai demo audit chip variation di RecentShiftsTable.
 
-### BL3.2 Quick Search Pembayaran
+### BL3.2 Quick Search Pembayaran ✅ Selesai (2026-05-24)
 
-- [ ] **Search input besar** di atas — search no tagihan / no RM / nama → tampil row pasien dengan sisa tagihan + tombol "Bayar Sekarang".
-- [ ] **Quick payment form** inline — sama seperti BL2.3 tapi tanpa harus buka detail.
-- [ ] **Recent payments feed** — 10 pembayaran terakhir di shift ini.
+- [x] **Search input besar** ✅ — [QuickSearchInput.tsx](src/components/billing/kasir/quick/QuickSearchInput.tsx) (55L): large prominent bar dengan border-2 + ring-4 amber saat focus/value, Search icon prefix (amber saat aktif), clear button X muncul saat ada value. Auto-focus saat tab dibuka. Placeholder "Cari no tagihan / no RM / nama pasien…".
+- [x] **Outstanding result list** ✅ — [OutstandingResultRow.tsx](src/components/billing/kasir/quick/OutstandingResultRow.tsx) (97L): row pasien card dengan grid 3-col (main · sisa · CTA). Main col: nama bold + RM mono + gender/usia + meta (Hash noTagihan · Building unit/kelas · User penjamin). Sisa: nominal mono dengan tone (rose >5jt / amber default) + ratio "dari total". CTA "Bayar" amber pill yang transform jadi solid amber saat hover/selected. Active state ring amber-2.
+- [x] **Search logic** ✅ — [outstandingSearch.ts](src/lib/billing/outstandingSearch.ts) (53L): `searchOutstanding(query, source, limit=12)` filter `sisa>0 && status!=="Void"` lalu match query ke noTagihan/nama/RM/noKunjungan case-insensitive, sort by sisa terbesar dulu. `topOutstandingSuggestions(limit=5)` saat search kosong — surface kasir ke "yang paling besar".
+- [x] **Quick payment form inline** ✅ — [QuickPaymentForm.tsx](src/components/billing/kasir/quick/QuickPaymentForm.tsx) (318L):
+  - **Header context card** amber gradient dengan info target (nama pasien + RM + noTagihan + unit/kelas/penjamin) + Sisa nominal mono besar di kanan
+  - **Quick chips**: Lunasi Sisa (emerald + Sparkles) · Setengah · preset 100rb/500rb/1jt (auto-filter yang ≤ sisa)
+  - **Metode segmented** grid 5-col (icon + label tiap metode) dengan active tone palette per `METODE_CFG`
+  - **Nominal input** large 18px mono right-align + live terbilang italic Indonesia
+  - **Conditional bank + noRef** animated expand untuk Transfer/EDC (bank dropdown 6 bank) / QRIS (noRef only)
+  - **Catatan opsional** + Submit button full-width amber dengan emerald success state 1.5s (Zap icon "Terima Pembayaran Rp X" / CheckCircle2 "Berhasil!")
+  - Default kategori = "Pembayaran" (BL2.3 form punya toggle Pembayaran/Deposit, Quick form simplified ke Pembayaran karena Deposit ada di tab terpisah BL3.3)
+- [x] **Recent payments feed** ✅ — [RecentPaymentsFeed.tsx](src/components/billing/kasir/quick/RecentPaymentsFeed.tsx) (185L):
+  - Header dengan History icon + count "X transaksi di shift ini"
+  - Tiap row: metode icon ring + nama pasien + RM mono + badge Deposit (sky) / Refund (rose) inline · invoice no + bank + noRef · nominal mono right-align (emerald untuk masuk, rose untuk refund dengan prefix "−") · jam relatif (Baru saja / Xm lalu / HH:MM today / "dd MMM HH:MM" lainnya)
+  - Hover-only print kwitansi button icon-only (printer icon, opacity-0 → 100 on hover row)
+  - Empty state Inbox icon + copy "Belum ada pembayaran"
+- [x] **Quick Bayar orchestrator** ✅ — [QuickBayarPanel.tsx](src/components/billing/kasir/quick/QuickBayarPanel.tsx) (196L):
+  - Layout 2-col `[3fr_2fr]` lg-up: Left = search input + (result list ATAU form jika ada selected) AnimatePresence mode="wait" · Right sticky = RecentPaymentsFeed
+  - State: `query` · `selected` (OutstandingResult | null) · `feedRefresh` (trigger re-read feed)
+  - Auto-deselect logic: jika selected row hilang dari results setelah search → reset
+  - Submit handler: append ke `shiftPaymentsMock` via `appendShiftPayment` + `nextNoKwitansi` auto-gen + invoke `onAccumulate` ke parent (update shift total) + close form OR keep open update sisa jika partial
+- [x] **shiftPaymentsMock data layer** ✅ — [shiftPaymentsMock.ts](src/lib/billing/shiftPaymentsMock.ts) (128L): type `ShiftPaymentLog` (extends PaymentRecord + invoiceId/No + pasienNama/RM) · `SHIFT_PAYMENTS_MOCK[shiftId]` map (8 pre-seed payment untuk Sari kasir-1 lintas metode/kategori · Bambang kasir-2 sengaja kosong demo empty state) · helpers `getShiftPayments(shiftId, limit)` sorted DESC + `appendShiftPayment(shiftId, log)` (unshift terbaru di depan).
 
-### BL3.3 Deposit Awal (Admisi)
+### BL3.3 Deposit Awal (Admisi) ✅ Selesai (2026-05-24)
 
-- [ ] **Form deposit awal** untuk pasien yang baru admisi RI / pre-op tindakan major.
-- [ ] **Suggest amount** based on kelas + estimasi LOS (avg per kelas).
-- [ ] **Buat draft invoice** dengan deposit awal sebagai entri pertama.
+- [x] **Search pasien admisi** ✅ — [AdmisiResultRow.tsx](src/components/billing/kasir/deposit/AdmisiResultRow.tsx) (130L): row pasien admisi card dengan kategori icon (BedDouble RI Baru / Stethoscope Pre-Op / Activity ICU) + main (nama+RM+gender/usia + urgensi pill `Rutin slate / Cito amber / Emergency rose`) + diagnosa singkat + rencana tindakan jika pre-op + meta noKunjungan/kelas/penjamin/dpjp + rencana admisi (jam relatif: "Hari ini · HH:MM" rose-bold jika <6h, atau "dd MMM · HH:MM").
+- [x] **Form deposit awal** ✅ — [DepositForm.tsx](src/components/billing/kasir/deposit/DepositForm.tsx) (351L):
+  - **Header context** amber gradient dengan label "Deposit Awal · Kategori" + nama pasien bold + RM mono + meta unit/kelas/penjamin
+  - **LOS slider** (1-30 hari) dengan label "Estimasi Length of Stay" + value mono bold real-time
+  - **Saran Sistem card** sky dengan Calculator icon: rate info ("Rp 1.2jt/hari × 5 hari = Rp 6.000.000") + buffer ("+ buffer Rp 600.000") + total mono bold besar sky-700
+  - **Metode segmented** 5-col (sama pattern QuickPaymentForm)
+  - **Nominal input** dengan dual-mode: default ikut suggested.total, manual override saat user ketik (badge "manual override" / "ikut saran sistem" indikator). Link "← Pakai saran" untuk reset ke suggested.
+  - **Live terbilang** italic Indonesia
+  - **Conditional bank + noRef** untuk Transfer/EDC/QRIS
+  - **Submit** full-width amber "Buka Deposit Rp X" / "Deposit Tercatat!" success state
+- [x] **suggestDeposit helper** ✅ — [depositMock.ts](src/lib/billing/depositMock.ts) (218L):
+  - `KELAS_RATE_PER_HARI`: VIP 2jt / K1 1.2jt / K2 800k / K3 450k / ICU 1.5jt / HCU 1jt
+  - `DEFAULT_LOS`: RI Baru 5h / Pre-Op Major 7h / ICU Admisi 3h
+  - Formula `suggestDeposit({kelas, losDays, kategori, penjaminTipe}) → {base, buffer, total, rateInfo}` — base = rate × LOS; buffer = base × pct dimana Umum 30% / Asuransi 20% / BPJS-Jamkesda 10%; total = base + buffer
+  - Output `rateInfo` formatted string untuk display "Rp 1.2jt/hari × 5 hari"
+  - **Mock PASIEN_ADMISI_MOCK** 5 pasien cover semua skenario: Hadi (RI Umum K1) · Lina (Pre-Op VIP Asuransi) · Sutrisno (ICU BPJS Cito) · Maya (Persalinan K2 BPJS PBI) · Bambang (Appendisitis Pre-Op VIP Umum Emergency)
+  - `searchPasienAdmisi(query)` sort by urgensi (Emergency > Cito > Rutin) lalu rencanaAdmisi asc — emergency surface duluan
+- [x] **Draft invoice preview** ✅ — [DraftInvoicePreview.tsx](src/components/billing/kasir/deposit/DraftInvoicePreview.tsx) (128L):
+  - Card sticky di right column saat ada pasien selected
+  - 4 row preview: Invoice baru (no tagihan placeholder mono) · Payment record #1 (Deposit metode nominal) · Charge items (0 item muted, "akan diisi auto BL6") · Saldo Deposit Awal (emerald accent bold)
+  - Footer disclaimer "pasien hilang dari list admisi pending, lihat di tab Tagihan"
+  - Saat tidak ada selection → `<DepositInfoCard />` info panel "Apa itu Deposit Awal?" + suggest amount logic + override hint
+- [x] **Deposit Awal orchestrator** ✅ — [DepositAwalPanel.tsx](src/components/billing/kasir/deposit/DepositAwalPanel.tsx) (250L):
+  - Layout 2-col `[3fr_2fr]`: Left = search + (admisi list ATAU form) · Right sticky = DraftInvoicePreview / DepositInfoCard
+  - Submit handler: create payment log dengan `kategori="Deposit"` + invoiceId placeholder draft + append ke shiftPaymentsMock + invoke `onAccumulate` + remove pasien dari `PASIEN_ADMISI_MOCK` + reset selection + trigger `tick++` untuk re-render list
+  - Empty results state berbeda untuk "search empty" vs "tidak ada pasien admisi"
+- [x] **Suggest amount based on kelas + LOS** ✅ — sudah inline di DepositForm + suggestDeposit helper (lihat di atas).
+- [x] **Buat draft invoice** ✅ — saat submit, simulate creation via console.log + payment log (real backend BL3.3 prisma `invoice.create` + nested `payment.create` dalam 1 transaction).
+
+### BL3.2 + BL3.3 Enrichment — ChargeSummary detail per-kategori ✅ Selesai (2026-05-24)
+
+> **Konteks**: design awal Quick Bayar dan Deposit form hanya menampilkan SISA TAGIHAN total tanpa rincian. Gap UX: kasir tidak bisa jawab pertanyaan pasien "kenapa bayar segini?" tanpa pindah halaman. Solusi: tambah `ChargeSummaryCard` (Quick Bayar — lookup actual invoice) dan `EstimateChargeCard` (Deposit Awal — projection rate × LOS + buffer).
+
+- [x] **Data layer chargeSummary.ts** ✅ — [chargeSummary.ts](src/lib/billing/chargeSummary.ts) (196L):
+  - `getChargeSummary(invoiceId)` — lookup `INVOICE_DETAIL_MOCK[id]` → reuse `groupByKategori` + `netAfterItemDiskon` + `grandTotal` + `sisaTagihan` + `saldoDeposit` helpers (zero duplikasi). Return `{ kategori[], subTotal, diskonInvoice, ppn, materai, grandTotal, dibayar, sisa, itemCountTotal, hasDetail }`. Per-kategori `dominantCoverage` derived dari tally items (Penjamin/Pasien/Mixed) untuk badge.
+  - `projectDepositBreakdown({kelas, losDays, penjaminTipe, admisiKategori})` — projection 3-baris (Akomodasi rate × LOS · Jasa Dokter visite × LOS · Buffer Obat/Lab/Tindakan dengan persentase per kategori admisi RI Baru 25% / Pre-Op Major 50% / ICU Admisi 80%). Penjamin coverage factor (Umum 100% / Asuransi 85% / BPJS-Jamkesda 30%) untuk derive beban pasien aktual.
+- [x] **ChargeSummaryCard (Quick Bayar)** ✅ — [ChargeSummaryCard.tsx](src/components/billing/kasir/quick/ChargeSummaryCard.tsx) (232L):
+  - **Header toggle**: ChevronDown rotate + ListChecks icon amber + label "Rincian Charge" + count chip "N kategori · M item" + grand subtotal mono kanan
+  - **Body (expandable)** AnimatePresence height: 0↔auto:
+    - List per-kategori dengan icon ring (per `KATEGORI_CFG`) + nama + count item + coverage badge (Penjamin emerald / Pasien amber / Mixed sky) + subtotal mono kanan
+    - Footer totals dl/dt/dd: Sub-Total · Diskon Invoice (rose conditional) · PPN (conditional) · Materai (conditional) · **Grand Total** uppercase bold · Sudah Dibayar (emerald, conditional) · Sisa Tagihan (amber bold, sisaTone)
+    - **Deep-link CTA** "Lihat Rincian Lengkap (per-item · void · audit · klaim)" → `/ehis-billing/tagihan/[id]` dengan ExternalLink icon shift on hover
+  - **Auto-expand logic**: `itemCountTotal <= 5` → expanded saat mount (small invoice tidak ada untungnya collapse)
+  - **Fallback `<NoDetailFallback />`** jika `hasDetail=false` — banner dashed slate dengan FileQuestion icon + deep-link "Buka detail tagihan"
+- [x] **EstimateChargeCard (Deposit Awal)** ✅ — [EstimateChargeCard.tsx](src/components/billing/kasir/deposit/EstimateChargeCard.tsx) (140L):
+  - **Header**: Sparkles amber + "Rencana Charge Estimasi" + chip "{losDays} hari rawat" amber + estimasi total mono kanan
+  - **List 3-row** per-kategori dari `projectDepositBreakdown.rows` (Akomodasi/Jasa Dokter/Obat & BMHP buffer) dengan ikon + hint mono kecil ("Kelas K1 × 5 hari" · "Visite DPJP × 5 hari" · "Estimasi Pre-Op Major (Lab/Rad/Obat/Tindakan)") + nominal mono
+  - **Footer**: Sub-Estimasi (full cost) · `Ditanggung Penjamin (~70%)` dengan TrendingDown emerald (conditional saat coveragePct > 0) · **Estimasi Beban Pasien** uppercase bold amber
+  - **Footnote disclaimer** amber InfoIcon: "Estimasi kasar berbasis kelas × LOS + buffer. Charge real bisa berbeda — total final tergantung tindakan, obat, dan hasil lab/rad aktual."
+  - **Live re-calc** via `useMemo` saat `losDays` slider berubah (re-render <16ms)
+- [x] **Wiring di forms** ✅:
+  - **QuickPaymentForm**: insert `<ChargeSummaryCard invoiceId={target.id} />` di body antara header context dan quick chips
+  - **DepositForm**: insert `<EstimateChargeCard kelas losDays penjaminTipe admisiKategori />` setelah LOS slider sebelum Suggested breakdown card — live update saat LOS berubah
+- [x] **Extend INVOICE_DETAIL_MOCK** ✅ — tambah 3 invoice detail baru di [invoiceMock.ts](src/components/billing/invoice/invoiceMock.ts): INV-003 (Bambang Sutrisno RI VIP Asuransi — Kardiologi PCI, 9 items, deposit 5jt) · INV-007 (Hendro Wibowo RI K1 BPJS — PCI + Stent DES, 5 items, klaim disetujui menunggu transfer) · INV-008 (Putri Maharani IGD K3 Jamkesda — small invoice 5 items 525K total). Sekarang search top-5 outstanding semua punya detail untuk demo.
+
+**File sizes BL3.2-3.3 enrichment:** chargeSummary 196L · ChargeSummaryCard 232L · EstimateChargeCard 140L · QuickPaymentForm +5L (322L) · DepositForm +10L (360L) · invoiceMock +152L (434L). Total ~735L baru + 167L extension. TS clean (`npx tsc --noEmit` exit 0).
+
+**Design decisions:**
+- **Reuse existing helpers** (`groupByKategori`, `netAfterItemDiskon`, `grandTotal`, `sisaTagihan`) dari [invoiceCalc.ts](src/lib/billing/invoiceCalc.ts) — single source of truth, ChargeSummaryCard tidak re-implement aggregation logic.
+- **Per-kategori (bukan per-item) di L1** — 5-7 baris breakdown scan-friendly, kasir bisa jawab pasien <3 detik. Per-item available via deep-link "Lihat Rincian Lengkap".
+- **Auto-expand untuk small invoice (≤5 items)** — visual ringan, kasir tidak perlu klik tambahan untuk konten yang sudah pendek.
+- **Coverage badge per kategori** (dominantCoverage) — instan info "kategori ini sebagian besar ditanggung Penjamin / Pasien". Kasir bisa explain "obat ini ditanggung BPJS, obat ini selisih dibayar sendiri".
+- **EstimateChargeCard untuk Deposit** beda dari ChargeSummaryCard — pasien BARU belum punya invoice, jadi projection (forward-looking) bukan lookup. Hint mono kecil yang explain formula ("Kelas K1 × 5 hari").
+- **Coverage factor di projectDepositBreakdown** (Umum 100% / Asuransi 85% / BPJS 30%) — reflect realita beban pasien aktual. BPJS hanya bayar selisih kelas / non-formularium.
+- **Buffer % per admisi kategori** (RI Baru 25% / Pre-Op 50% / ICU 80%) — ICU = high-cost (sedasi, kultur, ventilator); pre-op = BMHP banyak + obat post-op; RI Baru = lebih predictable.
+- **Live re-calc via useMemo** di EstimateChargeCard — slider LOS berubah, semua angka update <16ms, kasir feel responsive.
+- **NoDetailFallback** untuk invoice tanpa detail mock — graceful degradation, deep-link tetap muncul.
+- **Deep-link "Lihat Rincian Lengkap"** ke `/ehis-billing/tagihan/[id]` — escape hatch untuk audit complex tanpa duplikasi feature di counter.
+- **Coverage chip pakai existing `COVERAGE_CFG`** dari invoiceShared.ts — konsisten dengan tampilan ChargeRow di Invoice Detail tab Rincian (BL2.2).
+
+### BL3.2 + BL3.3 + BL2.3 Enrichment — Print Flow & Management View ✅ Selesai (2026-05-25)
+
+> **Konteks**: setelah BL3.2/3.3 selesai, 2 gap muncul: (1) **tidak ada cetakan kwitansi setelah save** — kasir harus pindah ke invoice detail untuk cetak, padahal pasien menunggu di counter; (2) **persepsi redundansi** antara Tab Pembayaran (di invoice detail) dan Tab Quick Bayar (di counter) — user prompt: "bukanya ini memungkinkan adanya redundant?". Solusi consolidated plan: Batch 1 (Critical) auto-print + Batch 2 (Important) clarify persona + provenance tracking. Batch 3 (Nice-to-have demote inline form + promote refund/void + user preference toggle) belum dijalankan.
+
+**Batch 1 — Critical (auto-print kwitansi):**
+
+- [x] **kwitansiContext.ts adapter** ✅ — [kwitansiContext.ts](src/lib/billing/kwitansiContext.ts) (~110L): bridge `ShiftPaymentLog` ↔ `{InvoiceDetail, PaymentRecord}` untuk `KwitansiPrintModal`. 3 entry-point: `fromExistingInvoice(log)` (lookup `INVOICE_DETAIL_MOCK`) · `fromDepositInput(pasien, log)` (synthesize draft `InvoiceDetail` dari `PasienAdmisi` — invoice belum ada di DB) · `fromShiftLog(log)` (auto: cek `draftDetail` cache → fallback existing invoice). Strip 5 field extension dari log (`invoiceId`/`invoiceNo`/`pasienNama`/`pasienRM`/`draftDetail`) saat extract `PaymentRecord`.
+- [x] **ShiftPaymentLog.draftDetail cache** ✅ — extend [shiftPaymentsMock.ts](src/lib/billing/shiftPaymentsMock.ts) dengan optional `draftDetail?: InvoiceDetail`. Saat deposit awal di-submit, panel synthesize ctx + simpan `detail` di log → reprint dari Recent Feed tetap bisa render header lengkap walaupun invoice masih draft. Backend ready: hapus field, query `prisma.invoice.findUnique`.
+- [x] **C1 Quick Bayar auto-print** ✅ — [QuickBayarPanel.tsx](src/components/billing/kasir/quick/QuickBayarPanel.tsx) `handlePaymentSubmit` setelah `appendShiftPayment` → `onPrintKwitansi(fromShiftLog(log))` bubble ke parent. Modal langsung terbuka, kasir hanya tinggal klik Cetak (atau close jika tidak perlu).
+- [x] **C2 Deposit awal auto-print** ✅ — [DepositAwalPanel.tsx](src/components/billing/kasir/deposit/DepositAwalPanel.tsx) `handleDepositSubmit` synthesize ctx via `fromDepositInput(pasien, baseLog)` → simpan `ctx.detail` ke `log.draftDetail` → append → `onPrintKwitansi(ctx)`. Kwitansi deposit muncul instan post-save, pasien dapat slip sebelum balik ke ruang admisi.
+- [x] **KasirCounterPage host modal** ✅ — [KasirCounterPage.tsx](src/components/billing/kasir/KasirCounterPage.tsx) tambah state `kwitansiCtx: KwitansiContext | null` + render `<KwitansiPrintModal>` di akhir tree + pass `setKwitansiCtx` ke kedua panel. Single source of truth untuk kwitansi preview state, panel-panel tidak perlu host modal sendiri.
+
+**Batch 2 — Important (management view + provenance):**
+
+- [x] **I1 Reprint dari Recent Feed** ✅ — [QuickBayarPanel.tsx](src/components/billing/kasir/quick/QuickBayarPanel.tsx) `handleReprintFromFeed(p)` wrap `RecentPaymentsFeed.onPrintKwitansi` — klik tombol printer di feed row trigger same modal. Existing `Printer` icon button di [RecentPaymentsFeed.tsx](src/components/billing/kasir/quick/RecentPaymentsFeed.tsx) (sudah ada UI, sebelumnya `onPrintKwitansi` prop tidak di-wire dari KasirCounterPage). Sekarang fungsional 100%.
+- [x] **I2 Management Banner di PembayaranTab** ✅ — [PembayaranTab.tsx](src/components/billing/invoice/tabs/PembayaranTab.tsx) tambah `<ManagementBanner />` di top dengan 3 elemen: (a) icon `Layers` indigo + title "Detail Management View · per Invoice" + body explain peran (refund / void / cicilan terstruktur 1 invoice) · (b) cross-link button "Quick Bayar" amber dengan `Zap` icon + `ExternalLink` → `/ehis-billing/pembayaran?tab=quick` · (c) sm:flex-row layout (mobile stack, desktop side-by-side). Tujuan: hilangkan persepsi redundansi — user lihat banner langsung tahu "ini bukan tempat antrian cepat, ini detail manajemen 1 invoice".
+- [x] **I3 Cross-link OutstandingResultRow ke Detail** ✅ — [OutstandingResultRow.tsx](src/components/billing/kasir/quick/OutstandingResultRow.tsx) refactor outer dari `motion.button` ke `motion.div` (HTML valid — button tidak boleh nest `<a>`) + split 3 button area (main info / sisa / actions) yang masing-masing trigger `onSelect`, plus `Link target="_blank"` "Detail" secondary di bawah "Bayar". stopPropagation pada Link supaya tidak trigger main select. Kasir bisa "peek" invoice detail tanpa kehilangan posisi di Quick Bayar list.
+- [x] **I4 `source` field di PaymentRecord** ✅ — extend [invoiceShared.ts](src/components/billing/invoice/invoiceShared.ts) dengan `type PaymentSource = "Quick" | "Detail" | "Deposit" | "Refund"` + optional `source?: PaymentSource` di `PaymentRecord` (default "Detail" di addPayment InvoiceDetailPage jika tidak set). Auto-set di submit handlers:
+  - `QuickPaymentForm.submit` → `source: "Quick"`
+  - `DepositForm.submit` → `source: "Deposit"`
+  - `PaymentForm (Detail)` → fallback `"Detail"` (set di `InvoiceDetailPage.addPayment` jika caller absent)
+  - `refundPayment` (InvoiceDetailPage) → `source: "Refund"`
+- [x] **Render badge `via Quick` / `via Detail`** ✅ — [PaymentRow.tsx](src/components/billing/invoice/tabs/payment/PaymentRow.tsx) tambah `SOURCE_CFG` (4-color palette: amber Quick / indigo Detail / sky Deposit / orange Refund) + render small chip "via {label}" di meta row dekat `noKwitansi`. Conditional: hanya tampil saat `kategori === "Pembayaran"` (Deposit + Refund sudah ada chip kategori sendiri jadi tidak duplikat). Tooltip "Pembayaran diterima via Quick/Detail" via `title` attr.
+- [x] **Backfill `source` di mock data** ✅ — INV-001 pay-001-01 → `source: "Deposit"` · INV-003 pay-003-01 → `source: "Deposit"` · INV-009 3 payments → `Deposit/Detail/Refund` masing-masing. Plus 8 entry [shiftPaymentsMock.ts](src/lib/billing/shiftPaymentsMock.ts) SHIFT_001 — mix `Quick` (5) + `Detail` (1) + `Deposit` (1) untuk demonstrate diverse sources di Recent Feed.
+
+**File sizes BL3 print enrichment:** kwitansiContext 110L (new) · KasirCounterPage +8L (281L) · QuickBayarPanel +18L (214L) · DepositAwalPanel +14L (264L) · QuickPaymentForm +1L · DepositForm +1L · OutstandingResultRow rewrite 130L (97L→130L) · PembayaranTab +71L (133L) · PaymentRow +22L · invoiceShared +6L · InvoiceDetailPage +3L · invoiceMock +4L · shiftPaymentsMock +9L (132L). Total ~280L baru + 80L extension. TS clean (`npx tsc --noEmit` exit 0).
+
+**Design decisions:**
+- **kwitansiContext adapter ≠ duplicate getInvoiceDetail** — adapter punya 2 use case yang berbeda: (1) lookup existing (caller punya invoiceId, butuh PaymentRecord pure) · (2) synthesize draft (deposit awal, invoice belum exist). `getInvoiceDetail` di invoiceMock.ts hanya cover case #1 + return full mock object. Bridge ini provide narrow interface `{detail, payment}` yang exactly cocok untuk KwitansiPrintModal.
+- **draftDetail di-cache di log, bukan global registry** — alternative `DEPOSIT_DRAFT_DETAILS: Record<id, InvoiceDetail>` ditolak karena: (a) global state bocor antar shift · (b) hard to clean up · (c) coupling antara log & cache fragile. Embed di log = single owner, auto cleanup saat log di-purge.
+- **Auto-print TIDAK pakai user toggle (N3 Nice-to-have)** — Batch 1 sengaja default ON tanpa toggle. Rationale: 95% kasir akan cetak (compliance + pasien minta bukti). Toggle = future tweak jika user complain workflow modal terlalu cepat.
+- **Banner Management bukan banner permanent di atas semua tab** — hanya di Tab Pembayaran, karena di sinilah persepsi redundansi muncul. Tab Rincian / Klaim / Riwayat punya purpose jelas yang tidak overlap dengan Counter.
+- **Cross-link "Quick Bayar" pakai `?tab=quick` query param** — future-friendly: KasirCounterPage tinggal `useSearchParams` untuk auto-switch tab. Belum di-wire (deferred ke follow-up), URL tetap valid dan user bisa manual klik tab saat landing.
+- **Detail link di OutstandingResultRow `target="_blank"`** — kasir tidak kehilangan posisi di counter saat peek detail. Plus pakai `rel="noopener noreferrer"` untuk security.
+- **`source` field bukan computed dari kategori** — kategori (Pembayaran/Deposit/Refund) = WHAT. Source (Quick/Detail/Deposit/Refund) = WHERE diinput. Orthogonal axes: Pembayaran bisa diinput via Quick ATAU Detail. Tracking ini bermanfaat untuk audit per-counter performance + future report "Quick Bayar coverage ratio".
+- **Render badge `via X` hanya saat `kategori === Pembayaran`** — Deposit + Refund sudah ada chip kategori distinct (sky/orange). Avoid visual noise dengan duplikat info.
+- **SOURCE_CFG amber untuk Quick** — match accent module (amber = billing). Indigo untuk Detail = contrast yang clear.
+- **Pre-seed mock dengan distribusi realistic** — SHIFT_001 8 entries: 5 Quick (62%) + 1 Detail (12%) + 1 Deposit (12%) + 1 Refund placeholder (di INV-009). Reflect realita: mayoritas pembayaran via counter cepat, sebagian besar via detail management saat kasus complex (refund/void).
+
+### Restructure: Tab-based architecture ✅
+
+- [x] **KasirTabs nav** ✅ — [KasirTabs.tsx](src/components/billing/kasir/KasirTabs.tsx) (83L): 3 tab `Dashboard / Quick Bayar / Deposit Awal` dengan icon (LayoutDashboard/Zap/PiggyBank) + count badge mono + framer motion `layoutId` underline + `disabledIfNoShift` flag untuk Quick & Deposit (tab disabled + tooltip "Buka shift dulu" jika no active shift).
+- [x] **DashboardPanel extract** ✅ — [DashboardPanel.tsx](src/components/billing/kasir/DashboardPanel.tsx) (96L): isi tab Dashboard yang sebelumnya inline di KasirCounterPage (ActiveShiftCard / EmptyShiftState · MethodBreakdown · RecentShiftsTable + KPI + OtherCounters di kanan).
+- [x] **KasirCounterPage restructure** ✅ — [KasirCounterPage.tsx](src/components/billing/kasir/KasirCounterPage.tsx) (273L):
+  - State: `shifts` (mutable) · `activeTab` · `modal` · `mutationTick` (trigger re-render saat mock store mutated di QuickBayar/Deposit)
+  - Tab counts derived dari `getShiftPayments(activeShift.id).length` (Quick) + `PASIEN_ADMISI_MOCK.length` (Deposit)
+  - **`handleAccumulate(metode, nominal)`** — payment dari Quick/Deposit otomatis update `activeShift.totalByMetode[metode] + nominal` + `totalTransaksi++` (live demo bahwa BL3.2/3.3 actions feed kembali ke BL3.1 dashboard)
+  - AnimatePresence mode="wait" switch antar panel dengan fade+y transition 180ms
+  - Modal Buka/Tutup tetap di akhir component tree
+
+**File sizes BL3.2 + BL3.3:** shiftPaymentsMock 128L · outstandingSearch 53L · depositMock 218L · KasirTabs 83L · DashboardPanel 96L · OutstandingResultRow 97L · QuickBayarPanel 196L · QuickPaymentForm 318L · QuickSearchInput 55L · RecentPaymentsFeed 185L · AdmisiResultRow 130L · DepositAwalPanel 250L · DepositForm 351L · DraftInvoicePreview 128L · KasirCounterPage 273L (refactored). Total ~2561L lintas 15 file, semua jauh di bawah 800 limit. TS clean (`npx tsc --noEmit` exit 0).
+
+**Design decisions:**
+- **3-tab architecture** (Dashboard/Quick Bayar/Deposit) — kasir punya 3 mode kerja yang clear-cut. Hindari single-page yang overwhelming dengan semua fungsi sekaligus.
+- **Tab disabled jika no active shift** — gating workflow, kasir harus buka shift dulu sebelum bisa terima bayar. Tooltip clear "Buka shift dulu untuk aksi ini".
+- **Tab count badge live** dari `getShiftPayments().length` (Quick = jumlah transaksi shift) dan `PASIEN_ADMISI_MOCK.length` (Deposit = pasien menunggu). Beri kasir context numeric tanpa harus klik tab.
+- **handleAccumulate auto-update activeShift** — payment dari tab Quick/Deposit feed langsung ke `totalByMetode` di Dashboard tab. Demo realistic flow: terima bayar → switch tab Dashboard → lihat saldo cash naik real-time.
+- **Quick form simplified dari BL2.3 PaymentForm** — no kategori toggle (default Pembayaran), header context card berbeda (target invoice info), submit button "Terima Pembayaran" eksplisit. UX: kasir tidak perlu mikir kategori (deposit di tab terpisah).
+- **suggestDeposit dengan buffer per penjamin** (Umum 30% > Asuransi 20% > BPJS 10%) — reflect realita: Umum harus cover semua (perlu deposit besar), BPJS hanya cover non-cover items (deposit kecil).
+- **Override nominal dengan badge indikator** — UX clarity: kasir tahu apakah saran sistem atau manual. Link "← Pakai saran" untuk easy reset.
+- **DraftInvoicePreview sticky di right** — saat kasir input deposit form, preview "what will happen" visible. Reduce post-submit surprise.
+- **PASIEN_ADMISI_MOCK auto-delete saat submit** — mock realism: pasien dari list pending hilang setelah deposit dibuka. `tick++` trigger re-render via `useEffect` dependency.
+- **Search input large + ring-4 amber saat focus** — focal point UX, kasir cepat tau "ini cari, ketik di sini".
+- **Sort by urgensi di admisi** — Emergency surface duluan, audit-friendly (kasir tidak miss kasus CITO yang butuh deposit segera).
+- **Layout 2-col `[3fr_2fr]`** consistent di Quick + Deposit panel — predictable UX antar tab.
+- **AnimatePresence mode="wait"** antar list↔form dan antar tab — smooth transition tanpa overlap.
 
 ### BL3.4 Laporan Tutup Kas
 
@@ -888,14 +1040,14 @@
 | BL0 — Foundation | 4 | 0 | 0% |
 | BL1 — Tagihan Board | 4 | 4 | 100% ✅ |
 | BL2 — Invoice Detail | 6 | 6 | 100% ✅ |
-| BL3 — Pembayaran | 4 | 1 | 25% |
+| BL3 — Pembayaran | 4 | 3 | 75% |
 | ~~BL4~~ — Klaim Penjamin | ~~4~~ | — | → [TODO-EKLAIM.md](TODO-EKLAIM.md) |
 | BL5 — Adjustment | 3 | 0 | 0% |
 | BL6 — Integrasi Lintas Modul | 3 | 0 | 0% |
 | BL7 — Reports | 4 | 0 | 0% |
 | BL8 — Beranda Billing | 3 | 0 | 0% |
 | BL9 — UX Polish | 4 | 0 | 0% |
-| **Total** | **35** | **11** | **31%** |
+| **Total** | **35** | **13** | **37%** |
 
 **Catatan:** Total turun dari 40 → 35 task (−4 BL4 + −1 BL7.3 yang pindah ke EKLAIM). Effort billing turun ~4-5 minggu → ~3 minggu.
 

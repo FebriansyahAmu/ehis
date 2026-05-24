@@ -57,6 +57,12 @@ export type MetodeBayar = "Tunai" | "Transfer" | "QRIS" | "EDC" | "Voucher";
 
 export type PaymentKategori = "Pembayaran" | "Deposit" | "Refund";
 
+/**
+ * Asal-usul payment — untuk audit + analytics "Quick Bayar vs Detail Invoice".
+ * Saat backend ready: kolom `source` di tabel Payment + index untuk laporan.
+ */
+export type PaymentSource = "Quick" | "Detail" | "Deposit" | "Refund";
+
 export interface PaymentRecord {
   id: string;
   tanggalISO: string;          // YYYY-MM-DDTHH:mm
@@ -65,6 +71,7 @@ export interface PaymentRecord {
   kasir: string;
   noKwitansi: string;          // KW/YYYY/MM/NNNNN
   kategori: PaymentKategori;
+  source?: PaymentSource;      // BL3 — provenance tag (default "Detail" jika absent)
   refundOf?: string;           // ID payment yang di-refund
   catatan?: string;
   bukti?: string;              // URL/filename (transfer/EDC)

@@ -110,6 +110,8 @@ export default function InvoiceDetailPage({ initialDetail }: Props) {
       const noKwitansi = nextNoKwitansi(prev.payments);
       const newPayment: PaymentRecord = {
         ...payload,
+        // Default ke "Detail" jika caller (PaymentForm) tidak set source eksplisit
+        source: payload.source ?? "Detail",
         id: `pay-${Date.now()}`,
         noKwitansi,
       };
@@ -136,6 +138,7 @@ export default function InvoiceDetailPage({ initialDetail }: Props) {
         kasir: "Sari (Kasir-1)", // mock — backend ambil dari session
         noKwitansi,
         kategori: "Refund",
+        source: "Refund",
         refundOf: paymentId,
         catatan: alasan,
       };
