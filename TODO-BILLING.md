@@ -12,7 +12,7 @@
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
 > **Last updated:** 2026-05-24
-> **Status:** 🚧 BL1 ✅ + BL2.1-2.3 ✅ — Banner/Timeline + Rincian Charge + Pembayaran Tab. **Klaim Penjamin DIPISAH ke modul baru `/ehis-eklaim`** (lihat [TODO-EKLAIM.md](TODO-EKLAIM.md)) karena workflow batch + persona terpisah (Tim Klaim/Coder ≠ Kasir). Next: BL2.4-lite (status chip + deep link) atau BL0 Foundation (sourceAdapter/hargaResolver).
+> **Status:** 🚧 BL1 ✅ + BL2.1-2.4 ✅ — Banner/Timeline + Rincian Charge + Pembayaran + Klaim Status Tab (read-only lite). **Klaim Penjamin (workflow penuh) DIPISAH ke modul baru `/ehis-eklaim`** (lihat [TODO-EKLAIM.md](TODO-EKLAIM.md)) karena workflow batch + persona terpisah (Tim Klaim/Coder ≠ Kasir). Next: BL2.5 Riwayat Audit · BL2.6 Print Preview · atau BL0 Foundation (sourceAdapter/hargaResolver).
 > **Target effort:** ~3 minggu (frontend full, after split) · paralel dengan backend B0/B1.7/B1.9 dapat dimulai.
 
 > ### 🔀 Scope Split (2026-05-24)
@@ -444,26 +444,63 @@
 - **`refundableAmount` helper** — bisa refund sebagian, lalu refund lagi sampai gross — UI Quick chip "Maks" reflect realtime.
 - **`dibayar` field tetap di-cache di InvoiceDetail** — agar header banner & Rincian Sticky Footer tidak perlu loop payments setiap render. Sync via mutator.
 
-### BL2.4 Tab 3: Klaim Status (read-only — lite)
+### BL2.4 Tab 3: Klaim Status (read-only — lite) ✅ Selesai (2026-05-24)
 
 > **Scope diciutkan.** Form Submit Klaim, INA-CBG Calculator, Berkas Generator, Banding workflow → **pindah ke `/ehis-eklaim`** (lihat [TODO-EKLAIM.md](TODO-EKLAIM.md) fase EK2-EK6). Tab di sini = **read-only info + deep link** untuk cross-modul awareness.
 
-- [ ] **Visible only untuk** penjamin BPJS/Asuransi/Jamkesda (Umum: tab hidden, sudah ada di `InvoiceTabs.tsx`).
-- [ ] **Claim status card** — read-only:
-  - Chip status besar (Belum Submit / Pending Verifikasi / Approved / Rejected / Paid / Banding) dengan icon + tone
-  - Last update timestamp + actor (dari `ClaimRecord.timeline[last]`)
-  - No klaim (jika sudah submit) mono
-- [ ] **INA-CBG resolved preview** (jika sudah ada) — kecil 1-row info:
-  - Kode CBG + nama bundle
-  - Tarif CBG vs Total RS — selisih chip emerald (over)/rose (under)
-  - Catatan "Dihitung di /ehis-eklaim/calculator" — tidak ada tombol kalkulasi di sini
-- [ ] **SEP info read-only** — noSEP (mono), validitas, kelas dijamin (dari `detail.penjamin.noSEP` yang sudah ada)
-- [ ] **Berkas checklist mini** — bar progress kelengkapan berkas (X/Y berkas siap) tanpa form upload
-- [ ] **Deep-link CTA besar** "Buka di E-Klaim →" → `router.push("/ehis-eklaim/klaim/[claimId]")`
-- [ ] **Fallback empty state** jika `claimId === null` (kunjungan belum di-coding): CTA "Mulai Proses Klaim" → deep link `/ehis-eklaim/klaim/new?invoiceId=X`
-- [ ] **Helper** di [src/lib/billing/](src/lib/billing/) — `getClaimStatusForInvoice(invoiceId)` (mock: lookup ke `CLAIM_BOARD_MOCK` di EKLAIM modul, cached read).
+- [x] **Visible only untuk** penjamin BPJS/Asuransi/Jamkesda ✅ — sudah ada di [InvoiceTabs.tsx](src/components/billing/invoice/InvoiceTabs.tsx) via `hideForUmum: true`.
+- [x] **Claim status card** ✅ — [ClaimStatusCard.tsx](src/components/billing/invoice/tabs/klaim/ClaimStatusCard.tsx) (166L):
+  - Chip status besar dengan icon ring 12×12 spring entrance (6 status: Belum Submit / Pending Verifikasi / Approved / Rejected / Paid / Banding) dari `CLAIM_STATUS_CFG` di [claimReadCache.ts](src/lib/billing/claimReadCache.ts)
+  - Right side: no klaim mono + ID internal (dl/dt/dd structure di slate-50 card)
+  - Last update strip dengan Clock+timestamp + User+actor + MessageSquareText+note italic (jika ada)
+  - **Conditional banners** per-status: Rejected → rose banner alasan · Approved → emerald banner nominalDisetujui · Banding → amber banner deadline
+- [x] **INA-CBG resolved preview** ✅ — [InaCbgPreview.tsx](src/components/billing/invoice/tabs/klaim/InaCbgPreview.tsx) (164L):
+  - 1-row card horizontal: kode CBG mono sky-700 (e.g. `I-4-10-III`) + nama bundle full + LOS pill
+  - 3-stat grid: Tarif CBG (sky) · Total RS (slate) · Selisih (emerald `TrendingUp` jika untung / rose `TrendingDown` jika rugi) dengan persentase
+  - Footer: "Dihitung di /ehis-eklaim/calculator · read-only"
+  - Empty state (`<EmptyCbg />`) jika `inaCbg` undefined
+- [x] **SEP info read-only** ✅ — [SepInfoCard.tsx](src/components/billing/invoice/tabs/klaim/SepInfoCard.tsx) (139L):
+  - 3 row: No SEP (mono) · Validitas (date + chip emerald/amber/rose berdasar `computeValidity`) · Kelas Dijamin (chip sky dengan Layers icon)
+  - Validitas auto-detect: <0 hari → Expired rose · ≤7 hari → Hampir Expired amber dengan "{n}h lagi" hint · >7 → Valid emerald
+- [x] **Berkas checklist mini** ✅ — [BerkasChecklistMini.tsx](src/components/billing/invoice/tabs/klaim/BerkasChecklistMini.tsx) (157L):
+  - Header: count "X dari Y berkas wajib siap" + persentase mono di kanan + gradient progress bar (rose <70% / amber 70-99% / emerald 100%) via `berkasProgress(required-only basis)`
+  - Sorted list: required-missing first (rose AlertCircle) · required-ready (emerald CheckCircle2) · optional-missing (slate Circle) · optional-ready
+  - Per-row: icon + nama + kode mono uppercase + badge Wajib (rose ring) / Opsional (slate ring)
+  - Footer: "Upload & verifikasi berkas di /ehis-eklaim"
+- [x] **Deep-link CTA besar** ✅ — [DeepLinkCta.tsx](src/components/billing/invoice/tabs/klaim/DeepLinkCta.tsx) (83L):
+  - Full-width amber gradient button dengan decorative shine effect on-hover (translate-x sweep 700ms)
+  - Left: eyebrow chip "E-Klaim BPJS / Asuransi" + label besar "Buka di E-Klaim" + subtext
+  - Right: no klaim mono pill (hide mobile) + ArrowRight icon di ring putih (translate-x on group-hover)
+  - 2 variant: `existing` (klaim ada) atau `new` (empty state CTA)
+  - Click handler: `onClick(href)` jika di-pass, default `console.log` (modul `/ehis-eklaim` belum dibangun — wire `router.push(href)` saat EK0 ready)
+- [x] **Fallback empty state** ✅ — [KlaimEmptyState.tsx](src/components/billing/invoice/tabs/klaim/KlaimEmptyState.tsx) (77L):
+  - Centered hero card amber dashed border + `FileQuestion` icon ring + heading "Belum ada klaim tercatat" + desc dengan invoice mono
+  - **Pre-req list** (3 item): Invoice difinalisasi · Coding ICD lengkap · Berkas tersedia (di `<PreReq />` sub)
+  - CTA primary `<DeepLinkCta variant="new" />` → `eklaimDeepLink(null, invoiceId)` → `/ehis-eklaim/klaim/new?invoiceId=X`
+- [x] **Helper claimReadCache.ts** ✅ — [src/lib/billing/claimReadCache.ts](src/lib/billing/claimReadCache.ts) (220L):
+  - `ClaimStatus` (6 nilai) + `CLAIM_STATUS_CFG` (icon/bg/text/ring/dot/hint per status)
+  - `ClaimBerkas` + `ClaimInaCbg` + `ClaimRecordRead` (read-only shape 1:1 dengan target `ClaimRecord`)
+  - `MOCK_CLAIMS["INV-009"]` seed: Sutrisno Bagus ICU BPJS, Pending Verifikasi, INA-CBG I-4-10-III dengan selisih rugi 1.4M, 7 berkas (6 ready + 1 RUJUKAN N/A)
+  - `getClaimStatusForInvoice(invoiceId)` — return `null` untuk INV-001 (→ empty state) atau record (→ full UI)
+  - Helpers: `berkasProgress(berkas)` (required-only %) · `inaCbgMargin(cbg)` (selisih + pct + isUntung) · `eklaimDeepLink(claim, invoiceId)` (URL existing vs new)
+- [x] **KlaimStatusTab orchestrator** ✅ — [KlaimStatusTab.tsx](src/components/billing/invoice/tabs/KlaimStatusTab.tsx) (92L):
+  - `useMemo(getClaimStatusForInvoice(detail.id))` — fallback `<KlaimEmptyState />` jika null
+  - Layout vertikal stacked: Row 1 ClaimStatusCard (full) · Row 2 InaCbgPreview (full) · Row 3 grid 2-col SepInfoCard + BerkasChecklistMini · Row 4 DeepLinkCta (full) · Footnote "read-only" disclaimer
+  - Motion fade+y entrance 200ms
+- [x] **InvoiceDetailPage wiring** ✅ — replace `<TabPlaceholder title="Klaim Penjamin">` → `<KlaimStatusTab detail={detail} onOpenEklaim={handleOpenEklaim} />`. Handler `handleSubmitKlaim` di banner sekarang switch tab ke klaim (bukan log). `handleOpenEklaim` stub log (modul `/ehis-eklaim` belum dibangun).
 
-**Effort:** ~0.5 hari (drastis lebih ringan dari BL2.4 versi original). Acceptance: tab klaim load status chip + CBG preview + tombol deep-link berfungsi.
+**File sizes BL2.4:** claimReadCache 220L · KlaimStatusTab 92L · ClaimStatusCard 166L · InaCbgPreview 164L · SepInfoCard 139L · BerkasChecklistMini 157L · DeepLinkCta 83L · KlaimEmptyState 77L. Total ~1098L lintas 8 file, semua jauh di bawah 800 limit. TS clean (`npx tsc --noEmit` exit 0).
+
+**Design decisions:**
+- **Read-only strict** — no edit/submit action di tab ini. Semua mutate ada di modul `/ehis-eklaim`. Footnote di bawah tab eksplisit declare ini.
+- **Empty state CTA lebih kuat dari error message** — bila `claim=null` (mayoritas invoice baru), pre-req list edukatif sebelum CTA, bukan placeholder kosong frustasi.
+- **Pre-req list di empty state** (Invoice Final, Coding ICD, Berkas) — kasir sadar dependency sebelum klik CTA, kurangi back-and-forth dengan tim klaim.
+- **INA-CBG selisih dengan emerald (untung) vs rose (rugi) + persentase** — pesan finansial penting buat manajemen, langsung visible tanpa drill-down ke EKLAIM.
+- **SEP validitas auto-warning 7 hari** — kurangi insiden klaim ditolak gara-gara SEP expired (kasus umum di RS BPJS).
+- **Berkas progress basis required-only** — non-required tidak block 100%; checklist tetap tampil keduanya tapi % bersih dari noise opsional.
+- **DeepLinkCta dengan shine effect + lift hover** — visual cue jelas "ini exit point ke modul lain", bukan tombol biasa.
+- **Stub handler `console.log` saat /ehis-eklaim belum ada** — hindari 404 dev runtime. Wire `router.push(href)` saat EK0 route entry siap (single-line change di `handleOpenEklaim`).
+- **Cache pattern di `claimReadCache.ts`** — schema 1:1 dengan target `ClaimRecord` di EKLAIM. Swap `MOCK_CLAIMS[id]` → `await fetch('/api/eklaim/claim?invoiceId=...')` saat backend ready. Zero refactor UI.
 
 ### BL2.5 Tab 4: Riwayat Audit
 
@@ -693,7 +730,7 @@
 |---|---|---|---|
 | BL0 — Foundation | 4 | 0 | 0% |
 | BL1 — Tagihan Board | 4 | 4 | 100% ✅ |
-| BL2 — Invoice Detail | 6 | 3 | 50% |
+| BL2 — Invoice Detail | 6 | 4 | 67% |
 | BL3 — Pembayaran | 4 | 0 | 0% |
 | ~~BL4~~ — Klaim Penjamin | ~~4~~ | — | → [TODO-EKLAIM.md](TODO-EKLAIM.md) |
 | BL5 — Adjustment | 3 | 0 | 0% |
@@ -701,7 +738,7 @@
 | BL7 — Reports | 4 | 0 | 0% |
 | BL8 — Beranda Billing | 3 | 0 | 0% |
 | BL9 — UX Polish | 4 | 0 | 0% |
-| **Total** | **35** | **7** | **20%** |
+| **Total** | **35** | **8** | **23%** |
 
 **Catatan:** Total turun dari 40 → 35 task (−4 BL4 + −1 BL7.3 yang pindah ke EKLAIM). Effort billing turun ~4-5 minggu → ~3 minggu.
 

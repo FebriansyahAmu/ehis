@@ -8,6 +8,7 @@ import PatientBannerBilling from "./PatientBannerBilling";
 import InvoiceTabs, { type InvoiceTabKey } from "./InvoiceTabs";
 import RincianChargeTab from "./tabs/RincianChargeTab";
 import PembayaranTab from "./tabs/PembayaranTab";
+import KlaimStatusTab from "./tabs/KlaimStatusTab";
 import AddItemModal from "./modals/AddItemModal";
 import DiskonItemModal from "./modals/DiskonItemModal";
 import VoidItemModal from "./modals/VoidItemModal";
@@ -165,13 +166,17 @@ export default function InvoiceDetailPage({ initialDetail }: Props) {
 
   // ── Banner actions (stubs untuk BL2.4-2.6) ──
   const handlePrint        = () => console.log("[BL2.1] Print struk → BL2.6 modal");
-  const handleSubmitKlaim  = () => console.log("[BL2.1] Submit klaim → BL2.4 / BL4");
+  const handleSubmitKlaim  = () => { setActiveTab("klaim"); };
   const handleRefund       = () => { setActiveTab("pembayaran"); };
   const handleApplyDiskInv = () => console.log("[BL2.2] Diskon invoice — modal akan dibuat di follow-up");
   const handleFinalize     = () => {
     setDetail((prev) => ({ ...prev, status: "Final" }));
     console.log("[BL2.2] Finalize invoice");
   };
+  // Deep-link ke modul /ehis-eklaim (belum dibangun). Saat EK0 route ready,
+  // ganti console.log → router.push(href).
+  const handleOpenEklaim   = (href: string) =>
+    console.log("[BL2.4] Open E-Klaim route (belum dibangun):", href);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-50/60 dark:bg-slate-950">
@@ -219,9 +224,9 @@ export default function InvoiceDetailPage({ initialDetail }: Props) {
                 />
               )}
               {activeTab === "klaim" && (
-                <TabPlaceholder
-                  title="Klaim Penjamin"
-                  hint="INA-CBG preview, SEP info, submit klaim batch, status timeline — akan dibangun di BL2.4."
+                <KlaimStatusTab
+                  detail={detail}
+                  onOpenEklaim={handleOpenEklaim}
                 />
               )}
               {activeTab === "riwayat" && (
