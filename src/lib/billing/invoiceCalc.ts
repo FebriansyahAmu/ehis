@@ -48,14 +48,19 @@ export function grandTotal(detail: InvoiceDetail): number {
   return afterInv + ppn + (detail.materai ?? 0);
 }
 
-/** Sisa = grand − dibayar (tidak negatif). */
+/** Sisa = grand − dibayar (tidak negatif). Pakai payments[] jika ada, fallback ke `dibayar` field. */
 export function sisaTagihan(detail: InvoiceDetail): number {
-  return Math.max(0, grandTotal(detail) - detail.dibayar);
+  const paid = detail.payments && detail.payments.length > 0
+    ? detail.payments.reduce((s, p) => (p.voided ? s : s + p.nominal), 0)
+    : detail.dibayar;
+  return Math.max(0, grandTotal(detail) - paid);
 }
 
-/** Saldo deposit (placeholder; akan diisi dari DepositRecord di BL2.3). */
+/** Saldo deposit current — derive dari payments[] (refund sudah self-cancel). Fallback ke `dibayar`. */
 export function saldoDeposit(detail: InvoiceDetail): number {
-  // For now, treat `dibayar` as deposit. Real saldo = sum(deposits where !refund).
+  if (detail.payments && detail.payments.length > 0) {
+    return detail.payments.reduce((s, p) => (p.voided ? s : s + p.nominal), 0);
+  }
   return detail.dibayar;
 }
 

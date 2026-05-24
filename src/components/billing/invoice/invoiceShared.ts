@@ -8,6 +8,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   BedDouble, Stethoscope, FlaskConical, ScanLine, Pill, UserRound, MoreHorizontal,
   CircleDot, FileText, Send, ShieldCheck, CheckCircle2, XCircle, Ban,
+  Banknote, ArrowRightLeft, QrCode, CreditCard, Ticket,
 } from "lucide-react";
 import type {
   UnitFilter, KelasFilter, StatusFilter,
@@ -50,6 +51,29 @@ export interface TimelineEntry {
   detail?: string;          // extra info, e.g. nominal / catatan
 }
 
+// ── Payment types (BL2.3) ──────────────────────────────
+
+export type MetodeBayar = "Tunai" | "Transfer" | "QRIS" | "EDC" | "Voucher";
+
+export type PaymentKategori = "Pembayaran" | "Deposit" | "Refund";
+
+export interface PaymentRecord {
+  id: string;
+  tanggalISO: string;          // YYYY-MM-DDTHH:mm
+  metode: MetodeBayar;
+  nominal: number;             // positif untuk pembayaran/deposit, negatif untuk refund
+  kasir: string;
+  noKwitansi: string;          // KW/YYYY/MM/NNNNN
+  kategori: PaymentKategori;
+  refundOf?: string;           // ID payment yang di-refund
+  catatan?: string;
+  bukti?: string;              // URL/filename (transfer/EDC)
+  bank?: string;               // untuk Transfer
+  noRef?: string;              // untuk EDC/QRIS/Transfer
+  voided?: boolean;
+  voidReason?: string;
+}
+
 export interface InvoiceDetail {
   // ── Header (denormalized dari BillingRecord) ──
   id: string;
@@ -80,7 +104,8 @@ export interface InvoiceDetail {
   ppnPct?: number;          // 0 untuk RS pemerintah
   materai?: number;         // nominal Rp
   // ── Pembayaran ──
-  dibayar: number;
+  dibayar: number;             // derived dari sum(payments) — disimpan untuk fallback header
+  payments: PaymentRecord[];   // BL2.3
   // ── Timeline ──
   timeline: TimelineEntry[];
 }
@@ -177,6 +202,28 @@ export const STATUS_BANNER_CFG: Record<StatusFilter, { label: string; icon: Luci
   "Refund":          { label: "Refund",          icon: CircleDot,     bg: "bg-orange-50",  text: "text-orange-700",  ring: "ring-orange-300" },
   "Void":            { label: "Void",            icon: Ban,           bg: "bg-slate-100",  text: "text-slate-500",   ring: "ring-slate-300" },
 };
+
+// ── Metode bayar (BL2.3) ───────────────────────────────
+
+interface MetodeCfg {
+  label: string;
+  icon: LucideIcon;
+  bg: string;
+  text: string;
+  ring: string;
+  dot: string;
+  hint: string;       // micro-help di form (e.g. "wajib no ref + bank")
+}
+
+export const METODE_CFG: Record<MetodeBayar, MetodeCfg> = {
+  Tunai:    { label: "Tunai",    icon: Banknote,       bg: "bg-emerald-50", text: "text-emerald-700", ring: "ring-emerald-200", dot: "bg-emerald-500", hint: "Langsung diterima kasir"   },
+  Transfer: { label: "Transfer", icon: ArrowRightLeft, bg: "bg-sky-50",     text: "text-sky-700",     ring: "ring-sky-200",     dot: "bg-sky-500",     hint: "Wajib upload bukti + no ref" },
+  QRIS:     { label: "QRIS",     icon: QrCode,         bg: "bg-slate-100",  text: "text-slate-700",   ring: "ring-slate-200",   dot: "bg-slate-500",   hint: "Scan via aplikasi BI-QRIS"   },
+  EDC:      { label: "EDC",      icon: CreditCard,     bg: "bg-amber-50",   text: "text-amber-700",   ring: "ring-amber-200",   dot: "bg-amber-500",   hint: "Wajib no approval + slip"     },
+  Voucher:  { label: "Voucher",  icon: Ticket,         bg: "bg-pink-50",    text: "text-pink-700",    ring: "ring-pink-200",    dot: "bg-pink-500",    hint: "Voucher promo / CSR"          },
+};
+
+export const METODE_ORDER: MetodeBayar[] = ["Tunai", "Transfer", "QRIS", "EDC", "Voucher"];
 
 // ── Format helpers (re-export) ──────────────────────────
 

@@ -13,7 +13,7 @@ export default function InvoiceStatusTimeline({ timeline }: Props) {
   return (
     <ol
       aria-label="Status timeline tagihan"
-      className="flex w-full items-center gap-0 overflow-x-auto"
+      className="flex w-full items-center gap-0 overflow-clip px-2 py-1"
     >
       {timeline.map((entry, i) => {
         const cfg = TIMELINE_STEP_CFG[entry.step];
@@ -44,16 +44,19 @@ export default function InvoiceStatusTimeline({ timeline }: Props) {
                   isCurrent ? "ring-amber-200" : "ring-white dark:ring-slate-950",
                 )}
               >
-                <Icon size={12} />
                 {isCurrent && (
                   <motion.span
                     aria-hidden
-                    initial={{ scale: 1, opacity: 0.55 }}
-                    animate={{ scale: 1.45, opacity: 0 }}
-                    transition={{ duration: 1.4, repeat: Infinity }}
-                    className={cn("absolute inset-0 rounded-full", dotBg)}
+                    initial={{ scale: 1, opacity: 0 }}
+                    animate={{ scale: 1.6, opacity: [0, 0.4, 0] }}
+                    transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut" }}
+                    className={cn(
+                      "pointer-events-none absolute inset-0 rounded-full",
+                      dotBg,
+                    )}
                   />
                 )}
+                <Icon size={12} className="relative z-10" />
               </div>
 
               <div className="flex flex-col leading-tight">

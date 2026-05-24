@@ -6,13 +6,29 @@
 > **Workflow docs:**
 > - [CLAUDE.md](CLAUDE.md) — current state + module map
 > - [TODO.md](TODO.md) — Master phase roadmap (Phase 0–3 ✅)
+> - [TODO-EKLAIM.md](TODO-EKLAIM.md) — **Klaim BPJS & Asuransi roadmap (PISAH modul ke `/ehis-eklaim`)**
 > - [TECH_DEBT.md](TECH_DEBT.md) — tech debt registry
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (Billing depend B0/B1.7/B1.9)
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
 > **Last updated:** 2026-05-24
-> **Status:** 🚧 BL1 ✅ 100% (4/4) + BL2.1+2.2 ✅ — Banner/Timeline + Rincian Charge (group kategori, sticky footer, 3 modal Add/Diskon/Void) navigable dari Board. Next: BL2.3 Pembayaran atau BL0 Foundation (sourceAdapter/hargaResolver).
-> **Target effort:** ~4–5 minggu (frontend full) · paralel dengan backend B0/B1.7/B1.9 dapat dimulai.
+> **Status:** 🚧 BL1 ✅ + BL2.1-2.3 ✅ — Banner/Timeline + Rincian Charge + Pembayaran Tab. **Klaim Penjamin DIPISAH ke modul baru `/ehis-eklaim`** (lihat [TODO-EKLAIM.md](TODO-EKLAIM.md)) karena workflow batch + persona terpisah (Tim Klaim/Coder ≠ Kasir). Next: BL2.4-lite (status chip + deep link) atau BL0 Foundation (sourceAdapter/hargaResolver).
+> **Target effort:** ~3 minggu (frontend full, after split) · paralel dengan backend B0/B1.7/B1.9 dapat dimulai.
+
+> ### 🔀 Scope Split (2026-05-24)
+>
+> Setelah riset workflow klaim BPJS (4 role hand-off, batch monthly submission, reconciliation 1-to-N, integrasi V-Claim/E-Klaim Kemenkes, banding/dispute workflow), modul **Klaim DIPISAH** dari billing:
+>
+> | Tetap di `/ehis-billing` | Pindah ke `/ehis-eklaim` |
+> |---|---|
+> | Tagihan board + Invoice detail | Klaim board (cross-invoice) |
+> | Rincian charge + Pembayaran | Berkas generator + Submission batch |
+> | Refund + Adjustment | INA-CBG Calculator + Grouper |
+> | Kasir shift + Counter | Banding/Dispute workflow |
+> | Cetak struk + Kwitansi | Reconciliation transfer BPJS |
+> | Klaim status **read-only chip** (BL2.4-lite) | Dashboard analytics klaim |
+>
+> **Cross-link**: Invoice detail → tab Klaim → tombol "Buka di E-Klaim" deep link ke `/ehis-eklaim/klaim/[claimId]`. `ClaimRecord` single source di-host di `/ehis-eklaim`, billing read-only cache.
 
 ---
 
@@ -366,32 +382,88 @@
 - **2-pasien mock detail** (BPJS IGD K2 + BPJS ICU) — cover 2 jenis pasien penting (single-day vs multi-day, K2 vs ICU, with/without diskon invoice).
 - **Banner sticky tidak dipilih** untuk page ini — banner cukup kompak; scroll page bawa banner lewat. Tab nav yang menjadi anchor.
 
-### BL2.3 Tab 2: Pembayaran
+### BL2.3 Tab 2: Pembayaran ✅ Selesai (2026-05-24)
 
-- [ ] **Saldo Deposit card** — saldo current + breakdown deposit history.
-- [ ] **Form tambah pembayaran**:
-  - Metode chip (Tunai / Transfer / QRIS / EDC / Voucher)
-  - Nominal input (suggest sisa tagihan as default)
-  - Konfirmasi nominal terbilang (verbal alias guard)
-  - Bukti upload (transfer/EDC)
-  - Kasir auto-set dari session
-  - Submit → buat `DepositRecord` + update `dibayar` di billing
-- [ ] **List pembayaran historis** — tanggal/waktu/metode/nominal/kasir/no kwitansi + action Print Kwitansi / Void (with confirm).
-- [ ] **Refund flow** — tombol "Refund" → modal pilih dari deposit existing → nominal partial OK → buat `DepositRecord` baru dengan `refundOf` + `jumlah negatif`.
+- [x] **Types extend** ✅ — `PaymentRecord`, `MetodeBayar` (5: Tunai/Transfer/QRIS/EDC/Voucher), `PaymentKategori` (Pembayaran/Deposit/Refund), `METODE_CFG` + `METODE_ORDER` di [invoiceShared.ts](src/components/billing/invoice/invoiceShared.ts). Field `payments[]` ditambahkan ke `InvoiceDetail`. `dibayar` jadi field cache untuk fallback header.
+- [x] **Pure helpers** ✅ — [paymentCalc.ts](src/lib/billing/paymentCalc.ts) (101L): `totalDibayar` · `totalPembayaranGross` · `totalRefund` · `totalByMetode` (breakdown shift) · `countByKategori` · `nextNoKwitansi` (auto-gen `KW/YYYY/MM/NNNNN` sequential) · `refundedAmountFor` · `refundableAmount` (sisa yang masih bisa direfund) · `sortPaymentsDesc`. + [terbilang.ts](src/lib/billing/terbilang.ts) (71L): Indonesian number-to-words helper (seratus / seribu / sejuta / sebelas / setriliun handling).
+- [x] **`invoiceCalc.ts` upgrade** ✅ — `saldoDeposit` + `sisaTagihan` sekarang derive dari `payments[]` jika tersedia; fallback ke `detail.dibayar`. Otomatis sync setelah add/refund/void payment.
+- [x] **Mock seed extend** ✅ — INV-001: 1 deposit Tunai Rp 500K. INV-009: 3 payment (Deposit Transfer BCA Rp 1.5M + Pembayaran EDC Mandiri Rp 750K + Refund QRIS Rp 250K dengan `refundOf` linkage) — demonstrate full lifecycle dengan no kwitansi sequential.
+- [x] **PaymentSummaryCard** ✅ — [PaymentSummaryCard.tsx](src/components/billing/invoice/tabs/payment/PaymentSummaryCard.tsx) (120L): 3 KPI card horizontal (Grand Total amber / Sudah Dibayar sky dengan animated progress bar % / Sisa Tagihan emerald-or-rose conditional). Accent stripe vertikal kiri + icon ring 9×9 + value mono bold 16-18px + stagger 50ms.
+- [x] **PaymentForm** ✅ — [PaymentForm.tsx](src/components/billing/invoice/tabs/payment/PaymentForm.tsx) (354L):
+  - Header dengan kasir session badge (mock `Sari (Kasir-1)` — backend session)
+  - **Quick fill chips**: Lunasi Sisa (dengan Sparkles icon) · Setengah · 100rb · 500rb. Auto-disabled jika sisa ≤ 0.
+  - **Metode segmented control 5-chip** dalam container bg-slate-50 dengan ring + bg-color per cfg saat active + hint micro-text di bawah
+  - **Nominal input** large right-aligned mono 16px + live **terbilang preview** Indonesia italic
+  - **Kategori toggle** Pembayaran ↔ Deposit (2-button)
+  - **Conditional fields per metode**: Bank dropdown (BCA/Mandiri/BNI/BRI/BSI/CIMB) + No Referensi animated expand height (motion 180ms) — wajib untuk Transfer/EDC/QRIS
+  - **Bukti upload stub** untuk Transfer/EDC — dashed border + Upload icon
+  - **Catatan textarea** opsional 2 rows
+  - **Validation real-time**: nominal > 0, nominal ≤ sisa (jika Pembayaran), noRef wajib untuk method tertentu, bank wajib untuk Transfer/EDC
+  - **Submit button** full-width amber dengan emerald success state 1.2s setelah submit (justSubmitted flag)
+- [x] **PaymentRow** ✅ — [PaymentRow.tsx](src/components/billing/invoice/tabs/payment/PaymentRow.tsx) (259L):
+  - Grid 4-col: metode icon (9×9 ring) · main col · nominal · kebab
+  - Main col: nama metode + badge Deposit/Refund + no kwitansi mono · meta-line (Clock+tanggal · kasir · bank · noRef) · catatan italic "" jika ada · "Refund dari kwitansi X" link tracker · "Void: reason" italic rose
+  - Nominal: rose-untuk-refund (dengan prefix `−`) · strikethrough untuk voided · slate untuk normal
+  - Voided row: bg-slate-50/60 + opacity-60 + strikethrough nama
+  - **Kebab dropdown** 4-aksi: Cetak Kwitansi · Lihat Detail · divider · Refund Sebagian (hide jika sudah refund/voided) · Void Pembayaran (danger rose, hide jika voided). Outside-click + ESC close. Stop-propagation.
+- [x] **PaymentHistoryList** ✅ — [PaymentHistoryList.tsx](src/components/billing/invoice/tabs/payment/PaymentHistoryList.tsx) (151L):
+  - Header: ikon + label + count badge + total bersih mono di kanan
+  - **Filter chip strip**: Semua / Pembayaran / Deposit / Refund / Voided — count per kategori dari `countByKategori`, empty chips disabled
+  - Sorted desc by tanggalISO via `sortPaymentsDesc`
+  - Map `byId` untuk row lookup "Refund dari kwitansi X"
+  - Empty state: Inbox icon + copy berbeda untuk filter-empty vs initial-empty
+  - Internal scroll (`overflow-y-auto`) — page tidak long-scroll
+- [x] **PembayaranTab orchestrator** ✅ — [PembayaranTab.tsx](src/components/billing/invoice/tabs/PembayaranTab.tsx) (59L): grid `[380px_1fr]` lg-up, sticky-left form (`lg:sticky lg:top-2`) + history flex-1. Stacked vertical pada mobile. Internal scroll wrapper.
+- [x] **RefundModal** ✅ — [RefundModal.tsx](src/components/billing/invoice/modals/RefundModal.tsx) (225L):
+  - Source payment context card (icon + metode + nominal + kwitansi) + grid 2-col stat (Nominal Asli vs Sudah Direfund)
+  - Nominal input + live terbilang
+  - Quick chips: Maks / 50% / 25% dari `refundableAmount`
+  - Metode pengembalian dropdown (4 metode, exclude Voucher)
+  - Alasan textarea min 5 char
+  - Preview banner orange "Refund yang akan dicatat −Rp X"
+  - Validation: nominal > 0, ≤ refundable, alasan ≥ 5 char
+  - Submit danger rose
+- [x] **VoidPaymentModal** ✅ — [VoidPaymentModal.tsx](src/components/billing/invoice/modals/VoidPaymentModal.tsx) (118L):
+  - Warning banner rose (AlertTriangle) — jelaskan konsekuensi + reassure recoverable via Audit (BL2.5)
+  - Payment context dengan nominal strikethrough
+  - Reason textarea autofocus min 5 char
+  - Submit danger rose
+- [x] **InvoiceDetailPage wiring** ✅ — handler `addPayment` (auto-generate noKwitansi via `nextNoKwitansi` + immutable concat), `refundPayment` (buat record baru dengan nominal negatif + `refundOf` + kategori "Refund"), `voidPayment` (mutate voided=true). `dibayar` field di-recompute setiap mutasi untuk sync header. Handler banner "Refund" sekarang switch tab ke pembayaran (bukan log).
+- [x] **InvoiceTabs Pembayaran** ✅ — placeholder TabPlaceholder replaced dengan `<PembayaranTab />`. ModalKey extended jadi `"add" | "diskon" | "void" | "refund" | "void-payment" | null`.
 
-### BL2.4 Tab 3: Klaim Penjamin
+**File sizes BL2.3:** SummaryCard 120L · Form 354L · Row 259L · HistoryList 151L · PembayaranTab 59L · RefundModal 225L · VoidPaymentModal 118L · paymentCalc 101L · terbilang 71L. Total ~1460L lintas 9 file, semua jauh di bawah 800 limit. TS clean (npx tsc --noEmit).
 
-- [ ] **Visible only untuk** penjamin BPJS/Asuransi/Jamkesda (Umum: tab hidden).
-- [ ] **INA-CBG preview** (BPJS) — card dengan:
-  - Diagnosa primer + sekunder (auto dari DiagnosaTab kunjungan)
-  - Tindakan ICD-9 (auto dari TindakanTab + Lab/Rad)
-  - Kelas + LOS
-  - INA-CBG code resolved (via `resolveInaCbg`)
-  - Tarif INA-CBG vs total RS — selisih cover/over highlight
-- [ ] **SEP info card** — noSEP, validitas, kelas dijamin, sisa hari rawat.
-- [ ] **Form Submit Klaim** — pilih klaim batch + tombol "Generate Berkas Klaim" (mock: dummy PDF).
-- [ ] **Status klaim timeline** — Submitted → Pending → Approved/Rejected → Paid (timestamp + actor).
-- [ ] **Form catatan rejection** — jika status Rejected, tampilkan alasan + tombol "Ajukan Banding".
+**Design decisions:**
+- **Form di sticky-left, history di flex-right** — kasir bisa lihat history sambil isi form, tidak perlu scroll bolak-balik.
+- **Quick fill "Lunasi Sisa"** dengan Sparkles icon — UX paling sering kasir mau lunasin penuh, kurangi typing.
+- **Terbilang Indonesia live** — verbal alias guard kebiasaan kasir kerjasama "lima ratus ribu rupiah" — match terbilang dengan nominal.
+- **Conditional fields per metode** (Bank+NoRef untuk Transfer/EDC, NoRef untuk QRIS) — tidak overwhelm dengan field tidak relevan untuk Tunai/Voucher.
+- **Refund sebagai record baru dengan nominal negatif** (bukan mutate origin) — preserve audit trail asli. `refundOf` field track linkage untuk display "Refund dari kwitansi X".
+- **Void = soft delete + tetap visible** dengan filter chip — bisa di-Unvoid di Audit Tab (BL2.5). Bukan hard delete.
+- **No kwitansi sequential auto-generate** — scan max running number lalu +1 (mock); backend BL3 ganti DB sequence per shift.
+- **`refundableAmount` helper** — bisa refund sebagian, lalu refund lagi sampai gross — UI Quick chip "Maks" reflect realtime.
+- **`dibayar` field tetap di-cache di InvoiceDetail** — agar header banner & Rincian Sticky Footer tidak perlu loop payments setiap render. Sync via mutator.
+
+### BL2.4 Tab 3: Klaim Status (read-only — lite)
+
+> **Scope diciutkan.** Form Submit Klaim, INA-CBG Calculator, Berkas Generator, Banding workflow → **pindah ke `/ehis-eklaim`** (lihat [TODO-EKLAIM.md](TODO-EKLAIM.md) fase EK2-EK6). Tab di sini = **read-only info + deep link** untuk cross-modul awareness.
+
+- [ ] **Visible only untuk** penjamin BPJS/Asuransi/Jamkesda (Umum: tab hidden, sudah ada di `InvoiceTabs.tsx`).
+- [ ] **Claim status card** — read-only:
+  - Chip status besar (Belum Submit / Pending Verifikasi / Approved / Rejected / Paid / Banding) dengan icon + tone
+  - Last update timestamp + actor (dari `ClaimRecord.timeline[last]`)
+  - No klaim (jika sudah submit) mono
+- [ ] **INA-CBG resolved preview** (jika sudah ada) — kecil 1-row info:
+  - Kode CBG + nama bundle
+  - Tarif CBG vs Total RS — selisih chip emerald (over)/rose (under)
+  - Catatan "Dihitung di /ehis-eklaim/calculator" — tidak ada tombol kalkulasi di sini
+- [ ] **SEP info read-only** — noSEP (mono), validitas, kelas dijamin (dari `detail.penjamin.noSEP` yang sudah ada)
+- [ ] **Berkas checklist mini** — bar progress kelengkapan berkas (X/Y berkas siap) tanpa form upload
+- [ ] **Deep-link CTA besar** "Buka di E-Klaim →" → `router.push("/ehis-eklaim/klaim/[claimId]")`
+- [ ] **Fallback empty state** jika `claimId === null` (kunjungan belum di-coding): CTA "Mulai Proses Klaim" → deep link `/ehis-eklaim/klaim/new?invoiceId=X`
+- [ ] **Helper** di [src/lib/billing/](src/lib/billing/) — `getClaimStatusForInvoice(invoiceId)` (mock: lookup ke `CLAIM_BOARD_MOCK` di EKLAIM modul, cached read).
+
+**Effort:** ~0.5 hari (drastis lebih ringan dari BL2.4 versi original). Acceptance: tab klaim load status chip + CBG preview + tombol deep-link berfungsi.
 
 ### BL2.5 Tab 4: Riwayat Audit
 
@@ -447,39 +519,18 @@
 
 ---
 
-## Phase BL4 — Klaim BPJS & Asuransi
+## Phase BL4 — ~~Klaim BPJS & Asuransi~~ → PINDAH KE [`/ehis-eklaim`](TODO-EKLAIM.md)
 
-**Route:** `/ehis-billing/klaim` (sub-route) · **Effort:** 4–5 hari
-**Pattern reference:** Lab Register + Rad Register
-
-### BL4.1 Klaim Board
-
-- [ ] **Worklist klaim** mirip Tagihan Board tapi filter:
-  - Penjamin dropdown (BPJS/Asuransi/Jamkesda)
-  - Status: Belum Submit / Submitted / Pending / Approved / Rejected / Paid
-  - Periode klaim (bulan)
-- [ ] **Bulk submit klaim** — pilih multiple → generate berkas klaim batch.
-- [ ] **Filter cepat tab**: "Siap Submit" · "Pending" · "Rejected" (perlu intervensi).
-
-### BL4.2 INA-CBG Calculator
-
-- [ ] **Standalone calculator** modal/page:
-  - Input: ICD-10 primer + sekunder, ICD-9 prosedur, kelas, LOS, jenis kelamin/usia
-  - Output: INA-CBG code + nominal + breakdown grouper
-  - Bandingkan dengan tarif RS aktual → highlight over/under.
-
-### BL4.3 Berkas Klaim Generator (mock)
-
-- [ ] **Generate dummy PDF** berisi: SEP + resume medik + diagnosa + tindakan + tarif INA-CBG + tanda tangan dokter.
-- [ ] **Stub upload** ke "BPJS V-Claim" (mock: success after 1.5s delay).
-
-### BL4.4 Tracking & Recap
-
-- [ ] **Detail klaim view** — status + history + nominal disetujui vs diajukan + alasan rejection.
-- [ ] **Ajukan banding** form — tambah catatan + dokumen pendukung.
-- [ ] **Recap bulanan** — total klaim per penjamin × bulan, approval rate, average days to paid.
-
-**Acceptance BL4:** submit klaim demo, status berubah ke Submitted, INA-CBG resolved benar untuk 10 sample kasus.
+> **Seluruh fase BL4 dipindah** ke modul baru `/ehis-eklaim` per keputusan arsitektur 2026-05-24.
+>
+> **Alasan:** workflow klaim adalah batch cross-invoice (puluhan/ratusan tagihan per submit), persona berbeda (Tim Klaim/Coder ≠ Kasir), integrasi V-Claim/E-Klaim Kemenkes berat, butuh dashboard analytics dedicated (approval rate · aging · INA-CBG margin), reconciliation 1-to-N transfer BPJS kompleks.
+>
+> **Roadmap baru:** [TODO-EKLAIM.md](TODO-EKLAIM.md) fase EK0-EK9 (~3-4 minggu effort).
+> - EK1 Beranda E-Klaim · EK2 Klaim Board · EK3 Klaim Detail (6 tab)
+> - EK4 INA-CBG Calculator · EK5 Berkas Generator · EK6 Banding
+> - EK7 Reconciliation · EK8 Dashboard Analytics · EK9 Polish
+>
+> **Yang tetap di billing:** BL2.4-lite (read-only status chip + deep link cross-modul).
 
 ---
 
@@ -557,10 +608,9 @@
 - [ ] **Aging piutang report** — bucket 0-30/31-60/61-90/>90 hari per penjamin.
 - [ ] **Top 10 outstanding** — daftar pasien dengan sisa terbesar.
 
-### BL7.3 Klaim BPJS
+### ~~BL7.3 Klaim BPJS~~ → PINDAH KE [`/ehis-eklaim`](TODO-EKLAIM.md) EK8 Dashboard Analytics
 
-- [ ] **Recap klaim bulanan** — total submit/approved/rejected/paid + average days to paid.
-- [ ] **INA-CBG margin analysis** — selisih tarif RS vs INA-CBG per group (over/under).
+> Recap klaim + INA-CBG margin analysis menjadi tanggung jawab modul E-Klaim (EK8), bukan reporting billing. Billing tetap punya report Pendapatan/Outstanding/Aging/Pendapatan Dokter.
 
 ### BL7.4 Pendapatan Dokter (Jasa Pelayanan)
 
@@ -643,15 +693,17 @@
 |---|---|---|---|
 | BL0 — Foundation | 4 | 0 | 0% |
 | BL1 — Tagihan Board | 4 | 4 | 100% ✅ |
-| BL2 — Invoice Detail | 6 | 2 | 33% |
+| BL2 — Invoice Detail | 6 | 3 | 50% |
 | BL3 — Pembayaran | 4 | 0 | 0% |
-| BL4 — Klaim Penjamin | 4 | 0 | 0% |
+| ~~BL4~~ — Klaim Penjamin | ~~4~~ | — | → [TODO-EKLAIM.md](TODO-EKLAIM.md) |
 | BL5 — Adjustment | 3 | 0 | 0% |
 | BL6 — Integrasi Lintas Modul | 3 | 0 | 0% |
-| BL7 — Reports | 5 | 0 | 0% |
+| BL7 — Reports | 4 | 0 | 0% |
 | BL8 — Beranda Billing | 3 | 0 | 0% |
 | BL9 — UX Polish | 4 | 0 | 0% |
-| **Total** | **40** | **6** | **15%** |
+| **Total** | **35** | **7** | **20%** |
+
+**Catatan:** Total turun dari 40 → 35 task (−4 BL4 + −1 BL7.3 yang pindah ke EKLAIM). Effort billing turun ~4-5 minggu → ~3 minggu.
 
 ---
 
@@ -676,24 +728,26 @@
 src/lib/billing/
 ├── hargaResolver.ts        # getHargaTindakan via TarifMap
 ├── hargaObat.ts            # getHargaObat via FormulariumMap
-├── inaCbgResolver.ts       # INA-CBG lookup (mock → backend)
 ├── invoiceCalc.ts          # pure subTotal/grandTotal/ppn helpers
+├── paymentCalc.ts          # totalDibayar/refundable/nextNoKwitansi ✅
+├── terbilang.ts            # number-to-words Indonesia ✅
 ├── sourceAdapter.ts        # chargeFromOrder/Resep/Tindakan/Akomodasi
 ├── billingStore.ts         # client store draft + transactions
-├── billingMock.ts          # BILLING_BOARD_MOCK, KLAIM_BOARD_MOCK, KASIR_SHIFT_MOCK
-└── inaCbgMock.ts           # INA_CBG_LOOKUP_MOCK
+├── billingMock.ts          # BILLING_BOARD_MOCK, KASIR_SHIFT_MOCK
+└── claimReadCache.ts       # read-only cache klaim status untuk Tab BL2.4-lite
+
+# (inaCbgResolver, KLAIM_BOARD_MOCK, INA_CBG_LOOKUP_MOCK) → pindah ke src/lib/eklaim/
 
 src/app/ehis-billing/
 ├── page.tsx                # Beranda (BL8)
 ├── tagihan/
-│   ├── page.tsx            # Tagihan Board (BL1)
-│   └── [id]/page.tsx       # Invoice Detail (BL2)
+│   ├── page.tsx            # Tagihan Board (BL1) ✅
+│   └── [id]/page.tsx       # Invoice Detail (BL2) ✅
 ├── pembayaran/page.tsx     # Counter Dashboard (BL3)
-├── klaim/
-│   ├── page.tsx            # Klaim Board (BL4.1)
-│   └── [id]/page.tsx       # Klaim Detail (BL4.4)
 ├── adjustment/page.tsx     # Adjustment workflow (BL5)
 └── report/page.tsx         # Reports (BL7) — atau push ke /ehis-report
+
+# /ehis-billing/klaim/ → pindah ke /ehis-eklaim (lihat TODO-EKLAIM.md)
 
 src/components/billing/
 ├── beranda/                # BL8
@@ -710,46 +764,53 @@ src/components/billing/
 │   ├── TagihanRow.tsx
 │   └── tagihanShared.ts
 ├── invoice/                # BL2
-│   ├── InvoiceDetailPage.tsx
-│   ├── PatientBannerBilling.tsx
+│   ├── InvoiceDetailPage.tsx          ✅
+│   ├── PatientBannerBilling.tsx       ✅
+│   ├── InvoiceStatusTimeline.tsx      ✅
+│   ├── InvoiceTabs.tsx                ✅
+│   ├── invoiceShared.ts               ✅
+│   ├── invoiceMock.ts                 ✅
 │   ├── tabs/
-│   │   ├── RincianChargeTab.tsx
-│   │   ├── PembayaranTab.tsx
-│   │   ├── KlaimTab.tsx
-│   │   └── RiwayatAuditTab.tsx
-│   ├── modals/
-│   │   ├── AddItemModal.tsx
-│   │   ├── DiskonItemModal.tsx
-│   │   ├── VoidItemModal.tsx
-│   │   ├── PembayaranModal.tsx
-│   │   ├── RefundModal.tsx
-│   │   ├── InvoicePrintModal.tsx
-│   │   └── KwitansiPrintModal.tsx
-│   └── invoiceShared.ts
+│   │   ├── RincianChargeTab.tsx       ✅ (BL2.2)
+│   │   ├── ChargeCategorySection.tsx  ✅
+│   │   ├── ChargeRow.tsx              ✅
+│   │   ├── ChargeStickyFooter.tsx     ✅
+│   │   ├── PembayaranTab.tsx          ✅ (BL2.3)
+│   │   ├── payment/                   ✅
+│   │   │   ├── PaymentSummaryCard.tsx
+│   │   │   ├── PaymentForm.tsx
+│   │   │   ├── PaymentHistoryList.tsx
+│   │   │   └── PaymentRow.tsx
+│   │   ├── KlaimStatusTab.tsx         # BL2.4-lite (read-only + deep link)
+│   │   └── RiwayatAuditTab.tsx        # BL2.5
+│   └── modals/
+│       ├── AddItemModal.tsx           ✅
+│       ├── DiskonItemModal.tsx        ✅
+│       ├── VoidItemModal.tsx          ✅
+│       ├── RefundModal.tsx            ✅
+│       ├── VoidPaymentModal.tsx       ✅
+│       ├── InvoicePrintModal.tsx      # BL2.6
+│       └── KwitansiPrintModal.tsx     # BL2.6
 ├── kasir/                  # BL3
 │   ├── KasirCounterPage.tsx
 │   ├── BukaShiftModal.tsx
 │   ├── TutupShiftModal.tsx
 │   ├── QuickSearchPayment.tsx
 │   └── LaporanKasShiftModal.tsx
-├── klaim/                  # BL4
-│   ├── KlaimBoardPage.tsx
-│   ├── KlaimDetailPage.tsx
-│   ├── InaCbgCalculator.tsx
-│   └── BerkasKlaimGenerator.tsx
 ├── adjustment/             # BL5
 │   ├── AdjustmentApprovalPanel.tsx
 │   └── WriteOffForm.tsx
-├── reports/                # BL7
+├── reports/                # BL7 (4 task — KlaimRecap pindah ke EKLAIM)
 │   ├── PendapatanDashboard.tsx
 │   ├── AgingReport.tsx
-│   ├── KlaimRecap.tsx
 │   └── JasaPelayananDokter.tsx
 └── shared/
     ├── ChargeSourceBadge.tsx
     ├── StatusTagihanChip.tsx
     ├── CoverageChip.tsx
     └── PenjaminBadge.tsx
+
+# src/components/billing/klaim/ → pindah ke src/components/eklaim/ (lihat TODO-EKLAIM.md)
 ```
 
 **File limit ≤800 lines** — split ke sub-components jika lebih besar.

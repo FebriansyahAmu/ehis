@@ -7,17 +7,24 @@ import { useSkeletonDelay } from "@/components/master/shared";
 import PatientBannerBilling from "./PatientBannerBilling";
 import InvoiceTabs, { type InvoiceTabKey } from "./InvoiceTabs";
 import RincianChargeTab from "./tabs/RincianChargeTab";
+import PembayaranTab from "./tabs/PembayaranTab";
 import AddItemModal from "./modals/AddItemModal";
 import DiskonItemModal from "./modals/DiskonItemModal";
 import VoidItemModal from "./modals/VoidItemModal";
-import type { InvoiceDetail, ChargeItem, KategoriCharge } from "./invoiceShared";
+import RefundModal from "./modals/RefundModal";
+import VoidPaymentModal from "./modals/VoidPaymentModal";
+import type {
+  InvoiceDetail, ChargeItem, KategoriCharge, PaymentRecord, MetodeBayar,
+} from "./invoiceShared";
 import type { ChargeAction } from "./tabs/ChargeRow";
+import type { PaymentRowAction } from "./tabs/payment/PaymentRow";
+import { nextNoKwitansi } from "@/lib/billing/paymentCalc";
 
 interface Props {
   initialDetail: InvoiceDetail;
 }
 
-type ModalKey = "add" | "diskon" | "void" | null;
+type ModalKey = "add" | "diskon" | "void" | "refund" | "void-payment" | null;
 
 export default function InvoiceDetailPage({ initialDetail }: Props) {
   const ready = useSkeletonDelay(400);
@@ -28,6 +35,7 @@ export default function InvoiceDetailPage({ initialDetail }: Props) {
   const [modal, setModal] = useState<ModalKey>(null);
   const [targetItem, setTargetItem] = useState<ChargeItem | null>(null);
   const [addKategori, setAddKategori] = useState<KategoriCharge>("Lain-lain");
+  const [targetPayment, setTargetPayment] = useState<PaymentRecord | null>(null);
 
   const activeItemCount = useMemo(
     () => detail.items.filter((i) => !i.voided).length,
@@ -92,10 +100,73 @@ export default function InvoiceDetailPage({ initialDetail }: Props) {
     setModal("add");
   };
 
-  // ── Banner actions (stubs untuk BL2.3-2.6) ──
+  // ── Payment mutations (BL2.3) ──
+
+  const addPayment = (payload: Omit<PaymentRecord, "id" | "noKwitansi">) => {
+    setDetail((prev) => {
+      const noKwitansi = nextNoKwitansi(prev.payments);
+      const newPayment: PaymentRecord = {
+        ...payload,
+        id: `pay-${Date.now()}`,
+        noKwitansi,
+      };
+      const nextPayments = [...prev.payments, newPayment];
+      const nextDibayar = nextPayments.reduce((s, p) => (p.voided ? s : s + p.nominal), 0);
+      console.log("[BL2.3] Add payment:", newPayment);
+      return { ...prev, payments: nextPayments, dibayar: nextDibayar };
+    });
+  };
+
+  const refundPayment = (
+    paymentId: string,
+    nominal: number,
+    metode: MetodeBayar,
+    alasan: string,
+  ) => {
+    setDetail((prev) => {
+      const noKwitansi = nextNoKwitansi(prev.payments);
+      const refund: PaymentRecord = {
+        id: `pay-${Date.now()}`,
+        tanggalISO: new Date().toISOString().slice(0, 16),
+        metode,
+        nominal: -Math.abs(nominal),
+        kasir: "Sari (Kasir-1)", // mock — backend ambil dari session
+        noKwitansi,
+        kategori: "Refund",
+        refundOf: paymentId,
+        catatan: alasan,
+      };
+      const nextPayments = [...prev.payments, refund];
+      const nextDibayar = nextPayments.reduce((s, p) => (p.voided ? s : s + p.nominal), 0);
+      console.log("[BL2.3] Refund:", refund);
+      return { ...prev, payments: nextPayments, dibayar: nextDibayar };
+    });
+  };
+
+  const voidPayment = (paymentId: string, reason: string) => {
+    setDetail((prev) => {
+      const nextPayments = prev.payments.map((p) =>
+        p.id === paymentId ? { ...p, voided: true, voidReason: reason } : p,
+      );
+      const nextDibayar = nextPayments.reduce((s, p) => (p.voided ? s : s + p.nominal), 0);
+      console.log("[BL2.3] Void payment:", { paymentId, reason });
+      return { ...prev, payments: nextPayments, dibayar: nextDibayar };
+    });
+  };
+
+  const handlePaymentAction = (action: PaymentRowAction, payment: PaymentRecord) => {
+    setTargetPayment(payment);
+    if (action === "refund") setModal("refund");
+    else if (action === "void") setModal("void-payment");
+    else if (action === "print") {
+      console.log("[BL2.3] Print kwitansi → BL2.6 modal", payment.noKwitansi);
+    }
+  };
+
+  // ── Banner actions (stubs untuk BL2.4-2.6) ──
   const handlePrint        = () => console.log("[BL2.1] Print struk → BL2.6 modal");
   const handleSubmitKlaim  = () => console.log("[BL2.1] Submit klaim → BL2.4 / BL4");
-  const handleRefund       = () => console.log("[BL2.1] Refund → BL2.3 modal");
+  const handleRefund       = () => { setActiveTab("pembayaran"); };
   const handleApplyDiskInv = () => console.log("[BL2.2] Diskon invoice — modal akan dibuat di follow-up");
   const handleFinalize     = () => {
     setDetail((prev) => ({ ...prev, status: "Final" }));
@@ -141,9 +212,10 @@ export default function InvoiceDetailPage({ initialDetail }: Props) {
                 />
               )}
               {activeTab === "pembayaran" && (
-                <TabPlaceholder
-                  title="Pembayaran"
-                  hint="Form deposit, riwayat pembayaran, refund — akan dibangun di BL2.3."
+                <PembayaranTab
+                  detail={detail}
+                  onAddPayment={addPayment}
+                  onRowAction={handlePaymentAction}
                 />
               )}
               {activeTab === "klaim" && (
@@ -181,6 +253,19 @@ export default function InvoiceDetailPage({ initialDetail }: Props) {
         item={targetItem}
         onClose={() => setModal(null)}
         onVoid={voidItem}
+      />
+      <RefundModal
+        open={modal === "refund"}
+        payment={targetPayment}
+        allPayments={detail.payments}
+        onClose={() => setModal(null)}
+        onRefund={refundPayment}
+      />
+      <VoidPaymentModal
+        open={modal === "void-payment"}
+        payment={targetPayment}
+        onClose={() => setModal(null)}
+        onVoid={voidPayment}
       />
     </div>
   );
