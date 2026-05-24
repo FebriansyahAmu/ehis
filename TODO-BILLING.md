@@ -12,7 +12,7 @@
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
 > **Last updated:** 2026-05-24
-> **Status:** ✅ BL1 + BL2 selesai 100% — Tagihan Board + Invoice Detail (Banner/Timeline + 4 tab Rincian/Pembayaran/Klaim-lite/Riwayat Audit + Print Preview InvoiceSheet+KwitansiSheet dengan KOP RS A4/A5). **Klaim Penjamin (workflow penuh) DIPISAH ke modul baru `/ehis-eklaim`** (lihat [TODO-EKLAIM.md](TODO-EKLAIM.md)). Next: BL3 Pembayaran Counter (kasir shift + quick search) atau BL0 Foundation (sourceAdapter/hargaResolver) atau BL6 Charge Ingestion (wire klinis → billing).
+> **Status:** ✅ BL1 + BL2 selesai 100% · 🚧 BL3.1 Counter Dashboard ✅ — Tagihan Board + Invoice Detail (4 tab + Print Preview) + Kasir Counter Dashboard (ActiveShiftCard + ShiftKPIStrip + MethodBreakdown + RecentShifts + Buka/Tutup Shift modal dengan selisih calc). **Klaim Penjamin (workflow penuh) DIPISAH ke modul baru `/ehis-eklaim`** (lihat [TODO-EKLAIM.md](TODO-EKLAIM.md)). Next: BL3.2 Quick Search Pembayaran · BL3.3 Deposit Awal Admisi · BL3.4 Laporan Tutup Kas · atau BL0 Foundation/BL6 Charge Ingestion.
 > **Target effort:** ~3 minggu (frontend full, after split) · paralel dengan backend B0/B1.7/B1.9 dapat dimulai.
 
 > ### 🔀 Scope Split (2026-05-24)
@@ -630,11 +630,67 @@
 **Route:** `/ehis-billing/pembayaran` · **Effort:** 3–4 hari
 **Pattern reference:** Lab/Rad worklist + form modal
 
-### BL3.1 Counter Dashboard
+### BL3.1 Counter Dashboard ✅ Selesai (2026-05-24)
 
-- [ ] **Header strip** Kasir Shift Card — counter name · kasir name · jam buka · total transaksi hari ini · saldo current.
-- [ ] **Form Buka Shift** modal — pilih counter + saldo awal kas → buat `KasirShift` Open.
-- [ ] **Form Tutup Shift** modal — input saldo akhir kas → calc selisih + breakdown per metode bayar → close shift + cetak laporan.
+- [x] **Active Shift Card (Header strip + Body)** ✅ — [ActiveShiftCard.tsx](src/components/billing/kasir/ActiveShiftCard.tsx) (206L):
+  - **Header strip**: counter chip (icon + bg/text/ring per COUNTER_TONE) + counter nama + status pill "Sedang Berjalan" emerald dengan pulse dot · kasir nama + lokasi (MapPin) · jam buka mono + chip durasi emerald (formatDuration HH:MM live) · button "Tutup Shift" rose
+  - **Body grid 4-col stat** (mobile 2-col): Saldo Awal · Total Tunai (emerald) · Total Non-Tunai (sky) · **Saldo Cash Current** (amber + ring inset highlight — "yang seharusnya di laci"). Setiap cell dengan icon + label uppercase + value mono bold + hint kecil.
+  - **Footer**: count transaksi mono + refund inline (jika >0 rose) + total semua metode + shift ID mono kanan
+- [x] **EmptyShiftState** ✅ — [EmptyShiftState.tsx](src/components/billing/kasir/EmptyShiftState.tsx) (72L): hero card amber dashed + LockOpen icon spring entrance + pre-req list 3-item ("Pilih counter tidak occupied · catat saldo fisik · catatan serah-terima") + AlertCircle warning "tanpa shift Open form pembayaran disabled" + CTA "Buka Shift Baru" amber primary.
+- [x] **Form Buka Shift modal** ✅ — [BukaShiftModal.tsx](src/components/billing/kasir/modals/BukaShiftModal.tsx) (219L):
+  - **Counter pilih visual** grid 2-col card-style (4 counter): icon + nama + lokasi · active (tone) / occupied (slate strikethrough disabled) / available · auto-block dengan `isCounterOccupied(counter, shifts)`
+  - **Kasir dropdown** dari `KASIR_LIST` (4 kasir mock) + Lokasi field auto-fill dari counter terpilih
+  - **Saldo Awal input** numeric + placeholder "500000" + font mono tabular
+  - **Catatan serah-terima** opsional 2-row
+  - **Konfirmasi card** amber yang preview "Sari Wulandari akan membuka shift di Kasir Utama dengan saldo Rp 500.000"
+  - Validation: counter not-occupied · kasir wajib · saldo ≥0
+- [x] **Form Tutup Shift modal** ✅ — [TutupShiftModal.tsx](src/components/billing/kasir/modals/TutupShiftModal.tsx) (303L):
+  - **Shift context card** (icon + counter nama + kasir + jam buka + durasi + shift ID mono)
+  - **Breakdown auto** sesi ini (5 metode bayar — disable opacity untuk yang 0) dengan total semua mono bold di bawah
+  - **Stat reference grid 2-col**: Saldo Awal · Total Tunai (emerald) · Refund (rose, conditional) · Non-Tunai (sky, conditional)
+  - **Saldo Cash Expected** card amber bold 18px (auto-compute via `expectedCashOnHand`: bukaSaldo + tunai − refund)
+  - **Saldo Akhir input** numeric autofocus (default pre-fill = expected)
+  - **Selisih live card** dengan 3 tone palette: **Balance** emerald (CheckCircle2) · **Surplus** sky (TrendingUp) · **Minus — Audit Required** rose (AlertTriangle) — formula `tutupSaldoAkhir − expectedCash`
+  - **Catatan textarea** dengan label dinamis: WAJIB jika selisih ≠ 0 (min 5 char validation, placeholder hint berbeda per surplus/minus/balance)
+  - Submit button "Tutup Shift (Balance)" atau "Tutup Shift dengan Selisih" (danger rose) — button danger jika selisih ≠ 0
+- [x] **ShiftKPIStrip** ✅ — [ShiftKPIStrip.tsx](src/components/billing/kasir/ShiftKPIStrip.tsx) (129L): 4 KPI card vertical (di right column) atau 2-col mobile — Total Transaksi Hari Ini (amber) · Pemasukan Tunai (emerald) · Pemasukan Non-Tunai (sky) · Refund Hari Ini (rose, muted opacity 50 jika 0). Accent stripe gradient kiri + icon ring + value mono bold + hint. Aggregate lintas semua shift hari ini via `aggregateHariIni()`.
+- [x] **ShiftMethodBreakdown** ✅ — [ShiftMethodBreakdown.tsx](src/components/billing/kasir/ShiftMethodBreakdown.tsx) (149L):
+  - **Header**: PieChart icon + title + subtitle + total mono kanan
+  - **Stacked horizontal bar** 5-segment (Tunai/Transfer/QRIS/EDC/Voucher) dengan animated width % via framer (durasi 500ms) — pakai `METODE_CFG.dot` warna
+  - **Rows per metode** grid 4-col (icon · label+hint · nominal mono · pct mono kanan) — empty metode opacity 50
+- [x] **RecentShiftsTable** ✅ — [RecentShiftsTable.tsx](src/components/billing/kasir/RecentShiftsTable.tsx) (184L):
+  - Header: History icon + count "X shift selesai · sort terbaru dulu"
+  - Tabel 6-kolom: Counter (icon ring + nama + ID mono kecil) · Kasir · Buka → Tutup (date+jam mono + durasi chip) · Total (nominal mono + count trx) · **Selisih chip** (Balance emerald CheckCircle2 / Surplus sky TrendingUp / Minus rose TrendingDown) · Supervisor + status pill
+  - Sorted DESC by bukaAt via `recentClosedShifts(shifts, 8)`
+  - Empty state "Belum ada shift selesai"
+- [x] **OtherCountersStrip** (info-only, BL3.1 bonus) ✅ — di kanan column: list counter Open milik kasir lain (4 mock data) dengan emerald "Open" pulse pill — kasir aware counter lain juga sedang aktif.
+- [x] **KasirHero** ✅ — [KasirHero.tsx](src/components/billing/kasir/KasirHero.tsx) (74L): eyebrow chip Wallet amber + h1 "Pembayaran & Counter Kasir" + desc + timestamp pill + CTA dinamis (Buka Shift Baru amber jika no Open, Tutup Shift rose jika ada Open).
+- [x] **kasirShared.ts** ✅ — [kasirShared.ts](src/components/billing/kasir/kasirShared.ts) (56L): `COUNTER_TONE` (4 counter: amber/teal/sky/rose dengan Building/BedDouble/Stethoscope/Siren icons) · `SHIFT_STATUS_CFG` (Open/Closed dengan LockOpen/Lock) · re-export helper functions dari kasirShiftMock.
+- [x] **Data layer kasirShiftMock.ts** ✅ — [kasirShiftMock.ts](src/lib/billing/kasirShiftMock.ts) (334L):
+  - Types: `CounterId` (4 counter) · `ShiftStatus` (Open/Closed) · `ShiftMetodeBreakdown` (5 metode) · `KasirShift` (id/counter/kasirNama/status/bukaAt/bukaSaldoAwal/totalByMetode/totalTransaksi/totalRefund/tutupAt?/tutupSaldoAkhir?/selisih?/supervisor?/catatan)
+  - Mock: `COUNTER_LIST` (4) + `KASIR_LIST` (4) + `KASIR_SHIFT_MOCK` (6 shift: 2 Open hari ini Sari/Bambang + 4 Closed beberapa hari terakhir cover balance/minus/surplus)
+  - Helpers: `totalShiftAll` · `totalShiftNonTunai` · `expectedCashOnHand` (formula: bukaSaldo + Tunai − Refund) · `computeSelisih(shift, saldoAkhir)` · `formatDuration(bukaAt, sampai?)` · `formatJam` · `formatTanggalShort` · `getOpenShift(shifts, kasirNama?)` · `isCounterOccupied(counter)` · `recentClosedShifts(limit=10)` · `aggregateHariIni(date?)` (return totalTransaksi/tunai/nonTunai/refund/all/countersAktif)
+- [x] **KasirCounterPage orchestrator** ✅ — [KasirCounterPage.tsx](src/components/billing/kasir/KasirCounterPage.tsx) (249L):
+  - `useSkeletonDelay(500)` + AnimatePresence fade + SkeletonShell 2-col placeholder
+  - State: `shifts` (mutable list KasirShift) · `modal` ("buka" | "tutup" | null) · `activeShift` (useMemo `getOpenShift(shifts, SESSION_KASIR)`)
+  - Layout 2-col `[2fr_1fr]` lg-up: Left = ActiveShiftCard atau EmptyShiftState + ShiftMethodBreakdown + RecentShiftsTable · Right = ShiftKPIStrip + OtherCountersStrip
+  - Handlers: `handleOpenShift(input)` (immutable concat newShift dengan id timestamp) · `handleCloseShift(input)` (immutable map mutate shift jadi Closed dengan tutupAt/tutupSaldoAkhir/selisih/supervisor auto-fill)
+  - Mock session: anggap user = "Sari Wulandari" (kasir-1 default active)
+- [x] **Route entry** ✅ — [app/ehis-billing/pembayaran/page.tsx](src/app/ehis-billing/pembayaran/page.tsx) thin import (8L) dengan metadata title.
+
+**File sizes BL3.1:** kasirShiftMock 334L · kasirShared 56L · KasirHero 74L · ActiveShiftCard 206L · EmptyShiftState 72L · KasirCounterPage 249L · RecentShiftsTable 184L · ShiftKPIStrip 129L · ShiftMethodBreakdown 149L · BukaShiftModal 219L · TutupShiftModal 303L · route 8L. Total ~1983L lintas 12 file, semua jauh di bawah 800 limit. TS clean (`npx tsc --noEmit` exit 0).
+
+**Design decisions:**
+- **Active vs Empty state** sebagai 2 mode primer di left column — kasir langsung paham state "boleh bayar / belum boleh". Bukan banner warning di atas form (yang biasanya hilang dari peripheral vision saat scroll).
+- **Saldo Cash Current** dengan highlight ring amber inset — fokus visual #1, ini angka paling penting saat shift berjalan ("berapa kas yang harus ada di laci saat ini").
+- **Counter occupied auto-detect** di BukaShiftModal — disable card visual + strikethrough, ketimbang error message setelah submit. Hindari kasir frustrasi.
+- **Selisih live di TutupShiftModal** dengan 3 tone palette (Balance / Surplus / Minus) — instan feedback sebelum submit, kasir bisa coba ulang hitung kalau ada miss.
+- **Catatan WAJIB jika selisih ≠ 0** (min 5 char) — gating audit, semua surplus/minus harus dijustifikasi.
+- **OtherCountersStrip** awareness lintas counter — kasir tahu siapa lagi yang lagi shift (saat ada coordination call, mau swap, dll). Live data dari same `shifts[]` state.
+- **expectedCashOnHand** asumsi semua refund tunai (worst case) — backend bisa track refund per-metode untuk akurasi. Mock disclaimer di TutupShiftModal "Refund (asumsi cash)".
+- **handleCloseShift auto-fill supervisor** mock — backend ganti dengan approval workflow (button "Minta Approval" yang trigger notifikasi supervisor).
+- **2 shift Open di mock** (Sari + Bambang) — demonstrate scenario realistic, biasanya RS punya 2-4 counter buka simultan.
+- **Mock cover 3 selisih cases**: balance (24/05 Sari + Yanti) · minus (Rian Rp -50K) · surplus (Bambang Rp +35K) — sebagai demo audit chip variation di RecentShiftsTable.
 
 ### BL3.2 Quick Search Pembayaran
 
@@ -832,14 +888,14 @@
 | BL0 — Foundation | 4 | 0 | 0% |
 | BL1 — Tagihan Board | 4 | 4 | 100% ✅ |
 | BL2 — Invoice Detail | 6 | 6 | 100% ✅ |
-| BL3 — Pembayaran | 4 | 0 | 0% |
+| BL3 — Pembayaran | 4 | 1 | 25% |
 | ~~BL4~~ — Klaim Penjamin | ~~4~~ | — | → [TODO-EKLAIM.md](TODO-EKLAIM.md) |
 | BL5 — Adjustment | 3 | 0 | 0% |
 | BL6 — Integrasi Lintas Modul | 3 | 0 | 0% |
 | BL7 — Reports | 4 | 0 | 0% |
 | BL8 — Beranda Billing | 3 | 0 | 0% |
 | BL9 — UX Polish | 4 | 0 | 0% |
-| **Total** | **35** | **10** | **29%** |
+| **Total** | **35** | **11** | **31%** |
 
 **Catatan:** Total turun dari 40 → 35 task (−4 BL4 + −1 BL7.3 yang pindah ke EKLAIM). Effort billing turun ~4-5 minggu → ~3 minggu.
 
