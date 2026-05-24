@@ -6,6 +6,8 @@
 import { TAGIHAN_BOARD_MOCK, type TagihanRow, sisa } from "@/lib/billing/tagihanBoardMock";
 import type { TagihanFilterState, QuickTab } from "./tagihanShared";
 
+export type QuickTabCounts = Record<QuickTab, number>;
+
 // ── Sort ───────────────────────────────────────────────
 
 export type SortKey =
@@ -29,27 +31,37 @@ export function applyFilters(
   items: TagihanRow[],
   filters: TagihanFilterState,
 ): TagihanRow[] {
+  return items.filter((row) =>
+    passesCoreFilters(row, filters) && matchesQuickTab(row, filters.quickTab),
+  );
+}
+
+/** Apply semua filter KECUALI quickTab — dipakai untuk hitung count per tab
+ *  (so counts mereflect "kalau klik tab ini, dapat berapa baris"). */
+export function applyFiltersExceptQuickTab(
+  items: TagihanRow[],
+  filters: TagihanFilterState,
+): TagihanRow[] {
+  return items.filter((row) => passesCoreFilters(row, filters));
+}
+
+function passesCoreFilters(row: TagihanRow, filters: TagihanFilterState): boolean {
   const q = filters.search.trim().toLowerCase();
+  if (q) {
+    const hay = `${row.noTagihan} ${row.pasien.nama} ${row.pasien.noRM} ${row.noKunjungan}`.toLowerCase();
+    if (!hay.includes(q)) return false;
+  }
   const fromTs = new Date(filters.periodeFrom + "T00:00:00").getTime();
   const toTs   = new Date(filters.periodeTo   + "T23:59:59").getTime();
+  const rowTs = new Date(row.tanggalISO).getTime();
+  if (rowTs < fromTs || rowTs > toTs) return false;
 
-  return items.filter((row) => {
-    if (q) {
-      const hay = `${row.noTagihan} ${row.pasien.nama} ${row.pasien.noRM} ${row.noKunjungan}`.toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    const rowTs = new Date(row.tanggalISO).getTime();
-    if (rowTs < fromTs || rowTs > toTs) return false;
+  if (filters.units.length && !filters.units.includes(row.unit)) return false;
+  if (filters.kelas.length && !filters.kelas.includes(row.kelas)) return false;
+  if (filters.penjamin !== "all" && row.penjamin.tipe !== filters.penjamin) return false;
+  if (filters.status.length && !filters.status.includes(row.status)) return false;
 
-    if (filters.units.length && !filters.units.includes(row.unit)) return false;
-    if (filters.kelas.length && !filters.kelas.includes(row.kelas)) return false;
-    if (filters.penjamin !== "all" && row.penjamin.tipe !== filters.penjamin) return false;
-    if (filters.status.length && !filters.status.includes(row.status)) return false;
-
-    if (!matchesQuickTab(row, filters.quickTab)) return false;
-
-    return true;
-  });
+  return true;
 }
 
 function matchesQuickTab(row: TagihanRow, tab: QuickTab): boolean {
@@ -60,6 +72,21 @@ function matchesQuickTab(row: TagihanRow, tab: QuickTab): boolean {
     case "klaim-pending": return row.status === "Proses Klaim";
     case "hari-ini":      return isToday(row.tanggalISO);
   }
+}
+
+/** Hitung jumlah row per QuickTab setelah filter lain di-apply. */
+export function computeQuickTabCounts(
+  items: TagihanRow[],
+  filters: TagihanFilterState,
+): QuickTabCounts {
+  const base = applyFiltersExceptQuickTab(items, filters);
+  return {
+    "semua":         base.length,
+    "draft":         base.filter((r) => r.status === "Draft").length,
+    "belum-lunas":   base.filter((r) => r.status === "Belum Lunas" || r.status === "Lunas Sebagian").length,
+    "klaim-pending": base.filter((r) => r.status === "Proses Klaim").length,
+    "hari-ini":      base.filter((r) => isToday(r.tanggalISO)).length,
+  };
 }
 
 function isToday(iso: string): boolean {
@@ -120,6 +147,43 @@ export function formatTanggalFull(iso: string): string {
   return d.toLocaleDateString("id-ID", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }) +
     " · " +
     `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+// ── Export CSV (BL1.3) ─────────────────────────────────
+
+/** Generate CSV (Excel-compatible) dari rows + trigger download di browser.
+ *  Stub untuk BL1.3 "Export Excel"; xlsx-lib bisa di-swap nanti tanpa ubah caller. */
+export function exportTagihanCsv(
+  rows: TagihanRow[],
+  filename = `tagihan-${new Date().toISOString().slice(0, 10)}.csv`,
+): void {
+  if (typeof window === "undefined") return;
+  const header = [
+    "No Tagihan", "Tanggal", "No Kunjungan", "No RM", "Pasien", "Gender", "Usia",
+    "Unit", "Kelas", "Penjamin", "DPJP", "Total", "Dibayar", "Sisa", "Status",
+  ];
+  const lines = rows.map((r) => [
+    r.noTagihan, r.tanggalISO, r.noKunjungan, r.pasien.noRM, r.pasien.nama,
+    r.pasien.gender, r.pasien.age, r.unit, r.kelas, r.penjamin.nama, r.dpjp,
+    r.total, r.dibayar, sisa(r), r.status,
+  ].map(csvCell).join(","));
+  const csv = [header.join(","), ...lines].join("\r\n");
+  // BOM agar Excel kenali UTF-8 (Rupiah / unicode aman)
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function csvCell(v: unknown): string {
+  const s = v == null ? "" : String(v);
+  // Quote jika ada koma / quote / newline
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 // ── Re-export untuk konsumen ───────────────────────────

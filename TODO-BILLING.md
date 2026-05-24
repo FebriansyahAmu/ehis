@@ -11,7 +11,7 @@
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
 > **Last updated:** 2026-05-24
-> **Status:** 🔧 Scaffold-only — `page.tsx` placeholder amber, nav `/tagihan` + `/pembayaran` ter-declare belum ada implementasi.
+> **Status:** 🚧 BL1 ✅ 100% (4/4) + BL2.1+2.2 ✅ — Banner/Timeline + Rincian Charge (group kategori, sticky footer, 3 modal Add/Diskon/Void) navigable dari Board. Next: BL2.3 Pembayaran atau BL0 Foundation (sourceAdapter/hargaResolver).
 > **Target effort:** ~4–5 minggu (frontend full) · paralel dengan backend B0/B1.7/B1.9 dapat dimulai.
 
 ---
@@ -222,19 +222,44 @@
 - **Kebab dengan disabledIf rule** mencerminkan business logic (no print untuk Draft, no refund tanpa pembayaran) — guard kesalahan kasir.
 - **Penjamin tone selaras** dengan `PENJAMIN_TIPE_CFG` di master penjamin → konsistensi cross-modul saat Tagihan Board ↔ Master.
 
-### BL1.3 Bulk actions
+### BL1.3 Bulk actions ✅ Selesai (2026-05-24)
 
-- [ ] **Selection checkbox** per-row + header checkbox indeterminate.
-- [ ] **Bulk action bar** muncul saat selected >0:
-  - "Print Batch" (multi struk PDF)
-  - "Submit Klaim" (untuk yang status `Final` + penjamin BPJS/Asuransi)
-  - "Export Excel" (xlsx download)
+- [x] **Selection checkbox** ✅ — header indeterminate + per-row (sudah ada dari BL1.2, tetap berlaku).
+- [x] **Bulk action bar** dipisah ke component [TagihanBulkBar.tsx](src/components/billing/tagihan/parts/TagihanBulkBar.tsx) (~140L) — slide-down animasi via framer `motion.div` (opacity + y-4 → 0, 180ms easeOut). Conditional render saat `selected.size > 0`, tidak meninggalkan layout-shift.
+- [x] **3 aksi + eligibility rules** ✅:
+  - **Print Batch** — eligibility: `status !== "Draft" && status !== "Void"` (Draft belum punya konten dicetak; Void = soft-deleted)
+  - **Export Excel** — selalu eligible (semua row bisa diexport ke CSV) → wire ke `exportTagihanCsv` di logic file → trigger browser download `.csv` dengan BOM UTF-8 (Excel-compatible), nama file otomatis `tagihan-YYYY-MM-DD.csv`
+  - **Submit Klaim** — eligibility: `penjamin.tipe !== "umum" && status ∈ {Final, Belum Lunas, Lunas Sebagian, Klaim Ditolak}` — Umum tidak butuh klaim, status final/rejected boleh resubmit
+- [x] **Eligibility badge** ✅ — saat partial eligibility (mis. selected 5 row tapi cuma 3 yang valid untuk klaim) muncul mini badge mono "3/5" di tombol — UX feedback transparent berapa yang akan diproses tanpa bikin user kaget.
+- [x] **Disabled state** ✅ — tombol disabled + opacity-50 + cursor-not-allowed + tooltip hint per rule ("Pilih minimal 1 tagihan penjamin BPJS/Asuransi/Jamkesda dengan status Final / Belum Lunas / Klaim Ditolak").
+- [x] **Summary inline** ✅ — count "N tagihan dipilih" dengan badge bulat + sub-info Total/Sisa (mono, sisa rose/emerald sesuai 0-or-positif), hide pada mobile (`hidden sm:inline`) untuk hemat ruang.
+- [x] **Batal pilihan icon-only** ✅ — ganti tombol text "Batal" → IconButton `X` 7×7 di paling kanan, lebih compact + selaras pattern dismiss.
+- [x] **Handler stub di TagihanTable** ✅ — `handlePrintBatch`/`handleSubmitKlaim` log ke console (real wiring di BL2.6 print modal + BL4.1 klaim batch); `handleExportExcel` real-execute via `exportTagihanCsv`.
 
-### BL1.4 Quick views
+### BL1.4 Quick views ✅ Selesai (2026-05-24)
 
-- [ ] **Tab pre-filter** di atas tabel: "Semua" · "Draft" · "Belum Lunas" · "Klaim Pending" · "Hari Ini" — masing-masing dengan count.
+- [x] **Tab pre-filter** ✅ — sudah ada dari BL1.1 di [TagihanWorkspaceShell.tsx](src/components/billing/tagihan/TagihanWorkspaceShell.tsx), 5 tab: Semua · Draft · Belum Lunas · Klaim Pending · Hari Ini.
+- [x] **Count dinamis (after-filter aware)** ✅ — sebelumnya hardcoded di `QUICK_TABS.count` — sekarang dihitung real-time via `computeQuickTabCounts(TAGIHAN_BOARD_MOCK, filters)` di [tagihanBoardLogic.ts](src/components/billing/tagihan/tagihanBoardLogic.ts). Memo dep: semua filter field kecuali `quickTab` dan `density`. Count mereflect "jika klik tab ini, dapat berapa row" — UX honest, bukan global counter.
+- [x] **`applyFiltersExceptQuickTab` helper** ✅ — refactor `applyFilters` extract `passesCoreFilters` shared, hindari duplikasi logic search/periode/unit/kelas/penjamin/status.
+- [x] **Empty-state visual untuk count=0** ✅ — tab dengan count 0 (filter kombinasi tidak match): opacity-55 + badge muted dengan ring slate-100 + tooltip "Tidak ada tagihan 'X' pada filter saat ini". Tab masih clickable (user bisa lihat empty state table).
+- [x] **`QUICK_TABS` data shape cleanup** ✅ — hapus field `count` hardcoded, sisakan `{ value, label }` only — count sekarang single-source-of-truth dari computed function.
+- [x] **Quick tab rule (logic)** ✅ — sudah ada di `matchesQuickTab`:
+  - **Semua**: pass-through
+  - **Draft**: `status === "Draft"`
+  - **Belum Lunas**: `status === "Belum Lunas" || status === "Lunas Sebagian"` (gabung partial)
+  - **Klaim Pending**: `status === "Proses Klaim"`
+  - **Hari Ini**: `tanggalISO.startsWith(today)`
 
-**Acceptance BL1:** worklist tampil 20+ tagihan demo lintas status/penjamin/unit, filter & search responsive, klik row → buka detail di route nested.
+**File sizes BL1.3 + BL1.4:** BulkBar baru 140L · Logic +60L (counts + applyFiltersExceptQuickTab + exportTagihanCsv) · WorkspaceShell +20L (memo + isEmpty styling) · Table -25L (inline BulkBar removed). Total tetap jauh di bawah 800 limit per-file. TS clean.
+
+**Design decisions:**
+- **Eligibility rules built-in** (bukan post-confirmation) — kurangi cognitive load kasir, langsung "apa yang valid untuk action ini".
+- **Partial-count badge "3/5"** lebih jujur dari sekadar disabled / full-execute — user tahu persis berapa yang akan terproses.
+- **CSV (bukan XLSX) sebagai stub Export Excel** — XLSX butuh lib eksternal (`xlsx` ~400KB), CSV native browser + BOM UTF-8 sudah dibuka Excel dengan benar (Rupiah/unicode aman). Swap ke `xlsx` lib di BL9 jika user request format native.
+- **Count dinamis after-filter** lebih informatif dari count global — kalau user sudah filter `unit: IGD`, count tab "Draft" harus mereflect "berapa Draft di IGD" (bukan total semua Draft).
+- **count=0 tab tidak dinonaktifkan** (tetap clickable) — agar user bisa lihat empty state friendly dengan CTA reset, lebih intuitif dari tombol mati.
+
+**Acceptance BL1 ✅:** worklist tampil 25 tagihan demo lintas 6 unit × 4 tipe penjamin × 7 kelas × 10 status, filter & search real-time, sort 3-state per-kolom, bulk select dengan 3 aksi (Print/Export/Submit Klaim) + eligibility rules + disabled tooltip, quick-tab dengan count after-filter aware, click row → log handler ready untuk BL2 wiring.
 
 ---
 
@@ -243,34 +268,103 @@
 **Route:** `/ehis-billing/tagihan/[id]` · **Effort:** 5–6 hari · **Konsumen:** Kasir, Admin Billing
 **Pattern reference:** Farmasi OrderDetail 5-tab + Pasien Pulang RI
 
-### BL2.1 Header pasien (banner)
+### BL2.1 Header pasien (banner) ✅ Selesai (2026-05-24)
 
-- [ ] **`PatientBannerBilling`** — identitas pasien + ✓ verified · Penjamin/Kelas/SEP chip · Tanggal kunjungan · Unit · DPJP · Status tagihan (chip besar) · Quick actions kanan (Print / Submit Klaim / Refund).
-- [ ] **Status timeline** mini horizontal: Draft → Final → Lunas/Klaim (dengan timestamp + actor).
+- [x] **`PatientBannerBilling`** ✅ — [PatientBannerBilling.tsx](src/components/billing/invoice/PatientBannerBilling.tsx) (205L):
+  - Breadcrumb "← Tagihan Board" + noTagihan mono di kanan
+  - Avatar bulat dengan gradien amber-100→amber-200, initial 2-letter dari nama
+  - Identity row: nama bold + `BadgeCheck` verified chip emerald + gender/usia/noRM mono
+  - Chips strip: Unit (via UNIT_CFG cross-modul) + Kelas + Penjamin nama + SEP (`ShieldCheck` icon sky)
+  - Meta line: tanggal long format · DPJP · noKunjungan mono
+  - Status chip besar di kanan dengan spring entrance + STATUS_BANNER_CFG (10 status mapped)
+  - Quick actions: **Print Struk** (always) · **Submit Klaim** (hide if Umum) · **Refund** (hide if dibayar=0) — primary Submit Klaim amber
+- [x] **Status timeline mini horizontal** ✅ — [InvoiceStatusTimeline.tsx](src/components/billing/invoice/InvoiceStatusTimeline.tsx) (110L):
+  - 4-step: Draft → Final → Klaim → Selesai (label dinamis per status)
+  - Dot 6×6 dengan icon, animated stagger (0.06s delay per step, spring stiffness 380)
+  - Connector line: gray default, animated emerald sweep saat next step done (scaleX 0→1, 400ms)
+  - Current step: animated ripple pulse `motion.span` 1.4s loop
+  - Tiap step: label semibold + timestamp+actor compact `id-ID` format, atau italic hint detail
+  - Horizontal-scroll friendly (`overflow-x-auto`)
 
-### BL2.2 Tab 1: Rincian Charge
+### BL2.2 Tab 1: Rincian Charge ✅ Selesai (2026-05-24)
 
-- [ ] **Group by kategori** dengan collapsible section (Akomodasi · Tindakan · Lab · Rad · Obat & BMHP · Jasa Dokter · Lain-lain). Setiap section: subtotal kategori + count items.
-- [ ] **Row item** menampilkan:
-  - Tanggal (compact)
-  - Nama item (link ke source — orderId/resepId)
-  - Source modul badge (sm chip)
-  - Qty × satuan
-  - Harga satuan
-  - Subtotal
-  - Coverage chip (Penjamin: emerald / Pasien: amber / Mixed: split)
-  - Action kebab: Edit Diskon · Void · Detail Source
-- [ ] **Auto-pull dari `sourceAdapter`** — saat tab dibuka, scan kunjungan terkait:
-  - Lab/Rad orders dengan status `Selesai` → pull via `chargeFromOrder`
-  - Resep dengan status farmasi `Selesai` → pull via `chargeFromResep`
-  - Tindakan dari `TindakanTab` (IGD/RI/RJ) → pull via `chargeFromTindakan`
-  - Akomodasi RI per-hari (mulai admisi sampai discharge / hari ini)
-  - Jasa dokter IGD/Visite RI/Konsultasi RJ
-- [ ] **Auto-resolve harga** — pakai `getHargaTindakan` / `getHargaObat` sesuai penjamin + kelas pasien.
-- [ ] **Manual add item** — dropdown dari `TARIF_MOCK` + custom item (free-form, requires alasan).
-- [ ] **Diskon per-item modal** — input nominal/persen + alasan + minta approval (jika nominal > threshold).
-- [ ] **Void item modal** — alasan wajib + cetak audit log.
-- [ ] **Sticky footer** — Subtotal, Diskon, PPN, Materai, Grand Total, Saldo Deposit, Sisa Tagihan. Animated.
+- [x] **Group by kategori (7 kategori)** ✅ — [ChargeCategorySection.tsx](src/components/billing/invoice/tabs/ChargeCategorySection.tsx) (157L):
+  - Collapsible section dengan AnimatePresence (height 0↔auto, 180ms easeOut)
+  - Header: chevron rotate, ikon kategori dalam ring (per KATEGORI_CFG: teal/sky/amber/pink/emerald/rose/slate), label + count + subtotal mono kanan
+  - Default open: Akomodasi · Tindakan · Lab (3 paling sering dibutuhkan); lainnya collapsed
+  - Voided items: badge "N void" di header + toggle Eye/EyeOff "Tampilkan/Sembunyikan voided" di footer section
+  - Empty kategori auto-skip (tidak render section kosong)
+- [x] **Row item full kolom** ✅ — [ChargeRow.tsx](src/components/billing/invoice/tabs/ChargeRow.tsx) (223L) 8 kolom:
+  - **Tgl** (mono `id-ID` short)
+  - **Item** (semibold + `ExternalLink` ikon kecil → open source · "Voided: reason" italic rose · "Diskon -Rp X · alasan" italic emerald jika ada)
+  - **Source** (badge per SOURCE_BADGE_TONE 8 modul)
+  - **Qty + satuan** (tabular-nums)
+  - **Harga satuan** (mono)
+  - **Subtotal** (mono bold — voided: strikethrough; diskon: stacked gross strikethrough atas + net bold bawah)
+  - **Coverage** (chip COVERAGE_CFG 3-tipe: Penjamin emerald / Pasien amber / Mixed sky)
+  - **Aksi** (kebab `MoreVertical` 7×7 → dropdown: Apply Diskon · Detail Source · divider · Void Item rose; jika voided: hanya Pulihkan)
+  - Kebab: outside-click + ESC close, `e.stopPropagation()` hindari row-click
+- [x] **Sticky footer totals** ✅ — [ChargeStickyFooter.tsx](src/components/billing/invoice/tabs/ChargeStickyFooter.tsx) (147L):
+  - Breakdown row atas: Subtotal Items · Diskon Item · Diskon Invoice · PPN · Materai (conditional render, hidden jika 0)
+  - Main totals row: **Grand Total** amber + **Saldo Deposit** sky + **Sisa Tagihan** (emerald jika Lunas, rose jika belum) — 3 totals dengan icon-ring + label uppercase + value besar mono bold
+  - Actions kanan: **Diskon Invoice** outline + **Finalize** primary (hanya tampil saat status=Draft)
+  - Sticky `bottom-0 z-10` dengan `backdrop-blur-md` dalam scroll container — tidak menutupi konten
+  - Animasi mount: slide-up 20px + fade (250ms easeOut)
+- [x] **Coverage breakdown banner** ✅ — di atas list section (di RincianChargeTab):
+  - Stacked bar 3-segment (emerald Penjamin / sky Mixed / amber Pasien) dengan width % proporsional
+  - Legend 3-col dengan dot + label + nominal + persen
+  - Hide Mixed legend jika 0 — clean layout
+- [x] **Modal: Tambah Item** ✅ — [AddItemModal.tsx](src/components/billing/invoice/modals/AddItemModal.tsx) (314L, termasuk shared modal pieces):
+  - Form: Kategori (select) · Nama · Qty + Satuan (2-col) · Harga + Coverage (2-col) · Alasan (textarea)
+  - Validation: nama wajib, qty/harga > 0, alasan wajib jika kategori "Lain-lain" (audit trail)
+  - Live preview subtotal mono amber besar
+  - Export `ModalShell` + `Field` + `ModalFooter` + `inputCn` + `selectCn` untuk reuse oleh modal lain
+  - Inputs pakai text-slate-800 (dark text per preferensi), focus ring amber
+- [x] **Modal: Apply Diskon** ✅ — [DiskonItemModal.tsx](src/components/billing/invoice/modals/DiskonItemModal.tsx) (193L):
+  - Item context card menampilkan nama + qty×harga + subtotal
+  - Mode toggle Rupiah ↔ Persen (segmented control bg-slate-100)
+  - Validation: > 0, nominal ≤ gross, persen ≤ 100, alasan wajib
+  - Preview grid 3-col: Gross / Diskon (emerald) / Net (amber bold besar)
+- [x] **Modal: Void Item** ✅ — [VoidItemModal.tsx](src/components/billing/invoice/modals/VoidItemModal.tsx) (104L):
+  - Warning banner rose dengan AlertTriangle ikon — explain konsekuensi + reassure recoverable
+  - Item context dengan subtotal strikethrough rose
+  - Reason textarea min 5 char (audit trail) + autofocus
+  - Primary button danger rose
+- [x] **State lifting + handlers di orchestrator** ✅ — [InvoiceDetailPage.tsx](src/components/billing/invoice/InvoiceDetailPage.tsx) (236L):
+  - `addItem` / `applyDiskon` / `voidItem` / `unvoidItem` mutate detail state setState immutable
+  - Modal state `modal: "add" | "diskon" | "void" | null` + `targetItem` + `addKategori`
+  - `handleItemAction` dispatcher dari kebab → modal mana yang dibuka
+  - `useSkeletonDelay(400)` + AnimatePresence fade
+- [x] **`InvoiceTabs` nav 4-tab** ✅ — [InvoiceTabs.tsx](src/components/billing/invoice/InvoiceTabs.tsx) (82L):
+  - 4 tab: Rincian (itemCount badge) · Pembayaran · Klaim (hide untuk Umum) · Riwayat
+  - Active tab: ring-1, underline `motion.layoutId` antar tab, icon ikut warna
+  - Tab Pembayaran/Klaim/Riwayat tampil `TabPlaceholder` dengan ikon Construction + hint ke BL2.3/2.4/2.5
+- [x] **Pure calc helpers** ✅ — [src/lib/billing/invoiceCalc.ts](src/lib/billing/invoiceCalc.ts) (97L):
+  - `rowSubtotal` / `rowGross` / `totalGross` / `totalDiskonItem` / `netAfterItemDiskon`
+  - `ppnAmount` / `grandTotal` / `sisaTagihan` / `saldoDeposit`
+  - `groupByKategori` (return KategoriSummary[] dengan voidedCount, ordered, skip empty)
+  - `coverageBreakdown` (Penjamin/Pasien/Mixed nominal aggregation)
+  - Pure functions, zero React state — testable
+- [x] **Mock detail seed** ✅ — [invoiceMock.ts](src/components/billing/invoice/invoiceMock.ts) (231L):
+  - **INV-001** Joko Prasetyo IGD BPJS K2: 14 items lintas 6 kategori, 1 item coverage Pasien (obat non-formularium), dibayar 500K dari grand 1.78jt + materai
+  - **INV-009** Sutrisno Bagus ICU BPJS Non-PBI: 14 items lintas 6 kategori, 1 item diskon (Meropenem selisih kelas), diskon invoice 250K (kebijaksanaan direktur), dibayar 2jt
+  - Schema 1:1 dengan target backend `Charge`/`Invoice` — swap query saja saat siap
+- [x] **Navigation wiring** ✅ — `TagihanTable.handleOpenDetail` + kebab action `detail` `router.push("/ehis-billing/tagihan/[id]")`. Route entry [app/ehis-billing/tagihan/[id]/page.tsx](src/app/ehis-billing/tagihan/[id]/page.tsx) — async params (Next 16) + `notFound()` jika id tidak match.
+- [ ] **Auto-pull dari `sourceAdapter` (BL6 dependency)** — saat tab dibuka, scan kunjungan terkait Lab/Rad/Farmasi/Tindakan/Akomodasi. **Sekarang masih manual mock seed** karena `sourceAdapter.ts` (BL0.3) belum dibangun. Pengganti: items diisi langsung di `invoiceMock.ts`, schema sudah siap `sourceRef` per item.
+- [ ] **Auto-resolve harga (BL0 dependency)** — `getHargaTindakan`/`getHargaObat` belum ada. Sekarang harga hardcoded di mock — saat BL0.3 helpers ready, mock akan update untuk panggil resolver.
+
+**File sizes BL2.1+2.2:** Shared 183L · Mock 231L · Calc 97L · Banner 205L · Timeline 110L · Tabs nav 82L · DetailPage 236L · RincianTab 178L · CategorySection 157L · Row 223L · StickyFooter 147L · AddModal 314L · DiskonModal 193L · VoidModal 104L · Route 12L. Total ~2470L lintas 15 file, semua jauh di bawah 800 limit. TS clean.
+
+**Design decisions:**
+- **State di-lift ke InvoiceDetailPage** (bukan Zustand/Context) — scope masih 1 page, useState cukup. Saat BL6 charge ingestion via WebSocket, akan migrate ke `billingStore`.
+- **Modal pakai ModalShell shared component** dari AddItemModal — DRY: Field/ModalFooter/inputCn/selectCn juga di-export reuse oleh Diskon+Void modal. 3 modal jadi consistent (tombol Batal/Confirm, validasi error, escape close).
+- **Coverage breakdown banner** sebagai infotainment di atas — bantu kasir/admin lihat distribusi tanpa buka tab Klaim.
+- **Sticky footer dengan backdrop-blur** — totals selalu visible, scroll items panjang tidak loose context grand total.
+- **Diskon per-item dengan mode toggle Rp/% + live preview** — UX dipermudah; angka diskon ter-clamp ke gross/100% otomatis.
+- **Void = soft delete + toggle Tampilkan** — recoverable, audit-friendly. Bukan hard remove.
+- **Manual add item alasan wajib kalau "Lain-lain"** — gating untuk audit (kategori known tidak butuh alasan; lain-lain harus dijustifikasi).
+- **2-pasien mock detail** (BPJS IGD K2 + BPJS ICU) — cover 2 jenis pasien penting (single-day vs multi-day, K2 vs ICU, with/without diskon invoice).
+- **Banner sticky tidak dipilih** untuk page ini — banner cukup kompak; scroll page bawa banner lewat. Tab nav yang menjadi anchor.
 
 ### BL2.3 Tab 2: Pembayaran
 
@@ -548,8 +642,8 @@
 | Phase | Tasks | Done | % |
 |---|---|---|---|
 | BL0 — Foundation | 4 | 0 | 0% |
-| BL1 — Tagihan Board | 4 | 2 | 50% |
-| BL2 — Invoice Detail | 6 | 0 | 0% |
+| BL1 — Tagihan Board | 4 | 4 | 100% ✅ |
+| BL2 — Invoice Detail | 6 | 2 | 33% |
 | BL3 — Pembayaran | 4 | 0 | 0% |
 | BL4 — Klaim Penjamin | 4 | 0 | 0% |
 | BL5 — Adjustment | 3 | 0 | 0% |
@@ -557,7 +651,7 @@
 | BL7 — Reports | 5 | 0 | 0% |
 | BL8 — Beranda Billing | 3 | 0 | 0% |
 | BL9 — UX Polish | 4 | 0 | 0% |
-| **Total** | **40** | **2** | **5%** |
+| **Total** | **40** | **6** | **15%** |
 
 ---
 

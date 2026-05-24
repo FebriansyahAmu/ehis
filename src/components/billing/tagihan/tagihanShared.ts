@@ -146,12 +146,13 @@ export const PERIODE_PRESETS: { value: PeriodePreset; label: string }[] = [
   { value: "custom",    label: "Kustom"     },
 ];
 
-export const QUICK_TABS: { value: QuickTab; label: string; count?: number }[] = [
-  { value: "semua",         label: "Semua",         count: 47 },
-  { value: "draft",         label: "Draft",         count: 8  },
-  { value: "belum-lunas",   label: "Belum Lunas",   count: 12 },
-  { value: "klaim-pending", label: "Klaim Pending", count: 9  },
-  { value: "hari-ini",      label: "Hari Ini",      count: 18 },
+/** Quick-tab definitions — count dihitung dinamis di workspace (computeQuickTabCounts). */
+export const QUICK_TABS: { value: QuickTab; label: string }[] = [
+  { value: "semua",         label: "Semua"         },
+  { value: "draft",         label: "Draft"         },
+  { value: "belum-lunas",   label: "Belum Lunas"   },
+  { value: "klaim-pending", label: "Klaim Pending" },
+  { value: "hari-ini",      label: "Hari Ini"      },
 ];
 
 // ── KPI Mock (placeholder until BL0 mock seed ready) ────

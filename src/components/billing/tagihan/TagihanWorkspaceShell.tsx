@@ -1,8 +1,10 @@
 "use client";
 
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Rows3, Rows2, AlignJustify } from "lucide-react";
 import { QUICK_TABS, type TagihanFilterState, type QuickTab, type Density } from "./tagihanShared";
+import { computeQuickTabCounts, TAGIHAN_BOARD_MOCK } from "./tagihanBoardLogic";
 import TagihanTable from "./parts/TagihanTable";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +16,17 @@ interface Props {
 }
 
 export default function TagihanWorkspaceShell({ filters, onQuickTab, onDensity, onResetFilters }: Props) {
+  // BL1.4 — count per quick tab dihitung dinamis setelah filter lain di-apply.
+  // Memo dependency: semua field filter selain `quickTab` dan `density`.
+  const quickTabCounts = useMemo(
+    () => computeQuickTabCounts(TAGIHAN_BOARD_MOCK, filters),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      filters.search, filters.periodeFrom, filters.periodeTo,
+      filters.units, filters.kelas, filters.penjamin, filters.status,
+    ],
+  );
+
   return (
     <section
       aria-label="Workspace Tagihan"
@@ -28,7 +41,7 @@ export default function TagihanWorkspaceShell({ filters, onQuickTab, onDensity, 
               active={filters.quickTab === t.value}
               onClick={() => onQuickTab(t.value)}
               label={t.label}
-              count={t.count}
+              count={quickTabCounts[t.value]}
             />
           ))}
         </nav>
@@ -54,26 +67,31 @@ function QuickTabBtn({
   label: string;
   count?: number;
 }) {
+  const isEmpty = typeof count === "number" && count === 0;
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
+      title={isEmpty ? `Tidak ada tagihan "${label}" pada filter saat ini` : undefined}
       className={cn(
         "group relative inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12.5px] font-medium transition-all duration-200",
         active
           ? "bg-amber-50 text-amber-800 ring-1 ring-amber-200"
           : "text-slate-600 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-slate-900",
+        !active && isEmpty && "opacity-55",
       )}
     >
       <span>{label}</span>
       {typeof count === "number" && (
         <span
           className={cn(
-            "rounded-full px-1.5 py-0.5 font-mono text-[10px] font-semibold transition-colors",
+            "rounded-full px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums transition-colors",
             active
               ? "bg-amber-200/70 text-amber-800"
-              : "bg-slate-100 text-slate-500 group-hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400",
+              : isEmpty
+                ? "bg-slate-50 text-slate-400 ring-1 ring-slate-100 dark:bg-slate-900 dark:text-slate-600 dark:ring-slate-800"
+                : "bg-slate-100 text-slate-500 group-hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400",
           )}
         >
           {count}

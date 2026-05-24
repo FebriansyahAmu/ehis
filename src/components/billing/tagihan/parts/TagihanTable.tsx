@@ -1,17 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronUp, ChevronDown, ChevronsUpDown, Printer, Send } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtRupiah } from "../tagihanShared";
 import type { TagihanFilterState, Density } from "../tagihanShared";
 import {
   applyFilters, applySort, cycleSort, sisa,
-  TAGIHAN_BOARD_MOCK,
+  TAGIHAN_BOARD_MOCK, exportTagihanCsv,
   type SortKey, type SortState, type TagihanRow as TagihanRowData,
 } from "../tagihanBoardLogic";
 import TagihanRow from "./TagihanRow";
 import TagihanEmptyState from "./TagihanEmptyState";
+import TagihanBulkBar from "./TagihanBulkBar";
 import type { ActionKey } from "./TagihanRowActions";
 
 interface Props {
@@ -42,6 +44,7 @@ const COLUMNS: Column[] = [
 ];
 
 export default function TagihanTable({ filters, onResetFilters }: Props) {
+  const router = useRouter();
   const [sort, setSort] = useState<SortState>({ key: "tanggal", dir: "desc" });
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -70,11 +73,25 @@ export default function TagihanTable({ filters, onResetFilters }: Props) {
 
   const handleSort = (key: SortKey) => setSort((prev) => cycleSort(prev, key));
   const handleOpenDetail = (row: TagihanRowData) => {
-    // BL2 belum dibangun — log untuk demo
-    console.log("[BL1.2] Open detail (BL2):", row.noTagihan);
+    router.push(`/ehis-billing/tagihan/${row.id}`);
   };
   const handleAction = (action: ActionKey, row: TagihanRowData) => {
+    if (action === "detail") {
+      router.push(`/ehis-billing/tagihan/${row.id}`);
+      return;
+    }
     console.log("[BL1.2] Action:", action, row.noTagihan);
+  };
+
+  // ── Bulk actions (BL1.3) ──
+  const handlePrintBatch = (rows: TagihanRowData[]) => {
+    console.log("[BL1.3] Print Batch:", rows.map((r) => r.noTagihan));
+  };
+  const handleSubmitKlaim = (rows: TagihanRowData[]) => {
+    console.log("[BL1.3] Submit Klaim:", rows.map((r) => r.noTagihan));
+  };
+  const handleExportExcel = (rows: TagihanRowData[]) => {
+    exportTagihanCsv(rows);
   };
 
   const hasActiveFilters =
@@ -85,43 +102,21 @@ export default function TagihanTable({ filters, onResetFilters }: Props) {
     filters.status.length > 0 ||
     filters.quickTab !== "semua";
 
-  const selCount = selected.size;
   const selRows = useMemo(
     () => sorted.filter((r) => selected.has(r.id)),
     [sorted, selected],
   );
-  const selTotal = selRows.reduce((sum, r) => sum + r.total, 0);
-  const selSisa  = selRows.reduce((sum, r) => sum + sisa(r), 0);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Bulk-action bar (conditional) */}
-      {selCount > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 bg-amber-50/70 px-4 py-2 dark:border-amber-900/50 dark:bg-amber-950/30">
-          <div className="flex items-center gap-3 text-[12px]">
-            <span className="font-semibold text-amber-800 dark:text-amber-300">
-              {selCount} tagihan dipilih
-            </span>
-            <span className="hidden text-slate-500 sm:inline dark:text-slate-400">
-              · Total: <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">{fmtRupiah(selTotal)}</span>
-            </span>
-            <span className="hidden text-slate-500 sm:inline dark:text-slate-400">
-              · Sisa: <span className="font-mono font-semibold text-rose-600">{fmtRupiah(selSisa)}</span>
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <BulkBtn icon={Printer} label="Print Batch" />
-            <BulkBtn icon={Send} label="Submit Klaim" primary />
-            <button
-              type="button"
-              onClick={() => setSelected(new Set())}
-              className="rounded-md px-2 py-1 text-[11.5px] font-medium text-slate-500 hover:bg-white hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-            >
-              Batal
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Bulk-action bar (BL1.3) — conditional, animated */}
+      <TagihanBulkBar
+        selectedRows={selRows}
+        onClear={() => setSelected(new Set())}
+        onPrintBatch={handlePrintBatch}
+        onSubmitKlaim={handleSubmitKlaim}
+        onExportExcel={handleExportExcel}
+      />
 
       {/* Table area (internal scroll) */}
       <div className="min-h-0 flex-1 overflow-auto">
@@ -234,29 +229,6 @@ function Th({
         col.label
       )}
     </th>
-  );
-}
-
-function BulkBtn({
-  icon: Icon, label, primary,
-}: {
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-  label: string;
-  primary?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11.5px] font-medium transition-all duration-150 active:scale-[0.98]",
-        primary
-          ? "bg-amber-600 text-white shadow-sm hover:bg-amber-700"
-          : "border border-slate-200 bg-white text-slate-700 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-amber-950/30",
-      )}
-    >
-      <Icon size={12} />
-      {label}
-    </button>
   );
 }
 
