@@ -10,7 +10,7 @@
 | [CLAUDE.md](CLAUDE.md) | **You are here.** Current state · active work · key data contracts. |
 | [TODO.md](TODO.md) | Master phase roadmap — Phase 0–3 frontend ✅ 100% (30/30). |
 | [TODO-BILLING.md](TODO-BILLING.md) | **Billing Kasir roadmap** — Fase BL0–BL9 (35 task, ~3 minggu). Core operasional ✅ (BL1+BL2+BL3+BL8 100% · BL6 ~80%). |
-| [TODO-EKLAIM.md](TODO-EKLAIM.md) | **E-Klaim BPJS/Asuransi roadmap** — Fase EK0–EK9 (38 task, ~3-4 minggu). Pisah dari billing per scope-split 2026-05-24. |
+| [TODO-EKLAIM.md](TODO-EKLAIM.md) | **E-Klaim BPJS/Asuransi roadmap** — Fase EK0–EK9 (38 task, ~3.5-4.5 minggu). Pisah dari billing per scope-split 2026-05-24. **Pivot 2026-05-26: iDRG primary** (resmi 1 Okt 2025 Kemenkes), INA-CBG = legacy adapter Phase later. |
 | [TECH_DEBT.md](TECH_DEBT.md) | Tech debt registry per-modul + cross-cutting. |
 | [TODOS_BACKEND.md](TODOS_BACKEND.md) | Backend implementation roadmap (B0–B4, ~5–7 bulan). |
 | [.claude/DONE.md](.claude/DONE.md) | Completed work archive (history per modul). |
@@ -42,7 +42,7 @@ Next.js 16.2.3 App Router · React 19.2.4 · TypeScript 5 · Tailwind v4 (`@tail
 | `/ehis-registration`       | Registration     | 🚧 PatientDashboard + KunjunganDetail ✅, board belum |
 | `/ehis-dashboard`          | Dashboard        | 🔧 Scaffold (belum dibangun)    |
 | `/ehis-billing`            | Billing Kasir    | ✅ **Core 100% operasional** — BL1 Tagihan Board + BL2 Invoice Detail 4-tab + BL3 Kasir Counter 3-tab + **BL8 Beranda Billing** (KPI Strip + Quick Nav + 3 panel) + **BL6 ~80%** Charge Ingestion reactive `useSyncExternalStore` (Lab/Rad/Farmasi/Akomodasi silent-wired; Discharge Banner RI; Mini Widget RI) + Single-source refactor (registrasi read-only + deep-link). **Sisa:** BL5 Adjustment · BL7 Reports · BL9 Polish · BL6 Tindakan+JasaDokter triggers · BL6 Mini Widget IGD/RJ. Roadmap [TODO-BILLING.md](TODO-BILLING.md) |
-| `/ehis-eklaim`             | E-Klaim          | 📋 Planned — modul baru hasil scope-split dari billing. Roadmap [TODO-EKLAIM.md](TODO-EKLAIM.md) |
+| `/ehis-eklaim`             | E-Klaim          | 📋 Planned — modul baru hasil scope-split dari billing. **iDRG-first** (kode 7-digit · ICD-10-IM · KRIS · tingkat kompetensi RS sesuai Pedoman iDRG 2025 + Perpres 59/2024). INA-CBG legacy = Phase later. Roadmap [TODO-EKLAIM.md](TODO-EKLAIM.md) |
 | `/ehis-report`             | Reports          | 🔧 Scaffold (belum dibangun)    |
 | `/ehis-fhir`               | FHIR Integration | 📋 Planned (terpisah dari master) |
 
