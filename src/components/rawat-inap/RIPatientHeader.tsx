@@ -18,6 +18,7 @@ import {
   ISOLASI_CFG, ISOLASI_OPTIONS,
   type IsolasiTipe,
 } from "@/components/rawat-inap/ppiIsolasi/ppiIsolasiShared";
+import BillingMiniWidget from "@/components/shared/medical-records/BillingMiniWidget";
 
 // ── Status config ─────────────────────────────────────────
 
@@ -338,9 +339,14 @@ export default function RIPatientHeader({ patient }: { patient: RawatInapPatient
               {patient.status}
             </span>
 
+            {/* BL6.3 — Mini billing widget (reactive sisa tagihan, deep-link ke Billing) */}
+            <div className="ml-auto">
+              <BillingMiniWidget noRM={patient.noRM} compact />
+            </div>
+
             <Link
               href="/ehis-care/rawat-inap"
-              className="ml-auto flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:bg-white hover:text-slate-700"
+              className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:bg-white hover:text-slate-700"
               aria-label="Tutup"
             >
               <X size={12} />

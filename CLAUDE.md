@@ -9,7 +9,7 @@
 |---|---|
 | [CLAUDE.md](CLAUDE.md) | **You are here.** Current state · active work · key data contracts. |
 | [TODO.md](TODO.md) | Master phase roadmap — Phase 0–3 frontend ✅ 100% (30/30). |
-| [TODO-BILLING.md](TODO-BILLING.md) | **Billing Kasir roadmap** — Fase BL0–BL9 (35 task, ~3 minggu). BL1 ✅ + BL2.1-2.3 ✅. |
+| [TODO-BILLING.md](TODO-BILLING.md) | **Billing Kasir roadmap** — Fase BL0–BL9 (35 task, ~3 minggu). Core operasional ✅ (BL1+BL2+BL3+BL8 100% · BL6 ~80%). |
 | [TODO-EKLAIM.md](TODO-EKLAIM.md) | **E-Klaim BPJS/Asuransi roadmap** — Fase EK0–EK9 (38 task, ~3-4 minggu). Pisah dari billing per scope-split 2026-05-24. |
 | [TECH_DEBT.md](TECH_DEBT.md) | Tech debt registry per-modul + cross-cutting. |
 | [TODOS_BACKEND.md](TODOS_BACKEND.md) | Backend implementation roadmap (B0–B4, ~5–7 bulan). |
@@ -41,7 +41,7 @@ Next.js 16.2.3 App Router · React 19.2.4 · TypeScript 5 · Tailwind v4 (`@tail
 | `/ehis-master`             | Master Data      | ✅ 100% (25 sub-master + 8 mapping + Beranda) |
 | `/ehis-registration`       | Registration     | 🚧 PatientDashboard + KunjunganDetail ✅, board belum |
 | `/ehis-dashboard`          | Dashboard        | 🔧 Scaffold (belum dibangun)    |
-| `/ehis-billing`            | Billing Kasir    | 🚧 BL1 ✅ + BL2 ✅ + **BL3 ✅ 100%** — Tagihan board + Invoice detail 4-tab + Print Preview + Kasir Counter 3-tab + auto-print kwitansi (Quick/Deposit/reprint) + Management Banner + `source` provenance + **Laporan Tutup Kas A4 + Setoran Slip A5** (kebab di Recent Shifts). Roadmap [TODO-BILLING.md](TODO-BILLING.md) |
+| `/ehis-billing`            | Billing Kasir    | ✅ **Core 100% operasional** — BL1 Tagihan Board + BL2 Invoice Detail 4-tab + BL3 Kasir Counter 3-tab + **BL8 Beranda Billing** (KPI Strip + Quick Nav + 3 panel) + **BL6 ~80%** Charge Ingestion reactive `useSyncExternalStore` (Lab/Rad/Farmasi/Akomodasi silent-wired; Discharge Banner RI; Mini Widget RI) + Single-source refactor (registrasi read-only + deep-link). **Sisa:** BL5 Adjustment · BL7 Reports · BL9 Polish · BL6 Tindakan+JasaDokter triggers · BL6 Mini Widget IGD/RJ. Roadmap [TODO-BILLING.md](TODO-BILLING.md) |
 | `/ehis-eklaim`             | E-Klaim          | 📋 Planned — modul baru hasil scope-split dari billing. Roadmap [TODO-EKLAIM.md](TODO-EKLAIM.md) |
 | `/ehis-report`             | Reports          | 🔧 Scaffold (belum dibangun)    |
 | `/ehis-fhir`               | FHIR Integration | 📋 Planned (terpisah dari master) |
@@ -62,7 +62,7 @@ Frontend Phase 0–3 master sudah selesai 100%. Workload selanjutnya bisa dipili
 
 ### Modul Baru (frontend lanjutan)
 - [ ] **`ehis-dashboard`** — stats cards (pasien hari ini per unit IGD/RI/RJ) + BOR chart + recent activity feed + quick-nav ke modul lain.
-- [🚧] **`ehis-billing`** Kasir — invoice per kunjungan + rincian + pembayaran + print struk + kasir counter 3-tab. **Roadmap [TODO-BILLING.md](TODO-BILLING.md)** (35 task, 14/35 = 40%). BL1 ✅ + BL2 ✅ + **BL3 ✅ 100%** (Counter Dashboard + Quick Bayar + Deposit Awal + Print Flow Batch 1+2 + **BL3.4 Laporan Tutup Kas A4 & Setoran Slip A5** dengan kebab actions di Recent Shifts). Next: BL0 Foundation (data contracts + `sourceAdapter`) · BL6 Charge Ingestion (silent wiring lintas modul) · atau BL5 Adjustment workflow.
+- [✅] **`ehis-billing`** Kasir — **Core operasional 100%**. **Roadmap [TODO-BILLING.md](TODO-BILLING.md)** (35 task, ~20.5/35 = 59%). BL1 Tagihan Board ✅ + BL2 Invoice Detail 4-tab ✅ + BL3 Kasir Counter 3-tab ✅ + **BL8 Beranda Billing** ✅ + **BL6 Charge Ingestion** ~80% (foundation libs `priceResolver`/`sourceAdapter`/`billingStore`/`chargeIngest` siap · Lab/Rad/Farmasi/Akomodasi silent-wired reactive · Discharge Banner RI · Mini Widget RI breadcrumb · Single-source refactor `/ehis-registration` jadi read-only). **Sisa fase ditunda** (BL5 Adjustment · BL7 Reports · BL9 Polish · BL0 formal types · BL6 Tindakan+JasaDokter triggers · BL6 Mini Widget IGD/RJ) — akan di-pick up sesuai prioritas business.
 - [📋] **`ehis-eklaim`** Klaim — modul baru hasil scope-split dari billing (workflow batch + persona Tim Klaim/Coder berbeda). **Roadmap [TODO-EKLAIM.md](TODO-EKLAIM.md)** (38 task, fase EK0–EK9). Belum dimulai.
 - [ ] **`ehis-registration`** board + form pendaftaran pasien baru.
 - [ ] **`ehis-report`** — laporan per periode + export Excel/PDF.

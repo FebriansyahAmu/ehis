@@ -10,6 +10,7 @@ import {
   type FarmasiOrderItem, type SerahTerima, type CatatanFarmasi,
 } from "./farmasiShared";
 import { updateOrderStatus } from "@/components/shared/medical-records/daftarOrder/daftarOrderShared";
+import { ingestFarmasiOrder } from "@/lib/billing/chargeIngest";
 import CPPTTab           from "@/components/shared/medical-records/CPPTTab";
 import LayananFarmasiTab from "./tabs/LayananFarmasiTab";
 import PTOPane           from "./tabs/PTOPane";
@@ -87,6 +88,22 @@ export default function FarmasiOrderTabs({ orderId }: { orderId: string }) {
     updateFarmasiWorkflow(id, { status: "Selesai", items, serahTerima });
     updateOrderStatus(id, "Selesai");
     setOrder((prev) => prev ? { ...prev, items, serahTerima, status: "Selesai" } : prev);
+    // BL6.1 — silent wiring ke Billing. Idempotent (dedupe by sourceRef).
+    if (order) {
+      const result = ingestFarmasiOrder({
+        ...order,
+        items,
+        serahTerima,
+        status: "Selesai",
+        timestamps: { ...(order.timestamps ?? { masuk: order.tanggal }), serahTerima: serahTerima.waktu },
+      });
+      if (result.ok && result.added > 0) {
+        // eslint-disable-next-line no-console
+        console.info(
+          `[Billing] Farmasi ${order.noOrder} → invoice ${result.invoiceId} (+${result.added} charges, ${result.skipped} skipped)`,
+        );
+      }
+    }
   }
 
   function handleCatatanAdd(id: string, catatan: CatatanFarmasi) {

@@ -13,7 +13,6 @@ import { PatientRightPanel } from "./patient/PatientRightPanel";
 import { EditDataModal } from "./patient/modals/EditDataModal";
 import { EditKontakModal } from "./patient/modals/EditKontakModal";
 import { UbahPenjaminModal } from "./patient/modals/UbahPenjaminModal";
-import { AccountingModal } from "./patient/modals/AccountingModal";
 import { BillingDetailModal } from "./patient/modals/BillingDetailModal";
 import { RiwayatKunjunganModal } from "./patient/modals/RiwayatKunjunganModal";
 import { TambahJadwalModal } from "./patient/modals/TambahJadwalModal";
@@ -42,7 +41,6 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
     setEditData(false);
     setEditKontak(false);
     setPenjamin(false);
-    setKasir(false);
     setRiwayat(false);
     setInfoLengkap(false);
     setOpenBillingId(null);
@@ -83,7 +81,6 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
   const [showEditData, setEditData] = useState(false);
   const [showEditKontak, setEditKontak] = useState(false);
   const [showPenjamin, setPenjamin] = useState(false);
-  const [showKasir, setKasir] = useState(false);
   const [showRiwayat, setRiwayat] = useState(false);
   const [showDaftarKunjungan, setDaftarKunjungan] = useState(false);
   const [showTambahJadwal, setShowTambahJadwal] = useState(false);
@@ -299,7 +296,6 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
             photoRef={photoRef}
             onInfoLengkap={() => setInfoLengkap(true)}
             onDaftarKunjungan={() => setDaftarKunjungan(true)}
-            onKasir={() => setKasir(true)}
             onOpenBilling={(id) => setOpenBillingId(id)}
           />
           <PatientRightPanel
@@ -334,9 +330,6 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
           onEditData={() => setEditData(true)}
           onEditKontak={() => setEditKontak(true)}
         />
-      )}
-      {showKasir && patient.kasir && (
-        <AccountingModal kasir={patient.kasir} patient={patient} onClose={() => setKasir(false)} />
       )}
       {showRiwayat && (
         <RiwayatKunjunganModal kunjungan={patient.riwayatKunjungan} onClose={() => setRiwayat(false)} />

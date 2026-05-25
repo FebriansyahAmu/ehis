@@ -11,8 +11,8 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (Billing depend B0/B1.7/B1.9)
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
-> **Last updated:** 2026-05-25
-> **Status:** ✅ BL1 + BL2 + **BL3 selesai 100%** · 🚧 — Kasir Counter Dashboard + Quick Bayar (search + form inline + ChargeSummaryCard breakdown per-kategori + recent feed + auto-print kwitansi setelah save + reprint dari feed) + Deposit Awal Admisi (search + form deposit + EstimateChargeCard projection LOS × rate + auto-print kwitansi deposit setelah save) + **BL3.4 Laporan Tutup Kas A4 + Setoran Form + Slip Setoran A5** (kebab actions di Recent Shifts · auto-pivot ke print slip setelah catat setoran · type `SetoranRecord` + helpers `nextNoSetor`/`shiftsBelumDisetor`). 3-tab orchestrator dengan shift accumulator live. Tab Pembayaran (invoice detail) punya Management Banner untuk clarify peran vs Quick Bayar + cross-link, plus `source` field di PaymentRecord (Quick/Detail/Deposit/Refund) dengan badge "via Quick" / "via Detail". **Klaim Penjamin (workflow penuh) DIPISAH ke modul baru `/ehis-eklaim`** (lihat [TODO-EKLAIM.md](TODO-EKLAIM.md)). Next: BL0 Foundation (data contracts) · BL6 Charge Ingestion (silent wiring lintas modul) · atau BL5 Adjustment.
+> **Last updated:** 2026-05-26
+> **Status:** ✅ **Core `/ehis-billing` operasional 100%** — BL1 Tagihan Board + BL2 Invoice Detail 4-tab + BL3 Kasir Counter 3-tab + **BL6 Charge Ingestion ~80%** (Lab/Rad/Farmasi/Akomodasi silent-wired, Tindakan + JasaDokter pending) + **BL8 Beranda Billing 100%** (KPI strip + Quick Nav + 3 panel aktivitas) + **Single-source refactor** (registrasi `/ehis-registration/pasien/{id}` jadi read-only + deep-link, payment exclusive di `/ehis-billing`). Reactive store via `useSyncExternalStore` — charge ingest dari modul klinis auto-update Invoice Detail + Discharge Banner + Mini Widget. **Sisa fase (BL5 Adjustment · BL7 Reports · BL9 Polish · BL0 formal types)** ditunda — core kasir + cross-modul integration sudah cukup untuk demo end-to-end. **Klaim Penjamin DIPISAH ke modul baru `/ehis-eklaim`** (lihat [TODO-EKLAIM.md](TODO-EKLAIM.md)).
 > **Target effort:** ~3 minggu (frontend full, after split) · paralel dengan backend B0/B1.7/B1.9 dapat dimulai.
 
 > ### 🔀 Scope Split (2026-05-24)
@@ -966,35 +966,59 @@
 
 ---
 
-## Phase BL6 — Integrasi Lintas Modul (Charge Ingestion)
+## Phase BL6 — Integrasi Lintas Modul (Charge Ingestion) ✅ ~80% (2026-05-26)
 
 **Effort:** 3–4 hari · **Strategi:** silent wiring di balik tab existing — UI klinis tidak berubah, billing auto-update.
 
-### BL6.1 Trigger Points
+> **Status:** Foundation observable store + adapter pure pattern + ingest orchestrator selesai. Lab/Rad/Farmasi/Akomodasi sudah live-wired. Tindakan + Jasa Dokter pending (adapter ready, tinggal hook ke save handler). Mini Widget IGD/RJ pending (drop-in component sudah ada).
 
-- [ ] **Farmasi → Billing**: saat `FarmasiOrderDetail` status berubah ke `Selesai` → `billingStore.addCharge(chargeFromResep(item, ...))`.
-- [ ] **Lab → Billing**: saat `LabOrderDetail` status `Tervalidasi` → push charge per test.
-- [ ] **Rad → Billing**: saat `RadOrderDetail` status `Tervalidasi` → push charge per modalitas.
-- [ ] **Tindakan → Billing**: saat `TindakanTab` save entry (IGD/RI/RJ) → push charge.
-- [ ] **Akomodasi RI → Billing**: scheduled job (mock: on mount Billing detail) → loop hari rawat dari `tanggalAdmisi` ke `today` → push 1 charge "Kamar Kelas X" per hari.
-- [ ] **Jasa Dokter**:
-  - IGD: 1 charge per `CPPT verified by DPJP`.
-  - RI: 1 charge per visite (CPPT DPJP per hari).
-  - RJ: 1 charge per kunjungan.
-  - Konsultasi: 1 charge per `KonsultasiTab` closed-loop.
+### Foundation (Pure Adapter + Observable Store) ✅
 
-### BL6.2 Discharge Gating (RI)
+- [x] **`src/lib/billing/priceResolver.ts`** ✅ (193L) — Pure resolvers `resolveTindakanPrice` / `resolveLabPrice` / `resolveRadPrice` / `resolveObatPrice` / `resolveJasaDokterPrice` / `resolveAkomodasiPrice` (TARIF_MOCK + OBAT_MOCK + `AKOMODASI_RATE_PER_HARI` per kelas). Return `PriceResolution { hargaSatuan, resolved, source, masterId? }`.
+- [x] **`src/lib/billing/sourceAdapter.ts`** ✅ (283L) — Pure converters event → `ChargeItem[]`. `chargeFromLabOrder(order, ctx)` (1 per test, sourceRef `lab:{orderId}:{kode}`) · `chargeFromRadOrder` · `chargeFromFarmasiOrder` (per item dispensing) · `chargeFromTindakan` · `chargeFromAkomodasi` (loop tanggal range, 1 charge per hari) · `chargeFromJasaDokter`. Helper `defaultCoverage(penjamin)` → Pasien (Umum) / Penjamin (others). Idempotent via deterministic `sourceRef`.
+- [x] **`src/lib/billing/billingStore.ts`** ✅ (206L) — Observable store dengan `useSyncExternalStore`. Module singleton `Map<invoiceId, InvoiceDetail>` + `Set<listeners>`. Public API:
+  - `setInvoiceDetail(id, detail)` / `getInvoiceDetail(id)` / `mutateInvoice(id, updater)`
+  - `appendCharges(id, items, opts)` — dedupe by `sourceRef`, return `{ added, skipped, invoiceId, ok }`
+  - `findActiveInvoiceForPasien(noRM)` — scan store first, fallback `TAGIHAN_BOARD_MOCK`; return non-Lunas non-Void latest
+  - `useInvoiceDetail(id)` — React hook subscribe re-render
+- [x] **`src/lib/billing/chargeIngest.ts`** ✅ (217L) — High-level orchestrator. `ingestLabOrder(order, invoiceId?)` / `ingestRadOrder` / `ingestFarmasiOrder` / `ingestAkomodasi({invoiceId, kunjunganId, tanggalAdmisi, tanggalSampai?})`. Auto-resolve invoiceId via `findActiveInvoiceForPasien` jika tidak di-pass. Return `IngestResult` dengan `reason` field untuk debugging ("no-invoice" / "invoice-not-in-store" / "no-items").
 
-- [ ] **`PasienPulangTab` (RI) gate**: cek `BillingRecord.sisa === 0` atau `statusKlaim === "Approved"` sebelum izinkan finalize discharge.
-- [ ] **Banner warning** kuning jika sisa >0: "Sisa tagihan Rp X — selesaikan di Kasir sebelum pasien pulang".
-- [ ] **Bypass dengan approval** untuk kasus emergency/transfer.
+### BL6.1 Trigger Points — silent wiring di handler "Selesai" / "Tervalidasi"
 
-### BL6.3 Print Tagihan dari klinis
+- [x] **Lab → Billing** ✅ — [src/components/lab/tabs/ValidasiPane.tsx](src/components/lab/tabs/ValidasiPane.tsx) `handleValidate` setelah `updateLabWorkflow` → `ingestLabOrder(order)`. Console log "[Billing] Lab {noOrder} → invoice {id} (+N charges)". Idempotent saat re-validate.
+- [x] **Rad → Billing** ✅ — [src/components/rad/tabs/ValidasiPane.tsx](src/components/rad/tabs/ValidasiPane.tsx) `handleValidate` → `ingestRadOrder({...order, status: "Selesai", timestamps: {..., verifikasiHasil: now}})`. Sama pattern dengan Lab.
+- [x] **Farmasi → Billing** ✅ — [src/components/farmasi/FarmasiOrderTabs.tsx](src/components/farmasi/FarmasiOrderTabs.tsx) `handleDispensasiSubmit` → `ingestFarmasiOrder({...order, items, serahTerima, status: "Selesai", timestamps: {..., serahTerima: serahTerima.waktu}})`.
+- [x] **Akomodasi RI → Billing** ✅ — [src/components/billing/invoice/InvoiceDetailPage.tsx](src/components/billing/invoice/InvoiceDetailPage.tsx) `useEffect` mount: jika invoice tipe RI dan `kelas` tersedia → `ingestAkomodasi({invoiceId, kunjunganId, tanggalAdmisi, tanggalSampai?})`. Loop hari rawat per `tanggalAdmisi` → today. Dedupe by sourceRef `akomodasi:{kunjunganId}:{yyyy-mm-dd}` aman saat re-mount.
+- [ ] **Tindakan → Billing** — pending. Adapter `chargeFromTindakan` sudah ready. Tinggal hook ke `TindakanTab` save handler (1 line `ingestTindakan(...)`) di IGD/RI/RJ.
+- [ ] **Jasa Dokter** — pending. Adapter `chargeFromJasaDokter` ready. Hook ke CPPT verified handler (IGD per-shift · RI per-visite-day · RJ per-visit) + KonsultasiTab closed-loop.
 
-- [ ] **Quick action "Lihat Tagihan"** di PatientBanner IGD/RI/RJ → deep link ke `/ehis-billing/tagihan/[id]`.
-- [ ] **Mini billing widget** di sidebar kanan `RIRecordTabs` (collapsible) — sisa tagihan ringkas + tombol "Buka Tagihan".
+### BL6.2 Discharge Gating (RI) ✅
 
-**Acceptance BL6:** order lab CITO di IGD selesai → otomatis muncul sebagai charge baru di tagihan kunjungan dalam <1s. Discharge RI dengan sisa >0 di-block kecuali approval.
+- [x] **`BillingGateBanner`** ✅ — [src/components/rawat-inap/pasienPulang/BillingGateBanner.tsx](src/components/rawat-inap/pasienPulang/BillingGateBanner.tsx) (189L). Reactive via `useInvoiceDetail` — re-render saat charge ingest atau payment baru. 4 union states:
+  - `no-invoice` (slate Info) — discharge boleh, charge biasanya muncul auto setelah modul klinis tutup order
+  - `lunas` (emerald CheckCircle2) — total Rp X sudah dibayar penuh + deep-link Buka Billing
+  - `klaim` (sky ShieldCheck) — klaim {penjamin} dalam proses, sisa selisih ditanggung penjamin + deep-link
+  - `outstanding` (rose AlertTriangle + badge "Perlu Aksi") — sisa Rp X, selesaikan di Kasir + deep-link
+- [x] **Wired di `PasienPulangTab`** ✅ — [src/components/rawat-inap/tabs/PasienPulangTab.tsx](src/components/rawat-inap/tabs/PasienPulangTab.tsx) di antara header dan sub-tab nav.
+- [ ] **Bypass dengan approval** — pending. Saat ini UI tidak hard-block (banner visual saja), backend nanti enforce constraint via API.
+
+### BL6.3 Cross-modul Widget ✅ ~33%
+
+- [x] **`BillingMiniWidget`** ✅ — [src/components/shared/medical-records/BillingMiniWidget.tsx](src/components/shared/medical-records/BillingMiniWidget.tsx) (155L). Reactive via `useInvoiceDetail`. 2 mode (compact chip / card 2-row) × 3 state (no-invoice slate · lunas emerald · outstanding rose). Klik → `target="_blank"` ke `/ehis-billing/tagihan/[id]`.
+- [x] **RI breadcrumb** ✅ — [src/components/rawat-inap/RIPatientHeader.tsx](src/components/rawat-inap/RIPatientHeader.tsx) wire `<BillingMiniWidget noRM={...} compact />` di breadcrumb bar (antara status badge dan X close).
+- [ ] **IGD `PatientBanner`** — pending. Component shared, drop-in ready (`<BillingMiniWidget noRM={pasien.noRM} compact />`).
+- [ ] **RJ `RJPatientHeader`** — pending. Sama dengan IGD.
+
+### Single-source Refactor (bonus, 2026-05-25)
+
+> **Konteks:** registrasi `/ehis-registration/pasien/{id}` punya `AccountingModal.tsx` 506L yang duplikat form pembayaran/deposit dari `/ehis-billing`. Violation single-source-of-truth → user feedback: "fix-kan dlu, bahwa semua tagihan pembayaran itu lewat modul ehis-billing".
+
+- [x] **Delete `AccountingModal.tsx`** ✅ (506L) — duplicate payment form dihapus.
+- [x] **`PatientDashboard.tsx`** ✅ — hapus `showKasir` state · `AccountingModal` import & render · `onKasir` prop.
+- [x] **`PatientLeftPanel.tsx`** ✅ — hapus `onKasir` prop · tambah badge "Read-only" di header · footer CTA "Buka di Billing Kasir →" `Link target="_blank"` ke `/ehis-billing/tagihan` · row click always opens peek modal (bukan trigger payment).
+- [x] **`BillingDetailModal.tsx`** ✅ — info banner amber "Read-only view · transaksi dikelola di Billing" + footer split (primary "Buka di Billing Kasir →" deep-link + "Tutup" secondary).
+
+**Acceptance BL6 (sebagian) ✅:** Lab CITO di IGD selesai → otomatis muncul charge baru di invoice detail (`useInvoiceDetail` re-render) + Discharge Banner update + Mini Widget RI breadcrumb update — semua reactive, <100ms karena `useSyncExternalStore` notify sinkron. Registrasi tidak bisa input payment lagi (read-only + deep-link only).
 
 ---
 
@@ -1032,36 +1056,48 @@
 
 ---
 
-## Phase BL8 — Beranda Billing (Dashboard)
+## Phase BL8 — Beranda Billing (Dashboard) ✅ 100% (2026-05-25)
 
 **Route:** `/ehis-billing` (replace placeholder) · **Effort:** 2 hari
 **Pattern reference:** Beranda Master di Phase 3.1
 
-### BL8.1 Layout
+### BL8.1 Layout ✅
 
-- [ ] **Hero header** — icon-prefix eyebrow amber + h1 "EHIS Billing" + tanggal hari ini + jam pill.
-- [ ] **KPI Strip** 5 hero card animated:
-  - Tagihan Hari Ini (count + Rp)
-  - Outstanding Total
-  - Klaim Pending (count + Rp menunggu)
-  - Pendapatan Hari Ini
-  - Shift Aktif (jumlah counter buka)
-- [ ] **Quick-Nav Grid** 3 grup × 6 nav card:
-  - Transaksi: Tagihan · Pembayaran · Klaim · Refund
-  - Operasional: Kasir Shift · Adjustment · Deposit Awal
-  - Laporan: Pendapatan · Outstanding · Klaim Recap
+- [x] **Hero header** ✅ — eyebrow chip Wallet amber + h1 "EHIS Billing" + desc + timestamp pill `id-ID` long format + jam mono.
+- [x] **KPI Strip** 5 hero card animated ✅ — [KPIStripBilling.tsx](src/components/billing/beranda/KPIStripBilling.tsx) (116L):
+  - **Tagihan Hari Ini** amber (count + total Rp + trend chip vs kemarin)
+  - **Outstanding Total** rose (total + count tagihan + sub-trend >7 hari)
+  - **Klaim Pending** sky (count + total menunggu)
+  - **Pendapatan Hari Ini** emerald (total + count transaksi + trend % vs avg)
+  - **Shift Aktif** violet (count counter buka + sub-counter lokasi)
+  - Accent stripe gradient kiri + icon ring + value mono bold 22px + sub-label + stagger 50ms entrance.
+- [x] **Quick-Nav Grid** 3 grup ✅ — [QuickNavGridBilling.tsx](src/components/billing/beranda/QuickNavGridBilling.tsx) (144L):
+  - **Transaksi** (amber): Tagihan · Pembayaran · Invoice (3 active)
+  - **Operasional** (emerald): Kasir Shift · Deposit Awal · Quick Bayar · Adjustment (1 active + 1 disabled BL5)
+  - **Laporan** (sky): Pendapatan · Outstanding · Klaim Recap (semua disabled — BL7/EK pending)
+  - Disabled state opacity-50 + cursor-not-allowed + tooltip "Akan dibangun di BL5/BL7" — UX honest tentang scope.
 
-### BL8.2 Sidebar Panel
+### BL8.2 Sidebar Panel ✅
 
-- [ ] **"Pasien Siap Bayar"** — list 8 pasien yang sudah discharge tapi belum lunas (sort by sisa desc).
-- [ ] **"Klaim Hari Ini"** — list klaim status changed today (Submitted/Approved/Rejected).
-- [ ] **"Recent Payments"** — feed 10 pembayaran terakhir lintas counter.
+- [x] **"Pasien Siap Bayar"** ✅ — [PasienSiapBayarPanel.tsx](src/components/billing/beranda/PasienSiapBayarPanel.tsx) (147L). Top 6 outstanding dari `TAGIHAN_BOARD_MOCK` sort `sisa` desc, filter `sisa > 0 && status !== "Void"`. Per-row: pasien nama + RM + unit chip · progress bar dibayar/total · sisa amber/rose · tombol "Buka" → deep-link.
+- [x] **"Klaim Hari Ini"** ✅ — [KlaimHariIniPanel.tsx](src/components/billing/beranda/KlaimHariIniPanel.tsx) (139L). 5 aktivitas klaim inline mock `KLAIM_HARI_INI_MOCK` (kind: Submitted/Approved/Rejected/Banding · penjamin BPJS/Asuransi/Jamkesda badge · timestamp relatif + nominal).
+- [x] **"Recent Payments"** ✅ — [RecentPaymentsPanel.tsx](src/components/billing/beranda/RecentPaymentsPanel.tsx) (147L). 8 pembayaran terakhir lintas counter dari aggregate `SHIFT_PAYMENTS_MOCK` sort `tanggalISO` desc. Per-row: metode icon · pasien · invoice mono · kasir · nominal (emerald/rose tone untuk masuk/refund) · jam relatif.
 
-### BL8.3 Components
+### BL8.3 Components ✅
 
-- [ ] `BerandaBillingPage.tsx` · `KPIStripBilling.tsx` · `QuickNavGridBilling.tsx` · `PasienSiapBayarPanel.tsx` · `KlaimHariIniPanel.tsx` · `RecentPaymentsPanel.tsx`.
+- [x] **`berandaBillingShared.ts`** ✅ (301L) — `getBillingStats()` aggregate `TAGIHAN_BOARD_MOCK + KASIR_SHIFT_MOCK + SHIFT_PAYMENTS_MOCK` · `KLAIM_HARI_INI_MOCK` (5 entries inline) · `TODAY_ISO` constant `"2026-05-24"` (consistent dengan mock data range).
+- [x] **`BerandaBillingPage.tsx`** ✅ (142L) — orchestrator dengan 12-col grid (Hero full + KPI Strip full · Quick Nav span-8 + Recent Payments span-4 · PasienSiapBayar span-7 + Klaim span-5) + `useSkeletonDelay(500)` + AnimatePresence fade.
+- [x] **Route entry** ✅ — [src/app/ehis-billing/page.tsx](src/app/ehis-billing/page.tsx) thin import metadata `"Billing · Beranda"`.
 
-**Acceptance BL8:** beranda load <500ms (skeleton), KPI angka match seed mock, klik nav card route ke sub-page.
+**File sizes BL8:** berandaBillingShared 301L · BerandaBillingPage 142L · KPIStripBilling 116L · QuickNavGridBilling 144L · PasienSiapBayarPanel 147L · KlaimHariIniPanel 139L · RecentPaymentsPanel 147L. Total ~1136L lintas 7 file, semua jauh di bawah 800 limit. TS clean.
+
+**Design decisions:**
+- **TODAY_ISO konstanta** — tanggal demo `"2026-05-24"` di-pin biar mock konsisten (sesuaikan dengan `KASIR_SHIFT_MOCK.bukaAt`). Backend nanti pakai `new Date().toISOString()`.
+- **Disabled state honest** untuk nav yang belum dibangun — kasir tidak akan klik dead-link, tooltip jelas mention fase yang akan menyiapkan.
+- **KPI Strip + 3-row dashboard** pattern mirror Beranda Master — predictable navigation experience lintas modul.
+- **PasienSiapBayar = outstanding sort DESC** (bukan tanggal) — pesan operasional: angka terbesar dulu, fokus kasir ke yang paling impactful.
+
+**Acceptance BL8 ✅:** beranda load <500ms (skeleton), KPI angka match seed mock (Tagihan Hari Ini = count(TODAY_ISO entries) · Outstanding = sum(sisa>0) · dst), klik nav card route ke sub-page (Tagihan/Pembayaran/Invoice aktif, lainnya disabled tooltip).
 
 ---
 
@@ -1097,17 +1133,19 @@
 
 | Phase | Tasks | Done | % |
 |---|---|---|---|
-| BL0 — Foundation | 4 | 0 | 0% |
+| BL0 — Foundation (foundation libs done, formal types pending) | 4 | 1 | 25% 🚧 |
 | BL1 — Tagihan Board | 4 | 4 | 100% ✅ |
 | BL2 — Invoice Detail | 6 | 6 | 100% ✅ |
 | BL3 — Pembayaran | 4 | 4 | 100% ✅ |
 | ~~BL4~~ — Klaim Penjamin | ~~4~~ | — | → [TODO-EKLAIM.md](TODO-EKLAIM.md) |
 | BL5 — Adjustment | 3 | 0 | 0% |
-| BL6 — Integrasi Lintas Modul | 3 | 0 | 0% |
+| BL6 — Integrasi Lintas Modul | 3 | 2.5 | 80% 🚧 |
 | BL7 — Reports | 4 | 0 | 0% |
-| BL8 — Beranda Billing | 3 | 0 | 0% |
+| BL8 — Beranda Billing | 3 | 3 | 100% ✅ |
 | BL9 — UX Polish | 4 | 0 | 0% |
-| **Total** | **35** | **14** | **40%** |
+| **Total** | **35** | **20.5** | **~59%** |
+
+**Status (2026-05-26):** Core `/ehis-billing` operasional 100% — kasir bisa terima bayar end-to-end (Tagihan Board → Invoice Detail → Kasir Counter → Print Kwitansi/Laporan). Cross-modul integration ~80% (Lab/Rad/Farmasi/Akomodasi reactive · Tindakan + JasaDokter pending). Beranda Billing 100% sebagai entry point modul. Fase lanjutan (BL5 Adjustment · BL7 Reports · BL9 Polish · BL0 formal types · sisa BL6 triggers + IGD/RJ widget) ditunda — akan di-pick up sesuai prioritas business.
 
 **Catatan:** Total turun dari 40 → 35 task (−4 BL4 + −1 BL7.3 yang pindah ke EKLAIM). Effort billing turun ~4-5 minggu → ~3 minggu.
 

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Award, CheckCircle2, AlertTriangle, FileText, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type RadOrder, type ValidasiData, updateRadWorkflow, fmtDate } from "../radShared";
+import { ingestRadOrder } from "@/lib/billing/chargeIngest";
 
 // ── Report display (read-only) ────────────────────────────
 
@@ -52,6 +53,18 @@ export default function ValidasiPane({
       validasi: data,
       timestamps: { verifikasiHasil: now, rilis: now },
     });
+    // BL6.1 — silent wiring ke Billing. Idempotent (dedupe by sourceRef).
+    const result = ingestRadOrder({
+      ...order,
+      status: "Selesai",
+      timestamps: { ...order.timestamps, verifikasiHasil: now, rilis: now },
+    });
+    if (result.ok && result.added > 0) {
+      // eslint-disable-next-line no-console
+      console.info(
+        `[Billing] Rad ${order.noOrder} → invoice ${result.invoiceId} (+${result.added} charges, ${result.skipped} skipped)`,
+      );
+    }
     setDone(true);
     setLoading(false);
     onStatusChange();

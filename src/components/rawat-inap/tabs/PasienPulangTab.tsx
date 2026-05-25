@@ -14,6 +14,7 @@ import {
   makeInitialSurat,
   STATUS_KEPULANGAN_CONFIG,
 } from "../pasienPulang/pasienPulangShared";
+import BillingGateBanner from "../pasienPulang/BillingGateBanner";
 import StatusPane        from "../pasienPulang/StatusPane";
 import ObatJadwalPane    from "../pasienPulang/ObatJadwalPane";
 import SuratPane         from "../pasienPulang/SuratPane";
@@ -111,6 +112,9 @@ export default function PasienPulangTab({ patient }: { patient: RawatInapPatient
 
       {/* Header */}
       <PasienPulangHeader data={data} />
+
+      {/* BL6.2 — Discharge gate: sisa tagihan banner (reactive via billingStore) */}
+      <BillingGateBanner noRM={patient.noRM} />
 
       {/* Sub-tab nav */}
       <div className="shrink-0 overflow-x-auto border-b border-slate-200 bg-white px-4">

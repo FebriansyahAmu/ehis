@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { ExternalLink, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BillingRecord } from "@/lib/data";
 import { ModalShell } from "../primitives";
@@ -73,8 +75,26 @@ export function BillingDetailModal({
             <span className="font-bold text-emerald-700">{fmtRp(record.dibayar)}</span>
           </div>
         )}
+
+        {/* ── Info banner: read-only context ── */}
+        <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2.5">
+          <Info size={12} className="mt-0.5 shrink-0 text-amber-600" />
+          <p className="text-[10.5px] leading-relaxed text-amber-800">
+            Tampilan ringkasan dari registrasi. Pembayaran, deposit, refund, dan
+            audit trail dikelola di modul <span className="font-semibold">Billing Kasir</span>.
+          </p>
+        </div>
       </div>
-      <div className="flex shrink-0 justify-end border-t border-slate-100 px-5 py-3">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-t border-slate-100 px-5 py-3">
+        <Link
+          href={`/ehis-billing/tagihan/${record.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 hover:text-amber-800"
+        >
+          Buka di Billing Kasir
+          <ExternalLink size={11} className="text-amber-500 transition group-hover:translate-x-0.5 group-hover:text-amber-700" />
+        </Link>
         <button
           onClick={onClose}
           className="cursor-pointer rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50"

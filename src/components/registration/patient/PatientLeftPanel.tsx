@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import {
   Camera,
   Printer,
@@ -9,6 +10,7 @@ import {
   ClipboardList,
   Receipt,
   ArrowRight,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PatientMaster } from "@/lib/data";
@@ -27,7 +29,6 @@ interface PatientLeftPanelProps {
   photoRef: React.RefObject<HTMLInputElement | null>;
   onInfoLengkap: () => void;
   onDaftarKunjungan: () => void;
-  onKasir: () => void;
   onOpenBilling: (id: string) => void;
 }
 
@@ -38,7 +39,6 @@ export function PatientLeftPanel({
   photoRef,
   onInfoLengkap,
   onDaftarKunjungan,
-  onKasir,
   onOpenBilling,
 }: PatientLeftPanelProps) {
   const pjCfg = PENJAMIN_CFG[patient.penjamin.tipe];
@@ -214,13 +214,19 @@ export function PatientLeftPanel({
         </div>
       </div>
 
-      {/* ── Tagihan card ── */}
+      {/* ── Tagihan card (read-only ringkasan — aksi pembayaran di /ehis-billing) ── */}
       {patient.billing.length > 0 ? (
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <div className="flex items-center gap-1.5">
               <Receipt size={12} className="text-slate-400" />
               <span className="text-xs font-semibold text-slate-700">Rincian Tagihan</span>
+              <span
+                title="Tampilan ringkasan. Pembayaran dikelola di modul Billing Kasir."
+                className="rounded-full bg-slate-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-500 ring-1 ring-slate-200"
+              >
+                Read-only
+              </span>
             </div>
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
               {patient.billing.length} tagihan
@@ -230,11 +236,12 @@ export function PatientLeftPanel({
             {patient.billing.map((b) => {
               const uc = UNIT_CFG[b.unit];
               const UIcon = uc.icon;
-              const isActive = b.noTagihan === patient.kasir?.noTagihan;
               return (
-                <div
+                <button
                   key={b.id}
-                  className="flex items-center gap-3 px-4 py-3 transition hover:bg-slate-50/70"
+                  onClick={() => onOpenBilling(b.id)}
+                  title="Lihat rincian tagihan (read-only)"
+                  className="group flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50/70"
                 >
                   <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", uc.bg)}>
                     <UIcon size={13} className={uc.text} />
@@ -254,14 +261,10 @@ export function PatientLeftPanel({
                       {b.status}
                     </span>
                   </div>
-                  <button
-                    onClick={() => (isActive ? onKasir() : onOpenBilling(b.id))}
-                    title={isActive ? "Buka kasir lengkap" : "Lihat rincian"}
-                    className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-teal-300 hover:bg-teal-50 hover:text-teal-600 active:scale-95"
-                  >
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition group-hover:border-teal-300 group-hover:bg-teal-50 group-hover:text-teal-600">
                     <ArrowRight size={12} />
-                  </button>
-                </div>
+                  </span>
+                </button>
               );
             })}
           </div>
@@ -281,6 +284,24 @@ export function PatientLeftPanel({
               )}
             </div>
           )}
+          {/* ── Deep-link CTA: aksi pembayaran via /ehis-billing ── */}
+          <div className="border-t border-slate-100 bg-amber-50/40 px-3 py-2.5">
+            <Link
+              href="/ehis-billing/tagihan"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2 text-[11px] font-semibold text-amber-700 shadow-xs transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800"
+            >
+              <span className="flex items-center gap-1.5">
+                <Receipt size={11} className="text-amber-500" />
+                Buka di Billing Kasir
+              </span>
+              <ExternalLink size={11} className="text-amber-400 transition group-hover:translate-x-0.5 group-hover:text-amber-600" />
+            </Link>
+            <p className="mt-1.5 px-0.5 text-[9.5px] leading-tight text-slate-400">
+              Pembayaran, deposit, refund, dan cetak kwitansi dikelola di modul Billing.
+            </p>
+          </div>
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center">

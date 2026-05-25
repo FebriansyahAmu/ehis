@@ -17,6 +17,7 @@ import {
   hasCriticalResult,
   updateLabWorkflow,
 } from "../labShared";
+import { ingestLabOrder } from "@/lib/billing/chargeIngest";
 
 interface Props {
   order: LabOrder;
@@ -117,6 +118,16 @@ export default function ValidasiPane({ order, onStatusChange }: Props) {
           rilis: new Date().toISOString().slice(0, 16),
         },
       });
+      // BL6.1 — silent wiring ke Billing. Idempotent (dedupe by sourceRef).
+      // Jika invoice tidak ditemukan untuk noRM ini, ingest no-op (charges
+      // akan muncul di invoice saat pasien dapat tagihan baru — fallback ok).
+      const result = ingestLabOrder(order);
+      if (result.ok && result.added > 0) {
+        // eslint-disable-next-line no-console
+        console.info(
+          `[Billing] Lab ${order.noOrder} → invoice ${result.invoiceId} (+${result.added} charges, ${result.skipped} skipped)`,
+        );
+      }
       setSaving(false);
       onStatusChange();
     }, 700);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSkeletonDelay } from "@/components/master/shared";
 import PatientBannerBilling from "./PatientBannerBilling";
@@ -22,6 +22,10 @@ import type {
 import type { ChargeAction } from "./tabs/ChargeRow";
 import type { PaymentRowAction } from "./tabs/payment/PaymentRow";
 import { nextNoKwitansi } from "@/lib/billing/paymentCalc";
+import {
+  useInvoiceDetail, mutateInvoice, setInvoiceDetail,
+} from "@/lib/billing/billingStore";
+import { ingestAkomodasi } from "@/lib/billing/chargeIngest";
 
 interface Props {
   initialDetail: InvoiceDetail;
@@ -31,8 +35,28 @@ type ModalKey = "add" | "diskon" | "void" | "refund" | "void-payment" | "print" 
 
 export default function InvoiceDetailPage({ initialDetail }: Props) {
   const ready = useSkeletonDelay(400);
-  const [detail, setDetail] = useState<InvoiceDetail>(initialDetail);
+  const invoiceId = initialDetail.id;
+  // Subscribe ke billingStore — semua mutasi (charge ingest dari Lab/Rad/Farmasi
+  // di modul klinis) auto-trigger re-render di sini.
+  const stored = useInvoiceDetail(invoiceId);
+  const detail = stored ?? initialDetail;
   const [activeTab, setActiveTab] = useState<InvoiceTabKey>("rincian");
+
+  // Seed store dengan initialDetail saat mount (SSR → client hydrate). Idempotent
+  // — kalau sudah ada di store, ensureSeeded di store sudah handle.
+  useEffect(() => {
+    if (!stored) setInvoiceDetail(invoiceId, initialDetail);
+    // Akomodasi auto-ingest (BL6.1): untuk invoice RI, push 1 charge "Kamar"
+    // per hari dari tanggal admisi → hari ini. Idempotent (dedupe by sourceRef).
+    if (initialDetail.unit === "RI") {
+      ingestAkomodasi({
+        invoiceId,
+        kunjunganId: initialDetail.noKunjungan,
+        tanggalAdmisi: initialDetail.tanggalISO,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoiceId]);
 
   // Modal state
   const [modal, setModal] = useState<ModalKey>(null);
@@ -45,45 +69,40 @@ export default function InvoiceDetailPage({ initialDetail }: Props) {
     [detail.items],
   );
 
-  // ── Mutations (mock-only — backend swap di BL0/B1.7) ──
+  // ── Mutations via billingStore (BL6) ──
+  // Semua mutasi lewat `mutateInvoice` agar tersinkron dengan subscriber lain
+  // (mis. Patient banner mini widget, dashboard KPI).
 
   const addItem = (item: Omit<ChargeItem, "id">) => {
-    const newItem: ChargeItem = {
-      ...item,
-      id: `manual-${Date.now()}`,
-    };
-    setDetail((prev) => ({ ...prev, items: [...prev.items, newItem] }));
-    console.log("[BL2.2] Add item:", newItem);
+    const newItem: ChargeItem = { ...item, id: `manual-${Date.now()}` };
+    mutateInvoice(invoiceId, (prev) => ({ ...prev, items: [...prev.items, newItem] }));
   };
 
   const applyDiskon = (itemId: string, diskon: number, alasan: string) => {
-    setDetail((prev) => ({
+    mutateInvoice(invoiceId, (prev) => ({
       ...prev,
       items: prev.items.map((it) =>
         it.id === itemId ? { ...it, diskonItem: diskon, alasanDiskon: alasan } : it,
       ),
     }));
-    console.log("[BL2.2] Apply diskon:", { itemId, diskon, alasan });
   };
 
   const voidItem = (itemId: string, reason: string) => {
-    setDetail((prev) => ({
+    mutateInvoice(invoiceId, (prev) => ({
       ...prev,
       items: prev.items.map((it) =>
         it.id === itemId ? { ...it, voided: true, voidReason: reason } : it,
       ),
     }));
-    console.log("[BL2.2] Void item:", { itemId, reason });
   };
 
   const unvoidItem = (itemId: string) => {
-    setDetail((prev) => ({
+    mutateInvoice(invoiceId, (prev) => ({
       ...prev,
       items: prev.items.map((it) =>
         it.id === itemId ? { ...it, voided: false, voidReason: undefined } : it,
       ),
     }));
-    console.log("[BL2.2] Unvoid item:", itemId);
   };
 
   // ── Action dispatchers ──
@@ -106,18 +125,16 @@ export default function InvoiceDetailPage({ initialDetail }: Props) {
   // ── Payment mutations (BL2.3) ──
 
   const addPayment = (payload: Omit<PaymentRecord, "id" | "noKwitansi">) => {
-    setDetail((prev) => {
+    mutateInvoice(invoiceId, (prev) => {
       const noKwitansi = nextNoKwitansi(prev.payments);
       const newPayment: PaymentRecord = {
         ...payload,
-        // Default ke "Detail" jika caller (PaymentForm) tidak set source eksplisit
         source: payload.source ?? "Detail",
         id: `pay-${Date.now()}`,
         noKwitansi,
       };
       const nextPayments = [...prev.payments, newPayment];
       const nextDibayar = nextPayments.reduce((s, p) => (p.voided ? s : s + p.nominal), 0);
-      console.log("[BL2.3] Add payment:", newPayment);
       return { ...prev, payments: nextPayments, dibayar: nextDibayar };
     });
   };
@@ -128,14 +145,14 @@ export default function InvoiceDetailPage({ initialDetail }: Props) {
     metode: MetodeBayar,
     alasan: string,
   ) => {
-    setDetail((prev) => {
+    mutateInvoice(invoiceId, (prev) => {
       const noKwitansi = nextNoKwitansi(prev.payments);
       const refund: PaymentRecord = {
         id: `pay-${Date.now()}`,
         tanggalISO: new Date().toISOString().slice(0, 16),
         metode,
         nominal: -Math.abs(nominal),
-        kasir: "Sari (Kasir-1)", // mock — backend ambil dari session
+        kasir: "Sari (Kasir-1)",
         noKwitansi,
         kategori: "Refund",
         source: "Refund",
@@ -144,18 +161,16 @@ export default function InvoiceDetailPage({ initialDetail }: Props) {
       };
       const nextPayments = [...prev.payments, refund];
       const nextDibayar = nextPayments.reduce((s, p) => (p.voided ? s : s + p.nominal), 0);
-      console.log("[BL2.3] Refund:", refund);
       return { ...prev, payments: nextPayments, dibayar: nextDibayar };
     });
   };
 
   const voidPayment = (paymentId: string, reason: string) => {
-    setDetail((prev) => {
+    mutateInvoice(invoiceId, (prev) => {
       const nextPayments = prev.payments.map((p) =>
         p.id === paymentId ? { ...p, voided: true, voidReason: reason } : p,
       );
       const nextDibayar = nextPayments.reduce((s, p) => (p.voided ? s : s + p.nominal), 0);
-      console.log("[BL2.3] Void payment:", { paymentId, reason });
       return { ...prev, payments: nextPayments, dibayar: nextDibayar };
     });
   };
@@ -173,8 +188,7 @@ export default function InvoiceDetailPage({ initialDetail }: Props) {
   const handleRefund       = () => { setActiveTab("pembayaran"); };
   const handleApplyDiskInv = () => console.log("[BL2.2] Diskon invoice — modal akan dibuat di follow-up");
   const handleFinalize     = () => {
-    setDetail((prev) => ({ ...prev, status: "Final" }));
-    console.log("[BL2.2] Finalize invoice");
+    mutateInvoice(invoiceId, (prev) => ({ ...prev, status: "Final" }));
   };
   // Deep-link ke modul /ehis-eklaim (belum dibangun). Saat EK0 route ready,
   // ganti console.log → router.push(href).
