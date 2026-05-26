@@ -12,8 +12,8 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (E-Klaim depend B0/B1.9/B-fhir)
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
-> **Last updated:** 2026-05-26 (EK2.1 Layout & Filter done · EK2.3 mostly done)
-> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · **EK2.1 Layout & Filter ✅** · EK2.3 Logic ~90% (sort scaffold ready, exportCsv deferred ke EK2.2)
+> **Last updated:** 2026-05-26 (EK2.1 + EK2.2 + EK2.3 all done — Phase EK2 Klaim Board fully complete)
+> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · **EK2 Klaim Board ✅ (EK2.1 Layout + EK2.2 Table + EK2.3 Logic)** · Next: EK3 Klaim Detail (6-tab workspace, 5-6 hari)
 > **Target effort:** ~3.5-4.5 minggu (frontend full) · paralel dengan B0/B1.9 backend.
 > **Standar grouper:** **iDRG (Indonesian Diagnosis Related Groups) — primary** sejak 1 Okt 2025 (Pedoman Pengodean iDRG 2025 Kemenkes + Perpres 59/2024). INA-CBG = legacy adapter Phase later untuk klaim transisi pre-Okt 2025.
 
@@ -697,44 +697,53 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 
 ### EK2.2 Tabel Worklist
 
-- [ ] **Sticky-header table** 11 kolom:
-  - Checkbox bulk
-  - No Klaim + Tanggal kunjungan (mono)
-  - Pasien (nama + noRM)
-  - Unit + Kelas (chip)
-  - Penjamin (badge per tipe)
-  - INA-CBG (code mono + group truncate)
-  - Tarif RS (mono right)
-  - Tarif CBG (mono right · emerald jika over · rose jika under)
-  - Selisih (chip · emerald/rose)
-  - Status (chip per 11 status)
-  - Kebab aksi
-- [ ] **Sort 3-state** untuk 7 kolom sortable (No Klaim/Tanggal/Pasien/CBG code/Tarif RS/Selisih/Status).
-- [ ] **Bulk-select + bulk-action bar** — saat selected >0 muncul sky action bar:
-  - **Submit Batch ke BPJS** (eligibility: penjamin BPJS + status Belum Submit)
-  - **Cek Eligibility** (call V-Claim untuk validasi SEP semua)
-  - **Generate Berkas Batch** (zip per klaim)
-  - **Export Excel** (sama pattern Tagihan)
-- [ ] **Row interactivity** — click row → `/ehis-eklaim/klaim/[id]`. Kebab dengan disabledIf rule.
-- [ ] **Empty state** sky-themed dengan CTA reset filter.
-- [ ] **Footer summary** — count rows + density label + Total Tarif RS + Total Tarif CBG + Total Selisih.
+- [x] **Sticky-header table** 11 kolom (`KlaimTable.tsx` 272 ln + `KlaimRow.tsx` 293 ln + `tableTokens.ts` 112 ln):
+  - Checkbox bulk (select-all + indeterminate state via `el.indeterminate` ref)
+  - No Klaim + Tanggal kunjungan (mono + format short id-ID)
+  - Pasien (RM-ID + age/gender/LOS sub-line)
+  - Unit + Kelas (chip mini via `UnitKelasChip` shared)
+  - Penjamin (`PenjaminBadge` shared · BPJS emerald/Asuransi sky/Jamkesda amber)
+  - iDRG/CBG (kode mono via `GrouperChip` shared · "L" superscript untuk legacy + group truncate)
+  - Tarif RS (mono right · tooltip nominal full)
+  - Tarif Grouper (mono right · emerald jika RS untung · rose jika RS rugi)
+  - Selisih (chip emerald/rose/slate dengan TrendingUp/Down icon)
+  - Status (chip 13-status via `ClaimStatusChip` shared)
+  - Kebab ⋮ aksi (`KlaimRowKebab` 134 ln · 9 aksi dengan disabledIf)
+- [x] **Sort 3-state** untuk 7 kolom sortable (No Klaim/Pasien/Grouper code/Tarif RS/Selisih/Status — Tanggal masuk sort by `createdAt` via SortKey "createdAt"). Header button cycle asc → desc → null. `aria-sort` semantic. `motion.layoutId="klaim-sort-indicator"` spring dot.
+- [x] **Bulk-select + bulk-action bar** — `KlaimBulkBar.tsx` 176 ln sky-accent slide-up (`AnimatePresence` spring stiffness 380/damping 32):
+  - **Submit Batch ke BPJS** (disabled if !BPJS / !Belum Submit / iDRG only — alasan tooltip)
+  - **Cek Eligibility** (disabled jika tidak ada BPJS dengan SEP)
+  - **Generate Berkas Batch** (always enabled · mock)
+  - **Export CSV** (RFC 4180 escape + BOM UTF-8 · auto-download via `downloadKlaimCsv`)
+  - Header: count + Tarif RS total · Close X deselect semua
+- [x] **Row interactivity** — `click` anywhere (except checkbox/kebab) → `router.push("/ehis-eklaim/klaim/[id]")`. Keyboard Enter/Space sama behavior. Hover: `bg-teal-50/30`. Selected: `bg-teal-50/60`. Focus-visible ring teal/40.
+- [x] **Kebab 9-aksi dengan disabledIf**: Buka detail · Edit koding (Draft/Belum Submit) · Cek eligibility (BPJS+SEP) · Submit (BPJS+Belum Submit) · Generate berkas · Lihat timeline · Ajukan banding (Rejected) · Write-off (Rejected/Sengketa) · Hapus draft (Draft Coding). Outside-click + ESC close. Danger tone (rose) untuk Write-off/Hapus.
+- [x] **Empty state** (`KlaimEmptyState.tsx` 43 ln) teal-themed (selaras modul aksen — bukan sky karena teal sudah primary) + CTA reset filter.
+- [x] **Footer summary** (`KlaimTableFooter.tsx` 98 ln) — count rows + density label + Total Tarif RS + Total Tarif Grouper (teal tone) + Total Selisih (emerald/rose/slate tone dengan +/- prefix).
+- [x] **Selection auto-reset** saat filter sidebar berubah (kecuali quickTab/density) — pakai `filterStampRef` JSON comparison di useEffect supaya selection terhadap rows yang hilang tidak misleading.
 
 ### EK2.3 Logic terpisah
 
-- [x] **`klaimBoardLogic.ts`** (371 ln) — pure helpers:
+- [x] **`klaimBoardLogic.ts`** (565 ln) — pure helpers (semua deterministic, no side effect kecuali `downloadKlaimCsv` browser-only):
   - `applyFilters(claims, state)` — sidebar filters (search · periode · units · kelas · penjamin tipe+nama · status · era)
   - `applyQuickTab(claims, tab)` + `applyAllFilters` (sidebar + quickTab compose)
   - `computeQuickTabCounts(claims, state)` — count per 5 tab aware ke filter sidebar
   - `computeKPIs(claims, filters)` — derive 4 KPI dengan trend hints
   - `listPenjaminNama(claims, tipe)` — unique nama per tipe untuk dropdown sekunder
   - `statusCountsForChips(claims, filters)` — count per status saat filter sidebar aktif (chip badge)
-  - `applySort` + `cycleSort(current, key)` + `defaultSort` 3-state cycle scaffold (key: noKlaim/pasienId/createdAt/tarifRS/selisih/status/iDRGCode)
+  - `applySort(claims, sort)` + `cycleSort(current, key)` + `defaultSort` 3-state cycle (key: noKlaim/pasienId/createdAt/tarifRS/selisih/status/iDRGCode)
+  - `canBulkSubmit(selected)` + `canBulkCekEligibility(selected)` predicate dengan typed reason string untuk bulk bar disable tooltip
+  - `kebabActionsFor(claim)` — 9-aksi dengan `disabledReason` per row + 3 tone (default/primary/danger)
+  - `exportKlaimCsv(claims)` — RFC 4180 escape (`"`, `,`, `\r\n`) + `downloadKlaimCsv(claims, filename?)` browser auto-download dengan BOM UTF-8
   - `KLAIM_BOARD_MOCK` re-export sebagai single source untuk konsumer
-- [ ] **`exportKlaimCsv`** — DEFERRED ke EK2.2 (selesai bareng tabel + bulk action `Export Excel`).
 
-**Acceptance EK2.1:** ✅ 2-panel layout (300px filter + workspace) fit dalam viewport tanpa page-scroll · TSC clean · skeleton 500ms · 4 KPI animate stagger · 5 quick tab count dinamis · 13 status chip + 8 kelas chip + era segmented · search live filter terhadap 25 klaim mock · preview 6 row + footer summary · No indigo · semua font ≥ 11.5px (label uppercase) / 12.5px (value) · 8 file 82–434 ln (max 434, well under 800 cap).
+**Acceptance EK2.1:** ✅ 2-panel layout (300px filter + workspace) fit dalam viewport tanpa page-scroll · TSC clean · skeleton 500ms · 4 KPI animate stagger · 5 quick tab count dinamis · 13 status chip + 8 kelas chip + era segmented · search live filter terhadap 25 klaim mock · No indigo · font ≥ 11.5px / 12.5px.
 
-**Acceptance EK2 (full):** worklist tampil 25 klaim, filter real-time, bulk submit batch trigger mock V-Claim, count tab dinamis, click row navigate ke detail.
+**Acceptance EK2.2:** ✅ Sticky-header table 11 kolom · sort 3-state 7 kolom dengan `aria-sort` semantic · selection state + indeterminate select-all · bulk bar slide-up sky-accent 4 aksi dengan disabledIf typed reason · row click navigate ke detail (placeholder `/ehis-eklaim/klaim/[id]` untuk EK3) · kebab 9-aksi disabledIf · footer summary 3 total (Tarif RS / Tarif Grouper / Selisih) · empty state teal · 18 file 43–565 ln (max 565, well under 800 cap · total 3356 ln).
+
+**Acceptance EK2.3:** ✅ All pure helpers implemented + tested via runtime (TSC clean + KPI compute via filter aware) · CSV export RFC 4180 valid.
+
+**Acceptance EK2 (full):** ✅ worklist tampil 25 klaim · filter real-time · bulk submit batch trigger mock V-Claim (handler stub log via console.info · adapter EK0.4 ready · integration formal di EK3.5) · count tab dinamis · click row navigate ke detail.
 
 ---
 

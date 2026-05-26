@@ -354,6 +354,200 @@ function cmpBig(a: Rupiah, b: Rupiah): number {
   return 0;
 }
 
+// ── Bulk action predicates ─────────────────────────────
+
+/**
+ * Bisa submit batch ke BPJS?
+ * Syarat: semua klaim selected (1) penjamin BPJS, (2) status Belum Submit, (3) era iDRG (post-Okt 2025).
+ * INA-CBG Legacy disabled — submission via file XML belum di-build (EK0.4 sudah ada exportToEklaimXml tapi parked).
+ */
+export function canBulkSubmit(selected: ReadonlyArray<ClaimRecord>): {
+  ok: boolean;
+  reason?: string;
+} {
+  if (selected.length === 0) return { ok: false, reason: "Pilih minimal 1 klaim" };
+  const notBpjs = selected.filter((c) => c.penjamin.tipe !== "bpjs");
+  if (notBpjs.length > 0) return { ok: false, reason: `${notBpjs.length} bukan BPJS` };
+  const notBelumSubmit = selected.filter((c) => c.statusPenjamin !== "Belum Submit");
+  if (notBelumSubmit.length > 0) {
+    return { ok: false, reason: `${notBelumSubmit.length} bukan "Belum Submit"` };
+  }
+  const legacyEra = selected.filter((c) => c.eraGrouper === "INA_CBG_Legacy");
+  if (legacyEra.length > 0) {
+    return { ok: false, reason: `${legacyEra.length} klaim legacy (export XML manual)` };
+  }
+  return { ok: true };
+}
+
+/** Bisa cek eligibility batch? Syarat: ada minimal 1 BPJS dengan SEP. */
+export function canBulkCekEligibility(selected: ReadonlyArray<ClaimRecord>): {
+  ok: boolean;
+  reason?: string;
+} {
+  if (selected.length === 0) return { ok: false, reason: "Pilih minimal 1 klaim" };
+  const withSep = selected.filter((c) => c.penjamin.tipe === "bpjs" && c.penjamin.sep);
+  if (withSep.length === 0) return { ok: false, reason: "Tidak ada BPJS dengan SEP" };
+  return { ok: true };
+}
+
+// ── Kebab action definitions ───────────────────────────
+
+export type KebabActionKey =
+  | "buka-detail"
+  | "edit-koding"
+  | "cek-eligibility"
+  | "submit-klaim"
+  | "generate-berkas"
+  | "lihat-timeline"
+  | "ajukan-banding"
+  | "write-off"
+  | "hapus-draft";
+
+export interface KebabAction {
+  key: KebabActionKey;
+  label: string;
+  /** "primary" highlight di top, "danger" rose, default slate. */
+  tone: "default" | "primary" | "danger";
+  /** Disabled flag dengan alasan (tooltip). */
+  disabledReason?: string;
+}
+
+/** Daftar aksi kebab per klaim dengan disabledIf rules. */
+export function kebabActionsFor(claim: ClaimRecord): KebabAction[] {
+  const status = claim.statusPenjamin;
+  const isBpjs = claim.penjamin.tipe === "bpjs";
+  const hasSep = !!claim.penjamin.sep;
+  const isBelumSubmit = status === "Belum Submit";
+  const isDraftKoding = status === "Draft Coding";
+  const isRejected = status === "Rejected" || status === "Banding Rejected";
+
+  return [
+    { key: "buka-detail",      label: "Buka detail",            tone: "primary" },
+    {
+      key: "edit-koding",
+      label: "Edit koding ICD",
+      tone: "default",
+      disabledReason: !isDraftKoding && !isBelumSubmit
+        ? "Hanya untuk Draft Koding / Belum Submit"
+        : undefined,
+    },
+    {
+      key: "cek-eligibility",
+      label: "Cek eligibility SEP",
+      tone: "default",
+      disabledReason: !isBpjs ? "Hanya untuk BPJS"
+        : !hasSep ? "SEP belum tersedia" : undefined,
+    },
+    {
+      key: "submit-klaim",
+      label: "Submit ke BPJS",
+      tone: "default",
+      disabledReason: !isBpjs ? "Hanya untuk BPJS"
+        : !isBelumSubmit ? `Status saat ini: ${status}` : undefined,
+    },
+    { key: "generate-berkas",  label: "Generate berkas PDF",    tone: "default" },
+    { key: "lihat-timeline",   label: "Lihat audit timeline",   tone: "default" },
+    {
+      key: "ajukan-banding",
+      label: "Ajukan banding",
+      tone: "default",
+      disabledReason: !isRejected ? "Hanya untuk Rejected / Banding Rejected" : undefined,
+    },
+    {
+      key: "write-off",
+      label: "Write-off",
+      tone: "danger",
+      disabledReason: !isRejected && status !== "Sengketa"
+        ? "Hanya untuk Rejected / Sengketa" : undefined,
+    },
+    {
+      key: "hapus-draft",
+      label: "Hapus draft",
+      tone: "danger",
+      disabledReason: !isDraftKoding ? "Hanya untuk Draft Koding" : undefined,
+    },
+  ];
+}
+
+// ── CSV Export ─────────────────────────────────────────
+
+/**
+ * Export filtered claims ke CSV string.
+ * Quote semua field yang punya komma/quote — escape sesuai RFC 4180.
+ */
+export function exportKlaimCsv(claims: ReadonlyArray<ClaimRecord>): string {
+  const header = [
+    "No Klaim",
+    "Tanggal Kunjungan",
+    "Pasien (RM)",
+    "Unit",
+    "Kelas",
+    "Penjamin Tipe",
+    "Penjamin Nama",
+    "Era Grouper",
+    "Kode Grouper",
+    "Group",
+    "Tarif RS",
+    "Tarif Grouper",
+    "Selisih",
+    "Status",
+    "Approved Amount",
+    "Paid Amount",
+  ];
+
+  const rows = claims.map((c) => {
+    const tarifGrouper =
+      c.iDRG?.tarifAktual ?? c.inaCbgLegacy?.tarif.kelas2 ?? 0n;
+    const grouperCode = c.iDRG?.code ?? c.inaCbgLegacy?.code ?? "";
+    const grouperGroup = c.iDRG?.group ?? c.inaCbgLegacy?.group ?? "";
+    return [
+      c.noKlaim,
+      c.createdAt.slice(0, 10),
+      c.pasienId,
+      c.tipePelayanan,
+      c.kelas,
+      c.penjamin.tipe,
+      c.penjamin.nama,
+      c.eraGrouper,
+      grouperCode,
+      grouperGroup,
+      c.tarifRS.toString(),
+      tarifGrouper.toString(),
+      (c.selisih ?? 0n).toString(),
+      c.statusPenjamin,
+      c.approvedAmount?.toString() ?? "",
+      c.paidAmount?.toString() ?? "",
+    ];
+  });
+
+  return [header, ...rows].map(csvLine).join("\r\n");
+}
+
+function csvLine(fields: ReadonlyArray<string>): string {
+  return fields.map(csvField).join(",");
+}
+
+function csvField(s: string): string {
+  if (/[",\r\n]/.test(s)) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+/** Browser-only — trigger download CSV file. */
+export function downloadKlaimCsv(claims: ReadonlyArray<ClaimRecord>, filename?: string): void {
+  const csv = exportKlaimCsv(claims);
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename ?? `klaim-export-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // ── Internal helpers ───────────────────────────────────
 
 function shiftISO(iso: string, delta: number): string {

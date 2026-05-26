@@ -1,17 +1,21 @@
 "use client";
 
 /**
- * KlaimWorkspaceShell — workspace pane kanan (EK2.1).
+ * KlaimWorkspaceShell — workspace pane kanan (EK2.1 + EK2.2).
  *
  * Layout:
- *  - Header: Quick Tabs (5) + Density toggle + bulk indicator slot
- *  - Body: results pane (currently `KlaimResultsPlaceholder`, akan diganti `KlaimTable` di EK2.2)
+ *  - Header: Quick Tabs (5) + Density toggle
+ *  - Body: KlaimTable (sticky-header table) — EK2.2
+ *  - Floating: KlaimBulkBar (slide-up dari bottom saat selected > 0)
  *
- * Quick tab counts computed dinamis terhadap filter sidebar aktif
- * (lihat `computeQuickTabCounts` di klaimBoardLogic).
+ * State yang dilift ke sini:
+ *  - selected: Set<string>     (claim IDs)
+ *  - sort: SortState            (key + dir)
+ *  - Reset selected saat filter berubah (kecuali quickTab/density)
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Rows3, Rows2, AlignJustify } from "lucide-react";
 
@@ -24,8 +28,20 @@ import {
   type Density,
   type KlaimTone,
 } from "./klaimBoardShared";
-import { computeQuickTabCounts, KLAIM_BOARD_MOCK } from "./klaimBoardLogic";
-import KlaimResultsPlaceholder from "./parts/KlaimResultsPlaceholder";
+import {
+  computeQuickTabCounts,
+  applyAllFilters,
+  applySort,
+  cycleSort,
+  defaultSort,
+  KLAIM_BOARD_MOCK,
+  type SortState,
+  type SortKey,
+  type KebabActionKey,
+} from "./klaimBoardLogic";
+import KlaimTable from "./parts/KlaimTable";
+import KlaimBulkBar from "./parts/KlaimBulkBar";
+import type { ClaimRecord } from "@/lib/eklaim/eklaimShared";
 
 interface Props {
   filters: KlaimFilterState;
@@ -40,6 +56,10 @@ export default function KlaimWorkspaceShell({
   onDensity,
   onResetFilters,
 }: Props) {
+  const router = useRouter();
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [sort, setSort] = useState<SortState>(defaultSort);
+
   const quickTabCounts = useMemo(
     () => computeQuickTabCounts(KLAIM_BOARD_MOCK, filters),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -56,10 +76,107 @@ export default function KlaimWorkspaceShell({
     ],
   );
 
+  // Filtered + sorted rows
+  const rows = useMemo(() => {
+    const filtered = applyAllFilters(KLAIM_BOARD_MOCK, filters);
+    return applySort(filtered, sort);
+  }, [filters, sort]);
+
+  // Reset selection saat filter penting berubah — selection terhadap rows yang
+  // hilang dari view bisa misleading. Density/quickTab tidak trigger reset.
+  const filterStampRef = useRef<string>("");
+  const filterStamp = useMemo(
+    () =>
+      JSON.stringify({
+        search: filters.search,
+        periodeFrom: filters.periodeFrom,
+        periodeTo: filters.periodeTo,
+        units: filters.units,
+        kelas: filters.kelas,
+        penjamin: filters.penjamin,
+        penjaminNama: filters.penjaminNama,
+        status: filters.status,
+        era: filters.era,
+      }),
+    [filters],
+  );
+  useEffect(() => {
+    if (filterStampRef.current !== "" && filterStampRef.current !== filterStamp) {
+      setSelected(new Set());
+    }
+    filterStampRef.current = filterStamp;
+  }, [filterStamp]);
+
+  // Selection handlers
+  const handleToggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = (select: boolean) => {
+    setSelected(() => {
+      if (!select) return new Set();
+      return new Set(rows.map((r) => r.id));
+    });
+  };
+
+  const handleClearSelection = () => setSelected(new Set());
+
+  // Sort handler
+  const handleSort = (key: SortKey) => {
+    setSort((prev) => cycleSort(prev, key));
+  };
+
+  // Kebab action — TODO wire real handlers di EK3+ (saat detail page + modal exist)
+  const handleKebabAction = (key: KebabActionKey, claim: ClaimRecord) => {
+    switch (key) {
+      case "buka-detail":
+        router.push(`/ehis-eklaim/klaim/${claim.id}`);
+        break;
+      case "edit-koding":
+      case "submit-klaim":
+      case "cek-eligibility":
+      case "generate-berkas":
+      case "lihat-timeline":
+      case "ajukan-banding":
+      case "write-off":
+      case "hapus-draft":
+        // Placeholder feedback — replaced dengan modal/toast di EK3+
+        if (typeof window !== "undefined") {
+          // Soft notice — tidak blocking
+          console.info(`[Klaim ${claim.noKlaim}] aksi "${key}" — pending EK3 implementation`);
+        }
+        break;
+    }
+  };
+
+  // Bulk action handlers (mock stubs)
+  const selectedClaims = useMemo(
+    () => rows.filter((r) => selected.has(r.id)),
+    [rows, selected],
+  );
+
+  const handleBulkSubmit = (claims: ReadonlyArray<ClaimRecord>) => {
+    console.info(`[Bulk Submit] ${claims.length} klaim → V-Claim mock submission (EK0.4 ready)`);
+    // EK0.4 adapter sudah ready, integration di EK3.5
+  };
+
+  const handleBulkEligibility = (claims: ReadonlyArray<ClaimRecord>) => {
+    console.info(`[Bulk Eligibility] ${claims.length} klaim → V-Claim checkSEP mock`);
+  };
+
+  const handleBulkBerkas = (claims: ReadonlyArray<ClaimRecord>) => {
+    console.info(`[Bulk Berkas] ${claims.length} klaim → generate PDF (mock)`);
+  };
+
   return (
     <section
       aria-label="Workspace Klaim Board"
-      className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl bg-white ring-1 ring-slate-200"
+      className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl bg-white ring-1 ring-slate-200"
     >
       {/* Toolbar: Quick Tabs + Density */}
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-2.5">
@@ -79,10 +196,29 @@ export default function KlaimWorkspaceShell({
         <DensityToggle density={filters.density} onChange={onDensity} />
       </header>
 
-      {/* Body: results pane */}
+      {/* Body: KlaimTable */}
       <div className="min-h-0 flex-1 overflow-hidden">
-        <KlaimResultsPlaceholder filters={filters} onResetFilters={onResetFilters} />
+        <KlaimTable
+          rows={rows}
+          density={filters.density}
+          selected={selected}
+          sort={sort}
+          onToggleSelect={handleToggleSelect}
+          onToggleSelectAll={handleToggleSelectAll}
+          onSort={handleSort}
+          onKebabAction={handleKebabAction}
+          onResetFilters={onResetFilters}
+        />
       </div>
+
+      {/* Bulk bar (floating absolute) */}
+      <KlaimBulkBar
+        selectedClaims={selectedClaims}
+        onClear={handleClearSelection}
+        onSubmitBatch={handleBulkSubmit}
+        onCekEligibility={handleBulkEligibility}
+        onGenerateBerkas={handleBulkBerkas}
+      />
     </section>
   );
 }
@@ -134,10 +270,7 @@ function QuickTabBtn({
       {active && (
         <motion.span
           layoutId="klaim-quick-tab-underline"
-          className={cn(
-            "absolute inset-x-2 -bottom-px h-0.5 rounded-full",
-            palette.dot,
-          )}
+          className={cn("absolute inset-x-2 -bottom-px h-0.5 rounded-full", palette.dot)}
           transition={{ type: "spring", stiffness: 380, damping: 30 }}
         />
       )}
