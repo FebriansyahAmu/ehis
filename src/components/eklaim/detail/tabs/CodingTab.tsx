@@ -183,7 +183,7 @@ export default function CodingTab({ claim }: Props) {
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.22, ease: "easeOut" }}
-      className="mx-auto flex w-full max-w-7xl flex-col gap-3"
+      className="flex w-full flex-col gap-3"
     >
       {/* Soft lock banner */}
       {locked && claim.softLock && (
