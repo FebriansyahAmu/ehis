@@ -449,3 +449,54 @@ Strategi mock representative: 30–120 entry per master dengan schema 1:1 ke tar
 - Verifikasi: `npx tsc --noEmit` clean, semua file under 800 ln limit (terbesar vClaimAdapter.ts ~320 ln).
 
 **EK0 Foundation 100% selesai** — 4/4 sub-phase done (Types · Mocks · Helpers · Adapters). Total `src/lib/eklaim/` = 15 file, ~5150 ln. Siap pickup EK1 (Beranda) atau EK2 (Klaim Board) atau EK3 (Klaim Detail) sesuai prioritas business.
+
+---
+
+## ✅ Selesai — EHIS-Eklaim EK1 Beranda (2026-05-26)
+
+Frontend dashboard landing untuk `/ehis-eklaim` — 7 file komponen + 2 file route + nav wiring (~1368 ln total komponen). All `npx tsc --noEmit` clean. Dev server `GET /ehis-eklaim` → HTTP 200 (skeleton 500ms → fade-in client-side hydration). Frontend-design skill diterapkan.
+
+- **Accent teal** dipilih (distinct dari modul lain: care=rose · dashboard=indigo · master=violet · registration=sky · billing=amber · report=emerald). Hindari indigo per preferensi user.
+- **Layout 12-kolom** anti long-scroll: kiri (col-7) = QuickNav 2x2 · kanan (col-5) = 3 panel stacked. Fit dalam 1 viewport ~720p+. Skeleton 500ms via `useSkeletonDelay()` (existing helper di master/shared).
+- **`src/components/eklaim/beranda/berandaEklaimShared.ts`** (374 ln) — single source: tone palette (`EKLAIM_TONE` 6 tone: teal/amber/rose/emerald/sky/slate) · helper format Rupiah (`fmtRupiahKpi` short suffix · `fmtRupiahFull` thousand sep) · derived stats functions (`getEklaimStats` 5 KPI · `getQuickNavCards` 4 nav · `getButuhBanding` sort hari desc · `getAkanExpired` sort kunjungan desc · `getRecentSubmissions` sort agoSec asc) · `daysUntilDeadlineSubmit()` countdown ke tgl 10 next month · penjamin tipe config · `fmtAgo()` relative time.
+- **`KPIStripEklaim.tsx`** (173 ln) — 5 KPI card grid-5 (Klaim Hari Ini teal · Pending Verifikasi amber · Belum Submit rose dengan meter · Approval Rate emerald dengan meter · Total Pembayaran sky). Each card: icon ring + label + value (text-2xl black tabular-nums) + sub + optional meter bar + hover underline bar. Framer stagger 0.04s.
+- **`QuickNavGridEklaim.tsx`** (138 ln) — section card 2x2 grid. Per card: icon-bg ring + label + badge mono + desc line-clamp + chevron/lock. Card disabled tampil opacity-70 + border-dashed + lock icon. Hover translate-x chevron.
+- **`ButuhBandingPanel.tsx`** (179 ln) — Header icon rose + total potensi rugi. List 5 klaim Rejected/Banding Rejected sort hari desc. Row: pasienId + noKlaim + penjamin badge + hari + selisih chip. Empty state Inbox. Footer link banding (Soon badge).
+- **`AkanExpiredPanel.tsx`** (190 ln) — Header amber + total tertahan. List 5 klaim belum-submit sort hari kunjungan desc. Row: badge "{hari}h lalu" rose ≥20h amber otherwise + urgency bar (% dari 30-hari window). Empty state CheckCircle2. Footer link `/ehis-eklaim/klaim?status=belum-submit`.
+- **`RecentSubmissionPanel.tsx`** (164 ln) — Header teal + total nominal. List 8 submission terbaru. Row: kind badge (Submitted amber · Approved emerald · Paid teal · Rejected rose) + penjamin badge + pasienId + noKlaim mono + nominal (approvedAmount kalau ada) + agoSec compact.
+- **`BerandaEklaimPage.tsx`** (150 ln) — Page shell: hero teal-accent + KPIStrip + 12-col body grid. Skeleton match section heights. Framer `AnimatePresence mode="wait"` skel → page transition 0.2s. Timestamp pill jam (id-ID).
+- **Route wiring `src/app/ehis-eklaim/{layout,page}.tsx`** — `ModuleLayout moduleKey="eklaim"` shell + metadata "E-Klaim · Beranda". Plus `src/lib/navigation.ts`: new `ModuleKey "eklaim"`, descriptor (icon ShieldCheck · accent teal), `eklaimNav` (Beranda LayoutGrid · Klaim Board Inbox · iDRG Calculator Scale · Banding FileText · Reconciliation ArrowDownUp), `NAV_MAP.eklaim`. Module switcher otomatis include via MODULES array.
+- **Best practices applied:** Skeleton 500ms (no jarring flash) · framer stagger animation (0.04-0.05s delay per item) · density-friendly typography (text-[10px]-[12.5px] hierarchy) · tabular-nums untuk numerik · semantic HTML (header/section/aside/footer/ul/li) · accessibility focus-visible ring · responsive mobile-first (grid-cols-1 → md → lg break) · component file size 138-374 ln (all <800) · single source of truth pattern (shared file) · no indigo per user preference · no bright font in body content · no long scroll (12-col split) · clickable rows via Link href deep-link (UI siap saat klaim detail dibangun).
+- Verifikasi: `npx tsc --noEmit` clean, dev server boot 591ms · `curl /ehis-eklaim` HTTP 200, no runtime errors.
+
+---
+
+## ✅ Selesai — EHIS-Eklaim EK1 Beranda V2 Redesign (2026-05-26)
+
+User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"). Total redesign single-viewport interactive dashboard pakai /frontend-design skill. 9 file komponen (~1883 ln · all <800). `npx tsc --noEmit` clean.
+
+**Innovation utama:**
+- **Anti-scroll**: 3 panel stacked (V1) → 1 tabbed panel (V2). Eliminates 3x vertical scroll segments.
+- **Hero composite card**: Featured stat besar (3-4xl tabular-nums) + SVG sparkline 14-hari animated + trend chip ↑/↓% vs periode lalu + Period segmented control 3-opsi (Hari Ini · 7 Hari · Bulan Ini) dengan `motion.layoutId` smooth indicator + 4 mini KPI 2x2 grid di kolom kanan.
+- **Interactive pipeline funnel**: 5-stage horizontal (Draft → Belum Submit → Pending → Approved → Paid) dengan bar fill proportional + click stage → deep-link `/ehis-eklaim/klaim?status=<key>` filter pre-applied.
+- **Tabbed activity sidebar**: 3 tab (Banding · Expired · Recent) dengan count badge + active indicator `motion.layoutId` + content `AnimatePresence` slide-fade 0.18s + adaptive footer per tab.
+
+**File changes:**
+- **NEW** `HeroSummaryCard.tsx` (290 ln) — Composite featured card 2-col layout. LEFT: featured stat + sparkline SVG + period segmented + CTA button. RIGHT: 4 mini KPI tiles. Subtle gradient bg `from-white via-white to-teal-50/30` + radial blur accent.
+- **NEW** `PipelinePanel.tsx` (143 ln) — Horizontal funnel 5-stage clickable. Per stage: tone dot + label + count (text-xl black) + nominal + bar fill animated (delay stagger). Hover translate-y + shadow boost.
+- **NEW** `ActivityTabPanel.tsx` (239 ln) — Tabbed sidebar orchestrator. Tab bar: 3 button dengan count badge. `motion.layoutId="activity-tab-active"` indicator. Content area `flex-1 min-h-0 overflow-y-auto` (single scroll). Adaptive footer link per active tab.
+- **REWRITE** `QuickNavGridEklaim.tsx` (137 ln) — Compact 4-col grid (sm:2 / lg:4). Per card: icon ring with hover rotate-3 + scale-110, count badge mono, 1-line desc truncate, bottom bar animation. Lebih dense + interactive.
+- **REWRITE** `BerandaEklaimPage.tsx` (144 ln) — New layout 4-section vertical: HeroBar slim (1-line) · HeroSummaryCard · PipelinePanel · MainGrid (col-7 QuickNav + col-5 ActivityTabPanel). Target ~640px fit 720p.
+- **REWRITE** `ButuhBandingPanel.tsx` (86 ln) · `AkanExpiredPanel.tsx` (107 ln) · `RecentSubmissionPanel.tsx` (101 ln) — Strip outer card + header + footer. Return flat list saja (now content untuk ActivityTabPanel tabs). Empty state inline tetap.
+- **EXTEND** `berandaEklaimShared.ts` (374 → 636 ln) — `PipelineStage` type + `getPipelineStages()` builder (5-stage Draft/Belum Submit/Pending/Approved/Paid · status mapping ke ClaimStatus[]) · `SparklineDatum` + `getSparkline14d()` last-14-day createdAt groupBy + `buildSparklinePath()` SVG path constructor (M/L commands + area close) · `Period` type + `PERIOD_OPTIONS` + `calcTrend(period)` window comparator (current vs previous same-length window) + `periodRanges()` helper · `MiniKpi` type + `getMiniKpis()` 4-tile builder dari EklaimStats.
+- **DELETED** `KPIStripEklaim.tsx` — superseded by HeroSummaryCard mini KPIs.
+
+**Design tokens applied (frontend-design skill):**
+- **Visual hierarchy**: Featured stat 3-4xl `font-black tracking-tight tabular-nums` → 4 mini KPI text-lg → support meta 10-11px
+- **Color discipline**: teal primary (E-Klaim accent) · 5 tone variations untuk pipeline + activity tabs · slate base · no indigo · no bright colors di body content (slate-500 untuk meta, slate-800 untuk title)
+- **Micro-interactions**: SVG path-draw 0.7s easeOut (sparkline) · scale-spring on tab indicator (stiffness 380 damping 30) · stagger reveal 0.04-0.05s per item · hover rotate-3 + scale-110 icon · chevron translate-x · border-bottom bar grow
+- **Accessibility**: role="tab"/"tablist" + aria-selected · focus-visible ring-2 ring-slate-300 ring-offset · button vs Link semantic · aria-label deskriptif (sparkline + stage click)
+- **Spacing scale**: base-4 (gap-1 / gap-1.5 / gap-2 / gap-3 / gap-4) · padding p-2.5 / p-3 / p-4 / p-5 (responsive)
+- **Surface**: rounded-xl border-slate-200 bg-white shadow-sm — konsisten semua card · gradient hero only · hover -translate-y-0.5 + shadow-md
+
+**Verifikasi:** `npx tsc --noEmit` clean. File sizes 86-636 ln (all <800 limit). 9 file total ~1883 ln di `src/components/eklaim/beranda/`. Pattern berbeda dari Beranda Billing/Master (lebih interactive + featured-card-driven instead of KPI-strip-driven).

@@ -5,6 +5,10 @@ import {
   ClipboardList,
   CreditCard,
   BarChart3,
+  ShieldCheck,
+  Inbox,
+  Scale,
+  ArrowDownUp,
   LayoutGrid,
   Siren,
   Stethoscope,
@@ -59,6 +63,7 @@ export type ModuleKey =
   | "master"
   | "registration"
   | "billing"
+  | "eklaim"
   | "report";
 
 export type ModuleDescriptor = {
@@ -116,6 +121,14 @@ export const MODULES: readonly ModuleDescriptor[] = [
     href: "/ehis-billing",
     icon: CreditCard,
     accent: { bg: "bg-amber-50", text: "text-amber-600", ring: "ring-amber-100" },
+  },
+  {
+    key: "eklaim",
+    label: "EHIS E-Klaim",
+    desc: "Klaim BPJS & Asuransi",
+    href: "/ehis-eklaim",
+    icon: ShieldCheck,
+    accent: { bg: "bg-teal-50", text: "text-teal-600", ring: "ring-teal-100" },
   },
   {
     key: "report",
@@ -271,6 +284,22 @@ export const billingNav: readonly NavGroup[] = [
   },
 ] as const;
 
+export const eklaimNav: readonly NavGroup[] = [
+  {
+    label: "Utama",
+    items: [{ label: "Beranda", href: "/ehis-eklaim", icon: LayoutGrid }],
+  },
+  {
+    label: "Klaim",
+    items: [
+      { label: "Klaim Board",    href: "/ehis-eklaim/klaim",          icon: Inbox        },
+      { label: "iDRG Calculator", href: "/ehis-eklaim/grouper",       icon: Scale        },
+      { label: "Banding",        href: "/ehis-eklaim/banding",        icon: FileText     },
+      { label: "Reconciliation", href: "/ehis-eklaim/reconciliation", icon: ArrowDownUp  },
+    ],
+  },
+] as const;
+
 export const reportNav: readonly NavGroup[] = [
   {
     label: "Utama",
@@ -293,6 +322,7 @@ const NAV_MAP: Record<ModuleKey, readonly NavGroup[]> = {
   master: masterNav,
   registration: registrationNav,
   billing: billingNav,
+  eklaim: eklaimNav,
   report: reportNav,
 };
 

@@ -624,27 +624,43 @@ Best practice: **interface match spek resmi** (BPJS/Kemenkes), mock return data 
 
 ### EK1.1 Layout
 
-- [ ] **Hero header** sky-accent (icon `ShieldCheck` + eyebrow + h1 "EHIS E-Klaim" + tanggal + timestamp pill).
-- [ ] **KPI Strip** 5 hero card animated:
-  - **Klaim Hari Ini** (count + Rp · trend %)
-  - **Pending Verifikasi BPJS** (count menunggu verifier BPJS)
-  - **Belum Submit Akhir Bulan** (count yang harus submit sebelum tgl 10 — countdown days)
-  - **Approval Rate Bulan Ini** (% approved + nominal)
-  - **Total Bayar Bulan Ini** (nominal transfer masuk)
-- [ ] **Quick-Nav Grid** 4-card:
-  - Klaim Board · INA-CBG Calculator · Banding · Reconciliation
+- [x] **Hero header** teal-accent (icon `ShieldCheck` + eyebrow "EHIS E-Klaim · Beranda" + h1 "Pusat Klaim BPJS & Asuransi" + description + timestamp pill). Pivot accent dari sky → teal supaya distinct dari `/ehis-registration` (sky).
+- [x] **KPI Strip** 5 hero card animated dengan tone palette per posisi:
+  - **Klaim Hari Ini** (teal · count + tarif RS)
+  - **Pending Verifikasi** (amber · count + nominal BPJS)
+  - **Belum Submit** (rose · count + countdown hari ke deadline tgl 10 next month + meter sisa periode)
+  - **Approval Rate** (emerald · % + nominal bulan ini + meter %)
+  - **Total Pembayaran** (sky · nominal transfer + count trf bulan ini)
+- [x] **Quick-Nav Grid** 4-card (2x2 lg layout): Klaim Board (aktif) · iDRG Calculator (disabled) · Banding (disabled · badge rejection count) · Reconciliation (disabled · badge trf count). Card disabled tampil opacity-70 + lock icon (tidak Link).
 
 ### EK1.2 Sidebar Panel kanan
 
-- [ ] **Butuh Banding** — list klaim Rejected yang belum ada banding (sort by hari rejection desc).
-- [ ] **Akan Expired Submit** — list klaim Belum Submit dengan kunjungan >25 hari (mendekati batas tgl 10 next month).
-- [ ] **Recent Submission** — 10 submission terakhir (action + actor + nominal).
+- [x] **Butuh Banding** — list 5 klaim Rejected/Banding Rejected (sort hari menumpuk desc). Per row: pasienId + noKlaim + penjamin badge + hari + selisihMinus (estimasi rugi). Footer link ke `/ehis-eklaim/banding` (Soon badge).
+- [x] **Akan Expired Submit** — list 5 klaim Belum Submit sort hari kunjungan desc. Per row: pasienId + noKlaim + penjamin + hari lalu (badge rose ≥20h) + sisa hari ke deadline + tarif. Urgency bar (% dari 30-hari window). Footer link ke `/ehis-eklaim/klaim?status=belum-submit`.
+- [x] **Recent Submission** — list 8 submission terbaru sort agoSec asc. Per row: kind badge (Submitted/Approved/Paid/Rejected) + penjamin badge + pasienId + noKlaim + nominal (approvedAmount kalau ada) + agoSec compact. Footer link ke Klaim Board.
 
-### EK1.3 Components
+### EK1.3 Components — Redesign V2 (single-viewport interactive)
 
-- [ ] `BerandaEklaimPage.tsx` · `KPIStripEklaim.tsx` · `QuickNavGridEklaim.tsx` · `ButuhBandingPanel.tsx` · `AkanExpiredPanel.tsx` · `RecentSubmissionPanel.tsx`
+User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"): redesigned ke single-viewport layout dengan tabbed sidebar + interactive pipeline funnel + sparkline hero card.
 
-**Acceptance EK1:** beranda load <500ms (skeleton 500ms), KPI angka match seed mock, klik quick-nav route ke sub-page.
+- `BerandaEklaimPage.tsx` (144 ln) — Page shell baru 4-section: HeroBar slim · HeroSummaryCard · PipelinePanel · MainGrid (QuickNav + ActivityTabPanel). Target ~640px total height fit dalam 720p tanpa scroll.
+- **`HeroSummaryCard.tsx` NEW** (290 ln) — Composite featured card 2-col: LEFT (col-7) featured stat besar + SVG sparkline 14-hari animated + trend chip (↑/↓ % vs periode lalu) + Period segmented control 3-opsi dengan `motion.layoutId` smooth indicator + CTA "Buka Klaim Board". RIGHT (col-5) 4 mini KPI tile compact 2x2 (Klaim Hari Ini · Pending Verif · Belum Submit · Approval Rate). Subtle radial accent + gradient bg.
+- **`PipelinePanel.tsx` NEW** (143 ln) — Horizontal funnel 5-stage (Draft → Belum Submit → Pending → Approved → Paid) dengan count + nominal + bar fill proportional ke max count. Setiap stage clickable → deep-link `/ehis-eklaim/klaim?status=<key>`. Hover: translate-y + shadow boost + chevron animation. Empty stage tampil opacity-70.
+- **`ActivityTabPanel.tsx` NEW** (239 ln) — Tabbed sidebar replacing 3 stacked panels (eliminates vertical scroll). 3 tab: Banding (rose) · Expired (amber) · Recent (teal) dengan count badge per tab. Active indicator via `motion.layoutId`. Content transition `AnimatePresence` slide-fade 0.18s. Footer link adaptif per tab. Single scrollable area di tab content (flex-1 min-h-0 overflow-y-auto).
+- `QuickNavGridEklaim.tsx` REWRITE (137 ln) — Compact 4-col grid (sm:2 / lg:4) tanpa section header — header sudah di-handle level page. Per card: icon rotate+scale on hover, count badge, 1-line desc, bottom border animation. Lebih dense + interactive vs versi 1.
+- `ButuhBandingPanel.tsx` REWRITE (86 ln) · `AkanExpiredPanel.tsx` REWRITE (107 ln) · `RecentSubmissionPanel.tsx` REWRITE (101 ln) — Strip outer card + header + footer (now handled by `ActivityTabPanel`). Return flat list saja. Empty state inline tetap.
+- `berandaEklaimShared.ts` EXTEND (636 ln) — Tambah: `PipelineStage` type + `getPipelineStages()` 5-stage builder · `SparklineDatum` + `getSparkline14d()` last-14-day grouped + `buildSparklinePath()` SVG path constructor · `Period` type + `PERIOD_OPTIONS` + `calcTrend(period)` window comparator + `periodRanges()` helper · `MiniKpi` type + `getMiniKpis()` 4-tile builder.
+- **DELETED:** `KPIStripEklaim.tsx` — superseded by HeroSummaryCard's mini KPIs 2x2 grid.
+
+**Design innovations (frontend-design skill applied):**
+- **Anti-scroll**: 3 panel stacked → 1 tabbed panel (single content area scroll dalam panel)
+- **Interactivity**: Period segmented control · clickable pipeline stages · tab transitions · hover micro-animations (icon rotate, card translate, bar grow, chevron slide)
+- **Modern data-viz**: SVG sparkline dengan path animation + gradient fill + peak marker · trend chip ↑/↓
+- **Elegant typography**: Featured stat 3-4xl black tracking-tight tabular-nums · supporting text 10-11px slate-500 (no bright colors) · uppercase eyebrow text-teal-600 tracking-widest
+- **Visual hierarchy**: Big featured stat → 4 supporting mini KPIs → pipeline funnel → quick nav + activity (clear F-pattern scan)
+- **Subtle surfaces**: Gradient `from-white via-white to-teal-50/30` di hero card · radial blur accent · ring-1 borders konsisten
+
+**Acceptance EK1 V2:** ✅ TSC clean · single-viewport layout (~640px target fit 720p) · 3 framer micro-interaction (period segmented · tab indicator · sparkline path-draw) · clickable pipeline stages → deep-link · file size 86-290 ln semua <800 limit · 9 file total ~1883 ln.
 
 ---
 
@@ -1049,7 +1065,7 @@ Best practice: **interface match spek resmi** (BPJS/Kemenkes), mock return data 
 | Phase                       | Tasks  | Done  | %      | Estimasi effort |
 | --------------------------- | ------ | ----- | ------ | --------------- |
 | EK0 — Foundation (iDRG)     | 4      | 4     | 100%   | 5-6 hari (EK0.1 ✅ types · EK0.2 ✅ mocks · EK0.3 ✅ helpers · EK0.4 ✅ adapters) |
-| EK1 — Beranda               | 3      | 0     | 0%     | 2 hari          |
+| EK1 — Beranda               | 3      | 3     | 100%   | 2 hari (done · V2 redesign · 9 file · ~1883 ln) |
 | EK2 — Klaim Board           | 3      | 0     | 0%     | 3-4 hari        |
 | EK3 — Klaim Detail          | 7      | 0     | 0%     | 5-6 hari        |
 | EK4 — iDRG Calculator       | 2      | 0     | 0%     | 2 hari          |
@@ -1058,7 +1074,7 @@ Best practice: **interface match spek resmi** (BPJS/Kemenkes), mock return data 
 | EK7 — Reconciliation        | 4      | 0     | 0%     | 3 hari          |
 | EK8 — Dashboard Analytics   | 6      | 0     | 0%     | 3-4 hari (+EK8.6 Comparator) |
 | EK9 — UX Polish + Cross     | 5      | 0     | 0%     | 1-2 hari        |
-| **Total**                   | **39** | **4** | **10%** | **~3.5-4.5 minggu** |
+| **Total**                   | **39** | **7** | **18%** | **~3.5-4.5 minggu** |
 
 **Effort total:** ~3.5-4.5 minggu frontend full (revisi dari 3-4 minggu karena pivot ke iDRG + dual-era support + state machine + Rupiah type).
 **Critical path MVP:** EK0 + EK2 + EK3 (3 tab inti: Berkas + Coding + Submission) = ~10-12 hari. Sisanya by business priority.
