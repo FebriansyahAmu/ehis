@@ -76,7 +76,7 @@ export const CLAIM_DETAIL_TABS: ReadonlyArray<TabCfg> = [
     label: "Koding",
     hint: "ICD-10-IM & ICD-9-CM-IM",
     icon: Stethoscope,
-    implemented: false,
+    implemented: true,
   },
   {
     key: "grouper",

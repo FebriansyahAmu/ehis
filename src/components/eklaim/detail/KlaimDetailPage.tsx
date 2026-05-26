@@ -19,7 +19,6 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Stethoscope,
   Scale,
   Send,
   History,
@@ -32,6 +31,7 @@ import ClaimBannerHeader from "./ClaimBannerHeader";
 import ClaimTabs from "./ClaimTabs";
 import TabPlaceholder from "./tabs/TabPlaceholder";
 import BerkasTab from "./tabs/BerkasTab";
+import CodingTab from "./tabs/CodingTab";
 import ClaimNotFound from "./parts/ClaimNotFound";
 import {
   findTab,
@@ -146,25 +146,7 @@ function renderTab(tab: ClaimDetailTab, claim: ClaimRecord) {
       return <BerkasTab claim={claim} />;
 
     case "koding":
-      return (
-        <TabPlaceholder
-          icon={Stethoscope}
-          title="Koding"
-          phase="EK3.3"
-          effort="1.5 hari"
-          description="Tab Koding akan menampilkan picker ICD-10-IM (diagnosa primer/sekunder) + ICD-9-CM-IM (tindakan/prosedur) sesuai Pedoman Pengodean iDRG 2025 Kemenkes. Termasuk auto-suggest dari kunjungan, validasi ICS v1, dan tombol Re-Group iDRG."
-          bullets={[
-            "Diagnosa Primer picker — searchable autocomplete dari ICD10_IM_MOCK",
-            "Diagnosa Sekunder multi-picker (0-10) dengan flag hospitalAcquired (CC/MCC PPI)",
-            "Tindakan/Prosedur multi-picker dari ICD9_CM_IM_MOCK",
-            "Auto-suggest dari DiagnosaTab kunjungan EHIS-Care",
-            "Validasi ICS v1 — diagnosa primer wajib",
-            "Tombol Re-Group iDRG (dan Re-Group INA-CBG legacy)",
-            "Coder signature checkbox — audit trail dengan timestamp",
-            "Soft-lock banner jika dijaga coder lain (TTL 15 menit)",
-          ]}
-        />
-      );
+      return <CodingTab claim={claim} />;
 
     case "grouper":
       return (
