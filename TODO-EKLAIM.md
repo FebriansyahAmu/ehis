@@ -291,13 +291,13 @@ src/components/eklaim/
 
 ### EK0.1 Types di [src/lib/eklaim/eklaimShared.ts](src/lib/eklaim/eklaimShared.ts)
 
-- [ ] **`Rupiah = bigint`** type alias (simpan dalam sen/koin) — hindari floating point drift:
+- [x] **`Rupiah = bigint`** type alias (bulat rupiah, tanpa sen — sesuai akuntansi RS Indonesia) — hindari floating point drift:
   ```ts
   type Rupiah = bigint;  // 1 IDR = 100 Rupiah units (sen)
   // helpers di money.ts: formatRupiah(rp) → "Rp 1.250.000" · parseRupiah("Rp 1.250.000") → bigint
   ```
 
-- [ ] **`ClaimRecord`** — entity utama (iDRG primary):
+- [x] **`ClaimRecord`** — entity utama (iDRG primary):
   ```ts
   {
     id, noKlaim, invoiceId, kunjunganId, pasienId,
@@ -333,7 +333,7 @@ src/components/eklaim/
   }
   ```
 
-- [ ] **`SEPRecord`** — V-Claim SEP rich struct (bukan string flat):
+- [x] **`SEPRecord`** — V-Claim SEP rich struct (bukan string flat):
   ```ts
   {
     noSEP: string,
@@ -346,7 +346,7 @@ src/components/eklaim/
   }
   ```
 
-- [ ] **`ClaimStatus`** — granular state (13 status, naik dari 11):
+- [x] **`ClaimStatus`** — granular state (13 status, naik dari 11) + `CLAIM_STATUS_LABEL` map terpisah (status code stable, label mutable):
   ```ts
   "Draft Coding" |
     "Belum Submit" |
@@ -377,7 +377,7 @@ src/components/eklaim/
   function canTransition(from: ClaimStatus, to: ClaimStatus, role: UserRole): boolean
   ```
 
-- [ ] **`BerkasKlaim`** — checklist item per berkas:
+- [x] **`BerkasKlaim`** — checklist item per berkas (+ `BerkasVersion`, `BerkasFile`, `BerkasSumber` discriminated, `BerkasKategori`, `BerkasStatus`):
   ```ts
   {
     id,
@@ -399,7 +399,7 @@ src/components/eklaim/
   }
   ```
 
-- [ ] **`iDRGResult`** — PRIMARY grouper result (post-Okt 2025):
+- [x] **`iDRGResult`** — PRIMARY grouper result (post-Okt 2025) + `iDRGSeverity`, `TarifPerTingkat`, `TopUpCmg`:
   ```ts
   {
     code: string,                  // 7-digit numerik (e.g. "1234567")
@@ -422,7 +422,7 @@ src/components/eklaim/
   }
   ```
 
-- [ ] **`InaCbgLegacyResult`** (PARKED — Phase later untuk klaim pre-Okt 2025):
+- [x] **`InaCbgLegacyResult`** (active secondary — industri SIMRS dual support):
   ```ts
   {
     code: string,                  // e.g. "I-1-01-I" (4-digit alphanumeric)
@@ -433,7 +433,7 @@ src/components/eklaim/
   }
   ```
 
-- [ ] **`iDRGLookupEntry`** — lookup table entry (master IDRG_LOOKUP_MOCK):
+- [x] **`iDRGLookupEntry`** — lookup table entry (master IDRG_LOOKUP_MOCK):
   ```ts
   {
     code: string,                  // 7-digit numerik
@@ -451,7 +451,7 @@ src/components/eklaim/
   type TarifPerTingkat = { dasar: Rupiah, menengah: Rupiah, utama: Rupiah, komprehensif: Rupiah };
   ```
 
-- [ ] **`KodeICD10IM` / `KodeICD9CMIM`** — picker entry (Indonesian Modification):
+- [x] **`KodeICD10IM` / `KodeICD9CMIM`** — picker entry (Indonesian Modification):
   ```ts
   {
     kode, deskripsi, kategori, hint?,
@@ -461,7 +461,7 @@ src/components/eklaim/
   }
   ```
 
-- [ ] **`KelasRawat`** — enum baru (KRIS default + legacy compat):
+- [x] **`KelasRawat`** — enum baru (KRIS default + legacy compat) + `TingkatKompetensiRS`, `TipePelayanan`, `CaraPulang`, `Gender`, `EraGrouper`, `TipePenjamin`:
   ```ts
   type KelasRawat =
     | "KRIS"                                         // default post-Okt 2025 (iDRG)
@@ -469,7 +469,7 @@ src/components/eklaim/
     | "ICU" | "HCU" | "Isolasi";                    // intensive care (tetap)
   ```
 
-- [ ] **`BandingRecord`** — pengajuan banding (2 tingkat per PMK 26/2021):
+- [x] **`BandingRecord`** — pengajuan banding (2 tingkat per PMK 26/2021) + `BandingStatus`:
   ```ts
   {
     id, claimId, tingkat: 1 | 2,   // tingkat 1 = verifikator cabang, tingkat 2 = kantor pusat
@@ -481,7 +481,7 @@ src/components/eklaim/
   }
   ```
 
-- [ ] **`ReconciliationRecord`** — match transfer ke klaim (multi-criteria + confidence):
+- [x] **`ReconciliationRecord`** — match transfer ke klaim (multi-criteria + confidence) + `ReconciliationMatch`, `SelisihStatus`:
   ```ts
   {
     id, noTransfer, tanggalTransfer, nominalTransfer: Rupiah, bank,
@@ -497,7 +497,7 @@ src/components/eklaim/
   }
   ```
 
-- [ ] **`ClaimTimelineEntry`** — discriminated union (type-safe audit, bukan generic string):
+- [x] **`ClaimTimelineEntry`** — discriminated union 10 event type (type-safe audit, bukan generic string):
   ```ts
   type ClaimTimelineEntry =
     | { type: "claim-created", by: string, at: string }
@@ -512,7 +512,7 @@ src/components/eklaim/
     | { type: "payment-received", nominal: Rupiah, reconciliationId, by, at };
   ```
 
-- [ ] **`ClaimError`** discriminated union (untuk Result<T, ClaimError> di adapter):
+- [x] **`ClaimError`** discriminated union 7 error type (untuk `Result<T, ClaimError>` di adapter) + `Result<T,E>` + `Ok()`/`Err()` constructors:
   ```ts
   type ClaimError =
     | { type: "NetworkError", message, retryable: boolean }
@@ -524,18 +524,18 @@ src/components/eklaim/
     | { type: "ConcurrencyError", currentVersion: number };
   ```
 
-- [ ] **`CoderShift`** — optional, tracking coder productivity untuk EK8.4 (parked sampai EK8, scaffold typing saja).
+- [x] **`CoderShift`** — scaffold type only (implementasi di EK8.4).
 
 ### EK0.2 Mock seed
 
-- [ ] **`CLAIM_BOARD_MOCK`** — 25 klaim happy path lintas:
+- [x] **`CLAIM_BOARD_MOCK`** — 25 klaim happy path lintas (+ `claimMockFactory.ts` extracted untuk file size limit):
   - 3 penjamin (BPJS 60%, Asuransi 30%, Jamkesda 10%)
   - 13 status (distribusi realistis: 25% Belum Submit, 20% Pending Verifikasi, 5% Susulan Required, 15% Approved, 10% Rejected, 5% Sengketa, 10% Paid, 10% mixed banding/write-off)
   - Kelas: 80% KRIS (post-Okt 2025), 20% legacy VIP/K1/K2/K3 (pre-Okt 2025) + sprinkle ICU/HCU
   - `eraGrouper`: 80% iDRG, 20% INA_CBG_Legacy
   - `tingkatKompetensiRS`: 40% utama, 30% menengah, 20% komprehensif, 10% dasar
   - Periode bulan terakhir (Apr-Mei 2026)
-- [ ] **`CLAIM_EDGE_CASES_MOCK`** — 10 edge case khusus (BARU, untuk uji robust):
+- [ ] **`CLAIM_EDGE_CASES_MOCK`** — 10 edge case khusus (BARU, untuk uji robust) — **DEFERRED** ke point-of-use (saat unit test helper EK0.3 atau adapter EK0.4 butuh):
   - Klaim severity 3 (Berat) untuk test top-up CMG
   - Klaim ICU >3 hari (eligible CMG)
   - Klaim partial paid (untuk test reconciliation selisih)
@@ -546,150 +546,65 @@ src/components/eklaim/
   - Klaim transisi pre-Okt 2025 (INA_CBG_Legacy mode)
   - Klaim Sengketa (Approved nominal beda dari expected)
   - Klaim concurrency (2 coder edit bersamaan — test softLock)
-- [ ] **`IDRG_LOOKUP_MOCK`** — 30 kode iDRG 7-digit numerik (sumber: **Pedoman Pengodean iDRG 2025 Kemenkes**, annotate `sumberRegulasi`):
+- [x] **`IDRG_LOOKUP_MOCK`** — 30 kode iDRG 7-digit numerik (sumber: **Pedoman Pengodean iDRG 2025 Kemenkes**, annotate `sumberRegulasi`) + helpers `findIDRG()` & `findIDRGByICD10IM()`:
   - Kasus jantung (3 severity × 5 kode = 15)
   - Kasus DM/endokrin (3 severity × 3 kode = 9)
   - Kasus bedah obstetri/sesar (3 severity × 2 kode = 6)
   - Kasus persalinan normal (3 kode)
   - Setiap entry punya `tarifPerTingkat` lengkap (4 tingkat kompetensi RS) untuk severity 1/2/3
   - Versi grouper field: `"iDRG_v1.0_2025"`
-- [ ] **`INA_CBG_LEGACY_MOCK`** — 10 CBG paling umum untuk legacy (parked, untuk klaim transisi):
+- [x] **`INA_CBG_LEGACY_MOCK`** — 10 CBG paling umum untuk active secondary (klaim transisi pre-Okt 2025 + Comparator AD-19) + helper `findInaCbgLegacy()` · `versiGrouper: "INA-CBG_v5.9"`:
   - I-1-01-I s/d III · I-4-10-I s/d III · U-1-02-I s/d III · K-1-31-I s/d III · J-1-30
   - Tarif per kelas {kelas3, kelas2, kelas1, vip}
   - Versi grouper: `"INA-CBG_v6.2"` (Permenkes 3/2023)
-- [ ] **`ICD10_IM_MOCK`** — 50 kode **ICD-10 Indonesian Modification** paling umum (sumber: **Pedoman Pengodean iDRG 2025**, BUKAN WHO ICD-10):
+- [x] **`ICD10_IM_MOCK`** — 30 kode **ICD-10 Indonesian Modification** (sumber: **Pedoman Pengodean iDRG 2025**, BUKAN WHO ICD-10) + helper `findICD10IM()`:
   - Annotate `versiIM: "ICD-10-IM_2025"`
   - Flag `hospitalAcquired` untuk CC/MCC PPI (PMK 27/2017)
-- [ ] **`ICD9_CM_IM_MOCK`** — 30 kode **ICD-9-CM Indonesian Modification** procedure paling umum
-- [ ] **`BERKAS_TEMPLATE_BPJS_RI`** — checklist berkas wajib BPJS Rawat Inap (10+ item: SEP + Resume Medis + Tindakan + Lab + Rad + Identitas + Rujukan + Billing + iDRG Grouper Result + Berkas khusus per kasus)
-- [ ] **`BERKAS_TEMPLATE_BPJS_RJ`** — checklist berkas BPJS Rawat Jalan (lebih ringan, tanpa lembar operasi/anestesi)
-- [ ] **`BERKAS_TEMPLATE_BPJS_IGD`** — checklist berkas BPJS IGD (rujukan kecuali emergency)
-- [ ] **`BERKAS_TEMPLATE_ASURANSI`** — checklist 8 berkas standar AAJI
-- [ ] **`RECONCILIATION_MOCK`** — 5 transfer batch BPJS bulan terakhir (dengan variasi: exact match, partial match, unmatched)
-- [ ] **Test fixtures terpisah** di `src/lib/eklaim/__fixtures__/claimsTestFixtures.ts` — minimal & deterministic untuk uji helper (`resolveGrouping`, `matchTransfer`, `canTransition`). Jangan reuse `CLAIM_BOARD_MOCK` yang random.
+- [x] **`ICD9_CM_IM_MOCK`** — 20 kode **ICD-9-CM Indonesian Modification** procedure (kardio/obstetri/pencernaan/ginjal/ICU/imaging) + helper `findICD9CMIM()`
+- [x] **`BERKAS_TEMPLATE_BPJS_RI`** — checklist 11 berkas wajib BPJS Rawat Inap (SEP + Identitas + Rujukan + Resume Medis + Tindakan + Lab + Rad + Billing + iDRG Grouper + Berkas khusus anestesi/kemo/dialisis)
+- [x] **`BERKAS_TEMPLATE_BPJS_RJ`** — checklist 8 berkas BPJS Rawat Jalan (lebih ringan, tanpa lembar operasi/anestesi)
+- [x] **`BERKAS_TEMPLATE_BPJS_IGD`** — checklist 9 berkas BPJS IGD (rujukan optional untuk emergency P1/P2)
+- [x] **`BERKAS_TEMPLATE_ASURANSI`** — checklist 8 berkas standar AAJI + helpers `getBerkasTemplate()` & `instansiBerkasFromTemplate()`
+- [x] **`RECONCILIATION_MOCK`** — 5 transfer batch (BPJS multi-klaim exact · Mandiri Inhealth cashless · Prudential reimbursement · BPJS partial paid Write-off · BPJS unmatched Pending) + helpers `findReconciliation()` & `findReconciliationsByPenjamin()`
+- [ ] **Test fixtures terpisah** di `src/lib/eklaim/__fixtures__/claimsTestFixtures.ts` — **DEFERRED** ke EK0.3 (build saat helper `resolveGrouping`/`matchTransfer`/`canTransition` ditulis + butuh deterministic test).
 
 ### EK0.3 Helpers shared di [src/lib/eklaim/](src/lib/eklaim/)
 
-- [ ] **`groupingResolver.ts`** (rename dari inaCbgResolver) — dual-engine routing:
-  ```ts
-  type ClaimGrouperContext = {
-    eraGrouper: "iDRG" | "INA_CBG_Legacy",
-    diagnosaPrimer: KodeICD10IM,
-    diagnosaSekunder: KodeICD10IM[],
-    tindakanProsedur: KodeICD9CMIM[],
-    tipePelayanan: "RI" | "RJ" | "SameDay",
-    kelas: KelasRawat,
-    isKRIS: boolean,
-    tingkatKompetensiRS: "dasar"|"menengah"|"utama"|"komprehensif",
-    los: number, age: number, gender: "L"|"P",
-    caraPulang: "Sembuh"|"PulangAPS"|"Rujuk"|"Meninggal",
-  };
-  function resolveGrouping(ctx: ClaimGrouperContext): Promise<Result<iDRGResult | InaCbgLegacyResult, ClaimError>>;
-  // internally route ke iDRGGrouperAdapter (default) atau inaCbgLegacyAdapter
-  ```
+- [x] **`groupingResolver.ts`** — dual-engine routing (`resolveGrouping(ctx)` route ke iDRG default atau INA-CBG Legacy berdasarkan `eraGrouper`) + `resolveComparator(ctx)` resolve KEDUA engine untuk EK4 dual preview (AD-19) + helpers `countIDRGCandidates()` & `hasIDRGMapping()`. Severity scorer heuristik (sekunder count + LOS + caraPulang + age extreme). Latency simulasi 500-1500ms match real grouper.
 
-- [ ] **`berkasChecker.ts`** — `checkBerkas(claim, templateMap) → { ready, missing, optional, progressPercent }`. Template di-resolve per `(penjamin × tipePelayanan × kelas)` combination (e.g. BPJS-RI-KRIS template berbeda dari BPJS-RJ-KRIS).
+- [x] **`berkasChecker.ts`** — `checkBerkas(claim) → { ready, missing, optional, progressPercent, items }` resolve template via `getBerkasTemplate(penjamin, tipePelayanan)`. Helpers `isBerkasReady()` (fast predicate) + `missingBerkasCategories()` (banner ringkas).
 
-- [ ] **`eligibilityChecker.ts`** — V-Claim API parity:
-  ```ts
-  function checkEligibility(input: {
-    noKartu: string,           // 13-digit BPJS card number
-    tanggalSEP: string,        // ISO date
-    jnsPelayanan: 1 | 2,       // 1=RI, 2=RJ
-  }): Promise<Result<{
-    valid: boolean,
-    kelasDijamin: KelasRawat,
-    tingkatKompetensiRSDijamin: "dasar"|"menengah"|"utama"|"komprehensif",
-    plafon?: Rupiah,
-    sisaHariRawat?: number,
-  }, ClaimError>>;
-  ```
+- [x] **`eligibilityChecker.ts`** — V-Claim API parity `checkEligibility({noKartu, tanggalSEP, jnsPelayanan})` return `Result<EligibilityCheckResult, ClaimError>`. Validation order: shape (13-digit) → SEP lookup → masaBerlaku → jnsPelayanan consistency. Options: `transientFailRate` + `forceResult` test override.
 
-- [ ] **`reconciliationMatcher.ts`** — multi-criteria + confidence score:
-  ```ts
-  function matchTransfer(transfer, approvedClaims): {
-    matched: Array<{
-      claimId, amount: Rupiah,
-      confidence: number,           // 0-1
-      reason: string,               // "exact nominal" | "periode + count" | "fuzzy nominal ±5%"
-    }>,
-    unmatched: { transfersLeft, claimsLeft },
-    selisih: Rupiah,
-  };
-  // Strategy: penjamin + periode submit + count klaim approved (primary) → nominal range (secondary)
-  // Support 1 transfer = N batch (BPJS merge multi-periode)
-  ```
+- [x] **`reconciliationMatcher.ts`** — `matchTransfer(transfer, pool)` multi-criteria 3-strategy (exact nominal 1.0 conf · periode+count ±2% 0.9 conf · fuzzy ±5% 0.7 conf). `matchBatch()` untuk N transfer dengan exclude-after-match. `toReconciliationRecord()` bridge ke storage layer.
 
-- [ ] **`stateMachine.ts`** — `ALLOWED_TRANSITIONS` map + `canTransition(from, to, role) → boolean` + `transitionClaim(claim, to, reason, actor) → ClaimRecord | ClaimError`.
+- [x] **`stateMachine.ts`** — `ALLOWED_TRANSITIONS` 13-status map + `REQUIRED_ROLE` per target status. `canTransition(from, to, role)` predicate · `allowedNextStatuses()` dropdown helper · `isTerminal()` · `transitionClaim(claim, input)` return updated ClaimRecord dengan timeline append + OCC bump. `ClaimActorRole`: Coder/TimKlaim/VerifikatorBPJS/Kasir/system. Status wajib alasan: Rejected/Susulan/Write-off/Sengketa/Banding Rejected.
 
-- [ ] **`softLock.ts`** — multi-coder concurrency:
-  ```ts
-  function acquireSoftLock(claimId, userId, ttlMinutes = 15): Result<SoftLock, "ALREADY_LOCKED">;
-  function releaseSoftLock(claimId, userId): void;
-  function isLockedByOther(claim, currentUser): boolean;  // untuk UI banner "Sedang di-edit oleh X"
-  ```
+- [x] **`softLock.ts`** — In-memory `Map<claimId, SoftLock>` registry. `acquireSoftLock(claimId, userId, opts)` (re-acquire by same user OK + perpanjang TTL) · `releaseSoftLock()` (no-op kalau bukan owner, idempotent) · `isLockedByOther()` (UI banner predicate) · `getLockInfo()` (remaining menit) · `purgeExpiredLocks()` (maintenance). TTL default 15 menit. Test helper `_resetSoftLockRegistry()`. Production swap → Redis SETNX TTL zero refactor.
 
-- [ ] **`money.ts`** — Rupiah helpers:
-  ```ts
-  function formatRupiah(rp: Rupiah): string;       // → "Rp 1.250.000"
-  function parseRupiah(input: string): Rupiah;     // "Rp 1.250.000" → 125000000n (sen)
-  function addRupiah(...amounts: Rupiah[]): Rupiah;
-  function subtractRupiah(a: Rupiah, b: Rupiah): Rupiah;
-  function rupiahToBigInt(rp: number): Rupiah;     // 1250000 → 125000000n
-  function rupiahFromBigInt(sen: Rupiah): number;  // for display only, NOT for math
-  ```
+- [x] **`money.ts`** — `formatRupiah()` (id-ID titik separator) + `formatRupiahShort()` (rb/jt/M) + `parseRupiah()` (accept "Rp 1.250.000" / "1,250,000" / raw) + `addRupiah/subtractRupiah/multiplyRupiah/applyPercent` (banker's rounding) + boundary `rupiahFromNumber/rupiahToDisplayNumber` + `eqRupiah/maxRupiah/minRupiah`. Catatan: Rupiah bulat tanpa sen — spek awal `parseRupiah → sen` di-revise sesuai EK0.1 decision.
 
-- [ ] **`claimCalc.ts`** — pure: `totalApproved(claims): Rupiah` · `approvalRate(claims): number` · `avgDaysToPaid(claims): number` · `agingBucket(claim): "0-30"|"31-60"|"61-90"|">90"` · `cbgMarginPercent(claim): number` (renamed dari marginCbg untuk clarity: tarif grouper vs tarif RS).
+- [x] **`claimCalc.ts`** — Pure aggregates: `totalApproved/totalPaid/totalTarifRS` + `approvalRate` (exclude in-progress) + `avgDaysToPaid` + `agingBucket` 4-bucket + `bucketByAging` (chart) + `cbgMarginPercent` (renamed dari marginCbg) + `avgMarginPercent` + `countByStatus` + filter predicates `isBelumSubmit/isPendingBPJS/isButuhBanding`.
 
-- [ ] **`zodSchemas.ts`** — runtime validation untuk adapter response:
-  ```ts
-  export const iDRGGrouperResponseSchema = z.object({...});
-  export const vClaimSubmitResponseSchema = z.object({...});
-  export const vClaimEligibilityResponseSchema = z.object({...});
-  // Caller wraps adapter response: const result = schema.safeParse(rawResponse);
-  ```
+- [ ] **`zodSchemas.ts`** — runtime validation untuk adapter response. **DEFERRED ke EK0.4** (depends on zod install + adapter shape finalization saat adapter ditulis). Sementara: TypeScript compile-time types + manual shape check di adapter mock.
 
 ### EK0.4 Adapter stubs (mock backend)
 
 Best practice: **interface match spek resmi** (BPJS/Kemenkes), mock return data shape sama → zero refactor saat backend ready.
 
-- [ ] **`iDRGGrouperAdapter.ts`** (PRIMARY) — bridging real-time REST ke INA-Grouper iDRG:
-  ```ts
-  // Reference spek: Pedoman Pengodean iDRG 2025 Kemenkes + INA-Grouper iDRG API
-  function groupiDRG(ctx: ClaimGrouperContext): Promise<Result<iDRGResult, ClaimError>>;
-  // Mock: lookup IDRG_LOOKUP_MOCK by primary ICD-10-IM → match severity by CC/MCC count
-  // → return iDRGResult dengan tarifAktual berdasarkan tingkatKompetensiRS
-  // Delay simulasi 800ms (real grouper response time ~500-1500ms)
-  // Random fail rate parameterized (default 5%), bisa di-override via mockConfig.iDRGFailRate
-  ```
+- [x] **`iDRGGrouperAdapter.ts`** (PRIMARY) — `groupiDRG(ctx, config) → Promise<Result<iDRGGrouperRawResponse, ClaimError>>` (transport layer, return raw envelope shape mimicking spec) + `toIDRGResult(raw, tingkat) → iDRGResult` mapper (raw → domain). Raw response shape: `{ status, metadata: { grouperVersion, requestId, timestamp, elapsedMs }, result, error }`. Severity scorer + tarif as bigint string (JSON precision). Latency 500-1500ms. `iDRGGrouperConfig`: `failRate` (default 5%) + `fixedLatencyMs`.
 
-- [ ] **`inaCbgLegacyAdapter.ts`** (LEGACY — parked Phase later) — file-based E-Klaim Kemenkes:
-  ```ts
-  // Reference: E-Klaim INA-CBG desktop app (.NET) — integrasi via export XML
-  function exportToEklaimXml(claim): string;     // serialize claim → XML format E-Klaim
-  function importGrouperResult(xml): InaCbgLegacyResult;  // parse hasil grouper XML
-  // Mock: pakai inaCbgLegacyMock untuk lookup 4-digit code
-  // Hanya dipanggil jika claim.eraGrouper === "INA_CBG_Legacy"
-  ```
+- [x] **`inaCbgLegacyAdapter.ts`** (LEGACY — parked Phase later) — `exportToEklaimXml(claim) → string` (minimal XML serialize dengan escape `<&>"` manual no-lib) + `importGrouperResult(xml) → Result<InaCbgRawResult, ClaimError>` (regex-based parse minimal) + `groupInaCbg(ctx, config)` convenience in-memory mock + `toInaCbgLegacyResult(raw) → InaCbgLegacyResult`. Raw shape: `{ cbgCode, groupDescription, severityRoman, tarifKelas3/2/1/VIP as string, versiGrouper, generatedAt }`. Status PARKED — hanya untuk klaim transisi + EK4 Comparator (AD-19).
 
-- [ ] **`vClaimAdapter.ts`** — REST + cons-id + signature timestamp (spek BPJS V-Claim):
-  ```ts
-  // Reference: BPJS V-Claim API spec https://apijkn.bpjs-kesehatan.go.id/vclaim-rest/
-  function checkSEP(input): Promise<Result<SEPRecord, ClaimError>>;
-  function submitClaim(claim, batchId): Promise<Result<{ noKlaim, statusBPJS }, ClaimError>>;
-  function getEligibility(noKartu, tanggal, jnsPelayanan): Promise<Result<...>>;
-  // Mock: LZ-String compression simulation absent (saat ready, tambah di adapter, caller tidak berubah)
-  // Header pattern: { 'X-cons-id', 'X-timestamp', 'X-signature' } — annotated di mock
-  ```
+- [x] **`vClaimAdapter.ts`** — `checkSEP(noSEP, config)` + `getEligibility(noKartu, tanggalSEP, jnsPelayanan, config)` + `submitClaim(claim, batchId, config)` semua return `Promise<Result<VClaimEnvelope<T>, ClaimError>>`. Envelope shape match spek BPJS: `{ metaData: { code, message }, response? }`. Mappers: `toSEPRecord/toEligibilityDomain/toClaimStatus`. Header pattern annotated di JSDoc (`X-cons-id` · `X-timestamp` · `X-signature` HMAC-SHA256 · `user_key`). LZ-String compression absent di mock — tambah saat backend ready, caller tidak berubah. Submit distribusi: 60% Pending · 25% Approved · 5% Rejected. `VClaimConfig`: `consId/userKey/failRate/fixedLatencyMs/forceResult`.
 
-- [ ] **`vedikaAdapter.ts`** — verifikasi digital BPJS-side (pull pattern, bukan polling client):
-  ```ts
-  // VEDIKA = BPJS verifikator digital process (RS submit batch → BPJS process → status pull)
-  function pullVerifikatorStatus(batchId): Promise<Result<{ klaimStatuses }, ClaimError>>;
-  // Mock: return random distribution (60% Approved, 25% Pending Verifikasi, 10% Susulan Required, 5% Rejected)
-  ```
+- [x] **`vedikaAdapter.ts`** — `pullVerifikatorStatus(batchId, config) → Promise<Result<VedikaBatchResponse, ClaimError>>`. Raw shape per klaim: `{ noKlaim, klaimId, statusVerifikator: "BELUM_DIPROSES"/"DALAM_PROSES"/"DISETUJUI"/"DITOLAK"/"PENDING_BERKAS", tarifDisetujui, alasanReject, daftarBerkasSusulan, verifierNama, verifiedAt }`. Distribusi default: 60% Approved · 25% Pending · 10% Susulan · 5% Rejected (overridable via `VedikaConfig.distribution` untuk deterministic test). `statusBatch` derived: QUEUED/PROCESSING/COMPLETED. Mapper `toClaimStatusFromVedika()`.
 
-- [ ] **`apolAdapter.ts`** — stub PHASE later untuk EK7 reconciliation obat kronis FKTL.
+- [x] **`apolAdapter.ts`** — STUB (PHASE LATER). Interface `APOLResepRecord`, `APOLBatchSubmitInput`. Methods `submitAPOLBatch/pullAPOLStatus` return `Err({ type: "ValidationError", field: "apol", message: "PHASE_LATER" })` — eksplisit reject (no silent no-op). Diimplementasi saat EK7 reconciliation obat kronis FKTL aktif.
+
+**Refactor wiring:**
+- `groupingResolver.ts` — sekarang delegate ke `iDRGGrouperAdapter.groupiDRG()` + `inaCbgLegacyAdapter.groupInaCbg()`, lalu pakai mapper `toIDRGResult()`/`toInaCbgLegacyResult()`. Lookup logic move ke adapter; resolver tinggal orchestrate + map status ERROR envelope ke `ClaimError`. `resolveComparator()` paralel kedua engine + secondary failure attach (tidak block).
+- `eligibilityChecker.ts` — sekarang delegate ke `vClaimAdapter.getEligibility()`, lalu pakai mapper `toEligibilityDomain()` + business rules tambahan (`mapMetaDataToEligibilityError`: pattern match message → typed reason · `resolveFallbackContext`: tingkatKompetensiRS dari klaim mock karena V-Claim tidak return field ini).
 
 **Acceptance EK0:**
 - ✅ Semua types compile clean (`npx tsc --noEmit`).
@@ -1133,7 +1048,7 @@ Best practice: **interface match spek resmi** (BPJS/Kemenkes), mock return data 
 
 | Phase                       | Tasks  | Done  | %      | Estimasi effort |
 | --------------------------- | ------ | ----- | ------ | --------------- |
-| EK0 — Foundation (iDRG)     | 4      | 0     | 0%     | 5-6 hari        |
+| EK0 — Foundation (iDRG)     | 4      | 4     | 100%   | 5-6 hari (EK0.1 ✅ types · EK0.2 ✅ mocks · EK0.3 ✅ helpers · EK0.4 ✅ adapters) |
 | EK1 — Beranda               | 3      | 0     | 0%     | 2 hari          |
 | EK2 — Klaim Board           | 3      | 0     | 0%     | 3-4 hari        |
 | EK3 — Klaim Detail          | 7      | 0     | 0%     | 5-6 hari        |
@@ -1143,7 +1058,7 @@ Best practice: **interface match spek resmi** (BPJS/Kemenkes), mock return data 
 | EK7 — Reconciliation        | 4      | 0     | 0%     | 3 hari          |
 | EK8 — Dashboard Analytics   | 6      | 0     | 0%     | 3-4 hari (+EK8.6 Comparator) |
 | EK9 — UX Polish + Cross     | 5      | 0     | 0%     | 1-2 hari        |
-| **Total**                   | **39** | **0** | **0%** | **~3.5-4.5 minggu** |
+| **Total**                   | **39** | **4** | **10%** | **~3.5-4.5 minggu** |
 
 **Effort total:** ~3.5-4.5 minggu frontend full (revisi dari 3-4 minggu karena pivot ke iDRG + dual-era support + state machine + Rupiah type).
 **Critical path MVP:** EK0 + EK2 + EK3 (3 tab inti: Berkas + Coding + Submission) = ~10-12 hari. Sisanya by business priority.
