@@ -12,8 +12,8 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (E-Klaim depend B0/B1.9/B-fhir)
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
-> **Last updated:** 2026-05-26 (revisi: pivot ke iDRG sebagai primary grouper)
-> **Status:** 📋 Planning — modul baru hasil scope-split dari `/ehis-billing` (lihat [TODO-BILLING.md § Scope Split](TODO-BILLING.md)). Belum ada implementasi.
+> **Last updated:** 2026-05-26 (EK2.1 Layout & Filter done · EK2.3 mostly done)
+> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · **EK2.1 Layout & Filter ✅** · EK2.3 Logic ~90% (sort scaffold ready, exportCsv deferred ke EK2.2)
 > **Target effort:** ~3.5-4.5 minggu (frontend full) · paralel dengan B0/B1.9 backend.
 > **Standar grouper:** **iDRG (Indonesian Diagnosis Related Groups) — primary** sejak 1 Okt 2025 (Pedoman Pengodean iDRG 2025 Kemenkes + Perpres 59/2024). INA-CBG = legacy adapter Phase later untuk klaim transisi pre-Okt 2025.
 
@@ -671,23 +671,29 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 
 ### EK2.1 Layout & Filter
 
-- [ ] **Header strip** 4 KPI:
-  - Klaim Hari Ini (count + Rp)
-  - Pending Verifikasi (count menunggu)
-  - Rejected Bulan Ini (count perlu banding)
-  - Approval Rate (% + trend chip)
-- [ ] **Filter Panel kiri 300px sticky** — sama pattern dengan Tagihan Board:
-  - Pencarian (no klaim / no RM / nama pasien)
-  - Periode kunjungan (5 preset + kustom)
-  - Penjamin (BPJS/Asuransi/Jamkesda · multi-select)
-  - Penjamin nama spesifik (dropdown native styled, max-w 260px)
-  - Kelas (7 chip)
-  - Status (11 chip multi-select dengan tone per status)
-  - Unit asal kunjungan (IGD/RJ/RI · multi-select)
-- [ ] **Quick Tabs** 5 pre-filter:
-  - Semua · Belum Submit · Pending Verifikasi · Rejected (perlu banding) · Paid
-  - Count dinamis after-filter aware (sama pattern Tagihan BL1.4)
-- [ ] **Density toggle** Compact/Comfortable/Cozy.
+- [x] **Header strip** 4 KPI dinamis (compute against active sidebar filters · `computeKPIs`):
+  - Klaim Hari Ini (teal · count + Tarif RS + trend Δ vs kemarin)
+  - Pending Verifikasi (sky · count + nominal menunggu + susulan flag)
+  - Rejected Bulan Ini (rose · count + selisih nominal hilang)
+  - Approval Rate (emerald · % decisive + breakdown Approved/Paid + target chip)
+- [x] **Filter Panel kiri 300px sticky** — `KlaimFilterPanel.tsx` (434 ln):
+  - Pencarian (noKlaim / noRM / SEP / nama penjamin · debounce live)
+  - Periode kunjungan (5 preset: Hari Ini / 7h / 30h / Bulan Ini / Kustom · default 30 hari)
+  - Penjamin tipe (Semua / BPJS / Asuransi / Jamkesda · dropdown styled)
+  - Penjamin nama spesifik (dropdown native max-w 260px · derived dari `CLAIM_BOARD_MOCK` per tipe · auto-reset saat tipe berubah)
+  - Era grouper (segmented · Semua / iDRG / INA-CBG Legacy — bonus selaras AD-11)
+  - Kelas (8 chip · KRIS + VIP + K1/K2/K3 + ICU/HCU/Isolasi · 8 vs 7 di spec karena KRIS dipisah eksplisit)
+  - Status (13 chip multi-select sesuai 13 status enum · tone per status `STATUS_CFG`)
+  - Unit pelayanan (RI / RJ / SameDay multi-select · catatan: ClaimRecord punya `tipePelayanan` bukan `unit` IGD/RJ/RI — IGD diserap ke `SameDay` saat ER P3 non-rawat-inap)
+  - Hidden scrollbar di internal body supaya estetika tidak ada bar
+  - Footer reset · ActiveBadge count terpadu
+- [x] **Quick Tabs** 5 pre-filter dengan count dinamis after-filter aware (`computeQuickTabCounts`):
+  - Semua (slate) · Belum Submit (amber) · Pending Verifikasi (sky) · Perlu Banding (rose) · Dibayar (emerald)
+  - `motion.layoutId="klaim-quick-tab-underline"` spring indicator
+- [x] **Density toggle** Compact/Comfortable/Cozy (radiogroup · ikon AlignJustify/Rows3/Rows2 · active state teal).
+- [x] **`KlaimHero.tsx`** slim teal-accent header (76px desktop) — eyebrow + h1 + timestamp pill + CTA `Buat Klaim`.
+- [x] **`KlaimResultsPlaceholder.tsx`** preview ringan (6 row max) sebelum EK2.2 — banner amber "preview EK2.2 segera" + row hover teal + footer summary count/Tarif RS/Selisih.
+- [x] **Skeleton 500ms** via `useSkeletonDelay` + fade-in motion 0.2s · semua kartu KPI stagger-up 0.05s/idx.
 
 ### EK2.2 Tabel Worklist
 
@@ -715,9 +721,20 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 
 ### EK2.3 Logic terpisah
 
-- [ ] **`klaimBoardLogic.ts`** — pure: `applyFilters`/`applySort`/`cycleSort`/`computeQuickTabCounts`/`exportKlaimCsv` (sama pattern tagihan).
+- [x] **`klaimBoardLogic.ts`** (371 ln) — pure helpers:
+  - `applyFilters(claims, state)` — sidebar filters (search · periode · units · kelas · penjamin tipe+nama · status · era)
+  - `applyQuickTab(claims, tab)` + `applyAllFilters` (sidebar + quickTab compose)
+  - `computeQuickTabCounts(claims, state)` — count per 5 tab aware ke filter sidebar
+  - `computeKPIs(claims, filters)` — derive 4 KPI dengan trend hints
+  - `listPenjaminNama(claims, tipe)` — unique nama per tipe untuk dropdown sekunder
+  - `statusCountsForChips(claims, filters)` — count per status saat filter sidebar aktif (chip badge)
+  - `applySort` + `cycleSort(current, key)` + `defaultSort` 3-state cycle scaffold (key: noKlaim/pasienId/createdAt/tarifRS/selisih/status/iDRGCode)
+  - `KLAIM_BOARD_MOCK` re-export sebagai single source untuk konsumer
+- [ ] **`exportKlaimCsv`** — DEFERRED ke EK2.2 (selesai bareng tabel + bulk action `Export Excel`).
 
-**Acceptance EK2:** worklist tampil 25 klaim, filter real-time, bulk submit batch trigger mock V-Claim, count tab dinamis, click row navigate ke detail.
+**Acceptance EK2.1:** ✅ 2-panel layout (300px filter + workspace) fit dalam viewport tanpa page-scroll · TSC clean · skeleton 500ms · 4 KPI animate stagger · 5 quick tab count dinamis · 13 status chip + 8 kelas chip + era segmented · search live filter terhadap 25 klaim mock · preview 6 row + footer summary · No indigo · semua font ≥ 11.5px (label uppercase) / 12.5px (value) · 8 file 82–434 ln (max 434, well under 800 cap).
+
+**Acceptance EK2 (full):** worklist tampil 25 klaim, filter real-time, bulk submit batch trigger mock V-Claim, count tab dinamis, click row navigate ke detail.
 
 ---
 
