@@ -12,8 +12,8 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (E-Klaim depend B0/B1.9/B-fhir)
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
-> **Last updated:** 2026-05-26 (EK2.1 + EK2.2 + EK2.3 all done — Phase EK2 Klaim Board fully complete)
-> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · **EK2 Klaim Board ✅ (EK2.1 Layout + EK2.2 Table + EK2.3 Logic)** · Next: EK3 Klaim Detail (6-tab workspace, 5-6 hari)
+> **Last updated:** 2026-05-27 (EK3.2 Tab Berkas done — checklist + auto-pull + preview pane)
+> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail 🚧 (EK3.1 ✅ + EK3.2 ✅ Berkas · EK3.3-3.7 pending)** · Next: EK3.3 Tab Koding (1.5 hari · ICD-10-IM + ICD-9-CM-IM picker)
 > **Target effort:** ~3.5-4.5 minggu (frontend full) · paralel dengan B0/B1.9 backend.
 > **Standar grouper:** **iDRG (Indonesian Diagnosis Related Groups) — primary** sejak 1 Okt 2025 (Pedoman Pengodean iDRG 2025 Kemenkes + Perpres 59/2024). INA-CBG = legacy adapter Phase later untuk klaim transisi pre-Okt 2025.
 
@@ -752,30 +752,65 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 **Route:** `/ehis-eklaim/klaim/[id]` · **Effort:** 5-6 hari
 **Pattern reference:** Invoice Detail (BL2) + Farmasi OrderDetail 5-tab
 
-### EK3.1 Banner Header
+### EK3.1 Banner Header + Tab Scaffold + Page Shell
 
-- [ ] **`ClaimBannerHeader`** — sky-accent:
-  - Breadcrumb "← Klaim Board" + noKlaim mono
-  - Avatar + identity row (nama + verified + gender/age/noRM)
-  - Chips strip: Penjamin · Kelas · SEP · noKunjungan · Unit asal
-  - Meta line: tanggal layanan · LOS · DPJP · Coder
-  - Status chip besar di kanan + claim timeline mini horizontal (Coding → Verif RS → Submit → Verif BPJS → Paid)
-  - Quick actions: **Submit ke BPJS** (primary sky · disabled jika berkas belum lengkap) · **Generate Berkas** · **Print Resume Medis**
-- [ ] **Progress berkas indicator** — bar progress global kelengkapan berkas (X/Y wajib) sebelum tabs.
+- [x] **`claimDetailShared.ts`** (290 ln) — types & helpers: `ClaimDetailTab` (6 tab: ringkasan/berkas/koding/grouper/submission/audit) + `CLAIM_DETAIL_TABS` config dengan icon + hint per tab · `TIMELINE_STAGES` (5-stage pipeline: Koding → Verif RS → Submit → Verif BPJS → Selesai) + `resolveStageStates()` (13-status → done/active/idle/error per stage) · `computeBerkasProgress()` (readyWajib/totalWajib/percent/missingKategori) · `computeQuickActionState()` (showSubmit BPJS-only · canSubmit gated on Belum Submit + berkas complete + grouper resolved · submitDisabledReason typed string) · `statusToneForBanner()` (semantic tone mapper) · `fmtDateShort/fmtDateTimeShort/avatarInitials/findTab` helpers.
+- [x] **`ClaimTimelineMini.tsx`** (parts/ · 156 ln) — horizontal 5-stage pipeline dengan node states: done (solid teal + check), active (sky pulse animasi 1.8s loop), idle (slate outline), error (rose + alert). Connector line per pair node berubah warna sesuai transition (gradient teal→sky saat menuju active). Spring layoutId hub di idx active.
+- [x] **`ClaimBannerHeader.tsx`** (488 ln) — sticky banner dengan 5-row layout teal/sky-accent:
+  - Row 1: Breadcrumb ← Klaim Board · noKlaim mono · invoice deep-link · kunjungan deep-link · status chip besar (semantic tone)
+  - Row 2: Avatar 11×11 dengan initials + linear-gradient teal/sky · identity (nama + Verified badge · pasienId mono + age + gender label) · chips strip (PenjaminBadge + KelasChip + SEP mono emerald + UnitChip + KompetensiChip dengan tooltip Perpres 59/2024) · TarifMiniCard 3-col (Tarif RS + Tarif Grouper teal + Selisih emerald/rose/slate dengan +/- prefix)
+  - Row 3: Meta line (tanggal + LOS hari + DPJP stub + Coder stub) dengan icons subtle
+  - Row 4: ClaimTimelineMini horizontal embed di card slate-50 padding
+  - Row 5: Berkas progress bar animated dengan tone emerald/amber sesuai isComplete · Quick action buttons (Submit BPJS primary sky disabled-reason tooltip · Generate Berkas · Print Resume — hidden untuk RJ)
+- [x] **`ClaimTabs.tsx`** (90 ln) — 6-tab sticky nav horizontal dengan motion.layoutId="klaim-detail-tab-underline" spring stiffness 380/damping 30 indicator. Icon 6×6 chip + label + hint subtitle (text-[10px] uppercase). Lock icon pada tab not-yet-implemented (5 tab). Hidden scrollbar untuk mobile (overflow-x-auto + scrollbar:none).
+- [x] **`TabPlaceholder.tsx`** (tabs/ · 96 ln) — reusable placeholder: icon header + judul + phase chip (amber EK3.x) + effort estimate + description prose + bullet list acceptance criteria yang akan dibangun (stagger entrance 0.03s/idx) + footer hint. Konten per tab di-define di `KlaimDetailPage.renderTab()` (6 entry — 1 untuk Ringkasan + 5 untuk EK3.2-3.6).
+- [x] **`ClaimNotFound.tsx`** (parts/ · 36 ln) — 404 state graceful dengan icon FileSearch rose + ID mono + tombol kembali ke Klaim Board.
+- [x] **`KlaimDetailPage.tsx`** (267 ln) — page shell entry: useSkeletonDelay(500) → SkeletonShell (banner + tabs + content placeholder all animated) → AnimatePresence transition ke ClaimBannerHeader + ClaimTabs + tab content area (scroll independent · max-w-3xl auto centered). `renderTab(tab)` switch route ke TabPlaceholder per tab dengan acceptance bullets terperinci. Quick action handlers stub `console.info` (Submit/GenerateBerkas/PrintResume — wired di EK3.5/EK5).
+- [x] **Route `/ehis-eklaim/klaim/[id]/page.tsx`** (18 ln) — server component pakai async params Next.js 16 + searchParams?.tab passthrough. Lookup di-handle di client (ClaimNotFound graceful 404 dengan breadcrumb intact, bukan global not-found.tsx).
+
+**Acceptance EK3.1:** ✅ TSC clean (`npx tsc --noEmit` exit 0) · banner sticky dengan 5 row info densitas tinggi · 6-tab nav dengan motion.layoutId smooth indicator + lock icon untuk pending tab · timeline mini animasi pulse spring per stage · skeleton 500ms · 404 graceful · file size 36-488 ln semua well <800 cap · 8 file total (1 shared + 2 parts + 1 tabs + 4 components incl. route) · no indigo · font ≥ 11.5px label / 12.5px value.
 
 ### EK3.2 Tab Berkas
 
-- [ ] **Berkas checklist** per kategori (SEP/ResumeMedis/Tindakan/Lab/Rad/Identitas/Rujukan/Billing/Grouper/Khusus):
-  - Per row: kategori icon · nama berkas · status (Belum/Siap/N.A) · upload action · preview link · catatan
-  - Per row: hide jika `wajib: false` & `status: "Tidak Berlaku"` (collapse)
-- [ ] **Upload form per berkas** — stub file input + caption text (mock URL)
-- [ ] **Auto-pull dari modul lain** (BL6-equivalent untuk klaim):
-  - Resume Medis → fetch dari `/ehis-care/{ri,igd,rj}/[pasienId]/discharge`
-  - Lab → fetch dari `/ehis-care/laboratorium` orders status `Tervalidasi`
-  - Rad → fetch dari `/ehis-care/radiologi` orders status `Tervalidasi`
-  - Billing → fetch dari `/ehis-billing/tagihan/[invoiceId]` items
-- [ ] **Preview pane** — embed PDF/image viewer (mock placeholder image)
-- [ ] **Notes per berkas** — textarea audit (sebagai catatan koder untuk verifikator)
+- [x] **`berkasShared.ts`** (tabs/berkas/ · 268 ln) — config & helpers: `BERKAS_GROUPS` (4 group: identitas/klinis/finansial/khusus dengan tone palette + description + order) · `KATEGORI_CFG` (10 kategori dengan icon Lucide + group mapping + tone + autoPull source `{label, href(claim), estimatedCount}` — Resume Medis routes ke `/ehis-care/{ri,igd,rj}` sesuai tipePelayanan) · `STATUS_CFG` (4 status: Belum/Siap/Tidak Berlaku/Reject Verifikator dengan icon + tone) · `cycleStatus()` (Belum → Siap → Tidak Berlaku → Belum) · `buildGroupSummaries()` (per-group progress: readyWajib/totalWajib/percent + collapsibleDefault saat all optional N.A) · `makeMockFile()` (generator file metadata dengan deterministic hash + mime sesuai kategori — PDF untuk dokumen, JPG untuk Identitas/Rad) · `AUTO_PULL_KATEGORI` (4 kategori: Resume/Lab/Rad/Billing) · `formatFileSize/fileTypeFromMime/fileTypeIcon` helpers.
+
+- [x] **`BerkasRow.tsx`** (tabs/berkas/ · 281 ln) — single berkas row:
+  - Header: kategori icon 7×7 tone palette + nama (truncate) + Wajib/Opsional micro-badge + status chip clickable cycle (active:scale-95 transition)
+  - Catatan template hint dari `getBerkasTemplate()` (PMK 26/2021 spec)
+  - File info row (jika ada file): file icon + nama mono truncate + size + version count badge v{n} + uploader chip
+  - Actions: Auto-pull button (sky · jika kategori punya source dan status ≠ Siap) · Upload (Replace jika sudah ada file) · Preview shortcut · Catatan toggle (amber jika sudah ada note)
+  - Notes textarea (collapsed default · expand on Catatan click · `framer-motion` height auto · stopPropagation supaya click textarea tidak select row)
+  - Keyboard: Enter/Space toggle select · focus-visible ring teal
+
+- [x] **`BerkasGroupList.tsx`** (tabs/berkas/ · 200 ln) — grouped list dengan 4 section:
+  - Header per section: dot tone + label bold + description sub + ProgressBadge (ready/total + percent · auto-tone emerald saat complete) + chevron collapse
+  - Show optional N.A toggle global (eye/EyeOff icon · saat off filter wajib=false && status=Tidak Berlaku)
+  - Auto-collapse groups dengan `collapsibleDefault` (all optional N.A) — start collapsed dengan opsi reveal
+  - Empty group skip render · empty section setelah filter tampil pesan "Toggle untuk tampilkan"
+  - `framer-motion` AnimatePresence untuk section expand/collapse (height auto · duration 0.2s)
+
+- [x] **`BerkasPreviewPane.tsx`** (tabs/berkas/ · 333 ln) — sticky preview pane kanan:
+  - 3 mode display: empty state (Inbox icon teal + guide message) · NoFileState (Upload icon amber + dual CTA Upload/Auto-pull jika source available) · FileViewer (full preview dengan metadata strip 4-col + mock preview area + footer actions + versions list)
+  - PreviewHeader shared: kategori icon 8×8 tone + nama + status chip semantic
+  - Metadata strip (4 col responsive): Nama File mono truncate · Ukuran · Tipe · Versi
+  - Mock preview renderers: `MockPdfPreview` (FileText 48 rose + 8 line skeletons) · `MockImagePreview` (FileImage placeholder dalam frame slate-200) · `MockOtherPreview` (file icon generic)
+  - Footer actions: Download (mock disabled) · Buka (external) · Replace · uploadedAt+uploadedBy chip emerald · Versions list mono badges · Coder note amber jika ada catatan
+
+- [x] **`AutoPullBar.tsx`** (tabs/berkas/ · 230 ln) — top bar dengan 4 source cards:
+  - Header: sky icon + title + summary count chip (X/Y ter-pull · auto-emerald saat semua complete) + Pull Semua button (disabled saat semua pulled)
+  - 4 PullCard (grid 2-col sm / 4-col md): kategori icon + label + source desc + ready/total chip + Pull button (disabled jika tidak ada items atau sudah pulled — auto-emerald ring) + ExternalLink anchor ke source modul
+  - Stagger pull via setTimeout (100ms + 150ms/item) supaya feedback berasa async
+
+- [x] **`BerkasTab.tsx`** (tabs/ · 280 ln) — main orchestrator:
+  - State: `berkas` (mutable mirror dari `claim.berkas` ReadonlyArray · backend swap pattern) + `selectedId` + `fileInputRef` + `pendingUploadIdRef`
+  - Template notes lookup via `getBerkasTemplate(penjamin.tipe, tipePelayanan)` match by (kategori, nama)
+  - Handlers: `handleSelect/handleStatusCycle/handleNoteChange/handleAutoPull` (350ms latency simulasi · attach mock file + sumber discriminated `auto-pull` dengan sumberType per kategori) · `handlePullKategori` (stagger via setTimeout 150ms/item) · `handlePullAll` (4 kategori 200ms apart) · `handleUpload` (trigger hidden file input via ref) · `handleFileInputChange` (read file.name+size+type, attach as new BerkasVersion append-only · sumber upload-manual)
+  - Layout: AutoPullBar atas · ProgressBanner global (emerald/amber sesuai isComplete dengan progress bar 32px animated) · 2-pane grid (5/12 list + 7/12 preview · stack di sm · max-h calc(100vh-400px) supaya scroll independent tidak page-level)
+  - Hidden file input (accept .pdf,.jpg,.jpeg,.png) trigger via ref · onChange handle replace dengan VersionNumber+1 append
+
+- [x] **Wire ke `KlaimDetailPage.renderTab()`** — replace `TabPlaceholder berkas` dengan `<BerkasTab claim={claim} />` · flip `implemented: true` di CLAIM_DETAIL_TABS · pass `claim` arg ke renderTab.
+
+**Acceptance EK3.2:** ✅ TSC clean (`npx tsc --noEmit` exit 0) · 4-group section (Identitas/Klinis/Finansial/Khusus) dengan progress per group · auto-collapse N.A · status cycle clickable · auto-pull 4 source dengan stagger feedback · upload via hidden file input + version append · preview pane 3 mode (empty/no-file/file-viewer) · mock PDF/image preview · notes inline textarea · file size 200-333 ln (max <800 cap · 6 file baru + 1 KlaimDetailPage edit · ~1592 ln total) · no indigo · font ≥ 11.5px label / 12.5px value.
 
 ### EK3.3 Tab Coding (ICD-10-IM + ICD-9-CM-IM)
 
@@ -1093,14 +1128,14 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 | EK0 — Foundation (iDRG)     | 4      | 4     | 100%   | 5-6 hari (EK0.1 ✅ types · EK0.2 ✅ mocks · EK0.3 ✅ helpers · EK0.4 ✅ adapters) |
 | EK1 — Beranda               | 3      | 3     | 100%   | 2 hari (done · V2 redesign · 9 file · ~1883 ln) |
 | EK2 — Klaim Board           | 3      | 0     | 0%     | 3-4 hari        |
-| EK3 — Klaim Detail          | 7      | 0     | 0%     | 5-6 hari        |
+| EK3 — Klaim Detail          | 7      | 2     | 29%    | 5-6 hari (EK3.1 ✅ Banner + Tab scaffold · EK3.2 ✅ Berkas) |
 | EK4 — iDRG Calculator       | 2      | 0     | 0%     | 2 hari          |
 | EK5 — Berkas Generator      | 2      | 0     | 0%     | 2-3 hari        |
 | EK6 — Banding               | 3      | 0     | 0%     | 2 hari          |
 | EK7 — Reconciliation        | 4      | 0     | 0%     | 3 hari          |
 | EK8 — Dashboard Analytics   | 6      | 0     | 0%     | 3-4 hari (+EK8.6 Comparator) |
 | EK9 — UX Polish + Cross     | 5      | 0     | 0%     | 1-2 hari        |
-| **Total**                   | **39** | **7** | **18%** | **~3.5-4.5 minggu** |
+| **Total**                   | **39** | **9** | **23%** | **~3.5-4.5 minggu** |
 
 **Effort total:** ~3.5-4.5 minggu frontend full (revisi dari 3-4 minggu karena pivot ke iDRG + dual-era support + state machine + Rupiah type).
 **Critical path MVP:** EK0 + EK2 + EK3 (3 tab inti: Berkas + Coding + Submission) = ~10-12 hari. Sisanya by business priority.
