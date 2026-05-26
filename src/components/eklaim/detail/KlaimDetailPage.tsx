@@ -239,35 +239,40 @@ function SkeletonShell() {
       transition={{ duration: 0.15 }}
       className="flex h-full flex-col"
     >
-      {/* Banner placeholder */}
-      <div className="border-b border-slate-200 bg-white px-4 py-3.5 sm:px-6">
-        <div className="space-y-2.5">
-          <div className="flex items-center gap-2">
-            <div className="h-5 w-24 animate-pulse rounded bg-slate-200" />
-            <div className="h-5 w-32 animate-pulse rounded bg-slate-100" />
-            <div className="h-5 w-28 animate-pulse rounded bg-slate-100" />
-            <div className="ml-auto h-6 w-24 animate-pulse rounded bg-slate-200" />
+      {/* Banner placeholder (compact ~130px) */}
+      <div className="relative border-b border-slate-200 bg-linear-to-br from-white via-teal-50/20 to-sky-50/20 px-4 py-3 sm:px-6">
+        <div className="absolute inset-x-0 top-0 h-0.75 bg-linear-to-r from-teal-200 via-sky-200 to-emerald-200" />
+        <div className="space-y-2">
+          {/* Row 1 — breadcrumb + status */}
+          <div className="flex items-center gap-1.5">
+            <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
+            <div className="h-4 w-32 animate-pulse rounded bg-teal-100" />
+            <div className="h-4 w-24 animate-pulse rounded bg-slate-100" />
+            <div className="ml-auto h-6 w-28 animate-pulse rounded-lg bg-emerald-100" />
           </div>
-          <div className="flex items-start gap-3">
-            <div className="h-11 w-11 shrink-0 animate-pulse rounded-lg bg-slate-200" />
+          {/* Row 2 — avatar + identity + tarif/berkas */}
+          <div className="flex items-center gap-2.5">
+            <div className="h-11 w-11 shrink-0 animate-pulse rounded-xl bg-linear-to-br from-teal-200 to-sky-200" />
             <div className="flex-1 space-y-1.5">
-              <div className="h-5 w-48 animate-pulse rounded bg-slate-200" />
-              <div className="h-3 w-64 animate-pulse rounded bg-slate-100" />
-              <div className="mt-1.5 flex gap-1.5">
-                <div className="h-5 w-20 animate-pulse rounded bg-slate-100" />
-                <div className="h-5 w-16 animate-pulse rounded bg-slate-100" />
-                <div className="h-5 w-32 animate-pulse rounded bg-slate-100" />
-                <div className="h-5 w-12 animate-pulse rounded bg-slate-100" />
+              <div className="h-4 w-56 animate-pulse rounded bg-slate-200" />
+              <div className="flex gap-1">
+                <div className="h-4 w-16 animate-pulse rounded bg-emerald-100" />
+                <div className="h-4 w-12 animate-pulse rounded bg-teal-100" />
+                <div className="h-4 w-20 animate-pulse rounded bg-emerald-100" />
+                <div className="h-4 w-10 animate-pulse rounded bg-sky-100" />
+                <div className="h-4 w-16 animate-pulse rounded bg-amber-100" />
               </div>
             </div>
+            <div className="hidden h-12 w-44 shrink-0 animate-pulse rounded-lg bg-linear-to-br from-teal-100 to-emerald-100 sm:block" />
+            <div className="hidden h-12 w-28 shrink-0 animate-pulse rounded-lg bg-amber-100 sm:block" />
           </div>
-          <div className="h-10 w-full animate-pulse rounded-lg bg-slate-100" />
-          <div className="flex items-center justify-between gap-3">
-            <div className="h-6 w-64 animate-pulse rounded bg-slate-100" />
-            <div className="flex gap-1.5">
-              <div className="h-7 w-28 animate-pulse rounded bg-slate-200" />
-              <div className="h-7 w-28 animate-pulse rounded bg-slate-100" />
-              <div className="h-7 w-24 animate-pulse rounded bg-slate-100" />
+          {/* Row 3 — timeline + actions */}
+          <div className="flex items-center justify-between gap-2 rounded-md border border-slate-100 bg-white/60 px-2 py-1.5">
+            <div className="h-5 flex-1 animate-pulse rounded bg-slate-100" />
+            <div className="flex gap-1">
+              <div className="h-6 w-24 animate-pulse rounded bg-sky-200" />
+              <div className="h-6 w-20 animate-pulse rounded bg-teal-100" />
+              <div className="h-6 w-16 animate-pulse rounded bg-slate-100" />
             </div>
           </div>
         </div>
