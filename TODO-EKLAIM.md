@@ -12,8 +12,8 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (E-Klaim depend B0/B1.9/B-fhir)
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
-> **Last updated:** 2026-05-28 (EK6.3 Banding Detail done — BandingDetailPage 2-panel + BandingDetailHeader + BandingDetailLeft (klaim context + rejection) + BandingDetailRight (alasan banding + dokumen + timeline + mock review) + BandingTimeline 3-stage vertical + BandingTable Detail→Link + route `/banding/[id]` · TSC clean)
-> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail ✅ 100%** · **EK4 iDRG Calculator ✅ 100%** · **EK5 Berkas Generator ✅ 100%** · **EK6 Banding ✅ 100% (EK6.1+EK6.2+EK6.3)** · Next: EK7 Reconciliation
+> **Last updated:** 2026-05-28 (EK7.3 SelisihWriteOffModal done — 2-step spring modal: Step 1 breakdown Review (3 summary cards Nominal/Dicocokkan/Selisih + direction hint underpaid/overpaid + per-klaim breakdown table Tarif Diajukan vs Disetujui) · Step 2 penanganan (3 option cards Write-off/Refund/Pending + animated hint on select + alasan min 20 char + approver input + validation summary + loading 800ms) · "Tangani Selisih" CTA amber di CompletedView MatchingPanel · state + handler di ReconciliationPage (statusSelisih + completedBy update) · TSC clean)
+> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail ✅ 100%** · **EK4 iDRG Calculator ✅ 100%** · **EK5 Berkas Generator ✅ 100%** · **EK6 Banding ✅ 100%** · **EK7 Reconciliation 🚧 EK7.1+EK7.2+EK7.3 ✅** · Next: EK7.4 Reconciliation Report
 > **Target effort:** ~3.5-4.5 minggu (frontend full) · paralel dengan B0/B1.9 backend.
 > **Standar grouper:** **iDRG (Indonesian Diagnosis Related Groups) — primary** sejak 1 Okt 2025 (Pedoman Pengodean iDRG 2025 Kemenkes + Perpres 59/2024). INA-CBG = legacy adapter Phase later untuk klaim transisi pre-Okt 2025.
 
@@ -988,33 +988,43 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 
 **Route:** `/ehis-eklaim/reconciliation` · **Effort:** 3 hari
 
-### EK7.1 Import Transfer
+### EK7.1 Import Transfer ✅ 2026-05-28
 
-- [ ] **`ImportTransferModal`** — upload CSV mock (kolom: tanggal/nominal/bank/keterangan):
+- [x] **`ImportTransferModal`** — upload CSV mock (kolom: tanggal/nominal/bank/keterangan):
   - Parse CSV → buat `ReconciliationRecord` draft
   - Auto-detect penjamin dari keterangan (regex "BPJS"/"Mandiri Inhealth"/dll)
+  - **Impl:** `ImportTransferModal.tsx` (2-step: DropzoneStep drag-drop + PreviewStep table) · `parseCSVContent()` helper di `reconciliationShared.ts` · template CSV download · penjamin auto-detect `detectPenjaminId()` · `generateReconId()`/`generateTransferNo()` ID generators · AnimatePresence step slide · spring modal animation.
 
-### EK7.2 Matching Engine
+### EK7.2 Matching Engine ✅ 2026-05-28
 
-- [ ] **`MatchingEngine`** — auto-match nominal transfer ke klaim Approved:
-  - Group klaim by penjamin + periode submit
-  - Match by nominal exact atau range ±5%
-  - Tampilkan unmatched klaim + unmatched transfer
-- [ ] **`ManualMatchForm`** — drag-drop atau pick manual untuk klaim yang tidak auto-match
+- [x] **`MatchingPanel`** — auto-match nominal transfer ke klaim Approved:
+  - 3-strategy matching via `reconciliationMatcher.matchTransfer()`: Exact (1.0) → Periode+Count (0.9) → Fuzzy ±5% (0.7) → Unmatched
+  - Tampilkan matched claims table (ConfidenceBadge + klaim detail)
+  - Tampilkan unmatched klaim collapsible + manual match CTA placeholder
+  - **View states:** Empty / CompletedView (stored matchedClaims) / PendingRun (engine CTA) / HasResult (engine output + Simpan)
+  - Simpan hasil → update `localRecords` state → clear matchResult cache → switch ke CompletedView
+- [x] **`ManualMatchForm`** — unmatched section collapsible di dalam MatchingPanel dengan per-claim "Tambah" action
+- [x] **`ReconciliationPage`** — shell 2-panel (380px TransferList kiri + fluid MatchingPanel kanan) · skeleton 500ms `useSkeletonDelay` · `handleRunMatch` async 1.5s latency · `handleSaveMatch` update state + clear cache
+- [x] **`TransferList`** — left panel: KPI strip 2×2 (Total/Selesai/Perlu Review/Belum Dicocokkan) + scrollable transfer items dengan status chips + Import button
+- [x] **`reconciliationShared.ts`** — types (`ReconViewStatus`, `CSVTransferRow`, `ReconKPI`) · `computeReconKPIs()` · `getReconViewStatus()` · `getConfidenceCfg()` · `getPenjaminDisplay()` · `getApprovedClaimPool()` · `findClaimById()` · `fmtDateShort/fmtDatetime` · re-export BANDING_TONE
+- [x] **Route** `src/app/ehis-eklaim/reconciliation/page.tsx`
 
 ### EK7.3 Selisih Resolution
 
-- [ ] **`SelisihWriteOffModal`** — untuk klaim partial paid:
-  - Tampilkan tarif diajukan vs disetujui
-  - Pilihan: Write-off · Refund (kalau lebih bayar) · Pending (sengketa)
-  - Wajib alasan + approver
+- [x] **`SelisihWriteOffModal`** — 2-step spring modal (2026-05-28):
+  - Step 1 Review: 3 summary cards (Nominal Transfer/Total Dicocokkan/Selisih) · direction hint (underpaid→Write-off, overpaid→Refund) · per-klaim breakdown table (Tarif Diajukan vs Disetujui vs Selisih per baris)
+  - Step 2 Penanganan: 3 option cards Write-off/Refund/Pending (animated hint on select) · alasan textarea (min 20 char + counter) · approver input · validation summary chips · loading 800ms · onSave callback
+  - "Tangani Selisih" CTA amber di CompletedView MatchingPanel (visible hanya saat statusSelisih = Pending)
+  - ReconciliationPage: `handleWriteOff` update `statusSelisih + completedBy` · `writeOffOpen` state · AnimatePresence mount · TSC clean
 
 ### EK7.4 Reconciliation Report
 
 - [ ] **Detail page per reconciliation** — list klaim matched + nominal + status + selisih
 - [ ] **Export PDF/Excel** untuk akuntansi
 
-**Acceptance EK7:** import transfer demo 1.5jt BPJS, auto-match 10 klaim, manual-match 2 sisa, selesai dengan selisih write-off 50rb.
+**Acceptance EK7.1+EK7.2:** ✅ TSC clean · ImportTransferModal 2-step drag-drop CSV + preview table + penjamin auto-detect · MatchingPanel 3-strategy engine CTA (Exact/Periode+Count/Fuzzy) + confidence badge + matched claims table + unmatched collapsible · Simpan flow (update state + clear cache + switch view) · ReconciliationPage 2-panel layout + skeleton 500ms + 4 KPI strip · 6 file baru (route + 5 components) semua ≤800 ln · no indigo · teal/sky/emerald/amber/rose palette · font ≥ text-sm.
+
+**Acceptance EK7 (full):** import transfer demo BPJS, auto-match klaim, manual-match sisa, selesai dengan selisih write-off (EK7.3+EK7.4 pending).
 
 ---
 
@@ -1111,10 +1121,10 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 | EK4 — iDRG Calculator       | 2      | 0     | 0%     | 2 hari          |
 | EK5 — Berkas Generator      | 2      | 0     | 0%     | 2-3 hari        |
 | EK6 — Banding               | 3      | 0     | 0%     | 2 hari          |
-| EK7 — Reconciliation        | 4      | 0     | 0%     | 3 hari          |
+| EK7 — Reconciliation        | 4      | 3     | 75%    | 3 hari (EK7.1 ✅ ImportTransferModal · EK7.2 ✅ MatchingPanel · EK7.3 ✅ SelisihWriteOffModal · EK7.4 pending) |
 | EK8 — Dashboard Analytics   | 6      | 0     | 0%     | 3-4 hari (+EK8.6 Comparator) |
 | EK9 — UX Polish + Cross     | 5      | 0     | 0%     | 1-2 hari        |
-| **Total**                   | **39** | **11** | **28%** | **~3.5-4.5 minggu** |
+| **Total**                   | **39** | **14** | **36%** | **~3.5-4.5 minggu** |
 
 **Effort total:** ~3.5-4.5 minggu frontend full (revisi dari 3-4 minggu karena pivot ke iDRG + dual-era support + state machine + Rupiah type).
 **Critical path MVP:** EK0 + EK2 + EK3 (3 tab inti: Berkas + Coding + Submission) = ~10-12 hari. Sisanya by business priority.
