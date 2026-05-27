@@ -83,7 +83,7 @@ export const CLAIM_DETAIL_TABS: ReadonlyArray<TabCfg> = [
     label: "Grouper",
     hint: "iDRG · tarif & severity",
     icon: Scale,
-    implemented: false,
+    implemented: true,
   },
   {
     key: "submission",

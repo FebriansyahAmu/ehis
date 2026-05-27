@@ -19,7 +19,6 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Scale,
   Send,
   History,
   ClipboardList,
@@ -32,6 +31,7 @@ import ClaimTabs from "./ClaimTabs";
 import TabPlaceholder from "./tabs/TabPlaceholder";
 import BerkasTab from "./tabs/BerkasTab";
 import CodingTab from "./tabs/CodingTab";
+import GrouperTab from "./tabs/GrouperTab";
 import ClaimNotFound from "./parts/ClaimNotFound";
 import {
   findTab,
@@ -149,24 +149,7 @@ function renderTab(tab: ClaimDetailTab, claim: ClaimRecord) {
       return <CodingTab claim={claim} />;
 
     case "grouper":
-      return (
-        <TabPlaceholder
-          icon={Scale}
-          title="Grouper"
-          phase="EK3.4"
-          effort="1.5 hari"
-          description="Tab Grouper akan menampilkan hasil iDRG (kode 7-digit numerik · MDC · severity · tarif per tingkat kompetensi RS · top-up CMG). Mode B untuk legacy INA-CBG (klaim pre-Okt 2025) dan Mode C Comparator (dual side-by-side opt-in, AD-19)."
-          bullets={[
-            "Mode A: iDRG Result Card — kode 7-digit + severity + tarif aktual + tarif per tingkat",
-            "Breakdown Tarif RS vs iDRG (per kategori akomodasi/tindakan/lab/rad/obat/jasa)",
-            "Top-Up CMG indicator (ICU >3 hari, obat mahal, prosthesis)",
-            "Margin chip dengan persentase + chart bar emerald/rose",
-            "Mode B: Legacy INA-CBG dengan banner kuning (klaim pre-Okt 2025)",
-            "Mode C: Comparator side-by-side dengan watermark ESTIMASI · REFERENCE ONLY",
-            "Tombol Re-Group dengan latency simulasi 500-1500ms",
-          ]}
-        />
-      );
+      return <GrouperTab claim={claim} />;
 
     case "submission":
       return (

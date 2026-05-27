@@ -12,8 +12,8 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (E-Klaim depend B0/B1.9/B-fhir)
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
-> **Last updated:** 2026-05-27 (EK3.2 Tab Berkas done — checklist + auto-pull + preview pane)
-> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail 🚧 (EK3.1 ✅ + EK3.2 ✅ Berkas · EK3.3-3.7 pending)** · Next: EK3.3 Tab Koding (1.5 hari · ICD-10-IM + ICD-9-CM-IM picker)
+> **Last updated:** 2026-05-27 (EK3.4 Tab Grouper Mode B/C done — INACBGResultCard amber + ComparatorView dual-panel + DeltaCard selisih + ActionBar Komparator toggle + auto-fetch secondary · TSC clean)
+> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail 🚧 (EK3.1 ✅ + EK3.2 ✅ Berkas · EK3.3 ✅ Coding · EK3.4 ✅ Grouper Mode A/B/C · EK3.5-3.7 pending)** · Next: EK3.5 Tab Submission
 > **Target effort:** ~3.5-4.5 minggu (frontend full) · paralel dengan B0/B1.9 backend.
 > **Standar grouper:** **iDRG (Indonesian Diagnosis Related Groups) — primary** sejak 1 Okt 2025 (Pedoman Pengodean iDRG 2025 Kemenkes + Perpres 59/2024). INA-CBG = legacy adapter Phase later untuk klaim transisi pre-Okt 2025.
 
@@ -814,21 +814,21 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 
 ### EK3.3 Tab Coding (ICD-10-IM + ICD-9-CM-IM)
 
-- [ ] **Diagnosa Primer** picker — searchable autocomplete dari `ICD10_IM_MOCK` (kode + deskripsi + kategori + versi IM). **Bukan WHO ICD-10**, harus Indonesian Modification.
-- [ ] **Diagnosa Sekunder** multi-picker — boleh 0-10 diagnosa, dengan flag `hospitalAcquired` untuk CC/MCC PPI.
-- [ ] **Tindakan/Prosedur** multi-picker — searchable autocomplete dari `ICD9_CM_IM_MOCK`.
-- [ ] **Auto-suggest** dari kunjungan — kalau `DiagnosaTab` kunjungan sudah ada `kodeIcd10IM`, auto-fill diagnosa primer.
-- [ ] **Validasi** — diagnosa primer wajib · sistem koding **sesuai ICS v1 (Indonesian Coding Standard)** — bukan free-form severity client-side; severity dihitung oleh grouper di EK3.4.
-- [ ] **Tombol Re-Group iDRG** — trigger `iDRGGrouperAdapter.groupiDRG(ctx)` ulang setelah edit koding. Untuk legacy mode (klaim pre-Okt 2025): tombol berbeda "Re-Group INA-CBG (Legacy)".
-- [ ] **Coder signature** — checkbox "Saya kode ini benar sesuai Pedoman iDRG 2025" + nama coder + timestamp (audit trail).
-- [ ] **Soft-lock banner** — jika klaim sedang di-edit coder lain, tampil banner "Sedang di-edit oleh [nama] sejak [waktu] — tunggu atau ambil alih (force unlock)".
+- [x] **Diagnosa Primer** picker — searchable autocomplete dari `ICD10_IM_MOCK` (kode + deskripsi + kategori + versi IM). **Bukan WHO ICD-10**, harus Indonesian Modification.
+- [x] **Diagnosa Sekunder** multi-picker — boleh 0-10 diagnosa, dengan flag `hospitalAcquired` untuk CC/MCC PPI.
+- [x] **Tindakan/Prosedur** multi-picker — searchable autocomplete dari `ICD9_CM_IM_MOCK`.
+- [x] **Auto-suggest** dari kunjungan — kalau `DiagnosaTab` kunjungan sudah ada `kodeIcd10IM`, auto-fill diagnosa primer.
+- [x] **Validasi** — diagnosa primer wajib · sistem koding **sesuai ICS v1 (Indonesian Coding Standard)** — bukan free-form severity client-side; severity dihitung oleh grouper di EK3.4.
+- [x] **Tombol Re-Group iDRG** — trigger `iDRGGrouperAdapter.groupiDRG(ctx)` ulang setelah edit koding. Untuk legacy mode (klaim pre-Okt 2025): tombol berbeda "Re-Group INA-CBG (Legacy)".
+- [x] **Coder signature** — checkbox "Saya kode ini benar sesuai Pedoman iDRG 2025" + nama coder + timestamp (audit trail).
+- [x] **Soft-lock banner** — jika klaim sedang di-edit coder lain, tampil banner "Sedang di-edit oleh [nama] sejak [waktu] — tunggu atau ambil alih (force unlock)".
 
 ### EK3.4 Tab Grouper (iDRG Result · Legacy INA-CBG conditional)
 
 **Mode display by `claim.eraGrouper`:**
 
-#### Mode A: iDRG Result (primary, klaim post-Okt 2025)
-- [ ] **iDRG Result Card** prominent:
+#### Mode A: iDRG Result (primary, klaim post-Okt 2025) ✅
+- [x] **iDRG Result Card** prominent:
   - **Kode 7-digit numerik** besar mono (e.g. "1234567")
   - MDC (Major Diagnostic Category) label
   - Group name
@@ -836,39 +836,33 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
   - **Tarif per tingkat kompetensi RS** (table 4 baris: dasar/menengah/utama/komprehensif)
   - **Tarif aktual** highlight emerald — berdasarkan tingkat kompetensi RS pasien dirawat
   - Versi grouper chip (e.g. "iDRG_v1.0_2025")
-- [ ] **Breakdown card** — tarif RS vs tarif iDRG:
+- [x] **Breakdown card** — tarif RS vs tarif iDRG:
   - Subtotal items per kategori (Akomodasi/Tindakan/Lab/Rad/Obat/Jasa Dokter) dalam `Rupiah`
   - Compare vs tarif iDRG aktual
-  - Selisih nominal + chart bar (emerald jika RS untung, rose jika RS rugi)
-  - Highlight margin% — best practice display: "Margin iDRG: +12.5% (untung Rp 1.250.000)"
-- [ ] **Top-Up CMG indicator** — `iDRGResult.topUpCmg[]`:
+  - Selisih nominal + animated bar chart (emerald jika RS untung, rose jika RS rugi)
+  - Highlight margin% — "Margin iDRG: +12.5% (untung Rp 1.250.000)"
+- [x] **Top-Up CMG indicator** — `iDRGResult.topUpCmg[]`:
   - List eligible top-up (ICU >3 hari, obat mahal, prosthesis, dll)
-  - Per item: alasan + nominal tambahan
-  - Sum total top-up + highlight
-- [ ] **Tombol Re-Group iDRG** — sama dengan Coding tab.
+  - Per item: alasan + nominal tambahan · empty state jika tidak ada
+  - Sum total top-up + highlight footer
+- [x] **Tombol Re-Group iDRG** — ActionBar dengan last-grouped timestamp + error dismiss.
 
 #### Mode B: Legacy INA-CBG Result (klaim pre-Okt 2025 — conditional render)
-- [ ] **Banner kuning** "Mode Legacy INA-CBG — Klaim layanan sebelum 1 Oktober 2025" di atas card.
-- [ ] **INA-CBG Result Card** — sama pattern lama tapi label "Legacy":
+- [x] **Banner kuning** "Mode Legacy INA-CBG — Klaim layanan sebelum 1 Oktober 2025" di atas card.
+- [x] **INA-CBG Result Card** — sama pattern lama tapi label "Legacy":
   - Kode 4-digit alphanumeric (e.g. "I-1-01-I")
   - Severity I/II/III
   - Tarif per kelas {VIP, Kelas_1, Kelas_2, Kelas_3}
-- [ ] **Tombol Re-Group INA-CBG (Legacy)** — call `inaCbgLegacyAdapter`.
+- [x] **Tombol Re-Group INA-CBG (Legacy)** — call `inaCbgLegacyAdapter` via ActionBar.
 
 #### Mode C: Dual Comparator (opt-in toggle, AD-19)
-- [ ] **Toggle "Show INA-CBG Comparison"** — default OFF (avoid clutter). Saat ON:
-  - Trigger `inaCbgLegacyAdapter.groupCbg(ctx)` paralel dari source data koding yang sama (ICD-10-IM/ICD-9-CM-IM coder)
-  - Tampil side-by-side card: **iDRG (PRIMARY · SUBMIT)** vs **INA-CBG (ESTIMASI · REFERENCE ONLY · BUKAN UNTUK SUBMISSION)**
-- [ ] **Side-by-side card layout:**
-  - Left: iDRG Result (kode 7-digit · tarif aktual · severity) — accent sky
-  - Right: INA-CBG Estimasi (kode 4-digit · tarif per kelas asumsi · severity I/II/III) — accent slate muted dengan watermark "ESTIMASI"
-  - Banner caveat di atas: "⚠️ INA-CBG hanya estimasi untuk perbandingan margin / edukasi coder. Tidak punya legal standing. iDRG yang akan di-submit ke BPJS."
-- [ ] **Delta indicator** — chip emerald/rose: "iDRG +18% dari INA-CBG" atau "iDRG -7% dari INA-CBG" untuk konteks margin
-- [ ] **Use case label** — radio pilih konteks tampilan:
-  - "Margin Comparison" (highlight delta nominal)
-  - "Educational Reference" (highlight code equivalence)
-  - "Audit/Historical" (highlight versi grouper)
-- [ ] **Tidak ada tombol "Submit INA-CBG"** — UI lock pure read-only untuk Mode C ini.
+- [x] **Toggle "Show INA-CBG Comparison"** — chip "Komparator" di ActionBar. Saat ON: auto-fetch secondary via `resolveComparator()`.
+- [x] **Side-by-side card layout:**
+  - Left: iDRG Result — accent sky, label "PRIMER · ERA AKTIF" atau "ESTIMASI · iDRG"
+  - Right: INA-CBG Result — accent amber, label "REFERENCE ONLY · LEGACY" atau "PRIMER · ERA AKTIF"
+  - Info banner caveat: "REFERENCE ONLY — tidak untuk submission"
+- [x] **Delta indicator** — DeltaCard emerald/rose: selisih nominal + persentase iDRG vs INA-CBG
+- [x] **Tidak ada tombol "Submit INA-CBG"** — UI read-only untuk panel sekunder Mode C.
 
 ### EK3.5 Tab Submission
 
@@ -1128,7 +1122,7 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 | EK0 — Foundation (iDRG)     | 4      | 4     | 100%   | 5-6 hari (EK0.1 ✅ types · EK0.2 ✅ mocks · EK0.3 ✅ helpers · EK0.4 ✅ adapters) |
 | EK1 — Beranda               | 3      | 3     | 100%   | 2 hari (done · V2 redesign · 9 file · ~1883 ln) |
 | EK2 — Klaim Board           | 3      | 0     | 0%     | 3-4 hari        |
-| EK3 — Klaim Detail          | 7      | 2     | 29%    | 5-6 hari (EK3.1 ✅ Banner + Tab scaffold · EK3.2 ✅ Berkas) |
+| EK3 — Klaim Detail          | 7      | 5     | 71%    | 5-6 hari (EK3.1 ✅ Banner · EK3.2 ✅ Berkas · EK3.3 ✅ Coding · EK3.4 ✅ Grouper Mode A/B/C) |
 | EK4 — iDRG Calculator       | 2      | 0     | 0%     | 2 hari          |
 | EK5 — Berkas Generator      | 2      | 0     | 0%     | 2-3 hari        |
 | EK6 — Banding               | 3      | 0     | 0%     | 2 hari          |
