@@ -176,13 +176,13 @@ function BandingRow({ item, idx }: { item: BandingViewItem; idx: number }) {
 
       {/* 7. Action */}
       <td className="px-3 py-3">
-        <button
-          type="button"
+        <Link
+          href={`/ehis-eklaim/banding/${banding.id}`}
           className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-medium text-teal-700 ring-1 ring-teal-200 transition-colors hover:bg-teal-50 hover:ring-teal-300"
         >
           Detail
           <ChevronRight size={12} />
-        </button>
+        </Link>
       </td>
     </motion.tr>
   );
