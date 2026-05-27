@@ -12,8 +12,8 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (E-Klaim depend B0/B1.9/B-fhir)
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
-> **Last updated:** 2026-05-27 (EK4 iDRG Calculator Standalone done — EK4.1 Form Input 2-col + Mode Toggle (iDRG/INA-CBG Legacy/Compare Both) + EK4.2 Result Card (iDRG hero + INA-CBG Legacy + Compare side-by-side + Delta chip + Margin vs Tarif RS bar chart) · QuickNavGrid Calculator enabled · TSC clean)
-> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail ✅ 100%** · **EK4 iDRG Calculator ✅ 100% (EK4.1 Form Input ✅ · EK4.2 Result Card ✅)** · Next: EK5 Berkas Generator PDF Templates
+> **Last updated:** 2026-05-27 (EK5 Berkas Generator done — ResumeMedisTemplate + BerkasKlaimTemplate + SuratPengantarTemplate A4 · KopSuratEklaim · BerkasGeneratorModal (3-card selector + zoom:0.52 preview + print CSS visibility + bundle download) · wired ke ClaimBannerHeader "Generate" · TSC clean)
+> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail ✅ 100%** · **EK4 iDRG Calculator ✅ 100%** · **EK5 Berkas Generator ✅ 100%** · Next: EK6 Banding Board
 > **Target effort:** ~3.5-4.5 minggu (frontend full) · paralel dengan B0/B1.9 backend.
 > **Standar grouper:** **iDRG (Indonesian Diagnosis Related Groups) — primary** sejak 1 Okt 2025 (Pedoman Pengodean iDRG 2025 Kemenkes + Perpres 59/2024). INA-CBG = legacy adapter Phase later untuk klaim transisi pre-Okt 2025.
 
@@ -927,39 +927,26 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 
 ---
 
-## Phase EK5 — Berkas Generator (PDF Templates)
+## Phase EK5 — Berkas Generator (PDF Templates) ✅ 2026-05-27
 
 **Effort:** 2-3 hari · **Dependency:** EK0 templates + EK3 berkas tab
 
-### EK5.1 Templates
+### EK5.1 Templates ✅
 
-- [ ] **`ResumeMedisTemplate.tsx`** — A4 layout:
-  - KOP RS (consume `RS_PROFIL.kop`)
-  - Identitas pasien + no RM + tanggal
-  - Diagnosa (primer + sekunder + ICD-10)
-  - Riwayat penyakit ringkas
-  - Tindakan/Prosedur (ICD-9)
-  - Hasil penunjang ringkas (lab/rad)
-  - Terapi pulang
-  - Tanda tangan DPJP
-- [ ] **`BerkasKlaimTemplate.tsx`** — A4 cover:
-  - Header KOP + no klaim + tanggal
-  - Pasien identitas + penjamin
-  - Tabel berkas (kategori + nama + status)
-  - INA-CBG result
-  - Tanda tangan coder + verifikator RS
-- [ ] **`SuratPengantarTemplate.tsx`** — A4:
-  - Tujuan ke BPJS · perihal klaim batch
-  - List klaim (batch summary)
-  - Tanda tangan kepala tim klaim
+- [x] **`ResumeMedisTemplate.tsx`** (189 ln) — A4 layout: KOP RS · I. Identitas & Kunjungan (2-col grid) · II. Diagnosa ICD-10-IM (primer mono teal + sekunder list + HAI badge) · III. Tindakan ICD-9-CM-IM (conditional) · IV. Hasil Grouper (iDRG code highlight + severity + tarif aktual) · V. Anamnesis & Terapi (mock narrative) · Signature Row (DPJP + Coder + Verifikator) · Footer branding
+- [x] **`BerkasKlaimTemplate.tsx`** (196 ln) — A4 cover: KOP RS · Header no klaim + penjamin + tanggal · I. Informasi Klaim (2-col) · II. Grouper Result (3-card: kode + severity + tarif aktual, conditional iDRG/CBG) · III. Daftar Kelengkapan Berkas (HTML table: kategori + nama + wajib + status symbol + progress summary) · Signature Row (Coder + Verifikator) · Footer
+- [x] **`SuratPengantarTemplate.tsx`** (182 ln) — A4 formal letter: KOP RS · Nomor/Lampiran/Perihal · Alamat tujuan BPJS · Badan surat formal (rujukan regulasi Permenkes 76/2016 + Perpres 82/2018 + Pedoman iDRG 2025) · Tabel klaim batch (noKlaim + diagnosa primer + jenis + grouper + tarif) · Total row + Penutup · Signature kanan (Kepala Tim Klaim) · Footer
+- [x] **`KopSuratEklaim.tsx`** (62 ln) — Shared KOP RS component (variant="full"/"compact") reuse RS_PROFIL_INITIAL · logo placeholder · identity center · double-border bawah klasik
+- [x] **`berkasGeneratorShared.ts`** (161 ln) — Template config (3 TemplateCfg) · display helpers (fmtGender/TipePelayanan/CaraPulang/DateLong/DateShort/todayLong/currentMonthYear) · `printElementById()` (visibility CSS trick + afterprint cleanup) · `downloadBerkasBundle()` (JSON manifest mock)
 
-### EK5.2 Print + Bundle
+### EK5.2 Print + Bundle ✅
 
-- [ ] **`window.print()` + print stylesheet** — A4 default
-- [ ] **Mock ZIP bundle** — untuk batch submission (collect semua berkas + cover + pengantar)
-- [ ] **`BerkasGeneratorModal`** — pilih template + preview + tombol Print/Download
+- [x] **`printElementById(elementId)`** — CSS visibility override @media print · `@page { size: A4 portrait }` · `position:fixed left:0 top:0 width:210mm` untuk template aktif · cleanup afterprint event listener
+- [x] **Mock bundle download** — `downloadBerkasBundle(claim)` → JSON manifest (berkas list + template names + metadata) → blob URL download → filename `bundle-{noKlaim}-{tanggal}.json`
+- [x] **`BerkasGeneratorModal.tsx`** (310 ln) — Framer Motion AnimatePresence (backdrop + panel spring) · 2-col layout: left 3-card template selector (icon + label + sublabel + description expand on active + check badge) · right scrollable preview area (zoom:0.52 A4 preview · label bar "Pratinjau A4 · Zoom 52%") · print area `position:fixed left:-99999px` off-screen · footer: "Unduh Bundle" + "Tutup" + "Cetak Template" (teal primary) · loading spinner on download
+- [x] **Wiring** — `KlaimDetailPage.tsx` + `BerkasGeneratorModal` state (`berkasGenOpen`) + `handleGenerateBerkas` → `setBerkasGenOpen(true)` · tombol "Generate" di `ClaimBannerHeader` Row 3 sudah ada (onGenerateBerkas prop)
 
-**Acceptance EK5:** generate Resume Medis untuk demo klaim, tampil dengan KOP RS, signature DPJP, print preview clean.
+**Acceptance EK5:** ✅ TSC clean (`npx tsc --noEmit` exit 0) · 3 template A4 fungsional · KOP RS RS_PROFIL_INITIAL · preview zoom:0.52 dalam modal · print via CSS visibility trick (printElementById) · bundle download JSON manifest · BerkasGeneratorModal AnimatePresence spring + 3-card selector + AnimatePresence template switch · wired ke ClaimBannerHeader "Generate" button · 6 file 62–310 ln (max 310 << 800 cap) · no indigo · teal/sky/emerald accent.
 
 ---
 

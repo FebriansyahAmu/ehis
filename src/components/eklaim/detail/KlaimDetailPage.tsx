@@ -31,6 +31,7 @@ import GrouperTab from "./tabs/GrouperTab";
 import SubmissionTab from "./tabs/SubmissionTab";
 import AuditTab from "./tabs/AuditTab";
 import ClaimNotFound from "./parts/ClaimNotFound";
+import BerkasGeneratorModal from "@/components/eklaim/berkas/BerkasGeneratorModal";
 import {
   findTab,
   type ClaimDetailTab,
@@ -47,6 +48,7 @@ interface Props {
 export default function KlaimDetailPage({ id, initialTab }: Props) {
   const ready = useSkeletonDelay(500);
   const [activeTab, setActiveTab] = useState<ClaimDetailTab>(() => findTab(initialTab));
+  const [berkasGenOpen, setBerkasGenOpen] = useState(false);
 
   const claim = useMemo(
     () => CLAIM_BOARD_MOCK.find((c) => c.id === id || c.noKlaim === id),
@@ -58,9 +60,8 @@ export default function KlaimDetailPage({ id, initialTab }: Props) {
     console.info(`[Klaim ${claim?.noKlaim}] Submit ke BPJS — pending EK5`);
   };
 
-  const handleGenerateBerkas = () => {
-    console.info(`[Klaim ${claim?.noKlaim}] Generate Berkas — pending EK5`);
-  };
+  const handleGenerateBerkas = () => setBerkasGenOpen(true);
+
   const handlePrintResume = () => {
     if (typeof window !== "undefined") window.print();
   };
@@ -111,6 +112,13 @@ export default function KlaimDetailPage({ id, initialTab }: Props) {
                 </motion.div>
               </AnimatePresence>
             </div>
+
+            {/* EK5 — Berkas Generator Modal */}
+            <BerkasGeneratorModal
+              open={berkasGenOpen}
+              onClose={() => setBerkasGenOpen(false)}
+              claim={claim}
+            />
           </motion.div>
         )}
       </AnimatePresence>
