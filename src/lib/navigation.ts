@@ -293,7 +293,7 @@ export const eklaimNav: readonly NavGroup[] = [
     label: "Klaim",
     items: [
       { label: "Klaim Board",    href: "/ehis-eklaim/klaim",          icon: Inbox        },
-      { label: "iDRG Calculator", href: "/ehis-eklaim/grouper",       icon: Scale        },
+      { label: "iDRG Calculator", href: "/ehis-eklaim/calculator",    icon: Scale        },
       { label: "Banding",        href: "/ehis-eklaim/banding",        icon: FileText     },
       { label: "Reconciliation", href: "/ehis-eklaim/reconciliation", icon: ArrowDownUp  },
     ],

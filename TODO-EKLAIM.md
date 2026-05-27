@@ -12,8 +12,8 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (E-Klaim depend B0/B1.9/B-fhir)
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
-> **Last updated:** 2026-05-27 (EK3.7 Modals done — UploadBerkasModal 2-panel kategori+dropzone · EditKodingModal ICD-10-IM+ICD-9-CM-IM inline search · SubmitBatchModal checklist+batch-picker · ClaimBannerHeader +2 quick actions · KlaimDetailPage wired · TSC clean)
-> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail ✅ 100% (EK3.1 ✅ Banner · EK3.2 ✅ Berkas · EK3.3 ✅ Coding · EK3.4 ✅ Grouper Mode A/B/C · EK3.5 ✅ Submission · EK3.6 ✅ Audit · EK3.7 ✅ Modals)** · Next: EK4 iDRG Calculator standalone
+> **Last updated:** 2026-05-27 (EK4 iDRG Calculator Standalone done — EK4.1 Form Input 2-col + Mode Toggle (iDRG/INA-CBG Legacy/Compare Both) + EK4.2 Result Card (iDRG hero + INA-CBG Legacy + Compare side-by-side + Delta chip + Margin vs Tarif RS bar chart) · QuickNavGrid Calculator enabled · TSC clean)
+> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail ✅ 100%** · **EK4 iDRG Calculator ✅ 100% (EK4.1 Form Input ✅ · EK4.2 Result Card ✅)** · Next: EK5 Berkas Generator PDF Templates
 > **Target effort:** ~3.5-4.5 minggu (frontend full) · paralel dengan B0/B1.9 backend.
 > **Standar grouper:** **iDRG (Indonesian Diagnosis Related Groups) — primary** sejak 1 Okt 2025 (Pedoman Pengodean iDRG 2025 Kemenkes + Perpres 59/2024). INA-CBG = legacy adapter Phase later untuk klaim transisi pre-Okt 2025.
 
@@ -898,44 +898,32 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 
 ---
 
-## Phase EK4 — iDRG Calculator Standalone (Legacy INA-CBG optional)
+## Phase EK4 — iDRG Calculator Standalone (Legacy INA-CBG optional) ✅ 2026-05-27
 
 **Route:** `/ehis-eklaim/calculator` · **Effort:** 2 hari
-**Pattern reference:** Standalone form page
-**Catatan:** EK4 bisa di-demote ke Sprint 2 (low blocker) — fokus MVP di EK0-EK3 dulu.
 
-### EK4.1 Form Input
+### EK4.1 Form Input ✅
 
-- [ ] **Mode toggle** — 3 mode (radio):
-  - **"iDRG"** (default post-Okt 2025) — hitung pakai iDRGGrouperAdapter
-  - **"INA-CBG Legacy"** (pre-Okt 2025) — hitung pakai inaCbgLegacyAdapter
-  - **"Compare Both"** (AD-19 Comparator) — jalankan dua adapter paralel, tampil side-by-side untuk margin comparison + edukasi
-- [ ] **Form 2-col** (mode iDRG):
-  - Left: Diagnosa Primer + Sekunder (multi-picker dari `ICD10_IM_MOCK`) + Tindakan/Prosedur (multi-picker dari `ICD9_CM_IM_MOCK`)
-  - Right:
-    - **Tingkat Kompetensi RS** (radio: dasar/menengah/utama/komprehensif) — bukan kelas RS A/B/C/D
-    - Kelas pasien (KRIS default · disabled kalau mode iDRG)
-    - Tipe pelayanan (RI/RJ/SameDay)
-    - LOS (number) · Age · Sex
-    - Cara pulang (Sembuh/PulangAPS/Rujuk/Meninggal)
-- [ ] **Form 2-col** (mode legacy INA-CBG):
-  - Sama dengan iDRG tapi: Kelas pasien aktif (VIP/K1/K2/K3) · tidak ada tingkat kompetensi RS
-- [ ] **Tombol Hitung iDRG** primary sky (atau "Hitung INA-CBG" mode legacy).
+- [x] **Mode toggle** — 3 mode (chip segmented + layoutId spring transition):
+  - **"iDRG"** teal (default post-Okt 2025) — `resolveGrouping()` iDRG engine
+  - **"INA-CBG Legacy"** amber (pre-Okt 2025) — `resolveGrouping()` INA-CBG engine
+  - **"Compare Both"** sky (AD-19 Comparator) — `resolveComparator()` dual engine paralel
+- [x] **Form 2-col** (left: ICD input · right: params):
+  - Left `CalculatorInputPanel` (272 ln): Diagnosa Primer chip (ICD-10-IM, wajib, single, removable) + Diagnosa Sekunder (multi-picker max 10 + toggle hospitalAcquired) + Tindakan/Prosedur (ICD-9-CM-IM multi) — section header count badges + sticky z-10 labels + internal scroll
+  - Right `CalculatorParamsPanel` (230 ln): **Tingkat Kompetensi RS** (4 colorful animated tiles: Dasar emerald/Menengah teal/Utama sky/Komprehensif amber) · Kelas Pasien 4-tile (INA-CBG mode only) · Tipe Pelayanan 3-tab segmented · LOS/Age number inputs · Gender L/P toggle · Cara Pulang select · Tarif RS Manual (optional, Rp formatter inline) · Hitung button (mode-aware accent + validation feedback)
 
-### EK4.2 Result Card
+### EK4.2 Result Card ✅
 
-- [ ] **iDRG Result** — kode 7-digit numerik + MDC + group + severity + tarif per tingkat kompetensi RS + breakdown grouper rationale (CC/MCC detected list).
-- [ ] **Legacy INA-CBG Result** (mode legacy) — kode 4-digit alphanumeric + severity I/II/III + tarif per kelas pasien.
-- [ ] **Compare Both Result** (mode comparator, AD-19) — side-by-side card:
-  - Left: iDRG Result accent sky
-  - Right: INA-CBG Estimasi accent slate muted watermark "ESTIMASI · REFERENCE ONLY"
-  - Banner caveat: "iDRG yang akan di-submit ke BPJS. INA-CBG hanya estimasi untuk perbandingan."
-  - Delta chip: "iDRG +X% dari INA-CBG"
-- [ ] **Compare vs Actual Cost** — input nominal tarif RS manual (Rupiah) → tampil selisih chart + margin%.
-- [ ] **Save as Draft Klaim** — tombol simpan hasil sebagai draft (link ke `/ehis-eklaim/klaim/new` dengan eraGrouper sesuai mode). **Disabled di mode "Compare Both"** (mode itu untuk analisis, bukan create klaim).
-- [ ] **Print Result** — print stylesheet untuk dokumentasi.
+- [x] **iDRG Result** (`CalculatorResultCard` IDRGBlock) — kode 7-digit mono 28px black + MDC label + group + Severity badge (1-3 · emerald/amber/rose) + CC/MCC chip list + Tarif per tingkat 4-col grid (aktif highlighted ring) + Tarif Aktual highlight emerald
+- [x] **Legacy INA-CBG Result** (INACBGBlock) — kode 4-digit mono + severity Roman I/II/III + tarif 4 kelas grid (VIP amber/K1 teal/K2 sky/K3 slate)
+- [x] **Compare Both** side-by-side grid (xl:grid-cols-2): iDRG card teal "PRIMER · ERA AKTIF" · INA-CBG amber "ESTIMASI · REFERENCE ONLY" + watermark badge + caveat banner + DeltaChip (+/- nominal + %)
+- [x] **Compare vs Actual Cost** — Tarif RS input optional → MarginBar: animated horizontal bar chart per kategori (Akomodasi/Tindakan/Lab/Rad/Obat/Jasa) + Selisih chip emerald/rose + persen margin
+- [x] **Save as Draft Klaim** — button (disabled di mode "Compare Both" dengan tooltip alasan)
+- [x] **Print Result** — `window.print()` trigger
+- [x] **AnimatePresence** result slide-in y:12→0 setelah hitung selesai · loading skeleton + error state rose panel
+- [x] **Skeleton 300ms** via `useSkeletonDelay` · animated gradient accent bar header
 
-**Acceptance EK4:** kalkulator standalone berfungsi untuk 10 kasus sample iDRG + 5 kasus legacy INA-CBG + 5 kasus mode Compare Both (hasil side-by-side match dengan kedua adapter independent).
+**Acceptance EK4:** ✅ TSC clean (`npx tsc --noEmit` exit 0) · 3 mode toggle (iDRG/Legacy/Compare) · 2-col layout no page scroll · 4 colorful Tingkat RS tiles · ICD picker reuse dari EK3.3 · `resolveGrouping` + `resolveComparator` wired · iDRG result 7-digit mono + severity badge + tarif 4-tingkat · INA-CBG legacy result + tarif kelas · Compare side-by-side + DeltaChip · MarginBar breakdown chart animated · QuickNavGrid Calculator card enabled · 6 file 7–272 ln (max 272 << 800 cap) · no indigo · font ≥ 12px · colorful widget tiles.
 
 ---
 

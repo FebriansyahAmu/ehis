@@ -218,13 +218,12 @@ export function getQuickNavCards(stats: EklaimStats): QuickNavCard[] {
       tone: "teal",
     },
     {
-      href: "/ehis-eklaim/grouper",
+      href: "/ehis-eklaim/calculator",
       icon: Scale,
       label: "iDRG Calculator",
       desc: "Hitung tarif iDRG + Comparator INA-CBG",
       badge: "PRIMARY",
       tone: "emerald",
-      disabled: true,
     },
     {
       href: "/ehis-eklaim/banding",
