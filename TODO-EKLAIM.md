@@ -12,8 +12,8 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (E-Klaim depend B0/B1.9/B-fhir)
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
-> **Last updated:** 2026-05-27 (EK5 Berkas Generator done — ResumeMedisTemplate + BerkasKlaimTemplate + SuratPengantarTemplate A4 · KopSuratEklaim · BerkasGeneratorModal (3-card selector + zoom:0.52 preview + print CSS visibility + bundle download) · wired ke ClaimBannerHeader "Generate" · TSC clean)
-> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail ✅ 100%** · **EK4 iDRG Calculator ✅ 100%** · **EK5 Berkas Generator ✅ 100%** · Next: EK6 Banding Board
+> **Last updated:** 2026-05-28 (EK6.3 Banding Detail done — BandingDetailPage 2-panel + BandingDetailHeader + BandingDetailLeft (klaim context + rejection) + BandingDetailRight (alasan banding + dokumen + timeline + mock review) + BandingTimeline 3-stage vertical + BandingTable Detail→Link + route `/banding/[id]` · TSC clean)
+> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail ✅ 100%** · **EK4 iDRG Calculator ✅ 100%** · **EK5 Berkas Generator ✅ 100%** · **EK6 Banding ✅ 100% (EK6.1+EK6.2+EK6.3)** · Next: EK7 Reconciliation
 > **Target effort:** ~3.5-4.5 minggu (frontend full) · paralel dengan B0/B1.9 backend.
 > **Standar grouper:** **iDRG (Indonesian Diagnosis Related Groups) — primary** sejak 1 Okt 2025 (Pedoman Pengodean iDRG 2025 Kemenkes + Perpres 59/2024). INA-CBG = legacy adapter Phase later untuk klaim transisi pre-Okt 2025.
 
@@ -952,7 +952,7 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 
 ## Phase EK6 — Banding / Dispute Workflow ✅ 2026-05-28
 
-**Route:** `/ehis-eklaim/banding` · **Effort:** 2 hari
+**Route:** `/ehis-eklaim/banding` · **Effort:** 2.5 hari
 
 ### EK6.1 Banding Board ✅
 
@@ -968,16 +968,19 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
   - `computeQuickActionState` updated: `showBanding` + `defaultBandingTingkat` (1 for Rejected, 2 for Banding Rejected)
   - Wired di `KlaimDetailPage` + `ClaimBannerHeader` (onAjukanBanding prop)
 
-### EK6.3 Banding Detail
+### EK6.3 Banding Detail ✅
 
-- [ ] **Detail page** per banding:
-  - Klaim context card (link ke klaim asli)
-  - Alasan rejection asli vs alasan banding (side-by-side)
-  - Dokumen pendukung list + preview
-  - Status timeline (Submitted → Review → Approved/Rejected)
-  - Mock review BPJS — tombol "Mark Approved/Rejected" untuk demo
+- [x] **Detail page** per banding (`/ehis-eklaim/banding/[id]`):
+  - `BandingDetailPage` shell — skeleton 500ms + not-found state + 2-panel ready layout
+  - `BandingDetailHeader` sticky — breadcrumb (← Banding Board / Scale icon / Banding ID) · status chip (tone-adaptive) · tingkat badge (sky T1 / amber T2) · link ke klaim asli · submit meta (timestamp · oleh · reviewer BPJS)
+  - Left (360px sticky): `BandingDetailLeft` — Klaim Context card (ID link, pasienId, penjamin, pelayanan, LOS, status klaim, diagnosa primer+sekunder, grouper iDRG/INA-CBG, tarif RS+iDRG+selisih) + Alasan Rejection Asli card (rose-50)
+  - Right (fluid scroll): `BandingDetailRight` — Alasan Banding card (teal-50 · full text) · Dokumen Pendukung list (empty state graceful) · `BandingTimeline` 3-stage · Mock Review BPJS section
+  - `BandingTimeline` — 3-stage vertical (Diajukan → Dalam Review → Selesai) · icon per state (active/done/idle/error) · teal connector done stages · stage meta (timestamp · actor · reviewer · hasil) · status badge header (Proses/Dikabulkan/Ditolak)
+  - Mock Review BPJS — tombol "Tandai Approved" (emerald) + "Tandai Rejected" (rose) · AnimatePresence switch ke hasil card · local state (`mockStatus`/`mockHasil`/`mockReviewedAt`) · note "Demo — tidak tersimpan"
+  - `BandingTable` Detail button → `Link href="/ehis-eklaim/banding/[id]"` (wired navigasi)
+  - Route: `src/app/ehis-eklaim/banding/[id]/page.tsx` async params + metadata
 
-**Acceptance EK6.1+EK6.2:** ✅ TSC clean · Banding Board 2-panel (filter+table) · skeleton loading · 3 KPI adaptive · 8 mock entries · filter: search/periode/penjamin/tingkat/status · BandingFormModal 2-panel · alasan min 50 char · tingkat 1/2 toggle · file upload stub · wired ke ClaimBannerHeader "Ajukan Banding" button (Rejected claims only) · `src/app/ehis-eklaim/banding/page.tsx` route created · no indigo · teal/sky/emerald/amber/rose palette · font ≥ text-sm · 9 file baru ≤ 800 ln ea.
+**Acceptance EK6.1+EK6.2+EK6.3:** ✅ TSC clean · Banding Board 2-panel (filter+table) · skeleton loading · 3 KPI adaptive · 8 mock entries · filter: search/periode/penjamin/tingkat/status · BandingFormModal 2-panel · alasan min 50 char · tingkat 1/2 toggle · file upload stub · wired ke ClaimBannerHeader "Ajukan Banding" button (Rejected claims only) · EK6.3 Detail page: 2-panel (360px kiri sticky + fluid kanan) · BandingTimeline 3-stage vertical · Mock Review BPJS demo · `BandingTable` Detail → navigasi ke detail · 5 file baru EK6.3 ≤ 300 ln ea · no indigo · teal/sky/emerald/amber/rose palette · font ≥ text-sm · total EK6 = 14 file.
 
 ---
 
