@@ -12,8 +12,13 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (E-Klaim depend B0/B1.9/B-fhir)
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
+<<<<<<< HEAD
 > **Last updated:** 2026-05-28 (EK7.3 SelisihWriteOffModal done — 2-step spring modal: Step 1 breakdown Review (3 summary cards Nominal/Dicocokkan/Selisih + direction hint underpaid/overpaid + per-klaim breakdown table Tarif Diajukan vs Disetujui) · Step 2 penanganan (3 option cards Write-off/Refund/Pending + animated hint on select + alasan min 20 char + approver input + validation summary + loading 800ms) · "Tangani Selisih" CTA amber di CompletedView MatchingPanel · state + handler di ReconciliationPage (statusSelisih + completedBy update) · TSC clean)
 > **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail ✅ 100%** · **EK4 iDRG Calculator ✅ 100%** · **EK5 Berkas Generator ✅ 100%** · **EK6 Banding ✅ 100%** · **EK7 Reconciliation 🚧 EK7.1+EK7.2+EK7.3 ✅** · Next: EK7.4 Reconciliation Report
+=======
+> **Last updated:** 2026-05-28 (EK6.3 Banding Detail done — BandingDetailPage 2-panel + BandingDetailHeader + BandingDetailLeft (klaim context + rejection) + BandingDetailRight (alasan banding + dokumen + timeline + mock review) + BandingTimeline 3-stage vertical + BandingTable Detail→Link + route `/banding/[id]` · TSC clean)
+> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail ✅ 100%** · **EK4 iDRG Calculator ✅ 100%** · **EK5 Berkas Generator ✅ 100%** · **EK6 Banding ✅ 100% (EK6.1+EK6.2+EK6.3)** · Next: EK7 Reconciliation
+>>>>>>> ee675f27a763c040d0a386ae755641f29f1833fb
 > **Target effort:** ~3.5-4.5 minggu (frontend full) · paralel dengan B0/B1.9 backend.
 > **Standar grouper:** **iDRG (Indonesian Diagnosis Related Groups) — primary** sejak 1 Okt 2025 (Pedoman Pengodean iDRG 2025 Kemenkes + Perpres 59/2024). INA-CBG = legacy adapter Phase later untuk klaim transisi pre-Okt 2025.
 
