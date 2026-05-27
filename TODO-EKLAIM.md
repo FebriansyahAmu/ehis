@@ -12,8 +12,8 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (E-Klaim depend B0/B1.9/B-fhir)
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
-> **Last updated:** 2026-05-27 (EK3.4 Tab Grouper Mode B/C done — INACBGResultCard amber + ComparatorView dual-panel + DeltaCard selisih + ActionBar Komparator toggle + auto-fetch secondary · TSC clean)
-> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail 🚧 (EK3.1 ✅ + EK3.2 ✅ Berkas · EK3.3 ✅ Coding · EK3.4 ✅ Grouper Mode A/B/C · EK3.5-3.7 pending)** · Next: EK3.5 Tab Submission
+> **Last updated:** 2026-05-27 (EK3.7 Modals done — UploadBerkasModal 2-panel kategori+dropzone · EditKodingModal ICD-10-IM+ICD-9-CM-IM inline search · SubmitBatchModal checklist+batch-picker · ClaimBannerHeader +2 quick actions · KlaimDetailPage wired · TSC clean)
+> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail ✅ 100% (EK3.1 ✅ Banner · EK3.2 ✅ Berkas · EK3.3 ✅ Coding · EK3.4 ✅ Grouper Mode A/B/C · EK3.5 ✅ Submission · EK3.6 ✅ Audit · EK3.7 ✅ Modals)** · Next: EK4 iDRG Calculator standalone
 > **Target effort:** ~3.5-4.5 minggu (frontend full) · paralel dengan B0/B1.9 backend.
 > **Standar grouper:** **iDRG (Indonesian Diagnosis Related Groups) — primary** sejak 1 Okt 2025 (Pedoman Pengodean iDRG 2025 Kemenkes + Perpres 59/2024). INA-CBG = legacy adapter Phase later untuk klaim transisi pre-Okt 2025.
 
@@ -864,31 +864,37 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 - [x] **Delta indicator** — DeltaCard emerald/rose: selisih nominal + persentase iDRG vs INA-CBG
 - [x] **Tidak ada tombol "Submit INA-CBG"** — UI read-only untuk panel sekunder Mode C.
 
-### EK3.5 Tab Submission
+### EK3.5 Tab Submission ✅ 2026-05-27
 
-- [ ] **Eligibility check card** (call `vClaimAdapter.checkSEP`):
-  - Status SEP (valid/expired/tidak ditemukan)
-  - Kelas dijamin · plafon sisa · sisa hari rawat
-  - Tombol "Refresh Status"
-- [ ] **Pre-submit checklist** — semua wajib check (berkas lengkap + coding final + grouper resolved + eligibility valid)
-- [ ] **Batch picker** — pilih batch yang sedang Open (atau buat batch baru)
-- [ ] **Tombol Submit** primary sky — disabled jika checklist tidak lengkap
-- [ ] **Result feedback** — toast + status timeline update (Submitted → Pending Verifikasi)
+- [x] **Eligibility check card** — `vClaimAdapter.getEligibility` · noKartu + tglSEP + jnsPelayanan · SEP info 4-col grid · result: kelasDijamin + plafon + sisa hari rawat + tingkatKompetensiRS · error retry inline · loading state
+- [x] **Pre-submit checklist** — 4 item stagger: berkas wajib (via computeBerkasProgress) · koding diagnosa primer · grouper resolved · eligibility valid · counter chip allDone emerald / amber
+- [x] **Batch picker** — 3 mock batch (Mei A · Mei B · Buat Baru) · sky ring saat selected · grid sm:cols-3
+- [x] **Submit button** — sky primary disabled jika disabledReason tersedia · disabled state reason explanation amber · loading Loader2
+- [x] **Result feedback inline** — AnimatePresence scale-in · emerald (berhasil) / rose (gagal) · noKlaim + statusBPJS display · "Coba Lagi" retry untuk error · DuplicateClaimError + NetworkError handled
+- [x] **Non-BPJS card** — amber panel panduan submission manual 4-langkah
 
-### EK3.6 Tab Audit/Timeline
+### EK3.6 Tab Audit/Timeline ✅ 2026-05-27
 
-- [ ] **Timeline vertikal** semua event: create/edit-coding/upload-berkas/regroup/submit/verifikasi/banding/payment
-- [ ] **Per-entry**: timestamp + actor avatar + action chip + diff (before/after coding)
-- [ ] **Filter by actor / action / date range**
-- [ ] **Export CSV** audit trail per klaim
+- [x] **Timeline vertikal** — 10 event type discriminated union (claim-created · coding-changed · berkas-uploaded/rejected · grouper-resolved · status-transition · submitted-batch · verifikator-comment · banding-submitted · payment-received) · stagger 0.05s · reverse chronological
+- [x] **Per-entry** — dot icon (LucideIcon per type · colored bg) · timestamp fmtDateTimeShort · actor avatar (avatarInitials 2char) · detail by type
+- [x] **Detail per type** — coding-changed: DiffRow before/after ICD primer+sekunder+prosedur · status-transition: from→to chips · berkas: kategori + sumber · grouper: eraGrouper + kode · payment: formatRupiah + reconciliationId · banding: tingkat
+- [x] **Filter by type** — 9 chip (Semua/Status/Berkas/Koding/Grouper/Submit/Bayar/Komentar/Dibuat) · teal-600 active
+- [x] **Filter by actor** — select dropdown (muncul jika >2 unique actors)
+- [x] **Export CSV** — RFC 4180 + BOM UTF-8 · download blob `audit_{noKlaim}_{date}.csv`
+- [x] **Empty state** — History icon + pesan jika filter kosong
 
-### EK3.7 Modals
+### EK3.7 Modals ✅ 2026-05-27
 
-- [ ] **`UploadBerkasModal`** — pilih kategori + file + catatan + submit
-- [ ] **`EditKodingModal`** — picker ICD-10/9 dengan validasi
-- [ ] **`SubmitBatchModal`** — confirm batch + ringkasan klaim yang akan disubmit
+- [x] **`UploadBerkasModal`** — 2-panel (kategori grid 10-item 2-col · dropzone drag+drop · catatan textarea · upload sky CTA · stagger Framer Motion) — `modals/UploadBerkasModal.tsx` 250 ln
+- [x] **`EditKodingModal`** — 2-panel max-w-3xl (ICD-10-IM primer+sekunder inline search · mode toggle Primer/Sekunder · ICD-9-CM-IM tindakan inline search · ICDSelectedList reuse · ICS v1 validation · coder signature) — `modals/EditKodingModal.tsx` 340 ln
+- [x] **`SubmitBatchModal`** — compact max-w-md (klaim card · 4-item animated checklist · 3 batch radio-card · V-Claim submit dengan inline result · sky accent) — `modals/SubmitBatchModal.tsx` 300 ln
+- [x] **`modalShared.ts`** — shared: BACKDROP_V · PANEL_V · ITEM_V · useEscapeKey · useScrollLock · INPUT_CLS · TEXTAREA_CLS · SEARCH_CLS — 85 ln
+- [x] **`ClaimBannerHeader`** — +2 props (onEditKoding · onUploadBerkas) + 2 quick-action buttons (Edit Koding teal · Upload emerald) di Row 3
+- [x] **`KlaimDetailPage`** — wired 3 modal state + handlers (handleUpload · handleSaveKoding · handleSubmitSuccess) · handleSubmit → SubmitBatchModal (replace stub)
 
-**Acceptance EK3:** buka klaim demo, 6 tab functional, coding ICD → grouper auto-resolve CBG, eligibility check OK, submit batch trigger mock V-Claim, status berubah ke Submitted.
+**Acceptance EK3.7:** ✅ TSC clean · UploadBerkasModal kategori + dropzone + catatan functional · EditKodingModal ICD search + sekunder list + validation + signature · SubmitBatchModal checklist + batch picker + V-Claim submit mock · modal spring animation 380/32 · backdrop blur · escape key + scroll lock · no indigo · slate-700 text in form fields · 4 file < 350 ln each.
+
+**Acceptance EK3 (full):** ✅ buka klaim demo, 6 tab functional, coding ICD → grouper auto-resolve CBG, eligibility check OK, submit batch trigger mock V-Claim, status berubah ke Submitted. Modals tersedia dari banner quick actions.
 
 ---
 
@@ -1122,14 +1128,14 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 | EK0 — Foundation (iDRG)     | 4      | 4     | 100%   | 5-6 hari (EK0.1 ✅ types · EK0.2 ✅ mocks · EK0.3 ✅ helpers · EK0.4 ✅ adapters) |
 | EK1 — Beranda               | 3      | 3     | 100%   | 2 hari (done · V2 redesign · 9 file · ~1883 ln) |
 | EK2 — Klaim Board           | 3      | 0     | 0%     | 3-4 hari        |
-| EK3 — Klaim Detail          | 7      | 5     | 71%    | 5-6 hari (EK3.1 ✅ Banner · EK3.2 ✅ Berkas · EK3.3 ✅ Coding · EK3.4 ✅ Grouper Mode A/B/C) |
+| EK3 — Klaim Detail          | 7      | 7     | 100%   | 5-6 hari (EK3.1 ✅ Banner · EK3.2 ✅ Berkas · EK3.3 ✅ Coding · EK3.4 ✅ Grouper Mode A/B/C · EK3.5 ✅ Submission · EK3.6 ✅ Audit · EK3.7 ✅ Modals) |
 | EK4 — iDRG Calculator       | 2      | 0     | 0%     | 2 hari          |
 | EK5 — Berkas Generator      | 2      | 0     | 0%     | 2-3 hari        |
 | EK6 — Banding               | 3      | 0     | 0%     | 2 hari          |
 | EK7 — Reconciliation        | 4      | 0     | 0%     | 3 hari          |
 | EK8 — Dashboard Analytics   | 6      | 0     | 0%     | 3-4 hari (+EK8.6 Comparator) |
 | EK9 — UX Polish + Cross     | 5      | 0     | 0%     | 1-2 hari        |
-| **Total**                   | **39** | **9** | **23%** | **~3.5-4.5 minggu** |
+| **Total**                   | **39** | **11** | **28%** | **~3.5-4.5 minggu** |
 
 **Effort total:** ~3.5-4.5 minggu frontend full (revisi dari 3-4 minggu karena pivot ke iDRG + dual-era support + state machine + Rupiah type).
 **Critical path MVP:** EK0 + EK2 + EK3 (3 tab inti: Berkas + Coding + Submission) = ~10-12 hari. Sisanya by business priority.

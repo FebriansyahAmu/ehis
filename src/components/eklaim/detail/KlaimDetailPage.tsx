@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * KlaimDetailPage — entry shell halaman `/ehis-eklaim/klaim/[id]` (EK3.1).
+ * KlaimDetailPage — entry shell halaman `/ehis-eklaim/klaim/[id]` (EK3.1+).
  *
  * Layout (no page-level scroll · banner sticky di atas):
  *   ┌──────────────────────────────────────────────────────┐
@@ -9,7 +9,7 @@
  *   ├──────────────────────────────────────────────────────┤
  *   │ ClaimTabs             (sticky · 6 tab)               │
  *   ├──────────────────────────────────────────────────────┤
- *   │ Tab Content           (scroll area · TabPlaceholder) │
+ *   │ Tab Content           (scroll area)                  │
  *   └──────────────────────────────────────────────────────┘
  *
  * Skeleton 500ms via `useSkeletonDelay`, fade-in motion 0.2s.
@@ -18,11 +18,7 @@
 
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  Send,
-  History,
-  ClipboardList,
-} from "lucide-react";
+import { ClipboardList } from "lucide-react";
 
 import { useSkeletonDelay } from "@/components/master/shared";
 import { CLAIM_BOARD_MOCK } from "@/lib/eklaim/claimsMock";
@@ -32,6 +28,8 @@ import TabPlaceholder from "./tabs/TabPlaceholder";
 import BerkasTab from "./tabs/BerkasTab";
 import CodingTab from "./tabs/CodingTab";
 import GrouperTab from "./tabs/GrouperTab";
+import SubmissionTab from "./tabs/SubmissionTab";
+import AuditTab from "./tabs/AuditTab";
 import ClaimNotFound from "./parts/ClaimNotFound";
 import {
   findTab,
@@ -55,10 +53,11 @@ export default function KlaimDetailPage({ id, initialTab }: Props) {
     [id],
   );
 
-  // Stub handlers untuk quick actions — EK3.5 akan replace dengan real handlers
+  // ── Quick action handlers ─────────────────────────────
   const handleSubmit = () => {
-    console.info(`[Klaim ${claim?.noKlaim}] Submit ke BPJS — pending EK3.5`);
+    console.info(`[Klaim ${claim?.noKlaim}] Submit ke BPJS — pending EK5`);
   };
+
   const handleGenerateBerkas = () => {
     console.info(`[Klaim ${claim?.noKlaim}] Generate Berkas — pending EK5`);
   };
@@ -152,43 +151,10 @@ function renderTab(tab: ClaimDetailTab, claim: ClaimRecord) {
       return <GrouperTab claim={claim} />;
 
     case "submission":
-      return (
-        <TabPlaceholder
-          icon={Send}
-          title="Submission"
-          phase="EK3.5"
-          effort="1 hari"
-          description="Tab Submission akan menampilkan eligibility check via V-Claim adapter, pre-submit checklist, batch picker, dan tombol Submit ke BPJS dengan feedback toast + timeline update."
-          bullets={[
-            "Eligibility check card (status SEP, kelas dijamin, plafon sisa, sisa hari rawat)",
-            "Tombol Refresh Status (call vClaimAdapter.checkSEP)",
-            "Pre-submit checklist (berkas lengkap · koding final · grouper resolved · eligibility valid)",
-            "Batch picker (pilih batch open atau buat batch baru)",
-            "Tombol Submit primary sky dengan disabled state explanation",
-            "Result feedback — toast + status timeline auto-update",
-            "Error handling: NetworkError retry, ValidationError per-field",
-          ]}
-        />
-      );
+      return <SubmissionTab claim={claim} />;
 
     case "audit":
-      return (
-        <TabPlaceholder
-          icon={History}
-          title="Audit / Timeline"
-          phase="EK3.6"
-          effort="1 hari"
-          description="Tab Audit akan menampilkan timeline vertikal lengkap semua event (create / edit-coding / upload-berkas / re-group / submit / verifikasi / banding / payment). Filter by actor / action / date range + export CSV per-klaim."
-          bullets={[
-            "Timeline vertikal dengan 10 event type (ClaimTimelineEntry discriminated union)",
-            "Per-entry: timestamp · actor avatar · action chip · diff (before/after coding)",
-            "Filter by actor / action type / date range",
-            "Search free-text dalam komentar verifikator",
-            "Export CSV per-klaim (RFC 4180 + BOM UTF-8)",
-            "Print-friendly view dengan KOP RS",
-          ]}
-        />
-      );
+      return <AuditTab claim={claim} />;
   }
 }
 

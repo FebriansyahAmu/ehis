@@ -90,14 +90,14 @@ export const CLAIM_DETAIL_TABS: ReadonlyArray<TabCfg> = [
     label: "Submission",
     hint: "Eligibility & kirim batch",
     icon: Send,
-    implemented: false,
+    implemented: true,
   },
   {
     key: "audit",
     label: "Audit",
     hint: "Timeline & jejak perubahan",
     icon: History,
-    implemented: false,
+    implemented: true,
   },
 ];
 
