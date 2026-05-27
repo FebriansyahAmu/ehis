@@ -950,22 +950,23 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 
 ---
 
-## Phase EK6 — Banding / Dispute Workflow
+## Phase EK6 — Banding / Dispute Workflow ✅ 2026-05-28
 
 **Route:** `/ehis-eklaim/banding` · **Effort:** 2 hari
 
-### EK6.1 Banding Board
+### EK6.1 Banding Board ✅
 
-- [ ] **Worklist banding** — filter status (Submitted/Review/Approved/Rejected) + periode + penjamin
-- [ ] **KPI**: Total Banding · Approval Rate Banding · Avg Days to Decision
+- [x] **Worklist banding** — `BandingBoardPage` (2-panel: filter 260px kiri + table fluid kanan) · `BandingTable` quick-tabs (Semua/Diajukan/Review/Disetujui/Ditolak) + AnimatePresence row stagger · `BandingFilterPanel` (pencarian / periode 4 preset+custom / penjamin select / tingkat segmented / status full-width chips) · `BandingHero` (breadcrumb + stat chips) · skeleton 500ms `useSkeletonDelay`
+- [x] **KPI**: `BandingKPIStrip` 3 cards: Total Banding (teal) · Approval Rate (emerald/amber/rose adaptive) · Avg Hari Keputusan (emerald/amber/slate adaptive) · stagger-up animation · left accent bar
+- [x] **Mock data**: `bandingMock.ts` (8 `BandingRecord` entries: Submitted×2 · Review×2 · Approved×3 · Rejected×1) · cross-link ke `CLAIM_BOARD_MOCK` via claimId · `bandingShared.ts` (view join `buildViewItems` + `filterViewItems` + `computeBandingKPIs` + tone tokens + filter helpers)
 
-### EK6.2 Banding Form
+### EK6.2 Banding Form ✅
 
-- [ ] **`BandingFormModal`** — dari Klaim Detail (status Rejected) tombol "Ajukan Banding":
-  - Tampilkan alasan rejection asli (read-only)
-  - Form alasan banding (textarea wajib + min 50 char)
-  - Upload dokumen pendukung (multi-file stub)
-  - Submit → buat `BandingRecord` + status klaim → "Banding Submitted"
+- [x] **`BandingFormModal`** — dari Klaim Detail (status Rejected/Banding Rejected) tombol "Ajukan Banding T1/T2" (rose chip · Scale icon):
+  - 2-panel (max-w-4xl): LEFT read-only (info klaim 2-col + grouper chip + tarif vs RS + rejection reason rose card) · RIGHT form (tingkat toggle 1/2 · textarea alasan min 50 char + live char counter + validation feedback + border warna adaptive · upload dokumen multi-file stub drag-area + file list remove · ringkasan pengajuan card on valid)
+  - Submit → loading 900ms → success screen (CheckCircle2 + pesan feedback) → auto-close 1.4s
+  - `computeQuickActionState` updated: `showBanding` + `defaultBandingTingkat` (1 for Rejected, 2 for Banding Rejected)
+  - Wired di `KlaimDetailPage` + `ClaimBannerHeader` (onAjukanBanding prop)
 
 ### EK6.3 Banding Detail
 
@@ -976,7 +977,7 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
   - Status timeline (Submitted → Review → Approved/Rejected)
   - Mock review BPJS — tombol "Mark Approved/Rejected" untuk demo
 
-**Acceptance EK6:** ajukan banding untuk klaim Rejected, status berubah, dokumen pendukung ter-upload, mock approval bekerja.
+**Acceptance EK6.1+EK6.2:** ✅ TSC clean · Banding Board 2-panel (filter+table) · skeleton loading · 3 KPI adaptive · 8 mock entries · filter: search/periode/penjamin/tingkat/status · BandingFormModal 2-panel · alasan min 50 char · tingkat 1/2 toggle · file upload stub · wired ke ClaimBannerHeader "Ajukan Banding" button (Rejected claims only) · `src/app/ehis-eklaim/banding/page.tsx` route created · no indigo · teal/sky/emerald/amber/rose palette · font ≥ text-sm · 9 file baru ≤ 800 ln ea.
 
 ---
 

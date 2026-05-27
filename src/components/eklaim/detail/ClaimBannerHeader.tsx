@@ -35,6 +35,7 @@ import {
   TrendingUp,
   TrendingDown,
   Sparkles,
+  Scale,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -65,6 +66,7 @@ interface Props {
   onSubmit?: () => void;
   onGenerateBerkas?: () => void;
   onPrintResume?: () => void;
+  onAjukanBanding?: () => void;
 }
 
 /** Status yang menampilkan sparkle decoration (success/completion). */
@@ -79,6 +81,7 @@ export default function ClaimBannerHeader({
   onSubmit,
   onGenerateBerkas,
   onPrintResume,
+  onAjukanBanding,
 }: Props) {
   const router = useRouter();
   const nama = patientMasterData[claim.pasienId]?.name ?? `Pasien ${claim.pasienId}`;
@@ -268,6 +271,16 @@ export default function ClaimBannerHeader({
               >
                 <Send size={11} strokeWidth={2.4} />
                 Submit BPJS
+              </button>
+            )}
+            {actions.showBanding && (
+              <button
+                type="button"
+                onClick={onAjukanBanding}
+                className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2.5 py-1 text-[12px] font-semibold text-rose-700 ring-1 ring-rose-200 transition-colors hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/30"
+              >
+                <Scale size={11} strokeWidth={2.4} />
+                Ajukan Banding T{actions.defaultBandingTingkat}
               </button>
             )}
             <button

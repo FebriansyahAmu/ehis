@@ -32,8 +32,10 @@ import SubmissionTab from "./tabs/SubmissionTab";
 import AuditTab from "./tabs/AuditTab";
 import ClaimNotFound from "./parts/ClaimNotFound";
 import BerkasGeneratorModal from "@/components/eklaim/berkas/BerkasGeneratorModal";
+import BandingFormModal from "@/components/eklaim/banding/BandingFormModal";
 import {
   findTab,
+  computeQuickActionState,
   type ClaimDetailTab,
 } from "./claimDetailShared";
 import type { ClaimRecord } from "@/lib/eklaim/eklaimShared";
@@ -49,18 +51,25 @@ export default function KlaimDetailPage({ id, initialTab }: Props) {
   const ready = useSkeletonDelay(500);
   const [activeTab, setActiveTab] = useState<ClaimDetailTab>(() => findTab(initialTab));
   const [berkasGenOpen, setBerkasGenOpen] = useState(false);
+  const [bandingOpen, setBandingOpen] = useState(false);
 
   const claim = useMemo(
     () => CLAIM_BOARD_MOCK.find((c) => c.id === id || c.noKlaim === id),
     [id],
   );
 
+  const actions = useMemo(
+    () => (claim ? computeQuickActionState(claim) : null),
+    [claim],
+  );
+
   // ── Quick action handlers ─────────────────────────────
   const handleSubmit = () => {
-    console.info(`[Klaim ${claim?.noKlaim}] Submit ke BPJS — pending EK5`);
+    console.info(`[Klaim ${claim?.noKlaim}] Submit ke BPJS — pending EK7`);
   };
 
   const handleGenerateBerkas = () => setBerkasGenOpen(true);
+  const handleAjukanBanding  = () => setBandingOpen(true);
 
   const handlePrintResume = () => {
     if (typeof window !== "undefined") window.print();
@@ -94,6 +103,7 @@ export default function KlaimDetailPage({ id, initialTab }: Props) {
               onSubmit={handleSubmit}
               onGenerateBerkas={handleGenerateBerkas}
               onPrintResume={handlePrintResume}
+              onAjukanBanding={actions?.showBanding ? handleAjukanBanding : undefined}
             />
 
             <ClaimTabs active={activeTab} onChange={setActiveTab} />
@@ -119,6 +129,16 @@ export default function KlaimDetailPage({ id, initialTab }: Props) {
               onClose={() => setBerkasGenOpen(false)}
               claim={claim}
             />
+
+            {/* EK6 — Banding Form Modal (Rejected claims only) */}
+            {actions?.showBanding && (
+              <BandingFormModal
+                open={bandingOpen}
+                onClose={() => setBandingOpen(false)}
+                claim={claim}
+                defaultTingkat={actions.defaultBandingTingkat}
+              />
+            )}
           </motion.div>
         )}
       </AnimatePresence>

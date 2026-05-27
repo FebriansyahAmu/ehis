@@ -287,6 +287,10 @@ export interface QuickActionState {
   showGenerateBerkas: boolean;
   /** Tombol Print Resume Medis terlihat (selalu untuk RI/SameDay). */
   showPrintResume: boolean;
+  /** Tombol Ajukan Banding terlihat (klaim Rejected / Banding Rejected). */
+  showBanding: boolean;
+  /** Default tingkat banding: 1 (Rejected) atau 2 (Banding Rejected). */
+  defaultBandingTingkat: 1 | 2;
 }
 
 export function computeQuickActionState(claim: ClaimRecord): QuickActionState {
@@ -305,12 +309,17 @@ export function computeQuickActionState(claim: ClaimRecord): QuickActionState {
     submitDisabledReason = "Grouper belum di-resolve";
   }
 
+  const isBandingRejected = claim.statusPenjamin === "Banding Rejected";
+  const isRejected = claim.statusPenjamin === "Rejected";
+
   return {
     showSubmit: isBpjs,
     canSubmit: isBpjs && !submitDisabledReason,
     submitDisabledReason,
     showGenerateBerkas: true,
     showPrintResume: claim.tipePelayanan !== "RJ",
+    showBanding: isRejected || isBandingRejected,
+    defaultBandingTingkat: isBandingRejected ? 2 : 1,
   };
 }
 
