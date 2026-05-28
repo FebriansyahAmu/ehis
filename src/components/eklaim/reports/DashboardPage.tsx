@@ -11,6 +11,7 @@ import {
   Timer,
   FileDown,
   LayoutDashboard,
+  Users,
 } from "lucide-react";
 import { useSkeletonDelay } from "@/components/master/shared";
 import {
@@ -21,6 +22,7 @@ import {
 import ApprovalRatePanel from "./ApprovalRatePanel";
 import AgingKlaimPanel from "./AgingKlaimPanel";
 import MarginAnalysisPanel from "./MarginAnalysisPanel";
+import CoderProductivityPanel from "./CoderProductivityPanel";
 
 // ── Tab Config ─────────────────────────────────────────
 
@@ -53,6 +55,13 @@ const TABS: TabCfg[] = [
     sub: "Over/under per MDC group",
     Icon: BarChart2,
     tone: "emerald",
+  },
+  {
+    id: "coder",
+    label: "Produktivitas Coder",
+    sub: "Output koding & turnaround",
+    Icon: Users,
+    tone: "sky",
   },
 ];
 
@@ -146,6 +155,11 @@ export default function DashboardPage() {
                   {activeTab === "margin" && (
                     <motion.div key="margin" {...PANEL_FADE}>
                       <MarginAnalysisPanel />
+                    </motion.div>
+                  )}
+                  {activeTab === "coder" && (
+                    <motion.div key="coder" {...PANEL_FADE}>
+                      <CoderProductivityPanel />
                     </motion.div>
                   )}
                 </AnimatePresence>

@@ -14,7 +14,7 @@ import type { AgingBucket } from "./claimCalc";
 
 // ── Report Tabs ─────────────────────────────────────────
 
-export type ReportTab = "approval" | "aging" | "margin";
+export type ReportTab = "approval" | "aging" | "margin" | "coder";
 
 export type PeriodKey = "3m" | "6m" | "12m";
 
@@ -207,6 +207,61 @@ const RAW_MARGIN: MarginGroup[] = [
 
 export function buildMarginGroups(): MarginGroup[] {
   return [...RAW_MARGIN].sort((a, b) => b.avgMarginPct - a.avgMarginPct);
+}
+
+// ── Coder Productivity Types ──────────────────────────────
+
+export interface CoderProfile {
+  id: string;
+  name: string;
+  colorHex: string;
+  totalKoded: number;
+  avgDaysToSubmit: number;
+  trend: number;      // % delta vs prev period, + = improvement
+  accuracy: number;   // 0–1, % accepted
+}
+
+export interface CoderDailyOutput {
+  dateKey: string;    // "2026-05-DD"
+  label: string;      // "19 Mei"
+  totals: { coderId: string; count: number }[];
+  total: number;
+}
+
+// ── Coder Seed Data ──────────────────────────────────────
+
+const CODER_SEED: CoderProfile[] = [
+  { id: "coder-1", name: "Ari Kusuma",     colorHex: "#14b8a6", totalKoded: 37, avgDaysToSubmit: 4.2, trend: 12, accuracy: 0.94 },
+  { id: "coder-2", name: "Budi Santoso",   colorHex: "#0ea5e9", totalKoded: 28, avgDaysToSubmit: 5.8, trend: -3, accuracy: 0.89 },
+  { id: "coder-3", name: "Citra Maharani", colorHex: "#f59e0b", totalKoded: 45, avgDaysToSubmit: 3.9, trend: 18, accuracy: 0.96 },
+  { id: "coder-4", name: "Dewi Rahayu",    colorHex: "#f43f5e", totalKoded: 23, avgDaysToSubmit: 6.1, trend:  5, accuracy: 0.91 },
+];
+
+// [coder-1, coder-2, coder-3, coder-4] counts per day
+type DayCounts = [number, number, number, number];
+
+const DAILY_SEED: { dateKey: string; label: string; counts: DayCounts }[] = [
+  { dateKey: "2026-05-19", label: "19 Mei", counts: [4, 3, 5, 2] },
+  { dateKey: "2026-05-20", label: "20 Mei", counts: [5, 4, 6, 3] },
+  { dateKey: "2026-05-21", label: "21 Mei", counts: [3, 2, 4, 2] },
+  { dateKey: "2026-05-22", label: "22 Mei", counts: [6, 4, 7, 3] },
+  { dateKey: "2026-05-23", label: "23 Mei", counts: [4, 5, 6, 4] },
+  { dateKey: "2026-05-26", label: "26 Mei", counts: [7, 4, 8, 4] },
+  { dateKey: "2026-05-27", label: "27 Mei", counts: [5, 4, 6, 3] },
+  { dateKey: "2026-05-28", label: "28 Mei", counts: [3, 2, 3, 2] },
+];
+
+export function buildCoderProfiles(): CoderProfile[] {
+  return CODER_SEED;
+}
+
+export function buildCoderDailyOutputs(): CoderDailyOutput[] {
+  return DAILY_SEED.map(d => ({
+    dateKey: d.dateKey,
+    label: d.label,
+    totals: CODER_SEED.map((c, i) => ({ coderId: c.id, count: d.counts[i] })),
+    total:  d.counts.reduce((s, v) => s + v, 0),
+  }));
 }
 
 // ── Dashboard KPIs ──────────────────────────────────────

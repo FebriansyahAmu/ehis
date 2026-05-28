@@ -1065,8 +1065,14 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 
 ### EK8.4 Coder Productivity
 
-- [ ] **Klaim koded per coder × hari** — bar chart
-- [ ] **Average days kunjungan-to-submit** per coder
+- [x] **Klaim koded per coder × hari** — stacked bar chart (8 hari, 4 coder, Framer Motion grow-up)
+- [x] **Average days kunjungan-to-submit** per coder — horizontal bar sorted asc + Tercepat/Terlambat badge
+
+**Impl detail (EK8.4):**
+- `dashboardShared.ts` extended — `CoderProfile` · `CoderDailyOutput` · `buildCoderProfiles()` · `buildCoderDailyOutputs()` · `ReportTab` + `"coder"`
+- `CoderProductivityPanel.tsx` (~235 ln) — 4 coder profile cards (totalKoded + trend% + accuracy%) · `DailyOutputChart` stacked bar (flex-col-reverse grow-up animation) · `SubmitLatencyPanel` horizontal bar + badge
+- `DashboardPage.tsx` — tab ke-4 "Produktivitas Coder" + `Users` icon + AnimatePresence render
+- TSC clean · no indigo · font ≥ text-sm
 
 ### EK8.5 Export
 
@@ -1136,9 +1142,9 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 | EK5 — Berkas Generator      | 2      | 0     | 0%     | 2-3 hari        |
 | EK6 — Banding               | 3      | 0     | 0%     | 2 hari          |
 | EK7 — Reconciliation        | 4      | 3     | 75%    | 3 hari (EK7.1 ✅ ImportTransferModal · EK7.2 ✅ MatchingPanel · EK7.3 ✅ SelisihWriteOffModal · EK7.4 pending) |
-| EK8 — Dashboard Analytics   | 6      | 3     | 50%    | EK8.1 ✅ Approval Rate · EK8.2 ✅ Aging · EK8.3 ✅ Margin iDRG · EK8.4/5/6 pending |
+| EK8 — Dashboard Analytics   | 6      | 4     | 67%    | EK8.1 ✅ Approval Rate · EK8.2 ✅ Aging · EK8.3 ✅ Margin iDRG · EK8.4 ✅ Coder Productivity · EK8.5/6 pending |
 | EK9 — UX Polish + Cross     | 5      | 0     | 0%     | 1-2 hari        |
-| **Total**                   | **39** | **17** | **44%** | **~3.5-4.5 minggu** |
+| **Total**                   | **39** | **18** | **46%** | **~3.5-4.5 minggu** |
 
 **Effort total:** ~3.5-4.5 minggu frontend full (revisi dari 3-4 minggu karena pivot ke iDRG + dual-era support + state machine + Rupiah type).
 **Critical path MVP:** EK0 + EK2 + EK3 (3 tab inti: Berkas + Coding + Submission) = ~10-12 hari. Sisanya by business priority.
