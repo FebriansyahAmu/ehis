@@ -14,7 +14,7 @@
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & integration standards
 >
 > **Last updated:** 2026-05-29
-> **Status:** ✅ **BP0 Foundation 100% DONE + Spec Aligned 1:1 (SEP+Peserta+Rujukan+RencanaKontrol) + Endpoint Config** — Audit + alignment selesai vs 4 contract file Trustmark BPJS: [SEP-Contracts.md](contracts/SEP-Contracts.md) · [Peserta-Contracts.md](contracts/Peserta-Contracts.md) · [Rujukan-Contracts.md](contracts/Rujukan-Contracts.md) · [RencanaKontrol-Contracts.md](contracts/RencanaKontrol-Contracts.md).
+> **Status:** ✅ **BP0 Foundation 100% DONE + Spec Aligned 1:1 (SEP+Peserta+Rujukan+RencanaKontrol+Monitoring+CreateSignature) + Endpoint Config** — Audit + alignment selesai vs 6 contract file Trustmark BPJS: [SEP-Contracts.md](contracts/SEP-Contracts.md) · [Peserta-Contracts.md](contracts/Peserta-Contracts.md) · [Rujukan-Contracts.md](contracts/Rujukan-Contracts.md) · [RencanaKontrol-Contracts.md](contracts/RencanaKontrol-Contracts.md) · [Monitoring-Contracts.md](contracts/Monitoring-Contracts.md) · [CreateSignature-contracts.md](contracts/CreateSignature-contracts.md).
 >
 > **SEP (16 endpoint):** Insert/Update/Delete · Suplesi Jasa Raharja + Data Induk Kecelakaan · Approval Penjamin (Pengajuan + List Persetujuan) · Update Tgl Pulang + List · Integrasi Inacbgs · SEP Internal (GET+DELETE) · Finger Print (Get+List) · Random Question/Answer.
 >
@@ -27,6 +27,19 @@
 > - Masuk legacy (2): `getRujukan` FKTP/FKRTL · `listRujukanByPeserta` — kept untuk simple lookup.
 > - Referensi (3): `listRujukanKhususPerDiagnosa` (renamed dari listRujukanKhusus) · `listSpesialistik` · `listSarana`.
 >
+> **Auth Headers (CreateSignature-contracts.md — aligned 2026-05-29):**
+> - 4 header wajib semua endpoint V-Claim/Aplicares: `X-cons-id` · `X-timestamp` (UTC epoch sec) · `X-signature` (HMAC-SHA256 base64) · `user_key` (lowercase+underscore).
+> - Helper: `generateBpjsHeaders(creds, ts?)` sync mock (deterministic factor-secret, NOT cryptographically valid) + `generateBpjsHeadersAsync(creds, ts?)` production-ready dengan Web Crypto.
+> - Public helpers: `buildSignatureMessage(consId, ts)` · `nowUnixSeconds()` di [authHeader.ts](src/lib/bpjs/authHeader.ts).
+> - Fix: header naming `user_key` per spec (sebelumnya doc salah tulis `User-Key`).
+>
+> **Monitoring (4 endpoint — aligned 2026-05-29):**
+> - Spec 1: `monitoringKunjungan(tglSEP, jnsPelayanan)` → `KunjunganMonitoringItem[]` (display "R.Inap"/"R.Jalan" · poli null untuk RI · diagnosa kode-only).
+> - Spec 2: `monitoringKlaim(tglPulang, jnsPelayanan, statusKode "1"|"2"|"3")` → `KlaimMonitoringItem[]` (`Inacbg{kode,nama}` capital "I" · 5 field `biaya` string Rupiah · `noFPK` "" jika belum terbit · status label string).
+> - Spec 3: `monitoringHistoriPelayanan(noKartu, tglMulai, tglAkhir)` → `HistoriPelayananMonitoringItem[]` (diagnosa "KODE - Nama" gabungan · jnsPelayanan kode "1"/"2" · kelasRawat display "Kelas N" / null RJ · ppkPelayanan RS name).
+> - Spec 4: `monitoringJasaRaharja(jnsPelayanan, tglMulai, tglAkhir)` → `JasaRaharjaMonitoringItem[]` (nested `{sep, jasaRaharja}` · **signature DIUBAH** ke periode dari single-tgl yang salah sebelumnya · noMr camel di parent vs noMR capital di peserta — sengaja preserve wire format).
+> - Status klaim mapping: `KLAIM_MONITORING_STATUS_LABEL["1"]` = "Proses Verifikasi" · `["2"]` = "Pending Verifikasi" · `["3"]` = "Klaim".
+>
 > **Rencana Kontrol (11 endpoint — aligned 2026-05-29):**
 > - CRUD V2 (5 spec): `insertRKV2` (POST `/RencanaKontrol/v2/insert` + `formPRB`) · `updateRKV2` (PUT + formPRB) · `deleteRK` · `insertSPRI` (POST `noKartu`, tanpa formPRB) · `updateSPRI` (PUT `noSPRI`).
 > - GET detail (2 spec): `getSEPUntukRK` (shape khusus konteks RK · diagnosa & poli display string) · `getNoSuratKontrol` (detail RK + `formPRB` embedded).
@@ -34,7 +47,7 @@
 > - Referensi (2 spec): `getPoliRK` (jnsKontrol+nomor+tglRencana) · `getDokterRK` (jnsKontrol+kdPoli+tglRencana).
 > - **PRB Form**: `FormPRB { kdStatusPRB, data }` — 9 penyakit kronis (DM/HT/Asma/Jantung/PPOK/Skizofrenia/Stroke/Epilepsi/SLE) · 37 field measurement nullable + helper `emptyPRBFormData()` + `PRB_LABELS`.
 >
-> **URL Endpoint Config:** [bpjsEndpoints.ts](src/lib/bpjs/bpjsEndpoints.ts) — central source of truth `VCLAIM_ENDPOINTS` + `APLICARES_ENDPOINTS`. Semua hardcoded URL di-replace ke config (**40 endpoint**: 16 SEP + 2 Peserta + 11 Rujukan + 4 Monitoring + 11 RK V2 + 7 Aplicares). Fix URL Integrasi Inacbgs `/SEP/Inacbg/{noSEP}` (sebelumnya typo `/SEP/InsertInacbg/{noSEP}`). RK pakai V2 path versioning per spec resmi.
+> **URL Endpoint Config:** [bpjsEndpoints.ts](src/lib/bpjs/bpjsEndpoints.ts) — central source of truth `VCLAIM_ENDPOINTS` + `APLICARES_ENDPOINTS`. Semua hardcoded URL di-replace ke config (**40 endpoint**: 16 SEP + 2 Peserta + 11 Rujukan + 4 Monitoring + 11 RK V2 + 7 Aplicares). Fix URL Integrasi Inacbgs `/SEP/Inacbg/{noSEP}` (sebelumnya typo `/SEP/InsertInacbg/{noSEP}`). RK pakai V2 path versioning per spec resmi. Monitoring `klaimJasaRaharja` URL FIXED ke periode (JnsPelayanan/{jns}/tglMulai/{m}/tglAkhir/{a}) — sebelumnya salah single-tgl.
 >
 > Files: **18 file** di `src/lib/bpjs/` (4 core + 1 config + 1 contracts + 6 adapter + 6 mock). Next: **BP1 Beranda BPJS**.
 > **Target effort:** ~3.5–4.5 minggu (frontend full) · paralel dengan B0 backend + secret management.
@@ -107,12 +120,14 @@ Aplikasi standar industri (**KhanzaHIS · Trustmedis · SIMRS Cendana · Aplicar
 
 Spek resmi: `https://apijkn.bpjs-kesehatan.go.id/vclaim-rest/`. Adapter sudah partial di [vClaimAdapter.ts](src/lib/eklaim/vClaimAdapter.ts) — Phase BP0 relocate + extend.
 
-### Authentication (semua endpoint pakai 4 header)
+### Authentication (semua endpoint pakai 4 header per [CreateSignature-contracts.md](contracts/CreateSignature-contracts.md))
 - `X-cons-id` — consumer ID per RS (BPJS assign)
-- `X-timestamp` — Unix epoch second
-- `X-signature` — `HMAC-SHA256(cons-id&timestamp, consumer-secret) → base64`
-- `User-Key` — API key per RS
+- `X-timestamp` — UTC Unix epoch second (`(local time UTC sec) - (1970-01-01 sec)`)
+- `X-signature` — `HMAC-SHA256("${consId}&${timestamp}", consumerSecret) → base64` (44 char). Spec example: `consId="1234"` · `ts="433223232"` · `secret="pwd"` → `HMAC-SHA256("1234&433223232", "pwd")`
+- `user_key` — API key per RS (**lowercase + underscore**, BUKAN header-case `User-Key`)
+- `consumerSecret` HANYA disimpan di sisi consumer (RS), TIDAK dikirim sebagai header — dipakai untuk signature only
 - Body: **LZ-String compressed JSON** di production
+- **Adapter helper:** `generateBpjsHeaders(creds, timestampOverride?)` sync mock di [authHeader.ts](src/lib/bpjs/authHeader.ts) · `generateBpjsHeadersAsync` production-ready dengan Web Crypto (browser + Node 18+). Phase 1 pakai sync mock; backend swap ke async tanpa ubah API signature consumer.
 
 ### Endpoint Coverage (target Phase BP2–BP6)
 
@@ -150,13 +165,19 @@ Spek resmi: `https://apijkn.bpjs-kesehatan.go.id/vclaim-rest/`. Adapter sudah pa
 | `/referensi/spesialistik` | GET | List Spesialistik | ❌ BP4 |
 | `/referensi/faskes/{nama}/{jenisFaskes}` | GET | List Sarana/Faskes | ❌ BP4 |
 
-#### 4. Monitoring (Phase BP5)
-| Endpoint | Method | Tujuan | Status |
-|---|---|---|---|
-| `/monitoring/Kunjungan/Tanggal/{tgl}/JnsPelayanan/{jns}` | GET | Data Kunjungan per tgl | ❌ BP5 |
-| `/monitoring/Klaim/Tanggal/{tgl}/JnsPelayanan/{jns}/Status/{status}` | GET | Data Klaim per tgl + status | ❌ BP5 |
-| `/monitoring/HistoriPelayanan/NoKartu/{noKartu}/tglMulai/{m}/tglAkhir/{a}` | GET | Histori Pelayanan Peserta | ❌ BP5 |
-| `/monitoring/KlaimJaminanJasaRaharja/Tanggal/{tgl}/JnsPelayanan/{jns}` | GET | Klaim Jaminan Jasa Raharja | ❌ BP5 |
+#### 4. Monitoring (Phase BP5) — 4 endpoint per [Monitoring-Contracts.md](contracts/Monitoring-Contracts.md)
+| # | Endpoint | Method | Params | Response | Adapter | Status |
+|---|---|---|---|---|---|---|
+| 1 | `/monitoring/Kunjungan/Tanggal/{tglSEP}/JnsPelayanan/{jns}` | GET | tglSEP + jns(1/2) | `KunjunganMonitoringItem[]` | `monitoringKunjungan(tglSEP, jns)` | ✅ BP0.4 · 🚧 UI BP5 |
+| 2 | `/monitoring/Klaim/Tanggal/{tglPulang}/JnsPelayanan/{jns}/Status/{kode}` | GET | tglPulang + jns + status("1"=Proses, "2"=Pending, "3"=Klaim) | `KlaimMonitoringItem[]` | `monitoringKlaim(tglPulang, jns, statusKode)` | ✅ BP0.4 · 🚧 UI BP5 |
+| 3 | `/monitoring/HistoriPelayanan/NoKartu/{noKartu}/tglMulai/{m}/tglAkhir/{a}` | GET | noKartu + periode (max 90 hari) | `HistoriPelayananMonitoringItem[]` | `monitoringHistoriPelayanan(noKartu, tglMulai, tglAkhir)` | ✅ BP0.4 · 🚧 UI BP5 |
+| 4 | `/monitoring/KlaimJaminanJasaRaharja/JnsPelayanan/{jns}/tglMulai/{m}/tglAkhir/{a}` | GET | jns + periode (URL FIXED ke periode dari single-tgl) | `JasaRaharjaMonitoringItem[]` | `monitoringJasaRaharja(jns, tglMulai, tglAkhir)` | ✅ BP0.4 · 🚧 UI BP5 |
+
+**Catatan wire format:**
+- **Kunjungan (spec 1):** `diagnosa` cuma kode ICD (tanpa nama) · `jnsPelayanan` display "R.Inap"/"R.Jalan" (BUKAN kode) · `poli` null untuk RI · `noRujukan` selalu populated · `tglPlgSep` = tanggal pulang SEP.
+- **Klaim (spec 2):** `Inacbg{kode,nama}` capital I sesuai spec · `biaya` 5 field string Rupiah (`byPengajuan/bySetujui/byTarifGruper/byTarifRS/byTopup`) · `noFPK` "" jika belum FPK · `status` LABEL string ("Proses Verifikasi") paralel kode param.
+- **Histori (spec 3):** `diagnosa` format "KODE - Nama" gabungan · `jnsPelayanan` kode "1"/"2" · `kelasRawat` display "Kelas N" / null untuk RJ · `ppkPelayanan` nama RS · `poli` bisa empty "".
+- **Jasa Raharja (spec 4):** nested `{sep, jasaRaharja}` · spec inkonsisten `noMr` camel di parent vs `noMR` capital di peserta — kedua field sengaja preserve sebagai wire format · `jasaRaharja` 8 field detail (tglKejadian/noRegister/ketStatusDijamin/ketStatusDikirim/biayaDijamin/plafon/jmlDibayar/resultsJasaRaharja).
 
 #### 5. Rencana Kontrol (Phase BP6) — 11 endpoint per [RencanaKontrol-Contracts.md](contracts/RencanaKontrol-Contracts.md)
 | # | Endpoint | Method | Tujuan | Adapter | Status |
@@ -811,34 +832,64 @@ Komponen kompleks — 9 sub-fungsi. Sub-tab internal SEP page:
 
 **Route:** `/ehis-bpjs/vclaim/monitoring` · **Effort:** 2 hari · **Accent: amber**
 
-### BP5.1 Data Kunjungan
+Aligned 1:1 dengan [Monitoring-Contracts.md](contracts/Monitoring-Contracts.md) — 4 endpoint · 4 sub-tab internal · wire-format types.
 
-- [ ] **`KunjunganPanel`** — filter periode (tgl + jnsPelayanan RI/RJ) → `monitoringKunjungan()` → table 6-col (noSEP · noKartu · nama peserta · poli · dpjp · biaya tagih)
-- [ ] **Summary header:** total count + total Rp tagih · breakdown per poli (top 5)
-- [ ] **Export CSV** RFC 4180 + BOM UTF-8 (pattern reuse dari `klaimBoardLogic.exportKlaimCsv`)
+### BP5.1 Data Kunjungan (spec endpoint 1)
 
-### BP5.2 Data Klaim
+- [ ] **`KunjunganPanel`** — filter:
+  - `tglSEP` (date picker, default hari ini)
+  - segmented `jnsPelayanan` (1=R.Inap / 2=R.Jalan)
+- [ ] Submit → `monitoringKunjungan(tglSEP, jns)` → `KunjunganMonitoringItem[]`
+- [ ] **Table 8-col (sesuai wire format):** noSep mono · noKartu mono · nama · diagnosa kode · jnsPelayanan chip (R.Inap emerald / R.Jalan sky) · kelasRawat chip · poli (null → "—" untuk RI) · tglPlgSep
+- [ ] **Summary header:** total count · breakdown per poli (top 5 bar mini)
+- [ ] **Export CSV** RFC 4180 + BOM UTF-8
 
-- [ ] **`KlaimPanel`** — filter tgl + jnsPelayanan + status (Pending/Disetujui/Ditolak) → `monitoringKlaim()` → table 7-col
-- [ ] Cross-link kolom noSEP → buka klaim di `/ehis-eklaim/klaim/{id}` jika linked
+### BP5.2 Data Klaim (spec endpoint 2)
 
-### BP5.3 Histori Pelayanan Peserta
+- [ ] **`KlaimPanel`** — filter:
+  - `tglPulang` (date picker)
+  - segmented `jnsPelayanan` (1/2)
+  - segmented `statusKode` (1=Proses Verifikasi · 2=Pending Verifikasi · 3=Klaim) — pakai `KLAIM_MONITORING_STATUS_LABEL` untuk label display
+- [ ] Submit → `monitoringKlaim(tglPulang, jns, statusKode)` → `KlaimMonitoringItem[]`
+- [ ] **Table 9-col:** noSEP mono · peserta(nama/noKartu/noMR) · `Inacbg.kode` chip + nama tooltip · poli · kelasRawat chip · biaya breakdown card (5 nominal: pengajuan/setujui/tarifGruper/tarifRS/topup) · noFPK (— jika "") · status chip warna per kode · tglPulang
+- [ ] **Summary footer:** total tagih · total disetujui · selisih · % approval
+- [ ] **Cross-link** kolom noSEP → buka klaim di `/ehis-eklaim/klaim/{noSEP}` jika linked
 
-- [ ] **`HistoriPelayananPanel`** — input noKartu + periode (tglMulai-tglAkhir, max 90 hari) → `monitoringHistoriPelayanan()` → timeline visit per visit
-- [ ] Per timeline entry: tglSEP · poli · diagnosa · DPJP · biaya tagih/setuju · status verif chip
+### BP5.3 Histori Pelayanan Peserta (spec endpoint 3)
 
-### BP5.4 Klaim Jasa Raharja
+- [ ] **`HistoriPelayananPanel`** — filter:
+  - input `noKartu` (13 digit validation)
+  - date range `tglMulai/tglAkhir` (max 90 hari, validation inline)
+- [ ] Submit → `monitoringHistoriPelayanan(noKartu, tglMulai, tglAkhir)` → `HistoriPelayananMonitoringItem[]`
+- [ ] **Header peserta** (dari item pertama): namaPeserta + noKartu
+- [ ] **Timeline view** sort tglSep desc · per entry:
+  - badge `jnsPelayanan` (1=R.Inap / 2=R.Jalan)
+  - badge `kelasRawat` ("Kelas 1/2/3" atau "—" jika null)
+  - row: noSep · tglSep → tglPlgSep · poli (atau "—" jika "") · diagnosa display
+  - footer: noRujukan + ppkPelayanan
+- [ ] **Empty state** "Tidak ada riwayat pelayanan dalam periode ini" · slate
 
-- [ ] **`JasaRaharjaPanel`** — filter tgl + jnsPelayanan → `monitoringJasaRaharja()` → table klaim laka lantas/kerja yang ditanggung JR
+### BP5.4 Klaim Jasa Raharja (spec endpoint 4)
+
+- [ ] **`JasaRaharjaPanel`** — filter:
+  - segmented `jnsPelayanan` (1/2)
+  - date range `tglMulai/tglAkhir`
+- [ ] Submit → `monitoringJasaRaharja(jns, tglMulai, tglAkhir)` → `JasaRaharjaMonitoringItem[]`
+- [ ] **Card per item** (nested SEP + jasa raharja):
+  - Header: noSEP mono · tglSEP → tglPlgSEP · jnsPelayanan chip · poli kode · diagnosa kode
+  - Section peserta: noKartu · nama · noMR (camel `noMr` di parent vs capital `noMR` di peserta — display di footer note)
+  - Section JR: tglKejadian · noRegister · `ketStatusDijamin` chip (Dijamin emerald / Tidak Dijamin rose) · `ketStatusDikirim` chip · biaya breakdown (biayaDijamin · plafon · jmlDibayar) · `resultsJasaRaharja` status text
+- [ ] **Summary footer:** total dijamin · total dibayar · sisa plafon agregat
 
 ### BP5.5 Components
 
-- [ ] `MonitoringPage.tsx` (~140L) — 4 sub-tab nav
-- [ ] `KunjunganPanel.tsx` (~220L) + `KlaimPanel.tsx` (~230L)
-- [ ] `HistoriPelayananPanel.tsx` (~250L) — timeline pattern reuse dari AuditTab eklaim
-- [ ] `JasaRaharjaPanel.tsx` (~190L)
+- [ ] `MonitoringPage.tsx` (~150L) — 4 sub-tab nav (amber accent)
+- [ ] `KunjunganPanel.tsx` (~240L)
+- [ ] `KlaimPanel.tsx` (~270L) — biaya breakdown card sub-component
+- [ ] `HistoriPelayananPanel.tsx` (~260L) — timeline pattern reuse dari AuditTab eklaim
+- [ ] `JasaRaharjaPanel.tsx` (~250L) — card-per-item layout
 
-**Acceptance BP5:** ✅ 4 sub-tab monitoring · filter periode + status · cross-link ke eklaim · export CSV · histori timeline · TSC clean.
+**Acceptance BP5:** ✅ 4 sub-tab functional · 4 endpoint wired (wire-format types) · filter periode + statusKode numeric · cross-link ke eklaim · export CSV kunjungan · histori timeline · TSC clean.
 
 ---
 

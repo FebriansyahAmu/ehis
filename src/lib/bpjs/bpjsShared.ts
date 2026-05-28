@@ -634,8 +634,24 @@ export type {
   SEPUntukRKRecord,
   UpdateRKV2Payload,
   UpdateSPRIPayload,
+  // Monitoring (Monitoring-Contracts.md)
+  HistoriPelayananMonitoringItem,
+  JasaRaharjaDetail,
+  JasaRaharjaMonitoringItem,
+  JasaRaharjaPeserta,
+  JasaRaharjaSEP,
+  KlaimBiaya,
+  KlaimInacbg,
+  KlaimMonitoringItem,
+  KlaimMonitoringPeserta,
+  KlaimMonitoringStatusKode,
+  KunjunganMonitoringItem,
 } from "./bpjsContracts";
-export { PRB_LABELS, emptyPRBFormData } from "./bpjsContracts";
+export {
+  PRB_LABELS,
+  emptyPRBFormData,
+  KLAIM_MONITORING_STATUS_LABEL,
+} from "./bpjsContracts";
 
 // ── RujukanRecord ──────────────────────────────────────
 

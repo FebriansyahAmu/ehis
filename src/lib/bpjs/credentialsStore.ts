@@ -1,13 +1,20 @@
 /**
  * BPJS Credentials Store.
  *
+ * Aligned dengan [contracts/CreateSignature-contracts.md]:
+ * - `consId` di-assign BPJS per RS — masuk header `X-cons-id`
+ * - `consSecret` HANYA disimpan di sisi consumer (RS) — TIDAK dikirim ke
+ *   BPJS · dipakai untuk men-generate signature HMAC-SHA256
+ * - `userKey` per RS — masuk header `user_key` (lowercase, underscore)
+ *
  * Mock untuk Phase 1 (frontend). Backend Phase swap ke env vars +
  * Secret Manager (Vault/AWS Secrets Manager) — call site tidak berubah.
  *
  * Security note: nilai production WAJIB di-host di env / secret manager,
  * jangan commit ke repo. Mock value di sini bukan kredensial valid.
  *
- * Referensi: TODO-BPJS.md § BP0.1 · TODOS_BACKEND.md § B-BPJS.
+ * Referensi: TODO-BPJS.md § BP0.1 · TODOS_BACKEND.md § B-BPJS ·
+ * contracts/CreateSignature-contracts.md.
  */
 
 export interface BPJSCredentials {

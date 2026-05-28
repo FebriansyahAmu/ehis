@@ -913,3 +913,210 @@ export interface DokterRKSpecItem {
   jadwalPraktek: string;
   kapasitas: string;
 }
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║ Monitoring Contracts (4 endpoint)                        ║
+// ║ Aligned 1:1 dengan [contracts/Monitoring-Contracts.md]   ║
+// ╚══════════════════════════════════════════════════════════╝
+
+// ── Spec 1: Data Kunjungan ─────────────────────────────
+
+/**
+ * Item kunjungan — spec endpoint 1.
+ *
+ * Catatan shape spec:
+ * - `diagnosa`: hanya kode ICD ("K65.0") — TANPA nama.
+ * - `jnsPelayanan`: DISPLAY string ("R.Inap" / "R.Jalan") — bukan kode "1"/"2".
+ * - `kelasRawat`: string ("1"/"2"/"3").
+ * - `poli`: bisa null (RI biasanya null karena tidak by poli).
+ * - `tglPlgSep`: tanggal pulang SEP (ISO yyyy-MM-dd).
+ *
+ * Response wadah: `{ response: { sep: KunjunganMonitoringItem[] } }`.
+ */
+export interface KunjunganMonitoringItem {
+  diagnosa: string;
+  /** Display "R.Inap" / "R.Jalan". */
+  jnsPelayanan: "R.Inap" | "R.Jalan";
+  /** "1" / "2" / "3" — string kelas BPJS. */
+  kelasRawat: string;
+  nama: string;
+  noKartu: string;
+  noSep: string;
+  noRujukan: string;
+  poli: string | null;
+  /** Format yyyy-MM-dd. */
+  tglPlgSep: string;
+  /** Format yyyy-MM-dd. */
+  tglSep: string;
+}
+
+// ── Spec 2: Data Klaim ─────────────────────────────────
+
+/**
+ * Status klaim — kode numerik string per spec endpoint 2.
+ * - "1" = Proses Verifikasi
+ * - "2" = Pending Verifikasi
+ * - "3" = Klaim (sudah terklaim)
+ */
+export type KlaimMonitoringStatusKode = "1" | "2" | "3";
+
+export const KLAIM_MONITORING_STATUS_LABEL: Record<KlaimMonitoringStatusKode, string> = {
+  "1": "Proses Verifikasi",
+  "2": "Pending Verifikasi",
+  "3": "Klaim",
+};
+
+/** INA-CBG kode + nama per item klaim. */
+export interface KlaimInacbg {
+  kode: string;
+  nama: string;
+}
+
+/**
+ * Detail biaya per klaim — spec string Rupiah (tanpa formatting).
+ * Wire format spec semua string, parse ke `bigint` di domain layer.
+ */
+export interface KlaimBiaya {
+  /** Biaya pengajuan RS. */
+  byPengajuan: string;
+  /** Biaya disetujui verifikator (bisa "0" jika belum verif). */
+  bySetujui: string;
+  /** Biaya tarif grouper INA-CBG. */
+  byTarifGruper: string;
+  /** Biaya tarif RS internal. */
+  byTarifRS: string;
+  /** Biaya top-up khusus (severity/khusus). */
+  byTopup: string;
+}
+
+/** Peserta ringkas pada item klaim. */
+export interface KlaimMonitoringPeserta {
+  nama: string;
+  noKartu: string;
+  /** Nomor MR di RS. */
+  noMR: string;
+}
+
+/**
+ * Item klaim — spec endpoint 2.
+ *
+ * Catatan shape:
+ * - `Inacbg`: capitalize "I" sesuai spec (BUKAN "inacbg").
+ * - `noFPK`: string kosong "" jika klaim belum FPK terbit.
+ * - `poli`: nama poli display (e.g., "Hemodialisa").
+ * - `status`: label string ("Proses Verifikasi") — paralel dengan kode `KlaimMonitoringStatusKode`.
+ *
+ * Response wadah: `{ response: { klaim: KlaimMonitoringItem[] } }`.
+ */
+export interface KlaimMonitoringItem {
+  Inacbg: KlaimInacbg;
+  biaya: KlaimBiaya;
+  /** "1" / "2" / "3" kelas BPJS. */
+  kelasRawat: string;
+  /** Nomor FPK (Formulir Pengajuan Klaim). Kosong "" jika belum terbit. */
+  noFPK: string;
+  noSEP: string;
+  peserta: KlaimMonitoringPeserta;
+  poli: string;
+  /** Label status klaim ("Proses Verifikasi" / "Pending Verifikasi" / "Klaim"). */
+  status: string;
+  tglPulang: string;
+  tglSep: string;
+}
+
+// ── Spec 3: Histori Pelayanan Peserta ──────────────────
+
+/**
+ * Item histori pelayanan per peserta — spec endpoint 3.
+ *
+ * Catatan shape spec:
+ * - `diagnosa`: STRING gabungan "kode - nama" (e.g., "A00.1 - Cholera due to ...").
+ * - `jnsPelayanan`: "1"=Rawat Inap, "2"=Rawat Jalan (kode, bukan display).
+ * - `kelasRawat`: display string "Kelas 1" / "Kelas 2" / "Kelas 3" · NULL jika RJ.
+ * - `poli`: string display, bisa empty "".
+ * - `ppkPelayanan`: nama RS pemberi pelayanan (display).
+ *
+ * Response wadah: `{ response: { histori: HistoriPelayananMonitoringItem[] } }`.
+ */
+export interface HistoriPelayananMonitoringItem {
+  /** Format "KODE - Nama Diagnosa". */
+  diagnosa: string;
+  /** "1"=Rawat Inap, "2"=Rawat Jalan. */
+  jnsPelayanan: "1" | "2";
+  /** "Kelas 1" / "Kelas 2" / "Kelas 3" display. null untuk RJ. */
+  kelasRawat: string | null;
+  namaPeserta: string;
+  noKartu: string;
+  noSep: string;
+  noRujukan: string;
+  /** Display nama poli, bisa empty "". */
+  poli: string;
+  /** Nama PPK pelayanan (RS). */
+  ppkPelayanan: string;
+  tglPlgSep: string;
+  tglSep: string;
+}
+
+// ── Spec 4: Klaim Jaminan Jasa Raharja ─────────────────
+
+/** Peserta pada SEP Jasa Raharja (ringkas, beda dari KlaimMonitoringPeserta). */
+export interface JasaRaharjaPeserta {
+  noKartu: string;
+  nama: string;
+  /** Nomor MR di RS — perhatikan capital "MR" (beda dari `noMr` di parent). */
+  noMR: string;
+}
+
+/**
+ * Sub-section SEP pada item jasa raharja — spec endpoint 4.
+ *
+ * Catatan: spec inkonsisten — `noMr` (camel) di luar peserta, `noMR` (capital)
+ * di dalam peserta. Sengaja pertahankan agar 1:1 wire format.
+ */
+export interface JasaRaharjaSEP {
+  noSEP: string;
+  tglSEP: string;
+  tglPlgSEP: string;
+  /** Nomor MR (camel "Mr" per spec). */
+  noMr: string;
+  /** "1"=Rawat Inap, "2"=Rawat Jalan. */
+  jnsPelayanan: "1" | "2";
+  /** Kode poli (e.g., "INT"). */
+  poli: string;
+  /** Kode diagnosa ICD (e.g., "A00.1"). */
+  diagnosa: string;
+  peserta: JasaRaharjaPeserta;
+}
+
+/**
+ * Detail jasa raharja per item — spec endpoint 4.
+ * Semua nominal nominal field string (Rupiah).
+ */
+export interface JasaRaharjaDetail {
+  /** Format yyyy-MM-dd. */
+  tglKejadian: string;
+  /** Nomor register klaim Jasa Raharja. */
+  noRegister: string;
+  /** Status dijamin — "Dijamin" / "Tidak Dijamin". */
+  ketStatusDijamin: string;
+  /** Status kirim ke JR — "Sukses" / "Pending" / "Gagal". */
+  ketStatusDikirim: string;
+  /** Biaya yang dijamin JR (string Rupiah). */
+  biayaDijamin: string;
+  /** Plafon klaim JR (string Rupiah). */
+  plafon: string;
+  /** Jumlah dibayar JR (string Rupiah). */
+  jmlDibayar: string;
+  /** Result kirim — "Sukses" / pesan error. */
+  resultsJasaRaharja: string;
+}
+
+/**
+ * Item jasa raharja — spec endpoint 4.
+ *
+ * Response wadah: `{ response: { jaminan: JasaRaharjaMonitoringItem[] } }`.
+ */
+export interface JasaRaharjaMonitoringItem {
+  sep: JasaRaharjaSEP;
+  jasaRaharja: JasaRaharjaDetail;
+}

@@ -6,7 +6,8 @@
  * semua adapter auto-pakai URL baru.
  *
  * Reference: [contracts/SEP-Contracts.md] · [contracts/Peserta-Contracts.md]
- * · [contracts/Rujukan-Contracts.md] · [contracts/RencanaKontrol-Contracts.md].
+ * · [contracts/Rujukan-Contracts.md] · [contracts/RencanaKontrol-Contracts.md]
+ * · [contracts/Monitoring-Contracts.md].
  *
  * Konvensi:
  * - Endpoint tanpa param: `string` literal
@@ -139,20 +140,34 @@ export const VCLAIM_ENDPOINTS = {
     },
   },
 
-  // ── Monitoring
+  // ── Monitoring (4 endpoint per Monitoring-Contracts.md)
   monitoring: {
-    kunjungan: (tgl: string, jns: JnsPelayananKode): string =>
-      `/monitoring/Kunjungan/Tanggal/${tgl}/JnsPelayanan/${jns}`,
-    klaim: (tgl: string, jns: JnsPelayananKode, status: string): string =>
-      `/monitoring/Klaim/Tanggal/${tgl}/JnsPelayanan/${jns}/Status/${status}`,
+    // Spec 1: Data Kunjungan — params: tglSEP + jnsPelayanan (1/2)
+    kunjungan: (tglSEP: string, jns: JnsPelayananKode): string =>
+      `/monitoring/Kunjungan/Tanggal/${tglSEP}/JnsPelayanan/${jns}`,
+    // Spec 2: Data Klaim — params: tglPulang + jnsPelayanan + statusKlaim
+    // statusKlaim: "1"=Proses Verifikasi, "2"=Pending Verifikasi, "3"=Klaim
+    klaim: (
+      tglPulang: string,
+      jns: JnsPelayananKode,
+      statusKlaim: "1" | "2" | "3",
+    ): string =>
+      `/monitoring/Klaim/Tanggal/${tglPulang}/JnsPelayanan/${jns}/Status/${statusKlaim}`,
+    // Spec 3: Data Histori Pelayanan Peserta — params: noKartu + periode
     historiPelayanan: (
       noKartu: string,
       tglMulai: string,
       tglAkhir: string,
     ): string =>
       `/monitoring/HistoriPelayanan/NoKartu/${noKartu}/tglMulai/${tglMulai}/tglAkhir/${tglAkhir}`,
-    klaimJasaRaharja: (tgl: string, jns: JnsPelayananKode): string =>
-      `/monitoring/KlaimJaminanJasaRaharja/Tanggal/${tgl}/JnsPelayanan/${jns}`,
+    // Spec 4: Data Klaim Jaminan Jasa Raharja — params: jnsPelayanan + periode
+    // (Catatan: signature SEBELUMNYA salah — pakai single tgl. Spec wajib periode.)
+    klaimJasaRaharja: (
+      jns: JnsPelayananKode,
+      tglMulai: string,
+      tglAkhir: string,
+    ): string =>
+      `/monitoring/KlaimJaminanJasaRaharja/JnsPelayanan/${jns}/tglMulai/${tglMulai}/tglAkhir/${tglAkhir}`,
   },
 
   // ── Rencana Kontrol (11 endpoint per RencanaKontrol-Contracts.md)
