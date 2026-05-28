@@ -13,8 +13,30 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (BPJS depend B0 + secret management + LZ-String + HMAC)
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & integration standards
 >
-> **Last updated:** 2026-05-28
-> **Status:** 📋 **Planning** — scope confirmed (V-Claim 5 sub-menu + Aplicares 3 sub-menu). Adapter `vClaimAdapter.ts` existing di [src/lib/eklaim/vClaimAdapter.ts](src/lib/eklaim/vClaimAdapter.ts) akan di-relocate + di-extend di Phase BP0.
+> **Last updated:** 2026-05-29
+> **Status:** ✅ **BP0 Foundation 100% DONE + Spec Aligned 1:1 (SEP+Peserta+Rujukan+RencanaKontrol) + Endpoint Config** — Audit + alignment selesai vs 4 contract file Trustmark BPJS: [SEP-Contracts.md](contracts/SEP-Contracts.md) · [Peserta-Contracts.md](contracts/Peserta-Contracts.md) · [Rujukan-Contracts.md](contracts/Rujukan-Contracts.md) · [RencanaKontrol-Contracts.md](contracts/RencanaKontrol-Contracts.md).
+>
+> **SEP (16 endpoint):** Insert/Update/Delete · Suplesi Jasa Raharja + Data Induk Kecelakaan · Approval Penjamin (Pengajuan + List Persetujuan) · Update Tgl Pulang + List · Integrasi Inacbgs · SEP Internal (GET+DELETE) · Finger Print (Get+List) · Random Question/Answer.
+>
+> **Peserta (2 endpoint):** GET by No.Kartu + GET by NIK — shape 1:1 spec (sex/pisa/provUmum/cob/umur/tglTAT/tglTMT/informasi).
+>
+> **Rujukan (17 endpoint — 12 spec + 5 helper):**
+> - Keluar (6 spec): `insertRujukan` · `updateRujukan` · `listSpesialistikRujukanPerPPK` · `listRujukanKeluar` · `detailRujukanKeluar` · `jumlahSepPerRujukan`. Conditional rule `poliRujukan` kosong jika tipeRujukan="2" (Balik PRB).
+> - Khusus (3 spec): `insertRujukanKhusus` · `deleteRujukanKhusus` · `listRujukanKhusus` (per bulan+tahun). Format diagnosa.kode: `"primer;{ICD}"` atau `"sekunder;{ICD}"`.
+> - Pencarian RS rich (3 spec): `cariRujukanRSByNoRujukan` · `cariRujukanRSByKartu` (single) · `listRujukanRSByKartu` (list) — pakai `RujukanRSDetail` dengan peserta full + provPerujuk + noKunjungan.
+> - Masuk legacy (2): `getRujukan` FKTP/FKRTL · `listRujukanByPeserta` — kept untuk simple lookup.
+> - Referensi (3): `listRujukanKhususPerDiagnosa` (renamed dari listRujukanKhusus) · `listSpesialistik` · `listSarana`.
+>
+> **Rencana Kontrol (11 endpoint — aligned 2026-05-29):**
+> - CRUD V2 (5 spec): `insertRKV2` (POST `/RencanaKontrol/v2/insert` + `formPRB`) · `updateRKV2` (PUT + formPRB) · `deleteRK` · `insertSPRI` (POST `noKartu`, tanpa formPRB) · `updateSPRI` (PUT `noSPRI`).
+> - GET detail (2 spec): `getSEPUntukRK` (shape khusus konteks RK · diagnosa & poli display string) · `getNoSuratKontrol` (detail RK + `formPRB` embedded).
+> - List (2 spec): `listRKByKartu` (bulan+tahun+noKartu+filter) · `listRKFiltered` (tglAwal-tglAkhir+filter mode "1"=entri/"2"=rencana).
+> - Referensi (2 spec): `getPoliRK` (jnsKontrol+nomor+tglRencana) · `getDokterRK` (jnsKontrol+kdPoli+tglRencana).
+> - **PRB Form**: `FormPRB { kdStatusPRB, data }` — 9 penyakit kronis (DM/HT/Asma/Jantung/PPOK/Skizofrenia/Stroke/Epilepsi/SLE) · 37 field measurement nullable + helper `emptyPRBFormData()` + `PRB_LABELS`.
+>
+> **URL Endpoint Config:** [bpjsEndpoints.ts](src/lib/bpjs/bpjsEndpoints.ts) — central source of truth `VCLAIM_ENDPOINTS` + `APLICARES_ENDPOINTS`. Semua hardcoded URL di-replace ke config (**40 endpoint**: 16 SEP + 2 Peserta + 11 Rujukan + 4 Monitoring + 11 RK V2 + 7 Aplicares). Fix URL Integrasi Inacbgs `/SEP/Inacbg/{noSEP}` (sebelumnya typo `/SEP/InsertInacbg/{noSEP}`). RK pakai V2 path versioning per spec resmi.
+>
+> Files: **18 file** di `src/lib/bpjs/` (4 core + 1 config + 1 contracts + 6 adapter + 6 mock). Next: **BP1 Beranda BPJS**.
 > **Target effort:** ~3.5–4.5 minggu (frontend full) · paralel dengan B0 backend + secret management.
 > **Accent module:** `emerald` (warna identitas BPJS Kesehatan) + slate neutral · multi-tone per tab. **No indigo · No purple primary.**
 
@@ -136,18 +158,22 @@ Spek resmi: `https://apijkn.bpjs-kesehatan.go.id/vclaim-rest/`. Adapter sudah pa
 | `/monitoring/HistoriPelayanan/NoKartu/{noKartu}/tglMulai/{m}/tglAkhir/{a}` | GET | Histori Pelayanan Peserta | ❌ BP5 |
 | `/monitoring/KlaimJaminanJasaRaharja/Tanggal/{tgl}/JnsPelayanan/{jns}` | GET | Klaim Jaminan Jasa Raharja | ❌ BP5 |
 
-#### 5. Rencana Kontrol (Phase BP6)
-| Endpoint | Method | Tujuan | Status |
-|---|---|---|---|
-| `/RencanaKontrol/insert` | POST | Insert Rencana Kontrol | ❌ BP6 |
-| `/RencanaKontrol/InsertSPRI` | POST | Insert SPRI (Surat Pengantar Rawat Inap) | ❌ BP6 |
-| `/RencanaKontrol/Update` | PUT | Update RK/SPRI | ❌ BP6 |
-| `/RencanaKontrol/Delete` | DELETE | Hapus RK/SPRI | ❌ BP6 |
-| `/RencanaKontrol/noSuratKontrol/{noSurat}` | GET | Cari nomor surat kontrol | ❌ BP6 |
-| `/RencanaKontrol/ListRencanaKontrol/tglAwal/{m}/tglAkhir/{a}/filter/{filter}` | GET | List RK/SPRI filterable | ❌ BP6 |
-| `/RencanaKontrol/ListSPRI/tglAwal/{m}/tglAkhir/{a}/filter/{filter}` | GET | List SPRI khusus | ❌ BP6 |
-| `/RencanaKontrol/SpesialistikRS/JnsKontrol/{jns}/tglRencanaKontrol/{tgl}` | GET | Data Poli/Spesialistik untuk RK | ❌ BP6 |
-| `/RencanaKontrol/JadwalPraktekDokter/JnsKontrol/{jns}/KdPoli/{poli}/TglRencanaKontrol/{tgl}` | GET | Data Dokter untuk RK | ❌ BP6 |
+#### 5. Rencana Kontrol (Phase BP6) — 11 endpoint per [RencanaKontrol-Contracts.md](contracts/RencanaKontrol-Contracts.md)
+| # | Endpoint | Method | Tujuan | Adapter | Status |
+|---|---|---|---|---|---|
+| 1 | `/RencanaKontrol/v2/insert` | POST | Insert RK **V2** + `formPRB` (9 penyakit kronik) | `insertRKV2(payload)` | ✅ BP0.4 wired · 🚧 UI BP6 |
+| 2 | `/RencanaKontrol/v2/update` | PUT | Update RK **V2** + `formPRB` | `updateRKV2(payload)` | ✅ BP0.4 wired · 🚧 UI BP6 |
+| 3 | `/RencanaKontrol/Delete` | DELETE | Hapus RK (wrap `t_suratkontrol`) | `deleteRK(noSuratKontrol, user)` | ✅ BP0.4 wired · 🚧 UI BP6 |
+| 4 | `/RencanaKontrol/InsertSPRI` | POST | Insert SPRI (`noKartu`, **tanpa formPRB**) | `insertSPRI(payload)` | ✅ BP0.4 wired · 🚧 UI BP6 |
+| 5 | `/RencanaKontrol/UpdateSPRI` | PUT | Update SPRI (`noSPRI`) — terpisah dari Update RK | `updateSPRI(payload)` | ✅ BP0.4 wired · 🚧 UI BP6 |
+| 6 | `/RencanaKontrol/nosep/{noSEP}` | GET | Lihat SEP untuk keperluan RK (shape khusus) | `getSEPUntukRK(noSEP)` | ✅ BP0.4 wired · 🚧 UI BP6 |
+| 7 | `/RencanaKontrol/noSuratKontrol/{noSurat}` | GET | Cari detail RK + `formPRB` embedded | `getNoSuratKontrol(noSurat)` | ✅ BP0.4 wired · 🚧 UI BP6 |
+| 8 | `/RencanaKontrol/ListRencanaKontrol/Bulan/{b}/Tahun/{t}/Nokartu/{kartu}/filter/{f}` | GET | List RK by Kartu (bulan+tahun) | `listRKByKartu(bulan, tahun, noKartu, filter)` | ✅ BP0.4 wired · 🚧 UI BP6 |
+| 9 | `/RencanaKontrol/ListRencanaKontrol/tglAwal/{m}/tglAkhir/{a}/filter/{f}` | GET | List RK periode (filter "1"=entri, "2"=rencana) | `listRKFiltered(tglAwal, tglAkhir, filter)` | ✅ BP0.4 wired · 🚧 UI BP6 |
+| 10 | `/RencanaKontrol/Poli/JnsKontrol/{j}/Nomor/{n}/TglRencana/{t}` | GET | Data Poli untuk RK (nomor: kartu jika SPRI, SEP jika RK) | `getPoliRK(jnsKontrol, nomor, tglRencana)` | ✅ BP0.4 wired · 🚧 UI BP6 |
+| 11 | `/RencanaKontrol/JadwalPraktekDokter/JnsKontrol/{j}/KdPoli/{p}/TglRencanaKontrol/{t}` | GET | Data Dokter untuk RK | `getDokterRK(jnsKontrol, kdPoli, tglRencana)` | ✅ BP0.4 wired · 🚧 UI BP6 |
+
+**Catatan PRB form (spec V2):** `formPRB.kdStatusPRB ∈ ["01"..."09"]` (DM/HT/Asma/Jantung/PPOK/Skizofrenia/Stroke/Epilepsi/SLE) · `formPRB.data` = 37 field measurement nullable (HBA1C 0.1-15 · GDP/GD2JPP 10-500 · eGFR 5-150 · TD_Sistolik/Diastolik 20-200 · LDL 20-500 · NadiIstirahat 20-200 · FungsiParu/Remisi/RemisiSLE 0-100 · SkorMMRC 0-40 · Usia 1-100 · AsamUrat 0.1-20 · sisanya 0/1 flag). UI BP6 wajib render input dinamis sesuai `kdStatusPRB` (hanya field relevan per penyakit yang ditampilkan).
 
 #### 6. Referensi (cross-cutting, Phase BP0)
 Endpoint master untuk dropdown form lintas tab. Cache locally dengan TTL 24 jam.
@@ -304,14 +330,20 @@ src/components/bpjs/
 │   ├── KlaimPanel.tsx
 │   ├── HistoriPelayananPanel.tsx
 │   └── JasaRaharjaPanel.tsx
-├── rencana-kontrol/               # BP6
-│   ├── RencanaKontrolPage.tsx     # sub-tab: Cari SEP · Hapus · No Surat · Data RK/SPRI · Poli · Dokter
-│   ├── CariSEPRKPanel.tsx
-│   ├── HapusRKModal.tsx
-│   ├── CariNoSuratPanel.tsx
-│   ├── DataRKSPRIPanel.tsx        # filter tglAwal/tglAkhir + nomorKartu + jenis (Kontrol/SPRI)
-│   ├── DataPoliPanel.tsx
-│   └── DataDokterPanel.tsx
+├── rencana-kontrol/               # BP6 (11 endpoint per RencanaKontrol-Contracts.md)
+│   ├── RencanaKontrolPage.tsx     # 7 sub-tab: Cari SEP · Insert/Update RK V2 · Insert/Update SPRI · Hapus · No Surat · Data List · Poli/Dokter
+│   ├── CariSEPRKPanel.tsx         # spec 6 getSEPUntukRK
+│   ├── InsertRKV2Modal.tsx        # spec 1 insertRKV2 + PRB form
+│   ├── UpdateRKV2Modal.tsx        # spec 2 updateRKV2 + PRB form
+│   ├── PRBFormFields.tsx          # 9 penyakit kronik · 37 field dinamis · range validation
+│   ├── InsertSPRIModal.tsx        # spec 4 insertSPRI (noKartu, no PRB)
+│   ├── UpdateSPRIModal.tsx        # spec 5 updateSPRI (noSPRI)
+│   ├── HapusRKModal.tsx           # spec 3 deleteRK
+│   ├── CariNoSuratPanel.tsx       # spec 7 getNoSuratKontrol (detail + PRB embed)
+│   ├── DataRKByKartuPanel.tsx     # spec 8 listRKByKartu (bulan+tahun+kartu)
+│   ├── DataRKPeriodePanel.tsx     # spec 9 listRKFiltered (periode)
+│   ├── DataPoliPanel.tsx          # spec 10 getPoliRK
+│   └── DataDokterPanel.tsx        # spec 11 getDokterRK
 ├── aplicares/                     # BP7
 │   ├── ReferensiKamarPage.tsx     # BP7.1
 │   ├── MapKelasPage.tsx           # BP7.2
@@ -330,37 +362,21 @@ src/components/bpjs/
 
 **Effort:** 4-5 hari · **ROI:** semua fase berikut bisa paralel, schema stabil & sesuai spek BPJS resmi.
 
-### BP0.1 Adapter relocation + auth foundation
+### BP0.1 Adapter relocation + auth foundation ✅ (2026-05-28)
 
-- [ ] **Buat folder `src/lib/bpjs/`** + 4 file core: `bpjsShared.ts` · `credentialsStore.ts` · `authHeader.ts` · `lzStringHelper.ts`.
-- [ ] **Relocate `vClaimAdapter.ts`** dari `src/lib/eklaim/` ke `src/lib/bpjs/` — pindah file, update import path di:
-  - [eligibilityChecker.ts](src/lib/eklaim/eligibilityChecker.ts)
-  - [groupingResolver.ts](src/lib/eklaim/groupingResolver.ts) (jika ada)
-  - Semua `src/components/eklaim/` yang import
-- [ ] **Backward-compat re-export** sementara di `src/lib/eklaim/vClaimAdapter.ts`:
-  ```ts
-  export * from "@/lib/bpjs/vClaimAdapter";
-  ```
-- [ ] **`credentialsStore.ts`** — mock credentials:
-  ```ts
-  export const BPJS_CREDS_MOCK = {
-    consId: "12345",
-    consSecret: "abcd1234efgh5678",  // mock, real di env
-    userKey: "user-key-mock",
-    baseUrl: "https://apijkn.bpjs-kesehatan.go.id/vclaim-rest",
-  };
-  ```
-- [ ] **`authHeader.ts`** — `generateBpjsHeaders(creds)` return `{ "X-cons-id", "X-timestamp", "X-signature", "User-Key" }`:
-  ```ts
-  const ts = Math.floor(Date.now() / 1000).toString();
-  const signature = hmacSha256Base64(`${consId}&${ts}`, consSecret);
-  ```
-  Mock skip real HMAC — Phase backend pakai `crypto.subtle` atau Node `crypto`.
-- [ ] **`lzStringHelper.ts`** — `compressLZ(body) → string` + `decompressLZ(body) → object`. Mock no-op (return as-is), production Phase pasang NPM `lz-string`.
+- [x] **Buat folder `src/lib/bpjs/`** + 4 file core: `bpjsShared.ts` · `credentialsStore.ts` · `authHeader.ts` · `lzStringHelper.ts`. ✅
+- [x] **Relocate `vClaimAdapter.ts`** dari `src/lib/eklaim/` ke `src/lib/bpjs/` — import path internal di-update ke `@/lib/eklaim/claimsMock` + `@/lib/eklaim/eklaimShared`. Consumer eklaim (`eligibilityChecker.ts` + `SubmissionTab.tsx`) tetap pakai path lama via shim (dicatat di TECH_DEBT untuk cleanup later). `groupingResolver.ts` tidak ada (consumer hanya 2 file). ✅
+- [x] **Backward-compat re-export** di `src/lib/eklaim/vClaimAdapter.ts`: `export * from "@/lib/bpjs/vClaimAdapter"` + TODO header komentar. ✅
+- [x] **`credentialsStore.ts`** — `BPJS_CREDS_MOCK` constant + `BPJSCredentials` interface + `resolveCredentials(override?)` helper. Tambah `aplicaresBaseUrl` untuk Phase BP7 (split V-Claim + Aplicares baseUrl). ✅
+- [x] **`authHeader.ts`** — `generateBpjsHeaders(creds, timestampOverride?)` return `{ "X-cons-id", "X-timestamp", "X-signature", user_key }`. Mock HMAC deterministic stub (base64 of `cons-id&timestamp`). Backend swap docs (Node `crypto.createHmac` / Web Crypto `subtle.sign`) di JSDoc. ✅
+- [x] **`lzStringHelper.ts`** — `compressLZ<T>(payload) → string` + `decompressLZ<T>(s) → T` + bonus `isLZRoundtripSafe<T>(payload)` smoke test helper. Mock no-op (JSON.stringify/parse). ✅
+- [x] **`bpjsShared.ts` (BP0.1 scaffold)** — Re-export `Result/Ok/Err` + types dari eklaim · `BPJSConfig` (consId/userKey/timestampOverride/failRate/fixedLatencyMs/forceResult) · `BPJSEnvelope<T>` · `BPJSCode` + `BPJS_CODE_MESSAGES` + `BPJS_RETRYABLE_CODES` + `isBPJSCode()` guard · `TONE_PALETTE_BPJS` + `BPJSToneKey/BPJSTone` types · helpers `simulateLatency`/`shouldSimulateNetworkError`. Domain types (PesertaRecord/SEPRecordExt/dst) ditunda ke BP0.2. ✅
+- [x] **TSC clean** — `npx tsc --noEmit` no errors. ✅
+- [x] **TECH_DEBT updated** — section baru "🔐 BPJS Integration" dengan 10 item (shim cleanup, real HMAC, real LZ, Secret Manager, cron sync, DB audit, WS realtime, rate limit, circuit breaker, Kemendagri JSON). ✅
 
-### BP0.2 Types di [src/lib/bpjs/bpjsShared.ts](src/lib/bpjs/bpjsShared.ts)
+### BP0.2 Types di [src/lib/bpjs/bpjsShared.ts](src/lib/bpjs/bpjsShared.ts) ✅ (2026-05-28)
 
-- [ ] **`PesertaRecord`** — peserta BPJS detail (replace flat envelope):
+- [x] **`PesertaRecord`** — peserta BPJS detail (replace flat envelope):
   ```ts
   {
     noKartu: string,        // 13-digit
@@ -383,7 +399,7 @@ src/components/bpjs/
   }
   ```
 
-- [ ] **`SEPRecordExt`** — extend `SEPRecord` di eklaim dengan field lengkap V-Claim 2.0:
+- [x] **`SEPRecordExt`** — extend `SEPRecord` di eklaim dengan field lengkap V-Claim 2.0:
   ```ts
   {
     // existing
@@ -417,7 +433,7 @@ src/components/bpjs/
   }
   ```
 
-- [ ] **`RujukanRecord`** — rujukan FKTP atau FKRTL:
+- [x] **`RujukanRecord`** — rujukan FKTP atau FKRTL:
   ```ts
   {
     noRujukan: string,
@@ -437,7 +453,7 @@ src/components/bpjs/
   }
   ```
 
-- [ ] **`RencanaKontrolRecord`** + **`SPRIRecord`** (extend dari RK):
+- [x] **`RencanaKontrolRecord`** + **`SPRIRecord`** (extend dari RK):
   ```ts
   type RencanaKontrolRecord = {
     noSurat: string,
@@ -453,7 +469,7 @@ src/components/bpjs/
   };
   ```
 
-- [ ] **`KunjunganBPJSRecord`** — untuk monitoring kunjungan:
+- [x] **`KunjunganBPJSRecord`** — untuk monitoring kunjungan:
   ```ts
   {
     noSEP, noKartu, namaPeserta,
@@ -464,7 +480,7 @@ src/components/bpjs/
   }
   ```
 
-- [ ] **`HistoriPelayananRecord`** — untuk monitoring histori per peserta:
+- [x] **`HistoriPelayananRecord`** — untuk monitoring histori per peserta:
   ```ts
   {
     noSEP, tglSEP, jnsPelayanan, poli, diagnosa, dpjp,
@@ -472,7 +488,7 @@ src/components/bpjs/
   }
   ```
 
-- [ ] **`AplicaresKamarRecord`** — bed Aplicares:
+- [x] **`AplicaresKamarRecord`** — bed Aplicares:
   ```ts
   {
     kdKelas: "1" | "2" | "3" | "VIP",
@@ -488,7 +504,7 @@ src/components/bpjs/
   }
   ```
 
-- [ ] **`MapKelasRecord`** — mapping BPJS kelas ↔ local kelas:
+- [x] **`MapKelasRecord`** — mapping BPJS kelas ↔ local kelas:
   ```ts
   {
     kdKelasBPJS: "1" | "2" | "3" | "VIP",
@@ -499,7 +515,7 @@ src/components/bpjs/
   }
   ```
 
-- [ ] **`BPJSError`** — extends `ClaimError` reuse + tambah BPJS-specific:
+- [x] **`BPJSError`** — extends `ClaimError` reuse + tambah BPJS-specific:
   ```ts
   type BPJSError = ClaimError | {
     type: "BPJSMetaError",
@@ -518,7 +534,7 @@ src/components/bpjs/
   - `500` = Server error BPJS
   - `503` = Service unavailable
 
-- [ ] **`BPJSAuditEntry`** — log per call:
+- [x] **`BPJSAuditEntry`** — log per call:
   ```ts
   {
     id: string,
@@ -539,9 +555,9 @@ src/components/bpjs/
   }
   ```
 
-- [ ] **`IdempotencyKey`** — `generateIdempotencyKey(payload) → string` deterministic hash. Disimpan di mutation request body untuk hindari duplicate submit.
+- [x] **`IdempotencyKey`** — `generateIdempotencyKey(payload) → string` deterministic hash. Disimpan di mutation request body untuk hindari duplicate submit. ✅ djb2 hash + canonical JSON (key-sorted).
 
-- [ ] **`TONE_PALETTE_BPJS`** — static palette purge-safe:
+- [x] **`TONE_PALETTE_BPJS`** — static palette purge-safe (sudah ada di BP0.1):
   ```ts
   {
     kepesertaan: "sky", sep: "emerald", rujukan: "teal",
@@ -550,29 +566,18 @@ src/components/bpjs/
   }
   ```
 
-### BP0.3 Mock seed
+### BP0.3 Mock seed ✅ (2026-05-28)
 
-- [ ] **`pesertaMock.ts`** — 12 peserta lintas tipe:
-  - 4 PBI APBN (kelas 3)
-  - 3 Non-PBI Mandiri kelas 1
-  - 2 Non-PBI Mandiri kelas 2
-  - 1 Non-PBI Pekerja kelas 1
-  - 1 expired (status Non-Aktif untuk test error)
-  - 1 tunggakan iuran (status Aktif tapi tunggakan)
+- [x] **`pesertaMock.ts`** ✅ — 12 peserta lintas tipe (4 PBI APBN K3 · 3 Non-PBI Mandiri K1 · 2 Non-PBI Mandiri K2 · 1 PNS K1 · 1 expired Non-Aktif · 1 tunggakan). Helpers: `findPesertaByKartu/Nik`.
+- [x] **`sepMock.ts`** ✅ — 20 SEPRecordExt lintas status (10 Issued · 3 Closed · 2 Updated · 2 Suplesi Jasa Raharja · 2 Deleted · 1 Draft). Builder helper `buildSEP()` reduces boilerplate. Helpers: `findSEPByNo/findSEPsByKartu/filterSEPByStatus`.
+- [x] **`rujukanMock.ts`** ✅ — 15 RujukanRecord (10 FKTP + 5 FKRTL · lintas diagnosa I21/O82/E11/I10/K35/H25/M17/J18/A09/I50/I25/C50/N18/I63/S82). Cross-link peserta via `peserta: PESERTA_MOCK[i]`. Helpers: `findRujukanByNo/findRujukansByKartu/findRujukansByDiagnosa`.
+- [x] **`rencanaKontrolMock.ts`** ✅ — 10 RK Kontrol + 5 SPRI lintas status (Issued/Used/Expired/Cancelled). Cross-link `noSEPAsal` ke SEP_MOCK closed/updated entries. Helpers: `findRKByNoSurat/findRKsBySEP/filterRKByPeriode`.
+- [x] **`monitoringMock.ts`** ✅ — Derive `KUNJUNGAN_BPJS_MOCK + HISTORI_PELAYANAN_MOCK + JASA_RAHARJA_MOCK` dari `SEP_MOCK` (skip Deleted/Draft). Biaya offset deterministic via hash noSEP. Helpers: `listKunjunganByPeriode/listHistoriByPeserta`.
+- [x] **`aplicaresKamarMock.ts`** ✅ — Derive dari `RUANGAN_MOCK` (3 LocationNode inpatient dengan beds) + 3 synthetic (Anggrek K2 · Cendrawasih K3 · HCU K1). Map RS kelas → BPJS kode + okupansi deterministic. Helpers: `findKamarByKode/listKamarByKelas/aggregateKamarKPI`.
 
-- [ ] **`sepMock.ts`** — 20 SEP lintas status (Active/Suplesi/Closed/Deleted) — cross-link ke 25 ClaimRecord di [CLAIM_BOARD_MOCK](src/lib/eklaim/claimsMock.ts).
+### BP0.4 Adapter extension ✅ (2026-05-28)
 
-- [ ] **`rujukanMock.ts`** — 15 rujukan (10 FKTP + 5 FKRTL · lintas diagnosa).
-
-- [ ] **`rencanaKontrolMock.ts`** — 10 RK + 5 SPRI lintas status.
-
-- [ ] **`monitoringMock.ts`** — pre-aggregated kunjungan/klaim/histori/jasaraharja per tanggal.
-
-- [ ] **`aplicaresKamarMock.ts`** — sync dari `LOCATION_MOCK + beds[]` di master Ruangan → mock Aplicares response.
-
-### BP0.4 Adapter extension
-
-- [ ] **Extend `vClaimAdapter.ts`** — tambah methods (lihat coverage map atas):
+- [x] **Extend `vClaimAdapter.ts`** ✅ — di-split per domain ke 5 file (file limit ≤800L per CLAUDE.md), entry `vClaimAdapter.ts` re-export semua. Methods:
   - `getPesertaByKartu(noKartu, tgl, config)`
   - `getPesertaByNik(nik, tgl, config)`
   - `insertSEP(payload, config)` + `updateSEP(payload, config)` + `deleteSEP(noSEP, config)`
@@ -586,24 +591,30 @@ src/components/bpjs/
   - `insertRK(payload, config)` + `insertSPRI(payload, config)` + `updateRK(payload, config)` + `deleteRK(noSurat, config)`
   - `getNoSuratKontrol(noSurat, config)` + `listRKFiltered(tglAwal, tglAkhir, filter, config)`
   - `getPoliRK(jns, tgl, config)` + `getDokterRK(jns, kdPoli, tgl, config)`
-  - Semua return `Promise<Result<VClaimEnvelope<T>, BPJSError>>` consistent.
+  - Semua return `Promise<Result<BPJSEnvelope<T>, BPJSError>>` consistent. **Total ~25 method baru ✅**.
 
-- [ ] **`aplicaresAdapter.ts` BARU** — methods:
-  - `getReferensiKamar(config)` + `getMapKelas(config)`
+  **File breakdown BP0.4 vClaim:**
+  - [vClaimKepesertaan.ts](src/lib/bpjs/vClaimKepesertaan.ts) (~70L · 2 method)
+  - [vClaimSEP.ts](src/lib/bpjs/vClaimSEP.ts) (~370L · 11 method)
+  - [vClaimRujukan.ts](src/lib/bpjs/vClaimRujukan.ts) (~165L · 5 method)
+  - [vClaimMonitoring.ts](src/lib/bpjs/vClaimMonitoring.ts) (~125L · 4 method)
+  - [vClaimRencanaKontrol.ts](src/lib/bpjs/vClaimRencanaKontrol.ts) (~225L · 8 method)
+  - [vClaimAdapter.ts](src/lib/bpjs/vClaimAdapter.ts) (entry, re-export semua + 3 method legacy)
+
+- [x] **`aplicaresAdapter.ts` BARU** ✅ — 7 method ([aplicaresAdapter.ts](src/lib/bpjs/aplicaresAdapter.ts) ~225L):
+  - `getReferensiKamar(config)` + `getMapKelas(config)` (cached referensi)
   - `listKamar(config)` + `insertKamar(payload, config)` + `updateKamar(payload, config)` + `deleteKamar(payload, config)`
-  - `setMaintenance(payload, config)`
-  - Semua return `Promise<Result<T, BPJSError>>`.
+  - `setMaintenance(payload, config)` — wrapper updateKamar
+  - Semua return `Promise<Result<BPJSEnvelope<T>, BPJSError>>`.
 
-- [ ] **`referenceCache.ts`** — local store dengan TTL 24h:
-  ```ts
-  getDiagnosa(query) → cached if fresh, else fetch
-  getPoli(kode?) → cached
-  getDokter(jns, sp) → cached
-  getFaskes(nama, jenis) → cached
-  refreshAll() → manual trigger dari Beranda
-  ```
+- [x] **`referenceCache.ts`** ✅ — TTL 24h cache untuk 6 kind referensi (diagnosa/poli/dokter/faskes/spesialistik/pasca-pulang). Public API: `getCached/setCached/getOrFetch/invalidate/invalidateAll/getCacheStatus/getAllCacheStatus`. ISO timestamp untuk testability via `_setNowForTest()` injection.
 
-**Acceptance BP0:** ✅ Folder `src/lib/bpjs/` ada lengkap (10 file) · types compile clean (`npx tsc --noEmit`) · mock 12 peserta + 20 SEP + 15 rujukan + 10 RK + 5 SPRI + bed Aplicares ready · adapter relocation tidak break eklaim existing · referenceCache TTL helper jalan · authHeader generate header shape benar (mock signature).
+- [x] **`auditStore.ts` + `vClaimShared.ts` (HOF wrapWithAudit)** ✅ — supporting infrastructure:
+  - [auditStore.ts](src/lib/bpjs/auditStore.ts) — ring buffer 200 entry · `logAuditEntry/getAuditEntries/filterAuditEntries/subscribeAudit` + `summarizeAudit24h` untuk KPI strip.
+  - [vClaimShared.ts](src/lib/bpjs/vClaimShared.ts) — HOF `wrapWithAudit<T>(meta, fn)` auto-log audit entry + helpers `preflightMock/okEnvelope/errEnvelope/okEnvelopeEmpty`. Pattern: setiap adapter method wajib bungkus pakai HOF ini → audit-first enforced.
+  - [idempotencyKey.ts](src/lib/bpjs/idempotencyKey.ts) — re-export `generateIdempotencyKey` + helper `keyForInsertSEP/keyForUpdateSEP/keyForInsertRK` per-mutation type.
+
+**Acceptance BP0:** ✅ Folder `src/lib/bpjs/` lengkap (15 file: 4 core + 6 mock + 5 adapter+infra) · TSC clean (`npx tsc --noEmit` exit 0) · mock 12 peserta + 20 SEP + 15 rujukan + 10 RK + 5 SPRI + 6 bed Aplicares ready · adapter relocation tidak break eklaim existing (shim aktif) · referenceCache TTL helper jalan · authHeader generate header shape benar (mock signature) · 25 V-Claim method + 7 Aplicares method via HOF wrapWithAudit auto-log audit · idempotency key untuk semua mutation (Insert SEP/Update SEP/Insert RK/Insert SPRI).
 
 ---
 
@@ -833,45 +844,86 @@ Komponen kompleks — 9 sub-fungsi. Sub-tab internal SEP page:
 
 ## Phase BP6 — V-Claim Tab Rencana Kontrol
 
-**Route:** `/ehis-bpjs/vclaim/rencana-kontrol` · **Effort:** 3 hari · **Accent: violet**
+**Route:** `/ehis-bpjs/vclaim/rencana-kontrol` · **Effort:** 4 hari (naik dari 3 karena PRB form) · **Accent: violet**
 
-### BP6.1 Cari SEP untuk RK
+Aligned 1:1 dengan [RencanaKontrol-Contracts.md](contracts/RencanaKontrol-Contracts.md) — 11 endpoint · 7 sub-tab internal.
 
-- [ ] **`CariSEPRKPanel`** — input noSEP → display SEP detail (reuse SEPDetailCard) + cek apakah sudah ada RK linked
-- [ ] Jika belum: tombol "Buat Rencana Kontrol" → modal form Insert RK (poli tujuan · dokter · tglRencana · tipe Kontrol/SPRI · keterangan)
-- [ ] Submit → `insertRK()` atau `insertSPRI()`
+### BP6.1 Cari SEP untuk RK (spec endpoint 6)
 
-### BP6.2 Hapus RK/SPRI
+- [ ] **`CariSEPRKPanel`** — input noSEP → call `getSEPUntukRK(noSEP)` → display `SEPUntukRKRecord` (shape khusus: poli & diagnosa format display "KODE - Nama" · peserta ringkas · provUmum FKTP · provPerujuk)
+- [ ] Cek apakah sudah ada RK linked di `RENCANA_KONTROL_MOCK` (`findRKsBySEP(noSEP)`)
+- [ ] Jika belum: tombol "Buat Rencana Kontrol V2" → buka `InsertRKV2Modal` (sub-tab BP6.2)
+- [ ] Cross-link "Buat SPRI tanpa SEP" → `InsertSPRIModal` (sub-tab BP6.3) untuk kasus admisi elektif tanpa kunjungan RJ
 
-- [ ] **`HapusRKModal`** — input noSurat + alasan → guard cek `status: "Used"` block hapus → `deleteRK()`
+### BP6.2 Insert/Update RK V2 (+ PRB Form) (spec endpoint 1, 2)
 
-### BP6.3 Cari Nomor Surat Kontrol
+- [ ] **`InsertRKV2Modal`** — form 2-step:
+  - **Step 1 — Header:** `noSEP` (auto-fill) · `kodeDokter` (dropdown via `getDokterRK`) · `poliKontrol` (dropdown via `getPoliRK`) · `tglRencanaKontrol` (date picker, min hari ini) · `user` (auto dari session)
+  - **Step 2 — `FormPRB`:** segmented `kdStatusPRB` (9 chip: 01-09) → render input dinamis sesuai penyakit yang dipilih:
+    - DM (01): HBA1C · GDP · GD2JPP · eGFR · TD_Sistolik/Diastolik · LDL (7 field)
+    - HT (02): eGFR · Rata_TD_Sistolik/Diastolik · JantungKoroner · Stroke · VaskularPerifer · Aritmia · AtrialFibrilasi (8 field)
+    - Asma (03): Terkontrol · Gejala2xMinggu · BangunMalam · KeterbatasanFisik · FungsiParu (5 field)
+    - Jantung (04): NadiIstirahat · Rata_TD_Sistolik/Diastolik · Aritmia · SesakNapas3Bulan · NyeriDada3Bulan · SesakNapasAktivitas · NyeriDadaAktivitas (8 field)
+    - PPOK (05): SkorMMRC · Eksaserbasi1Tahun · MampuAktivitas (3 field)
+    - Skizofrenia (06): Remisi · TerapiRumatan · Usia (3 field)
+    - Stroke (07): GDP · TD_Sistolik/Diastolik · LDL · AsamUrat (5 field)
+    - Epilepsi (08): Epileptik6Bulan · EfekSampingOAB · HamilMenyusui (3 field)
+    - SLE (09): RemisiSLE · Hamil (2 field)
+- [ ] **Validasi inline per field** sesuai spec range (HBA1C 0.1-15 · GDP/GD2JPP 10-500 · dst). Pakai helper `validatePRBField(kode, field, value)`.
+- [ ] Submit → `insertRKV2(payload)` → idempotency key auto-generate · success toast violet → tampilkan `noSurat`
+- [ ] **`UpdateRKV2Modal`** — sama struktur, prefill dari `getNoSuratKontrol(noSurat)` (response include formPRB embedded) → submit `updateRKV2(payload)`
+- [ ] Guard: jika `status: "Used"` → disable edit
 
-- [ ] **`CariNoSuratPanel`** — input noSurat → `getNoSuratKontrol()` → display RK/SPRI detail
+### BP6.3 Insert/Update SPRI (spec endpoint 4, 5)
 
-### BP6.4 Data Nomor Surat Kontrol (List Filter)
+- [ ] **`InsertSPRIModal`** — form simpel (TANPA formPRB): `noKartu` · `kodeDokter` · `poliKontrol` · `tglRencanaKontrol` · `user`
+- [ ] Submit → `insertSPRI(payload)` → response `{ noSPRI }`
+- [ ] **`UpdateSPRIModal`** — `noSPRI` (read-only) + edit `kodeDokter/poliKontrol/tglRencanaKontrol/user` → `updateSPRI(payload)`
+- [ ] Guard: jika `status: "Used"` → block update
 
-- [ ] **`DataRKSPRIPanel`** — filter `tglAwal/tglAkhir` + optional `noKartu` + segmented `jenis: Kontrol|SPRI|Semua` → `listRKFiltered()` → table 8-col
-- [ ] Per row aksi: "Edit" (modal update) · "Hapus" · "Cetak Surat" (`@media print` A4 dengan KOP RS)
+### BP6.4 Hapus RK/SPRI (spec endpoint 3)
 
-### BP6.5 Data Poli/Spesialistik untuk RK
+- [ ] **`HapusRKModal`** — input `noSuratKontrol` + `user` (auto session) + alasan textarea (≥10 char untuk audit)
+- [ ] Guard cek `status: "Used"` block hapus
+- [ ] Submit → `deleteRK(noSuratKontrol, user)` → success toast emerald
 
-- [ ] **`DataPoliPanel`** — input jnsKontrol + tglRencana → `getPoliRK()` → list poli aktif dengan jadwal hari tsb · reuse `BPJS_RUANGAN_CATALOG`
+### BP6.5 Cari Nomor Surat Kontrol (spec endpoint 7)
 
-### BP6.6 Data Dokter untuk RK
+- [ ] **`CariNoSuratPanel`** — input noSurat → `getNoSuratKontrol(noSurat)` → display `RKDetailRecord`:
+  - Header: noSurat · jnsKontrol chip (1=SPRI / 2=Kontrol) · tglTerbit · tglRencanaKontrol · flagKontrol · namaJnsKontrol
+  - Section SEP: jika `jnsKontrol="2"` tampil SEP asal (peserta · pelayanan · poli · diagnosa) · jika `"1"` (SPRI) → null/hide
+  - Section formPRB: tampil chip `kdStatusPRB` + grid 37 field dengan value (null = "—")
+- [ ] Quick actions: "Edit" → `UpdateRKV2Modal` · "Hapus" → `HapusRKModal` · "Cetak Surat" → print template A4 KOP RS
 
-- [ ] **`DataDokterPanel`** — input jnsKontrol + kdPoli + tglRencana → `getDokterRK()` → list dokter dengan kapasitas slot tersedia · reuse `DOKTER_MOCK`
+### BP6.6 Data RK List — by Kartu & Periode (spec endpoint 8, 9)
 
-### BP6.7 Components
+- [ ] **`DataRKByKartuPanel`** (spec 8) — filter `bulan` (dropdown 01-12) + `tahun` (number) + `noKartu` (13 digit) + segmented `filter: "1"=tgl entri | "2"=tgl rencana` → `listRKByKartu(...)` → table 11-col (`RKListByKartuItem`):
+  - noSuratKontrol · jnsPelayanan · jnsKontrol chip · namaJnsKontrol · tglRencanaKontrol · tglTerbitKontrol · noSepAsalKontrol · poliAsal · poliTujuan · namaDokter · terbitSEP chip (Sudah/Belum)
+- [ ] **`DataRKPeriodePanel`** (spec 9) — filter `tglAwal/tglAkhir` + segmented filter → `listRKFiltered(...)` → table 10-col (`RKListPeriodeItem`)
+- [ ] Per row aksi (kedua panel): "Detail" (modal `getNoSuratKontrol`) · "Edit" · "Hapus" · "Cetak"
+- [ ] Export CSV RFC 4180 + BOM UTF-8
 
-- [ ] `RencanaKontrolPage.tsx` (~160L) — 6 sub-tab nav
-- [ ] `CariSEPRKPanel.tsx` (~190L) + `InsertRKModal.tsx` (~230L)
-- [ ] `HapusRKModal.tsx` (~150L) + `CariNoSuratPanel.tsx` (~140L)
-- [ ] `DataRKSPRIPanel.tsx` (~280L) — filter + table + actions
+### BP6.7 Referensi Poli & Dokter (spec endpoint 10, 11)
+
+- [ ] **`DataPoliPanel`** (spec 10) — input `jnsKontrol` (1=SPRI / 2=RK) + `nomor` (auto: noKartu jika SPRI, noSEP jika RK) + `tglRencana` → `getPoliRK(jnsKontrol, nomor, tglRencana)` → table (`PoliRKSpecItem`): kodePoli · namaPoli · kapasitas · jmlRencanaKontroldanRujukan · persentase utilisasi (progress bar)
+- [ ] **`DataDokterPanel`** (spec 11) — input `jnsKontrol` + `kdPoli` + `tglRencana` → `getDokterRK(...)` → table (`DokterRKSpecItem`): kodeDokter · namaDokter · jadwalPraktek · kapasitas
+- [ ] Cross-link dokter → master `DOKTER_MOCK`
+
+### BP6.8 Components
+
+- [ ] `RencanaKontrolPage.tsx` (~180L) — 7 sub-tab nav
+- [ ] `CariSEPRKPanel.tsx` (~200L)
+- [ ] `InsertRKV2Modal.tsx` (~350L) — 2-step + PRB dinamis (split ke sub: `PRBFormFields.tsx` ~250L per-penyakit render)
+- [ ] `UpdateRKV2Modal.tsx` (~280L) — reuse PRBFormFields
+- [ ] `PRBFormFields.tsx` (~280L) — 9 penyakit · dynamic field render · inline range validation
+- [ ] `InsertSPRIModal.tsx` (~160L) + `UpdateSPRIModal.tsx` (~150L)
+- [ ] `HapusRKModal.tsx` (~150L)
+- [ ] `CariNoSuratPanel.tsx` (~220L) — detail card + PRB display grid
+- [ ] `DataRKByKartuPanel.tsx` (~260L) + `DataRKPeriodePanel.tsx` (~250L) — filter + table + actions
 - [ ] `DataPoliPanel.tsx` (~170L) + `DataDokterPanel.tsx` (~190L)
-- [ ] Print template `RKSPRISuratTemplate.tsx` (~200L) — A4 KOP RS
+- [ ] Print template `RKSPRISuratTemplate.tsx` (~220L) — A4 KOP RS + PRB summary table
 
-**Acceptance BP6:** ✅ 6 sub-tab functional · CRUD RK/SPRI via adapter · filter list + aksi per row · print surat A4 KOP RS · jadwal dokter cross-ref ke master dokter · TSC clean.
+**Acceptance BP6:** ✅ 7 sub-tab functional · 11 endpoint wired via adapter · `formPRB` dinamis sesuai 9 penyakit kronik · validasi range per-field · SPRI ↔ RK terpisah (insert/update method beda) · filter list by Kartu (spec 8) + periode (spec 9) · print surat A4 KOP RS + PRB summary · jadwal dokter cross-ref master · TSC clean.
 
 ---
 
@@ -998,16 +1050,16 @@ Komponen kompleks — 9 sub-fungsi. Sub-tab internal SEP page:
 
 | Phase | Tasks | Done | % |
 |---|---|---|---|
-| BP0 — Foundation | 4 sections (Auth + Types + Mock + Adapter) | 0 | 0% |
+| BP0 — Foundation | 4 sections (Auth + Types + Mock + Adapter) | 4 | **100%** ✅ |
 | BP1 — Beranda BPJS | 3 sections | 0 | 0% |
 | BP2 — Kepesertaan | 2 sections | 0 | 0% |
 | BP3 — SEP | 8 sections | 0 | 0% |
 | BP4 — Rujukan | 5 sections | 0 | 0% |
 | BP5 — Monitoring | 5 sections | 0 | 0% |
-| BP6 — Rencana Kontrol | 7 sections | 0 | 0% |
+| BP6 — Rencana Kontrol | 8 sections (11 endpoint + PRB form) | 0 | 0% |
 | BP7 — Aplicares | 4 sections | 0 | 0% |
 | BP8 — Polish + Audit | 5 sections | 0 | 0% |
-| **Total** | **43 sections** | **0** | **0%** |
+| **Total** | **44 sections** | **0** | **0%** |
 
 ---
 

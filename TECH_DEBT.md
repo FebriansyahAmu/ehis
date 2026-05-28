@@ -79,6 +79,21 @@
 
 ---
 
+## 🔐 BPJS Integration (`/ehis-bpjs`)
+
+- [ ] **vClaimAdapter shim cleanup** — `src/lib/eklaim/vClaimAdapter.ts` saat ini re-export ke `@/lib/bpjs/vClaimAdapter` (Phase BP0.1, 2026-05-28). Consumer eklaim ([eligibilityChecker.ts](src/lib/eklaim/eligibilityChecker.ts), [SubmissionTab.tsx](src/components/eklaim/detail/tabs/SubmissionTab.tsx)) belum di-update import path. **Action:** setelah eklaim refactor selesai, update 2 consumer ke `import { ... } from "@/lib/bpjs/vClaimAdapter"` lalu hapus shim file.
+- [ ] **Real HMAC-SHA256 signature** — [authHeader.ts](src/lib/bpjs/authHeader.ts) `mockHmacSha256Base64()` saat ini deterministic stub (base64 of payload), bukan HMAC valid. Backend Phase: swap ke Node `crypto.createHmac("sha256", secret).update(payload).digest("base64")` atau Web Crypto `subtle.sign("HMAC", ...)`.
+- [ ] **Real LZ-String compression** — [lzStringHelper.ts](src/lib/bpjs/lzStringHelper.ts) Phase 1 no-op (JSON.stringify saja). Backend Phase: install NPM `lz-string` + swap `compressLZ/decompressLZ` ke `LZString.compressToEncodedURIComponent` / `decompressFromEncodedURIComponent`. Call site tidak berubah.
+- [ ] **BPJS Credentials → Secret Manager** — [credentialsStore.ts](src/lib/bpjs/credentialsStore.ts) `BPJS_CREDS_MOCK` placeholder dev. Production wajib load `consId/consSecret/userKey` dari env vars + Secret Manager (Vault/AWS SM), jangan commit.
+- [ ] **Reference cache sync (manual → cron)** — Phase 1 (BP8) manual "Sync All References" CTA di Beranda BPJS. Backend Phase: scheduled job (BullMQ + Redis) refresh diagnosa/poli/dokter/faskes/spesialistik weekly.
+- [ ] **Audit log → DB table** — Phase 1 `BPJSAuditEntry` di client `useSyncExternalStore`. Backend Phase: persist ke DB table dengan retention 5 tahun (UU PDP 27/2022).
+- [ ] **Aplicares bed realtime push (WebSocket)** — Phase 1 manual force-refresh. Backend Phase: WebSocket push saat workflow klinis RI admisi/discharge update bed status.
+- [ ] **Rate limiting per cons-id** — BPJS impose limit per consumer. Backend Phase: implement client-side throttle + server-side queue.
+- [ ] **Circuit breaker pattern** — handle V-Claim outage anggun (fallback ke cache + degraded mode UI).
+- [ ] **Wilayah Kemendagri JSON cascading** — dropdown propinsi/kabupaten/kecamatan reuse Kemendagri JSON yang sudah dipakai master Ruangan. Pastikan loader shared, jangan duplicate.
+
+---
+
 ## 🔬 Modul Belum Dibangun
 
 - [ ] **Laporan IKP** — form KTD/KNC/Sentinel. Kemungkinan modul EHIS-Safety. PMK 11/2017
