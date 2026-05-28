@@ -1037,22 +1037,31 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 
 **Route:** `/ehis-eklaim/report` · **Effort:** 2-3 hari
 
-### EK8.1 Approval Rate
+### EK8.1 Approval Rate ✅ 2026-05-28
 
-- [ ] **Line chart** approval rate per penjamin × bulan (rolling 12 bulan)
-- [ ] **Breakdown by tipe** (BPJS/Asuransi/Jamkesda)
-- [ ] **Top 5 rejected reasons** — bar chart
+- [x] **Line chart** approval rate per penjamin × bulan (rolling 3/6/12 bulan period selector)
+- [x] **Breakdown by tipe** (BPJS teal / Asuransi sky / Jamkesda amber) — SVG animated path + dot markers + delta chip vs bulan lalu
+- [x] **Top 5 rejected reasons** — animated horizontal bar chart (rose) + count
 
-### EK8.2 Aging Klaim
+### EK8.2 Aging Klaim ✅ 2026-05-28
 
-- [ ] **Aging buckets** 0-30/31-60/61-90/>90 hari per penjamin
-- [ ] **Stuck claims report** — yang stuck di Pending Verifikasi >30 hari
+- [x] **Aging buckets** 0-30/31-60/61-90/>90 hari per penjamin — stacked bar chart dengan tone adaptive (emerald/amber/rose)
+- [x] **Stuck claims report** — table klaim Pending Verifikasi >30 hari · sort daysPending desc · urgency chip rose/amber
 
-### EK8.3 INA-CBG Margin Analysis
+### EK8.3 iDRG Margin Analysis ✅ 2026-05-28
 
-- [ ] **Margin per CBG group** — tampilkan over/under nominal + persen
-- [ ] **Top 10 CBG most under** — kasus rugi terbesar (untuk evaluasi tarif RS)
-- [ ] **Top 10 CBG most over** — kasus untung terbesar
+- [x] **Margin per MDC group** — diverging bar chart (kanan=untung emerald · kiri=rugi rose) · 8 MDC group
+- [x] **Summary cards** 3 tile (Surplus/Defisit/Net Margin)
+- [x] **Caveat banner** amber — data iDRG mock, real saat INA-Grouper aktif
+
+**Impl detail (EK8.1+EK8.2+EK8.3):**
+- `dashboardShared.ts` (200 ln) — pure data builders: `buildApprovalRateData()` 12-month synthetic rates · `buildRejectedReasons()` top 5 · `buildAgingData()` dari CLAIM_BOARD_MOCK + synthetic · `buildStuckClaims()` · `buildMarginGroups()` 8 MDC · `buildDashboardKPIs()` 4 KPI
+- `DashboardPage.tsx` (260 ln) — hero slim teal · KPI strip 4 cards stagger (Approval Rate/Klaim Bulan Ini/Avg Hari Pending/Stuck >30h) · left nav 3 tab (TrendingUp/Clock/BarChart2) · right AnimatePresence panel switch · skeleton 500ms
+- `ApprovalRatePanel.tsx` (210 ln) — SVG line chart (520×200 viewBox, Y range 62-100%, animated path pathLength 0→1) · period filter 3M/6M/12M · 3 series dots · rejected reasons bar
+- `AgingKlaimPanel.tsx` (230 ln) — stacked bar per bucket (4 row) · proportion bar relative to max · stuck claims table 8 rows max + urgency chip
+- `MarginAnalysisPanel.tsx` (235 ln) — diverging horizontal bar (center pivot) · 3 summary cards · caveat banner
+- Route `src/app/ehis-eklaim/report/page.tsx` (6 ln)
+- TSC clean · no indigo · teal/sky/emerald/amber/rose · font ≥ text-sm · 6 file total · no page-level scroll (left nav 52 + right overflow-y-auto)
 
 ### EK8.4 Coder Productivity
 
@@ -1127,9 +1136,9 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 | EK5 — Berkas Generator      | 2      | 0     | 0%     | 2-3 hari        |
 | EK6 — Banding               | 3      | 0     | 0%     | 2 hari          |
 | EK7 — Reconciliation        | 4      | 3     | 75%    | 3 hari (EK7.1 ✅ ImportTransferModal · EK7.2 ✅ MatchingPanel · EK7.3 ✅ SelisihWriteOffModal · EK7.4 pending) |
-| EK8 — Dashboard Analytics   | 6      | 0     | 0%     | 3-4 hari (+EK8.6 Comparator) |
+| EK8 — Dashboard Analytics   | 6      | 3     | 50%    | EK8.1 ✅ Approval Rate · EK8.2 ✅ Aging · EK8.3 ✅ Margin iDRG · EK8.4/5/6 pending |
 | EK9 — UX Polish + Cross     | 5      | 0     | 0%     | 1-2 hari        |
-| **Total**                   | **39** | **14** | **36%** | **~3.5-4.5 minggu** |
+| **Total**                   | **39** | **17** | **44%** | **~3.5-4.5 minggu** |
 
 **Effort total:** ~3.5-4.5 minggu frontend full (revisi dari 3-4 minggu karena pivot ke iDRG + dual-era support + state machine + Rupiah type).
 **Critical path MVP:** EK0 + EK2 + EK3 (3 tab inti: Berkas + Coding + Submission) = ~10-12 hari. Sisanya by business priority.
