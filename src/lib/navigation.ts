@@ -41,6 +41,11 @@ import {
   GraduationCap,
   LogOut,
   ClipboardCheck,
+  UserCheck,
+  Share2,
+  CalendarCheck,
+  Bed,
+  History,
   type LucideIcon,
 } from "lucide-react";
 
@@ -64,6 +69,7 @@ export type ModuleKey =
   | "registration"
   | "billing"
   | "eklaim"
+  | "bpjs"
   | "report";
 
 export type ModuleDescriptor = {
@@ -129,6 +135,14 @@ export const MODULES: readonly ModuleDescriptor[] = [
     href: "/ehis-eklaim",
     icon: ShieldCheck,
     accent: { bg: "bg-teal-50", text: "text-teal-600", ring: "ring-teal-100" },
+  },
+  {
+    key: "bpjs",
+    label: "EHIS BPJS",
+    desc: "Bridging V-Claim & Aplicares",
+    href: "/ehis-bpjs",
+    icon: ShieldCheck,
+    accent: { bg: "bg-emerald-50", text: "text-emerald-600", ring: "ring-emerald-100" },
   },
   {
     key: "report",
@@ -300,6 +314,37 @@ export const eklaimNav: readonly NavGroup[] = [
   },
 ] as const;
 
+export const bpjsNav: readonly NavGroup[] = [
+  {
+    label: "Utama",
+    items: [{ label: "Beranda", href: "/ehis-bpjs", icon: LayoutGrid }],
+  },
+  {
+    label: "V-Claim",
+    items: [
+      { label: "Kepesertaan",      href: "/ehis-bpjs/vclaim/kepesertaan",     icon: UserCheck     },
+      { label: "SEP",              href: "/ehis-bpjs/vclaim/sep",             icon: FileText      },
+      { label: "Rujukan",          href: "/ehis-bpjs/vclaim/rujukan",         icon: Share2        },
+      { label: "Monitoring",       href: "/ehis-bpjs/vclaim/monitoring",      icon: Activity      },
+      { label: "Rencana Kontrol",  href: "/ehis-bpjs/vclaim/rencana-kontrol", icon: CalendarCheck },
+    ],
+  },
+  {
+    label: "Aplicares",
+    items: [
+      { label: "Referensi Kamar",  href: "/ehis-bpjs/aplicares/referensi-kamar", icon: BedDouble  },
+      { label: "Map Kelas",        href: "/ehis-bpjs/aplicares/map-kelas",       icon: LayoutGrid },
+      { label: "Ketersediaan",     href: "/ehis-bpjs/aplicares/ketersediaan",    icon: Bed        },
+    ],
+  },
+  {
+    label: "Audit",
+    items: [
+      { label: "Audit Trail", href: "/ehis-bpjs/audit", icon: History },
+    ],
+  },
+] as const;
+
 export const reportNav: readonly NavGroup[] = [
   {
     label: "Utama",
@@ -323,6 +368,7 @@ const NAV_MAP: Record<ModuleKey, readonly NavGroup[]> = {
   registration: registrationNav,
   billing: billingNav,
   eklaim: eklaimNav,
+  bpjs: bpjsNav,
   report: reportNav,
 };
 

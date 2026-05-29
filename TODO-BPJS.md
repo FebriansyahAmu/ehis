@@ -14,7 +14,7 @@
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & integration standards
 >
 > **Last updated:** 2026-05-29
-> **Status:** ✅ **BP0 Foundation 100% DONE + Spec Aligned 1:1 (SEP+Peserta+Rujukan+RencanaKontrol+Monitoring+CreateSignature) + Endpoint Config** — Audit + alignment selesai vs 6 contract file Trustmark BPJS: [SEP-Contracts.md](contracts/SEP-Contracts.md) · [Peserta-Contracts.md](contracts/Peserta-Contracts.md) · [Rujukan-Contracts.md](contracts/Rujukan-Contracts.md) · [RencanaKontrol-Contracts.md](contracts/RencanaKontrol-Contracts.md) · [Monitoring-Contracts.md](contracts/Monitoring-Contracts.md) · [CreateSignature-contracts.md](contracts/CreateSignature-contracts.md).
+> **Status:** ✅ **BP0 Foundation 100% + BP1 Beranda 100% + Spec Aligned 1:1 (SEP+Peserta+Rujukan+RencanaKontrol+Monitoring+CreateSignature) + Endpoint Config** — Audit + alignment selesai vs 6 contract file Trustmark BPJS: [SEP-Contracts.md](contracts/SEP-Contracts.md) · [Peserta-Contracts.md](contracts/Peserta-Contracts.md) · [Rujukan-Contracts.md](contracts/Rujukan-Contracts.md) · [RencanaKontrol-Contracts.md](contracts/RencanaKontrol-Contracts.md) · [Monitoring-Contracts.md](contracts/Monitoring-Contracts.md) · [CreateSignature-contracts.md](contracts/CreateSignature-contracts.md).
 >
 > **SEP (16 endpoint):** Insert/Update/Delete · Suplesi Jasa Raharja + Data Induk Kecelakaan · Approval Penjamin (Pengajuan + List Persetujuan) · Update Tgl Pulang + List · Integrasi Inacbgs · SEP Internal (GET+DELETE) · Finger Print (Get+List) · Random Question/Answer.
 >
@@ -644,83 +644,75 @@ src/components/bpjs/
 **Route:** `/ehis-bpjs` · **Effort:** 2 hari
 **Pattern reference:** Beranda Eklaim V2 (single-viewport interactive) + Beranda Billing KPI
 
-### BP1.1 Layout
+### BP1.1 Layout ✅ (2026-05-29)
 
-- [ ] **Hero header** emerald-accent (icon `ShieldCheck` + eyebrow "EHIS BPJS · Integration Hub" + h1 "Pusat Bridging BPJS Kesehatan" + description + timestamp pill + "Sync Referensi" CTA).
-- [ ] **Status Sistem Strip** di bawah hero — 3 dot status: V-Claim · Aplicares · LZ-String. Per dot: `Online/Degraded/Offline` + lastSync ago. Hover → tooltip detail.
-- [ ] **KPI Strip 5 Card** dengan tone:
-  - **SEP Hari Ini** (emerald · count + Insert/Update/Delete breakdown)
-  - **Rujukan Hari Ini** (teal · count FKTP + FKRTL)
-  - **Rencana Kontrol Hari Ini** (violet · count RK + SPRI)
-  - **Bed Sync Aplicares** (pink · last sync ago + count kamar sync)
-  - **Failed Calls 24h** (rose · count + top endpoint error)
+- [x] **Hero header** emerald-accent (icon `ShieldCheck` + eyebrow "EHIS BPJS · Integration Hub" + h1 "Pusat Bridging BPJS Kesehatan" + timestamp pill `Snapshot HH:mm` + **"Sync Referensi" CTA** dengan spin animation).
+- [x] **Status Sistem Strip** di bawah hero — 3 service pill horizontal: V-Claim · Aplicares · LZ-String. Per pill: dot pulse `Online`(emerald)/`Degraded`(amber)/`Offline`(rose) + label + ago fmt. Tooltip via native `title`. Health derive dari `summarizeAudit24h` fail rate.
+- [x] **KPI Strip 5 Card** (grid 2/3/5 responsive · stagger animation · hover lift):
+  - **SEP** (emerald `FileText` · count total + breakdown Issue/Upd/Del)
+  - **Rujukan** (teal `Share2` · total + FKTP/FKRTL split)
+  - **Rencana Kontrol** (violet `CalendarCheck` · total + Kontrol/SPRI split)
+  - **Bed Sync** (pink `BedDouble` · % okupansi + N ruang + ago last sync)
+  - **Failed 24j** (rose/slate `Activity` · count + top failed endpoint truncated)
 
-### BP1.2 Body Layout
+### BP1.2 Body Layout ✅ (2026-05-29)
 
-- [ ] **Quick Nav Grid 8 Card** (V-Claim 5 + Aplicares 3):
-  - Kepesertaan (sky · `UserCheck`)
-  - SEP (emerald · `FileText`)
-  - Rujukan (teal · `Share2`)
-  - Monitoring (amber · `Activity`)
-  - Rencana Kontrol (violet · `CalendarCheck`)
-  - Referensi Kamar (pink · `BedDouble`)
-  - Map Kelas (pink-light · `LayoutGrid`)
-  - Ketersediaan Kamar (pink-darker · `Bed`)
+- [x] **Quick Nav Grid 8 Card** group-by section (V-Claim 5 + Aplicares 3):
+  - V-Claim group header (`ShieldCheck` + count 5) → Kepesertaan(sky) · SEP(emerald) · Rujukan(teal) · Monitoring(amber) · Rencana Kontrol(violet)
+  - Aplicares group header (`BedDouble` + count 3) → Referensi Kamar(pink) · Map Kelas(rose) · Ketersediaan(emerald · subtitle "N bed kosong")
 
-- [ ] **Recent Calls Panel** sidebar — 12 audit entry terakhir (sort agoSec asc):
-  - Per row: endpoint badge + method chip + response code (200 emerald / 201 amber / 500 rose) + actor + agoSec
-  - Klik → audit detail di BP8
+- [x] **Sidebar Panel tabbed** (Recent Calls / Referensi) — 1 sidebar 5/12 lg col-span untuk hindari long-scroll:
+  - **Recent Calls tab** — 12 audit entry terakhir via `useSyncExternalStore(subscribeAudit, getAuditEntries)` auto-refresh saat adapter dipanggil. Per row: method chip(sky/emerald/amber/rose) + code chip(200 emerald/201 amber/202-203 violet/4xx-5xx rose) + endpoint truncated mid + ago. Footer: actor + durationMs + idempotencyKey + errorType.
+  - **Referensi tab** — 6 cache kind (Diagnosa/Poli/Dokter/Faskes/Spesialistik/Pasca Pulang) dari `getAllCacheStatus()`. Per row: icon + label + staleness chip (Fresh emerald · Stale amber · Expired rose) + count entri + ago last sync. Footer CTA: "Refresh Semua Referensi" → `invalidateAll()`.
+  - Klik "Lihat semua" → deep-link `/ehis-bpjs/audit` atau `/ehis-bpjs/aplicares/referensi-kamar`.
 
-- [ ] **Reference Status Panel** sidebar — status cache 6 referensi:
-  - Diagnosa (count + lastSync) · Poli · Dokter · Faskes · Spesialistik · Pasca Pulang
-  - Per row: green dot jika <24h, amber jika 24-72h, rose >72h
-  - "Refresh" button per row + "Refresh All" footer
+### BP1.3 Components ✅ (2026-05-29)
 
-### BP1.3 Components
+- [x] [BerandaBPJSPage.tsx](src/components/bpjs/beranda/BerandaBPJSPage.tsx) (~170L) — orchestrator: skeleton 500ms via `useSkeletonDelay` + AnimatePresence fade + 2-panel grid `lg:grid-cols-12` (LEFT 7 + RIGHT 5) + seed mock onMount.
+- [x] [berandaBPJSShared.ts](src/components/bpjs/beranda/berandaBPJSShared.ts) (~390L) — `BPJS_TONE` 8 palette · `getBPJSKPIs()` derive dari SEP/RUJUKAN/RENCANA_KONTROL/APLICARES_KAMAR + `summarizeAudit24h` · `getSystemStatuses()` health derive · `getBPJSQuickNav()` 8 card · `getReferenceRows()` + `getRecentCalls()` · `seedBerandaBPJSMocks()` idempotent seed audit ring buffer + reference cache (4 fresh + 2 expired) · helpers `fmtAgo/fmtClockId/truncateMiddle`.
+- [x] [SystemStatusStrip.tsx](src/components/bpjs/beranda/SystemStatusStrip.tsx) (~75L) — 3 pill horizontal + dot ping animation untuk Online/Degraded · responsive stack di mobile.
+- [x] [BPJSKPIStrip.tsx](src/components/bpjs/beranda/BPJSKPIStrip.tsx) (~75L) — 5 card grid (2 / 3 / 5 col) stagger fade-up + hover bar accent + truncate hint.
+- [x] [QuickNavGridBPJS.tsx](src/components/bpjs/beranda/QuickNavGridBPJS.tsx) (~175L) — section-by-group (V-Claim 5-col + Aplicares 3-col) + GroupHeader icon+count badge + disabled lock state + chevron translate hover.
+- [x] [BPJSSidebarPanel.tsx](src/components/bpjs/beranda/BPJSSidebarPanel.tsx) (~265L) — tab nav segmented (motion layoutId) + AnimatePresence body swap + `useSyncExternalStore` subscribe ke `auditStore` + invalidateAll handler.
+- [x] **Route entry** [src/app/ehis-bpjs/layout.tsx](src/app/ehis-bpjs/layout.tsx) (`ModuleLayout moduleKey="bpjs"`) + [page.tsx](src/app/ehis-bpjs/page.tsx) (Suspense-ready).
+- [x] **Navigation update** [navigation.ts](src/lib/navigation.ts): tambah `ModuleKey "bpjs"` · MODULES entry (emerald accent) · `bpjsNav` 4 group (Utama / V-Claim 5 / Aplicares 3 / Audit) · `NAV_MAP.bpjs` wiring.
 
-- [ ] `BerandaBPJSPage.tsx` (~150L) — orchestrator skeleton + AnimatePresence + 2-panel layout
-- [ ] `BPJSKPIStrip.tsx` (~110L) — 5 card stagger animation
-- [ ] `RecentCallsPanel.tsx` (~120L) — feed dengan filter status code chip
-- [ ] `ReferenceStatusPanel.tsx` (~130L) — 6 cache status + refresh trigger
-- [ ] `QuickNavGridBPJS.tsx` (~110L) — 8 modul card
-
-**Acceptance BP1:** ✅ Layout fit dalam viewport · skeleton 500ms · KPI animated · klik card navigate ke V-Claim/Aplicares page · status sistem 3-dot · reference panel refresh trigger (mock) · audit feed real dari `auditStore` · TSC clean.
+**Acceptance BP1:** ✅ Layout 1-viewport (no long-scroll, sidebar internal scroll) · skeleton 500ms · KPI stagger animation · Quick Nav 8 card group-by section · sidebar tab nav Calls/Referensi · `useSyncExternalStore` audit feed · reference panel `Refresh Semua` trigger (invalidateAll) · status sistem 3-dot live · text-sm minimum (zero text-xs) · emerald accent + multi-tone per tab · **TSC clean (`npx tsc --noEmit` exit 0)**.
 
 ---
 
-## Phase BP2 — V-Claim Tab Kepesertaan
+## Phase BP2 — V-Claim Tab Kepesertaan ✅ (2026-05-29)
 
 **Route:** `/ehis-bpjs/vclaim/kepesertaan` · **Effort:** 1 hari · **Accent: sky**
 
-### BP2.1 Cek Status Kepesertaan
+### BP2.1 Cek Status Kepesertaan ✅
 
-- [ ] **Form 2-mode toggle:** No Kartu (13-digit) atau NIK (16-digit) — segmented control sky-accent
-- [ ] **Validation real-time:**
-  - No Kartu: 13 digit numerik (auto-truncate/error inline)
-  - NIK: 16 digit numerik (cek format dasar — 2 digit propinsi + 2 kab + 2 kec + 6 lahir + 4 unik)
-- [ ] **Tanggal SEP picker** — date input (default hari ini, max +30 hari, min -7 hari)
-- [ ] **Submit** → call `getPesertaByKartu()` atau `getPesertaByNik()` → `Result<PesertaRecord, BPJSError>`
-- [ ] **Loading state** — Loader2 spin + "Memanggil V-Claim BPJS..." mono
-- [ ] **PesertaDetailCard** — 6-section grid:
-  - Identitas (nama + tglLahir + gender + nokartu mono + NIK)
-  - Hak Kelas (chip emerald · "Kelas {N}")
-  - Jenis Peserta (chip per tipe: PBI APBN amber · Mandiri sky · Pekerja teal)
-  - Status Peserta (Aktif emerald / Non-Aktif rose) + tanggal aktif
-  - MR (No MR mono · No Telepon)
-  - Asuransi + Sisa Hari Rawat (jika ada) · Tunggakan (rose jika ada)
-- [ ] **Quick actions** card footer: "Buat SEP" (deep-link ke `/ehis-registration/pasien/baru?peserta={noKartu}`) · "Cari Rujukan" (jump BP4 dengan filter no kartu)
-- [ ] **Error state** — `BPJSError` per type:
-  - 201 → "Data peserta tidak ditemukan" (slate empty)
-  - 203 → "Eligibility expired" (amber warning)
-  - NetworkError → "Sambungan ke V-Claim gagal · retry" (rose + retry button)
+- [x] **Form 2-mode toggle:** No Kartu (13-digit) atau NIK (16-digit) — segmented control sky-accent + framer-motion spring pill
+- [x] **Validation real-time:** No Kartu 13 digit · NIK 16 digit · angka-only auto-strip · inline error AnimatePresence
+- [x] **Tanggal SEP picker** — date input (default hari ini, max +30 hari, min -7 hari)
+- [x] **Submit** → call `getPesertaByKartu()` atau `getPesertaByNik()` → `Result<PesertaRecord, BPJSError>`
+- [x] **Loading state** — Loader2 spin + "Memanggil V-Claim BPJS…" + skeleton RIGHT panel
+- [x] **PesertaDetailCard** — 2-panel split (LEFT form, RIGHT result), 4-section grid:
+  - Header strip: nama + status chip (Aktif emerald/Non-Aktif rose) + PRB badge
+  - Identitas (noKartu mono + NIK mono + tglLahir)
+  - Kepesertaan (hakKelas chip + jenisPeserta chip + tglTAT)
+  - FKTP Terdaftar (nmProvider + kdProvider)
+  - No. RM & Kontak (noMR + noTelepon + tglTMT)
+  - COB section (conditional — jika ada asuransi tambahan)
+- [x] **Quick actions**: "Buat SEP" deep-link `/ehis-registration` · "Cari Rujukan" deep-link `/ehis-bpjs/vclaim/rujukan`
+- [x] **Error state** per BPJSError type: 201 slate SearchX · 203 amber AlertTriangle · rose WifiOff + retry button
+- [x] **Dev sample buttons** untuk 5 kartu + 3 NIK test values (dev-helper UX)
 
-### BP2.2 Components
+### BP2.2 Components ✅
 
-- [ ] `KepesertaanPage.tsx` (~80L) — page shell
-- [ ] `CekPesertaForm.tsx` (~180L) — toggle + form + validation
-- [ ] `PesertaDetailCard.tsx` (~220L) — display detail
+- [x] [KepesertaanPage.tsx](src/components/bpjs/kepesertaan/KepesertaanPage.tsx) (~85L) — orchestrator + lifted state + adapter call
+- [x] [CekPesertaForm.tsx](src/components/bpjs/kepesertaan/CekPesertaForm.tsx) (~165L) — toggle + form + validation + sample buttons
+- [x] [PesertaDetailCard.tsx](src/components/bpjs/kepesertaan/PesertaDetailCard.tsx) (~255L) — 4 state machine (idle/loading/found/error)
+- [x] [kepesertaanShared.ts](src/components/bpjs/kepesertaan/kepesertaanShared.ts) (~90L) — types + chip helpers + errorLabel + sample data
+- [x] Route entry: [src/app/ehis-bpjs/vclaim/kepesertaan/page.tsx](src/app/ehis-bpjs/vclaim/kepesertaan/page.tsx)
+- [x] VClaim layout: [src/app/ehis-bpjs/vclaim/layout.tsx](src/app/ehis-bpjs/vclaim/layout.tsx) (passthrough)
 
-**Acceptance BP2:** ✅ Form mode toggle Kartu/NIK · validation real-time · submit call adapter → display PesertaDetailCard · deep-link "Buat SEP" navigate ke registration · error state per BPJSError type · TSC clean.
+**Acceptance BP2:** ✅ 2-panel viewport (LEFT form fixed + RIGHT result scroll) · skeleton 400ms · segmented mode toggle spring · validation real-time · adapter call wired `getPesertaByKartu/getPesertaByNik` · PesertaDetailCard 4-state · COB section conditional · quick actions deep-link · error state per BPJSError · framer-motion stagger · TSC clean (`npx tsc --noEmit` exit 0).
 
 ---
 
@@ -730,64 +722,73 @@ src/components/bpjs/
 
 Komponen kompleks — 9 sub-fungsi. Sub-tab internal SEP page:
 
-### BP3.1 Cari SEP
+### BP3.1 Cari SEP ✅ (2026-05-29)
 
-- [ ] **Form Cari** — input No SEP mono → `getSEP(noSEP)` → display detail SEP full (semua field SEPRecordExt)
-- [ ] **SEP Detail Card** — 8-section: Identitas Peserta · SEP Header (noSEP + tglTerbit + jnsPelayanan) · Faskes/Poli/DPJP · Diagnosa Awal · Rujukan (jika ada) · Kelas Rawat · Catatan · Audit (created/updated)
-- [ ] **Quick actions:** Edit SEP · Hapus SEP · Update Tgl Pulang · Cetak SEP (`@media print` A4)
-- [ ] **Cross-link "Lihat di E-Klaim"** jika sudah ada `ClaimRecord` linked (`claim.penjamin.sep.noSEP === noSEP`)
+- [x] **Form Cari** — input No SEP mono → `getSEP(noSEP)` → display detail SEP full (semua field SEPRecordExt)
+- [x] **SEP Detail Card** — 7-section: SEP Header (noSEP + status + jnsPelayanan) · Tgl Terbit/Berlaku/Pulang · Poli/DPJP · Kelas Rawat · Diagnosa Awal · Identitas & Kontak · Rujukan (conditional) · Jaminan KLL (conditional) · Audit trail
+- [x] **Quick actions:** Hapus SEP (modal trigger) · Update Tgl Pulang (deep-link)
+- [x] **Dev sample** 6 SEP numbers (collapsible) — Issued RI/RJ · Closed · Updated · Suplesi KLL · Deleted
+- [x] Route entry [src/app/ehis-bpjs/vclaim/sep/page.tsx](src/app/ehis-bpjs/vclaim/sep/page.tsx)
 
-### BP3.2 Hapus SEP
+### BP3.2 Hapus SEP ✅ (2026-05-29)
 
-- [ ] **`HapusSEPModal`** — input noSEP + alasan textarea (min 20 char audit trail)
-- [ ] **Warning banner rose** — explain irreversible + check klaim status
-- [ ] **Guard:** jika SEP sudah di-link ke ClaimRecord dengan status >= "Submitted" → block hapus dengan pesan "Klaim sudah disubmit ke BPJS, hapus SEP tidak diizinkan"
-- [ ] **Confirm** → call `deleteSEP(noSEP)` → audit log "delete-sep"
+- [x] **`HapusSEPModal`** — noSEP header + alasan textarea (min 20 char audit trail) + char counter
+- [x] **Warning banner rose** — explain irreversible + UU PDP 27/2022 compliance note
+- [x] **Guard:** SEP Closed/Deleted → block hapus dengan amber banner + penjelasan alasan
+- [x] **Confirm** → call `deleteSEP({ noSep, user })` → success state (CheckCircle emerald) · error state dengan retry
+- [x] **onDeleted callback** → parent re-fetch SEP untuk reflect status Deleted
 
-### BP3.3 Update Tanggal Pulang
+### BP3.3 Update Tanggal Pulang ✅ (2026-05-29)
 
-- [ ] **Form** — noSEP + date picker tglPulang (max hari ini, min tglTerbit SEP)
-- [ ] **Validation:** tglPulang >= tglTerbit + 1 hari
-- [ ] **Submit** → `updateTglPulang(noSEP, tglPulang)` → success toast emerald
-- [ ] **List Update Tanggal Pulang panel** — filter tglMulai/tglAkhir → `listUpdateTglPulang()` → table 6-col (noSEP · nama peserta · tglTerbit · tglPulang lama · tglPulang baru · updatedBy + updatedAt)
+- [x] **Form** — noSEP input (prefillable via `?update=` URL param) + date picker tglPulang (max hari ini) + statusPulang select (1/3/4/5)
+- [x] **Validation:** required fields + conditional noSuratMeninggal+tglMeninggal jika statusPulang="4"
+- [x] **Submit** → `updateTglPulang(payload)` → success state emerald (CheckCircle) + "Update SEP Lain" reset
+- [x] **List Update Tanggal Pulang panel** — bulan+tahun+filter → `listUpdateTglPulang()` → table (noSEP/Kartu · Pasien/jnsPel · Tgl SEP · Tgl Pulang emerald badge · Oleh)
+- [x] **Auto tab-switch** — `?update={noSEP}` di URL auto-switch ke tab "Update Tgl Pulang" + prefill form
 
-### BP3.4 Integrasi SEP dengan iDRG / INA-CBG
+### BP3.4 Integrasi SEP dengan iDRG / INA-CBG ✅ (2026-05-29)
 
-- [ ] **`SEPIntegrasiInaCBGCard`** — input noSEP → fetch SEP + cek apakah sudah ada ClaimRecord di `CLAIM_BOARD_MOCK`
-- [ ] Jika **belum**: tombol "Buat Klaim Baru di E-Klaim" → deep-link `/ehis-eklaim/klaim/baru?noSEP={noSEP}` (pre-fill data peserta + diagnosa awal)
-- [ ] Jika **sudah**: tampil `ClaimSummaryCard` (status klaim · era grouper · iDRG/CBG code · tarif aktual · selisih) + tombol "Buka di E-Klaim" deep-link
+- [x] **`SEPIntegrasiInaCBGCard`** — input noSEP → `getSEP()` + lookup `CLAIM_BOARD_MOCK` via `penjamin.sep?.noSEP`
+- [x] Jika **belum**: amber info banner + "Buat Klaim Baru di E-Klaim" → deep-link `/ehis-eklaim/klaim/baru?noSEP={noSEP}&diagAwal={kode}&noKartu={kartu}` (pre-fill data peserta + diagnosa awal)
+- [x] Jika **sudah**: `ClaimFound` card — grouper chip (violet=iDRG / slate=INA-CBG Legacy) + kode 7-digit + severity level+label + diagnosaPrimer.kode+deskripsi + tarif 3-col (RS/Approved/Selisih) + status klaim + "Buka di E-Klaim" emerald CTA
 
-### BP3.5 Suplesi Jasa Raharja & Data Induk Kecelakaan
+### BP3.5 Suplesi Jasa Raharja & Data Induk Kecelakaan ✅ (2026-05-29)
 
-- [ ] **`SuplesiJasaRaharjaForm`** — input noKartu + tglPelayanan + tipeKecelakaan (Lalu Lintas/Kerja/Lainnya) + penjamin (1=Jasa Raharja Bedah, 2=JR ditolak, 3=BPJS) + tglKejadian + lokasi
-- [ ] Submit → `suplesiCek()` + `sepJasaRaharja()` → display result envelope
-- [ ] **`DataIndukKecelakaanForm`** — schema mirip "Data Kecelakaan" di [ActionForms.tsx](src/components/registration/kunjungan/Tabs/ActionForms.tsx) (cross-link reuse)
-- [ ] Cross-link ke modul registrasi (`KKPanel`/`KLLPanel` di `kecelakaan/`) jika applicable
+- [x] **`SuplesiJasaRaharjaForm`** — noKartu (13-digit) + tglPelayanan → `suplesiCek()` → table `SuplesiJaminanItem[]` (noRegister · noSep/noSepAwal · tglKejadian · tglSep) + dev samples KLL/KK + amber accent
+- [x] **`DataIndukKecelakaanForm`** — noKartu → `dataIndukKecelakaan()` → card list `DataIndukKecelakaanItem[]` (noSEP · tglKejadian · ketKejadian · lokasi prop/kab/kec · noSEPSuplesi conditional) + rose accent
+- [x] Tab "Suplesi JR" — 2-panel split: LEFT `SuplesiJasaRaharjaForm` / RIGHT `DataIndukKecelakaanForm`
 
-### BP3.6 SEP Internal
+### BP3.6 SEP Internal ✅ (2026-05-29)
 
-- [ ] **`SEPInternalForm`** — untuk transfer antar SMF di RS (mis. dari Penyakit Dalam ke Bedah). Field: noSEPInduk + poliTujuan + dpjpTujuan + diagnosaTransfer + alasan
-- [ ] Submit → `sepInternalInsert()` atau `sepInternalUpdate()`
-- [ ] **`SEPInternalList`** — list SEP internal aktif (filter periode + noKartu)
+- [x] **`SEPInternalForm`** — noSEP lookup → `dataSepInternal()` → list `SEPInternalItem[]` dengan inline hapus per row (confirm → `hapusSepInternal()` → auto re-fetch) + sky accent
+- [x] **`SEPInternalList`** — filter noKartu → derive RI SEPs dari `SEP_MOCK` → table (noSEP/Kartu · Diagnosa · Tgl · Status · Internal count lazy via hover) + "Detail" CTA per row → panggil SEPInternalForm
+- [x] Tab "SEP Internal" — 2-panel split: LEFT `SEPInternalForm` / RIGHT `SEPInternalList`
+- [x] Note: spec V-Claim hanya punya GET + DELETE untuk SEP Internal (tidak ada Insert/Update per spec resmi)
 
-### BP3.7 Fingerprint
+### BP3.7 Fingerprint ✅ (2026-05-29)
 
-- [ ] **`FingerprintPanel`** — input noKartu + tglPelayanan → `getFingerPrint()` → display fingerprint status (Verified emerald / Not Captured rose / Captured Today amber)
-- [ ] **`FingerprintListPanel`** — filter tglMulai/tglAkhir → `listFingerPrint()` → table histori capture (per peserta · tanggal · faskes · status)
-- [ ] Tampilkan compliance reminder: "Sidik jari wajib untuk peserta JKN klaim 4x/bulan (Permenkes 26/2021)"
+- [x] **`FingerprintPanel`** — noKartu + tglPelayanan → `getFingerPrint()` → status card (Verified emerald CheckCircle / Not Captured rose XCircle) + compliance reminder Permenkes 26/2021 + indigo accent
+- [x] **`FingerprintListPanel`** — tglPelayanan date → `listFingerPrint()` → table (noKartu · nama dari `findPesertaByKartu()` · noSEP · status peserta) + quick-date shortcuts 3 tanggal mock
+- [x] Tab "Fingerprint" — 2-panel split: LEFT `FingerprintPanel` / RIGHT `FingerprintListPanel`
 
-### BP3.8 Components
+### BP3.8 Components ✅ BP3.1–BP3.7 (2026-05-29)
 
-- [ ] `SEPPage.tsx` (~140L) — tab internal nav 7 sub
-- [ ] `CariSEPForm.tsx` (~150L) + `SEPDetailCard.tsx` (~250L)
-- [ ] `HapusSEPModal.tsx` (~140L)
-- [ ] `UpdateTglPulangForm.tsx` (~130L) + `UpdateTglPulangList.tsx` (~180L)
-- [ ] `SEPIntegrasiInaCBGCard.tsx` (~200L) — cross-link ke eklaim
-- [ ] `SuplesiJasaRaharjaForm.tsx` (~220L) + `DataIndukKecelakaanForm.tsx` (~190L)
-- [ ] `SEPInternalForm.tsx` (~190L) + `SEPInternalList.tsx` (~170L)
-- [ ] `FingerprintPanel.tsx` (~150L) + `FingerprintListPanel.tsx` (~180L)
+- [x] [SEPPage.tsx](src/components/bpjs/sep/SEPPage.tsx) — **6-tab** orchestrator (Cari SEP · Update Tgl Pulang · Integrasi E-Klaim · Suplesi JR · SEP Internal · Fingerprint) + scrollable tab bar (`overflow-x-auto`) + Suspense boundary + `?update=` auto-switch
+- [x] [CariSEPPanel.tsx](src/components/bpjs/sep/CariSEPPanel.tsx) (~140L) — context info + no SEP input + emerald submit + collapsible dev samples
+- [x] [SEPDetailCard.tsx](src/components/bpjs/sep/SEPDetailCard.tsx) (~290L) — 4-state machine (idle/loading/found/error) + 7-section detail layout
+- [x] [HapusSEPModal.tsx](src/components/bpjs/sep/HapusSEPModal.tsx) (~200L) — spring animation + block guard + alasan textarea + success/error states
+- [x] [sepShared.ts](src/components/bpjs/sep/sepShared.ts) (~90L) — SEPResult union + statusChipCls + helpers + SAMPLE_SEP
+- [x] [UpdateTglPulangForm.tsx](src/components/bpjs/sep/UpdateTglPulangForm.tsx) (~230L) — statusPulang select + conditional meninggal fields + `updateTglPulang()` + success state
+- [x] [UpdateTglPulangList.tsx](src/components/bpjs/sep/UpdateTglPulangList.tsx) (~195L) — bulan/tahun/filter controls + `listUpdateTglPulang()` + animated table
+- [x] [SEPIntegrasiInaCBGCard.tsx](src/components/bpjs/sep/SEPIntegrasiInaCBGCard.tsx) (~310L) — noSEP lookup → `ClaimFound` (iDRG/INA-CBG · tarif · deep-link) or `ClaimNotFound` (CTA baru)
+- [x] [SuplesiJasaRaharjaForm.tsx](src/components/bpjs/sep/SuplesiJasaRaharjaForm.tsx) (~215L) — `suplesiCek()` + amber accent + dev samples
+- [x] [DataIndukKecelakaanForm.tsx](src/components/bpjs/sep/DataIndukKecelakaanForm.tsx) (~185L) — `dataIndukKecelakaan()` + rose accent + card list
+- [x] [SEPInternalForm.tsx](src/components/bpjs/sep/SEPInternalForm.tsx) (~200L) — `dataSepInternal()` + inline hapus row + sky accent
+- [x] [SEPInternalList.tsx](src/components/bpjs/sep/SEPInternalList.tsx) (~185L) — derive RI SEPs + lazy count hover + "Detail" CTA
+- [x] [FingerprintPanel.tsx](src/components/bpjs/sep/FingerprintPanel.tsx) (~185L) — `getFingerPrint()` + status card + compliance note + indigo accent
+- [x] [FingerprintListPanel.tsx](src/components/bpjs/sep/FingerprintListPanel.tsx) (~175L) — `listFingerPrint()` + enrich `findPesertaByKartu()` + quick dates
 
-**Acceptance BP3:** ✅ 7 sub-tab functional · CRUD SEP via adapter · cross-link eklaim deep-link benar · suplesi Jasa Raharja form lengkap · fingerprint compliance reminder · all forms validation · TSC clean.
+**Acceptance BP3:** ✅ BP3.1+BP3.2+BP3.3+BP3.4+BP3.5+BP3.6+BP3.7 ✅ · 14 file `src/components/bpjs/sep/` · 6-tab SEPPage scrollable · TSC clean.
 
 ---
 
@@ -1102,7 +1103,7 @@ Aligned 1:1 dengan [RencanaKontrol-Contracts.md](contracts/RencanaKontrol-Contra
 | Phase | Tasks | Done | % |
 |---|---|---|---|
 | BP0 — Foundation | 4 sections (Auth + Types + Mock + Adapter) | 4 | **100%** ✅ |
-| BP1 — Beranda BPJS | 3 sections | 0 | 0% |
+| BP1 — Beranda BPJS | 3 sections | 3 | **100%** ✅ |
 | BP2 — Kepesertaan | 2 sections | 0 | 0% |
 | BP3 — SEP | 8 sections | 0 | 0% |
 | BP4 — Rujukan | 5 sections | 0 | 0% |
@@ -1110,7 +1111,7 @@ Aligned 1:1 dengan [RencanaKontrol-Contracts.md](contracts/RencanaKontrol-Contra
 | BP6 — Rencana Kontrol | 8 sections (11 endpoint + PRB form) | 0 | 0% |
 | BP7 — Aplicares | 4 sections | 0 | 0% |
 | BP8 — Polish + Audit | 5 sections | 0 | 0% |
-| **Total** | **44 sections** | **0** | **0%** |
+| **Total** | **44 sections** | **7** | **16%** |
 
 ---
 
