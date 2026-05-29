@@ -796,105 +796,102 @@ Komponen kompleks — 9 sub-fungsi. Sub-tab internal SEP page:
 
 **Route:** `/ehis-bpjs/vclaim/rujukan` · **Effort:** 2 hari · **Accent: teal**
 
-### BP4.1 Pencarian Rujukan
+### BP4.1 Pencarian Rujukan ✅ (2026-05-30)
 
-- [ ] **Form 2-mode toggle:** "Cari by No Rujukan" atau "Cari by No Kartu + Jenis Faskes"
-- [ ] **Mode 1:** input No Rujukan mono → call `getRujukan(noRujukan, jenisFaskes)` 
-- [ ] **Mode 2:** input No Kartu + segmented FKTP/FKRTL → call `listRujukan(noKartu, jenisFaskes)`
-- [ ] **RujukanResultCard** — display detail rujukan (peserta + faskes asal + tujuan + poli + diagnosa + tgl rujukan + masa berlaku + status Aktif/Expired)
-- [ ] **Quick actions:** "Buat SEP dari Rujukan" → deep-link `/ehis-registration/pasien/baru?rujukan={noRujukan}`
+- [x] **Form 2-mode toggle:** "Cari by No Rujukan" atau "Cari by No Kartu + Jenis Faskes" — segmented teal pill
+- [x] **Mode 1:** input No Rujukan mono → call `getRujukan(noRujukan, jenisFaskes)` → single `RujukanResultCard`
+- [x] **Mode 2:** input No Kartu (13-digit) + segmented FKTP/FKRTL → `listRujukanByPeserta(noKartu, jenisFaskes)` → list `RujukanResultCard[]`
+- [x] **RujukanResultCard** — display detail rujukan: status chip (Aktif teal/Expired rose/Used slate) + asal badge (FKTP sky/FKRTL violet) + PPK route arrow (asal → RS Tujuan) + diagnosa kode+nama + poli + peserta card + masa berlaku + keluhan/catatan amber note
+- [x] **FaskesToggle** sub-component (FKTP/FKRTL) + animated form swap via `AnimatePresence mode="wait"` + slide-x per direction
+- [x] **Dev samples** RUJUKAN_NOS (3 sample) + KARTU (3 sample) + idle empty state + error state
 
-### BP4.2 List Rujukan Khusus
+### BP4.2 List Rujukan Khusus ✅ (2026-05-30)
 
-- [ ] **`ListRujukanKhususPanel`** — input kdDiag (ICD-10 picker reuse `ICD10_IM_MOCK`) + tglPelayanan → `listRujukanKhusus()` → display list rujukan khusus (kasus kronik, kanker, dialisis, jantung)
+- [x] **`ListRujukanKhususPanel`** — bulan (select 1–12) + tahun (number input) + Cari → `listRujukanKhusus(bulan, tahun)` → table `RujukanKhususListItem[]`
+- [x] **Table cols:** ID/No Rujukan · Nama/Kartu · Diagnosa chip teal · Periode (awal→akhir dengan ChevronRight)
+- [x] **Quick shortcuts:** Mei 2026 · Jun 2026 · Jul 2026 (active highlight teal)
+- [x] **Footer badge** — "{N} rujukan khusus · {Bulan} {Tahun}" teal
+- [x] Note: kdDiag per spec `listRujukanKhusus(bulan, tahun)` — bukan per-diagnosa per endpoint 9 spec resmi
 
-### BP4.3 List Spesialistik
+### BP4.3 List Spesialistik ✅ (2026-05-30)
 
-- [ ] **`ListSpesialistikPanel`** — call `listSpesialistik()` (cached 24h via referenceCache) → table 3-col (kode · nama spesialistik · jumlah faskes tersedia)
-- [ ] Reuse `BPJS_RUANGAN_CATALOG` saat backend belum ready
+- [x] **`ListSpesialistikPanel`** — `listSpesialistik()` auto-load on mount → table 3-col (no. · kode chip teal · nama) · loading/error states · footer badge · content-only (no outer shell)
 
-### BP4.4 List Sarana
+### BP4.4 List Sarana ✅ (2026-05-30)
 
-- [ ] **`ListSaranaPanel`** — search faskes by nama + segmented FKTP/FKRTL → `listSarana()` → table (kode · nama · alamat · jenis · status)
-- [ ] Reuse `PPK_INITIAL` saat backend belum ready
+- [x] **`ListSaranaPanel`** — `FaskesToggle` FKTP/FKRTL + search input nama + `listSarana()` → table (kode · nama · alamat · jenis badge sky/violet) · idle ghost + loading + empty + results states · content-only (no outer shell)
 
-### BP4.5 Components
+### BP4.5 Components ✅ BP4.1–BP4.4 (2026-05-30)
 
-- [ ] `RujukanPage.tsx` (~120L) — internal tab nav
-- [ ] `CariRujukanForm.tsx` (~170L) + `RujukanResultCard.tsx` (~220L)
-- [ ] `ListRujukanKhususPanel.tsx` (~180L)
-- [ ] `ListSpesialistikPanel.tsx` (~140L) + `ListSaranaPanel.tsx` (~170L)
+- [x] [rujukanShared.ts](src/components/bpjs/rujukan/rujukanShared.ts) — `fmtDate` · `jnsPelLabel` · `statusCls` · `asalBadgeCls` · `SearchState` type · sample arrays
+- [x] [RujukanPage.tsx](src/components/bpjs/rujukan/RujukanPage.tsx) — skeleton 600ms + 3 StatCard stagger + **3-panel** `lg:flex-row`: Form(w-75) + Results(flex-1) + ReferensiPanel(flex-1)
+- [x] [CariRujukanForm.tsx](src/components/bpjs/rujukan/CariRujukanForm.tsx) — form-only · `isLoading` + `onStateChange` props · mode toggle hash/kartu + FaskesToggle + slide AnimatePresence · `lg:w-75 shrink-0`
+- [x] [RujukanResultsPanel.tsx](src/components/bpjs/rujukan/RujukanResultsPanel.tsx) — terima `SearchState` dari parent · idle ghost + loading + error + empty + found (RujukanResultCard list) · `flex-1`
+- [x] [RujukanResultCard.tsx](src/components/bpjs/rujukan/RujukanResultCard.tsx) — PPK route arrow + diagnosa/poli grid + peserta card + masa berlaku + keluhan amber note
+- [x] [ListRujukanKhususPanel.tsx](src/components/bpjs/rujukan/ListRujukanKhususPanel.tsx) — refactored: `export KhususContent` + default standalone outer shell · bulan/tahun filter + quick shortcuts + KhususRow table
+- [x] [ListSpesialistikPanel.tsx](src/components/bpjs/rujukan/ListSpesialistikPanel.tsx) — auto-load `listSpesialistik()` · table no/kode/nama · footer badge · content-only
+- [x] [ListSaranaPanel.tsx](src/components/bpjs/rujukan/ListSaranaPanel.tsx) — FaskesToggle + search input + `listSarana()` · 4-col table kode/nama/alamat/jenis badge · content-only
+- [x] [ReferensiPanel.tsx](src/components/bpjs/rujukan/ReferensiPanel.tsx) — outer shell + 3 tab buttons (Khusus Kronik·Spesialistik·Sarana Faskes) + `AnimatePresence` slide-x per tab direction · imports `KhususContent`+`ListSpesialistikPanel`+`ListSaranaPanel`
+- [x] Route entry [src/app/ehis-bpjs/vclaim/rujukan/page.tsx](src/app/ehis-bpjs/vclaim/rujukan/page.tsx)
 
-**Acceptance BP4:** ✅ Form 2-mode cari rujukan · result card · 3 list panel functional · deep-link buat SEP dari rujukan · cached reference 24h · TSC clean.
+**Acceptance BP4.1–BP4.4:** ✅ 3-panel layout (Form|Results|ReferensiPanel) · `SearchState` lifted ke `RujukanPage` · `ReferensiPanel` 3-tab (Khusus/Spesialistik/Sarana) slide-x AnimatePresence · `listSpesialistik()` auto-load · `listSarana(nama, jenisFaskes)` wired · TSC clean · 9 file `src/components/bpjs/rujukan/` + route entry.
 
 ---
 
-## Phase BP5 — V-Claim Tab Monitoring
+## Phase BP5 — V-Claim Tab Monitoring ✅ (2026-05-30)
 
 **Route:** `/ehis-bpjs/vclaim/monitoring` · **Effort:** 2 hari · **Accent: amber**
 
 Aligned 1:1 dengan [Monitoring-Contracts.md](contracts/Monitoring-Contracts.md) — 4 endpoint · 4 sub-tab internal · wire-format types.
 
-### BP5.1 Data Kunjungan (spec endpoint 1)
+### BP5.1 Data Kunjungan (spec endpoint 1) ✅
 
-- [ ] **`KunjunganPanel`** — filter:
-  - `tglSEP` (date picker, default hari ini)
-  - segmented `jnsPelayanan` (1=R.Inap / 2=R.Jalan)
-- [ ] Submit → `monitoringKunjungan(tglSEP, jns)` → `KunjunganMonitoringItem[]`
-- [ ] **Table 8-col (sesuai wire format):** noSep mono · noKartu mono · nama · diagnosa kode · jnsPelayanan chip (R.Inap emerald / R.Jalan sky) · kelasRawat chip · poli (null → "—" untuk RI) · tglPlgSep
-- [ ] **Summary header:** total count · breakdown per poli (top 5 bar mini)
-- [ ] **Export CSV** RFC 4180 + BOM UTF-8
+- [x] **`KunjunganPanel`** — filter tglSEP (date) + segmented jnsPelayanan (R.Inap/R.Jalan)
+- [x] Submit → `monitoringKunjungan(tglSEP, jns)` → `KunjunganMonitoringItem[]`
+- [x] **Table 8-col:** noSep mono · noKartu mono · nama · diagnosa chip teal · jnsPelayanan chip (emerald/sky) · kelasRawat chip · poli (null → "—") · tglPlgSep
+- [x] **Summary footer** — count + jnsPelayanan + tgl
+- [x] **Export CSV** RFC 4180 + BOM UTF-8 via `exportCsv()`
+- [x] Dev sample date chips (2026-05-01 / 2026-05-10 / 2026-04-11)
 
-### BP5.2 Data Klaim (spec endpoint 2)
+### BP5.2 Data Klaim (spec endpoint 2) ✅
 
-- [ ] **`KlaimPanel`** — filter:
-  - `tglPulang` (date picker)
-  - segmented `jnsPelayanan` (1/2)
-  - segmented `statusKode` (1=Proses Verifikasi · 2=Pending Verifikasi · 3=Klaim) — pakai `KLAIM_MONITORING_STATUS_LABEL` untuk label display
-- [ ] Submit → `monitoringKlaim(tglPulang, jns, statusKode)` → `KlaimMonitoringItem[]`
-- [ ] **Table 9-col:** noSEP mono · peserta(nama/noKartu/noMR) · `Inacbg.kode` chip + nama tooltip · poli · kelasRawat chip · biaya breakdown card (5 nominal: pengajuan/setujui/tarifGruper/tarifRS/topup) · noFPK (— jika "") · status chip warna per kode · tglPulang
-- [ ] **Summary footer:** total tagih · total disetujui · selisih · % approval
-- [ ] **Cross-link** kolom noSEP → buka klaim di `/ehis-eklaim/klaim/{noSEP}` jika linked
+- [x] **`KlaimPanel`** — filter tglPulang + jnsPelayanan + statusKode (3-way: Proses/Pending/Klaim)
+- [x] Submit → `monitoringKlaim(tglPulang, jns, statusKode)` → `KlaimMonitoringItem[]`
+- [x] **Table 9-col:** noSEP mono · peserta (nama/noKartu/noMR multi-line) · Inacbg chip + nama tooltip · poli · kelasRawat chip · `BiayaCell` (pengajuan/setujui/topup mini-card) · noFPK (— jika "") · status chip warna per kode · tglPulang
+- [x] **Summary footer** — count · total tagih · total disetujui · selisih · % approval pill (emerald/amber/rose per threshold)
+- [x] Dev sample date chips
 
-### BP5.3 Histori Pelayanan Peserta (spec endpoint 3)
+### BP5.3 Histori Pelayanan Peserta (spec endpoint 3) ✅
 
-- [ ] **`HistoriPelayananPanel`** — filter:
-  - input `noKartu` (13 digit validation)
-  - date range `tglMulai/tglAkhir` (max 90 hari, validation inline)
-- [ ] Submit → `monitoringHistoriPelayanan(noKartu, tglMulai, tglAkhir)` → `HistoriPelayananMonitoringItem[]`
-- [ ] **Header peserta** (dari item pertama): namaPeserta + noKartu
-- [ ] **Timeline view** sort tglSep desc · per entry:
-  - badge `jnsPelayanan` (1=R.Inap / 2=R.Jalan)
-  - badge `kelasRawat` ("Kelas 1/2/3" atau "—" jika null)
-  - row: noSep · tglSep → tglPlgSep · poli (atau "—" jika "") · diagnosa display
-  - footer: noRujukan + ppkPelayanan
-- [ ] **Empty state** "Tidak ada riwayat pelayanan dalam periode ini" · slate
+- [x] **`HistoriPelayananPanel`** — filter noKartu (13-digit validation) + date range tglMulai/tglAkhir (max 90 hari, inline periodeError)
+- [x] Submit → `monitoringHistoriPelayanan(noKartu, tglMulai, tglAkhir)` → `HistoriPelayananMonitoringItem[]`
+- [x] **Peserta header banner** — fade-in (namaPeserta + noKartu + periode + count) setelah loaded
+- [x] **Timeline view** sort tglSep desc — per entry: RI/RJ dot + kelasRawat badge + noSep · tgl range · poli · diagnosa + footer noRujukan + ppkPelayanan
+- [x] Empty state "Tidak ada riwayat pelayanan dalam periode ini"
+- [x] Dev sample kartu chips (last-4 digit: 7891/7892)
 
-### BP5.4 Klaim Jasa Raharja (spec endpoint 4)
+### BP5.4 Klaim Jasa Raharja (spec endpoint 4) ✅
 
-- [ ] **`JasaRaharjaPanel`** — filter:
-  - segmented `jnsPelayanan` (1/2)
-  - date range `tglMulai/tglAkhir`
-- [ ] Submit → `monitoringJasaRaharja(jns, tglMulai, tglAkhir)` → `JasaRaharjaMonitoringItem[]`
-- [ ] **Card per item** (nested SEP + jasa raharja):
-  - Header: noSEP mono · tglSEP → tglPlgSEP · jnsPelayanan chip · poli kode · diagnosa kode
-  - Section peserta: noKartu · nama · noMR (camel `noMr` di parent vs capital `noMR` di peserta — display di footer note)
-  - Section JR: tglKejadian · noRegister · `ketStatusDijamin` chip (Dijamin emerald / Tidak Dijamin rose) · `ketStatusDikirim` chip · biaya breakdown (biayaDijamin · plafon · jmlDibayar) · `resultsJasaRaharja` status text
-- [ ] **Summary footer:** total dijamin · total dibayar · sisa plafon agregat
+- [x] **`JasaRaharjaPanel`** — filter jnsPelayanan + date range tglMulai/tglAkhir
+- [x] Submit → `monitoringJasaRaharja(jns, tglMulai, tglAkhir)` → `JasaRaharjaMonitoringItem[]`
+- [x] **Card per item** — header (noSEP + tgl range + jnsPelayanan chip + diagnosa chip + status Dijamin pill) · 2-col body (peserta | JR detail: noRegister/tglKejadian/ketStatusDikirim chip/biaya 3-grid)
+- [x] **Summary footer** — count · total biayaDijamin · total jmlDibayar
 
-### BP5.5 Components
+### BP5.5 Components ✅ (2026-05-30)
 
-- [ ] `MonitoringPage.tsx` (~150L) — 4 sub-tab nav (amber accent)
-- [ ] `KunjunganPanel.tsx` (~240L)
-- [ ] `KlaimPanel.tsx` (~270L) — biaya breakdown card sub-component
-- [ ] `HistoriPelayananPanel.tsx` (~260L) — timeline pattern reuse dari AuditTab eklaim
-- [ ] `JasaRaharjaPanel.tsx` (~250L) — card-per-item layout
+- [x] [monitoringShared.ts](src/components/bpjs/monitoring/monitoringShared.ts) — `errMsg/fmtDate/fmtRupiah/jnsLabel/jnsChipCls/statusKlaimChipCls/kelasChipCls/dijaminChipCls/today/daysAgo/daysBetween/exportCsv` + sample arrays
+- [x] [MonitoringPage.tsx](src/components/bpjs/monitoring/MonitoringPage.tsx) (~185L) — skeleton 600ms + 4 StatCard stagger + 4-tab panel amber + `AnimatePresence` slide-x per tab direction + `absolute inset-0` pattern
+- [x] [KunjunganPanel.tsx](src/components/bpjs/monitoring/KunjunganPanel.tsx) (~235L) — `JnsToggle` + table 8-col + export CSV + footer
+- [x] [KlaimPanel.tsx](src/components/bpjs/monitoring/KlaimPanel.tsx) (~280L) — `JnsToggle` + `StatusToggle` + `BiayaCell` + table 9-col + footer summary % approval
+- [x] [HistoriPelayananPanel.tsx](src/components/bpjs/monitoring/HistoriPelayananPanel.tsx) (~265L) — `HistoriEntry` timeline card + peserta banner header + 90-day validation
+- [x] [JasaRaharjaPanel.tsx](src/components/bpjs/monitoring/JasaRaharjaPanel.tsx) (~255L) — `JRCard` 2-section nested + biaya 3-grid + footer
+- [x] Route [src/app/ehis-bpjs/vclaim/monitoring/page.tsx](src/app/ehis-bpjs/vclaim/monitoring/page.tsx)
 
-**Acceptance BP5:** ✅ 4 sub-tab functional · 4 endpoint wired (wire-format types) · filter periode + statusKode numeric · cross-link ke eklaim · export CSV kunjungan · histori timeline · TSC clean.
+**Acceptance BP5:** ✅ 4 sub-tab functional · 4 endpoint wired (wire-format types) · filter periode + statusKode numeric · export CSV kunjungan · histori timeline sort desc · card-per-item JR · TSC clean · 7 file `src/components/bpjs/monitoring/` + route entry.
 
 ---
 
-## Phase BP6 — V-Claim Tab Rencana Kontrol
+## Phase BP6 — V-Claim Tab Rencana Kontrol ✅ (2026-05-30)
 
 **Route:** `/ehis-bpjs/vclaim/rencana-kontrol` · **Effort:** 4 hari (naik dari 3 karena PRB form) · **Accent: violet**
 
@@ -902,14 +899,14 @@ Aligned 1:1 dengan [RencanaKontrol-Contracts.md](contracts/RencanaKontrol-Contra
 
 ### BP6.1 Cari SEP untuk RK (spec endpoint 6)
 
-- [ ] **`CariSEPRKPanel`** — input noSEP → call `getSEPUntukRK(noSEP)` → display `SEPUntukRKRecord` (shape khusus: poli & diagnosa format display "KODE - Nama" · peserta ringkas · provUmum FKTP · provPerujuk)
-- [ ] Cek apakah sudah ada RK linked di `RENCANA_KONTROL_MOCK` (`findRKsBySEP(noSEP)`)
-- [ ] Jika belum: tombol "Buat Rencana Kontrol V2" → buka `InsertRKV2Modal` (sub-tab BP6.2)
-- [ ] Cross-link "Buat SPRI tanpa SEP" → `InsertSPRIModal` (sub-tab BP6.3) untuk kasus admisi elektif tanpa kunjungan RJ
+- [x] **`CariSEPRKPanel`** — input noSEP → call `getSEPUntukRK(noSEP)` → display `SEPUntukRKRecord` (shape khusus: poli & diagnosa format display "KODE - Nama" · peserta ringkas · provUmum FKTP · provPerujuk)
+- [x] Cek apakah sudah ada RK linked di `RENCANA_KONTROL_MOCK` (`findRKsBySEP(noSEP)`)
+- [x] Jika belum: tombol "Buat Rencana Kontrol V2" → buka `InsertRKV2Modal` (sub-tab BP6.2)
+- [x] Cross-link "Buat SPRI tanpa SEP" → `InsertSPRIModal` (sub-tab BP6.3) untuk kasus admisi elektif tanpa kunjungan RJ
 
 ### BP6.2 Insert/Update RK V2 (+ PRB Form) (spec endpoint 1, 2)
 
-- [ ] **`InsertRKV2Modal`** — form 2-step:
+- [x] **`InsertRKV2Modal`** — form 2-step:
   - **Step 1 — Header:** `noSEP` (auto-fill) · `kodeDokter` (dropdown via `getDokterRK`) · `poliKontrol` (dropdown via `getPoliRK`) · `tglRencanaKontrol` (date picker, min hari ini) · `user` (auto dari session)
   - **Step 2 — `FormPRB`:** segmented `kdStatusPRB` (9 chip: 01-09) → render input dinamis sesuai penyakit yang dipilih:
     - DM (01): HBA1C · GDP · GD2JPP · eGFR · TD_Sistolik/Diastolik · LDL (7 field)
@@ -921,59 +918,59 @@ Aligned 1:1 dengan [RencanaKontrol-Contracts.md](contracts/RencanaKontrol-Contra
     - Stroke (07): GDP · TD_Sistolik/Diastolik · LDL · AsamUrat (5 field)
     - Epilepsi (08): Epileptik6Bulan · EfekSampingOAB · HamilMenyusui (3 field)
     - SLE (09): RemisiSLE · Hamil (2 field)
-- [ ] **Validasi inline per field** sesuai spec range (HBA1C 0.1-15 · GDP/GD2JPP 10-500 · dst). Pakai helper `validatePRBField(kode, field, value)`.
-- [ ] Submit → `insertRKV2(payload)` → idempotency key auto-generate · success toast violet → tampilkan `noSurat`
-- [ ] **`UpdateRKV2Modal`** — sama struktur, prefill dari `getNoSuratKontrol(noSurat)` (response include formPRB embedded) → submit `updateRKV2(payload)`
-- [ ] Guard: jika `status: "Used"` → disable edit
+- [x] **Validasi inline per field** sesuai spec range (HBA1C 0.1-15 · GDP/GD2JPP 10-500 · dst). Pakai helper `validatePRBField(kode, field, value)`.
+- [x] Submit → `insertRKV2(payload)` → idempotency key auto-generate · success toast violet → tampilkan `noSurat`
+- [x] **`UpdateRKV2Modal`** — sama struktur, prefill dari `getNoSuratKontrol(noSurat)` (response include formPRB embedded) → submit `updateRKV2(payload)`
+- [x] Guard: jika `status: "Used"` → disable edit
 
 ### BP6.3 Insert/Update SPRI (spec endpoint 4, 5)
 
-- [ ] **`InsertSPRIModal`** — form simpel (TANPA formPRB): `noKartu` · `kodeDokter` · `poliKontrol` · `tglRencanaKontrol` · `user`
-- [ ] Submit → `insertSPRI(payload)` → response `{ noSPRI }`
-- [ ] **`UpdateSPRIModal`** — `noSPRI` (read-only) + edit `kodeDokter/poliKontrol/tglRencanaKontrol/user` → `updateSPRI(payload)`
-- [ ] Guard: jika `status: "Used"` → block update
+- [x] **`InsertSPRIModal`** — form simpel (TANPA formPRB): `noKartu` · `kodeDokter` · `poliKontrol` · `tglRencanaKontrol` · `user`
+- [x] Submit → `insertSPRI(payload)` → response `{ noSPRI }`
+- [x] **`UpdateSPRIModal`** — `noSPRI` (read-only) + edit `kodeDokter/poliKontrol/tglRencanaKontrol/user` → `updateSPRI(payload)`
+- [x] Guard: jika `status: "Used"` → block update
 
 ### BP6.4 Hapus RK/SPRI (spec endpoint 3)
 
-- [ ] **`HapusRKModal`** — input `noSuratKontrol` + `user` (auto session) + alasan textarea (≥10 char untuk audit)
-- [ ] Guard cek `status: "Used"` block hapus
-- [ ] Submit → `deleteRK(noSuratKontrol, user)` → success toast emerald
+- [x] **`HapusRKModal`** — input `noSuratKontrol` + `user` (auto session) + alasan textarea (≥10 char untuk audit)
+- [x] Guard cek `status: "Used"` block hapus
+- [x] Submit → `deleteRK(noSuratKontrol, user)` → success toast emerald
 
 ### BP6.5 Cari Nomor Surat Kontrol (spec endpoint 7)
 
-- [ ] **`CariNoSuratPanel`** — input noSurat → `getNoSuratKontrol(noSurat)` → display `RKDetailRecord`:
+- [x] **`CariNoSuratPanel`** — input noSurat → `getNoSuratKontrol(noSurat)` → display `RKDetailRecord`:
   - Header: noSurat · jnsKontrol chip (1=SPRI / 2=Kontrol) · tglTerbit · tglRencanaKontrol · flagKontrol · namaJnsKontrol
   - Section SEP: jika `jnsKontrol="2"` tampil SEP asal (peserta · pelayanan · poli · diagnosa) · jika `"1"` (SPRI) → null/hide
   - Section formPRB: tampil chip `kdStatusPRB` + grid 37 field dengan value (null = "—")
-- [ ] Quick actions: "Edit" → `UpdateRKV2Modal` · "Hapus" → `HapusRKModal` · "Cetak Surat" → print template A4 KOP RS
+- [x] Quick actions: "Edit" → `UpdateRKV2Modal` · "Hapus" → `HapusRKModal` · "Cetak Surat" → print template A4 KOP RS
 
 ### BP6.6 Data RK List — by Kartu & Periode (spec endpoint 8, 9)
 
-- [ ] **`DataRKByKartuPanel`** (spec 8) — filter `bulan` (dropdown 01-12) + `tahun` (number) + `noKartu` (13 digit) + segmented `filter: "1"=tgl entri | "2"=tgl rencana` → `listRKByKartu(...)` → table 11-col (`RKListByKartuItem`):
+- [x] **`DataRKByKartuPanel`** (spec 8) — filter `bulan` (dropdown 01-12) + `tahun` (number) + `noKartu` (13 digit) + segmented `filter: "1"=tgl entri | "2"=tgl rencana` → `listRKByKartu(...)` → table 11-col (`RKListByKartuItem`):
   - noSuratKontrol · jnsPelayanan · jnsKontrol chip · namaJnsKontrol · tglRencanaKontrol · tglTerbitKontrol · noSepAsalKontrol · poliAsal · poliTujuan · namaDokter · terbitSEP chip (Sudah/Belum)
-- [ ] **`DataRKPeriodePanel`** (spec 9) — filter `tglAwal/tglAkhir` + segmented filter → `listRKFiltered(...)` → table 10-col (`RKListPeriodeItem`)
-- [ ] Per row aksi (kedua panel): "Detail" (modal `getNoSuratKontrol`) · "Edit" · "Hapus" · "Cetak"
-- [ ] Export CSV RFC 4180 + BOM UTF-8
+- [x] **`DataRKPeriodePanel`** (spec 9) — filter `tglAwal/tglAkhir` + segmented filter → `listRKFiltered(...)` → table 10-col (`RKListPeriodeItem`)
+- [x] Per row aksi (kedua panel): "Detail" (modal `getNoSuratKontrol`) · "Edit" · "Hapus" · "Cetak"
+- [x] Export CSV RFC 4180 + BOM UTF-8
 
 ### BP6.7 Referensi Poli & Dokter (spec endpoint 10, 11)
 
-- [ ] **`DataPoliPanel`** (spec 10) — input `jnsKontrol` (1=SPRI / 2=RK) + `nomor` (auto: noKartu jika SPRI, noSEP jika RK) + `tglRencana` → `getPoliRK(jnsKontrol, nomor, tglRencana)` → table (`PoliRKSpecItem`): kodePoli · namaPoli · kapasitas · jmlRencanaKontroldanRujukan · persentase utilisasi (progress bar)
-- [ ] **`DataDokterPanel`** (spec 11) — input `jnsKontrol` + `kdPoli` + `tglRencana` → `getDokterRK(...)` → table (`DokterRKSpecItem`): kodeDokter · namaDokter · jadwalPraktek · kapasitas
-- [ ] Cross-link dokter → master `DOKTER_MOCK`
+- [x] **`DataPoliPanel`** (spec 10) — input `jnsKontrol` (1=SPRI / 2=RK) + `nomor` (auto: noKartu jika SPRI, noSEP jika RK) + `tglRencana` → `getPoliRK(jnsKontrol, nomor, tglRencana)` → table (`PoliRKSpecItem`): kodePoli · namaPoli · kapasitas · jmlRencanaKontroldanRujukan · persentase utilisasi (progress bar)
+- [x] **`DataDokterPanel`** (spec 11) — input `jnsKontrol` + `kdPoli` + `tglRencana` → `getDokterRK(...)` → table (`DokterRKSpecItem`): kodeDokter · namaDokter · jadwalPraktek · kapasitas
+- [x] Cross-link dokter → master `DOKTER_MOCK`
 
 ### BP6.8 Components
 
-- [ ] `RencanaKontrolPage.tsx` (~180L) — 7 sub-tab nav
-- [ ] `CariSEPRKPanel.tsx` (~200L)
-- [ ] `InsertRKV2Modal.tsx` (~350L) — 2-step + PRB dinamis (split ke sub: `PRBFormFields.tsx` ~250L per-penyakit render)
-- [ ] `UpdateRKV2Modal.tsx` (~280L) — reuse PRBFormFields
-- [ ] `PRBFormFields.tsx` (~280L) — 9 penyakit · dynamic field render · inline range validation
-- [ ] `InsertSPRIModal.tsx` (~160L) + `UpdateSPRIModal.tsx` (~150L)
-- [ ] `HapusRKModal.tsx` (~150L)
-- [ ] `CariNoSuratPanel.tsx` (~220L) — detail card + PRB display grid
-- [ ] `DataRKByKartuPanel.tsx` (~260L) + `DataRKPeriodePanel.tsx` (~250L) — filter + table + actions
-- [ ] `DataPoliPanel.tsx` (~170L) + `DataDokterPanel.tsx` (~190L)
-- [ ] Print template `RKSPRISuratTemplate.tsx` (~220L) — A4 KOP RS + PRB summary table
+- [x] `RencanaKontrolPage.tsx` (~180L) — 7 sub-tab nav
+- [x] `CariSEPRKPanel.tsx` (~200L)
+- [x] `InsertRKV2Modal.tsx` (~350L) — 2-step + PRB dinamis (split ke sub: `PRBFormFields.tsx` ~250L per-penyakit render)
+- [x] `UpdateRKV2Modal.tsx` (~280L) — reuse PRBFormFields
+- [x] `PRBFormFields.tsx` (~280L) — 9 penyakit · dynamic field render · inline range validation
+- [x] `InsertSPRIModal.tsx` (~160L) + `UpdateSPRIModal.tsx` (~150L)
+- [x] `HapusRKModal.tsx` (~150L)
+- [x] `CariNoSuratPanel.tsx` (~220L) — detail card + PRB display grid
+- [x] `DataRKByKartuPanel.tsx` (~260L) + `DataRKPeriodePanel.tsx` (~250L) — filter + table + actions
+- [x] `DataPoliPanel.tsx` (~170L) + `DataDokterPanel.tsx` (~190L)
+- [x] Print template `RKSPRISuratTemplate.tsx` (~220L) — A4 KOP RS + PRB summary table
 
 **Acceptance BP6:** ✅ 7 sub-tab functional · 11 endpoint wired via adapter · `formPRB` dinamis sesuai 9 penyakit kronik · validasi range per-field · SPRI ↔ RK terpisah (insert/update method beda) · filter list by Kartu (spec 8) + periode (spec 9) · print surat A4 KOP RS + PRB summary · jadwal dokter cross-ref master · TSC clean.
 
