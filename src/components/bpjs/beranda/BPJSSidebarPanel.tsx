@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
+  Settings2,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -166,6 +167,9 @@ function ReferenceRow({ row, index }: { row: ReferenceRowVm; index: number }) {
   );
 }
 
+const SYNC_INTERVALS = ["1j", "4j", "12j", "24j"] as const;
+type SyncInterval = (typeof SYNC_INTERVALS)[number];
+
 function ReferenceList({
   refreshKey,
   onRefresh,
@@ -180,10 +184,13 @@ function ReferenceList({
   const stale   = rows.filter((r) => r.status.staleness === "stale").length;
   const expired = rows.filter((r) => r.status.staleness === "expired").length;
 
+  const [syncInterval, setSyncInterval] = useState<SyncInterval>("24j");
+  const [showIntervalPicker, setShowIntervalPicker] = useState(false);
+
   return (
     <div className="flex h-full flex-col">
       {/* Summary bar */}
-      <div className="flex shrink-0 items-center gap-4 border-b border-slate-100 px-4 py-2.5 text-xs">
+      <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-slate-100 px-4 py-2.5 text-xs">
         <span className="flex items-center gap-1 font-semibold text-emerald-600">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
           {fresh} Fresh
@@ -196,6 +203,38 @@ function ReferenceList({
           <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
           {expired} Expired
         </span>
+        {/* Auto-sync interval config */}
+        <div className="relative ml-auto">
+          <button
+            type="button"
+            onClick={() => setShowIntervalPicker((v) => !v)}
+            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-medium text-slate-500 transition hover:border-sky-300 hover:text-sky-600"
+            title="Konfigurasi interval auto-sync referensi"
+          >
+            <Settings2 size={9} />
+            Auto-sync: {syncInterval}
+          </button>
+          {showIntervalPicker && (
+            <div className="absolute right-0 top-full z-20 mt-1 flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+              {SYNC_INTERVALS.map((iv) => (
+                <button
+                  key={iv}
+                  type="button"
+                  onClick={() => { setSyncInterval(iv); setShowIntervalPicker(false); }}
+                  className={cn(
+                    "px-4 py-1.5 text-left text-[11px] font-medium transition hover:bg-sky-50",
+                    iv === syncInterval ? "bg-sky-50 text-sky-700" : "text-slate-600",
+                  )}
+                >
+                  Setiap {iv}
+                </button>
+              ))}
+              <p className="border-t border-slate-100 px-3 py-1.5 text-[9px] text-slate-400">
+                Backend scheduled job diperlukan
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       <ul className="flex-1 divide-y divide-slate-100 overflow-y-auto">

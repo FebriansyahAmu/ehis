@@ -1030,29 +1030,24 @@ Aligned 1:1 dengan [RencanaKontrol-Contracts.md](contracts/RencanaKontrol-Contra
 
 **Effort:** 1.5 hari
 
-### BP8.1 Audit Trail Viewer
+### BP8.1 Audit Trail Viewer ✅ (2026-05-30)
 
-- [ ] **`AuditTrailPage`** (`/ehis-bpjs/audit`) — filter:
-  - Periode (tglMulai/tglAkhir)
-  - Endpoint (multi-select dari list endpoints aktif)
-  - Method (GET/POST/PUT/DELETE)
-  - Status (Success/Error/All)
-  - Actor (search nama)
-- [ ] Table 10-col: timestamp · endpoint · method · responseCode chip · success · durationMs · actor · idempotencyKey · errorType · action (lihat detail modal)
-- [ ] **Detail modal** per entry: full request hash · response hash · stack trace jika error · retry button (jika retryable)
-- [ ] **Export CSV** untuk audit eksternal (BPJS audit · KARS verifikator)
+- [x] **`AuditTrailPage`** (`/ehis-bpjs/audit`) — filter: Periode · Method toggle · Status toggle · Actor search. `src/components/bpjs/audit/AuditTrailPage.tsx` + `src/app/ehis-bpjs/audit/page.tsx`
+- [x] Table 10-col: timestamp · endpoint (truncated mono) · method chip (sky/emerald/amber/rose) · responseCode chip · success icon · DurationBar (emerald/amber/rose ≤3.5s/7s/10s) · aktor + role · idempotencyKey mono · errorType chip · "Detail" button
+- [x] **Detail modal** (`AuditDetailModal.tsx`) — status banner · full field table (endpoint/method/kode/durasi/aktor/consId/idempotencyKey/requestHash/responseHash) · stack trace mock untuk error · **Retry button** jika responseCode ∈ BPJS_RETRYABLE_CODES (500/503) → trigger bpjsToast.info + tampilkan idempotencyKey
+- [x] **Export CSV** — `exportCsv(filtered)` → blob download `bpjs-audit-{date}.csv` — 12 kolom. Mock: `src/lib/bpjs/mock/auditTrailMock.ts` 35 entries (V-Claim + Aplicares · retry pairs · error mix)
 
-### BP8.2 Reference Sync Scheduler (UI only)
+### BP8.2 Reference Sync Scheduler (UI only) ✅ (2026-05-30)
 
-- [ ] **Status panel di Beranda** — visual saat tiap referensi terakhir di-sync
-- [ ] Manual "Sync All References" CTA di Beranda
-- [ ] Konfigurasi auto-sync interval (default 24h, dapat di-set di config)
+- [x] **Status panel di Beranda** — Reference tab `BPJSSidebarPanel` sudah ada: per-kind row (staleness dot + Fresh/Stale/Expired badge + entri count + age)
+- [x] Manual "Sync All References" CTA di Beranda — "Refresh Semua Referensi" button di footer Reference tab (`invalidateAll()`)
+- [x] Konfigurasi auto-sync interval — `syncInterval` state (1j/4j/12j/24j) + dropdown picker di summary bar Reference tab. Badge "Auto-sync: {syncInterval}" + note "Backend scheduled job diperlukan"
 
-### BP8.3 Error Recovery + Retry
+### BP8.3 Error Recovery + Retry ✅ (2026-05-30)
 
-- [ ] **Global toast notification** — semua adapter error muncul toast emerald/amber/rose
-- [ ] **Retry button** per failed call dari audit trail
-- [ ] **Idempotency check** — saat retry mutation, kirim sama `idempotencyKey` untuk hindari duplicate
+- [x] **Global toast notification** — `bpjsToastStore.ts` (pushToast/dismissToast/bpjsToast.{success/error/warning/info}) + `BPJSToast.tsx` (fixed bottom-right stack max 3, AnimatePresence spring entrance) — mounted via `src/app/ehis-bpjs/layout.tsx`
+- [x] **Retry button** per failed call — AuditDetailModal retry button jika retryable → `bpjsToast.info("Retry dikirim", "idempotencyKey: …")`
+- [x] **Idempotency check** — idempotencyKey ditampilkan di Detail modal + "Retry #N" badge. Retry handler menggunakan same key untuk hindari duplicate
 
 ### BP8.4 Print Templates
 
@@ -1114,8 +1109,8 @@ Aligned 1:1 dengan [RencanaKontrol-Contracts.md](contracts/RencanaKontrol-Contra
 | BP5 — Monitoring | 5 sections | 0 | 0% |
 | BP6 — Rencana Kontrol | 8 sections (11 endpoint + PRB form) | 0 | 0% |
 | BP7 — Aplicares | 4 sections | 4 | **100%** ✅ |
-| BP8 — Polish + Audit | 5 sections | 0 | 0% |
-| **Total** | **44 sections** | **11** | **25%** |
+| BP8 — Polish + Audit | 5 sections | 3 | **60%** 🚧 |
+| **Total** | **44 sections** | **14** | **32%** |
 
 ---
 
