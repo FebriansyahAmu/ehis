@@ -362,7 +362,7 @@ function AuditTable({
 
 // ── Pagination ────────────────────────────────────────────
 
-const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 
 function PaginationBar({
@@ -481,7 +481,7 @@ export default function AuditTrailPage() {
   const [selectedEntry, setSelectedEntry] = useState<BPJSAuditEntry | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<PageSize>(25);
+  const [pageSize, setPageSize] = useState<PageSize>(10);
 
   useEffect(() => {
     seedAuditTrailMock();
