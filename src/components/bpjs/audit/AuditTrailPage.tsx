@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ClipboardList, CheckCircle2, XCircle, Timer, Filter,
   ChevronDown, ChevronUp, Download, Search,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BPJSAuditEntry, BPJSAuditMethod } from "@/lib/bpjs/bpjsShared";
@@ -359,6 +360,112 @@ function AuditTable({
   );
 }
 
+// ── Pagination ────────────────────────────────────────────
+
+const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
+type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
+
+function PaginationBar({
+  total,
+  page,
+  pageSize,
+  onPage,
+  onPageSize,
+}: {
+  total: number;
+  page: number;
+  pageSize: PageSize;
+  onPage: (p: number) => void;
+  onPageSize: (ps: PageSize) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to   = Math.min(page * pageSize, total);
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 text-[11px]">
+      {/* Info */}
+      <p className="text-slate-500">
+        Menampilkan{" "}
+        <span className="font-semibold text-slate-700">{from}–{to}</span>{" "}
+        dari{" "}
+        <span className="font-semibold text-slate-700">{total}</span> entri
+      </p>
+
+      <div className="flex items-center gap-3">
+        {/* Per-page */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-slate-400">Baris</span>
+          <div className="flex gap-0.5 rounded-lg bg-slate-100 p-0.5">
+            {PAGE_SIZE_OPTIONS.map((ps) => (
+              <button
+                key={ps}
+                type="button"
+                onClick={() => { onPageSize(ps); onPage(1); }}
+                className={cn(
+                  "rounded-md px-2 py-0.5 font-semibold transition",
+                  pageSize === ps
+                    ? "bg-white text-slate-700 shadow-sm"
+                    : "text-slate-400 hover:text-slate-600",
+                )}
+              >
+                {ps}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Nav buttons */}
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            disabled={page === 1}
+            onClick={() => onPage(1)}
+            className="rounded-lg border border-slate-200 p-1 text-slate-500 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 disabled:pointer-events-none disabled:opacity-30"
+            title="Halaman pertama"
+          >
+            <ChevronsLeft size={13} />
+          </button>
+          <button
+            type="button"
+            disabled={page === 1}
+            onClick={() => onPage(page - 1)}
+            className="rounded-lg border border-slate-200 p-1 text-slate-500 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 disabled:pointer-events-none disabled:opacity-30"
+            title="Halaman sebelumnya"
+          >
+            <ChevronLeft size={13} />
+          </button>
+
+          {/* Page indicator */}
+          <span className="mx-1.5 tabular-nums text-slate-600">
+            <span className="font-semibold text-slate-800">{page}</span>
+            <span className="text-slate-400"> / {totalPages}</span>
+          </span>
+
+          <button
+            type="button"
+            disabled={page >= totalPages}
+            onClick={() => onPage(page + 1)}
+            className="rounded-lg border border-slate-200 p-1 text-slate-500 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 disabled:pointer-events-none disabled:opacity-30"
+            title="Halaman berikutnya"
+          >
+            <ChevronRight size={13} />
+          </button>
+          <button
+            type="button"
+            disabled={page >= totalPages}
+            onClick={() => onPage(totalPages)}
+            className="rounded-lg border border-slate-200 p-1 text-slate-500 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 disabled:pointer-events-none disabled:opacity-30"
+            title="Halaman terakhir"
+          >
+            <ChevronsRight size={13} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────
 
 export default function AuditTrailPage() {
@@ -373,6 +480,8 @@ export default function AuditTrailPage() {
   });
   const [selectedEntry, setSelectedEntry] = useState<BPJSAuditEntry | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PageSize>(25);
 
   useEffect(() => {
     seedAuditTrailMock();
@@ -407,6 +516,14 @@ export default function AuditTrailPage() {
   const endpointOptions = useMemo(
     () => [...new Set(allEntries.map((e) => e.endpoint))].sort(),
     [allEntries],
+  );
+
+  // Reset ke halaman 1 setiap kali filter mengubah hasil
+  useEffect(() => { setPage(1); }, [filtered.length, filter]);
+
+  const paginatedRows = useMemo(
+    () => filtered.slice((page - 1) * pageSize, page * pageSize),
+    [filtered, page, pageSize],
   );
 
   function openDetail(entry: BPJSAuditEntry) {
@@ -467,7 +584,14 @@ export default function AuditTrailPage() {
         transition={{ duration: 0.3, delay: 0.2 }}
         className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
       >
-        <AuditTable rows={filtered} onDetail={openDetail} />
+        <AuditTable rows={paginatedRows} onDetail={openDetail} />
+        <PaginationBar
+          total={filtered.length}
+          page={page}
+          pageSize={pageSize}
+          onPage={setPage}
+          onPageSize={setPageSize}
+        />
       </motion.div>
     </motion.div>
   );

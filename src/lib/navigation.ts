@@ -139,7 +139,7 @@ export const MODULES: readonly ModuleDescriptor[] = [
   {
     key: "bpjs",
     label: "EHIS BPJS",
-    desc: "Bridging V-Claim & Aplicares",
+    desc: "Bridging WS BPJS",
     href: "/ehis-bpjs",
     icon: ShieldCheck,
     accent: { bg: "bg-emerald-50", text: "text-emerald-600", ring: "ring-emerald-100" },

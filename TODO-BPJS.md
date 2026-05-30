@@ -1049,31 +1049,20 @@ Aligned 1:1 dengan [RencanaKontrol-Contracts.md](contracts/RencanaKontrol-Contra
 - [x] **Retry button** per failed call — AuditDetailModal retry button jika retryable → `bpjsToast.info("Retry dikirim", "idempotencyKey: …")`
 - [x] **Idempotency check** — idempotencyKey ditampilkan di Detail modal + "Retry #N" badge. Retry handler menggunakan same key untuk hindari duplicate
 
-### BP8.4 Print Templates
+### BP8.4 Print Templates ✅ (2026-05-30)
 
-- [ ] **Cetak SEP** (`SEPCetakTemplate`) A4 KOP RS
-- [ ] **Cetak Rencana Kontrol/SPRI** (`RKSPRISuratTemplate`) A4 KOP RS
-- [ ] **Cetak Audit Report** (`AuditReportTemplate`) — periode + summary + tabel detail
+- [x] **Cetak SEP** (`SEPCetakTemplate`) A4 KOP RS — [src/components/bpjs/sep/SEPCetakTemplate.tsx](src/components/bpjs/sep/SEPCetakTemplate.tsx) (~230L) · KopSuratEklaim compact · 2-col grid pelayanan+peserta · diagnosa chip · jaminan KLL conditional · TTD 2-col
+- [x] **Cetak Rencana Kontrol/SPRI** (`RKSPRISuratTemplate`) A4 KOP RS — [src/components/bpjs/rencana-kontrol/RKSPRISuratTemplate.tsx](src/components/bpjs/rencana-kontrol/RKSPRISuratTemplate.tsx) (~250L) · discriminated SPRI/Kontrol title · peserta dari sep.peserta · PRB status label + non-null field table · TTD dokter penerbit
+- [x] **Cetak Audit Report** (`AuditReportTemplate`) — [src/components/bpjs/audit/AuditReportTemplate.tsx](src/components/bpjs/audit/AuditReportTemplate.tsx) (~230L) · KPI strip 4-card (total/berhasil/gagal/avg latency) · top-failed endpoint banner · tabel compact 8-col + method chip + status icon · TTD penanggung jawab
 
-### BP8.5 Update Workflow Docs
+### BP8.5 Update Workflow Docs ✅ (2026-05-30)
 
-- [ ] **Update [CLAUDE.md](CLAUDE.md)** — tambah entry `/ehis-bpjs` row di Module Map. Cross-ref ke `/ehis-eklaim` (klaim consume V-Claim) + `/ehis-registration` (SEP saat admisi) + `/ehis-master/ruangan` (Aplicares bed sync).
-- [ ] **Update [TODOS_BACKEND.md](TODOS_BACKEND.md)** — tambah Phase B-BPJS:
-  - Auth header HMAC-SHA256 (Node crypto)
-  - LZ-String compression NPM `lz-string`
-  - Secret manager untuk consId/consSecret/userKey
-  - Audit log table di DB
-  - Scheduled job referensi sync (BullMQ atau cron)
-  - WebSocket push untuk bed status realtime
-- [ ] **Update [TECH_DEBT.md](TECH_DEBT.md)** — catat:
-  - vClaimAdapter relocation backward-compat sementara → cleanup setelah eklaim refactor
-  - Real HMAC signature implementation (mock skip)
-  - Real LZ-String compression (mock skip)
-  - Wilayah Kemendagri JSON untuk dropdown propinsi/kabupaten/kecamatan
-  - Reference sync scheduler (frontend manual → backend cron)
-- [ ] **Update [navigation.ts](src/lib/navigation.ts)** — tambah `/ehis-bpjs` ke sidebar utama dengan icon `ShieldCheck` + bpjsNav internal nav (V-Claim 5 + Aplicares 3 + Audit)
+- [x] **Update [CLAUDE.md](CLAUDE.md)** — Module Map `/ehis-bpjs` updated 100% ✅ + Active Work entry + cross-ref eklaim/registration/master/ruangan
+- [x] **Update [TODOS_BACKEND.md](TODOS_BACKEND.md)** — Phase B3.5 B-BPJS ditambahkan: Credentials+HMAC+LZ · HTTP transport+circuit breaker+rate limit · Audit DB · Reference cache Redis+cron · Aplicares bed sync WebSocket · Integration points consumer modules · Effort estimate 15-22 hari
+- [x] **Update [TECH_DEBT.md](TECH_DEBT.md)** — sudah ada semua BPJS items di baris 82-94 sejak BP0 selesai (vClaimAdapter shim · HMAC · LZ · credentials · cron · audit DB · WebSocket · circuit breaker · Kemendagri JSON)
+- [x] **Update [navigation.ts](src/lib/navigation.ts)** — `bpjsNav` sudah ada sejak BP1.3 (V-Claim 5 + Aplicares 3 + Audit). `MODULES` entry key "bpjs" sudah ada dengan emerald accent + `ShieldCheck` icon.
 
-**Acceptance BP8:** ✅ Audit viewer filter + export · retry mechanism · 3 print template · CLAUDE.md + TODOS_BACKEND.md + TECH_DEBT.md + navigation.ts updated · TSC clean across all files.
+**Acceptance BP8:** ✅ Audit viewer filter + export · retry mechanism + Toast · 3 print template (SEP/RK-SPRI/Audit A4 KOP RS) · CLAUDE.md + TODOS_BACKEND.md + TECH_DEBT.md + navigation.ts updated · TSC clean.
 
 ---
 
@@ -1103,14 +1092,14 @@ Aligned 1:1 dengan [RencanaKontrol-Contracts.md](contracts/RencanaKontrol-Contra
 |---|---|---|---|
 | BP0 — Foundation | 4 sections (Auth + Types + Mock + Adapter) | 4 | **100%** ✅ |
 | BP1 — Beranda BPJS | 3 sections | 3 | **100%** ✅ |
-| BP2 — Kepesertaan | 2 sections | 0 | 0% |
-| BP3 — SEP | 8 sections | 0 | 0% |
-| BP4 — Rujukan | 5 sections | 0 | 0% |
-| BP5 — Monitoring | 5 sections | 0 | 0% |
-| BP6 — Rencana Kontrol | 8 sections (11 endpoint + PRB form) | 0 | 0% |
+| BP2 — Kepesertaan | 2 sections | 2 | **100%** ✅ |
+| BP3 — SEP | 8 sections | 8 | **100%** ✅ |
+| BP4 — Rujukan | 5 sections | 5 | **100%** ✅ |
+| BP5 — Monitoring | 5 sections | 5 | **100%** ✅ |
+| BP6 — Rencana Kontrol | 8 sections (11 endpoint + PRB form) | 8 | **100%** ✅ |
 | BP7 — Aplicares | 4 sections | 4 | **100%** ✅ |
-| BP8 — Polish + Audit | 5 sections | 3 | **60%** 🚧 |
-| **Total** | **44 sections** | **14** | **32%** |
+| BP8 — Polish + Audit | 5 sections | 5 | **100%** ✅ |
+| **Total** | **44 sections** | **44** | **100%** ✅ |
 
 ---
 

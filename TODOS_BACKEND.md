@@ -245,6 +245,52 @@ Memetakan 25 master sub-module yang sudah dibangun di [/ehis-master](src/app/ehi
 - [ ] **Kepesertaan check** — verifikasi status peserta BPJS (aktif/non-aktif/tunggakan).
 - [ ] **Rujukan FKTP** — terima rujukan dari FKTP via API gateway BPJS.
 
+### B3.5 BPJS Integration Hub Backend (Phase B-BPJS)
+
+> Frontend **100% selesai** di `/ehis-bpjs` (lihat [TODO-BPJS.md](TODO-BPJS.md)). Semua adapter sekarang mock `simulateLatency` + `shouldSimulateNetworkError`. Backend swap = ganti body adapter function + hapus mock preflight.
+
+#### Credentials & Security
+- [ ] **Secret manager** — `consId` / `consSecret` / `userKey` wajib di-store di Vault / AWS Secrets Manager / env-encrypted, **bukan** plaintext di `.env`. Inject ke adapter via server-side env di `credentialsStore.ts`.
+- [ ] **Real HMAC-SHA256 signature** — ganti `authHeader.ts` mock dengan Node.js `crypto.createHmac('sha256', consSecret).update(payload).digest('base64')`. Timestamp Unix second mandatory.
+- [ ] **Real LZ-String compression** — `npm install lz-string`. Ganti no-op di `lzStringHelper.ts` dengan `LZString.compressToEncodedURIComponent(payload)` (V-Claim wajib untuk payload large).
+
+#### HTTP Transport
+- [ ] **V-Claim HTTP client** — wrapper `fetch` / Axios ke `https://apijkn.bpjs-kesehatan.go.id/vclaim-rest/` + Aplicares base URL. Headers: `x-cons-id`, `x-timestamp`, `x-signature`, `user_key`, `Content-Type: application/json`.
+- [ ] **Timeout + circuit breaker** — timeout 10s per call. Circuit breaker pattern: open setelah 5 consecutive error, half-open probe setiap 60s. Library: `cockatiel` atau custom.
+- [ ] **Rate limiting per cons-id** — BPJS impose ~1000 req/hari per cons-id. Counter di Redis, reject early (HTTP 429 ke UI) jika quota hampir habis.
+- [ ] **Retry queue** — failed mutation (POST/PUT/DELETE) queue via BullMQ + Redis. Exponential backoff: 30s → 2m → 10m → manual. Same idempotency key (sudah di-generate frontend di `idempotencyKey.ts`).
+
+#### Audit Log Persistence
+- [ ] **`BPJSAuditLog` DB table** — persist `BPJSAuditEntry` ke PostgreSQL. Retention 5 tahun per UU PDP 27/2022. Columns: id, timestamp, endpoint, method, requestHash, responseCode, success, durationMs, actor, actorRole, consId, idempotencyKey, errorType, retryCount.
+- [ ] **Swap `auditStore.ts`** — client-side ring buffer cukup untuk demo. Backend: ganti `logAuditEntry()` → `POST /api/bpjs/audit/log`. Sync tetap ke client store untuk real-time Beranda panel.
+- [ ] **`GET /api/bpjs/audit`** — filter endpoint/method/actor/periode/status. Pagination. Export CSV endpoint.
+
+#### Reference Sync Scheduler
+- [ ] **Cron job referensi** — BullMQ repeatable job sync kode referensi BPJS (poli, faskes, diagnosa, spesialis, dokter) dengan interval configurable (default 24h). Endpoint: `POST /api/bpjs/admin/sync-references`.
+- [ ] **`referenceCache.ts` persistence** — swap in-memory Map → Redis dengan TTL sesuai `CACHE_TTL` per kind. Key: `bpjs:ref:{kind}`. Atomic update via `SET EX`.
+- [ ] **Notifikasi stale** — jika referensi expired saat UI cek, trigger background re-sync + push WebSocket event ke Beranda panel (Reference tab staleness dot update).
+
+#### Aplicares Bed Sync
+- [ ] **WebSocket push untuk bed status** — Aplicares kirim update ketersediaan kamar via polling atau webhook. Backend polling 5 menit ke `getKetersediaan()` → update `AplicaresKamar` table → push via WebSocket/SSE ke `KetersediaanKamarPage`.
+- [ ] **`AplicaresKamar` DB table** — sync dari `APLICARES_KAMAR_MOCK`. Update `lastSyncISO`, `tersedia`, `terisi`, `maintenance` per row.
+- [ ] **Maintenance log** — `AplicaresMaintenanceLog` table: kamarId, startedAt, endAt, alasan, userId. Untuk audit dan reporting BOR.
+
+#### Integration Points (consumer modules)
+- [ ] **`/ehis-registration` admisi** — saat admisi pasien BPJS, call `insertSEP()` dari `vClaimSEP.ts` (sudah ada mock). Inject consId dari server env.
+- [ ] **`/ehis-care/rawat-inap` pulang** — saat discharge finalized, call `updateTglPulang()` + `updateKamar()` (set bed Tersedia). Sudah di-wire di frontend `PasienPulangTab` via mock.
+- [ ] **`/ehis-eklaim` submit** — `vClaimAdapter.submitClaim()` di `SubmissionTab.tsx` sudah consume real adapter path. Backend tinggal ganti mock transport → real HTTP.
+
+#### Effort Estimate B-BPJS
+| Sub-task | Estimasi |
+|---|---|
+| Credentials + HMAC + LZ | 2–3 hari |
+| HTTP transport + circuit breaker + rate limit | 3–4 hari |
+| Audit DB + swap auditStore | 2–3 hari |
+| Reference cache Redis + cron | 3–4 hari |
+| Aplicares bed sync + WebSocket | 3–5 hari |
+| Integration points (Reg/RI/Eklaim) | 2–3 hari |
+| **Total** | **~15–22 hari (3–4.5 minggu)** |
+
 ### B3.3 Audit Trail
 - [ ] **`AuditLog` table** — userId, action (CREATE/UPDATE/DELETE/LOGIN/LOGOUT/VIEW), resource (entity name), resourceId, payloadBefore, payloadAfter, ipAddress, userAgent, timestamp.
 - [ ] **Middleware** — wrap semua CUD operation otomatis log.
