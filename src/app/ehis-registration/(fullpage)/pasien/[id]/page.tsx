@@ -1,7 +1,6 @@
-import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { patientMasterData } from "@/lib/data";
-import PatientDashboard from "@/components/registration/PatientDashboard";
+import PatientResolver from "@/components/registration/PatientResolver";
 
 export async function generateMetadata({
   params,
@@ -10,9 +9,8 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const patient = patientMasterData[decodeURIComponent(id)];
-  return {
-    title: patient ? `Pasien · ${patient.name}` : "Pasien Tidak Ditemukan",
-  };
+  // Pasien baru (hanya di registrationStore client) → judul generik.
+  return { title: patient ? `Pasien · ${patient.name}` : "Pasien" };
 }
 
 export default async function PatientDashboardPage({
@@ -21,8 +19,5 @@ export default async function PatientDashboardPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const patient = patientMasterData[decodeURIComponent(id)];
-  if (!patient) notFound();
-
-  return <PatientDashboard patient={patient} />;
+  return <PatientResolver id={decodeURIComponent(id)} />;
 }

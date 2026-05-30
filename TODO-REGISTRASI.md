@@ -11,8 +11,8 @@
 > - [TECH_DEBT.md](TECH_DEBT.md) — tech debt registry (item yang ditunda dicatat di sini)
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (RBAC role-gate depend B0)
 >
-> **Last updated:** 2026-05-30
-> **Status:** 🚧 **Patient profile management sudah kuat, mesin loket belum ada.** PatientDashboard (MDI multi-tab + 8 modal) ✅, PasienListPage ✅, Beranda ✅, KunjunganDetail 7-tab ✅. **Yang belum:** pendaftaran fungsional end-to-end (pasien baru & kunjungan masih no-op), board loket (dead-link `/antrian`), SEP RJ inline.
+> **Last updated:** 2026-05-31
+> **Status:** 🚧 **REG0 fondasi ✅ (2026-05-31).** `registrationStore` + resolver + types siap — pasien/kunjungan baru kini bisa persist & dibuka. PatientDashboard (MDI + 8 modal) ✅, PasienListPage ✅, Beranda ✅, KunjunganDetail 7-tab ✅. **Berikutnya:** REG1 (pasien baru persist+redirect), REG2 (DaftarKunjungan + SEP RJ). Masih no-op: submit PasienBaruModal & DaftarKunjunganModal.
 > **Target effort:** ~1–1.5 minggu (frontend, mock-first).
 
 ---
@@ -53,18 +53,17 @@
 
 **Effort:** 1 hari · **ROI:** tanpa ini, pendaftaran cuma UI mati.
 
-### REG0.1 Data contracts
-- [ ] `NewPatientInput` & `PendaftaranKunjunganInput` di `src/lib/data.ts` (atau `src/lib/registration/types.ts`) — mirror schema Prisma target.
-- [ ] Tipe `JenisPelayanan` (`RJ` fokus sekarang; `IGD`/`RI` placeholder).
+### REG0.1 Data contracts ✅ (2026-05-31)
+- [x] `NewPatientInput`, `PendaftaranKunjunganInput`, `BpjsPesertaAutofill`, `JenisKunjunganUnit/JenisKunjungan` di [src/lib/registration/types.ts](src/lib/registration/types.ts) — mirror schema target.
 
-### REG0.2 `registrationStore` (sessionStorage-backed `useSyncExternalStore`)
-- [ ] State: `newPatients: Record<noRM, PatientMaster>` + `newKunjungan: Record<noRM, KunjunganRecord[]>`.
-- [ ] API: `addPatient()`, `addKunjungan()`, `getPatient(noRM)`, `subscribe()`, `getSnapshot()`.
-- [ ] Generator `noRM` deterministik (bukan acak murni — cek tabrakan dgn `patientMasterData`).
+### REG0.2 `registrationStore` ✅ (2026-05-31) — [src/lib/registration/registrationStore.ts](src/lib/registration/registrationStore.ts)
+- [x] State: `patients: Record<noRM, PatientMaster>` + `kunjungan: Record<noRM, KunjunganRecord[]>` (overlay, sessionStorage `ehis.registration.v1`).
+- [x] API: `addPatient()`, `addKunjungan()`, `getMergedPatient()`, `getMergedKunjungan()`, `getAllMergedPatients()`, `useRegistrationStore()` (useSyncExternalStore).
+- [x] Generator `noRM` deterministik (`RM-<th>-<seq>` max+1 vs seed+store) + age/format tanggal id + no. pendaftaran/kunjungan.
 
-### REG0.3 Resolver merge statis + store
-- [ ] Client-resolver untuk `/pasien/[id]` & `.../kunjungan/[kunjunganId]`: jangan langsung `notFound()`; merge `patientMasterData` + `registrationStore`. Seed lama tetap jalan, pasien baru ter-resolve.
-- [ ] Fallback `notFound()` hanya jika tidak ada di **keduanya**.
+### REG0.3 Resolver merge statis + store ✅ (2026-05-31)
+- [x] [PatientResolver](src/components/registration/PatientResolver.tsx) & [KunjunganResolver](src/components/registration/KunjunganResolver.tsx): server render seed (deterministik, no hydration mismatch) → setelah mount resolve dari store. `notFound()` hanya bila tak ada di keduanya pasca-hidrasi.
+- [x] Server page `/pasien/[id]` & `.../kunjungan/[kunjunganId]` render resolver. `tsc` clean.
 
 ---
 

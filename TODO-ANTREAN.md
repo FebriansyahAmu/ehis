@@ -16,7 +16,7 @@
 > **Target effort:** ~2–2.5 minggu (frontend, mock-first).
 
 > ### 🚦 Urutan Build (disepakati 2026-05-30)
-> `REG0` (fondasi persistensi) → `ANT1` (store + TaskID engine) → `REG1`/`REG2` (pasien baru + daftar kunjungan + SEP RJ) → `ANT2` (Antrean List) → `ANT4` (Respon Kedatangan bridge) → sisanya (`ANT3` Pengaturan · `ANT5` Monitoring · `ANT6` Referensi/HFIS · `ANT7` Display+polish).
+> `REG0` (fondasi persistensi) → `ANT1` (store + TaskID engine) → `REG1`/`REG2` (pasien baru + daftar kunjungan + SEP RJ) → `ANT2` (Antrean List) → `ANT4` (Respon Kedatangan bridge) → `ANT-RJ` (Care RJ worklist actionable, emit T4/T5) → sisanya (`ANT3` Pengaturan · `ANT5` Monitoring · `ANT6` Referensi/HFIS · `ANT7` Display+polish).
 > REG0 & ANT1 boleh paralel. Task 6–7 (antrean farmasi) di-cover tapi dikerjakan setelah core flow stabil.
 
 ---
@@ -172,9 +172,13 @@ Tombol **Respon Kedatangan** mencabang berdasarkan ada/tidaknya No. RM:
 ### ANT4.3 Wiring consume
 - [ ] `getAntreanByPasien(noRM)` / `getAntreanByBooking(kode)` untuk consume.
 - [ ] Badge "Antrean #B-xx · est. 10:30 · task N" di detail kunjungan RJ + worklist RJ EHIS Care.
-- [ ] Hook `emitTask` dipanggil dari EHIS Care RJ (lihat ANT4.4) & Farmasi (task 6 siapkan, task 7 serah).
+- [ ] Hook `emitTask` dipanggil dari EHIS Care RJ (lihat **Phase ANT-RJ**) & Farmasi (task 6 siapkan, task 7 serah).
 
-### ANT4.4 Enhancement EHIS Care RJ — Terima Order Poli (emit T4/T5) *(fungsi BARU)*
+---
+
+## Phase ANT-RJ — EHIS Care RJ: Worklist Actionable (Terima/Panggil/Batal + emit T4/T5) *(modul Care, fungsi BARU)*
+
+**Effort:** 2–2.5 hari (worklist actionable + finalize/lock) · **Modul:** `/ehis-care/rawat-jalan` (bukan antrean, tapi sumber emit T4/T5). **Depend:** `emitTask` dari ANT1 (boleh distub dulu lalu disambung).
 
 **Cek 2026-05-30:** belum ada — [RJBoard](src/components/rawat-jalan/RJBoard.tsx) read-only, kartu cuma `Link`; `RJStatus` ([data.ts:2106](src/lib/data.ts#L2106)) sumbu klinis-skrining statis, tanpa store/aksi.
 
@@ -191,6 +195,18 @@ Order_Masuk ─(Panggil ⇒ T4)─▶ Dipanggil ─(Terima)─▶ Dilayani ─(S
 - [ ] **Batal Kunjungan** → status `Dikembalikan_Admisi`, order balik ke worklist loket (admisi). *(T99 ditunda.)*
 - [ ] Store transisi status RJ (reaktif, pola `useSyncExternalStore`) — `RJBoard` tidak lagi read-only.
 - [ ] **Mock data simulasi**: tambah entri `rjPatients` status `Order_Masuk` (belum dipanggil) & `Dipanggil` (belum diterima) agar board menampilkan pasien **belum diterima** + tombol aksinya. Badge "Order Masuk dari Admisi".
+
+### ANT-RJ.Lock — Finalize & Lock Encounter (RJ) *(keputusan 2026-05-30)*
+
+Tombol **Selesaikan** di header [RJPatientHeader](src/components/rawat-jalan/RJPatientHeader.tsx) (kiri tombol X, baris breadcrumb). Untuk **RJ cukup Selesaikan & lock** — **tanpa modal disposisi** (disposisi-di-tombol-Selesai = pola **RI & IGD** nanti; [DisposisiRJTab](src/components/rawat-jalan/tabs/DisposisiRJTab.tsx) tetap terpisah).
+
+- [ ] **Guard wajib sebelum lock: diagnosa (ICD-10) terisi** — syarat data klaim. Surface kelengkapan ini juga di sub-tab terkait (data kebutuhan klaim), bukan hanya di tombol. Tombol disabled + tampilkan penghambat bila belum lengkap.
+- [ ] Klik **Selesaikan** → **emit T5** → status `Selesai` → **lock encounter** (read-only: asesmen · TTV · edit CPPT · edit diagnosa · order baru · resep baru).
+- [ ] Capture **`selesaiAt`** = timestamp finalize **pertama** → **immutable** (tidak berubah walau di-reopen).
+- [ ] **Whitelist tetap boleh pasca-lock**: rencana kontrol (+ SEP kontrol berikutnya) · penerbitan surat (sehat/sakit/keterangan/salinan resep/rujukan susulan) · cetak dokumen/SEP/resume.
+- [ ] **Batalkan Selesai** (re-open) → unlock untuk edit lagi. `selesaiAt` pertama **dipertahankan** (tidak bisa diubah untuk sekarang).
+- [ ] Flag `locked` + `selesaiAt` di store RJ (nyatu dgn store transisi di atas, pola `useSyncExternalStore`). Header tampilkan status terkunci + ganti tombol jadi "Batalkan Selesai".
+- [ ] Episode/farmasi: bila ada resep, farmasi tetap jalan (T6/T7) setelah lock — lock hanya menutup input klinis poli, bukan farmasi/billing.
 
 ---
 
@@ -240,7 +256,7 @@ Order_Masuk ─(Panggil ⇒ T4)─▶ Dipanggil ─(Terima)─▶ Dilayani ─(S
 ## 🔗 Integrasi Lintas Modul
 
 - **→ [TODO-REGISTRASI.md](TODO-REGISTRASI.md)**: Respon Kedatangan men-trigger PasienBaru (REG1) & DaftarKunjungan+SEP RJ (REG2); board loket pindah ke sini (REG3 di-deprecate).
-- **→ EHIS Care (RJ)**: emit **task 4** (Panggil poli) & **task 5** (selesai poli) via `emitTask`.
+- **→ EHIS Care (RJ)**: emit **task 4** (Panggil poli) & **task 5** (Selesai Pelayanan) via `emitTask` — worklist actionable (Terima/Panggil/Batal). Lihat **Phase ANT-RJ**.
 - **→ Farmasi**: emit **task 6** (siapkan obat) & **task 7** (serah obat) via `workflowStore` → `emitTask`.
 - **→ `/ehis-master/jadwal-dokter`** (sub-menu baru): single source jadwal dokter (tarik via HFIS); antrean & RJ consume.
 - **→ [TODO-BPJS.md](TODO-BPJS.md)**: Antrol WS sejajar V-Claim — share kredensial bridging, endpoint terpisah.
