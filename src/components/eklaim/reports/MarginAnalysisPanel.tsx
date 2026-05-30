@@ -2,9 +2,10 @@
 
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { TrendingUp, TrendingDown, Info, AlertTriangle } from "lucide-react";
+import { TrendingUp, TrendingDown, Info, AlertTriangle, Download } from "lucide-react";
 import { buildMarginGroups, type MarginGroup } from "@/lib/eklaim/dashboardShared";
 import { formatRupiahShort } from "@/lib/eklaim/money";
+import { downloadCSV, todayISO } from "@/lib/eklaim/exportUtils";
 
 // ── Helpers ────────────────────────────────────────────
 
@@ -25,14 +26,41 @@ export default function MarginAnalysisPanel() {
   const totalNegative = loss.reduce((s, g) => s + g.totalNominal, 0n);
   const netMargin = totalPositive + totalNegative; // totalNegative already negative
 
+  function handleExportCSV() {
+    downloadCSV(`klaim-margin-idrg-${todayISO()}.csv`, [
+      {
+        title: "Margin iDRG per MDC Group",
+        headers: ["MDC Group", "Kode iDRG", "Jml Klaim", "Avg Margin (%)", "Total Nominal"],
+        rows: groups.map((g) => [
+          g.label,
+          g.code,
+          g.count,
+          `${g.avgMarginPct > 0 ? "+" : ""}${g.avgMarginPct.toFixed(1)}`,
+          formatRupiahShort(g.totalNominal < 0n ? -g.totalNominal : g.totalNominal) +
+            (g.totalNominal < 0n ? " (defisit)" : " (surplus)"),
+        ]),
+      },
+    ]);
+  }
+
   return (
     <div className="space-y-5 p-5">
       {/* Panel header */}
-      <div>
-        <h2 className="text-base font-semibold text-slate-800">Margin iDRG per MDC Group</h2>
-        <p className="text-sm text-slate-500">
-          Selisih tarif grouper vs tarif RS · per kelompok diagnostik (MDC)
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-800">Margin iDRG per MDC Group</h2>
+          <p className="text-sm text-slate-500">
+            Selisih tarif grouper vs tarif RS · per kelompok diagnostik (MDC)
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleExportCSV}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-sm font-medium text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+        >
+          <Download size={13} className="text-teal-600" />
+          CSV
+        </button>
       </div>
 
       {/* Summary cards */}

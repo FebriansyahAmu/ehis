@@ -2,13 +2,14 @@
 
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { TrendingUp, TrendingDown, XCircle } from "lucide-react";
+import { TrendingUp, TrendingDown, XCircle, Download } from "lucide-react";
 import {
   buildApprovalRateData,
   buildRejectedReasons,
   type PeriodKey,
   type MonthPoint,
 } from "@/lib/eklaim/dashboardShared";
+import { downloadCSV, todayISO } from "@/lib/eklaim/exportUtils";
 
 // ── SVG Chart constants ────────────────────────────────
 
@@ -73,6 +74,27 @@ export default function ApprovalRatePanel() {
   const prev   = chartData.length > 1 ? chartData[chartData.length - 2] : null;
   const overallDelta = prev ? latest.overall - prev.overall : 0;
 
+  function handleExportCSV() {
+    downloadCSV(`klaim-approval-rate-${todayISO()}.csv`, [
+      {
+        title: "Tren Approval Rate",
+        headers: ["Bulan", "BPJS (%)", "Asuransi (%)", "Jamkesda (%)", "Overall (%)"],
+        rows: chartData.map((p) => [
+          p.label,
+          (p.bpjs * 100).toFixed(1),
+          (p.asuransi * 100).toFixed(1),
+          (p.jamkesda * 100).toFixed(1),
+          (p.overall * 100).toFixed(1),
+        ]),
+      },
+      {
+        title: "Top 5 Alasan Ditolak",
+        headers: ["Alasan", "Jumlah", "Persentase (%)"],
+        rows: reasons.map((r) => [r.reason, r.count, r.percent]),
+      },
+    ]);
+  }
+
   return (
     <div className="p-5 space-y-5">
       {/* Panel header */}
@@ -83,7 +105,16 @@ export default function ApprovalRatePanel() {
             Persetujuan klaim per penjamin · rolling {periodCfg.months} bulan
           </p>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-sm font-medium text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+          >
+            <Download size={13} className="text-teal-600" />
+            CSV
+          </button>
+          <div className="flex items-center gap-1">
           {PERIOD_OPTS.map(opt => (
             <button
               key={opt.key}
@@ -98,6 +129,7 @@ export default function ApprovalRatePanel() {
               {opt.label}
             </button>
           ))}
+          </div>
         </div>
       </div>
 

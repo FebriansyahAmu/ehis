@@ -12,7 +12,8 @@
  */
 
 import { motion } from "framer-motion";
-import { Upload, ArrowDownUp, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { Upload, ArrowDownUp, CheckCircle2, AlertCircle, Clock, FileText } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { formatRupiah } from "@/lib/eklaim/money";
 import type { ReconciliationRecord } from "@/lib/eklaim/eklaimShared";
@@ -159,6 +160,19 @@ function TransferItem({
         >
           {statusCfg.label}
         </span>
+
+        {/* Laporan link — only for completed records */}
+        {record.completedAt && (
+          <Link
+            href={`/ehis-eklaim/reconciliation/${record.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="ml-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-teal-600 ring-1 ring-teal-200 transition hover:bg-teal-50 focus:outline-none"
+            title="Lihat laporan detail"
+          >
+            <FileText size={10} />
+            Laporan
+          </Link>
+        )}
       </div>
     </button>
   );

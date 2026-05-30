@@ -2,13 +2,14 @@
 
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { AlertTriangle, Clock, Users } from "lucide-react";
+import { AlertTriangle, Clock, Users, Download } from "lucide-react";
 import {
   buildAgingData,
   buildStuckClaims,
   type AgingRow,
 } from "@/lib/eklaim/dashboardShared";
-import { formatRupiahShort } from "@/lib/eklaim/money";
+import { formatRupiahShort, formatRupiah } from "@/lib/eklaim/money";
+import { downloadCSV, todayISO } from "@/lib/eklaim/exportUtils";
 
 // ── Color map per penjamin ─────────────────────────────
 
@@ -50,14 +51,45 @@ export default function AgingKlaimPanel() {
 
   const maxTotal = Math.max(...agingRows.map(r => r.total), 1);
 
+  function handleExportCSV() {
+    downloadCSV(`klaim-aging-${todayISO()}.csv`, [
+      {
+        title: "Aging Klaim per Penjamin",
+        headers: ["Bucket", "BPJS", "Asuransi", "Jamkesda", "Total"],
+        rows: agingRows.map((r) => [r.label, r.bpjs, r.asuransi, r.jamkesda, r.total]),
+      },
+      {
+        title: "Stuck Claims (Pending Verifikasi > 30 hari)",
+        headers: ["No Klaim", "Pasien ID", "Penjamin", "Hari Pending", "Tarif RS"],
+        rows: stuckClaims.map((c) => [
+          c.noKlaim,
+          c.pasienId,
+          c.penjaminNama,
+          c.daysPending,
+          formatRupiah(c.tarifRS),
+        ]),
+      },
+    ]);
+  }
+
   return (
     <div className="space-y-5 p-5">
       {/* Panel header */}
-      <div>
-        <h2 className="text-base font-semibold text-slate-800">Aging Klaim</h2>
-        <p className="text-sm text-slate-500">
-          Distribusi klaim berdasarkan durasi sejak submit · per penjamin
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-800">Aging Klaim</h2>
+          <p className="text-sm text-slate-500">
+            Distribusi klaim berdasarkan durasi sejak submit · per penjamin
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleExportCSV}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-sm font-medium text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+        >
+          <Download size={13} className="text-teal-600" />
+          CSV
+        </button>
       </div>
 
       {/* Legend */}

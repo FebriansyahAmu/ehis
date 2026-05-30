@@ -12,13 +12,9 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (E-Klaim depend B0/B1.9/B-fhir)
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
-<<<<<<< HEAD
-> **Last updated:** 2026-05-28 (EK7.3 SelisihWriteOffModal done — 2-step spring modal: Step 1 breakdown Review (3 summary cards Nominal/Dicocokkan/Selisih + direction hint underpaid/overpaid + per-klaim breakdown table Tarif Diajukan vs Disetujui) · Step 2 penanganan (3 option cards Write-off/Refund/Pending + animated hint on select + alasan min 20 char + approver input + validation summary + loading 800ms) · "Tangani Selisih" CTA amber di CompletedView MatchingPanel · state + handler di ReconciliationPage (statusSelisih + completedBy update) · TSC clean)
-> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail ✅ 100%** · **EK4 iDRG Calculator ✅ 100%** · **EK5 Berkas Generator ✅ 100%** · **EK6 Banding ✅ 100%** · **EK7 Reconciliation 🚧 EK7.1+EK7.2+EK7.3 ✅** · Next: EK7.4 Reconciliation Report
-=======
-> **Last updated:** 2026-05-28 (EK6.3 Banding Detail done — BandingDetailPage 2-panel + BandingDetailHeader + BandingDetailLeft (klaim context + rejection) + BandingDetailRight (alasan banding + dokumen + timeline + mock review) + BandingTimeline 3-stage vertical + BandingTable Detail→Link + route `/banding/[id]` · TSC clean)
-> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail ✅ 100%** · **EK4 iDRG Calculator ✅ 100%** · **EK5 Berkas Generator ✅ 100%** · **EK6 Banding ✅ 100% (EK6.1+EK6.2+EK6.3)** · Next: EK7 Reconciliation
->>>>>>> ee675f27a763c040d0a386ae755641f29f1833fb
+> **Last updated:** 2026-05-30 (progress tracker sync — EK2/EK4/EK5/EK6 ✅ diperbarui · merge conflict resolved · EK7.1–EK7.3 ✅ · EK7.4 pending · EK8.1–EK8.4 ✅)
+> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail ✅ 100%** · **EK4 iDRG Calculator ✅ 100%** · **EK5 Berkas Generator ✅ 100%** · **EK6 Banding ✅ 100%** · **EK7 Reconciliation 🚧 75% (EK7.1+EK7.2+EK7.3 ✅ · EK7.4 pending)** · **EK8 Dashboard 🚧 67% (EK8.1–EK8.4 ✅)** · Next: EK7.4 Reconciliation Report
+>
 > **Target effort:** ~3.5-4.5 minggu (frontend full) · paralel dengan B0/B1.9 backend.
 > **Standar grouper:** **iDRG (Indonesian Diagnosis Related Groups) — primary** sejak 1 Okt 2025 (Pedoman Pengodean iDRG 2025 Kemenkes + Perpres 59/2024). INA-CBG = legacy adapter Phase later untuk klaim transisi pre-Okt 2025.
 
@@ -44,17 +40,17 @@
 
 **iDRG (Indonesian Diagnosis Related Groups)** resmi gantikan INA-CBG sejak **1 Oktober 2025** sebagai standar grouping klaim BPJS. 2026 = expansion phase, RS wajib bridging real-time ke INA-Grouper iDRG.
 
-| Dimensi              | INA-CBG (legacy pre-Okt 2025)        | **iDRG (primary post-Okt 2025)**                       |
-| -------------------- | ------------------------------------ | ------------------------------------------------------ |
-| Kode                 | 4-digit alphanumeric (`I-1-01-I`)    | **7-digit numerik**                                    |
-| Klasifikasi ICD      | ICD-10 WHO + ICD-9-CM                | **ICD-10-IM + ICD-9-CM-IM** (Indonesian Modification)  |
-| Standar koding       | Kaidah umum WHO                      | **Indonesian Coding Standard (ICS v1)**                |
-| Variabel tarif       | Tipe RS (A/B/C/D) × Kelas pasien     | **Tingkat kompetensi RS × KRIS × severity klinis**     |
-| Kelas RS             | Tipe A/B/C/D                         | **Dasar / Menengah / Utama / Komprehensif** (dihapus tipe A/B/C/D — Perpres 59/2024) |
-| Kelas rawat pasien   | VIP / K1 / K2 / K3 (3 tier tarif)    | **KRIS** (Kelas Rawat Inap Standar tunggal — Juli 2025) |
-| Severity             | I/II/III dari CC/MCC                 | Granular: primer + komplikasi + komorbid + tingkat keparahan |
-| Grouper              | E-Klaim Kemenkes desktop (file XML)  | **INA-Grouper iDRG** (bridging real-time REST)         |
-| Status di EHIS       | Legacy adapter Phase later           | **Primary** sejak EK0                                  |
+| Dimensi            | INA-CBG (legacy pre-Okt 2025)       | **iDRG (primary post-Okt 2025)**                                                     |
+| ------------------ | ----------------------------------- | ------------------------------------------------------------------------------------ |
+| Kode               | 4-digit alphanumeric (`I-1-01-I`)   | **7-digit numerik**                                                                  |
+| Klasifikasi ICD    | ICD-10 WHO + ICD-9-CM               | **ICD-10-IM + ICD-9-CM-IM** (Indonesian Modification)                                |
+| Standar koding     | Kaidah umum WHO                     | **Indonesian Coding Standard (ICS v1)**                                              |
+| Variabel tarif     | Tipe RS (A/B/C/D) × Kelas pasien    | **Tingkat kompetensi RS × KRIS × severity klinis**                                   |
+| Kelas RS           | Tipe A/B/C/D                        | **Dasar / Menengah / Utama / Komprehensif** (dihapus tipe A/B/C/D — Perpres 59/2024) |
+| Kelas rawat pasien | VIP / K1 / K2 / K3 (3 tier tarif)   | **KRIS** (Kelas Rawat Inap Standar tunggal — Juli 2025)                              |
+| Severity           | I/II/III dari CC/MCC                | Granular: primer + komplikasi + komorbid + tingkat keparahan                         |
+| Grouper            | E-Klaim Kemenkes desktop (file XML) | **INA-Grouper iDRG** (bridging real-time REST)                                       |
+| Status di EHIS     | Legacy adapter Phase later          | **Primary** sejak EK0                                                                |
 
 **Coexistence period:** Klaim layanan **pre-Okt 2025** = INA-CBG legacy mode, klaim **post-Okt 2025** = iDRG. EHIS default iDRG (greenfield 2026), legacy adapter di-plug saat dibutuhkan.
 
@@ -62,17 +58,17 @@
 
 ## 🏛 Compliance & Standar Wajib
 
-| Regulasi                          | Topik                          | Dampak ke modul                                      |
-| --------------------------------- | ------------------------------ | ---------------------------------------------------- |
-| **Pedoman Pengodean iDRG 2025**   | Koding iDRG (Kemenkes, 14 Apr 2025) | Wajib referensi koding · ICD-10-IM/ICD-9-CM-IM       |
-| **Perpres 59/2024**               | Penghapusan kelas BPJS + KRIS  | Kelas pasien default KRIS · tipe RS → kompetensi     |
-| **Perpres 82/2018**               | Jaminan Kesehatan              | Eligibility cek SEP                                  |
-| **Permenkes 3/2023**              | Standar Tarif Pelayanan JKN    | Tarif legacy (transisi) · referensi nominal awal     |
-| **Permenkes 76/2016**             | INA-CBG (legacy)               | Grouper legacy untuk klaim pre-Okt 2025              |
-| **Permenkes 26/2021**             | Pedoman Verifikasi BPJS        | Berkas wajib + checklist verifikator                 |
-| **PMK 269/2008**                  | Rekam Medis                    | Resume medis sebagai berkas klaim                    |
-| **UU PDP 27/2022**                | Data Pribadi                   | Audit trail akses berkas pasien                      |
-| **AAJI Standar Klaim**            | Asuransi Swasta                | Format berkas standar industri asuransi              |
+| Regulasi                        | Topik                               | Dampak ke modul                                  |
+| ------------------------------- | ----------------------------------- | ------------------------------------------------ |
+| **Pedoman Pengodean iDRG 2025** | Koding iDRG (Kemenkes, 14 Apr 2025) | Wajib referensi koding · ICD-10-IM/ICD-9-CM-IM   |
+| **Perpres 59/2024**             | Penghapusan kelas BPJS + KRIS       | Kelas pasien default KRIS · tipe RS → kompetensi |
+| **Perpres 82/2018**             | Jaminan Kesehatan                   | Eligibility cek SEP                              |
+| **Permenkes 3/2023**            | Standar Tarif Pelayanan JKN         | Tarif legacy (transisi) · referensi nominal awal |
+| **Permenkes 76/2016**           | INA-CBG (legacy)                    | Grouper legacy untuk klaim pre-Okt 2025          |
+| **Permenkes 26/2021**           | Pedoman Verifikasi BPJS             | Berkas wajib + checklist verifikator             |
+| **PMK 269/2008**                | Rekam Medis                         | Resume medis sebagai berkas klaim                |
+| **UU PDP 27/2022**              | Data Pribadi                        | Audit trail akses berkas pasien                  |
+| **AAJI Standar Klaim**          | Asuransi Swasta                     | Format berkas standar industri asuransi          |
 
 ---
 
@@ -129,20 +125,20 @@
 
 ## 📦 Berkas Klaim BPJS (wajib per kasus)
 
-| Berkas                                             | Sumber                   | Modul EHIS                        |
-| -------------------------------------------------- | ------------------------ | --------------------------------- |
-| **SEP** (Surat Eligibilitas Pasien)                | V-Claim saat registrasi  | `/ehis-registration`              |
-| **Resume Medis**                                   | DPJP via PasienPulangTab | `/ehis-care/{ri,igd,rj}`          |
-| **Lembar tindakan/operasi**                        | OK + ICU                 | `/ehis-care/ri`                   |
-| **Hasil penunjang Lab**                            | Modul Lab                | `/ehis-care/laboratorium`         |
-| **Hasil penunjang Rad**                            | Modul Rad                | `/ehis-care/radiologi`            |
-| **Bukti pelayanan** (TTV/CPPT/MAR)                 | Modul klinis             | `/ehis-care/*`                    |
-| **Identitas pasien** (KTP + Kartu BPJS)            | Upload registrasi        | `/ehis-registration`              |
-| **Surat rujukan FKTP**                             | Upload (non-emergency)   | `/ehis-eklaim/klaim/[id]/berkas`  |
-| **Billing detail itemized**                        | Invoice                  | `/ehis-billing/tagihan/[id]`      |
-| **Grouper result iDRG (kode 7-digit)**             | INA-Grouper iDRG         | `/ehis-eklaim/klaim/[id]/grouper` |
-| **Grouper result INA-CBG (legacy pre-Okt 2025)**   | E-Klaim Kemenkes (legacy)| `/ehis-eklaim/klaim/[id]/grouper` |
-| **Berkas khusus** (laporan anestesi/kemo/dialisis) | OK + Day Care            | `/ehis-care/ri`                   |
+| Berkas                                             | Sumber                    | Modul EHIS                        |
+| -------------------------------------------------- | ------------------------- | --------------------------------- |
+| **SEP** (Surat Eligibilitas Pasien)                | V-Claim saat registrasi   | `/ehis-registration`              |
+| **Resume Medis**                                   | DPJP via PasienPulangTab  | `/ehis-care/{ri,igd,rj}`          |
+| **Lembar tindakan/operasi**                        | OK + ICU                  | `/ehis-care/ri`                   |
+| **Hasil penunjang Lab**                            | Modul Lab                 | `/ehis-care/laboratorium`         |
+| **Hasil penunjang Rad**                            | Modul Rad                 | `/ehis-care/radiologi`            |
+| **Bukti pelayanan** (TTV/CPPT/MAR)                 | Modul klinis              | `/ehis-care/*`                    |
+| **Identitas pasien** (KTP + Kartu BPJS)            | Upload registrasi         | `/ehis-registration`              |
+| **Surat rujukan FKTP**                             | Upload (non-emergency)    | `/ehis-eklaim/klaim/[id]/berkas`  |
+| **Billing detail itemized**                        | Invoice                   | `/ehis-billing/tagihan/[id]`      |
+| **Grouper result iDRG (kode 7-digit)**             | INA-Grouper iDRG          | `/ehis-eklaim/klaim/[id]/grouper` |
+| **Grouper result INA-CBG (legacy pre-Okt 2025)**   | E-Klaim Kemenkes (legacy) | `/ehis-eklaim/klaim/[id]/grouper` |
+| **Berkas khusus** (laporan anestesi/kemo/dialisis) | OK + Day Care             | `/ehis-care/ri`                   |
 
 **Asuransi Swasta:** Format per asuransi (Mandiri Inhealth, Allianz, AXA, Prudential, dst.) — kebanyakan turunan AAJI + tambahan custom. Cashless vs Reimbursement workflow berbeda.
 
@@ -150,14 +146,14 @@
 
 ## 🔌 Integrasi Aplikasi Pihak Ketiga (wajib)
 
-| Aplikasi                  | Owner          | Fungsi                         | Status                                  |
-| ------------------------- | -------------- | ------------------------------ | --------------------------------------- |
-| **INA-Grouper iDRG**      | Kemenkes       | Grouper iDRG real-time         | **Primary** — adapter EK0.4             |
-| **E-Klaim INA-CBG**       | Kemenkes       | Grouper legacy (XML file-based)| **Legacy** — adapter Phase later (klaim pre-Okt 2025) |
-| **V-Claim**               | BPJS Kesehatan | Eligibility + SEP + submission | Mandatory — adapter EK0.4               |
-| **VEDIKA**                | BPJS           | Verifikasi digital + tracking  | Mandatory — adapter EK0.4               |
-| **Apol** (Apotek Online)  | BPJS           | Klaim obat kronis FKTL         | Optional — adapter EK7                  |
-| **SATU SEHAT**            | Kemenkes       | Pertukaran data klinis         | Cross-ref ke `/ehis-fhir`               |
+| Aplikasi                 | Owner          | Fungsi                          | Status                                                |
+| ------------------------ | -------------- | ------------------------------- | ----------------------------------------------------- |
+| **INA-Grouper iDRG**     | Kemenkes       | Grouper iDRG real-time          | **Primary** — adapter EK0.4                           |
+| **E-Klaim INA-CBG**      | Kemenkes       | Grouper legacy (XML file-based) | **Legacy** — adapter Phase later (klaim pre-Okt 2025) |
+| **V-Claim**              | BPJS Kesehatan | Eligibility + SEP + submission  | Mandatory — adapter EK0.4                             |
+| **VEDIKA**               | BPJS           | Verifikasi digital + tracking   | Mandatory — adapter EK0.4                             |
+| **Apol** (Apotek Online) | BPJS           | Klaim obat kronis FKTL          | Optional — adapter EK7                                |
+| **SATU SEHAT**           | Kemenkes       | Pertukaran data klinis          | Cross-ref ke `/ehis-fhir`                             |
 
 **Strategi mock-first:** adapter `lib/eklaim/vClaimAdapter.ts` dst. return Promise dengan mock delay 1500ms; backend swap saat ready tanpa refactor UI.
 
@@ -297,12 +293,14 @@ src/components/eklaim/
 ### EK0.1 Types di [src/lib/eklaim/eklaimShared.ts](src/lib/eklaim/eklaimShared.ts)
 
 - [x] **`Rupiah = bigint`** type alias (bulat rupiah, tanpa sen — sesuai akuntansi RS Indonesia) — hindari floating point drift:
+
   ```ts
-  type Rupiah = bigint;  // 1 IDR = 100 Rupiah units (sen)
+  type Rupiah = bigint; // 1 IDR = 100 Rupiah units (sen)
   // helpers di money.ts: formatRupiah(rp) → "Rp 1.250.000" · parseRupiah("Rp 1.250.000") → bigint
   ```
 
 - [x] **`ClaimRecord`** — entity utama (iDRG primary):
+
   ```ts
   {
     id, noKlaim, invoiceId, kunjunganId, pasienId,
@@ -339,6 +337,7 @@ src/components/eklaim/
   ```
 
 - [x] **`SEPRecord`** — V-Claim SEP rich struct (bukan string flat):
+
   ```ts
   {
     noSEP: string,
@@ -352,37 +351,44 @@ src/components/eklaim/
   ```
 
 - [x] **`ClaimStatus`** — granular state (13 status, naik dari 11) + `CLAIM_STATUS_LABEL` map terpisah (status code stable, label mutable):
+
   ```ts
   "Draft Coding" |
     "Belum Submit" |
     "Submitted" |
     "Pending Verifikasi" |
-    "Susulan Required" |          // BARU: BPJS minta berkas tambahan (distinct dari rejection)
+    "Susulan Required" | // BARU: BPJS minta berkas tambahan (distinct dari rejection)
     "Approved" |
     "Rejected" |
     "Banding Submitted" |
     "Banding Approved" |
     "Banding Rejected" |
-    "Sengketa" |                  // BARU: Approved nominal beda dari expected
+    "Sengketa" | // BARU: Approved nominal beda dari expected
     "Paid" |
     "Write-off";
   ```
 
 - [ ] **`ALLOWED_TRANSITIONS`** di [src/lib/eklaim/stateMachine.ts](src/lib/eklaim/stateMachine.ts):
+
   ```ts
   const ALLOWED_TRANSITIONS: Record<ClaimStatus, ClaimStatus[]> = {
     "Draft Coding": ["Belum Submit"],
     "Belum Submit": ["Submitted", "Draft Coding"],
-    "Submitted": ["Pending Verifikasi"],
+    Submitted: ["Pending Verifikasi"],
     "Pending Verifikasi": ["Approved", "Rejected", "Susulan Required"],
     "Susulan Required": ["Submitted"],
-    "Rejected": ["Banding Submitted", "Write-off"],
+    Rejected: ["Banding Submitted", "Write-off"],
     // ... dst
   };
-  function canTransition(from: ClaimStatus, to: ClaimStatus, role: UserRole): boolean
+  function canTransition(
+    from: ClaimStatus,
+    to: ClaimStatus,
+    role: UserRole,
+  ): boolean;
   ```
 
 - [x] **`BerkasKlaim`** — checklist item per berkas (+ `BerkasVersion`, `BerkasFile`, `BerkasSumber` discriminated, `BerkasKategori`, `BerkasStatus`):
+
   ```ts
   {
     id,
@@ -405,6 +411,7 @@ src/components/eklaim/
   ```
 
 - [x] **`iDRGResult`** — PRIMARY grouper result (post-Okt 2025) + `iDRGSeverity`, `TarifPerTingkat`, `TopUpCmg`:
+
   ```ts
   {
     code: string,                  // 7-digit numerik (e.g. "1234567")
@@ -428,6 +435,7 @@ src/components/eklaim/
   ```
 
 - [x] **`InaCbgLegacyResult`** (active secondary — industri SIMRS dual support):
+
   ```ts
   {
     code: string,                  // e.g. "I-1-01-I" (4-digit alphanumeric)
@@ -439,6 +447,7 @@ src/components/eklaim/
   ```
 
 - [x] **`iDRGLookupEntry`** — lookup table entry (master IDRG_LOOKUP_MOCK):
+
   ```ts
   {
     code: string,                  // 7-digit numerik
@@ -457,6 +466,7 @@ src/components/eklaim/
   ```
 
 - [x] **`KodeICD10IM` / `KodeICD9CMIM`** — picker entry (Indonesian Modification):
+
   ```ts
   {
     kode, deskripsi, kategori, hint?,
@@ -467,14 +477,21 @@ src/components/eklaim/
   ```
 
 - [x] **`KelasRawat`** — enum baru (KRIS default + legacy compat) + `TingkatKompetensiRS`, `TipePelayanan`, `CaraPulang`, `Gender`, `EraGrouper`, `TipePenjamin`:
+
   ```ts
   type KelasRawat =
-    | "KRIS"                                         // default post-Okt 2025 (iDRG)
-    | "VIP" | "Kelas_1" | "Kelas_2" | "Kelas_3"     // legacy INA-CBG
-    | "ICU" | "HCU" | "Isolasi";                    // intensive care (tetap)
+    | "KRIS" // default post-Okt 2025 (iDRG)
+    | "VIP"
+    | "Kelas_1"
+    | "Kelas_2"
+    | "Kelas_3" // legacy INA-CBG
+    | "ICU"
+    | "HCU"
+    | "Isolasi"; // intensive care (tetap)
   ```
 
 - [x] **`BandingRecord`** — pengajuan banding (2 tingkat per PMK 26/2021) + `BandingStatus`:
+
   ```ts
   {
     id, claimId, tingkat: 1 | 2,   // tingkat 1 = verifikator cabang, tingkat 2 = kantor pusat
@@ -487,6 +504,7 @@ src/components/eklaim/
   ```
 
 - [x] **`ReconciliationRecord`** — match transfer ke klaim (multi-criteria + confidence) + `ReconciliationMatch`, `SelisihStatus`:
+
   ```ts
   {
     id, noTransfer, tanggalTransfer, nominalTransfer: Rupiah, bank,
@@ -503,30 +521,58 @@ src/components/eklaim/
   ```
 
 - [x] **`ClaimTimelineEntry`** — discriminated union 10 event type (type-safe audit, bukan generic string):
+
   ```ts
   type ClaimTimelineEntry =
-    | { type: "claim-created", by: string, at: string }
-    | { type: "coding-changed", before: { primer, sekunder, prosedur }, after: { primer, sekunder, prosedur }, by, at }
-    | { type: "berkas-uploaded", berkasId, kategori, sumber, by, at }
-    | { type: "berkas-rejected", berkasId, alasan, by, at }
-    | { type: "grouper-resolved", eraGrouper, result: iDRGResult | InaCbgLegacyResult, by, at }
-    | { type: "status-transition", from: ClaimStatus, to: ClaimStatus, alasan?, by, at }
-    | { type: "submitted-batch", batchId, vClaimResponse, by, at }
-    | { type: "verifikator-comment", komentar, by, at }
-    | { type: "banding-submitted", bandingId, tingkat: 1 | 2, by, at }
-    | { type: "payment-received", nominal: Rupiah, reconciliationId, by, at };
+    | { type: "claim-created"; by: string; at: string }
+    | {
+        type: "coding-changed";
+        before: { primer; sekunder; prosedur };
+        after: { primer; sekunder; prosedur };
+        by;
+        at;
+      }
+    | { type: "berkas-uploaded"; berkasId; kategori; sumber; by; at }
+    | { type: "berkas-rejected"; berkasId; alasan; by; at }
+    | {
+        type: "grouper-resolved";
+        eraGrouper;
+        result: iDRGResult | InaCbgLegacyResult;
+        by;
+        at;
+      }
+    | {
+        type: "status-transition";
+        from: ClaimStatus;
+        to: ClaimStatus;
+        alasan?;
+        by;
+        at;
+      }
+    | { type: "submitted-batch"; batchId; vClaimResponse; by; at }
+    | { type: "verifikator-comment"; komentar; by; at }
+    | { type: "banding-submitted"; bandingId; tingkat: 1 | 2; by; at }
+    | { type: "payment-received"; nominal: Rupiah; reconciliationId; by; at };
   ```
 
 - [x] **`ClaimError`** discriminated union 7 error type (untuk `Result<T, ClaimError>` di adapter) + `Result<T,E>` + `Ok()`/`Err()` constructors:
+
   ```ts
   type ClaimError =
-    | { type: "NetworkError", message, retryable: boolean }
-    | { type: "AuthError", message }
-    | { type: "ValidationError", field, message }
-    | { type: "EligibilityError", reason: "SEP_EXPIRED" | "KELAS_NOT_COVERED" | "PLAFON_HABIS" | "NIK_NOT_FOUND" }
-    | { type: "DuplicateClaimError", existingClaimId }
-    | { type: "GrouperError", message, raw }
-    | { type: "ConcurrencyError", currentVersion: number };
+    | { type: "NetworkError"; message; retryable: boolean }
+    | { type: "AuthError"; message }
+    | { type: "ValidationError"; field; message }
+    | {
+        type: "EligibilityError";
+        reason:
+          | "SEP_EXPIRED"
+          | "KELAS_NOT_COVERED"
+          | "PLAFON_HABIS"
+          | "NIK_NOT_FOUND";
+      }
+    | { type: "DuplicateClaimError"; existingClaimId }
+    | { type: "GrouperError"; message; raw }
+    | { type: "ConcurrencyError"; currentVersion: number };
   ```
 
 - [x] **`CoderShift`** — scaffold type only (implementasi di EK8.4).
@@ -608,10 +654,12 @@ Best practice: **interface match spek resmi** (BPJS/Kemenkes), mock return data 
 - [x] **`apolAdapter.ts`** — STUB (PHASE LATER). Interface `APOLResepRecord`, `APOLBatchSubmitInput`. Methods `submitAPOLBatch/pullAPOLStatus` return `Err({ type: "ValidationError", field: "apol", message: "PHASE_LATER" })` — eksplisit reject (no silent no-op). Diimplementasi saat EK7 reconciliation obat kronis FKTL aktif.
 
 **Refactor wiring:**
+
 - `groupingResolver.ts` — sekarang delegate ke `iDRGGrouperAdapter.groupiDRG()` + `inaCbgLegacyAdapter.groupInaCbg()`, lalu pakai mapper `toIDRGResult()`/`toInaCbgLegacyResult()`. Lookup logic move ke adapter; resolver tinggal orchestrate + map status ERROR envelope ke `ClaimError`. `resolveComparator()` paralel kedua engine + secondary failure attach (tidak block).
 - `eligibilityChecker.ts` — sekarang delegate ke `vClaimAdapter.getEligibility()`, lalu pakai mapper `toEligibilityDomain()` + business rules tambahan (`mapMetaDataToEligibilityError`: pattern match message → typed reason · `resolveFallbackContext`: tingkatKompetensiRS dari klaim mock karena V-Claim tidak return field ini).
 
 **Acceptance EK0:**
+
 - ✅ Semua types compile clean (`npx tsc --noEmit`).
 - ✅ Mock siap 25+ klaim happy path + 10 edge cases.
 - ✅ Helpers `resolveGrouping`/`checkBerkas`/`checkEligibility`/`matchTransfer`/`canTransition` return value benar untuk berbagai kombinasi (test fixtures separate).
@@ -658,6 +706,7 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 - **DELETED:** `KPIStripEklaim.tsx` — superseded by HeroSummaryCard's mini KPIs 2x2 grid.
 
 **Design innovations (frontend-design skill applied):**
+
 - **Anti-scroll**: 3 panel stacked → 1 tabbed panel (single content area scroll dalam panel)
 - **Interactivity**: Period segmented control · clickable pipeline stages · tab transitions · hover micro-animations (icon rotate, card translate, bar grow, chevron slide)
 - **Modern data-viz**: SVG sparkline dengan path animation + gradient fill + peak marker · trend chip ↑/↓
@@ -833,6 +882,7 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 **Mode display by `claim.eraGrouper`:**
 
 #### Mode A: iDRG Result (primary, klaim post-Okt 2025) ✅
+
 - [x] **iDRG Result Card** prominent:
   - **Kode 7-digit numerik** besar mono (e.g. "1234567")
   - MDC (Major Diagnostic Category) label
@@ -853,6 +903,7 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 - [x] **Tombol Re-Group iDRG** — ActionBar dengan last-grouped timestamp + error dismiss.
 
 #### Mode B: Legacy INA-CBG Result (klaim pre-Okt 2025 — conditional render)
+
 - [x] **Banner kuning** "Mode Legacy INA-CBG — Klaim layanan sebelum 1 Oktober 2025" di atas card.
 - [x] **INA-CBG Result Card** — sama pattern lama tapi label "Legacy":
   - Kode 4-digit alphanumeric (e.g. "I-1-01-I")
@@ -861,6 +912,7 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 - [x] **Tombol Re-Group INA-CBG (Legacy)** — call `inaCbgLegacyAdapter` via ActionBar.
 
 #### Mode C: Dual Comparator (opt-in toggle, AD-19)
+
 - [x] **Toggle "Show INA-CBG Comparison"** — chip "Komparator" di ActionBar. Saat ON: auto-fetch secondary via `resolveComparator()`.
 - [x] **Side-by-side card layout:**
   - Left: iDRG Result — accent sky, label "PRIMER · ERA AKTIF" atau "ESTIMASI · iDRG"
@@ -1022,10 +1074,23 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
   - "Tangani Selisih" CTA amber di CompletedView MatchingPanel (visible hanya saat statusSelisih = Pending)
   - ReconciliationPage: `handleWriteOff` update `statusSelisih + completedBy` · `writeOffOpen` state · AnimatePresence mount · TSC clean
 
-### EK7.4 Reconciliation Report
+### EK7.4 Reconciliation Report ✅ 2026-05-30
 
-- [ ] **Detail page per reconciliation** — list klaim matched + nominal + status + selisih
-- [ ] **Export PDF/Excel** untuk akuntansi
+- [x] **`ReconciliationDetailPage.tsx`** — detail page per rekonsiliasi (2026-05-30):
+  - Route `/ehis-eklaim/reconciliation/[id]` — Next 16 async params · `findReconciliation(id)` lookup · not-found state
+  - `DetailHeader` breadcrumb (← Rekonsiliasi / noTransfer / status chip) + Export CSV + Cetak PDF buttons
+  - `TransferSummaryCard` — nominal transfer besar teal + meta grid 6-field (noTransfer, bank, penjamin chip, periode, tanggal, completedBy/At)
+  - `KPIStrip` 3-card stagger-up: Klaim Dicocokkan · Coverage Transfer (%) · Selisih (nihil/tertangani/pending)
+  - `MatchedClaimsDetailTable` 9-col sticky header: No.Klaim · Pasien+Diagnosa · Penjamin · Confidence badge · Tarif RS · Disetujui · Dibayar · Selisih per-klaim (amber +/emerald -) · Metode+Tanggal (Bot icon=Auto / UserCheck=Manual)
+  - Footer row: total Tarif RS + Disetujui + Dibayar + Selisih aggregate
+  - `SelisihCard` conditional — 3-col breakdown nominal/dicocokkan/selisih + status chip (line-through jika tertangani)
+  - Skeleton 500ms · AnimatePresence · teal accent · TSC clean
+- [x] **`ReconciliationPrintTemplate.tsx`** — A4 print-only (2026-05-30):
+  - `<style>@media print` isolation via `#recon-print-area` — hides screen UI, shows only template · `position:fixed inset:0`
+  - KopSuratEklaim variant="full" · judul + sub identitas transfer
+  - Tabel informasi transfer 9-field · Tabel klaim 9-col + tfoot total row · Catatan selisih (conditional) · Signature row 3 jabatan · Footer branding
+- [x] **Export CSV** — `rekon-{noTransfer}-{date}.csv` · 11 kolom akuntansi · `URL.createObjectURL` blob download
+- [x] **Wire "Laporan" link** di `TransferList.TransferItem` — `FileText` chip link ke detail page (visible hanya record `completedAt` set · `e.stopPropagation()` prevent list select conflict)
 
 **Acceptance EK7.1+EK7.2:** ✅ TSC clean · ImportTransferModal 2-step drag-drop CSV + preview table + penjamin auto-detect · MatchingPanel 3-strategy engine CTA (Exact/Periode+Count/Fuzzy) + confidence badge + matched claims table + unmatched collapsible · Simpan flow (update state + clear cache + switch view) · ReconciliationPage 2-panel layout + skeleton 500ms + 4 KPI strip · 6 file baru (route + 5 components) semua ≤800 ln · no indigo · teal/sky/emerald/amber/rose palette · font ≥ text-sm.
 
@@ -1055,6 +1120,7 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 - [x] **Caveat banner** amber — data iDRG mock, real saat INA-Grouper aktif
 
 **Impl detail (EK8.1+EK8.2+EK8.3):**
+
 - `dashboardShared.ts` (200 ln) — pure data builders: `buildApprovalRateData()` 12-month synthetic rates · `buildRejectedReasons()` top 5 · `buildAgingData()` dari CLAIM_BOARD_MOCK + synthetic · `buildStuckClaims()` · `buildMarginGroups()` 8 MDC · `buildDashboardKPIs()` 4 KPI
 - `DashboardPage.tsx` (260 ln) — hero slim teal · KPI strip 4 cards stagger (Approval Rate/Klaim Bulan Ini/Avg Hari Pending/Stuck >30h) · left nav 3 tab (TrendingUp/Clock/BarChart2) · right AnimatePresence panel switch · skeleton 500ms
 - `ApprovalRatePanel.tsx` (210 ln) — SVG line chart (520×200 viewBox, Y range 62-100%, animated path pathLength 0→1) · period filter 3M/6M/12M · 3 series dots · rejected reasons bar
@@ -1069,6 +1135,7 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 - [x] **Average days kunjungan-to-submit** per coder — horizontal bar sorted asc + Tercepat/Terlambat badge
 
 **Impl detail (EK8.4):**
+
 - `dashboardShared.ts` extended — `CoderProfile` · `CoderDailyOutput` · `buildCoderProfiles()` · `buildCoderDailyOutputs()` · `ReportTab` + `"coder"`
 - `CoderProductivityPanel.tsx` (~235 ln) — 4 coder profile cards (totalKoded + trend% + accuracy%) · `DailyOutputChart` stacked bar (flex-col-reverse grow-up animation) · `SubmitLatencyPanel` horizontal bar + badge
 - `DashboardPage.tsx` — tab ke-4 "Produktivitas Coder" + `Users` icon + AnimatePresence render
@@ -1132,19 +1199,19 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 
 ## 📊 Progress Tracker
 
-| Phase                       | Tasks  | Done  | %      | Estimasi effort |
-| --------------------------- | ------ | ----- | ------ | --------------- |
-| EK0 — Foundation (iDRG)     | 4      | 4     | 100%   | 5-6 hari (EK0.1 ✅ types · EK0.2 ✅ mocks · EK0.3 ✅ helpers · EK0.4 ✅ adapters) |
-| EK1 — Beranda               | 3      | 3     | 100%   | 2 hari (done · V2 redesign · 9 file · ~1883 ln) |
-| EK2 — Klaim Board           | 3      | 0     | 0%     | 3-4 hari        |
-| EK3 — Klaim Detail          | 7      | 7     | 100%   | 5-6 hari (EK3.1 ✅ Banner · EK3.2 ✅ Berkas · EK3.3 ✅ Coding · EK3.4 ✅ Grouper Mode A/B/C · EK3.5 ✅ Submission · EK3.6 ✅ Audit · EK3.7 ✅ Modals) |
-| EK4 — iDRG Calculator       | 2      | 0     | 0%     | 2 hari          |
-| EK5 — Berkas Generator      | 2      | 0     | 0%     | 2-3 hari        |
-| EK6 — Banding               | 3      | 0     | 0%     | 2 hari          |
-| EK7 — Reconciliation        | 4      | 3     | 75%    | 3 hari (EK7.1 ✅ ImportTransferModal · EK7.2 ✅ MatchingPanel · EK7.3 ✅ SelisihWriteOffModal · EK7.4 pending) |
-| EK8 — Dashboard Analytics   | 6      | 4     | 67%    | EK8.1 ✅ Approval Rate · EK8.2 ✅ Aging · EK8.3 ✅ Margin iDRG · EK8.4 ✅ Coder Productivity · EK8.5/6 pending |
-| EK9 — UX Polish + Cross     | 5      | 0     | 0%     | 1-2 hari        |
-| **Total**                   | **39** | **18** | **46%** | **~3.5-4.5 minggu** |
+| Phase                     | Tasks  | Done   | %       | Estimasi effort                                                                                                                                       |
+| ------------------------- | ------ | ------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| EK0 — Foundation (iDRG)   | 4      | 4      | 100%    | 5-6 hari (EK0.1 ✅ types · EK0.2 ✅ mocks · EK0.3 ✅ helpers · EK0.4 ✅ adapters)                                                                     |
+| EK1 — Beranda             | 3      | 3      | 100%    | 2 hari (done · V2 redesign · 9 file · ~1883 ln)                                                                                                       |
+| EK2 — Klaim Board         | 3      | 3      | 100%    | ✅ EK2.1 Filter+Layout+KPI · EK2.2 KlaimTable 11-col+kebab · EK2.3 klaimBoardLogic 565ln                                                             |
+| EK3 — Klaim Detail        | 7      | 7      | 100%    | 5-6 hari (EK3.1 ✅ Banner · EK3.2 ✅ Berkas · EK3.3 ✅ Coding · EK3.4 ✅ Grouper Mode A/B/C · EK3.5 ✅ Submission · EK3.6 ✅ Audit · EK3.7 ✅ Modals) |
+| EK4 — iDRG Calculator     | 2      | 2      | 100%    | ✅ EK4.1 Form Input (3-mode toggle iDRG/INA-CBG/Compare) · EK4.2 Result Card + MarginBar                                                             |
+| EK5 — Berkas Generator    | 2      | 2      | 100%    | ✅ EK5.1 Templates A4 (ResumeMedis+BerkasKlaim+SuratPengantar+KopSurat) · EK5.2 Print+BerkasGeneratorModal                                            |
+| EK6 — Banding             | 3      | 3      | 100%    | ✅ EK6.1 BandingBoard · EK6.2 BandingFormModal · EK6.3 BandingDetailPage `/banding/[id]`                                                             |
+| EK7 — Reconciliation      | 4      | 4      | 100%    | ✅ EK7.1 ImportTransferModal · EK7.2 MatchingPanel · EK7.3 SelisihWriteOffModal · EK7.4 ReconciliationDetailPage+PrintTemplate+CSV (2026-05-30)       |
+| EK8 — Dashboard Analytics | 6      | 4      | 67%     | EK8.1 ✅ Approval Rate · EK8.2 ✅ Aging · EK8.3 ✅ Margin iDRG · EK8.4 ✅ Coder Productivity · EK8.5/6 pending                                        |
+| EK9 — UX Polish + Cross   | 5      | 0      | 0%      | 1-2 hari                                                                                                                                              |
+| **Total**                 | **39** | **32** | **82%** | **~3.5-4.5 minggu** · Sisa: EK8.5/6 · EK9 (5 item)                                                                                                   |
 
 **Effort total:** ~3.5-4.5 minggu frontend full (revisi dari 3-4 minggu karena pivot ke iDRG + dual-era support + state machine + Rupiah type).
 **Critical path MVP:** EK0 + EK2 + EK3 (3 tab inti: Berkas + Coding + Submission) = ~10-12 hari. Sisanya by business priority.

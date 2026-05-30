@@ -2,13 +2,14 @@
 
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { TrendingUp, TrendingDown, Clock, Award } from "lucide-react";
+import { TrendingUp, TrendingDown, Clock, Award, Download } from "lucide-react";
 import {
   buildCoderProfiles,
   buildCoderDailyOutputs,
   type CoderProfile,
   type CoderDailyOutput,
 } from "@/lib/eklaim/dashboardShared";
+import { downloadCSV, todayISO } from "@/lib/eklaim/exportUtils";
 
 const CHART_H = 140;
 
@@ -19,9 +20,33 @@ export default function CoderProductivityPanel() {
   const daily    = useMemo(() => buildCoderDailyOutputs(), []);
   const maxTotal = Math.max(...daily.map(d => d.total), 1);
 
+  function handleExportCSV() {
+    downloadCSV(`klaim-coder-productivity-${todayISO()}.csv`, [
+      {
+        title: "Profil Coder",
+        headers: ["Coder", "Total Koding", "Avg Hari → Submit", "Akurasi (%)"],
+        rows: coders.map((c) => [
+          c.name,
+          c.totalKoded,
+          c.avgDaysToSubmit.toFixed(1),
+          (c.accuracy * 100).toFixed(0),
+        ]),
+      },
+      {
+        title: "Output Harian (klaim dikoding per hari)",
+        headers: ["Tanggal", ...coders.map((c) => c.name), "Total"],
+        rows: daily.map((d) => [
+          d.label,
+          ...coders.map((c) => d.totals.find((t) => t.coderId === c.id)?.count ?? 0),
+          d.total,
+        ]),
+      },
+    ]);
+  }
+
   return (
     <div className="space-y-5 p-5">
-      <PanelHeader coders={coders} />
+      <PanelHeader coders={coders} onExportCSV={handleExportCSV} />
 
       {/* Coder profile cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -49,19 +74,35 @@ export default function CoderProductivityPanel() {
 
 // ── Panel Header ───────────────────────────────────────────
 
-function PanelHeader({ coders }: { coders: CoderProfile[] }) {
+function PanelHeader({
+  coders,
+  onExportCSV,
+}: {
+  coders: CoderProfile[];
+  onExportCSV: () => void;
+}) {
   const total = coders.reduce((s, c) => s + c.totalKoded, 0);
   return (
-    <div className="flex items-start justify-between">
+    <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h2 className="text-base font-semibold text-slate-800">Produktivitas Coder</h2>
         <p className="text-sm text-slate-500">
           Output koding & turnaround kunjungan-to-submit · 8 hari terakhir
         </p>
       </div>
-      <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-sm font-medium text-sky-600 ring-1 ring-sky-200">
-        {total} klaim koded
-      </span>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onExportCSV}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-sm font-medium text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+        >
+          <Download size={13} className="text-teal-600" />
+          CSV
+        </button>
+        <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-sm font-medium text-sky-600 ring-1 ring-sky-200">
+          {total} klaim koded
+        </span>
+      </div>
     </div>
   );
 }

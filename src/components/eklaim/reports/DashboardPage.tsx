@@ -9,7 +9,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Timer,
-  FileDown,
+  Printer,
   LayoutDashboard,
   Users,
 } from "lucide-react";
@@ -23,6 +23,7 @@ import ApprovalRatePanel from "./ApprovalRatePanel";
 import AgingKlaimPanel from "./AgingKlaimPanel";
 import MarginAnalysisPanel from "./MarginAnalysisPanel";
 import CoderProductivityPanel from "./CoderProductivityPanel";
+import DashboardPrintTemplate from "./DashboardPrintTemplate";
 
 // ── Tab Config ─────────────────────────────────────────
 
@@ -131,10 +132,11 @@ export default function DashboardPage() {
                 <div className="mt-auto border-t border-slate-100 p-3">
                   <button
                     type="button"
+                    onClick={() => window.print()}
                     className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-500 transition hover:bg-slate-50 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
                   >
-                    <FileDown size={15} className="shrink-0" />
-                    <span>Export PDF</span>
+                    <Printer size={15} className="shrink-0" />
+                    <span>Cetak PDF</span>
                   </button>
                 </div>
               </nav>
@@ -165,6 +167,9 @@ export default function DashboardPage() {
                 </AnimatePresence>
               </div>
             </div>
+
+            {/* Print-only: A4 report for all 4 sections */}
+            <DashboardPrintTemplate />
           </motion.div>
         )}
       </AnimatePresence>
