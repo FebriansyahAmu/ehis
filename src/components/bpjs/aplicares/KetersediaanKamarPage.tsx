@@ -66,8 +66,8 @@ function StatCard({
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">{label}</p>
-        <p className="mt-0.5 text-xl font-black leading-none text-slate-900">{value}</p>
-        <p className="mt-0.5 text-[10px] text-slate-400">{sub}</p>
+        <p className="mt-0.5 text-xl font-normal leading-none text-slate-900">{value}</p>
+        <p className="mt-0.5 text-[10px] font-normal text-slate-400">{sub}</p>
       </div>
     </motion.div>
   );
