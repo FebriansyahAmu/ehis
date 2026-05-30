@@ -223,17 +223,23 @@ export const VCLAIM_ENDPOINTS = {
 } as const;
 
 // ── Aplicares Endpoints ────────────────────────────────
+// Reference: contracts/Aplicares-contracts.md
+// Base: {BPJS_CREDS_MOCK.aplicaresBaseUrl} = "https://apijkn.bpjs-kesehatan.go.id/aplicaresws-rest"
 
 export const APLICARES_ENDPOINTS = {
   ref: {
-    kamar: "/ref/kamar",
+    // Spec 1: GET /ref/kelas — referensi kelas kamar (kodekelas + namakelas)
     kelas: "/ref/kelas",
-    caraKeluar: "/ref/cara_keluar",
   },
-  kamar: {
-    list: "/kamar/list",
-    insert: "/kamar/insert",
-    update: "/kamar/update",
-    delete: "/kamar/delete",
+  bed: {
+    // Spec 2: POST /bed/update/{kodeppk} — update ketersediaan tempat tidur
+    update: (kodeppk: string): string => `/bed/update/${kodeppk}`,
+    // Spec 3: POST /bed/create/{kodeppk} — insert ruangan baru
+    create: (kodeppk: string): string => `/bed/create/${kodeppk}`,
+    // Spec 4: GET /bed/read/{kodeppk}/{start}/{limit} — baca data ketersediaan (paginated, start=1)
+    read: (kodeppk: string, start: number, limit: number): string =>
+      `/bed/read/${kodeppk}/${start}/${limit}`,
+    // Spec 5: POST /bed/delete/{kodeppk} — hapus ruangan
+    delete: (kodeppk: string): string => `/bed/delete/${kodeppk}`,
   },
 } as const;

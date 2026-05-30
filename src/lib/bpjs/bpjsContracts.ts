@@ -1120,3 +1120,60 @@ export interface JasaRaharjaMonitoringItem {
   sep: JasaRaharjaSEP;
   jasaRaharja: JasaRaharjaDetail;
 }
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║ Aplicares Contracts (5 endpoint)                         ║
+// ║ Aligned 1:1 dengan contracts/Aplicares-contracts.md      ║
+// ╚══════════════════════════════════════════════════════════╝
+
+/**
+ * Item kelas dari GET /ref/kelas — spec endpoint 1.
+ *
+ * Response wadah: `{ metadata: { code, message, totalitems }, response: { list: RefKelasAplicaresItem[] } }`.
+ * Note: Aplicares pakai `metadata` (bukan `metaData`) dan `totalitems` pada ref endpoint.
+ */
+export interface RefKelasAplicaresItem {
+  /** Kode kelas BPJS (e.g., "NON", "VVP", "VIP", "VVIP", "1", "2", "3"). */
+  kodekelas: string;
+  /** Nama kelas display (e.g., "-", "VVIP", "VIP", "Kelas 1"). */
+  namakelas: string;
+}
+
+/**
+ * Wire payload + response untuk bed CRUD — spec endpoint 2-3.
+ *
+ * Snake_case 1:1 dengan Aplicares REST wire format.
+ * Semua nilai numerik dikirim sebagai STRING (bukan number).
+ *
+ * Catatan spec:
+ * - `tersediapria/tersediawanita/tersediapriawanita` optional — hanya untuk RS
+ *   yang mendukung pemisahan ketersediaan per gender.
+ * - Response dari create/update adalah mirror payload (konfirmasi data yang disimpan).
+ */
+export interface BedAplicaresRecord {
+  /** Kode kelas BPJS (e.g., "VIP", "1", "2", "3"). */
+  kodekelas: string;
+  /** Kode ruangan internal RS. */
+  koderuang: string;
+  /** Nama ruang rawat RS. */
+  namaruang: string;
+  /** Kapasitas total tempat tidur (string). */
+  kapasitas: string;
+  /** Jumlah bed tersedia gender-campur (string). */
+  tersedia: string;
+  /** Jumlah bed tersedia untuk pria (optional). */
+  tersediapria?: string;
+  /** Jumlah bed tersedia untuk wanita (optional). */
+  tersediawanita?: string;
+  /** Jumlah bed tersedia pria-atau-wanita (optional). */
+  tersediapriawanita?: string;
+}
+
+/**
+ * Payload hapus ruangan — spec endpoint 5.
+ * Method: POST. Response identik dengan payload (konfirmasi data yang dihapus).
+ */
+export interface BedDeleteAplicaresPayload {
+  kodekelas: string;
+  koderuang: string;
+}

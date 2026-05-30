@@ -45,6 +45,8 @@ export interface BPJSConfig {
   userKey?: string;
   /** Override timestamp Unix epoch second (test deterministic signature). */
   timestampOverride?: string;
+  /** Override kode PPK RS — default dari `BPJS_CREDS_MOCK.kodePPK`. Wajib untuk endpoint Aplicares bed. */
+  kodePPK?: string;
   /** 0-1 probabilitas network error simulated. Default 0.04. */
   failRate?: number;
   /** Latency tetap (ms). Default random 200-600. */
@@ -789,11 +791,20 @@ export interface AplicaresKamarRecord {
   kdKelas: KelasBPJSKode;
   namaKelas: string;
   kapasitas: number;
+  /** Bed tersedia (gender-campur) — field `tersedia` di wire format. */
   tersedia: number;
+  /** Internal: bed terisi = kapasitas - tersedia. Tidak ada di wire format Aplicares. */
   terisi: number;
+  /** Internal: bed non-aktif/decommissioned. Tidak ada di wire format Aplicares. */
   kosong: number;
   namaRuang: string;
   kodeRuang: string;
+  /** Bed tersedia untuk pria — `tersediapria` wire format (optional, RS yang mendukung pemisahan gender). */
+  tersediaPria?: number;
+  /** Bed tersedia untuk wanita — `tersediawanita` wire format. */
+  tersediaWanita?: number;
+  /** Bed tersedia pria-atau-wanita — `tersediapriawanita` wire format. */
+  tersediaPriaWanita?: number;
   flagMaintenance?: boolean;
   /** ISO timestamp last sync ke Aplicares. */
   lastSyncISO: string;

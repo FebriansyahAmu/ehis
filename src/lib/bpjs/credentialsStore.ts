@@ -28,6 +28,12 @@ export interface BPJSCredentials {
   vClaimBaseUrl: string;
   /** Base URL Aplicares REST. */
   aplicaresBaseUrl: string;
+  /**
+   * Kode PPK (Provider Pelayanan Kesehatan) 8-digit RS — wajib untuk
+   * semua endpoint Aplicares bed (`/bed/create/{kodeppk}` dst).
+   * Di-assign BPJS saat registrasi faskes.
+   */
+  kodePPK: string;
 }
 
 /**
@@ -41,6 +47,7 @@ export const BPJS_CREDS_MOCK: BPJSCredentials = {
   userKey: "user-key-mock",
   vClaimBaseUrl: "https://apijkn.bpjs-kesehatan.go.id/vclaim-rest",
   aplicaresBaseUrl: "https://apijkn.bpjs-kesehatan.go.id/aplicaresws-rest",
+  kodePPK: "01234567",
 };
 
 /**
