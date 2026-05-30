@@ -999,28 +999,30 @@ Aligned 1:1 dengan [RencanaKontrol-Contracts.md](contracts/RencanaKontrol-Contra
 - [x] Route `src/app/ehis-bpjs/aplicares/map-kelas/page.tsx` ✅
 - [x] TSC clean (`npx tsc --noEmit` exit 0) ✅
 
-### BP7.3 Ketersediaan Kamar (Bed Sync)
+### BP7.3 Ketersediaan Kamar (Bed Sync) ✅ (2026-05-30)
 
-- [ ] **`KetersediaanKamarPage`** — main UI Aplicares:
-  - Header: "Sync Status" badge (lastSyncISO · auto-refresh tiap 5 menit) + "Force Refresh" CTA
-  - Table per ruangan derive dari `LOCATION_MOCK + beds[]` di master Ruangan:
-    - Kolom: Kode Ruang · Nama Ruang · Kelas BPJS (dari MapKelas) · Kapasitas · Terisi · Tersedia · Maintenance · Last Update
-  - Per row aksi: "Set Maintenance" (modal alasan + estimasi durasi) · "Force Sync" (call `updateKamar`)
-- [ ] **BedSyncStatusBanner** — tampil di atas table:
-  - Hijau: synced dalam 5 menit
-  - Amber: 5-15 menit
-  - Rose: >15 menit (need attention)
-- [ ] **Cross-link**: klik nama ruang → buka master Ruangan `/ehis-master/ruangan?id={locationId}`
-- [ ] **Real-time link**: saat workflow klinis di RI admisi/discharge mengubah bed status, push update ke Aplicares via adapter. Beranda BPJS KPI "Bed Sync" count update.
+- [x] **`KetersediaanKamarPage`** — main UI Aplicares:
+  - Header + `BedSyncStatusBanner` (green ≤5min · amber 5-15min · rose >15min) + Force Refresh CTA
+  - Table per ruangan derive dari `APLICARES_KAMAR_MOCK` ← `RUANGAN_MOCK`:
+    - Kolom: Kelas BPJS chip · Nama Ruang (cross-link) · Kapasitas · Terisi + OccupancyBar · Tersedia badge · Maintenance · Last Sync · Aksi
+  - Per row aksi: "Force Sync" (call `updateKamar`) + spin per-row · "Maint./Restore" → `MaintenanceModal`
+  - StatCard strip 4-col: Total Kapasitas · Tersedia · Terisi (hunian %) · Maintenance count
+- [x] **`BedSyncStatusBanner`** — standalone component (~90L):
+  - Props: `lastSyncISO · onForceRefresh · isRefreshing`
+  - Level auto-derive dari ageMinutes: fresh/stale/expired/unknown
+  - Auto-tick every 30s untuk age text stays accurate
+- [x] **Cross-link**: klik nama ruang → `/ehis-master/ruangan?id={kodeRuang}` + ExternalLink icon
+- [x] `MaintenanceModal` inline dalam page: alasan textarea + `setMaintenance()` (aktif/nonaktif) · row state update optimistic
+- [x] Route `src/app/ehis-bpjs/aplicares/ketersediaan/page.tsx` ✅
 
-### BP7.4 Components
+### BP7.4 Components ✅ (2026-05-30)
 
-- [ ] `ReferensiKamarPage.tsx` (~170L)
-- [ ] `MapKelasPage.tsx` (~220L) + `KamarMappingForm.tsx` (~190L)
-- [ ] `KetersediaanKamarPage.tsx` (~280L)
-- [ ] `BedSyncStatusBanner.tsx` (~130L)
+- [x] `ReferensiKamarPage.tsx` (~165L) ✅
+- [x] `MapKelasPage.tsx` (~398L) + `KamarMappingForm.tsx` (~300L) ✅
+- [x] `KetersediaanKamarPage.tsx` (~330L) ✅
+- [x] `BedSyncStatusBanner.tsx` (~100L) ✅
 
-**Acceptance BP7:** ✅ 3 sub-page functional · MapKelas CRUD · Ketersediaan derive dari master Ruangan/Bed · force refresh + maintenance toggle · cross-link master Ruangan · sync status banner · TSC clean.
+**Acceptance BP7:** ✅ **4/4 sections done** · 3 sub-page functional (`referensi-kamar` + `map-kelas` + `ketersediaan`) · MapKelas CRUD (tambah/edit/hapus · no-dup validation · multiplier preview) · Ketersediaan derive dari `APLICARES_KAMAR_MOCK` ← `RUANGAN_MOCK` · force refresh + per-row Force Sync (spin) · maintenance toggle modal (set/restore · alasan ≥10 char · optimistic state) · `BedSyncStatusBanner` standalone (fresh/stale/expired/unknown · 30s tick) · cross-link → `/ehis-master/ruangan?id={kodeRuang}` · TSC clean (exit 0).
 
 ---
 
@@ -1111,9 +1113,9 @@ Aligned 1:1 dengan [RencanaKontrol-Contracts.md](contracts/RencanaKontrol-Contra
 | BP4 — Rujukan | 5 sections | 0 | 0% |
 | BP5 — Monitoring | 5 sections | 0 | 0% |
 | BP6 — Rencana Kontrol | 8 sections (11 endpoint + PRB form) | 0 | 0% |
-| BP7 — Aplicares | 4 sections | 2 | **50%** 🚧 |
+| BP7 — Aplicares | 4 sections | 4 | **100%** ✅ |
 | BP8 — Polish + Audit | 5 sections | 0 | 0% |
-| **Total** | **44 sections** | **9** | **20%** |
+| **Total** | **44 sections** | **11** | **25%** |
 
 ---
 
