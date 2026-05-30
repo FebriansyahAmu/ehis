@@ -48,8 +48,8 @@ export default function MarginAnalysisPanel() {
       {/* Panel header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-800">Margin iDRG per MDC Group</h2>
-          <p className="text-sm text-slate-500">
+          <h2 className="text-sm font-semibold text-slate-800">Margin iDRG per MDC Group</h2>
+          <p className="text-xs text-slate-500">
             Selisih tarif grouper vs tarif RS · per kelompok diagnostik (MDC)
           </p>
         </div>
@@ -93,7 +93,7 @@ export default function MarginAnalysisPanel() {
       {/* Margin chart — all groups */}
       <div className="rounded-xl bg-white ring-1 ring-slate-200">
         <div className="border-b border-slate-100 px-4 py-2.5">
-          <p className="text-sm font-semibold text-slate-700">Breakdown per MDC Group</p>
+          <p className="text-xs font-semibold text-slate-700">Breakdown per MDC Group</p>
           <p className="text-xs text-slate-400">
             Positif = tarif iDRG &gt; tarif RS (RS untung) · Negatif = RS rugi
           </p>
@@ -114,14 +114,14 @@ export default function MarginAnalysisPanel() {
                 <div className="mb-1.5 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs text-slate-400">{g.code}</span>
-                    <span className="text-sm font-medium text-slate-700">{g.label}</span>
+                    <span className="text-xs font-medium text-slate-700">{g.label}</span>
                     <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
                       {g.count} klaim
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span
-                      className={`text-sm font-bold tabular-nums ${isPositive ? "text-emerald-600" : "text-rose-600"}`}
+                      className={`text-xs font-bold tabular-nums ${isPositive ? "text-emerald-600" : "text-rose-600"}`}
                     >
                       {isPositive ? "+" : ""}{g.avgMarginPct.toFixed(1)}%
                     </span>
@@ -186,8 +186,8 @@ export default function MarginAnalysisPanel() {
 
       {/* Caveat Banner */}
       <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
-        <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600" />
-        <div className="space-y-1 text-sm">
+        <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-600" />
+        <div className="space-y-1 text-xs">
           <p className="font-semibold text-amber-800">Catatan Analitik</p>
           <p className="text-amber-700">
             Data margin di atas dihitung dari tarif iDRG aktual vs tarif RS internal (mock data).
@@ -238,7 +238,7 @@ function SummaryCard({
         </span>
         <span className={`text-xs font-medium ${cls.label}`}>{label}</span>
       </div>
-      <p className={`text-base font-bold tabular-nums leading-tight ${cls.value}`}>
+      <p className={`text-sm font-bold tabular-nums leading-tight ${cls.value}`}>
         {negative ? "-" : ""}{value}
       </p>
       <p className="mt-0.5 text-xs text-slate-400">{sub}</p>

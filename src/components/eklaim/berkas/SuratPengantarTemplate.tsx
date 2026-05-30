@@ -178,6 +178,8 @@ export default function SuratPengantarTemplate({ claim, batchKlaims }: Props) {
         </tbody>
       </table>
 
+      {/* ── Closing + Signature (kept together on same page) ── */}
+      <div className="ek-avoid-break">
       {/* ── Closing ── */}
       <div className="mt-4 space-y-3 text-[9.5pt] leading-[1.7]">
         <p>
@@ -203,6 +205,7 @@ export default function SuratPengantarTemplate({ claim, batchKlaims }: Props) {
             <p className="text-[8pt] text-slate-500">NIP. {rs.kop.nipKepala}</p>
           )}
         </div>
+      </div>
       </div>
 
       {/* ── Footer ── */}

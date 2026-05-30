@@ -171,3 +171,53 @@ h1, h2, h3, h4, h5, h6 {
     display: block;
   }
 }
+
+/* ── E-Klaim Print (EK9.1) ─────────────────────────────── */
+/* Visibility isolation for 2 print roots + shared utilities.
+   #eklaim-print-root — BerkasGenerator: ResumeMedis / BerkasKlaim / SuratPengantar
+   #recon-print-area  — ReconciliationPrintTemplate
+   Color: print-color-adjust:exact preserves teal/emerald section headers & chips.
+   Page sizing: each template injects its own @page A4 margin:0 via <style> / printElementById.
+   Break helpers: .ek-avoid-break · .ek-page-break */
+
+@media print {
+  /* ── Berkas Generator (3 templates) ── */
+  #eklaim-print-root,
+  #eklaim-print-root * {
+    visibility: visible !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  #eklaim-print-root {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* ── Reconciliation Report ── */
+  #recon-print-area,
+  #recon-print-area * {
+    visibility: visible !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  #recon-print-area {
+    position: fixed !important;
+    inset: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* ── Break helpers — apply to DocSection / table / signature row ── */
+  .ek-avoid-break {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .ek-page-break {
+    page-break-before: always;
+    break-before: page;
+  }
+}

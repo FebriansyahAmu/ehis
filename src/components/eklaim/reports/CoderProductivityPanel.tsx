@@ -60,8 +60,8 @@ export default function CoderProductivityPanel() {
       {/* Divider */}
       <div className="flex items-center gap-3">
         <div className="flex-1 border-t border-slate-200" />
-        <span className="flex items-center gap-1.5 text-sm font-medium text-slate-500">
-          <Clock size={13} className="text-sky-400" />
+        <span className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+          <Clock size={12} className="text-sky-400" />
           Rata-rata Kunjungan → Submit
         </span>
         <div className="flex-1 border-t border-slate-200" />
@@ -85,8 +85,8 @@ function PanelHeader({
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h2 className="text-base font-semibold text-slate-800">Produktivitas Coder</h2>
-        <p className="text-sm text-slate-500">
+        <h2 className="text-sm font-semibold text-slate-800">Produktivitas Coder</h2>
+        <p className="text-xs text-slate-500">
           Output koding & turnaround kunjungan-to-submit · 8 hari terakhir
         </p>
       </div>
@@ -99,7 +99,7 @@ function PanelHeader({
           <Download size={13} className="text-teal-600" />
           CSV
         </button>
-        <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-sm font-medium text-sky-600 ring-1 ring-sky-200">
+        <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-medium text-sky-600 ring-1 ring-sky-200">
           {total} klaim koded
         </span>
       </div>
@@ -123,24 +123,24 @@ function CoderCard({ coder, idx }: { coder: CoderProfile; idx: number }) {
           className="h-2.5 w-2.5 shrink-0 rounded-full"
           style={{ backgroundColor: coder.colorHex }}
         />
-        <span className="text-sm font-semibold leading-tight text-slate-700">
+        <span className="text-xs font-semibold leading-tight text-slate-700">
           {coder.name}
         </span>
       </div>
 
-      <p className="text-2xl font-bold tabular-nums text-slate-800">
+      <p className="text-lg font-bold tabular-nums text-slate-800">
         {coder.totalKoded}
       </p>
-      <p className="text-sm text-slate-400">klaim koded</p>
+      <p className="text-xs text-slate-400">klaim koded</p>
 
       <div className="mt-2.5 flex items-center justify-between border-t border-slate-100 pt-2.5">
         <span
-          className={`flex items-center gap-0.5 text-sm font-semibold tabular-nums ${positive ? "text-emerald-600" : "text-rose-600"}`}
+          className={`flex items-center gap-0.5 text-xs font-semibold tabular-nums ${positive ? "text-emerald-600" : "text-rose-600"}`}
         >
-          {positive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+          {positive ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
           {positive ? "+" : ""}{coder.trend}%
         </span>
-        <span className="text-sm text-slate-500">
+        <span className="text-xs text-slate-500">
           <span className="font-bold text-slate-700 tabular-nums">
             {(coder.accuracy * 100).toFixed(0)}%
           </span>{" "}
@@ -166,10 +166,10 @@ function DailyOutputChart({
     <div className="rounded-xl bg-white ring-1 ring-slate-200">
       {/* Chart header */}
       <div className="border-b border-slate-100 px-4 py-2.5">
-        <p className="text-sm font-semibold text-slate-700">Klaim Koded per Hari</p>
+        <p className="text-xs font-semibold text-slate-700">Klaim Koded per Hari</p>
         <div className="mt-1.5 flex flex-wrap gap-3">
           {coders.map(c => (
-            <span key={c.id} className="flex items-center gap-1.5 text-sm text-slate-600">
+            <span key={c.id} className="flex items-center gap-1.5 text-xs text-slate-600">
               <span
                 className="h-2 w-4 rounded-full"
                 style={{ backgroundColor: c.colorHex }}
@@ -251,7 +251,7 @@ function SubmitLatencyPanel({ coders }: { coders: CoderProfile[] }) {
   return (
     <div className="rounded-xl bg-white ring-1 ring-slate-200">
       <div className="border-b border-slate-100 px-4 py-2.5">
-        <p className="text-sm font-semibold text-slate-700">
+        <p className="text-xs font-semibold text-slate-700">
           Rata-rata Hari Kunjungan → Submit
         </p>
         <p className="text-xs text-slate-400">
@@ -278,7 +278,7 @@ function SubmitLatencyPanel({ coders }: { coders: CoderProfile[] }) {
                   className="h-2.5 w-2.5 shrink-0 rounded-full"
                   style={{ backgroundColor: c.colorHex }}
                 />
-                <span className="text-sm font-medium text-slate-700">
+                <span className="text-xs font-medium text-slate-700">
                   {c.name.split(" ")[0]}
                 </span>
               </div>
@@ -299,7 +299,7 @@ function SubmitLatencyPanel({ coders }: { coders: CoderProfile[] }) {
 
               {/* Value + badge */}
               <div className="flex w-32 shrink-0 items-center justify-end gap-1.5">
-                <span className="text-sm font-bold tabular-nums text-slate-700">
+                <span className="text-xs font-bold tabular-nums text-slate-700">
                   {c.avgDaysToSubmit} hari
                 </span>
                 {isFastest && (

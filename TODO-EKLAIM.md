@@ -12,8 +12,8 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (E-Klaim depend B0/B1.9/B-fhir)
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
-> **Last updated:** 2026-05-30 (progress tracker sync — EK2/EK4/EK5/EK6 ✅ diperbarui · merge conflict resolved · EK7.1–EK7.3 ✅ · EK7.4 pending · EK8.1–EK8.4 ✅)
-> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail ✅ 100%** · **EK4 iDRG Calculator ✅ 100%** · **EK5 Berkas Generator ✅ 100%** · **EK6 Banding ✅ 100%** · **EK7 Reconciliation 🚧 75% (EK7.1+EK7.2+EK7.3 ✅ · EK7.4 pending)** · **EK8 Dashboard 🚧 67% (EK8.1–EK8.4 ✅)** · Next: EK7.4 Reconciliation Report
+> **Last updated:** 2026-05-30 (EK9.1 ✅ Print Stylesheet — globals.css `@media print` EK9.1 · ek-avoid-break DocSection · ReconciliationPrintTemplate simplified · MatchingPanel "Detail" link → `/reconciliation/[id]`)
+> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail ✅ 100%** · **EK4 iDRG Calculator ✅ 100%** · **EK5 Berkas Generator ✅ 100%** · **EK6 Banding ✅ 100%** · **EK7 Reconciliation ✅ 100%** · **EK8 Dashboard 🚧 67% (EK8.1–EK8.4 ✅)** · **EK9 🚧 20% (EK9.1 ✅)**
 >
 > **Target effort:** ~3.5-4.5 minggu (frontend full) · paralel dengan B0/B1.9 backend.
 > **Standar grouper:** **iDRG (Indonesian Diagnosis Related Groups) — primary** sejak 1 Okt 2025 (Pedoman Pengodean iDRG 2025 Kemenkes + Perpres 59/2024). INA-CBG = legacy adapter Phase later untuk klaim transisi pre-Okt 2025.
@@ -1143,23 +1143,36 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 
 ### EK8.5 Export
 
-- [ ] Excel + PDF print per report
+- [x] Excel + PDF print per report — `exportUtils.ts` (CSV BOM+blob) · CSV button per 4 panel · `DashboardPrintTemplate.tsx` A4 isolation · sidebar "Cetak PDF" wired
+
+**Impl detail (EK8.5):**
+
+- `src/lib/eklaim/exportUtils.ts` — `downloadCSV()` + `todayISO()` + `CSVSection` interface
+- `DashboardPrintTemplate.tsx` — print isolation `#dashboard-print-area` · KopSuratEklaim · 4 sections (Approval/Aging/Margin/Coder) · `hidden print:block`
+- Per-panel CSV: `ApprovalRatePanel` (2 sections: tren + alasan ditolak) · `AgingKlaimPanel` (2: aging bucket + stuck claims) · `MarginAnalysisPanel` (1: MDC groups) · `CoderProductivityPanel` (2: coder profiles + daily output)
+- `DashboardPage.tsx` — sidebar "Cetak PDF" `onClick={() => window.print()}` · `<DashboardPrintTemplate />` rendered in key="ready" block
+- TSC clean · no indigo
 
 ### EK8.6 iDRG vs INA-CBG Margin Comparator (AD-19)
 
 **Use case:** evaluasi dampak migrasi iDRG vs INA-CBG terhadap margin RS · tariff negotiation argumentation · trend lintas era pre/post Okt 2025.
 
-- [ ] **Cumulative margin chart** — line chart 12 bulan rolling, 2 line series:
-  - **iDRG actual** (untuk klaim post-Okt 2025 = pakai `claim.iDRG.tarifAktual`)
-  - **INA-CBG estimasi** (untuk klaim post-Okt 2025 = call `inaCbgLegacyAdapter` paralel sebagai estimasi)
-  - Klaim pre-Okt 2025 inverse (INA-CBG actual + iDRG estimasi sebagai forward-looking)
-- [ ] **Delta nominal** per bulan + cumulative total ("Kalau pakai INA-CBG, RS akan kehilangan/dapat Rp X selama 12 bulan")
-- [ ] **Per-MDC breakdown** — table top 10 MDC dengan delta margin terbesar (positif = iDRG lebih untung, negatif = INA-CBG lebih untung)
-- [ ] **Per-penjamin filter** — chart per BPJS/Asuransi/Jamkesda
-- [ ] **Banner caveat** wajib: "⚠️ Nilai INA-CBG di chart ini adalah estimasi non-official untuk perbandingan analitik. Bukan untuk negosiasi formal dengan BPJS."
-- [ ] **Export PDF** dengan watermark "INTERNAL USE — REFERENCE ONLY"
+- [x] **Cumulative margin chart** — SVG line chart 12 bulan rolling, 2 series: iDRG (teal solid) + INA-CBG (sky dashed) · fill polygon antara 2 garis · vertical rule Oct '25 "iDRG Berlaku" · dynamic Y bounds
+- [x] **Delta nominal** per bulan — delta bar chart (emerald = iDRG lebih untung · rose = INA-CBG lebih untung) + cumulative footer label
+- [x] **Per-MDC breakdown** — tabel 10 MDC sorted |delta%| terbesar · iDRG%/INA-CBG%/Delta%/DeltaNominal color-coded
+- [x] **Per-penjamin filter** — 4 pills: Semua/BPJS/Asuransi/Jamkesda · `PENJAMIN_FACTOR` scaling
+- [x] **Banner caveat** wajib — amber AlertTriangle · teks lengkap sesuai spec
+- [x] **Export PDF** watermark "INTERNAL USE — REFERENCE ONLY" — `@media print` isolation `#comparator-print-area::after` · `ComparatorPrintView` A4 tabel + KopSuratEklaim
+- [x] **Export CSV** — 2 sections: Tren Bulanan + Per-MDC Breakdown
 
-**Acceptance EK8:** dashboard tampil data demo 30 hari, drill-down per penjamin/iDRG-MDC/coder berfungsi, Comparator chart EK8.6 menunjukkan delta nominal iDRG vs estimasi INA-CBG dengan caveat banner jelas.
+**Impl detail (EK8.6):**
+
+- `dashboardShared.ts` — `ComparatorPenjamin` type · `ComparatorPoint`/`MDCComparatorRow` interfaces · `COMP_IDRG_PCT`/`COMP_INACBG_PCT`/`COMP_DELTA_NOM` seed · `PENJAMIN_FACTOR` · `buildComparatorData()` · `buildMDCComparatorRows()` · `ReportTab` + `"comparator"`
+- `MarginComparatorPanel.tsx` (~520 ln) — `ComparatorLineChart` SVG fill polygon + era divider · `DeltaBarChart` flex bars · `MDCBreakdownTable` · `CaveatBanner` · `ComparatorPrintView` print isolation + watermark CSS
+- `DashboardPage.tsx` — tab ke-5 "Margin Comparator" + `Layers` icon + render block
+- TSC clean · no indigo · teal/sky/emerald/amber/rose
+
+**Acceptance EK8:** dashboard tampil data demo 30 hari, drill-down per penjamin/iDRG-MDC/coder berfungsi, Comparator chart EK8.6 menunjukkan delta nominal iDRG vs estimasi INA-CBG dengan caveat banner jelas. ✅
 
 ---
 
@@ -1167,9 +1180,12 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 
 **Effort:** 1-2 hari
 
-### EK9.1 Print Stylesheet
+### EK9.1 Print Stylesheet ✅ (2026-05-30)
 
-- [ ] `@media print` untuk ResumeMedis + BerkasKlaim + SuratPengantar + ReconciliationReport — pakai KOP RS
+- [x] `@media print` untuk ResumeMedis + BerkasKlaim + SuratPengantar + ReconciliationReport — globals.css EK9.1 section: `#eklaim-print-root` + `#recon-print-area` isolation + `print-color-adjust:exact` + `.ek-avoid-break` / `.ek-page-break` utilities
+- [x] `ek-avoid-break` ke DocSection + signature row di ResumeMedis, BerkasKlaim, SuratPengantar
+- [x] `ReconciliationPrintTemplate` inline `<style>` disederhanakan → hanya `@page A4 margin:0` (isolation pindah ke globals.css)
+- [x] `MatchingPanel` `TransferDetailCard` header — tambah link "Detail ↗" ke `/ehis-eklaim/reconciliation/[id]`
 
 ### EK9.2 Skeleton & Animasi
 
@@ -1210,8 +1226,8 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 | EK6 — Banding             | 3      | 3      | 100%    | ✅ EK6.1 BandingBoard · EK6.2 BandingFormModal · EK6.3 BandingDetailPage `/banding/[id]`                                                             |
 | EK7 — Reconciliation      | 4      | 4      | 100%    | ✅ EK7.1 ImportTransferModal · EK7.2 MatchingPanel · EK7.3 SelisihWriteOffModal · EK7.4 ReconciliationDetailPage+PrintTemplate+CSV (2026-05-30)       |
 | EK8 — Dashboard Analytics | 6      | 4      | 67%     | EK8.1 ✅ Approval Rate · EK8.2 ✅ Aging · EK8.3 ✅ Margin iDRG · EK8.4 ✅ Coder Productivity · EK8.5/6 pending                                        |
-| EK9 — UX Polish + Cross   | 5      | 0      | 0%      | 1-2 hari                                                                                                                                              |
-| **Total**                 | **39** | **32** | **82%** | **~3.5-4.5 minggu** · Sisa: EK8.5/6 · EK9 (5 item)                                                                                                   |
+| EK9 — UX Polish + Cross   | 5      | 1      | 20%     | EK9.1 ✅ Print Stylesheet (2026-05-30) · Sisa: EK9.2–EK9.5                                                                                            |
+| **Total**                 | **39** | **33** | **85%** | **~3.5-4.5 minggu** · Sisa: EK8.5/6 · EK9.2–EK9.5                                                                                                    |
 
 **Effort total:** ~3.5-4.5 minggu frontend full (revisi dari 3-4 minggu karena pivot ke iDRG + dual-era support + state machine + Rupiah type).
 **Critical path MVP:** EK0 + EK2 + EK3 (3 tab inti: Berkas + Coding + Submission) = ~10-12 hari. Sisanya by business priority.

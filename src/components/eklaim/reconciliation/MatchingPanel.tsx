@@ -20,8 +20,9 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   GitBranch, Play, Loader2, CheckCircle2, AlertTriangle, XCircle,
-  Save, Calendar, User, ChevronDown, ChevronUp, Plus, Pencil,
+  Save, Calendar, User, ChevronDown, ChevronUp, Plus, Pencil, ArrowUpRight,
 } from "lucide-react";
+import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 import { formatRupiah } from "@/lib/eklaim/money";
@@ -158,14 +159,23 @@ function TransferDetailCard({ record }: { record: ReconciliationRecord }) {
       <div className="flex items-center gap-2 border-b border-teal-100 bg-teal-50/50 px-4 py-2.5">
         <GitBranch size={14} className="shrink-0 text-teal-600" />
         <h3 className="text-sm font-semibold text-slate-700">Detail Transfer</h3>
-        <span
-          className={cn(
-            "ml-auto inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-semibold ring-1",
-            tone.chipBg, tone.chipText, tone.chipRing,
-          )}
-        >
-          {cfg.label}
-        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <span
+            className={cn(
+              "inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-semibold ring-1",
+              tone.chipBg, tone.chipText, tone.chipRing,
+            )}
+          >
+            {cfg.label}
+          </span>
+          <Link
+            href={`/ehis-eklaim/reconciliation/${record.id}`}
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-teal-600 transition hover:bg-teal-100 hover:text-teal-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+          >
+            <ArrowUpRight size={12} />
+            Detail
+          </Link>
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-3 p-4 sm:grid-cols-3">
         <div>

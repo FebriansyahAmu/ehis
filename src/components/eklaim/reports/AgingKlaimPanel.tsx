@@ -77,8 +77,8 @@ export default function AgingKlaimPanel() {
       {/* Panel header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-800">Aging Klaim</h2>
-          <p className="text-sm text-slate-500">
+          <h2 className="text-sm font-semibold text-slate-800">Aging Klaim</h2>
+          <p className="text-xs text-slate-500">
             Distribusi klaim berdasarkan durasi sejak submit · per penjamin
           </p>
         </div>
@@ -98,7 +98,7 @@ export default function AgingKlaimPanel() {
           ([key, cfg]) => (
             <div key={key} className="flex items-center gap-1.5">
               <span className={`h-2.5 w-2.5 rounded-full ${cfg.dot}`} />
-              <span className="text-sm text-slate-600">{cfg.label}</span>
+              <span className="text-xs text-slate-600">{cfg.label}</span>
             </div>
           ),
         )}
@@ -118,11 +118,11 @@ export default function AgingKlaimPanel() {
               <div key={row.bucket} className="px-4 py-3">
                 <div className="mb-2 flex items-center justify-between">
                   <span
-                    className={`rounded-md px-2 py-0.5 text-sm font-semibold ${tone.bg}`}
+                    className={`rounded-md px-2 py-0.5 text-xs font-semibold ${tone.bg}`}
                   >
                     {tone.label}
                   </span>
-                  <span className="text-sm font-bold text-slate-700 tabular-nums">
+                  <span className="text-xs font-bold text-slate-700 tabular-nums">
                     {row.total} klaim
                   </span>
                 </div>
@@ -185,8 +185,8 @@ export default function AgingKlaimPanel() {
       {/* Stuck claims section */}
       <div className="flex items-center gap-3">
         <div className="flex-1 border-t border-slate-200" />
-        <span className="flex items-center gap-1.5 text-sm font-medium text-slate-500">
-          <AlertTriangle size={13} className="text-rose-500" />
+        <span className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+          <AlertTriangle size={12} className="text-rose-500" />
           Stuck Claims — Pending &gt; 30 Hari
         </span>
         <div className="flex-1 border-t border-slate-200" />
@@ -195,7 +195,7 @@ export default function AgingKlaimPanel() {
       {stuckClaims.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-xl bg-emerald-50 py-6 ring-1 ring-emerald-200">
           <Clock size={20} className="text-emerald-500" />
-          <p className="text-sm font-medium text-emerald-700">
+          <p className="text-xs font-medium text-emerald-700">
             Semua klaim dalam batas waktu normal
           </p>
         </div>
@@ -234,11 +234,11 @@ export default function AgingKlaimPanel() {
                   className="grid grid-cols-[1fr_120px_80px_90px] items-center gap-2 px-4 py-2.5 hover:bg-slate-50"
                 >
                   <div className="min-w-0">
-                    <p className="truncate font-mono text-sm text-slate-700">{c.noKlaim}</p>
+                    <p className="truncate font-mono text-xs text-slate-700">{c.noKlaim}</p>
                     <p className="truncate text-xs text-slate-400">{c.pasienId}</p>
                   </div>
-                  <p className="truncate text-sm text-slate-600">{c.penjaminNama}</p>
-                  <p className="text-right font-mono text-sm text-slate-700 tabular-nums">
+                  <p className="truncate text-xs text-slate-600">{c.penjaminNama}</p>
+                  <p className="text-right font-mono text-xs text-slate-700 tabular-nums">
                     {formatRupiahShort(c.tarifRS)}
                   </p>
                   <div className="flex justify-end">

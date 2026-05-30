@@ -27,7 +27,7 @@ import type { ClaimRecord } from "@/lib/eklaim/eklaimShared";
 // ── Subcomponents ──────────────────────────────────────
 
 function DocSection({ children }: { children: React.ReactNode }) {
-  return <div className="mb-2 border border-slate-300">{children}</div>;
+  return <div className="mb-2 border border-slate-300 ek-avoid-break">{children}</div>;
 }
 
 function SectionHead({ num, title }: { num: string; title: string }) {
@@ -281,7 +281,7 @@ export default function ResumeMedisTemplate({ claim }: Props) {
       </div>
 
       {/* ── Signature Row ── */}
-      <div className="mt-6 grid grid-cols-3 gap-8">
+      <div className="mt-6 grid grid-cols-3 gap-8 ek-avoid-break">
         <SignatureCol title="Dokter DPJP" location={rs.alamat.kota} date={today} />
         <SignatureCol title="Coder Rekam Medis" location={rs.alamat.kota} date={today} />
         <SignatureCol title="Verifikator RS" location={rs.alamat.kota} date={today} />

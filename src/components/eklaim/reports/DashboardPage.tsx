@@ -12,6 +12,7 @@ import {
   Printer,
   LayoutDashboard,
   Users,
+  Layers,
 } from "lucide-react";
 import { useSkeletonDelay } from "@/components/master/shared";
 import {
@@ -23,6 +24,7 @@ import ApprovalRatePanel from "./ApprovalRatePanel";
 import AgingKlaimPanel from "./AgingKlaimPanel";
 import MarginAnalysisPanel from "./MarginAnalysisPanel";
 import CoderProductivityPanel from "./CoderProductivityPanel";
+import MarginComparatorPanel from "./MarginComparatorPanel";
 import DashboardPrintTemplate from "./DashboardPrintTemplate";
 
 // ── Tab Config ─────────────────────────────────────────
@@ -64,6 +66,13 @@ const TABS: TabCfg[] = [
     Icon: Users,
     tone: "sky",
   },
+  {
+    id: "comparator",
+    label: "Margin Comparator",
+    sub: "iDRG vs INA-CBG · 12 bulan",
+    Icon: Layers,
+    tone: "sky",
+  },
 ];
 
 const PANEL_FADE = {
@@ -87,9 +96,9 @@ const TONE_CLS: Record<KPITone, { icon: string; value: string; bg: string; borde
 
 // ── Main Page ──────────────────────────────────────────
 
-export default function DashboardPage() {
+export default function DashboardPage({ initialTab = "approval" }: { initialTab?: ReportTab }) {
   const ready = useSkeletonDelay(500);
-  const [activeTab, setActiveTab] = useState<ReportTab>("approval");
+  const [activeTab, setActiveTab] = useState<ReportTab>(initialTab);
   const kpis = useMemo(() => buildDashboardKPIs(), []);
 
   return (
@@ -135,8 +144,8 @@ export default function DashboardPage() {
                     onClick={() => window.print()}
                     className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-500 transition hover:bg-slate-50 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
                   >
-                    <Printer size={15} className="shrink-0" />
-                    <span>Cetak PDF</span>
+                    <Printer size={13} className="shrink-0" />
+                    <span className="text-xs">Cetak PDF</span>
                   </button>
                 </div>
               </nav>
@@ -162,6 +171,11 @@ export default function DashboardPage() {
                   {activeTab === "coder" && (
                     <motion.div key="coder" {...PANEL_FADE}>
                       <CoderProductivityPanel />
+                    </motion.div>
+                  )}
+                  {activeTab === "comparator" && (
+                    <motion.div key="comparator" {...PANEL_FADE}>
+                      <MarginComparatorPanel />
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -195,15 +209,15 @@ function DashboardHero() {
             <LayoutDashboard size={18} className="text-teal-600" />
           </span>
           <div>
-            <p className="text-sm font-semibold uppercase tracking-widest text-teal-600">
+            <p className="text-xs font-semibold uppercase tracking-widest text-teal-600">
               E-Klaim · Analytics
             </p>
-            <h1 className="text-base font-bold text-slate-800">
+            <h1 className="text-sm font-bold text-slate-800">
               Dashboard Analitik Klaim
             </h1>
           </div>
         </div>
-        <span className="rounded-full bg-teal-50 px-2.5 py-0.5 text-sm font-medium text-teal-600 ring-1 ring-teal-200">
+        <span className="rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-medium text-teal-600 ring-1 ring-teal-200">
           {timestamp}
         </span>
       </div>
@@ -267,10 +281,10 @@ function KPIStrip({ kpis }: { kpis: DashboardKPIs }) {
               <c.Icon size={16} />
             </span>
             <div className="min-w-0">
-              <p className={`text-lg font-bold leading-tight tabular-nums ${cls.value}`}>
+              <p className={`text-base font-bold leading-tight tabular-nums ${cls.value}`}>
                 {c.value}
               </p>
-              <p className="truncate text-sm text-slate-500">{c.label}</p>
+              <p className="truncate text-xs text-slate-500">{c.label}</p>
               <p className="truncate text-xs text-slate-400">{c.sub}</p>
             </div>
           </motion.div>
@@ -311,7 +325,7 @@ function NavTabButton({
         <tab.Icon size={13} />
       </span>
       <div className="min-w-0">
-        <p className={`text-sm font-semibold leading-tight ${active ? "text-teal-700" : "text-slate-700"}`}>
+        <p className={`text-xs font-semibold leading-tight ${active ? "text-teal-700" : "text-slate-700"}`}>
           {tab.label}
         </p>
         <p className="mt-0.5 truncate text-xs text-slate-400">{tab.sub}</p>

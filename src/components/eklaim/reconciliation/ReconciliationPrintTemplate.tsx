@@ -54,14 +54,9 @@ export default function ReconciliationPrintTemplate({
 
   return (
     <>
-      {/* Inject @media print isolation — hides screen UI, shows only this area */}
+      {/* @page rule: A4 portrait, margin 0 — complements globals.css EK9.1 isolation */}
       <style>{`
-        @media print {
-          body > * { visibility: hidden; }
-          #${PRINT_ID}, #${PRINT_ID} * { visibility: visible; }
-          #${PRINT_ID} { position: fixed; inset: 0; }
-          @page { size: A4 portrait; margin: 0; }
-        }
+        @media print { @page { size: A4 portrait; margin: 0; } }
       `}</style>
 
       <div id={PRINT_ID} className="hidden print:block">

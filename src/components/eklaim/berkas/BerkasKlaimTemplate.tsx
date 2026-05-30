@@ -39,7 +39,7 @@ const STATUS_COLOR: Record<BerkasStatus, string> = {
 // ── Subcomponents ──────────────────────────────────────
 
 function DocSection({ children }: { children: React.ReactNode }) {
-  return <div className="mb-2 border border-slate-300">{children}</div>;
+  return <div className="mb-2 border border-slate-300 ek-avoid-break">{children}</div>;
 }
 
 function SectionHead({ num, title, right }: { num: string; title: string; right?: string }) {
@@ -264,7 +264,7 @@ export default function BerkasKlaimTemplate({ claim }: Props) {
       </div>
 
       {/* ── Signature Row ── */}
-      <div className="mt-6 grid grid-cols-2 gap-12">
+      <div className="mt-6 grid grid-cols-2 gap-12 ek-avoid-break">
         <SignatureCol title="Coder Rekam Medis" location={rs.alamat.kota} date={today} />
         <SignatureCol title="Verifikator RS" location={rs.alamat.kota} date={today} />
       </div>

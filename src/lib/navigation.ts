@@ -312,6 +312,12 @@ export const eklaimNav: readonly NavGroup[] = [
       { label: "Reconciliation", href: "/ehis-eklaim/reconciliation", icon: ArrowDownUp  },
     ],
   },
+  {
+    label: "Analitik",
+    items: [
+      { label: "Laporan Analitik", href: "/ehis-eklaim/report", icon: BarChart3 },
+    ],
+  },
 ] as const;
 
 export const bpjsNav: readonly NavGroup[] = [

@@ -14,7 +14,7 @@ import type { AgingBucket } from "./claimCalc";
 
 // ── Report Tabs ─────────────────────────────────────────
 
-export type ReportTab = "approval" | "aging" | "margin" | "coder";
+export type ReportTab = "approval" | "aging" | "margin" | "coder" | "comparator";
 
 export type PeriodKey = "3m" | "6m" | "12m";
 
@@ -261,6 +261,85 @@ export function buildCoderDailyOutputs(): CoderDailyOutput[] {
     label: d.label,
     totals: CODER_SEED.map((c, i) => ({ coderId: c.id, count: d.counts[i] })),
     total:  d.counts.reduce((s, v) => s + v, 0),
+  }));
+}
+
+// ── Dashboard KPIs ──────────────────────────────────────
+
+// ── Comparator Types ─────────────────────────────────────
+
+export type ComparatorPenjamin = "all" | "bpjs" | "asuransi" | "jamkesda";
+
+export interface ComparatorPoint {
+  label: string;
+  yearMonth: string;
+  isPreOkt25: boolean;       // Jun–Sep '25 = INA-CBG actual era
+  idrgMarginPct: number;     // avg monthly margin % under iDRG
+  inaCbgMarginPct: number;   // INA-CBG margin % (estimate post-Oct, actual pre-Oct)
+  deltaNominal: bigint;      // iDRG − INA-CBG nominal Rp · + = iDRG lebih untung
+}
+
+export interface MDCComparatorRow {
+  mdcLabel: string;
+  mdcCode: string;
+  count: number;
+  idrgAvgPct: number;
+  inaCbgAvgPct: number;
+  deltaPct: number;     // + = iDRG more profitable for RS
+  deltaNominal: bigint; // + = iDRG advantage
+}
+
+// Monthly margin (%) — synthetic, realistic for RS Indonesia.
+// Pre-Okt '25: iDRG = forward-looking estimate · INA-CBG = actual.
+// Post-Okt '25: iDRG = actual · INA-CBG = legacy adapter estimate.
+const COMP_IDRG_PCT:   number[] = [4.2, 4.5, 4.8, 4.3,  5.1, 5.4, 5.2, 5.8, 6.1, 6.4, 6.2, 6.8];
+const COMP_INACBG_PCT: number[] = [2.1, 1.8, 2.3, 1.9,  2.2, 2.4, 2.1, 2.3, 2.5, 2.6, 2.4, 2.8];
+const COMP_DELTA_NOM:  bigint[] = [
+  21_000_000n, 27_000_000n, 25_000_000n, 24_000_000n,
+  29_000_000n, 30_000_000n, 31_000_000n, 35_000_000n,
+  36_000_000n, 38_000_000n, 38_000_000n, 40_000_000n,
+];
+
+const PENJAMIN_FACTOR: Record<ComparatorPenjamin, number> = {
+  all:      1.00,
+  bpjs:     0.85,
+  asuransi: 1.40,
+  jamkesda: 0.72,
+};
+
+export function buildComparatorData(penjamin: ComparatorPenjamin = "all"): ComparatorPoint[] {
+  const f = PENJAMIN_FACTOR[penjamin];
+  return ALL_MONTHS.map((m, i) => ({
+    label:           m.label,
+    yearMonth:       m.yearMonth,
+    isPreOkt25:      m.yearMonth < "2025-10",
+    idrgMarginPct:   +(COMP_IDRG_PCT[i]   * f).toFixed(2),
+    inaCbgMarginPct: +(COMP_INACBG_PCT[i] * f).toFixed(2),
+    deltaNominal:    BigInt(Math.round(Number(COMP_DELTA_NOM[i]) * f)),
+  }));
+}
+
+const MDC_COMP_ALL: MDCComparatorRow[] = [
+  { mdcLabel: "Saraf",            mdcCode: "001xxxx", count:  4, idrgAvgPct:  15.1, inaCbgAvgPct:  8.9, deltaPct: +6.2, deltaNominal:  74_400_000n },
+  { mdcLabel: "Jantung & Vask.",  mdcCode: "050xxxx", count:  8, idrgAvgPct:  12.5, inaCbgAvgPct:  7.2, deltaPct: +5.3, deltaNominal:  98_500_000n },
+  { mdcLabel: "Bedah Obstetri",   mdcCode: "054xxxx", count:  6, idrgAvgPct:   8.3, inaCbgAvgPct:  4.8, deltaPct: +3.5, deltaNominal:  42_000_000n },
+  { mdcLabel: "Endokrin & DM",    mdcCode: "010xxxx", count:  9, idrgAvgPct: -12.3, inaCbgAvgPct: -8.8, deltaPct: -3.5, deltaNominal: -63_000_000n },
+  { mdcLabel: "Ginjal & Urologi", mdcCode: "011xxxx", count:  5, idrgAvgPct:   6.7, inaCbgAvgPct:  3.9, deltaPct: +2.8, deltaNominal:  28_000_000n },
+  { mdcLabel: "Pernapasan",       mdcCode: "040xxxx", count:  7, idrgAvgPct:  -8.7, inaCbgAvgPct: -6.4, deltaPct: -2.3, deltaNominal: -27_600_000n },
+  { mdcLabel: "Pencernaan",       mdcCode: "060xxxx", count:  6, idrgAvgPct:   3.4, inaCbgAvgPct:  1.8, deltaPct: +1.6, deltaNominal:  19_200_000n },
+  { mdcLabel: "Musculoskeletal",  mdcCode: "080xxxx", count:  5, idrgAvgPct:  -4.2, inaCbgAvgPct: -3.1, deltaPct: -1.1, deltaNominal: -11_000_000n },
+  { mdcLabel: "Infeksi & Sepsis", mdcCode: "020xxxx", count:  6, idrgAvgPct:  -6.1, inaCbgAvgPct: -5.4, deltaPct: -0.7, deltaNominal:  -8_400_000n },
+  { mdcLabel: "Neonatal",         mdcCode: "015xxxx", count:  3, idrgAvgPct:   2.1, inaCbgAvgPct:  2.8, deltaPct: -0.7, deltaNominal:  -4_900_000n },
+];
+
+export function buildMDCComparatorRows(penjamin: ComparatorPenjamin = "all"): MDCComparatorRow[] {
+  const f = PENJAMIN_FACTOR[penjamin];
+  return MDC_COMP_ALL.map(r => ({
+    ...r,
+    idrgAvgPct:   +(r.idrgAvgPct   * f).toFixed(1),
+    inaCbgAvgPct: +(r.inaCbgAvgPct * f).toFixed(1),
+    deltaPct:     +(r.deltaPct     * f).toFixed(1),
+    deltaNominal: BigInt(Math.round(Number(r.deltaNominal) * f)),
   }));
 }
 
