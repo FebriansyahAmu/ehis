@@ -980,19 +980,24 @@ Aligned 1:1 dengan [RencanaKontrol-Contracts.md](contracts/RencanaKontrol-Contra
 
 **Route prefix:** `/ehis-bpjs/aplicares/*` · **Effort:** 2 hari · **Accent: pink**
 
-### BP7.1 Referensi Kamar
+### BP7.1 Referensi Kamar ✅ (2026-05-30)
 
-- [ ] **`ReferensiKamarPage`** — call `getReferensiKamar()` → table master kamar BPJS (kdKelas + namaKelas + kapasitas standar)
-- [ ] Cache 24h via referenceCache · tombol "Sync Now"
+- [x] **`ReferensiKamarPage`** — `getRefKelas()` → table 5-col (No · Kode chip pink · Nama · Catatan · Status) + info banner · "Sync Now" CTA `RotateCw` spin · `CacheStatus` pill (Fresh/Stale/Empty).
+- [x] StatCard strip 3-col: Total Kelas · Kelas Tarif Valid (non-NON/VVP) · Cache Status + waktu sync.
+- [x] Row highlight: tarif aktif hover pink · non-tarif hover slate.
+- [x] Route `src/app/ehis-bpjs/aplicares/referensi-kamar/page.tsx` ✅
 
-### BP7.2 Map Kelas
+### BP7.2 Map Kelas ✅ (2026-05-30)
 
-- [ ] **`MapKelasPage`** — table mapping `MapKelasRecord[]`:
-  - Kolom: Kelas BPJS (kode + nama) · Kelas Lokal (`KelasRawat` enum dropdown) · Multiplier · Audit
-  - CRUD row: tambah/edit/hapus mapping
-- [ ] **`KamarMappingForm`** — modal edit mapping
-- [ ] Validasi: 1 kelas BPJS hanya boleh 1 mapping aktif · multiplier > 0
-- [ ] Single-source: reuse `STATUS_ENUM_GROUPS["kelas-perawatan"]` di [statusEnumMock.ts](src/lib/master/statusEnumMock.ts)
+- [x] **`MapKelasPage`** — `getMapKelas()` → table 6-col (Kelas BPJS chip · Nama BPJS · Kelas Lokal chip · Nama Lokal · Multiplier badge · Aksi) + AnimatePresence row.
+- [x] StatCard strip 2-col: Total Mapping · Multiplier Aktif (custom vs standar count).
+- [x] CRUD: "Tambah Mapping" button → `KamarMappingForm` modal (add) · PencilLine per row (edit) · Trash2 per row → `DeleteConfirmRow` inline confirm.
+- [x] Saved flash — row bg-emerald-50 + "Disimpan" Check icon 1.5s setelah save.
+- [x] **`KamarMappingForm`** — 3 field: kdKelasBPJS select (VIP/1/2/3) · kdKelasLokal select (KelasRawat enum) · multiplier number input + preview badge real-time.
+- [x] Validasi: no duplikat (kdKelasBPJS, kdKelasLokal) pair · multiplier > 0 · skip own id saat edit.
+- [x] **`aplicaresShared.ts`** — `MapRowLocal` · `CacheStatus` helpers · `kelasBPJSChipCls` · `kelasLokalChipCls` · `multiplierBadgeCls/Label` · `isDuplicateMapping` guard · `KELAS_LOKAL_OPTIONS`.
+- [x] Route `src/app/ehis-bpjs/aplicares/map-kelas/page.tsx` ✅
+- [x] TSC clean (`npx tsc --noEmit` exit 0) ✅
 
 ### BP7.3 Ketersediaan Kamar (Bed Sync)
 
@@ -1106,9 +1111,9 @@ Aligned 1:1 dengan [RencanaKontrol-Contracts.md](contracts/RencanaKontrol-Contra
 | BP4 — Rujukan | 5 sections | 0 | 0% |
 | BP5 — Monitoring | 5 sections | 0 | 0% |
 | BP6 — Rencana Kontrol | 8 sections (11 endpoint + PRB form) | 0 | 0% |
-| BP7 — Aplicares | 4 sections | 0 | 0% |
+| BP7 — Aplicares | 4 sections | 2 | **50%** 🚧 |
 | BP8 — Polish + Audit | 5 sections | 0 | 0% |
-| **Total** | **44 sections** | **7** | **16%** |
+| **Total** | **44 sections** | **9** | **20%** |
 
 ---
 
