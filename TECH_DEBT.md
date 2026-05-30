@@ -14,6 +14,7 @@
 
 ## 🌐 Cross-Module
 
+- [✅ **Decision 2026-05-30**] **ClaimRecord source-of-truth di `/ehis-eklaim`** — `claimReadCache.ts` di `/ehis-billing` hanya read-only cache (helper `getClaimStatusForInvoice`, `eklaimDeepLink`). Billing tidak boleh mutate `ClaimRecord`. Cross-modul links (PenjaminDetail, BillingGateBanner, PatientHeader IGD/RI/RJ) pakai query-param deep-link (`?pasien=`, `?invoice=`, `?penjamin=`) — tidak ada shared state. Saat backend siap: swap `CLAIM_BOARD_MOCK` → `prisma.claim.findMany()`, cache read via REST endpoint `/api/eklaim/claim-status/{invoiceId}`.
 - [ ] **Replace mock data dengan Prisma queries** — mulai dari `PatientMaster`. Lihat [TODOS_BACKEND.md](TODOS_BACKEND.md#phase-1-database-layer) untuk roadmap migrasi.
 - [ ] **Error boundary + loading skeleton** — wajib untuk semua fullpage routes (saat ini hanya beberapa route punya skeleton 500ms via `useSkeletonDelay`).
 - [ ] **`SidebarContext`** — belum dipakai konsisten di semua modul. Beberapa modul masih pakai prop drilling untuk collapse state.

@@ -108,6 +108,7 @@ function BannerSwitch({ state }: { state: GateState }) {
           title={`Klaim ${state.penjamin} dalam proses`}
           desc={`Sisa Rp ${fmtRupiah(state.sisa).replace("Rp ", "")} ditanggung penjamin. Discharge boleh — konfirmasi ke kasir untuk berkas klaim.`}
           deepLink={`/ehis-billing/tagihan/${state.invoiceId}`}
+          eklaimHref={`/ehis-eklaim/klaim?invoice=${state.invoiceId}`}
         />
       );
 
@@ -128,12 +129,13 @@ function BannerSwitch({ state }: { state: GateState }) {
 // ── Shared shell ────────────────────────────────────────
 
 interface ShellProps {
-  tone:      "rose" | "emerald" | "sky" | "slate";
-  icon:      React.ComponentType<{ size?: number; className?: string }>;
-  title:     string;
-  desc:      string;
-  deepLink?: string;
-  required?: boolean;
+  tone:       "rose" | "emerald" | "sky" | "slate";
+  icon:       React.ComponentType<{ size?: number; className?: string }>;
+  title:      string;
+  desc:       string;
+  deepLink?:  string;
+  eklaimHref?: string;
+  required?:  boolean;
 }
 
 const TONE_CFG: Record<ShellProps["tone"], {
@@ -146,7 +148,7 @@ const TONE_CFG: Record<ShellProps["tone"], {
   slate:   { bg: "bg-slate-50",   border: "border-slate-200",   iconBg: "bg-slate-100",   iconText: "text-slate-500",   titleText: "text-slate-700",   descText: "text-slate-500",   ctaCls: "border-slate-300 text-slate-600 hover:bg-slate-100"       },
 };
 
-function BannerShell({ tone, icon: Icon, title, desc, deepLink, required }: ShellProps) {
+function BannerShell({ tone, icon: Icon, title, desc, deepLink, eklaimHref, required }: ShellProps) {
   const cfg = TONE_CFG[tone];
   return (
     <div
@@ -182,6 +184,15 @@ function BannerShell({ tone, icon: Icon, title, desc, deepLink, required }: Shel
           <Receipt size={11} />
           Buka Billing
           <ExternalLink size={10} className="transition group-hover:translate-x-0.5" />
+        </Link>
+      )}
+      {eklaimHref && (
+        <Link
+          href={eklaimHref}
+          className="group flex shrink-0 items-center gap-1.5 rounded-lg border border-teal-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-teal-700 shadow-xs transition hover:bg-teal-50"
+        >
+          <ExternalLink size={10} />
+          Cek E-Klaim
         </Link>
       )}
     </div>

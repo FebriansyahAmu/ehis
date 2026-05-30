@@ -12,8 +12,8 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (E-Klaim depend B0/B1.9/B-fhir)
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards
 >
-> **Last updated:** 2026-05-30 (EK9.1 ✅ Print Stylesheet — globals.css `@media print` EK9.1 · ek-avoid-break DocSection · ReconciliationPrintTemplate simplified · MatchingPanel "Detail" link → `/reconciliation/[id]`)
-> **Status:** 🚧 In progress — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · **EK3 Klaim Detail ✅ 100%** · **EK4 iDRG Calculator ✅ 100%** · **EK5 Berkas Generator ✅ 100%** · **EK6 Banding ✅ 100%** · **EK7 Reconciliation ✅ 100%** · **EK8 Dashboard 🚧 67% (EK8.1–EK8.4 ✅)** · **EK9 🚧 20% (EK9.1 ✅)**
+> **Last updated:** 2026-05-30 (EK9 ✅ 100% — EK9.2 Animasi stagger clamp · EK9.3 Density toggle Reconciliation Detail + KlaimBoard data-density · EK9.4 Cross-modul: PenjaminDetail E-Klaim chip · BillingGateBanner "Cek E-Klaim" CTA · IGD/RI/RJ PatientHeader E-Klaim ↗ chip BPJS · BL2.4-lite KlaimStatusTab confirmed done · EK9.5 Workflow docs update)
+> **Status:** ✅ **100% SELESAI** (2026-05-30) — EK0 Foundation ✅ · EK1 Beranda ✅ · EK2 Klaim Board ✅ · EK3 Klaim Detail ✅ · EK4 iDRG Calculator ✅ · EK5 Berkas Generator ✅ · EK6 Banding ✅ · EK7 Reconciliation ✅ · **EK8 Dashboard ✅ 100%** (EK8.1–EK8.6 ✅) · **EK9 Polish ✅ 100%** (EK9.1–EK9.5 ✅)
 >
 > **Target effort:** ~3.5-4.5 minggu (frontend full) · paralel dengan B0/B1.9 backend.
 > **Standar grouper:** **iDRG (Indonesian Diagnosis Related Groups) — primary** sejak 1 Okt 2025 (Pedoman Pengodean iDRG 2025 Kemenkes + Perpres 59/2024). INA-CBG = legacy adapter Phase later untuk klaim transisi pre-Okt 2025.
@@ -1187,29 +1187,32 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 - [x] `ReconciliationPrintTemplate` inline `<style>` disederhanakan → hanya `@page A4 margin:0` (isolation pindah ke globals.css)
 - [x] `MatchingPanel` `TransferDetailCard` header — tambah link "Detail ↗" ke `/ehis-eklaim/reconciliation/[id]`
 
-### EK9.2 Skeleton & Animasi
+### EK9.2 Skeleton & Animasi ✅ (2026-05-30)
 
-- [ ] `useSkeletonDelay(500)` semua route
-- [ ] AnimatePresence fade swap antar tab/page
-- [ ] Row stagger di tabel (clamp 0.3s)
+- [x] `useSkeletonDelay(500)` semua route — audit: 8/9 route sudah ada, 1 fix di `ReconciliationDetailPage`
+- [x] AnimatePresence fade swap antar tab/page — confirmed semua route
+- [x] Row stagger di tabel (clamp 0.3s) — `ReconciliationDetailPage` MatchedClaimRow: `Math.min(idx * 0.04, 0.3)`
 
-### EK9.3 Density Toggle
+### EK9.3 Density Toggle ✅ (2026-05-30)
 
-- [ ] Density tokens `m-*` di Klaim Board + Reconciliation Detail
+- [x] Density tokens prop-based `ROW_TOKENS` di `ReconciliationDetailPage` — `ReconDensity` type + 3-level Compact/Comfortable/Cozy radiogroup + `MatchedClaimsDetailTable` header toggle + `data-density` attribute
+- [x] `KlaimWorkspaceShell` — `data-density={filters.density}` pada `<section>` agar CSS var-based m-* cascade ke children
 
-### EK9.4 Cross-Modul Integration
+### EK9.4 Cross-Modul Integration ✅ (2026-05-30)
 
-- [ ] **Billing Tab Klaim (BL2.4-lite)** wire ke `getClaimStatusForInvoice(invoiceId)` → tampil status + deep link "Buka di E-Klaim"
-- [ ] **Master Penjamin** sub-tab "Lihat di E-Klaim" — cross-link ke Klaim Board difilter per penjamin
-- [ ] **PasienPulang Tab RI/IGD** quick-action "Cek Klaim" — deep link ke Klaim Detail
-- [ ] **PatientBanner cross-modul** quick-action "Lihat Klaim" jika ada `claimId`
+- [x] **Billing Tab Klaim (BL2.4-lite)** — `KlaimStatusTab.tsx` confirmed selesai (2026-05-24): `getClaimStatusForInvoice()` + `eklaimDeepLink()` + `ClaimStatusCard` + `InaCbgPreview` + `DeepLinkCta`
+- [x] **Master Penjamin** — `PenjaminDetail.tsx` chip "E-Klaim ↗" di header actions (hanya `!isNew && tipe !== "Umum"`) → `/ehis-eklaim/klaim?penjamin={kode}` teal-50 border-teal-200
+- [x] **PasienPulang BillingGateBanner (RI)** — `eklaimHref?` prop di `ShellProps` + "Cek E-Klaim" button (teal) di `BannerShell` + wired di `case "klaim"` → `/ehis-eklaim/klaim?invoice={invoiceId}`
+- [x] **PatientBanner cross-modul IGD** — `PatientHeader.tsx` chip "E-Klaim ↗" di breadcrumb bar jika `patient.noBpjs` → `/ehis-eklaim/klaim?pasien={noRM}` rounded-full teal
+- [x] **PatientBanner cross-modul RI** — `RIPatientHeader.tsx` sama dengan IGD pattern
+- [x] **PatientBanner cross-modul RJ** — `RJPatientHeader.tsx` sama dengan IGD pattern
 
-### EK9.5 Update Workflow Docs
+### EK9.5 Update Workflow Docs ✅ (2026-05-30)
 
-- [ ] **CLAUDE.md** — update Module Map row `ehis-eklaim` dari "Planned" → "✅" + ringkasan modul
-- [ ] **TODO-EKLAIM.md progress tracker** update
-- [ ] **TODO-BILLING.md BL2.4-lite** mark done
-- [ ] **TECH_DEBT.md** — catat decision: source-of-truth ClaimRecord di-host di /ehis-eklaim, billing read-only cache
+- [x] **CLAUDE.md** — update Module Map row `ehis-eklaim` → ✅ 100% SELESAI + summary lengkap
+- [x] **TODO-EKLAIM.md progress tracker** — EK8 100% · EK9 100% · Total 39/39
+- [x] **TODO-BILLING.md BL2.4-lite** — sudah `✅ Selesai (2026-05-24)`, tidak perlu update
+- [x] **TECH_DEBT.md** — catat decision: ClaimRecord source-of-truth di `/ehis-eklaim`, billing = read-only cache via `claimReadCache.ts`
 
 ---
 
@@ -1225,9 +1228,9 @@ User feedback V1 ("layout tidak optimal · tidak interaktif · scroll panjang"):
 | EK5 — Berkas Generator    | 2      | 2      | 100%    | ✅ EK5.1 Templates A4 (ResumeMedis+BerkasKlaim+SuratPengantar+KopSurat) · EK5.2 Print+BerkasGeneratorModal                                            |
 | EK6 — Banding             | 3      | 3      | 100%    | ✅ EK6.1 BandingBoard · EK6.2 BandingFormModal · EK6.3 BandingDetailPage `/banding/[id]`                                                             |
 | EK7 — Reconciliation      | 4      | 4      | 100%    | ✅ EK7.1 ImportTransferModal · EK7.2 MatchingPanel · EK7.3 SelisihWriteOffModal · EK7.4 ReconciliationDetailPage+PrintTemplate+CSV (2026-05-30)       |
-| EK8 — Dashboard Analytics | 6      | 4      | 67%     | EK8.1 ✅ Approval Rate · EK8.2 ✅ Aging · EK8.3 ✅ Margin iDRG · EK8.4 ✅ Coder Productivity · EK8.5/6 pending                                        |
-| EK9 — UX Polish + Cross   | 5      | 1      | 20%     | EK9.1 ✅ Print Stylesheet (2026-05-30) · Sisa: EK9.2–EK9.5                                                                                            |
-| **Total**                 | **39** | **33** | **85%** | **~3.5-4.5 minggu** · Sisa: EK8.5/6 · EK9.2–EK9.5                                                                                                    |
+| EK8 — Dashboard Analytics | 6      | 6      | 100%    | EK8.1 ✅ Approval Rate · EK8.2 ✅ Aging · EK8.3 ✅ Margin iDRG · EK8.4 ✅ Coder Productivity · EK8.5 ✅ CSV+PDF Export · EK8.6 ✅ Margin Comparator    |
+| EK9 — UX Polish + Cross   | 5      | 5      | 100%    | EK9.1 ✅ Print Stylesheet · EK9.2 ✅ Animasi stagger · EK9.3 ✅ Density toggle · EK9.4 ✅ Cross-modul links · EK9.5 ✅ Workflow docs (2026-05-30)        |
+| **Total**                 | **39** | **39** | **100%** | **✅ SELESAI 2026-05-30** — semua fase EK0–EK9 done                                                                                                  |
 
 **Effort total:** ~3.5-4.5 minggu frontend full (revisi dari 3-4 minggu karena pivot ke iDRG + dual-era support + state machine + Rupiah type).
 **Critical path MVP:** EK0 + EK2 + EK3 (3 tab inti: Berkas + Coding + Submission) = ~10-12 hari. Sisanya by business priority.

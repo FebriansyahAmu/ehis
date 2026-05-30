@@ -147,6 +147,15 @@ export default function RJPatientHeader({ patient }: { patient: RJPatientDetail 
               {sc.label}
             </span>
 
+            {patient.noBpjs && (
+              <Link
+                href={`/ehis-eklaim/klaim?pasien=${encodeURIComponent(patient.noRM)}`}
+                className="flex items-center gap-1 rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-700 ring-1 ring-teal-200 transition hover:bg-teal-100"
+                title="Lihat klaim pasien di E-Klaim"
+              >
+                E-Klaim ↗
+              </Link>
+            )}
             <Link
               href="/ehis-care/rawat-jalan"
               className="ml-auto flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:bg-white hover:text-slate-700"

@@ -339,6 +339,17 @@ export default function RIPatientHeader({ patient }: { patient: RawatInapPatient
               {patient.status}
             </span>
 
+            {/* E-Klaim cross-link — BPJS/Asuransi patients only */}
+            {patient.noBpjs && (
+              <Link
+                href={`/ehis-eklaim/klaim?pasien=${encodeURIComponent(patient.noRM)}`}
+                className="flex items-center gap-1 rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-700 ring-1 ring-teal-200 transition hover:bg-teal-100"
+                title="Lihat klaim pasien di E-Klaim"
+              >
+                E-Klaim ↗
+              </Link>
+            )}
+
             {/* BL6.3 — Mini billing widget (reactive sisa tagihan, deep-link ke Billing) */}
             <div className="ml-auto">
               <BillingMiniWidget noRM={patient.noRM} compact />

@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Save, Trash2, BadgeCheck, IdCard, Layers3, FileText, ShieldCheck, AlertTriangle,
+  Save, Trash2, BadgeCheck, IdCard, Layers3, FileText, ShieldCheck, AlertTriangle, ExternalLink,
 } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { PenjaminRecord } from "@/lib/master/penjaminStore";
 import { TIPE_CFG, STATUS_CFG, isPenjaminValid, penjaminInitials } from "./penjaminShared";
@@ -89,6 +90,15 @@ export default function PenjaminDetail({
 
           {/* Action buttons */}
           <div className="flex shrink-0 items-center gap-1.5">
+            {!isNew && draft.tipe !== "Umum" && (
+              <Link
+                href={`/ehis-eklaim/klaim?penjamin=${encodeURIComponent(draft.kode)}`}
+                className="flex items-center gap-1 rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-[11px] font-semibold text-teal-700 transition hover:bg-teal-100"
+                title="Lihat klaim dari penjamin ini di E-Klaim"
+              >
+                <ExternalLink size={11} /> E-Klaim
+              </Link>
+            )}
             {!isNew && (
               <button
                 onClick={onDelete}

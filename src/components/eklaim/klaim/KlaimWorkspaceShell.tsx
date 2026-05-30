@@ -176,6 +176,7 @@ export default function KlaimWorkspaceShell({
   return (
     <section
       aria-label="Workspace Klaim Board"
+      data-density={filters.density}
       className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl bg-white ring-1 ring-slate-200"
     >
       {/* Toolbar: Quick Tabs + Density */}
