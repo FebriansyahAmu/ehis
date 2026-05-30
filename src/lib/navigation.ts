@@ -46,6 +46,11 @@ import {
   CalendarCheck,
   Bed,
   History,
+  Ticket,
+  ListChecks,
+  SlidersHorizontal,
+  BookMarked,
+  MonitorPlay,
   type LucideIcon,
 } from "lucide-react";
 
@@ -67,6 +72,7 @@ export type ModuleKey =
   | "dashboard"
   | "master"
   | "registration"
+  | "antrian"
   | "billing"
   | "eklaim"
   | "bpjs"
@@ -127,6 +133,14 @@ export const MODULES: readonly ModuleDescriptor[] = [
     href: "/ehis-registration",
     icon: ClipboardList,
     accent: { bg: "bg-sky-50", text: "text-sky-600", ring: "ring-sky-100" },
+  },
+  {
+    key: "antrian",
+    label: "EHIS Antrean",
+    desc: "Antrean online & onsite",
+    href: "/ehis-antrian",
+    icon: Ticket,
+    accent: { bg: "bg-indigo-50", text: "text-indigo-600", ring: "ring-indigo-100" },
   },
   {
     key: "billing",
@@ -368,6 +382,28 @@ export const registrationNav: readonly NavGroup[] = [
   },
 ] as const;
 
+export const antrianNav: readonly NavGroup[] = [
+  {
+    label: "Utama",
+    items: [{ label: "Beranda", href: "/ehis-antrian", icon: LayoutGrid }],
+  },
+  {
+    label: "Operasional",
+    items: [
+      { label: "Antrean List", href: "/ehis-antrian/antrean", icon: ListChecks },
+      { label: "Monitoring", href: "/ehis-antrian/monitoring", icon: Activity },
+      { label: "Display", href: "/ehis-antrian/display", icon: MonitorPlay },
+    ],
+  },
+  {
+    label: "Konfigurasi",
+    items: [
+      { label: "Pengaturan", href: "/ehis-antrian/pengaturan", icon: SlidersHorizontal },
+      { label: "Referensi", href: "/ehis-antrian/referensi", icon: BookMarked },
+    ],
+  },
+] as const;
+
 export const billingNav: readonly NavGroup[] = [
   {
     label: "Utama",
@@ -490,6 +526,7 @@ const NAV_MAP: Record<ModuleKey, readonly NavGroup[]> = {
   dashboard: dashboardNav,
   master: masterNav,
   registration: registrationNav,
+  antrian: antrianNav,
   billing: billingNav,
   eklaim: eklaimNav,
   bpjs: bpjsNav,

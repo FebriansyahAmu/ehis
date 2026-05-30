@@ -4,6 +4,7 @@
 > Dokumen ini di-update setiap menyelesaikan task. Centang `[x]` saat done, tambah catatan ringkas + tanggal.
 >
 > **Workflow docs:**
+> - [docs/FLOW-RJ-ONSITE.md](docs/FLOW-RJ-ONSITE.md) — **Algoritma alur RJ onsite + TaskID** (acuan implementasi)
 > - [docs/API-ANTREAN.md](docs/API-ANTREAN.md) — **Kontrak API edge BPJS ↔ REST internal** (adapter, method, mapping)
 > - [CLAUDE.md](CLAUDE.md) — current state + module map
 > - [TODO-REGISTRASI.md](TODO-REGISTRASI.md) — **Loket Pendaftaran** — modal yang di-*trigger* dari "Respon Kedatangan" + cetak SEP RJ
@@ -11,12 +12,12 @@
 > - [TECH_DEBT.md](TECH_DEBT.md) — tech debt registry
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (bridging WS Antrean BPJS real)
 >
-> **Last updated:** 2026-05-30
-> **Status:** 📋 **Planned — modul belum dibuat.** Diputuskan jadi modul mandiri (2026-05-30). Spec TaskID Antrol BPJS dikunci (2026-05-30).
+> **Last updated:** 2026-05-31
+> **Status:** 🚧 **In progress.** `REG0` ✅ · `ANT1` ✅ (store+TaskID engine) · `ANT0` ✅ (scaffold modul) · `ANT-ONSITE` ✅ (kiosk APM Lama+Baru → ambil antrean → struk). **Next:** `ANT2` (Antrean List + check-in admisi). Spec TaskID Antrol BPJS dikunci (2026-05-30).
 > **Target effort:** ~2–2.5 minggu (frontend, mock-first).
 
 > ### 🚦 Urutan Build (disepakati 2026-05-30)
-> `REG0` (fondasi persistensi) → `ANT1` (store + TaskID engine) → `REG1`/`REG2` (pasien baru + daftar kunjungan + SEP RJ) → `ANT2` (Antrean List) → `ANT4` (Respon Kedatangan bridge) → `ANT-RJ` (Care RJ worklist actionable, emit T4/T5) → sisanya (`ANT3` Pengaturan · `ANT5` Monitoring · `ANT6` Referensi/HFIS · `ANT7` Display+polish).
+> **Onsite-first (2026-05-31):** `REG0` ✅ → `ANT1` (store + TaskID engine + types) → **`ANT-ONSITE`** (kiosk APM: Pasien Baru/Lama → ambil antrean → struk) → `ANT2` (Tabel Antrean + check-in admisi) → `REG`/`SEP` (lengkapi data + SEP RJ di admisi) → `ANT-RJ` (Care RJ worklist + emit T4/T5) → sisanya (`ANT3` Pengaturan · `ANT5` Monitoring · `ANT6` Referensi/HFIS · `ANT7` Display+polish). **MJKN** = thin API wrapper, dikerjakan paling akhir.
 > REG0 & ANT1 boleh paralel. Task 6–7 (antrean farmasi) di-cover tapi dikerjakan setelah core flow stabil.
 
 ---
@@ -30,7 +31,7 @@
 |---|---|
 | **Lokasi** | Modul baru `/ehis-antrian` (mandiri, accent `indigo`/`cyan`). |
 | **Owner data antrean + TaskID** | Modul ini. Registrasi/Care **consume** & emit event, tidak menulis nomor. |
-| **3 channel** | (1) **MJKN** online (inbound, `x-token`) — **FOKUS BATCH INI** · (2) **Onsite** pasien tanpa HP (RS hit BPJS outbound, `cons-id`+`secret`) — nanti · (3) **Website resmi RS** — nanti. |
+| **3 channel** | (1) **Onsite/APM** (kiosk, RS hit BPJS outbound `cons-id`+`secret`) — **FOKUS BATCH INI** (paling demoable + jadi mesin inti) · (2) **MJKN** online (inbound `x-token`) — **thin wrapper nanti** (MJKN tinggal hit API kita: daftar pasien + ambil antrean → simpel) · (3) **Website resmi RS** — nanti. |
 | **Auth 2 arah** | Inbound MJKN→RS = `x-token`. Outbound RS→BPJS (`updatewaktu`, onsite add) = `cons-id`+`secret`+signature. Lihat [docs/API-ANTREAN.md](docs/API-ANTREAN.md) §1–2. |
 | **Board loket** | **PINDAH ke sini** (tab *Antrean List*) — sebelumnya direncanakan di `/ehis-registration/antrian` (REG3). Registrasi cukup sediakan modal yang di-trigger dari "Respon Kedatangan". |
 | **Jembatan ke pendaftaran** | Tombol **"Respon Kedatangan"** di Antrean List → trigger modal Pasien Baru / Daftar Kunjungan di registrasi (lihat alur di ANT4). |
@@ -53,9 +54,9 @@ Payload `antrean/updatewaktu`:
 
 | TaskID | Makna | Event UI pemicu (EHIS) | Modul |
 |:---:|---|---|---|
-| **1** | mulai waktu tunggu admisi | Klik **Respon Kedatangan** (pasien **BARU**) | `/ehis-antrian` |
-| **2** | akhir tunggu admisi / mulai layan admisi | Modal pendaftaran/daftar-kunjungan **dibuka** (mulai dilayani) | `/ehis-registration` |
-| **3** | akhir layan admisi / mulai tunggu poli | Kunjungan RJ **berhasil dibuat** (+ SEP terbit bila BPJS) | `/ehis-registration` |
+| **1** | mulai waktu tunggu admisi | Pasien **BARU**: **cetak struk di APM** (= check-in/hadir) | `/ehis-antrian` (kiosk) |
+| **2** | akhir tunggu admisi / mulai layan admisi | Modal **Lengkapi Data** **DIBUKA** (Respon Kedatangan) — lock saat buka, bukan simpan | `/ehis-registration` |
+| **3** | akhir layan admisi / mulai tunggu poli | **BARU**: Simpan & Terbitkan SEP (kunjungan+cetak SEP) di admisi. **LAMA**: cetak struk di APM (auto-SEP, skip loket) | `/ehis-registration` / kiosk |
 | **4** | akhir tunggu poli / mulai layan poli | Perawat poli klik **Panggil** (pemanggilan poli) di worklist RJ | EHIS Care (RJ) |
 | **5** | akhir layan poli / mulai tunggu farmasi | Klik **Selesai Pelayanan Poli** | EHIS Care (RJ) |
 | **6** | akhir tunggu farmasi / mulai layan farmasi | Farmasi mulai **menyiapkan** obat (`workflowStore`) | Farmasi |
@@ -96,25 +97,68 @@ Endpoint & payload 1:1 lihat [docs/API-ANTREAN.md](docs/API-ANTREAN.md) §4–5:
 
 **Effort:** 0.5 hari.
 
-- [ ] `ModuleKey "antrian"` + `ModuleDescriptor` di [navigation.ts](src/lib/navigation.ts) (`MODULES`), accent indigo/cyan.
-- [ ] `antrianNav` (Beranda · Antrean List · Pengaturan · Referensi · Monitoring · Display) + `NAV_MAP`.
-- [ ] Route group `src/app/ehis-antrian/` + layout + beranda scaffold.
+**Struktur rute (konvensi `(main)` + `(fullpage)`, sama seperti `/ehis-registration`):**
+```
+src/app/ehis-antrian/
+├── (main)/                  ← layout admin (Navbar + Sidebar + tabs)
+│   ├── page.tsx             → Beranda (+ tombol "Buka Mode APM")
+│   ├── antrean/page.tsx     → Tab Antrean List (ANT2, petugas admisi)
+│   ├── pengaturan/…         → ANT3
+│   ├── referensi/…          → ANT6
+│   └── monitoring/…         → ANT5
+└── (fullpage)/
+    └── apm/page.tsx         → KIOSK APM (ANT-ONSITE) — full-screen, TANPA sidebar
+```
+
+- [x] `ModuleKey "antrian"` + `ModuleDescriptor` di [navigation.ts](src/lib/navigation.ts) (`MODULES`), accent indigo/cyan. (2026-05-31)
+- [x] `antrianNav` (Beranda · Antrean List · Monitoring · Display · Pengaturan · Referensi) + `NAV_MAP`. (2026-05-31)
+- [x] Route group `(main)` (layout admin + Beranda KPI/launcher + 5 stub tab `AntrianComingSoon`) + `(fullpage)` (kiosk APM, layout tanpa sidebar). (2026-05-31)
 
 ---
 
-## Phase ANT1 — Data Contracts, Store & TaskID Engine
+## Phase ANT1 — Data Contracts, Store & TaskID Engine ✅ (2026-05-31)
 
 **Effort:** 1.5 hari · **ROI:** semua tab + wiring lintas modul bisa paralel.
 
-- [ ] `AntreanRecord` — `kodebooking`, `nomorAntrean`(angka+nama poli), `pos`, `loket`, `tanggal`, `jenisPasien:"Baru"|"Lama"`, `poli`, `dokter`, `caraBayar`, `noRM?`, `nik?`, `nama`, `kontak`, `tglLahir`, `jamEstimasi`, `sumber:"Mobile JKN"|"JKN Faskes"|"Loket"`, `status`.
-- [ ] `TaskLog` — `{ taskid, waktu(ms), kirimStatus:"pending"|"terkirim"|"gagal", attempts, error?, editedBy? }`.
-- [ ] **TaskID state machine** — `emitTask(kodebooking, taskid, waktu?)`:
-  - validasi urutan sesuai jenis pasien (Baru `1-5`, Lama `3-5`, +6/7),
-  - guard monoton (clamp/warn bila out-of-order),
-  - idempoten per `(kodebooking, taskid)`.
-- [ ] **Outbox + retry** — antre kirim ke WS (mock), status per task, auto-retry + manual re-send.
-- [ ] `AntreanOnlineRef` (kontrak ringan consume): `{ kodebooking, nomorAntrean, jamEstimasi, taskTerakhir, status }`.
-- [ ] `antreanStore` (sessionStorage-backed `useSyncExternalStore`) + mock seed (online + onsite, campuran Baru/Lama, beberapa dgn obat).
+- [x] `AntreanRecord` · `TaskLog` · `TaskId` · `AntreanStatus` · `CreateAntreanInput` · `AntreanOnlineRef` + `TASK_SEQUENCE`/`TASK_LABEL` di [src/lib/antrean/types.ts](src/lib/antrean/types.ts).
+- [x] **TaskID engine** [src/lib/antrean/antreanStore.ts](src/lib/antrean/antreanStore.ts) — `emitTask(kodebooking, taskid, waktu?)`: idempoten per `(kode,taskid)` · guard urutan (`TASK_SEQUENCE` Baru 1→7 / Lama 3→7, 99 kapan saja) · clamp monoton (`waktu ≥ last+1ms`) · `nextExpectedTask()`.
+- [x] **Outbox stub** — `sendToOutbox()` (mock WS sukses; status per task pending→terkirim). *(retry/gagal + edit manual → ANT5 Monitoring.)*
+- [x] `antreanStore` (sessionStorage `ehis.antrean.v1`, `useSyncExternalStore`) — `createAntrean()` · `checkin()` (Baru→T1/MenungguAdmisi, Lama→T3/MenungguPoli) · `setStatus()` · `batalAntrean()` (T99) · `getAntrean()`/`getAllAntrean()`/`getAntreanByPasien()` · `toOnlineRef()`.
+- [ ] **Mock seed** — ditunda ke ANT-ONSITE/ANT2 (kiosk akan mengisi antrean nyata; seed kalau perlu data board awal).
+
+---
+
+## Phase ANT-ONSITE — Kiosk APM (Pasien Baru/Lama → Ambil Antrean) *(FOKUS — build pertama setelah ANT1)*
+
+**Effort:** 3–4 hari · **inti channel onsite.** UI kiosk besar/touch, dibantu pasien/security. Depend: ANT1 ✅ (store+types), `addPatient` minimal (REG), mock V-Claim (cek peserta/rujukan) + jadwal dokter.
+
+**Lokasi:** `/ehis-antrian/(fullpage)/apm` — **layar full-screen TANPA sidebar** (mesin kiosk). Diluncurkan dari Beranda (tombol "Buka Mode APM"). Hasil `AntreanRecord` tampil di **Tab Antrean List** (`(main)/antrean`) untuk diproses admisi.
+
+**Pilihan awal: Pasien Lama / Pasien Baru.**
+
+> **Status ANT-ONSITE: ✅ (2026-05-31).** Kiosk wizard di [src/components/antrean/apm/](src/components/antrean/apm/) — `ApmKioskPage` (orchestrator `useReducer` + idle-reset 120s) · `ApmShell` (header jam live + **toggle fullscreen** + stepper 5-fase + footer **Kembali prominent**/Mulai Ulang) · 6 step (`StepWelcome`/`StepCariPasien`/`StepInputBaru`/`StepPenjamin`/`StepPoliDokter`/`StepStruk`) · primitif `apmUi` (KioskButton/ChoiceCard/KioskField/KuotaBar/PoliIcon). Mock katalog [onsiteMock.ts](src/lib/antrean/onsiteMock.ts) (12 poli + 15 dokter + kuota JKN/non-JKN + estimasi jam). Helper `findPatient`/`findPatientByNik` di registrationStore. Cetak struk thermal 58mm via `print:` variant. TSC + ESLint clean.
+>
+> **Touch UX (2026-05-31):** On-screen keyboard [keyboard/](src/components/antrean/apm/keyboard/) — `ApmKeyboardProvider` (registry field + active state) · `KioskInput` (daftar ke keyboard; di tablet produksi set `readOnly` untuk tekan OS keyboard) · `ApmKeyboard` (numpad / QWERTY caps, muncul dari bawah saat field di-tap). Fullscreen [useFullscreen.ts](src/components/antrean/apm/useFullscreen.ts) — auto-enter pada tap pertama (browser wajib user gesture, tak bisa auto saat load) + toggle header. Input `date` tetap native picker.
+
+### ANT-ONSITE.Lama — Pasien Lama
+1. [x] **Cari** (NIK / noRM) + **tanggal lahir** → temukan rekam (registrationStore `findPatient` + seed) → kartu konfirmasi identitas.
+2. [x] Pilih **penjamin** (BPJS) → **no. kartu autofill** via `findPesertaByNik`. *(Cabang **Umum** → lewati rujukan → langsung poli/dokter, kuota non-JKN.)*
+3. [x] **Cek rujukan/surat kontrol** by kartu (`findRujukansByKartu`, filter non-Expired) → **pilih rujukan** (poli rujukan auto-preselect di langkah poli).
+4. [x] Pilih **poli** → pilih **dokter** (`KuotaBar` sisa kuota JKN/non-JKN + estimasi jam dilayani).
+5. [x] **Ambil antrian** → `createAntrean` (`kodebooking`) → **auto-terbit SEP + `addKunjungan` RJ di APM** → **cetak struk + SEP**.
+6. [x] **emit Task 3 di APM** (`checkin` Lama = T3) → status `MenungguPoli` → instruksi struk "langsung ke ruang tunggu poli, SKIP loket".
+
+### ANT-ONSITE.Baru — Pasien Baru
+1. [x] **Input minimal**: NIK · Nama · Tempat Lahir · Tanggal Lahir · No HP (gender derive dari NIK). → **NIK dedup**: bila NIK sudah ada → interstitial alihkan ke jalur Lama.
+2. [x] Buat **draft patient** (`addPatient` minimal, norm terbit; alamat/dll placeholder dilengkapi di loket). *TODO(REG) flag `dataLengkap:false` saat field tersedia di schema.*
+3. [x] Pilih **penjamin** (BPJS) → **no. kartu manual / autofill by NIK**. *(Cabang Umum → lewati cek rujukan.)*
+4. [x] **Cek rujukan/surat kontrol** by kartu (filter aktif).
+5. [x] Pilih **poli** → pilih **dokter** (sisa kuota).
+6. [x] **Ambil antrian** → `AntreanRecord` + `kodebooking` → **cetak struk**.
+7. [x] **emit Task 1 di APM** (`checkin` Baru = T1) → status `MenungguAdmisi` → instruksi struk "menunggu dipanggil ke loket admisi".
+8. [ ] Di loket admisi: **buka modal Lengkapi Data → Task 2** · **Simpan & Terbitkan SEP → Task 3**. *(Scope `/ehis-registration` ANT4/REG — di luar batch kiosk ini.)*
+
+> **SEP**: Pasien **Lama** auto-terbit di **APM** (skip loket). Pasien **Baru** terbit+cetak di **loket admisi** (T3). T2 di-lock saat **modal dibuka** (Opsi A). Lihat [docs/FLOW-RJ-ONSITE.md](docs/FLOW-RJ-ONSITE.md).
 
 ---
 

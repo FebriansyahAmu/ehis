@@ -71,10 +71,13 @@
 
 **Effort:** 0.5–1 hari · **Depend:** REG0.
 
-- [ ] `PasienBaruModal.handleSubmit` → tulis `PatientMaster` minimal ke `registrationStore` → `router.push('/pasien/{rm}')` (ganti success-state-only).
-- [ ] Map `FormState` → `PatientMaster` (alergi, kontak darurat, penjamin default Umum).
-- [ ] **(P1) Search-first gate by NIK** sebelum form — cegah double-MRN. Jika NIK sudah ada → tawarkan buka pasien existing alih-alih buat baru.
-- [ ] **Search fallback by nama + tgl lahir** — untuk pasien lama yang datang tanpa NIK/kartu (norm ada tapi antrean minim data); petugas verifikasi sebelum memutuskan "baru".
+> **Model pemersatu (2026-05-31): "daftar minimal → draft → lengkapi di admisi".** Ketiga channel (Onsite/APM, MJKN, walk-in) membuat **draft patient** (`dataLengkap:false`, norm terbit) dgn field minimal (NIK · Nama · Tempat Lahir · Tgl Lahir · No HP), lalu dilengkapi via mode **"Lengkapi Data RM"** saat admisi. Onsite/APM = build pertama (lihat [TODO-ANTREAN.md](TODO-ANTREAN.md) Phase ANT-ONSITE).
+
+- [ ] **`dataLengkap` flag** di `addPatient`/PatientMaster — `false` saat draft (minimal), `true` setelah dilengkapi di admisi.
+- [ ] **Quick-register minimal (5 field)** — fungsi `addPatient` minimal untuk kiosk/MJKN; `PasienBaruModal` wizard penuh berubah peran jadi mode **"Lengkapi Data RM"** (prefill draft + isi sisanya) di admisi.
+- [ ] `handleSubmit` → `addPatient` → `router.push('/pasien/{rm}')` (ganti RM acak + success-state-only).
+- [ ] **NIK dedup (search-first)** — sebelum buat draft, cek NIK; jika ada → buka pasien existing (cegah double-MRN). Berlaku di kiosk jalur "Baru" juga.
+- [ ] **Search fallback by nama + tgl lahir** — untuk pasien lama tanpa NIK/kartu.
 - [ ] Refresh daftar/Beranda otomatis (store reaktif).
 
 ### REG1.1 Autofill Peserta BPJS (Pasien Baru via antrean) — *core contract*

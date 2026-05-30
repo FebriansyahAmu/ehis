@@ -207,6 +207,22 @@ export function getAllMergedPatients(): PatientMaster[] {
   return [...newOnes, ...seeds];
 }
 
+/** Cari pasien existing (seed + baru) by No. RM atau NIK — dipakai kiosk APM Pasien Lama + dedup NIK. */
+export function findPatient(query: string): PatientMaster | undefined {
+  const q = query.trim();
+  if (!q) return undefined;
+  return getAllMergedPatients().find(
+    (p) => p.noRM === q || p.nik === q,
+  );
+}
+
+/** Cari pasien by NIK saja — dedup saat input pasien baru. */
+export function findPatientByNik(nik: string): PatientMaster | undefined {
+  const q = nik.trim();
+  if (!q) return undefined;
+  return getAllMergedPatients().find((p) => p.nik === q);
+}
+
 // ── Subscription / hooks ───────────────────────────────────
 
 function subscribe(cb: () => void): () => void {
