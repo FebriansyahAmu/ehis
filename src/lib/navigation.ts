@@ -102,7 +102,11 @@ export const MODULES: readonly ModuleDescriptor[] = [
     desc: "Ringkasan operasional",
     href: "/ehis-dashboard",
     icon: LayoutDashboard,
-    accent: { bg: "bg-indigo-50", text: "text-indigo-600", ring: "ring-indigo-100" },
+    accent: {
+      bg: "bg-indigo-50",
+      text: "text-indigo-600",
+      ring: "ring-indigo-100",
+    },
   },
   {
     key: "master",
@@ -110,7 +114,11 @@ export const MODULES: readonly ModuleDescriptor[] = [
     desc: "Data master & referensi",
     href: "/ehis-master",
     icon: Database,
-    accent: { bg: "bg-violet-50", text: "text-violet-600", ring: "ring-violet-100" },
+    accent: {
+      bg: "bg-violet-50",
+      text: "text-violet-600",
+      ring: "ring-violet-100",
+    },
   },
   {
     key: "registration",
@@ -126,7 +134,11 @@ export const MODULES: readonly ModuleDescriptor[] = [
     desc: "Tagihan & pembayaran",
     href: "/ehis-billing",
     icon: CreditCard,
-    accent: { bg: "bg-amber-50", text: "text-amber-600", ring: "ring-amber-100" },
+    accent: {
+      bg: "bg-amber-50",
+      text: "text-amber-600",
+      ring: "ring-amber-100",
+    },
   },
   {
     key: "eklaim",
@@ -142,7 +154,11 @@ export const MODULES: readonly ModuleDescriptor[] = [
     desc: "Bridging WS BPJS",
     href: "/ehis-bpjs",
     icon: ShieldCheck,
-    accent: { bg: "bg-emerald-50", text: "text-emerald-600", ring: "ring-emerald-100" },
+    accent: {
+      bg: "bg-emerald-50",
+      text: "text-emerald-600",
+      ring: "ring-emerald-100",
+    },
   },
   {
     key: "report",
@@ -150,7 +166,11 @@ export const MODULES: readonly ModuleDescriptor[] = [
     desc: "Rekapitulasi & statistik",
     href: "/ehis-report",
     icon: BarChart3,
-    accent: { bg: "bg-emerald-50", text: "text-emerald-600", ring: "ring-emerald-100" },
+    accent: {
+      bg: "bg-emerald-50",
+      text: "text-emerald-600",
+      ring: "ring-emerald-100",
+    },
   },
 ] as const;
 
@@ -170,17 +190,25 @@ export const careNav: readonly NavGroup[] = [
   {
     label: "Pelayanan",
     items: [
-      { label: "IGD",         href: "/ehis-care/igd",         icon: Siren       },
-      { label: "Rawat Jalan", href: "/ehis-care/rawat-jalan", icon: Stethoscope },
-      { label: "Rawat Inap",  href: "/ehis-care/rawat-inap",  icon: BedDouble   },
+      { label: "IGD", href: "/ehis-care/igd", icon: Siren },
+      {
+        label: "Rawat Jalan",
+        href: "/ehis-care/rawat-jalan",
+        icon: Stethoscope,
+      },
+      { label: "Rawat Inap", href: "/ehis-care/rawat-inap", icon: BedDouble },
     ],
   },
   {
     label: "Penunjang",
     items: [
-      { label: "Farmasi",      href: "/ehis-care/farmasi",      icon: Pill         },
-      { label: "Laboratorium", href: "/ehis-care/laboratorium", icon: FlaskConical },
-      { label: "Radiologi",    href: "/ehis-care/radiologi",    icon: Radiation    },
+      { label: "Farmasi", href: "/ehis-care/farmasi", icon: Pill },
+      {
+        label: "Laboratorium",
+        href: "/ehis-care/laboratorium",
+        icon: FlaskConical,
+      },
+      { label: "Radiologi", href: "/ehis-care/radiologi", icon: Radiation },
     ],
   },
 ] as const;
@@ -188,7 +216,9 @@ export const careNav: readonly NavGroup[] = [
 export const dashboardNav: readonly NavGroup[] = [
   {
     label: "Utama",
-    items: [{ label: "Ringkasan", href: "/ehis-dashboard", icon: LayoutDashboard }],
+    items: [
+      { label: "Ringkasan", href: "/ehis-dashboard", icon: LayoutDashboard },
+    ],
   },
 ] as const;
 
@@ -200,51 +230,99 @@ export const masterNav: readonly NavGroup[] = [
   {
     label: "Sumber Daya",
     items: [
-      { label: "Unit & Ruangan", href: "/ehis-master/ruangan",  icon: Building2 },
-      { label: "Dokter & Nakes", href: "/ehis-master/dokter",   icon: UserCog   },
-      { label: "Pengguna",       href: "/ehis-master/pengguna", icon: Users     },
+      {
+        label: "Unit & Ruangan",
+        href: "/ehis-master/ruangan",
+        icon: Building2,
+      },
+      { label: "Dokter & Nakes", href: "/ehis-master/dokter", icon: UserCog },
+      { label: "Pengguna", href: "/ehis-master/pengguna", icon: Users },
     ],
   },
   {
     label: "Katalog Klinis",
     items: [
-      { label: "Katalog Obat",         href: "/ehis-master/katalog-obat",       icon: Pill       },
-      { label: "Katalog Tindakan",     href: "/ehis-master/katalog-tindakan",   icon: Zap        },
-      { label: "Katalog Laboratorium", href: "/ehis-master/katalog-lab",        icon: TestTube   },
-      { label: "Katalog Radiologi",    href: "/ehis-master/katalog-radiologi",  icon: Radiation  },
-      { label: "ICD-10 & ICD-9",       href: "/ehis-master/icd",                icon: BookText   },
-      { label: "SDKI / SIKI / SLKI",   href: "/ehis-master/sdki",               icon: Workflow   },
+      { label: "Katalog Obat", href: "/ehis-master/katalog-obat", icon: Pill },
+      {
+        label: "Katalog Tindakan",
+        href: "/ehis-master/katalog-tindakan",
+        icon: Zap,
+      },
+      {
+        label: "Katalog Laboratorium",
+        href: "/ehis-master/katalog-lab",
+        icon: TestTube,
+      },
+      {
+        label: "Katalog Radiologi",
+        href: "/ehis-master/katalog-radiologi",
+        icon: Radiation,
+      },
+      { label: "ICD-10 & ICD-9", href: "/ehis-master/icd", icon: BookText },
+      {
+        label: "SDKI / SIKI / SLKI",
+        href: "/ehis-master/sdki",
+        icon: Workflow,
+      },
     ],
   },
   {
     label: "Skala Klinis",
     items: [
-      { label: "Skala Risiko",   href: "/ehis-master/skala-risiko",   icon: Gauge      },
-      { label: "Skala Umum",     href: "/ehis-master/skala-umum",     icon: Activity   },
-      { label: "Skala Penyakit", href: "/ehis-master/skala-penyakit", icon: Microscope },
-      { label: "Triase IGD",     href: "/ehis-master/triase-igd",     icon: Siren      },
+      { label: "Skala Risiko", href: "/ehis-master/skala-risiko", icon: Gauge },
+      { label: "Skala Umum", href: "/ehis-master/skala-umum", icon: Activity },
+      {
+        label: "Skala Penyakit",
+        href: "/ehis-master/skala-penyakit",
+        icon: Microscope,
+      },
+      { label: "Triase IGD", href: "/ehis-master/triase-igd", icon: Siren },
     ],
   },
   {
     label: "Referensi",
     items: [
-      { label: "Asesmen Katalog", href: "/ehis-master/asesmen-katalog", icon: ClipboardList },
+      {
+        label: "Asesmen Katalog",
+        href: "/ehis-master/asesmen-katalog",
+        icon: ClipboardList,
+      },
     ],
   },
   {
     label: "Template & Enum",
     items: [
-      { label: "Status Enum",         href: "/ehis-master/status-enum",         icon: Layers        },
-      { label: "Template Anamnesis",  href: "/ehis-master/template-anamnesis",  icon: MessageSquare },
-      { label: "Template Form",       href: "/ehis-master/template-form",       icon: FileText      },
+      { label: "Status Enum", href: "/ehis-master/status-enum", icon: Layers },
+      {
+        label: "Template Anamnesis",
+        href: "/ehis-master/template-anamnesis",
+        icon: MessageSquare,
+      },
+      {
+        label: "Template Form",
+        href: "/ehis-master/template-form",
+        icon: FileText,
+      },
     ],
   },
   {
     label: "Workflow Klinis",
     items: [
-      { label: "Workflow Edukasi",     href: "/ehis-master/workflow-edukasi", icon: GraduationCap   },
-      { label: "Discharge Klasifikasi", href: "/ehis-master/discharge",        icon: LogOut          },
-      { label: "Operasional Klinis",    href: "/ehis-master/operasional",      icon: ClipboardCheck  },
+      {
+        label: "Workflow Edukasi",
+        href: "/ehis-master/workflow-edukasi",
+        icon: GraduationCap,
+      },
+      {
+        label: "Discharge Klasifikasi",
+        href: "/ehis-master/discharge",
+        icon: LogOut,
+      },
+      {
+        label: "Operasional Klinis",
+        href: "/ehis-master/operasional",
+        icon: ClipboardCheck,
+      },
     ],
   },
   {
@@ -256,15 +334,23 @@ export const masterNav: readonly NavGroup[] = [
   {
     label: "Operasional",
     items: [
-      { label: "Tarif & Layanan",   href: "/ehis-master/tarif",    icon: Tag    },
-      { label: "Penjamin & Kontrak", href: "/ehis-master/penjamin", icon: Wallet },
+      { label: "Tarif & Layanan", href: "/ehis-master/tarif", icon: Tag },
+      {
+        label: "Penjamin & Kontrak",
+        href: "/ehis-master/penjamin",
+        icon: Wallet,
+      },
     ],
   },
   {
     label: "Konfigurasi",
     items: [
-      { label: "Profil RS",           href: "/ehis-master/profil-rs", icon: Settings2 },
-      { label: "Faskes Rujukan (PPK)", href: "/ehis-master/ppk",       icon: Landmark  },
+      { label: "Profil RS", href: "/ehis-master/profil-rs", icon: Settings2 },
+      {
+        label: "Faskes Rujukan (PPK)",
+        href: "/ehis-master/ppk",
+        icon: Landmark,
+      },
     ],
   },
 ] as const;
@@ -277,9 +363,7 @@ export const registrationNav: readonly NavGroup[] = [
   {
     label: "Loket",
     items: [
-      { label: "Pasien",      href: "/ehis-registration/pasien",   icon: Users        },
-      { label: "Antrian",     href: "/ehis-registration/antrian",  icon: CalendarDays },
-      { label: "Pasien Baru", href: "/ehis-registration/baru",     icon: UserPlus     },
+      { label: "Pasien", href: "/ehis-registration/pasien", icon: Users },
     ],
   },
 ] as const;
@@ -292,8 +376,8 @@ export const billingNav: readonly NavGroup[] = [
   {
     label: "Transaksi",
     items: [
-      { label: "Tagihan",    href: "/ehis-billing/tagihan",    icon: Receipt },
-      { label: "Pembayaran", href: "/ehis-billing/pembayaran", icon: Wallet  },
+      { label: "Tagihan", href: "/ehis-billing/tagihan", icon: Receipt },
+      { label: "Pembayaran", href: "/ehis-billing/pembayaran", icon: Wallet },
     ],
   },
 ] as const;
@@ -306,16 +390,28 @@ export const eklaimNav: readonly NavGroup[] = [
   {
     label: "Klaim",
     items: [
-      { label: "Klaim Board",    href: "/ehis-eklaim/klaim",          icon: Inbox        },
-      { label: "iDRG Calculator", href: "/ehis-eklaim/calculator",    icon: Scale        },
-      { label: "Banding",        href: "/ehis-eklaim/banding",        icon: FileText     },
-      { label: "Reconciliation", href: "/ehis-eklaim/reconciliation", icon: ArrowDownUp  },
+      { label: "Klaim Board", href: "/ehis-eklaim/klaim", icon: Inbox },
+      {
+        label: "iDRG Calculator",
+        href: "/ehis-eklaim/calculator",
+        icon: Scale,
+      },
+      { label: "Banding", href: "/ehis-eklaim/banding", icon: FileText },
+      {
+        label: "Reconciliation",
+        href: "/ehis-eklaim/reconciliation",
+        icon: ArrowDownUp,
+      },
     ],
   },
   {
     label: "Analitik",
     items: [
-      { label: "Laporan Analitik", href: "/ehis-eklaim/report", icon: BarChart3 },
+      {
+        label: "Laporan Analitik",
+        href: "/ehis-eklaim/report",
+        icon: BarChart3,
+      },
     ],
   },
 ] as const;
@@ -328,26 +424,48 @@ export const bpjsNav: readonly NavGroup[] = [
   {
     label: "V-Claim",
     items: [
-      { label: "Kepesertaan",      href: "/ehis-bpjs/vclaim/kepesertaan",     icon: UserCheck     },
-      { label: "SEP",              href: "/ehis-bpjs/vclaim/sep",             icon: FileText      },
-      { label: "Rujukan",          href: "/ehis-bpjs/vclaim/rujukan",         icon: Share2        },
-      { label: "Monitoring",       href: "/ehis-bpjs/vclaim/monitoring",      icon: Activity      },
-      { label: "Rencana Kontrol",  href: "/ehis-bpjs/vclaim/rencana-kontrol", icon: CalendarCheck },
+      {
+        label: "Kepesertaan",
+        href: "/ehis-bpjs/vclaim/kepesertaan",
+        icon: UserCheck,
+      },
+      { label: "SEP", href: "/ehis-bpjs/vclaim/sep", icon: FileText },
+      { label: "Rujukan", href: "/ehis-bpjs/vclaim/rujukan", icon: Share2 },
+      {
+        label: "Monitoring",
+        href: "/ehis-bpjs/vclaim/monitoring",
+        icon: Activity,
+      },
+      {
+        label: "Rencana Kontrol",
+        href: "/ehis-bpjs/vclaim/rencana-kontrol",
+        icon: CalendarCheck,
+      },
     ],
   },
   {
     label: "Aplicares",
     items: [
-      { label: "Referensi Kamar",  href: "/ehis-bpjs/aplicares/referensi-kamar", icon: BedDouble  },
-      { label: "Map Kelas",        href: "/ehis-bpjs/aplicares/map-kelas",       icon: LayoutGrid },
-      { label: "Ketersediaan",     href: "/ehis-bpjs/aplicares/ketersediaan",    icon: Bed        },
+      {
+        label: "Referensi Kamar",
+        href: "/ehis-bpjs/aplicares/referensi-kamar",
+        icon: BedDouble,
+      },
+      {
+        label: "Map Kelas",
+        href: "/ehis-bpjs/aplicares/map-kelas",
+        icon: LayoutGrid,
+      },
+      {
+        label: "Ketersediaan",
+        href: "/ehis-bpjs/aplicares/ketersediaan",
+        icon: Bed,
+      },
     ],
   },
   {
     label: "Audit",
-    items: [
-      { label: "Audit Trail", href: "/ehis-bpjs/audit", icon: History },
-    ],
+    items: [{ label: "Audit Trail", href: "/ehis-bpjs/audit", icon: History }],
   },
 ] as const;
 
@@ -359,8 +477,8 @@ export const reportNav: readonly NavGroup[] = [
   {
     label: "Periode",
     items: [
-      { label: "Harian",   href: "/ehis-report/harian",   icon: CalendarDays },
-      { label: "Bulanan",  href: "/ehis-report/bulanan",  icon: TrendingUp   },
+      { label: "Harian", href: "/ehis-report/harian", icon: CalendarDays },
+      { label: "Bulanan", href: "/ehis-report/bulanan", icon: TrendingUp },
     ],
   },
 ] as const;
