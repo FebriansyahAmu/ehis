@@ -8,11 +8,15 @@ import type {
   AntreanStatus,
   CaraBayar,
   JenisPasienAntrean,
+  KirimStatus,
   PasienRefAntrean,
   SumberAntrean,
   TaskId,
   TaskLog,
 } from "./types";
+
+/** Override status kirim per task (untuk demo Monitoring ANT5). */
+type TaskKirimOverride = Partial<Record<TaskId, { kirim: KirimStatus; attempts?: number; error?: string }>>;
 
 function todayID(): string {
   return new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
@@ -32,6 +36,7 @@ interface SeedSpec {
   status: AntreanStatus;
   tasksDone: TaskId[];
   minsAgo: number;
+  taskKirim?: TaskKirimOverride;
 }
 
 const SPECS: SeedSpec[] = [
@@ -49,6 +54,8 @@ const SPECS: SeedSpec[] = [
     status: "MenungguPoli",
     tasksDone: [3],
     minsAgo: 26,
+    // Demo Monitoring: push T3 sempat gagal ke WS BPJS (perlu re-send).
+    taskKirim: { 3: { kirim: "gagal", attempts: 3, error: "Timeout WS BPJS updatewaktu (HTTP 504)" } },
   },
   {
     kodebooking: "SEED-UMU-007",
@@ -104,6 +111,8 @@ const SPECS: SeedSpec[] = [
     status: "Selesai",
     tasksDone: [3, 4, 5],
     minsAgo: 95,
+    // Demo Monitoring: T5 belum sempat terkirim (pending di outbox).
+    taskKirim: { 5: { kirim: "pending", attempts: 0 } },
   },
 ];
 
@@ -111,12 +120,16 @@ function build(spec: SeedSpec): AntreanRecord {
   const dokter = DOKTER_ONSITE.find((d) => d.kode === spec.kodedokter)!;
   const poli = getPoli(dokter.poliKode)!;
   const createdAt = Date.now() - spec.minsAgo * 60_000;
-  const tasks: TaskLog[] = spec.tasksDone.map((taskid, i) => ({
-    taskid,
-    waktu: createdAt + i * 1000,
-    kirim: "terkirim",
-    attempts: 1,
-  }));
+  const tasks: TaskLog[] = spec.tasksDone.map((taskid, i) => {
+    const o = spec.taskKirim?.[taskid];
+    return {
+      taskid,
+      waktu: createdAt + i * 60_000,
+      kirim: o?.kirim ?? "terkirim",
+      attempts: o?.attempts ?? 1,
+      error: o?.error,
+    };
+  });
   return {
     kodebooking: spec.kodebooking,
     tanggal: todayID(),

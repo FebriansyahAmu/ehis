@@ -219,6 +219,52 @@ export function batalAntrean(kodebooking: string, alasan: "Batal" | "TidakHadir"
   setStatus(kodebooking, alasan);
 }
 
+// ── Monitoring (ANT5) ──────────────────────────────────────
+
+/**
+ * Kirim ulang task ke outbox BPJS (perbaiki compliance bila WS sempat gagal).
+ * Mock: selalu sukses → kirim "terkirim", attempts+1, error dibersihkan.
+ */
+export function resendTask(kodebooking: string, taskid: TaskId): boolean {
+  const rec = state.byKode[kodebooking];
+  if (!rec) return false;
+  if (!rec.tasks.some((t) => t.taskid === taskid)) return false;
+  patchRecord(kodebooking, {
+    tasks: rec.tasks.map((t) =>
+      t.taskid === taskid
+        ? { ...t, kirim: "terkirim" as const, attempts: t.attempts + 1, error: undefined }
+        : t,
+    ),
+  });
+  return true;
+}
+
+/**
+ * Koreksi waktu sebuah task secara manual. Validasi monoton: waktu harus ≥ task
+ * sebelumnya & ≤ task berikutnya (urutan TASK_SEQUENCE). Mengembalikan error bila gagal.
+ */
+export function editTaskWaktu(
+  kodebooking: string,
+  taskid: TaskId,
+  waktu: number,
+): { ok: boolean; error?: string } {
+  const rec = state.byKode[kodebooking];
+  if (!rec) return { ok: false, error: "Antrean tidak ditemukan" };
+  const seq = TASK_SEQUENCE[rec.jenisPasien];
+  const pos = (id: TaskId) => (id === 99 ? 999 : seq.indexOf(id));
+  const others = rec.tasks.filter((t) => t.taskid !== taskid);
+  const lower = others.filter((t) => pos(t.taskid) < pos(taskid)).map((t) => t.waktu);
+  const upper = others.filter((t) => pos(t.taskid) > pos(taskid)).map((t) => t.waktu);
+  const lowerMax = lower.length ? Math.max(...lower) : -Infinity;
+  const upperMin = upper.length ? Math.min(...upper) : Infinity;
+  if (waktu < lowerMax) return { ok: false, error: "Waktu lebih awal dari task sebelumnya" };
+  if (waktu > upperMin) return { ok: false, error: "Waktu melampaui task berikutnya" };
+  patchRecord(kodebooking, {
+    tasks: rec.tasks.map((t) => (t.taskid === taskid ? { ...t, waktu } : t)),
+  });
+  return { ok: true };
+}
+
 // ── Reads ──────────────────────────────────────────────────
 
 export function getAntrean(kodebooking: string): AntreanRecord | undefined {

@@ -13,7 +13,7 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (bridging WS Antrean BPJS real)
 >
 > **Last updated:** 2026-05-31
-> **Status:** 🚧 **In progress.** `REG0` ✅ · `ANT1` ✅ (store+TaskID engine) · `ANT0` ✅ (scaffold modul) · `ANT-ONSITE` ✅ (kiosk APM Lama+Baru → ambil antrean → struk) · `ANT2` ✅ (Antrean List board: Buka Loket + tabel + filter + aksi Panggil/Respon/Batal) · `ANT3` ✅ (Pengaturan 4-tab: Mapping/CRUD Pos-Loket/Hak Akses/Jadwal · posStore reaktif) · Master Jadwal Dokter ✅ (dependency) · `ANT4` ✅ (Respon Kedatangan → bridge registrasi: PasienBaru/DaftarKunjungan persist + deep-link + emit task). **Next:** `ANT-RJ` (Care RJ worklist + emit T4/T5) · `ANT5` Monitoring · `ANT7` Display. Spec TaskID Antrol BPJS dikunci (2026-05-30).
+> **Status:** 🚧 **In progress.** `REG0` ✅ · `ANT1` ✅ (store+TaskID engine) · `ANT0` ✅ (scaffold modul) · `ANT-ONSITE` ✅ (kiosk APM Lama+Baru → ambil antrean → struk) · `ANT2` ✅ (Antrean List board: Buka Loket + tabel + filter + aksi Panggil/Respon/Batal) · `ANT3` ✅ (Pengaturan 4-tab: Mapping/CRUD Pos-Loket/Hak Akses/Jadwal · posStore reaktif) · Master Jadwal Dokter ✅ (dependency) · `ANT4` ✅ (Respon Kedatangan → bridge registrasi: PasienBaru/DaftarKunjungan persist + deep-link + emit task) · `ANT5` ✅ (Monitoring: timeline TaskID + outbox kirim/gagal/pending + koreksi/re-send + KPI compliance). **Next:** `ANT-RJ` (Care RJ worklist + emit T4/T5) · `ANT6` Referensi · `ANT7` Display. Spec TaskID Antrol BPJS dikunci (2026-05-30).
 > **Target effort:** ~2–2.5 minggu (frontend, mock-first).
 
 > ### 🚦 Urutan Build (disepakati 2026-05-30)
@@ -260,14 +260,16 @@ Tombol **Selesaikan** di header [RJPatientHeader](src/components/rawat-jalan/RJP
 
 ---
 
-## Phase ANT5 — Tab: Monitoring Status Antrian
+## Phase ANT5 — Tab: Monitoring Status Antrian ✅ (2026-05-31)
 
 **Effort:** 1.5 hari.
 
-- [ ] List antrean + **Task Antrian** per kodebooking (timeline task 1..7/99 + waktu).
-- [ ] **Monitoring pengiriman task** — status terkirim/gagal per task, jumlah attempt, error WS.
-- [ ] **Task editable** — koreksi taskid/waktu manual + **re-send** (untuk perbaiki compliance bila WS sempat gagal). Tetap validasi monoton.
-- [ ] KPI compliance: % task terkirim, jumlah gagal, rata-rata waktu tunggu/layan per tahap.
+> **Status ANT5: ✅ (2026-05-31).** [src/components/antrean/monitoring/](src/components/antrean/monitoring/) — `MonitoringPage` (KPI compliance + filter kirim + search + grid kartu) · `TaskTimeline` (sequence 1..7/99 per kodebooking, node terisi/belum + waktu + attempt + error) · `TaskEditModal` (koreksi waktu monoton + kirim ulang) · `monitoringShared` (KirimBadge + fmt). Store: `resendTask` (mock sukses, attempts+1) + `editTaskWaktu` (validasi monoton) di [antreanStore](src/lib/antrean/antreanStore.ts). Seed diberi variasi `gagal`/`pending` ([antreanSeed](src/lib/antrean/antreanSeed.ts)) untuk demo. TSC + ESLint clean.
+
+- [x] List antrean + **Task Antrian** per kodebooking (timeline task 1..7/99 + waktu). (2026-05-31)
+- [x] **Monitoring pengiriman task** — status terkirim/gagal/pending per task, jumlah attempt, error WS. (2026-05-31)
+- [x] **Task editable** — koreksi waktu manual + **re-send** (perbaiki compliance bila WS gagal). Validasi monoton. (2026-05-31)
+- [x] KPI compliance: % task terkirim, jumlah gagal/pending, rata-rata jeda antar-tahap. (2026-05-31)
 
 ---
 
