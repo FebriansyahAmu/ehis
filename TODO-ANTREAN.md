@@ -13,7 +13,7 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (bridging WS Antrean BPJS real)
 >
 > **Last updated:** 2026-05-31
-> **Status:** 🚧 **In progress.** `REG0` ✅ · `ANT1` ✅ (store+TaskID engine) · `ANT0` ✅ (scaffold modul) · `ANT-ONSITE` ✅ (kiosk APM Lama+Baru → ambil antrean → struk) · `ANT2` ✅ (Antrean List board: Buka Loket + tabel + filter + aksi Panggil/Respon/Batal) · `ANT3` ✅ (Pengaturan 4-tab: Mapping/CRUD Pos-Loket/Hak Akses/Jadwal · posStore reaktif) · Master Jadwal Dokter ✅ (dependency) · `ANT4` ✅ (Respon Kedatangan → bridge registrasi: PasienBaru/DaftarKunjungan persist + deep-link + emit task) · `ANT5` ✅ (Monitoring: timeline TaskID + outbox kirim/gagal/pending + koreksi/re-send + KPI compliance) · `ANT6` ✅ (Referensi 3-tab: Poli HFIS · Mobile JKN · Jadwal HFIS sync). **Next:** `ANT-RJ` (Care RJ worklist + emit T4/T5) · `ANT7` Display + Beranda polish. Spec TaskID Antrol BPJS dikunci (2026-05-30).
+> **Status:** 🚧 **In progress.** `REG0` ✅ · `ANT1` ✅ (store+TaskID engine) · `ANT0` ✅ (scaffold modul) · `ANT-ONSITE` ✅ (kiosk APM Lama+Baru → ambil antrean → struk) · `ANT2` ✅ (Antrean List board: Buka Loket + tabel + filter + aksi Panggil/Respon/Batal) · `ANT3` ✅ (Pengaturan 4-tab: Mapping/CRUD Pos-Loket/Hak Akses/Jadwal · posStore reaktif) · Master Jadwal Dokter ✅ (dependency) · `ANT4` ✅ (Respon Kedatangan → bridge registrasi: PasienBaru/DaftarKunjungan persist + deep-link + emit task) · `ANT5` ✅ (Monitoring: timeline TaskID + outbox kirim/gagal/pending + koreksi/re-send + KPI compliance) · `ANT6` ✅ (Referensi 3-tab: Poli HFIS · Mobile JKN · Jadwal HFIS sync) · `ANT7` Display ✅ (layar full-screen + TTS + recall flash; Beranda dari ANT0). **Sisa:** `ANT-RJ` (Care RJ worklist + emit T4/T5) · ANT7 Audit trail. Spec TaskID Antrol BPJS dikunci (2026-05-30).
 > **Target effort:** ~2–2.5 minggu (frontend, mock-first).
 
 > ### 🚦 Urutan Build (disepakati 2026-05-30)
@@ -298,14 +298,16 @@ Tombol **Selesaikan** di header [RJPatientHeader](src/components/rawat-jalan/RJP
 
 ---
 
-## Phase ANT7 — Display Antrean + Beranda + Polish
+## Phase ANT7 — Display Antrean + Beranda + Polish 🚧 (Display ✅ 2026-05-31)
 
 **Effort:** 1.5 hari.
 
-- [ ] **Display antrean** (layar tunggu): nomor sedang dipanggil per loket/poli + animasi + hook TTS opsional.
-- [ ] **Beranda** modul: KPI (online vs onsite, no-show rate, rata-rata waktu tunggu, compliance task) + ringkasan per poli.
-- [ ] **Audit trail** antrean (filter + export) — konsisten pola audit BPJS.
-- [ ] Skeleton 500ms + density tokens + animasi stagger.
+> **Status Display: ✅ (2026-05-31).** Layar full-screen `(fullpage)/display` (TANPA sidebar, sejajar pola APM) di [src/components/antrean/display/](src/components/antrean/display/) — `DisplayScreen` (jam live + toggle suara/fullscreen + Exit) · `CurrentCallHero` (nomor raksasa + loket tujuan + flash sky/amber saat panggil/recall) · `RecentCallsList` (panggilan terakhir, animasi masuk) · `DisplayTicker` (running text) · `displayShared` (`buildCalls` join antrean+panggilan · `useAnnouncer` **TTS Web Speech id-ID** · reduced-motion via `useSyncExternalStore`). Stub `(main)/display` dihapus → nav "Display" kini ke layar penuh. TSC + ESLint clean.
+
+- [x] **Display antrean** (layar tunggu): nomor dipanggil per loket + animasi flash + **TTS opsional** (toggle suara) + recall flash. (2026-05-31)
+- [x] **Beranda** modul: KPI + quick-nav + sumber bar — sudah dibangun di ANT0 ([AntrianBerandaPage](src/components/antrean/beranda/AntrianBerandaPage.tsx)).
+- [ ] **Audit trail** antrean (filter + export) — konsisten pola audit BPJS. **Sisa.**
+- [~] Skeleton 500ms + density tokens + animasi stagger — diterapkan per-tab (board/monitoring/pengaturan/referensi); audit trail belum.
 
 ---
 
