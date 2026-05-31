@@ -13,7 +13,7 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (bridging WS Antrean BPJS real)
 >
 > **Last updated:** 2026-05-31
-> **Status:** 🚧 **In progress.** `REG0` ✅ · `ANT1` ✅ (store+TaskID engine) · `ANT0` ✅ (scaffold modul) · `ANT-ONSITE` ✅ (kiosk APM Lama+Baru → ambil antrean → struk) · `ANT2` ✅ (Antrean List board: Buka Loket + tabel + filter + aksi Panggil/Respon/Batal) · `ANT3` ✅ (Pengaturan 4-tab: Mapping/CRUD Pos-Loket/Hak Akses/Jadwal · posStore reaktif) · Master Jadwal Dokter ✅ (dependency) · `ANT4` ✅ (Respon Kedatangan → bridge registrasi: PasienBaru/DaftarKunjungan persist + deep-link + emit task) · `ANT5` ✅ (Monitoring: timeline TaskID + outbox kirim/gagal/pending + koreksi/re-send + KPI compliance). **Next:** `ANT-RJ` (Care RJ worklist + emit T4/T5) · `ANT6` Referensi · `ANT7` Display. Spec TaskID Antrol BPJS dikunci (2026-05-30).
+> **Status:** 🚧 **In progress.** `REG0` ✅ · `ANT1` ✅ (store+TaskID engine) · `ANT0` ✅ (scaffold modul) · `ANT-ONSITE` ✅ (kiosk APM Lama+Baru → ambil antrean → struk) · `ANT2` ✅ (Antrean List board: Buka Loket + tabel + filter + aksi Panggil/Respon/Batal) · `ANT3` ✅ (Pengaturan 4-tab: Mapping/CRUD Pos-Loket/Hak Akses/Jadwal · posStore reaktif) · Master Jadwal Dokter ✅ (dependency) · `ANT4` ✅ (Respon Kedatangan → bridge registrasi: PasienBaru/DaftarKunjungan persist + deep-link + emit task) · `ANT5` ✅ (Monitoring: timeline TaskID + outbox kirim/gagal/pending + koreksi/re-send + KPI compliance) · `ANT6` ✅ (Referensi 3-tab: Poli HFIS · Mobile JKN · Jadwal HFIS sync). **Next:** `ANT-RJ` (Care RJ worklist + emit T4/T5) · `ANT7` Display + Beranda polish. Spec TaskID Antrol BPJS dikunci (2026-05-30).
 > **Target effort:** ~2–2.5 minggu (frontend, mock-first).
 
 > ### 🚦 Urutan Build (disepakati 2026-05-30)
@@ -273,13 +273,15 @@ Tombol **Selesaikan** di header [RJPatientHeader](src/components/rawat-jalan/RJP
 
 ---
 
-## Phase ANT6 — Tab: Referensi (HFIS / Mobile JKN)
+## Phase ANT6 — Tab: Referensi (HFIS / Mobile JKN) ✅ (2026-05-31)
 
 **Effort:** 1 hari.
 
-- [ ] **Referensi Poli HFIS** (mock) — mapping poli RS ↔ poli BPJS.
-- [ ] **Referensi Mobile JKN** — kapasitas/kuota JKN & non-JKN per poli, jam praktik.
-- [ ] **Jadwal Dokter HFIS** — tarik/sinkron jadwal dari HFIS yang **mengisi sub-menu Master `/ehis-master/jadwal-dokter`** (sumber tunggal). Antrean & poli RJ consume dari Master, bukan dari sini langsung.
+> **Status ANT6: ✅ (2026-05-31).** [src/components/antrean/referensi/](src/components/antrean/referensi/) — `ReferensiPage` (3 tab) · `PoliHfisTab` (mapping RS↔BPJS dari [refMock.ts](src/lib/antrean/refMock.ts) + search) · `MobileJknTab` (kapasitas/kuota per poli **derive dari Master Jadwal Dokter** + summary) · `JadwalHfisTab` (tombol Tarik & Sinkron → `syncFromHFIS` mengisi Master + last-synced + cross-link). Semua read-only / consume Master. TSC + ESLint clean.
+
+- [x] **Referensi Poli HFIS** (mock) — mapping poli RS ↔ poli BPJS + search. (2026-05-31)
+- [x] **Referensi Mobile JKN** — kapasitas/kuota JKN & non-JKN per poli + jam praktik (derive dari Master). (2026-05-31)
+- [x] **Jadwal Dokter HFIS** — tarik/sinkron HFIS yang **mengisi Master `/ehis-master/jadwal-dokter`** (sumber tunggal); Antrean & RJ consume dari Master. (2026-05-31)
 
 ---
 
