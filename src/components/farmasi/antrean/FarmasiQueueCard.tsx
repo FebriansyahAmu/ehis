@@ -2,8 +2,7 @@
 
 import { motion } from "framer-motion";
 import {
-  Stethoscope, Clock, PhoneCall, BellRing, FlaskConical,
-  PackageCheck, Lock,
+  Stethoscope, Clock, PhoneCall, BellRing, FlaskConical, Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -16,8 +15,6 @@ interface Props {
   index: number;
   onPanggil: (e: FarmasiQueueEntry) => void;
   onPanggilUlang: (e: FarmasiQueueEntry) => void;
-  onMulai: (e: FarmasiQueueEntry) => void;
-  onSerah: (e: FarmasiQueueEntry) => void;
 }
 
 function fmtClock(ms?: number): string {
@@ -26,7 +23,7 @@ function fmtClock(ms?: number): string {
 }
 
 export default function FarmasiQueueCard({
-  entry: e, index, onPanggil, onPanggilUlang, onMulai, onSerah,
+  entry: e, index, onPanggil, onPanggilUlang,
 }: Props) {
   const qc = FARMASI_QUEUE_CFG[e.status];
   const dimmed = e.status === "Selesai";
@@ -86,22 +83,18 @@ export default function FarmasiQueueCard({
         </div>
       </div>
 
-      {/* Action row */}
+      {/* Action row — antrean hanya memanggil; T6/T7 dari Worklist Order */}
       <div className="flex items-center gap-1.5 border-t border-slate-100 bg-slate-50/60 px-3 py-2.5">
         {e.status === "Menunggu_Farmasi" && (
-          <>
-            <Btn icon={PhoneCall} label="Panggil" tone="sky" onClick={() => onPanggil(e)} />
-            <Btn icon={FlaskConical} label="Mulai Siapkan" tone="ghost-sky" onClick={() => onMulai(e)} />
-          </>
+          <Btn icon={PhoneCall} label="Panggil" tone="sky" onClick={() => onPanggil(e)} />
         )}
         {e.status === "Dipanggil" && (
-          <>
-            <Btn icon={FlaskConical} label="Mulai Siapkan" tone="sky" onClick={() => onMulai(e)} />
-            <Btn icon={BellRing} label="Ulang" tone="ghost-amber" onClick={() => onPanggilUlang(e)} />
-          </>
+          <Btn icon={BellRing} label="Panggil Ulang" tone="ghost-amber" onClick={() => onPanggilUlang(e)} />
         )}
         {e.status === "Disiapkan" && (
-          <Btn icon={PackageCheck} label="Serahkan Obat" tone="emerald" onClick={() => onSerah(e)} />
+          <span className="inline-flex items-center gap-1.5 px-1 text-[11px] font-medium text-sky-700">
+            <FlaskConical size={12} /> Disiapkan di worklist · sejak {fmtClock(e.t6At)}
+          </span>
         )}
         {e.status === "Selesai" && (
           <span className="ml-auto inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">

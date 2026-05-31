@@ -11,6 +11,7 @@ import {
 } from "./farmasiShared";
 import { updateOrderStatus } from "@/components/shared/medical-records/daftarOrder/daftarOrderShared";
 import { ingestFarmasiOrder } from "@/lib/billing/chargeIngest";
+import { emitFarmasiTask } from "@/lib/farmasi/farmasiQueueStore";
 import CPPTTab           from "@/components/shared/medical-records/CPPTTab";
 import LayananFarmasiTab from "./tabs/LayananFarmasiTab";
 import PTOPane           from "./tabs/PTOPane";
@@ -82,12 +83,16 @@ export default function FarmasiOrderTabs({ orderId }: { orderId: string }) {
     updateFarmasiWorkflow(id, { status: newStatus, telaah: data });
     updateOrderStatus(id, data.result === "Disetujui" ? "Diproses" : "Menunggu");
     setOrder((prev) => prev ? { ...prev, telaah: data, status: newStatus } : prev);
+    // Antrol T6 — telaah disetujui = mulai layan farmasi (best-effort, by No. RM).
+    if (data.result === "Disetujui") emitFarmasiTask(order?.noRM, 6);
   }
 
   function handleDispensasiSubmit(id: string, items: FarmasiOrderItem[], serahTerima: SerahTerima) {
     updateFarmasiWorkflow(id, { status: "Selesai", items, serahTerima });
     updateOrderStatus(id, "Selesai");
     setOrder((prev) => prev ? { ...prev, items, serahTerima, status: "Selesai" } : prev);
+    // Antrol T7 — obat diserahkan (serah terima di worklist) = akhir layan farmasi.
+    emitFarmasiTask(order?.noRM, 7);
     // BL6.1 — silent wiring ke Billing. Idempotent (dedupe by sourceRef).
     if (order) {
       const result = ingestFarmasiOrder({

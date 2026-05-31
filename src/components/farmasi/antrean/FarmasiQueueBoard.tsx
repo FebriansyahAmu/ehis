@@ -10,8 +10,6 @@ import {
   useFarmasiQueue,
   panggilFarmasi,
   panggilUlangFarmasi,
-  mulaiSiapkan,
-  serahSelesai,
   FARMASI_QUEUE_CFG,
   FARMASI_QUEUE_SEQUENCE,
   type FarmasiQueueEntry,
@@ -78,14 +76,6 @@ export default function FarmasiQueueBoard() {
   function handlePanggilUlang(e: FarmasiQueueEntry) {
     const n = panggilUlangFarmasi(e.kodebooking);
     flash(`Panggil ulang ${e.nomorAntrean} — pemanggilan ke-${n + 1}`, "amber");
-  }
-  function handleMulai(e: FarmasiQueueEntry) {
-    mulaiSiapkan(e.kodebooking);
-    flash(`Mulai menyiapkan obat ${e.nama} · Task 6 terkirim`, "sky");
-  }
-  function handleSerah(e: FarmasiQueueEntry) {
-    serahSelesai(e.kodebooking);
-    flash(`Obat ${e.nama} diserahkan · Task 7 terkirim · antrean selesai`, "emerald");
   }
 
   const aktif = counts.Menunggu_Farmasi + counts.Dipanggil + counts.Disiapkan;
@@ -160,8 +150,6 @@ export default function FarmasiQueueBoard() {
               index={i}
               onPanggil={handlePanggil}
               onPanggilUlang={handlePanggilUlang}
-              onMulai={handleMulai}
-              onSerah={handleSerah}
             />
           ))}
         </div>
@@ -169,8 +157,10 @@ export default function FarmasiQueueBoard() {
 
       {/* Footer note */}
       <p className="text-[11px] text-slate-400">
-        {aktif} antrean aktif · Alur: <span className="font-semibold text-slate-500">Panggil → Mulai Siapkan (Task 6) → Serahkan (Task 7)</span>.
-        Timeline task tampil di <span className="font-semibold text-slate-500">Antrian · Monitoring</span>.
+        {aktif} antrean aktif · <span className="font-semibold text-slate-500">Panggil</span> ke loket di sini · status{" "}
+        <span className="font-semibold text-slate-500">Disiapkan (Task 6)</span> &{" "}
+        <span className="font-semibold text-slate-500">Diserahkan (Task 7)</span> mengikuti telaah & serah terima di tab{" "}
+        <span className="font-semibold text-slate-500">Worklist Order</span>. Timeline task di <span className="font-semibold text-slate-500">Antrian · Monitoring</span>.
       </p>
 
       {/* Toast */}

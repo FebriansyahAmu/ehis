@@ -268,16 +268,16 @@ Tombol **Selesaikan** di header [RJPatientHeader](src/components/rawat-jalan/RJP
 
 > **Status ANT-FAR: ✅ (2026-06-01).** Sumbu **Antrean-Farmasi** = proyeksi reaktif dari `antreanStore` (membership = T5 done & T7 belum & bukan batal), bukan store paralel — T6/T7 jadi state ASLI di antrean. Sub-state panggil/recall (tanpa TaskID) disimpan lokal di [farmasiQueueStore.ts](src/lib/farmasi/farmasiQueueStore.ts) (`useSyncExternalStore`+sessionStorage, `getServerSnapshot` EMPTY → SSR-safe). Tab baru **"Antrean Farmasi"** ([FarmasiViewTabs](src/components/farmasi/FarmasiViewTabs.tsx)) → board [FarmasiQueueBoard](src/components/farmasi/antrean/FarmasiQueueBoard.tsx) (stat strip + filter status + search + toast) + kartu [FarmasiQueueCard](src/components/farmasi/antrean/FarmasiQueueCard.tsx) dengan aksi per status. RJ `selesaikanPoli` kini set status antrean → `MenungguFarmasi` saat T5. Seed 2 pasien tahap farmasi (SEED-FAR-101 T5, SEED-FAR-102 T6) di [antreanSeed](src/lib/antrean/antreanSeed.ts). TSC + ESLint clean.
 
-Sumbu Antrean-Farmasi (drive T6/T7):
+Sumbu Antrean-Farmasi (T6/T7 = state asli antrean, di-drive Worklist):
 ```
-Menunggu_Farmasi ─(Panggil)─▶ Dipanggil ─(Mulai Siapkan ⇒ T6)─▶ Disiapkan ─(Serahkan ⇒ T7)─▶ Selesai
+Menunggu_Farmasi ─(Panggil loket)─▶ Dipanggil ─(telaah disetujui ⇒ T6, Worklist)─▶ Disiapkan ─(serah terima ⇒ T7, Worklist)─▶ Selesai
 ```
 - [x] Pasien **otomatis masuk** antrean farmasi setelah dokter poli **Selesai** (T5) → status antrean `MenungguFarmasi`. (2026-06-01)
 - [x] **Panggil / Panggil Ulang** ke loket farmasi (recall counter, tanpa TaskID). (2026-06-01)
-- [x] **Mulai Siapkan** (petugas farmasi terima order & siapkan obat) → **emit T6**. (2026-06-01)
-- [x] **Serahkan Obat** (selesai kunjungan farmasi) → **emit T7** + status `Selesai` (tutup antrean). (2026-06-01)
+- [x] **T6/T7 di-drive dari Worklist klinis** (penyatuan 2026-06-01): telaah **Disetujui** → `emitFarmasiTask(noRM, 6)` · **serah terima / dispensasi** → `emitFarmasiTask(noRM, 7)` + status `Selesai`. Emit best-effort by No. RM (order IGD/RI tanpa antrean RJ = no-op). ([FarmasiOrderTabs](src/components/farmasi/FarmasiOrderTabs.tsx))
+- [x] **Board Antrean Farmasi** = panggil antrian (`Panggil`/`Panggil Ulang`, tanpa TaskID) + **monitor** status `Disiapkan`/`Diserahkan` yang mengikuti Worklist. Tombol T6/T7 dipindah ke Worklist. (2026-06-01)
 - [x] Guard urutan dijamin engine `emitTask` (T6 wajib setelah T5, T7 setelah T6) + idempoten. (2026-06-01)
-- [~] Integrasi dengan worklist telaah/dispensing klinis (`farmasiShared`) — masih sumbu terpisah; penyatuan T6 ↔ "mulai telaah" & T7 ↔ "serah terima" = follow-up bila diperlukan.
+- [x] Seed nyambung: SEED-FAR-101 (Dewi RM-2025-034, resep `rj2-rx-1`) & SEED-FAR-102 (Budiman RM-2025-021, resep `rj1-rx-1`) → drivable end-to-end via Worklist. SEED-MAT-002 (Slamet) di-repoint ke RM-2025-022 agar tak bentrok. (2026-06-01)
 
 ---
 

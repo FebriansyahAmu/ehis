@@ -89,7 +89,7 @@ const SPECS: SeedSpec[] = [
     jenisPasien: "Lama",
     sumber: "MJKN",
     caraBayar: "Umum",
-    pasien: { noRM: "RM-2025-021", nik: "3171043005720001", nama: "Slamet Riyadi", tglLahir: "1972-05-30", kontak: "0821-4455-6677" },
+    pasien: { noRM: "RM-2025-022", nik: "3171043005720001", nama: "Slamet Riyadi", tglLahir: "1972-05-30", kontak: "0821-4455-6677" },
     kodedokter: "D-MAT-1",
     nomorAntrean: "M-2",
     angkaAntrean: 2,
@@ -115,35 +115,36 @@ const SPECS: SeedSpec[] = [
     taskKirim: { 5: { kirim: "pending", attempts: 0 } },
   },
   {
-    // Demo Antrean Farmasi: selesai poli + ada resep → menunggu di loket farmasi (T5, belum T6).
+    // Demo Antrean Farmasi: selesai poli + ada resep di Worklist (rj2-rx-1) → menunggu loket
+    // farmasi. T6/T7 di-drive dari Worklist (telaah → serah), bukan dari board ini.
     kodebooking: "SEED-FAR-101",
     jenisPasien: "Lama",
     sumber: "Onsite",
     caraBayar: "BPJS",
-    pasien: { noRM: "RM-2025-009", nik: "3171041507660005", nama: "Sri Wahyuni", tglLahir: "1966-07-15", kontak: "0813-2211-9090" },
+    pasien: { noRM: "RM-2025-034", nik: "3171041507660005", nama: "Dewi Rahmawati", tglLahir: "1988-04-12", kontak: "0813-2211-9090" },
     noKartu: "0001234567895",
     noRujukan: "RJKT/0011/0526",
-    kodedokter: "D-INT-1",
-    nomorAntrean: "I-5",
-    angkaAntrean: 5,
+    kodedokter: "D-UMU-1",
+    nomorAntrean: "U-8",
+    angkaAntrean: 8,
     status: "MenungguFarmasi",
     tasksDone: [3, 4, 5],
     minsAgo: 38,
   },
   {
-    // Demo Antrean Farmasi: obat sedang disiapkan (T6 sudah, belum diserahkan/T7).
+    // Demo Antrean Farmasi: pasien kedua dengan resep di Worklist (rj1-rx-1, RM-2025-021).
     kodebooking: "SEED-FAR-102",
     jenisPasien: "Lama",
     sumber: "MJKN",
     caraBayar: "BPJS",
-    pasien: { noRM: "RM-2025-010", nik: "3171042809610006", nama: "Agus Salim", tglLahir: "1961-09-28", kontak: "0856-7788-1212" },
+    pasien: { noRM: "RM-2025-021", nik: "3171042809610006", nama: "Budiman Santoso", tglLahir: "1968-01-20", kontak: "0856-7788-1212" },
     noKartu: "0001234567896",
     noRujukan: "RJKT/0012/0526",
     kodedokter: "D-JAN-1",
     nomorAntrean: "J-2",
     angkaAntrean: 2,
     status: "MenungguFarmasi",
-    tasksDone: [3, 4, 5, 6],
+    tasksDone: [3, 4, 5],
     minsAgo: 52,
   },
 ];

@@ -15,6 +15,7 @@ import {
   useAntreanStore,
   emitTask,
   setStatus,
+  getAntreanByPasien,
 } from "@/lib/antrean/antreanStore";
 import type { AntreanRecord, CaraBayar, TaskId } from "@/lib/antrean/types";
 
@@ -155,11 +156,15 @@ function deriveStatus(rec: AntreanRecord, call?: CallEntry): FarmasiQueueStatus 
   return "Menunggu_Farmasi";
 }
 
-/** Apakah record ini ada di antrean farmasi (selesai poli, belum diserahkan / baru selesai). */
+/**
+ * Apakah record ini MASUK antrean farmasi. Syarat: pasien benar-benar memasuki tahap
+ * farmasi — status `MenungguFarmasi` (selesai poli + ada resep) ATAU sudah menerima
+ * task farmasi (T6/T7). Pasien yang selesai poli TANPA resep (T5 → langsung `Selesai`,
+ * tanpa T6/T7) TIDAK masuk antrean farmasi.
+ */
 function inFarmasiQueue(rec: AntreanRecord): boolean {
-  if (!hasTask(rec, 5)) return false;
   if (rec.status === "Batal" || rec.status === "TidakHadir") return false;
-  return true;
+  return rec.status === "MenungguFarmasi" || hasTask(rec, 6) || hasTask(rec, 7);
 }
 
 function toEntry(rec: AntreanRecord, call?: CallEntry): FarmasiQueueEntry {
@@ -196,16 +201,25 @@ export function panggilUlangFarmasi(kodebooking: string): number {
   return n;
 }
 
-/** Terima order & mulai menyiapkan obat → emit T6 (mulai layan farmasi). */
-export function mulaiSiapkan(kodebooking: string) {
-  emitTask(kodebooking, 6);
-  setCall(kodebooking, () => ({ dipanggil: false, recalls: 0 }));
-}
-
-/** Obat selesai & diserahkan → emit T7 + status Selesai (tutup antrean). */
-export function serahSelesai(kodebooking: string) {
-  emitTask(kodebooking, 7);
-  setStatus(kodebooking, "Selesai");
+/**
+ * Emit T6/T7 dari WORKLIST farmasi (telaah/serah terima) ke antrean — by No. RM.
+ * T6 = telaah disetujui (mulai layan farmasi) · T7 = obat diserahkan (serah terima).
+ * Best-effort: hanya untuk pasien yang punya antrean di tahap farmasi (T5 done, T7 belum).
+ * Order IGD/RI tanpa antrean RJ → no-op. Guard urutan dijamin engine emitTask.
+ */
+export function emitFarmasiTask(noRM: string | undefined, taskid: 6 | 7): boolean {
+  if (!noRM) return false;
+  const rec = getAntreanByPasien(noRM).find(
+    (r) =>
+      hasTask(r, 5) &&
+      !hasTask(r, 7) &&
+      r.status !== "Batal" &&
+      r.status !== "TidakHadir",
+  );
+  if (!rec) return false;
+  const log = emitTask(rec.kodebooking, taskid);
+  if (taskid === 7 && log) setStatus(rec.kodebooking, "Selesai");
+  return !!log;
 }
 
 // ── Subscription / hook ────────────────────────────────────

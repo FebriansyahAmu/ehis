@@ -15,7 +15,9 @@ import {
   TASK_SEQUENCE,
 } from "./types";
 
-const STORAGE_KEY = "ehis.antrean.v1";
+// v2: seed diperluas (pasien tahap farmasi SEED-FAR-101/102 + repoint SEED-MAT-002).
+// Bump key → sesi lama yang ter-seed versi awal di-reset agar seed baru ter-load.
+const STORAGE_KEY = "ehis.antrean.v2";
 
 interface StoreState {
   byKode: Record<string, AntreanRecord>;
