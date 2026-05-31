@@ -10,7 +10,7 @@
 
 import { useSyncExternalStore } from "react";
 import { rjPatients } from "@/lib/data";
-import { getAntreanByPasien, emitTask } from "@/lib/antrean/antreanStore";
+import { getAntreanByPasien, emitTask, setStatus } from "@/lib/antrean/antreanStore";
 
 const STORAGE_KEY = "ehis.rj.queue.v1";
 
@@ -159,7 +159,10 @@ function patch(id: string, fn: (e: RJQueueEntry) => RJQueueEntry) {
 /** Emit task ke antrean pasien (best-effort, by No. RM). Idempoten di engine. */
 function emitToAntrean(noRM: string, taskid: 4 | 5) {
   const recs = getAntreanByPasien(noRM);
-  if (recs[0]) emitTask(recs[0].kodebooking, taskid);
+  if (!recs[0]) return;
+  emitTask(recs[0].kodebooking, taskid);
+  // T5 = selesai poli / mulai tunggu farmasi → pindahkan antrean ke loket farmasi.
+  if (taskid === 5) setStatus(recs[0].kodebooking, "MenungguFarmasi");
 }
 
 // ── Aksi worklist ──────────────────────────────────────────

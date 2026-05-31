@@ -13,7 +13,7 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (bridging WS Antrean BPJS real)
 >
 > **Last updated:** 2026-05-31
-> **Status:** 🚧 **In progress.** `REG0` ✅ · `ANT1` ✅ (store+TaskID engine) · `ANT0` ✅ (scaffold modul) · `ANT-ONSITE` ✅ (kiosk APM Lama+Baru → ambil antrean → struk) · `ANT2` ✅ (Antrean List board: Buka Loket + tabel + filter + aksi Panggil/Respon/Batal) · `ANT3` ✅ (Pengaturan 4-tab: Mapping/CRUD Pos-Loket/Hak Akses/Jadwal · posStore reaktif) · Master Jadwal Dokter ✅ (dependency) · `ANT4` ✅ (Respon Kedatangan → bridge registrasi: PasienBaru/DaftarKunjungan persist + deep-link + emit task) · `ANT5` ✅ (Monitoring: timeline TaskID + outbox kirim/gagal/pending + koreksi/re-send + KPI compliance) · `ANT6` ✅ (Referensi 3-tab: Poli HFIS · Mobile JKN · Jadwal HFIS sync) · `ANT7` Display ✅ (layar full-screen + TTS + recall flash; Beranda dari ANT0) · `ANT-RJ` ✅ (Care RJ worklist actionable + emit T4/T5 + finalize/lock). **Sisa:** ANT7 Audit trail · read-only per-tab pasca-lock (follow-up) · MJKN API wrapper. Spec TaskID Antrol BPJS dikunci (2026-05-30).
+> **Status:** 🚧 **In progress.** `REG0` ✅ · `ANT1` ✅ (store+TaskID engine) · `ANT0` ✅ (scaffold modul) · `ANT-ONSITE` ✅ (kiosk APM Lama+Baru → ambil antrean → struk) · `ANT2` ✅ (Antrean List board: Buka Loket + tabel + filter + aksi Panggil/Respon/Batal) · `ANT3` ✅ (Pengaturan 4-tab: Mapping/CRUD Pos-Loket/Hak Akses/Jadwal · posStore reaktif) · Master Jadwal Dokter ✅ (dependency) · `ANT4` ✅ (Respon Kedatangan → bridge registrasi: PasienBaru/DaftarKunjungan persist + deep-link + emit task) · `ANT5` ✅ (Monitoring: timeline TaskID + outbox kirim/gagal/pending + koreksi/re-send + KPI compliance) · `ANT6` ✅ (Referensi 3-tab: Poli HFIS · Mobile JKN · Jadwal HFIS sync) · `ANT7` Display ✅ (layar full-screen + TTS + recall flash; Beranda dari ANT0) · `ANT-RJ` ✅ (Care RJ worklist actionable + emit T4/T5 + finalize/lock) · `ANT-FAR` ✅ (Antrean Farmasi: panggil → siapkan T6 → serah T7). **Sisa:** ANT7 Audit trail · read-only per-tab pasca-lock (follow-up) · MJKN API wrapper. Spec TaskID Antrol BPJS dikunci (2026-05-30).
 > **Target effort:** ~2–2.5 minggu (frontend, mock-first).
 
 > ### 🚦 Urutan Build (disepakati 2026-05-30)
@@ -262,6 +262,25 @@ Tombol **Selesaikan** di header [RJPatientHeader](src/components/rawat-jalan/RJP
 
 ---
 
+## Phase ANT-FAR — Farmasi: Antrean Farmasi (emit T6/T7) ✅ (2026-06-01) *(modul Farmasi, fungsi BARU)*
+
+**Effort:** ~0.5 hari · **Modul:** `/ehis-care/farmasi` (sumber emit T6/T7). **Depend:** `emitTask` ANT1 + T5 dari ANT-RJ.
+
+> **Status ANT-FAR: ✅ (2026-06-01).** Sumbu **Antrean-Farmasi** = proyeksi reaktif dari `antreanStore` (membership = T5 done & T7 belum & bukan batal), bukan store paralel — T6/T7 jadi state ASLI di antrean. Sub-state panggil/recall (tanpa TaskID) disimpan lokal di [farmasiQueueStore.ts](src/lib/farmasi/farmasiQueueStore.ts) (`useSyncExternalStore`+sessionStorage, `getServerSnapshot` EMPTY → SSR-safe). Tab baru **"Antrean Farmasi"** ([FarmasiViewTabs](src/components/farmasi/FarmasiViewTabs.tsx)) → board [FarmasiQueueBoard](src/components/farmasi/antrean/FarmasiQueueBoard.tsx) (stat strip + filter status + search + toast) + kartu [FarmasiQueueCard](src/components/farmasi/antrean/FarmasiQueueCard.tsx) dengan aksi per status. RJ `selesaikanPoli` kini set status antrean → `MenungguFarmasi` saat T5. Seed 2 pasien tahap farmasi (SEED-FAR-101 T5, SEED-FAR-102 T6) di [antreanSeed](src/lib/antrean/antreanSeed.ts). TSC + ESLint clean.
+
+Sumbu Antrean-Farmasi (drive T6/T7):
+```
+Menunggu_Farmasi ─(Panggil)─▶ Dipanggil ─(Mulai Siapkan ⇒ T6)─▶ Disiapkan ─(Serahkan ⇒ T7)─▶ Selesai
+```
+- [x] Pasien **otomatis masuk** antrean farmasi setelah dokter poli **Selesai** (T5) → status antrean `MenungguFarmasi`. (2026-06-01)
+- [x] **Panggil / Panggil Ulang** ke loket farmasi (recall counter, tanpa TaskID). (2026-06-01)
+- [x] **Mulai Siapkan** (petugas farmasi terima order & siapkan obat) → **emit T6**. (2026-06-01)
+- [x] **Serahkan Obat** (selesai kunjungan farmasi) → **emit T7** + status `Selesai` (tutup antrean). (2026-06-01)
+- [x] Guard urutan dijamin engine `emitTask` (T6 wajib setelah T5, T7 setelah T6) + idempoten. (2026-06-01)
+- [~] Integrasi dengan worklist telaah/dispensing klinis (`farmasiShared`) — masih sumbu terpisah; penyatuan T6 ↔ "mulai telaah" & T7 ↔ "serah terima" = follow-up bila diperlukan.
+
+---
+
 ## Phase ANT5 — Tab: Monitoring Status Antrian ✅ (2026-05-31)
 
 **Effort:** 1.5 hari.
@@ -317,7 +336,7 @@ Tombol **Selesaikan** di header [RJPatientHeader](src/components/rawat-jalan/RJP
 
 - **→ [TODO-REGISTRASI.md](TODO-REGISTRASI.md)**: Respon Kedatangan men-trigger PasienBaru (REG1) & DaftarKunjungan+SEP RJ (REG2); board loket pindah ke sini (REG3 di-deprecate).
 - **→ EHIS Care (RJ)**: emit **task 4** (Panggil poli) & **task 5** (Selesai Pelayanan) via `emitTask` — worklist actionable (Terima/Panggil/Batal). Lihat **Phase ANT-RJ**.
-- **→ Farmasi**: emit **task 6** (siapkan obat) & **task 7** (serah obat) via `workflowStore` → `emitTask`.
+- **→ Farmasi** ✅ (2026-06-01): emit **task 6** (mulai siapkan obat) & **task 7** (obat diserahkan) via **Antrean Farmasi** worklist. Lihat **Phase ANT-FAR**.
 - **→ `/ehis-master/jadwal-dokter`** (sub-menu baru): single source jadwal dokter (tarik via HFIS); antrean & RJ consume.
 - **→ [TODO-BPJS.md](TODO-BPJS.md)**: Antrol WS sejajar V-Claim — share kredensial bridging, endpoint terpisah.
 - **→ Backend**: **ekspos WS provider** (inbound MJKN: `ref/poli`, `jadwaldokter`, `antrean/tambah`, `antrean/batal`, `antrean/status`, `antrean/checkin`) + **client Antrol** (outbound: `antrean/updatewaktu`, `dashboard`). Lihat WS Surface di atas → [TODOS_BACKEND.md](TODOS_BACKEND.md).

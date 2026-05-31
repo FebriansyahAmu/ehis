@@ -2,22 +2,24 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutGrid, ShieldAlert, BookOpen } from "lucide-react";
+import { LayoutGrid, ShieldAlert, BookOpen, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import FarmasiBoard       from "./FarmasiBoard";
+import FarmasiQueueBoard  from "./antrean/FarmasiQueueBoard";
 import RegisterNarPsiPane from "./narPsi/RegisterNarPsiPane";
 import PIOPane            from "./pio/PIOPane";
 
-type FarmasiMainTab = "worklist" | "narpsi" | "pio";
+type FarmasiMainTab = "antrean" | "worklist" | "narpsi" | "pio";
 
 const TABS: { id: FarmasiMainTab; label: string; icon: React.ElementType; sub: string }[] = [
+  { id: "antrean",  label: "Antrean Farmasi",                   icon: Users,       sub: "Panggil · Siapkan (T6) · Serah (T7)" },
   { id: "worklist", label: "Worklist Order",                    icon: LayoutGrid,  sub: "Telaah · Dispensasi · Serah Terima" },
   { id: "narpsi",   label: "Register Narkotika / Psikotropika", icon: ShieldAlert, sub: "UU 35/2009 · PMK 3/2015"            },
   { id: "pio",      label: "Pelayanan Informasi Obat",          icon: BookOpen,    sub: "PMK 72/2016 Ps. 27-29"              },
 ];
 
 export default function FarmasiViewTabs() {
-  const [active, setActive] = useState<FarmasiMainTab>("worklist");
+  const [active, setActive] = useState<FarmasiMainTab>("antrean");
 
   return (
     <div className="flex flex-col gap-5">
@@ -61,6 +63,7 @@ export default function FarmasiViewTabs() {
           exit={{ opacity: 0, y: -4 }}
           transition={{ duration: 0.15, ease: "easeOut" }}
         >
+          {active === "antrean"  && <FarmasiQueueBoard />}
           {active === "worklist" && <FarmasiBoard />}
           {active === "narpsi"   && <RegisterNarPsiPane />}
           {active === "pio"      && <PIOPane />}
