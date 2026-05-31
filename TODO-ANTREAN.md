@@ -13,7 +13,7 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (bridging WS Antrean BPJS real)
 >
 > **Last updated:** 2026-05-31
-> **Status:** 🚧 **In progress.** `REG0` ✅ · `ANT1` ✅ (store+TaskID engine) · `ANT0` ✅ (scaffold modul) · `ANT-ONSITE` ✅ (kiosk APM Lama+Baru → ambil antrean → struk) · `ANT2` ✅ (Antrean List board: Buka Loket + tabel + filter + aksi Panggil/Respon/Batal) · `ANT3` ✅ (Pengaturan 4-tab: Mapping/CRUD Pos-Loket/Hak Akses/Jadwal · posStore reaktif). **Next:** `ANT4` (Respon Kedatangan → bridge registrasi) atau dependency Master Jadwal Dokter. Spec TaskID Antrol BPJS dikunci (2026-05-30).
+> **Status:** 🚧 **In progress.** `REG0` ✅ · `ANT1` ✅ (store+TaskID engine) · `ANT0` ✅ (scaffold modul) · `ANT-ONSITE` ✅ (kiosk APM Lama+Baru → ambil antrean → struk) · `ANT2` ✅ (Antrean List board: Buka Loket + tabel + filter + aksi Panggil/Respon/Batal) · `ANT3` ✅ (Pengaturan 4-tab: Mapping/CRUD Pos-Loket/Hak Akses/Jadwal · posStore reaktif) · Master Jadwal Dokter ✅ (dependency) · `ANT4` ✅ (Respon Kedatangan → bridge registrasi: PasienBaru/DaftarKunjungan persist + deep-link + emit task). **Next:** `ANT-RJ` (Care RJ worklist + emit T4/T5) · `ANT5` Monitoring · `ANT7` Display. Spec TaskID Antrol BPJS dikunci (2026-05-30).
 > **Target effort:** ~2–2.5 minggu (frontend, mock-first).
 
 > ### 🚦 Urutan Build (disepakati 2026-05-30)
@@ -196,31 +196,33 @@ src/app/ehis-antrian/
 
 ---
 
-## Phase ANT4 — Tab: Antrean List → "Respon Kedatangan" Bridge ke Registrasi
+## Phase ANT4 — Tab: Antrean List → "Respon Kedatangan" Bridge ke Registrasi ✅ (2026-05-31)
 
 **Effort:** 2 hari · **Pair dgn** [TODO-REGISTRASI.md](TODO-REGISTRASI.md) REG1+REG2. **Kritis.**
+
+> **Status ANT4: ✅ (2026-05-31).** `handleRespon` di [AntreanListPage](src/components/antrean/board/AntreanListPage.tsx) mencabang per No. RM → deep-link `/ehis-registration/pasien/{rm}?daftar=rj&kodebooking=...`. [PatientDashboard](src/components/registration/PatientDashboard.tsx) baca `useSearchParams` → auto-buka Daftar Kunjungan. **Dua modal registrasi yang sebelumnya stub kini persist** (REG1/REG2 minimal): [PasienBaruModal](src/components/registration/pasien-baru/PasienBaruModal.tsx) `addPatient` + prop `prefill`/`onSuccess(noRM)`; [DaftarKunjunganModal](src/components/registration/patient/modals/DaftarKunjunganModal.tsx) `addKunjungan` + prop `kodebooking` → emit T3 + status MenungguPoli + SEP + panel sukses. TSC + ESLint clean.
 
 Tombol **Respon Kedatangan** mencabang berdasarkan ada/tidaknya No. RM:
 
 ### ANT4.1 Pasien BARU — **emit task 1** saat Respon Kedatangan, **task 2** saat modal dibuka, **task 3** saat kunjungan dibuat.
 
-**(a) Baru via ONLINE** — sudah punya `norm` + data minimal dari WS `POST /pasien` ([docs/API-ANTREAN.md](docs/API-ANTREAN.md) §6):
-- [ ] Respon Kedatangan → buka `/pasien/{norm}` (in-app MDI [PatientDashboard](src/components/registration/PatientDashboard.tsx) + query param) dgn data **ter-prefill (incomplete)**.
-- [ ] **Lengkapi data RM** (field non-BPJS: tempat lahir, gol darah, agama, dst — lihat REG1.1) → bukan buat dari nol.
-- [ ] Lanjut **Modal Daftar Kunjungan RJ** + cetak SEP.
+**(a) Baru via ONLINE** — sudah punya `norm` + data minimal dari WS `POST /pasien`:
+- [x] Respon Kedatangan → emit T1+T2 → buka `/pasien/{norm}?daftar=rj&kodebooking=...` (auto-trigger Daftar Kunjungan). (2026-05-31)
+- [~] **Lengkapi data RM** (field non-BPJS) — dashboard terbuka, kelengkapan field manual (REG1.1 detail menyusul). (2026-05-31)
+- [x] Lanjut **Modal Daftar Kunjungan RJ** + SEP (BPJS). (2026-05-31)
 
 **(b) Walk-in murni** — belum ada `norm` sama sekali:
-- [ ] Trigger **PasienBaruModal** penuh (autofill `BpjsPesertaAutofill` bila peserta BPJS) → sukses → buka `/pasien/{rm}` → Daftar Kunjungan RJ + SEP.
+- [x] Trigger **PasienBaruModal** penuh (prefill NIK/nama/penjamin dari antrean) → `addPatient` → `onSuccess(noRM)` → emit T1+T2 → buka `/pasien/{rm}?daftar=rj` → Daftar Kunjungan RJ + SEP. (2026-05-31) `BpjsPesertaAutofill` penuh = REG follow-up.
 
 ### ANT4.2 Pasien LAMA (sudah punya No. RM)
-- [ ] **emit task 3** saat Respon Kedatangan (check-in pasien lama = task 3).
-- [ ] Buka `/pasien/{rm}` dgn **Modal Daftar Kunjungan RJ auto-trigger** (via query param, mis. `?daftar=rj&kodebooking=...`).
-- [ ] Daftar seperti biasa + cetak SEP bila BPJS.
+- [x] **emit task 3** saat Respon Kedatangan (idempoten dgn checkin kiosk). (2026-05-31)
+- [x] Buka `/pasien/{rm}?daftar=rj&kodebooking=...` dgn **Modal Daftar Kunjungan RJ auto-trigger**. (2026-05-31)
+- [x] Daftar + SEP bila BPJS (dummy `genSEP`, backend V-Claim nanti). (2026-05-31)
 
 ### ANT4.3 Wiring consume
-- [ ] `getAntreanByPasien(noRM)` / `getAntreanByBooking(kode)` untuk consume.
-- [ ] Badge "Antrean #B-xx · est. 10:30 · task N" di detail kunjungan RJ + worklist RJ EHIS Care.
-- [ ] Hook `emitTask` dipanggil dari EHIS Care RJ (lihat **Phase ANT-RJ**) & Farmasi (task 6 siapkan, task 7 serah).
+- [x] `getAntreanByPasien(noRM)` tersedia di store; link kunjungan↔antrean via `kodebooking` (PendaftaranKunjunganInput). (2026-05-31)
+- [ ] Badge "Antrean #B-xx · est. 10:30 · task N" di detail kunjungan RJ + worklist RJ EHIS Care — **follow-up** (perlu render di KunjunganDetail/RJBoard).
+- [ ] Hook `emitTask` dari EHIS Care RJ (Phase ANT-RJ) & Farmasi (task 6/7) — **follow-up** (Phase ANT-RJ).
 
 ---
 

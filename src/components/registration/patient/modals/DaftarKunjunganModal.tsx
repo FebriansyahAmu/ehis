@@ -4,9 +4,19 @@ import { useState } from "react";
 import { AlertCircle, Stethoscope, BedDouble, Shield, Info, CalendarPlus, Check, Building2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import type { PatientMaster, MetodeBayar } from "@/lib/data";
+import type { PatientMaster, KunjunganRecord } from "@/lib/data";
+import { addKunjungan } from "@/lib/registration/registrationStore";
+import type { PendaftaranKunjunganInput } from "@/lib/registration/types";
+import { emitTask, setStatus } from "@/lib/antrean/antreanStore";
 import { ModalShell } from "../primitives";
 import { PENJAMIN_CFG, POLI_OPTS } from "../config";
+
+/** No. SEP dummy untuk pasien BPJS (mock — backend terbitkan via V-Claim). */
+function genSEP(): string {
+  const d = new Date();
+  const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+  return `SEP-${ymd}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
+}
 
 type UnitDaftar = "IGD" | "Rawat Jalan" | "Rawat Inap";
 type CaraMasuk = "Datang Sendiri" | "Rujukan Puskesmas" | "Rujukan RS" | "Transfer Internal";
@@ -65,9 +75,12 @@ const UNIT_DAFTAR_CFG: {
 export function DaftarKunjunganModal({
   patient,
   onClose,
+  kodebooking,
 }: {
   patient: PatientMaster;
   onClose: () => void;
+  /** ANT4 — bila dipicu dari Respon Kedatangan antrean: link + emit task 3. */
+  kodebooking?: string;
 }) {
   const today = new Date().toISOString().split("T")[0];
   const nowTime = new Date().toTimeString().slice(0, 5);
@@ -86,8 +99,40 @@ export function DaftarKunjunganModal({
   const [asalMasuk, setAsalMasuk] = useState("Dari Poli");
   const [kelasRawat, setKelasRawat] = useState("2");
 
+  const [done, setDone] = useState(false);
+  const [created, setCreated] = useState<KunjunganRecord | null>(null);
+
   const pjCfg = PENJAMIN_CFG[patient.penjamin.tipe];
   const isRujukan = caraMasuk === "Rujukan Puskesmas" || caraMasuk === "Rujukan RS";
+  const isBPJS = patient.penjamin.tipe === "BPJS_Non_PBI" || patient.penjamin.tipe === "BPJS_PBI";
+
+  function handleDaftar() {
+    if (!keluhan.trim()) return;
+    const input: PendaftaranKunjunganInput = {
+      unit,
+      tanggal,
+      dokter: dokter.trim() || "—",
+      keluhan: keluhan.trim(),
+      caraMasuk,
+      jenisKunjungan: jenisKunj,
+      poli: unit === "Rawat Jalan" ? poli : undefined,
+      kelas: unit === "Rawat Inap" ? kelasRawat : undefined,
+      triase: unit === "IGD" ? triase : undefined,
+      penjamin: pjCfg.label,
+      noPenjamin: patient.penjamin.nomor,
+      noSEP: isBPJS ? genSEP() : undefined,
+      noRujukan: isRujukan ? noRujukan.trim() || undefined : undefined,
+      kodebooking,
+    };
+    const rec = addKunjungan(patient.noRM, input);
+    // ANT4 — bila dari Respon Kedatangan antrean: selesai admisi → menunggu poli.
+    if (kodebooking) {
+      emitTask(kodebooking, 3);
+      setStatus(kodebooking, "MenungguPoli");
+    }
+    setCreated(rec);
+    setDone(true);
+  }
 
   const inputCls =
     "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition hover:border-slate-300 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100";
@@ -101,6 +146,9 @@ export function DaftarKunjunganModal({
       onClose={onClose}
       size="lg"
     >
+      {done && created ? (
+        <SuccessPanel created={created} kodebooking={kodebooking} onClose={onClose} />
+      ) : (
       <div className="flex flex-1 overflow-hidden" style={{ minHeight: 500 }}>
         {/* Left: Unit selector */}
         <div className="flex w-52 shrink-0 flex-col gap-2 border-r border-slate-100 bg-slate-50/80 p-3">
@@ -386,6 +434,7 @@ export function DaftarKunjunganModal({
                 Batal
               </button>
               <button
+                onClick={handleDaftar}
                 disabled={!keluhan.trim()}
                 className={cn(
                   "flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition",
@@ -400,6 +449,56 @@ export function DaftarKunjunganModal({
           </div>
         </div>
       </div>
+      )}
     </ModalShell>
+  );
+}
+
+// ── Success panel (ANT4) ──────────────────────────────────────────────────────
+function SuccessPanel({
+  created,
+  kodebooking,
+  onClose,
+}: {
+  created: KunjunganRecord;
+  kodebooking?: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 py-12 text-center" style={{ minHeight: 500 }}>
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 ring-8 ring-emerald-50">
+        <Check size={28} className="text-emerald-600" strokeWidth={2.5} />
+      </div>
+      <div>
+        <p className="text-lg font-black text-slate-900">Kunjungan Terdaftar</p>
+        <p className="mt-1 text-sm text-slate-500">{created.unit} · {created.dokter}</p>
+      </div>
+      <div className="flex flex-col gap-2 rounded-2xl bg-slate-50 px-8 py-5 text-left ring-1 ring-slate-200">
+        <SuccessRow label="No. Kunjungan" value={created.noKunjungan} />
+        <SuccessRow label="No. Pendaftaran" value={created.noPendaftaran} />
+        {created.noSEP && <SuccessRow label="No. SEP" value={created.noSEP} />}
+        {kodebooking && <SuccessRow label="Kode Booking" value={kodebooking} />}
+      </div>
+      {kodebooking && (
+        <p className="max-w-xs text-xs text-emerald-600">
+          Antrean diperbarui → status <span className="font-semibold">Menunggu Poli</span> (task 3 terkirim ke BPJS).
+        </p>
+      )}
+      <button
+        onClick={onClose}
+        className="rounded-xl bg-sky-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-700 active:scale-[0.98]"
+      >
+        Selesai
+      </button>
+    </div>
+  );
+}
+
+function SuccessRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-8">
+      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
+      <span className="font-mono text-xs font-semibold text-slate-700">{value}</span>
+    </div>
   );
 }

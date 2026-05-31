@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ChevronRight, X, Plus, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PatientMaster } from "@/lib/data";
@@ -88,6 +89,18 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
   const [openBillingId, setOpenBillingId] = useState<string | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
+
+  // ANT4 — auto-buka Daftar Kunjungan bila datang dari Respon Kedatangan antrean
+  // (deep-link: /pasien/{rm}?daftar=rj&kodebooking=...). Hanya sekali saat mount.
+  const searchParams = useSearchParams();
+  const [antreanKode, setAntreanKode] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (searchParams.get("daftar") === "rj") {
+      setAntreanKode(searchParams.get("kodebooking") ?? undefined);
+      setDaftarKunjungan(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Derived data ───────────────────────────────────────────
   const jadwalList = useMemo((): JadwalItem[] => {
@@ -335,7 +348,11 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
         <RiwayatKunjunganModal kunjungan={patient.riwayatKunjungan} onClose={() => setRiwayat(false)} />
       )}
       {showDaftarKunjungan && (
-        <DaftarKunjunganModal patient={patient} onClose={() => setDaftarKunjungan(false)} />
+        <DaftarKunjunganModal
+          patient={patient}
+          kodebooking={antreanKode}
+          onClose={() => { setDaftarKunjungan(false); setAntreanKode(undefined); }}
+        />
       )}
       {showTambahJadwal && (
         <TambahJadwalModal patient={patient} onClose={() => setShowTambahJadwal(false)} />

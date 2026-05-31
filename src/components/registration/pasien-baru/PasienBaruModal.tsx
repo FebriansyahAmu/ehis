@@ -5,6 +5,65 @@ import { Check, Loader2, ChevronRight, ChevronLeft, User, MapPin, Phone } from "
 import { cn } from "@/lib/utils";
 import { type FormState, type Errors, INITIAL_FORM, validateStep } from "./pasienBaruTypes";
 import { StepContent } from "./PasienBaruSteps";
+import { addPatient } from "@/lib/registration/registrationStore";
+import type { NewPatientInput } from "@/lib/registration/types";
+import type { PatientMaster } from "@/lib/data";
+
+/** ANT4 — prefill dari antrean walk-in (NIK/nama dari kiosk) + penjamin. */
+export interface PasienBaruPrefill {
+  nik?: string;
+  nama?: string;
+  tglLahir?: string;
+  noHp?: string;
+  gender?: "L" | "P";
+  penjamin?: PatientMaster["penjamin"];
+}
+
+function buildInitial(prefill?: PasienBaruPrefill): FormState {
+  if (!prefill) return INITIAL_FORM;
+  return {
+    ...INITIAL_FORM,
+    nik: prefill.nik ?? "",
+    namaLengkap: prefill.nama ?? "",
+    tanggalLahir: prefill.tglLahir ?? "",
+    noHp: prefill.noHp ?? "",
+    gender: prefill.gender ?? "",
+  };
+}
+
+function formToInput(form: FormState, prefill?: PasienBaruPrefill): NewPatientInput {
+  return {
+    nik: form.nik,
+    name: form.namaLengkap.trim(),
+    gender: (form.gender || "L") as "L" | "P",
+    tanggalLahir: form.tanggalLahir,
+    tempatLahir: form.tempatLahir,
+    statusPerkawinan: (form.statusPerkawinan || undefined) as NewPatientInput["statusPerkawinan"],
+    agama: form.agama || undefined,
+    golonganDarah: (form.golonganDarah || undefined) as NewPatientInput["golonganDarah"],
+    pekerjaan: form.pekerjaan || undefined,
+    pendidikan: form.pendidikan || undefined,
+    suku: form.suku || undefined,
+    kewarganegaraan: form.kewarganegaraan || undefined,
+    alamat: form.alamat,
+    rtRw: form.rtRw || undefined,
+    kelurahan: form.kelurahan || undefined,
+    kecamatan: form.kecamatan || undefined,
+    kota: form.kota,
+    provinsi: form.provinsi,
+    kodePos: form.kodePos || undefined,
+    noHp: form.noHp,
+    email: form.email || undefined,
+    alergi: form.alergi,
+    kontakDarurat: {
+      nama: form.kontakDaruratNama,
+      hubungan: form.kontakDaruratHubungan,
+      noHp: form.kontakDaruratNoHp,
+    },
+    penjamin: prefill?.penjamin,
+    sumber: "Walk-in",
+  };
+}
 
 const STEPS = [
   { n: 1, label: "Identitas Diri", sub: "Data diri & demografi",  icon: User   },
@@ -140,7 +199,18 @@ function SuccessState({ rm, name, onClose, onNew }: {
 }
 
 // ── PasienBaruModal ───────────────────────────────────────────────────────────
-export function PasienBaruModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function PasienBaruModal({
+  open,
+  onClose,
+  prefill,
+  onSuccess,
+}: {
+  open: boolean;
+  onClose: () => void;
+  prefill?: PasienBaruPrefill;
+  /** ANT4 — bila diberikan: skip layar sukses, teruskan noRM ke pemanggil (bridge). */
+  onSuccess?: (noRM: string) => void;
+}) {
   const [step,        setStep]        = useState(1);
   const [form,        setForm]        = useState<FormState>(INITIAL_FORM);
   const [errors,      setErrors]      = useState<Errors>({});
@@ -167,8 +237,10 @@ export function PasienBaruModal({ open, onClose }: { open: boolean; onClose: () 
   }
 
   useEffect(() => {
-    if (open) { setStep(1); setForm(INITIAL_FORM); setErrors({}); setDone(false); setGeneratedRM(""); }
-  }, [open]);
+    // Reset/seed form tiap kali modal dibuka (sinkron ke prop `open` + prefill antrean).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (open) { setStep(1); setForm(buildInitial(prefill)); setErrors({}); setDone(false); setGeneratedRM(""); }
+  }, [open, prefill]);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -203,9 +275,15 @@ export function PasienBaruModal({ open, onClose }: { open: boolean; onClose: () 
     if (Object.keys(e).length) { setErrors(e); return; }
     setSubmitting(true);
     await new Promise((r) => setTimeout(r, 1400));
-    const rm = `RM-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900) + 100)}`;
-    setGeneratedRM(rm);
+    // Persist ke registrationStore → RM resmi (resolver bisa membuka /pasien/{rm}).
+    const created = addPatient(formToInput(form, prefill));
     setSubmitting(false);
+    if (onSuccess) {
+      // Mode bridge (ANT4): teruskan ke pemanggil (navigasi + daftar kunjungan).
+      onSuccess(created.noRM);
+      return;
+    }
+    setGeneratedRM(created.noRM);
     setDone(true);
   }
 

@@ -4,12 +4,13 @@
 // filter status + pencarian + aksi baris. Reaktif dari antreanStore & loketStore.
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, ListChecks, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSkeletonDelay } from "@/components/master/shared";
 import DensityToggle, { type DensityLevel } from "@/components/master/mapping/DensityToggle";
-import { useAntreanStore, setStatus, batalAntrean, seedAntrean } from "@/lib/antrean/antreanStore";
+import { useAntreanStore, setStatus, batalAntrean, seedAntrean, emitTask } from "@/lib/antrean/antreanStore";
 import { buildSeedAntrean } from "@/lib/antrean/antreanSeed";
 import {
   useLoketStore,
@@ -18,10 +19,30 @@ import {
   logBatal,
 } from "@/lib/antrean/loketStore";
 import type { AntreanRecord } from "@/lib/antrean/types";
+import { PasienBaruModal, type PasienBaruPrefill } from "@/components/registration/pasien-baru/PasienBaruModal";
 import { LoketControlBar } from "./LoketControlBar";
 import { AntreanTable } from "./AntreanTable";
 import { BatalModal, type BatalMode } from "./BatalModal";
 import { STATUS_FILTERS } from "./boardShared";
+
+/** Deep-link ke dashboard pasien + auto-buka Daftar Kunjungan RJ (ANT4). */
+function daftarKunjunganUrl(noRM: string, kodebooking: string): string {
+  return `/ehis-registration/pasien/${encodeURIComponent(noRM)}?daftar=rj&kodebooking=${encodeURIComponent(kodebooking)}`;
+}
+
+/** Prefill PasienBaruModal dari data antrean walk-in (kiosk). */
+function prefillFromAntrean(rec: AntreanRecord): PasienBaruPrefill {
+  return {
+    nik: rec.pasien.nik,
+    nama: rec.pasien.nama,
+    tglLahir: rec.pasien.tglLahir,
+    noHp: rec.pasien.kontak,
+    penjamin:
+      rec.caraBayar === "BPJS"
+        ? { tipe: "BPJS_Non_PBI", nama: "BPJS Kesehatan Non-PBI", nomor: rec.noKartu }
+        : undefined,
+  };
+}
 
 interface Toast {
   id: number;
@@ -29,6 +50,7 @@ interface Toast {
 }
 
 export function AntreanListPage() {
+  const router = useRouter();
   const antrean = useAntreanStore();
   const loket = useLoketStore();
   const loaded = useSkeletonDelay(500);
@@ -37,6 +59,7 @@ export function AntreanListPage() {
   const [filter, setFilter] = useState("semua");
   const [query, setQuery] = useState("");
   const [batalTarget, setBatalTarget] = useState<AntreanRecord | null>(null);
+  const [pasienBaruFor, setPasienBaruFor] = useState<AntreanRecord | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
 
   // Seed contoh saat store kosong → board punya data untuk menampilkan layout.
@@ -91,10 +114,33 @@ export function AntreanListPage() {
     showToast(`Memanggil ${rec.nomorAntrean} — ${rec.pasien.nama}`);
   };
 
+  // ANT4 — Respon Kedatangan mencabang berdasarkan ada/tidaknya No. RM.
   const handleRespon = (rec: AntreanRecord) => {
     logRespon(rec.kodebooking, rec.pasien.nama);
-    // TODO(ANT4): bridge ke registrasi — buka modal Daftar Kunjungan / PasienBaruModal.
-    showToast(`Respon kedatangan ${rec.pasien.nama} · bridge registrasi (ANT4)`);
+    const norm = rec.pasien.noRM;
+    if (norm) {
+      // Lama → T3 (check-in). Baru-online (sudah punya norm) → T1 lalu T2.
+      if (rec.jenisPasien === "Lama") {
+        emitTask(rec.kodebooking, 3);
+      } else {
+        emitTask(rec.kodebooking, 1);
+        emitTask(rec.kodebooking, 2);
+      }
+      router.push(daftarKunjunganUrl(norm, rec.kodebooking));
+      return;
+    }
+    // Walk-in murni (belum punya norm) → daftar pasien baru dulu.
+    setPasienBaruFor(rec);
+  };
+
+  // Walk-in selesai didaftarkan → terbit norm → T1+T2 → lanjut Daftar Kunjungan RJ.
+  const handlePasienBaruSuccess = (noRM: string) => {
+    const rec = pasienBaruFor;
+    setPasienBaruFor(null);
+    if (!rec) return;
+    emitTask(rec.kodebooking, 1);
+    emitTask(rec.kodebooking, 2);
+    router.push(daftarKunjunganUrl(noRM, rec.kodebooking));
   };
 
   const handleBatalConfirm = (mode: BatalMode, alasan: string) => {
@@ -174,6 +220,14 @@ export function AntreanListPage() {
       {batalTarget && (
         <BatalModal record={batalTarget} onConfirm={handleBatalConfirm} onClose={() => setBatalTarget(null)} />
       )}
+
+      {/* ANT4 — walk-in murni: daftar pasien baru dulu, lalu lanjut Daftar Kunjungan RJ */}
+      <PasienBaruModal
+        open={pasienBaruFor !== null}
+        prefill={pasienBaruFor ? prefillFromAntrean(pasienBaruFor) : undefined}
+        onClose={() => setPasienBaruFor(null)}
+        onSuccess={handlePasienBaruSuccess}
+      />
 
       {/* Toast */}
       <AnimatePresence>
