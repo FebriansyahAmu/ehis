@@ -4,7 +4,7 @@
 // Aksi nonaktif bila loket belum dibuka.
 
 import { motion } from "framer-motion";
-import { PhoneCall, UserCheck, XCircle, Ticket, Clock, MonitorSmartphone } from "lucide-react";
+import { PhoneCall, BellRing, UserCheck, XCircle, Ticket, Clock, MonitorSmartphone } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { getPoli } from "@/lib/antrean/onsiteMock";
@@ -33,6 +33,7 @@ export function AntreanTable({
   loketAktif,
   panggilan,
   onPanggil,
+  onPanggilUlang,
   onRespon,
   onBatal,
 }: {
@@ -40,6 +41,7 @@ export function AntreanTable({
   loketAktif: boolean;
   panggilan: Record<string, PanggilanRef>;
   onPanggil: (rec: AntreanRecord) => void;
+  onPanggilUlang: (rec: AntreanRecord) => void;
   onRespon: (rec: AntreanRecord) => void;
   onBatal: (rec: AntreanRecord) => void;
 }) {
@@ -69,6 +71,7 @@ export function AntreanTable({
               loketAktif={loketAktif}
               panggilanRef={panggilan[rec.kodebooking]}
               onPanggil={onPanggil}
+              onPanggilUlang={onPanggilUlang}
               onRespon={onRespon}
               onBatal={onBatal}
             />
@@ -85,6 +88,7 @@ function Row({
   loketAktif,
   panggilanRef,
   onPanggil,
+  onPanggilUlang,
   onRespon,
   onBatal,
 }: {
@@ -93,14 +97,18 @@ function Row({
   loketAktif: boolean;
   panggilanRef?: PanggilanRef;
   onPanggil: (rec: AntreanRecord) => void;
+  onPanggilUlang: (rec: AntreanRecord) => void;
   onRespon: (rec: AntreanRecord) => void;
   onBatal: (rec: AntreanRecord) => void;
 }) {
   const poliNama = rec.kodepoli ? getPoli(rec.kodepoli)?.nama ?? rec.poli : rec.poli;
   const terminal = rec.status === "Selesai" || rec.status === "Batal" || rec.status === "TidakHadir";
   const sudahDipanggil = rec.status === "DipanggilAdmisi" || rec.status === "DilayaniAdmisi";
+  const isDipanggil = rec.status === "DipanggilAdmisi";
   const canPanggil = loketAktif && rec.status === "MenungguAdmisi";
+  const canUlang = loketAktif && isDipanggil;
   const canRespon = loketAktif && (sudahDipanggil || rec.status === "MenungguPoli");
+  const recalls = panggilanRef?.recalls ?? 0;
 
   return (
     <motion.tr
@@ -160,7 +168,16 @@ function Row({
       <td className="whitespace-nowrap px-3 py-2.5 m-xs text-slate-500">{fmtTglLahir(rec.pasien.tglLahir)}</td>
 
       {/* Status */}
-      <td className="px-3 py-2.5"><StatusBadge status={rec.status} /></td>
+      <td className="px-3 py-2.5">
+        <div className="flex flex-col items-start gap-1">
+          <StatusBadge status={rec.status} />
+          {recalls > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 m-mini font-semibold text-amber-700">
+              <BellRing className="h-3 w-3" /> Dipanggil {recalls + 1}×
+            </span>
+          )}
+        </div>
+      </td>
 
       {/* Aksi */}
       <td className="whitespace-nowrap px-3 py-2.5 text-right">
@@ -168,13 +185,23 @@ function Row({
           <span className="m-tiny italic text-slate-300">selesai diproses</span>
         ) : (
           <div className="inline-flex items-center gap-1">
-            <ActionBtn
-              title={canPanggil ? "Panggil ke loket" : sudahDipanggil ? "Sudah dipanggil" : "Hanya untuk Menunggu Admisi"}
-              icon={PhoneCall}
-              tone="sky"
-              disabled={!canPanggil}
-              onClick={() => onPanggil(rec)}
-            />
+            {isDipanggil ? (
+              <ActionBtn
+                title={loketAktif ? "Panggil ulang (pasien belum hadir)" : "Buka loket dahulu"}
+                icon={BellRing}
+                tone="amber"
+                disabled={!canUlang}
+                onClick={() => onPanggilUlang(rec)}
+              />
+            ) : (
+              <ActionBtn
+                title={canPanggil ? "Panggil ke loket" : sudahDipanggil ? "Sudah dipanggil" : "Hanya untuk Menunggu Admisi"}
+                icon={PhoneCall}
+                tone="sky"
+                disabled={!canPanggil}
+                onClick={() => onPanggil(rec)}
+              />
+            )}
             <ActionBtn
               title={loketAktif ? "Respon kedatangan → registrasi" : "Buka loket dahulu"}
               icon={UserCheck}
@@ -198,6 +225,7 @@ function Row({
 
 const TONE: Record<string, string> = {
   sky: "text-sky-600 hover:bg-sky-50",
+  amber: "text-amber-600 hover:bg-amber-50",
   emerald: "text-emerald-600 hover:bg-emerald-50",
   rose: "text-rose-600 hover:bg-rose-50",
 };

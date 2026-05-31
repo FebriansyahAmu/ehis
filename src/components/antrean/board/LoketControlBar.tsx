@@ -22,6 +22,7 @@ const ACTION_LABEL: Record<string, string> = {
   buka: "Buka loket",
   tutup: "Tutup loket",
   panggil: "Panggil",
+  panggilUlang: "Panggil ulang",
   respon: "Respon",
   batal: "Batal",
 };

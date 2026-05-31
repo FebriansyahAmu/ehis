@@ -19,7 +19,7 @@ export interface LoketSession {
   openedAt: number;
 }
 
-export type ShiftAction = "buka" | "tutup" | "panggil" | "respon" | "batal";
+export type ShiftAction = "buka" | "tutup" | "panggil" | "panggilUlang" | "respon" | "batal";
 
 export interface ShiftLogEntry {
   id: string;
@@ -35,6 +35,8 @@ export interface PanggilanRef {
   pos: string;
   loket: string;
   calledAt: number;
+  /** Jumlah panggil ulang setelah panggilan pertama (0 = baru sekali dipanggil). */
+  recalls: number;
 }
 
 interface StoreState {
@@ -122,9 +124,21 @@ export function tutupLoket() {
 export function recordPanggil(kodebooking: string, nomorAntrean: string) {
   const s = state.session;
   if (!s) return;
-  const ref: PanggilanRef = { kodebooking, pos: s.pos, loket: s.loket, calledAt: Date.now() };
+  const ref: PanggilanRef = { kodebooking, pos: s.pos, loket: s.loket, calledAt: Date.now(), recalls: 0 };
   commit({ ...state, panggilan: { ...state.panggilan, [kodebooking]: ref } });
   appendLog({ action: "panggil", pos: s.pos, loket: s.loket, detail: `Panggil ${nomorAntrean}` });
+}
+
+/** Panggil ulang pasien yang sudah dipanggil (belum hadir). Naikkan counter + log. */
+export function recordPanggilUlang(kodebooking: string, nomorAntrean: string): number {
+  const s = state.session;
+  if (!s) return 0;
+  const prev = state.panggilan[kodebooking];
+  const recalls = (prev?.recalls ?? 0) + 1;
+  const ref: PanggilanRef = { kodebooking, pos: s.pos, loket: s.loket, calledAt: Date.now(), recalls };
+  commit({ ...state, panggilan: { ...state.panggilan, [kodebooking]: ref } });
+  appendLog({ action: "panggilUlang", pos: s.pos, loket: s.loket, detail: `Panggil ulang #${recalls} ${nomorAntrean}` });
+  return recalls;
 }
 
 export function logRespon(kodebooking: string, nama: string) {

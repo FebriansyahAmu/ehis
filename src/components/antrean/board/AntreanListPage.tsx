@@ -15,6 +15,7 @@ import { buildSeedAntrean } from "@/lib/antrean/antreanSeed";
 import {
   useLoketStore,
   recordPanggil,
+  recordPanggilUlang,
   logRespon,
   logBatal,
 } from "@/lib/antrean/loketStore";
@@ -112,6 +113,12 @@ export function AntreanListPage() {
     setStatus(rec.kodebooking, "DipanggilAdmisi");
     recordPanggil(rec.kodebooking, rec.nomorAntrean);
     showToast(`Memanggil ${rec.nomorAntrean} — ${rec.pasien.nama}`);
+  };
+
+  // Panggil ulang: pasien sudah dipanggil tapi belum hadir → ulangi panggilan.
+  const handlePanggilUlang = (rec: AntreanRecord) => {
+    const n = recordPanggilUlang(rec.kodebooking, rec.nomorAntrean);
+    showToast(`Panggil ulang ${rec.nomorAntrean} (ke-${n}) — ${rec.pasien.nama}`);
   };
 
   // ANT4 — Respon Kedatangan mencabang berdasarkan ada/tidaknya No. RM.
@@ -213,6 +220,7 @@ export function AntreanListPage() {
         loketAktif={session !== null}
         panggilan={loket.panggilan}
         onPanggil={handlePanggil}
+        onPanggilUlang={handlePanggilUlang}
         onRespon={handleRespon}
         onBatal={setBatalTarget}
       />
