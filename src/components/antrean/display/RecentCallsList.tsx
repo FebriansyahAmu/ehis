@@ -32,7 +32,7 @@ export function RecentCallsList({ calls }: { calls: DisplayCall[] }) {
                   className="flex items-center justify-between gap-3 rounded-2xl bg-sky-50 px-5 py-3 ring-1 ring-sky-100"
                 >
                   <div className="flex min-w-0 items-center gap-4">
-                    <span className="font-mono text-4xl font-black tabular-nums text-sky-600">{c.nomorAntrean}</span>
+                    <span className="font-mono text-4xl font-black tabular-nums text-sky-500">{c.nomorAntrean}</span>
                     <div className="min-w-0">
                       <p className="truncate text-lg font-bold text-slate-700">{c.loket}</p>
                       <p className="truncate text-sm text-slate-400">{c.poli}</p>

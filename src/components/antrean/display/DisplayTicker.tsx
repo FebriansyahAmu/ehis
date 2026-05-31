@@ -15,7 +15,7 @@ const MESSAGES = [
 export function DisplayTicker({ text }: { text?: string }) {
   const content = text ?? MESSAGES.join("       •       ");
   return (
-    <div className="flex items-center gap-4 overflow-hidden rounded-2xl bg-sky-600 px-5 py-3 text-white">
+    <div className="flex items-center gap-4 overflow-hidden rounded-2xl bg-sky-500 px-5 py-3 text-white">
       <span className="flex shrink-0 items-center gap-2 text-lg font-bold uppercase tracking-wide">
         <Megaphone className="h-5 w-5" /> Info
       </span>

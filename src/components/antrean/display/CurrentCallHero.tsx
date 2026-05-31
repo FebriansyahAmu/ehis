@@ -41,7 +41,7 @@ export function CurrentCallHero({
         />
       )}
 
-      <div className="flex items-center justify-between gap-3 bg-sky-600 px-8 py-5 text-white">
+      <div className="flex items-center justify-between gap-3 bg-sky-500 px-8 py-5 text-white">
         <span className="text-3xl font-bold tracking-wide">
           {isRecall ? "Panggilan Ulang" : "Silakan Menuju"}
         </span>
@@ -55,15 +55,15 @@ export function CurrentCallHero({
       <div className="flex flex-1 flex-col items-center justify-center gap-7 px-8 py-6 text-center">
         <div>
           <p className="text-2xl font-semibold uppercase tracking-[0.3em] text-slate-400">Nomor Antrean</p>
-          <p className="mt-1 font-mono text-[11rem] font-black leading-none tracking-tight text-sky-600 [font-variant-numeric:tabular-nums]">
+          <p className="mt-1 font-mono text-[11rem] font-black leading-none tracking-tight text-sky-500 [font-variant-numeric:tabular-nums]">
             {call.nomorAntrean}
           </p>
         </div>
 
         <div className="flex items-center gap-5 rounded-2xl bg-sky-50 px-10 py-6 ring-1 ring-sky-100">
           <span className="text-3xl font-semibold text-slate-500">Menuju</span>
-          <ArrowRight className="h-9 w-9 text-sky-500" />
-          <span className="text-5xl font-black text-sky-700">{call.loket}</span>
+          <ArrowRight className="h-9 w-9 text-sky-400" />
+          <span className="text-5xl font-black text-sky-600">{call.loket}</span>
         </div>
 
         <div className="flex items-center gap-3 text-2xl text-slate-500">

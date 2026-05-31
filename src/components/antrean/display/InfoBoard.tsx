@@ -82,11 +82,11 @@ function SlideShow({ idx, onJump }: { idx: number; onJump: (i: number) => void }
             transition={{ duration: 0.45, ease: "easeOut" }}
             className="flex h-full flex-col items-center justify-center gap-5 px-8 text-center"
           >
-            <span className="flex h-24 w-24 items-center justify-center rounded-3xl bg-sky-600 text-white shadow-sm">
+            <span className="flex h-24 w-24 items-center justify-center rounded-3xl bg-sky-500 text-white shadow-sm">
               <Icon className="h-12 w-12" />
             </span>
             <div>
-              <p className="text-3xl font-black text-sky-700">{slide.title}</p>
+              <p className="text-3xl font-black text-sky-600">{slide.title}</p>
               <p className="mx-auto mt-2 max-w-md text-xl leading-relaxed text-slate-500">{slide.text}</p>
             </div>
           </motion.div>
@@ -103,7 +103,7 @@ function SlideShow({ idx, onJump }: { idx: number; onJump: (i: number) => void }
             onClick={() => onJump(i)}
             className={cn(
               "h-2.5 rounded-full transition-all",
-              i === idx ? "w-8 bg-sky-600" : "w-2.5 bg-sky-200 hover:bg-sky-300",
+              i === idx ? "w-8 bg-sky-500" : "w-2.5 bg-sky-200 hover:bg-sky-300",
             )}
           />
         ))}

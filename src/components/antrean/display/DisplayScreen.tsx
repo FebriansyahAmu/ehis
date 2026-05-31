@@ -65,7 +65,7 @@ export default function DisplayScreen() {
   return (
     <div className="flex h-screen w-screen flex-col gap-4 overflow-hidden bg-slate-100 p-5 text-slate-800">
       {/* Header (sky solid) */}
-      <header className="flex shrink-0 items-center justify-between gap-4 rounded-2xl bg-sky-600 px-6 py-4 text-white shadow-sm">
+      <header className="flex shrink-0 items-center justify-between gap-4 rounded-2xl bg-sky-500 px-6 py-4 text-white shadow-sm">
         <div className="flex items-center gap-3">
           <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15">
             <Hospital className="h-7 w-7" />
@@ -137,7 +137,7 @@ function CtrlButton({
       title={title}
       className={cn(
         "inline-flex h-12 w-12 items-center justify-center rounded-2xl transition-colors",
-        active ? "bg-white text-sky-700" : "bg-white/15 text-white hover:bg-white/25",
+        active ? "bg-white text-sky-600" : "bg-white/15 text-white hover:bg-white/25",
       )}
     >
       {children}
