@@ -122,6 +122,23 @@ export function createAntrean(input: CreateAntreanInput): AntreanRecord {
   return rec;
 }
 
+/**
+ * Seed antrean contoh — hanya bila store kosong (tak menimpa data nyata dari kiosk).
+ * Dipakai board untuk menampilkan layout saat belum ada antrean. Idempoten.
+ */
+export function seedAntrean(records: AntreanRecord[]) {
+  if (typeof window === "undefined") return;
+  if (Object.keys(state.byKode).length > 0) return;
+  const byKode: Record<string, AntreanRecord> = {};
+  const counters: Record<string, number> = {};
+  for (const r of records) {
+    byKode[r.kodebooking] = r;
+    const prefix = r.nomorAntrean.split("-")[0];
+    counters[prefix] = Math.max(counters[prefix] ?? 0, r.angkaAntrean);
+  }
+  commit({ byKode, counters, seq: records.length });
+}
+
 // ── TaskID engine ──────────────────────────────────────────
 
 /** TaskID berikutnya yang sah untuk record ini (null bila sudah selesai semua). */

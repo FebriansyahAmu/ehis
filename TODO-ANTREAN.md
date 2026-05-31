@@ -13,7 +13,7 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (bridging WS Antrean BPJS real)
 >
 > **Last updated:** 2026-05-31
-> **Status:** 🚧 **In progress.** `REG0` ✅ · `ANT1` ✅ (store+TaskID engine) · `ANT0` ✅ (scaffold modul) · `ANT-ONSITE` ✅ (kiosk APM Lama+Baru → ambil antrean → struk). **Next:** `ANT2` (Antrean List + check-in admisi). Spec TaskID Antrol BPJS dikunci (2026-05-30).
+> **Status:** 🚧 **In progress.** `REG0` ✅ · `ANT1` ✅ (store+TaskID engine) · `ANT0` ✅ (scaffold modul) · `ANT-ONSITE` ✅ (kiosk APM Lama+Baru → ambil antrean → struk) · `ANT2` ✅ (Antrean List board: Buka Loket + tabel + filter + aksi Panggil/Respon/Batal) · `ANT3` ✅ (Pengaturan 4-tab: Mapping/CRUD Pos-Loket/Hak Akses/Jadwal · posStore reaktif). **Next:** `ANT4` (Respon Kedatangan → bridge registrasi) atau dependency Master Jadwal Dokter. Spec TaskID Antrol BPJS dikunci (2026-05-30).
 > **Target effort:** ~2–2.5 minggu (frontend, mock-first).
 
 > ### 🚦 Urutan Build (disepakati 2026-05-30)
@@ -162,33 +162,37 @@ src/app/ehis-antrian/
 
 ---
 
-## Phase ANT2 — Tab: Antrean List (Board Loket) *(menggantikan REG3)*
+## Phase ANT2 — Tab: Antrean List (Board Loket) ✅ (2026-05-31) *(menggantikan REG3)*
 
 **Effort:** 2–3 hari · **inti modul.**
 
+> **Status ANT2: ✅ (2026-05-31).** Board di [src/components/antrean/board/](src/components/antrean/board/) — `AntreanListPage` (orchestrator reaktif `useAntreanStore` + `useLoketStore` · filter status chip + counts + pencarian + DensityToggle + toast) · `LoketControlBar` (Buka/Tutup Loket + SessionBar + Shift Log popover audit) · `AntreanTable` (12 kolom, aksi Panggil/Respon/Batal, gating sesi loket) · `BatalModal` (Batal/TidakHadir + preset alasan → task 99) · `boardShared` (STATUS_META + badge + formatter). Store sesi [loketStore.ts](src/lib/antrean/loketStore.ts) (session + shiftLog + map panggilan, pola `useSyncExternalStore`+sessionStorage) · katalog [loketMock.ts](src/lib/antrean/loketMock.ts) (3 pos + loket). TSC + ESLint clean.
+
 ### ANT2.1 Header kontrol "Buka Loket"
-- [ ] Pilih **Pos Antrian** · pilih **Loket** · **Tanggal** (DatePicker) · **Jenis Pasien** (Lama/Baru) · tombol **Buka Loket** (+ Tutup Loket).
-- [ ] Sesi loket aktif mengikat aksi petugas (siapkan shift log untuk audit).
+- [x] Pilih **Pos Antrian** · pilih **Loket** (cascading) · **Tanggal** (date input) · **Jenis Pasien** (Semua/Baru/Lama) · tombol **Buka Loket** (+ Tutup Loket). (2026-05-31)
+- [x] Sesi loket aktif mengikat aksi petugas + **Shift Log** popover (audit buka/tutup/panggil/respon/batal). (2026-05-31)
 
 ### ANT2.2 Tabel antrean
-- [ ] Kolom: Pos|Loket · Jenis · No Antrian · **Poli Tujuan** (Antrian / Estimasi Jam / Nama Poli) · Dokter · Cara Bayar · No RM · Nama · Kontak · Tgl Lahir · Jenis.
-- [ ] Density tokens `m-*` + skeleton 500ms + filter status.
+- [x] Kolom: Pos·Loket · Jenis · No Antrean · **Poli Tujuan** (Antrian / Estimasi Jam / Nama Poli) · Dokter · Bayar · No RM · Nama · Kontak · Tgl Lahir · Status · Aksi. (2026-05-31)
+- [x] Density tokens `m-*` + skeleton 500ms + filter status (chip + counts) + pencarian. (2026-05-31)
 
 ### ANT2.3 Aksi baris
-- [ ] **Panggil** → set status Dipanggil, tampil di Display (ANT5). (Pemanggilan poli = task 4, dipicu dari Care RJ — di sini = panggil loket admisi.)
-- [ ] **Respon Kedatangan** → jalankan alur bridge (ANT4).
-- [ ] Batal / No-show → **task 99** + alasan.
+- [x] **Panggil** → set status `DipanggilAdmisi` + catat panggilan ke loket aktif (siap tampil di Display ANT5). Hanya untuk `MenungguAdmisi`. (2026-05-31)
+- [ ] **Respon Kedatangan** → alur bridge (ANT4). **Stub:** log + toast; wiring modal registrasi di **ANT4**.
+- [x] Batal / No-show → **task 99** + alasan (modal preset). (2026-05-31)
 
 ---
 
-## Phase ANT3 — Tab: Pengaturan Antrian
+## Phase ANT3 — Tab: Pengaturan Antrian ✅ (2026-05-31)
 
 **Effort:** 1.5–2 hari.
 
-- [ ] **Mapping Pos Antrian** (pos → loket → poli).
-- [ ] **Tambah Pos Antrian** (CRUD pos & loket).
-- [ ] **Hak Akses Antrian** — UI disiapkan, gating nyata `// TODO(RBAC-B0)`.
-- [ ] **Jadwal Dokter** — **consume** dari sub-menu Master baru `/ehis-master/jadwal-dokter` (lihat dependency di bawah). Jangan duplikasi.
+> **Status ANT3: ✅ (2026-05-31).** Tabbed UI di [src/components/antrean/pengaturan/](src/components/antrean/pengaturan/) — `PengaturanPage` (4 tab + DensityToggle + skeleton) · `MappingPosTab` (toggle poli per pos) · `PosLoketTab` (CRUD pos+loket inline edit + reset) · `HakAksesTab` (matriks 4 peran × 5 izin, enforcement stub) · `JadwalDokterTab` (read-only consume `onsiteMock` + cross-link Master). Konfigurasi pos/loket/poli diangkat ke store reaktif [posStore.ts](src/lib/antrean/posStore.ts) (`useSyncExternalStore`+sessionStorage, seed dari loketMock) → **board "Buka Loket" consume store ini** (LoketControlBar + AntreanTable loketLabel). TSC + ESLint clean.
+
+- [x] **Mapping Pos Antrian** (pos → loket → poli) — toggle chip poli per pos, live ke board. (2026-05-31)
+- [x] **Tambah Pos Antrian** (CRUD pos & loket) — add/rename/hapus pos + add/hapus loket + reset. (2026-05-31)
+- [x] **Hak Akses Antrian** — UI matriks peran×izin disiapkan, gating nyata `// TODO(RBAC-B0)`. (2026-05-31)
+- [~] **Jadwal Dokter** — view **read-only consume** + cross-link. Source of truth `/ehis-master/jadwal-dokter` **belum dibuat** (dependency di bawah) → sementara mirror `onsiteMock`. Swap saat master jadwal ready. (2026-05-31)
 
 ---
 
