@@ -4,11 +4,12 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   X, CreditCard, Phone, Stethoscope, CalendarDays,
-  ChevronRight, MapPin, Hash,
+  ChevronRight, MapPin, Hash, CheckCircle2, Lock, Undo2, AlertTriangle,
 } from "lucide-react";
 import type { RJPatientDetail, RJStatus } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { STATUS_CFG, POLI_CFG, PENJAMIN_CFG } from "./rjShared";
+import { useRJQueue, selesaikanPoli, bukaKembaliPoli } from "@/lib/rawat-jalan/rjQueueStore";
 
 // ── Header status config ───────────────────────────────────
 
@@ -89,6 +90,62 @@ function DokterCard({ dokter, waktu, tanggal }: { dokter: string; waktu: string;
   );
 }
 
+// ── Finalize & Lock (ANT-RJ) ───────────────────────────────
+
+function FinalizeControl({ patient }: { patient: RJPatientDetail }) {
+  const queue = useRJQueue();
+  const entry = queue[patient.id];
+  const locked = entry?.locked ?? false;
+  const hasDiagnosa = (patient.diagnosa ?? []).some((d) => !!d.kodeIcd10?.trim());
+
+  if (locked) {
+    const jam = entry?.selesaiAt
+      ? new Date(entry.selesaiAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })
+      : null;
+    return (
+      <div className="flex items-center gap-1.5">
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-200">
+          <Lock size={10} /> Terkunci{jam ? ` · ${jam}` : ""}
+        </span>
+        <button
+          type="button"
+          onClick={() => bukaKembaliPoli(patient.id)}
+          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-50"
+        >
+          <Undo2 size={11} /> Batalkan Selesai
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {!hasDiagnosa && (
+        <span
+          className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200"
+          title="Diagnosa ICD-10 wajib diisi sebelum encounter dapat diselesaikan (syarat klaim)."
+        >
+          <AlertTriangle size={10} /> Diagnosa belum lengkap
+        </span>
+      )}
+      <button
+        type="button"
+        disabled={!hasDiagnosa}
+        onClick={() => selesaikanPoli(patient.id)}
+        title={hasDiagnosa ? "Selesaikan & kunci encounter" : "Lengkapi diagnosa ICD-10 dahulu"}
+        className={cn(
+          "inline-flex items-center gap-1 rounded-lg px-2.5 py-0.5 text-[11px] font-bold transition active:scale-95",
+          hasDiagnosa
+            ? "bg-emerald-600 text-white hover:bg-emerald-700"
+            : "cursor-not-allowed bg-slate-100 text-slate-400",
+        )}
+      >
+        <CheckCircle2 size={12} /> Selesaikan
+      </button>
+    </div>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────
 
 export default function RJPatientHeader({ patient }: { patient: RJPatientDetail }) {
@@ -156,13 +213,16 @@ export default function RJPatientHeader({ patient }: { patient: RJPatientDetail 
                 E-Klaim ↗
               </Link>
             )}
-            <Link
-              href="/ehis-care/rawat-jalan"
-              className="ml-auto flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:bg-white hover:text-slate-700"
-              aria-label="Tutup"
-            >
-              <X size={12} />
-            </Link>
+            <div className="ml-auto flex items-center gap-2">
+              <FinalizeControl patient={patient} />
+              <Link
+                href="/ehis-care/rawat-jalan"
+                className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:bg-white hover:text-slate-700"
+                aria-label="Tutup"
+              >
+                <X size={12} />
+              </Link>
+            </div>
           </div>
 
           {/* Identity section */}

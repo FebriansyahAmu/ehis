@@ -13,7 +13,7 @@
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (bridging WS Antrean BPJS real)
 >
 > **Last updated:** 2026-05-31
-> **Status:** 🚧 **In progress.** `REG0` ✅ · `ANT1` ✅ (store+TaskID engine) · `ANT0` ✅ (scaffold modul) · `ANT-ONSITE` ✅ (kiosk APM Lama+Baru → ambil antrean → struk) · `ANT2` ✅ (Antrean List board: Buka Loket + tabel + filter + aksi Panggil/Respon/Batal) · `ANT3` ✅ (Pengaturan 4-tab: Mapping/CRUD Pos-Loket/Hak Akses/Jadwal · posStore reaktif) · Master Jadwal Dokter ✅ (dependency) · `ANT4` ✅ (Respon Kedatangan → bridge registrasi: PasienBaru/DaftarKunjungan persist + deep-link + emit task) · `ANT5` ✅ (Monitoring: timeline TaskID + outbox kirim/gagal/pending + koreksi/re-send + KPI compliance) · `ANT6` ✅ (Referensi 3-tab: Poli HFIS · Mobile JKN · Jadwal HFIS sync) · `ANT7` Display ✅ (layar full-screen + TTS + recall flash; Beranda dari ANT0). **Sisa:** `ANT-RJ` (Care RJ worklist + emit T4/T5) · ANT7 Audit trail. Spec TaskID Antrol BPJS dikunci (2026-05-30).
+> **Status:** 🚧 **In progress.** `REG0` ✅ · `ANT1` ✅ (store+TaskID engine) · `ANT0` ✅ (scaffold modul) · `ANT-ONSITE` ✅ (kiosk APM Lama+Baru → ambil antrean → struk) · `ANT2` ✅ (Antrean List board: Buka Loket + tabel + filter + aksi Panggil/Respon/Batal) · `ANT3` ✅ (Pengaturan 4-tab: Mapping/CRUD Pos-Loket/Hak Akses/Jadwal · posStore reaktif) · Master Jadwal Dokter ✅ (dependency) · `ANT4` ✅ (Respon Kedatangan → bridge registrasi: PasienBaru/DaftarKunjungan persist + deep-link + emit task) · `ANT5` ✅ (Monitoring: timeline TaskID + outbox kirim/gagal/pending + koreksi/re-send + KPI compliance) · `ANT6` ✅ (Referensi 3-tab: Poli HFIS · Mobile JKN · Jadwal HFIS sync) · `ANT7` Display ✅ (layar full-screen + TTS + recall flash; Beranda dari ANT0) · `ANT-RJ` ✅ (Care RJ worklist actionable + emit T4/T5 + finalize/lock). **Sisa:** ANT7 Audit trail · read-only per-tab pasca-lock (follow-up) · MJKN API wrapper. Spec TaskID Antrol BPJS dikunci (2026-05-30).
 > **Target effort:** ~2–2.5 minggu (frontend, mock-first).
 
 > ### 🚦 Urutan Build (disepakati 2026-05-30)
@@ -232,31 +232,33 @@ Tombol **Respon Kedatangan** mencabang berdasarkan ada/tidaknya No. RM:
 
 **Cek 2026-05-30:** belum ada — [RJBoard](src/components/rawat-jalan/RJBoard.tsx) read-only, kartu cuma `Link`; `RJStatus` ([data.ts:2106](src/lib/data.ts#L2106)) sumbu klinis-skrining statis, tanpa store/aksi.
 
+> **Status ANT-RJ: ✅ (2026-06-01).** Sumbu Antrean-Poli di store reaktif [rjQueueStore.ts](src/lib/rawat-jalan/rjQueueStore.ts) (`useSyncExternalStore`+sessionStorage, seed-if-empty deterministik, terpisah dari `RJStatus` klinis). RJBoard kini actionable: filter per `RJOrderStatus` + kartu dengan tombol **Panggil/Terima/Batal/Selesai/Buka** ([RJPatientCard](src/components/rawat-jalan/RJPatientCard.tsx)) + toast. Panggil ⇒ **emit T4**, Selesai ⇒ **emit T5** best-effort ke `antreanStore` via No. RM (mengisi timeline Monitoring/Display). Finalize/Lock di [RJPatientHeader](src/components/rawat-jalan/RJPatientHeader.tsx): **Selesaikan** (guard diagnosa ICD-10) → lock + `selesaiAt` immutable; **Batalkan Selesai** re-open. Banner terkunci di [RJRecordTabs](src/components/rawat-jalan/RJRecordTabs.tsx). TSC clean.
+
 **Sumbu Antrean-Poli (baru, drive T4/T5):**
 ```
 Order_Masuk ─(Panggil ⇒ T4)─▶ Dipanggil ─(Terima)─▶ Dilayani ─(Selesai Pelayanan ⇒ T5)─▶ Selesai
    └─(Batal Kunjungan)─▶ Dikembalikan_Admisi   // kembali ke loket (sekarang TIDAK fire T99)
 ```
-- [ ] Tipe `RJOrderStatus` (`Order_Masuk | Dipanggil | Diterima/Dilayani | Selesai | Dikembalikan_Admisi`) — sumbu terpisah dari `RJStatus` klinis (Terima ⇒ masuk alur klinis `Menunggu_Skrining`).
-- [ ] Tombol aksi di kartu worklist RJ: **Panggil · Terima · Batal Kunjungan**.
-- [ ] **Validasi: harus Panggil dulu → baru bisa Terima** (Terima disabled bila status ≠ `Dipanggil`). Panggil = **emit T4**.
-- [ ] **Terima** → status `Dilayani` + buka alur klinis (no task baru — T4 sudah di Panggil).
-- [ ] **Selesai Pelayanan Poli** → **emit T5** (sisa antrean berkurang) → `MenungguFarmasi` (ada resep) / `Selesai`.
-- [ ] **Batal Kunjungan** → status `Dikembalikan_Admisi`, order balik ke worklist loket (admisi). *(T99 ditunda.)*
-- [ ] Store transisi status RJ (reaktif, pola `useSyncExternalStore`) — `RJBoard` tidak lagi read-only.
-- [ ] **Mock data simulasi**: tambah entri `rjPatients` status `Order_Masuk` (belum dipanggil) & `Dipanggil` (belum diterima) agar board menampilkan pasien **belum diterima** + tombol aksinya. Badge "Order Masuk dari Admisi".
+- [x] Tipe `RJOrderStatus` (`Order_Masuk | Dipanggil | Dilayani | Selesai | Dikembalikan_Admisi`) — sumbu terpisah dari `RJStatus` klinis. (2026-06-01)
+- [x] Tombol aksi di kartu worklist RJ: **Panggil · Terima · Batal Kunjungan** (+ Panggil Ulang · Selesai · Buka Rekam). (2026-06-01)
+- [x] **Validasi: harus Panggil dulu → baru bisa Terima** (tombol Terima hanya muncul saat `Dipanggil`). Panggil = **emit T4**. (2026-06-01)
+- [x] **Terima** → status `Dilayani`. (2026-06-01)
+- [x] **Selesai Pelayanan Poli** → **emit T5** → `Selesai`. (2026-06-01) *(routing MenungguFarmasi bila ada resep = follow-up farmasi.)*
+- [x] **Batal Kunjungan** → status `Dikembalikan_Admisi` (T99 ditunda). (2026-06-01)
+- [x] Store transisi status RJ (reaktif, `useSyncExternalStore`) — `RJBoard` tidak lagi read-only. (2026-06-01)
+- [x] **Mock simulasi**: seed varian `Order_Masuk` (rj-3/rj-10) & `Dipanggil` (rj-8) tanpa nambah pasien baru; badge "Order dari Admisi". (2026-06-01)
 
 ### ANT-RJ.Lock — Finalize & Lock Encounter (RJ) *(keputusan 2026-05-30)*
 
 Tombol **Selesaikan** di header [RJPatientHeader](src/components/rawat-jalan/RJPatientHeader.tsx) (kiri tombol X, baris breadcrumb). Untuk **RJ cukup Selesaikan & lock** — **tanpa modal disposisi** (disposisi-di-tombol-Selesai = pola **RI & IGD** nanti; [DisposisiRJTab](src/components/rawat-jalan/tabs/DisposisiRJTab.tsx) tetap terpisah).
 
-- [ ] **Guard wajib sebelum lock: diagnosa (ICD-10) terisi** — syarat data klaim. Surface kelengkapan ini juga di sub-tab terkait (data kebutuhan klaim), bukan hanya di tombol. Tombol disabled + tampilkan penghambat bila belum lengkap.
-- [ ] Klik **Selesaikan** → **emit T5** → status `Selesai` → **lock encounter** (read-only: asesmen · TTV · edit CPPT · edit diagnosa · order baru · resep baru).
-- [ ] Capture **`selesaiAt`** = timestamp finalize **pertama** → **immutable** (tidak berubah walau di-reopen).
-- [ ] **Whitelist tetap boleh pasca-lock**: rencana kontrol (+ SEP kontrol berikutnya) · penerbitan surat (sehat/sakit/keterangan/salinan resep/rujukan susulan) · cetak dokumen/SEP/resume.
-- [ ] **Batalkan Selesai** (re-open) → unlock untuk edit lagi. `selesaiAt` pertama **dipertahankan** (tidak bisa diubah untuk sekarang).
-- [ ] Flag `locked` + `selesaiAt` di store RJ (nyatu dgn store transisi di atas, pola `useSyncExternalStore`). Header tampilkan status terkunci + ganti tombol jadi "Batalkan Selesai".
-- [ ] Episode/farmasi: bila ada resep, farmasi tetap jalan (T6/T7) setelah lock — lock hanya menutup input klinis poli, bukan farmasi/billing.
+- [x] **Guard wajib sebelum lock: diagnosa (ICD-10) terisi** — tombol Selesaikan disabled + chip "Diagnosa belum lengkap" bila kosong. (2026-06-01) *(surface di sub-tab klaim = follow-up.)*
+- [x] Klik **Selesaikan** → **emit T5** → `Selesai` → **lock encounter**. (2026-06-01)
+- [x] Capture **`selesaiAt`** = timestamp finalize **pertama** → immutable (dipertahankan saat re-open). (2026-06-01)
+- [x] **Whitelist pasca-lock** disebut di banner terkunci (rencana kontrol · surat · cetak). (2026-06-01)
+- [x] **Batalkan Selesai** (re-open) → unlock; `selesaiAt` pertama dipertahankan. (2026-06-01)
+- [x] Flag `locked` + `selesaiAt` di store RJ; header tampilkan "Terkunci" + tombol "Batalkan Selesai". (2026-06-01)
+- [~] Read-only enforcement: **banner terkunci** sudah; penonaktifan field per-tab (asesmen/TTV/CPPT/diagnosa/order/resep) = **follow-up**. Farmasi T6/T7 pasca-lock = follow-up.
 
 ---
 

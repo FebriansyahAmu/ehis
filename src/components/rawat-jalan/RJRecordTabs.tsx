@@ -6,11 +6,12 @@ import IdentitasVerifikasiBanner, { type VerifikasiInfo } from "@/components/sha
 import {
   Stethoscope, HeartPulse, FileText, Tag, ScanLine,
   MessageSquare, ShieldCheck, ListChecks, Pill,
-  FlaskConical, Radiation, ScrollText, Navigation,
+  FlaskConical, Radiation, ScrollText, Navigation, Lock,
   type LucideIcon,
 } from "lucide-react";
 import type { RJPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { useRJQueue } from "@/lib/rawat-jalan/rjQueueStore";
 
 import AsesmenAwalRJTab from "./tabs/AsesmenAwalRJTab";
 import TTVTab           from "@/components/shared/medical-records/TTVTab";
@@ -94,6 +95,8 @@ function GroupLabel({ children }: { children: React.ReactNode }) {
 
 export default function RJRecordTabs({ patient }: { patient: RJPatientDetail }) {
   const [active, setActive] = useState<TabId>("asesmen-awal");
+  const queue = useRJQueue();
+  const locked = queue[patient.id]?.locked ?? false;
 
   // ── Identitas verifikasi (untuk tab aksi: Resep, Order Lab, Order Rad) ──
   const [identitasVerified, setIdentitasVerified] = useState(false);
@@ -153,6 +156,16 @@ export default function RJRecordTabs({ patient }: { patient: RJPatientDetail }) 
 
       {/* ── Content ── */}
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+        {locked && (
+          <div className="mx-4 mt-4 flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 md:mx-6">
+            <Lock size={15} className="mt-0.5 shrink-0 text-emerald-600" />
+            <p className="text-xs text-emerald-800">
+              <span className="font-bold">Encounter terkunci (Selesai).</span> Input klinis bersifat baca-saja —
+              asesmen, TTV, CPPT, diagnosa, order & resep baru tidak dapat diubah. Tetap diizinkan: rencana kontrol,
+              penerbitan surat, dan cetak dokumen/SEP/resume. Tekan <span className="font-semibold">“Batalkan Selesai”</span> di header untuk membuka kembali.
+            </p>
+          </div>
+        )}
         <AnimatePresence mode="wait">
           <motion.div
             key={active}
