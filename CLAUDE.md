@@ -39,7 +39,7 @@ Next.js 16.2.3 App Router · React 19.2.4 · TypeScript 5 · Tailwind v4 (`@tail
 | `/ehis-care/farmasi`       | Farmasi          | ✅ 100% (4 layer + Gap SNARS T1–T3) |
 | `/ehis-care/laboratorium`  | Laboratorium     | ✅ 100% (Tier 1+2+3)            |
 | `/ehis-care/radiologi`     | Radiologi        | ✅ 100% (Tier 1+2+3)            |
-| `/ehis-master`             | Master Data      | ✅ 100% (25 sub-master + 8 mapping + Beranda) |
+| `/ehis-master`             | Master Data      | ✅ 100% (26 sub-master + 8 mapping + Beranda) — incl. **Jadwal Dokter** (single source HFIS, dikonsumsi Antrean/RJ) |
 | `/ehis-registration`       | Registration     | 🚧 PatientDashboard + KunjunganDetail ✅, board belum |
 | `/ehis-dashboard`          | Dashboard        | 🔧 Scaffold (belum dibangun)    |
 | `/ehis-billing`            | Billing Kasir    | ✅ **Core 100% operasional** — BL1 Tagihan Board + BL2 Invoice Detail 4-tab + BL3 Kasir Counter 3-tab + **BL8 Beranda Billing** (KPI Strip + Quick Nav + 3 panel) + **BL6 ~80%** Charge Ingestion reactive `useSyncExternalStore` (Lab/Rad/Farmasi/Akomodasi silent-wired; Discharge Banner RI; Mini Widget RI) + Single-source refactor (registrasi read-only + deep-link). **Sisa:** BL5 Adjustment · BL7 Reports · BL9 Polish · BL6 Tindakan+JasaDokter triggers · BL6 Mini Widget IGD/RJ. Roadmap [TODO-BILLING.md](TODO-BILLING.md) |

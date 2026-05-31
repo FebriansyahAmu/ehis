@@ -250,6 +250,7 @@ export const masterNav: readonly NavGroup[] = [
         icon: Building2,
       },
       { label: "Dokter & Nakes", href: "/ehis-master/dokter", icon: UserCog },
+      { label: "Jadwal Dokter", href: "/ehis-master/jadwal-dokter", icon: CalendarDays },
       { label: "Pengguna", href: "/ehis-master/pengguna", icon: Users },
     ],
   },

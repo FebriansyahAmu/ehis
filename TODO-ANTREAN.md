@@ -192,7 +192,7 @@ src/app/ehis-antrian/
 - [x] **Mapping Pos Antrian** (pos → loket → poli) — toggle chip poli per pos, live ke board. (2026-05-31)
 - [x] **Tambah Pos Antrian** (CRUD pos & loket) — add/rename/hapus pos + add/hapus loket + reset. (2026-05-31)
 - [x] **Hak Akses Antrian** — UI matriks peran×izin disiapkan, gating nyata `// TODO(RBAC-B0)`. (2026-05-31)
-- [~] **Jadwal Dokter** — view **read-only consume** + cross-link. Source of truth `/ehis-master/jadwal-dokter` **belum dibuat** (dependency di bawah) → sementara mirror `onsiteMock`. Swap saat master jadwal ready. (2026-05-31)
+- [x] **Jadwal Dokter** — view **read-only consume** dari Master `/ehis-master/jadwal-dokter` (sudah dibangun, lihat dependency) + cross-link "Kelola di Master". Grup per poli → kartu dokter → slot per hari + kuota. (2026-05-31)
 
 ---
 
@@ -279,14 +279,16 @@ Tombol **Selesaikan** di header [RJPatientHeader](src/components/rawat-jalan/RJP
 
 ---
 
-## 🧩 Dependency: Sub-menu Master Jadwal Dokter *(prasyarat ANT3/ANT6)*
+## 🧩 Dependency: Sub-menu Master Jadwal Dokter ✅ (2026-05-31) *(prasyarat ANT3/ANT6)*
 
 **Effort:** 1–1.5 hari · **Modul:** `/ehis-master` (bukan antrean, tapi diperlukan antrean).
 
-- [ ] Sub-menu baru `/ehis-master/jadwal-dokter` + item di `masterNav` (group "Sumber Daya" / "Operasional").
-- [ ] **Tarik jadwal via HFIS** (mock WS) → simpan sebagai jadwal RS = single source. Grid mingguan per dokter/poli + kapasitas/kuota.
-- [ ] Expose `getJadwalDokter(poli|dokter, tanggal)` untuk di-consume Antrean (estimasi jam) & RJ.
-- [ ] Sinkronkan dgn CLAUDE.md Master Tier 3 (Poliklinik & Jadwal Dokter) yang sebelumnya TECH_DEBT — item ini **mengangkatnya jadi aktif**.
+> **Status: ✅ (2026-05-31).** Sub-menu `/ehis-master/jadwal-dokter` (group "Sumber Daya", icon CalendarDays). Store single source [jadwalDokterStore.ts](src/lib/master/jadwalDokterStore.ts) (`useSyncExternalStore`+sessionStorage, seed 15 dokter selaras kode antrean) · HFIS mock sync (`syncFromHFIS` + cap waktu) · grid mingguan 7 hari × dokter ([WeeklyGrid](src/components/master/jadwal-dokter/WeeklyGrid.tsx)) · edit slot+kuota ([SlotEditModal](src/components/master/jadwal-dokter/SlotEditModal.tsx)) · API consume `getJadwalDokter`/`getSlotFor`/`getJadwalDokterFor`/`hariFromTanggal`. ANT3.4 `JadwalDokterTab` kini **consume store ini** (bukan onsiteMock lagi). TSC + ESLint clean.
+
+- [x] Sub-menu baru `/ehis-master/jadwal-dokter` + item di `masterNav` (group "Sumber Daya"). (2026-05-31)
+- [x] **Tarik jadwal via HFIS** (mock WS) → simpan sebagai jadwal RS = single source. Grid mingguan per dokter/poli + kapasitas/kuota. (2026-05-31)
+- [x] Expose `getJadwalDokterFor(poli|dokter, tanggal)` + `getSlotFor` untuk di-consume Antrean (estimasi jam) & RJ. (2026-05-31)
+- [~] Sinkronkan dgn CLAUDE.md Master Tier 3 — item diangkat jadi aktif. **Sisa swap:** kiosk APM `onsiteMock.estimasiDilayani` masih pakai katalog sendiri → repoint ke `getSlotFor` (follow-up, kode dokter/poli sudah selaras).
 
 ---
 

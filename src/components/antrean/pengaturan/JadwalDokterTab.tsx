@@ -1,17 +1,26 @@
 "use client";
 
-// ANT3.4 — Jadwal Dokter: tampilan READ-ONLY hasil consume. Source of truth =
-// sub-menu Master `/ehis-master/jadwal-dokter` (prasyarat, belum dibangun). Jangan duplikasi.
+// ANT3.4 — Jadwal Dokter: tampilan READ-ONLY hasil consume Master Jadwal Dokter
+// (single source: /ehis-master/jadwal-dokter, tarik via HFIS). Jangan duplikasi.
 
 import Link from "next/link";
-import { CalendarClock, Clock, Info, ExternalLink, Lock } from "lucide-react";
+import { useMemo } from "react";
+import { CalendarClock, Clock, Info, ExternalLink, Lock, Wifi } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { POLI_ONSITE, listDokterByPoli, type DokterOnsite } from "@/lib/antrean/onsiteMock";
+import { useJadwalDokter, HARI_ALL, type JadwalDokter } from "@/lib/master/jadwalDokterStore";
 
 export function JadwalDokterTab() {
-  const poliWithDokter = POLI_ONSITE.map((p) => ({ poli: p, dokter: listDokterByPoli(p.kode) })).filter(
-    (g) => g.dokter.length > 0,
-  );
+  const jadwal = useJadwalDokter();
+
+  const byPoli = useMemo(() => {
+    const map = new Map<string, { nama: string; dokter: JadwalDokter[] }>();
+    for (const d of jadwal) {
+      const g = map.get(d.poliKode) ?? { nama: d.poliNama, dokter: [] };
+      g.dokter.push(d);
+      map.set(d.poliKode, g);
+    }
+    return Array.from(map, ([kode, g]) => ({ kode, ...g }));
+  }, [jadwal]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -20,19 +29,19 @@ export function JadwalDokterTab() {
         <div className="flex items-start gap-3">
           <Info className="mt-0.5 h-5 w-5 shrink-0 text-sky-500" />
           <p className="m-xs text-sky-800">
-            Jadwal dikelola di <span className="font-mono font-semibold">/ehis-master/jadwal-dokter</span> (single source, tarik via HFIS).
-            Di sini hanya <span className="inline-flex items-center gap-1 font-semibold"><Lock className="h-3 w-3" /> baca-saja</span> untuk verifikasi mapping antrean.
+            Dikonsumsi dari <span className="font-mono font-semibold">/ehis-master/jadwal-dokter</span> (single source, tarik via HFIS).
+            Di sini <span className="inline-flex items-center gap-1 font-semibold"><Lock className="h-3 w-3" /> baca-saja</span> — ubah jadwal & kuota di Master.
           </p>
         </div>
         <Link
-          href="/ehis-master"
+          href="/ehis-master/jadwal-dokter"
           className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 m-xs font-semibold text-sky-700 ring-1 ring-sky-200 transition hover:bg-sky-100"
         >
-          Buka Master <ExternalLink className="h-3.5 w-3.5" />
+          Kelola di Master <ExternalLink className="h-3.5 w-3.5" />
         </Link>
       </div>
 
-      {poliWithDokter.map(({ poli, dokter }) => (
+      {byPoli.map((poli) => (
         <section key={poli.kode} className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
           <div className="flex items-center gap-2.5 border-b border-slate-100 bg-slate-50/60 px-5 py-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
@@ -40,13 +49,13 @@ export function JadwalDokterTab() {
             </span>
             <div>
               <p className="m-sm font-bold text-slate-800">{poli.nama}</p>
-              <p className="m-tiny font-mono text-slate-400">{poli.kode} · {dokter.length} dokter</p>
+              <p className="m-tiny font-mono text-slate-400">{poli.kode} · {poli.dokter.length} dokter</p>
             </div>
           </div>
 
-          <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
-            {dokter.map((d) => (
-              <DokterCard key={d.kode} d={d} />
+          <div className="grid gap-3 p-4 lg:grid-cols-2">
+            {poli.dokter.map((d) => (
+              <DokterCard key={d.dokterKode} d={d} />
             ))}
           </div>
         </section>
@@ -55,35 +64,53 @@ export function JadwalDokterTab() {
   );
 }
 
-function DokterCard({ d }: { d: DokterOnsite }) {
+function DokterCard({ d }: { d: JadwalDokter }) {
   return (
     <div className="flex flex-col gap-2.5 rounded-xl border border-slate-200 bg-white p-3.5">
-      <div>
-        <p className="m-sm font-bold text-slate-800">{d.nama}</p>
-        <p className="flex items-center gap-1.5 m-tiny text-slate-400">
-          <Clock className="h-3.5 w-3.5" /> {d.jamPraktik} · {d.menitPerPasien} mnt/pasien
-        </p>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="m-sm font-bold text-slate-800">{d.dokterNama}</p>
+          <p className="m-tiny text-slate-400">{d.spesialis}</p>
+        </div>
+        {d.sumber === "HFIS" && (
+          <span className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-1.5 py-0.5 m-mini font-semibold text-sky-600">
+            <Wifi className="h-3 w-3" /> HFIS
+          </span>
+        )}
       </div>
-      <KuotaRow label="JKN" terisi={d.terisiJKN} total={d.kuotaJKN} tone="bg-emerald-500" />
-      <KuotaRow label="Non-JKN" terisi={d.terisiNonJKN} total={d.kuotaNonJKN} tone="bg-slate-400" />
+
+      {d.slots.length === 0 ? (
+        <p className="m-tiny italic text-slate-300">Belum ada jadwal.</p>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {HARI_ALL.map((h) => {
+            const slot = d.slots.find((s) => s.hari === h);
+            if (!slot) return null;
+            return (
+              <div key={h} className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5">
+                <span className="flex items-center gap-2 m-xs">
+                  <span className="w-12 font-semibold text-slate-600">{h}</span>
+                  <span className="inline-flex items-center gap-1 text-slate-500">
+                    <Clock className="h-3 w-3" /> {slot.jamMulai}–{slot.jamSelesai}
+                  </span>
+                </span>
+                <span className="flex gap-1">
+                  <Pill label="JKN" value={slot.kuotaJKN} tone="bg-emerald-100 text-emerald-700" />
+                  <Pill label="Non" value={slot.kuotaNonJKN} tone="bg-slate-200 text-slate-600" />
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
-function KuotaRow({ label, terisi, total, tone }: { label: string; terisi: number; total: number; tone: string }) {
-  const pct = total > 0 ? Math.min(100, Math.round((terisi / total) * 100)) : 0;
-  const penuh = terisi >= total;
+function Pill({ label, value, tone }: { label: string; value: number; tone: string }) {
   return (
-    <div>
-      <div className="mb-1 flex items-center justify-between m-tiny">
-        <span className="font-medium text-slate-500">{label}</span>
-        <span className={cn("font-bold tabular-nums", penuh ? "text-rose-500" : "text-slate-600")}>
-          {terisi}/{total}
-        </span>
-      </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-        <div className={cn("h-full rounded-full", penuh ? "bg-rose-400" : tone)} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
+    <span className={cn("inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 m-mini font-semibold tabular-nums", tone)}>
+      {label} {value}
+    </span>
   );
 }
