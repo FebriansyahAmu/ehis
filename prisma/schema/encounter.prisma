@@ -1,0 +1,124 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: ENCOUNTER / Kunjungan  (Postgres schema "encounter")
+//  Acuan: docs/BACKEND-ENCOUNTER.md · konsolidasi 3 store FE (registrationStore
+//  kunjungan + rjQueueStore order/lock + antrean kodebooking).
+//
+//  Encounter = SUMBU TUNGGAL (spine state machine). 1 baris = 1 episode kunjungan.
+//  Menyembuhkan 2 break spine: worklist = query (unit,status); invoice dibuat saat
+//  Registered→Queued. Data klinis/transaksional TIDAK di sini → menggantung via encounterId.
+//
+//  FK riil sekarang: patientId → pendaftaran.Pasien (lintas-schema, 1 DB).
+//  Tautan domain belum-ada (dpjp/antrean/invoice/bed) = UUID placeholder, jadikan FK
+//  saat modulnya siap (pola Pasien.practitionerId). Enum TipePenjamin reuse dari pendaftaran.
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz · soft-delete · optimistic concurrency.
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── Enums ─────────────────────────────────────────────────────────────────---
+
+enum EncounterUnit {
+  IGD
+  RawatJalan
+  RawatInap
+
+  @@schema("encounter")
+}
+
+/// Lifecycle terpadu worklist lintas unit (BACKEND-ENCOUNTER §3).
+enum EncounterStatus {
+  Registered
+  Queued
+  InService
+  Completed
+  Closed
+  Billed
+  Claimed
+  Cancelled
+
+  @@schema("encounter")
+}
+
+/// Sub-state panggilan (RJ/farmasi) — TIDAK mengubah status puncak.
+enum CallState {
+  Idle
+  Dipanggil
+
+  @@schema("encounter")
+}
+
+/// Kelas rawat (RI) — selaras RIKelas frontend (data.ts).
+enum KelasRawat {
+  VIP
+  Kelas_1
+  Kelas_2
+  Kelas_3
+  ICU
+  HCU
+  Isolasi
+
+  @@schema("encounter")
+}
+
+// ── Encounter (tabel inti / spine) ────────────────────────────────────────────
+
+model Encounter {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Pasien (FK riil lintas-schema) ──
+  patientId String @map("patient_id") @db.Uuid
+  pasien    Pasien @relation(fields: [patientId], references: [id], onDelete: Restrict)
+
+  // ── Header ──
+  unit          EncounterUnit
+  status        EncounterStatus @default(Registered)
+  /// Mirror KunjunganRecord.noKunjungan ("RJ/2026/xxxx") — Service generate.
+  noKunjungan   String          @unique @map("no_kunjungan")
+  noPendaftaran String?         @map("no_pendaftaran") // "REG-..."
+
+  /// Link spine TaskID antrol (RJ/onsite/MJKN). FK→Antrean saat modul siap.
+  antreanKodebooking String? @unique @map("antrean_kodebooking")
+  /// DPJP/dokter. FK→master Dokter (via sdm.Pegawai.practitionerId) saat siap.
+  dpjpId             String? @map("dpjp_id") @db.Uuid
+
+  // ── Field per-unit (validasi unit-spesifik di Zod/Service) ──
+  poli        String? // RJ
+  kelas       KelasRawat? // RI
+  /// Bed RI — FK→master Bed/Ruangan saat siap. Alokasi/status bed bukan domain ini.
+  bedId       String?     @map("bed_id") @db.Uuid
+  triaseLevel Int?        @map("triase_level") // IGD 1..5 (CHECK di SQL)
+
+  // ── Sub-state panggilan (kolom sekunder, bukan status puncak) ──
+  callState   CallState? @map("call_state")
+  recallCount Int        @default(0) @map("recall_count")
+
+  // ── Klinis masuk ──
+  caraMasuk String? @map("cara_masuk")
+  keluhan   String? // keluhan masuk (text)
+
+  // ── Penjamin kunjungan (enum reuse pendaftaran) ──
+  penjaminTipe TipePenjamin @default(Umum) @map("penjamin_tipe")
+  noPenjamin   String?      @map("no_penjamin") // no kartu
+  noSEP        String?      @map("no_sep") // diisi domain Claim
+  noRujukan    String?      @map("no_rujukan")
+
+  // ── Tautan invoice (1:1, dibuat saat Registered→Queued) ──
+  invoiceId String? @unique @map("invoice_id") @db.Uuid // FK→billing.Invoice saat siap
+
+  // ── Finalize / lock ──
+  lockedAt  DateTime? @map("locked_at") @db.Timestamptz(3)
+  /// Immutable — di-set sekali saat Completed, dipertahankan saat re-open.
+  selesaiAt DateTime? @map("selesai_at") @db.Timestamptz(3)
+
+  // ── Konkurensi & audit ──
+  version   Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([unit, status, createdAt]) // worklist (query terpanas)
+  @@index([patientId]) // timeline pasien
+  @@index([dpjpId])
+  @@index([createdAt, id]) // cursor pagination
+  @@map("encounter")
+  @@schema("encounter")
+}

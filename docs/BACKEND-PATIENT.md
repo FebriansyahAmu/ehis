@@ -33,7 +33,15 @@
 
 ## 2. Entity model
 
-> Semua tabel domain ini di Postgres schema **`patient`** (`@@schema("patient")`) — lihat FLOWS §9.
+> Semua tabel domain ini di Postgres schema **`pendaftaran`** (`@@schema("pendaftaran")`) — lihat FLOWS §9.
+> **Implementasi (2026-06-01):** `prisma/schema/pendaftaran.prisma` — model `Pasien` + `PasienAlamat`/`PasienPenjamin`/`PasienAlergiAwal`/`PasienKontakDarurat`. Migration `init_pendaftaran` applied.
+>
+> **3 refinement vs spec awal (temuan dari PasienBaruModal):**
+> 1. **Alamat 1:N** (bukan 1:1) — enum `JenisAlamat {KTP, Domisili}`, `@@unique([pasienId, jenis])`. Form punya flag `samaAlamat` (KTP≠domisili).
+> 2. **Golongan darah dipecah** — `golonganDarah` (ABO enum) + `rhesus` (Positif/Negatif) — form input `A+/A-`, `PatientMaster` lama cuma ABO.
+> 3. **`statusPerkawinan` = enum Dukcapil** (`BelumKawin/Kawin/CeraiHidup/CeraiMati`) — frontend lama `Janda/Duda` & `Cerai Hidup/Mati`, adapter map saat swap.
+> 4. **NIK dedup** via `nikHash @unique` *nullable* — Postgres anggap NULL distinct → Mr.X (NULL) boleh banyak, NIK asli wajib unik. (Tak perlu partial-unique manual.)
+> 5. **`agama/pendidikan/pekerjaan/suku` = text** (+ `TODO(master)`), bukan enum — konsisten precedent `Pegawai`.
 
 ### 2.1 `Patient`
 | Field | Catatan / index |
@@ -162,9 +170,9 @@ Idempotency-Key wajib untuk POST (cegah double-create saat retry).
 ## 9. Task checklist
 
 ### PAT0 — Schema & sequence
-- [ ] Prisma `Patient` (+`noKK`/`dataLengkap`/`isAnonim`/`mergedIntoId`/`version`) + `PatientAddress`/`PatientPenjamin`/`PatientAlergiAwal`/`KontakDarurat`.
-- [ ] Sequence `noRM` + format helper. Partial unique NIK. GIN trigram `nama` (extension `pg_trgm`).
-- [ ] Seed dari `patientMasterData` mock.
+- [x] Prisma `Pasien` (+`noKkEnc`/`dataLengkap`/`isAnonim`/`mergedIntoId`/`version`) + `PasienAlamat`/`PasienPenjamin`/`PasienAlergiAwal`/`PasienKontakDarurat`. *(schema `pendaftaran`, migration `init_pendaftaran`)*
+- [x] Sequence `pendaftaran.no_rm_seq` (manual SQL). GIN trigram `nama` (`pg_trgm`, in-schema raw ops). NIK unik via `nikHash @unique` nullable.
+- [ ] Format helper `RM-{th}-{seq}` (Service, pakai `nextval`). Seed dari `patientMasterData` mock.
 
 ### PAT1 — DAL
 - [ ] `patientDal` (create/findById/findByNoRM/findByNik/searchByNamaTglLahir/update version-guard/softDelete/reassignEncounters/nextNoRM).
@@ -195,4 +203,10 @@ Idempotency-Key wajib untuk POST (cegah double-create saat retry).
 2. ✅ **Merge one-way + audit snapshot** — simpan snapshot loser di audit; undo manual. Bukan reversible otomatis.
 3. ✅ **Address = tabel 1:1 terpisah** (`PatientAddress`) — rapi + reusable untuk FHIR adapter.
 4. ✅ **Mapping wilayah BPJS↔Kemendagri = tabel Master + cache** (bukan lib statis) — bisa di-update tanpa deploy.
-5. ✅ **1 penjamin primer** di Patient untuk sekarang; coordination-of-benefits (BPJS + asuransi swasta) = fase later di Encounter/Claim.
+5. ✅ **1 penjamin primer** di Patient untuk sekarang; coordination-of-benefits (BPJS + asuransi swasta) = fase later di Encounter/Claim. **Dijaga DB**: partial-unique `(pasien_id) WHERE is_primer AND deleted_at IS NULL`.
+
+### Hasil audit schema (2026-06-01)
+6. ✅ **DB guarantees** (migration `pendaftaran_audit_fixes`): CHECK `nik_enc`/`nik_hash` sepasang · CHECK `nomor_enc`/`nomor_hash` penjamin sepasang · partial-unique single-primer. (Manual SQL — drift-safe, Prisma abaikan CHECK + predicate-index + sequence; `migrate diff` terbukti empty.)
+7. ✅ **Timestamp konsisten** — `createdAt`/`updatedAt` ditambah ke `PasienAlamat`/`PasienAlergiAwal`/`PasienKontakDarurat` (UU PDP akurasi data).
+8. ✅ **Unik global (bukan partial) untuk `noRm` & `nikHash`** — sengaja termasuk row soft-deleted: noRM tak boleh didaur-ulang, NIK terhapus tak boleh hidup di MRN baru (RME).
+9. ✅ **WNA / paspor** (migration `pasien_wna_paspor`): `Pasien` +`isWna` +`noPasporEnc`/`noPasporHash @unique`. CHECK `pasien_paspor_pair_chk` (enc/hash sepasang) + CHECK `pasien_identitas_chk` (**non-anonim WAJIB NIK ATAU paspor**, Mr.X dikecualikan). Service: cabang WNA pakai paspor sebagai kunci dedup.

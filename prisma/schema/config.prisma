@@ -20,8 +20,9 @@ datasource db {
   provider   = "postgresql"
   // URL dikonfigurasi di prisma.config.ts (Prisma 7: `url` tak lagi di schema).
   // WAJIB Postgres — set DATABASE_URL=postgresql://user:pass@host:5432/ehis di .env
-  extensions = [citext]
+  // citext = CI uniqueness · pg_trgm = GIN trigram search nama pasien.
+  extensions = [citext, pg_trgm]
   // Schema-namespace per modul. Tambah saat modul baru dibangun:
-  // patient · encounter · order · billing · claim · master · antrean · audit
-  schemas    = ["auth", "sdm"]
+  // order · billing · claim · master · antrean · audit
+  schemas    = ["auth", "sdm", "pendaftaran", "encounter"]
 }

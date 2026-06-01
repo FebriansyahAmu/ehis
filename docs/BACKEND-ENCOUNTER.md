@@ -35,7 +35,8 @@
 
 ## 2. Entity model
 
-> Semua tabel domain ini di Postgres schema **`encounter`** (`@@schema("encounter")`) — lihat FLOWS §9. FK ke `patient.Patient`/`auth.Practitioner`/`billing.Invoice` lintas-schema (1 DB).
+> Semua tabel domain ini di Postgres schema **`encounter`** (`@@schema("encounter")`) — lihat FLOWS §9.
+> **Implementasi (2026-06-01):** `prisma/schema/encounter.prisma`, migration `init_encounter`. FK riil: `patientId → pendaftaran.Pasien` (lintas-schema). Enum `TipePenjamin` **reuse** dari `pendaftaran` (single source). Tautan domain belum-ada (`dpjpId`/`antreanKodebooking`/`invoiceId`/`bedId`) = UUID placeholder, dijadikan FK saat modulnya siap. CHECK: triase 1..5 + recall ≥ 0.
 
 ### 2.1 `Encounter` (tabel inti)
 
@@ -218,9 +219,9 @@ Sumber mock yang dikonsolidasi jadi tabel `Encounter`:
 ## 9. Task checklist
 
 ### ENC0 — Schema & migration
-- [ ] Prisma model `Encounter` + enum `EncounterUnit`/`EncounterStatus` + relasi FK (Patient/Antrean/Invoice/Order/Bed/Practitioner).
-- [ ] Index `(unit,status,createdAt)` + `patientId` + unique `noKunjungan`.
-- [ ] `migrate dev` + review SQL (no destructive).
+- [x] Prisma model `Encounter` + enum `EncounterUnit`/`EncounterStatus`/`CallState`/`KelasRawat`. FK riil `patientId→pendaftaran.Pasien`; `dpjp/antrean/invoice/bed` = UUID placeholder (FK saat modul siap). `TipePenjamin` reuse pendaftaran.
+- [x] Index `(unit,status,createdAt)` + `patientId` + `dpjpId` + `(createdAt,id)` cursor + unique `noKunjungan`/`antreanKodebooking`/`invoiceId`. CHECK triase 1..5 + recall≥0.
+- [x] Migration `init_encounter` applied (diff workaround), no drift.
 
 ### ENC1 — DAL
 - [ ] `encounterDal` (create/findById/findByKodebooking/listByUnitStatus cursor/updateStatus version-guard/softDelete).
