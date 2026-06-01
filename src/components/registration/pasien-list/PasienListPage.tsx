@@ -1,8 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { patientMasterData } from "@/lib/data";
-import type { TipePenjamin } from "@/lib/data";
+import type { TipePenjamin, PatientMaster } from "@/lib/data";
+import { searchPatients } from "@/lib/api/patients";
+import { ApiError } from "@/lib/api/client";
+import { toast } from "@/lib/ui/toastStore";
+import { dtoToPatientMaster } from "./pasienListApi";
 import { PasienListControls } from "./PasienListControls";
 import { PasienListTable } from "./PasienListTable";
 
@@ -34,9 +38,32 @@ export default function PasienListPage() {
   const [filterPenjamin, setFilterPenjamin] = useState<FilterPenjamin>("Semua");
   const [filterStatus,   setFilterStatus]   = useState<FilterStatus>("Semua");
   const [page,           setPage]           = useState(1);
+  // Pasien hasil pendaftaran dari DB (di-fetch sekali saat mount). Demo mock tetap
+  // ditampilkan agar dashboard/detail demo tak rusak (Encounter API belum dibangun).
+  const [dbPatients,     setDbPatients]     = useState<PatientMaster[]>([]);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const allPatients = useMemo(() =>
-    Object.values(patientMasterData).sort((a, b) => {
+  useEffect(() => {
+    const ac = new AbortController();
+    abortRef.current = ac;
+    (async () => {
+      try {
+        const { items } = await searchPatients({ limit: 50 }, ac.signal);
+        setDbPatients(items.map(dtoToPatientMaster));
+      } catch (e) {
+        if (ac.signal.aborted) return; // unmount/StrictMode — abaikan
+        toast.error("Gagal memuat daftar pasien", e instanceof ApiError ? e.message : undefined);
+      }
+    })();
+    return () => ac.abort();
+  }, []);
+
+  const allPatients = useMemo(() => {
+    // Merge DB (terbaru) + demo mock; DB menang bila noRM bentrok.
+    const byRm = new Map<string, PatientMaster>();
+    for (const p of Object.values(patientMasterData)) byRm.set(p.noRM, p);
+    for (const p of dbPatients) byRm.set(p.noRM, p);
+    return Array.from(byRm.values()).sort((a, b) => {
       const aDate = a.riwayatKunjungan[0]
         ? parseDate(a.riwayatKunjungan[0].tanggal)
         : parseDate(a.terdaftar);
@@ -44,8 +71,8 @@ export default function PasienListPage() {
         ? parseDate(b.riwayatKunjungan[0].tanggal)
         : parseDate(b.terdaftar);
       return bDate - aDate;
-    }),
-  []);
+    });
+  }, [dbPatients]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

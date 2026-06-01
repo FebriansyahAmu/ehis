@@ -194,7 +194,9 @@ Idempotency-Key wajib untuk POST (cegah double-create saat retry).
 ### PAT5 — Frontend swap
 - [x] **API client** `lib/api/client.ts` (envelope-aware, ApiError, same-origin+credentials, Idempotency-Key per mutation, AbortSignal) + `lib/api/patients.ts` (tipe reuse `import type` dari schema server).
 - [x] **`PasienBaruModal` create → POST `/api/v1/patients`** (adapter `pasienBaruApi.ts` map vocab: Dukcapil/goldarah+rhesus/sumber; error banner; abort on unmount). tsc clean.
-- [ ] **Reads belum di-swap** (masih `registrationStore` mock): `PatientResolver`/`KunjunganResolver` (detail), board (`getAllMergedPatients`), `ApmKiosk` dedup, `DaftarKunjunganModal`. ⚠️ Konsekuensi: pasien dibuat via API masuk DB, tapi halaman detail/`/pasien/{rm}` belum menemukannya (resolver baca store) — perlu swap read ke `getPatient`/`searchPatients` + alur kunjungan ke Encounter API (belum dibangun).
+- [x] **List `/ehis-registration/pasien` swap** — `PasienListPage` fetch `searchPatients({limit:50})` saat mount + merge dengan demo mock (dedup by noRM, DB menang); adapter `pasienListApi.ts` (`dtoToPatientMaster`: NIK pakai `nikMasked`, kunjungan/billing kosong krn Encounter belum ada). Error → toast. Smoke-test GET list PASS (3 pasien DB terambil).
+- [x] **Detail fallback API** — `PatientResolver`: id UUID & tak ada di mock/store → `getPatient(id)` + adapt → `PatientDashboard` render (kunjungan/billing empty-state). notFound hanya setelah store-hidrasi + fetch selesai. Klik baris pasien DB tak lagi 404.
+- [ ] **Reads lain belum di-swap** (masih `registrationStore` mock): `KunjunganResolver` (detail kunjungan), beranda board (`getAllMergedPatients`), `ApmKiosk` dedup, `DaftarKunjunganModal`. ⚠️ `riwayatKunjungan`/billing pasien DB masih kosong — perlu Encounter API (belum dibangun).
 - [ ] Dedup NIK di FE (precheck `searchPatients(by:nik)`) + draft→complete (`completePatient`) UI.
 
 ### PAT6 — Tests
