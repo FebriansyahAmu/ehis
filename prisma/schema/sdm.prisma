@@ -1,0 +1,175 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: SDM / Kepegawaian  (Postgres schema "sdm")  ·  ref: legacy sdm_*
+//  Data pegawai (HR) — TERPISAH dari akun login (auth.users). Setiap akun WAJIB
+//  terikat ke 1 pegawai (auth.users.pegawaiId NOT NULL) → zero orphan account.
+//
+//  Identitas: NIK = anchor (enc+hash, PII) untuk validasi provisioning akun.
+//             NIP = nomor pegawai unik (resmi ASN / auto-generate non-ASN di Service).
+//  Kredensial klinis (STR/SIP/spesialis) TIDAK di sini → master Dokter via practitionerId.
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz · soft-delete · @@schema("sdm").
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── Enums ─────────────────────────────────────────────────────────────────---
+
+enum JenisKelamin {
+  L
+  P
+
+  @@schema("sdm")
+}
+
+/// ASN = PNS|PPPK. Sisanya non-ASN (NIP auto-generate di Service).
+enum StatusPegawai {
+  PNS
+  PPPK
+  Kontrak
+  Honorer
+  Magang
+  Mitra
+
+  @@schema("sdm")
+}
+
+enum StatusAbsensi {
+  Hadir
+  Izin
+  Sakit
+  Cuti
+  Alpa
+  Libur
+
+  @@schema("sdm")
+}
+
+// ── Pegawai (core HR) ──────────────────────────────────────────────────────--
+
+model Pegawai {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Identitas ──
+  /// NIK terenkripsi (PII, app-level encrypt). WAJIB — anchor identitas +
+  /// kunci ambil Practitioner dari SatuSehat/FHIR (Service decrypt saat sync).
+  nikEnc  String @map("nik_enc")
+  /// HMAC-SHA256 NIK utk lookup/dedup + uniqueness (ciphertext tak bisa di-WHERE). WAJIB unik.
+  nikHash String @unique @map("nik_hash")
+  /// Nomor pegawai — resmi (ASN) / auto-generate (non-ASN, di Service).
+  nip     String  @unique
+
+  namaLengkap   String       @map("nama_lengkap")
+  gelarDepan    String?      @map("gelar_depan")
+  gelarBelakang String?      @map("gelar_belakang")
+  jenisKelamin  JenisKelamin @map("jenis_kelamin")
+  tempatLahir   String?      @map("tempat_lahir")
+  tanggalLahir  DateTime?    @map("tanggal_lahir") @db.Date
+
+  // ── Kepegawaian ──
+  statusPegawai StatusPegawai @map("status_pegawai")
+  jabatanId     String?       @map("jabatan_id") @db.Uuid
+  golonganId    String?       @map("golongan_id") @db.Uuid
+  unitKerja     String?       @map("unit_kerja")
+  tglMasuk      DateTime?     @map("tgl_masuk") @db.Date
+  // TODO(master): agamaId / pendidikanId → master reference saat schema master siap.
+
+  // ── Kontak primer (embedded; kontak darurat → tabel terpisah) ──
+  alamat String?
+  noHp   String? @map("no_hp")
+  email  String? @unique @db.Citext
+
+  foto String?
+
+  /// Link ke master Dokter/Practitioner (hanya pegawai klinis). Plain uuid sampai
+  /// schema master siap → jadikan relasi FK nanti. "User dokter?" = practitionerId != null.
+  practitionerId String? @map("practitioner_id") @db.Uuid
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  // ── Relasi ──
+  jabatan       Jabatan?               @relation(fields: [jabatanId], references: [id])
+  golongan      Golongan?              @relation(fields: [golonganId], references: [id])
+  absensi       Absensi[]
+  kontakDarurat PegawaiKontakDarurat[]
+  /// 1 pegawai : 0..1 akun login (back-relation; FK di auth.User.pegawaiId).
+  user          User?
+
+  @@index([jabatanId])
+  @@index([golonganId])
+  @@index([namaLengkap])
+  @@index([statusPegawai])
+  @@map("pegawai")
+  @@schema("sdm")
+}
+
+// ── Master kepegawaian ───────────────────────────────────────────────────────
+
+model Jabatan {
+  id           String  @id @default(uuid(7)) @db.Uuid
+  kode         String  @unique
+  nama         String
+  unitKerja    String? @map("unit_kerja")
+  isStruktural Boolean @default(false) @map("is_struktural")
+
+  pegawai Pegawai[]
+
+  @@map("jabatan")
+  @@schema("sdm")
+}
+
+model Golongan {
+  id   String @id @default(uuid(7)) @db.Uuid
+  kode String @unique
+  nama String
+
+  pegawai Pegawai[]
+
+  @@map("golongan")
+  @@schema("sdm")
+}
+
+model JadwalShift {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  nama       String
+  jamMulai   DateTime @map("jam_mulai") @db.Time(0)
+  jamSelesai DateTime @map("jam_selesai") @db.Time(0)
+  isActive   Boolean  @default(true) @map("is_active")
+
+  @@map("jadwal_shift")
+  @@schema("sdm")
+}
+
+model Absensi {
+  id        String        @id @default(uuid(7)) @db.Uuid
+  pegawaiId String        @map("pegawai_id") @db.Uuid
+  tanggal   DateTime      @db.Date
+  shiftId   String?       @map("shift_id") @db.Uuid
+  jamMasuk  DateTime?     @map("jam_masuk") @db.Time(0)
+  jamKeluar DateTime?     @map("jam_keluar") @db.Time(0)
+  status    StatusAbsensi @default(Hadir)
+  keterangan String?
+
+  pegawai Pegawai @relation(fields: [pegawaiId], references: [id], onDelete: Cascade)
+
+  @@unique([pegawaiId, tanggal])
+  @@index([tanggal])
+  @@map("absensi")
+  @@schema("sdm")
+}
+
+model PegawaiKontakDarurat {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  pegawaiId String  @map("pegawai_id") @db.Uuid
+  nama      String
+  hubungan  String
+  noHp      String  @map("no_hp")
+  alamat    String?
+
+  pegawai Pegawai @relation(fields: [pegawaiId], references: [id], onDelete: Cascade)
+
+  @@index([pegawaiId])
+  @@map("pegawai_kontak_darurat")
+  @@schema("sdm")
+}

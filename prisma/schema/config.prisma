@@ -1,0 +1,27 @@
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  EHIS Backend — Prisma config (generator + datasource)                      ║
+// ║  Multi-file schema (prismaSchemaFolder): semua *.prisma di folder ini        ║
+// ║  di-merge jadi satu. Satu file per MODUL (auth.prisma, patient.prisma, …).   ║
+// ║  Acuan: docs/BACKEND-FLOWS.md §2/§9.                                          ║
+// ║                                                                              ║
+// ║  Beda "schema":                                                              ║
+// ║   • banyak FILE .prisma  = organisasi kode (per modul)                       ║
+// ║   • multi Postgres schema (@@schema) = namespace tabel di DB                 ║
+// ║  → 1 DB fisik, namespace per modul, kode dipecah per modul.                  ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../../src/generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  // URL dikonfigurasi di prisma.config.ts (Prisma 7: `url` tak lagi di schema).
+  // WAJIB Postgres — set DATABASE_URL=postgresql://user:pass@host:5432/ehis di .env
+  extensions = [citext]
+  // Schema-namespace per modul. Tambah saat modul baru dibangun:
+  // patient · encounter · order · billing · claim · master · antrean · audit
+  schemas    = ["auth", "sdm"]
+}
