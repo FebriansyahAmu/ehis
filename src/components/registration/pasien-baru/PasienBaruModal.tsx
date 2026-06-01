@@ -5,8 +5,10 @@ import { Check, Loader2, ChevronRight, ChevronLeft, User, MapPin, Phone } from "
 import { cn } from "@/lib/utils";
 import { type FormState, type Errors, INITIAL_FORM, validateStep } from "./pasienBaruTypes";
 import { StepContent } from "./PasienBaruSteps";
-import { addPatient } from "@/lib/registration/registrationStore";
-import type { NewPatientInput } from "@/lib/registration/types";
+import { formToRegisterInput } from "./pasienBaruApi";
+import { registerPatient } from "@/lib/api/patients";
+import { ApiError } from "@/lib/api/client";
+import { toast } from "@/lib/ui/toastStore";
 import type { PatientMaster } from "@/lib/data";
 
 /** ANT4 — prefill dari antrean walk-in (NIK/nama dari kiosk) + penjamin. */
@@ -28,40 +30,6 @@ function buildInitial(prefill?: PasienBaruPrefill): FormState {
     tanggalLahir: prefill.tglLahir ?? "",
     noHp: prefill.noHp ?? "",
     gender: prefill.gender ?? "",
-  };
-}
-
-function formToInput(form: FormState, prefill?: PasienBaruPrefill): NewPatientInput {
-  return {
-    nik: form.nik,
-    name: form.namaLengkap.trim(),
-    gender: (form.gender || "L") as "L" | "P",
-    tanggalLahir: form.tanggalLahir,
-    tempatLahir: form.tempatLahir,
-    statusPerkawinan: (form.statusPerkawinan || undefined) as NewPatientInput["statusPerkawinan"],
-    agama: form.agama || undefined,
-    golonganDarah: (form.golonganDarah || undefined) as NewPatientInput["golonganDarah"],
-    pekerjaan: form.pekerjaan || undefined,
-    pendidikan: form.pendidikan || undefined,
-    suku: form.suku || undefined,
-    kewarganegaraan: form.kewarganegaraan || undefined,
-    alamat: form.alamat,
-    rtRw: form.rtRw || undefined,
-    kelurahan: form.kelurahan || undefined,
-    kecamatan: form.kecamatan || undefined,
-    kota: form.kota,
-    provinsi: form.provinsi,
-    kodePos: form.kodePos || undefined,
-    noHp: form.noHp,
-    email: form.email || undefined,
-    alergi: form.alergi,
-    kontakDarurat: {
-      nama: form.kontakDaruratNama,
-      hubungan: form.kontakDaruratHubungan,
-      noHp: form.kontakDaruratNoHp,
-    },
-    penjamin: prefill?.penjamin,
-    sumber: "Walk-in",
   };
 }
 
@@ -217,7 +185,9 @@ export function PasienBaruModal({
   const [submitting,  setSubmitting]  = useState(false);
   const [done,        setDone]        = useState(false);
   const [generatedRM, setGeneratedRM] = useState("");
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+  const submitAbort = useRef<AbortController | null>(null);
 
   function handleBackdropClick(ev: React.MouseEvent<HTMLDivElement>) {
     if (ev.target !== ev.currentTarget || submitting) return;
@@ -239,8 +209,11 @@ export function PasienBaruModal({
   useEffect(() => {
     // Reset/seed form tiap kali modal dibuka (sinkron ke prop `open` + prefill antrean).
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (open) { setStep(1); setForm(buildInitial(prefill)); setErrors({}); setDone(false); setGeneratedRM(""); }
+    if (open) { setStep(1); setForm(buildInitial(prefill)); setErrors({}); setDone(false); setGeneratedRM(""); setSubmitError(null); }
   }, [open, prefill]);
+
+  // Batalkan request submit yang masih in-flight saat unmount (anti memory leak).
+  useEffect(() => () => submitAbort.current?.abort(), []);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -273,22 +246,31 @@ export function PasienBaruModal({
   async function handleSubmit() {
     const e = validateStep(step, form);
     if (Object.keys(e).length) { setErrors(e); return; }
+    setSubmitError(null);
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 1400));
-    // Persist ke registrationStore → RM resmi (resolver bisa membuka /pasien/{rm}).
-    const created = addPatient(formToInput(form, prefill));
-    setSubmitting(false);
-    if (onSuccess) {
-      // Mode bridge (ANT4): teruskan ke pemanggil (navigasi + daftar kunjungan).
-      onSuccess(created.noRM);
-      return;
+    const controller = new AbortController();
+    submitAbort.current = controller;
+    try {
+      // POST /api/v1/patients (dedup-first di server) → { patient, message, created }.
+      const { patient, message } = await registerPatient(formToRegisterInput(form, prefill), controller.signal);
+      toast.success(message ?? "Pasien berhasil didaftarkan", `No. RM ${patient.noRm}`);
+      if (onSuccess) {
+        // Mode bridge (ANT4): teruskan ke pemanggil (navigasi + daftar kunjungan).
+        onSuccess(patient.noRm);
+        return;
+      }
+      setGeneratedRM(patient.noRm);
+      setDone(true);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return; // dibatalkan, abaikan
+      setSubmitError(err instanceof ApiError ? err.message : "Gagal menyimpan pasien. Silakan coba lagi.");
+    } finally {
+      setSubmitting(false);
     }
-    setGeneratedRM(created.noRM);
-    setDone(true);
   }
 
   function handleNew() {
-    setStep(1); setForm(INITIAL_FORM); setErrors({}); setDone(false); setGeneratedRM("");
+    setStep(1); setForm(INITIAL_FORM); setErrors({}); setDone(false); setGeneratedRM(""); setSubmitError(null);
   }
 
   const initials = form.namaLengkap.trim()
@@ -449,7 +431,13 @@ export function PasienBaruModal({
 
         {/* ── Footer (hidden on success) ────────────────────────────────── */}
         {!done && (
-          <div className="flex shrink-0 items-center justify-between border-t border-slate-100 bg-white px-5 py-3.5 sm:px-6">
+          <div className="shrink-0 border-t border-slate-100 bg-white px-5 py-3.5 sm:px-6">
+            {submitError && (
+              <div role="alert" className="mb-2.5 rounded-xl bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700 ring-1 ring-rose-200">
+                {submitError}
+              </div>
+            )}
+            <div className="flex items-center justify-between">
             <button
               onClick={onClose}
               disabled={submitting}
@@ -485,6 +473,7 @@ export function PasienBaruModal({
                     : <><Check size={13} strokeWidth={2.5} /> Simpan Pasien</>}
                 </button>
               )}
+            </div>
             </div>
           </div>
         )}

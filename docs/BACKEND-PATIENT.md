@@ -175,21 +175,27 @@ Idempotency-Key wajib untuk POST (cegah double-create saat retry).
 - [ ] Format helper `RM-{th}-{seq}` (Service, pakai `nextval`). Seed dari `patientMasterData` mock.
 
 ### PAT1 — DAL
-- [ ] `patientDal` (create/findById/findByNoRM/findByNik/searchByNamaTglLahir/update version-guard/softDelete/reassignEncounters/nextNoRM).
-- [ ] PII-encryption helper (NIK/noKartu) at-rest.
+- [x] `patientDal` (create/findById/findByNoRm/findByNikHash/findByPasporHash/searchByNama trigram+cursor/updateWithVersion/upsertAddress/softDelete/nextNoRmSeq). `reassignEncounters` (merge) = fase later.
+- [x] PII helper `lib/crypto/pii.ts` (AES-256-GCM enc/dec + HMAC hash + mask) at-rest.
 
 ### PAT2 — Schema & errors
-- [ ] Zod `RegisterPatientInput`(+noKK)/`CompletePatientInput`/`SearchQuery`/`BpjsPesertaAutofill`.
-- [ ] DTO masking NIK/noKartu per role. Error: `PATIENT_NOT_FOUND`, `DUPLICATE_NIK`(→ resolve, bukan error).
+- [x] Zod `RegisterPatientInput`(+noKK/isWna/noPaspor/anonim)/`CompletePatientInput`(+expectedVersion)/`SearchQuery`/`IdParam`. `BpjsPesertaAutofill` = fase later.
+- [x] DTO masking NIK/noKartu (`maskPii`). Error katalog FLOWS §4 (`AppError`+`handleError`); `DUPLICATE_NIK`→resolve (dedup-first, bukan error).
 
 ### PAT3 — Service
-- [ ] `registerPatient` **dedup-first** · `completePatient` · `autofillFromBpjs` (mapping wilayah + swap rt/rw) · `searchPatient` (trigram) · `mergePatients` (tx, Admin).
+- [x] `registerPatient` **dedup-first** (+race P2002 fallback) · `completePatient` (version guard, tx, upsert alamat) · `searchPatient` (NIK/RM exact + nama trigram cursor) · `getPatient`. `autofillFromBpjs`/`mergePatients` = fase later. Clock di-inject (no Date.now).
 
 ### PAT4 — API
-- [ ] Route `/api/v1/patients/*` tipis + idempotency + envelope + masking.
+- [x] Route `/api/v1/patients` (GET search/list, POST register 201) + `/[id]` (GET, PATCH complete). Wrapper `route()` reusable: auth→RBAC→Zod→envelope→handleError. **Smoke-test PASS** (POST/dedup/search trigram+NIK/GET/PATCH+version-guard 409/404/422).
+
+### Fondasi backend (dibangun bareng PAT — reusable semua domain)
+- [x] `lib/db/prisma.ts` (singleton + pg driver adapter + `transaction()` helper) · `lib/core/clock.ts` (seam) · `lib/crypto/pii.ts` · `lib/errors/{appError,handleError}.ts` · `lib/http/{envelope,route}.ts` · `lib/auth/actor.ts` (getActor STUB → BACKEND-AUTH). Zod + `@prisma/adapter-pg` terpasang. PII keys di `.env` (dev).
 
 ### PAT5 — Frontend swap
-- [ ] `PasienBaruModal`/`registrationStore` → API. Verifikasi dedup NIK + draft→complete jalan.
+- [x] **API client** `lib/api/client.ts` (envelope-aware, ApiError, same-origin+credentials, Idempotency-Key per mutation, AbortSignal) + `lib/api/patients.ts` (tipe reuse `import type` dari schema server).
+- [x] **`PasienBaruModal` create → POST `/api/v1/patients`** (adapter `pasienBaruApi.ts` map vocab: Dukcapil/goldarah+rhesus/sumber; error banner; abort on unmount). tsc clean.
+- [ ] **Reads belum di-swap** (masih `registrationStore` mock): `PatientResolver`/`KunjunganResolver` (detail), board (`getAllMergedPatients`), `ApmKiosk` dedup, `DaftarKunjunganModal`. ⚠️ Konsekuensi: pasien dibuat via API masuk DB, tapi halaman detail/`/pasien/{rm}` belum menemukannya (resolver baca store) — perlu swap read ke `getPatient`/`searchPatients` + alur kunjungan ke Encounter API (belum dibangun).
+- [ ] Dedup NIK di FE (precheck `searchPatients(by:nik)`) + draft→complete (`completePatient`) UI.
 
 ### PAT6 — Tests
 - [ ] Unit: dedup-first (NIK ada → return existing) · draft→complete · autofill mapping wilayah + rt/rw swap · merge re-assign encounter · NIK masking per role.

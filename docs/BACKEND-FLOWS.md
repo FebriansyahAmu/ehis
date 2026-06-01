@@ -169,11 +169,12 @@ Semua mutation wajib header **`Idempotency-Key`** (lihat §7).
 ### Envelope (konsisten semua endpoint)
 
 ```
-Sukses : { ok: true,  data: T, meta?: { cursor?, total? } }
+Sukses : { ok: true,  data: T, message?: string, meta?: { cursor?, total? } }
 Gagal  : { ok: false, error: { code: string, message: string, details?: unknown } }
 ```
 
-- `message` = aman untuk user (tak bocorkan internal). `details` opsional (mis. field errors Zod) — **jangan** sertakan stack/SQL.
+- `message` (sukses) = teks human-readable opsional untuk feedback user (driver toast); di-set via `reply(data, { status?, message? })` di handler. `message` (error) = aman untuk user (tak bocorkan internal). `details` opsional (mis. field errors Zod) — **jangan** sertakan stack/SQL.
+- **Semantik status**: POST yang membuat resource → `201`; bila dedup mengembalikan yang sudah ada → `200`. Handler kontrol via `reply(..., { status })`.
 
 ### `AppError` + katalog kode
 
