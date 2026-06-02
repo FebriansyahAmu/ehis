@@ -17,8 +17,8 @@ import { systemClock, type Clock } from "@/lib/core/clock";
 import { decryptPii } from "@/lib/crypto/pii";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
-import type { RegisterKunjunganInput, WorklistQuery, KunjunganDTO } from "@/lib/schemas/kunjungan";
-import type { KunjunganEntity } from "@/lib/dal/kunjunganDal";
+import type { RegisterKunjunganInput, WorklistQuery, KunjunganDTO, KunjunganListItemDTO } from "@/lib/schemas/kunjungan";
+import type { KunjunganEntity, KunjunganListEntity } from "@/lib/dal/kunjunganDal";
 
 type Dal = typeof defaultDal;
 type Bpjs = ReturnType<typeof makeBpjsService>;
@@ -85,6 +85,28 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
     };
   }
 
+  function toListDTO(k: KunjunganListEntity): KunjunganListItemDTO {
+    return {
+      id: k.id,
+      noKunjungan: k.noKunjungan,
+      unit: k.unit,
+      status: k.status,
+      waktuKunjungan: k.waktuKunjungan.toISOString(),
+      poli: k.poli,
+      dpjpId: k.dpjpId,
+      kelas: k.kelas,
+      triaseLevel: k.triaseLevel,
+      penjaminTipe: k.penjaminTipe,
+      penjaminId: k.penjaminId,
+      diagnosaMasuk: k.diagnosaMasuk,
+      kodeIcdMasuk: k.kodeIcdMasuk,
+      pasien: { id: k.pasien.id, noRm: k.pasien.noRm, nama: k.pasien.nama },
+      sep: k.sep ? { id: k.sep.id, noSep: k.sep.noSep, status: k.sep.status } : null,
+      version: k.version,
+      createdAt: k.createdAt.toISOString(),
+    };
+  }
+
   // ── Operasi ─────────────────────────────────────────────────────────────---
   /**
    * Pendaftaran Kunjungan Baru (RJ). Kontrak Patient↔Kunjungan (BACKEND-ENCOUNTER §10):
@@ -98,17 +120,23 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
       throw Errors.validation("Pasien belum lengkap datanya — lengkapi sebelum pendaftaran Rawat Jalan");
     }
 
-    // Penjamin yang dipakai: by id, else primer, else pertama.
+    const bpjsFlow = isBpjs(input.penjaminTipe);
+
+    // Penjamin yang TIPE-nya cocok (atau by id). Bila tak ada record cocok — mis. pasien
+    // Umum didaftarkan BPJS via verifikasi loket — penjaminId null; identitas BPJS tetap
+    // terbawa via snapshot `penjaminTipe` + No. Kartu hasil verifikasi.
     const penjamin = input.penjaminId
       ? patient.penjamin.find((p) => p.id === input.penjaminId)
-      : patient.penjamin.find((p) => p.isPrimer) ?? patient.penjamin[0];
+      : patient.penjamin.find((p) => p.tipe === input.penjaminTipe)
+        ?? (bpjsFlow ? undefined : patient.penjamin.find((p) => p.isPrimer) ?? patient.penjamin[0]);
     if (input.penjaminId && !penjamin) throw Errors.validation("Penjamin tidak ditemukan pada pasien");
 
-    const bpjsFlow = isBpjs(input.penjaminTipe);
+    // No. Kartu SEP: utamakan hasil verifikasi kepesertaan di loket (input.sep.noKartu),
+    // fallback ke nomor tersimpan di penjamin pasien (enc).
     let noKartu: string | undefined;
     if (bpjsFlow) {
-      if (!penjamin?.nomorEnc) throw Errors.validation("Penjamin BPJS tidak memiliki nomor kartu");
-      noKartu = decryptPii(penjamin.nomorEnc);
+      noKartu = input.sep?.noKartu?.trim() || (penjamin?.nomorEnc ? decryptPii(penjamin.nomorEnc) : undefined);
+      if (!noKartu) throw Errors.validation("No. Kartu BPJS belum ada — verifikasi kepesertaan dulu");
     }
 
     const waktu = combineDateTime(input.tanggal, input.jam);
@@ -171,7 +199,7 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
   }
 
   /** Worklist lintas unit (cursor). Default: status aktif bila filter kosong. */
-  async function getWorklist(query: WorklistQuery, _actor: Actor): Promise<{ items: KunjunganDTO[]; cursor: string | null }> {
+  async function getWorklist(query: WorklistQuery, _actor: Actor): Promise<{ items: KunjunganListItemDTO[]; cursor: string | null }> {
     const status = parseStatuses(query.status) ?? [...ACTIVE_STATUS];
     const { items, nextCursor } = await dal.listByUnitStatus({
       unit: query.unit,
@@ -179,7 +207,7 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
       cursor: query.cursor,
       limit: query.limit,
     });
-    return { items: items.map(toDTO), cursor: nextCursor };
+    return { items: items.map(toListDTO), cursor: nextCursor };
   }
 
   return { registerKunjungan, getKunjungan, getWorklist };

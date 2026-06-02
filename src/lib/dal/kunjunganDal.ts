@@ -45,14 +45,22 @@ export interface UpdateStatusPatch {
   invoiceId?: string;
 }
 
-// Relasi standar read detail: pasien ringkas + artefak BPJS (1:1).
+// Read DETAIL: pasien ringkas + artefak BPJS penuh (1:1) — utk halaman detail/cetak SEP.
 const detailInclude = {
   pasien: { select: { id: true, noRm: true, nama: true } },
   rujukan: true,
   sep: true,
 } as const;
 
+// Read LIST/worklist: pasien ringkas + ringkasan SEP saja (noSep/status utk badge).
+// Hindari over-fetch seluruh kolom SEP + rujukan per baris board.
+const listInclude = {
+  pasien: { select: { id: true, noRm: true, nama: true } },
+  sep: { select: { id: true, noSep: true, status: true } },
+} as const;
+
 export type KunjunganEntity = Awaited<ReturnType<typeof findById>>;
+export type KunjunganListEntity = Awaited<ReturnType<typeof listByUnitStatus>>["items"][number];
 
 // ── noKunjungan sequence (atomik, anti-race) ─────────────────────────────────--
 export async function nextNoKunjunganSeq(tx?: Tx): Promise<number> {
@@ -86,7 +94,7 @@ export async function listByUnitStatus(
       ...(unit ? { unit } : {}),
       ...(status && status.length ? { status: { in: status } } : {}),
     },
-    include: detailInclude,
+    include: listInclude,
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: limit + 1, // +1 → deteksi halaman berikutnya
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),

@@ -1,16 +1,26 @@
 "use client";
 
-import { Check, FileText } from "lucide-react";
+import { Check, FileText, Printer } from "lucide-react";
 import { motion } from "framer-motion";
-import type { KunjunganRecord } from "@/lib/data";
+import type { KunjunganDTO } from "@/lib/api/kunjungan";
+
+const PENJAMIN_LABEL: Record<string, string> = {
+  Umum: "Umum / Mandiri",
+  BPJS_Non_PBI: "BPJS Non-PBI",
+  BPJS_PBI: "BPJS PBI",
+  Asuransi: "Asuransi",
+  Jamkesda: "Jamkesda",
+};
 
 export function SuccessPanel({
-  created, kodebooking, onClose,
+  created, kodebooking, onClose, onCetakSep,
 }: {
-  created: KunjunganRecord;
+  created: KunjunganDTO;
   kodebooking?: string;
   onClose: () => void;
+  onCetakSep?: () => void;
 }) {
+  const sep = created.sep;
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 py-12 text-center" style={{ minHeight: 460 }}>
       <motion.div
@@ -23,34 +33,39 @@ export function SuccessPanel({
       </motion.div>
       <div>
         <p className="text-lg font-black text-slate-900">Kunjungan Terdaftar</p>
-        <p className="mt-1 text-sm text-slate-500">{created.unit} · {created.dokter}</p>
+        <p className="mt-1 text-sm text-slate-500">{created.pasien.nama} · {created.poli ?? created.unit}</p>
       </div>
 
       <div className="flex w-full max-w-xs flex-col gap-2 rounded-2xl bg-slate-50 px-6 py-5 text-left ring-1 ring-slate-200">
         <SuccessRow label="No. Kunjungan" value={created.noKunjungan} />
-        <SuccessRow label="No. Pendaftaran" value={created.noPendaftaran} />
-        {created.penjamin && <SuccessRow label="Penjamin" value={created.penjamin} />}
-        {created.noSEP && <SuccessRow label="No. SEP" value={created.noSEP} highlight />}
+        <SuccessRow label="No. RM" value={created.pasien.noRm} />
+        <SuccessRow label="Penjamin" value={PENJAMIN_LABEL[created.penjaminTipe] ?? created.penjaminTipe} />
+        {sep?.noSep && <SuccessRow label="No. SEP" value={sep.noSep} highlight />}
         {kodebooking && <SuccessRow label="Kode Booking" value={kodebooking} />}
       </div>
 
-      {created.noSEP && (
+      {sep?.noSep && (
         <p className="flex max-w-xs items-center justify-center gap-1.5 text-xs text-sky-600">
           <FileText size={12} /> SEP berhasil diterbitkan bersama pendaftaran kunjungan.
         </p>
       )}
-      {kodebooking && (
-        <p className="max-w-xs text-xs text-emerald-600">
-          Antrean diperbarui → status <span className="font-semibold">Menunggu Poli</span> (task 3 terkirim ke BPJS).
-        </p>
-      )}
 
-      <button
-        onClick={onClose}
-        className="rounded-xl bg-sky-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-700 active:scale-[0.98]"
-      >
-        Selesai
-      </button>
+      <div className="flex items-center gap-2.5">
+        {sep?.noSep && onCetakSep && (
+          <button
+            onClick={onCetakSep}
+            className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 active:scale-[0.98]"
+          >
+            <Printer size={15} /> Cetak SEP
+          </button>
+        )}
+        <button
+          onClick={onClose}
+          className="rounded-xl bg-sky-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-700 active:scale-[0.98]"
+        >
+          Selesai
+        </button>
+      </div>
     </div>
   );
 }

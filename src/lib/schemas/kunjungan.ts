@@ -34,6 +34,8 @@ export const RujukanInput = z.object({
 
 export const SepInput = z.object({
   ppkPelayanan: z.string().trim().min(1).max(20),
+  /** No. Kartu hasil verifikasi kepesertaan di loket (sumber No. Kartu SEP). */
+  noKartu: z.string().trim().max(40).optional(),
   jnsPelayanan: JenisPelayananSep.default("RawatJalan"),
   klsRawatHak: z.enum(["1", "2", "3"]).optional(),
   noMr: z.string().trim().max(40).optional(),
@@ -149,6 +151,27 @@ export interface SepDTO {
   katarak: boolean;
   catatan: string | null;
   userPembuat: string | null;
+  createdAt: string;
+}
+
+// Item worklist (ringan) — SEP cuma ringkasan (badge), rujukan tak dimuat.
+export interface KunjunganListItemDTO {
+  id: string;
+  noKunjungan: string;
+  unit: string;
+  status: string;
+  waktuKunjungan: string; // ISO datetime
+  poli: string | null;
+  dpjpId: string | null;
+  kelas: string | null;
+  triaseLevel: number | null;
+  penjaminTipe: string;
+  penjaminId: string | null;
+  diagnosaMasuk: string | null;
+  kodeIcdMasuk: string | null;
+  pasien: { id: string; noRm: string; nama: string };
+  sep: { id: string; noSep: string | null; status: string } | null;
+  version: number;
   createdAt: string;
 }
 
