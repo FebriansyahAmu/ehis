@@ -54,7 +54,7 @@ model Pegawai {
   /// HMAC-SHA256 NIK utk lookup/dedup + uniqueness (ciphertext tak bisa di-WHERE). WAJIB unik.
   nikHash String @unique @map("nik_hash")
   /// Nomor pegawai — resmi (ASN) / auto-generate (non-ASN, di Service).
-  nip     String  @unique
+  nip     String @unique
 
   namaLengkap   String       @map("nama_lengkap")
   gelarDepan    String?      @map("gelar_depan")
@@ -142,13 +142,13 @@ model JadwalShift {
 }
 
 model Absensi {
-  id        String        @id @default(uuid(7)) @db.Uuid
-  pegawaiId String        @map("pegawai_id") @db.Uuid
-  tanggal   DateTime      @db.Date
-  shiftId   String?       @map("shift_id") @db.Uuid
-  jamMasuk  DateTime?     @map("jam_masuk") @db.Time(0)
-  jamKeluar DateTime?     @map("jam_keluar") @db.Time(0)
-  status    StatusAbsensi @default(Hadir)
+  id         String        @id @default(uuid(7)) @db.Uuid
+  pegawaiId  String        @map("pegawai_id") @db.Uuid
+  tanggal    DateTime      @db.Date
+  shiftId    String?       @map("shift_id") @db.Uuid
+  jamMasuk   DateTime?     @map("jam_masuk") @db.Time(0)
+  jamKeluar  DateTime?     @map("jam_keluar") @db.Time(0)
+  status     StatusAbsensi @default(Hadir)
   keterangan String?
 
   pegawai Pegawai @relation(fields: [pegawaiId], references: [id], onDelete: Cascade)

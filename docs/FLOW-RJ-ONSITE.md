@@ -106,10 +106,10 @@ PROSEDUR PoliLayani(kunjungan):                       # worklist RJ, status awal
     GUARD: diagnosa ICD-10 utama WAJIB terisi          # else tombol disabled
     emitTask(kodebooking, 5)                          # selesai poli → sisa antrean berkurang
     selesaiAt ← now   (IMMUTABLE)
-    lockEncounter()                                   # read-only; whitelist: kontrol·surat·cetak
+    lockKunjungan()                                   # read-only; whitelist: kontrol·surat·cetak
     status ← (ada resep ? MenungguFarmasi : Selesai)
   AKSI Batalkan Selesai:
-    unlockEncounter()                                 # selesaiAt TIDAK berubah
+    unlockKunjungan()                                 # selesaiAt TIDAK berubah
 
 ══════════════════════════════════════════════════════════════
  FASE 4 — FARMASI (hanya jika ada resep)   [/ehis-care/farmasi]

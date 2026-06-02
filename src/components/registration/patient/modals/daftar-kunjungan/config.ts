@@ -3,14 +3,11 @@
 
 import { AlertCircle, Stethoscope, BedDouble } from "lucide-react";
 import type { TipePenjamin } from "@/lib/data";
+import type { IcdOption } from "@/components/registration/kunjungan/Tabs/rujukan/rujukanTypes";
 
 export type UnitDaftar = "IGD" | "Rawat Jalan" | "Rawat Inap";
 export type CaraMasuk = "Datang Sendiri" | "Rujukan Puskesmas" | "Rujukan RS" | "Transfer Internal";
 export type TriaseLevel = 1 | 2 | 3 | 4 | 5;
-
-export const CARA_MASUK_OPTS: CaraMasuk[] = [
-  "Datang Sendiri", "Rujukan Puskesmas", "Rujukan RS", "Transfer Internal",
-];
 
 export const TRIASE_CFG: Record<TriaseLevel, { label: string; idle: string; active: string }> = {
   1: { label: "I — Resusitasi", idle: "border-rose-200 bg-rose-50 text-rose-700", active: "border-rose-600 bg-rose-600 text-white" },
@@ -89,7 +86,6 @@ export interface KunjunganForm {
   tanggal: string;
   jam: string;
   caraMasuk: CaraMasuk;
-  noRujukan: string;
   dokter: string;
   keluhan: string;
   triase: TriaseLevel;
@@ -107,8 +103,16 @@ export interface PenjaminForm {
   noPolis: string;
 }
 
-export type WizardStepId = "kunjungan" | "penjamin" | "sep" | "review";
+export type WizardStepId = "kunjungan" | "penjamin" | "rujukan" | "sep" | "review";
 export interface WizardStep { id: WizardStepId; label: string }
+
+// Rujukan untuk SEP Rawat Jalan BPJS. `noRujukan` + `diagnosa` = data inti.
+// source "masuk" = rujukan FKTP via BPJS · "kontrol" = kontrol pasca ranap (No. SEP terakhir).
+export interface RujukanPick {
+  source: "masuk" | "kontrol";
+  noRujukan: string;
+  diagnosa: IcdOption | null;
+}
 
 // ── Style tokens bersama antar-step ─────────────────────────
 export const inputCls =

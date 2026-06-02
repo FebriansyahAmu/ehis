@@ -198,7 +198,7 @@ Emit ke **BACKEND-AUDIT**: `LOGIN`, `LOGIN_FAILED`, `LOGOUT`, `REFRESH`, `REVOKE
 ### AUTH3 — Guards & enforcement
 - [ ] `requireAuth`/`requirePermission`/`requireScope` + `Actor` type.
 - [ ] Cache RBAC `perm:{roleId}` (cache-aside + invalidate).
-- [ ] Integrasi 1 domain percontohan (Encounter) sebagai bukti.
+- [ ] Integrasi 1 domain percontohan (Kunjungan) sebagai bukti.
 
 ### AUTH4 — API & UI
 - [ ] Route `/api/v1/auth/*` (login/refresh/logout/mfa/me) tipis + envelope.

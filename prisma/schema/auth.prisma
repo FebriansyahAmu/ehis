@@ -39,8 +39,8 @@ model User {
   /// Identitas tampil (nama/email/noHp/foto/nip) TIDAK diduplikasi di sini —
   /// single source of truth = sdm.Pegawai (baca via relasi `pegawai`).
   /// Tampilan cepat (header/sesi) → JWT claim saat login, bukan kolom. Audit → snapshot di baris audit.
-  username     String  @unique @db.Citext
-  passwordHash String  @map("password_hash")
+  username     String @unique @db.Citext
+  passwordHash String @map("password_hash")
 
   status             UserStatus @default(Active)
   /// Bump = revoke SEMUA sesi user (dicek per-request via Redis). BACKEND-AUTH §3.

@@ -1,7 +1,7 @@
 # EHIS Backend — **FLOWS** (Core Rules · Tech · Best Practices)
 
 > 🏛️ **Dokumen INTI backend.** Semua aturan, keputusan teknologi, konvensi, dan best practice
-> lintas-domain ada di sini. **Setiap dokumen `BACKEND-{DOMAIN}` (Encounter/Auth/Patient/…) MEWARISI
+> lintas-domain ada di sini. **Setiap dokumen `BACKEND-{DOMAIN}` (Kunjungan/Auth/Patient/…) MEWARISI
 > dokumen ini** — domain doc hanya menjelaskan _apa_ yang domain itu lakukan; FLOWS menjelaskan _bagaimana_
 > kita membangunnya. Jika ada konflik, **FLOWS yang menang.**
 >
@@ -104,7 +104,7 @@ src/
 
 ### Use-case / Orchestrator services (cross-domain)
 
-Sebagian alur melampaui 1 domain (mis. **admisi** = Patient + Encounter + Invoice + SEP + emit antrean dalam **1 transaksi**). Logika komposisi ini **tidak** ditaruh di salah satu domain service (biar domain tetap murni & tak saling tahu). → **use-case service** di `lib/services/usecases/<flow>Service.ts` (mis. `registrationService`, `dischargeService`) yang:
+Sebagian alur melampaui 1 domain (mis. **admisi** = Patient + Kunjungan + Invoice + SEP + emit antrean dalam **1 transaksi**). Logika komposisi ini **tidak** ditaruh di salah satu domain service (biar domain tetap murni & tak saling tahu). → **use-case service** di `lib/services/usecases/<flow>Service.ts` (mis. `registrationService`, `dischargeService`) yang:
 - memanggil beberapa **domain service** + memegang **batas transaksi lintas-domain**;
 - **tidak punya DAL sendiri** (delegasi ke domain);
 - jadi satu-satunya tempat alur bisnis multi-domain.
@@ -121,7 +121,7 @@ Domain service tetap fokus 1 domain & murni. Route memanggil **use-case service*
 | Konstruk DB | Verdict | Pakai untuk (EHIS) | Hindari untuk |
 |---|---|---|---|
 | **Sequence** | ✅ | `noRM`/`noSEP`/no.invoice/no.antrean — ganti `max+1` yang race-prone | — |
-| **View** | ✅ (read) | worklist (`Encounter` by unit+status), join read kompleks | menyembunyikan mutasi |
+| **View** | ✅ (read) | worklist (`Kunjungan` by unit+status), join read kompleks | menyembunyikan mutasi |
 | **Materialized View** | ✅ | agregat berat: BOR/ALOS Dashboard, laporan bulanan (refresh via job) | data real-time |
 | **Function** | ⚠️ selektif | dipakai dalam RLS policy, generated column (umur, index JSONB) | business rule |
 | **Trigger** | ⚠️ guarantee saja | `updated_at` · immutability RME locked · audit backstop · counter denormal | **workflow bisnis** (transisi, tarif) |
@@ -200,7 +200,7 @@ Service melempar `AppError(code, httpStatus, message, details?)`. **Satu** `hand
 ## 5. Validasi & DTO
 
 - **Validasi di boundary Route** dengan Zod **sebelum** masuk Service. Service hanya terima DTO valid & typed.
-- **Input DTO** = Zod schema (`z.infer`). Discriminated union untuk varian (mis. Encounter per `unit`).
+- **Input DTO** = Zod schema (`z.infer`). Discriminated union untuk varian (mis. Kunjungan per `unit`).
 - **Output DTO** = mapping eksplisit dari entity (Service) — **buang** field sensitif (passwordHash, token, NIK bila tak perlu). Jangan kirim entity Prisma mentah.
 - Batas: `limit ≤ 50` untuk list; string panjang dibatasi; sanitasi rich-text catatan klinis (anti-XSS, §8).
 - Schema co-located di `lib/schemas/<domain>.ts`, dipakai bareng Route + (opsional) client.
@@ -229,7 +229,7 @@ Service melempar `AppError(code, httpStatus, message, details?)`. **Satu** `hand
 
 1. **RME append-only (PMK 24/2022)** — record klinis terverifikasi/terkunci **tak boleh overwrite**. Perubahan = **addendum berversi** (`revisedBy`/`revisedAt`/`supersededById`). CPPT yang sudah di-co-sign DPJP & encounter `locked` → kunci.
 2. **Soft-delete default** — `deletedAt`; filter default di DAL. **Hard-delete dilarang** untuk data klinis/finansial (retensi legal).
-3. **Optimistic concurrency** — kolom `version` di entity yang diedit banyak staf (Encounter, klinis). Update kirim `expectedVersion` → mismatch = `CONFLICT_VERSION` (409).
+3. **Optimistic concurrency** — kolom `version` di entity yang diedit banyak staf (Kunjungan, klinis). Update kirim `expectedVersion` → mismatch = `CONFLICT_VERSION` (409).
 4. **Idempotency** — semua POST/PUT/DELETE terima `Idempotency-Key`. Simpan hasil per key (Redis, TTL) → replay balas hasil sama. Cegah double SEP/invoice/charge.
 5. **Transaksi** — operasi multi-tabel di **Service** via `prisma.$transaction`. DAL terima `tx?`. Gagal = rollback total (tak ada record setengah jadi).
 6. **Timezone** — simpan **UTC** di DB; render WIB di edge/UI. Timestamp klinis legal-sensitif.
@@ -255,7 +255,7 @@ Service melempar `AppError(code, httpStatus, message, details?)`. **Satu** `hand
 
 ## 9. Konvensi database (PostgreSQL)
 
-- **Topologi (terkunci 2026-06-01): 1 database fisik · multi-schema per modul** (Prisma `multiSchema`, GA di Prisma 7). Namespace: `auth` · `patient` · `encounter` · `order` · `billing` · `claim` · `master` · `antrean` · `audit`. Tiap model `@@schema("<modul>")`. **FK & transaksi lintas-schema OK** (tetap 1 DB). Kode dipecah **1 file `.prisma` per modul** di `prisma/schema/` (`prismaSchemaFolder`, di-merge) + `config.prisma` (generator+datasource). **1 migration history · 1 Client · 1 pool**. *(Ingat: banyak FILE .prisma = organisasi kode; multi Postgres-schema `@@schema` = namespace DB — dua hal beda.)* **BUKAN** database-per-modul (akan memutus FK + butuh distributed-tx — tak perlu untuk monolit).
+- **Topologi (terkunci 2026-06-01): 1 database fisik · multi-schema per modul** (Prisma `multiSchema`, GA di Prisma 7). Namespace: `auth` · `sdm` · `pendaftaran` · `encounter` · `bpjs` · `order` · `billing` · `claim` · `master` · `antrean` · `audit`. Tiap model `@@schema("<modul>")`. **FK & transaksi lintas-schema OK** (tetap 1 DB). Kode dipecah **1 file `.prisma` per modul** di `prisma/schema/` (`prismaSchemaFolder`, di-merge) + `config.prisma` (generator+datasource). **1 migration history · 1 Client · 1 pool**. *(Ingat: banyak FILE .prisma = organisasi kode; multi Postgres-schema `@@schema` = namespace DB — dua hal beda.)* **BUKAN** database-per-modul (akan memutus FK + butuh distributed-tx — tak perlu untuk monolit).
 - **Modular-monolith discipline**: DAL domain **hanya** akses schema-nya sendiri; data domain lain diakses **lewat Service domain itu** (bukan query langsung). FK boleh lintas-schema, tapi **write tetap di domain pemilik**. Ini menjaga boundary modul + memudahkan ekstraksi nanti bila perlu.
 - **Penamaan**: tabel/kolom Prisma camelCase model → snake_case di DB via `@@map`/`@map` (konsisten). FK `<entity>Id`.
 - **PK = UUID v7** (`@id @default(uuid(7)) @db.Uuid`) — native 16-byte + **time-ordered** (locality index bagus untuk insert volume tinggi; lebih baik dari cuid-string atau uuid v4 random). Client-generated → tak butuh extension.
@@ -275,7 +275,7 @@ Service melempar `AppError(code, httpStatus, message, details?)`. **Satu** `hand
 ## 10. Realtime (SSE + Redis Pub/Sub)
 
 - **Arah**: server→client satu arah. Service emit domain event → publish ke **Redis channel** → SSE handler (Node) fan-out ke client subscriber.
-- **Channel naming**: `board:{unit}` (worklist IGD/RJ/RI), `display:antrean`, `display:farmasi`, `order:{encounterId}` (hasil lab/rad rilis).
+- **Channel naming**: `board:{unit}` (worklist IGD/RJ/RI), `display:antrean`, `display:farmasi`, `order:{kunjunganId}` (hasil lab/rad rilis).
 - **Payload ringkas** — kirim id + delta state (status, nomorAntrean), **bukan** full record. Client refetch detail via TanStack Query bila perlu.
 - **Scope di SSE** — subscriber hanya terima channel sesuai unit/role (authz juga di koneksi SSE).
 - **Client**: TanStack Query untuk cache + optimistic update; SSE event → `queryClient.invalidateQueries`. Polling = fallback saja.
@@ -315,7 +315,7 @@ Service melempar `AppError(code, httpStatus, message, details?)`. **Satu** `hand
 
 - **File ≤ 800 baris** (konsisten dengan frontend) — split bila lebih.
 - **Penamaan file**: `<domain>Service.ts`, `<domain>Dal.ts`, `<domain>.ts` (schema). camelCase fungsi, PascalCase tipe.
-- **Fungsi Service** = verba domain (`openEncounter`, `completeEncounter`), bukan CRUD generik.
+- **Fungsi Service** = verba domain (`openKunjungan`, `completeKunjungan`), bukan CRUD generik.
 - **Fungsi DAL** = CRUD/query (`findById`, `listByUnitStatus`, `updateStatus`).
 - **Clean code**: fungsi kecil & single-purpose; early-return; no magic number (konstanta bernama); komentar menjelaskan _kenapa_, bukan _apa_.
 - **Pure & testable**: business logic di Service = pure sejauh mungkin (efek samping via DAL/emitter yang di-inject).
@@ -337,8 +337,8 @@ Service melempar `AppError(code, httpStatus, message, details?)`. **Satu** `hand
 | **Contract** | Zod schema ↔ DTO tetap selaras dgn frontend | type-check + fixture | tiap schema |
 
 ### Yang WAJIB di-unit-test (Service)
-- **State machine** — tiap transisi sah + tiap transisi ilegal ditolak (`FORBIDDEN_STATE`). Mis. Encounter: `Queued→InService` ok, `Completed→InService` setelah Billed ditolak.
-- **Guard bisnis** — mis. `completeEncounter` tanpa diagnosa → `VALIDATION`.
+- **State machine** — tiap transisi sah + tiap transisi ilegal ditolak (`FORBIDDEN_STATE`). Mis. Kunjungan: `Queued→InService` ok, `Completed→InService` setelah Billed ditolak.
+- **Guard bisnis** — mis. `completeKunjungan` tanpa diagnosa → `VALIDATION`.
 - **Authz** — actor luar unit-scope → `NOT_FOUND`/`FORBIDDEN`.
 - **Optimistic concurrency** — `expectedVersion` stale → `CONFLICT_VERSION`.
 - **Idempotency** — replay key → hasil sama, tak dobel.
@@ -348,7 +348,7 @@ Service melempar `AppError(code, httpStatus, message, details?)`. **Satu** `hand
 - **Inject seam yang perlu di-mock**: DAL, **clock `now()`**, **id-gen**, event emitter, client eksternal (BPJS) — sebagai dependency, bukan import langsung di tengah logic. → Service deterministik & murni.
 - **Determinisme**: dilarang `Date.now()`/`Math.random()` langsung di Service — pakai `clock`/`genId` yang di-inject. (Mock store frontend pakai `Date.now()` — di backend ini diganti.) Test set waktu/id tetap → assert tepat.
 - **Test factory/fixture** per entity (builder pasien/encounter) — hindari duplikasi setup.
-- **AAA** (Arrange-Act-Assert), 1 perilaku per test, nama deskriptif (`completeEncounter_tanpaDiagnosa_tolak`).
+- **AAA** (Arrange-Act-Assert), 1 perilaku per test, nama deskriptif (`completeKunjungan_tanpaDiagnosa_tolak`).
 
 ### Coverage & CI
 - **Gate wajib ≥ ~85%** pada **business logic kritis**: state machine, authz/scope, guard, error mapping, perhitungan finansial (tarif/invoice/iDRG). UI-glue & boilerplate tak dikejar 100%.
@@ -360,7 +360,7 @@ Service melempar `AppError(code, httpStatus, message, details?)`. **Satu** `hand
 ## 16. Konvensi API
 
 - **Versioning**: `/api/v1/...`. Breaking change → `/api/v2`.
-- **Resource naming**: plural noun (`/encounters`, `/patients`), sub-resource (`/encounters/:id/complete` untuk aksi non-CRUD = verba).
+- **Resource naming**: plural noun (`/kunjungan`, `/patients`), sub-resource (`/kunjungan/:id/complete` untuk aksi non-CRUD = verba).
 - **Pagination**: **cursor-based** untuk list besar (`?cursor=&limit=`), bukan offset. Response `meta.cursor`.
 - **Filtering**: query param eksplisit (`?unit=&status=`), divalidasi Zod.
 - **Idempotency**: header `Idempotency-Key` wajib untuk mutation.
@@ -379,7 +379,7 @@ Setiap `BACKEND-{DOMAIN}.md` mengikuti struktur ini (lihat [BACKEND-ENCOUNTER.md
 | Domain                         | File                                      | Status             |
 | ------------------------------ | ----------------------------------------- | ------------------ |
 | Core rules                     | **BACKEND-FLOWS** (ini)                   | ✅ v1              |
-| Encounter (akar)               | [BACKEND-ENCOUNTER](BACKEND-ENCOUNTER.md) | ✅ spec            |
+| Kunjungan (akar)               | [BACKEND-ENCOUNTER](BACKEND-ENCOUNTER.md) | ✅ spec            |
 | Auth & session                 | [BACKEND-AUTH](BACKEND-AUTH.md)           | ✅ spec            |
 | Patient                        | [BACKEND-PATIENT](BACKEND-PATIENT.md)     | ✅ spec            |
 | Antrean (TaskID)               | BACKEND-ANTREAN                           | 📋                 |

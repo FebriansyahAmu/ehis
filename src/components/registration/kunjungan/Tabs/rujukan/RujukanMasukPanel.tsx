@@ -210,7 +210,7 @@ function PilihRujukanFooter({
 
 // ─── RujukanMasukPanel ────────────────────────────────────────
 
-export function RujukanMasukPanel({ noBpjs }: { noBpjs: string }) {
+export function RujukanMasukPanel({ noBpjs, onPick }: { noBpjs: string; onPick?: (r: BpjsRujukanItem) => void }) {
   const [fetchState,  setFetchState]  = useState<FetchState>("idle");
   const [rujukanList, setRujukanList] = useState<BpjsRujukanItem[]>([]);
   const [selectedId,  setSelectedId]  = useState<string | null>(null);
@@ -340,7 +340,7 @@ export function RujukanMasukPanel({ noBpjs }: { noBpjs: string }) {
                 <PilihRujukanFooter
                   rujukan={selectedRujukan}
                   picked={pickedId === selectedRujukan.idrujukan}
-                  onPilih={() => setPickedId(selectedRujukan.idrujukan)}
+                  onPilih={() => { setPickedId(selectedRujukan.idrujukan); onPick?.(selectedRujukan); }}
                 />
               </motion.div>
             )}

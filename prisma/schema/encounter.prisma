@@ -1,22 +1,29 @@
 // ════════════════════════════════════════════════════════════════════════════
-//  MODUL: ENCOUNTER / Kunjungan  (Postgres schema "encounter")
-//  Acuan: docs/BACKEND-ENCOUNTER.md · konsolidasi 3 store FE (registrationStore
-//  kunjungan + rjQueueStore order/lock + antrean kodebooking).
+//  MODUL: ENCOUNTER / Kunjungan  (Postgres schema "encounter", tabel "kunjungan")
+//  Acuan: docs/BACKEND-ENCOUNTER.md · form referensi: modal "Pendaftaran Kunjungan
+//  Baru" (DaftarKunjunganModal — wizard Kunjungan/Penjamin/Rujukan/SEP).
 //
-//  Encounter = SUMBU TUNGGAL (spine state machine). 1 baris = 1 episode kunjungan.
-//  Menyembuhkan 2 break spine: worklist = query (unit,status); invoice dibuat saat
-//  Registered→Queued. Data klinis/transaksional TIDAK di sini → menggantung via encounterId.
+//  Kunjungan = SUMBU TUNGGAL (spine state machine). 1 baris = 1 episode kunjungan
+//  (IGD/RawatJalan/RawatInap). Menyembuhkan 2 break spine: worklist = query
+//  (unit,status); invoice dibuat saat Registered→Queued. Data klinis/transaksional
+//  TIDAK di sini → menggantung via kunjunganId.
 //
-//  FK riil sekarang: patientId → pendaftaran.Pasien (lintas-schema, 1 DB).
-//  Tautan domain belum-ada (dpjp/antrean/invoice/bed) = UUID placeholder, jadikan FK
-//  saat modulnya siap (pola Pasien.practitionerId). Enum TipePenjamin reuse dari pendaftaran.
+//  Relasi flow:
+//    pendaftaran.Pasien 1───* Kunjungan                 (siapa yang berkunjung)
+//    pendaftaran.PasienPenjamin 1───* Kunjungan         (penjamin dipakai; no. BPJS di penjamin)
+//    Kunjungan 1───0..1 bpjs.Rujukan                    (rujukan masuk / kontrol pasca ranap)
+//    Kunjungan 1───0..1 bpjs.SEP                         (SEP terbit utk kunjungan ini)
+//    bpjs.SEP *───0..1 bpjs.Rujukan                      (SEP dibuat dari rujukan)
+//
+//  FK riil: patientId/penjaminId → pendaftaran (lintas-schema, 1 DB). Tautan domain
+//  belum-ada (dpjp/antrean/invoice/bed) = UUID placeholder, jadikan FK saat modul siap.
 //
 //  Konvensi (FLOWS §9): uuid v7 · timestamptz · soft-delete · optimistic concurrency.
 // ════════════════════════════════════════════════════════════════════════════
 
 // ── Enums ─────────────────────────────────────────────────────────────────---
 
-enum EncounterUnit {
+enum KunjunganUnit {
   IGD
   RawatJalan
   RawatInap
@@ -25,7 +32,7 @@ enum EncounterUnit {
 }
 
 /// Lifecycle terpadu worklist lintas unit (BACKEND-ENCOUNTER §3).
-enum EncounterStatus {
+enum KunjunganStatus {
   Registered
   Queued
   InService
@@ -59,9 +66,9 @@ enum KelasRawat {
   @@schema("encounter")
 }
 
-// ── Encounter (tabel inti / spine) ────────────────────────────────────────────
+// ── Kunjungan (tabel inti / spine) ────────────────────────────────────────────
 
-model Encounter {
+model Kunjungan {
   id String @id @default(uuid(7)) @db.Uuid
 
   // ── Pasien (FK riil lintas-schema) ──
@@ -69,11 +76,13 @@ model Encounter {
   pasien    Pasien @relation(fields: [patientId], references: [id], onDelete: Restrict)
 
   // ── Header ──
-  unit          EncounterUnit
-  status        EncounterStatus @default(Registered)
-  /// Mirror KunjunganRecord.noKunjungan ("RJ/2026/xxxx") — Service generate.
-  noKunjungan   String          @unique @map("no_kunjungan")
-  noPendaftaran String?         @map("no_pendaftaran") // "REG-..."
+  unit           KunjunganUnit
+  status         KunjunganStatus @default(Registered)
+  /// "RJ/2026/xxxx" — Service generate (sequence per unit).
+  noKunjungan    String          @unique @map("no_kunjungan")
+  noPendaftaran  String?         @map("no_pendaftaran") // "REG-..."
+  /// Waktu kunjungan (tanggal + jam dari modal, digabung di Service).
+  waktuKunjungan DateTime        @default(now()) @map("waktu_kunjungan") @db.Timestamptz(3)
 
   /// Link spine TaskID antrol (RJ/onsite/MJKN). FK→Antrean saat modul siap.
   antreanKodebooking String? @unique @map("antrean_kodebooking")
@@ -81,25 +90,34 @@ model Encounter {
   dpjpId             String? @map("dpjp_id") @db.Uuid
 
   // ── Field per-unit (validasi unit-spesifik di Zod/Service) ──
-  poli        String? // RJ
+  poli        String? // RJ — poli tujuan
   kelas       KelasRawat? // RI
   /// Bed RI — FK→master Bed/Ruangan saat siap. Alokasi/status bed bukan domain ini.
   bedId       String?     @map("bed_id") @db.Uuid
   triaseLevel Int?        @map("triase_level") // IGD 1..5 (CHECK di SQL)
+  caraDatang  String?     @map("cara_datang") // IGD: Jalan Kaki/Ambulans/Kendaraan Pribadi
+  asalMasuk   String?     @map("asal_masuk") // RI: Dari IGD/Dari Poli/Langsung
 
   // ── Sub-state panggilan (kolom sekunder, bukan status puncak) ──
   callState   CallState? @map("call_state")
   recallCount Int        @default(0) @map("recall_count")
 
   // ── Klinis masuk ──
-  caraMasuk String? @map("cara_masuk")
-  keluhan   String? // keluhan masuk (text)
+  caraMasuk     String? @map("cara_masuk")
+  keluhan       String? // keluhan masuk (text, opsional)
+  /// Diagnosa masuk (denormalisasi dari rujukan utk tampilan cepat; otoritatif di bpjs.Rujukan).
+  diagnosaMasuk String? @map("diagnosa_masuk")
+  kodeIcdMasuk  String? @map("kode_icd_masuk") // ICD-10
 
-  // ── Penjamin kunjungan (enum reuse pendaftaran) ──
-  penjaminTipe TipePenjamin @default(Umum) @map("penjamin_tipe")
-  noPenjamin   String?      @map("no_penjamin") // no kartu
-  noSEP        String?      @map("no_sep") // diisi domain Claim
-  noRujukan    String?      @map("no_rujukan")
+  // ── Penjamin kunjungan (snapshot tipe utk worklist + FK ke penjamin pasien) ──
+  penjaminTipe TipePenjamin    @default(Umum) @map("penjamin_tipe")
+  /// Penjamin yang dipakai utk kunjungan ini. No. kartu/BPJS disimpan di PasienPenjamin (enc).
+  penjaminId   String?         @map("penjamin_id") @db.Uuid
+  penjamin     PasienPenjamin? @relation(fields: [penjaminId], references: [id], onDelete: SetNull)
+
+  // ── BPJS (1:1, schema bpjs) ──
+  rujukan Rujukan?
+  sep     SEP?
 
   // ── Tautan invoice (1:1, dibuat saat Registered→Queued) ──
   invoiceId String? @unique @map("invoice_id") @db.Uuid // FK→billing.Invoice saat siap
@@ -117,8 +135,9 @@ model Encounter {
 
   @@index([unit, status, createdAt]) // worklist (query terpanas)
   @@index([patientId]) // timeline pasien
+  @@index([penjaminId])
   @@index([dpjpId])
   @@index([createdAt, id]) // cursor pagination
-  @@map("encounter")
+  @@map("kunjungan")
   @@schema("encounter")
 }

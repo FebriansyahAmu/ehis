@@ -1,6 +1,6 @@
 # EHIS Backend — Domain: **Patient** (Identitas Pasien / Master Pasien)
 
-> Identitas tunggal pasien — akar bersama dengan Encounter. **Tabel pertama B0** (semua FK menggantung ke `Patient`).
+> Identitas tunggal pasien — akar bersama dengan Kunjungan. **Tabel pertama B0** (semua FK menggantung ke `Patient`).
 > Menutup gap kontrak registrasi (audit pra-backend): `noKK` · `dataLengkap` · mapping wilayah BPJS↔Kemendagri · **NIK dedup** (cegah double-MRN).
 >
 > ⚖️ **Mewarisi [BACKEND-FLOWS.md](BACKEND-FLOWS.md).** Bila konflik, FLOWS menang.
@@ -22,12 +22,12 @@
 - **Merge** duplikat (resolusi double-MRN).
 
 **Patient TIDAK owns** (FK / delegasi):
-- Kunjungan/episode → **BACKEND-ENCOUNTER** (`Encounter.patientId`).
-- Antrean, order, billing, klaim → domain masing-masing (via Encounter).
-- Rekam klinis (asesmen/CPPT/diagnosa) → domain klinis (`encounterId`, bukan `patientId`).
+- Kunjungan/episode → **BACKEND-ENCOUNTER** (`Kunjungan.patientId`).
+- Antrean, order, billing, klaim → domain masing-masing (via Kunjungan).
+- Rekam klinis (asesmen/CPPT/diagnosa) → domain klinis (`kunjunganId`, bukan `patientId`).
 - Alergi yang ditemukan saat asesmen klinis → domain klinis; Patient hanya simpan **alergi awal** (registrasi).
 
-> **Prinsip:** Patient = identitas + demografi stabil. Data yang berubah per-kunjungan menggantung di Encounter.
+> **Prinsip:** Patient = identitas + demografi stabil. Data yang berubah per-kunjungan menggantung di Kunjungan.
 
 ---
 
@@ -92,14 +92,14 @@ Active ──(soft-delete)──▶ Deleted        Active ──(merge)──▶
 - **Draft** — dibuat minimal (NIK · nama · TTL · noHP) saat kiosk/MJKN/walk-in cepat; `noRM` sudah terbit.
 - **Complete** — di admisi, field demografi dilengkapi → `dataLengkap=true`.
 - **Mr.X** — IGD pasien tak dikenal: `isAnonim=true`, NIK kosong (partial-unique melewati); identitas dilengkapi belakangan → ambil jalur dedup.
-- **Merge** — bila ditemukan 2 `noRM` untuk 1 orang: pilih survivor, set `mergedIntoId` di loser, **re-assign `Encounter.patientId`** ke survivor (transaksi), audit. Lookup loser noRM redirect ke survivor. *(Advanced — schema disiapkan, operasi bisa fase-later.)*
+- **Merge** — bila ditemukan 2 `noRM` untuk 1 orang: pilih survivor, set `mergedIntoId` di loser, **re-assign `Kunjungan.patientId`** ke survivor (transaksi), audit. Lookup loser noRM redirect ke survivor. *(Advanced — schema disiapkan, operasi bisa fase-later.)*
 
 ---
 
 ## 4. Layer breakdown
 
 ### 4.1 DAL — `lib/dal/patientDal.ts`
-- `create(data, tx?)` · `findById(id, actor)` · `findByNoRM(noRM, actor)` · `findByNik(nik)` (untuk dedup) · `searchByNamaTglLahir(q)` (trigram) · `update(id, {expectedVersion, patch}, tx?)` (version guard) · `softDelete` · `reassignEncounters(loserId, survivorId, tx)` (merge).
+- `create(data, tx?)` · `findById(id, actor)` · `findByNoRM(noRM, actor)` · `findByNik(nik)` (untuk dedup) · `searchByNamaTglLahir(q)` (trigram) · `update(id, {expectedVersion, patch}, tx?)` (version guard) · `softDelete` · `reassignKunjungan(loserId, survivorId, tx)` (merge).
 - `nextNoRM(tx)` — pakai **sequence** Postgres.
 - `scopeBy(actor)` — pasien umumnya readable lintas unit oleh role klinis; tetap audit akses (data sensitif).
 
@@ -108,7 +108,7 @@ Active ──(soft-delete)──▶ Deleted        Active ──(merge)──▶
 - `completePatient(id, input, actor)` — lengkapi draft → `dataLengkap=true`.
 - `autofillFromBpjs(peserta: BpjsPesertaAutofill)` — `bpjsPesertaToForm()`: map field + **mapping wilayah** (Kemendagri + simpan kode BPJS) + **swap rt/rw**.
 - `searchPatient(query, actor)` — by NIK/noRM (exact) atau nama+tglLahir (fuzzy trigram).
-- `mergePatients(loserId, survivorId, actor)` — **tx**: set `mergedIntoId` + `reassignEncounters` + audit. Guard role (Admin).
+- `mergePatients(loserId, survivorId, actor)` — **tx**: set `mergedIntoId` + `reassignKunjungan` + audit. Guard role (Admin).
 - Inject `clock`/`genId`. PII-encryption di boundary simpan/baca.
 
 ### 4.3 Schema/DTO — `lib/schemas/patient.ts` (Zod)
@@ -175,7 +175,7 @@ Idempotency-Key wajib untuk POST (cegah double-create saat retry).
 - [ ] Format helper `RM-{th}-{seq}` (Service, pakai `nextval`). Seed dari `patientMasterData` mock.
 
 ### PAT1 — DAL
-- [x] `patientDal` (create/findById/findByNoRm/findByNikHash/findByPasporHash/searchByNama trigram+cursor/updateWithVersion/upsertAddress/softDelete/nextNoRmSeq). `reassignEncounters` (merge) = fase later.
+- [x] `patientDal` (create/findById/findByNoRm/findByNikHash/findByPasporHash/searchByNama trigram+cursor/updateWithVersion/upsertAddress/softDelete/nextNoRmSeq). `reassignKunjungan` (merge) = fase later.
 - [x] PII helper `lib/crypto/pii.ts` (AES-256-GCM enc/dec + HMAC hash + mask) at-rest.
 
 ### PAT2 — Schema & errors
@@ -194,9 +194,9 @@ Idempotency-Key wajib untuk POST (cegah double-create saat retry).
 ### PAT5 — Frontend swap
 - [x] **API client** `lib/api/client.ts` (envelope-aware, ApiError, same-origin+credentials, Idempotency-Key per mutation, AbortSignal) + `lib/api/patients.ts` (tipe reuse `import type` dari schema server).
 - [x] **`PasienBaruModal` create → POST `/api/v1/patients`** (adapter `pasienBaruApi.ts` map vocab: Dukcapil/goldarah+rhesus/sumber; error banner; abort on unmount). tsc clean.
-- [x] **List `/ehis-registration/pasien` swap** — `PasienListPage` fetch `searchPatients({limit:50})` saat mount + merge dengan demo mock (dedup by noRM, DB menang); adapter `pasienListApi.ts` (`dtoToPatientMaster`: NIK pakai `nikMasked`, kunjungan/billing kosong krn Encounter belum ada). Error → toast. Smoke-test GET list PASS (3 pasien DB terambil).
+- [x] **List `/ehis-registration/pasien` swap** — `PasienListPage` fetch `searchPatients({limit:50})` saat mount + merge dengan demo mock (dedup by noRM, DB menang); adapter `pasienListApi.ts` (`dtoToPatientMaster`: NIK pakai `nikMasked`, kunjungan/billing kosong krn Kunjungan belum ada). Error → toast. Smoke-test GET list PASS (3 pasien DB terambil).
 - [x] **Detail fallback API** — `PatientResolver`: id UUID & tak ada di mock/store → `getPatient(id)` + adapt → `PatientDashboard` render (kunjungan/billing empty-state). notFound hanya setelah store-hidrasi + fetch selesai. Klik baris pasien DB tak lagi 404.
-- [ ] **Reads lain belum di-swap** (masih `registrationStore` mock): `KunjunganResolver` (detail kunjungan), beranda board (`getAllMergedPatients`), `ApmKiosk` dedup, `DaftarKunjunganModal`. ⚠️ `riwayatKunjungan`/billing pasien DB masih kosong — perlu Encounter API (belum dibangun).
+- [ ] **Reads lain belum di-swap** (masih `registrationStore` mock): `KunjunganResolver` (detail kunjungan), beranda board (`getAllMergedPatients`), `ApmKiosk` dedup, `DaftarKunjunganModal`. ⚠️ `riwayatKunjungan`/billing pasien DB masih kosong — perlu Kunjungan API (belum dibangun).
 - [ ] Dedup NIK di FE (precheck `searchPatients(by:nik)`) + draft→complete (`completePatient`) UI.
 
 ### PAT6 — Tests
@@ -211,7 +211,7 @@ Idempotency-Key wajib untuk POST (cegah double-create saat retry).
 2. ✅ **Merge one-way + audit snapshot** — simpan snapshot loser di audit; undo manual. Bukan reversible otomatis.
 3. ✅ **Address = tabel 1:1 terpisah** (`PatientAddress`) — rapi + reusable untuk FHIR adapter.
 4. ✅ **Mapping wilayah BPJS↔Kemendagri = tabel Master + cache** (bukan lib statis) — bisa di-update tanpa deploy.
-5. ✅ **1 penjamin primer** di Patient untuk sekarang; coordination-of-benefits (BPJS + asuransi swasta) = fase later di Encounter/Claim. **Dijaga DB**: partial-unique `(pasien_id) WHERE is_primer AND deleted_at IS NULL`.
+5. ✅ **1 penjamin primer** di Patient untuk sekarang; coordination-of-benefits (BPJS + asuransi swasta) = fase later di Kunjungan/Claim. **Dijaga DB**: partial-unique `(pasien_id) WHERE is_primer AND deleted_at IS NULL`.
 
 ### Hasil audit schema (2026-06-01)
 6. ✅ **DB guarantees** (migration `pendaftaran_audit_fixes`): CHECK `nik_enc`/`nik_hash` sepasang · CHECK `nomor_enc`/`nomor_hash` penjamin sepasang · partial-unique single-primer. (Manual SQL — drift-safe, Prisma abaikan CHECK + predicate-index + sequence; `migrate diff` terbukti empty.)

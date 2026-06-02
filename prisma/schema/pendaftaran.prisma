@@ -3,8 +3,8 @@
 //  Acuan: docs/BACKEND-PATIENT.md · form referensi: PasienBaruModal (3 step).
 //
 //  Pasien = identitas TUNGGAL (1 baris = 1 manusia) + demografi stabil. Akar
-//  bersama Encounter (FK Encounter.pasienId → modul encounter, dibuat nanti).
-//  Data yang berubah per-kunjungan TIDAK di sini (→ Encounter / domain klinis).
+//  bersama Kunjungan (FK encounter.Kunjungan.patientId, lintas-schema).
+//  Data yang berubah per-kunjungan TIDAK di sini (→ Kunjungan / domain klinis).
 //
 //  Identitas: NIK = anchor dedup + kunci Practitioner/Patient FHIR (enc+hash, PII).
 //             noRM = sequence "RM-{th}-{seq}" (atomik; ganti max+1 race-prone mock).
@@ -86,12 +86,12 @@ model Pasien {
 
   // ── Identitas ──
   /// Format "RM-{th}-{seq}" dari sequence pendaftaran.no_rm_seq (Service, atomik).
-  noRm String @unique @map("no_rm")
+  noRm     String  @unique @map("no_rm")
   /// NIK terenkripsi (PII). Nullable HANYA utk Mr.X (isAnonim) — dilengkapi saat identitas diketahui.
-  nikEnc  String? @map("nik_enc")
+  nikEnc   String? @map("nik_enc")
   /// HMAC-SHA256 NIK utk dedup/lookup (ciphertext tak bisa di-WHERE). @unique nullable:
   /// Postgres anggap NULL berbeda → banyak Mr.X (NULL) boleh, NIK asli wajib unik (anti double-MRN).
-  nikHash String? @unique @map("nik_hash")
+  nikHash  String? @unique @map("nik_hash")
   /// No. Kartu Keluarga (dari BPJS/Dukcapil) — PII enc. Hash opsional utk lookup keluarga.
   noKkEnc  String? @map("no_kk_enc")
   noKkHash String? @map("no_kk_hash")
@@ -129,9 +129,9 @@ model Pasien {
 
   // ── State / lifecycle (FLOWS §10) ──
   /// false = draft minimal (kiosk/MJKN), true = lengkap (diisi saat admisi).
-  dataLengkap Boolean            @default(false) @map("data_lengkap")
+  dataLengkap  Boolean            @default(false) @map("data_lengkap")
   /// Mr.X — pasien tak dikenal IGD (NIK kosong, lewati dedup sampai identitas diketahui).
-  isAnonim    Boolean            @default(false) @map("is_anonim")
+  isAnonim     Boolean            @default(false) @map("is_anonim")
   sumberDaftar SumberPendaftaran? @map("sumber_daftar")
 
   /// Bila record ini hasil merge → menunjuk survivor. Lookup di-redirect ke survivor.
@@ -150,8 +150,8 @@ model Pasien {
   penjamin      PasienPenjamin[]
   alergiAwal    PasienAlergiAwal[]
   kontakDarurat PasienKontakDarurat[]
-  /// Kunjungan pasien (back-relation; FK di encounter.Encounter.patientId, lintas-schema).
-  encounters    Encounter[]
+  /// Kunjungan pasien (back-relation; FK di encounter.Kunjungan.patientId, lintas-schema).
+  kunjungan     Kunjungan[]
 
   // GIN trigram (pg_trgm) → search nama typo-tolerant. Butuh extension pg_trgm.
   @@index([nama(ops: raw("gin_trgm_ops"))], type: Gin)
@@ -199,6 +199,8 @@ model PasienAlamat {
 }
 
 // ── Penjamin (1:N — 1 primer; COB multi-penjamin forward-compat) ──────────────
+//  Sumber kebenaran No. kartu/BPJS peserta (enc). Dipakai kunjungan via FK
+//  encounter.Kunjungan.penjaminId. SEP (bpjs.SEP.noKartu) = snapshot operasional.
 
 model PasienPenjamin {
   id       String       @id @default(uuid(7)) @db.Uuid
@@ -206,7 +208,7 @@ model PasienPenjamin {
   tipe     TipePenjamin
   nama     String
 
-  /// No. kartu/peserta — PII enc. Hash utk lookup (cek peserta BPJS).
+  /// No. kartu/peserta BPJS — PII enc. Hash utk lookup (cek peserta BPJS).
   nomorEnc  String? @map("nomor_enc")
   nomorHash String? @map("nomor_hash")
   kelas     String? // "1" | "2" | "3" (BPJS) — validasi enum di Zod, bukan DB
@@ -219,7 +221,9 @@ model PasienPenjamin {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  pasien Pasien @relation(fields: [pasienId], references: [id], onDelete: Cascade)
+  pasien    Pasien      @relation(fields: [pasienId], references: [id], onDelete: Cascade)
+  /// Kunjungan yang memakai penjamin ini (back-relation; FK di encounter.Kunjungan).
+  kunjungan Kunjungan[]
 
   @@index([pasienId])
   @@map("pasien_penjamin")

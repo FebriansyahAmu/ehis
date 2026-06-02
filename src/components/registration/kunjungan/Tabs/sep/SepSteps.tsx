@@ -3,7 +3,10 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, User, Calendar, ShieldCheck } from "lucide-react";
-import { type SepDraft, sInp, sSel, R_JNS, R_LAKA, R_KLS } from "./sepTypes";
+import {
+  type SepDraft, sInp, sSel, R_JNS, R_LAKA, R_KLS, R_TUJUAN_KUNJ, R_ASAL_RUJUKAN,
+  TUJUAN_KUNJ_OPTS, FLAG_PROCEDURE_OPTS, KD_PENUNJANG_OPTS, ASSESMENT_PEL_OPTS, labelOf,
+} from "./sepTypes";
 import { SepField, Chips, RvItem, RvSection2 } from "./SepShared";
 
 // ─── Step 2: Kunjungan ────────────────────────────────────────
@@ -14,6 +17,15 @@ export function SepStep2({ draft, setDraft }: {
 }) {
   const set      = <K extends keyof SepDraft>(k: K, v: SepDraft[K]) => setDraft(d => ({ ...d, [k]: v }));
   const klsLabel = ({ "1": "Kelas I", "2": "Kelas II", "3": "Kelas III" } as Record<string, string>)[draft.klsRawatHak] ?? "—";
+
+  // Tujuan kunjungan mengatur field bergantung (flagProcedure/kdPenunjang hanya untuk Prosedur).
+  const setTujuan = (v: "0" | "1" | "2") => setDraft(d => ({
+    ...d,
+    tujuanKunj: v,
+    flagProcedure: v === "1" ? (d.flagProcedure || "0") : "",
+    kdPenunjang:   v === "1" ? d.kdPenunjang : "",
+    assesmentPel:  v === "1" ? "" : d.assesmentPel,
+  }));
 
   return (
     <div className="space-y-3">
@@ -88,6 +100,124 @@ export function SepStep2({ draft, setDraft }: {
               <input className={sInp} value={draft.penanggungJawab} placeholder="Mis. Pribadi..."
                 onChange={e => set("penanggungJawab", e.target.value)} />
             </SepField>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Rujukan & poli tujuan — hanya Rawat Jalan */}
+      <AnimatePresence>
+        {draft.jnsPelayanan === "2" && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}
+            className="space-y-3 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+          >
+            <div className="flex items-center gap-2">
+              <div className="h-3.5 w-1 rounded-full bg-sky-400" />
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Rujukan &amp; Poli Tujuan</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <SepField label="Asal Rujukan">
+                <Chips options={[{ value: "1", label: "Faskes 1" }, { value: "2", label: "Faskes 2 (RS)" }]}
+                  value={draft.asalRujukan} onChange={v => set("asalRujukan", v as "1" | "2")} />
+              </SepField>
+              <SepField label="Tgl. Rujukan">
+                <input type="date" className={sInp} value={draft.tglRujukan}
+                  onChange={e => set("tglRujukan", e.target.value)} />
+              </SepField>
+              <SepField label="No. Rujukan">
+                <input className={sInp} value={draft.noRujukan} placeholder="Nomor rujukan..."
+                  onChange={e => set("noRujukan", e.target.value)} />
+              </SepField>
+              <SepField label="Kode PPK Rujukan">
+                <input className={sInp} value={draft.ppkRujukan} placeholder="Kode faskes perujuk..."
+                  onChange={e => set("ppkRujukan", e.target.value)} />
+              </SepField>
+              <SepField label="Diagnosa Awal (ICD-10)">
+                <input className={cn(sInp, "font-mono")} value={draft.diagAwal} placeholder="Mis. N18"
+                  onChange={e => set("diagAwal", e.target.value)} />
+              </SepField>
+              <SepField label="Poli Tujuan">
+                <input className={sInp} value={draft.poliTujuan} placeholder="Poli / kode poli..."
+                  onChange={e => set("poliTujuan", e.target.value)} />
+              </SepField>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Tujuan kunjungan & prosedur — hanya Rawat Jalan */}
+      <AnimatePresence>
+        {draft.jnsPelayanan === "2" && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}
+            className="space-y-3 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+          >
+            <div className="flex items-center gap-2">
+              <div className="h-3.5 w-1 rounded-full bg-indigo-400" />
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Tujuan Kunjungan &amp; Prosedur</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <SepField label="Tujuan Kunjungan">
+                <select className={sSel} value={draft.tujuanKunj}
+                  onChange={e => setTujuan(e.target.value as "0" | "1" | "2")}>
+                  {TUJUAN_KUNJ_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </SepField>
+              <SepField label="Poli Eksekutif">
+                <Chips options={[{ value: "0", label: "Tidak" }, { value: "1", label: "Ya" }]}
+                  value={draft.poliEksekutif} onChange={v => set("poliEksekutif", v as "0" | "1")} />
+              </SepField>
+              <div className="col-span-2">
+                <SepField label="DPJP Pelayanan">
+                  <input className={sInp} value={draft.dpjpLayan} placeholder="Kode DPJP yang melayani..."
+                    onChange={e => set("dpjpLayan", e.target.value)} />
+                </SepField>
+              </div>
+            </div>
+
+            {/* Prosedur → flagProcedure + kdPenunjang */}
+            <AnimatePresence>
+              {draft.tujuanKunj === "1" && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.18 }}
+                  className="grid grid-cols-2 gap-3 overflow-hidden rounded-lg border border-indigo-100 bg-indigo-50/40 p-3"
+                >
+                  <SepField label="Flag Procedure">
+                    <Chips options={FLAG_PROCEDURE_OPTS} value={draft.flagProcedure || "0"}
+                      onChange={v => set("flagProcedure", v as "0" | "1")} />
+                  </SepField>
+                  <SepField label="Jenis Penunjang">
+                    <select className={sSel} value={draft.kdPenunjang}
+                      onChange={e => set("kdPenunjang", e.target.value)}>
+                      <option value="">Pilih penunjang...</option>
+                      {KD_PENUNJANG_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </SepField>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Normal / Konsul → assesmentPel */}
+            <AnimatePresence>
+              {(draft.tujuanKunj === "0" || draft.tujuanKunj === "2") && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.18 }}
+                  className="overflow-hidden"
+                >
+                  <SepField label="Asesmen Pelayanan">
+                    <select className={sSel} value={draft.assesmentPel}
+                      onChange={e => set("assesmentPel", e.target.value)}>
+                      <option value="">Pilih asesmen...</option>
+                      {ASSESMENT_PEL_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </SepField>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>
@@ -261,6 +391,33 @@ export function SepStep4({ draft }: { draft: SepDraft }) {
           <RvItem label="Jenis Pelayanan"  value={R_JNS[draft.jnsPelayanan]} />
           <RvItem label="Kode PPK"         value={draft.ppkPelayanan || "—"} mono />
           <RvItem label="No. Medical Record" value={draft.noMR || "—"} mono />
+          {draft.jnsPelayanan === "2" && draft.noRujukan && (
+            <RvItem label="No. Rujukan" value={draft.noRujukan} mono />
+          )}
+          {draft.jnsPelayanan === "2" && draft.noRujukan && (
+            <RvItem label="Asal Rujukan" value={R_ASAL_RUJUKAN[draft.asalRujukan]} />
+          )}
+          {draft.jnsPelayanan === "2" && draft.diagAwal && (
+            <RvItem label="Diagnosa Awal" value={draft.diagAwal} mono />
+          )}
+          {draft.jnsPelayanan === "2" && draft.poliTujuan && (
+            <RvItem label="Poli Tujuan" value={draft.poliTujuan} />
+          )}
+          {draft.jnsPelayanan === "2" && (
+            <RvItem label="Tujuan Kunjungan" value={R_TUJUAN_KUNJ[draft.tujuanKunj]} />
+          )}
+          {draft.jnsPelayanan === "2" && (
+            <RvItem label="Poli Eksekutif" value={draft.poliEksekutif === "1" ? "Ya" : "Tidak"} />
+          )}
+          {draft.tujuanKunj === "1" && draft.kdPenunjang && (
+            <RvItem label="Jenis Penunjang" value={labelOf(KD_PENUNJANG_OPTS, draft.kdPenunjang)} />
+          )}
+          {draft.assesmentPel && (
+            <RvItem label="Asesmen Pelayanan" value={labelOf(ASSESMENT_PEL_OPTS, draft.assesmentPel)} />
+          )}
+          {draft.jnsPelayanan === "2" && draft.dpjpLayan && (
+            <RvItem label="DPJP Pelayanan" value={draft.dpjpLayan} mono />
+          )}
         </div>
       </RvSection2>
 

@@ -1,0 +1,186 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: BPJS  (Postgres schema "bpjs")
+//  Acuan: payload V-Claim t_sep (Trustmark) · form referensi: SepStep1-4 +
+//  StepRujukan (modal Pendaftaran Kunjungan Baru).
+//
+//  Artefak BPJS yang menggantung ke 1 kunjungan:
+//    • Rujukan — rujukan masuk FKTP / kontrol pasca ranap (input penerbitan SEP)
+//    • SEP     — Surat Eligibilitas Peserta (output yang diterbitkan ke V-Claim)
+//
+//  Relasi flow:
+//    encounter.Kunjungan 1───0..1 Rujukan      (rujukan dipakai utk kunjungan)
+//    encounter.Kunjungan 1───0..1 SEP          (SEP terbit utk kunjungan)
+//    SEP *───0..1 Rujukan                       (SEP dibuat dari rujukan; RJ)
+//
+//  No. kartu BPJS peserta = sumber kebenaran di pendaftaran.PasienPenjamin (enc).
+//  Field di sini = snapshot operasional dokumen klaim (disubmit apa adanya ke BPJS).
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz · soft-delete · optimistic concurrency.
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── Enums (kode V-Claim → enum stabil) ────────────────────────────────────────
+
+/// jnsPelayanan: 1=Rawat Inap, 2=Rawat Jalan.
+enum JenisPelayananSep {
+  RawatInap
+  RawatJalan
+
+  @@schema("bpjs")
+}
+
+/// tujuanKunj: 0=Normal, 1=Prosedur, 2=Konsul Dokter.
+enum TujuanKunjungan {
+  Normal
+  Prosedur
+  KonsulDokter
+
+  @@schema("bpjs")
+}
+
+/// lakaLantas: 0=BKLL, 1=KLL+BKK, 2=KLL+KK, 3=KK.
+enum LakaLantas {
+  BKLL
+  KLL_BKK
+  KLL_KK
+  KK
+
+  @@schema("bpjs")
+}
+
+/// asalRujukan: 1=Faskes 1 (FKTP), 2=Faskes 2 (RS).
+enum AsalRujukan {
+  Faskes1
+  Faskes2
+
+  @@schema("bpjs")
+}
+
+/// Sumber rujukan di loket (mode StepRujukan).
+enum SumberRujukan {
+  RujukanMasuk
+  KontrolPascaRanap
+  RujukanIGD
+
+  @@schema("bpjs")
+}
+
+/// Lifecycle SEP: draft loket → terbit V-Claim → batal/gagal.
+enum SepStatus {
+  Draft
+  Terbit
+  Batal
+  Gagal
+
+  @@schema("bpjs")
+}
+
+// ── Rujukan ───────────────────────────────────────────────────────────────────
+
+model Rujukan {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  /// 1:1 — rujukan yang dipakai untuk kunjungan ini.
+  kunjunganId String    @unique @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  sumber      SumberRujukan
+  asalRujukan AsalRujukan   @default(Faskes1) @map("asal_rujukan")
+  /// No. rujukan FKTP (RujukanMasuk) ATAU No. SEP rawat inap terakhir (KontrolPascaRanap).
+  noRujukan   String        @map("no_rujukan")
+  tglRujukan  DateTime?     @map("tgl_rujukan") @db.Date
+  /// Kode faskes perujuk (referensi faskes BPJS).
+  ppkRujukan  String?       @map("ppk_rujukan")
+
+  // ── Diagnosa rujukan (data inti) ──
+  diagnosaKode String? @map("diagnosa_kode") // ICD-10 (diagppk/diagAwal)
+  diagnosaNama String? @map("diagnosa_nama")
+  poliTujuan   String? @map("poli_tujuan")
+
+  /// KontrolPascaRanap: No. SEP ranap yang jadi dasar (audit; noRujukan = nilai yang dipakai).
+  noSepAsal String? @map("no_sep_asal")
+
+  // SEP yang dibuat dari rujukan ini (1:1 back-relation).
+  sep SEP?
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([noRujukan])
+  @@map("rujukan")
+  @@schema("bpjs")
+}
+
+// ── SEP (Surat Eligibilitas Peserta) ──────────────────────────────────────────
+
+model SEP {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  /// 1:1 — satu SEP per kunjungan.
+  kunjunganId String    @unique @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+  /// SEP Rawat Jalan dibuat dari rujukan (optional 1:1).
+  rujukanId   String?   @unique @map("rujukan_id") @db.Uuid
+  rujukan     Rujukan?  @relation(fields: [rujukanId], references: [id], onDelete: SetNull)
+
+  status SepStatus @default(Draft)
+  /// No. SEP hasil terbit V-Claim. Null saat draft — @unique nullable membiarkan banyak draft NULL.
+  noSep  String?   @unique @map("no_sep")
+
+  // ── Peserta & pelayanan ──
+  noKartu      String            @map("no_kartu") // snapshot operasional (otoritatif di PasienPenjamin enc)
+  tglSep       DateTime          @map("tgl_sep") @db.Date
+  ppkPelayanan String            @map("ppk_pelayanan")
+  jnsPelayanan JenisPelayananSep @map("jns_pelayanan")
+  klsRawatHak  String?           @map("kls_rawat_hak") // "1"|"2"|"3"
+  noMr         String?           @map("no_mr")
+
+  // ── Naik kelas ──
+  naikKelas       Boolean @default(false) @map("naik_kelas")
+  klsRawatNaik    String? @map("kls_rawat_naik")
+  pembiayaan      String?
+  penanggungJawab String? @map("penanggung_jawab")
+
+  // ── Tujuan kunjungan & prosedur (Rawat Jalan) ──
+  tujuanKunj    TujuanKunjungan @default(Normal) @map("tujuan_kunj")
+  flagProcedure String?         @map("flag_procedure") // "0"|"1"
+  kdPenunjang   String?         @map("kd_penunjang")
+  assesmentPel  String?         @map("assesment_pel")
+  poliEksekutif Boolean         @default(false) @map("poli_eksekutif")
+  dpjpLayan     String?         @map("dpjp_layan")
+  poliTujuan    String?         @map("poli_tujuan")
+  diagAwal      String?         @map("diag_awal") // ICD-10
+
+  // ── Jaminan kecelakaan ──
+  lakaLantas     LakaLantas @default(BKLL) @map("laka_lantas")
+  noLp           String?    @map("no_lp")
+  tglKejadian    DateTime?  @map("tgl_kejadian") @db.Date
+  keteranganLaka String?    @map("keterangan_laka")
+  // suplesi
+  suplesi        Boolean    @default(false)
+  noSepSuplesi   String?    @map("no_sep_suplesi")
+  lokasiKdProp   String?    @map("lokasi_kd_prop")
+  lokasiKdKab    String?    @map("lokasi_kd_kab")
+  lokasiKdKec    String?    @map("lokasi_kd_kec")
+
+  cob     Boolean @default(false)
+  katarak Boolean @default(false)
+
+  // ── SKDP (surat kontrol) ──
+  skdpNoSurat  String? @map("skdp_no_surat")
+  skdpKodeDpjp String? @map("skdp_kode_dpjp")
+
+  noTelp      String? @map("no_telp")
+  catatan     String?
+  userPembuat String? @map("user_pembuat")
+
+  version   Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([status])
+  @@index([noSep])
+  @@map("sep")
+  @@schema("bpjs")
+}

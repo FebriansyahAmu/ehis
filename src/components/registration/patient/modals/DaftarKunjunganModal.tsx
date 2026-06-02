@@ -17,12 +17,13 @@ import { PENJAMIN_CFG } from "../config";
 import { WizardStepper } from "./daftar-kunjungan/WizardStepper";
 import { StepKunjungan } from "./daftar-kunjungan/StepKunjungan";
 import { StepPenjamin } from "./daftar-kunjungan/StepPenjamin";
+import { StepRujukan } from "./daftar-kunjungan/StepRujukan";
 import { StepSEP } from "./daftar-kunjungan/StepSEP";
 import { StepReview } from "./daftar-kunjungan/StepReview";
 import { SuccessPanel } from "./daftar-kunjungan/SuccessPanel";
 import {
   genSEP, isBpjs,
-  type KunjunganForm, type PenjaminForm, type WizardStep,
+  type KunjunganForm, type PenjaminForm, type RujukanPick, type WizardStep,
 } from "./daftar-kunjungan/config";
 
 export function DaftarKunjunganModal({
@@ -40,7 +41,7 @@ export function DaftarKunjunganModal({
 
   const [form, setForm] = useState<KunjunganForm>({
     unit: "Rawat Jalan", tanggal: today, jam: nowTime, caraMasuk: "Datang Sendiri",
-    noRujukan: "", dokter: "", keluhan: "", triase: 3, caraDatang: "Jalan Kaki",
+    dokter: "", keluhan: "", triase: 3, caraDatang: "Jalan Kaki",
     poli: "Poli Umum", asalMasuk: "Dari Poli", kelasRawat: "2",
   });
 
@@ -53,6 +54,7 @@ export function DaftarKunjunganModal({
   });
 
   const [bpjsData, setBpjsData] = useState<BpjsData | null>(null);
+  const [rujukan, setRujukan] = useState<RujukanPick>({ source: "masuk", noRujukan: "", diagnosa: null });
   const [sepDraft, setSepDraft] = useState<SepDraft>(() => ({
     ...BLANK_DRAFT,
     noMR: patient.noRM,
@@ -68,16 +70,18 @@ export function DaftarKunjunganModal({
   const [created, setCreated] = useState<KunjunganRecord | null>(null);
 
   const bpjsFlow = isBpjs(penjamin.tipe);
+  const needsRujukan = bpjsFlow && form.unit === "Rawat Jalan";
 
   const steps = useMemo<WizardStep[]>(() => {
     const s: WizardStep[] = [
       { id: "kunjungan", label: "Kunjungan" },
       { id: "penjamin", label: "Penjamin" },
     ];
+    if (needsRujukan) s.push({ id: "rujukan", label: "Rujukan" });
     if (bpjsFlow) s.push({ id: "sep", label: "SEP" });
     s.push({ id: "review", label: "Review" });
     return s;
-  }, [bpjsFlow]);
+  }, [bpjsFlow, needsRujukan]);
 
   const safeIdx = Math.min(stepIdx, steps.length - 1);
   const current = steps[safeIdx].id;
@@ -88,8 +92,9 @@ export function DaftarKunjunganModal({
       if (bpjsFlow) return !!bpjsData;
       if (penjamin.tipe === "Asuransi" || penjamin.tipe === "Jamkesda") return penjamin.nama.trim().length > 0;
     }
+    if (current === "rujukan") return rujukan.noRujukan.length > 0 && rujukan.diagnosa !== null;
     return true;
-  }, [current, bpjsFlow, bpjsData, penjamin]);
+  }, [current, bpjsFlow, bpjsData, penjamin, rujukan]);
 
   const goNext = () => {
     if (!canNext) return;
@@ -101,6 +106,16 @@ export function DaftarKunjunganModal({
         jnsPelayanan: form.unit === "Rawat Inap" ? "1" : "2",
         tglSep: form.tanggal,
         noMR: patient.noRM,
+        // Rujukan & poli (Rawat Jalan BPJS) dari step Rujukan.
+        ...(needsRujukan
+          ? {
+              noRujukan: rujukan.noRujukan,
+              diagAwal: rujukan.diagnosa?.code ?? "",
+              asalRujukan: rujukan.source === "kontrol" ? ("2" as const) : ("1" as const),
+              tglRujukan: s.tglRujukan || form.tanggal,
+              poliTujuan: form.poli,
+            }
+          : {}),
       }));
     }
     setDir(1);
@@ -110,7 +125,8 @@ export function DaftarKunjunganModal({
 
   function handleDaftar() {
     const noSEP = bpjsFlow ? genSEP() : undefined;
-    const isRujukan = form.caraMasuk === "Rujukan Puskesmas" || form.caraMasuk === "Rujukan RS";
+    // Rawat Jalan BPJS → no. rujukan & diagnosa dari step Rujukan.
+    const noRujukan = needsRujukan ? rujukan.noRujukan || undefined : undefined;
     const input: PendaftaranKunjunganInput = {
       unit: form.unit,
       tanggal: form.tanggal,
@@ -123,7 +139,9 @@ export function DaftarKunjunganModal({
       penjamin: PENJAMIN_CFG[penjamin.tipe].label,
       noPenjamin: penjamin.nomor || undefined,
       noSEP,
-      noRujukan: isRujukan ? form.noRujukan.trim() || undefined : undefined,
+      noRujukan,
+      diagnosa: needsRujukan ? rujukan.diagnosa?.name : undefined,
+      kodeICD: needsRujukan ? rujukan.diagnosa?.code : undefined,
       kodebooking,
     };
     const rec = addKunjungan(patient.noRM, input);
@@ -177,9 +195,16 @@ export function DaftarKunjunganModal({
                     setSepDraft={setSepDraft}
                   />
                 )}
+                {current === "rujukan" && (
+                  <StepRujukan
+                    noBpjs={penjamin.nomor || bpjsData?.noKartu || patient.penjamin.nomor || "—"}
+                    rujukan={rujukan}
+                    setRujukan={setRujukan}
+                  />
+                )}
                 {current === "sep" && <StepSEP draft={sepDraft} setDraft={setSepDraft} />}
                 {current === "review" && (
-                  <StepReview form={form} penjamin={penjamin} isBpjsFlow={bpjsFlow} draft={sepDraft} />
+                  <StepReview form={form} penjamin={penjamin} isBpjsFlow={bpjsFlow} rujukan={needsRujukan ? rujukan : null} draft={sepDraft} />
                 )}
               </motion.div>
             </AnimatePresence>

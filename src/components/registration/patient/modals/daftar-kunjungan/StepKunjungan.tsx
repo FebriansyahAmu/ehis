@@ -5,9 +5,9 @@ import { Check, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { POLI_OPTS } from "../../config";
 import {
-  CARA_MASUK_OPTS, TRIASE_CFG, UNIT_DAFTAR_CFG,
+  TRIASE_CFG, UNIT_DAFTAR_CFG,
   inputCls, labelCls,
-  type CaraMasuk, type KunjunganForm, type TriaseLevel, type UnitDaftar,
+  type KunjunganForm, type TriaseLevel, type UnitDaftar,
 } from "./config";
 
 const KELAS_OPTS: [string, string][] = [["1", "Kelas 1"], ["2", "Kelas 2"], ["3", "Kelas 3"], ["vip", "VIP"]];
@@ -19,7 +19,6 @@ export function StepKunjungan({
   setForm: React.Dispatch<React.SetStateAction<KunjunganForm>>;
 }) {
   const set = <K extends keyof KunjunganForm>(k: K, v: KunjunganForm[K]) => setForm((f) => ({ ...f, [k]: v }));
-  const isRujukan = form.caraMasuk === "Rujukan Puskesmas" || form.caraMasuk === "Rujukan RS";
 
   return (
     <div className="space-y-5">
@@ -55,9 +54,9 @@ export function StepKunjungan({
         </div>
       </div>
 
-      {/* Waktu & cara masuk */}
+      {/* Waktu kunjungan */}
       <div>
-        <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Waktu &amp; Cara Masuk</p>
+        <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Waktu Kunjungan</p>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelCls}>Tanggal</label>
@@ -68,46 +67,6 @@ export function StepKunjungan({
             <input type="time" value={form.jam} onChange={(e) => set("jam", e.target.value)} className={inputCls} />
           </div>
         </div>
-        <div className="mt-3">
-          <label className={labelCls}>Cara Masuk</label>
-          <div className="flex flex-wrap gap-1.5">
-            {CARA_MASUK_OPTS.map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                onClick={() => set("caraMasuk", opt as CaraMasuk)}
-                className={cn(
-                  "cursor-pointer rounded-full border px-2.5 py-1 text-[11px] font-medium transition",
-                  form.caraMasuk === opt
-                    ? "border-indigo-400 bg-indigo-50 text-indigo-700"
-                    : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50",
-                )}
-              >
-                {opt}
-              </button>
-            ))}
-          </div>
-        </div>
-        <AnimatePresence>
-          {isRujukan && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.18 }}
-              className="mt-3 overflow-hidden"
-            >
-              <label className={labelCls}>No. Surat Rujukan</label>
-              <input
-                type="text"
-                value={form.noRujukan}
-                onChange={(e) => set("noRujukan", e.target.value)}
-                placeholder="Nomor surat rujukan"
-                className={inputCls}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       {/* Unit-specific */}
