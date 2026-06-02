@@ -4,6 +4,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Check, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { POLI_OPTS } from "../../config";
+import { DatePicker } from "./DatePicker";
+import { TimePicker } from "./TimePicker";
+import { Select } from "./Select";
 import {
   TRIASE_CFG, UNIT_DAFTAR_CFG,
   inputCls, labelCls,
@@ -60,11 +63,11 @@ export function StepKunjungan({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelCls}>Tanggal</label>
-            <input type="date" value={form.tanggal} onChange={(e) => set("tanggal", e.target.value)} className={inputCls} />
+            <DatePicker value={form.tanggal} onChange={(v) => set("tanggal", v)} />
           </div>
           <div>
             <label className={labelCls}>Jam</label>
-            <input type="time" value={form.jam} onChange={(e) => set("jam", e.target.value)} className={inputCls} />
+            <TimePicker value={form.jam} onChange={(v) => set("jam", v)} />
           </div>
         </div>
       </div>
@@ -133,12 +136,7 @@ export function StepKunjungan({
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Detail Rawat Jalan</p>
               <div>
                 <label className={labelCls}>Poli Tujuan</label>
-                <div className="relative">
-                  <Building2 size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <select value={form.poli} onChange={(e) => set("poli", e.target.value)} className={cn(inputCls, "pl-8")}>
-                    {POLI_OPTS.map((p) => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                </div>
+                <Select value={form.poli} onChange={(v) => set("poli", v)} options={POLI_OPTS} icon={Building2} />
               </div>
             </>
           )}

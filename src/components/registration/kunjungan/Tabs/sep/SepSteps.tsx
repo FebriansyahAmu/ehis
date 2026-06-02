@@ -4,10 +4,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, User, Calendar, ShieldCheck } from "lucide-react";
 import {
-  type SepDraft, sInp, sSel, R_JNS, R_LAKA, R_KLS, R_TUJUAN_KUNJ, R_ASAL_RUJUKAN,
+  type SepDraft, sInp, R_JNS, R_LAKA, R_KLS, R_TUJUAN_KUNJ, R_ASAL_RUJUKAN,
   TUJUAN_KUNJ_OPTS, FLAG_PROCEDURE_OPTS, KD_PENUNJANG_OPTS, ASSESMENT_PEL_OPTS, labelOf,
 } from "./sepTypes";
 import { SepField, Chips, RvItem, RvSection2 } from "./SepShared";
+import { DatePicker } from "@/components/registration/patient/modals/daftar-kunjungan/DatePicker";
+import { Select } from "@/components/registration/patient/modals/daftar-kunjungan/Select";
 
 // ─── Step 2: Kunjungan ────────────────────────────────────────
 
@@ -43,8 +45,7 @@ export function SepStep2({ draft, setDraft }: {
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid grid-cols-2 gap-3">
           <SepField label="Tanggal SEP">
-            <input type="date" className={sInp} value={draft.tglSep}
-              onChange={e => set("tglSep", e.target.value)} />
+            <DatePicker variant="filled" value={draft.tglSep} onChange={v => set("tglSep", v)} />
           </SepField>
           <SepField label="Jenis Pelayanan">
             <Chips options={[{ value: "2", label: "Rawat Jalan" }, { value: "1", label: "Rawat Inap" }]}
@@ -79,22 +80,19 @@ export function SepStep2({ draft, setDraft }: {
             className="grid grid-cols-3 gap-3 overflow-hidden rounded-xl border border-amber-100 bg-amber-50/40 p-4"
           >
             <SepField label="Kelas Naik">
-              <select className={sSel} value={draft.klsRawatNaik}
-                onChange={e => set("klsRawatNaik", e.target.value)}>
-                <option value="">Pilih...</option>
-                {["VVIP", "VIP", "Kelas I", "Kelas II", "Kelas III", "ICCU", "ICU", "Di atas Kelas I"].map((v, i) => (
-                  <option key={v} value={String(i + 1)}>{v}</option>
-                ))}
-              </select>
+              <Select variant="filled" value={draft.klsRawatNaik} placeholder="Pilih..."
+                onChange={v => set("klsRawatNaik", v)}
+                options={["VVIP", "VIP", "Kelas I", "Kelas II", "Kelas III", "ICCU", "ICU", "Di atas Kelas I"]
+                  .map((v, i) => ({ value: String(i + 1), label: v }))} />
             </SepField>
             <SepField label="Pembiayaan">
-              <select className={sSel} value={draft.pembiayaan}
-                onChange={e => set("pembiayaan", e.target.value)}>
-                <option value="">Pilih...</option>
-                <option value="1">Pribadi</option>
-                <option value="2">Pemberi Kerja</option>
-                <option value="3">Asuransi Tambahan</option>
-              </select>
+              <Select variant="filled" value={draft.pembiayaan} placeholder="Pilih..."
+                onChange={v => set("pembiayaan", v)}
+                options={[
+                  { value: "1", label: "Pribadi" },
+                  { value: "2", label: "Pemberi Kerja" },
+                  { value: "3", label: "Asuransi Tambahan" },
+                ]} />
             </SepField>
             <SepField label="Penanggung Jawab">
               <input className={sInp} value={draft.penanggungJawab} placeholder="Mis. Pribadi..."
@@ -122,8 +120,7 @@ export function SepStep2({ draft, setDraft }: {
                   value={draft.asalRujukan} onChange={v => set("asalRujukan", v as "1" | "2")} />
               </SepField>
               <SepField label="Tgl. Rujukan">
-                <input type="date" className={sInp} value={draft.tglRujukan}
-                  onChange={e => set("tglRujukan", e.target.value)} />
+                <DatePicker variant="filled" value={draft.tglRujukan} onChange={v => set("tglRujukan", v)} />
               </SepField>
               <SepField label="No. Rujukan">
                 <input className={sInp} value={draft.noRujukan} placeholder="Nomor rujukan..."
@@ -155,15 +152,14 @@ export function SepStep2({ draft, setDraft }: {
             className="space-y-3 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
           >
             <div className="flex items-center gap-2">
-              <div className="h-3.5 w-1 rounded-full bg-indigo-400" />
+              <div className="h-3.5 w-1 rounded-full bg-sky-400" />
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Tujuan Kunjungan &amp; Prosedur</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <SepField label="Tujuan Kunjungan">
-                <select className={sSel} value={draft.tujuanKunj}
-                  onChange={e => setTujuan(e.target.value as "0" | "1" | "2")}>
-                  {TUJUAN_KUNJ_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
+                <Select variant="filled" value={draft.tujuanKunj}
+                  onChange={v => setTujuan(v as "0" | "1" | "2")}
+                  options={[...TUJUAN_KUNJ_OPTS]} />
               </SepField>
               <SepField label="Poli Eksekutif">
                 <Chips options={[{ value: "0", label: "Tidak" }, { value: "1", label: "Ya" }]}
@@ -183,18 +179,15 @@ export function SepStep2({ draft, setDraft }: {
                 <motion.div
                   initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.18 }}
-                  className="grid grid-cols-2 gap-3 overflow-hidden rounded-lg border border-indigo-100 bg-indigo-50/40 p-3"
+                  className="grid grid-cols-2 gap-3 overflow-hidden rounded-lg border border-sky-100 bg-sky-50/40 p-3"
                 >
                   <SepField label="Flag Procedure">
                     <Chips options={FLAG_PROCEDURE_OPTS} value={draft.flagProcedure || "0"}
                       onChange={v => set("flagProcedure", v as "0" | "1")} />
                   </SepField>
                   <SepField label="Jenis Penunjang">
-                    <select className={sSel} value={draft.kdPenunjang}
-                      onChange={e => set("kdPenunjang", e.target.value)}>
-                      <option value="">Pilih penunjang...</option>
-                      {KD_PENUNJANG_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
+                    <Select variant="filled" value={draft.kdPenunjang} placeholder="Pilih penunjang..."
+                      onChange={v => set("kdPenunjang", v)} options={KD_PENUNJANG_OPTS} />
                   </SepField>
                 </motion.div>
               )}
@@ -209,11 +202,8 @@ export function SepStep2({ draft, setDraft }: {
                   className="overflow-hidden"
                 >
                   <SepField label="Asesmen Pelayanan">
-                    <select className={sSel} value={draft.assesmentPel}
-                      onChange={e => set("assesmentPel", e.target.value)}>
-                      <option value="">Pilih asesmen...</option>
-                      {ASSESMENT_PEL_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
+                    <Select variant="filled" value={draft.assesmentPel} placeholder="Pilih asesmen..."
+                      onChange={v => set("assesmentPel", v)} options={ASSESMENT_PEL_OPTS} />
                   </SepField>
                 </motion.div>
               )}
@@ -267,8 +257,7 @@ export function SepStep3({ draft, setDraft }: {
                     onChange={e => set("noLP", e.target.value)} />
                 </SepField>
                 <SepField label="Tanggal Kejadian KLL">
-                  <input type="date" className={sInp} value={draft.tglKejadian}
-                    onChange={e => set("tglKejadian", e.target.value)} />
+                  <DatePicker variant="filled" value={draft.tglKejadian} onChange={v => set("tglKejadian", v)} />
                 </SepField>
                 <div className="col-span-2">
                   <SepField label="Keterangan Kejadian">
@@ -384,7 +373,7 @@ export function SepStep4({ draft }: { draft: SepDraft }) {
         </div>
       </RvSection2>
 
-      <RvSection2 title="Info Kunjungan" accent="bg-indigo-400"
+      <RvSection2 title="Info Kunjungan" accent="bg-sky-400"
         icon={<Calendar size={11} className="shrink-0 text-slate-400" />}>
         <div className="grid grid-cols-2 gap-3">
           <RvItem label="Tanggal SEP"      value={draft.tglSep} />
