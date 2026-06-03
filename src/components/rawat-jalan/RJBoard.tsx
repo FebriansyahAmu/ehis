@@ -36,15 +36,26 @@ interface Toast {
 
 // ── Main ──────────────────────────────────────────────────
 
+/** Aksi worklist yang dipetakan ke transisi server (subset KunjunganActionName). */
+export type BoardApiAction = "call" | "recall" | "receive" | "complete" | "cancel";
+
 export default function RJBoard({
   patients,
   statusOverride,
+  recallOverride,
+  onApiAction,
 }: {
   patients: RJPatient[];
   /** Order untuk pasien dari API (tak ada di mock queue store) — mis. kunjungan baru. */
   statusOverride?: Record<string, RJOrderStatus>;
+  /** Recall count untuk pasien API (mock store tak punya entry). */
+  recallOverride?: Record<string, number>;
+  /** Handler aksi kartu API → transisi server. Kembalikan ok + pesan untuk toast. */
+  onApiAction?: (patient: RJPatient, action: BoardApiAction) => Promise<{ ok: boolean; message?: string }>;
 }) {
   const queue = useRJQueue();
+  // Kartu bersumber API bila id-nya ada di statusOverride (dibangun RJBoardLive dari worklist).
+  const isApi = (id: string) => statusOverride !== undefined && id in statusOverride;
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("Semua");
   const [poliFilter, setPoliFilter] = useState<RJPoli | "Semua">("Semua");
@@ -103,11 +114,31 @@ export default function RJBoard({
   const gridKey = `${statusFilter}|${poliFilter}|${dokterFilter}|${penjaminFilter}|${search}|${page}`;
 
   // ── Aksi worklist ────────────────────────────────────────
-  const handlePanggil = (p: RJPatient) => { panggilPoli(p.id); showToast(`Memanggil ${p.name} ke ${p.dokter}`); };
-  const handlePanggilUlang = (p: RJPatient) => { const n = panggilUlangPoli(p.id); showToast(`Panggil ulang ${p.name} (ke-${n + 1})`); };
-  const handleTerima = (p: RJPatient) => { terimaPoli(p.id); showToast(`${p.name} diterima — mulai pelayanan`); };
-  const handleBatal = (p: RJPatient) => { batalKunjungan(p.id); showToast(`Kunjungan ${p.name} dikembalikan ke admisi`); };
-  const handleSelesai = (p: RJPatient) => { selesaikanPoli(p.id); showToast(`Pelayanan ${p.name} selesai`); };
+  // Kartu API → transisi server (onApiAction); kartu mock/seed → queue store lokal.
+  const runApi = async (p: RJPatient, action: BoardApiAction, okMsg: string) => {
+    const r = await onApiAction!(p, action);
+    showToast(r.ok ? okMsg : (r.message ?? "Gagal memproses aksi"));
+  };
+  const handlePanggil = (p: RJPatient) => {
+    if (isApi(p.id)) { void runApi(p, "call", `Memanggil ${p.name} ke ${p.dokter}`); return; }
+    panggilPoli(p.id); showToast(`Memanggil ${p.name} ke ${p.dokter}`);
+  };
+  const handlePanggilUlang = (p: RJPatient) => {
+    if (isApi(p.id)) { void runApi(p, "recall", `Panggil ulang ${p.name}`); return; }
+    const n = panggilUlangPoli(p.id); showToast(`Panggil ulang ${p.name} (ke-${n + 1})`);
+  };
+  const handleTerima = (p: RJPatient) => {
+    if (isApi(p.id)) { void runApi(p, "receive", `${p.name} diterima — mulai pelayanan`); return; }
+    terimaPoli(p.id); showToast(`${p.name} diterima — mulai pelayanan`);
+  };
+  const handleBatal = (p: RJPatient) => {
+    if (isApi(p.id)) { void runApi(p, "cancel", `Kunjungan ${p.name} dikembalikan ke admisi`); return; }
+    batalKunjungan(p.id); showToast(`Kunjungan ${p.name} dikembalikan ke admisi`);
+  };
+  const handleSelesai = (p: RJPatient) => {
+    if (isApi(p.id)) { void runApi(p, "complete", `Pelayanan ${p.name} selesai`); return; }
+    selesaikanPoli(p.id); showToast(`Pelayanan ${p.name} selesai`);
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -195,7 +226,7 @@ export default function RJBoard({
                 patient={p}
                 index={i}
                 order={orderOf(p.id)}
-                recalls={queue[p.id]?.recalls ?? 0}
+                recalls={recallOverride?.[p.id] ?? queue[p.id]?.recalls ?? 0}
                 onPanggil={handlePanggil}
                 onPanggilUlang={handlePanggilUlang}
                 onTerima={handleTerima}

@@ -1,11 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { Shield, FileText, Check } from "lucide-react";
+import { useRef, useState } from "react";
+import { Shield, FileText, Check, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PenjaminData, TipePenjamin } from "@/lib/data";
+import { updatePenjamin } from "@/lib/api/patients";
+import { ApiError } from "@/lib/api/client";
+import { toast } from "@/lib/ui/toastStore";
 import { ModalShell } from "../primitives";
 import { PENJAMIN_CFG } from "../config";
+
+// id pasien DB = UUID; pasien demo/seed = "RM-..." → hanya UUID yang persist ke server.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type PjSection = "jenis" | "detail";
 
@@ -44,22 +50,61 @@ const OPTS: { value: TipePenjamin; label: string; desc: string }[] = [
 ];
 
 export function UbahPenjaminModal({
+  patientId,
   current,
   onClose,
-  onSave,
+  onSaved,
 }: {
+  patientId: string;
   current: PenjaminData;
   onClose: () => void;
-  onSave: (p: PenjaminData) => void;
+  /** Berhasil simpan. `local` diisi utk pasien demo (set state lokal); kosong → refresh server. */
+  onSaved: (local?: PenjaminData) => void;
 }) {
-  const [d, setD] = useState<PenjaminData>({ ...current });
+  const isDb = UUID_RE.test(patientId);
+  // No. Kartu DB ter-mask → mulai kosong (tak bisa diedit dari nilai masked); demo = prefill.
+  const [d, setD] = useState<PenjaminData>(() => ({ ...current, nomor: isDb ? "" : current.nomor }));
   const [activeSection, setActiveSection] = useState<PjSection>("jenis");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const isBpjs = d.tipe === "BPJS_Non_PBI" || d.tipe === "BPJS_PBI";
   const isAsuransi = d.tipe === "Asuransi";
   const hasDetail = isBpjs || isAsuransi;
   const pjCfg = PENJAMIN_CFG[d.tipe];
   const sectionIdx = SECTIONS.findIndex((s) => s.id === activeSection);
+
+  async function handleSave() {
+    if (!isDb) { onSaved(d); onClose(); return; } // pasien demo → state lokal saja
+    setSubmitting(true);
+    setError(null);
+    const ac = new AbortController();
+    abortRef.current = ac;
+    try {
+      await updatePenjamin(
+        patientId,
+        {
+          tipe: d.tipe,
+          nama: d.nama,
+          nomor: d.nomor?.trim() || undefined, // kosong = jangan ubah No. Kartu existing
+          kelas: d.kelas,
+          noPolis: d.noPolis?.trim() || undefined,
+        },
+        ac.signal,
+      );
+      toast.success("Penjamin diperbarui", PENJAMIN_CFG[d.tipe].label);
+      onSaved(); // dashboard refresh dari server (nomor ter-mask kembali)
+      onClose();
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      const msg = e instanceof ApiError ? e.message : "Gagal menyimpan penjamin. Coba lagi.";
+      setError(msg);
+      toast.error("Gagal menyimpan penjamin", msg);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <ModalShell
@@ -213,8 +258,14 @@ export function UbahPenjaminModal({
                     <input
                       value={d.nomor ?? ""}
                       onChange={(e) => setD((x) => ({ ...x, nomor: e.target.value }))}
-                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-mono text-slate-700 outline-none transition hover:border-slate-300 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                      placeholder={isDb && current.nomor ? "Kosongkan jika tidak diubah" : undefined}
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-mono text-slate-700 outline-none transition placeholder:font-sans placeholder:text-slate-300 hover:border-slate-300 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                     />
+                    {isDb && current.nomor && (
+                      <p className="text-[10px] text-slate-400">
+                        No. saat ini: <span className="font-mono text-slate-500">{current.nomor}</span> · kosongkan jika tak diubah
+                      </p>
+                    )}
                   </div>
                   <div>
                     <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Kelas Perawatan</p>
@@ -271,18 +322,28 @@ export function UbahPenjaminModal({
         </div>
       </div>
 
+      {/* Error banner */}
+      {error && (
+        <div className="shrink-0 px-5 pt-2">
+          <div role="alert" className="flex items-start gap-2 rounded-lg bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700 ring-1 ring-rose-200">
+            <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
       <div className="flex shrink-0 items-center justify-between border-t border-slate-100 bg-slate-50/80 px-5 py-3.5">
         <div className="flex items-center gap-2">
           <button
-            disabled={sectionIdx === 0}
+            disabled={sectionIdx === 0 || submitting}
             onClick={() => setActiveSection(SECTIONS[sectionIdx - 1].id)}
             className="flex cursor-pointer items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-500 transition hover:bg-slate-50 disabled:cursor-default disabled:opacity-30"
           >
             ← Sebelumnya
           </button>
           <button
-            disabled={sectionIdx === SECTIONS.length - 1}
+            disabled={sectionIdx === SECTIONS.length - 1 || submitting}
             onClick={() => setActiveSection(SECTIONS[sectionIdx + 1].id)}
             className="flex cursor-pointer items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-500 transition hover:bg-slate-50 disabled:cursor-default disabled:opacity-30"
           >
@@ -292,15 +353,17 @@ export function UbahPenjaminModal({
         <div className="flex gap-2">
           <button
             onClick={onClose}
-            className="cursor-pointer rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+            disabled={submitting}
+            className="cursor-pointer rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
           >
             Batal
           </button>
           <button
-            onClick={() => { onSave(d); onClose(); }}
-            className="cursor-pointer rounded-lg bg-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-700"
+            onClick={handleSave}
+            disabled={submitting}
+            className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-700 disabled:opacity-70"
           >
-            Simpan Perubahan
+            {submitting ? <><Loader2 size={13} className="animate-spin" /> Menyimpan…</> : "Simpan Perubahan"}
           </button>
         </div>
       </div>

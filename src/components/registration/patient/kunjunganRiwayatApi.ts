@@ -15,6 +15,13 @@ const UNIT_LABEL: Record<string, UnitKunjungan> = {
   IGD: "IGD",
 };
 
+// Link "Lihat Detail" → worklist klinis unit terkait (by kunjungan id).
+const DETAIL_BASE: Record<string, string> = {
+  RawatJalan: "/ehis-care/rawat-jalan",
+  RawatInap: "/ehis-care/rawat-inap",
+  IGD: "/ehis-care/igd",
+};
+
 const PENJAMIN_LABEL: Record<string, string> = {
   Umum: "Umum / Mandiri",
   BPJS_Non_PBI: "BPJS Non-PBI",
@@ -54,5 +61,6 @@ export function dtoToKunjunganRecord(dto: KunjunganListItemDTO): KunjunganRecord
     noSEP: dto.sep?.noSep ?? undefined,
     kodeICD: dto.kodeIcdMasuk ?? undefined,
     status: STATUS_MAP[dto.status] ?? "Aktif",
+    detailPath: DETAIL_BASE[dto.unit] ? `${DETAIL_BASE[dto.unit]}/${dto.id}` : undefined,
   };
 }

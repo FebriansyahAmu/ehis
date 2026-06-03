@@ -32,11 +32,11 @@ function fmtJam(iso: string): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-/** Status puncak Kunjungan → order board (statusOverride). */
-export function orderFromStatus(status: string): RJOrderStatus {
+/** Status puncak + sub-state panggilan Kunjungan → order board (statusOverride). */
+export function orderFromStatus(status: string, callState?: string | null): RJOrderStatus {
   switch (status) {
-    case "Registered":
-    case "Queued": return "Order_Masuk";
+    case "Registered": return "Order_Masuk";
+    case "Queued": return callState === "Dipanggil" ? "Dipanggil" : "Order_Masuk";
     case "InService": return "Dilayani";
     case "Cancelled": return "Dikembalikan_Admisi";
     default: return "Selesai"; // Completed/Closed/Billed/Claimed

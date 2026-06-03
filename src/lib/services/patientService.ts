@@ -14,6 +14,7 @@ import type {
   SearchQuery,
   AddressInput,
   PatientDTO,
+  UpdatePenjaminInput,
 } from "@/lib/schemas/patient";
 import type {
   PatientEntity,
@@ -142,6 +143,7 @@ export function makePatientService(deps: { clock?: Clock; dal?: Dal } = {}) {
         nama: pj.nama,
         nomorMasked: pj.nomorEnc ? maskPii(decryptPii(pj.nomorEnc)) : null,
         kelas: pj.kelas,
+        noPolis: pj.noPolis,
         isPrimer: pj.isPrimer,
       })),
       alergiAwal: p.alergiAwal.map((a) => ({ nama: a.nama, reaksi: a.reaksi, tingkat: a.tingkat })),
@@ -260,6 +262,36 @@ export function makePatientService(deps: { clock?: Clock; dal?: Dal } = {}) {
     return toDTO(updated);
   }
 
+  /**
+   * Ubah penjamin (jaminan aktif). Upsert by tipe + jadikan primer (single-primary
+   * invariant di DAL). No. Kartu di-enc/hash di sini (boundary PII).
+   */
+  async function updatePenjamin(id: string, input: UpdatePenjaminInput, _actor: Actor): Promise<PatientDTO> {
+    const existing = await dal.findById(id);
+    if (!existing) throw Errors.notFound("Pasien tidak ditemukan");
+
+    const updated = await transaction(async (tx) => {
+      await dal.upsertPenjaminByTipe(
+        id,
+        {
+          tipe: input.tipe,
+          nama: input.nama ?? penjaminNama(input.tipe),
+          // nomor absen = SKIP (jangan timpa No. Kartu existing dgn nilai masked dari UI).
+          nomorEnc: input.nomor ? encryptPii(input.nomor) : undefined,
+          nomorHash: input.nomor ? hashPii(input.nomor) : undefined,
+          kelas: input.kelas ?? null,
+          noPolis: input.noPolis ?? null,
+        },
+        { setPrimary: true },
+        tx,
+      );
+      const fresh = await dal.findById(id, tx);
+      if (!fresh) throw Errors.notFound("Pasien tidak ditemukan");
+      return fresh;
+    });
+    return toDTO(updated);
+  }
+
   /** Cari/list pasien. NIK/RM = exact (1 hasil); nama/umum = trigram + cursor. */
   async function searchPatient(query: SearchQuery): Promise<{ items: PatientDTO[]; cursor: string | null }> {
     const q = query.q?.trim();
@@ -287,7 +319,18 @@ export function makePatientService(deps: { clock?: Clock; dal?: Dal } = {}) {
     return toDTO(found);
   }
 
-  return { registerPatient, completePatient, searchPatient, getPatient };
+  return { registerPatient, completePatient, searchPatient, getPatient, updatePenjamin };
+}
+
+/** Nama penjamin default bila operator tak isi nama. */
+function penjaminNama(tipe: string): string {
+  switch (tipe) {
+    case "BPJS_Non_PBI": return "BPJS Kesehatan Non-PBI";
+    case "BPJS_PBI": return "BPJS Kesehatan PBI";
+    case "Asuransi": return "Asuransi";
+    case "Jamkesda": return "Jamkesda";
+    default: return "Umum / Mandiri";
+  }
 }
 
 function isUniqueViolation(e: unknown): boolean {

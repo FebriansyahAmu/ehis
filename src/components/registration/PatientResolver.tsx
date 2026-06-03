@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { notFound } from "next/navigation";
 import { patientMasterData, type PatientMaster } from "@/lib/data";
 import { getMergedPatient, useRegistrationStore } from "@/lib/registration/registrationStore";
-import { getPatient } from "@/lib/api/patients";
+import { getPatient, searchPatients } from "@/lib/api/patients";
 import { dtoToPatientMaster } from "./pasien-list/pasienListApi";
 import PatientDashboard from "./PatientDashboard";
 
@@ -35,17 +35,20 @@ export default function PatientResolver({ id }: { id: string }) {
   // Pra-mount (termasuk SSR): hanya seed → markup konsisten server/client.
   const local = mounted ? getMergedPatient(id) : patientMasterData[id];
 
-  // Fallback: id UUID & tak ada di mock/store → fetch pasien DB. Effect jalan SEKALI
-  // per id (deps [id] saja) — apiState/local TIDAK boleh jadi dep, kalau tidak
-  // setApiState memicu re-run yang meng-abort fetch-nya sendiri (stuck di spinner).
+  // Fallback: tak ada di mock/store → fetch pasien DB. id UUID → getPatient; id noRM
+  // (link Beranda/KunjunganHeader) → search by rm. Effect jalan SEKALI per id (deps [id]
+  // saja) — apiState/local TIDAK boleh jadi dep, kalau tidak setApiState memicu re-run
+  // yang meng-abort fetch-nya sendiri (stuck di spinner).
   useEffect(() => {
-    if (!UUID_RE.test(id) || getMergedPatient(id) || patientMasterData[id]) return;
+    if (getMergedPatient(id) || patientMasterData[id]) return;
     const ac = new AbortController();
     setApiState("loading");
     (async () => {
       try {
-        const dto = await getPatient(id, ac.signal);
-        if (!ac.signal.aborted) setApiPatient(dtoToPatientMaster(dto));
+        const dto = UUID_RE.test(id)
+          ? await getPatient(id, ac.signal)
+          : (await searchPatients({ by: "rm", q: id, limit: 1 }, ac.signal)).items[0] ?? null;
+        if (!ac.signal.aborted) setApiPatient(dto ? dtoToPatientMaster(dto) : null);
       } catch {
         if (ac.signal.aborted) return;
         setApiPatient(null);
@@ -59,9 +62,9 @@ export default function PatientResolver({ id }: { id: string }) {
   const patient = local ?? apiPatient;
 
   if (!patient) {
-    // Tunggu store ter-hidrasi & (bila UUID) fetch API selesai sebelum notFound.
+    // Tunggu store ter-hidrasi & fetch API (UUID atau noRM) selesai sebelum notFound.
     if (!mounted) return <ResolverLoading />;
-    if (UUID_RE.test(id) && apiState !== "done") return <ResolverLoading />;
+    if (apiState !== "done") return <ResolverLoading />;
     notFound();
   }
 

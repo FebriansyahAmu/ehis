@@ -110,11 +110,27 @@ export const WorklistQuery = z.object({
 
 export const IdParam = z.object({ id: z.string().uuid("ID tidak valid") });
 
+// ── Transisi status (PATCH /kunjungan/:id/status) ─────────────────────────────
+// State machine worklist RJ. callState (Idle/Dipanggil) = sub-state, tak ubah status puncak.
+//   Registered ─call→ Queued/Dipanggil ─receive→ InService ─complete→ Completed
+//        └─checkIn→ Queued        └─recall (++count)      └─cancel→ Cancelled
+//   Completed ─reopen→ InService
+export const KunjunganActionName = z.enum([
+  "checkIn", "call", "recall", "receive", "complete", "cancel", "reopen",
+]);
+export const TransitionInput = z.object({
+  action: KunjunganActionName,
+  /** Optimistic concurrency — bila dikirim, ditolak (409) saat version sudah berubah. */
+  expectedVersion: z.number().int().nonnegative().optional(),
+});
+
 // ── Tipe inferensi ─────────────────────────────────────────────────────────---
 export type RegisterKunjunganInput = z.infer<typeof RegisterKunjunganInput>;
 export type RujukanInput = z.infer<typeof RujukanInput>;
 export type SepInput = z.infer<typeof SepInput>;
 export type WorklistQuery = z.infer<typeof WorklistQuery>;
+export type KunjunganActionName = z.infer<typeof KunjunganActionName>;
+export type TransitionInput = z.infer<typeof TransitionInput>;
 
 // ── DTO output ────────────────────────────────────────────────────────────────
 export interface RujukanDTO {
@@ -167,6 +183,8 @@ export interface KunjunganListItemDTO {
   dpjpId: string | null;
   kelas: string | null;
   triaseLevel: number | null;
+  callState: "Idle" | "Dipanggil" | null;
+  recallCount: number;
   penjaminTipe: string;
   penjaminId: string | null;
   keluhan: string | null;
@@ -192,6 +210,8 @@ export interface KunjunganDTO {
   caraMasuk: string | null;
   caraDatang: string | null;
   asalMasuk: string | null;
+  callState: "Idle" | "Dipanggil" | null;
+  recallCount: number;
   keluhan: string | null;
   diagnosaMasuk: string | null;
   kodeIcdMasuk: string | null;

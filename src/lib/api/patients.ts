@@ -5,10 +5,11 @@ import { api } from "@/lib/api/client";
 import type {
   RegisterPatientInput,
   CompletePatientInput,
+  UpdatePenjaminInput,
   PatientDTO,
 } from "@/lib/schemas/patient";
 
-export type { PatientDTO, RegisterPatientInput, CompletePatientInput };
+export type { PatientDTO, RegisterPatientInput, CompletePatientInput, UpdatePenjaminInput };
 
 export interface SearchPatientsParams {
   q?: string;
@@ -54,5 +55,19 @@ export async function completePatient(
   signal?: AbortSignal,
 ): Promise<PatientDTO> {
   const { data } = await api.patch<PatientDTO>(`/patients/${encodeURIComponent(id)}`, input, { signal });
+  return data;
+}
+
+/** PATCH /patients/:id/penjamin — ubah jaminan aktif (jadi primer). */
+export async function updatePenjamin(
+  id: string,
+  input: UpdatePenjaminInput,
+  signal?: AbortSignal,
+): Promise<PatientDTO> {
+  const { data } = await api.patch<PatientDTO>(
+    `/patients/${encodeURIComponent(id)}/penjamin`,
+    input,
+    { signal },
+  );
   return data;
 }

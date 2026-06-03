@@ -14,11 +14,11 @@ import * as defaultDal from "@/lib/dal/kunjunganDal";
 import * as patientDal from "@/lib/dal/patientDal";
 import { makeBpjsService, toSepDTO, toRujukanDTO } from "@/lib/services/bpjsService";
 import { systemClock, type Clock } from "@/lib/core/clock";
-import { decryptPii } from "@/lib/crypto/pii";
+import { decryptPii, encryptPii, hashPii } from "@/lib/crypto/pii";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
-import type { RegisterKunjunganInput, WorklistQuery, KunjunganDTO, KunjunganListItemDTO } from "@/lib/schemas/kunjungan";
-import type { KunjunganEntity, KunjunganListEntity } from "@/lib/dal/kunjunganDal";
+import type { RegisterKunjunganInput, WorklistQuery, KunjunganDTO, KunjunganListItemDTO, KunjunganActionName } from "@/lib/schemas/kunjungan";
+import type { KunjunganEntity, KunjunganListEntity, UpdateStatusPatch } from "@/lib/dal/kunjunganDal";
 
 type Dal = typeof defaultDal;
 type Bpjs = ReturnType<typeof makeBpjsService>;
@@ -30,6 +30,17 @@ const KNOWN_STATUS = new Set([
 const ACTIVE_STATUS = ["Registered", "Queued", "InService"] as const;
 
 const isBpjs = (t: string): boolean => t === "BPJS_Non_PBI" || t === "BPJS_PBI";
+
+/** Nama penjamin default bila pasien belum punya record penjamin tipe tsb. */
+function defaultPenjaminNama(tipe: string): string {
+  switch (tipe) {
+    case "BPJS_Non_PBI": return "BPJS Kesehatan Non-PBI";
+    case "BPJS_PBI": return "BPJS Kesehatan PBI";
+    case "Asuransi": return "Asuransi";
+    case "Jamkesda": return "Jamkesda";
+    default: return "Umum / Mandiri";
+  }
+}
 
 export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bpjs } = {}) {
   const clock = deps.clock ?? systemClock;
@@ -72,6 +83,8 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
       caraMasuk: k.caraMasuk,
       caraDatang: k.caraDatang,
       asalMasuk: k.asalMasuk,
+      callState: k.callState,
+      recallCount: k.recallCount,
       keluhan: k.keluhan,
       diagnosaMasuk: k.diagnosaMasuk,
       kodeIcdMasuk: k.kodeIcdMasuk,
@@ -96,6 +109,8 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
       dpjpId: k.dpjpId,
       kelas: k.kelas,
       triaseLevel: k.triaseLevel,
+      callState: k.callState,
+      recallCount: k.recallCount,
       penjaminTipe: k.penjaminTipe,
       penjaminId: k.penjaminId,
       keluhan: k.keluhan,
@@ -150,6 +165,25 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
 
     const created = await transaction(async (tx) => {
       const seq = await dal.nextNoKunjunganSeq(tx);
+
+      // Jaminan aktif ikut kunjungan terakhir: persist penjamin BPJS terverifikasi
+      // (No. Kartu enc + kelas hak) ke pasien & jadikan primer; FK ke kunjungan.
+      let penjaminId = penjamin?.id;
+      if (bpjsFlow) {
+        penjaminId = await patientDal.upsertPenjaminByTipe(
+          patient.id,
+          {
+            tipe: input.penjaminTipe,
+            nama: penjamin?.nama ?? defaultPenjaminNama(input.penjaminTipe),
+            nomorEnc: encryptPii(noKartu!),
+            nomorHash: hashPii(noKartu!),
+            kelas: input.sep?.klsRawatHak ?? penjamin?.kelas ?? null,
+          },
+          { setPrimary: true },
+          tx,
+        );
+      }
+
       const k = await dal.create(
         {
           patientId: patient.id,
@@ -163,7 +197,7 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
           keluhan: input.keluhan,
           caraMasuk: input.caraMasuk,
           penjaminTipe: input.penjaminTipe,
-          penjaminId: penjamin?.id,
+          penjaminId,
           // Denormalisasi diagnosa masuk dari rujukan (tampilan cepat).
           diagnosaMasuk: input.rujukan?.diagnosaNama,
           kodeIcdMasuk: input.rujukan?.diagnosaKode,
@@ -205,6 +239,64 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
     return toDTO(found);
   }
 
+  // ── State machine worklist (BACKEND-ENCOUNTER §3) ──────────────────────────--
+  // callState (Idle/Dipanggil) = sub-state panggilan; recallCount naik tiap panggil-ulang.
+  // Transisi ilegal → 422 (validasi); status sudah berubah saat optimistic → 409 (conflict).
+  function buildTransition(action: KunjunganActionName, k: NonNullEntity): UpdateStatusPatch {
+    const s = k.status;
+    const cs = k.callState;
+    const bad = () => Errors.validation(`Aksi "${action}" tidak sah dari status ${s}${cs ? `/${cs}` : ""}`);
+    switch (action) {
+      case "checkIn": // Registered → Queued (masuk antrean poli)
+        if (s !== "Registered") throw bad();
+        return { status: "Queued", callState: "Idle" };
+      case "call": // panggil ke poli (auto check-in bila masih Registered)
+        if (s !== "Registered" && s !== "Queued") throw bad();
+        return { status: "Queued", callState: "Dipanggil", recallCount: 0 };
+      case "recall": // panggil ulang — naikkan counter, status tetap
+        if (s !== "Queued" || cs !== "Dipanggil") throw bad();
+        return { status: "Queued", recallCount: (k.recallCount ?? 0) + 1 };
+      case "receive": // pasien hadir → mulai pelayanan
+        if (s !== "Queued" || cs !== "Dipanggil") throw bad();
+        return { status: "InService", callState: "Idle" };
+      case "complete": // pelayanan selesai → kunci waktu selesai (immutable)
+        if (s !== "InService") throw bad();
+        return { status: "Completed", callState: "Idle", selesaiAt: clock.now(), lockedAt: clock.now() };
+      case "cancel": // batal — dikembalikan ke admisi
+        if (s !== "Registered" && s !== "Queued" && s !== "InService") throw bad();
+        return { status: "Cancelled", callState: "Idle" };
+      case "reopen": // buka kembali Selesai → Dilayani (selesaiAt DIPERTAHANKAN)
+        if (s !== "Completed") throw bad();
+        return { status: "InService", callState: "Idle" };
+      default:
+        throw Errors.validation("Aksi tidak dikenal");
+    }
+  }
+
+  /**
+   * Transisi status kunjungan (worklist). Version guard 2-lapis: bila `expectedVersion`
+   * dikirim, ditolak saat sudah berubah; lalu updateStatus by version (count 0 = ter-race).
+   */
+  async function transition(
+    id: string,
+    action: KunjunganActionName,
+    expectedVersion: number | undefined,
+    _actor: Actor,
+  ): Promise<KunjunganDTO> {
+    const updated = await transaction(async (tx) => {
+      const k = await dal.findById(id, tx);
+      if (!k) throw Errors.notFound("Kunjungan tidak ditemukan");
+      if (expectedVersion !== undefined && k.version !== expectedVersion) throw Errors.conflictVersion();
+      const patch = buildTransition(action, k);
+      const count = await dal.updateStatus(id, k.version, patch, tx);
+      if (count === 0) throw Errors.conflictVersion();
+      const fresh = await dal.findById(id, tx);
+      if (!fresh) throw Errors.internal("Gagal memuat kunjungan setelah transisi");
+      return fresh;
+    });
+    return toDTO(updated);
+  }
+
   /** Worklist lintas unit (cursor). Default: status aktif bila filter kosong. */
   async function getWorklist(query: WorklistQuery, _actor: Actor): Promise<{ items: KunjunganListItemDTO[]; cursor: string | null }> {
     // Query per-pasien = timeline/Riwayat → semua status. Query unit = worklist → aktif saja.
@@ -219,7 +311,7 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
     return { items: items.map(toListDTO), cursor: nextCursor };
   }
 
-  return { registerKunjungan, getKunjungan, getWorklist };
+  return { registerKunjungan, getKunjungan, getWorklist, transition };
 }
 
 export const kunjunganService = makeKunjunganService();

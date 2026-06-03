@@ -52,6 +52,8 @@ export function PatientRightPanel({
 
   const pjCfg      = PENJAMIN_CFG[patient.penjamin.tipe];
   const activeVisit = patient.riwayatKunjungan.find((k) => k.status === "Aktif");
+  // No. SEP terbaru: utamakan field penjamin (mock), fallback SEP kunjungan terkini (API).
+  const latestSEP  = patient.penjamin.noSEP ?? patient.riwayatKunjungan.find((k) => k.noSEP)?.noSEP;
 
   function toggle(id: string) {
     setExpanded((prev) => {
@@ -325,11 +327,11 @@ export function PatientRightPanel({
                 </div>
               </div>
 
-              {patient.penjamin.noSEP && (
+              {latestSEP && (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
                   <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-500">No. SEP</p>
                   <p className="mt-0.5 font-mono text-sm font-bold tracking-widest text-emerald-800">
-                    {patient.penjamin.noSEP}
+                    {latestSEP}
                   </p>
                 </div>
               )}

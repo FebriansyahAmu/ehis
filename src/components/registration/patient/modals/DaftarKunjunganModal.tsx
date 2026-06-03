@@ -36,11 +36,14 @@ export function DaftarKunjunganModal({
   patient,
   onClose,
   kodebooking,
+  onRegistered,
 }: {
   patient: PatientMaster;
   onClose: () => void;
   /** ANT4 — bila dipicu dari Respon Kedatangan antrean: link + emit task 3. */
   kodebooking?: string;
+  /** Dipanggil setelah kunjungan tersimpan → dashboard refresh Riwayat + Jaminan. */
+  onRegistered?: (kunjungan: KunjunganDTO) => void;
 }) {
   const today = new Date().toISOString().split("T")[0];
   const nowTime = new Date().toTimeString().slice(0, 5);
@@ -176,6 +179,7 @@ export function DaftarKunjunganModal({
       if (kodebooking) { emitTask(kodebooking, 3); setStatus(kodebooking, "MenungguPoli"); }
       setCreated(kunjungan);
       setDone(true);
+      onRegistered?.(kunjungan); // dashboard refresh Riwayat + Jaminan (jaminan ikut kunjungan terakhir)
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return; // dibatalkan
       if (err instanceof ApiError) {

@@ -6,9 +6,10 @@ import type {
   RegisterKunjunganInput,
   KunjunganDTO,
   KunjunganListItemDTO,
+  KunjunganActionName,
 } from "@/lib/schemas/kunjungan";
 
-export type { RegisterKunjunganInput, KunjunganDTO, KunjunganListItemDTO };
+export type { RegisterKunjunganInput, KunjunganDTO, KunjunganListItemDTO, KunjunganActionName };
 
 export interface RegisterKunjunganResult {
   kunjungan: KunjunganDTO;
@@ -28,6 +29,21 @@ export async function registerKunjungan(
 /** GET /kunjungan/:id — detail (incl. rujukan + SEP untuk cetak). */
 export async function getKunjungan(id: string, signal?: AbortSignal): Promise<KunjunganDTO> {
   const { data } = await api.get<KunjunganDTO>(`/kunjungan/${encodeURIComponent(id)}`, { signal });
+  return data;
+}
+
+/** PATCH /kunjungan/:id/status — transisi worklist (call/recall/receive/complete/cancel…). */
+export async function transitionKunjungan(
+  id: string,
+  action: KunjunganActionName,
+  expectedVersion?: number,
+  signal?: AbortSignal,
+): Promise<KunjunganDTO> {
+  const { data } = await api.patch<KunjunganDTO>(
+    `/kunjungan/${encodeURIComponent(id)}/status`,
+    { action, expectedVersion },
+    { signal },
+  );
   return data;
 }
 

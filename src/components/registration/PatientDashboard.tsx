@@ -8,7 +8,9 @@ import { cn } from "@/lib/utils";
 import type { PatientMaster } from "@/lib/data";
 import { patientMasterData } from "@/lib/data";
 import { listKunjungan } from "@/lib/api/kunjungan";
+import { getPatient } from "@/lib/api/patients";
 import { dtoToKunjunganRecord } from "./patient/kunjunganRiwayatApi";
+import { dtoToPatientMaster } from "./pasien-list/pasienListApi";
 
 // id pasien DB = UUID; pasien demo/mock = "RM-..." → hanya UUID yang punya riwayat di API.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -107,25 +109,48 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Riwayat kunjungan dari API (pasien DB). Fetch sekali per id → merge ke riwayat tab,
-  // sehingga panel kanan / modal Riwayat / jadwal otomatis ikut (downstream tak berubah).
+  // Riwayat kunjungan dari API (pasien DB). Sumber kebenaran = DB → REPLACE riwayat tab
+  // (idempoten). Tandai loaded SETELAH sukses, bukan sebelum: di React StrictMode (dev)
+  // effect jalan 2× + cleanup meng-abort; menandai di awal akan memblokir fetch run-2 →
+  // riwayat kosong. Guard post-sukses → run-1 ke-abort, run-2 tetap fetch & isi.
   const fetchedRiwayat = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (!UUID_RE.test(patient.id) || fetchedRiwayat.current.has(patient.id)) return;
-    fetchedRiwayat.current.add(patient.id);
+    const pid = patient.id;
+    if (!UUID_RE.test(pid) || fetchedRiwayat.current.has(pid)) return;
     const ac = new AbortController();
-    listKunjungan({ patientId: patient.id, limit: 50 }, ac.signal)
+    listKunjungan({ patientId: pid, limit: 50 }, ac.signal)
       .then(({ items }) => {
-        if (!items.length) return;
+        fetchedRiwayat.current.add(pid); // tandai HANYA setelah sukses
         const recs = items.map(dtoToKunjunganRecord);
         setTabs((prev) =>
-          prev.map((t) => (t.id === patient.id ? { ...t, riwayatKunjungan: [...recs, ...t.riwayatKunjungan] } : t)),
+          prev.map((t) => (t.id === pid ? { ...t, riwayatKunjungan: recs } : t)),
         );
       })
-      .catch(() => { /* abaikan: riwayat kosong bila gagal */ });
+      .catch(() => { /* abort/gagal: jangan tandai → boleh retry */ });
     return () => ac.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patient.id]);
+
+  // Refresh data DB pasien (penjamin + riwayat) — dipakai setelah daftar kunjungan.
+  // Jaminan aktif ikut kunjungan terakhir → ambil ulang penjamin primer + timeline.
+  async function refreshPatientData(id: string) {
+    if (!UUID_RE.test(id)) return;
+    try {
+      const [dto, list] = await Promise.all([
+        getPatient(id),
+        listKunjungan({ patientId: id, limit: 50 }),
+      ]);
+      const fresh = dtoToPatientMaster(dto);
+      const recs = list.items.map(dtoToKunjunganRecord);
+      setTabs((prev) =>
+        prev.map((t) =>
+          t.id === id ? { ...t, penjamin: fresh.penjamin, riwayatKunjungan: recs } : t,
+        ),
+      );
+    } catch {
+      /* abaikan: pertahankan data lama bila refresh gagal */
+    }
+  }
 
   // ── Derived data ───────────────────────────────────────────
   const jadwalList = useMemo((): JadwalItem[] => {
@@ -356,9 +381,14 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
       )}
       {showPenjamin && (
         <UbahPenjaminModal
+          patientId={patient.id}
           current={patient.penjamin}
           onClose={() => setPenjamin(false)}
-          onSave={(pj) => setPatient((p) => ({ ...p, penjamin: pj }))}
+          onSaved={(local) =>
+            local
+              ? setPatient((p) => ({ ...p, penjamin: local })) // pasien demo → state lokal
+              : refreshPatientData(patient.id)                  // pasien DB → refresh server
+          }
         />
       )}
       {showInfoLengkap && (
@@ -377,6 +407,7 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
           patient={patient}
           kodebooking={antreanKode}
           onClose={() => { setDaftarKunjungan(false); setAntreanKode(undefined); }}
+          onRegistered={() => refreshPatientData(patient.id)}
         />
       )}
       {showTambahJadwal && (

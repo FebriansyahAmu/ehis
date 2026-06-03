@@ -140,12 +140,24 @@ export const SearchQuery = z.object({
 
 export const IdParam = z.object({ id: z.string().uuid("ID tidak valid") });
 
+// ── Ubah penjamin (PATCH /patients/:id/penjamin) ──────────────────────────────
+// Jaminan aktif pasien = penjamin yang di-set di sini (jadi primer). No. Kartu/BPJS
+// di-enc di Service. berlakuSampai = fase later (butuh date picker di modal).
+export const UpdatePenjaminInput = z.object({
+  tipe: TipePenjamin,
+  nama: z.string().trim().min(1).max(120).optional(),
+  nomor: z.string().trim().max(40).optional(), // No. Kartu BPJS / kosong = clear
+  kelas: z.enum(["1", "2", "3"]).optional(),
+  noPolis: z.string().trim().max(60).optional(),
+});
+
 // ── Tipe inferensi ─────────────────────────────────────────────────────────---
 export type RegisterPatientInput = z.infer<typeof RegisterPatientInput>;
 export type CompletePatientInput = z.infer<typeof CompletePatientInput>;
 export type SearchQuery = z.infer<typeof SearchQuery>;
 export type AddressInput = z.infer<typeof AddressInput>;
 export type PenjaminInput = z.infer<typeof PenjaminInput>;
+export type UpdatePenjaminInput = z.infer<typeof UpdatePenjaminInput>;
 
 // ── DTO output (NIK/noKartu di-MASK; entity Prisma TIDAK bocor) ────────────────
 export interface PatientAddressDTO {
@@ -165,6 +177,7 @@ export interface PatientPenjaminDTO {
   nama: string;
   nomorMasked: string | null;
   kelas: string | null;
+  noPolis: string | null;
   isPrimer: boolean;
 }
 

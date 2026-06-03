@@ -159,6 +159,61 @@ export async function updateWithVersion(
   return res.count;
 }
 
+// ── Penjamin upsert (jaminan aktif = penjamin kunjungan terakhir) ─────────────
+export interface UpsertPenjaminData {
+  tipe: TipePenjamin;
+  nama: string;
+  nomorEnc?: string | null; nomorHash?: string | null; // null = clear; undefined = skip
+  kelas?: string | null; berlakuSampai?: Date | null; noPolis?: string | null;
+}
+
+/**
+ * Upsert penjamin pasien by `tipe` (tak ada unique → find+update/create). PII enc/hash
+ * sudah disiapkan Service. `setPrimary` → jadikan primer & turunkan primer lain
+ * (single-primary invariant). Kembalikan id penjamin (dipakai sbg FK kunjungan).
+ */
+export async function upsertPenjaminByTipe(
+  pasienId: string,
+  data: UpsertPenjaminData,
+  opts: { setPrimary?: boolean } = {},
+  tx?: Tx,
+): Promise<string> {
+  const c = db(tx);
+  const existing = await c.pasienPenjamin.findFirst({
+    where: { pasienId, tipe: data.tipe, deletedAt: null },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+
+  // Turunkan SEMUA primer dulu — partial-unique DB (pasien_penjamin_one_primer_uq)
+  // melarang 2 baris is_primer=true; promote target HARUS setelah demote.
+  if (opts.setPrimary) {
+    await c.pasienPenjamin.updateMany({
+      where: { pasienId, deletedAt: null, isPrimer: true },
+      data: { isPrimer: false },
+    });
+  }
+
+  const fields = {
+    nama: data.nama,
+    nomorEnc: data.nomorEnc, nomorHash: data.nomorHash,
+    kelas: data.kelas, berlakuSampai: data.berlakuSampai, noPolis: data.noPolis,
+  };
+
+  if (existing) {
+    await c.pasienPenjamin.update({
+      where: { id: existing.id },
+      data: { ...fields, ...(opts.setPrimary ? { isPrimer: true } : {}) },
+    });
+    return existing.id;
+  }
+  const created = await c.pasienPenjamin.create({
+    data: { pasienId, tipe: data.tipe, ...fields, isPrimer: opts.setPrimary ?? false },
+    select: { id: true },
+  });
+  return created.id;
+}
+
 /** Upsert alamat by (pasienId, jenis) — KTP/Domisili unik per pasien. */
 export function upsertAddress(pasienId: string, data: AddressData, tx?: Tx) {
   const { jenis, ...rest } = data;
