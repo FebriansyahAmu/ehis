@@ -1,17 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Shield, FileText, Check, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { PenjaminData, TipePenjamin } from "@/lib/data";
-import { updatePenjamin } from "@/lib/api/patients";
-import { ApiError } from "@/lib/api/client";
-import { toast } from "@/lib/ui/toastStore";
+import type { PenjaminData } from "@/lib/data";
 import { ModalShell } from "../primitives";
 import { PENJAMIN_CFG } from "../config";
-
-// id pasien DB = UUID; pasien demo/seed = "RM-..." → hanya UUID yang persist ke server.
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { GROUP_OPTS, groupOf, usePenjaminEdit } from "../penjaminEdit";
 
 type PjSection = "jenis" | "detail";
 
@@ -41,29 +36,6 @@ const SECTIONS: {
   },
 ];
 
-// Jenis penjamin disederhanakan jadi 3 grup. Subtipe BPJS (PBI/Non-PBI) ditentukan
-// dari verifikasi kepesertaan BPJS, bukan pilihan manual di sini.
-type PjGroup = "umum" | "bpjs" | "asuransi";
-
-const GROUP_OPTS: { group: PjGroup; label: string; desc: string }[] = [
-  { group: "umum", label: "Umum / Mandiri", desc: "Bayar sendiri" },
-  { group: "bpjs", label: "BPJS / JKN", desc: "Peserta JKN" },
-  { group: "asuransi", label: "Asuransi Lainnya", desc: "Asuransi komersial" },
-];
-
-function groupOf(t: TipePenjamin): PjGroup {
-  if (t === "BPJS_Non_PBI" || t === "BPJS_PBI") return "bpjs";
-  if (t === "Asuransi") return "asuransi";
-  return "umum"; // Umum / Jamkesda (legacy) → bucket Umum
-}
-
-/** Enum saat grup dipilih — pertahankan subtipe PBI/Non-PBI bila tetap BPJS. */
-function tipeForGroup(g: PjGroup, current: TipePenjamin): TipePenjamin {
-  if (g === "umum") return "Umum";
-  if (g === "asuransi") return "Asuransi";
-  return current === "BPJS_PBI" ? "BPJS_PBI" : "BPJS_Non_PBI";
-}
-
 export function UbahPenjaminModal({
   patientId,
   current,
@@ -76,50 +48,14 @@ export function UbahPenjaminModal({
   /** Berhasil simpan. `local` diisi utk pasien demo (set state lokal); kosong → refresh server. */
   onSaved: (local?: PenjaminData) => void;
 }) {
-  const isDb = UUID_RE.test(patientId);
-  // No. Kartu DB ter-mask → mulai kosong (tak bisa diedit dari nilai masked); demo = prefill.
-  const [d, setD] = useState<PenjaminData>(() => ({ ...current, nomor: isDb ? "" : current.nomor }));
+  // Logika + persist via hook bersama (sumber tunggal — dipakai juga PenjaminForm tab).
+  const { d, setD, isDb, isBpjs, isAsuransi, submitting, error, setGroup, save: handleSave } =
+    usePenjaminEdit(patientId, current, { onSaved, onClose });
   const [activeSection, setActiveSection] = useState<PjSection>("jenis");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
-  const isBpjs = d.tipe === "BPJS_Non_PBI" || d.tipe === "BPJS_PBI";
-  const isAsuransi = d.tipe === "Asuransi";
   const hasDetail = isBpjs || isAsuransi;
   const pjCfg = PENJAMIN_CFG[d.tipe];
   const sectionIdx = SECTIONS.findIndex((s) => s.id === activeSection);
-
-  async function handleSave() {
-    if (!isDb) { onSaved(d); onClose(); return; } // pasien demo → state lokal saja
-    setSubmitting(true);
-    setError(null);
-    const ac = new AbortController();
-    abortRef.current = ac;
-    try {
-      await updatePenjamin(
-        patientId,
-        {
-          tipe: d.tipe,
-          nama: d.nama,
-          nomor: d.nomor?.trim() || undefined, // kosong = jangan ubah No. Kartu existing
-          kelas: d.kelas,
-          noPolis: d.noPolis?.trim() || undefined,
-        },
-        ac.signal,
-      );
-      toast.success("Penjamin diperbarui", PENJAMIN_CFG[d.tipe].label);
-      onSaved(); // dashboard refresh dari server (nomor ter-mask kembali)
-      onClose();
-    } catch (e) {
-      if (e instanceof DOMException && e.name === "AbortError") return;
-      const msg = e instanceof ApiError ? e.message : "Gagal menyimpan penjamin. Coba lagi.";
-      setError(msg);
-      toast.error("Gagal menyimpan penjamin", msg);
-    } finally {
-      setSubmitting(false);
-    }
-  }
 
   return (
     <ModalShell
@@ -217,7 +153,7 @@ export function UbahPenjaminModal({
                   return (
                     <button
                       key={o.group}
-                      onClick={() => setD((x) => ({ ...x, tipe: tipeForGroup(o.group, x.tipe) }))}
+                      onClick={() => setGroup(o.group)}
                       className={cn(
                         "cursor-pointer rounded-xl border-2 p-3 text-left transition-all duration-150",
                         isSelected

@@ -97,6 +97,8 @@ function getInitialType(penjamin?: string | null): PenjaminType {
   return "bpjs-jkn";
 }
 
+// Tab "Ubah Penjamin" = alur ubah/terbit SEP. Untuk BPJS: cek keaktifan peserta
+// (BpjsPanel) → lanjut ubah SEP (InlineSEPCard), flow sama dgn pendaftaran kunjungan.
 export function PenjaminForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
   const [selected,     setSelected]     = useState<PenjaminType>(() => getInitialType(kunjungan.penjamin));
   const [cara,         setCara]         = useState("Tunai");

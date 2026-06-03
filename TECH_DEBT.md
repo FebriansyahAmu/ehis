@@ -109,6 +109,27 @@
 - [ ] **`berlakuSampai` persist di Ubah Penjamin** — butuh date picker (field display-only sekarang; schema `UpdatePenjaminInput` belum terima tgl).
 - [ ] **Konsistensi taksonomi 3-jenis** — `PENJAMIN_CFG` (badge tab Jaminan/board) masih label kanonik "BPJS Non-PBI"; StepPenjamin (DaftarKunjungan) masih 5 jenis. Selaraskan ke "Umum/Mandiri · BPJS/JKN · Asuransi Lainnya" bila diinginkan (kena lintas modul).
 
+### Detail Kunjungan (`/pasien/:id/kunjungan/:kunjunganId`)
+
+> Resolver + Overview/Header sudah baca DB via `GET /kunjungan/:id` ✅ (REG-BE.7 G-A/G-B/G-H, 2026-06-04). Sisa per-gap di halaman ini:
+
+**Display (read-only) — data DTO belum lengkap:**
+- [ ] **G-C · Nama DPJP** — [Header](src/components/registration/kunjungan/KunjunganDetailHeader.tsx#L152) & [RingkasanCard](src/components/registration/kunjungan/Tabs/OverviewTab.tsx#L141) tampil `"—"`; DTO cuma `dpjpId`. **Sama akar dgn "Nama DPJP" di atas** (master Dokter).
+- [ ] **G-D · No.Kartu non-SEP** — [PenjaminCard](src/components/registration/kunjungan/Tabs/OverviewTab.tsx#L174) `noPenjamin` hanya terisi dari `sep.noKartu`; penjamin non-BPJS tanpa SEP → kosong. Perlu `KunjunganDTO` expose no kartu via join `PasienPenjamin` (dekripsi + RBAC) atau field `penjaminNoMasked`.
+- [ ] **G-E · Dokumen kunjungan** — [DokumenCard](src/components/registration/kunjungan/Tabs/OverviewTab.tsx#L258) hanya `dokumen.rujukan` (dari relasi `rujukan`); `generalConsent` & `pengantarPasien` **belum ada kolom** di schema `encounter` ([encounter.prisma](prisma/schema/encounter.prisma#L71)). Keputusan: tambah kolom/tabel berkas kunjungan vs tetap placeholder.
+- [ ] **G-F · jadwalKontrol · G-G · orderedServices** — tak ada di DTO; ranah Rencana Kontrol BPJS (BP6) / modul Order.
+
+**Aksi (semua tab mock/no-op — 0 panggilan API di folder `kunjungan/`):**
+- [ ] **G-I1 · Ubah Penjamin = alur ubah SEP** ([PenjaminForm](src/components/registration/kunjungan/Tabs/ActionForms.tsx)) — **KOREKSI (2026-06-04):** tab ini BUKAN ubah penjamin pasien, melainkan **cek keaktifan peserta BPJS (BpjsPanel) → ubah/terbit SEP (InlineSEPCard)**, flow sama dgn pendaftaran kunjungan. UI sudah benar (mock). Wiring backend = sama dgn **G-I2** (butuh endpoint Update/terbit SEP utk kunjungan existing, reuse `bpjsService` dari registerKunjungan). *(Catatan: penjamin **pasien** level-pasien diubah lewat [UbahPenjaminModal](src/components/registration/patient/modals/UbahPenjaminModal.tsx) di dashboard, sudah wired ke `PATCH /patients/:id/penjamin` via hook [usePenjaminEdit](src/components/registration/patient/penjaminEdit.ts).)*
+- [ ] **G-I2 · Update/terbit SEP** ([UpdateSEPForm](src/components/registration/kunjungan/Tabs/ActionForms.tsx#L226) + PenjaminForm InlineSEPCard) — stepper lokal `setSubmitted(true)` mock; belum panggil `bpjsService`/V-Claim. **Endpoint baru:** terbit/ubah SEP utk kunjungan existing (reuse logika SEP di `registerKunjungan`).
+- [ ] **G-I3 · Ubah Paket** ([PaketForm](src/components/registration/kunjungan/Tabs/PaketForm.tsx)) — mock; depend Billing/paket.
+- [ ] **G-I4 · Surat Rujukan** ([RujukanForm](src/components/registration/kunjungan/Tabs/RujukanForm.tsx)) — mock; `bpjs.Rujukan` ada di schema, belum di-wire.
+- [ ] **G-I5 · Data Kecelakaan** ([KecelakaanForm](src/components/registration/kunjungan/Tabs/KecelakaanForm.tsx)) — mock; depend Jasa Raharja.
+- [ ] **G-I6 · Cetak Dokumen** ([CetakTab](src/components/registration/kunjungan/Tabs/ActionForms.tsx#L320)) — `PrintRow` tanpa onClick; belum render dokumen apa pun.
+- [ ] **G-I7 · Hapus Kunjungan** ([HapusForm](src/components/registration/kunjungan/Tabs/ActionForms.tsx#L341)) — `SaveBtn` no-op; butuh `DELETE /kunjungan/:id` soft-delete (`deletedAt`) + RBAC admin + guard status.
+- [ ] **G-J · Inline-edit Header** ([handleSave](src/components/registration/kunjungan/KunjunganDetailHeader.tsx#L48)) — hanya `setIsEditing(false)`, tak persist. Butuh `PATCH /kunjungan/:id` (DPJP/tanggal/caraMasuk/keluhan, version-guarded).
+- [x] ~~**G-K · Penjamin form duplikat**~~ ✅ **klarifikasi** — ternyata **bukan duplikat**: [UbahPenjaminModal](src/components/registration/patient/modals/UbahPenjaminModal.tsx) (dashboard) = ubah **penjamin pasien** (3-grup, wired `PATCH /patients/:id/penjamin`); [PenjaminForm tab](src/components/registration/kunjungan/Tabs/ActionForms.tsx) = alur **ubah SEP** (cek BPJS → InlineSEPCard). Beda fungsi. Logika penjamin-pasien tetap diekstrak ke hook [usePenjaminEdit](src/components/registration/patient/penjaminEdit.ts) (dipakai modal) — penataan rapi, bukan unifikasi.
+
 ---
 
 ## 🔬 Modul Belum Dibangun
