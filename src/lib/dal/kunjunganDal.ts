@@ -52,10 +52,10 @@ const detailInclude = {
   sep: true,
 } as const;
 
-// Read LIST/worklist: pasien ringkas + ringkasan SEP saja (noSep/status utk badge).
-// Hindari over-fetch seluruh kolom SEP + rujukan per baris board.
+// Read LIST/worklist: pasien ringkas (+ gender/tglLahir utk kartu board) + ringkasan
+// SEP (noSep/status badge). Hindari over-fetch seluruh kolom SEP + rujukan per baris.
 const listInclude = {
-  pasien: { select: { id: true, noRm: true, nama: true } },
+  pasien: { select: { id: true, noRm: true, nama: true, gender: true, tanggalLahir: true } },
   sep: { select: { id: true, noSep: true, status: true } },
 } as const;
 
@@ -84,14 +84,15 @@ export function findByKodebooking(kodebooking: string, tx?: Tx) {
 
 /** Worklist lintas unit — cursor by (createdAt,id) desc. */
 export async function listByUnitStatus(
-  params: { unit?: KunjunganUnit; status?: KunjunganStatus[]; cursor?: string; limit: number },
+  params: { unit?: KunjunganUnit; status?: KunjunganStatus[]; patientId?: string; cursor?: string; limit: number },
   tx?: Tx,
 ) {
-  const { unit, status, cursor, limit } = params;
+  const { unit, status, patientId, cursor, limit } = params;
   const rows = await db(tx).kunjungan.findMany({
     where: {
       deletedAt: null,
       ...(unit ? { unit } : {}),
+      ...(patientId ? { patientId } : {}),
       ...(status && status.length ? { status: { in: status } } : {}),
     },
     include: listInclude,

@@ -7,6 +7,11 @@ import { ChevronRight, X, Plus, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PatientMaster } from "@/lib/data";
 import { patientMasterData } from "@/lib/data";
+import { listKunjungan } from "@/lib/api/kunjungan";
+import { dtoToKunjunganRecord } from "./patient/kunjunganRiwayatApi";
+
+// id pasien DB = UUID; pasien demo/mock = "RM-..." → hanya UUID yang punya riwayat di API.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 import { parseIndoDate, type JadwalItem } from "./patient/config";
 import { PatientLeftPanel } from "./patient/PatientLeftPanel";
@@ -101,6 +106,26 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Riwayat kunjungan dari API (pasien DB). Fetch sekali per id → merge ke riwayat tab,
+  // sehingga panel kanan / modal Riwayat / jadwal otomatis ikut (downstream tak berubah).
+  const fetchedRiwayat = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!UUID_RE.test(patient.id) || fetchedRiwayat.current.has(patient.id)) return;
+    fetchedRiwayat.current.add(patient.id);
+    const ac = new AbortController();
+    listKunjungan({ patientId: patient.id, limit: 50 }, ac.signal)
+      .then(({ items }) => {
+        if (!items.length) return;
+        const recs = items.map(dtoToKunjunganRecord);
+        setTabs((prev) =>
+          prev.map((t) => (t.id === patient.id ? { ...t, riwayatKunjungan: [...recs, ...t.riwayatKunjungan] } : t)),
+        );
+      })
+      .catch(() => { /* abaikan: riwayat kosong bila gagal */ });
+    return () => ac.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patient.id]);
 
   // ── Derived data ───────────────────────────────────────────
   const jadwalList = useMemo((): JadwalItem[] => {

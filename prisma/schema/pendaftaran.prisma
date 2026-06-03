@@ -7,7 +7,7 @@
 //  Data yang berubah per-kunjungan TIDAK di sini (→ Kunjungan / domain klinis).
 //
 //  Identitas: NIK = anchor dedup + kunci Practitioner/Patient FHIR (enc+hash, PII).
-//             noRM = sequence "RM-{th}-{seq}" (atomik; ganti max+1 race-prone mock).
+//             noRM = "YYMMNNNN" (seq reset/bulan via rm_counter, atomik; ganti max+1 race-prone mock).
 //             Mr.X (isAnonim) → NIK null; @unique nullable membiarkan banyak NULL.
 //
 //  Konvensi (FLOWS §9): uuid v7 · timestamptz · citext · soft-delete · optimistic
@@ -79,13 +79,28 @@ enum SumberPendaftaran {
   @@schema("pendaftaran")
 }
 
+// ── Counter noRM per-bulan (format YYMMNNNN; sequence reset tiap bulan) ───────
+//  SEQUENCE global tak bisa di-reset per-periode → counter table 1 baris/bulan.
+//  DAL: rmCounter.upsert(where:periode) → di Postgres dikompilasi jadi native
+//  INSERT … ON CONFLICT (periode) DO UPDATE … RETURNING (atomik, anti-race; 1 round-trip).
+
+model RmCounter {
+  /// "YYMM" zona WIB, mis. "2606" (Juni 2026). PK → 1 baris per bulan.
+  periode String @id @db.Char(4)
+  /// Urutan terakhir terpakai bulan itu; di-increment atomik. Pad min 4 digit di Service.
+  lastSeq Int    @map("last_seq")
+
+  @@map("rm_counter")
+  @@schema("pendaftaran")
+}
+
 // ── Pasien (identitas inti) ───────────────────────────────────────────────────
 
 model Pasien {
   id String @id @default(uuid(7)) @db.Uuid
 
   // ── Identitas ──
-  /// Format "RM-{th}-{seq}" dari sequence pendaftaran.no_rm_seq (Service, atomik).
+  /// Format "YYMMNNNN" (mis. 26060001) — seq reset/bulan via pendaftaran.rm_counter (Service, atomik).
   noRm     String  @unique @map("no_rm")
   /// NIK terenkripsi (PII). Nullable HANYA utk Mr.X (isAnonim) — dilengkapi saat identitas diketahui.
   nikEnc   String? @map("nik_enc")

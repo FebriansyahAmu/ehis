@@ -65,10 +65,18 @@ const detailInclude = {
 
 export type PatientEntity = Awaited<ReturnType<typeof findById>>;
 
-// ── noRM sequence (atomik, anti-race — FLOWS §"App vs DB") ────────────────────
-export async function nextNoRmSeq(tx?: Tx): Promise<number> {
-  const rows = await db(tx).$queryRaw<{ nextval: bigint }[]>`SELECT nextval('"pendaftaran"."no_rm_seq"')`;
-  return Number(rows[0].nextval);
+// ── noRM counter per-bulan (atomik, anti-race — FLOWS §"App vs DB") ───────────
+// Format YYMMNNNN reset tiap bulan → tak bisa pakai SEQUENCE global. `upsert` by PK
+// `periode` di Postgres dikompilasi jadi native INSERT … ON CONFLICT … RETURNING
+// (1 round-trip, race-safe via lock baris implisit) — typed, tanpa raw SQL.
+export async function nextNoRmSeq(periode: string, tx?: Tx): Promise<number> {
+  const row = await db(tx).rmCounter.upsert({
+    where: { periode },
+    create: { periode, lastSeq: 1 },
+    update: { lastSeq: { increment: 1 } },
+    select: { lastSeq: true },
+  });
+  return row.lastSeq;
 }
 
 // ── Create ─────────────────────────────────────────────────────────────────---

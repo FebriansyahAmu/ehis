@@ -102,6 +102,8 @@ export const RegisterKunjunganInput = z
 export const WorklistQuery = z.object({
   unit: KunjunganUnit.optional(),
   status: z.string().trim().optional(), // comma-separated → di-split Service
+  /** Filter per pasien → timeline/Riwayat (patientId ada → semua status, bukan cuma aktif). */
+  patientId: z.string().uuid().optional(),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
@@ -167,9 +169,10 @@ export interface KunjunganListItemDTO {
   triaseLevel: number | null;
   penjaminTipe: string;
   penjaminId: string | null;
+  keluhan: string | null;
   diagnosaMasuk: string | null;
   kodeIcdMasuk: string | null;
-  pasien: { id: string; noRm: string; nama: string };
+  pasien: { id: string; noRm: string; nama: string; gender: "L" | "P"; tanggalLahir: string | null };
   sep: { id: string; noSep: string | null; status: string } | null;
   version: number;
   createdAt: string;

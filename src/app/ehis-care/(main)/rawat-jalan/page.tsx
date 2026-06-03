@@ -3,7 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Stethoscope, Users, Clock, CheckCircle2, Building2, Plus,
 } from "lucide-react";
-import RJBoard from "@/components/rawat-jalan/RJBoard";
+import RJBoardLive from "@/components/rawat-jalan/RJBoardLive";
 import { rjPatients, rjStats } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
@@ -91,7 +91,7 @@ export default function RawatJalanPage() {
           <p className="text-sm font-bold text-slate-700">Daftar Pasien Rawat Jalan</p>
           <p className="text-[11px] text-slate-400">{rjPatients.length} pasien terdaftar hari ini</p>
         </div>
-        <RJBoard patients={rjPatients} />
+        <RJBoardLive seed={rjPatients} />
       </section>
 
     </div>

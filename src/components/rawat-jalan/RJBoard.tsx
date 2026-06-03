@@ -36,7 +36,14 @@ interface Toast {
 
 // ── Main ──────────────────────────────────────────────────
 
-export default function RJBoard({ patients }: { patients: RJPatient[] }) {
+export default function RJBoard({
+  patients,
+  statusOverride,
+}: {
+  patients: RJPatient[];
+  /** Order untuk pasien dari API (tak ada di mock queue store) — mis. kunjungan baru. */
+  statusOverride?: Record<string, RJOrderStatus>;
+}) {
   const queue = useRJQueue();
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("Semua");
@@ -49,7 +56,7 @@ export default function RJBoard({ patients }: { patients: RJPatient[] }) {
 
   useEffect(() => { setPage(1); }, [statusFilter, poliFilter, dokterFilter, penjaminFilter, search]);
 
-  const orderOf = (id: string): RJOrderStatus => queue[id]?.order ?? "Dilayani";
+  const orderOf = (id: string): RJOrderStatus => statusOverride?.[id] ?? queue[id]?.order ?? "Dilayani";
 
   const showToast = (text: string) => {
     const id = Date.now();

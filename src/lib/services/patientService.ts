@@ -25,8 +25,11 @@ import type {
 type Dal = typeof defaultDal;
 type NonNullEntity = NonNullable<PatientEntity>;
 
-const RM_PATTERN = /^RM-\d{4}-\d+$/i;
+// Dukung dua format: baru YYMMNNNN (8+ digit) & lama RM-YYYY-NNNNN (transisi non-destruktif).
+// NIK (16 digit) di-intercept lebih dulu di searchPatient → tak bentrok dgn cabang ≥8 digit.
+const RM_PATTERN = /^(?:RM-\d{4}-\d+|\d{8,})$/i;
 const NIK_PATTERN = /^\d{16}$/;
+const WIB_OFFSET_MS = 7 * 60 * 60 * 1000; // Indonesia WIB (tanpa DST) — periode RM ikut kalender lokal, bukan UTC
 
 export function makePatientService(deps: { clock?: Clock; dal?: Dal } = {}) {
   const clock = deps.clock ?? systemClock;
@@ -72,8 +75,17 @@ export function makePatientService(deps: { clock?: Clock; dal?: Dal } = {}) {
     );
   }
 
-  function formatNoRm(seq: number): string {
-    return `RM-${clock.now().getUTCFullYear()}-${String(seq).padStart(5, "0")}`;
+  /** Periode "YYMM" zona WIB (mis. "2602") — penanda bulan reset sequence noRM. */
+  function rmPeriode(): string {
+    const wib = new Date(clock.now().getTime() + WIB_OFFSET_MS);
+    const yy = String(wib.getUTCFullYear() % 100).padStart(2, "0");
+    const mm = String(wib.getUTCMonth() + 1).padStart(2, "0");
+    return `${yy}${mm}`;
+  }
+
+  /** noRM YYMMNNNN. Pad min 4 digit; bila >9999/bulan lebar tumbuh (tak pernah error). */
+  function formatNoRm(periode: string, seq: number): string {
+    return `${periode}${String(seq).padStart(4, "0")}`;
   }
 
   // ── DTO mapping (mask PII; entity Prisma TIDAK bocor) ─────────────────────---
@@ -195,8 +207,9 @@ export function makePatientService(deps: { clock?: Clock; dal?: Dal } = {}) {
     // 3) noRM atomik + create dalam 1 transaksi (seq tak terbuang bila gagal).
     try {
       const created = await transaction(async (tx) => {
-        const seq = await dal.nextNoRmSeq(tx);
-        return dal.create({ ...data, noRm: formatNoRm(seq) }, tx);
+        const periode = rmPeriode();
+        const seq = await dal.nextNoRmSeq(periode, tx);
+        return dal.create({ ...data, noRm: formatNoRm(periode, seq) }, tx);
       });
       return { patient: toDTO(created), created: true };
     } catch (e) {

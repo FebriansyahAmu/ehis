@@ -98,9 +98,16 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
       triaseLevel: k.triaseLevel,
       penjaminTipe: k.penjaminTipe,
       penjaminId: k.penjaminId,
+      keluhan: k.keluhan,
       diagnosaMasuk: k.diagnosaMasuk,
       kodeIcdMasuk: k.kodeIcdMasuk,
-      pasien: { id: k.pasien.id, noRm: k.pasien.noRm, nama: k.pasien.nama },
+      pasien: {
+        id: k.pasien.id,
+        noRm: k.pasien.noRm,
+        nama: k.pasien.nama,
+        gender: k.pasien.gender,
+        tanggalLahir: k.pasien.tanggalLahir ? k.pasien.tanggalLahir.toISOString().slice(0, 10) : null,
+      },
       sep: k.sep ? { id: k.sep.id, noSep: k.sep.noSep, status: k.sep.status } : null,
       version: k.version,
       createdAt: k.createdAt.toISOString(),
@@ -200,10 +207,12 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
 
   /** Worklist lintas unit (cursor). Default: status aktif bila filter kosong. */
   async function getWorklist(query: WorklistQuery, _actor: Actor): Promise<{ items: KunjunganListItemDTO[]; cursor: string | null }> {
-    const status = parseStatuses(query.status) ?? [...ACTIVE_STATUS];
+    // Query per-pasien = timeline/Riwayat → semua status. Query unit = worklist → aktif saja.
+    const status = parseStatuses(query.status) ?? (query.patientId ? undefined : [...ACTIVE_STATUS]);
     const { items, nextCursor } = await dal.listByUnitStatus({
       unit: query.unit,
       status,
+      patientId: query.patientId,
       cursor: query.cursor,
       limit: query.limit,
     });

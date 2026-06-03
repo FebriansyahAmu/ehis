@@ -34,6 +34,7 @@ export async function getKunjungan(id: string, signal?: AbortSignal): Promise<Ku
 export interface ListKunjunganParams {
   unit?: string;
   status?: string;
+  patientId?: string;
   cursor?: string;
   limit?: number;
 }
