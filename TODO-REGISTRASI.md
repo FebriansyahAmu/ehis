@@ -11,9 +11,9 @@
 > - [TECH_DEBT.md](TECH_DEBT.md) — tech debt registry (item yang ditunda dicatat di sini)
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (RBAC role-gate depend B0)
 >
-> **Last updated:** 2026-05-31
-> **Status:** 🚧 **REG0 fondasi ✅ (2026-05-31).** `registrationStore` + resolver + types siap — pasien/kunjungan baru kini bisa persist & dibuka. PatientDashboard (MDI + 8 modal) ✅, PasienListPage ✅, Beranda ✅, KunjunganDetail 7-tab ✅. **Berikutnya:** REG1 (pasien baru persist+redirect), REG2 (DaftarKunjungan + SEP RJ). Masih no-op: submit PasienBaruModal & DaftarKunjunganModal.
-> **Target effort:** ~1–1.5 minggu (frontend, mock-first).
+> **Last updated:** 2026-06-04
+> **Status:** ✅ **REG0 fondasi + Backend RJ Integration (2026-06-04).** Beralih dari mock-store ke **backend nyata** (layered Route→Service→DAL→Prisma + PostgreSQL). **PasienBaruModal & DaftarKunjunganModal fungsional** (bukan lagi no-op): PasienBaru → `POST /patients` (dedup-first) → DB; DaftarKunjungan → Kunjungan tersimpan + SEP mock terbit & cetak A4 + toast + validasi. Pasien API (register / complete / updatePenjamin), Kunjungan API (register RJ / worklist cursor / detail), lifecycle worklist (check-in→complete, version-guarded) wired ke board RJ, Jaminan persist (ikut kunjungan terakhir), noRM `YYMMNNNN` reset/bulan. Detail di **Phase REG-BE** ⬇. **Sisa:** board loket, IGD/RI, realtime (SSE), nama DPJP (master Dokter).
+> **Target effort:** RJ ✅ done; sisa per-item di [TECH_DEBT.md](TECH_DEBT.md) / Phase REG-BE.
 
 ---
 
@@ -67,16 +67,55 @@
 
 ---
 
+## Phase REG-BE — Backend Integration (Loket → DB) ✅ (2026-06-04)
+
+> **Beralih dari `registrationStore` (mock client) ke backend nyata** mengikuti [docs/BACKEND-PATIENT.md](docs/BACKEND-PATIENT.md) + [docs/BACKEND-ENCOUNTER.md](docs/BACKEND-ENCOUNTER.md). Layering **Route→Service→DAL→Prisma**, PostgreSQL (multi-schema `pendaftaran`/`encounter`/`bpjs`), envelope `{ok,data,...}`, Zod boundary, optimistic concurrency (`version`), PII column-level AES-256-GCM + HMAC blind-index, clock seam injectable. Merealisasikan REG1 *submit* + REG2 *SEP RJ* dengan DB sungguhan.
+
+### REG-BE.1 No. RM format `YYMMNNNN` ✅
+- [x] Format baru `26060001` (YY+MM+seq) — **reset tiap bulan**. Counter table `pendaftaran.rm_counter` + atomic upsert (`INSERT … ON CONFLICT … RETURNING`), anti-race, anti-duplikat (uji race 10-serentak). Periode ikut kalender **WIB** (bukan UTC). Pad min 4 digit (tumbuh bila >9999/bulan). Search dukung format lama `RM-YYYY-N` + baru.
+
+### REG-BE.2 Pasien API ✅ — [patientService](src/lib/services/patientService.ts) · [patientDal](src/lib/dal/patientDal.ts)
+- [x] `POST /patients` register **dedup-first** (NIK/paspor blind-index → kembalikan existing, cegah double-MRN) · `GET /patients` search (NIK/RM exact + nama trigram cursor) · `GET /patients/:id` · `PATCH /patients/:id` complete draft (version guard).
+- [x] **`PATCH /patients/:id/penjamin`** — ubah jaminan aktif (upsert by tipe + set primer, single-primary invariant DB `pasien_penjamin_one_primer_uq`). No. Kartu absen = skip (anti-korupsi nilai masked).
+
+### REG-BE.3 Kunjungan API (RJ) ✅ — [kunjunganService](src/lib/services/kunjunganService.ts) · [kunjunganDal](src/lib/dal/kunjunganDal.ts)
+- [x] `POST /kunjungan` register RJ (wajib pasien `dataLengkap`) · `GET /kunjungan` worklist (filter unit/status/**patientId** cursor) · `GET /kunjungan/:id` detail (incl. rujukan+SEP).
+- [x] Spine `Kunjungan` (encounter schema) = sumbu tunggal; worklist = query `(unit,status)`. noKunjungan `RJ/2026/NNNNN` sequence atomik.
+
+### REG-BE.4 SEP mock (BPJS RJ) ✅ — [bpjsService](src/lib/services/bpjsService.ts) · [bpjsDal](src/lib/dal/bpjsDal.ts)
+- [x] V-Claim belum di-hit → SEP **digenerate lokal** (skenario terbit) dalam transaksi yang sama: Rujukan + SEP (`bpjs.Rujukan`/`bpjs.SEP`), noSep `{ppk}{yymmdd}V{seq}`. **Tersimpan DB + bisa dicetak** A4 ([SepCetak](src/components/registration/patient/modals/daftar-kunjungan/SepCetak.tsx)).
+
+### REG-BE.5 Lifecycle worklist (state machine) ✅
+- [x] `PATCH /kunjungan/:id/status` — transisi `checkIn/call/recall/receive/complete/cancel/reopen` (callState + recallCount + selesaiAt immutable), **version-guarded 2-lapis** (422 ilegal · 409 stale).
+- [x] Board RJ ([RJBoardLive](src/components/rawat-jalan/RJBoardLive.tsx)): kunjungan API muncul sbg kartu, aksi Panggil/Terima/Selesai/Batal/Ulang → transisi server + patch idempoten. Kartu seed demo tetap pakai queue mock (ruang id terpisah).
+
+### REG-BE.6 Wiring modal + dashboard ✅
+- [x] **DaftarKunjunganModal fungsional** — `registerKunjungan` API + toast + cetak SEP + validasi `nextHint` + guard pasien-demo. Adapter `buildRegisterInput`.
+- [x] **Riwayat** dashboard ([PatientDashboard](src/components/registration/PatientDashboard.tsx)) fetch `GET /kunjungan?patientId` → `dtoToKunjunganRecord` (format mock, `detailPath` ke worklist klinis). Replace idempoten + guard **post-sukses** (StrictMode-safe). Resolver muat pasien DB **by noRM** juga (link Beranda/KunjunganHeader).
+- [x] **Jaminan** — jaminan aktif ikut kunjungan terakhir (persist BPJS terverifikasi: No.Kartu enc + kelas, set primer), tab tampil tipe + No.Kartu (masked) + kelas + No.SEP. **Modal Ubah Penjamin → 3 jenis** (Umum/Mandiri · BPJS/JKN · Asuransi Lainnya; subtipe PBI/Non-PBI dipertahankan). Backfill data lama dari SEP.
+
+### 🅿️ Sisa backend (belum)
+- [ ] **Board loket** real-time (SSE/polling) — board RJ belum auto-refresh antar-operator.
+- [x] ~~PasienBaruModal submit → API~~ ✅ **sudah** ([PasienBaruModal.tsx:255](src/components/registration/pasien-baru/PasienBaruModal.tsx#L255) `registerPatient`→`POST /patients` dedup-first→DB). Sisa kecil: auto-buka pasien pasca-sukses (kini success-panel only) + quick-register draft minimal (REG1).
+- [ ] **IGD/RI unit** — `registerKunjungan` hardcode RawatJalan; triase/bed/kelas belum.
+- [ ] **Nama DPJP** — `dpjpId` placeholder; butuh master Dokter (`sdm.Pegawai`/Practitioner) untuk resolve nama (board/riwayat tampil "—").
+- [ ] **Invoice draft saat check-in** (`Registered→Queued`) — depend domain Billing backend.
+- [ ] **Antrean** `antreanKodebooking` + nomor antri — depend domain Antrean.
+- [ ] **Auth/RBAC nyata** — `getActor()` masih DEV actor (depend [docs/BACKEND-AUTH.md](docs/BACKEND-AUTH.md)).
+- [ ] **`berlakuSampai`** persist di Ubah Penjamin (butuh date picker).
+
+---
+
 ## Phase REG1 — Pasien Baru: persist + redirect
 
 **Effort:** 0.5–1 hari · **Depend:** REG0.
 
 > **Model pemersatu (2026-05-31): "daftar minimal → draft → lengkapi di admisi".** Ketiga channel (Onsite/APM, MJKN, walk-in) membuat **draft patient** (`dataLengkap:false`, norm terbit) dgn field minimal (NIK · Nama · Tempat Lahir · Tgl Lahir · No HP), lalu dilengkapi via mode **"Lengkapi Data RM"** saat admisi. Onsite/APM = build pertama (lihat [TODO-ANTREAN.md](TODO-ANTREAN.md) Phase ANT-ONSITE).
 
-- [ ] **`dataLengkap` flag** di `addPatient`/PatientMaster — `false` saat draft (minimal), `true` setelah dilengkapi di admisi.
-- [ ] **Quick-register minimal (5 field)** — fungsi `addPatient` minimal untuk kiosk/MJKN; `PasienBaruModal` wizard penuh berubah peran jadi mode **"Lengkapi Data RM"** (prefill draft + isi sisanya) di admisi.
-- [ ] `handleSubmit` → `addPatient` → `router.push('/pasien/{rm}')` (ganti RM acak + success-state-only).
-- [ ] **NIK dedup (search-first)** — sebelum buat draft, cek NIK; jika ada → buka pasien existing (cegah double-MRN). Berlaku di kiosk jalur "Baru" juga.
+- [x] **`dataLengkap` flag** ✅ server-side — `isComplete()` di [patientService](src/lib/services/patientService.ts) set `false` (draft) / `true` (lengkap); `Pasien.dataLengkap` di DB; gate RJ wajib `dataLengkap`.
+- [ ] **Quick-register minimal (5 field)** — fungsi minimal untuk kiosk/MJKN; `PasienBaruModal` wizard penuh berubah peran jadi mode **"Lengkapi Data RM"** (prefill draft + isi sisanya) di admisi. *(Wizard penuh sudah ke API; mode draft minimal belum.)*
+- [x] **`handleSubmit` → API** ✅ — [PasienBaruModal.tsx:255](src/components/registration/pasien-baru/PasienBaruModal.tsx#L255) `registerPatient`→`POST /patients`→DB + toast No.RM. *Sisa:* redirect kini **success-panel only** (belum `router.push('/pasien/{id}')` otomatis).
+- [x] **NIK dedup (search-first)** ✅ — server **dedup-first** di [patientService.registerPatient](src/lib/services/patientService.ts) (blind-index `nikHash`/`pasporHash` → kembalikan existing `created:false`, anti double-MRN) + race-catch P2002.
 - [ ] **Search fallback by nama + tgl lahir** — untuk pasien lama tanpa NIK/kartu.
 - [ ] Refresh daftar/Beranda otomatis (store reaktif).
 
@@ -122,14 +161,13 @@ Saat Respon Kedatangan pasien BPJS baru (ANT4.1), payload peserta meng-autofill 
 - [ ] Seksi baru di cabang RJ: input **No. Rujukan FKTP** atau **No. Surat Kontrol** → lookup (mock V-Claim) → auto-populate faskes asal, diagnosa rujukan, poli tujuan, tgl rujukan, sisa kunjungan.
 - [ ] Validasi: rujukan aktif & belum kadaluarsa (mock rule).
 
-### REG2.2 Terbitkan + cetak SEP RJ
-- [ ] Setelah submit kunjungan RJ → generate `noSEP` + isi `KunjunganRecord.noSEP`, `penjamin`, `noPenjamin`.
-- [ ] Reuse komponen di [Tabs/sep/](src/components/registration/kunjungan/Tabs/sep/) (`InlineSEPCard`/`SepSteps`) — jenis pelayanan = Rawat Jalan (kode 2).
-- [ ] Cetak SEP RJ (template A4) — konsisten dgn print template BPJS yang sudah ada.
+### REG2.2 Terbitkan + cetak SEP RJ ✅ (via REG-BE.4, backend)
+- [x] Submit kunjungan RJ BPJS → SEP **terbit di server** (mock V-Claim), `noSep`/`penjamin`/`noKartu` tersimpan `bpjs.SEP`.
+- [x] Cetak SEP RJ (template A4) — [SepCetak](src/components/registration/patient/modals/daftar-kunjungan/SepCetak.tsx) (`.print-area` + KopSuratEklaim).
 
-### REG2.3 Submit fungsional
-- [ ] Tulis `KunjunganRecord` ke `registrationStore` (nyambung REG0).
-- [ ] Redirect/refresh ke detail kunjungan baru.
+### REG2.3 Submit fungsional ✅ (via REG-BE.3/.6, backend)
+- [x] Tulis `Kunjungan` ke **DB** (bukan registrationStore) lewat `POST /kunjungan` — transaksi atomik + toast.
+- [x] SuccessPanel + cetak SEP; dashboard refresh Riwayat + Jaminan (`onRegistered`).
 
 ---
 

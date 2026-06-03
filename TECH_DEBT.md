@@ -95,12 +95,28 @@
 
 ---
 
+## 🏥 Registration Backend (`/ehis-registration`)
+
+> Backend RJ ✅ (2026-06-04, lihat [TODO-REGISTRASI.md](TODO-REGISTRASI.md#phase-reg-be--backend-integration-loket--db-2026-06-04) REG-BE). Sisa yang ditunda:
+
+- [ ] **Board loket realtime (SSE/polling)** — board RJ ([RJBoardLive](src/components/rawat-jalan/RJBoardLive.tsx)) fetch sekali saat mount + patch optimistik lokal; perubahan operator lain belum auto-refresh. Butuh SSE/Redis (lihat [docs/BACKEND-FLOWS.md](docs/BACKEND-FLOWS.md)).
+- [x] ~~PasienBaruModal submit → API~~ ✅ **sudah** — [PasienBaruModal.tsx:255](src/components/registration/pasien-baru/PasienBaruModal.tsx#L255) `registerPatient` → `POST /patients` dedup-first → insert DB + toast. **Sisa kecil:** (a) setelah sukses hanya tampil success-panel (No.RM), belum auto-buka `/pasien/{id}`; (b) quick-register draft minimal 5-field (kiosk/MJKN) belum (REG1).
+- [ ] **IGD/RI unit** — `registerKunjungan` hardcode `unit:"RawatJalan"` + superRefine tolak unit lain. IGD (triase) & RI (bed/kelas/asalMasuk) belum; SEP IGD/RI menyusul.
+- [ ] **Nama DPJP** — `dpjpId` placeholder UUID; board/riwayat tampil "—". Butuh master Dokter (`sdm.Pegawai`/Practitioner) untuk resolve nama. Depend [TODOS_BACKEND.md](TODOS_BACKEND.md) B1.1.
+- [ ] **Invoice draft saat check-in** (`Registered→Queued`) — TODO eksplisit di [kunjunganService](src/lib/services/kunjunganService.ts); depend domain Billing backend.
+- [ ] **Antrean** — `antreanKodebooking` + nomor antri belum digenerate; depend domain Antrean ([TODO-ANTREAN.md](TODO-ANTREAN.md)).
+- [ ] **Auth/RBAC nyata** — `getActor()` masih DEV actor super-akses; depend [docs/BACKEND-AUTH.md](docs/BACKEND-AUTH.md).
+- [ ] **`berlakuSampai` persist di Ubah Penjamin** — butuh date picker (field display-only sekarang; schema `UpdatePenjaminInput` belum terima tgl).
+- [ ] **Konsistensi taksonomi 3-jenis** — `PENJAMIN_CFG` (badge tab Jaminan/board) masih label kanonik "BPJS Non-PBI"; StepPenjamin (DaftarKunjungan) masih 5 jenis. Selaraskan ke "Umum/Mandiri · BPJS/JKN · Asuransi Lainnya" bila diinginkan (kena lintas modul).
+
+---
+
 ## 🔬 Modul Belum Dibangun
 
 - [ ] **Laporan IKP** — form KTD/KNC/Sentinel. Kemungkinan modul EHIS-Safety. PMK 11/2017
 - [ ] **Transfusi Darah (RI)** — pre/intra/post-transfusi checklist. SNARS PP 4
 - [ ] **Billing Kasir (`ehis-billing`)** — invoice per kunjungan, rincian tindakan + obat, status pembayaran (Lunas/Proses Klaim/Belum), print struk + klaim BPJS V-Claim + INA-CBG calc + shift kasir + adjustment. `KasirData` type + mock sudah tersedia di `data.ts`. **Roadmap lengkap di [TODO-BILLING.md](TODO-BILLING.md)** — 10 fase (BL0 Foundation → BL9 UX Polish), 40 task, dependency: Master Tarif + Mapping Hub Tarif/Formularium (sudah ✅) + RS Profil KOP (sudah ✅).
-- [ ] **`ehis-registration`** — form pendaftaran pasien baru + kunjungan, search existing
+- [🚧] **`ehis-registration`** — Backend RJ ✅ (kunjungan/SEP/lifecycle/jaminan); board loket + Pasien Baru API submit belum (lihat §Registration Backend di atas).
 - [ ] **`ehis-report`** — laporan per periode, export Excel/PDF
 - [ ] **`ehis-dashboard`** — stats cards (pasien hari ini per unit IGD/RI/RJ), BOR chart (bed occupancy rate), recent activity feed, quick-nav ke masing-masing modul. Route: `/ehis-dashboard`. Layout: ModuleLayout sudah ada.
 - [ ] **`ehis-fhir` — Integrasi SatuSehat (modul terpisah dari master)** — semua interaksi FHIR/SatuSehat di sini supaya master pages bersih. Calon sub-pages: Beranda · Konfigurasi (kredensial API + env + Org_id Root SatuSehat Kemkes, sementara di `lib/master/rsConfig.ts`) · Sync Resource (Organization/Location/Practitioner via NIK lookup/HealthcareService) · Sync Log (audit trail) · Conflict Resolution (payload diff). Adapter layer di `lib/fhir/adapters/` saat backend ready. User profile target: IT integrator, bukan admin RS.

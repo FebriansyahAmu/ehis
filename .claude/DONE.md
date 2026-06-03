@@ -12,6 +12,21 @@
 
 ---
 
+## ✅ Selesai — Registration Backend Integration RJ (2026-06-04)
+
+> Backend nyata pertama (layered **Route→Service→DAL→Prisma** + PostgreSQL multi-schema). Spec: [docs/BACKEND-PATIENT.md](../docs/BACKEND-PATIENT.md) · [docs/BACKEND-ENCOUNTER.md](../docs/BACKEND-ENCOUNTER.md). Roadmap [TODO-REGISTRASI.md](../TODO-REGISTRASI.md#phase-reg-be--backend-integration-loket--db-2026-06-04) Phase REG-BE.
+
+1. **No. RM `YYMMNNNN`** — format `26060001` (YY+MM+seq) reset/bulan. Counter table `pendaftaran.rm_counter` + atomic upsert (`ON CONFLICT … RETURNING`), anti-race (uji 10-serentak: 0 duplikat) + `noRm @unique` backstop. Periode zona WIB. Migration `20260602140000_rm_counter` + model `RmCounter`.
+2. **Pasien API** — `patientService`/`patientDal`: `POST /patients` dedup-first (NIK/paspor blind-index → existing, anti double-MRN) · `GET /patients` (NIK/RM exact + nama trigram cursor) · `GET /patients/:id` · `PATCH /patients/:id` complete (version guard) · **`PATCH /patients/:id/penjamin`** (upsert by tipe + set primer, single-primary invariant `pasien_penjamin_one_primer_uq`; nomor absen = skip anti-korupsi masked).
+3. **Kunjungan API (RJ)** — `kunjunganService`/`kunjunganDal`: `POST /kunjungan` register RJ (wajib `dataLengkap`) · `GET /kunjungan` worklist (unit/status/**patientId** cursor, listInclude≠detailInclude split) · `GET /kunjungan/:id`. Spine `encounter.Kunjungan` = sumbu tunggal. noKunjungan `RJ/2026/NNNNN` sequence atomik.
+4. **SEP mock (BPJS RJ)** — `bpjsService`/`bpjsDal`: V-Claim belum di-hit → SEP digenerate lokal (Rujukan+SEP, noSep `{ppk}{yymmdd}V{seq}`) dalam transaksi yang sama; tersimpan DB + cetak A4 (`SepCetak`). Migration `20260602130000_encounter_kunjungan_sequences`.
+5. **Lifecycle worklist (state machine)** — `PATCH /kunjungan/:id/status` transisi `checkIn/call/recall/receive/complete/cancel/reopen` (callState/recallCount/selesaiAt immutable), version-guarded 2-lapis (422 ilegal · 409 stale). Board RJ `RJBoardLive`: kunjungan API → kartu, aksi Panggil/Terima/Selesai/Batal/Ulang → transisi server + patch idempoten; kartu seed demo tetap queue mock (ruang id terpisah, nol regresi).
+6. **Wiring modal + dashboard** — DaftarKunjunganModal fungsional (`registerKunjungan` + toast + cetak SEP + validasi + guard demo). Riwayat dashboard fetch `GET /kunjungan?patientId` → `dtoToKunjunganRecord` (format mock + `detailPath`), replace idempoten + **guard post-sukses (StrictMode-safe)**. Resolver muat pasien DB **by noRM** (link Beranda/KunjunganHeader). Jaminan: persist BPJS terverifikasi (No.Kartu enc + kelas → primer, jaminan ikut kunjungan terakhir) + tab tampil tipe/No.Kartu masked/kelas/No.SEP. **Modal Ubah Penjamin → 3 jenis** (Umum/Mandiri · BPJS/JKN · Asuransi Lainnya; subtipe PBI/Non-PBI dipertahankan). Backfill data lama dari SEP.
+
+**Infra ditegakkan:** envelope `{ok,data,message,meta}` · `route()` wrapper (auth→RBAC→Zod→handler) · `AppError`/`handleError` · cursor pagination `(createdAt,id)` · optimistic concurrency `version` · soft-delete · PII AES-256-GCM + HMAC blind-index · clock seam injectable · DEV actor (auth belum). `tsc` clean. **Sisa:** board realtime (SSE) · PasienBaru submit→API · IGD/RI unit · nama DPJP (master Dokter) · Invoice draft · Antrean · Auth/RBAC nyata.
+
+---
+
 ## ✅ Selesai — Rawat Inap Tabs (Semua)
 
 1. **Asuhan Keperawatan** (`tabs/KeperawatanTab.tsx`) — SDKI katalog 15 dx + auto-fill, evaluasi inline per shift, status luaran badge (Teratasi/Sebagian/Belum/Dipantau), SLKI kriteria hasil, verifikasi supervisor. Sub: `keperawatan/AsuhanForm.tsx` + `AsuhanCard.tsx` + `keperawatanShared.ts`

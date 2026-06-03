@@ -41,13 +41,28 @@ const SECTIONS: {
   },
 ];
 
-const OPTS: { value: TipePenjamin; label: string; desc: string }[] = [
-  { value: "Umum", label: "Umum / Mandiri", desc: "Bayar sendiri" },
-  { value: "BPJS_Non_PBI", label: "BPJS Non-PBI", desc: "Peserta aktif" },
-  { value: "BPJS_PBI", label: "BPJS PBI", desc: "Penerima bantuan" },
-  { value: "Asuransi", label: "Asuransi Swasta", desc: "Asuransi komersial" },
-  { value: "Jamkesda", label: "Jamkesda", desc: "Jaminan daerah" },
+// Jenis penjamin disederhanakan jadi 3 grup. Subtipe BPJS (PBI/Non-PBI) ditentukan
+// dari verifikasi kepesertaan BPJS, bukan pilihan manual di sini.
+type PjGroup = "umum" | "bpjs" | "asuransi";
+
+const GROUP_OPTS: { group: PjGroup; label: string; desc: string }[] = [
+  { group: "umum", label: "Umum / Mandiri", desc: "Bayar sendiri" },
+  { group: "bpjs", label: "BPJS / JKN", desc: "Peserta JKN" },
+  { group: "asuransi", label: "Asuransi Lainnya", desc: "Asuransi komersial" },
 ];
+
+function groupOf(t: TipePenjamin): PjGroup {
+  if (t === "BPJS_Non_PBI" || t === "BPJS_PBI") return "bpjs";
+  if (t === "Asuransi") return "asuransi";
+  return "umum"; // Umum / Jamkesda (legacy) → bucket Umum
+}
+
+/** Enum saat grup dipilih — pertahankan subtipe PBI/Non-PBI bila tetap BPJS. */
+function tipeForGroup(g: PjGroup, current: TipePenjamin): TipePenjamin {
+  if (g === "umum") return "Umum";
+  if (g === "asuransi") return "Asuransi";
+  return current === "BPJS_PBI" ? "BPJS_PBI" : "BPJS_Non_PBI";
+}
 
 export function UbahPenjaminModal({
   patientId,
@@ -196,13 +211,13 @@ export function UbahPenjaminModal({
                   <p className="text-[10px] text-slate-400">Pilih jenis penjaminan pasien</p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                {OPTS.map((o) => {
-                  const isSelected = d.tipe === o.value;
+              <div className="grid grid-cols-3 gap-2">
+                {GROUP_OPTS.map((o) => {
+                  const isSelected = groupOf(d.tipe) === o.group;
                   return (
                     <button
-                      key={o.value}
-                      onClick={() => setD((x) => ({ ...x, tipe: o.value }))}
+                      key={o.group}
+                      onClick={() => setD((x) => ({ ...x, tipe: tipeForGroup(o.group, x.tipe) }))}
                       className={cn(
                         "cursor-pointer rounded-xl border-2 p-3 text-left transition-all duration-150",
                         isSelected
