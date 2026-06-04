@@ -37,7 +37,7 @@ model User {
 
   /// citext → uniqueness case-insensitive di DB (bukan ditambal app). Login by username/NIP.
   /// Identitas tampil (nama/email/noHp/foto/nip) TIDAK diduplikasi di sini —
-  /// single source of truth = sdm.Pegawai (baca via relasi `pegawai`).
+  /// single source of truth = master.Pegawai (baca via relasi `pegawai`).
   /// Tampilan cepat (header/sesi) → JWT claim saat login, bukan kolom. Audit → snapshot di baris audit.
   username     String @unique @db.Citext
   passwordHash String @map("password_hash")

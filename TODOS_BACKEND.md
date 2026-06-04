@@ -63,8 +63,11 @@
 Memetakan 25 master sub-module yang sudah dibangun di [/ehis-master](src/app/ehis-master/) (lihat [.claude/DONE.md](.claude/DONE.md) untuk detail UI).
 
 ### B1.1 Sumber Daya
+- [✅] **`/api/v1/master/pegawai`** — Pegawai (HR/SDM) **layered penuh (2026-06-04)**: schema `master.Pegawai` (+ JadwalShift/Absensi/PegawaiKontakDarurat, eks-`sdm`, Jabatan/Golongan dibuang) · Zod [pegawai.ts](src/lib/schemas/pegawai.ts) · DAL [pegawaiDal.ts](src/lib/dal/pegawaiDal.ts) (cursor list+trigram, version-guard, soft-delete) · Service [pegawaiService.ts](src/lib/services/pegawaiService.ts) (PII NIK enc/hash, dedup NIK+NIP, clock-injected DTO mask) · Route [route.ts](src/app/api/v1/master/pegawai/route.ts)+[\[id\]](src/app/api/v1/master/pegawai/[id]/route.ts) (GET list/detail · POST · PATCH · DELETE soft) · **Unit test ✅** [pegawaiService.test.ts](src/lib/services/pegawaiService.test.ts) (16 test: dedup NIK/NIP · version guard · DTO mask · guard tanggal). **Sisa:** NIP auto-generate non-ASN (butuh counter/sequence) · scopeBy(actor) saat auth siap · cek akun-yatim saat delete (use-case auth) · integration test DAL (Testcontainers).
+
+> **Test infra (2026-06-04):** Vitest 4 dipasang — `vitest.config.ts` (resolve.tsconfigPaths native, env node) + script `npm run test` / `test:watch`. Pola unit Service: mock `@/lib/db/prisma` (`transaction` passthrough) + inject fake DAL & `fixedClock`. Integration DAL (Testcontainers Postgres) = `src/**/__tests__/integration/` (di-exclude unit run), fase later.
 - [ ] `POST/GET/PUT/DELETE /api/master/ruangan` — Organization tree (n-level) + Location + Bed sub-collection. Hirarki via `parentId`. Type: Organization | Location dengan discriminator.
-- [ ] `POST/GET/PUT/DELETE /api/master/dokter` — Practitioner. Field: NIK · STR · SIP · spesialis · jadwal · `poliAssignment` (derived dari Mapping Hub).
+- [ ] `POST/GET/PUT/DELETE /api/master/dokter` — Practitioner. Field: NIK · STR · SIP · spesialis · jadwal · `poliAssignment` (derived dari Mapping Hub). Link via `master.Pegawai.practitionerId`.
 - [ ] `POST/GET/PUT/DELETE /api/master/pengguna` — User. Field: username · email · roleId · `unitAssignment` (derived dari Mapping Hub) · `dokterId?` (link untuk role klinis).
 
 ### B1.2 Katalog Klinis

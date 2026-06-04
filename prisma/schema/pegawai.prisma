@@ -1,13 +1,17 @@
 // ════════════════════════════════════════════════════════════════════════════
-//  MODUL: SDM / Kepegawaian  (Postgres schema "sdm")  ·  ref: legacy sdm_*
+//  MODUL: MASTER / Kepegawaian (Pegawai)  (Postgres schema "master")  ·  ref: legacy sdm_*
 //  Data pegawai (HR) — TERPISAH dari akun login (auth.users). Setiap akun WAJIB
-//  terikat ke 1 pegawai (auth.users.pegawaiId NOT NULL) → zero orphan account.
+//  terikat ke 1 pegawai (auth.User.pegawaiId NOT NULL) → zero orphan account.
 //
 //  Identitas: NIK = anchor (enc+hash, PII) untuk validasi provisioning akun.
 //             NIP = nomor pegawai unik (resmi ASN / auto-generate non-ASN di Service).
 //  Kredensial klinis (STR/SIP/spesialis) TIDAK di sini → master Dokter via practitionerId.
 //
-//  Konvensi (FLOWS §9): uuid v7 · timestamptz · soft-delete · @@schema("sdm").
+//  Jabatan/Golongan struktural DIHAPUS (2026-06-04) — di luar scope MVP master pegawai;
+//  jenjang struktural diwakili `unitKerja` + `statusPegawai`. Hidupkan kembali sebagai
+//  master-reference bila modul kepegawaian struktural dibutuhkan.
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz · soft-delete · @@schema("master").
 // ════════════════════════════════════════════════════════════════════════════
 
 // ── Enums ─────────────────────────────────────────────────────────────────---
@@ -16,7 +20,7 @@ enum JenisKelamin {
   L
   P
 
-  @@schema("sdm")
+  @@schema("master")
 }
 
 /// ASN = PNS|PPPK. Sisanya non-ASN (NIP auto-generate di Service).
@@ -28,7 +32,7 @@ enum StatusPegawai {
   Magang
   Mitra
 
-  @@schema("sdm")
+  @@schema("master")
 }
 
 enum StatusAbsensi {
@@ -39,7 +43,7 @@ enum StatusAbsensi {
   Alpa
   Libur
 
-  @@schema("sdm")
+  @@schema("master")
 }
 
 // ── Pegawai (core HR) ──────────────────────────────────────────────────────--
@@ -65,8 +69,6 @@ model Pegawai {
 
   // ── Kepegawaian ──
   statusPegawai StatusPegawai @map("status_pegawai")
-  jabatanId     String?       @map("jabatan_id") @db.Uuid
-  golonganId    String?       @map("golongan_id") @db.Uuid
   unitKerja     String?       @map("unit_kerja")
   tglMasuk      DateTime?     @map("tgl_masuk") @db.Date
   // TODO(master): agamaId / pendidikanId → master reference saat schema master siap.
@@ -79,56 +81,30 @@ model Pegawai {
   foto String?
 
   /// Link ke master Dokter/Practitioner (hanya pegawai klinis). Plain uuid sampai
-  /// schema master siap → jadikan relasi FK nanti. "User dokter?" = practitionerId != null.
+  /// model Dokter di schema master siap → jadikan relasi FK nanti. "User dokter?" = practitionerId != null.
   practitionerId String? @map("practitioner_id") @db.Uuid
 
   isActive Boolean @default(true) @map("is_active")
 
+  /// Optimistic concurrency (FLOWS §7): Service bump + guard expectedVersion saat update.
+  version   Int       @default(0)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   // ── Relasi ──
-  jabatan       Jabatan?               @relation(fields: [jabatanId], references: [id])
-  golongan      Golongan?              @relation(fields: [golonganId], references: [id])
   absensi       Absensi[]
   kontakDarurat PegawaiKontakDarurat[]
-  /// 1 pegawai : 0..1 akun login (back-relation; FK di auth.User.pegawaiId).
+  /// 1 pegawai : 0..1 akun login (back-relation; FK di auth.User.pegawaiId, lintas-schema).
   user          User?
 
-  @@index([jabatanId])
-  @@index([golonganId])
   @@index([namaLengkap])
   @@index([statusPegawai])
   @@map("pegawai")
-  @@schema("sdm")
+  @@schema("master")
 }
 
-// ── Master kepegawaian ───────────────────────────────────────────────────────
-
-model Jabatan {
-  id           String  @id @default(uuid(7)) @db.Uuid
-  kode         String  @unique
-  nama         String
-  unitKerja    String? @map("unit_kerja")
-  isStruktural Boolean @default(false) @map("is_struktural")
-
-  pegawai Pegawai[]
-
-  @@map("jabatan")
-  @@schema("sdm")
-}
-
-model Golongan {
-  id   String @id @default(uuid(7)) @db.Uuid
-  kode String @unique
-  nama String
-
-  pegawai Pegawai[]
-
-  @@map("golongan")
-  @@schema("sdm")
-}
+// ── Jadwal shift (referensi jam kerja) ────────────────────────────────────────
 
 model JadwalShift {
   id         String   @id @default(uuid(7)) @db.Uuid
@@ -138,8 +114,10 @@ model JadwalShift {
   isActive   Boolean  @default(true) @map("is_active")
 
   @@map("jadwal_shift")
-  @@schema("sdm")
+  @@schema("master")
 }
+
+// ── Absensi (per pegawai per tanggal) ─────────────────────────────────────────
 
 model Absensi {
   id         String        @id @default(uuid(7)) @db.Uuid
@@ -156,8 +134,10 @@ model Absensi {
   @@unique([pegawaiId, tanggal])
   @@index([tanggal])
   @@map("absensi")
-  @@schema("sdm")
+  @@schema("master")
 }
+
+// ── Kontak darurat pegawai (1:N) ──────────────────────────────────────────────
 
 model PegawaiKontakDarurat {
   id        String  @id @default(uuid(7)) @db.Uuid
@@ -171,5 +151,5 @@ model PegawaiKontakDarurat {
 
   @@index([pegawaiId])
   @@map("pegawai_kontak_darurat")
-  @@schema("sdm")
+  @@schema("master")
 }

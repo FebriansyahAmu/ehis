@@ -47,7 +47,6 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
     setActiveId(id);
     setEditData(false);
     setEditKontak(false);
-    setPenjamin(false);
     setRiwayat(false);
     setInfoLengkap(false);
     setOpenBillingId(null);

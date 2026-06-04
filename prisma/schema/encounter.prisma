@@ -86,7 +86,7 @@ model Kunjungan {
 
   /// Link spine TaskID antrol (RJ/onsite/MJKN). FK→Antrean saat modul siap.
   antreanKodebooking String? @unique @map("antrean_kodebooking")
-  /// DPJP/dokter. FK→master Dokter (via sdm.Pegawai.practitionerId) saat siap.
+  /// DPJP/dokter. FK→master Dokter (via master.Pegawai.practitionerId) saat siap.
   dpjpId             String? @map("dpjp_id") @db.Uuid
 
   // ── Field per-unit (validasi unit-spesifik di Zod/Service) ──
