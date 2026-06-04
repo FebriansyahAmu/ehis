@@ -8,8 +8,7 @@ import {
   TUJUAN_KUNJ_OPTS, FLAG_PROCEDURE_OPTS, KD_PENUNJANG_OPTS, ASSESMENT_PEL_OPTS, labelOf,
 } from "./sepTypes";
 import { SepField, Chips, RvItem, RvSection2 } from "./SepShared";
-import { DatePicker } from "@/components/registration/patient/modals/daftar-kunjungan/DatePicker";
-import { Select } from "@/components/registration/patient/modals/daftar-kunjungan/Select";
+import { DatePicker, Select } from "@/components/shared/inputs";
 
 // ─── Step 2: Kunjungan ────────────────────────────────────────
 

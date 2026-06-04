@@ -8,9 +8,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  type PenggunaRecord, type UserRole, type UserStatus,
-  PENGGUNA_MOCK, ROLE_CFG, STATUS_CFG, UNIT_LIST,
-  fmtRelative, getUnitNama,
+  type PenggunaRecord, type UserRole, type UserStatus, type PegawaiLite,
+  type PegawaiFormData, type AkunData,
+  PENGGUNA_MOCK, PEGAWAI_MOCK, ROLE_CFG, STATUS_CFG, UNIT_LIST,
+  fmtRelative, getUnitNama, newPegawaiId, newUserId, pegawaiFormToLite, namaTampilPegawai,
 } from "./penggunaShared";
 import PenggunaFormModal from "./PenggunaFormModal";
 
@@ -75,6 +76,7 @@ function StatCard({
 
 export default function PenggunaPage() {
   const [users, setUsers] = useState<PenggunaRecord[]>(PENGGUNA_MOCK);
+  const [pegawaiList, setPegawaiList] = useState<PegawaiLite[]>(PEGAWAI_MOCK);
   const [loaded, setLoaded] = useState(false);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
@@ -99,7 +101,7 @@ export default function PenggunaPage() {
 
   const filtered = useMemo(() => {
     return users.filter((u) => {
-      if (roleFilter !== "all" && u.role !== roleFilter) return false;
+      if (roleFilter !== "all" && !u.roles.includes(roleFilter)) return false;
       if (statusFilter !== "all" && u.status !== statusFilter) return false;
       if (unitFilter !== "all" && !u.unitAssignment.includes(unitFilter)) return false;
       if (!search.trim()) return true;
@@ -115,7 +117,7 @@ export default function PenggunaPage() {
   const stats = useMemo(() => {
     const total = users.length;
     const aktif = users.filter((u) => u.status === "Aktif").length;
-    const admin = users.filter((u) => u.role === "Admin").length;
+    const admin = users.filter((u) => u.roles.includes("Admin")).length;
     return { total, aktif, admin };
   }, [users]);
 
@@ -130,11 +132,45 @@ export default function PenggunaPage() {
     setOpenMenuId(null);
   };
 
+  // EDIT — simpan perubahan akun (upsert by id).
   const handleSubmit = (next: PenggunaRecord) => {
     setUsers((prev) => {
       const exists = prev.find((u) => u.id === next.id);
       return exists ? prev.map((u) => (u.id === next.id ? next : u)) : [next, ...prev];
     });
+  };
+
+  // ── Wizard Tambah Pengguna — tiap step "POST" terpisah (mock; siap-wiring ke API) ──
+  // Step 1: buat Pegawai → POST /api/v1/master/pegawai (endpoint sudah ada).
+  const handleCreatePegawai = async (data: PegawaiFormData): Promise<string> => {
+    const id = newPegawaiId();
+    setPegawaiList((prev) => [pegawaiFormToLite(id, data), ...prev]);
+    return id;
+  };
+  // Step 2: buat User tertaut pegawaiId (roles kosong dulu) → POST user (endpoint TBD).
+  const handleCreateUser = async (pegawaiId: string, akun: AkunData): Promise<string> => {
+    const peg = pegawaiList.find((p) => p.id === pegawaiId);
+    const id = newUserId();
+    const rec: PenggunaRecord = {
+      id,
+      pegawaiId,
+      username: akun.username,
+      nama: peg ? namaTampilPegawai(peg) : "—",
+      email: peg?.email ?? "",
+      roles: [],
+      unitAssignment: [],
+      status: "Aktif",
+      mustChangePassword: akun.mustChangePassword,
+      lastLogin: null,
+      createdAt: new Date().toISOString(),
+      dokterId: peg?.isDokter ? `dr-${pegawaiId}` : undefined,
+    };
+    setUsers((prev) => [rec, ...prev]);
+    return id;
+  };
+  // Step 3: tetapkan peran + status pada user → POST role (endpoint TBD).
+  const handleAssignRoles = async (userId: string, roles: UserRole[], status: UserStatus): Promise<void> => {
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, roles, status } : u)));
   };
 
   const handleToggleStatus = (user: PenggunaRecord) => {
@@ -263,6 +299,9 @@ export default function PenggunaPage() {
         initial={editTarget}
         onClose={() => setModalOpen(false)}
         onSubmit={handleSubmit}
+        onCreatePegawai={handleCreatePegawai}
+        onCreateUser={handleCreateUser}
+        onAssignRoles={handleAssignRoles}
       />
     </>
   );
@@ -346,7 +385,6 @@ function UserRow({
   onToggleStatus: () => void;
   onDelete: () => void;
 }) {
-  const role = ROLE_CFG[user.role];
   const status = STATUS_CFG[user.status];
   const initials = user.nama
     .replace(/^dr\.\s+/i, "")
@@ -377,9 +415,21 @@ function UserRow({
         </div>
       </td>
       <td className="px-4 py-3">
-        <span className={cn("rounded-md px-2 py-0.5 text-[10px] font-semibold", role.bg, role.text)}>
-          {role.label}
-        </span>
+        <div className="flex max-w-[200px] flex-wrap gap-1">
+          {user.roles.slice(0, 2).map((r) => {
+            const c = ROLE_CFG[r];
+            return (
+              <span key={r} className={cn("rounded-md px-2 py-0.5 text-[10px] font-semibold", c.bg, c.text)}>
+                {c.label}
+              </span>
+            );
+          })}
+          {user.roles.length > 2 && (
+            <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
+              +{user.roles.length - 2}
+            </span>
+          )}
+        </div>
       </td>
       <td className="px-4 py-3">
         <div className="flex max-w-[180px] flex-wrap gap-1">

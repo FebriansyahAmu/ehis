@@ -121,21 +121,25 @@ export function deriveSDMList(): SDMItem[] {
 
   const seen = new Set(dokters.map((s) => s.email));
   const penggunas: SDMItem[] = PENGGUNA_MOCK
-    .filter((p) => p.role !== "Admin")
+    // Multi-role: pakai role utama (pertama) utk kategori SDM; skip akun Admin-only.
+    .filter((p) => !(p.roles.length === 1 && p.roles[0] === "Admin"))
     .filter((p) => !seen.has(p.email))
-    .map((p) => ({
+    .map((p) => {
+      const primary = p.roles.find((r) => r !== "Admin") ?? p.roles[0];
+      return {
       id: `sdm-user-${p.id}`,
       source: "pengguna" as const,
       sourceId: p.id,
       nama: p.nama,
       initials: makeInitials(p.nama),
-      roleLabel: ROLE_CFG[p.role].label,
-      roleCategory: roleToCategory(p.role),
+      roleLabel: ROLE_CFG[primary].label,
+      roleCategory: roleToCategory(primary),
       status: p.status,
       email: p.email,
       units: [...p.unitAssignment],
       sinceISO: p.createdAt.slice(0, 10),
-    }));
+      };
+    });
 
   return [...dokters, ...penggunas];
 }

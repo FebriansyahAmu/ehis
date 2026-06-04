@@ -47,6 +47,7 @@ function mondayOffset(d: Date): number {
 
 type View = "day" | "month" | "year";
 const YEARS_PER_PAGE = 12;
+const POP_W = 304;
 
 export interface DatePickerProps {
   /** ISO yyyy-mm-dd (kontrak sama dengan <input type="date">). */
@@ -55,38 +56,43 @@ export interface DatePickerProps {
   className?: string;
   placeholder?: string;
   variant?: TriggerVariant;
+  /** Tampilkan tombol "Hapus" di footer (default true). */
+  clearable?: boolean;
   id?: string;
 }
 
-export function DatePicker({ value, onChange, className, placeholder = "Pilih tanggal", variant = "default", id }: DatePickerProps) {
+export function DatePicker({
+  value, onChange, className, placeholder = "Pilih tanggal", variant = "default", clearable = true, id,
+}: DatePickerProps) {
   const reduce = useReducedMotion();
   const today = useMemo(() => new Date(), []);
   const selected = useMemo(() => parseISO(value), [value]);
 
-  const { open, setOpen, mounted, coords, triggerRef, popRef } = usePopover(288, 348);
+  const { open, setOpen, mounted, coords, triggerRef, popRef } = usePopover(POP_W, 372);
   const [view, setView] = useState<View>("day");
   // Tanggal "anchor" yang sedang dilihat (bulan/tahun di header).
   const [viewDate, setViewDate] = useState<Date>(() => selected ?? today);
   // Hari yang sedang difokus untuk navigasi keyboard.
   const [focusDate, setFocusDate] = useState<Date>(() => selected ?? today);
 
-  // Reset state tiap kali dibuka.
-  useEffect(() => {
-    if (open) {
+  // Reset state saat MEMBUKA (di handler, bukan effect → tak ada cascading render).
+  const toggleOpen = () => {
+    if (!open) {
       const base = selected ?? today;
       setView("day");
       setViewDate(base);
       setFocusDate(base);
     }
-  }, [open, selected, today]);
+    setOpen((o) => !o);
+  };
 
-  // Fokuskan sel hari aktif saat navigasi keyboard.
+  // Fokuskan sel hari aktif saat navigasi keyboard (efek DOM murni — tanpa setState).
   useEffect(() => {
     if (!open || view !== "day") return;
     const iso = toISO(focusDate);
     const btn = popRef.current?.querySelector<HTMLButtonElement>(`button[data-iso="${iso}"]`);
     btn?.focus();
-  }, [focusDate, open, view]);
+  }, [focusDate, open, view, popRef]);
 
   // ── Day grid (42 sel, Senin-first) ─────────────────────────
   const days = useMemo(() => {
@@ -97,6 +103,11 @@ export function DatePicker({ value, onChange, className, placeholder = "Pilih ta
 
   const commit = (d: Date) => {
     onChange(toISO(d));
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+  const clear = () => {
+    onChange("");
     setOpen(false);
     triggerRef.current?.focus();
   };
@@ -142,7 +153,14 @@ export function DatePicker({ value, onChange, className, placeholder = "Pilih ta
   };
 
   const navBtnCls =
-    "flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200";
+    "flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300";
+  const gridBtnCls = (active: boolean, isCur: boolean) =>
+    cn(
+      "rounded-xl py-3 text-[12.5px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
+      active
+        ? "bg-sky-600 text-white shadow-sm shadow-sky-200"
+        : cn("text-slate-600 hover:bg-sky-50", isCur && "text-sky-600 ring-1 ring-sky-200"),
+    );
 
   return (
     <>
@@ -150,7 +168,7 @@ export function DatePicker({ value, onChange, className, placeholder = "Pilih ta
         ref={triggerRef}
         id={id}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggleOpen}
         aria-haspopup="dialog"
         aria-expanded={open}
         className={cn(triggerClasses(variant, open), className)}
@@ -169,31 +187,31 @@ export function DatePicker({ value, onChange, className, placeholder = "Pilih ta
               ref={popRef}
               role="dialog"
               aria-label="Pilih tanggal"
-              initial={reduce ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.97 }}
+              initial={reduce ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={reduce ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.97 }}
-              transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
-              style={{ position: "fixed", top: coords.top, left: coords.left, width: 288, zIndex: 60 }}
-              className="origin-top rounded-xl border border-slate-200 bg-white p-3 shadow-xl shadow-slate-900/10 ring-1 ring-black/5"
+              exit={reduce ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.97 }}
+              transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+              style={{ position: "fixed", top: coords.top, left: coords.left, width: POP_W, zIndex: 60 }}
+              className="origin-top rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-xl shadow-slate-900/10 ring-1 ring-black/5"
             >
               {/* Header */}
-              <div className="mb-2 flex items-center justify-between">
+              <div className="mb-2.5 flex items-center justify-between">
                 <button type="button" onClick={() => step(-1)} className={navBtnCls} aria-label="Sebelumnya">
-                  <ChevronLeft size={16} />
+                  <ChevronLeft size={17} />
                 </button>
                 <button
                   type="button"
                   onClick={cycleHeader}
                   disabled={view === "year"}
                   className={cn(
-                    "rounded-lg px-2.5 py-1 text-[13px] font-bold text-slate-800 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200",
+                    "rounded-lg px-3 py-1.5 text-[13.5px] font-bold text-slate-800 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
                     view !== "year" && "hover:bg-slate-100",
                   )}
                 >
                   {headerLabel}
                 </button>
                 <button type="button" onClick={() => step(1)} className={navBtnCls} aria-label="Berikutnya">
-                  <ChevronRight size={16} />
+                  <ChevronRight size={17} />
                 </button>
               </div>
 
@@ -213,7 +231,7 @@ export function DatePicker({ value, onChange, className, placeholder = "Pilih ta
                           <div
                             key={w}
                             className={cn(
-                              "py-1 text-center text-[10px] font-semibold uppercase",
+                              "py-1 text-center text-[10px] font-bold uppercase tracking-wide",
                               i >= 5 ? "text-rose-400" : "text-slate-400",
                             )}
                           >
@@ -221,7 +239,7 @@ export function DatePicker({ value, onChange, className, placeholder = "Pilih ta
                           </div>
                         ))}
                       </div>
-                      <div className="grid grid-cols-7 gap-0.5">
+                      <div className="grid grid-cols-7 gap-1">
                         {days.map((d) => {
                           const isCurMonth = d.getMonth() === viewDate.getMonth();
                           const isSel = selected && sameDay(d, selected);
@@ -236,9 +254,9 @@ export function DatePicker({ value, onChange, className, placeholder = "Pilih ta
                               tabIndex={isFocus ? 0 : -1}
                               onClick={() => commit(d)}
                               aria-label={formatLong(d)}
-                              aria-selected={!!isSel}
+                              aria-pressed={!!isSel}
                               className={cn(
-                                "relative mx-auto flex h-8 w-8 items-center justify-center rounded-lg text-xs transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
+                                "relative mx-auto flex h-9 w-9 items-center justify-center rounded-xl text-[12.5px] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
                                 isSel
                                   ? "bg-sky-600 font-bold text-white shadow-sm shadow-sky-200"
                                   : cn(
@@ -246,7 +264,7 @@ export function DatePicker({ value, onChange, className, placeholder = "Pilih ta
                                       isCurMonth
                                         ? isWeekend ? "text-rose-500" : "text-slate-700"
                                         : "text-slate-300",
-                                      isToday && "font-bold text-sky-600",
+                                      isToday && "font-bold text-sky-600 ring-1 ring-sky-200",
                                     ),
                               )}
                             >
@@ -265,7 +283,7 @@ export function DatePicker({ value, onChange, className, placeholder = "Pilih ta
                   {view === "month" && (
                     <div className="grid grid-cols-3 gap-1.5 py-1">
                       {MONTHS_SHORT.map((m, i) => {
-                        const isSel = selected && selected.getFullYear() === viewDate.getFullYear() && selected.getMonth() === i;
+                        const isSel = !!selected && selected.getFullYear() === viewDate.getFullYear() && selected.getMonth() === i;
                         const isCur = today.getFullYear() === viewDate.getFullYear() && today.getMonth() === i;
                         return (
                           <button
@@ -276,12 +294,7 @@ export function DatePicker({ value, onChange, className, placeholder = "Pilih ta
                               setFocusDate((f) => new Date(viewDate.getFullYear(), i, Math.min(f.getDate(), 28)));
                               setView("day");
                             }}
-                            className={cn(
-                              "rounded-lg py-2.5 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
-                              isSel
-                                ? "bg-sky-600 text-white shadow-sm shadow-sky-200"
-                                : cn("text-slate-600 hover:bg-sky-50", isCur && "text-sky-600 ring-1 ring-sky-200"),
-                            )}
+                            className={gridBtnCls(isSel, isCur)}
                           >
                             {m}
                           </button>
@@ -294,7 +307,7 @@ export function DatePicker({ value, onChange, className, placeholder = "Pilih ta
                   {view === "year" && (
                     <div className="grid grid-cols-3 gap-1.5 py-1">
                       {Array.from({ length: YEARS_PER_PAGE }, (_, i) => yearBase + i).map((yr) => {
-                        const isSel = selected && selected.getFullYear() === yr;
+                        const isSel = !!selected && selected.getFullYear() === yr;
                         const isCur = today.getFullYear() === yr;
                         return (
                           <button
@@ -304,12 +317,7 @@ export function DatePicker({ value, onChange, className, placeholder = "Pilih ta
                               setViewDate((d) => new Date(yr, d.getMonth(), 1));
                               setView("month");
                             }}
-                            className={cn(
-                              "rounded-lg py-2.5 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
-                              isSel
-                                ? "bg-sky-600 text-white shadow-sm shadow-sky-200"
-                                : cn("text-slate-600 hover:bg-sky-50", isCur && "text-sky-600 ring-1 ring-sky-200"),
-                            )}
+                            className={gridBtnCls(isSel, isCur)}
                           >
                             {yr}
                           </button>
@@ -321,16 +329,22 @@ export function DatePicker({ value, onChange, className, placeholder = "Pilih ta
               </AnimatePresence>
 
               {/* Footer */}
-              <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
+              <div className="mt-2.5 flex items-center justify-between border-t border-slate-100 pt-2.5">
                 <button
                   type="button"
                   onClick={() => commit(new Date())}
-                  className="rounded-lg px-2.5 py-1 text-[11px] font-semibold text-sky-600 transition hover:bg-sky-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200"
+                  className="rounded-lg px-2.5 py-1 text-[11px] font-semibold text-sky-600 transition hover:bg-sky-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
                 >
                   Hari Ini
                 </button>
-                {selected && (
-                  <span className="text-[11px] font-medium text-slate-400">{formatLong(selected)}</span>
+                {clearable && selected && (
+                  <button
+                    type="button"
+                    onClick={clear}
+                    className="rounded-lg px-2.5 py-1 text-[11px] font-semibold text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                  >
+                    Hapus
+                  </button>
                 )}
               </div>
             </motion.div>

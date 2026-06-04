@@ -4,9 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Check, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { POLI_OPTS } from "../../config";
-import { DatePicker } from "./DatePicker";
-import { TimePicker } from "./TimePicker";
-import { Select } from "./Select";
+import { DatePicker, TimePicker, Select } from "@/components/shared/inputs";
 import {
   TRIASE_CFG, UNIT_DAFTAR_CFG,
   inputCls, labelCls,

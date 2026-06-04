@@ -1,272 +1,94 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { X, UserPlus, UserCog2, Mail, Phone, KeyRound, CheckCircle2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import {
-  type PenggunaRecord, type UserRole, type UserStatus,
-  ROLE_CFG, newUserId,
+// Shell modal Pengguna: AnimatePresence + container. Routing:
+//   initial == null → Wizard "Tambah Pengguna Baru" (Pegawai → Akun → Role, simpan bertahap)
+//   initial != null → Form Edit (1 layar; identitas pegawai terkunci)
+// Backdrop TIDAK menutup saat diklik — sebagai gantinya modal BERGETAR (shake) untuk
+// menandakan harus pakai Batal/✕. Centering via flex agar shake (x) tak bentrok transform.
+
+import { motion, AnimatePresence, useAnimationControls, useReducedMotion } from "framer-motion";
+import type {
+  PenggunaRecord, PegawaiFormData, AkunData, UserRole, UserStatus,
 } from "./penggunaShared";
-import { Field, FormSection, fieldCls, selectCls } from "../ruangan/forms/OrganizationForm";
-import MappingSourceBadge from "../shared/MappingSourceBadge";
+import PenggunaAddWizard from "./PenggunaAddWizard";
+import PenggunaEditForm from "./PenggunaEditForm";
 
 interface PenggunaFormModalProps {
   open: boolean;
   initial: PenggunaRecord | null;
   onClose: () => void;
+  /** EDIT — simpan perubahan akun. */
   onSubmit: (next: PenggunaRecord) => void;
-}
-
-const ROLE_OPTIONS: UserRole[] = [
-  "Admin", "Dokter", "Perawat", "Apoteker", "Radiografer",
-  "SpPK", "SpRad", "Kasir", "Registrasi",
-];
-const STATUS_OPTIONS: UserStatus[] = ["Aktif", "Suspended", "Non_Aktif"];
-
-function emptyRecord(): PenggunaRecord {
-  return {
-    id: newUserId(),
-    username: "",
-    nama: "",
-    email: "",
-    telp: "",
-    role: "Perawat",
-    unitAssignment: [],
-    status: "Aktif",
-    lastLogin: null,
-    createdAt: new Date().toISOString(),
-  };
+  /** ADD step 1 — buat pegawai, kembalikan pegawaiId. */
+  onCreatePegawai: (data: PegawaiFormData) => Promise<string>;
+  /** ADD step 2 — buat akun login tertaut pegawai, kembalikan userId. */
+  onCreateUser: (pegawaiId: string, akun: AkunData) => Promise<string>;
+  /** ADD step 3 — tetapkan peran + status. */
+  onAssignRoles: (userId: string, roles: UserRole[], status: UserStatus) => Promise<void>;
 }
 
 export default function PenggunaFormModal({
-  open, initial, onClose, onSubmit,
+  open, initial, onClose, onSubmit, onCreatePegawai, onCreateUser, onAssignRoles,
 }: PenggunaFormModalProps) {
-  const [form, setForm] = useState<PenggunaRecord>(initial ?? emptyRecord());
-  const [password, setPassword] = useState("");
-  const isEdit = !!initial;
+  const shake = useAnimationControls();
+  const reduceMotion = useReducedMotion();
 
-  useEffect(() => {
-    if (open) {
-      setForm(initial ?? emptyRecord());
-      setPassword("");
-    }
-  }, [open, initial]);
-
-  const update = <K extends keyof PenggunaRecord>(key: K, value: PenggunaRecord[K]) => {
-    setForm((f) => ({ ...f, [key]: value }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit(form);
-    onClose();
+  // Klik di luar modal → getarkan (bukan menutup). Reduced-motion: lewati getaran.
+  const handleOutsideClick = () => {
+    if (reduceMotion) return;
+    shake.start({
+      x: [0, -10, 10, -8, 8, -4, 4, 0],
+      transition: { duration: 0.4, ease: "easeInOut" },
+    });
   };
 
   return (
     <AnimatePresence>
       {open && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop (visual) */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            onClick={onClose}
             className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm"
             aria-hidden="true"
           />
-          {/* Modal */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, y: 4 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="pengguna-form-title"
-            className="fixed left-1/2 top-1/2 z-50 flex max-h-[88vh] w-[92vw] max-w-xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+          {/* Lapisan centering + penangkap klik luar */}
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            onClick={handleOutsideClick}
           >
-            {/* Header */}
-            <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-3.5">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 ring-2 ring-teal-100">
-                  {isEdit
-                    ? <UserCog2 size={16} className="text-teal-600" />
-                    : <UserPlus size={16} className="text-teal-600" />}
-                </span>
-                <div>
-                  <p id="pengguna-form-title" className="text-sm font-bold text-slate-900">
-                    {isEdit ? "Edit Pengguna" : "Tambah Pengguna Baru"}
-                  </p>
-                  <p className="text-[10px] text-slate-500">
-                    Akun internal EHIS — akses ke modul rumah sakit
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Tutup"
-                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+            {/* Wrapper entrance/exit (opacity·scale·y) */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.98, y: 6 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              onClick={(e) => e.stopPropagation()}
+              className="flex max-h-[92vh] w-[min(94vw,880px)]"
+            >
+              {/* Box modal — layer shake (x) terpisah agar tak bentrok transform entrance */}
+              <motion.div
+                animate={shake}
+                role="dialog"
+                aria-modal="true"
+                className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/5"
               >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Form body — scrollable */}
-            <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-              <div className="flex-1 overflow-y-auto px-5 py-4">
-                <div className="flex flex-col gap-3.5">
-                  <FormSection title="Identitas Akun">
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <Field label="Nama Lengkap" required>
-                        <input
-                          type="text"
-                          value={form.nama}
-                          onChange={(e) => update("nama", e.target.value)}
-                          required
-                          className={fieldCls}
-                          placeholder="Mis. Siti Maryani, S.Kep"
-                        />
-                      </Field>
-                      <Field label="Username" required>
-                        <input
-                          type="text"
-                          value={form.username}
-                          onChange={(e) => update("username", e.target.value.toLowerCase().replace(/\s+/g, "."))}
-                          required
-                          className={cn(fieldCls, "font-mono lowercase")}
-                          placeholder="siti.maryani"
-                          pattern="^[a-z0-9.]+$"
-                        />
-                      </Field>
-                      <Field label="Email" required>
-                        <div className="relative">
-                          <Mail size={11} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                          <input
-                            type="email"
-                            value={form.email}
-                            onChange={(e) => update("email", e.target.value)}
-                            required
-                            className={cn(fieldCls, "pl-7")}
-                            placeholder="nama@rsharapansehat.id"
-                          />
-                        </div>
-                      </Field>
-                      <Field label="Telepon">
-                        <div className="relative">
-                          <Phone size={11} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                          <input
-                            type="tel"
-                            value={form.telp ?? ""}
-                            onChange={(e) => update("telp", e.target.value)}
-                            className={cn(fieldCls, "pl-7")}
-                            placeholder="0812-0000-0000"
-                          />
-                        </div>
-                      </Field>
-                    </div>
-                  </FormSection>
-
-                  <FormSection
-                    title={isEdit ? "Reset Password (opsional)" : "Password Awal"}
-                    icon={<KeyRound size={11} />}
-                  >
-                    <Field
-                      label={isEdit ? "Password Baru" : "Password"}
-                      required={!isEdit}
-                      hint={isEdit ? "Kosongkan jika tidak ingin mengubah" : "Minimal 8 karakter, kombinasi huruf & angka"}
-                    >
-                      <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required={!isEdit}
-                        minLength={isEdit ? 0 : 8}
-                        autoComplete="new-password"
-                        className={cn(fieldCls, "max-w-sm font-mono")}
-                      />
-                    </Field>
-                  </FormSection>
-
-                  <FormSection title="Peran & Status">
-                    <Field label="Role / Peran" required>
-                      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-                        {ROLE_OPTIONS.map((r) => {
-                          const cfg = ROLE_CFG[r];
-                          const active = form.role === r;
-                          return (
-                            <button
-                              key={r}
-                              type="button"
-                              onClick={() => update("role", r)}
-                              className={cn(
-                                "rounded-lg border px-2.5 py-2 text-left transition outline-none focus-visible:ring-2 focus-visible:ring-teal-300",
-                                active
-                                  ? cn("border-transparent ring-2 ring-offset-1 ring-teal-300", cfg.bg, cfg.text)
-                                  : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50",
-                              )}
-                            >
-                              <p className="text-[11px] font-semibold">{cfg.label}</p>
-                              <p className="mt-0.5 text-[9px] leading-tight opacity-80">{cfg.desc}</p>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </Field>
-
-                    <div className="mt-3">
-                      <Field label="Status Akun">
-                        <select
-                          value={form.status}
-                          onChange={(e) => update("status", e.target.value as UserStatus)}
-                          className={cn(selectCls, "max-w-xs")}
-                        >
-                          {STATUS_OPTIONS.map((s) => (
-                            <option key={s} value={s}>
-                              {s.replace("_", "-")}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
-                    </div>
-                  </FormSection>
-
-                  {/* Penugasan Unit → Mapping Hub (single source of truth) */}
-                  <MappingSourceBadge
-                    subpage="sdm"
-                    title="Penugasan Unit"
-                    description={
-                      isEdit
-                        ? "Penugasan pengguna ke unit/poli dikelola di Mapping Hub → SDM Assignment. Sesuaikan setelah simpan."
-                        : "Setelah pengguna dibuat, atur penugasan ke unit/poli di Mapping Hub → SDM Assignment. Pengguna tanpa unit aktif tidak bisa akses modul klinis."
-                    }
-                    ctaLabel={isEdit ? "Atur Penugasan" : "Buka Setelah Simpan"}
+                {initial ? (
+                  <PenggunaEditForm initial={initial} onClose={onClose} onSubmit={onSubmit} />
+                ) : (
+                  <PenggunaAddWizard
+                    onClose={onClose}
+                    onCreatePegawai={onCreatePegawai}
+                    onCreateUser={onCreateUser}
+                    onAssignRoles={onAssignRoles}
                   />
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="flex shrink-0 items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-5 py-3">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-700 active:scale-[0.98] outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
-                >
-                  <CheckCircle2 size={12} />
-                  {isEdit ? "Simpan Perubahan" : "Buat Pengguna"}
-                </button>
-              </div>
-            </form>
-          </motion.div>
+                )}
+              </motion.div>
+            </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>

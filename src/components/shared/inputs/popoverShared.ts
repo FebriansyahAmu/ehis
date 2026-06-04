@@ -1,5 +1,8 @@
 "use client";
 
+// Fondasi shared untuk input popover (DatePicker / TimePicker / Select).
+// Popover mengambang via portal + position:fixed → tak ter-clip kontainer ber-overflow.
+
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +46,8 @@ export function usePopover(popW: number, popH: number, opts?: { matchWidth?: boo
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
 
+  // Portal butuh `document` (client-only) → tandai mounted sekali. Set-on-mount disengaja.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
 
   const place = useCallback(() => {
@@ -63,6 +68,8 @@ export function usePopover(popW: number, popH: number, opts?: { matchWidth?: boo
 
   useLayoutEffect(() => {
     if (!open) return;
+    // Ukur DOM (getBoundingClientRect) lalu set posisi — sinkronisasi layout, justru tujuan useLayoutEffect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     place();
     const on = () => place();
     window.addEventListener("scroll", on, true);
