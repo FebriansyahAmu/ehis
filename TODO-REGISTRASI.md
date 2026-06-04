@@ -92,7 +92,7 @@
 ### REG-BE.6 Wiring modal + dashboard ✅
 - [x] **DaftarKunjunganModal fungsional** — `registerKunjungan` API + toast + cetak SEP + validasi `nextHint` + guard pasien-demo. Adapter `buildRegisterInput`.
 - [x] **Riwayat** dashboard ([PatientDashboard](src/components/registration/PatientDashboard.tsx)) fetch `GET /kunjungan?patientId` → `dtoToKunjunganRecord` (format mock, `detailPath` ke worklist klinis). Replace idempoten + guard **post-sukses** (StrictMode-safe). Resolver muat pasien DB **by noRM** juga (link Beranda/KunjunganHeader).
-- [x] **Jaminan** — jaminan aktif ikut kunjungan terakhir (persist BPJS terverifikasi: No.Kartu enc + kelas, set primer), tab tampil tipe + No.Kartu (masked) + kelas + No.SEP. **Modal Ubah Penjamin → 3 jenis** (Umum/Mandiri · BPJS/JKN · Asuransi Lainnya; subtipe PBI/Non-PBI dipertahankan). Backfill data lama dari SEP.
+- [x] **Jaminan** — jaminan aktif ikut kunjungan terakhir (persist BPJS terverifikasi: No.Kartu enc + kelas, set primer), tab tampil tipe + No.Kartu (masked) + kelas + No.SEP. Backfill data lama dari SEP. **Modal Ubah Penjamin patient-level dihapus (2026-06-04)** — Jaminan tab dashboard kini **display-only**; penjamin di-set/ubah via pendaftaran kunjungan (+ tab SEP). Endpoint `PATCH /patients/:id/penjamin` tetap ada tanpa UI pemicu.
 
 ### REG-BE.7 Detail Kunjungan dari DB ✅ (G-A · G-B · G-H) — [KunjunganResolver](src/components/registration/KunjunganResolver.tsx)
 - [x] **G-A Resolver fetch DB** — halaman `/pasien/:id/kunjungan/:kunjunganId` kini fallback `GET /kunjungan/:id` (id UUID) + konteks pasien `GET /patients/:id` bila tak ada di store. StrictMode-safe abort, pola PatientResolver. Sebelumnya 100% mock → kunjungan DB selalu `notFound`.
@@ -102,7 +102,7 @@
 - [ ] **G-D No.Kartu non-SEP** — diturunkan dari `sep.noKartu`; penjamin non-BPJS tanpa SEP → kosong sampai penjamin di-join.
 - [ ] **G-E Dokumen kunjungan** — hanya `dokumen.rujukan` (dari relasi); `generalConsent`/`pengantarPasien` belum ada kolom di schema `encounter` → keputusan: tambah tabel/kolom berkas vs placeholder.
 - [ ] **G-F jadwalKontrol · G-G orderedServices** — ditunda (Rencana Kontrol BPJS / modul Order).
-- [ ] **G-I1 = alur ubah SEP** (koreksi 2026-06-04) — tab "Ubah Penjamin" sebenarnya cek keaktifan BPJS → ubah/terbit SEP (BpjsPanel + InlineSEPCard), flow sama pendaftaran kunjungan. UI mock sudah benar; wiring backend = **G-I2** (endpoint terbit/ubah SEP kunjungan existing). Penjamin **pasien** diubah via [UbahPenjaminModal](src/components/registration/patient/modals/UbahPenjaminModal.tsx) dashboard (sudah wired `PATCH /patients/:id/penjamin` via hook [usePenjaminEdit](src/components/registration/patient/penjaminEdit.ts)).
+- [ ] **G-I1 = alur ubah SEP** (koreksi 2026-06-04) — tab "Ubah Penjamin" sebenarnya cek keaktifan BPJS → ubah/terbit SEP (BpjsPanel + InlineSEPCard), flow sama pendaftaran kunjungan. UI mock sudah benar; wiring backend = **G-I2** (endpoint terbit/ubah SEP kunjungan existing). *(Modal Ubah Penjamin patient-level di dashboard dihapus 2026-06-04 — Jaminan tab display-only.)*
 - [ ] **G-I2–7 Tab Aksi** (Update/terbit SEP · Paket · Rujukan · Kecelakaan · Cetak · Hapus) + **G-J inline-edit Header** masih mock/no-op — butuh endpoint baru, scope terpisah.
 
 ### 🅿️ Sisa backend (belum)

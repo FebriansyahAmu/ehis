@@ -20,7 +20,6 @@ import { PatientLeftPanel } from "./patient/PatientLeftPanel";
 import { PatientRightPanel } from "./patient/PatientRightPanel";
 import { EditDataModal } from "./patient/modals/EditDataModal";
 import { EditKontakModal } from "./patient/modals/EditKontakModal";
-import { UbahPenjaminModal } from "./patient/modals/UbahPenjaminModal";
 import { BillingDetailModal } from "./patient/modals/BillingDetailModal";
 import { RiwayatKunjunganModal } from "./patient/modals/RiwayatKunjunganModal";
 import { TambahJadwalModal } from "./patient/modals/TambahJadwalModal";
@@ -88,7 +87,6 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
   // ── Per-patient modal state ────────────────────────────────
   const [showEditData, setEditData] = useState(false);
   const [showEditKontak, setEditKontak] = useState(false);
-  const [showPenjamin, setPenjamin] = useState(false);
   const [showRiwayat, setRiwayat] = useState(false);
   const [showDaftarKunjungan, setDaftarKunjungan] = useState(false);
   const [showTambahJadwal, setShowTambahJadwal] = useState(false);
@@ -365,7 +363,6 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
             patient={patient}
             jadwalList={jadwalList}
             upcomingCount={upcomingCount}
-            onUbahPenjamin={() => setPenjamin(true)}
             onLihatRiwayat={() => setRiwayat(true)}
             onTambahJadwal={() => setShowTambahJadwal(true)}
           />
@@ -378,18 +375,6 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
       )}
       {showEditKontak && (
         <EditKontakModal patient={patient} onClose={() => setEditKontak(false)} onSave={setPatient} />
-      )}
-      {showPenjamin && (
-        <UbahPenjaminModal
-          patientId={patient.id}
-          current={patient.penjamin}
-          onClose={() => setPenjamin(false)}
-          onSaved={(local) =>
-            local
-              ? setPatient((p) => ({ ...p, penjamin: local })) // pasien demo → state lokal
-              : refreshPatientData(patient.id)                  // pasien DB → refresh server
-          }
-        />
       )}
       {showInfoLengkap && (
         <InfoDetailModal

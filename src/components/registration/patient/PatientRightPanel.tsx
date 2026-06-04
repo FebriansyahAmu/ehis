@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PatientMaster } from "@/lib/data";
-import { EditSmallBtn } from "./primitives";
 import {
   PENJAMIN_CFG,
   UNIT_CFG,
@@ -33,7 +32,6 @@ interface PatientRightPanelProps {
   patient: PatientMaster;
   jadwalList: JadwalItem[];
   upcomingCount: number;
-  onUbahPenjamin: () => void;
   onLihatRiwayat: () => void;
   onTambahJadwal: () => void;
 }
@@ -42,7 +40,6 @@ export function PatientRightPanel({
   patient,
   jadwalList,
   upcomingCount,
-  onUbahPenjamin,
   onLihatRiwayat,
   onTambahJadwal,
 }: PatientRightPanelProps) {
@@ -84,7 +81,7 @@ export function PatientRightPanel({
         Semua <ChevronRight size={10} />
       </button>
     ),
-    penjamin: <EditSmallBtn onClick={onUbahPenjamin} label="Ubah" />,
+    penjamin: null,
     jadwal: (
       <button
         onClick={onTambahJadwal}
