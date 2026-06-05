@@ -77,6 +77,7 @@ export const RegisterKunjunganInput = z
     tanggal: ISO_DATE,
     jam: HHMM.optional(),
     poli: z.string().trim().max(80).optional(),
+    triaseLevel: z.number().int().min(1).max(5).optional(), // IGD (1..5)
     dpjpId: z.string().uuid().optional(), // DPJP master (bukan nama bebas)
     keluhan: z.string().trim().max(1000).optional(),
     caraMasuk: z.string().trim().max(60).optional(),
@@ -86,15 +87,23 @@ export const RegisterKunjunganInput = z
     sep: SepInput.optional(),
   })
   .superRefine((v, ctx) => {
-    if (v.unit !== "RawatJalan") {
-      ctx.addIssue({ code: "custom", path: ["unit"], message: "Saat ini hanya Rawat Jalan yang didukung" });
+    // Rawat Inap belum didukung backend (triase/bed/kelas alur tersendiri).
+    if (v.unit === "RawatInap") {
+      ctx.addIssue({ code: "custom", path: ["unit"], message: "Rawat Inap belum didukung — gunakan IGD atau Rawat Jalan" });
       return;
     }
-    if (!v.poli) ctx.addIssue({ code: "custom", path: ["poli"], message: "Poli tujuan wajib untuk Rawat Jalan" });
     const isBpjs = v.penjaminTipe === "BPJS_Non_PBI" || v.penjaminTipe === "BPJS_PBI";
-    if (isBpjs) {
-      if (!v.rujukan) ctx.addIssue({ code: "custom", path: ["rujukan"], message: "Rujukan wajib untuk BPJS Rawat Jalan" });
-      if (!v.sep) ctx.addIssue({ code: "custom", path: ["sep"], message: "Data SEP wajib untuk pasien BPJS" });
+    if (v.unit === "RawatJalan") {
+      if (!v.poli) ctx.addIssue({ code: "custom", path: ["poli"], message: "Poli tujuan wajib untuk Rawat Jalan" });
+      if (isBpjs) {
+        if (!v.rujukan) ctx.addIssue({ code: "custom", path: ["rujukan"], message: "Rujukan wajib untuk BPJS Rawat Jalan" });
+        if (!v.sep) ctx.addIssue({ code: "custom", path: ["sep"], message: "Data SEP wajib untuk pasien BPJS" });
+      }
+    }
+    if (v.unit === "IGD") {
+      // IGD = kegawatdaruratan: triase wajib; rujukan TIDAK wajib (emergency), SEP wajib bila BPJS.
+      if (!v.triaseLevel) ctx.addIssue({ code: "custom", path: ["triaseLevel"], message: "Level triase wajib untuk IGD" });
+      if (isBpjs && !v.sep) ctx.addIssue({ code: "custom", path: ["sep"], message: "Data SEP wajib untuk pasien BPJS" });
     }
   });
 

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 
 import RJPatientHeader from "@/components/rawat-jalan/RJPatientHeader";
 import RJRecordTabs    from "@/components/rawat-jalan/RJRecordTabs";
+import RJRecordResolver from "@/components/rawat-jalan/RJRecordResolver";
 import { rawatJalanPatientDetails } from "@/lib/data";
 
 export async function generateMetadata({
@@ -22,7 +23,10 @@ export default async function RJPatientPage({
 }) {
   const { id } = await params;
   const patient = rawatJalanPatientDetails[id];
-  if (!patient) notFound();
+
+  // Pasien demo (mock) → render langsung (SSR). Kunjungan DB nyata (id UUID, tak ada
+  // di mock) → resolver klien fetch GET /kunjungan/:id + /patients/:id.
+  if (!patient) return <RJRecordResolver id={id} />;
 
   return (
     <div className="flex h-full flex-col">

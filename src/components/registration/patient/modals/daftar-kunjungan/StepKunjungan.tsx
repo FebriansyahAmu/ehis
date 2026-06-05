@@ -106,26 +106,6 @@ export function StepKunjungan({
                   })}
                 </div>
               </div>
-              <div>
-                <label className={labelCls}>Cara Datang</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {["Jalan Kaki", "Ambulans", "Kendaraan Pribadi"].map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => set("caraDatang", opt)}
-                      className={cn(
-                        "cursor-pointer rounded-full border px-2.5 py-1 text-[11px] font-medium transition",
-                        form.caraDatang === opt
-                          ? "border-rose-400 bg-rose-50 text-rose-700"
-                          : "border-slate-200 bg-white text-slate-500 hover:border-slate-300",
-                      )}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </>
           )}
 

@@ -10,12 +10,12 @@ const RJ_POLI: ReadonlySet<string> = new Set([
   "Poli_Saraf", "Poli_Anak", "Poli_THT", "Poli_Mata", "Poli_Obgyn",
 ]);
 
-function toRJPoli(poli: string | null): RJPoli {
+export function toRJPoli(poli: string | null): RJPoli {
   const k = (poli ?? "").replace(/\s+/g, "_");
   return (RJ_POLI.has(k) ? k : "Poli_Umum") as RJPoli;
 }
 
-function ageFrom(iso: string | null): number {
+export function ageFrom(iso: string | null): number {
   if (!iso) return 0;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return 0;
@@ -26,7 +26,7 @@ function ageFrom(iso: string | null): number {
   return Math.max(0, a);
 }
 
-function fmtJam(iso: string): string {
+export function fmtJam(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;

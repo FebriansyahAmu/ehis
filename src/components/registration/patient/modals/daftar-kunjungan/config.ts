@@ -89,7 +89,6 @@ export interface KunjunganForm {
   dokter: string;
   keluhan: string;
   triase: TriaseLevel;
-  caraDatang: string;
   poli: string;
   asalMasuk: string;
   kelasRawat: string;

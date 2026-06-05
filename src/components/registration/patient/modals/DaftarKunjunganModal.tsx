@@ -50,7 +50,7 @@ export function DaftarKunjunganModal({
 
   const [form, setForm] = useState<KunjunganForm>({
     unit: "Rawat Jalan", tanggal: today, jam: nowTime, caraMasuk: "Datang Sendiri",
-    dokter: "", keluhan: "", triase: 3, caraDatang: "Jalan Kaki",
+    dokter: "", keluhan: "", triase: 3,
     poli: "Poli Umum", asalMasuk: "Dari Poli", kelasRawat: "2",
   });
 
@@ -155,8 +155,8 @@ export function DaftarKunjunganModal({
 
   async function handleDaftar() {
     // Guard pre-submit dengan pesan jelas (hindari error server membingungkan).
-    if (form.unit !== "Rawat Jalan") {
-      setSubmitError("Pendaftaran via server saat ini hanya untuk Rawat Jalan.");
+    if (form.unit === "Rawat Inap") {
+      setSubmitError("Pendaftaran Rawat Inap belum didukung — gunakan IGD atau Rawat Jalan.");
       return;
     }
     if (!isDbPatient) {

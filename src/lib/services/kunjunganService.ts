@@ -6,8 +6,10 @@
 // dalam 1 transaksi. Saat domain Patient-completion/Billing/Antrean lengkap, orkestrasi
 // penuh dipindah ke `registrationService` khusus; operasi domain di sini tetap.
 //
-// FOKUS RAWAT JALAN. Efek lintas-domain yang belum ada (Invoice draft saat Queued, Antrean
-// T3/T4/T5) DITUNDA — kunjungan dibuat pada status `Registered` (lihat TODO di bawah).
+// UNIT DIDUKUNG: Rawat Jalan + IGD (Rawat Inap ditolak di Zod). IGD = kegawatdaruratan:
+// triase wajib, rujukan opsional, boleh atas pasien draft (dataLengkap=false). Efek
+// lintas-domain yang belum ada (Invoice draft saat Queued, Antrean T3/T4/T5) DITUNDA —
+// kunjungan dibuat pada status `Registered` (lihat TODO di bawah).
 
 import { transaction } from "@/lib/db/prisma";
 import * as defaultDal from "@/lib/dal/kunjunganDal";
@@ -138,7 +140,9 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
   async function registerKunjungan(input: RegisterKunjunganInput, _actor: Actor): Promise<KunjunganDTO> {
     const patient = await patientDal.findById(input.patientId);
     if (!patient) throw Errors.notFound("Pasien tidak ditemukan");
-    if (!patient.dataLengkap) {
+    // Kontrak Patient↔Kunjungan (BACKEND-ENCOUNTER §10): RJ/RI terjadwal wajib `dataLengkap`;
+    // IGD (kegawatdaruratan / Mr.X) boleh atas pasien draft — dilengkapi kemudian saat admisi.
+    if (input.unit !== "IGD" && !patient.dataLengkap) {
       throw Errors.validation("Pasien belum lengkap datanya — lengkapi sebelum pendaftaran Rawat Jalan");
     }
 
@@ -187,12 +191,13 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
       const k = await dal.create(
         {
           patientId: patient.id,
-          unit: "RawatJalan",
+          unit: input.unit,
           // TODO(BILLING/ANTREAN): saat check-in (Registered→Queued) buat Invoice draft + emit T3.
           status: "Registered",
           noKunjungan: formatNoKunjungan(input.unit, seq),
           waktuKunjungan: waktu,
-          poli: input.poli,
+          poli: input.unit === "RawatJalan" ? input.poli : undefined,
+          triaseLevel: input.unit === "IGD" ? input.triaseLevel : undefined,
           dpjpId: input.dpjpId,
           keluhan: input.keluhan,
           caraMasuk: input.caraMasuk,

@@ -1,6 +1,6 @@
 // Adapter: state wizard "Pendaftaran Kunjungan Baru" → RegisterKunjunganInput (API).
 // Memetakan vocab kode UI (V-Claim "0/1/2", source "masuk/kontrol") → enum kanonik
-// schema server. Hanya RJ yang didukung backend saat ini.
+// schema server. Didukung backend: Rawat Jalan + IGD (Rawat Inap belum).
 
 import type { RegisterKunjunganInput, RujukanInput, SepInput } from "@/lib/schemas/kunjungan";
 import type { SepDraft } from "@/components/registration/kunjungan/Tabs/sep/sepTypes";
@@ -29,6 +29,10 @@ export interface BuildRegisterArgs {
 export function buildRegisterInput(args: BuildRegisterArgs): RegisterKunjunganInput {
   const { patientId, form, penjamin, rujukan, sepDraft, bpjsFlow, needsRujukan, noKartu } = args;
 
+  const isIgd = form.unit === "IGD";
+  const unit = isIgd ? "IGD" : "RawatJalan"; // Rawat Inap ditolak sebelum submit (modal guard)
+  const poli = isIgd ? undefined : form.poli; // poli hanya relevan Rawat Jalan
+
   const rujukanInput: RujukanInput | undefined = needsRujukan
     ? {
         sumber: SUMBER_MAP[rujukan.source],
@@ -38,7 +42,7 @@ export function buildRegisterInput(args: BuildRegisterArgs): RegisterKunjunganIn
         ppkRujukan: orUndef(sepDraft.ppkRujukan),
         diagnosaKode: orUndef(rujukan.diagnosa?.code),
         diagnosaNama: orUndef(rujukan.diagnosa?.name),
-        poliTujuan: form.poli,
+        poliTujuan: poli,
       }
     : undefined;
 
@@ -61,7 +65,7 @@ export function buildRegisterInput(args: BuildRegisterArgs): RegisterKunjunganIn
         assesmentPel: orUndef(sepDraft.assesmentPel),
         poliEksekutif: flag(sepDraft.poliEksekutif),
         dpjpLayan: orUndef(sepDraft.dpjpLayan),
-        poliTujuan: form.poli,
+        poliTujuan: poli,
         diagAwal: orUndef(sepDraft.diagAwal) ?? orUndef(rujukan.diagnosa?.code),
         lakaLantas: LAKA_MAP[sepDraft.lakaLantas],
         noLp: orUndef(sepDraft.noLP),
@@ -81,10 +85,11 @@ export function buildRegisterInput(args: BuildRegisterArgs): RegisterKunjunganIn
 
   return {
     patientId,
-    unit: "RawatJalan",
+    unit,
     tanggal: form.tanggal,
     jam: form.jam || undefined,
-    poli: form.poli,
+    poli,
+    triaseLevel: isIgd ? form.triase : undefined,
     keluhan: orUndef(form.keluhan),
     caraMasuk: orUndef(form.caraMasuk),
     penjaminTipe: penjamin.tipe,
