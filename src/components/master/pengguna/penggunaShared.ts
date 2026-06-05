@@ -98,6 +98,18 @@ export interface AkunData {
   mustChangePassword: boolean;
 }
 
+/** Pegawai yang SUDAH ada (belum punya akun) → "Buatkan Akun": wizard mulai dari Step 2. */
+export interface ExistingPegawaiSeed {
+  id: string;
+  namaLengkap: string;
+  namaTampil: string;
+  nip: string;
+  email: string | null;
+  unitKerja: string | null;
+  statusPegawai: string;
+  isDokter: boolean;
+}
+
 export function newPegawaiId(): string {
   return `peg-${Math.random().toString(36).slice(2, 8)}`;
 }

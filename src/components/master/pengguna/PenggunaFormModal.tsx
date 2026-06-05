@@ -8,7 +8,7 @@
 
 import { motion, AnimatePresence, useAnimationControls, useReducedMotion } from "framer-motion";
 import type {
-  PenggunaRecord, PegawaiFormData, AkunData, UserRole, UserStatus,
+  PenggunaRecord, PegawaiFormData, AkunData, UserRole, UserStatus, ExistingPegawaiSeed,
 } from "./penggunaShared";
 import PenggunaAddWizard from "./PenggunaAddWizard";
 import PenggunaEditForm from "./PenggunaEditForm";
@@ -25,10 +25,12 @@ interface PenggunaFormModalProps {
   onCreateUser: (pegawaiId: string, akun: AkunData) => Promise<string>;
   /** ADD step 3 — tetapkan peran + status. */
   onAssignRoles: (userId: string, roles: UserRole[], status: UserStatus) => Promise<void>;
+  /** "Buatkan Akun" — provisioning akun utk pegawai yang sudah ada (wizard mulai Step 2). */
+  provisionPegawai?: ExistingPegawaiSeed | null;
 }
 
 export default function PenggunaFormModal({
-  open, initial, onClose, onSubmit, onCreatePegawai, onCreateUser, onAssignRoles,
+  open, initial, onClose, onSubmit, onCreatePegawai, onCreateUser, onAssignRoles, provisionPegawai,
 }: PenggunaFormModalProps) {
   const shake = useAnimationControls();
   const reduceMotion = useReducedMotion();
@@ -84,6 +86,7 @@ export default function PenggunaFormModal({
                     onCreatePegawai={onCreatePegawai}
                     onCreateUser={onCreateUser}
                     onAssignRoles={onAssignRoles}
+                    existingPegawai={provisionPegawai ?? undefined}
                   />
                 )}
               </motion.div>

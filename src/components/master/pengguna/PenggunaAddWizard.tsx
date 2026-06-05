@@ -14,7 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   type PegawaiFormData, type AkunData, type UserRole, type UserStatus, type StatusPegawai,
-  namaTampilPegawai, UNIT_LIST,
+  type ExistingPegawaiSeed, namaTampilPegawai, UNIT_LIST,
 } from "./penggunaShared";
 import {
   ErrorText, IdentityCard, RoleGrid, StatusSelect, slugUsername, useBodyScrollLock,
@@ -41,6 +41,8 @@ interface PenggunaAddWizardProps {
   onCreatePegawai: (data: PegawaiFormData) => Promise<string>;
   onCreateUser: (pegawaiId: string, akun: AkunData) => Promise<string>;
   onAssignRoles: (userId: string, roles: UserRole[], status: UserStatus) => Promise<void>;
+  /** Bila diisi → mode "Buatkan Akun" utk pegawai yang SUDAH ada (mulai Step 2, Step 1 dilewati). */
+  existingPegawai?: ExistingPegawaiSeed;
 }
 
 const STATUS_PEGAWAI: StatusPegawai[] = ["ASN", "Outsourcing", "Honorer", "Magang", "Mitra"];
@@ -69,28 +71,34 @@ const STEPS = [
 ] as const;
 
 export default function PenggunaAddWizard({
-  onClose, onCreatePegawai, onCreateUser, onAssignRoles,
+  onClose, onCreatePegawai, onCreateUser, onAssignRoles, existingPegawai,
 }: PenggunaAddWizardProps) {
   useBodyScrollLock();
 
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  // Mode "Buatkan Akun" → pegawai sudah ada, mulai dari Step 2 (Akun).
+  const provisioning = !!existingPegawai;
+
+  const [step, setStep] = useState<1 | 2 | 3>(provisioning ? 2 : 1);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Step 1 — Pegawai
+  // Step 1 — Pegawai (tak dipakai saat provisioning)
   const [peg, setPeg] = useState<PegawaiFormData>({
     nik: "", nip: "", namaLengkap: "", jenisKelamin: "L", statusPegawai: "ASN", isDokter: false,
   });
-  // Step 2 — Akun
-  const [akun, setAkun] = useState<AkunData>({ username: "", password: "", mustChangePassword: true });
+  // Step 2 — Akun (username diseed dari nama pegawai existing bila provisioning)
+  const [akun, setAkun] = useState<AkunData>({
+    username: existingPegawai ? slugUsername(existingPegawai.namaLengkap) : "",
+    password: "", mustChangePassword: true,
+  });
   const [confirm, setConfirm] = useState("");
   const [showPw, setShowPw] = useState(false);
   // Step 3 — Peran
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [status, setStatus] = useState<UserStatus>("Aktif");
-  // Committed ids
-  const [pegawaiId, setPegawaiId] = useState<string | null>(null);
+  // Committed ids — pegawaiId sudah terisi saat provisioning.
+  const [pegawaiId, setPegawaiId] = useState<string | null>(existingPegawai?.id ?? null);
   const [userId, setUserId] = useState<string | null>(null);
 
   const updatePeg = <K extends keyof PegawaiFormData>(k: K, v: PegawaiFormData[K]) =>
@@ -103,15 +111,25 @@ export default function PenggunaAddWizard({
     clearError("profesi");
   };
 
-  const identityView: IdentityView = {
-    namaLengkap: peg.namaLengkap || "—",
-    namaTampil: namaTampilPegawai(peg) || "—",
-    nip: peg.nip,
-    email: peg.email ?? "",
-    unitKerja: peg.unitKerja || "—",
-    statusPegawai: peg.statusPegawai,
-    isDokter: peg.isDokter,
-  };
+  const identityView: IdentityView = existingPegawai
+    ? {
+        namaLengkap: existingPegawai.namaLengkap,
+        namaTampil: existingPegawai.namaTampil,
+        nip: existingPegawai.nip,
+        email: existingPegawai.email ?? "",
+        unitKerja: existingPegawai.unitKerja ?? "—",
+        statusPegawai: existingPegawai.statusPegawai,
+        isDokter: existingPegawai.isDokter,
+      }
+    : {
+        namaLengkap: peg.namaLengkap || "—",
+        namaTampil: namaTampilPegawai(peg) || "—",
+        nip: peg.nip,
+        email: peg.email ?? "",
+        unitKerja: peg.unitKerja || "—",
+        statusPegawai: peg.statusPegawai,
+        isDokter: peg.isDokter,
+      };
 
   // ── Validasi per step ──
   function validateStep1(): Record<string, string> {
@@ -185,7 +203,7 @@ export default function PenggunaAddWizard({
     setSaving(true);
     try {
       await onAssignRoles(userId, roles, status);
-      toast.success("Pengguna berhasil dibuat", `${namaTampilPegawai(peg)} · @${akun.username}`);
+      toast.success("Pengguna berhasil dibuat", `${identityView.namaTampil} · @${akun.username}`);
       onClose();
     } catch (err) {
       setFormError(apiErrorToFields(err).message);
@@ -206,9 +224,13 @@ export default function PenggunaAddWizard({
               <UserPlus size={18} className="text-teal-600" />
             </span>
             <div>
-              <p className="text-[15px] font-bold text-slate-900">Tambah Pengguna Baru</p>
+              <p className="text-[15px] font-bold text-slate-900">
+                {provisioning ? "Buatkan Akun" : "Tambah Pengguna Baru"}
+              </p>
               <p className="text-[11px] text-slate-500">
-                Buat data pegawai, akun login, lalu tetapkan peran — disimpan bertahap
+                {provisioning
+                  ? `Akun login untuk ${existingPegawai!.namaTampil} — pegawai sudah terdaftar`
+                  : "Buat data pegawai, akun login, lalu tetapkan peran — disimpan bertahap"}
               </p>
             </div>
           </div>
@@ -312,7 +334,7 @@ export default function PenggunaAddWizard({
             disabled={saving}
             className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 outline-none transition hover:bg-slate-50 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-slate-300"
           >
-            {pegawaiId ? "Tutup" : "Batal"}
+            {(provisioning ? userId : pegawaiId) ? "Tutup" : "Batal"}
           </button>
           <button
             type="button"

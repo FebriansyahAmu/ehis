@@ -45,6 +45,7 @@ function makeEntity(over: Record<string, unknown> = {}) {
     email: "budi@rs.id",
     foto: null,
     practitionerId: null,
+    user: null,
     isActive: true,
     version: 0,
     createdAt: new Date(NOW),
@@ -151,6 +152,13 @@ describe("getPegawai", () => {
     expect(dto.isDokter).toBe(true);
     expect(dto.tanggalLahir).toBe("1980-01-01");
     expect(dto.umur).toBe(46); // 2026-06-04 − 1980-01-01
+  });
+
+  it("punyaAkun: ada user tertaut → true; null → false", async () => {
+    const { svc } = build({ findById: vi.fn().mockResolvedValue(makeEntity({ user: { id: "u1" } })) });
+    expect((await svc.getPegawai("p1", actor)).punyaAkun).toBe(true);
+    const { svc: svc2 } = build({ findById: vi.fn().mockResolvedValue(makeEntity({ user: null })) });
+    expect((await svc2.getPegawai("p1", actor)).punyaAkun).toBe(false);
   });
 });
 

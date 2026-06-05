@@ -64,10 +64,11 @@ export interface UpdatePegawaiData {
   isActive?: boolean;
 }
 
-// Relasi standar read detail (kontak darurat). Absensi = sub-domain terpisah (fase later).
-const detailInclude = { kontakDarurat: true } as const;
+// Relasi standar read detail (kontak darurat + cek akun login). `user` = back-relation 1:0..1
+// (FK auth.User.pegawaiId, lintas-schema) → ada/tidaknya akun (punyaAkun). Absensi = fase later.
+const detailInclude = { kontakDarurat: true, user: { select: { id: true } } } as const;
 
-// Kolom untuk list (anti over-fetch — tanpa kontak darurat).
+// Kolom untuk list (anti over-fetch — tanpa kontak darurat). `user` hanya id (cek punyaAkun).
 const listSelect = {
   id: true,
   nip: true,
@@ -83,6 +84,7 @@ const listSelect = {
   isActive: true,
   version: true,
   createdAt: true,
+  user: { select: { id: true } },
 } as const;
 
 export type PegawaiEntity = Awaited<ReturnType<typeof findById>>;

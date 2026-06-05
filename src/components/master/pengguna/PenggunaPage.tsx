@@ -1,19 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, UserCheck, UserCog, Search, Plus, Pencil, Trash2,
-  MoreVertical, Shield, UserX, ChevronDown,
+  MoreVertical, Shield, UserX, ChevronDown, UserPlus, Stethoscope, IdCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   type PenggunaRecord, type UserRole, type UserStatus, type PegawaiLite,
   type PegawaiFormData, type AkunData,
-  PENGGUNA_MOCK, PEGAWAI_MOCK, ROLE_CFG, STATUS_CFG, UNIT_LIST,
-  fmtRelative, getUnitNama, newUserId, pegawaiFormToLite, namaTampilPegawai,
+  PEGAWAI_MOCK, ROLE_CFG, STATUS_CFG, UNIT_LIST,
+  fmtRelative, getUnitNama, pegawaiFormToLite, namaTampilPegawai,
 } from "./penggunaShared";
-import { createPegawai } from "@/lib/api/pegawai";
+import { createPegawai, listPegawai, type PegawaiListItemDTO } from "@/lib/api/pegawai";
+import { createUser, assignRoles, listUsers } from "@/lib/api/users";
 import PenggunaFormModal from "./PenggunaFormModal";
 
 // ── Skeleton ───────────────────────────────────────────────
@@ -76,8 +77,13 @@ function StatCard({
 // ── Page ───────────────────────────────────────────────────
 
 export default function PenggunaPage() {
-  const [users, setUsers] = useState<PenggunaRecord[]>(PENGGUNA_MOCK);
+  // Akun = data real dari API (dbUsers). `users` hanya menampung baris optimistic (pra-refresh).
+  const [users, setUsers] = useState<PenggunaRecord[]>([]);
   const [pegawaiList, setPegawaiList] = useState<PegawaiLite[]>(PEGAWAI_MOCK);
+  // Akun real dari GET /auth/users (digabung dgn demo mock — real menang bila id sama).
+  const [dbUsers, setDbUsers] = useState<PenggunaRecord[]>([]);
+  // Pegawai dari GET API yang BELUM punya akun login (ditampilkan baris kuning).
+  const [pegawaiNoAccount, setPegawaiNoAccount] = useState<PegawaiListItemDTO[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
@@ -86,11 +92,40 @@ export default function PenggunaPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<PenggunaRecord | null>(null);
+  // "Buatkan Akun" untuk pegawai existing (baris kuning) → wizard mulai Step 2.
+  const [provisionTarget, setProvisionTarget] = useState<PegawaiListItemDTO | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setLoaded(true), 600);
     return () => clearTimeout(t);
   }, []);
+
+  // GET /api/v1/master/pegawai → pegawai yang belum punya akun (baris kuning). Gagal = diam
+  // (tabel akun tetap tampil). Dipanggil saat mount + tiap modal ditutup (refresh pasca-provisioning).
+  const refreshPegawai = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const { items } = await listPegawai({ aktif: "true", limit: 50 }, signal);
+      setPegawaiNoAccount(items.filter((p) => !p.punyaAkun));
+    } catch {
+      /* abaikan — endpoint mungkin belum siap / dibatalkan */
+    }
+  }, []);
+
+  // GET /api/v1/auth/users → akun real (sudah dipetakan ke PenggunaRecord).
+  const refreshUsers = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const { items } = await listUsers({ limit: 50 }, signal);
+      setDbUsers(items);
+    } catch {
+      /* abaikan */
+    }
+  }, []);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    void (async () => { await Promise.all([refreshPegawai(ac.signal), refreshUsers(ac.signal)]); })();
+    return () => ac.abort();
+  }, [refreshPegawai, refreshUsers]);
 
   // Close menu on outside click
   useEffect(() => {
@@ -100,8 +135,16 @@ export default function PenggunaPage() {
     return () => window.removeEventListener("click", handler);
   }, [openMenuId]);
 
+  // Gabung akun real (DB) + demo mock; dedupe by id (real menang). Id-space disjoint → praktis concat.
+  const allUsers = useMemo(() => {
+    const byId = new Map<string, PenggunaRecord>();
+    for (const u of dbUsers) byId.set(u.id, u);
+    for (const u of users) if (!byId.has(u.id)) byId.set(u.id, u);
+    return Array.from(byId.values());
+  }, [dbUsers, users]);
+
   const filtered = useMemo(() => {
-    return users.filter((u) => {
+    return allUsers.filter((u) => {
       if (roleFilter !== "all" && !u.roles.includes(roleFilter)) return false;
       if (statusFilter !== "all" && u.status !== statusFilter) return false;
       if (unitFilter !== "all" && !u.unitAssignment.includes(unitFilter)) return false;
@@ -113,32 +156,51 @@ export default function PenggunaPage() {
         u.email.toLowerCase().includes(q)
       );
     });
-  }, [users, roleFilter, statusFilter, unitFilter, search]);
+  }, [allUsers, roleFilter, statusFilter, unitFilter, search]);
+
+  // Baris pegawai-tanpa-akun: hanya tampil saat filter peran/status/unit = "Semua" (mereka tak
+  // punya peran/status akun/unit-assignment), tetap hormati pencarian (nama/NIP).
+  const filteredPegawai = useMemo(() => {
+    if (roleFilter !== "all" || statusFilter !== "all" || unitFilter !== "all") return [];
+    if (!search.trim()) return pegawaiNoAccount;
+    const q = search.toLowerCase();
+    return pegawaiNoAccount.filter(
+      (p) => p.namaTampil.toLowerCase().includes(q) || p.nip.toLowerCase().includes(q),
+    );
+  }, [pegawaiNoAccount, roleFilter, statusFilter, unitFilter, search]);
 
   const stats = useMemo(() => {
-    const total = users.length;
-    const aktif = users.filter((u) => u.status === "Aktif").length;
-    const admin = users.filter((u) => u.roles.includes("Admin")).length;
+    const total = allUsers.length;
+    const aktif = allUsers.filter((u) => u.status === "Aktif").length;
+    const admin = allUsers.filter((u) => u.roles.includes("Admin")).length;
     return { total, aktif, admin };
-  }, [users]);
+  }, [allUsers]);
 
   const handleNewClick = () => {
     setEditTarget(null);
+    setProvisionTarget(null);
     setModalOpen(true);
   };
 
   const handleEdit = (user: PenggunaRecord) => {
+    setProvisionTarget(null);
     setEditTarget(user);
     setModalOpen(true);
     setOpenMenuId(null);
   };
 
-  // EDIT — simpan perubahan akun (upsert by id).
+  // "Buatkan Akun" dari baris kuning → wizard provisioning (pegawai sudah ada).
+  const handleProvision = (pegawai: PegawaiListItemDTO) => {
+    setEditTarget(null);
+    setProvisionTarget(pegawai);
+    setModalOpen(true);
+    setOpenMenuId(null);
+  };
+
+  // EDIT — perubahan akun (optimistic di kedua list; PATCH akun belum ada → revert saat refresh).
   const handleSubmit = (next: PenggunaRecord) => {
-    setUsers((prev) => {
-      const exists = prev.find((u) => u.id === next.id);
-      return exists ? prev.map((u) => (u.id === next.id ? next : u)) : [next, ...prev];
-    });
+    setUsers((prev) => prev.map((u) => (u.id === next.id ? next : u)));
+    setDbUsers((prev) => prev.map((u) => (u.id === next.id ? next : u)));
   };
 
   // ── Wizard Tambah Pengguna — tiap step "POST" terpisah ──
@@ -149,41 +211,44 @@ export default function PenggunaPage() {
     setPegawaiList((prev) => [pegawaiFormToLite(dto.id, data), ...prev]);
     return dto.id;
   };
-  // Step 2 & 3 masih MOCK (modul auth provisioning belum dibangun — lihat TODOS_BACKEND).
-  // Step 2: buat User tertaut pegawaiId (roles kosong dulu) → POST user (endpoint TBD).
+  // Step 2: buat User tertaut pegawaiId → POST /api/v1/auth/users (WIRED — hash password,
+  // username unik, 1 akun per pegawai). Login/JWT belum dibangun; ini provisioning saja.
   const handleCreateUser = async (pegawaiId: string, akun: AkunData): Promise<string> => {
+    const dto = await createUser(pegawaiId, akun);
     const peg = pegawaiList.find((p) => p.id === pegawaiId);
-    const id = newUserId();
     const rec: PenggunaRecord = {
-      id,
+      id: dto.id,
       pegawaiId,
-      username: akun.username,
-      nama: peg ? namaTampilPegawai(peg) : "—",
+      username: dto.username,
+      nama: dto.namaTampil || (peg ? namaTampilPegawai(peg) : "—"),
       email: peg?.email ?? "",
       roles: [],
       unitAssignment: [],
       status: "Aktif",
-      mustChangePassword: akun.mustChangePassword,
+      mustChangePassword: dto.mustChangePassword,
       lastLogin: null,
-      createdAt: new Date().toISOString(),
+      createdAt: dto.createdAt,
       dokterId: peg?.isDokter ? `dr-${pegawaiId}` : undefined,
     };
     setUsers((prev) => [rec, ...prev]);
-    return id;
+    return dto.id;
   };
-  // Step 3: tetapkan peran + status pada user → POST role (endpoint TBD).
+  // Step 3: tetapkan peran + status → PATCH /api/v1/auth/users/:id/roles (WIRED — resolve key→Role).
   const handleAssignRoles = async (userId: string, roles: UserRole[], status: UserStatus): Promise<void> => {
+    await assignRoles(userId, roles, status);
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, roles, status } : u)));
   };
 
   const handleToggleStatus = (user: PenggunaRecord) => {
     const next: UserStatus = user.status === "Aktif" ? "Suspended" : "Aktif";
     setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, status: next } : u)));
+    setDbUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, status: next } : u)));
     setOpenMenuId(null);
   };
 
   const handleDelete = (user: PenggunaRecord) => {
     if (!confirm(`Hapus pengguna "${user.nama}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+    setDbUsers((prev) => prev.filter((u) => u.id !== user.id));
     setUsers((prev) => prev.filter((u) => u.id !== user.id));
     setOpenMenuId(null);
   };
@@ -225,10 +290,11 @@ export default function PenggunaPage() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <StatCard icon={Users}     label="Total Pengguna" value={`${stats.total}`} sub={`${stats.aktif} aktif`}     iconCls="bg-teal-100 text-teal-600"     delay={0} />
               <StatCard icon={UserCheck} label="Aktif"          value={`${stats.aktif}`} sub="dapat login hari ini"        iconCls="bg-emerald-100 text-emerald-600" delay={0.07} />
               <StatCard icon={Shield}    label="Admin"          value={`${stats.admin}`} sub="akses penuh sistem"          iconCls="bg-rose-100 text-rose-600"     delay={0.14} />
+              <StatCard icon={UserPlus}  label="Belum Berakun"  value={`${pegawaiNoAccount.length}`} sub="pegawai tanpa login" iconCls="bg-amber-100 text-amber-600" delay={0.21} />
             </div>
 
             {/* Toolbar */}
@@ -277,20 +343,25 @@ export default function PenggunaPage() {
               transition={{ duration: 0.3, delay: 0.25 }}
               className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
             >
-              {filtered.length === 0 ? (
+              {filtered.length === 0 && filteredPegawai.length === 0 ? (
                 <EmptyTable />
               ) : (
                 <UserTable
                   users={filtered}
+                  pegawai={filteredPegawai}
                   openMenuId={openMenuId}
                   setOpenMenuId={setOpenMenuId}
                   onEdit={handleEdit}
                   onToggleStatus={handleToggleStatus}
                   onDelete={handleDelete}
+                  onProvision={handleProvision}
                 />
               )}
               <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-2.5 text-[10px] text-slate-500">
-                Menampilkan {filtered.length} dari {users.length} pengguna
+                Menampilkan {filtered.length} dari {allUsers.length} pengguna
+                {filteredPegawai.length > 0 && (
+                  <span className="ml-1 text-amber-600">· {filteredPegawai.length} pegawai tanpa akun</span>
+                )}
               </div>
             </motion.div>
           </motion.div>
@@ -300,7 +371,19 @@ export default function PenggunaPage() {
       <PenggunaFormModal
         open={modalOpen}
         initial={editTarget}
-        onClose={() => setModalOpen(false)}
+        provisionPegawai={
+          provisionTarget && {
+            id: provisionTarget.id,
+            namaLengkap: provisionTarget.namaLengkap,
+            namaTampil: provisionTarget.namaTampil,
+            nip: provisionTarget.nip,
+            email: null,
+            unitKerja: provisionTarget.unitKerja,
+            statusPegawai: provisionTarget.statusPegawai,
+            isDokter: provisionTarget.isDokter,
+          }
+        }
+        onClose={() => { setModalOpen(false); setProvisionTarget(null); void refreshPegawai(); void refreshUsers(); }}
         onSubmit={handleSubmit}
         onCreatePegawai={handleCreatePegawai}
         onCreateUser={handleCreateUser}
@@ -336,14 +419,16 @@ function FilterSelect({
 }
 
 function UserTable({
-  users, openMenuId, setOpenMenuId, onEdit, onToggleStatus, onDelete,
+  users, pegawai, openMenuId, setOpenMenuId, onEdit, onToggleStatus, onDelete, onProvision,
 }: {
   users: PenggunaRecord[];
+  pegawai: PegawaiListItemDTO[];
   openMenuId: string | null;
   setOpenMenuId: (id: string | null) => void;
   onEdit: (u: PenggunaRecord) => void;
   onToggleStatus: (u: PenggunaRecord) => void;
   onDelete: (u: PenggunaRecord) => void;
+  onProvision: (p: PegawaiListItemDTO) => void;
 }) {
   return (
     <div className="overflow-x-auto">
@@ -371,9 +456,108 @@ function UserTable({
               onDelete={() => onDelete(u)}
             />
           ))}
+          {pegawai.map((p, i) => (
+            <PegawaiRow
+              key={p.id}
+              pegawai={p}
+              index={users.length + i}
+              menuOpen={openMenuId === p.id}
+              onMenuToggle={() => setOpenMenuId(openMenuId === p.id ? null : p.id)}
+              onProvision={() => onProvision(p)}
+            />
+          ))}
         </tbody>
       </table>
     </div>
+  );
+}
+
+// Baris pegawai yang BARU DIDAFTARKAN (belum punya akun login) — latar kuning soft.
+function PegawaiRow({
+  pegawai, index, menuOpen, onMenuToggle, onProvision,
+}: {
+  pegawai: PegawaiListItemDTO;
+  index: number;
+  menuOpen: boolean;
+  onMenuToggle: () => void;
+  onProvision: () => void;
+}) {
+  const initials = pegawai.namaLengkap
+    .replace(/^(dr|drg|prof|ns|apt)\.?\s+/i, "")
+    .split(" ")
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
+
+  return (
+    <motion.tr
+      initial={{ opacity: 0, x: -4 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.2, delay: Math.min(index * 0.025, 0.3) }}
+      className="bg-amber-50/70 transition-colors hover:bg-amber-100/60"
+    >
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-[10px] font-black text-amber-700">
+            {initials}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <p className="truncate text-xs font-bold text-slate-800">{pegawai.namaTampil}</p>
+              {pegawai.isDokter && <Stethoscope size={11} className="shrink-0 text-amber-500" />}
+            </div>
+            <p className="truncate font-mono text-[10px] text-slate-400">
+              NIP {pegawai.nip}{pegawai.profesi ? ` · ${pegawai.profesi}` : ""}
+            </p>
+          </div>
+        </div>
+      </td>
+      <td className="px-4 py-3">
+        <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+          <IdCard size={10} /> Belum punya akun
+        </span>
+      </td>
+      <td className="px-4 py-3">
+        <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600">
+          {pegawai.unitKerja || "—"}
+        </span>
+      </td>
+      <td className="px-4 py-3">
+        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+          Hanya pegawai
+        </span>
+      </td>
+      <td className="px-4 py-3 text-[10px] italic text-slate-400">belum pernah</td>
+      <td className="relative px-4 py-3">
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onMenuToggle(); }}
+          aria-label="Aksi"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          className="flex h-7 w-7 items-center justify-center rounded-md text-amber-500 transition hover:bg-amber-200/60 hover:text-amber-700"
+        >
+          <MoreVertical size={13} />
+        </button>
+        <AnimatePresence>
+          {menuOpen && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -4 }}
+              transition={{ duration: 0.12 }}
+              className="absolute right-4 top-9 z-30 flex w-44 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
+              onClick={(e) => e.stopPropagation()}
+              role="menu"
+            >
+              <MenuItem icon={UserPlus} label="Buatkan Akun" onClick={onProvision} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </td>
+    </motion.tr>
   );
 }
 

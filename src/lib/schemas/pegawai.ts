@@ -130,6 +130,8 @@ export interface PegawaiListItemDTO {
   unitKerja: string | null;
   practitionerId: string | null;
   isDokter: boolean;
+  /** Sudah punya akun login (auth.User tertaut)? false → baru didaftarkan sbg pegawai. */
+  punyaAkun: boolean;
   isActive: boolean;
   version: number;
   createdAt: string;
