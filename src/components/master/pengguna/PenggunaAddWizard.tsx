@@ -16,13 +16,14 @@ import {
   type PegawaiFormData, type AkunData, type UserRole, type UserStatus, type StatusPegawai,
   type ExistingPegawaiSeed, namaTampilPegawai,
   STATUS_PEGAWAI_OPTS, AGAMA_OPTS, PROFESI_OPTS, isDoctorProfesi, UNIT_KERJA_OPTS,
+  splitUnitKerja, joinUnitKerja,
 } from "./penggunaShared";
 import {
   ErrorText, IdentityCard, RoleGrid, StatusSelect, slugUsername, useBodyScrollLock,
   type IdentityView,
 } from "./penggunaFormShared";
 import { Field, FormSection, fieldCls } from "../ruangan/forms/OrganizationForm";
-import { DatePicker, Select } from "@/components/shared/inputs";
+import { DatePicker, Select, MultiSelect } from "@/components/shared/inputs";
 import { ApiError } from "@/lib/api/client";
 import { toast } from "@/lib/ui/toastStore";
 
@@ -480,10 +481,10 @@ function Step1Pegawai({
                 options={STATUS_PEGAWAI_OPTS}
               />
             </Field>
-            <Field label="Unit Kerja">
-              <Select
-                value={peg.unitKerja ?? ""}
-                onChange={(v) => update("unitKerja", v)}
+            <Field label="Unit Kerja" hint="Boleh lebih dari satu unit">
+              <MultiSelect
+                value={splitUnitKerja(peg.unitKerja)}
+                onChange={(arr) => update("unitKerja", joinUnitKerja(arr))}
                 options={UNIT_KERJA_OPTS}
                 placeholder="Pilih unit"
               />

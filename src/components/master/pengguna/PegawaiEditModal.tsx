@@ -9,11 +9,12 @@ import { motion, AnimatePresence, useAnimationControls, useReducedMotion } from 
 import { X, IdCard, ShieldCheck, Loader2, Check, AlertCircle, Stethoscope, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Field, FormSection, fieldCls } from "../ruangan/forms/OrganizationForm";
-import { DatePicker, Select } from "@/components/shared/inputs";
+import { DatePicker, Select, MultiSelect } from "@/components/shared/inputs";
 import { ErrorText, useBodyScrollLock } from "./penggunaFormShared";
 import {
   type StatusPegawai,
   STATUS_PEGAWAI_OPTS, AGAMA_OPTS, PROFESI_OPTS, isDoctorProfesi, UNIT_KERJA_OPTS,
+  splitUnitKerja, joinUnitKerja,
 } from "./penggunaShared";
 import { getPegawai, updatePegawai, type PegawaiDTO, type UpdatePegawaiInput } from "@/lib/api/pegawai";
 import { ApiError } from "@/lib/api/client";
@@ -354,8 +355,13 @@ function EditContent({
                 <Field label="Status Pegawai" required>
                   <Select value={form.statusPegawai} onChange={(v) => update("statusPegawai", v as StatusPegawai)} options={STATUS_PEGAWAI_OPTS} />
                 </Field>
-                <Field label="Unit Kerja">
-                  <Select value={form.unitKerja} onChange={(v) => update("unitKerja", v)} options={UNIT_KERJA_OPTS} placeholder="Pilih unit" />
+                <Field label="Unit Kerja" hint="Boleh lebih dari satu unit">
+                  <MultiSelect
+                    value={splitUnitKerja(form.unitKerja)}
+                    onChange={(arr) => update("unitKerja", joinUnitKerja(arr))}
+                    options={UNIT_KERJA_OPTS}
+                    placeholder="Pilih unit"
+                  />
                 </Field>
               </div>
             </FormSection>

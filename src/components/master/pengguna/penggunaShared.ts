@@ -191,6 +191,16 @@ export const isDoctorProfesi = (p?: string): boolean => !!p && DOCTOR_PROFESI.ha
 // Opsi Unit Kerja (dropdown) — selaras daftar unit sistem.
 export const UNIT_KERJA_OPTS = UNIT_LIST.map((u) => u.nama);
 
+// Unit kerja bisa LEBIH DARI SATU (mis. dokter jaga lintas IGD + Rawat Inap). Backend
+// `master.Pegawai.unitKerja` = satu String → simpan gabungan dipisah koma. Helper ini
+// satu titik konversi string↔array (split buang kosong, join rapikan koma+spasi).
+export function splitUnitKerja(s?: string | null): string[] {
+  return (s ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+}
+export function joinUnitKerja(arr: string[]): string {
+  return arr.map((x) => x.trim()).filter(Boolean).join(", ");
+}
+
 // ── Mock Data ─────────────────────────────────────────────
 
 // Pegawai (master) — sumber identitas akun. peg-011/012 BELUM punya akun (kandidat
