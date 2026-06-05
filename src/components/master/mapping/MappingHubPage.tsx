@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import {
   SUBPAGE_REGISTRY, type SubpageKey, getSubpage,
 } from "./mappingShared";
+import type { AnyNode } from "@/components/master/ruangan/ruanganShared";
+import type { DokterListItemDTO } from "@/lib/api/dokter";
 import MappingHubSidebar from "./MappingHubSidebar";
 import SDMAssignmentPane from "./sdm/SDMAssignmentPane";
 import KewenanganPane from "./kewenangan/KewenanganPane";
@@ -46,7 +48,14 @@ function PageSkeleton() {
 
 const VALID_KEYS = new Set<SubpageKey>(SUBPAGE_REGISTRY.map((s) => s.key));
 
-export default function MappingHubPage() {
+interface MappingHubPageProps {
+  /** Tree Ruangan dari SSR — diteruskan ke SDM Assignment (API-RULES §6.1). */
+  initialTree?: AnyNode[];
+  /** Daftar dokter dari SSR — diteruskan ke SDM Assignment (roster). */
+  initialDokters?: DokterListItemDTO[];
+}
+
+export default function MappingHubPage({ initialTree, initialDokters }: MappingHubPageProps = {}) {
   const searchParams = useSearchParams();
   const initialKey = (() => {
     const param = searchParams?.get("sub") as SubpageKey | null;
@@ -123,7 +132,7 @@ export default function MappingHubPage() {
                     transition={{ duration: 0.2 }}
                     className="flex min-h-0 flex-1 flex-col"
                   >
-                    {renderPane(activeKey)}
+                    {renderPane(activeKey, initialTree, initialDokters)}
                   </motion.div>
                 </AnimatePresence>
               </div>
@@ -135,8 +144,8 @@ export default function MappingHubPage() {
   );
 }
 
-function renderPane(key: SubpageKey) {
-  if (key === "sdm")         return <SDMAssignmentPane />;
+function renderPane(key: SubpageKey, initialTree?: AnyNode[], initialDokters?: DokterListItemDTO[]) {
+  if (key === "sdm")         return <SDMAssignmentPane initialTree={initialTree} initialDokters={initialDokters} />;
   if (key === "kewenangan")  return <KewenanganPane />;
   if (key === "layanan")     return <LayananUnitPane />;
   if (key === "tarif")       return <TarifPane />;

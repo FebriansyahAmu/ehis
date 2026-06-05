@@ -1,7 +1,7 @@
-import { SPESIALIS_LABEL } from "@/components/master/dokter/dokterShared";
-import { DOKTER_MOCK, POLI_LIST } from "@/components/master/dokter/dokterMock";
-import { PENGGUNA_MOCK, UNIT_LIST, ROLE_CFG, type UserRole } from "@/components/master/pengguna/penggunaShared";
+import { PENGGUNA_MOCK, ROLE_CFG, type UserRole } from "@/components/master/pengguna/penggunaShared";
 import { makeInitials } from "../mappingShared";
+import { type AnyNode, type LocationNode } from "@/components/master/ruangan/ruanganShared";
+import type { DokterListItemDTO } from "@/lib/api/dokter";
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -70,18 +70,15 @@ export const STATUS_CFG: Record<
   Non_Aktif: { label: "Non-Aktif",  bg: "bg-slate-100",  text: "text-slate-500" },
 };
 
-// Kategori Unit (dipakai untuk grouping di list panel kiri)
-const UNIT_CATEGORY: Record<string, UnitItem["category"]> = {
-  // Poli (dari POLI_LIST)
-  "POLI-UMUM": "Poli", "POLI-JTG": "Poli", "POLI-PD": "Poli", "POLI-ANAK": "Poli",
-  "POLI-OBGYN": "Poli", "POLI-BEDAH": "Poli", "POLI-SARAF": "Poli", "POLI-MATA": "Poli",
-  // Unit Klinis (dari UNIT_LIST + POLI_LIST yang overlap)
-  IGD: "Unit Klinis", ICU: "Unit Klinis", RI: "Unit Klinis", RJ: "Unit Klinis",
-  // Unit Penunjang
-  FARMASI: "Unit Penunjang", LAB: "Unit Penunjang", RAD: "Unit Penunjang",
-  // Operasional
-  KASIR: "Unit Operasional", REGIST: "Unit Operasional", ADMIN: "Unit Operasional",
-};
+// Klasifikasi tampilan dari jenis ruangan (locationType). Rawat Jalan → Poli; Penunjang →
+// Penunjang; sisanya (IGD/ICU/HCU/Isolasi/Rawat Inap/OK) = Unit Klinis.
+function locationToCategory(node: LocationNode): UnitItem["category"] {
+  switch (node.locationType) {
+    case "Rawat_Jalan": return "Poli";
+    case "Penunjang":   return "Unit Penunjang";
+    default:            return "Unit Klinis";
+  }
+}
 
 // ── Map Pengguna.role ke SDMCategory ──────────────────────
 
@@ -101,73 +98,65 @@ function roleToCategory(role: UserRole): SDMCategory {
 
 // ── Derive Functions ──────────────────────────────────────
 
-/**
- * Gabungkan DOKTER_MOCK + PENGGUNA_MOCK jadi 1 unified list SDM.
- * Dedupe: jika dokter sudah ada di pengguna (sama email), pertahankan source "dokter".
- */
-export function deriveSDMList(): SDMItem[] {
-  const dokters: SDMItem[] = DOKTER_MOCK.map((d) => ({
+/** Map DokterListItemDTO (API /master/dokter) → SDMItem. Email tak ada di list DTO (tak dipakai di roster). */
+export function dokterDtoToSDM(d: DokterListItemDTO): SDMItem {
+  return {
     id: `sdm-dr-${d.id}`,
-    source: "dokter" as const,
+    source: "dokter",
     sourceId: d.id,
-    nama: d.nama,
-    initials: makeInitials(d.nama),
-    roleLabel: d.spesialis ? SPESIALIS_LABEL[d.spesialis] : "Dokter",
-    roleCategory: "Dokter" as const,
-    status: d.status,
-    email: d.email,
-    units: [...d.poliAssignment],
-    sinceISO: "2024-02-01",
-  }));
-
-  const seen = new Set(dokters.map((s) => s.email));
-  const penggunas: SDMItem[] = PENGGUNA_MOCK
-    // Multi-role: pakai role utama (pertama) utk kategori SDM; skip akun Admin-only.
-    .filter((p) => !(p.roles.length === 1 && p.roles[0] === "Admin"))
-    .filter((p) => !seen.has(p.email))
-    .map((p) => {
-      const primary = p.roles.find((r) => r !== "Admin") ?? p.roles[0];
-      return {
-      id: `sdm-user-${p.id}`,
-      source: "pengguna" as const,
-      sourceId: p.id,
-      nama: p.nama,
-      initials: makeInitials(p.nama),
-      roleLabel: ROLE_CFG[primary].label,
-      roleCategory: roleToCategory(primary),
-      status: p.status,
-      email: p.email,
-      units: [...p.unitAssignment],
-      sinceISO: p.createdAt.slice(0, 10),
-      };
-    });
-
-  return [...dokters, ...penggunas];
+    nama: d.namaTampil,
+    initials: makeInitials(d.namaTampil),
+    roleLabel: d.spesialisLabel,
+    roleCategory: "Dokter",
+    status: d.statusPraktik, // StatusPraktik ⊂ SDMStatus
+    email: "",
+    units: [],
+    sinceISO: d.createdAt.slice(0, 10),
+  };
 }
 
 /**
- * Merge POLI_LIST + UNIT_LIST (dedupe by kode) → unified list dengan kategori.
+ * Gabungkan dokter REAL (API /master/dokter — yang sudah didaftarkan di Dokter & Nakes) +
+ * PENGGUNA_MOCK → unified list SDM. Pengguna ber-role "Dokter" di-skip (dokter kini bersumber
+ * dari API → cegah dobel). Pengguna lain (Perawat/Apoteker/dst) tetap mock sampai di-wire.
  */
-export function deriveUnitList(): UnitItem[] {
-  const merged = new Map<string, UnitItem>();
+export function deriveSDMList(dokters: DokterListItemDTO[]): SDMItem[] {
+  const drs = dokters.map(dokterDtoToSDM);
 
-  for (const p of POLI_LIST) {
-    merged.set(p.kode, {
-      kode: p.kode,
-      nama: p.nama,
-      category: UNIT_CATEGORY[p.kode] ?? "Poli",
+  const penggunas: SDMItem[] = PENGGUNA_MOCK
+    // Multi-role: pakai role utama (pertama) utk kategori SDM; skip akun Admin-only & role Dokter.
+    .filter((p) => !(p.roles.length === 1 && p.roles[0] === "Admin"))
+    .filter((p) => !p.roles.includes("Dokter"))
+    .map((p) => {
+      const primary = p.roles.find((r) => r !== "Admin") ?? p.roles[0];
+      return {
+        id: `sdm-user-${p.id}`,
+        source: "pengguna" as const,
+        sourceId: p.id,
+        nama: p.nama,
+        initials: makeInitials(p.nama),
+        roleLabel: ROLE_CFG[primary].label,
+        roleCategory: roleToCategory(primary),
+        status: p.status,
+        email: p.email,
+        units: [], // unitAssignment mock tak relevan dgn ruangan REAL.
+        sinceISO: p.createdAt.slice(0, 10),
+      };
     });
-  }
-  for (const u of UNIT_LIST) {
-    if (!merged.has(u.kode)) {
-      merged.set(u.kode, {
-        kode: u.kode,
-        nama: u.nama,
-        category: UNIT_CATEGORY[u.kode] ?? "Unit Operasional",
-      });
-    }
-  }
-  return Array.from(merged.values());
+
+  return [...drs, ...penggunas];
+}
+
+/**
+ * Bangun daftar RUANGAN dari tree (master/ruangan) — node Location aktif. Penugasan SDM diatur
+ * per-RUANGAN (bukan per-unit). Identitas assignment = `kode` ruangan (unik). Sumber data REAL
+ * (bukan mock) — dipanggil setelah `getTree()`. Organization (unit) & Bed TIDAK dimasukkan.
+ */
+export function ruanganFromTree(nodes: AnyNode[]): UnitItem[] {
+  return nodes
+    .filter((n): n is LocationNode => n.type === "Location" && n.active !== false)
+    .map((n) => ({ kode: n.kode, nama: n.name, category: locationToCategory(n) }))
+    .sort((a, b) => a.nama.localeCompare(b.nama, "id"));
 }
 
 // ── Assignment Map Helpers ────────────────────────────────

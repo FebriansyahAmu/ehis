@@ -354,7 +354,7 @@ function SDMRow({
             ? "border border-rose-200 bg-white text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100"
             : "bg-teal-600 text-white shadow-sm hover:bg-teal-700 active:scale-[0.98]",
         )}
-        title={viewMode === "assigned" ? "Lepas dari unit" : "Assign ke unit"}
+        title={viewMode === "assigned" ? "Lepas dari ruangan" : "Assign ke ruangan"}
       >
         {viewMode === "assigned" ? (
           <>Lepas</>
@@ -385,8 +385,8 @@ function EmptyList({ viewMode, unitName }: { viewMode: ViewMode; unitName: strin
         </p>
         <p className="mt-1 m-tiny text-slate-500">
           {viewMode === "assigned"
-            ? "Switch ke tab Tersedia untuk meng-assign SDM ke unit ini."
-            : "Tidak ada SDM yang belum ditugaskan ke unit ini."}
+            ? "Switch ke tab Tersedia untuk meng-assign SDM ke ruangan ini."
+            : "Tidak ada SDM yang belum ditugaskan ke ruangan ini."}
         </p>
       </div>
     </div>
