@@ -12,6 +12,19 @@
 
 ---
 
+## ✅ Selesai — Master Pengguna & Pegawai Backend + Wiring (2026-06-05)
+
+> Tabel **[/ehis-master/pengguna](../src/app/ehis-master/pengguna/)** tersambung penuh ke DB (akun real + pegawai). Layered **Route→Service→DAL→Prisma**, multi-schema `master` + `auth`. Provisioning akun saja — **login/JWT belum** (`getActor()` = DEV actor). Tech debt: [TECH_DEBT.md](../TECH_DEBT.md#pengguna--pegawai-backend-wired-2026-06-05).
+
+1. **Kontrak Pegawai disamakan dgn form** — enum `StatusPegawai` → `ASN/Outsourcing/Honorer/Magang/Mitra` (migrasi data-preserving remap PNS|PPPK→ASN, Kontrak→Outsourcing) + kolom `agama`, `profesi` (sumber kebenaran Dokter/Perawat/…), + DTO `punyaAkun` (relasi balik `auth.User`). `isDokter` diturunkan dari profesi∈{Dokter,Dokter Gigi,Dokter Spesialis} ∨ practitionerId. Migration `20260604140000_pegawai_align_status_agama_profesi`.
+2. **API Pegawai (CRUD wired)** — [pegawai.ts](../src/lib/api/pegawai.ts): `createPegawai` (form→CreateInput mapper, buang field kosong) · `listPegawai` · `getPegawai` (detail) · `updatePegawai` (PATCH + `expectedVersion`). Endpoint `GET/POST/PATCH/DELETE` di route pegawai.
+3. **Auth provisioning** — schema `auth.*` diimplementasi: hash [password.ts](../src/lib/crypto/password.ts) (scrypt, swappable argon2id) · Zod [user.ts](../src/lib/schemas/user.ts) · DAL [userDal.ts](../src/lib/dal/userDal.ts) (username citext-unik, 1 akun/pegawai, resolve key→Role, list) · Service [userService.ts](../src/lib/services/userService.ts) (zero-orphan, createUser, assignRoles transaksional, listUsers) · Route `GET/POST /auth/users` + `PATCH /auth/users/:id/roles` · seed 9 Role (migration `20260604150000_seed_auth_roles`).
+4. **Wizard "Tambah Pengguna" 3-step WIRED** — Step 1 `POST /master/pegawai` · Step 2 `POST /auth/users` (hash password) · Step 3 `PATCH …/roles` (assign peran+status; map status FE Aktif/Suspended/Non_Aktif → server Active/Suspended/Locked). Tiap step toast sukses; error CONFLICT/VALIDATION di banner.
+5. **Tabel real + baris kuning** — akun real dari `GET /auth/users` (mock `PENGGUNA_MOCK` dihapus) digabung pegawai `punyaAkun:false` sebagai **baris kuning soft** ("Belum punya akun") + stat "Belum Berakun". Menu ⋮ baris kuning: **"Buatkan Akun"** (wizard mode provisioning, mulai Step 2 dgn pegawaiId existing, Step 1 di-skip) + **"Ubah Data Pegawai"**.
+6. **Ubah Data Pegawai** — [PegawaiEditModal](../src/components/master/pengguna/PegawaiEditModal.tsx): `GET` detail (prefill) → PATCH `expectedVersion` (NIK locked/masked, version guard → CONFLICT_VERSION). Ada juga di menu baris akun.
+7. **Menu aksi via portal** — `RowActionsMenu` (createPortal + `usePopover` fixed-position) → dropdown lepas dari `overflow` tabel (fix menu terpotong/merusak layout). Hapus plumbing `openMenuId` lama.
+8. **Unit test** — [pegawaiService.test.ts](../src/lib/services/pegawaiService.test.ts) 19 + [userService.test.ts](../src/lib/services/userService.test.ts) 8 = **27 pass**. **Smoke test live** semua endpoint (create→assign→list→GET detail→PATCH update+isDokter derive→CONFLICT/CONFLICT_VERSION/VALIDATION).
+
 ## ✅ Selesai — Registration Backend Integration RJ (2026-06-04)
 
 > Backend nyata pertama (layered **Route→Service→DAL→Prisma** + PostgreSQL multi-schema). Spec: [docs/BACKEND-PATIENT.md](../docs/BACKEND-PATIENT.md) · [docs/BACKEND-ENCOUNTER.md](../docs/BACKEND-ENCOUNTER.md). Roadmap [TODO-REGISTRASI.md](../TODO-REGISTRASI.md#phase-reg-be--backend-integration-loket--db-2026-06-04) Phase REG-BE.

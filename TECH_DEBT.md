@@ -78,6 +78,14 @@
 - [ ] **Poliklinik & Jadwal Dokter** — kapasitas antrian per poli per hari, jadwal buka (hari + jam mulai/selesai), assignment dokter per slot, libur/cuti override. Weekly schedule grid. Unblock Registration antrian real. Route: `/ehis-master/poli`. **Belum dibangun** (rencana Tier 3 master).
 - [ ] **Promote Jadwal Praktik dari DokterDetail → Poliklinik atau Mapping Hub** — section "Jadwal Praktik" di [DokterDetail.tsx](src/components/master/dokter/DokterDetail.tsx) saat ini per-dokter, sulit lihat clash jadwal antar dokter. Promote ke weekly grid global. Decide saat Poliklinik dikerjakan.
 
+### Pengguna & Pegawai (backend WIRED 2026-06-05)
+- [ ] **Edit/suspend/hapus AKUN belum persist** — di tabel Pengguna, aksi Edit Akun (username/peran/status), Suspend/Aktifkan, Hapus masih **optimistic UI** (state lokal) → revert saat refresh. Butuh endpoint `PATCH /auth/users/:id` (username/status) + `DELETE /auth/users/:id` (cek akun-yatim/audit) + wiring. `PenggunaEditForm` masih mock.
+- [ ] **Paginasi tabel** — `listPegawai`/`listUsers` di-cap `limit=50` (kontrak `ListQuery`/`ListUsersQuery` max 50). UI belum punya "muat lebih"/cursor → >50 baris terpotong. Tambah infinite-scroll atau tombol cursor.
+- [ ] **`Non_Aktif` → `Locked`** — enum FE (Aktif/Suspended/Non_Aktif) dipetakan ke enum server auth (Active/Suspended/Locked) di [users.ts](src/lib/api/users.ts); `Locked` semantiknya brute-force lockout, bukan "dinonaktifkan". Saat modul auth runtime, tambah nilai enum `Disabled` khusus + revisi mapping.
+- [ ] **Password hash scrypt → argon2id** — [password.ts](src/lib/crypto/password.ts) pakai `node:crypto` scrypt (tanpa dependency native). Format self-describing `scrypt$N$r$p$salt$dk` → swappable; saat auth runtime ganti ke argon2id (per BACKEND-AUTH §3), `verifyPassword` baca format lama utk migrasi mulus.
+- [ ] **`UserUnitScope` belum diisi** — wizard Step 3 hanya set roles+status; unit-scope (ABAC) belum (butuh id `master.ruangan` yg belum ada). Saat master ruangan siap, assign unit per akun.
+- [ ] **Edit pegawai: clear field opsional** — [PegawaiEditModal](src/components/master/pengguna/PegawaiEditModal.tsx) kirim `undefined` utk field opsional kosong (skip, bukan null) → tak bisa **mengosongkan** gelar/agama/dll yg sudah terisi. `UpdatePegawaiInput` belum terima `null` untuk clear. NIK juga read-only (tak bisa koreksi via UI).
+
 ---
 
 ## 🔐 BPJS Integration (`/ehis-bpjs`)
