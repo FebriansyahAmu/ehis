@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, UserCheck, UserCog, Search, Plus, Pencil, Trash2,
   MoreVertical, Shield, UserX, ChevronDown, UserPlus, Stethoscope, IdCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePopover } from "@/components/shared/inputs/popoverShared";
 import {
   type PenggunaRecord, type UserRole, type UserStatus, type PegawaiLite,
   type PegawaiFormData, type AkunData,
@@ -16,6 +18,7 @@ import {
 import { createPegawai, listPegawai, type PegawaiListItemDTO } from "@/lib/api/pegawai";
 import { createUser, assignRoles, listUsers } from "@/lib/api/users";
 import PenggunaFormModal from "./PenggunaFormModal";
+import PegawaiEditModal from "./PegawaiEditModal";
 
 // ── Skeleton ───────────────────────────────────────────────
 
@@ -89,11 +92,12 @@ export default function PenggunaPage() {
   const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
   const [statusFilter, setStatusFilter] = useState<UserStatus | "all">("all");
   const [unitFilter, setUnitFilter] = useState<string>("all");
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<PenggunaRecord | null>(null);
   // "Buatkan Akun" untuk pegawai existing (baris kuning) → wizard mulai Step 2.
   const [provisionTarget, setProvisionTarget] = useState<PegawaiListItemDTO | null>(null);
+  // "Ubah Data Pegawai" → modal edit detail pegawai (by id).
+  const [editPegawaiId, setEditPegawaiId] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setLoaded(true), 600);
@@ -126,14 +130,6 @@ export default function PenggunaPage() {
     void (async () => { await Promise.all([refreshPegawai(ac.signal), refreshUsers(ac.signal)]); })();
     return () => ac.abort();
   }, [refreshPegawai, refreshUsers]);
-
-  // Close menu on outside click
-  useEffect(() => {
-    if (!openMenuId) return;
-    const handler = () => setOpenMenuId(null);
-    window.addEventListener("click", handler);
-    return () => window.removeEventListener("click", handler);
-  }, [openMenuId]);
 
   // Gabung akun real (DB) + demo mock; dedupe by id (real menang). Id-space disjoint → praktis concat.
   const allUsers = useMemo(() => {
@@ -186,7 +182,6 @@ export default function PenggunaPage() {
     setProvisionTarget(null);
     setEditTarget(user);
     setModalOpen(true);
-    setOpenMenuId(null);
   };
 
   // "Buatkan Akun" dari baris kuning → wizard provisioning (pegawai sudah ada).
@@ -194,8 +189,10 @@ export default function PenggunaPage() {
     setEditTarget(null);
     setProvisionTarget(pegawai);
     setModalOpen(true);
-    setOpenMenuId(null);
   };
+
+  // "Ubah Data Pegawai" → buka modal edit detail pegawai.
+  const handleEditPegawai = (pegawaiId: string) => setEditPegawaiId(pegawaiId);
 
   // EDIT — perubahan akun (optimistic di kedua list; PATCH akun belum ada → revert saat refresh).
   const handleSubmit = (next: PenggunaRecord) => {
@@ -242,16 +239,12 @@ export default function PenggunaPage() {
   const handleToggleStatus = (user: PenggunaRecord) => {
     const next: UserStatus = user.status === "Aktif" ? "Suspended" : "Aktif";
     setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, status: next } : u)));
-    setDbUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, status: next } : u)));
-    setOpenMenuId(null);
-  };
+    setDbUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, status: next } : u)));  };
 
   const handleDelete = (user: PenggunaRecord) => {
     if (!confirm(`Hapus pengguna "${user.nama}"? Tindakan ini tidak bisa dibatalkan.`)) return;
     setDbUsers((prev) => prev.filter((u) => u.id !== user.id));
-    setUsers((prev) => prev.filter((u) => u.id !== user.id));
-    setOpenMenuId(null);
-  };
+    setUsers((prev) => prev.filter((u) => u.id !== user.id));  };
 
   return (
     <>
@@ -349,12 +342,11 @@ export default function PenggunaPage() {
                 <UserTable
                   users={filtered}
                   pegawai={filteredPegawai}
-                  openMenuId={openMenuId}
-                  setOpenMenuId={setOpenMenuId}
                   onEdit={handleEdit}
                   onToggleStatus={handleToggleStatus}
                   onDelete={handleDelete}
                   onProvision={handleProvision}
+                  onEditPegawai={handleEditPegawai}
                 />
               )}
               <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-2.5 text-[10px] text-slate-500">
@@ -389,6 +381,13 @@ export default function PenggunaPage() {
         onCreateUser={handleCreateUser}
         onAssignRoles={handleAssignRoles}
       />
+
+      <PegawaiEditModal
+        open={editPegawaiId !== null}
+        pegawaiId={editPegawaiId}
+        onClose={() => setEditPegawaiId(null)}
+        onSaved={() => { void refreshPegawai(); void refreshUsers(); }}
+      />
     </>
   );
 }
@@ -419,16 +418,15 @@ function FilterSelect({
 }
 
 function UserTable({
-  users, pegawai, openMenuId, setOpenMenuId, onEdit, onToggleStatus, onDelete, onProvision,
+  users, pegawai, onEdit, onToggleStatus, onDelete, onProvision, onEditPegawai,
 }: {
   users: PenggunaRecord[];
   pegawai: PegawaiListItemDTO[];
-  openMenuId: string | null;
-  setOpenMenuId: (id: string | null) => void;
   onEdit: (u: PenggunaRecord) => void;
   onToggleStatus: (u: PenggunaRecord) => void;
   onDelete: (u: PenggunaRecord) => void;
   onProvision: (p: PegawaiListItemDTO) => void;
+  onEditPegawai: (pegawaiId: string) => void;
 }) {
   return (
     <div className="overflow-x-auto">
@@ -449,11 +447,10 @@ function UserTable({
               key={u.id}
               user={u}
               index={i}
-              menuOpen={openMenuId === u.id}
-              onMenuToggle={() => setOpenMenuId(openMenuId === u.id ? null : u.id)}
               onEdit={() => onEdit(u)}
               onToggleStatus={() => onToggleStatus(u)}
               onDelete={() => onDelete(u)}
+              onEditPegawai={() => onEditPegawai(u.pegawaiId)}
             />
           ))}
           {pegawai.map((p, i) => (
@@ -461,9 +458,8 @@ function UserTable({
               key={p.id}
               pegawai={p}
               index={users.length + i}
-              menuOpen={openMenuId === p.id}
-              onMenuToggle={() => setOpenMenuId(openMenuId === p.id ? null : p.id)}
               onProvision={() => onProvision(p)}
+              onEditPegawai={() => onEditPegawai(p.id)}
             />
           ))}
         </tbody>
@@ -474,13 +470,12 @@ function UserTable({
 
 // Baris pegawai yang BARU DIDAFTARKAN (belum punya akun login) — latar kuning soft.
 function PegawaiRow({
-  pegawai, index, menuOpen, onMenuToggle, onProvision,
+  pegawai, index, onProvision, onEditPegawai,
 }: {
   pegawai: PegawaiListItemDTO;
   index: number;
-  menuOpen: boolean;
-  onMenuToggle: () => void;
   onProvision: () => void;
+  onEditPegawai: () => void;
 }) {
   const initials = pegawai.namaLengkap
     .replace(/^(dr|drg|prof|ns|apt)\.?\s+/i, "")
@@ -530,47 +525,25 @@ function PegawaiRow({
         </span>
       </td>
       <td className="px-4 py-3 text-[10px] italic text-slate-400">belum pernah</td>
-      <td className="relative px-4 py-3">
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onMenuToggle(); }}
-          aria-label="Aksi"
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-amber-500 transition hover:bg-amber-200/60 hover:text-amber-700"
-        >
-          <MoreVertical size={13} />
-        </button>
-        <AnimatePresence>
-          {menuOpen && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: -4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -4 }}
-              transition={{ duration: 0.12 }}
-              className="absolute right-4 top-9 z-30 flex w-44 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
-              onClick={(e) => e.stopPropagation()}
-              role="menu"
-            >
-              <MenuItem icon={UserPlus} label="Buatkan Akun" onClick={onProvision} />
-            </motion.div>
-          )}
-        </AnimatePresence>
+      <td className="px-4 py-3">
+        <RowActionsMenu tone="amber">
+          <MenuItem icon={UserPlus} label="Buatkan Akun" onClick={onProvision} />
+          <MenuItem icon={Pencil} label="Ubah Data Pegawai" onClick={onEditPegawai} />
+        </RowActionsMenu>
       </td>
     </motion.tr>
   );
 }
 
 function UserRow({
-  user, index, menuOpen, onMenuToggle, onEdit, onToggleStatus, onDelete,
+  user, index, onEdit, onToggleStatus, onDelete, onEditPegawai,
 }: {
   user: PenggunaRecord;
   index: number;
-  menuOpen: boolean;
-  onMenuToggle: () => void;
   onEdit: () => void;
   onToggleStatus: () => void;
   onDelete: () => void;
+  onEditPegawai: () => void;
 }) {
   const status = STATUS_CFG[user.status];
   const initials = user.nama
@@ -644,44 +617,71 @@ function UserRow({
       <td className="px-4 py-3 text-[10px] text-slate-500">
         {fmtRelative(user.lastLogin)}
       </td>
-      <td className="relative px-4 py-3">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onMenuToggle();
-          }}
-          aria-label="Aksi"
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-        >
-          <MoreVertical size={13} />
-        </button>
-        <AnimatePresence>
-          {menuOpen && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: -4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -4 }}
-              transition={{ duration: 0.12 }}
-              className="absolute right-4 top-9 z-30 flex w-44 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
-              onClick={(e) => e.stopPropagation()}
-              role="menu"
-            >
-              <MenuItem icon={Pencil} label="Edit" onClick={onEdit} />
-              <MenuItem
-                icon={user.status === "Aktif" ? UserX : UserCog}
-                label={user.status === "Aktif" ? "Suspend Akun" : "Aktifkan Akun"}
-                onClick={onToggleStatus}
-              />
-              <div className="border-t border-slate-100" />
-              <MenuItem icon={Trash2} label="Hapus" onClick={onDelete} danger />
-            </motion.div>
-          )}
-        </AnimatePresence>
+      <td className="px-4 py-3">
+        <RowActionsMenu>
+          <MenuItem icon={Pencil} label="Edit Akun" onClick={onEdit} />
+          <MenuItem icon={IdCard} label="Ubah Data Pegawai" onClick={onEditPegawai} />
+          <MenuItem
+            icon={user.status === "Aktif" ? UserX : UserCog}
+            label={user.status === "Aktif" ? "Suspend Akun" : "Aktifkan Akun"}
+            onClick={onToggleStatus}
+          />
+          <div className="border-t border-slate-100" />
+          <MenuItem icon={Trash2} label="Hapus" onClick={onDelete} danger />
+        </RowActionsMenu>
       </td>
     </motion.tr>
+  );
+}
+
+// Menu aksi baris (titik-tiga). Di-render via PORTAL + position:fixed (usePopover) agar
+// LEPAS dari wrapper tabel ber-`overflow` → tak terpotong / tak menambah scrollbar.
+function RowActionsMenu({
+  tone = "slate", children,
+}: {
+  tone?: "slate" | "amber";
+  children: React.ReactNode;
+}) {
+  const { open, setOpen, mounted, coords, triggerRef, popRef } = usePopover(176, 160);
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Aksi"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className={cn(
+          "flex h-7 w-7 items-center justify-center rounded-md transition",
+          tone === "amber"
+            ? "text-amber-500 hover:bg-amber-200/60 hover:text-amber-700"
+            : "text-slate-400 hover:bg-slate-100 hover:text-slate-700",
+        )}
+      >
+        <MoreVertical size={13} />
+      </button>
+      {mounted && createPortal(
+        <AnimatePresence>
+          {open && coords && (
+            <motion.div
+              ref={popRef}
+              initial={{ opacity: 0, scale: 0.96, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: -4 }}
+              transition={{ duration: 0.12 }}
+              style={{ position: "fixed", top: coords.top, left: coords.left, width: 176, zIndex: 60 }}
+              onClick={() => setOpen(false)}
+              role="menu"
+              className="flex flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl shadow-slate-900/10 ring-1 ring-black/5"
+            >
+              {children}
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
+    </>
   );
 }
 

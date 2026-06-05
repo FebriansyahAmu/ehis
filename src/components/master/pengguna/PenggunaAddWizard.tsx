@@ -14,7 +14,8 @@ import {
 import { cn } from "@/lib/utils";
 import {
   type PegawaiFormData, type AkunData, type UserRole, type UserStatus, type StatusPegawai,
-  type ExistingPegawaiSeed, namaTampilPegawai, UNIT_LIST,
+  type ExistingPegawaiSeed, namaTampilPegawai,
+  STATUS_PEGAWAI_OPTS, AGAMA_OPTS, PROFESI_OPTS, isDoctorProfesi, UNIT_KERJA_OPTS,
 } from "./penggunaShared";
 import {
   ErrorText, IdentityCard, RoleGrid, StatusSelect, slugUsername, useBodyScrollLock,
@@ -44,25 +45,6 @@ interface PenggunaAddWizardProps {
   /** Bila diisi → mode "Buatkan Akun" utk pegawai yang SUDAH ada (mulai Step 2, Step 1 dilewati). */
   existingPegawai?: ExistingPegawaiSeed;
 }
-
-const STATUS_PEGAWAI: StatusPegawai[] = ["ASN", "Outsourcing", "Honorer", "Magang", "Mitra"];
-
-// Agama besar dunia + "Lainnya" di akhir (master.Pegawai.agama = String?).
-const AGAMA_OPTS = ["Islam", "Kristen", "Katolik", "Hindu", "Buddha", "Konghucu", "Yahudi", "Lainnya"];
-
-// Jenis tenaga (acuan SISDMK). Profesi = sumber kebenaran "Dokter / Perawat / dst.".
-const PROFESI_OPTS = [
-  "Dokter", "Dokter Gigi", "Dokter Spesialis", "Perawat", "Bidan",
-  "Apoteker", "Tenaga Teknis Kefarmasian", "Ahli Teknologi Lab Medik",
-  "Radiografer", "Nutrisionis", "Fisioterapis", "Tenaga Kesehatan Lainnya",
-  "Administrator", "Non-Tenaga Kesehatan",
-];
-// Profesi yang = dokter → turunkan isDokter (tautan master Dokter / Practitioner FHIR).
-const DOCTOR_PROFESI = new Set(["Dokter", "Dokter Gigi", "Dokter Spesialis"]);
-const isDoctorProfesi = (p?: string): boolean => !!p && DOCTOR_PROFESI.has(p);
-
-// Opsi Unit Kerja (dropdown) — selaras daftar unit sistem.
-const UNIT_KERJA_OPTS = UNIT_LIST.map((u) => u.nama);
 
 const STEPS = [
   { n: 1, label: "Data Pegawai", icon: IdCard },
@@ -495,7 +477,7 @@ function Step1Pegawai({
               <Select
                 value={peg.statusPegawai}
                 onChange={(v) => update("statusPegawai", v as StatusPegawai)}
-                options={STATUS_PEGAWAI}
+                options={STATUS_PEGAWAI_OPTS}
               />
             </Field>
             <Field label="Unit Kerja">

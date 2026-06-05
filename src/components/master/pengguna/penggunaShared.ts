@@ -169,6 +169,28 @@ export const UNIT_LIST: UserUnit[] = [
   { kode: "ADMIN",      nama: "Sistem" },
 ];
 
+// ── Opsi form pegawai (dipakai wizard Tambah + form Ubah Data Pegawai) ───────
+
+export const STATUS_PEGAWAI_OPTS: StatusPegawai[] = ["ASN", "Outsourcing", "Honorer", "Magang", "Mitra"];
+
+// Agama besar dunia + "Lainnya" di akhir (master.Pegawai.agama = String?).
+export const AGAMA_OPTS = ["Islam", "Kristen", "Katolik", "Hindu", "Buddha", "Konghucu", "Yahudi", "Lainnya"];
+
+// Jenis tenaga (acuan SISDMK). Profesi = sumber kebenaran "Dokter / Perawat / dst.".
+export const PROFESI_OPTS = [
+  "Dokter", "Dokter Gigi", "Dokter Spesialis", "Perawat", "Bidan",
+  "Apoteker", "Tenaga Teknis Kefarmasian", "Ahli Teknologi Lab Medik",
+  "Radiografer", "Nutrisionis", "Fisioterapis", "Tenaga Kesehatan Lainnya",
+  "Administrator", "Non-Tenaga Kesehatan",
+];
+
+// Profesi yang = dokter → turunkan isDokter (tautan master Dokter / Practitioner FHIR).
+const DOCTOR_PROFESI = new Set(["Dokter", "Dokter Gigi", "Dokter Spesialis"]);
+export const isDoctorProfesi = (p?: string): boolean => !!p && DOCTOR_PROFESI.has(p);
+
+// Opsi Unit Kerja (dropdown) — selaras daftar unit sistem.
+export const UNIT_KERJA_OPTS = UNIT_LIST.map((u) => u.nama);
+
 // ── Mock Data ─────────────────────────────────────────────
 
 // Pegawai (master) — sumber identitas akun. peg-011/012 BELUM punya akun (kandidat

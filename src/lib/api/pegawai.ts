@@ -2,10 +2,12 @@
 // kode server ter-bundle, kontrak FE↔BE selalu selaras). Endpoint: /api/v1/master/pegawai.
 
 import { api } from "@/lib/api/client";
-import type { CreatePegawaiInput, PegawaiDTO, PegawaiListItemDTO } from "@/lib/schemas/pegawai";
+import type {
+  CreatePegawaiInput, UpdatePegawaiInput, PegawaiDTO, PegawaiListItemDTO,
+} from "@/lib/schemas/pegawai";
 import type { PegawaiFormData } from "@/components/master/pengguna/penggunaShared";
 
-export type { PegawaiDTO, PegawaiListItemDTO };
+export type { PegawaiDTO, PegawaiListItemDTO, UpdatePegawaiInput };
 
 /** Buang string kosong → undefined (field opsional di Zod menolak "" pada beberapa kasus). */
 const opt = (v?: string): string | undefined => {
@@ -43,6 +45,22 @@ export function pegawaiFormToCreateInput(d: PegawaiFormData): CreatePegawaiInput
 /** POST /master/pegawai — tambah pegawai (server dedup NIK/NIP). Mengembalikan DTO (mask NIK). */
 export async function createPegawai(input: PegawaiFormData, signal?: AbortSignal): Promise<PegawaiDTO> {
   const { data } = await api.post<PegawaiDTO>("/master/pegawai", pegawaiFormToCreateInput(input), { signal });
+  return data;
+}
+
+/** GET /master/pegawai/:id — detail lengkap (NIK tetap masked). */
+export async function getPegawai(id: string, signal?: AbortSignal): Promise<PegawaiDTO> {
+  const { data } = await api.get<PegawaiDTO>(`/master/pegawai/${encodeURIComponent(id)}`, { signal });
+  return data;
+}
+
+/** PATCH /master/pegawai/:id — ubah data pegawai (kirim expectedVersion utk guard). */
+export async function updatePegawai(
+  id: string,
+  input: UpdatePegawaiInput,
+  signal?: AbortSignal,
+): Promise<PegawaiDTO> {
+  const { data } = await api.patch<PegawaiDTO>(`/master/pegawai/${encodeURIComponent(id)}`, input, { signal });
   return data;
 }
 
