@@ -16,8 +16,8 @@ interface OrganizationFormProps {
   node: OrganizationNode;
   nodes: AnyNode[];
   childCount: number;
-  onSave: (next: OrganizationNode) => void;
-  onDelete: (node: AnyNode) => void;
+  onSave: (next: OrganizationNode) => void | Promise<void>;
+  onDelete: (node: AnyNode) => void | Promise<void>;
 }
 
 const ORG_TYPE_OPTIONS: OrgType[] = ["dept", "dept-clin", "team", "prov"];
@@ -28,6 +28,7 @@ export default function OrganizationForm({
   const [form, setForm] = useState<OrganizationNode>(node);
   const [gpsOpen, setGpsOpen] = useState(!!node.gps);
   const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const isRoot = isRSRoot(node);
   const ancestors = useMemo(() => getAncestors(nodes, node), [nodes, node]);
@@ -47,10 +48,18 @@ export default function OrganizationForm({
     return prov ? KOTA_BY_PROVINSI[prov.kode] ?? [] : [];
   }, [form.alamat.provinsi]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(form);
-    setDirty(false);
+    if (saving) return;
+    setSaving(true);
+    try {
+      await onSave(form);
+      setDirty(false); // hanya reset bila sukses — gagal → tetap dirty untuk retry
+    } catch {
+      /* error sudah di-surface parent (alert) */
+    } finally {
+      setSaving(false);
+    }
   };
 
   const headerCfg = isRoot
@@ -103,15 +112,14 @@ export default function OrganizationForm({
               placeholder="Mis. Instalasi Rawat Inap"
             />
           </Field>
-          <Field label="Kode Unit" required>
+          <Field label="Kode Unit" hint={isRoot ? undefined : "Kode unik otomatis — boleh diubah"}>
             <input
               type="text"
               value={form.kode}
               onChange={(e) => update("kode", e.target.value.toUpperCase())}
-              required
               disabled={isRoot}
               className={cn(fieldCls, "font-mono uppercase")}
-              placeholder="RI"
+              placeholder="UN2606001"
             />
           </Field>
           <Field label="Telepon">
@@ -318,20 +326,20 @@ export default function OrganizationForm({
       {!isRoot && (
         <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
           <p className="text-[10px] text-slate-400">
-            {dirty ? "Perubahan belum disimpan" : "Tidak ada perubahan"}
+            {saving ? "Menyimpan…" : dirty ? "Perubahan belum disimpan" : "Tidak ada perubahan"}
           </p>
           <button
             type="submit"
-            disabled={!dirty}
+            disabled={!dirty || saving}
             className={cn(
               "flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold shadow-sm transition",
-              dirty
+              dirty && !saving
                 ? "bg-teal-600 text-white hover:bg-teal-700 active:scale-[0.98]"
                 : "cursor-not-allowed bg-slate-100 text-slate-400",
             )}
           >
             <Save size={12} />
-            Simpan Perubahan
+            {saving ? "Menyimpan…" : "Simpan Perubahan"}
           </button>
         </div>
       )}

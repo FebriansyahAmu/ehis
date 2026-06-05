@@ -55,6 +55,10 @@ export interface OrganizationNode {
   gps?: GPS;
   /** null hanya untuk RS root. Unit reguler partOf ke RS root atau parent Org lain. */
   parentId: string | null;
+  /** true = RS Induk (read-only di modul ini). Dari DTO; mock root pakai RS_ROOT_ID. */
+  isRoot?: boolean;
+  /** Optimistic concurrency (DTO). undefined = node DRAFT (belum tersimpan → POST saat save). */
+  version?: number;
 }
 
 /**
@@ -76,10 +80,14 @@ export interface LocationNode {
   locationType: LocationType;
   kelas: LocationKelas;
   kapasitas: number;
+  /** Aktif/non-aktif ruangan (DTO). Opsional agar draft/mock lama tetap valid. */
+  active?: boolean;
   /** Override alamat — null/undefined = inherit dari Organization parent terdekat */
   alamatOverride?: Alamat;
   parentId: string;
   beds: BedSubRecord[];
+  /** Optimistic concurrency (DTO). undefined = node DRAFT (belum tersimpan → POST saat save). */
+  version?: number;
 }
 
 export type AnyNode = OrganizationNode | LocationNode;
@@ -330,7 +338,9 @@ export const RUANGAN_MOCK: AnyNode[] = [
 // ── Helpers ───────────────────────────────────────────────
 
 export function isRSRoot(node: AnyNode | null | undefined): boolean {
-  return !!node && node.id === RS_ROOT_ID;
+  if (!node) return false;
+  // DTO: flag isRoot (id = UUID asli). Mock/legacy: id === RS_ROOT_ID.
+  return (node.type === "Organization" && node.isRoot === true) || node.id === RS_ROOT_ID;
 }
 
 export function getChildren(nodes: AnyNode[], parentId: string | null): AnyNode[] {
@@ -380,4 +390,36 @@ export function getAncestors(nodes: AnyNode[], node: AnyNode): AnyNode[] {
 
 export function newId(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** YYMM dari tanggal (mis. Juni 2026 → "2606"). */
+function yymm(date: Date): string {
+  return `${String(date.getFullYear()).slice(2)}${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
+ * Kode unik SATU STRING: `<PREFIX><YYMM><NNN>` (mis. "UN2606001") — tanpa hyphen.
+ * Sequence = (max sequence kode existing ber-prefix+YYMM sama) + 1 → tahan gap/hapus.
+ * Unik final dijaga server (CONFLICT → toast). Prefix: Unit "UN" · Ruangan "R" · Bed "BD".
+ */
+export function genKode(prefix: string, existing: string[], date: Date = new Date()): string {
+  const head = `${prefix}${yymm(date)}`;
+  let max = 0;
+  for (const k of existing) {
+    if (!k.startsWith(head)) continue;
+    const n = parseInt(k.slice(head.length), 10);
+    if (Number.isFinite(n) && n > max) max = n;
+  }
+  return `${head}${String(max + 1).padStart(3, "0")}`;
+}
+
+/** Kode existing per tipe (untuk hitung sequence berikutnya). */
+export function unitKodes(nodes: AnyNode[]): string[] {
+  return nodes.filter((n) => n.type === "Organization").map((n) => n.kode);
+}
+export function ruanganKodes(nodes: AnyNode[]): string[] {
+  return nodes.filter((n) => n.type === "Location").map((n) => n.kode);
+}
+export function bedKodes(nodes: AnyNode[]): string[] {
+  return nodes.flatMap((n) => (n.type === "Location" ? n.beds.map((b) => b.kode) : []));
 }

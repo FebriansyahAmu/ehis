@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronRight, Building2, DoorOpen, Plus, Hospital,
@@ -11,6 +12,7 @@ import {
   type AnyNode, type NodeType,
   NODE_CFG, getChildren, countDescendants, isRSRoot,
 } from "./ruanganShared";
+import { usePopover } from "@/components/shared/inputs/popoverShared";
 
 export type AddKind = "sub-org" | "location";
 
@@ -32,8 +34,8 @@ export default function TreeNode({
   node, nodes, depth, selectedId, onSelect, onAddChild,
 }: TreeNodeProps) {
   const [expanded, setExpanded] = useState(depth < 2);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  // Menu "+" mengambang via portal (position:fixed) → tak ter-clip overflow tree / stacking baris.
+  const { open: menuOpen, setOpen: setMenuOpen, mounted, coords, width, triggerRef, popRef } = usePopover(176, 120);
 
   const isRoot = isRSRoot(node);
   const children = getChildren(nodes, node.id);
@@ -46,18 +48,6 @@ export default function TreeNode({
   const inactive = node.type === "Organization" && !node.active;
   // Only Organization nodes can have children added (Location's beds are in panel)
   const canAddChild = node.type === "Organization";
-
-  // Close menu on outside click
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    window.addEventListener("mousedown", handler);
-    return () => window.removeEventListener("mousedown", handler);
-  }, [menuOpen]);
 
   // Sub-label per node type
   let subLabel: React.ReactNode = null;
@@ -137,15 +127,16 @@ export default function TreeNode({
           </span>
         </button>
 
-        {/* Add child button + dropdown menu */}
+        {/* Add child button + dropdown menu (portal + position:fixed → anti ter-clip overflow tree) */}
         {canAddChild && (
-          <div ref={menuRef} className="relative shrink-0">
+          <>
             <button
+              ref={triggerRef}
               type="button"
               onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
               title="Tambah child"
               className={cn(
-                "flex h-5 w-5 items-center justify-center rounded-md transition-all",
+                "flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-all",
                 "text-slate-400 hover:bg-teal-100 hover:text-teal-700",
                 selected || menuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100",
               )}
@@ -155,34 +146,39 @@ export default function TreeNode({
             >
               <Plus size={11} />
             </button>
-            <AnimatePresence>
-              {menuOpen && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: -4 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -4 }}
-                  transition={{ duration: 0.12 }}
-                  role="menu"
-                  className="absolute right-0 top-6 z-30 flex w-44 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <AddMenuItem
-                    icon={DoorOpen}
-                    label="Ruangan"
-                    desc="Bangsal / kamar / poli"
-                    onClick={() => { onAddChild(node, "location"); setMenuOpen(false); setExpanded(true); }}
-                  />
-                  <div className="border-t border-slate-100" />
-                  <AddMenuItem
-                    icon={Network}
-                    label="Sub-Unit"
-                    desc="Direktorat / instalasi"
-                    onClick={() => { onAddChild(node, "sub-org"); setMenuOpen(false); setExpanded(true); }}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+            {mounted && createPortal(
+              <AnimatePresence>
+                {menuOpen && coords && (
+                  <motion.div
+                    ref={popRef}
+                    initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                    transition={{ duration: 0.12 }}
+                    role="menu"
+                    style={{ position: "fixed", top: coords.top, left: coords.left, width, zIndex: 60 }}
+                    className="flex flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl shadow-slate-900/10 ring-1 ring-black/5"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <AddMenuItem
+                      icon={DoorOpen}
+                      label="Ruangan"
+                      desc="Bangsal / kamar / poli"
+                      onClick={() => { onAddChild(node, "location"); setMenuOpen(false); setExpanded(true); }}
+                    />
+                    <div className="border-t border-slate-100" />
+                    <AddMenuItem
+                      icon={Network}
+                      label="Sub-Unit"
+                      desc="Direktorat / instalasi"
+                      onClick={() => { onAddChild(node, "sub-org"); setMenuOpen(false); setExpanded(true); }}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>,
+              document.body,
+            )}
+          </>
         )}
       </div>
 

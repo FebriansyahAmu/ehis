@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import {
   type LocationNode, type AnyNode, type BedSubRecord,
   LOCATION_TYPE_LABEL, type LocationType, type LocationKelas,
-  getEffectiveAlamat, getAncestors,
+  getEffectiveAlamat, getAncestors, bedKodes,
 } from "../ruanganShared";
 import BedManagerPanel from "./BedManagerPanel";
 import { Field, FormSection, fieldCls, selectCls } from "./OrganizationForm";
@@ -15,8 +15,8 @@ interface LocationFormProps {
   node: LocationNode;
   parentName: string;
   nodes: AnyNode[];
-  onSave: (next: LocationNode) => void;
-  onDelete: (node: AnyNode) => void;
+  onSave: (next: LocationNode) => void | Promise<void>;
+  onDelete: (node: AnyNode) => void | Promise<void>;
 }
 
 const LOCATION_TYPES: LocationType[] = [
@@ -30,6 +30,7 @@ export default function LocationForm({
   const [form, setForm] = useState<LocationNode>(node);
   const [overrideAlamat, setOverrideAlamat] = useState(!!node.alamatOverride);
   const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const ancestors = useMemo(() => getAncestors(nodes, node), [nodes, node]);
 
@@ -46,14 +47,22 @@ export default function LocationForm({
     update("beds", beds);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     const next: LocationNode = {
       ...form,
       alamatOverride: overrideAlamat ? form.alamatOverride : undefined,
     };
-    onSave(next);
-    setDirty(false);
+    setSaving(true);
+    try {
+      await onSave(next);
+      setDirty(false); // hanya reset bila sukses — gagal → tetap dirty untuk retry
+    } catch {
+      /* error sudah di-surface parent (alert) */
+    } finally {
+      setSaving(false);
+    }
   };
 
   const canDelete = form.beds.length === 0;
@@ -113,14 +122,13 @@ export default function LocationForm({
               placeholder="Mis. Bangsal Melati"
             />
           </Field>
-          <Field label="Kode Ruangan" required>
+          <Field label="Kode Ruangan" hint="Kode unik otomatis — boleh diubah">
             <input
               type="text"
               value={form.kode}
               onChange={(e) => update("kode", e.target.value.toUpperCase())}
-              required
               className={cn(fieldCls, "font-mono uppercase")}
-              placeholder="RI-MEL"
+              placeholder="R2606001"
             />
           </Field>
           <Field label="Jenis Ruangan" required>
@@ -224,26 +232,27 @@ export default function LocationForm({
       <BedManagerPanel
         beds={form.beds}
         kapasitas={form.kapasitas}
+        existingBedKodes={bedKodes(nodes)}
         onChange={handleBedsChange}
       />
 
       {/* Submit */}
       <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
         <p className="text-[10px] text-slate-400">
-          {dirty ? "Perubahan belum disimpan" : "Tidak ada perubahan"}
+          {saving ? "Menyimpan…" : dirty ? "Perubahan belum disimpan" : "Tidak ada perubahan"}
         </p>
         <button
           type="submit"
-          disabled={!dirty}
+          disabled={!dirty || saving}
           className={cn(
             "flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold shadow-sm transition",
-            dirty
+            dirty && !saving
               ? "bg-teal-600 text-white hover:bg-teal-700 active:scale-[0.98]"
               : "cursor-not-allowed bg-slate-100 text-slate-400",
           )}
         >
           <Save size={12} />
-          Simpan Perubahan
+          {saving ? "Menyimpan…" : "Simpan Perubahan"}
         </button>
       </div>
     </form>

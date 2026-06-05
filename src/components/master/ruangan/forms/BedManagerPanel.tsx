@@ -6,27 +6,47 @@ import { BedSingle, Plus, Trash2, AlertTriangle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   type BedSubRecord, type BedStatus,
-  BED_STATUS_CFG, newId,
+  BED_STATUS_CFG, newId, genKode,
 } from "../ruanganShared";
 import { fieldCls } from "./OrganizationForm";
+import ConfirmDialog from "../ConfirmDialog";
 
 interface BedManagerPanelProps {
   beds: BedSubRecord[];
   kapasitas: number;
+  /** Kode bed existing RS-wide (untuk sequence kode bed unik "BD2606001"). */
+  existingBedKodes: string[];
   onChange: (beds: BedSubRecord[]) => void;
 }
 
 const STATUS_OPTIONS: BedStatus[] = ["active", "inactive", "suspended"];
 
 export default function BedManagerPanel({
-  beds, kapasitas, onChange,
+  beds, kapasitas, existingBedKodes, onChange,
 }: BedManagerPanelProps) {
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newKode, setNewKode] = useState("");
+  const [confirmBed, setConfirmBed] = useState<BedSubRecord | null>(null);
 
   const overCapacity = beds.length >= kapasitas;
   const activeCount = beds.filter((b) => b.status === "active").length;
+
+  // Buka/tutup form tambah. Saat dibuka → prefill nama & kode otomatis (tak perlu ketik manual).
+  const toggleAdd = () => {
+    setAddOpen((v) => {
+      const next = !v;
+      if (next) {
+        setNewName(`Bed ${beds.length + 1}`);
+        // Sequence BD lintas RS + bed pada ruangan ini yg belum tersimpan.
+        setNewKode(genKode("BD", [...existingBedKodes, ...beds.map((b) => b.kode)]));
+      } else {
+        setNewName("");
+        setNewKode("");
+      }
+      return next;
+    });
+  };
 
   const handleAdd = () => {
     if (!newName.trim() || !newKode.trim()) return;
@@ -46,11 +66,9 @@ export default function BedManagerPanel({
     onChange(beds.map((b) => (b.id === id ? { ...b, ...patch } : b)));
   };
 
-  const handleRemove = (id: string) => {
-    const bed = beds.find((b) => b.id === id);
-    if (!bed) return;
-    if (!confirm(`Hapus bed "${bed.name}"?`)) return;
-    onChange(beds.filter((b) => b.id !== id));
+  const confirmRemove = () => {
+    if (confirmBed) onChange(beds.filter((b) => b.id !== confirmBed.id));
+    setConfirmBed(null);
   };
 
   return (
@@ -72,7 +90,7 @@ export default function BedManagerPanel({
         </div>
         <button
           type="button"
-          onClick={() => setAddOpen((v) => !v)}
+          onClick={toggleAdd}
           disabled={overCapacity && !addOpen}
           className={cn(
             "flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-semibold transition",
@@ -169,12 +187,23 @@ export default function BedManagerPanel({
                 key={bed.id}
                 bed={bed}
                 onChange={(patch) => handleUpdate(bed.id, patch)}
-                onRemove={() => handleRemove(bed.id)}
+                onRemove={() => setConfirmBed(bed)}
               />
             ))}
           </AnimatePresence>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmBed !== null}
+        kindLabel="Bed"
+        name={confirmBed?.name ?? ""}
+        kode={confirmBed?.kode}
+        icon={BedSingle}
+        message={<>Bed ini akan dihapus dari ruangan. Pastikan tidak sedang dipakai pasien.</>}
+        onConfirm={confirmRemove}
+        onCancel={() => setConfirmBed(null)}
+      />
     </div>
   );
 }

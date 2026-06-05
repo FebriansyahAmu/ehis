@@ -9,8 +9,8 @@ import LocationForm from "./forms/LocationForm";
 interface DetailPanelProps {
   selected: AnyNode | null;
   nodes: AnyNode[];
-  onSave: (node: AnyNode) => void;
-  onDelete: (node: AnyNode) => void;
+  onSave: (node: AnyNode) => void | Promise<void>;
+  onDelete: (node: AnyNode) => void | Promise<void>;
 }
 
 export default function DetailPanel({
@@ -24,7 +24,7 @@ export default function DetailPanel({
             <EmptySelection key="empty" />
           ) : (
             <motion.div
-              key={selected.id}
+              key={`${selected.id}:${selected.version ?? "draft"}`}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
@@ -42,8 +42,8 @@ export default function DetailPanel({
 function renderForm(
   selected: AnyNode,
   nodes: AnyNode[],
-  onSave: (node: AnyNode) => void,
-  onDelete: (node: AnyNode) => void,
+  onSave: (node: AnyNode) => void | Promise<void>,
+  onDelete: (node: AnyNode) => void | Promise<void>,
 ) {
   const childCount = getChildren(nodes, selected.id).length;
 
