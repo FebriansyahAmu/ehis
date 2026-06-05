@@ -60,6 +60,11 @@
 - **Semantik kosong (terkunci, best practice least-privilege):**
   - **Role global** (`Role.unitScoped=false` — Admin/Registrasi/Kasir) → cek unit-scope **di-bypass**, akses semua unit.
   - **Role unit-scoped** (`unitScoped=true` — Perawat/Dokter) → **wajib ≥1 unit**; `UserUnitScope` kosong = **tolak** akses data klinis (fail-closed).
+- **`UserUnitScope` (ABAC operasional) ≠ `master.Pegawai.unitKerja` (penempatan HR)** — dua lapisan beda, **jangan dijadikan satu pemilik ganda** (anti divergensi):
+  - `Pegawai.unitKerja` = **fakta HR / org chart** ("tercatat di unit/departemen mana"). Konvensi **1 home unit**. **Tidak** dipakai untuk kontrol akses.
+  - `UserUnitScope` = **cakupan akses operasional** ("boleh layani/akses data unit mana", N:N, time-bound bila perlu). **Sumber kebenaran** untuk ABAC; **editor tunggal = Mapping Hub SDM Assignment**.
+  - **Seed-on-provision (pola terkunci):** unit yang dipilih saat buat akun ditulis **SEKALI** ke `UserUnitScope` dalam transaksi provisioning (idealnya **wizard Step 3 "Unit Akses"**) → cegah role unit-scoped lahir dengan scope kosong. Setelah itu, perubahan **hanya** di Mapping Hub; UI entitas read-only + `MappingSourceBadge`.
+  - **Status interim (pra-auth-runtime):** field Unit Kerja di wizard sementara **multi-select** (lihat [TECH_DEBT](../TECH_DEBT.md)) berperan sebagai **seed** saja. Saat auth runtime dibangun: pindah pemilih multi ke Step 3 (tulis `UserUnitScope`), `unitKerja` balik **single home**, dan migrasi kosakata unit SDM Assignment (`UNIT_LIST`/`POLI_LIST` legacy) → **id `master.ruangan`** (target FK `unitId`).
 
 ### 2.4 `RefreshToken` (sesi)
 | Field | Catatan |

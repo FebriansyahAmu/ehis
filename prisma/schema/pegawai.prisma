@@ -101,6 +101,9 @@ model Pegawai {
   kontakDarurat PegawaiKontakDarurat[]
   /// 1 pegawai : 0..1 akun login (back-relation; FK di auth.User.pegawaiId, lintas-schema).
   user          User?
+  /// 1 pegawai : 0..1 profil Dokter (ekstensi klinis; FK di master.Dokter.pegawaiId).
+  /// "Pegawai ini dokter?" = relasi ini ada (atau practitionerId terisi sbg pointer denormalized).
+  dokter        Dokter? @relation("PegawaiDokter")
 
   @@index([namaLengkap])
   @@index([statusPegawai])

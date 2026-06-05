@@ -1,0 +1,99 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Sumber Daya — Dokter (Practitioner)  (Postgres schema "master")
+//  Acuan: docs/BACKEND-MASTER-SUMBER-DAYA.md §B · FE: /ehis-master/dokter
+//  Mock target: components/master/dokter/dokterShared.ts (DOKTER_MOCK).
+//
+//  Dokter = EKSTENSI KLINIS 1:1 dari master.Pegawai (B.10 #1). Identitas (NIK·nama·
+//  JK·TTL·email·telp) TIDAK diduplikasi di sini → dibaca via relasi `pegawai`. Dokter
+//  hanya OWN kredensial klinis: spesialis · STR · SIP · status praktik · IHS Practitioner.
+//
+//  Relasi 1:1: Dokter.pegawaiId @unique = sisi pemilik FK. `Pegawai.practitionerId`
+//  (plain uuid, pegawai.prisma) tetap sbg POINTER denormalized (= Dokter.id), di-set
+//  Service dlm transaksi yg sama saat baris Dokter dibuat — dipakai fast-path "isDokter"
+//  + FHIR anchor + DPJP join (encounter.Kunjungan.dpjpId). BUKAN FK kedua (hindari
+//  circular FK + migrasi data-preserving); konsistensi dijaga Service (B.3).
+//
+//  BUKAN di sini (delegasi):
+//   · Identitas pegawai → master.Pegawai (edit di Ubah Data Pegawai).
+//   · Penugasan poli/unit klinis → Mapping Hub `sdm` (UserUnitScope / assignment).
+//   · Jadwal praktik → master Jadwal Dokter (single source HFIS).
+//   · FHIR Practitioner sync (NIK lookup, ihsPractitionerId) → modul /ehis-fhir.
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz · soft-delete · optimistic concurrency.
+//  partial-UNIQUE (no_str/no_sip WHERE NOT NULL) = SQL manual di migration body.
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── Enums ─────────────────────────────────────────────────────────────────---
+
+/// Spesialisasi dokter (identik vocab FE SpesialisCode). Umum = dokter umum (default).
+enum SpesialisKedokteran {
+  Umum
+  SpJP
+  SpPD
+  SpA
+  SpOG
+  SpB
+  SpAn
+  SpS
+  SpM
+  SpEM
+  SpKK
+  SpKJ
+  SpPK
+  SpRad
+  SpTHT
+  SpU
+
+  @@schema("master")
+}
+
+/// Ketersediaan klinis dokter — DISTINCT dari Pegawai.isActive (kepegawaian) &
+/// auth.User.status (akun). Jangan digabung (B.10 #2).
+enum StatusPraktik {
+  Aktif
+  Cuti
+  Non_Aktif
+
+  @@schema("master")
+}
+
+// ── Dokter (Practitioner) — ekstensi klinis 1:1 Pegawai ───────────────────────
+
+model Dokter {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  /// 1:1 anchor ke Pegawai. @unique → 1 pegawai paling banyak 1 Dokter. Restrict →
+  /// hapus pegawai yg masih punya Dokter dijaga di domain pegawai.
+  pegawaiId String  @unique @map("pegawai_id") @db.Uuid
+  pegawai   Pegawai @relation("PegawaiDokter", fields: [pegawaiId], references: [id], onDelete: Restrict)
+
+  // ── Profesi & lisensi (kredensial klinis) ──
+  spesialisKode SpesialisKedokteran @default(Umum) @map("spesialis_kode")
+  /// Kualifikasi naratif (auto-fill dari spesialis, override-able di Service).
+  kualifikasi   String?
+
+  /// No. STR (KKI) + masa berlaku. @unique pada kolom NULLABLE: Postgres anggap NULL
+  /// distinct → uniqueness HANYA ditegakkan saat terisi (setara partial-unique, tanpa
+  /// SQL manual / drift). Catatan: baris soft-deleted ber-STR tetap menahan reuse (rare).
+  noStr            String?   @unique @map("no_str")
+  strBerlakuHingga DateTime? @map("str_berlaku_hingga") @db.Date
+  /// No. SIP (DPMPTSP) + masa berlaku. Multi-SIP = fase later (tabel 1:N, B.10 #5).
+  noSip            String?   @unique @map("no_sip")
+  sipBerlakuHingga DateTime? @map("sip_berlaku_hingga") @db.Date
+
+  statusPraktik StatusPraktik @default(Aktif) @map("status_praktik")
+
+  /// SatuSehat Practitioner IHS — diisi/sync di modul /ehis-fhir (anchor = NIK Pegawai).
+  ihsPractitionerId String? @map("ihs_practitioner_id")
+
+  // ── Konkurensi & audit ──
+  version   Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([spesialisKode])
+  @@index([statusPraktik])
+  @@map("dokter")
+  @@schema("master")
+}

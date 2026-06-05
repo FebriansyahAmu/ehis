@@ -10,7 +10,7 @@
 > **Terkait:** [CLAUDE.md](../CLAUDE.md) · [TODOS_BACKEND.md](../TODOS_BACKEND.md) (Phase B1) · memori `project_wilayah_strategy`.
 >
 > **Stack:** PostgreSQL · Prisma (`@@schema("master")`) · layered **Route→Service→DAL→Prisma** · Redis cache-aside · Auth.js RBAC.
-> **Status:** Sub-grup **Pegawai/Pengguna ✅** + **Unit & Ruangan ✅** (SD0–SD5 ter-implementasi & wired + SSR hybrid; **SD6 tests** 📋) · **Dokter** 📋. Lihat [TODOS_BACKEND.md](../TODOS_BACKEND.md#b11-sumber-daya).
+> **Status:** Sub-grup **Pegawai/Pengguna ✅** + **Unit & Ruangan ✅** (SD0–SD5 ter-implementasi & wired + SSR hybrid; **SD6 tests** 📋) · **Dokter 🚧** (DK0–DK4 ✅ schema+contracts+DAL+Service+API, smoke live OK; **DK5 FE swap · DK6 tests** 📋 → §B). Lihat [TODOS_BACKEND.md](../TODOS_BACKEND.md#b11-sumber-daya).
 
 ---
 
@@ -20,7 +20,7 @@ Master FE = 26 sub-master + 8 mapping + Beranda (lihat [CLAUDE.md](../CLAUDE.md)
 
 | Grup | File workflow | Sub-master | Status |
 |---|---|---|---|
-| **Sumber Daya** | **BACKEND-MASTER-SUMBER-DAYA** (ini) | Pegawai · Pengguna · **Unit & Ruangan** · Dokter | Pegawai/Pengguna ✅ · Unit&Ruangan ✅ (SD0–5; SD6 tests 📋) · Dokter 📋 |
+| **Sumber Daya** | **BACKEND-MASTER-SUMBER-DAYA** (ini) | Pegawai · Pengguna · **Unit & Ruangan** · Dokter | Pegawai/Pengguna ✅ · Unit&Ruangan ✅ (SD0–5; SD6 tests 📋) · Dokter 🚧 (DK0–4 ✅; DK5–6 📋) |
 | Katalog Klinis | BACKEND-MASTER-KATALOG-KLINIS | Obat · Tindakan · Lab · Radiologi · ICD · SDKI | 📋 |
 | Skala Klinis | BACKEND-MASTER-SKALA | Risiko · Umum · Penyakit · Triase | 📋 |
 | Referensi/Template/Enum | BACKEND-MASTER-TEMPLATE | Asesmen · Status Enum · Anamnesis · Form | 📋 |
@@ -242,3 +242,162 @@ Business + transaksi + authz + **cache invalidation**. Tak `import prisma`.
 4. **Kode ruangan BPJS** (Aplicares/V-Claim) **tidak** di tabel Location → di Mapping Hub `penjamin-ruangan` (`MappingRuanganRecord`) + adapter BPJS. Location simpan kode RS internal saja. *(Terkunci, konsisten `project_wilayah_strategy` & scope-split master.)*
 5. **Bed sub-resource eksplisit** (bukan replace-set via Location PATCH) — auditable per-bed, anti mass-assignment. UI batch di-adaptasi saat swap. *(Rekomendasi — final saat implementasi SD4.)*
 6. **Alamat diperkaya** ke kode+nama per level (pola PasienAlamat) — lebih kaya dari mock (1 `kodeWilayah`). *(Terkunci — butuh FHIR `administrativeCode`.)*
+
+---
+
+## B. Sub-grup **Sumber Daya — Dokter (Practitioner)**
+
+> **Frontend referensi:** [/ehis-master/dokter](../src/app/ehis-master/dokter/page.tsx) — split-pane (list + detail). Komponen: [DokterPage](../src/components/master/dokter/DokterPage.tsx) · [DokterList](../src/components/master/dokter/DokterList.tsx) · [DokterDetail](../src/components/master/dokter/DokterDetail.tsx) (2 tab: Profil & Lisensi · Jadwal Praktik) · [ProfilLisensiTab](../src/components/master/dokter/sections/ProfilLisensiTab.tsx) · [JadwalTab](../src/components/master/dokter/sections/JadwalTab.tsx).
+> **Mock target:** [dokterShared.ts](../src/components/master/dokter/dokterShared.ts) `DOKTER_MOCK: DokterRecord[]` + `SpesialisCode`/`SPESIALIS_LABEL`/`POLI_LIST`/`JadwalSlot`.
+> **Keputusan arsitektur (CLAUDE.md · pegawai.prisma):** Kredensial klinis (STR/SIP/spesialis) **TIDAK** di `Pegawai` → **master Dokter via `practitionerId`**. Penugasan poli/unit → **Mapping Hub** (`sdm`). Jadwal praktik → **Jadwal Dokter** (single source HFIS, dikonsumsi Antrean/RJ). FHIR `Practitioner` adapter → modul `/ehis-fhir`.
+
+### B.0 ⚠️ Gap analysis — relasi **Pengguna → Pegawai → Dokter**
+
+Alur identitas yang **disepakati** (sesuai arahan: "ambil semua datanya lewat pengguna dulu, lalu lengkapi di Dokter & Nakes beberapa data"):
+
+```
+Pengguna (wizard Tambah)  →  master.Pegawai          →  master.Dokter (ekstensi klinis 1:1)
+  Step1 Data Pegawai         identitas + profesi          STR/SIP/spesialis/kualifikasi
+  (NIK·nama·JK·TTL·email)    isDokter diturunkan          status praktik · IHS Practitioner
+                             practitionerId (pointer) ←───┘ (di-set saat row Dokter dibuat)
+```
+
+`isDokter` sudah dihitung di [`pegawaiService`](../src/lib/services/pegawaiService.ts): `practitionerId != null` **ATAU** `profesi ∈ {Dokter, Dokter Gigi, Dokter Spesialis}`. Jadi begitu pegawai berprofesi dokter dibuat lewat Pengguna, ia **otomatis kandidat** baris Dokter.
+
+**Gap yang harus ditutup saat backend Dokter dibangun:**
+
+| # | Gap (kondisi FE/mock sekarang) | Target |
+|---|---|---|
+| G1 | **Tak ada model `Dokter`/`Practitioner`** di schema `master` — hanya `Pegawai.practitionerId String?` placeholder. | Tambah model `Dokter` 1:1 `Pegawai` (FK `pegawaiId @unique`). |
+| G2 | **`DokterRecord` (mock) menduplikasi identitas Pegawai** — `nik · nama · tanggalLahir · jenisKelamin · email · telp` semuanya **sudah** ada di `master.Pegawai`. | Identitas **TIDAK** disimpan di Dokter → di-read via **join Pegawai** (DTO gabungan). Dokter hanya **own** kredensial klinis. |
+| G3 | **`DokterPage.handleAdd` membuat dokter "from scratch"** (input NIK/nama sendiri) — bertentangan dgn alur identitas-dari-Pegawai. | Ganti jadi pola **provisioning** (cermin "Buatkan Akun" Pengguna): pilih **pegawai profesi-dokter yang belum punya baris Dokter** → lengkapi STR/SIP/spesialis. Daftarnya = `GET /dokter/tanpa-profil` (mereka SUDAH dokter, hanya belum punya profil — bukan "kandidat"). |
+| G4 | **`ProfilLisensiTab` meng-edit NIK/nama/JK/TTL** (field identitas). | Field identitas → **read-only** di sini (snapshot dari Pegawai); diubah di **Ubah Data Pegawai**. Dokter-detail hanya edit kredensial klinis + status praktik. |
+| G5 | **`poliAssignment` ada di `DokterRecord`** (mock) walau UI sudah pasang `MappingSourceBadge`. | Field **dihapus** dari model Dokter — sumber kebenaran = Mapping Hub `sdm` (FK ke Unit/Poli dari sana). |
+| G6 | **`jadwal: JadwalSlot[]` di `DokterRecord`** + tab "Jadwal Praktik" per-dokter. | Jadwal praktik = **Jadwal Dokter** (HFIS single source). Promote ke sana (lihat [TECH_DEBT](../TECH_DEBT.md) "Promote Jadwal Praktik"). Dokter model **tidak** own jadwal. |
+| G7 | **`status` (Aktif/Cuti/Non_Aktif)** kabur vs `Pegawai.isActive` & status akun. | `statusPraktik` = **ketersediaan klinis** (Cuti dst.), DISTINCT dari `Pegawai.isActive` (kepegawaian) & `auth.User.status` (akun). 3 status terpisah, jangan digabung. |
+| G8 | Tak ada penanganan **masa berlaku STR/SIP**. | `strBerlakuHingga`/`sipBerlakuHingga` (Date) → kandidat alert "lisensi mau kedaluwarsa" (Beranda Master / dashboard). |
+| G9 | Tautan **FHIR Practitioner** belum jelas. | `ihsPractitionerId` (SatuSehat) di Dokter; **anchor = NIK Pegawai** (enc+hash). Sync via `/ehis-fhir` (bukan di sini). |
+
+**Konsumen `practitionerId` (jangan rusak saat refactor):** auth provisioning ([userService](../src/lib/services/userService.ts) — "user dokter?"), `encounter.Kunjungan.dpjpId → master Dokter via Pegawai.practitionerId` ([encounter.prisma](../prisma/schema/encounter.prisma):89), nama DPJP di board RJ/IGD ([TECH_DEBT](../TECH_DEBT.md) "Nama DPJP").
+
+### B.1 Scope domain
+
+**Dokter OWNS (kredensial klinis — ekstensi 1:1 Pegawai):**
+- Spesialis (enum) + kualifikasi (auto-fill dari spesialis, override-able).
+- STR (No. KKI + masa berlaku) · SIP (No. DPMPTSP + masa berlaku).
+- Status praktik (`Aktif`/`Cuti`/`Non_Aktif`) — ketersediaan klinis.
+- `ihsPractitionerId` (SatuSehat) — tautan FHIR Practitioner.
+
+**TIDAK owns (delegasi/consumer):**
+- **Identitas** (NIK·nama·gelar·JK·TTL·email·telp) → `master.Pegawai` (read via join; edit di Ubah Data Pegawai). *(G2/G4)*
+- **Penugasan poli/unit klinis** → Mapping Hub `sdm` (`DokterRecord.poliAssignment` dihapus). *(G5)*
+- **Jadwal praktik** → master **Jadwal Dokter** (HFIS). *(G6)*
+
+### B.2 Entity model (schema `master`)
+
+#### `Dokter` (Practitioner) — ekstensi klinis 1:1 `Pegawai`
+| Field | Tipe | Catatan / index |
+|---|---|---|
+| `id` | UUID v7 PK | = nilai yang disimpan di `Pegawai.practitionerId` |
+| `pegawaiId` | FK→Pegawai `@unique` (`Restrict`) | **1:1 anchor** — identitas dibaca dari sini (idx unik) |
+| `spesialisKode` | enum `SpesialisKedokteran` | `Umum`\|`SpJP`\|`SpPD`\|… (mirror `SpesialisCode` FE) |
+| `kualifikasi` | string nullable | auto-fill dari spesialis, override-able |
+| `noStr` | string nullable | No. STR (KKI) |
+| `strBerlakuHingga` | Date nullable | masa berlaku STR *(G8 alert)* |
+| `noSip` | string nullable | No. SIP (DPMPTSP) — RS bisa >1 SIP (fase later: tabel SIP 1:N) |
+| `sipBerlakuHingga` | Date nullable | masa berlaku SIP |
+| `statusPraktik` | enum `StatusPraktik` `@default(Aktif)` | `Aktif`\|`Cuti`\|`Non_Aktif` — ketersediaan klinis *(G7)* |
+| `ihsPractitionerId` | string nullable | SatuSehat Practitioner IHS *(G9, sync di /ehis-fhir)* |
+| `version` · `createdAt` · `updatedAt` · `deletedAt` | — | optimistic concurrency + soft-delete |
+
+> **NB:** **tak ada** kolom identitas di sini (G2). DTO detail = `Dokter` ⋈ `Pegawai` (namaTampil, nikMasked, JK, TTL, email, telp dari Pegawai).
+
+**Relasi 1:1 (keputusan B.10 #1):** `Dokter.pegawaiId @unique` = sisi pemilik FK. `Pegawai.practitionerId` tetap sebagai **pointer denormalized** (= `Dokter.id`), di-set **dalam transaksi yang sama** saat baris Dokter dibuat — dipakai untuk fast-path "isDokter" + FHIR anchor + DPJP join. Saat model ini live, `Pegawai.practitionerId` dijadikan **FK→Dokter.id** (sekarang plain uuid; pegawai.prisma:89).
+
+**Enum baru** (Prisma native, `@@schema("master")`): `SpesialisKedokteran` (mirror `SpesialisCode`) · `StatusPraktik`.
+
+### B.3 Lifecycle & invariants
+| Invariant | Penegakan |
+|---|---|
+| 1 Pegawai ⇒ **paling banyak 1** Dokter | **UNIQUE** `pegawaiId` (DB) |
+| Baris Dokter hanya untuk pegawai **profesi dokter** | **Service guard** (cek `profesi ∈ DOKTER_PROFESI`) → `VALIDATION` |
+| Buat Dokter ⇒ set `Pegawai.practitionerId` (& sebaliknya saat hapus) | **Service, 1 transaksi** (konsistensi pointer) |
+| STR/SIP unik bila diisi | **partial UNIQUE** (`WHERE x IS NOT NULL`) — SQL manual di migration |
+| Hapus = soft-delete + **unset** `practitionerId` | **Service** — jangan hard-delete (referensi DPJP historis) |
+| Edit identitas dari sini | **DITOLAK** — field read-only, arahkan ke Ubah Data Pegawai *(G4)* |
+| 2 admin edit dokter sama | **`version`** guard → `CONFLICT_VERSION` |
+
+### B.4 Layer breakdown
+- **DAL** `lib/dal/dokterDal.ts` — `listDokter()` (join Pegawai, filter `isDokter`/status/search) · `findDokter(id)` (⋈ Pegawai) · `findByPegawai(pegawaiId)` · `listTanpaProfil()` (dokter tanpa profil, G3) · `createDokter(tx)` · `updateDokter(version-guard)` · `softDeleteDokter`. Terima `tx?`; soft-delete filter default.
+- **Service** `lib/services/dokterService.ts` — `listDokter(actor)` (DTO gabungan) · `getDokter(id, actor)` · `listTanpaProfil(actor)` (pegawai dokter belum punya profil) · `createDokter(input, actor)` (**transaksi**: insert Dokter + set `Pegawai.practitionerId`; guard profesi-dokter) · `updateDokter(id, input, actor)` (kredensial only + version) · `deleteDokter(id, actor)` (soft + unset pointer). Auto-fill `kualifikasi` dari `spesialisKode` bila kosong. `clock`/`genId` inject. Cache-aside `cache:master:dokter:*`.
+- **Schemas/DTO** `lib/schemas/dokter.ts` (Zod) — `CreateDokterInput` (`pegawaiId` uuid + kredensial) · `UpdateDokterInput` (kredensial + `expectedVersion`) · `ListQuery` (q/status/cursor). DTO `DokterDTO` = kredensial **+ identitas dari Pegawai** (mirror tipe FE `DokterRecord` minus poli/jadwal → zero-refactor list/detail).
+- **API** `app/api/v1/master/dokter/*` (Route tipis · RBAC `master.dokter` · handleError · envelope):
+
+| Method | Path | Service |
+|---|---|---|
+| `GET` | `/api/v1/master/dokter` | `listDokter` (cache · join Pegawai · filter status/q) |
+| `GET` | `/api/v1/master/dokter/:id` | `getDokter` (⋈ Pegawai) |
+| `GET` | `/api/v1/master/dokter/tanpa-profil` | `listTanpaProfil` (pegawai dokter tanpa profil — G3) |
+| `POST` | `/api/v1/master/dokter` | `createDokter` (body `pegawaiId` + kredensial; tx set pointer) |
+| `PATCH` | `/api/v1/master/dokter/:id` | `updateDokter` (version · kredensial only) |
+| `DELETE` | `/api/v1/master/dokter/:id` | `deleteDokter` (soft + unset `practitionerId`) |
+
+> RBAC: `master.dokter:read` (staf ber-izin) · `:create/update/delete` (admin master). Mutasi wajib **Idempotency-Key** (FLOWS §7.4). Pola Route: `auth→rbac→zod→service→envelope→handleError`.
+
+### B.5 Event
+- **Cache invalidation:** CUD → hapus `cache:master:dokter:*` **dan** `cache:master:pegawai:*` (karena `practitionerId`/`isDokter` ikut berubah).
+- **Audit** (FLOWS §13): CUD → `AuditLog` → feed Beranda Master `RecentEditsPanel`.
+- **Alert lisensi (opsional, G8):** job harian cek `str/sipBerlakuHingga` mendekati kedaluwarsa → notif Beranda Master.
+- **FHIR (G9):** perubahan dokter relevan Practitioner → enqueue outbox `/ehis-fhir` (BUKAN live).
+
+### B.6 Indexing
+- `Dokter`: `pegawaiId` unique, `spesialisKode`, `statusPraktik`, partial `deletedAt IS NULL`; partial-unique `noStr`/`noSip` (`WHERE NOT NULL`).
+
+### B.7 Failure modes
+| Skenario | Penanganan |
+|---|---|
+| Buat Dokter untuk pegawai non-dokter | `VALIDATION` (422) — guard profesi |
+| Buat Dokter untuk pegawai yang **sudah** punya profil | `CONFLICT` (409) — unique `pegawaiId` (P2002) |
+| STR/SIP duplikat | `CONFLICT` (409) — partial unique |
+| Edit field identitas dari endpoint Dokter | `VALIDATION` (422) — field tak diterima skema (arahkan ke Pegawai) |
+| 2 admin edit dokter sama | `version` guard → `CONFLICT_VERSION` (409) |
+| Hapus dokter yang jadi DPJP kunjungan aktif | soft-delete OK (histori aman); cegah assignment baru via Mapping Hub/`statusPraktik` |
+
+### B.8 Migrasi mock → DB (swap pattern)
+- `DOKTER_MOCK` → **seed** `Dokter` **dengan menautkan ke Pegawai existing** by NIK/nama (bukan buat identitas baru). Pegawai dokter di `PEGAWAI_MOCK` (peg-002/008/009/012…) ⇒ baris Dokter; set `practitionerId`.
+- **Buang dari `DokterRecord`** saat tipe diselaraskan ke DTO: `poliAssignment` (→Mapping Hub) · `jadwal` (→Jadwal Dokter) · identitas (→join Pegawai, jadi read-only).
+- Frontend swap: [DokterPage](../src/components/master/dokter/DokterPage.tsx) baca `DOKTER_MOCK` → `GET /api/v1/master/dokter`. `handleAdd` (G3) → modal **provisioning** dari `GET …/tanpa-profil`. `handleSave`/`handleDelete` → PATCH/DELETE. `ProfilLisensiTab` identitas jadi read-only (G4). **SSR hybrid** sama seperti Pengguna/Ruangan (API-RULES §6.1).
+
+### B.9 Task checklist (Sumber Daya — Dokter)
+
+#### DK0 — Schema & migration ✅
+- [x] Model `Dokter` (`pegawaiId @unique` FK→Pegawai, `onDelete: Restrict`) + enum `SpesialisKedokteran`/`StatusPraktik` di [`prisma/schema/dokter.prisma`](../prisma/schema/dokter.prisma) + back-relation `Pegawai.dokter Dokter?`. **`prisma validate` ✅.** `Pegawai.practitionerId` **tetap plain uuid** sebagai pointer denormalized (di-maintain Service) — **bukan** FK kedua (hindari circular FK + migrasi data-preserving; B.10 #1).
+- [x] `noStr`/`noSip` `@unique` pada kolom **NULLABLE** → Postgres anggap NULL distinct (uniqueness hanya saat terisi) = setara partial-unique **tanpa SQL manual / drift**.
+- [x] Migration [`20260606120000_init_master_dokter`](../prisma/migrations/20260606120000_init_master_dokter/migration.sql) **applied** (pola `db execute` + `migrate resolve --applied` — data-preserving, hindari reset drift). `migrate diff` **empty** + `migrate status` up-to-date · client re-generated.
+
+#### DK1 — DAL ✅
+- [x] [`dokterDal`](../src/lib/dal/dokterDal.ts) — `list` (join Pegawai, search nama/NIP/STR/SIP, filter spesialis/status, cursor) · `findById` · `findByPegawai` (uniqueness) · `findPegawai` (guard profesi) · `listTanpaProfil` (anti-join `dokter: { is: null }`) · `create(tx)` · `updateWithVersion` · `softDeleteWithVersion` · `linkPegawai`/`unlinkPegawai` (pointer, no version bump). `tx?` + soft-delete filter.
+
+#### DK2 — Schemas & errors ✅
+- [x] Zod [`src/lib/schemas/dokter.ts`](../src/lib/schemas/dokter.ts): `CreateDokterInput` (pegawaiId + kredensial) · `UpdateDokterInput` (kredensial + version, **tanpa identitas** — G4) · `ListQuery` · `DeleteQuery`. DTO `DokterListItemDTO`/`DokterDTO` (kredensial ⋈ identitas Pegawai, NIK masked, `str/sipExpired` G8) + `DokterTanpaProfilDTO`. `SPESIALIS_LABEL` server-side. Katalog `appError` existing. `tsc` ✅.
+
+#### DK3 — Service ✅
+- [x] [`dokterService`](../src/lib/services/dokterService.ts) (factory `makeDokterService({clock,dal})`) — `listDokter`/`getDokter` (DTO gabungan, mask NIK, expired via clock) · `listTanpaProfil` · `createDokter` (**transaksi**: guard profesi-dokter + uniqueness 1:1 → create → `linkPegawai` set pointer; auto-fill kualifikasi dari spesialis) · `updateDokter` (version guard, kredensial only, tanggal nullable patch) · `deleteDokter` (soft + `unlinkPegawai`). **Smoke live ✅** (provisioning dr Olivia Kirana Sp.OG dari daftar tanpa-profil → join identitas · auto-fill · pointer set · getList konsisten · daftar berkurang · guard duplikat→CONFLICT · cleanup). **Sisa:** cache-aside + audit menunggu infra GAP-B (sama seperti Ruangan SD3).
+
+#### DK4 — API ✅
+- [x] Route tipis `/api/v1/master/dokter/*` (pola `route()`: auth→RBAC `master.dokter`→Zod→envelope→handleError): GET `dokter?...` (list) · POST `dokter` (provisioning) · GET `dokter/tanpa-profil` ([tanpa-profil/route.ts](../src/app/api/v1/master/dokter/tanpa-profil/route.ts) — segmen statis diutamakan di atas `[id]`) · GET/PATCH/DELETE `dokter/:id` ([[id]/route.ts](../src/app/api/v1/master/dokter/[id]/route.ts)). `tsc` ✅. **Sisa:** enforce Idempotency-Key saat store GAP-D ada. (Catatan: dev server perlu **restart** sekali agar Prisma client singleton memuat delegate `dokter` baru.)
+
+#### DK5 — Seed & frontend swap
+- [ ] Seed `Dokter` tertaut Pegawai existing (by NIK). Frontend wired: `src/lib/api/dokter.ts` + DokterPage (SSR hybrid). **Refactor FE:** modal provisioning dari daftar dokter tanpa-profil (G3) · identitas read-only (G4) · buang `poliAssignment`/`jadwal` dari tipe (G5/G6).
+
+#### DK6 — Tests
+- [ ] Unit Service: guard profesi-dokter, unique pegawai (1:1), pointer set/unset transaksional, version conflict, auto-fill kualifikasi, filter tanpa-profil.
+- [ ] Integration DAL (Testcontainers): join Pegawai, partial-unique STR/SIP, soft-delete filter.
+
+### B.10 Keputusan (terbuka / terkunci)
+1. **Dokter = ekstensi 1:1 Pegawai** (`pegawaiId @unique`), **bukan** entitas identitas mandiri. Identitas di-read via join; `Pegawai.practitionerId` = pointer denormalized di-maintain transaksional. *(Terkunci — sesuai arahan "identitas dari Pengguna, kredensial dilengkapi di Dokter" + pegawai.prisma:8/89.)*
+2. **3 status terpisah jangan digabung:** `auth.User.status` (akun) · `Pegawai.isActive` (kepegawaian) · `Dokter.statusPraktik` (ketersediaan klinis). *(Terkunci — G7.)*
+3. **poliAssignment & jadwal BUKAN milik Dokter** → Mapping Hub `sdm` (poli/unit) & master Jadwal Dokter (HFIS). *(Terkunci — keputusan arsitektur CLAUDE.md 2026-05-22 + single-source HFIS.)*
+4. **Tambah Dokter = provisioning** (pilih pegawai dokter existing), **bukan** create from scratch. *(Terkunci — G3, cermin "Buatkan Akun" Pengguna.)*
+5. **Multi-SIP** (RS bisa terbitkan >1 SIP per dokter) → mulai single kolom; **fase later** tabel `DokterSip` 1:N bila dibutuhkan. *(Terbuka.)*
+6. **FHIR Practitioner** sync (NIK lookup, `ihsPractitionerId`) → modul `/ehis-fhir`, bukan di sini. *(Terkunci — konsisten strategi FHIR master.)*
