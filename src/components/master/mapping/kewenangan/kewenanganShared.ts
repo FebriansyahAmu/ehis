@@ -1,4 +1,4 @@
-import { DOKTER_MOCK, type DokterRecord } from "@/components/master/dokter/dokterShared";
+import { DOKTER_MOCK, type DokterRecord } from "@/components/master/dokter/dokterMock";
 import { TINDAKAN_MOCK, type TindakanRecord } from "@/lib/master/tindakanMock";
 
 // ── Types ─────────────────────────────────────────────────

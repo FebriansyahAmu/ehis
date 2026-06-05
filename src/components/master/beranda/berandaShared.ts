@@ -24,8 +24,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { DOKTER_MOCK } from "@/components/master/dokter/dokterShared";
 import { PENGGUNA_MOCK } from "@/components/master/pengguna/penggunaShared";
+
+// Master Dokter kini API-driven (lihat src/lib/api/dokter.ts) — beranda dashboard masih mock,
+// pakai angka indikatif sampai KPI di-wire ke endpoint. TODO: ganti dgn count dari GET /master/dokter.
+const DOKTER_COUNT = 4;
 import { OBAT_MOCK } from "@/lib/master/obatMock";
 import { TINDAKAN_MOCK } from "@/lib/master/tindakanMock";
 import { LAB_KATALOG_MOCK } from "@/lib/master/labCatalogMock";
@@ -80,7 +83,7 @@ export interface BerandaStats {
 export function getBerandaStats(): BerandaStats {
   return {
     sdm:
-      DOKTER_MOCK.length + PENGGUNA_MOCK.length,
+      DOKTER_COUNT + PENGGUNA_MOCK.length,
     katalog:
       OBAT_MOCK.length + TINDAKAN_MOCK.length +
       LAB_KATALOG_MOCK.length + RAD_KATALOG_MOCK.length,
@@ -126,7 +129,7 @@ export function getQuickNavGroups(): QuickNavGroup[] {
       desc: "Unit, dokter, dan pengguna sistem",
       items: [
         { label: "Unit & Ruangan", href: "/ehis-master/ruangan",  icon: Building2, count: 6, subLabel: "1 RS · 5 Unit" },
-        { label: "Dokter & Nakes", href: "/ehis-master/dokter",   icon: UserCog,   count: DOKTER_MOCK.length },
+        { label: "Dokter & Nakes", href: "/ehis-master/dokter",   icon: UserCog,   count: DOKTER_COUNT },
         { label: "Pengguna",       href: "/ehis-master/pengguna", icon: Users,     count: PENGGUNA_MOCK.length },
       ],
     },

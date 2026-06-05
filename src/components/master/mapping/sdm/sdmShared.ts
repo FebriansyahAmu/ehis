@@ -1,4 +1,5 @@
-import { DOKTER_MOCK, POLI_LIST, SPESIALIS_LABEL } from "@/components/master/dokter/dokterShared";
+import { SPESIALIS_LABEL } from "@/components/master/dokter/dokterShared";
+import { DOKTER_MOCK, POLI_LIST } from "@/components/master/dokter/dokterMock";
 import { PENGGUNA_MOCK, UNIT_LIST, ROLE_CFG, type UserRole } from "@/components/master/pengguna/penggunaShared";
 import { makeInitials } from "../mappingShared";
 

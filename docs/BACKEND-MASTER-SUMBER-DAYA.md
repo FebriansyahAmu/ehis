@@ -10,7 +10,7 @@
 > **Terkait:** [CLAUDE.md](../CLAUDE.md) · [TODOS_BACKEND.md](../TODOS_BACKEND.md) (Phase B1) · memori `project_wilayah_strategy`.
 >
 > **Stack:** PostgreSQL · Prisma (`@@schema("master")`) · layered **Route→Service→DAL→Prisma** · Redis cache-aside · Auth.js RBAC.
-> **Status:** Sub-grup **Pegawai/Pengguna ✅** + **Unit & Ruangan ✅** (SD0–SD5 ter-implementasi & wired + SSR hybrid; **SD6 tests** 📋) · **Dokter 🚧** (DK0–DK4 ✅ schema+contracts+DAL+Service+API, smoke live OK; **DK5 FE swap · DK6 tests** 📋 → §B). Lihat [TODOS_BACKEND.md](../TODOS_BACKEND.md#b11-sumber-daya).
+> **Status:** Sub-grup **Pegawai/Pengguna ✅** + **Unit & Ruangan ✅** (SD0–SD5 ter-implementasi & wired + SSR hybrid; **SD6 tests** 📋) · **Dokter 🚧** (DK0–DK5 ✅ schema+contracts+DAL+Service+API+FE wired/SSR hybrid, smoke live OK; **DK6 tests · seed** 📋 → §B). Lihat [TODOS_BACKEND.md](../TODOS_BACKEND.md#b11-sumber-daya).
 
 ---
 
@@ -387,8 +387,8 @@ Pengguna (wizard Tambah)  →  master.Pegawai          →  master.Dokter (ekste
 #### DK4 — API ✅
 - [x] Route tipis `/api/v1/master/dokter/*` (pola `route()`: auth→RBAC `master.dokter`→Zod→envelope→handleError): GET `dokter?...` (list) · POST `dokter` (provisioning) · GET `dokter/tanpa-profil` ([tanpa-profil/route.ts](../src/app/api/v1/master/dokter/tanpa-profil/route.ts) — segmen statis diutamakan di atas `[id]`) · GET/PATCH/DELETE `dokter/:id` ([[id]/route.ts](../src/app/api/v1/master/dokter/[id]/route.ts)). `tsc` ✅. **Sisa:** enforce Idempotency-Key saat store GAP-D ada. (Catatan: dev server perlu **restart** sekali agar Prisma client singleton memuat delegate `dokter` baru.)
 
-#### DK5 — Seed & frontend swap
-- [ ] Seed `Dokter` tertaut Pegawai existing (by NIK). Frontend wired: `src/lib/api/dokter.ts` + DokterPage (SSR hybrid). **Refactor FE:** modal provisioning dari daftar dokter tanpa-profil (G3) · identitas read-only (G4) · buang `poliAssignment`/`jadwal` dari tipe (G5/G6).
+#### DK5 — Frontend swap ✅ (seed 📋)
+- [x] Frontend wired ke API (`tsc` ✅): [`src/lib/api/dokter.ts`](../src/lib/api/dokter.ts) (list/detail/tanpa-profil/create/update/delete) + [DokterPage](../src/components/master/dokter/DokterPage.tsx) **SSR hybrid** (Service langsung di [page.tsx](../src/app/ehis-master/dokter/page.tsx) → `prefetched` → client fallback). **Refactor FE selesai:** tombol "Tambah" diganti **modal provisioning** ([DokterProvisionModal](../src/components/master/dokter/DokterProvisionModal.tsx)) yang cari pegawai dari `GET /dokter/tanpa-profil` lalu lengkapi kredensial (G3) · identitas **read-only** di ProfilLisensiTab dari DokterDTO (G4) · `poliAssignment`/`jadwal` dibuang dari tipe + JadwalTab dihapus; tipe FE kini = DTO server, mock lama dipindah ke [dokterMock.ts](../src/components/master/dokter/dokterMock.ts) (khusus Mapping Hub yang masih mock) (G5/G6) · detail-on-select (cache-aside) · PATCH version-guard + DELETE via ConfirmDialog + toast. **Sisa:** seed `Dokter` tertaut Pegawai existing (by NIK); dev server perlu **restart** sekali agar delegate `dokter` termuat.
 
 #### DK6 — Tests
 - [ ] Unit Service: guard profesi-dokter, unique pegawai (1:1), pointer set/unset transaksional, version conflict, auto-fill kualifikasi, filter tanpa-profil.

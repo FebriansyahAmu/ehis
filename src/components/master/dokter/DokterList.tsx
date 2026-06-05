@@ -2,44 +2,45 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Search, Plus, UserCog, Filter, ChevronDown } from "lucide-react";
+import { Search, Plus, UserCog, Filter, ChevronDown, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  type DokterRecord, type DokterStatus,
-  STATUS_CFG, SPESIALIS_LABEL,
+  STATUS_CFG, namaInitials,
+  type DokterListItemDTO, type StatusPraktik,
 } from "./dokterShared";
 
 interface DokterListProps {
-  dokters: DokterRecord[];
+  dokters: DokterListItemDTO[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  onAdd: () => void;
+  /** Buka modal provisioning (cari pegawai dokter tanpa profil → lengkapi). */
+  onProvision: () => void;
 }
 
 export default function DokterList({
-  dokters, selectedId, onSelect, onAdd,
+  dokters, selectedId, onSelect, onProvision,
 }: DokterListProps) {
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<DokterStatus | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<StatusPraktik | "all">("all");
 
   const filtered = useMemo(() => {
     return dokters.filter((d) => {
-      if (statusFilter !== "all" && d.status !== statusFilter) return false;
+      if (statusFilter !== "all" && d.statusPraktik !== statusFilter) return false;
       if (!search.trim()) return true;
       const q = search.toLowerCase();
       return (
-        d.nama.toLowerCase().includes(q) ||
-        d.nik.includes(q) ||
-        (d.noSTR?.toLowerCase().includes(q) ?? false) ||
-        d.noSIP.toLowerCase().includes(q)
+        d.namaTampil.toLowerCase().includes(q) ||
+        d.nip.toLowerCase().includes(q) ||
+        (d.noStr?.toLowerCase().includes(q) ?? false) ||
+        (d.noSip?.toLowerCase().includes(q) ?? false)
       );
     });
   }, [dokters, search, statusFilter]);
 
   const stats = useMemo(() => ({
     total: dokters.length,
-    active: dokters.filter((d) => d.status === "Aktif").length,
-    spesialis: dokters.filter((d) => d.spesialis && d.spesialis !== "Umum").length,
+    active: dokters.filter((d) => d.statusPraktik === "Aktif").length,
+    spesialis: dokters.filter((d) => d.spesialisKode !== "Umum").length,
   }), [dokters]);
 
   return (
@@ -54,11 +55,12 @@ export default function DokterList({
         </div>
         <button
           type="button"
-          onClick={onAdd}
+          onClick={onProvision}
+          title="Lengkapi profil dokter dari data pegawai"
           className="flex items-center gap-1 rounded-lg bg-teal-600 px-2.5 py-1.5 text-[10px] font-semibold text-white shadow-sm transition hover:bg-teal-700 active:scale-[0.98]"
         >
           <Plus size={11} />
-          Tambah
+          Lengkapi Profil
         </button>
       </div>
 
@@ -70,7 +72,7 @@ export default function DokterList({
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari nama / NIK / STR / SIP..."
+            placeholder="Cari nama / NIP / STR / SIP..."
             className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-7 pr-3 text-[11px] text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100"
           />
         </div>
@@ -78,7 +80,7 @@ export default function DokterList({
           <Filter size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as DokterStatus | "all")}
+            onChange={(e) => setStatusFilter(e.target.value as StatusPraktik | "all")}
             className="w-full appearance-none rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-7 pr-7 text-[11px] font-medium text-slate-700 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100"
           >
             <option value="all">Semua Status</option>
@@ -97,7 +99,9 @@ export default function DokterList({
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100">
               <UserCog size={16} className="text-slate-400" />
             </span>
-            <p className="text-[11px] text-slate-500">Tidak ada hasil</p>
+            <p className="text-[11px] text-slate-500">
+              {dokters.length === 0 ? "Belum ada profil dokter" : "Tidak ada hasil"}
+            </p>
           </div>
         ) : (
           <div className="flex flex-col gap-1.5">
@@ -120,19 +124,13 @@ export default function DokterList({
 function DokterRow({
   dokter, index, selected, onClick,
 }: {
-  dokter: DokterRecord;
+  dokter: DokterListItemDTO;
   index: number;
   selected: boolean;
   onClick: () => void;
 }) {
-  const status = STATUS_CFG[dokter.status];
-  const initials = dokter.nama
-    .replace(/^dr\.\s+/i, "")
-    .split(" ")
-    .slice(0, 2)
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase();
+  const status = STATUS_CFG[dokter.statusPraktik];
+  const expired = dokter.strExpired || dokter.sipExpired;
 
   return (
     <motion.button
@@ -143,9 +141,7 @@ function DokterRow({
       transition={{ duration: 0.2, delay: Math.min(index * 0.03, 0.3) }}
       className={cn(
         "group flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-all",
-        selected
-          ? "bg-teal-50 ring-1 ring-teal-200"
-          : "hover:bg-slate-50",
+        selected ? "bg-teal-50 ring-1 ring-teal-200" : "hover:bg-slate-50",
       )}
     >
       <div
@@ -154,20 +150,27 @@ function DokterRow({
           selected ? "bg-teal-200 text-teal-800" : "bg-slate-100 text-slate-600",
         )}
       >
-        {initials}
+        {namaInitials(dokter.namaTampil)}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-bold text-slate-800">{dokter.nama}</p>
-        <p className="mt-0.5 truncate text-[10px] text-slate-500">
-          {dokter.spesialis ? SPESIALIS_LABEL[dokter.spesialis] : "—"}
-        </p>
-        <p className="mt-0.5 truncate font-mono text-[9px] text-slate-400">
-          NIK {dokter.nik}
-        </p>
+        <p className="truncate text-xs font-bold text-slate-800">{dokter.namaTampil}</p>
+        <p className="mt-0.5 truncate text-[10px] text-slate-500">{dokter.spesialisLabel}</p>
+        <p className="mt-0.5 truncate font-mono text-[9px] text-slate-400">NIP {dokter.nip}</p>
       </div>
-      <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold", status.bg, status.text)}>
-        {status.label}
-      </span>
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        <span className={cn("rounded-full px-1.5 py-0.5 text-[9px] font-semibold", status.bg, status.text)}>
+          {status.label}
+        </span>
+        {expired && (
+          <span
+            title={cn(dokter.strExpired && "STR kedaluwarsa", dokter.sipExpired && "SIP kedaluwarsa")}
+            className="flex items-center gap-0.5 rounded-full bg-rose-50 px-1.5 py-0.5 text-[8px] font-semibold text-rose-600"
+          >
+            <AlertTriangle size={8} />
+            {dokter.strExpired && dokter.sipExpired ? "STR+SIP" : dokter.strExpired ? "STR" : "SIP"}
+          </span>
+        )}
+      </div>
     </motion.button>
   );
 }

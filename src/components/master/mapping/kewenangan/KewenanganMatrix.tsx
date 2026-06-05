@@ -7,7 +7,8 @@ import {
   Stethoscope,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { type DokterRecord, SPESIALIS_LABEL } from "@/components/master/dokter/dokterShared";
+import { SPESIALIS_LABEL } from "@/components/master/dokter/dokterShared";
+import { type DokterRecord } from "@/components/master/dokter/dokterMock";
 import { makeInitials } from "../mappingShared";
 import {
   type TindakanRecord, type TindakanKategori,
