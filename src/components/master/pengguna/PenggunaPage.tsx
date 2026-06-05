@@ -16,7 +16,7 @@ import {
   fmtRelative, getUnitNama, pegawaiFormToLite, namaTampilPegawai,
 } from "./penggunaShared";
 import { createPegawai, listPegawai, type PegawaiListItemDTO } from "@/lib/api/pegawai";
-import { createUser, assignRoles, listUsers } from "@/lib/api/users";
+import { createUser, assignRoles, listUsers, userDtoToRecord, type UserListItemDTO } from "@/lib/api/users";
 import PenggunaFormModal from "./PenggunaFormModal";
 import PegawaiEditModal from "./PegawaiEditModal";
 
@@ -79,15 +79,28 @@ function StatCard({
 
 // ── Page ───────────────────────────────────────────────────
 
-export default function PenggunaPage() {
+export default function PenggunaPage({
+  initialUsers = [],
+  initialPegawai = [],
+  prefetched = false,
+}: {
+  /** Akun (DTO) hasil SSR — dipetakan ke PenggunaRecord saat seed (API-RULES §6.1). */
+  initialUsers?: UserListItemDTO[];
+  /** Pegawai (DTO) hasil SSR — disaring jadi baris "tanpa akun" saat seed. */
+  initialPegawai?: PegawaiListItemDTO[];
+  /** true = data awal datang dari SSR → lewati skeleton & fetch saat mount. */
+  prefetched?: boolean;
+} = {}) {
   // Akun = data real dari API (dbUsers). `users` hanya menampung baris optimistic (pra-refresh).
   const [users, setUsers] = useState<PenggunaRecord[]>([]);
   const [pegawaiList, setPegawaiList] = useState<PegawaiLite[]>(PEGAWAI_MOCK);
-  // Akun real dari GET /auth/users (digabung dgn demo mock — real menang bila id sama).
-  const [dbUsers, setDbUsers] = useState<PenggunaRecord[]>([]);
-  // Pegawai dari GET API yang BELUM punya akun login (ditampilkan baris kuning).
-  const [pegawaiNoAccount, setPegawaiNoAccount] = useState<PegawaiListItemDTO[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  // Akun real — seed dari SSR (UserListItemDTO → PenggunaRecord), lalu di-refresh client pasca-mutasi.
+  const [dbUsers, setDbUsers] = useState<PenggunaRecord[]>(() => initialUsers.map(userDtoToRecord));
+  // Pegawai tanpa akun login (baris kuning) — seed dari SSR.
+  const [pegawaiNoAccount, setPegawaiNoAccount] = useState<PegawaiListItemDTO[]>(
+    () => initialPegawai.filter((p) => !p.punyaAkun),
+  );
+  const [loaded, setLoaded] = useState(prefetched);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
   const [statusFilter, setStatusFilter] = useState<UserStatus | "all">("all");
@@ -100,9 +113,10 @@ export default function PenggunaPage() {
   const [editPegawaiId, setEditPegawaiId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (prefetched) return; // SSR → konten sudah siap, tak perlu skeleton
     const t = setTimeout(() => setLoaded(true), 600);
     return () => clearTimeout(t);
-  }, []);
+  }, [prefetched]);
 
   // GET /api/v1/master/pegawai → pegawai yang belum punya akun (baris kuning). Gagal = diam
   // (tabel akun tetap tampil). Dipanggil saat mount + tiap modal ditutup (refresh pasca-provisioning).
@@ -126,10 +140,11 @@ export default function PenggunaPage() {
   }, []);
 
   useEffect(() => {
+    if (prefetched) return; // data awal dari SSR (API-RULES §6.1) — refresh hanya pasca-mutasi modal
     const ac = new AbortController();
     void (async () => { await Promise.all([refreshPegawai(ac.signal), refreshUsers(ac.signal)]); })();
     return () => ac.abort();
-  }, [refreshPegawai, refreshUsers]);
+  }, [prefetched, refreshPegawai, refreshUsers]);
 
   // Gabung akun real (DB) + demo mock; dedupe by id (real menang). Id-space disjoint → praktis concat.
   const allUsers = useMemo(() => {
