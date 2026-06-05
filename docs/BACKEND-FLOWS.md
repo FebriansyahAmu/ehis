@@ -7,7 +7,7 @@
 >
 > **Sifat:** living document. Update saat ada keputusan arsitektur baru. Tidak ada kode aplikasi di sini — ini kontrak & standar.
 >
-> **Terkait:** [CLAUDE.md](../CLAUDE.md) · [TODOS_BACKEND.md](../TODOS_BACKEND.md) · [BACKEND-ENCOUNTER.md](BACKEND-ENCOUNTER.md) · memori `project_backend_stack`, `project_backend_spine_gaps`.
+> **Terkait:** [CLAUDE.md](../CLAUDE.md) · [TODOS_BACKEND.md](../TODOS_BACKEND.md) · [API-RULES.md](API-RULES.md) (resep endpoint konkret + peta file) · [BACKEND-ENCOUNTER.md](BACKEND-ENCOUNTER.md) · memori `project_backend_stack`, `project_backend_spine_gaps`.
 > **Status:** 🚧 v1 — fondasi. Terkunci 2026-06-01.
 
 ---
@@ -379,9 +379,11 @@ Setiap `BACKEND-{DOMAIN}.md` mengikuti struktur ini (lihat [BACKEND-ENCOUNTER.md
 | Domain                         | File                                      | Status             |
 | ------------------------------ | ----------------------------------------- | ------------------ |
 | Core rules                     | **BACKEND-FLOWS** (ini)                   | ✅ v1              |
+| Resep endpoint (konkret)       | [API-RULES](API-RULES.md)                 | ✅ v1 (pola+peta file) |
 | Kunjungan (akar)               | [BACKEND-ENCOUNTER](BACKEND-ENCOUNTER.md) | ✅ spec            |
 | Auth & session                 | [BACKEND-AUTH](BACKEND-AUTH.md)           | ✅ spec            |
 | Patient                        | [BACKEND-PATIENT](BACKEND-PATIENT.md)     | ✅ spec            |
+| Master · Sumber Daya (`master`) | [BACKEND-MASTER-SUMBER-DAYA](BACKEND-MASTER-SUMBER-DAYA.md) | 🚧 spec (Unit & Ruangan) · 1 file/grup |
 | Antrean (TaskID)               | BACKEND-ANTREAN                           | 📋                 |
 | Order (Lab/Rad/Resep/Tindakan) | BACKEND-ORDER                             | 📋                 |
 | Billing (Invoice/Payment)      | BACKEND-BILLING                           | 📋                 |

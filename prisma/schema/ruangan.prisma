@@ -1,0 +1,187 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Sumber Daya — Unit · Ruangan · Bed  (Postgres schema "master")
+//  Acuan: docs/BACKEND-MASTER-SUMBER-DAYA.md §A · FE: /ehis-master/ruangan
+//  (Unified Tree). Mock target: components/master/ruangan/ruanganShared.ts (RUANGAN_MOCK).
+//
+//  Union `AnyNode` (mock) DIPECAH jadi 3 tabel ber-FK (selaras FHIR R4 Organization/
+//  Location; lebih bersih dari union nullable-soup). Tree UI direkonstruksi di Service:
+//    Organization 1───N Location 1───N Bed     (n-level Organization via self-ref parentId)
+//
+//  Vocab enum: identifier DB pakai underscore (Prisma tak izinkan hyphen) → Service map
+//  ke vocab FE ("dept-clin" ⇄ dept_clin). LocationType/Kelas/BedStatus = identik FE.
+//
+//  BUKAN di sini (delegasi):
+//   · Identitas RS root → Profil RS singleton (schema config); root = baris isRoot:true.
+//   · Status bed OPERASIONAL (Tersedia/Terisi) → workflow klinis admisi/pulang.
+//   · Kode wilayah Kemendagri → master Wilayah + API lazy (alamat simpan kode+nama snapshot).
+//   · Kode ruangan BPJS V-Claim → Mapping Hub penjamin-ruangan + adapter BPJS.
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz · soft-delete · optimistic concurrency.
+//  CHECK (kapasitas 1..50) + partial-unique (deleted_at IS NULL) = SQL manual di migration.
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── Enums ─────────────────────────────────────────────────────────────────---
+
+/// Klasifikasi Unit. FE "dept-clin" → dept_clin (map di Service). prov = RS root/provider.
+enum OrgType {
+  prov
+  dept
+  dept_clin
+  team
+
+  @@schema("master")
+}
+
+/// Jenis Ruangan (identik vocab FE LocationType).
+enum LocationType {
+  Rawat_Inap
+  Rawat_Jalan
+  ICU
+  HCU
+  Isolasi
+  IGD
+  OK
+  Penunjang
+
+  @@schema("master")
+}
+
+/// Kelas ruangan. FE "—" (tak berlaku) = null di DB (map di Service).
+enum LocationKelas {
+  VIP
+  Kelas_1
+  Kelas_2
+  Kelas_3
+
+  @@schema("master")
+}
+
+/// Status bed MASTER (bukan okupansi). suspended = maintenance.
+enum BedStatus {
+  active
+  inactive
+  suspended
+
+  @@schema("master")
+}
+
+// ── Organization (Unit) — self-referential tree ───────────────────────────────
+
+model Organization {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  /// partOf — null HANYA root RS. Self-ref; anti-cycle dijaga Service (walk ancestor).
+  parentId String?       @map("parent_id") @db.Uuid
+  parent   Organization? @relation("OrgTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children Organization[] @relation("OrgTree")
+
+  /// Kode unit unik RS-wide (uppercase di Service). mis. IGD/RI/RJ.
+  kode    String  @unique
+  nama    String
+  orgType OrgType @map("org_type")
+  active  Boolean @default(true)
+
+  telp  String?
+  email String? @db.Citext
+
+  // ── Alamat (embedded; kode+nama wilayah Kemendagri — pola PasienAlamat) ──
+  alamat        String? // jalan / teks
+  rtRw          String? @map("rt_rw")
+  kodePos       String? @map("kode_pos")
+  provinsiKode  String? @map("provinsi_kode")
+  provinsiNama  String? @map("provinsi_nama")
+  kotaKode      String? @map("kota_kode")
+  kotaNama      String? @map("kota_nama")
+  kecamatanKode String? @map("kecamatan_kode")
+  kecamatanNama String? @map("kecamatan_nama")
+  kelurahanKode String? @map("kelurahan_kode")
+  kelurahanNama String? @map("kelurahan_nama")
+
+  gpsLat Float? @map("gps_lat")
+  gpsLng Float? @map("gps_lng")
+
+  /// Root RS (1 baris). Identitas inti read-only di modul ini (di-seed/sync Profil RS).
+  isRoot Boolean @default(false) @map("is_root")
+
+  // ── Konkurensi & audit ──
+  version   Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  // ── Relasi ──
+  locations Location[]
+
+  @@index([parentId])
+  @@index([orgType])
+  @@map("organization")
+  @@schema("master")
+}
+
+// ── Location (Ruangan) — anak Unit ─────────────────────────────────────────────
+
+model Location {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  /// Ruangan SELALU di bawah sebuah Unit (partOf). Restrict → hapus Unit dijaga Service.
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  kode         String        @unique
+  nama         String
+  locationType LocationType  @map("location_type")
+  kelas        LocationKelas? // null = "—" (tak berlaku)
+  /// Bed direncanakan (CHECK 1..50 di SQL). Bed aktual = relasi beds[].
+  kapasitas    Int           @default(1)
+  active       Boolean       @default(true)
+
+  // ── Alamat override (Convention over Configuration) ──
+  /// false = inherit alamat Unit terdekat (resolve di Service). true = pakai kolom di bawah.
+  overrideAlamat Boolean @default(false) @map("override_alamat")
+  alamat         String?
+  rtRw           String? @map("rt_rw")
+  kodePos        String? @map("kode_pos")
+  provinsiKode   String? @map("provinsi_kode")
+  provinsiNama   String? @map("provinsi_nama")
+  kotaKode       String? @map("kota_kode")
+  kotaNama       String? @map("kota_nama")
+  kecamatanKode  String? @map("kecamatan_kode")
+  kecamatanNama  String? @map("kecamatan_nama")
+  kelurahanKode  String? @map("kelurahan_kode")
+  kelurahanNama  String? @map("kelurahan_nama")
+
+  version   Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  beds Bed[]
+
+  @@index([organizationId])
+  @@index([locationType])
+  @@map("location")
+  @@schema("master")
+}
+
+// ── Bed (sub-collection Ruangan) ──────────────────────────────────────────────
+//  Status = MASTER (active/inactive/suspended). Okupansi (Tersedia/Terisi) = klinis.
+//  FK riil dari encounter.Kunjungan.bedId → Bed.id saat modul siap (kini placeholder).
+
+model Bed {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  locationId String   @map("location_id") @db.Uuid
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  kode   String    @unique
+  nama   String
+  status BedStatus @default(active)
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([locationId])
+  @@map("bed")
+  @@schema("master")
+}

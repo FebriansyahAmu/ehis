@@ -14,6 +14,8 @@
 | [TODO-BPJS.md](TODO-BPJS.md) | **BPJS Integration Hub roadmap** — Fase BP0–BP8 (44 section). **✅ 100% SELESAI** (2026-05-30) — V-Claim 5 sub-menu + Aplicares 3 sub-menu + Audit Trail + 3 Print Template + Workflow Docs. |
 | [TECH_DEBT.md](TECH_DEBT.md) | Tech debt registry per-modul + cross-cutting. |
 | [TODOS_BACKEND.md](TODOS_BACKEND.md) | Backend implementation roadmap (B0–B4, ~5–7 bulan). |
+| [docs/BACKEND-FLOWS.md](docs/BACKEND-FLOWS.md) | **Kontrak backend INTI** — layering · error · data rules · API · DoD (_mengapa_). Menang bila konflik. |
+| [docs/API-RULES.md](docs/API-RULES.md) | **Resep endpoint konkret** — pola `route()`, error handling, peta file kanonik (_bagaimana_ menulis endpoint). Baca sebelum tambah/ubah API. |
 | [.claude/DONE.md](.claude/DONE.md) | Completed work archive (history per modul). |
 | [.claude/GAP_ANALYSIS.md](.claude/GAP_ANALYSIS.md) | Clinical gap audit (SNARS/PMK/ISO). |
 | [.claude/STANDARDS.md](.claude/STANDARDS.md) | Clinical standards reference. |
