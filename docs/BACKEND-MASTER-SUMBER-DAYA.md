@@ -10,7 +10,7 @@
 > **Terkait:** [CLAUDE.md](../CLAUDE.md) · [TODOS_BACKEND.md](../TODOS_BACKEND.md) (Phase B1) · memori `project_wilayah_strategy`.
 >
 > **Stack:** PostgreSQL · Prisma (`@@schema("master")`) · layered **Route→Service→DAL→Prisma** · Redis cache-aside · Auth.js RBAC.
-> **Status:** 📋 Spec. Sub-grup **Pegawai/Pengguna ✅** (sudah ter-implementasi, lihat [TODOS_BACKEND.md](../TODOS_BACKEND.md#b11-sumber-daya)). File ini menambah sub-grup **Unit & Ruangan** (🚧 spec pertama) · **Dokter** 📋.
+> **Status:** Sub-grup **Pegawai/Pengguna ✅** + **Unit & Ruangan ✅** (SD0–SD5 ter-implementasi & wired + SSR hybrid; **SD6 tests** 📋) · **Dokter** 📋. Lihat [TODOS_BACKEND.md](../TODOS_BACKEND.md#b11-sumber-daya).
 
 ---
 
@@ -20,7 +20,7 @@ Master FE = 26 sub-master + 8 mapping + Beranda (lihat [CLAUDE.md](../CLAUDE.md)
 
 | Grup | File workflow | Sub-master | Status |
 |---|---|---|---|
-| **Sumber Daya** | **BACKEND-MASTER-SUMBER-DAYA** (ini) | Pegawai · Pengguna · **Unit & Ruangan** · Dokter | 🚧 Pegawai/Pengguna ✅ · Unit&Ruangan §A · Dokter 📋 |
+| **Sumber Daya** | **BACKEND-MASTER-SUMBER-DAYA** (ini) | Pegawai · Pengguna · **Unit & Ruangan** · Dokter | Pegawai/Pengguna ✅ · Unit&Ruangan ✅ (SD0–5; SD6 tests 📋) · Dokter 📋 |
 | Katalog Klinis | BACKEND-MASTER-KATALOG-KLINIS | Obat · Tindakan · Lab · Radiologi · ICD · SDKI | 📋 |
 | Skala Klinis | BACKEND-MASTER-SKALA | Risiko · Umum · Penyakit · Triase | 📋 |
 | Referensi/Template/Enum | BACKEND-MASTER-TEMPLATE | Asesmen · Status Enum · Anamnesis · Form | 📋 |
@@ -210,7 +210,7 @@ Business + transaksi + authz + **cache invalidation**. Tak `import prisma`.
 - [x] Model `Organization` (self-ref) + `Location` (FK org) + `Bed` (FK loc) di [`prisma/schema/ruangan.prisma`](../prisma/schema/ruangan.prisma). Enum `OrgType`/`LocationType`/`LocationKelas`/`BedStatus`. (`master` sudah di `config.prisma` schemas[].) **`prisma validate` ✅.**
 - [x] Alamat kode+nama wilayah (pola PasienAlamat) + `overrideAlamat` flag Location.
 - [x] Index (A.6) + UNIQUE kode (Prisma). **Sisa:** CHECK kapasitas 1..50 + partial-unique `deleted_at IS NULL` = **SQL manual** di migration body.
-- [x] Migration [`20260605120000_init_master_ruangan`](../prisma/migrations/20260605120000_init_master_ruangan/migration.sql) **applied** (via `db execute` + `migrate resolve --applied` — pola data-preserving, hindari reset drift) + CHECK `kapasitas 1..50`. Status `migrate status` ✅ up-to-date · client re-generated. **Sisa:** seed dari `RUANGAN_MOCK` (root `isRoot`) → SD5.
+- [x] Migration [`20260605120000_init_master_ruangan`](../prisma/migrations/20260605120000_init_master_ruangan/migration.sql) **applied** (via `db execute` + `migrate resolve --applied` — pola data-preserving, hindari reset drift) + CHECK `kapasitas 1..50`. Status `migrate status` ✅ up-to-date · client re-generated. Seed **clean root** (RS Induk saja) ✅ → SD5.
 
 #### SD1 — DAL
 - [x] [`ruanganDal`](../src/lib/dal/ruanganDal.ts) — tree reads (listOrganizations/listLocations+beds) + CRUD per entity + `countOrgChildren`/`countBedsOfLocation` (guards). `tx?` + soft-delete filter + version-guard update/delete.
@@ -226,8 +226,10 @@ Business + transaksi + authz + **cache invalidation**. Tak `import prisma`.
 #### SD4 — API
 - [x] 8 route `/api/v1/master/{unit,ruangan,bed}/*` (tipis, RBAC `master.ruangan` + handleError + envelope): GET `ruangan?view=tree` · POST `unit`·`ruangan`·`ruangan/:id/bed` · PATCH/DELETE `unit/:id`·`ruangan/:id`·`bed/:bedId`. `tsc` ✅. **Sisa:** enforce Idempotency-Key (header sudah dibaca route(); store GAP-D belum ada).
 
-#### SD5 — Seed & frontend swap
-- [ ] `seed.ts` segmen ruangan. Swap `RuanganPage`/form ke fetch API. Verifikasi tree + CRUD + delete-guard tampil benar.
+#### SD5 — Seed & frontend swap ✅
+- [x] **Frontend wired** ke API: [`src/lib/api/ruangan.ts`](../src/lib/api/ruangan.ts) (getTree + CUD unit/ruangan/bed) + [`RuanganPage`](../src/components/master/ruangan/RuanganPage.tsx). **SSR hybrid** (first paint via Service langsung di [`page.tsx`](../src/app/ehis-master/ruangan/page.tsx), pola API-RULES §6.1; CUD client). Forms batch-save → RuanganPage orkestrasi PATCH + **rekonsiliasi bed granular** (delete→patch ruangan→update→add, capacity-safe). Optimistic concurrency (`version`) + `tsc` ✅.
+- [x] **UX**: toast sukses/gagal (CUD), **ConfirmDialog** destruktif (ganti `confirm()`, palet rose/slate — invoke skill frontend-design), **kode auto** `<PREFIX><YYMM><NNN>` (Unit `UN` · Ruangan `R` · Bed `BD`; editable, unik dijaga server).
+- [x] **Seed = clean root** ([`prisma/seed_ruangan_clean.sql`](../prisma/seed_ruangan_clean.sql)): TRUNCATE 3 tabel + insert HANYA RS Induk (idempotent) → uji dari keadaan bersih. **Bukan** seed penuh `RUANGAN_MOCK` (mock masih dipakai BPJS Aplicares + Mapping Hub → migrasi terpisah, lihat [TECH_DEBT](../TECH_DEBT.md)).
 
 #### SD6 — Tests
 - [ ] Unit Service: anti-cycle, guard hapus (no-child/no-bed), kapasitas, root read-only, version conflict, inherit alamat, kode duplikat→CONFLICT.

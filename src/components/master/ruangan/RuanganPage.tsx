@@ -85,10 +85,20 @@ function StatCard({
 
 // ── Page ───────────────────────────────────────────────────
 
-export default function RuanganPage() {
-  const [nodes, setNodes] = useState<AnyNode[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
+export default function RuanganPage({
+  initialTree = [],
+  prefetched = false,
+}: {
+  /** Pohon (DTO) hasil SSR — seed state awal (API-RULES §6.1). */
+  initialTree?: AnyNode[];
+  /** true = data awal dari SSR → lewati skeleton & fetch saat mount. */
+  prefetched?: boolean;
+} = {}) {
+  const [nodes, setNodes] = useState<AnyNode[]>(initialTree);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    () => initialTree.find((n) => n.type === "Organization" && (n as OrganizationNode).isRoot)?.id ?? null,
+  );
+  const [loaded, setLoaded] = useState(prefetched);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AnyNode | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -107,6 +117,7 @@ export default function RuanganPage() {
   }, []);
 
   useEffect(() => {
+    if (prefetched) return; // data awal dari SSR (API-RULES §6.1) — refetch hanya pasca-mutasi
     const ac = new AbortController();
     void (async () => {
       try {
@@ -120,7 +131,7 @@ export default function RuanganPage() {
       }
     })();
     return () => ac.abort();
-  }, [reload]);
+  }, [prefetched, reload]);
 
   const selected = selectedId ? getNodeById(nodes, selectedId) ?? null : null;
 

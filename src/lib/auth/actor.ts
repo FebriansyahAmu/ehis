@@ -38,6 +38,14 @@ export async function getActor(_req: Request): Promise<Actor> {
   return DEV_ACTOR;
 }
 
+/**
+ * Actor untuk konteks SERVER tanpa Request (Server Component / job / SSR Service-call langsung).
+ * STUB: DEV actor. TODO(BACKEND-AUTH): resolve dari cookies()/session Auth.js.
+ */
+export async function getServerActor(): Promise<Actor> {
+  return DEV_ACTOR;
+}
+
 /** RBAC assert (FLOWS §6). Lempar FORBIDDEN bila role tak punya izin. */
 export function assertCan(actor: Actor, resource: string, action: string): void {
   if (actor.isGlobal || actor.permissions.has("*")) return;

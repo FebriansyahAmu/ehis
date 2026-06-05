@@ -56,6 +56,11 @@
 
 ## 🗄 Master Data
 
+### Unit & Ruangan (backend ✅ 2026-06-06)
+- [ ] **Konsumen `RUANGAN_MOCK` belum migrasi ke API** — `RuanganPage` sudah pakai DB ([api/ruangan.ts](src/lib/api/ruangan.ts) + SSR), tapi `RUANGAN_MOCK` ([ruanganShared.ts](src/components/master/ruangan/ruanganShared.ts)) MASIH dipakai **BPJS Aplicares** ([aplicaresKamarMock.ts](src/lib/bpjs/mock/aplicaresKamarMock.ts)) + **Mapping Hub** ([PenjaminRuanganPane.tsx](src/components/master/mapping/penjamin-ruangan/PenjaminRuanganPane.tsx)). Saat kedua modul di-backend-kan: ganti ke fetch `/api/v1/master/ruangan?view=tree`, lalu hapus `RUANGAN_MOCK`.
+- [ ] **SD6 — Tests** (unit Service: anti-cycle/guard hapus/kapasitas/root read-only/version/inherit alamat/kode dup; integration DAL Testcontainers). Lihat [BACKEND-MASTER-SUMBER-DAYA.md](docs/BACKEND-MASTER-SUMBER-DAYA.md) SD6.
+- [ ] **Seed clean root manual** — [prisma/seed_ruangan_clean.sql](prisma/seed_ruangan_clean.sql) di-run via `prisma db execute`. Saat Profil RS (Tier 4) dibangun, root di-sync dari sana; jadikan bagian `prisma/seed.ts` resmi.
+
 ### Mapping Hub
 - [ ] **Mocks lightweight** — `penjaminMock.ts` (6 penjamin), `obatMock.ts` (30 obat), `depoMock.ts` (6 depo) dibikin sebagai placeholder sebelum Tier 2/3 dibangun. Saat Katalog Obat/Penjamin/Depo real ready, migrate import path. Field schema sengaja diselaraskan dengan rencana Tier 2/3 (kode/nama/kategori/flags) supaya replace tidak break consumers.
 - [ ] **Bidirectional sync** — Map perubahan di Tarif/Formularium/Distribusi/RBAC belum push back ke source entity (state lokal only). Saat backend ready, perlu sync helper + audit log per relasi. Kandidat: `syncAssignmentFromMapping(sdmId)` push ke `DokterRecord.poliAssignment` / `PenggunaRecord.unitAssignment`.
