@@ -6,7 +6,7 @@ import { z } from "zod";
 
 // ── Enum (mirror prisma master.Pegawai) ───────────────────────────────────────
 export const JenisKelamin = z.enum(["L", "P"]);
-export const StatusPegawai = z.enum(["PNS", "PPPK", "Kontrak", "Honorer", "Magang", "Mitra"]);
+export const StatusPegawai = z.enum(["ASN", "Outsourcing", "Honorer", "Magang", "Mitra"]);
 
 const NIK_RE = /^\d{16}$/;
 const ISO_DATE = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format tanggal harus YYYY-MM-DD");
@@ -27,6 +27,8 @@ const GelarDepan = z.string().trim().max(40).optional();
 const GelarBelakang = z.string().trim().max(60).optional();
 const TempatLahir = z.string().trim().max(120).optional();
 const UnitKerja = z.string().trim().max(120).optional();
+const Agama = z.string().trim().max(40).optional();
+const Profesi = z.string().trim().max(60).optional();
 const Alamat = z.string().trim().max(500).optional();
 const Email = z.string().trim().email().max(160).optional();
 const Foto = z.string().trim().max(1000).optional();
@@ -42,9 +44,11 @@ export const CreatePegawaiInput = z.object({
   gelarDepan: GelarDepan,
   gelarBelakang: GelarBelakang,
   jenisKelamin: JenisKelamin,
+  agama: Agama,
   tempatLahir: TempatLahir,
   tanggalLahir: ISO_DATE.optional(),
   statusPegawai: StatusPegawai,
+  profesi: Profesi,
   unitKerja: UnitKerja,
   tglMasuk: ISO_DATE.optional(),
   alamat: Alamat,
@@ -65,9 +69,11 @@ export const UpdatePegawaiInput = z.object({
   gelarDepan: GelarDepan,
   gelarBelakang: GelarBelakang,
   jenisKelamin: JenisKelamin.optional(),
+  agama: Agama,
   tempatLahir: TempatLahir,
   tanggalLahir: ISO_DATE.optional(),
   statusPegawai: StatusPegawai.optional(),
+  profesi: Profesi,
   unitKerja: UnitKerja,
   tglMasuk: ISO_DATE.optional(),
   alamat: Alamat,
@@ -120,6 +126,7 @@ export interface PegawaiListItemDTO {
   namaTampil: string; // gelarDepan + nama + gelarBelakang
   jenisKelamin: "L" | "P";
   statusPegawai: string;
+  profesi: string | null;
   unitKerja: string | null;
   practitionerId: string | null;
   isDokter: boolean;
@@ -131,6 +138,7 @@ export interface PegawaiListItemDTO {
 export interface PegawaiDTO extends PegawaiListItemDTO {
   gelarDepan: string | null;
   gelarBelakang: string | null;
+  agama: string | null;
   tempatLahir: string | null;
   tanggalLahir: string | null; // ISO yyyy-mm-dd
   umur: number | null; // dihitung via clock

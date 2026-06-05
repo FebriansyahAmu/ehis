@@ -22,6 +22,19 @@ import {
 } from "./penggunaFormShared";
 import { Field, FormSection, fieldCls } from "../ruangan/forms/OrganizationForm";
 import { DatePicker, Select } from "@/components/shared/inputs";
+import { ApiError } from "@/lib/api/client";
+import { toast } from "@/lib/ui/toastStore";
+
+// ApiError server → {field errors per-path, pesan ringkas banner}. VALIDATION (Zod) membawa
+// details[] per-path; CONFLICT (NIK/NIP duplikat) hanya message → tampil di banner.
+function apiErrorToFields(err: unknown): { fields: Record<string, string>; message: string } {
+  if (err instanceof ApiError) {
+    const fields: Record<string, string> = {};
+    for (const fe of err.fieldErrors()) if (fe.path) fields[fe.path] = fe.message;
+    return { fields, message: err.message };
+  }
+  return { fields: {}, message: "Terjadi kesalahan tak terduga. Coba lagi." };
+}
 
 interface PenggunaAddWizardProps {
   onClose: () => void;
@@ -63,6 +76,7 @@ export default function PenggunaAddWizard({
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Step 1 — Pegawai
   const [peg, setPeg] = useState<PegawaiFormData>({
@@ -124,13 +138,19 @@ export default function PenggunaAddWizard({
   async function saveStep1() {
     const e = validateStep1();
     setErrors(e);
+    setFormError(null);
     if (Object.keys(e).length > 0) return;
     setSaving(true);
     try {
       const id = await onCreatePegawai(peg);
       setPegawaiId(id);
       setAkun((a) => ({ ...a, username: a.username || slugUsername(peg.namaLengkap) }));
+      toast.success("Data pegawai tersimpan", namaTampilPegawai(peg));
       setStep(2);
+    } catch (err) {
+      const { fields, message } = apiErrorToFields(err);
+      setErrors((prev) => ({ ...prev, ...fields }));
+      setFormError(message);
     } finally {
       setSaving(false);
     }
@@ -139,12 +159,18 @@ export default function PenggunaAddWizard({
     if (!pegawaiId) return;
     const e = validateStep2();
     setErrors(e);
+    setFormError(null);
     if (Object.keys(e).length > 0) return;
     setSaving(true);
     try {
       const id = await onCreateUser(pegawaiId, akun);
       setUserId(id);
+      toast.success("Akun login dibuat", `@${akun.username}`);
       setStep(3);
+    } catch (err) {
+      const { fields, message } = apiErrorToFields(err);
+      setErrors((prev) => ({ ...prev, ...fields }));
+      setFormError(message);
     } finally {
       setSaving(false);
     }
@@ -155,10 +181,14 @@ export default function PenggunaAddWizard({
       setErrors({ roles: "Pilih minimal 1 peran." });
       return;
     }
+    setFormError(null);
     setSaving(true);
     try {
       await onAssignRoles(userId, roles, status);
+      toast.success("Pengguna berhasil dibuat", `${namaTampilPegawai(peg)} · @${akun.username}`);
       onClose();
+    } catch (err) {
+      setFormError(apiErrorToFields(err).message);
     } finally {
       setSaving(false);
     }
@@ -232,6 +262,12 @@ export default function PenggunaAddWizard({
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-6 py-5">
+        {formError && (
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-[11px] font-medium text-rose-700">
+            <AlertCircle size={13} className="mt-px shrink-0" />
+            <span className="flex-1">{formError}</span>
+          </div>
+        )}
         {step === 1 && (
           <Step1Pegawai peg={peg} update={updatePeg} setProfesi={setProfesi} errors={errors} clearError={clearError} />
         )}

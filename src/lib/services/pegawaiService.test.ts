@@ -36,7 +36,8 @@ function makeEntity(over: Record<string, unknown> = {}) {
     jenisKelamin: "L",
     tempatLahir: "Jakarta",
     tanggalLahir: new Date("1980-01-01T00:00:00.000Z"),
-    statusPegawai: "PNS",
+    statusPegawai: "ASN",
+    profesi: null,
     unitKerja: "RI",
     tglMasuk: new Date("2020-12-01T00:00:00.000Z"),
     alamat: "Jl. Mawar",
@@ -81,7 +82,7 @@ const baseCreate: CreatePegawaiInput = {
   gelarDepan: "dr.",
   gelarBelakang: "Sp.JP",
   jenisKelamin: "L",
-  statusPegawai: "PNS",
+  statusPegawai: "ASN",
 };
 
 /** Assert promise rejects dengan AppError ber-code tertentu (katalog FLOWS §4). */
@@ -105,6 +106,19 @@ describe("createPegawai", () => {
     const arg = dal.create.mock.calls[0][0] as { nikEnc: string; nikHash: string };
     expect(arg.nikEnc).not.toContain(NIK);
     expect(arg.nikHash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("profesi 'Dokter' → isDokter true walau practitionerId belum tertaut", async () => {
+    const { svc } = build({ create: vi.fn().mockResolvedValue(makeEntity({ profesi: "Dokter", practitionerId: null })) });
+    const dto = await svc.createPegawai({ ...baseCreate, profesi: "Dokter" }, actor);
+    expect(dto.isDokter).toBe(true);
+    expect(dto.profesi).toBe("Dokter");
+  });
+
+  it("profesi non-klinis 'Administrator' → isDokter false", async () => {
+    const { svc } = build({ create: vi.fn().mockResolvedValue(makeEntity({ profesi: "Administrator", practitionerId: null })) });
+    const dto = await svc.createPegawai({ ...baseCreate, profesi: "Administrator" }, actor);
+    expect(dto.isDokter).toBe(false);
   });
 
   it("NIK duplikat → CONFLICT, tak menyentuh create", async () => {

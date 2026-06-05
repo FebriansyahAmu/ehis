@@ -42,6 +42,13 @@ export function makePegawaiService(deps: { clock?: Clock; dal?: Dal } = {}) {
     return `${depan}${p.namaLengkap}${belakang}`;
   }
 
+  // "User ini dokter?" → punya tautan Practitioner ATAU profesi termasuk kelompok dokter
+  // (intent saat provisioning, sebelum master Dokter dibuat). Selaras DOCTOR_PROFESI di wizard.
+  const DOKTER_PROFESI = new Set(["Dokter", "Dokter Gigi", "Dokter Spesialis"]);
+  function isDokter(p: { practitionerId: string | null; profesi: string | null }): boolean {
+    return p.practitionerId !== null || (p.profesi !== null && DOKTER_PROFESI.has(p.profesi));
+  }
+
   function umur(tgl: Date | null): number | null {
     if (!tgl) return null;
     const now = clock.now();
@@ -61,9 +68,10 @@ export function makePegawaiService(deps: { clock?: Clock; dal?: Dal } = {}) {
       namaTampil: namaTampil(p),
       jenisKelamin: p.jenisKelamin,
       statusPegawai: p.statusPegawai,
+      profesi: p.profesi,
       unitKerja: p.unitKerja,
       practitionerId: p.practitionerId,
-      isDokter: p.practitionerId !== null,
+      isDokter: isDokter(p),
       isActive: p.isActive,
       version: p.version,
       createdAt: p.createdAt.toISOString(),
@@ -79,11 +87,13 @@ export function makePegawaiService(deps: { clock?: Clock; dal?: Dal } = {}) {
       namaTampil: namaTampil(p),
       gelarDepan: p.gelarDepan,
       gelarBelakang: p.gelarBelakang,
+      agama: p.agama,
       jenisKelamin: p.jenisKelamin,
       tempatLahir: p.tempatLahir,
       tanggalLahir: p.tanggalLahir ? p.tanggalLahir.toISOString().slice(0, 10) : null,
       umur: umur(p.tanggalLahir),
       statusPegawai: p.statusPegawai,
+      profesi: p.profesi,
       unitKerja: p.unitKerja,
       tglMasuk: p.tglMasuk ? p.tglMasuk.toISOString().slice(0, 10) : null,
       alamat: p.alamat,
@@ -91,7 +101,7 @@ export function makePegawaiService(deps: { clock?: Clock; dal?: Dal } = {}) {
       email: p.email,
       foto: p.foto,
       practitionerId: p.practitionerId,
-      isDokter: p.practitionerId !== null,
+      isDokter: isDokter(p),
       isActive: p.isActive,
       version: p.version,
       createdAt: p.createdAt.toISOString(),
@@ -119,9 +129,11 @@ export function makePegawaiService(deps: { clock?: Clock; dal?: Dal } = {}) {
       gelarDepan: input.gelarDepan,
       gelarBelakang: input.gelarBelakang,
       jenisKelamin: input.jenisKelamin,
+      agama: input.agama,
       tempatLahir: input.tempatLahir,
       tanggalLahir: toDate(input.tanggalLahir, { noFuture: true }),
       statusPegawai: input.statusPegawai,
+      profesi: input.profesi,
       unitKerja: input.unitKerja,
       tglMasuk: toDate(input.tglMasuk),
       alamat: input.alamat,
@@ -174,9 +186,11 @@ export function makePegawaiService(deps: { clock?: Clock; dal?: Dal } = {}) {
       gelarDepan: input.gelarDepan,
       gelarBelakang: input.gelarBelakang,
       jenisKelamin: input.jenisKelamin,
+      agama: input.agama,
       tempatLahir: input.tempatLahir,
       tanggalLahir: toDate(input.tanggalLahir, { noFuture: true }),
       statusPegawai: input.statusPegawai,
+      profesi: input.profesi,
       unitKerja: input.unitKerja,
       tglMasuk: toDate(input.tglMasuk),
       alamat: input.alamat,

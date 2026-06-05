@@ -11,8 +11,9 @@ import {
   type PenggunaRecord, type UserRole, type UserStatus, type PegawaiLite,
   type PegawaiFormData, type AkunData,
   PENGGUNA_MOCK, PEGAWAI_MOCK, ROLE_CFG, STATUS_CFG, UNIT_LIST,
-  fmtRelative, getUnitNama, newPegawaiId, newUserId, pegawaiFormToLite, namaTampilPegawai,
+  fmtRelative, getUnitNama, newUserId, pegawaiFormToLite, namaTampilPegawai,
 } from "./penggunaShared";
+import { createPegawai } from "@/lib/api/pegawai";
 import PenggunaFormModal from "./PenggunaFormModal";
 
 // ── Skeleton ───────────────────────────────────────────────
@@ -140,13 +141,15 @@ export default function PenggunaPage() {
     });
   };
 
-  // ── Wizard Tambah Pengguna — tiap step "POST" terpisah (mock; siap-wiring ke API) ──
-  // Step 1: buat Pegawai → POST /api/v1/master/pegawai (endpoint sudah ada).
+  // ── Wizard Tambah Pengguna — tiap step "POST" terpisah ──
+  // Step 1: buat Pegawai → POST /api/v1/master/pegawai (WIRED — server dedup NIK/NIP,
+  // enkripsi NIK, kembalikan id asli). Error (CONFLICT/VALIDATION) dilempar → wizard tampilkan.
   const handleCreatePegawai = async (data: PegawaiFormData): Promise<string> => {
-    const id = newPegawaiId();
-    setPegawaiList((prev) => [pegawaiFormToLite(id, data), ...prev]);
-    return id;
+    const dto = await createPegawai(data);
+    setPegawaiList((prev) => [pegawaiFormToLite(dto.id, data), ...prev]);
+    return dto.id;
   };
+  // Step 2 & 3 masih MOCK (modul auth provisioning belum dibangun — lihat TODOS_BACKEND).
   // Step 2: buat User tertaut pegawaiId (roles kosong dulu) → POST user (endpoint TBD).
   const handleCreateUser = async (pegawaiId: string, akun: AkunData): Promise<string> => {
     const peg = pegawaiList.find((p) => p.id === pegawaiId);

@@ -8,7 +8,7 @@
 import { db, type Tx } from "@/lib/db/prisma";
 
 type JenisKelamin = "L" | "P";
-type StatusPegawai = "PNS" | "PPPK" | "Kontrak" | "Honorer" | "Magang" | "Mitra";
+type StatusPegawai = "ASN" | "Outsourcing" | "Honorer" | "Magang" | "Mitra";
 
 // ── Bentuk data (PII sudah enc/hash; nilai sudah dinormalisasi Service) ─────────
 export interface KontakData {
@@ -26,9 +26,11 @@ export interface CreatePegawaiData {
   gelarDepan?: string;
   gelarBelakang?: string;
   jenisKelamin: JenisKelamin;
+  agama?: string;
   tempatLahir?: string;
   tanggalLahir?: Date;
   statusPegawai: StatusPegawai;
+  profesi?: string;
   unitKerja?: string;
   tglMasuk?: Date;
   alamat?: string;
@@ -47,9 +49,11 @@ export interface UpdatePegawaiData {
   gelarDepan?: string;
   gelarBelakang?: string;
   jenisKelamin?: JenisKelamin;
+  agama?: string;
   tempatLahir?: string;
   tanggalLahir?: Date;
   statusPegawai?: StatusPegawai;
+  profesi?: string;
   unitKerja?: string;
   tglMasuk?: Date;
   alamat?: string;
@@ -73,6 +77,7 @@ const listSelect = {
   gelarBelakang: true,
   jenisKelamin: true,
   statusPegawai: true,
+  profesi: true,
   unitKerja: true,
   practitionerId: true,
   isActive: true,

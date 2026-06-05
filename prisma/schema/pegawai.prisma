@@ -23,11 +23,11 @@ enum JenisKelamin {
   @@schema("master")
 }
 
-/// ASN = PNS|PPPK. Sisanya non-ASN (NIP auto-generate di Service).
+/// Kategori hubungan kerja (selaras form Tambah Pengguna). ASN = PNS|PPPK (gabung).
+/// Outsourcing = eks-Kontrak/alih-daya. Non-ASN → NIP auto-generate di Service (fase later).
 enum StatusPegawai {
-  PNS
-  PPPK
-  Kontrak
+  ASN
+  Outsourcing
   Honorer
   Magang
   Mitra
@@ -64,14 +64,18 @@ model Pegawai {
   gelarDepan    String?      @map("gelar_depan")
   gelarBelakang String?      @map("gelar_belakang")
   jenisKelamin  JenisKelamin @map("jenis_kelamin")
+  agama         String? // agama besar dunia / "Lainnya" (string s/d master reference siap)
   tempatLahir   String?      @map("tempat_lahir")
   tanggalLahir  DateTime?    @map("tanggal_lahir") @db.Date
 
   // ── Kepegawaian ──
   statusPegawai StatusPegawai @map("status_pegawai")
+  /// Jenis tenaga (Dokter/Perawat/Apoteker/…) — sumber kebenaran "user ini profesi apa".
+  /// Dokter? = profesi ∈ {Dokter, Dokter Gigi, Dokter Spesialis} ATAU practitionerId terisi.
+  profesi       String?
   unitKerja     String?       @map("unit_kerja")
   tglMasuk      DateTime?     @map("tgl_masuk") @db.Date
-  // TODO(master): agamaId / pendidikanId → master reference saat schema master siap.
+  // TODO(master): agamaId / pendidikanId / profesiId → master reference saat schema master siap.
 
   // ── Kontak primer (embedded; kontak darurat → tabel terpisah) ──
   alamat String?

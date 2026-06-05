@@ -14,6 +14,7 @@ import {
   ErrorText, IdentityCard, RoleGrid, StatusSelect, useBodyScrollLock, type IdentityView,
 } from "./penggunaFormShared";
 import { Field, FormSection, fieldCls } from "../ruangan/forms/OrganizationForm";
+import { toast } from "@/lib/ui/toastStore";
 
 interface PenggunaEditFormProps {
   initial: PenggunaRecord;
@@ -63,6 +64,7 @@ export default function PenggunaEditForm({ initial, onClose, onSubmit }: Penggun
     setErrors(e);
     if (Object.keys(e).length > 0) return;
     onSubmit({ ...initial, username: username.trim(), roles, status });
+    toast.success("Perubahan tersimpan", `${identity.namaTampil} · @${username.trim()}`);
     onClose();
   }
 
