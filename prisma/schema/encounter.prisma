@@ -88,6 +88,9 @@ model Kunjungan {
   antreanKodebooking String? @unique @map("antrean_kodebooking")
   /// DPJP/dokter. FK→master Dokter (via master.Pegawai.practitionerId) saat siap.
   dpjpId             String? @map("dpjp_id") @db.Uuid
+  /// Ruangan layanan (IGD: bay/zona triase; RJ: poli-room). FK→master Location saat siap.
+  /// Placeholder UUID (selaras bedId/dpjpId) — dipilih dari master Ruangan saat pendaftaran.
+  ruanganId          String? @map("ruangan_id") @db.Uuid
 
   // ── Field per-unit (validasi unit-spesifik di Zod/Service) ──
   poli        String? // RJ — poli tujuan
@@ -137,6 +140,7 @@ model Kunjungan {
   @@index([patientId]) // timeline pasien
   @@index([penjaminId])
   @@index([dpjpId])
+  @@index([ruanganId])
   @@index([createdAt, id]) // cursor pagination
   @@map("kunjungan")
   @@schema("encounter")

@@ -22,6 +22,7 @@ export interface CreateKunjunganData {
   waktuKunjungan: Date;
   antreanKodebooking?: string;
   dpjpId?: string;
+  ruanganId?: string;
   poli?: string;
   kelas?: KelasRawat;
   bedId?: string;

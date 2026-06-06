@@ -9,12 +9,17 @@ export type UnitDaftar = "IGD" | "Rawat Jalan" | "Rawat Inap";
 export type CaraMasuk = "Datang Sendiri" | "Rujukan Puskesmas" | "Rujukan RS" | "Transfer Internal";
 export type TriaseLevel = 1 | 2 | 3 | 4 | 5;
 
-export const TRIASE_CFG: Record<TriaseLevel, { label: string; idle: string; active: string }> = {
-  1: { label: "I — Resusitasi", idle: "border-rose-200 bg-rose-50 text-rose-700", active: "border-rose-600 bg-rose-600 text-white" },
-  2: { label: "II — Emergent", idle: "border-orange-200 bg-orange-50 text-orange-700", active: "border-orange-500 bg-orange-500 text-white" },
-  3: { label: "III — Urgent", idle: "border-yellow-200 bg-yellow-50 text-yellow-700", active: "border-yellow-500 bg-yellow-500 text-white" },
-  4: { label: "IV — Semi-Urgent", idle: "border-green-200 bg-green-50 text-green-700", active: "border-green-500 bg-green-500 text-white" },
-  5: { label: "V — Non-Urgent", idle: "border-slate-200 bg-slate-50 text-slate-600", active: "border-slate-500 bg-slate-500 text-white" },
+// `code` = angka Romawi (header box landscape) · `name` = kategori singkat · `label` = teks
+// penuh (dipakai di Review). `dot` = warna indikator level pada box landscape.
+export const TRIASE_CFG: Record<
+  TriaseLevel,
+  { code: string; name: string; label: string; dot: string; idle: string; active: string }
+> = {
+  1: { code: "I",   name: "Resusitasi",  label: "I — Resusitasi",  dot: "bg-rose-500",   idle: "border-rose-200 bg-rose-50 text-rose-700",     active: "border-rose-600 bg-rose-600 text-white" },
+  2: { code: "II",  name: "Emergent",    label: "II — Emergent",   dot: "bg-orange-500", idle: "border-orange-200 bg-orange-50 text-orange-700", active: "border-orange-500 bg-orange-500 text-white" },
+  3: { code: "III", name: "Urgent",      label: "III — Urgent",    dot: "bg-yellow-500", idle: "border-yellow-200 bg-yellow-50 text-yellow-700", active: "border-yellow-500 bg-yellow-500 text-white" },
+  4: { code: "IV",  name: "Semi-Urgent", label: "IV — Semi-Urgent", dot: "bg-green-500",  idle: "border-green-200 bg-green-50 text-green-700",   active: "border-green-500 bg-green-500 text-white" },
+  5: { code: "V",   name: "Non-Urgent",  label: "V — Non-Urgent",  dot: "bg-slate-400",  idle: "border-slate-200 bg-slate-50 text-slate-600",   active: "border-slate-500 bg-slate-500 text-white" },
 };
 
 export const UNIT_DAFTAR_CFG: {
@@ -86,12 +91,20 @@ export interface KunjunganForm {
   tanggal: string;
   jam: string;
   caraMasuk: CaraMasuk;
+  /** DPJP teks-bebas (unit non-IGD). IGD memakai dpjpId/dpjpNama dari dokter ter-assign ruangan. */
   dokter: string;
   keluhan: string;
   triase: TriaseLevel;
   poli: string;
   asalMasuk: string;
   kelasRawat: string;
+  // ── IGD: ruangan layanan + DPJP ter-assign ruangan (master) ──
+  /** Ruangan IGD terpilih (master Location id) → persist Kunjungan.ruanganId. */
+  ruanganId: string;
+  ruanganNama: string;
+  /** DPJP terpilih (master Dokter id) → persist Kunjungan.dpjpId. */
+  dpjpId: string;
+  dpjpNama: string;
 }
 
 export interface PenjaminForm {

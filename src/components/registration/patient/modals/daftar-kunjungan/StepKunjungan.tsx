@@ -1,14 +1,15 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Building2 } from "lucide-react";
+import { Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { POLI_OPTS } from "../../config";
 import { DatePicker, TimePicker, Select } from "@/components/shared/inputs";
+import { StepKunjunganIgd } from "./StepKunjunganIgd";
 import {
-  TRIASE_CFG, UNIT_DAFTAR_CFG,
+  UNIT_DAFTAR_CFG,
   inputCls, labelCls,
-  type KunjunganForm, type TriaseLevel, type UnitDaftar,
+  type KunjunganForm, type UnitDaftar,
 } from "./config";
 
 const KELAS_OPTS: [string, string][] = [["1", "Kelas 1"], ["2", "Kelas 2"], ["3", "Kelas 3"], ["vip", "VIP"]];
@@ -80,34 +81,7 @@ export function StepKunjungan({
           transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
           className="space-y-3"
         >
-          {form.unit === "IGD" && (
-            <>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Detail IGD</p>
-              <div>
-                <label className={labelCls}>Level Triase</label>
-                <div className="flex flex-col gap-1.5">
-                  {([1, 2, 3, 4, 5] as TriaseLevel[]).map((t) => {
-                    const cfg = TRIASE_CFG[t];
-                    const isActive = form.triase === t;
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => set("triase", t)}
-                        className={cn(
-                          "flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2 text-[11px] font-semibold transition",
-                          isActive ? cfg.active : cfg.idle,
-                        )}
-                      >
-                        <span>{cfg.label}</span>
-                        {isActive && <Check size={12} />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </>
-          )}
+          {form.unit === "IGD" && <StepKunjunganIgd form={form} setForm={setForm} />}
 
           {form.unit === "Rawat Jalan" && (
             <>
@@ -167,17 +141,19 @@ export function StepKunjungan({
         </motion.div>
       </AnimatePresence>
 
-      {/* Dokter + keluhan */}
-      <div>
-        <label className={labelCls}>Dokter Penanggung Jawab</label>
-        <input
-          type="text"
-          value={form.dokter}
-          onChange={(e) => set("dokter", e.target.value)}
-          placeholder="dr. Nama Dokter, Sp.X"
-          className={inputCls}
-        />
-      </div>
+      {/* Dokter (non-IGD): teks bebas. IGD → DPJP dari dokter ter-assign ruangan (di atas). */}
+      {form.unit !== "IGD" && (
+        <div>
+          <label className={labelCls}>Dokter Penanggung Jawab</label>
+          <input
+            type="text"
+            value={form.dokter}
+            onChange={(e) => set("dokter", e.target.value)}
+            placeholder="dr. Nama Dokter, Sp.X"
+            className={inputCls}
+          />
+        </div>
+      )}
       <div>
         <label className={labelCls}>
           Keluhan Utama <span className="font-normal normal-case text-slate-300">(opsional)</span>

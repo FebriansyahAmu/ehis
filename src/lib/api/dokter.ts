@@ -22,6 +22,8 @@ export interface ListDokterParams {
   q?: string;
   spesialis?: SpesialisKode;
   status?: StatusPraktik;
+  /** Filter dokter ter-assign ke ruangan ini (master.PenugasanRuangan) — pendaftaran IGD. */
+  locationId?: string;
   cursor?: string;
   limit?: number;
 }

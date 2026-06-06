@@ -165,6 +165,15 @@ export function makeRuanganService(deps: { clock?: Clock; dal?: Dal } = {}) {
     return [...orgs.map(toOrgDTO), ...locs.map(toLocationDTO)];
   }
 
+  /** List datar Ruangan satu tipe (lookup pendaftaran, mis. IGD) — aktif saja, urut nama. */
+  async function listRuanganByType(
+    locationType: LocationDTO["locationType"],
+    _actor: Actor,
+  ): Promise<LocationDTO[]> {
+    const locs = await dal.listLocationsByType(locationType);
+    return locs.map(toLocationDTO);
+  }
+
   // ── Unit (Organization) ───────────────────────────────────────────────────────
   async function createUnit(input: CreateUnitInput, _actor: Actor): Promise<OrganizationDTO> {
     const parent = await dal.findOrg(input.parentId);
@@ -305,7 +314,7 @@ export function makeRuanganService(deps: { clock?: Clock; dal?: Dal } = {}) {
   }
 
   return {
-    getTree,
+    getTree, listRuanganByType,
     createUnit, updateUnit, deleteUnit,
     createRuangan, updateRuangan, deleteRuangan,
     addBed, updateBed, deleteBed,

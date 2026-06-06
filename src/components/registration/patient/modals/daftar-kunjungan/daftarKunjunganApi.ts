@@ -90,6 +90,9 @@ export function buildRegisterInput(args: BuildRegisterArgs): RegisterKunjunganIn
     jam: form.jam || undefined,
     poli,
     triaseLevel: isIgd ? form.triase : undefined,
+    // IGD: DPJP + ruangan dari master (dokter ter-assign ruangan). Non-IGD: dpjp via SEP.dpjpLayan.
+    dpjpId: isIgd ? orUndef(form.dpjpId) : undefined,
+    ruanganId: isIgd ? orUndef(form.ruanganId) : undefined,
     keluhan: orUndef(form.keluhan),
     caraMasuk: orUndef(form.caraMasuk),
     penjaminTipe: penjamin.tipe,

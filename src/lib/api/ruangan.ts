@@ -87,6 +87,15 @@ export async function getTree(signal?: AbortSignal): Promise<AnyNode[]> {
   return data; // OrganizationDTO|LocationDTO struktural = OrganizationNode|LocationNode
 }
 
+/** GET /master/ruangan?locationType=X → list datar Ruangan satu tipe (lookup, mis. IGD). */
+export async function listRuanganByType(
+  locationType: LocationNode["locationType"],
+  signal?: AbortSignal,
+): Promise<LocationNode[]> {
+  const { data } = await api.get<LocationDTO[]>("/master/ruangan", { query: { locationType }, signal });
+  return data; // LocationDTO struktural = LocationNode
+}
+
 // ── Unit (Organization) ───────────────────────────────────────────────────────
 export async function createUnit(node: OrganizationNode, signal?: AbortSignal): Promise<OrganizationNode> {
   const { data } = await api.post<OrganizationDTO>("/master/unit", unitToCreate(node), { signal });

@@ -117,6 +117,7 @@ export function makeDokterService(deps: { clock?: Clock; dal?: Dal } = {}) {
       q: query.q,
       spesialis: query.spesialis,
       status: query.status,
+      locationId: query.locationId,
       cursor: query.cursor,
       limit: query.limit,
     });

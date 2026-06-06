@@ -87,6 +87,15 @@ export function listLocations(tx?: Tx) {
   });
 }
 
+/** Ruangan tipe tertentu yang aktif (lookup pendaftaran, mis. IGD). Urut nama. */
+export function listLocationsByType(locationType: LocationType, tx?: Tx) {
+  return db(tx).location.findMany({
+    where: { deletedAt: null, active: true, locationType },
+    include: locationInclude,
+    orderBy: { nama: "asc" },
+  });
+}
+
 // ── Reads detail ───────────────────────────────────────────────────────────────
 export function findOrg(id: string, tx?: Tx) {
   return db(tx).organization.findFirst({ where: { id, deletedAt: null } });

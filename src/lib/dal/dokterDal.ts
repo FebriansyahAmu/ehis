@@ -79,17 +79,19 @@ export function findPegawai(pegawaiId: string, tx?: Tx) {
   });
 }
 
-/** List + search (nama/NIP/STR/SIP) + filter spesialis/status. Cursor by id. */
+/** List + search (nama/NIP/STR/SIP) + filter spesialis/status/ruangan. Cursor by id. */
 export async function list(
-  params: { q?: string; spesialis?: SpesialisKode; status?: StatusPraktik; cursor?: string; limit: number },
+  params: { q?: string; spesialis?: SpesialisKode; status?: StatusPraktik; locationId?: string; cursor?: string; limit: number },
   tx?: Tx,
 ) {
-  const { q, spesialis, status, cursor, limit } = params;
+  const { q, spesialis, status, locationId, cursor, limit } = params;
   const rows = await db(tx).dokter.findMany({
     where: {
       deletedAt: null,
       ...(spesialis ? { spesialisKode: spesialis } : {}),
       ...(status ? { statusPraktik: status } : {}),
+      // Dokter yang pegawainya punya penugasan ke ruangan ini (SDM Assignment).
+      ...(locationId ? { pegawai: { penugasanRuangan: { some: { locationId } } } } : {}),
       ...(q
         ? {
             OR: [

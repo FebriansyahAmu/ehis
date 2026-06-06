@@ -60,21 +60,36 @@ export function usePopover(popW: number, popH: number, opts?: { matchWidth?: boo
     let left = r.left;
     if (left + w > vw - 8) left = vw - 8 - w;
     if (left < 8) left = 8;
+    // Tinggi AKTUAL popover bila sudah ter-render (else estimasi popH). Pakai tinggi nyata agar
+    // flip-up menempel tepat di atas trigger — bukan melayang sejauh estimasi (bug "di tengah modal").
+    const h = popRef.current?.offsetHeight || popH;
     let top = r.bottom + 6;
-    if (top + popH > vh - 8 && r.top - popH - 6 > 8) top = r.top - popH - 6; // flip up
+    if (top + h > vh - 8 && r.top - h - 6 > 8) top = r.top - h - 6; // flip up: bawah popover di atas trigger
     setCoords({ top, left });
     setWidth(w);
   }, [popW, popH, matchWidth]);
 
   useLayoutEffect(() => {
     if (!open) return;
-    // Ukur DOM (getBoundingClientRect) lalu set posisi — sinkronisasi layout, justru tujuan useLayoutEffect.
+    // Pass-1: posisi awal (popover belum ter-render → pakai estimasi popH).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     place();
+    // Pass-2 (rAF): popover sudah ter-render → reposisi pakai tinggi aktual. ResizeObserver
+    // menjaga posisi tetap akurat saat tinggi berubah (mis. filter pencarian mempersempit daftar).
+    let ro: ResizeObserver | null = null;
+    const raf = requestAnimationFrame(() => {
+      place();
+      if (popRef.current && typeof ResizeObserver !== "undefined") {
+        ro = new ResizeObserver(() => place());
+        ro.observe(popRef.current);
+      }
+    });
     const on = () => place();
     window.addEventListener("scroll", on, true);
     window.addEventListener("resize", on);
     return () => {
+      cancelAnimationFrame(raf);
+      ro?.disconnect();
       window.removeEventListener("scroll", on, true);
       window.removeEventListener("resize", on);
     };

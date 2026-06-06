@@ -52,6 +52,7 @@ export function DaftarKunjunganModal({
     unit: "Rawat Jalan", tanggal: today, jam: nowTime, caraMasuk: "Datang Sendiri",
     dokter: "", keluhan: "", triase: 3,
     poli: "Poli Umum", asalMasuk: "Dari Poli", kelasRawat: "2",
+    ruanganId: "", ruanganNama: "", dpjpId: "", dpjpNama: "",
   });
 
   const [penjamin, setPenjamin] = useState<PenjaminForm>({

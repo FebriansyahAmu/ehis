@@ -32,10 +32,15 @@ export function StepReview({
           <RvItem label="Unit" value={form.unit} />
           <RvItem label="Tanggal & Jam" value={`${form.tanggal} · ${form.jam}`} />
           {form.unit === "IGD" && <RvItem label="Triase" value={TRIASE_CFG[form.triase].label} />}
+          {form.unit === "IGD" && <RvItem label="Ruangan IGD" value={form.ruanganNama.trim() || "—"} />}
           {form.unit === "Rawat Jalan" && <RvItem label="Poli Tujuan" value={form.poli} />}
           {form.unit === "Rawat Inap" && <RvItem label="Asal Masuk" value={form.asalMasuk} />}
           {form.unit === "Rawat Inap" && <RvItem label="Kelas Rawat" value={KELAS_LABEL[form.kelasRawat] ?? form.kelasRawat} />}
-          <RvItem label="Dokter Penanggung Jawab" value={form.dokter.trim() || "—"} fullWidth />
+          <RvItem
+            label="Dokter Penanggung Jawab"
+            value={(form.unit === "IGD" ? form.dpjpNama : form.dokter).trim() || "—"}
+            fullWidth
+          />
           {form.keluhan.trim() && <RvItem label="Keluhan Utama" value={form.keluhan.trim()} fullWidth />}
         </div>
       </RvSection2>

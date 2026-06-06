@@ -106,8 +106,12 @@ export const UpdateBedInput = z.object({
 // ── Params & query ────────────────────────────────────────────────────────────
 export const IdParam = z.object({ id: z.string().uuid("ID tidak valid") });
 export const BedIdParam = z.object({ bedId: z.string().uuid("ID bed tidak valid") });
-/// GET /api/v1/master/ruangan?view=tree → seluruh pohon (default). Tanpa view = list ruangan saja.
-export const RuanganQuery = z.object({ view: z.enum(["tree"]).optional() });
+/// GET /api/v1/master/ruangan?view=tree → seluruh pohon (default). `locationType` → list datar
+/// Ruangan tipe tsb (mis. IGD utk pendaftaran), tanpa Bed nested (anti over-fetch).
+export const RuanganQuery = z.object({
+  view: z.enum(["tree"]).optional(),
+  locationType: LocationType.optional(),
+});
 /// DELETE Unit/Ruangan → optimistic concurrency via query (?expectedVersion=).
 export const DeleteQuery = z.object({ expectedVersion: z.coerce.number().int().nonnegative() });
 

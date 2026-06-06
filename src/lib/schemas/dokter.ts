@@ -77,6 +77,9 @@ export const ListQuery = z.object({
   q: z.string().trim().min(1).max(120).optional(), // nama/NIP/STR/SIP
   spesialis: SpesialisKode.optional(),
   status: StatusPraktik.optional(),
+  /// Filter dokter yang ditugaskan ke ruangan ini (via master.PenugasanRuangan) — dipakai
+  /// pendaftaran IGD: pilih ruangan → dokter ter-assign. Anti-join pegawai.penugasanRuangan.
+  locationId: z.string().uuid().optional(),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });

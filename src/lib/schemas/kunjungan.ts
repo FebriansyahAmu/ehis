@@ -78,7 +78,8 @@ export const RegisterKunjunganInput = z
     jam: HHMM.optional(),
     poli: z.string().trim().max(80).optional(),
     triaseLevel: z.number().int().min(1).max(5).optional(), // IGD (1..5)
-    dpjpId: z.string().uuid().optional(), // DPJP master (bukan nama bebas)
+    dpjpId: z.string().uuid().optional(), // DPJP master (Dokter id, bukan nama bebas)
+    ruanganId: z.string().uuid().optional(), // ruangan layanan (master Location) — IGD bay/zona
     keluhan: z.string().trim().max(1000).optional(),
     caraMasuk: z.string().trim().max(60).optional(),
     penjaminId: z.string().uuid().optional(), // pilih penjamin pasien; default primer
@@ -190,6 +191,7 @@ export interface KunjunganListItemDTO {
   waktuKunjungan: string; // ISO datetime
   poli: string | null;
   dpjpId: string | null;
+  ruanganId: string | null;
   kelas: string | null;
   triaseLevel: number | null;
   callState: "Idle" | "Dipanggil" | null;
@@ -214,6 +216,7 @@ export interface KunjunganDTO {
   waktuKunjungan: string; // ISO datetime
   poli: string | null;
   dpjpId: string | null;
+  ruanganId: string | null;
   kelas: string | null;
   triaseLevel: number | null;
   caraMasuk: string | null;
