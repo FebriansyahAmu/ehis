@@ -20,14 +20,15 @@ export interface BuildRegisterArgs {
   penjamin: PenjaminForm;
   rujukan: RujukanPick;
   sepDraft: SepDraft;
-  bpjsFlow: boolean;
+  /** Terbitkan SEP sekarang. Bila false (ditangguhkan), `sep` tak dikirim — kunjungan tetap terdaftar. */
+  issueSep: boolean;
   needsRujukan: boolean;
   /** No. Kartu hasil verifikasi kepesertaan BPJS di step Penjamin. */
   noKartu?: string;
 }
 
 export function buildRegisterInput(args: BuildRegisterArgs): RegisterKunjunganInput {
-  const { patientId, form, penjamin, rujukan, sepDraft, bpjsFlow, needsRujukan, noKartu } = args;
+  const { patientId, form, penjamin, rujukan, sepDraft, issueSep, needsRujukan, noKartu } = args;
 
   const isIgd = form.unit === "IGD";
   const unit = isIgd ? "IGD" : "RawatJalan"; // Rawat Inap ditolak sebelum submit (modal guard)
@@ -46,7 +47,7 @@ export function buildRegisterInput(args: BuildRegisterArgs): RegisterKunjunganIn
       }
     : undefined;
 
-  const sepInput: SepInput | undefined = bpjsFlow
+  const sepInput: SepInput | undefined = issueSep
     ? {
         ppkPelayanan: sepDraft.ppkPelayanan,
         // Hanya No. Kartu hasil verifikasi (penuh). `penjamin.nomor` UI bisa ter-mask →
@@ -96,6 +97,8 @@ export function buildRegisterInput(args: BuildRegisterArgs): RegisterKunjunganIn
     keluhan: orUndef(form.keluhan),
     caraMasuk: orUndef(form.caraMasuk),
     penjaminTipe: penjamin.tipe,
+    // No. Kartu terverifikasi dikirim terpisah → penjamin tetap tersimpan walau SEP ditangguhkan.
+    noKartu: orUndef(noKartu),
     rujukan: rujukanInput,
     sep: sepInput,
   };

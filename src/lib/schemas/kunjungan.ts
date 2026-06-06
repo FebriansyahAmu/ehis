@@ -84,6 +84,9 @@ export const RegisterKunjunganInput = z
     caraMasuk: z.string().trim().max(60).optional(),
     penjaminId: z.string().uuid().optional(), // pilih penjamin pasien; default primer
     penjaminTipe: TipePenjamin,
+    // No. Kartu BPJS terverifikasi di loket — dikirim terpisah dari SEP agar penjamin tetap
+    // tersimpan walau penerbitan SEP ditangguhkan ("buat SEP nanti").
+    noKartu: z.string().trim().max(40).optional(),
     rujukan: RujukanInput.optional(),
     sep: SepInput.optional(),
   })
@@ -94,18 +97,14 @@ export const RegisterKunjunganInput = z
       return;
     }
     const isBpjs = v.penjaminTipe === "BPJS_Non_PBI" || v.penjaminTipe === "BPJS_PBI";
+    // SEP OPSIONAL saat pendaftaran: dapat ditangguhkan ("buat SEP nanti"). Bila `sep` dikirim,
+    // sub-skema SepInput memvalidasi kelengkapannya; bila tidak, kunjungan tetap terdaftar.
     if (v.unit === "RawatJalan") {
       if (!v.poli) ctx.addIssue({ code: "custom", path: ["poli"], message: "Poli tujuan wajib untuk Rawat Jalan" });
-      if (isBpjs) {
-        if (!v.rujukan) ctx.addIssue({ code: "custom", path: ["rujukan"], message: "Rujukan wajib untuk BPJS Rawat Jalan" });
-        if (!v.sep) ctx.addIssue({ code: "custom", path: ["sep"], message: "Data SEP wajib untuk pasien BPJS" });
-      }
+      // Rujukan wajib untuk BPJS RJ (dasar rujukan tetap dicatat walau SEP ditangguhkan).
+      if (isBpjs && !v.rujukan) ctx.addIssue({ code: "custom", path: ["rujukan"], message: "Rujukan wajib untuk BPJS Rawat Jalan" });
     }
-    if (v.unit === "IGD") {
-      // IGD = kegawatdaruratan: triase OPSIONAL di loket (dapat ditentukan perawat IGD saat
-      // penilaian); rujukan TIDAK wajib (emergency); SEP wajib bila BPJS.
-      if (isBpjs && !v.sep) ctx.addIssue({ code: "custom", path: ["sep"], message: "Data SEP wajib untuk pasien BPJS" });
-    }
+    // IGD = kegawatdaruratan: triase opsional di loket; rujukan TIDAK wajib (emergency).
   });
 
 // ── Worklist (GET /kunjungan) ─────────────────────────────────────────────────

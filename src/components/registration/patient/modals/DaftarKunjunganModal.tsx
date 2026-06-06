@@ -64,6 +64,8 @@ export function DaftarKunjunganModal({
   });
 
   const [bpjsData, setBpjsData] = useState<BpjsData | null>(null);
+  // Terbitkan SEP saat pendaftaran (true) atau tangguhkan/buat nanti (false). Hanya relevan BPJS.
+  const [terbitSep, setTerbitSep] = useState(true);
   const [rujukan, setRujukan] = useState<RujukanPick>({ source: "masuk", noRujukan: "", diagnosa: null });
   const [sepDraft, setSepDraft] = useState<SepDraft>(() => ({
     ...BLANK_DRAFT,
@@ -170,7 +172,7 @@ export function DaftarKunjunganModal({
     const controller = new AbortController();
     submitAbort.current = controller;
     try {
-      const input = buildRegisterInput({ patientId: patient.id, form, penjamin, rujukan, sepDraft, bpjsFlow, needsRujukan, noKartu: bpjsData?.noKartu });
+      const input = buildRegisterInput({ patientId: patient.id, form, penjamin, rujukan, sepDraft, issueSep: bpjsFlow && terbitSep, needsRujukan, noKartu: bpjsData?.noKartu });
       const { kunjungan, message } = await registerKunjungan(input, controller.signal);
       toast.success(
         message ?? "Kunjungan terdaftar",
@@ -250,9 +252,11 @@ export function DaftarKunjunganModal({
                       setRujukan={setRujukan}
                     />
                   )}
-                  {current === "sep" && <StepSEP draft={sepDraft} setDraft={setSepDraft} />}
+                  {current === "sep" && (
+                    <StepSEP draft={sepDraft} setDraft={setSepDraft} terbitSep={terbitSep} setTerbitSep={setTerbitSep} />
+                  )}
                   {current === "review" && (
-                    <StepReview form={form} penjamin={penjamin} isBpjsFlow={bpjsFlow} rujukan={needsRujukan ? rujukan : null} draft={sepDraft} />
+                    <StepReview form={form} penjamin={penjamin} isBpjsFlow={bpjsFlow} terbitSep={terbitSep} rujukan={needsRujukan ? rujukan : null} draft={sepDraft} />
                   )}
                 </motion.div>
               </AnimatePresence>
@@ -293,7 +297,7 @@ export function DaftarKunjunganModal({
                 >
                   {submitting
                     ? <><Loader2 size={13} className="animate-spin" /> Mendaftarkan…</>
-                    : <><CalendarPlus size={13} /> {bpjsFlow ? "Daftarkan & Terbitkan SEP" : "Daftarkan Kunjungan"}</>}
+                    : <><CalendarPlus size={13} /> {bpjsFlow && terbitSep ? "Daftarkan & Terbitkan SEP" : "Daftarkan Kunjungan"}</>}
                 </button>
               ) : (
                 <button

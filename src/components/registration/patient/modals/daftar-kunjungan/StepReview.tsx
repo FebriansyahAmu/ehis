@@ -1,6 +1,6 @@
 "use client";
 
-import { Stethoscope, Shield, FileText, ClipboardList } from "lucide-react";
+import { Stethoscope, Shield, FileText, ClipboardList, Clock } from "lucide-react";
 import { RvItem, RvSection2 } from "@/components/registration/kunjungan/Tabs/sep/SepShared";
 import { SepStep4 } from "@/components/registration/kunjungan/Tabs/sep/SepSteps";
 import type { SepDraft } from "@/components/registration/kunjungan/Tabs/sep/sepTypes";
@@ -14,11 +14,13 @@ const RUJUKAN_SOURCE_LABEL: Record<RujukanPick["source"], string> = {
 };
 
 export function StepReview({
-  form, penjamin, isBpjsFlow, rujukan, draft,
+  form, penjamin, isBpjsFlow, terbitSep, rujukan, draft,
 }: {
   form: KunjunganForm;
   penjamin: PenjaminForm;
   isBpjsFlow: boolean;
+  /** SEP diterbitkan sekarang (true) atau ditangguhkan/buat nanti (false). */
+  terbitSep: boolean;
   rujukan: RujukanPick | null;
   draft: SepDraft;
 }) {
@@ -68,13 +70,23 @@ export function StepReview({
         </RvSection2>
       )}
 
-      {isBpjsFlow && (
+      {isBpjsFlow && terbitSep && (
         <div className="space-y-2">
           <div className="flex items-center gap-2 px-1">
             <FileText size={12} className="text-sky-500" />
             <p className="text-[10px] font-bold uppercase tracking-wider text-sky-600">Surat Eligibilitas Peserta (SEP)</p>
           </div>
           <SepStep4 draft={draft} />
+        </div>
+      )}
+
+      {isBpjsFlow && !terbitSep && (
+        <div className="flex items-start gap-2 rounded-lg border border-dashed border-amber-200 bg-amber-50/60 px-3 py-2.5">
+          <Clock size={13} className="mt-0.5 shrink-0 text-amber-500" />
+          <p className="text-[11px] leading-relaxed text-amber-700">
+            <span className="font-semibold">SEP ditangguhkan.</span> Kunjungan terdaftar tanpa
+            menerbitkan SEP — terbitkan nanti dari detail kunjungan / menu BPJS.
+          </p>
         </div>
       )}
     </div>

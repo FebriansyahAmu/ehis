@@ -163,7 +163,7 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
     // fallback ke nomor tersimpan di penjamin pasien (enc).
     let noKartu: string | undefined;
     if (bpjsFlow) {
-      noKartu = input.sep?.noKartu?.trim() || (penjamin?.nomorEnc ? decryptPii(penjamin.nomorEnc) : undefined);
+      noKartu = input.sep?.noKartu?.trim() || input.noKartu?.trim() || (penjamin?.nomorEnc ? decryptPii(penjamin.nomorEnc) : undefined);
       if (!noKartu) throw Errors.validation("No. Kartu BPJS belum ada — verifikasi kepesertaan dulu");
     }
 
