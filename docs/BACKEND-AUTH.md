@@ -7,8 +7,9 @@
 > **Terkait:** [BACKEND-ENCOUNTER.md](BACKEND-ENCOUNTER.md) · [TODOS_BACKEND.md](../TODOS_BACKEND.md) (B0/B1.9 RBAC) · memori `project_backend_stack`.
 > Sumber RBAC existing (frontend mock): [rbacShared.ts](../src/components/master/mapping/rbac/rbacShared.ts) · [penggunaShared.ts](../src/components/master/pengguna/penggunaShared.ts).
 >
-> **Model auth:** Auth.js v5 **hybrid** — JWT access pendek + DB refresh rotating + Redis revocation.
-> **Status:** 📋 Spec. Implementasi belum mulai.
+> **Model auth:** **hybrid** — JWT access pendek + DB refresh rotating + (Redis revocation ⏳ ditunda).
+> **Lapisan sesi:** **custom JWT (`jose`)** — bukan Auth.js v5 (keputusan ulang 2026-06-07 §10 #7).
+> **Status:** ✅ **Core terimplementasi (2026-06-07)** — login/refresh/logout/me · JWT issue/verify · refresh rotation + reuse detection · lockout DB · RBAC seed (89 perm/176 grant) · proxy optimistic · FE wiring (SessionContext/Navbar). **Belum aktif** (`AUTH_ENFORCE=false`). Redis + ABAC + bootstrap akun = **MUST-HAVE tersisa** (lihat §11).
 
 ---
 
@@ -112,9 +113,11 @@ Login (kredensial) ─▶ Active ─(access exp 30m)─▶ Refresh(rotate) ─�
 
 ## 4. Layer breakdown
 
-### 4.1 `proxy.ts` (Next.js 16, edge — optimistic saja)
-- Set `correlationId`. Cek **cookie sesi ADA** → bila tidak & route butuh auth → redirect `/login`. Rate-limit kasar.
-- **❌ TIDAK** verify signature/Redis/RBAC di sini (FLOWS §6 — edge bisa di-bypass). `config.matcher` untuk page routes.
+### 4.1 `proxy.ts` (Next.js 16 — **Node.js runtime**, optimistic saja) ✅ DIBUAT [src/proxy.ts](../src/proxy.ts)
+- ⚠️ **Koreksi**: proxy v16 **default Node.js runtime** (bukan edge; `runtime` config dilarang di proxy). Konvensi `proxy` = rename dari `middleware` sejak Next v16.0.0.
+- Cek **cookie sesi ADA** (`ehis_rt`/`ehis_at`) → bila tidak → redirect `/login` (+ `?next=`). Di-gate `AUTH_ENFORCE` (false = no-op).
+- **❌ TIDAK** verify signature/Redis/RBAC di sini (FLOWS §6 — bisa di-bypass; Next menyarankan proxy "last resort" & selalu verifikasi ulang di server). `config.matcher` untuk page routes.
+- ⏳ `correlationId` belum (TODO).
 
 ### 4.2 Guards — `lib/auth/guards.ts` (dipakai semua Route)
 - `requireAuth(req) → Actor` — verify JWT + Redis revoke check; gagal → `UNAUTHENTICATED` (401).
@@ -142,10 +145,10 @@ Login (kredensial) ─▶ Active ─(access exp 30m)─▶ Refresh(rotate) ─�
 | POST | `/api/v1/auth/mfa/verify` | `verifyMfa` |
 | GET | `/api/v1/auth/me` | session + permissions (untuk UI gating) |
 
-### 4.7 Auth.js v5 wiring
-- **Credentials provider** (username+password) + **JWT session strategy** (cookie httpOnly + CSRF built-in).
-- **Callbacks**: `jwt` inject `roles[]`/`tokenVersion`/`unitScope[]`; `session` expose ke `/me`.
-- Refresh-rotation + revocation Redis = **lapisan kita** di `lib/auth` (Auth.js JWT default tak punya revoke). `auth()` Auth.js dipanggil di `requireAuth` lalu ditambah cek Redis.
+### 4.7 ~~Auth.js v5 wiring~~ → **DIGANTI: custom JWT (`jose`)** (Keputusan 2026-06-07 §10 #7)
+> Auth.js v5 **tidak jadi dipakai**. Alasan: mekanisme berat (refresh rotation, reuse detection, revocation, lockout) memang sudah "lapisan kita"; dengan Redis ditunda, Auth.js tinggal shell cookie/credentials yang nilainya tipis. Custom `jose` lebih pas dengan `route()`+`Actor`+`RefreshToken` yang sudah ada (lihat §11). SSO/OIDC nanti tetap bisa ditambah di belakang seam `getActor` tanpa bongkar route/service.
+- **Implementasi nyata:** [jwt.ts](../src/lib/auth/jwt.ts) (issue/verify HS256, clock injectable) · [tokens.ts](../src/lib/auth/tokens.ts) (refresh opaque + SHA-256) · [cookies.ts](../src/lib/auth/cookies.ts) (httpOnly `ehis_at`/`ehis_rt`) · [authService.ts](../src/lib/services/authService.ts) · [authDal.ts](../src/lib/dal/authDal.ts) · [rbacCache.ts](../src/lib/auth/rbacCache.ts) (in-process, pengganti cache Redis `perm:`).
+- **Seam:** `getActor`/`getServerActor` ([actor.ts](../src/lib/auth/actor.ts)) verify JWT → `Actor`; permission di-expand dari `roles` via rbacCache. Signature tetap → route/service tak berubah.
 
 ---
 
@@ -184,38 +187,40 @@ Emit ke **BACKEND-AUDIT**: `LOGIN`, `LOGIN_FAILED`, `LOGOUT`, `REFRESH`, `REVOKE
 
 ---
 
-## 9. Task checklist
+## 9. Task checklist  *(status 2026-06-07)*
+
+Legenda: `[x]` selesai · `[~]` sebagian/diadaptasi · `[ ]` belum · ⏳ sengaja ditunda.
 
 ### AUTH0 — Schema & seed
-- [ ] Prisma model `User`/`Role`(+`unitScoped`)/`UserRole`(M:N)/`Permission`/`RolePermission`/`UserUnitScope`/`RefreshToken` + enum `CrudAction`/`UserStatus`.
-- [ ] Index (§6) + unique constraints.
-- [ ] Seed dari `rbacShared` (`PERMISSION_TREE` + `ROLE_DEFAULT_GRANTS`) + user contoh per role + password argon2id.
+- [x] Prisma model `User`/`Role`(+`unitScoped`)/`UserRole`(M:N)/`Permission`/`RolePermission`/`UserUnitScope`/`RefreshToken` + enum `CrudAction`/`UserStatus`.
+- [x] Index (§6) + unique constraints.
+- [~] Seed: Role (9) ✅ · **Permission (89) + RolePermission (176)** ✅ dari `rbacShared` ([migration seed_rbac](../prisma/migrations/20260607120000_seed_rbac/migration.sql)) · `unitScoped` Kasir/Registrasi dikoreksi → global ✅. **User contoh per role ❌ (bootstrap belum)** · password **scrypt** (argon2id ⏳).
 
 ### AUTH1 — Core hybrid
-- [ ] `lib/auth`: hash (argon2id), JWT issue/verify (inject `clock`), refresh rotation + reuse detection, Redis revoke (`jti` blocklist + `tokenVersion`).
-- [ ] `authService` login/refresh/logout/revokeAll + rate-limit + lockout.
-- [ ] `authDal`.
+- [~] `lib/auth`: hash **scrypt** ✅ (argon2id ⏳ swap) · JWT issue/verify (`jose`, inject `clock`) ✅ · refresh rotation + **reuse detection** ✅ · **Redis revoke (`jti`/`tokenVersion`) ⏳ DITUNDA** (revoke ditegakkan saat refresh/DB; window ≤30m, §5).
+- [~] `authService` login/refresh/logout/revokeAll/changePassword ✅ · **lockout DB** ✅ · **rate-limit Redis ⏳ ditunda**.
+- [x] `authDal`.
 
-### AUTH2 — Auth.js v5 + proxy
-- [ ] Auth.js Credentials + JWT strategy + callbacks (role/tokenVersion/unitScope).
-- [ ] `proxy.ts` optimistic redirect + correlationId (BUKAN auth authoritative).
+### AUTH2 — ~~Auth.js v5~~ → custom `jose` + proxy
+- [~] **Auth.js v5 DIGANTI custom JWT (`jose`)** (§4.7, §10 #7) — Credentials/JWT-strategy tak dipakai.
+- [~] `proxy.ts` optimistic redirect ✅ (gated `AUTH_ENFORCE`). `correlationId` ⏳.
 
 ### AUTH3 — Guards & enforcement
-- [ ] `requireAuth`/`requirePermission`/`requireScope` + `Actor` type.
-- [ ] Cache RBAC `perm:{roleId}` (cache-aside + invalidate).
-- [ ] Integrasi 1 domain percontohan (Kunjungan) sebagai bukti.
+- [~] `requireAuth`+`requirePermission` = **`route()` + `getActor` + `assertCan`** ✅ (bentuk beda dari spec, fungsi setara). **`requireScope`/ABAC unit-scope ❌ belum dibangun.**
+- [~] Cache RBAC = **rbacCache in-process** ✅ + `invalidateRbacCache()` (Redis `perm:{roleId}` ⏳).
+- [~] Integrasi domain: `getActor` terpasang di **SEMUA** route via `route()` ✅ — tapi enforcement **gated off** (`AUTH_ENFORCE=false`).
 
 ### AUTH4 — API & UI
-- [ ] Route `/api/v1/auth/*` (login/refresh/logout/mfa/me) tipis + envelope.
-- [ ] Login page + `/me` permission-gating frontend.
+- [x] Route `/api/v1/auth/*` login/refresh/logout/me ✅ tipis + envelope (mfa ⏳).
+- [~] Login page ✅ + `SessionContext`/`/me` ✅ + Navbar user+logout ✅ + **silent refresh client (401→refresh→retry)** ✅. **Menu/aksi gating via `can()` ❌ belum diterapkan.**
 
 ### AUTH5 — Polish *(MFA DITUNDA pasca-MVP)*
-- [ ] Idle timeout (refresh 3h). Security headers.
-- [~] MFA TOTP — **ditunda**; field `mfaEnabled`/`mfaSecret` tetap di schema untuk forward-compat (enforcement nanti).
+- [~] Idle timeout refresh 3h ✅ (struktur). **Security headers ❌** · **SSR auto-refresh ❌** (§11 MUST-HAVE).
+- [~] MFA TOTP — **ditunda**; field `mfaEnabled`/`mfaSecret` di schema (forward-compat).
 
 ### AUTH6 — Tests
-- [ ] Unit: login sukses/gagal/lockout · refresh rotate · **reuse detection** · revoke bump version · `requirePermission` allow/deny · `requireScope`.
-- [ ] Integration DAL (refresh family, RLS context set).
+- [x] Unit: login sukses/gagal/**lockout** · refresh **rotate** · **reuse detection** · revoke/changePassword · JWT round-trip/expiry/tamper. ([authService.test](../src/lib/services/authService.test.ts) · [jwt.test](../src/lib/auth/jwt.test.ts), 16 tes).
+- [ ] `requireScope` allow/deny (belum ada) · Integration DAL (refresh family, RLS).
 
 ---
 
@@ -227,3 +232,34 @@ Emit ke **BACKEND-AUDIT**: `LOGIN`, `LOGIN_FAILED`, `LOGOUT`, `REFRESH`, `REVOKE
 4. ✅ **Unit-scope least-privilege** — `Role.unitScoped` flag: role global (Admin/Registrasi/Kasir) bypass; role scoped (Perawat/Dokter) **wajib ≥1 unit**, kosong = tolak data klinis.
 5. ✅ **Redis down = graceful degradation** — validasi JWT-only + alert + (opsional) `tokenVersion` ke DB untuk aksi sensitif; **bukan** fail-closed global (life-safety). Risiko dibatasi TTL 30m.
 6. ⏳ **SSO/LDAP** — **terbuka** (Credentials lokal dulu; SSO menyusul bila RS punya IdP).
+7. ✅ **Lapisan sesi = custom JWT (`jose`), BUKAN Auth.js v5** (keputusan ulang **2026-06-07**). Manfaat Auth.js tipis di arsitektur ini (mekanisme berat sudah custom + Redis ditunda); SSO nanti ditambah di belakang seam `getActor`. Mengganti §4.7 awal.
+8. ✅ **Gate bertahap `AUTH_ENFORCE`** (env, **2026-06-07**) — satu sakelar menyatukan enforcement server (`getActor` → 401) + proxy redirect. `false` (default) = transisi/dev terbuka (fallback DEV actor); `true` = proteksi nyata. Cegah lockout pra-bootstrap. **Interim — dihapus saat auth wajib di prod.**
+9. ⏳ **Redis ditunda** (**2026-06-07**, belum di-setup) — revoke instan (`jti` blocklist), rate-limit, cache `perm:` ditunda; degradasi terkendali (§5): revoke via refresh/DB, window access ≤30m.
+
+---
+
+## 11. Analisis Gap & MUST-HAVE *(2026-06-07)*
+
+**Posisi sekarang:** rangka + data + core runtime auth **sudah jalan**, tapi **belum ditegakkan** (`AUTH_ENFORCE=false`). Login/refresh/logout/me, rotasi+reuse-detection, lockout, RBAC seed, proxy, dan FE (SessionContext/Navbar/silent-refresh) sudah ada. Yang menghalangi "auth nyata di prod" terbagi MUST-HAVE vs SHOULD/LATER.
+
+### 🔴 MUST-HAVE — blocker sebelum `AUTH_ENFORCE=true`
+1. **Bootstrap akun (≥1 Admin).** Tanpa akun, enforce = **lockout total** (tak ada yang bisa login). Butuh Pegawai → User → role Admin (idempoten). **Prasyarat #1.**
+2. **Selaraskan resource-key route ↔ permission ter-seed.** Tiga key route **tak ada** di `PERMISSION_TREE` → role non-Admin akan **ditolak salah** saat enforce:
+   - `registration.patient` (tree pakai `registration.pasien`) — **mismatch nama**.
+   - `master.pegawai` — **tak ada** di tree.
+   - `master.penugasan-ruangan` — **tak ada** di tree.
+   → Putuskan satu kosakata: rename route ATAU tambah leaf ke `PERMISSION_TREE` + re-seed. (Admin lolos karena `isGlobal`, jadi bug ini "tersembunyi" sampai role lain dipakai.)
+3. **Penanganan access-expired di SSR.** `getServerActor` belum punya auto-refresh; saat enforce, navigasi SSR pasca-30m (refresh masih valid) → 401/redirect walau sesi hidup. Opsi: proxy/route melakukan rotasi, atau `getServerActor` mencoba refresh. **Wajib** sebelum enforce agar UX tak putus tiap 30m.
+4. **`AUTH_SECRET` produksi** yang kuat (bukan default dev) + rencana rotasi. (Saat ini di-generate ke `.env` dev.)
+5. **ABAC `requireScope` minimal** sebelum modul **klinis** live — role unit-scoped (Perawat/Dokter) tanpa `UserUnitScope` harus fail-closed terhadap data klinis. Saat ini `assertCan` hanya RBAC (belum cek unit). Tidak menghalangi modul master/registrasi, **tapi wajib untuk klinis**.
+
+### 🟡 SHOULD / LATER — bukan blocker awal
+- **Redis** (§5): `jti` blocklist (revoke instan), rate-limit login, cache `perm:{roleId}`. Sekarang in-process + degradasi DB.
+- **argon2id** swap (format hash self-describing → migrasi mulus).
+- **Menu/aksi gating** via `can()` di Sidebar/komponen (kosmetik; server tetap penjaga).
+- **Security headers** + `correlationId` di proxy + **audit events** (LOGIN/LOGOUT/REVOKE → BACKEND-AUDIT).
+- **MFA TOTP** (field siap).
+- **`changePassword` flow FE** + paksa saat `mustChangePassword=true`.
+
+### Urutan aktivasi aman
+`bootstrap admin` → `selaraskan resource-key` → `test login E2E` → `SSR refresh` → **set `AUTH_ENFORCE=true`** → (klinis) tambah `requireScope` → (hardening) Redis + argon2id + audit.

@@ -1,12 +1,21 @@
 // Actor = identitas terverifikasi yang melakukan request (hasil AuthN).
 // FLOWS §6: AuthN/RBAC di Route guard; ABAC unit-scope + IDOR di Service via scopeBy(actor).
 //
-// ⚠️ SEAM: runtime auth (Auth.js hybrid) BELUM dibangun (BACKEND-AUTH). getActor() kini
-// mengembalikan DEV actor (super-akses) agar endpoint bisa dikembangkan & diuji.
-// Saat auth siap: ganti isi getActor() (verify JWT + Redis revoke) — signature TETAP,
-// jadi Route/Service tak berubah. assertCan() jadi titik tunggal penegakan RBAC.
+// Lapisan sesi = custom JWT (jose) — lihat lib/auth/jwt.ts. Redis DITUNDA:
+//   • revocation per-request (jti blocklist + tokenVersion) BELUM → access kedaluwarsa ≤30m
+//     membatasi window; revoke instan ditegakkan saat refresh (DB). (BACKEND-AUTH §5 degradasi.)
+//   • permission di-expand dari roles via rbacCache (in-process, pengganti cache Redis perm:{}).
+//
+// Gate bertahap (BACKEND-AUTH §8): AUTH_ENFORCE=false (default) → request tanpa sesi valid
+// jatuh ke DEV actor agar route yang belum dilindungi tetap jalan selama transisi. Set
+// AUTH_ENFORCE=true untuk menolak (401) request tanpa sesi.
 
+import { cookies } from "next/headers";
 import { Errors } from "@/lib/errors/appError";
+import { verifyAccessToken } from "@/lib/auth/jwt";
+import { permissionsForRoles } from "@/lib/auth/rbacCache";
+import { readCookie, ACCESS_COOKIE } from "@/lib/auth/cookies";
+import type { AccessClaims } from "@/lib/schemas/auth";
 
 export interface Actor {
   userId: string;
@@ -20,7 +29,7 @@ export interface Actor {
   isGlobal: boolean;
 }
 
-// Sentinel dev actor — DIHAPUS perilakunya saat BACKEND-AUTH selesai.
+// Sentinel dev actor — hanya dipakai saat AUTH_ENFORCE=false & tak ada sesi (transisi).
 const DEV_ACTOR: Actor = {
   userId: "00000000-0000-0000-0000-000000000000",
   pegawaiId: "00000000-0000-0000-0000-000000000000",
@@ -30,20 +39,47 @@ const DEV_ACTOR: Actor = {
   isGlobal: true,
 };
 
-/**
- * Resolusi actor dari request (cookie/Authorization). STUB: selalu DEV actor.
- * TODO(BACKEND-AUTH): verify session JWT + cek revocation Redis → 401 bila invalid.
- */
-export async function getActor(_req: Request): Promise<Actor> {
+const enforce = (): boolean => process.env.AUTH_ENFORCE === "true";
+
+async function actorFromClaims(claims: AccessClaims): Promise<Actor> {
+  const permissions = await permissionsForRoles(claims.roles);
+  return {
+    userId: claims.sub,
+    pegawaiId: claims.pegawaiId,
+    roles: claims.roles,
+    permissions,
+    unitIds: claims.unitIds,
+    isGlobal: claims.isGlobal,
+  };
+}
+
+/** Pilih: actor dari token (bila valid) → else 401 (enforce) → else DEV (transisi). */
+async function resolve(token: string | null): Promise<Actor> {
+  if (token) {
+    try {
+      return await actorFromClaims(await verifyAccessToken(token));
+    } catch {
+      // token basi/invalid: enforce → tolak; transisi → fall-through ke DEV.
+      if (enforce()) throw Errors.unauthenticated();
+    }
+  }
+  if (enforce()) throw Errors.unauthenticated();
   return DEV_ACTOR;
 }
 
-/**
- * Actor untuk konteks SERVER tanpa Request (Server Component / job / SSR Service-call langsung).
- * STUB: DEV actor. TODO(BACKEND-AUTH): resolve dari cookies()/session Auth.js.
- */
+/** Resolusi actor dari Request (cookie access JWT, atau Authorization: Bearer). */
+export async function getActor(req: Request): Promise<Actor> {
+  const bearer = req.headers.get("authorization");
+  const token =
+    readCookie(req, ACCESS_COOKIE) ??
+    (bearer?.toLowerCase().startsWith("bearer ") ? bearer.slice(7).trim() : null);
+  return resolve(token);
+}
+
+/** Actor untuk konteks SERVER tanpa Request (Server Component / SSR Service-call). */
 export async function getServerActor(): Promise<Actor> {
-  return DEV_ACTOR;
+  const store = await cookies();
+  return resolve(store.get(ACCESS_COOKIE)?.value ?? null);
 }
 
 /** RBAC assert (FLOWS §6). Lempar FORBIDDEN bila role tak punya izin. */

@@ -1,154 +1,214 @@
-import Link from "next/link";
-import type { Metadata } from "next";
-import { Activity } from "lucide-react";
+"use client";
 
-export const metadata: Metadata = { title: "Login" };
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { login as apiLogin } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/client";
+import {
+  Activity,
+  ShieldCheck,
+  Stethoscope,
+  Clock,
+  User,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
+
+const OVERVIEW = [
+  { icon: Stethoscope, label: "Rekam medis terintegrasi" },
+  { icon: ShieldCheck, label: "Data terenkripsi & teraudit" },
+  { icon: Clock, label: "Real-time di semua unit" },
+];
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (submitting) return;
+    const fd = new FormData(e.currentTarget);
+    const username = String(fd.get("username") ?? "").trim();
+    const password = String(fd.get("password") ?? "");
+    setError(null);
+    setSubmitting(true);
+    try {
+      await apiLogin(username, password);
+      // Honor ?next= (dari proxy) bila path internal aman; selain itu ke dashboard.
+      const next = new URLSearchParams(window.location.search).get("next");
+      const dest = next && next.startsWith("/") && !next.startsWith("//") ? next : "/ehis-dashboard";
+      router.push(dest);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Tidak dapat terhubung ke server. Coba lagi.");
+      setSubmitting(false);
+    }
+  }
+
   return (
-    <div className="flex min-h-screen">
-      {/* ── Brand panel (desktop) ─────────────────────────── */}
-      <div className="relative hidden w-[45%] overflow-hidden bg-[#0a0f1e] lg:flex lg:flex-col lg:justify-between">
-        {/* Radial glow */}
-        <div
-          className="pointer-events-none absolute -top-1/4 left-1/2 h-150 w-150 -translate-x-1/2 rounded-full opacity-[0.07]"
-          style={{ background: "radial-gradient(circle, #38bdf8 0%, transparent 70%)" }}
-        />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-100 px-4 py-10">
+      {/* ── Ambient background ─────────────────────────────── */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(60% 50% at 50% 0%, #ccfbf1 0%, transparent 60%), radial-gradient(50% 50% at 100% 100%, #e0f2fe 0%, transparent 55%)",
+        }}
+      />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.4]"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle, #cbd5e1 1px, transparent 1px)",
+          backgroundSize: "26px 26px",
+          maskImage: "radial-gradient(70% 70% at 50% 40%, #000 0%, transparent 75%)",
+        }}
+      />
 
-        {/* Dot grid pattern */}
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage: "radial-gradient(circle, #94a3b8 1px, transparent 1px)",
-            backgroundSize: "24px 24px",
-          }}
-        />
-
-        {/* Diagonal accent line */}
-        <div
-          className="pointer-events-none absolute -right-20 top-1/3 h-px w-[140%] rotate-25 opacity-[0.08]"
-          style={{ background: "linear-gradient(90deg, transparent, #38bdf8 40%, #38bdf8 60%, transparent)" }}
-        />
-
-        {/* Brand content */}
-        <div className="relative z-10 flex flex-1 flex-col justify-center px-12 xl:px-16">
-          <div className="animate-fade-in">
-            <div className="mb-8 flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/10 ring-1 ring-sky-400/20">
-              <Activity size={22} className="text-sky-400" />
+      {/* ── Card ───────────────────────────────────────────── */}
+      <div className="animate-fade-in relative z-10 w-full max-w-md">
+        <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-8 shadow-xl shadow-slate-900/5 backdrop-blur-sm sm:p-10">
+          {/* Logo + brand */}
+          <div className="flex flex-col items-center text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 shadow-lg shadow-teal-900/10">
+              <Activity size={26} className="text-teal-300" />
             </div>
-            <h1 className="font-(family-name:--font-display) text-4xl tracking-tight text-white xl:text-5xl">
-              EHIS
+            <h1 className="font-(family-name:--font-poppins) mt-5 text-2xl font-semibold tracking-tight text-slate-900">
+              Masuk ke EHIS
             </h1>
-            <p className="mt-2 text-lg font-light tracking-wide text-slate-400">
-              Sistem Informasi
-              <br />
-              Rumah Sakit
+            <p className="mt-1.5 text-sm text-slate-500">
+              Sistem Informasi RS Harapan Sehat
             </p>
           </div>
 
-          <div className="animate-fade-in mt-16" style={{ animationDelay: "200ms" }}>
-            <div className="h-px w-12 bg-sky-500/30" />
-            <p className="mt-4 text-sm leading-relaxed text-slate-500">
-              Platform terintegrasi untuk manajemen
-              <br />
-              pelayanan kesehatan yang optimal.
-            </p>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="relative z-10 px-12 pb-8 xl:px-16">
-          <p className="animate-fade-in text-[11px] tracking-widest text-slate-600" style={{ animationDelay: "400ms" }}>
-            RS HARAPAN SEHAT
-          </p>
-        </div>
-      </div>
-
-      {/* ── Form panel ────────────────────────────────────── */}
-      <div className="flex flex-1 flex-col justify-center bg-white px-6 sm:px-12 lg:px-16 xl:px-24">
-        <div className="mx-auto w-full max-w-sm">
-          {/* Mobile brand (hidden on desktop) */}
-          <div className="animate-fade-in mb-10 lg:hidden">
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-[#0a0f1e]">
-              <Activity size={18} className="text-sky-400" />
+          {/* Error */}
+          {error && (
+            <div
+              role="alert"
+              className="mt-6 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm text-rose-700"
+            >
+              <AlertCircle size={16} className="mt-0.5 shrink-0" />
+              <span>{error}</span>
             </div>
-            <h1 className="font-(family-name:--font-display) text-3xl tracking-tight text-slate-900">
-              EHIS
-            </h1>
-            <p className="mt-1 text-sm text-slate-400">Sistem Informasi Rumah Sakit</p>
-          </div>
-
-          {/* Heading */}
-          <div className="animate-fade-in" style={{ animationDelay: "100ms" }}>
-            <h2 className="text-xl font-semibold tracking-tight text-slate-900">
-              Masuk ke akun Anda
-            </h2>
-            <p className="mt-1.5 text-sm text-slate-400">
-              Silakan masukkan kredensial untuk melanjutkan.
-            </p>
-          </div>
+          )}
 
           {/* Form */}
-          <form
-            className="animate-fade-in mt-8 space-y-5"
-            style={{ animationDelay: "200ms" }}
-            action="/ehis-dashboard"
-          >
+          <form onSubmit={handleSubmit} className={error ? "mt-4 space-y-5" : "mt-8 space-y-5"}>
+            {/* Username */}
             <div>
-              <label
-                htmlFor="email"
-                className="mb-2 block text-xs font-medium uppercase tracking-wider text-slate-500"
-              >
-                Email
+              <label htmlFor="username" className="mb-1.5 block text-sm font-medium text-slate-700">
+                Username
               </label>
-              <input
-                id="email"
-                type="email"
-                placeholder="nama@rumahsakit.id"
-                autoComplete="email"
-                className="h-11 w-full rounded-lg border border-slate-200 bg-slate-50/50 px-4 text-sm text-slate-800 placeholder:text-slate-300 outline-none transition-all duration-200 focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
-              />
+              <div className="group relative">
+                <User
+                  size={16}
+                  className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-teal-600"
+                />
+                <input
+                  id="username"
+                  name="username"
+                  type="text"
+                  required
+                  placeholder="nama.pengguna"
+                  autoComplete="username"
+                  className="h-11 w-full rounded-lg border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all duration-200 focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-500/10"
+                />
+              </div>
             </div>
 
+            {/* Password */}
             <div>
-              <div className="mb-2 flex items-center justify-between">
-                <label
-                  htmlFor="password"
-                  className="block text-xs font-medium uppercase tracking-wider text-slate-500"
-                >
+              <div className="mb-1.5 flex items-center justify-between">
+                <label htmlFor="password" className="block text-sm font-medium text-slate-700">
                   Password
                 </label>
                 <button
                   type="button"
-                  className="text-xs font-medium text-sky-500 transition hover:text-sky-600"
+                  className="text-xs font-medium text-teal-600 transition hover:text-teal-700"
                 >
                   Lupa password?
                 </button>
               </div>
-              <input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                autoComplete="current-password"
-                className="h-11 w-full rounded-lg border border-slate-200 bg-slate-50/50 px-4 text-sm text-slate-800 placeholder:text-slate-300 outline-none transition-all duration-200 focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
-              />
+              <div className="group relative">
+                <Lock
+                  size={16}
+                  className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-teal-600"
+                />
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  className="h-11 w-full rounded-lg border border-slate-200 bg-slate-50 pl-10 pr-11 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all duration-200 focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-500/10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                  className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
 
-            <Link
-              href="/ehis-dashboard"
-              className="group relative flex h-11 w-full items-center justify-center overflow-hidden rounded-lg bg-[#0a0f1e] text-sm font-semibold tracking-wide text-white transition-all duration-300 hover:shadow-lg hover:shadow-sky-500/10 active:scale-[0.98]"
-            >
-              <span className="relative z-10">Masuk</span>
-              <div className="absolute inset-0 bg-sky-600 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-            </Link>
-          </form>
+            {/* Remember me */}
+            <label className="flex cursor-pointer select-none items-center gap-2.5 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                defaultChecked
+                className="h-4 w-4 rounded border-slate-300 text-teal-600 accent-teal-600 focus:ring-2 focus:ring-teal-500/20"
+              />
+              Biarkan saya tetap masuk
+            </label>
 
-          {/* Footer */}
-          <p
-            className="animate-fade-in mt-10 text-center text-[11px] tracking-wide text-slate-300"
-            style={{ animationDelay: "400ms" }}
-          >
-            EHIS v2.0 &middot; 2026
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={submitting}
+              className="group flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 text-sm font-semibold tracking-wide text-white shadow-sm transition-all duration-200 hover:bg-teal-600 hover:shadow-lg hover:shadow-teal-600/20 focus:outline-none focus:ring-4 focus:ring-teal-500/20 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-80"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Memproses…
+                </>
+              ) : (
+                <>
+                  Masuk
+                  <ArrowRight
+                    size={16}
+                    className="transition-transform duration-200 group-hover:translate-x-0.5"
+                  />
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+
+        {/* Overview */}
+        <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+          {OVERVIEW.map(({ icon: Icon, label }) => (
+            <li key={label} className="flex items-center gap-1.5 text-xs text-slate-500">
+              <Icon size={13} className="text-teal-600" />
+              {label}
+            </li>
+          ))}
+        </ul>
+
+        {/* Footer */}
+        <div className="mt-5 flex items-center justify-center gap-1.5">
+          <ShieldCheck size={12} className="text-slate-400" />
+          <p className="text-[11px] tracking-wide text-slate-400">
+            Koneksi aman &middot; EHIS v2.0 &middot; 2026
           </p>
         </div>
       </div>

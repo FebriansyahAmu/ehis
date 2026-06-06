@@ -45,6 +45,27 @@ interface RequestOptions {
 
 const MUTATIONS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
+// Endpoint auth yang TIDAK boleh memicu auto-refresh (mencegah loop: login/refresh/logout).
+// `/auth/me` & endpoint data lain TETAP dapat refresh-retry saat access JWT kedaluwarsa.
+const NO_REFRESH = new Set(["/auth/login", "/auth/refresh", "/auth/logout"]);
+
+// Single-flight refresh — banyak request 401 berbarengan hanya memicu SATU panggilan refresh.
+let refreshInFlight: Promise<boolean> | null = null;
+function ensureRefresh(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = fetch(`${BASE}/auth/refresh`, {
+      method: "POST",
+      headers: { Accept: "application/json" },
+      credentials: "same-origin",
+      cache: "no-store",
+    })
+      .then((r) => r.ok)
+      .catch(() => false)
+      .finally(() => { refreshInFlight = null; });
+  }
+  return refreshInFlight;
+}
+
 function buildUrl(path: string, query?: Query): string {
   if (!query) return BASE + path;
   const sp = new URLSearchParams();
@@ -67,7 +88,12 @@ export interface ApiResult<T> {
   status: number;
 }
 
-async function request<T>(method: string, path: string, opts: RequestOptions = {}): Promise<ApiResult<T>> {
+async function request<T>(
+  method: string,
+  path: string,
+  opts: RequestOptions = {},
+  isRetry = false,
+): Promise<ApiResult<T>> {
   const headers: Record<string, string> = { Accept: "application/json" };
   let body: string | undefined;
 
@@ -92,6 +118,11 @@ async function request<T>(method: string, path: string, opts: RequestOptions = {
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") throw e;
     throw new ApiError("NETWORK", "Tidak dapat terhubung ke server", 0);
+  }
+
+  // Access JWT kedaluwarsa → coba rotasi refresh sekali, lalu ulangi request asli.
+  if (res.status === 401 && !isRetry && !NO_REFRESH.has(path)) {
+    if (await ensureRefresh()) return request<T>(method, path, opts, true);
   }
 
   let json: unknown;

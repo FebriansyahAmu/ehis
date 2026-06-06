@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Search,
   Bell,
@@ -13,9 +13,22 @@ import {
 } from "lucide-react";
 
 import { useSidebar } from "@/contexts/SidebarContext";
+import { useSession } from "@/contexts/SessionContext";
 import { cn } from "@/lib/utils";
 import type { ModuleKey } from "@/lib/navigation";
 import ModuleSwitcher from "./ModuleSwitcher";
+
+/** Inisial dari namaTampil (abaikan gelar bertanda titik, mis. "dr.", "Sp.JP"). */
+function initialsOf(name?: string): string {
+  if (!name) return "?";
+  const words = name
+    .split(/\s+/)
+    .filter((w) => w && !w.includes("."))
+    .map((w) => w.replace(/[^\p{L}]/gu, ""))
+    .filter(Boolean);
+  if (!words.length) return "?";
+  return (words[0][0] + (words[1]?.[0] ?? "")).toUpperCase();
+}
 
 const NOTIFS = [
   { msg: "Hasil lab pasien Joko Prasetyo tersedia", t: "5 menit lalu"  },
@@ -25,10 +38,24 @@ const NOTIFS = [
 
 export default function Navbar({ activeModule }: { activeModule: ModuleKey }) {
   const { toggle } = useSidebar();
+  const { session, logout } = useSession();
+  const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notifOpen, setNotifOpen]       = useState(false);
+  const [loggingOut, setLoggingOut]     = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifRef    = useRef<HTMLDivElement>(null);
+
+  const nama = session?.namaTampil ?? "Tamu";
+  const peran = session?.roles[0] ?? "Belum masuk";
+
+  async function handleLogout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    await logout();
+    router.push("/");
+    router.refresh();
+  }
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -127,11 +154,11 @@ export default function Navbar({ activeModule }: { activeModule: ModuleKey }) {
             aria-expanded={dropdownOpen}
             aria-haspopup="menu"
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">
-              DR
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-600 text-xs font-bold text-white">
+              {initialsOf(session?.namaTampil)}
             </span>
-            <span className="hidden text-sm font-medium text-slate-700 sm:block">
-              dr. Rizky
+            <span className="hidden max-w-40 truncate text-sm font-medium text-slate-700 sm:block">
+              {nama}
             </span>
             <ChevronDown
               size={13}
@@ -148,8 +175,8 @@ export default function Navbar({ activeModule }: { activeModule: ModuleKey }) {
               className="animate-fade-in absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-1 shadow-xl"
             >
               <div className="px-3 py-2.5">
-                <p className="text-sm font-semibold text-slate-800">dr. Rizky Pratama</p>
-                <p className="text-xs text-slate-400">Admin · EHIS</p>
+                <p className="truncate text-sm font-semibold text-slate-800">{nama}</p>
+                <p className="text-xs text-slate-400">{peran} · EHIS</p>
               </div>
               <hr className="border-slate-100" />
               {[
@@ -166,14 +193,15 @@ export default function Navbar({ activeModule }: { activeModule: ModuleKey }) {
                 </button>
               ))}
               <hr className="border-slate-100" />
-              <Link
-                href="/"
+              <button
                 role="menuitem"
-                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-rose-600 transition hover:bg-rose-50"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
               >
                 <LogOut size={14} />
-                Keluar
-              </Link>
+                {loggingOut ? "Keluar…" : "Keluar"}
+              </button>
             </div>
           )}
         </div>
