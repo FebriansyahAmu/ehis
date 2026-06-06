@@ -33,6 +33,12 @@ const KNOWN_STATUS = new Set([
 ]);
 const ACTIVE_STATUS = ["Registered", "Queued", "InService"] as const;
 
+// Label manusiawi untuk pesan guard kunjungan-ganda.
+const UNIT_LABEL: Record<string, string> = { IGD: "IGD", RawatJalan: "Rawat Jalan", RawatInap: "Rawat Inap" };
+const STATUS_LABEL: Record<string, string> = {
+  Registered: "Terdaftar", Queued: "Antre", InService: "Dalam Pelayanan",
+};
+
 const isBpjs = (t: string): boolean => t === "BPJS_Non_PBI" || t === "BPJS_PBI";
 
 /** Nama penjamin default bila pasien belum punya record penjamin tipe tsb. */
@@ -173,6 +179,16 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
     const waktu = combineDateTime(input.tanggal, input.jam);
 
     const created = await transaction(async (tx) => {
+      // Guard kunjungan ganda: pasien tak boleh punya >1 kunjungan berjalan. Kunjungan
+      // aktif (Registered/Queued/InService) harus Diselesaikan/Dibatalkan dulu sebelum
+      // daftar lagi. Dicek dalam tx (early) sebelum men-konsumsi nomor urut.
+      const active = await dal.findActiveByPatient(patient.id, tx);
+      if (active) {
+        throw Errors.conflict(
+          `Pasien masih memiliki kunjungan aktif (${active.noKunjungan} · ${UNIT_LABEL[active.unit] ?? active.unit} · ${STATUS_LABEL[active.status] ?? active.status}). Selesaikan atau batalkan kunjungan tersebut dulu sebelum mendaftarkan kunjungan baru.`,
+        );
+      }
+
       const seq = await dal.nextNoKunjunganSeq(tx);
 
       // Jaminan aktif ikut kunjungan terakhir: persist penjamin BPJS terverifikasi

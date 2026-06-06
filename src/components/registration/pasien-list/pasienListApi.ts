@@ -1,7 +1,7 @@
 // Adapter list pasien: PatientDTO (API /api/v1/patients) → PatientMaster (vocab FE).
-// Dipakai PasienListPage untuk menampilkan pasien hasil pendaftaran (DB) berdampingan
-// dengan demo mock. Kunjungan/billing belum tersedia (Encounter API belum dibangun) →
-// dikosongkan; baris tampil "–". Tak ada PII mentah: nik = nikMasked dari server.
+// Dipakai PasienListPage (100% data DB, mock dihapus). `riwayatKunjungan` dikosongkan di
+// sini lalu DI-ENRICH oleh PasienListPage dari worklist kunjungan (GET /kunjungan); billing
+// belum tersedia → tetap kosong. Tak ada PII mentah: nik = nikMasked dari server.
 
 import type {
   PatientMaster,

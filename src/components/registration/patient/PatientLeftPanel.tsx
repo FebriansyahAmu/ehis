@@ -11,6 +11,7 @@ import {
   Receipt,
   ArrowRight,
   ExternalLink,
+  TriangleAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PatientMaster } from "@/lib/data";
@@ -53,6 +54,13 @@ export function PatientLeftPanel({
     [patient.kasir],
   );
   const totalDeposit = patient.kasir?.deposits.reduce((s, d) => s + d.jumlah, 0) ?? 0;
+  // Guard kunjungan-ganda: satu pasien hanya boleh punya satu kunjungan berjalan.
+  // Selama ada kunjungan aktif (belum Selesai/Batal), CTA Daftar dikunci — selaras
+  // enforcement server (registerKunjungan → 409). Selesaikan/batalkan dulu yang aktif.
+  const activeKunjungan = useMemo(
+    () => patient.riwayatKunjungan.find((k) => k.status === "Aktif"),
+    [patient.riwayatKunjungan],
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -184,14 +192,50 @@ export function PatientLeftPanel({
             </div>
           </div>
 
-          {/* Primary CTA */}
-          <button
-            onClick={onDaftarKunjungan}
-            className="group mt-3 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-sky-600 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-sky-700 active:scale-[0.98]"
-          >
-            <CalendarPlus size={12} className="transition group-hover:scale-110" />
-            Daftar Kunjungan Baru
-          </button>
+          {/* Primary CTA — dikunci bila ada kunjungan aktif (cegah pendaftaran ganda) */}
+          {activeKunjungan ? (
+            <div className="mt-3 space-y-2">
+              <button
+                type="button"
+                disabled
+                aria-disabled
+                title="Pasien masih punya kunjungan aktif — selesaikan dulu sebelum daftar lagi."
+                className="flex w-full cursor-not-allowed items-center justify-center gap-1.5 rounded-xl bg-slate-100 py-2.5 text-xs font-semibold text-slate-400 ring-1 ring-inset ring-slate-200"
+              >
+                <CalendarPlus size={12} />
+                Daftar Kunjungan Baru
+              </button>
+              <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2.5">
+                <TriangleAlert size={13} className="mt-0.5 shrink-0 text-amber-500" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-semibold leading-snug text-amber-800">
+                    Masih ada kunjungan aktif
+                  </p>
+                  <p className="mt-0.5 text-[10.5px] leading-snug text-amber-700">
+                    <span className="font-mono font-semibold">{activeKunjungan.noKunjungan}</span>
+                    {" · "}{activeKunjungan.unit}. Selesaikan atau batalkan dulu sebelum mendaftarkan kunjungan baru.
+                  </p>
+                  {activeKunjungan.detailPath && (
+                    <Link
+                      href={activeKunjungan.detailPath}
+                      className="mt-1.5 inline-flex items-center gap-1 text-[10.5px] font-semibold text-amber-700 underline-offset-2 transition hover:text-amber-900 hover:underline"
+                    >
+                      Lihat kunjungan aktif
+                      <ArrowRight size={11} />
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={onDaftarKunjungan}
+              className="group mt-3 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-sky-600 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-sky-700 active:scale-[0.98]"
+            >
+              <CalendarPlus size={12} className="transition group-hover:scale-110" />
+              Daftar Kunjungan Baru
+            </button>
+          )}
 
           {/* Secondary actions */}
           <div className="mt-2 grid grid-cols-2 gap-1.5">

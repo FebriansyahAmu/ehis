@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, ChevronRight, Stethoscope, ExternalLink, X,
-  Pencil, Check, UserCog, Calendar, DoorOpen, MessageSquare,
+  Pencil, Check, UserCog, Calendar, DoorOpen, MessageSquare, Ambulance,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PatientMaster, KunjunganRecord } from "@/lib/data";
@@ -154,6 +154,13 @@ export function KunjunganDetailHeader({
                 <InfoChip icon={Calendar} label="Tanggal"    value={tanggal}   />
                 <span className="hidden h-3 w-px bg-slate-200 sm:block" />
                 <InfoChip icon={DoorOpen} label="Cara masuk" value={caraMasuk} />
+                {/* Cara datang (IGD) — hanya tampil bila terisi; null → dikosongkan. */}
+                {kunjungan.caraDatang && (
+                  <>
+                    <span className="hidden h-3 w-px bg-slate-200 sm:block" />
+                    <InfoChip icon={Ambulance} label="Cara datang" value={kunjungan.caraDatang} />
+                  </>
+                )}
                 {keluhan && (
                   <>
                     <span className="hidden h-3 w-px bg-slate-200 md:block" />

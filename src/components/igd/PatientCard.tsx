@@ -4,10 +4,6 @@ import { Clock, Stethoscope, FileText, BedDouble, Timer, DoorOpen } from "lucide
 import type { IGDPatient, TriageLevel, IGDStatus } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
-// id pasien DB = UUID → belum punya halaman detail klinis (masih mock). Hanya id seed/mock
-// (mis. "igd-1") yang nge-link ke detail.
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 // ── Triage config ─────────────────────────────────────────
 
 const TRIAGE = {
@@ -108,8 +104,9 @@ export default function PatientCard({ patient, index = 0, actions }: PatientCard
   const urgency    = patient.triage ? getUrgency(patient.triage, waitMin) : "ok";
   const isBoarding = waitMin !== null && waitMin >= BOARDING_MIN;
 
-  // Link ke detail hanya untuk pasien mock/seed (id non-UUID) & tanpa tombol aksi.
-  const href = !actions && !UUID_RE.test(patient.id) ? `/ehis-care/igd/${patient.id}` : undefined;
+  // Link ke rekam medis (mock seed atau kunjungan DB) — kecuali kartu dengan tombol aksi
+  // (hindari nested click). Detail page resolve mock by id atau DB by UUID (IGDRecordResolver).
+  const href = !actions ? `/ehis-care/igd/${patient.id}` : undefined;
 
   const cardCls = cn(
     "animate-fade-in flex flex-col gap-3 rounded-xl border border-slate-200 border-l-4 bg-white p-4 shadow-sm transition",

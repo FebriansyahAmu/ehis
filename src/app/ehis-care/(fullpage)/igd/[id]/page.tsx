@@ -1,8 +1,8 @@
-import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
 import PatientHeader from "@/components/igd/PatientHeader";
 import IGDRecordTabs from "@/components/igd/IGDRecordTabs";
+import IGDRecordResolver from "@/components/igd/IGDRecordResolver";
 import { igdPatientDetails } from "@/lib/data";
 
 export async function generateMetadata({
@@ -22,7 +22,10 @@ export default async function IGDPatientPage({
 }) {
   const { id } = await params;
   const patient = igdPatientDetails[id];
-  if (!patient) notFound();
+
+  // Pasien demo (mock) → render langsung (SSR). Kunjungan DB nyata (id UUID, tak ada
+  // di mock) → resolver klien fetch GET /kunjungan/:id + /patients/:id (klinis kosong).
+  if (!patient) return <IGDRecordResolver id={id} />;
 
   return (
     <div className="flex h-full flex-col">

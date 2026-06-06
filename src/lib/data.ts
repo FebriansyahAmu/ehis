@@ -553,6 +553,8 @@ export interface KunjunganRecord {
   noSEP?: string;
   kodeICD?: string;
   caraMasuk?: string;
+  /** IGD: cara datang/kedatangan (Jalan Kaki/Ambulans/Kendaraan Pribadi). Null → tak ditampilkan. */
+  caraDatang?: string;
   klinisPath?: string;
   orderedServices?: { unit: UnitKunjungan; selesai: boolean }[];
   dokumen?: {

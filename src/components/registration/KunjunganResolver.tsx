@@ -12,6 +12,7 @@ import { patientMasterData, type PatientMaster, type KunjunganRecord } from "@/l
 import { getMergedPatient, useRegistrationStore } from "@/lib/registration/registrationStore";
 import { getKunjungan } from "@/lib/api/kunjungan";
 import { getPatient } from "@/lib/api/patients";
+import { getDokter } from "@/lib/api/dokter";
 import { dtoToPatientMaster } from "./pasien-list/pasienListApi";
 import { dtoDetailToKunjunganRecord } from "./patient/kunjunganRiwayatApi";
 import KunjunganDetailPage from "./KunjunganDetailPage";
@@ -61,7 +62,17 @@ export default function KunjunganResolver({
       try {
         const dto = await getKunjungan(kunjunganId, ac.signal);
         if (ac.signal.aborted) return;
-        setApiKunjungan(dtoDetailToKunjunganRecord(dto));
+        // G-C: resolve nama DPJP dari master Dokter (dpjpId = Dokter.id). RJ tanpa dpjpId →
+        // skip (tetap "—"). Profil dokter tak ada / gagal → biarkan fallback "—".
+        let dpjpNama: string | undefined;
+        if (dto.dpjpId) {
+          try {
+            const d = await getDokter(dto.dpjpId, ac.signal);
+            dpjpNama = d.namaTampil;
+          } catch { /* abaikan — fallback "—" */ }
+        }
+        if (ac.signal.aborted) return;
+        setApiKunjungan(dtoDetailToKunjunganRecord(dto, { dpjpNama }));
         // Konteks pasien untuk header/breadcrumb: pakai store kalau ada, else fetch.
         if (!lp) {
           const p = await getPatient(dto.pasien.id, ac.signal);

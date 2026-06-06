@@ -8,7 +8,8 @@ import {
   UserPlus, CalendarDays, Clock, ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { patientMasterData, recentPatients } from "@/lib/data";
+import { patientMasterData } from "@/lib/data";
+import { listKunjungan, type KunjunganListItemDTO } from "@/lib/api/kunjungan";
 import { PasienBaruModal } from "@/components/registration/pasien-baru/PasienBaruModal";
 
 // ── Config ─────────────────────────────────────────────────
@@ -17,6 +18,8 @@ const STATUS_STYLE: Record<string, string> = {
   "Selesai":         "bg-slate-100 text-slate-500",
   "Dalam Perawatan": "bg-emerald-50 text-emerald-700",
   "Menunggu":        "bg-amber-50 text-amber-700",
+  "Terdaftar":       "bg-sky-50 text-sky-700",
+  "Dibatalkan":      "bg-slate-100 text-slate-400",
   "Kritis":          "bg-rose-50 text-rose-700",
 };
 
@@ -26,6 +29,39 @@ const UNIT_STYLE: Record<string, string> = {
   "Rawat Inap":  "bg-teal-50 text-teal-600",
   "Farmasi":     "bg-emerald-50 text-emerald-600",
 };
+
+// ── Kunjungan Terkini (DB) — adapter worklist → baris tabel ─────────────────
+// Feed lintas-unit, semua status, urut createdAt desc (default worklist). Ambil N teratas.
+const RECENT_LIMIT = 8;
+const ALL_STATUS = "Registered,Queued,InService,Completed,Closed,Billed,Claimed,Cancelled";
+
+const UNIT_LABEL: Record<string, string> = { IGD: "IGD", RawatJalan: "Rawat Jalan", RawatInap: "Rawat Inap" };
+const STATUS_LABEL: Record<string, string> = {
+  Registered: "Terdaftar", Queued: "Menunggu", InService: "Dalam Perawatan",
+  Completed: "Selesai", Closed: "Selesai", Billed: "Selesai", Claimed: "Selesai",
+  Cancelled: "Dibatalkan",
+};
+
+interface RecentVisit {
+  id: string;
+  name: string;
+  noRM: string;
+  unit: string;
+  status: string;
+  time: string;
+}
+
+function dtoToRecentVisit(d: KunjunganListItemDTO): RecentVisit {
+  return {
+    id: d.id,
+    name: d.pasien.nama,
+    noRM: d.pasien.noRm,
+    unit: UNIT_LABEL[d.unit] ?? d.unit,
+    status: STATUS_LABEL[d.status] ?? d.status,
+    // waktuKunjungan disimpan apa-adanya (wall-clock dianggap UTC) → tampilkan UTC.
+    time: new Date(d.waktuKunjungan).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" }),
+  };
+}
 
 // ── Skeleton ───────────────────────────────────────────────
 
@@ -144,9 +180,7 @@ function PenjaminDist({ bpjsCount, umumCount, total }: PenjaminDistProps) {
 
 // ── Visit Row ──────────────────────────────────────────────
 
-type RecentPatient = (typeof recentPatients)[number];
-
-function VisitRow({ p, index }: { p: RecentPatient; index: number }) {
+function VisitRow({ p, index }: { p: RecentVisit; index: number }) {
   const initials = p.name
     .split(" ")
     .slice(0, 2)
@@ -246,11 +280,21 @@ function QuickActions({ onDaftarBaru }: QuickActionsProps) {
 export default function RegistrationBerandaPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [recent, setRecent] = useState<RecentVisit[]>([]);
+  const [recentError, setRecentError] = useState(false);
   const patients = useMemo(() => Object.values(patientMasterData), []);
 
+  // Kunjungan Terkini dari DB (worklist lintas-unit). Skeleton sampai fetch tuntas.
   useEffect(() => {
-    const t = setTimeout(() => setLoaded(true), 650);
-    return () => clearTimeout(t);
+    const ac = new AbortController();
+    let cancelled = false;
+    listKunjungan({ status: ALL_STATUS, limit: RECENT_LIMIT }, ac.signal)
+      .then(({ items }) => { if (!cancelled) setRecent(items.map(dtoToRecentVisit)); })
+      .catch((e) => {
+        if (!cancelled && !(e instanceof DOMException && e.name === "AbortError")) setRecentError(true);
+      })
+      .finally(() => { if (!cancelled) setLoaded(true); });
+    return () => { cancelled = true; ac.abort(); };
   }, []);
 
   const stats = useMemo(() => {
@@ -332,9 +376,13 @@ export default function RegistrationBerandaPage() {
                   </Link>
                 </div>
                 <div className="divide-y divide-slate-50">
-                  {recentPatients.map((p, i) => (
-                    <VisitRow key={p.id} p={p} index={i} />
-                  ))}
+                  {recentError ? (
+                    <p className="px-4 py-10 text-center text-xs text-slate-400">Gagal memuat kunjungan terkini.</p>
+                  ) : recent.length === 0 ? (
+                    <p className="px-4 py-10 text-center text-xs text-slate-400">Belum ada kunjungan terdaftar.</p>
+                  ) : (
+                    recent.map((p, i) => <VisitRow key={p.id} p={p} index={i} />)
+                  )}
                 </div>
               </motion.div>
 

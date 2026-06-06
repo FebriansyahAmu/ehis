@@ -84,6 +84,22 @@ export function findByKodebooking(kodebooking: string, tx?: Tx) {
   return db(tx).kunjungan.findFirst({ where: { antreanKodebooking: kodebooking, deletedAt: null }, include: detailInclude });
 }
 
+// Status "aktif" = belum tuntas (belum Completed/Cancelled/Closed/Billed/Claimed).
+const ACTIVE_KUNJUNGAN_STATUS: KunjunganStatus[] = ["Registered", "Queued", "InService"];
+
+/**
+ * Kunjungan aktif (belum diselesaikan/dibatalkan) milik pasien — guard pendaftaran ganda.
+ * Satu pasien hanya boleh punya satu kunjungan berjalan; baru bisa daftar lagi setelah
+ * yang ini Selesai/Batal. Proyeksi ringkas (cukup untuk pesan error).
+ */
+export function findActiveByPatient(patientId: string, tx?: Tx) {
+  return db(tx).kunjungan.findFirst({
+    where: { patientId, deletedAt: null, status: { in: ACTIVE_KUNJUNGAN_STATUS } },
+    select: { id: true, noKunjungan: true, unit: true, status: true },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
 /** Worklist lintas unit — cursor by (createdAt,id) desc. */
 export async function listByUnitStatus(
   params: { unit?: KunjunganUnit; status?: KunjunganStatus[]; patientId?: string; cursor?: string; limit: number },

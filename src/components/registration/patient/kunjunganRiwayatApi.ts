@@ -90,11 +90,16 @@ export function dtoToKunjunganRecord(dto: KunjunganListItemDTO): KunjunganRecord
 // ── Adapter DETAIL (KunjunganDTO penuh) → KunjunganRecord ──────────────────────
 // Dipakai halaman /pasien/:id/kunjungan/:kunjunganId. DTO detail lebih kaya dari
 // list-item: punya noPendaftaran, caraMasuk, rujukan, sep penuh (noKartu).
+// DPJP (G-C): `dpjpId` di DTO = UUID → nama di-resolve dari master Dokter oleh pemanggil
+//   (KunjunganResolver) dan diteruskan via `opts.dpjpNama`. Tanpa dpjpId (mis. RawatJalan
+//   yang belum persist DPJP) → "—".
 // Field yang belum ada sumber DB graceful-fallback:
-//   · dokter (DPJP)  → "—"  (G-C: hanya dpjpId/UUID, butuh master Dokter)
 //   · dokumen.generalConsent / pengantarPasien → undefined (G-E: schema encounter
 //     belum punya kolom dokumen; hanya rujukan yang bisa diturunkan dari relasi).
-export function dtoDetailToKunjunganRecord(dto: KunjunganDTO): KunjunganRecord {
+export function dtoDetailToKunjunganRecord(
+  dto: KunjunganDTO,
+  opts?: { dpjpNama?: string },
+): KunjunganRecord {
   return {
     id: dto.id,
     // G-H: klinisPath = link "Rekam Medis" (header) ke worklist klinis unit.
@@ -102,7 +107,7 @@ export function dtoDetailToKunjunganRecord(dto: KunjunganDTO): KunjunganRecord {
     noKunjungan: dto.noKunjungan,
     tanggal: fmtTglIndo(dto.waktuKunjungan),
     unit: UNIT_LABEL[dto.unit] ?? "Rawat Jalan",
-    dokter: "—",
+    dokter: opts?.dpjpNama?.trim() || "—",
     keluhan: dto.keluhan ?? "",
     diagnosa: dto.diagnosaMasuk ?? "—",
     penjamin: PENJAMIN_LABEL[dto.penjaminTipe] ?? dto.penjaminTipe,
@@ -111,6 +116,8 @@ export function dtoDetailToKunjunganRecord(dto: KunjunganDTO): KunjunganRecord {
     noSEP: dto.sep?.noSep ?? undefined,
     kodeICD: dto.kodeIcdMasuk ?? undefined,
     caraMasuk: dto.caraMasuk ?? undefined,
+    // IGD arrival mode (cara_datang). Null → undefined → tak ditampilkan (dikosongkan).
+    caraDatang: dto.caraDatang ?? undefined,
     // G-E: hanya status rujukan yang punya sumber (relasi). Sisanya menyusul.
     dokumen: { rujukan: dto.rujukan ? "Ada" : "Tidak Ada" },
     status: STATUS_MAP[dto.status] ?? "Aktif",

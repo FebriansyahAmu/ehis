@@ -1,16 +1,19 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
-import { patientMasterData } from "@/lib/data";
-import type { TipePenjamin, PatientMaster } from "@/lib/data";
+import { useState, useMemo, useEffect } from "react";
+import type { TipePenjamin, PatientMaster, KunjunganRecord } from "@/lib/data";
 import { searchPatients } from "@/lib/api/patients";
+import { listKunjungan } from "@/lib/api/kunjungan";
 import { ApiError } from "@/lib/api/client";
 import { toast } from "@/lib/ui/toastStore";
 import { dtoToPatientMaster } from "./pasienListApi";
+import { dtoToKunjunganRecord } from "../patient/kunjunganRiwayatApi";
 import { PasienListControls } from "./PasienListControls";
 import { PasienListTable } from "./PasienListTable";
 
 const PAGE_SIZE = 8;
+// Worklist semua status (cap server = 50) → enrich tiap pasien dgn kunjungan nyatanya.
+const ALL_STATUS = "Registered,Queued,InService,Completed,Closed,Billed,Claimed,Cancelled";
 
 export type FilterPenjamin = "Semua" | TipePenjamin;
 export type FilterStatus   = "Semua" | "Aktif" | "Selesai";
@@ -38,38 +41,48 @@ export default function PasienListPage() {
   const [filterPenjamin, setFilterPenjamin] = useState<FilterPenjamin>("Semua");
   const [filterStatus,   setFilterStatus]   = useState<FilterStatus>("Semua");
   const [page,           setPage]           = useState(1);
-  // Pasien hasil pendaftaran dari DB (di-fetch sekali saat mount). Demo mock tetap
-  // ditampilkan agar dashboard/detail demo tak rusak (Encounter API belum dibangun).
+  // Pasien + kunjungan 100% dari DB (mock dihapus). Fetch sekali saat mount.
   const [dbPatients,     setDbPatients]     = useState<PatientMaster[]>([]);
-  const abortRef = useRef<AbortController | null>(null);
+  const [loading,        setLoading]        = useState(true);
 
   useEffect(() => {
     const ac = new AbortController();
-    abortRef.current = ac;
+    let cancelled = false;
     (async () => {
       try {
-        const { items } = await searchPatients({ limit: 50 }, ac.signal);
-        setDbPatients(items.map(dtoToPatientMaster));
+        // Parallel: master pasien + worklist kunjungan (semua status, urut createdAt desc).
+        const [pat, vis] = await Promise.all([
+          searchPatients({ limit: 50 }, ac.signal),
+          listKunjungan({ status: ALL_STATUS, limit: 50 }, ac.signal),
+        ]);
+        if (cancelled) return;
+        // Kelompokkan kunjungan per pasien; item[0] = terbaru (sudah urut desc dari server).
+        const byPatient = new Map<string, KunjunganRecord[]>();
+        for (const dto of vis.items) {
+          const arr = byPatient.get(dto.pasien.id) ?? [];
+          arr.push(dtoToKunjunganRecord(dto));
+          byPatient.set(dto.pasien.id, arr);
+        }
+        setDbPatients(
+          pat.items.map((dto) => ({
+            ...dtoToPatientMaster(dto),
+            riwayatKunjungan: byPatient.get(dto.id) ?? [],
+          })),
+        );
       } catch (e) {
-        if (ac.signal.aborted) return; // unmount/StrictMode — abaikan
+        if (cancelled || ac.signal.aborted) return; // unmount/StrictMode — abaikan
         toast.error("Gagal memuat daftar pasien", e instanceof ApiError ? e.message : undefined);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
-    return () => ac.abort();
+    return () => { cancelled = true; ac.abort(); };
   }, []);
 
   const allPatients = useMemo(() => {
-    // Merge DB (terbaru) + demo mock; DB menang bila noRM bentrok.
-    const byRm = new Map<string, PatientMaster>();
-    for (const p of Object.values(patientMasterData)) byRm.set(p.noRM, p);
-    for (const p of dbPatients) byRm.set(p.noRM, p);
-    return Array.from(byRm.values()).sort((a, b) => {
-      const aDate = a.riwayatKunjungan[0]
-        ? parseDate(a.riwayatKunjungan[0].tanggal)
-        : parseDate(a.terdaftar);
-      const bDate = b.riwayatKunjungan[0]
-        ? parseDate(b.riwayatKunjungan[0].tanggal)
-        : parseDate(b.terdaftar);
+    return [...dbPatients].sort((a, b) => {
+      const aDate = a.riwayatKunjungan[0] ? parseDate(a.riwayatKunjungan[0].tanggal) : parseDate(a.terdaftar);
+      const bDate = b.riwayatKunjungan[0] ? parseDate(b.riwayatKunjungan[0].tanggal) : parseDate(b.terdaftar);
       return bDate - aDate;
     });
   }, [dbPatients]);
@@ -115,6 +128,7 @@ export default function PasienListPage() {
         onFilterStatus={handleStatus}
       />
       <PasienListTable
+        loading={loading}
         patients={paginated}
         total={filtered.length}
         page={safePage}

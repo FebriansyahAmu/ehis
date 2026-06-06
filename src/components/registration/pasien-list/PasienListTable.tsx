@@ -205,9 +205,32 @@ interface PasienListTableProps {
   pageSize:   number;
   totalPages: number;
   onPage:     (p: number) => void;
+  loading?:   boolean;
 }
 
-export function PasienListTable({ patients, total, page, pageSize, totalPages, onPage }: PasienListTableProps) {
+function LoadingRows() {
+  return (
+    <div className="divide-y divide-slate-100">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-4 px-5 py-3.5">
+          <span className="w-5 shrink-0" />
+          <div className="h-9 w-9 shrink-0 animate-pulse rounded-xl bg-slate-100" />
+          <div className="w-44 shrink-0 space-y-1.5">
+            <div className="h-3 w-28 animate-pulse rounded bg-slate-100" />
+            <div className="h-2 w-16 animate-pulse rounded bg-slate-100" />
+          </div>
+          <div className="h-4 w-16 shrink-0 animate-pulse rounded bg-slate-100" />
+          <div className="h-4 w-20 shrink-0 animate-pulse rounded bg-slate-100" />
+          <div className="h-4 flex-1 animate-pulse rounded bg-slate-100" />
+          <div className="h-3 w-20 shrink-0 animate-pulse rounded bg-slate-100" />
+          <div className="w-7 shrink-0" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function PasienListTable({ patients, total, page, pageSize, totalPages, onPage, loading }: PasienListTableProps) {
   const offset = (page - 1) * pageSize;
 
   return (
@@ -226,7 +249,9 @@ export function PasienListTable({ patients, total, page, pageSize, totalPages, o
 
       {/* Scrollable rows */}
       <div className="flex-1 overflow-y-auto bg-white">
-        {patients.length === 0 ? (
+        {loading ? (
+          <LoadingRows />
+        ) : patients.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100">
               <Users size={20} className="text-slate-300" />
