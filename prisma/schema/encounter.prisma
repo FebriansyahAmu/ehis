@@ -66,6 +66,16 @@ enum KelasRawat {
   @@schema("encounter")
 }
 
+/// Lifecycle alokasi bed. Reserved (di-hold, RI saat daftar) & Occupied (terisi, mis. IGD saat
+/// terima) sama-sama "memakai" bed (masuk partial unique index). Released = bebas kembali.
+enum AllocStatus {
+  Reserved
+  Occupied
+  Released
+
+  @@schema("encounter")
+}
+
 // ── Kunjungan (tabel inti / spine) ────────────────────────────────────────────
 
 model Kunjungan {
@@ -122,6 +132,9 @@ model Kunjungan {
   rujukan Rujukan?
   sep     SEP?
 
+  // ── Alokasi bed (operasional; okupansi/reservasi) ──
+  bedAllocations BedAllocation[]
+
   // ── Tautan invoice (1:1, dibuat saat Registered→Queued) ──
   invoiceId String? @unique @map("invoice_id") @db.Uuid // FK→billing.Invoice saat siap
 
@@ -143,5 +156,34 @@ model Kunjungan {
   @@index([ruanganId])
   @@index([createdAt, id]) // cursor pagination
   @@map("kunjungan")
+  @@schema("encounter")
+}
+
+// ── BedAllocation (okupansi/reservasi bed) ─────────────────────────────────────
+//  Sumber kebenaran okupansi: 1 baris = 1 bed dipakai 1 kunjungan. "Tersedia" = DIHITUNG
+//  (bed master aktif − alokasi aktif), BUKAN counter (anti drift/race). Double-booking dicegah
+//  partial unique index (status ∈ {Reserved,Occupied}) yang ditambah via SQL di migration.
+//  bedId = FK riil ke master.Bed tapi cross-schema → tanpa relasi Prisma (validasi di Service,
+//  selaras konvensi placeholder patientId/ruanganId).
+
+model BedAllocation {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  bedId       String    @map("bed_id") @db.Uuid // → master.Bed (cross-schema; divalidasi Service)
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  status     AllocStatus @default(Reserved)
+  reservedAt DateTime    @default(now()) @map("reserved_at") @db.Timestamptz(3)
+  occupiedAt DateTime?   @map("occupied_at") @db.Timestamptz(3)
+  releasedAt DateTime?   @map("released_at") @db.Timestamptz(3)
+
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([bedId])
+  @@index([kunjunganId])
+  @@map("bed_allocation")
   @@schema("encounter")
 }

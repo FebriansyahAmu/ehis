@@ -39,6 +39,8 @@ export function StepReview({
           {form.unit === "Rawat Jalan" && <RvItem label="Poli Tujuan" value={form.poli} />}
           {form.unit === "Rawat Inap" && <RvItem label="Asal Masuk" value={form.asalMasuk} />}
           {form.unit === "Rawat Inap" && <RvItem label="Kelas Rawat" value={KELAS_LABEL[form.kelasRawat] ?? form.kelasRawat} />}
+          {form.unit === "Rawat Inap" && <RvItem label="Ruangan" value={form.ruanganNama.trim() || "—"} />}
+          {form.unit === "Rawat Inap" && <RvItem label="Bed (reserve)" value={form.bedNama.trim() || "—"} />}
           <RvItem
             label="Dokter Penanggung Jawab"
             value={(form.unit === "IGD" ? form.dpjpNama : form.dokter).trim() || "—"}

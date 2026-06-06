@@ -15,6 +15,7 @@ export const AsalRujukan = z.enum(["Faskes1", "Faskes2"]);
 export const JenisPelayananSep = z.enum(["RawatInap", "RawatJalan"]);
 export const TujuanKunjungan = z.enum(["Normal", "Prosedur", "KonsulDokter"]);
 export const LakaLantas = z.enum(["BKLL", "KLL_BKK", "KLL_KK", "KK"]);
+export const KelasRawat = z.enum(["VIP", "Kelas_1", "Kelas_2", "Kelas_3", "ICU", "HCU", "Isolasi"]);
 
 const ISO_DATE = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format tanggal harus YYYY-MM-DD");
 const HHMM = z.string().regex(/^\d{2}:\d{2}$/, "Format jam harus HH:MM");
@@ -79,7 +80,9 @@ export const RegisterKunjunganInput = z
     poli: z.string().trim().max(80).optional(),
     triaseLevel: z.number().int().min(1).max(4).optional(), // IGD prioritas P1..P4
     dpjpId: z.string().uuid().optional(), // DPJP master (Dokter id, bukan nama bebas)
-    ruanganId: z.string().uuid().optional(), // ruangan layanan (master Location) — IGD bay/zona
+    ruanganId: z.string().uuid().optional(), // ruangan layanan (master Location) — IGD bay / RI bangsal
+    kelas: KelasRawat.optional(), // RI — kelas rawat
+    bedId: z.string().uuid().optional(), // RI — bed di-reserve saat daftar (master Bed)
     keluhan: z.string().trim().max(1000).optional(),
     caraMasuk: z.string().trim().max(60).optional(),
     penjaminId: z.string().uuid().optional(), // pilih penjamin pasien; default primer
@@ -91,11 +94,6 @@ export const RegisterKunjunganInput = z
     sep: SepInput.optional(),
   })
   .superRefine((v, ctx) => {
-    // Rawat Inap belum didukung backend (triase/bed/kelas alur tersendiri).
-    if (v.unit === "RawatInap") {
-      ctx.addIssue({ code: "custom", path: ["unit"], message: "Rawat Inap belum didukung — gunakan IGD atau Rawat Jalan" });
-      return;
-    }
     const isBpjs = v.penjaminTipe === "BPJS_Non_PBI" || v.penjaminTipe === "BPJS_PBI";
     // SEP OPSIONAL saat pendaftaran: dapat ditangguhkan ("buat SEP nanti"). Bila `sep` dikirim,
     // sub-skema SepInput memvalidasi kelengkapannya; bila tidak, kunjungan tetap terdaftar.
@@ -131,6 +129,8 @@ export const TransitionInput = z.object({
   action: KunjunganActionName,
   /** Optimistic concurrency — bila dikirim, ditolak (409) saat version sudah berubah. */
   expectedVersion: z.number().int().nonnegative().optional(),
+  /** Bed yang ditempati saat `receive` (IGD). Bila ada → buat alokasi Occupied + set Kunjungan.bedId. */
+  bedId: z.string().uuid().optional(),
 });
 
 // ── Tipe inferensi ─────────────────────────────────────────────────────────---

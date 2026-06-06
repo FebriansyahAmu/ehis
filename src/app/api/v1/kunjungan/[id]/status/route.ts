@@ -10,5 +10,5 @@ export const PATCH = route({
   params: IdParam,
   body: TransitionInput,
   handler: ({ params, body, actor }) =>
-    kunjunganService.transition(params.id, body.action, body.expectedVersion, actor),
+    kunjunganService.transition(params.id, body.action, body.expectedVersion, actor, body.bedId),
 });

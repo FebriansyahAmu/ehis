@@ -44,6 +44,7 @@ export interface UpdateStatusPatch {
   callState?: CallState;
   recallCount?: number;
   invoiceId?: string;
+  bedId?: string; // di-set saat receive (IGD) — pointer cache bed yang ditempati
 }
 
 // Read DETAIL: pasien ringkas + artefak BPJS penuh (1:1) — utk halaman detail/cetak SEP.

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { POLI_OPTS } from "../../config";
 import { DatePicker, TimePicker, Select } from "@/components/shared/inputs";
 import { StepKunjunganIgd } from "./StepKunjunganIgd";
+import { StepKunjunganRi } from "./StepKunjunganRi";
 import {
   UNIT_DAFTAR_CFG,
   inputCls, labelCls,
@@ -136,6 +137,8 @@ export function StepKunjungan({
                   ))}
                 </div>
               </div>
+              {/* Ruangan + bed (di-reserve saat daftar) */}
+              <StepKunjunganRi form={form} setForm={setForm} />
             </>
           )}
         </motion.div>

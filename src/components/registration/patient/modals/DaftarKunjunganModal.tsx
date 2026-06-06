@@ -53,6 +53,7 @@ export function DaftarKunjunganModal({
     dokter: "", keluhan: "", triase: null,
     poli: "Poli Umum", asalMasuk: "Dari Poli", kelasRawat: "2",
     ruanganId: "", ruanganNama: "", dpjpId: "", dpjpNama: "",
+    bedId: "", bedNama: "",
   });
 
   const [penjamin, setPenjamin] = useState<PenjaminForm>({
@@ -158,10 +159,6 @@ export function DaftarKunjunganModal({
 
   async function handleDaftar() {
     // Guard pre-submit dengan pesan jelas (hindari error server membingungkan).
-    if (form.unit === "Rawat Inap") {
-      setSubmitError("Pendaftaran Rawat Inap belum didukung — gunakan IGD atau Rawat Jalan.");
-      return;
-    }
     if (!isDbPatient) {
       setSubmitError("Pasien demo tidak dapat didaftarkan ke server. Gunakan pasien hasil pendaftaran.");
       return;

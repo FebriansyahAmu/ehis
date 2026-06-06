@@ -20,15 +20,20 @@ export interface IGDPatient {
   id: string;
   noRM: string;
   name: string;
-  age: number;
+  age?: number;
   gender: "L" | "P";
-  triage: TriageLevel;
+  /** Opsional: order IGD dari DB bisa belum ditriase (null). Detail klinis (mock) me-require ulang. */
+  triage?: TriageLevel;
   status: IGDStatus;
   complaint: string;
   arrivalTime: string;
   waitDuration: string;
   doctor: string;
   notes?: string;
+  /** Ruangan IGD terpilih dari master (tanpa bed spesifik) — order DB punya ruanganId, bukan bed. */
+  ruanganNama?: string;
+  /** Nama bed yang ditempati (dari alokasi aktif), bila sudah diterima & ditempatkan. */
+  bedNama?: string;
   bed?: {
     nomor: string;
     ruangan: string;
@@ -97,106 +102,7 @@ export const igdPatients: IGDPatient[] = [
     notes: "Riwayat jantung koroner, perlu EKG segera",
     bed: { nomor: "IRDA-1", ruangan: "Ruang IRDA", kategori: "IRDA" },
   },
-  {
-    id: "igd-2",
-    noRM: "RM-2025-012",
-    name: "Kartini Wulandari",
-    age: 38,
-    gender: "P",
-    triage: "P1",
-    status: "Observasi",
-    complaint: "Penurunan kesadaran mendadak, GCS 10",
-    arrivalTime: "11:05",
-    waitDuration: "1 jam 32 mnt",
-    doctor: "dr. Hendra Wijaya, Sp.EM",
-    notes: "Gula darah 45 mg/dL saat tiba",
-    bed: { nomor: "IRDA-2", ruangan: "Ruang IRDA", kategori: "IRDA" },
-  },
-  {
-    id: "igd-3",
-    noRM: "RM-2025-002",
-    name: "Siti Rahayu",
-    age: 32,
-    gender: "P",
-    triage: "P2",
-    status: "Observasi",
-    complaint: "Patah tulang lenang kanan akibat kecelakaan lalu lintas",
-    arrivalTime: "09:15",
-    waitDuration: "3 jam 22 mnt",
-    doctor: "dr. Rizal Akbar, Sp.OT",
-    bed: { nomor: "M1", ruangan: "R. Bedah Mayor", kategori: "BEDAH" },
-  },
-  {
-    id: "igd-4",
-    noRM: "RM-2025-018",
-    name: "Darmawan Santoso",
-    age: 62,
-    gender: "L",
-    triage: "P2",
-    status: "Observasi",
-    complaint: "Sesak napas, batuk berdahak sejak 3 hari lalu",
-    arrivalTime: "11:48",
-    waitDuration: "49 mnt",
-    doctor: "dr. Anisa Putri, Sp.PD",
-    notes: "Saturasi O2 88%, perlu nebulisasi",
-    bed: { nomor: "A1", ruangan: "R. Non Bedah A", kategori: "NON_BEDAH" },
-  },
-  {
-    id: "igd-5",
-    noRM: "RM-2025-021",
-    name: "Mega Lestari",
-    age: 24,
-    gender: "P",
-    triage: "P2",
-    status: "Observasi",
-    complaint: "Demam tinggi 39.8°C, kejang 1× di rumah",
-    arrivalTime: "12:10",
-    waitDuration: "27 mnt",
-    doctor: "dr. Hendra Wijaya, Sp.EM",
-    bed: { nomor: "A2", ruangan: "R. Non Bedah A", kategori: "NON_BEDAH" },
-  },
-  {
-    id: "igd-6",
-    noRM: "RM-2025-009",
-    name: "Bambang Nugroho",
-    age: 47,
-    gender: "L",
-    triage: "P3",
-    status: "Observasi",
-    complaint: "Luka laserasi jari tangan kanan, perlu hecting",
-    arrivalTime: "11:30",
-    waitDuration: "1 jam 7 mnt",
-    doctor: "dr. Rizal Akbar, Sp.OT",
-    bed: { nomor: "B1", ruangan: "R. Bedah Minor", kategori: "BEDAH" },
-  },
-  {
-    id: "igd-7",
-    noRM: "RM-2025-033",
-    name: "Nurul Hidayah",
-    age: 19,
-    gender: "P",
-    triage: "P3",
-    status: "Observasi",
-    complaint: "Diare dan muntah sejak pagi, dehidrasi ringan",
-    arrivalTime: "09:45",
-    waitDuration: "Selesai",
-    doctor: "dr. Anisa Putri, Sp.PD",
-    bed: { nomor: "B1", ruangan: "R. Non Bedah B", kategori: "NON_BEDAH" },
-  },
-  {
-    id: "igd-8",
-    noRM: "RM-2025-041",
-    name: "Hendra Kurniawan",
-    age: 35,
-    gender: "L",
-    triage: "P3",
-    status: "Observasi",
-    complaint: "Nyeri kepala hebat sejak 2 jam lalu, riwayat migrain",
-    arrivalTime: "12:00",
-    waitDuration: "37 mnt",
-    doctor: "dr. Dewi Kusuma, Sp.JP",
-    bed: { nomor: "B2", ruangan: "R. Non Bedah B", kategori: "NON_BEDAH" },
-  },
+  // Pasien IGD lain di-fetch dari DB (kunjungan IGD); hanya Joko (seed demo) yang tersisa di mock.
 ];
 
 // ── IGD Patient Detail types ──────────────────────────────
@@ -408,6 +314,9 @@ export interface IGDTindakanItem {
 }
 
 export interface IGDPatientDetail extends IGDPatient {
+  // Detail klinis selalu punya umur & triase (re-require dari base yang opsional).
+  age: number;
+  triage: TriageLevel;
   noKunjungan: string;
   tglKunjungan: string;
   caraMasuk: string;
@@ -574,17 +483,7 @@ export const igdPatientDetails: Record<string, IGDPatientDetail> = {
   },
 };
 
-// ── IGD summary stats ─────────────────────────────────────
-
-export const igdStats = {
-  total: 38,
-  p1: 8,
-  p2: 17,
-  p3: 13,
-  bedsAvailable: 4,
-  bedsTotal: 12,
-  avgWait: "42 mnt",
-};
+// Stat ringkas IGD kini dihitung dari data nyata (kunjungan IGD + ruangan master) di IGDWorkspace.
 
 // ── IGD Room Classification types ─────────────────────────
 
@@ -609,103 +508,8 @@ export interface IGDRuangan {
   beds: IGDBed[];
 }
 
-export const igdRuangan: IGDRuangan[] = [
-  // ── BEDAH ────────────────────────────────────────────────
-  {
-    id: "bedah-minor",
-    nama: "R. Bedah Minor",
-    kategori: "BEDAH",
-    beds: [
-      { id: "bm1", nomor: "B1", status: "Terisi",   pasienNama: "Bambang Nugroho",  pasienRM: "RM-2025-009", triage: "P3", masukSejak: "11:30" },
-      { id: "bm2", nomor: "B2", status: "Terisi",   pasienNama: "Ari Susanto",      pasienRM: "RM-2025-044", triage: "P2", masukSejak: "10:15" },
-      { id: "bm3", nomor: "B3", status: "Tersedia" },
-      { id: "bm4", nomor: "B4", status: "Tersedia" },
-    ],
-  },
-  {
-    id: "bedah-mayor",
-    nama: "R. Bedah Mayor",
-    kategori: "BEDAH",
-    beds: [
-      { id: "bM1", nomor: "M1", status: "Terisi",     pasienNama: "Siti Rahayu",    pasienRM: "RM-2025-002", triage: "P2", masukSejak: "09:15" },
-      { id: "bM2", nomor: "M2", status: "Terisi",     pasienNama: "Farhan Maulana", pasienRM: "RM-2025-051", triage: "P1", masukSejak: "08:45" },
-      { id: "bM3", nomor: "M3", status: "Tersedia" },
-      { id: "bM4", nomor: "M4", status: "Maintenance" },
-    ],
-  },
-  // ── NON BEDAH ─────────────────────────────────────────────
-  {
-    id: "nonbedah-a",
-    nama: "R. Non Bedah A",
-    kategori: "NON_BEDAH",
-    beds: [
-      { id: "na1", nomor: "A1", status: "Terisi",   pasienNama: "Darmawan Santoso", pasienRM: "RM-2025-018", triage: "P2", masukSejak: "11:48" },
-      { id: "na2", nomor: "A2", status: "Terisi",   pasienNama: "Mega Lestari",     pasienRM: "RM-2025-021", triage: "P2", masukSejak: "12:10" },
-      { id: "na3", nomor: "A3", status: "Tersedia" },
-      { id: "na4", nomor: "A4", status: "Tersedia" },
-    ],
-  },
-  {
-    id: "nonbedah-b",
-    nama: "R. Non Bedah B",
-    kategori: "NON_BEDAH",
-    beds: [
-      { id: "nb1", nomor: "B1", status: "Terisi",   pasienNama: "Nurul Hidayah",    pasienRM: "RM-2025-033", triage: "P3", masukSejak: "09:45" },
-      { id: "nb2", nomor: "B2", status: "Terisi",   pasienNama: "Hendra Kurniawan", pasienRM: "RM-2025-041", triage: "P3", masukSejak: "12:00" },
-      { id: "nb3", nomor: "B3", status: "Terisi",   pasienNama: "Lina Marliana",    pasienRM: "RM-2025-058", triage: "P3", masukSejak: "10:55" },
-      { id: "nb4", nomor: "B4", status: "Tersedia" },
-    ],
-  },
-  {
-    id: "nonbedah-c",
-    nama: "R. Non Bedah C",
-    kategori: "NON_BEDAH",
-    beds: [
-      { id: "nc1", nomor: "C1", status: "Terisi",   pasienNama: "Rudi Hermawan",    pasienRM: "RM-2025-062", triage: "P2", masukSejak: "07:30" },
-      { id: "nc2", nomor: "C2", status: "Tersedia" },
-      { id: "nc3", nomor: "C3", status: "Tersedia" },
-      { id: "nc4", nomor: "C4", status: "Tersedia" },
-    ],
-  },
-  // ── IRDA ──────────────────────────────────────────────────
-  {
-    id: "irda-1",
-    nama: "Ruang IRDA",
-    kategori: "IRDA",
-    beds: [
-      { id: "irda1", nomor: "IRDA-1", status: "Terisi",   pasienNama: "Joko Prasetyo",     pasienRM: "RM-2025-005", triage: "P1", masukSejak: "10:22" },
-      { id: "irda2", nomor: "IRDA-2", status: "Terisi",   pasienNama: "Kartini Wulandari", pasienRM: "RM-2025-012", triage: "P1", masukSejak: "11:05" },
-      { id: "irda3", nomor: "IRDA-3", status: "Terisi",   pasienNama: "Wahyu Santoso",     pasienRM: "RM-2025-067", triage: "P1", masukSejak: "09:30" },
-      { id: "irda4", nomor: "IRDA-4", status: "Tersedia" },
-    ],
-  },
-  // ── IRDO ──────────────────────────────────────────────────
-  {
-    id: "irdo-1",
-    nama: "Ruang IRDO",
-    kategori: "IRDO",
-    beds: [
-      { id: "irdo1", nomor: "IRDO-1", status: "Terisi",   pasienNama: "Agus Prasetyo", pasienRM: "RM-2025-071", triage: "P2", masukSejak: "08:15" },
-      { id: "irdo2", nomor: "IRDO-2", status: "Terisi",   pasienNama: "Sri Mulyani",   pasienRM: "RM-2025-073", triage: "P1", masukSejak: "07:45" },
-      { id: "irdo3", nomor: "IRDO-3", status: "Tersedia" },
-      { id: "irdo4", nomor: "IRDO-4", status: "Tersedia" },
-    ],
-  },
-  // ── BOARDING BED ──────────────────────────────────────────
-  {
-    id: "boarding-1",
-    nama: "R. Boarding",
-    kategori: "BOARDING_BED",
-    beds: [
-      { id: "bb1", nomor: "BB-1", status: "Terisi",   pasienNama: "Supriadi Raharjo",  pasienRM: "RM-2025-079", triage: "P2", masukSejak: "06:30", boardingJam: 7 },
-      { id: "bb2", nomor: "BB-2", status: "Terisi",   pasienNama: "Yeni Anggraini",    pasienRM: "RM-2025-081", triage: "P3", masukSejak: "08:15", boardingJam: 5 },
-      { id: "bb3", nomor: "BB-3", status: "Terisi",   pasienNama: "Mulyono Hartanto",  pasienRM: "RM-2025-084", triage: "P3", masukSejak: "09:00", boardingJam: 4 },
-      { id: "bb4", nomor: "BB-4", status: "Terisi",   pasienNama: "Dewi Novitasari",   pasienRM: "RM-2025-087", triage: "P2", masukSejak: "10:30", boardingJam: 3 },
-      { id: "bb5", nomor: "BB-5", status: "Tersedia" },
-      { id: "bb6", nomor: "BB-6", status: "Tersedia" },
-    ],
-  },
-];
+// Klasifikasi Ruangan IGD kini di-fetch dari master (Location tipe IGD) di IGDRuanganMasterPanel.
+// Tipe IGDRuangan/IGDBed di atas dipertahankan untuk kompatibilitas; data ruangan tak lagi mock.
 
 // ── Patient Master types ──────────────────────────────────
 

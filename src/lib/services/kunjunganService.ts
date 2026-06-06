@@ -15,6 +15,7 @@ import { transaction } from "@/lib/db/prisma";
 import * as defaultDal from "@/lib/dal/kunjunganDal";
 import * as patientDal from "@/lib/dal/patientDal";
 import { makeBpjsService, toSepDTO, toRujukanDTO } from "@/lib/services/bpjsService";
+import { makeBedAllocationService } from "@/lib/services/bedAllocationService";
 import { systemClock, type Clock } from "@/lib/core/clock";
 import { decryptPii, encryptPii, hashPii } from "@/lib/crypto/pii";
 import { Errors } from "@/lib/errors/appError";
@@ -24,6 +25,7 @@ import type { KunjunganEntity, KunjunganListEntity, UpdateStatusPatch } from "@/
 
 type Dal = typeof defaultDal;
 type Bpjs = ReturnType<typeof makeBpjsService>;
+type BedAlloc = ReturnType<typeof makeBedAllocationService>;
 type NonNullEntity = NonNullable<KunjunganEntity>;
 
 const KNOWN_STATUS = new Set([
@@ -44,10 +46,11 @@ function defaultPenjaminNama(tipe: string): string {
   }
 }
 
-export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bpjs } = {}) {
+export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bpjs; bedAlloc?: BedAlloc } = {}) {
   const clock = deps.clock ?? systemClock;
   const dal = deps.dal ?? defaultDal;
   const bpjs = deps.bpjs ?? makeBpjsService({ clock });
+  const bedAlloc = deps.bedAlloc ?? makeBedAllocationService({ clock });
 
   // ── Helpers ─────────────────────────────────────────────────────────────---
   function combineDateTime(tanggal: string, jam?: string): Date {
@@ -200,6 +203,8 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
           waktuKunjungan: waktu,
           poli: input.unit === "RawatJalan" ? input.poli : undefined,
           triaseLevel: input.unit === "IGD" ? input.triaseLevel : undefined,
+          kelas: input.unit === "RawatInap" ? input.kelas : undefined,
+          bedId: input.unit === "RawatInap" ? input.bedId : undefined, // pointer; alokasi di bawah
           dpjpId: input.dpjpId,
           ruanganId: input.ruanganId,
           keluhan: input.keluhan,
@@ -230,6 +235,10 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
           },
           tx,
         );
+      }
+      // RI: reserve bed terpilih saat daftar (Reserved). Bed sudah dipakai → P2002 → CONFLICT.
+      if (input.unit === "RawatInap" && input.bedId) {
+        await bedAlloc.reserve(input.bedId, k.id, tx);
       }
 
       const fresh = await dal.findById(k.id, tx);
@@ -265,8 +274,12 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
         if (s !== "Queued" || cs !== "Dipanggil") throw bad();
         return { status: "Queued", recallCount: (k.recallCount ?? 0) + 1 };
       case "receive": // pasien hadir → mulai pelayanan
-        if (s !== "Queued" || cs !== "Dipanggil") throw bad();
-        return { status: "InService", callState: "Idle" };
+        // RJ: setelah dipanggil. IGD/RI: gawat darurat / admisi langsung → terima dari Registered
+        // (pasien fisik sudah hadir, tak ada alur panggil-antrean).
+        if (s === "Queued" && cs === "Dipanggil") return { status: "InService", callState: "Idle" };
+        if (s === "Registered" && (k.unit === "IGD" || k.unit === "RawatInap"))
+          return { status: "InService", callState: "Idle" };
+        throw bad();
       case "complete": // pelayanan selesai → kunci waktu selesai (immutable)
         if (s !== "InService") throw bad();
         return { status: "Completed", callState: "Idle", selesaiAt: clock.now(), lockedAt: clock.now() };
@@ -290,12 +303,25 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
     action: KunjunganActionName,
     expectedVersion: number | undefined,
     _actor: Actor,
+    bedId?: string,
   ): Promise<KunjunganDTO> {
     const updated = await transaction(async (tx) => {
       const k = await dal.findById(id, tx);
       if (!k) throw Errors.notFound("Kunjungan tidak ditemukan");
       if (expectedVersion !== undefined && k.version !== expectedVersion) throw Errors.conflictVersion();
       const patch = buildTransition(action, k);
+
+      // Efek samping alokasi bed (dalam tx yang sama):
+      //  · receive + bedId → tempati bed (Occupied) + simpan pointer Kunjungan.bedId
+      //  · complete/cancel → lepas alokasi aktif kunjungan (bed bebas kembali)
+      if (action === "receive" && bedId) {
+        await bedAlloc.occupy(bedId, id, tx); // P2002 → CONFLICT "Bed sudah dipakai"
+        patch.bedId = bedId;
+      }
+      if (action === "complete" || action === "cancel") {
+        await bedAlloc.release(id, tx);
+      }
+
       const count = await dal.updateStatus(id, k.version, patch, tx);
       if (count === 0) throw Errors.conflictVersion();
       const fresh = await dal.findById(id, tx);

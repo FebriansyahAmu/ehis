@@ -43,7 +43,7 @@ export default function IGDBoard({ patients }: IGDBoardProps) {
   const [page, setPage]     = useState(1);
 
   const dpjpOptions = useMemo(() => {
-    const names = Array.from(new Set(patients.map((p) => p.doctor))).sort();
+    const names = Array.from(new Set(patients.map((p) => p.doctor).filter(Boolean))).sort();
     return ["Semua", ...names];
   }, [patients]);
 

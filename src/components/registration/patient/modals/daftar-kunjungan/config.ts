@@ -105,6 +105,10 @@ export interface KunjunganForm {
   /** DPJP terpilih (master Dokter id) → persist Kunjungan.dpjpId. */
   dpjpId: string;
   dpjpNama: string;
+  // ── Rawat Inap: bed yang di-reserve saat daftar (ruanganId/ruanganNama dipakai bersama IGD) ──
+  /** Bed terpilih (master Bed id) → reserve Kunjungan.bedId. */
+  bedId: string;
+  bedNama: string;
 }
 
 export interface PenjaminForm {

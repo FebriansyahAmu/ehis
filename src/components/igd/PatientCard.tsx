@@ -1,7 +1,12 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
-import { Clock, Stethoscope, FileText, BedDouble, Timer } from "lucide-react";
+import { Clock, Stethoscope, FileText, BedDouble, Timer, DoorOpen } from "lucide-react";
 import type { IGDPatient, TriageLevel, IGDStatus } from "@/lib/data";
 import { cn } from "@/lib/utils";
+
+// id pasien DB = UUID → belum punya halaman detail klinis (masih mock). Hanya id seed/mock
+// (mis. "igd-1") yang nge-link ke detail.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Triage config ─────────────────────────────────────────
 
@@ -92,38 +97,48 @@ const WAIT_TEXT_CLS: Record<Urgency, string> = {
 interface PatientCardProps {
   patient: IGDPatient;
   index?: number;
+  /** Tombol aksi (mis. Terima/Batalkan) di footer. Bila ada → kartu non-link (hindari nested click). */
+  actions?: ReactNode;
 }
 
-export default function PatientCard({ patient, index = 0 }: PatientCardProps) {
-  const triage     = TRIAGE[patient.triage];
+export default function PatientCard({ patient, index = 0, actions }: PatientCardProps) {
+  const triage     = patient.triage ? TRIAGE[patient.triage] : null;
   const bedCfg     = patient.bed ? RUANGAN_CFG[patient.bed.kategori] : null;
   const waitMin    = parseWaitMinutes(patient.waitDuration);
-  const urgency    = getUrgency(patient.triage, waitMin);
+  const urgency    = patient.triage ? getUrgency(patient.triage, waitMin) : "ok";
   const isBoarding = waitMin !== null && waitMin >= BOARDING_MIN;
 
-  return (
-    <Link
-      href={`/ehis-care/igd/${patient.id}`}
-      className={cn(
-        "animate-fade-in flex flex-col gap-3 rounded-xl border border-slate-200 border-l-4 bg-white p-4 shadow-sm transition hover:shadow-md hover:border-indigo-200 hover:-translate-y-0.5 cursor-pointer",
-        triage.border,
-      )}
-      style={{ animationDelay: `${index * 50}ms` }}
-      aria-label={`Buka detail pasien ${patient.name}`}
-    >
+  // Link ke detail hanya untuk pasien mock/seed (id non-UUID) & tanpa tombol aksi.
+  const href = !actions && !UUID_RE.test(patient.id) ? `/ehis-care/igd/${patient.id}` : undefined;
+
+  const cardCls = cn(
+    "animate-fade-in flex flex-col gap-3 rounded-xl border border-slate-200 border-l-4 bg-white p-4 shadow-sm transition",
+    triage ? triage.border : "border-l-slate-300",
+    href && "cursor-pointer hover:shadow-md hover:border-indigo-200 hover:-translate-y-0.5",
+  );
+
+  const body = (
+    <>
       {/* Row 1 — triage + status */}
       <div className="flex items-center justify-between gap-2">
-        <span className={cn("inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-semibold", triage.badge)}>
-          {urgency === "critical" ? (
-            <span className="relative flex h-1.5 w-1.5 shrink-0" aria-hidden="true">
-              <span className={cn("absolute inline-flex h-full w-full animate-ping rounded-full opacity-75", triage.dot)} />
-              <span className={cn("relative inline-flex h-1.5 w-1.5 rounded-full", triage.dot)} />
-            </span>
-          ) : (
-            <span className={cn("h-1.5 w-1.5 rounded-full", triage.dot)} aria-hidden="true" />
-          )}
-          {triage.label}
-        </span>
+        {triage ? (
+          <span className={cn("inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-semibold", triage.badge)}>
+            {urgency === "critical" ? (
+              <span className="relative flex h-1.5 w-1.5 shrink-0" aria-hidden="true">
+                <span className={cn("absolute inline-flex h-full w-full animate-ping rounded-full opacity-75", triage.dot)} />
+                <span className={cn("relative inline-flex h-1.5 w-1.5 rounded-full", triage.dot)} />
+              </span>
+            ) : (
+              <span className={cn("h-1.5 w-1.5 rounded-full", triage.dot)} aria-hidden="true" />
+            )}
+            {triage.label}
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500 ring-1 ring-slate-200">
+            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" aria-hidden="true" />
+            Belum Triase
+          </span>
+        )}
         <span className={cn("rounded-md px-2 py-0.5 text-xs font-medium", STATUS[patient.status])}>
           {patient.status}
         </span>
@@ -133,7 +148,7 @@ export default function PatientCard({ patient, index = 0 }: PatientCardProps) {
       <div>
         <p className="font-semibold text-slate-900 leading-tight">{patient.name}</p>
         <p className="mt-0.5 text-xs text-slate-400">
-          {patient.age} th · {patient.gender === "L" ? "Laki-laki" : "Perempuan"}
+          {patient.age != null ? `${patient.age} th` : "—"} · {patient.gender === "L" ? "Laki-laki" : "Perempuan"}
           <span className="mx-1.5 text-slate-300">·</span>
           <span className="font-mono">{patient.noRM}</span>
         </p>
@@ -162,6 +177,14 @@ export default function PatientCard({ patient, index = 0 }: PatientCardProps) {
           </div>
           <span className={cn("h-1.5 w-1.5 shrink-0 animate-pulse rounded-full", bedCfg.dot)} />
         </div>
+      ) : patient.ruanganNama ? (
+        <div className="flex items-center gap-2 rounded-lg border border-teal-100 bg-teal-50 px-3 py-2">
+          <DoorOpen size={13} className="shrink-0 text-teal-500" aria-hidden="true" />
+          <span className="truncate text-[11px] font-semibold text-slate-700">{patient.ruanganNama}</span>
+          <span className="ml-auto shrink-0 rounded-md bg-white/70 px-1.5 py-0.5 text-[9px] font-bold text-teal-600">
+            {patient.bedNama ?? "Ruangan"}
+          </span>
+        </div>
       ) : (
         <div className="flex items-center gap-2 rounded-lg border border-dashed border-slate-200 px-3 py-2">
           <BedDouble size={12} className="shrink-0 text-slate-300" aria-hidden="true" />
@@ -172,7 +195,9 @@ export default function PatientCard({ patient, index = 0 }: PatientCardProps) {
       {/* Row 4 — complaint */}
       <div className="flex items-start gap-2">
         <FileText size={13} className="mt-0.5 shrink-0 text-slate-400" aria-hidden="true" />
-        <p className="text-sm text-slate-600 leading-snug line-clamp-2">{patient.complaint}</p>
+        <p className="text-sm leading-snug line-clamp-2 text-slate-600">
+          {patient.complaint || <span className="italic text-slate-400">Tanpa keluhan tercatat</span>}
+        </p>
       </div>
 
       {patient.notes && (
@@ -193,16 +218,35 @@ export default function PatientCard({ patient, index = 0 }: PatientCardProps) {
       <div className="flex items-center justify-between gap-2 pt-0.5">
         <div className="flex min-w-0 items-center gap-1.5">
           <Stethoscope size={12} className="shrink-0 text-slate-400" aria-hidden="true" />
-          <p className="truncate text-xs font-medium text-slate-700">{patient.doctor}</p>
+          <p className="truncate text-xs font-medium text-slate-700">{patient.doctor || "—"}</p>
         </div>
-        <div className="flex shrink-0 items-center gap-1 text-xs">
-          <Clock size={12} className="text-slate-400" aria-hidden="true" />
-          <span className="text-slate-400">{patient.arrivalTime}</span>
-          <span className="text-slate-300">·</span>
-          <span className={WAIT_TEXT_CLS[urgency]}>{patient.waitDuration}</span>
-        </div>
+        {(patient.arrivalTime || patient.waitDuration) && (
+          <div className="flex shrink-0 items-center gap-1 text-xs">
+            <Clock size={12} className="text-slate-400" aria-hidden="true" />
+            {patient.arrivalTime && <span className="text-slate-400">{patient.arrivalTime}</span>}
+            {patient.arrivalTime && patient.waitDuration && <span className="text-slate-300">·</span>}
+            {patient.waitDuration && <span className={WAIT_TEXT_CLS[urgency]}>{patient.waitDuration}</span>}
+          </div>
+        )}
       </div>
 
+      {/* Footer aksi (mis. Terima/Batalkan untuk order belum diterima) */}
+      {actions && <div className="flex items-center gap-2 pt-1">{actions}</div>}
+    </>
+  );
+
+  return href ? (
+    <Link
+      href={href}
+      className={cardCls}
+      style={{ animationDelay: `${index * 50}ms` }}
+      aria-label={`Buka detail pasien ${patient.name}`}
+    >
+      {body}
     </Link>
+  ) : (
+    <div className={cardCls} style={{ animationDelay: `${index * 50}ms` }}>
+      {body}
+    </div>
   );
 }

@@ -10,6 +10,10 @@ const SUMBER_MAP = { masuk: "RujukanMasuk", kontrol: "KontrolPascaRanap" } as co
 const JNS_MAP = { "1": "RawatInap", "2": "RawatJalan" } as const;
 const TUJUAN_MAP = { "0": "Normal", "1": "Prosedur", "2": "KonsulDokter" } as const;
 const LAKA_MAP = { "0": "BKLL", "1": "KLL_BKK", "2": "KLL_KK", "3": "KK" } as const;
+// Kelas rawat UI (KELAS_OPTS) → enum kanonik KelasRawat.
+const KELAS_MAP: Record<string, "VIP" | "Kelas_1" | "Kelas_2" | "Kelas_3"> = {
+  "1": "Kelas_1", "2": "Kelas_2", "3": "Kelas_3", vip: "VIP",
+};
 
 const flag = (v: string): boolean => v === "1";
 const orUndef = (v?: string): string | undefined => (v && v.trim() ? v : undefined);
@@ -31,8 +35,9 @@ export function buildRegisterInput(args: BuildRegisterArgs): RegisterKunjunganIn
   const { patientId, form, penjamin, rujukan, sepDraft, issueSep, needsRujukan, noKartu } = args;
 
   const isIgd = form.unit === "IGD";
-  const unit = isIgd ? "IGD" : "RawatJalan"; // Rawat Inap ditolak sebelum submit (modal guard)
-  const poli = isIgd ? undefined : form.poli; // poli hanya relevan Rawat Jalan
+  const isRi = form.unit === "Rawat Inap";
+  const unit = isIgd ? "IGD" : isRi ? "RawatInap" : "RawatJalan";
+  const poli = unit === "RawatJalan" ? form.poli : undefined; // poli hanya Rawat Jalan
 
   const rujukanInput: RujukanInput | undefined = needsRujukan
     ? {
@@ -93,7 +98,10 @@ export function buildRegisterInput(args: BuildRegisterArgs): RegisterKunjunganIn
     triaseLevel: isIgd ? (form.triase ?? undefined) : undefined, // triase opsional di loket
     // IGD: DPJP + ruangan dari master (dokter ter-assign ruangan). Non-IGD: dpjp via SEP.dpjpLayan.
     dpjpId: isIgd ? orUndef(form.dpjpId) : undefined,
-    ruanganId: isIgd ? orUndef(form.ruanganId) : undefined,
+    // Ruangan master: IGD bay/zona, atau RI bangsal. RI juga kirim kelas + bed (reserve).
+    ruanganId: isIgd || isRi ? orUndef(form.ruanganId) : undefined,
+    kelas: isRi ? KELAS_MAP[form.kelasRawat] : undefined,
+    bedId: isRi ? orUndef(form.bedId) : undefined,
     keluhan: orUndef(form.keluhan),
     caraMasuk: orUndef(form.caraMasuk),
     penjaminTipe: penjamin.tipe,

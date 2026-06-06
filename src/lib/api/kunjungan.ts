@@ -37,12 +37,12 @@ export async function transitionKunjungan(
   id: string,
   action: KunjunganActionName,
   expectedVersion?: number,
-  signal?: AbortSignal,
+  opts?: { bedId?: string; signal?: AbortSignal },
 ): Promise<KunjunganDTO> {
   const { data } = await api.patch<KunjunganDTO>(
     `/kunjungan/${encodeURIComponent(id)}/status`,
-    { action, expectedVersion },
-    { signal },
+    { action, expectedVersion, bedId: opts?.bedId },
+    { signal: opts?.signal },
   );
   return data;
 }
