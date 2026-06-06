@@ -1,5 +1,5 @@
-import { DOKTER_MOCK, type DokterRecord } from "@/components/master/dokter/dokterMock";
 import { TINDAKAN_MOCK, type TindakanRecord } from "@/lib/master/tindakanMock";
+import type { DokterListItemDTO } from "@/lib/api/dokter";
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -8,26 +8,18 @@ export type KewenanganMap = Record<string, string[]>;
 
 // ── Helpers ───────────────────────────────────────────────
 
-export function getDokterList(): DokterRecord[] {
-  return DOKTER_MOCK;
-}
-
 export function getTindakanList(): TindakanRecord[] {
   return TINDAKAN_MOCK;
 }
 
 /**
- * Default kewenangan: dokter dapat semua tindakan yang spesialisDefault-nya match.
- * Pakai sebagai initial state — admin bisa override per-dokter.
+ * Default kewenangan: dokter dapat semua tindakan yang spesialisDefault-nya match
+ * (berdasarkan `spesialisKode` dari API). Pakai sebagai initial state — admin override per-dokter.
  */
-export function initKewenanganMap(dokters: DokterRecord[], tindakan: TindakanRecord[]): KewenanganMap {
+export function initKewenanganMap(dokters: DokterListItemDTO[], tindakan: TindakanRecord[]): KewenanganMap {
   const map: KewenanganMap = {};
   for (const d of dokters) {
-    if (!d.spesialis) {
-      map[d.id] = [];
-      continue;
-    }
-    const eligible = tindakan.filter((t) => t.spesialisDefault.includes(d.spesialis!));
+    const eligible = tindakan.filter((t) => t.spesialisDefault.includes(d.spesialisKode));
     map[d.id] = eligible.map((t) => t.id);
   }
   return map;

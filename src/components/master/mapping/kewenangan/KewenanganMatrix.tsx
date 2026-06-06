@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SPESIALIS_LABEL } from "@/components/master/dokter/dokterShared";
-import { type DokterRecord } from "@/components/master/dokter/dokterMock";
+import type { DokterListItemDTO } from "@/lib/api/dokter";
 import { makeInitials } from "../mappingShared";
 import {
   type TindakanRecord, type TindakanKategori,
@@ -18,7 +18,7 @@ import type { KewenanganMap } from "./kewenanganShared";
 import { hasKewenangan } from "./kewenanganShared";
 
 interface KewenanganMatrixProps {
-  dokter: DokterRecord;
+  dokter: DokterListItemDTO;
   tindakan: TindakanRecord[];
   map: KewenanganMap;
   onToggle: (tindakanId: string) => void;
@@ -98,7 +98,7 @@ export default function KewenanganMatrix({
       <div className="shrink-0 border-b border-slate-100 px-4 py-3">
         <div className="flex items-start gap-2.5">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-100 m-tiny font-black text-teal-700">
-            {makeInitials(dokter.nama)}
+            {makeInitials(dokter.namaTampil)}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
@@ -107,15 +107,13 @@ export default function KewenanganMatrix({
               </p>
               <Stethoscope size={9} className="text-teal-500" />
             </div>
-            <h2 className="truncate m-base font-bold text-slate-900">{dokter.nama}</h2>
-            {dokter.spesialis && (
-              <p className="mt-0.5 truncate m-tiny text-slate-500">
-                {SPESIALIS_LABEL[dokter.spesialis]} ·{" "}
-                <span className="font-semibold text-teal-700">
-                  {grantedTotal} / {tindakan.length} tindakan
-                </span>
-              </p>
-            )}
+            <h2 className="truncate m-base font-bold text-slate-900">{dokter.namaTampil}</h2>
+            <p className="mt-0.5 truncate m-tiny text-slate-500">
+              {SPESIALIS_LABEL[dokter.spesialisKode]} ·{" "}
+              <span className="font-semibold text-teal-700">
+                {grantedTotal} / {tindakan.length} tindakan
+              </span>
+            </p>
           </div>
         </div>
       </div>

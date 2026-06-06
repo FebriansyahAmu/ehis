@@ -70,8 +70,8 @@ Memetakan 25 master sub-module yang sudah dibangun di [/ehis-master](src/app/ehi
 > **Provisioning ≠ runtime auth.** Akun + peran sudah bisa ditulis ke DB, TAPI belum ada login: `getActor()` masih DEV actor (super-akses), password belum pernah diverifikasi, tak ada sesi/JWT. Bangun di Phase B-Auth (BACKEND-AUTH.md).
 
 > **Test infra (2026-06-04):** Vitest 4 dipasang — `vitest.config.ts` (resolve.tsconfigPaths native, env node) + script `npm run test` / `test:watch`. Pola unit Service: mock `@/lib/db/prisma` (`transaction` passthrough) + inject fake DAL & `fixedClock`. Integration DAL (Testcontainers Postgres) = `src/**/__tests__/integration/` (di-exclude unit run), fase later.
-- [ ] `POST/GET/PUT/DELETE /api/master/ruangan` — Organization tree (n-level) + Location + Bed sub-collection. Hirarki via `parentId`. Type: Organization | Location dengan discriminator.
-- [ ] `POST/GET/PUT/DELETE /api/master/dokter` — Practitioner. Field: NIK · STR · SIP · spesialis · jadwal · `poliAssignment` (derived dari Mapping Hub). Link via `master.Pegawai.practitionerId`.
+- [✅] **`/api/v1/master/{unit,ruangan,bed}`** — Organization tree (n-level) + Location + Bed sub-collection (2026-06-06). Layered (tree read + CUD, optimistic concurrency, soft-delete, kode auto `UN/R/BD<YYMM><NNN>`) WIRED ke [/ehis-master/ruangan](src/app/ehis-master/ruangan/) (SSR hybrid). **Sisa:** SD6 tests.
+- [✅] **`/api/v1/master/dokter`** — Practitioner = **ekstensi klinis 1:1 Pegawai** (`pegawaiId @unique`; identitas read-only dari Pegawai — TIDAK diduplikasi; `Pegawai.practitionerId` pointer denormalized) (2026-06-06). Field kredensial: spesialis · STR · SIP · statusPraktik · ihsPractitionerId (**bukan** jadwal/poliAssignment — itu modul Jadwal Dokter & Mapping Hub). Provisioning dari pegawai profesi-dokter "tanpa-profil". Layered + SSR hybrid WIRED ke [/ehis-master/dokter](src/app/ehis-master/dokter/). **Sisa:** DK6 tests · seed by-NIK.
 - [🚧] `/api/master/pengguna` (User) — **GET list + POST create + assign roles ✅ WIRED** via `/api/v1/auth/users` (tabel Pengguna tampil akun real, gabung pegawai-tanpa-akun baris kuning). **Sisa:** GET detail · PATCH edit akun (persist) · DELETE · `unitAssignment` (derived Mapping Hub, butuh master ruangan) · `dokterId?` link role klinis.
 
 ### B1.2 Katalog Klinis
@@ -112,8 +112,8 @@ Memetakan 25 master sub-module yang sudah dibangun di [/ehis-master](src/app/ehi
   - Field `KOP` **unblock** semua `PrintPreviewModal` lintas modul.
 
 ### B1.9 Mapping Hub (8 sub-pages)
-- [ ] `GET/PUT /api/master/mapping/sdm` — `AssignmentMap` (SDM × Unit). Push back ke `Dokter.poliAssignment` / `Pengguna.unitAssignment` saat update (lihat [TECH_DEBT.md](TECH_DEBT.md#mapping-hub) Bidirectional sync).
-- [ ] `GET/PUT /api/master/mapping/kewenangan` — `KewenanganMap` (Dokter × Tindakan). PMK 755 credentialing.
+- [✅] **`/api/v1/master/penugasan-ruangan`** — SDM Assignment **per-RUANGAN** (revisi dari "× Unit", 2026-06-06): link N:M **Pegawai⇄Location** (`master.PenugasanRuangan`, hard-delete join table, unik pasangan, idempoten). Layered + SSR hybrid + optimistik POST/DELETE WIRED ke [Mapping Hub → SDM Assignment](src/components/master/mapping/sdm/). Roster = dokter REAL dari API. **TIDAK** push-back ke `poliAssignment` (field itu dibuang dari Dokter). Beda dari `auth.UserUnitScope` (ABAC, level Unit) & `Pegawai.unitKerja` (HR). Lihat [§C BACKEND-MASTER-SUMBER-DAYA](docs/BACKEND-MASTER-SUMBER-DAYA.md). **Sisa:** PR3 tests · tenaga non-dokter (saat Pengguna di-wire ke Pegawai).
+- [🚧] `GET/PUT /api/master/mapping/kewenangan` — `KewenanganMap` (Dokter × Tindakan). PMK 755 credentialing. **Dokter source = API real ✅** (2026-06-06); map kewenangan masih **state-only** (default per spesialis) — persist tabel `DokterKewenangan` belum dibuat.
 - [ ] `GET/PUT /api/master/mapping/layanan` — `LayananMap` (Tindakan × Unit). Heatmap matrix.
 - [ ] `GET/PUT /api/master/mapping/tarif` — `TarifMap[penjamin][tindakan][kelas] → harga`. 1470+ cell. Bulk adjust.
 - [ ] `GET/PUT /api/master/mapping/formularium` — `FormulariumMap[penjamin][obat][kelas] → { allowed, alasan? }`. Per-tipe penjamin default rules.

@@ -10,7 +10,7 @@
 > **Terkait:** [CLAUDE.md](../CLAUDE.md) · [TODOS_BACKEND.md](../TODOS_BACKEND.md) (Phase B1) · memori `project_wilayah_strategy`.
 >
 > **Stack:** PostgreSQL · Prisma (`@@schema("master")`) · layered **Route→Service→DAL→Prisma** · Redis cache-aside · Auth.js RBAC.
-> **Status:** Sub-grup **Pegawai/Pengguna ✅** + **Unit & Ruangan ✅** (SD0–SD5 ter-implementasi & wired + SSR hybrid; **SD6 tests** 📋) · **Dokter 🚧** (DK0–DK5 ✅ schema+contracts+DAL+Service+API+FE wired/SSR hybrid, smoke live OK; **DK6 tests · seed** 📋 → §B). Lihat [TODOS_BACKEND.md](../TODOS_BACKEND.md#b11-sumber-daya).
+> **Status:** Sub-grup **Pegawai/Pengguna ✅** + **Unit & Ruangan ✅** (SD0–SD5 ter-implementasi & wired + SSR hybrid; **SD6 tests** 📋) · **Dokter 🚧** (DK0–DK5 ✅ schema+contracts+DAL+Service+API+FE wired/SSR hybrid, smoke live OK; **DK6 tests · seed** 📋 → §B) · **Penugasan Ruangan / SDM Assignment 🚧** (PR0–PR2 ✅ schema+API+FE wired/SSR hybrid optimistik; **PR3 tests** 📋 → §C). Lihat [TODOS_BACKEND.md](../TODOS_BACKEND.md#b11-sumber-daya).
 
 ---
 
@@ -20,7 +20,7 @@ Master FE = 26 sub-master + 8 mapping + Beranda (lihat [CLAUDE.md](../CLAUDE.md)
 
 | Grup | File workflow | Sub-master | Status |
 |---|---|---|---|
-| **Sumber Daya** | **BACKEND-MASTER-SUMBER-DAYA** (ini) | Pegawai · Pengguna · **Unit & Ruangan** · Dokter | Pegawai/Pengguna ✅ · Unit&Ruangan ✅ (SD0–5; SD6 tests 📋) · Dokter 🚧 (DK0–4 ✅; DK5–6 📋) |
+| **Sumber Daya** | **BACKEND-MASTER-SUMBER-DAYA** (ini) | Pegawai · Pengguna · **Unit & Ruangan** · Dokter · Penugasan Ruangan | Pegawai/Pengguna ✅ · Unit&Ruangan ✅ (SD0–5; SD6 tests 📋) · Dokter ✅ (DK0–5; DK6 tests 📋) · Penugasan Ruangan ✅ (PR0–2; PR3 tests 📋) |
 | Katalog Klinis | BACKEND-MASTER-KATALOG-KLINIS | Obat · Tindakan · Lab · Radiologi · ICD · SDKI | 📋 |
 | Skala Klinis | BACKEND-MASTER-SKALA | Risiko · Umum · Penyakit · Triase | 📋 |
 | Referensi/Template/Enum | BACKEND-MASTER-TEMPLATE | Asesmen · Status Enum · Anamnesis · Form | 📋 |
@@ -401,3 +401,42 @@ Pengguna (wizard Tambah)  →  master.Pegawai          →  master.Dokter (ekste
 4. **Tambah Dokter = provisioning** (pilih pegawai dokter existing), **bukan** create from scratch. *(Terkunci — G3, cermin "Buatkan Akun" Pengguna.)*
 5. **Multi-SIP** (RS bisa terbitkan >1 SIP per dokter) → mulai single kolom; **fase later** tabel `DokterSip` 1:N bila dibutuhkan. *(Terbuka.)*
 6. **FHIR Practitioner** sync (NIK lookup, `ihsPractitionerId`) → modul `/ehis-fhir`, bukan di sini. *(Terkunci — konsisten strategi FHIR master.)*
+
+---
+
+## C. Sub-grup **Sumber Daya — Penugasan Ruangan (SDM Assignment)** ✅
+
+> Persistensi penugasan SDM ke ruangan, konsumen **Mapping Hub → SDM Assignment**. Implementasi 2026-06-06.
+
+### C.1 Scope & model
+- Entity **`master.PenugasanRuangan`** — link **N:M Pegawai ⇄ Location (Ruangan)**: "siapa bertugas di ruangan apa". Pegawai = anchor (dokter & nakes lain semuanya Pegawai; info klinis dokter via relasi `Pegawai.dokter`).
+- **Join table → HARD delete** saat lepas tugas (bukan soft-delete/version — link row, bukan entity ber-siklus-hidup). Unik `(pegawai_id, location_id)` cegah dobel; `createdAt` = "ditugaskan sejak".
+- Schema: [penugasanRuangan.prisma](../prisma/schema/penugasanRuangan.prisma) · migrasi [20260606130000_init_master_penugasan_ruangan](../prisma/migrations/20260606130000_init_master_penugasan_ruangan/migration.sql) (db-execute + resolve, data-preserving).
+
+### C.2 ⚠️ 3 konsep "unit/penempatan" JANGAN digabung
+| Konsep | Level | Untuk | Sumber |
+|---|---|---|---|
+| **PenugasanRuangan** (ini) | **Ruangan** (Location), N:M | operasional — roster SDM per ruangan | master.PenugasanRuangan |
+| `auth.UserUnitScope` | **Unit** (Organization) | ABAC akses login / RBAC | auth (BACKEND-AUTH §2.3) |
+| `Pegawai.unitKerja` | teks tunggal | penempatan HR (home unit) | master.Pegawai |
+
+### C.3 Layer & API
+- Schema/DTO [penugasanRuangan.ts](../src/lib/schemas/penugasanRuangan.ts) · DAL [penugasanRuanganDal.ts](../src/lib/dal/penugasanRuanganDal.ts) (include pegawai+location) · Service [penugasanRuanganService.ts](../src/lib/services/penugasanRuanganService.ts) (factory, guard parent, create **idempoten**).
+- Resource RBAC `master.penugasan-ruangan`.
+
+| Method | Path | Aksi |
+|---|---|---|
+| GET | `/api/v1/master/penugasan-ruangan?locationId=&pegawaiId=&cursor=&limit=` | list/filter (cursor, max 100) |
+| POST | `/api/v1/master/penugasan-ruangan` `{pegawaiId, locationId, peran?}` | tugaskan — **idempoten** (existing → 200, baru → 201) |
+| DELETE | `/api/v1/master/penugasan-ruangan/:id` | lepas (hard delete) |
+
+### C.4 Task checklist
+- [x] PR0 Schema + migrasi + Prisma generate (`tsc` ✅, table live, migrate status up-to-date).
+- [x] PR1 Contracts + DAL + Service + Routes (layered, idempoten).
+- [x] PR2 **FE wiring** SDM Assignment ✅ ([api/penugasanRuangan.ts](../src/lib/api/penugasanRuangan.ts) + [SDMAssignmentPane](../src/components/master/mapping/sdm/SDMAssignmentPane.tsx)): **SSR hybrid** (`initialPenugasan` via [mapping/page.tsx](../src/app/ehis-master/mapping/page.tsx) `Promise.allSettled`) → array `penugasan` (DTO) = sumber tunggal; `assignments` map + `edgeIds` di-**derive** (no state ganda) · toggle = optimistik POST/DELETE + rollback + toast (sukses/warning) · bulk-move = loop (toast agregat). **Roster = dokter REAL only** (mock dokter & pengguna dibuang; panel kiri = tree Unit→Ruangan, assign per-ruangan). Kewenangan Klinis juga konsumsi dokter API. **Sisa:** non-dokter (perawat/dst) menyusul saat Pengguna di-wire ke Pegawai (anchor `pegawaiId`).
+- [ ] PR3 Tests (Service: guard parent, idempotensi, delete not-found · DAL integration).
+
+### C.5 Keputusan
+1. **Anchor = Pegawai**, bukan Dokter — penugasan berlaku semua SDM (perawat/apoteker/dst), dokter cuma subset yang sudah ke-wire. *(Terkunci.)*
+2. **Level Ruangan (Location)**, bukan Unit — sesuai arahan "atur berdasarkan Ruangan bukan Unit" (2026-06-06). *(Terkunci.)*
+3. **Hard delete + unik pasangan**, tanpa version — hindari partial-unique index/drift; toggle = create/delete. Riwayat penugasan (bila perlu) → audit log fase later. *(Terbuka utk audit.)*

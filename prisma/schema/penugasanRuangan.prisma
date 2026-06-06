@@ -1,0 +1,36 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Sumber Daya — Penugasan Ruangan (SDM Assignment)
+//  Link N:N Pegawai ⇄ Ruangan (Location): "siapa bertugas di ruangan apa". Dikelola di
+//  Mapping Hub → SDM Assignment. Pegawai = anchor (dokter & nakes lain semuanya Pegawai;
+//  dokter di-resolve via relasi Pegawai.dokter saat perlu info klinis).
+//
+//  BEDA dari (jangan digabung):
+//   • auth.UserUnitScope  → ABAC akses login, level UNIT (Organization), untuk RBAC.
+//   • Pegawai.unitKerja   → penempatan HR (home unit), teks tunggal.
+//  Penugasan ini OPERASIONAL, level RUANGAN (Location), many-to-many.
+//
+//  Join table → HARD delete saat lepas tugas (bukan soft-delete); unik (pegawai, ruangan)
+//  cegah dobel. `createdAt` = "ditugaskan sejak". Konvensi (FLOWS §9): uuid v7 · timestamptz.
+// ════════════════════════════════════════════════════════════════════════════
+
+model PenugasanRuangan {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  pegawaiId String  @map("pegawai_id") @db.Uuid
+  pegawai   Pegawai @relation("PegawaiPenugasan", fields: [pegawaiId], references: [id], onDelete: Restrict)
+
+  locationId String   @map("location_id") @db.Uuid
+  location   Location @relation("LokasiPenugasan", fields: [locationId], references: [id], onDelete: Restrict)
+
+  /// Peran opsional dlm ruangan (mis. "PJ Ruangan", "DPJP"). Bebas teks sampai master peran siap.
+  peran String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([pegawaiId, locationId])
+  @@index([locationId])
+  @@index([pegawaiId])
+  @@map("penugasan_ruangan")
+  @@schema("master")
+}

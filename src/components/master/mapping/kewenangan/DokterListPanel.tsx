@@ -5,13 +5,13 @@ import { motion } from "framer-motion";
 import { Search, UserCog, ChevronDown, Filter, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SPESIALIS_LABEL, type SpesialisCode } from "@/components/master/dokter/dokterShared";
-import { type DokterRecord } from "@/components/master/dokter/dokterMock";
+import type { DokterListItemDTO } from "@/lib/api/dokter";
 import { makeInitials } from "../mappingShared";
 import type { KewenanganMap } from "./kewenanganShared";
 import { countKewenangan } from "./kewenanganShared";
 
 interface DokterListPanelProps {
-  dokters: DokterRecord[];
+  dokters: DokterListItemDTO[];
   map: KewenanganMap;
   totalTindakan: number;
   selectedId: string | null;
@@ -26,16 +26,16 @@ export default function DokterListPanel({
 
   const spesialisOptions = useMemo(() => {
     const set = new Set<SpesialisCode>();
-    for (const d of dokters) if (d.spesialis) set.add(d.spesialis);
+    for (const d of dokters) set.add(d.spesialisKode);
     return Array.from(set);
   }, [dokters]);
 
   const filtered = useMemo(() => {
     return dokters.filter((d) => {
-      if (spesialisFilter !== "all" && d.spesialis !== spesialisFilter) return false;
+      if (spesialisFilter !== "all" && d.spesialisKode !== spesialisFilter) return false;
       if (search.trim()) {
         const q = search.toLowerCase();
-        return d.nama.toLowerCase().includes(q) || d.nik.includes(q);
+        return d.namaTampil.toLowerCase().includes(q) || d.nip.toLowerCase().includes(q);
       }
       return true;
     });
@@ -113,14 +113,14 @@ export default function DokterListPanel({
 function DokterRow({
   dokter, index, granted, total, selected, onClick,
 }: {
-  dokter: DokterRecord;
+  dokter: DokterListItemDTO;
   index: number;
   granted: number;
   total: number;
   selected: boolean;
   onClick: () => void;
 }) {
-  const initials = makeInitials(dokter.nama);
+  const initials = makeInitials(dokter.namaTampil);
   const pct = total ? Math.round((granted / total) * 100) : 0;
 
   return (
@@ -147,13 +147,11 @@ function DokterRow({
           "truncate m-xs font-bold",
           selected ? "text-teal-800" : "text-slate-800",
         )}>
-          {dokter.nama}
+          {dokter.namaTampil}
         </p>
-        {dokter.spesialis && (
-          <p className="mt-0.5 truncate m-mini text-slate-500">
-            {SPESIALIS_LABEL[dokter.spesialis]}
-          </p>
-        )}
+        <p className="mt-0.5 truncate m-mini text-slate-500">
+          {SPESIALIS_LABEL[dokter.spesialisKode]}
+        </p>
         <div className="mt-1 flex items-center gap-1.5">
           <div className="h-1 flex-1 overflow-hidden rounded-full bg-slate-100">
             <motion.div

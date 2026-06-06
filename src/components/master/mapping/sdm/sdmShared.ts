@@ -1,4 +1,3 @@
-import { PENGGUNA_MOCK, ROLE_CFG, type UserRole } from "@/components/master/pengguna/penggunaShared";
 import { makeInitials } from "../mappingShared";
 import { type AnyNode, type LocationNode } from "@/components/master/ruangan/ruanganShared";
 import type { DokterListItemDTO } from "@/lib/api/dokter";
@@ -24,6 +23,8 @@ export interface SDMItem {
   id: string;
   source: SDMSource;
   sourceId: string;
+  /** Anchor persist penugasan (FK ke master.Pegawai). Hanya dokter REAL yang punya; pengguna mock = undefined. */
+  pegawaiId?: string;
   nama: string;
   initials: string;
   roleLabel: string;
@@ -80,22 +81,6 @@ function locationToCategory(node: LocationNode): UnitItem["category"] {
   }
 }
 
-// ── Map Pengguna.role ke SDMCategory ──────────────────────
-
-function roleToCategory(role: UserRole): SDMCategory {
-  switch (role) {
-    case "Dokter":      return "Dokter";
-    case "Perawat":     return "Perawat";
-    case "Apoteker":    return "Apoteker";
-    case "Radiografer": return "Radiografer";
-    case "SpPK":        return "SpPK";
-    case "SpRad":       return "SpRad";
-    case "Kasir":       return "Kasir";
-    case "Registrasi":  return "Registrasi";
-    case "Admin":       return "Lainnya"; // admin akan di-skip
-  }
-}
-
 // ── Derive Functions ──────────────────────────────────────
 
 /** Map DokterListItemDTO (API /master/dokter) → SDMItem. Email tak ada di list DTO (tak dipakai di roster). */
@@ -104,6 +89,7 @@ export function dokterDtoToSDM(d: DokterListItemDTO): SDMItem {
     id: `sdm-dr-${d.id}`,
     source: "dokter",
     sourceId: d.id,
+    pegawaiId: d.pegawaiId,
     nama: d.namaTampil,
     initials: makeInitials(d.namaTampil),
     roleLabel: d.spesialisLabel,
@@ -116,35 +102,13 @@ export function dokterDtoToSDM(d: DokterListItemDTO): SDMItem {
 }
 
 /**
- * Gabungkan dokter REAL (API /master/dokter — yang sudah didaftarkan di Dokter & Nakes) +
- * PENGGUNA_MOCK → unified list SDM. Pengguna ber-role "Dokter" di-skip (dokter kini bersumber
- * dari API → cegah dobel). Pengguna lain (Perawat/Apoteker/dst) tetap mock sampai di-wire.
+ * Daftar SDM untuk Assignment = dokter REAL dari API (/master/dokter — yang didaftarkan di
+ * Dokter & Nakes). Tenaga non-dokter (perawat/apoteker/dst) BELUM disertakan: sumbernya masih
+ * mock & belum punya pegawaiId asli → tak bisa di-assign/persist. Akan ditambah saat modul
+ * Pengguna di-wire ke Pegawai (lalu anchor `pegawaiId` tersedia untuk semua tenaga).
  */
 export function deriveSDMList(dokters: DokterListItemDTO[]): SDMItem[] {
-  const drs = dokters.map(dokterDtoToSDM);
-
-  const penggunas: SDMItem[] = PENGGUNA_MOCK
-    // Multi-role: pakai role utama (pertama) utk kategori SDM; skip akun Admin-only & role Dokter.
-    .filter((p) => !(p.roles.length === 1 && p.roles[0] === "Admin"))
-    .filter((p) => !p.roles.includes("Dokter"))
-    .map((p) => {
-      const primary = p.roles.find((r) => r !== "Admin") ?? p.roles[0];
-      return {
-        id: `sdm-user-${p.id}`,
-        source: "pengguna" as const,
-        sourceId: p.id,
-        nama: p.nama,
-        initials: makeInitials(p.nama),
-        roleLabel: ROLE_CFG[primary].label,
-        roleCategory: roleToCategory(primary),
-        status: p.status,
-        email: p.email,
-        units: [], // unitAssignment mock tak relevan dgn ruangan REAL.
-        sinceISO: p.createdAt.slice(0, 10),
-      };
-    });
-
-  return [...drs, ...penggunas];
+  return dokters.map(dokterDtoToSDM);
 }
 
 /**

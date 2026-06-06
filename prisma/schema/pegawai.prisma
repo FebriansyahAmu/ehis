@@ -104,6 +104,8 @@ model Pegawai {
   /// 1 pegawai : 0..1 profil Dokter (ekstensi klinis; FK di master.Dokter.pegawaiId).
   /// "Pegawai ini dokter?" = relasi ini ada (atau practitionerId terisi sbg pointer denormalized).
   dokter        Dokter? @relation("PegawaiDokter")
+  /// Penugasan ke ruangan (Mapping Hub → SDM Assignment); N:M via master.PenugasanRuangan.
+  penugasanRuangan PenugasanRuangan[] @relation("PegawaiPenugasan")
 
   @@index([namaLengkap])
   @@index([statusPegawai])

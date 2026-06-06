@@ -1,25 +1,54 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { ShieldCheck, Users, Network, MousePointer2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { listDokter, type DokterListItemDTO } from "@/lib/api/dokter";
 import {
   type KewenanganMap,
-  getDokterList, getTindakanList,
-  initKewenanganMap, countAllGranted,
+  getTindakanList, initKewenanganMap, countAllGranted,
 } from "./kewenanganShared";
 import DokterListPanel from "./DokterListPanel";
 import KewenanganMatrix from "./KewenanganMatrix";
 
-export default function KewenanganPane() {
-  const dokters = useMemo(() => getDokterList(), []);
+interface KewenanganPaneProps {
+  /** Daftar dokter (API /master/dokter) dari SSR. Absen → client fetch (degradasi anggun). */
+  initialDokters?: DokterListItemDTO[];
+}
+
+export default function KewenanganPane({ initialDokters }: KewenanganPaneProps) {
   const tindakan = useMemo(() => getTindakanList(), []);
 
+  // Dokter REAL (API). SSR hybrid: pakai initialDokters bila ada, else fetch client.
+  const [dokters, setDokters] = useState<DokterListItemDTO[]>(initialDokters ?? []);
   const [map, setMap] = useState<KewenanganMap>(() =>
-    initKewenanganMap(dokters, tindakan),
+    initKewenanganMap(initialDokters ?? [], tindakan),
   );
-  const [selectedId, setSelectedId] = useState<string | null>(dokters[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialDokters?.[0]?.id ?? null);
+
+  useEffect(() => {
+    if (initialDokters != null) return;
+    const ctrl = new AbortController();
+    listDokter({ limit: 50 }, ctrl.signal)
+      .then(({ items }) => setDokters(items))
+      .catch((e) => { if (!(e instanceof DOMException && e.name === "AbortError")) { /* kosong bila gagal */ } });
+    return () => ctrl.abort();
+  }, [initialDokters]);
+
+  // Map default mengikuti dokter yang termuat (pertahankan edit per-dokter yang sudah ada).
+  useEffect(() => {
+    setMap((prev) => {
+      const base = initKewenanganMap(dokters, tindakan);
+      for (const k of Object.keys(base)) if (prev[k]) base[k] = prev[k];
+      return base;
+    });
+  }, [dokters, tindakan]);
+
+  // Pilih dokter pertama begitu data tersedia (bila belum ada pilihan).
+  useEffect(() => {
+    setSelectedId((cur) => cur ?? dokters[0]?.id ?? null);
+  }, [dokters]);
 
   const selected = useMemo(
     () => dokters.find((d) => d.id === selectedId) ?? null,
@@ -50,14 +79,14 @@ export default function KewenanganPane() {
 
   const handleResetDefault = () => {
     if (!selected) return;
-    if (!confirm(`Reset kewenangan ${selected.nama} ke default berdasarkan spesialis?`)) return;
+    if (!confirm(`Reset kewenangan ${selected.namaTampil} ke default berdasarkan spesialis?`)) return;
     const defaultMap = initKewenanganMap([selected], tindakan);
     setMap((prev) => ({ ...prev, [selected.id]: defaultMap[selected.id] ?? [] }));
   };
 
   const handleClearAll = () => {
     if (!selected) return;
-    if (!confirm(`Hapus semua kewenangan ${selected.nama}?`)) return;
+    if (!confirm(`Hapus semua kewenangan ${selected.namaTampil}?`)) return;
     setMap((prev) => ({ ...prev, [selected.id]: [] }));
   };
 
