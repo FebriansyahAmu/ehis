@@ -50,7 +50,7 @@ export function DaftarKunjunganModal({
 
   const [form, setForm] = useState<KunjunganForm>({
     unit: "Rawat Jalan", tanggal: today, jam: nowTime, caraMasuk: "Datang Sendiri",
-    dokter: "", keluhan: "", triase: 3,
+    dokter: "", keluhan: "", triase: null,
     poli: "Poli Umum", asalMasuk: "Dari Poli", kelasRawat: "2",
     ruanganId: "", ruanganNama: "", dpjpId: "", dpjpNama: "",
   });

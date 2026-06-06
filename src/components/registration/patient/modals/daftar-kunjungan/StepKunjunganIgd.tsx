@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, DoorOpen, Loader2, AlertCircle, UserX, Stethoscope } from "lucide-react";
+import { Check, DoorOpen, Loader2, AlertCircle, UserX, Stethoscope, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Select } from "@/components/shared/inputs";
 import { listRuanganByType } from "@/lib/api/ruangan";
@@ -76,18 +76,32 @@ export function StepKunjunganIgd({
     <>
       <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Detail IGD</p>
 
-      {/* Level Triase — box landscape (5 kolom, hemat ruang) */}
+      {/* Level Triase — box landscape (5 kolom, hemat ruang). Opsional: klik aktif → kosongkan. */}
       <div>
-        <label className={labelCls}>Level Triase</label>
-        <div className="grid grid-cols-5 gap-1.5">
-          {([1, 2, 3, 4, 5] as TriaseLevel[]).map((t) => {
+        <div className="mb-1 flex items-center justify-between">
+          <label className={cn(labelCls, "mb-0")}>
+            Level Triase <span className="font-normal normal-case text-slate-300">(opsional)</span>
+          </label>
+          {form.triase !== null && (
+            <button
+              type="button"
+              onClick={() => setForm((f) => ({ ...f, triase: null }))}
+              className="flex cursor-pointer items-center gap-0.5 text-[10px] font-semibold text-slate-400 transition hover:text-rose-500"
+            >
+              <X size={10} /> Kosongkan
+            </button>
+          )}
+        </div>
+        <div className="grid grid-cols-4 gap-1.5">
+          {([1, 2, 3, 4] as TriaseLevel[]).map((t) => {
             const cfg = TRIASE_CFG[t];
             const isActive = form.triase === t;
             return (
               <button
                 key={t}
                 type="button"
-                onClick={() => setForm((f) => ({ ...f, triase: t }))}
+                // Toggle: klik level aktif → kosongkan (triase boleh tak ditentukan saat loket).
+                onClick={() => setForm((f) => ({ ...f, triase: f.triase === t ? null : t }))}
                 aria-pressed={isActive}
                 className={cn(
                   "relative flex cursor-pointer flex-col items-center gap-0.5 rounded-lg border px-1 py-2 text-center transition",
@@ -102,6 +116,9 @@ export function StepKunjunganIgd({
             );
           })}
         </div>
+        {form.triase === null && (
+          <p className="mt-1 text-[10px] text-slate-400">Boleh dikosongkan — triase dapat ditentukan perawat IGD saat penilaian.</p>
+        )}
       </div>
 
       {/* Ruangan IGD */}

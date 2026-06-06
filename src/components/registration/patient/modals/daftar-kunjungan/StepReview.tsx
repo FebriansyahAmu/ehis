@@ -31,7 +31,7 @@ export function StepReview({
         <div className="grid grid-cols-2 gap-3">
           <RvItem label="Unit" value={form.unit} />
           <RvItem label="Tanggal & Jam" value={`${form.tanggal} · ${form.jam}`} />
-          {form.unit === "IGD" && <RvItem label="Triase" value={TRIASE_CFG[form.triase].label} />}
+          {form.unit === "IGD" && <RvItem label="Triase" value={form.triase ? TRIASE_CFG[form.triase].label : "Belum ditentukan"} />}
           {form.unit === "IGD" && <RvItem label="Ruangan IGD" value={form.ruanganNama.trim() || "—"} />}
           {form.unit === "Rawat Jalan" && <RvItem label="Poli Tujuan" value={form.poli} />}
           {form.unit === "Rawat Inap" && <RvItem label="Asal Masuk" value={form.asalMasuk} />}

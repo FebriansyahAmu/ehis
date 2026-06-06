@@ -77,7 +77,7 @@ export const RegisterKunjunganInput = z
     tanggal: ISO_DATE,
     jam: HHMM.optional(),
     poli: z.string().trim().max(80).optional(),
-    triaseLevel: z.number().int().min(1).max(5).optional(), // IGD (1..5)
+    triaseLevel: z.number().int().min(1).max(4).optional(), // IGD prioritas P1..P4
     dpjpId: z.string().uuid().optional(), // DPJP master (Dokter id, bukan nama bebas)
     ruanganId: z.string().uuid().optional(), // ruangan layanan (master Location) — IGD bay/zona
     keluhan: z.string().trim().max(1000).optional(),
@@ -102,8 +102,8 @@ export const RegisterKunjunganInput = z
       }
     }
     if (v.unit === "IGD") {
-      // IGD = kegawatdaruratan: triase wajib; rujukan TIDAK wajib (emergency), SEP wajib bila BPJS.
-      if (!v.triaseLevel) ctx.addIssue({ code: "custom", path: ["triaseLevel"], message: "Level triase wajib untuk IGD" });
+      // IGD = kegawatdaruratan: triase OPSIONAL di loket (dapat ditentukan perawat IGD saat
+      // penilaian); rujukan TIDAK wajib (emergency); SEP wajib bila BPJS.
       if (isBpjs && !v.sep) ctx.addIssue({ code: "custom", path: ["sep"], message: "Data SEP wajib untuk pasien BPJS" });
     }
   });
