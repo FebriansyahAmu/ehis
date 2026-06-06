@@ -11,9 +11,9 @@
 > - [TECH_DEBT.md](TECH_DEBT.md) — tech debt registry (item yang ditunda dicatat di sini)
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (RBAC role-gate depend B0)
 >
-> **Last updated:** 2026-06-04
-> **Status:** ✅ **REG0 fondasi + Backend RJ Integration (2026-06-04).** Beralih dari mock-store ke **backend nyata** (layered Route→Service→DAL→Prisma + PostgreSQL). **PasienBaruModal & DaftarKunjunganModal fungsional** (bukan lagi no-op): PasienBaru → `POST /patients` (dedup-first) → DB; DaftarKunjungan → Kunjungan tersimpan + SEP mock terbit & cetak A4 + toast + validasi. Pasien API (register / complete / updatePenjamin), Kunjungan API (register RJ / worklist cursor / detail), lifecycle worklist (check-in→complete, version-guarded) wired ke board RJ, Jaminan persist (ikut kunjungan terakhir), noRM `YYMMNNNN` reset/bulan. Detail di **Phase REG-BE** ⬇. **Sisa:** board loket, IGD/RI, realtime (SSE), nama DPJP (master Dokter).
-> **Target effort:** RJ ✅ done; sisa per-item di [TECH_DEBT.md](TECH_DEBT.md) / Phase REG-BE.
+> **Last updated:** 2026-06-06
+> **Status:** ✅ **REG0 fondasi + Backend RJ Integration (2026-06-04) + IGD/RI Pendaftaran & Bed Allocation (2026-06-06).** Beralih dari mock-store ke **backend nyata** (layered Route→Service→DAL→Prisma + PostgreSQL). **PasienBaruModal & DaftarKunjunganModal fungsional** (bukan lagi no-op): PasienBaru → `POST /patients` (dedup-first) → DB; DaftarKunjungan → Kunjungan tersimpan + SEP mock terbit & cetak A4 + toast + validasi. Pasien API (register / complete / updatePenjamin), Kunjungan API (register **RJ + IGD + RI** / worklist cursor / detail), lifecycle worklist (check-in→complete, version-guarded) wired ke board RJ, Jaminan persist (ikut kunjungan terakhir), noRM `YYMMNNNN` reset/bulan. **Bed Allocation ✅** — model `encounter.BedAllocation` (Reserved/Occupied/Released, partial-unique anti-double-booking), IGD **occupy saat Terima**, RI **reserve saat pendaftaran**, `tersedia` = derived count. **Board IGD ✅** — fetch order DB belum-diterima + Terima(pilih bed)/Batalkan, panel ruangan master + okupansi, DPJP & ruangan/bed resolve dari master. Detail di **Phase REG-BE** ⬇. **Sisa:** board loket, realtime (SSE), nama DPJP di riwayat RJ, rekam medis IGD DB.
+> **Target effort:** RJ + IGD + RI register ✅ done; sisa per-item di [TECH_DEBT.md](TECH_DEBT.md) / Phase REG-BE.
 
 ---
 
@@ -27,7 +27,7 @@
 | **Antrean online (Mobile JKN/Antrol)** | **PISAH** ke modul baru `/ehis-antrian` — lihat [TODO-ANTREAN.md](TODO-ANTREAN.md). Registrasi hanya *consume* status & badge-nya di pasien RJ. |
 | **Cakupan SEP** | **Hanya Rawat Jalan** untuk batch ini. SEP IGD & RI → ditunda (TECH_DEBT). |
 | **Board loket** | **PINDAH ke `/ehis-antrian` › tab Antrean List** (revisi 2026-05-30, lihat [TODO-ANTREAN.md](TODO-ANTREAN.md) ANT2). Registrasi cukup sediakan modal yang di-*trigger* dari "Respon Kedatangan" + dukung deep-link auto-open. REG3 lama di-**deprecate**. |
-| **Bed management saat admisi RI** | Ditunda (TECH_DEBT). |
+| **Bed management saat admisi RI** | ✅ **Bed Allocation (2026-06-06)** — RI reserve-saat-daftar + IGD occupy-saat-terima. Lihat REG-BE.8. |
 | **General Consent capture + cetak** | Ditunda (TECH_DEBT). |
 
 ### Prinsip arsitektur (sebelum coding)
@@ -105,11 +105,33 @@
 - [ ] **G-I1 = alur ubah SEP** (koreksi 2026-06-04) — tab "Ubah Penjamin" sebenarnya cek keaktifan BPJS → ubah/terbit SEP (BpjsPanel + InlineSEPCard), flow sama pendaftaran kunjungan. UI mock sudah benar; wiring backend = **G-I2** (endpoint terbit/ubah SEP kunjungan existing). *(Modal Ubah Penjamin patient-level di dashboard dihapus 2026-06-04 — Jaminan tab display-only.)*
 - [ ] **G-I2–7 Tab Aksi** (Update/terbit SEP · Paket · Rujukan · Kecelakaan · Cetak · Hapus) + **G-J inline-edit Header** masih mock/no-op — butuh endpoint baru, scope terpisah.
 
+### REG-BE.8 IGD/RI Pendaftaran + Bed Allocation + Board IGD ✅ (2026-06-06)
+
+> **Buka jalur pendaftaran IGD & RI** (sebelumnya `registerKunjungan` hardcode RawatJalan) + **model okupansi bed** lintas-modul. Plan: bed allocation row-based, `tersedia` = **derived count** (`bed aktif − alokasi aktif`), atomisitas via **partial unique index** Postgres (BUKAN counter yang di-decrement → cegah drift/race, selaras keputusan `fase` derived).
+
+**Phase A — Fondasi Bed Allocation (layered)**
+- [x] **Model + migration** — `encounter.BedAllocation` (id · bedId cross-schema→master.Bed · kunjunganId→Kunjungan cascade · status `Reserved/Occupied/Released` · reservedAt/occupiedAt/releasedAt · version). Migration `20260606150000_bed_allocation` (data-preserving: `db execute` + `migrate resolve --applied`). **2 partial unique index**: `bed_alloc_one_active_per_bed` & `bed_alloc_one_active_per_kunjungan` WHERE status∈{Reserved,Occupied} → P2002→409 anti-double-booking.
+- [x] **Schema/DAL/Service/Endpoint** — [bedAllocation.ts](src/lib/schemas/bedAllocation.ts) (zod) · [bedAllocationDal.ts](src/lib/dal/bedAllocationDal.ts) (`create/listActive/findActiveByKunjungan/release/occupy`, terima `tx?`) · [bedAllocationService.ts](src/lib/services/bedAllocationService.ts) (`makeBedAllocationService`, validasi bed eksis+aktif via ruanganDal, catch P2002→`Errors.conflict`, `listActive` derive bedIds dari `listLocationsByType`) · `GET /api/v1/bed-allocations?locationType=` · client [api/bedAllocation.ts](src/lib/api/bedAllocation.ts).
+
+**Phase B — IGD occupy saat Terima**
+- [x] **Transition + occupy** — [kunjungan.ts](src/lib/schemas/kunjungan.ts) `TransitionInput.bedId?`; [kunjunganService.transition](src/lib/services/kunjunganService.ts) `receive` IGD → `bedAlloc.occupy(bedId, id, tx)` + set `Kunjungan.bedId`; `complete`/`cancel` → `release(kunjunganId)` (semua dalam tx).
+- [x] **Board IGD rework** — [IGDWorkspace](src/components/igd/IGDWorkspace.tsx) fetch kunjungan IGD (Registered/Queued/InService) + rooms master (`listRuanganByType IGD`) + dokter map (cursor limit 50) + alokasi aktif. [IGDOrderInbox](src/components/igd/IGDOrderInbox.tsx) section "Order Masuk · Menunggu Diterima" → **Terima** (pilih bed tersedia) / **Batalkan**. [IGDRuanganMasterPanel](src/components/igd/IGDRuanganMasterPanel.tsx) tandai bed Terisi/Tersedia + chips ringkasan. Stat header dihitung ulang dari data nyata (total · P1-P4 · bed tersedia). Mock dihapus kecuali Joko (igd-1).
+- [x] **Resolve DPJP & ruangan/bed** — [igdBoardApi.ts](src/components/igd/igdBoardApi.ts) `dtoToIgdPatient(dto, lookups)` map `dpjpId`→nama (dokterById), `ruanganId`→nama, bed→nama dari peta alokasi. Kartu InService tampil ruangan + bed.
+
+**Phase C — RI reserve saat pendaftaran**
+- [x] **Buka jalur RI** — [kunjungan.ts](src/lib/schemas/kunjungan.ts) hapus penolakan RawatInap di superRefine; `RegisterKunjunganInput` + `kelas?`/`bedId?`. [kunjunganService.registerKunjungan](src/lib/services/kunjunganService.ts) RI set kelas+bedId, dan bila `bedId` → `bedAlloc.reserve(bedId, k.id, tx)` dalam tx register.
+- [x] **Bed picker modal RI** — [StepKunjunganRi.tsx](src/components/registration/patient/modals/daftar-kunjungan/StepKunjunganRi.tsx) fetch Location tipe RI (Rawat_Inap/ICU/HCU/Isolasi) + alokasi aktif → pilih ruangan → bed tersedia (exclude occupied). Adapter [daftarKunjunganApi.ts](src/components/registration/patient/modals/daftar-kunjungan/daftarKunjunganApi.ts) kirim `kelas`/`bedId` saat RI. [StepReview](src/components/registration/patient/modals/daftar-kunjungan/StepReview.tsx) tampil Ruangan + Bed (reserve). Guard "RI belum didukung" dilepas.
+
+**Sisa REG-BE.8 (belum):**
+- [ ] **Rekam medis IGD dari DB** — kartu pasien DB belum bisa di-link ke `/ehis-care/igd/[id]` (halaman detail 100% mock `igdPatientDetails`, ~20 tab klinis). Pasien seed (Joko/igd-1) link OK; pasien DB (UUID) non-navigable. Butuh keputusan scope (detail ringkas DB vs wiring penuh tab klinis).
+- [ ] **Board/worklist RI penuh** — RI baru `register + reserve`; board admisi RI + occupy-saat-admisi belum.
+- [ ] **Expiry reservasi (TTL)** — reservasi RI dilepas hanya via cancel; auto-expire belum.
+
 ### 🅿️ Sisa backend (belum)
 - [ ] **Board loket** real-time (SSE/polling) — board RJ belum auto-refresh antar-operator.
 - [x] ~~PasienBaruModal submit → API~~ ✅ **sudah** ([PasienBaruModal.tsx:255](src/components/registration/pasien-baru/PasienBaruModal.tsx#L255) `registerPatient`→`POST /patients` dedup-first→DB). Sisa kecil: auto-buka pasien pasca-sukses (kini success-panel only) + quick-register draft minimal (REG1).
-- [ ] **IGD/RI unit** — `registerKunjungan` hardcode RawatJalan; triase/bed/kelas belum.
-- [ ] **Nama DPJP** — `dpjpId` placeholder; butuh master Dokter (`sdm.Pegawai`/Practitioner) untuk resolve nama (board/riwayat tampil "—").
+- [x] ~~**IGD/RI unit** — `registerKunjungan` hardcode RawatJalan~~ ✅ **sudah** (REG-BE.8) — IGD (triase opsional + DPJP + ruangan), RI (kelas + bed reserve). Worklist/board RI penuh masih sisa.
+- [ ] **Nama DPJP (riwayat RJ)** — board IGD sudah resolve via master Dokter (REG-BE.8); riwayat/detail kunjungan RJ masih "—" (`dpjpId` non-IGD belum di-join).
 - [ ] **Invoice draft saat check-in** (`Registered→Queued`) — depend domain Billing backend.
 - [ ] **Antrean** `antreanKodebooking` + nomor antri — depend domain Antrean.
 - [ ] **Auth/RBAC nyata** — `getActor()` masih DEV actor (depend [docs/BACKEND-AUTH.md](docs/BACKEND-AUTH.md)).
@@ -200,7 +222,7 @@ Saat Respon Kedatangan pasien BPJS baru (ANT4.1), payload peserta meng-autofill 
 | Item | Alasan tunda |
 |---|---|
 | SEP IGD & RI | Fokus batch = RJ. Alur emergency & admisi beda. |
-| Bed management real-time saat admisi RI | Butuh sync ke `/ehis-master/ruangan` + Aplicares; scope tersendiri. |
+| ~~Bed management real-time saat admisi RI~~ | ✅ Reserve-saat-daftar (RI) + occupy-saat-terima (IGD) selesai (REG-BE.8, 2026-06-06). Sisa: board admisi RI + sync Aplicares. |
 | General Consent capture + TTD digital + cetak | Legal-doc flow tersendiri (PMK). |
 | APM / kiosk self check-in | Nilai tambah, bukan core. |
 | Audit trail pendaftaran | Tunggu pola audit konsisten + B0. |
