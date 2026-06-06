@@ -314,9 +314,9 @@ export interface IGDTindakanItem {
 }
 
 export interface IGDPatientDetail extends IGDPatient {
-  // Detail klinis selalu punya umur & triase (re-require dari base yang opsional).
+  // Detail klinis selalu punya umur. Triase tetap opsional (warisan IGDPatient): pasien
+  // hasil pendaftaran bisa belum ditriase → header tampil "Belum Triase", bukan level palsu.
   age: number;
-  triage: TriageLevel;
   noKunjungan: string;
   tglKunjungan: string;
   caraMasuk: string;

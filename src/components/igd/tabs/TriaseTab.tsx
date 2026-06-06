@@ -477,7 +477,7 @@ const EMPTY: TriaseForm = {
 export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
   const [form, setForm] = useState<TriaseForm>({
     ...EMPTY,
-    triageLevel: patient.triage,
+    triageLevel: patient.triage ?? "",
     keluhanUtama: patient.complaint,
   });
   const set = <K extends keyof TriaseForm>(k: K, v: TriaseForm[K]) =>

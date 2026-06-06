@@ -9,7 +9,7 @@ export default function HandoverTab({ patient }: { patient: IGDPatientDetail }) 
       patient={{
         name: patient.name,
         noRM: patient.noRM,
-        subtitle: `${patient.diagnosa[0]?.namaDiagnosis ?? patient.complaint} · Triase ${patient.triage}`,
+        subtitle: `${patient.diagnosa[0]?.namaDiagnosis ?? patient.complaint} · Triase ${patient.triage ?? "Belum"}`,
         badge: patient.doctor,
         vitalSigns: {
           tdSistolik: patient.vitalSigns.tdSistolik,

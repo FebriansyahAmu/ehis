@@ -69,14 +69,14 @@ function ageFrom(iso: string | null): number {
   return age < 0 ? 0 : age;
 }
 
-/** triaseLevel (1..4) → TriageLevel. Null/di luar rentang → "P3" (hijau, paling netral). */
-function toTriage(level: number | null): TriageLevel {
+/** triaseLevel (1..4) → TriageLevel. Null/di luar rentang → undefined (belum ditriase). */
+function toTriage(level: number | null): TriageLevel | undefined {
   switch (level) {
     case 1: return "P1";
     case 2: return "P2";
     case 3: return "P3";
     case 4: return "P4";
-    default: return "P3";
+    default: return undefined;
   }
 }
 

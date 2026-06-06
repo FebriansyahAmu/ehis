@@ -58,6 +58,17 @@ const TRIAGE: Record<TriageLevel, {
   },
 };
 
+// Panel triase untuk pasien yang BELUM ditriase (mis. order DB dari pendaftaran). Bentuk
+// sama dgn entri TRIAGE → cfg seragam; slate netral, tanpa level palsu.
+const BELUM_TRIASE = {
+  panelGrad:    "bg-linear-to-b from-slate-500 to-slate-400",
+  identityWash: "from-slate-100/60 to-transparent",
+  avatarRing:   "ring-slate-300",
+  avatarShadow: "shadow-md shadow-slate-200",
+  topBarBg:     "bg-slate-50/50",
+  pulse: false, shortLabel: "—", label: "BELUM TRIASE",
+} as const;
+
 const STATUS_BADGE: Record<IGDStatus, string> = {
   Triage:             "bg-cyan-100 text-cyan-700 ring-1 ring-cyan-200",
   Menunggu:           "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
@@ -330,7 +341,8 @@ function DateCard({ value, onSave }: { value: string; onSave: (v: string) => voi
 // ── Main ──────────────────────────────────────────────────────────────────
 
 export default function PatientHeader({ patient }: { patient: IGDPatientDetail }) {
-  const cfg = TRIAGE[patient.triage];
+  const belumTriase = !patient.triage;
+  const cfg = patient.triage ? TRIAGE[patient.triage] : BELUM_TRIASE;
   const vs  = patient.vitalSigns;
   const [tglMasuk, setTglMasuk] = useState(patient.tglKunjungan);
   const gcsTotal = vs.gcsEye + vs.gcsVerbal + vs.gcsMotor;
@@ -351,19 +363,29 @@ export default function PatientHeader({ patient }: { patient: IGDPatientDetail }
           "flex w-14 shrink-0 select-none flex-col items-center justify-center gap-1.5 py-3 md:w-16",
           cfg.panelGrad,
         )}>
-          <span className="text-[7px] font-black uppercase tracking-[0.15em] text-white/40 [writing-mode:vertical-rl] rotate-180">
-            TRIASE
-          </span>
-          <div className="flex flex-col items-center gap-1">
-            {cfg.pulse && (
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-60" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
+          {belumTriase ? (
+            <div className="flex flex-col items-center gap-1 px-1 text-center">
+              <Clock size={18} className="text-white/80" aria-hidden="true" />
+              <span className="text-[9px] font-black uppercase leading-tight text-white">Belum</span>
+              <span className="text-[9px] font-black uppercase leading-tight text-white/80">Triase</span>
+            </div>
+          ) : (
+            <>
+              <span className="text-[7px] font-black uppercase tracking-[0.15em] text-white/40 [writing-mode:vertical-rl] rotate-180">
+                TRIASE
               </span>
-            )}
-            <span className="text-2xl font-black leading-none text-white">{cfg.shortLabel}</span>
-          </div>
-          <span className="text-[7px] font-bold uppercase tracking-wide text-white/70">{cfg.label}</span>
+              <div className="flex flex-col items-center gap-1">
+                {cfg.pulse && (
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-60" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
+                  </span>
+                )}
+                <span className="text-2xl font-black leading-none text-white">{cfg.shortLabel}</span>
+              </div>
+              <span className="text-[7px] font-bold uppercase tracking-wide text-white/70">{cfg.label}</span>
+            </>
+          )}
         </div>
 
         {/* ── Right: content ── */}
