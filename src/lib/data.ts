@@ -732,6 +732,9 @@ export interface KontakDarurat {
   alamat?: string;
 }
 
+/** Fase lifecycle kunjungan (granular) untuk tampilan status di Riwayat registrasi. */
+export type KunjunganFase = "BelumDiterima" | "DalamPelayanan" | "Selesai" | "Dibatalkan";
+
 export interface KunjunganRecord {
   id: string;
   noPendaftaran: string;
@@ -754,6 +757,13 @@ export interface KunjunganRecord {
     pengantarPasien?: "Ada" | "Tidak Ada";
   };
   status: "Selesai" | "Aktif" | "Dibatalkan";
+  /**
+   * Fase lifecycle granular (turunan status DB worklist) untuk label/badge yang akurat:
+   * "BelumDiterima" (Registered/Queued — belum diterima di ruangan) · "DalamPelayanan"
+   * (InService — di ruangan) · "Selesai" · "Dibatalkan". `status` (di atas) tetap kasar
+   * untuk hitung "pasien aktif". Bila tak ada → fallback ke label `status`.
+   */
+  fase?: KunjunganFase;
   detailPath?: string;
   jadwalKontrol?: {
     tanggal: string;

@@ -5,7 +5,7 @@ import { RvItem, RvSection2 } from "@/components/registration/kunjungan/Tabs/sep
 import { SepStep4 } from "@/components/registration/kunjungan/Tabs/sep/SepSteps";
 import type { SepDraft } from "@/components/registration/kunjungan/Tabs/sep/sepTypes";
 import { PENJAMIN_CFG } from "../../config";
-import { TRIASE_CFG, type KunjunganForm, type PenjaminForm, type RujukanPick } from "./config";
+import { TRIASE_CFG, kategoriOf, type KunjunganForm, type PenjaminForm, type RujukanPick } from "./config";
 
 const KELAS_LABEL: Record<string, string> = { "1": "Kelas 1", "2": "Kelas 2", "3": "Kelas 3", vip: "VIP" };
 const RUJUKAN_SOURCE_LABEL: Record<RujukanPick["source"], string> = {
@@ -25,6 +25,7 @@ export function StepReview({
   draft: SepDraft;
 }) {
   const pjLabel = PENJAMIN_CFG[penjamin.tipe].label;
+  const pjKategori = kategoriOf(penjamin.tipe); // Umum tak punya kartu/kelas; kelas hanya BPJS; polis hanya Asuransi.
 
   return (
     <div className="space-y-3">
@@ -51,9 +52,9 @@ export function StepReview({
         icon={<Shield size={11} className="shrink-0 text-slate-400" />}>
         <div className="grid grid-cols-2 gap-3">
           <RvItem label="Jenis" value={pjLabel} />
-          {penjamin.nomor && <RvItem label="No. Kartu / Anggota" value={penjamin.nomor} mono />}
-          {penjamin.kelas && <RvItem label="Hak Kelas" value={KELAS_LABEL[penjamin.kelas] ?? penjamin.kelas} />}
-          {penjamin.noPolis && <RvItem label="No. Polis" value={penjamin.noPolis} mono />}
+          {pjKategori !== "Umum" && penjamin.nomor && <RvItem label="No. Kartu / Anggota" value={penjamin.nomor} mono />}
+          {pjKategori === "BPJS" && penjamin.kelas && <RvItem label="Hak Kelas" value={KELAS_LABEL[penjamin.kelas] ?? penjamin.kelas} />}
+          {pjKategori === "Asuransi" && penjamin.noPolis && <RvItem label="No. Polis" value={penjamin.noPolis} mono />}
         </div>
       </RvSection2>
 

@@ -29,15 +29,23 @@ export function StepPenjamin({
   const fromRM = kategori === kategoriOf(patient.penjamin.tipe);
 
   function pickKategori(k: PenjaminKategori) {
+    // Field detail (nomor/kelas/noPolis) hanya dipertahankan dari RM bila kategori RM sama;
+    // jika ganti kategori → kosongkan agar tak ada data sisa (mis. No. Kartu BPJS terbawa ke Umum).
+    const rmMatch = k === kategoriOf(patient.penjamin.tipe);
+    const nomor = rmMatch ? (patient.penjamin.nomor ?? "") : "";
+    const kelas = (rmMatch ? patient.penjamin.kelas : "") as PenjaminForm["kelas"];
+    const noPolis = rmMatch ? (patient.penjamin.noPolis ?? "") : "";
     if (k === "BPJS") {
       // Pertahankan PBI/Non-PBI dari RM bila ada; default Non-PBI (dipertegas saat verifikasi).
       const t = isBpjs(patient.penjamin.tipe) ? patient.penjamin.tipe : "BPJS_Non_PBI";
-      setPenjamin((p) => ({ ...p, tipe: t, nama: PENJAMIN_CFG[t].label }));
+      setPenjamin((p) => ({ ...p, tipe: t, nama: PENJAMIN_CFG[t].label, nomor, kelas, noPolis: "" }));
     } else if (k === "Asuransi") {
-      setPenjamin((p) => ({ ...p, tipe: "Asuransi", nama: PENJAMIN_CFG.Asuransi.label }));
+      // Asuransi: No. Kartu + No. Polis (kelas = konsep hak BPJS, tak relevan → kosong).
+      setPenjamin((p) => ({ ...p, tipe: "Asuransi", nama: rmMatch ? p.nama : PENJAMIN_CFG.Asuransi.label, nomor, kelas: "", noPolis }));
       setBpjsData(null);
     } else {
-      setPenjamin((p) => ({ ...p, tipe: "Umum", nama: PENJAMIN_CFG.Umum.label }));
+      // Umum/Mandiri: tanpa kartu/kelas/polis.
+      setPenjamin((p) => ({ ...p, tipe: "Umum", nama: PENJAMIN_CFG.Umum.label, nomor: "", kelas: "", noPolis: "" }));
       setBpjsData(null);
     }
   }

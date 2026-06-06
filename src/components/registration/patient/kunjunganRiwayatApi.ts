@@ -3,7 +3,7 @@
 // + Adapter detail: KunjunganDTO (GET /kunjungan/:id) → KunjunganRecord untuk halaman
 //   /pasien/:id/kunjungan/:kunjunganId (Overview/Header). Format & layout identik mock.
 
-import type { KunjunganRecord, UnitKunjungan } from "@/lib/data";
+import type { KunjunganRecord, KunjunganFase, UnitKunjungan } from "@/lib/data";
 import type { KunjunganListItemDTO, KunjunganDTO } from "@/lib/api/kunjungan";
 
 const BULAN = [
@@ -49,6 +49,19 @@ const STATUS_MAP: Record<string, KunjunganRecord["status"]> = {
   Cancelled: "Dibatalkan",
 };
 
+// Fase granular (untuk label/badge akurat). Registered/Queued = belum diterima di ruangan;
+// InService = sudah diterima (di ruangan). Selesai/batal mengikuti status kasar.
+const FASE_MAP: Record<string, KunjunganFase> = {
+  Registered: "BelumDiterima",
+  Queued: "BelumDiterima",
+  InService: "DalamPelayanan",
+  Completed: "Selesai",
+  Closed: "Selesai",
+  Billed: "Selesai",
+  Claimed: "Selesai",
+  Cancelled: "Dibatalkan",
+};
+
 function fmtTglIndo(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
@@ -69,6 +82,7 @@ export function dtoToKunjunganRecord(dto: KunjunganListItemDTO): KunjunganRecord
     noSEP: dto.sep?.noSep ?? undefined,
     kodeICD: dto.kodeIcdMasuk ?? undefined,
     status: STATUS_MAP[dto.status] ?? "Aktif",
+    fase: FASE_MAP[dto.status],
     detailPath: regDetailPath(dto.pasien.noRm, dto.id),
   };
 }
@@ -100,6 +114,7 @@ export function dtoDetailToKunjunganRecord(dto: KunjunganDTO): KunjunganRecord {
     // G-E: hanya status rujukan yang punya sumber (relasi). Sisanya menyusul.
     dokumen: { rujukan: dto.rujukan ? "Ada" : "Tidak Ada" },
     status: STATUS_MAP[dto.status] ?? "Aktif",
+    fase: FASE_MAP[dto.status],
     klinisPath: KLINIS_BASE[dto.unit] ? `${KLINIS_BASE[dto.unit]}/${dto.id}` : undefined,
     detailPath: regDetailPath(dto.pasien.noRm, dto.id),
   };

@@ -8,8 +8,7 @@ import type { PatientMaster } from "@/lib/data";
 import { ModalShell } from "../primitives";
 import {
   UNIT_CFG,
-  KUNJUNGAN_STATUS,
-  STATUS_LABEL,
+  kunjunganStatusView,
   FILTER_OPTS,
   type FilterStatus,
 } from "../config";
@@ -115,9 +114,14 @@ export function RiwayatKunjunganModal({
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={cn("inline-block rounded-full px-2.5 py-0.5 text-[10px] font-semibold", KUNJUNGAN_STATUS[k.status])}>
-                        {STATUS_LABEL[k.status] ?? k.status}
-                      </span>
+                      {(() => {
+                        const sv = kunjunganStatusView(k);
+                        return (
+                          <span className={cn("inline-block rounded-full px-2.5 py-0.5 text-[10px] font-semibold", sv.badge)}>
+                            {sv.label}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">

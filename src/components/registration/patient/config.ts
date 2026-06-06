@@ -8,7 +8,7 @@ import {
   Pill,
   Tag,
 } from "lucide-react";
-import type { UnitKunjungan, TipePenjamin, KategoriItem, KasirData } from "@/lib/data";
+import type { UnitKunjungan, TipePenjamin, KategoriItem, KasirData, KunjunganFase } from "@/lib/data";
 
 // ── Style maps ─────────────────────────────────────────────
 
@@ -35,6 +35,28 @@ export const STATUS_LABEL: Record<string, string> = {
   Selesai: "Selesai",
   Dibatalkan: "Dibatalkan",
 };
+
+// Fase granular → label + badge + stripe. Membedakan "Belum Diterima" (baru daftar, belum
+// diterima di ruangan) dari "Di Ruangan" (sudah diterima/dilayani). Lihat KunjunganRecord.fase.
+export const FASE_CFG: Record<KunjunganFase, { label: string; badge: string; stripe: string }> = {
+  BelumDiterima:  { label: "Belum Diterima", badge: "bg-amber-100 text-amber-700 ring-1 ring-amber-200",     stripe: "bg-amber-400" },
+  DalamPelayanan: { label: "Di Ruangan",     badge: "bg-sky-100 text-sky-700 ring-1 ring-sky-200",           stripe: "bg-sky-400" },
+  Selesai:        { label: "Selesai",        badge: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200", stripe: "bg-emerald-400" },
+  Dibatalkan:     { label: "Dibatalkan",     badge: "bg-slate-100 text-slate-500 ring-1 ring-slate-200",      stripe: "bg-slate-200" },
+};
+
+/**
+ * Resolusi tampilan status satu kunjungan: pakai fase granular bila ada, else fallback ke
+ * status kasar (mock lama). Mengembalikan label, kelas badge, dan kelas stripe.
+ */
+export function kunjunganStatusView(k: { status: string; fase?: KunjunganFase }) {
+  if (k.fase) return FASE_CFG[k.fase];
+  return {
+    label: STATUS_LABEL[k.status] ?? k.status,
+    badge: KUNJUNGAN_STATUS[k.status] ?? "bg-slate-100 text-slate-500 ring-1 ring-slate-200",
+    stripe: k.status === "Aktif" ? "bg-sky-400" : k.status === "Selesai" ? "bg-emerald-400" : "bg-slate-200",
+  };
+}
 
 export type FilterStatus = "Semua" | "Aktif" | "Selesai" | "Dibatalkan";
 

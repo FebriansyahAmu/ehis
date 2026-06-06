@@ -19,8 +19,7 @@ import type { PatientMaster } from "@/lib/data";
 import {
   PENJAMIN_CFG,
   UNIT_CFG,
-  KUNJUNGAN_STATUS,
-  STATUS_LABEL,
+  kunjunganStatusView,
   JADWAL_CFG,
   type JadwalItem,
   type JadwalStatus,
@@ -162,19 +161,11 @@ export function PatientRightPanel({
                   const uc    = UNIT_CFG[k.unit];
                   const UIcon = uc.icon;
                   const isExp = expanded.has(k.noKunjungan);
+                  const sv    = kunjunganStatusView(k);
                   return (
                     <div key={k.noKunjungan} className="overflow-hidden rounded-xl border border-slate-100">
                       {/* Status stripe */}
-                      <div
-                        className={cn(
-                          "h-0.5 w-full",
-                          k.status === "Aktif"
-                            ? "bg-sky-400"
-                            : k.status === "Selesai"
-                              ? "bg-emerald-400"
-                              : "bg-slate-200",
-                        )}
-                      />
+                      <div className={cn("h-0.5 w-full", sv.stripe)} />
 
                       {/* Header row */}
                       <button
@@ -192,10 +183,10 @@ export function PatientRightPanel({
                             <span
                               className={cn(
                                 "shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold",
-                                KUNJUNGAN_STATUS[k.status],
+                                sv.badge,
                               )}
                             >
-                              {STATUS_LABEL[k.status] ?? k.status}
+                              {sv.label}
                             </span>
                           </div>
                           <p className="mt-0.5 text-[10px] text-slate-400">
