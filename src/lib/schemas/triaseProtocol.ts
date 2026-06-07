@@ -9,6 +9,8 @@ import { z } from "zod";
 /// Warna chip/header level (TriaseLevelTone). Presentasional → String di DB, divalidasi di sini.
 export const TriaseTone = z.enum(["red-dark", "rose", "amber", "emerald", "sky", "slate", "violet"]);
 export const TriaseStatus = z.enum(["Aktif", "Non_Aktif"]);
+/// Hint tipe nilai parameter: Kategori (pilihan teks) · Numerik (ambang TTV) · Teks (bebas).
+export const TriaseValueType = z.enum(["Kategori", "Numerik", "Teks"]);
 
 // ── Primitives ────────────────────────────────────────────────────────────────
 const kode = z.string().trim().min(1, "Kode wajib").max(40);
@@ -30,8 +32,12 @@ export const LevelInput = z.object({
 export const ParameterInput = z.object({
   kode: slug,
   label,
-  /// values[levelKode] = deskripsi sel. Kunci HARUS cocok dgn salah satu level.kode (cek Service).
-  values: z.record(z.string(), z.string().max(500)).default({}),
+  /// Hint tipe nilai (fondasi auto-klasifikasi). Default Kategori.
+  tipeNilai: TriaseValueType.default("Kategori"),
+  /// Satuan ukur untuk parameter Numerik (mis. "×/mnt", "mmHg", "%", "°C").
+  satuan: z.string().trim().max(20).optional(),
+  /// values[levelKode] = DAFTAR item kriteria untuk sel itu (boleh >1). Kunci = level.kode (cek Service).
+  values: z.record(z.string(), z.array(z.string().max(500))).default({}),
 });
 
 // ── Create / Update ───────────────────────────────────────────────────────────
@@ -69,6 +75,7 @@ export const SetDefaultInput = z.object({ expectedVersion });
 // ── Tipe inferensi ────────────────────────────────────────────────────────────
 export type TriaseTone = z.infer<typeof TriaseTone>;
 export type TriaseStatus = z.infer<typeof TriaseStatus>;
+export type TriaseValueType = z.infer<typeof TriaseValueType>;
 export type LevelInput = z.infer<typeof LevelInput>;
 export type ParameterInput = z.infer<typeof ParameterInput>;
 export type CreateTriaseInput = z.infer<typeof CreateTriaseInput>;
@@ -89,7 +96,12 @@ export interface TriaseParameterDTO {
   id: string;
   kode: string;
   label: string;
-  values: Record<string, string>;
+  /// Hint tipe nilai (fondasi auto-klasifikasi level dari TTV).
+  tipeNilai: TriaseValueType;
+  /// Satuan ukur (Numerik). undefined = tak ada.
+  satuan?: string;
+  /// values[levelKode] = daftar item kriteria sel (boleh >1).
+  values: Record<string, string[]>;
 }
 
 export interface TriaseRecordDTO {

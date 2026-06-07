@@ -15,6 +15,16 @@ export type TriaseStatus = "Aktif" | "Non_Aktif";
 export type TriaseLevelTone =
   | "red-dark" | "rose" | "amber" | "emerald" | "sky" | "slate" | "violet";
 
+/** Hint tipe nilai parameter — fondasi auto-klasifikasi level dari TTV.
+ *  Kategori = pilihan teks · Numerik = ambang ukur (pakai `satuan`) · Teks = bebas. */
+export type TriaseValueType = "Kategori" | "Numerik" | "Teks";
+
+export const TRIASE_VALUE_TYPE_OPTIONS: { value: TriaseValueType; label: string }[] = [
+  { value: "Kategori", label: "Kategori" },
+  { value: "Numerik", label: "Numerik" },
+  { value: "Teks", label: "Teks" },
+];
+
 export interface TriaseLevel {
   id: string;
   kode: string;             // mis. "resusitasi" / "P1"
@@ -29,8 +39,12 @@ export interface TriaseParameter {
   id: string;
   kode: string;
   label: string;
-  /** Map level.kode → deskripsi cell. Cell kosong jika tidak applicable. */
-  values: Record<string, string>;
+  /** Hint tipe nilai (fondasi auto-klasifikasi level dari TTV). Default "Kategori". */
+  tipeNilai: TriaseValueType;
+  /** Satuan ukur untuk parameter Numerik (mis. "×/mnt", "mmHg", "%", "°C"). */
+  satuan?: string;
+  /** Map level.kode → DAFTAR item kriteria sel (boleh >1). [] / tak ada = tak applicable. */
+  values: Record<string, string[]>;
 }
 
 export interface TriaseRecord {
@@ -102,104 +116,175 @@ const DEFAULT_PARAMETERS: TriaseParameter[] = [
     id: "pa-airway",
     kode: "airway",
     label: "Airway",
+    tipeNilai: "Kategori",
     values: {
-      resusitasi: "Tersumbat total / apnea",
-      emergency:  "Tersumbat parsial, stridor",
-      urgent:     "Bebas, perlu bantuan",
-      lessUrgent: "Bebas",
-      nonUrgent:  "Bebas",
-      doa:        "—",
+      resusitasi: ["Tersumbat total / apnea", "Obstruksi total jalan napas", "Butuh airway definitif segera"],
+      emergency:  ["Tersumbat parsial, stridor", "Risiko obstruksi (luka bakar inhalasi / edema)", "Butuh manuver jalan napas"],
+      urgent:     ["Bebas, perlu bantuan", "Sekret banyak / perlu suction berkala"],
+      lessUrgent: ["Bebas"],
+      nonUrgent:  ["Bebas"],
+      doa:        [],
     },
   },
   {
     id: "pa-breathing",
     kode: "breathing",
     label: "Breathing / RR",
+    tipeNilai: "Numerik",
+    satuan: "×/mnt",
     values: {
-      resusitasi: "Tidak bernapas / RR < 8",
-      emergency:  "RR > 30, distress berat, sianosis",
-      urgent:     "RR 21–30, distress sedang",
-      lessUrgent: "Normal, sesak ringan",
-      nonUrgent:  "Normal",
-      doa:        "—",
+      resusitasi: ["Tidak bernapas / RR < 8", "Distress berat + kelelahan otot napas", "Gasping / sianosis sentral", "Bicara satu kata"],
+      emergency:  ["RR > 30 (ATS ≥ 36)", "Distress berat", "Bicara penggal kata", "Retraksi berat"],
+      urgent:     ["RR 25–30, distress sedang", "Bicara kalimat pendek"],
+      lessUrgent: ["RR 21–24, distress ringan"],
+      nonUrgent:  ["RR 12–20 (normal)"],
+      doa:        [],
     },
   },
   {
     id: "pa-sirkulasi",
     kode: "sirkulasi",
     label: "Sirkulasi / TD",
+    tipeNilai: "Numerik",
+    satuan: "mmHg",
     values: {
-      resusitasi: "Henti jantung / TD tidak terukur",
-      emergency:  "TD < 90 mmHg (syok)",
-      urgent:     "TD 90–100 mmHg",
-      lessUrgent: "Stabil",
-      nonUrgent:  "Normal",
-      doa:        "—",
+      resusitasi: ["Henti jantung / TD tidak terukur", "Syok berat", "Perdarahan tak terkontrol"],
+      emergency:  ["TD < 90 mmHg (syok)", "Hipoperfusi: akral dingin, CRT > 3 dtk, diaforesis, pucat"],
+      urgent:     ["TD 90–100 mmHg", "Hemodynamic compromise borderline", "Krisis hipertensi bergejala"],
+      lessUrgent: ["TD borderline tanpa gejala · perfusi baik"],
+      nonUrgent:  ["TD normal"],
+      doa:        [],
     },
   },
   {
     id: "pa-nadi",
     kode: "nadi",
     label: "Nadi",
+    tipeNilai: "Numerik",
+    satuan: "×/mnt",
     values: {
-      resusitasi: "Tidak teraba",
-      emergency:  "< 50 atau > 130 ×/mnt",
-      urgent:     "100–130 ×/mnt (lemah)",
-      lessUrgent: "Normal",
-      nonUrgent:  "Normal",
-      doa:        "—",
+      resusitasi: ["Tidak teraba", "Nadi sentral lemah / PEA"],
+      emergency:  ["< 40 atau > 140 ×/mnt (ESI danger-zone)", "Nadi perifer lemah / thready"],
+      urgent:     ["50–<60 atau 100–140 ×/mnt", "Iregular bergejala"],
+      lessUrgent: ["100–110 ×/mnt tanpa gejala"],
+      nonUrgent:  ["60–100 ×/mnt (normal)"],
+      doa:        [],
     },
   },
   {
     id: "pa-kesadaran",
     kode: "kesadaran",
     label: "Kesadaran (GCS)",
+    tipeNilai: "Numerik",
+    satuan: "GCS",
     values: {
-      resusitasi: "≤ 8 · Koma",
-      emergency:  "9–12 · Somnolen",
-      urgent:     "13–14 · Apatis / Delirium",
-      lessUrgent: "15 · Sadar penuh",
-      nonUrgent:  "15",
-      doa:        "—",
+      resusitasi: ["GCS ≤ 8 · Koma", "Unresponsive (AVPU = U/P)", "Penurunan kesadaran akut"],
+      emergency:  ["GCS 9–12 · Somnolen", "Agitasi berat / violent", "AVPU = P"],
+      urgent:     ["GCS 13–14 · Apatis / Delirium", "Bingung baru · AVPU = V"],
+      lessUrgent: ["GCS 15 · Sadar penuh · Alert"],
+      nonUrgent:  ["GCS 15"],
+      doa:        [],
     },
   },
   {
     id: "pa-nyeri",
     kode: "nyeri",
     label: "Skala Nyeri (VAS)",
+    tipeNilai: "Numerik",
+    satuan: "0–10",
     values: {
-      resusitasi: "—",
-      emergency:  "8–10 · Berat",
-      urgent:     "5–7 · Sedang",
-      lessUrgent: "3–4 · Ringan-sedang",
-      nonUrgent:  "0–2",
-      doa:        "—",
+      resusitasi: [],
+      emergency:  ["8–10 · Berat", "Nyeri berat sentral/viseral (dada, abdomen)"],
+      urgent:     ["4–7 · Sedang", "Nyeri berat perifer (CTAS L3)"],
+      lessUrgent: ["1–3 · Ringan-sedang lokal"],
+      nonUrgent:  ["0–2"],
+      doa:        [],
+    },
+  },
+  {
+    id: "pa-spo2",
+    kode: "spo2",
+    label: "Saturasi (SpO₂)",
+    tipeNilai: "Numerik",
+    satuan: "%",
+    values: {
+      resusitasi: ["< 90% dengan distress berat", "Sianosis sentral"],
+      emergency:  ["< 92%"],
+      urgent:     ["92–94%"],
+      lessUrgent: ["≥ 95%"],
+      nonUrgent:  ["Normal (≥ 95%)"],
+      doa:        [],
+    },
+  },
+  {
+    id: "pa-suhu",
+    kode: "suhu",
+    label: "Suhu",
+    tipeNilai: "Numerik",
+    satuan: "°C",
+    values: {
+      resusitasi: ["Hipotermia berat < 32°C", "Hipertermia > 41°C"],
+      emergency:  ["> 38,3°C dengan tanda sepsis", "< 35°C (hipotermia)"],
+      urgent:     ["38–39°C", "Demam pada imunokompromais"],
+      lessUrgent: ["37,5–38°C"],
+      nonUrgent:  ["Afebris (36–37,4°C)"],
+      doa:        [],
+    },
+  },
+  {
+    id: "pa-perdarahan",
+    kode: "perdarahan",
+    label: "Perdarahan",
+    tipeNilai: "Kategori",
+    values: {
+      resusitasi: ["Perdarahan masif tak terkontrol", "Syok hemoragik"],
+      emergency:  ["Perdarahan aktif signifikan", "Perdarahan internal dicurigai"],
+      urgent:     ["Perdarahan terkontrol / sedang"],
+      lessUrgent: ["Perdarahan minor (luka kecil)"],
+      nonUrgent:  ["Tidak ada perdarahan aktif"],
+      doa:        [],
+    },
+  },
+  {
+    id: "pa-risiko",
+    kode: "risiko",
+    label: "Risiko Perilaku",
+    tipeNilai: "Kategori",
+    values: {
+      resusitasi: ["Kekerasan/agresif bersenjata — bahaya segera", "Percobaan bunuh diri berlangsung"],
+      emergency:  ["Agitasi berat / risiko kekerasan", "Risiko bunuh diri tinggi"],
+      urgent:     ["Gelisah, distress psikologis sedang", "Risiko menengah membahayakan diri"],
+      lessUrgent: ["Cemas, kooperatif"],
+      nonUrgent:  ["Tenang, tanpa risiko"],
+      doa:        [],
     },
   },
   {
     id: "pa-respons",
     kode: "respons",
     label: "Waktu Respons",
+    tipeNilai: "Kategori",
     values: {
-      resusitasi: "Segera · detik",
-      emergency:  "< 10 menit",
-      urgent:     "< 30 menit",
-      lessUrgent: "< 60 menit",
-      nonUrgent:  "< 120 menit",
-      doa:        "Verifikasi kematian",
+      resusitasi: ["Segera · tindakan penyelamat nyawa tanpa delay"],
+      emergency:  ["< 10 menit"],
+      urgent:     ["< 30 menit"],
+      lessUrgent: ["< 60 menit"],
+      nonUrgent:  ["< 120 menit"],
+      doa:        ["Verifikasi kematian"],
     },
   },
   {
     id: "pa-contoh",
     kode: "contoh",
     label: "Contoh Kasus",
+    tipeNilai: "Teks",
     values: {
-      resusitasi: "Henti napas / jantung, syok berat",
-      emergency:  "STEMI, stroke, distress napas berat",
-      urgent:     "Fraktur, nyeri dada moderat, kejang",
-      lessUrgent: "Luka ringan, nyeri sedang",
-      nonUrgent:  "ISPA ringan, kontrol rutin",
-      doa:        "Meninggal saat tiba, tanpa tanda kehidupan",
+      resusitasi: ["Henti napas / jantung", "Syok berat", "Obstruksi jalan napas total", "Status epileptikus", "Trauma mayor + syok", "Anafilaksis berat"],
+      emergency:  ["STEMI / nyeri dada kardiak", "Stroke akut (onset < 4,5 jam)", "Distress napas berat", "Sepsis", "Overdosis", "Perdarahan GIT aktif", "Fraktur terbuka mayor", "Luka bakar luas"],
+      urgent:     ["Fraktur tertutup", "Nyeri dada non-kardiak", "Kolik abdomen / ginjal", "Kejang teratasi", "Demam tinggi anak", "Dehidrasi sedang"],
+      lessUrgent: ["Luka robek perlu jahit", "Nyeri sedang lokal", "Muntah/diare tanpa dehidrasi", "ISK", "Cedera minor"],
+      nonUrgent:  ["ISPA ringan", "Kontrol / resep ulang", "Keluhan kronik stabil", "Luka lecet kecil"],
+      doa:        ["Meninggal saat tiba, tanpa tanda kehidupan"],
     },
   },
 ];

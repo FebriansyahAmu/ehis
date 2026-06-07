@@ -96,6 +96,13 @@ model TriaseProtocolParameter {
   label  String
   urutan Int    @default(0)
 
+  /// Hint tipe nilai sel (FE vocab TriaseValueType): "Kategori" (teks pilihan) ·
+  /// "Numerik" (ambang TTV — fondasi auto-klasifikasi level) · "Teks" (bebas).
+  /// String (presentasional/hint, BUKAN keputusan-kritis → bukan enum, FLOWS).
+  tipeNilai String  @default("Kategori") @map("tipe_nilai")
+  /// Satuan ukur untuk parameter Numerik (mis. "×/mnt", "mmHg", "%", "°C"). null = tak ada.
+  satuan    String?
+
   criteria TriaseProtocolCriteria[]
 
   @@unique([protocolId, kode])
@@ -105,6 +112,8 @@ model TriaseProtocolParameter {
 }
 
 // ── Sel matrix (parameter × level) ────────────────────────────────────────────
+//  Satu sel BOLEH punya BANYAK kriteria (1 baris = 1 item kriteria) → tak ada unique
+//  (parameter,level); `urutan` menjaga urutan item dalam sel. values FE = Record<levelKode,string[]>.
 
 model TriaseProtocolCriteria {
   id String @id @default(uuid(7)) @db.Uuid
@@ -114,12 +123,14 @@ model TriaseProtocolCriteria {
   levelId     String                  @map("level_id") @db.Uuid
   level       TriaseProtocolLevel     @relation(fields: [levelId], references: [id], onDelete: Cascade)
 
-  /// Deskripsi kriteria klinis (boleh "—"/kosong = tak applicable).
-  nilai String
+  /// Deskripsi 1 item kriteria klinis (boleh "—"/kosong = tak applicable).
+  nilai  String
+  /// Urutan item dalam sel (parameter × level).
+  urutan Int    @default(0)
 
-  @@unique([parameterId, levelId])
   @@index([parameterId])
   @@index([levelId])
+  @@index([parameterId, levelId])
   @@map("triase_criteria")
   @@schema("master")
 }

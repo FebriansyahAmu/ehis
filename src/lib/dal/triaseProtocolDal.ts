@@ -33,11 +33,14 @@ export interface CreateParameterData {
   kode: string;
   label: string;
   urutan: number;
+  tipeNilai: string;
+  satuan?: string | null;
 }
 export interface CreateCriteriaData {
   parameterId: string;
   levelId: string;
   nilai: string;
+  urutan: number;
 }
 
 // Read full: protokol + levels (urut) + parameters (urut) + sel matrix (criteria per parameter).
@@ -45,7 +48,7 @@ const fullInclude = {
   levels: { orderBy: { urutan: "asc" as const } },
   parameters: {
     orderBy: { urutan: "asc" as const },
-    include: { criteria: true },
+    include: { criteria: { orderBy: { urutan: "asc" as const } } },
   },
 } as const;
 

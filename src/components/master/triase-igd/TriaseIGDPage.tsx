@@ -37,7 +37,11 @@ function levelsToInput(d: TriaseRecordDTO): LevelInput[] {
   }));
 }
 function parametersToInput(d: TriaseRecordDTO): ParameterInput[] {
-  return d.parameters.map((p) => ({ kode: p.kode, label: p.label, values: p.values }));
+  return d.parameters.map((p) => ({
+    kode: p.kode, label: p.label,
+    tipeNilai: p.tipeNilai, satuan: p.satuan,
+    values: p.values,
+  }));
 }
 function toCreateInput(d: TriaseRecordDTO): CreateTriaseInput {
   return {

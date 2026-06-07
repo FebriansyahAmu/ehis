@@ -80,6 +80,13 @@ model Triase {
   // ── Keputusan ──
   triageLevel TriaseLevel @map("triage_level")
 
+  // ── Protokol panduan (master.TriaseProtocol yang dipakai saat observasi) ──
+  //  Snapshot kode/nama (medico-legal: stabil walau master berubah). protocolId =
+  //  pointer lunak lintas-schema (TANPA FK riil — master criteria di-replace tiap edit).
+  protocolId   String? @map("protocol_id") @db.Uuid
+  protocolKode String? @map("protocol_kode")
+  protocolNama String? @map("protocol_nama")
+
   // ── Penanggung jawab + author (dari actor) ──
   perawatTriase  String    @map("perawat_triase") // nama denormalisasi (tampilan)
   waktuTriase    DateTime  @map("waktu_triase") @db.Timestamptz(3)
@@ -90,7 +97,42 @@ model Triase {
   version   Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
+  // ── Kriteria observasi yang dicentang perawat/dokter (decision-support → record) ──
+  selectedCriteria TriaseCriteria[]
+
   @@index([kunjunganId, createdAt]) // ambil baris terbaru per kunjungan
   @@map("triase")
+  @@schema("medicalrecord")
+}
+
+// ── Kriteria triase terpilih (centang panduan) ────────────────────────────────
+//  1 baris = 1 item kriteria yang dicentang dari "Tabel Kriteria Triase" saat
+//  observasi. SNAPSHOT teks (parameter/level/nilai) → tetap utuh walau master
+//  protokol diubah/dihapus (append-only medico-legal; sumber di master di-replace
+//  tiap edit, jadi TANPA FK riil ke master.TriaseProtocolCriteria — `sourceCriteriaId`
+//  hanya jejak lunak). Urut tampil mengikuti parameter×level lalu `urutan`.
+
+model TriaseCriteria {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  triaseId String @map("triase_id") @db.Uuid
+  triase   Triase @relation(fields: [triaseId], references: [id], onDelete: Cascade)
+
+  // ── Snapshot sel matrix (parameter × level) ──
+  parameterKode  String @map("parameter_kode")
+  parameterLabel String @map("parameter_label")
+  levelKode      String @map("level_kode")
+  levelLabel     String @map("level_label")
+  /// Teks item kriteria yang dicentang (mis. "RR > 30, distress berat").
+  nilai          String
+
+  /// Jejak lunak ke master.TriaseProtocolCriteria saat dicentang (boleh basi → null OK).
+  sourceCriteriaId String? @map("source_criteria_id") @db.Uuid
+  /// Urutan tampil dalam satu pengkajian (mengikuti urutan baris matrix).
+  urutan    Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([triaseId])
+  @@map("triase_criteria")
   @@schema("medicalrecord")
 }

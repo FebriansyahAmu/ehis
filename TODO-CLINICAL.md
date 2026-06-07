@@ -110,6 +110,16 @@ Legenda: 🟢 selesai · 🟡 sebagian · ⬜ belum.
 - [x] **B4** **Nama Perawat Triase = dropdown** — filter `profesi` ditambah ke list pegawai (`ListQuery`+`pegawaiDal.list`+service+`api/pegawai`); TriaseTab fetch `listPegawai({ profesi:"Perawat", aktif:"true" })` → `<select>` (sertakan nilai tersimpan walau perawat nonaktif). ⚠️ **Follow-up RBAC**: endpoint `GET /master/pegawai` di-gate `master.pegawai:read` — akun klinis (Perawat/Dokter) belum tentu punya izin itu saat live; perlu grant `master.pegawai:read` ke role klinis **atau** endpoint roster tenaga khusus (gate `clinical.*`). Tak memblok sekarang (akun klinis belum live; superadmin OK).
 - **DoD B:** ✅ `tsc` bersih. ⏳ verifikasi in-browser (login superadmin): simpan dari tab → board IGD pasien itu tak lagi "Belum Triase"; re-triase → level ter-update; reload konsisten. *(HTTP smoke otomatis tak bisa dijalankan agen: `AUTH_ENFORCE=true` + kredensial tak tersedia.)*
 
+### Fase B+ — Kriteria observasi terpilih (centang panduan) ✅ SELESAI (2026-06-08)
+
+> Perawat/dokter mencentang item di "Tabel Kriteria Triase" (per protokol pilihan) sebagai tambahan observasi yang **ikut tersimpan & tercetak** bersama pengkajian. Pilih protokol (Default/Obgyn/dst) langsung di tab tanpa mengubah default master.
+
+- [x] **BP1** Schema [`medicalrecord.prisma`](prisma/schema/medicalrecord.prisma) — `Triase` + `protocolId/Kode/Nama` (snapshot protokol panduan, nullable) + relasi `selectedCriteria`. Model anak baru **`TriaseCriteria`** = 1 baris/item dicentang, **SNAPSHOT** `parameterKode/Label · levelKode/Label · nilai` (+ `sourceCriteriaId` jejak lunak, `urutan`). TANPA FK riil ke `master.TriaseProtocolCriteria` (master di-replace tiap edit → append-only medico-legal). Cascade dari `Triase`.
+- [x] **BP2** Migration `20260608170000_triase_criteria_selection` — `ALTER triase ADD protocol_*` + `CREATE TABLE triase_criteria` + FK cascade. Data-preserving (`migrate deploy` + `generate`).
+- [x] **BP3** Zod/DTO [`schemas/triase.ts`](src/lib/schemas/triase.ts) — `TriaseCriteriaInput` (natural key parameter/level/nilai) · `TriaseInput` +`protocolId/Kode/Nama`+`selectedCriteria[]` · `TriaseCriteriaDTO` + `TriaseDTO` diperluas. DAL nested-create + `include` urut · Service map snapshot (`urutan`=posisi kirim) dalam tx yang sama. Endpoint tetap (field opsional mengalir lewat `TriaseInput`).
+- [x] **BP4** [TriaseTab](src/components/igd/tabs/TriaseTab.tsx) — `CriteriaTable` jadi presentational: pemilih protokol (shared `Select`) + **checkbox per item kriteria** (key=`parameterKode|levelKode|nilai`), reset pilihan saat ganti protokol, default protokol setelah pengkajian DB termuat (anti-balapan), footer hitung terpilih. `dtoToForm` memulihkan protokol + centang.
+- **DoD B+:** ✅ `tsc` bersih · ✅ `eslint` bersih · ✅ `migrate status` up-to-date. ⏳ verifikasi in-browser (centang → simpan → reload tetap tercentang). **Cetak (print template) = follow-up** — data sudah tersimpan & ter-DTO.
+
 ### Fase C — Satukan board/modal
 
 - [ ] **C1** [TriaseModal/IGDTriaseButton](src/components/igd/TriaseModal.tsx) → endpoint yang sama; sinkron status board IGD.

@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Loader2, Check, AlertCircle } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Loader2, Check, AlertCircle, ClipboardList } from "lucide-react";
 import type { IGDPatientDetail, TriageLevel } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { getTriase, saveTriase } from "@/lib/api/triase";
 import { listPegawai } from "@/lib/api/pegawai";
-import { getDefaultTriaseProtocol } from "@/lib/api/triaseProtocol";
+import { listTriaseProtocols } from "@/lib/api/triaseProtocol";
 import type { TriaseDTO } from "@/lib/schemas/triase";
 import type { TriaseRecordDTO } from "@/lib/schemas/triaseProtocol";
 import { ApiError } from "@/lib/api/client";
+import { Select } from "@/components/shared/inputs/Select";
 
 // id kunjungan DB = UUID; id demo/mock ("igd-1") tak tersimpan ke DB.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -321,24 +322,44 @@ const CRITERIA_ROWS: { parameter: string; values: Record<ColKey, string> }[] = [
 ];
 
 interface CriteriaCol { key: string; label: string; bg: string; sub?: string }
-interface CriteriaRow { parameter: string; values: Record<string, string> }
+interface CriteriaRow { parameterKode: string; parameterLabel: string; values: Record<string, string[]> }
 
-// Fallback (konstanta hardcode) → bentuk generik kolom/baris.
+// Kriteria triase yang dicentang (snapshot). Identitas natural = (parameterKode, levelKode, nilai).
+export interface SelectedCriterion {
+  parameterKode: string;
+  parameterLabel: string;
+  levelKode: string;
+  levelLabel: string;
+  nilai: string;
+}
+const critKey = (c: { parameterKode: string; levelKode: string; nilai: string }) =>
+  `${c.parameterKode}|${c.levelKode}|${c.nilai}`;
+
+// Fallback (konstanta hardcode) → bentuk generik kolom/baris. Sel single-string → daftar
+// (string[]); "—" = tak applicable → [] (renderer tampilkan "—").
 const FALLBACK_COLS: CriteriaCol[] = COL_HEADERS.map((c) => ({ key: c.key, label: c.label, bg: c.cls }));
-const FALLBACK_ROWS: CriteriaRow[] = CRITERIA_ROWS;
+const FALLBACK_ROWS: CriteriaRow[] = CRITERIA_ROWS.map((r) => ({
+  parameterKode: r.parameter,
+  parameterLabel: r.parameter,
+  values: Object.fromEntries(
+    Object.entries(r.values).map(([k, v]) => [k, v === "—" ? [] : [v]]),
+  ),
+}));
 
-function CriteriaTable() {
-  const [protocol, setProtocol] = useState<TriaseRecordDTO | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const ctrl = new AbortController();
-    getDefaultTriaseProtocol(ctrl.signal)
-      .then(setProtocol)
-      .catch(() => {}) // diam → pakai fallback konstanta
-      .finally(() => setLoading(false));
-    return () => ctrl.abort();
-  }, []);
+function CriteriaTable({
+  protocols, loading, selectedId, onSelectProtocol, selectedKeys, onToggle,
+}: {
+  protocols: TriaseRecordDTO[] | null;
+  loading: boolean;
+  selectedId: string;
+  onSelectProtocol: (id: string) => void;
+  selectedKeys: Set<string>;
+  onToggle: (c: SelectedCriterion) => void;
+}) {
+  const protocol = useMemo(
+    () => protocols?.find((p) => p.id === selectedId) ?? null,
+    [protocols, selectedId],
+  );
 
   // Protokol master bila ada; else fallback konstanta (degradasi anggun).
   const cols: CriteriaCol[] = protocol
@@ -350,26 +371,45 @@ function CriteriaTable() {
       }))
     : FALLBACK_COLS;
   const rows: CriteriaRow[] = protocol
-    ? protocol.parameters.map((p) => ({ parameter: p.label, values: p.values }))
+    ? protocol.parameters.map((p) => ({ parameterKode: p.kode, parameterLabel: p.label, values: p.values }))
     : FALLBACK_ROWS;
+
+  const hasProtocols = !!protocols && protocols.length > 0;
+  // Centang hanya aktif bila ada protokol nyata (fallback offline = referensi read-only).
+  const interactive = !!protocol;
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/60 px-4 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/60 px-4 py-2.5">
         <span className="text-xs font-semibold text-slate-700">
           Tabel Kriteria Triase
+          <span className="ml-1.5 font-normal text-slate-400">— centang temuan observasi</span>
         </span>
-        <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
-          {loading ? (
-            <>
-              <Loader2 size={11} className="animate-spin" /> Memuat protokol…
-            </>
-          ) : protocol ? (
-            <span className="font-mono">{protocol.kode}</span>
-          ) : (
-            "Protokol bawaan (offline)"
-          )}
-        </span>
+        {loading ? (
+          <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
+            <Loader2 size={11} className="animate-spin" /> Memuat protokol…
+          </span>
+        ) : hasProtocols ? (
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              Protokol
+            </span>
+            <div className="w-56">
+              <Select
+                id="triase-protocol-select"
+                value={selectedId}
+                onChange={onSelectProtocol}
+                icon={ClipboardList}
+                options={protocols!.map((p) => ({
+                  value: p.id,
+                  label: p.isDefault ? `${p.nama} (default)` : p.nama,
+                }))}
+              />
+            </div>
+          </div>
+        ) : (
+          <span className="text-[10px] text-slate-400">Protokol bawaan (offline)</span>
+        )}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-180 text-xs">
@@ -393,23 +433,73 @@ function CriteriaTable() {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {rows.map((row, i) => (
-              <tr key={i} className="hover:bg-slate-50">
+              <tr key={i} className="align-top hover:bg-slate-50/60">
                 <td className="sticky left-0 z-10 bg-white px-4 py-2.5 font-semibold text-slate-700">
-                  {row.parameter}
+                  {row.parameterLabel}
                 </td>
-                {cols.map((col) => (
-                  <td
-                    key={col.key}
-                    className="px-3 py-2.5 text-center leading-snug text-slate-600"
-                  >
-                    {row.values[col.key] ?? "—"}
-                  </td>
-                ))}
+                {cols.map((col) => {
+                  const items = row.values[col.key] ?? [];
+                  if (items.length === 0) {
+                    return (
+                      <td key={col.key} className="px-3 py-2.5 text-center text-slate-300">—</td>
+                    );
+                  }
+                  return (
+                    <td key={col.key} className="px-2 py-2 leading-snug text-slate-600">
+                      <ul className="space-y-1">
+                        {items.map((nilai, k) => {
+                          const c: SelectedCriterion = {
+                            parameterKode: row.parameterKode,
+                            parameterLabel: row.parameterLabel,
+                            levelKode: col.key,
+                            levelLabel: col.label,
+                            nilai,
+                          };
+                          if (!interactive) {
+                            return (
+                              <li key={k} className="flex gap-1">
+                                <span className="text-slate-300">•</span>
+                                <span>{nilai}</span>
+                              </li>
+                            );
+                          }
+                          const checked = selectedKeys.has(critKey(c));
+                          return (
+                            <li key={k}>
+                              <label
+                                className={cn(
+                                  "flex cursor-pointer items-start gap-1.5 rounded-md px-1.5 py-1 transition-colors",
+                                  checked
+                                    ? "bg-indigo-50 text-indigo-900 ring-1 ring-indigo-200"
+                                    : "hover:bg-slate-100",
+                                )}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => onToggle(c)}
+                                  className="mt-0.5 h-3.5 w-3.5 shrink-0 cursor-pointer rounded accent-indigo-600"
+                                />
+                                <span className={cn("text-left", checked && "font-medium")}>{nilai}</span>
+                              </label>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {interactive && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/60 px-4 py-2 text-[11px] text-slate-500">
+          <span>Centang kriteria yang sesuai temuan — tersimpan bersama pengkajian triase.</span>
+          <span className="font-semibold text-indigo-600">{selectedKeys.size} kriteria dipilih</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -501,6 +591,11 @@ interface TriaseForm {
   triageLevel: string;
   perawatTriase: string;
   waktuTriase: string;
+  // Protokol panduan + kriteria observasi yang dicentang.
+  protocolId: string;
+  protocolKode: string;
+  protocolNama: string;
+  selectedCriteria: SelectedCriterion[];
 }
 
 const EMPTY: TriaseForm = {
@@ -537,6 +632,10 @@ const EMPTY: TriaseForm = {
   triageLevel: "",
   perawatTriase: "",
   waktuTriase: "",
+  protocolId: "",
+  protocolKode: "",
+  protocolNama: "",
+  selectedCriteria: [],
 };
 
 // ── DB ↔ form mapping ─────────────────────────────────────
@@ -580,6 +679,16 @@ function dtoToForm(d: TriaseDTO): TriaseForm {
     triageLevel: d.triageLevel,
     perawatTriase: d.perawatTriase,
     waktuTriase: toLocalInput(d.waktuTriase),
+    protocolId: d.protocolId ?? "",
+    protocolKode: d.protocolKode ?? "",
+    protocolNama: d.protocolNama ?? "",
+    selectedCriteria: d.selectedCriteria.map((s) => ({
+      parameterKode: s.parameterKode,
+      parameterLabel: s.parameterLabel,
+      levelKode: s.levelKode,
+      levelLabel: s.levelLabel,
+      nilai: s.nilai,
+    })),
   };
 }
 
@@ -605,6 +714,58 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  // Protokol triase aktif (Default / Obgyn / dst) — dipilih saat observasi.
+  const [protocols, setProtocols] = useState<TriaseRecordDTO[] | null>(null);
+  const [protocolsLoading, setProtocolsLoading] = useState(true);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    listTriaseProtocols(ctrl.signal)
+      .then((items) => setProtocols(items.filter((p) => p.status === "Aktif")))
+      .catch(() => {}) // diam → CriteriaTable pakai fallback konstanta
+      .finally(() => setProtocolsLoading(false));
+    return () => ctrl.abort();
+  }, []);
+
+  // Pilih default protokol bila belum ada pilihan. Tunggu pengkajian DB termuat
+  // (loading=false) agar tak balapan dgn dtoToForm yang memulihkan protocolId tersimpan.
+  useEffect(() => {
+    if (loading || !protocols || protocols.length === 0) return;
+    setForm((f) => {
+      if (f.protocolId && protocols.some((p) => p.id === f.protocolId)) return f;
+      const def = protocols.find((p) => p.isDefault) ?? protocols[0];
+      return { ...f, protocolId: def.id, protocolKode: def.kode, protocolNama: def.nama };
+    });
+  }, [protocols, loading]);
+
+  const selectedKeys = useMemo(
+    () => new Set(form.selectedCriteria.map(critKey)),
+    [form.selectedCriteria],
+  );
+
+  // Ganti protokol → kriteria lama tak berlaku (beda matrix) → reset pilihan.
+  const handleSelectProtocol = useCallback((id: string) => {
+    setForm((f) => {
+      if (f.protocolId === id) return f;
+      const p = protocols?.find((x) => x.id === id);
+      if (!p) return f;
+      return { ...f, protocolId: p.id, protocolKode: p.kode, protocolNama: p.nama, selectedCriteria: [] };
+    });
+  }, [protocols]);
+
+  const handleToggleCriterion = useCallback((c: SelectedCriterion) => {
+    setForm((f) => {
+      const key = critKey(c);
+      const exists = f.selectedCriteria.some((x) => critKey(x) === key);
+      return {
+        ...f,
+        selectedCriteria: exists
+          ? f.selectedCriteria.filter((x) => critKey(x) !== key)
+          : [...f.selectedCriteria, c],
+      };
+    });
+  }, []);
 
   // Daftar perawat (PJ triase) — dari master pegawai profesi "Perawat".
   const [perawatList, setPerawatList] = useState<string[]>([]);
@@ -1011,7 +1172,14 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
       </div>
 
       {/* Criteria table */}
-      <CriteriaTable />
+      <CriteriaTable
+        protocols={protocols}
+        loading={protocolsLoading}
+        selectedId={form.protocolId}
+        onSelectProtocol={handleSelectProtocol}
+        selectedKeys={selectedKeys}
+        onToggle={handleToggleCriterion}
+      />
 
       {/* Keputusan Triase */}
       <Block title="Keputusan Triase">

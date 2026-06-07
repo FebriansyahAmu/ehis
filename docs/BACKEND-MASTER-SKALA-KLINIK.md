@@ -8,7 +8,7 @@
 > **Terkait:** [CLAUDE.md](../CLAUDE.md) · [TODOS_BACKEND.md](../TODOS_BACKEND.md).
 >
 > **Stack:** PostgreSQL · Prisma (`@@schema("master")`) · layered **Route→Service→DAL→Prisma** · Redis cache-aside · Auth.js RBAC.
-> **Status:** **Triase IGD ✅ backend + FE wired (2026-06-08)** — SK0 RBAC + TR1–TR8 selesai (schema 4 tabel + migration + seed DEFAULT-IGD · Zod · DAL · Service single-default · 7 endpoint · client · master page swap ke API · klinis CriteriaTable fetch default). Sisa: **TR9** keputusan vokabuler level (§A.8.1) · **TR10** tests. · **Skala Risiko/Umum/Penyakit 📋** (analisis ringkas — §B).
+> **Status:** **Triase IGD ✅ backend + FE wired (2026-06-08)** — SK0 RBAC + TR1–TR8 selesai (schema 4 tabel + migration + seed DEFAULT-IGD · Zod · DAL · Service single-default · 7 endpoint · client · master page swap ke API · klinis CriteriaTable fetch default) · **TR8b** banyak kriteria/sel · **TR8c** riset kriteria (ESI/ATS/CTAS/MTS/PMK) + `tipeNilai`/`satuan` + 4 parameter best-practice → DB enriched **12 param · 131 sel** (§A.10). Sisa: **TR9** keputusan vokabuler level (§A.8.1) · **TR10** tests. · **Skala Risiko/Umum/Penyakit 📋** (analisis ringkas — §B).
 
 ---
 
@@ -88,16 +88,20 @@ Grup **Skala Klinis** (`/ehis-master` → menu "Skala Klinis", [navigation.ts:31
 | `kode` | string | mis. `airway` (slug) — **unik per protokol** |
 | `label` | string | "Airway" |
 | `urutan` | int | urutan baris |
+| `tipeNilai` | string `@default("Kategori")` `@map("tipe_nilai")` | hint tipe nilai (FE `TriaseValueType`): `Kategori`/`Numerik`/`Teks` — **fondasi auto-klasifikasi level dari TTV**. String (hint presentasional, bukan enum) |
+| `satuan` | string? | satuan ukur parameter Numerik (`×/mnt`, `mmHg`, `%`, `°C`) |
 | — | — | `@@unique([protocolId, kode])` |
 
-#### `TriaseCriteria` — sel matrix (parameter × level)
+#### `TriaseCriteria` — item kriteria dalam sel (parameter × level)
+> **Update 2026-06-08:** satu sel BOLEH punya **banyak** item kriteria → `@@unique([parameterId, levelId])` **dihapus**; `urutan` menjaga urutan item. FE `parameter.values` = **`Record<levelKode, string[]>`** (daftar per sel).
+
 | Field | Tipe | Catatan / index |
 |---|---|---|
 | `id` | UUID v7 PK | |
 | `parameterId` | FK→TriaseParameter (`Cascade`) | **idx** |
-| `levelId` | FK→TriaseLevel (`Cascade`) | **idx** |
-| `nilai` | text | deskripsi kriteria klinis (boleh "—" / kosong = tak applicable) |
-| — | — | `@@unique([parameterId, levelId])` |
+| `levelId` | FK→TriaseLevel (`Cascade`) | **idx** · idx komposit `(parameterId, levelId)` |
+| `nilai` | text | 1 item kriteria klinis (boleh "—"/kosong) |
+| `urutan` | int `@default(0)` | urutan item dalam sel |
 
 **Enum** (Prisma native, `@@schema("master")`): `TriaseStatus` · `TriaseTone`.
 
@@ -111,7 +115,7 @@ Master **bukan** state machine transaksional — siklus = **aktif/non-aktif + so
 |---|---|
 | `TriaseProtocol.kode` unik | **UNIQUE** (DB) |
 | Level/Parameter `kode` unik **per protokol** | **`@@unique([protocolId, kode])`** |
-| 1 sel per (parameter, level) | **`@@unique([parameterId, levelId])`** |
+| ~~1 sel per (parameter, level)~~ → **banyak item per sel** | unique **dihapus** (TR8b); `urutan` jaga urutan item dalam sel |
 | **Tepat satu** protokol `isDefault:true` **& Aktif** per RS | **Service guard** (set default baru → unset yang lama, dalam 1 tx). Cermin UI: IdentitasTab "Hanya boleh satu protokol aktif default per RS." |
 | Protokol valid = `kode` + `nama` + **≥ 2 level** + **≥ 1 parameter** | **Service** (cermin `isTriaseValid`) — tolak set `isDefault` bila tak valid |
 | `prioritas` level ≥ 1 | **CHECK** |
@@ -170,7 +174,7 @@ Business + transaksi + authz + **cache invalidation**. Tak `import prisma` (paka
 ### A.6 Indexing
 - `TriaseProtocol`: `kode` unique, partial `deletedAt IS NULL`, partial unique `isDefault WHERE isDefault AND status='Aktif'` (backstop single-default).
 - `TriaseLevel`/`TriaseParameter`: `protocolId`, `@@unique([protocolId, kode])`.
-- `TriaseCriteria`: `parameterId`, `levelId`, `@@unique([parameterId, levelId])`.
+- `TriaseCriteria`: `parameterId`, `levelId`, idx komposit `(parameterId, levelId)` (unique **dihapus** sejak TR8b — banyak item per sel).
 
 ### A.7 Failure modes
 | Skenario | Penanganan |
@@ -215,8 +219,42 @@ Dua kosakata berbeda → **harus diputuskan** sebelum konsumsi penuh:
 - [x] **TR6 — Client** [api/triaseProtocol.ts](../src/lib/api/triaseProtocol.ts) + seed [seed_triase.sql](../prisma/seed_triase.sql) (DEFAULT-IGD: 1 protokol · 6 level · 8 param · 48 sel, idempoten).
 - [x] **TR7 — Swap FE master**: [TriaseIGDPage](../src/components/master/triase-igd/TriaseIGDPage.tsx) fetch API (CUD via client; `useMasterCrud` + helper baru `commit`/`removeLocal`; toast).
 - [x] **TR8 — Swap konsumsi klinis**: `CriteriaTable` di [TriaseTab.tsx](../src/components/igd/tabs/TriaseTab.tsx) → fetch `getDefaultTriaseProtocol` (konstanta `COL_HEADERS`/`CRITERIA_ROWS` disisakan sebagai **fallback degradasi** offline/belum-login, bukan source-of-truth).
+- [x] **TR8b — Banyak kriteria per sel** (2026-06-08, migration `20260608150000_triase_criteria_multi`): drop unique (parameter,level) + kolom `urutan`; `values` → `Record<levelKode, string[]>` lintas-lapisan (Zod/DAL/Service/mock/[MatrixTab](../src/components/master/triase-igd/tabs/MatrixTab.tsx) `CellEditor` add/hapus item per sel/[TriaseTab](../src/components/igd/tabs/TriaseTab.tsx) render bullet). `useMasterCrud` helper `commit`/`removeLocal` reused.
+- [x] **TR8c — Riset kriteria + parameter best-practice + `tipeNilai`/`satuan`** (2026-06-08): (1) `tipeNilai`/`satuan` di `TriaseProtocolParameter` (migration `20260608160000_triase_param_tipe_nilai`, aditif) lintas-lapisan (Zod/DAL/Service/mock/[MatrixTab](../src/components/master/triase-igd/tabs/MatrixTab.tsx) selector tipe+satuan/page converter). (2) Enrichment **non-destruktif & idempoten** [seed_triase_enrich.sql](../prisma/seed_triase_enrich.sql) — append kriteria riset (ESI/ATS/CTAS/MTS/PMK) ke 8 parameter existing (base 48 sel utuh) + **4 parameter baru** (SpO₂/Suhu/Perdarahan/Risiko Perilaku). Pasca-enrich DB: **12 parameter · 131 sel · single-default utuh**. Referensi klinis di **§A.10**.
 - [ ] **TR9 — Keputusan A.8.1** (vokabuler level P1–P4 ⇄ slug master) + wiring map.
 - [ ] **TR10 — Tests** (Service: single-default, validasi; DAL: replace matrix tx).
+
+### A.10 📚 Referensi klinis — kriteria triase (riset 2026-06-08)
+
+Sumber: **ESI** (Emergency Severity Index v4/v5, ENA/AHRQ) · **ATS** (Australasian Triage Scale, ACEM/Safety&Quality AU) · **CTAS** (Canadian Triage & Acuity Scale) · **MTS** (Manchester) · **PMK 47/2018** (regulasi IGD Indonesia, mengadopsi ATS). Matrix `DEFAULT-IGD` di-seed dari sintesis ini.
+
+**Prinsip lintas-sistem:**
+- **"The worst wins"** — level akhir = kriteria tertinggi yang positif (bukan rata-rata). Penilaian klinis senior boleh meng-*override* ke atas.
+- **Danger-zone vital sign** (ESI v4/v5) — 1 vital di zona bahaya pada pasien L3 → naik L2 otomatis.
+- Angka vital **bukan kriteria tunggal absolut** (ATS) — selalu + tampilan klinis & keluhan.
+
+**Ambang dewasa (harmonisasi) per level — Resusitasi · Emergency · Urgent · Less · Non:**
+| Parameter | Resusitasi | Emergency | Urgent | Less | Non |
+|---|---|---|---|---|---|
+| **RR** (×/mnt) | apnea / < 8 | > 30 (ATS ≥36) | 25–30 | 21–24 | 12–20 |
+| **SpO₂** (CTAS) | < 90% + distress | < 92% | 92–94% | ≥ 95% | ≥ 95% |
+| **Nadi** (×/mnt, ESI DZ) | tak teraba | < 40 / > 140 | 50–60 / 100–140 | 100–110 | 60–100 |
+| **TD sistolik** | tak terukur | < 90 (syok) | 90–100 | borderline | normal |
+| **GCS** | ≤ 8 | 9–12 | 13–14 | 15+keluhan | 15 |
+| **Nyeri** (VAS) | — | 8–10 sentral | 4–7 / berat perifer | 1–3 | 0–2 |
+| **Suhu** (°C) | <32 / >41 | >38,3 sepsis / <35 | 38–39 | 37,5–38 | afebris |
+
+> ESI danger-zone dewasa: HR > 100 atau < 50 · RR > 20 atau < 12 · SBP < 90 · SpO₂ < 92% · suhu > 38,3°C. **Pediatrik:** ambang per pita umur (bayi/anak ≠ dewasa) — belum dimodelkan (lihat gap di bawah).
+
+**Parameter best-practice yang ditambah** (di luar 8 awal): **SpO₂** (CTAS first-order modifier terkuat) · **Suhu** (danger-zone sepsis) · **Perdarahan** (descriptor ATS) · **Risiko Perilaku** (kategori *behavioural* ATS: agitasi/kekerasan/risiko bunuh diri).
+
+**Gap / future work (belum dimodelkan):**
+1. **Ambang numerik terstruktur** — `tipeNilai="Numerik"` + `satuan` sudah jadi *fondasi*; rule-engine auto-klasifikasi (operator+angka per sel → usul level dari TTV) belum dibangun.
+2. **Pita umur pediatrik** — ambang vital per kelompok usia (varian matrix / parameter ber-*age band*).
+3. **Modifier keluhan utama** (dua-langkah MTS/CTAS: flowchart keluhan + modifier fisiologis) — "Contoh Kasus" baru benih sisi keluhan.
+4. **Glukosa, mekanisme cedera/trauma, obstetri** — modifier risiko tambahan di RS besar.
+
+**Sumber daring:** [ESI/AHRQ](https://www.ahrq.gov/patient-safety/settings/emergency-dept/esi.html) · [ATS Descriptors (Safety&Quality AU)](https://www.safetyandquality.gov.au/sites/default/files/2024-04/emergency_triage_education_kit_-_australasian_triage_scale_-_descriptors_for_categories.pdf) · [CTAS 2016 Revisions (CJEM)](https://www.cambridge.org/core/journals/canadian-journal-of-emergency-medicine/article/revisions-to-the-canadian-emergency-department-triage-and-acuity-scale-ctas-guidelines-2016/E2CB3E2063C54E11259313FA4FEAE495) · [PMK 47/2018](https://pdf2.sumselgo.id/ppiddinkes/unggah/33242327-PMK47-tahun-2018-tentang-pelayanan-kegawatdaruratan.pdf) · [ED Triage StatPearls](https://www.ncbi.nlm.nih.gov/books/NBK557583/)
 
 ---
 

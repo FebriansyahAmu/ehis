@@ -15,7 +15,7 @@ import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type {
   CreateTriaseInput, UpdateTriaseInput, LevelInput, ParameterInput,
-  TriaseRecordDTO, TriaseLevelDTO, TriaseParameterDTO, TriaseTone, TriaseStatus,
+  TriaseRecordDTO, TriaseLevelDTO, TriaseParameterDTO, TriaseTone, TriaseStatus, TriaseValueType,
 } from "@/lib/schemas/triaseProtocol";
 import type { ProtocolFullEntity } from "@/lib/dal/triaseProtocolDal";
 
@@ -48,12 +48,18 @@ export function makeTriaseProtocolService(deps: { clock?: Clock; dal?: Dal } = {
   function toDTO(p: Full): TriaseRecordDTO {
     const kodeByLevelId = new Map(p.levels.map((l) => [l.id, l.kode] as const));
     const parameters: TriaseParameterDTO[] = p.parameters.map((param) => {
-      const values: Record<string, string> = {};
+      const values: Record<string, string[]> = {};
+      // criteria sudah terurut `urutan` (DAL include) → push berurutan per level.
       for (const c of param.criteria) {
         const kode = kodeByLevelId.get(c.levelId);
-        if (kode !== undefined) values[kode] = c.nilai;
+        if (kode !== undefined) (values[kode] ??= []).push(c.nilai);
       }
-      return { id: param.id, kode: param.kode, label: param.label, values };
+      return {
+        id: param.id, kode: param.kode, label: param.label,
+        tipeNilai: param.tipeNilai as TriaseValueType,
+        satuan: param.satuan ?? undefined,
+        values,
+      };
     });
     return {
       id: p.id,
@@ -90,18 +96,23 @@ export function makeTriaseProtocolService(deps: { clock?: Clock; dal?: Dal } = {
       tx,
     );
     const createdParams = await dal.createParameters(
-      parameters.map((p, i) => ({ protocolId, kode: p.kode, label: p.label, urutan: i })),
+      parameters.map((p, i) => ({
+        protocolId, kode: p.kode, label: p.label, urutan: i,
+        tipeNilai: p.tipeNilai, satuan: p.satuan ?? null,
+      })),
       tx,
     );
 
     // kode → id map (link sel ke level & parameter aktual)
     const levelIdByKode = new Map(createdLevels.map((l) => [l.kode, l.id] as const));
-    const criteria: { parameterId: string; levelId: string; nilai: string }[] = [];
+    const criteria: { parameterId: string; levelId: string; nilai: string; urutan: number }[] = [];
     for (let i = 0; i < parameters.length; i++) {
       const parameterId = createdParams[i].id;
-      for (const [levelKode, nilai] of Object.entries(parameters[i].values)) {
+      for (const [levelKode, items] of Object.entries(parameters[i].values)) {
         const levelId = levelIdByKode.get(levelKode);
-        if (levelId !== undefined) criteria.push({ parameterId, levelId, nilai });
+        if (levelId === undefined) continue;
+        // banyak item per sel → tiap item 1 baris (urutan = index dalam sel)
+        items.forEach((nilai, urutan) => criteria.push({ parameterId, levelId, nilai, urutan }));
       }
     }
     await dal.createCriteria(criteria, tx);
@@ -237,12 +248,17 @@ export function makeTriaseProtocolService(deps: { clock?: Clock; dal?: Dal } = {
   }
   function parameterEntityToInput(p: Full["parameters"][number], full: Full): ParameterInput {
     const kodeByLevelId = new Map(full.levels.map((l) => [l.id, l.kode] as const));
-    const values: Record<string, string> = {};
+    const values: Record<string, string[]> = {};
     for (const c of p.criteria) {
       const kode = kodeByLevelId.get(c.levelId);
-      if (kode !== undefined) values[kode] = c.nilai;
+      if (kode !== undefined) (values[kode] ??= []).push(c.nilai);
     }
-    return { kode: p.kode, label: p.label, values };
+    return {
+      kode: p.kode, label: p.label,
+      tipeNilai: p.tipeNilai as TriaseValueType,
+      satuan: p.satuan ?? undefined,
+      values,
+    };
   }
 
   return { list, getFull, getDefault, createProtocol, updateProtocol, setDefault, deleteProtocol };

@@ -18,6 +18,24 @@ const reqStr = (label: string) => z.string().trim().min(1, `${label} wajib diisi
 
 const strArr = z.array(z.string().trim().min(1)).default([]);
 
+// uuid opsional yang menelan "" (form kirim string kosong saat tak ada protokol).
+const optUuid = z.preprocess(
+  (v) => (typeof v === "string" && v.trim() ? v.trim() : undefined),
+  z.string().uuid().optional(),
+);
+
+// ── Kriteria triase terpilih (centang panduan) ─────────────────────────────────
+// Identitas natural = (parameterKode, levelKode, nilai) — snapshot sekaligus jejak.
+export const TriaseCriteriaInput = z.object({
+  parameterKode: reqStr("Kode parameter"),
+  parameterLabel: reqStr("Label parameter"),
+  levelKode: reqStr("Kode level"),
+  levelLabel: reqStr("Label level"),
+  nilai: reqStr("Nilai kriteria"),
+  sourceCriteriaId: optUuid,
+});
+export type TriaseCriteriaInput = z.infer<typeof TriaseCriteriaInput>;
+
 // ── Input (POST /kunjungan/:id/triase) ─────────────────────────────────────────
 export const TriaseInput = z.object({
   // Kedatangan
@@ -59,10 +77,26 @@ export const TriaseInput = z.object({
   perawatTriase: reqStr("Nama perawat triase"),
   /** ISO atau "YYYY-MM-DDTHH:mm" (datetime-local). Kosong → Service pakai now(). */
   waktuTriase: optStr,
+  // Protokol panduan + kriteria yang dicentang (decision-support → record).
+  protocolId: optUuid,
+  protocolKode: optStr,
+  protocolNama: optStr,
+  selectedCriteria: z.array(TriaseCriteriaInput).default([]),
 });
 export type TriaseInput = z.infer<typeof TriaseInput>;
 
 // ── DTO (GET) ───────────────────────────────────────────────────────────────---
+export interface TriaseCriteriaDTO {
+  id: string;
+  parameterKode: string;
+  parameterLabel: string;
+  levelKode: string;
+  levelLabel: string;
+  nilai: string;
+  sourceCriteriaId: string | null;
+  urutan: number;
+}
+
 export interface TriaseDTO {
   id: string;
   kunjunganId: string;
@@ -99,6 +133,10 @@ export interface TriaseDTO {
   triageLevel: TriaseLevel;
   perawatTriase: string;
   waktuTriase: string; // ISO
+  protocolId: string | null;
+  protocolKode: string | null;
+  protocolNama: string | null;
+  selectedCriteria: TriaseCriteriaDTO[];
   authorUserId: string | null;
   createdAt: string; // ISO
 }

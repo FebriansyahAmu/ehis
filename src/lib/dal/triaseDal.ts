@@ -43,13 +43,43 @@ export interface CreateTriaseData {
   waktuTriase: Date;
   authorUserId?: string | null;
   authorPegawaiId?: string | null;
+  // Protokol panduan + kriteria terpilih (snapshot).
+  protocolId?: string | null;
+  protocolKode?: string | null;
+  protocolNama?: string | null;
+  selectedCriteria?: CreateTriaseCriteriaData[];
+}
+
+// Satu item kriteria terpilih (snapshot) — anak Triase.
+export interface CreateTriaseCriteriaData {
+  parameterKode: string;
+  parameterLabel: string;
+  levelKode: string;
+  levelLabel: string;
+  nilai: string;
+  sourceCriteriaId?: string | null;
+  urutan: number;
 }
 
 export type TriaseEntity = Awaited<ReturnType<typeof latestByKunjungan>>;
 
-// ── Create ───────────────────────────────────────────────────────────────────
+// Sertakan kriteria terpilih (urut tampil) di setiap read.
+const withCriteria = {
+  selectedCriteria: { orderBy: { urutan: "asc" } as const },
+};
+
+// ── Create (+ kriteria terpilih nested, dalam tx milik Service) ────────────────
 export function create(data: CreateTriaseData, tx?: Tx) {
-  return db(tx).triase.create({ data });
+  const { selectedCriteria, ...rest } = data;
+  return db(tx).triase.create({
+    data: {
+      ...rest,
+      ...(selectedCriteria?.length
+        ? { selectedCriteria: { create: selectedCriteria } }
+        : {}),
+    },
+    include: withCriteria,
+  });
 }
 
 // ── Read: baris terbaru milik satu kunjungan (latest by createdAt) ─────────────
@@ -57,5 +87,6 @@ export function latestByKunjungan(kunjunganId: string, tx?: Tx) {
   return db(tx).triase.findFirst({
     where: { kunjunganId },
     orderBy: { createdAt: "desc" },
+    include: withCriteria,
   });
 }

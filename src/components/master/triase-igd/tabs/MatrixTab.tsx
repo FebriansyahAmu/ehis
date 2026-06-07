@@ -3,13 +3,14 @@
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Plus, Trash2, MoveUp, MoveDown, Settings, Layers, Activity, Info,
+  Plus, Trash2, MoveUp, MoveDown, Settings, Layers, Activity, Info, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TextInput, SectionGroup } from "@/components/master/shared";
 import {
   type TriaseRecord, type TriaseLevel, type TriaseParameter, type TriaseLevelTone,
-  TRIASE_TONE_CFG, TRIASE_TONE_OPTIONS,
+  type TriaseValueType,
+  TRIASE_TONE_CFG, TRIASE_TONE_OPTIONS, TRIASE_VALUE_TYPE_OPTIONS,
 } from "@/lib/master/triaseMock";
 
 interface Props {
@@ -89,6 +90,7 @@ export default function MatrixTab({ draft, onPatch }: Props) {
         id: uid("pa"),
         kode: `param${draft.parameters.length + 1}`,
         label: "",
+        tipeNilai: "Kategori",
         values: {},
       },
     ]);
@@ -115,13 +117,21 @@ export default function MatrixTab({ draft, onPatch }: Props) {
     updateParams(next);
   };
 
-  const setCell = (paramId: string, levelKode: string, value: string) => {
+  // Sel = DAFTAR item kriteria (boleh >1). Semua mutasi sel lewat mutateCell.
+  const mutateCell = (paramId: string, levelKode: string, fn: (items: string[]) => string[]) => {
     const next = draft.parameters.map((p) => {
       if (p.id !== paramId) return p;
-      return { ...p, values: { ...p.values, [levelKode]: value } };
+      const cur = p.values[levelKode] ?? [];
+      return { ...p, values: { ...p.values, [levelKode]: fn(cur) } };
     });
     updateParams(next);
   };
+  const addCriteria = (paramId: string, levelKode: string) =>
+    mutateCell(paramId, levelKode, (items) => [...items, ""]);
+  const updateCriteria = (paramId: string, levelKode: string, idx: number, value: string) =>
+    mutateCell(paramId, levelKode, (items) => items.map((it, i) => (i === idx ? value : it)));
+  const removeCriteria = (paramId: string, levelKode: string, idx: number) =>
+    mutateCell(paramId, levelKode, (items) => items.filter((_, i) => i !== idx));
 
   // ── Pre-derived ────────────────────────────────────────
   const filledStats = useMemo(() => {
@@ -129,8 +139,8 @@ export default function MatrixTab({ draft, onPatch }: Props) {
     let filled = 0;
     draft.parameters.forEach((p) => {
       draft.levels.forEach((l) => {
-        const v = p.values[l.kode];
-        if (v && v.trim().length > 0 && v !== "—") filled++;
+        const items = p.values[l.kode] ?? [];
+        if (items.some((it) => it.trim().length > 0 && it !== "—")) filled++;
       });
     });
     return { total, filled };
@@ -252,7 +262,9 @@ export default function MatrixTab({ draft, onPatch }: Props) {
                     onUpdateParameter={(p) => updateParameter(param.id, p)}
                     onRemove={() => removeParameter(param.id)}
                     onMove={(d) => moveParameter(param.id, d)}
-                    onCellChange={(levelKode, v) => setCell(param.id, levelKode, v)}
+                    onAddCriteria={(levelKode) => addCriteria(param.id, levelKode)}
+                    onUpdateCriteria={(levelKode, i, v) => updateCriteria(param.id, levelKode, i, v)}
+                    onRemoveCriteria={(levelKode, i) => removeCriteria(param.id, levelKode, i)}
                   />
                 ))}
               </tbody>
@@ -451,7 +463,8 @@ function ToneSwatch({ tone, onChange }: { tone: TriaseLevelTone; onChange: (t: T
 // ── Matrix row ───────────────────────────────────────────
 
 function MatrixRow({
-  param, levels, isFirst, isLast, onUpdateParameter, onRemove, onMove, onCellChange,
+  param, levels, isFirst, isLast, onUpdateParameter, onRemove, onMove,
+  onAddCriteria, onUpdateCriteria, onRemoveCriteria,
 }: {
   param: TriaseParameter;
   levels: TriaseLevel[];
@@ -460,7 +473,9 @@ function MatrixRow({
   onUpdateParameter: (p: Partial<TriaseParameter>) => void;
   onRemove: () => void;
   onMove: (dir: -1 | 1) => void;
-  onCellChange: (levelKode: string, v: string) => void;
+  onAddCriteria: (levelKode: string) => void;
+  onUpdateCriteria: (levelKode: string, idx: number, v: string) => void;
+  onRemoveCriteria: (levelKode: string, idx: number) => void;
 }) {
   return (
     <tr className="hover:bg-slate-50/40">
@@ -483,29 +498,44 @@ function MatrixRow({
             className="font-mono text-[10px]"
             accent="rose"
           />
+          {/* Tipe nilai (hint auto-klasifikasi) + satuan bila Numerik */}
+          <div className="flex items-center gap-1">
+            <select
+              value={param.tipeNilai}
+              onChange={(e) => onUpdateParameter({ tipeNilai: e.target.value as TriaseValueType })}
+              title="Tipe nilai parameter"
+              aria-label="Tipe nilai parameter"
+              className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1 py-0.5 text-[10px] text-slate-600 outline-none transition focus:border-rose-300 focus:ring-2 focus:ring-rose-100"
+            >
+              {TRIASE_VALUE_TYPE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            {param.tipeNilai === "Numerik" && (
+              <input
+                value={param.satuan ?? ""}
+                onChange={(e) => onUpdateParameter({ satuan: e.target.value })}
+                placeholder="satuan"
+                title="Satuan ukur (mis. ×/mnt, mmHg, %, °C)"
+                aria-label="Satuan ukur"
+                className="w-[58px] shrink-0 rounded border border-slate-200 bg-white px-1 py-0.5 text-[10px] text-slate-600 outline-none transition placeholder:text-slate-300 focus:border-rose-300 focus:ring-2 focus:ring-rose-100"
+              />
+            )}
+          </div>
         </div>
       </td>
 
-      {/* Cells per level */}
-      {levels.map((lvl) => {
-        const value = param.values[lvl.kode] ?? "";
-        return (
-          <td key={lvl.id} className="border-r border-slate-100 p-1 align-top">
-            <textarea
-              value={value}
-              onChange={(e) => onCellChange(lvl.kode, e.target.value)}
-              rows={2}
-              placeholder="Kriteria klinis…"
-              className={cn(
-                "w-full rounded border border-slate-100 bg-white px-1.5 py-1 text-[11px] leading-snug text-slate-700 outline-none transition",
-                "placeholder:text-slate-300",
-                "focus:border-rose-300 focus:ring-2 focus:ring-rose-100",
-                "resize-y",
-              )}
-            />
-          </td>
-        );
-      })}
+      {/* Cells per level — DAFTAR item kriteria (boleh >1) */}
+      {levels.map((lvl) => (
+        <td key={lvl.id} className="border-r border-slate-100 p-1 align-top">
+          <CellEditor
+            items={param.values[lvl.kode] ?? []}
+            onAdd={() => onAddCriteria(lvl.kode)}
+            onUpdate={(i, v) => onUpdateCriteria(lvl.kode, i, v)}
+            onRemove={(i) => onRemoveCriteria(lvl.kode, i)}
+          />
+        </td>
+      ))}
 
       {/* Row actions */}
       <td className="px-1 py-1 align-top">
@@ -522,6 +552,52 @@ function MatrixRow({
         </div>
       </td>
     </tr>
+  );
+}
+
+// ── Cell editor (banyak item kriteria per sel) ───────────
+
+function CellEditor({
+  items, onAdd, onUpdate, onRemove,
+}: {
+  items: string[];
+  onAdd: () => void;
+  onUpdate: (idx: number, v: string) => void;
+  onRemove: (idx: number) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      {items.map((it, i) => (
+        <div key={i} className="flex items-start gap-1">
+          <textarea
+            value={it}
+            onChange={(e) => onUpdate(i, e.target.value)}
+            rows={1}
+            placeholder="Kriteria…"
+            className={cn(
+              "min-h-6 w-full resize-y rounded border border-slate-100 bg-white px-1.5 py-1 text-[11px] leading-snug text-slate-700 outline-none transition",
+              "placeholder:text-slate-300 focus:border-rose-300 focus:ring-2 focus:ring-rose-100",
+            )}
+          />
+          <button
+            type="button"
+            onClick={() => onRemove(i)}
+            title="Hapus kriteria"
+            aria-label="Hapus item kriteria"
+            className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-300 outline-none transition hover:bg-rose-50 hover:text-rose-600 focus-visible:ring-2 focus-visible:ring-rose-200"
+          >
+            <X size={11} />
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={onAdd}
+        className="flex items-center justify-center gap-1 rounded border border-dashed border-slate-200 px-1.5 py-1 text-[10px] font-medium text-slate-400 outline-none transition hover:border-rose-300 hover:bg-rose-50/50 hover:text-rose-600 focus-visible:ring-2 focus-visible:ring-rose-200"
+      >
+        <Plus size={10} /> kriteria
+      </button>
+    </div>
   );
 }
 
