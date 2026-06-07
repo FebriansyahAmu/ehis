@@ -212,7 +212,7 @@ Legenda: `[x]` selesai · `[~]` sebagian/diadaptasi · `[ ]` belum · ⏳ sengaj
 
 ### AUTH4 — API & UI
 - [x] Route `/api/v1/auth/*` login/refresh/logout/me ✅ tipis + envelope (mfa ⏳).
-- [~] Login page ✅ (pasca-login → `/ehis-dashboard`) + `SessionContext`/`/me` ✅ + Navbar user+logout ✅ + **silent refresh client (401→refresh→retry)** ✅. **Menu/aksi gating via `can()` ❌ belum diterapkan.**
+- [~] Login page ✅ (pasca-login → `/ehis-dashboard`) + `SessionContext`/`/me` ✅ + Navbar user+logout ✅ + **silent refresh client (401→refresh→retry)** ✅. **Menu gating via `can()` ✅** (ModuleSwitcher+Sidebar, [TODO-RBAC-MODUL](../TODO-RBAC-MODUL.md) Fase 2c) + **guard server per-modul `requireModule` ✅** (2d) + **aksi gating `<Can>`** ✅ primitif+contoh (2e, rollout iteratif).
 
 ### AUTH5 — Polish *(MFA DITUNDA pasca-MVP)*
 - [~] Idle timeout refresh 3h ✅ (struktur). **Security headers ❌** · **SSR auto-refresh ❌** — bukan blocker: page SSR sudah `try/catch` → fallback client-fetch + silent-refresh (§11 SHOULD).

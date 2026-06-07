@@ -199,6 +199,32 @@ export function initRBACMap(): RBACMap {
   return JSON.parse(JSON.stringify(ROLE_DEFAULT_GRANTS));
 }
 
+/** Bangun RBACMap dari grant DB (Record<roleKey, kode[]> dgn kode "leaf:action"). */
+export function mapFromGrants(grants: Record<string, string[]>): RBACMap {
+  const map = {} as RBACMap;
+  for (const role of ROLE_ORDER) {
+    const rec: Record<string, CrudAction[]> = {};
+    for (const kode of grants[role] ?? []) {
+      const idx = kode.indexOf(":");
+      if (idx < 0) continue;
+      const leaf = kode.slice(0, idx);
+      const action = kode.slice(idx + 1) as CrudAction;
+      (rec[leaf] ??= []).push(action);
+    }
+    map[role] = rec;
+  }
+  return map;
+}
+
+/** Flatten grant satu role → daftar kode "leaf:action" (untuk PATCH ke server). */
+export function grantsForRole(map: RBACMap, role: UserRole): string[] {
+  const out: string[] = [];
+  for (const [leaf, actions] of Object.entries(map[role] ?? {})) {
+    for (const a of actions) out.push(`${leaf}:${a}`);
+  }
+  return out.sort();
+}
+
 export function hasAction(map: RBACMap, role: UserRole, leafKey: string, action: CrudAction): boolean {
   return (map[role]?.[leafKey] ?? []).includes(action);
 }

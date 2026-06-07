@@ -36,18 +36,21 @@ Hasil yang diinginkan secara nyata.
 - [x] **2b** model izin nav: `NavItem.perm` (string|array) + `ModuleDescriptor.perms` + helper isomorphic (`navItemVisible`/`canSeeModule`/`visibleNav`/`visibleModules`/`homeHref`) di `navigation.ts`. **Care** dianotasi per sub-menu (igd/ri/rj/farmasi/lab/rad); modul lain gate level-modul (cukup; per-item menyusul bila ada role parsial).
 - [x] **2c** gating klien: `ModuleSwitcher` (filter `visibleModules`, modul aktif selalu ada, anti-kedip saat loading) + `Sidebar` (`visibleNav`, buang group kosong).
 - [x] **2d** guard server per-modul: `requireModule(key)` (`getServerActor`+`canSeeModule`→`redirect(homeHref)`) di 9 layout (6 edit + 3 top-level baru care/registration/antrian utk route-group).
-- [ ] **2e** **Gating aksi** — tombol create/update/delete pakai `can(resource, action)` per komponen (surface besar; iteratif per-modul). `can()` sudah tersedia via `useSession`.
+- [~] **2e** **Gating aksi** — **primitif + konvensi ✅**, rollout per-modul iteratif:
+  - [x] Primitif [`src/components/auth/Can.tsx`](src/components/auth/Can.tsx) — `<Can resource action fallback>` + hook `useCan()`. UX-only; server tetap penjaga.
+  - [x] Contoh kanonik: tombol **"Pasien Baru"** ([PasienListControls](src/components/registration/pasien-list/PasienListControls.tsx)) digerbang `registration.pasien:create`.
+  - [ ] Rollout sisa per-modul (Master CRUD, Billing, Kunjungan, dll.) — bungkus tombol create/update/delete dgn `<Can>` / `useCan()`. Dikerjakan deliberately saat tiap modul disentuh (hindari wrapping buta massal).
 - **DoD 2a–2d terpenuhi:** `tsc` bersih · smoke E2E (token Registrasi): `/ehis-{master,billing,eklaim,report,bpjs}` → **307 → /ehis-dashboard**; `/ehis-{dashboard,care,registration,antrian}` → **200**; Admin → semua **200**.
 
 ### Catatan follow-up
 - **Layar publik** `ehis-antrian/(fullpage)/{display,apm}` (monitor antrean/kiosk APM) kini ikut ter-guard (& sudah diblok proxy). Bila perlu publik tanpa login → allowlist di **proxy + requireModule**.
 - Per-item gating Master/Billing/dst. (saat ini level-modul) — tambah `perm` per NavItem saat ada role dgn akses parsial.
 
-## Fase 3 — Wire matriks RBAC ke DB (self-service)
-Boleh menyusul.
-- [ ] Endpoint baca grant nyata `role_permissions` + endpoint simpan (tulis + `invalidateRbacCache()`).
-- [ ] `RBACPane` fetch + tombol simpan (ganti `initRBACMap` mock).
-- **DoD:** ubah izin role dari Master → langsung berefek runtime tanpa migration.
+## Fase 3 — Wire matriks RBAC ke DB (self-service)  ✅ SELESAI (2026-06-07)
+- [x] DAL [`rbacAdminDal`](src/lib/dal/rbacAdminDal.ts) + Service [`rbacAdminService`](src/lib/services/rbacAdminService.ts) (`getMatrix` · `updateRoleGrants` REPLACE dalam tx + `invalidateRbacCache()`).
+- [x] Endpoint: `GET /api/v1/auth/rbac` (matriks) + `PATCH /api/v1/auth/rbac/[roleKey]` (gate `master.mapping` read/update).
+- [x] Client [`api/rbac.ts`](src/lib/api/rbac.ts) + [`RBACPane`](src/components/master/mapping/rbac/RBACPane.tsx) fetch DB (ganti `initRBACMap` mock) + tombol **Simpan/Reset** per role + dirty/loading/error. Konverter `mapFromGrants`/`grantsForRole` di rbacShared.
+- **DoD terpenuhi:** ubah izin role dari Master → tulis `role_permissions` + invalidasi cache → langsung berefek runtime, tanpa migration. Smoke: GET matrix (Admin) 200/9 role · PATCH idempoten 200 · Registrasi→GET 403 · kode asing 422.
 
 ---
 ## Catatan

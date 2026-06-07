@@ -14,13 +14,37 @@
 
 ## 🌐 Cross-Module
 
-- [ ] 🔴 **AuthN + RBAC enforcement (backend) — BLOCKER produksi** — `getActor()` ([src/lib/auth/actor.ts](src/lib/auth/actor.ts)) saat ini mengembalikan **DEV actor super-akses** (`permissions:["*"], isGlobal:true`), jadi **semua endpoint `/api/v1/*` terbuka penuh & RBAC `assertCan` ter-bypass**. Signature `getActor`/`assertCan` **sudah final** (seam) → saat diisi, Route/Service tak berubah. **Pekerjaan:** (1) implement `getActor` = verify session/JWT + cek revocation Redis → `401` bila invalid (Auth.js v5 hybrid, [BACKEND-AUTH](docs/BACKEND-AUTH.md)); (2) seed permission per Role + uji `assertCan` benar-benar menolak (`403`); (3) **ABAC `scopeBy(actor)` di DAL** (saat ini Service terima `actor` tapi `_actor` unused → belum ada object-level scoping/anti-IDOR nyata, OWASP API1/API5). Gating: **jangan hadapkan API ke jaringan tak tepercaya sebelum ini + audit aktif** (lihat [API-RULES §10.1/§10.4](docs/API-RULES.md)). Catatan: AuthN ini juga membuka enforcement idempotency (GAP-D), rate-limit, dan audit trail CUD (GAP-B) yang kini masih seam.
+- [~] 🔐 **AuthN + RBAC enforcement (backend)** — ✅ **TERIMPLEMENTASI & AKTIF** (2026-06-07, `AUTH_ENFORCE=true`): `getActor`/`getServerActor` ([src/lib/auth/actor.ts](src/lib/auth/actor.ts)) verifikasi **JWT (jose)** → `401` bila invalid; `assertCan` menolak `403`; superuser = **Admin** (`isSuperuser` ≠ `isGlobal`, [superuser.ts](src/lib/auth/superuser.ts)); RBAC seed **97 perm/187 grant** + matriks **editable dari Master (DB-wired)**; menu-gating + `requireModule` per-layout. **Sisa:** (1) **ABAC `scopeBy(actor)` di DAL** — Service terima `actor` tapi belum object-level/unit scoping (anti-IDOR, OWASP API1/API5) → `requireScope` **wajib sebelum akun klinis unit-scoped** live; (2) **hardening produksi** → lihat **§🔑 Auth & RBAC Security** di bawah. Catatan: AuthN ini juga membuka idempotency (GAP-D), rate-limit, dan audit trail CUD (GAP-B).
 - [✅ **Decision 2026-05-30**] **ClaimRecord source-of-truth di `/ehis-eklaim`** — `claimReadCache.ts` di `/ehis-billing` hanya read-only cache (helper `getClaimStatusForInvoice`, `eklaimDeepLink`). Billing tidak boleh mutate `ClaimRecord`. Cross-modul links (PenjaminDetail, BillingGateBanner, PatientHeader IGD/RI/RJ) pakai query-param deep-link (`?pasien=`, `?invoice=`, `?penjamin=`) — tidak ada shared state. Saat backend siap: swap `CLAIM_BOARD_MOCK` → `prisma.claim.findMany()`, cache read via REST endpoint `/api/eklaim/claim-status/{invoiceId}`.
 - [ ] **Replace mock data dengan Prisma queries** — mulai dari `PatientMaster`. Lihat [TODOS_BACKEND.md](TODOS_BACKEND.md#phase-1-database-layer) untuk roadmap migrasi.
 - [ ] **Error boundary + loading skeleton** — wajib untuk semua fullpage routes (saat ini hanya beberapa route punya skeleton 500ms via `useSkeletonDelay`).
 - [ ] **`SidebarContext`** — belum dipakai konsisten di semua modul. Beberapa modul masih pakai prop drilling untuk collapse state.
 - [ ] **Print / Export Dokumen PDF** — cetak dokumen legal per tab: CPPT (per tanggal), TTV chart, Resume Medis (INA-CBG), Resume Pulang (PMK 24/2022), Surat-surat (Keterangan Sakit, Rujukan, dll), Informed Consent, RAT. Kandidat: `window.print()` + print stylesheet, atau `@react-pdf/renderer`. PMK 269/2008 · PMK 24/2022
 - [ ] **Clinical Pathway Integration (RI)** — alur tatalaksana standar per diagnosis (GJK, Pneumonia, Sepsis, dll), CBG-aligned. Kandidat: tab baru di RI, pull diagnosis dari `DiagnosaTab`, template per ICD-10. PERMENKES 1438/2010
+
+---
+
+## 🔑 Auth & RBAC Security *(hardening produksi — 2026-06-07)*
+
+> Fondasi sudah praktik-baik (scrypt · JWT pendek 30m httpOnly/sameSite=lax · refresh rotating + reuse-detection · enforcement server `assertCan` · lockout 5×/15m · pesan login generik · privilege separation `isSuperuser`≠`isGlobal` · PII enc at-rest). **Aman untuk dev/internal; BELUM production-secure.** Item ditunda (acuan [BACKEND-AUTH §11](docs/BACKEND-AUTH.md)) — semua *tracked*, bukan terlupa.
+
+**🔴 Wajib sebelum produksi (hadapkan ke jaringan tak tepercaya / data pasien nyata):**
+- [ ] **`AUTH_SECRET` produksi** — ganti nilai dev di `.env` → secret manager + rencana rotasi (rotasi = invalidasi semua access; refresh DB tetap).
+- [ ] **Audit trail auth** (LOGIN/LOGOUT/REVOKE/ubah-izin/akses-sensitif) — **penting RS/UU PDP**; siapa akses apa, kapan. Seam GAP-B.
+- [ ] **Rate-limit login** (per-IP + per-akun) — credential-stuffing terdistribusi; lockout saat ini hanya per-akun. (Redis ditunda → bisa in-memory/DB interim.)
+- [ ] **Security headers** — CSP · HSTS · X-Frame-Options/`frame-ancestors` · X-Content-Type-Options · Referrer-Policy (di `proxy.ts`/`next.config`).
+- [ ] **ABAC `requireScope`/`scopeBy(actor)`** — wajib **sebelum akun klinis unit-scoped** (Dokter/Perawat) live; tanpa ini akun klinis lihat data **semua unit**. (= sisa #1 Cross-Module.)
+
+**🟡 Perlu ditinjau / dikonfirmasi:**
+- [ ] **CSRF untuk mutasi** — `sameSite=lax` proteksi wajar, tapi pertimbangkan `sameSite=strict` atau CSRF token untuk POST/PATCH/DELETE berisiko.
+- [ ] **Parameter scrypt** (N/r/p) — pastikan cukup kuat (atau swap **argon2id**; format hash self-describing → migrasi mulus).
+- [ ] **Pastikan `.env` ter-`.gitignore`** — `AUTH_SECRET`/`PII_*`/`DATABASE_URL` jangan ter-commit.
+
+**🟢 Nice-to-have (bukan keamanan inti):**
+- [ ] **Revoke instan** (Redis `jti` blocklist) — token curian valid ≤30m walau logout; dimitigasi TTL pendek + revoke-saat-refresh (DB).
+- [ ] **MFA TOTP** — field `mfaEnabled`/`mfaSecret` sudah ada (forward-compat), enforcement ditunda.
+- [ ] **`changePassword` flow FE** + paksa saat `mustChangePassword=true`.
+- [ ] **Menu/aksi gating `<Can>` rollout** — UX (server tetap penjaga via 403); bungkus tombol CRUD per-modul iteratif. Lihat [TODO-RBAC-MODUL](TODO-RBAC-MODUL.md) Fase 2e.
 
 ---
 
