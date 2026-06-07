@@ -38,11 +38,11 @@ Tab ≠ tabel. Banyak tab = view berbeda atas domain yang sama; komponen `shared
 Urutan persis seperti di [IGDRecordTabs.tsx](src/components/igd/IGDRecordTabs.tsx) (Rekam Medis 13 + Layanan 6). **FE 19/19 ✅** (mock). Yang dilacak di sini = **backend**: kolom **BE** (schema+DAL+service+endpoint, ~Fase A) & **Wiring** (resolver + tab konsumsi DB, ~Fase B/C).
 Legenda: 🟢 selesai · 🟡 sebagian · ⬜ belum.
 
-**Status global backend: 1/19 dimulai** (Triase Fase A ✅; wiring & 18 tab lain ⬜).
+**Status global backend: 1/19 dimulai** (Triase BE ✅ + wiring tab ✅; sisa Fase C modal/board + 18 tab lain ⬜).
 
 | #   | Tab (grup)               | Domain target     | FE  | BE  | Wiring | Catatan                                              |
 | --- | ------------------------ | ----------------- | --- | --- | ------ | ---------------------------------------------------- |
-| 1   | **Triase** (RM)          | Triase            | ✅  | 🟢  | ⬜     | Fase A ✅; sisa Fase B (tab) + C (modal/board)        |
+| 1   | **Triase** (RM)          | Triase            | ✅  | 🟢  | 🟡     | Fase A ✅ + Fase B tab ✅; sisa Fase C (modal/board)  |
 | 2   | **TTV** (RM)             | Observation       | ✅  | ⬜  | ⬜     | shared; time-series; tanpa co-sign → domain ke-2     |
 | 3   | **Asesmen Medis** (RM)   | Assessment        | ✅  | ⬜  | ⬜     | narasi + riwayat/alergi                              |
 | 4   | **Diagnosa** (RM)        | Condition         | ✅  | ⬜  | ⬜     | ICD-10; dibutuhkan billing/e-klaim                   |
@@ -102,12 +102,13 @@ Legenda: 🟢 selesai · 🟡 sebagian · ⬜ belum.
 - [x] **A6** Endpoint [`src/app/api/v1/kunjungan/[id]/triase/route.ts`](src/app/api/v1/kunjungan/[id]/triase/route.ts) — `GET` (`clinical.igd:read`) + `POST` 201 (`clinical.igd:create`).
 - **DoD A:** ✅ `tsc` bersih · ✅ `migrate status` up-to-date. ⏳ smoke HTTP (POST/GET via curl) butuh dev server + token — belum dijalankan.
 
-### Fase B — Wiring TriaseTab + resolver
+### Fase B — Wiring TriaseTab + resolver ✅ SELESAI (2026-06-08)
 
-- [ ] **B1** Client [`src/lib/api/triase.ts`](src/lib/api/triase.ts) — `saveTriase(kunjunganId, input)` · `getTriase(kunjunganId)`.
-- [ ] **B2** [igdDetailApi.ts](src/components/igd/igdDetailApi.ts) / resolver — muat triase terbaru → seed form (bukan hanya `triaseLevel`).
-- [ ] **B3** [TriaseTab](src/components/igd/tabs/TriaseTab.tsx) — tombol "Simpan Pengkajian Triase" → `saveTriase`; loading/error/sukses; reload konsisten dari DB.
-- **DoD B:** simpan dari tab → board IGD pasien itu tak lagi "Belum Triase"; re-triase → level ter-update; reload konsisten.
+- [x] **B1** Client [`src/lib/api/triase.ts`](src/lib/api/triase.ts) — `getTriase(kunjunganId)` · `saveTriase(kunjunganId, input)` (tipe reuse dari schema server).
+- [x] **B2** **Self-fetch di TriaseTab** (bukan via `igdDetailApi`/resolver) — `getTriase` saat mount bila `patient.id` = UUID → seed form penuh via `dtoToForm`. Keputusan: tab konsumsi DB sendiri → resolver tetap lean, `IGDPatientDetail` tak perlu di-extend. Pasien mock (non-UUID) → form awal dari `patient.triage/complaint` (perilaku demo dipertahankan).
+- [x] **B3** [TriaseTab](src/components/igd/tabs/TriaseTab.tsx) — tombol "Simpan" → `saveTriase`; guard field wajib + Keputusan Triase; state loading/saving/error/savedAt; input "Waktu Triase" di-bind; banner demo utk pasien non-DB.
+- [x] **B4** **Nama Perawat Triase = dropdown** — filter `profesi` ditambah ke list pegawai (`ListQuery`+`pegawaiDal.list`+service+`api/pegawai`); TriaseTab fetch `listPegawai({ profesi:"Perawat", aktif:"true" })` → `<select>` (sertakan nilai tersimpan walau perawat nonaktif). ⚠️ **Follow-up RBAC**: endpoint `GET /master/pegawai` di-gate `master.pegawai:read` — akun klinis (Perawat/Dokter) belum tentu punya izin itu saat live; perlu grant `master.pegawai:read` ke role klinis **atau** endpoint roster tenaga khusus (gate `clinical.*`). Tak memblok sekarang (akun klinis belum live; superadmin OK).
+- **DoD B:** ✅ `tsc` bersih. ⏳ verifikasi in-browser (login superadmin): simpan dari tab → board IGD pasien itu tak lagi "Belum Triase"; re-triase → level ter-update; reload konsisten. *(HTTP smoke otomatis tak bisa dijalankan agen: `AUTH_ENFORCE=true` + kredensial tak tersedia.)*
 
 ### Fase C — Satukan board/modal
 

@@ -91,6 +91,7 @@ export const UpdatePegawaiInput = z.object({
 export const ListQuery = z.object({
   q: z.string().trim().min(1).max(120).optional(), // nama/NIP (trigram)
   status: StatusPegawai.optional(),
+  profesi: z.string().trim().min(1).max(60).optional(), // exact (mis. "Perawat") — utk picker tenaga
   aktif: z.enum(["true", "false"]).optional(),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),

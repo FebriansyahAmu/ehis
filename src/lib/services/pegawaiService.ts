@@ -160,6 +160,7 @@ export function makePegawaiService(deps: { clock?: Clock; dal?: Dal } = {}) {
     const { items, nextCursor } = await dal.list({
       q: query.q,
       status: query.status,
+      profesi: query.profesi,
       aktif: query.aktif === undefined ? undefined : query.aktif === "true",
       cursor: query.cursor,
       limit: query.limit,

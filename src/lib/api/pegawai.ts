@@ -67,6 +67,7 @@ export async function updatePegawai(
 export interface ListPegawaiParams {
   q?: string;
   status?: string;
+  profesi?: string; // exact (mis. "Perawat") — picker tenaga
   aktif?: "true" | "false";
   cursor?: string;
   limit?: number;

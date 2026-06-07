@@ -116,14 +116,15 @@ export function findByNip(nip: string, tx?: Tx) {
 
 /** List + search nama/NIP (trigram ILIKE). Cursor by id (orderBy createdAt,id desc). */
 export async function list(
-  params: { q?: string; status?: StatusPegawai; aktif?: boolean; cursor?: string; limit: number },
+  params: { q?: string; status?: StatusPegawai; profesi?: string; aktif?: boolean; cursor?: string; limit: number },
   tx?: Tx,
 ) {
-  const { q, status, aktif, cursor, limit } = params;
+  const { q, status, profesi, aktif, cursor, limit } = params;
   const rows = await db(tx).pegawai.findMany({
     where: {
       deletedAt: null,
       ...(status ? { statusPegawai: status } : {}),
+      ...(profesi ? { profesi } : {}),
       ...(aktif !== undefined ? { isActive: aktif } : {}),
       ...(q
         ? {

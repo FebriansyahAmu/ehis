@@ -1,8 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Loader2, Check, AlertCircle } from "lucide-react";
 import type { IGDPatientDetail, TriageLevel } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { getTriase, saveTriase } from "@/lib/api/triase";
+import { listPegawai } from "@/lib/api/pegawai";
+import type { TriaseDTO } from "@/lib/schemas/triase";
+import { ApiError } from "@/lib/api/client";
+
+// id kunjungan DB = UUID; id demo/mock ("igd-1") tak tersimpan ke DB.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Compact form primitives ───────────────────────────────
 
@@ -435,6 +443,7 @@ interface TriaseForm {
   tindakanTriase: string[];
   triageLevel: string;
   perawatTriase: string;
+  waktuTriase: string;
 }
 
 const EMPTY: TriaseForm = {
@@ -470,11 +479,63 @@ const EMPTY: TriaseForm = {
   tindakanTriase: [],
   triageLevel: "",
   perawatTriase: "",
+  waktuTriase: "",
 };
+
+// ── DB ↔ form mapping ─────────────────────────────────────
+
+// ISO ("…Z") → "YYYY-MM-DDTHH:mm" untuk <input datetime-local> (UTC wall-clock,
+// konsisten dgn konvensi simpan/format waktu lain di modul IGD).
+const toLocalInput = (iso: string): string => iso.slice(0, 16);
+
+function dtoToForm(d: TriaseDTO): TriaseForm {
+  return {
+    caraMasuk: d.caraMasuk,
+    kondisiTiba: d.kondisiTiba,
+    keluhanUtama: d.keluhanUtama,
+    onset: d.onset,
+    lokasiKeluhan: d.lokasiKeluhan ?? "",
+    kualitasKeluhan: d.kualitasKeluhan ?? "",
+    skalaBerat: d.skalaBerat ?? "",
+    faktorPemberat: d.faktorPemberat ?? "",
+    faktorPeringan: d.faktorPeringan ?? "",
+    gejalaPenyerta: d.gejalaPenyerta,
+    riwayatSerupa: d.riwayatSerupa ?? "",
+    airwayStatus: d.airwayStatus,
+    suaraNapasAbnormal: d.suaraNapasAbnormal,
+    breathingQuality: d.breathingQuality,
+    pergerakanDada: d.pergerakanDada ?? "",
+    ototBantu: d.ototBantu ?? "",
+    sianosis: d.sianosis ?? "",
+    nadiTeraba: d.nadiTeraba,
+    kualitasNadi: d.kualitasNadi ?? "",
+    crt: d.crt ?? "",
+    kondisiKulit: d.kondisiKulit ?? "",
+    perdarahan: d.perdarahan ?? "",
+    avpu: d.avpu,
+    pupil: d.pupil ?? "",
+    refleksCahaya: d.refleksCahaya ?? "",
+    traumaLuka: d.traumaLuka ?? "",
+    lokasiLuka: d.lokasiLuka ?? "",
+    suhuKulit: d.suhuKulit ?? "",
+    diagnosisSementara: d.diagnosisSementara ?? "",
+    tindakanTriase: d.tindakanTriase,
+    triageLevel: d.triageLevel,
+    perawatTriase: d.perawatTriase,
+    waktuTriase: toLocalInput(d.waktuTriase),
+  };
+}
+
+// Field wajib (selaras TriaseInput Zod server) — guard pra-submit utk pesan ramah.
+const REQUIRED_TEXT: (keyof TriaseForm)[] = [
+  "caraMasuk", "kondisiTiba", "keluhanUtama", "onset",
+  "airwayStatus", "breathingQuality", "nadiTeraba", "avpu", "perawatTriase",
+];
 
 // ── Main component ────────────────────────────────────────
 
 export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
+  const isPersisted = UUID_RE.test(patient.id);
   const [form, setForm] = useState<TriaseForm>({
     ...EMPTY,
     triageLevel: patient.triage ?? "",
@@ -483,8 +544,86 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
   const set = <K extends keyof TriaseForm>(k: K, v: TriaseForm[K]) =>
     setForm((p) => ({ ...p, [k]: v }));
 
+  const [loading, setLoading] = useState(isPersisted);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  // Daftar perawat (PJ triase) — dari master pegawai profesi "Perawat".
+  const [perawatList, setPerawatList] = useState<string[]>([]);
+  const [perawatLoading, setPerawatLoading] = useState(true);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    (async () => {
+      try {
+        const { items } = await listPegawai({ profesi: "Perawat", aktif: "true", limit: 50 }, ac.signal);
+        if (ac.signal.aborted) return;
+        setPerawatList(items.map((p) => p.namaTampil));
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        // Gagal muat daftar perawat tak memblok form — dropdown jatuh ke nilai tersimpan saja.
+      } finally {
+        if (!ac.signal.aborted) setPerawatLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, []);
+
+  // Sertakan nilai tersimpan walau tak ada di daftar (mis. perawat nonaktif / record lama).
+  const perawatOptions = useMemo(() => {
+    const set = new Set(perawatList);
+    if (form.perawatTriase) set.add(form.perawatTriase);
+    return [...set].sort((a, b) => a.localeCompare(b, "id"));
+  }, [perawatList, form.perawatTriase]);
+
+  // Muat pengkajian terbaru dari DB (kunjungan nyata). Mock → form awal dari patient.
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    setLoading(true);
+    (async () => {
+      try {
+        const dto = await getTriase(patient.id, ac.signal);
+        if (ac.signal.aborted) return;
+        if (dto) { setForm(dtoToForm(dto)); setSavedAt(dto.createdAt); }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError(e instanceof ApiError ? e.message : "Gagal memuat data triase.");
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, [patient.id, isPersisted]);
+
+  async function handleSave() {
+    if (saving) return;
+    if (!isPersisted) { setError("Pasien demo — pengkajian triase tidak tersimpan ke database."); return; }
+    if (!form.triageLevel) { setError("Pilih Keputusan Triase (P1–P4) sebelum menyimpan."); return; }
+    if (REQUIRED_TEXT.some((k) => !String(form[k]).trim())) {
+      setError("Lengkapi semua field wajib (bertanda *)."); return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const dto = await saveTriase(patient.id, { ...form, triageLevel: form.triageLevel as TriageLevel });
+      setForm(dtoToForm(dto));
+      setSavedAt(dto.createdAt);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Gagal menyimpan pengkajian triase.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-3">
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+          <Loader2 size={13} className="animate-spin" /> Memuat data triase dari rekam medis…
+        </div>
+      )}
       {/* Kedatangan */}
       <Block title="Informasi Kedatangan">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -865,18 +1004,23 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <Label required>Nama Perawat Triase</Label>
-            <input
-              type="text"
+            <select
               value={form.perawatTriase}
               onChange={(e) => set("perawatTriase", e.target.value)}
-              placeholder="Nama perawat..."
-              className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-            />
+              className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+            >
+              <option value="">{perawatLoading ? "Memuat perawat…" : "— Pilih perawat —"}</option>
+              {perawatOptions.map((nama) => (
+                <option key={nama} value={nama}>{nama}</option>
+              ))}
+            </select>
           </div>
           <div>
             <Label>Waktu Triase</Label>
             <input
               type="datetime-local"
+              value={form.waktuTriase}
+              onChange={(e) => set("waktuTriase", e.target.value)}
               className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
             />
           </div>
@@ -884,12 +1028,31 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
       </Block>
 
       {/* Save */}
-      <div className="flex justify-end pb-1">
+      <div className="flex flex-col items-end gap-2 pb-1">
+        {error && (
+          <div role="alert" className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-700">
+            <AlertCircle size={13} className="shrink-0" /> {error}
+          </div>
+        )}
+        {!error && savedAt && (
+          <div className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700">
+            <Check size={13} className="shrink-0" /> Tersimpan · {savedAt.slice(0, 16).replace("T", " ")} WIB
+          </div>
+        )}
+        {!isPersisted && !error && (
+          <p className="text-[11px] text-amber-600">Pasien demo — perubahan tidak tersimpan ke database.</p>
+        )}
         <button
           type="button"
-          className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700"
+          onClick={handleSave}
+          disabled={saving}
+          className={cn(
+            "flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-medium text-white shadow-sm transition",
+            saving ? "cursor-not-allowed bg-slate-300" : "bg-indigo-600 hover:bg-indigo-700",
+          )}
         >
-          Simpan Pengkajian Triase
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+          {saving ? "Menyimpan…" : "Simpan Pengkajian Triase"}
         </button>
       </div>
     </div>
