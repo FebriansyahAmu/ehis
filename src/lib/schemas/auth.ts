@@ -51,7 +51,10 @@ export interface SessionDTO {
   username: string;
   namaTampil: string;
   roles: string[];
+  /** true = tak diikat unit (ABAC). DARI unitScoped. BUKAN bypass RBAC. */
   isGlobal: boolean;
+  /** true = superuser (Admin) → bypass RBAC di UI gating (`can()` selalu true). */
+  isSuperuser: boolean;
   unitIds: string[];
   /** permission efektif "resource:action" (union lintas role) — untuk UI gating. */
   permissions: string[];

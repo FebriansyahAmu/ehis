@@ -27,6 +27,13 @@ export type RBACMap = Record<UserRole, Record<string, CrudAction[]>>;
 
 export const PERMISSION_TREE: PermissionModule[] = [
   {
+    key: "dashboard",
+    label: "Dashboard",
+    leaves: [
+      { key: "dashboard.view",        label: "Dashboard Operasional",        actions: ["read"] },
+    ],
+  },
+  {
     key: "clinical",
     label: "Klinis",
     leaves: [
@@ -69,8 +76,10 @@ export const PERMISSION_TREE: PermissionModule[] = [
     leaves: [
       { key: "master.ruangan",        label: "Unit & Ruangan",               actions: ["read", "create", "update", "delete"] },
       { key: "master.dokter",         label: "Dokter & Nakes",               actions: ["read", "create", "update", "delete"] },
+      { key: "master.pegawai",        label: "Data Pegawai (SDM)",           actions: ["read", "create", "update", "delete"] },
       { key: "master.pengguna",       label: "Pengguna Sistem",              actions: ["read", "create", "update", "delete"] },
       { key: "master.mapping",        label: "Mapping Hub",                  actions: ["read", "update"] },
+      { key: "master.penugasan-ruangan", label: "Penugasan SDM ⇄ Ruangan",   actions: ["read", "create", "delete"] },
       { key: "master.katalog",        label: "Katalog (Obat/Lab/ICD)",       actions: ["read", "create", "update", "delete"] },
       { key: "master.tarif",          label: "Tarif & Paket",                actions: ["read", "create", "update", "delete"] },
     ],
@@ -179,6 +188,7 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
     "report.financial": ["read", "export"],
   },
   Registrasi: {
+    "dashboard.view": ["read"],
     "registration.pasien": ["read", "create", "update"],
     "registration.kunjungan": ["read", "create", "update"],
     "clinical.rj": ["read"],

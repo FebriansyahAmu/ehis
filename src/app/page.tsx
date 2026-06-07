@@ -40,10 +40,8 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await apiLogin(username, password);
-      // Honor ?next= (dari proxy) bila path internal aman; selain itu ke dashboard.
-      const next = new URLSearchParams(window.location.search).get("next");
-      const dest = next && next.startsWith("/") && !next.startsWith("//") ? next : "/ehis-dashboard";
-      router.push(dest);
+      // Pasca-login selalu ke dashboard (proxy redirect bersih, tanpa ?next).
+      router.push("/ehis-dashboard");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Tidak dapat terhubung ke server. Coba lagi.");

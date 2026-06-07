@@ -10,6 +10,7 @@ import { verifyPassword, hashPassword } from "@/lib/crypto/password";
 import { issueAccessToken } from "@/lib/auth/jwt";
 import { generateRefreshToken, hashRefreshToken, refreshExpiry } from "@/lib/auth/tokens";
 import { permissionsForRoles } from "@/lib/auth/rbacCache";
+import { hasSuperuserRole } from "@/lib/auth/superuser";
 import { Errors } from "@/lib/errors/appError";
 import type { LoginInput, ChangePasswordInput, SessionDTO } from "@/lib/schemas/auth";
 import type { AuthUserEntity } from "@/lib/dal/authDal";
@@ -61,6 +62,7 @@ export function makeAuthService(deps: { dal?: AuthDal; clock?: () => Date } = {}
       namaTampil: namaTampil(u.pegawai),
       roles: roleKeys,
       isGlobal,
+      isSuperuser: hasSuperuserRole(roleKeys),
       unitIds,
       permissions: [...perms],
       mustChangePassword: u.mustChangePassword,

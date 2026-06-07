@@ -14,6 +14,7 @@ import { cookies } from "next/headers";
 import { Errors } from "@/lib/errors/appError";
 import { verifyAccessToken } from "@/lib/auth/jwt";
 import { permissionsForRoles } from "@/lib/auth/rbacCache";
+import { hasSuperuserRole } from "@/lib/auth/superuser";
 import { readCookie, ACCESS_COOKIE } from "@/lib/auth/cookies";
 import type { AccessClaims } from "@/lib/schemas/auth";
 
@@ -25,8 +26,10 @@ export interface Actor {
   permissions: Set<string>;
   /** Unit yang boleh diakses (ABAC). Kosong + bukan global = tak boleh data klinis. */
   unitIds: string[];
-  /** true = bypass unit-scope (mis. Admin/role global). */
+  /** true = tak diikat unit (ABAC bypass unit-scope). DARI unitScoped. BUKAN bypass RBAC. */
   isGlobal: boolean;
+  /** true = superuser (Admin) → bypass RBAC penuh. Lihat lib/auth/superuser.ts. */
+  isSuperuser: boolean;
 }
 
 // Sentinel dev actor — hanya dipakai saat AUTH_ENFORCE=false & tak ada sesi (transisi).
@@ -37,6 +40,7 @@ const DEV_ACTOR: Actor = {
   permissions: new Set<string>(["*"]),
   unitIds: [],
   isGlobal: true,
+  isSuperuser: true,
 };
 
 const enforce = (): boolean => process.env.AUTH_ENFORCE === "true";
@@ -50,6 +54,7 @@ async function actorFromClaims(claims: AccessClaims): Promise<Actor> {
     permissions,
     unitIds: claims.unitIds,
     isGlobal: claims.isGlobal,
+    isSuperuser: hasSuperuserRole(claims.roles),
   };
 }
 
@@ -82,9 +87,10 @@ export async function getServerActor(): Promise<Actor> {
   return resolve(store.get(ACCESS_COOKIE)?.value ?? null);
 }
 
-/** RBAC assert (FLOWS §6). Lempar FORBIDDEN bila role tak punya izin. */
+/** RBAC assert (FLOWS §6). Lempar FORBIDDEN bila role tak punya izin.
+ *  Bypass HANYA untuk superuser (Admin) — BUKAN `isGlobal` (itu ABAC unit-scope, bukan RBAC). */
 export function assertCan(actor: Actor, resource: string, action: string): void {
-  if (actor.isGlobal || actor.permissions.has("*")) return;
+  if (actor.isSuperuser || actor.permissions.has("*")) return;
   if (actor.permissions.has(`${resource}:${action}`)) return;
   throw Errors.forbidden(`Tidak punya izin ${resource}:${action}`);
 }

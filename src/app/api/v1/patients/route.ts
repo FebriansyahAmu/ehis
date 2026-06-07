@@ -8,7 +8,7 @@ import { SearchQuery, RegisterPatientInput } from "@/lib/schemas/patient";
 import { patientService } from "@/lib/services/patientService";
 
 export const GET = route({
-  resource: "registration.patient",
+  resource: "registration.pasien",
   action: "read",
   query: SearchQuery,
   handler: async ({ query }) => {
@@ -18,7 +18,7 @@ export const GET = route({
 });
 
 export const POST = route({
-  resource: "registration.patient",
+  resource: "registration.pasien",
   action: "create",
   body: RegisterPatientInput,
   handler: async ({ body, actor }) => {

@@ -5,7 +5,7 @@
 //
 // Pemakaian:
 //   export const POST = route({
-//     resource: "registration.patient", action: "create",
+//     resource: "registration.pasien", action: "create",
 //     body: RegisterPatientInput, status: 201,
 //     handler: ({ body, actor }) => patientService.registerPatient(body, actor),
 //   });

@@ -9,7 +9,7 @@
 >
 > **Model auth:** **hybrid** — JWT access pendek + DB refresh rotating + (Redis revocation ⏳ ditunda).
 > **Lapisan sesi:** **custom JWT (`jose`)** — bukan Auth.js v5 (keputusan ulang 2026-06-07 §10 #7).
-> **Status:** ✅ **Core terimplementasi (2026-06-07)** — login/refresh/logout/me · JWT issue/verify · refresh rotation + reuse detection · lockout DB · RBAC seed (89 perm/176 grant) · proxy optimistic · FE wiring (SessionContext/Navbar). **Belum aktif** (`AUTH_ENFORCE=false`). Redis + ABAC + bootstrap akun = **MUST-HAVE tersisa** (lihat §11).
+> **Status:** ✅ **AKTIF & ditegakkan (`AUTH_ENFORCE=true`, 2026-06-07)** — login/refresh/logout/me · JWT issue/verify · refresh rotation + reuse detection · lockout DB · RBAC seed (96 perm/183 grant) · proxy optimistic · FE wiring (SessionContext/Navbar). Akun `superadmin` (Admin global) terverifikasi; smoke-test enforce lulus. Tersisa: ABAC `requireScope` (sebelum modul klinis) + `AUTH_SECRET` prod + hardening (Redis/argon2id/audit) — lihat §11.
 
 ---
 
@@ -187,14 +187,14 @@ Emit ke **BACKEND-AUDIT**: `LOGIN`, `LOGIN_FAILED`, `LOGOUT`, `REFRESH`, `REVOKE
 
 ---
 
-## 9. Task checklist  *(status 2026-06-07)*
+## 9. Task checklist  *(status 2026-06-07 — auth AKTIF `AUTH_ENFORCE=true`)*
 
 Legenda: `[x]` selesai · `[~]` sebagian/diadaptasi · `[ ]` belum · ⏳ sengaja ditunda.
 
 ### AUTH0 — Schema & seed
 - [x] Prisma model `User`/`Role`(+`unitScoped`)/`UserRole`(M:N)/`Permission`/`RolePermission`/`UserUnitScope`/`RefreshToken` + enum `CrudAction`/`UserStatus`.
 - [x] Index (§6) + unique constraints.
-- [~] Seed: Role (9) ✅ · **Permission (89) + RolePermission (176)** ✅ dari `rbacShared` ([migration seed_rbac](../prisma/migrations/20260607120000_seed_rbac/migration.sql)) · `unitScoped` Kasir/Registrasi dikoreksi → global ✅. **User contoh per role ❌ (bootstrap belum)** · password **scrypt** (argon2id ⏳).
+- [x] Seed: Role (9) ✅ · **Permission (96) + RolePermission (183)** ✅ dari `rbacShared` ([seed_rbac](../prisma/migrations/20260607120000_seed_rbac/migration.sql) + [add_sdm_perms](../prisma/migrations/20260607130000_rbac_add_sdm_perms/migration.sql) — selaras resource-key route: `registration.pasien` · `master.pegawai` · `master.penugasan-ruangan`) · `unitScoped` Kasir/Registrasi → global ✅. **Akun `superadmin` (Admin global) ada ✅ (bootstrap beres)** · password **scrypt** (argon2id ⏳).
 
 ### AUTH1 — Core hybrid
 - [~] `lib/auth`: hash **scrypt** ✅ (argon2id ⏳ swap) · JWT issue/verify (`jose`, inject `clock`) ✅ · refresh rotation + **reuse detection** ✅ · **Redis revoke (`jti`/`tokenVersion`) ⏳ DITUNDA** (revoke ditegakkan saat refresh/DB; window ≤30m, §5).
@@ -203,19 +203,19 @@ Legenda: `[x]` selesai · `[~]` sebagian/diadaptasi · `[ ]` belum · ⏳ sengaj
 
 ### AUTH2 — ~~Auth.js v5~~ → custom `jose` + proxy
 - [~] **Auth.js v5 DIGANTI custom JWT (`jose`)** (§4.7, §10 #7) — Credentials/JWT-strategy tak dipakai.
-- [~] `proxy.ts` optimistic redirect ✅ (gated `AUTH_ENFORCE`). `correlationId` ⏳.
+- [x] `proxy.ts` optimistic redirect ✅ (gated `AUTH_ENFORCE`) — tanpa sesi → **307 ke `/` bersih** (tanpa `?next`, pasca-login selalu ke dashboard). `correlationId` ⏳.
 
 ### AUTH3 — Guards & enforcement
-- [~] `requireAuth`+`requirePermission` = **`route()` + `getActor` + `assertCan`** ✅ (bentuk beda dari spec, fungsi setara). **`requireScope`/ABAC unit-scope ❌ belum dibangun.**
+- [~] `requireAuth`+`requirePermission` = **`route()` + `getActor` + `assertCan`** ✅ (bentuk beda dari spec, fungsi setara). **`requireScope`/ABAC unit-scope ❌ belum dibangun** (MUST sebelum akun klinis, §11).
 - [~] Cache RBAC = **rbacCache in-process** ✅ + `invalidateRbacCache()` (Redis `perm:{roleId}` ⏳).
-- [~] Integrasi domain: `getActor` terpasang di **SEMUA** route via `route()` ✅ — tapi enforcement **gated off** (`AUTH_ENFORCE=false`).
+- [x] Integrasi domain: `getActor` terpasang di **SEMUA** route via `route()` ✅ — enforcement **AKTIF** (`AUTH_ENFORCE=true`). Smoke-test lulus: API tanpa sesi → 401, login creds salah → 401, page → 307 ke `/`.
 
 ### AUTH4 — API & UI
 - [x] Route `/api/v1/auth/*` login/refresh/logout/me ✅ tipis + envelope (mfa ⏳).
-- [~] Login page ✅ + `SessionContext`/`/me` ✅ + Navbar user+logout ✅ + **silent refresh client (401→refresh→retry)** ✅. **Menu/aksi gating via `can()` ❌ belum diterapkan.**
+- [~] Login page ✅ (pasca-login → `/ehis-dashboard`) + `SessionContext`/`/me` ✅ + Navbar user+logout ✅ + **silent refresh client (401→refresh→retry)** ✅. **Menu/aksi gating via `can()` ❌ belum diterapkan.**
 
 ### AUTH5 — Polish *(MFA DITUNDA pasca-MVP)*
-- [~] Idle timeout refresh 3h ✅ (struktur). **Security headers ❌** · **SSR auto-refresh ❌** (§11 MUST-HAVE).
+- [~] Idle timeout refresh 3h ✅ (struktur). **Security headers ❌** · **SSR auto-refresh ❌** — bukan blocker: page SSR sudah `try/catch` → fallback client-fetch + silent-refresh (§11 SHOULD).
 - [~] MFA TOTP — **ditunda**; field `mfaEnabled`/`mfaSecret` di schema (forward-compat).
 
 ### AUTH6 — Tests
@@ -235,25 +235,24 @@ Legenda: `[x]` selesai · `[~]` sebagian/diadaptasi · `[ ]` belum · ⏳ sengaj
 7. ✅ **Lapisan sesi = custom JWT (`jose`), BUKAN Auth.js v5** (keputusan ulang **2026-06-07**). Manfaat Auth.js tipis di arsitektur ini (mekanisme berat sudah custom + Redis ditunda); SSO nanti ditambah di belakang seam `getActor`. Mengganti §4.7 awal.
 8. ✅ **Gate bertahap `AUTH_ENFORCE`** (env, **2026-06-07**) — satu sakelar menyatukan enforcement server (`getActor` → 401) + proxy redirect. `false` (default) = transisi/dev terbuka (fallback DEV actor); `true` = proteksi nyata. Cegah lockout pra-bootstrap. **Interim — dihapus saat auth wajib di prod.**
 9. ⏳ **Redis ditunda** (**2026-06-07**, belum di-setup) — revoke instan (`jti` blocklist), rate-limit, cache `perm:` ditunda; degradasi terkendali (§5): revoke via refresh/DB, window access ≤30m.
+10. ✅ **`isSuperuser` ≠ `isGlobal`** (**2026-06-07**, [lib/auth/superuser.ts](../src/lib/auth/superuser.ts)) — bypass RBAC penuh = **`isSuperuser`** (HANYA role Admin, dari `SUPERUSER_ROLE_KEYS`); `assertCan` & `SessionContext.can()` pakai ini. **`isGlobal`** (dari `unitScoped=false`) kembali ke makna aslinya: bypass **unit-scope (ABAC)** saja, BUKAN RBAC. Sebelumnya tertukar → role global (Registrasi/Kasir) keliru bypass seluruh RBAC; kini ditegakkan benar (Fase 1 [TODO-RBAC-MODUL](../TODO-RBAC-MODUL.md)).
 
 ---
 
 ## 11. Analisis Gap & MUST-HAVE *(2026-06-07)*
 
-**Posisi sekarang:** rangka + data + core runtime auth **sudah jalan**, tapi **belum ditegakkan** (`AUTH_ENFORCE=false`). Login/refresh/logout/me, rotasi+reuse-detection, lockout, RBAC seed, proxy, dan FE (SessionContext/Navbar/silent-refresh) sudah ada. Yang menghalangi "auth nyata di prod" terbagi MUST-HAVE vs SHOULD/LATER.
+**Posisi sekarang (2026-06-07, diperbarui):** auth **AKTIF & ditegakkan** — `AUTH_ENFORCE=true`. Login/refresh/logout/me, rotasi+reuse-detection, lockout, RBAC seed (96 perm · 183 grant), proxy, dan FE (SessionContext/Navbar/silent-refresh) jalan. Akun **`superadmin`** (role Admin global, scrypt) terverifikasi di DB. Smoke-test enforce lulus: API tanpa sesi → 401, login creds salah → 401, page tanpa sesi → 307 ke `/` (bersih, tanpa `?next`). Sisa = SHOULD/LATER + 1 MUST khusus modul klinis.
 
-### 🔴 MUST-HAVE — blocker sebelum `AUTH_ENFORCE=true`
-1. **Bootstrap akun (≥1 Admin).** Tanpa akun, enforce = **lockout total** (tak ada yang bisa login). Butuh Pegawai → User → role Admin (idempoten). **Prasyarat #1.**
-2. **Selaraskan resource-key route ↔ permission ter-seed.** Tiga key route **tak ada** di `PERMISSION_TREE` → role non-Admin akan **ditolak salah** saat enforce:
-   - `registration.patient` (tree pakai `registration.pasien`) — **mismatch nama**.
-   - `master.pegawai` — **tak ada** di tree.
-   - `master.penugasan-ruangan` — **tak ada** di tree.
-   → Putuskan satu kosakata: rename route ATAU tambah leaf ke `PERMISSION_TREE` + re-seed. (Admin lolos karena `isGlobal`, jadi bug ini "tersembunyi" sampai role lain dipakai.)
-3. **Penanganan access-expired di SSR.** `getServerActor` belum punya auto-refresh; saat enforce, navigasi SSR pasca-30m (refresh masih valid) → 401/redirect walau sesi hidup. Opsi: proxy/route melakukan rotasi, atau `getServerActor` mencoba refresh. **Wajib** sebelum enforce agar UX tak putus tiap 30m.
-4. **`AUTH_SECRET` produksi** yang kuat (bukan default dev) + rencana rotasi. (Saat ini di-generate ke `.env` dev.)
-5. **ABAC `requireScope` minimal** sebelum modul **klinis** live — role unit-scoped (Perawat/Dokter) tanpa `UserUnitScope` harus fail-closed terhadap data klinis. Saat ini `assertCan` hanya RBAC (belum cek unit). Tidak menghalangi modul master/registrasi, **tapi wajib untuk klinis**.
+### ✅ MUST-HAVE — SUDAH BERES
+1. ~~**Bootstrap akun (≥1 Admin).**~~ **DONE** — akun `superadmin` (role Admin `isGlobal`, hash scrypt, Active) sudah ada di DB.
+2. ~~**Selaraskan resource-key route ↔ permission ter-seed.**~~ **DONE** — `registration.patient`→`registration.pasien`; `master.pegawai` & `master.penugasan-ruangan` ditambah sebagai leaf di `PERMISSION_TREE` + re-seed (migration `20260607130000_rbac_add_sdm_perms`, 89→96 perm). Sekarang konsisten untuk role non-Admin.
 
-### 🟡 SHOULD / LATER — bukan blocker awal
+### 🔴 MUST-HAVE — tersisa
+3. **ABAC `requireScope` minimal** sebelum modul **klinis** live (akun unit-scoped Perawat/Dokter). `assertCan` baru RBAC; unit-scope belum dicek → role unit-scoped tanpa `UserUnitScope` harus fail-closed terhadap data klinis. **Tak menghalangi** master/registrasi/billing (Admin global + role service global), **wajib untuk klinis**. Belum ada akun klinis → belum menggigit.
+4. **`AUTH_SECRET` produksi** yang kuat (bukan default dev) + rencana rotasi, saat deploy. (Saat ini di-generate ke `.env` dev.)
+
+### 🟡 SHOULD / LATER — bukan blocker
+- **SSR access-expired:** `getServerActor` belum auto-refresh. **Bukan crash** — kedua page SSR (`/ehis-master/ruangan`, `/ehis-master/mapping`) sudah `try/catch` → fallback client-fetch (memicu silent-refresh). Pasca-30m hanya kehilangan optimasi SSR first-paint, sesi tetap hidup. Tingkatkan nanti (proxy/route rotasi) bila first-paint penting.
 - **Redis** (§5): `jti` blocklist (revoke instan), rate-limit login, cache `perm:{roleId}`. Sekarang in-process + degradasi DB.
 - **argon2id** swap (format hash self-describing → migrasi mulus).
 - **Menu/aksi gating** via `can()` di Sidebar/komponen (kosmetik; server tetap penjaga).
@@ -261,5 +260,5 @@ Legenda: `[x]` selesai · `[~]` sebagian/diadaptasi · `[ ]` belum · ⏳ sengaj
 - **MFA TOTP** (field siap).
 - **`changePassword` flow FE** + paksa saat `mustChangePassword=true`.
 
-### Urutan aktivasi aman
-`bootstrap admin` → `selaraskan resource-key` → `test login E2E` → `SSR refresh` → **set `AUTH_ENFORCE=true`** → (klinis) tambah `requireScope` → (hardening) Redis + argon2id + audit.
+### Urutan aktivasi
+~~bootstrap admin~~ → ~~selaraskan resource-key~~ → ~~test login E2E~~ → **`AUTH_ENFORCE=true` ✅ (sekarang)** → (sebelum klinis) tambah `requireScope` → (deploy) `AUTH_SECRET` prod → (hardening) Redis + argon2id + audit + SSR refresh.

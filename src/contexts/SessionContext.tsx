@@ -13,7 +13,7 @@ import { ApiError } from "@/lib/api/client";
 interface SessionContextValue {
   session: SessionDTO | null;
   loading: boolean;
-  /** true bila punya izin "resource:action" (global = selalu true). */
+  /** true bila punya izin "resource:action" (superuser/Admin = selalu true). */
   can: (resource: string, action: string) => boolean;
   refetch: () => Promise<void>;
   logout: () => Promise<void>;
@@ -59,7 +59,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const can = useCallback(
     (resource: string, action: string) =>
-      !!session && (session.isGlobal || session.permissions.includes(`${resource}:${action}`)),
+      !!session && (session.isSuperuser || session.permissions.includes(`${resource}:${action}`)),
     [session],
   );
 

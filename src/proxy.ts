@@ -27,10 +27,10 @@ export function proxy(req: NextRequest): NextResponse {
   const hasSession = req.cookies.has(REFRESH_COOKIE) || req.cookies.has(ACCESS_COOKIE);
   if (hasSession) return NextResponse.next();
 
-  // Tak ada sesi → lempar ke login + simpan tujuan agar bisa kembali pasca-login.
+  // Tak ada sesi → lempar ke login bersih (tanpa ?next; pasca-login selalu ke dashboard).
   const url = req.nextUrl.clone();
   url.pathname = LOGIN_PATH;
-  url.searchParams.set("next", pathname);
+  url.search = "";
   return NextResponse.redirect(url);
 }
 

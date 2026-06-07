@@ -1,15 +1,25 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { LayoutGrid, Check } from "lucide-react";
 
-import { MODULES, type ModuleKey } from "@/lib/navigation";
+import { getModule, visibleModules, type ModuleKey } from "@/lib/navigation";
+import { useSession } from "@/contexts/SessionContext";
 import { cn } from "@/lib/utils";
 
 export default function ModuleSwitcher({ active }: { active: ModuleKey }) {
+  const { can, loading } = useSession();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  // Hanya modul yang boleh dilihat. Saat loading tampilkan modul aktif saja (hindari kedip).
+  // Modul aktif selalu disertakan (defensif) — user pasti berhak atas modul yang sedang dibuka.
+  const mods = useMemo(() => {
+    if (loading) return [getModule(active)];
+    const vis = visibleModules(can);
+    return vis.some((m) => m.key === active) ? vis : [getModule(active), ...vis];
+  }, [can, loading, active]);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -40,7 +50,7 @@ export default function ModuleSwitcher({ active }: { active: ModuleKey }) {
             Pindah Modul
           </p>
           <div className="grid grid-cols-2 gap-1">
-            {MODULES.map((mod) => {
+            {mods.map((mod) => {
               const Icon = mod.icon;
               const isActive = mod.key === active;
               return (

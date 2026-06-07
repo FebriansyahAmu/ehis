@@ -5,7 +5,7 @@ import { IdParam, UpdatePenjaminInput } from "@/lib/schemas/patient";
 import { patientService } from "@/lib/services/patientService";
 
 export const PATCH = route({
-  resource: "registration.patient",
+  resource: "registration.pasien",
   action: "update",
   params: IdParam,
   body: UpdatePenjaminInput,

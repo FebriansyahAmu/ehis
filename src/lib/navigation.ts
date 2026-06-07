@@ -60,12 +60,18 @@ export type NavItem = {
   label: string;
   href: string;
   icon: LucideIcon;
+  /** Resource key (atau daftar) penggerak visibilitas. Terlihat bila `can(perm,"read")`
+   *  untuk salah satunya. Tanpa perm = ikut visibilitas modul (mis. Beranda). */
+  perm?: string | readonly string[];
 };
 
 export type NavGroup = {
   label: string;
   items: readonly NavItem[];
 };
+
+/** Predikat izin (isomorphic: client SessionContext.can / server actor). */
+export type Can = (resource: string, action: string) => boolean;
 
 export type ModuleKey =
   | "care"
@@ -89,6 +95,9 @@ export type ModuleDescriptor = {
     text: string;
     ring: string;
   };
+  /** Resource key milik modul. Modul terlihat bila user punya `:read` ≥1 di antaranya
+   *  (atau superuser). Kosong = selalu terlihat. */
+  perms: readonly string[];
 };
 
 // ── Top-level modules (used by ModuleSwitcher) ────────────
@@ -101,6 +110,13 @@ export const MODULES: readonly ModuleDescriptor[] = [
     href: "/ehis-care",
     icon: HeartPulse,
     accent: { bg: "bg-rose-50", text: "text-rose-600", ring: "ring-rose-100" },
+    perms: [
+      "clinical.igd", "clinical.ri", "clinical.rj", "clinical.cppt",
+      "clinical.diagnosa", "clinical.tindakan", "clinical.resep",
+      "ancillary.lab.worklist", "ancillary.lab.validate", "ancillary.lab.critical",
+      "ancillary.rad.worklist", "ancillary.rad.expertise",
+      "ancillary.farmasi.telaah", "ancillary.farmasi.serah",
+    ],
   },
   {
     key: "dashboard",
@@ -113,6 +129,7 @@ export const MODULES: readonly ModuleDescriptor[] = [
       text: "text-indigo-600",
       ring: "ring-indigo-100",
     },
+    perms: ["dashboard.view"],
   },
   {
     key: "master",
@@ -125,6 +142,10 @@ export const MODULES: readonly ModuleDescriptor[] = [
       text: "text-violet-600",
       ring: "ring-violet-100",
     },
+    perms: [
+      "master.ruangan", "master.dokter", "master.pegawai", "master.pengguna",
+      "master.mapping", "master.penugasan-ruangan", "master.katalog", "master.tarif",
+    ],
   },
   {
     key: "registration",
@@ -133,6 +154,7 @@ export const MODULES: readonly ModuleDescriptor[] = [
     href: "/ehis-registration",
     icon: ClipboardList,
     accent: { bg: "bg-sky-50", text: "text-sky-600", ring: "ring-sky-100" },
+    perms: ["registration.pasien", "registration.kunjungan"],
   },
   {
     key: "antrian",
@@ -141,6 +163,8 @@ export const MODULES: readonly ModuleDescriptor[] = [
     href: "/ehis-antrian",
     icon: Ticket,
     accent: { bg: "bg-indigo-50", text: "text-indigo-600", ring: "ring-indigo-100" },
+    // Antrean erat dgn registrasi → digerbang oleh izin pendaftaran kunjungan.
+    perms: ["registration.kunjungan"],
   },
   {
     key: "billing",
@@ -153,6 +177,7 @@ export const MODULES: readonly ModuleDescriptor[] = [
       text: "text-amber-600",
       ring: "ring-amber-100",
     },
+    perms: ["billing.invoice", "billing.kasir", "billing.klaim"],
   },
   {
     key: "eklaim",
@@ -161,6 +186,7 @@ export const MODULES: readonly ModuleDescriptor[] = [
     href: "/ehis-eklaim",
     icon: ShieldCheck,
     accent: { bg: "bg-teal-50", text: "text-teal-600", ring: "ring-teal-100" },
+    perms: ["billing.klaim"],
   },
   {
     key: "bpjs",
@@ -173,6 +199,7 @@ export const MODULES: readonly ModuleDescriptor[] = [
       text: "text-emerald-600",
       ring: "ring-emerald-100",
     },
+    perms: ["billing.klaim"],
   },
   {
     key: "report",
@@ -185,6 +212,7 @@ export const MODULES: readonly ModuleDescriptor[] = [
       text: "text-emerald-600",
       ring: "ring-emerald-100",
     },
+    perms: ["report.clinical", "report.financial", "report.audit"],
   },
 ] as const;
 
@@ -204,25 +232,27 @@ export const careNav: readonly NavGroup[] = [
   {
     label: "Pelayanan",
     items: [
-      { label: "IGD", href: "/ehis-care/igd", icon: Siren },
+      { label: "IGD", href: "/ehis-care/igd", icon: Siren, perm: "clinical.igd" },
       {
         label: "Rawat Jalan",
         href: "/ehis-care/rawat-jalan",
         icon: Stethoscope,
+        perm: "clinical.rj",
       },
-      { label: "Rawat Inap", href: "/ehis-care/rawat-inap", icon: BedDouble },
+      { label: "Rawat Inap", href: "/ehis-care/rawat-inap", icon: BedDouble, perm: "clinical.ri" },
     ],
   },
   {
     label: "Penunjang",
     items: [
-      { label: "Farmasi", href: "/ehis-care/farmasi", icon: Pill },
+      { label: "Farmasi", href: "/ehis-care/farmasi", icon: Pill, perm: ["ancillary.farmasi.telaah", "ancillary.farmasi.serah"] },
       {
         label: "Laboratorium",
         href: "/ehis-care/laboratorium",
         icon: FlaskConical,
+        perm: ["ancillary.lab.worklist", "ancillary.lab.validate", "ancillary.lab.critical"],
       },
-      { label: "Radiologi", href: "/ehis-care/radiologi", icon: Radiation },
+      { label: "Radiologi", href: "/ehis-care/radiologi", icon: Radiation, perm: ["ancillary.rad.worklist", "ancillary.rad.expertise"] },
     ],
   },
 ] as const;
@@ -536,4 +566,42 @@ const NAV_MAP: Record<ModuleKey, readonly NavGroup[]> = {
 
 export function getNav(key: ModuleKey): readonly NavGroup[] {
   return NAV_MAP[key];
+}
+
+// ── Visibilitas berbasis izin (isomorphic) ────────────────
+// Dipakai klien (Sidebar/ModuleSwitcher via SessionContext.can) & server (requireModule
+// via actor). `can(r,"read")` = baseline "boleh lihat". Superuser → can() selalu true.
+
+function permList(p?: string | readonly string[]): readonly string[] {
+  return p == null ? [] : typeof p === "string" ? [p] : p;
+}
+
+/** Item terlihat: tanpa perm = ikut modul; punya perm = bila salah satunya bisa di-read. */
+export function navItemVisible(item: NavItem, can: Can): boolean {
+  const ps = permList(item.perm);
+  return ps.length === 0 || ps.some((p) => can(p, "read"));
+}
+
+/** Modul terlihat bila punya ≥1 izin read di `perms` (kosong = selalu). */
+export function canSeeModule(mod: ModuleDescriptor, can: Can): boolean {
+  return mod.perms.length === 0 || mod.perms.some((p) => can(p, "read"));
+}
+
+/** Filter nav: buang item tak berizin + group yang jadi kosong. */
+export function visibleNav(groups: readonly NavGroup[], can: Can): NavGroup[] {
+  return groups
+    .map((g) => ({ ...g, items: g.items.filter((it) => navItemVisible(it, can)) }))
+    .filter((g) => g.items.length > 0);
+}
+
+/** Modul-modul yang boleh dilihat user (urutan MODULES). */
+export function visibleModules(can: Can): ModuleDescriptor[] {
+  return MODULES.filter((m) => canSeeModule(m, can));
+}
+
+/** Halaman "rumah" aman saat akses ditolak: dashboard bila boleh, else modul pertama, else "/". */
+export function homeHref(can: Can): string {
+  const dash = MODULES.find((m) => m.key === "dashboard");
+  if (dash && canSeeModule(dash, can)) return dash.href;
+  return visibleModules(can)[0]?.href ?? "/";
 }

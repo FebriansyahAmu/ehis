@@ -6,14 +6,14 @@ import { IdParam, CompletePatientInput } from "@/lib/schemas/patient";
 import { patientService } from "@/lib/services/patientService";
 
 export const GET = route({
-  resource: "registration.patient",
+  resource: "registration.pasien",
   action: "read",
   params: IdParam,
   handler: ({ params, actor }) => patientService.getPatient(params.id, actor),
 });
 
 export const PATCH = route({
-  resource: "registration.patient",
+  resource: "registration.pasien",
   action: "update",
   params: IdParam,
   body: CompletePatientInput,

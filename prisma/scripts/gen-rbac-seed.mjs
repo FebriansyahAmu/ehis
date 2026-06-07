@@ -8,6 +8,9 @@ import { dirname } from "node:path";
 
 // ── Snapshot PERMISSION_TREE (selaras src/components/master/mapping/rbac/rbacShared.ts) ──
 const PERMISSION_TREE = [
+  { key: "dashboard", leaves: [
+    { key: "dashboard.view", label: "Dashboard Operasional", actions: ["read"] },
+  ]},
   { key: "clinical", leaves: [
     { key: "clinical.igd", label: "IGD", actions: ["read","create","update","delete"] },
     { key: "clinical.ri", label: "Rawat Inap", actions: ["read","create","update","delete"] },
@@ -36,8 +39,10 @@ const PERMISSION_TREE = [
   { key: "master", leaves: [
     { key: "master.ruangan", label: "Unit & Ruangan", actions: ["read","create","update","delete"] },
     { key: "master.dokter", label: "Dokter & Nakes", actions: ["read","create","update","delete"] },
+    { key: "master.pegawai", label: "Data Pegawai (SDM)", actions: ["read","create","update","delete"] },
     { key: "master.pengguna", label: "Pengguna Sistem", actions: ["read","create","update","delete"] },
     { key: "master.mapping", label: "Mapping Hub", actions: ["read","update"] },
+    { key: "master.penugasan-ruangan", label: "Penugasan SDM ⇄ Ruangan", actions: ["read","create","delete"] },
     { key: "master.katalog", label: "Katalog (Obat/Lab/ICD)", actions: ["read","create","update","delete"] },
     { key: "master.tarif", label: "Tarif & Paket", actions: ["read","create","update","delete"] },
   ]},
@@ -84,7 +89,7 @@ const ROLE_DEFAULT_GRANTS = {
     "billing.invoice": ["read","create","update"], "billing.kasir": ["read","create"], "billing.klaim": ["read","update"],
     "registration.pasien": ["read"], "registration.kunjungan": ["read"], "report.financial": ["read","export"],
   },
-  Registrasi: { "registration.pasien": ["read","create","update"], "registration.kunjungan": ["read","create","update"], "clinical.rj": ["read"] },
+  Registrasi: { "dashboard.view": ["read"], "registration.pasien": ["read","create","update"], "registration.kunjungan": ["read","create","update"], "clinical.rj": ["read"] },
 };
 
 const ACTION_LABEL = { read: "Lihat", create: "Tambah", update: "Ubah", delete: "Hapus", export: "Ekspor" };
@@ -134,7 +139,9 @@ ON CONFLICT DO NOTHING;\n`;
 sql += `\n-- Koreksi: Kasir & Registrasi = role GLOBAL (bypass unit-scope), selaras Keputusan #4.
 UPDATE "auth"."roles" SET "unit_scoped" = false, "updated_at" = now() WHERE "key" IN ('Kasir','Registrasi');\n`;
 
-const out = "prisma/migrations/20260607120000_seed_rbac/migration.sql";
+// Re-seed penuh (idempoten ON CONFLICT DO NOTHING). Migration awal 20260607120000 sudah
+// applied; ini delta tambahan (master.pegawai + master.penugasan-ruangan) lewat file baru.
+const out = "prisma/migrations/20260607140000_rbac_dashboard_view/migration.sql";
 mkdirSync(dirname(out), { recursive: true });
 writeFileSync(out, sql);
 console.log(`Wrote ${out} — ${permRows.length} permissions, ${Object.keys(ROLE_DEFAULT_GRANTS).length} roles.`);
