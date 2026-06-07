@@ -1,0 +1,125 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Skala Klinis — Triase IGD  (Postgres schema "master")
+//  Acuan: docs/BACKEND-MASTER-SKALA-KLINIK.md §A · FE: /ehis-master/triase-igd
+//  Mock target: src/lib/master/triaseMock.ts (TRIASE_MOCK: TriaseRecord[]).
+//
+//  Triase = PROTOKOL berbentuk MATRIX level×parameter (BUKAN skoring spt Skala
+//  Risiko/Umum/Penyakit). `parameter.values: Record<levelKode,string>` (peta sel di
+//  mock) DINORMALKAN jadi tabel TriaseProtocolCriteria (1 sel = 1 baris) — selaras
+//  pola SUMBER-DAYA yang memecah union → tabel ber-FK. Matrix UI direkonstruksi
+//  di Service (read full → values map dari criteria.levelId).
+//
+//  KONSUMEN: domain klinis medicalrecord.Triase — tab Triase IGD menampilkan
+//  "Tabel Kriteria Triase" via protokol isDefault (decision-support, read-only).
+//  CATATAN: ini PANDUAN; level final pasien (P1–P4) dicatat di medicalrecord.Triase.
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz · soft-delete (protokol) · version.
+//  tone = String (presentasional, BUKAN keputusan-kritis → bukan enum, FLOWS).
+//  Partial-unique single-default + cascade child = SQL manual di migration.
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Status protokol triase (identik vocab FE TriaseStatus).
+enum TriaseStatus {
+  Aktif
+  Non_Aktif
+
+  @@schema("master")
+}
+
+// ── Protokol triase (record) ──────────────────────────────────────────────────
+
+model TriaseProtocol {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  /// Kode protokol unik RS-wide (uppercase di Service). mis. DEFAULT-IGD / ESI / ATS.
+  kode      String       @unique
+  nama      String
+  deskripsi String?
+  /// Referensi standar (free-text). mis. "ESI 5-level (ENA 2020) + DOA · PMK 47/2018".
+  protokol  String?
+  status    TriaseStatus @default(Aktif)
+  /// Protokol yang dikonsumsi medicalrecord.Triase. Single-default dijaga Service +
+  /// partial-unique (1 default aktif per RS). Lihat docs §A.3.
+  isDefault Boolean      @default(false) @map("is_default")
+
+  // ── Konkurensi & audit ──
+  version   Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  levels     TriaseProtocolLevel[]
+  parameters TriaseProtocolParameter[]
+
+  @@map("triase_protocol")
+  @@schema("master")
+}
+
+// ── Level urgensi (kolom matrix) ──────────────────────────────────────────────
+
+model TriaseProtocolLevel {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  protocolId String         @map("protocol_id") @db.Uuid
+  protocol   TriaseProtocol @relation(fields: [protocolId], references: [id], onDelete: Cascade)
+
+  /// Slug level (mis. "resusitasi") — kunci sel matrix. Unik per protokol.
+  kode        String
+  label       String
+  /// Warna chip/header (vocab FE TriaseLevelTone, mis. "red-dark"). Presentasional.
+  tone        String
+  responsTime String? @map("respons_time") // "Segera" / "< 10 menit"
+  /// 1 = urgensi tertinggi (CHECK ≥ 1 di SQL).
+  prioritas   Int
+  deskripsi   String?
+  /// Urutan kolom (drag/move di MatrixTab).
+  urutan      Int     @default(0)
+
+  criteria TriaseProtocolCriteria[]
+
+  @@unique([protocolId, kode])
+  @@index([protocolId])
+  @@map("triase_level")
+  @@schema("master")
+}
+
+// ── Parameter kriteria (baris matrix) ─────────────────────────────────────────
+
+model TriaseProtocolParameter {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  protocolId String         @map("protocol_id") @db.Uuid
+  protocol   TriaseProtocol @relation(fields: [protocolId], references: [id], onDelete: Cascade)
+
+  /// Slug parameter (mis. "airway"). Unik per protokol.
+  kode   String
+  label  String
+  urutan Int    @default(0)
+
+  criteria TriaseProtocolCriteria[]
+
+  @@unique([protocolId, kode])
+  @@index([protocolId])
+  @@map("triase_parameter")
+  @@schema("master")
+}
+
+// ── Sel matrix (parameter × level) ────────────────────────────────────────────
+
+model TriaseProtocolCriteria {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  parameterId String                  @map("parameter_id") @db.Uuid
+  parameter   TriaseProtocolParameter @relation(fields: [parameterId], references: [id], onDelete: Cascade)
+  levelId     String                  @map("level_id") @db.Uuid
+  level       TriaseProtocolLevel     @relation(fields: [levelId], references: [id], onDelete: Cascade)
+
+  /// Deskripsi kriteria klinis (boleh "—"/kosong = tak applicable).
+  nilai String
+
+  @@unique([parameterId, levelId])
+  @@index([parameterId])
+  @@index([levelId])
+  @@map("triase_criteria")
+  @@schema("master")
+}

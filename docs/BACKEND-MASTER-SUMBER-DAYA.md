@@ -22,7 +22,7 @@ Master FE = 26 sub-master + 8 mapping + Beranda (lihat [CLAUDE.md](../CLAUDE.md)
 |---|---|---|---|
 | **Sumber Daya** | **BACKEND-MASTER-SUMBER-DAYA** (ini) | Pegawai · Pengguna · **Unit & Ruangan** · Dokter · Penugasan Ruangan | Pegawai/Pengguna ✅ · Unit&Ruangan ✅ (SD0–5; SD6 tests 📋) · Dokter ✅ (DK0–5; DK6 tests 📋) · Penugasan Ruangan ✅ (PR0–2; PR3 tests 📋) |
 | Katalog Klinis | BACKEND-MASTER-KATALOG-KLINIS | Obat · Tindakan · Lab · Radiologi · ICD · SDKI | 📋 |
-| Skala Klinis | BACKEND-MASTER-SKALA | Risiko · Umum · Penyakit · Triase | 📋 |
+| Skala Klinis | [BACKEND-MASTER-SKALA-KLINIK](BACKEND-MASTER-SKALA-KLINIK.md) | Risiko · Umum · Penyakit · **Triase IGD** | Triase IGD 📋 (analisis + kontrak konsumsi ✅) · skoring 📋 |
 | Referensi/Template/Enum | BACKEND-MASTER-TEMPLATE | Asesmen · Status Enum · Anamnesis · Form | 📋 |
 | Workflow Klinis | BACKEND-MASTER-WORKFLOW-KLINIS | Edukasi · Discharge · Operasional | 📋 |
 | Operasional | BACKEND-MASTER-OPERASIONAL | Tarif · Penjamin · PPK | 📋 |

@@ -1,28 +1,83 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Siren, CheckCircle2, Layers, Activity } from "lucide-react";
 import {
-  MasterPageLayout, StatCard,
-  useMasterCrud, useSkeletonDelay,
+  MasterPageLayout, StatCard, useMasterCrud,
 } from "@/components/master/shared";
+import { emptyTriaseRecord } from "@/lib/master/triaseMock";
+import { ApiError } from "@/lib/api/client";
+import { toast } from "@/lib/ui/toastStore";
 import {
-  TRIASE_MOCK, emptyTriaseRecord,
-  type TriaseRecord,
-} from "@/lib/master/triaseMock";
+  listTriaseProtocols, createTriaseProtocol, updateTriaseProtocol, deleteTriaseProtocol,
+  type TriaseRecordDTO,
+} from "@/lib/api/triaseProtocol";
+import type {
+  CreateTriaseInput, UpdateTriaseInput, LevelInput, ParameterInput,
+} from "@/lib/schemas/triaseProtocol";
 import TriaseList from "./TriaseList";
 import TriaseDetail from "./TriaseDetail";
 import TriaseEmptyState from "./TriaseEmptyState";
 import type { TriaseTabKey } from "./triaseShared";
 
-export default function TriaseIGDPage() {
-  const loaded = useSkeletonDelay();
-  const [tab, setTab] = useState<TriaseTabKey>("identitas");
+// Draft kosong = TriaseRecord (mock) + field DTO (isDefault/version) untuk concurrency.
+function emptyDraft(): TriaseRecordDTO {
+  return { ...emptyTriaseRecord(), isDefault: false, version: 0 };
+}
 
-  const crud = useMasterCrud<TriaseRecord>({
-    initial: TRIASE_MOCK,
-    emptyFactory: emptyTriaseRecord,
+// ── Draft (DTO) → payload server ─────────────────────────
+const opt = (v?: string): string | undefined => {
+  const t = v?.trim();
+  return t ? t : undefined;
+};
+function levelsToInput(d: TriaseRecordDTO): LevelInput[] {
+  return d.levels.map((l) => ({
+    kode: l.kode, label: l.label, tone: l.tone,
+    responsTime: opt(l.responsTime), prioritas: l.prioritas, deskripsi: opt(l.deskripsi),
+  }));
+}
+function parametersToInput(d: TriaseRecordDTO): ParameterInput[] {
+  return d.parameters.map((p) => ({ kode: p.kode, label: p.label, values: p.values }));
+}
+function toCreateInput(d: TriaseRecordDTO): CreateTriaseInput {
+  return {
+    kode: d.kode, nama: d.nama, deskripsi: opt(d.deskripsi), protokol: opt(d.protokol),
+    status: d.status, isDefault: d.isDefault,
+    levels: levelsToInput(d), parameters: parametersToInput(d),
+  };
+}
+function toUpdateInput(d: TriaseRecordDTO): UpdateTriaseInput {
+  return {
+    expectedVersion: d.version,
+    kode: d.kode, nama: d.nama, deskripsi: opt(d.deskripsi), protokol: opt(d.protokol),
+    status: d.status, isDefault: d.isDefault,
+    levels: levelsToInput(d), parameters: parametersToInput(d),
+  };
+}
+
+export default function TriaseIGDPage() {
+  const [loaded, setLoaded] = useState(false);
+  const [tab, setTab] = useState<TriaseTabKey>("identitas");
+  const savingRef = useRef(false);
+
+  const crud = useMasterCrud<TriaseRecordDTO>({
+    initial: [],
+    emptyFactory: emptyDraft,
   });
+  const { setItems, commit, removeLocal } = crud;
+
+  // Fetch list (client; degradasi anggun bila gagal).
+  useEffect(() => {
+    const ctrl = new AbortController();
+    listTriaseProtocols(ctrl.signal)
+      .then((items) => setItems(items))
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat", e instanceof ApiError ? e.message : "Tidak dapat memuat protokol triase");
+      })
+      .finally(() => setLoaded(true));
+    return () => ctrl.abort();
+  }, [setItems]);
 
   const stats = useMemo(() => {
     const total = crud.items.length;
@@ -34,10 +89,36 @@ export default function TriaseIGDPage() {
 
   const handleSelect = (id: string) => { crud.handleSelect(id); setTab("identitas"); };
   const handleAddNew = () => { crud.handleAddNew(); setTab("identitas"); };
-  const handleDelete = () => {
-    if (!crud.selected) return;
-    crud.handleDelete(`Hapus protokol "${crud.selected.nama}"? Aksi ini tidak dapat di-undo.`);
-  };
+
+  const handleSave = useCallback(async () => {
+    const draft = crud.draft;
+    if (!draft || savingRef.current) return;
+    savingRef.current = true;
+    try {
+      const saved = crud.isNew
+        ? await createTriaseProtocol(toCreateInput(draft))
+        : await updateTriaseProtocol(draft.id, toUpdateInput(draft));
+      commit(saved);
+      toast.success(crud.isNew ? "Protokol dibuat" : "Perubahan tersimpan", `"${saved.nama}"`);
+    } catch (e) {
+      toast.error("Gagal menyimpan", e instanceof ApiError ? e.message : "Terjadi kesalahan");
+    } finally {
+      savingRef.current = false;
+    }
+  }, [crud.draft, crud.isNew, commit]);
+
+  const handleDelete = useCallback(async () => {
+    const sel = crud.selected;
+    if (!sel) return;
+    if (!window.confirm(`Hapus protokol "${sel.nama}"? Aksi ini tidak dapat di-undo.`)) return;
+    try {
+      await deleteTriaseProtocol(sel.id, sel.version);
+      removeLocal(sel.id);
+      toast.success("Protokol dihapus", `"${sel.nama}"`);
+    } catch (e) {
+      toast.error("Gagal menghapus", e instanceof ApiError ? e.message : "Terjadi kesalahan");
+    }
+  }, [crud.selected, removeLocal]);
 
   return (
     <MasterPageLayout
@@ -71,7 +152,7 @@ export default function TriaseIGDPage() {
             tab={tab}
             onTabChange={setTab}
             onPatch={crud.handlePatch}
-            onSave={crud.handleSave}
+            onSave={handleSave}
             onCancel={crud.handleCancel}
             onDelete={!crud.isNew ? handleDelete : undefined}
           />

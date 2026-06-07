@@ -64,6 +64,14 @@ export interface UseMasterCrudReturn<T extends { id: string }> {
   // ── Utility ──────────────────────────────────────────
   /** Manual reset (mis. setelah operasi async global). */
   reset: () => void;
+  /**
+   * Commit hasil persist async (create/update) yang OTORITATIF dari server.
+   * Upsert ke items, set sebagai terpilih, sinkron draft (→ tidak dirty), clear isNew.
+   * Dipakai halaman master ber-backend (swap mock → API) setelah POST/PATCH sukses.
+   */
+  commit: (item: T) => void;
+  /** Hapus item lokal setelah DELETE server sukses (clear selection bila ybs). */
+  removeLocal: (id: string) => void;
 }
 
 /** Default confirm via window.confirm — safe untuk SSR (cek typeof). */
@@ -184,12 +192,30 @@ export function useMasterCrud<T extends { id: string }>(
     setIsNew(false);
   }, []);
 
+  const commit = useCallback((item: T) => {
+    setItems((prev) =>
+      prev.some((i) => i.id === item.id)
+        ? prev.map((i) => (i.id === item.id ? item : i))
+        : [item, ...prev],
+    );
+    setSelectedId(item.id);
+    setDraft(structuredClone(item));
+    setIsNew(false);
+  }, []);
+
+  const removeLocal = useCallback((id: string) => {
+    setItems((prev) => prev.filter((i) => i.id !== id));
+    setSelectedId((cur) => (cur === id ? null : cur));
+    setDraft((cur) => (cur && cur.id === id ? null : cur));
+    setIsNew(false);
+  }, []);
+
   return {
     items, setItems,
     selectedId, selected, draft, isNew, isDirty,
     handleSelect, handleAddNew, handlePatch,
     handleSave, handleCancel, handleDelete,
-    reset,
+    reset, commit, removeLocal,
   };
 }
 

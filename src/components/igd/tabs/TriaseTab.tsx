@@ -6,7 +6,9 @@ import type { IGDPatientDetail, TriageLevel } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { getTriase, saveTriase } from "@/lib/api/triase";
 import { listPegawai } from "@/lib/api/pegawai";
+import { getDefaultTriaseProtocol } from "@/lib/api/triaseProtocol";
 import type { TriaseDTO } from "@/lib/schemas/triase";
+import type { TriaseRecordDTO } from "@/lib/schemas/triaseProtocol";
 import { ApiError } from "@/lib/api/client";
 
 // id kunjungan DB = UUID; id demo/mock ("igd-1") tak tersimpan ke DB.
@@ -182,6 +184,19 @@ function Block({
 }
 
 // ── Triage criteria table ─────────────────────────────────
+// SUMBER UTAMA = master Triase IGD (protokol default) via GET /master/triase-igd/default.
+// Konstanta di bawah hanya FALLBACK degradasi (API gagal / belum login / belum ada default).
+
+// tone (vocab master TriaseLevelTone) → kelas header kolom. Selaras TRIASE_TONE_CFG master.
+const TONE_BG: Record<string, string> = {
+  "red-dark": "bg-red-600",
+  rose: "bg-rose-500",
+  amber: "bg-amber-500",
+  emerald: "bg-emerald-500",
+  sky: "bg-sky-500",
+  slate: "bg-slate-700",
+  violet: "bg-violet-500",
+};
 
 const COL_HEADERS = [
   {
@@ -305,12 +320,55 @@ const CRITERIA_ROWS: { parameter: string; values: Record<ColKey, string> }[] = [
   },
 ];
 
+interface CriteriaCol { key: string; label: string; bg: string; sub?: string }
+interface CriteriaRow { parameter: string; values: Record<string, string> }
+
+// Fallback (konstanta hardcode) → bentuk generik kolom/baris.
+const FALLBACK_COLS: CriteriaCol[] = COL_HEADERS.map((c) => ({ key: c.key, label: c.label, bg: c.cls }));
+const FALLBACK_ROWS: CriteriaRow[] = CRITERIA_ROWS;
+
 function CriteriaTable() {
+  const [protocol, setProtocol] = useState<TriaseRecordDTO | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    getDefaultTriaseProtocol(ctrl.signal)
+      .then(setProtocol)
+      .catch(() => {}) // diam → pakai fallback konstanta
+      .finally(() => setLoading(false));
+    return () => ctrl.abort();
+  }, []);
+
+  // Protokol master bila ada; else fallback konstanta (degradasi anggun).
+  const cols: CriteriaCol[] = protocol
+    ? protocol.levels.map((l) => ({
+        key: l.kode,
+        label: l.label,
+        bg: TONE_BG[l.tone] ?? "bg-slate-600",
+        sub: l.responsTime || undefined,
+      }))
+    : FALLBACK_COLS;
+  const rows: CriteriaRow[] = protocol
+    ? protocol.parameters.map((p) => ({ parameter: p.label, values: p.values }))
+    : FALLBACK_ROWS;
+
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 bg-slate-50/60 px-4 py-2.5">
+      <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/60 px-4 py-2.5">
         <span className="text-xs font-semibold text-slate-700">
           Tabel Kriteria Triase
+        </span>
+        <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
+          {loading ? (
+            <>
+              <Loader2 size={11} className="animate-spin" /> Memuat protokol…
+            </>
+          ) : protocol ? (
+            <span className="font-mono">{protocol.kode}</span>
+          ) : (
+            "Protokol bawaan (offline)"
+          )}
         </span>
       </div>
       <div className="overflow-x-auto">
@@ -320,32 +378,31 @@ function CriteriaTable() {
               <th className="sticky left-0 z-10 w-32 bg-slate-50 px-4 py-2.5 text-left font-semibold text-slate-600">
                 Pemeriksaan
               </th>
-              {COL_HEADERS.map((col) => (
+              {cols.map((col) => (
                 <th
                   key={col.key}
-                  className={cn(
-                    "px-3 py-2.5 text-center font-semibold",
-                    col.cls,
-                    col.text,
-                  )}
+                  className={cn("px-3 py-2.5 text-center font-semibold text-white", col.bg)}
                 >
-                  {col.label}
+                  <span className="block">{col.label}</span>
+                  {col.sub && (
+                    <span className="block text-[9px] font-medium opacity-80">{col.sub}</span>
+                  )}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {CRITERIA_ROWS.map((row, i) => (
+            {rows.map((row, i) => (
               <tr key={i} className="hover:bg-slate-50">
                 <td className="sticky left-0 z-10 bg-white px-4 py-2.5 font-semibold text-slate-700">
                   {row.parameter}
                 </td>
-                {COL_HEADERS.map((col) => (
+                {cols.map((col) => (
                   <td
                     key={col.key}
                     className="px-3 py-2.5 text-center leading-snug text-slate-600"
                   >
-                    {row.values[col.key]}
+                    {row.values[col.key] ?? "—"}
                   </td>
                 ))}
               </tr>

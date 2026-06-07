@@ -44,6 +44,7 @@ const PERMISSION_TREE = [
     { key: "master.mapping", label: "Mapping Hub", actions: ["read","update"] },
     { key: "master.penugasan-ruangan", label: "Penugasan SDM ⇄ Ruangan", actions: ["read","create","delete"] },
     { key: "master.katalog", label: "Katalog (Obat/Lab/ICD)", actions: ["read","create","update","delete"] },
+    { key: "master.triase", label: "Triase IGD (Skala Klinis)", actions: ["read","create","update","delete"] },
     { key: "master.tarif", label: "Tarif & Paket", actions: ["read","create","update","delete"] },
   ]},
   { key: "report", leaves: [
@@ -65,12 +66,12 @@ const ROLE_DEFAULT_GRANTS = {
     "clinical.igd": ["read","create","update"], "clinical.ri": ["read","create","update"], "clinical.rj": ["read","create","update"],
     "clinical.cppt": ["read","create","update"], "clinical.diagnosa": ["read","create","update"], "clinical.tindakan": ["read","create","update"],
     "clinical.resep": ["read","create","update"], "ancillary.lab.worklist": ["read"], "ancillary.rad.worklist": ["read"],
-    "ancillary.farmasi.telaah": ["read"], "report.clinical": ["read","export"],
+    "ancillary.farmasi.telaah": ["read"], "master.triase": ["read"], "report.clinical": ["read","export"],
   },
   Perawat: {
     "clinical.igd": ["read","update"], "clinical.ri": ["read","update"], "clinical.cppt": ["read","create"],
     "clinical.tindakan": ["read","update"], "clinical.resep": ["read"], "ancillary.lab.worklist": ["read"],
-    "ancillary.rad.worklist": ["read"], "ancillary.farmasi.serah": ["read"],
+    "ancillary.rad.worklist": ["read"], "ancillary.farmasi.serah": ["read"], "master.triase": ["read"],
   },
   Apoteker: {
     "clinical.resep": ["read"], "ancillary.farmasi.telaah": ["read","update"], "ancillary.farmasi.serah": ["read","update"],

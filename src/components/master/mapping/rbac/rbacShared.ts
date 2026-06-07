@@ -81,6 +81,7 @@ export const PERMISSION_TREE: PermissionModule[] = [
       { key: "master.mapping",        label: "Mapping Hub",                  actions: ["read", "update"] },
       { key: "master.penugasan-ruangan", label: "Penugasan SDM ⇄ Ruangan",   actions: ["read", "create", "delete"] },
       { key: "master.katalog",        label: "Katalog (Obat/Lab/ICD)",       actions: ["read", "create", "update", "delete"] },
+      { key: "master.triase",         label: "Triase IGD (Skala Klinis)",    actions: ["read", "create", "update", "delete"] },
       { key: "master.tarif",          label: "Tarif & Paket",                actions: ["read", "create", "update", "delete"] },
     ],
   },
@@ -140,6 +141,7 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
     "ancillary.lab.worklist": ["read"],
     "ancillary.rad.worklist": ["read"],
     "ancillary.farmasi.telaah": ["read"],
+    "master.triase": ["read"], // baca protokol triase (decision-support di TriaseTab)
     "report.clinical": ["read", "export"],
   },
   Perawat: {
@@ -151,6 +153,7 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
     "ancillary.lab.worklist": ["read"],
     "ancillary.rad.worklist": ["read"],
     "ancillary.farmasi.serah": ["read"],
+    "master.triase": ["read"], // baca protokol triase (decision-support di TriaseTab)
   },
   Apoteker: {
     "clinical.resep": ["read"],
