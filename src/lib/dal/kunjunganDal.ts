@@ -138,6 +138,17 @@ export async function updateStatus(
   return res.count;
 }
 
+// ── Sync triase cache (denormalisasi dari medicalrecord.Triase terbaru) ────────
+/** Set kunjungan.triaseLevel (Int 1..4) — cache pointer ke pengkajian triase terbaru.
+ *  Tanpa version guard: monotonic cache, sumber kebenaran = baris medicalrecord.Triase. */
+export async function setTriaseLevel(id: string, triaseLevel: number, tx?: Tx): Promise<number> {
+  const res = await db(tx).kunjungan.updateMany({
+    where: { id, deletedAt: null },
+    data: { triaseLevel },
+  });
+  return res.count;
+}
+
 // ── Soft-delete ────────────────────────────────────────────────────────────---
 export function softDelete(id: string, when: Date, tx?: Tx) {
   return db(tx).kunjungan.updateMany({ where: { id, deletedAt: null }, data: { deletedAt: when } });

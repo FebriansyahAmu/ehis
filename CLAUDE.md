@@ -12,6 +12,7 @@
 | [TODO-BILLING.md](TODO-BILLING.md) | **Billing Kasir roadmap** — Fase BL0–BL9 (35 task, ~3 minggu). Core operasional ✅ (BL1+BL2+BL3+BL8 100% · BL6 ~80%). |
 | [TODO-EKLAIM.md](TODO-EKLAIM.md) | **E-Klaim BPJS/Asuransi roadmap** — Fase EK0–EK9 (38 task, ~3.5-4.5 minggu). Pisah dari billing per scope-split 2026-05-24. **Pivot 2026-05-26: iDRG primary** (resmi 1 Okt 2025 Kemenkes), INA-CBG = legacy adapter Phase later. |
 | [TODO-BPJS.md](TODO-BPJS.md) | **BPJS Integration Hub roadmap** — Fase BP0–BP8 (44 section). **✅ 100% SELESAI** (2026-05-30) — V-Claim 5 sub-menu + Aplicares 3 sub-menu + Audit Trail + 3 Print Template + Workflow Docs. |
+| [TODO-CLINICAL.md](TODO-CLINICAL.md) | **Rekam Medis Klinis (backend) roadmap** — 19 tab IGD → ~9 domain klinis lintas-unit (schema Postgres baru `medicalrecord`, append-only). **Domain 1 Triase: Fase A backend ✅** (2026-06-07) — `medicalrecord.Triase` + `/api/v1/kunjungan/:id/triase` GET/POST layered, sinkron `kunjungan.triaseLevel`. Sisa: Fase B/C wiring UI + domain berikutnya (Observation→CPPT→Condition→Procedure→…). |
 | [TECH_DEBT.md](TECH_DEBT.md) | Tech debt registry per-modul + cross-cutting. |
 | [TODOS_BACKEND.md](TODOS_BACKEND.md) | Backend implementation roadmap (B0–B4, ~5–7 bulan). |
 | [docs/BACKEND-FLOWS.md](docs/BACKEND-FLOWS.md) | **Kontrak backend INTI** — layering · error · data rules · API · DoD (_mengapa_). Menang bila konflik. |

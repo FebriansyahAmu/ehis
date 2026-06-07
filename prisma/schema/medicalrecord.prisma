@@ -1,0 +1,96 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MEDICAL RECORD / Rekam Medis  (Postgres schema "medicalrecord")
+//  Acuan: TODO-CLINICAL.md · docs/BACKEND-FLOWS.md · form referensi:
+//  TriaseTab / TriasePrimaryForm (TriaseEntryForm).
+//
+//  Domain klinis menggantung pada spine encounter.Kunjungan via kunjunganId
+//  (FK riil lintas-schema, 1 DB). SATU set tabel rekam medis dipakai lintas unit
+//  (IGD/RI/RJ) — bukan tabel per-modul.
+//
+//  PRINSIP: append-only (medico-legal/SNARS) — tiap simpan = baris immutable;
+//  koreksi = baris/addendum baru. Denormalisasi ringkas (mis. kunjungan.triaseLevel)
+//  = pointer/cache ke baris terbaru, di-sync dalam transaksi milik Service.
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz · enum hanya untuk field keputusan-
+//  kritis · multi-select = text[] · narasi bebas = text.
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── Enums ─────────────────────────────────────────────────────────────────---
+
+/// Keputusan triase (selaras TriageLevel frontend: P1=Merah … P4=Hitam).
+/// Sinkron ke encounter.Kunjungan.triaseLevel (Int 1..4) oleh Service.
+enum TriaseLevel {
+  P1
+  P2
+  P3
+  P4
+
+  @@schema("medicalrecord")
+}
+
+// ── Triase (pengkajian gawat darurat IGD) ─────────────────────────────────────
+//  1 baris = 1 pengkajian triase. Re-triase = baris baru; latest by createdAt =
+//  current. Field mirror TriaseEntryForm (TriasePrimaryForm.tsx).
+
+model Triase {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Spine (FK riil, same DB / cross-schema ke encounter) ──
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Informasi kedatangan ──
+  caraMasuk   String @map("cara_masuk")   // Jalan Kaki/Kursi Roda/Brankar/Ambulans…
+  kondisiTiba String @map("kondisi_tiba") // Sadar/Penurunan Kesadaran/Tidak Sadar…
+
+  // ── Anamnesis keluhan utama ──
+  keluhanUtama    String  @map("keluhan_utama")
+  onset           String
+  lokasiKeluhan   String? @map("lokasi_keluhan")
+  kualitasKeluhan String? @map("kualitas_keluhan")
+  skalaBerat      String? @map("skala_berat")
+  faktorPemberat  String? @map("faktor_pemberat")
+  faktorPeringan  String? @map("faktor_peringan")
+  gejalaPenyerta  String[] @map("gejala_penyerta")
+  riwayatSerupa   String? @map("riwayat_serupa")
+
+  // ── Primary survey ABCDE ──
+  airwayStatus       String   @map("airway_status")
+  suaraNapasAbnormal String[] @map("suara_napas_abnormal")
+  breathingQuality   String   @map("breathing_quality")
+  pergerakanDada     String?  @map("pergerakan_dada")
+  ototBantu          String?  @map("otot_bantu")
+  sianosis           String?
+  nadiTeraba         String   @map("nadi_teraba")
+  kualitasNadi       String?  @map("kualitas_nadi")
+  crt                String?
+  kondisiKulit       String?  @map("kondisi_kulit")
+  perdarahan         String?
+  avpu               String
+  pupil              String?
+  refleksCahaya      String?  @map("refleks_cahaya")
+  traumaLuka         String?  @map("trauma_luka")
+  lokasiLuka         String?  @map("lokasi_luka")
+  suhuKulit          String?  @map("suhu_kulit")
+
+  // ── Diagnosa sementara & tindakan awal ──
+  diagnosisSementara String?  @map("diagnosis_sementara")
+  tindakanTriase     String[] @map("tindakan_triase")
+
+  // ── Keputusan ──
+  triageLevel TriaseLevel @map("triage_level")
+
+  // ── Penanggung jawab + author (dari actor) ──
+  perawatTriase  String    @map("perawat_triase") // nama denormalisasi (tampilan)
+  waktuTriase    DateTime  @map("waktu_triase") @db.Timestamptz(3)
+  authorUserId   String?   @map("author_user_id") @db.Uuid
+  authorPegawaiId String?  @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (append-only: tanpa updatedAt/soft-delete; version utk konsistensi) ──
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt]) // ambil baris terbaru per kunjungan
+  @@map("triase")
+  @@schema("medicalrecord")
+}

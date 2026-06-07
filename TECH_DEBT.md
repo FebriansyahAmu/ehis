@@ -45,6 +45,7 @@
 - [ ] **MFA TOTP** — field `mfaEnabled`/`mfaSecret` sudah ada (forward-compat), enforcement ditunda.
 - [ ] **`changePassword` flow FE** + paksa saat `mustChangePassword=true`.
 - [ ] **Menu/aksi gating `<Can>` rollout** — UX (server tetap penjaga via 403); bungkus tombol CRUD per-modul iteratif. Lihat [TODO-RBAC-MODUL](TODO-RBAC-MODUL.md) Fase 2e.
+- [ ] **Selaraskan namespace permission `clinical.*` → `medicalrecord.*`** *(opsional, kosmetik)* — schema DB sudah di-rename `clinical`→`medicalrecord` (2026-06-08), tapi resource RBAC tetap `clinical.igd|ri|rj|cppt|diagnosa|tindakan|resep` (namespace izin ≠ schema DB; endpoint Triase pakai `clinical.igd`). Menyelaraskan = pekerjaan terpisah: ubah `PERMISSION_TREE`/`rbacShared` + generator + **migrasi re-seed `auth.permission`/`role_permission`** (rename kode, jaga grant) + sinkron `route()` resource + `navigation.ts`. Tak mendesak (fungsional sama). Lihat [TODO-CLINICAL](TODO-CLINICAL.md).
 
 ---
 
