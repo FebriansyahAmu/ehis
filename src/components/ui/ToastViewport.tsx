@@ -2,6 +2,9 @@
 
 // Toast viewport global — stack di KANAN ATAS (top-4 right-4). Di-mount sekali di
 // root layout. Auto-dismiss + tombol tutup. aria-live untuk a11y.
+//
+// success = kartu hijau penuh (penegasan positif); error/warning/info = kartu putih
+// dengan aksen warna (agar masalah tak membanjiri layar dengan warna pekat).
 
 import { useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -17,11 +20,48 @@ import {
 
 const EMPTY: ToastItem[] = [];
 
-const TYPE_CFG: Record<ToastType, { border: string; text: string; icon: React.ElementType }> = {
-  success: { border: "border-emerald-300", text: "text-emerald-700", icon: CheckCircle2 },
-  error: { border: "border-rose-300", text: "text-rose-700", icon: XCircle },
-  warning: { border: "border-amber-300", text: "text-amber-700", icon: AlertCircle },
-  info: { border: "border-sky-300", text: "text-sky-700", icon: Info },
+interface TypeCfg {
+  card: string;
+  icon: React.ElementType;
+  iconCls: string;
+  titleCls: string;
+  msgCls: string;
+  closeCls: string;
+}
+
+const TYPE_CFG: Record<ToastType, TypeCfg> = {
+  success: {
+    card: "border-emerald-600 bg-emerald-600",
+    icon: CheckCircle2,
+    iconCls: "text-white",
+    titleCls: "text-white",
+    msgCls: "text-emerald-50/90",
+    closeCls: "text-emerald-100 hover:bg-emerald-500 hover:text-white focus-visible:ring-emerald-300",
+  },
+  error: {
+    card: "border-rose-300 bg-white",
+    icon: XCircle,
+    iconCls: "text-rose-600",
+    titleCls: "text-rose-700",
+    msgCls: "text-slate-500",
+    closeCls: "text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus-visible:ring-slate-300",
+  },
+  warning: {
+    card: "border-amber-300 bg-white",
+    icon: AlertCircle,
+    iconCls: "text-amber-600",
+    titleCls: "text-amber-700",
+    msgCls: "text-slate-500",
+    closeCls: "text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus-visible:ring-slate-300",
+  },
+  info: {
+    card: "border-sky-300 bg-white",
+    icon: Info,
+    iconCls: "text-sky-600",
+    titleCls: "text-sky-700",
+    msgCls: "text-slate-500",
+    closeCls: "text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus-visible:ring-slate-300",
+  },
 };
 
 export default function ToastViewport() {
@@ -46,19 +86,22 @@ export default function ToastViewport() {
               exit={{ opacity: 0, x: 48, scale: 0.92 }}
               transition={{ type: "spring", stiffness: 380, damping: 30 }}
               className={cn(
-                "pointer-events-auto flex w-80 items-start gap-3 rounded-2xl border bg-white p-3.5 shadow-lg",
-                cfg.border,
+                "pointer-events-auto flex w-80 items-start gap-3 rounded-2xl border p-3.5 shadow-lg",
+                cfg.card,
               )}
             >
-              <Icon size={16} className={cn("mt-0.5 shrink-0", cfg.text)} />
+              <Icon size={16} className={cn("mt-0.5 shrink-0", cfg.iconCls)} />
               <div className="min-w-0 flex-1">
-                <p className={cn("text-[12px] font-semibold leading-tight", cfg.text)}>{t.title}</p>
-                {t.message && <p className="mt-0.5 text-[11px] leading-snug text-slate-500">{t.message}</p>}
+                <p className={cn("text-[12px] font-semibold leading-tight", cfg.titleCls)}>{t.title}</p>
+                {t.message && <p className={cn("mt-0.5 text-[11px] leading-snug", cfg.msgCls)}>{t.message}</p>}
               </div>
               <button
                 type="button"
                 onClick={() => dismissToast(t.id)}
-                className="shrink-0 rounded-md p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                className={cn(
+                  "shrink-0 rounded-md p-0.5 transition focus-visible:outline-none focus-visible:ring-2",
+                  cfg.closeCls,
+                )}
                 aria-label="Tutup notifikasi"
               >
                 <X size={13} />

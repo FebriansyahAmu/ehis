@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, Check, AlertCircle, ClipboardList } from "lucide-react";
+import { Loader2, Check, AlertCircle, ClipboardList, Printer } from "lucide-react";
 import type { IGDPatientDetail, TriageLevel } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { getTriase, saveTriase } from "@/lib/api/triase";
@@ -11,6 +11,8 @@ import type { TriaseDTO } from "@/lib/schemas/triase";
 import type { TriaseRecordDTO } from "@/lib/schemas/triaseProtocol";
 import { ApiError } from "@/lib/api/client";
 import { Select } from "@/components/shared/inputs/Select";
+import { toast } from "@/lib/ui/toastStore";
+import TriaseCetakModal from "./triase-cetak/TriaseCetakModal";
 
 // id kunjungan DB = UUID; id demo/mock ("igd-1") tak tersimpan ke DB.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -714,6 +716,9 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  // Pengkajian triase yang BERLAKU (getLatest) — sumber data untuk Cetak.
+  const [saved, setSaved] = useState<TriaseDTO | null>(null);
+  const [cetakOpen, setCetakOpen] = useState(false);
 
   // Protokol triase aktif (Default / Obgyn / dst) — dipilih saat observasi.
   const [protocols, setProtocols] = useState<TriaseRecordDTO[] | null>(null);
@@ -804,7 +809,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
       try {
         const dto = await getTriase(patient.id, ac.signal);
         if (ac.signal.aborted) return;
-        if (dto) { setForm(dtoToForm(dto)); setSavedAt(dto.createdAt); }
+        if (dto) { setForm(dtoToForm(dto)); setSavedAt(dto.createdAt); setSaved(dto); }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
         setError(e instanceof ApiError ? e.message : "Gagal memuat data triase.");
@@ -828,6 +833,11 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
       const dto = await saveTriase(patient.id, { ...form, triageLevel: form.triageLevel as TriageLevel });
       setForm(dtoToForm(dto));
       setSavedAt(dto.createdAt);
+      setSaved(dto);
+      toast.success(
+        "Pengkajian triase tersimpan",
+        `${patient.name} · Level ${dto.triageLevel} · tercatat ke rekam medis.`,
+      );
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Gagal menyimpan pengkajian triase.");
     } finally {
@@ -1267,19 +1277,45 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
         {!isPersisted && !error && (
           <p className="text-[11px] text-amber-600">Pasien demo — perubahan tidak tersimpan ke database.</p>
         )}
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className={cn(
-            "flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-medium text-white shadow-sm transition",
-            saving ? "cursor-not-allowed bg-slate-300" : "bg-indigo-600 hover:bg-indigo-700",
-          )}
-        >
-          {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-          {saving ? "Menyimpan…" : "Simpan Pengkajian Triase"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setCetakOpen(true)}
+            disabled={!saved}
+            title={saved ? "Cetak lembar triase" : "Simpan pengkajian triase dahulu"}
+            className={cn(
+              "flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium shadow-sm transition",
+              saved
+                ? "cursor-pointer border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50"
+                : "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-300",
+            )}
+          >
+            <Printer size={14} />
+            Cetak Triase
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-medium text-white shadow-sm transition",
+              saving ? "cursor-not-allowed bg-slate-300" : "bg-indigo-600 hover:bg-indigo-700",
+            )}
+          >
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+            {saving ? "Menyimpan…" : "Simpan Pengkajian Triase"}
+          </button>
+        </div>
       </div>
+
+      {saved && (
+        <TriaseCetakModal
+          open={cetakOpen}
+          onClose={() => setCetakOpen(false)}
+          data={saved}
+          patient={patient}
+        />
+      )}
     </div>
   );
 }
