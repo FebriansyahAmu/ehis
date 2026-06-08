@@ -38,12 +38,12 @@ Tab ≠ tabel. Banyak tab = view berbeda atas domain yang sama; komponen `shared
 Urutan persis seperti di [IGDRecordTabs.tsx](src/components/igd/IGDRecordTabs.tsx) (Rekam Medis 13 + Layanan 6). **FE 19/19 ✅** (mock). Yang dilacak di sini = **backend**: kolom **BE** (schema+DAL+service+endpoint, ~Fase A) & **Wiring** (resolver + tab konsumsi DB, ~Fase B/C).
 Legenda: 🟢 selesai · 🟡 sebagian · ⬜ belum.
 
-**Status global backend: 1/19 dimulai** (Triase BE ✅ + wiring tab ✅; sisa Fase C modal/board + 18 tab lain ⬜).
+**Status global backend: 2/19 dimulai** (Triase BE ✅ + wiring tab ✅; Observation/TTV BE ✅ + wiring tab ✅; sisa Fase C modal/board + 17 tab lain ⬜).
 
 | #   | Tab (grup)               | Domain target     | FE  | BE  | Wiring | Catatan                                              |
 | --- | ------------------------ | ----------------- | --- | --- | ------ | ---------------------------------------------------- |
 | 1   | **Triase** (RM)          | Triase            | ✅  | 🟢  | 🟡     | Fase A ✅ + Fase B tab ✅; sisa Fase C (modal/board)  |
-| 2   | **TTV** (RM)             | Observation       | ✅  | ⬜  | ⬜     | shared; time-series; tanpa co-sign → domain ke-2     |
+| 2   | **TTV** (RM)             | Observation       | ✅  | 🟢  | 🟢     | Fase A ✅ (schema+endpoint) + Fase B ✅ (wiring TTVTab) |
 | 3   | **Asesmen Medis** (RM)   | Assessment        | ✅  | ⬜  | ⬜     | narasi + riwayat/alergi                              |
 | 4   | **Diagnosa** (RM)        | Condition         | ✅  | ⬜  | ⬜     | ICD-10; dibutuhkan billing/e-klaim                   |
 | 5   | **CPPT / SOAP** (RM)     | CPPT              | ✅  | ⬜  | ⬜     | append-only + co-sign DPJP → domain ke-3             |
@@ -124,6 +124,32 @@ Legenda: 🟢 selesai · 🟡 sebagian · ⬜ belum.
 
 - [ ] **C1** [TriaseModal/IGDTriaseButton](src/components/igd/TriaseModal.tsx) → endpoint yang sama; sinkron status board IGD.
 - **DoD C:** triase dari board & dari tab menulis ke baris yang sama; satu source of truth.
+
+---
+
+## Domain 2 — OBSERVATION (TTV / tanda-tanda vital) 🚧
+
+**Model `medicalrecord.Observation`** (append-only time-series, keyed `kunjunganId`, **shared** IGD/RI/RJ):
+
+- Tiap simpan = baris immutable; **banyak baris per kunjungan** (monitoring berkala) — beda dari Triase (≈1 baris). Latest by `waktuObservasi` = TTV terkini. Tak ada cache di spine `Kunjungan` → tanpa transaksi (single insert).
+- Kolom mirror `IGDVitalSigns` + `RITTVRecord` ([TTVTab.tsx](src/components/shared/medical-records/TTVTab.tsx)): TD sistolik/diastolik · nadi · respirasi · suhu · SpO₂ · GCS (E/V/M) · skala nyeri (NRS) · BB/TB opsional · `statusKesadaran` · `shift` opsional · `perawat`. **NEWS2 TIDAK disimpan** → derived di FE (hindari drift). `statusKesadaran`/`shift` = `TEXT` (vocab terkontrol divalidasi Zod; enum Postgres hanya field keputusan-kritis).
+
+### Fase A — Backend (schema → endpoint) ✅ SELESAI (2026-06-09)
+
+- [x] **A1** [medicalrecord.prisma](prisma/schema/medicalrecord.prisma) — model `Observation` (+ relasi balik `observation Observation[]` di `Kunjungan`).
+- [x] **A2** migration `20260608180000_init_observation` (tabel + index `(kunjungan_id, waktu_observasi)` + FK→`encounter.kunjungan` cascade). Applied via `prisma migrate deploy` + `prisma generate`.
+- [x] **A3** Zod [`src/lib/schemas/observation.ts`](src/lib/schemas/observation.ts) — `ObservationInput` (vital flat + rentang fisiologis + `StatusKesadaran`/`RIShift` enum) · `ObservationDTO` (nested `vitalSigns` mirror FE) · `tanggal`/`jam` diturunkan dari `waktuObservasi`.
+- [x] **A4** DAL [`src/lib/dal/observationDal.ts`](src/lib/dal/observationDal.ts) — `create(tx?)` · `listByKunjungan(tx?)` (terbaru dulu).
+- [x] **A5** Service [`src/lib/services/observationService.ts`](src/lib/services/observationService.ts) — `record` (append + derive shift bila kosong) · `list` · validasi kunjungan ada (tanpa batasan unit, TTV shared) · author dari actor.
+- [x] **A6** Endpoint [`src/app/api/v1/kunjungan/[id]/observasi/route.ts`](src/app/api/v1/kunjungan/[id]/observasi/route.ts) — `GET` list (`clinical.igd:read`) + `POST` 201 (`clinical.igd:create`). Client [`src/lib/api/observation.ts`](src/lib/api/observation.ts).
+- **DoD A:** ✅ `tsc` bersih · ✅ `migrate status` up-to-date · ✅ `eslint` 0 error (1 warning `_actor` — sama precedent Triase, sengaja utk ABAC). ⏳ smoke HTTP butuh dev server + token.
+- ⚠️ **Follow-up RBAC:** endpoint di-gate `clinical.igd` (mirror Triase) — TTV **shared** RI/RJ, jadi sebelum akun klinis live perlu gate yang benar (perm `clinical.observation` baru **atau** per-unit). Tak memblok sekarang (superadmin OK; akun klinis belum live).
+
+### Fase B — Wiring TTVTab ✅ SELESAI (2026-06-09)
+
+- [x] **B1** Wrapper [igd/tabs/TTVTab.tsx](src/components/igd/tabs/TTVTab.tsx) self-fetch `listObservasi(patient.id)` saat mount bila UUID → seed `history` + `vitalSigns`/`statusKesadaran` dari item terbaru; loading banner; pasien mock → teruskan `patient.ttvHistory` (perilaku demo).
+- [x] **B2** Shared [TTVTab](src/components/shared/medical-records/TTVTab.tsx) +prop opsional `onSave(payload)→Promise<RITTVRecord>` (+`TTVSavePayload`): bila diberi → mode DB (persist via `recordObservasi`, pakai record terpersist utk state, toast sukses/gagal, tombol loading, guard nama perawat); tanpa `onSave` → perilaku in-memory lama (RI/RJ mock dipertahankan, tak ada regresi). IGD wrapper rakit `waktuObservasi` dari jam observasi + tanggal lokal; shift IGD diturunkan backend dari jam, RI kirim shift terpilih.
+- **DoD B:** ✅ `tsc` bersih · ✅ `eslint` bersih. Endpoint unit-agnostik → RI/RJ tinggal pasang `onSave` serupa saat dibutuhkan. ⏳ verifikasi in-browser (login superadmin): catat TTV dari tab pasien IGD DB → muncul di timeline + tersimpan; reload konsisten.
 
 ---
 

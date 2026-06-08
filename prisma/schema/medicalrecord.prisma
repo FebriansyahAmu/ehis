@@ -136,3 +136,56 @@ model TriaseCriteria {
   @@map("triase_criteria")
   @@schema("medicalrecord")
 }
+
+// ── Observation (TTV / tanda-tanda vital) ─────────────────────────────────────
+//  Time-series append-only: 1 baris = 1 pengukuran TTV pada satu titik waktu.
+//  BANYAK baris per kunjungan (monitoring berkala) — beda dari Triase (≈1 baris).
+//  latest by waktuObservasi = TTV terkini. Field mirror RITTVRecord + IGDVitalSigns
+//  (TTVTab.tsx). NEWS2 TIDAK disimpan → derived di FE dari nilai TTV (hindari drift,
+//  prinsip sama dgn "jangan simpan angka turunan").
+//
+//  Shared lintas unit (IGD/RI/RJ) — satu tabel, di-key kunjunganId. statusKesadaran &
+//  shift = vocab terkontrol disimpan sbg String (precedent Triase.avpu) — enum Postgres
+//  hanya utk field keputusan-kritis (FLOWS §9), kesadaran/shift bukan termasuk.
+
+model Observation {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Spine (FK riil, same DB / cross-schema ke encounter) ──
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Tanda-tanda vital (mirror IGDVitalSigns) ──
+  tdSistolik  Int    @map("td_sistolik")
+  tdDiastolik Int    @map("td_diastolik")
+  nadi        Int
+  respirasi   Int
+  suhu        Float
+  spo2        Int
+  gcsEye      Int    @map("gcs_eye")
+  gcsVerbal   Int    @map("gcs_verbal")
+  gcsMotor    Int    @map("gcs_motor")
+  skalaNyeri  Int    @map("skala_nyeri") // NRS 0..10
+  beratBadan  Float? @map("berat_badan")
+  tinggiBadan Float? @map("tinggi_badan")
+
+  // ── Penilaian kesadaran (Compos_Mentis/Apatis/Somnolen/Sopor/Koma) ──
+  statusKesadaran String @map("status_kesadaran")
+
+  // ── Konteks pencatatan ──
+  shift   String? // Pagi/Siang/Malam (label periode kerja; opsional, bisa diturunkan dari waktu)
+  perawat String // nama denormalisasi (tampilan)
+
+  // ── Waktu klinis + author (dari actor) ──
+  waktuObservasi  DateTime @map("waktu_observasi") @db.Timestamptz(3)
+  authorUserId    String?  @map("author_user_id") @db.Uuid
+  authorPegawaiId String?  @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (append-only: tanpa updatedAt/soft-delete; version utk konsistensi) ──
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, waktuObservasi]) // time-series per kunjungan (terbaru dulu)
+  @@map("observation")
+  @@schema("medicalrecord")
+}

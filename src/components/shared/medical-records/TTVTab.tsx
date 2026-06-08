@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, CalendarDays, Clock, AlertCircle } from "lucide-react";
+import { ChevronDown, CalendarDays, Clock, AlertCircle, Loader2 } from "lucide-react";
 import type { IGDVitalSigns, StatusKesadaran, RITTVRecord, RIShift, TriageLevel } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
 
 // ── Vital status helpers ──────────────────────────────────
 
@@ -382,16 +384,30 @@ function HistoryRow({ rec, delay, hideShift = false }: {
 
 // ── Props ─────────────────────────────────────────────────
 
+// Payload yang dikirim ke onSave (persist) — vital + konteks. `isIGDMode` menentukan
+// apakah waktu diambil dari `jam` (observasi terjadwal IGD) atau now() (RI/RJ).
+export interface TTVSavePayload {
+  vitalSigns:      IGDVitalSigns;
+  statusKesadaran: StatusKesadaran;
+  jam:             string;   // "HH:mm"
+  shift:           RIShift;
+  perawat:         string;
+  isIGDMode:       boolean;
+}
+
 export interface TTVTabProps {
   vitalSigns:      IGDVitalSigns;
   statusKesadaran: StatusKesadaran;
   history?:        RITTVRecord[];  // multi-entry mode: RI (with shift) or IGD obs (with triage)
   triage?:         TriageLevel;    // when set + history present: IGD timed observation mode
+  /** Bila diberi → mode DB: simpan ke backend, pakai record terpersist utk state.
+   *  Tanpa ini → perilaku demo in-memory (RI/RJ mock / pasien non-DB). */
+  onSave?:         (payload: TTVSavePayload) => Promise<RITTVRecord>;
 }
 
 // ── Component ─────────────────────────────────────────────
 
-export default function TTVTab({ vitalSigns, statusKesadaran, history, triage }: TTVTabProps) {
+export default function TTVTab({ vitalSigns, statusKesadaran, history, triage, onSave }: TTVTabProps) {
   const isRIMode    = history !== undefined && !triage;
   const isIGDMode   = history !== undefined && !!triage;
   const showShift   = isRIMode;
@@ -400,6 +416,7 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history, triage }:
   const [currentVS,  setCurrentVS]  = useState(vitalSigns);
   const [currentKes, setCurrentKes] = useState(statusKesadaran);
   const [localHistory, setLocalHistory] = useState<RITTVRecord[]>(history ?? []);
+  const [saving, setSaving] = useState(false);
 
   const vs  = currentVS;
   const gcs = vs.gcsEye + vs.gcsVerbal + vs.gcsMotor;
@@ -428,7 +445,8 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history, triage }:
   const latestEntry = isIGDMode ? localHistory[0] : undefined;
   const nextDue     = obsConfig && latestEntry ? getNextDue(latestEntry.jam, obsConfig.minutes) : null;
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (saving) return;
     const newVS: IGDVitalSigns = {
       tdSistolik: Number(form.tdS),  tdDiastolik: Number(form.tdD),
       nadi:       Number(form.nadi), respirasi:   Number(form.rr),
@@ -440,6 +458,29 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history, triage }:
     };
     const newKes = form.kesadaran as StatusKesadaran;
 
+    // ── Mode DB: persist via onSave; pakai record terpersist (id/waktu otoritatif). ──
+    if (onSave) {
+      if (!form.perawat.trim()) {
+        toast.error("Nama perawat wajib diisi", "Lengkapi nama perawat sebelum menyimpan observasi.");
+        return;
+      }
+      setSaving(true);
+      try {
+        const jam = isIGDMode ? form.jam : nowTime();
+        const rec = await onSave({ vitalSigns: newVS, statusKesadaran: newKes, jam, shift: form.shift, perawat: form.perawat, isIGDMode });
+        setLocalHistory((prev) => [rec, ...prev]);
+        setCurrentVS(newVS);
+        setCurrentKes(newKes);
+        toast.success("Observasi TTV tersimpan", `${rec.jam} · ${rec.perawat} · tercatat ke rekam medis.`);
+      } catch (e) {
+        toast.error("Gagal menyimpan observasi", e instanceof ApiError ? e.message : undefined);
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    // ── Mode demo (RI/RJ mock atau pasien non-DB): perilaku in-memory. ──
     if (isRIMode || isIGDMode) {
       const now     = new Date();
       const jam     = isIGDMode ? form.jam : now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
@@ -752,9 +793,13 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history, triage }:
         })()}
 
         <div className="mt-4 flex justify-end">
-          <button type="button" onClick={handleSave}
-            className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700">
-            {isIGDMode ? "Catat Observasi" : showShift ? "Simpan Rekaman TTV" : "Simpan TTV"}
+          <button type="button" onClick={handleSave} disabled={saving}
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-medium text-white shadow-sm transition",
+              saving ? "cursor-not-allowed bg-slate-300" : "bg-indigo-600 hover:bg-indigo-700",
+            )}>
+            {saving && <Loader2 size={14} className="animate-spin" />}
+            {saving ? "Menyimpan…" : isIGDMode ? "Catat Observasi" : showShift ? "Simpan Rekaman TTV" : "Simpan TTV"}
           </button>
         </div>
       </motion.section>
