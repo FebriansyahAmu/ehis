@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, CalendarDays, Clock, AlertCircle, Loader2 } from "lucide-react";
+import { ChevronDown, CalendarDays, Clock, AlertCircle, Loader2, User } from "lucide-react";
 import type { IGDVitalSigns, StatusKesadaran, RITTVRecord, RIShift, TriageLevel } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/ui/toastStore";
@@ -403,11 +403,14 @@ export interface TTVTabProps {
   /** Bila diberi → mode DB: simpan ke backend, pakai record terpersist utk state.
    *  Tanpa ini → perilaku demo in-memory (RI/RJ mock / pasien non-DB). */
   onSave?:         (payload: TTVSavePayload) => Promise<RITTVRecord>;
+  /** Mode DB: nama user login (pencatat). Ditampilkan read-only menggantikan input
+   *  free-text "Nama Perawat" — pencatat resmi diturunkan server dari actor. */
+  recordedBy?:     string;
 }
 
 // ── Component ─────────────────────────────────────────────
 
-export default function TTVTab({ vitalSigns, statusKesadaran, history, triage, onSave }: TTVTabProps) {
+export default function TTVTab({ vitalSigns, statusKesadaran, history, triage, onSave, recordedBy }: TTVTabProps) {
   const isRIMode    = history !== undefined && !triage;
   const isIGDMode   = history !== undefined && !!triage;
   const showShift   = isRIMode;
@@ -458,16 +461,13 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history, triage, o
     };
     const newKes = form.kesadaran as StatusKesadaran;
 
-    // ── Mode DB: persist via onSave; pakai record terpersist (id/waktu otoritatif). ──
+    // ── Mode DB: persist via onSave; pakai record terpersist (id/waktu otoritatif).
+    //  Pencatat = user login (server otoritatif); `recordedBy` cuma fallback display. ──
     if (onSave) {
-      if (!form.perawat.trim()) {
-        toast.error("Nama perawat wajib diisi", "Lengkapi nama perawat sebelum menyimpan observasi.");
-        return;
-      }
       setSaving(true);
       try {
         const jam = isIGDMode ? form.jam : nowTime();
-        const rec = await onSave({ vitalSigns: newVS, statusKesadaran: newKes, jam, shift: form.shift, perawat: form.perawat, isIGDMode });
+        const rec = await onSave({ vitalSigns: newVS, statusKesadaran: newKes, jam, shift: form.shift, perawat: recordedBy ?? form.perawat, isIGDMode });
         setLocalHistory((prev) => [rec, ...prev]);
         setCurrentVS(newVS);
         setCurrentKes(newKes);
@@ -503,6 +503,25 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history, triage, o
     return acc;
   }, {} as Record<string, RITTVRecord[]>);
   const sortedDates = Object.keys(histGroups).sort((a, b) => b.localeCompare(a));
+
+  // Field pencatat: mode DB → read-only nama user login (server yang otoritatif);
+  // mode demo → input free-text lama.
+  const perawatField = onSave ? (
+    <div>
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Dicatat oleh</p>
+      <div className="flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-3 text-sm text-slate-600">
+        <User size={13} className="shrink-0 text-slate-400" />
+        <span className="truncate">{recordedBy || "Akun Anda (otomatis)"}</span>
+      </div>
+    </div>
+  ) : (
+    <div>
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Nama Perawat</p>
+      <input type="text" value={form.perawat} onChange={(e) => set("perawat", e.target.value)}
+        placeholder="Nama lengkap..."
+        className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -638,12 +657,7 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history, triage, o
                 className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
               />
             </div>
-            <div>
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Nama Perawat</p>
-              <input type="text" value={form.perawat} onChange={(e) => set("perawat", e.target.value)}
-                placeholder="Nama lengkap..."
-                className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
-            </div>
+            {perawatField}
           </div>
         )}
 
@@ -664,12 +678,7 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history, triage, o
                 ))}
               </div>
             </div>
-            <div>
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Nama Perawat</p>
-              <input type="text" value={form.perawat} onChange={(e) => set("perawat", e.target.value)}
-                placeholder="Nama lengkap..."
-                className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
-            </div>
+            {perawatField}
           </div>
         )}
 

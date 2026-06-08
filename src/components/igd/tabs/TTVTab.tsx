@@ -10,6 +10,7 @@ import TTVTabShared, { type TTVSavePayload } from "@/components/shared/medical-r
 import type { IGDPatientDetail, RITTVRecord, RIShift } from "@/lib/data";
 import { listObservasi, recordObservasi } from "@/lib/api/observation";
 import type { ObservationDTO } from "@/lib/schemas/observation";
+import { useSession } from "@/contexts/SessionContext";
 
 // id kunjungan DB = UUID; id demo/mock ("igd-1") tak tersimpan ke DB.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -41,6 +42,7 @@ function localDate(): string {
 }
 
 export default function TTVTab({ patient }: { patient: IGDPatientDetail }) {
+  const { session } = useSession();
   const isPersisted = UUID_RE.test(patient.id);
   const [history, setHistory] = useState<RITTVRecord[] | null>(
     isPersisted ? null : (patient.ttvHistory ?? []),
@@ -99,6 +101,7 @@ export default function TTVTab({ patient }: { patient: IGDPatientDetail }) {
       history={history}
       triage={patient.triage}
       onSave={handleSave}
+      recordedBy={session?.namaTampil}
     />
   );
 }

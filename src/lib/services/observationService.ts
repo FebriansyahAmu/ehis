@@ -8,6 +8,7 @@
 
 import * as defaultDal from "@/lib/dal/observationDal";
 import * as kunjunganDal from "@/lib/dal/kunjunganDal";
+import * as pegawaiDal from "@/lib/dal/pegawaiDal";
 import { systemClock, type Clock } from "@/lib/core/clock";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
@@ -33,6 +34,22 @@ function deriveShift(waktu: Date): RIShift {
   if (h >= 7 && h < 14) return "Pagi";
   if (h >= 14 && h < 21) return "Siang";
   return "Malam";
+}
+
+/** Nama tampil pegawai (gelar depan + nama + gelar belakang) — mirror authService. */
+function namaTampil(p: { gelarDepan: string | null; namaLengkap: string; gelarBelakang: string | null }): string {
+  const depan = p.gelarDepan ? `${p.gelarDepan} ` : "";
+  const belakang = p.gelarBelakang ? `, ${p.gelarBelakang}` : "";
+  return `${depan}${p.namaLengkap}${belakang}`;
+}
+
+/** Pencatat = pegawai dari actor (user login terverifikasi), BUKAN free-text. Fallback ke
+ *  `input.perawat`/"—" hanya bila pegawai tak ditemukan (mis. dev actor) — integritas
+ *  medico-legal: nama pencatat selalu = penulis terotentikasi pada login nyata. */
+async function resolvePerawat(actor: Actor, fallback?: string): Promise<string> {
+  const p = actor.pegawaiId ? await pegawaiDal.findById(actor.pegawaiId) : null;
+  if (p) return namaTampil(p);
+  return fallback?.trim() || "—";
 }
 
 function toDTO(o: ObservationEntity): ObservationDTO {
@@ -80,6 +97,7 @@ export function makeObservationService(deps: { clock?: Clock; dal?: Dal } = {}) 
   async function record(kunjunganId: string, input: ObservationInput, actor: Actor): Promise<ObservationDTO> {
     await assertKunjungan(kunjunganId);
     const waktuObservasi = parseWaktu(input.waktuObservasi, clock.now());
+    const perawat = await resolvePerawat(actor, input.perawat);
 
     const row = await dal.create({
       kunjunganId,
@@ -97,7 +115,7 @@ export function makeObservationService(deps: { clock?: Clock; dal?: Dal } = {}) 
       tinggiBadan: input.tinggiBadan ?? null,
       statusKesadaran: input.statusKesadaran,
       shift: input.shift ?? deriveShift(waktuObservasi),
-      perawat: input.perawat,
+      perawat,
       waktuObservasi,
       authorUserId: actor.userId,
       authorPegawaiId: actor.pegawaiId,

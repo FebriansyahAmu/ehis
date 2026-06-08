@@ -12,8 +12,6 @@ export const RIShift = z.enum(["Pagi", "Siang", "Malam"]);
 export type RIShift = z.infer<typeof RIShift>;
 
 // ── Helpers ────────────────────────────────────────────────────────────────---
-const reqStr = (label: string) => z.string().trim().min(1, `${label} wajib diisi`);
-
 // Angka dari string form ("123") atau number. Rentang fisiologis longgar (cegah sampah).
 const intIn = (label: string, min: number, max: number) =>
   z.coerce
@@ -45,23 +43,27 @@ const optStr = z
 // ── Input (POST /kunjungan/:id/observasi) ──────────────────────────────────────
 //  Field flat mengikuti form TTV; Service merakit jadi baris + nested DTO.
 export const ObservationInput = z.object({
-  // Tanda-tanda vital
-  tdSistolik: intIn("Tekanan darah sistolik", 0, 350),
-  tdDiastolik: intIn("Tekanan darah diastolik", 0, 250),
-  nadi: intIn("Nadi", 0, 350),
-  respirasi: intIn("Respirasi", 0, 120),
-  suhu: numIn("Suhu", 20, 45),
-  spo2: intIn("SpO₂", 0, 100),
+  // Tanda-tanda vital. Batas BAWAH fisiologis > 0 disengaja: field kosong (form kirim
+  // "") di-coerce jadi 0 → GAGAL validasi (bukan diam-diam tersimpan 0 yang menyesatkan
+  // NEWS2). Batas atas = nilai terukur ekstrem yang masih plausibel pada pasien hidup.
+  tdSistolik: intIn("Tekanan darah sistolik", 40, 300),
+  tdDiastolik: intIn("Tekanan darah diastolik", 20, 200),
+  nadi: intIn("Nadi", 20, 300),
+  respirasi: intIn("Respirasi", 4, 80),
+  suhu: numIn("Suhu", 25, 44),
+  spo2: intIn("SpO₂", 40, 100),
   gcsEye: intIn("GCS Eye", 1, 4),
   gcsVerbal: intIn("GCS Verbal", 1, 5),
   gcsMotor: intIn("GCS Motor", 1, 6),
-  skalaNyeri: intIn("Skala nyeri", 0, 10),
-  beratBadan: optNumIn("Berat badan", 0, 500),
-  tinggiBadan: optNumIn("Tinggi badan", 0, 300),
+  skalaNyeri: intIn("Skala nyeri", 0, 10), // 0 = tidak nyeri (valid, sengaja izinkan)
+  beratBadan: optNumIn("Berat badan", 0.3, 500), // opsional: kosong → undefined (bukan 0)
+  tinggiBadan: optNumIn("Tinggi badan", 20, 300),
   // Kesadaran + konteks
   statusKesadaran: StatusKesadaran,
   shift: RIShift.optional(),
-  perawat: reqStr("Nama perawat"),
+  // Pencatat diturunkan SERVER dari user login (actor→pegawai). Field ini hanya fallback
+  // opsional bila pegawai actor tak ditemukan (mis. dev actor). Lihat observationService.
+  perawat: optStr,
   /** ISO atau "YYYY-MM-DDTHH:mm" (datetime-local). Kosong → Service pakai now(). */
   waktuObservasi: optStr,
 });
