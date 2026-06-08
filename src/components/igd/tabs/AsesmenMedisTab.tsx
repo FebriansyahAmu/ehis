@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import EdukasiPane from "@/components/igd/tabs/EdukasiPane";
 import GiziPane    from "@/components/shared/asesmen/GiziPane";
 import { RUTE_OBAT } from "@/components/shared/asesmen/asesmenShared";
-import { getAnamnesis, saveAnamnesis, type AnamnesisDTO } from "@/lib/api/anamnesis";
+import { getAnamnesis, saveAnamnesis, type AnamnesisDTO } from "@/lib/api/asesmenMedis/anamnesis";
 import { useSession } from "@/contexts/SessionContext";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";

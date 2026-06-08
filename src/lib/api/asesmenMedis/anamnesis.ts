@@ -2,7 +2,7 @@
 // FE↔BE selaras. Endpoint: /api/v1/kunjungan/:id/anamnesis (GET terbaru · POST simpan).
 
 import { api } from "@/lib/api/client";
-import type { AnamnesisInput, AnamnesisDTO } from "@/lib/schemas/anamnesis";
+import type { AnamnesisInput, AnamnesisDTO } from "@/lib/schemas/asesmenMedis/anamnesis";
 
 export type { AnamnesisInput, AnamnesisDTO };
 

@@ -5,13 +5,13 @@
 //
 // RBAC `clinical.igd` di Route; ABAC unit-scope menyusul (TODO-CLINICAL §keputusan 4).
 
-import * as defaultDal from "@/lib/dal/anamnesisDal";
+import * as defaultDal from "@/lib/dal/asesmenMedis/anamnesisDal";
 import * as kunjunganDal from "@/lib/dal/kunjunganDal";
 import * as pegawaiDal from "@/lib/dal/pegawaiDal";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
-import type { AnamnesisInput, AnamnesisDTO, SumberAnamnesis } from "@/lib/schemas/anamnesis";
-import type { AnamnesisEntity } from "@/lib/dal/anamnesisDal";
+import type { AnamnesisInput, AnamnesisDTO, SumberAnamnesis } from "@/lib/schemas/asesmenMedis/anamnesis";
+import type { AnamnesisEntity } from "@/lib/dal/asesmenMedis/anamnesisDal";
 
 type Dal = typeof defaultDal;
 type NonNullEntity = NonNullable<AnamnesisEntity>;

@@ -5,8 +5,8 @@
 
 import { route, reply } from "@/lib/http/route";
 import { IdParam } from "@/lib/schemas/kunjungan";
-import { AnamnesisInput } from "@/lib/schemas/anamnesis";
-import { anamnesisService } from "@/lib/services/anamnesisService";
+import { AnamnesisInput } from "@/lib/schemas/asesmenMedis/anamnesis";
+import { anamnesisService } from "@/lib/services/asesmenMedis/anamnesisService";
 
 export const GET = route({
   resource: "clinical.igd",

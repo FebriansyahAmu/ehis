@@ -163,10 +163,10 @@ Tab **Asesmen Medis** = 5 sub-menu ([AsesmenMedisTab.tsx](src/components/igd/tab
 
 - [x] **A1** [medicalrecord.prisma](prisma/schema/medicalrecord.prisma) — model `Anamnesis` (+ relasi balik `anamnesis Anamnesis[]` di `Kunjungan`). Kolom mirror `AnamnesisIGDForm` ([AnamnesisPane](src/components/igd/tabs/AsesmenMedisTab.tsx)): `sumberAnamnesis` · `keluhanUtama` · `rps` · `onsetDurasi?` · `mekanismeCedera?` · `faktorPemberat?` · `faktorPeringan?` · `statusGeneralis` · `obatSaatIni?` + `pemeriksa`/author. `sumberAnamnesis` = `TEXT` (vocab terkontrol divalidasi Zod).
 - [x] **A2** migration `20260609120000_init_anamnesis` (tabel + index `(kunjungan_id, created_at)` + FK→`encounter.kunjungan` cascade). Applied via `migrate deploy` + `generate`.
-- [x] **A3** Zod [`src/lib/schemas/anamnesis.ts`](src/lib/schemas/anamnesis.ts) — `SumberAnamnesis` enum · `AnamnesisInput` (wajib: sumber/keluhan/RPS/status generalis; sisanya opsional) · `AnamnesisDTO` mirror FE. **`faktorPeringan` membetulkan typo form FE `faktorPemerut`** → di-map saat wiring. `rps` (abbr. baku) dipertahankan.
-- [x] **A4** DAL [`src/lib/dal/anamnesisDal.ts`](src/lib/dal/anamnesisDal.ts) — `create(tx?)` · `latestByKunjungan(tx?)`.
-- [x] **A5** Service [`src/lib/services/anamnesisService.ts`](src/lib/services/anamnesisService.ts) — `save` (append) · `getLatest` · validasi kunjungan ada (tanpa batasan unit, shared) · **`pemeriksa` diturunkan dari user login (actor→pegawai)**, bukan free-text.
-- [x] **A6** Endpoint [`src/app/api/v1/kunjungan/[id]/anamnesis/route.ts`](src/app/api/v1/kunjungan/[id]/anamnesis/route.ts) — `GET` (`clinical.igd:read`) + `POST` 201 (`clinical.igd:create`). Client [`src/lib/api/anamnesis.ts`](src/lib/api/anamnesis.ts).
+- [x] **A3** Zod [`src/lib/schemas/asesmenMedis/anamnesis.ts`](src/lib/schemas/asesmenMedis/anamnesis.ts) — `SumberAnamnesis` enum · `AnamnesisInput` (wajib: sumber/keluhan/RPS/status generalis; sisanya opsional) · `AnamnesisDTO` mirror FE. **`faktorPeringan` membetulkan typo form FE `faktorPemerut`** → di-map saat wiring. `rps` (abbr. baku) dipertahankan.
+- [x] **A4** DAL [`src/lib/dal/asesmenMedis/anamnesisDal.ts`](src/lib/dal/asesmenMedis/anamnesisDal.ts) — `create(tx?)` · `latestByKunjungan(tx?)`.
+- [x] **A5** Service [`src/lib/services/asesmenMedis/anamnesisService.ts`](src/lib/services/asesmenMedis/anamnesisService.ts) — `save` (append) · `getLatest` · validasi kunjungan ada (tanpa batasan unit, shared) · **`pemeriksa` diturunkan dari user login (actor→pegawai)**, bukan free-text.
+- [x] **A6** Endpoint [`src/app/api/v1/kunjungan/[id]/anamnesis/route.ts`](src/app/api/v1/kunjungan/[id]/anamnesis/route.ts) — `GET` (`clinical.igd:read`) + `POST` 201 (`clinical.igd:create`). Client [`src/lib/api/asesmenMedis/anamnesis.ts`](src/lib/api/asesmenMedis/anamnesis.ts).
 - **DoD A:** ✅ `tsc` bersih · ✅ `migrate status` up-to-date · ✅ `eslint` 0 error (1 warning `_actor` — sama precedent, sengaja utk ABAC). ⏳ smoke HTTP butuh dev server + token.
 - ⚠️ **Follow-up RBAC:** di-gate `clinical.igd` (mirror Triase/TTV) — asesmen **shared** RI/RJ; gate yang benar (perm baru / per-unit) sebelum akun klinis live. Tak memblok sekarang (superadmin OK).
 
@@ -176,9 +176,32 @@ Tab **Asesmen Medis** = 5 sub-menu ([AsesmenMedisTab.tsx](src/components/igd/tab
 - [x] **B2** Tombol "Simpan Anamnesis" → `saveAnamnesis` (map `form.faktorPemerut → faktorPeringan`); guard field wajib (sumber/keluhan/RPS/status generalis); toast sukses; state loading/saving/error/savedAt; **nama pemeriksa read-only "Dicatat oleh: <user login>"** dari `useSession().namaTampil`; pasien demo → blok simpan + banner.
 - **DoD B:** ✅ `tsc` bersih · ✅ `eslint` bersih (1 warning pre-existing `TI` unused, tak terkait). ⏳ verifikasi in-browser (login superadmin): isi & simpan anamnesis pasien IGD DB → reload tetap terisi; progress header sub-tab "Anamnesis" jadi hijau.
 
-### Sub 3.2–3.5 (Riwayat Medis · Alergi · Skrining Gizi · Edukasi) — ⬜ BELUM
+### Sub 3.2 — RIWAYAT MEDIS (9 pane) 🚧
 
-> Sub-pane Riwayat (PenyakitDahulu/Obat/Lainnya/FaktorResiko/Keluarga/TBC/Ginekologi/Perawatan/Obstetri), Alergi, Skrining Gizi (MUST), Edukasi — masing-masing tabel/endpoint terpisah, slice berikutnya.
+> **Keputusan:** tiap pane = domain/tabel sendiri, prefix **`asesmen_`**, endpoint dikelompokkan di `/kunjungan/:id/asesmen/<pane>`. Single-record → append-only "latest wins" (pola Anamnesis). Pane berdaftar → parent + child snapshot (pola Triase+TriaseCriteria). Helper nama pencatat diekstrak ke [`actorName.ts`](src/lib/services/actorName.ts) (dipakai semua domain klinis).
+>
+> **Konvensi folder lib (2026-06-09, berlaku domain baru):** dikelompokkan **per TAB** di dalam tiap layer, **nama file dipertahankan** → `lib/schemas/asesmenMedis/<fitur>.ts` · `lib/dal/asesmenMedis/<fitur>Dal.ts` · `lib/services/asesmenMedis/<fitur>Service.ts` · `lib/api/asesmenMedis/<fitur>.ts`. Tab Asesmen Medis (anamnesis + 5 pane) sudah dimigrasi ke `asesmenMedis/`; triase/observation + domain lama dibiarkan (konvensi maju ke depan). Helper lintas-domain (mis. `actorName`) tetap di root layer-nya. Route `app/api/**` ikut URL (tak terpengaruh).
+
+| # | Pane | Tabel | Bentuk | BE | Wiring |
+|---|---|---|---|---|---|
+| 1 | Penyakit Dahulu | `asesmen_penyakit_dahulu` | single (penyakit `text[]` + catatan) | ✅ | ⬜ |
+| 2 | Pemberian Obat | `asesmen_obat` (+item) | list | ⬜ | ⬜ |
+| 3 | Lainnya (merokok/paparan/gaya hidup) | `asesmen_gaya_hidup` | single | ✅ | ⬜ |
+| 4 | Faktor Resiko | `asesmen_faktor_resiko` | single (2× `text[]`) | ✅ | ⬜ |
+| 5 | Penyakit Keluarga | `asesmen_penyakit_keluarga` (+item) | list/anggota | ⬜ | ⬜ |
+| 6 | Tuberkulosis | `asesmen_tuberkulosis` | single | ✅ | ⬜ |
+| 7 | Ginekologi | `asesmen_ginekologi` | single | ✅ | ⬜ |
+| 8 | Perawatan & Tindakan | `asesmen_perawatan` + `asesmen_pembedahan` | 2 list | ⬜ | ⬜ |
+| 9 | Obstetri | `asesmen_obstetri` (+persalinan item) | single+list | ⬜ | ⬜ |
+
+- [x] **Pane 1 — Penyakit Dahulu · Fase A** ✅ (2026-06-09) — model `AsesmenPenyakitDahulu` + migration `20260609130000_init_asesmen_penyakit_dahulu` + Zod/DAL/Service/Route/Client. Pakai helper `resolveActorNama`. `tsc`+`migrate` ✅. Wiring ⬜.
+- [x] **Batch 1 — Pane 3·4·6·7 single-record · Fase A** ✅ (2026-06-09) — Gaya Hidup · Faktor Resiko · Tuberkulosis · Ginekologi. Migration `20260609140000_init_asesmen_riwayat_single` (4 tabel) + Zod/DAL/Service/Route/Client per pane (endpoint `/kunjungan/:id/asesmen/{gaya-hidup,faktor-resiko,tuberkulosis,ginekologi}`). Field opsional (form tanpa wajib); `boolean` nullish (YesNoRadio bisa null). `tsc`+`migrate` ✅. Wiring ⬜.
+- [ ] **Batch 2 — Pane 2·5·8·9 list · Fase A** — Pemberian Obat · Penyakit Keluarga · Perawatan&Pembedahan · Obstetri (parent+child snapshot, pola Triase).
+- [ ] **Wiring** tiap pane di `RiwayatPane` (Fase B) — menyusul per batch.
+
+### Sub 3.3–3.5 (Alergi · Skrining Gizi · Edukasi) — ⬜ BELUM
+
+> Alergi (`AllergyEntry[]` → list), Skrining Gizi MUST ([GiziPane](src/components/shared/asesmen/GiziPane.tsx)), Edukasi ([EdukasiPane](src/components/igd/tabs/EdukasiPane.tsx)) — slice berikutnya.
 
 ---
 

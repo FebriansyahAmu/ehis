@@ -232,3 +232,150 @@ model Anamnesis {
   @@map("anamnesis")
   @@schema("medicalrecord")
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  ASESMEN MEDIS · sub-menu RIWAYAT MEDIS — tiap pane = domain/tabel sendiri
+//  (prefix `asesmen_`). Append-only "latest wins" (≈1 baris/kunjungan, koreksi =
+//  baris baru) untuk pane single-record; pane berdaftar pakai parent + child snapshot
+//  (pola Triase+TriaseCriteria). Mirror RiwayatPane sub-panes (AsesmenMedisTab.tsx).
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Riwayat Penyakit Dahulu (RPD) ─────────────────────────────────────────────
+//  Daftar penyakit yg pernah diderita (multi-select → text[]) + catatan bebas.
+model AsesmenPenyakitDahulu {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  penyakit String[] // penyakit tercentang (Hipertensi/DM/PJK/…)
+  catatan  String? // keterangan tambahan (tahun diagnosis, komplikasi, dll)
+
+  // ── Pemeriksa + author (dari actor) ──
+  pemeriksa       String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt])
+  @@map("asesmen_penyakit_dahulu")
+  @@schema("medicalrecord")
+}
+
+// ── Gaya Hidup (sub "Lainnya": merokok · paparan asap · kebiasaan) ────────────
+model AsesmenGayaHidup {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  merokokStatus String?  @map("merokok_status") // ya/tidak/mantan
+  rokokPerHari  String?  @map("rokok_per_hari")
+  merokokSejak  String?  @map("merokok_sejak")
+  berhentiSejak String?  @map("berhenti_sejak")
+  paparanAsap   Boolean? @map("paparan_asap")
+  paparanDetail String?  @map("paparan_detail")
+  catatan       String?
+
+  pemeriksa       String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt])
+  @@map("asesmen_gaya_hidup")
+  @@schema("medicalrecord")
+}
+
+// ── Faktor Resiko (penyakit beresiko + perilaku beresiko) ─────────────────────
+model AsesmenFaktorResiko {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  penyakit     String[] // penyakit beresiko tercentang
+  penyakitLain String?  @map("penyakit_lain")
+  perilaku     String[] // perilaku beresiko tercentang
+  perilakuLain String?  @map("perilaku_lain")
+
+  pemeriksa       String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt])
+  @@map("asesmen_faktor_resiko")
+  @@schema("medicalrecord")
+}
+
+// ── Tuberkulosis (riwayat TBC · OAT · TCM · sputum BTA) ───────────────────────
+model AsesmenTuberkulosis {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  riwayatTbc      Boolean? @map("riwayat_tbc")
+  tahunPengobatan String?  @map("tahun_pengobatan")
+  statusOat       String?  @map("status_oat") // selesai/tidak-selesai/sedang-berjalan
+  kontakTbc       Boolean? @map("kontak_tbc")
+  penunjang       String?
+  tcmDilakukan    Boolean? @map("tcm_dilakukan")
+  tcmHasil        String?  @map("tcm_hasil") // pos-sensitif/pos-resisten/negatif/invalid
+  sputumDilakukan Boolean? @map("sputum_dilakukan")
+  sputumHasil     String?  @map("sputum_hasil") // positif/negatif
+  sputumGrade     String?  @map("sputum_grade")
+  catatan         String?
+
+  pemeriksa       String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt])
+  @@map("asesmen_tuberkulosis")
+  @@schema("medicalrecord")
+}
+
+// ── Ginekologi (menstruasi · skrining Pap Smear/IVA) ──────────────────────────
+model AsesmenGinekologi {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  statusMenstruasi String?  @map("status_menstruasi")
+  hpht             String? // FE input date → simpan string (mirror form)
+  siklus           String?
+  lamaMenstruasi   String?  @map("lama_menstruasi")
+  dismenorea       Boolean?
+  menoragia        Boolean?
+  keputihan        Boolean?
+  papSmear         Boolean? @map("pap_smear")
+  papTahun         String?  @map("pap_tahun")
+  papHasil         String?  @map("pap_hasil")
+  iva              Boolean?
+  ivaTahun         String?  @map("iva_tahun")
+  ivaHasil         String?  @map("iva_hasil")
+  catatan          String?
+
+  pemeriksa       String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt])
+  @@map("asesmen_ginekologi")
+  @@schema("medicalrecord")
+}

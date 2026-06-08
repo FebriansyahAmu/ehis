@@ -207,6 +207,28 @@ export default async function PenggunaPage() {
 
 **Definition of Done per endpoint** → FLOWS §18.
 
+### 7.1 Organisasi file — flat (legacy) vs folder-per-tab (domain baru)
+
+Layering tetap sama; ini **hanya tata-letak file** (tak mengubah arah impor Route→Service→DAL→Schema).
+
+- **Legacy (flat-by-layer)** — domain awal (`ruangan`, `kunjungan`, `pegawai`, `dokter`, `bedAllocation`, `triase`, `observation`, …) tetap file datar di akar tiap layer: `lib/schemas/<domain>.ts` · `lib/dal/<domain>Dal.ts` · `lib/services/<domain>Service.ts` · `lib/api/<domain>.ts`. **Jangan refactor** tanpa diminta.
+- **Domain BARU = folder-per-TAB** (konvensi 2026-06-09) — kelompokkan per **tab UI**, sub-folder bernama tab di dalam tiap layer, **nama file dipertahankan**:
+
+  ```
+  lib/schemas/<tab>/<fitur>.ts          # mis. lib/schemas/asesmenMedis/anamnesis.ts
+  lib/dal/<tab>/<fitur>Dal.ts           #      lib/dal/asesmenMedis/anamnesisDal.ts
+  lib/services/<tab>/<fitur>Service.ts  #      lib/services/asesmenMedis/anamnesisService.ts
+  lib/api/<tab>/<fitur>.ts              #      lib/api/asesmenMedis/anamnesis.ts
+  ```
+  Impor: `@/lib/api/<tab>/<fitur>` (mis. `@/lib/api/asesmenMedis/anamnesis`). Satu tab = satu folder per layer, semua fitur tab terkumpul di situ → mudah diakses & scalable.
+
+  Aturan turunan:
+  - **Route** tetap di `app/api/**` mengikuti **URL** (tak ikut folder lib). Endpoint sub-tab dikelompokkan di path: `app/api/v1/kunjungan/[id]/asesmen/<fitur>/route.ts`.
+  - **Helper lintas-domain** (mis. [`services/actorName.ts`](../src/lib/services/actorName.ts) untuk resolve nama pencatat dari actor) tetap di **akar** layer-nya, BUKAN di dalam folder tab.
+  - Langkah §7 di atas berlaku sama — hanya jalur file yang berubah (`<domain>` → `<tab>/<fitur>`).
+
+  Contoh nyata sudah dimigrasi: tab **Asesmen Medis** → `lib/{schemas,dal,services,api}/asesmenMedis/` (anamnesis + 5 pane riwayat).
+
 ---
 
 ## 8. File kanonik (salin dari sini) + anti-pattern
@@ -222,6 +244,8 @@ export default async function PenggunaPage() {
 | Schema (Zod+DTO mirror) | [schemas/ruangan.ts](../src/lib/schemas/ruangan.ts) |
 | DB singleton + tx | [db/prisma.ts](../src/lib/db/prisma.ts) |
 | Auth seam | [auth/actor.ts](../src/lib/auth/actor.ts) |
+| **Domain baru = folder-per-tab** (§7.1) | [schemas/asesmenMedis/anamnesis.ts](../src/lib/schemas/asesmenMedis/anamnesis.ts) · [services/asesmenMedis/anamnesisService.ts](../src/lib/services/asesmenMedis/anamnesisService.ts) · [api/asesmenMedis/anamnesis.ts](../src/lib/api/asesmenMedis/anamnesis.ts) |
+| Helper lintas-domain (akar layer) | [services/actorName.ts](../src/lib/services/actorName.ts) |
 
 **Anti-pattern (jangan):**
 - ❌ `try/catch` atau `NextResponse.json` manual di Route — pakai `route()` + `reply()`.

@@ -136,9 +136,14 @@ model Kunjungan {
   bedAllocations BedAllocation[]
 
   // ── Klinis (schema medicalrecord; menggantung via kunjunganId) ──
-  triase      Triase[]
-  observation Observation[]
-  anamnesis   Anamnesis[]
+  triase                Triase[]
+  observation           Observation[]
+  anamnesis             Anamnesis[]
+  asesmenPenyakitDahulu AsesmenPenyakitDahulu[]
+  asesmenGayaHidup      AsesmenGayaHidup[]
+  asesmenFaktorResiko   AsesmenFaktorResiko[]
+  asesmenTuberkulosis   AsesmenTuberkulosis[]
+  asesmenGinekologi     AsesmenGinekologi[]
 
   // ── Tautan invoice (1:1, dibuat saat Registered→Queued) ──
   invoiceId String? @unique @map("invoice_id") @db.Uuid // FK→billing.Invoice saat siap
