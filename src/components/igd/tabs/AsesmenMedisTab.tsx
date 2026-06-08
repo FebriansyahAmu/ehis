@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Pill, Utensils, ShieldAlert, AlertTriangle,
   Trash2, Plus, CheckCircle2, HelpCircle, ShieldCheck,
   Check, X, ChevronDown, FileText, Sparkles,
-  ClipboardList, History, Salad, BookOpen,
+  ClipboardList, History, Salad, BookOpen, Loader2, User,
   type LucideIcon,
 } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
@@ -14,6 +14,10 @@ import { cn } from "@/lib/utils";
 import EdukasiPane from "@/components/igd/tabs/EdukasiPane";
 import GiziPane    from "@/components/shared/asesmen/GiziPane";
 import { RUTE_OBAT } from "@/components/shared/asesmen/asesmenShared";
+import { getAnamnesis, saveAnamnesis, type AnamnesisDTO } from "@/lib/api/anamnesis";
+import { useSession } from "@/contexts/SessionContext";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
 
 // ── Shared compact primitives ─────────────────────────────
 
@@ -313,9 +317,33 @@ interface AnamnesisIGDForm {
   obatSaatIni: string;
 }
 
+// id kunjungan DB = UUID; id demo/mock ("igd-1") tak tersimpan ke DB.
+const ANAMNESIS_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const anamnesisDone = (f: AnamnesisIGDForm) =>
+  f.keluhanUtama.trim().length > 3 && f.rps.trim().length > 10 && f.statusGeneralis.trim().length > 3;
+
+// DB DTO → form (map balik `faktorPeringan` server → key form FE `faktorPemerut`).
+function dtoToAnamnesisForm(d: AnamnesisDTO): AnamnesisIGDForm {
+  return {
+    sumberAnamnesis: d.sumberAnamnesis,
+    keluhanUtama: d.keluhanUtama,
+    rps: d.rps,
+    onsetDurasi: d.onsetDurasi ?? "",
+    mekanismeCedera: d.mekanismeCedera ?? "",
+    faktorPemberat: d.faktorPemberat ?? "",
+    faktorPemerut: d.faktorPeringan ?? "",
+    statusGeneralis: d.statusGeneralis,
+    obatSaatIni: d.obatSaatIni ?? "",
+  };
+}
+
 function AnamnesisPane({
   patient, onComplete,
 }: { patient: IGDPatientDetail; onComplete?: (done: boolean) => void }) {
+  const { session } = useSession();
+  const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
+
   const [form, setForm] = useState<AnamnesisIGDForm>({
     sumberAnamnesis: "Pasien",
     keluhanUtama: patient.complaint,
@@ -327,12 +355,15 @@ function AnamnesisPane({
     statusGeneralis: patient.pemeriksaanFisikUmum,
     obatSaatIni: patient.obatSaatIni ?? "",
   });
+  const [loading, setLoading] = useState(isPersisted);
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
 
   function set<K extends keyof AnamnesisIGDForm>(k: K, v: AnamnesisIGDForm[K]) {
     const updated = { ...form, [k]: v };
     setForm(updated);
-    const done = updated.keluhanUtama.trim().length > 3 && updated.rps.trim().length > 10 && updated.statusGeneralis.trim().length > 3;
-    onComplete?.(done);
+    onComplete?.(anamnesisDone(updated));
   }
 
   function applyTemplate(t: IGDTemplate) {
@@ -347,7 +378,64 @@ function AnamnesisPane({
       statusGeneralis: t.statusGeneralis,
     };
     setForm(updated);
-    onComplete?.(updated.keluhanUtama.length > 3 && updated.rps.length > 10);
+    onComplete?.(anamnesisDone(updated));
+  }
+
+  // Muat anamnesis terbaru dari DB (kunjungan nyata). Mock → form awal dari patient.
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    setLoading(true);
+    (async () => {
+      try {
+        const dto = await getAnamnesis(patient.id, ac.signal);
+        if (ac.signal.aborted) return;
+        if (dto) {
+          const f = dtoToAnamnesisForm(dto);
+          setForm(f);
+          setSavedAt(dto.createdAt);
+          onComplete?.(anamnesisDone(f));
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError(e instanceof ApiError ? e.message : "Gagal memuat anamnesis.");
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, [patient.id, isPersisted, onComplete]);
+
+  async function handleSave() {
+    if (saving) return;
+    if (!isPersisted) { setError("Pasien demo — anamnesis tidak tersimpan ke database."); return; }
+    const sumber = form.sumberAnamnesis;
+    if (!sumber) { setError("Pilih Sumber Anamnesis."); return; }
+    if (!form.keluhanUtama.trim() || !form.rps.trim() || !form.statusGeneralis.trim()) {
+      setError("Lengkapi field wajib: Keluhan Utama, RPS, dan Status Generalis."); return;
+    }
+    setSaving(true); setError(null);
+    try {
+      const dto = await saveAnamnesis(patient.id, {
+        sumberAnamnesis: sumber,
+        keluhanUtama: form.keluhanUtama,
+        rps: form.rps,
+        onsetDurasi: form.onsetDurasi,
+        mekanismeCedera: form.mekanismeCedera,
+        faktorPemberat: form.faktorPemberat,
+        faktorPeringan: form.faktorPemerut, // map key FE → kontrak server
+        statusGeneralis: form.statusGeneralis,
+        obatSaatIni: form.obatSaatIni,
+      });
+      setForm(dtoToAnamnesisForm(dto));
+      setSavedAt(dto.createdAt);
+      onComplete?.(true);
+      toast.success("Asesmen anamnesis tersimpan", `${patient.name} · tercatat ke rekam medis.`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Gagal menyimpan anamnesis.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -355,6 +443,12 @@ function AnamnesisPane({
 
       {/* ── Left: form ── */}
       <div className="flex flex-col gap-3 md:flex-1 md:min-w-0">
+
+        {loading && (
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+            <Loader2 size={13} className="animate-spin" /> Memuat anamnesis dari rekam medis…
+          </div>
+        )}
 
         {/* Sumber anamnesis — IGD-specific: siapa yang memberi keterangan */}
         <div className="flex flex-wrap gap-2">
@@ -415,11 +509,36 @@ function AnamnesisPane({
           <p className="text-[11px] text-slate-400">Riwayat obat lengkap dengan indikasi ada di sub-tab Riwayat Medis.</p>
         </Block>
 
-        <div className="flex justify-end">
-          <button type="button"
-            className="rounded-lg bg-sky-600 px-5 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-sky-700">
-            Simpan Anamnesis
-          </button>
+        <div className="flex flex-col items-end gap-2 pt-1">
+          {error && (
+            <div role="alert" className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-700">
+              <AlertTriangle size={13} className="shrink-0" /> {error}
+            </div>
+          )}
+          {!error && savedAt && (
+            <div className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700">
+              <Check size={13} className="shrink-0" /> Tersimpan · {savedAt.slice(0, 16).replace("T", " ")} WIB
+            </div>
+          )}
+          {!isPersisted && !error && (
+            <p className="text-[11px] text-amber-600">Pasien demo — perubahan tidak tersimpan ke database.</p>
+          )}
+          <div className="flex items-center gap-3">
+            {isPersisted && (
+              <span className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                <User size={12} className="text-slate-400" />
+                Dicatat oleh <span className="font-semibold text-slate-700">{session?.namaTampil ?? "—"}</span>
+              </span>
+            )}
+            <button type="button" onClick={handleSave} disabled={saving}
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-5 py-2 text-xs font-medium text-white shadow-sm transition",
+                saving ? "cursor-not-allowed bg-slate-300" : "bg-sky-600 hover:bg-sky-700",
+              )}>
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+              {saving ? "Menyimpan…" : "Simpan Anamnesis"}
+            </button>
+          </div>
         </div>
       </div>
 

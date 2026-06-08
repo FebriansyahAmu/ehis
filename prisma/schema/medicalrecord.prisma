@@ -189,3 +189,46 @@ model Observation {
   @@map("observation")
   @@schema("medicalrecord")
 }
+
+// ── Anamnesis (Asesmen Medis · sub: Anamnesis) ────────────────────────────────
+//  Asesmen medis awal (AP 1.1) — keluhan + RPS + status generalis + obat saat ini.
+//  Append-only "latest wins" (mirip Triase, ≈1 baris/kunjungan): dilakukan saat intake,
+//  koreksi = baris baru; latest by createdAt = berlaku. Field mirror AnamnesisIGDForm
+//  (AsesmenMedisTab.tsx > AnamnesisPane). Shared lintas unit — vocab terkontrol (sumber
+//  anamnesis) disimpan String (precedent). Pemeriksa = nama user login (dari actor).
+
+model Anamnesis {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Spine (FK riil, same DB / cross-schema ke encounter) ──
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Sumber & keluhan ──
+  sumberAnamnesis String @map("sumber_anamnesis") // Pasien/Keluarga/Pengantar/Rekam Medis
+  keluhanUtama    String @map("keluhan_utama")
+  rps             String @map("riwayat_penyakit_sekarang")
+
+  // ── Karakter keluhan (opsional) ──
+  onsetDurasi     String? @map("onset_durasi")
+  mekanismeCedera String? @map("mekanisme_cedera") // relevan bila trauma
+  faktorPemberat  String? @map("faktor_pemberat")
+  faktorPeringan  String? @map("faktor_peringan") // FE form key `faktorPemerut` (typo) → di-map saat wiring
+
+  // ── Status generalis & obat ──
+  statusGeneralis String  @map("status_generalis") // keadaan umum (pemeriksaan fisik lengkap = domain Assessment lain)
+  obatSaatIni     String? @map("obat_saat_ini") // snapshot bebas (riwayat obat lengkap = domain Riwayat)
+
+  // ── Pemeriksa + author (dari actor) ──
+  pemeriksa       String  // nama denormalisasi pencatat (dari user login)
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (append-only: tanpa updatedAt/soft-delete; version utk konsistensi) ──
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt]) // ambil baris terbaru per kunjungan
+  @@map("anamnesis")
+  @@schema("medicalrecord")
+}

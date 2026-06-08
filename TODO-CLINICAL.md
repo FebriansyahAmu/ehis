@@ -38,13 +38,13 @@ Tab ≠ tabel. Banyak tab = view berbeda atas domain yang sama; komponen `shared
 Urutan persis seperti di [IGDRecordTabs.tsx](src/components/igd/IGDRecordTabs.tsx) (Rekam Medis 13 + Layanan 6). **FE 19/19 ✅** (mock). Yang dilacak di sini = **backend**: kolom **BE** (schema+DAL+service+endpoint, ~Fase A) & **Wiring** (resolver + tab konsumsi DB, ~Fase B/C).
 Legenda: 🟢 selesai · 🟡 sebagian · ⬜ belum.
 
-**Status global backend: 2/19 dimulai** (Triase BE ✅ + wiring tab ✅; Observation/TTV BE ✅ + wiring tab ✅; sisa Fase C modal/board + 17 tab lain ⬜).
+**Status global backend: 3/19 dimulai** (Triase BE ✅ + wiring tab ✅; Observation/TTV BE ✅ + wiring tab ✅; Asesmen Medis BE 🟡 — sub-menu Anamnesis BE+wiring ✅, sisa sub ⬜; sisa Fase C/wiring + 16 tab lain ⬜).
 
 | #   | Tab (grup)               | Domain target     | FE  | BE  | Wiring | Catatan                                              |
 | --- | ------------------------ | ----------------- | --- | --- | ------ | ---------------------------------------------------- |
 | 1   | **Triase** (RM)          | Triase            | ✅  | 🟢  | 🟡     | Fase A ✅ + Fase B tab ✅; sisa Fase C (modal/board)  |
 | 2   | **TTV** (RM)             | Observation       | ✅  | 🟢  | 🟢     | Fase A ✅ (schema+endpoint) + Fase B ✅ (wiring TTVTab) |
-| 3   | **Asesmen Medis** (RM)   | Assessment        | ✅  | ⬜  | ⬜     | narasi + riwayat/alergi                              |
+| 3   | **Asesmen Medis** (RM)   | Assessment        | ✅  | 🟡  | 🟡     | sub Anamnesis BE+wiring ✅; Riwayat/Alergi/Gizi/Edukasi ⬜ |
 | 4   | **Diagnosa** (RM)        | Condition         | ✅  | ⬜  | ⬜     | ICD-10; dibutuhkan billing/e-klaim                   |
 | 5   | **CPPT / SOAP** (RM)     | CPPT              | ✅  | ⬜  | ⬜     | append-only + co-sign DPJP → domain ke-3             |
 | 6   | **Tindakan IGD** (RM)    | Procedure         | ✅  | ⬜  | ⬜     | ICD-9-CM; trigger charge billing                     |
@@ -150,6 +150,35 @@ Legenda: 🟢 selesai · 🟡 sebagian · ⬜ belum.
 - [x] **B1** Wrapper [igd/tabs/TTVTab.tsx](src/components/igd/tabs/TTVTab.tsx) self-fetch `listObservasi(patient.id)` saat mount bila UUID → seed `history` + `vitalSigns`/`statusKesadaran` dari item terbaru; loading banner; pasien mock → teruskan `patient.ttvHistory` (perilaku demo).
 - [x] **B2** Shared [TTVTab](src/components/shared/medical-records/TTVTab.tsx) +prop opsional `onSave(payload)→Promise<RITTVRecord>` + `recordedBy` (+`TTVSavePayload`): bila diberi → mode DB (persist via `recordObservasi`, pakai record terpersist utk state, toast sukses/gagal, tombol loading); **field "Nama Perawat" jadi read-only "Dicatat oleh: <user login>"** (`recordedBy` dari `useSession().namaTampil`) — bukan free-text. Tanpa `onSave` → perilaku in-memory lama (RI/RJ mock dipertahankan, tak ada regresi). IGD wrapper rakit `waktuObservasi` dari jam observasi + tanggal lokal; shift IGD diturunkan backend dari jam, RI kirim shift terpilih.
 - **DoD B:** ✅ `tsc` bersih · ✅ `eslint` bersih. Endpoint unit-agnostik → RI/RJ tinggal pasang `onSave` serupa saat dibutuhkan. ⏳ verifikasi in-browser (login superadmin): catat TTV dari tab pasien IGD DB → muncul di timeline + tersimpan; reload konsisten.
+
+---
+
+## Domain 3 — ASSESSMENT (Asesmen Medis) 🚧
+
+Tab **Asesmen Medis** = 5 sub-menu ([AsesmenMedisTab.tsx](src/components/igd/tabs/AsesmenMedisTab.tsx)): **Anamnesis** · Riwayat Medis · Alergi · Skrining Gizi · Edukasi. Dikerjakan **per sub-menu** (tabel terpisah, bukan satu blob) — mulai dari Anamnesis.
+
+### Sub 3.1 — ANAMNESIS · Fase A (schema → endpoint) ✅ SELESAI (2026-06-09)
+
+**Model `medicalrecord.Anamnesis`** (append-only "latest wins" ≈1 baris/kunjungan, keyed `kunjunganId`, shared IGD/RI/RJ): asesmen medis awal (AP 1.1) — dilakukan saat intake, koreksi = baris baru, latest by `createdAt` = berlaku.
+
+- [x] **A1** [medicalrecord.prisma](prisma/schema/medicalrecord.prisma) — model `Anamnesis` (+ relasi balik `anamnesis Anamnesis[]` di `Kunjungan`). Kolom mirror `AnamnesisIGDForm` ([AnamnesisPane](src/components/igd/tabs/AsesmenMedisTab.tsx)): `sumberAnamnesis` · `keluhanUtama` · `rps` · `onsetDurasi?` · `mekanismeCedera?` · `faktorPemberat?` · `faktorPeringan?` · `statusGeneralis` · `obatSaatIni?` + `pemeriksa`/author. `sumberAnamnesis` = `TEXT` (vocab terkontrol divalidasi Zod).
+- [x] **A2** migration `20260609120000_init_anamnesis` (tabel + index `(kunjungan_id, created_at)` + FK→`encounter.kunjungan` cascade). Applied via `migrate deploy` + `generate`.
+- [x] **A3** Zod [`src/lib/schemas/anamnesis.ts`](src/lib/schemas/anamnesis.ts) — `SumberAnamnesis` enum · `AnamnesisInput` (wajib: sumber/keluhan/RPS/status generalis; sisanya opsional) · `AnamnesisDTO` mirror FE. **`faktorPeringan` membetulkan typo form FE `faktorPemerut`** → di-map saat wiring. `rps` (abbr. baku) dipertahankan.
+- [x] **A4** DAL [`src/lib/dal/anamnesisDal.ts`](src/lib/dal/anamnesisDal.ts) — `create(tx?)` · `latestByKunjungan(tx?)`.
+- [x] **A5** Service [`src/lib/services/anamnesisService.ts`](src/lib/services/anamnesisService.ts) — `save` (append) · `getLatest` · validasi kunjungan ada (tanpa batasan unit, shared) · **`pemeriksa` diturunkan dari user login (actor→pegawai)**, bukan free-text.
+- [x] **A6** Endpoint [`src/app/api/v1/kunjungan/[id]/anamnesis/route.ts`](src/app/api/v1/kunjungan/[id]/anamnesis/route.ts) — `GET` (`clinical.igd:read`) + `POST` 201 (`clinical.igd:create`). Client [`src/lib/api/anamnesis.ts`](src/lib/api/anamnesis.ts).
+- **DoD A:** ✅ `tsc` bersih · ✅ `migrate status` up-to-date · ✅ `eslint` 0 error (1 warning `_actor` — sama precedent, sengaja utk ABAC). ⏳ smoke HTTP butuh dev server + token.
+- ⚠️ **Follow-up RBAC:** di-gate `clinical.igd` (mirror Triase/TTV) — asesmen **shared** RI/RJ; gate yang benar (perm baru / per-unit) sebelum akun klinis live. Tak memblok sekarang (superadmin OK).
+
+### Sub 3.1 — ANAMNESIS · Fase B (wiring AnamnesisPane) ✅ SELESAI (2026-06-09)
+
+- [x] **B1** [AnamnesisPane](src/components/igd/tabs/AsesmenMedisTab.tsx) self-fetch `getAnamnesis(patient.id)` saat mount bila UUID → seed form via `dtoToAnamnesisForm` (map `dto.faktorPeringan → form.faktorPemerut`); loading banner; pasien mock (non-UUID) → form awal dari `patient.*` (perilaku demo). `onComplete` = `setDoneAnamnesis` (setState stabil → aman di effect deps).
+- [x] **B2** Tombol "Simpan Anamnesis" → `saveAnamnesis` (map `form.faktorPemerut → faktorPeringan`); guard field wajib (sumber/keluhan/RPS/status generalis); toast sukses; state loading/saving/error/savedAt; **nama pemeriksa read-only "Dicatat oleh: <user login>"** dari `useSession().namaTampil`; pasien demo → blok simpan + banner.
+- **DoD B:** ✅ `tsc` bersih · ✅ `eslint` bersih (1 warning pre-existing `TI` unused, tak terkait). ⏳ verifikasi in-browser (login superadmin): isi & simpan anamnesis pasien IGD DB → reload tetap terisi; progress header sub-tab "Anamnesis" jadi hijau.
+
+### Sub 3.2–3.5 (Riwayat Medis · Alergi · Skrining Gizi · Edukasi) — ⬜ BELUM
+
+> Sub-pane Riwayat (PenyakitDahulu/Obat/Lainnya/FaktorResiko/Keluarga/TBC/Ginekologi/Perawatan/Obstetri), Alergi, Skrining Gizi (MUST), Edukasi — masing-masing tabel/endpoint terpisah, slice berikutnya.
 
 ---
 
