@@ -26,6 +26,7 @@ import { getGinekologi, saveGinekologi } from "@/lib/api/asesmenMedis/asesmenGin
 import { getPerawatan, savePerawatan } from "@/lib/api/asesmenMedis/asesmenPerawatan";
 import { getObstetri, saveObstetri } from "@/lib/api/asesmenMedis/asesmenObstetri";
 import { getAlergi, addAlergi, deleteAlergi, setAlergiNka, type AlergiItemDTO } from "@/lib/api/asesmenMedis/asesmenAlergi";
+import { getAsesmenRingkasan } from "@/lib/api/asesmenMedis/ringkasan";
 import { useSession } from "@/contexts/SessionContext";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
@@ -2695,6 +2696,7 @@ function AllergyPane({ patient, onComplete }: { patient: IGDPatientDetail; onCom
 
 export default function AsesmenMedisTab({ patient }: { patient: IGDPatientDetail }) {
   const { session } = useSession();
+  const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
   const [active,  setActive]  = useState<SubTabId>("anamnesis");
   const [prevTab, setPrevTab] = useState<SubTabId>("anamnesis");
 
@@ -2702,13 +2704,37 @@ export default function AsesmenMedisTab({ patient }: { patient: IGDPatientDetail
   const [doneRiwayat,   setDoneRiwayat]   = useState(false);
   const [doneAlergi,    setDoneAlergi]    = useState(false);
   const [doneGizi,      setDoneGizi]      = useState(false);
+  const [doneEdukasi,   setDoneEdukasi]   = useState(false);
+
+  // Ringkasan status semua sub-menu dalam 1 panggilan saat tab dibuka → progress +
+  // indikator hijau SubNav langsung akurat tanpa harus membuka tiap sub-tab dulu.
+  // Best-effort: bila gagal, pane tetap memuat detail (dan men-set done) saat dibuka.
+  // Hanya kunjungan DB (UUID); pasien demo (mock) di-skip.
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    (async () => {
+      try {
+        const r = await getAsesmenRingkasan(patient.id, ac.signal);
+        if (ac.signal.aborted) return;
+        setDoneAnamnesis(r.anamnesis);
+        setDoneRiwayat(r.riwayat);
+        setDoneAlergi(r.alergi);
+        setDoneGizi(r.skrining);
+        setDoneEdukasi(r.edukasi);
+      } catch {
+        /* diam — ringkasan opsional, tak menghalangi pengisian sub-tab */
+      }
+    })();
+    return () => ac.abort();
+  }, [patient.id, isPersisted]);
 
   const DONE_MAP: Record<SubTabId, boolean> = {
     anamnesis: doneAnamnesis,
     riwayat:   doneRiwayat,
     alergi:    doneAlergi,
     skrining:  doneGizi,
-    edukasi:   false,
+    edukasi:   doneEdukasi,
   };
 
   const doneCount  = Object.values(DONE_MAP).filter(Boolean).length;
