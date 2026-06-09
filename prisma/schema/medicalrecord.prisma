@@ -379,3 +379,198 @@ model AsesmenGinekologi {
   @@map("asesmen_ginekologi")
   @@schema("medicalrecord")
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  RIWAYAT MEDIS — pane berdaftar (parent + child snapshot, pola Triase+TriaseCriteria).
+//  Append-only "latest wins": tiap simpan = parent baru + children-nya; latest by
+//  createdAt = berlaku. Children = snapshot baris saat simpan (urut `urutan`).
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Pemberian Obat ────────────────────────────────────────────────────────────
+model AsesmenObat {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  pemeriksa       String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  items AsesmenObatItem[]
+
+  @@index([kunjunganId, createdAt])
+  @@map("asesmen_obat")
+  @@schema("medicalrecord")
+}
+
+model AsesmenObatItem {
+  id            String      @id @default(uuid(7)) @db.Uuid
+  asesmenObatId String      @map("asesmen_obat_id") @db.Uuid
+  asesmenObat   AsesmenObat @relation(fields: [asesmenObatId], references: [id], onDelete: Cascade)
+
+  nama      String
+  dosis     String?
+  frekuensi String?
+  rute      String?
+  sejak     String?
+  indikasi  String?
+  urutan    Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([asesmenObatId])
+  @@map("asesmen_obat_item")
+  @@schema("medicalrecord")
+}
+
+// ── Penyakit Keluarga (per anggota keluarga) ──────────────────────────────────
+model AsesmenPenyakitKeluarga {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  riwayatLain String? @map("riwayat_lain") // catatan herediter/genetik bebas
+
+  pemeriksa       String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  items AsesmenPenyakitKeluargaItem[]
+
+  @@index([kunjunganId, createdAt])
+  @@map("asesmen_penyakit_keluarga")
+  @@schema("medicalrecord")
+}
+
+model AsesmenPenyakitKeluargaItem {
+  id                        String                  @id @default(uuid(7)) @db.Uuid
+  asesmenPenyakitKeluargaId String                  @map("asesmen_penyakit_keluarga_id") @db.Uuid
+  asesmenPenyakitKeluarga   AsesmenPenyakitKeluarga @relation(fields: [asesmenPenyakitKeluargaId], references: [id], onDelete: Cascade)
+
+  anggota    String // Ayah/Ibu/Kakak/…
+  penyakit   String[] // penyakit tercentang utk anggota itu
+  keterangan String?
+  urutan     Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([asesmenPenyakitKeluargaId])
+  @@map("asesmen_penyakit_keluarga_item")
+  @@schema("medicalrecord")
+}
+
+// ── Perawatan & Tindakan (2 daftar: rawat inap + pembedahan) ──────────────────
+model AsesmenPerawatan {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  pemeriksa       String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  rawatItems      AsesmenRawatInapItem[]
+  pembedahanItems AsesmenPembedahanItem[]
+
+  @@index([kunjunganId, createdAt])
+  @@map("asesmen_perawatan")
+  @@schema("medicalrecord")
+}
+
+model AsesmenRawatInapItem {
+  id                String           @id @default(uuid(7)) @db.Uuid
+  asesmenPerawatanId String          @map("asesmen_perawatan_id") @db.Uuid
+  asesmenPerawatan  AsesmenPerawatan @relation(fields: [asesmenPerawatanId], references: [id], onDelete: Cascade)
+
+  rs         String?
+  unit       String?
+  tanggal    String? // FE date input → simpan string
+  diagnosa   String?
+  keterangan String?
+  urutan     Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([asesmenPerawatanId])
+  @@map("asesmen_rawat_inap_item")
+  @@schema("medicalrecord")
+}
+
+model AsesmenPembedahanItem {
+  id                 String           @id @default(uuid(7)) @db.Uuid
+  asesmenPerawatanId String           @map("asesmen_perawatan_id") @db.Uuid
+  asesmenPerawatan   AsesmenPerawatan @relation(fields: [asesmenPerawatanId], references: [id], onDelete: Cascade)
+
+  tanggal    String?
+  tindakan   String?
+  rs         String?
+  dokter     String?
+  keterangan String?
+  urutan     Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([asesmenPerawatanId])
+  @@map("asesmen_pembedahan_item")
+  @@schema("medicalrecord")
+}
+
+// ── Obstetri (KB + GPA + ANC scalar; persalinan = daftar) ─────────────────────
+model AsesmenObstetri {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  metodeKb     String? @map("metode_kb")
+  kbSejak      String? @map("kb_sejak")
+  kbKeterangan String? @map("kb_keterangan")
+  gravida      String?
+  para         String?
+  abortus      String?
+  ancKunjungan     String? @map("anc_kunjungan")
+  ancUsiaKehamilan String? @map("anc_usia_kehamilan")
+  ancTempat        String? @map("anc_tempat")
+  ancPetugas       String? @map("anc_petugas")
+  ancCatatan       String? @map("anc_catatan")
+
+  pemeriksa       String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  persalinanItems AsesmenPersalinanItem[]
+
+  @@index([kunjunganId, createdAt])
+  @@map("asesmen_obstetri")
+  @@schema("medicalrecord")
+}
+
+model AsesmenPersalinanItem {
+  id                String          @id @default(uuid(7)) @db.Uuid
+  asesmenObstetriId String          @map("asesmen_obstetri_id") @db.Uuid
+  asesmenObstetri   AsesmenObstetri @relation(fields: [asesmenObstetriId], references: [id], onDelete: Cascade)
+
+  tahun         String?
+  usiaKehamilan String?  @map("usia_kehamilan")
+  jenis         String?
+  bbLahir       String?  @map("bb_lahir")
+  kondisiAnak   String?  @map("kondisi_anak")
+  keterangan    String?
+  urutan        Int      @default(0)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([asesmenObstetriId])
+  @@map("asesmen_persalinan_item")
+  @@schema("medicalrecord")
+}

@@ -185,19 +185,19 @@ Tab **Asesmen Medis** = 5 sub-menu ([AsesmenMedisTab.tsx](src/components/igd/tab
 | # | Pane | Tabel | Bentuk | BE | Wiring |
 |---|---|---|---|---|---|
 | 1 | Penyakit Dahulu | `asesmen_penyakit_dahulu` | single (penyakit `text[]` + catatan) | ✅ | ⬜ |
-| 2 | Pemberian Obat | `asesmen_obat` (+item) | list | ⬜ | ⬜ |
+| 2 | Pemberian Obat | `asesmen_obat` (+item) | list | ✅ | ⬜ |
 | 3 | Lainnya (merokok/paparan/gaya hidup) | `asesmen_gaya_hidup` | single | ✅ | ⬜ |
 | 4 | Faktor Resiko | `asesmen_faktor_resiko` | single (2× `text[]`) | ✅ | ⬜ |
-| 5 | Penyakit Keluarga | `asesmen_penyakit_keluarga` (+item) | list/anggota | ⬜ | ⬜ |
+| 5 | Penyakit Keluarga | `asesmen_penyakit_keluarga` (+item) | list/anggota | ✅ | ⬜ |
 | 6 | Tuberkulosis | `asesmen_tuberkulosis` | single | ✅ | ⬜ |
 | 7 | Ginekologi | `asesmen_ginekologi` | single | ✅ | ⬜ |
-| 8 | Perawatan & Tindakan | `asesmen_perawatan` + `asesmen_pembedahan` | 2 list | ⬜ | ⬜ |
-| 9 | Obstetri | `asesmen_obstetri` (+persalinan item) | single+list | ⬜ | ⬜ |
+| 8 | Perawatan & Tindakan | `asesmen_perawatan` (+rawat & pembedahan item) | 2 list | ✅ | ⬜ |
+| 9 | Obstetri | `asesmen_obstetri` (+persalinan item) | single+list | ✅ | ⬜ |
 
 - [x] **Pane 1 — Penyakit Dahulu · Fase A** ✅ (2026-06-09) — model `AsesmenPenyakitDahulu` + migration `20260609130000_init_asesmen_penyakit_dahulu` + Zod/DAL/Service/Route/Client. Pakai helper `resolveActorNama`. `tsc`+`migrate` ✅. Wiring ⬜.
 - [x] **Batch 1 — Pane 3·4·6·7 single-record · Fase A** ✅ (2026-06-09) — Gaya Hidup · Faktor Resiko · Tuberkulosis · Ginekologi. Migration `20260609140000_init_asesmen_riwayat_single` (4 tabel) + Zod/DAL/Service/Route/Client per pane (endpoint `/kunjungan/:id/asesmen/{gaya-hidup,faktor-resiko,tuberkulosis,ginekologi}`). Field opsional (form tanpa wajib); `boolean` nullish (YesNoRadio bisa null). `tsc`+`migrate` ✅. Wiring ⬜.
-- [ ] **Batch 2 — Pane 2·5·8·9 list · Fase A** — Pemberian Obat · Penyakit Keluarga · Perawatan&Pembedahan · Obstetri (parent+child snapshot, pola Triase).
-- [ ] **Wiring** tiap pane di `RiwayatPane` (Fase B) — menyusul per batch.
+- [x] **Batch 2 — Pane 2·5·8·9 list · Fase A** ✅ (2026-06-09) — Pemberian Obat · Penyakit Keluarga · Perawatan&Pembedahan · Obstetri. **Parent + child snapshot** (pola Triase+TriaseCriteria), append-only "latest wins", nested-create atomik (tanpa transaction eksplisit). Migration `20260609150000_init_asesmen_riwayat_list` (9 tabel: 4 parent + 5 child). Zod/DAL/Service/Route/Client di `asesmenMedis/` (endpoint `/kunjungan/:id/asesmen/{obat,penyakit-keluarga,perawatan,obstetri}`). `tsc`+`migrate` ✅. **→ Riwayat Medis BE 9/9 pane SELESAI.**
+- [ ] **Wiring** tiap pane di `RiwayatPane` (Fase B) — menyusul; map nama field FE↔DTO (mis. Obstetri `kbKet→kbKeterangan`, `ancUsia→ancUsiaKehamilan`, `ancKet→ancCatatan`, `usiaKeh→usiaKehamilan`; Perawatan list `rawat`/`bedah`).
 
 ### Sub 3.3–3.5 (Alergi · Skrining Gizi · Edukasi) — ⬜ BELUM
 
