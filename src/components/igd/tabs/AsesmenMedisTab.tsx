@@ -15,6 +15,15 @@ import EdukasiPane from "@/components/igd/tabs/EdukasiPane";
 import GiziPane    from "@/components/shared/asesmen/GiziPane";
 import { RUTE_OBAT } from "@/components/shared/asesmen/asesmenShared";
 import { getAnamnesis, saveAnamnesis, type AnamnesisDTO } from "@/lib/api/asesmenMedis/anamnesis";
+import { getPenyakitDahulu, savePenyakitDahulu } from "@/lib/api/asesmenMedis/asesmenPenyakitDahulu";
+import { getObat, saveObat } from "@/lib/api/asesmenMedis/asesmenObat";
+import { getGayaHidup, saveGayaHidup } from "@/lib/api/asesmenMedis/asesmenGayaHidup";
+import { getFaktorResiko, saveFaktorResiko } from "@/lib/api/asesmenMedis/asesmenFaktorResiko";
+import { getPenyakitKeluarga, savePenyakitKeluarga } from "@/lib/api/asesmenMedis/asesmenPenyakitKeluarga";
+import { getTuberkulosis, saveTuberkulosis } from "@/lib/api/asesmenMedis/asesmenTuberkulosis";
+import { getGinekologi, saveGinekologi } from "@/lib/api/asesmenMedis/asesmenGinekologi";
+import { getPerawatan, savePerawatan } from "@/lib/api/asesmenMedis/asesmenPerawatan";
+import { getObstetri, saveObstetri } from "@/lib/api/asesmenMedis/asesmenObstetri";
 import { useSession } from "@/contexts/SessionContext";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
@@ -58,24 +67,6 @@ function TA({ label, value, onChange, placeholder, rows = 2, required }: {
         readOnly={!onChange}
         placeholder={placeholder}
         className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
-      />
-    </div>
-  );
-}
-
-function TI({ label, value, onChange, placeholder, required }: {
-  label: string; value: string; onChange?: (v: string) => void;
-  placeholder?: string; required?: boolean;
-}) {
-  return (
-    <div>
-      <Label required={required}>{label}</Label>
-      <input
-        type="text" value={value}
-        onChange={onChange ? (e) => onChange(e.target.value) : undefined}
-        readOnly={!onChange}
-        placeholder={placeholder}
-        className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
       />
     </div>
   );
@@ -576,12 +567,46 @@ function AnamnesisPane({
 // RIWAYAT — shared primitives
 // ─────────────────────────────────────────────────────────
 
-function SaveRwyBtn() {
+// Footer simpan ter-wire DB untuk sub-pane Riwayat: status error/tersimpan +
+// "Dicatat oleh" (dari user login) + tombol simpan dengan loading. Dipakai
+// lintas pane Riwayat yang sudah di-wire ke backend (pola sama Anamnesis).
+function SaveRwyFooter({
+  isPersisted, saving, error, savedAt, recordedBy, onSave, label = "Simpan",
+}: {
+  isPersisted: boolean; saving: boolean; error: string | null; savedAt: string | null;
+  recordedBy?: string; onSave: () => void; label?: string;
+}) {
   return (
-    <div className="flex justify-end pt-1">
-      <button type="button" className="rounded-lg bg-sky-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-sky-700 active:scale-95">
-        Simpan
-      </button>
+    <div className="flex flex-col items-end gap-2 pt-1">
+      {error && (
+        <div role="alert" className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-700">
+          <AlertTriangle size={13} className="shrink-0" /> {error}
+        </div>
+      )}
+      {!error && savedAt && (
+        <div className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700">
+          <Check size={13} className="shrink-0" /> Tersimpan · {savedAt.slice(0, 16).replace("T", " ")} WIB
+        </div>
+      )}
+      {!isPersisted && !error && (
+        <p className="text-[11px] text-amber-600">Pasien demo — perubahan tidak tersimpan ke database.</p>
+      )}
+      <div className="flex items-center gap-3">
+        {isPersisted && (
+          <span className="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <User size={12} className="text-slate-400" />
+            Dicatat oleh <span className="font-semibold text-slate-700">{recordedBy ?? "—"}</span>
+          </span>
+        )}
+        <button type="button" onClick={onSave} disabled={saving}
+          className={cn(
+            "flex items-center gap-2 rounded-lg px-5 py-2 text-xs font-medium text-white shadow-sm transition",
+            saving ? "cursor-not-allowed bg-slate-300" : "bg-sky-600 hover:bg-sky-700",
+          )}>
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+          {saving ? "Menyimpan…" : label}
+        </button>
+      </div>
     </div>
   );
 }
@@ -643,12 +668,68 @@ const PENYAKIT_DAHULU_LIST = [
   "Reumatoid Artritis", "Lupus (SLE)", "Thalasemia / Anemia Kronis",
 ];
 
-function PenyakitDahuluPane({ patient }: { patient: IGDPatientDetail }) {
+function PenyakitDahuluPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved?: () => void }) {
+  const { session } = useSession();
+  const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
+
   const [checked, setChecked] = useState<string[]>([]);
   const [catatan, setCatatan] = useState(patient.riwayatPenyakitDahulu ?? "");
+  const [loading, setLoading] = useState(isPersisted);
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+
   const toggle = (p: string) => setChecked(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
+
+  // Muat riwayat penyakit dahulu terbaru dari DB (kunjungan nyata).
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    setLoading(true);
+    (async () => {
+      try {
+        const dto = await getPenyakitDahulu(patient.id, ac.signal);
+        if (ac.signal.aborted) return;
+        if (dto) {
+          setChecked(dto.penyakit);
+          setCatatan(dto.catatan ?? "");
+          setSavedAt(dto.createdAt);
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError(e instanceof ApiError ? e.message : "Gagal memuat riwayat penyakit dahulu.");
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, [patient.id, isPersisted]);
+
+  async function handleSave() {
+    if (saving) return;
+    if (!isPersisted) { setError("Pasien demo — data tidak tersimpan ke database."); return; }
+    setSaving(true); setError(null);
+    try {
+      const dto = await savePenyakitDahulu(patient.id, { penyakit: checked, catatan });
+      setChecked(dto.penyakit);
+      setCatatan(dto.catatan ?? "");
+      setSavedAt(dto.createdAt);
+      toast.success("Riwayat penyakit dahulu tersimpan", `${patient.name} · tercatat ke rekam medis.`);
+      onSaved?.();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Gagal menyimpan riwayat penyakit dahulu.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+          <Loader2 size={13} className="animate-spin" /> Memuat riwayat penyakit dahulu…
+        </div>
+      )}
       <Block title="Penyakit yang Pernah Diderita">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {PENYAKIT_DAHULU_LIST.map(p => (
@@ -660,22 +741,87 @@ function PenyakitDahuluPane({ patient }: { patient: IGDPatientDetail }) {
         <TA label="Detail / Catatan" value={catatan} onChange={setCatatan} rows={3}
           placeholder="Tahun diagnosis, kondisi saat ini, komplikasi yang pernah terjadi..." />
       </Block>
-      <SaveRwyBtn />
+      <SaveRwyFooter
+        isPersisted={isPersisted} saving={saving} error={error} savedAt={savedAt}
+        recordedBy={session?.namaTampil} onSave={handleSave} label="Simpan Riwayat Penyakit"
+      />
     </div>
   );
 }
 
 interface ObatEntry { id: string; nama: string; dosis: string; frekuensi: string; rute: string; sejak: string; indikasi: string; }
 
-function PemberianObatPane() {
-  const [obats, setObats] = useState<ObatEntry[]>([
-    { id: "ob-1", nama: "", dosis: "", frekuensi: "", rute: "Oral", sejak: "", indikasi: "" },
-  ]);
-  const add = () => setObats(p => [...p, { id: `ob-${Date.now()}`, nama: "", dosis: "", frekuensi: "", rute: "Oral", sejak: "", indikasi: "" }]);
+const EMPTY_OBAT = (): ObatEntry => ({ id: `ob-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, nama: "", dosis: "", frekuensi: "", rute: "Oral", sejak: "", indikasi: "" });
+
+function PemberianObatPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved?: () => void }) {
+  const { session } = useSession();
+  const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
+
+  const [obats, setObats] = useState<ObatEntry[]>([{ id: "ob-1", nama: "", dosis: "", frekuensi: "", rute: "Oral", sejak: "", indikasi: "" }]);
+  const [loading, setLoading] = useState(isPersisted);
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  const add = () => setObats(p => [...p, EMPTY_OBAT()]);
   const rem = (id: string) => setObats(p => p.filter(e => e.id !== id));
   const upd = (id: string, k: keyof ObatEntry, v: string) => setObats(p => p.map(e => e.id === id ? { ...e, [k]: v } : e));
+
+  // Muat daftar obat terbaru dari DB (kunjungan nyata).
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    setLoading(true);
+    (async () => {
+      try {
+        const dto = await getObat(patient.id, ac.signal);
+        if (ac.signal.aborted) return;
+        if (dto && dto.items.length) {
+          setObats(dto.items.map(it => ({
+            id: it.id, nama: it.nama, dosis: it.dosis ?? "", frekuensi: it.frekuensi ?? "",
+            rute: it.rute ?? "Oral", sejak: it.sejak ?? "", indikasi: it.indikasi ?? "",
+          })));
+          setSavedAt(dto.createdAt);
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError(e instanceof ApiError ? e.message : "Gagal memuat daftar obat.");
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, [patient.id, isPersisted]);
+
+  async function handleSave() {
+    if (saving) return;
+    if (!isPersisted) { setError("Pasien demo — data tidak tersimpan ke database."); return; }
+    const items = obats.filter(o => o.nama.trim()).map(o => ({
+      nama: o.nama, dosis: o.dosis, frekuensi: o.frekuensi, rute: o.rute, sejak: o.sejak, indikasi: o.indikasi,
+    }));
+    setSaving(true); setError(null);
+    try {
+      const dto = await saveObat(patient.id, { items });
+      setObats(dto.items.length
+        ? dto.items.map(it => ({ id: it.id, nama: it.nama, dosis: it.dosis ?? "", frekuensi: it.frekuensi ?? "", rute: it.rute ?? "Oral", sejak: it.sejak ?? "", indikasi: it.indikasi ?? "" }))
+        : [EMPTY_OBAT()]);
+      setSavedAt(dto.createdAt);
+      toast.success("Riwayat obat tersimpan", `${patient.name} · ${dto.items.length} obat tercatat.`);
+      onSaved?.();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Gagal menyimpan riwayat obat.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+          <Loader2 size={13} className="animate-spin" /> Memuat daftar obat…
+        </div>
+      )}
       <Block title="Daftar Obat yang Sedang / Pernah Diminum">
         <div className="flex flex-col gap-3">
           {obats.map((ob, i) => (
@@ -722,21 +868,85 @@ function PemberianObatPane() {
           </button>
         </div>
       </Block>
-      <SaveRwyBtn />
+      <SaveRwyFooter
+        isPersisted={isPersisted} saving={saving} error={error} savedAt={savedAt}
+        recordedBy={session?.namaTampil} onSave={handleSave} label="Simpan Riwayat Obat"
+      />
     </div>
   );
 }
 
 type SmokingStatus = "ya" | "tidak" | "mantan";
 
-function LainnyaPane() {
+function LainnyaPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved?: () => void }) {
+  const { session } = useSession();
+  const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
+
   const [merokok, setMerokok] = useState<SmokingStatus | null>(null);
   const [batang, setBatang] = useState(""); const [merokokSejak, setMerokokSejak] = useState(""); const [berhentiSejak, setBerhentiSejak] = useState("");
   const [paparanAsap, setPaparanAsap] = useState<boolean | null>(null);
   const [paparanDetail, setPaparanDetail] = useState("");
   const [catatan, setCatatan] = useState("");
+  const [loading, setLoading] = useState(isPersisted);
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    setLoading(true);
+    (async () => {
+      try {
+        const dto = await getGayaHidup(patient.id, ac.signal);
+        if (ac.signal.aborted) return;
+        if (dto) {
+          setMerokok((dto.merokokStatus as SmokingStatus | null) ?? null);
+          setBatang(dto.rokokPerHari ?? "");
+          setMerokokSejak(dto.merokokSejak ?? "");
+          setBerhentiSejak(dto.berhentiSejak ?? "");
+          setPaparanAsap(dto.paparanAsap);
+          setPaparanDetail(dto.paparanDetail ?? "");
+          setCatatan(dto.catatan ?? "");
+          setSavedAt(dto.createdAt);
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError(e instanceof ApiError ? e.message : "Gagal memuat data gaya hidup.");
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, [patient.id, isPersisted]);
+
+  async function handleSave() {
+    if (saving) return;
+    if (!isPersisted) { setError("Pasien demo — data tidak tersimpan ke database."); return; }
+    setSaving(true); setError(null);
+    try {
+      const dto = await saveGayaHidup(patient.id, {
+        merokokStatus: merokok ?? undefined,
+        rokokPerHari: batang, merokokSejak, berhentiSejak,
+        paparanAsap, paparanDetail, catatan,
+      });
+      setSavedAt(dto.createdAt);
+      toast.success("Gaya hidup tersimpan", `${patient.name} · tercatat ke rekam medis.`);
+      onSaved?.();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Gagal menyimpan data gaya hidup.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+          <Loader2 size={13} className="animate-spin" /> Memuat data gaya hidup…
+        </div>
+      )}
       <Block title="Status Merokok">
         <div className="flex flex-col gap-3">
           <div>
@@ -795,7 +1005,10 @@ function LainnyaPane() {
         <TA label="Catatan" value={catatan} onChange={setCatatan} rows={3}
           placeholder="Konsumsi alkohol, pola makan, aktivitas fisik, pola tidur, dll..." />
       </Block>
-      <SaveRwyBtn />
+      <SaveRwyFooter
+        isPersisted={isPersisted} saving={saving} error={error} savedAt={savedAt}
+        recordedBy={session?.namaTampil} onSave={handleSave} label="Simpan Gaya Hidup"
+      />
     </div>
   );
 }
@@ -811,13 +1024,69 @@ const PERILAKU_BERESIKO = [
   "Pola Makan Tidak Sehat", "Kurang Tidur (< 6 jam/hari)", "Stres Berat / Kronis",
 ];
 
-function FaktorResikoPane() {
+function FaktorResikoPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved?: () => void }) {
+  const { session } = useSession();
+  const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
+
   const [penyakitB, setPenyakitB] = useState<string[]>([]); const [penyakitLain, setPenyakitLain] = useState("");
   const [perilakuB, setPerilakuB] = useState<string[]>([]); const [perilakuLain, setPerilakuLain] = useState("");
+  const [loading, setLoading] = useState(isPersisted);
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
   const tP = (v: string) => setPenyakitB(p => p.includes(v) ? p.filter(x => x !== v) : [...p, v]);
   const tB = (v: string) => setPerilakuB(p => p.includes(v) ? p.filter(x => x !== v) : [...p, v]);
+
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    setLoading(true);
+    (async () => {
+      try {
+        const dto = await getFaktorResiko(patient.id, ac.signal);
+        if (ac.signal.aborted) return;
+        if (dto) {
+          setPenyakitB(dto.penyakit);
+          setPenyakitLain(dto.penyakitLain ?? "");
+          setPerilakuB(dto.perilaku);
+          setPerilakuLain(dto.perilakuLain ?? "");
+          setSavedAt(dto.createdAt);
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError(e instanceof ApiError ? e.message : "Gagal memuat faktor resiko.");
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, [patient.id, isPersisted]);
+
+  async function handleSave() {
+    if (saving) return;
+    if (!isPersisted) { setError("Pasien demo — data tidak tersimpan ke database."); return; }
+    setSaving(true); setError(null);
+    try {
+      const dto = await saveFaktorResiko(patient.id, {
+        penyakit: penyakitB, penyakitLain, perilaku: perilakuB, perilakuLain,
+      });
+      setSavedAt(dto.createdAt);
+      toast.success("Faktor resiko tersimpan", `${patient.name} · tercatat ke rekam medis.`);
+      onSaved?.();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Gagal menyimpan faktor resiko.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+          <Loader2 size={13} className="animate-spin" /> Memuat faktor resiko…
+        </div>
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
         <Block title="Penyakit Beresiko">
           <div className="flex flex-col gap-1.5">
@@ -838,7 +1107,10 @@ function FaktorResikoPane() {
           </div>
         </Block>
       </div>
-      <SaveRwyBtn />
+      <SaveRwyFooter
+        isPersisted={isPersisted} saving={saving} error={error} savedAt={savedAt}
+        recordedBy={session?.namaTampil} onSave={handleSave} label="Simpan Faktor Resiko"
+      />
     </div>
   );
 }
@@ -850,13 +1122,78 @@ const PENYAKIT_KELUARGA_LIST = [
 const ANGGOTA_KELUARGA = ["Ayah", "Ibu", "Kakak / Adik", "Kakek (Paternal)", "Nenek (Paternal)", "Kakek (Maternal)", "Nenek (Maternal)"];
 interface KeluargaEntry { anggota: string; penyakit: string[]; keterangan: string; }
 
-function PenyakitKeluargaPane({ patient }: { patient: IGDPatientDetail }) {
+function PenyakitKeluargaPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved?: () => void }) {
+  const { session } = useSession();
+  const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
+
   const [entries, setEntries] = useState<KeluargaEntry[]>(ANGGOTA_KELUARGA.map(a => ({ anggota: a, penyakit: [], keterangan: "" })));
   const [riwayatLain, setRiwayatLain] = useState(patient.riwayatKeluarga ?? "");
+  const [loading, setLoading] = useState(isPersisted);
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
   const toggleP = (idx: number, p: string) => setEntries(prev => prev.map((e, i) => i !== idx ? e : { ...e, penyakit: e.penyakit.includes(p) ? e.penyakit.filter(x => x !== p) : [...e.penyakit, p] }));
   const setKet = (idx: number, v: string) => setEntries(prev => prev.map((e, i) => i !== idx ? e : { ...e, keterangan: v }));
+
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    setLoading(true);
+    (async () => {
+      try {
+        const dto = await getPenyakitKeluarga(patient.id, ac.signal);
+        if (ac.signal.aborted) return;
+        if (dto) {
+          const byName = new Map(dto.items.map(it => [it.anggota, it]));
+          setEntries(ANGGOTA_KELUARGA.map(a => {
+            const it = byName.get(a);
+            return { anggota: a, penyakit: it?.penyakit ?? [], keterangan: it?.keterangan ?? "" };
+          }));
+          setRiwayatLain(dto.riwayatLain ?? "");
+          setSavedAt(dto.createdAt);
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError(e instanceof ApiError ? e.message : "Gagal memuat riwayat penyakit keluarga.");
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, [patient.id, isPersisted]);
+
+  async function handleSave() {
+    if (saving) return;
+    if (!isPersisted) { setError("Pasien demo — data tidak tersimpan ke database."); return; }
+    const items = entries
+      .filter(e => e.penyakit.length || e.keterangan.trim())
+      .map(e => ({ anggota: e.anggota, penyakit: e.penyakit, keterangan: e.keterangan }));
+    setSaving(true); setError(null);
+    try {
+      const dto = await savePenyakitKeluarga(patient.id, { riwayatLain, items });
+      const byName = new Map(dto.items.map(it => [it.anggota, it]));
+      setEntries(ANGGOTA_KELUARGA.map(a => {
+        const it = byName.get(a);
+        return { anggota: a, penyakit: it?.penyakit ?? [], keterangan: it?.keterangan ?? "" };
+      }));
+      setRiwayatLain(dto.riwayatLain ?? "");
+      setSavedAt(dto.createdAt);
+      toast.success("Riwayat penyakit keluarga tersimpan", `${patient.name} · tercatat ke rekam medis.`);
+      onSaved?.();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Gagal menyimpan riwayat penyakit keluarga.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+          <Loader2 size={13} className="animate-spin" /> Memuat riwayat penyakit keluarga…
+        </div>
+      )}
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 bg-slate-50/60 px-4 py-3">
           <span className="text-xs font-semibold text-slate-700">Riwayat Penyakit per Anggota Keluarga</span>
@@ -885,12 +1222,18 @@ function PenyakitKeluargaPane({ patient }: { patient: IGDPatientDetail }) {
         <TA label="Keterangan" value={riwayatLain} onChange={setRiwayatLain} rows={3}
           placeholder="Pola herediter, penyakit genetik, riwayat lainnya..." />
       </Block>
-      <SaveRwyBtn />
+      <SaveRwyFooter
+        isPersisted={isPersisted} saving={saving} error={error} savedAt={savedAt}
+        recordedBy={session?.namaTampil} onSave={handleSave} label="Simpan Riwayat Keluarga"
+      />
     </div>
   );
 }
 
-function TuberkulosisPane() {
+function TuberkulosisPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved?: () => void }) {
+  const { session } = useSession();
+  const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
+
   const [riwayatTBC, setRiwayatTBC] = useState<boolean | null>(null);
   const [tahun, setTahun] = useState(""); const [statusOAT, setStatusOAT] = useState("");
   const [penunjang, setPenunjang] = useState(""); const [kontakTBC, setKontakTBC] = useState<boolean | null>(null);
@@ -898,8 +1241,70 @@ function TuberkulosisPane() {
   const [sputumDilakukan, setSputumDilakukan] = useState<boolean | null>(null);
   const [sputumHasil, setSputumHasil] = useState(""); const [sputumGrade, setSputumGrade] = useState("");
   const [catatan, setCatatan] = useState("");
+  const [loading, setLoading] = useState(isPersisted);
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    setLoading(true);
+    (async () => {
+      try {
+        const dto = await getTuberkulosis(patient.id, ac.signal);
+        if (ac.signal.aborted) return;
+        if (dto) {
+          setRiwayatTBC(dto.riwayatTbc);
+          setTahun(dto.tahunPengobatan ?? "");
+          setStatusOAT(dto.statusOat ?? "");
+          setKontakTBC(dto.kontakTbc);
+          setPenunjang(dto.penunjang ?? "");
+          setTcmDilakukan(dto.tcmDilakukan);
+          setTcmHasil(dto.tcmHasil ?? "");
+          setSputumDilakukan(dto.sputumDilakukan);
+          setSputumHasil(dto.sputumHasil ?? "");
+          setSputumGrade(dto.sputumGrade ?? "");
+          setCatatan(dto.catatan ?? "");
+          setSavedAt(dto.createdAt);
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError(e instanceof ApiError ? e.message : "Gagal memuat riwayat tuberkulosis.");
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, [patient.id, isPersisted]);
+
+  async function handleSave() {
+    if (saving) return;
+    if (!isPersisted) { setError("Pasien demo — data tidak tersimpan ke database."); return; }
+    setSaving(true); setError(null);
+    try {
+      const dto = await saveTuberkulosis(patient.id, {
+        riwayatTbc: riwayatTBC, tahunPengobatan: tahun, statusOat: statusOAT,
+        kontakTbc: kontakTBC, penunjang,
+        tcmDilakukan, tcmHasil, sputumDilakukan, sputumHasil, sputumGrade, catatan,
+      });
+      setSavedAt(dto.createdAt);
+      toast.success("Riwayat tuberkulosis tersimpan", `${patient.name} · tercatat ke rekam medis.`);
+      onSaved?.();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Gagal menyimpan riwayat tuberkulosis.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+          <Loader2 size={13} className="animate-spin" /> Memuat riwayat tuberkulosis…
+        </div>
+      )}
       <Block title="Riwayat Penyakit Tuberkulosis">
         <div className="flex flex-col gap-3">
           <div>
@@ -995,19 +1400,82 @@ function TuberkulosisPane() {
         </div>
         <TA label="Catatan Pemeriksaan TBC" value={catatan} onChange={setCatatan} rows={2} placeholder="Hasil lab, klinis, rencana follow-up..." />
       </Block>
-      <SaveRwyBtn />
+      <SaveRwyFooter
+        isPersisted={isPersisted} saving={saving} error={error} savedAt={savedAt}
+        recordedBy={session?.namaTampil} onSave={handleSave} label="Simpan Riwayat TBC"
+      />
     </div>
   );
 }
 
-function GinekologiPane() {
+function GinekologiPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved?: () => void }) {
+  const { session } = useSession();
+  const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
+
   const [statusMens, setStatusMens] = useState(""); const [hpht, setHpht] = useState(""); const [siklus, setSiklus] = useState(""); const [lama, setLama] = useState("");
   const [dismenorea, setDismenorea] = useState<boolean | null>(null); const [menoragia, setMenoragia] = useState<boolean | null>(null); const [keputihan, setKeputihan] = useState<boolean | null>(null);
   const [papSmear, setPapSmear] = useState<boolean | null>(null); const [papTahun, setPapTahun] = useState(""); const [papHasil, setPapHasil] = useState("");
   const [iva, setIva] = useState<boolean | null>(null); const [ivaTahun, setIvaTahun] = useState(""); const [ivaHasil, setIvaHasil] = useState("");
   const [catatan, setCatatan] = useState("");
+  const [loading, setLoading] = useState(isPersisted);
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    setLoading(true);
+    (async () => {
+      try {
+        const dto = await getGinekologi(patient.id, ac.signal);
+        if (ac.signal.aborted) return;
+        if (dto) {
+          setStatusMens(dto.statusMenstruasi ?? "");
+          setHpht(dto.hpht ?? ""); setSiklus(dto.siklus ?? ""); setLama(dto.lamaMenstruasi ?? "");
+          setDismenorea(dto.dismenorea); setMenoragia(dto.menoragia); setKeputihan(dto.keputihan);
+          setPapSmear(dto.papSmear); setPapTahun(dto.papTahun ?? ""); setPapHasil(dto.papHasil ?? "");
+          setIva(dto.iva); setIvaTahun(dto.ivaTahun ?? ""); setIvaHasil(dto.ivaHasil ?? "");
+          setCatatan(dto.catatan ?? "");
+          setSavedAt(dto.createdAt);
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError(e instanceof ApiError ? e.message : "Gagal memuat riwayat ginekologi.");
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, [patient.id, isPersisted]);
+
+  async function handleSave() {
+    if (saving) return;
+    if (!isPersisted) { setError("Pasien demo — data tidak tersimpan ke database."); return; }
+    setSaving(true); setError(null);
+    try {
+      const dto = await saveGinekologi(patient.id, {
+        statusMenstruasi: statusMens, hpht, siklus, lamaMenstruasi: lama,
+        dismenorea, menoragia, keputihan,
+        papSmear, papTahun, papHasil, iva, ivaTahun, ivaHasil, catatan,
+      });
+      setSavedAt(dto.createdAt);
+      toast.success("Riwayat ginekologi tersimpan", `${patient.name} · tercatat ke rekam medis.`);
+      onSaved?.();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Gagal menyimpan riwayat ginekologi.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+          <Loader2 size={13} className="animate-spin" /> Memuat riwayat ginekologi…
+        </div>
+      )}
       <Block title="Riwayat Menstruasi">
         <div className="flex flex-col gap-3">
           <div>
@@ -1072,7 +1540,10 @@ function GinekologiPane() {
         <TA label="Keterangan" value={catatan} onChange={setCatatan} rows={3}
           placeholder="Riwayat gangguan ginekologi, terapi hormonal, kontrasepsi, dll..." />
       </Block>
-      <SaveRwyBtn />
+      <SaveRwyFooter
+        isPersisted={isPersisted} saving={saving} error={error} savedAt={savedAt}
+        recordedBy={session?.namaTampil} onSave={handleSave} label="Simpan Riwayat Ginekologi"
+      />
     </div>
   );
 }
@@ -1080,17 +1551,84 @@ function GinekologiPane() {
 interface RawatEntry  { id: string; rs: string; unit: string; tanggal: string; diagnosa: string; keterangan: string; }
 interface BedahEntry  { id: string; tanggal: string; tindakan: string; rs: string; dokter: string; keterangan: string; }
 
-function PerawatanTindakanPane() {
+const EMPTY_RAWAT = (): RawatEntry => ({ id: `rw-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, rs: "", unit: "", tanggal: "", diagnosa: "", keterangan: "" });
+const EMPTY_BEDAH = (): BedahEntry => ({ id: `bd-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, tanggal: "", tindakan: "", rs: "", dokter: "", keterangan: "" });
+
+function PerawatanTindakanPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved?: () => void }) {
+  const { session } = useSession();
+  const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
+
   const [rawats, setRawats] = useState<RawatEntry[]>([{ id: "rw-1", rs: "", unit: "", tanggal: "", diagnosa: "", keterangan: "" }]);
   const [bedahs, setBedahs]  = useState<BedahEntry[]>([]);
-  const addR = () => setRawats(p => [...p, { id: `rw-${Date.now()}`, rs: "", unit: "", tanggal: "", diagnosa: "", keterangan: "" }]);
+  const [loading, setLoading] = useState(isPersisted);
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const addR = () => setRawats(p => [...p, EMPTY_RAWAT()]);
   const remR = (id: string) => setRawats(p => p.filter(e => e.id !== id));
   const updR = (id: string, k: keyof RawatEntry, v: string) => setRawats(p => p.map(e => e.id === id ? { ...e, [k]: v } : e));
-  const addB = () => setBedahs(p => [...p, { id: `bd-${Date.now()}`, tanggal: "", tindakan: "", rs: "", dokter: "", keterangan: "" }]);
+  const addB = () => setBedahs(p => [...p, EMPTY_BEDAH()]);
   const remB = (id: string) => setBedahs(p => p.filter(e => e.id !== id));
   const updB = (id: string, k: keyof BedahEntry, v: string) => setBedahs(p => p.map(e => e.id === id ? { ...e, [k]: v } : e));
+
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    setLoading(true);
+    (async () => {
+      try {
+        const dto = await getPerawatan(patient.id, ac.signal);
+        if (ac.signal.aborted) return;
+        if (dto) {
+          setRawats(dto.rawat.length
+            ? dto.rawat.map(it => ({ id: it.id, rs: it.rs ?? "", unit: it.unit ?? "", tanggal: it.tanggal ?? "", diagnosa: it.diagnosa ?? "", keterangan: it.keterangan ?? "" }))
+            : [EMPTY_RAWAT()]);
+          setBedahs(dto.bedah.map(it => ({ id: it.id, tanggal: it.tanggal ?? "", tindakan: it.tindakan ?? "", rs: it.rs ?? "", dokter: it.dokter ?? "", keterangan: it.keterangan ?? "" })));
+          setSavedAt(dto.createdAt);
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError(e instanceof ApiError ? e.message : "Gagal memuat riwayat perawatan.");
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, [patient.id, isPersisted]);
+
+  async function handleSave() {
+    if (saving) return;
+    if (!isPersisted) { setError("Pasien demo — data tidak tersimpan ke database."); return; }
+    const rawat = rawats
+      .filter(r => r.rs.trim() || r.unit.trim() || r.tanggal.trim() || r.diagnosa.trim() || r.keterangan.trim())
+      .map(r => ({ rs: r.rs, unit: r.unit, tanggal: r.tanggal, diagnosa: r.diagnosa, keterangan: r.keterangan }));
+    const bedah = bedahs
+      .filter(b => b.tanggal.trim() || b.tindakan.trim() || b.rs.trim() || b.dokter.trim() || b.keterangan.trim())
+      .map(b => ({ tanggal: b.tanggal, tindakan: b.tindakan, rs: b.rs, dokter: b.dokter, keterangan: b.keterangan }));
+    setSaving(true); setError(null);
+    try {
+      const dto = await savePerawatan(patient.id, { rawat, bedah });
+      setRawats(dto.rawat.length
+        ? dto.rawat.map(it => ({ id: it.id, rs: it.rs ?? "", unit: it.unit ?? "", tanggal: it.tanggal ?? "", diagnosa: it.diagnosa ?? "", keterangan: it.keterangan ?? "" }))
+        : [EMPTY_RAWAT()]);
+      setBedahs(dto.bedah.map(it => ({ id: it.id, tanggal: it.tanggal ?? "", tindakan: it.tindakan ?? "", rs: it.rs ?? "", dokter: it.dokter ?? "", keterangan: it.keterangan ?? "" })));
+      setSavedAt(dto.createdAt);
+      toast.success("Riwayat perawatan tersimpan", `${patient.name} · ${dto.rawat.length} rawat · ${dto.bedah.length} bedah.`);
+      onSaved?.();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Gagal menyimpan riwayat perawatan.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+          <Loader2 size={13} className="animate-spin" /> Memuat riwayat perawatan…
+        </div>
+      )}
       <Block title="Riwayat Perawatan / Rawat Inap Terakhir">
         <div className="flex flex-col gap-3">
           {rawats.map((r, i) => (
@@ -1137,7 +1675,10 @@ function PerawatanTindakanPane() {
           </button>
         </div>
       </Block>
-      <SaveRwyBtn />
+      <SaveRwyFooter
+        isPersisted={isPersisted} saving={saving} error={error} savedAt={savedAt}
+        recordedBy={session?.namaTampil} onSave={handleSave} label="Simpan Riwayat Perawatan"
+      />
     </div>
   );
 }
@@ -1146,17 +1687,89 @@ const METODE_KB = ["IUD / Spiral", "Pil KB", "Suntik KB", "Implan / Susuk", "Kon
 const JENIS_PERSALINAN = ["Spontan / Normal", "Seksio Sesaria (SC)", "Vakum / Forseps", "Persalinan Prematur", "Sungsang"];
 interface PersalinanEntry { id: string; tahun: string; usiaKeh: string; jenis: string; bbLahir: string; kondisiAnak: string; keterangan: string; }
 
-function ObstetriPane() {
+const EMPTY_PERSALINAN = (): PersalinanEntry => ({ id: `ps-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, tahun: "", usiaKeh: "", jenis: JENIS_PERSALINAN[0], bbLahir: "", kondisiAnak: "", keterangan: "" });
+
+function ObstetriPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved?: () => void }) {
+  const { session } = useSession();
+  const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
+
   const [metodeKB, setMetodeKB]     = useState(""); const [kbSejak, setKbSejak] = useState(""); const [kbKet, setKbKet] = useState("");
   const [gravida, setGravida]       = useState(""); const [para, setPara] = useState(""); const [abortus, setAbortus] = useState("");
   const [persalinans, setPersalinans] = useState<PersalinanEntry[]>([]);
   const [ancKunjungan, setAncKunjungan] = useState(""); const [ancUsia, setAncUsia] = useState("");
   const [ancTempat, setAncTempat]   = useState(""); const [ancPetugas, setAncPetugas] = useState(""); const [ancKet, setAncKet] = useState("");
-  const addPs = () => setPersalinans(p => [...p, { id: `ps-${Date.now()}`, tahun: "", usiaKeh: "", jenis: JENIS_PERSALINAN[0], bbLahir: "", kondisiAnak: "", keterangan: "" }]);
+  const [loading, setLoading] = useState(isPersisted);
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const addPs = () => setPersalinans(p => [...p, EMPTY_PERSALINAN()]);
   const remPs = (id: string) => setPersalinans(p => p.filter(e => e.id !== id));
   const updPs = (id: string, k: keyof PersalinanEntry, v: string) => setPersalinans(p => p.map(e => e.id === id ? { ...e, [k]: v } : e));
+
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    setLoading(true);
+    (async () => {
+      try {
+        const dto = await getObstetri(patient.id, ac.signal);
+        if (ac.signal.aborted) return;
+        if (dto) {
+          setMetodeKB(dto.metodeKb ?? ""); setKbSejak(dto.kbSejak ?? ""); setKbKet(dto.kbKeterangan ?? "");
+          setGravida(dto.gravida ?? ""); setPara(dto.para ?? ""); setAbortus(dto.abortus ?? "");
+          setAncKunjungan(dto.ancKunjungan ?? ""); setAncUsia(dto.ancUsiaKehamilan ?? "");
+          setAncTempat(dto.ancTempat ?? ""); setAncPetugas(dto.ancPetugas ?? ""); setAncKet(dto.ancCatatan ?? "");
+          setPersalinans(dto.persalinan.map(it => ({
+            id: it.id, tahun: it.tahun ?? "", usiaKeh: it.usiaKehamilan ?? "", jenis: it.jenis ?? JENIS_PERSALINAN[0],
+            bbLahir: it.bbLahir ?? "", kondisiAnak: it.kondisiAnak ?? "", keterangan: it.keterangan ?? "",
+          })));
+          setSavedAt(dto.createdAt);
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError(e instanceof ApiError ? e.message : "Gagal memuat riwayat obstetri.");
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, [patient.id, isPersisted]);
+
+  async function handleSave() {
+    if (saving) return;
+    if (!isPersisted) { setError("Pasien demo — data tidak tersimpan ke database."); return; }
+    const persalinan = persalinans
+      .filter(p => p.tahun.trim() || p.usiaKeh.trim() || p.bbLahir.trim() || p.kondisiAnak.trim() || p.keterangan.trim())
+      .map(p => ({ tahun: p.tahun, usiaKehamilan: p.usiaKeh, jenis: p.jenis, bbLahir: p.bbLahir, kondisiAnak: p.kondisiAnak, keterangan: p.keterangan }));
+    setSaving(true); setError(null);
+    try {
+      const dto = await saveObstetri(patient.id, {
+        metodeKb: metodeKB, kbSejak, kbKeterangan: kbKet,
+        gravida, para, abortus,
+        ancKunjungan, ancUsiaKehamilan: ancUsia, ancTempat, ancPetugas, ancCatatan: ancKet,
+        persalinan,
+      });
+      setPersalinans(dto.persalinan.map(it => ({
+        id: it.id, tahun: it.tahun ?? "", usiaKeh: it.usiaKehamilan ?? "", jenis: it.jenis ?? JENIS_PERSALINAN[0],
+        bbLahir: it.bbLahir ?? "", kondisiAnak: it.kondisiAnak ?? "", keterangan: it.keterangan ?? "",
+      })));
+      setSavedAt(dto.createdAt);
+      toast.success("Riwayat obstetri tersimpan", `${patient.name} · tercatat ke rekam medis.`);
+      onSaved?.();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Gagal menyimpan riwayat obstetri.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+          <Loader2 size={13} className="animate-spin" /> Memuat riwayat obstetri…
+        </div>
+      )}
       <Block title="Keluarga Berencana (KB)">
         <div className="flex flex-col gap-3">
           <div>
@@ -1239,7 +1852,10 @@ function ObstetriPane() {
         <TA label="Catatan ANC" value={ancKet} onChange={setAncKet} rows={2}
           placeholder="Komplikasi kehamilan, suplemen, imunisasi TT, USG, dll..." />
       </Block>
-      <SaveRwyBtn />
+      <SaveRwyFooter
+        isPersisted={isPersisted} saving={saving} error={error} savedAt={savedAt}
+        recordedBy={session?.namaTampil} onSave={handleSave} label="Simpan Riwayat Obstetri"
+      />
     </div>
   );
 }
@@ -1258,10 +1874,8 @@ function RiwayatPane({ patient, onComplete }: { patient: IGDPatientDetail; onCom
   const [activeTab, setActiveTab] = useState<RwyTab>("Penyakit Dahulu");
   const [done, setDone] = useState(false);
 
-  function markDone() {
-    setDone(true);
-    onComplete?.(true);
-  }
+  // Riwayat Medis dianggap selesai begitu salah satu dari 9 sub-pane berhasil disimpan.
+  const handleSaved = () => { setDone(true); onComplete?.(true); };
 
   return (
     <div className="flex flex-col gap-3">
@@ -1283,26 +1897,19 @@ function RiwayatPane({ patient, onComplete }: { patient: IGDPatientDetail; onCom
       {/* Pane content */}
       <AnimatePresence mode="wait">
         <motion.div key={activeTab} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.14 }}>
-          {activeTab === "Penyakit Dahulu"      && <PenyakitDahuluPane patient={patient} />}
-          {activeTab === "Pemberian Obat"       && <PemberianObatPane />}
-          {activeTab === "Lainnya"              && <LainnyaPane />}
-          {activeTab === "Faktor Resiko"        && <FaktorResikoPane />}
-          {activeTab === "Penyakit Keluarga"    && <PenyakitKeluargaPane patient={patient} />}
-          {activeTab === "Tuberkulosis"         && <TuberkulosisPane />}
-          {activeTab === "Ginekologi"           && <GinekologiPane />}
-          {activeTab === "Perawatan & Tindakan" && <PerawatanTindakanPane />}
-          {activeTab === "Obstetri"             && <ObstetriPane />}
+          {activeTab === "Penyakit Dahulu"      && <PenyakitDahuluPane patient={patient} onSaved={handleSaved} />}
+          {activeTab === "Pemberian Obat"       && <PemberianObatPane patient={patient} onSaved={handleSaved} />}
+          {activeTab === "Lainnya"              && <LainnyaPane patient={patient} onSaved={handleSaved} />}
+          {activeTab === "Faktor Resiko"        && <FaktorResikoPane patient={patient} onSaved={handleSaved} />}
+          {activeTab === "Penyakit Keluarga"    && <PenyakitKeluargaPane patient={patient} onSaved={handleSaved} />}
+          {activeTab === "Tuberkulosis"         && <TuberkulosisPane patient={patient} onSaved={handleSaved} />}
+          {activeTab === "Ginekologi"           && <GinekologiPane patient={patient} onSaved={handleSaved} />}
+          {activeTab === "Perawatan & Tindakan" && <PerawatanTindakanPane patient={patient} onSaved={handleSaved} />}
+          {activeTab === "Obstetri"             && <ObstetriPane patient={patient} onSaved={handleSaved} />}
         </motion.div>
       </AnimatePresence>
-      {/* Mark done */}
-      {!done ? (
-        <div className="flex justify-end">
-          <button type="button" onClick={markDone}
-            className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-700">
-            <CheckCircle2 size={13} /> Tandai Riwayat Selesai
-          </button>
-        </div>
-      ) : (
+      {/* Status selesai — otomatis saat salah satu sub-pane disimpan */}
+      {done && (
         <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5">
           <CheckCircle2 size={14} className="text-emerald-500" />
           <span className="text-xs font-semibold text-emerald-700">Riwayat Medis selesai diisi</span>
