@@ -1,14 +1,22 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, Zap, FileText, Heart, Plus, CheckCircle2,
   AlertTriangle, User, BookOpen, Activity,
-  X, Calendar, Edit3, Stethoscope,
+  X, Calendar, Edit3, Stethoscope, Loader2, Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { IGDPatientDetail } from "@/lib/data";
+import { useSession } from "@/contexts/SessionContext";
+import ConfirmDialog from "@/components/master/ruangan/ConfirmDialog";
+import { getEdukasiPasienList, recordEdukasiPasien, deleteEdukasiPasien, type EdukasiPasienDTO } from "@/lib/api/asesmenMedis/edukasiPasien";
+import { ApiError } from "@/lib/api/client";
+import { toast } from "@/lib/ui/toastStore";
+
+// id kunjungan DB = UUID; id demo/mock ("igd-1") tak tersimpan ke DB.
+const EDU_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // â”€â”€ Shared primitives â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -208,7 +216,23 @@ const PEMAHAMAN_CFG: Record<Pemahaman, { label: string; active: string; badge: s
   tidak_paham: { label: "Tidak / Belum Paham",     active: "border-rose-400 bg-rose-50 text-rose-700",          badge: "bg-rose-50 text-rose-700 ring-1 ring-rose-200"           },
 };
 
-function PasienKeluargaPane() {
+// DB DTO → EduPKEntry FE (susun teks penerima & waktu utk kartu riwayat).
+function dtoToPKEntry(d: EdukasiPasienDTO): EduPKEntry {
+  const penerima =
+    d.penerima === "Pasien"
+      ? "Pasien"
+      : `${d.penerima}: ${d.namaPenerima ?? ""}${d.hubungan ? ` (${d.hubungan})` : ""}`;
+  const waktu = `${d.tanggal ?? d.createdAt.slice(0, 10)} ${d.jam ?? d.createdAt.slice(11, 16)}`;
+  return {
+    id: d.id, waktu, penerima,
+    topik: d.topik, media: d.media, metode: d.metode ?? "",
+    hambatan: d.hambatan, pemahaman: d.pemahaman, petugas: d.petugas, catatan: d.catatan ?? "",
+  };
+}
+
+function PasienKeluargaPane({ kunjunganId, recordedBy }: { kunjunganId?: string; recordedBy?: string }) {
+  const isPersisted = !!kunjunganId && EDU_UUID_RE.test(kunjunganId);
+
   const [entries, setEntries] = useState<EduPKEntry[]>([]);
   const [form, setForm] = useState({
     penerima:          "Pasien" as "Pasien" | "Keluarga" | "Wali",
@@ -221,18 +245,90 @@ function PasienKeluargaPane() {
     catatanHambatan:   "",
     pemahaman:         "" as Pemahaman | "",
     rencanaTindakLanjut: "",
-    petugas:           "",
+    petugas:           isPersisted ? (recordedBy ?? "") : "",
     tanggal:           new Date().toISOString().split("T")[0],
     waktu:             new Date().toTimeString().slice(0, 5),
     catatan:           "",
   });
+  const [loading, setLoading]       = useState(isPersisted);
+  const [saving, setSaving]         = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+  const [confirmDel, setConfirmDel] = useState<EduPKEntry | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   const setF = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm((p) => ({ ...p, [k]: v }));
 
-  const canAdd = form.topik.length > 0 && form.pemahaman !== "" && form.petugas.trim() !== "";
+  // Mode DB: nama petugas = user login (server derive dari actor); jaga sinkron.
+  useEffect(() => {
+    if (isPersisted && recordedBy) setForm((p) => ({ ...p, petugas: recordedBy }));
+  }, [isPersisted, recordedBy]);
 
-  const handleAdd = () => {
+  // Muat riwayat edukasi dari DB (kunjungan nyata). Mock → kosong (demo lokal).
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    setLoading(true);
+    (async () => {
+      try {
+        const rows = await getEdukasiPasienList(kunjunganId!, ac.signal);
+        if (ac.signal.aborted) return;
+        setEntries(rows.map(dtoToPKEntry));
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError(e instanceof ApiError ? e.message : "Gagal memuat riwayat edukasi.");
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, [kunjunganId, isPersisted]);
+
+  const canAdd = form.topik.length > 0 && form.pemahaman !== "" && form.petugas.trim() !== "" && !saving;
+
+  function resetForm() {
+    setForm((p) => ({
+      ...p,
+      topik: [], media: [], metode: "", hambatan: [], catatanHambatan: "",
+      pemahaman: "", catatan: "", rencanaTindakLanjut: "", namaPenerima: "", hubungan: "",
+      petugas: isPersisted ? (recordedBy ?? "") : "",
+    }));
+  }
+
+  async function handleAdd() {
     if (!canAdd) return;
+
+    // Mode DB: persist 1 catatan (append) → prepend hasil server ke riwayat.
+    if (isPersisted) {
+      setSaving(true); setError(null);
+      try {
+        const dto = await recordEdukasiPasien(kunjunganId!, {
+          penerima: form.penerima,
+          namaPenerima: form.penerima !== "Pasien" ? (form.namaPenerima.trim() || undefined) : undefined,
+          hubungan: form.penerima !== "Pasien" ? (form.hubungan.trim() || undefined) : undefined,
+          topik: form.topik,
+          media: form.media,
+          metode: form.metode || undefined,
+          hambatan: form.hambatan,
+          catatanHambatan: form.catatanHambatan.trim() || undefined,
+          pemahaman: form.pemahaman as Pemahaman,
+          rencanaTindakLanjut: form.rencanaTindakLanjut.trim() || undefined,
+          catatan: form.catatan.trim() || undefined,
+          tanggal: form.tanggal || undefined,
+          jam: form.waktu || undefined,
+        });
+        setEntries((p) => [dtoToPKEntry(dto), ...p]);
+        resetForm();
+        toast.success("Catatan edukasi tersimpan", "Tercatat ke rekam medis.");
+      } catch (e) {
+        setError(e instanceof ApiError ? e.message : "Gagal menyimpan catatan edukasi.");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    // Demo (mock) — lokal saja.
     const penerimaTeks =
       form.penerima === "Pasien"
         ? "Pasien"
@@ -252,17 +348,46 @@ function PasienKeluargaPane() {
       },
       ...p,
     ]);
-    setForm((p) => ({
-      ...p,
-      topik: [], media: [], metode: "", hambatan: [],
-      pemahaman: "", petugas: "", catatan: "", rencanaTindakLanjut: "",
-    }));
-  };
+    resetForm();
+  }
+
+  // Hapus 1 catatan → soft-delete (DELETE), dikonfirmasi via dialog. Mock → hapus lokal.
+  async function confirmDelete() {
+    const target = confirmDel;
+    if (!target || deletingId) return;
+    if (!isPersisted) {
+      setEntries((p) => p.filter((e) => e.id !== target.id));
+      setConfirmDel(null);
+      return;
+    }
+    setDeletingId(target.id); setError(null);
+    try {
+      await deleteEdukasiPasien(kunjunganId!, target.id);
+      setEntries((p) => p.filter((e) => e.id !== target.id));
+      toast.success("Catatan edukasi dihapus", "Dihapus dari rekam medis.");
+      setConfirmDel(null);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Gagal menghapus catatan edukasi.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
       {/* â”€â”€ Form â”€â”€ */}
       <div className="flex flex-col gap-3 lg:flex-1 lg:min-w-0">
+
+        {loading && (
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+            <Loader2 size={13} className="animate-spin" /> Memuat riwayat edukasi…
+          </div>
+        )}
+        {error && (
+          <div role="alert" className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+            <AlertTriangle size={13} className="shrink-0" /> {error}
+          </div>
+        )}
 
         <Block title="Identitas Penerima Edukasi" icon={User} accent="indigo">
           <div>
@@ -367,14 +492,19 @@ function PasienKeluargaPane() {
         </Block>
 
         <Block title="Petugas Pelaksana" accent="slate">
-          <TI label="Nama Petugas / Edukator" required value={form.petugas}
-            onChange={(v) => setF("petugas", v)} placeholder="Nama lengkap + gelar..." />
+          <TI
+            label={isPersisted ? "Nama Petugas / Edukator (user login)" : "Nama Petugas / Edukator"}
+            required={!isPersisted}
+            value={form.petugas}
+            onChange={isPersisted ? undefined : (v) => setF("petugas", v)}
+            placeholder="Nama lengkap + gelar..."
+          />
           <button
             type="button" onClick={handleAdd} disabled={!canAdd}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <Plus size={13} />
-            Simpan Catatan Edukasi
+            {saving ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+            {saving ? "Menyimpan…" : "Simpan Catatan Edukasi"}
           </button>
         </Block>
       </div>
@@ -411,9 +541,18 @@ function PasienKeluargaPane() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <span className="font-mono text-[10px] font-semibold text-slate-400">{e.waktu}</span>
-                      <span className={cn("rounded-md px-2 py-0.5 text-[10px] font-bold", cfg.badge)}>
-                        {cfg.label}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={cn("rounded-md px-2 py-0.5 text-[10px] font-bold", cfg.badge)}>
+                          {cfg.label}
+                        </span>
+                        <button
+                          type="button" onClick={() => setConfirmDel(e)} disabled={deletingId === e.id}
+                          className="shrink-0 rounded-md p-1 text-slate-300 transition hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50"
+                          aria-label="Hapus catatan edukasi"
+                        >
+                          {deletingId === e.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                        </button>
+                      </div>
                     </div>
                     <p className="mt-1.5 text-[11px] font-semibold text-slate-700">{e.penerima}</p>
                     <div className="mt-2 flex flex-wrap gap-1">
@@ -433,6 +572,26 @@ function PasienKeluargaPane() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmDel !== null}
+        kindLabel="Catatan Edukasi"
+        name={confirmDel?.penerima ?? ""}
+        kode={confirmDel?.waktu}
+        icon={BookOpen}
+        busy={deletingId !== null && deletingId === confirmDel?.id}
+        message={
+          <>
+            Catatan edukasi ini akan{" "}
+            <span className="rounded-md bg-rose-50 px-1.5 py-0.5 font-semibold text-rose-600 ring-1 ring-rose-100">
+              dihapus
+            </span>{" "}
+            dari rekam medis kunjungan ini.
+          </>
+        }
+        onConfirm={confirmDelete}
+        onCancel={() => { if (deletingId === null) setConfirmDel(null); }}
+      />
     </div>
   );
 }
@@ -1075,7 +1234,8 @@ const ACTIVE_STYLES: Record<string, string> = {
   rose:   "bg-white text-rose-700 shadow-sm ring-1 ring-slate-200/80",
 };
 
-export default function EdukasiPane(_props: { patient: IGDPatientDetail }) {
+export default function EdukasiPane({ patient }: { patient: IGDPatientDetail }) {
+  const { session } = useSession();
   const [active, setActive] = useState<EduTabKey>("pk");
 
   return (
@@ -1110,7 +1270,7 @@ export default function EdukasiPane(_props: { patient: IGDPatientDetail }) {
           exit={{ opacity: 0, y: -3 }}
           transition={{ duration: 0.15 }}
         >
-          {active === "pk"        && <PasienKeluargaPane />}
+          {active === "pk"        && <PasienKeluargaPane kunjunganId={patient.id} recordedBy={session?.namaTampil} />}
           {active === "emergency" && <EmergencyPane />}
           {active === "eol"       && <EndOfLifePane />}
         </motion.div>

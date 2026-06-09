@@ -674,3 +674,54 @@ model AsesmenGizi {
   @@map("asesmen_gizi")
   @@schema("medicalrecord")
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  ASESMEN MEDIS · sub-menu EDUKASI (HPK 2) — 3 sub-pane: Pasien & Keluarga ·
+//  Emergency · End of Life. Tiap sub-pane = domain/tabel sendiri (prefix asesmen_edukasi_).
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Edukasi Pasien & Keluarga ─────────────────────────────────────────────────
+//  Log edukasi: append-only time-series — BANYAK baris/kunjungan (tiap sesi edukasi =
+//  1 catatan). Mirror EduPKEntry + form PasienKeluargaPane (EdukasiPane.tsx). Field
+//  terstruktur disimpan utuh (medico-legal); FE menyusun teks penerima/waktu utk tampilan.
+model AsesmenEdukasiPasien {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Penerima edukasi ──
+  penerima     String  // Pasien/Keluarga/Wali
+  namaPenerima String? @map("nama_penerima") // bila Keluarga/Wali
+  hubungan     String? // hubungan dgn pasien
+
+  // ── Materi & metode ──
+  topik           String[] // topik edukasi (≥1)
+  media           String[] // media yang digunakan
+  metode          String? // metode penyampaian (tunggal)
+  hambatan        String[] // hambatan komunikasi
+  catatanHambatan String?  @map("catatan_hambatan")
+
+  // ── Evaluasi ──
+  pemahaman           String  // paham/perlu_ulang/tidak_paham
+  rencanaTindakLanjut String? @map("rencana_tindak_lanjut") // bila perlu re-edukasi
+  catatan             String?
+
+  // ── Waktu edukasi (input FE; savedAt = createdAt) ──
+  tanggal String? // date
+  jam     String? // time (field FE `waktu`)
+
+  // ── Petugas/edukator + author (dari actor) ──
+  petugas         String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (append-only + soft-delete medico-legal: hapus = entered-in-error) ──
+  version   Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt]) // riwayat edukasi per kunjungan (terbaru dulu)
+  @@map("asesmen_edukasi_pasien")
+  @@schema("medicalrecord")
+}
