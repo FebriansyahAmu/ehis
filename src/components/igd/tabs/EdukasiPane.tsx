@@ -13,6 +13,7 @@ import { useSession } from "@/contexts/SessionContext";
 import ConfirmDialog from "@/components/master/ruangan/ConfirmDialog";
 import { getEdukasiPasienList, recordEdukasiPasien, deleteEdukasiPasien, type EdukasiPasienDTO } from "@/lib/api/asesmenMedis/edukasiPasien";
 import { getEdukasiEmergencyList, recordEdukasiEmergency, deleteEdukasiEmergency, type EdukasiEmergencyDTO } from "@/lib/api/asesmenMedis/edukasiEmergency";
+import { getEdukasiEol, saveEdukasiEol, addEolMeeting, deleteEolMeeting, type EdukasiEolPlanDTO, type EdukasiEolMeetingDTO } from "@/lib/api/asesmenMedis/edukasiEol";
 import { ApiError } from "@/lib/api/client";
 import { toast } from "@/lib/ui/toastStore";
 
@@ -1032,7 +1033,35 @@ interface FamilyMeeting {
   keputusan: string;
 }
 
-function EndOfLifePane() {
+// DB DTO → FamilyMeeting FE.
+function dtoToEolMeeting(d: EdukasiEolMeetingDTO): FamilyMeeting {
+  return { id: d.id, tanggal: d.tanggal ?? "", peserta: d.peserta, topik: d.topik, keputusan: d.keputusan ?? "" };
+}
+
+// DB care plan DTO → form fields (codeStatus di-set terpisah).
+function planDtoToForm(p: EdukasiEolPlanDTO) {
+  return {
+    alasanKode: p.alasanKode ?? "",
+    pengambilKeputusan: p.pengambilKeputusan as string,
+    namaWali: p.namaWali ?? "",
+    hubunganWali: p.hubunganWali ?? "",
+    kontakWali: p.kontakWali ?? "",
+    advanceDirective: p.advanceDirective,
+    terapiDiinginkan: p.terapiDiinginkan,
+    terapiDitolak: p.terapiDitolak,
+    tujuanPerawatan: p.tujuanPerawatan ?? "",
+    gejalaDitangani: p.gejalaDitangani ?? "",
+    kebutuhanSpiritual: p.kebutuhanSpiritual ?? "",
+    petugasPaliatif: p.petugasPaliatif ?? "",
+    tanggalDNR: p.tanggalDNR ?? "",
+    dokterDNR: p.dokterDNR ?? "",
+    catatanDNR: p.catatanDNR ?? "",
+  };
+}
+
+function EndOfLifePane({ kunjunganId, recordedBy }: { kunjunganId?: string; recordedBy?: string }) {
+  const isPersisted = !!kunjunganId && EDU_UUID_RE.test(kunjunganId);
+
   const [codeStatus, setCodeStatus] = useState<CodeStatus | "">("");
   const [form, setForm] = useState({
     alasanKode:           "",
@@ -1059,11 +1088,121 @@ function EndOfLifePane() {
   const setMF = <K extends keyof typeof mForm>(k: K, v: string) =>
     setMForm((p) => ({ ...p, [k]: v }));
 
-  const addMeeting = () => {
-    if (!mForm.peserta.trim() || !mForm.topik.trim()) return;
-    setMeetings((p) => [{ id: `fm-${Date.now()}`, ...mForm }, ...p]);
-    setMForm({ tanggal: new Date().toISOString().split("T")[0], peserta: "", topik: "", keputusan: "" });
-  };
+  const [loading, setLoading]                 = useState(isPersisted);
+  const [savingPlan, setSavingPlan]           = useState(false);
+  const [savedPlanAt, setSavedPlanAt]         = useState<string | null>(null);
+  const [addingMeeting, setAddingMeeting]     = useState(false);
+  const [confirmDelM, setConfirmDelM]         = useState<FamilyMeeting | null>(null);
+  const [deletingMId, setDeletingMId]         = useState<string | null>(null);
+  const [error, setError]                     = useState<string | null>(null);
+
+  // Muat care plan terbaru + log pertemuan dari DB. Mock → kosong (demo lokal).
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    setLoading(true);
+    (async () => {
+      try {
+        const dto = await getEdukasiEol(kunjunganId!, ac.signal);
+        if (ac.signal.aborted) return;
+        if (dto.plan) {
+          setCodeStatus(dto.plan.codeStatus);
+          setForm(planDtoToForm(dto.plan));
+          setSavedPlanAt(dto.plan.createdAt);
+        }
+        setMeetings(dto.meetings.map(dtoToEolMeeting));
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError(e instanceof ApiError ? e.message : "Gagal memuat rencana perawatan lanjutan.");
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, [kunjunganId, isPersisted]);
+
+  // Simpan care plan (append latest-wins). Mock → tandai tersimpan lokal.
+  async function handleSavePlan() {
+    if (!codeStatus || savingPlan) return;
+    if (!isPersisted) { setSavedPlanAt(new Date().toISOString()); return; }
+    setSavingPlan(true); setError(null);
+    try {
+      const dto = await saveEdukasiEol(kunjunganId!, {
+        codeStatus,
+        alasanKode: form.alasanKode.trim() || undefined,
+        pengambilKeputusan: form.pengambilKeputusan as EdukasiEolPlanDTO["pengambilKeputusan"],
+        namaWali: form.namaWali.trim() || undefined,
+        hubunganWali: form.hubunganWali.trim() || undefined,
+        kontakWali: form.kontakWali.trim() || undefined,
+        advanceDirective: form.advanceDirective,
+        terapiDiinginkan: form.terapiDiinginkan,
+        terapiDitolak: form.terapiDitolak,
+        tujuanPerawatan: form.tujuanPerawatan.trim() || undefined,
+        gejalaDitangani: form.gejalaDitangani.trim() || undefined,
+        kebutuhanSpiritual: form.kebutuhanSpiritual.trim() || undefined,
+        petugasPaliatif: form.petugasPaliatif.trim() || undefined,
+        tanggalDNR: form.tanggalDNR || undefined,
+        dokterDNR: form.dokterDNR.trim() || undefined,
+        catatanDNR: form.catatanDNR.trim() || undefined,
+      });
+      setCodeStatus(dto.codeStatus);
+      setForm(planDtoToForm(dto));
+      setSavedPlanAt(dto.createdAt);
+      toast.success("Rencana perawatan lanjutan tersimpan", "Tercatat ke rekam medis.");
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Gagal menyimpan rencana perawatan lanjutan.");
+    } finally {
+      setSavingPlan(false);
+    }
+  }
+
+  // Tambah 1 pertemuan keluarga → langsung persist (POST). Mock → lokal.
+  async function addMeeting() {
+    if (!mForm.peserta.trim() || !mForm.topik.trim() || addingMeeting) return;
+    if (!isPersisted) {
+      setMeetings((p) => [{ id: `fm-${Date.now()}`, ...mForm }, ...p]);
+      setMForm({ tanggal: new Date().toISOString().split("T")[0], peserta: "", topik: "", keputusan: "" });
+      return;
+    }
+    setAddingMeeting(true); setError(null);
+    try {
+      const dto = await addEolMeeting(kunjunganId!, {
+        tanggal: mForm.tanggal || undefined,
+        peserta: mForm.peserta.trim(),
+        topik: mForm.topik.trim(),
+        keputusan: mForm.keputusan.trim() || undefined,
+      });
+      setMeetings((p) => [dtoToEolMeeting(dto), ...p]);
+      setMForm({ tanggal: new Date().toISOString().split("T")[0], peserta: "", topik: "", keputusan: "" });
+      toast.success("Catatan pertemuan tersimpan", "Tercatat ke rekam medis.");
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Gagal menyimpan catatan pertemuan.");
+    } finally {
+      setAddingMeeting(false);
+    }
+  }
+
+  // Hapus 1 pertemuan → soft-delete (DELETE), dikonfirmasi via dialog. Mock → lokal.
+  async function confirmDeleteMeeting() {
+    const target = confirmDelM;
+    if (!target || deletingMId) return;
+    if (!isPersisted) {
+      setMeetings((p) => p.filter((m) => m.id !== target.id));
+      setConfirmDelM(null);
+      return;
+    }
+    setDeletingMId(target.id); setError(null);
+    try {
+      await deleteEolMeeting(kunjunganId!, target.id);
+      setMeetings((p) => p.filter((m) => m.id !== target.id));
+      toast.success("Catatan pertemuan dihapus", "Dihapus dari rekam medis.");
+      setConfirmDelM(null);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Gagal menghapus catatan pertemuan.");
+    } finally {
+      setDeletingMId(null);
+    }
+  }
 
   const isDNR     = codeStatus === "dnr" || codeStatus === "dnar";
   const isComfort = codeStatus === "comfort_only";
@@ -1085,6 +1224,17 @@ function EndOfLifePane() {
           </p>
         </div>
       </div>
+
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+          <Loader2 size={13} className="animate-spin" /> Memuat rencana perawatan lanjutan…
+        </div>
+      )}
+      {error && (
+        <div role="alert" className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+          <AlertTriangle size={13} className="shrink-0" /> {error}
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-5">
 
@@ -1323,11 +1473,11 @@ function EndOfLifePane() {
                 placeholder="Keputusan bersama yang dicapai dalam pertemuan..." />
               <button
                 type="button" onClick={addMeeting}
-                disabled={!mForm.peserta.trim() || !mForm.topik.trim()}
+                disabled={!mForm.peserta.trim() || !mForm.topik.trim() || addingMeeting}
                 className="flex items-center justify-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 py-2 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100 disabled:opacity-40"
               >
-                <Plus size={11} />
-                Tambah Catatan Pertemuan
+                {addingMeeting ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
+                {addingMeeting ? "Menyimpan…" : "Tambah Catatan Pertemuan"}
               </button>
             </div>
 
@@ -1335,8 +1485,15 @@ function EndOfLifePane() {
               <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
                 {meetings.map((m) => (
                   <div key={m.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-xs">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <span className="font-mono text-[10px] font-semibold text-slate-400">{m.tanggal}</span>
+                      <button
+                        type="button" onClick={() => setConfirmDelM(m)} disabled={deletingMId === m.id}
+                        className="shrink-0 rounded-md p-1 text-slate-300 transition hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50"
+                        aria-label="Hapus catatan pertemuan"
+                      >
+                        {deletingMId === m.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                      </button>
                     </div>
                     <p className="mt-1 text-[11px] font-semibold text-slate-700">{m.topik}</p>
                     <p className="text-[10px] text-slate-400">{m.peserta}</p>
@@ -1348,19 +1505,47 @@ function EndOfLifePane() {
           </Block>
 
           {/* Save */}
+          {isPersisted && savedPlanAt && (
+            <p className="flex items-center justify-end gap-1.5 text-[11px] text-slate-500">
+              <User size={12} className="text-slate-400" />
+              Dicatat oleh <span className="font-semibold text-slate-700">{recordedBy ?? "—"}</span>
+              · tersimpan {savedPlanAt.slice(0, 16).replace("T", " ")}
+            </p>
+          )}
           <button
             type="button"
-            disabled={!codeStatus}
+            onClick={handleSavePlan}
+            disabled={!codeStatus || savingPlan}
             className={cn(
               "flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-semibold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-40",
               needsPalliative ? "bg-rose-600 hover:bg-rose-700" : "bg-indigo-600 hover:bg-indigo-700",
             )}
           >
-            <CheckCircle2 size={13} />
-            Simpan Rencana Perawatan Lanjutan
+            {savingPlan ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+            {savingPlan ? "Menyimpan…" : "Simpan Rencana Perawatan Lanjutan"}
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmDelM !== null}
+        kindLabel="Catatan Pertemuan"
+        name={confirmDelM?.topik ?? ""}
+        kode={confirmDelM?.tanggal}
+        icon={Users}
+        busy={deletingMId !== null && deletingMId === confirmDelM?.id}
+        message={
+          <>
+            Catatan pertemuan keluarga ini akan{" "}
+            <span className="rounded-md bg-rose-50 px-1.5 py-0.5 font-semibold text-rose-600 ring-1 ring-rose-100">
+              dihapus
+            </span>{" "}
+            dari rekam medis kunjungan ini.
+          </>
+        }
+        onConfirm={confirmDeleteMeeting}
+        onCancel={() => { if (deletingMId === null) setConfirmDelM(null); }}
+      />
     </div>
   );
 }
@@ -1422,7 +1607,7 @@ export default function EdukasiPane({ patient }: { patient: IGDPatientDetail }) 
         >
           {active === "pk"        && <PasienKeluargaPane kunjunganId={patient.id} recordedBy={session?.namaTampil} />}
           {active === "emergency" && <EmergencyPane kunjunganId={patient.id} recordedBy={session?.namaTampil} />}
-          {active === "eol"       && <EndOfLifePane />}
+          {active === "eol"       && <EndOfLifePane kunjunganId={patient.id} recordedBy={session?.namaTampil} />}
         </motion.div>
       </AnimatePresence>
     </div>

@@ -761,3 +761,77 @@ model AsesmenEdukasiEmergency {
   @@map("asesmen_edukasi_emergency")
   @@schema("medicalrecord")
 }
+
+// ── Edukasi End of Life — Advance Care Planning (rencana perawatan lanjutan) ───
+//  Care plan = single-record "latest wins" (≈1 baris berlaku/kunjungan; koreksi = baris baru,
+//  latest by createdAt). Mirror form EndOfLifePane (EdukasiPane.tsx). Family meeting = log
+//  terpisah (per-item, tabel sendiri) → tak ikut di-snapshot tiap simpan plan.
+model AsesmenEdukasiEol {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Status kode resusitasi ──
+  codeStatus String  @map("code_status") // full_code/dnr/dnar/comfort_only
+  alasanKode String? @map("alasan_kode")
+
+  // ── Pengambil keputusan / wali ──
+  pengambilKeputusan String  @map("pengambil_keputusan") // Pasien Sendiri / Keluarga / Komite Etik
+  namaWali           String? @map("nama_wali")
+  hubunganWali       String? @map("hubungan_wali")
+  kontakWali         String? @map("kontak_wali")
+  advanceDirective   Boolean @default(false) @map("advance_directive")
+
+  // ── Preferensi terapi ──
+  terapiDiinginkan String[] @map("terapi_diinginkan")
+  terapiDitolak    String[] @map("terapi_ditolak")
+
+  // ── Paliatif ──
+  tujuanPerawatan    String? @map("tujuan_perawatan")
+  gejalaDitangani    String? @map("gejala_ditangani")
+  kebutuhanSpiritual String? @map("kebutuhan_spiritual")
+  petugasPaliatif    String? @map("petugas_paliatif")
+
+  // ── Detail order DNR ──
+  tanggalDNR String? @map("tanggal_dnr")
+  dokterDNR  String? @map("dokter_dnr")
+  catatanDNR String? @map("catatan_dnr")
+
+  // ── Petugas pencatat + author (dari actor) ──
+  petugas         String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt])
+  @@map("asesmen_edukasi_eol")
+  @@schema("medicalrecord")
+}
+
+// ── Log Pertemuan Keluarga (family meeting) — per-item, soft-delete ────────────
+//  Keyed langsung kunjunganId (independen dari versi care plan). Mirror FamilyMeeting.
+model AsesmenEdukasiEolMeeting {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  tanggal   String?
+  peserta   String
+  topik     String
+  keputusan String?
+
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  version   Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt])
+  @@map("asesmen_edukasi_eol_meeting")
+  @@schema("medicalrecord")
+}
