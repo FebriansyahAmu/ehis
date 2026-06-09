@@ -725,3 +725,39 @@ model AsesmenEdukasiPasien {
   @@map("asesmen_edukasi_pasien")
   @@schema("medicalrecord")
 }
+
+// ── Edukasi Emergency (instruksi discharge / follow-up / emergency response) ───
+//  Log: append-only + soft-delete (pola Pasien & Keluarga). Mirror EmergencyEntry + form
+//  EmergencyPane (EdukasiPane.tsx). Field terstruktur disimpan utuh (FE susun waktu tampilan).
+model AsesmenEdukasiEmergency {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  tipe      String // Instruksi Discharge / Follow-up / Emergency Response / …
+  instruksi String // instruksi utama untuk pasien/keluarga
+
+  instruksiObat String? @map("instruksi_obat")
+  diet          String?
+  aktivitas     String?
+
+  tandaBahaya     String[] @map("tanda_bahaya") // kondisi → segera ke IGD
+  followUpDate    String?  @map("follow_up_date")
+  followUpLokasi  String?  @map("follow_up_lokasi")
+  kontakEmergency String?  @map("kontak_emergency")
+  catatan         String?
+
+  // ── Petugas + author (dari actor) ──
+  petugas         String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  version   Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt])
+  @@map("asesmen_edukasi_emergency")
+  @@schema("medicalrecord")
+}

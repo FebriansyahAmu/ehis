@@ -12,6 +12,7 @@ import type { IGDPatientDetail } from "@/lib/data";
 import { useSession } from "@/contexts/SessionContext";
 import ConfirmDialog from "@/components/master/ruangan/ConfirmDialog";
 import { getEdukasiPasienList, recordEdukasiPasien, deleteEdukasiPasien, type EdukasiPasienDTO } from "@/lib/api/asesmenMedis/edukasiPasien";
+import { getEdukasiEmergencyList, recordEdukasiEmergency, deleteEdukasiEmergency, type EdukasiEmergencyDTO } from "@/lib/api/asesmenMedis/edukasiEmergency";
 import { ApiError } from "@/lib/api/client";
 import { toast } from "@/lib/ui/toastStore";
 
@@ -634,7 +635,23 @@ interface EmergencyEntry {
   petugas: string;
 }
 
-function EmergencyPane() {
+// DB DTO → EmergencyEntry FE (susun teks waktu utk kartu riwayat).
+function dtoToEmEntry(d: EdukasiEmergencyDTO): EmergencyEntry {
+  return {
+    id: d.id,
+    waktu: new Date(d.createdAt).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" }),
+    tipe: d.tipe,
+    instruksi: d.instruksi,
+    tandaBahaya: d.tandaBahaya,
+    followUpDate: d.followUpDate ?? "",
+    kontakEmergency: d.kontakEmergency ?? "",
+    petugas: d.petugas,
+  };
+}
+
+function EmergencyPane({ kunjunganId, recordedBy }: { kunjunganId?: string; recordedBy?: string }) {
+  const isPersisted = !!kunjunganId && EDU_UUID_RE.test(kunjunganId);
+
   const [entries, setEntries] = useState<EmergencyEntry[]>([]);
   const [form, setForm] = useState({
     tipe:             "Instruksi Discharge",
@@ -647,13 +664,83 @@ function EmergencyPane() {
     followUpLokasi:   "",
     kontakEmergency:  "",
     catatan:          "",
-    petugas:          "",
+    petugas:          isPersisted ? (recordedBy ?? "") : "",
   });
+  const [loading, setLoading]       = useState(isPersisted);
+  const [saving, setSaving]         = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+  const [confirmDel, setConfirmDel] = useState<EmergencyEntry | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   const setF = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm((p) => ({ ...p, [k]: v }));
 
-  const handleAdd = () => {
-    if (!form.instruksi.trim() || !form.petugas.trim()) return;
+  // Mode DB: nama petugas = user login (server derive); jaga sinkron.
+  useEffect(() => {
+    if (isPersisted && recordedBy) setForm((p) => ({ ...p, petugas: recordedBy }));
+  }, [isPersisted, recordedBy]);
+
+  // Muat riwayat instruksi dari DB (kunjungan nyata). Mock → kosong (demo lokal).
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    setLoading(true);
+    (async () => {
+      try {
+        const rows = await getEdukasiEmergencyList(kunjunganId!, ac.signal);
+        if (ac.signal.aborted) return;
+        setEntries(rows.map(dtoToEmEntry));
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError(e instanceof ApiError ? e.message : "Gagal memuat riwayat instruksi.");
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, [kunjunganId, isPersisted]);
+
+  const canAdd = form.instruksi.trim() !== "" && form.petugas.trim() !== "" && !saving;
+
+  function resetForm() {
+    setForm((p) => ({
+      ...p, instruksi: "", instruksiObat: "", diet: "", aktivitas: "",
+      tandaBahaya: [], followUpDate: "", followUpLokasi: "", kontakEmergency: "", catatan: "",
+      petugas: isPersisted ? (recordedBy ?? "") : "",
+    }));
+  }
+
+  async function handleAdd() {
+    if (!canAdd) return;
+
+    // Mode DB: persist 1 instruksi (append) → prepend hasil server ke riwayat.
+    if (isPersisted) {
+      setSaving(true); setError(null);
+      try {
+        const dto = await recordEdukasiEmergency(kunjunganId!, {
+          tipe: form.tipe as EdukasiEmergencyDTO["tipe"],
+          instruksi: form.instruksi.trim(),
+          instruksiObat: form.instruksiObat.trim() || undefined,
+          diet: form.diet.trim() || undefined,
+          aktivitas: form.aktivitas.trim() || undefined,
+          tandaBahaya: form.tandaBahaya,
+          followUpDate: form.followUpDate || undefined,
+          followUpLokasi: form.followUpLokasi.trim() || undefined,
+          kontakEmergency: form.kontakEmergency.trim() || undefined,
+          catatan: form.catatan.trim() || undefined,
+        });
+        setEntries((p) => [dtoToEmEntry(dto), ...p]);
+        resetForm();
+        toast.success("Instruksi emergency tersimpan", "Tercatat ke rekam medis.");
+      } catch (e) {
+        setError(e instanceof ApiError ? e.message : "Gagal menyimpan instruksi emergency.");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    // Demo (mock) — lokal saja.
     setEntries((p) => [
       {
         id: `em-${Date.now()}`,
@@ -667,15 +754,45 @@ function EmergencyPane() {
       },
       ...p,
     ]);
-    setForm((p) => ({
-      ...p, instruksi: "", instruksiObat: "", diet: "", aktivitas: "",
-      tandaBahaya: [], followUpDate: "", followUpLokasi: "", kontakEmergency: "", catatan: "", petugas: "",
-    }));
-  };
+    resetForm();
+  }
+
+  // Hapus 1 instruksi → soft-delete (DELETE), dikonfirmasi via dialog. Mock → hapus lokal.
+  async function confirmDelete() {
+    const target = confirmDel;
+    if (!target || deletingId) return;
+    if (!isPersisted) {
+      setEntries((p) => p.filter((e) => e.id !== target.id));
+      setConfirmDel(null);
+      return;
+    }
+    setDeletingId(target.id); setError(null);
+    try {
+      await deleteEdukasiEmergency(kunjunganId!, target.id);
+      setEntries((p) => p.filter((e) => e.id !== target.id));
+      toast.success("Instruksi emergency dihapus", "Dihapus dari rekam medis.");
+      setConfirmDel(null);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Gagal menghapus instruksi emergency.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
       <div className="flex flex-col gap-3 lg:flex-1 lg:min-w-0">
+
+        {loading && (
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+            <Loader2 size={13} className="animate-spin" /> Memuat riwayat instruksi…
+          </div>
+        )}
+        {error && (
+          <div role="alert" className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+            <AlertTriangle size={13} className="shrink-0" /> {error}
+          </div>
+        )}
 
         <Block title="Tipe Instruksi" icon={Zap} accent="amber">
           <div>
@@ -754,15 +871,19 @@ function EmergencyPane() {
         </Block>
 
         <Block title="Petugas" accent="slate">
-          <TI label="Nama Petugas" required value={form.petugas}
-            onChange={(v) => setF("petugas", v)} placeholder="Nama lengkap + gelar..." />
+          <TI
+            label={isPersisted ? "Nama Petugas (user login)" : "Nama Petugas"}
+            required={!isPersisted}
+            value={form.petugas}
+            onChange={isPersisted ? undefined : (v) => setF("petugas", v)}
+            placeholder="Nama lengkap + gelar..."
+          />
           <button
-            type="button" onClick={handleAdd}
-            disabled={!form.instruksi.trim() || !form.petugas.trim()}
+            type="button" onClick={handleAdd} disabled={!canAdd}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <Plus size={13} />
-            Simpan Instruksi Emergency
+            {saving ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+            {saving ? "Menyimpan…" : "Simpan Instruksi Emergency"}
           </button>
         </Block>
       </div>
@@ -789,7 +910,16 @@ function EmergencyPane() {
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">{e.tipe}</span>
-                  <span className="font-mono text-[10px] text-slate-400">{e.waktu}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-[10px] text-slate-400">{e.waktu}</span>
+                    <button
+                      type="button" onClick={() => setConfirmDel(e)} disabled={deletingId === e.id}
+                      className="shrink-0 rounded-md p-1 text-slate-300 transition hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50"
+                      aria-label="Hapus instruksi emergency"
+                    >
+                      {deletingId === e.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                    </button>
+                  </div>
                 </div>
                 <p className="mt-2 text-[11px] leading-relaxed text-slate-700 line-clamp-3">{e.instruksi}</p>
                 {e.tandaBahaya.length > 0 && (
@@ -808,6 +938,26 @@ function EmergencyPane() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmDel !== null}
+        kindLabel="Instruksi Emergency"
+        name={confirmDel?.tipe ?? ""}
+        kode={confirmDel?.waktu}
+        icon={Zap}
+        busy={deletingId !== null && deletingId === confirmDel?.id}
+        message={
+          <>
+            Instruksi emergency ini akan{" "}
+            <span className="rounded-md bg-rose-50 px-1.5 py-0.5 font-semibold text-rose-600 ring-1 ring-rose-100">
+              dihapus
+            </span>{" "}
+            dari rekam medis kunjungan ini.
+          </>
+        }
+        onConfirm={confirmDelete}
+        onCancel={() => { if (deletingId === null) setConfirmDel(null); }}
+      />
     </div>
   );
 }
@@ -1271,7 +1421,7 @@ export default function EdukasiPane({ patient }: { patient: IGDPatientDetail }) 
           transition={{ duration: 0.15 }}
         >
           {active === "pk"        && <PasienKeluargaPane kunjunganId={patient.id} recordedBy={session?.namaTampil} />}
-          {active === "emergency" && <EmergencyPane />}
+          {active === "emergency" && <EmergencyPane kunjunganId={patient.id} recordedBy={session?.namaTampil} />}
           {active === "eol"       && <EndOfLifePane />}
         </motion.div>
       </AnimatePresence>

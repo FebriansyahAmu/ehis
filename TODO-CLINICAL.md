@@ -38,13 +38,13 @@ Tab ≠ tabel. Banyak tab = view berbeda atas domain yang sama; komponen `shared
 Urutan persis seperti di [IGDRecordTabs.tsx](src/components/igd/IGDRecordTabs.tsx) (Rekam Medis 13 + Layanan 6). **FE 19/19 ✅** (mock). Yang dilacak di sini = **backend**: kolom **BE** (schema+DAL+service+endpoint, ~Fase A) & **Wiring** (resolver + tab konsumsi DB, ~Fase B/C).
 Legenda: 🟢 selesai · 🟡 sebagian · ⬜ belum.
 
-**Status global backend: 3/19 dimulai** (Triase BE ✅ + wiring tab ✅; Observation/TTV BE ✅ + wiring tab ✅; Asesmen Medis BE 🟡 — sub-menu Anamnesis + Riwayat Medis (9/9 pane) + **Alergi** + **Skrining Gizi** BE+wiring ✅, sisa sub Edukasi ⬜; sisa Fase C/wiring + 16 tab lain ⬜).
+**Status global backend: 3/19 dimulai** (Triase BE ✅ + wiring tab ✅; Observation/TTV BE ✅ + wiring tab ✅; Asesmen Medis BE 🟡 — sub-menu Anamnesis + Riwayat Medis (9/9 pane) + **Alergi** + **Skrining Gizi** BE+wiring ✅, **Edukasi 1/3** (Pasien & Keluarga ✅, sisa Emergency + End of Life ⬜); sisa Fase C/wiring + 16 tab lain ⬜).
 
 | #   | Tab (grup)               | Domain target     | FE  | BE  | Wiring | Catatan                                              |
 | --- | ------------------------ | ----------------- | --- | --- | ------ | ---------------------------------------------------- |
 | 1   | **Triase** (RM)          | Triase            | ✅  | 🟢  | 🟡     | Fase A ✅ + Fase B tab ✅; sisa Fase C (modal/board)  |
 | 2   | **TTV** (RM)             | Observation       | ✅  | 🟢  | 🟢     | Fase A ✅ (schema+endpoint) + Fase B ✅ (wiring TTVTab) |
-| 3   | **Asesmen Medis** (RM)   | Assessment        | ✅  | 🟡  | 🟡     | Anamnesis + Riwayat (9/9) + Alergi + Skrining Gizi BE+wiring ✅; Edukasi ⬜ |
+| 3   | **Asesmen Medis** (RM)   | Assessment        | ✅  | 🟡  | 🟡     | Anamnesis + Riwayat (9/9) + Alergi + Skrining Gizi ✅ · Edukasi 1/3 (Pasien & Keluarga ✅; Emergency + EOL ⬜) |
 | 4   | **Diagnosa** (RM)        | Condition         | ✅  | ⬜  | ⬜     | ICD-10; dibutuhkan billing/e-klaim                   |
 | 5   | **CPPT / SOAP** (RM)     | CPPT              | ✅  | ⬜  | ⬜     | append-only + co-sign DPJP → domain ke-3             |
 | 6   | **Tindakan IGD** (RM)    | Procedure         | ✅  | ⬜  | ⬜     | ICD-9-CM; trigger charge billing                     |
@@ -214,9 +214,19 @@ Tab **Asesmen Medis** = 5 sub-menu ([AsesmenMedisTab.tsx](src/components/igd/tab
 - [x] **A — Backend** ✅ — model `AsesmenGizi` (3 skor MUST `skorBmi/skorBb/skorAkut` + ahliGizi/catatan/tanggal + petugas/author) + backref Kunjungan. Migration `20260609190000_init_asesmen_gizi`. Zod/DAL (`create`+`listByKunjungan` cap 100)/Service/Route/Client di `asesmenMedis/`. **Total & tingkat risiko = DERIVED di Service** (tak disimpan — prinsip sama NEWS2 Observation). Endpoint `GET` (riwayat) + `POST` (append) `/kunjungan/:id/asesmen/gizi`. Petugas dari actor. `tsc`+`migrate`+`eslint` ✅.
 - [x] **B — Wiring (GiziPane SHARED, pola TTVTab)** ✅ — prop opsional `kunjunganId` (UUID→mode DB) + `recordedBy`. Mode DB: self-fetch riwayat saat mount, Simpan→POST append→prepend ke riwayat, "Nama Petugas" read-only (user login), banner loading/error + tombol spinner. RI/RJ (hanya `noRM`) → perilaku demo dipertahankan (tanpa regresi). `tsc`+`eslint` ✅.
 
-### Sub 3.5 (Edukasi) — ⬜ BELUM
+### Sub 3.5 — EDUKASI (HPK 2) · 1/3 sub-pane 🚧
 
-> Edukasi ([EdukasiPane](src/components/igd/tabs/EdukasiPane.tsx)) — slice terakhir tab Asesmen Medis. HPK 2.
+Tab Edukasi = 3 sub-pane ([EdukasiPane](src/components/igd/tabs/EdukasiPane.tsx)): **Pasien & Keluarga** · Emergency · End of Life. Tiap sub-pane = domain/tabel sendiri (prefix `asesmen_edukasi_`).
+
+| Sub-pane | Tabel | Bentuk | BE | Wiring |
+|---|---|---|---|---|
+| Pasien & Keluarga | `asesmen_edukasi_pasien` | log (append + soft-delete) | ✅ | ✅ |
+| Emergency | `asesmen_edukasi_emergency` | log | ⬜ | ⬜ |
+| End of Life | `asesmen_edukasi_eol` (+ family meeting log) | single + list | ⬜ | ⬜ |
+
+- [x] **Pasien & Keluarga · Fase A + B** ✅ (2026-06-09/10) — model `AsesmenEdukasiPasien` (append-only log + `deletedAt` soft-delete) + backref. Migrations `20260609200000_init_asesmen_edukasi_pasien` + `20260610120000_edukasi_pasien_soft_delete`. Zod/DAL/Service/Route/Client di `asesmenMedis/`. **Per-aksi:** `GET` (riwayat) · `POST` (append) `/kunjungan/:id/asesmen/edukasi/pasien` + `DELETE /…/pasien/:itemId` (soft-delete + guard kepemilikan). Field terstruktur disimpan utuh; FE menyusun teks penerima/waktu. **Wiring** `PasienKeluargaPane` (inline IGD): self-fetch riwayat, Simpan→POST, **icon hapus + ConfirmDialog** (soft-delete), petugas read-only (user login), banner loading/error. Mock → demo lokal. `tsc`+`migrate`+`eslint` ✅.
+- [ ] **Emergency · Fase A + B** ⬜ — instruksi discharge/follow-up/emergency + tanda bahaya + kontak darurat (`EmergencyPane`). Pola log (append).
+- [ ] **End of Life · Fase A + B** ⬜ — Advance Care Planning: code status (Full/DNR/DNAR/Comfort) + preferensi terapi + paliatif + wali + advance directive + log pertemuan keluarga (`EndOfLifePane`). Sensitif — perlu tanda tangan pihak berwenang (pertimbangkan single-record + child meeting log).
 
 ---
 
