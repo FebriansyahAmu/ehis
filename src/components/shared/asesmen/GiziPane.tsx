@@ -3,13 +3,33 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ChevronDown, CheckCircle2, History, Save, User, Salad,
+  ChevronDown, CheckCircle2, History, Save, User, Salad, Loader2, AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   MUST_QUESTIONS, GIZI_RISK, getGiziRisk, GIZI_HISTORY_MOCK, getGiziRiskKey,
   type GiziScore, type GiziState, type GiziHistoryEntry,
 } from "./asesmenShared";
+import { getGiziList, recordGizi, type AsesmenGiziDTO } from "@/lib/api/asesmenMedis/asesmenGizi";
+import { ApiError } from "@/lib/api/client";
+
+// id kunjungan DB = UUID; id demo/mock ("igd-1") tak tersimpan ke DB.
+const GIZI_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// DB DTO → GiziHistoryEntry FE (kontrak mirror → map langsung).
+function dtoToGiziEntry(d: AsesmenGiziDTO): GiziHistoryEntry {
+  return {
+    id: d.id,
+    savedAt: d.savedAt,
+    tanggal: d.tanggal ?? d.savedAt.slice(0, 10),
+    petugas: d.petugas,
+    scores: { bmi: d.scores.bmi as GiziScore, bb: d.scores.bb as GiziScore, akut: d.scores.akut as GiziScore },
+    total: d.total,
+    risk: d.risk,
+    ahliGizi: d.ahliGizi ?? "",
+    catatan: d.catatan ?? "",
+  };
+}
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -290,31 +310,45 @@ function HistorySection({
 
 interface GiziPaneProps {
   noRM?: string;
+  /** id kunjungan DB (UUID) → mode DB: fetch riwayat + persist. Non-UUID/absen → demo. */
+  kunjunganId?: string;
+  /** Nama user login → "Nama Petugas" read-only di mode DB (server tetap derive dari actor). */
+  recordedBy?: string;
   onComplete?: (done: boolean) => void;
 }
 
 // ── Main Pane ─────────────────────────────────────────────
 
-export default function GiziPane({ noRM, onComplete }: GiziPaneProps) {
+export default function GiziPane({ noRM, kunjunganId, recordedBy, onComplete }: GiziPaneProps) {
+  const isPersisted = !!kunjunganId && GIZI_UUID_RE.test(kunjunganId);
+
   const [scores, setScores] = useState<GiziState>({ bmi: null, bb: null, akut: null });
   const [ahliGizi, setAhliGizi] = useState("");
   const [catatan, setCatatan]   = useState("");
   const [tanggal, setTanggal]   = useState("");
-  const [petugas, setPetugas]   = useState("");
+  const [petugas, setPetugas]   = useState(() => (isPersisted ? (recordedBy ?? "") : ""));
 
   const [history, setHistory]       = useState<GiziHistoryEntry[]>(
-    () => noRM ? (GIZI_HISTORY_MOCK[noRM] ?? []) : [],
+    () => (isPersisted ? [] : noRM ? (GIZI_HISTORY_MOCK[noRM] ?? []) : []),
   );
   const [newEntryId, setNewEntryId] = useState<string | null>(null);
   const [showToast, setShowToast]   = useState(false);
   const [everSaved, setEverSaved]   = useState(
-    () => noRM ? (GIZI_HISTORY_MOCK[noRM]?.length ?? 0) > 0 : false,
+    () => (isPersisted ? false : noRM ? (GIZI_HISTORY_MOCK[noRM]?.length ?? 0) > 0 : false),
   );
+  const [loading, setLoading] = useState(isPersisted);
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+
+  // Mode DB: nama petugas = user login (server derive dari actor); jaga sinkron bila berubah.
+  useEffect(() => {
+    if (isPersisted && recordedBy) setPetugas(recordedBy);
+  }, [isPersisted, recordedBy]);
 
   const total     = (scores.bmi ?? 0) + (scores.bb ?? 0) + (scores.akut ?? 0);
   const allFilled = scores.bmi !== null && scores.bb !== null && scores.akut !== null;
   const risk      = getGiziRisk(total, allFilled);
-  const canSave   = allFilled && petugas.trim() !== "";
+  const canSave   = allFilled && petugas.trim() !== "" && !saving;
 
   // Report done state to parent whenever relevant state changes
   const onCompleteRef = useRef(onComplete);
@@ -323,13 +357,69 @@ export default function GiziPane({ noRM, onComplete }: GiziPaneProps) {
     onCompleteRef.current?.(allFilled || everSaved);
   }, [allFilled, everSaved]);
 
+  // Muat riwayat skrining dari DB (kunjungan nyata). Mock → seed dari GIZI_HISTORY_MOCK (demo).
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    setLoading(true);
+    (async () => {
+      try {
+        const rows = await getGiziList(kunjunganId!, ac.signal);
+        if (ac.signal.aborted) return;
+        setHistory(rows.map(dtoToGiziEntry));
+        setEverSaved(rows.length > 0);
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError(e instanceof ApiError ? e.message : "Gagal memuat riwayat skrining gizi.");
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, [kunjunganId, isPersisted]);
+
   function handleScore(key: keyof GiziState, score: GiziScore) {
     setScores(prev => ({ ...prev, [key]: score }));
   }
 
-  function handleSave() {
+  function resetForm() {
+    setScores({ bmi: null, bb: null, akut: null });
+    setAhliGizi("");
+    setCatatan("");
+    setTanggal("");
+    if (!isPersisted) setPetugas(""); // mode DB: pertahankan nama petugas (user login)
+  }
+
+  async function handleSave() {
     if (!canSave) return;
 
+    // Mode DB: persist 1 skrining (append) → prepend hasil server ke riwayat.
+    if (isPersisted) {
+      setSaving(true); setError(null);
+      try {
+        const dto = await recordGizi(kunjunganId!, {
+          skorBmi: scores.bmi!, skorBb: scores.bb!, skorAkut: scores.akut!,
+          ahliGizi: ahliGizi.trim() || undefined,
+          catatan: catatan.trim() || undefined,
+          tanggal: tanggal || undefined,
+        });
+        const entry = dtoToGiziEntry(dto);
+        setHistory(prev => [entry, ...prev]);
+        setNewEntryId(entry.id);
+        setEverSaved(true);
+        setShowToast(true);
+        resetForm();
+        setTimeout(() => setNewEntryId(null), 4500);
+        setTimeout(() => setShowToast(false), 3000);
+      } catch (e) {
+        setError(e instanceof ApiError ? e.message : "Gagal menyimpan skrining gizi.");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    // Demo (mock) — lokal saja.
     const now = new Date();
     const entry: GiziHistoryEntry = {
       id:       `gizi-${now.getTime()}`,
@@ -347,13 +437,7 @@ export default function GiziPane({ noRM, onComplete }: GiziPaneProps) {
     setNewEntryId(entry.id);
     setEverSaved(true);
     setShowToast(true);
-
-    // Reset form for next entry
-    setScores({ bmi: null, bb: null, akut: null });
-    setAhliGizi("");
-    setCatatan("");
-    setPetugas("");
-    setTanggal("");
+    resetForm();
 
     setTimeout(() => setNewEntryId(null), 4500);
     setTimeout(() => setShowToast(false), 3000);
@@ -383,6 +467,18 @@ export default function GiziPane({ noRM, onComplete }: GiziPaneProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+          <Loader2 size={13} className="animate-spin" /> Memuat riwayat skrining gizi…
+        </div>
+      )}
+
+      {error && (
+        <div role="alert" className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+          <AlertTriangle size={13} className="shrink-0" /> {error}
+        </div>
+      )}
 
       {/* ── Main grid ── */}
       <div className="grid gap-3 md:grid-cols-2">
@@ -543,15 +639,19 @@ export default function GiziPane({ noRM, onComplete }: GiziPaneProps) {
                 <div>
                   <Label>
                     Nama Petugas{" "}
-                    <span className="normal-case font-normal text-rose-500">*wajib</span>
+                    {isPersisted
+                      ? <span className="normal-case font-normal text-slate-400">(user login)</span>
+                      : <span className="normal-case font-normal text-rose-500">*wajib</span>}
                   </Label>
                   <input
                     value={petugas}
                     onChange={e => setPetugas(e.target.value)}
+                    readOnly={isPersisted}
                     placeholder="Nama petugas..."
                     className={cn(
                       INPUT_CLS,
-                      !petugas && allFilled
+                      isPersisted && "cursor-default bg-slate-100 text-slate-600",
+                      !isPersisted && !petugas && allFilled
                         ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
                         : "",
                     )}
@@ -580,8 +680,10 @@ export default function GiziPane({ noRM, onComplete }: GiziPaneProps) {
                     : "cursor-not-allowed bg-slate-100 text-slate-400",
                 )}
               >
-                <Save size={12} />
-                {!allFilled
+                {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                {saving
+                  ? "Menyimpan…"
+                  : !allFilled
                   ? "Lengkapi 3 pertanyaan MUST terlebih dahulu"
                   : !petugas.trim()
                   ? "Isi nama petugas untuk menyimpan"

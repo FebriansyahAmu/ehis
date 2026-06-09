@@ -574,3 +574,103 @@ model AsesmenPersalinanItem {
   @@map("asesmen_persalinan_item")
   @@schema("medicalrecord")
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  ASESMEN MEDIS · sub-menu ALERGI — MODEL PER-ITEM (FHIR AllergyIntolerance-aligned).
+//  Berbeda dari pane asesmen lain (yang point-in-time snapshot): alergi = DAFTAR HIDUP.
+//  1 baris `Alergi` = 1 alergen dengan siklus hidup sendiri. Tambah = INSERT; "hapus" =
+//  soft-delete (deletedAt) bukan hard-delete (jejak medico-legal). MUTABLE (version utk
+//  koreksi nanti), bukan append-only → tulis hanya yang berubah (delta), tak foto-ulang
+//  seluruh daftar tiap simpan. Per-kunjungan (key kunjunganId) untuk sekarang.
+//  Mirror AllergyEntry (AsesmenMedisTab > AllergyPane). Vocab = String + divalidasi Zod.
+// ══════════════════════════════════════════════════════════════════════════════
+
+model AsesmenAlergi {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Identitas alergen (mirror AllergyEntry) ──
+  category  String // Obat/Makanan/Lainnya
+  allergen  String
+  reactions String[] // jenis reaksi (Anafilaksis/Urtikaria/…)
+  severity  String // Ringan/Sedang/Berat
+  status    String // verifikasi: Terkonfirmasi/Dicurigai
+
+  keterangan String?
+  snomedCode String? @map("snomed_code")
+
+  // ── Pencatat + author (dari actor) ──
+  pemeriksa       String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (mutable: version + updatedAt; soft-delete medico-legal) ──
+  version   Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt]) // daftar alergi aktif per kunjungan
+  @@map("asesmen_alergi")
+  @@schema("medicalrecord")
+}
+
+// ── Asesmen Alergi NKA (header per-kunjungan) — assertion "No Known Allergy" ──
+//  1 baris per kunjungan (upsert di tempat). NKA & daftar alergi aktif saling eksklusif
+//  (divalidasi Service). Tanpa header = belum diasesmen (NKA dianggap false).
+model AsesmenAlergiNka {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @unique @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  nka Boolean @default(false) // No Known Allergy — tak ada riwayat alergi diketahui
+
+  pemeriksa       String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("asesmen_alergi_nka")
+  @@schema("medicalrecord")
+}
+
+// ── Skrining Gizi (MUST — Malnutrition Universal Screening Tool) ───────────────
+//  Point-in-time screening (AP 1.3): append-only time-series — BANYAK baris/kunjungan
+//  (skrining berkala, riwayat). latest by createdAt = skrining terkini. Mirror GiziHistoryEntry
+//  + GiziState (GiziPane). Hanya 3 skor sumber disimpan; total & tingkat risiko = DERIVED
+//  (dihitung Service/FE, tak disimpan — hindari drift, prinsip sama Observation NEWS2).
+model AsesmenGizi {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Skor MUST (0/1/2 per komponen) ──
+  skorBmi  Int @map("skor_bmi")  // BMI
+  skorBb   Int @map("skor_bb")   // penurunan berat badan
+  skorAkut Int @map("skor_akut") // efek penyakit akut (0 atau 2)
+
+  // ── Tindak lanjut ──
+  ahliGizi String? @map("ahli_gizi") // dirujuk ke ahli gizi / "Tidak dirujuk"
+  catatan  String? // rencana intervensi gizi
+  tanggal  String? // tanggal skrining (input FE date; savedAt = createdAt)
+
+  // ── Petugas + author (dari actor) ──
+  petugas         String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (append-only: tanpa updatedAt/soft-delete; version utk konsistensi) ──
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt]) // riwayat skrining per kunjungan (terbaru dulu)
+  @@map("asesmen_gizi")
+  @@schema("medicalrecord")
+}

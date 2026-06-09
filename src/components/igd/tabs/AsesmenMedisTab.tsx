@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Pill, Utensils, ShieldAlert, AlertTriangle,
@@ -13,6 +13,7 @@ import type { IGDPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import EdukasiPane from "@/components/igd/tabs/EdukasiPane";
 import GiziPane    from "@/components/shared/asesmen/GiziPane";
+import ConfirmDialog from "@/components/master/ruangan/ConfirmDialog";
 import { RUTE_OBAT } from "@/components/shared/asesmen/asesmenShared";
 import { getAnamnesis, saveAnamnesis, type AnamnesisDTO } from "@/lib/api/asesmenMedis/anamnesis";
 import { getPenyakitDahulu, savePenyakitDahulu } from "@/lib/api/asesmenMedis/asesmenPenyakitDahulu";
@@ -24,6 +25,7 @@ import { getTuberkulosis, saveTuberkulosis } from "@/lib/api/asesmenMedis/asesme
 import { getGinekologi, saveGinekologi } from "@/lib/api/asesmenMedis/asesmenGinekologi";
 import { getPerawatan, savePerawatan } from "@/lib/api/asesmenMedis/asesmenPerawatan";
 import { getObstetri, saveObstetri } from "@/lib/api/asesmenMedis/asesmenObstetri";
+import { getAlergi, addAlergi, deleteAlergi, setAlergiNka, type AlergiItemDTO } from "@/lib/api/asesmenMedis/asesmenAlergi";
 import { useSession } from "@/contexts/SessionContext";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
@@ -694,6 +696,7 @@ function PenyakitDahuluPane({ patient, onSaved }: { patient: IGDPatientDetail; o
           setChecked(dto.penyakit);
           setCatatan(dto.catatan ?? "");
           setSavedAt(dto.createdAt);
+          onSaved?.(); // data sudah tersimpan → tandai Riwayat selesai (persisten lintas refresh)
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -703,7 +706,7 @@ function PenyakitDahuluPane({ patient, onSaved }: { patient: IGDPatientDetail; o
       }
     })();
     return () => ac.abort();
-  }, [patient.id, isPersisted]);
+  }, [patient.id, isPersisted, onSaved]);
 
   async function handleSave() {
     if (saving) return;
@@ -782,6 +785,7 @@ function PemberianObatPane({ patient, onSaved }: { patient: IGDPatientDetail; on
             rute: it.rute ?? "Oral", sejak: it.sejak ?? "", indikasi: it.indikasi ?? "",
           })));
           setSavedAt(dto.createdAt);
+          onSaved?.(); // data sudah tersimpan → tandai Riwayat selesai (persisten lintas refresh)
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -791,7 +795,7 @@ function PemberianObatPane({ patient, onSaved }: { patient: IGDPatientDetail; on
       }
     })();
     return () => ac.abort();
-  }, [patient.id, isPersisted]);
+  }, [patient.id, isPersisted, onSaved]);
 
   async function handleSave() {
     if (saving) return;
@@ -909,6 +913,7 @@ function LainnyaPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved?
           setPaparanDetail(dto.paparanDetail ?? "");
           setCatatan(dto.catatan ?? "");
           setSavedAt(dto.createdAt);
+          onSaved?.(); // data sudah tersimpan → tandai Riwayat selesai (persisten lintas refresh)
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -918,7 +923,7 @@ function LainnyaPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved?
       }
     })();
     return () => ac.abort();
-  }, [patient.id, isPersisted]);
+  }, [patient.id, isPersisted, onSaved]);
 
   async function handleSave() {
     if (saving) return;
@@ -1051,6 +1056,7 @@ function FaktorResikoPane({ patient, onSaved }: { patient: IGDPatientDetail; onS
           setPerilakuB(dto.perilaku);
           setPerilakuLain(dto.perilakuLain ?? "");
           setSavedAt(dto.createdAt);
+          onSaved?.(); // data sudah tersimpan → tandai Riwayat selesai (persisten lintas refresh)
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -1060,7 +1066,7 @@ function FaktorResikoPane({ patient, onSaved }: { patient: IGDPatientDetail; onS
       }
     })();
     return () => ac.abort();
-  }, [patient.id, isPersisted]);
+  }, [patient.id, isPersisted, onSaved]);
 
   async function handleSave() {
     if (saving) return;
@@ -1151,6 +1157,7 @@ function PenyakitKeluargaPane({ patient, onSaved }: { patient: IGDPatientDetail;
           }));
           setRiwayatLain(dto.riwayatLain ?? "");
           setSavedAt(dto.createdAt);
+          onSaved?.(); // data sudah tersimpan → tandai Riwayat selesai (persisten lintas refresh)
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -1160,7 +1167,7 @@ function PenyakitKeluargaPane({ patient, onSaved }: { patient: IGDPatientDetail;
       }
     })();
     return () => ac.abort();
-  }, [patient.id, isPersisted]);
+  }, [patient.id, isPersisted, onSaved]);
 
   async function handleSave() {
     if (saving) return;
@@ -1267,6 +1274,7 @@ function TuberkulosisPane({ patient, onSaved }: { patient: IGDPatientDetail; onS
           setSputumGrade(dto.sputumGrade ?? "");
           setCatatan(dto.catatan ?? "");
           setSavedAt(dto.createdAt);
+          onSaved?.(); // data sudah tersimpan → tandai Riwayat selesai (persisten lintas refresh)
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -1276,7 +1284,7 @@ function TuberkulosisPane({ patient, onSaved }: { patient: IGDPatientDetail; onS
       }
     })();
     return () => ac.abort();
-  }, [patient.id, isPersisted]);
+  }, [patient.id, isPersisted, onSaved]);
 
   async function handleSave() {
     if (saving) return;
@@ -1438,6 +1446,7 @@ function GinekologiPane({ patient, onSaved }: { patient: IGDPatientDetail; onSav
           setIva(dto.iva); setIvaTahun(dto.ivaTahun ?? ""); setIvaHasil(dto.ivaHasil ?? "");
           setCatatan(dto.catatan ?? "");
           setSavedAt(dto.createdAt);
+          onSaved?.(); // data sudah tersimpan → tandai Riwayat selesai (persisten lintas refresh)
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -1447,7 +1456,7 @@ function GinekologiPane({ patient, onSaved }: { patient: IGDPatientDetail; onSav
       }
     })();
     return () => ac.abort();
-  }, [patient.id, isPersisted]);
+  }, [patient.id, isPersisted, onSaved]);
 
   async function handleSave() {
     if (saving) return;
@@ -1585,6 +1594,7 @@ function PerawatanTindakanPane({ patient, onSaved }: { patient: IGDPatientDetail
             : [EMPTY_RAWAT()]);
           setBedahs(dto.bedah.map(it => ({ id: it.id, tanggal: it.tanggal ?? "", tindakan: it.tindakan ?? "", rs: it.rs ?? "", dokter: it.dokter ?? "", keterangan: it.keterangan ?? "" })));
           setSavedAt(dto.createdAt);
+          onSaved?.(); // data sudah tersimpan → tandai Riwayat selesai (persisten lintas refresh)
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -1594,7 +1604,7 @@ function PerawatanTindakanPane({ patient, onSaved }: { patient: IGDPatientDetail
       }
     })();
     return () => ac.abort();
-  }, [patient.id, isPersisted]);
+  }, [patient.id, isPersisted, onSaved]);
 
   async function handleSave() {
     if (saving) return;
@@ -1724,6 +1734,7 @@ function ObstetriPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved
             bbLahir: it.bbLahir ?? "", kondisiAnak: it.kondisiAnak ?? "", keterangan: it.keterangan ?? "",
           })));
           setSavedAt(dto.createdAt);
+          onSaved?.(); // data sudah tersimpan → tandai Riwayat selesai (persisten lintas refresh)
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -1733,7 +1744,7 @@ function ObstetriPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved
       }
     })();
     return () => ac.abort();
-  }, [patient.id, isPersisted]);
+  }, [patient.id, isPersisted, onSaved]);
 
   async function handleSave() {
     if (saving) return;
@@ -1874,8 +1885,10 @@ function RiwayatPane({ patient, onComplete }: { patient: IGDPatientDetail; onCom
   const [activeTab, setActiveTab] = useState<RwyTab>("Penyakit Dahulu");
   const [done, setDone] = useState(false);
 
-  // Riwayat Medis dianggap selesai begitu salah satu dari 9 sub-pane berhasil disimpan.
-  const handleSaved = () => { setDone(true); onComplete?.(true); };
+  // Riwayat Medis dianggap selesai begitu salah satu dari 9 sub-pane berhasil disimpan
+  // ATAU saat memuat sub-pane yang sudah punya data tersimpan (persisten lintas refresh).
+  // useCallback agar stabil → aman dipakai di dependency array effect tiap sub-pane.
+  const handleSaved = useCallback(() => { setDone(true); onComplete?.(true); }, [onComplete]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -2054,9 +2067,11 @@ const ALLERGY_MOCK: Record<string, AllergyEntry[]> = {
 function AllergyCard({
   entry,
   onDelete,
+  deleting,
 }: {
   entry: AllergyEntry;
   onDelete: (id: string) => void;
+  deleting?: boolean;
 }) {
   const cat    = CAT_CFG[entry.category];
   const sev    = SEV_CFG[entry.severity];
@@ -2136,10 +2151,11 @@ function AllergyCard({
         <button
           type="button"
           onClick={() => onDelete(entry.id)}
-          className="shrink-0 rounded-lg p-1.5 text-slate-300 transition hover:bg-rose-50 hover:text-rose-500"
+          disabled={deleting}
+          className="shrink-0 rounded-lg p-1.5 text-slate-300 transition hover:bg-rose-50 hover:text-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
           aria-label={`Hapus alergi ${entry.allergen}`}
         >
-          <Trash2 size={13} />
+          {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
         </button>
       </div>
     </div>
@@ -2148,9 +2164,23 @@ function AllergyCard({
 
 // ── Allergy pane ──────────────────────────────────────────
 
+// DB item DTO → AllergyEntry FE (kontrak mirror → map langsung).
+function dtoItemToEntry(it: AlergiItemDTO): AllergyEntry {
+  return {
+    id: it.id, category: it.category, allergen: it.allergen, reactions: it.reactions,
+    severity: it.severity, status: it.status, keterangan: it.keterangan ?? "",
+    snomedCode: it.snomedCode ?? undefined,
+  };
+}
+
+// Model PER-AKSI (FHIR-aligned): tambah = 1 POST, hapus = 1 DELETE (soft), NKA = PATCH.
+// Tak ada tombol "Simpan" bulk — tiap aksi langsung persist (delta, bukan foto-ulang daftar).
 function AllergyPane({ patient, onComplete }: { patient: IGDPatientDetail; onComplete?: (done: boolean) => void }) {
+  const { session } = useSession();
+  const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
+
   const [entries, setEntries] = useState<AllergyEntry[]>(
-    () => structuredClone(ALLERGY_MOCK[patient.noRM] ?? []),
+    () => (isPersisted ? [] : structuredClone(ALLERGY_MOCK[patient.noRM] ?? [])),
   );
   const [noKA, setNoKA] = useState(false);
   const [form, setForm] = useState<{
@@ -2170,6 +2200,12 @@ function AllergyPane({ patient, onComplete }: { patient: IGDPatientDetail; onCom
     keterangan: "",
     snomedCode: "",
   });
+  const [loading, setLoading]       = useState(isPersisted);
+  const [adding, setAdding]         = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDel, setConfirmDel] = useState<AllergyEntry | null>(null);
+  const [nkaSaving, setNkaSaving]   = useState(false);
+  const [error, setError]           = useState<string | null>(null);
 
   const setF = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm((p) => ({ ...p, [k]: v }));
@@ -2184,31 +2220,127 @@ function AllergyPane({ patient, onComplete }: { patient: IGDPatientDetail; onCom
 
   const canAdd = form.allergen.trim() !== "" && form.reactions.length > 0;
 
-  function handleAdd() {
-    if (!canAdd) return;
-    setEntries((p) => [
-      {
-        id: `alg-${Date.now()}`,
-        category: form.category,
-        allergen: form.allergen.trim(),
-        reactions: form.reactions,
-        severity: form.severity,
-        status: form.status,
-        keterangan: form.keterangan.trim(),
-        snomedCode: form.snomedCode || undefined,
-      },
-      ...p,
-    ]);
-    setNoKA(false);
-    setForm({ ...form, allergen: "", reactions: [], keterangan: "", snomedCode: "" });
+  // Muat daftar alergi aktif + NKA dari DB (kunjungan nyata). Mock → seed ALLERGY_MOCK (demo).
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    setLoading(true);
+    (async () => {
+      try {
+        const dto = await getAlergi(patient.id, ac.signal);
+        if (ac.signal.aborted) return;
+        setEntries(dto.items.map(dtoItemToEntry));
+        setNoKA(dto.nka);
+        onComplete?.(dto.nka || dto.items.length > 0);
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError(e instanceof ApiError ? e.message : "Gagal memuat data alergi.");
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, [patient.id, isPersisted, onComplete]);
+
+  function resetForm() {
+    setForm((p) => ({ ...p, allergen: "", reactions: [], keterangan: "", snomedCode: "" }));
   }
 
-  const handleDelete = (id: string) => setEntries((p) => p.filter((e) => e.id !== id));
+  // Tambah 1 alergen → langsung persist (POST). Mock → tambah lokal saja.
+  async function handleAdd() {
+    if (!canAdd || adding) return;
+    const draft = {
+      category: form.category,
+      allergen: form.allergen.trim(),
+      reactions: form.reactions,
+      severity: form.severity,
+      status: form.status,
+      keterangan: form.keterangan.trim() || undefined,
+      snomedCode: form.snomedCode || undefined,
+    };
+    if (!isPersisted) {
+      setEntries((p) => [{ id: `alg-${Date.now()}`, ...draft, keterangan: draft.keterangan ?? "" }, ...p]);
+      setNoKA(false); resetForm(); onComplete?.(true);
+      return;
+    }
+    setAdding(true); setError(null);
+    try {
+      const item = await addAlergi(patient.id, draft);
+      setEntries((p) => [dtoItemToEntry(item), ...p]);
+      setNoKA(false); resetForm(); onComplete?.(true);
+      toast.success("Alergi ditambahkan", `${item.allergen} · tercatat ke rekam medis.`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Gagal menambah alergi.");
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  // Hapus 1 alergen → soft-delete (DELETE), dikonfirmasi via dialog. Mock → hapus lokal.
+  async function confirmDelete() {
+    const target = confirmDel;
+    if (!target || deletingId) return;
+    if (!isPersisted) {
+      const next = entries.filter((e) => e.id !== target.id);
+      setEntries(next); onComplete?.(noKA || next.length > 0); setConfirmDel(null);
+      return;
+    }
+    setDeletingId(target.id); setError(null);
+    try {
+      await deleteAlergi(patient.id, target.id);
+      const next = entries.filter((e) => e.id !== target.id);
+      setEntries(next); onComplete?.(noKA || next.length > 0);
+      toast.success("Alergi dihapus", `${target.allergen} dihapus dari rekam medis.`);
+      setConfirmDel(null);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Gagal menghapus alergi.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  // Toggle NKA → PATCH. NKA & daftar alergi saling eksklusif (guard FE + server).
+  async function handleToggleNka() {
+    if (nkaSaving) return;
+    const target = !noKA;
+    if (target && entries.length > 0) {
+      setError("Tidak dapat menetapkan NKA: masih ada alergi tercatat. Hapus dulu daftar alergi.");
+      return;
+    }
+    if (!isPersisted) {
+      setNoKA(target); onComplete?.(target || entries.length > 0);
+      return;
+    }
+    setNkaSaving(true); setError(null);
+    try {
+      const dto = await setAlergiNka(patient.id, target);
+      setNoKA(dto.nka);
+      setEntries(dto.items.map(dtoItemToEntry));
+      onComplete?.(dto.nka || dto.items.length > 0);
+      toast.success(dto.nka ? "NKA dikonfirmasi" : "Status NKA dibatalkan", patient.name);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Gagal menyimpan status NKA.");
+    } finally {
+      setNkaSaving(false);
+    }
+  }
 
   const severeEntries = entries.filter((e) => e.severity === "Berat");
 
   return (
     <div className="flex flex-col gap-4">
+
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+          <Loader2 size={13} className="animate-spin" /> Memuat data alergi…
+        </div>
+      )}
+
+      {error && (
+        <div role="alert" className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+          <AlertTriangle size={13} className="shrink-0" /> {error}
+        </div>
+      )}
 
       {/* ── Severe allergy alert banner ── */}
       <AnimatePresence>
@@ -2416,15 +2548,15 @@ function AllergyPane({ patient, onComplete }: { patient: IGDPatientDetail; onCom
               />
             </div>
 
-            {/* Add button */}
+            {/* Add button — langsung persist (POST) */}
             <button
               type="button"
               onClick={handleAdd}
-              disabled={!canAdd}
+              disabled={!canAdd || adding}
               className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-rose-600 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <Plus size={13} />
-              Tambah Alergi
+              {adding ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+              {adding ? "Menambahkan…" : "Tambah Alergi"}
             </button>
           </Block>
         </div>
@@ -2432,12 +2564,13 @@ function AllergyPane({ patient, onComplete }: { patient: IGDPatientDetail; onCom
         {/* ── Right: Allergy list ── */}
         <div className="flex flex-1 flex-col gap-3 md:min-w-0">
 
-          {/* NKA toggle */}
+          {/* NKA toggle — langsung persist (PATCH) */}
           <button
             type="button"
-            onClick={() => setNoKA((p) => !p)}
+            onClick={handleToggleNka}
+            disabled={nkaSaving}
             className={cn(
-              "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all",
+              "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all disabled:opacity-60",
               noKA
                 ? "border-emerald-200 bg-emerald-50"
                 : "border-slate-200 bg-white hover:bg-slate-50",
@@ -2515,40 +2648,43 @@ function AllergyPane({ patient, onComplete }: { patient: IGDPatientDetail; onCom
                     exit={{ opacity: 0, x: 24, scale: 0.97 }}
                     transition={{ duration: 0.2, ease: "easeOut" }}
                   >
-                    <AllergyCard entry={entry} onDelete={handleDelete} />
+                    <AllergyCard entry={entry} onDelete={() => setConfirmDel(entry)} deleting={deletingId === entry.id} />
                   </motion.div>
                 ))}
               </AnimatePresence>
             </div>
           )}
 
-          {/* Save button */}
-          {entries.length > 0 && (
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => onComplete?.(true)}
-                className="rounded-lg bg-sky-600 px-5 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-sky-700"
-              >
-                Simpan Data Alergi
-              </button>
-            </div>
-          )}
-          {/* NKA counts as done too */}
-          {noKA && entries.length === 0 && (
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => onComplete?.(true)}
-                className="rounded-lg bg-sky-600 px-5 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-sky-700"
-              >
-                Konfirmasi NKA
-              </button>
-            </div>
+          {/* Per-aksi: tak ada tombol Simpan bulk. Jejak pencatat (dari user login). */}
+          {isPersisted && (entries.length > 0 || noKA) && (
+            <p className="flex items-center justify-end gap-1.5 pt-1 text-[11px] text-slate-500">
+              <User size={12} className="text-slate-400" />
+              Dicatat oleh <span className="font-semibold text-slate-700">{session?.namaTampil ?? "—"}</span>
+            </p>
           )}
         </div>
 
       </div>
+
+      <ConfirmDialog
+        open={confirmDel !== null}
+        kindLabel="Alergi"
+        name={confirmDel?.allergen ?? ""}
+        kode={confirmDel?.category}
+        icon={AlertTriangle}
+        busy={deletingId !== null && deletingId === confirmDel?.id}
+        message={
+          <>
+            Riwayat alergi{" "}
+            <span className="rounded-md bg-rose-50 px-1.5 py-0.5 font-semibold text-rose-600 ring-1 ring-rose-100">
+              dihapus
+            </span>{" "}
+            dari rekam medis kunjungan ini.
+          </>
+        }
+        onConfirm={confirmDelete}
+        onCancel={() => { if (deletingId === null) setConfirmDel(null); }}
+      />
     </div>
   );
 }
@@ -2558,6 +2694,7 @@ function AllergyPane({ patient, onComplete }: { patient: IGDPatientDetail; onCom
 // ─────────────────────────────────────────────────────────
 
 export default function AsesmenMedisTab({ patient }: { patient: IGDPatientDetail }) {
+  const { session } = useSession();
   const [active,  setActive]  = useState<SubTabId>("anamnesis");
   const [prevTab, setPrevTab] = useState<SubTabId>("anamnesis");
 
@@ -2626,7 +2763,7 @@ export default function AsesmenMedisTab({ patient }: { patient: IGDPatientDetail
               {active === "anamnesis" && <AnamnesisPane patient={patient} onComplete={setDoneAnamnesis} />}
               {active === "riwayat"   && <RiwayatPane   patient={patient} onComplete={setDoneRiwayat}   />}
               {active === "alergi"    && <AllergyPane   patient={patient} onComplete={setDoneAlergi}    />}
-              {active === "skrining"  && <GiziPane      noRM={patient.noRM} onComplete={setDoneGizi}    />}
+              {active === "skrining"  && <GiziPane      noRM={patient.noRM} kunjunganId={patient.id} recordedBy={session?.namaTampil} onComplete={setDoneGizi} />}
               {active === "edukasi"   && <EdukasiPane patient={patient} />}
             </motion.div>
           </AnimatePresence>
