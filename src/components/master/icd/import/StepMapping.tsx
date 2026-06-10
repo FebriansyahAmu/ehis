@@ -192,7 +192,7 @@ export default function StepMapping({ parsed, mapping, onMappingChange }: Props)
       <div className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2">
         <Info size={13} className="mt-0.5 shrink-0 text-slate-500" />
         <p className="text-[10.5px] text-slate-600">
-          Pastikan kolom <strong>Kode · Nama (ID) · Chapter</strong> sudah ter-map sebelum lanjut ke preview validasi.
+          Pastikan kolom <strong>Kode (CODE) · Display · Versi (VERSION)</strong> sudah ter-map sebelum lanjut ke preview validasi.
         </p>
       </div>
     </div>

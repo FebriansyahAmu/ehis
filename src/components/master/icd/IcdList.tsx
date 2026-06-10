@@ -1,83 +1,63 @@
 "use client";
 
-import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileSpreadsheet, CheckCircle2, X } from "lucide-react";
+import { FileSpreadsheet, CheckCircle2, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MasterListPanel } from "@/components/master/shared";
-import {
-  type IcdItem, type IcdJenis,
-  getIcdStatusCfg, getChaptersByJenis,
-} from "@/lib/master/icdMock";
+import { type IcdItem, type IcdJenis, getIcdStatusCfg } from "@/lib/master/icdMock";
 import { JENIS_CFG, JENIS_LIST } from "./icdShared";
 
+export type FilterStatus = "Semua" | "Aktif" | "Non_Aktif";
+
 interface Props {
-  items: IcdItem[];
+  items: IcdItem[]; // halaman yang sudah dimuat (server-filtered)
   selectedId: string | null;
   onSelect: (id: string) => void;
   onAddNew: () => void;
   activeJenis: IcdJenis;
   onJenisChange: (j: IcdJenis) => void;
-  /** Optional: handler tombol Import Excel/CSV di header filter. */
+  // Filter server-side (di-drive parent)
+  query: string;
+  onQueryChange: (q: string) => void;
+  filterStatus: FilterStatus;
+  onFilterStatusChange: (s: FilterStatus) => void;
+  // Paginasi cursor
+  loading: boolean;       // memuat halaman pertama
+  hasMore: boolean;
+  loadingMore: boolean;
+  onLoadMore: () => void;
+  // Import
   onImport?: () => void;
-  /** Optional: notice banner setelah import sukses (auto-dismiss). */
   importNotice?: string | null;
   onDismissNotice?: () => void;
 }
 
-type FilterStatus = "Semua" | "Aktif" | "Non_Aktif";
-
 export default function IcdList({
   items, selectedId, onSelect, onAddNew,
   activeJenis, onJenisChange,
+  query, onQueryChange, filterStatus, onFilterStatusChange,
+  loading, hasMore, loadingMore, onLoadMore,
   onImport, importNotice, onDismissNotice,
 }: Props) {
-  const [query, setQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>("Semua");
-  const [filterChapter, setFilterChapter] = useState<string>("Semua");
-
-  const chapters = useMemo(
-    () => getChaptersByJenis(items, activeJenis),
-    [items, activeJenis],
-  );
-
-  // Reset chapter filter saat ganti jenis (chapter list beda)
-  const handleJenisChange = (j: IcdJenis) => {
-    onJenisChange(j);
-    setFilterChapter("Semua");
-  };
-
-  const filtered = items.filter((item) => {
-    if (item.jenis !== activeJenis) return false;
-    const q = query.toLowerCase();
-    const matchQ = !q
-      || item.nama.toLowerCase().includes(q)
-      || item.kode.toLowerCase().includes(q)
-      || (item.namaInggris ?? "").toLowerCase().includes(q);
-    const matchS = filterStatus === "Semua" || item.status === filterStatus;
-    const matchC = filterChapter === "Semua" || item.chapter === filterChapter;
-    return matchQ && matchS && matchC;
-  });
-
-  const hasActiveFilter = filterStatus !== "Semua" || filterChapter !== "Semua";
-  const aktifCount = items.filter((i) => i.jenis === activeJenis && i.status === "Aktif").length;
+  const hasActiveFilter = filterStatus !== "Semua";
   const activeCfg = JENIS_CFG[activeJenis];
 
   return (
     <MasterListPanel
       accent="sky"
       query={query}
-      onQueryChange={setQuery}
-      searchPlaceholder={`Cari ${activeCfg.short} kode, nama Indonesia, atau Inggris...`}
-      visibleCount={filtered.length}
-      totalCount={items.filter((i) => i.jenis === activeJenis).length}
+      onQueryChange={onQueryChange}
+      searchPlaceholder={`Cari ${activeCfg.short} kode atau display...`}
+      visibleCount={items.length}
+      totalCount={items.length}
       hasActiveFilter={hasActiveFilter}
       onAddNew={onAddNew}
       addLabel={`Tambah ${activeCfg.short}`}
-      isEmpty={filtered.length === 0}
+      isEmpty={!loading && items.length === 0}
+      emptyTitle={query ? "Tidak ada hasil" : "Katalog kosong"}
+      emptyDesc={query ? "Coba kata kunci atau jenis lain" : "Import dataset SatuSehat untuk mengisi katalog"}
       secondaryAction={
         <>
-          {/* Import CTA — always visible di bawah Add CTA */}
           {onImport && (
             <button
               type="button"
@@ -91,8 +71,6 @@ export default function IcdList({
               Import dari Excel / CSV
             </button>
           )}
-
-          {/* Notice banner — muncul setelah import sukses, auto-dismiss */}
           <AnimatePresence>
             {importNotice && (
               <motion.div
@@ -131,12 +109,11 @@ export default function IcdList({
                 const cfg = JENIS_CFG[j];
                 const active = activeJenis === j;
                 const Icon = cfg.icon;
-                const count = items.filter((i) => i.jenis === j).length;
                 return (
                   <button
                     key={j}
                     type="button"
-                    onClick={() => handleJenisChange(j)}
+                    onClick={() => onJenisChange(j)}
                     className={cn(
                       "flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-[11px] font-semibold transition",
                       active
@@ -146,13 +123,13 @@ export default function IcdList({
                   >
                     <Icon size={11} />
                     <span>{cfg.short}</span>
-                    <span className="ml-auto font-mono text-[9px] text-slate-400">{count}</span>
                   </button>
                 );
               })}
             </div>
           </div>
 
+          {/* Status filter */}
           <div>
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Status</p>
             <div className="flex gap-1">
@@ -160,7 +137,7 @@ export default function IcdList({
                 <button
                   key={s}
                   type="button"
-                  onClick={() => setFilterStatus(s)}
+                  onClick={() => onFilterStatusChange(s)}
                   className={cn(
                     "rounded px-2.5 py-1 text-[10px] font-medium transition",
                     filterStatus === s
@@ -173,46 +150,50 @@ export default function IcdList({
               ))}
             </div>
           </div>
-
-          <div>
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-              Chapter
-              <span className="ml-1 font-mono text-[9px] text-slate-400">({chapters.length})</span>
-            </p>
-            <select
-              value={filterChapter}
-              onChange={(e) => setFilterChapter(e.target.value)}
-              className={cn(
-                "w-full rounded border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700 outline-none",
-                "focus:border-sky-400 focus:ring-2 focus:ring-sky-100",
-              )}
-            >
-              <option value="Semua">Semua chapter</option>
-              {chapters.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
         </>
       }
       footer={
         <>
-          <strong className="text-slate-700">{aktifCount}</strong> aktif ·{" "}
-          <strong className="text-slate-700">{chapters.length}</strong> chapter
+          <strong className="text-slate-700">{items.length}</strong> kode dimuat
+          {hasMore && <span className="text-slate-400"> · ada lagi</span>}
         </>
       }
     >
-      <ul>
-        {filtered.map((item, i) => (
-          <IcdRow
-            key={item.id}
-            item={item}
-            active={item.id === selectedId}
-            index={i}
-            onSelect={() => onSelect(item.id)}
-          />
-        ))}
-      </ul>
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 py-10 text-xs text-slate-400">
+          <Loader2 size={14} className="animate-spin" /> Memuat katalog…
+        </div>
+      ) : (
+        <>
+          <ul>
+            {items.map((item, i) => (
+              <IcdRow
+                key={item.id}
+                item={item}
+                active={item.id === selectedId}
+                index={i}
+                onSelect={() => onSelect(item.id)}
+              />
+            ))}
+          </ul>
+          {hasMore && (
+            <div className="p-2">
+              <button
+                type="button"
+                onClick={onLoadMore}
+                disabled={loadingMore}
+                className={cn(
+                  "flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 py-1.5 text-[11px] font-semibold transition",
+                  loadingMore ? "cursor-not-allowed text-slate-300" : "text-slate-600 hover:border-sky-300 hover:bg-sky-50/50 hover:text-sky-700",
+                )}
+              >
+                {loadingMore ? <Loader2 size={12} className="animate-spin" /> : null}
+                {loadingMore ? "Memuat…" : "Muat lebih banyak"}
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </MasterListPanel>
   );
 }
@@ -234,7 +215,7 @@ function IcdRow({
     <motion.li
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.13, delay: index * 0.01 }}
+      transition={{ duration: 0.13, delay: Math.min(index, 12) * 0.01 }}
     >
       <button
         type="button"
@@ -247,7 +228,6 @@ function IcdRow({
         )}
       >
         <div className="flex items-start gap-2">
-          {/* Kode chip */}
           <div className={cn(
             "shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[10.5px] font-bold tracking-tight",
             active ? cn(cfg.bg, cfg.text) : "bg-slate-100 text-slate-600",
@@ -268,9 +248,14 @@ function IcdRow({
               </p>
             )}
             <div className="mt-1 flex flex-wrap items-center gap-1">
-              <span className="truncate text-[9px] text-slate-400" title={item.chapter}>
-                {item.chapter}
+              <span className="rounded bg-sky-50 px-1 font-mono text-[9px] text-sky-600" title="Versi CodeSystem">
+                v{item.version}
               </span>
+              {item.chapter && (
+                <span className="truncate text-[9px] text-slate-400" title={item.chapter}>
+                  {item.chapter}
+                </span>
+              )}
               {item.inaCbg && (
                 <span className="rounded bg-emerald-50 px-1 font-mono text-[9px] text-emerald-700" title="INA-CBG mapping">
                   CBG {item.inaCbg}

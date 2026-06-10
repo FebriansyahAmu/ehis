@@ -1,6 +1,6 @@
 "use client";
 
-import { IdCard, Tag, Library, Activity } from "lucide-react";
+import { IdCard, Tag, Library, Activity, Hash } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Field, TextInput, ChipToggle, ToggleSwitch, SectionGroup,
@@ -84,7 +84,7 @@ export default function IcdDetail({
               </div>
             </Field>
 
-            <Field label={isIcd10 ? "Kode ICD-10" : "Kode ICD-9-CM"} required hint={isIcd10 ? "Format: A09, I21.0, E11.65" : "Format: 89.52, 88.72"}>
+            <Field label={isIcd10 ? "Kode ICD-10 · CODE" : "Kode ICD-9-CM · CODE"} required hint={isIcd10 ? "Format: A09, I21.0, E11.65" : "Format: 89.52, 88.72"}>
               <TextInput
                 value={draft.kode}
                 onChange={(v) => onPatch({ kode: v })}
@@ -95,34 +95,46 @@ export default function IcdDetail({
               />
             </Field>
 
-            <Field label="Nama (Bahasa Indonesia)" required>
+            <Field label="Display" required hint="Teks tampilan resmi dari SatuSehat (kolom DISPLAY)">
               <TextInput
                 value={draft.nama}
                 onChange={(v) => onPatch({ nama: v })}
-                placeholder="Mis. Diare dan gastroenteritis dengan asal infeksi"
+                placeholder="Mis. Diarrhoea and gastroenteritis of presumed infectious origin"
                 accent="sky"
               />
             </Field>
 
-            {isIcd10 && (
-              <Field label="Nama (English)" hint="Untuk interoperabilitas WHO / klaim luar negeri">
+            <Field label="Versi · VERSION" required hint="Versi CodeSystem SatuSehat (mis. 2010)">
+              <div className="flex items-center gap-1.5">
+                <Hash size={12} className="text-slate-400" />
                 <TextInput
-                  value={draft.namaInggris ?? ""}
-                  onChange={(v) => onPatch({ namaInggris: v })}
-                  placeholder="Diarrhoea and gastroenteritis of presumed infectious origin"
+                  value={draft.version}
+                  onChange={(v) => onPatch({ version: v })}
+                  placeholder="2010"
+                  className="font-mono"
+                  maxW="max-w-[120px]"
                   accent="sky"
                 />
-              </Field>
-            )}
+              </div>
+            </Field>
           </div>
         </SectionGroup>
 
-        {/* Klasifikasi */}
-        <SectionGroup title="Klasifikasi" icon={<Library size={11} />} accent={HEAD_VIOLET}>
+        {/* Atribut tambahan — opsional (pengkayaan lokal di luar 3 inti SatuSehat) */}
+        <SectionGroup title="Atribut Tambahan · Opsional" icon={<Library size={11} />} accent={HEAD_VIOLET}>
           <div className="flex flex-col gap-3">
-            <Field label="Chapter" required hint={isIcd10 ? "Mis. IX. Sirkulasi" : "Mis. Radiologi"}>
+            <Field label="Nama Alternatif" hint="Opsional — terjemahan / nama lokal">
               <TextInput
-                value={draft.chapter}
+                value={draft.namaInggris ?? ""}
+                onChange={(v) => onPatch({ namaInggris: v })}
+                placeholder="Diare dan gastroenteritis dengan asal infeksi"
+                accent="violet"
+              />
+            </Field>
+
+            <Field label="Chapter" hint={isIcd10 ? "Opsional — mis. IX. Sirkulasi" : "Opsional — mis. Radiologi"}>
+              <TextInput
+                value={draft.chapter ?? ""}
                 onChange={(v) => onPatch({ chapter: v })}
                 placeholder={isIcd10 ? "IX. Sirkulasi" : "Radiologi"}
                 accent="violet"
@@ -131,7 +143,7 @@ export default function IcdDetail({
 
             {isIcd10 && (
               <>
-                <Field label="Blok" hint="Sub-grup dalam chapter, mis. I20–I25">
+                <Field label="Blok" hint="Opsional — sub-grup dalam chapter, mis. I20–I25">
                   <TextInput
                     value={draft.blok ?? ""}
                     onChange={(v) => onPatch({ blok: v })}
@@ -142,7 +154,7 @@ export default function IcdDetail({
                   />
                 </Field>
 
-                <Field label="INA-CBG Code" hint="Optional — pemetaan klaim BPJS">
+                <Field label="INA-CBG Code" hint="Opsional — pemetaan klaim BPJS">
                   <div className="flex items-center gap-1.5">
                     <Tag size={12} className="text-slate-400" />
                     <TextInput
@@ -164,7 +176,10 @@ export default function IcdDetail({
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 <JenisChip jenis={draft.jenis} />
                 <span className="font-mono text-[11px] font-bold text-slate-800">{draft.kode || "—"}</span>
-                <span className="truncate text-[11px] text-slate-700">{draft.nama || "Nama kode…"}</span>
+                {draft.version && (
+                  <span className="rounded bg-sky-50 px-1.5 py-0 font-mono text-[10px] text-sky-700">v{draft.version}</span>
+                )}
+                <span className="truncate text-[11px] text-slate-700">{draft.nama || "Display kode…"}</span>
                 {draft.inaCbg && (
                   <span className="rounded bg-emerald-50 px-1.5 py-0 font-mono text-[10px] text-emerald-700">
                     CBG {draft.inaCbg}
@@ -233,7 +248,10 @@ function HeaderContent({ draft, isNew }: { draft: IcdItem; isNew: boolean }) {
         {!isNew && (
           <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
             <JenisChip jenis={draft.jenis} />
-            <span className="text-[10px] text-slate-400">{draft.chapter}</span>
+            {draft.version && (
+              <span className="rounded bg-sky-50 px-1.5 py-0 font-mono text-[10px] text-sky-700">v{draft.version}</span>
+            )}
+            {draft.chapter && <span className="text-[10px] text-slate-400">{draft.chapter}</span>}
             {draft.inaCbg && (
               <span className="rounded bg-emerald-50 px-1.5 py-0 font-mono text-[10px] text-emerald-700">
                 CBG {draft.inaCbg}

@@ -212,22 +212,22 @@ export default async function PenggunaPage() {
 Layering tetap sama; ini **hanya tata-letak file** (tak mengubah arah impor Route→Service→DAL→Schema).
 
 - **Legacy (flat-by-layer)** — domain awal (`ruangan`, `kunjungan`, `pegawai`, `dokter`, `bedAllocation`, `triase`, `observation`, …) tetap file datar di akar tiap layer: `lib/schemas/<domain>.ts` · `lib/dal/<domain>Dal.ts` · `lib/services/<domain>Service.ts` · `lib/api/<domain>.ts`. **Jangan refactor** tanpa diminta.
-- **Domain BARU = folder-per-TAB** (konvensi 2026-06-09) — kelompokkan per **tab UI**, sub-folder bernama tab di dalam tiap layer, **nama file dipertahankan**:
+- **Domain BARU = folder-per-GROUP** (konvensi 2026-06-09, diperluas 2026-06-10) — kelompokkan per **group** = **tab UI** (domain klinis) ATAU **nama modul** (fitur modul), sub-folder bernama group di dalam tiap layer, **nama file dipertahankan**:
 
   ```
-  lib/schemas/<tab>/<fitur>.ts          # mis. lib/schemas/asesmenMedis/anamnesis.ts
-  lib/dal/<tab>/<fitur>Dal.ts           #      lib/dal/asesmenMedis/anamnesisDal.ts
-  lib/services/<tab>/<fitur>Service.ts  #      lib/services/asesmenMedis/anamnesisService.ts
-  lib/api/<tab>/<fitur>.ts              #      lib/api/asesmenMedis/anamnesis.ts
+  lib/schemas/<group>/<fitur>.ts          # tab klinis: lib/schemas/asesmenMedis/anamnesis.ts
+  lib/dal/<group>/<fitur>Dal.ts           # modul:      lib/dal/master/icdDal.ts
+  lib/services/<group>/<fitur>Service.ts  #             lib/services/master/icdService.ts
+  lib/api/<group>/<fitur>.ts              #             lib/api/master/icd.ts
   ```
-  Impor: `@/lib/api/<tab>/<fitur>` (mis. `@/lib/api/asesmenMedis/anamnesis`). Satu tab = satu folder per layer, semua fitur tab terkumpul di situ → mudah diakses & scalable.
+  `<group>` ditentukan per jenis domain: **rekam medis (klinis)** → nama **Tab di sidebar** rekam medis (`asesmenMedis/`; menyusul triase/CPPT/diagnosa/dll) · **modul non-klinis** → **nama modul** (`master/` utk semua fitur `/ehis-master`). Impor: `@/lib/api/<group>/<fitur>`. Satu group = satu folder per layer → mudah diakses & scalable.
 
   Aturan turunan:
   - **Route** tetap di `app/api/**` mengikuti **URL** (tak ikut folder lib). Endpoint sub-tab dikelompokkan di path: `app/api/v1/kunjungan/[id]/asesmen/<fitur>/route.ts`.
   - **Helper lintas-domain** (mis. [`services/actorName.ts`](../src/lib/services/actorName.ts) untuk resolve nama pencatat dari actor) tetap di **akar** layer-nya, BUKAN di dalam folder tab.
   - Langkah §7 di atas berlaku sama — hanya jalur file yang berubah (`<domain>` → `<tab>/<fitur>`).
 
-  Contoh nyata sudah dimigrasi: tab **Asesmen Medis** → `lib/{schemas,dal,services,api}/asesmenMedis/` (anamnesis + 5 pane riwayat).
+  Contoh nyata: tab **Asesmen Medis** → `lib/{schemas,dal,services,api}/asesmenMedis/` (anamnesis + 5 pane riwayat) · modul **Master** → `lib/{schemas,dal,services,api}/master/` (ICD: `icd`/`icdDal`/`icdService`).
 
 ---
 

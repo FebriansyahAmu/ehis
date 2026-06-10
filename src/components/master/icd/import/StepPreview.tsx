@@ -151,8 +151,8 @@ export default function StepPreview({ parsed, jenis, summary }: Props) {
               <thead className="bg-emerald-50/50">
                 <tr>
                   <th className="border-r border-emerald-100 px-2 py-1 text-left text-[9px] font-semibold uppercase text-emerald-700">Kode</th>
-                  <th className="border-r border-emerald-100 px-2 py-1 text-left text-[9px] font-semibold uppercase text-emerald-700">Nama (ID)</th>
-                  <th className="border-r border-emerald-100 px-2 py-1 text-left text-[9px] font-semibold uppercase text-emerald-700">Nama (EN)</th>
+                  <th className="border-r border-emerald-100 px-2 py-1 text-left text-[9px] font-semibold uppercase text-emerald-700">Display</th>
+                  <th className="border-r border-emerald-100 px-2 py-1 text-left text-[9px] font-semibold uppercase text-emerald-700">Versi</th>
                   <th className="border-r border-emerald-100 px-2 py-1 text-left text-[9px] font-semibold uppercase text-emerald-700">Chapter</th>
                   <th className="px-2 py-1 text-left text-[9px] font-semibold uppercase text-emerald-700">CBG</th>
                 </tr>
@@ -164,10 +164,10 @@ export default function StepPreview({ parsed, jenis, summary }: Props) {
                       {item.kode}
                     </td>
                     <td className="border-r border-emerald-50 px-2 py-1 text-slate-700">{item.nama}</td>
-                    <td className="border-r border-emerald-50 px-2 py-1 italic text-slate-500">
-                      {item.namaInggris ?? <span className="text-slate-300">—</span>}
+                    <td className="border-r border-emerald-50 px-2 py-1 font-mono text-slate-600">{item.version}</td>
+                    <td className="border-r border-emerald-50 px-2 py-1 text-slate-600">
+                      {item.chapter ?? <span className="text-slate-300">—</span>}
                     </td>
-                    <td className="border-r border-emerald-50 px-2 py-1 text-slate-600">{item.chapter}</td>
                     <td className="px-2 py-1 font-mono text-emerald-700">
                       {item.inaCbg ?? <span className="text-slate-300">—</span>}
                     </td>

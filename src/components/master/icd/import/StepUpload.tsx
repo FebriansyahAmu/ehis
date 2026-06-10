@@ -3,13 +3,13 @@
 import { useState, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
-  Upload, FileText, FileSpreadsheet, AlertTriangle, Info, Sparkles,
+  Upload, FileText, FileSpreadsheet, AlertTriangle, Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { IcdJenis } from "@/lib/master/icdMock";
 import {
-  type ParsedFile, MAX_PREVIEW_ROWS,
-  parseCsvContent, parseExcelDemo, readFileAsText, detectFileMode,
+  type ParsedFile,
+  parseCsvContent, parseExcelFile, readFileAsText, detectFileMode,
 } from "./importHelpers";
 import { JENIS_CFG, JENIS_LIST } from "../icdShared";
 
@@ -21,7 +21,7 @@ interface Props {
 
 interface SelectedFileInfo {
   file: File;
-  mode: "csv" | "excel-demo" | "unsupported";
+  mode: "csv" | "excel" | "unsupported";
 }
 
 export default function StepUpload({
@@ -63,22 +63,25 @@ export default function StepUpload({
           setError("File kosong atau tidak ada header.");
           return;
         }
-        const truncated = rows.length > MAX_PREVIEW_ROWS;
-        const limitedRows = truncated ? rows.slice(0, MAX_PREVIEW_ROWS) : rows;
+        // Semua baris diproses & di-import; tabel preview punya slice sendiri.
         const parsed: ParsedFile = {
           mode: "csv",
           fileName: selected.file.name,
           headers,
-          rows: limitedRows,
+          rows,
           totalRows: rows.length,
-          truncated,
+          truncated: false,
         };
         onFileParsed(parsed);
       } else {
-        // excel-demo: mock parsing (saat backend ready, replace dengan xlsx lib)
-        const { headers, rows } = parseExcelDemo(selected.file.name);
+        // excel: parsing real via SheetJS (sheet pertama). Semua baris diproses.
+        const { headers, rows } = await parseExcelFile(selected.file);
+        if (headers.length === 0) {
+          setError("File Excel kosong atau sheet pertama tidak punya header.");
+          return;
+        }
         const parsed: ParsedFile = {
-          mode: "excel-demo",
+          mode: "excel",
           fileName: selected.file.name,
           headers,
           rows,
@@ -171,7 +174,7 @@ export default function StepUpload({
                 {drag ? "Lepaskan file di sini…" : "Drag & drop file ke sini, atau klik untuk pilih"}
               </p>
               <p className="mt-1 text-[10.5px] text-slate-500">
-                Format: .xlsx · .xls · .csv · max preview {MAX_PREVIEW_ROWS} baris
+                Format: .xlsx · .xls · .csv · semua baris diproses
               </p>
             </>
           )}
@@ -186,22 +189,6 @@ export default function StepUpload({
             <AlertTriangle size={13} className="mt-0.5 shrink-0 text-rose-600" />
             <p className="text-[11px] text-rose-700">{error}</p>
           </motion.div>
-        )}
-
-        {selected && selected.mode === "excel-demo" && (
-          <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2">
-            <Sparkles size={13} className="mt-0.5 shrink-0 text-amber-600" />
-            <div className="flex-1 text-[10.5px] leading-relaxed">
-              <p className="font-semibold text-amber-800">Mode Demo Excel</p>
-              <p className="text-amber-700">
-                File .xlsx terdeteksi, namun preview akan pakai{" "}
-                <strong>15 baris sample WHO ICD-10</strong> (demo). Saat backend ready,
-                lib <code className="rounded bg-white px-1 font-mono">xlsx</code> akan di-install
-                untuk parsing real file Excel. Sementara, gunakan format <strong>.csv</strong>{" "}
-                untuk preview dataset real.
-              </p>
-            </div>
-          </div>
         )}
 
         {selected && (
@@ -230,13 +217,13 @@ export default function StepUpload({
           <div className="flex-1 text-[10.5px] leading-relaxed text-slate-600">
             <p className="font-semibold text-slate-700">Format file yang diharapkan</p>
             <p className="mt-0.5">
-              Baris 1 = header kolom. Min wajib ada kolom <strong>Kode</strong>,{" "}
-              <strong>Nama Indonesia</strong>, dan <strong>Chapter</strong>. Kolom opsional:{" "}
-              Nama Inggris, Blok, INA-CBG. Auto-detect mapping akan jalan di langkah berikutnya.
+              Baris 1 = header kolom. Min wajib ada kolom <strong>CODE</strong>,{" "}
+              <strong>DISPLAY</strong>, dan <strong>VERSION</strong>. Kolom opsional:{" "}
+              Nama Alternatif, Chapter, Blok, INA-CBG. Auto-detect mapping akan jalan di langkah berikutnya.
             </p>
             <p className="mt-1 text-slate-500">
-              Source umum: <strong>WHO ICD-10 Tabular List</strong>,{" "}
-              <strong>Kemkes Buku ICD-10 Volume 1</strong>, atau export dari aplikasi ICD-10 Browser.
+              Source: <strong>unduhan SatuSehat Kemenkes</strong> (CodeSystem ICD-10 / ICD-9-CM)
+              dalam format .xlsx atau .csv.
             </p>
           </div>
         </div>
@@ -255,7 +242,7 @@ function SelectedPreview({ info }: { info: SelectedFileInfo }) {
     <div className="flex items-center gap-3">
       <FileIcon size={28} className={cn(
         info.mode === "csv" ? "text-emerald-600"
-        : info.mode === "excel-demo" ? "text-amber-600"
+        : info.mode === "excel" ? "text-sky-600"
         : "text-slate-400",
       )} />
       <div className="min-w-0 text-left">
@@ -265,12 +252,12 @@ function SelectedPreview({ info }: { info: SelectedFileInfo }) {
           <span className="text-slate-300">·</span>
           <span className={cn(
             "rounded px-1.5 py-0 font-semibold",
-            info.mode === "csv"          ? "bg-emerald-100 text-emerald-700"
-            : info.mode === "excel-demo" ? "bg-amber-100 text-amber-700"
+            info.mode === "csv"     ? "bg-emerald-100 text-emerald-700"
+            : info.mode === "excel" ? "bg-sky-100 text-sky-700"
             : "bg-rose-100 text-rose-700",
           )}>
-            {info.mode === "csv" ? "CSV (real parse)"
-              : info.mode === "excel-demo" ? "Excel (demo)"
+            {info.mode === "csv" ? "CSV"
+              : info.mode === "excel" ? "Excel"
               : "Tidak didukung"}
           </span>
         </div>

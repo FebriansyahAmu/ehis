@@ -1,21 +1,21 @@
 /**
  * Helper utility untuk Import Excel/CSV ICD-10 & ICD-9.
  *
- * Strategi (frontend-only, mock-ready):
+ * Strategi (frontend-only):
  *   - CSV: parsing real via native FileReader + custom split (RFC 4180 minimal).
- *   - Excel (.xlsx): demo mode dengan sample data — saat backend ready, install
- *     `xlsx` (SheetJS) dan replace `parseExcelDemo()` dengan real parsing via
- *     `XLSX.read(arrayBuffer).Sheets[firstName] → XLSX.utils.sheet_to_json()`.
+ *   - Excel (.xlsx/.xls): parsing real via SheetJS (`xlsx`, dynamic-import agar
+ *     bundle ringan) — `XLSX.read(arrayBuffer) → sheet_to_json(header:1)`.
  *
- * Field mapping (target): kode · nama · namaInggris · chapter · blok · inaCbg
- * Format file referensi: WHO ICD-10 master file atau Kemkes Buku ICD-10 Volume 1.
+ * Field mapping (target): kode · nama (DISPLAY) · version · [namaInggris · chapter · blok · inaCbg]
+ * Format file referensi: unduhan SatuSehat Kemenkes (CODE · DISPLAY · VERSION).
  */
 
 import type { IcdItem, IcdJenis } from "@/lib/master/icdMock";
+import { defaultIcdVersion } from "@/lib/master/icdMock";
 
 // ── File parsing types ───────────────────────────────────
 
-export type FileMode = "csv" | "excel-demo";
+export type FileMode = "csv" | "excel";
 
 export interface ParsedFile {
   mode: FileMode;
@@ -23,15 +23,13 @@ export interface ParsedFile {
   headers: string[];
   rows: string[][];           // raw data rows (excluding header)
   totalRows: number;
-  truncated: boolean;         // true bila >MAX_PREVIEW_ROWS, sebagian saja preview-nya
+  truncated: boolean;         // dipertahankan utk kompat UI; selalu false (semua baris diproses)
 }
-
-export const MAX_PREVIEW_ROWS = 500;
 
 // ── Column mapping ───────────────────────────────────────
 
 /** Target field di IcdItem yang bisa di-map dari kolom Excel/CSV. */
-export type IcdField = "kode" | "nama" | "namaInggris" | "chapter" | "blok" | "inaCbg";
+export type IcdField = "kode" | "nama" | "version" | "namaInggris" | "chapter" | "blok" | "inaCbg";
 
 export interface IcdFieldDef {
   key: IcdField;
@@ -43,10 +41,13 @@ export interface IcdFieldDef {
 }
 
 export const ICD_FIELDS: IcdFieldDef[] = [
-  { key: "kode",        label: "Kode",          required: true,  hint: "Kode utama (A09, I21.0, dll)",      matchPatterns: ["kode", "code", "icd"] },
-  { key: "nama",        label: "Nama (ID)",     required: true,  hint: "Nama diagnosis Bahasa Indonesia",   matchPatterns: ["nama", "indonesia", "deskripsi", "title_id"] },
-  { key: "namaInggris", label: "Nama (EN)",     required: false, hint: "Nama diagnosis Bahasa Inggris",     matchPatterns: ["english", "inggris", "title_en", "title", "name"] },
-  { key: "chapter",     label: "Chapter",       required: true,  hint: "Chapter WHO (mis. I, IX, dll)",     matchPatterns: ["chapter", "bab", "group"] },
+  // 3 inti SatuSehat — wajib di-map.
+  { key: "kode",        label: "Kode · CODE",   required: true,  hint: "Kode utama (A09, I21.0, dll)",      matchPatterns: ["code", "kode", "icd"] },
+  { key: "nama",        label: "Display",       required: true,  hint: "Teks tampilan SatuSehat (DISPLAY)", matchPatterns: ["display", "nama", "deskripsi", "title", "name"] },
+  { key: "version",     label: "Versi · VERSION", required: true, hint: "Versi CodeSystem (mis. 2010)",     matchPatterns: ["version", "versi"] },
+  // Atribut tambahan — opsional.
+  { key: "namaInggris", label: "Nama Alternatif", required: false, hint: "Terjemahan / nama lokal",         matchPatterns: ["english", "inggris", "alternatif", "alt"] },
+  { key: "chapter",     label: "Chapter",       required: false, hint: "Chapter (mis. I, IX, dll)",         matchPatterns: ["chapter", "bab", "group"] },
   { key: "blok",        label: "Blok",          required: false, hint: "Sub-blok dalam chapter (I20–I25)",   matchPatterns: ["blok", "block", "sub"] },
   { key: "inaCbg",      label: "INA-CBG",       required: false, hint: "Mapping INA-CBG (untuk klaim BPJS)", matchPatterns: ["cbg", "ina-cbg", "ina_cbg", "inacbg"] },
 ];
@@ -111,39 +112,34 @@ function detectDelimiter(line: string): string {
   return ",";
 }
 
-// ── Excel demo mode ──────────────────────────────────────
+// ── Excel parsing (SheetJS, real) ────────────────────────
 
 /**
- * Mock parser untuk file .xlsx (demo mode).
- *
- * Saat backend ready, ganti dengan:
- *   import * as XLSX from "xlsx";
- *   const wb = XLSX.read(arrayBuffer);
- *   const sheet = wb.Sheets[wb.SheetNames[0]];
- *   const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: "" });
- *   return { headers: rows[0], rows: rows.slice(1) };
+ * Parse file Excel (.xlsx/.xls) → headers + rows (semua sel jadi string).
+ * Membaca sheet PERTAMA. `header:1` → matriks baris; baris-1 = header.
+ * `xlsx` di-dynamic-import supaya hanya ter-load saat user benar-benar
+ * meng-import Excel (bundle awal tetap ringan).
  */
-export function parseExcelDemo(fileName: string): { headers: string[]; rows: string[][] } {
-  const headers = ["Kode", "Nama Indonesia", "English Title", "Chapter", "Blok", "INA-CBG"];
-  const rows: string[][] = [
-    ["A00.0", "Kolera akibat Vibrio cholerae 01, biotipe cholerae", "Cholera due to Vibrio cholerae 01, biovar cholerae", "I. Infeksi & Parasit", "A00–A09", "A-4-13"],
-    ["A00.1", "Kolera akibat Vibrio cholerae 01, biotipe el tor",   "Cholera due to Vibrio cholerae 01, biovar eltor",   "I. Infeksi & Parasit", "A00–A09", "A-4-13"],
-    ["A00.9", "Kolera, tidak spesifik",                              "Cholera, unspecified",                              "I. Infeksi & Parasit", "A00–A09", ""],
-    ["A01.0", "Demam tifoid",                                        "Typhoid fever",                                     "I. Infeksi & Parasit", "A00–A09", "A-4-13"],
-    ["A01.4", "Demam paratifoid, tidak spesifik",                    "Paratyphoid fever, unspecified",                    "I. Infeksi & Parasit", "A00–A09", ""],
-    ["A02.0", "Enteritis salmonella",                                "Salmonella enteritis",                              "I. Infeksi & Parasit", "A00–A09", ""],
-    ["A03.0", "Shigellosis akibat Shigella dysenteriae",             "Shigellosis due to Shigella dysenteriae",           "I. Infeksi & Parasit", "A00–A09", ""],
-    ["A04.0", "Infeksi E. coli enteropatogenik",                     "Enteropathogenic Escherichia coli infection",       "I. Infeksi & Parasit", "A00–A09", ""],
-    ["A04.7", "Enterokolitis akibat Clostridium difficile",          "Enterocolitis due to Clostridium difficile",        "I. Infeksi & Parasit", "A00–A09", ""],
-    ["A05.0", "Keracunan makanan staphylococcal",                    "Foodborne staphylococcal intoxication",             "I. Infeksi & Parasit", "A00–A09", ""],
-    ["A06.0", "Disentri amebik akut",                                "Acute amoebic dysentery",                           "I. Infeksi & Parasit", "A00–A09", ""],
-    ["A08.0", "Enteritis rotavirus",                                  "Rotaviral enteritis",                              "I. Infeksi & Parasit", "A00–A09", ""],
-    ["A15.1", "Tuberkulosis paru, hanya tes kultur positif",         "Tuberculosis of lung, confirmed by culture only",   "I. Infeksi & Parasit", "A15–A19", "A-4-15"],
-    ["A15.2", "Tuberkulosis paru, histologis positif",                "Tuberculosis of lung, confirmed histologically",    "I. Infeksi & Parasit", "A15–A19", "A-4-15"],
-    ["A16.0", "TB paru, tanpa pemeriksaan bakteriologis/histologis", "Tuberculosis of lung, without mention of bacteriological or histological confirmation", "I. Infeksi & Parasit", "A15–A19", ""],
-    // Reference: ini sample 15 baris — file .xlsx asli WHO bisa 15.000+ kode
-  ];
-  void fileName;
+export async function parseExcelFile(file: File): Promise<{ headers: string[]; rows: string[][] }> {
+  const XLSX = await import("xlsx");
+  const buf = await readFileAsArrayBuffer(file);
+  const wb = XLSX.read(buf, { type: "array" });
+  const sheetName = wb.SheetNames[0];
+  if (!sheetName) return { headers: [], rows: [] };
+
+  const matrix = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[sheetName], {
+    header: 1,
+    defval: "",
+    blankrows: false,
+  });
+  if (matrix.length === 0) return { headers: [], rows: [] };
+
+  const toStr = (v: unknown): string => (v === null || v === undefined ? "" : String(v).trim());
+  const [headerRow, ...dataRows] = matrix;
+  const headers = (headerRow as unknown[]).map(toStr);
+  const rows = dataRows
+    .map((r) => (r as unknown[]).map(toStr))
+    .filter((r) => r.some((c) => c !== "")); // buang baris kosong total
   return { headers, rows };
 }
 
@@ -174,19 +170,20 @@ export function buildIcdFromRow(
 
   const kode = getValue("kode");
   const nama = getValue("nama");
-  const chapter = getValue("chapter");
+  // VERSION inti, tapi sel kosong di-fallback ke versi default (bukan gagal).
+  const version = getValue("version") || defaultIcdVersion(ctx.jenis);
 
-  if (!kode) return { ok: false, reason: "Kode kosong" };
-  if (!nama) return { ok: false, reason: "Nama (ID) kosong" };
-  if (!chapter) return { ok: false, reason: "Chapter kosong" };
+  if (!kode) return { ok: false, reason: "Kode (CODE) kosong" };
+  if (!nama) return { ok: false, reason: "Display kosong" };
 
   const item: IcdItem = {
     id: `icd-imp-${ctx.rowIdx}-${Math.random().toString(36).slice(2, 6)}`,
     jenis: ctx.jenis,
     kode,
     nama,
+    version,
     namaInggris: getValue("namaInggris") || undefined,
-    chapter,
+    chapter: getValue("chapter") || undefined,
     blok: getValue("blok") || undefined,
     inaCbg: getValue("inaCbg") || undefined,
     status: "Aktif",
@@ -270,10 +267,19 @@ export function readFileAsText(file: File): Promise<string> {
   });
 }
 
+export function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as ArrayBuffer);
+    reader.onerror = () => reject(reader.error ?? new Error("File read error"));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 /** Tentukan mode parsing dari ekstensi file. */
 export function detectFileMode(file: File): FileMode | "unsupported" {
   const name = file.name.toLowerCase();
   if (name.endsWith(".csv")) return "csv";
-  if (name.endsWith(".xlsx") || name.endsWith(".xls")) return "excel-demo";
+  if (name.endsWith(".xlsx") || name.endsWith(".xls")) return "excel";
   return "unsupported";
 }

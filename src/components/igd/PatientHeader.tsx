@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -11,6 +11,10 @@ import {
 } from "lucide-react";
 import type { IGDPatientDetail, TriageLevel, IGDStatus } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { listObservasi, type ObservationVitalSigns } from "@/lib/api/observation";
+
+// id kunjungan DB = UUID; id demo/mock ("igd-1") tak punya time-series TTV di DB.
+const HEADER_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Triage configs ────────────────────────────────────────────────────────
 
@@ -343,8 +347,31 @@ function DateCard({ value, onSave }: { value: string; onSave: (v: string) => voi
 export default function PatientHeader({ patient }: { patient: IGDPatientDetail }) {
   const belumTriase = !patient.triage;
   const cfg = patient.triage ? TRIAGE[patient.triage] : BELUM_TRIASE;
-  const vs  = patient.vitalSigns;
   const [tglMasuk, setTglMasuk] = useState(patient.tglKunjungan);
+
+  // TTV terakhir yang diinput petugas di tab TTV (Observation, terbaru dulu). Pasien DB
+  // (id UUID) → ganti vital statis header dengan pengukuran terbaru; demo/kosong → fallback
+  // ke patient.vitalSigns. Self-fetch saat mount (sibling tab tak berbagi state).
+  const isPersisted = HEADER_UUID_RE.test(patient.id);
+  const [liveVs, setLiveVs] = useState<{ vs: ObservationVitalSigns; jam: string; perawat: string } | null>(null);
+
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    (async () => {
+      try {
+        const list = await listObservasi(patient.id, ac.signal);
+        if (ac.signal.aborted || list.length === 0) return;
+        const latest = list[0]; // service mengembalikan terbaru dulu
+        setLiveVs({ vs: latest.vitalSigns, jam: latest.jam, perawat: latest.perawat });
+      } catch {
+        /* diam — fallback ke vital statis bila gagal/kosong */
+      }
+    })();
+    return () => ac.abort();
+  }, [patient.id, isPersisted]);
+
+  const vs = liveVs?.vs ?? patient.vitalSigns;
   const gcsTotal = vs.gcsEye + vs.gcsVerbal + vs.gcsMotor;
 
   const initials = patient.name
@@ -504,8 +531,13 @@ export default function PatientHeader({ patient }: { patient: IGDPatientDetail }
           {/* Vitals bar */}
           <div className="border-t border-slate-200 bg-linear-to-r from-slate-100 to-slate-50 px-3 py-2 md:px-4">
             <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <span className="mr-1 shrink-0 text-[9px] font-bold uppercase tracking-widest text-slate-400">
-                Vital
+              <span className="mr-1 flex shrink-0 flex-col leading-none">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Vital</span>
+                {liveVs && (
+                  <span className="mt-0.5 whitespace-nowrap text-[8px] font-medium text-slate-400" title={`TTV terakhir ${liveVs.jam} oleh ${liveVs.perawat}`}>
+                    {liveVs.jam} · {liveVs.perawat}
+                  </span>
+                )}
               </span>
               <VitalChip icon={Activity}    label="TD"    value={`${vs.tdSistolik}/${vs.tdDiastolik}`} unit="mmHg" lvl={lvlTD(vs.tdSistolik, vs.tdDiastolik)}  title={`Tekanan Darah: ${vs.tdSistolik}/${vs.tdDiastolik} mmHg`} />
               <VitalChip icon={Heart}       label="Nadi"  value={`${vs.nadi}`}       unit="bpm"  lvl={lvlNadi(vs.nadi)}           title={`Denyut Nadi: ${vs.nadi} bpm`} />

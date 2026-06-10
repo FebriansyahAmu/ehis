@@ -2,9 +2,9 @@
 // kontrak FE↔BE selaras. Endpoint: /api/v1/kunjungan/:id/observasi (GET list · POST catat).
 
 import { api } from "@/lib/api/client";
-import type { ObservationInput, ObservationDTO } from "@/lib/schemas/observation";
+import type { ObservationInput, ObservationDTO, ObservationVitalSigns } from "@/lib/schemas/observation";
 
-export type { ObservationInput, ObservationDTO };
+export type { ObservationInput, ObservationDTO, ObservationVitalSigns };
 
 /** GET /kunjungan/:id/observasi — seluruh time-series TTV (terbaru dulu; [] bila kosong). */
 export async function listObservasi(kunjunganId: string, signal?: AbortSignal): Promise<ObservationDTO[]> {

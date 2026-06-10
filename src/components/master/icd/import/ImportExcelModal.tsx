@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, FileSpreadsheet, ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { X, FileSpreadsheet, ArrowRight, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { IcdItem, IcdJenis } from "@/lib/master/icdMock";
 import {
@@ -16,7 +16,8 @@ import StepPreview from "./StepPreview";
 interface Props {
   open: boolean;
   onClose: () => void;
-  onCommit: (items: IcdItem[]) => void;
+  /** Boleh async (mis. import batch ke server). Modal menampilkan state "Mengimpor…". */
+  onCommit: (items: IcdItem[]) => void | Promise<void>;
   existingItems: IcdItem[];
   defaultJenis: IcdJenis;
 }
@@ -36,6 +37,16 @@ export default function ImportExcelModal({
   const [jenis, setJenis] = useState<IcdJenis>(defaultJenis);
   const [parsed, setParsed] = useState<ParsedFile | null>(null);
   const [mapping, setMapping] = useState<ColumnMapping>({});
+  const [importing, setImporting] = useState(false);
+
+  // Sinkronkan jenis target ke jenis aktif halaman saat modal dibuka (pola React
+  // "adjust state on prop change": set saat render, bukan effect). User tetap bisa
+  // mengubahnya di Step 1. Cegah nilai stale akibat state di-init sekali.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setJenis(defaultJenis);
+  }
 
   const reset = useCallback(() => {
     setStep("upload");
@@ -44,6 +55,7 @@ export default function ImportExcelModal({
   }, []);
 
   const handleClose = () => {
+    if (importing) return; // jangan tutup saat import berjalan
     reset();
     onClose();
   };
@@ -61,16 +73,24 @@ export default function ImportExcelModal({
     else if (step === "mapping") setStep("upload");
   };
 
-  const handleCommit = (items: IcdItem[]) => {
-    onCommit(items);
-    handleClose();
+  const handleCommit = async (items: IcdItem[]) => {
+    setImporting(true);
+    try {
+      await onCommit(items);
+      setImporting(false);
+      reset();
+      onClose();
+    } catch {
+      setImporting(false); // biarkan modal terbuka bila import gagal
+    }
   };
 
-  // Re-compute summary saat user di step preview (untuk show-pre-commit)
-  const computeSummary = (): ValidationSummary | null => {
-    if (!parsed) return null;
-    return validateImport(parsed.rows, mapping, jenis, existingItems);
-  };
+  // Validasi seluruh baris — di-memoize karena dataset bisa puluhan ribu baris dan
+  // nilainya dipakai di beberapa prop footer (jangan recompute tiap render).
+  const summary: ValidationSummary | null = useMemo(
+    () => (parsed ? validateImport(parsed.rows, mapping, jenis, existingItems) : null),
+    [parsed, mapping, jenis, existingItems],
+  );
 
   if (!open) return null;
 
@@ -101,7 +121,7 @@ export default function ImportExcelModal({
               <div>
                 <p className="text-sm font-bold text-slate-900">Import ICD dari Excel/CSV</p>
                 <p className="text-[10.5px] text-slate-500">
-                  Upload dataset resmi WHO atau Kemkes (.xlsx, .xls, .csv)
+                  Upload unduhan SatuSehat Kemenkes (.xlsx, .xls, .csv)
                 </p>
               </div>
             </div>
@@ -162,7 +182,7 @@ export default function ImportExcelModal({
                   <StepPreview
                     parsed={parsed}
                     jenis={jenis}
-                    summary={computeSummary()}
+                    summary={summary}
                   />
                 </motion.div>
               )}
@@ -172,6 +192,7 @@ export default function ImportExcelModal({
           {/* Footer actions */}
           <Footer
             step={step}
+            importing={importing}
             canNext={
               step === "upload"   ? !!parsed
               : step === "mapping" ? hasRequiredMapping(mapping)
@@ -182,16 +203,15 @@ export default function ImportExcelModal({
               if (step === "mapping") handleMappingConfirm();
             }}
             onCommit={() => {
-              const summary = computeSummary();
               if (summary && summary.acceptedItems.length > 0) {
                 handleCommit(summary.acceptedItems);
               }
             }}
             commitDisabled={
               step !== "preview" ||
-              (computeSummary()?.acceptedItems.length ?? 0) === 0
+              (summary?.acceptedItems.length ?? 0) === 0
             }
-            commitCount={computeSummary()?.acceptedItems.length ?? 0}
+            commitCount={summary?.acceptedItems.length ?? 0}
             onCancel={handleClose}
           />
         </motion.div>
@@ -251,9 +271,10 @@ function Stepper({ currentStep }: { currentStep: WizardStep }) {
 // ── Footer ───────────────────────────────────────────────
 
 function Footer({
-  step, canNext, onBack, onNext, onCommit, onCancel, commitDisabled, commitCount,
+  step, importing, canNext, onBack, onNext, onCommit, onCancel, commitDisabled, commitCount,
 }: {
   step: WizardStep;
+  importing: boolean;
   canNext: boolean;
   onBack: () => void;
   onNext: () => void;
@@ -267,7 +288,8 @@ function Footer({
       <button
         type="button"
         onClick={onCancel}
-        className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+        disabled={importing}
+        className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
       >
         Batal
       </button>
@@ -276,7 +298,8 @@ function Footer({
           <button
             type="button"
             onClick={onBack}
-            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+            disabled={importing}
+            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ArrowLeft size={12} />
             Kembali
@@ -301,16 +324,16 @@ function Footer({
           <button
             type="button"
             onClick={onCommit}
-            disabled={commitDisabled}
+            disabled={commitDisabled || importing}
             className={cn(
               "flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition",
-              !commitDisabled
+              !commitDisabled && !importing
                 ? "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
                 : "cursor-not-allowed bg-slate-200 text-slate-400",
             )}
           >
-            <CheckCircle2 size={12} />
-            Import {commitCount > 0 ? `${commitCount} kode` : ""}
+            {importing ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+            {importing ? "Mengimpor…" : `Import ${commitCount > 0 ? `${commitCount} kode` : ""}`}
           </button>
         )}
       </div>
@@ -318,8 +341,8 @@ function Footer({
   );
 }
 
-// Cek apakah min required field (kode + nama + chapter) sudah ter-map ke salah satu kolom.
+// Cek apakah 3 inti (kode + nama/display + version) sudah ter-map ke salah satu kolom.
 function hasRequiredMapping(mapping: ColumnMapping): boolean {
   const values = Object.values(mapping);
-  return ["kode", "nama", "chapter"].every((req) => values.includes(req as never));
+  return ["kode", "nama", "version"].every((req) => values.includes(req as never));
 }

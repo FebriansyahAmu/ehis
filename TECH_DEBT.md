@@ -106,9 +106,16 @@
 - [ ] **RBAC granularitas — Role × Unit Scope** — extend RBAC sub-page. Refactor `RBACMap` jadi 3D: `[role][leafKey] → { actions, unitScope? }`. Mis. "Perawat" boleh akses RI tapi hanya ICU bukan semua RI.
 
 ### Master — Other
-- [ ] **Katalog ICD-10 & ICD-9 — Import CSV** — saat ini mock 80–120 entry. Real WHO dataset ~15.000 kode → perlu UI upload CSV/Excel admin di Phase 3 (backend ready). Tetap pakai sample mock untuk dev.
+- [x] **Katalog ICD-10 & ICD-9 — Import** — ✅ 2026-06-10: backend `master.IcdCode` + endpoint list/CRUD/`import` (bulk `createMany skipDuplicates`, dedup unique `(jenis,kode)`) + FE wired (pencarian & paginasi server-side cursor, Import Excel/CSV real via SheetJS dikirim per-batch). Mock data dihapus. Detail debt → subseksi **ICD** di bawah.
 - [ ] **Poliklinik & Jadwal Dokter** — kapasitas antrian per poli per hari, jadwal buka (hari + jam mulai/selesai), assignment dokter per slot, libur/cuti override. Weekly schedule grid. Unblock Registration antrian real. Route: `/ehis-master/poli`. **Belum dibangun** (rencana Tier 3 master).
 - [ ] **Promote Jadwal Praktik dari DokterDetail → Poliklinik atau Mapping Hub** — section "Jadwal Praktik" di [DokterDetail.tsx](src/components/master/dokter/DokterDetail.tsx) saat ini per-dokter, sulit lihat clash jadwal antar dokter. Promote ke weekly grid global. Decide saat Poliklinik dikerjakan.
+
+### ICD-10 & ICD-9 (backend + FE wired ✅ 2026-06-10)
+- [ ] **RBAC `master.icd` belum di-seed** — endpoint `/api/v1/master/icd` (GET/POST/PATCH/DELETE + `/import`) pakai resource `master.icd`. Dengan `AUTH_ENFORCE=true`, **superadmin bypass** (dev aman), tapi role non-super (mis. Admin Master) belum punya grant → **403**. Perlu seed permission `master.icd` (read/create/update/delete) + grant ke role pengelola master. Lihat [docs/BACKEND-AUTH.md](docs/BACKEND-AUTH.md) + [TODO-RBAC-MODUL.md](TODO-RBAC-MODUL.md).
+- [ ] **Preview duplikat import = in-file saja** — [ImportExcelModal](src/components/master/icd/import/ImportExcelModal.tsx) kirim `existingItems={[]}`; dedup vs DB dilakukan **server** (unique `jenis,kode`) & dilaporkan via `skipped` saat commit. Hasil akhir akurat, tapi preview tak menandai kode yang sudah ada di DB. Kandidat: endpoint cek-dup ringan, atau tampilkan `skipped` per-batch.
+- [ ] **Stat & footer count = data yang dimuat saja** — StatCard "Kode dimuat" + footer menghitung halaman yang sudah di-fetch (cursor), **bukan total katalog**. Belum ada endpoint COUNT. Tambah `count` di `meta` list atau endpoint terpisah bila perlu total akurat (mis. "12.480 ICD-10").
+- [ ] **Search server-side = ILIKE `contains`** — [icdDal.list](src/lib/dal/icdDal.ts) pakai `contains insensitive` pada `kode`+`display` (seq scan, OK di ~18k). Untuk dataset penuh / latensi rendah, pertimbangkan index trigram (`pg_trgm` GIN) — butuh CREATE EXTENSION + raw SQL migration.
+- [ ] **Soft-deleted code + re-import** — `@@unique([jenis,kode])` global → kode yang pernah soft-deleted akan **di-skip** saat re-import (dianggap duplikat) walau `deletedAt` terisi. Edge case; bila perlu "revive", tambah logika undelete/upsert di `importBatch`.
 
 ### Pengguna & Pegawai (backend WIRED 2026-06-05)
 - [ ] **Edit/suspend/hapus AKUN belum persist** — di tabel Pengguna, aksi Edit Akun (username/peran/status), Suspend/Aktifkan, Hapus masih **optimistic UI** (state lokal) → revert saat refresh. Butuh endpoint `PATCH /auth/users/:id` (username/status) + `DELETE /auth/users/:id` (cek akun-yatim/audit) + wiring. `PenggunaEditForm` masih mock.

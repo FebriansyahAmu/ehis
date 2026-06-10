@@ -1,0 +1,47 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Referensi — ICD-10 & ICD-9-CM  (Postgres schema "master")
+//  FE: /ehis-master/icd · Mock/tipe FE: src/lib/master/icdMock.ts (IcdItem).
+//
+//  Inti = CODE · DISPLAY · VERSION (unduhan SatuSehat Kemenkes); atribut lain opsional
+//  (pengkayaan lokal). Katalog besar (ICD-10 ±15.000+) → di-seed via bulk Import, BUKAN
+//  hardcode. Dikonsumsi DiagnosaTab (semua modul) + INA-CBG mapping.
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz · soft-delete. Reference data = LEAF
+//  (jarang di-edit konkuren) → TANPA optimistic-version (analog Bed leaf, API-RULES §6).
+//  Unik natural (jenis, kode) → dukung createMany skipDuplicates saat import.
+//
+//  Catatan: kolom domain VERSION dinamai `cs_version` (CodeSystem version) supaya tak
+//  rancu dengan kolom `version` yang biasa dipakai untuk optimistic concurrency.
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Jenis kode. FE "ICD-10"/"ICD-9" → ICD_10/ICD_9 (Prisma tak izinkan hyphen; map di Service).
+enum IcdJenis {
+  ICD_10
+  ICD_9
+
+  @@schema("master")
+}
+
+model IcdCode {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  jenis     IcdJenis
+  kode      String // CODE — kode ICD (A09, I21.0, 89.52)
+  display   String // DISPLAY — teks tampilan resmi SatuSehat (FE: `nama`)
+  csVersion String   @map("cs_version") // VERSION — versi CodeSystem (mis. "2010")
+
+  // Atribut tambahan — opsional (pengkayaan lokal di luar 3 inti)
+  namaInggris String? @map("nama_inggris")
+  chapter     String?
+  blok        String?
+  inaCbg      String? @map("ina_cbg")
+
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@unique([jenis, kode]) // natural key per jenis (dukung skipDuplicates import)
+  @@index([jenis, active]) // list/filter per jenis + status
+  @@map("icd_code")
+  @@schema("master")
+}
