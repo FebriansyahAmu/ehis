@@ -38,7 +38,7 @@ Tab ≠ tabel. Banyak tab = view berbeda atas domain yang sama; komponen `shared
 Urutan persis seperti di [IGDRecordTabs.tsx](src/components/igd/IGDRecordTabs.tsx) (Rekam Medis 13 + Layanan 6). **FE 19/19 ✅** (mock). Yang dilacak di sini = **backend**: kolom **BE** (schema+DAL+service+endpoint, ~Fase A) & **Wiring** (resolver + tab konsumsi DB, ~Fase B/C).
 Legenda: 🟢 selesai · 🟡 sebagian · ⬜ belum.
 
-**Status global backend: 4/19 dimulai** (+ Diagnosa Fase A ✅ 2026-06-10) (Triase BE ✅ + wiring tab ✅; Observation/TTV BE ✅ + wiring tab ✅; **Asesmen Medis BE+wiring ✅ LENGKAP** — 5/5 sub-menu: Anamnesis + Riwayat Medis (9/9 pane) + Alergi + Skrining Gizi + Edukasi (3/3: Pasien & Keluarga · Emergency · End of Life); sisa Triase Fase C + 16 tab lain ⬜).
+**Status global backend: 5/19 dimulai** (+ CPPT Fase A+B ✅ 2026-06-11) (Triase BE ✅ + wiring tab ✅; Observation/TTV BE ✅ + wiring tab ✅; **Asesmen Medis BE+wiring ✅ LENGKAP** — 5/5 sub-menu: Anamnesis + Riwayat Medis (9/9 pane) + Alergi + Skrining Gizi + Edukasi (3/3: Pasien & Keluarga · Emergency · End of Life); **Diagnosa BE+wiring ✅**; **CPPT BE+wiring ✅** — append-only per-item + co-sign DPJP + SBAR/TBAK (SKP 2), wired IGD/RI/RJ; sisa Triase Fase C + 14 tab lain ⬜).
 
 | #   | Tab (grup)               | Domain target     | FE  | BE  | Wiring | Catatan                                              |
 | --- | ------------------------ | ----------------- | --- | --- | ------ | ---------------------------------------------------- |
@@ -46,7 +46,7 @@ Legenda: 🟢 selesai · 🟡 sebagian · ⬜ belum.
 | 2   | **TTV** (RM)             | Observation       | ✅  | 🟢  | 🟢     | Fase A ✅ (schema+endpoint) + Fase B ✅ (wiring TTVTab) |
 | 3   | **Asesmen Medis** (RM)   | Assessment        | ✅  | 🟢  | 🟢     | LENGKAP 5/5: Anamnesis + Riwayat (9/9) + Alergi + Skrining Gizi + Edukasi (3/3) ✅ (shared RI/RJ pane belum di-wire) |
 | 4   | **Diagnosa** (RM)        | Condition         | ✅  | 🟢  | 🟢     | Fase A+B ✅ (ICD-10 + prosedur ICD-9; per-item; DiagnosaTab shared wired IGD/RI/RJ) |
-| 5   | **CPPT / SOAP** (RM)     | CPPT              | ✅  | ⬜  | ⬜     | append-only + co-sign DPJP → domain ke-3             |
+| 5   | **CPPT / SOAP** (RM)     | CPPT              | ✅  | 🟢  | 🟢     | Fase A+B ✅ (per-item; SOAP/SBAR/TBAK SKP 2; co-sign DPJP; CPPTTab shared wired IGD/RI/RJ) |
 | 6   | **Tindakan IGD** (RM)    | Procedure         | ✅  | ⬜  | ⬜     | ICD-9-CM; trigger charge billing                     |
 | 7   | **Informed Consent** (RM)| Consent           | ✅  | ⬜  | ⬜     | PMK 290/2008                                         |
 | 8   | **Rekonsiliasi** (RM)    | MedReconciliation | ✅  | ⬜  | ⬜     | HAM badge; context igd/ri                            |
@@ -253,6 +253,33 @@ Tab Edukasi = 3 sub-pane ([EdukasiPane](src/components/igd/tabs/EdukasiPane.tsx)
 - [x] **B2** Wrapper [igd/tabs/DiagnosaTab](src/components/igd/tabs/DiagnosaTab.tsx) + [rawat-inap/tabs/DiagnosaTab](src/components/rawat-inap/tabs/DiagnosaTab.tsx) + [RJRecordTabs](src/components/rawat-jalan/RJRecordTabs.tsx) → teruskan `kunjunganId={patient.id}`.
 - **DoD B:** ✅ `tsc` bersih · ✅ `eslint` bersih (1 warning `ALL_TABS` pre-existing, tak terkait). ⏳ verifikasi in-browser (login superadmin): tambah/ubah tipe-status/hapus diagnosis & prosedur pasien IGD DB → reload konsisten; promosi Utama menggeser Utama lama.
 - **Catatan:** `DiagnosaItemUpdate` pakai `.optional()` polos (bukan `optStr` transform) agar key patch benar-benar opsional (kirim `{tipe}` saja). Estimasi INA-CBG kini pakai `inaCbg`/`kategori` snapshot dari DB bila ada.
+
+---
+
+## Domain 5 — CPPT (Catatan Perkembangan Pasien Terintegrasi) 🚧
+
+**Model `medicalrecord.Cppt`** (per-item lintas profesi, keyed `kunjunganId`, shared IGD/RI/RJ): 1 baris = 1 catatan. Append-only secara klinis, **mutable terbatas** (edit isi · co-sign DPJP · flag tindak lanjut) — TANPA delete (jejak medico-legal; RBAC `clinical.cppt` = read/create/update). `jenisCatatan` = metode komunikasi efektif **SKP 2**: SOAP (naratif S/O/A/P+I) · SBAR (S/O/A/P dipetakan Situation/Background/Assessment/Recommendation) · TBAK (instruksi verbal/telepon: `instruksi` + Tulis-Baca-Konfirmasi + pemberi; **wajib co-sign DPJP 1×24 jam**). `penulis`/`verifiedBy` = nama dari actor (BUKAN free-text).
+
+### Fase FE — SBAR/TBAK toggle (riset SKP 2) ✅ SELESAI (2026-06-11)
+
+- [x] Tipe `CPPTJenis`/`TbakMetode` + field TBAK di `CPPTEntry` ([data.ts](src/lib/data.ts)). Helper `CPPT_JENIS_META`/`areasFor`/`TBAK_STEPS` ([cpptShared.ts](src/components/shared/medical-records/cpptShared.ts)). Form 3-jenis + blok TBAK (pemberi/metode/Tulis-Baca-Konfirmasi) ([CPPTTab.tsx](src/components/shared/medical-records/CPPTTab.tsx)) + render adaptif kartu ([CPPTEntryCard.tsx](src/components/shared/medical-records/CPPTEntryCard.tsx)). TBAK otomatis butuh co-sign.
+
+### Fase A — Backend (schema → endpoint) ✅ SELESAI (2026-06-11)
+
+- [x] **A1** [medicalrecord.prisma](prisma/schema/medicalrecord.prisma) — model `Cppt` (profesi/penulis · jenisCatatan · narasi S/O/A/P+I · TBAK pemberi/metode/Tulis-Baca-Konfirmasi · verified nullable + verifiedBy/At · flagged · waktuCatatan + author) + backref `Kunjungan.cppt`.
+- [x] **A2** migration `20260611100000_init_cppt` — tabel + index `(kunjungan_id, waktu_catatan)` + FK cascade. Applied via `migrate deploy` + `generate`.
+- [x] **A3** Zod [`schemas/cppt/cppt.ts`](src/lib/schemas/cppt/cppt.ts) — enum `CpptProfesi`/`CpptJenis`/`TbakMetode` · `CpptItemInput` (+`perluVerifikasi`) · `CpptItemUpdate` (patch parsial) · `CpptFlagInput` · `CpptItemParam` · DTO `CpptEntryDTO` mirror `CPPTEntry` 1:1 + agregat `CpptDTO`.
+- [x] **A4** DAL [`dal/cppt/cpptDal.ts`](src/lib/dal/cppt/cpptDal.ts) — list (terbaru dulu) / findById / create / update(+version); `tx?`.
+- [x] **A5** Service [`services/cppt/cpptService.ts`](src/lib/services/cppt/cpptService.ts) — `get`/`add`/`update`/`verify`/`flag`. **Validasi server-side SKP 2**: TBAK wajib lengkap (pemberi+isi+3 langkah), SOAP/SBAR wajib ≥1 narasi. `needsVerify = perluVerifikasi(RI) ‖ jenis=TBAK`. **Edit membatalkan co-sign** (reset verified). `penulis`/`verifiedBy` via `resolveActorNama`. Waktu via `clock`; DTO format `waktu`/`tanggal`/`verifiedAt` Asia/Jakarta.
+- [x] **A6** Endpoint `/kunjungan/:id/cppt` (GET daftar · POST 201) + `/:itemId` (PATCH edit) + `/:itemId/verify` (POST co-sign) + `/:itemId/flag` (PATCH) — **resource `clinical.cppt`** (leaf ter-seed read/create/update; tanpa delete). Client [`api/cppt/cppt.ts`](src/lib/api/cppt/cppt.ts).
+- **DoD A:** ✅ `tsc` bersih · ✅ `eslint` 0 error (3 warning `_actor` — precedent, sengaja utk ABAC) · ✅ `migrate status` up-to-date. ⏳ smoke HTTP butuh dev server + token.
+
+### Fase B — Wiring CPPTTab ✅ SELESAI (2026-06-11)
+
+- [x] **B1** [CPPTTab](src/components/shared/medical-records/CPPTTab.tsx) shared + prop `kunjunganId?`: UUID-guard `isPersisted` → mode DB. Mount load `getCppt`; **tambah** → `addCppt` (prepend entri server); **edit** → `updateCppt` (ganti by id); **verify** → `verifyCppt` (verifikator/waktu dari actor — nama ketikan diabaikan); **flag** → `flagCppt` optimistik + rekonsiliasi. Banner error + chip "Menyimpan…" + loader daftar. `CpptEntryDTO`↔`CPPTEntry` passthrough (zero-refactor). Pasien mock (non-UUID) → perilaku demo lokal (tanpa regresi).
+- [x] **B2** Wrapper [igd/tabs/CPPTTab](src/components/igd/tabs/CPPTTab.tsx) + [rawat-inap/tabs/CPPTTab](src/components/rawat-inap/tabs/CPPTTab.tsx) + [RJRecordTabs](src/components/rawat-jalan/RJRecordTabs.tsx) → teruskan `kunjunganId={patient.id}`.
+- **DoD B:** ✅ `tsc` bersih · ✅ `eslint` bersih (1 warning `ALL_TABS` pre-existing, tak terkait). ⏳ verifikasi in-browser (login superadmin): tambah/edit/verify/flag catatan pasien IGD DB → reload konsisten; TBAK & RI butuh co-sign DPJP.
+- ⚠️ **Follow-up RBAC:** `clinical.cppt` (leaf benar, bukan salah-gate `clinical.igd`) — tapi CPPT shared RI/RJ; ABAC unit-scope menyusul sebelum akun klinis live.
 
 ---
 

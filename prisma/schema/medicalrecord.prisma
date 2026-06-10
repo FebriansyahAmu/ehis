@@ -898,3 +898,65 @@ model DiagnosaProsedur {
   @@map("diagnosa_prosedur")
   @@schema("medicalrecord")
 }
+
+// ── CPPT (Catatan Perkembangan Pasien Terintegrasi) ───────────────────────────
+//  Daftar per-item lintas profesi (Dokter/Perawat/…), 1 baris = 1 catatan. Mirror
+//  CPPTEntry (CPPTTab.tsx). Append-only secara klinis; mutable terbatas: koreksi isi
+//  (edit), co-sign DPJP (verify), penanda tindak lanjut (flag) — RBAC clinical.cppt
+//  punya read/create/update, TANPA delete (jejak medico-legal).
+//
+//  jenisCatatan = metode komunikasi efektif SKP 2:
+//    SOAP → field naratif S/O/A/P + instruksi.
+//    SBAR → S/O/A/P dipetakan ke Situation/Background/Assessment/Recommendation.
+//    TBAK → instruksi verbal/telepon: `instruksi` + Tulis-Baca-Konfirmasi + pemberi;
+//           wajib co-sign DPJP 1×24 jam (verified=false saat dibuat).
+//  penulis/verifiedBy = nama denormalisasi dari actor (BUKAN free-text).
+
+model Cppt {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Spine (FK riil, same DB / cross-schema ke encounter) ──
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Atribusi pencatat ──
+  profesi String // Dokter/Perawat/Bidan/Apoteker/Gizi/Fisioterapi/Lainnya (Zod)
+  penulis String // nama denormalisasi pencatat (dari user login)
+
+  // ── Jenis & isi naratif ──
+  jenisCatatan String  @map("jenis_catatan") @default("SOAP") // SOAP/SBAR/TBAK (Zod)
+  subjektif    String?
+  objektif     String?
+  asesmen      String?
+  planning     String?
+  instruksi    String?
+
+  // ── TBAK (instruksi verbal/telepon) ──
+  tbakPemberi    String?  @map("tbak_pemberi")     // DPJP pemberi instruksi
+  tbakMetode     String?  @map("tbak_metode")      // Telepon/Lisan (Zod)
+  tbakTulis      Boolean? @map("tbak_tulis")        // langkah 1: dituliskan
+  tbakBaca       Boolean? @map("tbak_baca")         // langkah 2: dibacakan ulang
+  tbakKonfirmasi Boolean? @map("tbak_konfirmasi")   // langkah 3: dikonfirmasi pemberi
+
+  // ── Verifikasi DPJP (co-sign) — null = tak perlu, false = menunggu, true = terverifikasi ──
+  verified   Boolean?  // null bila catatan tak memerlukan co-sign
+  verifiedBy String?   @map("verified_by") // nama DPJP verifikator (dari actor)
+  verifiedAt DateTime? @map("verified_at") @db.Timestamptz(3)
+
+  // ── Tindak lanjut ──
+  flagged Boolean @default(false)
+
+  // ── Waktu klinis + author (dari actor) ──
+  waktuCatatan    DateTime @map("waktu_catatan") @db.Timestamptz(3)
+  authorUserId    String?  @map("author_user_id") @db.Uuid
+  authorPegawaiId String?  @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (mutable terbatas: version + updatedAt; tanpa soft-delete) ──
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, waktuCatatan]) // riwayat per kunjungan (terbaru dulu)
+  @@map("cppt")
+  @@schema("medicalrecord")
+}

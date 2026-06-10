@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, CalendarDays, Search, LayoutTemplate, ChevronDown, Flag, Phone, Check, AlertCircle } from "lucide-react";
+import { X, CalendarDays, Search, LayoutTemplate, ChevronDown, Flag, Phone, Check, AlertCircle, Loader2, AlertTriangle } from "lucide-react";
 import type { CPPTEntry, CPPTProfesi, CPPTJenis, TbakMetode } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import {
@@ -10,6 +10,10 @@ import {
   CPPT_JENIS_LIST, CPPT_JENIS_META, areasFor, TBAK_METODE_LIST, TBAK_STEPS,
 } from "./cpptShared";
 import CPPTEntryCard from "./CPPTEntryCard";
+import {
+  getCppt, addCppt, updateCppt, verifyCppt, flagCppt,
+  type CpptItemInput, type CpptEntryDTO,
+} from "@/lib/api/cppt/cppt";
 
 // ── SOAP Templates ────────────────────────────────────────
 
@@ -119,21 +123,112 @@ function entryToForm(e: CPPTEntry): CPPTForm {
   };
 }
 
+// ── DB wiring helpers ─────────────────────────────────────
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// CpptEntryDTO mirror CPPTEntry 1:1 (nama field & union identik) → passthrough.
+const dtoToEntry = (d: CpptEntryDTO): CPPTEntry => ({ ...d });
+
+function buildPayload(form: CPPTForm, perluVerifikasi: boolean): CpptItemInput {
+  const isTbak = form.jenis === "TBAK";
+  return {
+    profesi: form.profesi,
+    jenisCatatan: form.jenis,
+    subjektif: form.subjektif || undefined,
+    objektif: form.objektif || undefined,
+    asesmen: form.asesmen || undefined,
+    planning: form.planning || undefined,
+    instruksi: form.instruksi || undefined,
+    tbakPemberi: isTbak ? form.tbakPemberi || undefined : undefined,
+    tbakMetode: isTbak ? form.tbakMetode : undefined,
+    tbakTulis: isTbak ? form.tbakTulis : undefined,
+    tbakBaca: isTbak ? form.tbakBaca : undefined,
+    tbakKonfirmasi: isTbak ? form.tbakKonfirmasi : undefined,
+    perluVerifikasi,
+  };
+}
+
 // ── Props ─────────────────────────────────────────────────
 
 export interface CPPTTabProps {
   initialEntries: CPPTEntry[];
   showDate?: boolean;             // RI mode: group entries by date, stamp new entries with today
   requiresVerification?: boolean; // SNARS: show DPJP co-sign UI per entry
+  /** UUID kunjungan → mode DB (persist per-aksi ke medicalrecord.Cppt); selain itu demo lokal (mock). */
+  kunjunganId?: string;
 }
 
 // ── Component ─────────────────────────────────────────────
 
-export default function CPPTTab({ initialEntries, showDate = false, requiresVerification = false }: CPPTTabProps) {
+export default function CPPTTab({ initialEntries, showDate = false, requiresVerification = false, kunjunganId }: CPPTTabProps) {
+  const isPersisted = !!kunjunganId && UUID_RE.test(kunjunganId);
+
   const [form, setForm]           = useState<CPPTForm>(EMPTY);
-  const [entries, setEntries]     = useState<CPPTEntry[]>([...initialEntries]);
+  const [entries, setEntries]     = useState<CPPTEntry[]>(isPersisted ? [] : [...initialEntries]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [loading, setLoading]     = useState(isPersisted);
+  const [busy, setBusy]           = useState(false);
+  const [error, setError]         = useState<string | null>(null);
+
+  // Mode DB → muat daftar saat mount. Mock → state awal dari initialEntries.
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    setLoading(true);
+    (async () => {
+      try {
+        const dto = await getCppt(kunjunganId!, ac.signal);
+        setEntries(dto.entries.map(dtoToEntry));
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError("Gagal memuat CPPT dari rekam medis");
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, [kunjunganId, isPersisted]);
+
+  const reload = useCallback(async () => {
+    if (!isPersisted) return;
+    try {
+      const dto = await getCppt(kunjunganId!);
+      setEntries(dto.entries.map(dtoToEntry));
+    } catch {
+      /* pertahankan state terakhir */
+    }
+  }, [kunjunganId, isPersisted]);
+
+  // Tambah → prepend entri dari server. Edit/verify/flag → ganti entri by id.
+  const runPrepend = async (p: Promise<CpptEntryDTO>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const dto = await p;
+      setEntries((prev) => [dtoToEntry(dto), ...prev]);
+    } catch {
+      setError("Gagal menyimpan catatan CPPT");
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runReplace = async (p: Promise<CpptEntryDTO>, gagal: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const dto = await p;
+      setEntries((prev) => prev.map((e) => (e.id === dto.id ? dtoToEntry(dto) : e)));
+    } catch {
+      setError(gagal);
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  };
 
   // Search & filter state
   const [searchQuery, setSearchQuery]     = useState("");
@@ -148,12 +243,23 @@ export default function CPPTTab({ initialEntries, showDate = false, requiresVeri
   const handleCancelEdit = () => { setEditingId(null); setForm(EMPTY); };
 
   const handleVerify = (id: string, verifiedBy: string, verifiedAt: string) => {
+    if (isPersisted) {
+      // verifikator & waktu ditetapkan server dari actor (DPJP login) — nama ketikan diabaikan.
+      void runReplace(verifyCppt(kunjunganId!, id), "Gagal memverifikasi catatan");
+      return;
+    }
     setEntries((prev) =>
       prev.map((e) => e.id === id ? { ...e, verified: true, verifiedBy, verifiedAt } : e),
     );
   };
 
   const handleFlag = (id: string) => {
+    if (isPersisted) {
+      const next = !entries.find((e) => e.id === id)?.flagged;
+      setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, flagged: next } : e))); // optimistik
+      void runReplace(flagCppt(kunjunganId!, id, next), "Gagal menandai catatan");
+      return;
+    }
     setEntries((prev) =>
       prev.map((e) => e.id === id ? { ...e, flagged: !e.flagged } : e),
     );
@@ -185,6 +291,19 @@ export default function CPPTTab({ initialEntries, showDate = false, requiresVeri
 
   const handleSubmit = () => {
     if (!canSubmit) return;
+
+    // ── Mode DB: persist per-aksi; server menetapkan penulis/waktu/verifikasi. ──
+    if (isPersisted) {
+      const payload = buildPayload(form, requiresVerification);
+      if (editingId) {
+        void runReplace(updateCppt(kunjunganId!, editingId, payload), "Gagal menyimpan perubahan");
+        setEditingId(null);
+      } else {
+        void runPrepend(addCppt(kunjunganId!, payload));
+      }
+      setForm(EMPTY);
+      return;
+    }
 
     const waktu = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
     const content = {
@@ -563,7 +682,35 @@ export default function CPPTTab({ initialEntries, showDate = false, requiresVeri
                 {flaggedCount} tindak lanjut
               </span>
             )}
+            {busy && (
+              <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                <Loader2 size={10} className="animate-spin" /> Menyimpan…
+              </span>
+            )}
           </div>
+
+          {/* Banner error mutasi DB */}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2"
+              >
+                <AlertTriangle size={12} className="shrink-0 text-rose-500" />
+                <p className="text-[11px] font-medium text-rose-700">{error}</p>
+                <button
+                  type="button"
+                  onClick={() => setError(null)}
+                  aria-label="Tutup"
+                  className="ml-auto text-rose-300 transition hover:text-rose-500"
+                >
+                  <X size={12} />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Search input */}
           <div className="relative">
@@ -626,7 +773,11 @@ export default function CPPTTab({ initialEntries, showDate = false, requiresVeri
 
         {/* Entry list — independently scrollable */}
         <div className="flex flex-col gap-3 md:max-h-[calc(100vh-280px)] md:overflow-y-auto md:pr-1">
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-10 text-xs text-slate-500 shadow-xs">
+              <Loader2 size={14} className="animate-spin" /> Memuat catatan CPPT…
+            </div>
+          ) : filtered.length === 0 ? (
             <motion.div
               className="rounded-xl border border-dashed border-slate-300 bg-white py-10 text-center text-sm text-slate-400"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }}
