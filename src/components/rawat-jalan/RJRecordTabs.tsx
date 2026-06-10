@@ -186,7 +186,7 @@ export default function RJRecordTabs({ patient }: { patient: RJPatientDetail }) 
               <CPPTTab initialEntries={patient.cppt} />
             )}
             {active === "diagnosa" && (
-              <DiagnosaTab initialDiagnosa={patient.diagnosa} />
+              <DiagnosaTab initialDiagnosa={patient.diagnosa} kunjunganId={patient.id} />
             )}
             {active === "pemeriksaan" && <PemeriksaanRJTab patient={patient} />}
             {active === "konsultasi"      && <KonsultasiTab noRM={patient.noRM} dokterPeminta={patient.dokter} />}

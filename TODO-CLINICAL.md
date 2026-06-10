@@ -38,14 +38,14 @@ Tab ≠ tabel. Banyak tab = view berbeda atas domain yang sama; komponen `shared
 Urutan persis seperti di [IGDRecordTabs.tsx](src/components/igd/IGDRecordTabs.tsx) (Rekam Medis 13 + Layanan 6). **FE 19/19 ✅** (mock). Yang dilacak di sini = **backend**: kolom **BE** (schema+DAL+service+endpoint, ~Fase A) & **Wiring** (resolver + tab konsumsi DB, ~Fase B/C).
 Legenda: 🟢 selesai · 🟡 sebagian · ⬜ belum.
 
-**Status global backend: 3/19 dimulai** (Triase BE ✅ + wiring tab ✅; Observation/TTV BE ✅ + wiring tab ✅; **Asesmen Medis BE+wiring ✅ LENGKAP** — 5/5 sub-menu: Anamnesis + Riwayat Medis (9/9 pane) + Alergi + Skrining Gizi + Edukasi (3/3: Pasien & Keluarga · Emergency · End of Life); sisa Triase Fase C + 16 tab lain ⬜).
+**Status global backend: 4/19 dimulai** (+ Diagnosa Fase A ✅ 2026-06-10) (Triase BE ✅ + wiring tab ✅; Observation/TTV BE ✅ + wiring tab ✅; **Asesmen Medis BE+wiring ✅ LENGKAP** — 5/5 sub-menu: Anamnesis + Riwayat Medis (9/9 pane) + Alergi + Skrining Gizi + Edukasi (3/3: Pasien & Keluarga · Emergency · End of Life); sisa Triase Fase C + 16 tab lain ⬜).
 
 | #   | Tab (grup)               | Domain target     | FE  | BE  | Wiring | Catatan                                              |
 | --- | ------------------------ | ----------------- | --- | --- | ------ | ---------------------------------------------------- |
 | 1   | **Triase** (RM)          | Triase            | ✅  | 🟢  | 🟡     | Fase A ✅ + Fase B tab ✅; sisa Fase C (modal/board)  |
 | 2   | **TTV** (RM)             | Observation       | ✅  | 🟢  | 🟢     | Fase A ✅ (schema+endpoint) + Fase B ✅ (wiring TTVTab) |
 | 3   | **Asesmen Medis** (RM)   | Assessment        | ✅  | 🟢  | 🟢     | LENGKAP 5/5: Anamnesis + Riwayat (9/9) + Alergi + Skrining Gizi + Edukasi (3/3) ✅ (shared RI/RJ pane belum di-wire) |
-| 4   | **Diagnosa** (RM)        | Condition         | ✅  | ⬜  | ⬜     | ICD-10; dibutuhkan billing/e-klaim                   |
+| 4   | **Diagnosa** (RM)        | Condition         | ✅  | 🟢  | 🟢     | Fase A+B ✅ (ICD-10 + prosedur ICD-9; per-item; DiagnosaTab shared wired IGD/RI/RJ) |
 | 5   | **CPPT / SOAP** (RM)     | CPPT              | ✅  | ⬜  | ⬜     | append-only + co-sign DPJP → domain ke-3             |
 | 6   | **Tindakan IGD** (RM)    | Procedure         | ✅  | ⬜  | ⬜     | ICD-9-CM; trigger charge billing                     |
 | 7   | **Informed Consent** (RM)| Consent           | ✅  | ⬜  | ⬜     | PMK 290/2008                                         |
@@ -230,6 +230,29 @@ Tab Edukasi = 3 sub-pane ([EdukasiPane](src/components/igd/tabs/EdukasiPane.tsx)
 - ⚠️ Shared pane Edukasi (RI/RJ) belum di-wire — IGD pakai `EdukasiPane` sendiri (sama precedent).
 
 **→ Tab Asesmen Medis BE+wiring SELESAI (5/5 sub-menu): Anamnesis · Riwayat (9/9) · Alergi · Skrining Gizi · Edukasi (3/3).**
+
+---
+
+## Domain 4 — DIAGNOSA / Condition (tab Diagnosa) 🚧
+
+**Model `medicalrecord.Diagnosa` + `DiagnosaProsedur`** (per-item daftar hidup — pola Alergi, keyed `kunjunganId`, shared IGD/RI/RJ): tambah = INSERT, ubah tipe/status = UPDATE (+version), hapus = soft-delete. `namaDiagnosis`/`kategori`/`inaCbg` = snapshot master ICD saat dipilih (estimasi grouping). **Invariant deklaratif di DB:** maks 1 `Utama` aktif/kunjungan + kode unik/kunjungan (partial unique index, baris aktif saja); promosi Utama menggeser Utama lama → Sekunder **atomik dalam transaksi** (Service), partial unique = backstop.
+
+### Fase A — Backend (schema → endpoint) ✅ SELESAI (2026-06-10)
+
+- [x] **A1** [medicalrecord.prisma](prisma/schema/medicalrecord.prisma) — model `Diagnosa` (ICD-10: tipe/status/alasan/analisa + snapshot kategori/inaCbg) + `DiagnosaProsedur` (ICD-9-CM: kode/nama/kategori/catatan) + backref `Kunjungan`.
+- [x] **A2** migration `20260610160000_init_diagnosa` — 2 tabel + index `(kunjungan_id, deleted_at)` + **partial unique** `diagnosa_utama_satu_per_kunjungan` & `diagnosa_kode_unik_per_kunjungan` & `diagnosa_prosedur_kode_unik_per_kunjungan` + FK cascade. Applied via `migrate deploy` + `generate`.
+- [x] **A3** Zod [`schemas/diagnosa/diagnosa.ts`](src/lib/schemas/diagnosa/diagnosa.ts) — enum `DiagnosaTipe`/`DiagnosaStatus` · `DiagnosaItemInput`/`DiagnosaItemUpdate`/`ProsedurItemInput`/`DiagnosaItemParam` · DTO mirror FE (`IGDDiagnosa`/`Icd9ProsedurEntry`) + agregat `DiagnosaDTO { items, prosedur }`.
+- [x] **A4** DAL [`dal/diagnosa/diagnosaDal.ts`](src/lib/dal/diagnosa/diagnosaDal.ts) — list/create/find/findAktifByKode/update(+version)/`demoteUtama`/softDelete per tabel; `tx?`; filter `deletedAt: null`.
+- [x] **A5** Service [`services/diagnosa/diagnosaService.ts`](src/lib/services/diagnosa/diagnosaService.ts) — `get` agregat · `addDiagnosa`/`updateDiagnosa` dalam `transaction()` (dedup kode → VALIDATION · promosi Utama → demote) **return agregat penuh** (promosi mengubah baris lain) · `deleteDiagnosa`/`addProsedur`/`deleteProsedur` (guard kepemilikan kunjungan) · pemeriksa via `resolveActorNama`.
+- [x] **A6** Endpoint `/kunjungan/:id/diagnosa` (GET agregat · POST 201) + `/:itemId` (PATCH · DELETE) + `/prosedur` (POST 201) + `/prosedur/:itemId` (DELETE) — **resource `clinical.diagnosa`** (leaf ter-seed; TIDAK ikut salah-gate `clinical.igd`). Client [`api/diagnosa/diagnosa.ts`](src/lib/api/diagnosa/diagnosa.ts).
+- **DoD A:** ✅ `tsc` bersih · ✅ `eslint` 0 error (4 warning `_actor` — precedent, sengaja utk ABAC) · ✅ `migrate status` up-to-date. ⏳ smoke HTTP butuh dev server + token.
+
+### Fase B — Wiring DiagnosaTab ✅ SELESAI (2026-06-10)
+
+- [x] **B1** [DiagnosaTab](src/components/shared/medical-records/DiagnosaTab.tsx) shared (redesign search-first ke master ICD) + prop `kunjunganId?`: UUID-guard `isPersisted` → mode DB. Mount load `getDiagnosa` (agregat `{items, prosedur}`) → seed list + `metaByKode` (kategori/inaCbg dari snapshot DB utk estimasi grouping). **add/update diagnosa** pakai respons agregat authoritative (promosi Utama menggeser baris lain di server → ganti seluruh list); **delete + add/delete prosedur** optimistik dgn rekonsiliasi (`reload`) saat gagal. Banner error + chip "Menyimpan…" + loader per-daftar. Pasien mock (non-UUID) → perilaku demo lokal lama (tanpa regresi RI/RJ).
+- [x] **B2** Wrapper [igd/tabs/DiagnosaTab](src/components/igd/tabs/DiagnosaTab.tsx) + [rawat-inap/tabs/DiagnosaTab](src/components/rawat-inap/tabs/DiagnosaTab.tsx) + [RJRecordTabs](src/components/rawat-jalan/RJRecordTabs.tsx) → teruskan `kunjunganId={patient.id}`.
+- **DoD B:** ✅ `tsc` bersih · ✅ `eslint` bersih (1 warning `ALL_TABS` pre-existing, tak terkait). ⏳ verifikasi in-browser (login superadmin): tambah/ubah tipe-status/hapus diagnosis & prosedur pasien IGD DB → reload konsisten; promosi Utama menggeser Utama lama.
+- **Catatan:** `DiagnosaItemUpdate` pakai `.optional()` polos (bukan `optStr` transform) agar key patch benar-benar opsional (kirim `{tipe}` saja). Estimasi INA-CBG kini pakai `inaCbg`/`kategori` snapshot dari DB bila ada.
 
 ---
 

@@ -110,6 +110,10 @@ export const STATUS_CONFIG: Record<DiagnosaStatus, {
 
 export const STATUS_ORDER: DiagnosaStatus[] = ["Pasti", "Dicurigai", "Diferensial"];
 
+// ── Quick picks (diagnosis IGD tersering — chip 1-klik saat daftar kosong) ─
+
+export const QUICK_PICKS_ICD10: string[] = ["I10", "E11.9", "J18.9", "A09", "K29.7", "J45.9"];
+
 // ── INA-CBG mapping (estimasi berdasarkan kategori ICD-10) ─
 
 export const INA_CBG_MAP: Record<string, string> = {

@@ -835,3 +835,66 @@ model AsesmenEdukasiEolMeeting {
   @@map("asesmen_edukasi_eol_meeting")
   @@schema("medicalrecord")
 }
+
+// ── Diagnosa (tab Diagnosa — koding ICD-10 per kunjungan) ─────────────────────
+//  Daftar hidup per-item: tambah = INSERT, ubah tipe/status = UPDATE, hapus =
+//  soft-delete (jejak medico-legal). Maks 1 baris tipe Utama aktif per kunjungan
+//  + kode unik per kunjungan (partial unique index di SQL migration).
+//  namaDiagnosis/kategori/inaCbg = SNAPSHOT dari master ICD saat dipilih.
+
+model Diagnosa {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  kodeIcd10     String @map("kode_icd10")
+  namaDiagnosis String @map("nama_diagnosis")
+  tipe          String // Utama/Sekunder/Komplikasi/Komorbid (Zod; partial unique Utama)
+  status        String // Pasti/Dicurigai/Diferensial (Zod)
+  alasan        String?
+  analisa       String?
+
+  kategori String? // chapter/blok master ICD (snapshot)
+  inaCbg   String? @map("ina_cbg")
+
+  pemeriksa       String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  version   Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt])
+  @@map("diagnosa")
+  @@schema("medicalrecord")
+}
+
+// ── Prosedur ICD-9-CM (tab Diagnosa — koding tindakan/prosedur) ───────────────
+//  Per-item, tambah/hapus saja (tanpa edit). Kode unik per kunjungan (partial
+//  unique index di SQL migration). nama/kategori = snapshot master ICD.
+
+model DiagnosaProsedur {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  kode     String
+  nama     String
+  kategori String
+  catatan  String?
+
+  pemeriksa       String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt])
+  @@map("diagnosa_prosedur")
+  @@schema("medicalrecord")
+}
