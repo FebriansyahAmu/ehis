@@ -16,7 +16,7 @@ import { usePopover } from "@/components/shared/inputs/popoverShared";
 
 export type AddKind = "sub-org" | "location";
 
-const ICON_MAP: Record<NodeType, React.ElementType> = {
+const ICON_MAP: Record<NodeType, IconComponent> = {
   Organization: Building2,
   Location: DoorOpen,
 };
@@ -216,7 +216,7 @@ export default function TreeNode({
 function AddMenuItem({
   icon: Icon, label, desc, onClick,
 }: {
-  icon: React.ElementType;
+  icon: IconComponent;
   label: string;
   desc: string;
   onClick: () => void;

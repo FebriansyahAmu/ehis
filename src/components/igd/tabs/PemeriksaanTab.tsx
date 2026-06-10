@@ -22,7 +22,7 @@ interface HasilEntry {
 
 // ── Sub-tab config ─────────────────────────────────────────
 
-const SUB_TABS: { id: SubTab; label: string; Icon: React.ElementType }[] = [
+const SUB_TABS: { id: SubTab; label: string; Icon: IconComponent }[] = [
   { id: "fisik",     label: "Fisik",      Icon: Activity    },
   { id: "anatomi",   label: "Anatomi",    Icon: ScanLine    },
   { id: "penunjang", label: "Penunjang",  Icon: FlaskConical},

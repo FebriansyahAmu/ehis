@@ -53,7 +53,7 @@ function DaysBadge({ days }: { days: number }) {
 function CollapsibleSection({
   icon: Icon, title, count, open, onToggle, children,
 }: {
-  icon: React.ElementType; title: string; count?: number;
+  icon: IconComponent; title: string; count?: number;
   open: boolean; onToggle: () => void; children: React.ReactNode;
 }) {
   return (

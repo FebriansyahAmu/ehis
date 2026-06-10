@@ -87,7 +87,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 // ── Signature method tab button ───────────────────────────
 
-const SIG_METHODS: { id: SignatureMethod; label: string; icon: React.ElementType; desc: string }[] = [
+const SIG_METHODS: { id: SignatureMethod; label: string; icon: IconComponent; desc: string }[] = [
   { id: "draw",   label: "Tanda Tangan Digital", icon: PenLine, desc: "Gambar TTD langsung di layar" },
   { id: "webcam", label: "Foto TTD Fisik",        icon: Camera,  desc: "Foto tanda tangan di kertas" },
 ];

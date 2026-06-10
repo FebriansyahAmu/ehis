@@ -16,7 +16,7 @@ type Props = {
 
 type OrderStatus = "draft" | "terkirim" | "dikonfirmasi" | "siap";
 
-const ORDER_STEPS: { status: OrderStatus; label: string; icon: React.ElementType }[] = [
+const ORDER_STEPS: { status: OrderStatus; label: string; icon: IconComponent }[] = [
   { status: "draft",        label: "Draft",              icon: Clock          },
   { status: "terkirim",     label: "Terkirim",           icon: Send           },
   { status: "dikonfirmasi", label: "Konfirmasi Apt.",    icon: ClipboardCheck },

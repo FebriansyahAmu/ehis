@@ -21,7 +21,7 @@ const panelInp = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 t
 function InfoItem({
   icon: Icon, label, value, className,
 }: {
-  icon: React.ElementType;
+  icon: IconComponent;
   label: string;
   value: string;
   className?: string;

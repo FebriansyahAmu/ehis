@@ -14,7 +14,7 @@ import RiwayatPane  from "./intakeOutput/RiwayatPane";
 
 type SubTab = "entri" | "ringkasan" | "riwayat";
 
-const SUB_TABS: { id: SubTab; label: string; Icon: React.ElementType }[] = [
+const SUB_TABS: { id: SubTab; label: string; Icon: IconComponent }[] = [
   { id: "entri",     label: "Entri",     Icon: Plus      },
   { id: "ringkasan", label: "Ringkasan", Icon: BarChart2  },
   { id: "riwayat",   label: "Riwayat",   Icon: History    },

@@ -12,7 +12,7 @@ import { PaketLayanan } from "./paket/PaketLayanan";
 
 type SubTab = "pindah-kelas" | "paket-layanan";
 
-const SUB_TABS: { id: SubTab; label: string; icon: React.ElementType; desc: string }[] = [
+const SUB_TABS: { id: SubTab; label: string; icon: IconComponent; desc: string }[] = [
   {
     id: "pindah-kelas",   label: "Pindah Kelas",   icon: BedDouble,
     desc: "Ubah kelas rawat inap pasien",

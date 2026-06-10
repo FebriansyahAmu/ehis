@@ -26,7 +26,7 @@ const HEADER_STATUS: Record<RJStatus, {
 // ── InfoChip ──────────────────────────────────────────────
 
 function InfoChip({ icon: Icon, value, cls }: {
-  icon: React.ElementType; value: React.ReactNode; cls: string;
+  icon: IconComponent; value: React.ReactNode; cls: string;
 }) {
   return (
     <span className={cn(

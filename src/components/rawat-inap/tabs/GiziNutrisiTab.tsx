@@ -75,7 +75,7 @@ function ProgressHeader({ data }: { data: GiziNutrisiData }) {
 function SectionHeader({
   icon: Icon, label, color,
 }: {
-  icon:  React.ElementType;
+  icon:  IconComponent;
   label: string;
   color: "indigo" | "teal";
 }) {

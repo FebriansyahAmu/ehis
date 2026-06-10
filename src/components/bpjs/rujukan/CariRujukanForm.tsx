@@ -156,7 +156,7 @@ export default function CariRujukanForm({ isLoading, onStateChange }: Props) {
             {([
               { key: "noRujukan" as SearchMode, label: "No. Rujukan", Icon: Hash },
               { key: "noKartu"   as SearchMode, label: "No. Kartu",   Icon: CreditCard },
-            ] as { key: SearchMode; label: string; Icon: React.ElementType }[]).map(({ key, label, Icon }) => (
+            ] as { key: SearchMode; label: string; Icon: IconComponent }[]).map(({ key, label, Icon }) => (
               <button
                 key={key}
                 type="button"

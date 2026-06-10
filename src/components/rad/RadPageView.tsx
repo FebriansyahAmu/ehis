@@ -19,7 +19,7 @@ export default function RadPageView() {
         {([
           { id: "worklist",  label: "Worklist",      icon: LayoutList },
           { id: "manajemen", label: "QC & Manajemen", icon: Settings2  },
-        ] as { id: View; label: string; icon: React.ElementType }[]).map(({ id, label, icon: Icon }) => (
+        ] as { id: View; label: string; icon: IconComponent }[]).map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setView(id)}

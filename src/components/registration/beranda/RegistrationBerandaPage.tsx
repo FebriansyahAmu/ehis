@@ -103,7 +103,7 @@ function PageSkeleton() {
 // ── Stat Card ──────────────────────────────────────────────
 
 interface StatCardProps {
-  icon: React.ElementType;
+  icon: IconComponent;
   label: string;
   value: number;
   sub: string;

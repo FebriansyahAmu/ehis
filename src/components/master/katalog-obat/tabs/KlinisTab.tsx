@@ -123,7 +123,7 @@ export default function KlinisTab({ draft, onPatch }: KlinisTabProps) {
 function ClinicalField({
   icon: Icon, iconCls, label, value, onChange, placeholder, rows,
 }: {
-  icon: React.ElementType;
+  icon: IconComponent;
   iconCls: string;
   label: string;
   value: string;

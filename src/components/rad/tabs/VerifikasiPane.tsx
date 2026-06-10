@@ -14,7 +14,7 @@ import { type RadOrder, updateRadWorkflow } from "../radShared";
 interface IdentCard {
   label: string;
   value: string;
-  icon:  React.ElementType;
+  icon:  IconComponent;
   check: boolean;
   onCheck: (v: boolean) => void;
 }
@@ -55,7 +55,7 @@ function IdentityCard({ label, value, icon: Icon, check, onCheck }: IdentCard) {
 
 // ── Info card ─────────────────────────────────────────────
 
-function InfoRow({ label, value, icon: Icon }: { label: string; value: string; icon: React.ElementType }) {
+function InfoRow({ label, value, icon: Icon }: { label: string; value: string; icon: IconComponent }) {
   return (
     <div className="flex items-center gap-2">
       <Icon size={13} className="shrink-0 text-slate-400" />

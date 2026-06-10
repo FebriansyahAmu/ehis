@@ -28,7 +28,7 @@ function NavItem({
 }: {
   label: string;
   href: string;
-  icon: React.ElementType;
+  icon: IconComponent;
   active: boolean;
   onClick?: () => void;
 }) {

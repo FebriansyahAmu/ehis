@@ -25,7 +25,7 @@ const COVERAGE_ITEMS: {
   key: keyof PenjaminCoverage;
   label: string;
   desc: string;
-  icon: React.ElementType;
+  icon: IconComponent;
 }[] = [
   { key: "rawatInap",    label: "Rawat Inap",    desc: "Bangsal, ICU, HCU, isolasi", icon: BedDouble    },
   { key: "rawatJalan",   label: "Rawat Jalan",   desc: "Poliklinik & one-day-care",  icon: Stethoscope  },

@@ -117,7 +117,7 @@ export default function FormulariumMatrix({
 function Legend({
   icon: Icon, bg, label,
 }: {
-  icon: React.ElementType;
+  icon: IconComponent;
   bg: string;
   label: string;
 }) {

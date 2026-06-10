@@ -255,7 +255,7 @@ const RIWAYAT_LAB_MOCK: Record<string, RiwayatOrder[]> = {
 
 // ── Badge configs ─────────────────────────────────────────
 
-const KATEGORI_ICON: Record<KategoriLab, React.ElementType> = {
+const KATEGORI_ICON: Record<KategoriLab, IconComponent> = {
   Hematologi: HeartPulse,
   "Kimia Klinik": FlaskConical,
   Urinalisis: Syringe,

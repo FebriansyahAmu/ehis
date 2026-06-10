@@ -63,7 +63,7 @@ function Toggle({ checked }: { checked: boolean }) {
   );
 }
 
-function SectionLabel({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
+function SectionLabel({ icon: Icon, label }: { icon: IconComponent; label: string }) {
   return (
     <div className="mb-3 flex items-center gap-2 border-b border-slate-100 pb-2">
       <Icon size={12} className="text-sky-500" />

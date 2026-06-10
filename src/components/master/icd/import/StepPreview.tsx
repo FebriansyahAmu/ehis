@@ -201,7 +201,7 @@ function SummaryCard({
 }: {
   label: string;
   value: number;
-  icon: React.ElementType;
+  icon: IconComponent;
   tone: "slate" | "emerald" | "amber" | "rose";
   hint?: string;
 }) {
@@ -237,7 +237,7 @@ function CollapsibleList({
 }: {
   title: string;
   tone: "rose" | "amber" | "emerald";
-  icon: React.ElementType;
+  icon: IconComponent;
   defaultOpen: boolean;
   children: React.ReactNode;
 }) {

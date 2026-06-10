@@ -74,7 +74,7 @@ function CardHead({
   title,
   extra,
 }: {
-  icon: React.ElementType;
+  icon: IconComponent;
   iconCls: string;
   title: string;
   extra?: React.ReactNode;
@@ -256,7 +256,7 @@ function DiagnosaCard({ kunjungan, icdCodes }: { kunjungan: KunjunganRecord; icd
 // ─── Dokumen card ─────────────────────────────────────────────
 
 function DokumenCard({ doc }: { doc: KunjunganRecord["dokumen"] }) {
-  const items: { label: string; status: string | undefined; icon: React.ElementType }[] = [
+  const items: { label: string; status: string | undefined; icon: IconComponent }[] = [
     { label: "General Consent",  status: doc?.generalConsent,  icon: FileText      },
     { label: "Surat Rujukan",    status: doc?.rujukan,         icon: FilePen       },
     { label: "Pengantar Pasien", status: doc?.pengantarPasien, icon: ClipboardList },

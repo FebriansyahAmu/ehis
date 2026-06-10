@@ -72,7 +72,7 @@ function suggestLevel(f: TriaseEntryForm): string | null {
 function SectionDiv({
   num, title, icon: Icon, color,
 }: {
-  num: string; title: string; icon: React.ElementType; color: string;
+  num: string; title: string; icon: IconComponent; color: string;
 }) {
   return (
     <div className="flex items-center gap-3 pt-1 pb-0.5">

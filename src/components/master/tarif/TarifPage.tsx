@@ -64,7 +64,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 
 function StatCard({ label, value, sub, icon: Icon, accent }: {
   label: string; value: string | number; sub?: string;
-  icon: React.ElementType; accent: { bg: string; text: string };
+  icon: IconComponent; accent: { bg: string; text: string };
 }) {
   return (
     <div className="flex items-center gap-2.5 rounded-xl border border-slate-100 bg-white px-3.5 py-2.5 shadow-sm">
@@ -83,7 +83,7 @@ function StatCard({ label, value, sub, icon: Icon, accent }: {
 // ── View tab button ──────────────────────────────────────────
 
 function ViewTab({ label, icon: Icon, active, onClick }: {
-  label: string; icon: React.ElementType; active: boolean; onClick: () => void;
+  label: string; icon: IconComponent; active: boolean; onClick: () => void;
 }) {
   return (
     <button onClick={onClick}

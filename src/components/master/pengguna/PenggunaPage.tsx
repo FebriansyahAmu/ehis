@@ -51,7 +51,7 @@ function PageSkeleton() {
 function StatCard({
   icon: Icon, label, value, sub, iconCls, delay = 0,
 }: {
-  icon: React.ElementType;
+  icon: IconComponent;
   label: string;
   value: string;
   sub: string;
@@ -703,7 +703,7 @@ function RowActionsMenu({
 function MenuItem({
   icon: Icon, label, onClick, danger,
 }: {
-  icon: React.ElementType;
+  icon: IconComponent;
   label: string;
   onClick: () => void;
   danger?: boolean;

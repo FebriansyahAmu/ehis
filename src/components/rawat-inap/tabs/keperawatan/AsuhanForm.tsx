@@ -96,7 +96,7 @@ function DynList({
 
 function FSection({
   title, icon: Icon, accent = "indigo", defaultOpen = true, children,
-}: { title: string; icon: React.ElementType; accent?: AccentKey; defaultOpen?: boolean; children: React.ReactNode }) {
+}: { title: string; icon: IconComponent; accent?: AccentKey; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="rounded-xl border border-slate-200 bg-white">

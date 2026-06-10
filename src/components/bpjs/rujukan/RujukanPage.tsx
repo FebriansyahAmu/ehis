@@ -41,7 +41,7 @@ function PageSkeleton() {
 function StatCard({
   icon: Icon, label, value, sub, iconCls, delay = 0,
 }: {
-  icon: React.ElementType;
+  icon: IconComponent;
   label: string;
   value: string;
   sub: string;

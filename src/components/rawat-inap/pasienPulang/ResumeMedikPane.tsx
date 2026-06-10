@@ -34,7 +34,7 @@ const FLAG_LABEL: Record<string, string> = {
 };
 
 function SectionHeader({ icon: Icon, title, badge }: {
-  icon: React.ElementType; title: string; badge?: string;
+  icon: IconComponent; title: string; badge?: string;
 }) {
   return (
     <div className="mb-3 flex items-center gap-2">

@@ -14,7 +14,7 @@ import {
 
 // ── Config ────────────────────────────────────────────────
 
-const JENIS_ICON: Record<JenisSurat, React.ElementType> = {
+const JENIS_ICON: Record<JenisSurat, IconComponent> = {
   "ket-sakit":     FileX2,
   "surat-kontrol": CalendarCheck,
   "ket-sehat":     CheckCircle,

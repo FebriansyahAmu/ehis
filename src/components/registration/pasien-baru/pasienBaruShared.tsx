@@ -85,7 +85,7 @@ const ACCENT_MAP: Record<Accent, { icon: string; border: string }> = {
 };
 
 export function SCard({ title, icon: Icon, accent = "sky", children }: {
-  title: string; icon: React.ElementType; accent?: Accent; children: React.ReactNode;
+  title: string; icon: IconComponent; accent?: Accent; children: React.ReactNode;
 }) {
   const a = ACCENT_MAP[accent];
   return (

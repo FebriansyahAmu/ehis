@@ -27,7 +27,7 @@ interface Props {
 
 function IdCard({
   icon: Icon, label, value, delay,
-}: { icon: React.ElementType; label: string; value: string; delay: number }) {
+}: { icon: IconComponent; label: string; value: string; delay: number }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}

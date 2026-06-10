@@ -14,7 +14,7 @@ import RiwayatPane from "./pemeriksaan/RiwayatPane";
 
 type SubTab = "fisik" | "bodymap" | "riwayat";
 
-const SUB_TABS: { id: SubTab; label: string; Icon: React.ElementType }[] = [
+const SUB_TABS: { id: SubTab; label: string; Icon: IconComponent }[] = [
   { id: "fisik",    label: "Pemeriksaan Fisik",  Icon: ScanLine  },
   { id: "bodymap",  label: "Penandaan Tubuh",    Icon: MapPin    },
   { id: "riwayat",  label: "Riwayat",            Icon: History   },

@@ -20,7 +20,7 @@ export interface ConfirmDialogProps {
   /** Kode target (opsional, ditampilkan monospace). */
   kode?: string;
   /** Ikon objek (default Trash2). */
-  icon?: React.ElementType;
+  icon?: IconComponent;
   /** Teks konsekuensi (opsional, default generik). */
   message?: React.ReactNode;
   /** Label tombol konfirmasi (default "Ya, Hapus"). */

@@ -241,7 +241,7 @@ function PaneHeader({
 function Stat({
   icon: Icon, label, value, cls,
 }: {
-  icon: React.ElementType;
+  icon: IconComponent;
   label: string;
   value: string;
   cls: string;

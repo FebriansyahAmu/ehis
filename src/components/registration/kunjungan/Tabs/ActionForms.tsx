@@ -80,7 +80,7 @@ const PENJAMIN_OPTS: {
   id: PenjaminType;
   label: string;
   sub: string;
-  icon: React.ElementType;
+  icon: IconComponent;
   idle: string;
   active: string;
 }[] = [

@@ -11,7 +11,7 @@ import PIOPane            from "./pio/PIOPane";
 
 type FarmasiMainTab = "antrean" | "worklist" | "narpsi" | "pio";
 
-const TABS: { id: FarmasiMainTab; label: string; icon: React.ElementType; sub: string }[] = [
+const TABS: { id: FarmasiMainTab; label: string; icon: IconComponent; sub: string }[] = [
   { id: "antrean",  label: "Antrean Farmasi",                   icon: Users,       sub: "Panggil · Siapkan (T6) · Serah (T7)" },
   { id: "worklist", label: "Worklist Order",                    icon: LayoutGrid,  sub: "Telaah · Dispensasi · Serah Terima" },
   { id: "narpsi",   label: "Register Narkotika / Psikotropika", icon: ShieldAlert, sub: "UU 35/2009 · PMK 3/2015"            },

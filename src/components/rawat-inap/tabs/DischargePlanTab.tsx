@@ -25,7 +25,7 @@ interface StepDef {
   id:         string;
   label:      string;
   short:      string;
-  icon:       React.ElementType;
+  icon:       IconComponent;
   phaseIndex: number;
 }
 

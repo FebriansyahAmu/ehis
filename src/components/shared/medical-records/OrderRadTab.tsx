@@ -341,7 +341,7 @@ const RIWAYAT_RAD_MOCK: Record<string, RiwayatOrder[]> = {
 
 // ── Badge configs ─────────────────────────────────────────
 
-const MODALITAS_ICON: Record<ModalitasRad, React.ElementType> = {
+const MODALITAS_ICON: Record<ModalitasRad, IconComponent> = {
   "X-Ray":             Radiation,
   "CT Scan":           Scan,
   "MRI":               Layers,

@@ -192,7 +192,7 @@ export function SectionGroup({
   title, icon: Icon, accent, children, action,
 }: {
   title: string;
-  icon: React.ElementType;
+  icon: IconComponent;
   accent?: { bg: string; text: string };
   children: React.ReactNode;
   action?: React.ReactNode;
@@ -225,7 +225,7 @@ export function CheckRow({
   onChange: (v: boolean) => void;
   label: string;
   desc?: string;
-  icon?: React.ElementType;
+  icon?: IconComponent;
   accent?: "emerald" | "sky";
 }) {
   const accCls = {

@@ -230,7 +230,7 @@ export default function KontrakPane({ draft, onPatch }: Props) {
 function PreviewRow({
   icon: Icon, label, children,
 }: {
-  icon: React.ElementType;
+  icon: IconComponent;
   label: string;
   children: React.ReactNode;
 }) {

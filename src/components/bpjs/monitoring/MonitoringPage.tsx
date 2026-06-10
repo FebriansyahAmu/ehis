@@ -46,7 +46,7 @@ function StatCard({
   iconCls,
   delay = 0,
 }: {
-  icon: React.ElementType;
+  icon: IconComponent;
   label: string;
   value: string;
   sub: string;
@@ -76,7 +76,7 @@ function StatCard({
 
 type TabKey = "kunjungan" | "klaim" | "histori" | "jasaraharja";
 
-const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
+const TABS: { key: TabKey; label: string; icon: IconComponent }[] = [
   { key: "kunjungan",   label: "Kunjungan",        icon: Activity    },
   { key: "klaim",       label: "Data Klaim",        icon: FileText    },
   { key: "histori",     label: "Histori Pelayanan", icon: HeartPulse  },

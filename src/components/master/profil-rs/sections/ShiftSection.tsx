@@ -12,7 +12,7 @@ const base =
   "focus:border-amber-400 focus:ring-2 focus:ring-amber-100";
 
 const SHIFT_DISPLAY: Record<ShiftKey, {
-  icon: React.ElementType;
+  icon: IconComponent;
   bg: string; text: string; border: string; headerBg: string;
 }> = {
   Pagi:  {

@@ -22,7 +22,7 @@ const EMPTY: ToastItem[] = [];
 
 interface TypeCfg {
   card: string;
-  icon: React.ElementType;
+  icon: IconComponent;
   iconCls: string;
   titleCls: string;
   msgCls: string;

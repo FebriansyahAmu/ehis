@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -85,7 +85,7 @@ const ACCENT_MAP: Record<BlockAccent, { header: string; icon: string; title: str
 function Block({
   title, icon: Icon, children, accent = "slate", className,
 }: {
-  title?: string; icon?: React.ElementType; children: React.ReactNode;
+  title?: string; icon?: IconComponent; children: React.ReactNode;
   accent?: BlockAccent; className?: string;
 }) {
   const a = ACCENT_MAP[accent];

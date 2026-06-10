@@ -20,7 +20,7 @@ interface Props {
 
 // ── Sub-components ────────────────────────────────────────
 
-function InfoChip({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
+function InfoChip({ icon: Icon, label, value }: { icon: IconComponent; label: string; value: string }) {
   return (
     <div className="flex items-center gap-1.5">
       <Icon size={11} className="shrink-0 text-slate-400" />

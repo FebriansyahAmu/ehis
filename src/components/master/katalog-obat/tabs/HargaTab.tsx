@@ -164,7 +164,7 @@ export default function HargaTab({ draft, onPatch }: HargaTabProps) {
 function PriceCard({
   icon: Icon, iconCls, label, value, sub, warning,
 }: {
-  icon: React.ElementType;
+  icon: IconComponent;
   iconCls: string;
   label: string;
   value: string;

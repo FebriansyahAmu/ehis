@@ -17,7 +17,7 @@ interface Props {
 
 // ── Icon map ────────────────────────────────────────────────
 
-const ICONS: Record<string, React.ElementType> = {
+const ICONS: Record<string, IconComponent> = {
   Oral: GlassWater, IV: Droplets, NGT: ArrowDownToLine, Transfusi: Heart, Lainnya: MoreHorizontal,
   Urine: Droplets, Drainase: ArrowDownToLine, Feses: Minus, Muntah: ArrowUpFromLine, Perdarahan: AlertCircle,
 };

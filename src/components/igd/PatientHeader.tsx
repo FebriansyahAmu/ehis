@@ -112,7 +112,7 @@ const lvlNyeri = (v: number): VLvl =>
 function VitalChip({
   icon: Icon, label, value, unit, lvl, title,
 }: {
-  icon: React.ElementType; label: string;
+  icon: IconComponent; label: string;
   value: string; unit: string; lvl: VLvl; title?: string;
 }) {
   const cls = VITAL_CLS[lvl];
@@ -147,7 +147,7 @@ function VitalChip({
 function InfoChip({
   icon: Icon, value, cls,
 }: {
-  icon: React.ElementType; value: React.ReactNode; cls: string;
+  icon: IconComponent; value: React.ReactNode; cls: string;
 }) {
   return (
     <span className={cn(

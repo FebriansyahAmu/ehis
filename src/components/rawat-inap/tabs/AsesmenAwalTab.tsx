@@ -23,7 +23,7 @@ interface SubTabDef {
   id: SubTabId;
   label: string;
   sublabel: string;
-  icon: React.ElementType;
+  icon: IconComponent;
   standard: string;
 }
 

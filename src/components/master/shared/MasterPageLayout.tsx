@@ -79,7 +79,7 @@ const STAT_TONE_CLS: Record<StatTone, string> = {
 };
 
 export interface StatCardProps {
-  icon: React.ElementType;
+  icon: IconComponent;
   label: string;
   value: string | number;
   tone?: StatTone;

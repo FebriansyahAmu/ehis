@@ -38,7 +38,7 @@ export default function ResepTab({ patient, showMAR = true }: Props) {
   function handleAddMAR(entry: MAREntry)         { setMarEntries((p) => [...p, entry]); }
   function handleUpdateMAR(entry: MAREntry)      { setMarEntries((p) => p.map((e) => e.id === entry.id ? entry : e)); }
 
-  const SUB_TABS: { id: SubTab; label: string; Icon: React.ElementType }[] = [
+  const SUB_TABS: { id: SubTab; label: string; Icon: IconComponent }[] = [
     { id: "resep", label: "Resep Aktif", Icon: Pill          },
     ...(showMAR ? [{ id: "mar" as SubTab, label: "MAR Harian", Icon: CalendarCheck }] : []),
     { id: "pio",   label: "Info Obat",   Icon: BookOpen      },

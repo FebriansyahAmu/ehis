@@ -12,7 +12,7 @@ import ListSaranaPanel from "./ListSaranaPanel";
 
 type TabKey = "khusus" | "spesialistik" | "sarana";
 
-const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
+const TABS: { key: TabKey; label: string; icon: IconComponent }[] = [
   { key: "khusus",       label: "Khusus Kronik", icon: BookMarked },
   { key: "spesialistik", label: "Spesialistik",  icon: Layers     },
   { key: "sarana",       label: "Sarana Faskes", icon: Building2  },

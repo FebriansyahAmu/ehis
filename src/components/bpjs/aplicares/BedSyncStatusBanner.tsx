@@ -61,7 +61,7 @@ const LEVEL_CFG = {
   },
 } satisfies Record<SyncLevel, {
   bg: string; border: string; text: string;
-  icon: React.ElementType; label: string; sub: string;
+  icon: IconComponent; label: string; sub: string;
 }>;
 
 // ── Component ──────────────────────────────────────────

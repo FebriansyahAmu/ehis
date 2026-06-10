@@ -40,7 +40,7 @@ function PageSkeleton() {
 function StatCard({
   icon: Icon, label, value, sub, iconCls, delay = 0,
 }: {
-  icon: React.ElementType;
+  icon: IconComponent;
   label: string;
   value: string;
   sub: string;
@@ -70,7 +70,7 @@ function StatCard({
 
 type TabKey = "cari-sep" | "insert-rk" | "spri" | "hapus" | "no-surat" | "data-list" | "referensi";
 
-const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
+const TABS: { key: TabKey; label: string; icon: IconComponent }[] = [
   { key: "cari-sep",   label: "Cari SEP",      icon: FileSearch    },
   { key: "insert-rk",  label: "Insert/Update RK", icon: CalendarDays },
   { key: "spri",       label: "SPRI",           icon: CalendarCheck },

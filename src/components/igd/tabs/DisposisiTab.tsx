@@ -9,7 +9,7 @@ const OPTIONS: {
   id: NonNullable<Disposisi>;
   label: string;
   desc: string;
-  icon: React.ElementType;
+  icon: IconComponent;
   idle: string;
   active: string;
 }[] = [

@@ -188,7 +188,7 @@ export default function PenjaminDetail({
 function TabBtn({
   icon: Icon, label, active, onClick, count, warn,
 }: {
-  icon: React.ElementType;
+  icon: IconComponent;
   label: string;
   active: boolean;
   onClick: () => void;

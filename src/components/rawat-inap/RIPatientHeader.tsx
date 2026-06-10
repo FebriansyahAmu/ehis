@@ -28,7 +28,7 @@ const STATUS_CFG: Record<RIStatus, {
   identityWash: string;
   avatarRing:   string;
   badge:        string;
-  icon:         React.ElementType;
+  icon:         IconComponent;
   pulse?:       boolean;
 }> = {
   "Aktif":           { stripe: "bg-indigo-600", topBarBg: "bg-indigo-50/40",  identityWash: "from-indigo-50/25",  avatarRing: "ring-indigo-200", badge: "bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200",  icon: CheckCircle2  },
@@ -59,7 +59,7 @@ const lvlNyeri = (v: number): VLvl => v >= 7 ? "critical" : v >= 4 ? "warning" :
 // ── VitalChip ─────────────────────────────────────────────
 
 function VitalChip({ icon: Icon, label, value, unit, lvl, title }: {
-  icon: React.ElementType; label: string; value: string; unit: string; lvl: VLvl; title?: string;
+  icon: IconComponent; label: string; value: string; unit: string; lvl: VLvl; title?: string;
 }) {
   const cls = VITAL_CLS[lvl];
   return (
@@ -87,7 +87,7 @@ function VitalChip({ icon: Icon, label, value, unit, lvl, title }: {
 // ── InfoChip ──────────────────────────────────────────────
 
 function InfoChip({ icon: Icon, value, cls }: {
-  icon: React.ElementType; value: React.ReactNode; cls: string;
+  icon: IconComponent; value: React.ReactNode; cls: string;
 }) {
   return (
     <span className={cn(

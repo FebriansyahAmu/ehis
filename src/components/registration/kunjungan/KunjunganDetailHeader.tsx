@@ -16,7 +16,7 @@ const smSel = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text
 const lbl   = "mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400";
 
 function InfoChip({ icon: Icon, label, value }: {
-  icon:  React.ElementType;
+  icon:  IconComponent;
   label: string;
   value: string;
 }) {

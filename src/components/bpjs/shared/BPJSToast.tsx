@@ -21,7 +21,7 @@ const EMPTY_TOASTS: BPJSToastItem[] = [];
 
 const TYPE_CFG: Record<
   BPJSToastType,
-  { bg: string; border: string; text: string; icon: React.ElementType }
+  { bg: string; border: string; text: string; icon: IconComponent }
 > = {
   success: {
     bg: "bg-white", border: "border-emerald-300", text: "text-emerald-700",

@@ -17,7 +17,7 @@ type Props = {
   onChange: (d: PasienPulangData) => void;
 };
 
-function SectionTitle({ icon: Icon, label, count }: { icon: React.ElementType; label: string; count?: number }) {
+function SectionTitle({ icon: Icon, label, count }: { icon: IconComponent; label: string; count?: number }) {
   return (
     <div className="mb-3 flex items-center gap-2 border-b border-slate-100 pb-2">
       <Icon size={12} className="text-orange-400" />

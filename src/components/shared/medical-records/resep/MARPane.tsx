@@ -22,7 +22,7 @@ interface Props {
 const SHIFTS: RIShift[] = ["Pagi", "Siang", "Malam"];
 const SHIFT_HOURS: Record<RIShift, string> = { Pagi: "07-14", Siang: "14-21", Malam: "21-07" };
 
-const STATUS_ICON: Record<StatusMAR, React.ElementType> = {
+const STATUS_ICON: Record<StatusMAR, IconComponent> = {
   Diberikan:     CheckCircle2,
   Ditunda:       AlertTriangle,
   Ditolak:       XCircle,
