@@ -62,11 +62,11 @@ import { CreateUnitInput } from "@/lib/schemas/ruangan";
 import { ruanganService } from "@/lib/services/ruanganService";
 
 export const POST = route({
-  resource: "master.ruangan",   // ┐ RBAC: assertCan(actor, resource, action)
-  action: "create",             // ┘  dijalankan wrapper SEBELUM handler
-  body: CreateUnitInput,        // Zod — di-parse jadi `body` bertipe
+  resource: "master.ruangan", // ┐ RBAC: assertCan(actor, resource, action)
+  action: "create", // ┘  dijalankan wrapper SEBELUM handler
+  body: CreateUnitInput, // Zod — di-parse jadi `body` bertipe
   handler: async ({ body, actor }) => {
-    const unit = await ruanganService.createUnit(body, actor);  // TEPAT 1 service
+    const unit = await ruanganService.createUnit(body, actor); // TEPAT 1 service
     return reply(unit, { status: 201, message: `Unit ${unit.name} dibuat` });
   },
 });
@@ -74,18 +74,19 @@ export const POST = route({
 
 Tiga bentuk return handler:
 
-| Return | Hasil envelope | Kapan |
-|---|---|---|
-| `data` mentah | `{ ok:true, data }` status default (200) | read/update sederhana |
-| `reply(data, { status?, message?, meta? })` | kontrol penuh status/message | create (201), atau perlu toast `message` |
-| `paginated(items, { cursor })` | `{ ok:true, data, meta:{cursor} }` | list cursor |
+| Return                                      | Hasil envelope                           | Kapan                                    |
+| ------------------------------------------- | ---------------------------------------- | ---------------------------------------- |
+| `data` mentah                               | `{ ok:true, data }` status default (200) | read/update sederhana                    |
+| `reply(data, { status?, message?, meta? })` | kontrol penuh status/message             | create (201), atau perlu toast `message` |
+| `paginated(items, { cursor })`              | `{ ok:true, data, meta:{cursor} }`       | list cursor                              |
 
 Contoh list + cursor (dari [kunjungan/route.ts](../src/app/api/v1/kunjungan/route.ts)):
 
 ```ts
 export const GET = route({
-  resource: "registration.kunjungan", action: "read",
-  query: WorklistQuery,                         // ?unit=&status=&cursor=&limit=
+  resource: "registration.kunjungan",
+  action: "read",
+  query: WorklistQuery, // ?unit=&status=&cursor=&limit=
   handler: async ({ query, actor }) => {
     const { items, cursor } = await kunjunganService.getWorklist(query, actor);
     return paginated(items, { cursor });
@@ -99,13 +100,13 @@ Route dinamis (`[id]`, `[bedId]`) → `params` di-parse dari Zod (`IdParam`, `Be
 
 ## 3. Aturan per-lapis + 1 hal yang TAK BOLEH dilanggar
 
-| Lapis | File contoh | Boleh | **Larangan keras (1 baris)** |
-|---|---|---|---|
-| **Route** | `app/api/v1/**/route.ts` | deklarasi `route({...})`, pilih service, set status/message | **Tidak ada logika bisnis / Prisma / try-catch.** Tepat 1 panggilan service. |
-| **Service** | [ruanganService.ts](../src/lib/services/ruanganService.ts) | business rule, guard, batas transaksi (`transaction()`), authz, map DTO, lempar `AppError` | **Tak `import { prisma }`** (pakai `transaction` + DAL). **Tak tahu HTTP.** **Tak `Date.now()`** (pakai `clock`). |
-| **DAL** | [ruanganDal.ts](../src/lib/dal/ruanganDal.ts) | query Prisma, `select`/`include`, terima `tx?`, filter `deletedAt: null` | **Tak ada aturan bisnis / validasi domain.** Tak tahu HTTP. Tak lempar `AppError`. |
-| **Schema** | [schemas/ruangan.ts](../src/lib/schemas/ruangan.ts) | Zod input + DTO interface (mirror FE) | **Entity Prisma tak boleh jadi tipe response.** |
-| **Infra** | [http/](../src/lib/http/) · [errors/](../src/lib/errors/) · [db/prisma.ts](../src/lib/db/prisma.ts) · [auth/actor.ts](../src/lib/auth/actor.ts) | dipakai semua endpoint | Jangan duplikat di Route/Service. |
+| Lapis       | File contoh                                                                                                                                     | Boleh                                                                                      | **Larangan keras (1 baris)**                                                                                      |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| **Route**   | `app/api/v1/**/route.ts`                                                                                                                        | deklarasi `route({...})`, pilih service, set status/message                                | **Tidak ada logika bisnis / Prisma / try-catch.** Tepat 1 panggilan service.                                      |
+| **Service** | [ruanganService.ts](../src/lib/services/ruanganService.ts)                                                                                      | business rule, guard, batas transaksi (`transaction()`), authz, map DTO, lempar `AppError` | **Tak `import { prisma }`** (pakai `transaction` + DAL). **Tak tahu HTTP.** **Tak `Date.now()`** (pakai `clock`). |
+| **DAL**     | [ruanganDal.ts](../src/lib/dal/ruanganDal.ts)                                                                                                   | query Prisma, `select`/`include`, terima `tx?`, filter `deletedAt: null`                   | **Tak ada aturan bisnis / validasi domain.** Tak tahu HTTP. Tak lempar `AppError`.                                |
+| **Schema**  | [schemas/ruangan.ts](../src/lib/schemas/ruangan.ts)                                                                                             | Zod input + DTO interface (mirror FE)                                                      | **Entity Prisma tak boleh jadi tipe response.**                                                                   |
+| **Infra**   | [http/](../src/lib/http/) · [errors/](../src/lib/errors/) · [db/prisma.ts](../src/lib/db/prisma.ts) · [auth/actor.ts](../src/lib/auth/actor.ts) | dipakai semua endpoint                                                                     | Jangan duplikat di Route/Service.                                                                                 |
 
 Arah impor **satu arah**: `Route → Service → DAL → Prisma`. DAL tak impor Service; Service tak impor Route.
 
@@ -118,15 +119,15 @@ Prisma/SQL/stack **tak pernah** bocor ke klien.
 
 - **Katalog kode** → [src/lib/errors/appError.ts](../src/lib/errors/appError.ts). Pakai factory `Errors.*`, jangan `new AppError` manual kecuali kode khusus:
 
-  | Factory | Code → HTTP | Pakai saat |
-  |---|---|---|
-  | `Errors.validation(msg, details?)` | VALIDATION → 422 | input/relasi tak valid (parent tak ada, kapasitas < bed) |
-  | `Errors.notFound(msg)` | NOT_FOUND → 404 | resource tak ada **atau di luar scope** (anti-IDOR: sembunyikan keberadaan) |
-  | `Errors.forbidden(msg)` | FORBIDDEN → 403 | RBAC/ABAC tolak (mis. root RS read-only) |
-  | `Errors.conflict(msg)` | CONFLICT → 409 | unik dilanggar (umumnya otomatis dari P2002) |
-  | `Errors.conflictVersion()` | CONFLICT_VERSION → 409 | optimistic concurrency stale (lihat §6) |
-  | `Errors.forbiddenState(msg)` | FORBIDDEN_STATE → 409 | transisi state ilegal (hapus unit yang masih punya anak) |
-  | `Errors.internal(msg)` | INTERNAL → 500 | invariant rusak (gagal re-load pasca update) |
+  | Factory                            | Code → HTTP            | Pakai saat                                                                  |
+  | ---------------------------------- | ---------------------- | --------------------------------------------------------------------------- |
+  | `Errors.validation(msg, details?)` | VALIDATION → 422       | input/relasi tak valid (parent tak ada, kapasitas < bed)                    |
+  | `Errors.notFound(msg)`             | NOT_FOUND → 404        | resource tak ada **atau di luar scope** (anti-IDOR: sembunyikan keberadaan) |
+  | `Errors.forbidden(msg)`            | FORBIDDEN → 403        | RBAC/ABAC tolak (mis. root RS read-only)                                    |
+  | `Errors.conflict(msg)`             | CONFLICT → 409         | unik dilanggar (umumnya otomatis dari P2002)                                |
+  | `Errors.conflictVersion()`         | CONFLICT_VERSION → 409 | optimistic concurrency stale (lihat §6)                                     |
+  | `Errors.forbiddenState(msg)`       | FORBIDDEN_STATE → 409  | transisi state ilegal (hapus unit yang masih punya anak)                    |
+  | `Errors.internal(msg)`             | INTERNAL → 500         | invariant rusak (gagal re-load pasca update)                                |
 
 - **Boundary tunggal** → [src/lib/errors/handleError.ts](../src/lib/errors/handleError.ts). Urutan map:
   1. `AppError` → pakai code+status+details apa adanya.
@@ -149,6 +150,10 @@ Di [src/lib/schemas/<domain>.ts](../src/lib/schemas/ruangan.ts) co-locate **dua*
 
 ---
 
+## IMPORTANT
+
+\*\*Terapkan clean code, rapi serta tidak terlalu banyak comment
+
 ## 6. Pola lintas-cutting yang dikodifikasi
 
 Semua sudah ada di kode — **ikuti, jangan temukan ulang**:
@@ -169,24 +174,28 @@ Semua sudah ada di kode — **ikuti, jangan temukan ulang**:
 **Default untuk membaca data di halaman: hybrid.** Render awal di **Server Component** + interaksi (filter/paginasi/live) lewat **client fetch ke `/api`**.
 
 > **Aturan emas: Server Component panggil SERVICE LANGSUNG, bukan `fetch('/api/...')` ke diri sendiri.**
-> Service kita HTTP-agnostic (§1) → bisa dikonsumsi Route *dan* Server Component. Memanggil `/api` dari
+> Service kita HTTP-agnostic (§1) → bisa dikonsumsi Route _dan_ Server Component. Memanggil `/api` dari
 > server = anti-pattern (hop HTTP ekstra, butuh URL absolut, kehilangan type-safety, juggling auth).
 
 ```tsx
 // page.tsx — Server Component: render awal, tanpa hop HTTP, type-safe
 import { pegawaiService } from "@/lib/services/pegawaiService";
 export default async function PenggunaPage() {
-  const { items } = await pegawaiService.listPegawai({ aktif: true, limit: 50 });
-  return <PegawaiTable initial={items} />;   // Client Component fetch /api saat filter berubah
+  const { items } = await pegawaiService.listPegawai({
+    aktif: true,
+    limit: 50,
+  });
+  return <PegawaiTable initial={items} />; // Client Component fetch /api saat filter berubah
 }
 ```
 
-| Jalur | Pakai untuk | Sumber data |
-|---|---|---|
-| **SSR (Server Component)** | first paint / data awal (no spinner) | **Service langsung** |
-| **Client fetch (`/api`)** | filter, pencarian, paginasi cursor, live update | endpoint `route()` |
+| Jalur                      | Pakai untuk                                     | Sumber data          |
+| -------------------------- | ----------------------------------------------- | -------------------- |
+| **SSR (Server Component)** | first paint / data awal (no spinner)            | **Service langsung** |
+| **Client fetch (`/api`)**  | filter, pencarian, paginasi cursor, live update | endpoint `route()`   |
 
 **Cache-ready (penting agar Redis nanti tidak ribet):** cache-aside Redis hidup di **Service**, jadi SSR & `/api` **berbagi satu cache** otomatis — kedua jalur tak berubah saat Redis masuk. Disiplin sekarang:
+
 1. **Jangan tambah cache tandingan** di layer Next/HTTP untuk data yang sama (SSR via Service-langsung sudah menghindari Next fetch-cache → Redis jadi satu-satunya rumah cache).
 2. **Cache key di filter stabil** (mis. `aktif=true`); biarkan `q=` (free-text) **bypass cache** (high-cardinality, hit-rate rendah).
 3. Invalidasi pada CUD (di Service) → SSR `router.refresh()` + client refetch dua-duanya lihat data segar.
@@ -220,6 +229,7 @@ Layering tetap sama; ini **hanya tata-letak file** (tak mengubah arah impor Rout
   lib/services/<group>/<fitur>Service.ts  #             lib/services/master/icdService.ts
   lib/api/<group>/<fitur>.ts              #             lib/api/master/icd.ts
   ```
+
   `<group>` ditentukan per jenis domain: **rekam medis (klinis)** → nama **Tab di sidebar** rekam medis (`asesmenMedis/`; menyusul triase/CPPT/diagnosa/dll) · **modul non-klinis** → **nama modul** (`master/` utk semua fitur `/ehis-master`). Impor: `@/lib/api/<group>/<fitur>`. Satu group = satu folder per layer → mudah diakses & scalable.
 
   Aturan turunan:
@@ -235,19 +245,20 @@ Layering tetap sama; ini **hanya tata-letak file** (tak mengubah arah impor Rout
 
 **Referensi terbersih saat ini = domain `master/ruangan`** (Route+Service+DAL+Schema lengkap, sudah di-refactor & smoke-verified):
 
-| Lapis | Salin dari |
-|---|---|
-| Wrapper/envelope/error | [http/route.ts](../src/lib/http/route.ts) · [http/envelope.ts](../src/lib/http/envelope.ts) · [errors/appError.ts](../src/lib/errors/appError.ts) · [errors/handleError.ts](../src/lib/errors/handleError.ts) |
-| Route (POST/PATCH/DELETE/GET) | [master/unit/route.ts](../src/app/api/v1/master/unit/route.ts) · [master/unit/[id]/route.ts](../src/app/api/v1/master/unit/[id]/route.ts) · [kunjungan/route.ts](../src/app/api/v1/kunjungan/route.ts) |
-| Service (factory+DI+tx+DTO) | [ruanganService.ts](../src/lib/services/ruanganService.ts) |
-| DAL (tx?+version+soft-delete) | [ruanganDal.ts](../src/lib/dal/ruanganDal.ts) |
-| Schema (Zod+DTO mirror) | [schemas/ruangan.ts](../src/lib/schemas/ruangan.ts) |
-| DB singleton + tx | [db/prisma.ts](../src/lib/db/prisma.ts) |
-| Auth seam | [auth/actor.ts](../src/lib/auth/actor.ts) |
+| Lapis                                   | Salin dari                                                                                                                                                                                                                                                        |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Wrapper/envelope/error                  | [http/route.ts](../src/lib/http/route.ts) · [http/envelope.ts](../src/lib/http/envelope.ts) · [errors/appError.ts](../src/lib/errors/appError.ts) · [errors/handleError.ts](../src/lib/errors/handleError.ts)                                                     |
+| Route (POST/PATCH/DELETE/GET)           | [master/unit/route.ts](../src/app/api/v1/master/unit/route.ts) · [master/unit/[id]/route.ts](../src/app/api/v1/master/unit/[id]/route.ts) · [kunjungan/route.ts](../src/app/api/v1/kunjungan/route.ts)                                                            |
+| Service (factory+DI+tx+DTO)             | [ruanganService.ts](../src/lib/services/ruanganService.ts)                                                                                                                                                                                                        |
+| DAL (tx?+version+soft-delete)           | [ruanganDal.ts](../src/lib/dal/ruanganDal.ts)                                                                                                                                                                                                                     |
+| Schema (Zod+DTO mirror)                 | [schemas/ruangan.ts](../src/lib/schemas/ruangan.ts)                                                                                                                                                                                                               |
+| DB singleton + tx                       | [db/prisma.ts](../src/lib/db/prisma.ts)                                                                                                                                                                                                                           |
+| Auth seam                               | [auth/actor.ts](../src/lib/auth/actor.ts)                                                                                                                                                                                                                         |
 | **Domain baru = folder-per-tab** (§7.1) | [schemas/asesmenMedis/anamnesis.ts](../src/lib/schemas/asesmenMedis/anamnesis.ts) · [services/asesmenMedis/anamnesisService.ts](../src/lib/services/asesmenMedis/anamnesisService.ts) · [api/asesmenMedis/anamnesis.ts](../src/lib/api/asesmenMedis/anamnesis.ts) |
-| Helper lintas-domain (akar layer) | [services/actorName.ts](../src/lib/services/actorName.ts) |
+| Helper lintas-domain (akar layer)       | [services/actorName.ts](../src/lib/services/actorName.ts)                                                                                                                                                                                                         |
 
 **Anti-pattern (jangan):**
+
 - ❌ `try/catch` atau `NextResponse.json` manual di Route — pakai `route()` + `reply()`.
 - ❌ `import { prisma }` di Service — pakai `transaction()` + DAL.
 - ❌ Kembalikan entity Prisma sebagai response — map ke DTO.
@@ -275,42 +286,42 @@ BACKEND-{DOMAIN}= spesifik domain (apa yang domain lakukan)
 
 ## 10. Postur keamanan & keselarasan standar internasional
 
-> **Sikap repo: HYBRID.** Pertahankan design pattern kita (tier-1 di sisi desain) + adopsi *selektif* hal
+> **Sikap repo: HYBRID.** Pertahankan design pattern kita (tier-1 di sisi desain) + adopsi _selektif_ hal
 > internasional yang **(a) cheap-now/expensive-later** atau **(b) wajib untuk domain healthcare**, dan
 > **tolak secara sadar** yang manfaatnya belum ada. Tujuan seksi ini: batasan & deviasi **tercatat eksplisit**,
 > bukan terlihat seperti kelalaian saat di-audit (OWASP API Top 10 · ASVS · HIPAA · GDPR).
 
 ### 10.1 Status enforce per kontrol (jujur — design vs runtime)
 
-| Kontrol | Design | Runtime | Sumber kebenaran |
-|---|---|---|---|
-| AuthN (verify session/JWT) | 🟢 seam final | 🔴 DEV super-actor | [auth/actor.ts](../src/lib/auth/actor.ts) → [BACKEND-AUTH](BACKEND-AUTH.md) |
-| RBAC (`assertCan`) | 🟢 | 🔴 di-bypass DEV `*` | [auth/actor.ts](../src/lib/auth/actor.ts#L42) |
-| ABAC / unit-scope (`scopeBy`) | 🟡 seam (actor diteruskan) | 🔴 belum ada | Service terima `actor`, `scopeBy` belum diimplementasi |
-| Mass-assign / property-auth | 🟢 | 🟢 | `setDefined` allow-list + DTO ([ruanganService.ts](../src/lib/services/ruanganService.ts#L36)) |
-| Idempotency | 🟢 header dibaca | 🔴 belum di-enforce | GAP-D infra (Redis) |
-| Rate limiting | 🟡 kode `RATE_LIMITED` ada | 🔴 belum ada | [appError.ts](../src/lib/errors/appError.ts) |
-| Audit trail CUD | 🟡 di DoD | 🔴 belum di-emit | **§10.2 item 1** |
-| Error tak bocor internal | 🟢 | 🟢 | [handleError.ts](../src/lib/errors/handleError.ts) |
-| Security headers / CORS | 🔴 | 🔴 | **§10.2 item 3** (proxy) |
+| Kontrol                       | Design                     | Runtime              | Sumber kebenaran                                                                               |
+| ----------------------------- | -------------------------- | -------------------- | ---------------------------------------------------------------------------------------------- |
+| AuthN (verify session/JWT)    | 🟢 seam final              | 🔴 DEV super-actor   | [auth/actor.ts](../src/lib/auth/actor.ts) → [BACKEND-AUTH](BACKEND-AUTH.md)                    |
+| RBAC (`assertCan`)            | 🟢                         | 🔴 di-bypass DEV `*` | [auth/actor.ts](../src/lib/auth/actor.ts#L42)                                                  |
+| ABAC / unit-scope (`scopeBy`) | 🟡 seam (actor diteruskan) | 🔴 belum ada         | Service terima `actor`, `scopeBy` belum diimplementasi                                         |
+| Mass-assign / property-auth   | 🟢                         | 🟢                   | `setDefined` allow-list + DTO ([ruanganService.ts](../src/lib/services/ruanganService.ts#L36)) |
+| Idempotency                   | 🟢 header dibaca           | 🔴 belum di-enforce  | GAP-D infra (Redis)                                                                            |
+| Rate limiting                 | 🟡 kode `RATE_LIMITED` ada | 🔴 belum ada         | [appError.ts](../src/lib/errors/appError.ts)                                                   |
+| Audit trail CUD               | 🟡 di DoD                  | 🔴 belum di-emit     | **§10.2 item 1**                                                                               |
+| Error tak bocor internal      | 🟢                         | 🟢                   | [handleError.ts](../src/lib/errors/handleError.ts)                                             |
+| Security headers / CORS       | 🔴                         | 🔴                   | **§10.2 item 3** (proxy)                                                                       |
 
 ### 10.2 Yang DIADOPSI (urut prioritas)
 
-1. **Audit trail CUD — adopt now (infra lintas-cutting).** Emit di boundary `transaction()`/outbox, bukan ditambal per-endpoint. *Alasan:* cheap sekarang (pola merambat gratis), **mustahil di-backfill** (HIPAA §164.312(b) · SNARS) — data "siapa-mengubah-apa" yang hilang tak bisa direkonstruksi.
-2. **Strategi erasure PII vs soft-delete — decide now (schema).** Tetapkan kolom PII + pendekatan crypto-shred / anonymization **sebelum** data pasien ada. *Alasan:* `deletedAt` menyimpan PII plaintext selamanya → bertabrakan dengan GDPR "right to erasure". Cukup keputusan model dulu, belum implementasi penuh.
+1. **Audit trail CUD — adopt now (infra lintas-cutting).** Emit di boundary `transaction()`/outbox, bukan ditambal per-endpoint. _Alasan:_ cheap sekarang (pola merambat gratis), **mustahil di-backfill** (HIPAA §164.312(b) · SNARS) — data "siapa-mengubah-apa" yang hilang tak bisa direkonstruksi.
+2. **Strategi erasure PII vs soft-delete — decide now (schema).** Tetapkan kolom PII + pendekatan crypto-shred / anonymization **sebelum** data pasien ada. _Alasan:_ `deletedAt` menyimpan PII plaintext selamanya → bertabrakan dengan GDPR "right to erasure". Cukup keputusan model dulu, belum implementasi penuh.
 3. **Security headers + CORS — adopt (deployment/proxy).** Tanggung jawab `proxy.ts`/reverse-proxy (HSTS, CSP, `X-Content-Type-Options`, CORS allow-list), **bukan** per-endpoint. OWASP API8.
 4. **Disiplin actor (sudah seam, tegakkan).** Setiap Service WAJIB tetap terima `actor` & menyiapkan titik `scopeBy` walau kini DEV actor — agar saat AuthN/ABAC nyata masuk, **Route/Service tak berubah**. Bukan adopsi baru; aturan disiplin.
 
 ### 10.3 Deviasi yang DISENGAJA (bukan kelalaian)
 
-| Standar internasional | Pilihan kita | Alasan menunda/menolak |
-|---|---|---|
-| **RFC 9457 Problem Details** (`application/problem+json`) | Envelope custom `{ok,error:{code,message,details}}` | Konsumen saat ini cuma frontend internal → manfaat interop ≈ nol. **Mitigasi:** katalog `code` dijaga **stabil** agar bisa dipetakan ke Problem Details di *edge* bila kelak ada API publik. Tinjau ulang saat ada konsumen eksternal. |
-| **HTTP ETag + `If-Match` → 412** | `expectedVersion` di body → `409 CONFLICT_VERSION` | Lebih sederhana & sudah bekerja; concurrency cukup di layer aplikasi. Decline sadar. |
-| **HATEOAS (Richardson L3)** | REST Level 2 (verbs + status) | Hampir tak ada konsumen yang memakai; overhead tak sepadan. |
+| Standar internasional                                     | Pilihan kita                                        | Alasan menunda/menolak                                                                                                                                                                                                                 |
+| --------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RFC 9457 Problem Details** (`application/problem+json`) | Envelope custom `{ok,error:{code,message,details}}` | Konsumen saat ini cuma frontend internal → manfaat interop ≈ nol. **Mitigasi:** katalog `code` dijaga **stabil** agar bisa dipetakan ke Problem Details di _edge_ bila kelak ada API publik. Tinjau ulang saat ada konsumen eksternal. |
+| **HTTP ETag + `If-Match` → 412**                          | `expectedVersion` di body → `409 CONFLICT_VERSION`  | Lebih sederhana & sudah bekerja; concurrency cukup di layer aplikasi. Decline sadar.                                                                                                                                                   |
+| **HATEOAS (Richardson L3)**                               | REST Level 2 (verbs + status)                       | Hampir tak ada konsumen yang memakai; overhead tak sepadan.                                                                                                                                                                            |
 
 ### 10.4 Deploy gate (hard rule)
 
-> **JANGAN hadapkan API ke jaringan tak tepercaya sebelum** AuthN + RBAC nyata aktif (BACKEND-AUTH) **dan** audit trail CUD ter-emit. Sampai itu, API ini *dirancang aman namun berjalan tanpa pintu* — hanya untuk dev/jaringan internal tepercaya.
+> **JANGAN hadapkan API ke jaringan tak tepercaya sebelum** AuthN + RBAC nyata aktif (BACKEND-AUTH) **dan** audit trail CUD ter-emit. Sampai itu, API ini _dirancang aman namun berjalan tanpa pintu_ — hanya untuk dev/jaringan internal tepercaya.
 
 Keputusan terbuka turunan seksi ini dirujuk juga di [BACKEND-FLOWS §17](BACKEND-FLOWS.md) (index) — perbarui di sini saat statusnya berubah.

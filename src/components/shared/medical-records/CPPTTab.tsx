@@ -2,10 +2,13 @@
 
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, CalendarDays, Search, LayoutTemplate, ChevronDown, Flag } from "lucide-react";
-import type { CPPTEntry, CPPTProfesi } from "@/lib/data";
+import { X, CalendarDays, Search, LayoutTemplate, ChevronDown, Flag, Phone, Check, AlertCircle } from "lucide-react";
+import type { CPPTEntry, CPPTProfesi, CPPTJenis, TbakMetode } from "@/lib/data";
 import { cn } from "@/lib/utils";
-import { fmtDate, todayISO, PROFESI_CLS, PROFESI_LIST, SOAP_BADGE } from "./cpptShared";
+import {
+  fmtDate, todayISO, PROFESI_CLS, PROFESI_LIST,
+  CPPT_JENIS_LIST, CPPT_JENIS_META, areasFor, TBAK_METODE_LIST, TBAK_STEPS,
+} from "./cpptShared";
 import CPPTEntryCard from "./CPPTEntryCard";
 
 // ── SOAP Templates ────────────────────────────────────────
@@ -86,24 +89,33 @@ function DateSep({ iso }: { iso: string }) {
 interface CPPTForm {
   profesi: CPPTProfesi;
   penulis: string;
+  jenis: CPPTJenis;
   subjektif: string;
   objektif: string;
   asesmen: string;
   planning: string;
   instruksi: string;
+  tbakPemberi: string;
+  tbakMetode: TbakMetode;
+  tbakTulis: boolean;
+  tbakBaca: boolean;
+  tbakKonfirmasi: boolean;
 }
 
 const EMPTY: CPPTForm = {
-  profesi: "Dokter", penulis: "",
+  profesi: "Dokter", penulis: "", jenis: "SOAP",
   subjektif: "", objektif: "", asesmen: "", planning: "", instruksi: "",
+  tbakPemberi: "", tbakMetode: "Telepon", tbakTulis: false, tbakBaca: false, tbakKonfirmasi: false,
 };
 
 function entryToForm(e: CPPTEntry): CPPTForm {
   return {
-    profesi: e.profesi, penulis: e.penulis,
+    profesi: e.profesi, penulis: e.penulis, jenis: e.jenisCatatan ?? "SOAP",
     subjektif: e.subjektif ?? "", objektif: e.objektif ?? "",
     asesmen: e.asesmen ?? "", planning: e.planning ?? "",
     instruksi: e.instruksi ?? "",
+    tbakPemberi: e.tbakPemberi ?? "", tbakMetode: e.tbakMetode ?? "Telepon",
+    tbakTulis: e.tbakTulis ?? false, tbakBaca: e.tbakBaca ?? false, tbakKonfirmasi: e.tbakKonfirmasi ?? false,
   };
 }
 
@@ -152,39 +164,59 @@ export default function CPPTTab({ initialEntries, showDate = false, requiresVeri
     setShowTemplates(false);
   };
 
+  // TBAK wajib: pemberi + isi instruksi + ketiga langkah Tulis-Baca-Konfirmasi tercentang.
+  const tbakComplete = !!form.tbakPemberi && !!form.instruksi && form.tbakTulis && form.tbakBaca && form.tbakKonfirmasi;
+  const hasNarasi = !!(form.subjektif || form.objektif || form.asesmen || form.planning || form.instruksi);
+  const canSubmit = !!form.penulis && (form.jenis === "TBAK" ? tbakComplete : hasNarasi);
+
+  // TBAK selalu butuh co-sign DPJP (1×24 jam, SKP 2); SOAP/SBAR ikut prop tab.
+  const needsVerify = requiresVerification || form.jenis === "TBAK";
+
+  const tbakFields = (jenis: CPPTJenis) =>
+    jenis === "TBAK"
+      ? {
+          tbakPemberi: form.tbakPemberi,
+          tbakMetode: form.tbakMetode,
+          tbakTulis: form.tbakTulis,
+          tbakBaca: form.tbakBaca,
+          tbakKonfirmasi: form.tbakKonfirmasi,
+        }
+      : { tbakPemberi: undefined, tbakMetode: undefined, tbakTulis: undefined, tbakBaca: undefined, tbakKonfirmasi: undefined };
+
   const handleSubmit = () => {
-    const hasContent = form.subjektif || form.objektif || form.asesmen || form.planning || form.instruksi;
-    if (!form.penulis || !hasContent) return;
+    if (!canSubmit) return;
 
     const waktu = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+    const content = {
+      profesi: form.profesi,
+      penulis: form.penulis,
+      jenisCatatan: form.jenis,
+      subjektif: form.subjektif || undefined,
+      objektif: form.objektif || undefined,
+      asesmen: form.asesmen || undefined,
+      planning: form.planning || undefined,
+      instruksi: form.instruksi || undefined,
+      ...tbakFields(form.jenis),
+    };
 
     if (editingId) {
       setEntries((prev) =>
         prev.map((e) =>
           e.id === editingId
-            ? { ...e, waktu, profesi: form.profesi, penulis: form.penulis,
-                subjektif: form.subjektif || undefined, objektif: form.objektif || undefined,
-                asesmen: form.asesmen || undefined, planning: form.planning || undefined,
-                instruksi: form.instruksi || undefined,
-                ...(requiresVerification && { verified: false, verifiedBy: undefined, verifiedAt: undefined }) }
+            ? { ...e, waktu, ...content,
+                ...(needsVerify && { verified: false, verifiedBy: undefined, verifiedAt: undefined }) }
             : e,
         ),
       );
       setEditingId(null);
     } else {
       const newEntry: CPPTEntry = {
-        id:        `cppt-${Date.now()}`,
+        id: `cppt-${Date.now()}`,
         waktu,
-        tanggal:   showDate ? todayISO() : undefined,
-        profesi:   form.profesi,
-        penulis:   form.penulis,
-        subjektif: form.subjektif  || undefined,
-        objektif:  form.objektif   || undefined,
-        asesmen:   form.asesmen    || undefined,
-        planning:  form.planning   || undefined,
-        instruksi: form.instruksi  || undefined,
-        verified:  requiresVerification ? false : undefined,
-        flagged:   false,
+        tanggal: showDate ? todayISO() : undefined,
+        ...content,
+        verified: needsVerify ? false : undefined,
+        flagged: false,
       };
       setEntries((prev) => [newEntry, ...prev]);
     }
@@ -253,7 +285,7 @@ export default function CPPTTab({ initialEntries, showDate = false, requiresVeri
                   {fmtDate(todayISO())}
                 </span>
               )}
-              {!editingId && (
+              {!editingId && form.jenis === "SOAP" && (
                 <button
                   type="button"
                   onClick={() => setShowTemplates((v) => !v)}
@@ -283,7 +315,7 @@ export default function CPPTTab({ initialEntries, showDate = false, requiresVeri
 
           {/* Template panel */}
           <AnimatePresence>
-            {showTemplates && (
+            {showTemplates && form.jenis === "SOAP" && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
@@ -352,26 +384,155 @@ export default function CPPTTab({ initialEntries, showDate = false, requiresVeri
               />
             </div>
 
-            <FormArea badge="S" badgeCls={SOAP_BADGE.S} label="Subjektif"
-              value={form.subjektif} onChange={(v) => set("subjektif", v)}
-              placeholder="Keluhan yang dirasakan pasien..." />
-            <FormArea badge="O" badgeCls={SOAP_BADGE.O} label="Objektif"
-              value={form.objektif} onChange={(v) => set("objektif", v)}
-              placeholder="Temuan pemeriksaan, lab, radiologi..." />
-            <FormArea badge="A" badgeCls={SOAP_BADGE.A} label="Asesmen"
-              value={form.asesmen} onChange={(v) => set("asesmen", v)}
-              placeholder="Diagnosis / masalah klinis..." />
-            <FormArea badge="P" badgeCls={SOAP_BADGE.P} label="Planning"
-              value={form.planning} onChange={(v) => set("planning", v)}
-              placeholder="Rencana tatalaksana..." rows={3} />
-            <FormArea badge="I" badgeCls={SOAP_BADGE.I} label="Instruksi"
-              value={form.instruksi} onChange={(v) => set("instruksi", v)}
-              placeholder="Instruksi kepada perawat / tenaga kesehatan lain..." rows={2} />
+            {/* Jenis Catatan — metode komunikasi efektif (SKP 2) */}
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                Jenis Catatan
+              </p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {CPPT_JENIS_LIST.map((j) => {
+                  const m = CPPT_JENIS_META[j];
+                  const active = form.jenis === j;
+                  return (
+                    <button
+                      key={j}
+                      type="button"
+                      onClick={() => set("jenis", j)}
+                      className={cn(
+                        "flex flex-col gap-0.5 rounded-lg border px-2.5 py-1.5 text-left transition",
+                        active ? m.active : "border-slate-200 bg-white hover:border-slate-300",
+                      )}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <span className={cn("h-1.5 w-1.5 rounded-full", active ? m.dot : "bg-slate-300")} />
+                        <span className={cn("text-xs font-bold", active ? "" : "text-slate-600")}>{m.label}</span>
+                      </span>
+                      <span className={cn("text-[9px] leading-tight", active ? "opacity-80" : "text-slate-400")}>
+                        {m.ket}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Body naratif: SOAP (S/O/A/P/I) atau SBAR (S/B/A/R) */}
+            {form.jenis !== "TBAK" &&
+              areasFor(form.jenis).map((a) => (
+                <FormArea
+                  key={a.key}
+                  badge={a.badge}
+                  badgeCls={a.badgeCls}
+                  label={a.label}
+                  rows={a.rows}
+                  value={form[a.key]}
+                  onChange={(v) => set(a.key, v)}
+                  placeholder={a.placeholder}
+                />
+              ))}
+
+            {/* Body TBAK: instruksi verbal + checklist Tulis-Baca-Konfirmasi */}
+            {form.jenis === "TBAK" && (
+              <div className="flex flex-col gap-4">
+                <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
+                  <AlertCircle size={13} className="mt-0.5 shrink-0 text-rose-500" />
+                  <p className="text-[11px] leading-snug text-rose-700">
+                    Instruksi verbal/via telepon — wajib <strong>Tulis–Baca–Konfirmasi</strong> (SKP 2) &
+                    diverifikasi DPJP dalam 1×24 jam.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                      Pemberi Instruksi <span className="text-rose-400">*</span>
+                    </p>
+                    <input
+                      type="text"
+                      value={form.tbakPemberi}
+                      onChange={(e) => set("tbakPemberi", e.target.value)}
+                      placeholder="DPJP yang memberi instruksi..."
+                      className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-100"
+                    />
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Metode</p>
+                    <div className="flex gap-1.5">
+                      {TBAK_METODE_LIST.map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => set("tbakMetode", m)}
+                          className={cn(
+                            "flex h-9 flex-1 items-center justify-center gap-1 rounded-lg border text-xs font-medium transition",
+                            form.tbakMetode === m
+                              ? "border-rose-300 bg-rose-50 text-rose-700"
+                              : "border-slate-200 bg-white text-slate-500 hover:border-slate-300",
+                          )}
+                        >
+                          {m === "Telepon" && <Phone size={11} />}
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <FormArea
+                  badge="I"
+                  badgeCls="bg-rose-100 text-rose-700"
+                  label="Isi Instruksi"
+                  rows={3}
+                  value={form.instruksi}
+                  onChange={(v) => set("instruksi", v)}
+                  placeholder="Tuliskan instruksi lengkap yang diterima (obat, dosis, tindakan)..."
+                />
+
+                <div>
+                  <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    Verifikasi Tulis–Baca–Konfirmasi <span className="text-rose-400">*</span>
+                  </p>
+                  <div className="flex flex-col gap-1.5">
+                    {TBAK_STEPS.map((s, i) => {
+                      const checked = form[s.key];
+                      return (
+                        <button
+                          key={s.key}
+                          type="button"
+                          onClick={() => set(s.key, !checked)}
+                          className={cn(
+                            "flex items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition",
+                            checked
+                              ? "border-emerald-300 bg-emerald-50"
+                              : "border-slate-200 bg-white hover:border-slate-300",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition",
+                              checked ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 bg-white",
+                            )}
+                          >
+                            {checked && <Check size={12} strokeWidth={3} />}
+                          </span>
+                          <span className="min-w-0">
+                            <span className={cn("block text-xs font-semibold", checked ? "text-emerald-700" : "text-slate-600")}>
+                              {i + 1}. {s.label}
+                            </span>
+                            <span className="block text-[10px] leading-tight text-slate-400">{s.ket}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={!form.penulis}
+              disabled={!canSubmit}
               className={cn(
                 "w-full rounded-lg py-2 text-sm font-medium text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-40",
                 editingId ? "bg-amber-500 hover:bg-amber-600" : "bg-indigo-600 hover:bg-indigo-700",

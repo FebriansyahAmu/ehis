@@ -2,24 +2,74 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Pencil, X, BadgeCheck, AlertCircle, Flag } from "lucide-react";
-import type { CPPTEntry } from "@/lib/data";
+import { Copy, Pencil, X, BadgeCheck, AlertCircle, Flag, Phone, Check } from "lucide-react";
+import type { CPPTEntry, CPPTJenis } from "@/lib/data";
 import { cn } from "@/lib/utils";
-import { fmtDate, PROFESI_CLS, SOAP_BADGE } from "./cpptShared";
+import { fmtDate, PROFESI_CLS, CPPT_JENIS_META, areasFor, TBAK_STEPS, type CPPTAreaDef } from "./cpptShared";
 
-// ── SOAPRow ───────────────────────────────────────────────
+// ── AreaRow (S/O/A/P/I atau S/B/A/R) ──────────────────────
 
-function SOAPRow({ letter, value }: { letter: string; value?: string }) {
+function AreaRow({ area, value }: { area: CPPTAreaDef; value?: string }) {
   if (!value) return null;
   return (
     <div className="flex gap-3">
-      <span className={cn(
-        "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-[11px] font-bold",
-        SOAP_BADGE[letter] ?? "bg-slate-100 text-slate-500",
-      )}>
-        {letter}
+      <span
+        className={cn(
+          "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-[11px] font-bold",
+          area.badgeCls,
+        )}
+        title={area.label}
+      >
+        {area.badge}
       </span>
       <p className="flex-1 text-sm leading-relaxed text-slate-700 whitespace-pre-line">{value}</p>
+    </div>
+  );
+}
+
+// ── TBAK body (instruksi verbal + checklist) ──────────────
+
+function TbakBody({ entry }: { entry: CPPTEntry }) {
+  return (
+    <div className="flex flex-col gap-3 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 ring-1 ring-rose-200">
+          {entry.tbakMetode === "Telepon" && <Phone size={10} />}
+          {entry.tbakMetode ?? "Verbal"}
+        </span>
+        {entry.tbakPemberi && (
+          <span className="text-[12px] text-slate-500">
+            Pemberi instruksi: <strong className="text-slate-700">{entry.tbakPemberi}</strong>
+          </span>
+        )}
+      </div>
+
+      {entry.instruksi && (
+        <div className="flex gap-3">
+          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-rose-100 text-[11px] font-bold text-rose-700">
+            I
+          </span>
+          <p className="flex-1 text-sm leading-relaxed text-slate-700 whitespace-pre-line">{entry.instruksi}</p>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-1.5">
+        {TBAK_STEPS.map((s) => {
+          const done = !!entry[s.key];
+          return (
+            <span
+              key={s.key}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1",
+                done ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-slate-50 text-slate-400 ring-slate-200",
+              )}
+            >
+              {done && <Check size={9} strokeWidth={3} />}
+              {s.label}
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -45,6 +95,8 @@ export default function CPPTEntryCard({
 
   const isEditing = editingId === entry.id;
   const isFlagged = !!entry.flagged;
+  const jenis: CPPTJenis = entry.jenisCatatan ?? "SOAP";
+  const showVerify = requiresVerification || jenis === "TBAK"; // TBAK wajib co-sign DPJP (SKP 2)
 
   const handleConfirmVerify = () => {
     const name = verifyName.trim();
@@ -88,6 +140,14 @@ export default function CPPTEntryCard({
         <span className={cn("rounded-md px-2 py-0.5 text-xs font-semibold", PROFESI_CLS[entry.profesi])}>
           {entry.profesi}
         </span>
+        {jenis !== "SOAP" && (
+          <span
+            className={cn("rounded-md px-2 py-0.5 text-xs font-semibold", CPPT_JENIS_META[jenis].chip)}
+            title={CPPT_JENIS_META[jenis].ket}
+          >
+            {CPPT_JENIS_META[jenis].label}
+          </span>
+        )}
         <span className="text-sm text-slate-500">{entry.penulis}</span>
 
         <div className="ml-auto flex items-center gap-1">
@@ -127,17 +187,19 @@ export default function CPPTEntryCard({
         </div>
       </div>
 
-      {/* ── SOAP body ── */}
-      <div className="flex flex-col gap-3 p-4">
-        <SOAPRow letter="S" value={entry.subjektif} />
-        <SOAPRow letter="O" value={entry.objektif} />
-        <SOAPRow letter="A" value={entry.asesmen} />
-        <SOAPRow letter="P" value={entry.planning} />
-        <SOAPRow letter="I" value={entry.instruksi} />
-      </div>
+      {/* ── Body: SOAP/SBAR naratif atau TBAK ── */}
+      {jenis === "TBAK" ? (
+        <TbakBody entry={entry} />
+      ) : (
+        <div className="flex flex-col gap-3 p-4">
+          {areasFor(jenis).map((a) => (
+            <AreaRow key={a.key} area={a} value={entry[a.key]} />
+          ))}
+        </div>
+      )}
 
-      {/* ── Verification footer (RI only) ── */}
-      {requiresVerification && (
+      {/* ── Verification footer (RI + selalu untuk TBAK) ── */}
+      {showVerify && (
         <div className={cn(
           "rounded-b-xl border-t px-4 py-2.5",
           entry.verified ? "border-emerald-100 bg-emerald-50/50" : "border-slate-100 bg-slate-50/40",

@@ -110,6 +110,8 @@ export const igdPatients: IGDPatient[] = [
 export type StatusKesadaran = "Compos_Mentis" | "Apatis" | "Somnolen" | "Sopor" | "Koma";
 export type Disposisi       = "Pulang" | "Rawat_Inap" | "Rujuk" | "Meninggal" | "APS" | null;
 export type CPPTProfesi     = "Dokter" | "Perawat" | "Bidan" | "Apoteker" | "Gizi" | "Fisioterapi" | "Lainnya";
+export type CPPTJenis       = "SOAP" | "SBAR" | "TBAK"; // SKP 2 — metode komunikasi efektif
+export type TbakMetode      = "Telepon" | "Lisan";
 export type DiagnosaTipe    = "Utama" | "Sekunder" | "Komplikasi" | "Komorbid";
 export type DiagnosaStatus  = "Pasti" | "Dicurigai" | "Diferensial";
 export type StatusLuaran    = "Teratasi" | "Teratasi_Sebagian" | "Belum_Teratasi" | "Dipantau";
@@ -302,6 +304,17 @@ export interface CPPTEntry {
   verifiedBy?: string;
   verifiedAt?: string;    // "8 Mei 2025, 17:00"
   flagged?: boolean;      // tindak lanjut diperlukan
+
+  // SKP 2 — metode komunikasi efektif. Default "SOAP".
+  // SBAR  → field S/O/A/P dipetakan ke Situation/Background/Assessment/Recommendation.
+  // TBAK  → instruksi verbal/telepon: isi di `instruksi` + checklist Tulis-Baca-Konfirmasi
+  //         + pemberi instruksi; wajib co-sign DPJP 1×24 jam.
+  jenisCatatan?: CPPTJenis;
+  tbakPemberi?: string;   // DPJP pemberi instruksi lisan (wajib TBAK)
+  tbakMetode?: TbakMetode;
+  tbakTulis?: boolean;       // langkah 1: instruksi dituliskan
+  tbakBaca?: boolean;        // langkah 2: dibacakan ulang (read-back)
+  tbakKonfirmasi?: boolean;  // langkah 3: dikonfirmasi pemberi instruksi
 }
 
 export interface IGDTindakanItem {
