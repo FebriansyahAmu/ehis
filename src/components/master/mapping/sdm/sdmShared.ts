@@ -1,16 +1,18 @@
 import { makeInitials } from "../mappingShared";
 import { type AnyNode, type LocationNode } from "@/components/master/ruangan/ruanganShared";
 import type { DokterListItemDTO } from "@/lib/api/dokter";
+import type { PegawaiListItemDTO } from "@/lib/api/pegawai";
 
 // ── Types ─────────────────────────────────────────────────
 
-export type SDMSource = "dokter" | "pengguna";
+export type SDMSource = "dokter" | "pegawai" | "pengguna";
 
 export type SDMStatus = "Aktif" | "Cuti" | "Suspended" | "Non_Aktif";
 
 export type SDMCategory =
   | "Dokter"
   | "Perawat"
+  | "Bidan"
   | "Apoteker"
   | "Radiografer"
   | "SpPK"
@@ -52,6 +54,7 @@ export const CATEGORY_CFG: Record<
 > = {
   Dokter:      { label: "Dokter",       bg: "bg-teal-50",    text: "text-teal-700",    dot: "bg-teal-500" },
   Perawat:     { label: "Perawat",      bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
+  Bidan:       { label: "Bidan",        bg: "bg-fuchsia-50", text: "text-fuchsia-700", dot: "bg-fuchsia-500" },
   Apoteker:    { label: "Apoteker",     bg: "bg-violet-50",  text: "text-violet-700",  dot: "bg-violet-500" },
   Radiografer: { label: "Radiografer",  bg: "bg-amber-50",   text: "text-amber-700",   dot: "bg-amber-500" },
   SpPK:        { label: "Sp. Patologi", bg: "bg-sky-50",     text: "text-sky-700",     dot: "bg-sky-500" },
@@ -101,14 +104,53 @@ export function dokterDtoToSDM(d: DokterListItemDTO): SDMItem {
   };
 }
 
+/** Klasifikasi tampilan dari master.Pegawai.profesi (PROFESI_OPTS penggunaShared, acuan SISDMK). */
+export function profesiToCategory(profesi: string | null): SDMCategory {
+  switch (profesi) {
+    case "Dokter":
+    case "Dokter Gigi":
+    case "Dokter Spesialis":
+      return "Dokter";
+    case "Perawat":     return "Perawat";
+    case "Bidan":       return "Bidan";
+    case "Apoteker":    return "Apoteker";
+    case "Radiografer": return "Radiografer";
+    default:            return "Lainnya";
+  }
+}
+
+/** Map PegawaiListItemDTO (API /master/pegawai) → SDMItem. Anchor persist = pegawaiId (= p.id). */
+export function pegawaiDtoToSDM(p: PegawaiListItemDTO): SDMItem {
+  return {
+    id: `sdm-pg-${p.id}`,
+    source: "pegawai",
+    sourceId: p.id,
+    pegawaiId: p.id,
+    nama: p.namaTampil,
+    initials: makeInitials(p.namaTampil),
+    roleLabel: p.profesi ?? "Pegawai",
+    roleCategory: profesiToCategory(p.profesi),
+    status: p.isActive ? "Aktif" : "Non_Aktif",
+    email: "",
+    units: [],
+    sinceISO: p.createdAt.slice(0, 10),
+  };
+}
+
 /**
- * Daftar SDM untuk Assignment = dokter REAL dari API (/master/dokter — yang didaftarkan di
- * Dokter & Nakes). Tenaga non-dokter (perawat/apoteker/dst) BELUM disertakan: sumbernya masih
- * mock & belum punya pegawaiId asli → tak bisa di-assign/persist. Akan ditambah saat modul
- * Pengguna di-wire ke Pegawai (lalu anchor `pegawaiId` tersedia untuk semua tenaga).
+ * Daftar SDM untuk Assignment = SEMUA pegawai REAL (/master/pegawai) + dokter (/master/dokter).
+ * Keduanya ber-anchor `pegawaiId` (FK persist penugasan). Dokter dirender dari entri dokter
+ * (label spesialis lebih kaya) → baris pegawai yang sama (dedup by pegawaiId) di-skip.
  */
-export function deriveSDMList(dokters: DokterListItemDTO[]): SDMItem[] {
-  return dokters.map(dokterDtoToSDM);
+export function deriveSDMList(
+  dokters: DokterListItemDTO[],
+  pegawai: PegawaiListItemDTO[] = [],
+): SDMItem[] {
+  const dokterPegawaiIds = new Set(dokters.map((d) => d.pegawaiId));
+  return [
+    ...dokters.map(dokterDtoToSDM),
+    ...pegawai.filter((p) => !dokterPegawaiIds.has(p.id)).map(pegawaiDtoToSDM),
+  ];
 }
 
 /**

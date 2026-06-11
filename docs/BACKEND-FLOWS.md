@@ -223,6 +223,15 @@ Service melempar `AppError(code, httpStatus, message, details?)`. **Satu** `hand
 - **Proxy (`proxy.ts`) ≠ tempat auth.** Edge layer hanya optimistic (cek cookie ada → redirect). Verifikasi authoritative (signature JWT + Redis revoke + RBAC + scope) **wajib di server/Route guard** — edge bisa di-bypass.
 - **Auth hybrid** (detail → `BACKEND-AUTH`): JWT access ~15m + refresh DB rotating + revoke via Redis (bump `tokenVersion`/blocklist `jti`). Idle timeout; argon2id; rate-limit login; MFA role admin/direksi.
 
+**Implementasi terkini (2026-06-11, ditegakkan):**
+
+- **ABAC unit-scope = `careUnits`** turunan `Pegawai.unitKerja` ([`careUnit.ts`](../src/lib/auth/careUnit.ts) `careUnitsFromUnitKerja` → {IGD/RawatJalan/RawatInap}), dibawa di **JWT claims + `Actor.careUnits` + `SessionDTO`**. Ditegakkan di **4 titik**: nav (`navItemVisible`), worklist (`getWorklist` filter), detail (`getKunjungan` → NOT_FOUND lintas unit), dan **choke-point [`route()`](../src/lib/http/route.ts)** (`scopeKunjungan`, default ON utk resource `clinical.*`) → semua endpoint `/kunjungan/[id]/…` ter-scope tanpa edit per-service. **Bypass**: superuser (Admin) + role **global** (`unitScoped=false`, mis. Registrasi/Kasir). Akun klinis tanpa unit kerja ternormalisasi = tak boleh data care.
+- **Gate MODUL ≠ gate DATA.** Permission visibilitas modul **terpisah** dari permission CRUD data: `registration.loket`/`master.view`/`dashboard.view` menggerbang modul; `registration.kunjungan:read`/`master.ruangan:read`/dll = baca DATA. Role klinis boleh baca data registrasi/master (resolve DPJP, cari ICD) **tanpa** modul Registrasi/Master ikut tampil. `MODULES[].perms` + `NavItem.perm` (`navigation.ts`) + `requireModule` (server guard).
+- **Penunjang (Lab/Rad/Farmasi) berdiri-sendiri** via `ancillary.*` — bukan `clinical.*`, tak kena careUnit ABAC. Jangan beri `ancillary.*` ke role klinis (bocor menu) atau `clinical.ri/rj` ke role penunjang (menu kosong).
+- **Authz action-dependent → di Service**, bukan `route()` statis. Bila izin tergantung body/aksi (mis. `receive`/Terima Pasien = klinis ATAU loket), `route()` pakai gate baseline + Service `assertXxxAllowed(actor, action)` (lihat `kunjunganService.assertTransitionAllowed`).
+- **Rekam medis shared** (asesmen/anamnesis/observasi, lintas IGD/RI/RJ) di-gate resource NETRAL **`clinical.rekammedis`** (bukan `clinical.igd`); unit dibatasi ABAC careUnit. `clinical.igd/ri/rj` murni gate modul/nav + endpoint unit-spesifik (mis. triase=IGD).
+- **Reflek perubahan:** grant RBAC efektif **≤60s** (rbacCache, tanpa login ulang); perubahan **unit kerja** ikut JWT → perlu refresh token (≤30m / login ulang).
+
 ---
 
 ## 7. Aturan data (wajib semua domain)

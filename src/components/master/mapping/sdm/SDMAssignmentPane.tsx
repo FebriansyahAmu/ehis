@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api/client";
 import { getTree } from "@/lib/api/ruangan";
 import { listDokter, type DokterListItemDTO } from "@/lib/api/dokter";
+import { listPegawai, type PegawaiListItemDTO } from "@/lib/api/pegawai";
 import {
   listPenugasan, createPenugasan, deletePenugasan, type PenugasanRuanganDTO,
 } from "@/lib/api/penugasanRuangan";
@@ -25,13 +26,15 @@ interface SDMAssignmentPaneProps {
   initialTree?: AnyNode[];
   /** Daftar dokter (API /master/dokter) dari SSR. Absen → client fetch. */
   initialDokters?: DokterListItemDTO[];
+  /** Daftar pegawai aktif (API /master/pegawai) dari SSR. Absen → client fetch. */
+  initialPegawai?: PegawaiListItemDTO[];
   /** Penugasan ruangan (API /master/penugasan-ruangan) dari SSR. Absen → client fetch. */
   initialPenugasan?: PenugasanRuanganDTO[];
 }
 
 const edgeKey = (sdmId: string, kode: string) => `${sdmId}::${kode}`;
 
-export default function SDMAssignmentPane({ initialTree, initialDokters, initialPenugasan }: SDMAssignmentPaneProps) {
+export default function SDMAssignmentPane({ initialTree, initialDokters, initialPegawai, initialPenugasan }: SDMAssignmentPaneProps) {
   // Tree REAL dari master/ruangan. SSR hybrid: pakai initialTree bila ada, else fetch client
   // (degradasi anggun). `units` (ruangan datar) diturunkan utk roster/bulk-move/stats; tree
   // mentah (`nodes`) diteruskan ke panel kiri untuk tampilan Unit → Ruangan.
@@ -42,9 +45,11 @@ export default function SDMAssignmentPane({ initialTree, initialDokters, initial
 
   const units = useMemo(() => ruanganFromTree(nodes), [nodes]);
 
-  // SDM = dokter REAL (API /master/dokter, didaftarkan di Dokter & Nakes) + pengguna mock.
+  // SDM = SEMUA pegawai aktif (API /master/pegawai) + dokter (API /master/dokter, label
+  // spesialis lebih kaya; dedup by pegawaiId di deriveSDMList).
   const [dokters, setDokters] = useState<DokterListItemDTO[]>(initialDokters ?? []);
-  const sdmList = useMemo(() => deriveSDMList(dokters), [dokters]);
+  const [pegawai, setPegawai] = useState<PegawaiListItemDTO[]>(initialPegawai ?? []);
+  const sdmList = useMemo(() => deriveSDMList(dokters, pegawai), [dokters, pegawai]);
 
   // Penugasan = SUMBER TUNGGAL state assignment (DTO dari API). assignments map + edge-id
   // di-derive darinya (no duplikasi state). Mutasi = optimistik update array ini + persist.
@@ -74,7 +79,7 @@ export default function SDMAssignmentPane({ initialTree, initialDokters, initial
     const edges: Record<string, string> = {};
     for (const p of penugasan) {
       const sdmId = pegawaiToSdmId.get(p.pegawaiId);
-      if (!sdmId) continue; // penugasan utk pegawai yg tak ada di roster (mis. non-dokter) → skip tampilan
+      if (!sdmId) continue; // penugasan utk pegawai di luar roster (nonaktif/terhapus) → skip tampilan
       (map[sdmId] ??= []).push(p.ruanganKode);
       edges[edgeKey(sdmId, p.ruanganKode)] = p.id;
     }
@@ -101,9 +106,18 @@ export default function SDMAssignmentPane({ initialTree, initialDokters, initial
     const ctrl = new AbortController();
     listDokter({ limit: 50 }, ctrl.signal)
       .then(({ items }) => setDokters(items))
-      .catch((e) => { if (!(e instanceof DOMException && e.name === "AbortError")) { /* pengguna mock tetap tampil */ } });
+      .catch((e) => { if (!(e instanceof DOMException && e.name === "AbortError")) { /* roster pegawai tetap tampil */ } });
     return () => ctrl.abort();
   }, [initialDokters]);
+
+  useEffect(() => {
+    if (initialPegawai != null) return;
+    const ctrl = new AbortController();
+    listPegawai({ aktif: "true", limit: 50 }, ctrl.signal)
+      .then(({ items }) => setPegawai(items))
+      .catch((e) => { if (!(e instanceof DOMException && e.name === "AbortError")) { /* roster dokter tetap tampil */ } });
+    return () => ctrl.abort();
+  }, [initialPegawai]);
 
   useEffect(() => {
     if (initialPenugasan != null) return;
@@ -176,11 +190,7 @@ export default function SDMAssignmentPane({ initialTree, initialDokters, initial
 
   const handleToggle = (sdmId: string, unitKode: string) => {
     const sdm = sdmList.find((s) => s.id === sdmId);
-    if (!sdm) return;
-    if (!sdm.pegawaiId) {
-      toast.warning("Belum bisa ditugaskan", "Hanya dokter terdaftar yang dapat ditugaskan saat ini.");
-      return;
-    }
+    if (!sdm?.pegawaiId) return;
     if (assignments[sdmId]?.includes(unitKode)) void unassignOne(sdmId, unitKode);
     else void assignOne(sdm, unitKode);
   };

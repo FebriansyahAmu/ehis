@@ -7,7 +7,7 @@ import { EdukasiEolMeetingInput } from "@/lib/schemas/asesmenMedis/edukasiEol";
 import { edukasiEolService } from "@/lib/services/asesmenMedis/edukasiEolService";
 
 export const POST = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "create",
   params: IdParam,
   body: EdukasiEolMeetingInput,

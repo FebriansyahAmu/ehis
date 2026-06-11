@@ -7,14 +7,14 @@ import { AsesmenObatInput } from "@/lib/schemas/asesmenMedis/asesmenObat";
 import { asesmenObatService } from "@/lib/services/asesmenMedis/asesmenObatService";
 
 export const GET = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "read",
   params: IdParam,
   handler: ({ params, actor }) => asesmenObatService.getLatest(params.id, actor),
 });
 
 export const POST = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "create",
   params: IdParam,
   body: AsesmenObatInput,

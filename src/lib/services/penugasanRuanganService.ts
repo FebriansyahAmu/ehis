@@ -4,10 +4,11 @@
 
 import { transaction } from "@/lib/db/prisma";
 import * as defaultDal from "@/lib/dal/penugasanRuanganDal";
+import * as kunjunganDal from "@/lib/dal/kunjunganDal";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type {
-  CreatePenugasanInput, ListQuery, PenugasanRuanganDTO,
+  CreatePenugasanInput, ListQuery, PenugasanRuanganDTO, PetugasDTO,
 } from "@/lib/schemas/penugasanRuangan";
 import type { PenugasanEntity } from "@/lib/dal/penugasanRuanganDal";
 
@@ -84,7 +85,44 @@ export function makePenugasanRuanganService(deps: { dal?: Dal } = {}) {
     await dal.deleteById(id);
   }
 
-  return { listPenugasan, createPenugasan, deletePenugasan };
+  /**
+   * Roster petugas untuk SATU kunjungan (konsumen klinis — dropdown PJ triase/DPJP).
+   * Petugas = pegawai aktif ber-penugasan ke RUANGAN kunjungan (SDM Assignment).
+   * Kunjungan tanpa ruangan (mis. RJ lama) → fallback lintas-ruangan (semua penugasan
+   * ber-profesi itu), dedup per pegawai. Identitas TERBATAS (nama+profesi) — bukan
+   * data SDM penuh (role klinis tak punya master.pegawai:read).
+   */
+  async function listPetugasKunjungan(
+    kunjunganId: string,
+    profesi: string | undefined,
+    _actor: Actor,
+  ): Promise<PetugasDTO[]> {
+    const kunjungan = await kunjunganDal.findById(kunjunganId);
+    if (!kunjungan) throw Errors.notFound("Kunjungan tidak ditemukan");
+
+    const perRuangan = !!kunjungan.ruanganId;
+    const rows = await dal.listPetugas({
+      locationId: kunjungan.ruanganId ?? undefined,
+      profesi,
+    });
+
+    const seen = new Set<string>();
+    const petugas: PetugasDTO[] = [];
+    for (const r of rows) {
+      if (seen.has(r.pegawaiId)) continue;
+      seen.add(r.pegawaiId);
+      petugas.push({
+        pegawaiId: r.pegawaiId,
+        namaTampil: namaTampil(r.pegawai),
+        profesi: r.pegawai.profesi,
+        ruanganKode: perRuangan ? r.location.kode : null,
+        ruanganNama: perRuangan ? r.location.nama : null,
+      });
+    }
+    return petugas;
+  }
+
+  return { listPenugasan, createPenugasan, deletePenugasan, listPetugasKunjungan };
 }
 
 export const penugasanRuanganService = makePenugasanRuanganService();

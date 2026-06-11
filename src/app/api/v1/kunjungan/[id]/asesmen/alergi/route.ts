@@ -10,14 +10,14 @@ import { AlergiItemInput, AlergiNkaInput } from "@/lib/schemas/asesmenMedis/ases
 import { asesmenAlergiService } from "@/lib/services/asesmenMedis/asesmenAlergiService";
 
 export const GET = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "read",
   params: IdParam,
   handler: ({ params, actor }) => asesmenAlergiService.get(params.id, actor),
 });
 
 export const POST = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "create",
   params: IdParam,
   body: AlergiItemInput,
@@ -29,7 +29,7 @@ export const POST = route({
 });
 
 export const PATCH = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "update",
   params: IdParam,
   body: AlergiNkaInput,

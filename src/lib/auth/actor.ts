@@ -26,6 +26,8 @@ export interface Actor {
   permissions: Set<string>;
   /** Unit yang boleh diakses (ABAC). Kosong + bukan global = tak boleh data klinis. */
   unitIds: string[];
+  /** Konteks layanan unit kerja {IGD/RawatJalan/RawatInap} — scope modul/worklist/rekam medis. */
+  careUnits: string[];
   /** true = tak diikat unit (ABAC bypass unit-scope). DARI unitScoped. BUKAN bypass RBAC. */
   isGlobal: boolean;
   /** true = superuser (Admin) → bypass RBAC penuh. Lihat lib/auth/superuser.ts. */
@@ -39,6 +41,7 @@ const DEV_ACTOR: Actor = {
   roles: ["DEV"],
   permissions: new Set<string>(["*"]),
   unitIds: [],
+  careUnits: [],
   isGlobal: true,
   isSuperuser: true,
 };
@@ -53,6 +56,7 @@ async function actorFromClaims(claims: AccessClaims): Promise<Actor> {
     roles: claims.roles,
     permissions,
     unitIds: claims.unitIds,
+    careUnits: claims.careUnits,
     isGlobal: claims.isGlobal,
     isSuperuser: hasSuperuserRole(claims.roles),
   };

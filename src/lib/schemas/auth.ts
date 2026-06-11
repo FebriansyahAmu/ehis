@@ -36,6 +36,8 @@ export interface AccessClaims {
   isGlobal: boolean;
   /** unit (ruangan) yang boleh diakses (ABAC). */
   unitIds: string[];
+  /** konteks layanan unit kerja {IGD/RawatJalan/RawatInap} — batasi modul/worklist/rekam medis. */
+  careUnits: string[];
   /** versi token; bump = revoke semua sesi (dicek saat refresh selama Redis ditunda). */
   tokenVersion: number;
   /** JWT id — untuk blocklist saat Redis aktif. */
@@ -56,6 +58,8 @@ export interface SessionDTO {
   /** true = superuser (Admin) → bypass RBAC di UI gating (`can()` selalu true). */
   isSuperuser: boolean;
   unitIds: string[];
+  /** konteks layanan unit kerja {IGD/RawatJalan/RawatInap} — gating modul care di UI. */
+  careUnits: string[];
   /** permission efektif "resource:action" (union lintas role) — untuk UI gating. */
   permissions: string[];
   mustChangePassword: boolean;

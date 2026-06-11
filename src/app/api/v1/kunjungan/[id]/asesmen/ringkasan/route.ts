@@ -7,7 +7,7 @@ import { IdParam } from "@/lib/schemas/kunjungan";
 import { ringkasanService } from "@/lib/services/asesmenMedis/ringkasanService";
 
 export const GET = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "read",
   params: IdParam,
   handler: ({ params, actor }) => ringkasanService.get(params.id, actor),

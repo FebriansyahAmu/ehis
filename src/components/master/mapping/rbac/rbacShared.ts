@@ -40,7 +40,8 @@ export const PERMISSION_TREE: PermissionModule[] = [
       { key: "clinical.igd",          label: "IGD",                          actions: ["read", "create", "update", "delete"] },
       { key: "clinical.ri",           label: "Rawat Inap",                   actions: ["read", "create", "update", "delete"] },
       { key: "clinical.rj",           label: "Rawat Jalan",                  actions: ["read", "create", "update", "delete"] },
-      { key: "clinical.cppt",         label: "CPPT (SOAP)",                  actions: ["read", "create", "update"] },
+      { key: "clinical.rekammedis",   label: "Rekam Medis (Asesmen/Anamnesis/Observasi)", actions: ["read", "create", "update", "delete"] },
+      { key: "clinical.cppt",         label: "CPPT (SOAP)",                  actions: ["read", "create", "update", "delete"] },
       { key: "clinical.diagnosa",     label: "Diagnosa (ICD-10)",            actions: ["read", "create", "update", "delete"] },
       { key: "clinical.tindakan",     label: "Tindakan / Order",             actions: ["read", "create", "update", "delete"] },
       { key: "clinical.resep",        label: "Resep & Obat",                 actions: ["read", "create", "update", "delete"] },
@@ -63,6 +64,7 @@ export const PERMISSION_TREE: PermissionModule[] = [
     key: "registration",
     label: "Registrasi & Billing",
     leaves: [
+      { key: "registration.loket",    label: "Loket Registrasi — Akses Modul", actions: ["read"] },
       { key: "registration.pasien",   label: "Master Pasien",                actions: ["read", "create", "update", "delete"] },
       { key: "registration.kunjungan", label: "Pendaftaran Kunjungan",       actions: ["read", "create", "update", "delete"] },
       { key: "billing.invoice",       label: "Billing — Invoice",            actions: ["read", "create", "update", "delete", "export"] },
@@ -74,6 +76,7 @@ export const PERMISSION_TREE: PermissionModule[] = [
     key: "master",
     label: "Master Data",
     leaves: [
+      { key: "master.view",           label: "Master — Akses Modul",         actions: ["read"] },
       { key: "master.ruangan",        label: "Unit & Ruangan",               actions: ["read", "create", "update", "delete"] },
       { key: "master.dokter",         label: "Dokter & Nakes",               actions: ["read", "create", "update", "delete"] },
       { key: "master.pegawai",        label: "Data Pegawai (SDM)",           actions: ["read", "create", "update", "delete"] },
@@ -81,8 +84,10 @@ export const PERMISSION_TREE: PermissionModule[] = [
       { key: "master.mapping",        label: "Mapping Hub",                  actions: ["read", "update"] },
       { key: "master.penugasan-ruangan", label: "Penugasan SDM ⇄ Ruangan",   actions: ["read", "create", "delete"] },
       { key: "master.katalog",        label: "Katalog (Obat/Lab/ICD)",       actions: ["read", "create", "update", "delete"] },
+      { key: "master.icd",            label: "Katalog ICD-10/9",             actions: ["read", "create", "update", "delete"] },
       { key: "master.triase",         label: "Triase IGD (Skala Klinis)",    actions: ["read", "create", "update", "delete"] },
       { key: "master.tarif",          label: "Tarif & Paket",                actions: ["read", "create", "update", "delete"] },
+      { key: "master.konfigurasi",    label: "Konfigurasi Sistem (Template/Enum/Profil)", actions: ["read", "update"] },
     ],
   },
   {
@@ -134,52 +139,64 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
     "clinical.igd": ["read", "create", "update"],
     "clinical.ri": ["read", "create", "update"],
     "clinical.rj": ["read", "create", "update"],
-    "clinical.cppt": ["read", "create", "update"],
+    "clinical.rekammedis": ["read", "create", "update"], // rekam medis lintas-unit; ABAC careUnit batasi unit
+    "clinical.cppt": ["read", "create", "update", "delete"], // delete = hanya catatan miliknya (guard Service)
     "clinical.diagnosa": ["read", "create", "update"],
     "clinical.tindakan": ["read", "create", "update"],
     "clinical.resep": ["read", "create", "update"],
-    "ancillary.lab.worklist": ["read"],
-    "ancillary.rad.worklist": ["read"],
-    "ancillary.farmasi.telaah": ["read"],
+    // CATATAN: TIDAK diberi ancillary.* — itu untuk unit penunjang (Lab/Rad/Farmasi) yang
+    // berdiri-sendiri. Dokter lihat status order via tab rekam medis (clinical.*), bukan
+    // worklist penunjang. Grant ancillary.* di sini dulu bikin menu penunjang muncul keliru.
     "master.triase": ["read"], // baca protokol triase (decision-support di TriaseTab)
     "report.clinical": ["read", "export"],
+    // baca DATA referensi+registrasi utk rekam medis — TANPA master.view/registration.loket (modul tersembunyi)
+    "master.ruangan": ["read"], // resolve nama ruangan (board/detail)
+    "master.dokter": ["read"], // resolve nama DPJP
+    "master.icd": ["read"], // cari kode ICD saat koding diagnosis
+    "registration.pasien": ["read"],
+    "registration.kunjungan": ["read"],
   },
   Perawat: {
     "clinical.igd": ["read", "update"],
     "clinical.ri": ["read", "update"],
-    "clinical.cppt": ["read", "create"],
+    "clinical.rj": ["read", "update"], // perawat poli/rawat jalan — menu RJ muncul bila unit kerja mencakup RJ
+    "clinical.rekammedis": ["read", "update"], // rekam medis lintas-unit; ABAC careUnit batasi unit
+    "clinical.cppt": ["read", "create", "delete"], // delete = hanya catatan miliknya (guard Service)
     "clinical.tindakan": ["read", "update"],
     "clinical.resep": ["read"],
-    "ancillary.lab.worklist": ["read"],
-    "ancillary.rad.worklist": ["read"],
-    "ancillary.farmasi.serah": ["read"],
+    // CATATAN: TIDAK diberi ancillary.* — itu untuk unit penunjang (Lab/Rad/Farmasi) yang
+    // berdiri-sendiri. Perawat lihat status order via tab rekam medis, bukan worklist penunjang.
     "master.triase": ["read"], // baca protokol triase (decision-support di TriaseTab)
+    // baca DATA referensi+registrasi utk rekam medis — TANPA master.view/registration.loket (modul tersembunyi)
+    "master.ruangan": ["read"], // resolve nama ruangan (board/detail)
+    "master.dokter": ["read"], // resolve nama DPJP
+    "master.icd": ["read"], // cari kode ICD saat koding diagnosis
+    "registration.pasien": ["read"],
+    "registration.kunjungan": ["read"],
   },
   Apoteker: {
     "clinical.resep": ["read"],
     "ancillary.farmasi.telaah": ["read", "update"],
     "ancillary.farmasi.serah": ["read", "update"],
+    "master.view": ["read"], // gate modul Master (kelola katalog)
     "master.katalog": ["read", "update"],
     "report.clinical": ["read"],
   },
+  // Penunjang = unit berdiri-sendiri (Lab/Rad/Farmasi): akses MURNI via ancillary.* + halaman
+  // worklist sendiri. TIDAK terikat clinical.ri/rj (itu modul rekam medis RI/RJ, beda unit).
+  // Konteks klinis order sudah denormal di worklist; tak perlu buka rekam medis kunjungan.
   Radiografer: {
     "ancillary.rad.worklist": ["read", "update"],
-    "clinical.ri": ["read"],
-    "clinical.rj": ["read"],
   },
   SpPK: {
     "ancillary.lab.worklist": ["read", "update"],
     "ancillary.lab.validate": ["read", "update"],
     "ancillary.lab.critical": ["read", "create"],
-    "clinical.ri": ["read"],
-    "clinical.rj": ["read"],
     "report.clinical": ["read", "export"],
   },
   SpRad: {
     "ancillary.rad.worklist": ["read", "update"],
     "ancillary.rad.expertise": ["read", "create", "update"],
-    "clinical.ri": ["read"],
-    "clinical.rj": ["read"],
     "report.clinical": ["read", "export"],
   },
   Kasir: {
@@ -192,6 +209,7 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
   },
   Registrasi: {
     "dashboard.view": ["read"],
+    "registration.loket": ["read"], // gate modul loket — eksklusif role registrasi
     "registration.pasien": ["read", "create", "update"],
     "registration.kunjungan": ["read", "create", "update"],
     "clinical.rj": ["read"],

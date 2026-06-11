@@ -902,8 +902,8 @@ model DiagnosaProsedur {
 // ── CPPT (Catatan Perkembangan Pasien Terintegrasi) ───────────────────────────
 //  Daftar per-item lintas profesi (Dokter/Perawat/…), 1 baris = 1 catatan. Mirror
 //  CPPTEntry (CPPTTab.tsx). Append-only secara klinis; mutable terbatas: koreksi isi
-//  (edit), co-sign DPJP (verify), penanda tindak lanjut (flag) — RBAC clinical.cppt
-//  punya read/create/update, TANPA delete (jejak medico-legal).
+//  (edit), co-sign DPJP (verify), penanda tindak lanjut (flag), hapus = SOFT-DELETE
+//  (entered-in-error, jejak medico-legal — RBAC clinical.cppt:delete, default Admin).
 //
 //  jenisCatatan = metode komunikasi efektif SKP 2:
 //    SOAP → field naratif S/O/A/P + instruksi.
@@ -951,10 +951,11 @@ model Cppt {
   authorUserId    String?  @map("author_user_id") @db.Uuid
   authorPegawaiId String?  @map("author_pegawai_id") @db.Uuid
 
-  // ── Audit (mutable terbatas: version + updatedAt; tanpa soft-delete) ──
-  version   Int      @default(0)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  // ── Audit (mutable terbatas: version + updatedAt; hapus = soft-delete medico-legal) ──
+  version   Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   @@index([kunjunganId, waktuCatatan]) // riwayat per kunjungan (terbaru dulu)
   @@map("cppt")

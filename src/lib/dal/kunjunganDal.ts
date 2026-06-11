@@ -102,14 +102,15 @@ export function findActiveByPatient(patientId: string, tx?: Tx) {
 
 /** Worklist lintas unit — cursor by (createdAt,id) desc. */
 export async function listByUnitStatus(
-  params: { unit?: KunjunganUnit; status?: KunjunganStatus[]; patientId?: string; cursor?: string; limit: number },
+  params: { unit?: KunjunganUnit; units?: KunjunganUnit[]; status?: KunjunganStatus[]; patientId?: string; cursor?: string; limit: number },
   tx?: Tx,
 ) {
-  const { unit, status, patientId, cursor, limit } = params;
+  const { unit, units, status, patientId, cursor, limit } = params;
   const rows = await db(tx).kunjungan.findMany({
     where: {
       deletedAt: null,
-      ...(unit ? { unit } : {}),
+      // `units` (ABAC unit-scope) menang & di-irisan bila keduanya ada.
+      ...(units ? { unit: { in: units } } : unit ? { unit } : {}),
       ...(patientId ? { patientId } : {}),
       ...(status && status.length ? { status: { in: status } } : {}),
     },

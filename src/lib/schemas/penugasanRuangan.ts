@@ -23,6 +23,24 @@ export type ListQuery = z.infer<typeof ListQuery>;
 
 export const IdParam = z.object({ id: z.string().uuid("ID tidak valid") });
 
+// ── Roster petugas kunjungan (GET /kunjungan/:id/petugas) ─────────────────────
+// Konsumen klinis (dropdown PJ triase / DPJP): petugas = pegawai aktif yang DITUGASKAN
+// ke ruangan kunjungan (SDM Assignment). Gate `registration.kunjungan:read`, BUKAN
+// `master.pegawai` (role klinis tak boleh baca master SDM penuh).
+export const PetugasQuery = z.object({
+  profesi: z.string().trim().min(1).max(60).optional(), // exact, mis. "Perawat"
+});
+export type PetugasQuery = z.infer<typeof PetugasQuery>;
+
+export interface PetugasDTO {
+  pegawaiId: string;
+  namaTampil: string;
+  profesi: string | null;
+  /** Ruangan asal penugasan — null bila fallback lintas-ruangan (kunjungan tanpa ruangan). */
+  ruanganKode: string | null;
+  ruanganNama: string | null;
+}
+
 // ── DTO output (identitas & ruangan dari join; entity Prisma tak bocor) ───────
 export interface PenugasanRuanganDTO {
   id: string;

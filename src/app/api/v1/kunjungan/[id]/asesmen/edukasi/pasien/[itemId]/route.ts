@@ -7,7 +7,7 @@ import { EdukasiPasienItemParam } from "@/lib/schemas/asesmenMedis/edukasiPasien
 import { edukasiPasienService } from "@/lib/services/asesmenMedis/edukasiPasienService";
 
 export const DELETE = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "delete",
   params: EdukasiPasienItemParam,
   handler: async ({ params, actor }) => {

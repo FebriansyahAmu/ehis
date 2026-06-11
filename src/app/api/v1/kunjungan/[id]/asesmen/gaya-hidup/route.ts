@@ -7,14 +7,14 @@ import { AsesmenGayaHidupInput } from "@/lib/schemas/asesmenMedis/asesmenGayaHid
 import { asesmenGayaHidupService } from "@/lib/services/asesmenMedis/asesmenGayaHidupService";
 
 export const GET = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "read",
   params: IdParam,
   handler: ({ params, actor }) => asesmenGayaHidupService.getLatest(params.id, actor),
 });
 
 export const POST = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "create",
   params: IdParam,
   body: AsesmenGayaHidupInput,

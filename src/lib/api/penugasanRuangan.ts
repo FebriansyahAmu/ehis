@@ -2,9 +2,9 @@
 // dari schema server. Endpoint: /api/v1/master/penugasan-ruangan (+ /:id). Lihat §C doc.
 
 import { api } from "@/lib/api/client";
-import type { CreatePenugasanInput, PenugasanRuanganDTO } from "@/lib/schemas/penugasanRuangan";
+import type { CreatePenugasanInput, PenugasanRuanganDTO, PetugasDTO } from "@/lib/schemas/penugasanRuangan";
 
-export type { PenugasanRuanganDTO, CreatePenugasanInput };
+export type { PenugasanRuanganDTO, CreatePenugasanInput, PetugasDTO };
 
 export interface ListPenugasanParams {
   locationId?: string;
@@ -32,4 +32,17 @@ export async function createPenugasan(input: CreatePenugasanInput, signal?: Abor
 /** DELETE /master/penugasan-ruangan/:id — lepas penugasan. */
 export async function deletePenugasan(id: string, signal?: AbortSignal): Promise<void> {
   await api.del(`/master/penugasan-ruangan/${encodeURIComponent(id)}`, { signal });
+}
+
+/** GET /kunjungan/:id/petugas — roster petugas ruangan kunjungan (gate kunjungan:read, konsumen klinis). */
+export async function listPetugasKunjungan(
+  kunjunganId: string,
+  profesi?: string,
+  signal?: AbortSignal,
+): Promise<PetugasDTO[]> {
+  const { data } = await api.get<PetugasDTO[]>(
+    `/kunjungan/${encodeURIComponent(kunjunganId)}/petugas`,
+    { query: { profesi }, signal },
+  );
+  return data;
 }

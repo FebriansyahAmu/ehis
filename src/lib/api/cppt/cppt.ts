@@ -1,6 +1,6 @@
 // API CPPT (browser) — tab CPPT, per-item. Tipe DI-REUSE dari schema server.
 // Endpoint: /api/v1/kunjungan/:id/cppt                  (GET daftar · POST catatan)
-//           /api/v1/kunjungan/:id/cppt/:itemId           (PATCH koreksi isi)
+//           /api/v1/kunjungan/:id/cppt/:itemId           (PATCH koreksi isi · DELETE soft-delete)
 //           /api/v1/kunjungan/:id/cppt/:itemId/verify     (POST co-sign DPJP)
 //           /api/v1/kunjungan/:id/cppt/:itemId/flag        (PATCH tindak lanjut)
 
@@ -66,4 +66,13 @@ export async function flagCppt(
     { signal },
   );
   return data;
+}
+
+/** Soft-delete (entered-in-error) — jejak medico-legal tetap di DB. */
+export async function deleteCppt(
+  kunjunganId: string,
+  itemId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  await api.del(item(kunjunganId, itemId), { signal });
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Pencil, X, BadgeCheck, AlertCircle, Flag, Phone, Check } from "lucide-react";
+import { Copy, Pencil, X, BadgeCheck, AlertCircle, Flag, Phone, Check, Trash2 } from "lucide-react";
 import type { CPPTEntry, CPPTJenis } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { fmtDate, PROFESI_CLS, CPPT_JENIS_META, areasFor, TBAK_STEPS, type CPPTAreaDef } from "./cpptShared";
@@ -83,12 +83,15 @@ export interface EntryCardProps {
   onEdit: (e: CPPTEntry) => void;
   onVerify: (id: string, verifiedBy: string, verifiedAt: string) => void;
   onFlag: (id: string) => void;
+  onDelete: (e: CPPTEntry) => void;
+  /** Hapus hanya milik sendiri / Admin (server menegakkan; ini sembunyikan tombol). */
+  canDelete: boolean;
   requiresVerification: boolean;
   delay: number;
 }
 
 export default function CPPTEntryCard({
-  entry, editingId, onCopy, onEdit, onVerify, onFlag, requiresVerification, delay,
+  entry, editingId, onCopy, onEdit, onVerify, onFlag, onDelete, canDelete, requiresVerification, delay,
 }: EntryCardProps) {
   const [verifying, setVerifying]   = useState(false);
   const [verifyName, setVerifyName] = useState("");
@@ -184,6 +187,17 @@ export default function CPPTEntryCard({
           >
             <Pencil size={11} /> Edit
           </button>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(entry)}
+              title="Hapus catatan"
+              aria-label="Hapus catatan CPPT"
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-400 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600"
+            >
+              <Trash2 size={11} />
+            </button>
+          )}
         </div>
       </div>
 

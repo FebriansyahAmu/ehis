@@ -8,7 +8,7 @@ import { X } from "lucide-react";
 import { useSidebar } from "@/contexts/SidebarContext";
 import { useSession } from "@/contexts/SessionContext";
 import { cn } from "@/lib/utils";
-import { getModule, getNav, visibleNav, type ModuleKey, type NavGroup } from "@/lib/navigation";
+import { getModule, getNav, visibleNav, navScopeFrom, type ModuleKey, type NavGroup } from "@/lib/navigation";
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -100,9 +100,9 @@ function NavContent({
 export default function Sidebar({ moduleKey }: { moduleKey: ModuleKey }) {
   const mod = getModule(moduleKey);
   const { can, loading, session } = useSession();
-  // Saring sub-menu sesuai izin. Saat loading/belum ada sesi → tampilkan apa adanya (hindari kedip).
+  // Saring sub-menu sesuai izin + unit kerja (ABAC). Saat loading/belum ada sesi → apa adanya (hindari kedip).
   const groups =
-    loading || !session ? getNav(moduleKey) : visibleNav(getNav(moduleKey), can);
+    loading || !session ? getNav(moduleKey) : visibleNav(getNav(moduleKey), can, navScopeFrom(session));
   const pathname = usePathname() ?? mod.href;
   const { isOpen, close } = useSidebar();
 

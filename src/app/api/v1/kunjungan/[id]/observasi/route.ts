@@ -9,14 +9,14 @@ import { ObservationInput } from "@/lib/schemas/observation";
 import { observationService } from "@/lib/services/observationService";
 
 export const GET = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "read",
   params: IdParam,
   handler: ({ params, actor }) => observationService.list(params.id, actor),
 });
 
 export const POST = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "create",
   params: IdParam,
   body: ObservationInput,

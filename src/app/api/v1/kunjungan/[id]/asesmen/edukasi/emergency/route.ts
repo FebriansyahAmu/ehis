@@ -9,14 +9,14 @@ import { EdukasiEmergencyInput } from "@/lib/schemas/asesmenMedis/edukasiEmergen
 import { edukasiEmergencyService } from "@/lib/services/asesmenMedis/edukasiEmergencyService";
 
 export const GET = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "read",
   params: IdParam,
   handler: ({ params, actor }) => edukasiEmergencyService.list(params.id, actor),
 });
 
 export const POST = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "create",
   params: IdParam,
   body: EdukasiEmergencyInput,

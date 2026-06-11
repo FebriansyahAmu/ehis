@@ -315,6 +315,9 @@ export interface CPPTEntry {
   tbakTulis?: boolean;       // langkah 1: instruksi dituliskan
   tbakBaca?: boolean;        // langkah 2: dibacakan ulang (read-back)
   tbakKonfirmasi?: boolean;  // langkah 3: dikonfirmasi pemberi instruksi
+
+  // Pemilik catatan (mode DB) — hapus hanya oleh pembuat / Admin (guard di Service).
+  authorUserId?: string;
 }
 
 export interface IGDTindakanItem {

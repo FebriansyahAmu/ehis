@@ -7,7 +7,7 @@ import { AlergiItemParam } from "@/lib/schemas/asesmenMedis/asesmenAlergi";
 import { asesmenAlergiService } from "@/lib/services/asesmenMedis/asesmenAlergiService";
 
 export const DELETE = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "delete",
   params: AlergiItemParam,
   handler: async ({ params, actor }) => {

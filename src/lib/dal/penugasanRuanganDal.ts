@@ -63,6 +63,26 @@ export async function list(
   return { items, nextCursor: hasMore ? items[items.length - 1].id : null };
 }
 
+/** Roster petugas: penugasan ber-pegawai AKTIF, opsional per-ruangan & per-profesi.
+ *  Dipakai endpoint klinis (dropdown PJ/DPJP) — tanpa pagination (roster ruangan kecil). */
+export function listPetugas(
+  params: { locationId?: string; profesi?: string },
+  tx?: Tx,
+) {
+  return db(tx).penugasanRuangan.findMany({
+    where: {
+      ...(params.locationId ? { locationId: params.locationId } : {}),
+      pegawai: {
+        deletedAt: null,
+        isActive: true,
+        ...(params.profesi ? { profesi: params.profesi } : {}),
+      },
+    },
+    include: includeRel,
+    orderBy: [{ pegawai: { namaLengkap: "asc" } }],
+  });
+}
+
 // ── Delete (hard) ────────────────────────────────────────────────────────────
 export function deleteById(id: string, tx?: Tx) {
   return db(tx).penugasanRuangan.delete({ where: { id } });

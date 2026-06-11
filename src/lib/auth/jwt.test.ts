@@ -8,7 +8,7 @@ beforeAll(() => {
 
 const payload = {
   sub: "u1", pegawaiId: "p1", roles: ["Dokter", "SpPK"],
-  isGlobal: false, unitIds: ["unit-icu"], tokenVersion: 3,
+  isGlobal: false, unitIds: ["unit-icu"], careUnits: ["IGD"], tokenVersion: 3,
 };
 
 describe("access JWT", () => {

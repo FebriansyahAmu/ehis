@@ -7,14 +7,14 @@ import { AsesmenTuberkulosisInput } from "@/lib/schemas/asesmenMedis/asesmenTube
 import { asesmenTuberkulosisService } from "@/lib/services/asesmenMedis/asesmenTuberkulosisService";
 
 export const GET = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "read",
   params: IdParam,
   handler: ({ params, actor }) => asesmenTuberkulosisService.getLatest(params.id, actor),
 });
 
 export const POST = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "create",
   params: IdParam,
   body: AsesmenTuberkulosisInput,

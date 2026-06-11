@@ -40,6 +40,7 @@ export async function issueAccessToken(
     roles: payload.roles,
     isGlobal: payload.isGlobal,
     unitIds: payload.unitIds,
+    careUnits: payload.careUnits,
     tokenVersion: payload.tokenVersion,
   })
     .setProtectedHeader({ alg: ALG })
@@ -78,6 +79,9 @@ export async function verifyAccessToken(
       isGlobal: payload.isGlobal === true,
       unitIds: Array.isArray(payload.unitIds)
         ? (payload.unitIds as string[]).map(String)
+        : [],
+      careUnits: Array.isArray(payload.careUnits)
+        ? (payload.careUnits as string[]).map(String)
         : [],
       tokenVersion: payload.tokenVersion as number,
       jti: payload.jti as string,

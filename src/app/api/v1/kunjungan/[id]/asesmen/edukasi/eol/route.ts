@@ -9,14 +9,14 @@ import { EdukasiEolInput } from "@/lib/schemas/asesmenMedis/edukasiEol";
 import { edukasiEolService } from "@/lib/services/asesmenMedis/edukasiEolService";
 
 export const GET = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "read",
   params: IdParam,
   handler: ({ params, actor }) => edukasiEolService.get(params.id, actor),
 });
 
 export const POST = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "create",
   params: IdParam,
   body: EdukasiEolInput,

@@ -20,6 +20,8 @@ import { systemClock, type Clock } from "@/lib/core/clock";
 import { decryptPii, encryptPii, hashPii } from "@/lib/crypto/pii";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
+import { unitScopeBypassed, type CareUnit } from "@/lib/auth/careUnit";
+import { assertUnitInScope } from "@/lib/services/clinicalScope";
 import type { RegisterKunjunganInput, WorklistQuery, KunjunganDTO, KunjunganListItemDTO, KunjunganActionName } from "@/lib/schemas/kunjungan";
 import type { KunjunganEntity, KunjunganListEntity, UpdateStatusPatch } from "@/lib/dal/kunjunganDal";
 
@@ -40,6 +42,24 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const isBpjs = (t: string): boolean => t === "BPJS_Non_PBI" || t === "BPJS_PBI";
+
+/** Authz per-aksi transisi (action-dependent → tak bisa di route() statis, FLOWS §6).
+ *  · `receive` (Terima Pasien) = aksi bedside KLINIS (perawat/dokter, marker clinical.rekammedis:update)
+ *    ATAU admisi loket (registration.kunjungan:update) → IGD bisa diterima oleh perawat/dokter jaga.
+ *  · transisi administratif lain (checkIn/call/recall/complete/cancel/reopen) = wewenang loket.
+ *  Superuser bypass. ABAC unit-scope (IGD nurse hanya pasien IGD) ditegakkan terpisah di route
+ *  via scopeKunjungan. */
+function assertTransitionAllowed(actor: Actor, action: KunjunganActionName): void {
+  if (actor.isSuperuser || actor.permissions.has("*")) return;
+  const can = (r: string, a: string): boolean => actor.permissions.has(`${r}:${a}`);
+  if (action === "receive") {
+    if (can("clinical.rekammedis", "update") || can("registration.kunjungan", "update")) return;
+    throw Errors.forbidden("Tidak punya izin menerima pasien (perlu clinical.rekammedis:update atau registration.kunjungan:update)");
+  }
+  if (!can("registration.kunjungan", "update")) {
+    throw Errors.forbidden("Tidak punya izin registration.kunjungan:update");
+  }
+}
 
 /** Nama penjamin default bila pasien belum punya record penjamin tipe tsb. */
 function defaultPenjaminNama(tipe: string): string {
@@ -265,10 +285,11 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
     return toDTO(created);
   }
 
-  /** Detail kunjungan (incl. rujukan + SEP utk cetak). */
-  async function getKunjungan(id: string, _actor: Actor): Promise<KunjunganDTO> {
+  /** Detail kunjungan (incl. rujukan + SEP utk cetak). Unit-scope: anti-IDOR lintas unit. */
+  async function getKunjungan(id: string, actor: Actor): Promise<KunjunganDTO> {
     const found = await dal.findById(id);
     if (!found) throw Errors.notFound("Kunjungan tidak ditemukan");
+    assertUnitInScope(actor, found);
     return toDTO(found);
   }
 
@@ -318,9 +339,10 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
     id: string,
     action: KunjunganActionName,
     expectedVersion: number | undefined,
-    _actor: Actor,
+    actor: Actor,
     bedId?: string,
   ): Promise<KunjunganDTO> {
+    assertTransitionAllowed(actor, action); // authz per-aksi (receive boleh klinis)
     const updated = await transaction(async (tx) => {
       const k = await dal.findById(id, tx);
       if (!k) throw Errors.notFound("Kunjungan tidak ditemukan");
@@ -348,11 +370,23 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
   }
 
   /** Worklist lintas unit (cursor). Default: status aktif bila filter kosong. */
-  async function getWorklist(query: WorklistQuery, _actor: Actor): Promise<{ items: KunjunganListItemDTO[]; cursor: string | null }> {
+  async function getWorklist(query: WorklistQuery, actor: Actor): Promise<{ items: KunjunganListItemDTO[]; cursor: string | null }> {
     // Query per-pasien = timeline/Riwayat → semua status. Query unit = worklist → aktif saja.
     const status = parseStatuses(query.status) ?? (query.patientId ? undefined : [...ACTIVE_STATUS]);
+
+    // ABAC unit-scope: batasi ke unit kerja actor (kecuali superuser/global). Irisan dengan
+    // filter unit yang diminta; bila kosong → tak ada yang boleh dilihat.
+    let units: CareUnit[] | undefined;
+    if (!unitScopeBypassed(actor)) {
+      const allowed = actor.careUnits as CareUnit[];
+      const scoped = query.unit ? allowed.filter((u) => u === query.unit) : allowed;
+      if (scoped.length === 0) return { items: [], cursor: null };
+      units = scoped;
+    }
+
     const { items, nextCursor } = await dal.listByUnitStatus({
-      unit: query.unit,
+      unit: units ? undefined : query.unit,
+      units,
       status,
       patientId: query.patientId,
       cursor: query.cursor,

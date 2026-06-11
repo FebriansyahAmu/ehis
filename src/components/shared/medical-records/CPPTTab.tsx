@@ -2,16 +2,19 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, CalendarDays, Search, LayoutTemplate, ChevronDown, Flag, Phone, Check, AlertCircle, Loader2, AlertTriangle } from "lucide-react";
+import { X, CalendarDays, Search, LayoutTemplate, ChevronDown, Flag, Phone, Check, AlertCircle, Loader2, AlertTriangle, User } from "lucide-react";
 import type { CPPTEntry, CPPTProfesi, CPPTJenis, TbakMetode } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/contexts/SessionContext";
+import { hasSuperuserRole } from "@/lib/auth/superuser";
 import {
   fmtDate, todayISO, PROFESI_CLS, PROFESI_LIST,
   CPPT_JENIS_LIST, CPPT_JENIS_META, areasFor, TBAK_METODE_LIST, TBAK_STEPS,
 } from "./cpptShared";
 import CPPTEntryCard from "./CPPTEntryCard";
+import ConfirmDialog from "@/components/master/ruangan/ConfirmDialog";
 import {
-  getCppt, addCppt, updateCppt, verifyCppt, flagCppt,
+  getCppt, addCppt, updateCppt, verifyCppt, flagCppt, deleteCppt,
   type CpptItemInput, type CpptEntryDTO,
 } from "@/lib/api/cppt/cppt";
 
@@ -163,6 +166,7 @@ export interface CPPTTabProps {
 
 export default function CPPTTab({ initialEntries, showDate = false, requiresVerification = false, kunjunganId }: CPPTTabProps) {
   const isPersisted = !!kunjunganId && UUID_RE.test(kunjunganId);
+  const { session } = useSession();
 
   const [form, setForm]           = useState<CPPTForm>(EMPTY);
   const [entries, setEntries]     = useState<CPPTEntry[]>(isPersisted ? [] : [...initialEntries]);
@@ -265,6 +269,43 @@ export default function CPPTTab({ initialEntries, showDate = false, requiresVeri
     );
   };
 
+  // ── Hapus (soft-delete) — selalu lewat dialog konfirmasi ──
+  // Mode DB: tombol hapus hanya utk pembuat catatan / Admin (server tetap menegakkan).
+  const [deleteTarget, setDeleteTarget] = useState<CPPTEntry | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const canDeleteEntry = (e: CPPTEntry) =>
+    !isPersisted ||
+    hasSuperuserRole(session?.roles ?? []) ||
+    (!!e.authorUserId && e.authorUserId === session?.userId);
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    const id = deleteTarget.id;
+
+    if (!isPersisted) {
+      setEntries((prev) => prev.filter((e) => e.id !== id));
+      if (editingId === id) { setEditingId(null); setForm(EMPTY); }
+      setDeleteTarget(null);
+      return;
+    }
+
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteCppt(kunjunganId!, id);
+      setEntries((prev) => prev.filter((e) => e.id !== id));
+      if (editingId === id) { setEditingId(null); setForm(EMPTY); }
+      setDeleteTarget(null);
+    } catch {
+      setError("Gagal menghapus catatan CPPT");
+      setDeleteTarget(null);
+      await reload();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const applyTemplate = (t: CPPTTemplate) => {
     setForm((prev) => ({ ...prev, profesi: t.profesi, ...t.fields }));
     setShowTemplates(false);
@@ -273,7 +314,8 @@ export default function CPPTTab({ initialEntries, showDate = false, requiresVeri
   // TBAK wajib: pemberi + isi instruksi + ketiga langkah Tulis-Baca-Konfirmasi tercentang.
   const tbakComplete = !!form.tbakPemberi && !!form.instruksi && form.tbakTulis && form.tbakBaca && form.tbakKonfirmasi;
   const hasNarasi = !!(form.subjektif || form.objektif || form.asesmen || form.planning || form.instruksi);
-  const canSubmit = !!form.penulis && (form.jenis === "TBAK" ? tbakComplete : hasNarasi);
+  // Mode DB: penulis ditetapkan server dari user login → tak perlu diisi.
+  const canSubmit = (isPersisted || !!form.penulis) && (form.jenis === "TBAK" ? tbakComplete : hasNarasi);
 
   // TBAK selalu butuh co-sign DPJP (1×24 jam, SKP 2); SOAP/SBAR ikut prop tab.
   const needsVerify = requiresVerification || form.jenis === "TBAK";
@@ -489,19 +531,31 @@ export default function CPPTTab({ initialEntries, showDate = false, requiresVeri
               </div>
             </div>
 
-            {/* Penulis */}
-            <div>
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                Nama Penulis <span className="text-rose-400">*</span>
-              </p>
-              <input
-                type="text"
-                value={form.penulis}
-                onChange={(e) => set("penulis", e.target.value)}
-                placeholder="Nama lengkap..."
-                className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-              />
-            </div>
+            {/* Penulis — mode DB: read-only user login (server otoritatif); demo: free-text */}
+            {isPersisted ? (
+              <div>
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  Dicatat oleh
+                </p>
+                <div className="flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-3 text-sm text-slate-600">
+                  <User size={13} className="shrink-0 text-slate-400" />
+                  <span className="truncate">{session?.namaTampil || "Akun Anda (otomatis)"}</span>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  Nama Penulis <span className="text-rose-400">*</span>
+                </p>
+                <input
+                  type="text"
+                  value={form.penulis}
+                  onChange={(e) => set("penulis", e.target.value)}
+                  placeholder="Nama lengkap..."
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                />
+              </div>
+            )}
 
             {/* Jenis Catatan — metode komunikasi efektif (SKP 2) */}
             <div>
@@ -797,6 +851,8 @@ export default function CPPTTab({ initialEntries, showDate = false, requiresVeri
                     onEdit={handleEdit}
                     onVerify={handleVerify}
                     onFlag={handleFlag}
+                    onDelete={setDeleteTarget}
+                    canDelete={canDeleteEntry(entry)}
                     requiresVerification={requiresVerification}
                     delay={(di * 3 + idx) * 0.04}
                   />
@@ -813,6 +869,8 @@ export default function CPPTTab({ initialEntries, showDate = false, requiresVeri
                 onEdit={handleEdit}
                 onVerify={handleVerify}
                 onFlag={handleFlag}
+                onDelete={setDeleteTarget}
+                canDelete={canDeleteEntry(entry)}
                 requiresVerification={requiresVerification}
                 delay={idx * 0.04}
               />
@@ -821,6 +879,25 @@ export default function CPPTTab({ initialEntries, showDate = false, requiresVeri
         </div>
       </div>
 
+      {/* ── Konfirmasi hapus (soft-delete medico-legal) ── */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        kindLabel="Catatan CPPT"
+        name={deleteTarget ? `${deleteTarget.profesi} — ${deleteTarget.penulis}` : ""}
+        kode={deleteTarget ? `${deleteTarget.tanggal ? `${fmtDate(deleteTarget.tanggal)}, ` : ""}${deleteTarget.waktu} · ${deleteTarget.jenisCatatan ?? "SOAP"}` : undefined}
+        message={
+          <>
+            Catatan ini akan{" "}
+            <span className="rounded-md bg-rose-50 px-1.5 py-0.5 font-semibold text-rose-600 ring-1 ring-rose-100">
+              dihapus
+            </span>{" "}
+            dari riwayat CPPT pasien dan tidak lagi tampil di rekam medis.
+          </>
+        }
+        busy={deleting}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => !deleting && setDeleteTarget(null)}
+      />
     </div>
   );
 }

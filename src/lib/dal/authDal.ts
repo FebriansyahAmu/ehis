@@ -17,7 +17,7 @@ const authSelect = {
   pegawaiId: true,
   roles: { select: { role: { select: { key: true, unitScoped: true, isActive: true } } } },
   unitScopes: { select: { unitId: true } },
-  pegawai: { select: { namaLengkap: true, gelarDepan: true, gelarBelakang: true } },
+  pegawai: { select: { namaLengkap: true, gelarDepan: true, gelarBelakang: true, unitKerja: true } },
 } as const;
 
 export type AuthUserEntity = NonNullable<Awaited<ReturnType<typeof findByUsername>>>;

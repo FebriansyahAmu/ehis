@@ -5,7 +5,7 @@ import { Loader2, Check, AlertCircle, ClipboardList, Printer } from "lucide-reac
 import type { IGDPatientDetail, TriageLevel } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { getTriase, saveTriase } from "@/lib/api/triase";
-import { listPegawai } from "@/lib/api/pegawai";
+import { listPetugasKunjungan } from "@/lib/api/penugasanRuangan";
 import { listTriaseProtocols } from "@/lib/api/triaseProtocol";
 import type { TriaseDTO } from "@/lib/schemas/triase";
 import type { TriaseRecordDTO } from "@/lib/schemas/triaseProtocol";
@@ -772,15 +772,17 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
     });
   }, []);
 
-  // Daftar perawat (PJ triase) — dari master pegawai profesi "Perawat".
+  // Daftar perawat (PJ triase) — perawat yang DITUGASKAN ke ruangan kunjungan ini
+  // (SDM Assignment via /kunjungan/:id/petugas; gate kunjungan:read, BUKAN master.pegawai).
   const [perawatList, setPerawatList] = useState<string[]>([]);
-  const [perawatLoading, setPerawatLoading] = useState(true);
+  const [perawatLoading, setPerawatLoading] = useState(isPersisted);
 
   useEffect(() => {
+    if (!isPersisted) return; // pasien demo → dropdown cukup nilai tersimpan
     const ac = new AbortController();
     (async () => {
       try {
-        const { items } = await listPegawai({ profesi: "Perawat", aktif: "true", limit: 50 }, ac.signal);
+        const items = await listPetugasKunjungan(patient.id, "Perawat", ac.signal);
         if (ac.signal.aborted) return;
         setPerawatList(items.map((p) => p.namaTampil));
       } catch (e) {
@@ -791,7 +793,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
       }
     })();
     return () => ac.abort();
-  }, []);
+  }, [patient.id, isPersisted]);
 
   // Sertakan nilai tersimpan walau tak ada di daftar (mis. perawat nonaktif / record lama).
   const perawatOptions = useMemo(() => {

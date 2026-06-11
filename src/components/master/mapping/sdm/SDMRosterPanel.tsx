@@ -24,13 +24,15 @@ const CATEGORY_FILTERS: { value: SDMCategory | "all"; label: string }[] = [
   { value: "all",         label: "Semua" },
   { value: "Dokter",      label: "Dokter" },
   { value: "Perawat",     label: "Perawat" },
+  { value: "Bidan",       label: "Bidan" },
   { value: "Apoteker",    label: "Apoteker" },
   { value: "Radiografer", label: "Radiografer" },
-  { value: "Kasir",       label: "Kasir" },
-  { value: "Registrasi",  label: "Registrasi" },
+  { value: "Lainnya",     label: "Lainnya" },
 ];
 
 type ViewMode = "assigned" | "available";
+
+const EMPTY_SELECTION: ReadonlySet<string> = new Set<string>();
 
 export default function SDMRosterPanel({
   unit, allSDM, assignments, onToggle, onOpenBulkMove,
@@ -38,10 +40,14 @@ export default function SDMRosterPanel({
   const [viewMode, setViewMode] = useState<ViewMode>("assigned");
   const [categoryFilter, setCategoryFilter] = useState<SDMCategory | "all">("all");
   const [search, setSearch] = useState("");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Reset selection when unit changes
-  useMemo(() => setSelectedIds(new Set()), [unit.kode]);
+  // Seleksi di-scope per ruangan: state menyimpan kode pemiliknya → ganti ruangan otomatis
+  // kosong (pure derivation, tanpa effect/reset manual).
+  const [selection, setSelection] = useState<{ kode: string; ids: Set<string> }>({
+    kode: unit.kode, ids: new Set(),
+  });
+  const selectedIds = selection.kode === unit.kode ? selection.ids : EMPTY_SELECTION;
+  const clearSelection = () => setSelection({ kode: unit.kode, ids: new Set() });
 
   const filtered = useMemo(() => {
     return allSDM.filter((sdm) => {
@@ -71,25 +77,22 @@ export default function SDMRosterPanel({
   const someSelected = selectedIds.size > 0;
 
   const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelection({ kode: unit.kode, ids: next });
   };
 
   const toggleSelectAll = () => {
-    if (allSelected) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filtered.map((s) => s.id)));
-    }
+    setSelection({
+      kode: unit.kode,
+      ids: allSelected ? new Set() : new Set(filtered.map((s) => s.id)),
+    });
   };
 
   const handleBulkMove = () => {
     onOpenBulkMove(Array.from(selectedIds));
-    setSelectedIds(new Set());
+    clearSelection();
   };
 
   return (
@@ -181,7 +184,7 @@ export default function SDMRosterPanel({
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => setSelectedIds(new Set())}
+                  onClick={clearSelection}
                   className="rounded-md border border-teal-200 bg-white px-2 py-1 m-tiny font-semibold text-teal-700 transition hover:bg-teal-50"
                 >
                   Batal

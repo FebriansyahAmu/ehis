@@ -11,6 +11,7 @@ import { issueAccessToken } from "@/lib/auth/jwt";
 import { generateRefreshToken, hashRefreshToken, refreshExpiry } from "@/lib/auth/tokens";
 import { permissionsForRoles } from "@/lib/auth/rbacCache";
 import { hasSuperuserRole } from "@/lib/auth/superuser";
+import { careUnitsFromUnitKerja } from "@/lib/auth/careUnit";
 import { Errors } from "@/lib/errors/appError";
 import type { LoginInput, ChangePasswordInput, SessionDTO } from "@/lib/schemas/auth";
 import type { AuthUserEntity } from "@/lib/dal/authDal";
@@ -49,11 +50,12 @@ export function makeAuthService(deps: { dal?: AuthDal; clock?: () => Date } = {}
     const roleKeys = activeRoles.map((r) => r.key);
     const isGlobal = activeRoles.some((r) => r.unitScoped === false);
     const unitIds = u.unitScopes.map((s) => s.unitId);
-    return { roleKeys, isGlobal, unitIds };
+    const careUnits = careUnitsFromUnitKerja(u.pegawai.unitKerja); // ABAC: dari Pegawai.unitKerja
+    return { roleKeys, isGlobal, unitIds, careUnits };
   }
 
   async function buildSession(u: AuthUserEntity): Promise<SessionDTO> {
-    const { roleKeys, isGlobal, unitIds } = authzOf(u);
+    const { roleKeys, isGlobal, unitIds, careUnits } = authzOf(u);
     const perms = await permissionsForRoles(roleKeys);
     return {
       userId: u.id,
@@ -64,6 +66,7 @@ export function makeAuthService(deps: { dal?: AuthDal; clock?: () => Date } = {}
       isGlobal,
       isSuperuser: hasSuperuserRole(roleKeys),
       unitIds,
+      careUnits,
       permissions: [...perms],
       mustChangePassword: u.mustChangePassword,
     };
@@ -76,9 +79,9 @@ export function makeAuthService(deps: { dal?: AuthDal; clock?: () => Date } = {}
     tx: Parameters<Parameters<typeof transaction>[0]>[0],
     at: Date,
   ): Promise<Omit<AuthResult, "session">> {
-    const { roleKeys, isGlobal, unitIds } = authzOf(u);
+    const { roleKeys, isGlobal, unitIds, careUnits } = authzOf(u);
     const { token: accessToken, expiresAt: accessExpiresAt } = await issueAccessToken(
-      { sub: u.id, pegawaiId: u.pegawaiId, roles: roleKeys, isGlobal, unitIds, tokenVersion: u.tokenVersion },
+      { sub: u.id, pegawaiId: u.pegawaiId, roles: roleKeys, isGlobal, unitIds, careUnits, tokenVersion: u.tokenVersion },
       at,
     );
     const refreshToken = generateRefreshToken();

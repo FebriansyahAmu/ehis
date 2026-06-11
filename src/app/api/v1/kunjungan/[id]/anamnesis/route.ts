@@ -9,14 +9,14 @@ import { AnamnesisInput } from "@/lib/schemas/asesmenMedis/anamnesis";
 import { anamnesisService } from "@/lib/services/asesmenMedis/anamnesisService";
 
 export const GET = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "read",
   params: IdParam,
   handler: ({ params, actor }) => anamnesisService.getLatest(params.id, actor),
 });
 
 export const POST = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "create",
   params: IdParam,
   body: AnamnesisInput,

@@ -18,7 +18,6 @@ import {
   Radiation,
   Users,
   UserCog,
-  UserPlus,
   Building2,
   Receipt,
   Wallet,
@@ -53,6 +52,7 @@ import {
   MonitorPlay,
   type LucideIcon,
 } from "lucide-react";
+import type { CareUnit } from "@/lib/auth/careUnit";
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -63,7 +63,15 @@ export type NavItem = {
   /** Resource key (atau daftar) penggerak visibilitas. Terlihat bila `can(perm,"read")`
    *  untuk salah satunya. Tanpa perm = ikut visibilitas modul (mis. Beranda). */
   perm?: string | readonly string[];
+  /** Konteks unit care (IGD/RI/RJ) — item hanya tampil bila unit kerja user mencakupnya (ABAC). */
+  careUnit?: CareUnit;
 };
+
+/** Scope ABAC untuk filter nav: unit kerja user + apakah dibebaskan (superuser/global). */
+export interface NavScope {
+  careUnits: readonly string[];
+  unrestricted: boolean;
+}
 
 export type NavGroup = {
   label: string;
@@ -142,10 +150,10 @@ export const MODULES: readonly ModuleDescriptor[] = [
       text: "text-violet-600",
       ring: "ring-violet-100",
     },
-    perms: [
-      "master.ruangan", "master.dokter", "master.pegawai", "master.pengguna",
-      "master.mapping", "master.penugasan-ruangan", "master.katalog", "master.tarif",
-    ],
+    // Gate = `master.view` (visibilitas modul), TERPISAH dari permission DATA master.*.
+    // Role klinis punya master.ruangan/master.dokter:read (resolve nama ruangan/DPJP) TAPI
+    // bukan master.view → modul Master tetap tersembunyi & requireModule menolak via URL.
+    perms: ["master.view"],
   },
   {
     key: "registration",
@@ -154,7 +162,10 @@ export const MODULES: readonly ModuleDescriptor[] = [
     href: "/ehis-registration",
     icon: ClipboardList,
     accent: { bg: "bg-sky-50", text: "text-sky-600", ring: "ring-sky-100" },
-    perms: ["registration.pasien", "registration.kunjungan"],
+    // Gate = `registration.loket` (visibilitas modul), TERPISAH dari permission DATA.
+    // Role klinis punya registration.pasien/kunjungan:read (baca rekam medis) TAPI bukan
+    // loket → modul ini tetap tersembunyi & requireModule menolak akses langsung via URL.
+    perms: ["registration.loket"],
   },
   {
     key: "antrian",
@@ -163,8 +174,8 @@ export const MODULES: readonly ModuleDescriptor[] = [
     href: "/ehis-antrian",
     icon: Ticket,
     accent: { bg: "bg-indigo-50", text: "text-indigo-600", ring: "ring-indigo-100" },
-    // Antrean erat dgn registrasi → digerbang oleh izin pendaftaran kunjungan.
-    perms: ["registration.kunjungan"],
+    // Antrean = klaster loket → gate `registration.loket` (sama dengan modul Registrasi).
+    perms: ["registration.loket"],
   },
   {
     key: "billing",
@@ -232,14 +243,15 @@ export const careNav: readonly NavGroup[] = [
   {
     label: "Pelayanan",
     items: [
-      { label: "IGD", href: "/ehis-care/igd", icon: Siren, perm: "clinical.igd" },
+      { label: "IGD", href: "/ehis-care/igd", icon: Siren, perm: "clinical.igd", careUnit: "IGD" },
       {
         label: "Rawat Jalan",
         href: "/ehis-care/rawat-jalan",
         icon: Stethoscope,
         perm: "clinical.rj",
+        careUnit: "RawatJalan",
       },
-      { label: "Rawat Inap", href: "/ehis-care/rawat-inap", icon: BedDouble, perm: "clinical.ri" },
+      { label: "Rawat Inap", href: "/ehis-care/rawat-inap", icon: BedDouble, perm: "clinical.ri", careUnit: "RawatInap" },
     ],
   },
   {
@@ -266,6 +278,9 @@ export const dashboardNav: readonly NavGroup[] = [
   },
 ] as const;
 
+// Tiap item ber-`perm` → di dalam modul Master, user hanya lihat menu sesuai izin fitur
+// (mis. Apoteker hanya Katalog). Gate MODUL = `master.view` (terpisah). Halaman config
+// sistem (Template/Enum/Workflow/Profil/PPK) → `master.konfigurasi` (Admin).
 export const masterNav: readonly NavGroup[] = [
   {
     label: "Utama",
@@ -274,128 +289,72 @@ export const masterNav: readonly NavGroup[] = [
   {
     label: "Sumber Daya",
     items: [
-      {
-        label: "Unit & Ruangan",
-        href: "/ehis-master/ruangan",
-        icon: Building2,
-      },
-      { label: "Dokter & Nakes", href: "/ehis-master/dokter", icon: UserCog },
-      { label: "Jadwal Dokter", href: "/ehis-master/jadwal-dokter", icon: CalendarDays },
-      { label: "Pengguna", href: "/ehis-master/pengguna", icon: Users },
+      { label: "Unit & Ruangan", href: "/ehis-master/ruangan", icon: Building2, perm: "master.ruangan" },
+      { label: "Dokter & Nakes", href: "/ehis-master/dokter", icon: UserCog, perm: "master.dokter" },
+      { label: "Jadwal Dokter", href: "/ehis-master/jadwal-dokter", icon: CalendarDays, perm: "master.dokter" },
+      { label: "Pengguna", href: "/ehis-master/pengguna", icon: Users, perm: "master.pengguna" },
     ],
   },
   {
     label: "Katalog Klinis",
     items: [
-      { label: "Katalog Obat", href: "/ehis-master/katalog-obat", icon: Pill },
-      {
-        label: "Katalog Tindakan",
-        href: "/ehis-master/katalog-tindakan",
-        icon: Zap,
-      },
-      {
-        label: "Katalog Laboratorium",
-        href: "/ehis-master/katalog-lab",
-        icon: TestTube,
-      },
-      {
-        label: "Katalog Radiologi",
-        href: "/ehis-master/katalog-radiologi",
-        icon: Radiation,
-      },
-      { label: "ICD-10 & ICD-9", href: "/ehis-master/icd", icon: BookText },
-      {
-        label: "SDKI / SIKI / SLKI",
-        href: "/ehis-master/sdki",
-        icon: Workflow,
-      },
+      { label: "Katalog Obat", href: "/ehis-master/katalog-obat", icon: Pill, perm: "master.katalog" },
+      { label: "Katalog Tindakan", href: "/ehis-master/katalog-tindakan", icon: Zap, perm: "master.katalog" },
+      { label: "Katalog Laboratorium", href: "/ehis-master/katalog-lab", icon: TestTube, perm: "master.katalog" },
+      { label: "Katalog Radiologi", href: "/ehis-master/katalog-radiologi", icon: Radiation, perm: "master.katalog" },
+      { label: "ICD-10 & ICD-9", href: "/ehis-master/icd", icon: BookText, perm: "master.icd" },
+      { label: "SDKI / SIKI / SLKI", href: "/ehis-master/sdki", icon: Workflow, perm: "master.katalog" },
     ],
   },
   {
     label: "Skala Klinis",
     items: [
-      { label: "Skala Risiko", href: "/ehis-master/skala-risiko", icon: Gauge },
-      { label: "Skala Umum", href: "/ehis-master/skala-umum", icon: Activity },
-      {
-        label: "Skala Penyakit",
-        href: "/ehis-master/skala-penyakit",
-        icon: Microscope,
-      },
-      { label: "Triase IGD", href: "/ehis-master/triase-igd", icon: Siren },
+      { label: "Skala Risiko", href: "/ehis-master/skala-risiko", icon: Gauge, perm: "master.triase" },
+      { label: "Skala Umum", href: "/ehis-master/skala-umum", icon: Activity, perm: "master.triase" },
+      { label: "Skala Penyakit", href: "/ehis-master/skala-penyakit", icon: Microscope, perm: "master.triase" },
+      { label: "Triase IGD", href: "/ehis-master/triase-igd", icon: Siren, perm: "master.triase" },
     ],
   },
   {
     label: "Referensi",
     items: [
-      {
-        label: "Asesmen Katalog",
-        href: "/ehis-master/asesmen-katalog",
-        icon: ClipboardList,
-      },
+      { label: "Asesmen Katalog", href: "/ehis-master/asesmen-katalog", icon: ClipboardList, perm: "master.katalog" },
     ],
   },
   {
     label: "Template & Enum",
     items: [
-      { label: "Status Enum", href: "/ehis-master/status-enum", icon: Layers },
-      {
-        label: "Template Anamnesis",
-        href: "/ehis-master/template-anamnesis",
-        icon: MessageSquare,
-      },
-      {
-        label: "Template Form",
-        href: "/ehis-master/template-form",
-        icon: FileText,
-      },
+      { label: "Status Enum", href: "/ehis-master/status-enum", icon: Layers, perm: "master.konfigurasi" },
+      { label: "Template Anamnesis", href: "/ehis-master/template-anamnesis", icon: MessageSquare, perm: "master.konfigurasi" },
+      { label: "Template Form", href: "/ehis-master/template-form", icon: FileText, perm: "master.konfigurasi" },
     ],
   },
   {
     label: "Workflow Klinis",
     items: [
-      {
-        label: "Workflow Edukasi",
-        href: "/ehis-master/workflow-edukasi",
-        icon: GraduationCap,
-      },
-      {
-        label: "Discharge Klasifikasi",
-        href: "/ehis-master/discharge",
-        icon: LogOut,
-      },
-      {
-        label: "Operasional Klinis",
-        href: "/ehis-master/operasional",
-        icon: ClipboardCheck,
-      },
+      { label: "Workflow Edukasi", href: "/ehis-master/workflow-edukasi", icon: GraduationCap, perm: "master.konfigurasi" },
+      { label: "Discharge Klasifikasi", href: "/ehis-master/discharge", icon: LogOut, perm: "master.konfigurasi" },
+      { label: "Operasional Klinis", href: "/ehis-master/operasional", icon: ClipboardCheck, perm: "master.konfigurasi" },
     ],
   },
   {
     label: "Penugasan",
     items: [
-      { label: "Mapping Hub", href: "/ehis-master/mapping", icon: Network },
+      { label: "Mapping Hub", href: "/ehis-master/mapping", icon: Network, perm: "master.mapping" },
     ],
   },
   {
     label: "Operasional",
     items: [
-      { label: "Tarif & Layanan", href: "/ehis-master/tarif", icon: Tag },
-      {
-        label: "Penjamin & Kontrak",
-        href: "/ehis-master/penjamin",
-        icon: Wallet,
-      },
+      { label: "Tarif & Layanan", href: "/ehis-master/tarif", icon: Tag, perm: "master.tarif" },
+      { label: "Penjamin & Kontrak", href: "/ehis-master/penjamin", icon: Wallet, perm: "master.tarif" },
     ],
   },
   {
     label: "Konfigurasi",
     items: [
-      { label: "Profil RS", href: "/ehis-master/profil-rs", icon: Settings2 },
-      {
-        label: "Faskes Rujukan (PPK)",
-        href: "/ehis-master/ppk",
-        icon: Landmark,
-      },
+      { label: "Profil RS", href: "/ehis-master/profil-rs", icon: Settings2, perm: "master.konfigurasi" },
+      { label: "Faskes Rujukan (PPK)", href: "/ehis-master/ppk", icon: Landmark, perm: "master.konfigurasi" },
     ],
   },
 ] as const;
@@ -576,10 +535,15 @@ function permList(p?: string | readonly string[]): readonly string[] {
   return p == null ? [] : typeof p === "string" ? [p] : p;
 }
 
-/** Item terlihat: tanpa perm = ikut modul; punya perm = bila salah satunya bisa di-read. */
-export function navItemVisible(item: NavItem, can: Can): boolean {
+/** Item terlihat: lolos RBAC (perm) DAN — bila ber-careUnit — unit kerja user mencakupnya
+ *  (kecuali `scope.unrestricted`). Tanpa `scope` → careUnit diabaikan (mis. saat loading sesi). */
+export function navItemVisible(item: NavItem, can: Can, scope?: NavScope): boolean {
   const ps = permList(item.perm);
-  return ps.length === 0 || ps.some((p) => can(p, "read"));
+  if (ps.length > 0 && !ps.some((p) => can(p, "read"))) return false;
+  if (item.careUnit && scope && !scope.unrestricted && !scope.careUnits.includes(item.careUnit)) {
+    return false;
+  }
+  return true;
 }
 
 /** Modul terlihat bila punya ≥1 izin read di `perms` (kosong = selalu). */
@@ -587,10 +551,15 @@ export function canSeeModule(mod: ModuleDescriptor, can: Can): boolean {
   return mod.perms.length === 0 || mod.perms.some((p) => can(p, "read"));
 }
 
-/** Filter nav: buang item tak berizin + group yang jadi kosong. */
-export function visibleNav(groups: readonly NavGroup[], can: Can): NavGroup[] {
+/** Bangun NavScope dari sesi/actor (unrestricted = superuser ATAU role global). */
+export function navScopeFrom(s: { careUnits: readonly string[]; isSuperuser: boolean; isGlobal: boolean }): NavScope {
+  return { careUnits: s.careUnits, unrestricted: s.isSuperuser || s.isGlobal };
+}
+
+/** Filter nav: buang item tak berizin / di luar unit kerja + group yang jadi kosong. */
+export function visibleNav(groups: readonly NavGroup[], can: Can, scope?: NavScope): NavGroup[] {
   return groups
-    .map((g) => ({ ...g, items: g.items.filter((it) => navItemVisible(it, can)) }))
+    .map((g) => ({ ...g, items: g.items.filter((it) => navItemVisible(it, can, scope)) }))
     .filter((g) => g.items.length > 0);
 }
 

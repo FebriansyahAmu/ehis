@@ -15,7 +15,8 @@ const PERMISSION_TREE = [
     { key: "clinical.igd", label: "IGD", actions: ["read","create","update","delete"] },
     { key: "clinical.ri", label: "Rawat Inap", actions: ["read","create","update","delete"] },
     { key: "clinical.rj", label: "Rawat Jalan", actions: ["read","create","update","delete"] },
-    { key: "clinical.cppt", label: "CPPT (SOAP)", actions: ["read","create","update"] },
+    { key: "clinical.rekammedis", label: "Rekam Medis (Asesmen/Anamnesis/Observasi)", actions: ["read","create","update","delete"] },
+    { key: "clinical.cppt", label: "CPPT (SOAP)", actions: ["read","create","update","delete"] },
     { key: "clinical.diagnosa", label: "Diagnosa (ICD-10)", actions: ["read","create","update","delete"] },
     { key: "clinical.tindakan", label: "Tindakan / Order", actions: ["read","create","update","delete"] },
     { key: "clinical.resep", label: "Resep & Obat", actions: ["read","create","update","delete"] },
@@ -30,6 +31,7 @@ const PERMISSION_TREE = [
     { key: "ancillary.farmasi.serah", label: "Farmasi — Dispensing & Serah", actions: ["read","update"] },
   ]},
   { key: "registration", leaves: [
+    { key: "registration.loket", label: "Loket Registrasi — Akses Modul", actions: ["read"] },
     { key: "registration.pasien", label: "Master Pasien", actions: ["read","create","update","delete"] },
     { key: "registration.kunjungan", label: "Pendaftaran Kunjungan", actions: ["read","create","update","delete"] },
     { key: "billing.invoice", label: "Billing — Invoice", actions: ["read","create","update","delete","export"] },
@@ -37,6 +39,7 @@ const PERMISSION_TREE = [
     { key: "billing.klaim", label: "Billing — Klaim BPJS", actions: ["read","create","update","export"] },
   ]},
   { key: "master", leaves: [
+    { key: "master.view", label: "Master — Akses Modul", actions: ["read"] },
     { key: "master.ruangan", label: "Unit & Ruangan", actions: ["read","create","update","delete"] },
     { key: "master.dokter", label: "Dokter & Nakes", actions: ["read","create","update","delete"] },
     { key: "master.pegawai", label: "Data Pegawai (SDM)", actions: ["read","create","update","delete"] },
@@ -44,8 +47,10 @@ const PERMISSION_TREE = [
     { key: "master.mapping", label: "Mapping Hub", actions: ["read","update"] },
     { key: "master.penugasan-ruangan", label: "Penugasan SDM ⇄ Ruangan", actions: ["read","create","delete"] },
     { key: "master.katalog", label: "Katalog (Obat/Lab/ICD)", actions: ["read","create","update","delete"] },
+    { key: "master.icd", label: "Katalog ICD-10/9", actions: ["read","create","update","delete"] },
     { key: "master.triase", label: "Triase IGD (Skala Klinis)", actions: ["read","create","update","delete"] },
     { key: "master.tarif", label: "Tarif & Paket", actions: ["read","create","update","delete"] },
+    { key: "master.konfigurasi", label: "Konfigurasi Sistem (Template/Enum/Profil)", actions: ["read","update"] },
   ]},
   { key: "report", leaves: [
     { key: "report.clinical", label: "Laporan Klinis", actions: ["read","export"] },
@@ -64,33 +69,45 @@ const ROLE_DEFAULT_GRANTS = {
   Admin: allFull(),
   Dokter: {
     "clinical.igd": ["read","create","update"], "clinical.ri": ["read","create","update"], "clinical.rj": ["read","create","update"],
-    "clinical.cppt": ["read","create","update"], "clinical.diagnosa": ["read","create","update"], "clinical.tindakan": ["read","create","update"],
-    "clinical.resep": ["read","create","update"], "ancillary.lab.worklist": ["read"], "ancillary.rad.worklist": ["read"],
-    "ancillary.farmasi.telaah": ["read"], "master.triase": ["read"], "report.clinical": ["read","export"],
+    "clinical.rekammedis": ["read","create","update"], // rekam medis lintas-unit (asesmen/anamnesis/observasi) — ABAC careUnit yang batasi unit
+    "clinical.cppt": ["read","create","update","delete"], "clinical.diagnosa": ["read","create","update"], "clinical.tindakan": ["read","create","update"],
+    "clinical.resep": ["read","create","update"],
+    // TIDAK ada ancillary.* — penunjang berdiri-sendiri; dokter lihat status order via tab rekam medis.
+    "master.triase": ["read"], "report.clinical": ["read","export"],
+    // baca DATA referensi/registrasi utk rekam medis — TANPA master.view/registration.loket (modul tetap tersembunyi).
+    "master.ruangan": ["read"], "master.dokter": ["read"], "master.icd": ["read"],
+    "registration.pasien": ["read"], "registration.kunjungan": ["read"],
   },
   Perawat: {
-    "clinical.igd": ["read","update"], "clinical.ri": ["read","update"], "clinical.cppt": ["read","create"],
-    "clinical.tindakan": ["read","update"], "clinical.resep": ["read"], "ancillary.lab.worklist": ["read"],
-    "ancillary.rad.worklist": ["read"], "ancillary.farmasi.serah": ["read"], "master.triase": ["read"],
+    "clinical.igd": ["read","update"], "clinical.ri": ["read","update"], "clinical.rj": ["read","update"],
+    "clinical.rekammedis": ["read","update"],
+    "clinical.cppt": ["read","create","delete"],
+    "clinical.tindakan": ["read","update"], "clinical.resep": ["read"],
+    // TIDAK ada ancillary.* — penunjang berdiri-sendiri; perawat lihat status order via tab rekam medis.
+    "master.triase": ["read"],
+    // baca DATA referensi/registrasi utk rekam medis — TANPA master.view/registration.loket (modul tetap tersembunyi).
+    "master.ruangan": ["read"], "master.dokter": ["read"], "master.icd": ["read"],
+    "registration.pasien": ["read"], "registration.kunjungan": ["read"],
   },
   Apoteker: {
     "clinical.resep": ["read"], "ancillary.farmasi.telaah": ["read","update"], "ancillary.farmasi.serah": ["read","update"],
-    "master.katalog": ["read","update"], "report.clinical": ["read"],
+    "master.view": ["read"], "master.katalog": ["read","update"], "report.clinical": ["read"],
   },
-  Radiografer: { "ancillary.rad.worklist": ["read","update"], "clinical.ri": ["read"], "clinical.rj": ["read"] },
+  // Penunjang = unit berdiri-sendiri: akses MURNI via ancillary.* (TANPA clinical.ri/rj).
+  Radiografer: { "ancillary.rad.worklist": ["read","update"] },
   SpPK: {
     "ancillary.lab.worklist": ["read","update"], "ancillary.lab.validate": ["read","update"], "ancillary.lab.critical": ["read","create"],
-    "clinical.ri": ["read"], "clinical.rj": ["read"], "report.clinical": ["read","export"],
+    "report.clinical": ["read","export"],
   },
   SpRad: {
     "ancillary.rad.worklist": ["read","update"], "ancillary.rad.expertise": ["read","create","update"],
-    "clinical.ri": ["read"], "clinical.rj": ["read"], "report.clinical": ["read","export"],
+    "report.clinical": ["read","export"],
   },
   Kasir: {
     "billing.invoice": ["read","create","update"], "billing.kasir": ["read","create"], "billing.klaim": ["read","update"],
     "registration.pasien": ["read"], "registration.kunjungan": ["read"], "report.financial": ["read","export"],
   },
-  Registrasi: { "dashboard.view": ["read"], "registration.pasien": ["read","create","update"], "registration.kunjungan": ["read","create","update"], "clinical.rj": ["read"] },
+  Registrasi: { "dashboard.view": ["read"], "registration.loket": ["read"], "registration.pasien": ["read","create","update"], "registration.kunjungan": ["read","create","update"], "clinical.rj": ["read"] },
 };
 
 const ACTION_LABEL = { read: "Lihat", create: "Tambah", update: "Ubah", delete: "Hapus", export: "Ekspor" };

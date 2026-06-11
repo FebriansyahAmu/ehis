@@ -9,14 +9,14 @@ import { AsesmenPenyakitDahuluInput } from "@/lib/schemas/asesmenMedis/asesmenPe
 import { asesmenPenyakitDahuluService } from "@/lib/services/asesmenMedis/asesmenPenyakitDahuluService";
 
 export const GET = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "read",
   params: IdParam,
   handler: ({ params, actor }) => asesmenPenyakitDahuluService.getLatest(params.id, actor),
 });
 
 export const POST = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "create",
   params: IdParam,
   body: AsesmenPenyakitDahuluInput,

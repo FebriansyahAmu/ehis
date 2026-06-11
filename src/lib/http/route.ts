@@ -16,6 +16,7 @@ import { getActor, assertCan, type Actor } from "@/lib/auth/actor";
 import { handleError } from "@/lib/errors/handleError";
 import { success, type Meta } from "@/lib/http/envelope";
 import { Errors } from "@/lib/errors/appError";
+import { loadKunjunganInScope } from "@/lib/services/clinicalScope";
 
 // Hasil ber-anotasi (status/message/meta) tanpa membuat `data` ambigu. Handler boleh
 // kembalikan data mentah (→ status default, tanpa message) ATAU reply(...) untuk kontrol.
@@ -60,6 +61,10 @@ interface RouteConfig<B, Q, P, R> {
   params?: ZodType<P>;
   /** HTTP status sukses (default 200; POST create → 201). */
   status?: number;
+  /** ABAC unit-scope (FLOWS §6): bila true, `params.id` diperlakukan sebagai kunjunganId
+   *  → ditolak (404) bila di luar unit kerja actor. Default ON untuk resource `clinical.*`
+   *  (semua endpoint rekam medis = /kunjungan/[id]/…). Set `false` utk mematikan. */
+  scopeKunjungan?: boolean;
   handler: (args: HandlerArgs<B, Q, P>) => Promise<R> | R;
 }
 
@@ -85,6 +90,13 @@ export function route<B = undefined, Q = undefined, P = undefined, R = unknown>(
 
       const rawParams = ctx?.params ? await ctx.params : {};
       const params = (config.params ? config.params.parse(rawParams) : rawParams) as P;
+
+      // ABAC unit-scope (anti-IDOR): clinical.* → params.id = kunjunganId harus di unit kerja actor.
+      const scopeKunjungan = config.scopeKunjungan ?? !!config.resource?.startsWith("clinical.");
+      if (scopeKunjungan) {
+        const id = (params as { id?: unknown } | undefined)?.id;
+        if (typeof id === "string") await loadKunjunganInScope(id, actor);
+      }
 
       const rawQuery = Object.fromEntries(new URL(req.url).searchParams);
       const query = (config.query ? config.query.parse(rawQuery) : undefined) as Q;

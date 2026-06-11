@@ -6,7 +6,7 @@ import { EdukasiEolMeetingParam } from "@/lib/schemas/asesmenMedis/edukasiEol";
 import { edukasiEolService } from "@/lib/services/asesmenMedis/edukasiEolService";
 
 export const DELETE = route({
-  resource: "clinical.igd",
+  resource: "clinical.rekammedis",
   action: "delete",
   params: EdukasiEolMeetingParam,
   handler: async ({ params, actor }) => {

@@ -117,6 +117,7 @@ function toDTO(c: CpptEntity): CpptEntryDTO {
     verifiedBy: c.verifiedBy ?? undefined,
     verifiedAt: c.verifiedAt ? fmtVerifiedAt(c.verifiedAt) : undefined,
     flagged: c.flagged,
+    authorUserId: c.authorUserId ?? undefined,
   };
 }
 
@@ -132,7 +133,7 @@ export function makeCpptService(deps: { clock?: Clock; dal?: Dal } = {}) {
 
   async function assertMilikKunjungan(kunjunganId: string, itemId: string, tx?: Tx) {
     const item = await dal.findById(itemId, tx);
-    if (!item || item.kunjunganId !== kunjunganId) {
+    if (!item || item.kunjunganId !== kunjunganId || item.deletedAt) {
       throw Errors.notFound("Catatan CPPT tidak ditemukan");
     }
     return item;
@@ -245,7 +246,18 @@ export function makeCpptService(deps: { clock?: Clock; dal?: Dal } = {}) {
     return reload(itemId);
   }
 
-  return { get, add, update, verify, flag };
+  // Hapus = HANYA pembuat catatan (authorUserId) atau Admin (superuser) — medico-legal:
+  // petugas lain tak boleh menghapus catatan orang lain walau punya izin clinical.cppt:delete.
+  async function remove(kunjunganId: string, itemId: string, actor: Actor): Promise<void> {
+    await assertKunjungan(kunjunganId);
+    const existing = await assertMilikKunjungan(kunjunganId, itemId);
+    if (!actor.isSuperuser && existing.authorUserId !== actor.userId) {
+      throw Errors.forbidden("Hanya pembuat catatan yang dapat menghapus catatan ini");
+    }
+    await dal.softDelete(itemId);
+  }
+
+  return { get, add, update, verify, flag, remove };
 }
 
 export const cpptService = makeCpptService();

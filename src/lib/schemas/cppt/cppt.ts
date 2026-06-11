@@ -95,6 +95,9 @@ export interface CpptEntryDTO {
   verifiedBy?: string;
   verifiedAt?: string;      // "8 Mei 2025, 17:00"
   flagged?: boolean;
+  /** Pemilik catatan (auth.User) — FE pakai utk sembunyikan aksi hapus milik orang lain
+   *  (penegakan tetap di Service: hanya pembuat / Admin). */
+  authorUserId?: string;
 }
 
 export interface CpptDTO {
