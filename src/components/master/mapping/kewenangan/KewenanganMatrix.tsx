@@ -313,7 +313,7 @@ function TindakanRow({
   granted: boolean;
   onToggle: () => void;
 }) {
-  const kCfg = KOMPLEKSITAS_CFG[tindakan.kompleksitas];
+  const kCfg = tindakan.kompleksitas ? KOMPLEKSITAS_CFG[tindakan.kompleksitas] : null;
 
   return (
     <motion.label
@@ -345,9 +345,11 @@ function TindakanRow({
         </p>
         <div className="mt-0.5 flex items-center gap-1.5">
           <span className="font-mono m-mini text-slate-400">{tindakan.kode}</span>
-          <span className={cn("rounded px-1 py-0 m-mini font-bold", kCfg.bg, kCfg.text)}>
-            {kCfg.label}
-          </span>
+          {kCfg && (
+            <span className={cn("rounded px-1 py-0 m-mini font-bold", kCfg.bg, kCfg.text)}>
+              {kCfg.label}
+            </span>
+          )}
         </div>
       </div>
     </motion.label>

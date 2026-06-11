@@ -1,0 +1,69 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Katalog Tindakan  (Postgres schema "master")
+//  FE: /ehis-master/katalog-tindakan · Mock/tipe FE: src/lib/master/tindakanMock.ts
+//  (TindakanRecord). Sumber-of-truth untuk Mapping Hub (Kewenangan/Layanan/Tarif).
+//
+//  Katalog prosedur medis (kode ICD-9-CM). Diisi manual lewat form (bukan bulk import
+//  seperti ICD). Status KPTL opsional → `kptlAktif` membuka `nomorKptl` + `kompleksitas`.
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz · soft-delete. Katalog master = LEAF
+//  (jarang di-edit konkuren) → TANPA optimistic-version (analog IcdCode, API-RULES §6).
+//  Enum kategori/kompleksitas nilainya SAMA PERSIS dgn union FE (Tindakan_Medis dst) →
+//  tak perlu vocab-map di Service. spesialis/unit default = TEXT[] (loose, decoupled).
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Kategori tindakan — nilai identik dgn TindakanKategori (tindakanMock.ts).
+enum TindakanKategori {
+  Konsultasi
+  Tindakan_Medis
+  Diagnostik
+  Bedah_Minor
+  Bedah_Mayor
+  Bedah_Khusus
+  Obstetri
+  Pediatrik
+  Resusitasi
+  Anestesi
+  Spesialistik
+
+  @@schema("master")
+}
+
+/// Tingkat kompleksitas (bagian status KPTL) — nilai identik dgn TingkatKompleksitas FE.
+enum TingkatKompleksitas {
+  Sederhana
+  Sedang
+  Khusus
+  Canggih
+
+  @@schema("master")
+}
+
+model Tindakan {
+  id   String @id @default(uuid(7)) @db.Uuid
+  kode String @default("") // ICD-9-CM; boleh kosong saat entry baru (diisi belakangan)
+  nama String
+
+  kategori TindakanKategori @default(Konsultasi)
+
+  // Status KPTL (opsional)
+  kptlAktif    Boolean              @default(false) @map("kptl_aktif")
+  nomorKptl    String?              @map("nomor_kptl")
+  kompleksitas TingkatKompleksitas? // null saat KPTL non-aktif
+
+  // Seed default untuk Mapping Hub (Kewenangan via spesialis, Layanan Unit via unit)
+  spesialisDefault String[] @map("spesialis_default")
+  unitDefault      String[] @map("unit_default")
+
+  deskripsi String?
+  active    Boolean @default(true) // FE status "Aktif"/"NonAktif" ⇄ active
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kategori, active]) // list/filter per kategori + status
+  @@index([kode]) // cari by kode
+  @@map("tindakan")
+  @@schema("master")
+}

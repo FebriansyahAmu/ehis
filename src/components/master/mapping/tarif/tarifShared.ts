@@ -1,4 +1,4 @@
-import { TINDAKAN_MOCK, type TindakanRecord } from "@/lib/master/tindakanMock";
+import { TINDAKAN_MOCK, type TindakanRecord, type TingkatKompleksitas } from "@/lib/master/tindakanMock";
 import {
   PENJAMIN_MOCK, KELAS_LIST,
   type PenjaminRecord, type KelasRawat,
@@ -26,7 +26,7 @@ export function getPenjaminList(): PenjaminRecord[] {
  * Default tarif: dihitung dari multiplier kompleksitas × kelas × penjamin.
  * Realnya nanti di-input manual oleh admin billing.
  */
-const KOMPLEKSITAS_BASE: Record<TindakanRecord["kompleksitas"], number> = {
+const KOMPLEKSITAS_BASE: Record<TingkatKompleksitas, number> = {
   Sederhana: 80_000,
   Sedang:    250_000,
   Khusus:    750_000,
@@ -65,7 +65,7 @@ export function initTarifMap(
     map[p.id] = {};
     const pMul = PENJAMIN_MULTIPLIER[p.id] ?? 1.0;
     for (const t of tindakan) {
-      const base = KOMPLEKSITAS_BASE[t.kompleksitas];
+      const base = KOMPLEKSITAS_BASE[t.kompleksitas ?? "Sederhana"];
       map[p.id][t.id] = {};
       for (const k of KELAS_LIST) {
         const kMul = KELAS_MULTIPLIER[k.id];

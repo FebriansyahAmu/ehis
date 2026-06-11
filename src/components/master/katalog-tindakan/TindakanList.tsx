@@ -145,7 +145,7 @@ function TindakanRow({
   index: number;
 }) {
   const catCfg = KATEGORI_CFG[item.kategori];
-  const kompCfg = KOMPLEKSITAS_CFG[item.kompleksitas];
+  const kompCfg = item.kompleksitas ? KOMPLEKSITAS_CFG[item.kompleksitas] : null;
   const statusCfg = getStatusCfg(item.status);
   const isNonAktif = item.status === "NonAktif";
 
@@ -187,9 +187,11 @@ function TindakanRow({
             <span className={cn("rounded px-1 py-0 text-[10px] font-semibold", catCfg.bg, catCfg.text)}>
               {catCfg.short}
             </span>
-            <span className={cn("rounded px-1 py-0 text-[10px] font-medium", kompCfg.bg, kompCfg.text)}>
-              {item.kompleksitas}
-            </span>
+            {kompCfg && (
+              <span className={cn("rounded px-1 py-0 text-[10px] font-medium", kompCfg.bg, kompCfg.text)}>
+                {item.kompleksitas}
+              </span>
+            )}
             {isNonAktif && (
               <span className={cn("ml-auto rounded px-1 py-0 text-[10px] font-medium", statusCfg.bg, statusCfg.text)}>
                 Non-Aktif

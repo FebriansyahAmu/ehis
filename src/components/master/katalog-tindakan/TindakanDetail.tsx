@@ -90,7 +90,7 @@ export default function TindakanDetail({
   draft, isNew, isDirty, tab, onTabChange,
   onPatch, onSave, onCancel, onDelete,
 }: Props) {
-  const valid = isTindakanValid(draft, isNew);
+  const valid = isTindakanValid(draft);
 
   return (
     <MasterDetailPanel<TindakanTabKey>

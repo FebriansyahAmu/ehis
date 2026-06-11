@@ -30,7 +30,12 @@ export interface TindakanRecord {
   kode: string;
   nama: string;
   kategori: TindakanKategori;
-  kompleksitas: TingkatKompleksitas;
+  /** Status KPTL aktif. Bila true → `nomorKptl` & `kompleksitas` relevan. Default false. */
+  kptlAktif?: boolean;
+  /** Nomor KPTL — hanya diisi saat `kptlAktif`. */
+  nomorKptl?: string | null;
+  /** Tingkat kompleksitas — OPSIONAL (bagian dari status KPTL), default null saat KPTL non-aktif. */
+  kompleksitas?: TingkatKompleksitas | null;
   /** Spesialisasi yang umumnya berwenang lakukan (untuk auto-credentialing default) */
   spesialisDefault: SpesialisCode[];
   /** Unit yang umumnya bisa lakukan (untuk auto-layanan unit default) */
@@ -48,7 +53,9 @@ export function emptyTindakanRecord(): TindakanRecord {
     kode: "",
     nama: "",
     kategori: "Konsultasi",
-    kompleksitas: "Sederhana",
+    kptlAktif: false,
+    nomorKptl: "",
+    kompleksitas: null,
     spesialisDefault: [],
     unitDefault: [],
     deskripsi: "",
@@ -100,65 +107,10 @@ export const KATEGORI_ORDER: TindakanKategori[] = [
 ];
 
 // ── Mock Data ─────────────────────────────────────────────
+// Mock dihapus — katalog tindakan kini diisi manual lewat form (akan di-swap ke DB).
+// Konsumen lain (Mapping Hub: Kewenangan/Layanan/Tarif) menampilkan empty-state saat kosong.
 
-export const TINDAKAN_MOCK: TindakanRecord[] = [
-  // Konsultasi
-  { id: "tnd-001", kode: "89.00", nama: "Konsultasi Dokter Umum",      kategori: "Konsultasi", kompleksitas: "Sederhana", spesialisDefault: ["Umum"], unitDefault: ["POLI-UMUM","IGD"] },
-  { id: "tnd-002", kode: "89.06", nama: "Konsultasi Dokter Spesialis", kategori: "Konsultasi", kompleksitas: "Sederhana", spesialisDefault: ["SpJP","SpPD","SpA","SpOG","SpB","SpS","SpM","SpKK","SpKJ","SpRad","SpTHT","SpU"], unitDefault: ["POLI-JTG","POLI-PD","POLI-ANAK","POLI-OBGYN","POLI-BEDAH","POLI-SARAF","POLI-MATA","IGD","RI"] },
-
-  // Tindakan Medis Umum
-  { id: "tnd-010", kode: "93.94", nama: "Nebulisasi",                  kategori: "Tindakan_Medis", kompleksitas: "Sederhana", spesialisDefault: ["Umum","SpA","SpPD","SpEM"], unitDefault: ["IGD","RJ","RI","ICU"] },
-  { id: "tnd-011", kode: "38.93", nama: "Pemasangan Infus IV",         kategori: "Tindakan_Medis", kompleksitas: "Sederhana", spesialisDefault: ["Umum","SpEM","SpA","SpPD","SpB","SpAn"], unitDefault: ["IGD","RI","ICU","RJ"] },
-  { id: "tnd-012", kode: "86.59", nama: "Hecting Luka < 5 cm",         kategori: "Tindakan_Medis", kompleksitas: "Sederhana", spesialisDefault: ["Umum","SpB","SpEM"], unitDefault: ["IGD","RJ"] },
-  { id: "tnd-013", kode: "57.94", nama: "Pemasangan Kateter Urin",     kategori: "Tindakan_Medis", kompleksitas: "Sederhana", spesialisDefault: ["Umum","SpU","SpEM","SpB"], unitDefault: ["IGD","RI","ICU"] },
-  { id: "tnd-014", kode: "96.07", nama: "Pemasangan NGT",              kategori: "Tindakan_Medis", kompleksitas: "Sederhana", spesialisDefault: ["Umum","SpPD","SpEM","SpA"], unitDefault: ["IGD","RI","ICU"] },
-  { id: "tnd-015", kode: "99.21", nama: "Injeksi Intramuskular",       kategori: "Tindakan_Medis", kompleksitas: "Sederhana", spesialisDefault: ["Umum","SpA","SpPD","SpB"], unitDefault: ["IGD","RJ","RI","POLI-UMUM"] },
-
-  // Diagnostik
-  { id: "tnd-020", kode: "89.52", nama: "EKG 12 Lead",                 kategori: "Diagnostik", kompleksitas: "Sederhana", spesialisDefault: ["Umum","SpJP","SpPD","SpEM","SpAn"], unitDefault: ["IGD","RI","ICU","POLI-JTG","POLI-PD"] },
-  { id: "tnd-021", kode: "89.37", nama: "Spirometri",                  kategori: "Diagnostik", kompleksitas: "Sedang",    spesialisDefault: ["SpPD"], unitDefault: ["POLI-PD"] },
-  { id: "tnd-022", kode: "88.71", nama: "USG Abdomen",                 kategori: "Diagnostik", kompleksitas: "Sedang",    spesialisDefault: ["SpRad","SpPD","SpOG"], unitDefault: ["RAD","POLI-PD","POLI-OBGYN"] },
-  { id: "tnd-023", kode: "88.72", nama: "Echocardiography",            kategori: "Diagnostik", kompleksitas: "Khusus",    spesialisDefault: ["SpJP"], unitDefault: ["POLI-JTG","ICU"] },
-  { id: "tnd-024", kode: "45.13", nama: "Endoscopy Saluran Cerna Atas", kategori: "Diagnostik", kompleksitas: "Khusus",   spesialisDefault: ["SpPD","SpB"], unitDefault: ["POLI-PD","OK"] },
-
-  // Pediatrik
-  { id: "tnd-030", kode: "99.39", nama: "Imunisasi Anak",              kategori: "Pediatrik", kompleksitas: "Sederhana", spesialisDefault: ["SpA","Umum"], unitDefault: ["POLI-ANAK"] },
-  { id: "tnd-031", kode: "93.92", nama: "Fototerapi Bayi (Bilirubin)", kategori: "Pediatrik", kompleksitas: "Sedang",    spesialisDefault: ["SpA"], unitDefault: ["RI","ICU"] },
-  { id: "tnd-032", kode: "99.83", nama: "Stabilisasi Neonatus",        kategori: "Pediatrik", kompleksitas: "Khusus",    spesialisDefault: ["SpA"], unitDefault: ["RI","ICU"] },
-
-  // Obstetri
-  { id: "tnd-040", kode: "73.59", nama: "Partus Normal",               kategori: "Obstetri", kompleksitas: "Sedang",   spesialisDefault: ["SpOG","Umum"], unitDefault: ["RI","POLI-OBGYN"] },
-  { id: "tnd-041", kode: "74.1",  nama: "Sectio Caesarea",             kategori: "Obstetri", kompleksitas: "Khusus",   spesialisDefault: ["SpOG"], unitDefault: ["OK"] },
-  { id: "tnd-042", kode: "75.4",  nama: "Curettage",                   kategori: "Obstetri", kompleksitas: "Sedang",   spesialisDefault: ["SpOG"], unitDefault: ["OK","POLI-OBGYN"] },
-  { id: "tnd-043", kode: "75.34", nama: "ANC (Antenatal Care)",        kategori: "Obstetri", kompleksitas: "Sederhana", spesialisDefault: ["SpOG","Umum"], unitDefault: ["POLI-OBGYN"] },
-
-  // Bedah Minor
-  { id: "tnd-050", kode: "86.21", nama: "Eksisi Tumor Jinak Kulit",    kategori: "Bedah_Minor", kompleksitas: "Sedang", spesialisDefault: ["SpB","SpKK","Umum"], unitDefault: ["OK","POLI-BEDAH"] },
-  { id: "tnd-051", kode: "64.0",  nama: "Sirkumsisi",                  kategori: "Bedah_Minor", kompleksitas: "Sedang", spesialisDefault: ["SpB","SpU","Umum"], unitDefault: ["OK","POLI-BEDAH"] },
-  { id: "tnd-052", kode: "06.39", nama: "Eksisi Lipoma",               kategori: "Bedah_Minor", kompleksitas: "Sedang", spesialisDefault: ["SpB"], unitDefault: ["OK","POLI-BEDAH"] },
-
-  // Bedah Mayor
-  { id: "tnd-060", kode: "47.09", nama: "Appendectomy",                kategori: "Bedah_Mayor", kompleksitas: "Khusus", spesialisDefault: ["SpB"], unitDefault: ["OK"] },
-  { id: "tnd-061", kode: "51.23", nama: "Cholecystectomy Laparoskopik", kategori: "Bedah_Mayor", kompleksitas: "Canggih", spesialisDefault: ["SpB"], unitDefault: ["OK"] },
-  { id: "tnd-062", kode: "53.41", nama: "Hernia Repair",               kategori: "Bedah_Mayor", kompleksitas: "Khusus",  spesialisDefault: ["SpB"], unitDefault: ["OK"] },
-  { id: "tnd-063", kode: "82.01", nama: "Open Reduction Fraktur",      kategori: "Bedah_Mayor", kompleksitas: "Khusus",  spesialisDefault: ["SpB"], unitDefault: ["OK"] },
-
-  // Bedah Khusus
-  { id: "tnd-070", kode: "36.10", nama: "Coronary Artery Bypass Graft (CABG)", kategori: "Bedah_Khusus", kompleksitas: "Canggih", spesialisDefault: [], unitDefault: ["OK"] },
-  { id: "tnd-071", kode: "01.24", nama: "Craniotomy",                  kategori: "Bedah_Khusus", kompleksitas: "Canggih", spesialisDefault: ["SpS"], unitDefault: ["OK"] },
-
-  // Resusitasi
-  { id: "tnd-080", kode: "99.60", nama: "RJP (Resusitasi Jantung Paru)", kategori: "Resusitasi", kompleksitas: "Sedang", spesialisDefault: ["Umum","SpEM","SpAn","SpJP","SpA","SpPD"], unitDefault: ["IGD","ICU","HCU","RI"] },
-  { id: "tnd-081", kode: "96.04", nama: "Intubasi Endotrakeal",        kategori: "Resusitasi", kompleksitas: "Khusus", spesialisDefault: ["SpAn","SpEM","SpJP"], unitDefault: ["IGD","ICU","OK"] },
-
-  // Anestesi
-  { id: "tnd-090", kode: "00.99", nama: "Anestesi Umum",               kategori: "Anestesi", kompleksitas: "Khusus", spesialisDefault: ["SpAn"], unitDefault: ["OK"] },
-  { id: "tnd-091", kode: "03.91", nama: "Anestesi Spinal",             kategori: "Anestesi", kompleksitas: "Khusus", spesialisDefault: ["SpAn"], unitDefault: ["OK"] },
-
-  // Spesialistik (THT/Mata)
-  { id: "tnd-100", kode: "20.0",  nama: "Pengeluaran Cerumen",         kategori: "Spesialistik", kompleksitas: "Sederhana", spesialisDefault: ["SpTHT","Umum"], unitDefault: ["POLI-UMUM"] },
-  { id: "tnd-101", kode: "13.41", nama: "Phacoemulsifikasi (Operasi Katarak)", kategori: "Spesialistik", kompleksitas: "Canggih", spesialisDefault: ["SpM"], unitDefault: ["OK"] },
-];
+export const TINDAKAN_MOCK: TindakanRecord[] = [];
 
 // ── Helpers ───────────────────────────────────────────────
 

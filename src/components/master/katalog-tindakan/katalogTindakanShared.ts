@@ -66,9 +66,9 @@ export const SPESIALIS_ORDER: SpesialisCode[] = [
 
 // ── Validation ───────────────────────────────────────────
 
-export function isTindakanValid(t: TindakanRecord, isNew = false): boolean {
-  if (isNew) return !!t.nama.trim();
-  return !!(t.kode.trim() && t.nama.trim());
+// Kode ICD-9-CM opsional → hanya nama yang wajib (baik entry baru maupun edit).
+export function isTindakanValid(t: TindakanRecord): boolean {
+  return !!t.nama.trim();
 }
 
 // ── Avatar Initials ──────────────────────────────────────

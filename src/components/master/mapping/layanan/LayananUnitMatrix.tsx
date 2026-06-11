@@ -183,7 +183,7 @@ function TindakanRow({
   onToggle: (tindakanId: string, unitKode: string) => void;
   onToggleRow: (tindakanId: string, granted: boolean) => void;
 }) {
-  const kCfg = KOMPLEKSITAS_CFG[tindakan.kompleksitas];
+  const kCfg = tindakan.kompleksitas ? KOMPLEKSITAS_CFG[tindakan.kompleksitas] : null;
   const count = countUnitPerTindakan(map, tindakan.id);
   const allGranted = count === units.length;
 
@@ -204,9 +204,11 @@ function TindakanRow({
           <span className="truncate m-xs font-semibold text-slate-800">{tindakan.nama}</span>
           <div className="mt-0.5 flex items-center gap-1.5">
             <span className="font-mono m-mini text-slate-400">{tindakan.kode}</span>
-            <span className={cn("rounded px-1 py-0 m-mini font-bold", kCfg.bg, kCfg.text)}>
-              {kCfg.label}
-            </span>
+            {kCfg && (
+              <span className={cn("rounded px-1 py-0 m-mini font-bold", kCfg.bg, kCfg.text)}>
+                {kCfg.label}
+              </span>
+            )}
             <span className="ml-auto inline-flex items-center gap-0.5 m-mini font-bold text-teal-700">
               {count}
             </span>
