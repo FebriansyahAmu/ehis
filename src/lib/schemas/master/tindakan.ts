@@ -9,6 +9,7 @@ import { z } from "zod";
 export const TindakanKategoriEnum = z.enum([
   "Konsultasi", "Tindakan_Medis", "Diagnostik", "Bedah_Minor", "Bedah_Mayor",
   "Bedah_Khusus", "Obstetri", "Pediatrik", "Resusitasi", "Anestesi", "Spesialistik",
+  "Non_Kategori", "Prosedur_Bedah", "Prosedur_Non_Bedah", "Keperawatan", "Tindakan_Invasif",
 ]);
 export type TindakanKategoriDTO = z.infer<typeof TindakanKategoriEnum>;
 

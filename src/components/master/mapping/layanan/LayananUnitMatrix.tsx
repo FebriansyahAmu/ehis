@@ -5,14 +5,15 @@ import { Check, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   type TindakanRecord, type TindakanKategori,
-  KATEGORI_CFG, KATEGORI_ORDER, KOMPLEKSITAS_CFG, CLINICAL_UNITS_FOR_LAYANAN,
+  KATEGORI_CFG, KATEGORI_ORDER, KOMPLEKSITAS_CFG,
   groupByKategori,
 } from "@/lib/master/tindakanMock";
-import type { LayananMap } from "./layananShared";
-import { hasLayanan, countUnitPerTindakan, countTindakanPerUnit } from "./layananShared";
+import type { LayananMap, LayananUnit } from "./layananShared";
+import { hasLayanan, countUnitPerTindakan, countTindakanPerUnit, UNIT_CATEGORY_CFG } from "./layananShared";
 
 interface LayananUnitMatrixProps {
   tindakan: TindakanRecord[];
+  units: LayananUnit[];
   map: LayananMap;
   visibleKategori: Set<TindakanKategori>;
   onToggle: (tindakanId: string, unitKode: string) => void;
@@ -20,20 +21,10 @@ interface LayananUnitMatrixProps {
   onToggleColumn: (unitKode: string, granted: boolean) => void;
 }
 
-const UNIT_CATEGORY_CFG: Record<
-  "Klinis" | "Poli" | "Penunjang",
-  { bg: string; text: string; border: string }
-> = {
-  Klinis:    { bg: "bg-rose-50",    text: "text-rose-700",   border: "border-rose-200" },
-  Poli:      { bg: "bg-sky-50",     text: "text-sky-700",    border: "border-sky-200" },
-  Penunjang: { bg: "bg-violet-50",  text: "text-violet-700", border: "border-violet-200" },
-};
-
 export default function LayananUnitMatrix({
-  tindakan, map, visibleKategori, onToggle, onToggleRow, onToggleColumn,
+  tindakan, units, map, visibleKategori, onToggle, onToggleRow, onToggleColumn,
 }: LayananUnitMatrixProps) {
   const grouped = groupByKategori(tindakan);
-  const units = CLINICAL_UNITS_FOR_LAYANAN;
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -84,7 +75,6 @@ export default function LayananUnitMatrix({
               return (
                 <KategoriBlock
                   key={cat}
-                  kategori={cat}
                   items={items}
                   catCfg={catCfg}
                   units={units}
@@ -130,17 +120,16 @@ function Legend({ bg, label }: { bg: string; label: string }) {
 }
 
 interface KategoriBlockProps {
-  kategori: TindakanKategori;
   items: TindakanRecord[];
   catCfg: typeof KATEGORI_CFG[TindakanKategori];
-  units: typeof CLINICAL_UNITS_FOR_LAYANAN;
+  units: LayananUnit[];
   map: LayananMap;
   onToggle: (tindakanId: string, unitKode: string) => void;
   onToggleRow: (tindakanId: string, granted: boolean) => void;
 }
 
 function KategoriBlock({
-  kategori, items, catCfg, units, map, onToggle, onToggleRow,
+  items, catCfg, units, map, onToggle, onToggleRow,
 }: KategoriBlockProps) {
   return (
     <>
@@ -177,7 +166,7 @@ function TindakanRow({
   tindakan, units, map, rowIndex, onToggle, onToggleRow,
 }: {
   tindakan: TindakanRecord;
-  units: typeof CLINICAL_UNITS_FOR_LAYANAN;
+  units: LayananUnit[];
   map: LayananMap;
   rowIndex: number;
   onToggle: (tindakanId: string, unitKode: string) => void;
@@ -185,7 +174,8 @@ function TindakanRow({
 }) {
   const kCfg = tindakan.kompleksitas ? KOMPLEKSITAS_CFG[tindakan.kompleksitas] : null;
   const count = countUnitPerTindakan(map, tindakan.id);
-  const allGranted = count === units.length;
+  // "Toggle baris" hanya menyangkut kolom yang sedang tampak (unit tersembunyi tak diutak-atik).
+  const allGranted = units.length > 0 && units.every((u) => hasLayanan(map, tindakan.id, u.kode));
 
   return (
     <motion.tr

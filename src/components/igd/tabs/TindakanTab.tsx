@@ -48,6 +48,11 @@ const IGD_KATEGORI_MAP: Record<TindakanKategori, string> = {
   Bedah_Mayor:    "Prosedur",
   Bedah_Khusus:   "Prosedur",
   Obstetri:       "Prosedur",
+  Prosedur_Bedah:     "Prosedur",
+  Prosedur_Non_Bedah: "Prosedur",
+  Tindakan_Invasif:   "Prosedur",
+  Keperawatan:        "Terapi",
+  Non_Kategori:       "Prosedur",
 };
 
 const CATALOG: TindakanEntry[] = TINDAKAN_MOCK

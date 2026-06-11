@@ -11,6 +11,7 @@ import type { AnyNode } from "@/components/master/ruangan/ruanganShared";
 import type { DokterListItemDTO } from "@/lib/api/dokter";
 import type { PegawaiListItemDTO } from "@/lib/api/pegawai";
 import type { PenugasanRuanganDTO } from "@/lib/api/penugasanRuangan";
+import type { TindakanDTO } from "@/lib/schemas/master/tindakan";
 import MappingHubSidebar from "./MappingHubSidebar";
 import SDMAssignmentPane from "./sdm/SDMAssignmentPane";
 import KewenanganPane from "./kewenangan/KewenanganPane";
@@ -59,9 +60,11 @@ interface MappingHubPageProps {
   initialPegawai?: PegawaiListItemDTO[];
   /** Penugasan ruangan dari SSR — diteruskan ke SDM Assignment (assignment map). */
   initialPenugasan?: PenugasanRuanganDTO[];
+  /** Katalog tindakan dari SSR — diteruskan ke Layanan Unit (baris matrix). */
+  initialTindakan?: TindakanDTO[];
 }
 
-export default function MappingHubPage({ initialTree, initialDokters, initialPegawai, initialPenugasan }: MappingHubPageProps = {}) {
+export default function MappingHubPage({ initialTree, initialDokters, initialPegawai, initialPenugasan, initialTindakan }: MappingHubPageProps = {}) {
   const searchParams = useSearchParams();
   const initialKey = (() => {
     const param = searchParams?.get("sub") as SubpageKey | null;
@@ -138,7 +141,7 @@ export default function MappingHubPage({ initialTree, initialDokters, initialPeg
                     transition={{ duration: 0.2 }}
                     className="flex min-h-0 flex-1 flex-col"
                   >
-                    {renderPane(activeKey, initialTree, initialDokters, initialPegawai, initialPenugasan)}
+                    {renderPane(activeKey, initialTree, initialDokters, initialPegawai, initialPenugasan, initialTindakan)}
                   </motion.div>
                 </AnimatePresence>
               </div>
@@ -156,11 +159,12 @@ function renderPane(
   initialDokters?: DokterListItemDTO[],
   initialPegawai?: PegawaiListItemDTO[],
   initialPenugasan?: PenugasanRuanganDTO[],
+  initialTindakan?: TindakanDTO[],
 ) {
   if (key === "sdm")
     return <SDMAssignmentPane initialTree={initialTree} initialDokters={initialDokters} initialPegawai={initialPegawai} initialPenugasan={initialPenugasan} />;
   if (key === "kewenangan")  return <KewenanganPane initialDokters={initialDokters} />;
-  if (key === "layanan")     return <LayananUnitPane />;
+  if (key === "layanan")     return <LayananUnitPane tindakan={initialTindakan} tree={initialTree} />;
   if (key === "tarif")       return <TarifPane />;
   if (key === "formularium") return <FormulariumPane />;
   if (key === "distribusi")  return <DistribusiPane />;

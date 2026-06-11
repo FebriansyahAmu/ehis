@@ -25,6 +25,11 @@ enum TindakanKategori {
   Resusitasi
   Anestesi
   Spesialistik
+  Non_Kategori
+  Prosedur_Bedah
+  Prosedur_Non_Bedah
+  Keperawatan
+  Tindakan_Invasif
 
   @@schema("master")
 }

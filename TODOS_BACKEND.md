@@ -75,11 +75,12 @@ Memetakan 25 master sub-module yang sudah dibangun di [/ehis-master](src/app/ehi
 - [🚧] `/api/master/pengguna` (User) — **GET list + POST create + assign roles ✅ WIRED** via `/api/v1/auth/users` (tabel Pengguna tampil akun real, gabung pegawai-tanpa-akun baris kuning). **Sisa:** GET detail · PATCH edit akun (persist) · DELETE · `unitAssignment` (derived Mapping Hub, butuh master ruangan) · `dokterId?` link role klinis.
 
 ### B1.2 Katalog Klinis
+> Spec lengkap → [docs/BACKEND-MASTER-KATALOG-KLINIS.md](docs/BACKEND-MASTER-KATALOG-KLINIS.md).
 - [ ] `POST/GET/PUT/DELETE /api/master/katalog-obat` — `ObatRecord` (30+ field). HAM/LASA/Formularium flags. Golongan UU 35/2009.
-- [ ] `POST/GET/PUT/DELETE /api/master/katalog-tindakan` — `TindakanRecord`. ICD-9-CM. Kompleksitas. Spesialis & unit default.
-- [ ] `POST/GET/PUT/DELETE /api/master/katalog-lab` — `LabKatalogItem`. Nilai rujukan per gender/usia. Critical low/high. Delta absolute/percent.
+- [✅] `GET/POST/PATCH/DELETE /api/v1/master/tindakan` — `TindakanRecord`. **(2026-06-12)** layered + SSR-hybrid wired ([KatalogTindakanPage](src/components/master/katalog-tindakan/KatalogTindakanPage.tsx)). Kode ICD-9 **opsional** · 16 kategori · status KPTL · leaf tanpa version. **Dikonsumsi Mapping Hub Layanan Unit** (baris). Sisa: KT8 tests · cache. Spec §A.
+- [ ] `POST/GET/PUT/DELETE /api/master/katalog-lab` — `LabKatalogItem`. Nilai rujukan per gender/usia (**anak 1:N**). Critical low/high. Delta absolute/percent.
 - [ ] `POST/GET/PUT/DELETE /api/master/katalog-radiologi` — `RadCatalogRecord`. Persiapan & protap. Kontras info. DRL referensi PMK 1014/2008.
-- [ ] `POST/GET/PUT/DELETE /api/master/icd` — `IcdItem` (ICD-10 + ICD-9-CM). **Import bulk CSV** untuk full WHO dataset (~15.000 ICD-10).
+- [✅] `GET/POST/PATCH/DELETE /api/v1/master/icd` (+`/import` bulk) — `IcdItem` (ICD-10 + ICD-9-CM). **(2026-06-07)** layered + FE wired + import Excel/CSV. Spec §B.
 - [ ] `POST/GET/PUT/DELETE /api/master/sdki` — `SdkiItem` (SDKI/SIKI/SLKI). 5 kategori × 3 jenis. Import bulk PPNI dataset.
 
 ### B1.3 Skala Klinis
@@ -114,7 +115,7 @@ Memetakan 25 master sub-module yang sudah dibangun di [/ehis-master](src/app/ehi
 ### B1.9 Mapping Hub (8 sub-pages)
 - [✅] **`/api/v1/master/penugasan-ruangan`** — SDM Assignment **per-RUANGAN** (revisi dari "× Unit", 2026-06-06): link N:M **Pegawai⇄Location** (`master.PenugasanRuangan`, hard-delete join table, unik pasangan, idempoten). Layered + SSR hybrid + optimistik POST/DELETE WIRED ke [Mapping Hub → SDM Assignment](src/components/master/mapping/sdm/). Roster = dokter REAL dari API. **TIDAK** push-back ke `poliAssignment` (field itu dibuang dari Dokter). Beda dari `auth.UserUnitScope` (ABAC, level Unit) & `Pegawai.unitKerja` (HR). Lihat [§C BACKEND-MASTER-SUMBER-DAYA](docs/BACKEND-MASTER-SUMBER-DAYA.md). **Sisa:** PR3 tests · tenaga non-dokter (saat Pengguna di-wire ke Pegawai).
 - [🚧] `GET/PUT /api/master/mapping/kewenangan` — `KewenanganMap` (Dokter × Tindakan). PMK 755 credentialing. **Dokter source = API real ✅** (2026-06-06); map kewenangan masih **state-only** (default per spesialis) — persist tabel `DokterKewenangan` belum dibuat.
-- [ ] `GET/PUT /api/master/mapping/layanan` — `LayananMap` (Tindakan × Unit). Heatmap matrix.
+- [🚧] `GET/PUT /api/master/mapping/layanan` — `LayananMap` (Tindakan × Unit). Heatmap matrix. **Sumber data REAL ✅ (2026-06-12)**: baris = tindakan DB (`/master/tindakan`), kolom = **Location aktif** dari master Unit & Ruangan (`unitsFromTree`, SSR hybrid). Persist tabel `LayananUnit` **belum** (map masih state-only) + selaraskan kode `unitDefault`↔Location (chargemaster CM2).
 - [ ] `GET/PUT /api/master/mapping/tarif` — `TarifMap[penjamin][tindakan][kelas] → harga`. 1470+ cell. Bulk adjust.
 - [ ] `GET/PUT /api/master/mapping/formularium` — `FormulariumMap[penjamin][obat][kelas] → { allowed, alasan? }`. Per-tipe penjamin default rules.
 - [ ] `GET/PUT /api/master/mapping/distribusi` — `DistribusiMap[depo][obat] → { stok, min, max }`. FEFO/FIFO untuk stock movement.

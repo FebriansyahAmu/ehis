@@ -21,7 +21,12 @@ export type TindakanKategori =
   | "Pediatrik"
   | "Resusitasi"
   | "Anestesi"
-  | "Spesialistik";
+  | "Spesialistik"
+  | "Non_Kategori"
+  | "Prosedur_Bedah"
+  | "Prosedur_Non_Bedah"
+  | "Keperawatan"
+  | "Tindakan_Invasif";
 
 export type TingkatKompleksitas = "Sederhana" | "Sedang" | "Khusus" | "Canggih";
 
@@ -80,6 +85,11 @@ export const KATEGORI_CFG: Record<
   Resusitasi:     { label: "Resusitasi",          short: "Resus",   bg: "bg-red-50",     text: "text-red-700",     dot: "bg-red-500",     ring: "ring-red-200" },
   Anestesi:       { label: "Anestesi",            short: "Anest.",  bg: "bg-cyan-50",    text: "text-cyan-700",    dot: "bg-cyan-500",    ring: "ring-cyan-200" },
   Spesialistik:   { label: "Spesialistik (THT/Mata)", short: "Spes.", bg: "bg-yellow-50", text: "text-yellow-800",  dot: "bg-yellow-500",  ring: "ring-yellow-200" },
+  Non_Kategori:       { label: "Non Kategori",        short: "Non-Kat", bg: "bg-slate-100",  text: "text-slate-600",  dot: "bg-slate-400",  ring: "ring-slate-200" },
+  Prosedur_Bedah:     { label: "Prosedur Bedah",      short: "Pr.Bdh",  bg: "bg-blue-50",    text: "text-blue-700",   dot: "bg-blue-500",   ring: "ring-blue-200" },
+  Prosedur_Non_Bedah: { label: "Prosedur Non Bedah",  short: "Pr.NB",   bg: "bg-green-50",   text: "text-green-700",  dot: "bg-green-500",  ring: "ring-green-200" },
+  Keperawatan:        { label: "Keperawatan",         short: "Kep.",    bg: "bg-indigo-50",  text: "text-indigo-700", dot: "bg-indigo-500", ring: "ring-indigo-200" },
+  Tindakan_Invasif:   { label: "Tindakan Invasif",    short: "Invasif", bg: "bg-red-50",     text: "text-red-700",    dot: "bg-red-500",    ring: "ring-red-200" },
 };
 
 export const KOMPLEKSITAS_CFG: Record<
@@ -104,6 +114,11 @@ export const KATEGORI_ORDER: TindakanKategori[] = [
   "Spesialistik",
   "Resusitasi",
   "Anestesi",
+  "Prosedur_Bedah",
+  "Prosedur_Non_Bedah",
+  "Keperawatan",
+  "Tindakan_Invasif",
+  "Non_Kategori",
 ];
 
 // ── Mock Data ─────────────────────────────────────────────

@@ -12,6 +12,22 @@
 
 ---
 
+## ✅ Selesai — Katalog Tindakan Backend + Mapping Hub Layanan Unit (2026-06-12)
+
+> Master **[/ehis-master/katalog-tindakan](../src/app/ehis-master/katalog-tindakan/)** jadi backend-backed (layered + SSR hybrid), dan Mapping Hub **Layanan Unit** konsumsi data real. Spec: [docs/BACKEND-MASTER-KATALOG-KLINIS.md](../docs/BACKEND-MASTER-KATALOG-KLINIS.md) §A. Tech debt kode `unitDefault`↔Location → chargemaster CM2.
+
+1. **Katalog Tindakan backend (contracts)** — [tindakan.prisma](../prisma/schema/tindakan.prisma) (`Tindakan` + enum `TindakanKategori`/`TingkatKompleksitas`, **katalog leaf tanpa version**, soft-delete) + [schemas/master/tindakan.ts](../src/lib/schemas/master/tindakan.ts) (Zod+DTO mirror `TindakanRecord`) + [tindakanDal.ts](../src/lib/dal/master/tindakanDal.ts) + [tindakanService.ts](../src/lib/services/master/tindakanService.ts) (`list` actor-less, status⇄active) + Route GET/POST/PATCH/DELETE (`master.katalog`) + [api/master/tindakan.ts](../src/lib/api/master/tindakan.ts). Mengikuti pola sibling **ICD**. Migrasi `20260612000000_add_master_tindakan` (additive-manual + `migrate deploy`).
+2. **FE swap SSR hybrid** — [page.tsx](../src/app/ehis-master/katalog-tindakan/page.tsx) Server Component panggil `tindakanService.list` langsung → `initial`/`prefetched`; [KatalogTindakanPage](../src/components/master/katalog-tindakan/KatalogTindakanPage.tsx) seed `useMasterCrud` + CUD via client (`commit`/`removeLocal`) + toast + DiscardDialog + fallback client fetch. `TINDAKAN_MOCK` dikosongkan.
+3. **Form Katalog Tindakan (UI)** — toggle **Status KPTL** (`ToggleSwitch` + `SectionGroup` reveal) buka Nomor KPTL + Tingkat Kompleksitas (kini **opsional**, default null) · **dropdown Kategori kustom** (dot warna + popover beranimasi, klik-luar/Escape) · **DiscardDialog** (pola master/icd) ganti `window.confirm` saat batal/pindah dirty.
+4. **Kode ICD-9 opsional** — form edit `required`→`hint="Opsional"`; `isTindakanValid` hanya cek nama; kontrak sudah `.optional()` + Prisma `@default("")`.
+5. **5 kategori tambahan** — `Non Kategori`·`Prosedur Bedah`·`Prosedur Non Bedah`·`Keperawatan`·`Tindakan Invasif` lintas-lapis (prisma enum + migrasi `20260612010000` `ADD VALUE IF NOT EXISTS` + union FE + `KATEGORI_CFG`/`KATEGORI_ORDER` + Zod + DAL + IGD `IGD_KATEGORI_MAP`).
+6. **Mapping Hub → Layanan Unit konsumsi real** — baris = tindakan DB; **kolom = Location (Ruangan) aktif** dari master Unit & Ruangan (`unitsFromTree`, selaras SDM `ruanganFromTree`). SSR hybrid: [mapping/page.tsx](../src/app/ehis-master/mapping/page.tsx) fetch tindakan+tree (`Promise.allSettled`) → [MappingHubPage](../src/components/master/mapping/MappingHubPage.tsx) → [LayananUnitPane](../src/components/master/mapping/layanan/LayananUnitPane.tsx) (fallback `getTree`+`listTindakan`). Seed default di-scope ke kode unit valid (stat akurat). `LayananUnitMatrix` kolom dari prop. Helper baru [layananShared.ts](../src/components/master/mapping/layanan/layananShared.ts): `unitsFromTree`/`tindakanRecordsFromDTO`.
+
+## ✅ Selesai — RBAC Prosedur ICD-9 + Record Bus Reaktivitas (2026-06-11/12)
+
+1. **Split prosedur ICD-9** — resource `clinical.prosedur` (read/create/delete) terpisah dari `clinical.diagnosa` (ICD-10) → **Perawat boleh input ICD-9** tanpa hak tulis ICD-10. Endpoint `diagnosa/prosedur/*` re-gate + grant Perawat (`clinical.diagnosa:read` + `clinical.prosedur:*`). Migrasi `20260611250000_rbac_split_prosedur_icd9`. Lihat memori `project_rbac_rekammedis_and_receive`.
+2. **Record Bus** [lib/realtime/recordBus.ts](../src/lib/realtime/recordBus.ts) — sinkron header↔tab tanpa refresh (`useSyncExternalStore`, key kunjungan+domain). TTVTab simpan → emit `observation` → PatientHeader re-fetch vitals. Calon sink SSE lintas-user.
+
 ## ✅ Selesai — Master Pengguna & Pegawai Backend + Wiring (2026-06-05)
 
 > Tabel **[/ehis-master/pengguna](../src/app/ehis-master/pengguna/)** tersambung penuh ke DB (akun real + pegawai). Layered **Route→Service→DAL→Prisma**, multi-schema `master` + `auth`. Provisioning akun saja — **login/JWT belum** (`getActor()` = DEV actor). Tech debt: [TECH_DEBT.md](../TECH_DEBT.md#pengguna--pegawai-backend-wired-2026-06-05).

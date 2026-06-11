@@ -6,7 +6,8 @@ import { db, type Tx } from "@/lib/db/prisma";
 
 type TindakanKategoriDb =
   | "Konsultasi" | "Tindakan_Medis" | "Diagnostik" | "Bedah_Minor" | "Bedah_Mayor"
-  | "Bedah_Khusus" | "Obstetri" | "Pediatrik" | "Resusitasi" | "Anestesi" | "Spesialistik";
+  | "Bedah_Khusus" | "Obstetri" | "Pediatrik" | "Resusitasi" | "Anestesi" | "Spesialistik"
+  | "Non_Kategori" | "Prosedur_Bedah" | "Prosedur_Non_Bedah" | "Keperawatan" | "Tindakan_Invasif";
 type KompleksitasDb = "Sederhana" | "Sedang" | "Khusus" | "Canggih";
 
 export interface CreateTindakanData {

@@ -29,7 +29,8 @@
 - [ ] Hapus tarif sintetis (`KOMPLEKSITAS_BASE` multiplier) → tarif **nyata** dari chargemaster (`tarifUmum/BPJS/Asuransi`).
 
 ### CM2 — Layanan Unit federasi + default home-unit
-- [ ] `mapping/layanan/layananShared.ts`: `getTindakanList()` → `getBillableServices()`.
+> **Groundwork ✅ (2026-06-12):** Layanan Unit kini SSR-hybrid — **baris = tindakan DB** (`/master/tindakan`), **kolom = Location aktif** dari master Unit & Ruangan (`unitsFromTree`). Seed default di-scope ke kode unit valid. Sisa CM2 di bawah = federasi billable-service + `unitTerkait` chargemaster + filter sumber + **selaraskan kode `unitDefault`↔Location**.
+- [ ] `mapping/layanan/layananShared.ts`: `getTindakanList()` → `getBillableServices()` (federasi Tindakan+Lab+Rad).
 - [ ] Seed default `unitTerkait`: tindakan→`unitDefault` · lab→`["LAB"]` · rad→`["RAD"]` (admin toggle pengecualian POCT/portabel).
 - [ ] `LayananUnitPane`: filter sumber. Matrix edit `TarifRecord.unitTerkait` (bukan `unitDefault` katalog tindakan).
 - [ ] **Catatan:** tab "Relasi Default" TIDAK ditambahkan ke katalog Lab/Rad (separuh tab — `spesialisDefault` — tak relevan). Default unit hidup di chargemaster.
