@@ -1,0 +1,34 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Mapping Hub — Layanan Unit
+//  Link N:N Tindakan ⇄ Ruangan (Location): "tindakan apa boleh dilakukan di ruangan mana".
+//  Dikelola di Mapping Hub → Layanan Unit (matriks tindakan × kolom ruangan).
+//
+//  BEDA dari (jangan tertukar):
+//   • Tindakan.unitDefault → SEED default (teks kode kurasi), bukan source-of-truth mapping.
+//   • PenugasanRuangan      → Pegawai ⇄ Ruangan (SDM), bukan Tindakan.
+//  Mapping ini OPERASIONAL, level RUANGAN (Location), many-to-many. Sumber-of-truth Layanan Unit.
+//
+//  Join table → HARD delete saat dicabut (bukan soft-delete); unik (tindakan, ruangan) cegah
+//  dobel → grant idempoten. Konvensi (FLOWS §9): uuid v7 · timestamptz. Selaras PenugasanRuangan.
+//
+//  Catatan federasi (TODO-CHARGEMASTER CM2/CM5): saat chargemaster siap, mapping ini bersatu ke
+//  Tarif.unitTerkait (federasi Tindakan+Lab+Rad). Untuk kini = tabel berdiri-sendiri Tindakan-only.
+// ════════════════════════════════════════════════════════════════════════════
+
+model LayananUnit {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  tindakanId String   @map("tindakan_id") @db.Uuid
+  tindakan   Tindakan @relation(fields: [tindakanId], references: [id], onDelete: Restrict)
+
+  locationId String   @map("location_id") @db.Uuid
+  location   Location @relation("LayananLokasi", fields: [locationId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([tindakanId, locationId])
+  @@index([locationId])
+  @@index([tindakanId])
+  @@map("layanan_unit")
+  @@schema("master")
+}

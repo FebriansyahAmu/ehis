@@ -158,6 +158,8 @@ model Location {
   beds Bed[]
   /// Penugasan SDM ke ruangan ini (Mapping Hub → SDM Assignment); N:M via master.PenugasanRuangan.
   penugasan PenugasanRuangan[] @relation("LokasiPenugasan")
+  /// Tindakan yang boleh dilakukan di ruangan ini (Mapping Hub → Layanan Unit); N:M via master.LayananUnit.
+  layanan LayananUnit[] @relation("LayananLokasi")
 
   @@index([organizationId])
   @@index([locationType])

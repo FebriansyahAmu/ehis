@@ -1,18 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Activity, MapPin, Link2, Search, RotateCcw, Loader2, EyeOff } from "lucide-react";
+import { Activity, MapPin, Link2, Search, Loader2, EyeOff, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type TindakanKategori, type TindakanRecord, KATEGORI_CFG, KATEGORI_ORDER } from "@/lib/master/tindakanMock";
 import type { AnyNode } from "@/components/master/ruangan/ruanganShared";
 import { getTree } from "@/lib/api/ruangan";
 import { listTindakan, type TindakanDTO } from "@/lib/api/master/tindakan";
+import {
+  type LayananUnitEdgeDTO,
+  listAllLayanan, grantLayanan, revokeLayanan,
+} from "@/lib/api/master/layananUnit";
 import { ApiError } from "@/lib/api/client";
 import { toast } from "@/lib/ui/toastStore";
 import {
   type LayananMap,
-  initLayananMap, countAllLayanan, unitsFromTree, tindakanRecordsFromDTO,
+  countAllLayanan, unitsFromTree, tindakanRecordsFromDTO,
+  mapFromEdges, edgeKey, setPresence,
+  readEdgeCache, writeEdgeCache, cacheEdge, uncacheEdge,
 } from "./layananShared";
 import LayananUnitMatrix from "./LayananUnitMatrix";
 import LayananUnitTreePanel from "./LayananUnitTreePanel";
@@ -22,47 +28,71 @@ interface Props {
   tindakan?: TindakanDTO[];
   /** Tree Ruangan dari SSR — kolom unit diturunkan dari Location aktif. Absen → client fetch. */
   tree?: AnyNode[];
+  /** Edge mapping persist dari SSR (API /master/layanan-unit). Absen → client fetch. */
+  layanan?: LayananUnitEdgeDTO[];
 }
 
-export default function LayananUnitPane({ tindakan, tree }: Props) {
+export default function LayananUnitPane({ tindakan, tree, layanan }: Props) {
   const seeded = useMemo(() => (tindakan ? tindakanRecordsFromDTO(tindakan) : []), [tindakan]);
   const seededUnitKodes = useMemo(() => new Set(unitsFromTree(tree ?? []).map((u) => u.kode)), [tree]);
+  // First paint: cache sesi (state terkini, sudah memuat edit sesi ini) bila ada, else snapshot SSR
+  // yang beku. Mencegah flicker "muncul lalu hilang" saat remount antar sub-page.
+  const seededEdges = useMemo(
+    () => mapFromEdges(readEdgeCache() ?? layanan ?? [], seededUnitKodes),
+    [layanan, seededUnitKodes],
+  );
 
+  const ssrComplete = !!(tree && tindakan && layanan);
   const [nodes, setNodes] = useState<AnyNode[]>(tree ?? []);
   const [allTindakan, setAllTindakan] = useState<TindakanRecord[]>(seeded);
-  const [map, setMap] = useState<LayananMap>(() => initLayananMap(seeded, seededUnitKodes));
-  const [loaded, setLoaded] = useState(!!(tree && tindakan));
+  const [map, setMap] = useState<LayananMap>(seededEdges.map);
+  const [loaded, setLoaded] = useState(ssrComplete);
   const [search, setSearch] = useState("");
   const [visibleKategori, setVisibleKategori] = useState<Set<TindakanKategori>>(
     () => new Set(KATEGORI_ORDER),
   );
   // Kolom unit yang DISEMBUNYIKAN dari matriks (default kosong = semua tampak).
   const [hiddenUnits, setHiddenUnits] = useState<Set<string>>(new Set());
+  // Banyaknya edge yang sedang disimpan (in-flight) → indikator "menyimpan…".
+  const [saving, setSaving] = useState(0);
+
+  // Index edge `${tindakanId}|${ruanganKode}` → id (untuk revoke). Mutable, non-reaktif.
+  const edgeIndexRef = useRef<Map<string, string>>(seededEdges.index);
+  // Jadi true begitu user mengedit → reconcile-on-mount tak menimpa hasil optimistik in-flight.
+  const dirtyRef = useRef(false);
 
   // Kolom unit = Location (Ruangan) aktif dari master Unit & Ruangan.
   const units = useMemo(() => unitsFromTree(nodes), [nodes]);
-  const unitKodeSet = useMemo(() => new Set(units.map((u) => u.kode)), [units]);
+  // Peta kode → Location.id (resolve target persist saat toggle).
+  const kodeToId = useMemo(() => new Map(units.map((u) => [u.kode, u.id])), [units]);
   // Subset yang benar-benar dirender sebagai kolom matriks (setelah filter tree).
   const visibleUnits = useMemo(() => units.filter((u) => !hiddenUnits.has(u.kode)), [units, hiddenUnits]);
 
-  // Fallback fetch bila SSR tak prefetch salah satu sumber (degradasi anggun).
+  // Reconcile-on-mount. Seed SSR dipakai utk first paint instan, TAPI setiap kali pane ini mount
+  // (termasuk saat balik dari sub-page lain — MappingHubPage remount via AnimatePresence) kita
+  // tarik ulang edge TERBARU dari server. Tanpa ini, snapshot SSR yang beku bikin hasil grant/
+  // revoke sesi ini "hilang" sampai hard refresh. tree/tindakan jarang berubah → hanya di-fetch
+  // bila SSR tak menyediakannya; edge SELALU di-fetch ulang (sumber kebenaran centang).
   useEffect(() => {
-    if (tree && tindakan) return;
     const ac = new AbortController();
     (async () => {
       try {
-        const [treeRes, tindakanRes] = await Promise.all([
+        const [treeRes, tindakanRes, edgeRes] = await Promise.all([
           tree ? null : getTree(ac.signal),
           tindakan ? null : listTindakan({ limit: 200 }, ac.signal),
+          listAllLayanan(ac.signal),
         ]);
         if (ac.signal.aborted) return;
         const newNodes = treeRes ?? tree ?? [];
-        const recs = tindakanRes ? tindakanRecordsFromDTO(tindakanRes.items) : seeded;
         if (treeRes) setNodes(treeRes);
-        if (tindakanRes) setAllTindakan(recs);
-        if (treeRes || tindakanRes) {
-          const valid = new Set(unitsFromTree(newNodes).map((u) => u.kode));
-          setMap(initLayananMap(recs, valid));
+        if (tindakanRes) setAllTindakan(tindakanRecordsFromDTO(tindakanRes.items));
+        const valid = new Set(unitsFromTree(newNodes).map((u) => u.kode));
+        const { map: nextMap, index } = mapFromEdges(edgeRes, valid);
+        // Jangan timpa bila user sudah menoggle selama fetch berlangsung (cegah clobber optimistik).
+        if (!dirtyRef.current) {
+          setMap(nextMap);
+          edgeIndexRef.current = index;
+          writeEdgeCache(edgeRes); // segarkan cache sesi → remount berikutnya seed dari sini
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -90,30 +120,72 @@ export default function LayananUnitPane({ tindakan, tree }: Props) {
     return { totalCells, granted, pct };
   }, [allTindakan, units, map]);
 
-  const handleToggle = (tindakanId: string, unitKode: string) => {
+  // ── Persist grant/revoke (optimistik → server → revert yang gagal) ──────────
+  type Change = { tindakanId: string; unitKode: string; granted: boolean };
+
+  /** Simpan satu sel (grant/revoke) + sinkron index id-edge. Return sukses/gagal. */
+  async function persistCell(c: Change): Promise<boolean> {
+    const key = edgeKey(c.tindakanId, c.unitKode);
+    const locationId = kodeToId.get(c.unitKode);
+    if (!locationId) return false;
+    try {
+      if (c.granted) {
+        if (edgeIndexRef.current.has(key)) return true; // sudah granted
+        const edge = await grantLayanan({ tindakanId: c.tindakanId, locationId });
+        edgeIndexRef.current.set(key, edge.id);
+        cacheEdge(edge); // cache sesi ikut update → seed remount konsisten (tanpa flicker)
+      } else {
+        const id = edgeIndexRef.current.get(key);
+        if (!id) return true; // sudah tak ada
+        await revokeLayanan(id);
+        edgeIndexRef.current.delete(key);
+        uncacheEdge(c.tindakanId, c.unitKode);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Terapkan sekumpulan perubahan: optimistik → persist paralel → revert yang gagal. */
+  async function applyChanges(changes: Change[]) {
+    if (changes.length === 0) return;
+    dirtyRef.current = true; // tandai sesi dirty → reconcile-on-mount tak menimpa edit ini
     setMap((prev) => {
-      const current = prev[tindakanId] ?? [];
-      const has = current.includes(unitKode);
-      return {
-        ...prev,
-        [tindakanId]: has ? current.filter((u) => u !== unitKode) : [...current, unitKode],
-      };
+      const next = { ...prev };
+      for (const c of changes) next[c.tindakanId] = setPresence(next[c.tindakanId] ?? [], c.unitKode, c.granted);
+      return next;
     });
+    setSaving((n) => n + changes.length);
+    const results = await Promise.allSettled(changes.map(persistCell));
+    setSaving((n) => Math.max(0, n - changes.length));
+    const failed = changes.filter((_, i) => {
+      const r = results[i];
+      return r.status === "rejected" || !r.value;
+    });
+    if (failed.length === 0) return;
+    setMap((prev) => {
+      const next = { ...prev };
+      for (const c of failed) next[c.tindakanId] = setPresence(next[c.tindakanId] ?? [], c.unitKode, !c.granted);
+      return next;
+    });
+    toast.error(
+      failed.length === 1 ? "Gagal menyimpan perubahan" : `${failed.length} perubahan gagal disimpan`,
+    );
+  }
+
+  const handleToggle = (tindakanId: string, unitKode: string) => {
+    const granted = !(map[tindakanId] ?? []).includes(unitKode);
+    void applyChanges([{ tindakanId, unitKode, granted }]);
   };
 
   const handleToggleRow = (tindakanId: string, granted: boolean) => {
-    const visKodes = visibleUnits.map((u) => u.kode);
-    setMap((prev) => {
-      const current = prev[tindakanId] ?? [];
-      if (granted) {
-        const set = new Set(current);
-        for (const k of visKodes) set.add(k);
-        return { ...prev, [tindakanId]: [...set] };
-      }
-      // Hapus hanya kolom yang tampak; mapping unit tersembunyi dibiarkan.
-      const visSet = new Set(visKodes);
-      return { ...prev, [tindakanId]: current.filter((k) => !visSet.has(k)) };
-    });
+    const current = map[tindakanId] ?? [];
+    // Hanya kolom yang TAMPAK; unit tersembunyi tak diutak-atik.
+    const changes = visibleUnits
+      .filter((u) => current.includes(u.kode) !== granted)
+      .map((u) => ({ tindakanId, unitKode: u.kode, granted }));
+    void applyChanges(changes);
   };
 
   // ── Visibilitas kolom (panel tree) ──────────────────────
@@ -141,22 +213,13 @@ export default function LayananUnitPane({ tindakan, tree }: Props) {
   };
 
   const handleToggleColumn = (unitKode: string, granted: boolean) => {
-    setMap((prev) => {
-      const next = { ...prev };
-      for (const t of filteredTindakan) {
-        if (!visibleKategori.has(t.kategori)) continue;
-        const current = next[t.id] ?? [];
-        const has = current.includes(unitKode);
-        if (granted && !has) next[t.id] = [...current, unitKode];
-        if (!granted && has) next[t.id] = current.filter((u) => u !== unitKode);
-      }
-      return next;
-    });
-  };
-
-  const handleResetDefault = () => {
-    if (!confirm("Reset semua mapping ke default berdasarkan katalog?")) return;
-    setMap(initLayananMap(allTindakan, unitKodeSet));
+    const changes: Change[] = [];
+    for (const t of filteredTindakan) {
+      if (!visibleKategori.has(t.kategori)) continue;
+      const has = (map[t.id] ?? []).includes(unitKode);
+      if (has !== granted) changes.push({ tindakanId: t.id, unitKode, granted });
+    }
+    void applyChanges(changes);
   };
 
   const toggleKategoriVisibility = (cat: TindakanKategori) => {
@@ -206,14 +269,22 @@ export default function LayananUnitPane({ tindakan, tree }: Props) {
                   className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-7 pr-3 m-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100"
                 />
               </div>
-              <button
-                type="button"
-                onClick={handleResetDefault}
-                className="flex items-center gap-1 rounded-lg border border-teal-200 bg-white px-2.5 py-1.5 m-mini font-semibold text-teal-700 transition hover:bg-teal-50"
+              <div
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 py-1.5 m-mini font-semibold"
+                aria-live="polite"
               >
-                <RotateCcw size={10} />
-                Reset Default
-              </button>
+                {saving > 0 ? (
+                  <>
+                    <Loader2 size={11} className="animate-spin text-teal-500" />
+                    <span className="text-teal-600">Menyimpan…</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={11} className="text-emerald-500" />
+                    <span className="text-slate-500">Tersimpan otomatis</span>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Kategori filter chips */}

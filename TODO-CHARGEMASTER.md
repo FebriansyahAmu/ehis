@@ -29,7 +29,7 @@
 - [ ] Hapus tarif sintetis (`KOMPLEKSITAS_BASE` multiplier) → tarif **nyata** dari chargemaster (`tarifUmum/BPJS/Asuransi`).
 
 ### CM2 — Layanan Unit federasi + default home-unit
-> **Groundwork ✅ (2026-06-12):** Layanan Unit kini SSR-hybrid — **baris = tindakan DB** (`/master/tindakan`), **kolom = Location aktif** dari master Unit & Ruangan (`unitsFromTree`). Seed default di-scope ke kode unit valid. Sisa CM2 di bawah = federasi billable-service + `unitTerkait` chargemaster + filter sumber + **selaraskan kode `unitDefault`↔Location**.
+> **Groundwork ✅ (2026-06-12):** Layanan Unit kini SSR-hybrid — **baris = tindakan DB** (`/master/tindakan`), **kolom = Location aktif** dari master Unit & Ruangan (`unitsFromTree`). Seed default di-scope ke kode unit valid. **Persist interim ✅ + matriks ter-wire** — tabel `master.LayananUnit` (join Tindakan⇄Location) + endpoint `/master/layanan-unit` GET/POST/DELETE (grant/revoke idempoten, RBAC `master.mapping`), pola persis `PenugasanRuangan`; matriks grant/revoke optimistik (toggle sel/baris/kolom) + revert + auto-save + seed edge SSR; **Tindakan-only** (belum federasi Lab/Rad). Sisa CM2 di bawah = federasi billable-service + pindah persist ke `Tarif.unitTerkait` + filter sumber + **selaraskan kode `unitDefault`↔Location**.
 - [ ] `mapping/layanan/layananShared.ts`: `getTindakanList()` → `getBillableServices()` (federasi Tindakan+Lab+Rad).
 - [ ] Seed default `unitTerkait`: tindakan→`unitDefault` · lab→`["LAB"]` · rad→`["RAD"]` (admin toggle pengecualian POCT/portabel).
 - [ ] `LayananUnitPane`: filter sumber. Matrix edit `TarifRecord.unitTerkait` (bukan `unitDefault` katalog tindakan).

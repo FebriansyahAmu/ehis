@@ -138,6 +138,19 @@ Mapping Hub **Layanan Unit** (`Tindakan × Unit → boleh dilakukan`) kini **kon
 
 > **⚠️ Gap kode unit (CM2):** `tindakan.unitDefault` (kode curated tab Relasi, mis. `IGD`) **≠** kode Location (`IGD-TRI`) → seed default Layanan Unit di-**scope** ke kode unit valid agar stat granted akurat; default cell mulai kosong, admin map manual. Penyelarasan kode Relasi↔Location = kerja **chargemaster CM2** ([TODO-CHARGEMASTER.md](../TODO-CHARGEMASTER.md)). **Kewenangan Klinis tetap Tindakan-only** (tak ikut federasi).
 
+#### A.8.1 Persistensi mapping — `master.LayananUnit` (backend ✅ 2026-06-12)
+
+Matriks Layanan Unit kini punya **tabel persist** (sebelumnya state-only). Join N:N **Tindakan ⇄ Location** — sumber-of-truth Layanan Unit (interim, Tindakan-only; bersatu ke `Tarif.unitTerkait` saat chargemaster CM2/CM5).
+
+- **Model:** [layananUnit.prisma](../prisma/schema/layananUnit.prisma) — `LayananUnit(tindakanId, locationId)`, unik `(tindakan,location)` → grant idempoten, **hard-delete** saat dicabut, **NO version** (join). FK `Restrict` ke `Tindakan`+`Location`. Pola persis [PenugasanRuangan](../prisma/schema/penugasanRuangan.prisma).
+- **Layer:** [schemas/master/layananUnit.ts](../src/lib/schemas/master/layananUnit.ts) (Grant/Query/DTO edge ramping + `ruanganKode` dari join) · [layananUnitDal.ts](../src/lib/dal/master/layananUnitDal.ts) (create/findById/findByPair/list keyset/deleteById + guard tindakan/location) · [layananUnitService.ts](../src/lib/services/master/layananUnitService.ts) (`list` **actor-less** → SSR · `grant` idempoten · `revoke` hard-delete).
+- **Endpoint** (RBAC **`master.mapping`** — pane Mapping Hub, bukan resource baru):
+  - `GET /master/layanan-unit?tindakanId=&locationId=&cursor=&limit=` (`:read`) — list edge, cursor; `listAllLayanan()` loop utk map penuh.
+  - `POST /master/layanan-unit {tindakanId, locationId}` (`:update`) — grant idempoten (201 baru / 200 sudah ada).
+  - `DELETE /master/layanan-unit/:id` (`:update`) — revoke.
+- **Client:** [api/master/layananUnit.ts](../src/lib/api/master/layananUnit.ts) (`listLayanan`/`listAllLayanan`/`grantLayanan`/`revokeLayanan`).
+- **FE wiring ✅:** [LayananUnitPane](../src/components/master/mapping/layanan/LayananUnitPane.tsx) — `unitsFromTree` bawa `id` (Location) → `kodeToId`; toggle sel/baris/kolom = `applyChanges` (optimistik → `grant`/`revoke` paralel → **revert sel gagal** + toast); index `${tindakanId}|${ruanganKode}→edgeId` ([layananShared.ts](../src/components/master/mapping/layanan/layananShared.ts) `mapFromEdges`/`edgeKey`/`setPresence`); seed `LayananMap` dari edge SSR ([mapping/page.tsx](../src/app/ehis-master/mapping/page.tsx) `layananUnitService.list`); indikator **auto-save**; tombol "Reset Default" (jalur `unitDefault`) dibuang.
+
 ### A.9 Task checklist (Katalog Tindakan)
 - [x] **KT0 — Schema & migrasi**: [tindakan.prisma](../prisma/schema/tindakan.prisma) + migrasi tabel & 5 kategori.
 - [x] **KT1 — Zod + DTO** [schemas/master/tindakan.ts](../src/lib/schemas/master/tindakan.ts) (kode opsional, KPTL, clearable).
@@ -147,6 +160,7 @@ Mapping Hub **Layanan Unit** (`Tindakan × Unit → boleh dilakukan`) kini **kon
 - [x] **KT5 — Client** [api/master/tindakan.ts](../src/lib/api/master/tindakan.ts).
 - [x] **KT6 — Swap FE** [KatalogTindakanPage](../src/components/master/katalog-tindakan/KatalogTindakanPage.tsx) SSR hybrid + CUD + toast.
 - [x] **KT7 — Konsumsi Mapping Hub Layanan Unit** (§A.8) — baris DB + kolom Location, SSR hybrid.
+- [x] **KT8a — Persist Layanan Unit** (§A.8.1) — `master.LayananUnit` + 3 endpoint grant/revoke/list + **matriks ter-wire** (grant/revoke optimistik, seed edge SSR, auto-save).
 - [ ] **KT8 — Tests** (Service: create/update/soft-delete; DAL: list filter+cursor).
 - [ ] **KT9 — Cache-aside** (saat Redis siap) + seed contoh (opsional; katalog diisi manual).
 

@@ -67,6 +67,9 @@ model Tindakan {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
+  /// Ruangan tempat tindakan ini boleh dilakukan (Mapping Hub → Layanan Unit); N:M via master.LayananUnit.
+  layanan LayananUnit[]
+
   @@index([kategori, active]) // list/filter per kategori + status
   @@index([kode]) // cari by kode
   @@map("tindakan")

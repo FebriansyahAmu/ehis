@@ -1,5 +1,6 @@
 import type { TindakanRecord } from "@/lib/master/tindakanMock";
 import type { TindakanDTO } from "@/lib/schemas/master/tindakan";
+import type { LayananUnitEdgeDTO } from "@/lib/schemas/master/layananUnit";
 import type { AnyNode, LocationNode, LocationType } from "@/components/master/ruangan/ruanganShared";
 
 // ── Types ─────────────────────────────────────────────────
@@ -9,6 +10,8 @@ export type LayananMap = Record<string, string[]>;
 
 /** Kolom matrix Layanan Unit — diturunkan dari Location (Ruangan) master. */
 export interface LayananUnit {
+  /** Location.id — dipakai persist grant/revoke (FK ke master.LayananUnit). */
+  id: string;
   kode: string;
   nama: string;
   short: string;
@@ -49,6 +52,7 @@ export function unitsFromTree(tree: AnyNode[]): LayananUnit[] {
   return tree
     .filter((n): n is LocationNode => n.type === "Location" && n.active !== false)
     .map((n) => ({
+      id: n.id,
       kode: n.kode,
       nama: n.name,
       short: unitShort(n.kode, n.name),
@@ -67,22 +71,69 @@ export function tindakanRecordsFromDTO(dtos: TindakanDTO[]): TindakanRecord[] {
   }));
 }
 
-// ── Helpers ───────────────────────────────────────────────
+// ── Edge persist (master.LayananUnit) ─────────────────────
+
+/** Kunci index edge: `${tindakanId}|${ruanganKode}` → id edge (untuk revoke). */
+export function edgeKey(tindakanId: string, unitKode: string): string {
+  return `${tindakanId}|${unitKode}`;
+}
 
 /**
- * Default: tiap tindakan tersedia di unit yang ada di `unitDefault`-nya (dari katalog).
- * `validUnitKodes` (bila ada) menyaring ke kode kolom yang benar-benar ada di matrix —
- * cegah kode yatim (unitDefault katalog ≠ kode Location) mengotori statistik granted.
+ * Seed `LayananMap` + index id-edge dari data persist (`/master/layanan-unit`).
+ * `validUnitKodes` (bila ada) menyaring ke kode kolom aktif — cegah edge ke ruangan
+ * non-aktif mengotori statistik/granted. Map di-key by `ruanganKode` (selaras kolom matrix).
  */
-export function initLayananMap(tindakan: TindakanRecord[], validUnitKodes?: Set<string>): LayananMap {
+export function mapFromEdges(
+  edges: LayananUnitEdgeDTO[],
+  validUnitKodes?: Set<string>,
+): { map: LayananMap; index: Map<string, string> } {
   const map: LayananMap = {};
-  for (const t of tindakan) {
-    map[t.id] = validUnitKodes
-      ? t.unitDefault.filter((k) => validUnitKodes.has(k))
-      : [...t.unitDefault];
+  const index = new Map<string, string>();
+  for (const e of edges) {
+    if (validUnitKodes && !validUnitKodes.has(e.ruanganKode)) continue;
+    (map[e.tindakanId] ??= []).push(e.ruanganKode);
+    index.set(edgeKey(e.tindakanId, e.ruanganKode), e.id);
   }
-  return map;
+  return { map, index };
 }
+
+// ── Cache edge per-sesi (module-scoped, client-only) ──────
+// Pane Layanan Unit di-unmount→remount tiap ganti sub-page Mapping Hub (AnimatePresence). Prop
+// `initialLayanan` adalah snapshot SSR yang BEKU saat page-load → seed remount darinya bikin edit
+// sesi ini "muncul lalu hilang" (flicker) saat reconcile. Cache ini menyimpan state edge TERKINI
+// yang diketahui klien (di-update tiap reconcile & tiap grant/revoke sukses) → seed remount pakai
+// data terbaru, bukan snapshot basi. Hanya di-import komponen client → aman (per-tab, bukan server).
+let edgeCache: Map<string, LayananUnitEdgeDTO> | null = null;
+
+/** Baca cache edge terkini (null bila belum pernah di-isi → caller fallback ke SSR snapshot). */
+export function readEdgeCache(): LayananUnitEdgeDTO[] | null {
+  return edgeCache ? [...edgeCache.values()] : null;
+}
+
+/** Ganti seluruh isi cache dgn snapshot server (dipanggil saat reconcile sukses). */
+export function writeEdgeCache(edges: LayananUnitEdgeDTO[]): void {
+  edgeCache = new Map(edges.map((e) => [edgeKey(e.tindakanId, e.ruanganKode), e]));
+}
+
+/** Tambah/replace satu edge (grant sukses). */
+export function cacheEdge(edge: LayananUnitEdgeDTO): void {
+  (edgeCache ??= new Map()).set(edgeKey(edge.tindakanId, edge.ruanganKode), edge);
+}
+
+/** Hapus satu edge dari cache (revoke sukses). */
+export function uncacheEdge(tindakanId: string, unitKode: string): void {
+  edgeCache?.delete(edgeKey(tindakanId, unitKode));
+}
+
+/** Set/unset keberadaan satu kode di array (imutabel). */
+export function setPresence(arr: string[], unitKode: string, present: boolean): string[] {
+  const has = arr.includes(unitKode);
+  if (present && !has) return [...arr, unitKode];
+  if (!present && has) return arr.filter((k) => k !== unitKode);
+  return arr;
+}
+
+// ── Helpers ───────────────────────────────────────────────
 
 export function hasLayanan(map: LayananMap, tindakanId: string, unitKode: string): boolean {
   return (map[tindakanId] ?? []).includes(unitKode);
