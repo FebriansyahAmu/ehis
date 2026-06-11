@@ -18,6 +18,7 @@ const PERMISSION_TREE = [
     { key: "clinical.rekammedis", label: "Rekam Medis (Asesmen/Anamnesis/Observasi)", actions: ["read","create","update","delete"] },
     { key: "clinical.cppt", label: "CPPT (SOAP)", actions: ["read","create","update","delete"] },
     { key: "clinical.diagnosa", label: "Diagnosa (ICD-10)", actions: ["read","create","update","delete"] },
+    { key: "clinical.prosedur", label: "Prosedur (ICD-9-CM)", actions: ["read","create","delete"] }, // dipisah dari diagnosa → Perawat boleh input ICD-9
     { key: "clinical.tindakan", label: "Tindakan / Order", actions: ["read","create","update","delete"] },
     { key: "clinical.resep", label: "Resep & Obat", actions: ["read","create","update","delete"] },
   ]},
@@ -70,7 +71,7 @@ const ROLE_DEFAULT_GRANTS = {
   Dokter: {
     "clinical.igd": ["read","create","update"], "clinical.ri": ["read","create","update"], "clinical.rj": ["read","create","update"],
     "clinical.rekammedis": ["read","create","update"], // rekam medis lintas-unit (asesmen/anamnesis/observasi) — ABAC careUnit yang batasi unit
-    "clinical.cppt": ["read","create","update","delete"], "clinical.diagnosa": ["read","create","update"], "clinical.tindakan": ["read","create","update"],
+    "clinical.cppt": ["read","create","update","delete"], "clinical.diagnosa": ["read","create","update"], "clinical.prosedur": ["read","create","delete"], "clinical.tindakan": ["read","create","update"],
     "clinical.resep": ["read","create","update"],
     // TIDAK ada ancillary.* — penunjang berdiri-sendiri; dokter lihat status order via tab rekam medis.
     "master.triase": ["read"], "report.clinical": ["read","export"],
@@ -82,6 +83,7 @@ const ROLE_DEFAULT_GRANTS = {
     "clinical.igd": ["read","update"], "clinical.ri": ["read","update"], "clinical.rj": ["read","update"],
     "clinical.rekammedis": ["read","update"],
     "clinical.cppt": ["read","create","delete"],
+    "clinical.diagnosa": ["read"], "clinical.prosedur": ["read","create","delete"], // lihat ICD-10; input ICD-9-CM
     "clinical.tindakan": ["read","update"], "clinical.resep": ["read"],
     // TIDAK ada ancillary.* — penunjang berdiri-sendiri; perawat lihat status order via tab rekam medis.
     "master.triase": ["read"],

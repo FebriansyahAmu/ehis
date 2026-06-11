@@ -2,8 +2,10 @@
 // Daftar hidup per-item; maks 1 Utama aktif (promosi menggeser Utama lama → Sekunder,
 // atomik dalam transaksi; partial unique index = backstop DB). Mutasi diagnosa
 // mengembalikan agregat penuh karena promosi Utama mengubah baris lain.
-// Pemeriksa = user login (actor→pegawai). RBAC `clinical.diagnosa` di Route;
-// ABAC unit-scope menyusul (TODO-CLINICAL keputusan #4).
+// Pemeriksa = user login (actor→pegawai). RBAC di Route: ICD-10 diagnosa = `clinical.diagnosa`,
+// prosedur ICD-9-CM = `clinical.prosedur` (resource terpisah → Perawat boleh input ICD-9 tanpa
+// hak tulis ICD-10). GET agregat di-gate clinical.diagnosa:read (memuat ICD-10 + ICD-9 sekaligus).
+// ABAC careUnit ditegakkan route() choke-point (clinical.*).
 
 import * as defaultDal from "@/lib/dal/diagnosa/diagnosaDal";
 import * as kunjunganDal from "@/lib/dal/kunjunganDal";

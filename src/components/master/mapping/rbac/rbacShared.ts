@@ -43,6 +43,9 @@ export const PERMISSION_TREE: PermissionModule[] = [
       { key: "clinical.rekammedis",   label: "Rekam Medis (Asesmen/Anamnesis/Observasi)", actions: ["read", "create", "update", "delete"] },
       { key: "clinical.cppt",         label: "CPPT (SOAP)",                  actions: ["read", "create", "update", "delete"] },
       { key: "clinical.diagnosa",     label: "Diagnosa (ICD-10)",            actions: ["read", "create", "update", "delete"] },
+      // Prosedur ICD-9-CM dipisah dari clinical.diagnosa → bisa diberikan ke Perawat (input ICD-9)
+      // tanpa membuka hak tulis diagnosis ICD-10. Tak ada "update" (endpoint hanya add/delete).
+      { key: "clinical.prosedur",     label: "Prosedur (ICD-9-CM)",          actions: ["read", "create", "delete"] },
       { key: "clinical.tindakan",     label: "Tindakan / Order",             actions: ["read", "create", "update", "delete"] },
       { key: "clinical.resep",        label: "Resep & Obat",                 actions: ["read", "create", "update", "delete"] },
     ],
@@ -142,6 +145,7 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
     "clinical.rekammedis": ["read", "create", "update"], // rekam medis lintas-unit; ABAC careUnit batasi unit
     "clinical.cppt": ["read", "create", "update", "delete"], // delete = hanya catatan miliknya (guard Service)
     "clinical.diagnosa": ["read", "create", "update"],
+    "clinical.prosedur": ["read", "create", "delete"], // ICD-9-CM (tindakan/prosedur)
     "clinical.tindakan": ["read", "create", "update"],
     "clinical.resep": ["read", "create", "update"],
     // CATATAN: TIDAK diberi ancillary.* — itu untuk unit penunjang (Lab/Rad/Farmasi) yang
@@ -162,6 +166,8 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
     "clinical.rj": ["read", "update"], // perawat poli/rawat jalan — menu RJ muncul bila unit kerja mencakup RJ
     "clinical.rekammedis": ["read", "update"], // rekam medis lintas-unit; ABAC careUnit batasi unit
     "clinical.cppt": ["read", "create", "delete"], // delete = hanya catatan miliknya (guard Service)
+    "clinical.diagnosa": ["read"], // boleh LIHAT diagnosis ICD-10 (buka tab) — TIDAK menulis ICD-10
+    "clinical.prosedur": ["read", "create", "delete"], // boleh INPUT prosedur ICD-9-CM (tindakan keperawatan)
     "clinical.tindakan": ["read", "update"],
     "clinical.resep": ["read"],
     // CATATAN: TIDAK diberi ancillary.* — itu untuk unit penunjang (Lab/Rad/Farmasi) yang

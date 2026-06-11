@@ -6,7 +6,8 @@ import { DiagnosaItemParam } from "@/lib/schemas/diagnosa/diagnosa";
 import { diagnosaService } from "@/lib/services/diagnosa/diagnosaService";
 
 export const DELETE = route({
-  resource: "clinical.diagnosa",
+  // Prosedur ICD-9-CM — resource terpisah dari clinical.diagnosa (lihat POST prosedur/route.ts).
+  resource: "clinical.prosedur",
   action: "delete",
   params: DiagnosaItemParam,
   handler: async ({ params, actor }) => {

@@ -7,7 +7,9 @@ import { ProsedurItemInput } from "@/lib/schemas/diagnosa/diagnosa";
 import { diagnosaService } from "@/lib/services/diagnosa/diagnosaService";
 
 export const POST = route({
-  resource: "clinical.diagnosa",
+  // Prosedur ICD-9-CM punya resource sendiri (≠ clinical.diagnosa/ICD-10) agar bisa diberikan
+  // ke Perawat tanpa membuka hak tulis diagnosis ICD-10. ABAC careUnit tetap berlaku (clinical.*).
+  resource: "clinical.prosedur",
   action: "create",
   params: IdParam,
   body: ProsedurItemInput,
