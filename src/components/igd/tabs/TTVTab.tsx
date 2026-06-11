@@ -11,6 +11,7 @@ import type { IGDPatientDetail, RITTVRecord, RIShift } from "@/lib/data";
 import { listObservasi, recordObservasi } from "@/lib/api/observation";
 import type { ObservationDTO } from "@/lib/schemas/observation";
 import { useSession } from "@/contexts/SessionContext";
+import { emitRecordChange } from "@/lib/realtime/recordBus";
 
 // id kunjungan DB = UUID; id demo/mock ("igd-1") tak tersimpan ke DB.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -90,6 +91,8 @@ export default function TTVTab({ patient }: { patient: IGDPatientDetail }) {
           perawat: p.perawat,
           waktuObservasi: p.isIGDMode && p.jam ? `${localDate()}T${p.jam}` : undefined,
         });
+        // Beri tahu komponen lain (PatientHeader vitals bar) → update tanpa refresh.
+        emitRecordChange(patient.id, "observation");
         return dtoToRecord(dto);
       }
     : undefined;

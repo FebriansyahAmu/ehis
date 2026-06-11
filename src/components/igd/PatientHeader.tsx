@@ -12,6 +12,7 @@ import {
 import type { IGDPatientDetail, TriageLevel, IGDStatus } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { listObservasi, type ObservationVitalSigns } from "@/lib/api/observation";
+import { useRecordVersion } from "@/lib/realtime/recordBus";
 
 // id kunjungan DB = UUID; id demo/mock ("igd-1") tak punya time-series TTV di DB.
 const HEADER_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -355,6 +356,9 @@ export default function PatientHeader({ patient }: { patient: IGDPatientDetail }
   const isPersisted = HEADER_UUID_RE.test(patient.id);
   const [liveVs, setLiveVs] = useState<{ vs: ObservationVitalSigns; jam: string; perawat: string } | null>(null);
 
+  // Reaktif: naik tiap TTVTab menyimpan observasi → re-fetch TTV terbaru tanpa refresh halaman.
+  const obsVersion = useRecordVersion(patient.id, "observation", isPersisted);
+
   useEffect(() => {
     if (!isPersisted) return;
     const ac = new AbortController();
@@ -369,7 +373,7 @@ export default function PatientHeader({ patient }: { patient: IGDPatientDetail }
       }
     })();
     return () => ac.abort();
-  }, [patient.id, isPersisted]);
+  }, [patient.id, isPersisted, obsVersion]); // obsVersion → re-fetch saat TTV baru disimpan
 
   const vs = liveVs?.vs ?? patient.vitalSigns;
   const gcsTotal = vs.gcsEye + vs.gcsVerbal + vs.gcsMotor;
@@ -534,9 +538,18 @@ export default function PatientHeader({ patient }: { patient: IGDPatientDetail }
               <span className="mr-1 flex shrink-0 flex-col leading-none">
                 <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Vital</span>
                 {liveVs && (
-                  <span className="mt-0.5 whitespace-nowrap text-[8px] font-medium text-slate-400" title={`TTV terakhir ${liveVs.jam} oleh ${liveVs.perawat}`}>
+                  // key=jam → animasi fade ringan tiap TTV terbaru masuk (umpan-balik "ter-update live").
+                  <motion.span
+                    key={`${liveVs.jam}-${liveVs.perawat}`}
+                    initial={{ opacity: 0.2 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.4, ease: "easeOut" }}
+                    className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-[8px] font-medium text-slate-400"
+                    title={`TTV terakhir ${liveVs.jam} oleh ${liveVs.perawat}`}
+                  >
+                    <span className="inline-flex h-1 w-1 rounded-full bg-emerald-400" aria-hidden />
                     {liveVs.jam} · {liveVs.perawat}
-                  </span>
+                  </motion.span>
                 )}
               </span>
               <VitalChip icon={Activity}    label="TD"    value={`${vs.tdSistolik}/${vs.tdDiastolik}`} unit="mmHg" lvl={lvlTD(vs.tdSistolik, vs.tdDiastolik)}  title={`Tekanan Darah: ${vs.tdSistolik}/${vs.tdDiastolik} mmHg`} />
