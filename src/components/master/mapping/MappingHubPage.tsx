@@ -15,6 +15,7 @@ import type { TindakanDTO } from "@/lib/schemas/master/tindakan";
 import type { LabTestDTO } from "@/lib/schemas/master/labTest";
 import type { LayananUnitEdgeDTO } from "@/lib/schemas/master/layananUnit";
 import type { LayananUnitLabEdgeDTO } from "@/lib/schemas/master/layananUnitLab";
+import type { TarifTindakanDTO } from "@/lib/schemas/master/tarifTindakan";
 import MappingHubSidebar from "./MappingHubSidebar";
 import SDMAssignmentPane from "./sdm/SDMAssignmentPane";
 import KewenanganPane from "./kewenangan/KewenanganPane";
@@ -71,9 +72,11 @@ interface MappingHubPageProps {
   initialLayanan?: LayananUnitEdgeDTO[];
   /** Edge mapping Lab dari SSR — diteruskan ke Layanan Unit (seed map persist). */
   initialLayananLab?: LayananUnitLabEdgeDTO[];
+  /** Edge tarif dari SSR — diteruskan ke Tarif Matrix (seed map persist). */
+  initialTarif?: TarifTindakanDTO[];
 }
 
-export default function MappingHubPage({ initialTree, initialDokters, initialPegawai, initialPenugasan, initialTindakan, initialLab, initialLayanan, initialLayananLab }: MappingHubPageProps = {}) {
+export default function MappingHubPage({ initialTree, initialDokters, initialPegawai, initialPenugasan, initialTindakan, initialLab, initialLayanan, initialLayananLab, initialTarif }: MappingHubPageProps = {}) {
   const searchParams = useSearchParams();
   const initialKey = (() => {
     const param = searchParams?.get("sub") as SubpageKey | null;
@@ -150,7 +153,7 @@ export default function MappingHubPage({ initialTree, initialDokters, initialPeg
                     transition={{ duration: 0.2 }}
                     className="flex min-h-0 flex-1 flex-col"
                   >
-                    {renderPane(activeKey, initialTree, initialDokters, initialPegawai, initialPenugasan, initialTindakan, initialLab, initialLayanan, initialLayananLab)}
+                    {renderPane(activeKey, initialTree, initialDokters, initialPegawai, initialPenugasan, initialTindakan, initialLab, initialLayanan, initialLayananLab, initialTarif)}
                   </motion.div>
                 </AnimatePresence>
               </div>
@@ -172,12 +175,13 @@ function renderPane(
   initialLab?: LabTestDTO[],
   initialLayanan?: LayananUnitEdgeDTO[],
   initialLayananLab?: LayananUnitLabEdgeDTO[],
+  initialTarif?: TarifTindakanDTO[],
 ) {
   if (key === "sdm")
     return <SDMAssignmentPane initialTree={initialTree} initialDokters={initialDokters} initialPegawai={initialPegawai} initialPenugasan={initialPenugasan} />;
   if (key === "kewenangan")  return <KewenanganPane initialDokters={initialDokters} />;
   if (key === "layanan")     return <LayananUnitPane tindakan={initialTindakan} lab={initialLab} tree={initialTree} layanan={initialLayanan} layananLab={initialLayananLab} />;
-  if (key === "tarif")       return <TarifPane />;
+  if (key === "tarif")       return <TarifPane tindakan={initialTindakan} tree={initialTree} tarif={initialTarif} />;
   if (key === "formularium") return <FormulariumPane />;
   if (key === "distribusi")  return <DistribusiPane />;
   if (key === "penjamin-ruangan") return <PenjaminRuanganPane />;

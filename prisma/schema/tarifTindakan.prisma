@@ -1,0 +1,45 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Tarif Tindakan  (Postgres schema "master")
+//  FE: /ehis-master/mapping (sub-pane Tarif Matrix) · Doc: docs/BACKEND-MAPPING.md §5
+//
+//  Tarif tindakan per (Penjamin × Jenis Ruangan). Matriks 3D di-flatten jadi baris edge:
+//  (tindakan, penjaminKode, jenisRuangan) → harga. UPSERT by triple (idempoten value).
+//
+//  DIMENSI:
+//   - tindakanId   → FK master.Tindakan (Restrict; tarif ikut katalog).
+//   - penjaminKode → KODE penjamin string ('UMUM'/'BPJS'/'INH'/…). BELUM FK — master Penjamin
+//                    masih mock; di-FK-kan saat Tier 3 Penjamin dibangun (BACKEND-MAPPING §Penjamin).
+//   - jenisRuangan → TIER tarif (BUKAN ruangan fisik). Key = locationType[:kelas], mis.
+//                    'IGD' · 'RAWAT_JALAN' · 'RAWAT_INAP:KELAS_3' · 'RAWAT_INAP:VIP' ·
+//                    'RAWAT_INAP:KRIS' (BPJS) · 'ICU' · 'HCU' · 'ISOLASI' · 'OK'.
+//                    Daftar tier DI-DERIVE dari master Ruangan tree di FE (tiersFromTree) →
+//                    string longgar di DB (decoupled, tak ada enum agar KRIS/perubahan kelas aman).
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz. Tarif = LEAF (upsert by triple) → tanpa
+//  optimistic-version; updatedAt cukup untuk audit ringan. harga = Int (rupiah, tanpa sen).
+// ════════════════════════════════════════════════════════════════════════════
+
+model TarifTindakan {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  tindakanId String   @map("tindakan_id") @db.Uuid
+  tindakan   Tindakan @relation(fields: [tindakanId], references: [id], onDelete: Restrict)
+
+  /// Kode penjamin (string stabil — belum FK ke master Penjamin).
+  penjaminKode String @map("penjamin_kode")
+
+  /// Tier "Jenis Ruangan" (locationType[:kelas]) — BUKAN Location id. String longgar.
+  jenisRuangan String @map("jenis_ruangan")
+
+  /// Harga dalam rupiah penuh (tanpa sen).
+  harga Int
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([tindakanId, penjaminKode, jenisRuangan]) // 1 harga per triple → upsert idempoten
+  @@index([tindakanId])
+  @@index([penjaminKode])
+  @@map("tarif_tindakan")
+  @@schema("master")
+}

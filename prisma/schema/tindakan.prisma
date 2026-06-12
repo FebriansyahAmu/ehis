@@ -70,6 +70,9 @@ model Tindakan {
   /// Ruangan tempat tindakan ini boleh dilakukan (Mapping Hub → Layanan Unit); N:M via master.LayananUnit.
   layanan LayananUnit[]
 
+  /// Tarif per (penjamin × jenis ruangan) — Mapping Hub → Tarif Matrix; via master.TarifTindakan.
+  tarif TarifTindakan[]
+
   @@index([kategori, active]) // list/filter per kategori + status
   @@index([kode]) // cari by kode
   @@map("tindakan")

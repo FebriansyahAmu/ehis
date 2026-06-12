@@ -4,11 +4,12 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { type PenjaminRecord, PENJAMIN_TIPE_CFG } from "@/lib/master/penjaminMock";
+import { type PenjaminTipe, PENJAMIN_TIPE_CFG } from "@/lib/master/penjaminMock";
 
 interface BulkAdjustModalProps {
   open: boolean;
-  penjamin: PenjaminRecord;
+  /** Hanya butuh nama+tipe (Tarif pakai TarifPenjamin, bukan PenjaminRecord penuh). */
+  penjamin: { nama: string; tipe: PenjaminTipe };
   affectedCount: number;
   onClose: () => void;
   onConfirm: (percent: number) => void;

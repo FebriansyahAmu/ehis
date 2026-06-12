@@ -1,29 +1,47 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
-import { Pencil, Check, X } from "lucide-react";
+import { Pencil, Check, X, Equal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   type TindakanRecord, type TindakanKategori,
   KATEGORI_CFG, KATEGORI_ORDER, KOMPLEKSITAS_CFG,
   groupByKategori,
 } from "@/lib/master/tindakanMock";
-import { KELAS_LIST, fmtRupiahShort, type KelasRawat } from "@/lib/master/penjaminMock";
-import { type TarifMap, getTarif } from "./tarifShared";
+import { fmtRupiahShort } from "@/lib/master/penjaminMock";
+import {
+  type TarifMap, type JenisRuanganTier, TIER_GROUP_CFG, getHarga,
+} from "./tarifShared";
 
 interface TarifMatrixProps {
   tindakan: TindakanRecord[];
+  tiers: JenisRuanganTier[];
   map: TarifMap;
-  penjaminId: string;
+  penjaminKode: string;
   visibleKategori: Set<TindakanKategori>;
-  onEdit: (tindakanId: string, kelasId: KelasRawat, value: number) => void;
+  /** value > 0 → upsert; value <= 0 → hapus tarif. */
+  onEdit: (tindakanId: string, tierKey: string, value: number) => void;
+  /** Samakan 1 harga ke SEMUA tier (kolom) untuk tindakan ini — tarif seragam lintas ruangan. */
+  onFlatRate: (tindakanId: string, harga: number) => void;
 }
 
 export default function TarifMatrix({
-  tindakan, map, penjaminId, visibleKategori, onEdit,
+  tindakan, tiers, map, penjaminKode, visibleKategori, onEdit, onFlatRate,
 }: TarifMatrixProps) {
   const grouped = groupByKategori(tindakan);
+  const colCount = tiers.length + 1;
+
+  if (tiers.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+        <p className="m-xs text-slate-400">
+          Belum ada tier ruangan. Konfigurasi Ruangan (kelas) di master Unit &amp; Ruangan dulu.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -31,46 +49,48 @@ export default function TarifMatrix({
         <table className="w-full border-collapse">
           <thead className="sticky top-0 z-20">
             <tr>
-              <th className="sticky left-0 z-30 min-w-[260px] border-b border-r border-slate-200 bg-white px-3 py-2 text-left">
+              <th className="sticky left-0 z-30 min-w-65 border-b border-r border-slate-200 bg-white px-3 py-2 text-left">
                 <span className="m-mini font-semibold uppercase tracking-wide text-slate-500">
                   Tindakan
                 </span>
               </th>
-              {KELAS_LIST.map((k) => (
-                <th
-                  key={k.id}
-                  className="min-w-[96px] border-b border-r border-slate-200 bg-amber-50 px-2 py-2 text-center"
-                >
-                  <p className="m-mini font-bold uppercase tracking-wide text-amber-700">
-                    {k.short}
-                  </p>
-                  <p className="m-mini text-amber-600/70">{k.label}</p>
-                </th>
-              ))}
+              {tiers.map((t) => {
+                const g = TIER_GROUP_CFG[t.group];
+                return (
+                  <th
+                    key={t.key}
+                    className={cn("min-w-24 border-b border-r border-slate-200 px-2 py-2 text-center", g.bg)}
+                    title={t.label}
+                  >
+                    <p className={cn("m-mini font-bold uppercase tracking-wide", g.text)}>{t.short}</p>
+                    <p className={cn("m-mini opacity-70", g.text)}>{t.label}</p>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
 
           <tbody>
             {KATEGORI_ORDER.map((cat) => {
               const items = grouped.get(cat) ?? [];
-              if (items.length === 0) return null;
-              if (!visibleKategori.has(cat)) return null;
-              const catCfg = KATEGORI_CFG[cat];
+              if (items.length === 0 || !visibleKategori.has(cat)) return null;
               return (
                 <KategoriBlock
                   key={cat}
-                  kategori={cat}
                   items={items}
-                  catCfg={catCfg}
+                  catCfg={KATEGORI_CFG[cat]}
+                  colCount={colCount}
+                  tiers={tiers}
                   map={map}
-                  penjaminId={penjaminId}
+                  penjaminKode={penjaminKode}
                   onEdit={onEdit}
+                  onFlatRate={onFlatRate}
                 />
               );
             })}
-            {Array.from(visibleKategori).length === 0 && (
+            {visibleKategori.size === 0 && (
               <tr>
-                <td colSpan={KELAS_LIST.length + 1} className="px-4 py-10 text-center m-xs text-slate-400">
+                <td colSpan={colCount} className="px-4 py-10 text-center m-xs text-slate-400">
                   Pilih minimal 1 kategori di toolbar untuk melihat matrix
                 </td>
               </tr>
@@ -82,7 +102,7 @@ export default function TarifMatrix({
       <div className="shrink-0 border-t border-slate-100 bg-slate-50/60 px-4 py-2">
         <p className="m-mini text-slate-500">
           <span className="font-semibold uppercase tracking-wide">Tip:</span>{" "}
-          Klik sel harga untuk inline-edit. Kelas Rawat Jalan otomatis lebih rendah.
+          Klik sel untuk edit harga inline. Kosongkan (0) untuk menghapus tarif. Kolom = jenis ruangan / kelas.
         </p>
       </div>
     </div>
@@ -91,30 +111,25 @@ export default function TarifMatrix({
 
 // ── Sub-components ───────────────────────────────────────
 
-interface KategoriBlockProps {
-  kategori: TindakanKategori;
+function KategoriBlock({
+  items, catCfg, colCount, tiers, map, penjaminKode, onEdit, onFlatRate,
+}: {
   items: TindakanRecord[];
   catCfg: typeof KATEGORI_CFG[TindakanKategori];
+  colCount: number;
+  tiers: JenisRuanganTier[];
   map: TarifMap;
-  penjaminId: string;
-  onEdit: (tindakanId: string, kelasId: KelasRawat, value: number) => void;
-}
-
-function KategoriBlock({
-  kategori, items, catCfg, map, penjaminId, onEdit,
-}: KategoriBlockProps) {
+  penjaminKode: string;
+  onEdit: (tindakanId: string, tierKey: string, value: number) => void;
+  onFlatRate: (tindakanId: string, harga: number) => void;
+}) {
   return (
     <>
       <tr>
-        <td
-          colSpan={KELAS_LIST.length + 1}
-          className={cn("sticky left-0 border-b border-slate-200 px-3 py-1.5", catCfg.bg)}
-        >
+        <td colSpan={colCount} className={cn("sticky left-0 border-b border-slate-200 px-3 py-1.5", catCfg.bg)}>
           <div className="flex items-center gap-1.5">
             <span className={cn("h-2 w-2 rounded-full", catCfg.dot)} />
-            <span className={cn("m-mini font-bold uppercase tracking-wide", catCfg.text)}>
-              {catCfg.label}
-            </span>
+            <span className={cn("m-mini font-bold uppercase tracking-wide", catCfg.text)}>{catCfg.label}</span>
             <span className={cn("m-mini opacity-70", catCfg.text)}>· {items.length} tindakan</span>
           </div>
         </td>
@@ -123,10 +138,12 @@ function KategoriBlock({
         <TindakanRow
           key={t.id}
           tindakan={t}
+          tiers={tiers}
           map={map}
-          penjaminId={penjaminId}
+          penjaminKode={penjaminKode}
           rowIndex={i}
           onEdit={onEdit}
+          onFlatRate={onFlatRate}
         />
       ))}
     </>
@@ -134,13 +151,15 @@ function KategoriBlock({
 }
 
 function TindakanRow({
-  tindakan, map, penjaminId, rowIndex, onEdit,
+  tindakan, tiers, map, penjaminKode, rowIndex, onEdit, onFlatRate,
 }: {
   tindakan: TindakanRecord;
+  tiers: JenisRuanganTier[];
   map: TarifMap;
-  penjaminId: string;
+  penjaminKode: string;
   rowIndex: number;
-  onEdit: (tindakanId: string, kelasId: KelasRawat, value: number) => void;
+  onEdit: (tindakanId: string, tierKey: string, value: number) => void;
+  onFlatRate: (tindakanId: string, harga: number) => void;
 }) {
   const kCfg = tindakan.kompleksitas ? KOMPLEKSITAS_CFG[tindakan.kompleksitas] : null;
 
@@ -151,30 +170,25 @@ function TindakanRow({
       transition={{ duration: 0.2, delay: Math.min(rowIndex * 0.01, 0.2) }}
       className="group hover:bg-slate-50/60"
     >
-      <td className="sticky left-0 z-10 min-w-[260px] border-b border-r border-slate-200 bg-white px-3 py-1.5 group-hover:bg-slate-50/60">
-        <div className="flex w-full flex-col items-start">
-          <span className="truncate m-xs font-semibold text-slate-800">{tindakan.nama}</span>
-          <div className="mt-0.5 flex items-center gap-1.5">
-            <span className="font-mono m-mini text-slate-400">{tindakan.kode}</span>
-            {kCfg && (
-              <span className={cn("rounded px-1 py-0 m-mini font-bold", kCfg.bg, kCfg.text)}>
-                {kCfg.label}
-              </span>
-            )}
+      <td className="sticky left-0 z-10 min-w-65 border-b border-r border-slate-200 bg-white px-3 py-1.5 group-hover:bg-slate-50/60">
+        <div className="flex w-full items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <span className="truncate m-xs font-semibold text-slate-800">{tindakan.nama}</span>
+            <div className="mt-0.5 flex items-center gap-1.5">
+              <span className="font-mono m-mini text-slate-400">{tindakan.kode || "—"}</span>
+              {kCfg && (
+                <span className={cn("rounded px-1 py-0 m-mini font-bold", kCfg.bg, kCfg.text)}>{kCfg.label}</span>
+              )}
+            </div>
           </div>
+          <FlatRateButton tierCount={tiers.length} onApply={(harga) => onFlatRate(tindakan.id, harga)} />
         </div>
       </td>
-      {KELAS_LIST.map((k) => {
-        const value = getTarif(map, penjaminId, tindakan.id, k.id);
+      {tiers.map((t) => {
+        const value = getHarga(map, penjaminKode, tindakan.id, t.key);
         return (
-          <td
-            key={k.id}
-            className="border-b border-r border-slate-200 p-1 text-center"
-          >
-            <TarifCell
-              value={value}
-              onSave={(v) => onEdit(tindakan.id, k.id, v)}
-            />
+          <td key={t.key} className="border-b border-r border-slate-200 p-1 text-center">
+            <TarifCell value={value} onSave={(v) => onEdit(tindakan.id, t.key, v)} />
           </td>
         );
       })}
@@ -182,20 +196,118 @@ function TindakanRow({
   );
 }
 
-function TarifCell({
-  value, onSave,
-}: {
-  value: number;
-  onSave: (v: number) => void;
-}) {
+// Tombol "samakan tarif semua kolom" per tindakan — input 1 harga → terapkan ke semua tier.
+// Popover di-PORTAL ke body (posisi fixed) → lepas dari stacking/overflow tabel (tak ketimpa
+// group/baris berikutnya & tak terklip scroll). Tutup saat klik-luar/Escape/scroll/resize.
+const POP_W = 224;
+
+function FlatRateButton({ tierCount, onApply }: { tierCount: number; onApply: (harga: number) => void }) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const place = () => {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const left = Math.min(Math.max(8, r.left), window.innerWidth - POP_W - 8);
+    setCoords({ top: r.bottom + 4, left });
+  };
+
+  const openPop = () => { setDraft(""); place(); setOpen(true); };
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t) || panelRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const onMove = () => setOpen(false); // scroll/resize → tutup (hindari popover ngambang)
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onMove, true);
+    window.addEventListener("resize", onMove);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onMove, true);
+      window.removeEventListener("resize", onMove);
+    };
+  }, [open]);
+
+  const apply = () => {
+    const n = Number(draft.replace(/[^\d]/g, ""));
+    if (n > 0) onApply(n);
+    setOpen(false);
+    setDraft("");
+  };
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => (open ? setOpen(false) : openPop())}
+        title="Samakan tarif untuk semua ruangan/kelas"
+        aria-label="Samakan tarif semua kolom"
+        className={cn(
+          "flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition",
+          open
+            ? "border-amber-300 bg-amber-50 text-amber-700"
+            : "border-transparent text-slate-300 opacity-0 hover:bg-amber-50 hover:text-amber-600 group-hover:opacity-100",
+        )}
+      >
+        <Equal size={12} />
+      </button>
+
+      {open && coords && createPortal(
+        <div
+          ref={panelRef}
+          style={{ position: "fixed", top: coords.top, left: coords.left, width: POP_W }}
+          className="z-200 rounded-xl border border-slate-200 bg-white p-2.5 shadow-xl"
+        >
+          <p className="mb-1.5 m-mini font-bold uppercase tracking-wide text-slate-400">
+            Samakan ke {tierCount} kolom
+          </p>
+          <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 focus-within:border-amber-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-amber-100">
+            <span className="m-mini font-semibold text-slate-400">Rp</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") apply(); }}
+              placeholder="cth. 150000"
+              className="w-full bg-transparent py-1.5 m-xs font-mono text-slate-800 outline-none placeholder:text-slate-300"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={apply}
+            disabled={!draft.replace(/[^\d]/g, "")}
+            className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg bg-amber-600 py-1.5 m-mini font-semibold text-white transition hover:bg-amber-700 disabled:opacity-40"
+          >
+            <Equal size={11} /> Terapkan ke semua kolom
+          </button>
+          <p className="mt-1.5 m-mini leading-snug text-slate-400">
+            Menimpa harga di semua ruangan/kelas pada penjamin aktif.
+          </p>
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
+
+function TarifCell({ value, onSave }: { value: number; onSave: (v: number) => void }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value.toString());
 
-  const start = () => {
-    setDraft(value.toString());
-    setEditing(true);
-  };
-
+  const start = () => { setDraft(value ? value.toString() : ""); setEditing(true); };
   const commit = () => {
     const n = Number(draft.replace(/[^\d]/g, ""));
     onSave(Number.isFinite(n) ? n : 0);
@@ -241,8 +353,11 @@ function TarifCell({
     <button
       type="button"
       onClick={start}
-      className="group/cell mx-auto flex w-full items-center justify-center gap-1 rounded px-1.5 py-1 m-mini font-mono font-semibold text-slate-700 transition hover:bg-amber-50 hover:text-amber-800"
-      title={value ? `Rp ${value.toLocaleString("id-ID")}` : "Belum diisi"}
+      className={cn(
+        "group/cell mx-auto flex w-full items-center justify-center gap-1 rounded px-1.5 py-1 m-mini font-mono font-semibold transition hover:bg-amber-50 hover:text-amber-800",
+        value > 0 ? "text-slate-700" : "text-slate-300",
+      )}
+      title={value ? `Rp ${value.toLocaleString("id-ID")}` : "Belum diisi — klik untuk set"}
     >
       <span>{fmtRupiahShort(value)}</span>
       <Pencil size={9} className="opacity-0 transition group-hover/cell:opacity-60" />
