@@ -38,7 +38,7 @@ Tab ≠ tabel. Banyak tab = view berbeda atas domain yang sama; komponen `shared
 Urutan persis seperti di [IGDRecordTabs.tsx](src/components/igd/IGDRecordTabs.tsx) (Rekam Medis 13 + Layanan 6). **FE 19/19 ✅** (mock). Yang dilacak di sini = **backend**: kolom **BE** (schema+DAL+service+endpoint, ~Fase A) & **Wiring** (resolver + tab konsumsi DB, ~Fase B/C).
 Legenda: 🟢 selesai · 🟡 sebagian · ⬜ belum.
 
-**Status global backend: 5/19 dimulai** (+ CPPT Fase A+B ✅ 2026-06-11) (Triase BE ✅ + wiring tab ✅; Observation/TTV BE ✅ + wiring tab ✅; **Asesmen Medis BE+wiring ✅ LENGKAP** — 5/5 sub-menu: Anamnesis + Riwayat Medis (9/9 pane) + Alergi + Skrining Gizi + Edukasi (3/3: Pasien & Keluarga · Emergency · End of Life); **Diagnosa BE+wiring ✅**; **CPPT BE+wiring ✅** — append-only per-item + co-sign DPJP + SBAR/TBAK (SKP 2), wired IGD/RI/RJ; sisa Triase Fase C + 14 tab lain ⬜).
+**Status global backend: 6/19 dimulai** (+ Tindakan/Procedure Fase A+B ✅ 2026-06-12) (Triase BE ✅ + wiring tab ✅; Observation/TTV BE ✅ + wiring tab ✅; **Asesmen Medis BE+wiring ✅ LENGKAP** — 5/5 sub-menu: Anamnesis + Riwayat Medis (9/9 pane) + Alergi + Skrining Gizi + Edukasi (3/3: Pasien & Keluarga · Emergency · End of Life); **Diagnosa BE+wiring ✅**; **CPPT BE+wiring ✅** — append-only per-item + co-sign DPJP + SBAR/TBAK (SKP 2), wired IGD/RI/RJ; **Tindakan/Procedure BE+wiring ✅** — `medicalrecord.TindakanMedis` snapshot biaya + CRUD optimistik, tab Tindakan IGD persist saat kunjunganId UUID; sisa Triase Fase C + 13 tab lain ⬜).
 
 | #   | Tab (grup)               | Domain target     | FE  | BE  | Wiring | Catatan                                              |
 | --- | ------------------------ | ----------------- | --- | --- | ------ | ---------------------------------------------------- |
@@ -47,7 +47,7 @@ Legenda: 🟢 selesai · 🟡 sebagian · ⬜ belum.
 | 3   | **Asesmen Medis** (RM)   | Assessment        | ✅  | 🟢  | 🟢     | LENGKAP 5/5: Anamnesis + Riwayat (9/9) + Alergi + Skrining Gizi + Edukasi (3/3) ✅ (shared RI/RJ pane belum di-wire) |
 | 4   | **Diagnosa** (RM)        | Condition         | ✅  | 🟢  | 🟢     | Fase A+B ✅ (ICD-10 + prosedur ICD-9; per-item; DiagnosaTab shared wired IGD/RI/RJ) |
 | 5   | **CPPT / SOAP** (RM)     | CPPT              | ✅  | 🟢  | 🟢     | Fase A+B ✅ (per-item; SOAP/SBAR/TBAK SKP 2; co-sign DPJP; CPPTTab shared wired IGD/RI/RJ) |
-| 6   | **Tindakan IGD** (RM)    | Procedure         | ✅  | ⬜  | ⬜     | ICD-9-CM; trigger charge billing                     |
+| 6   | **Tindakan IGD** (RM)    | Procedure         | ✅  | 🟢  | 🟢     | Fase A+B ✅ (`medicalrecord.TindakanMedis` snapshot biaya; CRUD optimistik; wired). Charge billing hilir; ICD-9-CM coding ada di `DiagnosaProsedur` (#4) |
 | 7   | **Informed Consent** (RM)| Consent           | ✅  | ⬜  | ⬜     | PMK 290/2008                                         |
 | 8   | **Rekonsiliasi** (RM)    | MedReconciliation | ✅  | ⬜  | ⬜     | HAM badge; context igd/ri                            |
 | 9   | **Keperawatan** (RM)     | NursingCare       | ✅  | ⬜  | ⬜     | asuhan keperawatan; bisa berbagi pola CPPT           |
@@ -280,6 +280,33 @@ Tab Edukasi = 3 sub-pane ([EdukasiPane](src/components/igd/tabs/EdukasiPane.tsx)
 - [x] **B2** Wrapper [igd/tabs/CPPTTab](src/components/igd/tabs/CPPTTab.tsx) + [rawat-inap/tabs/CPPTTab](src/components/rawat-inap/tabs/CPPTTab.tsx) + [RJRecordTabs](src/components/rawat-jalan/RJRecordTabs.tsx) → teruskan `kunjunganId={patient.id}`.
 - **DoD B:** ✅ `tsc` bersih · ✅ `eslint` bersih (1 warning `ALL_TABS` pre-existing, tak terkait). ⏳ verifikasi in-browser (login superadmin): tambah/edit/verify/flag catatan pasien IGD DB → reload konsisten; TBAK & RI butuh co-sign DPJP.
 - ⚠️ **Follow-up RBAC:** `clinical.cppt` (leaf benar, bukan salah-gate `clinical.igd`) — tapi CPPT shared RI/RJ; ABAC unit-scope menyusul sebelum akun klinis live.
+
+---
+
+## Domain 6 — PROCEDURE / TINDAKAN MEDIS (tab Tindakan IGD) ✅
+
+**Model `medicalrecord.TindakanMedis`** (per-item daftar tindakan, keyed `kunjunganId`, shared IGD/RI/RJ): 1 baris = 1 tindakan dicatat. Tambah = INSERT · ubah jumlah/pelaksana = UPDATE · hapus = soft-delete (`deletedAt`). **Snapshot biaya** `kode/nama/kategori` + `harga/penjaminKode/jenisRuangan` **beku saat dicatat** (tarif PERDA bisa berubah; record klinis-finansial harus stabil). `tindakanId?` = pointer lunak ke `master.Tindakan` (nullable; tindakan ad-hoc tetap bisa). Pelaksana/author dari actor.
+
+> **Catatan domain:** TindakanMedis ≠ ICD-9-CM coding. Procedure coding untuk klaim ada di `DiagnosaProsedur` (Domain 4). TindakanMedis = catatan **operasional + charge** (apa yang dikerjakan + berapa biayanya) → hilir ke Billing & Resume Medis. Katalog sumber = tindakan ter-assign Mapping Hub → Layanan Unit (Lab/Rad **dieksklusi** — punya menu Order tersendiri).
+
+### Fase A — Backend (schema → endpoint) ✅ SELESAI (2026-06-12)
+
+- [x] **A1** [medicalrecord.prisma](prisma/schema/medicalrecord.prisma) — model `TindakanMedis` (snapshot kode/nama/kategori/jumlah + harga/penjaminKode/jenisRuangan + pelaksana/author + `dilakukanPada` + soft-delete) + backref `Kunjungan.tindakanMedis`. Index `(kunjungan_id, deleted_at)`.
+- [x] **A2** migration `20260612070000_init_medicalrecord_tindakan_medis` — CREATE TABLE `medicalrecord.tindakan_medis` + index + FK→`encounter.kunjungan` cascade. Applied via `migrate deploy` + `generate`.
+- [x] **A3** Zod [`schemas/tindakanMedis/tindakanMedis.ts`](src/lib/schemas/tindakanMedis/tindakanMedis.ts) — `TindakanMedisInput` (tindakanId?/kode?/nama/kategori/jumlah/harga?/penjaminKode?/jenisRuangan?/pelaksana?) · `TindakanMedisUpdate` (jumlah?/pelaksana?, refined ≥1 field) · `TindakanItemParam` · `TindakanMedisDTO`.
+- [x] **A4** DAL [`dal/tindakanMedis/tindakanMedisDal.ts`](src/lib/dal/tindakanMedis/tindakanMedisDal.ts) — list/findById/create/update/softDelete; filter `deletedAt: null`; `tx?`.
+- [x] **A5** Service [`services/tindakanMedis/tindakanMedisService.ts`](src/lib/services/tindakanMedis/tindakanMedisService.ts) — `list`/`add`/`update`/`remove` + `assertKunjungan`/`assertMilik`; `pelaksana` = input atau `resolveActorNama(actor)`; capture `authorUserId`/`authorPegawaiId`.
+- [x] **A6** Endpoint `/kunjungan/:id/tindakan` (GET daftar · POST 201) + `/:itemId` (PATCH · DELETE soft) — **resource `clinical.tindakan`** (leaf ter-seed; `scopeKunjungan` default true via prefix `clinical.`). Migration RBAC `20260612080000_rbac_clinical_tindakan_grants` — grant **full CRUD** ke Admin/Dokter/Perawat. Client [`api/tindakanMedis/tindakanMedis.ts`](src/lib/api/tindakanMedis/tindakanMedis.ts).
+- **DoD A:** ✅ `tsc` `src/` bersih · ✅ `eslint` bersih (warning `_actor` precedent) · ✅ `migrate status` up-to-date · ✅ DB smoke (struktur 17 kolom · FK cascade · FK-bogus 23503 · insert/update-jumlah/soft-delete/list-filter · RBAC 4 aksi Admin/Dokter/Perawat).
+
+### Fase B — Wiring TindakanTab ✅ SELESAI (2026-06-12)
+
+- [x] **B0** Katalog ter-assign + harga — `GET /master/tindakan-tersedia?penjaminKode=&jenisRuangan=` (gate `clinical.tindakan:read`, `scopeKunjungan:false`) join LayananUnit→Tindakan + left-join Tarif → `harga`. Client [`api/master/tindakanTersedia.ts`](src/lib/api/master/tindakanTersedia.ts).
+- [x] **B1** [TindakanTab](src/components/igd/tabs/TindakanTab.tsx) — redesign search-first + ConfigCard (subtotal live) + daftar tergrup + `RingkasanPanel` (Estimasi Biaya animasi). UUID-guard `isPersisted`: mount load `getTindakanMedis`; **add** → `addTindakanMedis` (snapshot konteks UMUM/IGD); **ubah jumlah** → `updateTindakanMedis` optimistik; **hapus** → `deleteTindakanMedis` optimistik + rekonsiliasi (`reload`). Chip "Menyimpan…"/"Memuat katalog…". Pasien mock (non-UUID) → state lokal demo.
+- [x] **B2** Verifikasi identitas IGD — `IdentitasVerifikasiBanner.defaultPerawat` dari user login (`useSession().namaTampil`); pelaksana default tindakan juga dari sesi login.
+- **DoD B:** ✅ `tsc` `src/` bersih · ✅ `eslint` bersih. **Chain board→detail→persist SUDAH NYAMBUNG** — [igdBoardApi.ts](src/components/igd/igdBoardApi.ts) memetakan `IGDPatient.id = kunjunganId` (UUID); [page.tsx](src/app/ehis-care/(fullpage)/igd/[id]/page.tsx) → [IGDRecordResolver](src/components/igd/IGDRecordResolver.tsx) fetch `GET /kunjungan/:id` + `/patients/:id` → `IGDPatientDetail.id = UUID` → TindakanTab `isPersisted=true`. Pasien seed mock (`igd-1`/Joko) tetap lokal — by-design seam, bukan regresi.
+- ⚠️ **Syarat klik dari board:** kartu jadi link ke detail HANYA saat **tanpa tombol aksi** ([PatientCard.tsx](src/components/igd/PatientCard.tsx) `href = !actions ? … : undefined`) → pasien harus **Diterima** (status `InService`, sudah dapat bed) dulu; kartu order-inbox (Registered/Queued, ada Terima/Batalkan) belum bisa di-klik.
+- ⚠️ **Follow-up:** per-ruangan scoping katalog (`?ruanganKode=` sudah diterima endpoint, FE belum kirim), trigger charge ke Billing.
 
 ---
 

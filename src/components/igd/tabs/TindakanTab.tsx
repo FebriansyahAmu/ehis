@@ -3,8 +3,9 @@
 // Tindakan IGD — redesign 2026-06-12 (selaras pola DiagnosaTab: search-first + kartu konfigurasi +
 // daftar tergrup + sidebar ringkasan). Katalog = TINDAKAN TER-ASSIGN dari Mapping Hub → Layanan Unit
 // (GET /master/tindakan-tersedia, gate clinical.tindakan). Lab & Radiologi TIDAK termuat — keduanya
-// punya menu Order tersendiri. Pelaksana default = petugas sesi login. Recording = state lokal
-// (belum ada endpoint persist; detail IGD masih mock).
+// punya menu Order tersendiri. Pelaksana default = petugas sesi login.
+// Recording: kunjunganId UUID → PERSIST ke medicalrecord.TindakanMedis via /kunjungan/:id/tindakan
+// (CRUD optimistik, snapshot harga/penjamin/jenisRuangan). Pasien mock (non-UUID) → state lokal demo.
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
