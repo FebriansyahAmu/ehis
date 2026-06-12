@@ -12,6 +12,16 @@
 
 ---
 
+## ✅ Selesai — Rekam Medis Tindakan Medis (persist recording per-kunjungan) (2026-06-12)
+
+> Domain klinis BARU `medicalrecord.TindakanMedis` — pencatatan tindakan yang DILAKUKAN per kunjungan (jumlah + biaya snapshot) → hilir Billing. Melengkapi tab Tindakan IGD: recording yang tadinya state lokal kini **persist ke DB** saat kunjunganId UUID (pola `isPersisted` DiagnosaTab). BEDA dari `DiagnosaProsedur` (koding ICD-9 utk klaim) — ini operasional + harga.
+
+1. **Kontrak** — [medicalrecord.prisma](../prisma/schema/medicalrecord.prisma) model `TindakanMedis` (kunjunganId FK Cascade · `tindakanId?` ref master · snapshot kode/nama/kategori · jumlah · **harga/penjaminKode/jenisRuangan beku saat dicatat** · pelaksana + authorUserId/PegawaiId · soft-delete) + back-relation `Kunjungan.tindakanMedis`. Migrasi `20260612070000_init_medicalrecord_tindakan_medis` (FK cross-schema → encounter.kunjungan).
+2. **Lapisan** (per-tab, [[feedback_lib_folder_per_feature]]) — [schema](../src/lib/schemas/tindakanMedis/tindakanMedis.ts) (`TindakanMedisInput`/`Update`/`ItemParam`/`DTO`) · [DAL](../src/lib/dal/tindakanMedis/tindakanMedisDal.ts) (list/findById/create/update/softDelete) · [Service](../src/lib/services/tindakanMedis/tindakanMedisService.ts) (assertKunjungan + assertMilik · pelaksana = input override ATAU `resolveActorNama`) · Routes `GET/POST /kunjungan/:id/tindakan` + `PATCH/DELETE /:itemId` · [client](../src/lib/api/tindakanMedis/tindakanMedis.ts).
+3. **RBAC** — `clinical.tindakan` di-grant **full CRUD** ke Admin/Dokter/Perawat (sebelumnya Dokter [r,c,u] · Perawat [r,u]) — klinisi pelaksana boleh tambah/ubah-jumlah/hapus(soft) di encounter aktif. Migrasi `20260612080000_rbac_clinical_tindakan_grants` + snapshot [rbacShared.ts](../src/components/master/mapping/rbac/rbacShared.ts). ABAC careUnit tetap men-scope per-kunjungan (route() choke-point clinical.*).
+4. **FE wiring** — [TindakanTab](../src/components/igd/tabs/TindakanTab.tsx): `isPersisted = UUID_RE.test(patient.id)` → mount load `getTindakanMedis`; add → `addTindakanMedis` (snapshot tindakanId/kategori master/harga + penjamin UMUM/IGD); changeJumlah → `updateTindakanMedis` optimistik; remove → `deleteTindakanMedis` optimistik + reconcile (`reload`); indikator "Menyimpan…". Pasien IGD mock (igd-1, bukan UUID) tetap lokal — zero regresi.
+5. **Verifikasi** — `tsc`/`eslint` clean · `prisma generate` · `migrate deploy` (2 migrasi) · DB smoke: struktur + FK Cascade + FK-bogus 23503 + insert/update-jumlah/soft-delete/list-filter + RBAC 4 aksi Admin/Dokter/Perawat semua ✓.
+
 ## ✅ Selesai — Mapping Hub Tarif Matrix Backend + Jenis Ruangan (2026-06-12)
 
 > Sub-pane **Tarif Matrix** ([tarif/](../src/components/master/mapping/tarif/)) dari mock → backend-backed (SSR-hybrid), dengan dimensi kolom **"Jenis Ruangan"** (tier tarif) menggantikan kelas flat. Status & rasional di [docs/BACKEND-MAPPING.md](../docs/BACKEND-MAPPING.md) §5. **Migrasi `20260612060000` belum `migrate deploy`** (DB lokal mati saat dibuat — perlu deploy saat DB up).

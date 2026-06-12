@@ -16,11 +16,19 @@ import type { IGDPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/contexts/SessionContext";
 import { listTindakanTersedia, type TindakanTersediaDTO } from "@/lib/api/master/tindakanTersedia";
+import {
+  getTindakanMedis, addTindakanMedis, updateTindakanMedis, deleteTindakanMedis,
+  type TindakanMedisDTO,
+} from "@/lib/api/tindakanMedis/tindakanMedis";
 import type { TindakanKategoriDTO } from "@/lib/schemas/master/tindakan";
+import { toast } from "@/lib/ui/toastStore";
 
 // Konteks tarif IGD: penjamin UMUM (Tarif PERDA berlaku semua jaminan) · tier ruangan IGD.
 const TARIF_PENJAMIN_KODE = "UMUM";
 const TARIF_JENIS_RUANGAN = "IGD";
+
+// kunjunganId UUID → mode DB (persist ke medicalrecord.TindakanMedis); selain itu lokal (mock).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const RP = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
 const fmtRp = (n: number) => RP.format(n);
@@ -55,6 +63,8 @@ interface CatalogEntry {
   kode: string;
   nama: string;
   kategori: DisplayKat;
+  /** Kategori master asli (utk snapshot saat persist). */
+  masterKategori: TindakanKategoriDTO;
   kompleksitas: string | null;
   harga: number | null;
   searchText: string;
@@ -495,8 +505,13 @@ export default function TindakanTab({ patient }: { patient: IGDPatientDetail }) 
   const { session } = useSession();
   const defaultPelaksana = session?.namaTampil ?? "";
 
+  // kunjunganId UUID → persist ke DB (medicalrecord.TindakanMedis); selain itu lokal (demo mock).
+  const isPersisted = UUID_RE.test(patient.id);
+  const kunjunganId = patient.id;
+
   const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [selected, setSelected] = useState<CatalogEntry | null>(null);
 
@@ -508,10 +523,12 @@ export default function TindakanTab({ patient }: { patient: IGDPatientDetail }) 
   }, [catalog]);
 
   const [items, setItems] = useState<LocalTindakan[]>(() =>
-    patient.tindakan.map((t) => ({
-      id: t.id, kode: t.kode, nama: t.nama, jumlah: t.jumlah,
-      waktu: t.waktu, dilakukanOleh: t.dilakukanOleh, harga: null,
-    })),
+    isPersisted
+      ? [] // mode DB → dimuat dari getTindakanMedis saat mount
+      : patient.tindakan.map((t) => ({
+          id: t.id, kode: t.kode, nama: t.nama, jumlah: t.jumlah,
+          waktu: t.waktu, dilakukanOleh: t.dilakukanOleh, harga: null,
+        })),
   );
 
   // Resolve kategori + harga baris seed dari katalog (by kode) bila belum ter-set.
@@ -554,7 +571,50 @@ export default function TindakanTab({ patient }: { patient: IGDPatientDetail }) 
     return () => ac.abort();
   }, []);
 
+  // Mode DB → muat tindakan tersimpan saat mount.
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    getTindakanMedis(kunjunganId, ac.signal)
+      .then((dtos) => setItems(dtos.map(dtoToLocal)))
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat tindakan tersimpan");
+      });
+    return () => ac.abort();
+  }, [isPersisted, kunjunganId]);
+
+  const reload = useCallback(async () => {
+    if (!isPersisted) return;
+    try {
+      setItems((await getTindakanMedis(kunjunganId)).map(dtoToLocal));
+    } catch {
+      /* pertahankan state terakhir */
+    }
+  }, [isPersisted, kunjunganId]);
+
   const addTindakan = useCallback((entry: CatalogEntry, jumlah: number, pelaksana: string) => {
+    setSelected(null);
+
+    if (isPersisted) {
+      setBusy(true);
+      addTindakanMedis(kunjunganId, {
+        tindakanId: entry.id,
+        kode: entry.kode || undefined,
+        nama: entry.nama,
+        kategori: entry.masterKategori,
+        jumlah,
+        harga: entry.harga ?? undefined,
+        penjaminKode: TARIF_PENJAMIN_KODE,
+        jenisRuangan: TARIF_JENIS_RUANGAN,
+        pelaksana: pelaksana || undefined,
+      })
+        .then((dto) => setItems((prev) => [...prev, dtoToLocal(dto)]))
+        .catch(() => toast.error("Gagal menyimpan tindakan"))
+        .finally(() => setBusy(false));
+      return;
+    }
+
     setItems((prev) => {
       if (prev.some((i) => i.tindakanId === entry.id)) return prev;
       return [
@@ -572,16 +632,21 @@ export default function TindakanTab({ patient }: { patient: IGDPatientDetail }) 
         },
       ];
     });
-    setSelected(null);
-  }, []);
+  }, [isPersisted, kunjunganId]);
 
   const removeTindakan = useCallback((id: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== id));
-  }, []);
+    setItems((prev) => prev.filter((i) => i.id !== id)); // optimistik
+    if (isPersisted) {
+      deleteTindakanMedis(kunjunganId, id).catch(() => { toast.error("Gagal menghapus tindakan"); void reload(); });
+    }
+  }, [isPersisted, kunjunganId, reload]);
 
   const changeJumlah = useCallback((id: string, n: number) => {
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, jumlah: n } : i)));
-  }, []);
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, jumlah: n } : i))); // optimistik
+    if (isPersisted) {
+      updateTindakanMedis(kunjunganId, id, { jumlah: n }).catch(() => { toast.error("Gagal mengubah jumlah"); void reload(); });
+    }
+  }, [isPersisted, kunjunganId, reload]);
 
   const grouped = useMemo(() => {
     const m = new Map<DisplayKat | "_", LocalTindakan[]>();
@@ -608,7 +673,12 @@ export default function TindakanTab({ patient }: { patient: IGDPatientDetail }) 
           </p>
         </div>
         <div className="ml-auto flex items-center gap-1.5">
-          {loading && (
+          {busy && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-medium text-emerald-600 ring-1 ring-emerald-200">
+              <Loader2 size={10} className="animate-spin" /> Menyimpan…
+            </span>
+          )}
+          {loading && !busy && (
             <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-500">
               <Loader2 size={10} className="animate-spin" /> Memuat katalog…
             </span>
@@ -747,8 +817,26 @@ function toCatalogEntry(d: TindakanTersediaDTO): CatalogEntry {
     kode: d.kode,
     nama: d.nama,
     kategori,
+    masterKategori: d.kategori,
     kompleksitas: d.kompleksitas,
     harga: d.harga,
     searchText: `${d.nama} ${d.kode} ${kategori}`.toLowerCase(),
+  };
+}
+
+function pad2(n: number) { return n.toString().padStart(2, "0"); }
+
+function dtoToLocal(d: TindakanMedisDTO): LocalTindakan {
+  const t = new Date(d.dilakukanPada);
+  return {
+    id: d.id,
+    tindakanId: d.tindakanId ?? undefined,
+    kode: d.kode,
+    nama: d.nama,
+    kategori: KAT_MAP[d.kategori as TindakanKategoriDTO],
+    harga: d.harga,
+    jumlah: d.jumlah,
+    waktu: `${pad2(t.getHours())}:${pad2(t.getMinutes())}`,
+    dilakukanOleh: d.pelaksana,
   };
 }

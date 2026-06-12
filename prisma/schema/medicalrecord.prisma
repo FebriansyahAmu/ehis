@@ -899,6 +899,44 @@ model DiagnosaProsedur {
   @@schema("medicalrecord")
 }
 
+// ── Tindakan Medis (tab Tindakan — prosedur/tindakan yang DILAKUKAN per kunjungan) ──────────
+//  BEDA dari DiagnosaProsedur (koding ICD-9 utk klaim): ini pencatatan OPERASIONAL tindakan +
+//  jumlah + biaya (snapshot tarif) → hilir Billing & Resume Medis. Per-item: tambah/ubah-jumlah/
+//  hapus (soft-delete, jejak medico-legal). nama/kode/kategori/harga = SNAPSHOT dari master.Tindakan
+//  + Tarif Matrix (mis. UMUM/IGD) saat dicatat — tarif bisa berubah → dibekukan di baris ini.
+
+model TindakanMedis {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  tindakanId String? @map("tindakan_id") @db.Uuid // ref master.Tindakan (null = non-katalog)
+
+  kode     String @default("") // ICD-9-CM snapshot (boleh kosong)
+  nama     String
+  kategori String // master TindakanKategori (snapshot)
+  jumlah   Int    @default(1)
+
+  // Biaya snapshot (tarif bisa berubah → dibekukan saat dicatat)
+  harga        Int?    // null = belum bertarif saat dicatat
+  penjaminKode String? @map("penjamin_kode") // konteks tarif (mis. UMUM)
+  jenisRuangan String? @map("jenis_ruangan") // konteks tarif (mis. IGD)
+
+  pelaksana       String  // nama pelaksana (default user login, bisa override)
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  dilakukanPada DateTime  @default(now()) @map("dilakukan_pada") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt])
+  @@map("tindakan_medis")
+  @@schema("medicalrecord")
+}
+
 // ── CPPT (Catatan Perkembangan Pasien Terintegrasi) ───────────────────────────
 //  Daftar per-item lintas profesi (Dokter/Perawat/…), 1 baris = 1 catatan. Mirror
 //  CPPTEntry (CPPTTab.tsx). Append-only secara klinis; mutable terbatas: koreksi isi

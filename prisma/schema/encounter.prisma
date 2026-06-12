@@ -157,6 +157,7 @@ model Kunjungan {
   asesmenEdukasiEolMeeting AsesmenEdukasiEolMeeting[]
   diagnosa                 Diagnosa[]
   diagnosaProsedur         DiagnosaProsedur[]
+  tindakanMedis            TindakanMedis[]
   cppt                     Cppt[]
 
   // ── Tautan invoice (1:1, dibuat saat Registered→Queued) ──

@@ -146,7 +146,7 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
     "clinical.cppt": ["read", "create", "update", "delete"], // delete = hanya catatan miliknya (guard Service)
     "clinical.diagnosa": ["read", "create", "update"],
     "clinical.prosedur": ["read", "create", "delete"], // ICD-9-CM (tindakan/prosedur)
-    "clinical.tindakan": ["read", "create", "update"],
+    "clinical.tindakan": ["read", "create", "update", "delete"], // pencatatan tindakan + biaya per kunjungan
     "clinical.resep": ["read", "create", "update"],
     // CATATAN: TIDAK diberi ancillary.* — itu untuk unit penunjang (Lab/Rad/Farmasi) yang
     // berdiri-sendiri. Dokter lihat status order via tab rekam medis (clinical.*), bukan
@@ -168,7 +168,7 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
     "clinical.cppt": ["read", "create", "delete"], // delete = hanya catatan miliknya (guard Service)
     "clinical.diagnosa": ["read"], // boleh LIHAT diagnosis ICD-10 (buka tab) — TIDAK menulis ICD-10
     "clinical.prosedur": ["read", "create", "delete"], // boleh INPUT prosedur ICD-9-CM (tindakan keperawatan)
-    "clinical.tindakan": ["read", "update"],
+    "clinical.tindakan": ["read", "create", "update", "delete"], // pencatatan tindakan + biaya (perawat pelaksana)
     "clinical.resep": ["read"],
     // CATATAN: TIDAK diberi ancillary.* — itu untuk unit penunjang (Lab/Rad/Farmasi) yang
     // berdiri-sendiri. Perawat lihat status order via tab rekam medis, bukan worklist penunjang.
