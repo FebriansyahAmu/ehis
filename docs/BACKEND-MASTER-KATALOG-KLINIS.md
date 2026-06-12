@@ -8,7 +8,7 @@
 > **Terkait:** [CLAUDE.md](../CLAUDE.md) · [TODOS_BACKEND.md](../TODOS_BACKEND.md#b12-katalog-klinis).
 >
 > **Stack:** PostgreSQL · Prisma (`@@schema("master")`) · layered **Route→Service→DAL→Prisma** · Redis cache-aside (menyusul) · Auth.js RBAC.
-> **Status:** **Katalog Tindakan ✅ backend + FE wired (2026-06-12)** — schema + migrasi + Zod + DAL + Service + 4 endpoint + client + page swap SSR-hybrid; kode ICD-9 **opsional**; 16 kategori (11 awal + 5 tambahan); **dikonsumsi Mapping Hub → Layanan Unit** (§A.8). · **ICD-10/9 ✅ backend + wired (2026-06-07)** — lihat §B. · **Obat · Lab · Radiologi · SDKI 📋** (analisis ringkas — §C).
+> **Status:** **Katalog Tindakan ✅ backend + FE wired (2026-06-12)** — schema + migrasi + Zod + DAL + Service + 4 endpoint + client + page swap SSR-hybrid; kode ICD-9 **opsional**; 16 kategori (11 awal + 5 tambahan); **dikonsumsi Mapping Hub → Layanan Unit** (§A.8). · **ICD-10/9 ✅ backend + wired (2026-06-07)** — lihat §B. · **Katalog Lab ✅ backend + FE wired (2026-06-12)** — model **Tes→Parameter** (panel): `LabTest`+`LabParameter` (rujukan numerik per-parameter = JSONB) + migrasi + Zod + DAL (nested **replace-all**) + Service + 4 endpoint + client + **form rewrite** (tab Parameter · **Satuan combobox** riset · **DiscardDialog** · field **KODE dihapus**) + SSR-hybrid; **seeded 38 tes / 88 parameter** standar (PMK 43/2013 · NCEP ATP III · WHO · SAMHSA) — §C. · **Obat · Radiologi · SDKI 📋** (analisis ringkas — §C).
 
 ---
 
@@ -21,7 +21,7 @@ Grup **Katalog Klinis** (`/ehis-master` → menu "Katalog Klinis"). Tiap sub-mas
 | **Katalog Tindakan** | `/ehis-master/katalog-tindakan` | [tindakanMock.ts](../src/lib/master/tindakanMock.ts) `TindakanRecord` | ✅ (§A) |
 | **ICD-10 / ICD-9-CM** | `/ehis-master/icd` | [icdMock.ts](../src/lib/master/icdMock.ts) `IcdItem` | ✅ (§B) |
 | Katalog Obat | `/ehis-master/katalog-obat` | [obatMock.ts](../src/lib/master/obatMock.ts) `ObatRecord` | 📋 (§C) |
-| Katalog Lab | `/ehis-master/katalog-lab` | [labCatalogMock.ts](../src/lib/master/labCatalogMock.ts) `LabKatalogItem` | 📋 (§C) |
+| Katalog Lab | `/ehis-master/katalog-lab` | [labTestCatalog.ts](../src/lib/master/labTestCatalog.ts) `LabTestRecord` + [labTestSeed.ts](../src/lib/master/labTestSeed.ts) | ✅ wired (§C) — Tes→Parameter, seeded 38/88 |
 | Katalog Radiologi | `/ehis-master/katalog-radiologi` | [radCatalogMock.ts](../src/lib/master/radCatalogMock.ts) `RadCatalogRecord` | 📋 (§C) |
 | SDKI (Diagnosa Keperawatan) | `/ehis-master/sdki` | [sdkiMock.ts](../src/lib/master/sdkiMock.ts) | 📋 (§C) |
 
@@ -184,14 +184,14 @@ Matriks Layanan Unit kini punya **tabel persist** (sebelumnya state-only). Join 
 
 ---
 
-## C. Sub-grup **Obat · Lab · Radiologi · SDKI** 📋
+## C. Sub-grup **Obat · Radiologi · SDKI** 📋 · **Lab ✅**
 
-> **Placeholder** — pemodelan rinci menyusul saat dikerjakan. Ringkasan agar peta grup lengkap. Pola dasar = sibling **Tindakan/ICD** (leaf, soft-delete, layered), tapi **Lab/Rad punya anak relasional** (bukan leaf murni).
+> **Lab ✅ (2026-06-12)** — dibangun penuh (lihat baris **Katalog Lab** di bawah). Sisa (**Obat · Radiologi · SDKI**) = placeholder; pola dasar = sibling **Tindakan/ICD** (leaf, soft-delete, layered), tapi **Rad punya anak relasional** (bukan leaf murni).
 
 | Sub-master | Mock | Catatan pemodelan |
 |---|---|---|
 | **Katalog Obat** | [obatMock.ts](../src/lib/master/obatMock.ts) `ObatRecord` (30+ field) | HAM/LASA/Formularium flags · golongan UU 35/2009. Leaf besar; konsumen Farmasi + Resep + chargemaster. |
-| **Katalog Lab** | [labCatalogMock.ts](../src/lib/master/labCatalogMock.ts) `LabKatalogItem` | **Anak 1:N** `NilaiRujukanRow[]` (gender/usia → low/high) + critical low/high + delta absolute/percent. ISO 15189. → tabel `LabKatalog` + `LabNilaiRujukan` (FK). |
+| **Katalog Lab ✅** | [labTestCatalog.ts](../src/lib/master/labTestCatalog.ts) `LabTestRecord` (+ [labTestSeed.ts](../src/lib/master/labTestSeed.ts)) | **Model Tes→Parameter** (panel): `LabTest` (orderable: kategori/spesimen/metode/TAT) **1:N** `LabParameter` (analit: satuan + **tipe Numerik/Kualitatif** + nilai kritis + delta). **Rentang rujukan numerik per-parameter = JSONB** (`[{gender,usiaMin?,usiaMax?,low,high,ket?}]`) — hindari tabel ke-3. Update = **replace-all** parameter (anak, bukan entitas mandiri). Form: tab Parameter + **Satuan combobox** (satuan baku riset) + DiscardDialog; **KODE field dihapus** (auto). Seeded 38 tes / 88 parameter (Darah Rutin/Urine Rutin panel · Kimia Darah · Widal · NAPZA cutoff SAMHSA · Plano/hCG · Golongan Darah). **Lab mock lama** ([labCatalogMock.ts](../src/lib/master/labCatalogMock.ts), single-analit) tetap dipakai HasilPane/TrendPane — belum dimigrasi. |
 | **Katalog Radiologi** | [radCatalogMock.ts](../src/lib/master/radCatalogMock.ts) `RadCatalogRecord` | Persiapan/DRL + reporting template + kontras info. PMK 1014/2008. Anak: template/persiapan (array atau child). |
 | **SDKI** | [sdkiMock.ts](../src/lib/master/sdkiMock.ts) | Diagnosa keperawatan (SDKI/SLKI/SIKI). Konsumen AsuhanForm keperawatan. |
 

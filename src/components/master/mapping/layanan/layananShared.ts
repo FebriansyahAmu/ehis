@@ -1,11 +1,16 @@
-import type { TindakanRecord } from "@/lib/master/tindakanMock";
+import {
+  type TindakanRecord, type TindakanKategori,
+  KATEGORI_CFG, KATEGORI_ORDER, KOMPLEKSITAS_CFG,
+} from "@/lib/master/tindakanMock";
 import type { TindakanDTO } from "@/lib/schemas/master/tindakan";
+import type { LabTestDTO } from "@/lib/schemas/master/labTest";
 import type { LayananUnitEdgeDTO } from "@/lib/schemas/master/layananUnit";
+import type { LayananUnitLabEdgeDTO } from "@/lib/schemas/master/layananUnitLab";
 import type { AnyNode, LocationNode, LocationType } from "@/components/master/ruangan/ruanganShared";
 
 // ── Types ─────────────────────────────────────────────────
 
-/** Map tindakanId → array of unit kode yang boleh lakukan tindakan ini */
+/** Map rowId → array of unit kode yang boleh lakukan baris ini (tindakan ATAU tes lab). */
 export type LayananMap = Record<string, string[]>;
 
 /** Kolom matrix Layanan Unit — diturunkan dari Location (Ruangan) master. */
@@ -29,6 +34,83 @@ export const UNIT_CATEGORY_CFG: Record<
 };
 
 export const UNIT_CATEGORY_ORDER: LayananUnit["category"][] = ["Klinis", "Poli", "Penunjang"];
+
+// ── Baris matriks: Tindakan + Lab terpadu ────────────────--
+// Matriks Layanan Unit memetakan DUA jenis baris ke kolom ruangan: katalog Tindakan (per kategori)
+// dan katalog Laboratorium (1 grup "Tindakan Laboratorium"). Keduanya disatukan jadi `LayananRow`
+// agar Matrix/MobileView agnostik jenis. `kind` menentukan endpoint persist (tindakan vs lab).
+
+export type RowKind = "tindakan" | "lab";
+
+/** Pseudo-kategori untuk grup Lab — disisipkan setelah semua kategori tindakan. */
+export type RowKategori = TindakanKategori | "Laboratorium";
+
+type RowKatCfg = { label: string; short: string; bg: string; text: string; dot: string };
+
+export const ROW_KATEGORI_CFG: Record<RowKategori, RowKatCfg> = {
+  ...KATEGORI_CFG,
+  Laboratorium: { label: "Tindakan Laboratorium", short: "Lab", bg: "bg-cyan-50", text: "text-cyan-700", dot: "bg-cyan-500" },
+};
+
+export const ROW_KATEGORI_ORDER: RowKategori[] = [...KATEGORI_ORDER, "Laboratorium"];
+
+/** Satu baris matriks (tindakan atau tes lab) — bentuk seragam untuk render + filter. */
+export interface LayananRow {
+  id: string;
+  kind: RowKind;
+  nama: string;
+  kategori: RowKategori;
+  /** Baris kedua: kode tindakan, atau (lab) kode/kategori internal. */
+  subLabel: string;
+  /** Badge kecil: kompleksitas tindakan, atau jumlah parameter lab. */
+  chip?: { label: string; bg: string; text: string };
+  /** Teks ter-precompute (lowercase) untuk pencarian bebas-jenis. */
+  searchText: string;
+}
+
+/** Katalog tindakan → baris matriks (kategori = kategori tindakan, chip = kompleksitas). */
+export function rowsFromTindakan(records: TindakanRecord[]): LayananRow[] {
+  return records.map((t) => {
+    const kCfg = t.kompleksitas ? KOMPLEKSITAS_CFG[t.kompleksitas] : null;
+    return {
+      id: t.id,
+      kind: "tindakan" as const,
+      nama: t.nama,
+      kategori: t.kategori,
+      subLabel: t.kode,
+      chip: kCfg ? { label: kCfg.label, bg: kCfg.bg, text: kCfg.text } : undefined,
+      searchText: `${t.nama} ${t.kode}`.toLowerCase(),
+    };
+  });
+}
+
+/** Katalog lab → baris matriks (semua di grup "Laboratorium", chip = jumlah parameter). */
+export function rowsFromLab(tests: LabTestDTO[]): LayananRow[] {
+  return tests.map((t) => {
+    const n = t.parameters.length;
+    return {
+      id: t.id,
+      kind: "lab" as const,
+      nama: t.nama,
+      kategori: "Laboratorium" as const,
+      subLabel: t.kode ? t.kode : t.kategori,
+      chip: { label: `${n} par`, bg: "bg-cyan-50", text: "text-cyan-700" },
+      searchText: `${t.nama} ${t.kode} ${t.kategori}`.toLowerCase(),
+    };
+  });
+}
+
+/** Grup baris per RowKategori (urutan tetap ROW_KATEGORI_ORDER; semua kunci di-seed kosong). */
+export function groupRowsByKategori(rows: LayananRow[]): Map<RowKategori, LayananRow[]> {
+  const map = new Map<RowKategori, LayananRow[]>();
+  for (const cat of ROW_KATEGORI_ORDER) map.set(cat, []);
+  for (const r of rows) {
+    const arr = map.get(r.kategori);
+    if (arr) arr.push(r);
+    else map.set(r.kategori, [r]);
+  }
+  return map;
+}
 
 // ── Derive dari master ────────────────────────────────────
 
@@ -71,58 +153,78 @@ export function tindakanRecordsFromDTO(dtos: TindakanDTO[]): TindakanRecord[] {
   }));
 }
 
-// ── Edge persist (master.LayananUnit) ─────────────────────
+// ── Edge persist (master.LayananUnit + master.LayananUnitLab) ──────────────────
+// Edge terpadu lintas-jenis: tindakan (layanan_unit) & lab (layanan_unit_lab) dinormalisasi ke
+// bentuk yang sama (`rowId` + `kind`) supaya map/index/cache satu jalur. `kind` menentukan
+// endpoint persist saat grant/revoke.
 
-/** Kunci index edge: `${tindakanId}|${ruanganKode}` → id edge (untuk revoke). */
-export function edgeKey(tindakanId: string, unitKode: string): string {
-  return `${tindakanId}|${unitKode}`;
+export interface LayananEdge {
+  /** id edge (untuk revoke). */
+  id: string;
+  /** tindakanId atau labTestId — kunci baris di map. */
+  rowId: string;
+  kind: RowKind;
+  ruanganKode: string;
+}
+
+export function tindakanToEdge(e: LayananUnitEdgeDTO): LayananEdge {
+  return { id: e.id, rowId: e.tindakanId, kind: "tindakan", ruanganKode: e.ruanganKode };
+}
+
+export function labToEdge(e: LayananUnitLabEdgeDTO): LayananEdge {
+  return { id: e.id, rowId: e.labTestId, kind: "lab", ruanganKode: e.ruanganKode };
+}
+
+/** Kunci index edge: `${rowId}|${ruanganKode}` → id edge (untuk revoke). */
+export function edgeKey(rowId: string, unitKode: string): string {
+  return `${rowId}|${unitKode}`;
 }
 
 /**
- * Seed `LayananMap` + index id-edge dari data persist (`/master/layanan-unit`).
- * `validUnitKodes` (bila ada) menyaring ke kode kolom aktif — cegah edge ke ruangan
- * non-aktif mengotori statistik/granted. Map di-key by `ruanganKode` (selaras kolom matrix).
+ * Seed `LayananMap` + index id-edge dari edge terpadu (`/master/layanan-unit` + `.../lab`).
+ * `validUnitKodes` (bila ada) menyaring ke kode kolom aktif — cegah edge ke ruangan non-aktif
+ * mengotori statistik/granted. Map di-key by `ruanganKode` (selaras kolom matrix).
  */
 export function mapFromEdges(
-  edges: LayananUnitEdgeDTO[],
+  edges: LayananEdge[],
   validUnitKodes?: Set<string>,
 ): { map: LayananMap; index: Map<string, string> } {
   const map: LayananMap = {};
   const index = new Map<string, string>();
   for (const e of edges) {
     if (validUnitKodes && !validUnitKodes.has(e.ruanganKode)) continue;
-    (map[e.tindakanId] ??= []).push(e.ruanganKode);
-    index.set(edgeKey(e.tindakanId, e.ruanganKode), e.id);
+    (map[e.rowId] ??= []).push(e.ruanganKode);
+    index.set(edgeKey(e.rowId, e.ruanganKode), e.id);
   }
   return { map, index };
 }
 
 // ── Cache edge per-sesi (module-scoped, client-only) ──────
 // Pane Layanan Unit di-unmount→remount tiap ganti sub-page Mapping Hub (AnimatePresence). Prop
-// `initialLayanan` adalah snapshot SSR yang BEKU saat page-load → seed remount darinya bikin edit
-// sesi ini "muncul lalu hilang" (flicker) saat reconcile. Cache ini menyimpan state edge TERKINI
-// yang diketahui klien (di-update tiap reconcile & tiap grant/revoke sukses) → seed remount pakai
-// data terbaru, bukan snapshot basi. Hanya di-import komponen client → aman (per-tab, bukan server).
-let edgeCache: Map<string, LayananUnitEdgeDTO> | null = null;
+// SSR adalah snapshot yang BEKU saat page-load → seed remount darinya bikin edit sesi ini "muncul
+// lalu hilang" (flicker) saat reconcile. Cache ini menyimpan state edge TERKINI yang diketahui
+// klien (di-update tiap reconcile & tiap grant/revoke sukses) → seed remount pakai data terbaru,
+// bukan snapshot basi. Hanya di-import komponen client → aman (per-tab, bukan server).
+let edgeCache: Map<string, LayananEdge> | null = null;
 
 /** Baca cache edge terkini (null bila belum pernah di-isi → caller fallback ke SSR snapshot). */
-export function readEdgeCache(): LayananUnitEdgeDTO[] | null {
+export function readEdgeCache(): LayananEdge[] | null {
   return edgeCache ? [...edgeCache.values()] : null;
 }
 
 /** Ganti seluruh isi cache dgn snapshot server (dipanggil saat reconcile sukses). */
-export function writeEdgeCache(edges: LayananUnitEdgeDTO[]): void {
-  edgeCache = new Map(edges.map((e) => [edgeKey(e.tindakanId, e.ruanganKode), e]));
+export function writeEdgeCache(edges: LayananEdge[]): void {
+  edgeCache = new Map(edges.map((e) => [edgeKey(e.rowId, e.ruanganKode), e]));
 }
 
 /** Tambah/replace satu edge (grant sukses). */
-export function cacheEdge(edge: LayananUnitEdgeDTO): void {
-  (edgeCache ??= new Map()).set(edgeKey(edge.tindakanId, edge.ruanganKode), edge);
+export function cacheEdge(edge: LayananEdge): void {
+  (edgeCache ??= new Map()).set(edgeKey(edge.rowId, edge.ruanganKode), edge);
 }
 
 /** Hapus satu edge dari cache (revoke sukses). */
-export function uncacheEdge(tindakanId: string, unitKode: string): void {
-  edgeCache?.delete(edgeKey(tindakanId, unitKode));
+export function uncacheEdge(rowId: string, unitKode: string): void {
+  edgeCache?.delete(edgeKey(rowId, unitKode));
 }
 
 /** Set/unset keberadaan satu kode di array (imutabel). */
@@ -135,15 +237,15 @@ export function setPresence(arr: string[], unitKode: string, present: boolean): 
 
 // ── Helpers ───────────────────────────────────────────────
 
-export function hasLayanan(map: LayananMap, tindakanId: string, unitKode: string): boolean {
-  return (map[tindakanId] ?? []).includes(unitKode);
+export function hasLayanan(map: LayananMap, rowId: string, unitKode: string): boolean {
+  return (map[rowId] ?? []).includes(unitKode);
 }
 
-export function countUnitPerTindakan(map: LayananMap, tindakanId: string): number {
-  return (map[tindakanId] ?? []).length;
+export function countUnitPerRow(map: LayananMap, rowId: string): number {
+  return (map[rowId] ?? []).length;
 }
 
-export function countTindakanPerUnit(map: LayananMap, unitKode: string): number {
+export function countRowsPerUnit(map: LayananMap, unitKode: string): number {
   return Object.values(map).filter((arr) => arr.includes(unitKode)).length;
 }
 

@@ -14,7 +14,7 @@ import {
 } from "@/components/master/ruangan/ruanganShared";
 import {
   type LayananMap, type LayananUnit,
-  UNIT_CATEGORY_CFG, UNIT_CATEGORY_ORDER, countTindakanPerUnit,
+  UNIT_CATEGORY_CFG, UNIT_CATEGORY_ORDER, countRowsPerUnit,
 } from "./layananShared";
 
 interface Props {
@@ -131,7 +131,7 @@ export default function LayananUnitTreePanel({
             key={node.id}
             unit={u}
             depth={depth}
-            count={countTindakanPerUnit(map, node.kode)}
+            count={countRowsPerUnit(map, node.kode)}
             hidden={hiddenUnits.has(node.kode)}
             onToggle={() => onToggleUnit(node.kode)}
             onFocus={() => onShowOnly([node.kode])}

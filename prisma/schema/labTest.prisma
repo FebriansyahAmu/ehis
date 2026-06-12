@@ -1,0 +1,65 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Katalog Laboratorium  (Postgres schema "master")
+//  FE: /ehis-master/katalog-lab · Tipe/seed FE: src/lib/master/labTestCatalog.ts
+//  (LabTestRecord) + src/lib/master/labTestSeed.ts (data riset).
+//
+//  Model TES → PARAMETER (LOINC/Pranata-style): satu Tes (orderable) memuat 1..N
+//  Parameter (analit). Rentang rujukan numerik per-parameter disimpan sebagai JSONB
+//  (jarang di-query relasional; di-edit/di-seed sebagai blok) — hindari tabel ke-3.
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz · soft-delete (LabTest). Katalog leaf →
+//  TANPA optimistic-version (analog Tindakan/IcdCode). `kategori` = TEXT (FE-facing,
+//  boleh spasi "Kimia Klinik") → tak perlu enum/vocab-map. Parameter hard-delete
+//  (cascade) — anak Tes, di-replace utuh saat update (bukan entitas mandiri).
+// ════════════════════════════════════════════════════════════════════════════
+
+model LabTest {
+  id   String @id @default(uuid(7)) @db.Uuid
+  kode String @default("") // kode internal lab; boleh kosong (auto/diisi belakangan)
+  nama String
+
+  kategori    String // FE-facing: "Hematologi" | "Kimia Klinik" | ... (boleh spasi)
+  spesimen    String? // mis. "Darah EDTA", "Serum", "Urin sewaktu"
+  metode      String? // metode utama tes
+  waktuTunggu String? @map("waktu_tunggu") // TAT, mis. "60 mnt"
+  keterangan  String?
+
+  active Boolean @default(true) // FE status "Aktif"/"NonAktif" ⇄ active
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  parameters LabParameter[]
+  // Ruangan yang boleh kerjakan tes ini (Mapping Hub → Layanan Unit, grup Lab); N:M via master.LayananUnitLab.
+  layananUnits LayananUnitLab[]
+
+  @@index([kategori, active]) // list/filter per kategori + status
+  @@index([kode])
+  @@map("lab_test")
+  @@schema("master")
+}
+
+model LabParameter {
+  id     String  @id @default(uuid(7)) @db.Uuid
+  testId String  @map("test_id") @db.Uuid
+  test   LabTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+
+  nama            String
+  satuan          String  @default("") // "" untuk kualitatif
+  tipeHasil       String  @default("Numerik") @map("tipe_hasil") // "Numerik" | "Kualitatif"
+  nilaiNormalText String? @map("nilai_normal_text") // kualitatif: "Negatif", "A / B / AB / O"
+  /// Rentang rujukan numerik per gender/usia: [{ gender, usiaMin?, usiaMax?, low, high, keterangan? }]
+  rujukan         Json    @default("[]") @db.JsonB
+
+  criticalLow   Float? @map("critical_low")
+  criticalHigh  Float? @map("critical_high")
+  deltaAbsolute Float? @map("delta_absolute")
+  deltaPercent  Float? @map("delta_percent")
+  metode        String? // metode spesifik parameter (opsional)
+  urutan        Int     @default(0)
+
+  @@index([testId])
+  @@map("lab_parameter")
+  @@schema("master")
+}

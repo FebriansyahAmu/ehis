@@ -160,6 +160,8 @@ model Location {
   penugasan PenugasanRuangan[] @relation("LokasiPenugasan")
   /// Tindakan yang boleh dilakukan di ruangan ini (Mapping Hub → Layanan Unit); N:M via master.LayananUnit.
   layanan LayananUnit[] @relation("LayananLokasi")
+  /// Tes lab yang boleh dikerjakan di ruangan ini (Mapping Hub → Layanan Unit, grup Lab); N:M via master.LayananUnitLab.
+  layananLab LayananUnitLab[] @relation("LayananLabLokasi")
 
   @@index([organizationId])
   @@index([locationType])

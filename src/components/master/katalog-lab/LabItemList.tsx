@@ -2,18 +2,16 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { AlertOctagon, TrendingUp } from "lucide-react";
+import { AlertOctagon, Beaker } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MasterListPanel } from "@/components/master/shared";
-import type { LabKatalogItem } from "@/lib/master/labCatalogMock";
-import type { KategoriLab } from "@/components/lab/labShared";
+import type { LabTestRecord, LabKategori } from "@/lib/master/labTestCatalog";
 import {
-  KATEGORI_CFG, KATEGORI_LAB_ORDER,
-  labItemInitials, hasCriticalConfig, hasDeltaConfig,
+  KATEGORI_CFG, LAB_KATEGORI_ORDER, labTestInitials, countCriticalParams,
 } from "./katalogLabShared";
 
 interface Props {
-  items: LabKatalogItem[];
+  items: LabTestRecord[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onAddNew: () => void;
@@ -22,9 +20,9 @@ interface Props {
 type FilterStatus = "Semua" | "Aktif" | "NonAktif";
 
 export default function LabItemList({ items, selectedId, onSelect, onAddNew }: Props) {
-  const [query,        setQuery]        = useState("");
+  const [query, setQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("Semua");
-  const [filterKat,    setFilterKat]    = useState<KategoriLab | "Semua">("Semua");
+  const [filterKat, setFilterKat] = useState<LabKategori | "Semua">("Semua");
 
   const filtered = items.filter((item) => {
     const q = query.toLowerCase();
@@ -32,9 +30,9 @@ export default function LabItemList({ items, selectedId, onSelect, onAddNew }: P
       !q ||
       item.nama.toLowerCase().includes(q) ||
       item.kode.toLowerCase().includes(q) ||
-      item.satuan.toLowerCase().includes(q);
+      item.parameters.some((p) => p.nama.toLowerCase().includes(q));
     const matchS = filterStatus === "Semua" || item.status === filterStatus;
-    const matchK = filterKat    === "Semua" || item.kategori === filterKat;
+    const matchK = filterKat === "Semua" || item.kategori === filterKat;
     return matchQ && matchS && matchK;
   });
 
@@ -45,12 +43,12 @@ export default function LabItemList({ items, selectedId, onSelect, onAddNew }: P
       accent="sky"
       query={query}
       onQueryChange={setQuery}
-      searchPlaceholder="Cari nama, kode, satuan..."
+      searchPlaceholder="Cari tes, kode, parameter…"
       visibleCount={filtered.length}
       totalCount={items.length}
       hasActiveFilter={hasActiveFilter}
       onAddNew={onAddNew}
-      addLabel="Tambah Pemeriksaan"
+      addLabel="Tambah Tes"
       isEmpty={filtered.length === 0}
       filterSlot={
         <>
@@ -89,7 +87,7 @@ export default function LabItemList({ items, selectedId, onSelect, onAddNew }: P
               >
                 Semua
               </button>
-              {KATEGORI_LAB_ORDER.map((k) => {
+              {LAB_KATEGORI_ORDER.map((k) => {
                 const cfg = KATEGORI_CFG[k];
                 return (
                   <button
@@ -102,6 +100,7 @@ export default function LabItemList({ items, selectedId, onSelect, onAddNew }: P
                         ? cn(cfg.bg, cfg.text, "ring-1 ring-current")
                         : "border border-slate-200 text-slate-500 hover:border-slate-300",
                     )}
+                    title={k}
                   >
                     {cfg.short}
                   </button>
@@ -127,10 +126,8 @@ export default function LabItemList({ items, selectedId, onSelect, onAddNew }: P
   );
 }
 
-// ── Row sub-component ────────────────────────────────────
-
 interface RowProps {
-  item: LabKatalogItem;
+  item: LabTestRecord;
   active: boolean;
   index: number;
   onSelect: () => void;
@@ -138,7 +135,8 @@ interface RowProps {
 
 function LabItemRow({ item, active, index, onSelect }: RowProps) {
   const catCfg = KATEGORI_CFG[item.kategori];
-  const initials = labItemInitials(item);
+  const initials = labTestInitials(item);
+  const critical = countCriticalParams(item);
 
   return (
     <motion.li
@@ -157,7 +155,6 @@ function LabItemRow({ item, active, index, onSelect }: RowProps) {
         )}
       >
         <div className="flex items-center gap-2.5">
-          {/* Avatar */}
           <div className={cn(
             "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-black",
             catCfg.bg, catCfg.text,
@@ -165,36 +162,26 @@ function LabItemRow({ item, active, index, onSelect }: RowProps) {
             {initials}
           </div>
 
-          {/* Info */}
           <div className="min-w-0 flex-1">
-            <p className={cn(
-              "truncate text-xs font-semibold",
-              active ? "text-sky-800" : "text-slate-700",
-            )}>
+            <p className={cn("truncate text-xs font-semibold", active ? "text-sky-800" : "text-slate-700")}>
               {item.nama}
             </p>
             <div className="mt-0.5 flex items-center gap-1.5">
-              <span className="font-mono text-[10px] text-slate-400">{item.kode}</span>
-              {item.satuan && (
-                <span className="text-[10px] text-slate-400">· {item.satuan}</span>
-              )}
+              {item.kode && <span className="font-mono text-[10px] text-slate-400">{item.kode}</span>}
+              <span className="flex items-center gap-0.5 text-[10px] text-slate-400">
+                <Beaker size={9} /> {item.parameters.length} param
+              </span>
             </div>
           </div>
 
-          {/* Right badges */}
           <div className="flex shrink-0 flex-col items-end gap-1">
             <span className={cn("rounded px-1.5 py-0 text-[9px] font-semibold", catCfg.bg, catCfg.text)}>
               {catCfg.short}
             </span>
             <div className="flex items-center gap-1">
-              {hasCriticalConfig(item) && (
-                <span title="Nilai kritis terkonfigurasi">
+              {critical > 0 && (
+                <span title={`${critical} parameter dengan nilai kritis`}>
                   <AlertOctagon size={9} className="text-rose-400" />
-                </span>
-              )}
-              {hasDeltaConfig(item) && (
-                <span title="Delta check terkonfigurasi">
-                  <TrendingUp size={9} className="text-amber-400" />
                 </span>
               )}
               {item.status === "NonAktif" && (

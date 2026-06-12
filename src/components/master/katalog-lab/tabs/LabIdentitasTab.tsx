@@ -1,8 +1,8 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import type { LabKatalogItem } from "@/lib/master/labCatalogMock";
-import { KATEGORI_LAB_ORDER } from "../katalogLabShared";
+import type { LabTestRecord } from "@/lib/master/labTestCatalog";
+import { LAB_KATEGORI_ORDER } from "../katalogLabShared";
 
 const inputCls =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 " +
@@ -10,9 +10,9 @@ const inputCls =
   "focus:border-sky-400 focus:ring-2 focus:ring-sky-100";
 
 interface Props {
-  draft: LabKatalogItem;
+  draft: LabTestRecord;
   isNew: boolean;
-  onPatch: (p: Partial<LabKatalogItem>) => void;
+  onPatch: (p: Partial<LabTestRecord>) => void;
 }
 
 function Field({
@@ -32,74 +32,50 @@ function Field({
   );
 }
 
-export default function LabIdentitasTab({ draft, isNew, onPatch }: Props) {
-  const KOMPLEKSITAS_STATUS = ["Aktif", "NonAktif"] as const;
+const STATUS_OPTS = ["Aktif", "NonAktif"] as const;
 
+export default function LabIdentitasTab({ draft, onPatch }: Props) {
   return (
     <div className="space-y-5">
-      {/* Kode + Nama — kode disembunyikan saat entry baru */}
-      {isNew ? (
-        <Field label="Nama Pemeriksaan" required>
-          <input
-            type="text"
-            value={draft.nama}
-            onChange={(e) => onPatch({ nama: e.target.value })}
-            placeholder="mis. Hemoglobin, Glukosa Puasa..."
-            className={inputCls}
-          />
-        </Field>
-      ) : (
-        <div className="grid grid-cols-[160px_1fr] gap-4">
-          <Field label="Kode" required>
-            <input
-              type="text"
-              value={draft.kode}
-              onChange={(e) => onPatch({ kode: e.target.value })}
-              placeholder="mis. HEM-001"
-              maxLength={16}
-              className={inputCls}
-            />
-          </Field>
-          <Field label="Nama Pemeriksaan" required>
-            <input
-              type="text"
-              value={draft.nama}
-              onChange={(e) => onPatch({ nama: e.target.value })}
-              placeholder="Nama lengkap pemeriksaan..."
-              className={inputCls}
-            />
-          </Field>
-        </div>
-      )}
+      {/* Nama — KODE sengaja TIDAK ditampilkan (auto / read-only di header) */}
+      <Field label="Nama Tes / Pemeriksaan" required hint="mis. Darah Rutin, Kimia Darah Glukosa, Widal Test…">
+        <input
+          type="text"
+          value={draft.nama}
+          onChange={(e) => onPatch({ nama: e.target.value })}
+          placeholder="Nama lengkap tes laboratorium…"
+          className={inputCls}
+        />
+      </Field>
 
       {/* Kategori */}
       <Field label="Kategori" required>
         <div className="relative max-w-xs">
           <select
             value={draft.kategori}
-            onChange={(e) => onPatch({ kategori: e.target.value as LabKatalogItem["kategori"] })}
+            onChange={(e) => onPatch({ kategori: e.target.value as LabTestRecord["kategori"] })}
             className={cn(
               inputCls,
               "appearance-none pr-8",
               "bg-[url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E\")]",
-              "bg-[length:14px] bg-position-[right_10px_center] bg-no-repeat",
+              "bg-size-[14px] bg-position-[right_10px_center] bg-no-repeat",
             )}
           >
-            {KATEGORI_LAB_ORDER.map((k) => (
+            {LAB_KATEGORI_ORDER.map((k) => (
               <option key={k} value={k}>{k}</option>
             ))}
           </select>
         </div>
       </Field>
 
-      {/* Satuan + Waktu Tunggu */}
+      {/* Spesimen + Waktu Tunggu */}
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Satuan" required hint="mis. g/dL, mg/dL, ×10³/µL">
+        <Field label="Spesimen" hint="mis. Darah EDTA, Serum, Urin sewaktu">
           <input
             type="text"
-            value={draft.satuan}
-            onChange={(e) => onPatch({ satuan: e.target.value })}
-            placeholder="mis. g/dL"
+            value={draft.spesimen ?? ""}
+            onChange={(e) => onPatch({ spesimen: e.target.value })}
+            placeholder="Jenis spesimen…"
             className={inputCls}
           />
         </Field>
@@ -114,12 +90,23 @@ export default function LabIdentitasTab({ draft, isNew, onPatch }: Props) {
         </Field>
       </div>
 
+      {/* Metode */}
+      <Field label="Metode Pemeriksaan" hint="Metode utama tes (boleh di-override per parameter)">
+        <input
+          type="text"
+          value={draft.metode ?? ""}
+          onChange={(e) => onPatch({ metode: e.target.value })}
+          placeholder="mis. Flowcytometry, IFCC 37 °C, Immunoassay strip…"
+          className={inputCls}
+        />
+      </Field>
+
       {/* Keterangan */}
       <Field label="Keterangan Klinis">
         <textarea
           value={draft.keterangan ?? ""}
           onChange={(e) => onPatch({ keterangan: e.target.value })}
-          placeholder="Catatan interpretasi, indikasi klinis, referensi standar..."
+          placeholder="Catatan interpretasi, indikasi klinis, referensi standar…"
           rows={3}
           className={cn(inputCls, "resize-none")}
         />
@@ -129,7 +116,7 @@ export default function LabIdentitasTab({ draft, isNew, onPatch }: Props) {
       <div>
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Status</p>
         <div className="flex w-fit gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
-          {KOMPLEKSITAS_STATUS.map((s) => (
+          {STATUS_OPTS.map((s) => (
             <button
               key={s}
               type="button"

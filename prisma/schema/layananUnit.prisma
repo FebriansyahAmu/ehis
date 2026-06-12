@@ -32,3 +32,32 @@ model LayananUnit {
   @@map("layanan_unit")
   @@schema("master")
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+//  Layanan Unit — LABORATORIUM. Link N:N LabTest ⇄ Ruangan (Location): "tes lab apa
+//  boleh dikerjakan di ruangan mana". Dikelola di Mapping Hub → Layanan Unit, grup
+//  "Tindakan Laboratorium" (baris matriks dari Katalog Laboratorium).
+//
+//  Tabel TERPISAH dari LayananUnit (yang Tindakan-only) — selaras catatan federasi di
+//  atas: tiap domain katalog = tabel berdiri-sendiri sampai chargemaster menyatukan
+//  (TODO-CHARGEMASTER CM2/CM5). Bukan polymorphic → tak mengusik edge tindakan existing.
+//  Sama persis bentuknya: join table, HARD delete, unik (lab_test, location) → idempoten.
+// ════════════════════════════════════════════════════════════════════════════
+
+model LayananUnitLab {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  labTestId String  @map("lab_test_id") @db.Uuid
+  labTest   LabTest @relation(fields: [labTestId], references: [id], onDelete: Restrict)
+
+  locationId String   @map("location_id") @db.Uuid
+  location   Location @relation("LayananLabLokasi", fields: [locationId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([labTestId, locationId])
+  @@index([locationId])
+  @@index([labTestId])
+  @@map("layanan_unit_lab")
+  @@schema("master")
+}

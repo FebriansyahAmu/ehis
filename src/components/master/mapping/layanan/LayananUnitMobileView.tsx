@@ -2,32 +2,31 @@
 
 // Tampilan Layanan Unit untuk layar kecil (mobile/tablet, < lg). Matrix 2D tak nyaman disentuh →
 // pakai drill-down per-unit (selaras pola SDM Assignment: pilih ruangan → toggle daftar). Alur:
-// pilih Ruangan via chip scroll-x → daftar Tindakan (grup kategori) dgn target sentuh lebar; tap
-// = grant/revoke. State & persist tetap di pane induk (komponen ini presentational + callback).
+// pilih Ruangan via chip scroll-x → daftar baris (grup kategori, termasuk grup Lab) dgn target
+// sentuh lebar; tap = grant/revoke. State & persist tetap di pane induk (presentational + callback).
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Building2, Check, MapPin } from "lucide-react";
+import { Building2, Check, MapPin, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  type TindakanRecord, type TindakanKategori,
-  KATEGORI_CFG, KATEGORI_ORDER, KOMPLEKSITAS_CFG, groupByKategori,
-} from "@/lib/master/tindakanMock";
-import type { LayananMap, LayananUnit } from "./layananShared";
-import { hasLayanan, countTindakanPerUnit, UNIT_CATEGORY_CFG } from "./layananShared";
+  type LayananMap, type LayananUnit, type LayananRow, type RowKategori,
+  ROW_KATEGORI_CFG, ROW_KATEGORI_ORDER, groupRowsByKategori,
+  hasLayanan, countRowsPerUnit, UNIT_CATEGORY_CFG,
+} from "./layananShared";
 
 interface Props {
   units: LayananUnit[];
-  /** Tindakan sudah ter-filter pencarian di pane. */
-  tindakan: TindakanRecord[];
+  /** Baris sudah ter-filter pencarian di pane. */
+  rows: LayananRow[];
   map: LayananMap;
-  visibleKategori: Set<TindakanKategori>;
-  onToggle: (tindakanId: string, unitKode: string) => void;
+  visibleKategori: Set<RowKategori>;
+  onToggle: (rowId: string, unitKode: string) => void;
   onToggleColumn: (unitKode: string, granted: boolean) => void;
 }
 
 export default function LayananUnitMobileView({
-  units, tindakan, map, visibleKategori, onToggle, onToggleColumn,
+  units, rows, map, visibleKategori, onToggle, onToggleColumn,
 }: Props) {
   // Pilihan user (null = belum pilih). Unit aktif efektif DI-DERIVE saat render (bukan effect) →
   // pilihan dipakai bila masih valid, else jatuh ke unit pertama. Hindari setState-in-effect.
@@ -40,15 +39,15 @@ export default function LayananUnitMobileView({
     return units[0] ?? null;
   }, [units, selectedKode]);
 
-  // Tindakan yang tampak = lolos filter kategori (pencarian sudah diterapkan di pane).
+  // Baris yang tampak = lolos filter kategori (pencarian sudah diterapkan di pane).
   const visible = useMemo(
-    () => tindakan.filter((t) => visibleKategori.has(t.kategori)),
-    [tindakan, visibleKategori],
+    () => rows.filter((r) => visibleKategori.has(r.kategori)),
+    [rows, visibleKategori],
   );
-  const grouped = useMemo(() => groupByKategori(visible), [visible]);
+  const grouped = useMemo(() => groupRowsByKategori(visible), [visible]);
 
   const grantedCount = selectedUnit
-    ? visible.filter((t) => hasLayanan(map, t.id, selectedUnit.kode)).length
+    ? visible.filter((r) => hasLayanan(map, r.id, selectedUnit.kode)).length
     : 0;
   const allGranted = visible.length > 0 && grantedCount === visible.length;
 
@@ -62,7 +61,7 @@ export default function LayananUnitMobileView({
         <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin]">
           {units.map((u) => {
             const cfg = UNIT_CATEGORY_CFG[u.category];
-            const count = countTindakanPerUnit(map, u.kode);
+            const count = countRowsPerUnit(map, u.kode);
             const active = u.kode === selectedUnit?.kode;
             return (
               <button
@@ -111,7 +110,7 @@ export default function LayananUnitMobileView({
             <div className="min-w-0 flex-1">
               <p className="truncate m-xs font-bold text-slate-800">{selectedUnit.nama}</p>
               <p className="m-mini text-slate-400">
-                {grantedCount}/{visible.length} tindakan boleh dilakukan di sini
+                {grantedCount}/{visible.length} layanan boleh dilakukan di sini
               </p>
             </div>
             <div className="flex shrink-0 gap-1">
@@ -134,17 +133,18 @@ export default function LayananUnitMobileView({
             </div>
           </div>
 
-          {/* Daftar tindakan (grup kategori) */}
+          {/* Daftar baris (grup kategori) */}
           <div className="min-h-0 flex-1 overflow-y-auto">
             {visible.length === 0 ? (
               <p className="px-4 py-10 text-center m-xs text-slate-400">
-                Tidak ada tindakan — sesuaikan pencarian / filter kategori di atas.
+                Tidak ada baris — sesuaikan pencarian / filter kategori di atas.
               </p>
             ) : (
-              KATEGORI_ORDER.map((cat) => {
+              ROW_KATEGORI_ORDER.map((cat) => {
                 const items = grouped.get(cat) ?? [];
                 if (items.length === 0 || !visibleKategori.has(cat)) return null;
-                const cfg = KATEGORI_CFG[cat];
+                const cfg = ROW_KATEGORI_CFG[cat];
+                const isLab = cat === "Laboratorium";
                 return (
                   <div key={cat}>
                     <div
@@ -153,38 +153,42 @@ export default function LayananUnitMobileView({
                         cfg.bg,
                       )}
                     >
-                      <span className={cn("h-2 w-2 rounded-full", cfg.dot)} />
+                      {isLab ? (
+                        <FlaskConical size={11} className={cfg.text} />
+                      ) : (
+                        <span className={cn("h-2 w-2 rounded-full", cfg.dot)} />
+                      )}
                       <span className={cn("m-mini font-bold uppercase tracking-wide", cfg.text)}>
                         {cfg.label}
                       </span>
                       <span className={cn("m-mini opacity-70", cfg.text)}>· {items.length}</span>
                     </div>
                     <ul className="divide-y divide-slate-100">
-                      {items.map((t) => {
-                        const granted = hasLayanan(map, t.id, selectedUnit.kode);
-                        const kCfg = t.kompleksitas ? KOMPLEKSITAS_CFG[t.kompleksitas] : null;
+                      {items.map((row) => {
+                        const granted = hasLayanan(map, row.id, selectedUnit.kode);
                         return (
-                          <li key={t.id}>
+                          <li key={row.id}>
                             <motion.button
                               type="button"
                               whileTap={{ scale: 0.995 }}
                               aria-pressed={granted}
-                              aria-label={`${t.nama} di ${selectedUnit.nama}: ${granted ? "boleh" : "tidak boleh"}`}
-                              onClick={() => onToggle(t.id, selectedUnit.kode)}
+                              aria-label={`${row.nama} di ${selectedUnit.nama}: ${granted ? "boleh" : "tidak boleh"}`}
+                              onClick={() => onToggle(row.id, selectedUnit.kode)}
                               className={cn(
                                 "flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left transition",
                                 granted ? "bg-teal-50/40 hover:bg-teal-50/70" : "hover:bg-slate-50",
                               )}
                             >
                               <div className="min-w-0 flex-1">
-                                <span className="block truncate m-xs font-semibold text-slate-800">
-                                  {t.nama}
+                                <span className="flex items-center gap-1 truncate m-xs font-semibold text-slate-800">
+                                  {row.kind === "lab" && <FlaskConical size={11} className="shrink-0 text-cyan-600" />}
+                                  {row.nama}
                                 </span>
                                 <span className="mt-0.5 flex items-center gap-1.5">
-                                  <span className="font-mono m-mini text-slate-400">{t.kode}</span>
-                                  {kCfg && (
-                                    <span className={cn("rounded px-1 py-0 m-mini font-bold", kCfg.bg, kCfg.text)}>
-                                      {kCfg.label}
+                                  <span className="font-mono m-mini text-slate-400">{row.subLabel}</span>
+                                  {row.chip && (
+                                    <span className={cn("rounded px-1 py-0 m-mini font-bold", row.chip.bg, row.chip.text)}>
+                                      {row.chip.label}
                                     </span>
                                   )}
                                 </span>
@@ -214,7 +218,7 @@ export default function LayananUnitMobileView({
         <div className="flex flex-1 flex-col items-center justify-center gap-1.5 px-6 text-center text-slate-400">
           <MapPin size={20} className="text-slate-300" />
           <p className="m-xs font-semibold text-slate-500">Pilih unit di atas</p>
-          <p className="m-mini">untuk mulai memetakan tindakan.</p>
+          <p className="m-mini">untuk mulai memetakan layanan.</p>
         </div>
       )}
     </div>

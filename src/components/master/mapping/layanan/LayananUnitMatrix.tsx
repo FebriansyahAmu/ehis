@@ -1,30 +1,28 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Check, Building2 } from "lucide-react";
+import { Check, Building2, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  type TindakanRecord, type TindakanKategori,
-  KATEGORI_CFG, KATEGORI_ORDER, KOMPLEKSITAS_CFG,
-  groupByKategori,
-} from "@/lib/master/tindakanMock";
-import type { LayananMap, LayananUnit } from "./layananShared";
-import { hasLayanan, countUnitPerTindakan, countTindakanPerUnit, UNIT_CATEGORY_CFG } from "./layananShared";
+  type LayananMap, type LayananUnit, type LayananRow, type RowKategori,
+  ROW_KATEGORI_CFG, ROW_KATEGORI_ORDER, groupRowsByKategori,
+  hasLayanan, countUnitPerRow, countRowsPerUnit, UNIT_CATEGORY_CFG,
+} from "./layananShared";
 
 interface LayananUnitMatrixProps {
-  tindakan: TindakanRecord[];
+  rows: LayananRow[];
   units: LayananUnit[];
   map: LayananMap;
-  visibleKategori: Set<TindakanKategori>;
-  onToggle: (tindakanId: string, unitKode: string) => void;
-  onToggleRow: (tindakanId: string, granted: boolean) => void;
+  visibleKategori: Set<RowKategori>;
+  onToggle: (rowId: string, unitKode: string) => void;
+  onToggleRow: (rowId: string, granted: boolean) => void;
   onToggleColumn: (unitKode: string, granted: boolean) => void;
 }
 
 export default function LayananUnitMatrix({
-  tindakan, units, map, visibleKategori, onToggle, onToggleRow, onToggleColumn,
+  rows, units, map, visibleKategori, onToggle, onToggleRow, onToggleColumn,
 }: LayananUnitMatrixProps) {
-  const grouped = groupByKategori(tindakan);
+  const grouped = groupRowsByKategori(rows);
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -34,26 +32,26 @@ export default function LayananUnitMatrix({
           {/* Sticky header row */}
           <thead className="sticky top-0 z-20">
             <tr>
-              <th className="sticky left-0 z-30 min-w-[260px] border-b border-r border-slate-200 bg-white px-3 py-2 text-left">
+              <th className="sticky left-0 z-30 min-w-65 border-b border-r border-slate-200 bg-white px-3 py-2 text-left">
                 <span className="m-mini font-semibold uppercase tracking-wide text-slate-500">
-                  Tindakan
+                  Tindakan &amp; Tes Lab
                 </span>
               </th>
               {units.map((u) => {
                 const cfg = UNIT_CATEGORY_CFG[u.category];
-                const count = countTindakanPerUnit(map, u.kode);
+                const count = countRowsPerUnit(map, u.kode);
                 return (
                   <th
                     key={u.kode}
                     className={cn(
-                      "min-w-[56px] border-b border-r border-slate-200 px-1 py-2 text-center",
+                      "min-w-14 border-b border-r border-slate-200 px-1 py-2 text-center",
                       cfg.bg,
                     )}
                   >
                     <button
                       type="button"
-                      onClick={() => onToggleColumn(u.kode, count < tindakan.length)}
-                      title={`${u.nama} — klik untuk toggle semua tindakan visible`}
+                      onClick={() => onToggleColumn(u.kode, count < rows.length)}
+                      title={`${u.nama} — klik untuk toggle semua baris visible`}
                       className={cn("flex w-full flex-col items-center gap-0.5", cfg.text)}
                     >
                       <Building2 size={11} />
@@ -67,14 +65,15 @@ export default function LayananUnitMatrix({
           </thead>
 
           <tbody>
-            {KATEGORI_ORDER.map((cat) => {
+            {ROW_KATEGORI_ORDER.map((cat) => {
               const items = grouped.get(cat) ?? [];
               if (items.length === 0) return null;
               if (!visibleKategori.has(cat)) return null;
-              const catCfg = KATEGORI_CFG[cat];
+              const catCfg = ROW_KATEGORI_CFG[cat];
               return (
                 <KategoriBlock
                   key={cat}
+                  cat={cat}
                   items={items}
                   catCfg={catCfg}
                   units={units}
@@ -101,6 +100,9 @@ export default function LayananUnitMatrix({
           <span className="font-semibold uppercase tracking-wide">Legenda:</span>
           <Legend bg="bg-teal-600" label="Boleh dilakukan" />
           <Legend bg="bg-white border border-slate-300" label="Tidak boleh" />
+          <span className="inline-flex items-center gap-1">
+            <FlaskConical size={11} className="text-cyan-600" /> Tes laboratorium
+          </span>
           <span className="ml-auto italic">Klik judul kolom / baris untuk toggle massal</span>
         </div>
       </div>
@@ -120,17 +122,19 @@ function Legend({ bg, label }: { bg: string; label: string }) {
 }
 
 interface KategoriBlockProps {
-  items: TindakanRecord[];
-  catCfg: typeof KATEGORI_CFG[TindakanKategori];
+  cat: RowKategori;
+  items: LayananRow[];
+  catCfg: typeof ROW_KATEGORI_CFG[RowKategori];
   units: LayananUnit[];
   map: LayananMap;
-  onToggle: (tindakanId: string, unitKode: string) => void;
-  onToggleRow: (tindakanId: string, granted: boolean) => void;
+  onToggle: (rowId: string, unitKode: string) => void;
+  onToggleRow: (rowId: string, granted: boolean) => void;
 }
 
 function KategoriBlock({
-  items, catCfg, units, map, onToggle, onToggleRow,
+  cat, items, catCfg, units, map, onToggle, onToggleRow,
 }: KategoriBlockProps) {
+  const noun = cat === "Laboratorium" ? "tes" : "tindakan";
   return (
     <>
       <tr>
@@ -139,18 +143,22 @@ function KategoriBlock({
           className={cn("sticky left-0 border-b border-slate-200 px-3 py-1.5", catCfg.bg)}
         >
           <div className="flex items-center gap-1.5">
-            <span className={cn("h-2 w-2 rounded-full", catCfg.dot)} />
+            {cat === "Laboratorium" ? (
+              <FlaskConical size={11} className={catCfg.text} />
+            ) : (
+              <span className={cn("h-2 w-2 rounded-full", catCfg.dot)} />
+            )}
             <span className={cn("m-mini font-bold uppercase tracking-wide", catCfg.text)}>
               {catCfg.label}
             </span>
-            <span className={cn("m-mini opacity-70", catCfg.text)}>· {items.length} tindakan</span>
+            <span className={cn("m-mini opacity-70", catCfg.text)}>· {items.length} {noun}</span>
           </div>
         </td>
       </tr>
-      {items.map((t, i) => (
-        <TindakanRow
-          key={t.id}
-          tindakan={t}
+      {items.map((row, i) => (
+        <LayananRowItem
+          key={row.id}
+          row={row}
           units={units}
           map={map}
           rowIndex={i}
@@ -162,20 +170,19 @@ function KategoriBlock({
   );
 }
 
-function TindakanRow({
-  tindakan, units, map, rowIndex, onToggle, onToggleRow,
+function LayananRowItem({
+  row, units, map, rowIndex, onToggle, onToggleRow,
 }: {
-  tindakan: TindakanRecord;
+  row: LayananRow;
   units: LayananUnit[];
   map: LayananMap;
   rowIndex: number;
-  onToggle: (tindakanId: string, unitKode: string) => void;
-  onToggleRow: (tindakanId: string, granted: boolean) => void;
+  onToggle: (rowId: string, unitKode: string) => void;
+  onToggleRow: (rowId: string, granted: boolean) => void;
 }) {
-  const kCfg = tindakan.kompleksitas ? KOMPLEKSITAS_CFG[tindakan.kompleksitas] : null;
-  const count = countUnitPerTindakan(map, tindakan.id);
+  const count = countUnitPerRow(map, row.id);
   // "Toggle baris" hanya menyangkut kolom yang sedang tampak (unit tersembunyi tak diutak-atik).
-  const allGranted = units.length > 0 && units.every((u) => hasLayanan(map, tindakan.id, u.kode));
+  const allGranted = units.length > 0 && units.every((u) => hasLayanan(map, row.id, u.kode));
 
   return (
     <motion.tr
@@ -184,19 +191,22 @@ function TindakanRow({
       transition={{ duration: 0.2, delay: Math.min(rowIndex * 0.01, 0.2) }}
       className="group hover:bg-slate-50/60"
     >
-      <td className="sticky left-0 z-10 min-w-[260px] border-b border-r border-slate-200 bg-white px-3 py-1.5 group-hover:bg-slate-50/60">
+      <td className="sticky left-0 z-10 min-w-65 border-b border-r border-slate-200 bg-white px-3 py-1.5 group-hover:bg-slate-50/60">
         <button
           type="button"
-          onClick={() => onToggleRow(tindakan.id, !allGranted)}
+          onClick={() => onToggleRow(row.id, !allGranted)}
           className="flex w-full flex-col items-start text-left"
           title="Klik untuk toggle semua unit"
         >
-          <span className="truncate m-xs font-semibold text-slate-800">{tindakan.nama}</span>
-          <div className="mt-0.5 flex items-center gap-1.5">
-            <span className="font-mono m-mini text-slate-400">{tindakan.kode}</span>
-            {kCfg && (
-              <span className={cn("rounded px-1 py-0 m-mini font-bold", kCfg.bg, kCfg.text)}>
-                {kCfg.label}
+          <span className="flex items-center gap-1 truncate m-xs font-semibold text-slate-800">
+            {row.kind === "lab" && <FlaskConical size={11} className="shrink-0 text-cyan-600" />}
+            {row.nama}
+          </span>
+          <div className="mt-0.5 flex w-full items-center gap-1.5">
+            <span className="font-mono m-mini text-slate-400">{row.subLabel}</span>
+            {row.chip && (
+              <span className={cn("rounded px-1 py-0 m-mini font-bold", row.chip.bg, row.chip.text)}>
+                {row.chip.label}
               </span>
             )}
             <span className="ml-auto inline-flex items-center gap-0.5 m-mini font-bold text-teal-700">
@@ -206,7 +216,7 @@ function TindakanRow({
         </button>
       </td>
       {units.map((u) => {
-        const granted = hasLayanan(map, tindakan.id, u.kode);
+        const granted = hasLayanan(map, row.id, u.kode);
         return (
           <td
             key={u.kode}
@@ -214,8 +224,8 @@ function TindakanRow({
           >
             <button
               type="button"
-              onClick={() => onToggle(tindakan.id, u.kode)}
-              aria-label={`${tindakan.nama} di ${u.nama}: ${granted ? "boleh" : "tidak boleh"}`}
+              onClick={() => onToggle(row.id, u.kode)}
+              aria-label={`${row.nama} di ${u.nama}: ${granted ? "boleh" : "tidak boleh"}`}
               className={cn(
                 "mx-auto flex h-6 w-6 items-center justify-center rounded-md border-2 transition",
                 granted
