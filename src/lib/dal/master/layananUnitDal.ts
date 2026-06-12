@@ -61,6 +61,26 @@ export function deleteById(id: string, tx?: Tx) {
   return db(tx).layananUnit.delete({ where: { id } });
 }
 
+// ── Read klinis: tindakan ter-assign (join LayananUnit → Tindakan) ─────────────
+// Untuk endpoint /master/tindakan-tersedia (gate clinical.tindakan). Hanya tindakan AKTIF &
+// non-deleted; opsional difilter ruangan (kode). Include tindakan (field ramping) + kode
+// ruangan → Service agregasi distinct per tindakan dgn daftar ruanganKodes.
+export function listAssignedTindakan(params: { ruanganKode?: string }, tx?: Tx) {
+  return db(tx).layananUnit.findMany({
+    where: {
+      tindakan: { deletedAt: null, active: true },
+      ...(params.ruanganKode ? { location: { kode: params.ruanganKode } } : {}),
+    },
+    include: {
+      tindakan: {
+        select: { id: true, kode: true, nama: true, kategori: true, kompleksitas: true },
+      },
+      location: { select: { kode: true } },
+    },
+    orderBy: [{ tindakan: { nama: "asc" } }],
+  });
+}
+
 // ── Guards (eksistensi parent; soft-delete difilter) ──────────────────────────
 export function findTindakan(id: string, tx?: Tx) {
   return db(tx).tindakan.findFirst({ where: { id, deletedAt: null }, select: { id: true, nama: true } });

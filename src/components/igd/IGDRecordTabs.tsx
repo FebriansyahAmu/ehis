@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/contexts/SessionContext";
 import IdentitasVerifikasiBanner, { type VerifikasiInfo } from "@/components/shared/medical-records/IdentitasVerifikasiBanner";
 
 import TriaseTab        from "./tabs/TriaseTab";
@@ -95,6 +96,7 @@ function NavItem({ tab, active, onClick }: { tab: TabDef; active: boolean; onCli
 
 export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }) {
   const [active, setActive] = useState<TabId>("triase");;
+  const { session } = useSession();
 
   // ── Identitas verifikasi ──────────────────────────────────
   const [identitasVerified, setIdentitasVerified] = useState(false);
@@ -118,6 +120,7 @@ export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }
           isVerified={identitasVerified}
           verifikasiInfo={verifikasiInfo ?? undefined}
           onVerify={handleVerifikasiIdentitas}
+          defaultPerawat={session?.namaTampil}
         />
         <motion.div
           animate={{

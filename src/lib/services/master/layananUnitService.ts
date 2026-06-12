@@ -9,6 +9,7 @@ import * as defaultDal from "@/lib/dal/master/layananUnitDal";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type { GrantLayananInput, LayananQuery, LayananUnitEdgeDTO } from "@/lib/schemas/master/layananUnit";
+import type { TindakanTersediaQuery, TindakanTersediaDTO } from "@/lib/schemas/master/tindakanTersedia";
 import type { LayananEntity } from "@/lib/dal/master/layananUnitDal";
 
 type Dal = typeof defaultDal;
@@ -36,6 +37,33 @@ export function makeLayananUnitService(deps: { dal?: Dal } = {}) {
       limit: query.limit,
     });
     return { items: items.map(toDTO), cursor: nextCursor };
+  }
+
+  /**
+   * Katalog tindakan ter-assign untuk konsumsi KLINIS (rekam medis tab Tindakan). Agregasi
+   * baris edge → 1 DTO per tindakan dgn daftar ruanganKodes. ACTOR-LESS (read murni). Lab/Rad
+   * tidak termuat (bukan entri LayananUnit). Opsional difilter ruangan.
+   */
+  async function listTindakanTersedia(query: TindakanTersediaQuery): Promise<TindakanTersediaDTO[]> {
+    const rows = await dal.listAssignedTindakan({ ruanganKode: query.ruanganKode });
+    const byId = new Map<string, TindakanTersediaDTO>();
+    for (const r of rows) {
+      const t = r.tindakan;
+      const existing = byId.get(t.id);
+      if (existing) {
+        if (!existing.ruanganKodes.includes(r.location.kode)) existing.ruanganKodes.push(r.location.kode);
+        continue;
+      }
+      byId.set(t.id, {
+        id: t.id,
+        kode: t.kode,
+        nama: t.nama,
+        kategori: t.kategori,
+        kompleksitas: t.kompleksitas ?? null,
+        ruanganKodes: [r.location.kode],
+      });
+    }
+    return [...byId.values()];
   }
 
   /**
@@ -71,7 +99,7 @@ export function makeLayananUnitService(deps: { dal?: Dal } = {}) {
     await dal.deleteById(id);
   }
 
-  return { list, grant, revoke };
+  return { list, listTindakanTersedia, grant, revoke };
 }
 
 export const layananUnitService = makeLayananUnitService();

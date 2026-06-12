@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ShieldAlert, CheckCircle2, User, Calendar, Hash, ChevronRight, Loader2,
+  ShieldAlert, CheckCircle2, User, Calendar, Hash, ChevronRight, Loader2, BadgeCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +21,8 @@ interface Props {
   isVerified:      boolean;
   verifikasiInfo?: VerifikasiInfo;
   onVerify:        (perawat: string) => void;
+  /** Nama petugas dari sesi login. Bila ada → field perawat read-only (tak bisa diketik manual). */
+  defaultPerawat?: string;
 }
 
 // ── Identity card ──────────────────────────────────────────
@@ -48,18 +50,21 @@ function IdCard({
 
 export default function IdentitasVerifikasiBanner({
   namaLengkap, tanggalLahir, noRM,
-  isVerified, verifikasiInfo, onVerify,
+  isVerified, verifikasiInfo, onVerify, defaultPerawat,
 }: Props) {
+  const fromSession = !!defaultPerawat?.trim();
   const [checked,    setChecked]    = useState(false);
-  const [perawat,    setPerawat]    = useState("");
+  const [perawat,    setPerawat]    = useState(defaultPerawat?.trim() ?? "");
   const [submitting, setSubmitting] = useState(false);
 
-  const canConfirm = checked && perawat.trim().length > 0 && !submitting;
+  // Saat nama datang dari sesi → field terkunci; verifikator = identitas login.
+  const namaVerifikator = fromSession ? defaultPerawat!.trim() : perawat.trim();
+  const canConfirm = checked && namaVerifikator.length > 0 && !submitting;
 
   function handleConfirm() {
     if (!canConfirm) return;
     setSubmitting(true);
-    setTimeout(() => onVerify(perawat.trim()), 380);
+    setTimeout(() => onVerify(namaVerifikator), 380);
   }
 
   return (
@@ -115,20 +120,35 @@ export default function IdentitasVerifikasiBanner({
               </span>
             </label>
 
-            {/* Perawat input + confirm button */}
+            {/* Perawat: dari sesi login (read-only) ATAU input manual (fallback) + confirm button */}
             <div className="flex items-center gap-2">
-              <input
-                type="text"
-                placeholder="Nama perawat yang memverifikasi..."
-                value={perawat}
-                onChange={e => setPerawat(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleConfirm()}
-                className={cn(
-                  "flex-1 rounded-lg border bg-white px-3 py-2 text-xs text-slate-700 outline-none transition",
-                  "placeholder:text-slate-300",
-                  "border-amber-200 focus:border-amber-400 focus:ring-2 focus:ring-amber-100",
-                )}
-              />
+              {fromSession ? (
+                <div
+                  className="flex flex-1 items-center gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2"
+                  title="Petugas verifikator diambil dari akun yang sedang login"
+                >
+                  <BadgeCheck size={14} className="shrink-0 text-emerald-500" />
+                  <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-700">
+                    {namaVerifikator}
+                  </span>
+                  <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-amber-600">
+                    Sesi Login
+                  </span>
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  placeholder="Nama perawat yang memverifikasi..."
+                  value={perawat}
+                  onChange={e => setPerawat(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleConfirm()}
+                  className={cn(
+                    "flex-1 rounded-lg border bg-white px-3 py-2 text-xs text-slate-700 outline-none transition",
+                    "placeholder:text-slate-300",
+                    "border-amber-200 focus:border-amber-400 focus:ring-2 focus:ring-amber-100",
+                  )}
+                />
+              )}
               <motion.button
                 whileHover={canConfirm ? { scale: 1.02 } : {}}
                 whileTap={canConfirm  ? { scale: 0.96 } : {}}
