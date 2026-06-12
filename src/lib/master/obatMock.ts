@@ -54,6 +54,56 @@ export type GolonganObat =
 
 export type StatusObat = "Aktif" | "Non_Aktif" | "Discontinued";
 
+// ── KFA Mapping (SatuSehat / FHIR) ───────────────────────
+
+/** Satu baris zat aktif termapping (BZA + dosis). */
+export interface KfaMappedIngredient {
+  /** Kode BZA (KFA 91xxxxxx) */
+  kode: string;
+  /** Display nama zat aktif */
+  display: string;
+  /** Dosis / kekuatan numerik per satuan */
+  dosis?: number;
+  /** Satuan KFA / UCUM (mis. "mg", "mcg", "IU") */
+  satuan?: string;
+  /** Dosis per satuan, mis "500 mg / 1 tablet" */
+  dosisPerSatuan?: string;
+}
+
+/**
+ * Pemetaan obat RS → KFA (Kamus Farmasi & Alkes Kemenkes) untuk
+ * interoperabilitas FHIR SatuSehat (resource `Medication`). Opsional —
+ * obat tetap valid tanpa mapping; mapping menyiapkan data kirim ke SatuSehat.
+ */
+export interface KfaMapping {
+  // ── Grup 1: Produk ──
+  /** Produk Obat/Barang Aktual (POA) — kfa_code produk ber-NIE */
+  poaKode?: string;
+  poaNama?: string;
+  /** Nomor Izin Edar BPOM (NIE) */
+  nie?: string;
+  /** Produk Obat/Barang Virtual (POV) — template 92xxxxxx */
+  povKode?: string;
+  povNama?: string;
+  /** Rute pemberian (KFA) */
+  ruteKode?: string;
+  ruteNama?: string;
+  /** Bentuk sediaan (KFA dosage_form) */
+  bentukKode?: string;
+  bentukNama?: string;
+  // ── Grup 2: Zat Aktif & Dosis (BZA) ──
+  zatAktif: KfaMappedIngredient[];
+  // ── Meta ──
+  /** Sumber pemetaan: dari pencarian KFA atau input manual */
+  sumber?: "KFA_API" | "Manual";
+  /** ISO timestamp pemetaan terakhir */
+  mappedAt?: string;
+}
+
+export function emptyKfaMapping(): KfaMapping {
+  return { zatAktif: [], sumber: "Manual" };
+}
+
 // ── Master Record ────────────────────────────────────────
 
 export interface ObatRecord {
@@ -115,6 +165,10 @@ export interface ObatRecord {
   bpjsCoverage?: boolean;
   /** Batas resep per kunjungan (qty terkecil) */
   batasResepPerKunjungan?: number;
+
+  // ── Tab 5: Mapping KFA (SatuSehat / FHIR) ───────────
+  /** Pemetaan ke Kamus Farmasi & Alkes untuk interoperabilitas FHIR SatuSehat */
+  kfa?: KfaMapping;
 
   // ── Meta ────────────────────────────────────────────
   status?: StatusObat;

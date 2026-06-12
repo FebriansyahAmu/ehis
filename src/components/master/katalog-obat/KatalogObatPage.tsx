@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { Pill, ShieldAlert, Sparkles, Wallet } from "lucide-react";
 import {
   MasterPageLayout, StatCard,
-  useMasterCrud, useSkeletonDelay,
+  useMasterCrud, useSkeletonDelay, DiscardDialog,
 } from "@/components/master/shared";
 import {
   type ObatRecord,
@@ -18,11 +18,18 @@ import ObatEmptyState from "./ObatEmptyState";
 export default function KatalogObatPage() {
   const loaded = useSkeletonDelay();
   const [tab, setTab] = useState<TabKey>("identitas");
+  const [pendingNav, setPendingNav] = useState<(() => void) | null>(null);
 
   const crud = useMasterCrud<ObatRecord>({
     initial: OBAT_MOCK,
     emptyFactory: emptyObatRecord,
+    confirmDirty: () => true, // konfirmasi via DiscardDialog (bukan window.confirm)
   });
+
+  function guardDirty(action: () => void) {
+    if (crud.isDirty) setPendingNav(() => action);
+    else action();
+  }
 
   const stats = useMemo(() => {
     const total = crud.items.length;
@@ -37,20 +44,18 @@ export default function KatalogObatPage() {
     return { total, form, hamNarpsi: ham + narpsi, avgHarga };
   }, [crud.items]);
 
-  const handleSelect = (id: string) => {
-    crud.handleSelect(id);
-    setTab("identitas");
-  };
-  const handleAddNew = () => {
-    crud.handleAddNew();
-    setTab("identitas");
-  };
+  const handleSelect = (id: string) =>
+    guardDirty(() => { crud.handleSelect(id); setTab("identitas"); });
+  const handleAddNew = () =>
+    guardDirty(() => { crud.handleAddNew(); setTab("identitas"); });
+  const handleCancel = () => guardDirty(() => crud.handleCancel());
   const handleDelete = () => {
     if (!crud.selected) return;
     crud.handleDelete(`Hapus obat "${crud.selected.namaGenerik}"? Aksi ini tidak dapat di-undo.`);
   };
 
   return (
+    <>
     <MasterPageLayout
       loaded={loaded}
       accent="violet"
@@ -83,7 +88,7 @@ export default function KatalogObatPage() {
             onTabChange={setTab}
             onPatch={crud.handlePatch}
             onSave={crud.handleSave}
-            onCancel={crud.handleCancel}
+            onCancel={handleCancel}
             onDelete={!crud.isNew ? handleDelete : undefined}
           />
         ) : (
@@ -91,5 +96,12 @@ export default function KatalogObatPage() {
         )
       }
     />
+    <DiscardDialog
+      open={!!pendingNav}
+      message="Perubahan obat yang belum disimpan akan hilang."
+      onConfirm={() => { const a = pendingNav; setPendingNav(null); a?.(); }}
+      onCancel={() => setPendingNav(null)}
+    />
+    </>
   );
 }

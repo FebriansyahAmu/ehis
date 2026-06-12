@@ -26,18 +26,9 @@ export default function IdentitasTab({ draft, onPatch }: IdentitasTabProps) {
       {/* Section 1: Identitas Dasar */}
       <SectionGroup
         title="Identitas Dasar"
-        desc="Kode unik, nama generik (INN), nama dagang, dan produsen."
+        desc="Nama generik (INN), nama dagang, kategori terapeutik, dan produsen."
       >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Kode" required hint="ATC code / kode internal RS">
-            <TextInput
-              value={draft.kode}
-              onChange={(v) => onPatch({ kode: v })}
-              placeholder="contoh: J01CR02"
-              maxW="max-w-[220px]"
-              className="font-mono"
-            />
-          </Field>
           <Field label="Kategori Terapeutik" required>
             <Select<ObatKategori>
               value={draft.kategori}
@@ -154,11 +145,6 @@ function PreviewCard({ draft }: { draft: ObatRecord }) {
             {draft.namaDagang || "—"}{draft.pabrik && ` · ${draft.pabrik}`}
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            {draft.kode && (
-              <span className="rounded bg-white px-1.5 py-0 m-mini font-mono text-slate-500 ring-1 ring-slate-200">
-                {draft.kode}
-              </span>
-            )}
             <span className={cnClass("rounded px-1.5 py-0 m-mini font-semibold", catCfg.bg, catCfg.text)}>
               {catCfg.short}
             </span>

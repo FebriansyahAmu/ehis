@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { FlaskConical, CheckCircle2, Beaker, AlertOctagon } from "lucide-react";
-import { MasterPageLayout, StatCard, useMasterCrud } from "@/components/master/shared";
+import { MasterPageLayout, StatCard, useMasterCrud, DiscardDialog } from "@/components/master/shared";
 import {
   emptyLabTest, type LabTestRecord, type LabParameterRow, type LabRujukanRow,
 } from "@/lib/master/labTestCatalog";
@@ -15,7 +15,6 @@ import { countCriticalParams, type LabTabKey } from "./katalogLabShared";
 import LabItemList from "./LabItemList";
 import LabItemDetail from "./LabItemDetail";
 import LabItemEmptyState from "./LabItemEmptyState";
-import DiscardDialog from "./DiscardDialog";
 
 const PAGE_LIMIT = 200; // katalog kecil (input manual) → muat sekali, filter di klien
 

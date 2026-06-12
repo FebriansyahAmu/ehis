@@ -52,3 +52,7 @@ export type { MasterAccent, AccentClasses } from "./masterAccent";
 
 // ── Cross-module bridge ─────────────────────────────────
 export { default as MappingSourceBadge } from "./MappingSourceBadge";
+
+// ── Dialogs ─────────────────────────────────────────────
+export { default as DiscardDialog } from "./DiscardDialog";
+export type { DiscardDialogProps } from "./DiscardDialog";

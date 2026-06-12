@@ -3,13 +3,13 @@
  * Data source-of-truth ada di `@/lib/master/obatMock.ts`.
  */
 
-import { Pill, Tags, Stethoscope, Wallet } from "lucide-react";
+import { Pill, Tags, Stethoscope, Wallet, Network } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ObatRecord } from "@/lib/master/obatMock";
 
 // ── Tab Registry ─────────────────────────────────────────
 
-export type TabKey = "identitas" | "klasifikasi" | "klinis" | "harga";
+export type TabKey = "identitas" | "klasifikasi" | "klinis" | "harga" | "kfa";
 
 export interface TabConfig {
   key: TabKey;
@@ -47,19 +47,27 @@ export const TAB_REGISTRY: TabConfig[] = [
   },
   {
     key: "harga",
-    label: "Harga & Coverage",
+    label: "Harga",
     short: "Harga",
     icon: Wallet,
-    desc: "Harga, Fornas, BPJS, batas resep",
+    desc: "Harga jual, HPP, HET, status",
     accent: { bg: "bg-emerald-50", text: "text-emerald-700", ring: "ring-emerald-200" },
+  },
+  {
+    key: "kfa",
+    label: "Mapping KFA",
+    short: "KFA",
+    icon: Network,
+    desc: "SatuSehat — POA/POV, BZA & dosis",
+    accent: { bg: "bg-indigo-50", text: "text-indigo-700", ring: "ring-indigo-200" },
   },
 ];
 
 // ── Field Completeness Helpers ───────────────────────────
 
-/** Field wajib di tab Identitas */
+/** Field wajib di tab Identitas (KODE tidak lagi di-input di form). */
 const REQ_IDENTITAS: (keyof ObatRecord)[] = [
-  "kode", "namaGenerik", "namaDagang", "kategori", "bentuk", "kekuatan",
+  "namaGenerik", "namaDagang", "kategori", "bentuk", "kekuatan",
 ];
 
 /** Field penting di tab Klinis (info klinis dasar) */
@@ -80,6 +88,19 @@ function hasValue(v: unknown): boolean {
 
 /** Completeness ratio per tab — untuk progress chips */
 export function tabCompleteness(obat: ObatRecord, tab: TabKey): { filled: number; total: number; pct: number } {
+  // KFA = mapping bertingkat (objek), bukan field datar → hitung khusus.
+  if (tab === "kfa") {
+    const m = obat.kfa;
+    const checks = [
+      !!(m?.poaKode || m?.povKode),             // produk (POA/POV) terpetakan
+      !!m?.ruteKode,                            // rute pemberian
+      !!m?.bentukKode,                          // bentuk sediaan
+      !!(m?.zatAktif && m.zatAktif.length > 0), // minimal 1 BZA
+    ];
+    const filled = checks.filter(Boolean).length;
+    return { filled, total: checks.length, pct: Math.round((filled / checks.length) * 100) };
+  }
+
   let fields: (keyof ObatRecord)[] = [];
   switch (tab) {
     case "identitas":   fields = REQ_IDENTITAS; break;

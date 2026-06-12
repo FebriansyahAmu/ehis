@@ -8,7 +8,7 @@ import {
   STATUS_OBAT_CFG,
 } from "@/lib/master/obatMock";
 import {
-  Field, NumberInput, TextInput, Select, ToggleSwitch, SectionGroup,
+  Field, NumberInput, Select, SectionGroup,
 } from "@/components/master/shared";
 import { fmtIDR, calcMargin } from "../katalogObatShared";
 
@@ -101,40 +101,6 @@ export default function HargaTab({ draft, onPatch }: HargaTabProps) {
             }
             warning={!!exceedsHET}
           />
-        </div>
-      </SectionGroup>
-
-      {/* BPJS Coverage */}
-      <SectionGroup
-        title="BPJS & Fornas"
-        desc="Coverage BPJS Kesehatan + kode Formularium Nasional."
-      >
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <ToggleSwitch
-            value={draft.bpjsCoverage ?? false}
-            onChange={(v) => onPatch({ bpjsCoverage: v })}
-            label="BPJS Coverage"
-            desc="Termasuk dalam Fornas — di-cover BPJS."
-            accent="emerald"
-          />
-          <Field label="Kode Fornas" hint="Kosongkan jika non-Fornas">
-            <TextInput
-              value={draft.kodeFornas ?? ""}
-              onChange={(v) => onPatch({ kodeFornas: v || undefined })}
-              placeholder="contoh: J01CR02"
-              maxW="max-w-full"
-              className="font-mono"
-            />
-          </Field>
-          <Field label="Batas Resep / Kunjungan" hint="Qty maksimum sekali resep (Fornas restriksi)">
-            <NumberInput
-              value={draft.batasResepPerKunjungan}
-              onChange={(v) => onPatch({ batasResepPerKunjungan: v })}
-              placeholder="contoh: 30 tablet"
-              step={1}
-              maxW="max-w-full"
-            />
-          </Field>
         </div>
       </SectionGroup>
 

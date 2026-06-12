@@ -14,6 +14,7 @@ import IdentitasTab from "./tabs/IdentitasTab";
 import KlasifikasiTab from "./tabs/KlasifikasiTab";
 import KlinisTab from "./tabs/KlinisTab";
 import HargaTab from "./tabs/HargaTab";
+import MappingKfaTab from "./tabs/MappingKfaTab";
 
 interface Props {
   draft: ObatRecord;
@@ -149,6 +150,7 @@ export default function ObatDetail({
       {tab === "klasifikasi" && <KlasifikasiTab draft={draft} onPatch={onPatch} />}
       {tab === "klinis"      && <KlinisTab      draft={draft} onPatch={onPatch} />}
       {tab === "harga"       && <HargaTab       draft={draft} onPatch={onPatch} />}
+      {tab === "kfa"         && <MappingKfaTab  draft={draft} onPatch={onPatch} />}
     </MasterDetailPanel>
   );
 }

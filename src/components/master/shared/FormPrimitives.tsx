@@ -15,7 +15,12 @@
  *   import { Field, TextInput, Select } from "@/components/master/shared/FormPrimitives";
  */
 
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Check, ChevronDown, Search } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { usePopover } from "@/components/shared/inputs/popoverShared";
 import { getAccent, type MasterAccent } from "./masterAccent";
 
 // ── Base input classes ──────────────────────────────────
@@ -193,33 +198,177 @@ export interface SelectProps<T extends string> {
   accent?: MasterAccent;
 }
 
-// Inline SVG chevron — di-encode untuk background-image, dipisah konstanta agar tidak duplikasi.
-const SELECT_CHEVRON_BG =
-  "bg-[url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>\")] bg-[length:14px] bg-[right_8px_center] bg-no-repeat";
+/** Border + ring saat popover terbuka (mirror :focus, purge-safe per-accent). */
+const OPEN_RING_BY_ACCENT: Record<MasterAccent, string> = {
+  rose:    "border-rose-400 ring-2 ring-rose-100",
+  sky:     "border-sky-400 ring-2 ring-sky-100",
+  teal:    "border-teal-400 ring-2 ring-teal-100",
+  violet:  "border-violet-400 ring-2 ring-violet-100",
+  emerald: "border-emerald-400 ring-2 ring-emerald-100",
+  amber:   "border-amber-400 ring-2 ring-amber-100",
+  slate:   "border-slate-400 ring-2 ring-slate-100",
+  pink:    "border-pink-400 ring-2 ring-pink-100",
+};
 
+/** Baris opsi aktif/terpilih per-accent (purge-safe). */
+const OPTION_ACTIVE_BY_ACCENT: Record<MasterAccent, string> = {
+  rose:    "bg-rose-50 text-rose-700",
+  sky:     "bg-sky-50 text-sky-700",
+  teal:    "bg-teal-50 text-teal-700",
+  violet:  "bg-violet-50 text-violet-700",
+  emerald: "bg-emerald-50 text-emerald-700",
+  amber:   "bg-amber-50 text-amber-700",
+  slate:   "bg-slate-100 text-slate-800",
+  pink:    "bg-pink-50 text-pink-700",
+};
+
+/**
+ * Dropdown interaktif (portal + popover) — pengganti native <select>. API tetap:
+ * value/onChange/options/placeholder/maxW/accent. Searchable otomatis bila opsi > 8.
+ * Bila `placeholder` diberi → baris "clear" (set undefined) di puncak (opsional).
+ */
 export function Select<T extends string>({
   value, onChange, options, placeholder,
   className, maxW = "max-w-[260px]", accent = "rose",
 }: SelectProps<T>) {
+  const reduce = useReducedMotion();
+  const { open, setOpen, mounted, coords, width, triggerRef, popRef } = usePopover(0, 280, { matchWidth: true });
+
+  // Augmentasi baris: placeholder = baris clear (val undefined) di puncak.
+  type Row = { val: T | undefined; label: string; clear?: boolean };
+  const rows = useMemo<Row[]>(() => {
+    const base = options.map((o) => ({ val: o.value, label: o.label }));
+    return placeholder !== undefined ? [{ val: undefined, label: placeholder, clear: true }, ...base] : base;
+  }, [options, placeholder]);
+
+  const showSearch = options.length > 8;
+  const selected = options.find((o) => o.value === value) ?? null;
+
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState(0);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? rows.filter((r) => r.label.toLowerCase().includes(q)) : rows;
+  }, [rows, query]);
+
+  const toggleOpen = () => {
+    if (!open) {
+      setQuery("");
+      setActive(Math.max(0, rows.findIndex((r) => r.val === value)));
+    }
+    setOpen((o) => !o);
+  };
+
+  useEffect(() => {
+    if (open && showSearch) requestAnimationFrame(() => searchRef.current?.focus());
+  }, [open, showSearch]);
+
+  useEffect(() => {
+    if (!open) return;
+    listRef.current?.querySelector<HTMLElement>(`[data-idx="${active}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [active, open]);
+
+  const commit = (val: T | undefined) => {
+    onChange(val);
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(a + 1, filtered.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
+    else if (e.key === "Enter") { e.preventDefault(); if (filtered[active]) commit(filtered[active].val); }
+  };
+
+  const optActive = OPTION_ACTIVE_BY_ACCENT[accent];
+
   return (
-    <select
-      value={value ?? ""}
-      onChange={(e) => {
-        const v = e.target.value;
-        onChange(v === "" ? undefined : (v as T));
-      }}
-      className={cn(
-        inputBase, inputIdle, focusCls(accent), maxW,
-        "appearance-none bg-white pr-8 cursor-pointer",
-        SELECT_CHEVRON_BG,
-        className,
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={toggleOpen}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={cn(
+          inputBase, focusCls(accent), maxW,
+          "flex cursor-pointer items-center gap-2 text-left",
+          open ? OPEN_RING_BY_ACCENT[accent] : inputIdle,
+          className,
+        )}
+      >
+        <span className={cn("flex-1 truncate", selected ? "text-slate-800" : "text-slate-400")}>
+          {selected ? selected.label : (placeholder ?? "— pilih —")}
+        </span>
+        <ChevronDown size={14} className={cn("shrink-0 text-slate-400 transition-transform", open && "rotate-180")} />
+      </button>
+
+      {mounted && createPortal(
+        <AnimatePresence>
+          {open && coords && (
+            <motion.div
+              ref={popRef}
+              role="listbox"
+              initial={reduce ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.98 }}
+              transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+              style={{ position: "fixed", top: coords.top, left: coords.left, width, zIndex: 60 }}
+              onKeyDown={onKey}
+              className="origin-top overflow-hidden rounded-lg border border-slate-200/80 bg-white p-1 shadow-xl shadow-slate-900/10 ring-1 ring-black/5"
+            >
+              {showSearch && (
+                <div className="flex items-center gap-2 border-b border-slate-100 px-2 pb-1.5 pt-1">
+                  <Search size={13} className="shrink-0 text-slate-400" />
+                  <input
+                    ref={searchRef}
+                    value={query}
+                    onChange={(e) => { setQuery(e.target.value); setActive(0); }}
+                    placeholder="Cari…"
+                    className="w-full bg-transparent text-[12px] text-slate-700 outline-none placeholder:text-slate-300"
+                  />
+                </div>
+              )}
+              <div ref={listRef} className="mt-1 max-h-56 overflow-y-auto">
+                {filtered.length === 0 ? (
+                  <p className="px-3 py-3 text-center text-[11px] text-slate-400">Tidak ada hasil</p>
+                ) : (
+                  filtered.map((r, i) => {
+                    const isSel = r.val === value;
+                    const isActive = i === active;
+                    return (
+                      <button
+                        key={r.clear ? "__clear__" : String(r.val)}
+                        type="button"
+                        role="option"
+                        aria-selected={isSel}
+                        data-idx={i}
+                        title={r.label}
+                        onClick={() => commit(r.val)}
+                        onMouseEnter={() => setActive(i)}
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] transition",
+                          isActive ? optActive : "text-slate-600",
+                          isSel && "font-semibold",
+                          r.clear && "italic text-slate-400",
+                        )}
+                      >
+                        <Check size={13} className={cn("shrink-0", isSel && !r.clear ? "" : "text-transparent")} />
+                        <span className="flex-1 truncate">{r.label}</span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body,
       )}
-    >
-      {placeholder !== undefined && <option value="">{placeholder}</option>}
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>{o.label}</option>
-      ))}
-    </select>
+    </>
   );
 }
 

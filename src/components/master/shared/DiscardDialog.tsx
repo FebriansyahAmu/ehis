@@ -1,9 +1,9 @@
 "use client";
 
-// Dialog konfirmasi "buang perubahan" (non-destruktif) saat membatalkan/pindah dari form
-// yang masih dirty. Netral (amber/slate), BUKAN rose/delete. a11y: role=dialog + aria-modal,
-// Escape menutup, fokus awal ke tombol aman, backdrop klik menutup, hormati reduced-motion.
-// Salinan pola dari master/katalog-tindakan (konvensi per-modul punya dialog sendiri).
+// DiscardDialog (GLOBAL, shared master) — konfirmasi "buang perubahan" non-destruktif saat
+// membatalkan / pindah dari form yang masih dirty. Netral (amber/slate), BUKAN rose/delete.
+// a11y: role=dialog + aria-modal, Escape menutup, fokus awal ke tombol aman, backdrop klik menutup,
+// hormati reduced-motion. Dipakai lintas halaman master via barrel: import { DiscardDialog } from "@/components/master/shared".
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
