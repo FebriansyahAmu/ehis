@@ -1,12 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Check, Building2, FlaskConical } from "lucide-react";
+import { Check, Minus, Building2, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   type LayananMap, type LayananUnit, type LayananRow, type RowKategori,
   ROW_KATEGORI_CFG, ROW_KATEGORI_ORDER, groupRowsByKategori,
-  hasLayanan, countUnitPerRow, countRowsPerUnit, UNIT_CATEGORY_CFG,
+  hasLayanan, countUnitPerRow, UNIT_CATEGORY_CFG,
 } from "./layananShared";
 
 interface LayananUnitMatrixProps {
@@ -17,12 +17,17 @@ interface LayananUnitMatrixProps {
   onToggle: (rowId: string, unitKode: string) => void;
   onToggleRow: (rowId: string, granted: boolean) => void;
   onToggleColumn: (unitKode: string, granted: boolean) => void;
+  onToggleGroup: (rowIds: string[], granted: boolean) => void;
 }
 
 export default function LayananUnitMatrix({
-  rows, units, map, visibleKategori, onToggle, onToggleRow, onToggleColumn,
+  rows, units, map, visibleKategori, onToggle, onToggleRow, onToggleColumn, onToggleGroup,
 }: LayananUnitMatrixProps) {
   const grouped = groupRowsByKategori(rows);
+  // Baris yang BENAR-BENAR dapat di-toggle massal dari header kolom = baris yang tampil (lolos
+  // filter kategori). Sama persis cakupan `onToggleColumn` di pane → checkbox "Pilih semua"
+  // mencerminkan state aktual yang akan terdampak.
+  const activeRows = rows.filter((r) => visibleKategori.has(r.kategori));
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -39,7 +44,11 @@ export default function LayananUnitMatrix({
               </th>
               {units.map((u) => {
                 const cfg = UNIT_CATEGORY_CFG[u.category];
-                const count = countRowsPerUnit(map, u.kode);
+                // State "Pilih Semua" per location dihitung dari baris yang tampil.
+                const granted = activeRows.reduce((n, r) => n + (hasLayanan(map, r.id, u.kode) ? 1 : 0), 0);
+                const total = activeRows.length;
+                const state: "none" | "partial" | "all" =
+                  total === 0 || granted === 0 ? "none" : granted === total ? "all" : "partial";
                 return (
                   <th
                     key={u.kode}
@@ -50,13 +59,25 @@ export default function LayananUnitMatrix({
                   >
                     <button
                       type="button"
-                      onClick={() => onToggleColumn(u.kode, count < rows.length)}
-                      title={`${u.nama} — klik untuk toggle semua baris visible`}
-                      className={cn("flex w-full flex-col items-center gap-0.5", cfg.text)}
+                      onClick={() => onToggleColumn(u.kode, state !== "all")}
+                      title={`${u.nama} — ${state === "all" ? "kosongkan semua" : "pilih semua"} layanan di sini`}
+                      aria-label={`${state === "all" ? "Kosongkan" : "Pilih"} semua layanan di ${u.nama}`}
+                      className={cn("flex w-full flex-col items-center gap-1", cfg.text)}
                     >
+                      <span
+                        className={cn(
+                          "flex h-4 w-4 items-center justify-center rounded border-2 transition",
+                          state === "none"
+                            ? "border-slate-300 bg-white hover:border-teal-400"
+                            : "border-teal-600 bg-teal-600 text-white",
+                        )}
+                      >
+                        {state === "all" && <Check size={10} strokeWidth={3} />}
+                        {state === "partial" && <Minus size={10} strokeWidth={3} />}
+                      </span>
                       <Building2 size={11} />
                       <span className="m-mini font-bold leading-none">{u.short}</span>
-                      <span className="m-mini font-mono opacity-70 leading-none">{count}</span>
+                      <span className="m-mini font-mono opacity-70 leading-none">{granted}</span>
                     </button>
                   </th>
                 );
@@ -80,6 +101,7 @@ export default function LayananUnitMatrix({
                   map={map}
                   onToggle={onToggle}
                   onToggleRow={onToggleRow}
+                  onToggleGroup={onToggleGroup}
                 />
               );
             })}
@@ -129,20 +151,45 @@ interface KategoriBlockProps {
   map: LayananMap;
   onToggle: (rowId: string, unitKode: string) => void;
   onToggleRow: (rowId: string, granted: boolean) => void;
+  onToggleGroup: (rowIds: string[], granted: boolean) => void;
 }
 
 function KategoriBlock({
-  cat, items, catCfg, units, map, onToggle, onToggleRow,
+  cat, items, catCfg, units, map, onToggle, onToggleRow, onToggleGroup,
 }: KategoriBlockProps) {
   const noun = cat === "Laboratorium" ? "tes" : "tindakan";
+  // State "Pilih Semua" grup = seluruh sel (baris grup × unit tampak).
+  const totalCells = items.length * units.length;
+  let grantedCells = 0;
+  for (const r of items) for (const u of units) if (hasLayanan(map, r.id, u.kode)) grantedCells++;
+  const state: "none" | "partial" | "all" =
+    totalCells === 0 || grantedCells === 0 ? "none" : grantedCells === totalCells ? "all" : "partial";
+
   return (
     <>
       <tr>
         <td
           colSpan={units.length + 1}
-          className={cn("sticky left-0 border-b border-slate-200 px-3 py-1.5", catCfg.bg)}
+          className={cn("sticky left-0 border-b border-slate-200 px-3 py-1", catCfg.bg)}
         >
-          <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => onToggleGroup(items.map((r) => r.id), state !== "all")}
+            title={`${state === "all" ? "Kosongkan" : "Pilih"} semua ${catCfg.label} di semua unit tampak`}
+            aria-label={`${state === "all" ? "Kosongkan" : "Pilih"} semua ${catCfg.label} di semua unit tampak`}
+            className="flex w-full items-center gap-1.5 py-0.5 text-left"
+          >
+            <span
+              className={cn(
+                "flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition",
+                state === "none"
+                  ? "border-slate-300 bg-white hover:border-teal-400"
+                  : "border-teal-600 bg-teal-600 text-white",
+              )}
+            >
+              {state === "all" && <Check size={10} strokeWidth={3} />}
+              {state === "partial" && <Minus size={10} strokeWidth={3} />}
+            </span>
             {cat === "Laboratorium" ? (
               <FlaskConical size={11} className={catCfg.text} />
             ) : (
@@ -152,7 +199,7 @@ function KategoriBlock({
               {catCfg.label}
             </span>
             <span className={cn("m-mini opacity-70", catCfg.text)}>· {items.length} {noun}</span>
-          </div>
+          </button>
         </td>
       </tr>
       {items.map((row, i) => (

@@ -7,7 +7,7 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Building2, Check, MapPin, FlaskConical } from "lucide-react";
+import { Building2, Check, Minus, MapPin, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   type LayananMap, type LayananUnit, type LayananRow, type RowKategori,
@@ -23,10 +23,12 @@ interface Props {
   visibleKategori: Set<RowKategori>;
   onToggle: (rowId: string, unitKode: string) => void;
   onToggleColumn: (unitKode: string, granted: boolean) => void;
+  /** Pilih semua per grup utk unit terpilih (rowIds grup × unit ini). */
+  onToggleGroup: (rowIds: string[], unitKode: string, granted: boolean) => void;
 }
 
 export default function LayananUnitMobileView({
-  units, rows, map, visibleKategori, onToggle, onToggleColumn,
+  units, rows, map, visibleKategori, onToggle, onToggleColumn, onToggleGroup,
 }: Props) {
   // Pilihan user (null = belum pilih). Unit aktif efektif DI-DERIVE saat render (bukan effect) →
   // pilihan dipakai bila masih valid, else jatuh ke unit pertama. Hindari setState-in-effect.
@@ -145,6 +147,10 @@ export default function LayananUnitMobileView({
                 if (items.length === 0 || !visibleKategori.has(cat)) return null;
                 const cfg = ROW_KATEGORI_CFG[cat];
                 const isLab = cat === "Laboratorium";
+                // State "Pilih Semua" grup utk unit terpilih.
+                const grantedInGroup = items.filter((r) => hasLayanan(map, r.id, selectedUnit.kode)).length;
+                const groupState: "none" | "partial" | "all" =
+                  grantedInGroup === 0 ? "none" : grantedInGroup === items.length ? "all" : "partial";
                 return (
                   <div key={cat}>
                     <div
@@ -162,6 +168,26 @@ export default function LayananUnitMobileView({
                         {cfg.label}
                       </span>
                       <span className={cn("m-mini opacity-70", cfg.text)}>· {items.length}</span>
+                      <button
+                        type="button"
+                        onClick={() => onToggleGroup(items.map((r) => r.id), selectedUnit.kode, groupState !== "all")}
+                        title={`${groupState === "all" ? "Kosongkan" : "Pilih"} semua ${cfg.label} di ${selectedUnit.nama}`}
+                        aria-label={`${groupState === "all" ? "Kosongkan" : "Pilih"} semua ${cfg.label} di ${selectedUnit.nama}`}
+                        className="ml-auto flex items-center gap-1 rounded-md border border-white/60 bg-white/70 px-1.5 py-0.5 m-mini font-semibold text-slate-600 transition hover:bg-white"
+                      >
+                        <span
+                          className={cn(
+                            "flex h-3.5 w-3.5 items-center justify-center rounded border-2 transition",
+                            groupState === "none"
+                              ? "border-slate-300 bg-white"
+                              : "border-teal-600 bg-teal-600 text-white",
+                          )}
+                        >
+                          {groupState === "all" && <Check size={9} strokeWidth={3} />}
+                          {groupState === "partial" && <Minus size={9} strokeWidth={3} />}
+                        </span>
+                        Semua
+                      </button>
                     </div>
                     <ul className="divide-y divide-slate-100">
                       {items.map((row) => {

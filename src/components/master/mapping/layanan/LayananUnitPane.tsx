@@ -253,6 +253,27 @@ export default function LayananUnitPane({ tindakan, lab, tree, layanan, layananL
     void applyChanges(changes);
   };
 
+  // Pilih semua per GRUP (desktop): semua baris grup × semua kolom unit TAMPAK.
+  const handleToggleGroup = (rowIds: string[], granted: boolean) => {
+    const changes: Change[] = [];
+    for (const rowId of rowIds) {
+      const current = map[rowId] ?? [];
+      for (const u of visibleUnits) {
+        if (current.includes(u.kode) !== granted) changes.push({ rowId, unitKode: u.kode, granted });
+      }
+    }
+    void applyChanges(changes);
+  };
+
+  // Pilih semua per GRUP untuk SATU unit (mobile drill-down): semua baris grup × unit terpilih.
+  const handleToggleGroupUnit = (rowIds: string[], unitKode: string, granted: boolean) => {
+    const changes: Change[] = [];
+    for (const rowId of rowIds) {
+      if ((map[rowId] ?? []).includes(unitKode) !== granted) changes.push({ rowId, unitKode, granted });
+    }
+    void applyChanges(changes);
+  };
+
   const toggleKategoriVisibility = (cat: RowKategori) => {
     setVisibleKategori((prev) => {
       const next = new Set(prev);
@@ -405,6 +426,7 @@ export default function LayananUnitPane({ tindakan, lab, tree, layanan, layananL
                       onToggle={handleToggle}
                       onToggleRow={handleToggleRow}
                       onToggleColumn={handleToggleColumn}
+                      onToggleGroup={handleToggleGroup}
                     />
                   )}
                 </div>
@@ -418,6 +440,7 @@ export default function LayananUnitPane({ tindakan, lab, tree, layanan, layananL
                     visibleKategori={visibleKategori}
                     onToggle={handleToggle}
                     onToggleColumn={handleToggleColumn}
+                    onToggleGroup={handleToggleGroupUnit}
                   />
                 </div>
               </>
