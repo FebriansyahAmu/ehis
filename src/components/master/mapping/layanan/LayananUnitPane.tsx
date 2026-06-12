@@ -21,6 +21,7 @@ import {
   readEdgeCache, writeEdgeCache, cacheEdge, uncacheEdge,
 } from "./layananShared";
 import LayananUnitMatrix from "./LayananUnitMatrix";
+import LayananUnitMobileView from "./LayananUnitMobileView";
 import LayananUnitTreePanel from "./LayananUnitTreePanel";
 
 interface Props {
@@ -346,29 +347,48 @@ export default function LayananUnitPane({ tindakan, tree, layanan }: Props) {
                 <p className="m-xs font-semibold text-slate-500">Belum ada Ruangan aktif</p>
                 <p className="m-mini">Tambahkan Ruangan (Location) di master Unit &amp; Ruangan dulu.</p>
               </div>
-            ) : visibleUnits.length === 0 ? (
-              <div className="flex flex-1 flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-slate-200 bg-white px-6 text-center text-slate-400">
-                <EyeOff size={20} className="text-slate-300" />
-                <p className="m-xs font-semibold text-slate-500">Semua kolom unit disembunyikan</p>
-                <p className="m-mini">Pilih unit di panel kiri untuk mulai memetakan.</p>
-                <button
-                  type="button"
-                  onClick={() => setHiddenUnits(new Set())}
-                  className="mt-1 rounded-lg border border-teal-200 bg-white px-3 py-1.5 m-mini font-semibold text-teal-700 transition hover:bg-teal-50"
-                >
-                  Tampilkan semua unit
-                </button>
-              </div>
             ) : (
-              <LayananUnitMatrix
-                tindakan={filteredTindakan}
-                units={visibleUnits}
-                map={map}
-                visibleKategori={visibleKategori}
-                onToggle={handleToggle}
-                onToggleRow={handleToggleRow}
-                onToggleColumn={handleToggleColumn}
-              />
+              <>
+                {/* Desktop (lg+): matrix 2D + panel tree show/hide kolom */}
+                <div className="hidden min-h-0 flex-1 lg:flex lg:flex-col">
+                  {visibleUnits.length === 0 ? (
+                    <div className="flex flex-1 flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-slate-200 bg-white px-6 text-center text-slate-400">
+                      <EyeOff size={20} className="text-slate-300" />
+                      <p className="m-xs font-semibold text-slate-500">Semua kolom unit disembunyikan</p>
+                      <p className="m-mini">Pilih unit di panel kiri untuk mulai memetakan.</p>
+                      <button
+                        type="button"
+                        onClick={() => setHiddenUnits(new Set())}
+                        className="mt-1 rounded-lg border border-teal-200 bg-white px-3 py-1.5 m-mini font-semibold text-teal-700 transition hover:bg-teal-50"
+                      >
+                        Tampilkan semua unit
+                      </button>
+                    </div>
+                  ) : (
+                    <LayananUnitMatrix
+                      tindakan={filteredTindakan}
+                      units={visibleUnits}
+                      map={map}
+                      visibleKategori={visibleKategori}
+                      onToggle={handleToggle}
+                      onToggleRow={handleToggleRow}
+                      onToggleColumn={handleToggleColumn}
+                    />
+                  )}
+                </div>
+
+                {/* Mobile / Tablet (< lg): drill-down per unit (pilih ruangan → toggle daftar) */}
+                <div className="flex min-h-0 flex-1 flex-col lg:hidden">
+                  <LayananUnitMobileView
+                    units={units}
+                    tindakan={filteredTindakan}
+                    map={map}
+                    visibleKategori={visibleKategori}
+                    onToggle={handleToggle}
+                    onToggleColumn={handleToggleColumn}
+                  />
+                </div>
+              </>
             )}
           </motion.div>
         </div>

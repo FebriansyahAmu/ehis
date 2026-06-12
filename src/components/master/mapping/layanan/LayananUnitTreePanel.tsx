@@ -153,7 +153,7 @@ export default function LayananUnitTreePanel({
   const rendered = renderNodes(rootChildren, 0);
 
   return (
-    <aside className="flex w-full shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm max-lg:max-h-80 lg:h-full lg:w-72">
+    <aside className="hidden w-full shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:flex lg:h-full lg:w-72">
       {/* Header */}
       <div className="shrink-0 border-b border-slate-100 px-3 py-2.5">
         <div className="flex items-center justify-between gap-2">
