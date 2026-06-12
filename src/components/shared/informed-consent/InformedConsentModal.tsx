@@ -8,9 +8,9 @@ import {
   ShieldCheck, ChevronRight, RotateCcw, AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Select } from "@/components/shared/inputs";
 import type {
-  ICConsentResult, InformedConsentModalProps,
-  HubunganPenanda, SignatureMethod,
+  InformedConsentModalProps, HubunganPenanda, SignatureMethod,
 } from "@/lib/informed-consent/types";
 import {
   HUBUNGAN_OPTIONS, SAKSI_JABATAN_OPTIONS,
@@ -117,7 +117,8 @@ export default function InformedConsentModal({
   const [saksiNama, setSaksiNama]     = useState("");
   const [saksiJabatan, setSaksiJabatan] = useState("Perawat");
 
-  useEffect(() => { setMounted(true); }, []);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setMounted(true); }, []); // portal butuh document (client-only)
 
   const canSave = sudahBaca && capturedSig !== null && namaPenanda.trim() !== "" && saksiNama.trim() !== "";
 
@@ -434,13 +435,12 @@ export default function InformedConsentModal({
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500">Hubungan dengan Pasien</label>
-                    <select
+                    <Select
                       value={hubungan}
-                      onChange={e => setHubungan(e.target.value as HubunganPenanda)}
-                      className={FIELD_CLS}
-                    >
-                      {HUBUNGAN_OPTIONS.map(h => <option key={h}>{h}</option>)}
-                    </select>
+                      onChange={v => setHubungan(v as HubunganPenanda)}
+                      options={HUBUNGAN_OPTIONS}
+                      placeholder="Pilih hubungan"
+                    />
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500">Nama Lengkap Penanda</label>
@@ -462,13 +462,12 @@ export default function InformedConsentModal({
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500">Jabatan Saksi</label>
-                    <select
+                    <Select
                       value={saksiJabatan}
-                      onChange={e => setSaksiJabatan(e.target.value)}
-                      className={FIELD_CLS}
-                    >
-                      {SAKSI_JABATAN_OPTIONS.map(j => <option key={j}>{j}</option>)}
-                    </select>
+                      onChange={setSaksiJabatan}
+                      options={SAKSI_JABATAN_OPTIONS}
+                      placeholder="Pilih jabatan"
+                    />
                   </div>
                 </div>
               </motion.div>

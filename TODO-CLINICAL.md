@@ -38,7 +38,7 @@ Tab ≠ tabel. Banyak tab = view berbeda atas domain yang sama; komponen `shared
 Urutan persis seperti di [IGDRecordTabs.tsx](src/components/igd/IGDRecordTabs.tsx) (Rekam Medis 13 + Layanan 6). **FE 19/19 ✅** (mock). Yang dilacak di sini = **backend**: kolom **BE** (schema+DAL+service+endpoint, ~Fase A) & **Wiring** (resolver + tab konsumsi DB, ~Fase B/C).
 Legenda: 🟢 selesai · 🟡 sebagian · ⬜ belum.
 
-**Status global backend: 6/19 dimulai** (+ Tindakan/Procedure Fase A+B ✅ 2026-06-12) (Triase BE ✅ + wiring tab ✅; Observation/TTV BE ✅ + wiring tab ✅; **Asesmen Medis BE+wiring ✅ LENGKAP** — 5/5 sub-menu: Anamnesis + Riwayat Medis (9/9 pane) + Alergi + Skrining Gizi + Edukasi (3/3: Pasien & Keluarga · Emergency · End of Life); **Diagnosa BE+wiring ✅**; **CPPT BE+wiring ✅** — append-only per-item + co-sign DPJP + SBAR/TBAK (SKP 2), wired IGD/RI/RJ; **Tindakan/Procedure BE+wiring ✅** — `medicalrecord.TindakanMedis` snapshot biaya + CRUD optimistik, tab Tindakan IGD persist saat kunjunganId UUID; sisa Triase Fase C + 13 tab lain ⬜).
+**Status global backend: 7/19 dimulai** (+ Informed Consent Fase A+B ✅ 2026-06-13) (Triase BE ✅ + wiring tab ✅; Observation/TTV BE ✅ + wiring tab ✅; **Asesmen Medis BE+wiring ✅ LENGKAP** — 5/5 sub-menu: Anamnesis + Riwayat Medis (9/9 pane) + Alergi + Skrining Gizi + Edukasi (3/3: Pasien & Keluarga · Emergency · End of Life); **Diagnosa BE+wiring ✅**; **CPPT BE+wiring ✅** — append-only per-item + co-sign DPJP + SBAR/TBAK (SKP 2), wired IGD/RI/RJ; **Tindakan/Procedure BE+wiring ✅** — `medicalrecord.TindakanMedis` snapshot biaya + CRUD optimistik, tab Tindakan IGD persist saat kunjunganId UUID; **Consent/Informed Consent BE+wiring ✅** — `medicalrecord.InformedConsent` per-item immutable (add/delete) + TTD PNG base64, RBAC leaf `clinical.consent`, redesign FE (tindakan katalog + dokter roster + DateTimePicker gabungan), wired IGD/RI/RJ; sisa Triase Fase C + 12 tab lain ⬜).
 
 | #   | Tab (grup)               | Domain target     | FE  | BE  | Wiring | Catatan                                              |
 | --- | ------------------------ | ----------------- | --- | --- | ------ | ---------------------------------------------------- |
@@ -48,7 +48,7 @@ Legenda: 🟢 selesai · 🟡 sebagian · ⬜ belum.
 | 4   | **Diagnosa** (RM)        | Condition         | ✅  | 🟢  | 🟢     | Fase A+B ✅ (ICD-10 + prosedur ICD-9; per-item; DiagnosaTab shared wired IGD/RI/RJ) |
 | 5   | **CPPT / SOAP** (RM)     | CPPT              | ✅  | 🟢  | 🟢     | Fase A+B ✅ (per-item; SOAP/SBAR/TBAK SKP 2; co-sign DPJP; CPPTTab shared wired IGD/RI/RJ) |
 | 6   | **Tindakan IGD** (RM)    | Procedure         | ✅  | 🟢  | 🟢     | Fase A+B ✅ (`medicalrecord.TindakanMedis` snapshot biaya; CRUD optimistik; wired). Charge billing hilir; ICD-9-CM coding ada di `DiagnosaProsedur` (#4) |
-| 7   | **Informed Consent** (RM)| Consent           | ✅  | ⬜  | ⬜     | PMK 290/2008                                         |
+| 7   | **Informed Consent** (RM)| Consent           | ✅  | 🟢  | 🟢     | Fase A+B ✅ (`medicalrecord.InformedConsent` per-item immutable + TTD PNG base64; gate `clinical.consent`; wired IGD/RI/RJ). PMK 290/2008 |
 | 8   | **Rekonsiliasi** (RM)    | MedReconciliation | ✅  | ⬜  | ⬜     | HAM badge; context igd/ri                            |
 | 9   | **Keperawatan** (RM)     | NursingCare       | ✅  | ⬜  | ⬜     | asuhan keperawatan; bisa berbagi pola CPPT           |
 | 10  | **Pemeriksaan** (RM)     | Assessment        | ✅  | ⬜  | ⬜     | status fisik 11-sistem (StatusFisikPane)             |
@@ -307,6 +307,38 @@ Tab Edukasi = 3 sub-pane ([EdukasiPane](src/components/igd/tabs/EdukasiPane.tsx)
 - **DoD B:** ✅ `tsc` `src/` bersih · ✅ `eslint` bersih. **Chain board→detail→persist SUDAH NYAMBUNG** — [igdBoardApi.ts](src/components/igd/igdBoardApi.ts) memetakan `IGDPatient.id = kunjunganId` (UUID); [page.tsx](src/app/ehis-care/(fullpage)/igd/[id]/page.tsx) → [IGDRecordResolver](src/components/igd/IGDRecordResolver.tsx) fetch `GET /kunjungan/:id` + `/patients/:id` → `IGDPatientDetail.id = UUID` → TindakanTab `isPersisted=true`. Pasien seed mock (`igd-1`/Joko) tetap lokal — by-design seam, bukan regresi.
 - ⚠️ **Syarat klik dari board:** kartu jadi link ke detail HANYA saat **tanpa tombol aksi** ([PatientCard.tsx](src/components/igd/PatientCard.tsx) `href = !actions ? … : undefined`) → pasien harus **Diterima** (status `InService`, sudah dapat bed) dulu; kartu order-inbox (Registered/Queued, ada Terima/Batalkan) belum bisa di-klik.
 - ⚠️ **Follow-up:** per-ruangan scoping katalog (`?ruanganKode=` sudah diterima endpoint, FE belum kirim), trigger charge ke Billing.
+
+---
+
+## Domain 7 — CONSENT / INFORMED CONSENT (tab Informed Consent) ✅
+
+**Model `medicalrecord.InformedConsent`** (per-item daftar hidup, keyed `kunjunganId`, shared IGD/RI/RJ): 1 baris = 1 formulir persetujuan (per tindakan). Tambah = INSERT · hapus = soft-delete (entered-in-error, jejak medico-legal). **IMMUTABLE** setelah dibuat — TANPA update (koreksi = soft-delete + baris baru); RBAC `clinical.consent` = read/create/delete (bentuk sama `clinical.prosedur`). Snapshot tindakan (`tindakanId?`/nama/kategori) beku. **TTD pasien/wali disimpan langsung sebagai PNG data URL base64** (`signatureData` TEXT — draw & webcam) → di-**omit** dari list (anti row-bloat); `hasSignature` derived dari `signatureMethod`. Petugas/author dari actor. PMK 290/2008.
+
+### Fase Redesign FE — prasyarat (2026-06-13) ✅
+
+> Sebelum persist, tab di-redesign (shared, IGD+RI+RJ) memakai endpoint yang sudah ada. **Komponen baru global** [`DateTimePicker`](src/components/shared/inputs/DateTimePicker.tsx) (gabungan kalender + jam, 1 field, portal — melengkapi DatePicker/TimePicker/Select).
+
+- [x] **R1** Tindakan dari katalog — `Nama Tindakan` jadi **combobox** `GET /master/tindakan-tersedia` (katalog ter-assign ruangan) + **fallback manual** (badge "Dari katalog"/"Input manual"), simpan `tindakanId`+`kategori` snapshot.
+- [x] **R2** Dropdown → `Select` bersama (tab `hubungan` + modal `hubungan`/`saksiJabatan`); native `<select>` dibuang.
+- [x] **R3** Tanggal+Waktu → 1 `DateTimePicker` gabungan (kontrak `YYYY-MM-DDTHH:mm`).
+- [x] **R4** Nama Dokter → `Select` di-feed `GET /kunjungan/:id/petugas?profesi=Dokter` (dokter ter-assign ruangan); fallback DPJP header bila roster kosong/pasien demo. Wrapper IGD (`doctor`) + RI (`dpjp`) teruskan `id`+`dpjp`.
+
+### Fase A — Backend (schema → endpoint) ✅ SELESAI (2026-06-13)
+
+- [x] **A1** [medicalrecord.prisma](prisma/schema/medicalrecord.prisma) — model `InformedConsent` (snapshot tindakan + penjelasan tujuan/manfaat/risiko[]/alternatif/konsekuensi/pertanyaan + `keputusan` setuju/menolak + penanda hubungan/nama + saksi1/2 + namaDokter + signatureMethod/Data/signedAt + waktuPersetujuan + petugas/author + soft-delete, **tanpa version/updatedAt**) + backref `Kunjungan.informedConsent`. Index `(kunjungan_id, deleted_at)`.
+- [x] **A2** migration `20260613120000_init_informed_consent` (CREATE TABLE 29 kolom + index + FK→`encounter.kunjungan` cascade) + `20260613130000_rbac_clinical_consent` (permission `clinical.consent:read/create/delete` + grant Admin/Dokter/Perawat). Applied via `migrate deploy` + `generate`.
+- [x] **A3** Zod [`schemas/informedConsent/informedConsent.ts`](src/lib/schemas/informedConsent/informedConsent.ts) — `InformedConsentInput` (keputusan enum · `signatureData` cap 3MB · `waktuPersetujuan` coerce date) · `ConsentItemParam` · `InformedConsentDTO` (**tanpa `signatureData`** · `hasSignature` derived).
+- [x] **A4** DAL [`dal/informedConsent/informedConsentDal.ts`](src/lib/dal/informedConsent/informedConsentDal.ts) — list (**`omit signatureData`**)/findById(full)/create/softDelete; filter `deletedAt: null`; `tx?`.
+- [x] **A5** Service [`services/informedConsent/informedConsentService.ts`](src/lib/services/informedConsent/informedConsentService.ts) — `list`/`add`/`remove` + `assertKunjungan`; petugas via `resolveActorNama`; capture `authorUserId`/`authorPegawaiId`.
+- [x] **A6** Endpoint `/kunjungan/:id/consent` (GET daftar · POST 201) + `/:itemId` (DELETE soft — **tanpa PATCH**, immutable) — **resource `clinical.consent`** (leaf BARU ter-seed di [rbacShared.ts](src/components/master/mapping/rbac/rbacShared.ts) + DB). Client [`api/informedConsent/informedConsent.ts`](src/lib/api/informedConsent/informedConsent.ts).
+- **DoD A:** ✅ `tsc` bersih · ✅ `eslint` bersih (warning `_actor` precedent) · ✅ `prisma generate` · ✅ `migrate deploy` · ✅ DB smoke (29 kolom · FK cascade · index · 3 permission · grants Admin/Dokter/Perawat=3).
+
+### Fase B — Wiring InformedConsentTab ✅ SELESAI (2026-06-13)
+
+- [x] **B1** [InformedConsentTab](src/components/shared/medical-records/InformedConsentTab.tsx) shared + `ICPatient` +`id`/`dpjp`: UUID-guard `isPersisted`. Mount load `getInformedConsent` → riwayat; **Simpan** → `addInformedConsent` (snapshot tindakan + TTD PNG base64 + waktu) → prepend + toast; tombol spinner "Menyimpan…". Pasien mock (non-UUID) → state lokal demo (tanpa regresi).
+- [x] **B2** Wrapper [igd/tabs/InformedConsentTab](src/components/igd/tabs/InformedConsentTab.tsx) + [rawat-inap/tabs/InformedConsentTab](src/components/rawat-inap/tabs/InformedConsentTab.tsx) + [RJRecordTabs](src/components/rawat-jalan/RJRecordTabs.tsx) → teruskan `id`+`dpjp`.
+- **DoD B:** ✅ `tsc` bersih · ✅ `eslint` bersih (warning `<img>` TTD preview, precedent). ⏳ verifikasi in-browser (login superadmin).
+- ⚠️ **Sisa (follow-up):** delete UI (entered-in-error + ConfirmDialog) di daftar tersimpan · endpoint detail+print yang ikut `signatureData` (kini di-omit dari list) · konsolidasi redundansi penanda tab↔modal (vocab `hubungan` beda) · TTD SVG opsional (lebih kecil + crisp cetak A4).
 
 ---
 

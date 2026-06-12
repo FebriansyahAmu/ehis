@@ -6,7 +6,7 @@ import SharedInformedConsentTab from "@/components/shared/medical-records/Inform
 export default function InformedConsentTab({ patient }: { patient: IGDPatientDetail }) {
   return (
     <SharedInformedConsentTab
-      patient={{ name: patient.name, noRM: patient.noRM }}
+      patient={{ id: patient.id, name: patient.name, noRM: patient.noRM, dpjp: patient.doctor }}
     />
   );
 }

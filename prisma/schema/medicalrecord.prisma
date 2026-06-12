@@ -937,6 +937,66 @@ model TindakanMedis {
   @@schema("medicalrecord")
 }
 
+// ── Informed Consent (tab IC — persetujuan tindakan kedokteran, PMK 290/2008) ──
+//  Daftar hidup per-item: 1 baris = 1 formulir persetujuan (per tindakan). Tambah = INSERT,
+//  hapus = soft-delete (entered-in-error, jejak medico-legal). IMMUTABLE setelah dibuat
+//  (tanpa update — koreksi = soft-delete + baris baru). Snapshot tindakan (nama/kategori) beku.
+//  TTD pasien/wali disimpan langsung sebagai PNG data URL base64 (signatureData TEXT) — draw &
+//  webcam dua-duanya; jangan ikut di-SELECT pada list (row bloat → DAL omit di list).
+
+model InformedConsent {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  noFormulir String @map("no_formulir")
+
+  // ── Tindakan (snapshot master.Tindakan saat dipilih; tindakanId nullable = ad-hoc/manual) ──
+  tindakanId       String? @map("tindakan_id") @db.Uuid
+  tindakanNama     String  @map("tindakan_nama")
+  tindakanKategori String? @map("tindakan_kategori")
+
+  // ── Penjelasan ──
+  tujuan           String?
+  manfaat          String?
+  risiko           String[] // risiko tercentang
+  risikoLain       String?  @map("risiko_lain")
+  alternatif       String?
+  konsekuensiTolak String?  @map("konsekuensi_tolak")
+  pertanyaanPasien String?  @map("pertanyaan_pasien")
+
+  // ── Keputusan ──
+  keputusan   String  // setuju/menolak (Zod enum; field keputusan-kritis disimpan String — precedent sibling)
+  alasanTolak String? @map("alasan_tolak")
+
+  // ── Penanda tangan & saksi ──
+  penandaHubungan String  @map("penanda_hubungan") // hubungan dgn pasien
+  penandaNama     String  @map("penanda_nama")
+  saksi1          String?
+  saksi2          String?
+  namaDokter      String  @map("nama_dokter") // DPJP/dokter pelaksana penjelas
+
+  // ── TTD (PNG data URL base64; signatureData write-mostly, di-omit dari list) ──
+  signatureMethod String?   @map("signature_method") // draw/webcam
+  signatureData   String?   @map("signature_data")   // data URL base64 (TEXT)
+  signedAt        DateTime? @map("signed_at") @db.Timestamptz(3)
+
+  // ── Waktu persetujuan + author (dari actor) ──
+  waktuPersetujuan DateTime @map("waktu_persetujuan") @db.Timestamptz(3)
+  petugas          String   // nama denormalisasi pencatat (dari user login)
+  authorUserId     String?  @map("author_user_id") @db.Uuid
+  authorPegawaiId  String?  @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (add/delete only — tanpa version/updatedAt; soft-delete medico-legal) ──
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt])
+  @@map("informed_consent")
+  @@schema("medicalrecord")
+}
+
 // ── CPPT (Catatan Perkembangan Pasien Terintegrasi) ───────────────────────────
 //  Daftar per-item lintas profesi (Dokter/Perawat/…), 1 baris = 1 catatan. Mirror
 //  CPPTEntry (CPPTTab.tsx). Append-only secara klinis; mutable terbatas: koreksi isi

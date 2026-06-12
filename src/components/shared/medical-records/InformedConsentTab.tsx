@@ -1,20 +1,47 @@
 "use client";
 
-import { useState } from "react";
+// Informed Consent (PMK 290/2008) — shared IGD/RI/RJ.
+// Redesign 2026-06-13: (1) Tindakan = katalog ter-assign ruangan (tindakan-tersedia) + fallback manual;
+// (2) dropdown native → Select bersama; (3) Tanggal+Waktu → DateTimePicker gabungan; (4) Nama Dokter =
+// roster dokter ter-assign ruangan (/kunjungan/:id/petugas?profesi=Dokter). Persist masih lokal (domain
+// medicalrecord.InformedConsent menyusul). Pasien mock (non-UUID) → roster fallback ke DPJP header.
+
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2, AlertTriangle, ShieldCheck, X, Info,
-  Calendar, Edit3, Stethoscope, Printer,
+  CalendarClock, Edit3, Stethoscope, Search, Sparkles, Loader2,
+  FilePlus2, ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Select } from "@/components/shared/inputs";
+import { DateTimePicker } from "@/components/shared/inputs/DateTimePicker";
 import type { ICConsentResult } from "@/lib/informed-consent/types";
 import InformedConsentModal from "@/components/shared/informed-consent/InformedConsentModal";
+import { listTindakanTersedia, type TindakanTersediaDTO } from "@/lib/api/master/tindakanTersedia";
+import { listPetugasKunjungan } from "@/lib/api/penugasanRuangan";
+import { addInformedConsent, type InformedConsentInput } from "@/lib/api/informedConsent/informedConsent";
+import { toast } from "@/lib/ui/toastStore";
+import DaftarICPane from "@/components/shared/informed-consent/DaftarICPane";
 
-// ── Patient interface (minimal — both IGD & RI satisfy this) ──
+// kunjunganId UUID → konsumsi roster ruangan (kunjungan nyata). Selain itu fallback demo.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// ── Patient interface (IGD/RI/RJ memenuhi ini) ──
 export interface ICPatient {
-  name:  string;
-  noRM:  string;
+  /** kunjunganId — UUID → fetch roster dokter & katalog ruangan. */
+  id: string;
+  name: string;
+  noRM: string;
+  /** DPJP default (header) — opsi awal dropdown dokter saat roster belum/ tak tersedia. */
+  dpjp?: string;
+}
+
+// ── Helpers waktu (datetime-local "YYYY-MM-DDTHH:mm", timezone-safe) ──
+const pad = (n: number) => String(n).padStart(2, "0");
+function nowLocalDT(): string {
+  const n = new Date();
+  return `${n.getFullYear()}-${pad(n.getMonth() + 1)}-${pad(n.getDate())}T${pad(n.getHours())}:${pad(n.getMinutes())}`;
 }
 
 // ── Primitives ────────────────────────────────────────────
@@ -113,23 +140,146 @@ const RISIKO_UMUM = [
   "Kematian (kasus berat)",
 ];
 
-interface ConsentRecord {
-  id: string;
-  noFormulir: string;
-  tindakan: string;
-  keputusan: "setuju" | "menolak";
-  waktu: string;
+const HUBUNGAN_TAB = [
+  "Pasien Sendiri", "Suami / Istri", "Orang Tua", "Anak Kandung", "Saudara Kandung", "Wali Resmi",
+];
+
+// ── Tindakan combobox (katalog ter-assign + fallback manual) ──
+
+interface TindakanValue {
+  nama: string;
+  tindakanId: string | null;
+  kategori: string | null;
+}
+
+function TindakanCombobox({
+  value, catalog, loading, onChange,
+}: {
+  value: TindakanValue;
+  catalog: TindakanTersediaDTO[];
+  loading: boolean;
+  onChange: (v: TindakanValue) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") setOpen(false); }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+  }, []);
+
+  const q = value.nama.trim().toLowerCase();
+  const filtered = useMemo(() => {
+    if (!q) return catalog.slice(0, 30);
+    return catalog.filter((e) => `${e.nama} ${e.kode}`.toLowerCase().includes(q)).slice(0, 30);
+  }, [q, catalog]);
+
+  const exactMatch = useMemo(
+    () => catalog.some((e) => e.nama.toLowerCase() === q),
+    [catalog, q],
+  );
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <Label required>Nama Tindakan / Prosedur</Label>
+      <div className="relative">
+        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input
+          type="text"
+          value={value.nama}
+          onChange={(e) => { onChange({ nama: e.target.value, tindakanId: null, kategori: null }); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder="Cari katalog ruangan atau ketik manual…"
+          className="h-9 w-full rounded-md border border-slate-200 bg-slate-50 pl-8 pr-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+        />
+      </div>
+
+      {/* Badge sumber nilai */}
+      {value.nama.trim() && (
+        <div className="mt-1 flex items-center gap-1.5">
+          {value.tindakanId ? (
+            <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 ring-1 ring-emerald-200">
+              <CheckCircle2 size={9} /> Dari katalog{value.kategori ? ` · ${value.kategori.replace(/_/g, " ")}` : ""}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600 ring-1 ring-amber-200">
+              <Sparkles size={9} /> Input manual (di luar katalog)
+            </span>
+          )}
+        </div>
+      )}
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.13 }}
+            className="absolute left-0 right-0 top-[3.7rem] z-50 mt-1 max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-xl"
+          >
+            {loading ? (
+              <p className="flex items-center justify-center gap-1.5 px-3 py-4 text-center text-[11px] text-slate-400">
+                <Loader2 size={12} className="animate-spin" /> Memuat katalog ruangan…
+              </p>
+            ) : filtered.length === 0 ? (
+              <p className="px-3 py-3 text-center text-[11px] text-slate-400">
+                Tak ada di katalog — nilai dipakai sebagai input manual
+              </p>
+            ) : (
+              filtered.map((e) => (
+                <button
+                  key={e.id}
+                  type="button"
+                  onClick={() => { onChange({ nama: e.nama, tindakanId: e.id, kategori: e.kategori }); setOpen(false); }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left transition hover:bg-indigo-50"
+                >
+                  {e.kode
+                    ? <span className="w-14 shrink-0 font-mono text-[10px] font-bold text-slate-400">{e.kode}</span>
+                    : <span className="w-14 shrink-0 text-[9px] italic text-slate-300">tanpa kode</span>}
+                  <span className="min-w-0 flex-1 truncate text-xs text-slate-700">{e.nama}</span>
+                  <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-500">
+                    {e.kategori.replace(/_/g, " ")}
+                  </span>
+                </button>
+              ))
+            )}
+            {!loading && q && !exactMatch && (
+              <div className="border-t border-slate-100 px-3 py-2">
+                <p className="text-[10px] text-slate-400">
+                  Tekan di luar untuk memakai <span className="font-semibold text-amber-600">&ldquo;{value.nama}&rdquo;</span> sebagai input manual.
+                </p>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 // ── Main export ───────────────────────────────────────────
 
 export default function InformedConsentTab({ patient }: { patient: ICPatient }) {
+  const isPersisted = UUID_RE.test(patient.id);
+
   const [showICModal, setShowICModal] = useState(false);
   const [icResult,    setIcResult]    = useState<ICConsentResult | null>(null);
-  const [records,     setRecords]     = useState<ConsentRecord[]>([]);
+  const [view,        setView]        = useState<"buat" | "daftar">("buat");
+  const [saving,      setSaving]      = useState(false);
+  // Nomor formulir di-generate sekali (lazy init → impure Math.random tak dipanggil saat render).
+  const [noFormulir] = useState(
+    () => `IC-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9999)).padStart(4, "0")}`,
+  );
   const [form, setForm] = useState({
-    noFormulir:        `IC-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9999)).padStart(4, "0")}`,
     tindakan:          "",
+    tindakanId:        null as string | null,
+    kategori:          null as string | null,
     tujuan:            "",
     manfaat:           "",
     risiko:            [] as string[],
@@ -143,12 +293,46 @@ export default function InformedConsentTab({ patient }: { patient: ICPatient }) 
     hubungan:          "Pasien Sendiri",
     namaWitness1:      "",
     namaWitness2:      "",
-    namaDokter:        "",
-    tanggal:           new Date().toISOString().split("T")[0],
-    waktu:             new Date().toTimeString().slice(0, 5),
+    namaDokter:        patient.dpjp ?? "",
+    waktu:             nowLocalDT(),
   });
   const setF = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm((p) => ({ ...p, [k]: v }));
+
+  // ── Katalog tindakan ter-assign (master, bukan kunjungan-scoped) ──
+  const [catalog, setCatalog] = useState<TindakanTersediaDTO[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  useEffect(() => {
+    const ac = new AbortController();
+    listTindakanTersedia({}, ac.signal)
+      .then((dtos) => setCatalog(dtos))
+      .catch((e) => { if (!(e instanceof DOMException && e.name === "AbortError")) setCatalog([]); })
+      .finally(() => { if (!ac.signal.aborted) setCatalogLoading(false); });
+    return () => ac.abort();
+  }, []);
+
+  // ── Roster dokter ter-assign ruangan kunjungan ──
+  const [dokterRoster, setDokterRoster] = useState<string[]>([]);
+  useEffect(() => {
+    if (!isPersisted) return; // pasien demo → opsi cukup DPJP default + nilai tersimpan
+    const ac = new AbortController();
+    listPetugasKunjungan(patient.id, "Dokter", ac.signal)
+      .then((items) => setDokterRoster(items.map((p) => p.namaTampil)))
+      .catch((e) => { if (!(e instanceof DOMException && e.name === "AbortError")) setDokterRoster([]); });
+    return () => ac.abort();
+  }, [patient.id, isPersisted]);
+
+  // Sertakan DPJP default + nilai tersimpan walau tak ada di roster (dokter lintas-ruangan / record lama).
+  const dokterOptions = useMemo(() => {
+    const set = new Set(dokterRoster);
+    if (patient.dpjp) set.add(patient.dpjp);
+    if (form.namaDokter) set.add(form.namaDokter);
+    return [...set].sort((a, b) => a.localeCompare(b, "id"));
+  }, [dokterRoster, patient.dpjp, form.namaDokter]);
+
+  const setTindakan = useCallback((v: TindakanValue) => {
+    setForm((p) => ({ ...p, tindakan: v.nama, tindakanId: v.tindakanId, kategori: v.kategori }));
+  }, []);
 
   const canSave =
     form.tindakan.trim() !== "" &&
@@ -156,18 +340,51 @@ export default function InformedConsentTab({ patient }: { patient: ICPatient }) 
     form.namaDokter.trim() !== "" &&
     form.namaPasienWali.trim() !== "";
 
-  const handleSave = () => {
-    if (!canSave) return;
-    setRecords((p) => [
-      {
-        id: `ic-${Date.now()}`,
-        noFormulir: form.noFormulir,
-        tindakan: form.tindakan,
-        keputusan: form.keputusan as "setuju" | "menolak",
-        waktu: `${form.tanggal} ${form.waktu}`,
-      },
-      ...p,
-    ]);
+  const handleSave = async () => {
+    if (!canSave || saving) return;
+    const keputusan = form.keputusan as "setuju" | "menolak";
+
+    // Pasien demo (non-UUID) → simpan lokal (perilaku lama).
+    if (!isPersisted) {
+      toast.info("Pasien demo — persetujuan tidak tersimpan ke database");
+      return;
+    }
+
+    const payload: InformedConsentInput = {
+      noFormulir,
+      tindakanId: form.tindakanId ?? undefined,
+      tindakanNama: form.tindakan,
+      tindakanKategori: form.kategori ?? undefined,
+      tujuan: form.tujuan || undefined,
+      manfaat: form.manfaat || undefined,
+      risiko: form.risiko,
+      risikoLain: form.risikoLain || undefined,
+      alternatif: form.alternatif || undefined,
+      konsekuensiTolak: form.konsekuensiTolak || undefined,
+      pertanyaanPasien: form.pertanyaanPasien || undefined,
+      keputusan,
+      alasanTolak: form.alasanTolak || undefined,
+      penandaHubungan: form.hubungan,
+      penandaNama: form.namaPasienWali,
+      saksi1: form.namaWitness1 || undefined,
+      saksi2: form.namaWitness2 || undefined,
+      namaDokter: form.namaDokter,
+      signatureMethod: icResult?.signatureMethod,
+      signatureData: icResult?.signatureImagePng,
+      signedAt: icResult ? new Date(icResult.consentedAt) : undefined,
+      waktuPersetujuan: new Date(form.waktu),
+    };
+
+    try {
+      setSaving(true);
+      await addInformedConsent(patient.id, payload);
+      toast.success(keputusan === "menolak" ? "Penolakan tindakan dicatat" : "Persetujuan tersimpan");
+      setView("daftar"); // pindah ke sub-menu Daftar agar IC yang baru tersimpan langsung terlihat
+    } catch {
+      toast.error("Gagal menyimpan persetujuan");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -184,18 +401,51 @@ export default function InformedConsentTab({ patient }: { patient: ICPatient }) 
             PerMenKes No. 290/MENKES/PER/III/2008 · UU Kesehatan No. 17 Tahun 2023 · Standar JCI
           </p>
         </div>
-        <span className="ml-auto shrink-0 font-mono text-[11px] font-bold text-sky-600">{form.noFormulir}</span>
+        <span className="ml-auto shrink-0 font-mono text-[11px] font-bold text-sky-600">{noFormulir}</span>
       </div>
 
+      {/* Sub-menu: Buat | Daftar & Cetak */}
+      <div className="flex gap-1 self-start rounded-xl bg-slate-100 p-1">
+        {([
+          { id: "buat", label: "Buat Persetujuan", icon: FilePlus2 },
+          { id: "daftar", label: "Daftar & Cetak", icon: ClipboardList },
+        ] as const).map((t) => {
+          const active = view === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setView(t.id)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[11px] font-semibold transition",
+                active ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700",
+              )}
+            >
+              <t.icon size={13} /> {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {view === "daftar" ? (
+        <DaftarICPane
+          kunjunganId={patient.id}
+          isPersisted={isPersisted}
+          patient={{ name: patient.name, noRM: patient.noRM }}
+        />
+      ) : (
       <div className="grid gap-4 lg:grid-cols-2">
 
         {/* Left: Detail tindakan */}
         <div className="flex flex-col gap-3">
 
           <Block title="Detail Tindakan / Prosedur" icon={Stethoscope} accent="sky">
-            <TI label="Nama Tindakan / Prosedur" required value={form.tindakan}
-              onChange={(v) => setF("tindakan", v)}
-              placeholder="Contoh: Kateterisasi Jantung, Laparotomi Eksplorasi..." />
+            <TindakanCombobox
+              value={{ nama: form.tindakan, tindakanId: form.tindakanId, kategori: form.kategori }}
+              catalog={catalog}
+              loading={catalogLoading}
+              onChange={setTindakan}
+            />
             <TA label="Tujuan Tindakan" rows={2} value={form.tujuan}
               onChange={(v) => setF("tujuan", v)}
               placeholder="Mengapa tindakan ini diperlukan untuk pasien..." />
@@ -320,15 +570,12 @@ export default function InformedConsentTab({ patient }: { patient: ICPatient }) 
             <div>
               <Label required>Penanda Tangan</Label>
               <div className="flex flex-col gap-2">
-                <select
+                <Select
                   value={form.hubungan}
-                  onChange={(e) => setF("hubungan", e.target.value)}
-                  className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-                >
-                  {["Pasien Sendiri", "Suami / Istri", "Orang Tua", "Anak Kandung", "Saudara Kandung", "Wali Resmi"].map((h) => (
-                    <option key={h} value={h}>{h}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setF("hubungan", v)}
+                  options={HUBUNGAN_TAB}
+                  placeholder="Hubungan dengan pasien"
+                />
                 <TI label="Nama Lengkap Pasien/Wali" required value={form.namaPasienWali}
                   onChange={(v) => setF("namaPasienWali", v)} placeholder="Nama sesuai KTP..." />
               </div>
@@ -412,70 +659,49 @@ export default function InformedConsentTab({ patient }: { patient: ICPatient }) 
             />
           </Block>
 
-          <Block title="Dokter, Saksi & Waktu" icon={Calendar} accent="slate">
-            <TI label="Nama Dokter / DPJP" required value={form.namaDokter}
-              onChange={(v) => setF("namaDokter", v)} placeholder="dr. Nama Lengkap, Sp.XX..." />
+          <Block title="Dokter, Saksi & Waktu" icon={CalendarClock} accent="slate">
+            <div>
+              <Label required>Nama Dokter / DPJP</Label>
+              <Select
+                value={form.namaDokter}
+                onChange={(v) => setF("namaDokter", v)}
+                options={dokterOptions}
+                icon={Stethoscope}
+                placeholder={isPersisted ? "Pilih dokter ter-assign ruangan…" : "Pilih dokter…"}
+              />
+              {isPersisted && dokterRoster.length === 0 && (
+                <p className="mt-1 text-[10px] text-slate-400">
+                  Belum ada dokter ter-assign ruangan ini — opsi memakai DPJP header.
+                </p>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <TI label="Saksi 1" value={form.namaWitness1}
                 onChange={(v) => setF("namaWitness1", v)} placeholder="Nama saksi..." />
               <TI label="Saksi 2" value={form.namaWitness2}
                 onChange={(v) => setF("namaWitness2", v)} placeholder="Nama saksi..." />
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <TI label="Tanggal" type="date" value={form.tanggal} onChange={(v) => setF("tanggal", v)} />
-              <TI label="Waktu" type="time" value={form.waktu} onChange={(v) => setF("waktu", v)} />
+            <div>
+              <Label>Tanggal &amp; Waktu Persetujuan</Label>
+              <DateTimePicker value={form.waktu} onChange={(v) => setF("waktu", v)} />
             </div>
           </Block>
 
           <div className="flex gap-2">
             <button
-              type="button" onClick={handleSave} disabled={!canSave}
+              type="button" onClick={handleSave} disabled={!canSave || saving}
               className={cn(
                 "flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-semibold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-40",
                 form.keputusan === "menolak" ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700",
               )}
             >
-              <CheckCircle2 size={13} />
-              {form.keputusan === "menolak" ? "Catat Penolakan" : "Simpan Persetujuan"}
-            </button>
-            <button
-              type="button"
-              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
-            >
-              <Printer size={12} />
-              Cetak
+              {saving ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+              {saving ? "Menyimpan…" : form.keputusan === "menolak" ? "Catat Penolakan" : "Simpan Persetujuan"}
             </button>
           </div>
-
-          {records.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Tersimpan</p>
-              {records.map((r) => (
-                <div
-                  key={r.id}
-                  className={cn(
-                    "flex items-center gap-2 rounded-lg border px-3 py-2.5",
-                    r.keputusan === "setuju" ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50",
-                  )}
-                >
-                  {r.keputusan === "setuju"
-                    ? <CheckCircle2 size={13} className="shrink-0 text-emerald-500" />
-                    : <X size={13} className="shrink-0 text-rose-500" />
-                  }
-                  <div className="min-w-0 flex-1">
-                    <p className={cn("truncate text-[11px] font-semibold", r.keputusan === "setuju" ? "text-emerald-800" : "text-rose-800")}>
-                      {r.tindakan}
-                    </p>
-                    <p className={cn("text-[10px]", r.keputusan === "setuju" ? "text-emerald-600" : "text-rose-500")}>
-                      {r.noFormulir} · {r.waktu}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
+      )}
     </div>
   );
 }

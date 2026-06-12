@@ -3,6 +3,7 @@
 
 export { DatePicker, type DatePickerProps } from "./DatePicker";
 export { TimePicker, type TimePickerProps } from "./TimePicker";
+export { DateTimePicker, type DateTimePickerProps } from "./DateTimePicker";
 export { Select, type SelectProps, type SelectOption } from "./Select";
 export { MultiSelect, type MultiSelectProps } from "./MultiSelect";
 export { triggerClasses, type TriggerVariant } from "./popoverShared";

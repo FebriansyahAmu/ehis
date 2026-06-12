@@ -47,6 +47,8 @@ export const PERMISSION_TREE: PermissionModule[] = [
       // tanpa membuka hak tulis diagnosis ICD-10. Tak ada "update" (endpoint hanya add/delete).
       { key: "clinical.prosedur",     label: "Prosedur (ICD-9-CM)",          actions: ["read", "create", "delete"] },
       { key: "clinical.tindakan",     label: "Tindakan / Order",             actions: ["read", "create", "update", "delete"] },
+      // Informed Consent (PMK 290) — immutable (add/delete only), tanpa "update".
+      { key: "clinical.consent",      label: "Informed Consent (PMK 290)",   actions: ["read", "create", "delete"] },
       { key: "clinical.resep",        label: "Resep & Obat",                 actions: ["read", "create", "update", "delete"] },
     ],
   },
@@ -147,6 +149,7 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
     "clinical.diagnosa": ["read", "create", "update"],
     "clinical.prosedur": ["read", "create", "delete"], // ICD-9-CM (tindakan/prosedur)
     "clinical.tindakan": ["read", "create", "update", "delete"], // pencatatan tindakan + biaya per kunjungan
+    "clinical.consent": ["read", "create", "delete"], // informed consent (immutable; hapus = entered-in-error)
     "clinical.resep": ["read", "create", "update"],
     // CATATAN: TIDAK diberi ancillary.* — itu untuk unit penunjang (Lab/Rad/Farmasi) yang
     // berdiri-sendiri. Dokter lihat status order via tab rekam medis (clinical.*), bukan
@@ -169,6 +172,7 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
     "clinical.diagnosa": ["read"], // boleh LIHAT diagnosis ICD-10 (buka tab) — TIDAK menulis ICD-10
     "clinical.prosedur": ["read", "create", "delete"], // boleh INPUT prosedur ICD-9-CM (tindakan keperawatan)
     "clinical.tindakan": ["read", "create", "update", "delete"], // pencatatan tindakan + biaya (perawat pelaksana)
+    "clinical.consent": ["read", "create", "delete"], // perawat siapkan formulir IC + TTD pasien/wali
     "clinical.resep": ["read"],
     // CATATAN: TIDAK diberi ancillary.* — itu untuk unit penunjang (Lab/Rad/Farmasi) yang
     // berdiri-sendiri. Perawat lihat status order via tab rekam medis, bukan worklist penunjang.
