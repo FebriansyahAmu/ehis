@@ -6,13 +6,17 @@ import type { TindakanTersediaQuery, TindakanTersediaDTO } from "@/lib/schemas/m
 
 export type { TindakanTersediaQuery, TindakanTersediaDTO };
 
-/** GET /master/tindakan-tersedia — tindakan ter-assign (opsional difilter ruangan). */
+/** GET /master/tindakan-tersedia — tindakan ter-assign (opsional difilter ruangan; harga via penjamin+jenisRuangan). */
 export async function listTindakanTersedia(
   params: TindakanTersediaQuery = {},
   signal?: AbortSignal,
 ): Promise<TindakanTersediaDTO[]> {
   const { data } = await api.get<TindakanTersediaDTO[]>("/master/tindakan-tersedia", {
-    query: { ruanganKode: params.ruanganKode },
+    query: {
+      ruanganKode: params.ruanganKode,
+      penjaminKode: params.penjaminKode,
+      jenisRuangan: params.jenisRuangan,
+    },
     signal,
   });
   return data;

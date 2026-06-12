@@ -45,7 +45,11 @@ export function makeLayananUnitService(deps: { dal?: Dal } = {}) {
    * tidak termuat (bukan entri LayananUnit). Opsional difilter ruangan.
    */
   async function listTindakanTersedia(query: TindakanTersediaQuery): Promise<TindakanTersediaDTO[]> {
-    const rows = await dal.listAssignedTindakan({ ruanganKode: query.ruanganKode });
+    const rows = await dal.listAssignedTindakan({
+      ruanganKode: query.ruanganKode,
+      penjaminKode: query.penjaminKode,
+      jenisRuangan: query.jenisRuangan,
+    });
     const byId = new Map<string, TindakanTersediaDTO>();
     for (const r of rows) {
       const t = r.tindakan;
@@ -61,6 +65,7 @@ export function makeLayananUnitService(deps: { dal?: Dal } = {}) {
         kategori: t.kategori,
         kompleksitas: t.kompleksitas ?? null,
         ruanganKodes: [r.location.kode],
+        harga: t.tarif[0]?.harga ?? null,
       });
     }
     return [...byId.values()];

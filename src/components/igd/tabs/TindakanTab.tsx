@@ -10,13 +10,20 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, X, Plus, Minus, Trash2, Stethoscope, Activity, Syringe, Wrench, Zap,
-  Loader2, CheckCircle2, ClipboardList, Info, Sparkles, ServerCog,
+  Loader2, CheckCircle2, ClipboardList, Info, Sparkles, ServerCog, Wallet, AlertTriangle,
 } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/contexts/SessionContext";
 import { listTindakanTersedia, type TindakanTersediaDTO } from "@/lib/api/master/tindakanTersedia";
 import type { TindakanKategoriDTO } from "@/lib/schemas/master/tindakan";
+
+// Konteks tarif IGD: penjamin UMUM (Tarif PERDA berlaku semua jaminan) · tier ruangan IGD.
+const TARIF_PENJAMIN_KODE = "UMUM";
+const TARIF_JENIS_RUANGAN = "IGD";
+
+const RP = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
+const fmtRp = (n: number) => RP.format(n);
 
 // ── Kategori tampilan (IGD memetakan 16 enum master → 3 grup operasional) ──────
 type DisplayKat = "Diagnostik" | "Terapi" | "Prosedur";
@@ -49,6 +56,7 @@ interface CatalogEntry {
   nama: string;
   kategori: DisplayKat;
   kompleksitas: string | null;
+  harga: number | null;
   searchText: string;
 }
 interface LocalTindakan {
@@ -57,6 +65,7 @@ interface LocalTindakan {
   kode: string;
   nama: string;
   kategori?: DisplayKat;
+  harga: number | null;
   jumlah: number;
   waktu: string;
   dilakukanOleh: string;
@@ -220,6 +229,11 @@ function ConfigCard({
             {entry.kompleksitas && (
               <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500">{entry.kompleksitas}</span>
             )}
+            {entry.harga != null ? (
+              <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 ring-1 ring-emerald-200">{fmtRp(entry.harga)}</span>
+            ) : (
+              <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600 ring-1 ring-amber-200">Belum bertarif</span>
+            )}
           </div>
           <p className="mt-0.5 text-xs font-semibold leading-snug text-slate-800">{entry.nama}</p>
         </div>
@@ -270,6 +284,13 @@ function ConfigCard({
           </div>
         </div>
 
+        {entry.harga != null && (
+          <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 ring-1 ring-emerald-100">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">Subtotal</span>
+            <span className="text-sm font-bold tabular-nums text-emerald-700">{fmtRp(entry.harga * jumlah)}</span>
+          </div>
+        )}
+
         <div className="flex gap-1.5">
           <button
             onClick={() => onAdd(jumlah, pelaksana.trim())}
@@ -314,11 +335,16 @@ function TindakanRow({
 
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs font-semibold text-slate-800">{item.nama}</p>
-        <p className="font-mono text-[10px] text-slate-400">
+        <p className="truncate font-mono text-[10px] text-slate-400">
           {item.kode || "—"}
           {item.dilakukanOleh ? ` · ${item.dilakukanOleh}` : ""}
           {item.waktu ? ` · ${item.waktu}` : ""}
         </p>
+        {item.harga != null ? (
+          <p className="text-[10px] font-medium text-emerald-600">@ {fmtRp(item.harga)}</p>
+        ) : (
+          <p className="text-[10px] font-medium text-amber-500">Belum bertarif</p>
+        )}
       </div>
 
       <div className="flex shrink-0 items-center gap-1">
@@ -335,7 +361,15 @@ function TindakanRow({
         >
           <Plus size={9} />
         </button>
-        <span className="text-[10px] text-slate-400">×</span>
+      </div>
+
+      {/* Subtotal per baris (harga × jumlah) */}
+      <div className="hidden w-24 shrink-0 text-right sm:block">
+        {item.harga != null ? (
+          <span className="text-xs font-bold tabular-nums text-emerald-700">{fmtRp(item.harga * item.jumlah)}</span>
+        ) : (
+          <span className="text-xs text-slate-300">—</span>
+        )}
       </div>
 
       <button
@@ -354,6 +388,8 @@ function TindakanRow({
 function RingkasanPanel({ items }: { items: LocalTindakan[] }) {
   const total = items.length;
   const totalQty = items.reduce((s, i) => s + i.jumlah, 0);
+  const grandTotal = items.reduce((s, i) => s + (i.harga ?? 0) * i.jumlah, 0);
+  const untariffed = items.filter((i) => i.harga == null).length;
   const counts = KAT_ORDER
     .map((k) => ({ kat: k, n: items.filter((i) => i.kategori === k).length }))
     .filter((c) => c.n > 0);
@@ -363,6 +399,37 @@ function RingkasanPanel({ items }: { items: LocalTindakan[] }) {
       <div className="flex items-center gap-2 border-b border-slate-100 px-3.5 py-2.5">
         <ClipboardList size={12} className="text-indigo-400" />
         <p className="text-xs font-bold text-slate-700">Ringkasan Tindakan</p>
+      </div>
+
+      {/* ── Estimasi biaya (hero, animasi tiap berubah) ── */}
+      <div className="border-b border-slate-100 bg-linear-to-br from-emerald-50 via-emerald-50/40 to-white px-3.5 py-3">
+        <div className="flex items-center gap-1.5">
+          <Wallet size={12} className="text-emerald-500" />
+          <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-600">Estimasi Biaya Tindakan</p>
+        </div>
+        <div className="mt-1 h-8 overflow-hidden">
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.p
+              key={grandTotal}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              className="text-2xl font-black tabular-nums tracking-tight text-emerald-700"
+            >
+              {fmtRp(grandTotal)}
+            </motion.p>
+          </AnimatePresence>
+        </div>
+        <p className="mt-0.5 text-[9px] text-slate-400">
+          {total} tindakan · {totalQty}× · tarif IGD (Umum / PERDA)
+        </p>
+        {untariffed > 0 && (
+          <div className="mt-1.5 flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-700 ring-1 ring-amber-200">
+            <AlertTriangle size={10} className="shrink-0" />
+            {untariffed} tindakan belum bertarif (belum dihitung)
+          </div>
+        )}
       </div>
 
       {/* total */}
@@ -443,13 +510,20 @@ export default function TindakanTab({ patient }: { patient: IGDPatientDetail }) 
   const [items, setItems] = useState<LocalTindakan[]>(() =>
     patient.tindakan.map((t) => ({
       id: t.id, kode: t.kode, nama: t.nama, jumlah: t.jumlah,
-      waktu: t.waktu, dilakukanOleh: t.dilakukanOleh,
+      waktu: t.waktu, dilakukanOleh: t.dilakukanOleh, harga: null,
     })),
   );
 
-  // Resolve kategori baris yang belum ber-kategori dari katalog (by kode).
+  // Resolve kategori + harga baris seed dari katalog (by kode) bila belum ter-set.
   const resolvedItems = useMemo(
-    () => items.map((it) => (it.kategori ? it : { ...it, kategori: catalogByKode.get(it.kode)?.kategori })),
+    () => items.map((it) => {
+      const ref = catalogByKode.get(it.kode);
+      return {
+        ...it,
+        kategori: it.kategori ?? ref?.kategori,
+        harga: it.harga ?? ref?.harga ?? null,
+      };
+    }),
     [items, catalogByKode],
   );
 
@@ -465,7 +539,10 @@ export default function TindakanTab({ patient }: { patient: IGDPatientDetail }) 
     setCatalogError(null);
     (async () => {
       try {
-        const dtos = await listTindakanTersedia({}, ac.signal);
+        const dtos = await listTindakanTersedia(
+          { penjaminKode: TARIF_PENJAMIN_KODE, jenisRuangan: TARIF_JENIS_RUANGAN },
+          ac.signal,
+        );
         setCatalog(dtos.map(toCatalogEntry));
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -488,6 +565,7 @@ export default function TindakanTab({ patient }: { patient: IGDPatientDetail }) 
           kode: entry.kode,
           nama: entry.nama,
           kategori: entry.kategori,
+          harga: entry.harga,
           jumlah,
           waktu: nowHHMM(),
           dilakukanOleh: pelaksana || "—",
@@ -670,6 +748,7 @@ function toCatalogEntry(d: TindakanTersediaDTO): CatalogEntry {
     nama: d.nama,
     kategori,
     kompleksitas: d.kompleksitas,
+    harga: d.harga,
     searchText: `${d.nama} ${d.kode} ${kategori}`.toLowerCase(),
   };
 }

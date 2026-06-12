@@ -65,7 +65,12 @@ export function deleteById(id: string, tx?: Tx) {
 // Untuk endpoint /master/tindakan-tersedia (gate clinical.tindakan). Hanya tindakan AKTIF &
 // non-deleted; opsional difilter ruangan (kode). Include tindakan (field ramping) + kode
 // ruangan → Service agregasi distinct per tindakan dgn daftar ruanganKodes.
-export function listAssignedTindakan(params: { ruanganKode?: string }, tx?: Tx) {
+// HARGA: include relasi tarif yang match (penjaminKode, jenisRuangan) — keduanya wajib bareng;
+// bila absen, where pakai "" → tak match → harga null. take:1 (unik per triple).
+export function listAssignedTindakan(
+  params: { ruanganKode?: string; penjaminKode?: string; jenisRuangan?: string },
+  tx?: Tx,
+) {
   return db(tx).layananUnit.findMany({
     where: {
       tindakan: { deletedAt: null, active: true },
@@ -73,7 +78,14 @@ export function listAssignedTindakan(params: { ruanganKode?: string }, tx?: Tx) 
     },
     include: {
       tindakan: {
-        select: { id: true, kode: true, nama: true, kategori: true, kompleksitas: true },
+        select: {
+          id: true, kode: true, nama: true, kategori: true, kompleksitas: true,
+          tarif: {
+            where: { penjaminKode: params.penjaminKode ?? "", jenisRuangan: params.jenisRuangan ?? "" },
+            select: { harga: true },
+            take: 1,
+          },
+        },
       },
       location: { select: { kode: true } },
     },
