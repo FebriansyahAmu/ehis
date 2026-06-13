@@ -1,23 +1,38 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Package, Warehouse, AlertTriangle, Search, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  type ObatKategori, OBAT_KATEGORI_CFG, KATEGORI_OBAT_ORDER,
+  type ObatKategori, type ObatRecord, OBAT_KATEGORI_CFG, KATEGORI_OBAT_ORDER,
 } from "@/lib/master/obatMock";
 import { DEPO_TIPE_CFG } from "@/lib/master/depoMock";
+import { fetchAllObat } from "@/lib/api/master/obat";
+import { ApiError } from "@/lib/api/client";
+import { toast } from "@/lib/ui/toastStore";
 import {
   type DistribusiMap,
-  getObatList, getDepoList, initDistribusiMap, toggleStock, calcStats,
+  getDepoList, initDistribusiMap, toggleStock, calcStats,
 } from "./distribusiShared";
 import DistribusiMatrix from "./DistribusiMatrix";
 
 export default function DistribusiPane() {
-  const allObat = useMemo(() => getObatList(), []);
   const allDepo = useMemo(() => getDepoList(), []);
-  const [map, setMap] = useState<DistribusiMap>(() => initDistribusiMap(allObat, allDepo));
+  const [allObat, setAllObat] = useState<ObatRecord[]>([]);
+  const [map, setMap] = useState<DistribusiMap>({});
+
+  // Obat dari DB (master.obat) → init map saat tiba.
+  useEffect(() => {
+    const ac = new AbortController();
+    fetchAllObat(ac.signal)
+      .then((obat) => { setAllObat(obat); setMap(initDistribusiMap(obat, allDepo)); })
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat katalog obat", e instanceof ApiError ? e.message : undefined);
+      });
+    return () => ac.abort();
+  }, [allDepo]);
   const [activeDepoId, setActiveDepoId] = useState<string | "all">("all");
   const [search, setSearch] = useState("");
   const [visibleKategori, setVisibleKategori] = useState<Set<ObatKategori>>(

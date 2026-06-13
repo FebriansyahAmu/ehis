@@ -18,6 +18,8 @@ import MappingKfaTab from "./tabs/MappingKfaTab";
 
 interface Props {
   draft: ObatRecord;
+  /** Seluruh obat (untuk LASA pair picker). */
+  allObat: ObatRecord[];
   isNew: boolean;
   isDirty: boolean;
   tab: TabKey;
@@ -123,7 +125,7 @@ function HeaderContent({ draft, isNew, isDirty }: { draft: ObatRecord; isNew: bo
 // ── Component ─────────────────────────────────────────────
 
 export default function ObatDetail({
-  draft, isNew, isDirty, tab, onTabChange,
+  draft, allObat, isNew, isDirty, tab, onTabChange,
   onPatch, onSave, onCancel, onDelete,
 }: Props) {
   const valid = isObatValid(draft);
@@ -147,7 +149,7 @@ export default function ObatDetail({
       tabsAriaLabel="Detail obat"
     >
       {tab === "identitas"   && <IdentitasTab   draft={draft} onPatch={onPatch} />}
-      {tab === "klasifikasi" && <KlasifikasiTab draft={draft} onPatch={onPatch} />}
+      {tab === "klasifikasi" && <KlasifikasiTab draft={draft} allObat={allObat} onPatch={onPatch} />}
       {tab === "klinis"      && <KlinisTab      draft={draft} onPatch={onPatch} />}
       {tab === "harga"       && <HargaTab       draft={draft} onPatch={onPatch} />}
       {tab === "kfa"         && <MappingKfaTab  draft={draft} onPatch={onPatch} />}

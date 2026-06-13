@@ -6,7 +6,7 @@ import { Search, X, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   type ObatRecord, type GolonganObat,
-  OBAT_MOCK, GOLONGAN_CFG,
+  GOLONGAN_CFG,
 } from "@/lib/master/obatMock";
 import {
   Field, Select, ToggleSwitch, SectionGroup,
@@ -15,10 +15,12 @@ import {
 
 interface KlasifikasiTabProps {
   draft: ObatRecord;
+  /** Seluruh obat (untuk LASA pair picker). */
+  allObat: ObatRecord[];
   onPatch: (patch: Partial<ObatRecord>) => void;
 }
 
-export default function KlasifikasiTab({ draft, onPatch }: KlasifikasiTabProps) {
+export default function KlasifikasiTab({ draft, allObat, onPatch }: KlasifikasiTabProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
@@ -88,6 +90,7 @@ export default function KlasifikasiTab({ draft, onPatch }: KlasifikasiTabProps) 
         >
           <LASAPairSelector
             currentId={draft.id}
+            allObat={allObat}
             selectedIds={draft.lasaPairIds ?? []}
             onChange={(ids) => onPatch({ lasaPairIds: ids })}
           />
@@ -154,25 +157,26 @@ function GolonganBanner({ gol }: { gol: GolonganObat }) {
 }
 
 function LASAPairSelector({
-  currentId, selectedIds, onChange,
+  currentId, allObat, selectedIds, onChange,
 }: {
   currentId: string;
+  allObat: ObatRecord[];
   selectedIds: string[];
   onChange: (ids: string[]) => void;
 }) {
   const [search, setSearch] = useState("");
 
   const candidates = useMemo(() => {
-    const others = OBAT_MOCK.filter((o) => o.id !== currentId);
+    const others = allObat.filter((o) => o.id !== currentId);
     if (!search.trim()) return others.slice(0, 6);
     const q = search.toLowerCase();
     return others.filter((o) =>
       o.namaGenerik.toLowerCase().includes(q) ||
       o.namaDagang.toLowerCase().includes(q),
     ).slice(0, 12);
-  }, [search, currentId]);
+  }, [search, currentId, allObat]);
 
-  const selected = OBAT_MOCK.filter((o) => selectedIds.includes(o.id));
+  const selected = allObat.filter((o) => selectedIds.includes(o.id));
 
   const toggle = (id: string) => {
     onChange(

@@ -145,7 +145,7 @@ export function chargeFromFarmasiOrder(
   return order.items.map((item) => {
     const qty = item.jumlah || 1;
     // Obat sudah punya `hargaSatuan` di item (dari form input). Fallback ke
-    // master OBAT_MOCK by kode jika tidak ada.
+    // snapshot katalog obat (DB master.obat) by kode jika tidak ada.
     const harga = item.hargaSatuan ?? getHargaObat(item.kodeObat || item.namaObat).hargaSatuan;
     // Obat non-formularium → coverage Pasien (selisih dibayar pasien). Field
     // optional di mock, default true jika undefined.

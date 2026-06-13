@@ -1,0 +1,85 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Katalog Obat  (Postgres schema "master")
+//  FE: /ehis-master/katalog-obat · Tipe/seed FE: src/lib/master/obatMock.ts
+//  (ObatRecord) + src/lib/master/obatSeed.ts (data seed).
+//
+//  Katalog obat RS — identitas, klasifikasi (Formularium/HAM/LASA/golongan),
+//  info klinis, harga, dan PEMETAAN KFA (Kamus Farmasi & Alkes) untuk interop
+//  FHIR SatuSehat. Pemetaan KFA = blok di-edit/di-seed utuh (poa/pov/rute/bentuk
+//  + BZA[]) → disimpan JSONB (`kfa`), hindari tabel anak (analog rujukan LabTest).
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz · soft-delete. Katalog leaf →
+//  TANPA optimistic-version (analog LabTest/Tindakan). Enum FE-facing (kategori/
+//  bentuk/rute/golongan/status) = TEXT pass-through (validasi di Zod). Harga =
+//  Int rupiah. `lasaPairIds` = text[] soft-ref ke Obat lain (tanpa FK).
+// ════════════════════════════════════════════════════════════════════════════
+
+model Obat {
+  id   String @id @default(uuid(7)) @db.Uuid
+  kode String @default("") // kode internal RS / ATC; boleh kosong
+
+  // ── Identitas ──
+  namaGenerik    String  @map("nama_generik")
+  namaDagang     String  @map("nama_dagang")
+  pabrik         String?
+  kategori       String // FE union: "Antibiotik" | "Analgesik" | ...
+  bentuk         String // FE union: "Tablet" | "Injeksi" | ...
+  kekuatan       String // "500 mg", "10 mg/ml"
+  satuanTerkecil String? @map("satuan_terkecil")
+  rute           String? // FE union: "PO" | "IV" | ...
+
+  // ── Klasifikasi ──
+  isFormularium Boolean  @default(false) @map("is_formularium")
+  isHAM         Boolean  @default(false) @map("is_ham")
+  isLASA        Boolean  @default(false) @map("is_lasa")
+  lasaPairIds   String[] @map("lasa_pair_ids") // soft-ref id Obat lain
+  golongan      String? // FE union UU 35/2009: "Narkotika_II" | "Keras_G" | ...
+  isColdChain   Boolean  @default(false) @map("is_cold_chain")
+  isRestricted  Boolean  @default(false) @map("is_restricted")
+
+  // ── Klinis ──
+  indikasi       String?
+  kontraindikasi String?
+  dosisDewasa    String? @map("dosis_dewasa")
+  dosisAnak      String? @map("dosis_anak")
+  efekSamping    String? @map("efek_samping")
+  interaksiObat  String? @map("interaksi_obat")
+  catatanKhusus  String? @map("catatan_khusus")
+
+  // ── Harga & Coverage ──
+  hargaSatuan            Int     @default(0) @map("harga_satuan")
+  hpp                    Int?
+  het                    Int?
+  kodeFornas             String? @map("kode_fornas")
+  bpjsCoverage           Boolean @default(false) @map("bpjs_coverage")
+  batasResepPerKunjungan Int?    @map("batas_resep_per_kunjungan")
+
+  // ── KFA mapping (FHIR SatuSehat) — blok JSONB (KfaMapping) ──
+  /// { poaKode?, poaNama?, nie?, povKode?, povNama?, ruteKode?, ruteNama?,
+  ///   bentukKode?, bentukNama?, zatAktif:[{kode,display,dosis?,satuan?,dosisPerSatuan?}],
+  ///   sumber?, mappedAt? }
+  kfa Json? @db.JsonB
+
+  // ── Meta ──
+  status    String    @default("Aktif") // FE union: "Aktif" | "Non_Aktif" | "Discontinued"
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kategori, deletedAt]) // list/filter per kategori
+  @@index([kode])
+  @@map("obat")
+  @@schema("master")
+}
+
+// Counter kode obat (auto `OBT-<YYMM><NNN>`, reset per bulan WIB). Pola identik
+// pendaftaran.rm_counter: upsert by PK `periode` → INSERT … ON CONFLICT … RETURNING
+// (1 round-trip, race-safe via lock baris implisit). Bukan SEQUENCE (tak bisa reset
+// per-periode aman-race).
+model ObatCounter {
+  periode String @id @db.Char(4) // "YYMM" zona WIB (mis. "2606")
+  lastSeq Int    @map("last_seq")
+
+  @@map("obat_counter")
+  @@schema("master")
+}

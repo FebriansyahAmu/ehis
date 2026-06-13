@@ -1,26 +1,41 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Pill, Layers, ShieldCheck, Search, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  type ObatKategori, OBAT_KATEGORI_CFG, KATEGORI_OBAT_ORDER,
+  type ObatKategori, type ObatRecord, OBAT_KATEGORI_CFG, KATEGORI_OBAT_ORDER,
 } from "@/lib/master/obatMock";
 import {
   type KelasRawat, PENJAMIN_TIPE_CFG,
 } from "@/lib/master/penjaminMock";
+import { fetchAllObat } from "@/lib/api/master/obat";
+import { ApiError } from "@/lib/api/client";
+import { toast } from "@/lib/ui/toastStore";
 import {
   type FormulariumMap,
-  getObatList, getPenjaminListF, initFormulariumMap,
+  getPenjaminListF, initFormulariumMap,
   toggleCell, bulkSetRow, bulkSetColumn, calcCoverage,
 } from "./formulariumShared";
 import FormulariumMatrix from "./FormulariumMatrix";
 
 export default function FormulariumPane() {
-  const allObat = useMemo(() => getObatList(), []);
   const penjaminList = useMemo(() => getPenjaminListF(), []);
-  const [map, setMap] = useState<FormulariumMap>(() => initFormulariumMap(allObat, penjaminList));
+  const [allObat, setAllObat] = useState<ObatRecord[]>([]);
+  const [map, setMap] = useState<FormulariumMap>({});
+
+  // Obat dari DB (master.obat) → init map saat tiba.
+  useEffect(() => {
+    const ac = new AbortController();
+    fetchAllObat(ac.signal)
+      .then((obat) => { setAllObat(obat); setMap(initFormulariumMap(obat, penjaminList)); })
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat katalog obat", e instanceof ApiError ? e.message : undefined);
+      });
+    return () => ac.abort();
+  }, [penjaminList]);
   const [activePenjaminId, setActivePenjaminId] = useState(penjaminList[1]?.id ?? penjaminList[0]?.id ?? ""); // default BPJS
   const [search, setSearch] = useState("");
   const [visibleKategori, setVisibleKategori] = useState<Set<ObatKategori>>(

@@ -4,7 +4,7 @@
  * Strategi mock-first:
  *   - Tarif: scan `TARIF_MOCK` per-kategori + fuzzy match by name, pakai
  *     `tarifUmum/tarifBPJS/tarifAsuransi` sesuai penjamin tipe.
- *   - Obat: lookup `OBAT_MOCK` by kode atau nama, pakai `hargaSatuan`.
+ *   - Obat: lookup snapshot katalog obat (DB master.obat) by kode/nama, pakai `hargaSatuan`.
  *   - Akomodasi: hardcoded rate per kelas (RS bisa override di profil nanti).
  *   - Fallback: return harga default + flag `resolved: false` agar caller bisa
  *     warn/log.
@@ -14,7 +14,7 @@
  */
 
 import { TARIF_MOCK, type KategoriTarif, type TarifRecord } from "@/lib/master/tarifMock";
-import { OBAT_MOCK } from "@/lib/master/obatMock";
+import { lookupObatPrice } from "@/lib/billing/obatPriceCatalog";
 import type { KelasFilter } from "@/components/billing/tagihan/tagihanShared";
 import type { PenjaminTipeRow } from "@/lib/billing/tagihanBoardMock";
 
@@ -144,17 +144,7 @@ export function getHargaJasaDokter(nama: string, ctx: PriceContext): PriceResolu
  * mapping (penjamin × obat × kelas → coverage).
  */
 export function getHargaObat(kodeOrNama: string): PriceResolution {
-  const q = kodeOrNama.toLowerCase().trim();
-  const byKode = OBAT_MOCK.find((o) => o.kode.toLowerCase() === q);
-  const obat =
-    byKode ??
-    OBAT_MOCK.find(
-      (o) =>
-        o.namaGenerik.toLowerCase() === q ||
-        o.namaDagang.toLowerCase() === q ||
-        o.namaGenerik.toLowerCase().includes(q) ||
-        q.includes(o.namaGenerik.toLowerCase()),
-    );
+  const obat = lookupObatPrice(kodeOrNama); // snapshot katalog obat (DB) — hydrate di layout billing
 
   if (!obat) {
     return { hargaSatuan: 5_000, resolved: false, source: "fallback" };

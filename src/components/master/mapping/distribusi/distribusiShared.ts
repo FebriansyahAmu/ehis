@@ -1,4 +1,4 @@
-import { OBAT_MOCK, type ObatRecord } from "@/lib/master/obatMock";
+import { type ObatRecord } from "@/lib/master/obatMock";
 import { DEPO_MOCK, type DepoRecord } from "@/lib/master/depoMock";
 
 // ── Types ─────────────────────────────────────────────────
@@ -21,10 +21,7 @@ export type DistribusiMap = Record<string, Record<string, StokCell | undefined>>
 export type StokStatus = "Habis" | "Kritis" | "Rendah" | "Aman" | "Penuh" | "TidakStock";
 
 // ── Helpers ───────────────────────────────────────────────
-
-export function getObatList(): ObatRecord[] {
-  return OBAT_MOCK;
-}
+// Obat di-fetch dari DB via `fetchAllObat()` di pane (bukan lagi mock).
 
 export function getDepoList(): DepoRecord[] {
   return DEPO_MOCK;
@@ -57,7 +54,7 @@ function shouldStockInDepo(obat: ObatRecord, depoId: string): boolean {
              obat.kategori === "Kardiovaskular" ||
              obat.kategori === "Saluran_Nafas" ||
              obat.kategori === "Vitamin_Cairan" ||
-             obat.id === "obt-052" || // Ondansetron
+             obat.namaGenerik.toLowerCase().includes("ondansetron") ||
              obat.isHAM;
     case "depo-003": // ICU
       return obat.isHAM ||

@@ -1,4 +1,4 @@
-import { OBAT_MOCK, type ObatRecord } from "@/lib/master/obatMock";
+import { type ObatRecord } from "@/lib/master/obatMock";
 import {
   PENJAMIN_MOCK, KELAS_LIST,
   type PenjaminRecord, type KelasRawat,
@@ -18,10 +18,7 @@ export interface FormulariumCell {
 export type FormulariumMap = Record<string, Record<string, Partial<Record<KelasRawat, FormulariumCell>>>>;
 
 // ── Helpers ───────────────────────────────────────────────
-
-export function getObatList(): ObatRecord[] {
-  return OBAT_MOCK;
-}
+// Obat di-fetch dari DB via `fetchAllObat()` di pane (bukan lagi mock).
 
 export function getPenjaminListF(): PenjaminRecord[] {
   return PENJAMIN_MOCK;

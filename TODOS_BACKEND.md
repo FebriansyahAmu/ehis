@@ -76,7 +76,7 @@ Memetakan 25 master sub-module yang sudah dibangun di [/ehis-master](src/app/ehi
 
 ### B1.2 Katalog Klinis
 > Spec lengkap → [docs/BACKEND-MASTER-KATALOG-KLINIS.md](docs/BACKEND-MASTER-KATALOG-KLINIS.md).
-- [ ] `POST/GET/PUT/DELETE /api/master/katalog-obat` — `ObatRecord` (30+ field). HAM/LASA/Formularium flags. Golongan UU 35/2009.
+- [✅] `GET/POST/PATCH/DELETE /api/v1/master/obat` — `ObatRecord`. **(2026-06-13)** layered + SSR-hybrid wired ([KatalogObatPage](src/components/master/katalog-obat/KatalogObatPage.tsx)). HAM/LASA/Formularium flags · golongan UU 35/2009 · leaf tanpa version · **pemetaan KFA = kolom JSONB** (POA/POV/Rute/Bentuk+BZA → FHIR SatuSehat, tab Mapping KFA). **`OBAT_MOCK` dihapus** → [obatSeed.ts](src/lib/master/obatSeed.ts), **seeded 28 obat / 17 KFA / 4 LASA**; konsumen mock (Formularium/Distribusi/Beranda/billing) dimigrasi. Sisa: KO8 tests · KO9 KFA-live + cache. Spec §C.1.
 - [✅] `GET/POST/PATCH/DELETE /api/v1/master/tindakan` — `TindakanRecord`. **(2026-06-12)** layered + SSR-hybrid wired ([KatalogTindakanPage](src/components/master/katalog-tindakan/KatalogTindakanPage.tsx)). Kode ICD-9 **opsional** · 16 kategori · status KPTL · leaf tanpa version. **Dikonsumsi Mapping Hub Layanan Unit** (baris). Sisa: KT8 tests · cache. Spec §A.
 - [ ] `POST/GET/PUT/DELETE /api/master/katalog-lab` — `LabKatalogItem`. Nilai rujukan per gender/usia (**anak 1:N**). Critical low/high. Delta absolute/percent.
 - [ ] `POST/GET/PUT/DELETE /api/master/katalog-radiologi` — `RadCatalogRecord`. Persiapan & protap. Kontras info. DRL referensi PMK 1014/2008.

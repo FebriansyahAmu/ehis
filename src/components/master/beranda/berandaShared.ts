@@ -29,7 +29,9 @@ import { PENGGUNA_MOCK } from "@/components/master/pengguna/penggunaShared";
 // Master Dokter kini API-driven (lihat src/lib/api/dokter.ts) — beranda dashboard masih mock,
 // pakai angka indikatif sampai KPI di-wire ke endpoint. TODO: ganti dgn count dari GET /master/dokter.
 const DOKTER_COUNT = 4;
-import { OBAT_MOCK } from "@/lib/master/obatMock";
+// Katalog Obat kini API-driven (master.obat) — count indikatif sampai KPI di-wire.
+// TODO: ganti dgn count dari GET /master/obat.
+const OBAT_COUNT = 28;
 import { TINDAKAN_MOCK } from "@/lib/master/tindakanMock";
 import { LAB_KATALOG_MOCK } from "@/lib/master/labCatalogMock";
 import { RAD_KATALOG_MOCK } from "@/lib/master/radCatalogMock";
@@ -85,7 +87,7 @@ export function getBerandaStats(): BerandaStats {
     sdm:
       DOKTER_COUNT + PENGGUNA_MOCK.length,
     katalog:
-      OBAT_MOCK.length + TINDAKAN_MOCK.length +
+      OBAT_COUNT + TINDAKAN_MOCK.length +
       LAB_KATALOG_MOCK.length + RAD_KATALOG_MOCK.length,
     reference:
       ICD_MOCK.length + ASESMEN_KATALOG_MOCK.length + SDKI_MOCK.length +
@@ -138,7 +140,7 @@ export function getQuickNavGroups(): QuickNavGroup[] {
       tone: "sky",
       desc: "Obat, tindakan, penunjang, dan kode diagnosa",
       items: [
-        { label: "Katalog Obat",         href: "/ehis-master/katalog-obat",      icon: Pill,      count: OBAT_MOCK.length },
+        { label: "Katalog Obat",         href: "/ehis-master/katalog-obat",      icon: Pill,      count: OBAT_COUNT },
         { label: "Katalog Tindakan",     href: "/ehis-master/katalog-tindakan",  icon: Zap,       count: TINDAKAN_MOCK.length },
         { label: "Katalog Laboratorium", href: "/ehis-master/katalog-lab",       icon: TestTube,  count: LAB_KATALOG_MOCK.length },
         { label: "Katalog Radiologi",    href: "/ehis-master/katalog-radiologi", icon: Radiation, count: RAD_KATALOG_MOCK.length },

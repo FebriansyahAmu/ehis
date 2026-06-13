@@ -98,8 +98,8 @@ Masih **FE mock** (`*Shared.ts` per pane, skema 1:1 target → swap import saat 
 
 | Pane | Mock file | Target edge | Catatan backend |
 |------|-----------|-------------|-----------------|
-| **Formularium** | [formularium/formulariumShared.ts](../src/components/master/mapping/formularium/formulariumShared.ts) | Obat × Kelas Penjamin → boleh/tidak | Tergantung Katalog Obat backend (📋 belum, lihat BACKEND-MASTER-KATALOG-KLINIS §Obat). |
-| **Distribusi Obat** | [distribusi/distribusiShared.ts](../src/components/master/mapping/distribusi/distribusiShared.ts) | Obat ⇄ Depo Farmasi | Tergantung Katalog Obat + master Depo/Lokasi farmasi. |
+| **Formularium** | [formularium/formulariumShared.ts](../src/components/master/mapping/formularium/formulariumShared.ts) | Obat × Kelas Penjamin → boleh/tidak | Baris **obat dari DB** (`fetchAllObat`, Katalog Obat ✅ — KATALOG-KLINIS §C.1); **edge coverage** masih mock (state-only) → persist N:N menyusul. |
+| **Distribusi Obat** | [distribusi/distribusiShared.ts](../src/components/master/mapping/distribusi/distribusiShared.ts) | Obat ⇄ Depo Farmasi | Baris **obat dari DB** (`fetchAllObat`, Katalog Obat ✅); **stok per depo** masih mock + master Depo belum backend. |
 | **Penjamin × Ruangan** | [penjamin-ruangan/PenjaminRuanganPane.tsx](../src/components/master/mapping/penjamin-ruangan/PenjaminRuanganPane.tsx) | Kode SMF/Ruangan BPJS ⇄ Ruangan RS | Untuk SEP/V-Claim (BPJS). Tergantung reference BPJS (sync cron) + master Ruangan (✅). |
 
 ---
