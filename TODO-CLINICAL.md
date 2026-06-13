@@ -25,7 +25,7 @@ Tab ≠ tabel. Banyak tab = view berbeda atas domain yang sama; komponen `shared
 | **Procedure**         | Tindakan IGD                                                          | IGD-only\* | ICD-9-CM; trigger charge billing                                                        |
 | **Assessment**        | Asesmen Medis · Pemeriksaan (status fisik 11-sistem) · Riwayat/Alergi | ✅ inti    | narasi + head-to-toe                                                                    |
 | **Consent**           | Informed Consent                                                      | ✅         | PMK 290/2008                                                                            |
-| **MedReconciliation** | Rekonsiliasi                                                          | ✅         | HAM badge                                                                               |
+| **MedReconciliation** | Rekonsiliasi                                                          | ✅         | HAM badge; append-only snapshot per fase + Riwayat                                      |
 | **NursingCare**       | Keperawatan (asuhan keperawatan SDKI/SLKI/SIKI)                       | ✅         | proses keperawatan; bisa berbagi pola CPPT                                              |
 | **Handover**          | Serah Terima (SBAR)                                                   | ✅         | auto-populate TTV                                                                       |
 | **Order** (REUSE)     | Daftar Order · Resep · Order Lab · Order Rad                          | ✅         | **domain Order tersendiri** (`ORDERS_MOCK` single source) — rekam medis cukup _membaca_ |
@@ -38,7 +38,7 @@ Tab ≠ tabel. Banyak tab = view berbeda atas domain yang sama; komponen `shared
 Urutan persis seperti di [IGDRecordTabs.tsx](src/components/igd/IGDRecordTabs.tsx) (Rekam Medis 13 + Layanan 6). **FE 19/19 ✅** (mock). Yang dilacak di sini = **backend**: kolom **BE** (schema+DAL+service+endpoint, ~Fase A) & **Wiring** (resolver + tab konsumsi DB, ~Fase B/C).
 Legenda: 🟢 selesai · 🟡 sebagian · ⬜ belum.
 
-**Status global backend: 7/19 dimulai** (+ Informed Consent Fase A+B ✅ 2026-06-13) (Triase BE ✅ + wiring tab ✅; Observation/TTV BE ✅ + wiring tab ✅; **Asesmen Medis BE+wiring ✅ LENGKAP** — 5/5 sub-menu: Anamnesis + Riwayat Medis (9/9 pane) + Alergi + Skrining Gizi + Edukasi (3/3: Pasien & Keluarga · Emergency · End of Life); **Diagnosa BE+wiring ✅**; **CPPT BE+wiring ✅** — append-only per-item + co-sign DPJP + SBAR/TBAK (SKP 2), wired IGD/RI/RJ; **Tindakan/Procedure BE+wiring ✅** — `medicalrecord.TindakanMedis` snapshot biaya + CRUD optimistik, tab Tindakan IGD persist saat kunjunganId UUID; **Consent/Informed Consent BE+wiring ✅** — `medicalrecord.InformedConsent` per-item immutable (add/delete) + TTD PNG base64, RBAC leaf `clinical.consent`, redesign FE (tindakan katalog + dokter roster + DateTimePicker gabungan), wired IGD/RI/RJ; sisa Triase Fase C + 12 tab lain ⬜).
+**Status global backend: 8/19 dimulai** (+ Rekonsiliasi Fase A+B ✅ 2026-06-13) (Triase BE ✅ + wiring tab ✅; Observation/TTV BE ✅ + wiring tab ✅; **Asesmen Medis BE+wiring ✅ LENGKAP** — 5/5 sub-menu: Anamnesis + Riwayat Medis (9/9 pane) + Alergi + Skrining Gizi + Edukasi (3/3: Pasien & Keluarga · Emergency · End of Life); **Diagnosa BE+wiring ✅**; **CPPT BE+wiring ✅** — append-only per-item + co-sign DPJP + SBAR/TBAK (SKP 2), wired IGD/RI/RJ; **Tindakan/Procedure BE+wiring ✅** — `medicalrecord.TindakanMedis` snapshot biaya + CRUD optimistik, tab Tindakan IGD persist saat kunjunganId UUID; **Consent/Informed Consent BE+wiring ✅** — `medicalrecord.InformedConsent` per-item immutable (add/delete) + TTD PNG base64, RBAC leaf `clinical.consent`, redesign FE (tindakan katalog + dokter roster + DateTimePicker gabungan), wired IGD/RI/RJ; **Rekonsiliasi/MedReconciliation BE+wiring ✅** — `medicalrecord.Rekonsiliasi`+`RekonsiliasiObat` append-only snapshot per fase, gate `clinical.resep`, sub-menu Riwayat + obat dari Formularium + DateTimePicker + petugas dari sesi, wired IGD/RI; sisa Triase Fase C + 11 tab lain ⬜).
 
 | #   | Tab (grup)               | Domain target     | FE  | BE  | Wiring | Catatan                                              |
 | --- | ------------------------ | ----------------- | --- | --- | ------ | ---------------------------------------------------- |
@@ -49,7 +49,7 @@ Legenda: 🟢 selesai · 🟡 sebagian · ⬜ belum.
 | 5   | **CPPT / SOAP** (RM)     | CPPT              | ✅  | 🟢  | 🟢     | Fase A+B ✅ (per-item; SOAP/SBAR/TBAK SKP 2; co-sign DPJP; CPPTTab shared wired IGD/RI/RJ) |
 | 6   | **Tindakan IGD** (RM)    | Procedure         | ✅  | 🟢  | 🟢     | Fase A+B ✅ (`medicalrecord.TindakanMedis` snapshot biaya; CRUD optimistik; wired). Charge billing hilir; ICD-9-CM coding ada di `DiagnosaProsedur` (#4) |
 | 7   | **Informed Consent** (RM)| Consent           | ✅  | 🟢  | 🟢     | Fase A+B ✅ (`medicalrecord.InformedConsent` per-item immutable + TTD PNG base64; gate `clinical.consent`; wired IGD/RI/RJ). PMK 290/2008 |
-| 8   | **Rekonsiliasi** (RM)    | MedReconciliation | ✅  | ⬜  | ⬜     | HAM badge; context igd/ri                            |
+| 8   | **Rekonsiliasi** (RM)    | MedReconciliation | ✅  | 🟢  | 🟢     | Fase A+B ✅ (`medicalrecord.Rekonsiliasi`+child append-only per fase; gate **`clinical.rekonsiliasi`** dipisah dari resep → Dokter/Perawat/Apoteker create; sub-menu Riwayat; obat dari Formularium; wired IGD/RI). HAM badge; SNARS PP 3.1/SKP 3 |
 | 9   | **Keperawatan** (RM)     | NursingCare       | ✅  | ⬜  | ⬜     | asuhan keperawatan; bisa berbagi pola CPPT           |
 | 10  | **Pemeriksaan** (RM)     | Assessment        | ✅  | ⬜  | ⬜     | status fisik 11-sistem (StatusFisikPane)             |
 | 11  | **Penilaian** (RM)       | Observation       | ✅  | ⬜  | ⬜     | skor Morse/Braden/Barthel/NRS/NEWS2 (= Observation)  |
@@ -339,6 +339,37 @@ Tab Edukasi = 3 sub-pane ([EdukasiPane](src/components/igd/tabs/EdukasiPane.tsx)
 - [x] **B2** Wrapper [igd/tabs/InformedConsentTab](src/components/igd/tabs/InformedConsentTab.tsx) + [rawat-inap/tabs/InformedConsentTab](src/components/rawat-inap/tabs/InformedConsentTab.tsx) + [RJRecordTabs](src/components/rawat-jalan/RJRecordTabs.tsx) → teruskan `id`+`dpjp`.
 - **DoD B:** ✅ `tsc` bersih · ✅ `eslint` bersih (warning `<img>` TTD preview, precedent). ⏳ verifikasi in-browser (login superadmin).
 - ⚠️ **Sisa (follow-up):** delete UI (entered-in-error + ConfirmDialog) di daftar tersimpan · endpoint detail+print yang ikut `signatureData` (kini di-omit dari list) · konsolidasi redundansi penanda tab↔modal (vocab `hubungan` beda) · TTD SVG opsional (lebih kecil + crisp cetak A4).
+
+---
+
+## Domain 8 — MED RECONCILIATION / REKONSILIASI (tab Rekonsiliasi) ✅
+
+**Model `medicalrecord.Rekonsiliasi` + child `RekonsiliasiObat`** (parent+child, keyed `kunjunganId`, shared IGD/RI): **append-only "latest wins" per fase** (admisi/transfer/discharge) — tiap **Simpan** = snapshot baru (parent + baris obat). Form menampilkan snapshot **terbaru per fase**; **Riwayat** = semua snapshot (lintas fase & versi, terbaru dulu) = jejak audit. Pola = AsesmenObat+AsesmenObatItem. `waktu` = "Tanggal & Waktu" form; `petugas` = nama user login; `obatList` snapshot (namaObat/dosis/rute/frekuensi/sumber/keputusan/gantiDengan/alasan/isHAM). SNARS PP 3.1 · SKP 3 · PMK 72/2016.
+
+### Fase Form FE — prasyarat (2026-06-13) ✅
+
+- [x] **F1** Tanggal & Waktu → komponen global [`DateTimePicker`](src/components/shared/inputs/DateTimePicker.tsx) (kontrak `YYYY-MM-DDTHH:mm`).
+- [x] **F2** Petugas → **chip read-only dari user login** (`useSession().namaTampil`; fallback input bila tak login).
+- [x] **F3** Obat dari **Formularium** — `GET /master/obat-tersedia` (gate `clinical.resep:read`, join `FormulariumObat→Obat` distinct + `ruanganKodes[]`) → map `ObatCatalog` → `ObatSearch` prop `catalog` + `showStock=false`. [obatTersedia schema](src/lib/schemas/master/obatTersedia.ts)/[service `listObatTersedia`](src/lib/services/master/formulariumService.ts)/[route](src/app/api/v1/master/obat-tersedia/route.ts)/[client](src/lib/api/master/obatTersedia.ts). Resep tetap pakai mock (degradasi anggun).
+
+### Fase A — Backend (schema → endpoint) ✅ SELESAI (2026-06-13)
+
+- [x] **A1** [medicalrecord.prisma](prisma/schema/medicalrecord.prisma) — `Rekonsiliasi` (fase/selesai/catatan/waktu/petugas/author + version, append-only **tanpa updatedAt/soft-delete**) + `RekonsiliasiObat` (namaObat/dosis/rute/frekuensi/sumber/keputusan/gantiDengan/alasan/isHAM/urutan) + backref `Kunjungan.rekonsiliasi`. Index `(kunjungan_id, created_at)` + `(rekonsiliasi_id)`.
+- [x] **A2** migration `20260613180000_init_medicalrecord_rekonsiliasi` — CREATE TABLE rekonsiliasi + rekonsiliasi_obat + index + FK→`encounter.kunjungan` cascade + child→parent cascade. Applied via `migrate deploy` + `generate`.
+- [x] **A3** Zod [`schemas/rekonsiliasi/rekonsiliasi.ts`](src/lib/schemas/rekonsiliasi/rekonsiliasi.ts) — `RekonsiliasiInput` (fase enum · selesai · catatan? · waktu coerce date? · petugas? · obatList[]) · `RekonsiliasiObatInput` (keputusan enum) · `RekonsiliasiDTO`+`RekonsiliasiObatDTO`.
+- [x] **A4** DAL [`dal/rekonsiliasi/rekonsiliasiDal.ts`](src/lib/dal/rekonsiliasi/rekonsiliasiDal.ts) — list (riwayat, include obatList urut)/findById/create (nested children); `tx?`.
+- [x] **A5** Service [`services/rekonsiliasi/rekonsiliasiService.ts`](src/lib/services/rekonsiliasi/rekonsiliasiService.ts) — `list`/`add` + `assertKunjungan`; petugas via `resolveActorNama`; capture author.
+- [x] **A6** Endpoint `/kunjungan/:id/rekonsiliasi` (GET riwayat · POST 201 snapshot) — **resource `clinical.rekonsiliasi`** (read/create). **Tanpa PATCH/DELETE** (append-only). Client [`api/rekonsiliasi/rekonsiliasi.ts`](src/lib/api/rekonsiliasi/rekonsiliasi.ts). _(Katalog obat `obat-tersedia` tetap di-gate `clinical.resep:read`.)_
+- [x] **A7** RBAC pisah resource `clinical.rekonsiliasi` — leaf + grant di [rbacShared.ts](src/components/master/mapping/rbac/rbacShared.ts) (Dokter/Perawat/Apoteker read+create) + migrasi `20260614100000_rbac_clinical_rekonsiliasi` (2 perm + grant Admin/Dokter/Perawat/Apoteker, idempoten). Tujuan: penanggung jawab klinis = Apoteker, **tanpa** membuka hak tulis `clinical.resep`. DB smoke: 2 perm + 8 grant terkonfirmasi.
+- **DoD A:** ✅ `tsc` bersih · ✅ `eslint` bersih (warning `_actor` precedent) · ✅ `migrate deploy` + `generate` · ✅ DB smoke (parent+child join · FK cascade child · FK-bogus kunjungan 23503).
+
+### Fase B — Wiring RekonsiliasTab ✅ SELESAI (2026-06-13)
+
+- [x] **B1** [RekonsiliasTab](src/components/shared/medical-records/RekonsiliasTab.tsx) shared + `RekonPatient.id`: **sub-menu Rekonsiliasi | Riwayat**. UUID-guard `isPersisted` (kunjunganId): mount `getRekonsiliasi` → seed form dari snapshot **terbaru per fase** + isi Riwayat; **Simpan** per fase → `addRekonsiliasi` (snapshot) → prepend riwayat + re-seed kanonik + toast; spinner per fase. Pasien mock (non-UUID) → lokal demo (toast "Mode demo").
+- [x] **B2** [RekonHistory](src/components/shared/medical-records/rekonsiliasi/RekonHistory.tsx) — kartu per snapshot (fase badge + waktu + petugas + jumlah obat + HAM + selesai), expand → daftar obat read-only (keputusan badge) + catatan.
+- [x] **B3** [RekonSection](src/components/shared/medical-records/rekonsiliasi/RekonSection.tsx) — Simpan wired (`onSimpan`/`saving`); Tanggal `DateTimePicker`; Petugas chip sesi; obat `catalog` Formularium. Wrapper [igd](src/components/igd/tabs/RekonsiliasTab.tsx)/[ri](src/components/rawat-inap/tabs/RekonsiliasTab.tsx) teruskan `patient` (id mengalir).
+- **DoD B:** ✅ `tsc` bersih · ✅ `eslint` bersih (warning `_actor` precedent). ⏳ verifikasi in-browser (login). Riwayat kosong sampai ada obat di Formularium + Simpan dari pasien terdaftar (UUID).
+- ⚠️ **Sisa (follow-up):** **ABAC careUnit memblok Apoteker** — RBAC `clinical.rekonsiliasi:create` sudah diberikan, tapi `route()` choke-point men-scope kunjungan ke `careUnit` aktor (turunan `Pegawai.unitKerja`); Apoteker (unit Farmasi) → 404 untuk kunjungan IGD/RI. Butuh keputusan akses lintas-unit farmasi (lihat [TECH_DEBT.md](TECH_DEBT.md)). Realistis hari ini: Dokter/Perawat. · per-unit scoping katalog (`?ruanganKode=` forward-ready) · soft-delete entered-in-error bila dibutuhkan.
 
 ---
 

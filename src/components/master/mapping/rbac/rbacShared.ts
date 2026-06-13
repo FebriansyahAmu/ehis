@@ -50,6 +50,10 @@ export const PERMISSION_TREE: PermissionModule[] = [
       // Informed Consent (PMK 290) — immutable (add/delete only), tanpa "update".
       { key: "clinical.consent",      label: "Informed Consent (PMK 290)",   actions: ["read", "create", "delete"] },
       { key: "clinical.resep",        label: "Resep & Obat",                 actions: ["read", "create", "update", "delete"] },
+      // Rekonsiliasi obat (PMK 72/2016 · SNARS PP 3.1 · SKP 3) — append-only per fase (snapshot).
+      // DIPISAH dari clinical.resep: penanggung jawab klinis = Apoteker (kolaborasi Dokter/Perawat),
+      // tapi mereka TIDAK boleh menulis resep. Endpoint /kunjungan/:id/rekonsiliasi GET+POST → read/create saja.
+      { key: "clinical.rekonsiliasi", label: "Rekonsiliasi Obat (PMK 72)",   actions: ["read", "create"] },
     ],
   },
   {
@@ -151,6 +155,7 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
     "clinical.tindakan": ["read", "create", "update", "delete"], // pencatatan tindakan + biaya per kunjungan
     "clinical.consent": ["read", "create", "delete"], // informed consent (immutable; hapus = entered-in-error)
     "clinical.resep": ["read", "create", "update"],
+    "clinical.rekonsiliasi": ["read", "create"], // rekonsiliasi obat per fase (append-only)
     // CATATAN: TIDAK diberi ancillary.* — itu untuk unit penunjang (Lab/Rad/Farmasi) yang
     // berdiri-sendiri. Dokter lihat status order via tab rekam medis (clinical.*), bukan
     // worklist penunjang. Grant ancillary.* di sini dulu bikin menu penunjang muncul keliru.
@@ -174,6 +179,7 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
     "clinical.tindakan": ["read", "create", "update", "delete"], // pencatatan tindakan + biaya (perawat pelaksana)
     "clinical.consent": ["read", "create", "delete"], // perawat siapkan formulir IC + TTD pasien/wali
     "clinical.resep": ["read"],
+    "clinical.rekonsiliasi": ["read", "create"], // perawat catat rekonsiliasi saat admisi/transfer
     // CATATAN: TIDAK diberi ancillary.* — itu untuk unit penunjang (Lab/Rad/Farmasi) yang
     // berdiri-sendiri. Perawat lihat status order via tab rekam medis, bukan worklist penunjang.
     "master.triase": ["read"], // baca protokol triase (decision-support di TriaseTab)
@@ -186,6 +192,10 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
   },
   Apoteker: {
     "clinical.resep": ["read"],
+    // Apoteker = penanggung jawab klinis rekonsiliasi (PMK 72/2016). RBAC mengizinkan create;
+    // NB: ABAC careUnit masih membatasi ke kunjungan unit kerjanya — akses lintas-unit farmasi
+    // adalah keputusan terpisah (lihat TECH_DEBT). Belum efektif untuk IGD/RI sampai itu beres.
+    "clinical.rekonsiliasi": ["read", "create"],
     "ancillary.farmasi.telaah": ["read", "update"],
     "ancillary.farmasi.serah": ["read", "update"],
     "master.view": ["read"], // gate modul Master (kelola katalog)

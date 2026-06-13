@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Check, ChevronRight, AlertTriangle, UserCheck } from "lucide-react";
+import { Plus, Check, ChevronRight, AlertTriangle, UserCheck, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DateTimePicker } from "@/components/shared/inputs/DateTimePicker";
 import type { ObatCatalog } from "@/components/shared/resep/resepShared";
@@ -23,11 +23,15 @@ interface Props {
   petugasLogin?: string;
   /** Katalog obat ter-formularium per unit (obat-tersedia). Absen → ObatSearch pakai mock. */
   catalog?: ObatCatalog[];
+  /** Simpan snapshot fase ini (POST). Absen → tombol tetap tampil tapi non-persist. */
+  onSimpan?: () => void;
+  /** Sedang menyimpan snapshot fase ini. */
+  saving?: boolean;
 }
 
 // ── Component ──────────────────────────────────────────────
 
-export default function RekonSection({ phase, data, onChange, isOpen, onToggle, petugasLogin, catalog }: Props) {
+export default function RekonSection({ phase, data, onChange, isOpen, onToggle, petugasLogin, catalog, onSimpan, saving }: Props) {
   const up = (patch: Partial<RekonData>) => onChange({ ...data, ...patch });
 
   const { Icon, iconColor, accentBorder, accentBg, label, desc } = phase;
@@ -45,6 +49,8 @@ export default function RekonSection({ phase, data, onChange, isOpen, onToggle, 
   }
 
   const hamCount = data.obatList.filter((o) => o.isHAM).length;
+  // "Terisi" = ada obat tercatat ATAU ditandai selesai (kasus "tak ada obat rumah" tetap valid).
+  const filled = data.selesai || data.obatList.length > 0;
 
   return (
     <div className="overflow-hidden">
@@ -54,9 +60,14 @@ export default function RekonSection({ phase, data, onChange, isOpen, onToggle, 
         type="button"
         onClick={onToggle}
         className={cn(
-          "flex w-full cursor-pointer items-center gap-3 border-l-[3px] px-4 py-3.5 text-left transition-colors duration-150 hover:bg-slate-50/80",
+          "flex w-full cursor-pointer items-center gap-3 border-l-[3px] px-4 py-3.5 text-left transition-colors duration-150",
           accentBorder,
-          isOpen && accentBg,
+          // Saat terbuka → accent fase. Collapse + terisi → soft emerald (penanda "sudah ditangani").
+          isOpen
+            ? accentBg
+            : filled
+              ? "bg-emerald-50/70 hover:bg-emerald-100/60"
+              : "hover:bg-slate-50/80",
         )}
       >
         <Icon size={15} className={cn("shrink-0", iconColor)} aria-hidden />
@@ -225,9 +236,12 @@ export default function RekonSection({ phase, data, onChange, isOpen, onToggle, 
                 </label>
                 <button
                   type="button"
-                  className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-700"
+                  onClick={onSimpan}
+                  disabled={saving}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Simpan
+                  {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                  {saving ? "Menyimpan…" : "Simpan"}
                 </button>
               </div>
             </div>

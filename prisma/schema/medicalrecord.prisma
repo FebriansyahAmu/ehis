@@ -1059,3 +1059,63 @@ model Cppt {
   @@map("cppt")
   @@schema("medicalrecord")
 }
+
+// ── Rekonsiliasi Obat (tab Rekonsiliasi — medication reconciliation per fase transisi) ────────
+//  Per fase transisi perawatan (admisi/transfer/discharge): append-only "latest wins" — tiap simpan
+//  = parent baru + children obat snapshot; latest by createdAt PER fase = berlaku (form). RIWAYAT =
+//  semua baris (lintas fase & versi, terbaru dulu). Pola parent+child = AsesmenObat+AsesmenObatItem.
+//  SNARS PP 3.1 · SKP 3 · PMK 72/2016 (rekonsiliasi wajib tiap titik transisi). waktu = "Tanggal &
+//  Waktu" form; petugas = nama user login (denormalisasi). obatList = baris obat (snapshot bebas —
+//  bisa dari formularium ter-assign atau manual). isHAM = High-Alert (verifikasi ganda).
+
+model Rekonsiliasi {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Spine (FK riil, same DB / cross-schema ke encounter) ──
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  fase    String  // admisi/transfer/discharge (Zod)
+  selesai Boolean @default(false)
+  catatan String?
+
+  // ── Waktu klinis + petugas/author (dari actor) ──
+  waktu           DateTime @db.Timestamptz(3) // "Tanggal & Waktu" rekonsiliasi
+  petugas         String   // nama denormalisasi pencatat (dari user login)
+  authorUserId    String?  @map("author_user_id") @db.Uuid
+  authorPegawaiId String?  @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (append-only: tanpa updatedAt/soft-delete; version utk konsistensi) ──
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  obatList RekonsiliasiObat[]
+
+  @@index([kunjunganId, createdAt]) // riwayat per kunjungan (terbaru dulu) + ambil latest per fase
+  @@map("rekonsiliasi")
+  @@schema("medicalrecord")
+}
+
+// ── Baris obat rekonsiliasi (snapshot saat simpan; urut `urutan`) ──────────────
+model RekonsiliasiObat {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  rekonsiliasiId String       @map("rekonsiliasi_id") @db.Uuid
+  rekonsiliasi   Rekonsiliasi @relation(fields: [rekonsiliasiId], references: [id], onDelete: Cascade)
+
+  namaObat    String  @map("nama_obat")
+  dosis       String?
+  rute        String?
+  frekuensi   String?
+  sumber      String? // Rumah/IGD/Rawat Jalan/Lain-lain
+  keputusan   String  // Lanjut/Stop/Sesuaikan/Tunda (Zod)
+  gantiDengan String? @map("ganti_dengan")
+  alasan      String?
+  isHAM       Boolean @default(false) @map("is_ham")
+
+  urutan    Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([rekonsiliasiId])
+  @@map("rekonsiliasi_obat")
+  @@schema("medicalrecord")
+}
