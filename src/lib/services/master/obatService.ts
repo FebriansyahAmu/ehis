@@ -6,6 +6,7 @@
 
 import * as defaultDal from "@/lib/dal/master/obatDal";
 import { transaction } from "@/lib/db/prisma";
+import { systemClock, type Clock } from "@/lib/core/clock";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type { Prisma } from "@/generated/prisma/client";
@@ -20,6 +21,7 @@ import type {
 
 type Dal = typeof defaultDal;
 const DEFAULT_LIMIT = 100;
+const WIB_OFFSET_MS = 7 * 60 * 60 * 1000; // periode kode obat ikut kalender WIB
 
 // ── KFA JSON ⇄ KfaMapping ─────────────────────────────────
 
@@ -124,7 +126,7 @@ function toDTO(e: ObatEntity): ObatDTO {
 
 function createToData(input: CreateObatInput): ObatData {
   return {
-    kode: input.kode ?? "",
+    kode: "", // di-overwrite Service dgn OBT-<YYMM><NNN> (auto, dalam transaksi)
     namaGenerik: input.namaGenerik,
     namaDagang: input.namaDagang,
     pabrik: input.pabrik ?? null,
@@ -167,8 +169,7 @@ function setDefined<K extends keyof ObatPatch>(target: ObatPatch, key: K, value:
 }
 
 function updateToPatch(input: UpdateObatInput): ObatPatch {
-  const p: ObatPatch = {};
-  setDefined(p, "kode", input.kode);
+  const p: ObatPatch = {}; // `kode` immutable (auto-gen) → tak ikut patch
   setDefined(p, "namaGenerik", input.namaGenerik);
   setDefined(p, "namaDagang", input.namaDagang);
   setDefined(p, "pabrik", input.pabrik ?? null);
@@ -208,8 +209,22 @@ function updateToPatch(input: UpdateObatInput): ObatPatch {
 
 // ── Service factory ───────────────────────────────────────
 
-export function makeObatService(deps: { dal?: Dal } = {}) {
+export function makeObatService(deps: { dal?: Dal; clock?: Clock } = {}) {
   const dal = deps.dal ?? defaultDal;
+  const clock = deps.clock ?? systemClock;
+
+  /** Periode "YYMM" zona WIB (mis. "2606") — penanda bulan reset sequence kode. */
+  function obatPeriode(): string {
+    const wib = new Date(clock.now().getTime() + WIB_OFFSET_MS);
+    const yy = String(wib.getUTCFullYear() % 100).padStart(2, "0");
+    const mm = String(wib.getUTCMonth() + 1).padStart(2, "0");
+    return `${yy}${mm}`;
+  }
+
+  /** Kode obat `OBT-<YYMM><NNN>`. Pad min 3 digit; bila >999/bulan lebar tumbuh. */
+  function formatObatKode(periode: string, seq: number): string {
+    return `OBT-${periode}${String(seq).padStart(3, "0")}`;
+  }
 
   /** List + filter (q/kategori/status) + keyset cursor. ACTOR-LESS (SSR-safe). */
   async function list(query: ObatQuery): Promise<{ items: ObatDTO[]; cursor: string | null }> {
@@ -229,8 +244,15 @@ export function makeObatService(deps: { dal?: Dal } = {}) {
     return { items: page.map(toDTO), cursor: hasMore ? page[page.length - 1].id : null };
   }
 
+  /** Kode auto `OBT-<YYMM><NNN>` (counter atomik) + create dalam 1 transaksi. */
   async function create(input: CreateObatInput, _actor: Actor): Promise<ObatDTO> {
-    const row = await dal.create(createToData(input));
+    const row = await transaction(async (tx) => {
+      const periode = obatPeriode();
+      const seq = await dal.nextObatSeq(periode, tx);
+      const data = createToData(input);
+      data.kode = formatObatKode(periode, seq);
+      return dal.create(data, tx);
+    });
     return toDTO(row);
   }
 

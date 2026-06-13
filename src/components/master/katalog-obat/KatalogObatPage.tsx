@@ -21,10 +21,9 @@ import ObatEmptyState from "./ObatEmptyState";
 const PAGE_LIMIT = 300; // katalog kecil → muat sekali, filter di klien
 
 // ObatDTO = ObatRecord (mirror penuh) → konsumsi langsung tanpa konversi.
-// Record draft → payload create/update (strip id; field FE = field input).
+// Record draft → payload create/update (strip id + kode; `kode` auto-gen di server).
 function draftToInput(d: ObatRecord): CreateObatInput {
   return {
-    kode: d.kode || undefined,
     namaGenerik: d.namaGenerik,
     namaDagang: d.namaDagang,
     pabrik: d.pabrik,

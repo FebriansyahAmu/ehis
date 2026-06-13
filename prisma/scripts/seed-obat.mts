@@ -47,23 +47,34 @@ function deriveKfa(kfaCode) {
   };
 }
 
+const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
+/** Periode "YYMM" zona WIB — sama dgn obatService.obatPeriode. */
+function seedPeriode() {
+  const wib = new Date(Date.now() + WIB_OFFSET_MS);
+  const yy = String(wib.getUTCFullYear() % 100).padStart(2, "0");
+  const mm = String(wib.getUTCMonth() + 1).padStart(2, "0");
+  return `${yy}${mm}`;
+}
+
 const client = new pg.Client({ connectionString: url });
 
 async function main() {
   await client.connect();
   await client.query("BEGIN");
   try {
-    await client.query('TRUNCATE "master"."obat" CASCADE');
+    await client.query('TRUNCATE "master"."obat", "master"."obat_counter" CASCADE');
 
     // Map seedKey (obt-xxx) → UUID untuk PK + remap lasaPairIds.
     const idMap = new Map();
     for (const o of OBAT_SEED) idMap.set(o.id, randomUUID());
 
+    const periode = seedPeriode();
     let nObat = 0;
     let nKfa = 0;
 
     for (const o of OBAT_SEED) {
       const id = idMap.get(o.id);
+      const kode = `OBT-${periode}${String(nObat + 1).padStart(3, "0")}`; // auto-gen, sama pola Service
       const lasa = (o.lasaPairIds ?? [])
         .map((k) => idMap.get(k))
         .filter((x) => x != null);
@@ -82,7 +93,7 @@ async function main() {
            $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31::jsonb,$32, now()
          )`,
         [
-          id, o.kode ?? "", o.namaGenerik, o.namaDagang, o.pabrik ?? null,
+          id, kode, o.namaGenerik, o.namaDagang, o.pabrik ?? null,
           o.kategori, o.bentuk, o.kekuatan, o.satuanTerkecil ?? null, o.rute ?? null,
           o.isFormularium ?? false, o.isHAM ?? false, o.isLASA ?? false, lasa,
           o.golongan ?? null, o.isColdChain ?? false, o.isRestricted ?? false,
@@ -96,8 +107,15 @@ async function main() {
       nObat += 1;
     }
 
+    // Counter = seq terakhir → obat baru via API lanjut dari OBT-<periode><nObat+1>.
+    await client.query(
+      `INSERT INTO "master"."obat_counter" ("periode","last_seq") VALUES ($1,$2)`,
+      [periode, nObat],
+    );
+
     await client.query("COMMIT");
-    console.log(`✅ Seed obat selesai: ${nObat} obat (${nKfa} ter-mapping KFA).`);
+    const last = String(nObat).padStart(3, "0");
+    console.log(`✅ Seed obat selesai: ${nObat} obat (${nKfa} ter-KFA) · kode OBT-${periode}001..${last} · counter[${periode}]=${nObat}.`);
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;

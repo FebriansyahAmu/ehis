@@ -55,8 +55,8 @@ export const KfaMappingInput = z.object({
 export type KfaMappingInput = z.infer<typeof KfaMappingInput>;
 
 // ── Body bersama (create/update share field) ──────────────
+// `kode` TIDAK di-input — auto-generate `OBT-<YYMM><NNN>` di Service (immutable).
 const obatBody = {
-  kode: optStr,
   namaGenerik: z.string().trim().min(1, "Nama generik wajib").max(200),
   namaDagang: z.string().trim().min(1, "Nama dagang wajib").max(200),
   pabrik: optStr,
