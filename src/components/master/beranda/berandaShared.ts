@@ -32,12 +32,14 @@ const DOKTER_COUNT = 4;
 // Katalog Obat kini API-driven (master.obat) — count indikatif sampai KPI di-wire.
 // TODO: ganti dgn count dari GET /master/obat.
 const OBAT_COUNT = 28;
+// Katalog Keperawatan kini API-driven (master.sdki) — count indikatif sampai KPI di-wire.
+// TODO: ganti dgn count dari GET /master/sdki.
+const SDKI_COUNT = 27;
 import { TINDAKAN_MOCK } from "@/lib/master/tindakanMock";
 import { LAB_KATALOG_MOCK } from "@/lib/master/labCatalogMock";
 import { RAD_KATALOG_MOCK } from "@/lib/master/radCatalogMock";
 import { ICD_MOCK } from "@/lib/master/icdMock";
 import { ASESMEN_KATALOG_MOCK } from "@/lib/master/asesmenKatalogMock";
-import { SDKI_MOCK } from "@/lib/master/sdkiMock";
 import { SKALA_RISIKO_MOCK } from "@/lib/master/skalaRisikoMock";
 import { SKALA_UMUM_MOCK } from "@/lib/master/skalaUmumMock";
 import { SKALA_PENYAKIT_MOCK } from "@/lib/master/skalaPenyakitMock";
@@ -90,7 +92,7 @@ export function getBerandaStats(): BerandaStats {
       OBAT_COUNT + TINDAKAN_MOCK.length +
       LAB_KATALOG_MOCK.length + RAD_KATALOG_MOCK.length,
     reference:
-      ICD_MOCK.length + ASESMEN_KATALOG_MOCK.length + SDKI_MOCK.length +
+      ICD_MOCK.length + ASESMEN_KATALOG_MOCK.length + SDKI_COUNT +
       SKALA_RISIKO_MOCK.length + SKALA_UMUM_MOCK.length +
       SKALA_PENYAKIT_MOCK.length + TRIASE_MOCK.length,
     operasional:
@@ -145,7 +147,7 @@ export function getQuickNavGroups(): QuickNavGroup[] {
         { label: "Katalog Laboratorium", href: "/ehis-master/katalog-lab",       icon: TestTube,  count: LAB_KATALOG_MOCK.length },
         { label: "Katalog Radiologi",    href: "/ehis-master/katalog-radiologi", icon: Radiation, count: RAD_KATALOG_MOCK.length },
         { label: "ICD-10 & ICD-9",       href: "/ehis-master/icd",               icon: BookText,  count: ICD_MOCK.length },
-        { label: "SDKI / SIKI / SLKI",   href: "/ehis-master/sdki",              icon: Workflow,  count: SDKI_MOCK.length },
+        { label: "Katalog Keperawatan",  href: "/ehis-master/katalog-keperawatan", icon: Workflow, count: SDKI_COUNT },
       ],
     },
     {

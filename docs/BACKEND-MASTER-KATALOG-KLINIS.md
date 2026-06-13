@@ -23,7 +23,7 @@ Grup **Katalog Klinis** (`/ehis-master` → menu "Katalog Klinis"). Tiap sub-mas
 | **Katalog Obat** | `/ehis-master/katalog-obat` | [obatMock.ts](../src/lib/master/obatMock.ts) `ObatRecord` (tipe+config) + [obatSeed.ts](../src/lib/master/obatSeed.ts) (data seed) | ✅ wired (§C.1) — flat + **KFA JSONB**, seeded 28/17 |
 | Katalog Lab | `/ehis-master/katalog-lab` | [labTestCatalog.ts](../src/lib/master/labTestCatalog.ts) `LabTestRecord` + [labTestSeed.ts](../src/lib/master/labTestSeed.ts) | ✅ wired (§C) — Tes→Parameter, seeded 38/88 |
 | Katalog Radiologi | `/ehis-master/katalog-radiologi` | [radCatalogMock.ts](../src/lib/master/radCatalogMock.ts) `RadCatalogRecord` | 📋 (§C) |
-| SDKI (Diagnosa Keperawatan) | `/ehis-master/sdki` | [sdkiMock.ts](../src/lib/master/sdkiMock.ts) | 📋 (§C) |
+| Katalog Keperawatan (SDKI/SLKI/SIKI) | `/ehis-master/katalog-keperawatan` | [sdkiMock.ts](../src/lib/master/sdkiMock.ts) (tipe) + [sdkiSeed.ts](../src/lib/master/sdkiSeed.ts) (data) | ✅ (§C.3) |
 
 > **Pemisahan klinis vs billable (penting):** katalog di sini = **data domain klinis** (Tindakan: kompleksitas/KPTL/ICD-9 · Lab: nilai rujukan/delta · Rad: template/persiapan). Layer **tarif/billable** (harga × penjamin × kelas, `unitTerkait`) hidup di **chargemaster terpisah** yang **mer-referensi** item katalog via `(sourceType, sourceId)` — bukan kolom di katalog ini. Lihat [TODO-CHARGEMASTER.md](../TODO-CHARGEMASTER.md).
 
@@ -184,16 +184,16 @@ Matriks Layanan Unit kini punya **tabel persist** (sebelumnya state-only). Join 
 
 ---
 
-## C. Sub-grup **Obat ✅ · Lab ✅ · Radiologi · SDKI** 📋
+## C. Sub-grup **Obat ✅ · Lab ✅ · SDKI ✅ · Radiologi** 📋
 
-> **Lab ✅ (2026-06-12)** & **Obat ✅ (2026-06-13)** — dibangun penuh (Obat → §C.1; Lab → baris di bawah). Sisa (**Radiologi · SDKI**) = placeholder; pola dasar = sibling **Tindakan/ICD** (leaf, soft-delete, layered), tapi **Rad punya anak relasional** (bukan leaf murni).
+> **Lab ✅ (2026-06-12)** · **Obat ✅ (2026-06-13)** · **Katalog Keperawatan/SDKI ✅ (2026-06-14, §C.3)** — dibangun penuh. Sisa (**Radiologi**) = placeholder; pola dasar = sibling **Tindakan/ICD** (leaf, soft-delete, layered), tapi **Rad punya anak relasional** (bukan leaf murni).
 
 | Sub-master | Mock | Catatan pemodelan |
 |---|---|---|
 | **Katalog Obat ✅** | [obatMock.ts](../src/lib/master/obatMock.ts) `ObatRecord` (tipe+config) + [obatSeed.ts](../src/lib/master/obatSeed.ts) | **Leaf besar flat** (HAM/LASA/Formularium · golongan UU 35/2009 · harga) + **pemetaan KFA = kolom JSONB** (`kfa`, blok POA/POV/Rute/Bentuk + BZA/dosis → FHIR SatuSehat). `lasaPairIds` = `text[]` soft-ref. **Detail → §C.1.** Konsumen: Farmasi + Resep + chargemaster + (mock) Formularium/Distribusi/billing. |
 | **Katalog Lab ✅** | [labTestCatalog.ts](../src/lib/master/labTestCatalog.ts) `LabTestRecord` (+ [labTestSeed.ts](../src/lib/master/labTestSeed.ts)) | **Model Tes→Parameter** (panel): `LabTest` (orderable: kategori/spesimen/metode/TAT) **1:N** `LabParameter` (analit: satuan + **tipe Numerik/Kualitatif** + nilai kritis + delta). **Rentang rujukan numerik per-parameter = JSONB** (`[{gender,usiaMin?,usiaMax?,low,high,ket?}]`) — hindari tabel ke-3. Update = **replace-all** parameter (anak, bukan entitas mandiri). Form: tab Parameter + **Satuan combobox** (satuan baku riset) + DiscardDialog; **KODE field dihapus** (auto). Seeded 38 tes / 88 parameter (Darah Rutin/Urine Rutin panel · Kimia Darah · Widal · NAPZA cutoff SAMHSA · Plano/hCG · Golongan Darah). **Lab mock lama** ([labCatalogMock.ts](../src/lib/master/labCatalogMock.ts), single-analit) tetap dipakai HasilPane/TrendPane — belum dimigrasi. |
 | **Katalog Radiologi** | [radCatalogMock.ts](../src/lib/master/radCatalogMock.ts) `RadCatalogRecord` | Persiapan/DRL + reporting template + kontras info. PMK 1014/2008. Anak: template/persiapan (array atau child). |
-| **SDKI** | [sdkiMock.ts](../src/lib/master/sdkiMock.ts) | Diagnosa keperawatan (SDKI/SLKI/SIKI). Konsumen AsuhanForm keperawatan. |
+| **Katalog Keperawatan (SDKI) ✅** | [sdkiMock.ts](../src/lib/master/sdkiMock.ts) (tipe) + [sdkiSeed.ts](../src/lib/master/sdkiSeed.ts) (data) | Diagnosa keperawatan (SDKI) + luaran (SLKI) + intervensi (SIKI). **Detail → §C.3.** Konsumen AsuhanForm keperawatan (masih `SDKI_CATALOG` mock — migrasi konsumen klinis = follow-up). |
 
 **Konsumen lintas:** Lab/Rad katalog dikonsumsi **OrderLabTab/OrderRadTab** (rekam medis) + worklist Lab/Rad. **Chargemaster** (CM0–CM5) memfederasi Tindakan+Lab+Rad jadi billable-service untuk Tarif + Layanan Unit.
 
@@ -232,6 +232,28 @@ Matriks Layanan Unit kini punya **tabel persist** (sebelumnya state-only). Join 
 - [x] **KO7 — Seed + hapus mock** [obatSeed.ts](../src/lib/master/obatSeed.ts) + [seed-obat.mts](../prisma/scripts/seed-obat.mts); `OBAT_MOCK` dihapus + konsumen dimigrasi.
 - [ ] **KO8 — Tests** (Service: create/update/soft-delete + KFA parse; DAL: list filter+cursor).
 - [ ] **KO9 — KFA live** (swap mock search → BFF proxy KFA v2 SatuSehat) + cache-aside (saat Redis siap).
+
+### C.3 ⭐ Katalog Keperawatan (SDKI/SLKI/SIKI) — backend + FE wired + seeded (2026-06-14) ✅
+
+> **Frontend:** [/ehis-master/katalog-keperawatan/page.tsx](../src/app/ehis-master/katalog-keperawatan/page.tsx) (SSR) → [SdkiPage](../src/components/master/sdki/SdkiPage.tsx) · 3 tab: Identitas · Data Klinis (mayor/minor + SLKI) · Intervensi SIKI. **Rename** dari "SDKI / SIKI / SLKI" (`/ehis-master/sdki`) → "Katalog Keperawatan" (`/ehis-master/katalog-keperawatan`) — nav + Beranda quick-nav diperbarui.
+> **Data:** mock `SDKI_MOCK` **dihapus** → tipe+helper tetap di [sdkiMock.ts](../src/lib/master/sdkiMock.ts), data pindah ke [sdkiSeed.ts](../src/lib/master/sdkiSeed.ts) (dibaca hanya seed script).
+
+**Scope domain — SDKI OWNS:** identitas (nama/kategori/sub-kategori/jenis/penyebab/faktor risiko) · data klinis (mayor/minor → subjektif+objektif) · luaran SLKI (`kriteriaHasil`) · intervensi SIKI (observasi/terapeutik/edukasi/kolaborasi). Standar PPNI SDKI 2017 / SLKI 2018 / SIKI 2018.
+
+**Entity** [sdki.prisma](../prisma/schema/sdki.prisma) — **katalog leaf** (TANPA optimistic-version), soft-delete, uuid v7, timestamptz. Enum FE-facing (kategori/jenis/status) = **TEXT pass-through** (validasi Zod). Blok klinis (`data_mayor`/`data_minor`/`intervensi`) = **JSONB** (di-edit/seed utuh, analog `Obat.kfa` / rujukan `LabParameter`), `kriteria_hasil` = `text[]`. **`kode` = auto-generate `D.NNNN`** (counter atomik `master.SdkiCounter` scope="D", pola `ObatCounter` tanpa reset periodik; di-generate Service dalam transaksi saat create — **bukan input form**, immutable). **Form Kode dihapus** → display read-only "Auto" + DiscardDialog. **Unique partial index** `kode WHERE deleted_at IS NULL`. Migrasi [`20260614120000_init_master_sdki`](../prisma/migrations/20260614120000_init_master_sdki/migration.sql) (additive, `migrate deploy`).
+
+| Lapis | File | Catatan |
+|---|---|---|
+| **Schema (Zod+DTO)** | [schemas/master/sdki.ts](../src/lib/schemas/master/sdki.ts) | `CreateSdkiInput`/`UpdateSdkiInput`/`SdkiQuery`/`IdParam` + `SdkiDataSchema`/`SdkiIntervensiSchema` + `SdkiDTO` (mirror `SdkiItem`). **Kode TIDAK di input** (auto-gen). |
+| **DAL** | [dal/master/sdkiDal.ts](../src/lib/dal/master/sdkiDal.ts) | create/findById/update/softDelete/list (filter q/kategori/jenis/status + keyset cursor) + **`nextSdkiSeq`** (counter upsert-increment). |
+| **Service** | [services/master/sdkiService.ts](../src/lib/services/master/sdkiService.ts) | `list` **actor-less** (SSR) + CRUD. Kode auto `D.NNNN` dalam `transaction` (nextSdkiSeq). JSONB ⇄ DTO defensif (`toData`/`toIntervensi`). |
+| **Route** | [sdki/route.ts](../src/app/api/v1/master/sdki/route.ts) (GET+POST) · [sdki/[id]/route.ts](../src/app/api/v1/master/sdki/[id]/route.ts) (PATCH+DELETE) | RBAC **`master.katalog`** (sama Obat/Tindakan/Lab). |
+| **Client** | [api/master/sdki.ts](../src/lib/api/master/sdki.ts) | `listSdki`/`createSdki`/`updateSdki`/`deleteSdki`. |
+| **Seed** | [prisma/scripts/seed-sdki.mts](../prisma/scripts/seed-sdki.mts) | pg langsung; seed `D.NNNN` resmi PPNI apa adanya; counter[D]=numerik tertinggi (148) → entri baru mulai D.0149. Jalankan `node --env-file=.env prisma/scripts/seed-sdki.mts`. |
+
+**Seed terverifikasi (DB):** `27 diagnosa lintas 5 kategori` · JSONB blok resolve (D.0077 Nyeri Akut → dataMayor/SLKI/SIKI) · `nextSdkiSeq`→149→`D.0149` · unique kode (23505) tolak duplikat.
+
+**Follow-up:** konsumen klinis **KeperawatanTab** masih pakai `SDKI_CATALOG` (15 entri hardcoded di [keperawatanShared.ts](../src/components/shared/medical-records/keperawatanShared.ts)) — migrasi ke endpoint konsumen DB (analog `obat-tersedia`/`tindakan-tersedia`) = task terpisah. Import penuh dataset PPNI (149/119/240) = bulk-import (analog ICD). Tests Service+DAL.
 
 ---
 

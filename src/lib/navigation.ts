@@ -303,7 +303,7 @@ export const masterNav: readonly NavGroup[] = [
       { label: "Katalog Laboratorium", href: "/ehis-master/katalog-lab", icon: TestTube, perm: "master.katalog" },
       { label: "Katalog Radiologi", href: "/ehis-master/katalog-radiologi", icon: Radiation, perm: "master.katalog" },
       { label: "ICD-10 & ICD-9", href: "/ehis-master/icd", icon: BookText, perm: "master.icd" },
-      { label: "SDKI / SIKI / SLKI", href: "/ehis-master/sdki", icon: Workflow, perm: "master.katalog" },
+      { label: "Katalog Keperawatan", href: "/ehis-master/katalog-keperawatan", icon: Workflow, perm: "master.katalog" },
     ],
   },
   {

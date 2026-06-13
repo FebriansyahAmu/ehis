@@ -1,0 +1,63 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Katalog Keperawatan  (Postgres schema "master")
+//  FE: /ehis-master/katalog-keperawatan · Tipe/helper FE: src/lib/master/sdkiMock.ts
+//  (SdkiItem) + src/lib/master/sdkiSeed.ts (data seed).
+//
+//  Katalog diagnosa keperawatan (SDKI) + luaran (SLKI) + intervensi (SIKI) standar
+//  PPNI. Dikonsumsi KeperawatanTab (template asuhan). Data klinis terstruktur
+//  (dataMayor/dataMinor/intervensi) = blok di-edit/di-seed utuh → disimpan JSONB
+//  (analog Obat.kfa / LabTest rujukan). `kriteriaHasil` (SLKI) = text[].
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz · soft-delete. Katalog leaf →
+//  TANPA optimistic-version. Enum FE-facing (kategori/jenis/status) = TEXT
+//  pass-through (validasi di Zod). Kode `D.NNNN` AUTO-GEN (counter atomik).
+// ════════════════════════════════════════════════════════════════════════════
+
+model Sdki {
+  id   String @id @default(uuid(7)) @db.Uuid
+  kode String // `D.NNNN` — auto-gen (counter), unik antar baris hidup
+
+  // ── Identitas ──
+  nama         String
+  kategori     String // FE union: "Fisiologis" | "Psikologis" | "Perilaku" | "Relasional" | "Lingkungan"
+  subKategori  String @default("") @map("sub_kategori") // mis. "Respirasi", "Sirkulasi"
+  jenis        String // FE union: "Aktual" | "Risiko" | "Promosi_Kesehatan"
+  penyebabUmum String @default("") @map("penyebab_umum")
+  faktorResiko String? @map("faktor_resiko") // khusus jenis "Risiko"
+
+  // ── Data klinis terstruktur (blok JSONB) ──
+  /// { subjektif: string[], objektif: string[] }
+  dataMayor Json @map("data_mayor") @db.JsonB
+  /// { subjektif: string[], objektif: string[] }
+  dataMinor Json @map("data_minor") @db.JsonB
+
+  // ── SLKI (luaran) ──
+  kriteriaHasil String[] @map("kriteria_hasil")
+
+  // ── SIKI (intervensi) — blok JSONB ──
+  /// { observasi: string[], terapeutik: string[], edukasi: string[], kolaborasi: string[] }
+  intervensi Json @db.JsonB
+
+  // ── Meta ──
+  status    String    @default("Aktif") // FE union: "Aktif" | "Non_Aktif"
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kategori, deletedAt]) // list/filter per kategori
+  @@index([jenis])
+  @@map("sdki")
+  @@schema("master")
+}
+
+// Counter kode keperawatan (auto `D.NNNN`, TANPA reset periodik — satu baris global
+// `scope="D"`). Pola identik master.obat_counter (upsert by PK → increment atomik,
+// anti-race). Di-seed ke nilai numerik tertinggi data awal (mis. 148 → entri baru
+// mulai D.0149). Kode resmi PPNI yang tak di-seed (gap) sengaja tak diisi ulang.
+model SdkiCounter {
+  scope   String @id @default("D") // selalu "D" — satu baris
+  lastSeq Int    @map("last_seq")
+
+  @@map("sdki_counter")
+  @@schema("master")
+}

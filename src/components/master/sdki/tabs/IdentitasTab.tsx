@@ -1,6 +1,6 @@
 "use client";
 
-import { IdCard, Tag, Layers, ToggleRight } from "lucide-react";
+import { IdCard, Tag, Layers, ToggleRight, Hash } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Field, TextInput, TextArea, Select, ToggleSwitch, ChipToggle, SectionGroup,
@@ -34,15 +34,18 @@ export default function IdentitasTab({ draft, onPatch }: Props) {
       {/* Identitas Dasar */}
       <SectionGroup title="Identitas Diagnosa" icon={<IdCard size={11} />} accent={HEAD_ROSE}>
         <div className="flex flex-col gap-3">
-          <Field label="Kode SDKI" required hint="Format: D.NNNN (mis. D.0001, D.0077)">
-            <TextInput
-              value={draft.kode}
-              onChange={(v) => onPatch({ kode: v.toUpperCase() })}
-              placeholder="D.0077"
-              className="font-mono"
-              maxW="max-w-[180px]"
-              accent="rose"
-            />
+          <Field label="Kode SDKI" hint="Dibuat otomatis (D.NNNN) saat disimpan — tidak dapat diubah.">
+            <div className="flex h-9 max-w-55 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/70 px-3">
+              <Hash size={12} className="shrink-0 text-slate-400" />
+              {draft.kode ? (
+                <span className="font-mono text-xs font-semibold text-slate-700">{draft.kode}</span>
+              ) : (
+                <span className="text-[11px] italic text-slate-400">Otomatis saat disimpan</span>
+              )}
+              <span className="ml-auto shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                Auto
+              </span>
+            </div>
           </Field>
           <Field label="Nama Diagnosa" required>
             <TextInput
