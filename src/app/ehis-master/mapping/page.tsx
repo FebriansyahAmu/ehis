@@ -10,6 +10,8 @@ import { labTestService } from "@/lib/services/master/labTestService";
 import { layananUnitService } from "@/lib/services/master/layananUnitService";
 import { layananUnitLabService } from "@/lib/services/master/layananUnitLabService";
 import { tarifTindakanService } from "@/lib/services/master/tarifTindakanService";
+import { obatService } from "@/lib/services/master/obatService";
+import { formulariumService } from "@/lib/services/master/formulariumService";
 import { getServerActor } from "@/lib/auth/actor";
 import type { AnyNode } from "@/components/master/ruangan/ruanganShared";
 import type { DokterListItemDTO } from "@/lib/schemas/dokter";
@@ -20,6 +22,8 @@ import type { LabTestDTO } from "@/lib/schemas/master/labTest";
 import type { LayananUnitEdgeDTO } from "@/lib/schemas/master/layananUnit";
 import type { LayananUnitLabEdgeDTO } from "@/lib/schemas/master/layananUnitLab";
 import type { TarifTindakanDTO } from "@/lib/schemas/master/tarifTindakan";
+import type { ObatDTO } from "@/lib/schemas/master/obat";
+import type { FormulariumEdgeDTO } from "@/lib/schemas/master/formularium";
 
 export const metadata: Metadata = { title: "Mapping Hub — Master" };
 
@@ -39,9 +43,11 @@ export default async function Page() {
   let initialLayanan: LayananUnitEdgeDTO[] | undefined;
   let initialLayananLab: LayananUnitLabEdgeDTO[] | undefined;
   let initialTarif: TarifTindakanDTO[] | undefined;
+  let initialObat: ObatDTO[] | undefined;
+  let initialFormularium: FormulariumEdgeDTO[] | undefined;
   try {
     const actor = await getServerActor();
-    const [treeRes, dokterRes, pegawaiRes, penugasanRes, tindakanRes, labRes, layananRes, layananLabRes, tarifRes] = await Promise.allSettled([
+    const [treeRes, dokterRes, pegawaiRes, penugasanRes, tindakanRes, labRes, layananRes, layananLabRes, tarifRes, obatRes, formulariumRes] = await Promise.allSettled([
       ruanganService.getTree(actor),
       dokterService.listDokter({ limit: 50 }),
       pegawaiService.listPegawai({ aktif: "true", limit: 50 }),
@@ -51,6 +57,8 @@ export default async function Page() {
       layananUnitService.list({ limit: 1000 }), // Layanan Unit: edge tindakan (actor-less)
       layananUnitLabService.list({ limit: 1000 }), // Layanan Unit: edge lab (actor-less)
       tarifTindakanService.list({ limit: 2000 }), // Tarif Matrix: edge tarif (actor-less)
+      obatService.list({ limit: 300 }), // Formularium: baris matrix obat (actor-less)
+      formulariumService.list({ limit: 2000 }), // Formularium: edge override (actor-less)
     ]);
     if (treeRes.status === "fulfilled") initialTree = treeRes.value as AnyNode[];
     if (dokterRes.status === "fulfilled") initialDokters = dokterRes.value.items;
@@ -61,6 +69,8 @@ export default async function Page() {
     if (layananRes.status === "fulfilled") initialLayanan = layananRes.value.items;
     if (layananLabRes.status === "fulfilled") initialLayananLab = layananLabRes.value.items;
     if (tarifRes.status === "fulfilled") initialTarif = tarifRes.value.items;
+    if (obatRes.status === "fulfilled") initialObat = obatRes.value.items;
+    if (formulariumRes.status === "fulfilled") initialFormularium = formulariumRes.value.items;
   } catch {
     /* getServerActor gagal → semua undefined → fallback client fetch di pane */
   }
@@ -77,6 +87,8 @@ export default async function Page() {
         initialLayanan={initialLayanan}
         initialLayananLab={initialLayananLab}
         initialTarif={initialTarif}
+        initialObat={initialObat}
+        initialFormularium={initialFormularium}
       />
     </Suspense>
   );

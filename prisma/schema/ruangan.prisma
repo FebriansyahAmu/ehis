@@ -162,6 +162,8 @@ model Location {
   layanan LayananUnit[] @relation("LayananLokasi")
   /// Tes lab yang boleh dikerjakan di ruangan ini (Mapping Hub → Layanan Unit, grup Lab); N:M via master.LayananUnitLab.
   layananLab LayananUnitLab[] @relation("LayananLabLokasi")
+  /// Obat yang masuk formularium (boleh diresepkan) di ruangan ini (Mapping Hub → Formularium); N:M via master.FormulariumObat.
+  formularium FormulariumObat[] @relation("FormulariumLokasi")
 
   @@index([organizationId])
   @@index([locationType])

@@ -1,166 +1,68 @@
-import { type ObatRecord } from "@/lib/master/obatMock";
+// Formularium Unit (Mapping Hub) — model REAL (SSR hybrid). Edge = grant Obat ⇄ Ruangan(Location):
+// "obat masuk formularium di unit mana", universal lintas penjamin (BPJS/Umum sama). Bentuk PERSIS
+// Layanan Unit → reuse helper generik kolom-unit + grant-map dari layananShared. Cache edge TERPISAH
+// (per-modul) supaya tak bentrok dgn cache Layanan Unit.
+
+import type { FormulariumEdgeDTO } from "@/lib/api/master/formularium";
+// Helper generik (kolom unit dari master tree + grant-map) — dipakai bersama Layanan Unit.
 import {
-  PENJAMIN_MOCK, KELAS_LIST,
-  type PenjaminRecord, type KelasRawat,
-} from "@/lib/master/penjaminMock";
+  type LayananMap, type LayananUnit,
+  UNIT_CATEGORY_CFG, UNIT_CATEGORY_ORDER, unitsFromTree,
+  setPresence, hasLayanan, countUnitPerRow, countRowsPerUnit, countAllLayanan,
+} from "../layanan/layananShared";
 
-// ── Types ─────────────────────────────────────────────────
+export type { LayananMap, LayananUnit };
+export {
+  UNIT_CATEGORY_CFG, UNIT_CATEGORY_ORDER, unitsFromTree,
+  setPresence, hasLayanan, countUnitPerRow, countRowsPerUnit, countAllLayanan,
+};
 
-export interface FormulariumCell {
-  allowed: boolean;
-  /** Alasan substitusi jika tidak allowed (mis. "Hanya generik yang dijamin") */
-  alasan?: string;
+// ── Edge index (key `${obatId}|${ruanganKode}` → id edge, untuk revoke) ────────
+export function edgeKey(obatId: string, unitKode: string): string {
+  return `${obatId}|${unitKode}`;
 }
 
 /**
- * map[penjaminId][obatId][kelasId] → FormulariumCell
+ * Seed `LayananMap` (obatId → ruanganKode[]) + index id-edge dari edge DB. `validUnitKodes`
+ * (bila ada) menyaring ke kode kolom aktif — cegah edge ke ruangan non-aktif mengotori statistik.
  */
-export type FormulariumMap = Record<string, Record<string, Partial<Record<KelasRawat, FormulariumCell>>>>;
-
-// ── Helpers ───────────────────────────────────────────────
-// Obat di-fetch dari DB via `fetchAllObat()` di pane (bukan lagi mock).
-
-export function getPenjaminListF(): PenjaminRecord[] {
-  return PENJAMIN_MOCK;
-}
-
-/**
- * Default rules:
- * - Umum: semua obat boleh di semua kelas
- * - BPJS: hanya formularium nasional, kelas VIP non-coverage
- * - Asuransi Swasta: default allow kecuali HAM advanced di Kelas 3
- * - Jamkesda: formularium only + kelas 3-2
- */
-export function initFormulariumMap(
-  obat: ObatRecord[],
-  penjamin: PenjaminRecord[],
-): FormulariumMap {
-  const map: FormulariumMap = {};
-  for (const p of penjamin) {
-    map[p.id] = {};
-    for (const o of obat) {
-      map[p.id][o.id] = {};
-      for (const k of KELAS_LIST) {
-        let allowed = true;
-        let alasan: string | undefined;
-        switch (p.tipe) {
-          case "Umum":
-            allowed = true;
-            break;
-          case "BPJS":
-            allowed = o.isFormularium && k.id !== "VIP";
-            if (!allowed) alasan = k.id === "VIP" ? "BPJS tidak coverage VIP" : "Non-formularium nasional";
-            break;
-          case "Asuransi_Swasta":
-            allowed = true;
-            if (o.isHAM && k.id === "Kelas_3") {
-              allowed = false;
-              alasan = "HAM coverage hanya Kelas 1-2+VIP";
-            }
-            break;
-          case "Jamkesda":
-            allowed = o.isFormularium && (k.id === "Kelas_2" || k.id === "Kelas_3" || k.id === "Rawat_Jalan");
-            if (!allowed) {
-              alasan = !o.isFormularium ? "Non-formularium nasional" : "Jamkesda hanya Kelas 2-3 / RJ";
-            }
-            break;
-        }
-        map[p.id][o.id][k.id] = { allowed, alasan };
-      }
-    }
+export function mapFromEdges(
+  edges: FormulariumEdgeDTO[],
+  validUnitKodes?: Set<string>,
+): { map: LayananMap; index: Map<string, string> } {
+  const map: LayananMap = {};
+  const index = new Map<string, string>();
+  for (const e of edges) {
+    if (validUnitKodes && !validUnitKodes.has(e.ruanganKode)) continue;
+    (map[e.obatId] ??= []).push(e.ruanganKode);
+    index.set(edgeKey(e.obatId, e.ruanganKode), e.id);
   }
-  return map;
+  return { map, index };
 }
 
-export function getCell(
-  map: FormulariumMap,
-  penjaminId: string,
-  obatId: string,
-  kelasId: KelasRawat,
-): FormulariumCell {
-  return map[penjaminId]?.[obatId]?.[kelasId] ?? { allowed: false };
+// ── Cache edge per-sesi (module-scoped, client-only — TERPISAH dari Layanan Unit) ──
+// Pane di-unmount→remount tiap ganti sub-page Mapping Hub (AnimatePresence). Prop SSR = snapshot
+// beku saat page-load → seed remount darinya bikin edit sesi ini "muncul lalu hilang" (flicker)
+// saat reconcile. Cache ini simpan state edge TERKINI klien (update tiap reconcile & grant/revoke
+// sukses) → seed remount pakai data terbaru. Hanya di-import komponen client → aman (per-tab).
+let edgeCache: Map<string, FormulariumEdgeDTO> | null = null;
+
+/** Baca cache edge terkini (null bila belum pernah di-isi → caller fallback ke SSR snapshot). */
+export function readEdgeCache(): FormulariumEdgeDTO[] | null {
+  return edgeCache ? [...edgeCache.values()] : null;
 }
 
-export function toggleCell(
-  map: FormulariumMap,
-  penjaminId: string,
-  obatId: string,
-  kelasId: KelasRawat,
-  alasan?: string,
-): FormulariumMap {
-  const next: FormulariumMap = { ...map };
-  next[penjaminId] = { ...(next[penjaminId] ?? {}) };
-  next[penjaminId][obatId] = { ...(next[penjaminId][obatId] ?? {}) };
-  const current = next[penjaminId][obatId][kelasId] ?? { allowed: false };
-  const flipped = !current.allowed;
-  next[penjaminId][obatId][kelasId] = {
-    allowed: flipped,
-    alasan: flipped ? undefined : (alasan ?? current.alasan ?? "Tidak dijamin"),
-  };
-  return next;
+/** Ganti seluruh isi cache dgn snapshot server (dipanggil saat reconcile sukses). */
+export function writeEdgeCache(edges: FormulariumEdgeDTO[]): void {
+  edgeCache = new Map(edges.map((e) => [edgeKey(e.obatId, e.ruanganKode), e]));
 }
 
-export function setCellReason(
-  map: FormulariumMap,
-  penjaminId: string,
-  obatId: string,
-  kelasId: KelasRawat,
-  alasan: string,
-): FormulariumMap {
-  const next: FormulariumMap = { ...map };
-  next[penjaminId] = { ...(next[penjaminId] ?? {}) };
-  next[penjaminId][obatId] = { ...(next[penjaminId][obatId] ?? {}) };
-  const current = next[penjaminId][obatId][kelasId] ?? { allowed: false };
-  next[penjaminId][obatId][kelasId] = { ...current, alasan };
-  return next;
+/** Tambah/replace satu edge (grant sukses). */
+export function cacheEdge(edge: FormulariumEdgeDTO): void {
+  (edgeCache ??= new Map()).set(edgeKey(edge.obatId, edge.ruanganKode), edge);
 }
 
-export function bulkSetRow(
-  map: FormulariumMap,
-  penjaminId: string,
-  obatId: string,
-  allowed: boolean,
-): FormulariumMap {
-  const next: FormulariumMap = { ...map };
-  next[penjaminId] = { ...(next[penjaminId] ?? {}) };
-  const row: Partial<Record<KelasRawat, FormulariumCell>> = {};
-  for (const k of KELAS_LIST) {
-    row[k.id] = allowed ? { allowed: true } : { allowed: false, alasan: "Bulk: tidak dijamin" };
-  }
-  next[penjaminId][obatId] = row;
-  return next;
-}
-
-export function bulkSetColumn(
-  map: FormulariumMap,
-  penjaminId: string,
-  obatIds: string[],
-  kelasId: KelasRawat,
-  allowed: boolean,
-): FormulariumMap {
-  const next: FormulariumMap = { ...map };
-  next[penjaminId] = { ...(next[penjaminId] ?? {}) };
-  for (const oId of obatIds) {
-    next[penjaminId][oId] = { ...(next[penjaminId][oId] ?? {}) };
-    next[penjaminId][oId][kelasId] = allowed
-      ? { allowed: true }
-      : { allowed: false, alasan: "Bulk kolom: tidak dijamin" };
-  }
-  return next;
-}
-
-export function calcCoverage(
-  map: FormulariumMap,
-  penjaminId: string,
-  obatIds: string[],
-): { granted: number; total: number; pct: number } {
-  const total = obatIds.length * KELAS_LIST.length;
-  let granted = 0;
-  for (const oId of obatIds) {
-    const row = map[penjaminId]?.[oId] ?? {};
-    for (const k of KELAS_LIST) {
-      if (row[k.id]?.allowed) granted++;
-    }
-  }
-  return { granted, total, pct: total ? Math.round((granted / total) * 100) : 0 };
+/** Hapus satu edge dari cache (revoke sukses). */
+export function uncacheEdge(obatId: string, unitKode: string): void {
+  edgeCache?.delete(edgeKey(obatId, unitKode));
 }

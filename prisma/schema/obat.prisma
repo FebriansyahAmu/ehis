@@ -60,6 +60,9 @@ model Obat {
   ///   sumber?, mappedAt? }
   kfa Json? @db.JsonB
 
+  // ── Relasi ── (Mapping Hub — Formularium Penjamin)
+  formularium FormulariumObat[]
+
   // ── Meta ──
   status    String    @default("Aktif") // FE union: "Aktif" | "Non_Aktif" | "Discontinued"
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)

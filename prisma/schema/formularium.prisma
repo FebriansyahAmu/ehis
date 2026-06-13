@@ -1,0 +1,34 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Mapping Hub — Formularium Unit  (Postgres schema "master")
+//  FE: /ehis-master/mapping (sub-pane Formularium) · Doc: docs/BACKEND-MAPPING.md §6
+//
+//  Link N:N Obat ⇄ Ruangan (Location): "obat apa MASUK FORMULARIUM (boleh diresepkan)
+//  di ruangan/unit mana". Berlaku universal lintas penjamin (BPJS/Umum sama) — TIDAK
+//  per-penjamin & TIDAK per-kelas (kelas tercermin implisit dari kelas Ruangan-nya).
+//
+//  Bentuk PERSIS LayananUnit (Tindakan⇄Location): join table, HARD delete saat dicabut,
+//  unik (obat, ruangan) → grant idempoten. Konvensi (FLOWS §9): uuid v7 · timestamptz.
+//
+//  BEDA dari (jangan tertukar):
+//   • Distribusi Obat → Obat ⇄ Depo Farmasi (stok fisik), bukan formularium klinis.
+//   • LayananUnit     → Tindakan ⇄ Ruangan, bukan Obat.
+//  Catatan federasi (TODO-CHARGEMASTER): saat chargemaster siap, edge ini bisa bersatu.
+// ════════════════════════════════════════════════════════════════════════════
+
+model FormulariumObat {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  obatId String @map("obat_id") @db.Uuid
+  obat   Obat   @relation(fields: [obatId], references: [id], onDelete: Restrict)
+
+  locationId String   @map("location_id") @db.Uuid
+  location   Location @relation("FormulariumLokasi", fields: [locationId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([obatId, locationId])
+  @@index([locationId])
+  @@index([obatId])
+  @@map("formularium_obat")
+  @@schema("master")
+}
