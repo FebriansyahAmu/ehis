@@ -4,16 +4,28 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, ChevronDown, Plus, X, Save, RotateCcw,
-  BookOpen, Stethoscope, Target, Activity, ClipboardList,
-  Sparkles,
+  Stethoscope, Target, Activity, ClipboardList,
+  Sparkles, UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StatusLuaran } from "@/lib/data";
+import { DateTimePicker } from "@/components/shared/inputs/DateTimePicker";
 import {
   SDKI_CATALOG, STATUS_LUARAN_CONFIG,
   emptyForm, applyTemplate,
   type AsuhanFormState, type SdkiCatalogItem,
 } from "@/components/shared/medical-records/keperawatanShared";
+
+// Normalisasi nilai tanggal → kontrak DateTimePicker "YYYY-MM-DDTHH:mm" (toleran date-only/ISO).
+function toLocalDT(v: string): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const stamp = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  if (!v) return stamp(new Date());
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) return v.slice(0, 16); // sudah local-dt
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return `${v}T${pad(new Date().getHours())}:${pad(new Date().getMinutes())}`; // date-only
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? stamp(new Date()) : stamp(d);
+}
 
 // ── Shared primitives ──────────────────────────────────────
 
@@ -143,17 +155,17 @@ const IV_SECTIONS: { key: keyof AsuhanFormState["intervensi"]; label: string; ac
 ];
 
 function CatalogPanel({
-  selectedKode, onSelect,
-}: { selectedKode: string; onSelect: (item: SdkiCatalogItem) => void }) {
+  selectedKode, onSelect, items,
+}: { selectedKode: string; onSelect: (item: SdkiCatalogItem) => void; items: SdkiCatalogItem[] }) {
   const [search, setSearch]   = useState("");
   const [open,   setOpen]     = useState(true);
 
   const filtered = search.trim()
-    ? SDKI_CATALOG.filter(
+    ? items.filter(
         i => i.nama.toLowerCase().includes(search.toLowerCase()) ||
              i.kode.toLowerCase().includes(search.toLowerCase())
       )
-    : SDKI_CATALOG;
+    : items;
 
   return (
     <div className="rounded-xl border border-indigo-200 bg-indigo-50/40">
@@ -164,9 +176,9 @@ function CatalogPanel({
       >
         <div className="flex items-center gap-2">
           <Sparkles size={13} className="text-indigo-500" />
-          <span className="text-xs font-bold uppercase tracking-widest text-indigo-700">Katalog SDKI Cepat</span>
+          <span className="text-xs font-bold uppercase tracking-widest text-indigo-700">Katalog Keperawatan (Template)</span>
           <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-600">
-            {SDKI_CATALOG.length} diagnosa
+            {items.length} diagnosa
           </span>
         </div>
         <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.15 }} className="flex text-indigo-500">
@@ -190,7 +202,7 @@ function CatalogPanel({
                 <input
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  placeholder="Cari diagnosa SDKI..."
+                  placeholder="Cari diagnosa keperawatan..."
                   className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-3 text-sm text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50"
                 />
                 {search && (
@@ -249,14 +261,26 @@ interface Props {
   mode:     FormMode;
   onSave:   (data: AsuhanFormState) => void;
   onReset:  () => void;
+  /** Katalog keperawatan (template, dari DB master.sdki). Absen → fallback SDKI_CATALOG. */
+  catalog?:      SdkiCatalogItem[];
+  /** Nama perawat dari sesi login → field Perawat jadi chip read-only (bukan input bebas). */
+  petugasLogin?: string;
 }
 
-export default function AsuhanForm({ initial, mode, onSave, onReset }: Props) {
-  const [f, setF] = useState<AsuhanFormState>(() => initial ?? emptyForm());
+export default function AsuhanForm({ initial, mode, onSave, onReset, catalog, petugasLogin }: Props) {
+  const [f, setF] = useState<AsuhanFormState>(() => {
+    const base = initial ?? emptyForm();
+    return { ...base, tanggalInput: toLocalDT(base.tanggalInput) };
+  });
+  const items = catalog && catalog.length ? catalog : SDKI_CATALOG;
 
   function set<K extends keyof AsuhanFormState>(k: K, v: AsuhanFormState[K]) {
     setF(p => ({ ...p, [k]: v }));
   }
+
+  // Perawat efektif: field bila terisi (edit/copy = penulis asli), selain itu nama sesi login.
+  // Tanpa setState-in-effect — di-inject ke payload saat simpan.
+  const effPerawat = f.perawat || petugasLogin || "";
 
   function handleCatalogSelect(item: SdkiCatalogItem) {
     const patch = applyTemplate(item);
@@ -273,7 +297,7 @@ export default function AsuhanForm({ initial, mode, onSave, onReset }: Props) {
   const ivRem = (k: IK, i: number) =>
     set("intervensi", { ...f.intervensi, [k]: f.intervensi[k].filter((_, j) => j !== i) });
 
-  const canSave = f.diagnosa.trim() && f.perawat.trim();
+  const canSave = f.diagnosa.trim() && effPerawat.trim();
 
   const saveLabel =
     mode === "edit" ? "Simpan Perubahan" :
@@ -283,8 +307,8 @@ export default function AsuhanForm({ initial, mode, onSave, onReset }: Props) {
   return (
     <div className="flex flex-col gap-2.5">
 
-      {/* SDKI Catalog */}
-      <CatalogPanel selectedKode={f.kodeSdki} onSelect={handleCatalogSelect} />
+      {/* Katalog Keperawatan (Template) */}
+      <CatalogPanel selectedKode={f.kodeSdki} onSelect={handleCatalogSelect} items={items} />
 
       {/* Data Pengkajian */}
       <FSection title="Data Pengkajian" icon={ClipboardList} accent="indigo">
@@ -409,17 +433,30 @@ export default function AsuhanForm({ initial, mode, onSave, onReset }: Props) {
       {/* Metadata */}
       <div className="grid grid-cols-2 gap-2.5 rounded-xl border border-slate-200 bg-white p-3.5">
         <div>
-          <FL>Tanggal Input</FL>
-          <input
-            type="date"
+          <FL>Tanggal & Waktu Input</FL>
+          <DateTimePicker
             value={f.tanggalInput}
-            onChange={e => set("tanggalInput", e.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50"
+            onChange={v => set("tanggalInput", v)}
+            placeholder="Pilih tanggal & waktu"
           />
         </div>
         <div>
           <FL>Perawat <span className="normal-case text-rose-400">*wajib</span></FL>
-          <TI value={f.perawat} onChange={v => set("perawat", v)} placeholder="Nama perawat pelaksana..." />
+          {petugasLogin ? (
+            <div className="flex h-[38px] items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/70 px-3">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                <UserCheck size={11} />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">
+                {effPerawat}
+              </span>
+              <span className="shrink-0 rounded bg-indigo-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-indigo-600">
+                Sesi Login
+              </span>
+            </div>
+          ) : (
+            <TI value={f.perawat} onChange={v => set("perawat", v)} placeholder="Nama perawat pelaksana..." />
+          )}
         </div>
       </div>
 
@@ -434,7 +471,7 @@ export default function AsuhanForm({ initial, mode, onSave, onReset }: Props) {
         </button>
         <button
           type="button"
-          onClick={() => canSave && onSave(f)}
+          onClick={() => canSave && onSave({ ...f, perawat: effPerawat })}
           disabled={!canSave}
           className={cn(
             "flex cursor-pointer items-center gap-1.5 rounded-lg px-5 py-2 text-sm font-semibold text-white shadow-sm transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-40",

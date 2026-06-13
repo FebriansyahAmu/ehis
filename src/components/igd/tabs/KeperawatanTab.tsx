@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   HeartHandshake, LayoutList, Edit2, Copy, Plus,
@@ -8,13 +8,80 @@ import {
 } from "lucide-react";
 import type { IGDPatientDetail, AsuhanKeperawatanEntry, EvaluasiShift } from "@/lib/data";
 import { cn } from "@/lib/utils";
-import { STATUS_LUARAN_CONFIG, emptyForm, type AsuhanFormState } from "@/components/shared/medical-records/keperawatanShared";
+import { useSession } from "@/contexts/SessionContext";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
+import {
+  STATUS_LUARAN_CONFIG, type AsuhanFormState, type SdkiCatalogItem,
+} from "@/components/shared/medical-records/keperawatanShared";
+import {
+  getAsuhanKeperawatan, createAsuhanKeperawatan, updateAsuhanKeperawatan, deleteAsuhanKeperawatan,
+  type AsuhanKeperawatanDTO,
+} from "@/lib/api/keperawatan/asuhanKeperawatan";
+import { listSdkiTemplate } from "@/lib/api/master/sdkiTemplate";
 import AsuhanForm, { type FormMode } from "@/components/shared/medical-records/keperawatan/AsuhanForm";
 import AsuhanCard from "@/components/shared/medical-records/keperawatan/AsuhanCard";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Helpers ────────────────────────────────────────────────
 
 function genId() { return `ak-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
+
+// ISO (UTC) → "YYYY-MM-DDTHH:mm" lokal (kontrak DateTimePicker / tampilan kartu).
+function isoToLocal(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+// DTO server → entry FE (bentuk identik; tanggalInput/verifiedAt = local).
+function dtoToEntry(d: AsuhanKeperawatanDTO): AsuhanKeperawatanEntry {
+  return {
+    id: d.id,
+    kodeSdki: d.kodeSdki,
+    dataMayor: d.dataMayor,
+    dataMinor: d.dataMinor,
+    faktorResiko: d.faktorResiko,
+    diagnosa: d.diagnosa,
+    penyebab: d.penyebab,
+    tujuanDurasi: d.tujuanDurasi,
+    tujuanUnit: d.tujuanUnit,
+    selama: d.selama,
+    kriteriaHasil: d.kriteriaHasil,
+    intervensi: d.intervensi,
+    tanggalInput: isoToLocal(d.tanggalInput),
+    perawat: d.perawat,
+    verified: d.verified,
+    verifiedBy: d.verifiedBy,
+    verifiedAt: d.verifiedAt ? isoToLocal(d.verifiedAt) : "",
+    statusLuaran: d.statusLuaran,
+    evaluasi: d.evaluasi,
+    aktif: d.aktif,
+  };
+}
+
+// Form/entry → payload create/update (tanggalInput local → Date → ISO saat JSON).
+function formToInput(data: AsuhanFormState) {
+  return {
+    kodeSdki: data.kodeSdki || undefined,
+    diagnosa: data.diagnosa,
+    penyebab: data.penyebab || undefined,
+    faktorResiko: data.faktorResiko || undefined,
+    dataMayor: data.dataMayor,
+    dataMinor: data.dataMinor,
+    tujuanDurasi: data.tujuanDurasi || undefined,
+    tujuanUnit: data.tujuanUnit,
+    selama: data.selama || undefined,
+    kriteriaHasil: data.kriteriaHasil,
+    statusLuaran: data.statusLuaran,
+    intervensi: data.intervensi,
+    tanggalInput: data.tanggalInput ? new Date(data.tanggalInput).toISOString() : undefined,
+    perawat: data.perawat || undefined,
+  };
+}
 
 function formStateFromEntry(e: AsuhanKeperawatanEntry): AsuhanFormState {
   return {
@@ -57,11 +124,35 @@ const BORDER_COLOR: Record<FormMode, string> = {
 // ── Main Component ─────────────────────────────────────────
 
 export default function KeperawatanTab({ patient }: { patient: IGDPatientDetail }) {
+  const { session } = useSession();
+  const kunjunganId = patient.id ?? "";
+  const isPersisted = UUID_RE.test(kunjunganId);
+
   const [entries,    setEntries]    = useState<AsuhanKeperawatanEntry[]>(
     patient.asuhanKeperawatan ?? []
   );
   const [editId,     setEditId]     = useState<string | null>(null);
   const [copySource, setCopySource] = useState<AsuhanKeperawatanEntry | undefined>(undefined);
+
+  // Katalog keperawatan (template) dari DB (master.sdki via sdki-template). Absen → AsuhanForm fallback.
+  const [catalog, setCatalog] = useState<SdkiCatalogItem[] | undefined>(undefined);
+
+  // Muat asuhan tersimpan (kunjungan UUID) + katalog template.
+  useEffect(() => {
+    const ac = new AbortController();
+    if (isPersisted) {
+      getAsuhanKeperawatan(kunjunganId, ac.signal)
+        .then((rows) => setEntries(rows.map(dtoToEntry)))
+        .catch((e) => {
+          if (e instanceof DOMException && e.name === "AbortError") return;
+          toast.error("Gagal memuat asuhan keperawatan", e instanceof ApiError ? e.message : undefined);
+        });
+    }
+    listSdkiTemplate(ac.signal)
+      .then((rows) => setCatalog(rows))
+      .catch(() => { /* 403/belum login → fallback SDKI_CATALOG */ });
+    return () => ac.abort();
+  }, [isPersisted, kunjunganId]);
 
   const formMode: FormMode = editId ? "edit" : copySource ? "copy" : "new";
   const formInitial: AsuhanFormState | undefined = editId
@@ -71,19 +162,34 @@ export default function KeperawatanTab({ patient }: { patient: IGDPatientDetail 
 
   // ── Handlers ──────────────────────────────────────────────
 
-  function handleSave(data: AsuhanFormState) {
-    if (editId) {
-      setEntries(p => p.map(e => e.id === editId ? { ...e, ...data } : e));
-    } else {
-      const newEntry: AsuhanKeperawatanEntry = {
-        id: genId(), ...data,
-        verified: false, verifiedBy: "", verifiedAt: "",
-        evaluasi: [], aktif: true,
-      };
-      setEntries(p => [...p, newEntry]);
+  async function handleSave(data: AsuhanFormState) {
+    // Demo (pasien mock non-UUID): mutasi lokal seperti sebelumnya.
+    if (!isPersisted) {
+      if (editId) {
+        setEntries(p => p.map(e => e.id === editId ? { ...e, ...data } : e));
+      } else {
+        setEntries(p => [...p, {
+          id: genId(), ...data,
+          verified: false, verifiedBy: "", verifiedAt: "", evaluasi: [], aktif: true,
+        }]);
+      }
+      setEditId(null); setCopySource(undefined);
+      return;
     }
-    setEditId(null);
-    setCopySource(undefined);
+    try {
+      if (editId) {
+        const dto = await updateAsuhanKeperawatan(kunjunganId, editId, formToInput(data));
+        setEntries(p => p.map(e => e.id === editId ? dtoToEntry(dto) : e));
+        toast.success("Asuhan diperbarui", dto.diagnosa);
+      } else {
+        const dto = await createAsuhanKeperawatan(kunjunganId, formToInput(data));
+        setEntries(p => [...p, dtoToEntry(dto)]);
+        toast.success("Asuhan ditambahkan", dto.diagnosa);
+      }
+      setEditId(null); setCopySource(undefined);
+    } catch (e) {
+      toast.error("Gagal menyimpan asuhan", e instanceof ApiError ? e.message : undefined);
+    }
   }
 
   function handleReset() {
@@ -91,18 +197,32 @@ export default function KeperawatanTab({ patient }: { patient: IGDPatientDetail 
     setCopySource(undefined);
   }
 
-  function handleVerify(id: string, name: string) {
-    setEntries(p => p.map(e =>
-      e.id === id
-        ? { ...e, verified: true, verifiedBy: name, verifiedAt: new Date().toLocaleDateString("id-ID") }
-        : e
-    ));
+  async function handleVerify(id: string, name: string) {
+    if (!isPersisted) {
+      setEntries(p => p.map(e => e.id === id
+        ? { ...e, verified: true, verifiedBy: name, verifiedAt: new Date().toLocaleDateString("id-ID") } : e));
+      return;
+    }
+    try {
+      const dto = await updateAsuhanKeperawatan(kunjunganId, id, { verified: true, verifiedBy: name });
+      setEntries(p => p.map(e => e.id === id ? dtoToEntry(dto) : e));
+      toast.success("Asuhan diverifikasi", `oleh ${dto.verifiedBy}`);
+    } catch (e) {
+      toast.error("Gagal memverifikasi", e instanceof ApiError ? e.message : undefined);
+    }
   }
 
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     if (editId === id) setEditId(null);
     if (copySource?.id === id) setCopySource(undefined);
-    setEntries(p => p.filter(e => e.id !== id));
+    if (!isPersisted) { setEntries(p => p.filter(e => e.id !== id)); return; }
+    try {
+      await deleteAsuhanKeperawatan(kunjunganId, id);
+      setEntries(p => p.filter(e => e.id !== id));
+      toast.success("Asuhan dihapus");
+    } catch (e) {
+      toast.error("Gagal menghapus asuhan", e instanceof ApiError ? e.message : undefined);
+    }
   }
 
   function handleCopyToForm(entry: AsuhanKeperawatanEntry) {
@@ -110,12 +230,21 @@ export default function KeperawatanTab({ patient }: { patient: IGDPatientDetail 
     setCopySource(entry);
   }
 
-  function handleAddEval(id: string, ev: EvaluasiShift) {
-    setEntries(p => p.map(e =>
-      e.id === id
-        ? { ...e, evaluasi: [...e.evaluasi, ev], statusLuaran: ev.statusLuaran }
-        : e
-    ));
+  async function handleAddEval(id: string, ev: EvaluasiShift) {
+    const entry = entries.find(e => e.id === id);
+    if (!entry) return;
+    const nextEval = [...entry.evaluasi, ev];
+    if (!isPersisted) {
+      setEntries(p => p.map(e => e.id === id ? { ...e, evaluasi: nextEval, statusLuaran: ev.statusLuaran } : e));
+      return;
+    }
+    try {
+      const dto = await updateAsuhanKeperawatan(kunjunganId, id, { evaluasi: nextEval, statusLuaran: ev.statusLuaran });
+      setEntries(p => p.map(e => e.id === id ? dtoToEntry(dto) : e));
+      toast.success("Evaluasi shift tersimpan", ev.shift);
+    } catch (e) {
+      toast.error("Gagal menyimpan evaluasi", e instanceof ApiError ? e.message : undefined);
+    }
   }
 
   // ── Stats ─────────────────────────────────────────────────
@@ -210,6 +339,8 @@ export default function KeperawatanTab({ patient }: { patient: IGDPatientDetail 
                   mode={formMode}
                   onSave={handleSave}
                   onReset={handleReset}
+                  catalog={catalog}
+                  petugasLogin={session?.namaTampil}
                 />
               </motion.div>
             </AnimatePresence>
@@ -243,7 +374,7 @@ export default function KeperawatanTab({ patient }: { patient: IGDPatientDetail 
                 </div>
                 <p className="text-sm font-semibold text-slate-400">Belum ada asuhan</p>
                 <p className="mt-1.5 max-w-45 text-xs leading-relaxed text-slate-400">
-                  Pilih diagnosa dari katalog SDKI di sebelah kiri, lalu simpan untuk menambah asuhan keperawatan
+                  Pilih diagnosa dari Katalog Keperawatan di sebelah kiri, lalu simpan untuk menambah asuhan
                 </p>
               </motion.div>
             ) : (

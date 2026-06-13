@@ -11,6 +11,14 @@ import { cn } from "@/lib/utils";
 import type { AsuhanKeperawatanEntry, EvaluasiShift, StatusLuaran, ShiftType } from "@/lib/data";
 import { STATUS_LUARAN_CONFIG, SHIFT_CONFIG } from "@/components/shared/medical-records/keperawatanShared";
 
+// Format tanggalInput (local-dt "YYYY-MM-DDTHH:mm" atau ISO) → tampilan id-ID. Fallback: raw.
+function fmtTanggal(v: string): string {
+  if (!v) return "—";
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return v;
+  return d.toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
 // ── Evaluasi form (inline) ─────────────────────────────────
 
 const SHIFT_OPTIONS: ShiftType[] = ["Pagi", "Siang", "Malam"];
@@ -272,7 +280,7 @@ export default function AsuhanCard({
               <User size={10} />{entry.perawat}
             </span>
             <span className="flex items-center gap-1 text-[11px] text-slate-400">
-              <Clock size={10} />{entry.tanggalInput}
+              <Clock size={10} />{fmtTanggal(entry.tanggalInput)}
             </span>
           </div>
 

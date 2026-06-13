@@ -1119,3 +1119,63 @@ model RekonsiliasiObat {
   @@map("rekonsiliasi_obat")
   @@schema("medicalrecord")
 }
+
+// ── Asuhan Keperawatan (tab Keperawatan — SDKI/SLKI/SIKI) ──────────────────────
+//  1 baris = 1 diagnosa keperawatan (proses asuhan) per kunjungan. CRUD (edit, verify
+//  co-sign, evaluasi shift, hapus=soft-delete) — mirror TindakanMedis. Template diisi
+//  dari katalog master.Sdki (kodeSdki = soft-ref kode `D.NNNN`, snapshot saat dipilih).
+//  Blok pengkajian (dataMayor/dataMinor) + intervensi (SIKI 4 kelompok) + evaluasi
+//  (timeline shift) = JSONB. `kriteriaHasil` (SLKI) = text[]. tanggalInput = timestamptz
+//  (DateTimePicker). perawat = denormalisasi dari actor (user login).
+
+model AsuhanKeperawatan {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Spine (FK riil, same DB / cross-schema ke encounter) ──
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Diagnosa (SDKI; kodeSdki = soft-ref master.Sdki.kode, snapshot) ──
+  kodeSdki     String @default("") @map("kode_sdki")
+  diagnosa     String
+  penyebab     String @default("")
+  faktorResiko String @default("") @map("faktor_resiko")
+
+  // ── Pengkajian (blok JSONB {subjektif, objektif}) ──
+  dataMayor Json @map("data_mayor") @db.JsonB
+  dataMinor Json @map("data_minor") @db.JsonB
+
+  // ── Luaran SLKI ──
+  tujuanDurasi  String   @default("") @map("tujuan_durasi")
+  tujuanUnit    String   @default("Hari") @map("tujuan_unit") // Jam/Hari
+  selama        String   @default("")
+  kriteriaHasil String[] @map("kriteria_hasil")
+  statusLuaran  String   @default("Dipantau") @map("status_luaran") // Teratasi/Teratasi_Sebagian/Belum_Teratasi/Dipantau
+
+  // ── Intervensi SIKI (blok JSONB {observasi,terapeutik,edukasi,kolaborasi}) ──
+  intervensi Json @db.JsonB
+
+  // ── Evaluasi shift (timeline; blok JSONB array EvaluasiShift) ──
+  evaluasi Json @default("[]") @db.JsonB
+
+  // ── Waktu + perawat/author (dari actor) ──
+  tanggalInput    DateTime @map("tanggal_input") @db.Timestamptz(3)
+  perawat         String   // nama denormalisasi pencatat (dari user login)
+  authorUserId    String?  @map("author_user_id") @db.Uuid
+  authorPegawaiId String?  @map("author_pegawai_id") @db.Uuid
+
+  // ── Verifikasi (co-sign supervisor/DPJP) ──
+  verified   Boolean   @default(false)
+  verifiedBy String?   @map("verified_by")
+  verifiedAt DateTime? @map("verified_at") @db.Timestamptz(3)
+
+  // ── Status proses + audit (CRUD + soft-delete entered-in-error) ──
+  aktif     Boolean   @default(true)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt])
+  @@map("asuhan_keperawatan")
+  @@schema("medicalrecord")
+}

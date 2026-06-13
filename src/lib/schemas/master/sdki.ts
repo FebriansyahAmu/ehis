@@ -92,6 +92,17 @@ export interface SdkiIntervensiDTO {
   edukasi: string[];
   kolaborasi: string[];
 }
+// Bentuk ringkas untuk KONSUMEN KLINIS (tab Keperawatan) — template asuhan. Identik
+// SdkiCatalogItem FE (keperawatanShared). Dipakai endpoint clinical-gated `sdki-template`.
+export interface SdkiTemplateDTO {
+  kode: string;
+  nama: string;
+  penyebabUmum: string;
+  faktorResiko?: string;
+  kriteriaHasil: string[];
+  intervensi: SdkiIntervensiDTO;
+}
+
 export interface SdkiDTO {
   id: string;
   kode: string;

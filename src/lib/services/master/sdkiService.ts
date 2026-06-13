@@ -11,7 +11,7 @@ import type { Actor } from "@/lib/auth/actor";
 import type { SdkiEntity, SdkiData, SdkiPatch } from "@/lib/dal/master/sdkiDal";
 import {
   type CreateSdkiInput, type UpdateSdkiInput, type SdkiQuery,
-  type SdkiDTO, type SdkiDataDTO, type SdkiIntervensiDTO,
+  type SdkiDTO, type SdkiDataDTO, type SdkiIntervensiDTO, type SdkiTemplateDTO,
   type SdkiKategoriDTO, type SdkiJenisDTO, type SdkiStatusDTO,
 } from "@/lib/schemas/master/sdki";
 
@@ -90,6 +90,20 @@ export function makeSdkiService(deps: { dal?: Dal } = {}) {
     return { items: page.map(toDTO), cursor: hasMore ? page[page.length - 1].id : null };
   }
 
+  /** Template asuhan untuk KONSUMEN KLINIS (tab Keperawatan) — hanya diagnosa Aktif,
+   *  bentuk ringkas (kode/nama/penyebab/faktor/SLKI/SIKI). ACTOR-LESS. */
+  async function listTemplate(): Promise<SdkiTemplateDTO[]> {
+    const { items } = await list({ status: "Aktif", limit: 300 });
+    return items.map((d) => ({
+      kode: d.kode,
+      nama: d.nama,
+      penyebabUmum: d.penyebabUmum,
+      faktorResiko: d.faktorResiko,
+      kriteriaHasil: d.kriteriaHasil,
+      intervensi: d.intervensi,
+    }));
+  }
+
   /** Tambah 1 diagnosa. Kode auto `D.NNNN` (counter atomik) dalam 1 transaksi. */
   async function create(input: CreateSdkiInput, _actor: Actor): Promise<SdkiDTO> {
     const row = await transaction(async (tx) => {
@@ -141,7 +155,7 @@ export function makeSdkiService(deps: { dal?: Dal } = {}) {
     if (count === 0) throw Errors.notFound("Diagnosa keperawatan tidak ditemukan");
   }
 
-  return { list, create, update, remove };
+  return { list, listTemplate, create, update, remove };
 }
 
 export const sdkiService = makeSdkiService();

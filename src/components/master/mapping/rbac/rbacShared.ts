@@ -54,6 +54,9 @@ export const PERMISSION_TREE: PermissionModule[] = [
       // DIPISAH dari clinical.resep: penanggung jawab klinis = Apoteker (kolaborasi Dokter/Perawat),
       // tapi mereka TIDAK boleh menulis resep. Endpoint /kunjungan/:id/rekonsiliasi GET+POST → read/create saja.
       { key: "clinical.rekonsiliasi", label: "Rekonsiliasi Obat (PMK 72)",   actions: ["read", "create"] },
+      // Asuhan keperawatan (SDKI/SLKI/SIKI) — domain Perawat (penulis utama); Dokter co-sign.
+      // Resource sendiri agar Perawat punya CREATE penuh tanpa membuka clinical.rekammedis shared.
+      { key: "clinical.keperawatan", label: "Asuhan Keperawatan (SDKI)",     actions: ["read", "create", "update", "delete"] },
     ],
   },
   {
@@ -156,6 +159,7 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
     "clinical.consent": ["read", "create", "delete"], // informed consent (immutable; hapus = entered-in-error)
     "clinical.resep": ["read", "create", "update"],
     "clinical.rekonsiliasi": ["read", "create"], // rekonsiliasi obat per fase (append-only)
+    "clinical.keperawatan": ["read", "create", "update", "delete"], // asuhan keperawatan (dokter co-sign/dokumentasi)
     // CATATAN: TIDAK diberi ancillary.* — itu untuk unit penunjang (Lab/Rad/Farmasi) yang
     // berdiri-sendiri. Dokter lihat status order via tab rekam medis (clinical.*), bukan
     // worklist penunjang. Grant ancillary.* di sini dulu bikin menu penunjang muncul keliru.
@@ -180,6 +184,7 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
     "clinical.consent": ["read", "create", "delete"], // perawat siapkan formulir IC + TTD pasien/wali
     "clinical.resep": ["read"],
     "clinical.rekonsiliasi": ["read", "create"], // perawat catat rekonsiliasi saat admisi/transfer
+    "clinical.keperawatan": ["read", "create", "update", "delete"], // asuhan keperawatan — perawat penulis utama
     // CATATAN: TIDAK diberi ancillary.* — itu untuk unit penunjang (Lab/Rad/Farmasi) yang
     // berdiri-sendiri. Perawat lihat status order via tab rekam medis, bukan worklist penunjang.
     "master.triase": ["read"], // baca protokol triase (decision-support di TriaseTab)
