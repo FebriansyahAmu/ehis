@@ -1,14 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Repeat, AlertTriangle, Home, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/contexts/SessionContext";
+import type { KategoriObat } from "@/lib/data";
+import type { ObatCatalog } from "@/components/shared/resep/resepShared";
+import { listObatTersedia, type ObatTersediaDTO } from "@/lib/api/master/obatTersedia";
 import {
   REKON_PHASES, emptyRekon,
   type RekonContext, type RekonPhase, type RekonData,
 } from "./rekonsiliasi/rekonsiliasiShared";
 import RekonSection from "./rekonsiliasi/RekonSection";
+
+// Obat ter-formularium (DB) → bentuk ObatCatalog yang dipakai ObatSearch. Golongan → KategoriObat.
+function toObatCatalog(o: ObatTersediaDTO): ObatCatalog {
+  const g = o.golongan ?? "";
+  const kategori: KategoriObat =
+    g.startsWith("Narkotika") ? "Narkotika" : g.startsWith("Psikotropika") ? "Psikotropika" : "Reguler";
+  return {
+    kode: o.kode,
+    nama: o.namaGenerik,
+    dosis: o.kekuatan,
+    satuan: "",
+    stok: 0, // formularium tak melacak stok → ObatSearch sembunyikan badge stok (showStock=false)
+    kategori,
+    isHAM: o.isHAM,
+  };
+}
 
 // ── Patient interface (minimal — both IGD and RI satisfy this) ─
 
@@ -122,6 +142,7 @@ function HomeMedsBanner({ obatSaatIni }: { obatSaatIni?: string }) {
 
 export default function RekonsiliasTab({ patient, context }: Props) {
   const phases = REKON_PHASES[context];
+  const { session } = useSession();
 
   const [open, setOpen] = useState<RekonPhase | null>(null);
   const [dataMap, setDataMap] = useState<Record<RekonPhase, RekonData>>({
@@ -129,6 +150,21 @@ export default function RekonsiliasTab({ patient, context }: Props) {
     transfer:  emptyRekon(),
     discharge: emptyRekon(),
   });
+
+  // Katalog obat = obat ter-formularium (Mapping Hub → Formularium), gate clinical.resep.
+  // undefined = belum termuat / tak ber-hak → ObatSearch fallback ke mock (degradasi anggun).
+  // Per-unit scoping (?ruanganKode=) forward-ready; ruangan pasien IGD masih mock → ambil semua.
+  const [catalog, setCatalog] = useState<ObatCatalog[] | undefined>(undefined);
+  useEffect(() => {
+    const ac = new AbortController();
+    listObatTersedia({}, ac.signal)
+      .then((items) => setCatalog(items.map(toObatCatalog)))
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        // 403 (tanpa hak) / belum login → biarkan undefined (fallback mock).
+      });
+    return () => ac.abort();
+  }, []);
 
   const doneCount = Object.values(dataMap).filter((d) => d.selesai).length;
   const totalHAM  = Object.values(dataMap).reduce(
@@ -165,6 +201,8 @@ export default function RekonsiliasTab({ patient, context }: Props) {
               onChange={(d) => setDataMap((p) => ({ ...p, [phase.id]: d }))}
               isOpen={open === phase.id}
               onToggle={() => setOpen((prev) => (prev === phase.id ? null : phase.id))}
+              petugasLogin={session?.namaTampil}
+              catalog={catalog}
             />
           </div>
         ))}

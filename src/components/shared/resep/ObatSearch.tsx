@@ -11,13 +11,22 @@ interface Props {
   onChange?:    (text: string) => void;
   placeholder?: string;
   inputCls?:    string;
+  /** Sumber katalog. Absen → OBAT_CATALOG mock (default, dipakai Resep). Diisi → katalog kustom
+   *  (mis. obat ter-formularium per unit di Rekonsiliasi). */
+  catalog?:     ObatCatalog[];
+  /** Tampilkan badge stok di hasil. Default true; matikan untuk katalog tanpa data stok (formularium). */
+  showStock?:   boolean;
 }
 
-export default function ObatSearch({ value, onSelect, onChange, placeholder = "Ketik nama obat atau kode FAR-...", inputCls }: Props) {
+export default function ObatSearch({
+  value, onSelect, onChange, placeholder = "Ketik nama obat atau kode FAR-...", inputCls,
+  catalog, showStock = true,
+}: Props) {
   const [query,   setQuery]   = useState(value);
   const [open,    setOpen]    = useState(false);
   const [results, setResults] = useState<ObatCatalog[]>([]);
   const ref = useRef<HTMLDivElement>(null);
+  const source = catalog ?? OBAT_CATALOG;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -33,7 +42,7 @@ export default function ObatSearch({ value, onSelect, onChange, placeholder = "K
     setQuery(q);
     onChange?.(q);
     if (q.length < 2) { setResults([]); setOpen(false); return; }
-    const filtered = OBAT_CATALOG.filter(
+    const filtered = source.filter(
       (o) => o.nama.toLowerCase().includes(q.toLowerCase()) || o.kode.toLowerCase().includes(q.toLowerCase()),
     ).slice(0, 8);
     setResults(filtered);
@@ -79,9 +88,11 @@ export default function ObatSearch({ value, onSelect, onChange, placeholder = "K
                     {obat.kategori}
                   </span>
                 </div>
-                <span className={cn("text-[10px] font-medium", obat.stok > 0 ? "text-emerald-600" : "text-rose-500")}>
-                  {obat.stok > 0 ? `Stok: ${obat.stok}` : "Habis"}
-                </span>
+                {showStock && (
+                  <span className={cn("text-[10px] font-medium", obat.stok > 0 ? "text-emerald-600" : "text-rose-500")}>
+                    {obat.stok > 0 ? `Stok: ${obat.stok}` : "Habis"}
+                  </span>
+                )}
               </div>
             </button>
           ))}

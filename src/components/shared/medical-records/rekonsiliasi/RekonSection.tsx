@@ -1,8 +1,10 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Check, ChevronRight, AlertTriangle } from "lucide-react";
+import { Plus, Check, ChevronRight, AlertTriangle, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DateTimePicker } from "@/components/shared/inputs/DateTimePicker";
+import type { ObatCatalog } from "@/components/shared/resep/resepShared";
 import {
   emptyEntry,
   type ObatEntry, type RekonData, type RekonPhaseDef,
@@ -17,11 +19,15 @@ interface Props {
   onChange: (d: RekonData) => void;
   isOpen:   boolean;
   onToggle: () => void;
+  /** Nama petugas dari sesi login → field Petugas jadi chip read-only (bukan input bebas). */
+  petugasLogin?: string;
+  /** Katalog obat ter-formularium per unit (obat-tersedia). Absen → ObatSearch pakai mock. */
+  catalog?: ObatCatalog[];
 }
 
 // ── Component ──────────────────────────────────────────────
 
-export default function RekonSection({ phase, data, onChange, isOpen, onToggle }: Props) {
+export default function RekonSection({ phase, data, onChange, isOpen, onToggle, petugasLogin, catalog }: Props) {
   const up = (patch: Partial<RekonData>) => onChange({ ...data, ...patch });
 
   const { Icon, iconColor, accentBorder, accentBg, label, desc } = phase;
@@ -109,26 +115,40 @@ export default function RekonSection({ phase, data, onChange, isOpen, onToggle }
               {/* Meta: tanggal + petugas */}
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                     Tanggal & Waktu
                   </p>
-                  <input
-                    type="datetime-local"
+                  <DateTimePicker
                     value={data.tanggal}
-                    onChange={(e) => up({ tanggal: e.target.value })}
-                    className="w-full border-b border-slate-200 bg-transparent py-1.5 text-xs text-slate-800 outline-none focus:border-indigo-400"
+                    onChange={(val) => up({ tanggal: val })}
+                    placeholder="Pilih tanggal & waktu"
+                    className="text-xs"
                   />
                 </div>
                 <div>
-                  <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                     Petugas / Apoteker
                   </p>
-                  <input
-                    value={data.petugas}
-                    onChange={(e) => up({ petugas: e.target.value })}
-                    placeholder="Nama petugas..."
-                    className="w-full border-b border-slate-200 bg-transparent py-1.5 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-indigo-400"
-                  />
+                  {petugasLogin ? (
+                    <div className="flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/70 px-3">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                        <UserCheck size={11} />
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-700">
+                        {petugasLogin}
+                      </span>
+                      <span className="shrink-0 rounded bg-indigo-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-indigo-600">
+                        Sesi Login
+                      </span>
+                    </div>
+                  ) : (
+                    <input
+                      value={data.petugas}
+                      onChange={(e) => up({ petugas: e.target.value })}
+                      placeholder="Nama petugas..."
+                      className="w-full border-b border-slate-200 bg-transparent py-1.5 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-indigo-400"
+                    />
+                  )}
                 </div>
               </div>
 
@@ -158,7 +178,7 @@ export default function RekonSection({ phase, data, onChange, isOpen, onToggle }
                     animate={{ opacity: 1 }}
                     className="rounded-lg border border-dashed border-slate-200 py-7 text-center text-[11px] text-slate-400"
                   >
-                    Belum ada obat — klik "Tambah Obat" untuk mulai
+                    Belum ada obat — klik &quot;Tambah Obat&quot; untuk mulai
                   </motion.div>
                 ) : (
                   <motion.div layout className="flex flex-col gap-1.5">
@@ -170,6 +190,7 @@ export default function RekonSection({ phase, data, onChange, isOpen, onToggle }
                           index={idx}
                           onChange={(updated) => updateObat(idx, updated)}
                           onRemove={() => removeObat(idx)}
+                          catalog={catalog}
                         />
                       ))}
                     </AnimatePresence>

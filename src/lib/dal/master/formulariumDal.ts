@@ -61,6 +61,30 @@ export function deleteById(id: string, tx?: Tx) {
   return db(tx).formulariumObat.delete({ where: { id } });
 }
 
+// ── Read klinis: obat ter-formularium (join FormulariumObat → Obat) ────────────
+// Untuk endpoint /master/obat-tersedia (gate clinical.resep). Hanya obat AKTIF & non-deleted;
+// opsional difilter ruangan (kode). Include obat (field ramping utk katalog FE) + kode ruangan
+// → Service agregasi distinct per obat dgn daftar ruanganKodes.
+export function listAssignedObat(params: { ruanganKode?: string }, tx?: Tx) {
+  return db(tx).formulariumObat.findMany({
+    where: {
+      obat: { deletedAt: null, status: "Aktif" },
+      ...(params.ruanganKode ? { location: { kode: params.ruanganKode } } : {}),
+    },
+    include: {
+      obat: {
+        select: {
+          id: true, kode: true, namaGenerik: true, namaDagang: true,
+          bentuk: true, kekuatan: true, satuanTerkecil: true,
+          kategori: true, golongan: true, isHAM: true,
+        },
+      },
+      location: { select: { kode: true } },
+    },
+    orderBy: [{ obat: { namaGenerik: "asc" } }],
+  });
+}
+
 // ── Guards (eksistensi parent; soft-delete difilter) ──────────────────────────
 export function findObat(id: string, tx?: Tx) {
   return db(tx).obat.findFirst({ where: { id, deletedAt: null }, select: { id: true, namaGenerik: true } });

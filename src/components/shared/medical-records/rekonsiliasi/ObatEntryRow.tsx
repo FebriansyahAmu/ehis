@@ -18,11 +18,13 @@ interface Props {
   index:    number;
   onChange: (updated: ObatEntry) => void;
   onRemove: () => void;
+  /** Katalog obat (obat ter-formularium per unit). Absen → ObatSearch pakai mock default. */
+  catalog?: ObatCatalog[];
 }
 
 // ── Component ──────────────────────────────────────────────
 
-export default function ObatEntryRow({ entry, index, onChange, onRemove }: Props) {
+export default function ObatEntryRow({ entry, index, onChange, onRemove, catalog }: Props) {
   const [expanded, setExpanded] = useState(false);
 
   const set = <K extends keyof ObatEntry>(k: K, v: ObatEntry[K]) =>
@@ -64,6 +66,8 @@ export default function ObatEntryRow({ entry, index, onChange, onRemove }: Props
             onChange={(text) => set("namaObat", text)}
             placeholder="Cari nama obat..."
             inputCls="w-full border-b border-slate-200 bg-transparent py-1 pl-7 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-indigo-400"
+            catalog={catalog}
+            showStock={catalog === undefined}
           />
           <AnimatePresence>
             {entry.isHAM && (
