@@ -1331,3 +1331,112 @@ model PemeriksaanPenunjang {
   @@map("pemeriksaan_penunjang")
   @@schema("medicalrecord")
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  TAB PENILAIAN (Assessment klinis, IGD) — tiap sub-menu = domain/tabel sendiri
+//  (prefix `penilaian_`). Append-only time-series (riwayat ditampilkan di panel kanan):
+//  tiap simpan = baris immutable; latest by createdAt = terbaru. Sebagian sub-menu menarik
+//  vocab dari master (di sub-menu terkait). Gate `clinical.penilaian`. Mirror PenilaianTab.tsx.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Penilaian Fisik (sub-menu 1: Fisik) ───────────────────────────────────────
+//  Pemeriksaan fisik umum (free-text) + Keadaan Umum/Kesadaran/Gizi/Mobilitas (vocab bebas).
+//  Append-only: tiap simpan = baris baru (riwayat). pemeriksa = denormalisasi sesi login.
+//  BEDA dari Domain 10 `PemeriksaanFisik` (head-to-toe terstruktur tab Pemeriksaan) — ini
+//  penilaian ringkas di tab Penilaian. Mirror FisikPanel (PenilaianTab.tsx).
+
+model PenilaianFisik {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Spine (FK riil, same DB / cross-schema ke encounter) ──
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  pemeriksaanUmum String @default("") @map("pemeriksaan_umum") // pemeriksaan fisik umum (free-text)
+  keadaanUmum     String @default("") @map("keadaan_umum")
+  kesadaran       String @default("")
+  gizi            String @default("")
+  mobilitas       String @default("")
+
+  // ── Pencatat + author (dari actor) ──
+  pemeriksa       String  // nama denormalisasi pencatat (dari user login)
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (append-only: tanpa updatedAt/soft-delete; version utk konsistensi) ──
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt]) // riwayat per kunjungan (terbaru dulu)
+  @@map("penilaian_fisik")
+  @@schema("medicalrecord")
+}
+
+// ── Penilaian Nyeri (sub-menu 2: Nyeri) — ASESMEN KOMPREHENSIF ─────────────────
+//  Karakterisasi nyeri (PQRST): lokasi/karakter/durasi/faktor pemberat-peringan/tipe/dampak/
+//  rencana reasesmen. SKOR NRS TIDAK disimpan di sini — angka nyeri = SINGLE SOURCE di
+//  Observation/TTV (5th vital sign, di-update tiap shift; hindari drift "skor mana yang terkini").
+//  FE menampilkan skor TTV terkini read-only sebagai konteks. Append-only time-series (riwayat).
+//  pemeriksa = denormalisasi sesi login. Gate clinical.penilaian. Mirror NyeriPanel (pasca-reposisi).
+
+model PenilaianNyeri {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Spine (FK riil, same DB / cross-schema ke encounter) ──
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  lokasi           String @default("")
+  karakter         String @default("")
+  durasi           String @default("")
+  faktorPemberat   String @default("") @map("faktor_pemberat")
+  faktorPeringan   String @default("") @map("faktor_peringan")
+  tipeNyeri        String @default("") @map("tipe_nyeri") // Nosiseptif/Neuropatik/Campuran
+  dampakFungsional String @default("") @map("dampak_fungsional")
+  rencanaReasesmen String @default("") @map("rencana_reasesmen")
+  catatan          String @default("")
+
+  // ── Pencatat + author (dari actor) ──
+  pemeriksa       String  // nama denormalisasi pencatat (dari user login)
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (append-only: tanpa updatedAt/soft-delete; version utk konsistensi) ──
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt]) // riwayat per kunjungan (terbaru dulu)
+  @@map("penilaian_nyeri")
+  @@schema("medicalrecord")
+}
+
+// ── Penilaian Status Klinis (sub-menu 3: Status) ───────────────────────────────
+//  Snapshot status klinis pasien: status (Stabil/Tidak Stabil/Kritis/Mengancam Jiwa/Meninggal) +
+//  tingkat kesadaran (Compos Mentis/Apatis/Somnolen/Sopor/Koma) + catatan. Append-only time-series
+//  (riwayat per kunjungan; tiap simpan = baris baru). pemeriksa = denormalisasi sesi login.
+//  Gate clinical.penilaian. Mirror StatusPanel (PenilaianTab.tsx).
+
+model PenilaianStatus {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Spine (FK riil, same DB / cross-schema ke encounter) ──
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  status    String @default("") // Stabil/Tidak Stabil/Kritis/Mengancam Jiwa/Meninggal
+  kesadaran String @default("") // Compos Mentis/Apatis/Somnolen/Sopor/Koma
+  catatan   String @default("")
+
+  // ── Pencatat + author (dari actor) ──
+  pemeriksa       String  // nama denormalisasi pencatat (dari user login)
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (append-only: tanpa updatedAt/soft-delete; version utk konsistensi) ──
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt]) // riwayat per kunjungan (terbaru dulu)
+  @@map("penilaian_status")
+  @@schema("medicalrecord")
+}

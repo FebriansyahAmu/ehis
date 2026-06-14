@@ -52,7 +52,7 @@ Legenda: 🟢 selesai · 🟡 sebagian · ⬜ belum.
 | 8   | **Rekonsiliasi** (RM)    | MedReconciliation | ✅  | 🟢  | 🟢     | Fase A+B ✅ (`medicalrecord.Rekonsiliasi`+child append-only per fase; gate **`clinical.rekonsiliasi`** dipisah dari resep → Dokter/Perawat/Apoteker create; sub-menu Riwayat; obat dari Formularium; wired IGD/RI). HAM badge; SNARS PP 3.1/SKP 3 |
 | 9   | **Keperawatan** (RM)     | NursingCare       | ✅  | 🟢  | 🟢     | Fase A+B+C ✅ (`medicalrecord.AsuhanKeperawatan` CRUD + verify co-sign; **evaluasi shift = tabel anak `AsuhanEvaluasi`** append-only + endpoint sendiri; gate **`clinical.keperawatan`** Perawat penulis utama; wired IGD). Template dari **DB `master.sdki`** via `sdki-template` (gate klinis). tanggal+evaluasi=DateTimePicker · shift=Select · perawat=sesi login. SDKI/SLKI/SIKI PPNI |
 | 10  | **Pemeriksaan** (RM)     | Assessment        | ✅  | 🟢  | 🟢     | Fase A+B+C+D ✅ IGD (`medicalrecord.PemeriksaanFisik` append-only "latest wins" + sub **Anatomi = `medicalrecord.PenandaanAnatomi`** daftar hidup + sub **Penunjang = `medicalrecord.PemeriksaanPenunjang`** diagnostik bedside non-Lab/Rad; gate **`clinical.pemeriksaan`** r/c/u/d Dokter+Perawat; wired IGD). Meta: waktu=DateTimePicker · dokter=roster ruangan (`/kunjungan/:id/petugas`) · perawat=sesi login. +Mobilitas +Catatan generalis +Temuan manual + body-map persist + penunjang interpretatif. IGD head-to-toe (RI/RJ per-sistem = TECH_DEBT). SNARS AP 1 |
-| 11  | **Penilaian** (RM)       | Observation       | ✅  | ⬜  | ⬜     | skor Morse/Braden/Barthel/NRS/NEWS2 (= Observation)  |
+| 11  | **Penilaian** (RM)       | Penilaian (`penilaian_*`) | 🚧  | 🟡  | 🟡     | **Reframe (2026-06-15):** tiap sub-menu = tabel `penilaian_*` sendiri (BUKAN Observation). Gate **`clinical.penilaian`** (r/c, append-only). **Fisik ✅** (`medicalrecord.PenilaianFisik`, wired IGD). **Nyeri ✅** (`medicalrecord.PenilaianNyeri` = asesmen komprehensif PQRST; **skor NRS single source = TTV/Observation** read-only, bukan disimpan ulang; `/kunjungan/:id/penilaian-nyeri` GET/POST, wired IGD). **Status ✅ contracts+endpoint** (`medicalrecord.PenilaianStatus` + `/kunjungan/:id/penilaian-status` GET/POST; FE wiring ⏳). Sisa: Pediatrik/Diagnosis/Morse/Braden/Barthel/Jantung/Kanker (skala risiko tarik master) |
 | 12  | **Penandaan Gambar** (RM)| Outcome/Annotation| ✅  | ⬜  | ⬜     | body-diagram markup (anatomis)                       |
 | 13  | **Serah Terima** (RM)    | Handover          | ✅  | ⬜  | ⬜     | SBAR; auto-populate TTV                              |
 | 14  | **Daftar Order** (Lyn)   | Order (REUSE)     | ✅  | ⬜  | ⬜     | domain Order tersendiri — rekam medis cukup _membaca_|
@@ -446,6 +446,52 @@ Sub-tab Penunjang difokuskan ulang: Lab & Radiologi (USG = modalitas radiologi) 
 - [x] **D4** [PenunjangPane (IGD)](src/components/igd/tabs/PemeriksaanTab.tsx) — terima `kunjunganId`+`isPersisted`; jenis chips baru; field tanggal → `DateTimePicker`; mount `getPemeriksaanPenunjang`; add → `createPemeriksaanPenunjang` (+toast) / hapus → `deletePemeriksaanPenunjang`; daftar hasil = kartu per-jenis (interpretasi + chip "Kesan"). Mock `igd-1` → lokal.
 - **DoD D:** ✅ `tsc` bersih · ✅ `eslint` 0 error (warning `_actor` precedent) · ✅ `migrate deploy`+`generate` · ✅ DB smoke (kolom · index · FK-bogus 23503). Upload file masih placeholder (butuh storage).
 - ⚠️ **Sisa (follow-up):** RI/RJ mode **per-sistem** (keputusan 2026-06-14 → [TECH_DEBT.md](TECH_DEBT.md#-rekam-medis-klinis-shared-igdrirj)) · RI BodyMapPane belum pakai domain Anatomi · riwayat pemeriksaan fisik (list >1 baris) belum ditampilkan · `PemeriksaanFisik.bodyMarkings` JSONB vestigial · Penunjang: upload file butuh storage.
+
+---
+
+## Domain 11 — PENILAIAN / Assessment Klinis (tab Penilaian) 🚧 IGD
+
+**Tab Penilaian = banyak sub-menu** (Fisik · Nyeri · Status Klinis · Pediatrik · Diagnosis · Risiko Jatuh/Morse · Dekubitus/Braden · Barthel · Jantung · Kanker). **Keputusan (2026-06-15):** tiap sub-menu = **domain/tabel sendiri** dengan **prefix `penilaian_`** (mis. `penilaian_fisik`, `penilaian_status`, …), bukan numpang Observation. Sebagian sub-menu (skala risiko/skor) akan **menarik vocab dari master** (Skala Risiko/Penyakit) — dikerjakan per sub-menu. Pola umum: **append-only time-series** (riwayat di panel kanan; tiap simpan = baris baru). RBAC = **satu resource `clinical.penilaian`** (read/create) utk seluruh tab. Dikerjakan **satu per satu**.
+
+### Sub-menu 1 — Fisik ✅ SELESAI (2026-06-15)
+
+Penilaian fisik ringkas (BEDA dari Domain 10 head-to-toe): Pemeriksaan Fisik Umum (free-text) + Keadaan Umum/Kesadaran/Gizi/Mobilitas. Tidak menarik master.
+
+- [x] **F1** [medicalrecord.prisma](prisma/schema/medicalrecord.prisma) — model **`PenilaianFisik`** (FK kunjungan cascade · pemeriksaanUmum/keadaanUmum/kesadaran/gizi/mobilitas · pemeriksa/author · version · **append-only** tanpa updatedAt/soft-delete) + backref `Kunjungan.penilaianFisik`. Index `(kunjungan_id, created_at)`. Migrasi `20260615130000_init_medicalrecord_penilaian_fisik`.
+- [x] **F2** RBAC resource BARU **`clinical.penilaian`** (read/create) — leaf [rbacShared.ts](src/components/master/mapping/rbac/rbacShared.ts) (Admin/Dokter/Perawat) + migrasi `20260615140000_rbac_clinical_penilaian` (2 perm, idempoten). Satu resource utk seluruh tab Penilaian.
+- [x] **F3** Lapisan — [Zod](src/lib/schemas/penilaian/penilaianFisik.ts) (Input OPTIONAL murni + DTO, tanggal/waktu derive dari createdAt TZ Asia/Jakarta) · [DAL](src/lib/dal/penilaian/penilaianFisikDal.ts) (list/findById/create) · [Service](src/lib/services/penilaian/penilaianFisikService.ts) (assertKunjungan · pemeriksa=resolveActorNama · guard all-empty → 422 · list/add) · route [GET+POST](src/app/api/v1/kunjungan/[id]/penilaian-fisik/route.ts) (gate `clinical.penilaian`) · [client](src/lib/api/penilaian/penilaianFisik.ts). Folder per-tab `penilaian/`.
+- [x] **F4** [FisikPanel (IGD)](src/components/igd/tabs/PenilaianTab.tsx) — terima ctx `{kunjunganId, isPersisted, perawat}` (via `TabDef.content(ctx)`); mount `getPenilaianFisik` → panel Riwayat; `SaveBtn` diperluas (onClick/disabled/loading) → `createPenilaianFisik` (+toast, reset form, prepend riwayat). Mock `igd-1` → lokal demo.
+- **DoD F:** ✅ `tsc` bersih · ✅ `eslint` 0 error (warning `_actor` precedent) · ✅ `migrate deploy`+`generate` · ✅ DB smoke (12 kolom · index · FK-bogus 23503 · `clinical.penilaian` 2 perm × Admin/Dokter/Perawat). ⏳ verifikasi in-browser (login).
+
+### Sub-menu 2 — Nyeri (Asesmen Nyeri Komprehensif) ✅ SELESAI (2026-06-15)
+
+**Keputusan desain (single gate skor NRS):** angka NRS 0–10 = **single source di Observation/TTV** (5th vital sign, di-update tiap shift). Sub-menu Nyeri **TIDAK** menyimpan angka tandingan (hindari drift "skor mana yang terkini") — ia menyimpan **karakterisasi (PQRST)** & menampilkan skor TTV terkini **read-only** sebagai konteks. Selector NRS 0–10 lama (slider+grid) dihapus dari panel ini.
+
+- [x] **N1** [medicalrecord.prisma](prisma/schema/medicalrecord.prisma) — model **`PenilaianNyeri`** (FK kunjungan cascade · lokasi/karakter/durasi/faktorPemberat/faktorPeringan/tipeNyeri/dampakFungsional/rencanaReasesmen/catatan = TEXT default '' · pemeriksa/author · version · **append-only** tanpa skor NRS) + backref `Kunjungan.penilaianNyeri`. Index `(kunjungan_id, created_at)`. Migrasi `20260615150000_init_medicalrecord_penilaian_nyeri`.
+- [x] **N2** RBAC — **reuse `clinical.penilaian`** (read/create) — tanpa migrasi RBAC baru. Baca skor TTV pakai `clinical.rekammedis:read` (Dokter & Perawat sudah punya).
+- [x] **N3** Lapisan — [Zod](src/lib/schemas/penilaian/penilaianNyeri.ts) (Input OPTIONAL murni + DTO, tanggal/waktu derive createdAt TZ Asia/Jakarta) · [DAL](src/lib/dal/penilaian/penilaianNyeriDal.ts) (list/findById/create) · [Service](src/lib/services/penilaian/penilaianNyeriService.ts) (assertKunjungan · pemeriksa=resolveActorNama · guard all-empty → 422 · list/add) · route [GET+POST](src/app/api/v1/kunjungan/[id]/penilaian-nyeri/route.ts) (gate `clinical.penilaian`) · [client](src/lib/api/penilaian/penilaianNyeri.ts).
+- [x] **N4** [NyeriPanel (IGD)](src/components/igd/tabs/PenilaianTab.tsx) — di-reposisi: **banner skor NRS terkini read-only** (mount `listObservasi` → ambil terbaru `vitalSigns.skalaNyeri` + waktu; empty-state ajak isi TTV) + field karakterisasi (lokasi/karakter/tipe(pills)/durasi/faktor pemberat-peringan/dampak/reasesmen/catatan). Mount `getPenilaianNyeri` → panel Riwayat; `SaveBtn` (disabled all-empty/loading) → `createPenilaianNyeri` (+toast, reset, prepend). Mock `igd-1` → lokal.
+- **DoD N:** ✅ `tsc` bersih · ✅ `eslint` 0 error (warning `_actor` precedent) · ✅ `migrate deploy`+`generate` · ✅ DB smoke (16 kolom · index · FK-bogus 23503 · `clinical.penilaian` 2 perm × 3 role). ⏳ verifikasi in-browser (login).
+
+### Sub-menu 3 — Status Klinis ✅ contracts+endpoint (2026-06-15) · FE wiring ⏳
+
+Status klinis: status (Stabil/Tidak Stabil/Kritis/Mengancam Jiwa/Meninggal) + tingkat kesadaran (Compos Mentis/Apatis/Somnolen/Sopor/Koma) + catatan. Append-only. Tidak menarik master.
+
+- [x] **S1** [medicalrecord.prisma](prisma/schema/medicalrecord.prisma) — model **`PenilaianStatus`** (FK kunjungan cascade · status/kesadaran/catatan TEXT default '' · pemeriksa/author · version · **append-only**) + backref `Kunjungan.penilaianStatus`. Index `(kunjungan_id, created_at)`. Migrasi `20260615160000_init_medicalrecord_penilaian_status`.
+- [x] **S2** RBAC — **reuse `clinical.penilaian`** (read/create) — tanpa migrasi RBAC baru.
+- [x] **S3** Lapisan — [Zod](src/lib/schemas/penilaian/penilaianStatus.ts) (Input OPTIONAL murni + DTO, tanggal/waktu derive createdAt TZ Asia/Jakarta) · [DAL](src/lib/dal/penilaian/penilaianStatusDal.ts) (list/findById/create) · [Service](src/lib/services/penilaian/penilaianStatusService.ts) (assertKunjungan · pemeriksa=resolveActorNama · guard all-empty → 422 · list/add) · route [GET+POST](src/app/api/v1/kunjungan/[id]/penilaian-status/route.ts) (gate `clinical.penilaian`; folder `penilaian-status` ≠ `status` transisi kunjungan) · [client](src/lib/api/penilaian/penilaianStatus.ts).
+- **DoD S:** ✅ `tsc` bersih · ✅ `eslint` 0 error (warning `_actor` precedent) · ✅ `migrate deploy`+`generate` · ✅ DB smoke (10 kolom · index · FK-bogus 23503).
+- [ ] **S4 — FE wiring** (belum diminta): `StatusPanel` ([PenilaianTab.tsx](src/components/igd/tabs/PenilaianTab.tsx)) masih lokal — wire ctx + `getPenilaianStatus`/`createPenilaianStatus` + panel Riwayat + SaveBtn (pola Fisik/Nyeri).
+
+### Sisa sub-menu (belum dikerjakan)
+
+- [ ] **Pediatrik** (berat lahir/usia gestasi/imunisasi/tumbuh kembang) → `penilaian_pediatrik`
+- [ ] **Diagnosis** (catatan diagnosis/banding/komorbid/rencana) → `penilaian_diagnosis`
+- [ ] **Risiko Jatuh / Morse** (6 item skor) → `penilaian_jatuh` — **tarik skala dari master**
+- [ ] **Dekubitus / Braden** (6 item skor) → `penilaian_dekubitus` — **tarik skala dari master**
+- [ ] **Barthel Index / ADL** (10 item) → `penilaian_barthel` — **tarik skala dari master**
+- [ ] **Jantung** (background/finding/scoring NYHA/TIMI/Killip) → `penilaian_jantung`
+- [ ] **Kanker** (TNM/stadium/grade/ECOG/metastasis) → `penilaian_kanker`
 
 ---
 

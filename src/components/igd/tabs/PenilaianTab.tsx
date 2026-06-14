@@ -9,6 +9,18 @@ import {
 } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/contexts/SessionContext";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
+import { getPenilaianFisik, createPenilaianFisik, type PenilaianFisikDTO } from "@/lib/api/penilaian/penilaianFisik";
+import { getPenilaianNyeri, createPenilaianNyeri, type PenilaianNyeriDTO } from "@/lib/api/penilaian/penilaianNyeri";
+import { listObservasi } from "@/lib/api/observation";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const NOTE_DATE_FMT = new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+
+// Konteks panel — sebagian sub-menu butuh kunjungan + sesi login (mis. Fisik persist ke BE).
+type PanelCtx = { kunjunganId: string; isPersisted: boolean; perawat: string };
 
 // ── Styles ─────────────────────────────────────────────────────
 const inputCls =
@@ -92,13 +104,19 @@ function Pill({
   );
 }
 
-function SaveBtn({ label = "Simpan" }: { label?: string }) {
+function SaveBtn({
+  label = "Simpan", onClick, disabled, loading,
+}: {
+  label?: string; onClick?: () => void; disabled?: boolean; loading?: boolean;
+}) {
   return (
     <button
       type="button"
-      className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white shadow-xs transition hover:bg-indigo-700 active:scale-[0.97]"
+      onClick={onClick}
+      disabled={disabled || loading}
+      className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white shadow-xs transition hover:bg-indigo-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
     >
-      {label}
+      {loading ? "Menyimpan…" : label}
     </button>
   );
 }
@@ -164,8 +182,8 @@ function NoteCard({ note }: { note: NoteEntry }) {
 function HistoryPanel({ title, notes }: { title: string; notes: NoteEntry[] }) {
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-1.5 border-b border-slate-100 pb-2">
-        <Clock size={11} className="text-indigo-400" />
+      <div className="flex items-center gap-1.5 border-b border-emerald-100 pb-2">
+        <Clock size={11} className="text-emerald-500" />
         <p className="text-[11px] font-semibold text-slate-600">Riwayat {title}</p>
       </div>
       {notes.length === 0 ? (
@@ -188,7 +206,7 @@ function TwoPanel({ form, history }: { form: ReactNode; history: ReactNode }) {
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-5">
       <div className="min-w-0 flex-1">{form}</div>
       <div className="shrink-0 lg:w-68 xl:w-72">
-        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">{history}</div>
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">{history}</div>
       </div>
     </div>
   );
@@ -210,10 +228,76 @@ const FISIK_NOTES: NoteEntry[] = [
   },
 ];
 
-function FisikPanel() {
+// DTO → NoteEntry riwayat (susun teks ringkas KU/Kesadaran/Gizi/Mobilitas + pem. umum).
+function fisikToNote(d: PenilaianFisikDTO): NoteEntry {
+  const parts: string[] = [];
+  if (d.keadaanUmum) parts.push(`KU: ${d.keadaanUmum}`);
+  if (d.kesadaran) parts.push(`Kesadaran: ${d.kesadaran}`);
+  if (d.gizi) parts.push(`Status gizi: ${d.gizi}`);
+  if (d.mobilitas) parts.push(`Mobilitas: ${d.mobilitas}`);
+  if (d.pemeriksaanUmum) parts.push(d.pemeriksaanUmum);
+  return { date: d.tanggal, author: d.pemeriksa || "—", content: parts.join("\n") };
+}
+
+function FisikPanel({ kunjunganId, isPersisted, perawat }: PanelCtx) {
   const [pemFisik, setPemFisik] = useState("");
   const [form, setForm] = useState({ keadaanUmum: "", kesadaran: "", gizi: "", mobilitas: "" });
+  const [history, setHistory] = useState<NoteEntry[]>(isPersisted ? [] : FISIK_NOTES);
+  const [saving, setSaving] = useState(false);
   const set = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
+
+  // Muat riwayat tersimpan (kunjungan UUID).
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    getPenilaianFisik(kunjunganId, ac.signal)
+      .then((rows) => setHistory(rows.map(fisikToNote)))
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat riwayat penilaian fisik", e instanceof ApiError ? e.message : undefined);
+      });
+    return () => ac.abort();
+  }, [isPersisted, kunjunganId]);
+
+  const isEmpty =
+    !pemFisik.trim() && !form.keadaanUmum.trim() && !form.kesadaran.trim() && !form.gizi.trim() && !form.mobilitas.trim();
+
+  function resetForm() {
+    setPemFisik("");
+    setForm({ keadaanUmum: "", kesadaran: "", gizi: "", mobilitas: "" });
+  }
+
+  async function handleSave() {
+    if (isEmpty || saving) return;
+    if (!isPersisted) {
+      // Demo (pasien seed) — tampil lokal, tidak persist.
+      const local: PenilaianFisikDTO = {
+        id: `local-${Date.now()}`, pemeriksaanUmum: pemFisik, ...form,
+        pemeriksa: perawat, tanggal: NOTE_DATE_FMT.format(new Date()), waktu: new Date().toISOString(),
+      };
+      setHistory((h) => [fisikToNote(local), ...h]);
+      resetForm();
+      toast.info("Pasien demo — penilaian tidak tersimpan ke database");
+      return;
+    }
+    try {
+      setSaving(true);
+      const dto = await createPenilaianFisik(kunjunganId, {
+        pemeriksaanUmum: pemFisik || undefined,
+        keadaanUmum: form.keadaanUmum || undefined,
+        kesadaran: form.kesadaran || undefined,
+        gizi: form.gizi || undefined,
+        mobilitas: form.mobilitas || undefined,
+      });
+      setHistory((h) => [fisikToNote(dto), ...h]);
+      resetForm();
+      toast.success("Penilaian fisik tersimpan");
+    } catch (e) {
+      toast.error("Gagal menyimpan penilaian fisik", e instanceof ApiError ? e.message : undefined);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <TwoPanel
@@ -241,10 +325,12 @@ function FisikPanel() {
               </div>
             ))}
           </div>
-          <div className="flex justify-end"><SaveBtn label="Simpan Penilaian Fisik" /></div>
+          <div className="flex justify-end">
+            <SaveBtn label="Simpan Penilaian Fisik" onClick={handleSave} disabled={isEmpty} loading={saving} />
+          </div>
         </div>
       }
-      history={<HistoryPanel title="Pemeriksaan Fisik" notes={FISIK_NOTES} />}
+      history={<HistoryPanel title="Pemeriksaan Fisik" notes={history} />}
     />
   );
 }
@@ -257,71 +343,188 @@ const NYERI_NOTES: NoteEntry[] = [
   },
 ];
 
-function NyeriPanel() {
-  const [score, setScore] = useState(0);
-  const [lokasi, setLokasi] = useState("");
-  const [karakter, setKarakter] = useState("");
-  const [durasi, setDurasi] = useState("");
-  const [catatan, setCatatan] = useState("");
+// DTO → NoteEntry riwayat (karakterisasi PQRST; skor NRS tidak di sini — itu milik TTV).
+function nyeriToNote(d: PenilaianNyeriDTO): NoteEntry {
+  const parts: string[] = [];
+  if (d.lokasi) parts.push(`Lokasi: ${d.lokasi}`);
+  if (d.tipeNyeri) parts.push(`Tipe: ${d.tipeNyeri}`);
+  if (d.karakter) parts.push(`Karakter: ${d.karakter}`);
+  if (d.durasi) parts.push(`Durasi: ${d.durasi}`);
+  if (d.faktorPemberat) parts.push(`Pemberat: ${d.faktorPemberat}`);
+  if (d.faktorPeringan) parts.push(`Peringan: ${d.faktorPeringan}`);
+  if (d.dampakFungsional) parts.push(`Dampak: ${d.dampakFungsional}`);
+  if (d.rencanaReasesmen) parts.push(`Reasesmen: ${d.rencanaReasesmen}`);
+  if (d.catatan) parts.push(d.catatan);
+  return { date: d.tanggal, author: d.pemeriksa || "—", content: parts.join("\n") };
+}
 
-  const level =
-    score === 0 ? { label: "Tidak Nyeri",       cls: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200" } :
-    score <= 3  ? { label: "Nyeri Ringan",       cls: "bg-sky-100 text-sky-700 ring-1 ring-sky-200"           } :
-    score <= 6  ? { label: "Nyeri Sedang",       cls: "bg-amber-100 text-amber-700 ring-1 ring-amber-200"     } :
-    score <= 9  ? { label: "Nyeri Berat",        cls: "bg-orange-100 text-orange-700 ring-1 ring-orange-200"  } :
-                  { label: "Nyeri Sangat Berat", cls: "bg-rose-100 text-rose-700 ring-1 ring-rose-200"        };
+// Severity NRS (0–10) → label + warna (dipakai banner skor TTV read-only).
+function nrsLevel(score: number) {
+  return score === 0 ? { label: "Tidak Nyeri",       cls: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200" }
+    : score <= 3     ? { label: "Nyeri Ringan",       cls: "bg-sky-100 text-sky-700 ring-1 ring-sky-200" }
+    : score <= 6     ? { label: "Nyeri Sedang",       cls: "bg-amber-100 text-amber-700 ring-1 ring-amber-200" }
+    : score <= 9     ? { label: "Nyeri Berat",        cls: "bg-orange-100 text-orange-700 ring-1 ring-orange-200" }
+    :                  { label: "Nyeri Sangat Berat", cls: "bg-rose-100 text-rose-700 ring-1 ring-rose-200" };
+}
+
+const EMPTY_NYERI = {
+  lokasi: "", karakter: "", durasi: "", faktorPemberat: "", faktorPeringan: "",
+  tipeNyeri: "", dampakFungsional: "", rencanaReasesmen: "", catatan: "",
+};
+const TIPE_NYERI_OPTS = ["Nosiseptif", "Neuropatik", "Campuran"];
+
+// Asesmen nyeri KOMPREHENSIF (karakterisasi). Skor NRS = single source di TTV (read-only di sini).
+function NyeriPanel({ kunjunganId, isPersisted, perawat }: PanelCtx) {
+  const [form, setForm] = useState(EMPTY_NYERI);
+  const [ttv, setTtv] = useState<{ skor: number; tanggal: string; jam: string } | null>(null);
+  const [history, setHistory] = useState<NoteEntry[]>(isPersisted ? [] : NYERI_NOTES);
+  const [saving, setSaving] = useState(false);
+  const set = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
+
+  // Skor NRS terkini dari TTV/Observation (read-only) + riwayat asesmen (kunjungan UUID).
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    listObservasi(kunjunganId, ac.signal)
+      .then((rows) => {
+        const latest = rows[0]; // terbaru dulu
+        setTtv(latest ? { skor: latest.vitalSigns.skalaNyeri, tanggal: latest.tanggal, jam: latest.jam } : null);
+      })
+      .catch(() => { /* 403/kosong → banner empty-state */ });
+    getPenilaianNyeri(kunjunganId, ac.signal)
+      .then((rows) => setHistory(rows.map(nyeriToNote)))
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat riwayat asesmen nyeri", e instanceof ApiError ? e.message : undefined);
+      });
+    return () => ac.abort();
+  }, [isPersisted, kunjunganId]);
+
+  const isEmpty = !Object.values(form).some((v) => v.trim());
+
+  async function handleSave() {
+    if (isEmpty || saving) return;
+    if (!isPersisted) {
+      const local: PenilaianNyeriDTO = {
+        id: `local-${Date.now()}`, ...form, pemeriksa: perawat,
+        tanggal: NOTE_DATE_FMT.format(new Date()), waktu: new Date().toISOString(),
+      };
+      setHistory((h) => [nyeriToNote(local), ...h]);
+      setForm(EMPTY_NYERI);
+      toast.info("Pasien demo — asesmen tidak tersimpan ke database");
+      return;
+    }
+    try {
+      setSaving(true);
+      const dto = await createPenilaianNyeri(kunjunganId, {
+        lokasi: form.lokasi || undefined,
+        karakter: form.karakter || undefined,
+        durasi: form.durasi || undefined,
+        faktorPemberat: form.faktorPemberat || undefined,
+        faktorPeringan: form.faktorPeringan || undefined,
+        tipeNyeri: form.tipeNyeri || undefined,
+        dampakFungsional: form.dampakFungsional || undefined,
+        rencanaReasesmen: form.rencanaReasesmen || undefined,
+        catatan: form.catatan || undefined,
+      });
+      setHistory((h) => [nyeriToNote(dto), ...h]);
+      setForm(EMPTY_NYERI);
+      toast.success("Asesmen nyeri tersimpan");
+    } catch (e) {
+      toast.error("Gagal menyimpan asesmen nyeri", e instanceof ApiError ? e.message : undefined);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const lvl = ttv ? nrsLevel(ttv.skor) : null;
 
   return (
     <TwoPanel
       form={
         <div className="flex flex-col gap-3.5">
-          <div>
-            <div className="mb-2.5 flex items-center justify-between">
-              <Label>Skala Nyeri Numerik (NRS 0–10)</Label>
-              <span className={cn("rounded-full px-2.5 py-0.5 text-[11px] font-bold", level.cls)}>
-                {score} — {level.label}
+          {/* Skor NRS terkini — SINGLE SOURCE dari TTV (read-only) */}
+          {ttv && lvl ? (
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <Zap size={16} className="shrink-0 text-indigo-400" aria-hidden />
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Skor Nyeri Terkini · dari TTV</p>
+                <p className="text-[11px] text-slate-500">Diukur {ttv.tanggal} · {ttv.jam} — skor NRS diisi di tab TTV (tanda vital)</p>
+              </div>
+              <span className={cn("shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold", lvl.cls)}>
+                {ttv.skor} — {lvl.label}
               </span>
             </div>
-            <div className="flex overflow-hidden rounded-lg border border-slate-200">
-              {Array.from({ length: 11 }, (_, i) => (
-                <button
-                  key={i} type="button" onClick={() => setScore(i)}
+          ) : (
+            <div className="flex items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-4 py-3 text-[11px] text-slate-500">
+              <Zap size={14} className="shrink-0 text-slate-300" aria-hidden />
+              Skor NRS belum ada — isi <span className="font-semibold text-slate-600">skala nyeri di tab TTV</span> (tanda vital). Asesmen ini melengkapi karakterisasinya.
+            </div>
+          )}
+
+          {/* Karakterisasi (PQRST) */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label>Lokasi Nyeri</Label>
+              <input value={form.lokasi} onChange={(e) => set("lokasi", e.target.value)} placeholder="Dada kiri menjalar ke lengan..." className={inputCls} />
+            </div>
+            <div>
+              <Label>Karakter Nyeri</Label>
+              <input value={form.karakter} onChange={(e) => set("karakter", e.target.value)} placeholder="Tumpul, tajam, terbakar, terjepit..." className={inputCls} />
+            </div>
+          </div>
+
+          <div>
+            <Label>Tipe Nyeri</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {TIPE_NYERI_OPTS.map((opt) => (
+                <button key={opt} type="button" onClick={() => set("tipeNyeri", opt === form.tipeNyeri ? "" : opt)}
                   className={cn(
-                    "flex-1 cursor-pointer py-2 text-center text-[11px] font-bold transition-all",
-                    score === i ? "opacity-100 text-white" : "opacity-30 hover:opacity-60",
-                    i === 0 ? "bg-emerald-400" : i <= 3 ? "bg-sky-400" : i <= 6 ? "bg-amber-400" : i <= 9 ? "bg-orange-500" : "bg-rose-600",
-                  )}
-                >
-                  {i}
+                    "cursor-pointer rounded-full border px-3 py-1 text-[11px] font-medium transition-all",
+                    form.tipeNyeri === opt
+                      ? "border-indigo-400 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200"
+                      : "border-slate-200 bg-white text-slate-500 hover:border-indigo-300 hover:text-indigo-600",
+                  )}>
+                  {opt}
                 </button>
               ))}
             </div>
-            <input
-              type="range" min={0} max={10} step={1} value={score}
-              onChange={(e) => setScore(Number(e.target.value))}
-              className="mt-2 w-full accent-indigo-600"
-            />
           </div>
+
           <div className="grid gap-3 sm:grid-cols-3">
             {([
-              ["lokasi",   "Lokasi Nyeri",   lokasi,   setLokasi,   "Dada, kepala, perut..."],
-              ["karakter", "Karakter Nyeri", karakter, setKarakter, "Tumpul, tajam, terbakar..."],
-              ["durasi",   "Durasi",         durasi,   setDurasi,   "Intermiten, terus-menerus..."],
-            ] as [string, string, string, (v: string) => void, string][]).map(([key, label, val, setter, ph]) => (
-              <div key={key as string}>
-                <Label>{label as string}</Label>
-                <input value={val as string} onChange={(e) => setter(e.target.value)} placeholder={ph as string} className={inputCls} />
+              ["durasi",         "Durasi",          "Intermiten, terus-menerus..."],
+              ["faktorPemberat", "Faktor Pemberat", "Aktivitas, batuk, menelan..."],
+              ["faktorPeringan", "Faktor Peringan", "Istirahat, obat, posisi..."],
+            ] as [keyof typeof form, string, string][]).map(([key, label, ph]) => (
+              <div key={key}>
+                <Label>{label}</Label>
+                <input value={form[key]} onChange={(e) => set(key, e.target.value)} placeholder={ph} className={inputCls} />
               </div>
             ))}
           </div>
+
+          <div>
+            <Label>Dampak Fungsional</Label>
+            <input value={form.dampakFungsional} onChange={(e) => set("dampakFungsional", e.target.value)} placeholder="Pengaruh ke tidur, aktivitas, mobilisasi..." className={inputCls} />
+          </div>
+
+          <div>
+            <Label>Rencana Reasesmen</Label>
+            <input value={form.rencanaReasesmen} onChange={(e) => set("rencanaReasesmen", e.target.value)} placeholder="Mis. evaluasi ulang 30 menit pasca-analgesik" className={inputCls} />
+          </div>
+
           <div>
             <Label>Catatan Tambahan</Label>
-            <AutoTextarea value={catatan} onChange={setCatatan} placeholder="Faktor pemberat/peringan, karakteristik lain..." minRows={2} />
+            <AutoTextarea value={form.catatan} onChange={(v) => set("catatan", v)} placeholder="Karakteristik lain, respon terapi..." minRows={2} />
           </div>
-          <div className="flex justify-end"><SaveBtn label="Simpan Penilaian Nyeri" /></div>
+
+          <div className="flex justify-end">
+            <SaveBtn label="Simpan Asesmen Nyeri" onClick={handleSave} disabled={isEmpty} loading={saving} />
+          </div>
         </div>
       }
-      history={<HistoryPanel title="Penilaian Nyeri" notes={NYERI_NOTES} />}
+      history={<HistoryPanel title="Asesmen Nyeri" notes={history} />}
     />
   );
 }
@@ -1217,11 +1420,11 @@ function KankerPanel() {
 }
 
 // ── Tab registry ───────────────────────────────────────────────
-type TabDef = { id: string; short: string; title: string; icon: LucideIcon; content: () => ReactNode };
+type TabDef = { id: string; short: string; title: string; icon: LucideIcon; content: (ctx: PanelCtx) => ReactNode };
 
 const TABS: TabDef[] = [
-  { id: "fisik",     short: "Fisik",       title: "Penilaian Fisik",      icon: Activity,    content: () => <FisikPanel /> },
-  { id: "nyeri",     short: "Nyeri",       title: "Penilaian Nyeri",      icon: Zap,         content: () => <NyeriPanel /> },
+  { id: "fisik",     short: "Fisik",       title: "Penilaian Fisik",      icon: Activity,    content: (ctx) => <FisikPanel {...ctx} /> },
+  { id: "nyeri",     short: "Nyeri",       title: "Asesmen Nyeri",        icon: Zap,         content: (ctx) => <NyeriPanel {...ctx} /> },
   { id: "status",    short: "Status",      title: "Status Klinis",        icon: Stethoscope, content: () => <StatusPanel /> },
   { id: "pediatrik", short: "Pediatrik",   title: "Status Pediatrik",     icon: Baby,        content: () => <PediatrikPanel /> },
   { id: "diagnosis", short: "Diagnosis",   title: "Penilaian Diagnosis",  icon: BookOpen,    content: () => <DiagnosisPanel /> },
@@ -1233,7 +1436,14 @@ const TABS: TabDef[] = [
 ];
 
 // ── Main ───────────────────────────────────────────────────────
-export default function PenilaianTab({ patient: _patient }: { patient: IGDPatientDetail }) {
+export default function PenilaianTab({ patient }: { patient: IGDPatientDetail }) {
+  const { session } = useSession();
+  const kunjunganId = patient.id ?? "";
+  const ctx: PanelCtx = {
+    kunjunganId,
+    isPersisted: UUID_RE.test(kunjunganId),
+    perawat: session?.namaTampil ?? "",
+  };
   const [activeId, setActiveId] = useState("fisik");
   const tabBarRef = useRef<HTMLDivElement>(null);
   const activeTab = TABS.find((t) => t.id === activeId) ?? TABS[0];
@@ -1291,7 +1501,7 @@ export default function PenilaianTab({ patient: _patient }: { patient: IGDPatien
           transition={{ duration: 0.15 }}
           className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs"
         >
-          {activeTab.content()}
+          {activeTab.content(ctx)}
         </motion.div>
       </AnimatePresence>
     </div>
