@@ -166,6 +166,8 @@ export interface OrientasiState {
   orang:  boolean;
 }
 
+export type Mobilitas = "Mandiri" | "Dibantu" | "Tirah Baring";
+
 export interface PemeriksaanFisikEntry {
   id:             string;
   tanggal:        string;
@@ -175,9 +177,12 @@ export interface PemeriksaanFisikEntry {
   ku:             KU;
   kesadaran:      KesadaranPF;
   gizi:           StatusGizi;
+  mobilitas?:     Mobilitas;        // opsional (tambahan status generalis)
   orientasi:      OrientasiState;
+  catatanGeneralis?: string;        // catatan status generalis manual (opsional)
   sistem:         Record<SistemFisikKey, string>;
-  temuanAbnormal: string[];
+  temuanAbnormal: string[];         // id preset checklist
+  temuanLain:     string[];         // temuan abnormal manual (free-text)
   catatanUmum:    string;
   bodyMarkings:   { region: string; label: string; catatan: string }[];
 }
@@ -1571,6 +1576,7 @@ export const rawatInapPatientDetails: Record<string, RawatInapPatientDetail> = {
           kulit:       "Turgor kulit sedikit menurun. Tidak ikterik. Tidak sianosis. Tidak ada lesi.",
         },
         temuanAbnormal: ["edema", "ronkhi", "hepatomegali", "jvp_meningkat"],
+        temuanLain: [],
         catatanUmum: "Pasien GJK NYHA III, datang dengan sesak napas memberat dan edema bilateral. EF 30% per echo terakhir.",
         bodyMarkings: [
           { region: "dada_kiri",  label: "Dada Kiri",   catatan: "Ronkhi basah, redup basal" },
@@ -1598,6 +1604,7 @@ export const rawatInapPatientDetails: Record<string, RawatInapPatientDetail> = {
           kulit:       "Turgor baik. Tidak ikterik, tidak sianosis. Tidak ada lesi baru.",
         },
         temuanAbnormal: ["edema", "ronkhi", "hepatomegali"],
+        temuanLain: [],
         catatanUmum: "Perbaikan klinis: sesak berkurang, diuresis membaik. Program furosemid IV lanjut. Target balance -500cc/hari.",
         bodyMarkings: [
           { region: "kaki_kiri",  label: "Kaki Kiri",   catatan: "Edema +1 (membaik)" },
@@ -1858,6 +1865,7 @@ export const rawatInapPatientDetails: Record<string, RawatInapPatientDetail> = {
           kulit:       "Turgor menurun. Pucat. Sianosis perifer (+). Lesi purpurik tersebar di ekstremitas (suspek DIC). Tidak ada dekubitus.",
         },
         temuanAbnormal: ["pucat", "ronkhi", "akral_dingin", "sianosis", "edema"],
+        temuanLain: [],
         catatanUmum: "Pasien ARDS + Syok Sepsis. On ventilasi mekanik, NE 0.2 mcg/kgBB/mnt. GCS 9. Oliguria berat. CVC + arterial line terpasang.",
         bodyMarkings: [
           { region: "dada_kanan", label: "Dada Kanan",  catatan: "Redup, suara napas melemah (efusi/atelektasis)" },

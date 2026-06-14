@@ -1212,3 +1212,87 @@ model AsuhanEvaluasi {
   @@map("asuhan_evaluasi")
   @@schema("medicalrecord")
 }
+
+// ── Pemeriksaan Fisik (tab Pemeriksaan — status generalis + head-to-toe) ───────
+//  Asesmen fisik point-in-time (SNARS AP 1). Append-only "latest wins" (mirip Anamnesis):
+//  re-pemeriksaan = baris baru; latest by createdAt = berlaku. Shared lintas unit (IGD head-to-toe;
+//  RI/RJ per-sistem menyusul) — di-key kunjunganId. Blok orientasi/sistem/bodyMarkings = JSONB;
+//  temuanAbnormal (id preset) + temuanLain (manual) = text[]. waktuPemeriksaan = timestamptz
+//  (DateTimePicker). dokterPemeriksa = roster ruangan (Select); perawat = sesi login (denormalisasi).
+//  ku/kesadaran/gizi = vocab terkontrol (String, precedent); mobilitas opsional. Mirror PemeriksaanFisikEntry.
+
+model PemeriksaanFisik {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Spine (FK riil, same DB / cross-schema ke encounter) ──
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Status generalis ──
+  ku        String // Baik/Sedang/Berat (Zod)
+  kesadaran String // Composmentis/Apatis/Delirium/Somnolen/Sopor/Koma (Zod)
+  gizi      String // Baik/Kurang/Lebih/Obesitas (Zod)
+  mobilitas String? // Mandiri/Dibantu/Tirah Baring (opsional)
+  orientasi Json    @db.JsonB // {waktu,tempat,orang} boolean
+  catatanGeneralis String? @map("catatan_generalis") // catatan generalis manual (opsional)
+
+  // ── Pemeriksaan per region (head-to-toe IGD / per-sistem RI-RJ) — Record<key,string> ──
+  sistem Json @db.JsonB
+
+  // ── Temuan ──
+  temuanAbnormal String[] @map("temuan_abnormal") // id preset checklist
+  temuanLain     String[] @map("temuan_lain")     // temuan manual (free-text)
+  catatanUmum    String?  @map("catatan_umum")
+
+  // ── Penandaan area tubuh (forward-compat; {region,label,catatan}[]) ──
+  bodyMarkings Json @default("[]") @map("body_markings") @db.JsonB
+
+  // ── Waktu + pemeriksa/author (dari actor) ──
+  waktuPemeriksaan DateTime @map("waktu_pemeriksaan") @db.Timestamptz(3)
+  dokterPemeriksa  String   @map("dokter_pemeriksa") // nama denormalisasi (roster ruangan)
+  perawat          String   // nama denormalisasi pencatat (dari user login)
+  authorUserId     String?  @map("author_user_id") @db.Uuid
+  authorPegawaiId  String?  @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (append-only: tanpa updatedAt/soft-delete; version utk konsistensi) ──
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt]) // ambil baris terbaru per kunjungan
+  @@map("pemeriksaan_fisik")
+  @@schema("medicalrecord")
+}
+
+// ── Penandaan Anatomi (tab Pemeriksaan, sub Anatomi — body-map per area) ────────
+//  Daftar hidup per-item: 1 baris = 1 area tubuh yang ditandai (body diagram). Tambah =
+//  INSERT (klik area), hapus = soft-delete (lepas tanda; jejak medico-legal), edit catatan =
+//  UPDATE. Per kunjungan (key kunjunganId). region = id area (mis. "dada_kiri"); label =
+//  snapshot nama tampil; catatan = temuan area. Mirror pola AsesmenAlergi (daftar hidup).
+//  Gate clinical.pemeriksaan (satu tab Pemeriksaan). pemeriksa = denormalisasi sesi login.
+
+model PenandaanAnatomi {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Spine (FK riil, same DB / cross-schema ke encounter) ──
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  region  String // id area tubuh (mis. "dada_kiri")
+  label   String // nama tampil snapshot (mis. "Dada Kiri")
+  catatan String @default("") // temuan/catatan area
+
+  // ── Pencatat + author (dari actor) ──
+  pemeriksa       String  // nama denormalisasi pencatat (dari user login)
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (mutable terbatas: version + updatedAt; hapus = soft-delete medico-legal) ──
+  version   Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt]) // daftar penanda aktif per kunjungan
+  @@map("penandaan_anatomi")
+  @@schema("medicalrecord")
+}

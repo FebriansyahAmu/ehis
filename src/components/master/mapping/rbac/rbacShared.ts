@@ -57,6 +57,10 @@ export const PERMISSION_TREE: PermissionModule[] = [
       // Asuhan keperawatan (SDKI/SLKI/SIKI) — domain Perawat (penulis utama); Dokter co-sign.
       // Resource sendiri agar Perawat punya CREATE penuh tanpa membuka clinical.rekammedis shared.
       { key: "clinical.keperawatan", label: "Asuhan Keperawatan (SDKI)",     actions: ["read", "create", "update", "delete"] },
+      // Pemeriksaan Fisik (SNARS AP 1) — tab Pemeriksaan. Fisik append-only (read/create);
+      // sub Anatomi/Penandaan = daftar hidup (update catatan + delete tanda). Satu resource utk
+      // seluruh tab. Dokter & Perawat sama-sama memeriksa.
+      { key: "clinical.pemeriksaan", label: "Pemeriksaan Fisik (AP 1)",      actions: ["read", "create", "update", "delete"] },
     ],
   },
   {
@@ -160,6 +164,7 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
     "clinical.resep": ["read", "create", "update"],
     "clinical.rekonsiliasi": ["read", "create"], // rekonsiliasi obat per fase (append-only)
     "clinical.keperawatan": ["read", "create", "update", "delete"], // asuhan keperawatan (dokter co-sign/dokumentasi)
+    "clinical.pemeriksaan": ["read", "create", "update", "delete"], // pemeriksaan fisik + penandaan anatomi (dokter)
     // CATATAN: TIDAK diberi ancillary.* — itu untuk unit penunjang (Lab/Rad/Farmasi) yang
     // berdiri-sendiri. Dokter lihat status order via tab rekam medis (clinical.*), bukan
     // worklist penunjang. Grant ancillary.* di sini dulu bikin menu penunjang muncul keliru.
@@ -185,6 +190,7 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
     "clinical.resep": ["read"],
     "clinical.rekonsiliasi": ["read", "create"], // perawat catat rekonsiliasi saat admisi/transfer
     "clinical.keperawatan": ["read", "create", "update", "delete"], // asuhan keperawatan — perawat penulis utama
+    "clinical.pemeriksaan": ["read", "create", "update", "delete"], // pemeriksaan fisik + penandaan anatomi (perawat)
     // CATATAN: TIDAK diberi ancillary.* — itu untuk unit penunjang (Lab/Rad/Farmasi) yang
     // berdiri-sendiri. Perawat lihat status order via tab rekam medis, bukan worklist penunjang.
     "master.triase": ["read"], // baca protokol triase (decision-support di TriaseTab)

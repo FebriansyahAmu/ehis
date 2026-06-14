@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { KU, KesadaranPF, StatusGizi, SistemFisikKey, PemeriksaanFisikEntry } from "@/lib/data";
+import type { KU, KesadaranPF, StatusGizi, Mobilitas, SistemFisikKey, PemeriksaanFisikEntry } from "@/lib/data";
 
 // ── Exported form state type ────────────────────────────────
 
@@ -14,6 +14,7 @@ export type PemeriksaanFormState = Omit<PemeriksaanFisikEntry, "id">;
 const KU_OPTIONS: KU[] = ["Baik", "Sedang", "Berat"];
 const KESADARAN_OPTIONS: KesadaranPF[] = ["Composmentis", "Apatis", "Delirium", "Somnolen", "Sopor", "Koma"];
 const GIZI_OPTIONS: StatusGizi[] = ["Baik", "Kurang", "Lebih", "Obesitas"];
+const MOBILITAS_OPTIONS: Mobilitas[] = ["Mandiri", "Dibantu", "Tirah Baring"];
 
 interface SistemDef { key: SistemFisikKey; label: string; normalText: string }
 
@@ -58,9 +59,12 @@ export function emptyFormState(): PemeriksaanFormState {
     ku:      "Baik",
     kesadaran: "Composmentis",
     gizi:    "Baik",
+    mobilitas: undefined,
     orientasi: { waktu: true, tempat: true, orang: true },
+    catatanGeneralis: "",
     sistem: Object.fromEntries(SISTEM_DEF.map((d) => [d.key, ""])) as Record<SistemFisikKey, string>,
     temuanAbnormal: [],
+    temuanLain: [],
     catatanUmum: "",
     bodyMarkings: [],
   };
@@ -203,6 +207,7 @@ interface Props {
 
 export default function StatusFisikPane({ initial, onSave }: Props) {
   const [form, setForm] = useState<PemeriksaanFormState>(initial ?? emptyFormState());
+  const [temuanDraft, setTemuanDraft] = useState("");
   const set = <K extends keyof PemeriksaanFormState>(k: K, v: PemeriksaanFormState[K]) =>
     setForm((p) => ({ ...p, [k]: v }));
 
@@ -213,6 +218,21 @@ export default function StatusFisikPane({ initial, onSave }: Props) {
         ? p.temuanAbnormal.filter((t) => t !== id)
         : [...p.temuanAbnormal, id],
     }));
+  }
+
+  // Mobilitas opsional — klik aktif = lepas (kembali kosong).
+  function toggleMobilitas(v: Mobilitas) {
+    setForm((p) => ({ ...p, mobilitas: p.mobilitas === v ? undefined : v }));
+  }
+
+  function addTemuanLain() {
+    const v = temuanDraft.trim();
+    if (!v) return;
+    setForm((p) => (p.temuanLain.includes(v) ? p : { ...p, temuanLain: [...p.temuanLain, v] }));
+    setTemuanDraft("");
+  }
+  function removeTemuanLain(v: string) {
+    setForm((p) => ({ ...p, temuanLain: p.temuanLain.filter((t) => t !== v) }));
   }
 
   function setSistem(key: SistemFisikKey, v: string) {
@@ -226,6 +246,7 @@ export default function StatusFisikPane({ initial, onSave }: Props) {
       orientasi: { waktu: true, tempat: true, orang: true },
       sistem: Object.fromEntries(SISTEM_DEF.map((d) => [d.key, d.normalText])) as Record<SistemFisikKey, string>,
       temuanAbnormal: [],
+      temuanLain: [],
     }));
   }
 
@@ -287,6 +308,41 @@ export default function StatusFisikPane({ initial, onSave }: Props) {
               ))}
             </div>
           </div>
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              Mobilitas <span className="normal-case text-slate-300">(opsional)</span>
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {MOBILITAS_OPTIONS.map((opt) => {
+                const active = form.mobilitas === opt;
+                return (
+                  <button key={opt} type="button" onClick={() => toggleMobilitas(opt)}
+                    className={cn(
+                      "cursor-pointer rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 transition-all",
+                      active
+                        ? "bg-indigo-600 text-white ring-indigo-600"
+                        : "bg-white text-slate-600 ring-slate-200 hover:ring-indigo-300 hover:text-indigo-700",
+                    )}>
+                    {opt}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Catatan status generalis (manual, opsional) */}
+        <div className="mt-3">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            Catatan Status Generalis <span className="normal-case text-slate-300">(opsional)</span>
+          </p>
+          <AutoTextarea
+            value={form.catatanGeneralis ?? ""}
+            onChange={(v) => set("catatanGeneralis", v)}
+            placeholder="Habitus, kesan sakit, postur, atau catatan generalis lain..."
+            minRows={2}
+            className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 placeholder:text-slate-300 outline-none focus:border-indigo-400"
+          />
         </div>
       </div>
 
@@ -325,6 +381,36 @@ export default function StatusFisikPane({ initial, onSave }: Props) {
               </button>
             );
           })}
+        </div>
+
+        {/* Temuan manual (free-text) */}
+        <div className="mt-3 border-t border-slate-100 pt-3">
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Temuan Lain (input manual)</p>
+          {form.temuanLain.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {form.temuanLain.map((t) => (
+                <span key={t} className="inline-flex items-center gap-1 rounded-full bg-rose-500 px-2.5 py-1 text-[11px] font-medium text-white">
+                  {t}
+                  <button type="button" onClick={() => removeTemuanLain(t)} aria-label="Hapus" className="cursor-pointer opacity-80 hover:opacity-100">
+                    <X size={11} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input
+              value={temuanDraft}
+              onChange={(e) => setTemuanDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTemuanLain(); } }}
+              placeholder="Ketik temuan lalu Enter atau Tambah..."
+              className="flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 placeholder:text-slate-300 outline-none focus:border-rose-400 focus:ring-1 focus:ring-rose-100"
+            />
+            <button type="button" onClick={addTemuanLain} disabled={!temuanDraft.trim()}
+              className="flex cursor-pointer items-center gap-1 rounded-lg bg-rose-500 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-rose-600 disabled:opacity-40">
+              <Plus size={12} /> Tambah
+            </button>
+          </div>
         </div>
       </div>
 

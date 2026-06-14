@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, ChevronRight, ClipboardList } from "lucide-react";
 import type { PemeriksaanFisikEntry } from "@/lib/data";
 import { cn } from "@/lib/utils";
-import { SISTEM_DEF } from "./StatusFisikPane";
+import { SISTEM_DEF } from "@/components/shared/medical-records/pemeriksaan/StatusFisikPane";
 
 // ── Types ───────────────────────────────────────────────────
 

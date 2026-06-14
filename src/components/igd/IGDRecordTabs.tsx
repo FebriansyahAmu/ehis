@@ -232,7 +232,7 @@ export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }
             {active === "pulang"       && <PasienPulangTab patient={patient} />}
             {active === "rekonsiliasi" && <RekonsiliasTab  patient={patient} />}
             {active === "keperawatan"  && <KeperawatanTab  patient={patient} />}
-            {active === "pemeriksaan"  && <PemeriksaanTab />}
+            {active === "pemeriksaan"  && <PemeriksaanTab    patient={patient} />}
             {active === "penilaian"    && <PenilaianTab    patient={patient} />}
             {active === "rujukan"      && <RujukanKeluarTab    patient={patient} />}
             {active === "penandaan"   && <PenandaanGambarTab patient={patient} />}

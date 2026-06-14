@@ -162,6 +162,8 @@ model Kunjungan {
   informedConsent          InformedConsent[]
   rekonsiliasi             Rekonsiliasi[]
   asuhanKeperawatan        AsuhanKeperawatan[]
+  pemeriksaanFisik         PemeriksaanFisik[]
+  penandaanAnatomi         PenandaanAnatomi[]
 
   // ── Tautan invoice (1:1, dibuat saat Registered→Queued) ──
   invoiceId String? @unique @map("invoice_id") @db.Uuid // FK→billing.Invoice saat siap

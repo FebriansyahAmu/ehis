@@ -1,10 +1,45 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Activity, ScanLine, FlaskConical, Plus, Trash2, Upload } from "lucide-react";
+import { Activity, ScanLine, FlaskConical, Plus, Trash2, Upload, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { IGDPatientDetail } from "@/lib/data";
+import { useSession } from "@/contexts/SessionContext";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
+import { DateTimePicker, Select } from "@/components/shared/inputs";
+import { listPetugasKunjungan } from "@/lib/api/penugasanRuangan";
+import {
+  getPemeriksaanFisik, createPemeriksaanFisik, type PemeriksaanFisikDTO,
+} from "@/lib/api/pemeriksaan/pemeriksaanFisik";
+import {
+  getPenandaanAnatomi, createPenandaanAnatomi, updatePenandaanAnatomi, deletePenandaanAnatomi,
+} from "@/lib/api/pemeriksaan/penandaanAnatomi";
 import StatusFisikPane, { type PemeriksaanFormState, emptyFormState } from "@/components/shared/medical-records/pemeriksaan/StatusFisikPane";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// ── Datetime helpers (kontrak DateTimePicker = "YYYY-MM-DDTHH:mm" lokal) ────────
+function nowLocalDT(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function isoToLocalDT(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function localToIso(local: string): string {
+  const d = new Date(local);
+  return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+}
+function dtDate(local: string): string { return local.split("T")[0] ?? local; }
+function dtTime(local: string): string { return (local.split("T")[1] ?? "").slice(0, 5); }
+function localMarkId(): string { return `pa-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`; }
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -13,10 +48,9 @@ type SubTab = "fisik" | "anatomi" | "penunjang";
 interface HasilEntry {
   id: string;
   jenis: string;
-  nama: string;
-  nilai: string;
-  satuan: string;
-  normal: string;
+  nama: string;       // keterangan/detail pemeriksaan (opsional)
+  hasil: string;      // interpretasi / temuan klinis (utama)
+  kesimpulan: string; // kesan (opsional)
   tanggal: string;
 }
 
@@ -31,30 +65,37 @@ const SUB_TABS: { id: SubTab; label: string; Icon: IconComponent }[] = [
 // ── Metadata header ────────────────────────────────────────
 
 function MetaHeader({
-  tanggal, jam, dokter, perawat, onChange,
+  waktu, dokter, perawat, dokterOptions, onWaktu, onDokter,
 }: {
-  tanggal: string; jam: string; dokter: string; perawat: string;
-  onChange: (field: "tanggal" | "jam" | "dokter" | "perawat", v: string) => void;
+  waktu: string; dokter: string; perawat: string;
+  dokterOptions: string[];
+  onWaktu: (v: string) => void;
+  onDokter: (v: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xs sm:grid-cols-4">
-      {([
-        { id: "tanggal", label: "Tanggal",          type: "date" },
-        { id: "jam",     label: "Jam",              type: "time" },
-        { id: "dokter",  label: "Dokter Pemeriksa", type: "text" },
-        { id: "perawat", label: "Perawat",          type: "text" },
-      ] as const).map(({ id, label, type }) => (
-        <div key={id}>
-          <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
-          <input
-            type={type}
-            value={id === "tanggal" ? tanggal : id === "jam" ? jam : id === "dokter" ? dokter : perawat}
-            onChange={(e) => onChange(id, e.target.value)}
-            placeholder={type === "text" ? "—" : undefined}
-            className="w-full border-b border-slate-200 bg-transparent py-1 text-xs font-medium text-slate-700 placeholder:text-slate-300 outline-none focus:border-indigo-400"
-          />
+    <div className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xs sm:grid-cols-3">
+      <div>
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Tanggal &amp; Waktu</p>
+        <DateTimePicker value={waktu} onChange={onWaktu} className="w-full text-xs" />
+      </div>
+      <div>
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Dokter Pemeriksa</p>
+        <Select
+          value={dokter}
+          onChange={onDokter}
+          options={dokterOptions}
+          icon={User}
+          placeholder="Pilih dokter ter-assign…"
+          className="w-full text-xs"
+        />
+      </div>
+      <div>
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Perawat</p>
+        <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-700">
+          <User size={13} className="shrink-0 text-slate-400" />
+          <span className="truncate font-medium">{perawat || "—"}</span>
         </div>
-      ))}
+      </div>
     </div>
   );
 }
@@ -84,34 +125,76 @@ const BODY_REGIONS = [
   { id: "tangan_kanan",   label: "Tangan Kanan",   col: 4, row: 5 },
 ];
 
-interface RegionNote { region: string; label: string; catatan: string }
+interface RegionNote { id: string; region: string; label: string; catatan: string }
 
-function AnatomiPane() {
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+function AnatomiPane({ kunjunganId, isPersisted }: { kunjunganId: string; isPersisted: boolean }) {
   const [notes, setNotes]       = useState<RegionNote[]>([]);
-  const [editing, setEditing]   = useState<string | null>(null);
+  const [editing, setEditing]   = useState<string | null>(null); // by note id
   const [editText, setEditText] = useState("");
 
-  function toggleRegion(id: string, label: string) {
-    setSelected((p) => {
-      const next = new Set(p);
-      if (next.has(id)) {
-        next.delete(id);
-        setNotes((n) => n.filter((r) => r.region !== id));
-        if (editing === id) setEditing(null);
-      } else {
-        next.add(id);
-        setNotes((n) => [...n, { region: id, label, catatan: "" }]);
-        setEditing(id);
-        setEditText("");
-      }
-      return next;
-    });
+  const selected = useMemo(() => new Set(notes.map((n) => n.region)), [notes]);
+
+  // Muat penanda tersimpan (kunjungan UUID).
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    getPenandaanAnatomi(kunjunganId, ac.signal)
+      .then((rows) => setNotes(rows.map((r) => ({ id: r.id, region: r.region, label: r.label, catatan: r.catatan }))))
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat penandaan anatomi", e instanceof ApiError ? e.message : undefined);
+      });
+    return () => ac.abort();
+  }, [isPersisted, kunjunganId]);
+
+  async function addRegion(id: string, label: string) {
+    if (!isPersisted) {
+      const localId = localMarkId();
+      setNotes((n) => [...n, { id: localId, region: id, label, catatan: "" }]);
+      setEditing(localId); setEditText("");
+      return;
+    }
+    try {
+      const dto = await createPenandaanAnatomi(kunjunganId, { region: id, label });
+      setNotes((n) => [...n, { id: dto.id, region: dto.region, label: dto.label, catatan: dto.catatan }]);
+      setEditing(dto.id); setEditText("");
+      toast.success("Area ditandai", dto.label);
+    } catch (e) {
+      toast.error("Gagal menandai area", e instanceof ApiError ? e.message : undefined);
+    }
   }
 
-  function saveNote(region: string) {
-    setNotes((p) => p.map((n) => n.region === region ? { ...n, catatan: editText } : n));
-    setEditing(null);
+  async function removeRegion(note: RegionNote) {
+    if (editing === note.id) setEditing(null);
+    if (!isPersisted) { setNotes((n) => n.filter((r) => r.id !== note.id)); return; }
+    try {
+      await deletePenandaanAnatomi(kunjunganId, note.id);
+      setNotes((n) => n.filter((r) => r.id !== note.id));
+    } catch (e) {
+      toast.error("Gagal menghapus tanda", e instanceof ApiError ? e.message : undefined);
+    }
+  }
+
+  function toggleRegion(id: string, label: string) {
+    const existing = notes.find((n) => n.region === id);
+    if (existing) removeRegion(existing); else addRegion(id, label);
+  }
+
+  async function saveNote(note: RegionNote) {
+    const catatan = editText;
+    if (!isPersisted) {
+      setNotes((p) => p.map((n) => (n.id === note.id ? { ...n, catatan } : n)));
+      setEditing(null);
+      return;
+    }
+    try {
+      const dto = await updatePenandaanAnatomi(kunjunganId, note.id, { catatan });
+      setNotes((p) => p.map((n) => (n.id === note.id ? { ...n, catatan: dto.catatan } : n)));
+      setEditing(null);
+      toast.success("Catatan tersimpan", note.label);
+    } catch (e) {
+      toast.error("Gagal menyimpan catatan", e instanceof ApiError ? e.message : undefined);
+    }
   }
 
   const gridCols = 5;
@@ -170,28 +253,29 @@ function AnatomiPane() {
           </div>
         ) : (
           notes.map((n) => (
-            <div key={n.region} className="rounded-xl border border-rose-100 bg-white p-3 shadow-xs">
+            <div key={n.id} className="rounded-xl border border-rose-100 bg-white p-3 shadow-xs">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-semibold text-slate-800">{n.label}</span>
                 <button
-                  onClick={() => toggleRegion(n.region, n.label)}
+                  onClick={() => removeRegion(n)}
                   aria-label="Hapus"
                   className="shrink-0 cursor-pointer text-slate-300 hover:text-rose-500 transition-colors"
                 >
                   <Trash2 size={12} />
                 </button>
               </div>
-              {editing === n.region ? (
+              {editing === n.id ? (
                 <div className="mt-2 flex gap-2">
                   <input
                     autoFocus
                     value={editText}
                     onChange={(e) => setEditText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveNote(n); } }}
                     placeholder="Temuan / catatan..."
                     className="flex-1 border-b border-slate-200 bg-transparent py-1 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-indigo-400"
                   />
                   <button
-                    onClick={() => saveNote(n.region)}
+                    onClick={() => saveNote(n)}
                     className="cursor-pointer rounded-md bg-indigo-600 px-2.5 py-1 text-[11px] font-medium text-white transition hover:bg-indigo-700"
                   >
                     Simpan
@@ -199,7 +283,7 @@ function AnatomiPane() {
                 </div>
               ) : (
                 <button
-                  onClick={() => { setEditing(n.region); setEditText(n.catatan); }}
+                  onClick={() => { setEditing(n.id); setEditText(n.catatan); }}
                   className="mt-1.5 w-full cursor-pointer text-left text-[11px] text-slate-500 hover:text-indigo-600"
                 >
                   {n.catatan || <span className="italic text-slate-300">Klik untuk tambah catatan...</span>}
@@ -215,19 +299,21 @@ function AnatomiPane() {
 
 // ── PENUNJANG pane ─────────────────────────────────────────
 
-const JENIS_OPTIONS = ["Laboratorium", "Radiologi", "EKG", "USG", "Lainnya"];
+// Penunjang bedside/diagnostik di luar Lab & Radiologi (keduanya punya tab/modul sendiri;
+// USG = modalitas radiologi → dikelola di tab Radiologi). Hasil bersifat interpretatif.
+const JENIS_OPTIONS = ["EKG", "Spirometri", "EEG", "EMG", "Audiometri", "Ekokardiografi", "Treadmill Test", "Lainnya"];
 
 function PenunjangPane() {
   const [entries, setEntries] = useState<HasilEntry[]>([]);
   const [form, setForm] = useState<Omit<HasilEntry, "id">>({
-    jenis: "Laboratorium", nama: "", nilai: "", satuan: "", normal: "", tanggal: "",
+    jenis: "EKG", nama: "", hasil: "", kesimpulan: "", tanggal: "",
   });
   const set = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
   function handleAdd() {
-    if (!form.nama) return;
+    if (!form.hasil.trim()) return;
     setEntries((p) => [...p, { id: `p-${Date.now()}`, ...form }]);
-    setForm((p) => ({ ...p, nama: "", nilai: "", satuan: "", normal: "", tanggal: "" }));
+    setForm((p) => ({ ...p, nama: "", hasil: "", kesimpulan: "", tanggal: "" }));
   }
 
   const grouped = entries.reduce<Record<string, HasilEntry[]>>((acc, e) => {
@@ -235,11 +321,14 @@ function PenunjangPane() {
     return acc;
   }, {});
 
+  const inputCls = "w-full border-b border-slate-200 bg-transparent py-1.5 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-indigo-400";
+  const labelCls = "mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400";
+
   return (
     <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-4">
       {/* Form */}
       <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-xs md:w-72 md:shrink-0">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Tambah Hasil Pemeriksaan</p>
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Tambah Pemeriksaan Penunjang</p>
 
         <div>
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Jenis</p>
@@ -262,50 +351,49 @@ function PenunjangPane() {
         </div>
 
         <div>
-          <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Nama Pemeriksaan</p>
+          <p className={labelCls}>Keterangan <span className="font-normal lowercase text-slate-300">(opsional)</span></p>
           <input
             value={form.nama}
             onChange={(e) => set("nama", e.target.value)}
-            placeholder="Contoh: Hemoglobin, foto toraks..."
-            className="w-full border-b border-slate-200 bg-transparent py-1.5 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-indigo-400"
+            placeholder="Mis. EKG 12 sadapan, spirometri post-bronkodilator..."
+            className={inputCls}
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Nilai / Hasil</p>
-            <input value={form.nilai} onChange={(e) => set("nilai", e.target.value)}
-              placeholder="12.5"
-              className="w-full border-b border-slate-200 bg-transparent py-1.5 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-indigo-400" />
-          </div>
-          <div>
-            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Satuan</p>
-            <input value={form.satuan} onChange={(e) => set("satuan", e.target.value)}
-              placeholder="g/dL"
-              className="w-full border-b border-slate-200 bg-transparent py-1.5 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-indigo-400" />
-          </div>
+        <div>
+          <p className={labelCls}>Hasil / Interpretasi</p>
+          <textarea
+            value={form.hasil}
+            onChange={(e) => set("hasil", e.target.value)}
+            rows={3}
+            placeholder="Mis. Sinus rhythm, HR 88x/mnt, axis normal, tanpa tanda iskemia akut"
+            className={cn(inputCls, "resize-none leading-relaxed")}
+          />
         </div>
 
         <div>
-          <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Nilai Normal</p>
-          <input value={form.normal} onChange={(e) => set("normal", e.target.value)}
-            placeholder="12.0 – 16.0 g/dL"
-            className="w-full border-b border-slate-200 bg-transparent py-1.5 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-indigo-400" />
+          <p className={labelCls}>Kesimpulan / Kesan <span className="font-normal lowercase text-slate-300">(opsional)</span></p>
+          <input
+            value={form.kesimpulan}
+            onChange={(e) => set("kesimpulan", e.target.value)}
+            placeholder="Mis. EKG dalam batas normal"
+            className={inputCls}
+          />
         </div>
 
         <div>
-          <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Tanggal</p>
+          <p className={labelCls}>Tanggal</p>
           <input type="date" value={form.tanggal} onChange={(e) => set("tanggal", e.target.value)}
             className="w-full border-b border-slate-200 bg-transparent py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-400" />
         </div>
 
         <button
           onClick={handleAdd}
-          disabled={!form.nama}
+          disabled={!form.hasil.trim()}
           className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-indigo-600 py-2 text-xs font-medium text-white shadow-xs transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Plus size={12} />
-          Tambah Hasil
+          Tambah Penunjang
         </button>
       </div>
 
@@ -313,41 +401,37 @@ function PenunjangPane() {
       <div className="flex flex-1 flex-col gap-3">
         <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-200 bg-white px-4 py-5 text-center transition hover:border-indigo-300 hover:bg-indigo-50/30">
           <Upload size={18} className="text-slate-300" />
-          <span className="text-xs font-medium text-slate-500">Upload file hasil lab / radiologi</span>
+          <span className="text-xs font-medium text-slate-500">Upload file hasil penunjang (EKG, spirometri, dll.)</span>
           <span className="text-[11px] text-slate-400">PDF, JPG, PNG — maks. 10 MB</span>
           <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png" className="hidden" />
         </label>
 
         {Object.keys(grouped).length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white py-8 text-center text-xs text-slate-400 shadow-xs">
-            Belum ada hasil pemeriksaan
+            Belum ada hasil pemeriksaan penunjang
           </div>
         ) : (
           Object.entries(grouped).map(([jenis, items]) => (
             <div key={jenis} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
-              <div className="border-b border-slate-100 bg-slate-50/60 px-4 py-2">
+              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/60 px-4 py-2">
                 <span className="text-[11px] font-semibold text-slate-600">{jenis}</span>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">{items.length}</span>
               </div>
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100">
-                    <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-400">Pemeriksaan</th>
-                    <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wide text-slate-400">Hasil</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-400">Normal</th>
-                    <th className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Tanggal</th>
-                    <th className="w-8 px-3 py-2" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {items.map((item) => (
-                    <tr key={item.id} className="transition-colors hover:bg-slate-50">
-                      <td className="px-3 py-2 font-medium text-slate-700">{item.nama}</td>
-                      <td className="px-3 py-2 text-right font-bold text-slate-800">
-                        {item.nilai} <span className="font-normal text-slate-400">{item.satuan}</span>
-                      </td>
-                      <td className="px-3 py-2 text-slate-500">{item.normal || "—"}</td>
-                      <td className="px-3 py-2 font-mono text-[10px] text-slate-400">{item.tanggal || "—"}</td>
-                      <td className="px-3 py-2">
+              <ul className="divide-y divide-slate-100">
+                {items.map((item) => (
+                  <li key={item.id} className="px-4 py-3 transition-colors hover:bg-slate-50">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        {item.nama && <p className="text-xs font-semibold text-slate-700">{item.nama}</p>}
+                        <p className={cn("whitespace-pre-wrap text-xs text-slate-600", item.nama && "mt-0.5")}>{item.hasil}</p>
+                        {item.kesimpulan && (
+                          <p className="mt-1.5 inline-flex rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
+                            Kesan: {item.kesimpulan}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {item.tanggal && <span className="font-mono text-[10px] text-slate-400">{item.tanggal}</span>}
                         <button
                           onClick={() => setEntries((p) => p.filter((e) => e.id !== item.id))}
                           aria-label="Hapus"
@@ -355,11 +439,11 @@ function PenunjangPane() {
                         >
                           <Trash2 size={12} />
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </div>
           ))
         )}
@@ -368,27 +452,105 @@ function PenunjangPane() {
   );
 }
 
+// ── DTO → form state (prefill latest) ──────────────────────
+
+function dtoToFormState(d: PemeriksaanFisikDTO): PemeriksaanFormState {
+  return {
+    tanggal: d.tanggal, jam: d.jam, dokter: d.dokter, perawat: d.perawat,
+    ku: d.ku as PemeriksaanFormState["ku"],
+    kesadaran: d.kesadaran as PemeriksaanFormState["kesadaran"],
+    gizi: d.gizi as PemeriksaanFormState["gizi"],
+    mobilitas: d.mobilitas as PemeriksaanFormState["mobilitas"],
+    orientasi: d.orientasi,
+    catatanGeneralis: d.catatanGeneralis,
+    sistem: d.sistem as PemeriksaanFormState["sistem"],
+    temuanAbnormal: d.temuanAbnormal,
+    temuanLain: d.temuanLain,
+    catatanUmum: d.catatanUmum,
+    bodyMarkings: d.bodyMarkings,
+  };
+}
+
 // ── Main ──────────────────────────────────────────────────
 
-export default function PemeriksaanTab() {
+export default function PemeriksaanTab({ patient }: { patient: IGDPatientDetail }) {
+  const { session } = useSession();
+  const kunjunganId = patient.id ?? "";
+  const isPersisted = UUID_RE.test(kunjunganId);
+
   const [active, setActive] = useState<SubTab>("fisik");
 
-  const [meta, setMeta] = useState({
-    tanggal: new Date().toISOString().slice(0, 10),
-    jam:     new Date().toTimeString().slice(0, 5),
-    dokter:  "",
-    perawat: "",
-  });
+  // Meta: waktu (DateTimePicker) + dokter (roster Select) + perawat (sesi login, read-only).
+  const [waktu, setWaktu]   = useState<string>(() => nowLocalDT());
+  const [dokter, setDokter] = useState<string>("");
+  const [formState, setFormState] = useState<PemeriksaanFormState>(() => emptyFormState());
+  const [formKey, setFormKey] = useState("new"); // remount StatusFisikPane saat prefill datang
 
-  const [formState, setFormState] = useState<PemeriksaanFormState>(() => ({
-    ...emptyFormState(),
-    tanggal: new Date().toISOString().slice(0, 10),
-    jam:     new Date().toTimeString().slice(0, 5),
-  }));
+  // Roster dokter ter-assign ruangan kunjungan (konsumen klinis — sama pola Informed Consent).
+  const [dokterRoster, setDokterRoster] = useState<string[]>([]);
 
-  function handleMetaChange(field: "tanggal" | "jam" | "dokter" | "perawat", v: string) {
-    setMeta((p) => ({ ...p, [field]: v }));
-    setFormState((p) => ({ ...p, [field]: v }));
+  const perawat = session?.namaTampil ?? "";
+
+  // Muat pemeriksaan terbaru (prefill) + roster dokter (kunjungan UUID).
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    getPemeriksaanFisik(kunjunganId, ac.signal)
+      .then((rows) => {
+        if (rows.length === 0) return;
+        const latest = rows[0]; // GET terurut terbaru dulu
+        setFormState(dtoToFormState(latest));
+        setWaktu(isoToLocalDT(latest.waktuPemeriksaan));
+        setDokter(latest.dokter);
+        setFormKey(latest.id);
+      })
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat pemeriksaan fisik", e instanceof ApiError ? e.message : undefined);
+      });
+    listPetugasKunjungan(kunjunganId, "Dokter", ac.signal)
+      .then((items) => setDokterRoster(items.map((p) => p.namaTampil)))
+      .catch(() => { /* 403/belum login → fallback DPJP header */ });
+    return () => ac.abort();
+  }, [isPersisted, kunjunganId]);
+
+  // Opsi dokter = roster + DPJP header (patient.doctor) + nilai tersimpan (record lama).
+  const dokterOptions = useMemo(() => {
+    const set = new Set(dokterRoster);
+    if (patient.doctor && patient.doctor !== "—") set.add(patient.doctor);
+    if (dokter) set.add(dokter);
+    return [...set].sort((a, b) => a.localeCompare(b, "id"));
+  }, [dokterRoster, patient.doctor, dokter]);
+
+  async function handleSave(data: PemeriksaanFormState) {
+    // Meta (waktu/dokter/perawat) menang atas salinan form (anti-stale).
+    const merged: PemeriksaanFormState = {
+      ...data, tanggal: dtDate(waktu), jam: dtTime(waktu), dokter, perawat,
+    };
+    if (!isPersisted) { setFormState(merged); toast.info("Pasien demo — pemeriksaan tidak tersimpan ke database"); return; }
+    try {
+      const dto = await createPemeriksaanFisik(kunjunganId, {
+        waktuPemeriksaan: localToIso(waktu),
+        dokterPemeriksa: dokter || undefined,
+        perawat: perawat || undefined,
+        ku: data.ku, kesadaran: data.kesadaran, gizi: data.gizi,
+        mobilitas: data.mobilitas,
+        orientasi: data.orientasi,
+        catatanGeneralis: data.catatanGeneralis || undefined,
+        sistem: data.sistem,
+        temuanAbnormal: data.temuanAbnormal,
+        temuanLain: data.temuanLain,
+        catatanUmum: data.catatanUmum || undefined,
+        bodyMarkings: data.bodyMarkings,
+      });
+      setFormState(dtoToFormState(dto));
+      setWaktu(isoToLocalDT(dto.waktuPemeriksaan));
+      setDokter(dto.dokter);
+      setFormKey(dto.id);
+      toast.success("Pemeriksaan fisik tersimpan");
+    } catch (e) {
+      toast.error("Gagal menyimpan pemeriksaan", e instanceof ApiError ? e.message : undefined);
+    }
   }
 
   return (
@@ -404,11 +566,12 @@ export default function PemeriksaanTab() {
 
       {/* Metadata header */}
       <MetaHeader
-        tanggal={meta.tanggal}
-        jam={meta.jam}
-        dokter={meta.dokter}
-        perawat={meta.perawat}
-        onChange={handleMetaChange}
+        waktu={waktu}
+        dokter={dokter}
+        perawat={perawat}
+        dokterOptions={dokterOptions}
+        onWaktu={setWaktu}
+        onDokter={setDokter}
       />
 
       {/* Sub-tab nav */}
@@ -449,11 +612,12 @@ export default function PemeriksaanTab() {
         >
           {active === "fisik" && (
             <StatusFisikPane
+              key={formKey}
               initial={formState}
-              onSave={(data) => setFormState(data)}
+              onSave={handleSave}
             />
           )}
-          {active === "anatomi"   && <AnatomiPane />}
+          {active === "anatomi"   && <AnatomiPane kunjunganId={kunjunganId} isPersisted={isPersisted} />}
           {active === "penunjang" && <PenunjangPane />}
         </motion.div>
       </AnimatePresence>

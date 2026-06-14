@@ -75,6 +75,54 @@
 
 ---
 
+## 🩻 Rekam Medis Klinis (shared IGD/RI/RJ)
+
+### Pemeriksaan Fisik — cleanup pasca Anatomi domain *(2026-06-14)*
+- [ ] **`PemeriksaanFisik.bodyMarkings` (JSONB) vestigial** — sub-tab Anatomi kini punya domain sendiri `medicalrecord.PenandaanAnatomi` (per-item, body-map). Kolom `bodyMarkings` di `pemeriksaan_fisik` (+ field di `PemeriksaanFisikEntry`/Zod/DTO/`emptyFormState`) tak lagi sumber kebenaran & selalu kosong (StatusFisikPane tak mengisinya). Aman di-drop (belum ada data nyata): drop-column migration + bersihkan schema/Zod/Service/DTO/FE. Ditunda — harmless.
+- [ ] **Sub-tab Penunjang (PemeriksaanTab IGD) belum di-wire** — `PenunjangPane` (hasil lab/rad + upload) masih state lokal throwaway. Kandidat: domain hasil-penunjang atau konsumsi `Order`/hasil Lab-Rad yang sudah ada (jangan duplikasi). Upload file butuh storage (belum ada).
+- [ ] **Riwayat pemeriksaan fisik (>1 baris) belum ditampilkan** — domain append-only "latest wins" simpan tiap re-pemeriksaan sbg baris baru; FE baru tampilkan/prefill yang terbaru. Tambah panel riwayat (mirror RiwayatPane RI) bila perlu jejak.
+
+### Pemeriksaan Fisik — mode per-unit (Head-to-toe vs Per-sistem) *(diputuskan 2026-06-14, belum diimplementasi)*
+
+> **Keputusan desain** (diskusi 2026-06-14): tab Pemeriksaan Fisik pakai **mode berbeda per unit** — **IGD = head-to-toe** (topografik, seperti sekarang), **RI & RJ = per-sistem** (fisiologis/organ-system). Komponen tetap **satu shared** [StatusFisikPane.tsx](src/components/shared/medical-records/pemeriksaan/StatusFisikPane.tsx) (dipakai IGD/RI/RJ via `PemeriksaanTab`). **Belum backend** (Pemeriksaan = bagian "11 tab lain ⬜" TODO-CLINICAL) → murah diubah sebelum kontrak DB; saat backend, schema harus mencerminkan organisasi terpilih.
+
+**Rencana implementasi — Tier 1 dulu (free-text reorganisasi), Tier 2 menyusul:**
+- [ ] **Tier 1 (sekarang) — reuse akordion, tambah prop `mode`** (tak perlu skill frontend-design, pattern-conforming):
+  - Prop `mode: "headToToe" | "perSistem"` di shared pane. Dua set def di file yg sama: `HEADTOTOE_DEF` (11 region, persis sekarang) + `PERSISTEM_DEF` (8 pane di bawah). `sistem` → `Record<string,string>` (key per mode, longgar — bukan lagi 11 key head-to-toe terkunci di [`SistemFisikKey`](src/lib/data.ts#L159)). `emptyFormState(mode)`.
+  - IGD `mode="headToToe"`, RI/RJ `mode="perSistem"`. Label header ikut mode (sekalian perbaiki label rancu "Per Sistem (Head-to-toe)").
+  - **Status Generalis** (KU/Kesadaran/Gizi/Orientasi) + **Temuan Abnormal** + **Catatan Umum** + **BodyMap** → tetap sama di kedua mode. **Kesadaran/GCS/Orientasi tetap di Status Generalis (Konstitusional)**; pane Neurologi per-sistem fokus motorik/sensorik/refleks/N. kranialis/meningeal (hindari dobel).
+  - **Cleanup:** hapus copy nyasar [rawat-inap/tabs/pemeriksaan/StatusFisikPane.tsx](src/components/rawat-inap/tabs/pemeriksaan/StatusFisikPane.tsx) — tak dipakai (RI impor yang shared).
+- [ ] **Tier 2 (menyusul)** — field terstruktur per sistem prioritas (KV: BJ I-II/murmur/JVP/edema/CRT · Respirasi · Neuro) → CDS + tagging FHIR `Observation`/SNOMED *body system* (interop SatuSehat). **Greenfield UI → wajib invoke skill frontend-design.**
+
+**Cakupan "9 ringkas"** = Konstitusional (blok Status Generalis, kedua mode) + **8 pane per-sistem** (RI/RJ):
+
+| # | Pane sistem | Cakupan | Serap dari head-to-toe |
+|---|---|---|---|
+| 1 | **Kepala–Leher** | Mata · THT-KL · mulut · tiroid · KGB | kepala+mata+tht + tiroid/KGB(leher) |
+| 2 | **Neurologi** | motorik · sensorik · refleks · N. kranialis · meningeal | neurologi |
+| 3 | **Kardiovaskuler** | BJ I-II · murmur · gallop · JVP · akral · CRT · edema | jantung + JVP(leher) + akral/edema(ekstremitas) |
+| 4 | **Respirasi** | trakea · toraks · suara napas · ronkhi/wheezing | toraks_paru + trakea(leher) |
+| 5 | **Gastrointestinal** | abdomen · bising usus · hepar/lien | abdomen + mulut(tht) |
+| 6 | **Genitourinaria** | nyeri ketuk CVA · kandung kemih · genitalia | urogenital |
+| 7 | **Muskuloskeletal** | ROM · kekuatan otot · sendi · deformitas | ekstremitas (ROM/kekuatan) |
+| 8 | **Integumen** | turgor · warna · lesi · luka/dekubitus | kulit |
+
+Endokrin & Limfatik **regional** (tiroid, KGB) → masuk Kepala–Leher; tanda sistemik sementara ke Catatan Umum (dipisah saat Tier 2).
+
+**Draft teks "Normal" per pane** (sudah disepakati, untuk preset tombol ✓ Normal):
+1. Kepala–Leher — *"Normosefali. Konjungtiva tidak anemis, sklera tidak ikterik, pupil isokor ∅3mm, RC +/+. Hidung sekret (-); telinga membran timpani intak; mulut mukosa lembab, faring tidak hiperemis, tonsil T1/T1. Leher: tidak ada pembesaran KGB maupun tiroid."*
+2. Neurologi — *"Kaku kuduk (-). N. kranialis dalam batas normal. Kekuatan motorik 5555/5555, sensorik baik. Refleks fisiologis +/+ normal, patologis (-)."*
+3. Kardiovaskuler — *"Iktus kordis tidak tampak/teraba, batas jantung normal. BJ I-II normal reguler, murmur (-), gallop (-). JVP tidak meningkat. Akral hangat, CRT <2 detik, edema (-)."*
+4. Respirasi — *"Trakea di tengah. Toraks simetris statis-dinamis, fremitus simetris, sonor. Suara napas vesikuler +/+, ronkhi -/-, wheezing -/-."*
+5. Gastrointestinal — *"Datar, supel. Bising usus (+) normal. Tidak ada nyeri tekan/defans muskular. Hepar & lien tidak teraba. Perkusi timpani."*
+6. Genitourinaria — *"Nyeri ketuk kostovertebra (-). Kandung kemih tidak teraba. Genitalia eksterna normal. BAK tidak ada keluhan."*
+7. Muskuloskeletal — *"Tidak ada deformitas. ROM penuh semua sendi. Kekuatan otot 5/5/5/5. Edema/atrofi (-)."*
+8. Integumen — *"Turgor kulit baik. Tidak ikterik, tidak sianosis. Tidak ada lesi maupun luka tekan (dekubitus)."*
+
+**Konteks klinis:** head-to-toe = *teknik melakukan* pemeriksaan (topografik, alur bedside perawat); per-sistem = *kerangka mendokumentasikan & menalar* (organ-system → korelasi diagnosa ICD/SDKI, koding FHIR/SNOMED, agregasi abnormal). Keduanya tak saling meniadakan.
+
+---
+
 ## 💊 Farmasi
 
 - [ ] **Gudang Farmasi (Inventory & Stok)** — modul terpisah: kartu stok digital per depo, FEFO/FIFO enforcement, min-max stock alert, permintaan depo ke gudang, transfer antar depo, penerimaan dari supplier. PMK 72/2016 Bab IV
