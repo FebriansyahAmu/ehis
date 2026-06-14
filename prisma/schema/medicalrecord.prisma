@@ -1155,8 +1155,8 @@ model AsuhanKeperawatan {
   // ── Intervensi SIKI (blok JSONB {observasi,terapeutik,edukasi,kolaborasi}) ──
   intervensi Json @db.JsonB
 
-  // ── Evaluasi shift (timeline; blok JSONB array EvaluasiShift) ──
-  evaluasi Json @default("[]") @db.JsonB
+  // ── Evaluasi shift (timeline) — tabel anak AsuhanEvaluasi (bukan lagi JSONB) ──
+  evaluasiShift AsuhanEvaluasi[]
 
   // ── Waktu + perawat/author (dari actor) ──
   tanggalInput    DateTime @map("tanggal_input") @db.Timestamptz(3)
@@ -1177,5 +1177,38 @@ model AsuhanKeperawatan {
 
   @@index([kunjunganId, deletedAt])
   @@map("asuhan_keperawatan")
+  @@schema("medicalrecord")
+}
+
+// ── Evaluasi Shift Asuhan Keperawatan (timeline SOAP per shift) ────────────────
+//  1 baris = 1 catatan evaluasi pada satu titik waktu (per shift Pagi/Siang/Malam).
+//  BANYAK baris per asuhan (monitoring berkala) — append-only time-series (medico-legal):
+//  tambah = INSERT, tanpa edit/hapus (koreksi = baris baru). Anak dari AsuhanKeperawatan
+//  (FK cascade). waktu = timestamptz (DateTimePicker global); perawat = denormalisasi
+//  dari actor (user login). statusLuaran terakhir menetapkan status berjalan parent
+//  (di-sync Service saat insert). Mirror EvaluasiShift (lib/data.ts) → zero-refactor.
+
+model AsuhanEvaluasi {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  asuhanId String            @map("asuhan_id") @db.Uuid
+  asuhan   AsuhanKeperawatan @relation(fields: [asuhanId], references: [id], onDelete: Cascade)
+
+  shift        String  // Pagi/Siang/Malam (Zod)
+  subjektif    String? // keluhan pasien (boleh kosong)
+  objektif     String  // temuan klinis / hasil pemeriksaan (wajib)
+  statusLuaran String  @map("status_luaran") // Teratasi/Teratasi_Sebagian/Belum_Teratasi/Dipantau (Zod)
+
+  // ── Waktu evaluasi (DateTimePicker) + perawat/author (dari actor) ──
+  waktu           DateTime @db.Timestamptz(3)
+  perawat         String   // nama denormalisasi pencatat (dari user login)
+  authorUserId    String?  @map("author_user_id") @db.Uuid
+  authorPegawaiId String?  @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (append-only: tanpa updatedAt/soft-delete) ──
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([asuhanId, waktu]) // timeline per asuhan (urut kronologis)
+  @@map("asuhan_evaluasi")
   @@schema("medicalrecord")
 }

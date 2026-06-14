@@ -12,6 +12,18 @@
 
 ---
 
+## ✅ Selesai — Keperawatan: Evaluasi Shift → contracts table sendiri (Domain 9 Fase C) (2026-06-14)
+
+> Fitur **Tambah Evaluasi Shift** (Riwayat Asuhan Keperawatan, tab Keperawatan IGD): dari blok JSONB di `AsuhanKeperawatan` (di-append via PATCH) → **tabel anak `medicalrecord.AsuhanEvaluasi`** dengan endpoint sendiri. 4 permintaan user: (1) dropdown shift + DatePicker → komponen global; (2) perawat = user login; (3) bangun contracts table + endpoints (API-RULES); (4) wiring FE↔BE. Detail → [TODO-CLINICAL.md](../TODO-CLINICAL.md) Domain 9 Fase C.
+
+1. **Kontrak** — [medicalrecord.prisma](../prisma/schema/medicalrecord.prisma) model **`AsuhanEvaluasi`** (FK `asuhan_id`→`AsuhanKeperawatan` cascade · shift/subjektif?/objektif/statusLuaran · `waktu` timestamptz · perawat+author · **append-only** tanpa updatedAt/soft-delete · index `(asuhan_id, waktu)`). Relasi `AsuhanKeperawatan.evaluasiShift[]` **gantikan kolom JSONB `evaluasi`**. Migrasi `20260614150000_init_medicalrecord_asuhan_evaluasi` (CREATE + FK + **DROP COLUMN evaluasi**).
+2. **Lapisan** — [Zod](../src/lib/schemas/keperawatan/asuhanKeperawatan.ts) `EvaluasiInput` (waktu? ISO · shift? · subjektif? · objektif wajib · statusLuaran · perawat?); DTO `EvaluasiShiftDTO` derive tanggal/jam dari `waktu` (TZ Asia/Jakarta) — `evaluasi` dibuang dari Input/Update asuhan. [DAL](../src/lib/dal/keperawatan/asuhanKeperawatanDal.ts) `createEvaluasi`/`listEvaluasi` + `include evaluasiShift` (urut waktu). [Service](../src/lib/services/keperawatan/asuhanKeperawatanService.ts) `addEvaluasi` (perawat=actor · shift derive bila kosong · sinkron `statusLuaran` parent → DTO ter-refresh) + `listEvaluasi`.
+3. **Endpoint** — `/kunjungan/:id/asuhan-keperawatan/:itemId/evaluasi` GET (list) + POST 201 — gate **`clinical.keperawatan`** (read/create) + ABAC careUnit (route choke-point via `ItemParam`). [route](../src/app/api/v1/kunjungan/[id]/asuhan-keperawatan/[itemId]/evaluasi/route.ts) + client `addEvaluasiShift`/`getEvaluasiShift`.
+4. **FE** — [AsuhanCard](../src/components/shared/medical-records/keperawatan/AsuhanCard.tsx) `EvaluasiForm`: **Tanggal & Waktu = `DateTimePicker`** (ganti `<input date>`+`<input time>`) · **Shift = `Select`** global (ganti `<select>`) · **Perawat = chip read-only sesi login** (no free-text). Callback `onAddEval(EvalDraft{waktu,...})`. [KeperawatanTab IGD](../src/components/igd/tabs/KeperawatanTab.tsx) `handleAddEval` → `addEvaluasiShift` (persisted) / lokal (mock igd-1) + `petugasLogin={session.namaTampil}`. RI copy ([rawat-inap/tabs/KeperawatanTab](../src/components/rawat-inap/tabs/KeperawatanTab.tsx), pakai shared AsuhanCard) ikut disesuaikan ke `EvalDraft` (build EvaluasiShift display lokal — tetap mock).
+5. **Verifikasi** — `tsc` bersih (sisa error seed-script `.ts`-ext expected) · `eslint` 0 error (warning `_actor` precedent) · `migrate deploy`+`generate` · DB smoke (kolom benar · JSONB `evaluasi` ter-drop · index timeline · insert + FK-bogus 23503). **Sisa:** wiring RI/RJ penuh (punya copy AsuhanForm/Card sendiri) · verifikasi in-browser (AUTH_ENFORCE).
+
+---
+
 ## ✅ Selesai — Rekam Medis Keperawatan (Domain 9: AsuhanKeperawatan persist + template DB) (2026-06-14)
 
 > Tab **Keperawatan IGD** (`ehis-care/igd/{}`): dari state lokal → **persist ke DB** + template asuhan dari **DB `master.sdki`** (bukan mock hardcoded). 5 permintaan user: (1) tanggal→DateTimePicker global + perawat→user login; (2) rename "Katalog SDKI Cepat"→"Katalog Keperawatan (Template)"; (3) fetch katalog keperawatan utk template (SSR jika perlu); (4) auto-fill form saat pilih katalog; (6) contracts endpoint API-RULES; (7) wiring FE↔BE. Detail → [TODO-CLINICAL.md](../TODO-CLINICAL.md) Domain 9.

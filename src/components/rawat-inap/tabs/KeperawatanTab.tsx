@@ -10,12 +10,22 @@ import type { RawatInapPatientDetail, AsuhanKeperawatanEntry, EvaluasiShift } fr
 import { cn } from "@/lib/utils";
 import { STATUS_LUARAN_CONFIG, type AsuhanFormState } from "@/components/shared/medical-records/keperawatanShared";
 import AsuhanForm, { type FormMode } from "@/components/shared/medical-records/keperawatan/AsuhanForm";
-import AsuhanCard from "@/components/shared/medical-records/keperawatan/AsuhanCard";
+import AsuhanCard, { type EvalDraft } from "@/components/shared/medical-records/keperawatan/AsuhanCard";
 import BundleHAISection from "@/components/rawat-inap/ppiIsolasi/BundleHAISection";
 
 // ── Helpers ────────────────────────────────────────────────
 
 function genId() { return `ak-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
+
+// Evaluasi draft (waktu "YYYY-MM-DDTHH:mm") → tampilan tanggal id-ID + jam "HH:mm".
+function dtDisplayDate(local: string): string {
+  const d = new Date(local);
+  if (Number.isNaN(d.getTime())) return local.split("T")[0] ?? local;
+  return d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+}
+function dtTimePart(local: string): string {
+  return (local.split("T")[1] ?? "").slice(0, 5);
+}
 
 function formStateFromEntry(e: AsuhanKeperawatanEntry): AsuhanFormState {
   return {
@@ -115,10 +125,20 @@ export default function KeperawatanTab({ patient }: { patient: RawatInapPatientD
     setCopySource(entry);
   }
 
-  function handleAddEval(id: string, ev: EvaluasiShift) {
+  function handleAddEval(id: string, draft: EvalDraft) {
+    const ev: EvaluasiShift = {
+      id: genId(),
+      tanggal: dtDisplayDate(draft.waktu),
+      jam: dtTimePart(draft.waktu),
+      shift: draft.shift,
+      subjektif: draft.subjektif,
+      objektif: draft.objektif,
+      statusLuaran: draft.statusLuaran,
+      perawat: draft.perawat,
+    };
     setEntries(p => p.map(e =>
       e.id === id
-        ? { ...e, evaluasi: [...e.evaluasi, ev], statusLuaran: ev.statusLuaran }
+        ? { ...e, evaluasi: [...e.evaluasi, ev], statusLuaran: draft.statusLuaran }
         : e
     ));
   }

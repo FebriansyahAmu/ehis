@@ -29,17 +29,17 @@ export const IntervensiSchema = z.object({
   edukasi: strArr,
   kolaborasi: strArr,
 });
-// Evaluasi shift (timeline; tanggal/jam = string tampilan, bukan timestamptz).
-export const EvaluasiShiftSchema = z.object({
-  id: z.string().optional(),
-  tanggal: z.string().optional(),
-  jam: z.string().optional(),
+// Evaluasi shift — input tambah 1 catatan evaluasi (tabel anak AsuhanEvaluasi).
+// waktu = ISO (DateTimePicker global; default now di Service); shift default derive dari waktu.
+export const EvaluasiInput = z.object({
+  waktu: z.string().optional(),
   shift: ShiftEnum.optional(),
-  subjektif: z.string().optional(),
-  objektif: z.string().optional(),
+  subjektif: optStr,
+  objektif: z.string().trim().min(1, "Objektif wajib").max(2000),
   statusLuaran: StatusLuaranEnum,
-  perawat: z.string().optional(),
+  perawat: optStr, // default nama actor di Service
 });
+export type EvaluasiInput = z.infer<typeof EvaluasiInput>;
 
 // ── Create (POST /kunjungan/:id/asuhan-keperawatan) ────────────────────────────
 export const AsuhanKeperawatanInput = z.object({
@@ -55,7 +55,6 @@ export const AsuhanKeperawatanInput = z.object({
   kriteriaHasil: strArr,
   statusLuaran: StatusLuaranEnum.optional(),
   intervensi: IntervensiSchema.optional(),
-  evaluasi: z.array(EvaluasiShiftSchema).optional(),
   tanggalInput: z.string().optional(), // ISO; default now() di Service
   perawat: optStr,                      // default nama actor di Service
 });
@@ -75,7 +74,6 @@ export const AsuhanKeperawatanUpdate = z.object({
   kriteriaHasil: strArr,
   statusLuaran: StatusLuaranEnum.optional(),
   intervensi: IntervensiSchema.optional(),
-  evaluasi: z.array(EvaluasiShiftSchema).optional(),
   tanggalInput: z.string().optional(),
   perawat: optStr,
   // Verifikasi (co-sign). verifiedAt di-set Service saat verified→true.

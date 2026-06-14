@@ -1,7 +1,8 @@
 // asuhanKeperawatanService — tab Keperawatan (asuhan keperawatan SDKI/SLKI/SIKI per kunjungan).
-// CRUD: add/edit/verify(co-sign)/evaluasi shift/hapus(soft). Perawat = input override ATAU nama actor.
-// RBAC di Route: clinical.keperawatan (read/create/update/delete). ABAC careUnit di route() choke-point
-// (clinical.* + params.id). Blok pengkajian/intervensi/evaluasi = JSONB. Selaras tindakanMedisService.
+// CRUD: add/edit/verify(co-sign)/hapus(soft) + evaluasi shift (tabel anak AsuhanEvaluasi, append).
+// Perawat = input override ATAU nama actor. RBAC di Route: clinical.keperawatan (read/create/update/
+// delete). ABAC careUnit di route() choke-point (clinical.* + params.id). Blok pengkajian/intervensi
+// = JSONB; evaluasi = baris anak (waktu timestamptz → tanggal/jam display, TZ Asia/Jakarta).
 
 import * as defaultDal from "@/lib/dal/keperawatan/asuhanKeperawatanDal";
 import * as kunjunganDal from "@/lib/dal/kunjunganDal";
@@ -10,9 +11,12 @@ import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type { AsuhanEntity, UpdateAsuhanData } from "@/lib/dal/keperawatan/asuhanKeperawatanDal";
 import {
-  type AsuhanKeperawatanInput, type AsuhanKeperawatanUpdate,
+  type AsuhanKeperawatanInput, type AsuhanKeperawatanUpdate, type EvaluasiInput,
   type AsuhanKeperawatanDTO, type EvaluasiShiftDTO, type StatusLuaranDTO,
 } from "@/lib/schemas/keperawatan/asuhanKeperawatan";
+
+type ShiftDTO = "Pagi" | "Siang" | "Malam";
+type EvaluasiRow = AsuhanEntity["evaluasiShift"][number];
 
 // Normalisasi input → bentuk simpan (buang baris kosong; default string).
 function cleanList(a?: string[]): string[] { return (a ?? []).map((x) => x.trim()).filter(Boolean); }
@@ -24,23 +28,6 @@ function cleanIntervensi(iv?: { observasi?: string[]; terapeutik?: string[]; edu
     observasi: cleanList(iv?.observasi), terapeutik: cleanList(iv?.terapeutik),
     edukasi: cleanList(iv?.edukasi), kolaborasi: cleanList(iv?.kolaborasi),
   };
-}
-// Evaluasi shift → objek string-penuh (tanpa undefined) agar valid InputJsonValue.
-type EvalInput = {
-  id?: string; tanggal?: string; jam?: string; shift?: "Pagi" | "Siang" | "Malam";
-  subjektif?: string; objektif?: string; statusLuaran: string; perawat?: string;
-};
-function cleanEvaluasi(arr?: EvalInput[]) {
-  return (arr ?? []).map((e, i) => ({
-    id: e.id || `eval-${Date.now()}-${i}`,
-    tanggal: e.tanggal ?? "",
-    jam: e.jam ?? "",
-    shift: e.shift ?? "Pagi",
-    subjektif: e.subjektif ?? "",
-    objektif: e.objektif ?? "",
-    statusLuaran: e.statusLuaran,
-    perawat: e.perawat ?? "",
-  }));
 }
 
 type Dal = typeof defaultDal;
@@ -61,19 +48,29 @@ function toIntervensi(v: unknown) {
     edukasi: strArr(o.edukasi), kolaborasi: strArr(o.kolaborasi),
   };
 }
-function toEvaluasi(v: unknown): EvaluasiShiftDTO[] {
-  if (!Array.isArray(v)) return [];
-  return v.map((e, i) => {
-    const o = (e ?? {}) as Record<string, unknown>;
-    const shift = o.shift === "Pagi" || o.shift === "Siang" || o.shift === "Malam" ? o.shift : "Pagi";
-    return {
-      id: s(o.id) || `eval-${i}`,
-      tanggal: s(o.tanggal), jam: s(o.jam), shift,
-      subjektif: s(o.subjektif), objektif: s(o.objektif),
-      statusLuaran: (s(o.statusLuaran) || "Dipantau") as StatusLuaranDTO,
-      perawat: s(o.perawat),
-    };
-  });
+
+// ── Evaluasi shift: waktu (timestamptz) → tanggal/jam tampilan (TZ Asia/Jakarta) ──
+const DATE_FMT = new Intl.DateTimeFormat("id-ID", { timeZone: "Asia/Jakarta", day: "2-digit", month: "short", year: "numeric" });
+const TIME_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit", hour12: false });
+function jakartaHour(d: Date): number {
+  return Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Jakarta", hour: "2-digit", hour12: false }).format(d)) % 24;
+}
+function deriveShift(d: Date): ShiftDTO {
+  const h = jakartaHour(d);
+  return h >= 6 && h < 14 ? "Pagi" : h >= 14 && h < 21 ? "Siang" : "Malam";
+}
+function asShift(v: string): ShiftDTO { return v === "Siang" || v === "Malam" ? v : "Pagi"; }
+function mapEvaluasi(rows: EvaluasiRow[]): EvaluasiShiftDTO[] {
+  return rows.map((r) => ({
+    id: r.id,
+    tanggal: DATE_FMT.format(r.waktu),
+    jam: TIME_FMT.format(r.waktu),
+    shift: asShift(r.shift),
+    subjektif: r.subjektif ?? "",
+    objektif: r.objektif,
+    statusLuaran: (r.statusLuaran || "Dipantau") as StatusLuaranDTO,
+    perawat: r.perawat,
+  }));
 }
 
 function toDTO(e: AsuhanEntity): AsuhanKeperawatanDTO {
@@ -91,7 +88,7 @@ function toDTO(e: AsuhanEntity): AsuhanKeperawatanDTO {
     kriteriaHasil: e.kriteriaHasil,
     statusLuaran: e.statusLuaran as StatusLuaranDTO,
     intervensi: toIntervensi(e.intervensi),
-    evaluasi: toEvaluasi(e.evaluasi),
+    evaluasi: mapEvaluasi(e.evaluasiShift),
     tanggalInput: e.tanggalInput.toISOString(),
     perawat: e.perawat,
     verified: e.verified,
@@ -149,7 +146,6 @@ export function makeAsuhanKeperawatanService(deps: { dal?: Dal } = {}) {
       kriteriaHasil: cleanList(input.kriteriaHasil),
       statusLuaran: input.statusLuaran ?? "Dipantau",
       intervensi: cleanIntervensi(input.intervensi),
-      evaluasi: cleanEvaluasi(input.evaluasi),
       tanggalInput: input.tanggalInput ? new Date(input.tanggalInput) : new Date(),
       perawat,
       authorUserId: actor.userId,
@@ -180,7 +176,6 @@ export function makeAsuhanKeperawatanService(deps: { dal?: Dal } = {}) {
     if (input.kriteriaHasil !== undefined) patch.kriteriaHasil = cleanList(input.kriteriaHasil);
     setDefined(patch, "statusLuaran", input.statusLuaran);
     if (input.intervensi !== undefined) patch.intervensi = cleanIntervensi(input.intervensi);
-    if (input.evaluasi !== undefined) patch.evaluasi = cleanEvaluasi(input.evaluasi);
     if (input.tanggalInput !== undefined) patch.tanggalInput = new Date(input.tanggalInput);
     setDefined(patch, "perawat", input.perawat);
     setDefined(patch, "aktif", input.aktif);
@@ -212,7 +207,41 @@ export function makeAsuhanKeperawatanService(deps: { dal?: Dal } = {}) {
     await dal.softDelete(itemId);
   }
 
-  return { list, add, update, remove };
+  // ── Evaluasi shift (tabel anak) ───────────────────────────────────────────
+  // GET — timeline evaluasi 1 asuhan.
+  async function listEvaluasi(
+    kunjunganId: string, itemId: string, _actor: Actor,
+  ): Promise<EvaluasiShiftDTO[]> {
+    await assertKunjungan(kunjunganId);
+    const item = await assertMilik(kunjunganId, itemId);
+    return mapEvaluasi(item.evaluasiShift);
+  }
+
+  // POST — tambah 1 evaluasi shift; status luaran terbaru menetapkan status berjalan parent.
+  // Kembalikan DTO asuhan ter-refresh (FE replace kartu: evaluasi[] + statusLuaran sinkron).
+  async function addEvaluasi(
+    kunjunganId: string, itemId: string, input: EvaluasiInput, actor: Actor,
+  ): Promise<AsuhanKeperawatanDTO> {
+    await assertKunjungan(kunjunganId);
+    await assertMilik(kunjunganId, itemId);
+    const perawat = input.perawat?.trim() || (await resolveActorNama(actor));
+    const waktu = input.waktu ? new Date(input.waktu) : new Date();
+    await dal.createEvaluasi({
+      asuhanId: itemId,
+      shift: input.shift ?? deriveShift(waktu),
+      subjektif: input.subjektif?.trim() ?? "",
+      objektif: input.objektif.trim(),
+      statusLuaran: input.statusLuaran,
+      waktu,
+      perawat,
+      authorUserId: actor.userId,
+      authorPegawaiId: actor.pegawaiId,
+    });
+    await dal.update(itemId, { statusLuaran: input.statusLuaran });
+    return toDTO(await assertMilik(kunjunganId, itemId));
+  }
+
+  return { list, add, update, remove, listEvaluasi, addEvaluasi };
 }
 
 export const asuhanKeperawatanService = makeAsuhanKeperawatanService();

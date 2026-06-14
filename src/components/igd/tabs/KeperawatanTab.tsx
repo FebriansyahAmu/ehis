@@ -16,11 +16,11 @@ import {
 } from "@/components/shared/medical-records/keperawatanShared";
 import {
   getAsuhanKeperawatan, createAsuhanKeperawatan, updateAsuhanKeperawatan, deleteAsuhanKeperawatan,
-  type AsuhanKeperawatanDTO,
+  addEvaluasiShift, type AsuhanKeperawatanDTO,
 } from "@/lib/api/keperawatan/asuhanKeperawatan";
 import { listSdkiTemplate } from "@/lib/api/master/sdkiTemplate";
 import AsuhanForm, { type FormMode } from "@/components/shared/medical-records/keperawatan/AsuhanForm";
-import AsuhanCard from "@/components/shared/medical-records/keperawatan/AsuhanCard";
+import AsuhanCard, { type EvalDraft } from "@/components/shared/medical-records/keperawatan/AsuhanCard";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -35,6 +35,20 @@ function isoToLocal(iso: string): string {
   if (Number.isNaN(d.getTime())) return iso;
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+// Evaluasi shift: "YYYY-MM-DDTHH:mm" lokal → ISO payload; + split tampilan (path mock).
+function localToIso(local: string): string {
+  const d = new Date(local);
+  return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+}
+function dtDisplayDate(local: string): string {
+  const d = new Date(local);
+  if (Number.isNaN(d.getTime())) return local.split("T")[0] ?? local;
+  return d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+}
+function dtTimePart(local: string): string {
+  return (local.split("T")[1] ?? "").slice(0, 5);
 }
 
 // DTO server → entry FE (bentuk identik; tanggalInput/verifiedAt = local).
@@ -230,18 +244,33 @@ export default function KeperawatanTab({ patient }: { patient: IGDPatientDetail 
     setCopySource(entry);
   }
 
-  async function handleAddEval(id: string, ev: EvaluasiShift) {
-    const entry = entries.find(e => e.id === id);
-    if (!entry) return;
-    const nextEval = [...entry.evaluasi, ev];
+  async function handleAddEval(id: string, draft: EvalDraft) {
+    // Demo (pasien mock non-UUID): bangun EvaluasiShift lokal (tanggal/jam display).
     if (!isPersisted) {
-      setEntries(p => p.map(e => e.id === id ? { ...e, evaluasi: nextEval, statusLuaran: ev.statusLuaran } : e));
+      const ev: EvaluasiShift = {
+        id: genId(),
+        tanggal: dtDisplayDate(draft.waktu),
+        jam: dtTimePart(draft.waktu),
+        shift: draft.shift,
+        subjektif: draft.subjektif,
+        objektif: draft.objektif,
+        statusLuaran: draft.statusLuaran,
+        perawat: draft.perawat,
+      };
+      setEntries(p => p.map(e => e.id === id ? { ...e, evaluasi: [...e.evaluasi, ev], statusLuaran: draft.statusLuaran } : e));
       return;
     }
     try {
-      const dto = await updateAsuhanKeperawatan(kunjunganId, id, { evaluasi: nextEval, statusLuaran: ev.statusLuaran });
+      const dto = await addEvaluasiShift(kunjunganId, id, {
+        waktu: localToIso(draft.waktu),
+        shift: draft.shift,
+        subjektif: draft.subjektif || undefined,
+        objektif: draft.objektif,
+        statusLuaran: draft.statusLuaran,
+        perawat: draft.perawat || undefined,
+      });
       setEntries(p => p.map(e => e.id === id ? dtoToEntry(dto) : e));
-      toast.success("Evaluasi shift tersimpan", ev.shift);
+      toast.success("Evaluasi shift tersimpan", draft.shift);
     } catch (e) {
       toast.error("Gagal menyimpan evaluasi", e instanceof ApiError ? e.message : undefined);
     }
@@ -387,6 +416,7 @@ export default function KeperawatanTab({ patient }: { patient: IGDPatientDetail 
                       index={idx}
                       isEditing={editId === entry.id}
                       isCopySource={copySource?.id === entry.id}
+                      petugasLogin={session?.namaTampil}
                       onEdit={() => { setCopySource(undefined); setEditId(entry.id); }}
                       onDelete={() => handleDelete(entry.id)}
                       onVerify={name => handleVerify(entry.id, name)}

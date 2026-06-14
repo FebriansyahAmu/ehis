@@ -1,11 +1,17 @@
-// asuhanKeperawatanDal — Prisma murni medicalrecord.AsuhanKeperawatan (per-item). Read
-// filter deletedAt: null. Tanpa aturan bisnis. Terima `tx?`. Blok dataMayor/dataMinor/
-// intervensi/evaluasi = JSONB (di-set/replace utuh oleh Service). Selaras tindakanMedisDal.
+// asuhanKeperawatanDal — Prisma murni medicalrecord.AsuhanKeperawatan (per-item) + anak
+// AsuhanEvaluasi (timeline shift). Read filter deletedAt: null + include evaluasiShift (urut
+// waktu). Tanpa aturan bisnis. Terima `tx?`. Blok dataMayor/dataMinor/intervensi = JSONB
+// (di-set/replace utuh oleh Service); evaluasi = tabel anak (append). Selaras tindakanMedisDal.
 
 import { db, type Tx } from "@/lib/db/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 
 type Json = Prisma.InputJsonValue;
+
+// Include evaluasiShift (anak) — urut kronologis utk timeline.
+const withEvaluasi = {
+  evaluasiShift: { orderBy: [{ waktu: "asc" }, { createdAt: "asc" }] },
+} satisfies Prisma.AsuhanKeperawatanInclude;
 
 export interface CreateAsuhanData {
   kunjunganId: string;
@@ -21,7 +27,6 @@ export interface CreateAsuhanData {
   kriteriaHasil: string[];
   statusLuaran: string;
   intervensi: Json;
-  evaluasi: Json;
   tanggalInput: Date;
   perawat: string;
   authorUserId?: string | null;
@@ -41,7 +46,6 @@ export interface UpdateAsuhanData {
   kriteriaHasil?: string[];
   statusLuaran?: string;
   intervensi?: Json;
-  evaluasi?: Json;
   tanggalInput?: Date;
   perawat?: string;
   verified?: boolean;
@@ -50,21 +54,47 @@ export interface UpdateAsuhanData {
   aktif?: boolean;
 }
 
+// Evaluasi shift (anak) — append-only.
+export interface CreateEvaluasiData {
+  asuhanId: string;
+  shift: string;
+  subjektif: string;
+  objektif: string;
+  statusLuaran: string;
+  waktu: Date;
+  perawat: string;
+  authorUserId?: string | null;
+  authorPegawaiId?: string | null;
+}
+
 export type AsuhanEntity = NonNullable<Awaited<ReturnType<typeof findById>>>;
 
 export function list(kunjunganId: string, tx?: Tx) {
   return db(tx).asuhanKeperawatan.findMany({
     where: { kunjunganId, deletedAt: null },
     orderBy: { createdAt: "asc" },
+    include: withEvaluasi,
   });
 }
 
 export function findById(id: string, tx?: Tx) {
-  return db(tx).asuhanKeperawatan.findUnique({ where: { id } });
+  return db(tx).asuhanKeperawatan.findUnique({ where: { id }, include: withEvaluasi });
+}
+
+// ── Evaluasi shift (anak) ───────────────────────────────────────────────
+export function createEvaluasi(data: CreateEvaluasiData, tx?: Tx) {
+  return db(tx).asuhanEvaluasi.create({ data });
+}
+
+export function listEvaluasi(asuhanId: string, tx?: Tx) {
+  return db(tx).asuhanEvaluasi.findMany({
+    where: { asuhanId },
+    orderBy: [{ waktu: "asc" }, { createdAt: "asc" }],
+  });
 }
 
 export function create(data: CreateAsuhanData, tx?: Tx) {
-  return db(tx).asuhanKeperawatan.create({ data });
+  return db(tx).asuhanKeperawatan.create({ data, include: withEvaluasi });
 }
 
 export async function update(id: string, data: UpdateAsuhanData, tx?: Tx) {

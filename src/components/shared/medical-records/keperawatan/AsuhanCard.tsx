@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { AsuhanKeperawatanEntry, EvaluasiShift, StatusLuaran, ShiftType } from "@/lib/data";
 import { STATUS_LUARAN_CONFIG, SHIFT_CONFIG } from "@/components/shared/medical-records/keperawatanShared";
+import { DateTimePicker, Select } from "@/components/shared/inputs";
 
 // Format tanggalInput (local-dt "YYYY-MM-DDTHH:mm" atau ISO) → tampilan id-ID. Fallback: raw.
 function fmtTanggal(v: string): string {
@@ -23,9 +24,10 @@ function fmtTanggal(v: string): string {
 
 const SHIFT_OPTIONS: ShiftType[] = ["Pagi", "Siang", "Malam"];
 
-interface EvaluasiFormState {
-  tanggal:      string;
-  jam:          string;
+// Draft evaluasi (tanpa id) — waktu = "YYYY-MM-DDTHH:mm" lokal (kontrak DateTimePicker).
+// Parent (KeperawatanTab) yang konversi → ISO (persist) atau split tanggal/jam (display mock).
+export interface EvalDraft {
+  waktu:        string;
   shift:        ShiftType;
   subjektif:    string;
   objektif:     string;
@@ -33,27 +35,33 @@ interface EvaluasiFormState {
   perawat:      string;
 }
 
-function emptyEval(): EvaluasiFormState {
+// now → "YYYY-MM-DDTHH:mm" lokal (selaras kontrak DateTimePicker).
+function nowLocalDT(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function emptyEval(): EvalDraft {
   const now = new Date();
   const h = now.getHours();
   const defaultShift: ShiftType = h >= 6 && h < 14 ? "Pagi" : h >= 14 && h < 21 ? "Siang" : "Malam";
-  return {
-    tanggal:      now.toISOString().split("T")[0],
-    jam:          now.toTimeString().slice(0, 5),
-    shift:        defaultShift,
-    subjektif:    "",
-    objektif:     "",
-    statusLuaran: "Dipantau",
-    perawat:      "",
-  };
+  return { waktu: nowLocalDT(), shift: defaultShift, subjektif: "", objektif: "", statusLuaran: "Dipantau", perawat: "" };
 }
 
 function EvaluasiForm({
-  currentStatus, onSave, onCancel,
-}: { currentStatus: StatusLuaran; onSave: (e: EvaluasiFormState) => void; onCancel: () => void }) {
-  const [f, setF] = useState<EvaluasiFormState>(() => ({ ...emptyEval(), statusLuaran: currentStatus }));
-  const set = <K extends keyof EvaluasiFormState>(k: K, v: EvaluasiFormState[K]) => setF(p => ({ ...p, [k]: v }));
-  const canSave = f.objektif.trim() && f.perawat.trim();
+  currentStatus, petugasLogin, onSave, onCancel,
+}: {
+  currentStatus: StatusLuaran;
+  petugasLogin?: string;
+  onSave: (e: EvalDraft) => void;
+  onCancel: () => void;
+}) {
+  const [f, setF] = useState<EvalDraft>(() => ({ ...emptyEval(), statusLuaran: currentStatus }));
+  const set = <K extends keyof EvalDraft>(k: K, v: EvalDraft[K]) => setF(p => ({ ...p, [k]: v }));
+  // Perawat = user login (read-only); fallback nilai form bila sesi belum termuat.
+  const effPerawat = petugasLogin || f.perawat || "";
+  const canSave = f.objektif.trim() && effPerawat.trim();
 
   return (
     <motion.div
@@ -68,24 +76,15 @@ function EvaluasiForm({
           <Plus size={12} /> Tambah Evaluasi Shift
         </p>
 
-        {/* Row 1: tanggal, jam, shift */}
-        <div className="mb-2.5 grid grid-cols-3 gap-2">
+        {/* Row 1: tanggal & waktu (global picker) + shift (global select) */}
+        <div className="mb-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div>
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Tanggal</p>
-            <input type="date" value={f.tanggal} onChange={e => set("tanggal", e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-100" />
-          </div>
-          <div>
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Jam</p>
-            <input type="time" value={f.jam} onChange={e => set("jam", e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-100" />
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Tanggal &amp; Waktu</p>
+            <DateTimePicker value={f.waktu} onChange={v => set("waktu", v)} className="w-full text-xs" />
           </div>
           <div>
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Shift</p>
-            <select value={f.shift} onChange={e => set("shift", e.target.value as ShiftType)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-100">
-              {SHIFT_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <Select value={f.shift} onChange={v => set("shift", v as ShiftType)} options={SHIFT_OPTIONS} className="w-full text-xs" />
           </div>
         </div>
 
@@ -127,14 +126,13 @@ function EvaluasiForm({
           </div>
         </div>
 
-        {/* Perawat */}
+        {/* Perawat — user yang sedang login (read-only) */}
         <div className="mb-3">
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-            Perawat <span className="normal-case text-rose-400">*</span>
-          </p>
-          <input value={f.perawat} onChange={e => set("perawat", e.target.value)}
-            placeholder="Nama perawat evaluasi..."
-            className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-100" />
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Perawat Evaluasi</p>
+          <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-700">
+            <User size={12} className="shrink-0 text-slate-400" />
+            <span className="truncate font-medium">{effPerawat || "—"}</span>
+          </div>
         </div>
 
         {/* Buttons */}
@@ -143,7 +141,7 @@ function EvaluasiForm({
             className="flex cursor-pointer items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-50">
             <X size={12} /> Batal
           </button>
-          <button type="button" onClick={() => canSave && onSave(f)} disabled={!canSave}
+          <button type="button" onClick={() => canSave && onSave({ ...f, perawat: effPerawat })} disabled={!canSave}
             className="flex cursor-pointer items-center gap-1 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-sky-700 disabled:opacity-40">
             <Save size={12} /> Simpan Evaluasi
           </button>
@@ -202,15 +200,16 @@ interface Props {
   index:        number;
   isEditing:    boolean;
   isCopySource: boolean;
+  petugasLogin?: string;
   onEdit:       () => void;
   onDelete:     () => void;
   onVerify:     (name: string) => void;
   onCopyToForm: () => void;
-  onAddEval:    (ev: EvaluasiShift) => void;
+  onAddEval:    (draft: EvalDraft) => void;
 }
 
 export default function AsuhanCard({
-  entry, index, isEditing, isCopySource,
+  entry, index, isEditing, isCopySource, petugasLogin,
   onEdit, onDelete, onVerify, onCopyToForm, onAddEval,
 }: Props) {
   const [expanded,      setExpanded]      = useState(false);
@@ -235,9 +234,8 @@ export default function AsuhanCard({
     setVerifier("");
   }
 
-  function handleAddEval(data: EvaluasiFormState) {
-    const ev: EvaluasiShift = { id: `eval-${Date.now()}`, ...data };
-    onAddEval(ev);
+  function handleAddEval(data: EvalDraft) {
+    onAddEval(data);
     setEvalOpen(false);
   }
 
@@ -352,6 +350,7 @@ export default function AsuhanCard({
         {evalOpen && (
           <EvaluasiForm
             currentStatus={entry.statusLuaran}
+            petugasLogin={petugasLogin}
             onSave={handleAddEval}
             onCancel={() => setEvalOpen(false)}
           />
