@@ -14,6 +14,7 @@ import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
 import { getPenilaianFisik, createPenilaianFisik, type PenilaianFisikDTO } from "@/lib/api/penilaian/penilaianFisik";
 import { getPenilaianNyeri, createPenilaianNyeri, type PenilaianNyeriDTO } from "@/lib/api/penilaian/penilaianNyeri";
+import { getPenilaianStatus, createPenilaianStatus, type PenilaianStatusDTO } from "@/lib/api/penilaian/penilaianStatus";
 import { listObservasi } from "@/lib/api/observation";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -530,17 +531,39 @@ function NyeriPanel({ kunjunganId, isPersisted, perawat }: PanelCtx) {
 }
 
 // ── 3. STATUS KLINIS ───────────────────────────────────────────
-const STATUS_NOTES: NoteEntry[] = [
-  {
-    date: "12 Apr 2025", author: "dr. Hendro Sp.PD", tag: "IGD",
-    content: "Status: Tidak Stabil\nKesadaran: Somnolen, GCS E3V4M5\nCatatan: Penurunan kesadaran mendadak saat tiba di IGD",
-  },
-];
+const STATUS_OPTS = ["Stabil", "Tidak Stabil", "Kritis", "Mengancam Jiwa", "Meninggal"];
+const KESADARAN_OPTS = ["Compos Mentis", "Apatis", "Somnolen", "Sopor", "Koma"];
+const EMPTY_STATUS = { status: "", kesadaran: "", catatan: "" };
 
-function StatusPanel() {
-  const [status, setStatus] = useState("");
-  const [kesadaran, setKesadaran] = useState("");
-  const [catatan, setCatatan] = useState("");
+// DTO → NoteEntry riwayat.
+function statusToNote(d: PenilaianStatusDTO): NoteEntry {
+  const parts: string[] = [];
+  if (d.status) parts.push(`Status: ${d.status}`);
+  if (d.kesadaran) parts.push(`Kesadaran: ${d.kesadaran}`);
+  if (d.catatan) parts.push(d.catatan);
+  return { date: d.tanggal, author: d.pemeriksa || "—", content: parts.join("\n") };
+}
+
+function StatusPanel({ kunjunganId, isPersisted, perawat }: PanelCtx) {
+  const [form, setForm] = useState(EMPTY_STATUS);
+  const [history, setHistory] = useState<NoteEntry[]>([]);
+  const [saving, setSaving] = useState(false);
+  const set = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
+
+  // Riwayat penilaian status (kunjungan UUID).
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    getPenilaianStatus(kunjunganId, ac.signal)
+      .then((rows) => setHistory(rows.map(statusToNote)))
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat riwayat status klinis", e instanceof ApiError ? e.message : undefined);
+      });
+    return () => ac.abort();
+  }, [isPersisted, kunjunganId]);
+
+  const isEmpty = !Object.values(form).some((v) => v.trim());
 
   const pillCls = (active: boolean) => cn(
     "cursor-pointer rounded-full border px-3 py-1 text-[11px] font-medium transition-all",
@@ -549,6 +572,35 @@ function StatusPanel() {
       : "border-slate-200 bg-white text-slate-500 hover:border-indigo-300 hover:text-indigo-600",
   );
 
+  async function handleSave() {
+    if (isEmpty || saving) return;
+    if (!isPersisted) {
+      const local: PenilaianStatusDTO = {
+        id: `local-${Date.now()}`, ...form, pemeriksa: perawat,
+        tanggal: NOTE_DATE_FMT.format(new Date()), waktu: new Date().toISOString(),
+      };
+      setHistory((h) => [statusToNote(local), ...h]);
+      setForm(EMPTY_STATUS);
+      toast.info("Pasien demo — penilaian tidak tersimpan ke database");
+      return;
+    }
+    try {
+      setSaving(true);
+      const dto = await createPenilaianStatus(kunjunganId, {
+        status: form.status || undefined,
+        kesadaran: form.kesadaran || undefined,
+        catatan: form.catatan || undefined,
+      });
+      setHistory((h) => [statusToNote(dto), ...h]);
+      setForm(EMPTY_STATUS);
+      toast.success("Status klinis tersimpan");
+    } catch (e) {
+      toast.error("Gagal menyimpan status klinis", e instanceof ApiError ? e.message : undefined);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <TwoPanel
       form={
@@ -556,8 +608,8 @@ function StatusPanel() {
           <div>
             <Label>Status Klinis</Label>
             <div className="flex flex-wrap gap-1.5">
-              {["Stabil", "Tidak Stabil", "Kritis", "Mengancam Jiwa", "Meninggal"].map((opt) => (
-                <button key={opt} type="button" onClick={() => setStatus(opt === status ? "" : opt)} className={pillCls(status === opt)}>
+              {STATUS_OPTS.map((opt) => (
+                <button key={opt} type="button" onClick={() => set("status", opt === form.status ? "" : opt)} className={pillCls(form.status === opt)}>
                   {opt}
                 </button>
               ))}
@@ -566,8 +618,8 @@ function StatusPanel() {
           <div>
             <Label>Tingkat Kesadaran</Label>
             <div className="flex flex-wrap gap-1.5">
-              {["Compos Mentis", "Apatis", "Somnolen", "Sopor", "Koma"].map((opt) => (
-                <button key={opt} type="button" onClick={() => setKesadaran(opt === kesadaran ? "" : opt)} className={pillCls(kesadaran === opt)}>
+              {KESADARAN_OPTS.map((opt) => (
+                <button key={opt} type="button" onClick={() => set("kesadaran", opt === form.kesadaran ? "" : opt)} className={pillCls(form.kesadaran === opt)}>
                   {opt}
                 </button>
               ))}
@@ -575,12 +627,14 @@ function StatusPanel() {
           </div>
           <div>
             <Label>Catatan Status Klinis</Label>
-            <AutoTextarea value={catatan} onChange={setCatatan} placeholder="Kondisi pasien saat ini, temuan klinis relevan..." minRows={3} />
+            <AutoTextarea value={form.catatan} onChange={(v) => set("catatan", v)} placeholder="Kondisi pasien saat ini, temuan klinis relevan..." minRows={3} />
           </div>
-          <div className="flex justify-end"><SaveBtn label="Simpan Status Klinis" /></div>
+          <div className="flex justify-end">
+            <SaveBtn label="Simpan Status Klinis" onClick={handleSave} disabled={isEmpty} loading={saving} />
+          </div>
         </div>
       }
-      history={<HistoryPanel title="Status Klinis" notes={STATUS_NOTES} />}
+      history={<HistoryPanel title="Status Klinis" notes={history} />}
     />
   );
 }
@@ -1425,7 +1479,7 @@ type TabDef = { id: string; short: string; title: string; icon: LucideIcon; cont
 const TABS: TabDef[] = [
   { id: "fisik",     short: "Fisik",       title: "Penilaian Fisik",      icon: Activity,    content: (ctx) => <FisikPanel {...ctx} /> },
   { id: "nyeri",     short: "Nyeri",       title: "Asesmen Nyeri",        icon: Zap,         content: (ctx) => <NyeriPanel {...ctx} /> },
-  { id: "status",    short: "Status",      title: "Status Klinis",        icon: Stethoscope, content: () => <StatusPanel /> },
+  { id: "status",    short: "Status",      title: "Status Klinis",        icon: Stethoscope, content: (ctx) => <StatusPanel {...ctx} /> },
   { id: "pediatrik", short: "Pediatrik",   title: "Status Pediatrik",     icon: Baby,        content: () => <PediatrikPanel /> },
   { id: "diagnosis", short: "Diagnosis",   title: "Penilaian Diagnosis",  icon: BookOpen,    content: () => <DiagnosisPanel /> },
   { id: "jatuh",     short: "Risiko Jatuh",title: "Risiko Jatuh",         icon: ShieldAlert, content: () => <MorsePanel /> },
