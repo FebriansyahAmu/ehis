@@ -79,7 +79,7 @@
 
 ### Pemeriksaan Fisik — cleanup pasca Anatomi domain *(2026-06-14)*
 - [ ] **`PemeriksaanFisik.bodyMarkings` (JSONB) vestigial** — sub-tab Anatomi kini punya domain sendiri `medicalrecord.PenandaanAnatomi` (per-item, body-map). Kolom `bodyMarkings` di `pemeriksaan_fisik` (+ field di `PemeriksaanFisikEntry`/Zod/DTO/`emptyFormState`) tak lagi sumber kebenaran & selalu kosong (StatusFisikPane tak mengisinya). Aman di-drop (belum ada data nyata): drop-column migration + bersihkan schema/Zod/Service/DTO/FE. Ditunda — harmless.
-- [ ] **Sub-tab Penunjang (PemeriksaanTab IGD) belum di-wire** — `PenunjangPane` (hasil lab/rad + upload) masih state lokal throwaway. Kandidat: domain hasil-penunjang atau konsumsi `Order`/hasil Lab-Rad yang sudah ada (jangan duplikasi). Upload file butuh storage (belum ada).
+- [x] **Sub-tab Penunjang (PemeriksaanTab IGD) di-wire** ✅ *(2026-06-15)* — difokuskan ulang ke diagnostik bedside **non-Lab/Rad** (Lab/Rad/USG dihapus karena punya modul sendiri; sisa EKG + Spirometri/EEG/EMG/Audiometri/Ekokardiografi/Treadmill). Form di-redesain (interpretatif: Keterangan+Hasil+Kesimpulan, tanggal=DateTimePicker). Domain backend `medicalrecord.PemeriksaanPenunjang` (add/delete only, soft-delete, gate `clinical.pemeriksaan`). **Sisa: upload file hasil masih placeholder** — butuh storage (belum ada); object storage + tabel attachment lintas-domain = follow-up tersendiri.
 - [ ] **Riwayat pemeriksaan fisik (>1 baris) belum ditampilkan** — domain append-only "latest wins" simpan tiap re-pemeriksaan sbg baris baru; FE baru tampilkan/prefill yang terbaru. Tambah panel riwayat (mirror RiwayatPane RI) bila perlu jejak.
 
 ### Pemeriksaan Fisik — mode per-unit (Head-to-toe vs Per-sistem) *(diputuskan 2026-06-14, belum diimplementasi)*

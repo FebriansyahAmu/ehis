@@ -16,6 +16,9 @@ import {
 import {
   getPenandaanAnatomi, createPenandaanAnatomi, updatePenandaanAnatomi, deletePenandaanAnatomi,
 } from "@/lib/api/pemeriksaan/penandaanAnatomi";
+import {
+  getPemeriksaanPenunjang, createPemeriksaanPenunjang, deletePemeriksaanPenunjang,
+} from "@/lib/api/pemeriksaan/pemeriksaanPenunjang";
 import StatusFisikPane, { type PemeriksaanFormState, emptyFormState } from "@/components/shared/medical-records/pemeriksaan/StatusFisikPane";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -41,6 +44,16 @@ function dtDate(local: string): string { return local.split("T")[0] ?? local; }
 function dtTime(local: string): string { return (local.split("T")[1] ?? "").slice(0, 5); }
 function localMarkId(): string { return `pa-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`; }
 
+// Label tampilan datetime untuk hasil penunjang (path mock; persisted pakai DTO tanggal/jam).
+const PENUNJANG_DT_FMT = new Intl.DateTimeFormat("id-ID", {
+  day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+});
+function fmtLocalDT(local: string): string {
+  if (!local) return "";
+  const d = new Date(local);
+  return Number.isNaN(d.getTime()) ? local : PENUNJANG_DT_FMT.format(d);
+}
+
 // ── Types ──────────────────────────────────────────────────
 
 type SubTab = "fisik" | "anatomi" | "penunjang";
@@ -51,7 +64,7 @@ interface HasilEntry {
   nama: string;       // keterangan/detail pemeriksaan (opsional)
   hasil: string;      // interpretasi / temuan klinis (utama)
   kesimpulan: string; // kesan (opsional)
-  tanggal: string;
+  waktuLabel: string; // tampilan "DD Mon YYYY · HH:mm"
 }
 
 // ── Sub-tab config ─────────────────────────────────────────
@@ -303,17 +316,68 @@ function AnatomiPane({ kunjunganId, isPersisted }: { kunjunganId: string; isPers
 // USG = modalitas radiologi → dikelola di tab Radiologi). Hasil bersifat interpretatif.
 const JENIS_OPTIONS = ["EKG", "Spirometri", "EEG", "EMG", "Audiometri", "Ekokardiografi", "Treadmill Test", "Lainnya"];
 
-function PenunjangPane() {
-  const [entries, setEntries] = useState<HasilEntry[]>([]);
-  const [form, setForm] = useState<Omit<HasilEntry, "id">>({
-    jenis: "EKG", nama: "", hasil: "", kesimpulan: "", tanggal: "",
-  });
-  const set = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
+interface PenunjangForm { jenis: string; nama: string; hasil: string; kesimpulan: string; waktu: string }
 
-  function handleAdd() {
+function PenunjangPane({ kunjunganId, isPersisted }: { kunjunganId: string; isPersisted: boolean }) {
+  const [entries, setEntries] = useState<HasilEntry[]>([]);
+  const [form, setForm] = useState<PenunjangForm>({
+    jenis: "EKG", nama: "", hasil: "", kesimpulan: "", waktu: nowLocalDT(),
+  });
+  const set = (k: keyof PenunjangForm, v: string) => setForm((p) => ({ ...p, [k]: v }));
+
+  // Muat hasil tersimpan (kunjungan UUID).
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    getPemeriksaanPenunjang(kunjunganId, ac.signal)
+      .then((rows) => setEntries(rows.map((r) => ({
+        id: r.id, jenis: r.jenis, nama: r.keterangan, hasil: r.hasil, kesimpulan: r.kesimpulan,
+        waktuLabel: [r.tanggal, r.jam].filter(Boolean).join(" · "),
+      }))))
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat pemeriksaan penunjang", e instanceof ApiError ? e.message : undefined);
+      });
+    return () => ac.abort();
+  }, [isPersisted, kunjunganId]);
+
+  async function handleAdd() {
     if (!form.hasil.trim()) return;
-    setEntries((p) => [...p, { id: `p-${Date.now()}`, ...form }]);
-    setForm((p) => ({ ...p, nama: "", hasil: "", kesimpulan: "", tanggal: "" }));
+    if (!isPersisted) {
+      setEntries((p) => [{
+        id: `p-${Date.now()}`, jenis: form.jenis, nama: form.nama, hasil: form.hasil,
+        kesimpulan: form.kesimpulan, waktuLabel: fmtLocalDT(form.waktu),
+      }, ...p]);
+      setForm((p) => ({ ...p, nama: "", hasil: "", kesimpulan: "" }));
+      return;
+    }
+    try {
+      const dto = await createPemeriksaanPenunjang(kunjunganId, {
+        jenis: form.jenis,
+        keterangan: form.nama || undefined,
+        hasil: form.hasil,
+        kesimpulan: form.kesimpulan || undefined,
+        waktu: form.waktu ? localToIso(form.waktu) : undefined,
+      });
+      setEntries((p) => [{
+        id: dto.id, jenis: dto.jenis, nama: dto.keterangan, hasil: dto.hasil, kesimpulan: dto.kesimpulan,
+        waktuLabel: [dto.tanggal, dto.jam].filter(Boolean).join(" · "),
+      }, ...p]);
+      setForm((p) => ({ ...p, nama: "", hasil: "", kesimpulan: "" }));
+      toast.success("Hasil penunjang ditambahkan", dto.jenis);
+    } catch (e) {
+      toast.error("Gagal menambah penunjang", e instanceof ApiError ? e.message : undefined);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!isPersisted) { setEntries((p) => p.filter((e) => e.id !== id)); return; }
+    try {
+      await deletePemeriksaanPenunjang(kunjunganId, id);
+      setEntries((p) => p.filter((e) => e.id !== id));
+    } catch (e) {
+      toast.error("Gagal menghapus penunjang", e instanceof ApiError ? e.message : undefined);
+    }
   }
 
   const grouped = entries.reduce<Record<string, HasilEntry[]>>((acc, e) => {
@@ -382,9 +446,8 @@ function PenunjangPane() {
         </div>
 
         <div>
-          <p className={labelCls}>Tanggal</p>
-          <input type="date" value={form.tanggal} onChange={(e) => set("tanggal", e.target.value)}
-            className="w-full border-b border-slate-200 bg-transparent py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-400" />
+          <p className={labelCls}>Tanggal &amp; Waktu</p>
+          <DateTimePicker value={form.waktu} onChange={(v) => set("waktu", v)} className="w-full text-xs" />
         </div>
 
         <button
@@ -431,9 +494,9 @@ function PenunjangPane() {
                         )}
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
-                        {item.tanggal && <span className="font-mono text-[10px] text-slate-400">{item.tanggal}</span>}
+                        {item.waktuLabel && <span className="text-[10px] text-slate-400">{item.waktuLabel}</span>}
                         <button
-                          onClick={() => setEntries((p) => p.filter((e) => e.id !== item.id))}
+                          onClick={() => handleDelete(item.id)}
                           aria-label="Hapus"
                           className="cursor-pointer text-slate-300 transition-colors hover:text-rose-500"
                         >
@@ -618,7 +681,7 @@ export default function PemeriksaanTab({ patient }: { patient: IGDPatientDetail 
             />
           )}
           {active === "anatomi"   && <AnatomiPane kunjunganId={kunjunganId} isPersisted={isPersisted} />}
-          {active === "penunjang" && <PenunjangPane />}
+          {active === "penunjang" && <PenunjangPane kunjunganId={kunjunganId} isPersisted={isPersisted} />}
         </motion.div>
       </AnimatePresence>
     </div>

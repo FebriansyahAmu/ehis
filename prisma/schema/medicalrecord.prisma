@@ -1296,3 +1296,38 @@ model PenandaanAnatomi {
   @@map("penandaan_anatomi")
   @@schema("medicalrecord")
 }
+
+// ── Pemeriksaan Penunjang (tab Pemeriksaan, sub Penunjang — diagnostik bedside non-Lab/Rad) ──
+//  Lab & Radiologi punya modul/tab sendiri (USG = modalitas radiologi) → sub-tab ini KHUSUS
+//  penunjang bedside/diagnostik lain (EKG/Spirometri/EEG/EMG/Audiometri/Ekokardiografi/Treadmill/…),
+//  hasilnya INTERPRETATIF (bukan nilai+satuan+rujukan ala lab). Daftar hidup per-item: tambah =
+//  INSERT, hapus = soft-delete (jejak medico-legal); tanpa edit (koreksi = hapus + baris baru, pola
+//  InformedConsent). Per kunjungan (key kunjunganId). waktu = timestamptz (DateTimePicker, opsional);
+//  pemeriksa = denormalisasi sesi login. Gate clinical.pemeriksaan (satu tab Pemeriksaan). Mirror HasilEntry FE.
+
+model PemeriksaanPenunjang {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Spine (FK riil, same DB / cross-schema ke encounter) ──
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  jenis      String              // EKG/Spirometri/EEG/EMG/Audiometri/Ekokardiografi/Treadmill Test/Lainnya (Zod)
+  keterangan String @default("") // detail/keterangan pemeriksaan (FE "nama"; opsional)
+  hasil      String              // interpretasi/temuan klinis (wajib)
+  kesimpulan String @default("") // kesan (opsional)
+
+  // ── Waktu pemeriksaan (DateTimePicker; opsional) + pemeriksa/author (dari actor) ──
+  waktu           DateTime? @db.Timestamptz(3)
+  pemeriksa       String    // nama denormalisasi pencatat (dari user login)
+  authorUserId    String?   @map("author_user_id") @db.Uuid
+  authorPegawaiId String?   @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (add/delete only — tanpa version/updatedAt; soft-delete medico-legal) ──
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt]) // daftar penunjang aktif per kunjungan
+  @@map("pemeriksaan_penunjang")
+  @@schema("medicalrecord")
+}
