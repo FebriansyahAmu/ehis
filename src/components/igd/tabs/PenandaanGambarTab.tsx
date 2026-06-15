@@ -248,7 +248,7 @@ export default function PenandaanGambarTab({
     <div className="flex flex-col gap-3">
       {/* ── Header ── */}
       <div className="flex flex-wrap items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xs">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-600">
           <ScanEye size={15} className="text-white" />
         </div>
         <div>
@@ -263,7 +263,7 @@ export default function PenandaanGambarTab({
         {anotasiList.length > 0 && (
           <div className="ml-auto flex items-center gap-1.5">
             <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1">
-              <MapPin size={10} className="text-indigo-400" />
+              <MapPin size={10} className="text-sky-400" />
               <span className="text-[10px] font-semibold text-slate-600">
                 {anotasiList.length}
               </span>
@@ -304,17 +304,17 @@ export default function PenandaanGambarTab({
                 className={cn(
                   "relative flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-semibold transition-all duration-150",
                   act
-                    ? "bg-white text-indigo-700 shadow-sm ring-1 ring-indigo-100"
+                    ? "bg-white text-sky-700 shadow-sm ring-1 ring-sky-100"
                     : "text-slate-500 hover:text-slate-700",
                 )}
               >
-                <Icon size={13} className={act ? "text-indigo-500" : "text-slate-400"} />
+                <Icon size={13} className={act ? "text-sky-500" : "text-slate-400"} />
                 {t.label}
                 {cnt > 0 && (
                   <span
                     className={cn(
                       "flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[8px] font-bold text-white",
-                      act ? "bg-indigo-600" : "bg-slate-400",
+                      act ? "bg-sky-600" : "bg-slate-400",
                     )}
                   >
                     {cnt}
@@ -346,11 +346,11 @@ export default function PenandaanGambarTab({
                     className={cn(
                       "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[10px] font-semibold transition-all duration-150",
                       act
-                        ? "bg-white text-indigo-700 shadow-sm ring-1 ring-indigo-100"
+                        ? "bg-white text-sky-700 shadow-sm ring-1 ring-sky-100"
                         : "text-slate-500 hover:text-slate-700",
                     )}
                   >
-                    <Icon size={12} className={act ? "text-indigo-500" : "text-slate-400"} />
+                    <Icon size={12} className={act ? "text-sky-500" : "text-slate-400"} />
                     {t.label}
                   </button>
                 );
@@ -389,18 +389,18 @@ export default function PenandaanGambarTab({
                   className={cn(
                     "flex items-center gap-1 rounded-md border px-2 py-0.5",
                     pending
-                      ? "border-indigo-200 bg-indigo-50"
+                      ? "border-sky-200 bg-sky-50"
                       : "border-slate-200 bg-slate-50",
                   )}
                 >
                   <Crosshair
                     size={9}
-                    className={pending ? "text-indigo-500" : "text-slate-400"}
+                    className={pending ? "text-sky-500" : "text-slate-400"}
                   />
                   <span
                     className={cn(
                       "text-[9px]",
-                      pending ? "font-semibold text-indigo-600" : "text-slate-400",
+                      pending ? "font-semibold text-sky-600" : "text-slate-400",
                     )}
                   >
                     {pending ? "Isi detail anotasi…" : "Klik untuk tandai"}
@@ -516,7 +516,7 @@ export default function PenandaanGambarTab({
                   className={cn(
                     "ml-auto flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-semibold transition",
                     filterActive
-                      ? "bg-indigo-100 text-indigo-600"
+                      ? "bg-sky-100 text-sky-600"
                       : "bg-slate-100 text-slate-500 hover:bg-slate-200",
                   )}
                 >
@@ -565,7 +565,7 @@ export default function PenandaanGambarTab({
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5">
-                  <Crosshair size={10} className="text-indigo-400" />
+                  <Crosshair size={10} className="text-sky-400" />
                   <span className="text-[10px] text-slate-500">
                     Regio terdeteksi otomatis saat klik
                   </span>

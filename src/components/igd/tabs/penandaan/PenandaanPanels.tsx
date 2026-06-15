@@ -49,21 +49,21 @@ export function AnotasiForm({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 6, scale: 0.97 }}
       transition={{ duration: 0.18, ease: "easeOut" }}
-      className="overflow-hidden rounded-xl border border-indigo-200 bg-white shadow-lg"
+      className="overflow-hidden rounded-xl border border-sky-200 bg-white shadow-lg"
     >
       {/* Header */}
-      <div className="flex items-center gap-2 border-b border-indigo-100 bg-indigo-50 px-3 py-2.5">
-        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600">
+      <div className="flex items-center gap-2 border-b border-sky-100 bg-sky-50 px-3 py-2.5">
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-600">
           <MapPin size={11} className="text-white" />
         </div>
         <div>
-          <p className="text-xs font-bold text-indigo-800">Anotasi Baru</p>
-          <p className="text-[9px] text-indigo-500">Regio: {region}</p>
+          <p className="text-xs font-bold text-sky-800">Anotasi Baru</p>
+          <p className="text-[9px] text-sky-500">Regio: {region}</p>
         </div>
         <button
           onClick={onCancel}
           aria-label="Batal"
-          className="ml-auto flex h-5 w-5 items-center justify-center rounded text-indigo-300 hover:bg-indigo-100 hover:text-indigo-600"
+          className="ml-auto flex h-5 w-5 items-center justify-center rounded text-sky-300 hover:bg-sky-100 hover:text-sky-600"
         >
           <X size={11} />
         </button>
@@ -87,7 +87,7 @@ export function AnotasiForm({
             placeholder={
               labelPlaceholder ?? "mis. Dahi kanan, siku kiri, punggung bawah…"
             }
-            className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+            className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-sky-300 focus:bg-white focus:ring-2 focus:ring-sky-100"
           />
         </div>
 
@@ -133,7 +133,7 @@ export function AnotasiForm({
             value={deskripsi}
             onChange={(e) => setDeskripsi(e.target.value)}
             placeholder="Deskripsi klinis: ukuran, bentuk, warna, nyeri tekan, dll…"
-            className="w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+            className="w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-sky-300 focus:bg-white focus:ring-2 focus:ring-sky-100"
           />
         </div>
 
@@ -141,7 +141,7 @@ export function AnotasiForm({
           <button
             onClick={commit}
             disabled={!canSave}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-sky-600 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-sky-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Save size={11} /> Simpan Anotasi
           </button>
@@ -184,7 +184,7 @@ export function AnotasiItem({
       className={cn(
         "group cursor-pointer rounded-xl border p-2.5 transition-all duration-150",
         selected
-          ? "border-indigo-200 bg-indigo-50 shadow-sm"
+          ? "border-sky-200 bg-sky-50 shadow-sm"
           : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/70",
       )}
     >

@@ -250,10 +250,10 @@ function GhostPin2D({ koordinat }: { koordinat: { x: number; y: number } }) {
       style={{ left: `${koordinat.x}%`, top: `${koordinat.y}%` }}
       className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full"
     >
-      <div className="flex h-6 w-6 animate-bounce items-center justify-center rounded-full bg-indigo-600 shadow-md ring-2 ring-white ring-offset-1">
+      <div className="flex h-6 w-6 animate-bounce items-center justify-center rounded-full bg-red-500 shadow-md ring-2 ring-white ring-offset-1">
         <Plus size={13} className="text-white" />
       </div>
-      <div className="mx-auto mt-px h-2 w-0.5 rounded-full bg-indigo-600 opacity-80" />
+      <div className="mx-auto mt-px h-2 w-0.5 rounded-full bg-red-500 opacity-80" />
     </div>
   );
 }
@@ -297,8 +297,8 @@ export default function OdontogramCanvas({
         className={cn(
           "relative aspect-[356/215] w-full max-w-130 select-none overflow-visible rounded-lg transition-all duration-150",
           pending
-            ? "cursor-crosshair ring-2 ring-indigo-300 ring-offset-2"
-            : "cursor-pointer hover:ring-1 hover:ring-indigo-200 hover:ring-offset-1",
+            ? "cursor-crosshair ring-2 ring-sky-300 ring-offset-2"
+            : "cursor-pointer hover:ring-1 hover:ring-sky-200 hover:ring-offset-1",
         )}
       >
         <GigiSVG />
@@ -321,9 +321,9 @@ export default function OdontogramCanvas({
 
         {markers.length === 0 && !pending && (
           <div className="pointer-events-none absolute inset-x-0 -bottom-1 flex justify-center">
-            <div className="flex items-center gap-1.5 rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1.5 shadow-sm">
-              <MapPin size={10} className="text-indigo-400" />
-              <span className="text-[9px] font-medium text-indigo-600">
+            <div className="flex items-center gap-1.5 rounded-full border border-sky-100 bg-sky-50 px-3 py-1.5 shadow-sm">
+              <MapPin size={10} className="text-sky-400" />
+              <span className="text-[9px] font-medium text-sky-600">
                 Klik chart untuk menandai
               </span>
             </div>
