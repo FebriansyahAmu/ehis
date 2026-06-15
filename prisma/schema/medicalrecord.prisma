@@ -1440,3 +1440,36 @@ model PenilaianStatus {
   @@map("penilaian_status")
   @@schema("medicalrecord")
 }
+
+// ── Penilaian Pediatrik (sub-menu 4: Pediatrik) ────────────────────────────────
+//  Status pediatrik ringkas: berat lahir + usia gestasi + status imunisasi + tumbuh kembang +
+//  catatan. Append-only time-series (riwayat per kunjungan; tiap simpan = baris baru). Semua
+//  field free-text (snapshot). pemeriksa = denormalisasi sesi login. Gate clinical.penilaian.
+//  Mirror PediatrikPanel (PenilaianTab.tsx).
+
+model PenilaianPediatrik {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Spine (FK riil, same DB / cross-schema ke encounter) ──
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  beratLahir    String @default("") @map("berat_lahir")
+  usiaGestasi   String @default("") @map("usia_gestasi")
+  imunisasi     String @default("") // status imunisasi (Lengkap/Tidak lengkap/…)
+  tumbuhKembang String @default("") @map("tumbuh_kembang")
+  catatan       String @default("")
+
+  // ── Pencatat + author (dari actor) ──
+  pemeriksa       String  // nama denormalisasi pencatat (dari user login)
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (append-only: tanpa updatedAt/soft-delete; version utk konsistensi) ──
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt]) // riwayat per kunjungan (terbaru dulu)
+  @@map("penilaian_pediatrik")
+  @@schema("medicalrecord")
+}

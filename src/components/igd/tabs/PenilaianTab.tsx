@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Activity, Zap, Stethoscope, Baby, BookOpen, ShieldAlert,
+  Activity, Zap, Stethoscope, Baby, ShieldAlert,
   Layers, BarChart2, Heart, Microscope, ClipboardCheck,
   FileText, Clock, Calendar, User, type LucideIcon,
 } from "lucide-react";
@@ -15,6 +15,7 @@ import { ApiError } from "@/lib/api/client";
 import { getPenilaianFisik, createPenilaianFisik, type PenilaianFisikDTO } from "@/lib/api/penilaian/penilaianFisik";
 import { getPenilaianNyeri, createPenilaianNyeri, type PenilaianNyeriDTO } from "@/lib/api/penilaian/penilaianNyeri";
 import { getPenilaianStatus, createPenilaianStatus, type PenilaianStatusDTO } from "@/lib/api/penilaian/penilaianStatus";
+import { getPenilaianPediatrik, createPenilaianPediatrik, type PenilaianPediatrikDTO } from "@/lib/api/penilaian/penilaianPediatrik";
 import { listObservasi } from "@/lib/api/observation";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -640,10 +641,70 @@ function StatusPanel({ kunjunganId, isPersisted, perawat }: PanelCtx) {
 }
 
 // ── 4. PEDIATRIK ───────────────────────────────────────────────
-function PediatrikPanel() {
-  const [form, setForm] = useState({ beratLahir: "", usiaGestasi: "", imunisasi: "", tumbuhKembang: "" });
-  const [catatan, setCatatan] = useState("");
+const EMPTY_PEDIATRIK = { beratLahir: "", usiaGestasi: "", imunisasi: "", tumbuhKembang: "", catatan: "" };
+
+// DTO → NoteEntry riwayat.
+function pediatrikToNote(d: PenilaianPediatrikDTO): NoteEntry {
+  const parts: string[] = [];
+  if (d.beratLahir) parts.push(`Berat lahir: ${d.beratLahir}`);
+  if (d.usiaGestasi) parts.push(`Usia gestasi: ${d.usiaGestasi}`);
+  if (d.imunisasi) parts.push(`Imunisasi: ${d.imunisasi}`);
+  if (d.tumbuhKembang) parts.push(`Tumbuh kembang: ${d.tumbuhKembang}`);
+  if (d.catatan) parts.push(d.catatan);
+  return { date: d.tanggal, author: d.pemeriksa || "—", content: parts.join("\n") };
+}
+
+function PediatrikPanel({ kunjunganId, isPersisted, perawat }: PanelCtx) {
+  const [form, setForm] = useState(EMPTY_PEDIATRIK);
+  const [history, setHistory] = useState<NoteEntry[]>([]);
+  const [saving, setSaving] = useState(false);
   const set = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
+
+  // Riwayat penilaian pediatrik (kunjungan UUID).
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    getPenilaianPediatrik(kunjunganId, ac.signal)
+      .then((rows) => setHistory(rows.map(pediatrikToNote)))
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat riwayat pediatrik", e instanceof ApiError ? e.message : undefined);
+      });
+    return () => ac.abort();
+  }, [isPersisted, kunjunganId]);
+
+  const isEmpty = !Object.values(form).some((v) => v.trim());
+
+  async function handleSave() {
+    if (isEmpty || saving) return;
+    if (!isPersisted) {
+      const local: PenilaianPediatrikDTO = {
+        id: `local-${Date.now()}`, ...form, pemeriksa: perawat,
+        tanggal: NOTE_DATE_FMT.format(new Date()), waktu: new Date().toISOString(),
+      };
+      setHistory((h) => [pediatrikToNote(local), ...h]);
+      setForm(EMPTY_PEDIATRIK);
+      toast.info("Pasien demo — penilaian tidak tersimpan ke database");
+      return;
+    }
+    try {
+      setSaving(true);
+      const dto = await createPenilaianPediatrik(kunjunganId, {
+        beratLahir: form.beratLahir || undefined,
+        usiaGestasi: form.usiaGestasi || undefined,
+        imunisasi: form.imunisasi || undefined,
+        tumbuhKembang: form.tumbuhKembang || undefined,
+        catatan: form.catatan || undefined,
+      });
+      setHistory((h) => [pediatrikToNote(dto), ...h]);
+      setForm(EMPTY_PEDIATRIK);
+      toast.success("Status pediatrik tersimpan");
+    } catch (e) {
+      toast.error("Gagal menyimpan status pediatrik", e instanceof ApiError ? e.message : undefined);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <TwoPanel
@@ -664,68 +725,22 @@ function PediatrikPanel() {
           </div>
           <div>
             <Label>Catatan Pediatrik</Label>
-            <AutoTextarea value={catatan} onChange={setCatatan} placeholder="Riwayat tumbuh kembang, kondisi khusus, riwayat terapi..." minRows={3} />
+            <AutoTextarea value={form.catatan} onChange={(v) => set("catatan", v)} placeholder="Riwayat tumbuh kembang, kondisi khusus, riwayat terapi..." minRows={3} />
           </div>
-          <div className="flex justify-end"><SaveBtn label="Simpan Status Pediatrik" /></div>
+          <div className="flex justify-end">
+            <SaveBtn label="Simpan Status Pediatrik" onClick={handleSave} disabled={isEmpty} loading={saving} />
+          </div>
         </div>
       }
-      history={<HistoryPanel title="Status Pediatrik" notes={[]} />}
+      history={<HistoryPanel title="Status Pediatrik" notes={history} />}
     />
   );
 }
 
-// ── 5. DIAGNOSIS ───────────────────────────────────────────────
-const DIAGNOSIS_NOTES: NoteEntry[] = [
-  {
-    date: "12 Apr 2025", author: "dr. Hendro Sp.PD", tag: "IGD",
-    content: "Dx Utama: NSTEMI (I21.4)\nDx Banding: UAP, Perikarditis akut\nKomorbid: DM Tipe 2, Hipertensi Grade II",
-  },
-  {
-    date: "28 Jan 2025", author: "dr. Sari Sp.PD", tag: "Poli",
-    content: "Dx Utama: Hipertensi Grade II terkontrol\nKomorbid: DM Tipe 2 — HbA1c 7.8%",
-  },
-];
-
-function DiagnosisPanel() {
-  const [catatan, setCatatan] = useState("");
-  const [banding, setBanding] = useState("");
-  const [komorbid, setKomorbid] = useState("");
-  const [rencana, setRencana] = useState("");
-
-  return (
-    <TwoPanel
-      form={
-        <div className="flex flex-col gap-3">
-          <div>
-            <Label>Catatan Diagnosis Klinis</Label>
-            <AutoTextarea
-              value={catatan}
-              onChange={setCatatan}
-              placeholder="Tuliskan diagnosis kerja beserta dasar penegakannya secara lengkap (anamnesis, pemeriksaan fisik, penunjang)..."
-              minRows={5}
-            />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label>Diagnosis Banding</Label>
-              <input value={banding} onChange={(e) => setBanding(e.target.value)} placeholder="Kemungkinan diagnosis lain..." className={inputCls} />
-            </div>
-            <div>
-              <Label>Komorbid / Penyerta</Label>
-              <input value={komorbid} onChange={(e) => setKomorbid(e.target.value)} placeholder="Penyakit / kondisi penyerta..." className={inputCls} />
-            </div>
-          </div>
-          <div>
-            <Label>Rencana Tatalaksana</Label>
-            <AutoTextarea value={rencana} onChange={setRencana} placeholder="Rencana pemeriksaan lanjutan, terapi, dan tindak lanjut..." minRows={2} />
-          </div>
-          <div className="flex justify-end"><SaveBtn label="Simpan Penilaian Diagnosis" /></div>
-        </div>
-      }
-      history={<HistoryPanel title="Diagnosis" notes={DIAGNOSIS_NOTES} />}
-    />
-  );
-}
+// ── 5. DIAGNOSIS — DI-DROP (2026-06-15) ────────────────────────
+//  Sub-menu Diagnosis dihapus: redundan dgn tab Diagnosa (ICD terkode — tipe Komorbid · status
+//  Diferensial · alasan/analisa per diagnosis) + CPPT (rencana tatalaksana = SOAP "P"). Single
+//  source diagnosis = tab Diagnosa (billable INA-CBG/iDRG). Tak ada tabel `penilaian_diagnosis`.
 
 // ── 6. RISIKO JATUH (Morse Fall Scale) ────────────────────────
 const JATUH_NOTES: NoteEntry[] = [
@@ -1480,8 +1495,7 @@ const TABS: TabDef[] = [
   { id: "fisik",     short: "Fisik",       title: "Penilaian Fisik",      icon: Activity,    content: (ctx) => <FisikPanel {...ctx} /> },
   { id: "nyeri",     short: "Nyeri",       title: "Asesmen Nyeri",        icon: Zap,         content: (ctx) => <NyeriPanel {...ctx} /> },
   { id: "status",    short: "Status",      title: "Status Klinis",        icon: Stethoscope, content: (ctx) => <StatusPanel {...ctx} /> },
-  { id: "pediatrik", short: "Pediatrik",   title: "Status Pediatrik",     icon: Baby,        content: () => <PediatrikPanel /> },
-  { id: "diagnosis", short: "Diagnosis",   title: "Penilaian Diagnosis",  icon: BookOpen,    content: () => <DiagnosisPanel /> },
+  { id: "pediatrik", short: "Pediatrik",   title: "Status Pediatrik",     icon: Baby,        content: (ctx) => <PediatrikPanel {...ctx} /> },
   { id: "jatuh",     short: "Risiko Jatuh",title: "Risiko Jatuh",         icon: ShieldAlert, content: () => <MorsePanel /> },
   { id: "dekubitus", short: "Dekubitus",   title: "Risiko Dekubitus",     icon: Layers,      content: () => <BradenPanel /> },
   { id: "barthel",   short: "Barthel",     title: "Barthel Index (ADL)",  icon: BarChart2,   content: () => <BarthelPanel /> },
