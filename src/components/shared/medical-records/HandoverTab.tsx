@@ -12,6 +12,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/contexts/SessionContext";
 import {
   SHIFTS,
   SHIFT_CONFIG,
@@ -34,6 +35,8 @@ interface Props {
 }
 
 export default function HandoverTab({ patient }: Props) {
+  const { session }               = useSession();
+  const perawatKeluar             = session?.namaTampil ?? ""; // pemberi = sesi login
   const today                     = todayISO();
   const [date, setDate]           = useState(today);
   const [activeShift, setShift]   = useState<Shift>("Pagi");
@@ -56,12 +59,29 @@ export default function HandoverTab({ patient }: Props) {
     setShowForm(false);
   };
 
-  const handleSubmit = (data: Omit<HandoverEntry, "id" | "tanggal">) => {
+  const handleSubmit = (
+    data: Omit<HandoverEntry, "id" | "perawatMasuk" | "jamTerima">,
+  ) => {
     setEntries((prev) => [
       ...prev,
-      { ...data, id: `ho-${Date.now()}`, tanggal: date },
+      { ...data, id: `ho-${Date.now()}`, perawatMasuk: "" },
     ]);
     setShowForm(false);
+  };
+
+  // Terima serah terima → penerima = sesi login (perawat shift berikutnya)
+  const handleReceive = (id: string) => {
+    const now = new Date();
+    const jam = `${String(now.getHours()).padStart(2, "0")}:${String(
+      now.getMinutes(),
+    ).padStart(2, "0")}`;
+    setEntries((prev) =>
+      prev.map((e) =>
+        e.id === id
+          ? { ...e, perawatMasuk: session?.namaTampil ?? "Perawat penerima", jamTerima: jam }
+          : e,
+      ),
+    );
   };
 
   const doneCount = dayEntries.length;
@@ -70,10 +90,10 @@ export default function HandoverTab({ patient }: Props) {
     <div className="flex flex-col gap-4">
 
       {/* ── Patient context strip ── */}
-      <div className="rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50 to-white px-4 py-3 shadow-xs">
+      <div className="rounded-2xl border border-sky-100 bg-gradient-to-r from-sky-50 to-white px-4 py-3 shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="mb-0.5 text-[10px] font-bold uppercase tracking-widest text-indigo-400">
+            <p className="mb-0.5 text-[10px] font-bold uppercase tracking-widest text-sky-400">
               Serah Terima Shift
             </p>
             <p className="truncate text-sm font-bold text-slate-800">
@@ -83,7 +103,7 @@ export default function HandoverTab({ patient }: Props) {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {patient.badge && (
-              <span className="rounded-xl bg-indigo-100 px-3 py-1.5 text-[11px] font-semibold text-indigo-700">
+              <span className="rounded-xl bg-sky-100 px-3 py-1.5 text-[11px] font-semibold text-sky-700">
                 {patient.badge}
               </span>
             )}
@@ -101,7 +121,7 @@ export default function HandoverTab({ patient }: Props) {
         <button
           type="button"
           onClick={() => handleDateChange(prevDay(date))}
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-indigo-300 hover:text-indigo-600 active:bg-indigo-50"
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-sky-300 hover:text-sky-600 active:bg-sky-50"
         >
           <ChevronLeft size={15} />
         </button>
@@ -117,7 +137,7 @@ export default function HandoverTab({ patient }: Props) {
             <motion.span
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="mt-0.5 rounded-full bg-indigo-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-indigo-600"
+              className="mt-0.5 rounded-full bg-sky-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-sky-600"
             >
               Hari Ini
             </motion.span>
@@ -132,7 +152,7 @@ export default function HandoverTab({ patient }: Props) {
             "flex h-8 w-8 items-center justify-center rounded-lg border transition",
             isToday
               ? "cursor-not-allowed border-slate-100 text-slate-200"
-              : "border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-600 active:bg-indigo-50",
+              : "border-slate-200 text-slate-400 hover:border-sky-300 hover:text-sky-600 active:bg-sky-50",
           )}
         >
           <ChevronRight size={15} />
@@ -200,7 +220,7 @@ export default function HandoverTab({ patient }: Props) {
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.18 }}
           >
-            <HandoverCard entry={shiftEntry} />
+            <HandoverCard entry={shiftEntry} onReceive={handleReceive} />
           </motion.div>
 
         ) : showForm ? (
@@ -213,7 +233,8 @@ export default function HandoverTab({ patient }: Props) {
           >
             <HandoverForm
               shift={activeShift}
-              patient={patient}
+              perawatKeluar={perawatKeluar}
+              date={date}
               onSubmit={handleSubmit}
               onCancel={() => setShowForm(false)}
             />
@@ -243,7 +264,7 @@ export default function HandoverTab({ patient }: Props) {
             <button
               type="button"
               onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-sm shadow-indigo-200 transition hover:bg-indigo-700 active:bg-indigo-800"
+              className="inline-flex items-center gap-2 rounded-xl bg-sky-600 px-5 py-2.5 text-xs font-bold text-white shadow-sm shadow-sky-200 transition hover:bg-sky-700 active:bg-sky-800"
             >
               <Plus size={14} />
               Isi Serah Terima Shift {activeShift}
@@ -279,7 +300,9 @@ export default function HandoverTab({ patient }: Props) {
                     {shift}
                   </span>
                   <span className="text-[10px] text-emerald-500">
-                    {entry.perawatKeluar} → {entry.perawatMasuk}
+                    {entry.perawatMasuk
+                      ? `${entry.perawatKeluar} → ${entry.perawatMasuk}`
+                      : `${entry.perawatKeluar} · belum diterima`}
                   </span>
                 </motion.button>
               ) : (
