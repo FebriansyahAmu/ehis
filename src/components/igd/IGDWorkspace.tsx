@@ -14,7 +14,7 @@ import type { LocationNode } from "@/components/master/ruangan/ruanganShared";
 import IGDBoard from "./IGDBoard";
 import IGDOrderInbox from "./IGDOrderInbox";
 import IGDRuanganMasterPanel from "./IGDRuanganMasterPanel";
-import { splitIgd, type IgdOrder } from "./igdBoardApi";
+import { splitIgd, dtoToIgdPatient, type IgdOrder } from "./igdBoardApi";
 
 const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name === "AbortError";
 
@@ -38,6 +38,7 @@ async function loadDokterMap(signal?: AbortSignal): Promise<Map<string, string>>
  */
 export default function IGDWorkspace() {
   const [items, setItems] = useState<KunjunganListItemDTO[]>([]);
+  const [selesaiItems, setSelesaiItems] = useState<KunjunganListItemDTO[]>([]);
   const [dokterById, setDokterById] = useState<Map<string, string>>(new Map());
   const [kunjError, setKunjError] = useState(false);
   const [rooms, setRooms] = useState<LocationNode[]>([]);
@@ -61,6 +62,14 @@ export default function IGDWorkspace() {
     }
   }, []);
 
+  // Kunjungan IGD yang sudah Selesai (Completed) — disaring "hari ini" di derive.
+  const loadSelesai = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const { items } = await listKunjungan({ unit: "IGD", status: "Completed", limit: 50 }, signal);
+      if (mounted.current) setSelesaiItems(items);
+    } catch { /* seksi opsional → kosong bila gagal */ }
+  }, []);
+
   const loadAllocations = useCallback(async (signal?: AbortSignal) => {
     try {
       const rows = await listActiveBedAllocations("IGD", signal);
@@ -72,6 +81,7 @@ export default function IGDWorkspace() {
     mounted.current = true;
     const ctrl = new AbortController();
     loadKunjungan(ctrl.signal);
+    loadSelesai(ctrl.signal);
     loadAllocations(ctrl.signal);
     listRuanganByType("IGD", ctrl.signal)
       .then((rows) => { if (mounted.current) { setRooms(rows); setRoomError(false); } })
@@ -82,7 +92,7 @@ export default function IGDWorkspace() {
       .then((map) => { if (mounted.current) setDokterById(map); })
       .catch(() => {});
     return () => { mounted.current = false; ctrl.abort(); };
-  }, [loadKunjungan, loadAllocations]);
+  }, [loadKunjungan, loadSelesai, loadAllocations]);
 
   // Derive order/board dari items + peta dokter & ruangan (DPJP/ruangan ter-resolve walau
   // dokter/ruangan telat load). Peta ruangan: Location.id → nama (ruanganId kunjungan).
@@ -90,6 +100,20 @@ export default function IGDWorkspace() {
   const { orders, board } = useMemo(
     () => splitIgd(items, { dokterById, ruanganById }),
     [items, dokterById, ruanganById],
+  );
+
+  // Pasien IGD yang sudah Selesai (Completed) → kartu klik = rekam medis read-only/terkunci.
+  // Tampil di board hanya saat view "Selesai" (filter di IGDBoard). API sudah batasi 50 +
+  // urut terbaru; di sini urut by waktu selesai desc. TIDAK disaring "hari ini" agar pasien
+  // yang baru saja diselesaikan tetap terlihat (hindari drift zona waktu UTC↔lokal).
+  const selesaiPatients = useMemo<IGDPatient[]>(
+    () =>
+      [...selesaiItems]
+        .sort((a, b) =>
+          (b.selesaiAt ?? b.waktuKunjungan).localeCompare(a.selesaiAt ?? a.waktuKunjungan),
+        )
+        .map((k) => dtoToIgdPatient(k, { dokterById, ruanganById })),
+    [selesaiItems, dokterById, ruanganById],
   );
 
   // Okupansi dari alokasi aktif: set bed terisi + peta kunjungan→bed (untuk nama bed di kartu).
@@ -107,14 +131,15 @@ export default function IGDWorkspace() {
     return m;
   }, [allocations, bedById]);
 
-  // Board = seed (Joko) + pasien InService; pasien InService di-enrich nama bed dari alokasi.
+  // Board = seed (Joko) + pasien InService (di-enrich nama bed) + selesai hari ini.
+  // Pemisahan aktif vs selesai ditangani filter status di IGDBoard (default "Sedang Dilayani").
   const boardPatients = useMemo<IGDPatient[]>(() => {
     const enriched = board.map((p) => {
       const bedNama = bedNamaByKunjungan.get(p.id);
       return bedNama ? { ...p, bedNama } : p;
     });
-    return [...igdPatients, ...enriched];
-  }, [board, bedNamaByKunjungan]);
+    return [...igdPatients, ...enriched, ...selesaiPatients];
+  }, [board, bedNamaByKunjungan, selesaiPatients]);
 
   async function runAction(o: IgdOrder, action: "receive" | "cancel", bedId?: string) {
     if (pendingId) return;
@@ -187,7 +212,8 @@ export default function IGDWorkspace() {
         />
       )}
 
-      {/* Board pasien di-IGD */}
+      {/* Board pasien IGD — filter status (Sedang Dilayani ⟷ Selesai) di dalam board.
+          Kartu Selesai = klik → rekam medis read-only/terkunci. */}
       <IGDBoard patients={boardPatients} />
     </div>
   );

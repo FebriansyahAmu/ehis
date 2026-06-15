@@ -8,6 +8,7 @@ import type {
   KunjunganListItemDTO,
   KunjunganActionName,
 } from "@/lib/schemas/kunjungan";
+import type { DisposisiInput } from "@/lib/schemas/disposisi/disposisi";
 
 export type { RegisterKunjunganInput, KunjunganDTO, KunjunganListItemDTO, KunjunganActionName };
 
@@ -37,11 +38,24 @@ export async function transitionKunjungan(
   id: string,
   action: KunjunganActionName,
   expectedVersion?: number,
-  opts?: { bedId?: string; signal?: AbortSignal },
+  opts?: {
+    bedId?: string;
+    waktuSelesai?: string; // "YYYY-MM-DDTHH:mm" — complete/re-complete
+    disposisi?: DisposisiInput; // wajib saat complete
+    alasanReopen?: string; // opsional saat reopen
+    signal?: AbortSignal;
+  },
 ): Promise<KunjunganDTO> {
   const { data } = await api.patch<KunjunganDTO>(
     `/kunjungan/${encodeURIComponent(id)}/status`,
-    { action, expectedVersion, bedId: opts?.bedId },
+    {
+      action,
+      expectedVersion,
+      bedId: opts?.bedId,
+      waktuSelesai: opts?.waktuSelesai,
+      disposisi: opts?.disposisi,
+      alasanReopen: opts?.alasanReopen,
+    },
     { signal: opts?.signal },
   );
   return data;

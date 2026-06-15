@@ -2,18 +2,18 @@
 
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { IGDPatient, TriageLevel, IGDStatus } from "@/lib/data";
+import { ChevronLeft, ChevronRight, Activity, CheckCircle2 } from "lucide-react";
+import type { IGDPatient, TriageLevel } from "@/lib/data";
 import PatientCard from "./PatientCard";
 import { cn } from "@/lib/utils";
 
 type FilterTriage = "Semua" | TriageLevel;
-type FilterStatus = "Semua" | IGDStatus;
+/** View utama: pasien aktif (sedang dilayani) vs sudah selesai. Default = aktif. */
+type StatusView = "aktif" | "selesai";
 
 const ITEMS_PER_PAGE = 9;
 
 const TRIAGE_TABS: FilterTriage[] = ["Semua", "P1", "P2", "P3", "P4"];
-const STATUS_OPTS: FilterStatus[] = ["Semua", "Triage", "Menunggu", "Dalam Penanganan", "Observasi", "Selesai"];
 
 const TRIAGE_COLOR: Record<FilterTriage, string> = {
   Semua: "bg-slate-800 text-white",
@@ -37,7 +37,7 @@ interface IGDBoardProps {
 
 export default function IGDBoard({ patients }: IGDBoardProps) {
   const [triage, setTriage] = useState<FilterTriage>("Semua");
-  const [status, setStatus] = useState<FilterStatus>("Semua");
+  const [view, setView]     = useState<StatusView>("aktif");
   const [dpjp, setDpjp]     = useState("Semua");
   const [search, setSearch] = useState("");
   const [page, setPage]     = useState(1);
@@ -47,17 +47,29 @@ export default function IGDBoard({ patients }: IGDBoardProps) {
     return ["Semua", ...names];
   }, [patients]);
 
-  const filtered = patients.filter((p) => {
-    const matchTriage = triage === "Semua" || p.triage === triage;
-    const matchStatus = status === "Semua" || p.status === status;
-    const matchDpjp   = dpjp === "Semua" || p.doctor === dpjp;
-    const matchSearch =
-      search === "" ||
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.noRM.toLowerCase().includes(search.toLowerCase()) ||
-      p.complaint.toLowerCase().includes(search.toLowerCase());
-    return matchTriage && matchStatus && matchDpjp && matchSearch;
-  });
+  // Filter sub (triase/DPJP/cari) di luar view status → dasar hitung badge per segmen.
+  const baseFiltered = useMemo(
+    () =>
+      patients.filter((p) => {
+        const matchTriage = triage === "Semua" || p.triage === triage;
+        const matchDpjp   = dpjp === "Semua" || p.doctor === dpjp;
+        const matchSearch =
+          search === "" ||
+          p.name.toLowerCase().includes(search.toLowerCase()) ||
+          p.noRM.toLowerCase().includes(search.toLowerCase()) ||
+          p.complaint.toLowerCase().includes(search.toLowerCase());
+        return matchTriage && matchDpjp && matchSearch;
+      }),
+    [patients, triage, dpjp, search],
+  );
+
+  const aktifCount   = baseFiltered.filter((p) => p.status !== "Selesai").length;
+  const selesaiCount = baseFiltered.filter((p) => p.status === "Selesai").length;
+
+  // View status: "selesai" hanya tampil saat dipilih; default "aktif" (sedang dilayani).
+  const filtered = baseFiltered.filter((p) =>
+    view === "selesai" ? p.status === "Selesai" : p.status !== "Selesai",
+  );
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const safePage   = Math.min(page, totalPages);
@@ -65,10 +77,56 @@ export default function IGDBoard({ patients }: IGDBoardProps) {
 
   function resetPage() { setPage(1); }
 
-  const gridKey = `${triage}|${status}|${dpjp}|${search}|${safePage}`;
+  const STATUS_VIEWS = [
+    { id: "aktif" as const,   label: "Sedang Dilayani", count: aktifCount,   Icon: Activity,     accent: "sky" as const },
+    { id: "selesai" as const, label: "Selesai",         count: selesaiCount, Icon: CheckCircle2, accent: "emerald" as const },
+  ];
+
+  const gridKey = `${view}|${triage}|${dpjp}|${search}|${safePage}`;
 
   return (
     <div className="flex flex-col gap-4">
+      {/* ── Status view switcher (primer): Sedang Dilayani ⟷ Selesai ── */}
+      <div
+        className="inline-flex items-center gap-1 self-start rounded-xl border border-slate-200 bg-slate-50 p-1"
+        role="tablist"
+        aria-label="Tampilkan pasien berdasarkan status"
+      >
+        {STATUS_VIEWS.map((v) => {
+          const active = view === v.id;
+          const sel = v.accent === "emerald";
+          return (
+            <button
+              key={v.id}
+              role="tab"
+              aria-selected={active}
+              onClick={() => { setView(v.id); resetPage(); }}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition",
+                active
+                  ? sel
+                    ? "bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-100"
+                    : "bg-white text-sky-700 shadow-sm ring-1 ring-sky-100"
+                  : "text-slate-500 hover:text-slate-700",
+              )}
+            >
+              <v.Icon size={13} aria-hidden="true" />
+              {v.label}
+              <span
+                className={cn(
+                  "ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
+                  active
+                    ? sel ? "bg-emerald-100 text-emerald-700" : "bg-sky-100 text-sky-700"
+                    : "bg-slate-200 text-slate-500",
+                )}
+              >
+                {v.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* ── Filter bar ── */}
       <div className="flex flex-wrap items-center gap-2.5">
         {/* Triage tabs */}
@@ -88,18 +146,6 @@ export default function IGDBoard({ patients }: IGDBoardProps) {
         </div>
 
         <span className="hidden h-5 w-px bg-slate-200 sm:block" aria-hidden="true" />
-
-        {/* Status */}
-        <select
-          value={status}
-          onChange={(e) => { setStatus(e.target.value as FilterStatus); resetPage(); }}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-          aria-label="Filter status"
-        >
-          {STATUS_OPTS.map((s) => (
-            <option key={s} value={s}>{s === "Semua" ? "Semua Status" : s}</option>
-          ))}
-        </select>
 
         {/* DPJP */}
         <select
@@ -127,7 +173,8 @@ export default function IGDBoard({ patients }: IGDBoardProps) {
       {/* Result count */}
       <p className="text-xs text-slate-400">
         Menampilkan{" "}
-        <span className="font-semibold text-slate-600">{filtered.length}</span> pasien
+        <span className="font-semibold text-slate-600">{filtered.length}</span> pasien{" "}
+        {view === "selesai" ? "selesai" : "sedang dilayani"}
         {totalPages > 1 && (
           <span className="ml-1">
             · hal. {safePage}/{totalPages}
@@ -153,8 +200,18 @@ export default function IGDBoard({ patients }: IGDBoardProps) {
         </AnimatePresence>
       ) : (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 py-16 text-center">
-          <p className="font-medium text-slate-500">Tidak ada pasien ditemukan</p>
-          <p className="mt-1 text-sm text-slate-400">Coba ubah filter atau kata pencarian</p>
+          {view === "selesai" ? (
+            <>
+              <CheckCircle2 size={22} className="mb-2 text-slate-300" aria-hidden="true" />
+              <p className="font-medium text-slate-500">Belum ada pasien selesai</p>
+              <p className="mt-1 text-sm text-slate-400">Pasien yang diselesaikan akan muncul di sini</p>
+            </>
+          ) : (
+            <>
+              <p className="font-medium text-slate-500">Tidak ada pasien ditemukan</p>
+              <p className="mt-1 text-sm text-slate-400">Coba ubah filter atau kata pencarian</p>
+            </>
+          )}
         </div>
       )}
 

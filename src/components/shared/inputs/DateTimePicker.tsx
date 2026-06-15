@@ -50,6 +50,13 @@ function parse(value: string): Parsed {
 function toValue(d: Date, hh: number, mm: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(hh)}:${pad(mm)}`;
 }
+
+/** Nilai "sekarang" sebagai wall-clock LOKAL "YYYY-MM-DDTHH:mm" (default field; JANGAN pakai
+ *  toISOString → itu UTC, mundur sesuai offset zona). Selaras tombol "Sekarang" picker. */
+export function nowInputValue(): string {
+  const n = new Date();
+  return toValue(n, n.getHours(), n.getMinutes());
+}
 function sameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }

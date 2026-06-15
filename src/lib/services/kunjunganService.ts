@@ -14,8 +14,11 @@
 import { transaction } from "@/lib/db/prisma";
 import * as defaultDal from "@/lib/dal/kunjunganDal";
 import * as patientDal from "@/lib/dal/patientDal";
+import * as diagnosaDal from "@/lib/dal/diagnosa/diagnosaDal";
+import * as disposisiDal from "@/lib/dal/disposisi/disposisiDal";
 import { makeBpjsService, toSepDTO, toRujukanDTO } from "@/lib/services/bpjsService";
 import { makeBedAllocationService } from "@/lib/services/bedAllocationService";
+import { resolveActorNama } from "@/lib/services/actorName";
 import { systemClock, type Clock } from "@/lib/core/clock";
 import { decryptPii, encryptPii, hashPii } from "@/lib/crypto/pii";
 import { Errors } from "@/lib/errors/appError";
@@ -23,6 +26,7 @@ import type { Actor } from "@/lib/auth/actor";
 import { unitScopeBypassed, type CareUnit } from "@/lib/auth/careUnit";
 import { assertUnitInScope } from "@/lib/services/clinicalScope";
 import type { RegisterKunjunganInput, WorklistQuery, KunjunganDTO, KunjunganListItemDTO, KunjunganActionName } from "@/lib/schemas/kunjungan";
+import type { DisposisiInput } from "@/lib/schemas/disposisi/disposisi";
 import type { KunjunganEntity, KunjunganListEntity, UpdateStatusPatch } from "@/lib/dal/kunjunganDal";
 
 type Dal = typeof defaultDal;
@@ -44,21 +48,30 @@ const STATUS_LABEL: Record<string, string> = {
 const isBpjs = (t: string): boolean => t === "BPJS_Non_PBI" || t === "BPJS_PBI";
 
 /** Authz per-aksi transisi (action-dependent → tak bisa di route() statis, FLOWS §6).
- *  · `receive` (Terima Pasien) = aksi bedside KLINIS (perawat/dokter, marker clinical.rekammedis:update)
- *    ATAU admisi loket (registration.kunjungan:update) → IGD bisa diterima oleh perawat/dokter jaga.
- *  · transisi administratif lain (checkIn/call/recall/complete/cancel/reopen) = wewenang loket.
+ *  · `receive`/`complete`/`reopen` = aksi bedside KLINIS (Dokter/Perawat, marker clinical.rekammedis:update)
+ *    ATAU loket (registration.kunjungan:update). "Selesaikan/Batal Selesai" = keputusan disposisi DPJP/perawat.
+ *  · transisi administratif lain (checkIn/call/recall/cancel) = wewenang loket.
  *  Superuser bypass. ABAC unit-scope (IGD nurse hanya pasien IGD) ditegakkan terpisah di route
  *  via scopeKunjungan. */
 function assertTransitionAllowed(actor: Actor, action: KunjunganActionName): void {
   if (actor.isSuperuser || actor.permissions.has("*")) return;
   const can = (r: string, a: string): boolean => actor.permissions.has(`${r}:${a}`);
-  if (action === "receive") {
+  if (action === "receive" || action === "complete" || action === "reopen") {
     if (can("clinical.rekammedis", "update") || can("registration.kunjungan", "update")) return;
-    throw Errors.forbidden("Tidak punya izin menerima pasien (perlu clinical.rekammedis:update atau registration.kunjungan:update)");
+    throw Errors.forbidden("Tidak punya izin transisi klinis (perlu clinical.rekammedis:update atau registration.kunjungan:update)");
   }
   if (!can("registration.kunjungan", "update")) {
     throw Errors.forbidden("Tidak punya izin registration.kunjungan:update");
   }
+}
+
+/** "YYYY-MM-DDTHH:mm" (DateTimePicker) → Date UTC wall-clock (samakan combineDateTime). */
+function parseWaktuSelesai(s?: string): Date | undefined {
+  if (!s) return undefined;
+  const iso = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s) ? `${s}:00.000Z` : s;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) throw Errors.validation("Waktu selesai tidak valid");
+  return d;
 }
 
 /** Nama penjamin default bila pasien belum punya record penjamin tipe tsb. */
@@ -125,6 +138,11 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
       pasien: { id: k.pasien.id, noRm: k.pasien.noRm, nama: k.pasien.nama },
       rujukan: k.rujukan ? toRujukanDTO(k.rujukan) : null,
       sep: k.sep ? toSepDTO(k.sep) : null,
+      lockedAt: k.lockedAt ? k.lockedAt.toISOString() : null,
+      selesaiAt: k.selesaiAt ? k.selesaiAt.toISOString() : null,
+      selesaiPertamaAt: k.selesaiPertamaAt ? k.selesaiPertamaAt.toISOString() : null,
+      disposisi: k.disposisi,
+      alasanReopen: k.alasanReopen,
       version: k.version,
       createdAt: k.createdAt.toISOString(),
     };
@@ -157,6 +175,7 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
         tanggalLahir: k.pasien.tanggalLahir ? k.pasien.tanggalLahir.toISOString().slice(0, 10) : null,
       },
       sep: k.sep ? { id: k.sep.id, noSep: k.sep.noSep, status: k.sep.status } : null,
+      selesaiAt: k.selesaiAt ? k.selesaiAt.toISOString() : null,
       version: k.version,
       createdAt: k.createdAt.toISOString(),
     };
@@ -317,13 +336,13 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
         if (s === "Registered" && (k.unit === "IGD" || k.unit === "RawatInap"))
           return { status: "InService", callState: "Idle" };
         throw bad();
-      case "complete": // pelayanan selesai → kunci waktu selesai (immutable)
+      case "complete": // pelayanan selesai → disposisi + kunci (di-set di transition() dgn opts)
         if (s !== "InService") throw bad();
-        return { status: "Completed", callState: "Idle", selesaiAt: clock.now(), lockedAt: clock.now() };
+        return { status: "Completed", callState: "Idle" };
       case "cancel": // batal — dikembalikan ke admisi
         if (s !== "Registered" && s !== "Queued" && s !== "InService") throw bad();
         return { status: "Cancelled", callState: "Idle" };
-      case "reopen": // buka kembali Selesai → Dilayani (selesaiAt DIPERTAHANKAN)
+      case "reopen": // batal selesai → Dilayani (selesaiAt/selesaiPertamaAt DIPERTAHANKAN; lockedAt dibuka di transition())
         if (s !== "Completed") throw bad();
         return { status: "InService", callState: "Idle" };
       default:
@@ -331,18 +350,27 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
     }
   }
 
+  interface TransitionOpts {
+    bedId?: string;
+    waktuSelesai?: string; // "YYYY-MM-DDTHH:mm" (DateTimePicker)
+    disposisi?: DisposisiInput; // wajib saat complete (Zod refine)
+    alasanReopen?: string;
+  }
+
   /**
    * Transisi status kunjungan (worklist). Version guard 2-lapis: bila `expectedVersion`
    * dikirim, ditolak saat sudah berubah; lalu updateStatus by version (count 0 = ter-race).
+   * `complete` = atomik: gate Diagnosa Utama → tulis Disposisi → set selesai/lock + lepas bed.
+   * `reopen` = batal selesai: buka kunci + simpan alasan (timestamp selesai dipertahankan).
    */
   async function transition(
     id: string,
     action: KunjunganActionName,
     expectedVersion: number | undefined,
     actor: Actor,
-    bedId?: string,
+    opts: TransitionOpts = {},
   ): Promise<KunjunganDTO> {
-    assertTransitionAllowed(actor, action); // authz per-aksi (receive boleh klinis)
+    assertTransitionAllowed(actor, action); // authz per-aksi (receive/complete/reopen boleh klinis)
     const updated = await transaction(async (tx) => {
       const k = await dal.findById(id, tx);
       if (!k) throw Errors.notFound("Kunjungan tidak ditemukan");
@@ -352,12 +380,54 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
       // Efek samping alokasi bed (dalam tx yang sama):
       //  · receive + bedId → tempati bed (Occupied) + simpan pointer Kunjungan.bedId
       //  · complete/cancel → lepas alokasi aktif kunjungan (bed bebas kembali)
-      if (action === "receive" && bedId) {
-        await bedAlloc.occupy(bedId, id, tx); // P2002 → CONFLICT "Bed sudah dipakai"
-        patch.bedId = bedId;
+      if (action === "receive" && opts.bedId) {
+        await bedAlloc.occupy(opts.bedId, id, tx); // P2002 → CONFLICT "Bed sudah dipakai"
+        patch.bedId = opts.bedId;
       }
-      if (action === "complete" || action === "cancel") {
+      if (action === "cancel") {
         await bedAlloc.release(id, tx);
+      }
+
+      // Selesaikan Kunjungan: gate klinis → disposisi atomik → kunci.
+      if (action === "complete") {
+        const diagnosa = await diagnosaDal.listDiagnosa(id, tx);
+        if (!diagnosa.some((d) => d.tipe === "Utama" && d.status === "Pasti")) {
+          throw Errors.forbiddenState("Minimal 1 Diagnosa Utama (Pasti) wajib sebelum menyelesaikan kunjungan");
+        }
+        const disp = opts.disposisi!; // dijamin ada (Zod refine)
+        const waktuSelesai = parseWaktuSelesai(opts.waktuSelesai) ?? clock.now();
+        const pemeriksa = await resolveActorNama(actor);
+        await disposisiDal.create({
+          kunjunganId: id,
+          jenis: disp.jenis,
+          waktuKeluar: waktuSelesai,
+          dokter: disp.dokter?.trim() || pemeriksa,
+          kondisiUmum: disp.kondisiUmum.trim(),
+          diagnosaKeluar: (disp.diagnosaKeluar ?? []).map((s) => s.trim()).filter(Boolean),
+          instruksi: disp.instruksi?.trim() ?? "",
+          rujukTujuan: disp.rujukTujuan?.trim() || null,
+          rujukAlasan: disp.rujukAlasan?.trim() || null,
+          meninggalWaktu: disp.meninggalWaktu?.trim() || null,
+          meninggalSebab: disp.meninggalSebab?.trim() || null,
+          apsAlasan: disp.apsAlasan?.trim() || null,
+          rawatInapRuangan: disp.rawatInapRuangan?.trim() || null,
+          rawatInapKelas: disp.rawatInapKelas?.trim() || null,
+          catatan: disp.catatan?.trim() || null,
+          pemeriksa,
+          authorUserId: actor.userId,
+          authorPegawaiId: actor.pegawaiId,
+        }, tx);
+        patch.selesaiAt = waktuSelesai;
+        if (!k.selesaiPertamaAt) patch.selesaiPertamaAt = waktuSelesai; // immutable, sekali
+        patch.lockedAt = clock.now();
+        patch.disposisi = disp.jenis;
+        await bedAlloc.release(id, tx);
+      }
+
+      // Batal Selesai: buka kunci + simpan alasan (selesaiAt/selesaiPertamaAt dipertahankan).
+      if (action === "reopen") {
+        patch.lockedAt = null;
+        patch.alasanReopen = opts.alasanReopen?.trim() || null;
       }
 
       const count = await dal.updateStatus(id, k.version, patch, tx);

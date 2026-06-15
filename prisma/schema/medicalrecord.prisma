@@ -1644,3 +1644,52 @@ model SerahTerima {
   @@map("serah_terima")
   @@schema("medicalrecord")
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  DISPOSISI / OUTCOME EPISODE (tab Pasien Pulang, IGD) — keputusan akhir kunjungan.
+//  Jenis: Pulang / Rawat_Inap / Rujuk / Meninggal / APS. Ditulis HANYA via aksi
+//  "Selesaikan Kunjungan" (complete) — atomik bersama transisi InService→Completed
+//  + kunci (encounter.Kunjungan.lockedAt/selesaiAt). Append latest-wins per kunjungan
+//  (re-complete pasca batal-selesai = baris baru; latest by createdAt = berlaku);
+//  pointer jenis di-cache ke Kunjungan.disposisi. TTV keluar TIDAK disimpan di sini
+//  (single-source Observation). Gate clinical.keperawatan (Dokter/Perawat). Mirror
+//  PasienPulangTab (StatusPulang + sub-panel per jenis).
+
+model Disposisi {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Spine (FK riil, same DB / cross-schema ke encounter) ──
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Inti ──
+  jenis          String   // Pulang/Rawat_Inap/Rujuk/Meninggal/APS (Zod)
+  waktuKeluar    DateTime @map("waktu_keluar") @db.Timestamptz(3)
+  dokter         String   // dokter penanggung jawab pulang (nama denormalisasi)
+  kondisiUmum    String   @map("kondisi_umum") // Sembuh/Membaik/Tetap/Memburuk (vocab)
+  diagnosaKeluar String[] @map("diagnosa_keluar") // snapshot label/kode diagnosa keluar
+  instruksi      String   @default("") // instruksi pulang / kontrol
+
+  // ── Blok per-jenis (opsional, diisi sesuai jenis) ──
+  rujukTujuan      String? @map("rujuk_tujuan")
+  rujukAlasan      String? @map("rujuk_alasan")
+  meninggalWaktu   String? @map("meninggal_waktu") // waktu kematian (string FE)
+  meninggalSebab   String? @map("meninggal_sebab")
+  apsAlasan        String? @map("aps_alasan")
+  rawatInapRuangan String? @map("rawat_inap_ruangan")
+  rawatInapKelas   String? @map("rawat_inap_kelas")
+  catatan          String?
+
+  // ── Pencatat + author (dari actor) ──
+  pemeriksa       String  // nama denormalisasi pencatat (dari user login)
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (append latest-wins + soft-delete medico-legal) ──
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt]) // disposisi terbaru per kunjungan
+  @@map("disposisi")
+  @@schema("medicalrecord")
+}

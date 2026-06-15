@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import { TipePenjamin } from "@/lib/schemas/patient";
+import { DisposisiInput } from "@/lib/schemas/disposisi/disposisi";
 
 // ── Enum (mirror prisma encounter/bpjs) ───────────────────────────────────────
 export const KunjunganUnit = z.enum(["IGD", "RawatJalan", "RawatInap"]);
@@ -125,13 +126,24 @@ export const IdParam = z.object({ id: z.string().uuid("ID tidak valid") });
 export const KunjunganActionName = z.enum([
   "checkIn", "call", "recall", "receive", "complete", "cancel", "reopen",
 ]);
-export const TransitionInput = z.object({
-  action: KunjunganActionName,
-  /** Optimistic concurrency — bila dikirim, ditolak (409) saat version sudah berubah. */
-  expectedVersion: z.number().int().nonnegative().optional(),
-  /** Bed yang ditempati saat `receive` (IGD). Bila ada → buat alokasi Occupied + set Kunjungan.bedId. */
-  bedId: z.string().uuid().optional(),
-});
+export const TransitionInput = z
+  .object({
+    action: KunjunganActionName,
+    /** Optimistic concurrency — bila dikirim, ditolak (409) saat version sudah berubah. */
+    expectedVersion: z.number().int().nonnegative().optional(),
+    /** Bed yang ditempati saat `receive` (IGD). Bila ada → buat alokasi Occupied + set Kunjungan.bedId. */
+    bedId: z.string().uuid().optional(),
+    /** Waktu selesai efektif (DateTimePicker "YYYY-MM-DDTHH:mm") — `complete`/re-complete. Default now. */
+    waktuSelesai: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/, "Waktu selesai tidak valid").optional(),
+    /** Disploisi (outcome) — WAJIB saat `complete`; ditulis atomik bersama kunci lifecycle. */
+    disposisi: DisposisiInput.optional(),
+    /** Alasan batal-selesai (medico-legal) — opsional saat `reopen`. */
+    alasanReopen: z.string().max(2000).optional(),
+  })
+  .refine((d) => d.action !== "complete" || d.disposisi != null, {
+    message: "Disposisi wajib saat menyelesaikan kunjungan",
+    path: ["disposisi"],
+  });
 
 // ── Tipe inferensi ─────────────────────────────────────────────────────────---
 export type RegisterKunjunganInput = z.infer<typeof RegisterKunjunganInput>;
@@ -202,6 +214,7 @@ export interface KunjunganListItemDTO {
   kodeIcdMasuk: string | null;
   pasien: { id: string; noRm: string; nama: string; gender: "L" | "P"; tanggalLahir: string | null };
   sep: { id: string; noSep: string | null; status: string } | null;
+  selesaiAt: string | null; // ISO — waktu selesai efektif (worklist "Selesai hari ini")
   version: number;
   createdAt: string;
 }
@@ -231,6 +244,12 @@ export interface KunjunganDTO {
   pasien: { id: string; noRm: string; nama: string };
   rujukan: RujukanDTO | null;
   sep: SepDTO | null;
+  // ── Finalize / lock (Selesaikan Kunjungan) ──
+  lockedAt: string | null; // ISO — terisi = rekam medis terkunci (Completed)
+  selesaiAt: string | null; // ISO — waktu selesai efektif
+  selesaiPertamaAt: string | null; // ISO — waktu selesai pertama (audit)
+  disposisi: string | null; // jenis disposisi terbaru
+  alasanReopen: string | null; // alasan batal-selesai terakhir
   version: number;
   createdAt: string;
 }

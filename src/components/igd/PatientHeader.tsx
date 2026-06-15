@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   X, Clock, CreditCard, Phone, MapPin,
   Pencil, Check, Stethoscope, CalendarDays,
   Activity, Heart, Wind, Gauge, Thermometer, Zap, Layers,
-  ChevronRight,
+  ChevronRight, LogIn, LogOut,
 } from "lucide-react";
 import type { IGDPatientDetail, TriageLevel, IGDStatus } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -259,12 +259,35 @@ function inputToDisplay(iso: string): string {
   return `${parseInt(d, 10)} ${MONTHS_ID[parseInt(m, 10) - 1]} ${y}`;
 }
 
-// ── DateCard — dark slate gradient, native date-picker ────────────────────
+const pad2 = (n: number) => String(n).padStart(2, "0");
 
-function DateCard({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+/** ISO (wall-clock UTC, konvensi repo) → { tgl "14 April 2026", jam "14:15" }. */
+function fmtKeluar(iso: string): { tgl: string; jam: string } | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return {
+    tgl: `${d.getUTCDate()} ${MONTHS_ID[d.getUTCMonth()]} ${d.getUTCFullYear()}`,
+    jam: `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`,
+  };
+}
+
+// ── WaktuCard — Masuk (editable) + Keluar (read-only), dark slate gradient ────
+
+function WaktuCard({
+  value,
+  onSave,
+  masukJam,
+  keluarIso,
+}: {
+  value: string;
+  onSave: (v: string) => void;
+  masukJam: string;
+  keluarIso?: string | null;
+}) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft]     = useState(() => displayToInput(value));
   const [current, setCurrent] = useState(value);
+  const keluar = keluarIso ? fmtKeluar(keluarIso) : null;
 
   const save = () => {
     const display = inputToDisplay(draft);
@@ -273,28 +296,20 @@ function DateCard({ value, onSave }: { value: string; onSave: (v: string) => voi
     setCurrent(display);
     setEditing(false);
   };
-
   const cancel = () => {
     setDraft(displayToInput(current));
     setEditing(false);
   };
 
   return (
-    <div className={cn(
-      "group relative w-48 shrink-0 overflow-hidden rounded-xl bg-linear-to-br from-slate-700 to-slate-900 shadow-md transition-shadow duration-200",
-      !editing && "hover:shadow-lg hover:shadow-slate-400/30",
-    )}>
-      <CalendarDays
-        size={64}
-        className="pointer-events-none absolute -right-3 -bottom-3 text-white/[0.07]"
-      />
-      <div className="relative flex h-full flex-col px-3 py-2.5">
+    <div className="relative w-52 shrink-0 overflow-hidden rounded-xl bg-linear-to-br from-slate-700 to-slate-900 shadow-md transition-shadow duration-200 hover:shadow-lg hover:shadow-slate-400/30">
+      <CalendarDays size={64} className="pointer-events-none absolute -right-3 -bottom-3 text-white/[0.07]" />
+      <div className="relative flex flex-col px-3 py-2.5">
 
-        <span className="mb-2 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-300">
-          <CalendarDays size={9} />
-          Tgl Masuk
+        {/* ── Masuk (editable) ── */}
+        <span className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-emerald-300/90">
+          <LogIn size={9} /> Masuk
         </span>
-
         {editing ? (
           <div className="flex flex-col gap-2">
             <input
@@ -306,16 +321,10 @@ function DateCard({ value, onSave }: { value: string; onSave: (v: string) => voi
               className="w-full cursor-pointer rounded-lg border border-white/30 bg-white/15 px-2.5 py-1.5 text-sm font-semibold text-white outline-none scheme-dark focus:border-white/50 focus:bg-white/20 focus:ring-1 focus:ring-white/40"
             />
             <div className="flex gap-1.5">
-              <button
-                onClick={save}
-                className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-white/20 py-1.5 text-xs font-semibold text-white transition hover:bg-white/30"
-              >
+              <button onClick={save} className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-white/20 py-1.5 text-xs font-semibold text-white transition hover:bg-white/30">
                 <Check size={11} /> Simpan
               </button>
-              <button
-                onClick={cancel}
-                className="flex cursor-pointer items-center justify-center gap-1 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/15 hover:text-white"
-              >
+              <button onClick={cancel} className="flex cursor-pointer items-center justify-center gap-1 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/15 hover:text-white">
                 <X size={11} /> Batal
               </button>
             </div>
@@ -323,20 +332,33 @@ function DateCard({ value, onSave }: { value: string; onSave: (v: string) => voi
         ) : (
           <button
             onClick={() => setEditing(true)}
-            className="group/val w-full cursor-pointer rounded-lg px-0 text-left transition hover:bg-white/5"
+            className="group/val w-full cursor-pointer rounded-lg text-left transition hover:bg-white/5"
             aria-label="Edit tanggal masuk"
           >
             <p className="text-sm font-bold leading-tight text-white">{current}</p>
-            <span className="mt-1 flex items-center gap-1 text-[9px] text-slate-400/0 transition-all duration-150 group-hover/val:text-slate-300/70">
-              <Pencil size={8} /> Klik untuk edit
-            </span>
+            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-300">
+              <Clock size={9} className="text-slate-400" /> Pukul {masukJam}
+              <Pencil size={8} className="ml-auto text-slate-400/0 transition-all group-hover/val:text-slate-300/70" />
+            </p>
           </button>
         )}
 
-        {!editing && (
-          <p className="mt-auto pt-1.5 text-[9px] tracking-wide text-slate-400/70">
-            Waktu Pendaftaran IGD
-          </p>
+        {/* ── Divider ── */}
+        <div className="my-2 h-px bg-white/10" />
+
+        {/* ── Keluar (read-only) ── */}
+        <span className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-rose-300/90">
+          <LogOut size={9} /> Keluar
+        </span>
+        {keluar ? (
+          <div>
+            <p className="text-sm font-bold leading-tight text-white">{keluar.tgl}</p>
+            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-300">
+              <Clock size={9} className="text-slate-400" /> Pukul {keluar.jam}
+            </p>
+          </div>
+        ) : (
+          <p className="text-[11px] italic leading-tight text-slate-400">Masih dalam perawatan</p>
         )}
       </div>
     </div>
@@ -345,7 +367,16 @@ function DateCard({ value, onSave }: { value: string; onSave: (v: string) => voi
 
 // ── Main ──────────────────────────────────────────────────────────────────
 
-export default function PatientHeader({ patient }: { patient: IGDPatientDetail }) {
+export default function PatientHeader({
+  patient,
+  headerAction,
+  selesaiAt,
+}: {
+  patient: IGDPatientDetail;
+  headerAction?: ReactNode;
+  /** Waktu selesai efektif (ISO) — kunjungan Completed. Null = masih dirawat. */
+  selesaiAt?: string | null;
+}) {
   const belumTriase = !patient.triage;
   const cfg = patient.triage ? TRIAGE[patient.triage] : BELUM_TRIASE;
   const [tglMasuk, setTglMasuk] = useState(patient.tglKunjungan);
@@ -442,13 +473,16 @@ export default function PatientHeader({ patient }: { patient: IGDPatientDetail }
                 E-Klaim ↗
               </Link>
             )}
-            <Link
-              href="/ehis-care/igd"
-              className="ml-auto flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:bg-white hover:text-slate-700"
-              aria-label="Tutup"
-            >
-              <X size={12} />
-            </Link>
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              {headerAction}
+              <Link
+                href="/ehis-care/igd"
+                className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:bg-white hover:text-slate-700"
+                aria-label="Tutup"
+              >
+                <X size={12} />
+              </Link>
+            </div>
           </div>
 
           {/* Identity section — triage-wash gradient over white */}
@@ -496,11 +530,19 @@ export default function PatientHeader({ patient }: { patient: IGDPatientDetail }
                 {/* Info chips — scrollable row */}
                 <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   <InfoChip
-                    icon={Clock}
-                    value={<>Tiba <strong>{patient.arrivalTime}</strong>
+                    icon={LogIn}
+                    value={<>Masuk <strong>{patient.arrivalTime}</strong>
                       <span className="ml-1 text-sky-400">{patient.waitDuration}</span></>}
                     cls="bg-sky-50 ring-sky-200 text-sky-800"
                   />
+                  {selesaiAt && fmtKeluar(selesaiAt) && (
+                    <InfoChip
+                      icon={LogOut}
+                      value={<>Keluar <strong>{fmtKeluar(selesaiAt)!.jam}</strong>
+                        <span className="ml-1 text-rose-400">{fmtKeluar(selesaiAt)!.tgl}</span></>}
+                      cls="bg-rose-50 ring-rose-200 text-rose-800"
+                    />
+                  )}
                   <InfoChip
                     icon={CreditCard}
                     value={<>{patient.penjamin}{patient.noBpjs && <span className="ml-1 font-mono text-emerald-500">{patient.noBpjs}</span>}</>}
@@ -527,7 +569,7 @@ export default function PatientHeader({ patient }: { patient: IGDPatientDetail }
                 transition={{ duration: 0.3, ease: "easeOut", delay: 0.05 }}
               >
                 <DPJPCard value={patient.doctor} onSave={() => {}} />
-                <DateCard value={tglMasuk} onSave={setTglMasuk} />
+                <WaktuCard value={tglMasuk} onSave={setTglMasuk} masukJam={patient.arrivalTime} keluarIso={selesaiAt} />
               </motion.div>
             </div>
           </div>

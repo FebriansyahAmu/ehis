@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
-import PatientHeader from "@/components/igd/PatientHeader";
-import IGDRecordTabs from "@/components/igd/IGDRecordTabs";
+import IGDRecordShell from "@/components/igd/IGDRecordShell";
 import IGDRecordResolver from "@/components/igd/IGDRecordResolver";
 import { igdPatientDetails } from "@/lib/data";
 
@@ -27,10 +26,5 @@ export default async function IGDPatientPage({
   // di mock) → resolver klien fetch GET /kunjungan/:id + /patients/:id (klinis kosong).
   if (!patient) return <IGDRecordResolver id={id} />;
 
-  return (
-    <div className="flex h-full flex-col">
-      <PatientHeader patient={patient} />
-      <IGDRecordTabs patient={patient} />
-    </div>
-  );
+  return <IGDRecordShell patient={patient} />;
 }

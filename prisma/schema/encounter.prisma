@@ -173,14 +173,21 @@ model Kunjungan {
   penilaianKomposit        PenilaianKomposit[]
   penandaanGambar          PenandaanGambar[]
   serahTerima              SerahTerima[]
+  disposisiRiwayat         Disposisi[]
 
   // ── Tautan invoice (1:1, dibuat saat Registered→Queued) ──
   invoiceId String? @unique @map("invoice_id") @db.Uuid // FK→billing.Invoice saat siap
 
   // ── Finalize / lock ──
   lockedAt  DateTime? @map("locked_at") @db.Timestamptz(3)
-  /// Immutable — di-set sekali saat Completed, dipertahankan saat re-open.
+  /// Waktu selesai EFEKTIF — boleh di-set ulang tiap complete/re-complete (DateTimePicker).
   selesaiAt DateTime? @map("selesai_at") @db.Timestamptz(3)
+  /// Waktu selesai PERTAMA — immutable (di-set sekali), jejak audit medico-legal.
+  selesaiPertamaAt DateTime? @map("selesai_pertama_at") @db.Timestamptz(3)
+  /// Pointer jenis disposisi terbaru (Pulang/Rawat_Inap/Rujuk/Meninggal/APS) — cache header/worklist.
+  disposisi String?
+  /// Alasan batal-selesai (reopen) terakhir — medico-legal.
+  alasanReopen String? @map("alasan_reopen")
 
   // ── Konkurensi & audit ──
   version   Int       @default(0)

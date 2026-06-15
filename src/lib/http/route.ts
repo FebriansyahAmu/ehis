@@ -95,7 +95,19 @@ export function route<B = undefined, Q = undefined, P = undefined, R = unknown>(
       const scopeKunjungan = config.scopeKunjungan ?? !!config.resource?.startsWith("clinical.");
       if (scopeKunjungan) {
         const id = (params as { id?: unknown } | undefined)?.id;
-        if (typeof id === "string") await loadKunjunganInScope(id, actor);
+        if (typeof id === "string") {
+          const k = await loadKunjunganInScope(id, actor);
+          // Lock rekam medis: kunjungan Selesai (lockedAt) → tolak TULIS clinical.* (baca tetap
+          // lolos). Transisi lifecycle pakai resource registration.* (action read) → tak terkena,
+          // jadi "Batal Selesai" tetap bisa membuka kunci.
+          const isWrite =
+            config.action === "create" || config.action === "update" || config.action === "delete";
+          if (isWrite && config.resource?.startsWith("clinical.") && k.lockedAt) {
+            throw Errors.forbiddenState(
+              "Rekam medis terkunci — kunjungan sudah diselesaikan. Batalkan penyelesaian untuk mengubah.",
+            );
+          }
+        }
       }
 
       const rawQuery = Object.fromEntries(new URL(req.url).searchParams);

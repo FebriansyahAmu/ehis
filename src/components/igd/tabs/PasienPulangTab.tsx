@@ -7,12 +7,24 @@ import {
   Send, HeartPulse, Thermometer, Wind,
 } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
+import type { DisposisiInput } from "@/lib/schemas/disposisi/disposisi";
+import { nowInputValue } from "@/components/shared/inputs/DateTimePicker";
 import { cn } from "@/lib/utils";
 import {
   type StatusPulang, type KondisiUmum,
   STATUS_OPTIONS, KONDISI_OPTIONS, KONDISI_CLS,
   inputCls, Field, SectionHeader, SelectStatusPlaceholder,
 } from "./pasienPulang/pasienPulangShared";
+
+// StatusPulang (UI) → jenis Disposisi (DB). Sembuh/Membaik = Pulang.
+const STATUS_TO_JENIS: Record<StatusPulang, DisposisiInput["jenis"]> = {
+  Sembuh: "Pulang",
+  Membaik: "Pulang",
+  Rawat_Inap: "Rawat_Inap",
+  Dirujuk: "Rujuk",
+  APS: "APS",
+  Meninggal: "Meninggal",
+};
 import SBARTransferPanel from "./pasienPulang/SBARTransferPanel";
 import SembuhPanel       from "./pasienPulang/SembuhPanel";
 import RujukanPanel      from "./pasienPulang/RujukanPanel";
@@ -21,12 +33,20 @@ import MeninggalPanel    from "./pasienPulang/MeninggalPanel";
 
 // ── Main component ─────────────────────────────────────────────
 
-export default function PasienPulangTab({ patient }: { patient: IGDPatientDetail }) {
+export default function PasienPulangTab({
+  patient,
+  onComplete,
+}: {
+  patient: IGDPatientDetail;
+  /** Selesaikan kunjungan (persist + kunci). Absen → mode demo (sukses lokal). */
+  onComplete?: (disposisi: DisposisiInput, waktuSelesai: string) => Promise<void> | void;
+}) {
   // Core left-column state
   const [statusPulang, setStatusPulang]     = useState<StatusPulang | null>(null);
   const [dokterPulang, setDokterPulang]     = useState(patient.doctor);
-  const [tanggalPulang, setTanggalPulang]   = useState(patient.tglKunjungan);
+  const [tanggalPulang, setTanggalPulang]   = useState(() => nowInputValue().slice(0, 10)); // tgl lokal
   const [jamPulang, setJamPulang]           = useState("");
+  const [saving, setSaving]                 = useState(false);
   const [kondisiUmum, setKondisiUmum]       = useState<KondisiUmum | null>(null);
   const [diagnosaKeluar, setDiagnosaKeluar] = useState<string[]>(
     patient.diagnosa.filter((d) => d.tipe === "Utama").map((d) => d.id),
@@ -66,6 +86,32 @@ export default function PasienPulangTab({ patient }: { patient: IGDPatientDetail
     (statusPulang !== "Meninggal"  || matiConfirmed) &&
     (statusPulang !== "APS"        || apsConfirmed) &&
     (statusPulang !== "Rawat_Inap" || sbarConfirmed);
+
+  // Submit → Selesaikan Kunjungan (persist + kunci) bila onComplete ada; selain itu demo lokal.
+  async function handleSubmit() {
+    if (!canSubmit || saving) return;
+    if (!onComplete) { setSubmitted(true); return; }
+    const diagnosaLabels = patient.diagnosa
+      .filter((d) => diagnosaKeluar.includes(d.id))
+      .map((d) => `${d.kodeIcd10} ${d.namaDiagnosis}`);
+    const disposisi: DisposisiInput = {
+      jenis: STATUS_TO_JENIS[statusPulang!],
+      dokter: dokterPulang.trim() || undefined,
+      kondisiUmum: kondisiUmum!,
+      diagnosaKeluar: diagnosaLabels,
+      instruksi: catatanUmum.trim() || undefined,
+      catatan: catatanUmum.trim() || undefined,
+    };
+    try {
+      setSaving(true);
+      await onComplete(disposisi, `${tanggalPulang}T${jamPulang}`);
+      setSubmitted(true);
+    } catch {
+      /* toast ditangani pemanggil (shell); tetap di form */
+    } finally {
+      setSaving(false);
+    }
+  }
 
   // ── Success screen ──
   if (submitted && statusPulang) {
@@ -437,8 +483,8 @@ export default function PasienPulangTab({ patient }: { patient: IGDPatientDetail
             <Printer size={13} /> Cetak
           </button>
           <button
-            onClick={() => { if (canSubmit) setSubmitted(true); }}
-            disabled={!canSubmit}
+            onClick={handleSubmit}
+            disabled={!canSubmit || saving}
             className={cn(
               "flex items-center gap-1.5 rounded-lg px-5 py-2 text-xs font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-40",
               isMeninggal

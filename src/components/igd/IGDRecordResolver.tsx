@@ -9,12 +9,11 @@
 import { useEffect, useState } from "react";
 import { notFound } from "next/navigation";
 import type { IGDPatientDetail } from "@/lib/data";
-import { getKunjungan } from "@/lib/api/kunjungan";
+import { getKunjungan, type KunjunganDTO } from "@/lib/api/kunjungan";
 import { getPatient } from "@/lib/api/patients";
 import { getDokter } from "@/lib/api/dokter";
 import { dtoToIGDPatientDetail } from "./igdDetailApi";
-import PatientHeader from "./PatientHeader";
-import IGDRecordTabs from "./IGDRecordTabs";
+import IGDRecordShell from "./IGDRecordShell";
 
 // id kunjungan DB = UUID; id demo/mock = "igd-1"/… → hanya UUID yang di-fetch ke API.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -29,6 +28,7 @@ function ResolverLoading() {
 
 export default function IGDRecordResolver({ id }: { id: string }) {
   const [patient, setPatient] = useState<IGDPatientDetail | null>(null);
+  const [kunjungan, setKunjungan] = useState<KunjunganDTO | null>(null);
   const [state, setState] = useState<"loading" | "done">("loading");
 
   // Fetch SEKALI per id. Guard set-state via !aborted (StrictMode-safe).
@@ -53,6 +53,7 @@ export default function IGDRecordResolver({ id }: { id: string }) {
           } catch { /* abaikan — fallback "—" */ }
         }
         if (ac.signal.aborted) return;
+        setKunjungan(k);
         setPatient(dtoToIGDPatientDetail(k, p, { dpjpNama }));
       } catch {
         if (!ac.signal.aborted) setPatient(null);
@@ -68,10 +69,5 @@ export default function IGDRecordResolver({ id }: { id: string }) {
     notFound();
   }
 
-  return (
-    <div className="flex h-full flex-col">
-      <PatientHeader patient={patient} />
-      <IGDRecordTabs patient={patient} />
-    </div>
-  );
+  return <IGDRecordShell patient={patient} initialKunjungan={kunjungan ?? undefined} />;
 }

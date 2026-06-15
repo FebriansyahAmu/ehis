@@ -6,10 +6,11 @@ import {
   ClipboardList, HeartPulse, Stethoscope, Tag, FileText, Zap,
   Pill, FlaskConical, Radiation, Send, Home,
   Repeat, HeartHandshake, ScanLine, ClipboardCheck, ScanEye, ListChecks, ShieldCheck,
-  ArrowRightLeft,
+  ArrowRightLeft, Lock,
   type LucideIcon,
 } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
+import type { DisposisiInput } from "@/lib/schemas/disposisi/disposisi";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/contexts/SessionContext";
 import IdentitasVerifikasiBanner, { type VerifikasiInfo } from "@/components/shared/medical-records/IdentitasVerifikasiBanner";
@@ -94,8 +95,20 @@ function NavItem({ tab, active, onClick }: { tab: TabDef; active: boolean; onCli
 
 // ── Main component ────────────────────────────────────────
 
-export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }) {
-  const [active, setActive] = useState<TabId>("triase");;
+export type DisposisiCompleteFn = (disposisi: DisposisiInput, waktuSelesai: string) => Promise<void> | void;
+
+export default function IGDRecordTabs({
+  patient,
+  locked = false,
+  onComplete,
+}: {
+  patient: IGDPatientDetail;
+  /** Rekam medis terkunci (kunjungan Selesai) → blur + non-interaktif. */
+  locked?: boolean;
+  /** Selesaikan dari tab Pasien Pulang. Absen → mode demo (sukses lokal). */
+  onComplete?: DisposisiCompleteFn;
+}) {
+  const [active, setActive] = useState<TabId>("triase");
   const { session } = useSession();
 
   // ── Identitas verifikasi ──────────────────────────────────
@@ -210,6 +223,19 @@ export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }
 
       {/* ── Content with smooth fade transition ── */}
       <main className="flex-1 overflow-y-auto bg-slate-50 p-4 md:p-5">
+        {locked && (
+          <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-slate-300 bg-slate-100 px-4 py-2.5 shadow-xs">
+            <Lock size={15} className="shrink-0 text-slate-500" />
+            <p className="text-xs font-semibold text-slate-700">
+              Kunjungan telah diselesaikan — rekam medis terkunci (hanya-baca).
+            </p>
+            <span className="ml-auto text-[11px] text-slate-400">Gunakan “Batal Selesai” untuk mengubah.</span>
+          </div>
+        )}
+        <div
+          className={cn(locked && "pointer-events-none select-none opacity-50 blur-[1.5px]")}
+          aria-hidden={locked || undefined}
+        >
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={active}
@@ -229,7 +255,7 @@ export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }
             {active === "resep"        && withIdentitas(<ResepPasienTab patient={patient} />)}
             {active === "order-lab"    && withIdentitas(<OrderLabTab    patient={patient} />)}
             {active === "order-rad"    && withIdentitas(<OrderRadTab    patient={patient} />)}
-            {active === "pulang"       && <PasienPulangTab patient={patient} />}
+            {active === "pulang"       && <PasienPulangTab patient={patient} onComplete={onComplete} />}
             {active === "rekonsiliasi" && <RekonsiliasTab  patient={patient} />}
             {active === "keperawatan"  && <KeperawatanTab  patient={patient} />}
             {active === "pemeriksaan"  && <PemeriksaanTab    patient={patient} />}
@@ -239,6 +265,7 @@ export default function IGDRecordTabs({ patient }: { patient: IGDPatientDetail }
             {active === "handover"    && <HandoverTab        patient={patient} />}
           </motion.div>
         </AnimatePresence>
+        </div>
       </main>
     </div>
   );

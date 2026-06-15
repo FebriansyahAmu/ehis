@@ -39,8 +39,11 @@ export interface CreateKunjunganData {
 
 export interface UpdateStatusPatch {
   status: KunjunganStatus;
-  lockedAt?: Date;
-  selesaiAt?: Date;
+  lockedAt?: Date | null; // null = batal-selesai (reopen) → buka kunci
+  selesaiAt?: Date; // waktu selesai efektif (boleh di-set ulang)
+  selesaiPertamaAt?: Date; // waktu selesai pertama (immutable, di-set sekali)
+  disposisi?: string; // pointer jenis disposisi terbaru
+  alasanReopen?: string | null; // alasan batal-selesai
   callState?: CallState;
   recallCount?: number;
   invoiceId?: string;
