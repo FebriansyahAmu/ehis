@@ -7,18 +7,11 @@ export default function HandoverTab({ patient }: { patient: RawatInapPatientDeta
   return (
     <SharedHandoverTab
       patient={{
+        id: patient.id,
         name: patient.name,
         noRM: patient.noRM,
         subtitle: `${patient.diagnosis} · Hari ke-${patient.hariKe} · ${patient.ruangan} ${patient.noBed}`,
         badge: patient.dpjp,
-        vitalSigns: {
-          tdSistolik: patient.vitalSigns.tdSistolik,
-          tdDiastolik: patient.vitalSigns.tdDiastolik,
-          nadi: patient.vitalSigns.nadi,
-          suhu: patient.vitalSigns.suhu,
-          spo2: patient.vitalSigns.spo2,
-          skalaNyeri: patient.vitalSigns.skalaNyeri,
-        },
       }}
     />
   );

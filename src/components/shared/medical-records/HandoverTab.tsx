@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft,
@@ -13,10 +13,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/contexts/SessionContext";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
 import {
   SHIFTS,
   SHIFT_CONFIG,
   HANDOVER_MOCK,
+  UUID_RE,
   fmtDate,
   prevDay,
   nextDay,
@@ -25,6 +28,11 @@ import {
   type Shift,
   type HandoverEntry,
 } from "./handover/handoverShared";
+import {
+  getSerahTerima,
+  createSerahTerima,
+  receiveSerahTerima,
+} from "@/lib/api/serahTerima/serahTerima";
 import HandoverCard from "./handover/HandoverCard";
 import HandoverForm from "./handover/HandoverForm";
 
@@ -37,13 +45,28 @@ interface Props {
 export default function HandoverTab({ patient }: Props) {
   const { session }               = useSession();
   const perawatKeluar             = session?.namaTampil ?? ""; // pemberi = sesi login
+  const kunjunganId               = patient.id;
+  const isPersisted               = UUID_RE.test(kunjunganId); // UUID = DB; demo = lokal
   const today                     = todayISO();
   const [date, setDate]           = useState(today);
   const [activeShift, setShift]   = useState<Shift>("Pagi");
   const [showForm, setShowForm]   = useState(false);
   const [entries, setEntries]     = useState<HandoverEntry[]>(
-    () => HANDOVER_MOCK[patient.noRM] ?? [],
+    () => (UUID_RE.test(patient.id) ? [] : HANDOVER_MOCK[patient.noRM] ?? []),
   );
+
+  // Muat serah terima tersimpan (kunjungan UUID).
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    getSerahTerima(kunjunganId, ac.signal)
+      .then(setEntries)
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat serah terima", e instanceof ApiError ? e.message : undefined);
+      });
+    return () => ac.abort();
+  }, [isPersisted, kunjunganId]);
 
   const isToday    = date === today;
   const dayEntries = entries.filter((e) => e.tanggal === date);
@@ -59,18 +82,47 @@ export default function HandoverTab({ patient }: Props) {
     setShowForm(false);
   };
 
-  const handleSubmit = (
+  const handleSubmit = async (
     data: Omit<HandoverEntry, "id" | "perawatMasuk" | "jamTerima">,
   ) => {
-    setEntries((prev) => [
-      ...prev,
-      { ...data, id: `ho-${Date.now()}`, perawatMasuk: "" },
-    ]);
+    if (isPersisted) {
+      try {
+        const dto = await createSerahTerima(kunjunganId, {
+          tanggal: data.tanggal,
+          shift: data.shift,
+          jamSerahTerima: data.jamSerahTerima,
+          situation: data.situation,
+          background: data.background,
+          assessment: data.assessment,
+          recommendation: data.recommendation,
+          perawatKeluar: data.perawatKeluar || undefined,
+        });
+        setEntries((prev) => [...prev, dto]);
+        setShowForm(false);
+        toast.success("Serah terima tersimpan");
+      } catch (e) {
+        toast.error("Gagal menyimpan serah terima", e instanceof ApiError ? e.message : undefined);
+      }
+      return;
+    }
+    // Pasien demo (non-UUID) → simpan lokal saja.
+    setEntries((prev) => [...prev, { ...data, id: `ho-${Date.now()}`, perawatMasuk: "" }]);
     setShowForm(false);
   };
 
-  // Terima serah terima → penerima = sesi login (perawat shift berikutnya)
-  const handleReceive = (id: string) => {
+  // Terima serah terima → penerima distempel dari sesi login (perawat shift berikutnya)
+  const handleReceive = async (id: string) => {
+    if (isPersisted) {
+      try {
+        const dto = await receiveSerahTerima(kunjunganId, id); // penerima = actor (server)
+        setEntries((prev) => prev.map((e) => (e.id === id ? dto : e)));
+        toast.success("Serah terima diterima");
+      } catch (e) {
+        toast.error("Gagal menerima serah terima", e instanceof ApiError ? e.message : undefined);
+      }
+      return;
+    }
+    // Pasien demo (non-UUID) → stempel lokal.
     const now = new Date();
     const jam = `${String(now.getHours()).padStart(2, "0")}:${String(
       now.getMinutes(),

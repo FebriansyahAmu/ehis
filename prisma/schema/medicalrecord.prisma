@@ -1591,3 +1591,56 @@ model PenandaanGambar {
   @@map("penandaan_gambar")
   @@schema("medicalrecord")
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  TAB SERAH TERIMA SHIFT (handover keperawatan SBAR, IGD/RI) — closed-loop.
+//  Alur: perawat KELUAR (sesi login) menyusun catatan SBAR → perawat MASUK (sesi
+//  berikutnya) menekan "Terima" → distempel penerima + waktu terima. Daftar hidup
+//  per-item: tambah = INSERT, terima = UPDATE-stamp (sekali; pola verify co-sign
+//  AsuhanKeperawatan), hapus = soft-delete (jejak medico-legal). 1 baris = 1 serah
+//  terima (per tanggal × shift). tanggal/jam = string FE (DateTimePicker → split),
+//  createdAt/receivedAt = anchor timestamptz medico-legal (precedent AsesmenEdukasi
+//  tanggal/jam String). TTV TIDAK disimpan (single-source di Observation). SBAR = 4
+//  field konsolidasi. Gate clinical.keperawatan (serah terima = aktivitas keperawatan;
+//  Perawat penulis utama). Mirror HandoverEntry FE (HandoverTab.tsx).
+
+model SerahTerima {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Spine (FK riil, same DB / cross-schema ke encounter) ──
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Konteks shift (FE-entered; tanggal/jam string, createdAt = anchor) ──
+  tanggal        String // "YYYY-MM-DD" (tab tanggal)
+  shift          String // Pagi/Siang/Malam (Zod)
+  jamSerahTerima String @map("jam_serah_terima") // "HH:mm"
+
+  // ── SBAR (1 field konsolidasi per huruf) ──
+  situation      String
+  background     String // tindakan & obat shift ini
+  assessment     String
+  recommendation String
+
+  // ── Pemberi (penyusun = sesi login) + author ──
+  perawatKeluar   String  @map("perawat_keluar") // nama denormalisasi
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  // ── Penerima (closed-loop "Terima") — "" = belum diterima ──
+  perawatMasuk        String    @default("") @map("perawat_masuk") // nama denormalisasi penerima
+  jamTerima           String?   @map("jam_terima") // "HH:mm" saat diterima
+  receivedByUserId    String?   @map("received_by_user_id") @db.Uuid
+  receivedByPegawaiId String?   @map("received_by_pegawai_id") @db.Uuid
+  receivedAt          DateTime? @map("received_at") @db.Timestamptz(3)
+
+  // ── Audit (create + receive-update + soft-delete medico-legal) ──
+  version   Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt]) // daftar serah terima aktif per kunjungan
+  @@map("serah_terima")
+  @@schema("medicalrecord")
+}

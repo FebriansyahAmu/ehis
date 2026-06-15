@@ -6,19 +6,16 @@
 // ── Shared patient interface ──────────────────────────────
 
 export interface HandoverPatient {
+  id: string; // kunjunganId — UUID = persist ke DB; non-UUID (demo) = lokal saja
   name: string;
   noRM: string;
   subtitle: string; // dibangun caller (mis. "diagnosa · Hari ke-3 · Anggrek 201B")
   badge?: string; // DPJP / dokter
-  vitalSigns: {
-    tdSistolik: number;
-    tdDiastolik: number;
-    nadi: number;
-    suhu: number;
-    spo2: number;
-    skalaNyeri: number;
-  };
 }
+
+// kunjungan riil = UUID (persist) vs pasien demo (mock) → lokal saja (selaras penandaan).
+export const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Shift types ───────────────────────────────────────────
 
