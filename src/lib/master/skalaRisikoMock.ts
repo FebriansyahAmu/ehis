@@ -5,12 +5,16 @@
  * Replace: `rawat-inap/asesmenAwal/asesmenAwalShared.ts` (Barthel/Morse/Braden)
  *           `igd/tabs/PenilaianTab.tsx` (duplicate Morse/Braden/Barthel)
  *
- * Standar: validated assessment tools (Mahoney 1965 · Morse 1989 · Braden 1987 · NRS · BAPEN MUST)
+ * Standar: validated assessment tools
+ *   Dewasa     : Mahoney 1965 (Barthel) · Morse 1989 · Braden 1987 · NRS · BAPEN MUST · Ferguson 1999 (MST)
+ *   Pediatrik  : Humpty Dumpty 2009 · Wong-Baker 1988 · FLACC 1997 · Braden Q 2003 · STRONGkids 2010
+ *   Non-verbal : CPOT 2006 (ICU) · NIPS 1993 (neonatus)
  */
 
-import {
-  type SkalaRecord, emptySkalaRecord,
-} from "./skalaCommon";
+// NOTE: import TYPE-ONLY dari skalaCommon (di-strip Node native TS) agar file ini
+// bisa di-load skrip seed `node --env-file` tanpa resolusi ekstensi runtime. Helper
+// `emptySkalaRisikoRecord` di-inline (tak lagi panggil runtime `emptySkalaRecord`).
+import type { SkalaRecord } from "./skalaCommon";
 
 // Re-export types untuk backward-compat dengan components yang import dari sini.
 export type {
@@ -22,7 +26,21 @@ export type {
 export type SkalaRisikoRecord = SkalaRecord;
 
 export function emptySkalaRisikoRecord(): SkalaRisikoRecord {
-  return emptySkalaRecord("skl");
+  return {
+    id: `skl-${Date.now().toString(36)}`,
+    kode: "",
+    nama: "",
+    singkat: "",
+    deskripsi: "",
+    scoringMode: "sum_items",
+    arah: "higher_is_worse",
+    items: [],
+    totalMax: 0,
+    interpretasi: [],
+    referensi: "",
+    konsumenModul: ["IGD", "RI"],
+    status: "Aktif",
+  };
 }
 
 // ── Mock data ────────────────────────────────────────────
@@ -279,6 +297,376 @@ const MUST: SkalaRisikoRecord = {
   ],
 };
 
+// ── Pediatrik: Risiko Jatuh ──────────────────────────────
+const HUMPTY_DUMPTY: SkalaRisikoRecord = {
+  id: "skl-humpty",
+  kode: "HUMPTY",
+  nama: "Humpty Dumpty Fall Scale",
+  singkat: "Jatuh Anak",
+  deskripsi:
+    "Skala risiko jatuh khusus pasien anak (pediatrik). Skor lebih tinggi = risiko jatuh lebih besar.",
+  scoringMode: "sum_items",
+  arah: "higher_is_worse",
+  totalMax: 23,
+  referensi: "Hill-Rodriguez D, et al. J Spec Pediatr Nurs 2009;14(1):22-32.",
+  konsumenModul: ["IGD", "RI", "RJ"],
+  status: "Aktif",
+  items: [
+    { id: "usia", label: "Usia", maxScore: 4, options: [
+      { score: 4, label: "< 3 tahun" },
+      { score: 3, label: "3 – < 7 tahun" },
+      { score: 2, label: "7 – < 13 tahun" },
+      { score: 1, label: "≥ 13 tahun" },
+    ]},
+    { id: "kelamin", label: "Jenis Kelamin", maxScore: 2, options: [
+      { score: 2, label: "Laki-laki" },
+      { score: 1, label: "Perempuan" },
+    ]},
+    { id: "diagnosis", label: "Diagnosis", maxScore: 4, options: [
+      { score: 4, label: "Diagnosis neurologis" },
+      { score: 3, label: "Perubahan oksigenasi", detail: "Respiratorik, dehidrasi, anemia, anoreksia, sinkop, pusing" },
+      { score: 2, label: "Gangguan psikis / perilaku" },
+      { score: 1, label: "Diagnosis lain" },
+    ]},
+    { id: "kognitif", label: "Gangguan Kognitif", maxScore: 3, options: [
+      { score: 3, label: "Tidak menyadari keterbatasan" },
+      { score: 2, label: "Lupa keterbatasan diri" },
+      { score: 1, label: "Orientasi sesuai kemampuan diri" },
+    ]},
+    { id: "lingkungan", label: "Faktor Lingkungan", maxScore: 4, options: [
+      { score: 4, label: "Riwayat jatuh / bayi-balita di TT dewasa" },
+      { score: 3, label: "Pakai alat bantu / bayi-balita di boks / perabot" },
+      { score: 2, label: "Pasien berada di tempat tidur" },
+      { score: 1, label: "Area rawat jalan" },
+    ]},
+    { id: "operasi", label: "Respons Pembedahan / Sedasi / Anestesi", maxScore: 3, options: [
+      { score: 3, label: "Dalam 24 jam" },
+      { score: 2, label: "Dalam 48 jam" },
+      { score: 1, label: "> 48 jam / tidak ada" },
+    ]},
+    { id: "obat", label: "Penggunaan Obat", maxScore: 3, options: [
+      { score: 3, label: "Multipel obat berisiko", detail: "Sedatif, hipnotik, barbiturat, fenotiazin, antidepresan, laksatif/diuretik, narkotik" },
+      { score: 2, label: "Salah satu obat di atas" },
+      { score: 1, label: "Obat lain / tanpa obat" },
+    ]},
+  ],
+  interpretasi: [
+    { id: "h-1", min: 0,  max: 11, label: "Risiko Rendah", tone: "emerald", action: "Pencegahan jatuh standar pediatrik. Edukasi orang tua / pengasuh." },
+    { id: "h-2", min: 12, max: 23, label: "Risiko Tinggi", tone: "rose",    action: "Intervensi jatuh tinggi: gelang kuning, side rail, supervisi, edukasi intensif keluarga." },
+  ],
+};
+
+// ── Pediatrik / Self-report: Nyeri ───────────────────────
+const WONG_BAKER: SkalaRisikoRecord = {
+  id: "skl-wong-baker",
+  kode: "WONG-BAKER",
+  nama: "Wong-Baker FACES Pain Rating Scale",
+  singkat: "Nyeri Wajah",
+  deskripsi:
+    "Skala nyeri ekspresi wajah untuk anak ≥ 3 tahun yang mampu self-report. Enam wajah, skor 0–10.",
+  scoringMode: "select_value",
+  arah: "higher_is_worse",
+  totalMax: 10,
+  referensi: "Wong DL, Baker CM. Pediatr Nurs 1988;14(1):9-17.",
+  konsumenModul: ["IGD", "RI", "RJ"],
+  status: "Aktif",
+  items: [
+    { id: "faces", label: "Pilih wajah sesuai nyeri", maxScore: 10, options: [
+      { score: 0,  label: "0 — Tidak nyeri", detail: "Wajah sangat senang" },
+      { score: 2,  label: "2 — Sedikit nyeri" },
+      { score: 4,  label: "4 — Agak lebih nyeri" },
+      { score: 6,  label: "6 — Lebih nyeri lagi" },
+      { score: 8,  label: "8 — Sangat nyeri" },
+      { score: 10, label: "10 — Nyeri hebat", detail: "Menangis / nyeri maksimal" },
+    ]},
+  ],
+  interpretasi: [
+    { id: "wb-1", min: 0, max: 0,  label: "Tidak Nyeri",  tone: "emerald", action: "Tidak perlu analgesik." },
+    { id: "wb-2", min: 1, max: 3,  label: "Nyeri Ringan", tone: "yellow",  action: "Non-farmakologis / analgesik ringan sesuai BB anak." },
+    { id: "wb-3", min: 4, max: 6,  label: "Nyeri Sedang", tone: "amber",   action: "Analgesik terjadwal. Re-evaluasi 30–60 menit." },
+    { id: "wb-4", min: 7, max: 10, label: "Nyeri Berat",  tone: "rose",    action: "Analgesik kuat sesuai BB. Re-evaluasi 15–30 menit. Konsul nyeri." },
+  ],
+};
+
+// ── Anak / Non-verbal: Nyeri Observasional ───────────────
+const FLACC: SkalaRisikoRecord = {
+  id: "skl-flacc",
+  kode: "FLACC",
+  nama: "FLACC Behavioral Pain Scale",
+  singkat: "Nyeri Non-Verbal",
+  deskripsi:
+    "Skala nyeri observasional untuk bayi/anak (2 bln–7 thn) atau pasien non-verbal. 5 kategori: Face, Legs, Activity, Cry, Consolability.",
+  scoringMode: "sum_items",
+  arah: "higher_is_worse",
+  totalMax: 10,
+  referensi: "Merkel SI, et al. Pediatr Nurs 1997;23(3):293-297.",
+  konsumenModul: ["IGD", "RI", "ICU"],
+  status: "Aktif",
+  items: [
+    { id: "face", label: "Wajah (Face)", maxScore: 2, options: [
+      { score: 0, label: "Tanpa ekspresi khusus / senyum" },
+      { score: 1, label: "Meringis sesekali, menarik diri" },
+      { score: 2, label: "Dagu gemetar terus, rahang mengatup" },
+    ]},
+    { id: "legs", label: "Tungkai (Legs)", maxScore: 2, options: [
+      { score: 0, label: "Posisi normal / rileks" },
+      { score: 1, label: "Gelisah, tegang" },
+      { score: 2, label: "Menendang / kaki tertarik" },
+    ]},
+    { id: "activity", label: "Aktivitas (Activity)", maxScore: 2, options: [
+      { score: 0, label: "Berbaring tenang, bergerak mudah" },
+      { score: 1, label: "Menggeliat, tegang, maju-mundur" },
+      { score: 2, label: "Melengkung, kaku, menyentak" },
+    ]},
+    { id: "cry", label: "Menangis (Cry)", maxScore: 2, options: [
+      { score: 0, label: "Tidak menangis (sadar / tidur)" },
+      { score: 1, label: "Merintih / merengek sesekali" },
+      { score: 2, label: "Menangis terus / menjerit" },
+    ]},
+    { id: "consol", label: "Kemampuan Ditenangkan (Consolability)", maxScore: 2, options: [
+      { score: 0, label: "Tenang, rileks" },
+      { score: 1, label: "Tenang dengan sentuhan / dapat dialihkan" },
+      { score: 2, label: "Sulit dihibur / ditenangkan" },
+    ]},
+  ],
+  interpretasi: [
+    { id: "fl-1", min: 0, max: 0,  label: "Rileks / Nyaman",         tone: "emerald", action: "Tidak ada tanda nyeri." },
+    { id: "fl-2", min: 1, max: 3,  label: "Ketidaknyamanan Ringan",  tone: "yellow",  action: "Tindakan kenyamanan non-farmakologis." },
+    { id: "fl-3", min: 4, max: 6,  label: "Nyeri Sedang",            tone: "amber",   action: "Analgesik sesuai BB. Re-evaluasi 30–60 menit." },
+    { id: "fl-4", min: 7, max: 10, label: "Nyeri Berat",             tone: "rose",    action: "Analgesik kuat sesuai BB. Re-evaluasi 15–30 menit." },
+  ],
+};
+
+// ── Kritis / ICU: Nyeri Observasional ────────────────────
+const CPOT: SkalaRisikoRecord = {
+  id: "skl-cpot",
+  kode: "CPOT",
+  nama: "Critical-Care Pain Observation Tool",
+  singkat: "Nyeri ICU",
+  deskripsi:
+    "Skala nyeri observasional untuk pasien kritis non-verbal / terintubasi di ICU. 4 indikator perilaku.",
+  scoringMode: "sum_items",
+  arah: "higher_is_worse",
+  totalMax: 8,
+  referensi: "Gélinas C, et al. Am J Crit Care 2006;15(4):420-427.",
+  konsumenModul: ["ICU", "RI", "IGD"],
+  status: "Aktif",
+  items: [
+    { id: "wajah", label: "Ekspresi Wajah", maxScore: 2, options: [
+      { score: 0, label: "Rileks, netral" },
+      { score: 1, label: "Tegang", detail: "Alis menurun, orbit menegang" },
+      { score: 2, label: "Meringis", detail: "Di atas + kelopak mata menutup rapat" },
+    ]},
+    { id: "gerakan", label: "Gerakan Tubuh", maxScore: 2, options: [
+      { score: 0, label: "Tidak ada gerakan / posisi normal" },
+      { score: 1, label: "Perlindungan", detail: "Gerakan lambat hati-hati, menyentuh area nyeri" },
+      { score: 2, label: "Gelisah / agitasi", detail: "Menarik selang, mencoba bangun, tidak ikut perintah" },
+    ]},
+    { id: "otot", label: "Tegangan Otot", maxScore: 2, options: [
+      { score: 0, label: "Rileks", detail: "Tidak ada resistensi gerak pasif" },
+      { score: 1, label: "Tegang / kaku", detail: "Resistensi terhadap gerakan pasif" },
+      { score: 2, label: "Sangat tegang / kaku", detail: "Resistensi kuat, sulit diselesaikan" },
+    ]},
+    { id: "ventilasi", label: "Kepatuhan Ventilator / Vokalisasi", maxScore: 2, options: [
+      { score: 0, label: "Toleransi ventilator / bicara normal" },
+      { score: 1, label: "Batuk tapi toleransi / mendesah-mengerang" },
+      { score: 2, label: "Melawan ventilator / menangis keras" },
+    ]},
+  ],
+  interpretasi: [
+    { id: "cp-1", min: 0, max: 2, label: "Nyeri Minimal / Terkendali", tone: "emerald", action: "Lanjutkan pemantauan. CPOT > 2 = nyeri signifikan." },
+    { id: "cp-2", min: 3, max: 8, label: "Nyeri Signifikan",            tone: "rose",    action: "Berikan / titrasi analgesik. Re-evaluasi setelah intervensi." },
+  ],
+};
+
+// ── Neonatus: Nyeri Observasional ────────────────────────
+const NIPS: SkalaRisikoRecord = {
+  id: "skl-nips",
+  kode: "NIPS",
+  nama: "Neonatal Infant Pain Scale",
+  singkat: "Nyeri Neonatus",
+  deskripsi:
+    "Skala nyeri observasional untuk neonatus / bayi. 6 indikator perilaku & fisiologis.",
+  scoringMode: "sum_items",
+  arah: "higher_is_worse",
+  totalMax: 7,
+  referensi: "Lawrence J, et al. Neonatal Netw 1993;12(6):59-66.",
+  konsumenModul: ["IGD", "RI", "ICU"],
+  status: "Aktif",
+  items: [
+    { id: "wajah", label: "Ekspresi Wajah", maxScore: 1, options: [
+      { score: 0, label: "Rileks" },
+      { score: 1, label: "Meringis" },
+    ]},
+    { id: "tangis", label: "Menangis", maxScore: 2, options: [
+      { score: 0, label: "Tidak menangis" },
+      { score: 1, label: "Merengek / mengerang" },
+      { score: 2, label: "Menangis kuat" },
+    ]},
+    { id: "napas", label: "Pola Napas", maxScore: 1, options: [
+      { score: 0, label: "Rileks / biasa" },
+      { score: 1, label: "Perubahan pola napas", detail: "Tidak teratur, lebih cepat, tertahan" },
+    ]},
+    { id: "lengan", label: "Lengan", maxScore: 1, options: [
+      { score: 0, label: "Rileks / tertahan" },
+      { score: 1, label: "Fleksi / ekstensi", detail: "Tegang, kaku, gerakan cepat" },
+    ]},
+    { id: "tungkai", label: "Tungkai", maxScore: 1, options: [
+      { score: 0, label: "Rileks / tertahan" },
+      { score: 1, label: "Fleksi / ekstensi", detail: "Tegang, kaku, gerakan cepat" },
+    ]},
+    { id: "arousal", label: "Keadaan Terjaga (Arousal)", maxScore: 1, options: [
+      { score: 0, label: "Tidur / tenang" },
+      { score: 1, label: "Rewel / gelisah" },
+    ]},
+  ],
+  interpretasi: [
+    { id: "ni-1", min: 0, max: 2, label: "Tidak Nyeri / Minimal", tone: "emerald", action: "Lanjutkan pemantauan rutin." },
+    { id: "ni-2", min: 3, max: 4, label: "Nyeri Ringan–Sedang",   tone: "amber",   action: "Tindakan kenyamanan (swaddling, sukrosa, ASI). Re-evaluasi." },
+    { id: "ni-3", min: 5, max: 7, label: "Nyeri Berat",           tone: "rose",    action: "Analgesik sesuai protokol neonatus. Re-evaluasi ketat." },
+  ],
+};
+
+// ── Pediatrik: Risiko Dekubitus ──────────────────────────
+const BRADEN_Q: SkalaRisikoRecord = {
+  id: "skl-braden-q",
+  kode: "BRADEN-Q",
+  nama: "Braden Q Scale",
+  singkat: "Dekubitus Anak",
+  deskripsi:
+    "Skala risiko dekubitus khusus pasien anak (21 hari–8 tahun). 7 subskala. INVERSE: skor lebih rendah = risiko lebih tinggi.",
+  scoringMode: "sum_items",
+  arah: "lower_is_worse",
+  totalMax: 28,
+  referensi: "Curley MAQ, Razmus IS, Roberts KE, Wypij D. Nurs Res 2003;52(1):22-33.",
+  konsumenModul: ["RI", "ICU"],
+  status: "Aktif",
+  items: [
+    { id: "mobilisasi", label: "Mobilitas", maxScore: 4, options: [
+      { score: 1, label: "Tidak mampu berubah posisi" },
+      { score: 2, label: "Sangat terbatas" },
+      { score: 3, label: "Sedikit terbatas" },
+      { score: 4, label: "Tidak terbatas" },
+    ]},
+    { id: "aktivitas", label: "Aktivitas", maxScore: 4, options: [
+      { score: 1, label: "Berbaring di tempat tidur" },
+      { score: 2, label: "Terbatas di kursi" },
+      { score: 3, label: "Kadang berjalan" },
+      { score: 4, label: "Sesuai usia / sering bergerak" },
+    ]},
+    { id: "persepsi", label: "Persepsi Sensorik", maxScore: 4, options: [
+      { score: 1, label: "Terbatas penuh" },
+      { score: 2, label: "Sangat terbatas" },
+      { score: 3, label: "Sedikit terbatas" },
+      { score: 4, label: "Tidak terganggu" },
+    ]},
+    { id: "kelembapan", label: "Kelembapan Kulit", maxScore: 4, options: [
+      { score: 1, label: "Selalu lembap" },
+      { score: 2, label: "Sangat lembap" },
+      { score: 3, label: "Kadang lembap" },
+      { score: 4, label: "Jarang lembap" },
+    ]},
+    { id: "friksi", label: "Friksi & Geseran", maxScore: 4, options: [
+      { score: 1, label: "Masalah signifikan" },
+      { score: 2, label: "Masalah" },
+      { score: 3, label: "Potensi masalah" },
+      { score: 4, label: "Tidak ada masalah" },
+    ]},
+    { id: "nutrisi", label: "Nutrisi", maxScore: 4, options: [
+      { score: 1, label: "Sangat buruk" },
+      { score: 2, label: "Tidak adekuat" },
+      { score: 3, label: "Adekuat" },
+      { score: 4, label: "Sangat baik" },
+    ]},
+    { id: "perfusi", label: "Perfusi Jaringan & Oksigenasi", maxScore: 4, options: [
+      { score: 1, label: "Sangat terganggu", detail: "Hipotensi atau tidak toleran perubahan posisi" },
+      { score: 2, label: "Terganggu", detail: "Normotensi; SpO₂ <95% / Hb <10 / CRT >2 dtk" },
+      { score: 3, label: "Adekuat", detail: "Normotensi; salah satu parameter di atas" },
+      { score: 4, label: "Sangat baik", detail: "Normotensi, SpO₂ & Hb normal, CRT normal" },
+    ]},
+  ],
+  interpretasi: [
+    { id: "bq-1", min: 0,  max: 16, label: "Risiko Tinggi", tone: "rose",    action: "Reposisi tiap 2 jam, kasur antidekubitus, inspeksi kulit tiap shift." },
+    { id: "bq-2", min: 17, max: 22, label: "Risiko Sedang", tone: "amber",   action: "Reposisi terjadwal, lindungi area tekanan, monitor kulit." },
+    { id: "bq-3", min: 23, max: 28, label: "Risiko Rendah", tone: "emerald", action: "Perawatan kulit rutin. Re-skrining bila kondisi berubah." },
+  ],
+};
+
+// ── Dewasa: Skrining Gizi (alternatif MUST) ──────────────
+const MST: SkalaRisikoRecord = {
+  id: "skl-mst",
+  kode: "MST",
+  nama: "Malnutrition Screening Tool",
+  singkat: "Skrining Gizi Dewasa",
+  deskripsi:
+    "Alat skrining malnutrisi 2 pertanyaan untuk pasien dewasa (umum dipakai RS Indonesia). Skor ≥ 2 = berisiko.",
+  scoringMode: "sum_items",
+  arah: "higher_is_worse",
+  totalMax: 5,
+  referensi: "Ferguson M, et al. Nutrition 1999;15(6):458-464.",
+  konsumenModul: ["IGD", "RI", "RJ"],
+  status: "Aktif",
+  items: [
+    { id: "turunBB", label: "Penurunan BB tanpa Disengaja", maxScore: 4, options: [
+      { score: 0, label: "Tidak ada penurunan BB" },
+      { score: 1, label: "1–5 kg" },
+      { score: 2, label: "6–10 kg / tidak yakin" },
+      { score: 3, label: "11–15 kg" },
+      { score: 4, label: "> 15 kg" },
+    ]},
+    { id: "nafsuMakan", label: "Asupan Makan Berkurang (Nafsu Makan ↓)", maxScore: 1, options: [
+      { score: 0, label: "Tidak" },
+      { score: 1, label: "Ya" },
+    ]},
+  ],
+  interpretasi: [
+    { id: "ms-1", min: 0, max: 1, label: "Risiko Rendah",       tone: "emerald", action: "Tidak berisiko malnutrisi. Skrining ulang berkala." },
+    { id: "ms-2", min: 2, max: 5, label: "Berisiko Malnutrisi", tone: "rose",    action: "Konsul dietisien untuk asesmen gizi lengkap & rencana intervensi." },
+  ],
+};
+
+// ── Pediatrik: Skrining Gizi ─────────────────────────────
+const STRONGKIDS: SkalaRisikoRecord = {
+  id: "skl-strongkids",
+  kode: "STRONGKIDS",
+  nama: "STRONGkids (Skrining Gizi Anak)",
+  singkat: "Skrining Gizi Anak",
+  deskripsi:
+    "Screening Tool for Risk On Nutritional Status and Growth — skrining malnutrisi pediatrik (1 bln–18 thn).",
+  scoringMode: "sum_items",
+  arah: "higher_is_worse",
+  totalMax: 5,
+  referensi: "Hulst JM, et al. Clin Nutr 2010;29(1):106-111.",
+  konsumenModul: ["IGD", "RI", "RJ"],
+  status: "Aktif",
+  items: [
+    { id: "klinis", label: "Penilaian Klinis Subjektif", maxScore: 1, options: [
+      { score: 0, label: "Status gizi tampak baik" },
+      { score: 1, label: "Status gizi buruk", detail: "Lemak / massa otot subkutan berkurang" },
+    ]},
+    { id: "penyakit", label: "Penyakit Berisiko Tinggi / Bedah Mayor", maxScore: 2, options: [
+      { score: 0, label: "Tidak" },
+      { score: 2, label: "Ya", detail: "Penyakit berisiko malnutrisi atau rencana bedah mayor" },
+    ]},
+    { id: "asupan", label: "Asupan & Kehilangan Nutrisi", maxScore: 1, options: [
+      { score: 0, label: "Tidak ada masalah" },
+      { score: 1, label: "Ada masalah", detail: "Diare ≥5×/hari / muntah >3×/hari / asupan ↓ / diet khusus" },
+    ]},
+    { id: "beratBadan", label: "Penurunan / Tidak Naik BB", maxScore: 1, options: [
+      { score: 0, label: "BB naik normal" },
+      { score: 1, label: "BB turun / stagnan", detail: "Beberapa minggu–bulan terakhir" },
+    ]},
+  ],
+  interpretasi: [
+    { id: "sk-1", min: 0, max: 0, label: "Risiko Rendah", tone: "emerald", action: "Tidak perlu intervensi. Skrining ulang berkala." },
+    { id: "sk-2", min: 1, max: 3, label: "Risiko Sedang", tone: "amber",   action: "Timbang BB 2×/minggu, evaluasi 1 minggu, konsul dokter." },
+    { id: "sk-3", min: 4, max: 5, label: "Risiko Tinggi", tone: "rose",    action: "Konsul dokter & dietisien. Mulai intervensi gizi + monitoring." },
+  ],
+};
+
 export const SKALA_RISIKO_MOCK: SkalaRisikoRecord[] = [
+  // Dewasa (set awal) — kode SR-0001..SR-0005 (stabil).
   BARTHEL, MORSE, BRADEN, NRS_PAIN, MUST,
+  // Stratifikasi usia & kondisi (tambahan) — kode SR-0006..SR-0013.
+  HUMPTY_DUMPTY, WONG_BAKER, FLACC, CPOT, NIPS, BRADEN_Q, MST, STRONGKIDS,
 ];

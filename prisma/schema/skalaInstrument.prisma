@@ -1,0 +1,60 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MASTER: Skala Klinis — SKORING (schema "master")
+//  Grup "Skala Klinis" bentuk SKORING: Risiko · Umum · Penyakit (≠ Triase matrix).
+//  Satu tabel `skala_instrument` lintas-kategori (struktur identik: items×opsi skor +
+//  interpretasi). Acuan: docs/BACKEND-MASTER-SKALA-KLINIK.md §B · skalaCommon.ts (FE).
+//
+//  Konsumen: tab Penilaian (IGD/RI/RJ/ICU) — Morse/Braden/Barthel/dst ditarik dari sini
+//  (per `konsumenModul`). Master = panduan; hasil penilaian dicatat di `medicalrecord` (append-only).
+//
+//  Kode AUTO-GEN (counter per-kategori, mis. SR-0001) — BUKAN input manual, BUKAN nama (MORSE).
+//  items[] (tiap item punya options[] ber-skor) + interpretasi[] = JSONB (di-set/replace utuh,
+//  pola identik master.Sdki blok JSONB). Katalog leaf → tanpa optimistic-version.
+// ════════════════════════════════════════════════════════════════════════════
+
+model SkalaInstrument {
+  id   String @id @default(uuid(7)) @db.Uuid
+  kode String // auto `SR-NNNN` (counter per-kategori) — unik antar baris hidup
+
+  // ── Identitas ──
+  nama      String
+  singkat   String @default("")
+  deskripsi String @default("")
+  referensi String @default("") // referensi standar (free-text)
+  kategori  String @default("Risiko") // Risiko | Umum | Penyakit (FE-facing)
+
+  // ── Mode skoring ──
+  scoringMode String @map("scoring_mode") // sum_items | select_value
+  arah        String // higher_is_worse | lower_is_worse
+  totalMax    Int    @default(0) @map("total_max") // derived dari items (disimpan utk tampilan cepat)
+
+  // ── Struktur penilaian (blok JSONB) ──
+  /// SkalaItem[] — { id, label, maxScore, options: { score, label, detail? }[] }
+  items Json @db.JsonB
+  /// SkalaInterpretasi[] — { id, min, max, label, tone, action }
+  interpretasi Json @db.JsonB
+
+  // ── Konsumen (assignment per unit klinis) ──
+  konsumenModul String[] @map("konsumen_modul") // IGD/RI/RJ/ICU
+
+  // ── Meta ──
+  status    String    @default("Aktif") // Aktif | Non_Aktif
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kategori, deletedAt]) // list/filter per kategori
+  @@map("skala_instrument")
+  @@schema("master")
+}
+
+// Counter kode skala (auto `<PREFIX>-NNNN`, tanpa reset periodik). Satu baris per kategori
+// (`scope` = prefix: SR=Risiko, SU=Umum, SP=Penyakit). Upsert by PK → increment atomik,
+// anti-race (pola identik master.SdkiCounter). Di-seed ke jumlah data awal per kategori.
+model SkalaCounter {
+  scope   String @id // prefix kategori: "SR" | "SU" | "SP"
+  lastSeq Int    @map("last_seq")
+
+  @@map("skala_counter")
+  @@schema("master")
+}

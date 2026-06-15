@@ -9,12 +9,14 @@
  *   - NYHA Functional Classification (NYHA 1994)
  *   - Antman EM et al. JAMA 2000 (TIMI risk score)
  *   - Oken MM et al. Am J Clin Oncol 1982 (ECOG Performance Status)
+ *   - WHO/AJCC histologic Grade (G1–G4)
  *   - AJCC Cancer Staging Manual 8th ed. 2017 (TNM Stadium)
  */
 
-import {
-  type SkalaRecord, emptySkalaRecord,
-} from "./skalaCommon";
+// NOTE: import TYPE-ONLY dari skalaCommon (di-strip Node native TS) agar file ini bisa di-load
+// skrip seed `node --env-file` tanpa resolusi ekstensi runtime. Helper emptySkalaPenyakitRecord
+// di-inline (tak lagi panggil runtime emptySkalaRecord). Selaras skalaRisikoMock.
+import type { SkalaRecord } from "./skalaCommon";
 
 export type {
   SkalaRecord, SkalaScoringMode, SkalaArah, SkalaModulKonsumen,
@@ -24,7 +26,21 @@ export type {
 export type SkalaPenyakitRecord = SkalaRecord;
 
 export function emptySkalaPenyakitRecord(): SkalaPenyakitRecord {
-  return emptySkalaRecord("skp");
+  return {
+    id: `skp-${Date.now().toString(36)}`,
+    kode: "",
+    nama: "",
+    singkat: "",
+    deskripsi: "",
+    scoringMode: "select_value",
+    arah: "higher_is_worse",
+    items: [],
+    totalMax: 0,
+    interpretasi: [],
+    referensi: "",
+    konsumenModul: ["RI", "RJ"],
+    status: "Aktif",
+  };
 }
 
 // ── Mock data ────────────────────────────────────────────
@@ -189,6 +205,36 @@ const STADIUM_KANKER: SkalaPenyakitRecord = {
   ],
 };
 
+const GRADE: SkalaPenyakitRecord = {
+  id: "skp-grade",
+  kode: "GRADE-HISTO",
+  nama: "Grade Histologi",
+  singkat: "Derajat Diferensiasi",
+  deskripsi:
+    "Derajat diferensiasi histologik tumor (seberapa abnormal sel tumor dibanding sel normal). Memandu agresivitas & prognosis.",
+  scoringMode: "select_value",
+  arah: "higher_is_worse",
+  totalMax: 4,
+  referensi: "WHO Classification of Tumours / AJCC histologic grade (G1–G4).",
+  konsumenModul: ["RI", "RJ"],
+  status: "Aktif",
+  items: [
+    { id: "grade", label: "Grade", maxScore: 4, options: [
+      { score: 0, label: "GX — Tidak dapat dinilai" },
+      { score: 1, label: "G1 — Berdiferensiasi baik",    detail: "Low grade — mirip jaringan normal" },
+      { score: 2, label: "G2 — Berdiferensiasi sedang",  detail: "Intermediate grade" },
+      { score: 3, label: "G3 — Berdiferensiasi buruk",   detail: "High grade — sangat abnormal" },
+      { score: 4, label: "G4 — Tidak berdiferensiasi",   detail: "Anaplastik / undifferentiated" },
+    ]},
+  ],
+  interpretasi: [
+    { id: "g-0", min: 0, max: 0, label: "Grade Tidak Dinilai", tone: "sky",     action: "Lengkapi pemeriksaan histopatologi untuk grading." },
+    { id: "g-1", min: 1, max: 1, label: "Low Grade (G1)",       tone: "emerald", action: "Prognosis relatif baik. Sesuaikan tatalaksana per stadium." },
+    { id: "g-2", min: 2, max: 2, label: "Intermediate (G2)",    tone: "amber",   action: "Pertimbangkan adjuvant sesuai stadium & faktor risiko." },
+    { id: "g-3", min: 3, max: 4, label: "High Grade (G3–G4)",   tone: "rose",    action: "Agresif. Multimodal therapy. Monitor rekurensi ketat." },
+  ],
+};
+
 export const SKALA_PENYAKIT_MOCK: SkalaPenyakitRecord[] = [
-  KILLIP, NYHA, TIMI, ECOG, STADIUM_KANKER,
+  KILLIP, NYHA, TIMI, ECOG, GRADE, STADIUM_KANKER,
 ];

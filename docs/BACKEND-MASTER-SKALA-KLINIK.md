@@ -8,7 +8,7 @@
 > **Terkait:** [CLAUDE.md](../CLAUDE.md) · [TODOS_BACKEND.md](../TODOS_BACKEND.md).
 >
 > **Stack:** PostgreSQL · Prisma (`@@schema("master")`) · layered **Route→Service→DAL→Prisma** · Redis cache-aside · Auth.js RBAC.
-> **Status:** **Triase IGD ✅ backend + FE wired (2026-06-08)** — SK0 RBAC + TR1–TR8 selesai (schema 4 tabel + migration + seed DEFAULT-IGD · Zod · DAL · Service single-default · 7 endpoint · client · master page swap ke API · klinis CriteriaTable fetch default) · **TR8b** banyak kriteria/sel · **TR8c** riset kriteria (ESI/ATS/CTAS/MTS/PMK) + `tipeNilai`/`satuan` + 4 parameter best-practice → DB enriched **12 param · 131 sel** (§A.10). Sisa: **TR9** keputusan vokabuler level (§A.8.1) · **TR10** tests. · **Skala Risiko/Umum/Penyakit 📋** (analisis ringkas — §B).
+> **Status:** **Triase IGD ✅ backend + FE wired (2026-06-08)** — SK0 RBAC + TR1–TR8 selesai (schema 4 tabel + migration + seed DEFAULT-IGD · Zod · DAL · Service single-default · 7 endpoint · client · master page swap ke API · klinis CriteriaTable fetch default) · **TR8b** banyak kriteria/sel · **TR8c** riset kriteria (ESI/ATS/CTAS/MTS/PMK) + `tipeNilai`/`satuan` + 4 parameter best-practice → DB enriched **12 param · 131 sel** (§A.10). Sisa: **TR9** keputusan vokabuler level (§A.8.1) · **TR10** tests. · **Skala Risiko ✅ backend + FE wired (2026-06-15)** — `master.SkalaInstrument` (kategori "Risiko") + counter kode `SR-NNNN` + RBAC `master.skala` + 4 endpoint CRUD + seed 5 instrumen (Barthel/Morse/Braden/NRS/MUST) + master page swap ke API (kode auto, DiscardDialog). **Skala Umum/Penyakit 📋** (reuse `SkalaInstrument`, scope SU/SP — §B).
 
 ---
 
@@ -258,21 +258,68 @@ Sumber: **ESI** (Emergency Severity Index v4/v5, ENA/AHRQ) · **ATS** (Australas
 
 ---
 
-## B. Sub-grup **Skala Klinis — Risiko / Umum / Penyakit** (skoring) 📋
+## B. Sub-grup **Skala Klinis — Risiko / Umum / Penyakit** (skoring)
 
-> **Placeholder** — pemodelan rinci menyusul saat sub-grup ini dikerjakan. Ringkasan analisis agar peta grup lengkap.
+> **Skala Risiko ✅ SELESAI (2026-06-15)** — backend + FE wired; **13 instrumen tervalidasi** ter-seed (`SR-0001..0013`), distratifikasi dewasa/pediatrik/neonatus/kritis (lihat B.1.1). **Umum/Penyakit 📋** (reuse model & layer yang sama, beda `kategori`/scope kode).
 
-Ketiganya berbagi `SkalaRecord` ([skalaCommon.ts](../src/lib/master/skalaCommon.ts)): `items[]` (tiap item `options[]` ber-`score`) + `scoringMode` (`sum_items`\|`select_value`) + `arah` (`higher_is_worse`\|`lower_is_worse`) + `interpretasi[]` (rentang `min..max` → `label` + `action` + `tone`) + `modulKonsumen[]` (IGD/RI/RJ/ICU).
+Ketiganya berbagi `SkalaRecord` ([skalaCommon.ts](../src/lib/master/skalaCommon.ts)): `items[]` (tiap item `options[]` ber-`score`) + `scoringMode` (`sum_items`\|`select_value`) + `arah` (`higher_is_worse`\|`lower_is_worse`) + `interpretasi[]` (rentang `min..max` → `label` + `action` + `tone`) + `konsumenModul[]` (IGD/RI/RJ/ICU).
 
-**Pemodelan target (ringkas):**
-- `SkalaInstrument` (record): id, kode unik, nama, singkat, deskripsi, `kategori` (Risiko/Umum/Penyakit), `scoringMode`, `arah`, `totalMax`, status, version, soft-delete.
-- `SkalaItem` (FK→instrument): label, urutan + `SkalaOption[]` (FK→item): score, label, detail.
-- `SkalaInterpretasi` (FK→instrument): min, max, label, tone, action.
-- `SkalaModulKonsumen` (join instrument↔modul) atau kolom `text[]`.
+### B.1 Pemodelan (terimplementasi) — **1 tabel lintas-kategori + JSONB**
 
-**Konsumen:** `medicalrecord.Observation`/`Assessment` (domain klinis berikutnya) — skor dihitung dari instrumen master, hasil (skor + interpretasi snapshot) dicatat di record klinis (append-only). Selaras pola A.8: master = panduan, record = hasil.
+Keputusan: **TIDAK** menormalkan item/opsi/interpretasi jadi tabel terpisah (pola SDKI blok JSONB) — instrumen di-baca/tulis sebagai satu unit (replace-all), tak ada query lintas-opsi. Hemat & 1:1 dgn `SkalaRecord` FE.
 
-**RBAC:** `master.skala:{read,create,update,delete}` (seed bareng SK0, atau key per kategori bila perlu granular).
+- **`SkalaInstrument`** ([skalaInstrument.prisma](../prisma/schema/skalaInstrument.prisma), `@@schema("master")`): `id` · `kode` (auto) · `nama` · `singkat` · `deskripsi` · `referensi` · `kategori` (Risiko/Umum/Penyakit) · `scoringMode` · `arah` · `totalMax` · `items` **JSONB** (`SkalaItem[]` dgn `options[]`) · `interpretasi` **JSONB** · `konsumenModul` **text[]** (assignment unit) · `status` · createdAt/updatedAt/deletedAt (soft-delete; katalog leaf tanpa version). Index `(kategori, deleted_at)`.
+- **`SkalaCounter`** (PK `scope` = prefix kategori): kode auto `<PREFIX>-NNNN` (SR=Risiko, SU=Umum, SP=Penyakit), increment atomik (pola `SdkiCounter`). **Kode BUKAN nama** (MORSE→`SR-0002`) — di-generate saat simpan/seed; input manual dihapus (FE display "Auto").
+- **Assignment per unit** (poin konsumen) = `konsumenModul` text[] (IGD/RI/RJ/ICU), di-toggle di IdentitasTab; dipakai filter `?modul=` utk konsumsi klinis.
+
+### B.2 Layer (Risiko) — terimplementasi
+
+- Zod [schemas/master/skalaRisiko.ts](../src/lib/schemas/master/skalaRisiko.ts) (Input tanpa kode/kategori; DTO mirror `SkalaRecord`; items/interpretasi nested Zod → JSONB).
+- DAL [dal/master/skalaRisikoDal.ts](../src/lib/dal/master/skalaRisikoDal.ts) (`nextSkalaSeq(scope)`/create/findById/update/softDelete/list filter q+modul+status).
+- Service — **factory generik** [services/master/skalaService.ts](../src/lib/services/master/skalaService.ts) `makeSkalaService({ kategori, scope })` (kode `<SCOPE>-NNNN` atomik dlm tx, JSONB defensif toItems/toInterpretasi, actor-less list SSR-safe); [skalaRisikoService.ts](../src/lib/services/master/skalaRisikoService.ts) = wrapper Risiko/SR. **DRY: Risiko & Penyakit satu sumber logika.**
+- API `/api/v1/master/skala-risiko` (GET list+filter · POST) + `/:id` (PATCH · DELETE), gate `master.skala`. Client [api/master/skalaRisiko.ts](../src/lib/api/master/skalaRisiko.ts).
+- FE: [SkalaRisikoPage](../src/components/master/skala-risiko/SkalaRisikoPage.tsx) SSR-hybrid (initial via service + client CUD `commit`/`removeLocal`), **kode read-only "Auto"** (IdentitasTab shared), **batal → DiscardDialog global** (bukan window.confirm). Seed [seed-skala-risiko.mts](../prisma/scripts/seed-skala-risiko.mts) → **13 instrumen tervalidasi** `SR-0001..0013` (counter=13).
+
+### B.1.1 Cakupan instrumen ter-seed (stratifikasi usia & kondisi)
+
+Instrumen di-audit 1:1 terhadap publikasi aslinya (item, bobot skor, cut-off). Stratifikasi mengikuti syarat JCI/SNARS "appropriate to patient age & condition":
+
+| Domain | Dewasa | Pediatrik | Neonatus | Kritis/Non-verbal |
+|---|---|---|---|---|
+| **ADL** | Barthel (Mahoney 1965) | — | — | — |
+| **Jatuh** | Morse (1989) | Humpty Dumpty (2009) | — | — |
+| **Nyeri** | NRS (self-report) | Wong-Baker FACES (1988) · FLACC (1997) | NIPS (1993) | CPOT (2006, ICU) · FLACC |
+| **Dekubitus** | Braden (1987) | Braden Q (2003) | — | — |
+| **Gizi** | MUST (BAPEN 2003) · MST (Ferguson 1999) | STRONGkids (2010) | — | — |
+
+`arah=lower_is_worse` (inverse): Barthel, Braden, Braden Q. Sisanya `higher_is_worse`. `scoringMode=select_value`: NRS, Wong-Baker. Skala dewasa stabil di `SR-0001..0005`; stratifikasi tambahan `SR-0006..0013`.
+
+> **Catatan model:** tidak ada modul `konsumenModul` khusus pediatrik/NICU (enum = IGD/RI/RJ/ICU) — skala anak/neonatus dipetakan ke IGD/RI/RJ; pemilihan instrumen sesuai usia diserahkan ke klinisi saat asesmen. Penambahan enum modul = perubahan skema (ditunda, belum dibutuhkan).
+
+### B.3 Konsumen klinis ✅ SELESAI (2026-06-15)
+
+Tab **Penilaian** IGD: 3 sub-tab hardcode (Morse/Braden/Barthel) **dikonsolidasi jadi 1 sub-tab generik "Asesmen Risiko"** ([SkalaRisikoPanel](../src/components/igd/tabs/penilaian/SkalaRisikoPanel.tsx)) yang menarik instrumen dari master (filter `?modul=` per unit IGD/RI/RJ/ICU) → render generik (items×opsi + skor live + interpretasi, sadar `arah` inverse & `scoringMode`). Selaras pola A.8: **master = panduan, record = hasil**.
+
+- **Read katalog (klinis):** `GET /api/v1/master/skala-tersedia?modul=IGD` → instrumen AKTIF kategori Risiko ter-assign unit. Gate **`clinical.penilaian:read`** (BUKAN master.skala — klinisi tak punya hak master), `scopeKunjungan:false`. Reuse `skalaRisikoService.list` (pola `sdki-template`/`tindakan-tersedia`). [route](../src/app/api/v1/master/skala-tersedia/route.ts).
+- **Record hasil:** `medicalrecord.PenilaianSkala` — **SATU tabel `penilaian_skala`** untuk semua skala skoring (snapshot `skalaKode`/`skalaNama` denormalisasi + `jawaban` JSONB + `totalSkor`/`totalMax` + `interpretasiLabel`/`tone`). Append-only. `GET/POST /api/v1/kunjungan/:id/penilaian-skala`, gate `clinical.penilaian` (read/create). Layer: [schema](../src/lib/schemas/penilaian/penilaianSkala.ts) · [dal](../src/lib/dal/penilaian/penilaianSkalaDal.ts) · [service](../src/lib/services/penilaian/penilaianSkalaService.ts) · [client](../src/lib/api/penilaian/penilaianSkala.ts). Migrasi `20260615200000_init_medicalrecord_penilaian_skala`.
+- **Keputusan model:** 1 tabel generik (BUKAN `penilaian_jatuh`/`_dekubitus`/`_barthel` terpisah) — skala skoring berbagi satu bentuk; skoring dihitung FE (single source = definisi master), BE simpan snapshot apa adanya. Primitives tab Penilaian diekstrak ke [shared.tsx](../src/components/igd/tabs/penilaian/shared.tsx).
+- **Sisa:** RI/RJ tab Penilaian (jika ada) tinggal pass `modul` berbeda; Skala **Umum** master = follow-up (reuse `SkalaInstrument` scope SU).
+
+### B.4 Skala Penyakit + konsumen komposit (Jantung/Kanker) ✅ SELESAI (2026-06-15)
+
+**Master Skala Penyakit** (kategori "Penyakit", scope **SP**) reuse `SkalaInstrument` + factory `makeSkalaService` (B.2). Layer paralel Risiko:
+- Service [skalaPenyakitService.ts](../src/lib/services/master/skalaPenyakitService.ts) (`makeSkalaService({ kategori:"Penyakit", scope:"SP" })`). Schema/DTO **di-reuse** dari `skalaRisiko` (category-agnostic).
+- API `/api/v1/master/skala-penyakit` (GET·POST) + `/:id` (PATCH·DELETE), gate `master.skala`. Client [api/master/skalaPenyakit.ts](../src/lib/api/master/skalaPenyakit.ts).
+- FE [SkalaPenyakitPage](../src/components/master/skala-penyakit/SkalaPenyakitPage.tsx) SSR-hybrid (accent violet, kode "Auto" `SP-NNNN`, DiscardDialog). Route [/ehis-master/skala-penyakit](../src/app/ehis-master/skala-penyakit/page.tsx) (nav sudah ada).
+- Seed [seed-skala-penyakit.mts](../prisma/scripts/seed-skala-penyakit.mts) → **6 klasifikasi tervalidasi** `SP-0001..0006`: Killip (1967) · NYHA (1994) · TIMI (Antman 2000) · ECOG (Oken 1982) · Grade (WHO/AJCC G1–G4) · Stadium AJCC 8th. `select_value` semua kecuali TIMI (`sum_items`).
+
+**Konsumen komposit** — tab Penilaian **Jantung** ([JantungPanel](../src/components/igd/tabs/penilaian/JantungPanel.tsx)) & **Kanker** ([KankerPanel](../src/components/igd/tabs/penilaian/KankerPanel.tsx)):
+- **Komposit** = narasi + vocab bespoke + klasifikasi baku yang **dikomposisi dari master** (`GET /master/skala-tersedia?kategori=Penyakit&modul=`, dispatch service per kategori). Asosiasi skala→panel via **name-match** (cardiac `/killip|nyha|timi/i`, onco `/ecog|grade|stadium/i`) — kode auto SP-NNNN tak bisa dipakai match. **Follow-up:** kolom `domain` tag bila master di-rename.
+- Klasifikasi dirender `<ScaleField>` + mesin `computeScale` (shared) — single source skoring = definisi master. **TNM (T/N/M) TETAP vocab bespoke** (staging lookup site-specific, BUKAN skala).
+- **Record:** `medicalrecord.PenilaianKomposit` — **SATU tabel `penilaian_komposit`** diskriminasi `jenis` (Jantung/Kanker), `data` JSONB snapshot utuh (narasi+vocab+`data.skala[]` hasil klasifikasi), append-only. `GET/POST /api/v1/kunjungan/:id/penilaian-komposit?jenis=`, gate `clinical.penilaian`. Layer [schema](../src/lib/schemas/penilaian/penilaianKomposit.ts)·[dal](../src/lib/dal/penilaian/penilaianKompositDal.ts)·[service](../src/lib/services/penilaian/penilaianKompositService.ts)·[client](../src/lib/api/penilaian/penilaianKomposit.ts). Migrasi `20260615210000_init_medicalrecord_penilaian_komposit`.
+- **Catatan unit-filter:** di IGD muncul Killip+TIMI (NYHA=RI/RJ/ICU); onko (ECOG/Grade/Stadium=RI/RJ) → empty-state di IGD (staging onkologi memang inpatient/rawat-jalan). Assignment master = sumber kebenaran.
+
+**RBAC:** `master.skala:{read,create,update,delete}` ✅ (migration `20260615190000_rbac_master_skala`; Admin full · Dokter/Perawat read). Konsumen klinis gate `clinical.penilaian`.
 
 ---
 

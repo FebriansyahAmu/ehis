@@ -105,6 +105,7 @@ export const PERMISSION_TREE: PermissionModule[] = [
       { key: "master.katalog",        label: "Katalog (Obat/Lab/ICD)",       actions: ["read", "create", "update", "delete"] },
       { key: "master.icd",            label: "Katalog ICD-10/9",             actions: ["read", "create", "update", "delete"] },
       { key: "master.triase",         label: "Triase IGD (Skala Klinis)",    actions: ["read", "create", "update", "delete"] },
+      { key: "master.skala",          label: "Skala Klinis (Risiko/Umum/Penyakit)", actions: ["read", "create", "update", "delete"] },
       { key: "master.tarif",          label: "Tarif & Paket",                actions: ["read", "create", "update", "delete"] },
       { key: "master.konfigurasi",    label: "Konfigurasi Sistem (Template/Enum/Profil)", actions: ["read", "update"] },
     ],
@@ -173,6 +174,7 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
     // berdiri-sendiri. Dokter lihat status order via tab rekam medis (clinical.*), bukan
     // worklist penunjang. Grant ancillary.* di sini dulu bikin menu penunjang muncul keliru.
     "master.triase": ["read"], // baca protokol triase (decision-support di TriaseTab)
+    "master.skala": ["read"], // baca instrumen skala (Penilaian tab tarik dari master)
     "report.clinical": ["read", "export"],
     // baca DATA referensi+registrasi utk rekam medis — TANPA master.view/registration.loket (modul tersembunyi)
     "master.ruangan": ["read"], // resolve nama ruangan (board/detail)
@@ -199,6 +201,7 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
     // CATATAN: TIDAK diberi ancillary.* — itu untuk unit penunjang (Lab/Rad/Farmasi) yang
     // berdiri-sendiri. Perawat lihat status order via tab rekam medis, bukan worklist penunjang.
     "master.triase": ["read"], // baca protokol triase (decision-support di TriaseTab)
+    "master.skala": ["read"], // baca instrumen skala (Penilaian tab tarik dari master)
     // baca DATA referensi+registrasi utk rekam medis — TANPA master.view/registration.loket (modul tersembunyi)
     "master.ruangan": ["read"], // resolve nama ruangan (board/detail)
     "master.dokter": ["read"], // resolve nama DPJP

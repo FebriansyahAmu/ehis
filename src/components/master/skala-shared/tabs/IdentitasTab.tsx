@@ -92,15 +92,10 @@ export default function IdentitasTab({ accent, draft, onPatch }: Props) {
             />
           </Field>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Kode" required>
-              <TextInput
-                value={draft.kode}
-                onChange={(v) => onPatch({ kode: v.toUpperCase() })}
-                placeholder="MORSE · GCS · NEWS2"
-                className="font-mono"
-                maxW="max-w-[180px]"
-                accent={accent}
-              />
+            <Field label="Kode" hint="Otomatis saat disimpan">
+              <div className="flex h-9 max-w-[180px] items-center rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono text-xs text-slate-600">
+                {draft.kode || <span className="font-sans text-slate-400">Auto</span>}
+              </div>
             </Field>
             <Field label="Singkatan / Display">
               <TextInput

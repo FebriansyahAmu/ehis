@@ -1473,3 +1473,81 @@ model PenilaianPediatrik {
   @@map("penilaian_pediatrik")
   @@schema("medicalrecord")
 }
+
+// ── Penilaian Skala (sub-menu: Asesmen Risiko — generik, digerakkan master) ─────
+//  SATU tabel untuk SEMUA skala risiko tervalidasi yang ditarik dari master
+//  `master.SkalaInstrument` (Morse/Braden/Barthel/Humpty Dumpty/dst). Beda dengan sub-menu
+//  bespoke (Fisik/Nyeri/Status/Pediatrik = field unik → tabel sendiri): skala skoring berbagi
+//  satu bentuk (instrumen + jawaban + skor + interpretasi) → satu tabel snapshot.
+//  Append-only time-series (riwayat per kunjungan; tiap simpan = baris baru). `skalaKode`/`skalaNama`
+//  = SNAPSHOT denormalisasi master (bukan FK lintas-schema — instrumen bisa berubah/non-aktif,
+//  hasil historis harus stabil). `jawaban` = JSONB [{itemId,itemLabel,score,optionLabel}].
+//  Gate clinical.penilaian. Mirror SkalaRisikoPanel (PenilaianTab.tsx).
+
+model PenilaianSkala {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Spine (FK riil, same DB / cross-schema ke encounter) ──
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Snapshot instrumen master (bukan FK; stabil walau master berubah) ──
+  skalaKode String @map("skala_kode") // ref master.SkalaInstrument.kode (mis. SR-0002)
+  skalaNama String @map("skala_nama") // denormalisasi (mis. "Morse Fall Scale")
+  kategori  String @default("Risiko") // Risiko/Umum/Penyakit (ikut master)
+
+  // ── Hasil skoring (snapshot) ──
+  totalSkor         Int    @map("total_skor")
+  totalMax          Int    @map("total_max")
+  interpretasiLabel String @default("") @map("interpretasi_label") // mis. "Risiko Tinggi"
+  interpretasiTone  String @default("") @map("interpretasi_tone")  // mis. "rose" (display)
+  jawaban           Json   @default("[]") // [{itemId,itemLabel,score,optionLabel}]
+  catatan           String @default("")   // addendum bebas
+
+  // ── Pencatat + author (dari actor) ──
+  pemeriksa       String  // nama denormalisasi pencatat (dari user login)
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (append-only: tanpa updatedAt/soft-delete; version utk konsistensi) ──
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt]) // riwayat per kunjungan (terbaru dulu)
+  @@map("penilaian_skala")
+  @@schema("medicalrecord")
+}
+
+// ── Penilaian Komposit (sub-menu: Jantung / Kanker — form spesifik-penyakit) ────
+//  Asesmen spesialistik KOMPOSIT = narasi + vocab + KLASIFIKASI baku yg dikomposisi dari master
+//  `master.SkalaInstrument` kategori Penyakit (Killip/NYHA/TIMI · ECOG/Grade/Stadium). Beda dgn
+//  skala risiko murni (1 instrumen → penilaian_skala): di sini banyak field heterogen → disimpan
+//  sebagai SNAPSHOT JSONB utuh (`data`), self-contained (stabil walau master berubah). Klasifikasi
+//  TETAP dirender dari master saat input (definisi current), hasilnya ikut tersimpan di `data.skala`.
+//  SATU tabel diskriminasi `jenis` (Jantung|Kanker) — envelope identik. Append-only.
+//  Gate clinical.penilaian. Mirror JantungPanel/KankerPanel (PenilaianTab.tsx).
+
+model PenilaianKomposit {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Spine (FK riil, same DB / cross-schema ke encounter) ──
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  jenis     String // "Jantung" | "Kanker"
+  ringkasan String @default("") // kesimpulan ringkas (tampilan riwayat)
+  data      Json   @default("{}") // snapshot form utuh: narasi + vocab + data.skala[] (hasil klasifikasi)
+
+  // ── Pencatat + author (dari actor) ──
+  pemeriksa       String  // nama denormalisasi pencatat (dari user login)
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (append-only: tanpa updatedAt/soft-delete; version utk konsistensi) ──
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, jenis, createdAt]) // riwayat per kunjungan per jenis (terbaru dulu)
+  @@map("penilaian_komposit")
+  @@schema("medicalrecord")
+}
