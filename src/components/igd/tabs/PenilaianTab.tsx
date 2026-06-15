@@ -255,17 +255,17 @@ function NyeriPanel({ kunjunganId, isPersisted, perawat }: PanelCtx) {
           {/* Skor NRS terkini — SINGLE SOURCE dari TTV (read-only) */}
           {ttv && lvl ? (
             <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <Zap size={16} className="shrink-0 text-indigo-400" aria-hidden />
+              <Zap size={16} className="shrink-0 text-sky-400" aria-hidden />
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Skor Nyeri Terkini · dari TTV</p>
-                <p className="text-[11px] text-slate-500">Diukur {ttv.tanggal} · {ttv.jam} — skor NRS diisi di tab TTV (tanda vital)</p>
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Skor Nyeri Terkini · dari TTV</p>
+                <p className="text-xs text-slate-500">Diukur {ttv.tanggal} · {ttv.jam} — skor NRS diisi di tab TTV (tanda vital)</p>
               </div>
-              <span className={cn("shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold", lvl.cls)}>
+              <span className={cn("shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold", lvl.cls)}>
                 {ttv.skor} — {lvl.label}
               </span>
             </div>
           ) : (
-            <div className="flex items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-4 py-3 text-[11px] text-slate-500">
+            <div className="flex items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-4 py-3 text-xs text-slate-500">
               <Zap size={14} className="shrink-0 text-slate-300" aria-hidden />
               Skor NRS belum ada — isi <span className="font-semibold text-slate-600">skala nyeri di tab TTV</span> (tanda vital). Asesmen ini melengkapi karakterisasinya.
             </div>
@@ -289,10 +289,10 @@ function NyeriPanel({ kunjunganId, isPersisted, perawat }: PanelCtx) {
               {TIPE_NYERI_OPTS.map((opt) => (
                 <button key={opt} type="button" onClick={() => set("tipeNyeri", opt === form.tipeNyeri ? "" : opt)}
                   className={cn(
-                    "cursor-pointer rounded-full border px-3 py-1 text-[11px] font-medium transition-all",
+                    "cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-all",
                     form.tipeNyeri === opt
-                      ? "border-indigo-400 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200"
-                      : "border-slate-200 bg-white text-slate-500 hover:border-indigo-300 hover:text-indigo-600",
+                      ? "border-sky-400 bg-sky-50 text-sky-700 ring-1 ring-sky-200"
+                      : "border-slate-200 bg-white text-slate-500 hover:border-sky-300 hover:text-sky-600",
                   )}>
                   {opt}
                 </button>
@@ -374,10 +374,10 @@ function StatusPanel({ kunjunganId, isPersisted, perawat }: PanelCtx) {
   const isEmpty = !Object.values(form).some((v) => v.trim());
 
   const pillCls = (active: boolean) => cn(
-    "cursor-pointer rounded-full border px-3 py-1 text-[11px] font-medium transition-all",
+    "cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-all",
     active
-      ? "border-indigo-400 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200"
-      : "border-slate-200 bg-white text-slate-500 hover:border-indigo-300 hover:text-indigo-600",
+      ? "border-sky-400 bg-sky-50 text-sky-700 ring-1 ring-sky-200"
+      : "border-slate-200 bg-white text-slate-500 hover:border-sky-300 hover:text-sky-600",
   );
 
   async function handleSave() {
@@ -596,9 +596,9 @@ export default function PenilaianTab({ patient }: { patient: IGDPatientDetail })
     <div className="flex flex-col gap-3">
       {/* Header */}
       <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-xs">
-        <ClipboardCheck size={14} className="text-indigo-500" />
+        <ClipboardCheck size={14} className="text-sky-500" />
         <span className="text-xs font-semibold text-slate-700">Penilaian Klinis</span>
-        <span className="ml-auto text-[11px] text-slate-400">{activeTab.title}</span>
+        <span className="ml-auto text-xs text-slate-400">{activeTab.title}</span>
       </div>
 
       {/* Scrollable tab bar */}
@@ -617,9 +617,9 @@ export default function PenilaianTab({ patient }: { patient: IGDPatientDetail })
               type="button"
               onClick={() => setActiveId(tab.id)}
               className={cn(
-                "relative flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-medium transition-all",
+                "relative flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
                 isActive
-                  ? "bg-indigo-600 text-white shadow-xs"
+                  ? "bg-sky-600 text-white shadow-xs"
                   : "text-slate-500 hover:bg-slate-100 hover:text-slate-700",
               )}
             >

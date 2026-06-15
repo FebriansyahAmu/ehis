@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { MapPin, X, Save, Trash2, CheckCircle2 } from "lucide-react";
+import { MapPin, Pencil, X, Save, Trash2, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   SEV,
@@ -199,6 +199,11 @@ export function AnotasiItem({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
+            {anotasi.kind === "draw" ? (
+              <Pencil size={11} className="shrink-0 text-slate-400" />
+            ) : (
+              <MapPin size={11} className="shrink-0 text-slate-400" />
+            )}
             <p className="truncate text-xs font-semibold text-slate-800">
               {anotasi.label}
             </p>
@@ -264,7 +269,7 @@ export function DetailPanel({
             c.pinBg,
           )}
         >
-          {displayIdx + 1}
+          {anotasi.kind === "draw" ? <Pencil size={11} /> : displayIdx + 1}
         </div>
         <p className={cn("text-xs font-bold", c.text)}>{anotasi.label}</p>
         <span

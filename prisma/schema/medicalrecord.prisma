@@ -1551,3 +1551,43 @@ model PenilaianKomposit {
   @@map("penilaian_komposit")
   @@schema("medicalrecord")
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  TAB PENANDAAN GAMBAR (status lokalis / body-diagram, IGD) — domain Outcome/Annotation.
+//  Bagan = citra anatomi nyata per jenis kelamin (anterior) + odontogram FDI. Penanda =
+//  Pin (titik) ATAU Draw (coretan area, jalur titik %) + keterangan + severitas. Daftar hidup
+//  per-item: tambah = INSERT, hapus = soft-delete (jejak medico-legal); TANPA edit (koreksi =
+//  hapus + baris baru, pola PemeriksaanPenunjang/InformedConsent). Koordinat % terhadap citra.
+//  Gate clinical.pemeriksaan (body-map = dokumentasi pemeriksaan; selaras PenandaanAnatomi).
+//  Mirror Anotasi FE (PenandaanGambarTab.tsx).
+
+model PenandaanGambar {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Spine (FK riil, same DB / cross-schema ke encounter) ──
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  modelJenis String @map("model_jenis") // kanvas: pria | wanita | gigi
+  kind       String                      // pin | draw
+  koordinatX Float  @map("koordinat_x") // % anchor (titik pin / jangkar coretan)
+  koordinatY Float  @map("koordinat_y")
+  path       Json   @default("[]") // [{x,y}] jalur coretan (kind draw); [] utk pin
+  region     String                      // regio anatomis terdeteksi (snapshot label)
+  label      String
+  deskripsi  String @default("")
+  severitas  String                      // Normal | Ringan | Sedang | Berat | Trauma
+
+  // ── Pencatat + author (dari actor) ──
+  pemeriksa       String  // nama denormalisasi pencatat (dari user login)
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (add/delete only — tanpa version/updatedAt; soft-delete medico-legal) ──
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt]) // daftar penanda aktif per kunjungan
+  @@map("penandaan_gambar")
+  @@schema("medicalrecord")
+}

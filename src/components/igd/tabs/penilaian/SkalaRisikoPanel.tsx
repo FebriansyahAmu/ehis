@@ -157,7 +157,7 @@ export default function SkalaRisikoPanel({ kunjunganId, isPersisted, perawat, mo
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
               <Label>Pilih Skala Penilaian</Label>
-              <span className="text-[10px] text-slate-400">{instruments.length} skala tersedia · unit {modul}</span>
+              <span className="text-[11px] text-slate-400">{instruments.length} skala tersedia · unit {modul}</span>
             </div>
             <div className="relative">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -165,14 +165,14 @@ export default function SkalaRisikoPanel({ kunjunganId, isPersisted, perawat, mo
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Cari skala (Morse, Barthel, nyeri, gizi…)"
-                className="w-full rounded-md border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                className="w-full rounded-md border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
               />
             </div>
 
             {loadingList ? (
-              <p className="py-6 text-center text-[11px] text-slate-400">Memuat daftar skala…</p>
+              <p className="py-6 text-center text-xs text-slate-400">Memuat daftar skala…</p>
             ) : instruments.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 px-4 py-6 text-center text-[11px] text-slate-500">
+              <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 px-4 py-6 text-center text-xs text-slate-500">
                 Belum ada skala ter-assign untuk unit <span className="font-semibold">{modul}</span>.
                 <br />Assign di <span className="font-semibold text-slate-600">Master → Skala Risiko</span> (kolom Konsumen Modul).
               </div>
@@ -188,19 +188,19 @@ export default function SkalaRisikoPanel({ kunjunganId, isPersisted, perawat, mo
                       className={cn(
                         "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2 text-left transition-all",
                         active
-                          ? "border-indigo-400 bg-indigo-50 ring-1 ring-indigo-200"
-                          : "border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/30",
+                          ? "border-sky-400 bg-sky-50 ring-1 ring-sky-200"
+                          : "border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/30",
                       )}
                     >
-                      <span className={cn("text-[11px] font-semibold", active ? "text-indigo-700" : "text-slate-700")}>{ins.nama}</span>
+                      <span className={cn("text-xs font-semibold", active ? "text-sky-700" : "text-slate-700")}>{ins.nama}</span>
                       {ins.singkat && (
-                        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-500">{ins.singkat}</span>
+                        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{ins.singkat}</span>
                       )}
                     </button>
                   );
                 })}
                 {filtered.length === 0 && (
-                  <p className="col-span-full py-3 text-center text-[11px] text-slate-400">Tidak ada skala cocok “{query}”.</p>
+                  <p className="col-span-full py-3 text-center text-xs text-slate-400">Tidak ada skala cocok “{query}”.</p>
                 )}
               </div>
             )}
@@ -212,10 +212,10 @@ export default function SkalaRisikoPanel({ kunjunganId, isPersisted, perawat, mo
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-xs font-bold text-slate-700">{selected.nama}</p>
-                  {selected.deskripsi && <p className="mt-0.5 text-[10px] leading-snug text-slate-400">{selected.deskripsi}</p>}
+                  {selected.deskripsi && <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{selected.deskripsi}</p>}
                 </div>
                 {selected.arah === "lower_is_worse" && (
-                  <span className="flex shrink-0 items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[9px] font-semibold text-amber-700 ring-1 ring-amber-200">
+                  <span className="flex shrink-0 items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
                     <ArrowDownWideNarrow size={10} /> Skor rendah = risiko tinggi
                   </span>
                 )}
@@ -241,7 +241,7 @@ export default function SkalaRisikoPanel({ kunjunganId, isPersisted, perawat, mo
               <ScoreBar total={total} max={selected.totalMax} allFilled={allFilled} level={level} />
 
               {interp?.action && (
-                <div className={cn("rounded-lg border px-3 py-2 text-[11px] leading-snug", level?.cls)}>
+                <div className={cn("rounded-lg border px-3 py-2 text-xs leading-snug", level?.cls)}>
                   <span className="font-semibold">Tindak lanjut:</span> {interp.action}
                 </div>
               )}
@@ -252,13 +252,13 @@ export default function SkalaRisikoPanel({ kunjunganId, isPersisted, perawat, mo
               </div>
 
               {selected.referensi && (
-                <p className="flex items-center gap-1 text-[10px] text-slate-400">
+                <p className="flex items-center gap-1 text-[11px] text-slate-400">
                   <BookOpen size={10} /> {selected.referensi}
                 </p>
               )}
 
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] text-slate-400">
+                <span className="text-[11px] text-slate-400">
                   {allFilled ? "Semua item terisi" : "Lengkapi semua item untuk menyimpan"}
                 </span>
                 <SaveBtn label="Simpan Asesmen" onClick={handleSave} disabled={!allFilled} loading={saving} />
@@ -269,7 +269,7 @@ export default function SkalaRisikoPanel({ kunjunganId, isPersisted, perawat, mo
           {!selected && !loadingList && instruments.length > 0 && (
             <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-8 text-center">
               <Gauge size={20} className="text-slate-300" />
-              <p className="text-[11px] text-slate-400">Pilih skala di atas untuk mulai menilai</p>
+              <p className="text-xs text-slate-400">Pilih skala di atas untuk mulai menilai</p>
             </div>
           )}
         </div>

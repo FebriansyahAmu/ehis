@@ -16,9 +16,9 @@ export type PanelCtx = { kunjunganId: string; isPersisted: boolean; perawat: str
 
 // ── Styles ─────────────────────────────────────────────────────
 export const inputCls =
-  "w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100";
+  "w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100";
 export const textareaCls =
-  "w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100";
+  "w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100";
 
 // ── Auto-resize textarea ───────────────────────────────────────
 export function AutoTextarea({
@@ -48,7 +48,7 @@ export function AutoTextarea({
 // ── Shared primitives ──────────────────────────────────────────
 export function Label({ children }: { children: ReactNode }) {
   return (
-    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+    <p className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-slate-400">
       {children}
     </p>
   );
@@ -64,7 +64,7 @@ export function SectionHead({
       <Icon size={12} className={iconCls} />
       <div>
         <p className="text-xs font-bold text-slate-700">{title}</p>
-        {subtitle && <p className="text-[10px] text-slate-400">{subtitle}</p>}
+        {subtitle && <p className="text-[11px] text-slate-400">{subtitle}</p>}
       </div>
     </div>
   );
@@ -80,14 +80,14 @@ export function Pill({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all",
+        "flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all",
         selected
-          ? "border-indigo-400 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200"
-          : "border-slate-200 bg-white text-slate-500 hover:border-indigo-300 hover:bg-indigo-50/30 hover:text-indigo-600",
+          ? "border-sky-400 bg-sky-50 text-sky-700 ring-1 ring-sky-200"
+          : "border-slate-200 bg-white text-slate-500 hover:border-sky-300 hover:bg-sky-50/30 hover:text-sky-600",
       )}
     >
       {score !== undefined && (
-        <span className={cn("font-mono text-[10px] font-bold leading-none", selected ? "text-indigo-600" : "text-slate-400")}>
+        <span className={cn("font-mono text-[11px] font-bold leading-none", selected ? "text-sky-600" : "text-slate-400")}>
           {score}
         </span>
       )}
@@ -106,7 +106,7 @@ export function SaveBtn({
       type="button"
       onClick={onClick}
       disabled={disabled || loading}
-      className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white shadow-xs transition hover:bg-indigo-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
+      className="cursor-pointer rounded-lg bg-sky-600 px-4 py-1.5 text-xs font-medium text-white shadow-xs transition hover:bg-sky-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
     >
       {loading ? "Menyimpan…" : label}
     </button>
@@ -124,20 +124,20 @@ export function ScoreBar({
     <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5">
       <div className="flex-1">
         <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-[11px] text-slate-500">Total Skor</span>
+          <span className="text-xs text-slate-500">Total Skor</span>
           <span className={cn("font-mono text-sm font-bold", allFilled ? "text-slate-800" : "text-slate-400")}>
             {allFilled ? `${total} / ${max}` : `— / ${max}`}
           </span>
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
           <div
-            className={cn("h-full rounded-full transition-all duration-500", level?.barCls ?? "bg-indigo-500")}
+            className={cn("h-full rounded-full transition-all duration-500", level?.barCls ?? "bg-sky-500")}
             style={{ width: `${pct}%` }}
           />
         </div>
       </div>
       {level && (
-        <span className={cn("shrink-0 rounded-md border px-2.5 py-1 text-[11px] font-bold", level.cls)}>
+        <span className={cn("shrink-0 rounded-md border px-2.5 py-1 text-xs font-bold", level.cls)}>
           {level.label}
         </span>
       )}
@@ -154,18 +154,18 @@ export function NoteCard({ note }: { note: NoteEntry }) {
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <Calendar size={10} className="text-slate-400" />
-          <span className="text-[10px] font-semibold text-slate-500">{note.date}</span>
+          <span className="text-[11px] font-semibold text-slate-500">{note.date}</span>
         </div>
         {note.tag && (
-          <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[9px] font-bold text-indigo-500 ring-1 ring-indigo-100">
+          <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-500 ring-1 ring-sky-100">
             {note.tag}
           </span>
         )}
       </div>
-      <p className="whitespace-pre-line text-[11px] leading-relaxed text-slate-600">{note.content}</p>
+      <p className="whitespace-pre-line text-xs leading-relaxed text-slate-600">{note.content}</p>
       <div className="mt-1.5 flex items-center gap-1">
         <User size={9} className="text-slate-300" />
-        <span className="text-[10px] text-slate-400">{note.author}</span>
+        <span className="text-[11px] text-slate-400">{note.author}</span>
       </div>
     </div>
   );
@@ -176,12 +176,12 @@ export function HistoryPanel({ title, notes }: { title: string; notes: NoteEntry
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-1.5 border-b border-emerald-100 pb-2">
         <Clock size={11} className="text-emerald-500" />
-        <p className="text-[11px] font-semibold text-slate-600">Riwayat {title}</p>
+        <p className="text-xs font-semibold text-slate-600">Riwayat {title}</p>
       </div>
       {notes.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-8 text-center">
           <FileText size={20} className="text-slate-200" />
-          <p className="text-[11px] text-slate-400">Belum ada catatan sebelumnya</p>
+          <p className="text-xs text-slate-400">Belum ada catatan sebelumnya</p>
         </div>
       ) : (
         <div className="flex flex-col gap-2">
@@ -257,9 +257,9 @@ export function ScaleField({
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/40 p-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] font-bold text-slate-700">{instrument.nama}</p>
+        <p className="text-xs font-bold text-slate-700">{instrument.nama}</p>
         {instrument.arah === "lower_is_worse" && (
-          <span className="shrink-0 rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 ring-1 ring-amber-200">
+          <span className="shrink-0 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
             skor rendah = risiko tinggi
           </span>
         )}
@@ -282,7 +282,7 @@ export function ScaleField({
       ))}
       <ScoreBar total={total} max={instrument.totalMax} allFilled={allFilled} level={level} />
       {interp?.action && (
-        <p className={cn("rounded-md border px-2 py-1 text-[10px] leading-snug", level?.cls)}>
+        <p className={cn("rounded-md border px-2 py-1 text-[11px] leading-snug", level?.cls)}>
           <span className="font-semibold">Tindak lanjut:</span> {interp.action}
         </p>
       )}

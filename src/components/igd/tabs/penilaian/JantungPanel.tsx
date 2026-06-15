@@ -122,7 +122,7 @@ export default function JantungPanel({ kunjunganId, isPersisted, perawat, modul 
   }
 
   const tagPill = (active: boolean, scheme: "rose" | "sky") => cn(
-    "cursor-pointer rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all",
+    "cursor-pointer rounded-full border px-2.5 py-1 text-xs font-medium transition-all",
     active
       ? scheme === "rose"
         ? "border-rose-400 bg-rose-50 text-rose-700 ring-1 ring-rose-200"
@@ -194,7 +194,7 @@ export default function JantungPanel({ kunjunganId, isPersisted, perawat, modul 
           <div>
             <SectionHead icon={Heart} title="Klasifikasi & Skoring" subtitle="Killip · NYHA · TIMI — dari Master Skala Penyakit" iconCls="text-rose-400" />
             {instruments.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 px-3 py-4 text-center text-[11px] text-slate-500">
+              <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 px-3 py-4 text-center text-xs text-slate-500">
                 Belum ada klasifikasi kardiologi ter-assign unit <span className="font-semibold">{modul}</span>. Assign di Master → Skala Penyakit.
               </p>
             ) : (

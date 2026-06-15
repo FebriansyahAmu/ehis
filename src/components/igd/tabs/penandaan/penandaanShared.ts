@@ -1,5 +1,7 @@
-// Shared types + config untuk Penandaan Gambar 3D (status lokalis).
-// Dipakai oleh: PenandaanGambarTab (orchestrator) · Viewer3D · HumanModel · PenandaanPanels · OdontogramChart.
+// Shared types + config untuk Penandaan Gambar (status lokalis).
+// Bagan anatomi = citra PNG nyata per jenis kelamin (anterior) + odontogram FDI.
+// Penanda: Pin (titik) & Draw (coretan area) + keterangan. Dipakai oleh: PenandaanGambarTab
+// (orchestrator) · BodyMap2D · bodyChart (zona regio) · PenandaanPanels · OdontogramChart.
 
 // ── Severitas ─────────────────────────────────────────────
 
@@ -74,24 +76,33 @@ export const SEV: Record<Severitas, SevStyle> = {
 
 // ── Model & mode ──────────────────────────────────────────
 
-export type ModelJenis = "dewasa" | "anak";
+/** Bagan tubuh = citra anatomi nyata per jenis kelamin (anterior). Anak ditunda. */
+export type ModelJenis = "pria" | "wanita";
 
-/** Mode kanvas aktif: model 3D atau odontogram 2D (chart FDI memang standar 2D). */
+/** Mode kanvas aktif: bagan tubuh (pria/wanita) atau odontogram FDI. */
 export type KanvasMode = ModelJenis | "gigi";
 
-export type ViewPresetId = "depan" | "belakang" | "kepala";
+/** Aset citra anatomi (PNG transparan, anterior, 1500×2100) di /public/anatomy. */
+export const ANATOMY_SRC: Record<ModelJenis, string> = {
+  pria: "/anatomy/Human-anatomy-mele.png",
+  wanita: "/anatomy/Human-anatomy-female.png",
+};
 
-export const VIEW_PRESETS: { id: ViewPresetId; label: string }[] = [
-  { id: "depan", label: "Depan" },
-  { id: "belakang", label: "Belakang" },
-  { id: "kepala", label: "Kepala & Leher" },
-];
+/** Rasio asli citra → dipakai untuk aspectRatio kanvas (agar % koordinat presisi). */
+export const ANATOMY_W = 1500;
+export const ANATOMY_H = 2100;
 
 export const MODEL_LABEL: Record<KanvasMode, string> = {
-  dewasa: "Dewasa",
-  anak: "Anak",
+  pria: "Laki-laki",
+  wanita: "Perempuan",
   gigi: "Odontogram",
 };
+
+/** Alat penandaan pada bagan tubuh: titik (pin) atau gambar bebas (draw). */
+export type AnnTool = "pin" | "draw";
+
+/** kunjungan nyata (UUID) → persist ke DB; mock seed (mis. igd-1) → demo lokal. */
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Anotasi ───────────────────────────────────────────────
 
@@ -99,11 +110,13 @@ export interface Anotasi {
   id: string;
   /** kanvas tempat anotasi dibuat */
   mode: KanvasMode;
-  /** posisi lokal model 3D (tetap menempel saat model dirotasi) — null untuk gigi */
-  pos3d: [number, number, number] | null;
-  /** koordinat % untuk odontogram 2D — null untuk 3D */
+  /** jenis penanda: titik atau coretan area */
+  kind: AnnTool;
+  /** koordinat % terhadap citra (x,y) — titik pin, atau jangkar label untuk coretan */
   koordinat2d: { x: number; y: number } | null;
-  /** regio anatomis hasil deteksi raycast (mis. "Lengan Bawah Kiri") */
+  /** jalur coretan (deret titik %) untuk kind "draw" — null untuk pin */
+  path: { x: number; y: number }[] | null;
+  /** regio anatomis hasil deteksi zona (mis. "Lengan Bawah Kiri") */
   region: string;
   label: string;
   deskripsi: string;
@@ -111,10 +124,11 @@ export interface Anotasi {
   createdAt: string;
 }
 
-/** Payload klik pada tubuh 3D sebelum jadi anotasi. */
+/** Payload klik / coretan pada bagan sebelum jadi anotasi. */
 export interface PendingMark {
   mode: KanvasMode;
-  pos3d: [number, number, number] | null;
+  kind: AnnTool;
   koordinat2d: { x: number; y: number } | null;
+  path: { x: number; y: number }[] | null;
   region: string;
 }

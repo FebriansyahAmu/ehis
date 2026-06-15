@@ -130,21 +130,20 @@ export default function KankerPanel({ kunjunganId, isPersisted, perawat, modul }
     }
   }
 
-  const chip = (active: boolean, scheme: "violet" | "sky" | "rose") => {
+  const chip = (active: boolean, scheme: "sky" | "rose") => {
     const on = {
-      violet: "border-violet-400 bg-violet-50 text-violet-700 ring-1 ring-violet-200",
       sky: "border-sky-400 bg-sky-50 text-sky-700 ring-1 ring-sky-200",
       rose: "border-rose-400 bg-rose-50 text-rose-700 ring-1 ring-rose-200",
     };
     return cn(
-      "cursor-pointer rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all",
+      "cursor-pointer rounded-full border px-2.5 py-1 text-xs font-medium transition-all",
       active ? on[scheme] : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700",
     );
   };
 
   const tnmBtn = (active: boolean) => cn(
-    "rounded-md border px-2 py-0.5 font-mono text-[11px] font-bold transition-all",
-    active ? "border-indigo-500 bg-indigo-600 text-white" : "border-slate-200 bg-white text-slate-500 hover:border-slate-300",
+    "rounded-md border px-2 py-0.5 font-mono text-xs font-bold transition-all",
+    active ? "border-sky-500 bg-sky-600 text-white" : "border-slate-200 bg-white text-slate-500 hover:border-slate-300",
   );
 
   return (
@@ -153,7 +152,7 @@ export default function KankerPanel({ kunjunganId, isPersisted, perawat, modul }
         <div className="flex flex-col gap-5">
           {/* Literasi Tumor */}
           <div>
-            <SectionHead icon={Microscope} title="Literasi Tumor" iconCls="text-violet-400" />
+            <SectionHead icon={Microscope} title="Literasi Tumor" iconCls="text-sky-400" />
             <div className="flex flex-col gap-3">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
@@ -169,7 +168,7 @@ export default function KankerPanel({ kunjunganId, isPersisted, perawat, modul }
                 <Label>Histologi / Morfologi</Label>
                 <div className="flex flex-wrap gap-1.5">
                   {HISTOLOGI_OPTS.map((opt) => (
-                    <button key={opt} type="button" onClick={() => setHistologi((a) => toggleItem(a, opt))} className={chip(histologi.includes(opt), "violet")}>{opt}</button>
+                    <button key={opt} type="button" onClick={() => setHistologi((a) => toggleItem(a, opt))} className={chip(histologi.includes(opt), "sky")}>{opt}</button>
                   ))}
                 </div>
               </div>
@@ -186,11 +185,11 @@ export default function KankerPanel({ kunjunganId, isPersisted, perawat, modul }
 
           {/* TNM (vocab bespoke — bukan skala) */}
           <div>
-            <SectionHead icon={Microscope} title="TNM Klinis" subtitle="AJCC/UICC — staging lookup site-specific (vocab)" iconCls="text-violet-400" />
+            <SectionHead icon={Microscope} title="TNM Klinis" subtitle="AJCC/UICC — staging lookup site-specific (vocab)" iconCls="text-sky-400" />
             {tnmDisplay && (
-              <div className="mb-3 flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5">
-                <span className="text-[10px] font-semibold text-indigo-500">TNM:</span>
-                <span className="font-mono text-xs font-bold text-indigo-800">{tnmDisplay}</span>
+              <div className="mb-3 flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5">
+                <span className="text-[11px] font-semibold text-sky-500">TNM:</span>
+                <span className="font-mono text-xs font-bold text-sky-800">{tnmDisplay}</span>
               </div>
             )}
             <div className="flex flex-col gap-3">
@@ -213,9 +212,9 @@ export default function KankerPanel({ kunjunganId, isPersisted, perawat, modul }
 
           {/* Klasifikasi (master): ECOG · Grade · Stadium */}
           <div>
-            <SectionHead icon={Microscope} title="Klasifikasi & Staging" subtitle="ECOG · Grade · Stadium — dari Master Skala Penyakit" iconCls="text-violet-400" />
+            <SectionHead icon={Microscope} title="Klasifikasi & Staging" subtitle="ECOG · Grade · Stadium — dari Master Skala Penyakit" iconCls="text-sky-400" />
             {instruments.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 px-3 py-4 text-center text-[11px] text-slate-500">
+              <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 px-3 py-4 text-center text-xs text-slate-500">
                 Belum ada klasifikasi onkologi ter-assign unit <span className="font-semibold">{modul}</span>. Assign di Master → Skala Penyakit.
               </p>
             ) : (
@@ -230,7 +229,7 @@ export default function KankerPanel({ kunjunganId, isPersisted, perawat, modul }
 
           {/* Metastasis & kesimpulan */}
           <div>
-            <SectionHead icon={Microscope} title="Metastasis & Kesimpulan" iconCls="text-violet-400" />
+            <SectionHead icon={Microscope} title="Metastasis & Kesimpulan" iconCls="text-sky-400" />
             <div className="flex flex-col gap-3">
               <div>
                 <Label>Lokasi Metastasis</Label>

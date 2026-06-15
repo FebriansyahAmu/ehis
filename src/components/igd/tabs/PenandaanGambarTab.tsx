@@ -1,82 +1,112 @@
 "use client";
 
-// Penandaan Gambar (status lokalis) — kanvas 3D anatomis (Dewasa/Anak, orbit bebas +
-// preset Depan/Belakang/Kepala-Leher, raycast marking per-regio) + Odontogram FDI 2D.
-// Sub-komponen di ./penandaan/ (HumanModel · Viewer3D · OdontogramChart · PenandaanPanels).
+// Penandaan Gambar (status lokalis) — bagan anatomi dari CITRA nyata per jenis kelamin
+// (Laki-laki/Perempuan, anterior) dengan alat Pin (titik) & Draw (coretan area) + keterangan,
+// plus Odontogram FDI. Sub-komponen di ./penandaan/ (bodyChart · BodyMap2D · OdontogramChart · PenandaanPanels).
 
-import { useMemo, useState } from "react";
-import dynamic from "next/dynamic";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin,
-  Save,
+  Pencil,
   RotateCcw,
   Crosshair,
   FileText,
   Eye,
   Layers,
   ScanEye,
-  PersonStanding,
-  Baby,
+  Mars,
+  Venus,
   Smile,
-  Loader2,
 } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/contexts/SessionContext";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
 import {
   SEV,
   SEV_ORDER,
   MODEL_LABEL,
-  VIEW_PRESETS,
+  UUID_RE,
   type Anotasi,
+  type AnnTool,
   type KanvasMode,
+  type ModelJenis,
   type PendingMark,
   type Severitas,
-  type ViewPresetId,
 } from "./penandaan/penandaanShared";
-import OdontogramCanvas from "./penandaan/OdontogramChart";
 import {
-  AnotasiForm,
-  AnotasiItem,
-  DetailPanel,
-  SaveToast,
-} from "./penandaan/PenandaanPanels";
+  getPenandaanGambar,
+  createPenandaanGambar,
+  deletePenandaanGambar,
+  type PenandaanGambarDTO,
+} from "@/lib/api/penandaanGambar/penandaanGambar";
+import OdontogramCanvas from "./penandaan/OdontogramChart";
+import BodyMap2D from "./penandaan/BodyMap2D";
+import { AnotasiForm, AnotasiItem, DetailPanel } from "./penandaan/PenandaanPanels";
 
-// Canvas WebGL hanya di client
-const Viewer3D = dynamic(() => import("./penandaan/Viewer3D"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-105 w-full items-center justify-center rounded-lg bg-slate-50 sm:h-120 lg:h-135">
-      <div className="flex flex-col items-center gap-2">
-        <Loader2 size={20} className="animate-spin text-indigo-400" />
-        <p className="text-[10px] font-medium text-slate-400">
-          Memuat model 3D…
-        </p>
-      </div>
-    </div>
-  ),
-});
+// DTO tersimpan → Anotasi FE (shape hampir identik; pemeriksa tak dipakai di kanvas).
+function dtoToAnotasi(d: PenandaanGambarDTO): Anotasi {
+  return {
+    id: d.id,
+    mode: d.mode,
+    kind: d.kind,
+    koordinat2d: d.koordinat2d,
+    path: d.path,
+    region: d.region,
+    label: d.label,
+    deskripsi: d.deskripsi,
+    severitas: d.severitas,
+    createdAt: d.createdAt,
+  };
+}
 
-const MODE_TABS: { id: KanvasMode; label: string; icon: typeof PersonStanding }[] = [
-  { id: "dewasa", label: "Dewasa", icon: PersonStanding },
-  { id: "anak", label: "Anak", icon: Baby },
+const MODE_TABS: { id: KanvasMode; label: string; icon: typeof Mars }[] = [
+  { id: "pria", label: "Laki-laki", icon: Mars },
+  { id: "wanita", label: "Perempuan", icon: Venus },
   { id: "gigi", label: "Odontogram", icon: Smile },
 ];
 
+const TOOL_TABS: { id: AnnTool; label: string; icon: typeof MapPin }[] = [
+  { id: "pin", label: "Pin", icon: MapPin },
+  { id: "draw", label: "Gambar", icon: Pencil },
+];
+
 export default function PenandaanGambarTab({
-  patient: _patient,
+  patient,
 }: {
   patient: IGDPatientDetail;
 }) {
-  const [mode, setMode] = useState<KanvasMode>("dewasa");
-  const [view, setView] = useState<ViewPresetId | null>("depan");
+  const { session } = useSession();
+  const kunjunganId = patient.id ?? "";
+  const isPersisted = UUID_RE.test(kunjunganId);
+  const perawat = session?.namaTampil ?? "";
+
+  const [mode, setMode] = useState<KanvasMode>("pria");
+  const [tool, setTool] = useState<AnnTool>("pin");
+  const [panMode, setPanMode] = useState(false); // mode geser kanvas (dikelola di sini → memilih alat mematikannya)
   const [anotasiList, setAnotasiList] = useState<Anotasi[]>([]);
   const [pending, setPending] = useState<PendingMark | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filterActive, setFilterActive] = useState(false);
-  const [showToast, setShowToast] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const onModeAnotasi = useMemo(
+  // Muat penanda tersimpan (kunjungan UUID).
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    getPenandaanGambar(kunjunganId, ac.signal)
+      .then((rows) => setAnotasiList(rows.map(dtoToAnotasi)))
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat penandaan gambar", e instanceof ApiError ? e.message : undefined);
+      });
+    return () => ac.abort();
+  }, [isPersisted, kunjunganId]);
+
+  // semua anotasi pada model aktif (= yang tampil di kanvas + daftar + hitungan)
+  const canvasAnotasi = useMemo(
     () => anotasiList.filter((a) => a.mode === mode),
     [anotasiList, mode],
   );
@@ -85,69 +115,125 @@ export default function PenandaanGambarTab({
     setMode(m);
     setPending(null);
     setSelectedId(null);
-    if (m !== "gigi") setView("depan");
+    setPanMode(false);
   };
 
-  // klik tubuh 3D → pending mark dengan regio terdeteksi
-  const handleMark3D = (pos: [number, number, number], region: string) => {
+  // tandai titik (pin) → pending dengan regio terdeteksi
+  const handleMarkBody = (koordinat: { x: number; y: number }, region: string) => {
     if (pending) return;
-    setPending({ mode, pos3d: pos, koordinat2d: null, region });
+    setPending({ mode, kind: "pin", koordinat2d: koordinat, path: null, region });
     setSelectedId(null);
   };
 
-  // klik chart gigi → pending mark koordinat-%
+  // selesai menggambar (draw) → pending dengan jalur + jangkar label
+  const handleDrawBody = (
+    path: { x: number; y: number }[],
+    anchor: { x: number; y: number },
+    region: string,
+  ) => {
+    if (pending) return;
+    setPending({ mode, kind: "draw", koordinat2d: anchor, path, region });
+    setSelectedId(null);
+  };
+
+  // klik chart gigi → pending titik koordinat-%
   const handleMarkGigi = (koordinat: { x: number; y: number }) => {
     setPending({
       mode: "gigi",
-      pos3d: null,
+      kind: "pin",
       koordinat2d: koordinat,
+      path: null,
       region: "Gigi / Odontogram",
     });
     setSelectedId(null);
   };
 
-  const handleSave = (
-    data: Pick<Anotasi, "label" | "deskripsi" | "severitas">,
-  ) => {
-    if (!pending) return;
-    const now = new Date().toLocaleTimeString("id-ID", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    const next: Anotasi = {
-      id: `an-${Date.now()}`,
-      mode: pending.mode,
-      pos3d: pending.pos3d,
-      koordinat2d: pending.koordinat2d,
-      region: pending.region,
-      createdAt: now,
-      ...data,
-    };
-    setAnotasiList((prev) => [...prev, next]);
-    setSelectedId(next.id);
-    setPending(null);
-  };
+  async function handleSave(data: Pick<Anotasi, "label" | "deskripsi" | "severitas">) {
+    if (!pending || saving) return;
 
-  const handleDelete = (id: string) => {
+    // Pasien demo (non-UUID) → simpan lokal saja.
+    if (!isPersisted) {
+      const now = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+      const next: Anotasi = {
+        id: `an-${Date.now()}`,
+        mode: pending.mode,
+        kind: pending.kind,
+        koordinat2d: pending.koordinat2d,
+        path: pending.path,
+        region: pending.region,
+        createdAt: now,
+        ...data,
+      };
+      setAnotasiList((prev) => [...prev, next]);
+      setSelectedId(next.id);
+      setPending(null);
+      toast.info("Pasien demo — penandaan tidak tersimpan ke database");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const dto = await createPenandaanGambar(kunjunganId, {
+        mode: pending.mode,
+        kind: pending.kind,
+        koordinat2d: pending.koordinat2d ?? { x: 0, y: 0 },
+        path: pending.path ?? undefined,
+        region: pending.region,
+        label: data.label,
+        deskripsi: data.deskripsi || undefined,
+        severitas: data.severitas,
+        pemeriksa: perawat || undefined,
+      });
+      const a = dtoToAnotasi(dto);
+      setAnotasiList((prev) => [...prev, a]);
+      setSelectedId(a.id);
+      setPending(null);
+      toast.success("Penandaan gambar tersimpan");
+    } catch (e) {
+      toast.error("Gagal menyimpan penandaan", e instanceof ApiError ? e.message : undefined);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (isPersisted) {
+      try {
+        await deletePenandaanGambar(kunjunganId, id);
+      } catch (e) {
+        toast.error("Gagal menghapus penandaan", e instanceof ApiError ? e.message : undefined);
+        return;
+      }
+    }
     setAnotasiList((prev) => prev.filter((a) => a.id !== id));
     if (selectedId === id) setSelectedId(null);
-  };
+  }
 
-  const handleReset = () => {
+  async function handleReset() {
+    const ids = canvasAnotasi.map((a) => a.id);
+    if (ids.length === 0) return;
+    if (isPersisted) {
+      try {
+        await Promise.all(ids.map((id) => deletePenandaanGambar(kunjunganId, id)));
+        toast.success("Penanda pada model ini dihapus");
+      } catch (e) {
+        toast.error("Gagal mereset penandaan", e instanceof ApiError ? e.message : undefined);
+        return;
+      }
+    }
     setAnotasiList((prev) => prev.filter((a) => a.mode !== mode));
     setSelectedId(null);
     setPending(null);
-  };
+  }
 
-  const handleSaveAll = () => {
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3500);
-  };
-
-  const displayList = filterActive ? onModeAnotasi : anotasiList;
+  const displayList = filterActive ? canvasAnotasi : anotasiList;
   const selectedAnotasi = selectedId
     ? (anotasiList.find((a) => a.id === selectedId) ?? null)
     : null;
+
+  // nomor badge per model → selaras dengan urutan di kanvas
+  const pinNumber = (a: Anotasi) =>
+    anotasiList.filter((x) => x.mode === a.mode).indexOf(a);
 
   const sevCounts = SEV_ORDER.reduce<Partial<Record<Severitas, number>>>(
     (acc, s) => {
@@ -167,10 +253,10 @@ export default function PenandaanGambarTab({
         </div>
         <div>
           <p className="text-sm font-bold text-slate-800">
-            Penandaan Gambar 3D
+            Penandaan Gambar
           </p>
           <p className="text-[10px] text-slate-400">
-            Putar model, klik permukaan tubuh untuk menandai status lokalis
+            Tandai status lokalis pada citra anatomi — titik (pin) atau gambar area
           </p>
         </div>
 
@@ -199,17 +285,11 @@ export default function PenandaanGambarTab({
                 </span>
               );
             })}
-            <button
-              onClick={handleSaveAll}
-              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-xs transition hover:bg-emerald-700 active:scale-[0.98]"
-            >
-              <Save size={10} /> Simpan Semua
-            </button>
           </div>
         )}
       </div>
 
-      {/* ── Toolbar: model + view preset ── */}
+      {/* ── Toolbar: model + alat ── */}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-xs">
         {/* segmented model */}
         <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
@@ -245,34 +325,37 @@ export default function PenandaanGambarTab({
           })}
         </div>
 
-        {/* view presets — hanya mode 3D */}
+        {/* pemilih alat — hanya bagan tubuh */}
         {mode !== "gigi" && (
-          <div className="flex items-center gap-1 sm:ml-auto">
-            <span className="mr-1 hidden text-[9px] font-bold uppercase tracking-wider text-slate-400 sm:inline">
-              Tampilan
+          <div className="flex items-center gap-1.5 sm:ml-auto">
+            <span className="mr-0.5 hidden text-[9px] font-bold uppercase tracking-wider text-slate-400 sm:inline">
+              Alat
             </span>
-            {VIEW_PRESETS.map((v) => {
-              const act = view === v.id;
-              return (
-                <button
-                  key={v.id}
-                  onClick={() => setView(v.id)}
-                  className={cn(
-                    "rounded-full border px-2.5 py-1 text-[10px] font-semibold transition-all duration-150",
-                    act
-                      ? "border-indigo-200 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100"
-                      : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50",
-                  )}
-                >
-                  {v.label}
-                </button>
-              );
-            })}
-            {view === null && (
-              <span className="rounded-full border border-dashed border-slate-300 px-2.5 py-1 text-[10px] font-medium text-slate-400">
-                Orbit bebas
-              </span>
-            )}
+            <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+              {TOOL_TABS.map((t) => {
+                const Icon = t.icon;
+                const act = tool === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      setTool(t.id);
+                      setPending(null);
+                      setPanMode(false);
+                    }}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[10px] font-semibold transition-all duration-150",
+                      act
+                        ? "bg-white text-indigo-700 shadow-sm ring-1 ring-indigo-100"
+                        : "text-slate-500 hover:text-slate-700",
+                    )}
+                  >
+                    <Icon size={12} className={act ? "text-indigo-500" : "text-slate-400"} />
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
@@ -291,10 +374,10 @@ export default function PenandaanGambarTab({
               <span className="text-[10px] text-slate-400">
                 {mode === "gigi"
                   ? "— FDI chart · 32 gigi"
-                  : "— model anatomi 3D interaktif"}
+                  : "— citra anatomi (anterior)"}
               </span>
               <div className="ml-auto flex items-center gap-1.5">
-                {onModeAnotasi.length > 0 && (
+                {canvasAnotasi.length > 0 && (
                   <button
                     onClick={handleReset}
                     className="flex items-center gap-1 rounded-md border border-rose-100 bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-500 transition hover:bg-rose-100"
@@ -338,7 +421,7 @@ export default function PenandaanGambarTab({
                 >
                   {mode === "gigi" ? (
                     <OdontogramCanvas
-                      markers={onModeAnotasi}
+                      markers={canvasAnotasi}
                       pending={pending?.koordinat2d ?? null}
                       selectedId={selectedId}
                       onPick={handleMarkGigi}
@@ -347,17 +430,23 @@ export default function PenandaanGambarTab({
                       }
                     />
                   ) : (
-                    <Viewer3D
-                      jenis={mode}
-                      view={view}
-                      onFreeOrbit={() => setView(null)}
-                      markers={onModeAnotasi}
-                      pendingPos={pending?.pos3d ?? null}
+                    <BodyMap2D
+                      gender={mode as ModelJenis}
+                      tool={tool}
+                      panMode={panMode}
+                      onPanModeChange={setPanMode}
+                      markers={canvasAnotasi}
+                      pending={
+                        pending
+                          ? { kind: pending.kind, koordinat2d: pending.koordinat2d, path: pending.path }
+                          : null
+                      }
                       selectedId={selectedId}
                       onSelectMarker={(id) =>
                         setSelectedId(id === selectedId ? null : id)
                       }
-                      onMark={handleMark3D}
+                      onMark={handleMarkBody}
+                      onDraw={handleDrawBody}
                     />
                   )}
                 </motion.div>
@@ -387,7 +476,7 @@ export default function PenandaanGambarTab({
           <AnimatePresence>
             {pending && (
               <AnotasiForm
-                key={`form-${pending.region}-${pending.pos3d?.join(",") ?? `${pending.koordinat2d?.x},${pending.koordinat2d?.y}`}`}
+                key={`form-${pending.mode}-${pending.kind}-${pending.region}-${pending.koordinat2d?.x},${pending.koordinat2d?.y}`}
                 region={pending.region}
                 initialLabel={pending.mode === "gigi" ? "" : pending.region}
                 onSave={handleSave}
@@ -406,7 +495,7 @@ export default function PenandaanGambarTab({
               <DetailPanel
                 key="detail"
                 anotasi={selectedAnotasi}
-                displayIdx={onModeAnotasi.indexOf(selectedAnotasi)}
+                displayIdx={pinNumber(selectedAnotasi)}
                 onClose={() => setSelectedId(null)}
               />
             )}
@@ -443,17 +532,11 @@ export default function PenandaanGambarTab({
                       Belum ada anotasi pada {MODEL_LABEL[mode]}
                     </p>
                   ) : (
-                    displayList.map((a, i) => (
+                    displayList.map((a) => (
                       <AnotasiItem
                         key={a.id}
                         anotasi={a}
-                        displayIdx={
-                          filterActive
-                            ? i
-                            : anotasiList
-                                .filter((x) => x.mode === a.mode)
-                                .indexOf(a)
-                        }
+                        displayIdx={pinNumber(a)}
                         selected={selectedId === a.id}
                         onSelect={() =>
                           setSelectedId(a.id === selectedId ? null : a.id)
@@ -476,9 +559,9 @@ export default function PenandaanGambarTab({
                     Belum ada anotasi
                   </p>
                   <p className="mt-0.5 text-[10px] leading-relaxed text-slate-400">
-                    Putar model 3D lalu klik pada
+                    Pilih alat Pin atau Gambar lalu
                     <br />
-                    permukaan tubuh untuk menandai
+                    tandai temuan pada citra anatomi
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5">
@@ -492,13 +575,6 @@ export default function PenandaanGambarTab({
           )}
         </div>
       </div>
-
-      {/* ── Toast ── */}
-      <AnimatePresence>
-        {showToast && (
-          <SaveToast key="toast" onDismiss={() => setShowToast(false)} />
-        )}
-      </AnimatePresence>
     </div>
   );
 }
