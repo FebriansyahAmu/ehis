@@ -15,6 +15,7 @@ import EdukasiPane from "@/components/igd/tabs/EdukasiPane";
 import GiziPane    from "@/components/shared/asesmen/GiziPane";
 import ConfirmDialog from "@/components/master/ruangan/ConfirmDialog";
 import { RUTE_OBAT } from "@/components/shared/asesmen/asesmenShared";
+import { AsesmenKatalogProvider, useAsesmenKatalog } from "@/components/shared/asesmen/asesmenKatalogContext";
 import { getAnamnesis, saveAnamnesis, type AnamnesisDTO } from "@/lib/api/asesmenMedis/anamnesis";
 import { getPenyakitDahulu, savePenyakitDahulu } from "@/lib/api/asesmenMedis/asesmenPenyakitDahulu";
 import { getObat, saveObat } from "@/lib/api/asesmenMedis/asesmenObat";
@@ -663,16 +664,9 @@ const INPUT_CLS = "h-8 w-full rounded-lg border border-slate-200 bg-white px-3 t
 // RIWAYAT — sub-panes
 // ─────────────────────────────────────────────────────────
 
-const PENYAKIT_DAHULU_LIST = [
-  "Hipertensi", "Diabetes Melitus", "Penyakit Jantung Koroner", "Gagal Jantung",
-  "Stroke / TIA", "Asma Bronkial", "PPOK", "Tuberkulosis Paru", "Hepatitis B",
-  "Hepatitis C", "HIV / AIDS", "Gagal Ginjal Kronis", "Batu Saluran Kemih",
-  "Kanker / Keganasan", "Epilepsi", "Gangguan Jiwa", "Penyakit Tiroid",
-  "Reumatoid Artritis", "Lupus (SLE)", "Thalasemia / Anemia Kronis",
-];
-
 function PenyakitDahuluPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved?: () => void }) {
   const { session } = useSession();
+  const { penyakitDahulu } = useAsesmenKatalog();
   const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
 
   const [checked, setChecked] = useState<string[]>([]);
@@ -736,7 +730,7 @@ function PenyakitDahuluPane({ patient, onSaved }: { patient: IGDPatientDetail; o
       )}
       <Block title="Penyakit yang Pernah Diderita">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {PENYAKIT_DAHULU_LIST.map(p => (
+          {penyakitDahulu.map(p => (
             <ChkBtn key={p} label={p} checked={checked.includes(p)} onChange={() => toggle(p)} />
           ))}
         </div>
@@ -1019,19 +1013,9 @@ function LainnyaPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved?
   );
 }
 
-const PENYAKIT_BERESIKO = [
-  "Hipertensi", "Diabetes Melitus", "Obesitas", "Dislipidemia / Kolesterol Tinggi",
-  "Gagal Ginjal", "Penyakit Jantung", "Stroke", "Asma / PPOK",
-  "Kanker", "Gangguan Tiroid", "Anemia", "Hepatitis Kronis",
-];
-const PERILAKU_BERESIKO = [
-  "Merokok Aktif", "Konsumsi Alkohol", "Penggunaan NAPZA / Narkoba",
-  "Seks Berisiko Tinggi", "Tidak Rutin Berolahraga",
-  "Pola Makan Tidak Sehat", "Kurang Tidur (< 6 jam/hari)", "Stres Berat / Kronis",
-];
-
 function FaktorResikoPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved?: () => void }) {
   const { session } = useSession();
+  const { penyakitBeresiko, perilakuBeresiko } = useAsesmenKatalog();
   const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
 
   const [penyakitB, setPenyakitB] = useState<string[]>([]); const [penyakitLain, setPenyakitLain] = useState("");
@@ -1097,7 +1081,7 @@ function FaktorResikoPane({ patient, onSaved }: { patient: IGDPatientDetail; onS
       <div className="grid gap-4 sm:grid-cols-2">
         <Block title="Penyakit Beresiko">
           <div className="flex flex-col gap-1.5">
-            {PENYAKIT_BERESIKO.map(p => <ChkBtn key={p} label={p} checked={penyakitB.includes(p)} onChange={() => tP(p)} />)}
+            {penyakitBeresiko.map(p => <ChkBtn key={p} label={p} checked={penyakitB.includes(p)} onChange={() => tP(p)} />)}
           </div>
           <div className="mt-3">
             <Label>Penyakit Beresiko Lainnya</Label>
@@ -1106,7 +1090,7 @@ function FaktorResikoPane({ patient, onSaved }: { patient: IGDPatientDetail; onS
         </Block>
         <Block title="Perilaku Beresiko">
           <div className="flex flex-col gap-1.5">
-            {PERILAKU_BERESIKO.map(p => <ChkBtn key={p} label={p} checked={perilakuB.includes(p)} onChange={() => tB(p)} />)}
+            {perilakuBeresiko.map(p => <ChkBtn key={p} label={p} checked={perilakuB.includes(p)} onChange={() => tB(p)} />)}
           </div>
           <div className="mt-3">
             <Label>Perilaku Beresiko Lainnya</Label>
@@ -1122,18 +1106,14 @@ function FaktorResikoPane({ patient, onSaved }: { patient: IGDPatientDetail; onS
   );
 }
 
-const PENYAKIT_KELUARGA_LIST = [
-  "Hipertensi", "Diabetes Melitus", "Penyakit Jantung", "Stroke",
-  "Kanker", "Tuberkulosis", "Asma", "Thalasemia", "Gangguan Jiwa", "HIV/AIDS",
-];
-const ANGGOTA_KELUARGA = ["Ayah", "Ibu", "Kakak / Adik", "Kakek (Paternal)", "Nenek (Paternal)", "Kakek (Maternal)", "Nenek (Maternal)"];
 interface KeluargaEntry { anggota: string; penyakit: string[]; keterangan: string; }
 
 function PenyakitKeluargaPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved?: () => void }) {
   const { session } = useSession();
+  const { anggotaKeluarga, penyakitKeluarga } = useAsesmenKatalog();
   const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
 
-  const [entries, setEntries] = useState<KeluargaEntry[]>(ANGGOTA_KELUARGA.map(a => ({ anggota: a, penyakit: [], keterangan: "" })));
+  const [entries, setEntries] = useState<KeluargaEntry[]>(() => anggotaKeluarga.map(a => ({ anggota: a, penyakit: [], keterangan: "" })));
   const [riwayatLain, setRiwayatLain] = useState(patient.riwayatKeluarga ?? "");
   const [loading, setLoading] = useState(isPersisted);
   const [saving, setSaving]   = useState(false);
@@ -1152,7 +1132,7 @@ function PenyakitKeluargaPane({ patient, onSaved }: { patient: IGDPatientDetail;
         if (ac.signal.aborted) return;
         if (dto) {
           const byName = new Map(dto.items.map(it => [it.anggota, it]));
-          setEntries(ANGGOTA_KELUARGA.map(a => {
+          setEntries(anggotaKeluarga.map(a => {
             const it = byName.get(a);
             return { anggota: a, penyakit: it?.penyakit ?? [], keterangan: it?.keterangan ?? "" };
           }));
@@ -1168,7 +1148,16 @@ function PenyakitKeluargaPane({ patient, onSaved }: { patient: IGDPatientDetail;
       }
     })();
     return () => ac.abort();
-  }, [patient.id, isPersisted, onSaved]);
+  }, [patient.id, isPersisted, onSaved, anggotaKeluarga]); // anggotaKeluarga → rebuild saat katalog termuat
+
+  // Selaraskan baris anggota dengan katalog (mis. saat katalog DB termuat) — pertahankan data
+  // yang sudah terisi per nama anggota.
+  useEffect(() => {
+    setEntries(prev => {
+      const byName = new Map(prev.map(e => [e.anggota, e]));
+      return anggotaKeluarga.map(a => byName.get(a) ?? { anggota: a, penyakit: [], keterangan: "" });
+    });
+  }, [anggotaKeluarga]);
 
   async function handleSave() {
     if (saving) return;
@@ -1180,7 +1169,7 @@ function PenyakitKeluargaPane({ patient, onSaved }: { patient: IGDPatientDetail;
     try {
       const dto = await savePenyakitKeluarga(patient.id, { riwayatLain, items });
       const byName = new Map(dto.items.map(it => [it.anggota, it]));
-      setEntries(ANGGOTA_KELUARGA.map(a => {
+      setEntries(anggotaKeluarga.map(a => {
         const it = byName.get(a);
         return { anggota: a, penyakit: it?.penyakit ?? [], keterangan: it?.keterangan ?? "" };
       }));
@@ -1211,7 +1200,7 @@ function PenyakitKeluargaPane({ patient, onSaved }: { patient: IGDPatientDetail;
             <div key={e.anggota} className="p-4">
               <p className="mb-2.5 text-xs font-bold text-slate-700">{e.anggota}</p>
               <div className="mb-2.5 flex flex-wrap gap-1.5">
-                {PENYAKIT_KELUARGA_LIST.map(p => (
+                {penyakitKeluarga.map(p => (
                   <button key={p} type="button" onClick={() => toggleP(idx, p)}
                     className={cn("rounded-md border px-2.5 py-1 text-xs font-medium transition",
                       e.penyakit.includes(p) ? "border-sky-300 bg-sky-50 text-sky-700" : "border-slate-200 bg-white text-slate-500 hover:bg-sky-50/40")}>
@@ -1694,7 +1683,7 @@ function PerawatanTindakanPane({ patient, onSaved }: { patient: IGDPatientDetail
   );
 }
 
-const METODE_KB = ["IUD / Spiral", "Pil KB", "Suntik KB", "Implan / Susuk", "Kondom", "Tubektomi / MOW", "Vasektomi / MOP", "Kalender / Alami", "Tidak Menggunakan KB"] as const;
+// Default `jenis` baris persalinan (factory module-level). Opsi dropdown ditarik dari katalog DB.
 const JENIS_PERSALINAN = ["Spontan / Normal", "Seksio Sesaria (SC)", "Vakum / Forseps", "Persalinan Prematur", "Sungsang"];
 interface PersalinanEntry { id: string; tahun: string; usiaKeh: string; jenis: string; bbLahir: string; kondisiAnak: string; keterangan: string; }
 
@@ -1702,6 +1691,7 @@ const EMPTY_PERSALINAN = (): PersalinanEntry => ({ id: `ps-${Date.now()}-${Math.
 
 function ObstetriPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved?: () => void }) {
   const { session } = useSession();
+  const { metodeKB: metodeKBOpts, jenisPersalinan: jenisPersalinanOpts } = useAsesmenKatalog();
   const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
 
   const [metodeKB, setMetodeKB]     = useState(""); const [kbSejak, setKbSejak] = useState(""); const [kbKet, setKbKet] = useState("");
@@ -1787,7 +1777,7 @@ function ObstetriPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved
           <div>
             <Label>Metode KB yang Digunakan</Label>
             <div className="flex flex-wrap gap-2">
-              {METODE_KB.map(m => (
+              {metodeKBOpts.map(m => (
                 <button key={m} type="button" onClick={() => setMetodeKB(m)}
                   className={cn("rounded-lg border px-3 py-1.5 text-xs font-medium transition",
                     metodeKB === m ? "border-sky-400 bg-sky-50 text-sky-700" : "border-slate-200 bg-white text-slate-500 hover:bg-sky-50/40")}>
@@ -1837,7 +1827,7 @@ function ObstetriPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved
                     <div>
                       <Label>Jenis Persalinan</Label>
                       <select value={ps.jenis} onChange={e => updPs(ps.id, "jenis", e.target.value)} className={INPUT_CLS}>
-                        {JENIS_PERSALINAN.map(j => <option key={j}>{j}</option>)}
+                        {jenisPersalinanOpts.map(j => <option key={j}>{j}</option>)}
                       </select>
                     </div>
                     <div><Label>BB Lahir (gram)</Label><input value={ps.bbLahir} onChange={e => updPs(ps.id, "bbLahir", e.target.value)} placeholder="3200 gr" className={INPUT_CLS} /></div>
@@ -1993,27 +1983,8 @@ const SEV_CFG: Record<AllergySeverity, { activeCls: string; badgeCls: string; bo
   },
 };
 
-const QUICK_PICKS: Record<AllergyCategory, string[]> = {
-  Obat: [
-    "Penisilin", "Amoksisilin", "Aspirin", "Ibuprofen",
-    "Sulfa", "Kodein", "Tetrasiklin", "Ciprofloxacin",
-    "Kontras Radiologi", "Metronidazol", "Tramadol",
-  ],
-  Makanan: [
-    "Kacang Tanah", "Seafood", "Susu Sapi", "Telur",
-    "Gandum / Gluten", "Kedelai", "Ikan", "Kacang Pohon",
-  ],
-  Lainnya: [
-    "Lateks", "Serbuk Sari", "Debu", "Bulu Hewan",
-    "Nikel", "Lebah / Serangga", "Parfum", "Getah",
-  ],
-};
-
-const REACTIONS: string[] = [
-  "Anafilaksis", "Angioedema", "Bronkospasme",
-  "Urtikaria", "Ruam / Eritema", "Pruritus",
-  "Mual / Muntah", "Diare", "Rinitis", "Sesak Napas",
-];
+// QUICK_PICKS (allergen per kategori) + REACTIONS ditarik dari katalog DB via useAsesmenKatalog
+// (fallback konstanta di asesmenKatalogContext).
 
 // ── Mock allergy data ─────────────────────────────────────
 
@@ -2178,6 +2149,7 @@ function dtoItemToEntry(it: AlergiItemDTO): AllergyEntry {
 // Tak ada tombol "Simpan" bulk — tiap aksi langsung persist (delta, bukan foto-ulang daftar).
 function AllergyPane({ patient, onComplete }: { patient: IGDPatientDetail; onComplete?: (done: boolean) => void }) {
   const { session } = useSession();
+  const { quickPicks, reactions, snomedCodes } = useAsesmenKatalog();
   const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
 
   const [entries, setEntries] = useState<AllergyEntry[]>(
@@ -2424,7 +2396,7 @@ function AllergyPane({ patient, onComplete }: { patient: IGDPatientDetail; onCom
               />
               {/* Quick picks */}
               <div className="mt-1.5 flex flex-wrap gap-1">
-                {QUICK_PICKS[form.category].map((pick) => (
+                {quickPicks[form.category].map((pick) => (
                   <button
                     key={pick}
                     type="button"
@@ -2451,7 +2423,7 @@ function AllergyPane({ patient, onComplete }: { patient: IGDPatientDetail; onCom
                 className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-xs text-slate-800 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
               >
                 <option value="">— Pilih kode SNOMED CT —</option>
-                {SNOMED_CODES.map((s) => (
+                {snomedCodes.map((s) => (
                   <option key={s.code} value={s.code}>
                     [{s.code}] {s.display}
                   </option>
@@ -2463,7 +2435,7 @@ function AllergyPane({ patient, onComplete }: { patient: IGDPatientDetail; onCom
             <div>
               <Label required>Jenis Reaksi</Label>
               <div className="flex flex-wrap gap-1">
-                {REACTIONS.map((r) => {
+                {reactions.map((r) => {
                   const sel = form.reactions.includes(r);
                   return (
                     <button
@@ -2748,6 +2720,7 @@ export default function AsesmenMedisTab({ patient }: { patient: IGDPatientDetail
   }
 
   return (
+    <AsesmenKatalogProvider>
     <div className="flex flex-col gap-4">
 
       <ProgressHeader doneCount={doneCount} total={SUB_TABS.length} />
@@ -2797,5 +2770,6 @@ export default function AsesmenMedisTab({ patient }: { patient: IGDPatientDetail
 
       </div>
     </div>
+    </AsesmenKatalogProvider>
   );
 }

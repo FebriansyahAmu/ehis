@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ClipboardList, CheckCircle2, Tag, Activity } from "lucide-react";
 import {
-  MasterPageLayout, StatCard, useMasterCrud,
+  MasterPageLayout, StatCard, useMasterCrud, DiscardDialog,
 } from "@/components/master/shared";
 import {
   emptyAsesmenItem,
@@ -66,6 +66,8 @@ export default function AsesmenKatalogPage({ initial, prefetched }: Props) {
   const [listLoaded, setListLoaded] = useState(prefetched);
   // Filter kategori juga dipakai untuk pre-set kategori saat add new dari filter aktif.
   const [kategoriFilter, setKategoriFilter] = useState<AsesmenKategori | "Semua">("Semua");
+  // Aksi tertunda menunggu konfirmasi "buang perubahan" (gate DiscardDialog).
+  const [pendingNav, setPendingNav] = useState<(() => void) | null>(null);
 
   // Seed sekali dari SSR (DTO→record). CUD berikutnya lewat /api (commit/removeLocal).
   const [seed] = useState(() => initial.map(dtoToItem));
@@ -76,7 +78,17 @@ export default function AsesmenKatalogPage({ initial, prefetched }: Props) {
       if (kategoriFilter !== "Semua") base.kategori = kategoriFilter;
       return base;
     },
+    confirmDirty: () => true, // matikan window.confirm bawaan → konfirmasi via DiscardDialog
   });
+
+  // Jalankan aksi langsung bila form bersih; bila dirty → tahan & minta konfirmasi.
+  function guardDirty(action: () => void) {
+    if (crud.isDirty) setPendingNav(() => action);
+    else action();
+  }
+  const handleSelect = (id: string) => guardDirty(() => crud.handleSelect(id));
+  const handleAddNew = () => guardDirty(() => crud.handleAddNew());
+  const handleCancel = () => guardDirty(() => crud.handleCancel());
 
   // Fallback fetch bila SSR gagal prefetch (degradasi anggun).
   useEffect(() => {
@@ -130,6 +142,7 @@ export default function AsesmenKatalogPage({ initial, prefetched }: Props) {
   }
 
   return (
+    <>
     <MasterPageLayout
       loaded={listLoaded}
       accent="violet"
@@ -148,8 +161,8 @@ export default function AsesmenKatalogPage({ initial, prefetched }: Props) {
         <AsesmenList
           items={crud.items}
           selectedId={crud.selectedId}
-          onSelect={crud.handleSelect}
-          onAddNew={crud.handleAddNew}
+          onSelect={handleSelect}
+          onAddNew={handleAddNew}
           kategoriFilter={kategoriFilter}
           onKategoriFilterChange={setKategoriFilter}
         />
@@ -162,13 +175,20 @@ export default function AsesmenKatalogPage({ initial, prefetched }: Props) {
             isDirty={crud.isDirty}
             onPatch={crud.handlePatch}
             onSave={handleSave}
-            onCancel={crud.handleCancel}
+            onCancel={handleCancel}
             onDelete={!crud.isNew ? handleDelete : undefined}
           />
         ) : (
-          <AsesmenEmptyState totalItem={crud.items.length} onAddNew={crud.handleAddNew} />
+          <AsesmenEmptyState totalItem={crud.items.length} onAddNew={handleAddNew} />
         )
       }
     />
+    <DiscardDialog
+      open={!!pendingNav}
+      message="Perubahan item asesmen katalog yang belum disimpan akan hilang."
+      onConfirm={() => { const a = pendingNav; setPendingNav(null); a?.(); }}
+      onCancel={() => setPendingNav(null)}
+    />
+    </>
   );
 }

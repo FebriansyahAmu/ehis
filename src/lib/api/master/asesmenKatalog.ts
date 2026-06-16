@@ -18,6 +18,18 @@ export async function listAsesmenKatalog(query: AsesmenQuery = {}, signal?: Abor
   return data;
 }
 
+/** GET (konsumsi klinis) — item AKTIF untuk dropdown asesmen. Gate `clinical.rekammedis:read`. */
+export async function listAsesmenTersedia(
+  query: { kategori?: AsesmenQuery["kategori"]; q?: string } = {},
+  signal?: AbortSignal,
+): Promise<AsesmenItemDTO[]> {
+  const { data } = await api.get<AsesmenItemDTO[]>("/master/asesmen-tersedia", {
+    query: { kategori: query.kategori, q: query.q },
+    signal,
+  });
+  return data;
+}
+
 /** POST — tambah 1 item (kode auto-gen di server). */
 export async function createAsesmenKatalog(input: CreateAsesmenInput, signal?: AbortSignal): Promise<AsesmenItemDTO> {
   const { data } = await api.post<AsesmenItemDTO>("/master/asesmen-katalog", input, { signal });
