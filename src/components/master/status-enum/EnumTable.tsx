@@ -1,29 +1,45 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Plus, Search, Trash2, GripVertical, ChevronUp, ChevronDown,
-  CheckCircle2, XCircle, Pencil, Check, X,
+  Plus, Search, Trash2, ChevronUp, ChevronDown,
+  CheckCircle2, XCircle, Pencil, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  type EnumEntry, type EnumGroup, type EnumTone,
-  TONE_CFG, TONE_LIST, emptyEnumEntry, isEnumEntryValid,
+  type EnumEntry, type EnumGroup,
+  TONE_CFG, emptyEnumEntry, ICON_REGISTRY,
 } from "@/lib/master/statusEnumMock";
-import { resolveIcon, sortEntries, suggestKode } from "./statusEnumShared";
+import { sortEntries, toDraft, type EntryDraft } from "./statusEnumShared";
 import EnumEntryForm from "./EnumEntryForm";
 
 interface Props {
   group: EnumGroup;
-  onChange: (entries: EnumEntry[]) => void;
+  /** Prefix kode grup aktif (hint auto-gen form). */
+  prefix: string;
+  busy: boolean;
+  onAdd: (draft: EntryDraft) => Promise<boolean>;
+  onUpdateEntry: (id: string, draft: EntryDraft) => Promise<boolean>;
+  onDeleteEntry: (id: string) => void;
+  onMoveEntry: (id: string, dir: "up" | "down") => void;
+  /** Lapor ke page: ada form add/edit terbuka (gate DiscardDialog saat pindah grup). */
+  onFormOpenChange: (open: boolean) => void;
 }
 
-export default function EnumTable({ group, onChange }: Props) {
+export default function EnumTable({
+  group, prefix, busy,
+  onAdd, onUpdateEntry, onDeleteEntry, onMoveEntry, onFormOpenChange,
+}: Props) {
   const [query, setQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"Semua" | "Aktif" | "NonAktif">("Semua");
   const [editId, setEditId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+
+  // Lapor status form-terbuka ke page (gate discard saat pindah grup).
+  useEffect(() => {
+    onFormOpenChange(showAddForm || editId !== null);
+  }, [showAddForm, editId, onFormOpenChange]);
 
   const sorted = useMemo(() => sortEntries(group.entries), [group.entries]);
 
@@ -40,37 +56,15 @@ export default function EnumTable({ group, onChange }: Props) {
   const aktifCount = group.entries.filter((e) => e.status === "Aktif").length;
   const maxUrutan = group.entries.reduce((m, e) => Math.max(m, e.urutan), 0);
 
-  // ── Handlers ────────────────────────────────────────────
+  // ── Handlers (delegasi ke API via page) ─────────────────
 
-  const handleAdd = (entry: EnumEntry) => {
-    onChange([...group.entries, entry]);
-    setShowAddForm(false);
-  };
-
-  const handleUpdate = (id: string, patch: Partial<EnumEntry>) => {
-    onChange(group.entries.map((e) => (e.id === id ? { ...e, ...patch } : e)));
-  };
-
-  const handleDelete = (id: string) => {
-    const entry = group.entries.find((e) => e.id === id);
-    if (!entry) return;
-    if (!confirm(`Hapus entri "${entry.label}"? Aksi ini tidak dapat di-undo.`)) return;
-    onChange(group.entries.filter((e) => e.id !== id));
+  const handleAdd = async (entry: EnumEntry) => {
+    const ok = await onAdd(toDraft(entry));
+    if (ok) setShowAddForm(false);
   };
 
   const handleMove = (id: string, direction: "up" | "down") => {
-    const sortedIds = sorted.map((e) => e.id);
-    const idx = sortedIds.indexOf(id);
-    const swapWith = direction === "up" ? idx - 1 : idx + 1;
-    if (swapWith < 0 || swapWith >= sortedIds.length) return;
-    const aId = sortedIds[idx], bId = sortedIds[swapWith];
-    const a = group.entries.find((e) => e.id === aId)!;
-    const b = group.entries.find((e) => e.id === bId)!;
-    onChange(group.entries.map((e) => {
-      if (e.id === aId) return { ...e, urutan: b.urutan };
-      if (e.id === bId) return { ...e, urutan: a.urutan };
-      return e;
-    }));
+    onMoveEntry(id, direction);
   };
 
   return (
@@ -87,6 +81,9 @@ export default function EnumTable({ group, onChange }: Props) {
               <span className="rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">
                 {aktifCount}/{group.entries.length}
               </span>
+              <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[9.5px] font-semibold text-slate-500" title="Prefix kode grup">
+                {prefix}
+              </code>
             </div>
             <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-slate-500">
               {group.deskripsi}
@@ -142,7 +139,8 @@ export default function EnumTable({ group, onChange }: Props) {
           <button
             type="button"
             onClick={() => { setShowAddForm(true); setEditId(null); }}
-            className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-violet-700"
+            disabled={showAddForm}
+            className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus size={13} />
             Tambah Entri
@@ -166,7 +164,8 @@ export default function EnumTable({ group, onChange }: Props) {
                   initial={emptyEnumEntry(maxUrutan)}
                   onSave={handleAdd}
                   onCancel={() => setShowAddForm(false)}
-                  existingKodes={group.entries.map((e) => e.kode)}
+                  prefix={prefix}
+                  busy={busy}
                   mode="create"
                 />
               </div>
@@ -200,15 +199,19 @@ export default function EnumTable({ group, onChange }: Props) {
                   entry={entry}
                   index={i}
                   isEditing={editId === entry.id}
+                  prefix={prefix}
+                  busy={busy}
                   onEditStart={() => { setEditId(entry.id); setShowAddForm(false); }}
                   onEditEnd={() => setEditId(null)}
-                  onUpdate={(patch) => handleUpdate(entry.id, patch)}
-                  onDelete={() => handleDelete(entry.id)}
+                  onUpdateEntry={async (updated) => {
+                    const ok = await onUpdateEntry(entry.id, toDraft(updated));
+                    if (ok) setEditId(null);
+                  }}
+                  onDelete={() => onDeleteEntry(entry.id)}
                   onMoveUp={() => handleMove(entry.id, "up")}
                   onMoveDown={() => handleMove(entry.id, "down")}
                   canMoveUp={i > 0}
                   canMoveDown={i < filtered.length - 1}
-                  existingKodes={group.entries.filter((e) => e.id !== entry.id).map((e) => e.kode)}
                 />
               ))}
             </tbody>
@@ -221,7 +224,7 @@ export default function EnumTable({ group, onChange }: Props) {
         <p className="text-[10px] text-slate-500">
           <strong className="text-slate-700">{filtered.length}</strong> dari{" "}
           <strong className="text-slate-700">{group.entries.length}</strong> entri ·{" "}
-          <span className="text-violet-600">drag urutan</span> · klik baris untuk edit inline
+          <span className="text-violet-600">panah ↑↓ atur urutan</span> · kode otomatis per kategori
         </p>
       </footer>
     </div>
@@ -234,25 +237,26 @@ interface RowProps {
   entry: EnumEntry;
   index: number;
   isEditing: boolean;
+  prefix: string;
+  busy: boolean;
   onEditStart: () => void;
   onEditEnd: () => void;
-  onUpdate: (patch: Partial<EnumEntry>) => void;
+  onUpdateEntry: (updated: EnumEntry) => void;
   onDelete: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
-  existingKodes: string[];
 }
 
 function EntryRow({
-  entry, index, isEditing,
-  onEditStart, onEditEnd, onUpdate, onDelete,
+  entry, index, isEditing, prefix, busy,
+  onEditStart, onEditEnd, onUpdateEntry, onDelete,
   onMoveUp, onMoveDown, canMoveUp, canMoveDown,
-  existingKodes,
 }: RowProps) {
   const toneCfg = TONE_CFG[entry.tone];
-  const Icon = resolveIcon(entry.icon);
+  // Member access (bukan call) → stabil, lolos react-hooks/static-components.
+  const Icon = entry.icon ? ICON_REGISTRY[entry.icon] : undefined;
 
   if (isEditing) {
     return (
@@ -260,9 +264,10 @@ function EntryRow({
         <td colSpan={8} className="p-3">
           <EnumEntryForm
             initial={entry}
-            onSave={(updated) => { onUpdate(updated); onEditEnd(); }}
+            onSave={onUpdateEntry}
             onCancel={onEditEnd}
-            existingKodes={existingKodes}
+            prefix={prefix}
+            busy={busy}
             mode="edit"
           />
         </td>
@@ -277,13 +282,13 @@ function EntryRow({
       transition={{ duration: 0.15, delay: index * 0.01 }}
       className="group hover:bg-slate-50/60"
     >
-      {/* Drag handle / move */}
+      {/* Move up/down */}
       <td className="px-1 py-1.5">
         <div className="flex flex-col items-center">
           <button
             type="button"
             onClick={onMoveUp}
-            disabled={!canMoveUp}
+            disabled={!canMoveUp || busy}
             className="rounded p-0.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent"
             aria-label="Naik"
           >
@@ -292,7 +297,7 @@ function EntryRow({
           <button
             type="button"
             onClick={onMoveDown}
-            disabled={!canMoveDown}
+            disabled={!canMoveDown || busy}
             className="rounded p-0.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent"
             aria-label="Turun"
           >
@@ -352,7 +357,8 @@ function EntryRow({
           <button
             type="button"
             onClick={onEditStart}
-            className="rounded p-1 text-slate-400 transition hover:bg-violet-50 hover:text-violet-600"
+            disabled={busy}
+            className="rounded p-1 text-slate-400 transition hover:bg-violet-50 hover:text-violet-600 disabled:opacity-40"
             aria-label="Edit"
           >
             <Pencil size={11} />
@@ -360,7 +366,8 @@ function EntryRow({
           <button
             type="button"
             onClick={onDelete}
-            className="rounded p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+            disabled={busy}
+            className="rounded p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
             aria-label="Hapus"
           >
             <Trash2 size={11} />

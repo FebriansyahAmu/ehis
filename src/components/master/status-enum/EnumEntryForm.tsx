@@ -1,52 +1,39 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Save, X, AlertCircle } from "lucide-react";
+import { useState } from "react";
+import { Save, X, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Field, TextInput, NumberInput, TextArea, Select, SectionGroup,
 } from "@/components/master/shared";
 import {
   type EnumEntry,
-  TONE_CFG, TONE_LIST, ICON_KEYS, isEnumEntryValid,
+  TONE_CFG, TONE_LIST, ICON_KEYS, ICON_REGISTRY,
 } from "@/lib/master/statusEnumMock";
-import { resolveIcon, suggestKode } from "./statusEnumShared";
 
 interface Props {
   initial: EnumEntry;
   onSave: (entry: EnumEntry) => void;
   onCancel: () => void;
-  existingKodes: string[];
+  /** Prefix kode grup (utk hint auto-gen saat create). */
+  prefix: string;
+  busy?: boolean;
   mode: "create" | "edit";
 }
 
 export default function EnumEntryForm({
-  initial, onSave, onCancel, existingKodes, mode,
+  initial, onSave, onCancel, prefix, busy = false, mode,
 }: Props) {
   const [draft, setDraft] = useState<EnumEntry>(initial);
-  const [kodeManual, setKodeManual] = useState(mode === "edit");
 
   const patch = <K extends keyof EnumEntry>(k: K, v: EnumEntry[K]) =>
     setDraft((p) => ({ ...p, [k]: v }));
 
-  const updateLabel = (label: string) => {
-    setDraft((p) => ({
-      ...p,
-      label,
-      kode: kodeManual ? p.kode : suggestKode(label),
-    }));
-  };
+  // Kode AUTO-GEN di server (`<PREFIX>-NNN`, immutable). Tak ada input manual.
+  const canSave = draft.label.trim() !== "";
 
-  const kodeError = useMemo(() => {
-    if (!draft.kode.trim()) return "Kode wajib diisi";
-    if (existingKodes.includes(draft.kode)) return "Kode sudah dipakai entri lain";
-    if (!/^[A-Z0-9_]+$/.test(draft.kode)) return "Hanya huruf besar, angka, underscore";
-    return "";
-  }, [draft.kode, existingKodes]);
-
-  const canSave = isEnumEntryValid(draft) && !kodeError;
-
-  const Icon = resolveIcon(draft.icon);
+  // Member access (bukan call) → stabil, lolos react-hooks/static-components.
+  const Icon = draft.icon ? ICON_REGISTRY[draft.icon] : undefined;
   const toneCfg = TONE_CFG[draft.tone];
 
   return (
@@ -60,32 +47,26 @@ export default function EnumEntryForm({
           <Field label="Label" required hint="Nama tampil di UI">
             <TextInput
               value={draft.label}
-              onChange={updateLabel}
+              onChange={(v) => patch("label", v)}
               placeholder="mis. Sembuh"
               accent="violet"
               maxW="max-w-sm"
             />
           </Field>
 
-          {/* Kode */}
-          <Field label="Kode" required hint={kodeError || "Auto-generate dari label. Edit untuk override."}>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={draft.kode}
-                onChange={(e) => {
-                  setKodeManual(true);
-                  patch("kode", e.target.value.toUpperCase().replace(/\s+/g, "_"));
-                }}
-                placeholder="SEMBUH"
-                className={cn(
-                  "w-full max-w-[200px] rounded-md border bg-white px-2.5 py-1.5 font-mono text-xs text-slate-800 outline-none transition",
-                  kodeError
-                    ? "border-rose-300 focus:border-rose-400 focus:ring-1 focus:ring-rose-200"
-                    : "border-slate-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200",
-                )}
-              />
-              {kodeError && <AlertCircle size={13} className="shrink-0 text-rose-500" />}
+          {/* Kode — read-only (auto-gen server) */}
+          <Field label="Kode" hint="Dibuat otomatis oleh sistem per kategori — tidak dapat diubah">
+            <div className="flex items-center gap-1.5">
+              {mode === "create" ? (
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-violet-300 bg-violet-50/60 px-2.5 py-1.5 font-mono text-xs font-semibold text-violet-600">
+                  <Sparkles size={11} />
+                  Auto · {prefix}-NNN
+                </span>
+              ) : (
+                <code className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-xs font-semibold text-slate-700">
+                  {draft.kode}
+                </code>
+              )}
             </div>
           </Field>
 
@@ -179,7 +160,7 @@ export default function EnumEntryForm({
               {draft.label || "(label kosong)"}
             </span>
             <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-600 ring-1 ring-slate-200">
-              {draft.kode || "(kode)"}
+              {mode === "create" ? `${prefix}-…` : draft.kode}
             </code>
             {draft.status === "NonAktif" && (
               <span className="rounded-full bg-slate-200 px-1.5 text-[9px] font-bold uppercase text-slate-600">off</span>
@@ -195,24 +176,25 @@ export default function EnumEntryForm({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+            disabled={busy}
+            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
           >
             <X size={11} className="mr-1 inline" />
             Batal
           </button>
           <button
             type="button"
-            onClick={() => canSave && onSave(draft)}
-            disabled={!canSave}
+            onClick={() => canSave && !busy && onSave(draft)}
+            disabled={!canSave || busy}
             className={cn(
               "flex items-center gap-1 rounded-md px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm transition",
-              canSave
+              canSave && !busy
                 ? "bg-violet-600 hover:bg-violet-700"
                 : "cursor-not-allowed bg-slate-300",
             )}
           >
             <Save size={11} />
-            {mode === "create" ? "Tambah" : "Simpan Perubahan"}
+            {busy ? "Menyimpan…" : mode === "create" ? "Tambah" : "Simpan Perubahan"}
           </button>
         </div>
       </SectionGroup>

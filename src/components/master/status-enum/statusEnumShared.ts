@@ -1,15 +1,8 @@
 /**
- * UI helpers + table column config khusus untuk halaman Master Status Enum.
+ * UI helpers + tipe payload khusus halaman Master Status Enum.
  */
 
-import type { LucideIcon } from "lucide-react";
-import { ICON_REGISTRY, type EnumEntry } from "@/lib/master/statusEnumMock";
-
-/** Render LucideIcon dari string key. Returns undefined kalau key tidak terdaftar. */
-export function resolveIcon(key: string | undefined): LucideIcon | undefined {
-  if (!key) return undefined;
-  return ICON_REGISTRY[key];
-}
+import type { EnumEntry, EnumTone } from "@/lib/master/statusEnumMock";
 
 /** Sort entries by urutan ascending, with fallback alphabetical. */
 export function sortEntries(entries: EnumEntry[]): EnumEntry[] {
@@ -19,11 +12,24 @@ export function sortEntries(entries: EnumEntry[]): EnumEntry[] {
   });
 }
 
-/** Generate kode otomatis dari label (uppercase + underscore). */
-export function suggestKode(label: string): string {
-  return label
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 24);
+/** Payload create/update entri (TANPA kode — auto-gen server, immutable). Dikirim ke /api. */
+export interface EntryDraft {
+  label: string;
+  deskripsi: string;
+  tone: EnumTone;
+  icon?: string;
+  urutan: number;
+  status: "Aktif" | "NonAktif";
+}
+
+/** EnumEntry (draft form) → EntryDraft payload (buang id/kode/groupKey). */
+export function toDraft(e: EnumEntry): EntryDraft {
+  return {
+    label: e.label,
+    deskripsi: e.deskripsi ?? "",
+    tone: e.tone,
+    icon: e.icon,
+    urutan: e.urutan,
+    status: e.status,
+  };
 }

@@ -18,6 +18,7 @@
 | [TODOS_BACKEND.md](TODOS_BACKEND.md) | Backend implementation roadmap (B0–B4, ~5–7 bulan). |
 | [TODO-CHARGEMASTER.md](TODO-CHARGEMASTER.md) | **Chargemaster / Billable-Service federation (Opsi A)** — Fase CM0–CM5. Pisah katalog klinis vs layer tarif/billable; federasi Tindakan+Lab+Rad → Mapping Hub Tarif + Layanan Unit + billing. 📋 Planned. |
 | [docs/BACKEND-MASTER-KATALOG-KLINIS.md](docs/BACKEND-MASTER-KATALOG-KLINIS.md) | **Backend grup Katalog Klinis** — Tindakan ✅ · ICD ✅ · Obat ✅ · Lab ✅ · Keperawatan/SDKI ✅ · Rad 📋. |
+| [docs/BACKEND-MASTER-TEMPLATE&ENUM.md](docs/BACKEND-MASTER-TEMPLATE&ENUM.md) | **Backend grup Template & Enum** — 3 tab: Status Enum · Template Anamnesis · Template Form. 📋 Planned (TE1→TE3 vertical slice, gate `master.konfigurasi` + konsumsi klinis `clinical.rekammedis`). |
 | [docs/BACKEND-MAPPING.md](docs/BACKEND-MAPPING.md) | **Backend Mapping Hub** (`/ehis-master/mapping`) — status per sub-pane: SDM ✅ · Layanan Unit ✅ · RBAC ✅ · Tarif ✅ · Formularium ✅ · Kewenangan 🟡 · Distribusi/Penjamin 📋. |
 | [docs/BACKEND-FLOWS.md](docs/BACKEND-FLOWS.md) | **Kontrak backend INTI** — layering · error · data rules · API · DoD (_mengapa_). Menang bila konflik. |
 | [docs/API-RULES.md](docs/API-RULES.md) | **Resep endpoint konkret** — pola `route()`, error handling, peta file kanonik (_bagaimana_ menulis endpoint). Baca sebelum tambah/ubah API. |

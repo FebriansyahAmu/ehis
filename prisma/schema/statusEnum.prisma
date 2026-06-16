@@ -1,0 +1,51 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MASTER: Status Enum  (Postgres schema "master")
+//  FE: /ehis-master/status-enum · Tipe/config FE: src/lib/master/statusEnumMock.ts
+//  (EnumEntry/EnumGroup) — data awal di-seed via prisma/scripts/seed-statusEnum.mts.
+//
+//  Katalog enum kecil lintas-modul (single source). 9 GRUP fixed (metadata kode:
+//  label/ikon/konsumen) × N ENTRI (data DB editable). Grup = kolom diskriminator
+//  `group_key` (BUKAN tabel sendiri — 9 key kontrak konsumen, tak diubah user).
+//  Dikonsumsi PasienPulang · StatusFisikPane · TTV · Transfer SBAR · Registrasi RI ·
+//  Caregiver · Edukasi · MAR (ganti hardcoded constants → master via API).
+//
+//  Kode AUTO-GEN per grup/kategori (counter atomik) — prefix per grup (mis. SPL-001,
+//  KUM-001, ROB-001). BUKAN input manual. Konvensi (FLOWS §9): uuid v7 · timestamptz ·
+//  soft-delete. Katalog leaf → TANPA optimistic-version. Enum FE-facing (groupKey/tone/
+//  status) = TEXT pass-through (validasi di Zod). Pola identik master.AsesmenItem.
+// ════════════════════════════════════════════════════════════════════════════
+
+model EnumEntry {
+  id       String @id @default(uuid(7)) @db.Uuid
+  groupKey String @map("group_key") // 9 fixed: status-pulang | kondisi-umum | tingkat-kesadaran | kondisi-transfer | mode-transport | kelas-perawatan | hubungan-keluarga | profesi-edukator | rute-obat
+  kode     String // `<PREFIX>-NNN` — auto-gen (counter per grup), unik per grup antar baris hidup
+
+  // ── Identitas ──
+  label     String
+  deskripsi String  @default("")
+  tone      String  @default("slate") // EnumTone FE-facing (warna chip)
+  icon      String? // key ICON_REGISTRY (render-only)
+  urutan    Int     @default(0)
+
+  // ── Meta ──
+  status    String    @default("Aktif") // Aktif | NonAktif
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([groupKey, deletedAt]) // list/filter per grup
+  @@map("enum_entry")
+  @@schema("master")
+}
+
+// Counter kode enum (auto `<PREFIX>-NNN`, tanpa reset periodik). Satu baris per grup
+// (`scope` = prefix kode: SPL, KUM, TKS, KTR, MTR, KPW, HKL, PED, ROB). Upsert by PK →
+// increment atomik, anti-race (pola identik master.AsesmenCounter). Di-seed ke seq
+// tertinggi per grup → entri baru lanjut dari nilai berikutnya.
+model EnumCounter {
+  scope   String @id // prefix kode per grup
+  lastSeq Int    @map("last_seq")
+
+  @@map("enum_counter")
+  @@schema("master")
+}
