@@ -1,0 +1,51 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MASTER: Asesmen Katalog  (Postgres schema "master")
+//  FE: /ehis-master/asesmen-katalog · Tipe/helper FE: src/lib/master/asesmenKatalogMock.ts
+//  (AsesmenItem) — data awal di-seed via prisma/scripts/seed-asesmen-katalog.mts.
+//
+//  Library referensi dropdown asesmen klinis: allergen (obat/makanan/lainnya) + reaksi
+//  alergi, riwayat penyakit (dahulu/berisiko/keluarga), perilaku berisiko, anggota
+//  keluarga, metode KB, jenis persalinan. Dikonsumsi AllergyPane (sub-tab Alergi) &
+//  RiwayatPane (sub-tab Riwayat) di AsesmenMedisTab (IGD/RI shared).
+//
+//  Kode AUTO-GEN per kategori (counter atomik) — prefix per kategori (mis. ALG-OB-001,
+//  RX-001, PD-001). BUKAN input manual. Konvensi (FLOWS §9): uuid v7 · timestamptz ·
+//  soft-delete. Katalog leaf → TANPA optimistic-version. Enum FE-facing (kategori/status/
+//  severity) = TEXT pass-through (validasi di Zod). Pola identik master.SkalaInstrument.
+// ════════════════════════════════════════════════════════════════════════════
+
+model AsesmenItem {
+  id   String @id @default(uuid(7)) @db.Uuid
+  kode String // `<PREFIX>-NNN` — auto-gen (counter per kategori), unik antar baris hidup
+
+  // ── Identitas ──
+  nama      String
+  kategori  String // FE union (11): AllergenObat | AllergenMakanan | AllergenLainnya | ReaksiAlergi | PenyakitDahulu | PenyakitBeresiko | PenyakitKeluarga | PerilakuBeresiko | AnggotaKeluarga | MetodeKB | JenisPersalinan
+  deskripsi String @default("")
+
+  // ── Metadata opsional ──
+  snomedCode      String? @map("snomed_code")      // allergen tervalidasi (FHIR AllergyIntolerance.code)
+  severityDefault String? @map("severity_default") // hanya ReaksiAlergi: Ringan | Sedang | Berat
+
+  // ── Meta ──
+  status    String    @default("Aktif") // Aktif | Non_Aktif
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kategori, deletedAt]) // list/filter per kategori
+  @@map("asesmen_item")
+  @@schema("master")
+}
+
+// Counter kode asesmen (auto `<PREFIX>-NNN`, tanpa reset periodik). Satu baris per kategori
+// (`scope` = prefix kode: ALG-OB, ALG-MK, ALG-LN, RX, PD, PB, PK, PR, AK, KB, JP). Upsert by
+// PK → increment atomik, anti-race (pola identik master.SkalaCounter). Di-seed ke seq tertinggi
+// per kategori → entri baru lanjut dari nilai berikutnya.
+model AsesmenCounter {
+  scope   String @id // prefix kode per kategori
+  lastSeq Int    @map("last_seq")
+
+  @@map("asesmen_counter")
+  @@schema("master")
+}

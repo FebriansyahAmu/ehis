@@ -34,14 +34,13 @@ function Label({
   );
 }
 
-type ChipColor = "indigo" | "sky" | "emerald" | "rose" | "violet" | "amber" | "slate";
+type ChipColor = "sky" | "emerald" | "rose" | "cyan" | "amber" | "slate";
 
 const CHIP_ACTIVE: Record<ChipColor, string> = {
-  indigo:  "border-indigo-500 bg-indigo-500 text-white shadow-sm",
   sky:     "border-sky-500 bg-sky-500 text-white shadow-sm",
   emerald: "border-emerald-500 bg-emerald-500 text-white shadow-sm",
   rose:    "border-rose-500 bg-rose-500 text-white shadow-sm",
-  violet:  "border-violet-500 bg-violet-500 text-white shadow-sm",
+  cyan:    "border-cyan-500 bg-cyan-500 text-white shadow-sm",
   amber:   "border-amber-500 bg-amber-500 text-white shadow-sm",
   slate:   "border-slate-700 bg-slate-700 text-white shadow-sm",
 };
@@ -53,7 +52,7 @@ function RadioGroup({
   onChange,
   required,
   cols,
-  color = "indigo",
+  color = "sky",
 }: {
   label: string;
   options: string[];
@@ -92,7 +91,7 @@ function CheckGroup({
   options,
   values,
   onChange,
-  color = "indigo",
+  color = "sky",
 }: {
   label: string;
   options: string[];
@@ -134,7 +133,7 @@ const LETTER_CLS: Record<string, string> = {
   A: "bg-sky-500",
   B: "bg-emerald-500",
   C: "bg-rose-500",
-  D: "bg-violet-500",
+  D: "bg-cyan-500",
   E: "bg-amber-500",
 };
 
@@ -142,8 +141,18 @@ const LETTER_BORDER: Record<string, string> = {
   A: "border-l-sky-500",
   B: "border-l-emerald-500",
   C: "border-l-rose-500",
-  D: "border-l-violet-500",
+  D: "border-l-cyan-500",
   E: "border-l-amber-500",
+};
+
+// Aksen kiri kartu untuk Block tanpa huruf (warna bervariasi per seksi).
+const ACCENT_BORDER: Record<ChipColor, string> = {
+  sky:     "border-l-sky-400",
+  emerald: "border-l-emerald-400",
+  rose:    "border-l-rose-400",
+  cyan:    "border-l-cyan-400",
+  amber:   "border-l-amber-400",
+  slate:   "border-l-slate-300",
 };
 
 function Block({
@@ -151,15 +160,17 @@ function Block({
   title,
   children,
   className,
+  accent,
 }: {
   letter?: string;
   title: string;
   children: React.ReactNode;
   className?: string;
+  accent?: ChipColor;
 }) {
   const leftBorder = letter
-    ? (LETTER_BORDER[letter] ?? "border-l-indigo-400")
-    : "border-l-indigo-200";
+    ? (LETTER_BORDER[letter] ?? "border-l-slate-400")
+    : (accent ? ACCENT_BORDER[accent] : "border-l-slate-200");
   return (
     <div
       className={cn(
@@ -472,7 +483,7 @@ function CriteriaTable({
                                 className={cn(
                                   "flex cursor-pointer items-start gap-1.5 rounded-md px-1.5 py-1 transition-colors",
                                   checked
-                                    ? "bg-indigo-50 text-indigo-900 ring-1 ring-indigo-200"
+                                    ? "bg-sky-50 text-sky-900 ring-1 ring-sky-200"
                                     : "hover:bg-slate-100",
                                 )}
                               >
@@ -480,7 +491,7 @@ function CriteriaTable({
                                   type="checkbox"
                                   checked={checked}
                                   onChange={() => onToggle(c)}
-                                  className="mt-0.5 h-3.5 w-3.5 shrink-0 cursor-pointer rounded accent-indigo-600"
+                                  className="mt-0.5 h-3.5 w-3.5 shrink-0 cursor-pointer rounded accent-sky-600"
                                 />
                                 <span className={cn("text-left", checked && "font-medium")}>{nilai}</span>
                               </label>
@@ -499,7 +510,7 @@ function CriteriaTable({
       {interactive && (
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/60 px-4 py-2 text-[11px] text-slate-500">
           <span>Centang kriteria yang sesuai temuan — tersimpan bersama pengkajian triase.</span>
-          <span className="font-semibold text-indigo-600">{selectedKeys.size} kriteria dipilih</span>
+          <span className="font-semibold text-sky-600">{selectedKeys.size} kriteria dipilih</span>
         </div>
       )}
     </div>
@@ -855,7 +866,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
         </div>
       )}
       {/* Kedatangan */}
-      <Block title="Informasi Kedatangan">
+      <Block title="Informasi Kedatangan" accent="sky">
         <div className="grid gap-3 sm:grid-cols-2">
           <RadioGroup
             label="Cara Masuk"
@@ -869,6 +880,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
             ]}
             value={form.caraMasuk}
             onChange={(v) => set("caraMasuk", v)}
+            color="sky"
           />
           <RadioGroup
             label="Kondisi Saat Tiba"
@@ -881,12 +893,13 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
             ]}
             value={form.kondisiTiba}
             onChange={(v) => set("kondisiTiba", v)}
+            color="amber"
           />
         </div>
       </Block>
 
       {/* Anamnesis Keluhan Utama */}
-      <Block title="Anamnesis — Keluhan Utama">
+      <Block title="Anamnesis — Keluhan Utama" accent="rose">
         <div>
           <Label required>Keluhan Utama</Label>
           <textarea
@@ -894,7 +907,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
             value={form.keluhanUtama}
             onChange={(e) => set("keluhanUtama", e.target.value)}
             placeholder="Tuliskan keluhan utama pasien..."
-            className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+            className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
           />
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
@@ -905,7 +918,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
               value={form.onset}
               onChange={(e) => set("onset", e.target.value)}
               placeholder="Contoh: 2 jam SMRS, mendadak..."
-              className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+              className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
             />
           </div>
           <div>
@@ -915,7 +928,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
               value={form.lokasiKeluhan}
               onChange={(e) => set("lokasiKeluhan", e.target.value)}
               placeholder="Contoh: dada substernal, perut kanan..."
-              className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+              className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
             />
           </div>
           <RadioGroup
@@ -923,6 +936,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
             options={["Ringan", "Sedang", "Berat", "Sangat Berat"]}
             value={form.skalaBerat}
             onChange={(v) => set("skalaBerat", v)}
+            color="rose"
           />
         </div>
         <RadioGroup
@@ -937,6 +951,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
           ]}
           value={form.kualitasKeluhan}
           onChange={(v) => set("kualitasKeluhan", v)}
+          color="emerald"
         />
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
@@ -946,7 +961,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
               value={form.faktorPemberat}
               onChange={(e) => set("faktorPemberat", e.target.value)}
               placeholder="Contoh: aktivitas, saat berbaring..."
-              className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+              className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
             />
           </div>
           <div>
@@ -956,7 +971,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
               value={form.faktorPeringan}
               onChange={(e) => set("faktorPeringan", e.target.value)}
               placeholder="Contoh: istirahat, obat tertentu..."
-              className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+              className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
             />
           </div>
         </div>
@@ -978,6 +993,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
           ]}
           values={form.gejalaPenyerta}
           onChange={(v) => set("gejalaPenyerta", v)}
+          color="cyan"
         />
         <div>
           <Label>Riwayat Keluhan Serupa</Label>
@@ -986,7 +1002,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
             value={form.riwayatSerupa}
             onChange={(e) => set("riwayatSerupa", e.target.value)}
             placeholder="Pernah mengalami keluhan serupa sebelumnya? Kapan?"
-            className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+            className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
           />
         </div>
       </Block>
@@ -1101,7 +1117,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
             options={["Alert", "Verbal", "Pain", "Unresponsive"]}
             value={form.avpu}
             onChange={(v) => set("avpu", v)}
-            color="violet"
+            color="cyan"
           />
           <div className="grid grid-cols-2 gap-2">
             <RadioGroup
@@ -1109,14 +1125,14 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
               options={["Isokor", "Anisokor", "Miosis", "Midriasis"]}
               value={form.pupil}
               onChange={(v) => set("pupil", v)}
-              color="violet"
+              color="cyan"
             />
             <RadioGroup
               label="Refleks Cahaya"
               options={["+/+", "+/−", "−/−"]}
               value={form.refleksCahaya}
               onChange={(v) => set("refleksCahaya", v)}
-              color="violet"
+              color="cyan"
             />
           </div>
         </Block>
@@ -1147,14 +1163,14 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
                 value={form.lokasiLuka}
                 onChange={(e) => set("lokasiLuka", e.target.value)}
                 placeholder="Contoh: kepala, ekstremitas kanan..."
-                className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
               />
             </div>
           )}
         </Block>
 
         {/* Diagnosa + Tindakan */}
-        <Block title="Diagnosa Sementara & Tindakan Awal">
+        <Block title="Diagnosa Sementara & Tindakan Awal" accent="amber">
           <div>
             <Label>Diagnosa / Kesan Klinis Sementara</Label>
             <textarea
@@ -1162,7 +1178,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
               value={form.diagnosisSementara}
               onChange={(e) => set("diagnosisSementara", e.target.value)}
               placeholder="Contoh: Suspect STEMI, Syok Hipovolemik..."
-              className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+              className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
             />
           </div>
           <CheckGroup
@@ -1244,7 +1260,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
             <select
               value={form.perawatTriase}
               onChange={(e) => set("perawatTriase", e.target.value)}
-              className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+              className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
             >
               <option value="">{perawatLoading ? "Memuat perawat…" : "— Pilih perawat —"}</option>
               {perawatOptions.map((nama) => (
@@ -1258,7 +1274,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
               type="datetime-local"
               value={form.waktuTriase}
               onChange={(e) => set("waktuTriase", e.target.value)}
-              className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+              className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
             />
           </div>
         </div>
@@ -1301,7 +1317,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
             disabled={saving}
             className={cn(
               "flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-medium text-white shadow-sm transition",
-              saving ? "cursor-not-allowed bg-slate-300" : "bg-indigo-600 hover:bg-indigo-700",
+              saving ? "cursor-not-allowed bg-slate-300" : "bg-sky-600 hover:bg-sky-700",
             )}
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}

@@ -4,8 +4,8 @@ import { useState, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  X, Clock, CreditCard, Phone, MapPin,
-  Pencil, Check, Stethoscope, CalendarDays,
+  X, Clock, CreditCard,
+  Pencil, Check, Stethoscope,
   Activity, Heart, Wind, Gauge, Thermometer, Zap, Layers,
   ChevronRight, LogIn, LogOut,
 } from "lucide-react";
@@ -161,7 +161,7 @@ function InfoChip({
   );
 }
 
-// ── DPJPCard — emerald gradient, click-anywhere to edit ──────────────────
+// ── DPJPCard — compact emerald card, click name to edit ──────────────────
 
 function DPJPCard({ value, onSave }: { value: string; onSave: (v: string) => void }) {
   const [editing, setEditing] = useState(false);
@@ -172,65 +172,39 @@ function DPJPCard({ value, onSave }: { value: string; onSave: (v: string) => voi
   const cancel = () => { setDraft(current); setEditing(false); };
 
   return (
-    <div className={cn(
-      "group relative min-w-0 flex-1 overflow-hidden rounded-xl bg-linear-to-br from-emerald-600 to-emerald-800 shadow-md transition-shadow duration-200",
-      !editing && "hover:shadow-lg hover:shadow-emerald-300/40",
-    )}>
-      <Stethoscope
-        size={90}
-        className="pointer-events-none absolute -right-6 -top-6 rotate-12 text-white/[0.07]"
-      />
-      <div className="relative flex h-full flex-col px-3 py-2.5">
+    <div className="group flex min-w-0 flex-1 flex-col justify-center rounded-lg bg-linear-to-br from-emerald-600 to-emerald-700 px-2.5 py-1.5 shadow-sm">
+      <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-emerald-200">
+        <Stethoscope size={9} /> DPJP
+      </span>
 
-        <span className="mb-2 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-emerald-200">
-          <Stethoscope size={9} />
-          DPJP
-        </span>
-
-        {editing ? (
-          <div className="flex flex-col gap-2">
-            <input
-              autoFocus
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") cancel(); }}
-              className="w-full rounded-lg border border-white/30 bg-white/15 px-2.5 py-1.5 text-sm font-semibold text-white outline-none placeholder-white/30 focus:border-white/50 focus:bg-white/20 focus:ring-1 focus:ring-white/40"
-              placeholder="Nama dokter..."
-            />
-            <div className="flex gap-1.5">
-              <button
-                onClick={save}
-                className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-white/20 py-1.5 text-xs font-semibold text-white transition hover:bg-white/30"
-              >
-                <Check size={11} /> Simpan
-              </button>
-              <button
-                onClick={cancel}
-                className="flex cursor-pointer items-center justify-center gap-1 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/15 hover:text-white"
-              >
-                <X size={11} /> Batal
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setEditing(true)}
-            className="group/val w-full cursor-pointer rounded-lg px-0 text-left transition hover:bg-white/8"
-            aria-label="Edit DPJP"
-          >
-            <p className="truncate text-sm font-bold leading-tight text-white">{current}</p>
-            <span className="mt-1 flex items-center gap-1 text-[9px] text-emerald-200/0 transition-all duration-150 group-hover/val:text-emerald-200/70">
-              <Pencil size={8} /> Klik untuk edit
-            </span>
+      {editing ? (
+        <div className="mt-1 flex items-center gap-1">
+          <input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") cancel(); }}
+            className="min-w-0 flex-1 rounded-md border border-white/30 bg-white/15 px-2 py-1 text-xs font-semibold text-white outline-none placeholder-white/30 focus:border-white/50 focus:bg-white/20"
+            placeholder="Nama dokter..."
+          />
+          <button onClick={save} aria-label="Simpan DPJP" className="shrink-0 cursor-pointer rounded-md bg-white/20 p-1 text-white transition hover:bg-white/30">
+            <Check size={12} />
           </button>
-        )}
-
-        {!editing && (
-          <p className="mt-auto pt-1.5 text-[9px] tracking-wide text-emerald-200/50">
-            Dokter Penanggung Jawab
-          </p>
-        )}
-      </div>
+          <button onClick={cancel} aria-label="Batal" className="shrink-0 cursor-pointer rounded-md bg-white/10 p-1 text-white/70 transition hover:bg-white/20 hover:text-white">
+            <X size={12} />
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setEditing(true)}
+          className="mt-0.5 flex w-full cursor-pointer items-center gap-1 text-left"
+          aria-label="Edit DPJP"
+          title="Klik untuk edit DPJP"
+        >
+          <p className="min-w-0 flex-1 truncate text-sm font-bold leading-tight text-white">{current}</p>
+          <Pencil size={10} className="shrink-0 text-emerald-200/0 transition group-hover:text-emerald-200/80" />
+        </button>
+      )}
     </div>
   );
 }
@@ -241,6 +215,14 @@ const MONTHS_ID = [
   "Januari","Februari","Maret","April","Mei","Juni",
   "Juli","Agustus","September","Oktober","November","Desember",
 ];
+const MONTHS_SHORT = MONTHS_ID.map((m) => m.slice(0, 3)); // Jan, Feb, Apr, Mei, Agu, Okt, Des…
+
+/** "14 April 2026" → "14 Apr 2026" (display ringkas inline). */
+function shortDisplay(display: string): string {
+  const parts = display.trim().split(" ");
+  if (parts.length !== 3) return display;
+  return `${parts[0]} ${parts[1].slice(0, 3)} ${parts[2]}`;
+}
 
 function displayToInput(display: string): string {
   // "14 April 2026" → "2026-04-14"
@@ -261,17 +243,17 @@ function inputToDisplay(iso: string): string {
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
-/** ISO (wall-clock UTC, konvensi repo) → { tgl "14 April 2026", jam "14:15" }. */
+/** ISO (wall-clock UTC, konvensi repo) → { tgl "14 Apr 2026", jam "14:15" }. */
 function fmtKeluar(iso: string): { tgl: string; jam: string } | null {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
   return {
-    tgl: `${d.getUTCDate()} ${MONTHS_ID[d.getUTCMonth()]} ${d.getUTCFullYear()}`,
+    tgl: `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}`,
     jam: `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`,
   };
 }
 
-// ── WaktuCard — Masuk (editable) + Keluar (read-only), dark slate gradient ────
+// ── WaktuCard — compact Masuk (editable) + Keluar (read-only) ─────────────
 
 function WaktuCard({
   value,
@@ -302,63 +284,50 @@ function WaktuCard({
   };
 
   return (
-    <div className="relative w-52 shrink-0 overflow-hidden rounded-xl bg-linear-to-br from-slate-700 to-slate-900 shadow-md transition-shadow duration-200 hover:shadow-lg hover:shadow-slate-400/30">
-      <CalendarDays size={64} className="pointer-events-none absolute -right-3 -bottom-3 text-white/[0.07]" />
-      <div className="relative flex flex-col px-3 py-2.5">
+    <div className="flex w-52 shrink-0 flex-col justify-center gap-1 rounded-lg bg-linear-to-br from-slate-700 to-slate-900 px-2.5 py-1.5 shadow-sm">
 
-        {/* ── Masuk (editable) ── */}
-        <span className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-emerald-300/90">
-          <LogIn size={9} /> Masuk
-        </span>
-        {editing ? (
-          <div className="flex flex-col gap-2">
-            <input
-              autoFocus
-              type="date"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Escape") cancel(); }}
-              className="w-full cursor-pointer rounded-lg border border-white/30 bg-white/15 px-2.5 py-1.5 text-sm font-semibold text-white outline-none scheme-dark focus:border-white/50 focus:bg-white/20 focus:ring-1 focus:ring-white/40"
-            />
-            <div className="flex gap-1.5">
-              <button onClick={save} className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-white/20 py-1.5 text-xs font-semibold text-white transition hover:bg-white/30">
-                <Check size={11} /> Simpan
-              </button>
-              <button onClick={cancel} className="flex cursor-pointer items-center justify-center gap-1 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/15 hover:text-white">
-                <X size={11} /> Batal
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setEditing(true)}
-            className="group/val w-full cursor-pointer rounded-lg text-left transition hover:bg-white/5"
-            aria-label="Edit tanggal masuk"
-          >
-            <p className="text-sm font-bold leading-tight text-white">{current}</p>
-            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-300">
-              <Clock size={9} className="text-slate-400" /> Pukul {masukJam}
-              <Pencil size={8} className="ml-auto text-slate-400/0 transition-all group-hover/val:text-slate-300/70" />
-            </p>
+      {/* ── Masuk (editable) ── */}
+      {editing ? (
+        <div className="flex items-center gap-1">
+          <input
+            autoFocus
+            type="date"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Escape") cancel(); }}
+            className="min-w-0 flex-1 cursor-pointer rounded-md border border-white/30 bg-white/15 px-1.5 py-1 text-xs font-semibold text-white outline-none scheme-dark focus:border-white/50 focus:bg-white/20"
+          />
+          <button onClick={save} aria-label="Simpan tanggal masuk" className="shrink-0 cursor-pointer rounded-md bg-white/20 p-1 text-white transition hover:bg-white/30">
+            <Check size={12} />
           </button>
-        )}
+          <button onClick={cancel} aria-label="Batal" className="shrink-0 cursor-pointer rounded-md bg-white/10 p-1 text-slate-300 transition hover:bg-white/20 hover:text-white">
+            <X size={12} />
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setEditing(true)}
+          className="group/m flex w-full cursor-pointer items-center gap-1.5 text-left"
+          aria-label="Edit tanggal masuk"
+          title="Klik untuk edit tanggal masuk"
+        >
+          <LogIn size={11} className="shrink-0 text-emerald-300" />
+          <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-300/90">Masuk</span>
+          <span className="ml-auto min-w-0 truncate text-xs font-semibold text-white">{shortDisplay(current)} · {masukJam}</span>
+          <Pencil size={9} className="shrink-0 text-slate-400/0 transition group-hover/m:text-slate-300/70" />
+        </button>
+      )}
 
-        {/* ── Divider ── */}
-        <div className="my-2 h-px bg-white/10" />
+      <div className="h-px bg-white/10" />
 
-        {/* ── Keluar (read-only) ── */}
-        <span className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-rose-300/90">
-          <LogOut size={9} /> Keluar
-        </span>
+      {/* ── Keluar (read-only) ── */}
+      <div className="flex w-full items-center gap-1.5">
+        <LogOut size={11} className="shrink-0 text-rose-300" />
+        <span className="text-[10px] font-bold uppercase tracking-wide text-rose-300/90">Keluar</span>
         {keluar ? (
-          <div>
-            <p className="text-sm font-bold leading-tight text-white">{keluar.tgl}</p>
-            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-300">
-              <Clock size={9} className="text-slate-400" /> Pukul {keluar.jam}
-            </p>
-          </div>
+          <span className="ml-auto min-w-0 truncate text-xs font-semibold text-white">{keluar.tgl} · {keluar.jam}</span>
         ) : (
-          <p className="text-[11px] italic leading-tight text-slate-400">Masih dalam perawatan</p>
+          <span className="ml-auto text-[11px] italic text-slate-400">Masih dirawat</span>
         )}
       </div>
     </div>
@@ -547,16 +516,6 @@ export default function PatientHeader({
                     icon={CreditCard}
                     value={<>{patient.penjamin}{patient.noBpjs && <span className="ml-1 font-mono text-emerald-500">{patient.noBpjs}</span>}</>}
                     cls="bg-emerald-50 ring-emerald-200 text-emerald-800"
-                  />
-                  <InfoChip
-                    icon={Phone}
-                    value={`${patient.namaKeluarga} (${patient.hubunganKeluarga})`}
-                    cls="bg-amber-50 ring-amber-200 text-amber-800"
-                  />
-                  <InfoChip
-                    icon={MapPin}
-                    value={patient.alamat}
-                    cls="bg-teal-50 ring-teal-200 text-teal-800"
                   />
                 </div>
               </motion.div>

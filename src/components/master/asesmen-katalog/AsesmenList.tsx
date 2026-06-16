@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MasterListPanel } from "@/components/master/shared";
 import {
@@ -9,7 +10,7 @@ import {
   getAsesmenStatusCfg, asesmenInitials,
 } from "@/lib/master/asesmenKatalogMock";
 import {
-  KATEGORI_CFG, KATEGORI_GROUPS, SEVERITY_CFG,
+  KATEGORI_CFG, KATEGORI_GROUPS, KATEGORI_ORDER, SEVERITY_CFG,
 } from "./asesmenKatalogShared";
 
 interface Props {
@@ -29,6 +30,8 @@ export default function AsesmenList({
 }: Props) {
   const [query, setQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("Semua");
+  // Grup kategori yang ditutup (collapse). Kosong = semua terbuka.
+  const [collapsed, setCollapsed] = useState<Set<AsesmenKategori>>(new Set());
 
   const filtered = items.filter((item) => {
     const q = query.toLowerCase();
@@ -43,6 +46,22 @@ export default function AsesmenList({
 
   const hasActiveFilter = filterStatus !== "Semua" || kategoriFilter !== "Semua";
   const aktifCount = items.filter((i) => i.status === "Aktif").length;
+
+  // Kategori yang punya item hasil filter (untuk render grup + toggle semua).
+  const visibleKatList = KATEGORI_ORDER.filter((k) => filtered.some((i) => i.kategori === k));
+  const visibleKats = visibleKatList.length;
+  const allCollapsed = visibleKats > 0 && visibleKatList.every((k) => collapsed.has(k));
+  // Saat ada pencarian → semua grup dipaksa terbuka agar match tak tersembunyi.
+  const searching = query.trim() !== "";
+
+  const toggleGroup = (k: AsesmenKategori) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  const toggleAll = () => setCollapsed(allCollapsed ? new Set() : new Set(visibleKatList));
 
   return (
     <MasterListPanel
@@ -97,7 +116,12 @@ export default function AsesmenList({
             </div>
             {KATEGORI_GROUPS.map((group) => (
               <div key={group.label} className="mt-1.5">
-                <p className="mb-0.5 text-[9px] font-medium uppercase text-slate-400">{group.label}</p>
+                <p className="mb-0.5 flex items-center gap-1 text-[9px] font-medium uppercase text-slate-400">
+                  {group.label}
+                  <span className="rounded bg-slate-100 px-1 font-mono text-[8px] normal-case text-slate-400" title="Sub-tab konsumen">
+                    {group.sub}
+                  </span>
+                </p>
                 <div className="flex flex-wrap gap-1">
                   {group.items.map((k) => {
                     const cfg = KATEGORI_CFG[k];
@@ -131,21 +155,70 @@ export default function AsesmenList({
       footer={
         <>
           <strong className="text-slate-700">{aktifCount}</strong> aktif ·{" "}
-          <strong className="text-slate-700">{KATEGORI_GROUPS.length}</strong> grup kategori
+          <strong className="text-slate-700">{visibleKats}</strong> kategori tampil
         </>
       }
     >
-      <ul>
-        {filtered.map((item, i) => (
-          <AsesmenRow
-            key={item.id}
-            item={item}
-            active={item.id === selectedId}
-            index={i}
-            onSelect={() => onSelect(item.id)}
-          />
-        ))}
-      </ul>
+      {/* Item dikelompokkan per KATEGORI; header tiap grup bisa di-collapse + sebut di mana dipakai. */}
+      {visibleKats > 0 && (
+        <div className="flex items-center justify-end px-3 py-1">
+          <button
+            type="button"
+            onClick={toggleAll}
+            className="rounded px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-violet-600"
+          >
+            {allCollapsed ? "Buka semua" : "Tutup semua"}
+          </button>
+        </div>
+      )}
+      {KATEGORI_ORDER.map((kat) => {
+        const rows = filtered.filter((it) => it.kategori === kat);
+        if (rows.length === 0) return null;
+        const cfg = KATEGORI_CFG[kat];
+        const Icon = cfg.icon;
+        const open = searching || !collapsed.has(kat);
+        return (
+          <section key={kat}>
+            <button
+              type="button"
+              onClick={() => toggleGroup(kat)}
+              aria-expanded={open}
+              className="flex w-full items-start gap-2 border-y border-slate-100 bg-slate-50/80 px-3 py-1.5 text-left transition hover:bg-slate-100/80"
+            >
+              <div className={cn("mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded", cfg.bg, cfg.text)}>
+                <Icon size={11} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
+                  {cfg.label}
+                  <span className="rounded-full bg-slate-200/70 px-1.5 text-[9px] font-bold text-slate-500">{rows.length}</span>
+                </p>
+                <p className="mt-0.5 text-[9px] leading-tight text-slate-400">
+                  Dipakai di: {cfg.usage}
+                </p>
+              </div>
+              <ChevronDown
+                size={14}
+                className={cn("mt-0.5 shrink-0 text-slate-400 transition-transform duration-150", open ? "" : "-rotate-90")}
+                aria-hidden
+              />
+            </button>
+            {open && (
+              <ul>
+                {rows.map((item, i) => (
+                  <AsesmenRow
+                    key={item.id}
+                    item={item}
+                    active={item.id === selectedId}
+                    index={i}
+                    onSelect={() => onSelect(item.id)}
+                  />
+                ))}
+              </ul>
+            )}
+          </section>
+        );
+      })}
     </MasterListPanel>
   );
 }
@@ -206,15 +279,8 @@ function AsesmenRow({
             </div>
           </div>
 
-          <div className="flex shrink-0 flex-col items-end gap-1">
-            <span className={cn(
-              "max-w-[100px] truncate rounded px-1 py-0 text-[9px] font-semibold",
-              katCfg.bg, katCfg.text,
-            )}>
-              {katCfg.label.replace(/^[^·]+· /, "")}
-            </span>
-            <div className="flex items-center gap-1">
-              {item.severityDefault && (
+          <div className="flex shrink-0 items-center gap-1">
+            {item.severityDefault && (
                 <span
                   className={cn("rounded px-1 text-[9px]", SEVERITY_CFG[item.severityDefault].bg, SEVERITY_CFG[item.severityDefault].text)}
                   title={`Severity default: ${item.severityDefault}`}
@@ -230,7 +296,6 @@ function AsesmenRow({
                   {initials}
                 </span>
               )}
-            </div>
           </div>
         </div>
       </button>

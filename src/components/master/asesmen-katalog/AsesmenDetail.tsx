@@ -10,6 +10,7 @@ import type {
   AsesmenItem, AsesmenKategori, AsesmenSeverity, AsesmenStatus,
 } from "@/lib/master/asesmenKatalogMock";
 import { isAsesmenValid, asesmenInitials, getAsesmenStatusCfg } from "@/lib/master/asesmenKatalogMock";
+import { KATEGORI_PREFIX } from "@/lib/schemas/master/asesmenKatalog";
 import {
   KATEGORI_CFG, KATEGORI_ORDER, KATEGORI_GROUPS,
   SEVERITY_CFG, SEVERITY_OPTS,
@@ -65,15 +66,16 @@ export default function AsesmenDetail({
                 accent="violet"
               />
             </Field>
-            <Field label="Kode Internal" required hint="Format bebas (mis. ALG-OB-001 atau internal lain)">
-              <TextInput
-                value={draft.kode}
-                onChange={(v) => onPatch({ kode: v.toUpperCase() })}
-                placeholder="ALG-OB-001"
-                className="font-mono"
-                maxW="max-w-[220px]"
-                accent="violet"
-              />
+            <Field label="Kode Katalog" hint="Dibuat otomatis per kategori saat disimpan — tidak dapat diubah">
+              {isNew ? (
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-violet-300 bg-violet-50 px-2.5 py-1 font-mono text-xs font-semibold text-violet-700">
+                  Auto · {KATEGORI_PREFIX[draft.kategori]}-NNN
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-xs font-semibold text-slate-700">
+                  {draft.kode}
+                </span>
+              )}
             </Field>
             <Field label="Deskripsi Singkat" hint="Tampil di detail; max 200 karakter">
               <TextArea
