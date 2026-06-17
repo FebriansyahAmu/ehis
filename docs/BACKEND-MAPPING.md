@@ -34,7 +34,7 @@
 | # | Sub-pane | Edge | Tabel | Endpoint | RBAC | Status |
 |---|----------|------|-------|----------|------|--------|
 | 1 | **SDM Assignment** | Pegawai ⇄ Location | `master.PenugasanRuangan` | `/master/penugasan-ruangan` (+`/:id`) | `master.penugasan-ruangan` | ✅ **DB** |
-| 2 | **Layanan Unit** | Tindakan ⇄ Location · Lab ⇄ Location | `master.LayananUnit` · `master.LayananUnitLab` | `/master/layanan-unit` · `/master/layanan-unit-lab` (+`/:id`) · `/master/tindakan-tersedia` | `master.mapping` · klinis: `clinical.tindakan` | ✅ **DB** |
+| 2 | **Layanan Unit** | Tindakan ⇄ Location · Lab ⇄ Location · Rad ⇄ Location | `master.LayananUnit` · `master.LayananUnitLab` · `master.LayananUnitRad` | `/master/layanan-unit` · `/master/layanan-unit-lab` · `/master/layanan-unit-rad` (+`/:id`) · `/master/tindakan-tersedia` | `master.mapping` · klinis: `clinical.tindakan` | ✅ **DB** |
 | 3 | **RBAC** | Role ⇄ Permission | `auth.role_permissions` | `/auth/rbac` · `/auth/rbac/:roleKey` | `master.mapping` | ✅ **DB** |
 | 4 | **Kewenangan Klinis** | Dokter ⇄ Tindakan | — (roster dokter real; edge belum) | roster: `/master/dokter` · grant: **belum** | `master.mapping` | 🟡 **Partial** (roster DB, edge mock) |
 | 5 | **Tarif Matrix** | Tindakan × Penjamin × Jenis Ruangan · Lab × Penjamin × Jenis Ruangan → Harga | `master.TarifTindakan` · `master.TarifLabTest` | `/master/tarif-tindakan` · `/master/tarif-lab-test` (+`/:id`) | `master.tarif` | ✅ **DB** |
@@ -54,19 +54,20 @@ Legenda: ✅ **DB** = persist nyata layered · 🟡 **Partial** = sebagian wired
 - **FE** [Mapping Hub → SDM Assignment](../src/components/master/mapping/sdm/) — tree Unit→Ruangan, assign **per-ruangan**, optimistik POST/DELETE + toast, SSR-hybrid. Roster dokter+pegawai REAL dari API (mock dihapus).
 - **Selesai** 2026-06-06 ([DONE.md](../.claude/DONE.md)).
 
-## 2. Layanan Unit — Tindakan/Lab ⇄ Location ✅
+## 2. Layanan Unit — Tindakan/Lab/Rad ⇄ Location ✅
 
-Matriks **terpadu**: baris = Tindakan (Katalog Tindakan) **+** grup "Tindakan Laboratorium" (Katalog Lab);
-kolom = Location (Ruangan) aktif. Dua tabel **paralel**, satu UI.
+Matriks **terpadu**: baris = Tindakan (Katalog Tindakan) **+** grup "Tindakan Laboratorium" (Katalog Lab)
+**+** grup "Tindakan Radiologi" (Katalog Radiologi); kolom = Location (Ruangan) aktif. **Tiga** tabel **paralel**, satu UI.
 
-- **Tabel** `master.LayananUnit` (Tindakan⇄Location) · `master.LayananUnitLab` (LabTest⇄Location) — keduanya hard-delete join, `@@unique`, idempoten.
+- **Tabel** `master.LayananUnit` (Tindakan⇄Location) · `master.LayananUnitLab` (LabTest⇄Location) · `master.LayananUnitRad` (RadCatalog⇄Location) — semua hard-delete join, `@@unique`, idempoten.
 - **Endpoint** (gate **`master.mapping`** read/update):
   - `GET/POST /master/layanan-unit` + `DELETE /:id`
   - `GET/POST /master/layanan-unit-lab` + `DELETE /:id`
+  - `GET/POST /master/layanan-unit-rad` + `DELETE /:id`
   - `GET /master/tindakan-tersedia` — **konsumen klinis** (gate `clinical.tindakan:read`), lihat §Konsumen Klinis.
-- **Lapisan** schemas/DAL/Service (`list` actor-less) + client `lib/api/master/layananUnit.ts` · `layananUnitLab.ts` · `tindakanTersedia.ts`.
-- **FE** [layanan/](../src/components/master/mapping/layanan/) — model unified `LayananRow` (kind tindakan|lab) + `LayananEdge`; Matrix/MobileView jenis-agnostik; `persistCell` rute grant/revoke per kind. **Bulk select-all tri-state 3 level**: per kolom/Location · per baris · per grup kategori (desktop + mobile drill-down), batched optimistik. Tree-filter kolom (LayananUnitTreePanel).
-- **Selesai** 2026-06-12 (Tindakan + Lab + select-all + tindakan-tersedia).
+- **Lapisan** schemas/DAL/Service (`list` actor-less) + client `lib/api/master/layananUnit.ts` · `layananUnitLab.ts` · `layananUnitRad.ts` · `tindakanTersedia.ts`.
+- **FE** [layanan/](../src/components/master/mapping/layanan/) — model unified `LayananRow` (kind tindakan|lab|**rad**) + `LayananEdge`; Matrix/MobileView jenis-agnostik; `persistCell` rute grant/revoke per kind (tindakan/lab/rad). **Bulk select-all tri-state 3 level**: per kolom/Location · per baris · per grup kategori (desktop + mobile drill-down), batched optimistik. **Grup kategori collapsible** (chevron header, default terbuka) di matrix desktop + mobile. Tree-filter kolom (LayananUnitTreePanel).
+- **Selesai** 2026-06-12 (Tindakan + Lab + select-all + tindakan-tersedia). **Radiologi federasi + grup collapsible: 2026-06-17.**
 
 ## 3. RBAC — Role ⇄ Permission ✅
 

@@ -7,7 +7,7 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Building2, Check, Minus, MapPin, FlaskConical } from "lucide-react";
+import { Building2, Check, Minus, MapPin, FlaskConical, Radiation, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   type LayananMap, type LayananUnit, type LayananRow, type RowKategori,
@@ -33,6 +33,15 @@ export default function LayananUnitMobileView({
   // Pilihan user (null = belum pilih). Unit aktif efektif DI-DERIVE saat render (bukan effect) →
   // pilihan dipakai bila masih valid, else jatuh ke unit pertama. Hindari setState-in-effect.
   const [selectedKode, setSelectedKode] = useState<string | null>(null);
+  // Grup yang dilipat (collapse). Default = semua kategori → semua tertutup (collapse=true).
+  const [collapsed, setCollapsed] = useState<Set<RowKategori>>(() => new Set(ROW_KATEGORI_ORDER));
+  const toggleCollapse = (cat: RowKategori) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
   const selectedUnit = useMemo(() => {
     if (selectedKode) {
       const found = units.find((u) => u.kode === selectedKode);
@@ -147,6 +156,8 @@ export default function LayananUnitMobileView({
                 if (items.length === 0 || !visibleKategori.has(cat)) return null;
                 const cfg = ROW_KATEGORI_CFG[cat];
                 const isLab = cat === "Laboratorium";
+                const isRad = cat === "Radiologi";
+                const isCollapsed = collapsed.has(cat);
                 // State "Pilih Semua" grup utk unit terpilih.
                 const grantedInGroup = items.filter((r) => hasLayanan(map, r.id, selectedUnit.kode)).length;
                 const groupState: "none" | "partial" | "all" =
@@ -159,8 +170,20 @@ export default function LayananUnitMobileView({
                         cfg.bg,
                       )}
                     >
+                      <button
+                        type="button"
+                        onClick={() => toggleCollapse(cat)}
+                        title={isCollapsed ? `Buka grup ${cfg.label}` : `Lipat grup ${cfg.label}`}
+                        aria-label={isCollapsed ? `Buka grup ${cfg.label}` : `Lipat grup ${cfg.label}`}
+                        aria-expanded={!isCollapsed}
+                        className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded transition hover:bg-black/5", cfg.text)}
+                      >
+                        {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+                      </button>
                       {isLab ? (
                         <FlaskConical size={11} className={cfg.text} />
+                      ) : isRad ? (
+                        <Radiation size={11} className={cfg.text} />
                       ) : (
                         <span className={cn("h-2 w-2 rounded-full", cfg.dot)} />
                       )}
@@ -189,6 +212,7 @@ export default function LayananUnitMobileView({
                         Semua
                       </button>
                     </div>
+                    {!isCollapsed && (
                     <ul className="divide-y divide-slate-100">
                       {items.map((row) => {
                         const granted = hasLayanan(map, row.id, selectedUnit.kode);
@@ -208,6 +232,7 @@ export default function LayananUnitMobileView({
                               <div className="min-w-0 flex-1">
                                 <span className="flex items-center gap-1 truncate m-xs font-semibold text-slate-800">
                                   {row.kind === "lab" && <FlaskConical size={11} className="shrink-0 text-cyan-600" />}
+                                  {row.kind === "rad" && <Radiation size={11} className="shrink-0 text-rose-600" />}
                                   {row.nama}
                                 </span>
                                 <span className="mt-0.5 flex items-center gap-1.5">
@@ -234,6 +259,7 @@ export default function LayananUnitMobileView({
                         );
                       })}
                     </ul>
+                    )}
                   </div>
                 );
               })

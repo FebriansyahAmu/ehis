@@ -13,6 +13,8 @@ import type { PegawaiListItemDTO } from "@/lib/api/pegawai";
 import type { PenugasanRuanganDTO } from "@/lib/api/penugasanRuangan";
 import type { TindakanDTO } from "@/lib/schemas/master/tindakan";
 import type { LabTestDTO } from "@/lib/schemas/master/labTest";
+import type { RadCatalogDTO } from "@/lib/schemas/master/radCatalog";
+import type { LayananUnitRadEdgeDTO } from "@/lib/schemas/master/layananUnitRad";
 import type { LayananUnitEdgeDTO } from "@/lib/schemas/master/layananUnit";
 import type { LayananUnitLabEdgeDTO } from "@/lib/schemas/master/layananUnitLab";
 import type { TarifTindakanDTO } from "@/lib/schemas/master/tarifTindakan";
@@ -71,10 +73,14 @@ interface MappingHubPageProps {
   initialTindakan?: TindakanDTO[];
   /** Katalog laboratorium dari SSR — diteruskan ke Layanan Unit (baris grup Lab). */
   initialLab?: LabTestDTO[];
+  /** Katalog radiologi dari SSR — diteruskan ke Layanan Unit (baris grup Rad). */
+  initialRad?: RadCatalogDTO[];
   /** Edge mapping Tindakan dari SSR — diteruskan ke Layanan Unit (seed map persist). */
   initialLayanan?: LayananUnitEdgeDTO[];
   /** Edge mapping Lab dari SSR — diteruskan ke Layanan Unit (seed map persist). */
   initialLayananLab?: LayananUnitLabEdgeDTO[];
+  /** Edge mapping Radiologi dari SSR — diteruskan ke Layanan Unit (seed map persist). */
+  initialLayananRad?: LayananUnitRadEdgeDTO[];
   /** Edge tarif tindakan dari SSR — diteruskan ke Tarif Matrix (seed map persist). */
   initialTarif?: TarifTindakanDTO[];
   /** Edge tarif lab dari SSR — diteruskan ke Tarif Matrix grup Lab (seed map persist). */
@@ -85,7 +91,7 @@ interface MappingHubPageProps {
   initialFormularium?: FormulariumEdgeDTO[];
 }
 
-export default function MappingHubPage({ initialTree, initialDokters, initialPegawai, initialPenugasan, initialTindakan, initialLab, initialLayanan, initialLayananLab, initialTarif, initialTarifLab, initialObat, initialFormularium }: MappingHubPageProps = {}) {
+export default function MappingHubPage({ initialTree, initialDokters, initialPegawai, initialPenugasan, initialTindakan, initialLab, initialRad, initialLayanan, initialLayananLab, initialLayananRad, initialTarif, initialTarifLab, initialObat, initialFormularium }: MappingHubPageProps = {}) {
   const searchParams = useSearchParams();
   const initialKey = (() => {
     const param = searchParams?.get("sub") as SubpageKey | null;
@@ -162,7 +168,7 @@ export default function MappingHubPage({ initialTree, initialDokters, initialPeg
                     transition={{ duration: 0.2 }}
                     className="flex min-h-0 flex-1 flex-col"
                   >
-                    {renderPane(activeKey, initialTree, initialDokters, initialPegawai, initialPenugasan, initialTindakan, initialLab, initialLayanan, initialLayananLab, initialTarif, initialTarifLab, initialObat, initialFormularium)}
+                    {renderPane(activeKey, initialTree, initialDokters, initialPegawai, initialPenugasan, initialTindakan, initialLab, initialRad, initialLayanan, initialLayananLab, initialLayananRad, initialTarif, initialTarifLab, initialObat, initialFormularium)}
                   </motion.div>
                 </AnimatePresence>
               </div>
@@ -182,8 +188,10 @@ function renderPane(
   initialPenugasan?: PenugasanRuanganDTO[],
   initialTindakan?: TindakanDTO[],
   initialLab?: LabTestDTO[],
+  initialRad?: RadCatalogDTO[],
   initialLayanan?: LayananUnitEdgeDTO[],
   initialLayananLab?: LayananUnitLabEdgeDTO[],
+  initialLayananRad?: LayananUnitRadEdgeDTO[],
   initialTarif?: TarifTindakanDTO[],
   initialTarifLab?: TarifLabTestDTO[],
   initialObat?: ObatDTO[],
@@ -192,7 +200,7 @@ function renderPane(
   if (key === "sdm")
     return <SDMAssignmentPane initialTree={initialTree} initialDokters={initialDokters} initialPegawai={initialPegawai} initialPenugasan={initialPenugasan} />;
   if (key === "kewenangan")  return <KewenanganPane initialDokters={initialDokters} />;
-  if (key === "layanan")     return <LayananUnitPane tindakan={initialTindakan} lab={initialLab} tree={initialTree} layanan={initialLayanan} layananLab={initialLayananLab} />;
+  if (key === "layanan")     return <LayananUnitPane tindakan={initialTindakan} lab={initialLab} rad={initialRad} tree={initialTree} layanan={initialLayanan} layananLab={initialLayananLab} layananRad={initialLayananRad} />;
   if (key === "tarif")       return <TarifPane tindakan={initialTindakan} lab={initialLab} tree={initialTree} tarif={initialTarif} tarifLab={initialTarifLab} />;
   if (key === "formularium") return <FormulariumPane obat={initialObat} tree={initialTree} formularium={initialFormularium} />;
   if (key === "distribusi")  return <DistribusiPane />;

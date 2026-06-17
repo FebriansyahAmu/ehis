@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Minus, Building2, FlaskConical } from "lucide-react";
+import { Check, Minus, Building2, FlaskConical, Radiation, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   type LayananMap, type LayananUnit, type LayananRow, type RowKategori,
@@ -24,6 +25,15 @@ export default function LayananUnitMatrix({
   rows, units, map, visibleKategori, onToggle, onToggleRow, onToggleColumn, onToggleGroup,
 }: LayananUnitMatrixProps) {
   const grouped = groupRowsByKategori(rows);
+  // Grup yang DILIPAT (collapse). Default = semua kategori → semua grup tertutup (collapse=true).
+  const [collapsed, setCollapsed] = useState<Set<RowKategori>>(() => new Set(ROW_KATEGORI_ORDER));
+  const toggleCollapse = (cat: RowKategori) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
   // Baris yang BENAR-BENAR dapat di-toggle massal dari header kolom = baris yang tampil (lolos
   // filter kategori). Sama persis cakupan `onToggleColumn` di pane → checkbox "Pilih semua"
   // mencerminkan state aktual yang akan terdampak.
@@ -99,6 +109,8 @@ export default function LayananUnitMatrix({
                   catCfg={catCfg}
                   units={units}
                   map={map}
+                  collapsed={collapsed.has(cat)}
+                  onToggleCollapse={() => toggleCollapse(cat)}
                   onToggle={onToggle}
                   onToggleRow={onToggleRow}
                   onToggleGroup={onToggleGroup}
@@ -123,9 +135,12 @@ export default function LayananUnitMatrix({
           <Legend bg="bg-teal-600" label="Boleh dilakukan" />
           <Legend bg="bg-white border border-slate-300" label="Tidak boleh" />
           <span className="inline-flex items-center gap-1">
-            <FlaskConical size={11} className="text-cyan-600" /> Tes laboratorium
+            <FlaskConical size={11} className="text-cyan-600" /> Tes lab
           </span>
-          <span className="ml-auto italic">Klik judul kolom / baris untuk toggle massal</span>
+          <span className="inline-flex items-center gap-1">
+            <Radiation size={11} className="text-rose-600" /> Radiologi
+          </span>
+          <span className="ml-auto italic">Klik chevron grup untuk lipat · judul kolom/baris untuk toggle massal</span>
         </div>
       </div>
     </div>
@@ -149,15 +164,17 @@ interface KategoriBlockProps {
   catCfg: typeof ROW_KATEGORI_CFG[RowKategori];
   units: LayananUnit[];
   map: LayananMap;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
   onToggle: (rowId: string, unitKode: string) => void;
   onToggleRow: (rowId: string, granted: boolean) => void;
   onToggleGroup: (rowIds: string[], granted: boolean) => void;
 }
 
 function KategoriBlock({
-  cat, items, catCfg, units, map, onToggle, onToggleRow, onToggleGroup,
+  cat, items, catCfg, units, map, collapsed, onToggleCollapse, onToggle, onToggleRow, onToggleGroup,
 }: KategoriBlockProps) {
-  const noun = cat === "Laboratorium" ? "tes" : "tindakan";
+  const noun = cat === "Laboratorium" ? "tes" : cat === "Radiologi" ? "pemeriksaan" : "tindakan";
   // State "Pilih Semua" grup = seluruh sel (baris grup × unit tampak).
   const totalCells = items.length * units.length;
   let grantedCells = 0;
@@ -170,39 +187,54 @@ function KategoriBlock({
       <tr>
         <td
           colSpan={units.length + 1}
-          className={cn("sticky left-0 border-b border-slate-200 px-3 py-1", catCfg.bg)}
+          className={cn("sticky left-0 border-b border-slate-200 px-2 py-1", catCfg.bg)}
         >
-          <button
-            type="button"
-            onClick={() => onToggleGroup(items.map((r) => r.id), state !== "all")}
-            title={`${state === "all" ? "Kosongkan" : "Pilih"} semua ${catCfg.label} di semua unit tampak`}
-            aria-label={`${state === "all" ? "Kosongkan" : "Pilih"} semua ${catCfg.label} di semua unit tampak`}
-            className="flex w-full items-center gap-1.5 py-0.5 text-left"
-          >
-            <span
-              className={cn(
-                "flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition",
-                state === "none"
-                  ? "border-slate-300 bg-white hover:border-teal-400"
-                  : "border-teal-600 bg-teal-600 text-white",
-              )}
+          {/* Chevron collapse + checkbox select-all dipisah (hindari nested button). */}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              title={collapsed ? `Buka grup ${catCfg.label}` : `Lipat grup ${catCfg.label}`}
+              aria-label={collapsed ? `Buka grup ${catCfg.label}` : `Lipat grup ${catCfg.label}`}
+              aria-expanded={!collapsed}
+              className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded transition hover:bg-black/5", catCfg.text)}
             >
-              {state === "all" && <Check size={10} strokeWidth={3} />}
-              {state === "partial" && <Minus size={10} strokeWidth={3} />}
-            </span>
-            {cat === "Laboratorium" ? (
-              <FlaskConical size={11} className={catCfg.text} />
-            ) : (
-              <span className={cn("h-2 w-2 rounded-full", catCfg.dot)} />
-            )}
-            <span className={cn("m-mini font-bold uppercase tracking-wide", catCfg.text)}>
-              {catCfg.label}
-            </span>
-            <span className={cn("m-mini opacity-70", catCfg.text)}>· {items.length} {noun}</span>
-          </button>
+              {collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+            </button>
+            <button
+              type="button"
+              onClick={() => onToggleGroup(items.map((r) => r.id), state !== "all")}
+              title={`${state === "all" ? "Kosongkan" : "Pilih"} semua ${catCfg.label} di semua unit tampak`}
+              aria-label={`${state === "all" ? "Kosongkan" : "Pilih"} semua ${catCfg.label} di semua unit tampak`}
+              className="flex flex-1 items-center gap-1.5 py-0.5 text-left"
+            >
+              <span
+                className={cn(
+                  "flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition",
+                  state === "none"
+                    ? "border-slate-300 bg-white hover:border-teal-400"
+                    : "border-teal-600 bg-teal-600 text-white",
+                )}
+              >
+                {state === "all" && <Check size={10} strokeWidth={3} />}
+                {state === "partial" && <Minus size={10} strokeWidth={3} />}
+              </span>
+              {cat === "Laboratorium" ? (
+                <FlaskConical size={11} className={catCfg.text} />
+              ) : cat === "Radiologi" ? (
+                <Radiation size={11} className={catCfg.text} />
+              ) : (
+                <span className={cn("h-2 w-2 rounded-full", catCfg.dot)} />
+              )}
+              <span className={cn("m-mini font-bold uppercase tracking-wide", catCfg.text)}>
+                {catCfg.label}
+              </span>
+              <span className={cn("m-mini opacity-70", catCfg.text)}>· {items.length} {noun}</span>
+            </button>
+          </div>
         </td>
       </tr>
-      {items.map((row, i) => (
+      {!collapsed && items.map((row, i) => (
         <LayananRowItem
           key={row.id}
           row={row}
@@ -247,6 +279,7 @@ function LayananRowItem({
         >
           <span className="flex items-center gap-1 truncate m-xs font-semibold text-slate-800">
             {row.kind === "lab" && <FlaskConical size={11} className="shrink-0 text-cyan-600" />}
+            {row.kind === "rad" && <Radiation size={11} className="shrink-0 text-rose-600" />}
             {row.nama}
           </span>
           <div className="mt-0.5 flex w-full items-center gap-1.5">

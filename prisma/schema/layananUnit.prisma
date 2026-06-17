@@ -61,3 +61,31 @@ model LayananUnitLab {
   @@map("layanan_unit_lab")
   @@schema("master")
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+//  Layanan Unit — RADIOLOGI. Link N:N RadCatalog ⇄ Ruangan (Location): "pemeriksaan
+//  radiologi apa boleh dilakukan di ruangan mana". Dikelola di Mapping Hub → Layanan Unit,
+//  grup "Tindakan Radiologi" (baris matriks dari Katalog Radiologi).
+//
+//  Tabel TERPISAH dari LayananUnit/LayananUnitLab — selaras keputusan federasi: tiap domain
+//  katalog = tabel berdiri-sendiri sampai chargemaster menyatukan (TODO-CHARGEMASTER CM2/CM5).
+//  Bukan polymorphic. Sama persis bentuk: join table, HARD delete, unik (rad, location) idempoten.
+// ════════════════════════════════════════════════════════════════════════════
+
+model LayananUnitRad {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  radCatalogId String     @map("rad_catalog_id") @db.Uuid
+  radCatalog   RadCatalog @relation(fields: [radCatalogId], references: [id], onDelete: Restrict)
+
+  locationId String   @map("location_id") @db.Uuid
+  location   Location @relation("LayananRadLokasi", fields: [locationId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([radCatalogId, locationId])
+  @@index([locationId])
+  @@index([radCatalogId])
+  @@map("layanan_unit_rad")
+  @@schema("master")
+}

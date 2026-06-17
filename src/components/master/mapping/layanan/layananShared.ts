@@ -4,8 +4,10 @@ import {
 } from "@/lib/master/tindakanMock";
 import type { TindakanDTO } from "@/lib/schemas/master/tindakan";
 import type { LabTestDTO } from "@/lib/schemas/master/labTest";
+import type { RadCatalogDTO } from "@/lib/schemas/master/radCatalog";
 import type { LayananUnitEdgeDTO } from "@/lib/schemas/master/layananUnit";
 import type { LayananUnitLabEdgeDTO } from "@/lib/schemas/master/layananUnitLab";
+import type { LayananUnitRadEdgeDTO } from "@/lib/schemas/master/layananUnitRad";
 import type { AnyNode, LocationNode, LocationType } from "@/components/master/ruangan/ruanganShared";
 
 // ── Types ─────────────────────────────────────────────────
@@ -35,24 +37,26 @@ export const UNIT_CATEGORY_CFG: Record<
 
 export const UNIT_CATEGORY_ORDER: LayananUnit["category"][] = ["Klinis", "Poli", "Penunjang"];
 
-// ── Baris matriks: Tindakan + Lab terpadu ────────────────--
-// Matriks Layanan Unit memetakan DUA jenis baris ke kolom ruangan: katalog Tindakan (per kategori)
-// dan katalog Laboratorium (1 grup "Tindakan Laboratorium"). Keduanya disatukan jadi `LayananRow`
-// agar Matrix/MobileView agnostik jenis. `kind` menentukan endpoint persist (tindakan vs lab).
+// ── Baris matriks: Tindakan + Lab + Radiologi terpadu ─────--
+// Matriks Layanan Unit memetakan TIGA jenis baris ke kolom ruangan: katalog Tindakan (per kategori),
+// katalog Laboratorium (grup "Tindakan Laboratorium"), dan katalog Radiologi (grup "Tindakan
+// Radiologi"). Semua disatukan jadi `LayananRow` agar Matrix/MobileView agnostik jenis. `kind`
+// menentukan endpoint persist (tindakan vs lab vs rad).
 
-export type RowKind = "tindakan" | "lab";
+export type RowKind = "tindakan" | "lab" | "rad";
 
-/** Pseudo-kategori untuk grup Lab — disisipkan setelah semua kategori tindakan. */
-export type RowKategori = TindakanKategori | "Laboratorium";
+/** Pseudo-kategori untuk grup Lab & Rad — disisipkan setelah semua kategori tindakan. */
+export type RowKategori = TindakanKategori | "Laboratorium" | "Radiologi";
 
 type RowKatCfg = { label: string; short: string; bg: string; text: string; dot: string };
 
 export const ROW_KATEGORI_CFG: Record<RowKategori, RowKatCfg> = {
   ...KATEGORI_CFG,
   Laboratorium: { label: "Tindakan Laboratorium", short: "Lab", bg: "bg-cyan-50", text: "text-cyan-700", dot: "bg-cyan-500" },
+  Radiologi:    { label: "Tindakan Radiologi",    short: "Rad", bg: "bg-rose-50", text: "text-rose-700", dot: "bg-rose-500" },
 };
 
-export const ROW_KATEGORI_ORDER: RowKategori[] = [...KATEGORI_ORDER, "Laboratorium"];
+export const ROW_KATEGORI_ORDER: RowKategori[] = [...KATEGORI_ORDER, "Laboratorium", "Radiologi"];
 
 /** Satu baris matriks (tindakan atau tes lab) — bentuk seragam untuk render + filter. */
 export interface LayananRow {
@@ -98,6 +102,19 @@ export function rowsFromLab(tests: LabTestDTO[]): LayananRow[] {
       searchText: `${t.nama} ${t.kode} ${t.kategori}`.toLowerCase(),
     };
   });
+}
+
+/** Katalog radiologi → baris matriks (semua di grup "Radiologi", chip = modalitas FHIR). */
+export function rowsFromRad(items: RadCatalogDTO[]): LayananRow[] {
+  return items.map((r) => ({
+    id: r.id,
+    kind: "rad" as const,
+    nama: r.nama,
+    kategori: "Radiologi" as const,
+    subLabel: r.kode || r.modalitas,
+    chip: { label: r.modalitas, bg: "bg-rose-50", text: "text-rose-700" },
+    searchText: `${r.nama} ${r.kode} ${r.kodeIcd ?? ""} ${r.modalitas}`.toLowerCase(),
+  }));
 }
 
 /** Grup baris per RowKategori (urutan tetap ROW_KATEGORI_ORDER; semua kunci di-seed kosong). */
@@ -173,6 +190,10 @@ export function tindakanToEdge(e: LayananUnitEdgeDTO): LayananEdge {
 
 export function labToEdge(e: LayananUnitLabEdgeDTO): LayananEdge {
   return { id: e.id, rowId: e.labTestId, kind: "lab", ruanganKode: e.ruanganKode };
+}
+
+export function radToEdge(e: LayananUnitRadEdgeDTO): LayananEdge {
+  return { id: e.id, rowId: e.radCatalogId, kind: "rad", ruanganKode: e.ruanganKode };
 }
 
 /** Kunci index edge: `${rowId}|${ruanganKode}` → id edge (untuk revoke). */

@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Activity, MapPin, Link2, Search, Loader2, EyeOff, Check, FlaskConical } from "lucide-react";
+import { Activity, MapPin, Link2, Search, Loader2, EyeOff, Check, FlaskConical, Radiation } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AnyNode } from "@/components/master/ruangan/ruanganShared";
 import { getTree } from "@/lib/api/ruangan";
 import { listTindakan, type TindakanDTO } from "@/lib/api/master/tindakan";
 import { listLabTest, type LabTestDTO } from "@/lib/api/master/labTest";
+import { listRadCatalog, type RadCatalogDTO } from "@/lib/api/master/radCatalog";
 import {
   type LayananUnitEdgeDTO,
   listAllLayanan, grantLayanan, revokeLayanan,
@@ -16,13 +17,17 @@ import {
   type LayananUnitLabEdgeDTO,
   listAllLayananLab, grantLayananLab, revokeLayananLab,
 } from "@/lib/api/master/layananUnitLab";
+import {
+  type LayananUnitRadEdgeDTO,
+  listAllLayananRad, grantLayananRad, revokeLayananRad,
+} from "@/lib/api/master/layananUnitRad";
 import { ApiError } from "@/lib/api/client";
 import { toast } from "@/lib/ui/toastStore";
 import {
   type LayananMap, type LayananRow, type RowKategori, type LayananEdge,
   countAllLayanan, unitsFromTree, tindakanRecordsFromDTO,
-  rowsFromTindakan, rowsFromLab, mapFromEdges, edgeKey, setPresence,
-  tindakanToEdge, labToEdge,
+  rowsFromTindakan, rowsFromLab, rowsFromRad, mapFromEdges, edgeKey, setPresence,
+  tindakanToEdge, labToEdge, radToEdge,
   ROW_KATEGORI_ORDER, ROW_KATEGORI_CFG,
   readEdgeCache, writeEdgeCache, cacheEdge, uncacheEdge,
 } from "./layananShared";
@@ -35,15 +40,19 @@ interface Props {
   tindakan?: TindakanDTO[];
   /** Katalog laboratorium dari SSR (API /master/lab-test). Absen → client fetch. */
   lab?: LabTestDTO[];
+  /** Katalog radiologi dari SSR (API /master/rad-catalog). Absen → client fetch. */
+  rad?: RadCatalogDTO[];
   /** Tree Ruangan dari SSR — kolom unit diturunkan dari Location aktif. Absen → client fetch. */
   tree?: AnyNode[];
   /** Edge mapping Tindakan persist dari SSR (API /master/layanan-unit). Absen → client fetch. */
   layanan?: LayananUnitEdgeDTO[];
   /** Edge mapping Lab persist dari SSR (API /master/layanan-unit-lab). Absen → client fetch. */
   layananLab?: LayananUnitLabEdgeDTO[];
+  /** Edge mapping Radiologi persist dari SSR (API /master/layanan-unit-rad). Absen → client fetch. */
+  layananRad?: LayananUnitRadEdgeDTO[];
 }
 
-export default function LayananUnitPane({ tindakan, lab, tree, layanan, layananLab }: Props) {
+export default function LayananUnitPane({ tindakan, lab, rad, tree, layanan, layananLab, layananRad }: Props) {
   const seededTindakan = useMemo(() => (tindakan ? tindakanRecordsFromDTO(tindakan) : []), [tindakan]);
   const seededUnitKodes = useMemo(() => new Set(unitsFromTree(tree ?? []).map((u) => u.kode)), [tree]);
   // First paint: cache sesi (state terkini, sudah memuat edit sesi ini) bila ada, else snapshot SSR
@@ -52,14 +61,16 @@ export default function LayananUnitPane({ tindakan, lab, tree, layanan, layananL
     const fromSSR: LayananEdge[] = [
       ...(layanan ?? []).map(tindakanToEdge),
       ...(layananLab ?? []).map(labToEdge),
+      ...(layananRad ?? []).map(radToEdge),
     ];
     return mapFromEdges(readEdgeCache() ?? fromSSR, seededUnitKodes);
-  }, [layanan, layananLab, seededUnitKodes]);
+  }, [layanan, layananLab, layananRad, seededUnitKodes]);
 
-  const ssrComplete = !!(tree && tindakan && lab && layanan && layananLab);
+  const ssrComplete = !!(tree && tindakan && lab && rad && layanan && layananLab && layananRad);
   const [nodes, setNodes] = useState<AnyNode[]>(tree ?? []);
   const [allTindakan, setAllTindakan] = useState(seededTindakan);
   const [allLab, setAllLab] = useState<LabTestDTO[]>(lab ?? []);
+  const [allRad, setAllRad] = useState<RadCatalogDTO[]>(rad ?? []);
   const [map, setMap] = useState<LayananMap>(seededEdges.map);
   const [loaded, setLoaded] = useState(ssrComplete);
   const [search, setSearch] = useState("");
@@ -76,12 +87,12 @@ export default function LayananUnitPane({ tindakan, lab, tree, layanan, layananL
   // Jadi true begitu user mengedit → reconcile-on-mount tak menimpa hasil optimistik in-flight.
   const dirtyRef = useRef(false);
 
-  // Baris matriks = Tindakan (per kategori) + Lab (grup "Tindakan Laboratorium").
+  // Baris matriks = Tindakan (per kategori) + Lab (grup "Tindakan Laboratorium") + Rad (grup "Tindakan Radiologi").
   const allRows = useMemo<LayananRow[]>(
-    () => [...rowsFromTindakan(allTindakan), ...rowsFromLab(allLab)],
-    [allTindakan, allLab],
+    () => [...rowsFromTindakan(allTindakan), ...rowsFromLab(allLab), ...rowsFromRad(allRad)],
+    [allTindakan, allLab, allRad],
   );
-  // rowId → jenis (tindakan|lab) → menentukan endpoint persist saat toggle.
+  // rowId → jenis (tindakan|lab|rad) → menentukan endpoint persist saat toggle.
   const kindById = useMemo(() => new Map(allRows.map((r) => [r.id, r.kind])), [allRows]);
 
   // Kolom unit = Location (Ruangan) aktif dari master Unit & Ruangan.
@@ -100,20 +111,27 @@ export default function LayananUnitPane({ tindakan, lab, tree, layanan, layananL
     const ac = new AbortController();
     (async () => {
       try {
-        const [treeRes, tindakanRes, labRes, edgeRes, labEdgeRes] = await Promise.all([
+        const [treeRes, tindakanRes, labRes, radRes, edgeRes, labEdgeRes, radEdgeRes] = await Promise.all([
           tree ? null : getTree(ac.signal),
           tindakan ? null : listTindakan({ limit: 200 }, ac.signal),
           lab ? null : listLabTest({ status: "Aktif", limit: 200 }, ac.signal),
+          rad ? null : listRadCatalog({ status: "Aktif", limit: 500 }, ac.signal),
           listAllLayanan(ac.signal),
           listAllLayananLab(ac.signal),
+          listAllLayananRad(ac.signal),
         ]);
         if (ac.signal.aborted) return;
         const newNodes = treeRes ?? tree ?? [];
         if (treeRes) setNodes(treeRes);
         if (tindakanRes) setAllTindakan(tindakanRecordsFromDTO(tindakanRes.items));
         if (labRes) setAllLab(labRes.items);
+        if (radRes) setAllRad(radRes.items);
         const valid = new Set(unitsFromTree(newNodes).map((u) => u.kode));
-        const edges: LayananEdge[] = [...edgeRes.map(tindakanToEdge), ...labEdgeRes.map(labToEdge)];
+        const edges: LayananEdge[] = [
+          ...edgeRes.map(tindakanToEdge),
+          ...labEdgeRes.map(labToEdge),
+          ...radEdgeRes.map(radToEdge),
+        ];
         const { map: nextMap, index } = mapFromEdges(edges, valid);
         // Jangan timpa bila user sudah menoggle selama fetch berlangsung (cegah clobber optimistik).
         if (!dirtyRef.current) {
@@ -146,6 +164,7 @@ export default function LayananUnitPane({ tindakan, lab, tree, layanan, layananL
   }, [allRows, units, map]);
 
   const labCount = useMemo(() => allRows.filter((r) => r.kind === "lab").length, [allRows]);
+  const radCount = useMemo(() => allRows.filter((r) => r.kind === "rad").length, [allRows]);
 
   // ── Persist grant/revoke (optimistik → server → revert yang gagal) ──────────
   type Change = { rowId: string; unitKode: string; granted: boolean };
@@ -159,15 +178,17 @@ export default function LayananUnitPane({ tindakan, lab, tree, layanan, layananL
     try {
       if (c.granted) {
         if (edgeIndexRef.current.has(key)) return true; // sudah granted
-        const edge: LayananEdge = kind === "lab"
-          ? labToEdge(await grantLayananLab({ labTestId: c.rowId, locationId }))
-          : tindakanToEdge(await grantLayanan({ tindakanId: c.rowId, locationId }));
+        let edge: LayananEdge;
+        if (kind === "lab") edge = labToEdge(await grantLayananLab({ labTestId: c.rowId, locationId }));
+        else if (kind === "rad") edge = radToEdge(await grantLayananRad({ radCatalogId: c.rowId, locationId }));
+        else edge = tindakanToEdge(await grantLayanan({ tindakanId: c.rowId, locationId }));
         edgeIndexRef.current.set(key, edge.id);
         cacheEdge(edge); // cache sesi ikut update → seed remount konsisten (tanpa flicker)
       } else {
         const id = edgeIndexRef.current.get(key);
         if (!id) return true; // sudah tak ada
         if (kind === "lab") await revokeLayananLab(id);
+        else if (kind === "rad") await revokeLayananRad(id);
         else await revokeLayanan(id);
         edgeIndexRef.current.delete(key);
         uncacheEdge(c.rowId, c.unitKode);
@@ -285,7 +306,7 @@ export default function LayananUnitPane({ tindakan, lab, tree, layanan, layananL
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      <PaneHeader stats={stats} totalRows={allRows.length} totalUnit={units.length} labCount={labCount} />
+      <PaneHeader stats={stats} totalRows={allRows.length} totalUnit={units.length} labCount={labCount} radCount={radCount} />
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
         {loaded && units.length > 0 && (
@@ -455,12 +476,13 @@ export default function LayananUnitPane({ tindakan, lab, tree, layanan, layananL
 // ── Sub-components ───────────────────────────────────────
 
 function PaneHeader({
-  stats, totalRows, totalUnit, labCount,
+  stats, totalRows, totalUnit, labCount, radCount,
 }: {
   stats: { granted: number; totalCells: number; pct: number };
   totalRows: number;
   totalUnit: number;
   labCount: number;
+  radCount: number;
 }) {
   return (
     <motion.div
@@ -473,14 +495,15 @@ function PaneHeader({
         <div className="min-w-0">
           <h2 className="m-base font-bold text-slate-900">Layanan Unit</h2>
           <p className="mt-0.5 m-tiny text-slate-500">
-            Atur tindakan &amp; tes laboratorium apa boleh dilakukan di unit mana. Baris diambil dari
-            Katalog Tindakan + Katalog Laboratorium; kolom dari Ruangan (Location) aktif. Klik judul
-            kolom = toggle semua baris; klik judul baris = toggle semua unit.
+            Atur tindakan, tes laboratorium &amp; pemeriksaan radiologi apa boleh dilakukan di unit mana.
+            Baris diambil dari Katalog Tindakan + Lab + Radiologi; kolom dari Ruangan (Location) aktif. Klik
+            judul kolom = toggle semua baris; klik judul baris = toggle semua unit; klik chevron grup = lipat.
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
           <Stat icon={Activity}     label="Baris"   value={`${totalRows}`}                      cls="bg-teal-50 text-teal-600" />
           <Stat icon={FlaskConical} label="Tes Lab" value={`${labCount}`}                       cls="bg-cyan-50 text-cyan-600" />
+          <Stat icon={Radiation}    label="Rad"     value={`${radCount}`}                       cls="bg-rose-50 text-rose-600" />
           <Stat icon={MapPin}       label="Unit"    value={`${totalUnit}`}                      cls="bg-sky-50 text-sky-600" />
           <Stat icon={Link2}        label="Mapping" value={`${stats.granted} (${stats.pct}%)`}  cls="bg-emerald-50 text-emerald-600" />
         </div>
