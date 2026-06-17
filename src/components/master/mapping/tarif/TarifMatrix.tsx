@@ -6,31 +6,30 @@ import { motion } from "framer-motion";
 import { Pencil, Check, X, Equal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  type TindakanRecord, type TindakanKategori,
-  KATEGORI_CFG, KATEGORI_ORDER, KOMPLEKSITAS_CFG,
-  groupByKategori,
-} from "@/lib/master/tindakanMock";
+  type LayananRow, type RowKategori,
+  ROW_KATEGORI_CFG, ROW_KATEGORI_ORDER, groupRowsByKategori,
+} from "../layanan/layananShared";
 import { fmtRupiahShort } from "@/lib/master/penjaminMock";
 import {
   type TarifMap, type JenisRuanganTier, TIER_GROUP_CFG, getHarga,
 } from "./tarifShared";
 
 interface TarifMatrixProps {
-  tindakan: TindakanRecord[];
+  rows: LayananRow[];
   tiers: JenisRuanganTier[];
   map: TarifMap;
   penjaminKode: string;
-  visibleKategori: Set<TindakanKategori>;
-  /** value > 0 → upsert; value <= 0 → hapus tarif. */
-  onEdit: (tindakanId: string, tierKey: string, value: number) => void;
-  /** Samakan 1 harga ke SEMUA tier (kolom) untuk tindakan ini — tarif seragam lintas ruangan. */
-  onFlatRate: (tindakanId: string, harga: number) => void;
+  visibleKategori: Set<RowKategori>;
+  /** value > 0 → upsert; value <= 0 → hapus tarif. rowId = tindakanId atau labTestId. */
+  onEdit: (rowId: string, tierKey: string, value: number) => void;
+  /** Samakan 1 harga ke SEMUA tier (kolom) untuk baris ini — tarif seragam lintas ruangan. */
+  onFlatRate: (rowId: string, harga: number) => void;
 }
 
 export default function TarifMatrix({
-  tindakan, tiers, map, penjaminKode, visibleKategori, onEdit, onFlatRate,
+  rows, tiers, map, penjaminKode, visibleKategori, onEdit, onFlatRate,
 }: TarifMatrixProps) {
-  const grouped = groupByKategori(tindakan);
+  const grouped = groupRowsByKategori(rows);
   const colCount = tiers.length + 1;
 
   if (tiers.length === 0) {
@@ -51,7 +50,7 @@ export default function TarifMatrix({
             <tr>
               <th className="sticky left-0 z-30 min-w-65 border-b border-r border-slate-200 bg-white px-3 py-2 text-left">
                 <span className="m-mini font-semibold uppercase tracking-wide text-slate-500">
-                  Tindakan
+                  Tindakan / Tes Lab
                 </span>
               </th>
               {tiers.map((t) => {
@@ -71,14 +70,14 @@ export default function TarifMatrix({
           </thead>
 
           <tbody>
-            {KATEGORI_ORDER.map((cat) => {
+            {ROW_KATEGORI_ORDER.map((cat) => {
               const items = grouped.get(cat) ?? [];
               if (items.length === 0 || !visibleKategori.has(cat)) return null;
               return (
                 <KategoriBlock
                   key={cat}
                   items={items}
-                  catCfg={KATEGORI_CFG[cat]}
+                  catCfg={ROW_KATEGORI_CFG[cat]}
                   colCount={colCount}
                   tiers={tiers}
                   map={map}
@@ -114,14 +113,14 @@ export default function TarifMatrix({
 function KategoriBlock({
   items, catCfg, colCount, tiers, map, penjaminKode, onEdit, onFlatRate,
 }: {
-  items: TindakanRecord[];
-  catCfg: typeof KATEGORI_CFG[TindakanKategori];
+  items: LayananRow[];
+  catCfg: typeof ROW_KATEGORI_CFG[RowKategori];
   colCount: number;
   tiers: JenisRuanganTier[];
   map: TarifMap;
   penjaminKode: string;
-  onEdit: (tindakanId: string, tierKey: string, value: number) => void;
-  onFlatRate: (tindakanId: string, harga: number) => void;
+  onEdit: (rowId: string, tierKey: string, value: number) => void;
+  onFlatRate: (rowId: string, harga: number) => void;
 }) {
   return (
     <>
@@ -130,14 +129,14 @@ function KategoriBlock({
           <div className="flex items-center gap-1.5">
             <span className={cn("h-2 w-2 rounded-full", catCfg.dot)} />
             <span className={cn("m-mini font-bold uppercase tracking-wide", catCfg.text)}>{catCfg.label}</span>
-            <span className={cn("m-mini opacity-70", catCfg.text)}>· {items.length} tindakan</span>
+            <span className={cn("m-mini opacity-70", catCfg.text)}>· {items.length} item</span>
           </div>
         </td>
       </tr>
-      {items.map((t, i) => (
-        <TindakanRow
-          key={t.id}
-          tindakan={t}
+      {items.map((r, i) => (
+        <RowItem
+          key={r.id}
+          row={r}
           tiers={tiers}
           map={map}
           penjaminKode={penjaminKode}
@@ -150,19 +149,17 @@ function KategoriBlock({
   );
 }
 
-function TindakanRow({
-  tindakan, tiers, map, penjaminKode, rowIndex, onEdit, onFlatRate,
+function RowItem({
+  row, tiers, map, penjaminKode, rowIndex, onEdit, onFlatRate,
 }: {
-  tindakan: TindakanRecord;
+  row: LayananRow;
   tiers: JenisRuanganTier[];
   map: TarifMap;
   penjaminKode: string;
   rowIndex: number;
-  onEdit: (tindakanId: string, tierKey: string, value: number) => void;
-  onFlatRate: (tindakanId: string, harga: number) => void;
+  onEdit: (rowId: string, tierKey: string, value: number) => void;
+  onFlatRate: (rowId: string, harga: number) => void;
 }) {
-  const kCfg = tindakan.kompleksitas ? KOMPLEKSITAS_CFG[tindakan.kompleksitas] : null;
-
   return (
     <motion.tr
       initial={{ opacity: 0 }}
@@ -173,22 +170,22 @@ function TindakanRow({
       <td className="sticky left-0 z-10 min-w-65 border-b border-r border-slate-200 bg-white px-3 py-1.5 group-hover:bg-slate-50/60">
         <div className="flex w-full items-start gap-2">
           <div className="min-w-0 flex-1">
-            <span className="truncate m-xs font-semibold text-slate-800">{tindakan.nama}</span>
+            <span className="truncate m-xs font-semibold text-slate-800">{row.nama}</span>
             <div className="mt-0.5 flex items-center gap-1.5">
-              <span className="font-mono m-mini text-slate-400">{tindakan.kode || "—"}</span>
-              {kCfg && (
-                <span className={cn("rounded px-1 py-0 m-mini font-bold", kCfg.bg, kCfg.text)}>{kCfg.label}</span>
+              <span className="font-mono m-mini text-slate-400">{row.subLabel || "—"}</span>
+              {row.chip && (
+                <span className={cn("rounded px-1 py-0 m-mini font-bold", row.chip.bg, row.chip.text)}>{row.chip.label}</span>
               )}
             </div>
           </div>
-          <FlatRateButton tierCount={tiers.length} onApply={(harga) => onFlatRate(tindakan.id, harga)} />
+          <FlatRateButton tierCount={tiers.length} onApply={(harga) => onFlatRate(row.id, harga)} />
         </div>
       </td>
       {tiers.map((t) => {
-        const value = getHarga(map, penjaminKode, tindakan.id, t.key);
+        const value = getHarga(map, penjaminKode, row.id, t.key);
         return (
           <td key={t.key} className="border-b border-r border-slate-200 p-1 text-center">
-            <TarifCell value={value} onSave={(v) => onEdit(tindakan.id, t.key, v)} />
+            <TarifCell value={value} onSave={(v) => onEdit(row.id, t.key, v)} />
           </td>
         );
       })}

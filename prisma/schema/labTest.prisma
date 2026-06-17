@@ -33,6 +33,8 @@ model LabTest {
   parameters LabParameter[]
   // Ruangan yang boleh kerjakan tes ini (Mapping Hub → Layanan Unit, grup Lab); N:M via master.LayananUnitLab.
   layananUnits LayananUnitLab[]
+  // Tarif tes per (penjamin × jenis ruangan) (Mapping Hub → Tarif Matrix, grup Lab); via master.TarifLabTest.
+  tarif TarifLabTest[]
 
   @@index([kategori, active]) // list/filter per kategori + status
   @@index([kode])

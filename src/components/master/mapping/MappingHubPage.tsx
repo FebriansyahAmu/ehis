@@ -16,6 +16,7 @@ import type { LabTestDTO } from "@/lib/schemas/master/labTest";
 import type { LayananUnitEdgeDTO } from "@/lib/schemas/master/layananUnit";
 import type { LayananUnitLabEdgeDTO } from "@/lib/schemas/master/layananUnitLab";
 import type { TarifTindakanDTO } from "@/lib/schemas/master/tarifTindakan";
+import type { TarifLabTestDTO } from "@/lib/schemas/master/tarifLabTest";
 import type { ObatDTO } from "@/lib/schemas/master/obat";
 import type { FormulariumEdgeDTO } from "@/lib/schemas/master/formularium";
 import MappingHubSidebar from "./MappingHubSidebar";
@@ -74,15 +75,17 @@ interface MappingHubPageProps {
   initialLayanan?: LayananUnitEdgeDTO[];
   /** Edge mapping Lab dari SSR — diteruskan ke Layanan Unit (seed map persist). */
   initialLayananLab?: LayananUnitLabEdgeDTO[];
-  /** Edge tarif dari SSR — diteruskan ke Tarif Matrix (seed map persist). */
+  /** Edge tarif tindakan dari SSR — diteruskan ke Tarif Matrix (seed map persist). */
   initialTarif?: TarifTindakanDTO[];
+  /** Edge tarif lab dari SSR — diteruskan ke Tarif Matrix grup Lab (seed map persist). */
+  initialTarifLab?: TarifLabTestDTO[];
   /** Katalog obat dari SSR — diteruskan ke Formularium (baris matrix). */
   initialObat?: ObatDTO[];
   /** Edge formularium dari SSR — diteruskan ke Formularium (seed override map). */
   initialFormularium?: FormulariumEdgeDTO[];
 }
 
-export default function MappingHubPage({ initialTree, initialDokters, initialPegawai, initialPenugasan, initialTindakan, initialLab, initialLayanan, initialLayananLab, initialTarif, initialObat, initialFormularium }: MappingHubPageProps = {}) {
+export default function MappingHubPage({ initialTree, initialDokters, initialPegawai, initialPenugasan, initialTindakan, initialLab, initialLayanan, initialLayananLab, initialTarif, initialTarifLab, initialObat, initialFormularium }: MappingHubPageProps = {}) {
   const searchParams = useSearchParams();
   const initialKey = (() => {
     const param = searchParams?.get("sub") as SubpageKey | null;
@@ -159,7 +162,7 @@ export default function MappingHubPage({ initialTree, initialDokters, initialPeg
                     transition={{ duration: 0.2 }}
                     className="flex min-h-0 flex-1 flex-col"
                   >
-                    {renderPane(activeKey, initialTree, initialDokters, initialPegawai, initialPenugasan, initialTindakan, initialLab, initialLayanan, initialLayananLab, initialTarif, initialObat, initialFormularium)}
+                    {renderPane(activeKey, initialTree, initialDokters, initialPegawai, initialPenugasan, initialTindakan, initialLab, initialLayanan, initialLayananLab, initialTarif, initialTarifLab, initialObat, initialFormularium)}
                   </motion.div>
                 </AnimatePresence>
               </div>
@@ -182,6 +185,7 @@ function renderPane(
   initialLayanan?: LayananUnitEdgeDTO[],
   initialLayananLab?: LayananUnitLabEdgeDTO[],
   initialTarif?: TarifTindakanDTO[],
+  initialTarifLab?: TarifLabTestDTO[],
   initialObat?: ObatDTO[],
   initialFormularium?: FormulariumEdgeDTO[],
 ) {
@@ -189,7 +193,7 @@ function renderPane(
     return <SDMAssignmentPane initialTree={initialTree} initialDokters={initialDokters} initialPegawai={initialPegawai} initialPenugasan={initialPenugasan} />;
   if (key === "kewenangan")  return <KewenanganPane initialDokters={initialDokters} />;
   if (key === "layanan")     return <LayananUnitPane tindakan={initialTindakan} lab={initialLab} tree={initialTree} layanan={initialLayanan} layananLab={initialLayananLab} />;
-  if (key === "tarif")       return <TarifPane tindakan={initialTindakan} tree={initialTree} tarif={initialTarif} />;
+  if (key === "tarif")       return <TarifPane tindakan={initialTindakan} lab={initialLab} tree={initialTree} tarif={initialTarif} tarifLab={initialTarifLab} />;
   if (key === "formularium") return <FormulariumPane obat={initialObat} tree={initialTree} formularium={initialFormularium} />;
   if (key === "distribusi")  return <DistribusiPane />;
   if (key === "penjamin-ruangan") return <PenjaminRuanganPane />;

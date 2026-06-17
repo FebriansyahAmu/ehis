@@ -1,0 +1,46 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Tarif Lab Test  (Postgres schema "master")
+//  FE: /ehis-master/mapping (sub-pane Tarif Matrix, grup "Tindakan Laboratorium")
+//  Doc: docs/BACKEND-MAPPING.md §5
+//
+//  Tarif tes laboratorium per (Penjamin × Jenis Ruangan) — PARALEL dgn TarifTindakan.
+//  Matriks 3D di-flatten jadi baris edge: (labTest, penjaminKode, jenisRuangan) → harga.
+//  UPSERT by triple (idempoten value).
+//
+//  Tabel TERPISAH dari TarifTindakan (Tindakan-only) — selaras keputusan LayananUnit ⇄
+//  LayananUnitLab: tiap domain katalog = tabel berdiri-sendiri sampai chargemaster
+//  menyatukan (TODO-CHARGEMASTER CM2/CM5). Bukan polymorphic → tak mengusik edge tindakan.
+//
+//  DIMENSI:
+//   - labTestId    → FK master.LabTest (Restrict; tarif ikut katalog lab).
+//   - penjaminKode → KODE penjamin string ('UMUM'/'BPJS'/…). BELUM FK (master Penjamin mock).
+//   - jenisRuangan → TIER tarif (locationType[:kelas]) — string longgar, DI-DERIVE FE.
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz. Tarif = LEAF (upsert by triple) → tanpa
+//  optimistic-version; updatedAt cukup. harga = Int (rupiah, tanpa sen).
+// ════════════════════════════════════════════════════════════════════════════
+
+model TarifLabTest {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  labTestId String  @map("lab_test_id") @db.Uuid
+  labTest   LabTest @relation(fields: [labTestId], references: [id], onDelete: Restrict)
+
+  /// Kode penjamin (string stabil — belum FK ke master Penjamin).
+  penjaminKode String @map("penjamin_kode")
+
+  /// Tier "Jenis Ruangan" (locationType[:kelas]) — BUKAN Location id. String longgar.
+  jenisRuangan String @map("jenis_ruangan")
+
+  /// Harga dalam rupiah penuh (tanpa sen).
+  harga Int
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([labTestId, penjaminKode, jenisRuangan]) // 1 harga per triple → upsert idempoten
+  @@index([labTestId])
+  @@index([penjaminKode])
+  @@map("tarif_lab_test")
+  @@schema("master")
+}

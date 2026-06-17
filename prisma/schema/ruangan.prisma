@@ -76,7 +76,9 @@ model Organization {
   children Organization[] @relation("OrgTree")
 
   /// Kode unit unik RS-wide (uppercase di Service). mis. IGD/RI/RJ.
-  kode    String  @unique
+  /// Unik HANYA antar baris hidup → partial unique `organization_kode_alive_key`
+  /// (WHERE deleted_at IS NULL) di migration; soft-delete tak boleh memblok re-create.
+  kode    String
   nama    String
   orgType OrgType @map("org_type")
   active  Boolean @default(true)
@@ -127,7 +129,9 @@ model Location {
   organizationId String       @map("organization_id") @db.Uuid
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
-  kode         String        @unique
+  /// Unik HANYA antar baris hidup → partial unique `location_kode_alive_key`
+  /// (WHERE deleted_at IS NULL) di migration; soft-delete tak boleh memblok re-create kode.
+  kode         String
   nama         String
   locationType LocationType  @map("location_type")
   kelas        LocationKelas? // null = "—" (tak berlaku)
@@ -181,7 +185,9 @@ model Bed {
   locationId String   @map("location_id") @db.Uuid
   location   Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
 
-  kode   String    @unique
+  /// Unik HANYA antar baris hidup → partial unique `bed_kode_alive_key`
+  /// (WHERE deleted_at IS NULL) di migration; soft-delete tak boleh memblok re-create kode.
+  kode   String
   nama   String
   status BedStatus @default(active)
 

@@ -10,6 +10,7 @@ import { labTestService } from "@/lib/services/master/labTestService";
 import { layananUnitService } from "@/lib/services/master/layananUnitService";
 import { layananUnitLabService } from "@/lib/services/master/layananUnitLabService";
 import { tarifTindakanService } from "@/lib/services/master/tarifTindakanService";
+import { tarifLabTestService } from "@/lib/services/master/tarifLabTestService";
 import { obatService } from "@/lib/services/master/obatService";
 import { formulariumService } from "@/lib/services/master/formulariumService";
 import { getServerActor } from "@/lib/auth/actor";
@@ -22,6 +23,7 @@ import type { LabTestDTO } from "@/lib/schemas/master/labTest";
 import type { LayananUnitEdgeDTO } from "@/lib/schemas/master/layananUnit";
 import type { LayananUnitLabEdgeDTO } from "@/lib/schemas/master/layananUnitLab";
 import type { TarifTindakanDTO } from "@/lib/schemas/master/tarifTindakan";
+import type { TarifLabTestDTO } from "@/lib/schemas/master/tarifLabTest";
 import type { ObatDTO } from "@/lib/schemas/master/obat";
 import type { FormulariumEdgeDTO } from "@/lib/schemas/master/formularium";
 
@@ -43,20 +45,22 @@ export default async function Page() {
   let initialLayanan: LayananUnitEdgeDTO[] | undefined;
   let initialLayananLab: LayananUnitLabEdgeDTO[] | undefined;
   let initialTarif: TarifTindakanDTO[] | undefined;
+  let initialTarifLab: TarifLabTestDTO[] | undefined;
   let initialObat: ObatDTO[] | undefined;
   let initialFormularium: FormulariumEdgeDTO[] | undefined;
   try {
     const actor = await getServerActor();
-    const [treeRes, dokterRes, pegawaiRes, penugasanRes, tindakanRes, labRes, layananRes, layananLabRes, tarifRes, obatRes, formulariumRes] = await Promise.allSettled([
+    const [treeRes, dokterRes, pegawaiRes, penugasanRes, tindakanRes, labRes, layananRes, layananLabRes, tarifRes, tarifLabRes, obatRes, formulariumRes] = await Promise.allSettled([
       ruanganService.getTree(actor),
       dokterService.listDokter({ limit: 50 }),
       pegawaiService.listPegawai({ aktif: "true", limit: 50 }),
       penugasanRuanganService.listPenugasan({ limit: 100 }),
       tindakanService.list({ limit: 200 }), // Layanan Unit + Tarif: baris matrix tindakan (actor-less)
-      labTestService.list({ status: "Aktif", limit: 200 }), // Layanan Unit: baris grup Lab (actor-less)
+      labTestService.list({ status: "Aktif", limit: 200 }), // Layanan Unit + Tarif: baris grup Lab (actor-less)
       layananUnitService.list({ limit: 1000 }), // Layanan Unit: edge tindakan (actor-less)
       layananUnitLabService.list({ limit: 1000 }), // Layanan Unit: edge lab (actor-less)
-      tarifTindakanService.list({ limit: 2000 }), // Tarif Matrix: edge tarif (actor-less)
+      tarifTindakanService.list({ limit: 2000 }), // Tarif Matrix: edge tarif tindakan (actor-less)
+      tarifLabTestService.list({ limit: 2000 }), // Tarif Matrix: edge tarif lab (actor-less)
       obatService.list({ limit: 300 }), // Formularium: baris matrix obat (actor-less)
       formulariumService.list({ limit: 2000 }), // Formularium: edge override (actor-less)
     ]);
@@ -69,6 +73,7 @@ export default async function Page() {
     if (layananRes.status === "fulfilled") initialLayanan = layananRes.value.items;
     if (layananLabRes.status === "fulfilled") initialLayananLab = layananLabRes.value.items;
     if (tarifRes.status === "fulfilled") initialTarif = tarifRes.value.items;
+    if (tarifLabRes.status === "fulfilled") initialTarifLab = tarifLabRes.value.items;
     if (obatRes.status === "fulfilled") initialObat = obatRes.value.items;
     if (formulariumRes.status === "fulfilled") initialFormularium = formulariumRes.value.items;
   } catch {
@@ -87,6 +92,7 @@ export default async function Page() {
         initialLayanan={initialLayanan}
         initialLayananLab={initialLayananLab}
         initialTarif={initialTarif}
+        initialTarifLab={initialTarifLab}
         initialObat={initialObat}
         initialFormularium={initialFormularium}
       />

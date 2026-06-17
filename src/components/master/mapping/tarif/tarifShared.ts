@@ -4,10 +4,9 @@
 // (BPJS → KRIS; Umum/Asuransi → VIP/Kelas). Sel = harga dari edge master.TarifTindakan.
 
 import type { AnyNode, LocationNode, LocationType, LocationKelas } from "@/components/master/ruangan/ruanganShared";
-import type { TindakanDTO } from "@/lib/schemas/master/tindakan";
-import type { TindakanRecord } from "@/lib/master/tindakanMock";
 import type { PenjaminTipe } from "@/lib/master/penjaminMock";
 import type { TarifTindakanDTO } from "@/lib/api/master/tarifTindakan";
+import type { TarifLabTestDTO } from "@/lib/api/master/tarifLabTest";
 
 // ════════════════════════════════════════════════════════════════════════════
 //  TIER "Jenis Ruangan"
@@ -120,15 +119,35 @@ export interface TarifCell {
   id: string;   // id edge (untuk DELETE)
   harga: number;
 }
-// [penjaminKode][tindakanId][tierKey] → cell
+// [penjaminKode][rowId][tierKey] → cell. rowId = tindakanId ATAU labTestId (federasi).
 export type TarifMap = Record<string, Record<string, Record<string, TarifCell>>>;
 
-export function mapFromEdges(edges: TarifTindakanDTO[]): TarifMap {
+// ── Edge terpadu (Tindakan + Lab) ──────────────────────────────────────────────
+// Matriks Tarif memetakan DUA jenis baris ke kolom tier: katalog Tindakan (per kategori) dan
+// katalog Laboratorium (grup "Tindakan Laboratorium"). Edge dari 2 endpoint (tarif_tindakan vs
+// tarif_lab_test) dinormalisasi ke `TarifEdgeLike` (rowId) → map satu jalur. `kind` baris (untuk
+// memilih endpoint persist) ditentukan terpisah dari daftar rows (rowKind di TarifPane).
+export interface TarifEdgeLike {
+  id: string;
+  rowId: string;
+  penjaminKode: string;
+  jenisRuangan: string;
+  harga: number;
+}
+
+export function tindakanToTarifEdge(e: TarifTindakanDTO): TarifEdgeLike {
+  return { id: e.id, rowId: e.tindakanId, penjaminKode: e.penjaminKode, jenisRuangan: e.jenisRuangan, harga: e.harga };
+}
+export function labToTarifEdge(e: TarifLabTestDTO): TarifEdgeLike {
+  return { id: e.id, rowId: e.labTestId, penjaminKode: e.penjaminKode, jenisRuangan: e.jenisRuangan, harga: e.harga };
+}
+
+export function mapFromEdges(edges: TarifEdgeLike[]): TarifMap {
   const m: TarifMap = {};
   for (const e of edges) {
     (m[e.penjaminKode] ??= {});
-    (m[e.penjaminKode][e.tindakanId] ??= {});
-    m[e.penjaminKode][e.tindakanId][e.jenisRuangan] = { id: e.id, harga: e.harga };
+    (m[e.penjaminKode][e.rowId] ??= {});
+    m[e.penjaminKode][e.rowId][e.jenisRuangan] = { id: e.id, harga: e.harga };
   }
   return m;
 }
@@ -188,15 +207,8 @@ export function calcStats(
   };
 }
 
-// ── Konversi DTO → TindakanRecord (baris matrix, selaras Layanan Unit) ─────────
-export function tindakanRecordsFromDTO(dtos: TindakanDTO[]): TindakanRecord[] {
-  return dtos.map((d) => ({
-    ...d,
-    nomorKptl: d.nomorKptl ?? null,
-    kompleksitas: d.kompleksitas ?? null,
-    spesialisDefault: d.spesialisDefault as TindakanRecord["spesialisDefault"],
-  }));
-}
+// Konversi DTO → TindakanRecord baris matrix → pakai tindakanRecordsFromDTO dari layananShared
+// (federasi tindakan+lab). Tak diduplikasi di sini lagi.
 
 export function roundIDR(n: number): number {
   return Math.max(0, Math.round(n / 500) * 500);
