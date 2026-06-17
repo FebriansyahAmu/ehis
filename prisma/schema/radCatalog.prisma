@@ -1,0 +1,66 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Katalog Radiologi  (Postgres schema "master")
+//  FE: /ehis-master/katalog-radiologi · Tipe FE: src/lib/master/radCatalogMock.ts
+//  (RadCatalogRecord) + seed src/lib/master/radCatalogSeed.ts.
+//
+//  Katalog pemeriksaan radiologi per modalitas + protap persiapan, kontras, DRL,
+//  reporting template. Standar PMK 1014/2008 · PMK 24/2020 · BAPETEN 2/2018 · ACR ·
+//  IAEA HH-19. Dikonsumsi OrderRadTab (workflow) & billing (chargemaster lanjut).
+//
+//  `modalitas` = method FHIR SatuSehat (XR/CT/MR/RF/US/MG/DXA/NM); `modalitasSubtype`
+//  opsional (mis. "CT.angio"). `kodeIcd` = ICD-9-CM prosedur, OPSIONAL (manual/dropdown
+//  master ICD). Blok terstruktur (tatTarget/persiapan/kontras/drl/reportingTemplate) = JSONB.
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz · soft-delete. Katalog leaf → TANPA
+//  optimistic-version. Kode `RAD-NNNN` AUTO-GEN (counter atomik). Enum FE-facing
+//  (modalitas/region/kategori/status) = TEXT pass-through (validasi Zod).
+// ════════════════════════════════════════════════════════════════════════════
+
+model RadCatalog {
+  id   String @id @default(uuid(7)) @db.Uuid
+  kode String // `RAD-NNNN` — auto-gen (counter), unik antar baris hidup
+
+  /// ICD-9-CM prosedur (opsional) — manual / dropdown master ICD Tindakan.
+  kodeIcd String? @map("kode_icd")
+
+  nama             String
+  modalitas        String // FHIR method: XR | CT | MR | RF | US | MG | DXA | NM
+  modalitasSubtype String? @map("modalitas_subtype") // mis. "CT.angio"
+  region           String // FE union RadRegion
+  kategori         String // "Diagnostik" | "Intervensi" | "Skrining"
+
+  estimasiWaktuMenit Int @map("estimasi_waktu_menit")
+
+  // ── Blok terstruktur (JSONB) ──
+  /// { cito, semiCito, rutin } menit
+  tatTarget Json @map("tat_target") @db.JsonB
+  /// { puasaJam?, premedikasi?, kontraindikasi[], instruksiPasien?, catatanKhusus? }
+  persiapan Json @db.JsonB
+  /// { jenis, dosisMl?, kecepatanInjeksiMlSec?, premedikasiSteroidJikaAlergi?, catatan? }
+  kontras Json @db.JsonB
+  /// { ctdiVol?, dlp?, dap?, waktuFluoroMenit?, entranceDose?, catatan? } — null bila non-ionizing
+  drlReferensi Json? @map("drl_referensi") @db.JsonB
+  /// { struktur[], templateTemuan? }
+  reportingTemplate Json @map("reporting_template") @db.JsonB
+
+  deskripsi String?
+  status    String    @default("Aktif") // "Aktif" | "Non_Aktif"
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([modalitas, deletedAt]) // list/filter per modalitas
+  @@index([kategori])
+  @@map("rad_catalog")
+  @@schema("master")
+}
+
+// Counter kode radiologi (auto `RAD-NNNN`, satu baris global `scope="RAD"`). Upsert by PK
+// → increment atomik (anti-race). Pola identik master.sdki_counter. Di-seed ke seq tertinggi.
+model RadCatalogCounter {
+  scope   String @id @default("RAD")
+  lastSeq Int    @map("last_seq")
+
+  @@map("rad_catalog_counter")
+  @@schema("master")
+}

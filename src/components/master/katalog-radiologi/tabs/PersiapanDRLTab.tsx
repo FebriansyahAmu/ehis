@@ -10,7 +10,7 @@ import type {
   RadCatalogRecord, RadJenisKontras, PersiapanProtap, KontrasInfo, DRLReferensi,
 } from "@/lib/master/radCatalogMock";
 import {
-  KONTRAS_LABEL, KONTRAS_ORDER, isDRLApplicable,
+  KONTRAS_LABEL, KONTRAS_ORDER, isDRLApplicable, MODALITAS_LABEL,
 } from "../katalogRadiologiShared";
 import {
   Field, TextInput, NumberInput, TextArea, Select, SectionGroup,
@@ -168,7 +168,7 @@ export default function PersiapanDRLTab({ draft, onPatch }: Props) {
             <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50/70 p-3">
               <Info size={14} className="mt-0.5 shrink-0 text-emerald-600" />
               <p className="text-[11px] leading-relaxed text-emerald-800">
-                <strong>{draft.modalitas}</strong> tidak menggunakan radiasi pengion —
+                <strong>{MODALITAS_LABEL[draft.modalitas]}</strong> tidak menggunakan radiasi pengion —
                 DRL tidak relevan. Lewati section ini.
               </p>
             </div>
@@ -336,7 +336,7 @@ function DRLFields({
         </div>
       );
     }
-    if (modalitas === "Fluoroskopi" || modalitas === "Intervensi") {
+    if (modalitas === "RF") {
       return (
         <div className="grid grid-cols-2 gap-3">
           <Field label="DAP" hint="Gy·cm²">
@@ -360,7 +360,7 @@ function DRLFields({
         </div>
       );
     }
-    // Konvensional / Mammografi / DEXA
+    // XR / Mammografi (MG) / DXA / NM → Entrance Surface Dose (NM: proxy aktivitas)
     return (
       <Field label="Entrance Surface Dose" hint="mGy — DRL referensi dewasa">
         <NumberInput

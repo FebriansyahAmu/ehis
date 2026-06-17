@@ -6,7 +6,7 @@
 
 import {
   IdCard, ShieldAlert, FileText,
-  Radiation, Scan, Activity, Sparkles, Zap, RadioTower, Bone, Layers,
+  Radiation, Scan, Activity, Sparkles, Zap, RadioTower, Bone, Atom,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type {
@@ -49,23 +49,45 @@ export const RAD_TABS: RadTabConfig[] = [
   },
 ];
 
-// ── Modalitas Config (urutan + icon + warna chip) ──────
+// ── Modalitas Config (method FHIR SatuSehat — urutan + icon + warna chip) ──────
 
-export const MODALITAS_ORDER: RadModalitas[] = [
-  "Konvensional", "CT", "MRI", "USG", "Fluoroskopi", "Mammografi", "DEXA", "Intervensi",
-];
+export const MODALITAS_ORDER: RadModalitas[] = ["XR", "CT", "MR", "RF", "US", "MG", "DXA", "NM"];
+
+/** Label lengkap method (untuk dropdown/tooltip). */
+export const MODALITAS_LABEL: Record<RadModalitas, string> = {
+  XR:  "Radiografi (X-Ray)",
+  CT:  "CT Scan",
+  MR:  "MRI",
+  RF:  "Radiofluoroskopi",
+  US:  "Ultrasonografi (USG)",
+  MG:  "Mammografi",
+  DXA: "Densitometri (DXA)",
+  NM:  "Kedokteran Nuklir",
+};
 
 export const MODALITAS_CFG: Record<RadModalitas, {
   short: string; icon: LucideIcon; bg: string; text: string; dot: string;
 }> = {
-  Konvensional: { short: "X-Ray",  icon: Radiation,  bg: "bg-slate-100",  text: "text-slate-700",  dot: "bg-slate-500"  },
-  CT:           { short: "CT",     icon: Scan,       bg: "bg-rose-50",    text: "text-rose-700",   dot: "bg-rose-500"   },
-  MRI:          { short: "MRI",    icon: Sparkles,   bg: "bg-violet-50",  text: "text-violet-700", dot: "bg-violet-500" },
-  USG:          { short: "USG",    icon: Activity,   bg: "bg-emerald-50", text: "text-emerald-700",dot: "bg-emerald-500"},
-  Fluoroskopi:  { short: "Fluoro", icon: Zap,        bg: "bg-amber-50",   text: "text-amber-700",  dot: "bg-amber-500"  },
-  Mammografi:   { short: "Mammo",  icon: RadioTower, bg: "bg-pink-50",    text: "text-pink-700",   dot: "bg-pink-500"   },
-  DEXA:         { short: "DEXA",   icon: Bone,       bg: "bg-teal-50",    text: "text-teal-700",   dot: "bg-teal-500"   },
-  Intervensi:   { short: "INV",    icon: Layers,     bg: "bg-rose-100",   text: "text-rose-800",   dot: "bg-rose-600"   },
+  XR:  { short: "XR",  icon: Radiation,  bg: "bg-slate-100",  text: "text-slate-700",  dot: "bg-slate-500"  },
+  CT:  { short: "CT",  icon: Scan,       bg: "bg-rose-50",    text: "text-rose-700",   dot: "bg-rose-500"   },
+  MR:  { short: "MR",  icon: Sparkles,   bg: "bg-violet-50",  text: "text-violet-700", dot: "bg-violet-500" },
+  RF:  { short: "RF",  icon: Zap,        bg: "bg-amber-50",   text: "text-amber-700",  dot: "bg-amber-500"  },
+  US:  { short: "US",  icon: Activity,   bg: "bg-emerald-50", text: "text-emerald-700",dot: "bg-emerald-500"},
+  MG:  { short: "MG",  icon: RadioTower, bg: "bg-pink-50",    text: "text-pink-700",   dot: "bg-pink-500"   },
+  DXA: { short: "DXA", icon: Bone,       bg: "bg-teal-50",    text: "text-teal-700",   dot: "bg-teal-500"   },
+  NM:  { short: "NM",  icon: Atom,       bg: "bg-indigo-50",  text: "text-indigo-700", dot: "bg-indigo-500" },
+};
+
+/** Subtype method FHIR per modalitas (opsional di form). */
+export const MODALITAS_SUBTYPE: Record<RadModalitas, string[]> = {
+  XR:  ["XR.tomography", "XR.portable", "XR.slot radiography"],
+  CT:  ["CT.angio", "CT.scanogram", "CT.densitometry", "CT.perfusion", "CT.portable", "CT.cone beam"],
+  MR:  ["MR.angio", "MR.functional", "MR.spectroscopy", "MR.perfusion", "MR.tractography"],
+  RF:  ["RF.angio", "RF.video", "RF.portable"],
+  US:  ["US.densitometry", "US.Doppler", "US.portable", "US.A-scan", "US.elastography"],
+  MG:  ["MG.tomosynthesis", "MG.stereotactic"],
+  DXA: ["DXA.densitometry"],
+  NM:  ["NM.dosimetry", "NM.SPECT", "NM.SPECT+CT"],
 };
 
 // ── Region ─────────────────────────────────────────────
@@ -118,8 +140,9 @@ export function getRadStatusCfg(status: RadStatus) {
 // ── Validators ─────────────────────────────────────────
 
 export function isRadCatalogValid(item: RadCatalogRecord, isNew = false): boolean {
+  // Kode auto-gen server → tak wajib di klien. Cukup nama + estimasi valid.
   if (isNew) return !!item.nama.trim();
-  return !!(item.kode.trim() && item.nama.trim() && item.estimasiWaktuMenit > 0);
+  return !!(item.nama.trim() && item.estimasiWaktuMenit > 0);
 }
 
 export function hasDRLConfig(item: RadCatalogRecord): boolean {
@@ -146,7 +169,7 @@ export function fmtTatRange(item: RadCatalogRecord): string {
   return `${cito}/${semiCito}/${rutin} mnt`;
 }
 
-/** Apakah DRL applicable untuk modalitas ini (DRL relevan untuk modalitas berdosis radiasi) */
+/** Apakah DRL applicable — hanya modalitas berdosis radiasi pengion (US & MR non-ionizing). */
 export function isDRLApplicable(modalitas: RadModalitas): boolean {
-  return ["Konvensional", "CT", "Fluoroskopi", "Mammografi", "DEXA", "Intervensi"].includes(modalitas);
+  return ["XR", "CT", "RF", "MG", "DXA", "NM"].includes(modalitas);
 }

@@ -8,9 +8,9 @@
  * supaya editing tidak memutasi source list.
  *
  * Pemakaian:
- *   const crud = useMasterCrud<RadCatalogRecord>({
- *     initial: RAD_KATALOG_MOCK,
- *     emptyFactory: emptyRadCatalogRecord,
+ *   const crud = useMasterCrud<ItemRecord>({
+ *     initial: seedFromSSR,
+ *     emptyFactory: emptyItemRecord,
  *   });
  *   // → crud.items, crud.draft, crud.handleSelect(id), ...
  */

@@ -37,7 +37,7 @@ const OBAT_COUNT = 28;
 const SDKI_COUNT = 27;
 import { TINDAKAN_MOCK } from "@/lib/master/tindakanMock";
 import { LAB_KATALOG_MOCK } from "@/lib/master/labCatalogMock";
-import { RAD_KATALOG_MOCK } from "@/lib/master/radCatalogMock";
+import { RAD_CATALOG_SEED } from "@/lib/master/radCatalogSeed";
 import { ICD_MOCK } from "@/lib/master/icdMock";
 import { ASESMEN_KATALOG_MOCK } from "@/lib/master/asesmenKatalogMock";
 import { SKALA_RISIKO_MOCK } from "@/lib/master/skalaRisikoMock";
@@ -90,7 +90,7 @@ export function getBerandaStats(): BerandaStats {
       DOKTER_COUNT + PENGGUNA_MOCK.length,
     katalog:
       OBAT_COUNT + TINDAKAN_MOCK.length +
-      LAB_KATALOG_MOCK.length + RAD_KATALOG_MOCK.length,
+      LAB_KATALOG_MOCK.length + RAD_CATALOG_SEED.length,
     reference:
       ICD_MOCK.length + ASESMEN_KATALOG_MOCK.length + SDKI_COUNT +
       SKALA_RISIKO_MOCK.length + SKALA_UMUM_MOCK.length +
@@ -145,7 +145,7 @@ export function getQuickNavGroups(): QuickNavGroup[] {
         { label: "Katalog Obat",         href: "/ehis-master/katalog-obat",      icon: Pill,      count: OBAT_COUNT },
         { label: "Katalog Tindakan",     href: "/ehis-master/katalog-tindakan",  icon: Zap,       count: TINDAKAN_MOCK.length },
         { label: "Katalog Laboratorium", href: "/ehis-master/katalog-lab",       icon: TestTube,  count: LAB_KATALOG_MOCK.length },
-        { label: "Katalog Radiologi",    href: "/ehis-master/katalog-radiologi", icon: Radiation, count: RAD_KATALOG_MOCK.length },
+        { label: "Katalog Radiologi",    href: "/ehis-master/katalog-radiologi", icon: Radiation, count: RAD_CATALOG_SEED.length },
         { label: "ICD-10 & ICD-9",       href: "/ehis-master/icd",               icon: BookText,  count: ICD_MOCK.length },
         { label: "Katalog Keperawatan",  href: "/ehis-master/katalog-keperawatan", icon: Workflow, count: SDKI_COUNT },
       ],

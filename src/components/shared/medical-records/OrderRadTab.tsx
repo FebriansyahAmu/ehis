@@ -9,10 +9,8 @@ import {
   Microscope, Layers, Zap, Check, Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  RAD_KATALOG_MOCK,
-  type RadModalitas,
-} from "@/lib/master/radCatalogMock";
+import type { RadModalitas } from "@/lib/master/radCatalogMock";
+import { RAD_CATALOG_SEED } from "@/lib/master/radCatalogSeed";
 
 // ── Normalized patient interface ──────────────────────────
 
@@ -36,16 +34,16 @@ type ModalitasRad =
   | "Fluoroskopi"
   | "Kedokteran Nuklir";
 
-/** Map master `RadModalitas` (8 opsi) ke `ModalitasRad` display lokal (6 opsi). */
+/** Map method FHIR `RadModalitas` (8 opsi) ke `ModalitasRad` display lokal. */
 const MODALITAS_DISPLAY_MAP: Record<RadModalitas, ModalitasRad> = {
-  Konvensional: "X-Ray",
-  CT:           "CT Scan",
-  MRI:          "MRI",
-  USG:          "USG",
-  Fluoroskopi:  "Fluoroskopi",
-  Mammografi:   "X-Ray",
-  DEXA:         "X-Ray",
-  Intervensi:   "Fluoroskopi",
+  XR:  "X-Ray",
+  CT:  "CT Scan",
+  MR:  "MRI",
+  RF:  "Fluoroskopi",
+  US:  "USG",
+  MG:  "X-Ray",
+  DXA: "X-Ray",
+  NM:  "Kedokteran Nuklir",
 };
 
 type StatusOrder = "Menunggu" | "Diterima" | "Diproses" | "Selesai" | "Dibatalkan";
@@ -102,7 +100,8 @@ interface ActiveOrder {
 
 // ── Catalog (derived dari Master Katalog Radiologi) ───────
 //
-// Source-of-truth: src/lib/master/radCatalogMock.ts (RAD_KATALOG_MOCK).
+// Source-of-truth: master.RadCatalog (DB) — di sini baca seed src/lib/master/radCatalogSeed.ts
+// (RAD_CATALOG_SEED) hingga endpoint `rad-catalog-tersedia` klinis tersedia (follow-up).
 // `waktuTunggu` di-derive dari `tatTargetMenit.rutin` (di-format ke jam/menit
 // human-readable). `persiapan` di-rangkum dari `persiapan.puasaJam` +
 // `instruksiPasien` jika ada.
@@ -123,7 +122,7 @@ function summarizePersiapan(p: { puasaJam?: number; instruksiPasien?: string; pr
   return parts.length > 0 ? parts.join(", ") : undefined;
 }
 
-const RAD_CATALOG: RadTest[] = RAD_KATALOG_MOCK
+const RAD_CATALOG: RadTest[] = RAD_CATALOG_SEED
   .filter((r) => r.status === "Aktif")
   .map((r) => ({
     kode: r.kode,

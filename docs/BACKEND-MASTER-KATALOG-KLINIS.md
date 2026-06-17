@@ -8,7 +8,7 @@
 > **Terkait:** [CLAUDE.md](../CLAUDE.md) · [TODOS_BACKEND.md](../TODOS_BACKEND.md#b12-katalog-klinis).
 >
 > **Stack:** PostgreSQL · Prisma (`@@schema("master")`) · layered **Route→Service→DAL→Prisma** · Redis cache-aside (menyusul) · Auth.js RBAC.
-> **Status:** **Katalog Tindakan ✅ backend + FE wired (2026-06-12)** — schema + migrasi + Zod + DAL + Service + 4 endpoint + client + page swap SSR-hybrid; kode ICD-9 **opsional**; 16 kategori (11 awal + 5 tambahan); **dikonsumsi Mapping Hub → Layanan Unit** (§A.8). · **ICD-10/9 ✅ backend + wired (2026-06-07)** — lihat §B. · **Katalog Lab ✅ backend + FE wired (2026-06-12)** — model **Tes→Parameter** (panel): `LabTest`+`LabParameter` (rujukan numerik per-parameter = JSONB) + migrasi + Zod + DAL (nested **replace-all**) + Service + 4 endpoint + client + **form rewrite** (tab Parameter · **Satuan combobox** riset · **DiscardDialog** · field **KODE dihapus**) + SSR-hybrid; **seeded 38 tes / 88 parameter** standar (PMK 43/2013 · NCEP ATP III · WHO · SAMHSA) — §C. · **Katalog Obat ✅ backend + FE wired + seeded (2026-06-13)** — schema flat + **pemetaan KFA = blok JSONB** (POA/POV/Rute/Bentuk Sediaan + BZA/dosis, interop FHIR SatuSehat) + migrasi + Zod + DAL + Service + 4 endpoint + client + SSR-hybrid; **OBAT_MOCK dihapus** (data → `obatSeed.ts`), **seeded 28 obat / 17 ter-KFA / 4 LASA**; konsumen mock (Formularium · Distribusi · Beranda · billing `priceResolver`) **dimigrasi off mock** — §C.1. · **Radiologi · SDKI 📋** (analisis ringkas — §C).
+> **Status:** **Katalog Tindakan ✅ backend + FE wired (2026-06-12)** — schema + migrasi + Zod + DAL + Service + 4 endpoint + client + page swap SSR-hybrid; kode ICD-9 **opsional**; 16 kategori (11 awal + 5 tambahan); **dikonsumsi Mapping Hub → Layanan Unit** (§A.8). · **ICD-10/9 ✅ backend + wired (2026-06-07)** — lihat §B. · **Katalog Lab ✅ backend + FE wired (2026-06-12)** — model **Tes→Parameter** (panel): `LabTest`+`LabParameter` (rujukan numerik per-parameter = JSONB) + migrasi + Zod + DAL (nested **replace-all**) + Service + 4 endpoint + client + **form rewrite** (tab Parameter · **Satuan combobox** riset · **DiscardDialog** · field **KODE dihapus**) + SSR-hybrid; **seeded 38 tes / 88 parameter** standar (PMK 43/2013 · NCEP ATP III · WHO · SAMHSA) — §C. · **Katalog Obat ✅ backend + FE wired + seeded (2026-06-13)** — schema flat + **pemetaan KFA = blok JSONB** (POA/POV/Rute/Bentuk Sediaan + BZA/dosis, interop FHIR SatuSehat) + migrasi + Zod + DAL + Service + 4 endpoint + client + SSR-hybrid; **OBAT_MOCK dihapus** (data → `obatSeed.ts`), **seeded 28 obat / 17 ter-KFA / 4 LASA**; konsumen mock (Formularium · Distribusi · Beranda · billing `priceResolver`) **dimigrasi off mock** — §C.1. · **Katalog Radiologi ✅ backend + FE wired + seeded (2026-06-17)** — schema `RadCatalog` (leaf, blok tat/persiapan/kontras/DRL/reporting = **JSONB**, kode `RAD-NNNN` **auto-gen** counter) + migrasi + Zod + DAL + Service + 4 endpoint + client + SSR-hybrid (DiscardDialog) + **form: Kode read-only "Auto" · Kode ICD-9 OPSIONAL (manual/dropdown master ICD) · modalitas FHIR SatuSehat + subtype**; **`RAD_KATALOG_MOCK` dihapus** (data → `radCatalogSeed.ts`), **seeded 24 pemeriksaan** (8 modalitas XR/CT/MR/RF/US/MG/DXA/NM); konsumen `OrderRadTab` + Beranda **dimigrasi off mock** — §C.4.
 
 ---
 
@@ -22,7 +22,7 @@ Grup **Katalog Klinis** (`/ehis-master` → menu "Katalog Klinis"). Tiap sub-mas
 | **ICD-10 / ICD-9-CM** | `/ehis-master/icd` | [icdMock.ts](../src/lib/master/icdMock.ts) `IcdItem` | ✅ (§B) |
 | **Katalog Obat** | `/ehis-master/katalog-obat` | [obatMock.ts](../src/lib/master/obatMock.ts) `ObatRecord` (tipe+config) + [obatSeed.ts](../src/lib/master/obatSeed.ts) (data seed) | ✅ wired (§C.1) — flat + **KFA JSONB**, seeded 28/17 |
 | Katalog Lab | `/ehis-master/katalog-lab` | [labTestCatalog.ts](../src/lib/master/labTestCatalog.ts) `LabTestRecord` + [labTestSeed.ts](../src/lib/master/labTestSeed.ts) | ✅ wired (§C) — Tes→Parameter, seeded 38/88 |
-| Katalog Radiologi | `/ehis-master/katalog-radiologi` | [radCatalogMock.ts](../src/lib/master/radCatalogMock.ts) `RadCatalogRecord` | 📋 (§C) |
+| Katalog Radiologi | `/ehis-master/katalog-radiologi` | [radCatalogMock.ts](../src/lib/master/radCatalogMock.ts) `RadCatalogRecord` (tipe) + [radCatalogSeed.ts](../src/lib/master/radCatalogSeed.ts) (data) | ✅ wired (§C.4) — modalitas FHIR + JSONB, seeded 24 |
 | Katalog Keperawatan (SDKI/SLKI/SIKI) | `/ehis-master/katalog-keperawatan` | [sdkiMock.ts](../src/lib/master/sdkiMock.ts) (tipe) + [sdkiSeed.ts](../src/lib/master/sdkiSeed.ts) (data) | ✅ (§C.3) |
 
 > **Pemisahan klinis vs billable (penting):** katalog di sini = **data domain klinis** (Tindakan: kompleksitas/KPTL/ICD-9 · Lab: nilai rujukan/delta · Rad: template/persiapan). Layer **tarif/billable** (harga × penjamin × kelas, `unitTerkait`) hidup di **chargemaster terpisah** yang **mer-referensi** item katalog via `(sourceType, sourceId)` — bukan kolom di katalog ini. Lihat [TODO-CHARGEMASTER.md](../TODO-CHARGEMASTER.md).
@@ -184,15 +184,15 @@ Matriks Layanan Unit kini punya **tabel persist** (sebelumnya state-only). Join 
 
 ---
 
-## C. Sub-grup **Obat ✅ · Lab ✅ · SDKI ✅ · Radiologi** 📋
+## C. Sub-grup **Obat ✅ · Lab ✅ · SDKI ✅ · Radiologi ✅**
 
-> **Lab ✅ (2026-06-12)** · **Obat ✅ (2026-06-13)** · **Katalog Keperawatan/SDKI ✅ (2026-06-14, §C.3)** — dibangun penuh. Sisa (**Radiologi**) = placeholder; pola dasar = sibling **Tindakan/ICD** (leaf, soft-delete, layered), tapi **Rad punya anak relasional** (bukan leaf murni).
+> **Lab ✅ (2026-06-12)** · **Obat ✅ (2026-06-13)** · **Katalog Keperawatan/SDKI ✅ (2026-06-14, §C.3)** · **Radiologi ✅ (2026-06-17, §C.4)** — semua dibangun penuh (leaf, soft-delete, layered, SSR-hybrid).
 
 | Sub-master | Mock | Catatan pemodelan |
 |---|---|---|
 | **Katalog Obat ✅** | [obatMock.ts](../src/lib/master/obatMock.ts) `ObatRecord` (tipe+config) + [obatSeed.ts](../src/lib/master/obatSeed.ts) | **Leaf besar flat** (HAM/LASA/Formularium · golongan UU 35/2009 · harga) + **pemetaan KFA = kolom JSONB** (`kfa`, blok POA/POV/Rute/Bentuk + BZA/dosis → FHIR SatuSehat). `lasaPairIds` = `text[]` soft-ref. **Detail → §C.1.** Konsumen: Farmasi + Resep + chargemaster + (mock) Formularium/Distribusi/billing. |
 | **Katalog Lab ✅** | [labTestCatalog.ts](../src/lib/master/labTestCatalog.ts) `LabTestRecord` (+ [labTestSeed.ts](../src/lib/master/labTestSeed.ts)) | **Model Tes→Parameter** (panel): `LabTest` (orderable: kategori/spesimen/metode/TAT) **1:N** `LabParameter` (analit: satuan + **tipe Numerik/Kualitatif** + nilai kritis + delta). **Rentang rujukan numerik per-parameter = JSONB** (`[{gender,usiaMin?,usiaMax?,low,high,ket?}]`) — hindari tabel ke-3. Update = **replace-all** parameter (anak, bukan entitas mandiri). Form: tab Parameter + **Satuan combobox** (satuan baku riset) + DiscardDialog; **KODE field dihapus** (auto). Seeded 38 tes / 88 parameter (Darah Rutin/Urine Rutin panel · Kimia Darah · Widal · NAPZA cutoff SAMHSA · Plano/hCG · Golongan Darah). **Lab mock lama** ([labCatalogMock.ts](../src/lib/master/labCatalogMock.ts), single-analit) tetap dipakai HasilPane/TrendPane — belum dimigrasi. |
-| **Katalog Radiologi** | [radCatalogMock.ts](../src/lib/master/radCatalogMock.ts) `RadCatalogRecord` | Persiapan/DRL + reporting template + kontras info. PMK 1014/2008. Anak: template/persiapan (array atau child). |
+| **Katalog Radiologi ✅** | [radCatalogMock.ts](../src/lib/master/radCatalogMock.ts) (tipe) + [radCatalogSeed.ts](../src/lib/master/radCatalogSeed.ts) (data) | Persiapan/DRL + reporting template + kontras info (semua **JSONB**). PMK 1014/2008. **Detail → §C.4.** Modalitas = method FHIR SatuSehat. Konsumen: `OrderRadTab` (baca seed) + Beranda. |
 | **Katalog Keperawatan (SDKI) ✅** | [sdkiMock.ts](../src/lib/master/sdkiMock.ts) (tipe) + [sdkiSeed.ts](../src/lib/master/sdkiSeed.ts) (data) | Diagnosa keperawatan (SDKI) + luaran (SLKI) + intervensi (SIKI). **Detail → §C.3.** Konsumen klinis: tab Keperawatan IGD via `GET /master/sdki-template` ✅ (asuhan persist → `medicalrecord.AsuhanKeperawatan`). |
 
 **Konsumen lintas:** Lab/Rad katalog dikonsumsi **OrderLabTab/OrderRadTab** (rekam medis) + worklist Lab/Rad. **Chargemaster** (CM0–CM5) memfederasi Tindakan+Lab+Rad jadi billable-service untuk Tarif + Layanan Unit.
@@ -257,8 +257,38 @@ Matriks Layanan Unit kini punya **tabel persist** (sebelumnya state-only). Join 
 
 ---
 
+### C.4 ⭐ Katalog Radiologi — backend + FE wired + seeded (2026-06-17) ✅
+
+> **Frontend:** [/ehis-master/katalog-radiologi/page.tsx](../src/app/ehis-master/katalog-radiologi/page.tsx) (SSR) → [KatalogRadiologiPage](../src/components/master/katalog-radiologi/KatalogRadiologiPage.tsx) · 3 tab: Identitas · Persiapan & DRL · Reporting Template. Pola SSR-hybrid identik SDKI (`useMasterCrud` + `confirmDirty` → **DiscardDialog** global).
+> **Data:** mock `RAD_KATALOG_MOCK` **dihapus** → tipe+helper tetap di [radCatalogMock.ts](../src/lib/master/radCatalogMock.ts), data pindah ke [radCatalogSeed.ts](../src/lib/master/radCatalogSeed.ts) (dibaca seed script **dan** `OrderRadTab` sampai endpoint `rad-catalog-tersedia` klinis ada).
+
+**Scope domain — RadCatalog OWNS:** identitas (nama/modalitas/region/kategori/deskripsi) · estimasi & TAT target (cito/semiCito/rutin) · persiapan & protap (puasa/premedikasi/kontraindikasi/instruksi) · media kontras · Diagnostic Reference Level (DRL) · reporting template terstruktur. Standar PMK 1014/2008 · PMK 24/2020 · BAPETEN 2/2018 · IAEA HH-19 · ACR.
+
+**Keputusan model (2026-06-17):**
+- **Modalitas = method FHIR SatuSehat** (`XR`·`CT`·`MR`·`RF`·`US`·`MG`·`DXA`·`NM`) menggantikan label lama (Konvensional/MRI/USG/…); **`modalitasSubtype` opsional** dari daftar subtype per-method (mis. `CT.angio`, `MG.tomosynthesis`, `NM.SPECT+CT`) — selaras `ImagingStudy.modality` (KodeModality SatuSehat).
+- **`kode` internal `RAD-NNNN` AUTO-GEN** (counter atomik `master.RadCatalogCounter` scope="RAD", pola `SdkiCounter`; immutable, read-only "Auto" di form).
+- **`kodeIcd` (ICD-9-CM prosedur) OPSIONAL** — input manual **atau** dropdown async dari **master ICD** (`GET /master/icd?jenis=ICD-9`), komponen `IcdPicker` di IdentitasTab.
+- Blok terstruktur (tat/persiapan/kontras/drl/reporting) = **JSONB** (di-edit/seed utuh, analog `Sdki`). `drlReferensi` nullable → DAL pakai `Prisma.DbNull` (bukan literal null).
+
+**Entity** [radCatalog.prisma](../prisma/schema/radCatalog.prisma) — **katalog leaf** (TANPA optimistic-version), soft-delete, uuid v7, timestamptz. Enum FE-facing (modalitas/region/kategori/status) = **TEXT pass-through** (validasi Zod). Migrasi [`20260617150000_init_master_rad_catalog`](../prisma/migrations/20260617150000_init_master_rad_catalog/migration.sql); kode unik **partial** `WHERE deleted_at IS NULL`.
+
+| Lapis | File | Catatan |
+|---|---|---|
+| **Schema (Zod+DTO)** | [schemas/master/radCatalog.ts](../src/lib/schemas/master/radCatalog.ts) | `Create`/`Update`/`RadCatalogQuery`/`IdParam` + sub-schema `TatTarget`/`Persiapan`/`Kontras`/`Drl`/`ReportingTemplate` + `RadCatalogDTO` (mirror `RadCatalogRecord`). **Kode TIDAK di input** (auto-gen). Nested string pakai `.optional()` **tanpa transform** (key tetap opsional → cocok tipe FE bersarang). |
+| **DAL** | [dal/master/radCatalogDal.ts](../src/lib/dal/master/radCatalogDal.ts) | create/findById/update/softDelete/list (filter q/modalitas/kategori/status + keyset cursor) + **`nextRadSeq`** (counter upsert-increment) + `jsonOrDbNull` (nullable JSONB). |
+| **Service** | [services/master/radCatalogService.ts](../src/lib/services/master/radCatalogService.ts) | `list` **actor-less** (SSR) + CRUD. Kode auto `RAD-NNNN` dalam `transaction`. JSONB ⇄ DTO defensif (`toTat`/`toPersiapan`/`toKontras`/`toDrl`/`toReporting`). |
+| **Route** | [rad-catalog/route.ts](../src/app/api/v1/master/rad-catalog/route.ts) (GET+POST) · [rad-catalog/[id]/route.ts](../src/app/api/v1/master/rad-catalog/[id]/route.ts) (PATCH+DELETE) | RBAC **`master.katalog`** (sama Obat/Tindakan/Lab/SDKI). |
+| **Client** | [api/master/radCatalog.ts](../src/lib/api/master/radCatalog.ts) | `listRadCatalog`/`createRadCatalog`/`updateRadCatalog`/`deleteRadCatalog`. |
+| **Seed** | [prisma/scripts/seed-rad-catalog.mts](../prisma/scripts/seed-rad-catalog.mts) | pg langsung; seed `RAD-NNNN` apa adanya; counter[RAD]=24 → entri baru mulai RAD-0025. Jalankan `node --env-file=.env prisma/scripts/seed-rad-catalog.mts`. |
+
+**Seed terverifikasi (DB):** `24 pemeriksaan` lintas 8 modalitas FHIR (XR×5 · CT×5 incl. CTPA `CT.angio` · US×4 incl. `US.Doppler` · MR×3 incl. MRA `MR.angio` · MG×2 incl. `MG.tomosynthesis` · RF×2 · DXA×1 · NM×2 `NM.SPECT`/`NM.SPECT+CT`) · `counter[RAD]=24`.
+
+**Konsumen ✅ (2026-06-17):** `OrderRadTab` (IGD/RI/RJ workflow) + Beranda quick-nav **dimigrasi off `RAD_KATALOG_MOCK`** → baca `RAD_CATALOG_SEED`. **Sisa:** endpoint klinis `rad-catalog-tersedia` (gate `clinical.*`, pola `tindakan-tersedia`/`sdki-template`) agar workflow baca DB live (kini baca seed) · federasi billable → chargemaster (TODO-CHARGEMASTER).
+
+---
+
 ## D. Catatan lintas-sub
 - **Katalog klinis ≠ chargemaster.** Field domain (kompleksitas/nilai rujukan/template) tetap di katalog masing-masing; tarif/`unitTerkait` di chargemaster yang mer-referensi via `(sourceType, sourceId)`. **JANGAN merge 3 katalog jadi 1 tabel.**
-- **Leaf vs anak relasional:** Tindakan/ICD/Obat/SDKI = leaf; Lab/Rad = punya anak (nilai rujukan/template) → DAL `replaceChildren` dalam tx (pola `replaceMatrix` triase / `replaceKontakDarurat` pegawai).
+- **Leaf vs anak relasional:** Tindakan/ICD/Obat/SDKI/**Rad** = leaf (blok terstruktur Rad/SDKI/Obat = **JSONB**, di-set utuh); **hanya Lab** punya anak relasional (`LabParameter`) → DAL `replaceChildren` dalam tx (pola `replaceMatrix` triase / `replaceKontakDarurat` pegawai).
 - **Cache namespace** (saat Redis): `cache:master:tindakan:*` · `cache:master:icd:*` · dst.
 - **Definition of Done (FLOWS):** layered · Zod in/out · RBAC enforced · soft-delete · audit · tsc clean · swap FE zero-refactor (DTO mirror tipe FE) · tests Service+DAL.
