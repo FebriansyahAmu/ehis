@@ -43,7 +43,7 @@ interface Props {
 export default function StatusEnumPage({ initial, prefetched }: Props) {
   const [listLoaded, setListLoaded] = useState(prefetched);
   const [items, setItems] = useState<ItemWithGroup[]>(() => initial.map(dtoToItem));
-  const [activeKey, setActiveKey] = useState<StatusEnumKey>("status-pulang");
+  const [activeKey, setActiveKey] = useState<StatusEnumKey>("kondisi-transfer");
   const [busy, setBusy] = useState(false);
   // Form add/edit terbuka di table → gate pindah grup (DiscardDialog).
   const [formOpen, setFormOpen] = useState(false);
@@ -163,7 +163,7 @@ export default function StatusEnumPage({ initial, prefetched }: Props) {
         accent="violet"
         eyebrow="EHIS Master · Template & Enum"
         title="Status Enum"
-        description="Katalog enum kecil lintas-modul (single source) — dropdown PasienPulang · StatusFisik · TTV · Transfer · Edukasi · Rekonsiliasi. Kode dibuat OTOMATIS per kategori (<PREFIX>-NNN). Tambah/ubah di sini akan dikonsumsi semua modul terkait."
+        description="Katalog enum operasional lintas-modul (single source) — vocab free-string untuk dropdown SBAR/Handover (Kondisi Transfer · Mode Transport) & Informed Consent (Hubungan Keluarga). Kode dibuat OTOMATIS per kategori (<PREFIX>-NNN). Tambah/ubah di sini langsung dikonsumsi modul terkait."
         stats={
           <>
             <StatCard icon={Layers}     label="Kategori"    value={stats.kategori} tone="violet"  />

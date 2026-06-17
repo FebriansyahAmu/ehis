@@ -28,7 +28,7 @@ import {
   TestTube,
   Settings2,
   Landmark,
-  Tag,
+  Package,
   Gauge,
   Activity,
   Microscope,
@@ -346,7 +346,7 @@ export const masterNav: readonly NavGroup[] = [
   {
     label: "Operasional",
     items: [
-      { label: "Tarif & Layanan", href: "/ehis-master/tarif", icon: Tag, perm: "master.tarif" },
+      { label: "Paket Layanan", href: "/ehis-master/tarif", icon: Package, perm: "master.tarif" },
       { label: "Penjamin & Kontrak", href: "/ehis-master/penjamin", icon: Wallet, perm: "master.tarif" },
     ],
   },

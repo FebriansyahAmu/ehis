@@ -18,7 +18,7 @@ import {
   BookText, ClipboardList, Workflow,
   Layers, MessageSquare, FileText,
   GraduationCap, LogOut, ClipboardCheck,
-  Network, Tag, Wallet,
+  Network, Package, Wallet,
   Settings2, Landmark,
   ShieldCheck, BadgePercent, PackageSearch, Lock, Building,
   type LucideIcon,
@@ -49,7 +49,7 @@ import { TEMPLATE_ANAMNESIS_MOCK } from "@/lib/master/templateAnamnesisMock";
 import { TEMPLATE_FORM_MOCK } from "@/lib/master/templateFormMock";
 import { EDUKASI_COLLECTIONS } from "@/lib/master/edukasiMock";
 import { OPERASIONAL_INITIAL_STATE } from "@/lib/master/operasionalKlinisMock";
-import { TARIF_MOCK, PAKET_MOCK } from "@/lib/master/tarifMock";
+import { PAKET_MOCK } from "@/lib/master/tarifMock";
 import { PENJAMIN_INITIAL, MAPPING_INITIAL } from "@/lib/master/penjaminStore";
 import { PPK_INITIAL } from "@/lib/master/ppkStore";
 
@@ -96,7 +96,7 @@ export function getBerandaStats(): BerandaStats {
       SKALA_RISIKO_MOCK.length + SKALA_UMUM_MOCK.length +
       SKALA_PENYAKIT_MOCK.length + TRIASE_MOCK.length,
     operasional:
-      TARIF_MOCK.length + PAKET_MOCK.length +
+      PAKET_MOCK.length +
       PENJAMIN_INITIAL.length + PPK_INITIAL.length,
     mapping: 33, // computed avg from MAPPING_COVERAGE entries below
   };
@@ -200,9 +200,9 @@ export function getQuickNavGroups(): QuickNavGroup[] {
     {
       label: "Operasional",
       tone: "pink",
-      desc: "Tarif, penjamin, dan billing",
+      desc: "Paket layanan, penjamin & billing",
       items: [
-        { label: "Tarif & Layanan",    href: "/ehis-master/tarif",    icon: Tag,    count: TARIF_MOCK.length + PAKET_MOCK.length, subLabel: `${TARIF_MOCK.length} tarif · ${PAKET_MOCK.length} paket` },
+        { label: "Paket Layanan",      href: "/ehis-master/tarif",    icon: Package, count: PAKET_MOCK.length, subLabel: `${PAKET_MOCK.length} paket bundling` },
         { label: "Penjamin & Kontrak", href: "/ehis-master/penjamin", icon: Wallet, count: PENJAMIN_INITIAL.length },
       ],
     },
@@ -296,7 +296,7 @@ export interface RecentEditEntry {
 
 export const RECENT_EDITS_MOCK: RecentEditEntry[] = [
   { id: "e1", action: "Tambah", entity: "Operasional Klinis", recordLabel: "Penyakit Isolasi · MRSA",     by: "dr. Hendra W",  agoSec: -180,    href: "/ehis-master/operasional" },
-  { id: "e2", action: "Edit",   entity: "Tarif & Layanan",    recordLabel: "Konsul Sp.JP — Kelas 1",      by: "billing-admin", agoSec: -540,    href: "/ehis-master/tarif" },
+  { id: "e2", action: "Edit",   entity: "Paket Layanan",      recordLabel: "Paket MCU Eksekutif",         by: "billing-admin", agoSec: -540,    href: "/ehis-master/tarif" },
   { id: "e3", action: "Edit",   entity: "Mapping Hub · SDM",  recordLabel: "dr. Ahmad → Poli Penyakit Dalam", by: "hr-admin",   agoSec: -1620,   href: "/ehis-master/mapping?sub=sdm" },
   { id: "e4", action: "Tambah", entity: "Katalog Obat",       recordLabel: "Enoxaparin Inj 60mg/0.6ml",   by: "apotek-pic",    agoSec: -3540,   href: "/ehis-master/katalog-obat" },
   { id: "e5", action: "Edit",   entity: "Profil RS",          recordLabel: "Jam Shift Pagi 07:00 → 07:30",by: "rs-admin",      agoSec: -7200,   href: "/ehis-master/profil-rs" },

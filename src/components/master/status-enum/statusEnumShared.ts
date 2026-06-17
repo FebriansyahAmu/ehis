@@ -17,7 +17,7 @@ export interface EntryDraft {
   label: string;
   deskripsi: string;
   tone: EnumTone;
-  icon?: string;
+  icon: string | undefined; // key WAJIB ada (boleh undefined) — cocokkan CreateEnumEntryInput (optStr transform)
   urutan: number;
   status: "Aktif" | "NonAktif";
 }

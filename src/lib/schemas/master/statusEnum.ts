@@ -6,17 +6,13 @@
 import { z } from "zod";
 
 // ── Vocab terkontrol ──────────────────────────────────────────────────────────
-// 9 grup fixed (= StatusEnumKey di statusEnumMock). Kontrak konsumen, BUKAN data bebas.
+// 3 grup fixed (= StatusEnumKey di statusEnumMock). Kontrak konsumen, BUKAN data bebas.
+// Revisi 2026-06-17: 6 grup lama dihapus (otoritas lain/typed-union — lihat
+// docs/BACKEND-MASTER-TEMPLATE&ENUM.md §2.3/§5).
 export const EnumGroupKeyEnum = z.enum([
-  "status-pulang",
-  "kondisi-umum",
-  "tingkat-kesadaran",
   "kondisi-transfer",
   "mode-transport",
-  "kelas-perawatan",
   "hubungan-keluarga",
-  "profesi-edukator",
-  "rute-obat",
 ]);
 export type EnumGroupKeyEnum = z.infer<typeof EnumGroupKeyEnum>;
 
@@ -34,15 +30,9 @@ export type EnumStatusEnum = z.infer<typeof EnumStatusEnum>;
  * mis. SPL-001 / KUM-001 / ROB-001. Auto-gen di Service — seperti Asesmen Katalog.
  */
 export const ENUM_GROUP_PREFIX: Record<EnumGroupKeyEnum, string> = {
-  "status-pulang":     "SPL",
-  "kondisi-umum":      "KUM",
-  "tingkat-kesadaran": "TKS",
   "kondisi-transfer":  "KTR",
   "mode-transport":    "MTR",
-  "kelas-perawatan":   "KPW",
   "hubungan-keluarga": "HKL",
-  "profesi-edukator":  "PED",
-  "rute-obat":         "ROB",
 };
 
 const optStr = z.string().trim().optional().transform((v) => (v ? v : undefined));

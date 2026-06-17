@@ -19,16 +19,12 @@ import { STATUS_ENUM_SEED, formatEnumKode } from "./statusEnumSeed";
 
 // ── Enum keys ─────────────────────────────────────────────
 
+// Lingkup 3 grup (revisi 2026-06-17) — 6 grup lama dihapus (otoritas lain/typed-union).
+// Lihat docs/BACKEND-MASTER-TEMPLATE&ENUM.md §2.3.
 export type StatusEnumKey =
-  | "status-pulang"
-  | "kondisi-umum"
-  | "tingkat-kesadaran"
   | "kondisi-transfer"
   | "mode-transport"
-  | "kelas-perawatan"
-  | "hubungan-keluarga"
-  | "profesi-edukator"
-  | "rute-obat";
+  | "hubungan-keluarga";
 
 export type EnumTone =
   | "emerald" | "sky" | "teal" | "amber" | "orange"

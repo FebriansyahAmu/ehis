@@ -18,7 +18,7 @@ Menu **Template & Enum** di `/ehis-master` (gate **`master.konfigurasi`**, Admin
 
 | # | Tab | Route FE | Mock / tipe FE | Konsumen klinis (saat ini hardcode) | Status backend |
 |---|---|---|---|---|---|
-| TE1 | **Status Enum** | [/ehis-master/status-enum](../src/app/ehis-master/status-enum/) | [statusEnumMock.ts](../src/lib/master/statusEnumMock.ts) — 9 grup / 55 entri | PasienPulang · StatusFisikPane · TTVTab · Transfer SBAR · Registrasi RI · Caregiver · Edukasi · MAR | 📋 |
+| TE1 | **Status Enum** | [/ehis-master/status-enum](../src/app/ehis-master/status-enum/) | [statusEnumMock.ts](../src/lib/master/statusEnumMock.ts) — **3 grup / 15 entri** (6 grup dihapus 2026-06-17) | SBAR Transfer/Handover (Kondisi Transfer · Mode Transport) · Informed Consent (Hubungan Keluarga) | ✅ |
 | TE2 | **Template Anamnesis** | [/ehis-master/template-anamnesis](../src/app/ehis-master/template-anamnesis/) | [templateAnamnesisMock.ts](../src/lib/master/templateAnamnesisMock.ts) — 17 template | AnamnesisPane IGD/RI/RJ | 📋 |
 | TE3 | **Template Form** | [/ehis-master/template-form](../src/app/ehis-master/template-form/) | [templateFormMock.ts](../src/lib/master/templateFormMock.ts) — 20 template (4 jenis) | HandoverTab · KonsultasiTab · InformedConsentTab · PasienPulang · SuratDokumen · CPPT quick-text | 📋 |
 
@@ -32,7 +32,7 @@ Menu **Template & Enum** di `/ehis-master` (gate **`master.konfigurasi`**, Admin
 Tiap tab punya bentuk data sangat berbeda (enum baris kecil vs template teks panjang vs union 4-jenis). Federasi paksa → over-engineering. **3 tabel terpisah**, masing-masing **katalog leaf** (TANPA optimistic-version), uuid v7, soft-delete (`deletedAt`), timestamptz. Enum FE-facing (kategori/jenis/status/tone/context) = **TEXT pass-through** divalidasi Zod (pola identik `Sdki`/`SkalaInstrument`/`Obat`).
 
 ### 1.2 Kode auto-gen (Status Enum) vs tanpa kode (Template)
-- **Status Enum** — `kode` **AUTO-GEN per grup/kategori** `<PREFIX>-NNN` (pola **Asesmen Katalog**), prefix per grup (`SPL`/`KUM`/`TKS`/`KTR`/`MTR`/`KPW`/`HKL`/`PED`/`ROB`) via **`master.EnumCounter`** (scope=prefix, upsert-increment atomik). Kode **BUKAN input manual**, immutable, unik per grup. _(Revisi 2026-06-17: semula direncanakan kode semantik manual; diubah ke auto-gen atas permintaan — konsekuensi di §5.)_
+- **Status Enum** — `kode` **AUTO-GEN per grup/kategori** `<PREFIX>-NNN` (pola **Asesmen Katalog**), prefix per grup (`KTR`/`MTR`/`HKL` — 3 grup) via **`master.EnumCounter`** (scope=prefix, upsert-increment atomik). Kode **BUKAN input manual**, immutable, unik per grup. _(Revisi 2026-06-17: kode auto-gen; lalu lingkup diciutkan dari 9→3 grup — §2.3/§5.)_
 - **Template Anamnesis & Template Form** — tak punya kode publik; identitas = `label` + `id` uuid. **Tanpa counter, tanpa field kode.**
 
 → Hanya **Status Enum** menambah tabel `*Counter` (`EnumCounter`). Template tabs tetap tanpa counter.
@@ -70,11 +70,12 @@ Data array dipindah ke **`*Seed.ts`** Node-loadable (**plain data, tanpa import 
 
 ## 2. TE1 — Status Enum
 
-> **Status: ✅ TE1 SELESAI (2026-06-17)** — schema+migrasi (applied) · Zod · DAL · Service · 3 endpoint · browser API · seed **55 entri / 9 grup** · **master page wired** (SSR-hybrid + CRUD + reorder + DiscardDialog; KODE auto-gen read-only) · **wiring klinis SELEKTIF** (hook reusable `useStatusEnum` + 1 konsumen free-string: InformedConsentTab hubungan; typed-union deferred-by-decision — §2.3). tsc+eslint bersih (`_actor` unused = sengaja). **Lanjut: TE2 Template Anamnesis.**
+> **Status: ✅ TE1 SELESAI (2026-06-17)** — schema+migrasi (applied) · Zod · DAL · Service · 3 endpoint · browser API · seed **15 entri / 3 grup** (KTR·MTR·HKL — **6 grup dihapus**, §2.3) · **master page wired** (SSR-hybrid + CRUD + reorder + DiscardDialog; KODE auto-gen read-only) · **wiring klinis SELEKTIF** (hook reusable `useStatusEnum` + 1 konsumen free-string: InformedConsentTab hubungan). tsc+eslint bersih (`_actor` unused = sengaja). **Lanjut: TE2 Template Anamnesis.**
 
 **Domain OWNS:** katalog enum kecil lintas-modul. 9 **grup** (key fixed, metadata kode) × N **entri** (data DB editable). Entri = `kode` (**auto-gen** `<PREFIX>-NNN`) + `label` + `deskripsi` + `tone` (warna) + `urutan` + `status` + `icon` (key string).
 
-**Grup (fixed, metadata tetap kode) + prefix kode:** `status-pulang`→SPL · `kondisi-umum`→KUM · `tingkat-kesadaran`→TKS · `kondisi-transfer`→KTR · `mode-transport`→MTR · `kelas-perawatan`→KPW · `hubungan-keluarga`→HKL · `profesi-edukator`→PED · `rute-obat`→ROB.
+**Grup (fixed, metadata tetap kode) + prefix kode — 3 grup:** `kondisi-transfer`→KTR · `mode-transport`→MTR · `hubungan-keluarga`→HKL.
+> **6 grup DIHAPUS (2026-06-17)** dari seed/FE/Zod/DB: `status-pulang` (lifecycle Disposisi + BPJS), `kondisi-umum`/`tingkat-kesadaran` (typed union `KU`/`KesadaranPF`), `kelas-perawatan` (otoritas Ruangan/Tarif/RIKelas), `rute-obat` (otoritas Obat/KFA), `profesi-edukator` (otoritas Pegawai). Alasan lengkap §2.3/§5.
 
 ### 2.1 Model — `master.EnumEntry` + `master.EnumCounter`
 Metadata grup (label/deskripsi/icon/konsumen) **fixed config** → tetap di `statusEnumMock.ts` (bukan DB; 9 key tak pernah berubah by user). Hanya **entri** masuk DB. Kode auto-gen `<PREFIX>-NNN` via `EnumCounter` (scope=prefix grup, upsert-increment atomik — pola `AsesmenCounter`).
@@ -83,7 +84,7 @@ Metadata grup (label/deskripsi/icon/konsumen) **fixed config** → tetap di `sta
 // prisma/schema/statusEnum.prisma  (@@schema "master")
 model EnumEntry {
   id        String  @id @default(uuid(7)) @db.Uuid
-  groupKey  String  @map("group_key")   // status-pulang | kondisi-umum | ... (9 fixed, FE-facing TEXT)
+  groupKey  String  @map("group_key")   // kondisi-transfer | mode-transport | hubungan-keluarga (3 fixed, FE-facing TEXT)
   kode      String                       // `<PREFIX>-NNN` AUTO-GEN (counter per grup), immutable, unik per grup
   label     String
   deskripsi String  @default("")
@@ -100,7 +101,7 @@ model EnumEntry {
   @@schema("master")
 }
 
-model EnumCounter {                         // scope = prefix grup (SPL/KUM/...); upsert-increment atomik
+model EnumCounter {                         // scope = prefix grup (KTR/MTR/HKL); upsert-increment atomik
   scope   String @id
   lastSeq Int    @map("last_seq")
   @@map("enum_counter")
@@ -112,14 +113,14 @@ model EnumCounter {                         // scope = prefix grup (SPL/KUM/...)
 ### 2.2 Lapisan (as-built)
 | Lapis | File | Catatan |
 |---|---|---|
-| **Schema (Zod+DTO)** | [statusEnum.ts](../src/lib/schemas/master/statusEnum.ts) | `EnumGroupKeyEnum` (9) · `EnumToneEnum` (9) · `EnumStatusEnum` · **`ENUM_GROUP_PREFIX`** (map grup→prefix) · `CreateEnumEntryInput` (**TANPA kode** — auto-gen) · `UpdateEnumEntryInput` (parsial, **kode & groupKey immutable**) · `EnumQuery` (`groupKey?`/`q?`/`status?`/`limit?`) · `IdParam` · `EnumEntryDTO` (mirror EnumEntry + `groupKey`). |
+| **Schema (Zod+DTO)** | [statusEnum.ts](../src/lib/schemas/master/statusEnum.ts) | `EnumGroupKeyEnum` (3) · `EnumToneEnum` (9) · `EnumStatusEnum` · **`ENUM_GROUP_PREFIX`** (3: KTR/MTR/HKL) · `CreateEnumEntryInput` (**TANPA kode** — auto-gen) · `UpdateEnumEntryInput` (parsial, **kode & groupKey immutable**) · `EnumQuery` (`groupKey?`/`q?`/`status?`/`limit?`) · `IdParam` · `EnumEntryDTO` (mirror EnumEntry + `groupKey`). |
 | **DAL** | [statusEnumDal.ts](../src/lib/dal/master/statusEnumDal.ts) | `create`/`findById`/`update`/`softDelete`/`list` (orderBy `groupKey,urutan,kode,id`) + **`nextEnumSeq`** (counter upsert) + **`maxUrutan`** (default urutan entri baru). `EnumEntryData`/`EnumEntryPatch` (omit kode/groupKey). |
 | **Service** | [statusEnumService.ts](../src/lib/services/master/statusEnumService.ts) | `makeStatusEnumService` (factory+DI) · `list` **actor-less** (status `Semua`→undefined) · `create` (kode auto `<PREFIX>-NNN` via `nextEnumSeq` dalam transaksi; urutan default `maxUrutan+1`) · `update` (kode/groupKey immutable) · `remove`. Singleton `statusEnumService`. |
 | **Route master** | [status-enum/route.ts](../src/app/api/v1/master/status-enum/route.ts) (GET+POST) + [[id]/route.ts](../src/app/api/v1/master/status-enum/[id]/route.ts) (PATCH+DELETE) | gate `master.konfigurasi`. |
 | **Route klinis** | [status-enum-tersedia/route.ts](../src/app/api/v1/master/status-enum-tersedia/route.ts) (GET) | gate `clinical.rekammedis:read`, `scopeKunjungan:false`, status dipaksa `Aktif`, filter `?groupKey=`. |
 | **Browser API** | [statusEnum.ts](../src/lib/api/master/statusEnum.ts) | `listStatusEnum` · `listStatusEnumTersedia` · `createStatusEnum` · `updateStatusEnum` · `deleteStatusEnum`. |
-| **Seed data** | [statusEnumSeed.ts](../src/lib/master/statusEnumSeed.ts) (plain, Node-loadable) | 9 grup × entri (icon=string, tanpa lucide) + `formatEnumKode`. **`statusEnumMock.ts` di-refactor** → compose `STATUS_ENUM_GROUPS` dari seed (ikon via ICON_REGISTRY + kode generated formula sama → FE≡DB); simpan TONE_CFG/ICON_REGISTRY/helper. |
-| **Seed script** | [seed-statusEnum.mts](../prisma/scripts/seed-statusEnum.mts) | `@/`-free, pg langsung; **GENERATE `<PREFIX>-NNN` per grup** (urutan array) + set counter=jumlah entri. ✅ run: 55 entri / 9 counter. |
+| **Seed data** | [statusEnumSeed.ts](../src/lib/master/statusEnumSeed.ts) (plain, Node-loadable) | **3 grup** × entri (icon=string, tanpa lucide) + `formatEnumKode`. **`statusEnumMock.ts` di-refactor** → compose `STATUS_ENUM_GROUPS` dari seed (ikon via ICON_REGISTRY + kode generated formula sama → FE≡DB); simpan TONE_CFG/ICON_REGISTRY/helper. |
+| **Seed script** | [seed-statusEnum.mts](../prisma/scripts/seed-statusEnum.mts) | `@/`-free, pg langsung; **GENERATE `<PREFIX>-NNN` per grup** (urutan array) + set counter=jumlah entri. ✅ run: **15 entri / 3 counter** (KTR=3·MTR=5·HKL=7). |
 | **Page swap** | [page.tsx](../src/app/ehis-master/status-enum/page.tsx) (SSR) + [StatusEnumPage.tsx](../src/components/master/status-enum/StatusEnumPage.tsx) (client SSR-hybrid) | ✅ TE1.9 — first paint via `statusEnumService.list`; `items` state dari `initial` (DTO→ItemWithGroup); **groups compose** = meta statis × entri DB per groupKey; CRUD via /api (add `createStatusEnum` · edit `updateStatusEnum` · delete window.confirm · **reorder ↑↓** = 2× PATCH urutan optimistik) + toast; **DiscardDialog** gate pindah kategori saat form add/edit terbuka. [EnumTable](../src/components/master/status-enum/EnumTable.tsx) granular async handlers + `busy` lock; [EnumEntryForm](../src/components/master/status-enum/EnumEntryForm.tsx) **KODE read-only** ("Auto · `<PREFIX>`-NNN" saat create, kode existing saat edit). |
 
 ### 2.3 Wiring klinis — strategi **SELEKTIF** (keputusan 2026-06-17)
@@ -132,7 +133,10 @@ model EnumCounter {                         // scope = prefix grup (SPL/KUM/...)
 **Konsumen ter-wire ✅:**
 - **hubungan-keluarga** → [InformedConsentTab](../src/components/shared/medical-records/InformedConsentTab.tsx) `<Select>` Penanda Tangan: opsi = `["Pasien Sendiri", ...master hubungan-keluarga]` (relasi caregiver dari master + self-case konstan), `form.hubungan` tetap string. `HUBUNGAN_TAB` lama dihapus.
 
-**Sengaja TIDAK di-wire (tetap kode):** StatusFisikPane (KU/Kesadaran union) · TTVTab (kesadaran) · Registrasi RI (RIKelas) · Disposisi/PasienPulang (jenis union) · InformedConsentModal (`HubunganPenanda` union + "Pasien Sendiri") · EdukasiPane (free-text/konstanta lokal). Revisit per-konsumen nanti bila perlu (mis. ubah free-text→datalist).
+**6 grup DIHAPUS dari master (2026-06-17)** — bukan sekadar tak di-wire, tapi dibuang dari seed/FE (`statusEnumSeed`/`statusEnumMock` `StatusEnumKey`)/Zod (`EnumGroupKeyEnum`/`ENUM_GROUP_PREFIX`)/DB (re-seed wipe). Field klinisnya tetap pakai sumber masing-masing:
+- `status-pulang` → typed union + state-machine Disposisi (+ BPJS). · `kondisi-umum`/`tingkat-kesadaran` → union `KU`/`KesadaranPF` di StatusFisikPane/TTV. · `kelas-perawatan` → `RIKelas`/master Ruangan/Tarif. · `rute-obat` → master Obat/KFA. · `profesi-edukator` → master Pegawai (profesi) / EdukasiPane free-text.
+
+Master Status Enum kini **murni 3 grup operasional** (Kondisi Transfer · Mode Transport · Hubungan Keluarga). Tindak lanjut wiring sisa yang layak: `mode-transport` + `kondisi-transfer` di SBAR Transfer/Handover (pakai `useStatusEnum`).
 
 ---
 
@@ -241,12 +245,11 @@ Context `src/components/shared/template-form/templateFormContext.tsx` (`useTempl
 
 ## 5. Risiko & catatan
 
-- **`kelas-perawatan` vs type `RIKelas`** — enum Kelas Perawatan beririsan dgn `RIKelas` (`src/lib/data.ts`) **dan** master Ruangan (locationType:kelas). Saat wiring Registrasi RI: master enum = **label/tampilan**, sumber kelas operasional tetap tree Ruangan + `RIKelas` type. JANGAN bikin master enum jadi FK tarif/bed (itu domain Ruangan/Tarif). Status Enum di sini = **display/dropdown reference**, bukan otoritas kelas billing.
-- **`rute-obat`** — master dasar rute ada di Katalog Obat (KFA). Entri di sini hanya kompat dropdown asesmen rekonsiliasi; jangan jadikan sumber rute resep (itu Obat/KFA).
-- **Quick-text shortcut unik** — ditegakkan Service, bukan DB (JSONB). Uji race ringan; cukup untuk volume master kecil.
-- **Group-meta Status Enum hard-coded** — 9 key fixed di kode. Menambah GRUP baru = perubahan kode (bukan data). User hanya kelola **entri**. Ini disengaja (grup = kontrak konsumen, bukan data bebas).
-- **Kode Status Enum auto-gen (bukan semantik)** — sejak revisi 2026-06-17 kode = `<PREFIX>-NNN` surrogate (mis. `SPL-003`), BUKAN `RAWAT_INAP`/`MENINGGAL`. **Konsekuensi:** konsumen klinis & logika yang dulu mengandalkan kode semantik (mis. mapping Disposisi `jenis`, status BPJS) HARUS match via **`label`** atau **`id`** + snapshot, bukan string kode. Saat wiring (TE1.10): simpan `id`+snapshot `label` di rekam medis, jangan hard-match kode. Authority kelas/billing tetap di `RIKelas`/Ruangan/Tarif (lihat butir pertama).
-- **Beranda master count** ([berandaShared.ts](../src/components/master/beranda/berandaShared.ts)) baca mock 3 tab ini → setelah swap, ganti ke count indikatif / fetch (pola Obat saat OBAT_MOCK dihapus).
+- **✅ Cleanup 9→3 grup (2026-06-17, DONE)** — grup yang punya otoritas lain / typed-union / vocab baku **sudah dihapus** dari master (status-pulang, kondisi-umum, tingkat-kesadaran, kelas-perawatan, rute-obat, profesi-edukator). Tidak ada lagi "second source of truth": kelas→Ruangan/Tarif/`RIKelas` · rute→Obat/KFA · profesi→Pegawai · status-pulang→Disposisi+BPJS · KU/kesadaran→union. Master Status Enum = **3 grup operasional free-string saja**.
+- **Group-meta Status Enum hard-coded** — 3 key fixed di kode (`StatusEnumKey`/`EnumGroupKeyEnum`). Menambah GRUP baru = perubahan kode (bukan data). User hanya kelola **entri**. Disengaja (grup = kontrak konsumen).
+- **Kode Status Enum auto-gen surrogate** — kode = `<PREFIX>-NNN` (KTR/MTR/HKL), BUKAN semantik. Konsumen klinis menyimpan **label** (free-string), bukan kode → tak ada logika yang hard-match kode (3 grup tersisa memang display-only).
+- **Quick-text shortcut unik** (TE3) — ditegakkan Service, bukan DB (JSONB). Uji race ringan; cukup untuk volume master kecil.
+- **Beranda master count** ([berandaShared.ts](../src/components/master/beranda/berandaShared.ts)) — `sumStatusEnum()` auto-reduce ke 3 grup/15 entri (hanya `reduce`/`.length`, tak ada break). Saat swap penuh ke DB, ganti ke count indikatif/fetch (pola Obat).
 
 ---
 
@@ -262,7 +265,7 @@ Context `src/components/shared/template-form/templateFormContext.tsx` (`useTempl
 - [x] **TE1.5** Route master `/status-enum` + `/:id` (gate `master.konfigurasi`). ✅
 - [x] **TE1.6** Route klinis `/status-enum-tersedia` (gate `clinical.rekammedis:read`). ✅
 - [x] **TE1.7** Browser API `api/master/statusEnum.ts`. ✅
-- [x] **TE1.8** Seed: `statusEnumSeed.ts` (plain) + refactor `statusEnumMock.ts` (compose dari seed) + `seed-statusEnum.mts` → jalankan **55 entri / 9 grup** (SPL=7·KUM=4·TKS=6·KTR=3·MTR=5·KPW=7·HKL=7·PED=6·ROB=10). ✅
+- [x] **TE1.8** Seed: `statusEnumSeed.ts` (plain) + refactor `statusEnumMock.ts` (compose dari seed) + `seed-statusEnum.mts` → jalankan **15 entri / 3 grup** (KTR=3·MTR=5·HKL=7). _(Awalnya 9 grup/55 entri; 6 grup dihapus 2026-06-17.)_ ✅
 - [x] **TE1.9** Page swap SSR-hybrid ([page.tsx](../src/app/ehis-master/status-enum/page.tsx) + [StatusEnumPage.tsx](../src/components/master/status-enum/StatusEnumPage.tsx)) — CRUD via /api + reorder optimistik + DiscardDialog (pindah kategori) + KODE read-only auto-gen. tsc+eslint bersih. ✅
 - [x] **TE1.10** Wiring klinis **SELEKTIF** (keputusan user 2026-06-17): hook reusable [useStatusEnum](../src/components/shared/enum/useStatusEnum.ts) (fetch-once + cache + fallback) + 1 konsumen free-string ter-wire ([InformedConsentTab](../src/components/shared/medical-records/InformedConsentTab.tsx) hubungan = master `hubungan-keluarga` + "Pasien Sendiri"). Field typed-union (Kesadaran/KU/RIKelas/Disposisi/HubunganPenanda) **TIDAK di-wire by design** (§2.3). ✅
 - [x] **TE1.11** Update progress: doc ini (status ✅ + §2.2/§2.3). CLAUDE.md cell `/ehis-master` + DONE.md → saat batch TE selesai. ✅
