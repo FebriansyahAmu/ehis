@@ -70,7 +70,7 @@ Data array dipindah ke **`*Seed.ts`** Node-loadable (**plain data, tanpa import 
 
 ## 2. TE1 — Status Enum
 
-> **Status: 🟩 Backend + seed + master page SSR-hybrid SELESAI (2026-06-17)** — schema+migrasi (applied) · Zod · DAL · Service · 3 endpoint · browser API · seed **55 entri / 9 grup** · **master page wired** (SSR-hybrid + CRUD via /api + reorder + DiscardDialog; form KODE read-only auto-gen). tsc+eslint bersih (`_actor` unused = sengaja). **Sisa: TE1.10 wiring klinis.**
+> **Status: ✅ TE1 SELESAI (2026-06-17)** — schema+migrasi (applied) · Zod · DAL · Service · 3 endpoint · browser API · seed **55 entri / 9 grup** · **master page wired** (SSR-hybrid + CRUD + reorder + DiscardDialog; KODE auto-gen read-only) · **wiring klinis SELEKTIF** (hook reusable `useStatusEnum` + 1 konsumen free-string: InformedConsentTab hubungan; typed-union deferred-by-decision — §2.3). tsc+eslint bersih (`_actor` unused = sengaja). **Lanjut: TE2 Template Anamnesis.**
 
 **Domain OWNS:** katalog enum kecil lintas-modul. 9 **grup** (key fixed, metadata kode) × N **entri** (data DB editable). Entri = `kode` (**auto-gen** `<PREFIX>-NNN`) + `label` + `deskripsi` + `tone` (warna) + `urutan` + `status` + `icon` (key string).
 
@@ -122,14 +122,17 @@ model EnumCounter {                         // scope = prefix grup (SPL/KUM/...)
 | **Seed script** | [seed-statusEnum.mts](../prisma/scripts/seed-statusEnum.mts) | `@/`-free, pg langsung; **GENERATE `<PREFIX>-NNN` per grup** (urutan array) + set counter=jumlah entri. ✅ run: 55 entri / 9 counter. |
 | **Page swap** | [page.tsx](../src/app/ehis-master/status-enum/page.tsx) (SSR) + [StatusEnumPage.tsx](../src/components/master/status-enum/StatusEnumPage.tsx) (client SSR-hybrid) | ✅ TE1.9 — first paint via `statusEnumService.list`; `items` state dari `initial` (DTO→ItemWithGroup); **groups compose** = meta statis × entri DB per groupKey; CRUD via /api (add `createStatusEnum` · edit `updateStatusEnum` · delete window.confirm · **reorder ↑↓** = 2× PATCH urutan optimistik) + toast; **DiscardDialog** gate pindah kategori saat form add/edit terbuka. [EnumTable](../src/components/master/status-enum/EnumTable.tsx) granular async handlers + `busy` lock; [EnumEntryForm](../src/components/master/status-enum/EnumEntryForm.tsx) **KODE read-only** ("Auto · `<PREFIX>`-NNN" saat create, kode existing saat edit). |
 
-### 2.3 Wiring klinis (fase akhir TE1)
-Context `src/components/shared/enum/statusEnumContext.tsx` (`StatusEnumProvider`/`useStatusEnum(groupKey)`), fallback ke grup-meta mock. Konsumen prioritas (ganti konstanta hardcode → `useStatusEnum`):
-- **Status Pulang** → PasienPulangTab (IGD/RI) + Disposisi/SelesaikanDialog.
-- **Kondisi Umum / Tingkat Kesadaran** → StatusFisikPane + TTVTab (shared medical-records).
-- **Kondisi Transfer / Mode Transport** → HandoverTab + SBAR Transfer.
-- **Kelas Perawatan** → Registrasi RI (cek konflik dgn `RIKelas` type — lihat §5 risiko).
-- **Hubungan Keluarga / Profesi Edukator / Rute Obat** → InformedConsent · Edukasi · Rekonsiliasi.
-> Wiring **bertahap per konsumen** (tidak harus sekaligus); tiap konsumen = ganti 1 konstanta + fallback. Catat konsumen tuntas di checklist §6.
+### 2.3 Wiring klinis — strategi **SELEKTIF** (keputusan 2026-06-17)
+**Temuan audit konsumen:** konsumen klinis status-enum BUKAN dropdown bebas — mayoritas **typed union** (StatusFisikPane `KesadaranPF`/`KU`, `RIKelas`, Disposisi `jenis`, InformedConsentModal `HubunganPenanda`) dgn **vocab berbeda** dari master (`Composmentis`≠`Compos Mentis`; KU `Berat`≠`Buruk/Kritis`), atau **free-text** (EdukasiPane nama petugas/hubungan), atau **konstanta lokal di luar 9 grup** (TOPIK/MEDIA edukasi). Memaksa master menyetir field bertipe → hilang type-safety + admin bisa simpan nilai tak dikenal.
+
+**Keputusan (user):** wire **HANYA field yang disimpan free-string & cocok**; field **typed-union TETAP union kode** (master = admin/reference, BUKAN sumber field bertipe). Lalu lanjut TE2/TE3.
+
+**Infra reusable ✅** [useStatusEnum.ts](../src/components/shared/enum/useStatusEnum.ts) — hook `useStatusEnum(groupKey)`: fetch SEKALI per grup (cache + inflight dedupe lintas mount) dari `/status-enum-tersedia`, FALLBACK ke `STATUS_ENUM_GROUPS` (entri Aktif) → tanpa kedip. Mengembalikan `{ options, labels, loaded, fromDb }`. **Hanya untuk field free-string.**
+
+**Konsumen ter-wire ✅:**
+- **hubungan-keluarga** → [InformedConsentTab](../src/components/shared/medical-records/InformedConsentTab.tsx) `<Select>` Penanda Tangan: opsi = `["Pasien Sendiri", ...master hubungan-keluarga]` (relasi caregiver dari master + self-case konstan), `form.hubungan` tetap string. `HUBUNGAN_TAB` lama dihapus.
+
+**Sengaja TIDAK di-wire (tetap kode):** StatusFisikPane (KU/Kesadaran union) · TTVTab (kesadaran) · Registrasi RI (RIKelas) · Disposisi/PasienPulang (jenis union) · InformedConsentModal (`HubunganPenanda` union + "Pasien Sendiri") · EdukasiPane (free-text/konstanta lokal). Revisit per-konsumen nanti bila perlu (mis. ubah free-text→datalist).
 
 ---
 
@@ -261,8 +264,8 @@ Context `src/components/shared/template-form/templateFormContext.tsx` (`useTempl
 - [x] **TE1.7** Browser API `api/master/statusEnum.ts`. ✅
 - [x] **TE1.8** Seed: `statusEnumSeed.ts` (plain) + refactor `statusEnumMock.ts` (compose dari seed) + `seed-statusEnum.mts` → jalankan **55 entri / 9 grup** (SPL=7·KUM=4·TKS=6·KTR=3·MTR=5·KPW=7·HKL=7·PED=6·ROB=10). ✅
 - [x] **TE1.9** Page swap SSR-hybrid ([page.tsx](../src/app/ehis-master/status-enum/page.tsx) + [StatusEnumPage.tsx](../src/components/master/status-enum/StatusEnumPage.tsx)) — CRUD via /api + reorder optimistik + DiscardDialog (pindah kategori) + KODE read-only auto-gen. tsc+eslint bersih. ✅
-- [ ] **TE1.10** Wiring klinis: Context + konsumen prioritas (PasienPulang → StatusFisik/TTV → Transfer → sisanya bertahap). **Match via id+label snapshot, BUKAN kode (auto-gen surrogate).**
-- [ ] **TE1.11** Update progress: CLAUDE.md cell `/ehis-master` + doc ini (status ✅) + DONE.md bila tuntas.
+- [x] **TE1.10** Wiring klinis **SELEKTIF** (keputusan user 2026-06-17): hook reusable [useStatusEnum](../src/components/shared/enum/useStatusEnum.ts) (fetch-once + cache + fallback) + 1 konsumen free-string ter-wire ([InformedConsentTab](../src/components/shared/medical-records/InformedConsentTab.tsx) hubungan = master `hubungan-keluarga` + "Pasien Sendiri"). Field typed-union (Kesadaran/KU/RIKelas/Disposisi/HubunganPenanda) **TIDAK di-wire by design** (§2.3). ✅
+- [x] **TE1.11** Update progress: doc ini (status ✅ + §2.2/§2.3). CLAUDE.md cell `/ehis-master` + DONE.md → saat batch TE selesai. ✅
 
 ### TE2 — Template Anamnesis
 - [ ] **TE2.1** Schema `templateAnamnesis.prisma` + migration → apply + resolve + generate.

@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Select } from "@/components/shared/inputs";
 import { DateTimePicker } from "@/components/shared/inputs/DateTimePicker";
+import { useStatusEnum } from "@/components/shared/enum/useStatusEnum";
 import type { ICConsentResult } from "@/lib/informed-consent/types";
 import InformedConsentModal from "@/components/shared/informed-consent/InformedConsentModal";
 import { listTindakanTersedia, type TindakanTersediaDTO } from "@/lib/api/master/tindakanTersedia";
@@ -140,9 +141,9 @@ const RISIKO_UMUM = [
   "Kematian (kasus berat)",
 ];
 
-const HUBUNGAN_TAB = [
-  "Pasien Sendiri", "Suami / Istri", "Orang Tua", "Anak Kandung", "Saudara Kandung", "Wali Resmi",
-];
+// "Pasien Sendiri" = kasus penanda = pasien (bukan relasi caregiver → sengaja TIDAK di master).
+// Relasi caregiver (Suami/Istri/Anak/…) bersumber dari master Status Enum `hubungan-keluarga`.
+const HUBUNGAN_SELF = "Pasien Sendiri";
 
 // ── Tindakan combobox (katalog ter-assign + fallback manual) ──
 
@@ -298,6 +299,11 @@ export default function InformedConsentTab({ patient }: { patient: ICPatient }) 
   });
   const setF = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm((p) => ({ ...p, [k]: v }));
+
+  // ── Opsi hubungan penanda: "Pasien Sendiri" + relasi caregiver dari master Status Enum ──
+  // (free-string; fallback konstanta saat DB belum termuat). Field bertipe union tetap kode.
+  const { labels: hubunganRelasi } = useStatusEnum("hubungan-keluarga");
+  const hubunganOptions = useMemo(() => [HUBUNGAN_SELF, ...hubunganRelasi], [hubunganRelasi]);
 
   // ── Katalog tindakan ter-assign (master, bukan kunjungan-scoped) ──
   const [catalog, setCatalog] = useState<TindakanTersediaDTO[]>([]);
@@ -573,7 +579,7 @@ export default function InformedConsentTab({ patient }: { patient: ICPatient }) 
                 <Select
                   value={form.hubungan}
                   onChange={(v) => setF("hubungan", v)}
-                  options={HUBUNGAN_TAB}
+                  options={hubunganOptions}
                   placeholder="Hubungan dengan pasien"
                 />
                 <TI label="Nama Lengkap Pasien/Wali" required value={form.namaPasienWali}
