@@ -32,8 +32,16 @@ model TarifRadCatalog {
   /// Tier "Jenis Ruangan" (locationType[:kelas]) — BUKAN Location id. String longgar.
   jenisRuangan String @map("jenis_ruangan")
 
-  /// Harga dalam rupiah penuh (tanpa sen).
+  /// Harga TOTAL dalam rupiah penuh (tanpa sen). Bila komponen diisi → harga = jumlah komponen.
   harga Int
+
+  // ── Komponen tarif (PMK 85/2015). Nullable: null = belum dirinci (total-only legacy).
+  /// Jasa Sarana: alat, BHP, depresiasi, utilitas, pemeliharaan (komponen RS).
+  jasaSarana    Int? @map("jasa_sarana")
+  /// Jasa Medis: porsi dokter/radiolog (remunerasi).
+  jasaMedis     Int? @map("jasa_medis")
+  /// Jasa Paramedis: porsi radiografer/perawat (remunerasi).
+  jasaParamedis Int? @map("jasa_paramedis")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)

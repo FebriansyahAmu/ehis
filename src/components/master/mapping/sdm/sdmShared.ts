@@ -78,9 +78,11 @@ export const STATUS_CFG: Record<
 // Penunjang; sisanya (IGD/ICU/HCU/Isolasi/Rawat Inap/OK) = Unit Klinis.
 function locationToCategory(node: LocationNode): UnitItem["category"] {
   switch (node.locationType) {
-    case "Rawat_Jalan": return "Poli";
-    case "Penunjang":   return "Unit Penunjang";
-    default:            return "Unit Klinis";
+    case "Rawat_Jalan":   return "Poli";
+    case "Penunjang":     // deprecated (lama)
+    case "Laboratorium":
+    case "Radiologi":     return "Unit Penunjang";
+    default:              return "Unit Klinis";
   }
 }
 

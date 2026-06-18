@@ -7,7 +7,8 @@ import { db, type Tx } from "@/lib/db/prisma";
 
 type OrgType = "prov" | "dept" | "dept_clin" | "team";
 type LocationType =
-  | "Rawat_Inap" | "Rawat_Jalan" | "ICU" | "HCU" | "Isolasi" | "IGD" | "OK" | "Penunjang";
+  | "Rawat_Inap" | "Rawat_Jalan" | "ICU" | "HCU" | "Isolasi" | "IGD" | "OK"
+  | "Penunjang" | "Laboratorium" | "Radiologi" | "Farmasi" | "Gudang"; // Penunjang DEPRECATED (legacy)
 type LocationKelas = "VIP" | "Kelas_1" | "Kelas_2" | "Kelas_3";
 type BedStatus = "active" | "inactive" | "suspended";
 

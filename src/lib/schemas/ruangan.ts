@@ -9,7 +9,9 @@ import { z } from "zod";
 // ── Enum (vocab FE; Service map ke Prisma `master`) ───────────────────────────
 export const OrgType = z.enum(["prov", "dept", "dept-clin", "team"]);
 export const LocationType = z.enum([
-  "Rawat_Inap", "Rawat_Jalan", "ICU", "HCU", "Isolasi", "IGD", "OK", "Penunjang",
+  // "Penunjang" DEPRECATED (dipecah → Laboratorium + Radiologi) — tetap diterima utk baris/enum lama.
+  "Rawat_Inap", "Rawat_Jalan", "ICU", "HCU", "Isolasi", "IGD", "OK",
+  "Penunjang", "Laboratorium", "Radiologi", "Farmasi", "Gudang",
 ]);
 /// "—" = tak berlaku (→ null di DB). Disertakan agar form FE tak perlu transform.
 export const LocationKelas = z.enum(["VIP", "Kelas_1", "Kelas_2", "Kelas_3", "—"]);

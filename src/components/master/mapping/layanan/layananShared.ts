@@ -133,8 +133,8 @@ export function groupRowsByKategori(rows: LayananRow[]): Map<RowKategori, Layana
 
 function unitCategory(lt: LocationType): LayananUnit["category"] {
   if (lt === "Rawat_Jalan") return "Poli";
-  if (lt === "Penunjang") return "Penunjang";
-  return "Klinis"; // IGD/ICU/HCU/Isolasi/Rawat_Inap/OK
+  if (lt === "Penunjang" || lt === "Laboratorium" || lt === "Radiologi") return "Penunjang";
+  return "Klinis"; // IGD/ICU/HCU/Isolasi/Rawat_Inap/OK/Farmasi/Gudang
 }
 
 // Label kolom sempit: pakai kode bila ringkas, else inisial nama.

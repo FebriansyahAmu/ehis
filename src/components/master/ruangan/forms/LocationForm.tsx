@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { DoorOpen, Save, Trash2, ChevronRight } from "lucide-react";
+import { DoorOpen, Save, Trash2, ChevronRight, Layers, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   type LocationNode, type AnyNode, type BedSubRecord,
@@ -9,7 +9,8 @@ import {
   getEffectiveAlamat, getAncestors, bedKodes,
 } from "../ruanganShared";
 import BedManagerPanel from "./BedManagerPanel";
-import { Field, FormSection, fieldCls, selectCls } from "./OrganizationForm";
+import { Field, FormSection, fieldCls } from "./OrganizationForm";
+import { Select, type SelectOption } from "@/components/shared/inputs/Select";
 
 interface LocationFormProps {
   node: LocationNode;
@@ -19,10 +20,21 @@ interface LocationFormProps {
   onDelete: (node: AnyNode) => void | Promise<void>;
 }
 
+// "Penunjang" sengaja TIDAK ditawarkan (deprecated) — dipecah jadi Laboratorium + Radiologi.
 const LOCATION_TYPES: LocationType[] = [
-  "Rawat_Inap", "Rawat_Jalan", "ICU", "HCU", "Isolasi", "IGD", "OK", "Penunjang",
+  "Rawat_Inap", "Rawat_Jalan", "ICU", "HCU", "Isolasi", "IGD", "OK", "Laboratorium", "Radiologi", "Farmasi", "Gudang",
 ];
 const KELAS_OPTIONS: LocationKelas[] = ["VIP", "Kelas_1", "Kelas_2", "Kelas_3", "—"];
+
+// Opsi untuk global <Select> (value=enum, label human-readable).
+const LOCATION_TYPE_OPTIONS: SelectOption[] = LOCATION_TYPES.map((t) => ({
+  value: t,
+  label: LOCATION_TYPE_LABEL[t],
+}));
+const KELAS_OPTIONS_SELECT: SelectOption[] = KELAS_OPTIONS.map((k) => ({
+  value: k,
+  label: k === "—" ? "Tidak Berlaku" : k.replace("_", " "),
+}));
 
 export default function LocationForm({
   node, parentName, nodes, onSave, onDelete,
@@ -132,27 +144,22 @@ export default function LocationForm({
             />
           </Field>
           <Field label="Jenis Ruangan" required>
-            <select
+            <Select
               value={form.locationType}
-              onChange={(e) => update("locationType", e.target.value as LocationType)}
-              required
-              className={selectCls}
-            >
-              {LOCATION_TYPES.map((t) => (
-                <option key={t} value={t}>{LOCATION_TYPE_LABEL[t]}</option>
-              ))}
-            </select>
+              onChange={(v) => update("locationType", v as LocationType)}
+              options={LOCATION_TYPE_OPTIONS}
+              icon={Layers}
+              placeholder="Pilih jenis ruangan…"
+            />
           </Field>
           <Field label="Kelas">
-            <select
+            <Select
               value={form.kelas}
-              onChange={(e) => update("kelas", e.target.value as LocationKelas)}
-              className={selectCls}
-            >
-              {KELAS_OPTIONS.map((k) => (
-                <option key={k} value={k}>{k === "—" ? "Tidak Berlaku" : k.replace("_", " ")}</option>
-              ))}
-            </select>
+              onChange={(v) => update("kelas", v as LocationKelas)}
+              options={KELAS_OPTIONS_SELECT}
+              icon={Tag}
+              placeholder="Pilih kelas…"
+            />
           </Field>
           <Field label="Kapasitas Bed" hint="Jumlah bed yang direncanakan">
             <input

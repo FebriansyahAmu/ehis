@@ -9,6 +9,7 @@ import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type { UpsertTarifRadInput, TarifRadQuery, TarifRadCatalogDTO } from "@/lib/schemas/master/tarifRadCatalog";
 import type { TarifRadListEntity } from "@/lib/dal/master/tarifRadCatalogDal";
+import { resolveKomponen } from "./tarifKomponen";
 
 type Dal = typeof defaultDal;
 
@@ -22,6 +23,9 @@ export function makeTarifRadCatalogService(deps: { dal?: Dal } = {}) {
       penjaminKode: e.penjaminKode,
       jenisRuangan: e.jenisRuangan,
       harga: e.harga,
+      jasaSarana: e.jasaSarana,
+      jasaMedis: e.jasaMedis,
+      jasaParamedis: e.jasaParamedis,
     };
   }
 
@@ -38,8 +42,10 @@ export function makeTarifRadCatalogService(deps: { dal?: Dal } = {}) {
     return { items: items.map(toDTO), cursor: nextCursor };
   }
 
-  /** Set harga tarif rad (upsert by triple, idempoten). Guard eksistensi rad catalog. */
+  /** Set harga tarif rad (upsert by triple, idempoten). Guard eksistensi rad catalog.
+   *  Komponen diisi → harga = jumlah komponen (PMK 85); absen → mode total-only (komponen di-null-kan). */
   async function upsert(input: UpsertTarifRadInput, _actor: Actor): Promise<TarifRadCatalogDTO> {
+    const k = resolveKomponen(input);
     return transaction(async (tx) => {
       if (!(await dal.findRadCatalog(input.radCatalogId, tx))) {
         throw Errors.notFound("Pemeriksaan radiologi tidak ditemukan");
@@ -49,7 +55,7 @@ export function makeTarifRadCatalogService(deps: { dal?: Dal } = {}) {
           radCatalogId: input.radCatalogId,
           penjaminKode: input.penjaminKode,
           jenisRuangan: input.jenisRuangan,
-          harga: input.harga,
+          ...k,
         },
         tx,
       );

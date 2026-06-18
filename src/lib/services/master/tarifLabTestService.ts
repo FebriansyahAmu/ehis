@@ -9,6 +9,7 @@ import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type { UpsertTarifLabInput, TarifLabQuery, TarifLabTestDTO } from "@/lib/schemas/master/tarifLabTest";
 import type { TarifLabListEntity } from "@/lib/dal/master/tarifLabTestDal";
+import { resolveKomponen } from "./tarifKomponen";
 
 type Dal = typeof defaultDal;
 
@@ -22,6 +23,9 @@ export function makeTarifLabTestService(deps: { dal?: Dal } = {}) {
       penjaminKode: e.penjaminKode,
       jenisRuangan: e.jenisRuangan,
       harga: e.harga,
+      jasaSarana: e.jasaSarana,
+      jasaMedis: e.jasaMedis,
+      jasaParamedis: e.jasaParamedis,
     };
   }
 
@@ -38,8 +42,10 @@ export function makeTarifLabTestService(deps: { dal?: Dal } = {}) {
     return { items: items.map(toDTO), cursor: nextCursor };
   }
 
-  /** Set harga tarif lab (upsert by triple, idempoten). Guard eksistensi lab test. */
+  /** Set harga tarif lab (upsert by triple, idempoten). Guard eksistensi lab test.
+   *  Komponen diisi → harga = jumlah komponen (PMK 85); absen → mode total-only (komponen di-null-kan). */
   async function upsert(input: UpsertTarifLabInput, _actor: Actor): Promise<TarifLabTestDTO> {
+    const k = resolveKomponen(input);
     return transaction(async (tx) => {
       if (!(await dal.findLabTest(input.labTestId, tx))) {
         throw Errors.notFound("Tes laboratorium tidak ditemukan");
@@ -49,7 +55,7 @@ export function makeTarifLabTestService(deps: { dal?: Dal } = {}) {
           labTestId: input.labTestId,
           penjaminKode: input.penjaminKode,
           jenisRuangan: input.jenisRuangan,
-          harga: input.harga,
+          ...k,
         },
         tx,
       );

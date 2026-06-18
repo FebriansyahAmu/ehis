@@ -18,7 +18,11 @@ export type LocationType =
   | "Isolasi"
   | "IGD"
   | "OK"
-  | "Penunjang";
+  | "Penunjang" // DEPRECATED — dipecah jadi Laboratorium + Radiologi (2026-06-18). Disimpan utk baris lama.
+  | "Laboratorium"
+  | "Radiologi"
+  | "Farmasi"
+  | "Gudang";
 
 export type LocationKelas = "VIP" | "Kelas_1" | "Kelas_2" | "Kelas_3" | "—";
 
@@ -120,7 +124,11 @@ export const LOCATION_TYPE_LABEL: Record<LocationType, string> = {
   Isolasi:     "Isolasi",
   IGD:         "IGD",
   OK:          "Kamar Operasi",
-  Penunjang:   "Penunjang (Lab/Rad)",
+  Penunjang:   "Penunjang (lama)",
+  Laboratorium: "Laboratorium",
+  Radiologi:   "Radiologi",
+  Farmasi:     "Farmasi / Depo Obat",
+  Gudang:      "Gudang / Logistik",
 };
 
 export const BED_STATUS_CFG: Record<

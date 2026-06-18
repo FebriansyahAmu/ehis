@@ -46,12 +46,18 @@ export async function list(
 }
 
 // ── Upsert (by triple) ────────────────────────────────────────────────────────
-export function upsert(data: TarifTriple & { harga: number }, tx?: Tx) {
-  const { tindakanId, penjaminKode, jenisRuangan, harga } = data;
+export interface TarifKomponen {
+  jasaSarana: number | null;
+  jasaMedis: number | null;
+  jasaParamedis: number | null;
+}
+
+export function upsert(data: TarifTriple & { harga: number } & TarifKomponen, tx?: Tx) {
+  const { tindakanId, penjaminKode, jenisRuangan, harga, jasaSarana, jasaMedis, jasaParamedis } = data;
   return db(tx).tarifTindakan.upsert({
     where: { tindakanId_penjaminKode_jenisRuangan: { tindakanId, penjaminKode, jenisRuangan } },
-    create: { tindakanId, penjaminKode, jenisRuangan, harga },
-    update: { harga },
+    create: { tindakanId, penjaminKode, jenisRuangan, harga, jasaSarana, jasaMedis, jasaParamedis },
+    update: { harga, jasaSarana, jasaMedis, jasaParamedis },
   });
 }
 

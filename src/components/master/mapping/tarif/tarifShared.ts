@@ -78,7 +78,9 @@ export const TIER_GROUP_CFG: Record<TierGroup, { label: string; bg: string; text
 
 /** Key tier dari (locationType, kelas). Inap → 'RAWAT_INAP:<kelas>'; lainnya → locationType (flat). */
 function tierKeyOf(lt: LocationType, kelas: LocationKelas | null | undefined): string | null {
-  if (lt === "Penunjang") return null; // Lab/Rad punya tarif sendiri
+  // Penunjang (lama) / Laboratorium / Radiologi punya tarif sendiri (Tarif Matrix grup Lab/Rad);
+  // Farmasi/Gudang non-billable → semua TIDAK jadi tier kolom tarif kamar.
+  if (lt === "Penunjang" || lt === "Laboratorium" || lt === "Radiologi" || lt === "Farmasi" || lt === "Gudang") return null;
   if (lt === "Rawat_Inap") {
     if (!kelas || kelas === "—") return null; // inap wajib berkelas
     return `RAWAT_INAP:${kelas}`;
@@ -119,9 +121,26 @@ export function validTiersForPenjamin(tipe: PenjaminTipe, derived: JenisRuanganT
 export interface TarifCell {
   id: string;   // id edge (untuk DELETE)
   harga: number;
+  // Komponen tarif (PMK 85). null = belum dirinci (mode total-only).
+  jasaSarana: number | null;
+  jasaMedis: number | null;
+  jasaParamedis: number | null;
 }
 // [penjaminKode][rowId][tierKey] → cell. rowId = tindakanId ATAU labTestId (federasi).
 export type TarifMap = Record<string, Record<string, Record<string, TarifCell>>>;
+
+/** Hasil edit 1 sel dari UI. Komponen null = tak dirinci (mode total-only). */
+export interface TarifInput {
+  harga: number;
+  jasaSarana: number | null;
+  jasaMedis: number | null;
+  jasaParamedis: number | null;
+}
+
+/** true bila sel/input punya rincian komponen (≥1 komponen non-null). */
+export function hasKomponen(c: { jasaSarana: number | null; jasaMedis: number | null; jasaParamedis: number | null }): boolean {
+  return c.jasaSarana != null || c.jasaMedis != null || c.jasaParamedis != null;
+}
 
 // ── Edge terpadu (Tindakan + Lab + Rad) ─────────────────────────────────────────
 // Matriks Tarif memetakan TIGA jenis baris ke kolom tier: katalog Tindakan (per kategori),
@@ -135,16 +154,19 @@ export interface TarifEdgeLike {
   penjaminKode: string;
   jenisRuangan: string;
   harga: number;
+  jasaSarana: number | null;
+  jasaMedis: number | null;
+  jasaParamedis: number | null;
 }
 
 export function tindakanToTarifEdge(e: TarifTindakanDTO): TarifEdgeLike {
-  return { id: e.id, rowId: e.tindakanId, penjaminKode: e.penjaminKode, jenisRuangan: e.jenisRuangan, harga: e.harga };
+  return { id: e.id, rowId: e.tindakanId, penjaminKode: e.penjaminKode, jenisRuangan: e.jenisRuangan, harga: e.harga, jasaSarana: e.jasaSarana, jasaMedis: e.jasaMedis, jasaParamedis: e.jasaParamedis };
 }
 export function labToTarifEdge(e: TarifLabTestDTO): TarifEdgeLike {
-  return { id: e.id, rowId: e.labTestId, penjaminKode: e.penjaminKode, jenisRuangan: e.jenisRuangan, harga: e.harga };
+  return { id: e.id, rowId: e.labTestId, penjaminKode: e.penjaminKode, jenisRuangan: e.jenisRuangan, harga: e.harga, jasaSarana: e.jasaSarana, jasaMedis: e.jasaMedis, jasaParamedis: e.jasaParamedis };
 }
 export function radToTarifEdge(e: TarifRadCatalogDTO): TarifEdgeLike {
-  return { id: e.id, rowId: e.radCatalogId, penjaminKode: e.penjaminKode, jenisRuangan: e.jenisRuangan, harga: e.harga };
+  return { id: e.id, rowId: e.radCatalogId, penjaminKode: e.penjaminKode, jenisRuangan: e.jenisRuangan, harga: e.harga, jasaSarana: e.jasaSarana, jasaMedis: e.jasaMedis, jasaParamedis: e.jasaParamedis };
 }
 
 export function mapFromEdges(edges: TarifEdgeLike[]): TarifMap {
@@ -152,7 +174,7 @@ export function mapFromEdges(edges: TarifEdgeLike[]): TarifMap {
   for (const e of edges) {
     (m[e.penjaminKode] ??= {});
     (m[e.penjaminKode][e.rowId] ??= {});
-    m[e.penjaminKode][e.rowId][e.jenisRuangan] = { id: e.id, harga: e.harga };
+    m[e.penjaminKode][e.rowId][e.jenisRuangan] = { id: e.id, harga: e.harga, jasaSarana: e.jasaSarana, jasaMedis: e.jasaMedis, jasaParamedis: e.jasaParamedis };
   }
   return m;
 }

@@ -41,7 +41,11 @@ enum LocationType {
   Isolasi
   IGD
   OK
-  Penunjang
+  Penunjang // DEPRECATED — dipecah jadi Laboratorium + Radiologi (2026-06-18). Tak bisa di-drop dari enum PG.
+  Laboratorium
+  Radiologi
+  Farmasi
+  Gudang
 
   @@schema("master")
 }

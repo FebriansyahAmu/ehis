@@ -32,7 +32,7 @@ import {
   rowsFromTindakan, rowsFromLab, rowsFromRad, tindakanRecordsFromDTO,
 } from "../layanan/layananShared";
 import {
-  type TarifMap, type JenisRuanganTier, type TarifPenjamin,
+  type TarifMap, type TarifCell, type TarifInput, type JenisRuanganTier, type TarifPenjamin,
   TARIF_PENJAMIN, tiersFromTree, validTiersForPenjamin, mapFromEdges, getCell, setCell, clearCell,
   calcStats, roundIDR, tindakanToTarifEdge, labToTarifEdge, radToTarifEdge,
 } from "./tarifShared";
@@ -153,11 +153,15 @@ export default function TarifPane({ tindakan, lab, rad, tree, tarif, tarifLab, t
   };
 
   // ── Dispatch persist per jenis baris (tindakan → tarif_tindakan; lab → tarif_lab_test; rad → tarif_rad_catalog) ──
-  const persistUpsert = (rowId: string, tierKey: string, harga: number) => {
+  // input.jasaSarana != null → mode breakdown (kirim komponen; server set harga = jumlah); else total-only.
+  const persistUpsert = (rowId: string, tierKey: string, input: TarifInput) => {
     const kind = rowKind.get(rowId);
-    if (kind === "lab") return upsertTarifLab({ labTestId: rowId, penjaminKode: activeKode, jenisRuangan: tierKey, harga });
-    if (kind === "rad") return upsertTarifRad({ radCatalogId: rowId, penjaminKode: activeKode, jenisRuangan: tierKey, harga });
-    return upsertTarif({ tindakanId: rowId, penjaminKode: activeKode, jenisRuangan: tierKey, harga });
+    const komp = input.jasaSarana != null
+      ? { jasaSarana: input.jasaSarana, jasaMedis: input.jasaMedis ?? 0, jasaParamedis: input.jasaParamedis ?? 0 }
+      : {};
+    if (kind === "lab") return upsertTarifLab({ labTestId: rowId, penjaminKode: activeKode, jenisRuangan: tierKey, harga: input.harga, ...komp });
+    if (kind === "rad") return upsertTarifRad({ radCatalogId: rowId, penjaminKode: activeKode, jenisRuangan: tierKey, harga: input.harga, ...komp });
+    return upsertTarif({ tindakanId: rowId, penjaminKode: activeKode, jenisRuangan: tierKey, harga: input.harga, ...komp });
   };
   const persistDelete = (rowId: string, edgeId: string) => {
     const kind = rowKind.get(rowId);
@@ -165,6 +169,10 @@ export default function TarifPane({ tindakan, lab, rad, tree, tarif, tarifLab, t
     if (kind === "rad") return deleteTarifRad(edgeId);
     return deleteTarif(edgeId);
   };
+
+  // DTO (union 3 domain) → TarifCell. Semua DTO punya bentuk harga + 3 komponen yang sama.
+  const cellOf = (dto: { id: string; harga: number; jasaSarana: number | null; jasaMedis: number | null; jasaParamedis: number | null }): TarifCell =>
+    ({ id: dto.id, harga: dto.harga, jasaSarana: dto.jasaSarana, jasaMedis: dto.jasaMedis, jasaParamedis: dto.jasaParamedis });
 
   // ── Filter baris ──
   const filteredRows = useMemo(() => {
@@ -184,12 +192,12 @@ export default function TarifPane({ tindakan, lab, rad, tree, tarif, tarifLab, t
     [map, activeKode, visibleIds, visibleTierKeys],
   );
 
-  // ── Persist 1 sel (upsert > 0 / delete <= 0) optimistik ──
-  const handleEdit = (rowId: string, tierKey: string, value: number) => {
+  // ── Persist 1 sel (upsert harga > 0 / delete <= 0) optimistik. Input bawa rincian komponen. ──
+  const handleEdit = (rowId: string, tierKey: string, input: TarifInput) => {
     dirtyRef.current = true;
     const existing = getCell(map, activeKode, rowId, tierKey);
 
-    if (value <= 0) {
+    if (input.harga <= 0) {
       if (!existing) return;
       setMap((m) => clearCell(m, activeKode, rowId, tierKey));
       if (existing.id !== PENDING) {
@@ -201,27 +209,31 @@ export default function TarifPane({ tindakan, lab, rad, tree, tarif, tarifLab, t
       return;
     }
 
-    setMap((m) => setCell(m, activeKode, rowId, tierKey, { id: existing?.id ?? PENDING, harga: value }));
+    setMap((m) => setCell(m, activeKode, rowId, tierKey, {
+      id: existing?.id ?? PENDING,
+      harga: input.harga, jasaSarana: input.jasaSarana, jasaMedis: input.jasaMedis, jasaParamedis: input.jasaParamedis,
+    }));
     setBusy(true);
-    persistUpsert(rowId, tierKey, value)
-      .then((dto) => setMap((m) => setCell(m, activeKode, rowId, tierKey, { id: dto.id, harga: dto.harga })))
+    persistUpsert(rowId, tierKey, input)
+      .then((dto) => setMap((m) => setCell(m, activeKode, rowId, tierKey, cellOf(dto))))
       .catch(() => { toast.error("Gagal menyimpan tarif"); void reload(); })
       .finally(() => setBusy(false));
   };
 
-  // ── Flat-rate: samakan 1 baris ke SEMUA tier (sheet penjamin aktif) ──
-  // Untuk item ber-harga seragam lintas ruangan/kelas (pasang infus, EKG, tes lab, dll).
+  // ── Flat-rate: samakan 1 baris ke SEMUA tier (sheet penjamin aktif), mode TOTAL-ONLY ──
+  // Untuk item ber-harga seragam lintas ruangan/kelas (pasang infus, EKG, tes lab, dll). Reset komponen.
   const handleFlatRate = (rowId: string, harga: number) => {
     if (harga <= 0) return;
     dirtyRef.current = true;
+    const input: TarifInput = { harga, jasaSarana: null, jasaMedis: null, jasaParamedis: null };
     let next = map;
     const jobs: Promise<unknown>[] = [];
     for (const tier of visibleTiers) {
       const cell = getCell(next, activeKode, rowId, tier.key);
-      next = setCell(next, activeKode, rowId, tier.key, { id: cell?.id ?? PENDING, harga });
+      next = setCell(next, activeKode, rowId, tier.key, { id: cell?.id ?? PENDING, ...input });
       jobs.push(
-        persistUpsert(rowId, tier.key, harga)
-          .then((dto) => setMap((m) => setCell(m, activeKode, rowId, tier.key, { id: dto.id, harga: dto.harga }))),
+        persistUpsert(rowId, tier.key, input)
+          .then((dto) => setMap((m) => setCell(m, activeKode, rowId, tier.key, cellOf(dto)))),
       );
     }
     if (jobs.length === 0) return;
@@ -246,11 +258,19 @@ export default function TarifPane({ tindakan, lab, rad, tree, tarif, tarifLab, t
       for (const tier of visibleTiers) {
         const cell = getCell(next, activeKode, rowId, tier.key);
         if (!cell || cell.harga <= 0) continue;
-        const harga = roundIDR(cell.harga * factor);
-        next = setCell(next, activeKode, rowId, tier.key, { id: cell.id, harga });
+        // Cell ber-komponen → skalakan tiap komponen proporsional (harga = jumlah); else total-only.
+        const input: TarifInput = cell.jasaSarana != null
+          ? (() => {
+              const s = roundIDR((cell.jasaSarana ?? 0) * factor);
+              const md = roundIDR((cell.jasaMedis ?? 0) * factor);
+              const pm = roundIDR((cell.jasaParamedis ?? 0) * factor);
+              return { harga: s + md + pm, jasaSarana: s, jasaMedis: md, jasaParamedis: pm };
+            })()
+          : { harga: roundIDR(cell.harga * factor), jasaSarana: null, jasaMedis: null, jasaParamedis: null };
+        next = setCell(next, activeKode, rowId, tier.key, { id: cell.id, ...input });
         jobs.push(
-          persistUpsert(rowId, tier.key, harga)
-            .then((dto) => setMap((m) => setCell(m, activeKode, rowId, tier.key, { id: dto.id, harga: dto.harga }))),
+          persistUpsert(rowId, tier.key, input)
+            .then((dto) => setMap((m) => setCell(m, activeKode, rowId, tier.key, cellOf(dto)))),
         );
       }
     }

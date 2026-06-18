@@ -8,6 +8,9 @@ import { z } from "zod";
 const jenisRuanganKey = z.string().trim().min(1).max(40);
 // Kode penjamin (UMUM/BPJS/…). Belum FK; FE pakai kode stabil dari TARIF_PENJAMIN.
 const penjaminKode = z.string().trim().min(1).max(20);
+// Komponen tarif (PMK 85). Opsional: kirim → mode breakdown (harga = jumlah komponen di Service);
+// absen → mode total-only (komponen di-null-kan).
+const komponen = z.coerce.number().int().min(0, "Komponen tak boleh negatif").max(2_000_000_000).optional();
 
 // ── Upsert satu tarif lab (POST /master/tarif-lab-test) — idempoten by triple ──
 export const UpsertTarifLabInput = z.object({
@@ -15,6 +18,9 @@ export const UpsertTarifLabInput = z.object({
   penjaminKode,
   jenisRuangan: jenisRuanganKey,
   harga: z.coerce.number().int().min(0, "Harga tak boleh negatif").max(2_000_000_000),
+  jasaSarana: komponen,
+  jasaMedis: komponen,
+  jasaParamedis: komponen,
 });
 export type UpsertTarifLabInput = z.infer<typeof UpsertTarifLabInput>;
 
@@ -38,4 +44,8 @@ export interface TarifLabTestDTO {
   penjaminKode: string;
   jenisRuangan: string;
   harga: number;
+  /** Komponen tarif (PMK 85). null = belum dirinci (mode total-only). */
+  jasaSarana: number | null;
+  jasaMedis: number | null;
+  jasaParamedis: number | null;
 }
