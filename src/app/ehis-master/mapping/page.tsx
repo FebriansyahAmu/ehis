@@ -13,6 +13,7 @@ import { layananUnitLabService } from "@/lib/services/master/layananUnitLabServi
 import { layananUnitRadService } from "@/lib/services/master/layananUnitRadService";
 import { tarifTindakanService } from "@/lib/services/master/tarifTindakanService";
 import { tarifLabTestService } from "@/lib/services/master/tarifLabTestService";
+import { tarifRadCatalogService } from "@/lib/services/master/tarifRadCatalogService";
 import { obatService } from "@/lib/services/master/obatService";
 import { formulariumService } from "@/lib/services/master/formulariumService";
 import { getServerActor } from "@/lib/auth/actor";
@@ -28,6 +29,7 @@ import type { LayananUnitLabEdgeDTO } from "@/lib/schemas/master/layananUnitLab"
 import type { LayananUnitRadEdgeDTO } from "@/lib/schemas/master/layananUnitRad";
 import type { TarifTindakanDTO } from "@/lib/schemas/master/tarifTindakan";
 import type { TarifLabTestDTO } from "@/lib/schemas/master/tarifLabTest";
+import type { TarifRadCatalogDTO } from "@/lib/schemas/master/tarifRadCatalog";
 import type { ObatDTO } from "@/lib/schemas/master/obat";
 import type { FormulariumEdgeDTO } from "@/lib/schemas/master/formularium";
 
@@ -52,23 +54,25 @@ export default async function Page() {
   let initialLayananRad: LayananUnitRadEdgeDTO[] | undefined;
   let initialTarif: TarifTindakanDTO[] | undefined;
   let initialTarifLab: TarifLabTestDTO[] | undefined;
+  let initialTarifRad: TarifRadCatalogDTO[] | undefined;
   let initialObat: ObatDTO[] | undefined;
   let initialFormularium: FormulariumEdgeDTO[] | undefined;
   try {
     const actor = await getServerActor();
-    const [treeRes, dokterRes, pegawaiRes, penugasanRes, tindakanRes, labRes, radRes, layananRes, layananLabRes, layananRadRes, tarifRes, tarifLabRes, obatRes, formulariumRes] = await Promise.allSettled([
+    const [treeRes, dokterRes, pegawaiRes, penugasanRes, tindakanRes, labRes, radRes, layananRes, layananLabRes, layananRadRes, tarifRes, tarifLabRes, tarifRadRes, obatRes, formulariumRes] = await Promise.allSettled([
       ruanganService.getTree(actor),
       dokterService.listDokter({ limit: 50 }),
       pegawaiService.listPegawai({ aktif: "true", limit: 50 }),
       penugasanRuanganService.listPenugasan({ limit: 100 }),
       tindakanService.list({ limit: 200 }), // Layanan Unit + Tarif: baris matrix tindakan (actor-less)
       labTestService.list({ status: "Aktif", limit: 200 }), // Layanan Unit + Tarif: baris grup Lab (actor-less)
-      radCatalogService.list({ status: "Aktif", limit: 500 }), // Layanan Unit: baris grup Rad (actor-less)
+      radCatalogService.list({ status: "Aktif", limit: 500 }), // Layanan Unit + Tarif: baris grup Rad (actor-less)
       layananUnitService.list({ limit: 1000 }), // Layanan Unit: edge tindakan (actor-less)
       layananUnitLabService.list({ limit: 1000 }), // Layanan Unit: edge lab (actor-less)
       layananUnitRadService.list({ limit: 1000 }), // Layanan Unit: edge rad (actor-less)
       tarifTindakanService.list({ limit: 2000 }), // Tarif Matrix: edge tarif tindakan (actor-less)
       tarifLabTestService.list({ limit: 2000 }), // Tarif Matrix: edge tarif lab (actor-less)
+      tarifRadCatalogService.list({ limit: 2000 }), // Tarif Matrix: edge tarif rad (actor-less)
       obatService.list({ limit: 300 }), // Formularium: baris matrix obat (actor-less)
       formulariumService.list({ limit: 2000 }), // Formularium: edge override (actor-less)
     ]);
@@ -84,6 +88,7 @@ export default async function Page() {
     if (layananRadRes.status === "fulfilled") initialLayananRad = layananRadRes.value.items;
     if (tarifRes.status === "fulfilled") initialTarif = tarifRes.value.items;
     if (tarifLabRes.status === "fulfilled") initialTarifLab = tarifLabRes.value.items;
+    if (tarifRadRes.status === "fulfilled") initialTarifRad = tarifRadRes.value.items;
     if (obatRes.status === "fulfilled") initialObat = obatRes.value.items;
     if (formulariumRes.status === "fulfilled") initialFormularium = formulariumRes.value.items;
   } catch {
@@ -105,6 +110,7 @@ export default async function Page() {
         initialLayananRad={initialLayananRad}
         initialTarif={initialTarif}
         initialTarifLab={initialTarifLab}
+        initialTarifRad={initialTarifRad}
         initialObat={initialObat}
         initialFormularium={initialFormularium}
       />

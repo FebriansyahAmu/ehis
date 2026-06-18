@@ -16,6 +16,7 @@ import type { AnyNode } from "@/components/master/ruangan/ruanganShared";
 import { getTree } from "@/lib/api/ruangan";
 import { listTindakan, type TindakanDTO } from "@/lib/api/master/tindakan";
 import { listLabTest, type LabTestDTO } from "@/lib/api/master/labTest";
+import { listRadCatalog, type RadCatalogDTO } from "@/lib/api/master/radCatalog";
 import {
   listAllTarif, upsertTarif, deleteTarif, type TarifTindakanDTO,
 } from "@/lib/api/master/tarifTindakan";
@@ -23,14 +24,17 @@ import {
   listAllTarifLab, upsertTarifLab, deleteTarifLab, type TarifLabTestDTO,
 } from "@/lib/api/master/tarifLabTest";
 import {
+  listAllTarifRad, upsertTarifRad, deleteTarifRad, type TarifRadCatalogDTO,
+} from "@/lib/api/master/tarifRadCatalog";
+import {
   type RowKategori, type RowKind,
   ROW_KATEGORI_CFG, ROW_KATEGORI_ORDER,
-  rowsFromTindakan, rowsFromLab, tindakanRecordsFromDTO,
+  rowsFromTindakan, rowsFromLab, rowsFromRad, tindakanRecordsFromDTO,
 } from "../layanan/layananShared";
 import {
   type TarifMap, type JenisRuanganTier, type TarifPenjamin,
   TARIF_PENJAMIN, tiersFromTree, validTiersForPenjamin, mapFromEdges, getCell, setCell, clearCell,
-  calcStats, roundIDR, tindakanToTarifEdge, labToTarifEdge,
+  calcStats, roundIDR, tindakanToTarifEdge, labToTarifEdge, radToTarifEdge,
 } from "./tarifShared";
 import { toast } from "@/lib/ui/toastStore";
 import TarifMatrix from "./TarifMatrix";
@@ -43,22 +47,31 @@ interface Props {
   tindakan?: TindakanDTO[];
   /** Katalog lab dari SSR (baris grup Lab). Absen → client fetch. */
   lab?: LabTestDTO[];
+  /** Katalog radiologi dari SSR (baris grup Rad). Absen → client fetch. */
+  rad?: RadCatalogDTO[];
   /** Tree Ruangan dari SSR (derive tier kolom). Absen → client fetch. */
   tree?: AnyNode[];
   /** Edge tarif tindakan dari SSR (seed map). Selalu di-reconcile client utk id segar. */
   tarif?: TarifTindakanDTO[];
   /** Edge tarif lab dari SSR (seed map). Selalu di-reconcile client utk id segar. */
   tarifLab?: TarifLabTestDTO[];
+  /** Edge tarif rad dari SSR (seed map). Selalu di-reconcile client utk id segar. */
+  tarifRad?: TarifRadCatalogDTO[];
 }
 
-export default function TarifPane({ tindakan, lab, tree, tarif, tarifLab }: Props) {
+export default function TarifPane({ tindakan, lab, rad, tree, tarif, tarifLab, tarifRad }: Props) {
   const [allTindakan, setAllTindakan] = useState(() => (tindakan ? tindakanRecordsFromDTO(tindakan) : []));
   const [allLab, setAllLab] = useState<LabTestDTO[]>(() => lab ?? []);
+  const [allRad, setAllRad] = useState<RadCatalogDTO[]>(() => rad ?? []);
   const [derivedTiers, setDerivedTiers] = useState<JenisRuanganTier[]>(() => (tree ? tiersFromTree(tree) : []));
   const [map, setMap] = useState<TarifMap>(() =>
-    mapFromEdges([...(tarif ?? []).map(tindakanToTarifEdge), ...(tarifLab ?? []).map(labToTarifEdge)]),
+    mapFromEdges([
+      ...(tarif ?? []).map(tindakanToTarifEdge),
+      ...(tarifLab ?? []).map(labToTarifEdge),
+      ...(tarifRad ?? []).map(radToTarifEdge),
+    ]),
   );
-  const [loading, setLoading] = useState(!tindakan || !tree || !lab);
+  const [loading, setLoading] = useState(!tindakan || !tree || !lab || !rad);
   const [busy, setBusy] = useState(false);
 
   const firstEnabled = TARIF_PENJAMIN.find((p) => p.enabled) ?? TARIF_PENJAMIN[0];
@@ -70,10 +83,10 @@ export default function TarifPane({ tindakan, lab, tree, tarif, tarifLab }: Prop
   // Hindari reconcile-on-mount menimpa edit optimistik in-flight.
   const dirtyRef = useRef(false);
 
-  // ── Baris federasi (tindakan + lab) + lookup kind utk dispatch persist ──
+  // ── Baris federasi (tindakan + lab + rad) + lookup kind utk dispatch persist ──
   const rows = useMemo(
-    () => [...rowsFromTindakan(allTindakan), ...rowsFromLab(allLab)],
-    [allTindakan, allLab],
+    () => [...rowsFromTindakan(allTindakan), ...rowsFromLab(allLab), ...rowsFromRad(allRad)],
+    [allTindakan, allLab, allRad],
   );
   const rowKind = useMemo(() => {
     const m = new Map<string, RowKind>();
@@ -96,18 +109,25 @@ export default function TarifPane({ tindakan, lab, tree, tarif, tarifLab }: Prop
     const ac = new AbortController();
     (async () => {
       try {
-        const [treeRes, tindakanRes, labRes, tarifRes, tarifLabRes] = await Promise.all([
+        const [treeRes, tindakanRes, labRes, radRes, tarifRes, tarifLabRes, tarifRadRes] = await Promise.all([
           tree ? null : getTree(ac.signal),
           tindakan ? null : listTindakan({ limit: 200 }, ac.signal),
           lab ? null : listLabTest({ status: "Aktif", limit: 200 }, ac.signal),
+          rad ? null : listRadCatalog({ status: "Aktif", limit: 500 }, ac.signal),
           listAllTarif(ac.signal),
           listAllTarifLab(ac.signal),
+          listAllTarifRad(ac.signal),
         ]);
         if (treeRes) setDerivedTiers(tiersFromTree(treeRes as AnyNode[]));
         if (tindakanRes) setAllTindakan(tindakanRecordsFromDTO(tindakanRes.items));
         if (labRes) setAllLab(labRes.items);
+        if (radRes) setAllRad(radRes.items);
         if (!dirtyRef.current) {
-          setMap(mapFromEdges([...tarifRes.map(tindakanToTarifEdge), ...tarifLabRes.map(labToTarifEdge)]));
+          setMap(mapFromEdges([
+            ...tarifRes.map(tindakanToTarifEdge),
+            ...tarifLabRes.map(labToTarifEdge),
+            ...tarifRadRes.map(radToTarifEdge),
+          ]));
         }
       } catch {
         /* pertahankan SSR seed */
@@ -121,20 +141,30 @@ export default function TarifPane({ tindakan, lab, tree, tarif, tarifLab }: Prop
 
   const reload = async () => {
     try {
-      const [t, l] = await Promise.all([listAllTarif(), listAllTarifLab()]);
-      setMap(mapFromEdges([...t.map(tindakanToTarifEdge), ...l.map(labToTarifEdge)]));
+      const [t, l, r] = await Promise.all([listAllTarif(), listAllTarifLab(), listAllTarifRad()]);
+      setMap(mapFromEdges([
+        ...t.map(tindakanToTarifEdge),
+        ...l.map(labToTarifEdge),
+        ...r.map(radToTarifEdge),
+      ]));
     } catch {
       /* pertahankan state terakhir */
     }
   };
 
-  // ── Dispatch persist per jenis baris (tindakan → tarif_tindakan; lab → tarif_lab_test) ──
-  const persistUpsert = (rowId: string, tierKey: string, harga: number) =>
-    rowKind.get(rowId) === "lab"
-      ? upsertTarifLab({ labTestId: rowId, penjaminKode: activeKode, jenisRuangan: tierKey, harga })
-      : upsertTarif({ tindakanId: rowId, penjaminKode: activeKode, jenisRuangan: tierKey, harga });
-  const persistDelete = (rowId: string, edgeId: string) =>
-    rowKind.get(rowId) === "lab" ? deleteTarifLab(edgeId) : deleteTarif(edgeId);
+  // ── Dispatch persist per jenis baris (tindakan → tarif_tindakan; lab → tarif_lab_test; rad → tarif_rad_catalog) ──
+  const persistUpsert = (rowId: string, tierKey: string, harga: number) => {
+    const kind = rowKind.get(rowId);
+    if (kind === "lab") return upsertTarifLab({ labTestId: rowId, penjaminKode: activeKode, jenisRuangan: tierKey, harga });
+    if (kind === "rad") return upsertTarifRad({ radCatalogId: rowId, penjaminKode: activeKode, jenisRuangan: tierKey, harga });
+    return upsertTarif({ tindakanId: rowId, penjaminKode: activeKode, jenisRuangan: tierKey, harga });
+  };
+  const persistDelete = (rowId: string, edgeId: string) => {
+    const kind = rowKind.get(rowId);
+    if (kind === "lab") return deleteTarifLab(edgeId);
+    if (kind === "rad") return deleteTarifRad(edgeId);
+    return deleteTarif(edgeId);
+  };
 
   // ── Filter baris ──
   const filteredRows = useMemo(() => {
@@ -322,7 +352,7 @@ export default function TarifPane({ tindakan, lab, tree, tarif, tarifLab }: Prop
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari tindakan / tes lab / kode..."
+              placeholder="Cari tindakan / lab / radiologi / kode..."
               className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-7 pr-3 m-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-100"
             />
           </div>
@@ -416,7 +446,7 @@ function PaneHeader({
             {loading && !busy && <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 m-mini font-medium text-slate-500"><Loader2 size={9} className="animate-spin" /> Memuat…</span>}
           </div>
           <p className="mt-0.5 m-tiny text-slate-500">
-            Tindakan &amp; Tes Lab × Penjamin × Jenis Ruangan. Pilih penjamin → klik sel untuk edit harga inline (auto-save).
+            Tindakan · Lab · Radiologi × Penjamin × Jenis Ruangan. Pilih penjamin → klik sel untuk edit harga inline (auto-save).
           </p>
         </div>
         <div className="flex shrink-0 gap-2">

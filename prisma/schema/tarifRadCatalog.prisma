@@ -1,0 +1,46 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Tarif Rad Catalog  (Postgres schema "master")
+//  FE: /ehis-master/mapping (sub-pane Tarif Matrix, grup "Tindakan Radiologi")
+//  Doc: docs/BACKEND-MAPPING.md §5
+//
+//  Tarif pemeriksaan radiologi per (Penjamin × Jenis Ruangan) — PARALEL dgn
+//  TarifTindakan & TarifLabTest. Matriks 3D di-flatten jadi baris edge:
+//  (radCatalog, penjaminKode, jenisRuangan) → harga. UPSERT by triple (idempoten).
+//
+//  Tabel TERPISAH (bukan polymorphic) — selaras keputusan LayananUnit ⇄
+//  LayananUnitLab ⇄ LayananUnitRad: tiap domain katalog = tabel berdiri-sendiri
+//  sampai chargemaster menyatukan (TODO-CHARGEMASTER CM2/CM5).
+//
+//  DIMENSI:
+//   - radCatalogId → FK master.RadCatalog (Restrict; tarif ikut katalog rad).
+//   - penjaminKode → KODE penjamin string ('UMUM'/'BPJS'/…). BELUM FK (master Penjamin mock).
+//   - jenisRuangan → TIER tarif (locationType[:kelas]) — string longgar, DI-DERIVE FE.
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz. Tarif = LEAF (upsert by triple) → tanpa
+//  optimistic-version; updatedAt cukup. harga = Int (rupiah, tanpa sen).
+// ════════════════════════════════════════════════════════════════════════════
+
+model TarifRadCatalog {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  radCatalogId String     @map("rad_catalog_id") @db.Uuid
+  radCatalog   RadCatalog @relation(fields: [radCatalogId], references: [id], onDelete: Restrict)
+
+  /// Kode penjamin (string stabil — belum FK ke master Penjamin).
+  penjaminKode String @map("penjamin_kode")
+
+  /// Tier "Jenis Ruangan" (locationType[:kelas]) — BUKAN Location id. String longgar.
+  jenisRuangan String @map("jenis_ruangan")
+
+  /// Harga dalam rupiah penuh (tanpa sen).
+  harga Int
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([radCatalogId, penjaminKode, jenisRuangan]) // 1 harga per triple → upsert idempoten
+  @@index([radCatalogId])
+  @@index([penjaminKode])
+  @@map("tarif_rad_catalog")
+  @@schema("master")
+}

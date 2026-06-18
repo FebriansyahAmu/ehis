@@ -7,6 +7,7 @@ import type { AnyNode, LocationNode, LocationType, LocationKelas } from "@/compo
 import type { PenjaminTipe } from "@/lib/master/penjaminMock";
 import type { TarifTindakanDTO } from "@/lib/api/master/tarifTindakan";
 import type { TarifLabTestDTO } from "@/lib/api/master/tarifLabTest";
+import type { TarifRadCatalogDTO } from "@/lib/api/master/tarifRadCatalog";
 
 // ════════════════════════════════════════════════════════════════════════════
 //  TIER "Jenis Ruangan"
@@ -122,11 +123,12 @@ export interface TarifCell {
 // [penjaminKode][rowId][tierKey] → cell. rowId = tindakanId ATAU labTestId (federasi).
 export type TarifMap = Record<string, Record<string, Record<string, TarifCell>>>;
 
-// ── Edge terpadu (Tindakan + Lab) ──────────────────────────────────────────────
-// Matriks Tarif memetakan DUA jenis baris ke kolom tier: katalog Tindakan (per kategori) dan
-// katalog Laboratorium (grup "Tindakan Laboratorium"). Edge dari 2 endpoint (tarif_tindakan vs
-// tarif_lab_test) dinormalisasi ke `TarifEdgeLike` (rowId) → map satu jalur. `kind` baris (untuk
-// memilih endpoint persist) ditentukan terpisah dari daftar rows (rowKind di TarifPane).
+// ── Edge terpadu (Tindakan + Lab + Rad) ─────────────────────────────────────────
+// Matriks Tarif memetakan TIGA jenis baris ke kolom tier: katalog Tindakan (per kategori),
+// katalog Laboratorium (grup "Tindakan Laboratorium"), dan katalog Radiologi (grup "Tindakan
+// Radiologi"). Edge dari 3 endpoint (tarif_tindakan / tarif_lab_test / tarif_rad_catalog)
+// dinormalisasi ke `TarifEdgeLike` (rowId) → map satu jalur. `kind` baris (untuk memilih
+// endpoint persist) ditentukan terpisah dari daftar rows (rowKind di TarifPane).
 export interface TarifEdgeLike {
   id: string;
   rowId: string;
@@ -140,6 +142,9 @@ export function tindakanToTarifEdge(e: TarifTindakanDTO): TarifEdgeLike {
 }
 export function labToTarifEdge(e: TarifLabTestDTO): TarifEdgeLike {
   return { id: e.id, rowId: e.labTestId, penjaminKode: e.penjaminKode, jenisRuangan: e.jenisRuangan, harga: e.harga };
+}
+export function radToTarifEdge(e: TarifRadCatalogDTO): TarifEdgeLike {
+  return { id: e.id, rowId: e.radCatalogId, penjaminKode: e.penjaminKode, jenisRuangan: e.jenisRuangan, harga: e.harga };
 }
 
 export function mapFromEdges(edges: TarifEdgeLike[]): TarifMap {

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
-import { Pencil, Check, X, Equal } from "lucide-react";
+import { Pencil, Check, X, Equal, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   type LayananRow, type RowKategori,
@@ -31,6 +31,15 @@ export default function TarifMatrix({
 }: TarifMatrixProps) {
   const grouped = groupRowsByKategori(rows);
   const colCount = tiers.length + 1;
+  // Grup yang DILIPAT (collapse). Default kosong → semua grup terbuka (collapse=false).
+  const [collapsed, setCollapsed] = useState<Set<RowKategori>>(new Set());
+  const toggleCollapse = (cat: RowKategori) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
 
   if (tiers.length === 0) {
     return (
@@ -50,7 +59,7 @@ export default function TarifMatrix({
             <tr>
               <th className="sticky left-0 z-30 min-w-65 border-b border-r border-slate-200 bg-white px-3 py-2 text-left">
                 <span className="m-mini font-semibold uppercase tracking-wide text-slate-500">
-                  Tindakan / Tes Lab
+                  Tindakan / Lab / Rad
                 </span>
               </th>
               {tiers.map((t) => {
@@ -82,6 +91,8 @@ export default function TarifMatrix({
                   tiers={tiers}
                   map={map}
                   penjaminKode={penjaminKode}
+                  collapsed={collapsed.has(cat)}
+                  onToggleCollapse={() => toggleCollapse(cat)}
                   onEdit={onEdit}
                   onFlatRate={onFlatRate}
                 />
@@ -101,7 +112,7 @@ export default function TarifMatrix({
       <div className="shrink-0 border-t border-slate-100 bg-slate-50/60 px-4 py-2">
         <p className="m-mini text-slate-500">
           <span className="font-semibold uppercase tracking-wide">Tip:</span>{" "}
-          Klik sel untuk edit harga inline. Kosongkan (0) untuk menghapus tarif. Kolom = jenis ruangan / kelas.
+          Klik sel untuk edit harga inline. Kosongkan (0) untuk menghapus tarif. Kolom = jenis ruangan / kelas. Klik chevron grup untuk lipat.
         </p>
       </div>
     </div>
@@ -111,7 +122,7 @@ export default function TarifMatrix({
 // ── Sub-components ───────────────────────────────────────
 
 function KategoriBlock({
-  items, catCfg, colCount, tiers, map, penjaminKode, onEdit, onFlatRate,
+  items, catCfg, colCount, tiers, map, penjaminKode, collapsed, onToggleCollapse, onEdit, onFlatRate,
 }: {
   items: LayananRow[];
   catCfg: typeof ROW_KATEGORI_CFG[RowKategori];
@@ -119,21 +130,33 @@ function KategoriBlock({
   tiers: JenisRuanganTier[];
   map: TarifMap;
   penjaminKode: string;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
   onEdit: (rowId: string, tierKey: string, value: number) => void;
   onFlatRate: (rowId: string, harga: number) => void;
 }) {
   return (
     <>
       <tr>
-        <td colSpan={colCount} className={cn("sticky left-0 border-b border-slate-200 px-3 py-1.5", catCfg.bg)}>
-          <div className="flex items-center gap-1.5">
+        <td colSpan={colCount} className={cn("sticky left-0 border-b border-slate-200 px-2 py-1.5", catCfg.bg)}>
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            title={collapsed ? `Buka grup ${catCfg.label}` : `Lipat grup ${catCfg.label}`}
+            aria-label={collapsed ? `Buka grup ${catCfg.label}` : `Lipat grup ${catCfg.label}`}
+            aria-expanded={!collapsed}
+            className="flex w-full items-center gap-1 text-left"
+          >
+            <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded transition hover:bg-black/5", catCfg.text)}>
+              {collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+            </span>
             <span className={cn("h-2 w-2 rounded-full", catCfg.dot)} />
             <span className={cn("m-mini font-bold uppercase tracking-wide", catCfg.text)}>{catCfg.label}</span>
             <span className={cn("m-mini opacity-70", catCfg.text)}>· {items.length} item</span>
-          </div>
+          </button>
         </td>
       </tr>
-      {items.map((r, i) => (
+      {!collapsed && items.map((r, i) => (
         <RowItem
           key={r.id}
           row={r}

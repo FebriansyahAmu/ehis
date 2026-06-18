@@ -52,6 +52,9 @@ model RadCatalog {
   /// Ruangan tempat pemeriksaan ini boleh dilakukan (Mapping Hub → Layanan Unit, grup Rad); N:M via master.LayananUnitRad.
   layananUnits LayananUnitRad[]
 
+  /// Tarif per (penjamin × jenis ruangan) — Mapping Hub → Tarif Matrix, grup Rad; via master.TarifRadCatalog.
+  tarif TarifRadCatalog[]
+
   @@index([modalitas, deletedAt]) // list/filter per modalitas
   @@index([kategori])
   @@map("rad_catalog")
