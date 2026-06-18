@@ -14,6 +14,12 @@ export interface CreateUserData {
   status?: UserStatus;
 }
 
+export interface UpdateUserData {
+  username?: string;
+  passwordHash?: string;
+  mustChangePassword?: boolean;
+}
+
 // Relasi standar: roles (+ role utk ambil key). Anti over-fetch (tanpa permissions/tokens).
 const detailInclude = { roles: { include: { role: true } } } as const;
 
@@ -34,6 +40,7 @@ const listSelect = {
       gelarBelakang: true,
       email: true,
       nip: true,
+      unitKerja: true,
       practitionerId: true,
       profesi: true,
     },
@@ -115,4 +122,9 @@ export async function replaceRoles(userId: string, roleIds: string[], tx?: Tx): 
 
 export function updateStatus(userId: string, status: UserStatus, tx?: Tx) {
   return db(tx).user.update({ where: { id: userId }, data: { status } });
+}
+
+/** Ubah kredensial (username / passwordHash / mustChangePassword). Field undefined → tak diubah. */
+export function updateCredentials(userId: string, data: UpdateUserData, tx?: Tx) {
+  return db(tx).user.update({ where: { id: userId }, data, include: detailInclude });
 }

@@ -10,9 +10,9 @@ import { hashPassword } from "@/lib/crypto/password";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type {
-  CreateUserInput, AssignRolesInput, ListUsersQuery, UserDTO, UserListItemDTO,
+  CreateUserInput, AssignRolesInput, UpdateUserInput, ListUsersQuery, UserDTO, UserListItemDTO,
 } from "@/lib/schemas/user";
-import type { UserEntity, UserListEntity } from "@/lib/dal/userDal";
+import type { UserEntity, UserListEntity, UpdateUserData } from "@/lib/dal/userDal";
 
 type UserDal = typeof defaultUserDal;
 type PegawaiDal = typeof defaultPegawaiDal;
@@ -41,6 +41,7 @@ export function makeUserService(deps: { dal?: UserDal; pegawaiDal?: PegawaiDal }
       namaTampil: namaTampil(u.pegawai),
       email: u.pegawai.email,
       nip: u.pegawai.nip,
+      unitKerja: u.pegawai.unitKerja,
       roles: u.roles.map((r) => r.role.key),
       status: u.status,
       mustChangePassword: u.mustChangePassword,
@@ -114,13 +115,35 @@ export function makeUserService(deps: { dal?: UserDal; pegawaiDal?: PegawaiDal }
     return toDTO(fresh, peg ? namaTampil(peg) : "—");
   }
 
+  /** Ubah kredensial akun (username / reset password). Username unik (citext); password di-hash di sini. */
+  async function updateUser(userId: string, input: UpdateUserInput, _actor: Actor): Promise<UserDTO> {
+    const user = await dal.findById(userId);
+    if (!user) throw Errors.notFound("Akun tidak ditemukan");
+
+    if (input.username && input.username !== user.username) {
+      const existing = await dal.findByUsername(input.username);
+      if (existing && existing.id !== userId) {
+        throw Errors.conflict(`Username "${input.username}" sudah dipakai`);
+      }
+    }
+
+    const data: UpdateUserData = {};
+    if (input.username !== undefined) data.username = input.username;
+    if (input.password !== undefined) data.passwordHash = hashPassword(input.password);
+    if (input.mustChangePassword !== undefined) data.mustChangePassword = input.mustChangePassword;
+
+    const updated = await dal.updateCredentials(userId, data);
+    const peg = await pegawaiDal.findById(updated.pegawaiId);
+    return toDTO(updated, peg ? namaTampil(peg) : "—");
+  }
+
   /** List akun untuk tabel Pengguna (cursor pagination). */
   async function listUsers(query: ListUsersQuery): Promise<{ items: UserListItemDTO[]; cursor: string | null }> {
     const { items, nextCursor } = await dal.list({ q: query.q, cursor: query.cursor, limit: query.limit });
     return { items: items.map(toListDTO), cursor: nextCursor };
   }
 
-  return { createUser, assignRoles, listUsers };
+  return { createUser, assignRoles, updateUser, listUsers };
 }
 
 export const userService = makeUserService();

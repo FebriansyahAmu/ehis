@@ -201,6 +201,12 @@ export function joinUnitKerja(arr: string[]): string {
   return arr.map((x) => x.trim()).filter(Boolean).join(", ");
 }
 
+// `Pegawai.unitKerja` disimpan sebagai NAMA unit (gabungan dipisah koma). Kolom Unit tabel +
+// filter bekerja pada KODE → petakan nama→kode (fallback nama mentah bila tak dikenal di UNIT_LIST).
+export function unitKerjaToKodes(s?: string | null): string[] {
+  return splitUnitKerja(s).map((nama) => UNIT_LIST.find((u) => u.nama === nama)?.kode ?? nama);
+}
+
 // ── Mock Data ─────────────────────────────────────────────
 
 // Pegawai (master) — sumber identitas akun. peg-011/012 BELUM punya akun (kandidat

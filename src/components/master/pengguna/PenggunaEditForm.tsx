@@ -19,7 +19,8 @@ import { toast } from "@/lib/ui/toastStore";
 interface PenggunaEditFormProps {
   initial: PenggunaRecord;
   onClose: () => void;
-  onSubmit: (next: PenggunaRecord) => void;
+  /** `changes.password` diisi hanya bila admin mereset password. */
+  onSubmit: (next: PenggunaRecord, changes: { password?: string }) => void | Promise<void>;
 }
 
 export default function PenggunaEditForm({ initial, onClose, onSubmit }: PenggunaEditFormProps) {
@@ -32,6 +33,7 @@ export default function PenggunaEditForm({ initial, onClose, onSubmit }: Penggun
   const [confirm, setConfirm] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
 
   const clearError = (key: string) => setErrors((e) => (e[key] ? { ...e, [key]: "" } : e));
 
@@ -58,12 +60,20 @@ export default function PenggunaEditForm({ initial, onClose, onSubmit }: Penggun
     return e;
   }
 
-  function handleSubmit(ev: React.FormEvent) {
+  async function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault();
     const e = validate();
     setErrors(e);
     if (Object.keys(e).length > 0) return;
-    onSubmit({ ...initial, username: username.trim(), roles, status });
+    setSaving(true);
+    try {
+      // Tunggu persist (kredensial + peran/status) SELESAI sebelum tutup → refresh tabel baca data baru.
+      await onSubmit({ ...initial, username: username.trim(), roles, status }, { password: password || undefined });
+    } catch {
+      setSaving(false);
+      toast.error("Gagal menyimpan perubahan", "Coba lagi atau periksa koneksi.");
+      return;
+    }
     toast.success("Perubahan tersimpan", `${identity.namaTampil} · @${username.trim()}`);
     onClose();
   }
@@ -184,9 +194,10 @@ export default function PenggunaEditForm({ initial, onClose, onSubmit }: Penggun
           </button>
           <button
             type="submit"
-            className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-xs font-semibold text-white shadow-sm outline-none transition hover:bg-teal-700 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-teal-300"
+            disabled={saving}
+            className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-xs font-semibold text-white shadow-sm outline-none transition hover:bg-teal-700 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-teal-300 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <CheckCircle2 size={13} /> Simpan Perubahan
+            <CheckCircle2 size={13} /> {saving ? "Menyimpan…" : "Simpan Perubahan"}
           </button>
         </div>
       </form>

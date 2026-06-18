@@ -1,5 +1,6 @@
 import type { KategoriObat, StatusMAR, DecisionRekonsiliasi, ResepRIItem, MAREntry } from "@/lib/data";
 import { ALLERGY_MOCK, type AllergySeverity } from "@/components/shared/asesmen/asesmenShared";
+import type { ObatTersediaDTO } from "@/lib/schemas/master/obatTersedia";
 
 // ── Shared patient interface (minimal — RI, IGD, RJ all satisfy) ──
 
@@ -88,15 +89,6 @@ export const DEPO_OPTIONS = [
   "Apotek 24 Jam",
 ] as const;
 
-export const ATURAN_PANDUAN = [
-  "Peresepan maksimal 7 hari untuk obat reguler (BPJS).",
-  "Narkotika / Psikotropika wajib tanda tangan dokter dan stempel resmi.",
-  "Dosis tidak boleh melebihi dosis maksimal harian yang direkomendasikan.",
-  "Pastikan tidak ada interaksi dengan obat yang sedang dikonsumsi pasien.",
-  "Obat di luar formularium wajib dilampiri SKM (Surat Keterangan Medis).",
-  "Resep harus lengkap: nama, dosis, signa, jumlah, rute.",
-] as const;
-
 // ── Badge / style configs ────────────────────────────────
 
 export const KATEGORI_BADGE: Record<KategoriObat, string> = {
@@ -126,6 +118,29 @@ export const DECISION_CONFIG: Record<DecisionRekonsiliasi, { cls: string; dot: s
 
 export function genResepId(): string {
   return `rx-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+}
+
+// ── DB obat ter-formularium (obat-tersedia) → ObatCatalog (sumber pencarian resep) ──
+// `obat-tersedia` hanya mengembalikan obat AKTIF yang sudah masuk formularium ≥1 ruangan
+// (Mapping Hub → Formularium). Stok tak tersedia di formularium → 0 (badge stok dimatikan).
+const GOLONGAN_NARKO = /narkotik/i;
+const GOLONGAN_PSIKO = /psikotrop/i;
+export function obatTersediaToCatalog(o: ObatTersediaDTO): ObatCatalog {
+  const g = `${o.golongan ?? ""} ${o.kategori ?? ""}`;
+  const kategori: KategoriObat = GOLONGAN_NARKO.test(g)
+    ? "Narkotika"
+    : GOLONGAN_PSIKO.test(g)
+      ? "Psikotropika"
+      : "Reguler";
+  return {
+    kode: o.kode,
+    nama: o.kekuatan ? `${o.namaGenerik} ${o.kekuatan}` : o.namaGenerik,
+    dosis: o.kekuatan || "",
+    satuan: o.satuanTerkecil ?? "",
+    stok: 0,
+    kategori,
+    isHAM: o.isHAM,
+  };
 }
 
 export function todayISO(): string {

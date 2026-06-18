@@ -173,6 +173,7 @@ model Kunjungan {
   penilaianKomposit        PenilaianKomposit[]
   penandaanGambar          PenandaanGambar[]
   serahTerima              SerahTerima[]
+  resepOrder               ResepOrder[]
   disposisiRiwayat         Disposisi[]
 
   // ── Tautan invoice (1:1, dibuat saat Registered→Queued) ──

@@ -16,7 +16,7 @@ import {
   fmtRelative, getUnitNama, pegawaiFormToLite, namaTampilPegawai,
 } from "./penggunaShared";
 import { createPegawai, listPegawai, type PegawaiListItemDTO } from "@/lib/api/pegawai";
-import { createUser, assignRoles, listUsers, userDtoToRecord, type UserListItemDTO } from "@/lib/api/users";
+import { createUser, assignRoles, updateUser, listUsers, userDtoToRecord, type UserListItemDTO } from "@/lib/api/users";
 import PenggunaFormModal from "./PenggunaFormModal";
 import PegawaiEditModal from "./PegawaiEditModal";
 
@@ -209,8 +209,19 @@ export default function PenggunaPage({
   // "Ubah Data Pegawai" → buka modal edit detail pegawai.
   const handleEditPegawai = (pegawaiId: string) => setEditPegawaiId(pegawaiId);
 
-  // EDIT — perubahan akun (optimistic di kedua list; PATCH akun belum ada → revert saat refresh).
-  const handleSubmit = (next: PenggunaRecord) => {
+  // EDIT — persist kredensial (username/password) + peran/status, lalu sinkronkan state lokal.
+  // Di-await oleh form SEBELUM modal ditutup → refreshUsers() pasca-close membaca data yang sudah
+  // terupdate (bukan revert). Throw bila gagal → form tampilkan error & modal tetap terbuka.
+  const handleSubmit = async (next: PenggunaRecord, changes: { password?: string }) => {
+    const current = dbUsers.find((u) => u.id === next.id) ?? users.find((u) => u.id === next.id);
+    const usernameChanged = !!current && current.username !== next.username;
+    if (usernameChanged || changes.password) {
+      await updateUser(next.id, {
+        username: usernameChanged ? next.username : undefined,
+        password: changes.password,
+      });
+    }
+    await assignRoles(next.id, next.roles, next.status);
     setUsers((prev) => prev.map((u) => (u.id === next.id ? next : u)));
     setDbUsers((prev) => prev.map((u) => (u.id === next.id ? next : u)));
   };

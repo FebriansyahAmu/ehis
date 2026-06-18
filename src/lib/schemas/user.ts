@@ -31,6 +31,18 @@ export const AssignRolesInput = z.object({
   status: UserStatus.optional(),
 });
 
+// ── Update kredensial akun (PATCH /auth/users/:id) — ubah username dan/atau reset password.
+//    Patch parsial: kirim hanya field yang berubah; minimal 1. Password di-hash di Service. ──
+export const UpdateUserInput = z
+  .object({
+    username: Username.optional(),
+    password: Password.optional(),
+    mustChangePassword: z.boolean().optional(),
+  })
+  .refine((d) => d.username !== undefined || d.password !== undefined || d.mustChangePassword !== undefined, {
+    message: "Tak ada perubahan kredensial",
+  });
+
 export const UserIdParam = z.object({ id: z.string().uuid("ID tidak valid") });
 
 // ── List akun (GET /auth/users) ───────────────────────────────────────────────
@@ -43,6 +55,7 @@ export type ListUsersQuery = z.infer<typeof ListUsersQuery>;
 
 export type CreateUserInput = z.infer<typeof CreateUserInput>;
 export type AssignRolesInput = z.infer<typeof AssignRolesInput>;
+export type UpdateUserInput = z.infer<typeof UpdateUserInput>;
 export type UserStatusValue = z.infer<typeof UserStatus>;
 
 // ── DTO (tak pernah bocorkan passwordHash/tokenVersion) ────────────────────────
@@ -66,6 +79,8 @@ export interface UserListItemDTO {
   namaTampil: string;
   email: string | null;
   nip: string;
+  /** Unit kerja pegawai (nama, gabungan dipisah koma) dari master.Pegawai — display kolom Unit. */
+  unitKerja: string | null;
   roles: string[];
   status: UserStatusValue;
   mustChangePassword: boolean;

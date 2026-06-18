@@ -9,10 +9,10 @@ import {
 import type { ResepRIItem } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import {
-  SIGNA_OPTIONS, ATURAN_WAKTU, RUTE_OPTIONS, DEPO_OPTIONS, ATURAN_PANDUAN,
+  SIGNA_OPTIONS, ATURAN_WAKTU, RUTE_OPTIONS, DEPO_OPTIONS,
   KATEGORI_BADGE, genResepId, todayISO, fmtTanggalRI, type ObatCatalog, type ResepPatient,
   getAlergiObatRefs, matchAlergiObatRef, mergeAlergiRefs, type AlergiObatRef,
-  KONDISI_KLINIS_DEFAULT, type KondisiKlinis,
+  KONDISI_KLINIS_DEFAULT, type KondisiKlinis, obatTersediaToCatalog,
 } from "@/components/shared/resep/resepShared";
 import ObatSearch   from "@/components/shared/resep/ObatSearch";
 import ResepItemRow from "@/components/shared/resep/ResepItemRow";
@@ -21,6 +21,9 @@ import {
   KondisiKlinisPanel, AlergiObatBanner, AlergiMatchWarning,
 } from "@/components/shared/resep/ResepKlinisPanel";
 import { getAlergi } from "@/lib/api/asesmenMedis/asesmenAlergi";
+import { createResep } from "@/lib/api/resep/resep";
+import { listLokasiFarmasi, type LokasiFarmasi } from "@/lib/api/master/lokasiFarmasi";
+import { listObatTersedia } from "@/lib/api/master/obatTersedia";
 
 const KUNJUNGAN_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -247,11 +250,13 @@ function RiwayatSection({
 export default function ResepPane({ patient, items, onSend, onToggleAktif }: Props) {
   const [form,           setForm]           = useState({ ...EMPTY_FORM });
   const [depo,           setDepo]           = useState<string>("Depo Rawat Inap");
-  const [showGuide,      setShowGuide]      = useState(false);
   const [draftItems,     setDraftItems]     = useState<ResepRIItem[]>([]);
   const [draftSourceMap, setDraftSourceMap] = useState<Map<string, string>>(new Map());
   const [kondisi,        setKondisi]        = useState<KondisiKlinis>(KONDISI_KLINIS_DEFAULT);
   const [dbAlergiRefs,   setDbAlergiRefs]    = useState<AlergiObatRef[]>([]);
+  const [lokasiFarmasi,  setLokasiFarmasi]   = useState<LokasiFarmasi[]>([]);
+  const [obatKatalog,    setObatKatalog]     = useState<ObatCatalog[]>([]);
+  const [sending,        setSending]         = useState(false);
 
   const copiedIds     = new Set(draftSourceMap.values());
   const riwayatGroups = buildGroups(items);
@@ -274,6 +279,31 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
       .catch(() => {});
     return () => ac.abort();
   }, [patient.kunjunganId]);
+
+  // Depo tujuan = Ruangan kategori Farmasi (master); fallback DEPO_OPTIONS bila kosong/gagal.
+  useEffect(() => {
+    const ac = new AbortController();
+    listLokasiFarmasi(ac.signal)
+      .then((rows) => {
+        if (ac.signal.aborted || rows.length === 0) return;
+        setLokasiFarmasi(rows);
+        setDepo((prev) => (rows.some((l) => l.nama === prev) ? prev : rows[0].nama));
+      })
+      .catch(() => {});
+    return () => ac.abort();
+  }, []);
+
+  const depoOptions = lokasiFarmasi.length ? lokasiFarmasi.map((l) => l.nama) : [...DEPO_OPTIONS];
+
+  // Katalog cari-obat = obat ter-formularium DB (obat-tersedia). Kosong → ObatSearch fallback ke
+  // OBAT_CATALOG mock. Obat tampil HANYA bila Aktif & masuk formularium (Mapping Hub → Formularium).
+  useEffect(() => {
+    const ac = new AbortController();
+    listObatTersedia({}, ac.signal)
+      .then((rows) => { if (!ac.signal.aborted) setObatKatalog(rows.map(obatTersediaToCatalog)); })
+      .catch(() => {});
+    return () => ac.abort();
+  }, []);
 
   // Referensi alergi obat = DB (rekam medis) ⊕ teks bebas/mock anamnesis. DPJP kontak → "-".
   const alergiRefs    = mergeAlergiRefs(dbAlergiRefs, getAlergiObatRefs(patient.noRM, patient.riwayatAlergi));
@@ -340,8 +370,41 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
 
   function copyAll(srcItems: ResepRIItem[]) { srcItems.forEach(copyItem); }
 
-  function handleSend() {
+  async function handleSend() {
     if (draftItems.length === 0) return;
+    const kid = patient.kunjunganId;
+    if (kid && KUNJUNGAN_UUID_RE.test(kid)) {
+      setSending(true);
+      try {
+        await createResep(kid, {
+          depoKode: lokasiFarmasi.find((l) => l.nama === depo)?.kode,
+          depoNama: depo,
+          kondisiGinjal: kondisi.ginjal,
+          kondisiMenyusui: kondisi.menyusui,
+          kondisiKehamilan: kondisi.kehamilan,
+          prioritas: "Rutin",
+          penulis: patient.dpjp,
+          penulisKontak: patient.dpjpKontak && patient.dpjpKontak !== "-" ? patient.dpjpKontak : undefined,
+          items: draftItems.map((it) => ({
+            kodeObat: it.kodeObat,
+            namaObat: it.namaObat,
+            dosis: it.dosis || undefined,
+            dosisSekali: it.dosisSekali || undefined,
+            signa: it.signa || undefined,
+            jumlah: it.jumlah,
+            rute: it.rute || undefined,
+            aturanPakai: it.aturanPakai || undefined,
+            kategori: it.kategori,
+            durasiHari: it.durasiHari,
+            keterangan: it.keterangan || undefined,
+          })),
+        });
+      } catch {
+        setSending(false);
+        return; // gagal → pertahankan draft (boundary error sudah toast di api client)
+      }
+      setSending(false);
+    }
     onSend(draftItems);
     setDraftItems([]);
     setDraftSourceMap(new Map());
@@ -371,7 +434,7 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
         <div className="flex items-center gap-2">
           <div>
             <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Depo Farmasi</p>
-            <Select value={depo} onChange={setDepo} options={[...DEPO_OPTIONS]} className="h-7 min-w-40 py-0" />
+            <Select value={depo} onChange={setDepo} options={depoOptions} className="h-7 min-w-40 py-0" />
           </div>
         </div>
         <div className="ml-auto flex items-center gap-1.5">
@@ -389,27 +452,6 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
         {/* Left: order form */}
         <div className="flex flex-col gap-3">
 
-          <button type="button" onClick={() => setShowGuide((v) => !v)}
-            className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50/60 px-4 py-2.5 text-left transition hover:bg-amber-50">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-amber-700">Panduan Aturan Resep</p>
-            {showGuide ? <ChevronDown size={13} className="text-amber-600" /> : <ChevronRight size={13} className="text-amber-500" />}
-          </button>
-          <AnimatePresence>
-            {showGuide && (
-              <motion.ul
-                initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.15 }}
-                className="overflow-hidden rounded-xl border border-amber-100 bg-amber-50/40 px-4 py-3 space-y-1"
-              >
-                {ATURAN_PANDUAN.map((rule, i) => (
-                  <li key={i} className="flex items-start gap-1.5 text-[11px] text-amber-700">
-                    <span className="mt-0.5 shrink-0 text-amber-400">•</span>{rule}
-                  </li>
-                ))}
-              </motion.ul>
-            )}
-          </AnimatePresence>
-
           <KondisiKlinisPanel gender={patient.gender} value={kondisi} onChange={setKondisi} />
 
           <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
@@ -419,7 +461,12 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
 
             <div>
               <Label required>Cari Obat</Label>
-              <ObatSearch value={form.namaObat} onSelect={selectObat} />
+              <ObatSearch
+                value={form.namaObat}
+                onSelect={selectObat}
+                catalog={obatKatalog.length ? obatKatalog : undefined}
+                showStock={obatKatalog.length === 0}
+              />
             </div>
 
             <AnimatePresence>
@@ -543,9 +590,10 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
                 <button
                   type="button"
                   onClick={handleSend}
-                  className="ml-auto flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-indigo-700"
+                  disabled={sending}
+                  className="ml-auto flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <Send size={11} /> Kirim Order Resep
+                  <Send size={11} /> {sending ? "Mengirim…" : "Kirim Order Resep"}
                 </button>
               )}
             </div>

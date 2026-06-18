@@ -4,10 +4,11 @@
 
 import { api } from "@/lib/api/client";
 import type {
-  CreateUserInput, AssignRolesInput, UserDTO, UserListItemDTO, UserStatusValue,
+  CreateUserInput, AssignRolesInput, UpdateUserInput, UserDTO, UserListItemDTO, UserStatusValue,
 } from "@/lib/schemas/user";
-import type {
-  AkunData, PenggunaRecord, UserRole, UserStatus,
+import {
+  unitKerjaToKodes,
+  type AkunData, type PenggunaRecord, type UserRole, type UserStatus,
 } from "@/components/master/pengguna/penggunaShared";
 
 export type { UserDTO, UserListItemDTO };
@@ -38,7 +39,8 @@ export async function createUser(pegawaiId: string, akun: AkunData, signal?: Abo
   return data;
 }
 
-/** UserListItemDTO (server) → PenggunaRecord (tabel). unitAssignment kosong (UserUnitScope fase later). */
+/** UserListItemDTO (server) → PenggunaRecord (tabel). Kolom Unit = unit kerja pegawai (master.Pegawai)
+ *  dipetakan nama→kode; per-user care-unit scope (UserUnitScope) belum ada → ini sumber Unit saat ini. */
 export function userDtoToRecord(u: UserListItemDTO): PenggunaRecord {
   return {
     id: u.id,
@@ -47,7 +49,7 @@ export function userDtoToRecord(u: UserListItemDTO): PenggunaRecord {
     nama: u.namaTampil,
     email: u.email ?? "",
     roles: u.roles as UserRole[],
-    unitAssignment: [],
+    unitAssignment: unitKerjaToKodes(u.unitKerja),
     status: STATUS_FROM_SERVER[u.status],
     mustChangePassword: u.mustChangePassword,
     lastLogin: u.lastLoginAt,
@@ -70,6 +72,23 @@ export async function listUsers(
   const { data, meta } = await api.get<UserListItemDTO[]>("/auth/users", { query: { ...params }, signal });
   const cursor = (meta as { cursor?: string | null } | undefined)?.cursor ?? null;
   return { items: data.map(userDtoToRecord), cursor };
+}
+
+/** PATCH /auth/users/:id — ubah username dan/atau reset password (Edit akun). */
+export async function updateUser(
+  userId: string,
+  changes: { username?: string; password?: string },
+  signal?: AbortSignal,
+): Promise<UserDTO> {
+  const input: UpdateUserInput = {};
+  if (changes.username !== undefined) input.username = changes.username;
+  if (changes.password) input.password = changes.password;
+  const { data } = await api.patch<UserDTO>(
+    `/auth/users/${encodeURIComponent(userId)}`,
+    input,
+    { signal },
+  );
+  return data;
 }
 
 /** PATCH /auth/users/:id/roles — tetapkan peran + status (Step 3 wizard). */

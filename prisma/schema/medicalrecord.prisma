@@ -938,6 +938,82 @@ model TindakanMedis {
   @@schema("medicalrecord")
 }
 
+// ── Resep (tab Resep Pasien — order obat ke depo/apotek Farmasi) ───────────────
+//  1 ResepOrder = 1 lembar resep (header) → banyak ResepItem (baris obat). Order =
+//  append-only (immutable setelah dibuat; koreksi = soft-delete + order baru). `status`
+//  & `prioritas` MUTABLE → digerakkan workflow Farmasi (Menunggu→Ditelaah→…→Selesai).
+//  Depo = snapshot kode+nama Location kategori "Farmasi" (master Unit & Ruangan).
+//  Kondisi klinis (ginjal/menyusui/kehamilan) = snapshot decision-support saat resep ditulis.
+
+model ResepOrder {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Tujuan depo Farmasi (snapshot Location) ──
+  depoKode String? @map("depo_kode") // Location.kode kategori Farmasi
+  depoNama String  @map("depo_nama") // nama depo (tampil)
+
+  // ── Konteks klinis (snapshot) ──
+  catatan          String?
+  kondisiGinjal    String? @map("kondisi_ginjal")
+  kondisiMenyusui  String? @map("kondisi_menyusui")
+  kondisiKehamilan String? @map("kondisi_kehamilan")
+
+  prioritas String @default("Rutin")    // CITO/Segera/Rutin
+  status    String @default("Menunggu") // workflow Farmasi
+
+  // ── Penulis resep (DPJP) snapshot ──
+  penulis         String  // nama penulis resep
+  penulisKontak   String? @map("penulis_kontak")
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  // ── TTE (Tanda Tangan Elektronik) — serial barcode + penanda tangan + waktu (mock always-success) ──
+  tteToken    String?   @map("tte_token")     // serial yang di-encode jadi barcode di resep
+  tteSignedBy String?   @map("tte_signed_by") // nama dokter penanda tangan (DPJP)
+  tteSignedAt DateTime? @map("tte_signed_at") @db.Timestamptz(3)
+
+  items ResepItem[]
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt])
+  @@index([depoKode, status])
+  @@map("resep_order")
+  @@schema("medicalrecord")
+}
+
+model ResepItem {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  resepOrderId String     @map("resep_order_id") @db.Uuid
+  order        ResepOrder @relation(fields: [resepOrderId], references: [id], onDelete: Cascade)
+
+  kodeObat    String  @map("kode_obat")
+  namaObat    String  @map("nama_obat")
+  bzaKode     String? @map("bza_kode") // zat aktif KFA (bila obat dari Katalog) → pelinkan alergi
+  dosis       String?
+  dosisSekali String? @map("dosis_sekali")
+  signa       String?
+  jumlah      Int     @default(1)
+  rute        String?
+  aturanPakai String? @map("aturan_pakai")
+  kategori    String  @default("Reguler") // Reguler/Narkotika/Psikotropika (snapshot)
+  durasiHari  Int     @default(1) @map("durasi_hari")
+  keterangan  String?
+  isHAM       Boolean @default(false) @map("is_ham")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([resepOrderId])
+  @@map("resep_item")
+  @@schema("medicalrecord")
+}
+
 // ── Informed Consent (tab IC — persetujuan tindakan kedokteran, PMK 290/2008) ──
 //  Daftar hidup per-item: 1 baris = 1 formulir persetujuan (per tindakan). Tambah = INSERT,
 //  hapus = soft-delete (entered-in-error, jejak medico-legal). IMMUTABLE setelah dibuat

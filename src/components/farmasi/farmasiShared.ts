@@ -2,6 +2,7 @@ import {
   ORDERS_MOCK,
   type Order,
 } from "@/components/shared/medical-records/daftarOrder/daftarOrderShared";
+import type { ResepOrderFarmasiDTO } from "@/lib/schemas/resep/resep";
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -468,4 +469,53 @@ export function deriveResepOrders(noRM?: string): FarmasiOrder[] {
 
 export function getOrderById(id: string): FarmasiOrder | undefined {
   return deriveResepOrders().find((o) => o.id === id);
+}
+
+// ── DB resep order → FarmasiOrder (worklist) ──────────────
+// Map ResepOrderFarmasiDTO (medicalrecord.ResepOrder) ke kartu worklist. Atribut keamanan
+// obat (HAM/LASA/formularium/harga/stok) diturunkan dari nama via helper lokal.
+
+function unitToDepo(unit: string): DepoTujuan {
+  if (unit === "IGD") return "Depo IGD";
+  if (unit === "Rawat Inap") return "Apotek RI";
+  return "Apotek RJ";
+}
+
+function coerceStatus(s: string): FarmasiStatus {
+  return (s in STATUS_CFG ? (s as FarmasiStatus) : "Menunggu");
+}
+
+export function mapDbResepOrder(o: ResepOrderFarmasiDTO): FarmasiOrder {
+  const items: FarmasiOrderItem[] = o.items.map((it) => ({
+    id:            it.id,
+    namaObat:      it.namaObat,
+    kodeObat:      it.kodeObat || `RX-${it.id}`,
+    dosis:         it.dosis ?? "",
+    signa:         it.signa ?? "",
+    jumlah:        it.jumlah,
+    rute:          it.rute ?? "",
+    kategori:      (it.kategori as FarmasiOrderItem["kategori"]) || kategoriObat(it.namaObat),
+    isHAM:         it.isHAM || isHAMDrug(it.namaObat),
+    isLASA:        isLASADrug(it.namaObat),
+    isFormularium: isFormulariumDrug(it.namaObat),
+    stokTersedia:  lookupStock(it.namaObat),
+    hargaSatuan:   lookupPrice(it.namaObat),
+    satuanObat:    parseSatuan(it.namaObat),
+  }));
+  return {
+    id:            o.id,
+    noOrder:       o.noOrder,
+    noRM:          o.noRM,
+    namaPasien:    o.namaPasien,
+    unit:          o.unit as UnitAsal,
+    depo:          unitToDepo(o.unit),
+    dokterPeminta: o.penulis,
+    tanggal:       o.createdAt.slice(0, 10),
+    jam:           new Date(o.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+    status:        coerceStatus(o.status),
+    prioritas:     (o.prioritas as PrioritasOrder) || "Rutin",
+    hasHAM:        items.some((i) => i.isHAM),
+    items,
+    alergiPasien:  getPatientAllergies(o.noRM),
+  };
 }

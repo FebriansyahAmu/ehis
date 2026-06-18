@@ -9,7 +9,6 @@ import {
   User,
   Building2,
   Calendar,
-  FlaskConical,
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
@@ -23,12 +22,14 @@ import {
   Clock,
   Stethoscope,
   Phone,
+  Printer,
+  ShieldCheck,
 } from "lucide-react";
 import type { IGDPatientDetail, KategoriObat } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import {
   OBAT_CATALOG, SIGNA_OPTIONS, ATURAN_WAKTU, RUTE_OPTIONS, DEPO_OPTIONS,
-  ATURAN_PANDUAN, KATEGORI_BADGE, HAM_BADGE, type ObatCatalog,
+  KATEGORI_BADGE, HAM_BADGE, type ObatCatalog, obatTersediaToCatalog,
   getAlergiObatRefs, matchAlergiObatRef, mergeAlergiRefs, type AlergiObatRef, KONDISI_KLINIS_DEFAULT, type KondisiKlinis,
 } from "@/components/shared/resep/resepShared";
 import { Select } from "@/components/shared/inputs/Select";
@@ -36,6 +37,13 @@ import {
   KondisiKlinisPanel, AlergiObatBanner, AlergiMatchWarning,
 } from "@/components/shared/resep/ResepKlinisPanel";
 import { getAlergi } from "@/lib/api/asesmenMedis/asesmenAlergi";
+import { createResep } from "@/lib/api/resep/resep";
+import { listLokasiFarmasi, type LokasiFarmasi } from "@/lib/api/master/lokasiFarmasi";
+import { listObatTersedia } from "@/lib/api/master/obatTersedia";
+import { useSession } from "@/contexts/SessionContext";
+import ResepCetakModal from "@/components/shared/resep/ResepCetakModal";
+import type { ResepCetakData } from "@/components/shared/resep/ResepCetakTemplate";
+import TteBarcode from "@/components/shared/resep/TteBarcode";
 
 // Kunjungan terpersist (UUID) → tarik alergi nyata dari DB; pasien demo (igd-*) → mock.
 const KUNJUNGAN_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -294,14 +302,21 @@ const INPUT_CLS =
 function ObatSearch({
   value,
   onSelect,
+  catalog,
+  showStock = true,
 }: {
   value: string;
   onSelect: (obat: ObatCatalog) => void;
+  /** Sumber katalog. Absen → OBAT_CATALOG mock. Diisi → obat ter-formularium DB (obat-tersedia). */
+  catalog?: ObatCatalog[];
+  /** Badge stok di hasil. Matikan untuk katalog formularium (tanpa data stok). */
+  showStock?: boolean;
 }) {
   const [query, setQuery] = useState(value);
   const [open, setOpen] = useState(false);
   const [results, setResults] = useState<ObatCatalog[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+  const source = catalog ?? OBAT_CATALOG;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -322,7 +337,7 @@ function ObatSearch({
       setOpen(false);
       return;
     }
-    const filtered = OBAT_CATALOG.filter(
+    const filtered = source.filter(
       (o) =>
         o.nama.toLowerCase().includes(q.toLowerCase()) ||
         o.kode.toLowerCase().includes(q.toLowerCase()),
@@ -380,14 +395,16 @@ function ObatSearch({
                 >
                   {obat.kategori}
                 </span>
-                <span
-                  className={cn(
-                    "text-[10px] font-medium",
-                    obat.stok > 0 ? "text-emerald-600" : "text-rose-500",
-                  )}
-                >
-                  {obat.stok > 0 ? `Stok: ${obat.stok}` : "Habis"}
-                </span>
+                {showStock && (
+                  <span
+                    className={cn(
+                      "text-[10px] font-medium",
+                      obat.stok > 0 ? "text-emerald-600" : "text-rose-500",
+                    )}
+                  >
+                    {obat.stok > 0 ? `Stok: ${obat.stok}` : "Habis"}
+                  </span>
+                )}
               </div>
             </button>
           ))}
@@ -950,8 +967,45 @@ export default function ResepPasienTab({
   const [showHAMModal, setShowHAMModal] = useState(false);
   const [kondisi, setKondisi] = useState<KondisiKlinis>(KONDISI_KLINIS_DEFAULT);
   const [dbAlergiRefs, setDbAlergiRefs] = useState<AlergiObatRef[]>([]);
+  const [lokasiFarmasi, setLokasiFarmasi] = useState<LokasiFarmasi[]>([]);
+  const [sending, setSending] = useState(false);
+  // Resep tertanda-tangan (TTE) hasil order → dipakai layar sukses + cetak.
+  const [signedOrder, setSignedOrder] = useState<ResepCetakData | null>(null);
+  const [showCetak, setShowCetak] = useState(false);
+
+  // Hanya dokter (DPJP) yang boleh order resep → gate UI = izin clinical.resep:create.
+  // (Perawat/Apoteker hanya read; server tetap penjaga sebenarnya via route().)
+  const canOrder = useSession().can("clinical.resep", "create");
 
   const riwayat = RIWAYAT_MOCK[patient.noRM] ?? [];
+
+  // Depo tujuan = Ruangan kategori Farmasi (master); fallback DEPO_OPTIONS bila kosong/gagal.
+  useEffect(() => {
+    const ac = new AbortController();
+    listLokasiFarmasi(ac.signal)
+      .then((rows) => {
+        if (ac.signal.aborted || rows.length === 0) return;
+        setLokasiFarmasi(rows);
+        setDepo((prev) => (rows.some((l) => l.nama === prev) ? prev : rows[0].nama));
+      })
+      .catch(() => {});
+    return () => ac.abort();
+  }, []);
+
+  const depoOptions = lokasiFarmasi.length ? lokasiFarmasi.map((l) => l.nama) : [...DEPO_OPTIONS];
+
+  // Katalog cari-obat = obat ter-formularium DB (obat-tersedia). Fallback OBAT_CATALOG mock bila
+  // kosong/unauth (mis. formularium belum di-set / pasien demo). Obat tampil HANYA bila Aktif &
+  // sudah dipetakan ke formularium ≥1 ruangan (Mapping Hub → Formularium).
+  const [obatKatalog, setObatKatalog] = useState<ObatCatalog[]>([]);
+  useEffect(() => {
+    const ac = new AbortController();
+    listObatTersedia({}, ac.signal)
+      .then((rows) => { if (!ac.signal.aborted) setObatKatalog(rows.map(obatTersediaToCatalog)); })
+      .catch(() => {});
+    return () => ac.abort();
+  }, []);
+  const obatSource = obatKatalog.length ? obatKatalog : OBAT_CATALOG;
 
   // Tarik alergi NYATA pasien dari rekam medis (Asesmen Medis → Alergi) bila kunjungan terpersist.
   // (Pasien demo non-UUID → lewati; state awal sudah []; halaman remount per pasien.)
@@ -1074,43 +1128,160 @@ export default function ResepPasienTab({
     });
   };
 
-  const handleOrder = () => {
-    if (items.length === 0) return;
-    if (items.some((i) => i.isHAM)) { setShowHAMModal(true); return; }
+  // Susun data cetak resep dari item + TTE (serial/penanda tangan/waktu).
+  const buildCetakData = (
+    tte: { token: string; signedBy: string; signedAt: string },
+    noResep: string,
+  ): ResepCetakData => ({
+    noResep,
+    tanggal: tte.signedAt,
+    pasien: {
+      nama: patient.name,
+      noRM: patient.noRM,
+      usia: `${patient.age} thn`,
+      jenisKelamin: patient.gender,
+      unit: "IGD",
+    },
+    dokter: patient.doctor,
+    dokterKontak: dpjpKontak === "-" ? undefined : dpjpKontak,
+    depo,
+    catatan: catatan || undefined,
+    kondisi: { ginjal: kondisi.ginjal, kehamilan: kondisi.kehamilan, menyusui: kondisi.menyusui },
+    items: items.map((it) => ({
+      namaObat: it.namaObat,
+      dosis: it.dosis || undefined,
+      dosisSekali: it.dosisSekali || undefined,
+      signa: it.signa,
+      jumlah: it.jumlah,
+      rute: it.rute || undefined,
+      aturanPakai: it.aturanPakai || undefined,
+      kategori: it.kategori,
+    })),
+    tte,
+  });
+
+  // Order + TTE: kunjungan terpersist (UUID) → POST (server tanda tangani, selalu sukses) lalu pakai
+  // TTE dari respons. Pasien demo → TTE mock lokal (selalu sukses). Hasil → layar sukses + cetak.
+  const submitOrder = async () => {
+    if (items.length === 0 || !canOrder) return;
+    if (KUNJUNGAN_UUID_RE.test(patient.id)) {
+      setSending(true);
+      try {
+        const dto = await createResep(patient.id, {
+          depoKode: lokasiFarmasi.find((l) => l.nama === depo)?.kode,
+          depoNama: depo,
+          catatan: catatan || undefined,
+          kondisiGinjal: kondisi.ginjal,
+          kondisiMenyusui: kondisi.menyusui,
+          kondisiKehamilan: kondisi.kehamilan,
+          prioritas: "Rutin",
+          penulis: patient.doctor,
+          penulisKontak: dpjpKontak === "-" ? undefined : dpjpKontak,
+          items: items.map((it) => ({
+            kodeObat: it.kodeObat,
+            namaObat: it.namaObat,
+            dosis: it.dosis || undefined,
+            dosisSekali: it.dosisSekali || undefined,
+            signa: it.signa || undefined,
+            jumlah: it.jumlah,
+            rute: it.rute || undefined,
+            aturanPakai: it.aturanPakai || undefined,
+            kategori: it.kategori,
+            keterangan: it.keterangan || undefined,
+            isHAM: it.isHAM,
+          })),
+        });
+        setSignedOrder(buildCetakData(
+          {
+            token: dto.tteToken ?? "",
+            signedBy: dto.tteSignedBy ?? patient.doctor,
+            signedAt: dto.tteSignedAt ?? new Date().toISOString(),
+          },
+          `RES-${dto.id.slice(0, 8).toUpperCase()}`,
+        ));
+      } catch {
+        setSending(false);
+        return; // gagal → pertahankan form (boundary error sudah toast di api client)
+      }
+      setSending(false);
+    } else {
+      // Demo (non-UUID): TTE mock — selalu sukses.
+      const now = new Date();
+      const token = `TTE-${now.toISOString().slice(2, 10).replace(/-/g, "")}-${Math.random().toString(16).slice(2, 10).toUpperCase()}`;
+      setSignedOrder(buildCetakData(
+        { token, signedBy: patient.doctor, signedAt: now.toISOString() },
+        `RES-${token.slice(-8)}`,
+      ));
+    }
     setSubmitted(true);
+  };
+
+  const handleOrder = () => {
+    if (items.length === 0 || !canOrder) return;
+    if (items.some((i) => i.isHAM)) { setShowHAMModal(true); return; }
+    void submitOrder();
+  };
+
+  const resetForm = () => {
+    setSubmitted(false);
+    setSignedOrder(null);
+    setShowCetak(false);
+    removeAll();
+    setCatatan("");
   };
 
   // ── Success screen ─────────────────────────────────────
 
-  if (submitted) {
+  if (submitted && signedOrder) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
-          <CheckCircle2 size={28} />
-        </span>
-        <div>
-          <p className="text-sm font-semibold text-slate-700">
-            Resep Berhasil Diorder
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            {items.length} item dikirim ke{" "}
-            <span className="font-semibold text-slate-700">{depo}</span>
-          </p>
-          <p className="mt-0.5 text-[11px] text-slate-400">
-            Penulis resep: {patient.doctor}
-          </p>
+      <>
+        <div className="mx-auto flex max-w-md flex-col items-center gap-4 py-12 text-center">
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
+            <CheckCircle2 size={28} />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-slate-700">Resep Ditandatangani &amp; Diorder</p>
+            <p className="mt-1 text-xs text-slate-500">
+              {signedOrder.items.length} item dikirim ke{" "}
+              <span className="font-semibold text-slate-700">{signedOrder.depo}</span>
+            </p>
+          </div>
+
+          {/* Kartu TTE — barcode + status sukses */}
+          <div className="w-full rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4">
+            <div className="flex items-center justify-center gap-1.5 text-emerald-700">
+              <ShieldCheck size={14} />
+              <span className="text-[11px] font-bold uppercase tracking-wide">Tanda Tangan Elektronik — Berhasil</span>
+            </div>
+            <div className="mt-3 flex justify-center">
+              <TteBarcode value={signedOrder.tte.token} height={48} />
+            </div>
+            <p className="mt-2 text-[11px] text-slate-600">
+              Ditandatangani oleh <span className="font-semibold text-slate-800">{signedOrder.tte.signedBy}</span>
+            </p>
+            <p className="text-[10px] text-slate-400">
+              {new Date(signedOrder.tte.signedAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCetak(true)}
+              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[0.98]"
+            >
+              <Printer size={13} /> Preview &amp; Cetak Resep
+            </button>
+            <button
+              onClick={resetForm}
+              className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+            >
+              Buat Resep Baru
+            </button>
+          </div>
         </div>
-        <button
-          onClick={() => {
-            setSubmitted(false);
-            removeAll();
-            setCatatan("");
-          }}
-          className="rounded-lg border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
-        >
-          Buat Resep Baru
-        </button>
-      </div>
+
+        <ResepCetakModal open={showCetak} onClose={() => setShowCetak(false)} data={signedOrder} />
+      </>
     );
   }
 
@@ -1121,7 +1292,7 @@ export default function ResepPasienTab({
       {showHAMModal && (
         <HAMConfirmModal
           hamItems={items.filter((i) => i.isHAM)}
-          onConfirm={() => { setShowHAMModal(false); setSubmitted(true); }}
+          onConfirm={() => { setShowHAMModal(false); void submitOrder(); }}
           onCancel={() => setShowHAMModal(false)}
         />
       )}
@@ -1179,7 +1350,7 @@ export default function ResepPasienTab({
               <Select
                 value={depo}
                 onChange={setDepo}
-                options={[...DEPO_OPTIONS]}
+                options={depoOptions}
                 className="h-7 min-w-40 py-0"
               />
             </div>
@@ -1205,25 +1376,8 @@ export default function ResepPasienTab({
 
       {/* ── Two-column main area ── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* ── Left: panduan + form ── */}
+        {/* ── Left: kondisi klinis + form ── */}
         <div className="flex flex-col gap-3">
-          <div className="rounded-xl border border-amber-200 bg-amber-50/60 px-4 py-3">
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-amber-600">
-              Panduan Aturan Resep
-            </p>
-            <ul className="space-y-1">
-              {ATURAN_PANDUAN.map((rule, i) => (
-                <li
-                  key={i}
-                  className="flex items-start gap-1.5 text-[11px] text-amber-700"
-                >
-                  <span className="mt-0.5 shrink-0 text-amber-400">•</span>
-                  {rule}
-                </li>
-              ))}
-            </ul>
-          </div>
-
           <KondisiKlinisPanel gender={patient.gender} value={kondisi} onChange={setKondisi} />
 
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -1235,7 +1389,12 @@ export default function ResepPasienTab({
               <AlergiObatBanner allergens={alergiObat} />
 
               <Field label="Cari Obat" required>
-                <ObatSearch value={form.namaObat} onSelect={selectObat} />
+                <ObatSearch
+                  value={form.namaObat}
+                  onSelect={selectObat}
+                  catalog={obatSource}
+                  showStock={obatKatalog.length === 0}
+                />
               </Field>
 
               {form.namaObat && (
@@ -1449,16 +1608,22 @@ export default function ResepPasienTab({
           )}
         </p>
         <div className="flex items-center gap-2">
+          {!canOrder && (
+            <span className="flex items-center gap-1 text-[11px] font-medium text-amber-600">
+              <AlertCircle size={12} /> Hanya dokter (DPJP) yang dapat menandatangani &amp; mengorder resep
+            </span>
+          )}
           <button className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50">
             Simpan Draft
           </button>
           <button
             onClick={handleOrder}
-            disabled={items.length === 0}
+            disabled={items.length === 0 || sending || !canOrder}
+            title={!canOrder ? "Hanya dokter yang dapat order resep" : undefined}
             className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-5 py-2 text-xs font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <FlaskConical size={13} />
-            Order Resep ke Farmasi
+            <ShieldCheck size={13} />
+            {sending ? "Menandatangani…" : "Tanda Tangani & Order Resep"}
           </button>
         </div>
       </div>

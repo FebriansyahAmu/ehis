@@ -17,8 +17,8 @@ interface PenggunaFormModalProps {
   open: boolean;
   initial: PenggunaRecord | null;
   onClose: () => void;
-  /** EDIT — simpan perubahan akun. */
-  onSubmit: (next: PenggunaRecord) => void;
+  /** EDIT — simpan perubahan akun (persist kredensial + peran/status; di-await sebelum modal ditutup). */
+  onSubmit: (next: PenggunaRecord, changes: { password?: string }) => void | Promise<void>;
   /** ADD step 1 — buat pegawai, kembalikan pegawaiId. */
   onCreatePegawai: (data: PegawaiFormData) => Promise<string>;
   /** ADD step 2 — buat akun login tertaut pegawai, kembalikan userId. */

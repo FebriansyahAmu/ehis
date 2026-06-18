@@ -12,6 +12,41 @@
 
 ---
 
+## ✅ Selesai — Resep Pasien: TTE + Doctor-gate + Cetak (preview/print) (2026-06-19)
+
+Lanjutan slice Resep (IGD). 3 permintaan: (1) hanya dokter yang bisa order; (2) resep wajib TTE — mock always-success + barcode di resep; (3) cetak setelah TTE + preview interaktif, layout proper & modern.
+
+- **Doctor-gate** — order di-gate `useSession().can("clinical.resep","create")` (hanya Dokter/Admin; Perawat/Apoteker read). Tombol → **"Tanda Tangani & Order Resep"**; non-dokter: tombol disable + catatan. Server tetap penjaga (RBAC `route()`).
+- **TTE (mock always-success)** — kolom baru `medicalrecord.ResepOrder.{tteToken,tteSignedBy,tteSignedAt}` (migrasi `20260619140000_resep_tte`, drift-safe + generate). [resepService](../src/lib/services/resep/resepService.ts) **auto-tanda-tangani saat create** (serial `TTE-YYMMDD-xxxxxxxx` via clock+randomUUID; penanda tangan = penulis/DPJP). DTO/DAL bawa field TTE. Pasien demo (non-UUID) → TTE mock lokal.
+- **Barcode + Cetak** — [TteBarcode](../src/components/shared/resep/TteBarcode.tsx) (SVG deterministik dari serial) · [ResepCetakTemplate](../src/components/shared/resep/ResepCetakTemplate.tsx) (A4 modern: header RS · pasien/DPJP · ℞ daftar obat · chip kondisi klinis · blok TTE barcode + pernyataan sah UU ITE) · [ResepCetakModal](../src/components/shared/resep/ResepCetakModal.tsx) (preview + `window.print()`, infra `.print-area`/`.no-print`). Layar sukses [ResepPasienTab](../src/components/igd/tabs/ResepPasienTab.tsx) → kartu TTE + barcode + "Preview & Cetak Resep". tsc bersih, eslint 0 error. Follow-up: TTE+cetak belum di RI/RJ ResepPane (komponen sudah shared).
+
+## ✅ Selesai — Resep Pasien: Cari Obat → DB obat-tersedia (2026-06-19)
+
+Bug: pencarian obat tak menampilkan obat dari DB. Akar: `ObatSearch` membaca `OBAT_CATALOG` mock (21 item hardcode), bukan DB (IGD bahkan punya `ObatSearch` lokal sendiri yang ikut hardcode).
+
+- Mapper `obatTersediaToCatalog` (ObatTersediaDTO→ObatCatalog; kategori dari golongan, stok 0) di [resepShared](../src/components/shared/resep/resepShared.ts).
+- IGD `ObatSearch` lokal + shared [ObatSearch](../src/components/shared/resep/ObatSearch.tsx) di-feed `catalog` dari `GET /master/obat-tersedia` (gate clinical.resep:read), `showStock` off saat pakai DB. Wired IGD [ResepPasienTab](../src/components/igd/tabs/ResepPasienTab.tsx) + shared [ResepPane](../src/components/shared/medical-records/resep/ResepPane.tsx). Fallback mock bila formularium kosong/unauth.
+- Catatan: `obat-tersedia` hanya kembalikan obat **Aktif & ter-formularium** (Mapping Hub → Formularium) — by-design.
+
+## ✅ Selesai — Master Pengguna: perbaikan Edit Akun (2026-06-19)
+
+3 bug/penambahan saat edit pengguna:
+- **Tambah role tidak tersimpan (flicker lalu hilang)** — jalur Edit hanya update state optimistic, tak panggil API. Fix: [PenggunaPage.handleSubmit](../src/components/master/pengguna/PenggunaPage.tsx) `await assignRoles(...)`; form [PenggunaEditForm](../src/components/master/pengguna/PenggunaEditForm.tsx) **await** sebelum tutup → `refreshUsers()` baca data baru (tanpa revert) + state `saving` + `toast.error`.
+- **Endpoint update kredensial** — `PATCH /api/v1/auth/users/:id` (username + reset password, gate `master.pengguna:update`): `UpdateUserInput` (Zod) + `userDal.updateCredentials` + `userService.updateUser` (username unik citext, hash password) + client `updateUser`. Form Edit kini persist username/password (di-await sebelum assignRoles).
+- **Kolom Unit kosong** — Unit terikat `unitAssignment` yang di-hardcode `[]`; `unitKerja` pegawai tak di-fetch. Fix: `unitKerja` ditambah ke `UserListItemDTO` + DAL select + service; `userDtoToRecord` map `unitKerja` (nama→kode via helper `unitKerjaToKodes`) → kolom Unit tampil unit kerja pegawai (sumber sementara sampai UserUnitScope dibangun).
+
+## ✅ Selesai — Resep Pasien: Order BE + Worklist Farmasi (2026-06-19)
+
+Backend slice tab Resep Pasien (#15 TODO-CLINICAL → BE 🟢 / Wiring 🟢). 4 permintaan user: (1) hapus panel **Panduan Aturan Resep**; (2) buat contracts berdasarkan FE; (3) dropdown depo = fetch lokasi kategori Farmasi; (4) endpoints layered (API-RULES) → order muncul di halaman Farmasi.
+
+- **Panduan Aturan Resep dihapus** — panel amber di IGD [ResepPasienTab](../src/components/igd/tabs/ResepPasienTab.tsx) + shared [ResepPane](../src/components/shared/medical-records/resep/ResepPane.tsx) (state `showGuide` dibuang); konstanta `ATURAN_PANDUAN` dihapus dari [resepShared.ts](../src/components/shared/resep/resepShared.ts).
+- **DB** — `medicalrecord.ResepOrder` (header: depo snapshot + kondisi klinis + penulis + status/prioritas) + `ResepItem` (baris obat), append-only, FK→encounter.kunjungan cascade. **Tabel SENDIRI, bukan domain Order generik** (Daftar/Lab/Rad masih `ORDERS_MOCK`). Migrasi `20260619120000_init_medicalrecord_resep_order` via skrip drift-safe [apply-resep-order.mjs](../prisma/scripts/apply-resep-order.mjs) + `migrate resolve --applied` + generate.
+- **Contracts** — [lib/schemas/resep/resep.ts](../src/lib/schemas/resep/resep.ts): `ResepOrderInput`/`ResepItemInput` (Zod, mirror form) + `ResepOrderBody` (z.input untuk pemanggil) + DTO `ResepOrderDTO`/`ResepItemDTO`/`ResepOrderFarmasiDTO` + `FarmasiResepQuery`.
+- **Layering** — [resepDal](../src/lib/dal/resep/resepDal.ts) (nested-create items, join kunjungan→pasien utk worklist) → [resepService](../src/lib/services/resep/resepService.ts) (penulis = input/override atau actor; map DTO; unit enum→FE) → routes [kunjungan/:id/resep](../src/app/api/v1/kunjungan/[id]/resep/route.ts) (GET/POST, gate `clinical.resep`) + [farmasi/resep](../src/app/api/v1/farmasi/resep/route.ts) worklist (GET, gate `ancillary.farmasi.telaah`, scopeKunjungan:false). Pola persis `tindakanMedis`.
+- **Depo dropdown** — [master/lokasi-farmasi](../src/app/api/v1/master/lokasi-farmasi/route.ts) (gate `clinical.resep:read`, reuse `ruanganService.listRuanganByType("Farmasi")` aktif saja) + client [lokasiFarmasi.ts](../src/lib/api/master/lokasiFarmasi.ts). Kedua form fetch depo dari master (fallback `DEPO_OPTIONS`).
+- **Submit + Worklist** — `submitOrder`/`handleSend` POST saat `kunjunganId` UUID (pasien demo non-UUID tetap lokal); tombol "Mengirim…". Order DB muncul di [FarmasiBoard](../src/components/farmasi/FarmasiBoard.tsx) via `listFarmasiResep()` + mapper `mapDbResepOrder` ([farmasiShared.ts](../src/components/farmasi/farmasiShared.ts)) digabung di depan order mock.
+- Follow-up → TECH_DEBT (§Farmasi): status workflow Farmasi belum persist utk order DB (board read-only); `bzaKode` belum dibawa dari item IGD; keputusan lebur/pisah vs domain Order generik. tsc bersih (`src/`), eslint 0 error.
+
 ## ✅ Selesai — Resep Pasien FE Decision-Support (shared IGD+RI+RJ) (2026-06-18)
 
 Revisi form Resep (FE only — domain Order BE belum dibangun, status #15 TODO-CLINICAL tetap BE/Wiring ⬜). Resep **belum benar-benar 1 komponen**: IGD pakai [ResepPasienTab](../src/components/igd/tabs/ResepPasienTab.tsx) sendiri, RI/RJ pakai shared [ResepPane](../src/components/shared/medical-records/resep/ResepPane.tsx)+[ResepItemRow](../src/components/shared/resep/ResepItemRow.tsx) → enhancement diterapkan ke **kedua** jalur, logika/konstanta dibagi di lapisan shared.

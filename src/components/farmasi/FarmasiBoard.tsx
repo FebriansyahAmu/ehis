@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, ChevronLeft, ChevronRight, AlertTriangle, Clock, CheckCircle2, Package, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  deriveResepOrders,
+  deriveResepOrders, mapDbResepOrder,
   STATUS_CFG, DEPO_CFG,
   type FarmasiOrder, type FarmasiStatus, type DepoTujuan,
 } from "./farmasiShared";
+import { listFarmasiResep } from "@/lib/api/resep/resep";
 import OrderCard from "./OrderCard";
 
 // ── Constants ──────────────────────────────────────────────
@@ -41,7 +42,17 @@ function StatCard({ label, value, badge, dot, icon }: StatCardProps) {
 // ── Main board ─────────────────────────────────────────────
 
 export default function FarmasiBoard() {
-  const orders = useMemo(() => deriveResepOrders(), []);
+  // Order DB (medicalrecord.ResepOrder) digabung di depan order mock (single-source transisi).
+  const [dbOrders, setDbOrders] = useState<FarmasiOrder[]>([]);
+  useEffect(() => {
+    const ac = new AbortController();
+    listFarmasiResep({}, ac.signal)
+      .then((rows) => { if (!ac.signal.aborted) setDbOrders(rows.map(mapDbResepOrder)); })
+      .catch(() => {}); // diam — board tetap tampil order mock
+    return () => ac.abort();
+  }, []);
+
+  const orders = useMemo(() => [...dbOrders, ...deriveResepOrders()], [dbOrders]);
 
   const [depo,   setDepo]   = useState<"Semua" | DepoTujuan>("Semua");
   const [status, setStatus] = useState<"Semua" | FarmasiStatus>("Semua");
