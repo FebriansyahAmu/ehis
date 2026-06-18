@@ -31,6 +31,7 @@ export const AlergiItemInput = z.object({
   status: AlergiStatus,
   keterangan: optStr,
   snomedCode: optStr,
+  bzaKode: optStr, // kode BZA bila allergen dipilih dari Katalog Obat
 });
 export type AlergiItemInput = z.infer<typeof AlergiItemInput>;
 
@@ -55,6 +56,7 @@ export interface AlergiItemDTO {
   status: AlergiStatus;
   keterangan: string | null;
   snomedCode: string | null;
+  bzaKode: string | null;
   pemeriksa: string;
   createdAt: string; // ISO
 }

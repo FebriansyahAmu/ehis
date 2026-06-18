@@ -144,7 +144,7 @@ Frontend Phase 0–3 master sudah selesai 100%. Workload selanjutnya bisa dipili
 | `RekonsiliasTab` | IGD · RI | `context:"igd"\|"ri"` → phase labels berbeda. HAM badge + progress bar |
 | `KonsultasiTab` | RI · RJ | SBAR closed-loop + 22 SMF dropdown |
 | `SuratDokumenTab` | RJ | 4 jenis surat. PMK 269/2008 |
-| `ResepTab` | IGD · RI · RJ | `showMAR` flag · HAM badge + HAMConfirmModal |
+| `ResepTab` | IGD · RI · RJ | `showMAR` flag · HAM badge + HAMConfirmModal · **decision-support (2026-06-18):** dropdown global `Select` · Dosis sekali minum · peringatan alergi obat dari anamnesis (sadar-golongan) · 3 dropdown kondisi klinis (Ginjal/Kehamilan/Menyusui ♀) · no. kontak DPJP. **Catatan: belum benar-benar 1 komponen** — IGD pakai `igd/tabs/ResepPasienTab`, RI/RJ pakai `shared/.../ResepPane`; logika dibagi via `shared/resep/{resepShared,ResepKlinisPanel}` |
 | `FarmasiTab` | IGD · RI · RJ | Per-patient status tracker dari `workflowStore` |
 | `MARTab` | RI | Medication Administration Record per shift. SNARS PKPO 6 |
 | `KonselingTab` | RI | Discharge counseling. SNARS PP 5 |

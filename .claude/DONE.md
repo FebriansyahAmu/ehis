@@ -12,6 +12,17 @@
 
 ---
 
+## ✅ Selesai — Resep Pasien FE Decision-Support (shared IGD+RI+RJ) (2026-06-18)
+
+Revisi form Resep (FE only — domain Order BE belum dibangun, status #15 TODO-CLINICAL tetap BE/Wiring ⬜). Resep **belum benar-benar 1 komponen**: IGD pakai [ResepPasienTab](../src/components/igd/tabs/ResepPasienTab.tsx) sendiri, RI/RJ pakai shared [ResepPane](../src/components/shared/medical-records/resep/ResepPane.tsx)+[ResepItemRow](../src/components/shared/resep/ResepItemRow.tsx) → enhancement diterapkan ke **kedua** jalur, logika/konstanta dibagi di lapisan shared.
+
+- **Dropdown global** — Depo Farmasi + Signa/Waktu/Rute (edit inline) + Rute (form) pindah dari `<select>` native ke komponen [Select](../src/components/shared/inputs/Select.tsx) (portal popover, keyboard nav).
+- **Dosis sekali minum** — field baru di form + edit inline; tampil di daftar/riwayat (`…/minum`). Field opsional `dosisSekali?` ditambah ke `ResepRIItem` ([data.ts](../src/lib/data.ts)) + `ResepItem` IGD.
+- **Peringatan alergi obat dari anamnesis** — helper baru di [resepShared.ts](../src/components/shared/resep/resepShared.ts): `getAlergiObat(noRM, riwayatAlergiText?)` baca `ALLERGY_MOCK` (kategori "Obat", dari asesmenShared) + teks bebas `riwayatAlergi` (skip "tidak ada/diketahui"); `matchAlergiObat(namaObat, allergens)` cocok dua-arah + **sadar-golongan** via `FAMILY_SYNONYMS` (Penisilin→Amoxicillin/Ampicillin, NSAID, Sulfa, Aspirin). UI: banner "Alergi Obat Tercatat" di form + warning merah saat obat terpilih/ditambah cocok + badge "⚠ Alergi" persisten per-baris.
+- **3 dropdown kondisi klinis** — Fungsi Ginjal (LFG, selalu) + Status Kehamilan + Status Menyusui (khusus ♀ / gender tak diketahui), konstanta `GINJAL/MENYUSUI/KEHAMILAN_OPTIONS` + `KondisiKlinis` di resepShared, panel [KondisiKlinisPanel](../src/components/shared/resep/ResepKlinisPanel.tsx) (highlight + catatan keamanan saat berisiko).
+- **No. kontak DPJP** di bawah nama penulis resep — default **"-"** bila tak ada (`ResepPatient.dpjpKontak?`; detail klinis belum bawa nomor DPJP → "-").
+- `ResepPatient` +`gender?`/`dpjpKontak?`; RI/RJ record tabs teruskan `gender`. tsc bersih (`src/`), eslint 0 error (warning sisa pre-existing).
+
 ## ✅ Selesai — Keperawatan: Evaluasi Shift → contracts table sendiri (Domain 9 Fase C) (2026-06-14)
 
 > Fitur **Tambah Evaluasi Shift** (Riwayat Asuhan Keperawatan, tab Keperawatan IGD): dari blok JSONB di `AsuhanKeperawatan` (di-append via PATCH) → **tabel anak `medicalrecord.AsuhanEvaluasi`** dengan endpoint sendiri. 4 permintaan user: (1) dropdown shift + DatePicker → komponen global; (2) perawat = user login; (3) bangun contracts table + endpoints (API-RULES); (4) wiring FE↔BE. Detail → [TODO-CLINICAL.md](../TODO-CLINICAL.md) Domain 9 Fase C.

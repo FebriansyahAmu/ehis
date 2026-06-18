@@ -15,6 +15,12 @@ export type ObatTersediaQuery = z.infer<typeof ObatTersediaQuery>;
 // ── DTO (response) ──────────────────────────────────────────────────────────────
 // 1 baris per obat (distinct), dengan daftar kode ruangan tempat ia masuk formularium →
 // FE bisa filter klien tanpa round-trip tambahan.
+/** Satu zat aktif KFA (BZA) yang dipetakan ke obat. */
+export interface ObatBza {
+  kode: string;    // kode BZA (KFA 91xxxxxx)
+  display: string; // nama zat aktif
+}
+
 export interface ObatTersediaDTO {
   id: string;
   kode: string;
@@ -26,6 +32,10 @@ export interface ObatTersediaDTO {
   kategori: string;
   golongan: string | null;
   isHAM: boolean;
+  /** Efek samping (free-text) — dipakai decision-support resep saat alergi. */
+  efekSamping: string | null;
+  /** Zat aktif termapping KFA (kode BZA + nama) — untuk pelinkan alergi obat. */
+  bza: ObatBza[];
   /** Kode ruangan tempat obat ini masuk formularium (≥1). */
   ruanganKodes: string[];
 }

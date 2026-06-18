@@ -239,7 +239,9 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
             {active === "resep"         && withIdentitas(<ResepTab patient={{
               noRM:          patient.noRM,
               name:          patient.name,
+              kunjunganId:   patient.id,
               dpjp:          patient.dpjp,
+              gender:        patient.gender,
               riwayatAlergi: patient.riwayatAlergi,
               resepRI:       patient.resepRI ? { items: patient.resepRI.items, mar: patient.resepRI.mar } : undefined,
               perawatJaga:   patient.ttvHistory?.[0]?.perawat,

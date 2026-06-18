@@ -77,6 +77,7 @@ export function listAssignedObat(params: { ruanganKode?: string }, tx?: Tx) {
           id: true, kode: true, namaGenerik: true, namaDagang: true,
           bentuk: true, kekuatan: true, satuanTerkecil: true,
           kategori: true, golongan: true, isHAM: true,
+          efekSamping: true, kfa: true, // efek samping + pemetaan KFA (BZA zat aktif) utk konsumsi klinis/alergi
         },
       },
       location: { select: { kode: true } },

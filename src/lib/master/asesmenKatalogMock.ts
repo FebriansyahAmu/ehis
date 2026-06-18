@@ -11,7 +11,8 @@
 // ── Types ────────────────────────────────────────────────
 
 export type AsesmenKategori =
-  | "AllergenObat"
+  // Catatan: kategori "AllergenObat" DIHAPUS (2026-06-18) — sub-tab Alergi kategori Obat kini
+  // fetch langsung dari Katalog Obat (master.obat) + tampil kode BZA, bukan dari katalog ini.
   | "AllergenMakanan"
   | "AllergenLainnya"
   | "ReaksiAlergi"
@@ -47,7 +48,7 @@ export function emptyAsesmenItem(): AsesmenItem {
     id: `ask-${Date.now().toString(36)}`,
     kode: "",
     nama: "",
-    kategori: "AllergenObat",
+    kategori: "AllergenMakanan",
     deskripsi: "",
     status: "Aktif",
   };
@@ -65,23 +66,8 @@ function mk(
   return { id, kode, nama, kategori, status: "Aktif", ...extra };
 }
 
-const ALLERGEN_OBAT: AsesmenItem[] = [
-  mk("ask-ao-1",  "ALG-OB-001", "Penisilin",          "AllergenObat", { snomedCode: "764146007",  deskripsi: "Beta-laktam. Reaksi silang dengan amoksisilin & ampisilin." }),
-  mk("ask-ao-2",  "ALG-OB-002", "Amoksisilin",        "AllergenObat", { snomedCode: "372687004",  deskripsi: "Beta-laktam turunan penisilin." }),
-  mk("ask-ao-3",  "ALG-OB-003", "Aspirin",            "AllergenObat", { snomedCode: "7947003",    deskripsi: "AERD risiko bronkospasme + reaksi silang NSAID lain." }),
-  mk("ask-ao-4",  "ALG-OB-004", "Ibuprofen",          "AllergenObat", { snomedCode: "387207008",  deskripsi: "NSAID. Hindari pada AERD/asma berat." }),
-  mk("ask-ao-5",  "ALG-OB-005", "Sulfa (Sulfonamida)","AllergenObat", { deskripsi: "Termasuk kotrimoksazol, sulfadiazin." }),
-  mk("ask-ao-6",  "ALG-OB-006", "Kodein",             "AllergenObat", { snomedCode: "260421004",  deskripsi: "Opioid lemah. Reaksi silang dengan morfin." }),
-  mk("ask-ao-7",  "ALG-OB-007", "Tetrasiklin",        "AllergenObat" ),
-  mk("ask-ao-8",  "ALG-OB-008", "Ciprofloxacin",      "AllergenObat", { deskripsi: "Fluorokuinolon." }),
-  mk("ask-ao-9",  "ALG-OB-009", "Kontras Radiologi (Iodinasi)", "AllergenObat", { deskripsi: "Premedikasi steroid bila harus pakai kontras." }),
-  mk("ask-ao-10", "ALG-OB-010", "Metronidazol",       "AllergenObat" ),
-  mk("ask-ao-11", "ALG-OB-011", "Tramadol",           "AllergenObat" ),
-  mk("ask-ao-12", "ALG-OB-012", "Morfin",             "AllergenObat", { deskripsi: "Opioid kuat. Reaksi silang dengan kodein." }),
-  mk("ask-ao-13", "ALG-OB-013", "Eritromisin",        "AllergenObat" ),
-  mk("ask-ao-14", "ALG-OB-014", "Vankomisin",         "AllergenObat", { deskripsi: "Red man syndrome (bukan alergi sejati)." }),
-  mk("ask-ao-15", "ALG-OB-015", "Sefalosporin",       "AllergenObat", { deskripsi: "Reaksi silang ringan dengan penisilin." }),
-];
+// Kategori "AllergenObat" DIHAPUS (2026-06-18) — daftar allergen obat sekarang diturunkan
+// langsung dari Katalog Obat (master.obat) di sub-tab Alergi (kategori Obat), lengkap dgn kode BZA.
 
 const ALLERGEN_MAKANAN: AsesmenItem[] = [
   mk("ask-am-1", "ALG-MK-001", "Kacang Tanah",       "AllergenMakanan", { snomedCode: "419199007",  deskripsi: "Anafilaksis sering berat." }),
@@ -216,7 +202,6 @@ const JENIS_PERSALINAN: AsesmenItem[] = [
 ];
 
 export const ASESMEN_KATALOG_MOCK: AsesmenItem[] = [
-  ...ALLERGEN_OBAT,
   ...ALLERGEN_MAKANAN,
   ...ALLERGEN_LAINNYA,
   ...REAKSI_ALERGI,

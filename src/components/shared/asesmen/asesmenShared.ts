@@ -25,6 +25,8 @@ export interface AllergyEntry {
   status: AllergyStatus;
   keterangan: string;
   snomedCode?: string;
+  /** Kode BZA (zat aktif KFA) — terisi bila allergen Obat dipilih dari Katalog Obat. */
+  bzaKode?: string;
 }
 
 // ── Riwayat types ─────────────────────────────────────────

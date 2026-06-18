@@ -227,6 +227,8 @@ export interface ResepRIItem {
   namaObat:     string;
   kodeObat:     string;
   dosis:        string;
+  /** Dosis sekali minum / sekali pemberian (mis. "1 tablet", "500 mg"). */
+  dosisSekali?: string;
   signa:        string;
   jumlah:       number;
   rute:         string;

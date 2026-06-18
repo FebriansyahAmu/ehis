@@ -61,7 +61,9 @@ function buildFromDb(items: AsesmenItemDTO[]): AsesmenKatalogValue {
     loaded: true,
     fromDb: true,
     quickPicks: {
-      Obat:    pick(by("AllergenObat"), QUICK_PICKS.Obat),
+      // Kategori "Obat" tak lagi dari katalog asesmen — AllergyPane menariknya dari Katalog Obat
+      // (master.obat) + BZA. Nilai ini cuma fallback agar tipe lengkap; tak dirender utk Obat.
+      Obat:    QUICK_PICKS.Obat,
       Makanan: pick(by("AllergenMakanan"), QUICK_PICKS.Makanan),
       Lainnya: pick(by("AllergenLainnya"), QUICK_PICKS.Lainnya),
     },

@@ -53,6 +53,10 @@ export function makeFormulariumService(deps: { dal?: Dal } = {}) {
         if (!existing.ruanganKodes.includes(r.location.kode)) existing.ruanganKodes.push(r.location.kode);
         continue;
       }
+      const kfa = (o.kfa ?? null) as { zatAktif?: { kode?: string; display?: string }[] } | null;
+      const bza = (kfa?.zatAktif ?? [])
+        .filter((z) => z.kode)
+        .map((z) => ({ kode: z.kode as string, display: z.display ?? "" }));
       byId.set(o.id, {
         id: o.id,
         kode: o.kode,
@@ -64,6 +68,8 @@ export function makeFormulariumService(deps: { dal?: Dal } = {}) {
         kategori: o.kategori,
         golongan: o.golongan ?? null,
         isHAM: o.isHAM,
+        efekSamping: o.efekSamping ?? null,
+        bza,
         ruanganKodes: [r.location.kode],
       });
     }

@@ -20,7 +20,7 @@ model AsesmenItem {
 
   // ── Identitas ──
   nama      String
-  kategori  String // FE union (11): AllergenObat | AllergenMakanan | AllergenLainnya | ReaksiAlergi | PenyakitDahulu | PenyakitBeresiko | PenyakitKeluarga | PerilakuBeresiko | AnggotaKeluarga | MetodeKB | JenisPersalinan
+  kategori  String // FE union (10): AllergenMakanan | AllergenLainnya | ReaksiAlergi | PenyakitDahulu | PenyakitBeresiko | PenyakitKeluarga | PerilakuBeresiko | AnggotaKeluarga | MetodeKB | JenisPersalinan. (AllergenObat dihapus 2026-06-18 → allergen obat dari master.obat + BZA)
   deskripsi String @default("")
 
   // ── Metadata opsional ──

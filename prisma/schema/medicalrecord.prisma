@@ -600,6 +600,7 @@ model AsesmenAlergi {
 
   keterangan String?
   snomedCode String? @map("snomed_code")
+  bzaKode    String? @map("bza_kode") // kode BZA (zat aktif KFA) bila allergen dipilih dari Katalog Obat → pelinkan resep
 
   // ── Pencatat + author (dari actor) ──
   pemeriksa       String

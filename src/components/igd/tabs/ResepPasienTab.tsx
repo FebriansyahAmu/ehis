@@ -22,13 +22,23 @@ import {
   Copy,
   Clock,
   Stethoscope,
+  Phone,
 } from "lucide-react";
 import type { IGDPatientDetail, KategoriObat } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import {
   OBAT_CATALOG, SIGNA_OPTIONS, ATURAN_WAKTU, RUTE_OPTIONS, DEPO_OPTIONS,
   ATURAN_PANDUAN, KATEGORI_BADGE, HAM_BADGE, type ObatCatalog,
+  getAlergiObatRefs, matchAlergiObatRef, mergeAlergiRefs, type AlergiObatRef, KONDISI_KLINIS_DEFAULT, type KondisiKlinis,
 } from "@/components/shared/resep/resepShared";
+import { Select } from "@/components/shared/inputs/Select";
+import {
+  KondisiKlinisPanel, AlergiObatBanner, AlergiMatchWarning,
+} from "@/components/shared/resep/ResepKlinisPanel";
+import { getAlergi } from "@/lib/api/asesmenMedis/asesmenAlergi";
+
+// Kunjungan terpersist (UUID) → tarik alergi nyata dari DB; pasien demo (igd-*) → mock.
+const KUNJUNGAN_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -39,6 +49,7 @@ interface ResepItem {
   namaObat: string;
   kodeObat: string;
   dosis: string;
+  dosisSekali?: string;
   signa: string;
   jumlah: number;
   rute: string;
@@ -393,11 +404,13 @@ function ResepRow({
   index,
   onRemove,
   onEdit,
+  alergiHit,
 }: {
   item: ResepItem;
   index: number;
   onRemove: () => void;
   onEdit: (updated: ResepItem) => void;
+  alergiHit?: AlergiObatRef | null;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ ...item });
@@ -416,7 +429,10 @@ function ResepRow({
 
   return (
     <div
-      className="animate-fade-in rounded-xl border border-slate-200 bg-white shadow-xs"
+      className={cn(
+        "animate-fade-in rounded-xl border shadow-xs",
+        alergiHit ? "border-rose-300 bg-rose-50 ring-1 ring-rose-200" : "border-slate-200 bg-white",
+      )}
       style={{ animationDelay: `${index * 40}ms` }}
     >
       {/* Header row */}
@@ -430,6 +446,14 @@ function ResepRow({
               {item.namaObat}
             </p>
             {item.isHAM && <span className={HAM_BADGE}>⚠ HAM</span>}
+            {alergiHit && (
+              <span
+                title={`Berpotensi alergi terhadap ${alergiHit.allergen}`}
+                className="flex items-center gap-0.5 rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold text-white"
+              >
+                <AlertTriangle size={9} /> Alergi
+              </span>
+            )}
             <span
               className={cn(
                 "rounded px-1.5 py-0.5 text-[10px] font-medium",
@@ -448,6 +472,12 @@ function ResepRow({
           {!editing && (
             <p className="mt-0.5 text-[11px] text-slate-500">
               {item.dosis}
+              {item.dosisSekali && (
+                <>
+                  <span className="mx-1 text-slate-300">·</span>
+                  <span className="text-slate-600">{item.dosisSekali}/minum</span>
+                </>
+              )}
               <span className="mx-1 text-slate-300">·</span>
               <span className="font-semibold text-indigo-600">
                 {item.signa}
@@ -461,6 +491,15 @@ function ResepRow({
                   ({item.keterangan})
                 </span>
               )}
+            </p>
+          )}
+          {!editing && alergiHit && (
+            <p className="mt-1 flex items-start gap-1 text-[10px] font-medium text-rose-700">
+              <AlertTriangle size={10} className="mt-0.5 shrink-0" />
+              <span>
+                Riwayat alergi: <span className="font-bold">{alergiHit.allergen}</span>
+                {alergiHit.reactions.length > 0 && <> — efek: {alergiHit.reactions.join(", ")}</>}
+              </span>
             </p>
           )}
         </div>
@@ -498,31 +537,21 @@ function ResepRow({
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                 Signa
               </p>
-              <select
+              <Select
                 value={draft.signa}
-                onChange={(e) => d("signa", e.target.value)}
-                className={INPUT_CLS}
-              >
-                {SIGNA_OPTIONS.map((s) => (
-                  <option key={s.val} value={s.val}>
-                    {s.val}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => d("signa", v)}
+                options={SIGNA_OPTIONS.map((s) => ({ value: s.val, label: s.val }))}
+              />
             </div>
             <div>
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                 Waktu
               </p>
-              <select
+              <Select
                 value={draft.aturanPakai}
-                onChange={(e) => d("aturanPakai", e.target.value)}
-                className={INPUT_CLS}
-              >
-                {ATURAN_WAKTU.map((a) => (
-                  <option key={a}>{a}</option>
-                ))}
-              </select>
+                onChange={(v) => d("aturanPakai", v)}
+                options={[...ATURAN_WAKTU]}
+              />
             </div>
             <div>
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
@@ -542,27 +571,36 @@ function ResepRow({
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                 Rute
               </p>
-              <select
+              <Select
                 value={draft.rute}
-                onChange={(e) => d("rute", e.target.value)}
-                className={INPUT_CLS}
-              >
-                {RUTE_OPTIONS.map((r) => (
-                  <option key={r}>{r}</option>
-                ))}
-              </select>
+                onChange={(v) => d("rute", v)}
+                options={[...RUTE_OPTIONS]}
+              />
             </div>
           </div>
-          <div className="mt-2">
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-              Keterangan
-            </p>
-            <input
-              value={draft.keterangan}
-              onChange={(e) => d("keterangan", e.target.value)}
-              placeholder="Keterangan tambahan..."
-              className={cn(INPUT_CLS, "w-full")}
-            />
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div>
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                Dosis Sekali Minum
+              </p>
+              <input
+                value={draft.dosisSekali ?? ""}
+                onChange={(e) => d("dosisSekali", e.target.value)}
+                placeholder="Mis: 1 tablet, 500 mg"
+                className={cn(INPUT_CLS, "w-full")}
+              />
+            </div>
+            <div>
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                Keterangan
+              </p>
+              <input
+                value={draft.keterangan}
+                onChange={(e) => d("keterangan", e.target.value)}
+                placeholder="Keterangan tambahan..."
+                className={cn(INPUT_CLS, "w-full")}
+              />
+            </div>
           </div>
           <div className="mt-2.5 flex items-center justify-end gap-1.5">
             <button
@@ -886,6 +924,7 @@ const EMPTY_FORM = {
   namaObat: "",
   kodeObat: "",
   dosis: "",
+  dosisSekali: "",
   signa: "3×1",
   aturanPakai: "PC (Sesudah Makan)",
   rute: "Oral",
@@ -909,8 +948,39 @@ export default function ResepPasienTab({
   const [submitted, setSubmitted] = useState(false);
   const [copiedIds, setCopiedIds] = useState<Set<string>>(new Set());
   const [showHAMModal, setShowHAMModal] = useState(false);
+  const [kondisi, setKondisi] = useState<KondisiKlinis>(KONDISI_KLINIS_DEFAULT);
+  const [dbAlergiRefs, setDbAlergiRefs] = useState<AlergiObatRef[]>([]);
 
   const riwayat = RIWAYAT_MOCK[patient.noRM] ?? [];
+
+  // Tarik alergi NYATA pasien dari rekam medis (Asesmen Medis → Alergi) bila kunjungan terpersist.
+  // (Pasien demo non-UUID → lewati; state awal sudah []; halaman remount per pasien.)
+  useEffect(() => {
+    if (!KUNJUNGAN_UUID_RE.test(patient.id)) return;
+    const ac = new AbortController();
+    getAlergi(patient.id, ac.signal)
+      .then((dto) => {
+        if (ac.signal.aborted) return;
+        setDbAlergiRefs(
+          dto.items
+            .filter((it) => it.category === "Obat")
+            .map((it) => ({
+              allergen: it.allergen,
+              reactions: it.reactions,
+              severity: it.severity,
+              bzaKode: it.bzaKode ?? undefined,
+            })),
+        );
+      })
+      .catch(() => {}); // diam — fallback ke mock/teks bebas
+    return () => ac.abort();
+  }, [patient.id]);
+
+  // Referensi alergi obat = DB (rekam medis) ⊕ teks bebas/mock anamnesis. DPJP kontak → "-".
+  const alergiRefs     = mergeAlergiRefs(dbAlergiRefs, getAlergiObatRefs(patient.noRM, patient.riwayatAlergi));
+  const alergiObat     = alergiRefs.map((r) => r.allergen);
+  const dpjpKontak     = (patient as { dpjpKontak?: string }).dpjpKontak?.trim() || "-";
+  const formAlergiHit  = form.namaObat ? matchAlergiObatRef(form.namaObat, alergiRefs) : null;
 
   const setField = <K extends keyof typeof EMPTY_FORM>(
     k: K,
@@ -965,6 +1035,7 @@ export default function ResepPasienTab({
       namaObat: histItem.namaObat,
       kodeObat: histItem.kodeObat,
       dosis: histItem.dosis,
+      dosisSekali: histItem.dosisSekali,
       signa: histItem.signa,
       jumlah: histItem.jumlah,
       rute: histItem.rute,
@@ -985,6 +1056,7 @@ export default function ResepPasienTab({
       namaObat: h.namaObat,
       kodeObat: h.kodeObat,
       dosis: h.dosis,
+      dosisSekali: h.dosisSekali,
       signa: h.signa,
       jumlah: h.jumlah,
       rute: h.rute,
@@ -1067,6 +1139,10 @@ export default function ResepPasienTab({
               <p className="text-xs font-semibold text-slate-800">
                 {patient.doctor}
               </p>
+              <p className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-400">
+                <Phone size={10} className="shrink-0" />
+                {dpjpKontak}
+              </p>
             </div>
           </div>
 
@@ -1097,18 +1173,15 @@ export default function ResepPasienTab({
               <Building2 size={14} />
             </span>
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                 Depo Farmasi
               </p>
-              <select
+              <Select
                 value={depo}
-                onChange={(e) => setDepo(e.target.value)}
-                className="mt-0.5 rounded-md border border-slate-200 bg-transparent px-2 py-0.5 text-xs font-medium text-slate-700 outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-300"
-              >
-                {DEPO_OPTIONS.map((d) => (
-                  <option key={d}>{d}</option>
-                ))}
-              </select>
+                onChange={setDepo}
+                options={[...DEPO_OPTIONS]}
+                className="h-7 min-w-40 py-0"
+              />
             </div>
           </div>
 
@@ -1151,12 +1224,16 @@ export default function ResepPasienTab({
             </ul>
           </div>
 
+          <KondisiKlinisPanel gender={patient.gender} value={kondisi} onChange={setKondisi} />
+
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <p className="mb-3 text-xs font-semibold text-slate-700">
               Tambah Obat ke Resep
             </p>
 
             <div className="flex flex-col gap-3">
+              <AlergiObatBanner allergens={alergiObat} />
+
               <Field label="Cari Obat" required>
                 <ObatSearch value={form.namaObat} onSelect={selectObat} />
               </Field>
@@ -1195,6 +1272,17 @@ export default function ResepPasienTab({
                 </div>
               )}
 
+              {formAlergiHit && <AlergiMatchWarning allergen={formAlergiHit.allergen} reactions={formAlergiHit.reactions} />}
+
+              <Field label="Dosis Sekali Minum">
+                <input
+                  value={form.dosisSekali}
+                  onChange={(e) => setField("dosisSekali", e.target.value)}
+                  placeholder="Mis: 1 tablet, 500 mg, 5 mL"
+                  className="h-8 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-800 outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-300"
+                />
+              </Field>
+
               <div className="grid grid-cols-2 gap-2">
                 <Field label="Jumlah" required>
                   <input
@@ -1208,15 +1296,12 @@ export default function ResepPasienTab({
                   />
                 </Field>
                 <Field label="Rute Pemberian" required>
-                  <select
+                  <Select
                     value={form.rute}
-                    onChange={(e) => setField("rute", e.target.value)}
-                    className="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-800 outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-300"
-                  >
-                    {RUTE_OPTIONS.map((r) => (
-                      <option key={r}>{r}</option>
-                    ))}
-                  </select>
+                    onChange={(v) => setField("rute", v)}
+                    options={[...RUTE_OPTIONS]}
+                    className="h-8"
+                  />
                 </Field>
               </div>
 
@@ -1317,6 +1402,7 @@ export default function ResepPasienTab({
                       index={i}
                       onRemove={() => removeItem(item.id)}
                       onEdit={editItem}
+                      alergiHit={matchAlergiObatRef(item.namaObat, alergiRefs)}
                     />
                   ))}
                 </div>

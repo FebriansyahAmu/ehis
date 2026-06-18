@@ -27,6 +27,8 @@ import { getGinekologi, saveGinekologi } from "@/lib/api/asesmenMedis/asesmenGin
 import { getPerawatan, savePerawatan } from "@/lib/api/asesmenMedis/asesmenPerawatan";
 import { getObstetri, saveObstetri } from "@/lib/api/asesmenMedis/asesmenObstetri";
 import { getAlergi, addAlergi, deleteAlergi, setAlergiNka, type AlergiItemDTO } from "@/lib/api/asesmenMedis/asesmenAlergi";
+import { listObatTersedia, type ObatTersediaDTO } from "@/lib/api/master/obatTersedia";
+import ObatAllergenInput from "@/components/shared/asesmen/ObatAllergenInput";
 import { getAsesmenRingkasan } from "@/lib/api/asesmenMedis/ringkasan";
 import { useSession } from "@/contexts/SessionContext";
 import { toast } from "@/lib/ui/toastStore";
@@ -1940,6 +1942,7 @@ interface AllergyEntry {
   status: AllergyStatus;
   keterangan: string;
   snomedCode?: string;
+  bzaKode?: string;
 }
 
 // ── SNOMED CT mock codes ──────────────────────────────────
@@ -2112,6 +2115,16 @@ function AllergyCard({
             </p>
           )}
 
+          {entry.bzaKode && (
+            <p className="mt-1.5 flex items-center gap-1">
+              <span className="rounded bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-400 ring-1 ring-indigo-100">
+                BZA
+              </span>
+              <span className="font-mono text-[10px] text-indigo-700">{entry.bzaKode}</span>
+              <span className="text-[10px] text-slate-400">— zat aktif KFA (tertaut peresepan)</span>
+            </p>
+          )}
+
           {entry.keterangan && (
             <p className="mt-1 text-[11px] leading-relaxed text-slate-500 italic">
               {entry.keterangan}
@@ -2142,6 +2155,7 @@ function dtoItemToEntry(it: AlergiItemDTO): AllergyEntry {
     id: it.id, category: it.category, allergen: it.allergen, reactions: it.reactions,
     severity: it.severity, status: it.status, keterangan: it.keterangan ?? "",
     snomedCode: it.snomedCode ?? undefined,
+    bzaKode: it.bzaKode ?? undefined,
   };
 }
 
@@ -2164,6 +2178,7 @@ function AllergyPane({ patient, onComplete }: { patient: IGDPatientDetail; onCom
     status: AllergyStatus;
     keterangan: string;
     snomedCode: string;
+    bzaKode: string;
   }>({
     category: "Obat",
     allergen: "",
@@ -2172,7 +2187,10 @@ function AllergyPane({ patient, onComplete }: { patient: IGDPatientDetail; onCom
     status: "Terkonfirmasi",
     keterangan: "",
     snomedCode: "",
+    bzaKode: "",
   });
+  // Daftar obat (Katalog Obat ter-formularium) untuk allergen kategori Obat + kode BZA.
+  const [obatList, setObatList] = useState<ObatTersediaDTO[]>([]);
   const [loading, setLoading]       = useState(isPersisted);
   const [adding, setAdding]         = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -2215,8 +2233,17 @@ function AllergyPane({ patient, onComplete }: { patient: IGDPatientDetail; onCom
     return () => ac.abort();
   }, [patient.id, isPersisted, onComplete]);
 
+  // Muat Katalog Obat (ter-formularium) sekali → opsi allergen kategori Obat + kode BZA.
+  useEffect(() => {
+    const ac = new AbortController();
+    listObatTersedia({}, ac.signal)
+      .then((rows) => { if (!ac.signal.aborted) setObatList(rows); })
+      .catch(() => {}); // diam — fallback ke input bebas
+    return () => ac.abort();
+  }, []);
+
   function resetForm() {
-    setForm((p) => ({ ...p, allergen: "", reactions: [], keterangan: "", snomedCode: "" }));
+    setForm((p) => ({ ...p, allergen: "", reactions: [], keterangan: "", snomedCode: "", bzaKode: "" }));
   }
 
   // Tambah 1 alergen → langsung persist (POST). Mock → tambah lokal saja.
@@ -2230,6 +2257,7 @@ function AllergyPane({ patient, onComplete }: { patient: IGDPatientDetail; onCom
       status: form.status,
       keterangan: form.keterangan.trim() || undefined,
       snomedCode: form.snomedCode || undefined,
+      bzaKode: form.bzaKode || undefined,
     };
     if (!isPersisted) {
       setEntries((p) => [{ id: `alg-${Date.now()}`, ...draft, keterangan: draft.keterangan ?? "" }, ...p]);
@@ -2387,49 +2415,63 @@ function AllergyPane({ patient, onComplete }: { patient: IGDPatientDetail; onCom
             {/* Allergen name */}
             <div>
               <Label required>Nama Alergen</Label>
-              <input
-                type="text"
-                value={form.allergen}
-                onChange={(e) => setF("allergen", e.target.value)}
-                placeholder="Ketik nama alergen..."
-                className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
-              />
-              {/* Quick picks */}
-              <div className="mt-1.5 flex flex-wrap gap-1">
-                {quickPicks[form.category].map((pick) => (
-                  <button
-                    key={pick}
-                    type="button"
-                    onClick={() => setF("allergen", pick)}
-                    className={cn(
-                      "rounded-md px-2 py-0.5 text-[10px] font-medium transition",
-                      form.allergen === pick
-                        ? "bg-sky-100 text-sky-700"
-                        : "bg-slate-100 text-slate-500 hover:bg-sky-50 hover:text-sky-600",
-                    )}
-                  >
-                    {pick}
-                  </button>
-                ))}
-              </div>
+              {form.category === "Obat" ? (
+                /* Satu field gabungan: ketik manual ATAU cari & pilih dari Katalog Obat (auto isi BZA) */
+                <ObatAllergenInput
+                  value={form.allergen}
+                  bzaKode={form.bzaKode}
+                  obatList={obatList}
+                  onChange={(allergen, bzaKode) => setForm((p) => ({ ...p, allergen, bzaKode }))}
+                />
+              ) : (
+                /* Makanan / Lainnya: input bebas + quick picks dari katalog asesmen */
+                <>
+                  <input
+                    type="text"
+                    value={form.allergen}
+                    onChange={(e) => setF("allergen", e.target.value)}
+                    placeholder="Ketik nama alergen..."
+                    className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
+                  />
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {quickPicks[form.category].map((pick) => (
+                      <button
+                        key={pick}
+                        type="button"
+                        onClick={() => setF("allergen", pick)}
+                        className={cn(
+                          "rounded-md px-2 py-0.5 text-[10px] font-medium transition",
+                          form.allergen === pick
+                            ? "bg-sky-100 text-sky-700"
+                            : "bg-slate-100 text-slate-500 hover:bg-sky-50 hover:text-sky-600",
+                        )}
+                      >
+                        {pick}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
-            {/* SNOMED CT code */}
-            <div>
-              <Label>Kode SNOMED CT</Label>
-              <select
-                value={form.snomedCode}
-                onChange={(e) => setF("snomedCode", e.target.value)}
-                className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-xs text-slate-800 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
-              >
-                <option value="">— Pilih kode SNOMED CT —</option>
-                {snomedCodes.map((s) => (
-                  <option key={s.code} value={s.code}>
-                    [{s.code}] {s.display}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* SNOMED CT code — non-Obat (Obat memakai kode BZA dari katalog) */}
+            {form.category !== "Obat" && (
+              <div>
+                <Label>Kode SNOMED CT</Label>
+                <select
+                  value={form.snomedCode}
+                  onChange={(e) => setF("snomedCode", e.target.value)}
+                  className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-xs text-slate-800 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
+                >
+                  <option value="">— Pilih kode SNOMED CT —</option>
+                  {snomedCodes.map((s) => (
+                    <option key={s.code} value={s.code}>
+                      [{s.code}] {s.display}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Reactions */}
             <div>

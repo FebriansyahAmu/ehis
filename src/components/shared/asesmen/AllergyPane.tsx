@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertTriangle, CheckCircle2, HelpCircle, ShieldCheck,
@@ -11,6 +11,8 @@ import {
   type AllergyEntry, type AllergyCategory, type AllergySeverity, type AllergyStatus,
   CAT_CFG, SEV_CFG, QUICK_PICKS, REACTIONS, SNOMED_CODES, ALLERGY_MOCK,
 } from "./asesmenShared";
+import ObatAllergenInput from "@/components/shared/asesmen/ObatAllergenInput";
+import { listObatTersedia, type ObatTersediaDTO } from "@/lib/api/master/obatTersedia";
 
 // ── Allergy card ──────────────────────────────────────────
 
@@ -52,6 +54,13 @@ export function AllergyCard({ entry, onDelete }: { entry: AllergyEntry; onDelete
               <span className="text-[10px] text-slate-400">
                 — {SNOMED_CODES.find(s => s.code === entry.snomedCode)?.display ?? ""}
               </span>
+            </p>
+          )}
+          {entry.bzaKode && (
+            <p className="mt-1.5 flex items-center gap-1">
+              <span className="rounded bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-400 ring-1 ring-indigo-100">BZA</span>
+              <span className="font-mono text-[10px] text-indigo-700">{entry.bzaKode}</span>
+              <span className="text-[10px] text-slate-400">— zat aktif KFA (tertaut peresepan)</span>
             </p>
           )}
           {entry.keterangan && (
@@ -102,7 +111,16 @@ export default function AllergyPane({ noRM, onComplete }: AllergyPaneProps) {
     status: AllergyStatus;
     keterangan: string;
     snomedCode: string;
-  }>({ category: "Obat", allergen: "", reactions: [], severity: "Sedang", status: "Terkonfirmasi", keterangan: "", snomedCode: "" });
+    bzaKode: string;
+  }>({ category: "Obat", allergen: "", reactions: [], severity: "Sedang", status: "Terkonfirmasi", keterangan: "", snomedCode: "", bzaKode: "" });
+
+  // Katalog Obat (ter-formularium) → opsi allergen kategori Obat + kode BZA.
+  const [obatList, setObatList] = useState<ObatTersediaDTO[]>([]);
+  useEffect(() => {
+    const ac = new AbortController();
+    listObatTersedia({}, ac.signal).then((r) => { if (!ac.signal.aborted) setObatList(r); }).catch(() => {});
+    return () => ac.abort();
+  }, []);
 
   const setF = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm(p => ({ ...p, [k]: v }));
@@ -115,12 +133,12 @@ export default function AllergyPane({ noRM, onComplete }: AllergyPaneProps) {
   function handleAdd() {
     if (!canAdd) return;
     const updated = [
-      { id: `alg-${Date.now()}`, category: form.category, allergen: form.allergen.trim(), reactions: form.reactions, severity: form.severity, status: form.status, keterangan: form.keterangan.trim(), snomedCode: form.snomedCode || undefined },
+      { id: `alg-${Date.now()}`, category: form.category, allergen: form.allergen.trim(), reactions: form.reactions, severity: form.severity, status: form.status, keterangan: form.keterangan.trim(), snomedCode: form.snomedCode || undefined, bzaKode: form.bzaKode || undefined },
       ...entries,
     ];
     setEntries(updated);
     setNoKA(false);
-    setForm({ ...form, allergen: "", reactions: [], keterangan: "", snomedCode: "" });
+    setForm({ ...form, allergen: "", reactions: [], keterangan: "", snomedCode: "", bzaKode: "" });
     onComplete?.(true);
   }
 
@@ -194,30 +212,44 @@ export default function AllergyPane({ noRM, onComplete }: AllergyPaneProps) {
               {/* Allergen name */}
               <div>
                 <Label required>Nama Alergen</Label>
-                <input type="text" value={form.allergen}
-                  onChange={e => setF("allergen", e.target.value)}
-                  placeholder="Ketik nama alergen..."
-                  className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
-                <div className="mt-1.5 flex flex-wrap gap-1">
-                  {QUICK_PICKS[form.category].map(pick => (
-                    <button key={pick} type="button" onClick={() => setF("allergen", pick)}
-                      className={cn("rounded-md px-2 py-0.5 text-[10px] font-medium transition",
-                        form.allergen === pick ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600")}>
-                      {pick}
-                    </button>
-                  ))}
-                </div>
+                {form.category === "Obat" ? (
+                  /* Satu field gabungan: ketik manual ATAU cari & pilih dari Katalog Obat (auto isi BZA) */
+                  <ObatAllergenInput
+                    value={form.allergen}
+                    bzaKode={form.bzaKode}
+                    obatList={obatList}
+                    onChange={(allergen, bzaKode) => setForm(p => ({ ...p, allergen, bzaKode }))}
+                  />
+                ) : (
+                  <>
+                    <input type="text" value={form.allergen}
+                      onChange={e => setF("allergen", e.target.value)}
+                      placeholder="Ketik nama alergen..."
+                      className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {QUICK_PICKS[form.category].map(pick => (
+                        <button key={pick} type="button" onClick={() => setF("allergen", pick)}
+                          className={cn("rounded-md px-2 py-0.5 text-[10px] font-medium transition",
+                            form.allergen === pick ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600")}>
+                          {pick}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
 
-              {/* SNOMED CT */}
-              <div>
-                <Label>Kode SNOMED CT</Label>
-                <select value={form.snomedCode} onChange={e => setF("snomedCode", e.target.value)}
-                  className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-xs outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100">
-                  <option value="">— Pilih kode SNOMED CT —</option>
-                  {SNOMED_CODES.map(s => <option key={s.code} value={s.code}>[{s.code}] {s.display}</option>)}
-                </select>
-              </div>
+              {/* SNOMED CT — non-Obat (Obat memakai kode BZA dari katalog) */}
+              {form.category !== "Obat" && (
+                <div>
+                  <Label>Kode SNOMED CT</Label>
+                  <select value={form.snomedCode} onChange={e => setF("snomedCode", e.target.value)}
+                    className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-xs outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100">
+                    <option value="">— Pilih kode SNOMED CT —</option>
+                    {SNOMED_CODES.map(s => <option key={s.code} value={s.code}>[{s.code}] {s.display}</option>)}
+                  </select>
+                </div>
+              )}
 
               {/* Reactions */}
               <div>

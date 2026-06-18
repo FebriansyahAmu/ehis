@@ -6,8 +6,9 @@
 import { z } from "zod";
 
 // ── Vocab terkontrol (identik union asesmenKatalogMock) ───────────────────────
+// Kategori "AllergenObat" DIHAPUS (2026-06-18) — allergen obat ditarik dari Katalog Obat.
 export const AsesmenKategoriEnum = z.enum([
-  "AllergenObat", "AllergenMakanan", "AllergenLainnya", "ReaksiAlergi",
+  "AllergenMakanan", "AllergenLainnya", "ReaksiAlergi",
   "PenyakitDahulu", "PenyakitBeresiko", "PenyakitKeluarga", "PerilakuBeresiko",
   "AnggotaKeluarga", "MetodeKB", "JenisPersalinan",
 ]);
@@ -21,7 +22,6 @@ export const AsesmenSeverityEnum = z.enum(["Ringan", "Sedang", "Berat"]);
  * mis. ALG-OB-001 / RX-001 / PD-001. Sumber: pola kode di asesmenKatalogMock.
  */
 export const KATEGORI_PREFIX: Record<AsesmenKategoriEnum, string> = {
-  AllergenObat:     "ALG-OB",
   AllergenMakanan:  "ALG-MK",
   AllergenLainnya:  "ALG-LN",
   ReaksiAlergi:     "RX",

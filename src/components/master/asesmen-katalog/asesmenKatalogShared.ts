@@ -5,7 +5,7 @@
 
 import {
   IdCard, Tag,
-  Pill, Utensils, ShieldAlert, Activity,
+  Utensils, ShieldAlert, Activity,
   History, AlertTriangle, Users, Cigarette, UsersRound, Heart, Baby,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -33,7 +33,6 @@ export interface KategoriConfig {
 }
 
 export const KATEGORI_CFG: Record<AsesmenKategori, KategoriConfig> = {
-  AllergenObat:     { label: "Allergen · Obat",     groupLabel: "Alergi",        usage: "AllergyPane (sub-tab Alergi) — opsi allergen kategori Obat",          icon: Pill,          bg: "bg-indigo-50",  text: "text-indigo-700",  dot: "bg-indigo-500",  ring: "ring-indigo-200" },
   AllergenMakanan:  { label: "Allergen · Makanan",  groupLabel: "Alergi",        usage: "AllergyPane (sub-tab Alergi) — opsi allergen kategori Makanan",       icon: Utensils,      bg: "bg-orange-50",  text: "text-orange-700",  dot: "bg-orange-500",  ring: "ring-orange-200" },
   AllergenLainnya:  { label: "Allergen · Lainnya",  groupLabel: "Alergi",        usage: "AllergyPane (sub-tab Alergi) — opsi allergen kategori Lainnya",       icon: ShieldAlert,   bg: "bg-teal-50",    text: "text-teal-700",    dot: "bg-teal-500",    ring: "ring-teal-200"   },
   ReaksiAlergi:     { label: "Reaksi Alergi",       groupLabel: "Alergi",        usage: "AllergyPane (sub-tab Alergi) — daftar reaksi alergi + severity default", icon: Activity,      bg: "bg-rose-50",    text: "text-rose-700",    dot: "bg-rose-500",    ring: "ring-rose-200"   },
@@ -47,7 +46,7 @@ export const KATEGORI_CFG: Record<AsesmenKategori, KategoriConfig> = {
 };
 
 export const KATEGORI_ORDER: AsesmenKategori[] = [
-  "AllergenObat", "AllergenMakanan", "AllergenLainnya", "ReaksiAlergi",
+  "AllergenMakanan", "AllergenLainnya", "ReaksiAlergi",
   "PenyakitDahulu", "PenyakitBeresiko", "PenyakitKeluarga", "PerilakuBeresiko",
   "AnggotaKeluarga", "MetodeKB", "JenisPersalinan",
 ];
@@ -62,7 +61,8 @@ export const KATEGORI_GROUPS: Array<{ label: string; sub: string; items: Asesmen
   {
     label: "Sub-tab Alergi",
     sub: "AllergyPane",
-    items: ["AllergenObat", "AllergenMakanan", "AllergenLainnya", "ReaksiAlergi"],
+    // Kategori Obat dihapus → allergen obat ditarik dari Katalog Obat (master.obat).
+    items: ["AllergenMakanan", "AllergenLainnya", "ReaksiAlergi"],
   },
   {
     label: "Sub-tab Riwayat Medis",

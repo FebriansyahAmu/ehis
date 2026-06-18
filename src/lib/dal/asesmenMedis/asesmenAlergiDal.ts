@@ -14,6 +14,7 @@ export interface CreateAlergiData {
   status: string;
   keterangan?: string | null;
   snomedCode?: string | null;
+  bzaKode?: string | null;
   pemeriksa: string;
   authorUserId?: string | null;
   authorPegawaiId?: string | null;

@@ -33,6 +33,7 @@ function toItemDTO(a: NonNullAlergi): AlergiItemDTO {
     status: a.status as AlergiStatus,
     keterangan: a.keterangan,
     snomedCode: a.snomedCode,
+    bzaKode: a.bzaKode,
     pemeriksa: a.pemeriksa,
     createdAt: a.createdAt.toISOString(),
   };
@@ -72,6 +73,7 @@ export function makeAsesmenAlergiService(deps: { dal?: Dal } = {}) {
       status: input.status,
       keterangan: input.keterangan ?? null,
       snomedCode: input.snomedCode ?? null,
+      bzaKode: input.bzaKode ?? null,
       pemeriksa,
       authorUserId: actor.userId,
       authorPegawaiId: actor.pegawaiId,

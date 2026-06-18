@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Pill, Pencil, Trash2, X, Check, AlertCircle, PowerOff } from "lucide-react";
+import { Pill, Pencil, Trash2, X, Check, AlertCircle, AlertTriangle, PowerOff } from "lucide-react";
 import type { ResepRIItem } from "@/lib/data";
 import { cn } from "@/lib/utils";
-import { KATEGORI_BADGE, SIGNA_OPTIONS, ATURAN_WAKTU, RUTE_OPTIONS } from "./resepShared";
+import { KATEGORI_BADGE, SIGNA_OPTIONS, ATURAN_WAKTU, RUTE_OPTIONS, type AlergiObatRef } from "./resepShared";
+import { Select } from "@/components/shared/inputs/Select";
 
 interface Props {
   item:           ResepRIItem;
@@ -12,11 +13,12 @@ interface Props {
   onRemove:       () => void;
   onEdit:         (updated: ResepRIItem) => void;
   onToggleAktif:  () => void;
+  alergiHit?:     AlergiObatRef | null;
 }
 
 const INPUT_CLS = "h-8 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200";
 
-export default function ResepItemRow({ item, index, onRemove, onEdit, onToggleAktif }: Props) {
+export default function ResepItemRow({ item, index, onRemove, onEdit, onToggleAktif, alergiHit }: Props) {
   const [editing, setEditing] = useState(false);
   const [draft,   setDraft]   = useState({ ...item });
 
@@ -29,8 +31,12 @@ export default function ResepItemRow({ item, index, onRemove, onEdit, onToggleAk
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-xl border bg-white shadow-xs transition-all duration-200",
-        item.aktif ? "border-slate-200" : "border-slate-100 opacity-60",
+        "overflow-hidden rounded-xl border shadow-xs transition-all duration-200",
+        !item.aktif
+          ? "border-slate-100 bg-white opacity-60"
+          : alergiHit
+            ? "border-rose-300 bg-rose-50 ring-1 ring-rose-200"
+            : "border-slate-200 bg-white",
       )}
       style={{ animationDelay: `${index * 40}ms` }}
     >
@@ -59,10 +65,24 @@ export default function ResepItemRow({ item, index, onRemove, onEdit, onToggleAk
                 <AlertCircle size={9} />Perlu persetujuan khusus
               </span>
             )}
+            {alergiHit && item.aktif && (
+              <span
+                title={`Berpotensi alergi terhadap ${alergiHit.allergen}`}
+                className="flex items-center gap-0.5 rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold text-white"
+              >
+                <AlertTriangle size={9} /> Alergi
+              </span>
+            )}
           </div>
           {!editing && (
             <p className="mt-0.5 text-[11px] text-slate-500">
               {item.dosis}
+              {item.dosisSekali && (
+                <>
+                  <span className="mx-1 text-slate-300">·</span>
+                  <span className="text-slate-600">{item.dosisSekali}/minum</span>
+                </>
+              )}
               <span className="mx-1 text-slate-300">·</span>
               <span className="font-semibold text-indigo-600">{item.signa}</span>
               <span className="mx-1 text-slate-300">·</span>
@@ -74,6 +94,15 @@ export default function ResepItemRow({ item, index, onRemove, onEdit, onToggleAk
               {item.keterangan && (
                 <span className="ml-1 italic text-slate-400">({item.keterangan})</span>
               )}
+            </p>
+          )}
+          {!editing && alergiHit && item.aktif && (
+            <p className="mt-1 flex items-start gap-1 text-[10px] font-medium text-rose-700">
+              <AlertTriangle size={10} className="mt-0.5 shrink-0" />
+              <span>
+                Riwayat alergi: <span className="font-bold">{alergiHit.allergen}</span>
+                {alergiHit.reactions.length > 0 && <> — efek: {alergiHit.reactions.join(", ")}</>}
+              </span>
             </p>
           )}
         </div>
@@ -123,15 +152,12 @@ export default function ResepItemRow({ item, index, onRemove, onEdit, onToggleAk
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <div>
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Signa</p>
-              <select value={draft.signa} onChange={(e) => d("signa", e.target.value)} className={INPUT_CLS}>
-                {SIGNA_OPTIONS.map((s) => <option key={s.val} value={s.val}>{s.val}</option>)}
-              </select>
+              <Select value={draft.signa} onChange={(v) => d("signa", v)}
+                options={SIGNA_OPTIONS.map((s) => ({ value: s.val, label: s.val }))} />
             </div>
             <div>
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Waktu</p>
-              <select value={draft.aturanPakai} onChange={(e) => d("aturanPakai", e.target.value)} className={INPUT_CLS}>
-                {ATURAN_WAKTU.map((a) => <option key={a}>{a}</option>)}
-              </select>
+              <Select value={draft.aturanPakai} onChange={(v) => d("aturanPakai", v)} options={[...ATURAN_WAKTU]} />
             </div>
             <div>
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Jumlah</p>
@@ -144,12 +170,15 @@ export default function ResepItemRow({ item, index, onRemove, onEdit, onToggleAk
                 onChange={(e) => d("durasiHari", Math.max(1, Number(e.target.value)))} className={INPUT_CLS} />
             </div>
           </div>
-          <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
             <div>
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Rute</p>
-              <select value={draft.rute} onChange={(e) => d("rute", e.target.value)} className={INPUT_CLS}>
-                {RUTE_OPTIONS.map((r) => <option key={r}>{r}</option>)}
-              </select>
+              <Select value={draft.rute} onChange={(v) => d("rute", v)} options={[...RUTE_OPTIONS]} />
+            </div>
+            <div>
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Dosis Sekali Minum</p>
+              <input value={draft.dosisSekali ?? ""} onChange={(e) => d("dosisSekali", e.target.value)}
+                placeholder="Mis: 1 tablet" className={INPUT_CLS} />
             </div>
             <div>
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Keterangan</p>

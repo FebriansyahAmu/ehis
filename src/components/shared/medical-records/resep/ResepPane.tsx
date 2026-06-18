@@ -1,19 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Pill, User, AlertCircle, X, ChevronDown, ChevronRight,
-  Copy, Check, Clock, Stethoscope, Send,
+  Copy, Check, Clock, Stethoscope, Send, Phone,
 } from "lucide-react";
 import type { ResepRIItem } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import {
   SIGNA_OPTIONS, ATURAN_WAKTU, RUTE_OPTIONS, DEPO_OPTIONS, ATURAN_PANDUAN,
   KATEGORI_BADGE, genResepId, todayISO, fmtTanggalRI, type ObatCatalog, type ResepPatient,
+  getAlergiObatRefs, matchAlergiObatRef, mergeAlergiRefs, type AlergiObatRef,
+  KONDISI_KLINIS_DEFAULT, type KondisiKlinis,
 } from "@/components/shared/resep/resepShared";
 import ObatSearch   from "@/components/shared/resep/ObatSearch";
 import ResepItemRow from "@/components/shared/resep/ResepItemRow";
+import { Select } from "@/components/shared/inputs/Select";
+import {
+  KondisiKlinisPanel, AlergiObatBanner, AlergiMatchWarning,
+} from "@/components/shared/resep/ResepKlinisPanel";
+import { getAlergi } from "@/lib/api/asesmenMedis/asesmenAlergi";
+
+const KUNJUNGAN_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -35,6 +44,7 @@ const EMPTY_FORM = {
   namaObat:    "",
   kodeObat:    "",
   dosis:       "",
+  dosisSekali: "",
   signa:       "1×1"                as string,
   aturanPakai: "AC (Sebelum Makan)" as string,
   rute:        "Oral"               as string,
@@ -181,6 +191,12 @@ function RiwayatSection({
                                 </div>
                                 <p className="text-[11px] text-slate-500">
                                   {item.dosis}
+                                  {item.dosisSekali && (
+                                    <>
+                                      <span className="mx-1 text-slate-300">·</span>
+                                      <span className="text-slate-600">{item.dosisSekali}/minum</span>
+                                    </>
+                                  )}
                                   <span className="mx-1 text-slate-300">·</span>
                                   <span className="font-semibold text-indigo-600">{item.signa}</span>
                                   <span className="mx-1 text-slate-300">·</span>
@@ -234,10 +250,36 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
   const [showGuide,      setShowGuide]      = useState(false);
   const [draftItems,     setDraftItems]     = useState<ResepRIItem[]>([]);
   const [draftSourceMap, setDraftSourceMap] = useState<Map<string, string>>(new Map());
+  const [kondisi,        setKondisi]        = useState<KondisiKlinis>(KONDISI_KLINIS_DEFAULT);
+  const [dbAlergiRefs,   setDbAlergiRefs]    = useState<AlergiObatRef[]>([]);
 
   const copiedIds     = new Set(draftSourceMap.values());
   const riwayatGroups = buildGroups(items);
   const stoppedItems  = items.filter((i) => !i.aktif);
+
+  // Tarik alergi NYATA pasien dari rekam medis (Asesmen Medis → Alergi) bila kunjungan terpersist.
+  useEffect(() => {
+    const kid = patient.kunjunganId;
+    if (!kid || !KUNJUNGAN_UUID_RE.test(kid)) return;
+    const ac = new AbortController();
+    getAlergi(kid, ac.signal)
+      .then((dto) => {
+        if (ac.signal.aborted) return;
+        setDbAlergiRefs(
+          dto.items
+            .filter((it) => it.category === "Obat")
+            .map((it) => ({ allergen: it.allergen, reactions: it.reactions, severity: it.severity, bzaKode: it.bzaKode ?? undefined })),
+        );
+      })
+      .catch(() => {});
+    return () => ac.abort();
+  }, [patient.kunjunganId]);
+
+  // Referensi alergi obat = DB (rekam medis) ⊕ teks bebas/mock anamnesis. DPJP kontak → "-".
+  const alergiRefs    = mergeAlergiRefs(dbAlergiRefs, getAlergiObatRefs(patient.noRM, patient.riwayatAlergi));
+  const alergiObat    = alergiRefs.map((r) => r.allergen);
+  const dpjpKontak    = patient.dpjpKontak?.trim() || "-";
+  const formAlergiHit = form.namaObat ? matchAlergiObatRef(form.namaObat, alergiRefs) : null;
 
   function setField<K extends keyof typeof EMPTY_FORM>(k: K, v: (typeof EMPTY_FORM)[K]) {
     setForm((p) => ({ ...p, [k]: v }));
@@ -281,6 +323,7 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
       namaObat:     src.namaObat,
       kodeObat:     src.kodeObat,
       dosis:        src.dosis,
+      dosisSekali:  src.dosisSekali,
       signa:        src.signa,
       jumlah:       src.jumlah,
       rute:         src.rute,
@@ -318,16 +361,17 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Dokter Penulis</p>
             <p className="text-xs font-semibold text-slate-800">{patient.dpjp}</p>
+            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-400">
+              <Phone size={10} className="shrink-0" />
+              {dpjpKontak}
+            </p>
           </div>
         </div>
         <div className="hidden h-6 w-px bg-slate-100 sm:block" />
         <div className="flex items-center gap-2">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Depo Farmasi</p>
-            <select value={depo} onChange={(e) => setDepo(e.target.value)}
-              className="mt-0.5 rounded-md border border-slate-200 bg-transparent px-2 py-0.5 text-xs font-medium text-slate-700 outline-none focus:border-indigo-400">
-              {DEPO_OPTIONS.map((d) => <option key={d}>{d}</option>)}
-            </select>
+            <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Depo Farmasi</p>
+            <Select value={depo} onChange={setDepo} options={[...DEPO_OPTIONS]} className="h-7 min-w-40 py-0" />
           </div>
         </div>
         <div className="ml-auto flex items-center gap-1.5">
@@ -366,8 +410,12 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
             )}
           </AnimatePresence>
 
+          <KondisiKlinisPanel gender={patient.gender} value={kondisi} onChange={setKondisi} />
+
           <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
             <p className="text-xs font-semibold text-slate-700">Tambah Order Obat</p>
+
+            <AlergiObatBanner allergens={alergiObat} />
 
             <div>
               <Label required>Cari Obat</Label>
@@ -395,6 +443,15 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {formAlergiHit && <AlergiMatchWarning allergen={formAlergiHit.allergen} reactions={formAlergiHit.reactions} />}
+
+            <div>
+              <Label>Dosis Sekali Minum</Label>
+              <input value={form.dosisSekali} onChange={(e) => setField("dosisSekali", e.target.value)}
+                placeholder="Mis: 1 tablet, 500 mg, 5 mL"
+                className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white" />
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -505,7 +562,8 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
                     <ResepItemRow key={item.id} item={item} index={i}
                       onRemove={() => removeDraft(item.id)}
                       onEdit={editDraft}
-                      onToggleAktif={() => {}} />
+                      onToggleAktif={() => {}}
+                      alergiHit={matchAlergiObatRef(item.namaObat, alergiRefs)} />
                   ))}
                 </div>
               )}
@@ -523,7 +581,8 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
                     <ResepItemRow key={item.id} item={item} index={i}
                       onRemove={() => {}}
                       onEdit={() => {}}
-                      onToggleAktif={() => onToggleAktif(item.id)} />
+                      onToggleAktif={() => onToggleAktif(item.id)}
+                      alergiHit={matchAlergiObatRef(item.namaObat, alergiRefs)} />
                   ))}
                 </div>
               </div>
