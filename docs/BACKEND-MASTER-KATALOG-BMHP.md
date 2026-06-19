@@ -205,13 +205,18 @@ function formatBmhpKode(periode: string, seq: number) { return `BHP-${periode}${
 
 ## 8. Konsumen (hilir — sebagian Phase later)
 
+- **Mapping Hub — Ketersediaan Farmasi (sub BMHP) ✅ 2026-06-19:** grant BMHP⇄Location via tabel
+  **terpisah** `master.FormulariumBmhp` (BUKAN reuse `FormulariumObat`) — "daftar standar depo per
+  lokasi farmasi". Endpoint `/master/formularium-bmhp` (+`/:id`, gate `master.mapping`). FE = sub-pane
+  BMHP (segmented Obat|BMHP) di [Ketersediaan Farmasi](../src/components/master/mapping/formularium/).
+  Detail → [BACKEND-MAPPING.md §6b](BACKEND-MAPPING.md#6b-bmhp-daftar-standar-depo--2026-06-19).
 - **Klinis (Tindakan/paket):** BMHP melekat ke tindakan → endpoint baca `GET /master/bmhp-tersedia`
   (mirror [obat-tersedia](../src/app/api/v1/master/obat-tersedia/route.ts), gate **`clinical.tindakan:read`**)
-  bila/saat BMHP di-formularium-kan per unit. **Phase later.**
+  membaca `FormulariumBmhp` (analog `obat-tersedia` baca `FormulariumObat`). **Phase later.**
 - **Billing/Chargemaster:** BMHP = charge item (harga snapshot) saat dipakai di tindakan — selaras
   federasi chargemaster ([TODO-CHARGEMASTER.md](../TODO-CHARGEMASTER.md)). **Phase later.**
-- **Mapping Hub — Formularium/Distribusi BMHP:** grant BMHP⇄Location (tabel **terpisah** `master.FormulariumBmhp`,
-  BUKAN reuse `FormulariumObat`) bila perlu ketersediaan per-unit. **Phase later.**
+- **Inventory:** picker "Daftar Barang" BMHP per-lokasi dapat baca `FormulariumBmhp` (kini masih
+  tampil seluruh katalog tanpa filter lokasi). **Phase later.**
 
 > MVP = **katalog mandiri** (CRUD + seed + FE) dulu, persis Obat saat pertama dibangun. Konsumen menyusul.
 

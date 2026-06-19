@@ -4,6 +4,7 @@
 // (per-modul) supaya tak bentrok dgn cache Layanan Unit.
 
 import type { FormulariumEdgeDTO } from "@/lib/api/master/formularium";
+import type { AnyNode, LocationNode } from "@/components/master/ruangan/ruanganShared";
 // Helper generik (kolom unit dari master tree + grant-map) — dipakai bersama Layanan Unit.
 import {
   type LayananMap, type LayananUnit,
@@ -16,6 +17,41 @@ export {
   UNIT_CATEGORY_CFG, UNIT_CATEGORY_ORDER, unitsFromTree,
   setPresence, hasLayanan, countUnitPerRow, countRowsPerUnit, countAllLayanan,
 };
+
+// ── Filter lokasi Farmasi (Formularium HANYA boleh assign ke lokasi farmasi) ───
+// Formularium = obat boleh-disiapkan di DEPO/GUDANG FARMASI → kolom matriks dibatasi ke
+// Location jenis "Farmasi" / "Gudang_Farmasi" saja (bukan ruangan klinis). Selaras keputusan
+// Inventory: stok obat hidup di lokasi farmasi.
+export const FARMASI_LOCATION_TYPES: ReadonlySet<string> = new Set(["Farmasi", "Gudang_Farmasi"]);
+
+function isFarmasiLoc(n: AnyNode): n is LocationNode {
+  return n.type === "Location" && n.active !== false && FARMASI_LOCATION_TYPES.has(n.locationType);
+}
+
+/** Kolom unit = HANYA Location aktif berjenis Farmasi / Gudang Farmasi. */
+export function pharmacyUnitsFromTree(nodes: AnyNode[]): LayananUnit[] {
+  return unitsFromTree(nodes.filter((n) => n.type !== "Location" || isFarmasiLoc(n)));
+}
+
+/**
+ * Subset tree untuk panel kiri: buang Location non-farmasi + Organization yang tak punya
+ * keturunan lokasi farmasi (cegah header unit kosong). Pertahankan hierarki Org di atas lokasi.
+ */
+export function pharmacyTreeNodes(nodes: AnyNode[]): AnyNode[] {
+  const byId = new Map(nodes.map((n) => [n.id, n] as const));
+  const keepOrg = new Set<string>();
+  for (const loc of nodes) {
+    if (!isFarmasiLoc(loc)) continue;
+    let pid: string | null = loc.parentId ?? null;
+    while (pid && !keepOrg.has(pid)) {
+      keepOrg.add(pid);
+      pid = byId.get(pid)?.parentId ?? null;
+    }
+  }
+  return nodes.filter((n) =>
+    (n.type === "Organization" && keepOrg.has(n.id)) || isFarmasiLoc(n),
+  );
+}
 
 // ── Edge index (key `${obatId}|${ruanganKode}` → id edge, untuk revoke) ────────
 export function edgeKey(obatId: string, unitKode: string): string {

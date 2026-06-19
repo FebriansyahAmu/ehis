@@ -22,13 +22,14 @@ import type { TarifLabTestDTO } from "@/lib/schemas/master/tarifLabTest";
 import type { TarifRadCatalogDTO } from "@/lib/schemas/master/tarifRadCatalog";
 import type { ObatDTO } from "@/lib/schemas/master/obat";
 import type { FormulariumEdgeDTO } from "@/lib/schemas/master/formularium";
+import type { BmhpDTO } from "@/lib/schemas/master/bmhp";
+import type { FormulariumBmhpEdgeDTO } from "@/lib/schemas/master/formulariumBmhp";
 import MappingHubSidebar from "./MappingHubSidebar";
 import SDMAssignmentPane from "./sdm/SDMAssignmentPane";
 import KewenanganPane from "./kewenangan/KewenanganPane";
 import LayananUnitPane from "./layanan/LayananUnitPane";
 import TarifPane from "./tarif/TarifPane";
-import FormulariumPane from "./formularium/FormulariumPane";
-import DistribusiPane from "./distribusi/DistribusiPane";
+import KetersediaanFarmasiPane from "./formularium/KetersediaanFarmasiPane";
 import PenjaminRuanganPane from "./penjamin-ruangan/PenjaminRuanganPane";
 import RBACPane from "./rbac/RBACPane";
 import ComingSoonPane from "./ComingSoonPane";
@@ -88,13 +89,17 @@ interface MappingHubPageProps {
   initialTarifLab?: TarifLabTestDTO[];
   /** Edge tarif rad dari SSR — diteruskan ke Tarif Matrix grup Rad (seed map persist). */
   initialTarifRad?: TarifRadCatalogDTO[];
-  /** Katalog obat dari SSR — diteruskan ke Formularium (baris matrix). */
+  /** Katalog obat dari SSR — diteruskan ke Ketersediaan Farmasi sub Obat (baris matrix). */
   initialObat?: ObatDTO[];
-  /** Edge formularium dari SSR — diteruskan ke Formularium (seed override map). */
+  /** Edge formularium Obat dari SSR — diteruskan ke Ketersediaan Farmasi sub Obat (seed map). */
   initialFormularium?: FormulariumEdgeDTO[];
+  /** Katalog BMHP dari SSR — diteruskan ke Ketersediaan Farmasi sub BMHP (baris matrix). */
+  initialBmhp?: BmhpDTO[];
+  /** Edge ketersediaan BMHP dari SSR — diteruskan ke Ketersediaan Farmasi sub BMHP (seed map). */
+  initialFormulariumBmhp?: FormulariumBmhpEdgeDTO[];
 }
 
-export default function MappingHubPage({ initialTree, initialDokters, initialPegawai, initialPenugasan, initialTindakan, initialLab, initialRad, initialLayanan, initialLayananLab, initialLayananRad, initialTarif, initialTarifLab, initialTarifRad, initialObat, initialFormularium }: MappingHubPageProps = {}) {
+export default function MappingHubPage({ initialTree, initialDokters, initialPegawai, initialPenugasan, initialTindakan, initialLab, initialRad, initialLayanan, initialLayananLab, initialLayananRad, initialTarif, initialTarifLab, initialTarifRad, initialObat, initialFormularium, initialBmhp, initialFormulariumBmhp }: MappingHubPageProps = {}) {
   const searchParams = useSearchParams();
   const initialKey = (() => {
     const param = searchParams?.get("sub") as SubpageKey | null;
@@ -151,7 +156,7 @@ export default function MappingHubPage({ initialTree, initialDokters, initialPeg
                 <h1 className="mt-0.5 m-lg font-bold text-slate-900">Mapping Hub</h1>
                 <p className="mt-0.5 m-xs text-slate-500">
                   Satu pintu untuk mengelola semua relasi antar entitas master — penugasan SDM,
-                  kewenangan klinis, tarif, formularium, dan distribusi.
+                  kewenangan klinis, tarif, dan formularium.
                 </p>
               </div>
               <DensityToggle density={density} onChange={setDensity} />
@@ -171,7 +176,7 @@ export default function MappingHubPage({ initialTree, initialDokters, initialPeg
                     transition={{ duration: 0.2 }}
                     className="flex min-h-0 flex-1 flex-col"
                   >
-                    {renderPane(activeKey, initialTree, initialDokters, initialPegawai, initialPenugasan, initialTindakan, initialLab, initialRad, initialLayanan, initialLayananLab, initialLayananRad, initialTarif, initialTarifLab, initialTarifRad, initialObat, initialFormularium)}
+                    {renderPane(activeKey, initialTree, initialDokters, initialPegawai, initialPenugasan, initialTindakan, initialLab, initialRad, initialLayanan, initialLayananLab, initialLayananRad, initialTarif, initialTarifLab, initialTarifRad, initialObat, initialFormularium, initialBmhp, initialFormulariumBmhp)}
                   </motion.div>
                 </AnimatePresence>
               </div>
@@ -200,14 +205,15 @@ function renderPane(
   initialTarifRad?: TarifRadCatalogDTO[],
   initialObat?: ObatDTO[],
   initialFormularium?: FormulariumEdgeDTO[],
+  initialBmhp?: BmhpDTO[],
+  initialFormulariumBmhp?: FormulariumBmhpEdgeDTO[],
 ) {
   if (key === "sdm")
     return <SDMAssignmentPane initialTree={initialTree} initialDokters={initialDokters} initialPegawai={initialPegawai} initialPenugasan={initialPenugasan} />;
   if (key === "kewenangan")  return <KewenanganPane initialDokters={initialDokters} />;
   if (key === "layanan")     return <LayananUnitPane tindakan={initialTindakan} lab={initialLab} rad={initialRad} tree={initialTree} layanan={initialLayanan} layananLab={initialLayananLab} layananRad={initialLayananRad} />;
   if (key === "tarif")       return <TarifPane tindakan={initialTindakan} lab={initialLab} rad={initialRad} tree={initialTree} tarif={initialTarif} tarifLab={initialTarifLab} tarifRad={initialTarifRad} />;
-  if (key === "formularium") return <FormulariumPane obat={initialObat} tree={initialTree} formularium={initialFormularium} />;
-  if (key === "distribusi")  return <DistribusiPane />;
+  if (key === "formularium") return <KetersediaanFarmasiPane obat={initialObat} formularium={initialFormularium} bmhp={initialBmhp} formulariumBmhp={initialFormulariumBmhp} tree={initialTree} />;
   if (key === "penjamin-ruangan") return <PenjaminRuanganPane />;
   if (key === "rbac")        return <RBACPane />;
 

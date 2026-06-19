@@ -22,7 +22,7 @@ interface LocationFormProps {
 
 // "Penunjang" sengaja TIDAK ditawarkan (deprecated) — dipecah jadi Laboratorium + Radiologi.
 const LOCATION_TYPES: LocationType[] = [
-  "Rawat_Inap", "Rawat_Jalan", "ICU", "HCU", "Isolasi", "IGD", "OK", "Laboratorium", "Radiologi", "Farmasi", "Gudang",
+  "Rawat_Inap", "Rawat_Jalan", "ICU", "HCU", "Isolasi", "IGD", "OK", "Laboratorium", "Radiologi", "Farmasi", "Gudang_Farmasi", "Gudang",
 ];
 const KELAS_OPTIONS: LocationKelas[] = ["VIP", "Kelas_1", "Kelas_2", "Kelas_3", "—"];
 

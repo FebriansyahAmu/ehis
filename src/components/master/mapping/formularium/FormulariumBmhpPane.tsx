@@ -2,39 +2,39 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Pill, MapPin, Link2, Search, Loader2, EyeOff, Check } from "lucide-react";
+import { Syringe, MapPin, Link2, Search, Loader2, EyeOff, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AnyNode } from "@/components/master/ruangan/ruanganShared";
 import {
-  type ObatKategori, type ObatRecord,
-  OBAT_KATEGORI_CFG, KATEGORI_OBAT_ORDER,
-} from "@/lib/master/obatMock";
+  type BmhpKategori, type BmhpRecord,
+  BMHP_KATEGORI_CFG, KATEGORI_BMHP_ORDER,
+} from "@/lib/master/bmhpMock";
 import { getTree } from "@/lib/api/ruangan";
-import { fetchAllObat } from "@/lib/api/master/obat";
+import { fetchAllBmhp } from "@/lib/api/master/bmhp";
 import {
-  type FormulariumEdgeDTO,
-  listAllFormularium, grantFormularium, revokeFormularium,
-} from "@/lib/api/master/formularium";
+  type FormulariumBmhpEdgeDTO,
+  listAllFormulariumBmhp, grantFormulariumBmhp, revokeFormulariumBmhp,
+} from "@/lib/api/master/formulariumBmhp";
 import { ApiError } from "@/lib/api/client";
 import { toast } from "@/lib/ui/toastStore";
 import {
   type LayananMap,
   countAllLayanan, pharmacyUnitsFromTree, pharmacyTreeNodes, mapFromEdges, edgeKey, setPresence,
   readEdgeCache, writeEdgeCache, cacheEdge, uncacheEdge,
-} from "./formulariumShared";
-import FormulariumMatrix from "./FormulariumMatrix";
+} from "./formulariumBmhpShared";
+import FormulariumBmhpMatrix from "./FormulariumBmhpMatrix";
 import LayananUnitTreePanel from "../layanan/LayananUnitTreePanel";
 
 interface Props {
-  /** Katalog obat dari SSR (API /master/obat). Absen → client fetch. */
-  obat?: ObatRecord[];
-  /** Tree Ruangan dari SSR — kolom unit diturunkan dari Location aktif. Absen → client fetch. */
+  /** Katalog BMHP dari SSR (API /master/bmhp). Absen → client fetch. */
+  bmhp?: BmhpRecord[];
+  /** Tree Ruangan dari SSR — kolom unit diturunkan dari Location aktif (farmasi). Absen → client fetch. */
   tree?: AnyNode[];
-  /** Edge formularium persist dari SSR (API /master/formularium). Absen → client fetch. */
-  formularium?: FormulariumEdgeDTO[];
+  /** Edge ketersediaan BMHP persist dari SSR (API /master/formularium-bmhp). Absen → client fetch. */
+  formularium?: FormulariumBmhpEdgeDTO[];
 }
 
-export default function FormulariumPane({ obat, tree, formularium }: Props) {
+export default function FormulariumBmhpPane({ bmhp, tree, formularium }: Props) {
   const seededUnitKodes = useMemo(() => new Set(pharmacyUnitsFromTree(tree ?? []).map((u) => u.kode)), [tree]);
   // First paint: cache sesi (state terkini) bila ada, else snapshot SSR yang beku. Cegah flicker.
   const seededEdges = useMemo(
@@ -42,13 +42,13 @@ export default function FormulariumPane({ obat, tree, formularium }: Props) {
     [formularium, seededUnitKodes],
   );
 
-  const ssrComplete = !!(tree && obat && formularium);
+  const ssrComplete = !!(tree && bmhp && formularium);
   const [nodes, setNodes] = useState<AnyNode[]>(tree ?? []);
-  const [allObat, setAllObat] = useState<ObatRecord[]>(obat ?? []);
+  const [allBmhp, setAllBmhp] = useState<BmhpRecord[]>(bmhp ?? []);
   const [map, setMap] = useState<LayananMap>(seededEdges.map);
   const [loaded, setLoaded] = useState(ssrComplete);
   const [search, setSearch] = useState("");
-  const [visibleKategori, setVisibleKategori] = useState<Set<ObatKategori>>(() => new Set(KATEGORI_OBAT_ORDER));
+  const [visibleKategori, setVisibleKategori] = useState<Set<BmhpKategori>>(() => new Set(KATEGORI_BMHP_ORDER));
   const [hiddenUnits, setHiddenUnits] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(0);
 
@@ -61,20 +61,20 @@ export default function FormulariumPane({ obat, tree, formularium }: Props) {
   const kodeToId = useMemo(() => new Map(units.map((u) => [u.kode, u.id])), [units]);
   const visibleUnits = useMemo(() => units.filter((u) => !hiddenUnits.has(u.kode)), [units, hiddenUnits]);
 
-  // Reconcile-on-mount: edge SELALU fetch (sumber kebenaran centang); obat/tree bila SSR absen.
+  // Reconcile-on-mount: edge SELALU fetch (sumber kebenaran centang); bmhp/tree bila SSR absen.
   useEffect(() => {
     const ac = new AbortController();
     (async () => {
       try {
-        const [treeRes, obatRes, edgeRes] = await Promise.all([
+        const [treeRes, bmhpRes, edgeRes] = await Promise.all([
           tree ? null : getTree(ac.signal),
-          obat ? null : fetchAllObat(ac.signal),
-          listAllFormularium(ac.signal),
+          bmhp ? null : fetchAllBmhp(ac.signal),
+          listAllFormulariumBmhp(ac.signal),
         ]);
         if (ac.signal.aborted) return;
         const newNodes = treeRes ?? tree ?? [];
         if (treeRes) setNodes(treeRes);
-        if (obatRes) setAllObat(obatRes);
+        if (bmhpRes) setAllBmhp(bmhpRes);
         const valid = new Set(pharmacyUnitsFromTree(newNodes).map((u) => u.kode));
         const { map: nextMap, index } = mapFromEdges(edgeRes, valid);
         if (!dirtyRef.current) {
@@ -84,7 +84,7 @@ export default function FormulariumPane({ obat, tree, formularium }: Props) {
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
-        toast.error("Gagal memuat Formularium", e instanceof ApiError ? e.message : undefined);
+        toast.error("Gagal memuat Ketersediaan BMHP", e instanceof ApiError ? e.message : undefined);
       } finally {
         if (!ac.signal.aborted) setLoaded(true);
       }
@@ -93,42 +93,42 @@ export default function FormulariumPane({ obat, tree, formularium }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const filteredObat = useMemo(() => {
-    if (!search.trim()) return allObat;
+  const filteredBmhp = useMemo(() => {
+    if (!search.trim()) return allBmhp;
     const q = search.toLowerCase();
-    return allObat.filter((o) =>
-      o.namaGenerik.toLowerCase().includes(q) ||
-      o.namaDagang.toLowerCase().includes(q) ||
-      o.kode.toLowerCase().includes(q),
+    return allBmhp.filter((b) =>
+      b.nama.toLowerCase().includes(q) ||
+      (b.merek ?? "").toLowerCase().includes(q) ||
+      b.kode.toLowerCase().includes(q),
     );
-  }, [allObat, search]);
+  }, [allBmhp, search]);
 
   const stats = useMemo(() => {
-    const totalCells = allObat.length * units.length;
+    const totalCells = allBmhp.length * units.length;
     const granted = countAllLayanan(map);
     const pct = totalCells ? Math.round((granted / totalCells) * 100) : 0;
     return { totalCells, granted, pct };
-  }, [allObat, units, map]);
+  }, [allBmhp, units, map]);
 
   // ── Persist grant/revoke (optimistik → server → revert yang gagal) ──────────
-  type Change = { obatId: string; unitKode: string; granted: boolean };
+  type Change = { bmhpId: string; unitKode: string; granted: boolean };
 
   async function persistCell(c: Change): Promise<boolean> {
-    const key = edgeKey(c.obatId, c.unitKode);
+    const key = edgeKey(c.bmhpId, c.unitKode);
     const locationId = kodeToId.get(c.unitKode);
     if (!locationId) return false;
     try {
       if (c.granted) {
         if (edgeIndexRef.current.has(key)) return true; // sudah granted
-        const edge = await grantFormularium({ obatId: c.obatId, locationId });
+        const edge = await grantFormulariumBmhp({ bmhpId: c.bmhpId, locationId });
         edgeIndexRef.current.set(key, edge.id);
         cacheEdge(edge);
       } else {
         const id = edgeIndexRef.current.get(key);
         if (!id) return true; // sudah tak ada
-        await revokeFormularium(id);
+        await revokeFormulariumBmhp(id);
         edgeIndexRef.current.delete(key);
-        uncacheEdge(c.obatId, c.unitKode);
+        uncacheEdge(c.bmhpId, c.unitKode);
       }
       return true;
     } catch {
@@ -141,7 +141,7 @@ export default function FormulariumPane({ obat, tree, formularium }: Props) {
     dirtyRef.current = true;
     setMap((prev) => {
       const next = { ...prev };
-      for (const c of changes) next[c.obatId] = setPresence(next[c.obatId] ?? [], c.unitKode, c.granted);
+      for (const c of changes) next[c.bmhpId] = setPresence(next[c.bmhpId] ?? [], c.unitKode, c.granted);
       return next;
     });
     setSaving((n) => n + changes.length);
@@ -154,7 +154,7 @@ export default function FormulariumPane({ obat, tree, formularium }: Props) {
     if (failed.length === 0) return;
     setMap((prev) => {
       const next = { ...prev };
-      for (const c of failed) next[c.obatId] = setPresence(next[c.obatId] ?? [], c.unitKode, !c.granted);
+      for (const c of failed) next[c.bmhpId] = setPresence(next[c.bmhpId] ?? [], c.unitKode, !c.granted);
       return next;
     });
     toast.error(
@@ -162,35 +162,35 @@ export default function FormulariumPane({ obat, tree, formularium }: Props) {
     );
   }
 
-  const handleToggle = (obatId: string, unitKode: string) => {
-    const granted = !(map[obatId] ?? []).includes(unitKode);
-    void applyChanges([{ obatId, unitKode, granted }]);
+  const handleToggle = (bmhpId: string, unitKode: string) => {
+    const granted = !(map[bmhpId] ?? []).includes(unitKode);
+    void applyChanges([{ bmhpId, unitKode, granted }]);
   };
 
-  const handleToggleRow = (obatId: string, granted: boolean) => {
-    const current = map[obatId] ?? [];
+  const handleToggleRow = (bmhpId: string, granted: boolean) => {
+    const current = map[bmhpId] ?? [];
     const changes = visibleUnits
       .filter((u) => current.includes(u.kode) !== granted)
-      .map((u) => ({ obatId, unitKode: u.kode, granted }));
+      .map((u) => ({ bmhpId, unitKode: u.kode, granted }));
     void applyChanges(changes);
   };
 
   const handleToggleColumn = (unitKode: string, granted: boolean) => {
     const changes: Change[] = [];
-    for (const o of filteredObat) {
-      if (!visibleKategori.has(o.kategori)) continue;
-      const has = (map[o.id] ?? []).includes(unitKode);
-      if (has !== granted) changes.push({ obatId: o.id, unitKode, granted });
+    for (const b of filteredBmhp) {
+      if (!visibleKategori.has(b.kategori)) continue;
+      const has = (map[b.id] ?? []).includes(unitKode);
+      if (has !== granted) changes.push({ bmhpId: b.id, unitKode, granted });
     }
     void applyChanges(changes);
   };
 
-  const handleToggleGroup = (obatIds: string[], granted: boolean) => {
+  const handleToggleGroup = (bmhpIds: string[], granted: boolean) => {
     const changes: Change[] = [];
-    for (const obatId of obatIds) {
-      const current = map[obatId] ?? [];
+    for (const bmhpId of bmhpIds) {
+      const current = map[bmhpId] ?? [];
       for (const u of visibleUnits) {
-        if (current.includes(u.kode) !== granted) changes.push({ obatId, unitKode: u.kode, granted });
+        if (current.includes(u.kode) !== granted) changes.push({ bmhpId, unitKode: u.kode, granted });
       }
     }
     void applyChanges(changes);
@@ -220,7 +220,7 @@ export default function FormulariumPane({ obat, tree, formularium }: Props) {
     setHiddenUnits(new Set(units.filter((u) => !keep.has(u.kode)).map((u) => u.kode)));
   };
 
-  const toggleKategoriVisibility = (cat: ObatKategori) =>
+  const toggleKategoriVisibility = (cat: BmhpKategori) =>
     setVisibleKategori((prev) => {
       const next = new Set(prev);
       if (next.has(cat)) next.delete(cat);
@@ -230,7 +230,7 @@ export default function FormulariumPane({ obat, tree, formularium }: Props) {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      <PaneHeader stats={stats} totalObat={allObat.length} totalUnit={units.length} saving={saving} />
+      <PaneHeader stats={stats} totalBmhp={allBmhp.length} totalUnit={units.length} saving={saving} />
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
         {loaded && units.length > 0 && (
@@ -262,8 +262,8 @@ export default function FormulariumPane({ obat, tree, formularium }: Props) {
                   type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Cari obat / kode / merk dagang..."
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-7 pr-3 m-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-violet-400 focus:bg-white focus:ring-2 focus:ring-violet-100"
+                  placeholder="Cari BMHP / kode / merek..."
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-7 pr-3 m-xs text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100"
                 />
               </div>
               <div
@@ -272,8 +272,8 @@ export default function FormulariumPane({ obat, tree, formularium }: Props) {
               >
                 {saving > 0 ? (
                   <>
-                    <Loader2 size={11} className="animate-spin text-violet-500" />
-                    <span className="text-violet-600">Menyimpan…</span>
+                    <Loader2 size={11} className="animate-spin text-teal-500" />
+                    <span className="text-teal-600">Menyimpan…</span>
                   </>
                 ) : (
                   <>
@@ -287,8 +287,8 @@ export default function FormulariumPane({ obat, tree, formularium }: Props) {
             {/* Kategori filter chips */}
             <div className="mt-2 flex flex-wrap items-center gap-1">
               <span className="m-mini font-semibold uppercase tracking-wide text-slate-400">Kategori:</span>
-              {KATEGORI_OBAT_ORDER.map((cat) => {
-                const cfg = OBAT_KATEGORI_CFG[cat];
+              {KATEGORI_BMHP_ORDER.map((cat) => {
+                const cfg = BMHP_KATEGORI_CFG[cat];
                 const active = visibleKategori.has(cat);
                 return (
                   <button
@@ -308,8 +308,8 @@ export default function FormulariumPane({ obat, tree, formularium }: Props) {
               })}
               <button
                 type="button"
-                onClick={() => setVisibleKategori(new Set(KATEGORI_OBAT_ORDER))}
-                className="ml-1 rounded-md px-1.5 py-0.5 m-mini font-semibold text-violet-700 hover:bg-violet-50"
+                onClick={() => setVisibleKategori(new Set(KATEGORI_BMHP_ORDER))}
+                className="ml-1 rounded-md px-1.5 py-0.5 m-mini font-semibold text-teal-700 hover:bg-teal-50"
               >
                 Semua
               </button>
@@ -332,8 +332,8 @@ export default function FormulariumPane({ obat, tree, formularium }: Props) {
           >
             {!loaded ? (
               <div className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white text-slate-400">
-                <Loader2 size={16} className="animate-spin text-violet-500" />
-                <span className="m-xs">Memuat obat & unit…</span>
+                <Loader2 size={16} className="animate-spin text-teal-500" />
+                <span className="m-xs">Memuat BMHP & unit…</span>
               </div>
             ) : units.length === 0 ? (
               <div className="flex flex-1 flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-slate-200 bg-white px-6 text-center text-slate-400">
@@ -349,14 +349,14 @@ export default function FormulariumPane({ obat, tree, formularium }: Props) {
                 <button
                   type="button"
                   onClick={() => setHiddenUnits(new Set())}
-                  className="mt-1 rounded-lg border border-violet-200 bg-white px-3 py-1.5 m-mini font-semibold text-violet-700 transition hover:bg-violet-50"
+                  className="mt-1 rounded-lg border border-teal-200 bg-white px-3 py-1.5 m-mini font-semibold text-teal-700 transition hover:bg-teal-50"
                 >
                   Tampilkan semua unit
                 </button>
               </div>
             ) : (
-              <FormulariumMatrix
-                obat={filteredObat}
+              <FormulariumBmhpMatrix
+                bmhp={filteredBmhp}
                 units={visibleUnits}
                 map={map}
                 visibleKategori={visibleKategori}
@@ -376,10 +376,10 @@ export default function FormulariumPane({ obat, tree, formularium }: Props) {
 // ── Sub-components ───────────────────────────────────────
 
 function PaneHeader({
-  stats, totalObat, totalUnit, saving,
+  stats, totalBmhp, totalUnit, saving,
 }: {
   stats: { granted: number; totalCells: number; pct: number };
-  totalObat: number;
+  totalBmhp: number;
   totalUnit: number;
   saving: number;
 }) {
@@ -393,7 +393,7 @@ function PaneHeader({
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 className="m-base font-bold text-slate-900">Formularium Unit</h2>
+            <h2 className="m-base font-bold text-slate-900">Ketersediaan BMHP</h2>
             {saving > 0 && (
               <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 m-mini font-medium text-slate-500">
                 <Loader2 size={9} className="animate-spin" /> Menyimpan…
@@ -401,15 +401,15 @@ function PaneHeader({
             )}
           </div>
           <p className="mt-0.5 m-tiny text-slate-500">
-            Atur obat apa masuk formularium (boleh disiapkan) di lokasi farmasi mana — berlaku universal
-            (BPJS/Umum sama). Baris dari Katalog Obat; <b>kolom = Ruangan berjenis Farmasi / Gudang Farmasi</b>.
-            Klik judul kolom = toggle semua obat; klik judul baris = toggle semua lokasi.
+            Atur BMHP/BHP apa jadi <b>daftar standar depo</b> (distok &amp; boleh diminta) di lokasi farmasi
+            mana. Baris dari Katalog BMHP; <b>kolom = Ruangan berjenis Farmasi / Gudang Farmasi</b>.
+            Klik judul kolom = toggle semua BMHP; klik judul baris = toggle semua lokasi.
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
-          <Stat icon={Pill}   label="Obat"    value={`${totalObat}`}                     cls="bg-violet-50 text-violet-600" />
-          <Stat icon={MapPin} label="Lokasi"  value={`${totalUnit}`}                     cls="bg-sky-50 text-sky-600" />
-          <Stat icon={Link2}  label="Mapping" value={`${stats.granted} (${stats.pct}%)`} cls="bg-emerald-50 text-emerald-600" />
+          <Stat icon={Syringe} label="BMHP"    value={`${totalBmhp}`}                     cls="bg-teal-50 text-teal-600" />
+          <Stat icon={MapPin}  label="Lokasi"  value={`${totalUnit}`}                     cls="bg-sky-50 text-sky-600" />
+          <Stat icon={Link2}   label="Mapping" value={`${stats.granted} (${stats.pct}%)`} cls="bg-emerald-50 text-emerald-600" />
         </div>
       </div>
     </motion.div>

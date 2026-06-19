@@ -56,6 +56,10 @@ model Bmhp {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
+  // ── Relasi ──
+  /// Lokasi farmasi yang menyetok BMHP ini (Mapping Hub → Ketersediaan Farmasi, sub BMHP); N:M via master.FormulariumBmhp.
+  formularium FormulariumBmhp[]
+
   @@index([kategori, deletedAt]) // list/filter per kategori
   @@index([kode])
   @@map("bmhp")

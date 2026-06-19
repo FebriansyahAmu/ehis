@@ -32,3 +32,34 @@ model FormulariumObat {
   @@map("formularium_obat")
   @@schema("master")
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+//  Ketersediaan Farmasi — BMHP  (sub-pane "BMHP" di Mapping Hub → Ketersediaan Farmasi)
+//
+//  Link N:N BMHP ⇄ Ruangan (Location): "BMHP apa jadi DAFTAR STANDAR DEPO (distok &
+//  boleh diminta) di lokasi farmasi mana". Tabel TERPISAH dari FormulariumObat (Obat ≠
+//  BMHP — beda katalog, sejalan keputusan katalog terpisah). Bentuk PERSIS FormulariumObat:
+//  join table, HARD delete saat dicabut, unik (bmhp, lokasi) → grant idempoten. Kolom matriks
+//  dibatasi Location jenis Farmasi/Gudang_Farmasi (sama dgn Obat). Konvensi: uuid v7 · timestamptz.
+//
+//  CATATAN istilah: untuk BMHP ini bukan "formularium" klinis (tak ada Fornas BMHP) melainkan
+//  daftar barang standar per depo — nama tabel mengikuti pola (formularium_*) demi konsistensi.
+// ════════════════════════════════════════════════════════════════════════════
+
+model FormulariumBmhp {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  bmhpId String @map("bmhp_id") @db.Uuid
+  bmhp   Bmhp   @relation(fields: [bmhpId], references: [id], onDelete: Restrict)
+
+  locationId String   @map("location_id") @db.Uuid
+  location   Location @relation("FormulariumBmhpLokasi", fields: [locationId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([bmhpId, locationId])
+  @@index([locationId])
+  @@index([bmhpId])
+  @@map("formularium_bmhp")
+  @@schema("master")
+}

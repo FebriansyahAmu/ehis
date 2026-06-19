@@ -71,12 +71,6 @@ const PALETTE: Record<SubpageKey, Palette> = {
     titleText: "text-violet-800",
     ctaBg: "bg-violet-600", ctaHover: "hover:bg-violet-700", ctaRing: "focus-visible:ring-violet-300",
   },
-  distribusi: {
-    stripe: "bg-rose-500", iconBg: "bg-rose-50", iconText: "text-rose-600",
-    bannerBg: "bg-rose-50/70", bannerBorder: "border-rose-200",
-    titleText: "text-rose-800",
-    ctaBg: "bg-rose-600", ctaHover: "hover:bg-rose-700", ctaRing: "focus-visible:ring-rose-300",
-  },
   "penjamin-ruangan": {
     stripe: "bg-emerald-500", iconBg: "bg-emerald-50", iconText: "text-emerald-600",
     bannerBg: "bg-emerald-50/70", bannerBorder: "border-emerald-200",

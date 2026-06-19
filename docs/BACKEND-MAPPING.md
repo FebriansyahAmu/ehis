@@ -38,8 +38,8 @@
 | 3 | **RBAC** | Role ⇄ Permission | `auth.role_permissions` | `/auth/rbac` · `/auth/rbac/:roleKey` | `master.mapping` | ✅ **DB** |
 | 4 | **Kewenangan Klinis** | Dokter ⇄ Tindakan | — (roster dokter real; edge belum) | roster: `/master/dokter` · grant: **belum** | `master.mapping` | 🟡 **Partial** (roster DB, edge mock) |
 | 5 | **Tarif Matrix** | Tindakan · Lab · Rad × Penjamin × Jenis Ruangan → Harga | `master.TarifTindakan` · `master.TarifLabTest` · `master.TarifRadCatalog` | `/master/tarif-tindakan` · `/master/tarif-lab-test` · `/master/tarif-rad-catalog` (+`/:id`) | `master.tarif` | ✅ **DB** |
-| 6 | **Formularium** | Obat ⇄ Location (Ruangan) | `master.FormulariumObat` | `/master/formularium` (+`/:id`) | `master.mapping` | ✅ **DB** |
-| 7 | **Distribusi Obat** | Obat ⇄ Depo Farmasi | — | — | — | 📋 **Mock** |
+| 6 | **Ketersediaan Farmasi** | Obat ⇄ Location · BMHP ⇄ Location | `master.FormulariumObat` · `master.FormulariumBmhp` | `/master/formularium` · `/master/formularium-bmhp` (+`/:id`) | `master.mapping` | ✅ **DB** |
+| 7 | ~~Distribusi Obat~~ | — | — | — | — | ❌ **Dihapus** → modul `/ehis-inventory` (Distribusi) |
 | 8 | **Penjamin × Ruangan** | Kode SMF/Ruangan BPJS ⇄ Ruangan RS | — | — | — | 📋 **Mock** |
 
 Legenda: ✅ **DB** = persist nyata layered · 🟡 **Partial** = sebagian wired · 📋 **Mock** = FE `*Shared.ts` (skema 1:1 target, swap saat backend siap).
@@ -94,27 +94,40 @@ Matriks 3D di-flatten jadi baris edge `(item, penjaminKode, jenisRuangan) → ha
 - **Keputusan model**: derive tier dari tree · KRIS+klasik per penjamin · penjamin = kode string (master Penjamin backend menyusul Tier 3 — `penjaminKode` belum FK) · **Tarif Lab/Rad = tabel paralel `TarifLabTest`/`TarifRadCatalog`** (2026-06-17, bukan polymorphic — selaras LayananUnitLab/LayananUnitRad; tes lab & pemeriksaan rad dibilling per tier seperti tindakan, umumnya flat-rate).
 - **Sisa**: master **Penjamin** masih mock (kode stabil dipakai) · bulk-adjust = loop upsert (belum endpoint bulk) · federasi billable Tindakan+Lab+Rad → chargemaster (TODO-CHARGEMASTER CM2/CM5).
 
-## 6. Formularium — Obat ⇄ Ruangan (Location) ✅
+## 6. Ketersediaan Farmasi — Obat & BMHP ⇄ Ruangan (Location) ✅
 
-Grant N:N **persis LayananUnit**: "obat apa MASUK FORMULARIUM (boleh diresepkan) di unit/ruangan mana".
-**Universal lintas penjamin** (BPJS/Umum sama) → TANPA dimensi penjamin & TANPA kelas abstrak (kelas
-tercermin implisit dari kelas Ruangan-nya). Matriks = baris Obat × kolom Ruangan.
+Sub-pane (sebelumnya "Formularium") dengan **segmented switcher Obat | BMHP**. Dua matriks **tabel
+persist TERPISAH** (Obat ≠ BMHP — sejalan keputusan katalog terpisah), pola grant **persis LayananUnit**.
+**Kolom dibatasi Location jenis Farmasi / Gudang_Farmasi** (`pharmacyUnitsFromTree`/`pharmacyTreeNodes`),
+universal lintas penjamin (TANPA dimensi penjamin/kelas — tercermin implisit dari Ruangan-nya).
 
-- **Tabel** `master.FormulariumObat` (uuid v7, timestamptz, `@@unique(obatId, locationId)` → **grant idempoten**; FK `obat` + `location` Restrict; **HARD delete** saat dicabut). Migrasi `20260613170000_formularium_to_unit` (redesign dari bentuk awal Penjamin×Kelas yang masih kosong).
-- **Endpoint** (gate **`master.mapping`** read/update — DELETE pakai `update`, resource hanya punya read/update):
-  - `GET /master/formularium` (filter `obatId`/`locationId` + cursor) · `POST { obatId, locationId }` (grant idempoten, 201/200) · `DELETE /:id` (revoke).
-- **Lapisan** schemas/DAL (`create`/`findByPair`/keyset list/`findObat`+`findLocation` guard)/Service (`list` actor-less · `grant` idempoten · `revoke`) + client `lib/api/master/formularium.ts` (`listAllFormularium`/`grantFormularium`/`revokeFormularium`). Edge DTO ramping = `{ id, obatId, locationId, ruanganKode }` (kode via join → FE nge-key kolom by kode).
-- **FE** [formularium/](../src/components/master/mapping/formularium/) — **baris = Katalog Obat DB** (per kategori); **kolom = Ruangan (Location) aktif** dari master tree (`unitsFromTree`). **Reuse** helper grant-map + kolom-unit dari `layananShared` (`LayananMap`/`setPresence`/`hasLayanan`/`UNIT_CATEGORY_CFG`) + komponen **`LayananUnitTreePanel`** (filter show/hide kolom). Cache edge per-sesi **TERPISAH** dari Layanan Unit (anti-clobber). Optimistik grant/revoke + reconcile-on-mount + bulk kolom/baris/grup (tri-state). Penjamin tabs **dihapus**.
-- **Keputusan model** (2026-06-13): formularium = per-UNIT (bukan per-penjamin/kelas) — semua jaminan pakai daftar sama; bentuk grant identik LayananUnit (federasi chargemaster menyusul).
-- **Selesai** 2026-06-13.
+### 6a. Obat (Formularium) ✅
+- "obat apa MASUK FORMULARIUM (boleh diresepkan) di lokasi farmasi mana". Matriks baris Obat × kolom Ruangan farmasi.
+- **Tabel** `master.FormulariumObat` (uuid v7, timestamptz, `@@unique(obatId, locationId)` → **grant idempoten**; FK Restrict; **HARD delete**). Migrasi `20260613170000_formularium_to_unit`.
+- **Endpoint** (gate **`master.mapping`** read/update): `GET /master/formularium` (filter `obatId`/`locationId` + cursor) · `POST { obatId, locationId }` (201/200) · `DELETE /:id`.
+- **Lapisan** schemas/DAL/Service (`list` actor-less · `grant` idempoten · `revoke`) + client `lib/api/master/formularium.ts`. Edge DTO `{ id, obatId, locationId, ruanganKode }`.
 
-## 7–8. Distribusi · Penjamin × Ruangan 📋
+### 6b. BMHP (Daftar Standar Depo) ✅ — 2026-06-19
+- "BMHP/BHP apa jadi **daftar standar depo** (distok & boleh diminta) di lokasi farmasi mana". Bukan "formularium" klinis (tak ada Fornas BMHP) — istilah tabel ikut pola demi konsistensi.
+- **Tabel** `master.FormulariumBmhp` (bentuk PERSIS FormulariumObat: uuid v7, `@@unique(bmhpId, locationId)` → grant idempoten, FK `bmhp`+`location` Restrict, **HARD delete**). Migrasi `20260619170000_formularium_bmhp` (drift-safe: apply script + `migrate resolve --applied`).
+- **Endpoint** (gate **`master.mapping`** read/update): `GET /master/formularium-bmhp` (filter `bmhpId`/`locationId` + cursor) · `POST { bmhpId, locationId }` (201/200) · `DELETE /:id`.
+- **Lapisan** schemas (`formulariumBmhp.ts`)/DAL (`formulariumBmhpDal.ts`: `create`/`findByPair`/keyset list/`findBmhp`+`findLocation` guard)/Service (`list` actor-less · `grant` idempoten · `revoke`) + client `lib/api/master/formulariumBmhp.ts`. Edge DTO `{ id, bmhpId, locationId, ruanganKode }`.
 
-Masih **FE mock** (`*Shared.ts` per pane, skema 1:1 target → swap import saat backend siap):
+### FE bersama
+- [formularium/](../src/components/master/mapping/formularium/) — **wrapper** `KetersediaanFarmasiPane` (segmented Obat|BMHP, mount sub-pane aktif saja). Obat = `FormulariumPane`+`FormulariumMatrix` (accent violet); BMHP = `FormulariumBmhpPane`+`FormulariumBmhpMatrix` (accent **teal**, baris dari Katalog BMHP DB). Keduanya **reuse** helper grant-map + kolom-unit (`LayananMap`/`setPresence`/`hasLayanan`/`UNIT_CATEGORY_CFG`) + `LayananUnitTreePanel`. Cache edge per-sesi **TERPISAH** per sub-pane (`formulariumShared` vs `formulariumBmhpShared`, anti-clobber). Optimistik grant/revoke + reconcile-on-mount + bulk kolom/baris/grup (tri-state). SSR-hybrid (`mapping/page.tsx` suplai `initialObat`/`initialFormularium`/`initialBmhp`/`initialFormulariumBmhp`).
+- **Konsumen hilir** (Phase later): Inventory "Daftar Barang" picker BMHP per-lokasi (kini tampilkan seluruh katalog tanpa filter) · Tindakan consume BMHP · billing.
+- **Selesai** Obat 2026-06-13 · BMHP 2026-06-19.
+
+## 7. ~~Distribusi Obat~~ ❌ Dihapus
+
+Sub-pane **dihapus** (2026-06-19) → digantikan modul **`/ehis-inventory`** (menu Distribusi). Mock lama (`distribusi/*`, `depoMock.ts`) sudah dihapus dari repo.
+
+## 8. Penjamin × Ruangan 📋
+
+Masih **FE mock** (`*Shared.ts`, skema 1:1 target → swap import saat backend siap):
 
 | Pane | Mock file | Target edge | Catatan backend |
 |------|-----------|-------------|-----------------|
-| **Distribusi Obat** | [distribusi/distribusiShared.ts](../src/components/master/mapping/distribusi/distribusiShared.ts) | Obat ⇄ Depo Farmasi | Baris **obat dari DB** (`fetchAllObat`, Katalog Obat ✅); **stok per depo** masih mock + master Depo belum backend. |
 | **Penjamin × Ruangan** | [penjamin-ruangan/PenjaminRuanganPane.tsx](../src/components/master/mapping/penjamin-ruangan/PenjaminRuanganPane.tsx) | Kode SMF/Ruangan BPJS ⇄ Ruangan RS | Untuk SEP/V-Claim (BPJS). Tergantung reference BPJS (sync cron) + master Ruangan (✅). |
 
 ---

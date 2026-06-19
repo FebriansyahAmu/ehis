@@ -51,6 +51,10 @@ import {
   SlidersHorizontal,
   BookMarked,
   MonitorPlay,
+  Warehouse,
+  Truck,
+  Boxes,
+  Handshake,
   type LucideIcon,
 } from "lucide-react";
 import type { CareUnit } from "@/lib/auth/careUnit";
@@ -91,6 +95,7 @@ export type ModuleKey =
   | "billing"
   | "eklaim"
   | "bpjs"
+  | "inventory"
   | "report";
 
 export type ModuleDescriptor = {
@@ -225,6 +230,15 @@ export const MODULES: readonly ModuleDescriptor[] = [
       ring: "ring-emerald-100",
     },
     perms: ["report.clinical", "report.financial", "report.audit"],
+  },
+  {
+    key: "inventory",
+    label: "EHIS Inventory",
+    desc: "Logistik & gudang",
+    href: "/ehis-inventory",
+    icon: Warehouse,
+    accent: { bg: "bg-cyan-50", text: "text-cyan-600", ring: "ring-cyan-100" },
+    perms: ["inventory.view"],
   },
 ] as const;
 
@@ -511,6 +525,36 @@ export const reportNav: readonly NavGroup[] = [
   },
 ] as const;
 
+// Inventory (Logistik & gudang). Gate MODUL = `inventory.view` (terpisah dari data inventory.*).
+// Tiap menu ber-`perm` → staf Logistik/Apoteker hanya lihat menu sesuai izin.
+export const inventoryNav: readonly NavGroup[] = [
+  {
+    label: "Utama",
+    items: [{ label: "Beranda", href: "/ehis-inventory", icon: LayoutGrid }],
+  },
+  {
+    label: "Stok",
+    items: [
+      { label: "Daftar Barang", href: "/ehis-inventory/barang", icon: Boxes, perm: "inventory.barang" },
+      { label: "Stok Opname", href: "/ehis-inventory/opname", icon: ClipboardCheck, perm: "inventory.opname" },
+      { label: "Monitoring", href: "/ehis-inventory/monitoring", icon: Gauge, perm: "inventory.monitoring" },
+    ],
+  },
+  {
+    label: "Pergerakan",
+    items: [
+      { label: "Pengiriman", href: "/ehis-inventory/pengiriman", icon: Truck, perm: "inventory.pengiriman" },
+      { label: "Distribusi", href: "/ehis-inventory/distribusi", icon: Share2, perm: "inventory.distribusi" },
+    ],
+  },
+  {
+    label: "Mitra",
+    items: [
+      { label: "Rekanan", href: "/ehis-inventory/rekanan", icon: Handshake, perm: "inventory.rekanan" },
+    ],
+  },
+] as const;
+
 // ── Lookup helpers ────────────────────────────────────────
 
 const NAV_MAP: Record<ModuleKey, readonly NavGroup[]> = {
@@ -522,6 +566,7 @@ const NAV_MAP: Record<ModuleKey, readonly NavGroup[]> = {
   billing: billingNav,
   eklaim: eklaimNav,
   bpjs: bpjsNav,
+  inventory: inventoryNav,
   report: reportNav,
 };
 

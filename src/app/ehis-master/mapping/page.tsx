@@ -16,6 +16,8 @@ import { tarifLabTestService } from "@/lib/services/master/tarifLabTestService";
 import { tarifRadCatalogService } from "@/lib/services/master/tarifRadCatalogService";
 import { obatService } from "@/lib/services/master/obatService";
 import { formulariumService } from "@/lib/services/master/formulariumService";
+import { bmhpService } from "@/lib/services/master/bmhpService";
+import { formulariumBmhpService } from "@/lib/services/master/formulariumBmhpService";
 import { getServerActor } from "@/lib/auth/actor";
 import type { AnyNode } from "@/components/master/ruangan/ruanganShared";
 import type { DokterListItemDTO } from "@/lib/schemas/dokter";
@@ -32,6 +34,8 @@ import type { TarifLabTestDTO } from "@/lib/schemas/master/tarifLabTest";
 import type { TarifRadCatalogDTO } from "@/lib/schemas/master/tarifRadCatalog";
 import type { ObatDTO } from "@/lib/schemas/master/obat";
 import type { FormulariumEdgeDTO } from "@/lib/schemas/master/formularium";
+import type { BmhpDTO } from "@/lib/schemas/master/bmhp";
+import type { FormulariumBmhpEdgeDTO } from "@/lib/schemas/master/formulariumBmhp";
 
 export const metadata: Metadata = { title: "Mapping Hub — Master" };
 
@@ -57,9 +61,11 @@ export default async function Page() {
   let initialTarifRad: TarifRadCatalogDTO[] | undefined;
   let initialObat: ObatDTO[] | undefined;
   let initialFormularium: FormulariumEdgeDTO[] | undefined;
+  let initialBmhp: BmhpDTO[] | undefined;
+  let initialFormulariumBmhp: FormulariumBmhpEdgeDTO[] | undefined;
   try {
     const actor = await getServerActor();
-    const [treeRes, dokterRes, pegawaiRes, penugasanRes, tindakanRes, labRes, radRes, layananRes, layananLabRes, layananRadRes, tarifRes, tarifLabRes, tarifRadRes, obatRes, formulariumRes] = await Promise.allSettled([
+    const [treeRes, dokterRes, pegawaiRes, penugasanRes, tindakanRes, labRes, radRes, layananRes, layananLabRes, layananRadRes, tarifRes, tarifLabRes, tarifRadRes, obatRes, formulariumRes, bmhpRes, formulariumBmhpRes] = await Promise.allSettled([
       ruanganService.getTree(actor),
       dokterService.listDokter({ limit: 50 }),
       pegawaiService.listPegawai({ aktif: "true", limit: 50 }),
@@ -73,8 +79,10 @@ export default async function Page() {
       tarifTindakanService.list({ limit: 2000 }), // Tarif Matrix: edge tarif tindakan (actor-less)
       tarifLabTestService.list({ limit: 2000 }), // Tarif Matrix: edge tarif lab (actor-less)
       tarifRadCatalogService.list({ limit: 2000 }), // Tarif Matrix: edge tarif rad (actor-less)
-      obatService.list({ limit: 300 }), // Formularium: baris matrix obat (actor-less)
-      formulariumService.list({ limit: 2000 }), // Formularium: edge override (actor-less)
+      obatService.list({ limit: 300 }), // Ketersediaan Farmasi (Obat): baris matrix obat (actor-less)
+      formulariumService.list({ limit: 2000 }), // Ketersediaan Farmasi (Obat): edge formularium (actor-less)
+      bmhpService.list({ limit: 300 }), // Ketersediaan Farmasi (BMHP): baris matrix BMHP (actor-less)
+      formulariumBmhpService.list({ limit: 2000 }), // Ketersediaan Farmasi (BMHP): edge ketersediaan (actor-less)
     ]);
     if (treeRes.status === "fulfilled") initialTree = treeRes.value as AnyNode[];
     if (dokterRes.status === "fulfilled") initialDokters = dokterRes.value.items;
@@ -91,6 +99,8 @@ export default async function Page() {
     if (tarifRadRes.status === "fulfilled") initialTarifRad = tarifRadRes.value.items;
     if (obatRes.status === "fulfilled") initialObat = obatRes.value.items;
     if (formulariumRes.status === "fulfilled") initialFormularium = formulariumRes.value.items;
+    if (bmhpRes.status === "fulfilled") initialBmhp = bmhpRes.value.items;
+    if (formulariumBmhpRes.status === "fulfilled") initialFormulariumBmhp = formulariumBmhpRes.value.items;
   } catch {
     /* getServerActor gagal → semua undefined → fallback client fetch di pane */
   }
@@ -113,6 +123,8 @@ export default async function Page() {
         initialTarifRad={initialTarifRad}
         initialObat={initialObat}
         initialFormularium={initialFormularium}
+        initialBmhp={initialBmhp}
+        initialFormulariumBmhp={initialFormulariumBmhp}
       />
     </Suspense>
   );

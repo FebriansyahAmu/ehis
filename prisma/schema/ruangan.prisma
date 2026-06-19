@@ -45,6 +45,7 @@ enum LocationType {
   Laboratorium
   Radiologi
   Farmasi
+  Gudang_Farmasi
   Gudang
 
   @@schema("master")
@@ -174,6 +175,8 @@ model Location {
   layananRad LayananUnitRad[] @relation("LayananRadLokasi")
   /// Obat yang masuk formularium (boleh diresepkan) di ruangan ini (Mapping Hub → Formularium); N:M via master.FormulariumObat.
   formularium FormulariumObat[] @relation("FormulariumLokasi")
+  /// BMHP yang distok di ruangan ini (Mapping Hub → Ketersediaan Farmasi, sub BMHP); N:M via master.FormulariumBmhp.
+  formulariumBmhp FormulariumBmhp[] @relation("FormulariumBmhpLokasi")
 
   @@index([organizationId])
   @@index([locationType])

@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Users, ShieldCheck, Activity, BadgePercent, Pill, PackageSearch, Lock, Building,
+  Users, ShieldCheck, Activity, BadgePercent, Pill, Lock, Building,
 } from "lucide-react";
 
 // ── Sub-page Registry ─────────────────────────────────────
@@ -11,7 +11,6 @@ export type SubpageKey =
   | "layanan"
   | "tarif"
   | "formularium"
-  | "distribusi"
   | "penjamin-ruangan"
   | "rbac";
 
@@ -64,19 +63,11 @@ export const SUBPAGE_REGISTRY: SubpageConfig[] = [
   },
   {
     key: "formularium",
-    label: "Formularium",
-    desc: "Obat × Kelas Penjamin → boleh/tidak",
+    label: "Ketersediaan Farmasi",
+    desc: "Obat & BMHP × Lokasi Farmasi",
     icon: Pill,
     status: "ready",
     accent: { bg: "bg-violet-50", text: "text-violet-700", ring: "ring-violet-200" },
-  },
-  {
-    key: "distribusi",
-    label: "Distribusi Obat",
-    desc: "Obat ↔ Depo Farmasi (stock & restock)",
-    icon: PackageSearch,
-    status: "ready",
-    accent: { bg: "bg-rose-50", text: "text-rose-700", ring: "ring-rose-200" },
   },
   {
     key: "penjamin-ruangan",

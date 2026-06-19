@@ -22,6 +22,7 @@ export type LocationType =
   | "Laboratorium"
   | "Radiologi"
   | "Farmasi"
+  | "Gudang_Farmasi"
   | "Gudang";
 
 export type LocationKelas = "VIP" | "Kelas_1" | "Kelas_2" | "Kelas_3" | "—";
@@ -127,8 +128,9 @@ export const LOCATION_TYPE_LABEL: Record<LocationType, string> = {
   Penunjang:   "Penunjang (lama)",
   Laboratorium: "Laboratorium",
   Radiologi:   "Radiologi",
-  Farmasi:     "Farmasi / Depo Obat",
-  Gudang:      "Gudang / Logistik",
+  Farmasi:        "Farmasi / Depo Obat",
+  Gudang_Farmasi: "Gudang Farmasi",
+  Gudang:         "Gudang / Logistik",
 };
 
 export const BED_STATUS_CFG: Record<
