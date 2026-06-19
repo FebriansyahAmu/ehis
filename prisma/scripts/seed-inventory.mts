@@ -229,6 +229,38 @@ try {
     }
   }
 
+  // ── Stok Opname — seed 1 sesi Counting (snapshot 6 item di gudang) bila kosong. ──
+  const opnCount = Number((await c.query(`SELECT count(*)::int AS n FROM inventory.opname_session`)).rows[0].n);
+  if (opnCount === 0) {
+    const gudang = (await c.query(`SELECT id FROM master.location WHERE location_type='Gudang_Farmasi' AND deleted_at IS NULL AND active=true ORDER BY nama LIMIT 1`)).rows[0]?.id;
+    const snap = gudang
+      ? (await c.query(`SELECT item_jenis, item_id, qty_on_hand FROM inventory.stock_balance WHERE location_id = $1 ORDER BY qty_on_hand DESC LIMIT 6`, [gudang])).rows
+      : [];
+    if (gudang && snap.length > 0) {
+      const wib = new Date(Date.now() + 7 * 3600 * 1000);
+      const periode = `${String(wib.getUTCFullYear() % 100).padStart(2, "0")}${String(wib.getUTCMonth() + 1).padStart(2, "0")}`;
+      const oid = randomUUID();
+      await c.query(
+        `INSERT INTO inventory.opname_session (id, no_dokumen, tanggal, location_id, status, petugas, created_at, updated_at)
+         VALUES ($1, $2, CURRENT_DATE, $3, 'Counting'::inventory."OpnameStatus", 'Seed Inventory', now(), now())`,
+        [oid, `OPN-${periode}001`, gudang],
+      );
+      for (const s of snap) {
+        await c.query(
+          `INSERT INTO inventory.opname_item (id, session_id, item_jenis, item_id, qty_sistem, qty_fisik, alasan)
+           VALUES ($1, $2, $3::inventory."ItemJenis", $4, $5, NULL, NULL)`,
+          [randomUUID(), oid, s.item_jenis, s.item_id, s.qty_on_hand],
+        );
+      }
+      await c.query(
+        `INSERT INTO inventory.inv_counter (kind, periode, last_seq) VALUES ('OPN', $1, 1)
+         ON CONFLICT (kind, periode) DO UPDATE SET last_seq = GREATEST(inventory.inv_counter.last_seq, EXCLUDED.last_seq)`,
+        [periode],
+      );
+      console.log(`Seeded opname session (Counting, ${snap.length} item di gudang).`);
+    }
+  }
+
   await c.query("COMMIT");
   console.log(`OK. edges=${obatEdges.length + bmhpEdges.length} · saldo=${saldo} · batch=${batch} · movement(IN)=${mv}`);
 } catch (e) {

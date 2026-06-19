@@ -31,7 +31,7 @@
 | **BE3** | Rekanan (Vendor) | ✅ | CRUD layered (kode `VND-NNN`) + swap FE |
 | **BE4** | Penerimaan (GoodsReceipt) | ✅ | create draft → post → movement IN (stok bertambah) + swap FE |
 | **BE5** | Transfer + Distribusi | ✅ | create draft → reservasi `qtyReserved`; post → TRANSFER (sumber − / tujuan +) + lepas reservasi + swap FE |
-| **BE6** | Stok Opname | 📋 | post → ADJUST per selisih + swap FE |
+| **BE6** | Stok Opname | ✅ | create snapshot → save fisik → post → OPNAME per selisih + swap FE |
 | **BE7** | Monitoring + Beranda | 📋 | aggregate (low/expiring/value/recent) + swap FE |
 | **BE8** | Verify + docs | 📋 | tsc/eslint + update [TODO-INVENTORY.md](TODO-INVENTORY.md) + [CLAUDE.md](CLAUDE.md) |
 
@@ -115,6 +115,22 @@ Beda: **Transfer** = mutasi langsung; **Distribusi** = demand-driven (`pemohon` 
 - **FE swap ✅**: [Pengiriman.tsx](src/components/inventory/Pengiriman.tsx) tab **Transfer** = API (list + detail + **Tambah Transfer** drawer + Posting/Batalkan) · [Distribusi.tsx](src/components/inventory/Distribusi.tsx) = API (list + detail + **Tambah Permintaan** drawer + Proses/Batalkan; mock `INV_DISTRIBUSI`/`INV_TRANSFERS` dilepas dari kedua komponen).
 - **Catatan**: fulfill = penuh (`qtyKeluar = qtyMinta`); partial-fulfill = follow-up. Distribusi ke unit klinis non-farmasi (OUT) = follow-up (kini gudang↔depo via TRANSFER).
 
+## ✅ BE6 — Stok Opname (2026-06-19)
+
+Hitung fisik per lokasi → posting selisih. **3 fase**: `create` snapshot saldo lokasi (`qtySistem`,
+`qtyFisik` null) status Counting → `saveCounts` isi fisik (Counting↔Review, hanya baris milik sesi) →
+`post` movement **OPNAME** per selisih (`qtyFisik − qtySistem` snapshot) via `movementService` →
+Posted. Selisih + (surplus → batch `ADJ-…`) / − (susut → outflow FEFO, anti-negatif).
+
+- Schema: [opname.ts](src/lib/schemas/inventory/opname.ts) (Create + SaveCounts + Query + DTO diperkaya nama/satuan).
+- DAL: [opnameDal.ts](src/lib/dal/inventory/opnameDal.ts) (snapshot nested · `updateItem` · `updateStatus`).
+- Service: [opnameService.ts](src/lib/services/inventory/opnameService.ts) — `create` (snapshot `listBalancesByLocation`, tolak lokasi kosong) · `saveCounts` (status turunan) · `post` (wajib semua terhitung, idempoten) · `list`/`get`.
+- Routes (gate `inventory.opname`): [opname](src/app/api/v1/inventory/opname/route.ts) (GET/POST) · [:id](src/app/api/v1/inventory/opname/[id]/route.ts) (GET/PATCH save) · [:id/post](src/app/api/v1/inventory/opname/[id]/post/route.ts) (POST).
+- API client: [opname.ts](src/lib/api/inventory/opname.ts).
+- Seed: 1 sesi Counting (6 item di gudang) di [seed-inventory.mts](prisma/scripts/seed-inventory.mts).
+- **FE swap ✅**: [StokOpname.tsx](src/components/inventory/StokOpname.tsx) — list + **Mulai Opname** (pilih lokasi → snapshot) + editor fisik (Simpan progres + Posting; selisih live) = API; mock `INV_OPNAME` dilepas.
+- **Catatan**: selisih dihitung vs `qtySistem` snapshot (konsisten dgn kolom Selisih di FE); set-system-to-physical murni = follow-up.
+
 ---
 
 ## 🗺️ Peta file target (per layer)
@@ -122,11 +138,11 @@ Beda: **Transfer** = mutasi langsung; **Distribusi** = demand-driven (`pemohon` 
 | Layer | Path kanonik |
 |-------|------------------------|
 | Prisma schema | [prisma/schema/inventory.prisma](prisma/schema/inventory.prisma) ✅ |
-| Zod schemas | stock ✅ · vendor ✅ · receipt ✅ · transfer ✅ · distribusi ✅ · sisa (opname) 📋 |
-| DAL | stockDal ✅ · vendorDal ✅ · counterDal ✅ · receiptDal ✅ · transferDal ✅ · distribusiDal ✅ · sisa 📋 |
-| Service | movementService ✅ · stockService ✅ · vendorService ✅ · docNo ✅ · receiptService ✅ · transferService ✅ · distribusiService ✅ · sisa 📋 |
-| API routes | `{locations,stock,stock/item,vendors(/:id),receipts(/:id)(/:id/post),transfers(/:id)(/post)(/cancel),distribusi(/:id)(/fulfill)(/cancel)}` ✅ · sisa 📋 |
-| API client | stock ✅ · vendor ✅ · receipt ✅ · transfer ✅ · distribusi ✅ · sisa 📋 |
+| Zod schemas | stock ✅ · vendor ✅ · receipt ✅ · transfer ✅ · distribusi ✅ · opname ✅ |
+| DAL | stockDal ✅ · vendorDal ✅ · counterDal ✅ · receiptDal ✅ · transferDal ✅ · distribusiDal ✅ · opnameDal ✅ |
+| Service | movementService ✅ · stockService ✅ · vendorService ✅ · docNo ✅ · receiptService ✅ · transferService ✅ · distribusiService ✅ · opnameService ✅ |
+| API routes | `{locations,stock,stock/item,vendors(/:id),receipts(/:id)(/:id/post),transfers(/:id)(/post)(/cancel),distribusi(/:id)(/fulfill)(/cancel),opname(/:id)(/post)}` ✅ |
+| API client | stock ✅ · vendor ✅ · receipt ✅ · transfer ✅ · distribusi ✅ · opname ✅ |
 | Seed | [prisma/scripts/seed-inventory.mts](prisma/scripts/seed-inventory.mts) ✅ |
 
 ### FE (sudah ada — target swap mock → API)
