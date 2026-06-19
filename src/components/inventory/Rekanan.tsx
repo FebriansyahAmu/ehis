@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Handshake, Phone, Mail, MapPin, Clock, BadgeCheck, Building2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Handshake, Phone, Mail, MapPin, Clock, BadgeCheck, Building2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/ui/toastStore";
 import {
@@ -9,15 +9,34 @@ import {
   PrimaryButton, EmptyState, SlideOver, useSkeletonDelay, INV_ACCENT,
   tableWrap, tableCls, thCls, tdCls, trCls,
 } from "./inventoryShared";
-import { INV_VENDORS, type Vendor, type VendorJenis } from "@/lib/inventory/inventoryMock";
+import { type Vendor, type VendorJenis } from "@/lib/inventory/inventoryMock";
+import { fetchAllVendors, createVendor } from "@/lib/api/inventory/vendor";
+import { ApiError } from "@/lib/api/client";
 
 export default function Rekanan() {
   const loaded = useSkeletonDelay();
-  const [list, setList] = useState<Vendor[]>(INV_VENDORS);
+  const [list, setList] = useState<Vendor[]>([]);
+  const [listLoading, setListLoading] = useState(true);
   const [jenis, setJenis] = useState<VendorJenis | "all">("all");
   const [search, setSearch] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    (async () => {
+      try {
+        const data = await fetchAllVendors(ac.signal);
+        if (!ac.signal.aborted) setList(data);
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat rekanan", e instanceof ApiError ? e.message : undefined);
+      } finally {
+        if (!ac.signal.aborted) setListLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -51,7 +70,7 @@ export default function Rekanan() {
 
       <SectionCard className="min-h-0 flex-1" bodyClassName="flex min-h-0 flex-col">
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-3">
-          <SearchInput value={search} onChange={setSearch} placeholder="Cari nama, kode, kontak…" className="min-w-[200px] flex-1" />
+          <SearchInput value={search} onChange={setSearch} placeholder="Cari nama, kode, kontak…" className="min-w-50 flex-1" />
           <div className="flex gap-1.5">
             {(["all", "PBF", "Distributor", "Manufaktur"] as const).map((j) => (
               <FilterChip key={j} label={j === "all" ? "Semua" : j} active={jenis === j} onClick={() => setJenis(j)} />
@@ -60,7 +79,12 @@ export default function Rekanan() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {filtered.length === 0 ? (
+          {listLoading ? (
+            <div className="flex h-full items-center justify-center gap-2 text-slate-400">
+              <Loader2 size={16} className="animate-spin text-cyan-500" />
+              <span className="text-[13px]">Memuat rekanan…</span>
+            </div>
+          ) : filtered.length === 0 ? (
             <EmptyState icon={Handshake} title="Tidak ada rekanan" />
           ) : (
             <div className={tableWrap}>
@@ -121,10 +145,9 @@ export default function Rekanan() {
       <AddVendorDrawer
         open={addOpen}
         onClose={() => setAddOpen(false)}
-        nextSeq={list.length + 1}
-        onAdd={(v) => {
+        onCreated={(v) => {
           setList((prev) => [v, ...prev]);
-          toast.success("Rekanan ditambahkan", v.nama);
+          toast.success("Rekanan ditambahkan", `${v.kode} · ${v.nama}`);
           setAddOpen(false);
         }}
       />
@@ -132,32 +155,40 @@ export default function Rekanan() {
   );
 }
 
-function AddVendorDrawer({ open, onClose, onAdd, nextSeq }: { open: boolean; onClose: () => void; onAdd: (v: Vendor) => void; nextSeq: number }) {
+function AddVendorDrawer({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (v: Vendor) => void }) {
   const [nama, setNama] = useState("");
   const [jenis, setJenis] = useState<VendorJenis>("PBF");
   const [kontak, setKontak] = useState("");
   const [telp, setTelp] = useState("");
   const [alamat, setAlamat] = useState("");
   const [lead, setLead] = useState(3);
-  const valid = nama.trim() && kontak.trim() && telp.trim();
+  const [saving, setSaving] = useState(false);
+  const valid = !!(nama.trim() && kontak.trim() && telp.trim());
 
-  function submit() {
-    if (!valid) return;
-    onAdd({
-      id: `vn-new-${Date.now()}`, kode: `VND-${String(nextSeq).padStart(3, "0")}`,
-      nama: nama.trim(), jenis, kontakNama: kontak.trim(), telp: telp.trim(), alamat: alamat.trim(),
-      leadTimeHari: lead || 3, status: "Aktif",
-    });
-    setNama(""); setKontak(""); setTelp(""); setAlamat(""); setLead(3); setJenis("PBF");
+  async function submit() {
+    if (!valid || saving) return;
+    setSaving(true);
+    try {
+      const v = await createVendor({
+        nama: nama.trim(), jenis, kontakNama: kontak.trim(), telp: telp.trim(),
+        alamat: alamat.trim(), leadTimeHari: lead || 3,
+      });
+      setNama(""); setKontak(""); setTelp(""); setAlamat(""); setLead(3); setJenis("PBF");
+      onCreated(v);
+    } catch (e) {
+      toast.error("Gagal menyimpan rekanan", e instanceof ApiError ? e.message : undefined);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <SlideOver
       open={open} onClose={onClose} title="Tambah Rekanan" subtitle="Vendor / Distributor / PBF baru"
       footer={
-        <button type="button" disabled={!valid} onClick={submit}
-          className={cn("inline-flex w-full items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition", valid ? cn(INV_ACCENT.bgSolid, INV_ACCENT.bgSolidHover) : "cursor-not-allowed bg-slate-300")}>
-          Simpan Rekanan
+        <button type="button" disabled={!valid || saving} onClick={submit}
+          className={cn("inline-flex w-full items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition", valid && !saving ? cn(INV_ACCENT.bgSolid, INV_ACCENT.bgSolidHover) : "cursor-not-allowed bg-slate-300")}>
+          {saving && <Loader2 size={13} className="animate-spin" />} {saving ? "Menyimpan…" : "Simpan Rekanan"}
         </button>
       }
     >
