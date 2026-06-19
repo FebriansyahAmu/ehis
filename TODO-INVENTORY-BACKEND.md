@@ -33,7 +33,7 @@
 | **BE5** | Transfer + Distribusi | ✅ | create draft → reservasi `qtyReserved`; post → TRANSFER (sumber − / tujuan +) + lepas reservasi + swap FE |
 | **BE6** | Stok Opname | ✅ | create snapshot → save fisik → post → OPNAME per selisih + swap FE |
 | **BE7** | Monitoring + Beranda | ✅ | aggregate read (nilai/reorder/ED-FEFO/movers/recent) + swap FE |
-| **BE8** | Verify + docs | 📋 | tsc/eslint + update [TODO-INVENTORY.md](TODO-INVENTORY.md) + [CLAUDE.md](CLAUDE.md) |
+| **BE8** | Verify + docs | ✅ | full tsc/eslint bersih + update [TODO-INVENTORY.md](TODO-INVENTORY.md) + [CLAUDE.md](CLAUDE.md) |
 
 ---
 

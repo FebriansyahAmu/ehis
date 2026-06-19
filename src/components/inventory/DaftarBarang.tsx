@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Boxes, Pill, Syringe, PackageX, MapPin, CalendarClock, ShieldAlert, Wallet, Loader2 } from "lucide-react";
+import { Boxes, Pill, Syringe, PackageX, MapPin, CalendarClock, ShieldAlert, Wallet, Loader2, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   InvShell, KpiCard, SectionCard, StatusPill, SearchInput, FilterChip, InvSelect,
-  EmptyState, SlideOver, useSkeletonDelay,
+  EmptyState, SlideOver, Modal, useSkeletonDelay, INV_ACCENT,
   tableWrap, tableCls, thCls, tdCls, trCls,
 } from "./inventoryShared";
 import {
@@ -14,7 +14,7 @@ import {
 } from "@/lib/inventory/inventoryMock";
 import {
   type InvLocationDTO, type InvStockRowDTO, type InvItemDetailDTO, type InvItemJenis,
-  listInvLocations, listInvStock, getInvItemDetail,
+  listInvLocations, listInvStock, getInvItemDetail, setStockPolicy,
 } from "@/lib/api/inventory/stock";
 import { ApiError } from "@/lib/api/client";
 import { toast } from "@/lib/ui/toastStore";
@@ -44,6 +44,9 @@ export default function DaftarBarang() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [detail, setDetail] = useState<{ jenis: InvItemJenis; itemId: string } | null>(null);
+  const [policyRow, setPolicyRow] = useState<InvStockRowDTO | null>(null);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(12);
 
   // Lokasi farmasi (dropdown). Default = lokasi pertama.
   useEffect(() => {
@@ -86,6 +89,7 @@ export default function DaftarBarang() {
     () => locations.map((l) => ({ value: l.id, label: l.nama, sub: locSub(l.tipe) })),
     [locations],
   );
+  const locNama = useMemo(() => locations.find((l) => l.id === loc)?.nama ?? "", [locations, loc]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -103,6 +107,20 @@ export default function DaftarBarang() {
     return { count: rows.length, nilai, perlu };
   }, [rows]);
 
+  // Reset ke halaman 1 setiap filter berubah (dilakukan di handler → hindari set-state-in-effect).
+  const onLoc = (v: string) => { setLoc(v); setPage(0); };
+  const onSearch = (v: string) => { setSearch(v); setPage(0); };
+  const onJenis = (j: JenisFilter) => { setJenis(j); setPage(0); };
+  const onStatus = (s: string) => { setStatusFilter(s); setPage(0); };
+
+  // Paginasi: render hanya halaman aktif (hindari render seluruh data sekaligus).
+  const totalItems = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const curPage = Math.min(page, totalPages - 1);
+  const paged = filtered.slice(curPage * pageSize, curPage * pageSize + pageSize);
+  const rangeFrom = totalItems === 0 ? 0 : curPage * pageSize + 1;
+  const rangeTo = Math.min(totalItems, curPage * pageSize + pageSize);
+
   return (
     <InvShell
       icon={Boxes}
@@ -119,16 +137,16 @@ export default function DaftarBarang() {
       <SectionCard className="min-h-0 flex-1" bodyClassName="flex min-h-0 flex-col">
         {/* Toolbar: dropdown lokasi + search + filter */}
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-3">
-          <InvSelect value={loc} onChange={setLoc} options={locOptions} icon={MapPin} className="w-full sm:w-64" />
-          <SearchInput value={search} onChange={setSearch} placeholder="Cari nama, kode, kategori…" className="min-w-[180px] flex-1" />
+          <InvSelect value={loc} onChange={onLoc} options={locOptions} icon={MapPin} className="w-full sm:w-64" />
+          <SearchInput value={search} onChange={onSearch} placeholder="Cari nama, kode, kategori…" className="min-w-45 flex-1" />
           <div className="flex gap-1.5">
             {(["all", "Obat", "BMHP"] as JenisFilter[]).map((j) => (
-              <FilterChip key={j} label={j === "all" ? "Semua" : j} active={jenis === j} onClick={() => setJenis(j)} />
+              <FilterChip key={j} label={j === "all" ? "Semua" : j} active={jenis === j} onClick={() => onJenis(j)} />
             ))}
           </div>
           <div className="flex flex-wrap gap-1.5">
             {["all", "Habis", "Kritis", "Rendah", "Aman"].map((s) => (
-              <FilterChip key={s} label={s === "all" ? "Semua Status" : s} active={statusFilter === s} onClick={() => setStatusFilter(s)} />
+              <FilterChip key={s} label={s === "all" ? "Semua Status" : s} active={statusFilter === s} onClick={() => onStatus(s)} />
             ))}
           </div>
         </div>
@@ -152,11 +170,14 @@ export default function DaftarBarang() {
                     <th className={cn(thCls, "text-right")}>Stok</th>
                     <th className={cn(thCls, "text-center")}>Status</th>
                     <th className={cn(thCls, "text-right")}>Nilai</th>
-                    <th className={cn(thCls, "text-right")}>ROP</th>
+                    <th className={cn(thCls, "text-right")} title="Reorder Point — Titik Pesan Ulang">
+                      ROP
+                      <span className="block text-[9px] font-normal normal-case tracking-normal text-slate-400">Titik Pesan Ulang</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((r) => {
+                  {paged.map((r) => {
                     const status = rowStatus(r);
                     const cfg = STOK_STATUS_CFG[status];
                     return (
@@ -185,7 +206,20 @@ export default function DaftarBarang() {
                           <StatusPill label={cfg.label} bg={cfg.bg} text={cfg.text} dot={cfg.dot} />
                         </td>
                         <td className={cn(tdCls, "text-right tabular-nums text-slate-600")}>{fmtIDR(r.qty * r.hargaSatuan)}</td>
-                        <td className={cn(tdCls, "text-right tabular-nums text-slate-400")}>{r.reorderPoint.toLocaleString("id-ID")}</td>
+                        <td className={cn(tdCls, "text-right")}>
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="tabular-nums text-slate-400">{r.reorderPoint.toLocaleString("id-ID")}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setPolicyRow(r); }}
+                              title="Atur min / ROP / max"
+                              aria-label={`Atur kebijakan stok ${r.nama}`}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+                            >
+                              <SlidersHorizontal size={13} />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
@@ -194,10 +228,145 @@ export default function DaftarBarang() {
             </div>
           )}
         </div>
+
+        {/* Paginasi (di luar area scroll → selalu terlihat) */}
+        {!rowsLoading && totalItems > 12 && (
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/60 px-3 py-2">
+            <div className="flex items-center gap-2 text-[11px] text-slate-400">
+              <span>Menampilkan <span className="font-semibold tabular-nums text-slate-600">{rangeFrom}–{rangeTo}</span> dari <span className="font-semibold tabular-nums text-slate-600">{totalItems}</span></span>
+              <select
+                value={pageSize}
+                onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
+                className="rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-[11px] font-medium text-slate-600 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
+                aria-label="Item per halaman"
+              >
+                {[12, 25, 50].map((n) => <option key={n} value={n}>{n}/hal</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-1">
+              <button type="button" disabled={curPage === 0} onClick={() => setPage(curPage - 1)}
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40" aria-label="Halaman sebelumnya">
+                <ChevronLeft size={15} />
+              </button>
+              <span className="px-1 text-[11px] font-semibold tabular-nums text-slate-600">Hal {curPage + 1}/{totalPages}</span>
+              <button type="button" disabled={curPage >= totalPages - 1} onClick={() => setPage(curPage + 1)}
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40" aria-label="Halaman berikutnya">
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          </div>
+        )}
       </SectionCard>
 
       <ItemDetail target={detail} onClose={() => setDetail(null)} />
+
+      {policyRow && (
+        <PolicyEditor
+          row={policyRow}
+          locationId={loc}
+          locationNama={locNama}
+          onClose={() => setPolicyRow(null)}
+          onSaved={(p) => {
+            setRows((prev) => prev.map((r) =>
+              r.itemJenis === policyRow.itemJenis && r.itemId === policyRow.itemId
+                ? { ...r, min: p.min, reorderPoint: p.reorderPoint, max: p.max }
+                : r));
+            setPolicyRow(null);
+          }}
+        />
+      )}
     </InvShell>
+  );
+}
+
+// ── Policy editor (min / ROP / max per item × lokasi) ─────────────────────────
+
+function PolicyEditor({
+  row, locationId, locationNama, onClose, onSaved,
+}: {
+  row: InvStockRowDTO;
+  locationId: string;
+  locationNama: string;
+  onClose: () => void;
+  onSaved: (p: { min: number; reorderPoint: number; max: number }) => void;
+}) {
+  const [min, setMin] = useState(String(row.min));
+  const [rop, setRop] = useState(String(row.reorderPoint));
+  const [max, setMax] = useState(String(row.max));
+  const [saving, setSaving] = useState(false);
+
+  const nMin = Number(min), nRop = Number(rop), nMax = Number(max);
+  const filled = min !== "" && rop !== "" && max !== "";
+  const allInt = [nMin, nRop, nMax].every((n) => Number.isInteger(n) && n >= 0);
+  const minOk = nMin <= nRop;
+  const ropOk = nMax === 0 || nRop <= nMax;
+  const valid = filled && allInt && minOk && ropOk;
+  const err = !filled ? "" : !allInt ? "Nilai harus bilangan bulat ≥ 0." : !minOk ? "Min tidak boleh melebihi ROP." : !ropOk ? "ROP tidak boleh melebihi Max." : "";
+
+  async function submit() {
+    if (!valid || saving) return;
+    setSaving(true);
+    try {
+      const dto = await setStockPolicy({ itemJenis: row.itemJenis, itemId: row.itemId, locationId, min: nMin, reorderPoint: nRop, max: nMax });
+      toast.success("Kebijakan stok diperbarui", `${row.nama} — Min ${dto.min} · ROP ${dto.reorderPoint} · Max ${dto.max || "—"}`);
+      onSaved({ min: dto.min, reorderPoint: dto.reorderPoint, max: dto.max });
+    } catch (e) {
+      toast.error("Gagal menyimpan kebijakan", e instanceof ApiError ? e.message : undefined);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      icon={SlidersHorizontal}
+      title="Atur Kebijakan Stok"
+      subtitle={`${row.nama} · ${locationNama}`}
+      width="max-w-md"
+      footer={
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] text-rose-500">{err}</p>
+          <div className="flex gap-2">
+            <button type="button" onClick={onClose} disabled={saving}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-[13px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50">Batal</button>
+            <button type="button" onClick={submit} disabled={!valid || saving}
+              className={cn("inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition", valid && !saving ? cn(INV_ACCENT.bgSolid, INV_ACCENT.bgSolidHover) : "cursor-not-allowed bg-slate-300")}>
+              {saving && <Loader2 size={13} className="animate-spin" />} {saving ? "Menyimpan…" : "Simpan"}
+            </button>
+          </div>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <p className="rounded-lg bg-cyan-50/70 px-3 py-2 text-[11px] leading-relaxed text-cyan-700 ring-1 ring-cyan-100">
+          <b>ROP</b> (Titik Pesan Ulang) menentukan kapan item ditandai <b>Rendah/Kritis</b> dan masuk daftar reorder.
+          Urutan disarankan: <b>Min ≤ ROP ≤ Max</b>. Isi <b>Max = 0</b> bila tanpa batas atas.
+        </p>
+        <div className="grid grid-cols-3 gap-3">
+          <PolicyField label="Min" value={min} onChange={setMin} />
+          <PolicyField label="ROP" value={rop} onChange={setRop} accent />
+          <PolicyField label="Max" value={max} onChange={setMax} />
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-[12px] text-slate-500">
+          Stok saat ini di lokasi: <span className="font-bold tabular-nums text-slate-700">{row.qty.toLocaleString("id-ID")}</span> {row.satuan}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function PolicyField({ label, value, onChange, accent }: { label: string; value: string; onChange: (v: string) => void; accent?: boolean }) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className={cn("text-[10px] font-bold uppercase tracking-wide", accent ? "text-cyan-600" : "text-slate-400")}>{label}</span>
+      <input
+        type="number" min={0} inputMode="numeric" value={value}
+        onChange={(e) => onChange(e.target.value)} placeholder="0"
+        className={cn("w-full rounded-lg border bg-white px-2.5 py-2 text-right text-[14px] font-mono font-bold tabular-nums text-slate-800 outline-none transition", accent ? "border-cyan-200" : "border-slate-200", INV_ACCENT.focus)}
+      />
+    </label>
   );
 }
 

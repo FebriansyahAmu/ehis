@@ -4,9 +4,10 @@
 import { api } from "@/lib/api/client";
 import type {
   InvLocationDTO, InvStockRowDTO, InvItemDetailDTO, InvItemJenis,
+  SetStockPolicyInput, StockPolicyDTO,
 } from "@/lib/schemas/inventory/stock";
 
-export type { InvLocationDTO, InvStockRowDTO, InvItemDetailDTO, InvItemJenis };
+export type { InvLocationDTO, InvStockRowDTO, InvItemDetailDTO, InvItemJenis, SetStockPolicyInput, StockPolicyDTO };
 
 /** GET /inventory/locations — lokasi farmasi (dropdown). */
 export async function listInvLocations(signal?: AbortSignal): Promise<InvLocationDTO[]> {
@@ -23,5 +24,11 @@ export async function listInvStock(locationId: string, signal?: AbortSignal): Pr
 /** GET /inventory/stock/item — detail item (saldo lintas-lokasi + batch + pergerakan). */
 export async function getInvItemDetail(jenis: InvItemJenis, itemId: string, signal?: AbortSignal): Promise<InvItemDetailDTO> {
   const { data } = await api.get<InvItemDetailDTO>("/inventory/stock/item", { query: { jenis, itemId }, signal });
+  return data;
+}
+
+/** PATCH /inventory/stock/policy — atur min/ROP/max item di lokasi. */
+export async function setStockPolicy(input: SetStockPolicyInput, signal?: AbortSignal): Promise<StockPolicyDTO> {
+  const { data } = await api.patch<StockPolicyDTO>("/inventory/stock/policy", input, { signal });
   return data;
 }

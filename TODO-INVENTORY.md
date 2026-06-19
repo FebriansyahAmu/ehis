@@ -6,9 +6,10 @@
 > **Status:** 🚧 **FE SELESAI (mock-first, 2026-06-19)** — modul `/ehis-inventory` aktif: Beranda + 6 menu
 > (Daftar Barang · Stok Opname · Pengiriman · Rekanan · Monitoring · Distribusi), accent **cyan** (no purple),
 > SaaS interaktif (drawer/KPI/filter). Distribusi Obat di Mapping Hub dihapus.
-> **Backend 🚧** — **BE0 Foundation + BE0b RBAC ✅ (2026-06-19)**; roadmap & progress di
-> **[TODO-INVENTORY-BACKEND.md](TODO-INVENTORY-BACKEND.md)** (Fase BE0–BE8, swap FE mock → DB layered).
-> **Urutan kerja (diminta):** (1) **dokumen ini** ✅ → (2) **Frontend** ✅ → (3) Backend 🚧 ([roadmap](TODO-INVENTORY-BACKEND.md)).
+> **Backend ✅ (2026-06-19)** — **BE0–BE7 SELESAI**: schema `inventory` (ledger+proyeksi) + RBAC + 7 menu
+> ter-swap ke DB layered (ledger movement = source of truth, reservasi `qtyReserved`, FEFO). Detail per
+> slice di **[TODO-INVENTORY-BACKEND.md](TODO-INVENTORY-BACKEND.md)** (Fase BE0–BE8).
+> **Urutan kerja (diminta):** (1) **dokumen ini** ✅ → (2) **Frontend** ✅ → (3) **Backend** ✅ ([roadmap](TODO-INVENTORY-BACKEND.md)).
 >
 > Referensi pola modul: [TODO-BILLING.md](TODO-BILLING.md) · [TODO-EKLAIM.md](TODO-EKLAIM.md) · registrasi modul di
 > [src/lib/navigation.ts](src/lib/navigation.ts) · RBAC tree [prisma/scripts/gen-rbac-seed.mjs](prisma/scripts/gen-rbac-seed.mjs) ·
@@ -194,10 +195,11 @@ Per sub-domain, layering **Route → Service → DAL → Prisma** (API-RULES):
 - [x] Mock `inventoryMock.ts` (items/balances/batches/movements/vendors/receipts/transfers/distribusi/opname + helper status & FEFO).
 - [x] `tsc --noEmit` bersih + eslint bersih (modul Inventory).
 
-### Backend — 📋 belum
-- [ ] **INV1-RBAC** — `inventory.*` ke `rbacShared.ts` (FE mirror) + `gen-rbac-seed.mjs` (tree + grants + role `Logistik`) + delta migration seed (agar dapat di-grant ke non-superadmin + tampil di Mapping Hub RBAC).
-- [ ] **INV9 — Backend** (§4/§7): schema `inventory` + migration drift-safe + layering Route/Service/DAL + seed; swap FE mock→API (`@/lib/api/inventory/*`).
-- [ ] **INV10 — Integrasi** (§9): dispensing Farmasi → OUT; billing; (BPJS Aplicares = bed≠stok, abaikan).
+### Backend — ✅ BE0–BE7 selesai (2026-06-19) · detail [TODO-INVENTORY-BACKEND.md](TODO-INVENTORY-BACKEND.md)
+- [x] **INV1-RBAC** — `inventory.*` ke `rbacShared.ts` + `gen-rbac-seed.mjs` + delta migration seed (BE0b).
+- [x] **INV9 — Backend** (§4/§7): schema `inventory` + migration drift-safe + layering Route/Service/DAL + seed; swap FE mock→API (`@/lib/api/inventory/*`) — 7 menu (Beranda·Daftar Barang·Opname·Penerimaan·Transfer·Distribusi·Rekanan·Monitoring).
+- [ ] **INV10 — Integrasi** (§9): dispensing Farmasi → OUT; billing; (BPJS Aplicares = bed≠stok, abaikan). _follow-up._
+- [ ] **Follow-up**: Vendor edit/delete UI · partial-fulfill distribusi · distribusi ke unit klinis (OUT) · role `Logistik` dedikasi · picker `bmhp-tersedia` per-lokasi.
 - [ ] Docs: arsip ke [.claude/DONE.md](.claude/DONE.md).
 
 ---

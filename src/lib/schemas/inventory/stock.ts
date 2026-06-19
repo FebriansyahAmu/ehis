@@ -14,6 +14,29 @@ export const ItemDetailQuery = z.object({
 });
 export type ItemDetailQuery = z.infer<typeof ItemDetailQuery>;
 
+/** Atur kebijakan reorder (min/ROP/max) satu item di satu lokasi. */
+export const SetStockPolicyInput = z
+  .object({
+    itemJenis: z.enum(["Obat", "BMHP"]),
+    itemId: z.string().uuid("itemId tidak valid"),
+    locationId: z.string().uuid("locationId tidak valid"),
+    min: z.number().int().min(0, "Min tidak boleh negatif"),
+    reorderPoint: z.number().int().min(0, "ROP tidak boleh negatif"),
+    max: z.number().int().min(0, "Max tidak boleh negatif"),
+  })
+  .refine((v) => v.min <= v.reorderPoint, { message: "Min tidak boleh melebihi ROP", path: ["min"] })
+  .refine((v) => v.max === 0 || v.reorderPoint <= v.max, { message: "ROP tidak boleh melebihi Max", path: ["reorderPoint"] });
+export type SetStockPolicyInput = z.infer<typeof SetStockPolicyInput>;
+
+export interface StockPolicyDTO {
+  itemJenis: InvItemJenis;
+  itemId: string;
+  locationId: string;
+  min: number;
+  reorderPoint: number;
+  max: number;
+}
+
 export type InvItemJenis = "Obat" | "BMHP";
 
 export interface InvLocationDTO {

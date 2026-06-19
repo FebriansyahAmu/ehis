@@ -461,6 +461,92 @@ export function SlideOver({
   );
 }
 
+// ── Modal (centered) ──────────────────────────────────────
+// `dismissible=false` → backdrop & Escape TIDAK menutup + tanpa tombol X (penutupan dikontrol penuh
+// lewat footer caller, mis. tombol Batal ber-konfirmasi). Default dismissible.
+
+export function Modal({
+  open, onClose, title, subtitle, children, footer, width = "max-w-2xl", dismissible = true, icon: Icon,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  width?: string;
+  dismissible?: boolean;
+  icon?: LucideIcon;
+}) {
+  const reduce = useReducedMotion();
+  const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- guard mount portal aman-SSR
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (!open || !dismissible) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, dismissible, onClose]);
+
+  if (!mounted) return null;
+
+  const card = reduce
+    ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }
+    : {
+        initial: { opacity: 0, scale: 0.94, y: 16 },
+        animate: { opacity: 1, scale: 1, y: 0 },
+        exit: { opacity: 0, scale: 0.96, y: 8 },
+      };
+
+  return createPortal(
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => dismissible && onClose()}
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+          />
+          <motion.div
+            role="dialog" aria-modal="true" aria-label={title}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            {...card}
+            className={cn("relative z-10 flex max-h-[88vh] w-full flex-col overflow-hidden rounded-2xl bg-slate-50 shadow-2xl ring-1 ring-slate-200", width)}
+          >
+            <header className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 bg-white px-5 py-4">
+              <div className="flex min-w-0 items-center gap-3">
+                {Icon && (
+                  <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1", INV_ACCENT.bg, INV_ACCENT.text, INV_ACCENT.border)}>
+                    <Icon size={18} />
+                  </span>
+                )}
+                <div className="min-w-0">
+                  <h2 className="truncate text-base font-bold text-slate-900">{title}</h2>
+                  {subtitle && <p className="mt-0.5 truncate text-xs text-slate-500">{subtitle}</p>}
+                </div>
+              </div>
+              {dismissible && (
+                <button
+                  type="button" onClick={onClose} aria-label="Tutup"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                >
+                  <X size={18} />
+                </button>
+              )}
+            </header>
+            <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
+            {footer && <footer className="shrink-0 border-t border-slate-200 bg-white px-5 py-3">{footer}</footer>}
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>,
+    document.body,
+  );
+}
+
 // ── Table style helpers ───────────────────────────────────
 
 export const tableWrap = "w-full overflow-x-auto";

@@ -6,6 +6,7 @@ import * as defaultDal from "@/lib/dal/inventory/stockDal";
 import { Errors } from "@/lib/errors/appError";
 import type {
   InvLocationDTO, InvStockRowDTO, InvItemDetailDTO, InvItemJenis,
+  SetStockPolicyInput, StockPolicyDTO,
 } from "@/lib/schemas/inventory/stock";
 
 type Dal = typeof defaultDal;
@@ -100,7 +101,16 @@ export function makeStockService(deps: { dal?: Dal } = {}) {
     };
   }
 
-  return { listLocations, listStock, itemDetail };
+  /** Atur kebijakan reorder (min/ROP/max) untuk item di lokasi (saldo harus sudah ada). */
+  async function setPolicy(input: SetStockPolicyInput): Promise<StockPolicyDTO> {
+    const ref = { itemJenis: input.itemJenis, itemId: input.itemId, locationId: input.locationId };
+    const existing = await dal.getBalance(ref);
+    if (!existing) throw Errors.notFound("Item belum punya saldo di lokasi ini");
+    await dal.setBalancePolicy(ref, { min: input.min, max: input.max, reorderPoint: input.reorderPoint });
+    return { ...ref, min: input.min, reorderPoint: input.reorderPoint, max: input.max };
+  }
+
+  return { listLocations, listStock, itemDetail, setPolicy };
 }
 
 export const stockService = makeStockService();
