@@ -32,7 +32,7 @@
 | **BE4** | Penerimaan (GoodsReceipt) | ✅ | create draft → post → movement IN (stok bertambah) + swap FE |
 | **BE5** | Transfer + Distribusi | ✅ | create draft → reservasi `qtyReserved`; post → TRANSFER (sumber − / tujuan +) + lepas reservasi + swap FE |
 | **BE6** | Stok Opname | ✅ | create snapshot → save fisik → post → OPNAME per selisih + swap FE |
-| **BE7** | Monitoring + Beranda | 📋 | aggregate (low/expiring/value/recent) + swap FE |
+| **BE7** | Monitoring + Beranda | ✅ | aggregate read (nilai/reorder/ED-FEFO/movers/recent) + swap FE |
 | **BE8** | Verify + docs | 📋 | tsc/eslint + update [TODO-INVENTORY.md](TODO-INVENTORY.md) + [CLAUDE.md](CLAUDE.md) |
 
 ---
@@ -131,6 +131,20 @@ Posted. Selisih + (surplus → batch `ADJ-…`) / − (susut → outflow FEFO, a
 - **FE swap ✅**: [StokOpname.tsx](src/components/inventory/StokOpname.tsx) — list + **Mulai Opname** (pilih lokasi → snapshot) + editor fisik (Simpan progres + Posting; selisih live) = API; mock `INV_OPNAME` dilepas.
 - **Catatan**: selisih dihitung vs `qtySistem` snapshot (konsisten dgn kolom Selisih di FE); set-system-to-physical murni = follow-up.
 
+## ✅ BE7 — Monitoring + Beranda (2026-06-19)
+
+Agregat read-only lintas lokasi dari saldo+batch+ledger (di-join snapshot harga/nama katalog). **2
+endpoint**: `overview` (Beranda) + `monitoring`. Status stok (`Aman/Rendah/Kritis/Habis/Berlebih`)
+dihitung server (qty vs ROP/max); warna di FE (`STOK_STATUS_CFG`).
+
+- Aggregate DAL: [stockDal.ts](src/lib/dal/inventory/stockDal.ts) — `listAllBalances` · `listExpiringBatches(cutoff)` (FEFO) · `listRecentMovements(limit)` · `topMovers(limit)` (groupBy Σ qty OUT+TRANSFER).
+- DTO: [dashboard.ts](src/lib/schemas/inventory/dashboard.ts) (`InvBerandaDTO` · `InvMonitoringDTO` + baris alert/expiring/mover/loc-value).
+- Service (actor-less): [dashboardService.ts](src/lib/services/inventory/dashboardService.ts) — `overview` (KPI sku/nilai/reorder/ED≤90 + lowStock 7 + expiring 6 + recent 6) · `monitoring` (KPI nilai/reorder/ED≤120/habis + reorder all + expiry all + nilai per lokasi + movers 6).
+- Routes: [overview](src/app/api/v1/inventory/dashboard/overview/route.ts) (gate `inventory.view:read`) · [monitoring](src/app/api/v1/inventory/dashboard/monitoring/route.ts) (gate `inventory.monitoring:read`).
+- API client: [dashboard.ts](src/lib/api/inventory/dashboard.ts).
+- **FE swap ✅**: [InventoryBeranda.tsx](src/components/inventory/InventoryBeranda.tsx) + [Monitoring.tsx](src/components/inventory/Monitoring.tsx) = API; mock data (`INV_BALANCES/BATCHES/MOVEMENTS/ITEMS/LOCATIONS` + `itemById`/`locById`) dilepas (helper config `STOK_STATUS_CFG`/`MOVEMENT_CFG`/`fmt*`/`daysToExpiry`/`itemInitials` tetap).
+- **Verified** (DB probe): 76 saldo · nilai ≈ Rp 4,05 M · 11 habis · 27 reorder · 7 batch ED ≤120hr. Movers kosong sampai ada transfer/distribusi diposting (kini hanya OPENING IN).
+
 ---
 
 ## 🗺️ Peta file target (per layer)
@@ -138,11 +152,11 @@ Posted. Selisih + (surplus → batch `ADJ-…`) / − (susut → outflow FEFO, a
 | Layer | Path kanonik |
 |-------|------------------------|
 | Prisma schema | [prisma/schema/inventory.prisma](prisma/schema/inventory.prisma) ✅ |
-| Zod schemas | stock ✅ · vendor ✅ · receipt ✅ · transfer ✅ · distribusi ✅ · opname ✅ |
-| DAL | stockDal ✅ · vendorDal ✅ · counterDal ✅ · receiptDal ✅ · transferDal ✅ · distribusiDal ✅ · opnameDal ✅ |
-| Service | movementService ✅ · stockService ✅ · vendorService ✅ · docNo ✅ · receiptService ✅ · transferService ✅ · distribusiService ✅ · opnameService ✅ |
-| API routes | `{locations,stock,stock/item,vendors(/:id),receipts(/:id)(/:id/post),transfers(/:id)(/post)(/cancel),distribusi(/:id)(/fulfill)(/cancel),opname(/:id)(/post)}` ✅ |
-| API client | stock ✅ · vendor ✅ · receipt ✅ · transfer ✅ · distribusi ✅ · opname ✅ |
+| Zod schemas | stock ✅ · vendor ✅ · receipt ✅ · transfer ✅ · distribusi ✅ · opname ✅ · dashboard ✅ |
+| DAL | stockDal ✅ (+aggregate) · vendorDal ✅ · counterDal ✅ · receiptDal ✅ · transferDal ✅ · distribusiDal ✅ · opnameDal ✅ |
+| Service | movementService ✅ · stockService ✅ · vendorService ✅ · docNo ✅ · receiptService ✅ · transferService ✅ · distribusiService ✅ · opnameService ✅ · dashboardService ✅ |
+| API routes | `{locations,stock,stock/item,vendors(/:id),receipts(/:id)(/:id/post),transfers(/:id)(/post)(/cancel),distribusi(/:id)(/fulfill)(/cancel),opname(/:id)(/post),dashboard/{overview,monitoring}}` ✅ |
+| API client | stock ✅ · vendor ✅ · receipt ✅ · transfer ✅ · distribusi ✅ · opname ✅ · dashboard ✅ |
 | Seed | [prisma/scripts/seed-inventory.mts](prisma/scripts/seed-inventory.mts) ✅ |
 
 ### FE (sudah ada — target swap mock → API)

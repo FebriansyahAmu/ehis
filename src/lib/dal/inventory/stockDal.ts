@@ -161,6 +161,33 @@ export function listRecentMovementsByItem(ref: ItemRef, limit: number, tx?: Tx) 
   });
 }
 
+// ── Aggregate reads (Monitoring + Beranda) ─────────────────────────────────────
+/** Semua saldo rollup (lintas lokasi) — basis nilai stok, reorder, SKU, habis. */
+export function listAllBalances(tx?: Tx) {
+  return db(tx).stockBalance.findMany({});
+}
+/** Batch ber-stok yang ED ≤ cutoff (FEFO alert). */
+export function listExpiringBatches(cutoff: Date, tx?: Tx) {
+  return db(tx).stockBatch.findMany({
+    where: { qtyOnHand: { gt: 0 }, expiryDate: { not: null, lte: cutoff } },
+    orderBy: [{ expiryDate: "asc" }],
+  });
+}
+/** Pergerakan stok terkini lintas item (feed Beranda). */
+export function listRecentMovements(limit: number, tx?: Tx) {
+  return db(tx).stockMovement.findMany({ orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: limit });
+}
+/** Barang paling bergerak = Σ qty movement OUT+TRANSFER, per item, desc. */
+export function topMovers(limit: number, tx?: Tx) {
+  return db(tx).stockMovement.groupBy({
+    by: ["itemJenis", "itemId"],
+    where: { jenis: { in: ["OUT", "TRANSFER"] } },
+    _sum: { qty: true },
+    orderBy: { _sum: { qty: "desc" } },
+    take: limit,
+  });
+}
+
 // ── Master joins (cross-schema, read-only — item ref di-resolve di sini) ────────
 export function listFarmasiLocations(tx?: Tx) {
   return db(tx).location.findMany({

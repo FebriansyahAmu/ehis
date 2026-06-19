@@ -1,22 +1,21 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   Boxes, Wallet, AlertTriangle, CalendarClock, Truck, Share2,
-  ClipboardCheck, Handshake, Gauge, ArrowRight, PackageX, Warehouse,
+  ClipboardCheck, Handshake, Gauge, ArrowRight, PackageX, Warehouse, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   InvShell, KpiCard, SectionCard, StatusPill, EmptyState,
   useSkeletonDelay, INV_ACCENT,
 } from "./inventoryShared";
-import {
-  INV_ITEMS, INV_BALANCES, INV_BATCHES, INV_MOVEMENTS,
-  stokStatus, STOK_STATUS_CFG, MOVEMENT_CFG, fmtIDRcompact,
-  daysToExpiry, itemById, locById, itemInitials,
-} from "@/lib/inventory/inventoryMock";
+import { STOK_STATUS_CFG, MOVEMENT_CFG, fmtIDRcompact, daysToExpiry, itemInitials } from "@/lib/inventory/inventoryMock";
+import { ApiError } from "@/lib/api/client";
+import { getInvOverview, type InvBerandaDTO } from "@/lib/api/inventory/dashboard";
+import { toast } from "@/lib/ui/toastStore";
 
 const QUICK_NAV = [
   { href: "/ehis-inventory/barang", label: "Daftar Barang", desc: "Stok per lokasi", icon: Boxes, tone: "cyan" },
@@ -35,39 +34,26 @@ const NAV_TONE: Record<string, string> = {
 
 export default function InventoryBeranda() {
   const loaded = useSkeletonDelay();
+  const [data, setData] = useState<InvBerandaDTO | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const kpi = useMemo(() => {
-    const nilai = INV_BALANCES.reduce((s, b) => {
-      const it = itemById(b.itemId);
-      return s + (it ? b.qty * it.hargaSatuan : 0);
-    }, 0);
-    const reorder = INV_BALANCES.filter((b) => ["Habis", "Kritis", "Rendah"].includes(stokStatus(b)));
-    const expiring = INV_BATCHES.filter((b) => daysToExpiry(b.expiryDate) <= 90);
-    return { sku: INV_ITEMS.length, nilai, reorder: reorder.length, expiring: expiring.length };
+  useEffect(() => {
+    const ac = new AbortController();
+    (async () => {
+      try {
+        const dto = await getInvOverview(ac.signal);
+        if (!ac.signal.aborted) setData(dto);
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat beranda", e instanceof ApiError ? e.message : undefined);
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => ac.abort();
   }, []);
 
-  const lowStock = useMemo(
-    () => INV_BALANCES
-      .map((b) => ({ b, status: stokStatus(b) }))
-      .filter((x) => ["Habis", "Kritis", "Rendah"].includes(x.status))
-      .sort((a, z) => rank(a.status) - rank(z.status))
-      .slice(0, 7),
-    [],
-  );
-
-  const expiring = useMemo(
-    () => INV_BATCHES
-      .map((b) => ({ b, d: daysToExpiry(b.expiryDate) }))
-      .filter((x) => x.d <= 90)
-      .sort((a, z) => a.d - z.d)
-      .slice(0, 6),
-    [],
-  );
-
-  const recent = useMemo(
-    () => [...INV_MOVEMENTS].sort((a, z) => z.waktu.localeCompare(a.waktu)).slice(0, 6),
-    [],
-  );
+  const kpi = data?.kpi;
 
   return (
     <InvShell
@@ -78,10 +64,10 @@ export default function InventoryBeranda() {
     >
       {/* KPI strip */}
       <div className="grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard icon={Boxes} label="Total SKU" value={kpi.sku} sub="Obat + BMHP" tone="cyan" />
-        <KpiCard icon={Wallet} label="Nilai Stok" value={fmtIDRcompact(kpi.nilai)} sub="seluruh lokasi" tone="emerald" />
-        <KpiCard icon={AlertTriangle} label="Perlu Reorder" value={kpi.reorder} sub="habis / kritis / rendah" tone="orange" />
-        <KpiCard icon={CalendarClock} label="Akan ED" value={kpi.expiring} sub="≤ 90 hari" tone="rose" />
+        <KpiCard icon={Boxes} label="Total SKU" value={kpi?.sku ?? 0} sub="Obat + BMHP" tone="cyan" />
+        <KpiCard icon={Wallet} label="Nilai Stok" value={kpi ? fmtIDRcompact(kpi.nilai) : "—"} sub="seluruh lokasi" tone="emerald" />
+        <KpiCard icon={AlertTriangle} label="Perlu Reorder" value={kpi?.reorder ?? 0} sub="habis / kritis / rendah" tone="orange" />
+        <KpiCard icon={CalendarClock} label="Akan ED" value={kpi?.expiring ?? 0} sub="≤ 90 hari" tone="rose" />
       </div>
 
       {/* Quick nav */}
@@ -113,24 +99,23 @@ export default function InventoryBeranda() {
           action={<Link href="/ehis-inventory/monitoring" className={cn("inline-flex items-center gap-1 text-[12px] font-semibold", INV_ACCENT.textSoft)}>Lihat semua <ArrowRight size={13} /></Link>}
           bodyClassName="overflow-y-auto"
         >
-          {lowStock.length === 0 ? (
+          {loading ? <Loading /> : !data || data.lowStock.length === 0 ? (
             <EmptyState icon={PackageX} title="Semua stok aman" />
           ) : (
             <ul className="divide-y divide-slate-100">
-              {lowStock.map(({ b, status }) => {
-                const it = itemById(b.itemId)!;
-                const cfg = STOK_STATUS_CFG[status];
+              {data.lowStock.map((r) => {
+                const cfg = STOK_STATUS_CFG[r.status];
                 return (
-                  <li key={`${b.itemId}-${b.locationId}`} className="flex items-center gap-3 px-4 py-2.5">
+                  <li key={`${r.itemJenis}-${r.itemId}-${r.locationNama}`} className="flex items-center gap-3 px-4 py-2.5">
                     <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold", cfg.bg, cfg.text)}>
-                      {itemInitials(it.nama)}
+                      {itemInitials(r.nama)}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-semibold text-slate-800">{it.nama}</p>
-                      <p className="truncate text-[11px] text-slate-400">{locById(b.locationId)?.nama}</p>
+                      <p className="truncate text-[13px] font-semibold text-slate-800">{r.nama}</p>
+                      <p className="truncate text-[11px] text-slate-400">{r.locationNama}</p>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-[13px] font-bold tabular-nums text-slate-800">{b.qty} <span className="text-[10px] font-normal text-slate-400">{it.satuan}</span></p>
+                      <p className="text-[13px] font-bold tabular-nums text-slate-800">{r.qty} <span className="text-[10px] font-normal text-slate-400">{r.satuan}</span></p>
                       <StatusPill label={cfg.label} bg={cfg.bg} text={cfg.text} dot={cfg.dot} size="xs" />
                     </div>
                   </li>
@@ -142,12 +127,12 @@ export default function InventoryBeranda() {
 
         {/* Expiring */}
         <SectionCard title="Mendekati Kedaluwarsa" desc="FEFO — first expired, first out" bodyClassName="overflow-y-auto">
-          {expiring.length === 0 ? (
+          {loading ? <Loading /> : !data || data.expiring.length === 0 ? (
             <EmptyState icon={CalendarClock} title="Tidak ada batch akan ED" />
           ) : (
             <ul className="divide-y divide-slate-100">
-              {expiring.map(({ b, d }) => {
-                const it = itemById(b.itemId)!;
+              {data.expiring.map((b) => {
+                const d = daysToExpiry(b.expiryDate);
                 const urgent = d <= 30;
                 return (
                   <li key={b.id} className="flex items-center gap-3 px-4 py-2.5">
@@ -155,14 +140,14 @@ export default function InventoryBeranda() {
                       <CalendarClock size={15} />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-semibold text-slate-800">{it.nama}</p>
-                      <p className="truncate text-[11px] text-slate-400">Batch {b.batchNo} · {locById(b.locationId)?.nama}</p>
+                      <p className="truncate text-[13px] font-semibold text-slate-800">{b.nama}</p>
+                      <p className="truncate text-[11px] text-slate-400">Batch {b.batchNo} · {b.locationNama}</p>
                     </div>
                     <div className="shrink-0 text-right">
                       <p className={cn("text-[13px] font-bold tabular-nums", urgent ? "text-rose-600" : "text-amber-600")}>
                         {d < 0 ? "ED" : `${d} hr`}
                       </p>
-                      <p className="text-[10px] text-slate-400">{b.qty} {it.satuan}</p>
+                      <p className="text-[10px] text-slate-400">{b.qty} {b.satuan}</p>
                     </div>
                   </li>
                 );
@@ -173,37 +158,44 @@ export default function InventoryBeranda() {
 
         {/* Recent movements */}
         <SectionCard title="Pergerakan Terkini" desc="Mutasi stok terbaru" bodyClassName="overflow-y-auto">
-          <ul className="divide-y divide-slate-100">
-            {recent.map((m) => {
-              const it = itemById(m.itemId)!;
-              const cfg = MOVEMENT_CFG[m.jenis];
-              return (
-                <li key={m.id} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold", cfg.bg, cfg.text)}>
-                    {cfg.sign}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-semibold text-slate-800">{it.nama}</p>
-                    <p className="truncate text-[11px] text-slate-400">
-                      {cfg.label} · {m.refNo ?? "—"}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-[13px] font-bold tabular-nums text-slate-800">{cfg.sign}{m.qty}</p>
-                    <p className="text-[10px] text-slate-400">{timeShort(m.waktu)}</p>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+          {loading ? <Loading /> : !data || data.recent.length === 0 ? (
+            <EmptyState icon={Boxes} title="Belum ada pergerakan" />
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {data.recent.map((m) => {
+                const cfg = MOVEMENT_CFG[m.jenis];
+                return (
+                  <li key={m.id} className="flex items-center gap-3 px-4 py-2.5">
+                    <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold", cfg.bg, cfg.text)}>
+                      {cfg.sign}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-semibold text-slate-800">{m.nama}</p>
+                      <p className="truncate text-[11px] text-slate-400">
+                        {cfg.label} · {m.refNo ?? "—"}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-[13px] font-bold tabular-nums text-slate-800">{cfg.sign}{m.qty}</p>
+                      <p className="text-[10px] text-slate-400">{timeShort(m.waktu)}</p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </SectionCard>
       </div>
     </InvShell>
   );
 }
 
-function rank(s: string): number {
-  return s === "Habis" ? 0 : s === "Kritis" ? 1 : 2;
+function Loading() {
+  return (
+    <div className="flex h-full items-center justify-center gap-2 py-8 text-slate-400">
+      <Loader2 size={15} className="animate-spin text-cyan-500" /><span className="text-[12px]">Memuat…</span>
+    </div>
+  );
 }
 function timeShort(iso: string): string {
   const d = new Date(iso);
