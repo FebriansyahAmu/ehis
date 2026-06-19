@@ -1,0 +1,91 @@
+/**
+ * Seed Katalog BMHP/BHP — data otoritatif awal untuk DB `master.bmhp`.
+ *
+ * Dikonsumsi HANYA oleh prisma/scripts/seed-bmhp.mts (bukan runtime aplikasi).
+ * Aplikasi membaca BMHP dari DB via API (`@/lib/api/master/bmhp`). File ini =
+ * "rumah" data (dulu BMHP_MOCK), dipisah agar mock runtime bisa dihapus.
+ *
+ * - `id` = seedKey (bhp-xxx) → di-remap ke UUID saat seed.
+ * - `kode` TIDAK di-seed — auto-generate `BHP-<YYMM><NNN>` oleh seed script + Service.
+ */
+
+import type { BmhpRecord } from "./bmhpMock";
+
+export type BmhpSeedRecord = Omit<BmhpRecord, "kode">;
+
+export const BMHP_SEED: BmhpSeedRecord[] = [
+  { id: "bhp-spuit3", nama: "Spuit 3 cc", merek: "Terumo", pabrik: "Terumo Indonesia",
+    kategori: "Alat Suntik & Infus", ukuran: "3 cc", satuan: "Pcs", isiPerKemasan: 100,
+    isSteril: true, isSingleUse: true, isImplan: false, kelasRisiko: "B", isFormularium: true,
+    nomorIzinEdar: "AKL 20901234567", kodeEKatalog: "EK-INJ-0003", hargaSatuan: 1800, hpp: 1200, het: 2200,
+    bpjsCoverage: true, status: "Aktif" },
+  { id: "bhp-spuit5", nama: "Spuit 5 cc", merek: "Terumo", pabrik: "Terumo Indonesia",
+    kategori: "Alat Suntik & Infus", ukuran: "5 cc", satuan: "Pcs", isiPerKemasan: 100,
+    isSteril: true, isSingleUse: true, isImplan: false, kelasRisiko: "B", isFormularium: true,
+    nomorIzinEdar: "AKL 20901234568", hargaSatuan: 2200, hpp: 1500, bpjsCoverage: true, status: "Aktif" },
+  { id: "bhp-ivcath", nama: "IV Catheter No. 20", merek: "Abbocath", pabrik: "B. Braun",
+    kategori: "Kateter & Selang", ukuran: "No. 20 (Pink)", satuan: "Pcs", isiPerKemasan: 50,
+    isSteril: true, isSingleUse: true, isImplan: false, kelasRisiko: "C", isFormularium: true,
+    nomorIzinEdar: "AKD 10403211234", kodeEKatalog: "EK-KAT-0020", hargaSatuan: 8500, hpp: 6000, het: 11000,
+    bpjsCoverage: true, status: "Aktif" },
+  { id: "bhp-infusset", nama: "Infus Set Makro", merek: "Otsuka", pabrik: "Otsuka Indonesia",
+    kategori: "Alat Suntik & Infus", ukuran: "20 dpm", satuan: "Set", isiPerKemasan: 1,
+    isSteril: true, isSingleUse: true, isImplan: false, kelasRisiko: "C", isFormularium: true,
+    nomorIzinEdar: "AKL 20902341111", hargaSatuan: 6500, hpp: 4500, bpjsCoverage: true, status: "Aktif" },
+  { id: "bhp-glovsteril", nama: "Sarung Tangan Steril No. 7", merek: "Sensi", pabrik: "Sensi Gloves",
+    kategori: "Sarung Tangan", ukuran: "No. 7", satuan: "Pasang", isiPerKemasan: 50,
+    isSteril: true, isSingleUse: true, isImplan: false, kelasRisiko: "B", isFormularium: true,
+    nomorIzinEdar: "AKL 20503210099", hargaSatuan: 3500, hpp: 2400, bpjsCoverage: true, status: "Aktif" },
+  { id: "bhp-handscoon", nama: "Handscoon Non-Steril M", merek: "Sensi", pabrik: "Sensi Gloves",
+    kategori: "Sarung Tangan", ukuran: "M", satuan: "Box", isiPerKemasan: 100,
+    isSteril: false, isSingleUse: true, isImplan: false, kelasRisiko: "A", isFormularium: true,
+    nomorIzinEdar: "AKL 20503210100", hargaSatuan: 65000, hpp: 48000, bpjsCoverage: false, status: "Aktif" },
+  { id: "bhp-kasa", nama: "Kasa Steril 16x16", merek: "OneMed", pabrik: "Jayamas Medica",
+    kategori: "Kasa & Pembalut", ukuran: "16x16 cm", satuan: "Lembar", isiPerKemasan: 30,
+    isSteril: true, isSingleUse: true, isImplan: false, kelasRisiko: "A", isFormularium: true,
+    nomorIzinEdar: "AKL 20301230055", hargaSatuan: 1200, hpp: 800, bpjsCoverage: true, status: "Aktif" },
+  { id: "bhp-perban", nama: "Perban Elastis 4 inch", merek: "OneMed", pabrik: "Jayamas Medica",
+    kategori: "Kasa & Pembalut", ukuran: "4 inch", satuan: "Rol", isiPerKemasan: 12,
+    isSteril: false, isSingleUse: false, isImplan: false, kelasRisiko: "A", isFormularium: true,
+    hargaSatuan: 7500, hpp: 5000, bpjsCoverage: false, status: "Aktif" },
+  { id: "bhp-masker", nama: "Masker Bedah 3-Ply", merek: "Sensi", pabrik: "Sensi",
+    kategori: "APD", ukuran: "Earloop", satuan: "Box", isiPerKemasan: 50,
+    isSteril: false, isSingleUse: true, isImplan: false, kelasRisiko: "A", isFormularium: true,
+    nomorIzinEdar: "AKD 20601239988", hargaSatuan: 35000, hpp: 25000, bpjsCoverage: false, status: "Aktif" },
+  { id: "bhp-alkoholswab", nama: "Alkohol Swab", merek: "OneMed", pabrik: "Jayamas Medica",
+    kategori: "Antiseptik & Desinfektan", ukuran: "70% IPA", satuan: "Sachet", isiPerKemasan: 100,
+    isSteril: true, isSingleUse: true, isImplan: false, kelasRisiko: "A", isFormularium: true,
+    hargaSatuan: 350, hpp: 200, bpjsCoverage: true, status: "Aktif" },
+  { id: "bhp-povidone", nama: "Povidone Iodine 10% 60 ml", merek: "Betadine", pabrik: "Mundipharma",
+    kategori: "Antiseptik & Desinfektan", ukuran: "60 ml", satuan: "Botol", isiPerKemasan: 1,
+    isSteril: false, isSingleUse: false, isImplan: false, kelasRisiko: "A", isFormularium: true,
+    nomorIzinEdar: "AKL 20401231122", hargaSatuan: 18500, hpp: 13000, bpjsCoverage: false, status: "Aktif" },
+  { id: "bhp-folley", nama: "Folley Catheter No. 16", merek: "Rusch", pabrik: "Teleflex",
+    kategori: "Kateter & Selang", ukuran: "Fr 16", satuan: "Pcs", isiPerKemasan: 10,
+    isSteril: true, isSingleUse: true, isImplan: false, kelasRisiko: "C", isFormularium: true,
+    nomorIzinEdar: "AKD 10403219999", hargaSatuan: 14000, hpp: 9500, bpjsCoverage: true, status: "Aktif" },
+  { id: "bhp-ngt", nama: "NGT (Selang Lambung) No. 16", merek: "Terumo", pabrik: "Terumo",
+    kategori: "Kateter & Selang", ukuran: "Fr 16", satuan: "Pcs", isiPerKemasan: 10,
+    isSteril: true, isSingleUse: true, isImplan: false, kelasRisiko: "B", isFormularium: true,
+    hargaSatuan: 9500, hpp: 6500, bpjsCoverage: true, status: "Aktif" },
+  { id: "bhp-silk", nama: "Benang Silk 3-0", merek: "Ethicon", pabrik: "Johnson & Johnson",
+    kategori: "Jarum & Benang Bedah", ukuran: "3-0", satuan: "Pcs", isiPerKemasan: 12,
+    isSteril: true, isSingleUse: true, isImplan: false, kelasRisiko: "C", isFormularium: true,
+    nomorIzinEdar: "AKD 10503217766", hargaSatuan: 22000, hpp: 16000, bpjsCoverage: true, status: "Aktif" },
+  { id: "bhp-urinebag", nama: "Urine Bag 2000 ml", merek: "OneMed", pabrik: "Jayamas Medica",
+    kategori: "Kateter & Selang", ukuran: "2000 ml", satuan: "Pcs", isiPerKemasan: 1,
+    isSteril: false, isSingleUse: true, isImplan: false, kelasRisiko: "B", isFormularium: true,
+    hargaSatuan: 6500, hpp: 4200, bpjsCoverage: true, status: "Aktif" },
+  { id: "bhp-elektroda", nama: "Elektroda EKG Sekali Pakai", merek: "Skintact", pabrik: "Leonhard Lang",
+    kategori: "Alat Diagnostik Habis Pakai", ukuran: "Dewasa", satuan: "Pcs", isiPerKemasan: 50,
+    isSteril: false, isSingleUse: true, isImplan: false, kelasRisiko: "A", isFormularium: true,
+    hargaSatuan: 1500, hpp: 950, bpjsCoverage: false, status: "Aktif" },
+  { id: "bhp-hypafix", nama: "Plester Hypafix 10 cm", merek: "BSN Medical", pabrik: "Essity",
+    kategori: "Kasa & Pembalut", ukuran: "10 cm x 10 m", satuan: "Rol", isiPerKemasan: 1,
+    isSteril: false, isSingleUse: false, isImplan: false, kelasRisiko: "A", isFormularium: false,
+    hargaSatuan: 42000, hpp: 31000, bpjsCoverage: false, status: "Aktif" },
+  { id: "bhp-gown", nama: "Gown / Apron Sekali Pakai", merek: "Sensi", pabrik: "Sensi",
+    kategori: "APD", ukuran: "All-size", satuan: "Pcs", isiPerKemasan: 10,
+    isSteril: false, isSingleUse: true, isImplan: false, kelasRisiko: "A", isFormularium: false,
+    hargaSatuan: 8500, hpp: 6000, bpjsCoverage: false, status: "Non_Aktif" },
+];

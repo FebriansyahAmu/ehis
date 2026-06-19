@@ -14,6 +14,7 @@ import {
   Stethoscope,
   BedDouble,
   Pill,
+  Syringe,
   FlaskConical,
   Radiation,
   Users,
@@ -299,6 +300,7 @@ export const masterNav: readonly NavGroup[] = [
     label: "Katalog Klinis",
     items: [
       { label: "Katalog Obat", href: "/ehis-master/katalog-obat", icon: Pill, perm: "master.katalog" },
+      { label: "Katalog BMHP/BHP", href: "/ehis-master/katalog-bmhp", icon: Syringe, perm: "master.katalog" },
       { label: "Katalog Tindakan", href: "/ehis-master/katalog-tindakan", icon: Zap, perm: "master.katalog" },
       { label: "Katalog Laboratorium", href: "/ehis-master/katalog-lab", icon: TestTube, perm: "master.katalog" },
       { label: "Katalog Radiologi", href: "/ehis-master/katalog-radiologi", icon: Radiation, perm: "master.katalog" },

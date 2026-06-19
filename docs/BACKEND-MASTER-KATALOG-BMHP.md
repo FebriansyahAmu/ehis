@@ -6,7 +6,9 @@
 > [BACKEND-MASTER-KATALOG-KLINIS.md §C.1](BACKEND-MASTER-KATALOG-KLINIS.md) (Katalog Obat) ·
 > kontrak [API-RULES.md](API-RULES.md) (menang: [BACKEND-FLOWS.md](BACKEND-FLOWS.md)).
 >
-> **Status:** 📋 Planned — spec + checklist siap kerja. Belum ada kode.
+> **Status:** ✅ **SELESAI (FE + Backend, 2026-06-19)** — `/ehis-master/katalog-bmhp` wired penuh ke DB
+> `master.bmhp` (CRUD layered, gate `master.katalog`, kode auto `BHP-<YYMM><NNN>`, leaf soft-delete, SSR-hybrid).
+> Accent **teal**, ikon **Syringe**, 3 tab, DiscardDialog. **18 item ter-seed** (`BHP-2606001..018`). TSC bersih.
 
 ---
 
@@ -217,19 +219,25 @@ function formatBmhpKode(periode: string, seq: number) { return `BHP-${periode}${
 
 ## 9. Checklist / Definition of Done
 
-- [ ] `prisma/schema/bmhp.prisma` — model `Bmhp` + `BmhpCounter` (§2).
-- [ ] Migration `init_master_bmhp` + apply (drift-safe) + `generate` (§7).
-- [ ] `src/lib/master/bmhpMock.ts` (`BmhpRecord` + enum config) + `bmhpSeed.ts` (`BMHP_SEED`).
-- [ ] Schema `lib/schemas/master/bmhp.ts` (Zod + `BmhpDTO`).
-- [ ] DAL `lib/dal/master/bmhpDal.ts` (+ `nextBmhpSeq`).
-- [ ] Service `lib/services/master/bmhpService.ts` (kode auto `BHP-<YYMM><NNN>`, leaf, soft-delete, list actor-less).
-- [ ] Routes `app/api/v1/master/bmhp/route.ts` + `[id]/route.ts` (gate `master.katalog`).
-- [ ] Client `lib/api/master/bmhp.ts`.
-- [ ] FE page `/ehis-master/katalog-bmhp` + komponen + tabs + **DiscardDialog** + kode read-only.
-- [ ] Nav item "Katalog BMHP/BHP" (perm `master.katalog`).
-- [ ] Seed `prisma/scripts/seed-bmhp.mts` + jalankan (≥20 item).
-- [ ] `npx tsc --noEmit` bersih + eslint.
-- [ ] Docs: tambah baris BMHP di [BACKEND-MASTER-KATALOG-KLINIS §0](BACKEND-MASTER-KATALOG-KLINIS.md) + update [CLAUDE.md](../CLAUDE.md) Module Map; arsip ke [.claude/DONE.md](../.claude/DONE.md).
+### FE (mock-first) — ✅ SELESAI 2026-06-19
+- [x] `src/lib/master/bmhpMock.ts` — `BmhpRecord` + union enum (kategori/satuan/kelas-risiko/status) + config map + helper + **`BMHP_MOCK` (18 seed FE)**. *(Seed FE in-file sebagai `BMHP_MOCK`; `bmhpSeed.ts` untuk DB = saat backend.)*
+- [x] `katalogBmhpShared.ts` — tab registry **3 tab** (Identitas · Klasifikasi · Harga) + completeness + `fmtIDR`/`calcMargin` + `bmhpInitials`.
+- [x] FE page `/ehis-master/katalog-bmhp` + `KatalogBmhpPage`/`BmhpList`/`BmhpDetail`/`BmhpEmptyState` + tabs + **DiscardDialog** + kode **tidak di-input** (auto). Accent **teal**, ikon **Syringe**.
+- [x] Nav item "Katalog BMHP/BHP" (perm `master.katalog`, ikon `Syringe`) setelah Katalog Obat.
+- [x] `npx tsc --noEmit` bersih + eslint bersih (file BMHP).
+
+### Backend — ✅ SELESAI 2026-06-19
+- [x] `prisma/schema/bmhp.prisma` — model `Bmhp` + `BmhpCounter` (§2; +kolom `kfa` JSONB disiapkan, ditunda).
+- [x] Migration `20260619140000_init_master_bmhp` + apply drift-safe (`apply-bmhp.mjs` → `migrate resolve --applied` → `generate`).
+- [x] `bmhpSeed.ts` (`BMHP_SEED`, 18 item) — data dipisah dari `bmhpMock.ts` (pola obatSeed); `BMHP_MOCK` dihapus.
+- [x] Schema `lib/schemas/master/bmhp.ts` (Zod + `BmhpDTO = BmhpRecord`).
+- [x] DAL `lib/dal/master/bmhpDal.ts` (+ `nextBmhpSeq` counter atomik).
+- [x] Service `lib/services/master/bmhpService.ts` (kode auto `BHP-<YYMM><NNN>`, leaf, soft-delete, list actor-less).
+- [x] Routes `app/api/v1/master/bmhp/route.ts` + `[id]/route.ts` (gate `master.katalog`).
+- [x] Client `lib/api/master/bmhp.ts` + **swap `KatalogBmhpPage` mock→API** (SSR-hybrid + createBmhp/updateBmhp/deleteBmhp) + `page.tsx` panggil `bmhpService.list()`.
+- [x] Seed `prisma/scripts/seed-bmhp.mts` dijalankan → **18 item `BHP-2606001..018` · counter[2606]=18**.
+- [x] `npx tsc --noEmit` bersih (eslint: hanya warning `_actor` konvensi, identik obatService).
+- [ ] Docs: arsip ke [.claude/DONE.md](../.claude/DONE.md) + CLAUDE.md Module Map (opsional).
 
 **DoD per endpoint** → [BACKEND-FLOWS §18](BACKEND-FLOWS.md). **Cara nulis endpoint** → [API-RULES §7](API-RULES.md).
 

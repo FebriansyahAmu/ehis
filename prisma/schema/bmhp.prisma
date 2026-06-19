@@ -1,0 +1,74 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Katalog BMHP-BHP  (Postgres schema "master")
+//  FE: /ehis-master/katalog-bmhp · Tipe/config FE: src/lib/master/bmhpMock.ts
+//  (BmhpRecord) + src/lib/master/bmhpSeed.ts (data seed).
+//
+//  Katalog Bahan Medis Habis Pakai (⊇ BHP) — TERPISAH dari Obat (beda field set,
+//  konsumen, regulasi). Identitas, klasifikasi alkes (steril/single-use/implan/
+//  kelas risiko), regulasi izin edar (AKL/AKD) + e-Katalog LKPP, dan harga.
+//  Pemetaan KFA Alkes (FHIR SatuSehat) = kolom JSONB `kfa` DISIAPKAN tapi DITUNDA
+//  (Phase later — butuh sumber KFA v2 Alkes).
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz · soft-delete. Katalog leaf →
+//  TANPA optimistic-version (analog Obat/Tindakan/LabTest). Enum FE-facing
+//  (kategori/satuan/kelasRisiko/status) = TEXT pass-through (validasi di Zod).
+//  Harga = Int rupiah. Leaf mandiri → tanpa FK lintas-schema.
+// ════════════════════════════════════════════════════════════════════════════
+
+model Bmhp {
+  id   String @id @default(uuid(7)) @db.Uuid
+  kode String @default("") // auto BHP-<YYMM><NNN> (immutable, di-set Service)
+
+  // ── Identitas ──
+  nama          String
+  merek         String?
+  pabrik        String?
+  kategori      String // FE union: "Alat Suntik & Infus" | "Sarung Tangan" | ...
+  ukuran        String? // "3 cc" | "No. 7" | "Fr 16" | "16x16 cm"
+  satuan        String // FE union: "Pcs" | "Set" | "Box" | ...
+  isiPerKemasan Int?   @map("isi_per_kemasan")
+
+  // ── Klasifikasi alkes ──
+  isSteril      Boolean @default(false) @map("is_steril")
+  isSingleUse   Boolean @default(true) @map("is_single_use")
+  isImplan      Boolean @default(false) @map("is_implan")
+  kelasRisiko   String? @map("kelas_risiko") // Alkes class A|B|C|D (Permenkes 62/2017)
+  isFormularium Boolean @default(false) @map("is_formularium")
+
+  // ── Regulasi ──
+  nomorIzinEdar String? @map("nomor_izin_edar") // AKL (dalam negeri) / AKD (impor)
+  kodeEKatalog  String? @map("kode_e_katalog") // LKPP e-katalog
+
+  // ── Harga & Coverage ──
+  hargaSatuan  Int     @default(0) @map("harga_satuan")
+  hpp          Int?
+  het          Int?
+  bpjsCoverage Boolean @default(false) @map("bpjs_coverage")
+
+  // ── KFA Alkes (FHIR SatuSehat) — blok JSONB, DITUNDA (Phase later) ──
+  /// { poaKode?, poaNama?, povKode?, povNama?, nie?, kelasKode?, kelasNama?, sumber?, mappedAt? }
+  kfa Json? @db.JsonB
+
+  // ── Meta ──
+  catatan   String?
+  status    String    @default("Aktif") // FE union: "Aktif" | "Non_Aktif" | "Discontinued"
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kategori, deletedAt]) // list/filter per kategori
+  @@index([kode])
+  @@map("bmhp")
+  @@schema("master")
+}
+
+// Counter kode BMHP (auto `BHP-<YYMM><NNN>`, reset per bulan WIB). Pola IDENTIK
+// master.ObatCounter / pendaftaran.rm_counter: upsert by PK `periode` → INSERT …
+// ON CONFLICT … RETURNING (1 round-trip, race-safe via lock baris implisit).
+model BmhpCounter {
+  periode String @id @db.Char(4) // "YYMM" zona WIB (mis. "2606")
+  lastSeq Int    @map("last_seq")
+
+  @@map("bmhp_counter")
+  @@schema("master")
+}
