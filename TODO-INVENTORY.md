@@ -5,8 +5,10 @@
 >
 > **Status:** 🚧 **FE SELESAI (mock-first, 2026-06-19)** — modul `/ehis-inventory` aktif: Beranda + 6 menu
 > (Daftar Barang · Stok Opname · Pengiriman · Rekanan · Monitoring · Distribusi), accent **cyan** (no purple),
-> SaaS interaktif (drawer/KPI/filter). Distribusi Obat di Mapping Hub dihapus. **Backend belum** (§8).
-> **Urutan kerja (diminta):** (1) **dokumen ini** ✅ → (2) **Frontend** ✅ → (3) Backend 📋.
+> SaaS interaktif (drawer/KPI/filter). Distribusi Obat di Mapping Hub dihapus.
+> **Backend 🚧** — **BE0 Foundation + BE0b RBAC ✅ (2026-06-19)**; roadmap & progress di
+> **[TODO-INVENTORY-BACKEND.md](TODO-INVENTORY-BACKEND.md)** (Fase BE0–BE8, swap FE mock → DB layered).
+> **Urutan kerja (diminta):** (1) **dokumen ini** ✅ → (2) **Frontend** ✅ → (3) Backend 🚧 ([roadmap](TODO-INVENTORY-BACKEND.md)).
 >
 > Referensi pola modul: [TODO-BILLING.md](TODO-BILLING.md) · [TODO-EKLAIM.md](TODO-EKLAIM.md) · registrasi modul di
 > [src/lib/navigation.ts](src/lib/navigation.ts) · RBAC tree [prisma/scripts/gen-rbac-seed.mjs](prisma/scripts/gen-rbac-seed.mjs) ·

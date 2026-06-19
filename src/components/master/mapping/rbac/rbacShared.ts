@@ -111,6 +111,19 @@ export const PERMISSION_TREE: PermissionModule[] = [
     ],
   },
   {
+    key: "inventory",
+    label: "Inventory (Logistik)",
+    leaves: [
+      { key: "inventory.view",        label: "Inventory — Akses Modul",       actions: ["read"] },
+      { key: "inventory.barang",      label: "Daftar Barang & Stok",          actions: ["read", "update"] }, // update = set min/max/ROP
+      { key: "inventory.opname",      label: "Stok Opname",                   actions: ["read", "create", "update"] },
+      { key: "inventory.pengiriman",  label: "Penerimaan & Transfer",         actions: ["read", "create", "update"] },
+      { key: "inventory.distribusi",  label: "Distribusi Unit",               actions: ["read", "create", "update"] },
+      { key: "inventory.monitoring",  label: "Monitoring Stok",               actions: ["read", "export"] },
+      { key: "inventory.rekanan",     label: "Rekanan (Vendor/PBF)",          actions: ["read", "create", "update", "delete"] },
+    ],
+  },
+  {
     key: "report",
     label: "Laporan & Analytics",
     leaves: [
@@ -219,6 +232,14 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
     "ancillary.farmasi.serah": ["read", "update"],
     "master.view": ["read"], // gate modul Master (kelola katalog)
     "master.katalog": ["read", "update"],
+    // Inventory/Logistik = tanggung jawab Apoteker sampai role Logistik dedikasi dibuat.
+    "inventory.view": ["read"],
+    "inventory.barang": ["read", "update"],
+    "inventory.opname": ["read", "create", "update"],
+    "inventory.pengiriman": ["read", "create", "update"],
+    "inventory.distribusi": ["read", "create", "update"],
+    "inventory.monitoring": ["read", "export"],
+    "inventory.rekanan": ["read", "create", "update", "delete"],
     "report.clinical": ["read"],
   },
   // Penunjang = unit berdiri-sendiri (Lab/Rad/Farmasi): akses MURNI via ancillary.* + halaman

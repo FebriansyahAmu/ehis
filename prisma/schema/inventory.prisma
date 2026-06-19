@@ -1,0 +1,376 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: INVENTORY / Logistik — Stok operasional  (Postgres schema "inventory")
+//  FE: /ehis-inventory · Tipe/mock FE: src/lib/inventory/inventoryMock.ts (1:1)
+//  Doc: TODO-INVENTORY.md · docs (Inventory) menyusul.
+//
+//  Layer STOK di atas master Obat+BMHP. Prinsip inti:
+//   • Movement-ledger = SUMBER KEBENARAN (StockMovement, append-only, immutable).
+//   • Saldo = PROYEKSI (StockBatch per batch + StockBalance rollup per item×lokasi),
+//     di-update transaksional bersama tiap movement → audit-able, anti-drift, rebuildable.
+//
+//  Referensi ke master = SOFT (cross-schema): item = (itemJenis, itemId) → katalog
+//  master.Obat / master.Bmhp; lokasi = locationId → master.Location. TANPA FK Prisma
+//  lintas-schema (divalidasi di Service), selaras konvensi encounter.BedAllocation.bedId.
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz · soft-delete dokumen · ledger immutable
+//  (tanpa version/deletedAt). Enum native per schema. Kode dok auto via InvCounter.
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── Enums ─────────────────────────────────────────────────────────────────---
+
+/// Jenis item — diskriminator referensi katalog (Obat → master.Obat, BMHP → master.Bmhp).
+enum ItemJenis {
+  Obat
+  BMHP
+
+  @@schema("inventory")
+}
+
+/// Jenis pergerakan stok (ledger). IN/OUT/TRANSFER qty positif; ADJUST/OPNAME qty = delta (±).
+enum MovementJenis {
+  IN
+  OUT
+  TRANSFER
+  ADJUST
+  OPNAME
+
+  @@schema("inventory")
+}
+
+/// Status dokumen transaksi (penerimaan/transfer/distribusi).
+enum DocStatus {
+  Draft
+  Diproses
+  Selesai
+  Dibatalkan
+
+  @@schema("inventory")
+}
+
+/// Status sesi stok opname (siklus hitung → posting).
+enum OpnameStatus {
+  Draft
+  Counting
+  Review
+  Posted
+
+  @@schema("inventory")
+}
+
+enum VendorJenis {
+  PBF
+  Distributor
+  Manufaktur
+
+  @@schema("inventory")
+}
+
+enum VendorStatus {
+  Aktif
+  Non_Aktif
+
+  @@schema("inventory")
+}
+
+// ── Counter kode dokumen (auto `<KIND>-<YYMM><NNN>`, reset per bulan WIB) ───────
+//  Pola identik master.*Counter. `kind` = prefix (GRN/TRF/DST/OPN); periode "YYMM" (WIB).
+//  Vendor (VND) global → periode = "GLOBAL".
+model InvCounter {
+  kind    String // GRN | TRF | DST | OPN | VND
+  periode String // "YYMM" WIB, atau "GLOBAL"
+  lastSeq Int    @map("last_seq")
+
+  @@id([kind, periode])
+  @@map("inv_counter")
+  @@schema("inventory")
+}
+
+// ── StockMovement — LEDGER (append-only, immutable, SUMBER KEBENARAN) ───────────
+model StockMovement {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  jenis     MovementJenis
+  itemJenis ItemJenis @map("item_jenis")
+  /// Katalog UUID (master.Obat.id / master.Bmhp.id) — soft ref.
+  itemId    String    @map("item_id") @db.Uuid
+
+  /// Lokasi asal (OUT/TRANSFER/ADJUST/OPNAME) & tujuan (IN/TRANSFER). Soft ref master.Location.
+  fromLocationId String? @map("from_location_id") @db.Uuid
+  toLocationId   String? @map("to_location_id") @db.Uuid
+
+  /// Batch terdampak (proyeksi). SetNull bila batch dihapus (jarang — batch tak di-hard-delete).
+  batchId String?     @map("batch_id") @db.Uuid
+  batch   StockBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  /// Magnitudo (IN/OUT/TRANSFER positif) atau delta bertanda (ADJUST/OPNAME). Selalu dalam satuan dasar.
+  qty Int
+
+  // Jejak dokumen sumber (idempotency + telusur).
+  refType String? @map("ref_type") // GRN | TRF | DST | OPN
+  refNo   String? @map("ref_no")
+  refId   String? @map("ref_id") @db.Uuid
+  alasan  String?
+
+  // Aktor (snapshot nama + id).
+  petugas String
+  actorId String? @map("actor_id") @db.Uuid
+
+  /// Waktu kejadian (= `waktu` di FE). Immutable.
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([itemJenis, itemId])
+  @@index([fromLocationId])
+  @@index([toLocationId])
+  @@index([refType, refNo])
+  @@index([createdAt, id]) // riwayat terbaru + cursor
+  @@map("stock_movement")
+  @@schema("inventory")
+}
+
+// ── StockBatch — saldo PER BATCH (proyeksi; unit terkecil FEFO/ED) ──────────────
+model StockBatch {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  itemJenis  ItemJenis @map("item_jenis")
+  itemId     String    @map("item_id") @db.Uuid
+  locationId String    @map("location_id") @db.Uuid
+
+  batchNo    String    @map("batch_no")
+  /// Kadaluwarsa (nullable — item non-ED pakai batch implisit).
+  expiryDate DateTime? @map("expiry_date") @db.Date
+
+  qtyOnHand   Int @default(0) @map("qty_on_hand")
+  qtyReserved Int @default(0) @map("qty_reserved")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  movements StockMovement[]
+
+  @@unique([locationId, itemJenis, itemId, batchNo])
+  @@index([itemJenis, itemId])
+  @@index([locationId])
+  @@index([expiryDate])
+  @@map("stock_batch")
+  @@schema("inventory")
+}
+
+// ── StockBalance — rollup per item×lokasi + kebijakan reorder (proyeksi) ────────
+model StockBalance {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  itemJenis  ItemJenis @map("item_jenis")
+  itemId     String    @map("item_id") @db.Uuid
+  locationId String    @map("location_id") @db.Uuid
+
+  qtyOnHand   Int @default(0) @map("qty_on_hand")   // = Σ StockBatch.qtyOnHand
+  qtyReserved Int @default(0) @map("qty_reserved")
+
+  // Kebijakan stok (parameter inventory, BUKAN properti katalog).
+  min          Int @default(0)
+  max          Int @default(0)
+  reorderPoint Int @default(0) @map("reorder_point")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([locationId, itemJenis, itemId])
+  @@index([itemJenis, itemId])
+  @@map("stock_balance")
+  @@schema("inventory")
+}
+
+// ── Vendor (Rekanan) ────────────────────────────────────────────────────────--
+model Vendor {
+  id   String @id @default(uuid(7)) @db.Uuid
+  kode String @default("") // auto VND-<NNN> (global)
+
+  nama         String
+  jenis        VendorJenis
+  izinPbf      String?      @map("izin_pbf")
+  kontakNama   String       @map("kontak_nama")
+  telp         String
+  email        String?
+  alamat       String
+  leadTimeHari Int          @default(0) @map("lead_time_hari")
+  status       VendorStatus @default(Aktif)
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  receipts GoodsReceipt[]
+
+  @@index([status])
+  @@map("vendor")
+  @@schema("inventory")
+}
+
+// ── GoodsReceipt (Penerimaan) — posting → movement IN + StockBatch ──────────────
+model GoodsReceipt {
+  id        String @id @default(uuid(7)) @db.Uuid
+  noDokumen String @unique @map("no_dokumen") // GRN-<YYMM><NNN>
+
+  tanggal      DateTime @db.Date
+  vendorId     String   @map("vendor_id") @db.Uuid
+  vendor       Vendor   @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  noSuratJalan String?  @map("no_surat_jalan")
+  noPo         String?  @map("no_po")
+  /// Lokasi tujuan penerimaan (soft ref master.Location).
+  toLocationId String   @map("to_location_id") @db.Uuid
+
+  status   DocStatus @default(Draft)
+  petugas  String
+  actorId  String?   @map("actor_id") @db.Uuid
+  postedAt DateTime? @map("posted_at") @db.Timestamptz(3)
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  items GoodsReceiptItem[]
+
+  @@index([status, tanggal])
+  @@index([vendorId])
+  @@map("goods_receipt")
+  @@schema("inventory")
+}
+
+model GoodsReceiptItem {
+  id        String       @id @default(uuid(7)) @db.Uuid
+  receiptId String       @map("receipt_id") @db.Uuid
+  receipt   GoodsReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+
+  itemJenis  ItemJenis @map("item_jenis")
+  itemId     String    @map("item_id") @db.Uuid
+  batchNo    String    @map("batch_no")
+  expiryDate DateTime? @map("expiry_date") @db.Date
+  qty        Int
+  hargaBeli  Int       @default(0) @map("harga_beli")
+
+  @@index([receiptId])
+  @@map("goods_receipt_item")
+  @@schema("inventory")
+}
+
+// ── StockTransfer (Transfer antar lokasi) — posting → movement TRANSFER ─────────
+model StockTransfer {
+  id        String @id @default(uuid(7)) @db.Uuid
+  noDokumen String @unique @map("no_dokumen") // TRF-<YYMM><NNN>
+
+  tanggal        DateTime @db.Date
+  fromLocationId String   @map("from_location_id") @db.Uuid
+  toLocationId   String   @map("to_location_id") @db.Uuid
+
+  status   DocStatus @default(Draft)
+  petugas  String
+  actorId  String?   @map("actor_id") @db.Uuid
+  postedAt DateTime? @map("posted_at") @db.Timestamptz(3)
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  items StockTransferItem[]
+
+  @@index([status, tanggal])
+  @@map("stock_transfer")
+  @@schema("inventory")
+}
+
+model StockTransferItem {
+  id         String        @id @default(uuid(7)) @db.Uuid
+  transferId String        @map("transfer_id") @db.Uuid
+  transfer   StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+
+  itemJenis ItemJenis @map("item_jenis")
+  itemId    String    @map("item_id") @db.Uuid
+  batchNo   String?   @map("batch_no") // null = auto FEFO saat posting
+  qty       Int
+
+  @@index([transferId])
+  @@map("stock_transfer_item")
+  @@schema("inventory")
+}
+
+// ── DistribusiRequest (permintaan unit) — fulfill → movement OUT/TRANSFER ────────
+model DistribusiRequest {
+  id        String @id @default(uuid(7)) @db.Uuid
+  noDokumen String @unique @map("no_dokumen") // DST-<YYMM><NNN>
+
+  tanggal        DateTime @db.Date
+  /// Sumber (gudang/depo) & unit tujuan (soft ref master.Location).
+  fromLocationId String   @map("from_location_id") @db.Uuid
+  toLocationId   String   @map("to_location_id") @db.Uuid
+
+  status  DocStatus @default(Draft)
+  pemohon String
+  petugas String?
+  actorId String?   @map("actor_id") @db.Uuid
+  postedAt DateTime? @map("posted_at") @db.Timestamptz(3)
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  items DistribusiItem[]
+
+  @@index([status, tanggal])
+  @@map("distribusi_request")
+  @@schema("inventory")
+}
+
+model DistribusiItem {
+  id        String            @id @default(uuid(7)) @db.Uuid
+  requestId String            @map("request_id") @db.Uuid
+  request   DistribusiRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  itemJenis ItemJenis @map("item_jenis")
+  itemId    String    @map("item_id") @db.Uuid
+  qtyMinta  Int       @map("qty_minta")
+  qtyKeluar Int       @default(0) @map("qty_keluar")
+
+  @@index([requestId])
+  @@map("distribusi_item")
+  @@schema("inventory")
+}
+
+// ── OpnameSession (stok opname) — posting → movement ADJUST per selisih ──────────
+model OpnameSession {
+  id        String @id @default(uuid(7)) @db.Uuid
+  noDokumen String @unique @map("no_dokumen") // OPN-<YYMM><NNN>
+
+  tanggal    DateTime @db.Date
+  locationId String   @map("location_id") @db.Uuid
+
+  status   OpnameStatus @default(Draft)
+  petugas  String
+  actorId  String?      @map("actor_id") @db.Uuid
+  postedAt DateTime?    @map("posted_at") @db.Timestamptz(3)
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  items OpnameItem[]
+
+  @@index([status, tanggal])
+  @@map("opname_session")
+  @@schema("inventory")
+}
+
+model OpnameItem {
+  id        String        @id @default(uuid(7)) @db.Uuid
+  sessionId String        @map("session_id") @db.Uuid
+  session   OpnameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  itemJenis ItemJenis @map("item_jenis")
+  itemId    String    @map("item_id") @db.Uuid
+  qtySistem Int       @map("qty_sistem")
+  qtyFisik  Int?      @map("qty_fisik") // null = belum dihitung
+  alasan    String?
+
+  @@index([sessionId])
+  @@map("opname_item")
+  @@schema("inventory")
+}
