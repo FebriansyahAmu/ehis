@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   Search,
   Plus,
@@ -31,6 +31,7 @@ import {
   OBAT_CATALOG, SIGNA_OPTIONS, ATURAN_WAKTU, RUTE_OPTIONS, DEPO_OPTIONS,
   KATEGORI_BADGE, HAM_BADGE, type ObatCatalog, obatTersediaToCatalog,
   getAlergiObatRefs, matchAlergiObatRef, mergeAlergiRefs, type AlergiObatRef, KONDISI_KLINIS_DEFAULT, type KondisiKlinis,
+  applyStokDepo, STOK_TEXT, stokLabel,
 } from "@/components/shared/resep/resepShared";
 import { Select } from "@/components/shared/inputs/Select";
 import {
@@ -40,6 +41,7 @@ import { getAlergi } from "@/lib/api/asesmenMedis/asesmenAlergi";
 import { createResep } from "@/lib/api/resep/resep";
 import { listLokasiFarmasi, type LokasiFarmasi } from "@/lib/api/master/lokasiFarmasi";
 import { listObatTersedia } from "@/lib/api/master/obatTersedia";
+import { listStokKlinis, type StokKlinisRow } from "@/lib/api/inventory/stock";
 import { useSession } from "@/contexts/SessionContext";
 import ResepCetakModal from "@/components/shared/resep/ResepCetakModal";
 import type { ResepCetakData } from "@/components/shared/resep/ResepCetakTemplate";
@@ -395,7 +397,11 @@ function ObatSearch({
                 >
                   {obat.kategori}
                 </span>
-                {showStock && (
+                {obat.stokStatus ? (
+                  <span className={cn("text-[10px] font-medium", STOK_TEXT[obat.stokStatus])}>
+                    {stokLabel(obat.stokStatus, obat.stok)}
+                  </span>
+                ) : showStock ? (
                   <span
                     className={cn(
                       "text-[10px] font-medium",
@@ -404,7 +410,7 @@ function ObatSearch({
                   >
                     {obat.stok > 0 ? `Stok: ${obat.stok}` : "Habis"}
                   </span>
-                )}
+                ) : null}
               </div>
             </button>
           ))}
@@ -1005,7 +1011,23 @@ export default function ResepPasienTab({
       .catch(() => {});
     return () => ac.abort();
   }, []);
-  const obatSource = obatKatalog.length ? obatKatalog : OBAT_CATALOG;
+  // Overlay stok ADVISORY: saldo Obat di depo terpilih (tidak memfilter/menggagalkan peresepan).
+  // Penjaga stok sesungguhnya ada di dispensing Farmasi (movement OUT anti-negatif).
+  const depoId = useMemo(() => lokasiFarmasi.find((l) => l.nama === depo)?.id ?? null, [lokasiFarmasi, depo]);
+  const [stokDepo, setStokDepo] = useState<{ depoId: string; map: Map<string, StokKlinisRow> } | null>(null);
+  useEffect(() => {
+    if (!depoId) return;
+    const ac = new AbortController();
+    listStokKlinis(depoId, ac.signal)
+      .then((rows) => { if (!ac.signal.aborted) setStokDepo({ depoId, map: new Map(rows.map((r) => [r.itemId, r])) }); })
+      .catch(() => {}); // diam — stok hanya advisory, kegagalan tak menghalangi resep
+    return () => ac.abort();
+  }, [depoId]);
+
+  const obatSource = useMemo(() => {
+    const base = obatKatalog.length ? obatKatalog : OBAT_CATALOG;
+    return depoId && stokDepo?.depoId === depoId ? applyStokDepo(base, stokDepo.map) : base;
+  }, [obatKatalog, stokDepo, depoId]);
 
   // Tarik alergi NYATA pasien dari rekam medis (Asesmen Medis → Alergi) bila kunjungan terpersist.
   // (Pasien demo non-UUID → lewati; state awal sudah []; halaman remount per pasien.)

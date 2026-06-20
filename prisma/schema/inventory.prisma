@@ -53,6 +53,7 @@ enum OpnameStatus {
   Counting
   Review
   Posted
+  Dibatalkan
 
   @@schema("inventory")
 }

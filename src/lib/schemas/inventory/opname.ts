@@ -24,7 +24,7 @@ export type SaveOpnameCountsInput = z.infer<typeof SaveOpnameCountsInput>;
 
 export const OpnameQuery = z.object({
   q: z.string().trim().optional(),
-  status: z.enum(["Semua", "Draft", "Counting", "Review", "Posted"]).optional(),
+  status: z.enum(["Semua", "Draft", "Counting", "Review", "Posted", "Dibatalkan"]).optional(),
   locationId: z.string().uuid().optional(),
   cursor: z.string().uuid().optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
@@ -35,7 +35,7 @@ export const IdParam = z.object({ id: z.string().uuid("ID tidak valid") });
 export type IdParam = z.infer<typeof IdParam>;
 
 // ── DTO (response) — diperkaya nama ──
-export type OpnameStatus = "Draft" | "Counting" | "Review" | "Posted";
+export type OpnameStatus = "Draft" | "Counting" | "Review" | "Posted" | "Dibatalkan";
 
 export interface OpnameLineDTO {
   id: string;

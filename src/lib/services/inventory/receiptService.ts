@@ -20,6 +20,15 @@ function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Batch key bila No. Batch tak diisi:
+ *  - ED ada  → turunkan dari ED (kelompokkan per kadaluwarsa, FEFO tetap akurat)
+ *  - ED kosong → pool "UMUM" (barang tanpa batch & tanpa ED, ED batch = null)
+ */
+function defaultBatch(ed?: string): string {
+  return ed ? `ED-${ed.replaceAll("-", "")}` : "UMUM";
+}
+
 /** Enrich banyak receipt → DTO (batch-fetch nama vendor/lokasi/item). */
 async function enrichMany(rows: ReceiptEntity[]): Promise<GoodsReceiptDTO[]> {
   const vendorIds = [...new Set(rows.map((r) => r.vendorId))];
@@ -102,7 +111,7 @@ export function makeReceiptService() {
       const lines = input.lines.map((l) => ({
         itemJenis: l.itemJenis,
         itemId: l.itemId,
-        batchNo: l.batchNo,
+        batchNo: l.batchNo ?? defaultBatch(l.expiryDate),
         expiryDate: l.expiryDate ? new Date(l.expiryDate) : null,
         qty: l.qty,
         hargaBeli: l.hargaBeli ?? 0,

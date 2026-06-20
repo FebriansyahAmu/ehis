@@ -3,7 +3,7 @@
 
 import { db, type Tx } from "@/lib/db/prisma";
 
-export type OpnameStatus = "Draft" | "Counting" | "Review" | "Posted";
+export type OpnameStatus = "Draft" | "Counting" | "Review" | "Posted" | "Dibatalkan";
 
 export interface OpnameHeader {
   noDokumen: string;

@@ -4,10 +4,11 @@
 import { api } from "@/lib/api/client";
 import type {
   InvLocationDTO, InvStockRowDTO, InvItemDetailDTO, InvItemJenis,
-  SetStockPolicyInput, StockPolicyDTO,
+  SetStockPolicyInput, StockPolicyDTO, AdjustStockInput, AdjustStockResultDTO,
+  StokKlinisRow, StokKlinisStatus,
 } from "@/lib/schemas/inventory/stock";
 
-export type { InvLocationDTO, InvStockRowDTO, InvItemDetailDTO, InvItemJenis, SetStockPolicyInput, StockPolicyDTO };
+export type { InvLocationDTO, InvStockRowDTO, InvItemDetailDTO, InvItemJenis, SetStockPolicyInput, StockPolicyDTO, AdjustStockInput, AdjustStockResultDTO, StokKlinisRow, StokKlinisStatus };
 
 /** GET /inventory/locations — lokasi farmasi (dropdown). */
 export async function listInvLocations(signal?: AbortSignal): Promise<InvLocationDTO[]> {
@@ -30,5 +31,17 @@ export async function getInvItemDetail(jenis: InvItemJenis, itemId: string, sign
 /** PATCH /inventory/stock/policy — atur min/ROP/max item di lokasi. */
 export async function setStockPolicy(input: SetStockPolicyInput, signal?: AbortSignal): Promise<StockPolicyDTO> {
   const { data } = await api.patch<StockPolicyDTO>("/inventory/stock/policy", input, { signal });
+  return data;
+}
+
+/** POST /inventory/stock/adjust — penyesuaian cepat stok 1 item (ADJUST). */
+export async function adjustStock(input: AdjustStockInput, signal?: AbortSignal): Promise<AdjustStockResultDTO> {
+  const { data } = await api.post<AdjustStockResultDTO>("/inventory/stock/adjust", input, { signal });
+  return data;
+}
+
+/** GET /inventory/stok-klinis?lokasiId= — saldo Obat di depo (advisory overlay picker Resep). */
+export async function listStokKlinis(lokasiId: string, signal?: AbortSignal): Promise<StokKlinisRow[]> {
+  const { data } = await api.get<StokKlinisRow[]>("/inventory/stok-klinis", { query: { lokasiId }, signal });
   return data;
 }

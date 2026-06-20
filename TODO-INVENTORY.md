@@ -188,7 +188,7 @@ Per sub-domain, layering **Route → Service → DAL → Prisma** (API-RULES):
 - [x] **INV3 — Daftar Barang**: filter lokasi (agregat "Semua") + jenis + status + search; tabel; drawer detail (saldo per-lokasi + batch FEFO + mutasi); drawer Tambah Barang dari katalog (Obat+BMHP) per-lokasi + parameter min/ROP/max.
 - [x] **INV4 — Distribusi**: amprahan list + filter + drawer detail (qtyMinta/qtyKeluar) + aksi "Proses & Keluarkan".
 - [x] **INV5 — Pengiriman**: 2 tab Penerimaan (GRN: batch/ED/harga beli) + Transfer antar-lokasi + drawer detail.
-- [x] **INV6 — Stok Opname**: sesi list + drawer (input qtyFisik + selisih live + "Posting").
+- [x] **INV6 — Stok Opname**: sesi list + **modal interaktif** (input qtyFisik + selisih live + paginasi + "Posting") + **Batalkan SO** (status `Dibatalkan` merah, sesi read-only) + **Cetak Berita Acara A4** (sesi Posted).
 - [x] **INV7 — Rekanan**: vendor list + filter jenis + drawer detail + drawer Tambah Rekanan (form lokal).
 - [x] **INV8 — Monitoring**: reorder board (progress bar) + FEFO/expiry + nilai stok per-lokasi (bar) + barang paling bergerak.
 - [x] UI kit bersama `inventoryShared.tsx` (InvShell/KpiCard/SectionCard/StatusPill/SlideOver/SearchInput/FilterChip/PrimaryButton/EmptyState) — accent cyan, **tanpa ungu**, SaaS.

@@ -37,6 +37,32 @@ export interface StockPolicyDTO {
   max: number;
 }
 
+/** Penyesuaian cepat stok satu item (movement ADJUST) — alternatif ringan vs opname penuh. */
+export const AdjustStockInput = z
+  .object({
+    itemJenis: z.enum(["Obat", "BMHP"]),
+    itemId: z.string().uuid("itemId tidak valid"),
+    locationId: z.string().uuid("locationId tidak valid"),
+    /** `set` = jadikan stok = value · `delta` = tambah/kurang value (boleh negatif). */
+    mode: z.enum(["set", "delta"]),
+    value: z.number().int("Nilai harus bilangan bulat"),
+    /** Kategori alasan (Koreksi/Rusak/Hilang/Kadaluwarsa/Temuan/Lainnya). */
+    alasan: z.string().trim().min(1, "Alasan wajib").max(60),
+    catatan: z.string().trim().max(200).optional(),
+  })
+  .refine((v) => v.mode !== "set" || v.value >= 0, { message: "Jumlah set tidak boleh negatif", path: ["value"] })
+  .refine((v) => v.mode !== "delta" || v.value !== 0, { message: "Selisih tidak boleh 0", path: ["value"] });
+export type AdjustStockInput = z.infer<typeof AdjustStockInput>;
+
+export interface AdjustStockResultDTO {
+  itemJenis: InvItemJenis;
+  itemId: string;
+  locationId: string;
+  qtyBefore: number;
+  qtyAfter: number;
+  delta: number;
+}
+
 export type InvItemJenis = "Obat" | "BMHP";
 
 export interface InvLocationDTO {
@@ -100,4 +126,24 @@ export interface InvItemDetailDTO {
   balances: InvItemBalanceDTO[];
   batches: InvItemBatchDTO[];
   movements: InvItemMovementDTO[];
+}
+
+// ── Stok klinis (advisory overlay untuk picker Resep) ──────────────────────────
+// Read RINGAN saldo Obat di satu depo, keyed by `itemId` (UUID master Obat) — FE merge ke
+// katalog formularium. Gate KLINIS (`clinical.resep:read`), BUKAN inventory.* (klinisi tak punya).
+export const StokKlinisQuery = z.object({
+  lokasiId: z.string().uuid("Lokasi tidak valid"),
+});
+export type StokKlinisQuery = z.infer<typeof StokKlinisQuery>;
+
+export type StokKlinisStatus = "Aman" | "Menipis" | "Habis";
+
+export interface StokKlinisRow {
+  itemId: string; // UUID master Obat (kunci merge ke katalog formularium)
+  qtyOnHand: number;
+  qtyReserved: number;
+  available: number; // qtyOnHand − qtyReserved (≥0)
+  reorderPoint: number;
+  status: StokKlinisStatus;
+  nearestED: string | null; // ED batch terdekat (YYYY-MM-DD) atau null
 }

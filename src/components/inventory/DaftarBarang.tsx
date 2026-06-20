@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Boxes, Pill, Syringe, PackageX, MapPin, CalendarClock, ShieldAlert, Wallet, Loader2, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
+import { Boxes, Pill, Syringe, PackageX, MapPin, CalendarClock, ShieldAlert, Wallet, Loader2, ChevronLeft, ChevronRight, SlidersHorizontal, Scale } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   InvShell, KpiCard, SectionCard, StatusPill, SearchInput, FilterChip, InvSelect,
@@ -14,7 +14,7 @@ import {
 } from "@/lib/inventory/inventoryMock";
 import {
   type InvLocationDTO, type InvStockRowDTO, type InvItemDetailDTO, type InvItemJenis,
-  listInvLocations, listInvStock, getInvItemDetail, setStockPolicy,
+  listInvLocations, listInvStock, getInvItemDetail, setStockPolicy, adjustStock,
 } from "@/lib/api/inventory/stock";
 import { ApiError } from "@/lib/api/client";
 import { toast } from "@/lib/ui/toastStore";
@@ -45,6 +45,7 @@ export default function DaftarBarang() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [detail, setDetail] = useState<{ jenis: InvItemJenis; itemId: string } | null>(null);
   const [policyRow, setPolicyRow] = useState<InvStockRowDTO | null>(null);
+  const [adjustRow, setAdjustRow] = useState<InvStockRowDTO | null>(null);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(12);
 
@@ -218,6 +219,15 @@ export default function DaftarBarang() {
                             >
                               <SlidersHorizontal size={13} />
                             </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setAdjustRow(r); }}
+                              title="Penyesuaian stok (koreksi cepat)"
+                              aria-label={`Penyesuaian stok ${r.nama}`}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:bg-amber-50 hover:text-amber-600"
+                            >
+                              <Scale size={13} />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -275,7 +285,133 @@ export default function DaftarBarang() {
           }}
         />
       )}
+
+      {adjustRow && (
+        <AdjustEditor
+          row={adjustRow}
+          locationId={loc}
+          locationNama={locNama}
+          onClose={() => setAdjustRow(null)}
+          onSaved={(qtyAfter) => {
+            setRows((prev) => prev.map((r) =>
+              r.itemJenis === adjustRow.itemJenis && r.itemId === adjustRow.itemId
+                ? { ...r, qty: qtyAfter }
+                : r));
+            setAdjustRow(null);
+          }}
+        />
+      )}
     </InvShell>
+  );
+}
+
+// ── Penyesuaian cepat (ADJUST per item × lokasi) ──────────────────────────────
+
+const ADJ_REASONS = ["Koreksi", "Rusak", "Hilang", "Kadaluwarsa", "Temuan", "Lainnya"];
+
+function AdjustEditor({
+  row, locationId, locationNama, onClose, onSaved,
+}: {
+  row: InvStockRowDTO;
+  locationId: string;
+  locationNama: string;
+  onClose: () => void;
+  onSaved: (qtyAfter: number) => void;
+}) {
+  const [mode, setMode] = useState<"set" | "delta">("set");
+  const [value, setValue] = useState("");
+  const [alasan, setAlasan] = useState("Koreksi");
+  const [catatan, setCatatan] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const nVal = value === "" || value === "-" ? NaN : Number(value);
+  const hasVal = !Number.isNaN(nVal) && Number.isInteger(nVal);
+  const after = !hasVal ? row.qty : mode === "set" ? nVal : row.qty + nVal;
+  const delta = after - row.qty;
+  const valid = hasVal && alasan.trim() !== "" && after >= 0 && delta !== 0 && (mode !== "set" || nVal >= 0);
+  const err = !hasVal ? "" : after < 0 ? "Penyesuaian membuat stok negatif." : delta === 0 ? "Tidak ada perubahan." : mode === "set" && nVal < 0 ? "Jumlah tidak boleh negatif." : "";
+
+  async function submit() {
+    if (!valid || saving) return;
+    setSaving(true);
+    try {
+      const dto = await adjustStock({ itemJenis: row.itemJenis, itemId: row.itemId, locationId, mode, value: nVal, alasan, catatan: catatan.trim() || undefined });
+      toast.success("Stok disesuaikan", `${row.nama}: ${dto.qtyBefore} → ${dto.qtyAfter} (${dto.delta > 0 ? `+${dto.delta}` : dto.delta})`);
+      onSaved(dto.qtyAfter);
+    } catch (e) {
+      toast.error("Gagal menyesuaikan stok", e instanceof ApiError ? e.message : undefined);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      icon={Scale}
+      title="Penyesuaian Stok"
+      subtitle={`${row.nama} · ${locationNama}`}
+      width="max-w-md"
+      footer={
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] text-rose-500">{err}</p>
+          <div className="flex gap-2">
+            <button type="button" onClick={onClose} disabled={saving}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-[13px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50">Batal</button>
+            <button type="button" onClick={submit} disabled={!valid || saving}
+              className={cn("inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition", valid && !saving ? cn(INV_ACCENT.bgSolid, INV_ACCENT.bgSolidHover) : "cursor-not-allowed bg-slate-300")}>
+              {saving && <Loader2 size={13} className="animate-spin" />} {saving ? "Menyimpan…" : "Simpan Penyesuaian"}
+            </button>
+          </div>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <p className="rounded-lg bg-amber-50/70 px-3 py-2 text-[11px] leading-relaxed text-amber-700 ring-1 ring-amber-100">
+          Koreksi cepat 1 item tanpa opname penuh — tertulis sebagai 1 movement <b>ADJUST</b> di ledger.
+          Untuk <b>barang masuk dari rekanan</b>, gunakan <b>Penerimaan</b> (bukan ini).
+        </p>
+
+        {/* Mode segmented */}
+        <div className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+          {([["set", "Set ke jumlah"], ["delta", "Selisih (±)"]] as const).map(([m, lbl]) => (
+            <button key={m} type="button" onClick={() => setMode(m)}
+              className={cn("rounded-lg px-3 py-1.5 text-[12px] font-semibold transition", mode === m ? cn("bg-white shadow-sm ring-1 ring-slate-200", INV_ACCENT.text) : "text-slate-500 hover:text-slate-700")}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{mode === "set" ? "Jumlah Fisik" : "Selisih (+/−)"}</span>
+            <input type="number" inputMode="numeric" value={value} onChange={(e) => setValue(e.target.value)}
+              placeholder={mode === "set" ? "mis. 120" : "mis. -5"} min={mode === "set" ? 0 : undefined}
+              className={cn("w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-right text-[14px] font-mono font-bold tabular-nums text-slate-800 outline-none transition", INV_ACCENT.focus)} />
+          </label>
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Hasil</span>
+            <div className="flex items-center justify-end gap-1.5 rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 py-2 text-[14px] font-mono font-bold tabular-nums">
+              <span className="text-slate-400">{row.qty}</span>
+              <span className="text-slate-300">→</span>
+              <span className={cn(after < 0 ? "text-rose-600" : "text-slate-800")}>{hasVal ? after : "—"}</span>
+              {hasVal && delta !== 0 && <span className={cn("text-[11px]", delta > 0 ? "text-emerald-600" : "text-rose-600")}>({delta > 0 ? `+${delta}` : delta})</span>}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Alasan *</span>
+          <InvSelect value={alasan} onChange={setAlasan} options={ADJ_REASONS.map((r) => ({ value: r, label: r }))} />
+        </div>
+        <label className="flex flex-col gap-1">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Catatan</span>
+          <input value={catatan} onChange={(e) => setCatatan(e.target.value)} placeholder="Keterangan tambahan (opsional)…"
+            className={cn("w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[13px] text-slate-800 outline-none transition", INV_ACCENT.focus)} />
+        </label>
+      </div>
+    </Modal>
   );
 }
 

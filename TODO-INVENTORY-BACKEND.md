@@ -120,15 +120,18 @@ Beda: **Transfer** = mutasi langsung; **Distribusi** = demand-driven (`pemohon` 
 Hitung fisik per lokasi → posting selisih. **3 fase**: `create` snapshot saldo lokasi (`qtySistem`,
 `qtyFisik` null) status Counting → `saveCounts` isi fisik (Counting↔Review, hanya baris milik sesi) →
 `post` movement **OPNAME** per selisih (`qtyFisik − qtySistem` snapshot) via `movementService` →
-Posted. Selisih + (surplus → batch `ADJ-…`) / − (susut → outflow FEFO, anti-negatif).
+Posted. Selisih + (surplus → batch `ADJ-…`) / − (susut → outflow FEFO, anti-negatif). **+ `cancel`**
+(2026-06-20): batalkan sesi sebelum posting (Draft/Counting/Review → **Dibatalkan**), **tak menyentuh
+ledger** (belum ada movement); hitungan tetap arsip. Tolak bila sudah Posted/Dibatalkan.
 
 - Schema: [opname.ts](src/lib/schemas/inventory/opname.ts) (Create + SaveCounts + Query + DTO diperkaya nama/satuan).
 - DAL: [opnameDal.ts](src/lib/dal/inventory/opnameDal.ts) (snapshot nested · `updateItem` · `updateStatus`).
-- Service: [opnameService.ts](src/lib/services/inventory/opnameService.ts) — `create` (snapshot `listBalancesByLocation`, tolak lokasi kosong) · `saveCounts` (status turunan) · `post` (wajib semua terhitung, idempoten) · `list`/`get`.
-- Routes (gate `inventory.opname`): [opname](src/app/api/v1/inventory/opname/route.ts) (GET/POST) · [:id](src/app/api/v1/inventory/opname/[id]/route.ts) (GET/PATCH save) · [:id/post](src/app/api/v1/inventory/opname/[id]/post/route.ts) (POST).
-- API client: [opname.ts](src/lib/api/inventory/opname.ts).
+- Schema enum: `OpnameStatus` + nilai **`Dibatalkan`** (migrasi drift-safe [20260620120000_inventory_opname_cancel](prisma/migrations/20260620120000_inventory_opname_cancel/migration.sql) — `ALTER TYPE … ADD VALUE`, `db execute` → `migrate resolve --applied` → `generate`).
+- Service: [opnameService.ts](src/lib/services/inventory/opnameService.ts) — `create` (snapshot `listBalancesByLocation`, tolak lokasi kosong) · `saveCounts` (status turunan; guard Posted/Dibatalkan) · `post` (wajib semua terhitung, idempoten; guard Dibatalkan) · **`cancel`** (→ Dibatalkan, guard Posted/Dibatalkan) · `list`/`get`.
+- Routes (gate `inventory.opname`): [opname](src/app/api/v1/inventory/opname/route.ts) (GET/POST) · [:id](src/app/api/v1/inventory/opname/[id]/route.ts) (GET/PATCH save) · [:id/post](src/app/api/v1/inventory/opname/[id]/post/route.ts) (POST) · **[:id/cancel](src/app/api/v1/inventory/opname/[id]/cancel/route.ts)** (POST, `inventory.opname:update`).
+- API client: [opname.ts](src/lib/api/inventory/opname.ts) (`createOpname`/`saveOpnameCounts`/`postOpname`/**`cancelOpname`**).
 - Seed: 1 sesi Counting (6 item di gudang) di [seed-inventory.mts](prisma/scripts/seed-inventory.mts).
-- **FE swap ✅**: [StokOpname.tsx](src/components/inventory/StokOpname.tsx) — list + **Mulai Opname** (pilih lokasi → snapshot) + editor fisik (Simpan progres + Posting; selisih live) = API; mock `INV_OPNAME` dilepas.
+- **FE swap ✅**: [StokOpname.tsx](src/components/inventory/StokOpname.tsx) — list + **Mulai Opname** (pilih lokasi → snapshot) + editor fisik modal (Simpan progres + Posting; selisih live + paginasi) = API; mock `INV_OPNAME` dilepas. **Batalkan SO** (2026-06-20): tombol merah + `CancelConfirmDialog`, status pill **Dibatalkan** (rose) + filter chip, sesi dibatalkan jadi read-only (banner merah, tanpa Cetak SO). **Cetak SO** (Berita Acara A4) untuk sesi Posted.
 - **Catatan**: selisih dihitung vs `qtySistem` snapshot (konsisten dgn kolom Selisih di FE); set-system-to-physical murni = follow-up.
 
 ## ✅ BE7 — Monitoring + Beranda (2026-06-19)

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { ClipboardCheck, FileStack, ClipboardList, CheckCircle2, AlertTriangle, Loader2, MapPin, Save, Equal, X, ChevronLeft, ChevronRight, Printer } from "lucide-react";
+import { ClipboardCheck, FileStack, ClipboardList, CheckCircle2, AlertTriangle, Loader2, MapPin, Save, Equal, X, ChevronLeft, ChevronRight, Printer, Ban, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/ui/toastStore";
 import {
@@ -14,7 +14,7 @@ import {
 import { DOC_STATUS_CFG } from "@/lib/inventory/inventoryMock";
 import { ApiError } from "@/lib/api/client";
 import {
-  listOpname, createOpname, saveOpnameCounts, postOpname, type OpnameDTO,
+  listOpname, createOpname, saveOpnameCounts, postOpname, cancelOpname, type OpnameDTO,
 } from "@/lib/api/inventory/opname";
 import { listInvLocations, type InvLocationDTO } from "@/lib/api/inventory/stock";
 import OpnameCetakModal from "./OpnameCetakModal";
@@ -37,6 +37,7 @@ export default function StokOpname() {
   const [busy, setBusy] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(8);
   const [cetak, setCetak] = useState<OpnameDTO | null>(null);
@@ -74,7 +75,8 @@ export default function StokOpname() {
   }), [list]);
 
   const open = openId ? list.find((s) => s.id === openId) ?? null : null;
-  const editable = open ? open.status !== "Posted" : false;
+  const editable = open ? open.status !== "Posted" && open.status !== "Dibatalkan" : false;
+  const cancelled = open?.status === "Dibatalkan";
 
   // Inisialisasi input hitungan saat membuka sesi (per id, agar edit tak ter-reset oleh refetch).
   function openSession(s: OpnameDTO) {
@@ -140,6 +142,21 @@ export default function StokOpname() {
     }
   }
 
+  // Batalkan sesi opname (sebelum posting): status → Dibatalkan, tak menyentuh ledger.
+  async function doCancel(s: OpnameDTO) {
+    setBusy(true);
+    try {
+      const dto = await cancelOpname(s.id);
+      toast.success("Sesi opname dibatalkan", `${dto.noDokumen} — perhitungan tidak diposting`);
+      setConfirmCancel(false);
+      await refetch();
+    } catch (e) {
+      toast.error("Gagal membatalkan sesi", e instanceof ApiError ? e.message : undefined);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // Penutupan modal: read-only → langsung; editable + dirty → konfirmasi simpan; else langsung.
   function requestClose() {
     if (!open) return;
@@ -186,7 +203,7 @@ export default function StokOpname() {
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-3">
           <SearchInput value={search} onChange={setSearch} placeholder="Cari no. opname / lokasi…" className="min-w-50 flex-1" />
           <div className="flex flex-wrap gap-1.5">
-            {(["all", "Counting", "Review", "Posted"] as const).map((s) => (
+            {(["all", "Counting", "Review", "Posted", "Dibatalkan"] as const).map((s) => (
               <FilterChip key={s} label={s === "all" ? "Semua" : DOC_STATUS_CFG[s].label} active={status === s} onClick={() => setStatus(s)} />
             ))}
           </div>
@@ -237,11 +254,17 @@ export default function StokOpname() {
         width="max-w-5xl"
         footer={open && (editable ? (
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[11px] text-slate-400">{summary.counted}/{summary.total} terhitung · {summary.selisih} selisih{dirty ? " · belum disimpan" : ""}</p>
+            <div className="flex items-center gap-2">
+              <button type="button" disabled={busy} onClick={() => setConfirmCancel(true)}
+                className={cn("inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-semibold transition", busy ? "cursor-not-allowed border-slate-200 text-slate-300" : "border-rose-200 text-rose-600 hover:bg-rose-50")}>
+                <Ban size={14} /> Batalkan SO
+              </button>
+              <p className="hidden text-[11px] text-slate-400 sm:block">{summary.counted}/{summary.total} terhitung · {summary.selisih} selisih{dirty ? " · belum disimpan" : ""}</p>
+            </div>
             <div className="flex gap-2">
               <button type="button" disabled={busy} onClick={requestClose}
                 className={cn("inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-semibold transition", busy ? "cursor-not-allowed border-slate-200 text-slate-300" : "border-slate-200 text-slate-600 hover:bg-slate-50")}>
-                <X size={14} /> Batal
+                <X size={14} /> Tutup
               </button>
               <button type="button" disabled={busy || !dirty} onClick={() => doSave(open)}
                 className={cn("inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-semibold transition", busy || !dirty ? "cursor-not-allowed border-slate-200 text-slate-300" : cn("border-cyan-200 bg-cyan-50", INV_ACCENT.text, "hover:bg-cyan-100"))}>
@@ -252,6 +275,12 @@ export default function StokOpname() {
                 {busy ? <><Loader2 size={13} className="animate-spin" /> Memproses…</> : <><CheckCircle2 size={15} /> Posting Opname</>}
               </button>
             </div>
+          </div>
+        ) : cancelled ? (
+          <div className="flex items-center justify-between gap-2">
+            <p className="inline-flex items-center gap-1.5 text-[12px] font-medium text-rose-600"><XCircle size={14} /> Dibatalkan — perhitungan tidak diposting</p>
+            <button type="button" onClick={() => setOpenId(null)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2 text-[13px] font-semibold text-slate-600 transition hover:bg-slate-50">Tutup</button>
           </div>
         ) : (
           <div className="flex items-center justify-between gap-2">
@@ -285,6 +314,12 @@ export default function StokOpname() {
                 </p>
               </div>
             </div>
+
+            {cancelled && (
+              <p className="inline-flex items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-[11px] leading-relaxed text-rose-700 ring-1 ring-rose-100">
+                <Ban size={13} className="shrink-0" /> Sesi ini telah <b>dibatalkan</b>. Hitungan di bawah hanya arsip — tidak diposting ke ledger stok.
+              </p>
+            )}
 
             {editable && (
               <p className="rounded-lg bg-cyan-50/70 px-3 py-2 text-[11px] leading-relaxed text-cyan-700 ring-1 ring-cyan-100">
@@ -333,7 +368,7 @@ export default function StokOpname() {
                         </td>
                         <td className="px-3 py-2 text-right">
                           {sel === null ? <span className="text-slate-300">—</span> : (
-                            <span className={cn("inline-block min-w-[2.5rem] rounded-md px-1.5 py-0.5 text-center font-mono text-[12px] font-bold tabular-nums",
+                            <span className={cn("inline-block min-w-10 rounded-md px-1.5 py-0.5 text-center font-mono text-[12px] font-bold tabular-nums",
                               sel === 0 ? "bg-slate-100 text-slate-400" : sel > 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600")}>
                               {sel > 0 ? `+${sel}` : sel}
                             </span>
@@ -384,6 +419,14 @@ export default function StokOpname() {
         onKeep={() => setConfirmClose(false)}
       />
 
+      <CancelConfirmDialog
+        open={confirmCancel}
+        busy={busy}
+        noDokumen={open?.noDokumen ?? ""}
+        onConfirm={() => open && doCancel(open)}
+        onKeep={() => setConfirmCancel(false)}
+      />
+
       <AddOpnameDrawer open={addOpen} onClose={() => setAddOpen(false)} onCreated={(s) => { setAddOpen(false); void refetch(); openSession(s); }} />
 
       <OpnameCetakModal open={!!cetak} data={cetak} onClose={() => setCetak(null)} />
@@ -421,7 +464,7 @@ function SaveConfirmDialog({ open, busy, onSave, onDiscard, onKeep }: {
   return createPortal(
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-70 flex items-center justify-center p-4">
           <motion.div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
             onClick={() => !busy && onKeep()} />
@@ -457,6 +500,64 @@ function SaveConfirmDialog({ open, busy, onSave, onDiscard, onKeep }: {
                   Tutup Tanpa Simpan
                 </button>
               </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>,
+    document.body,
+  );
+}
+
+// ── Cancel-confirm dialog (batalkan sesi opname sebelum posting) ───────────────
+
+function CancelConfirmDialog({ open, busy, noDokumen, onConfirm, onKeep }: {
+  open: boolean; busy: boolean; noDokumen: string; onConfirm: () => void; onKeep: () => void;
+}) {
+  const reduce = useReducedMotion();
+  const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- guard mount portal aman-SSR
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+
+  const card = reduce
+    ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }
+    : { initial: { opacity: 0, scale: 0.92, y: 16 }, animate: { opacity: 1, scale: 1, y: 0 }, exit: { opacity: 0, scale: 0.95, y: 8 } };
+
+  return createPortal(
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-70 flex items-center justify-center p-4">
+          <motion.div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
+            onClick={() => !busy && onKeep()} />
+          <motion.div role="dialog" aria-modal="true" aria-label="Batalkan sesi opname"
+            className="relative z-10 w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-100"
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }} {...card}>
+            <div className="flex items-center gap-3 border-b border-rose-100 bg-rose-50 px-5 py-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-rose-200">
+                <Ban size={17} className="text-rose-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-rose-700">Batalkan sesi opname?</p>
+                <p className="truncate text-[11px] text-rose-500">{noDokumen}</p>
+              </div>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-[12px] leading-relaxed text-slate-500">
+                Sesi akan ditandai <b className="text-rose-600">Dibatalkan</b> dan tak bisa dilanjutkan atau diposting.
+                Hitungan yang sudah dimasukkan tetap tersimpan sebagai arsip, tetapi <b>tidak</b> menulis penyesuaian apa pun ke ledger stok.
+              </p>
+            </div>
+            <div className="flex gap-2 border-t border-slate-100 px-5 py-4">
+              <button type="button" onClick={onKeep} disabled={busy}
+                className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-[13px] font-semibold text-slate-600 transition hover:bg-slate-50 active:scale-95 disabled:opacity-50">
+                Kembali
+              </button>
+              <button type="button" onClick={onConfirm} disabled={busy}
+                className={cn("inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-[13px] font-semibold text-white shadow-sm transition active:scale-95", busy ? "cursor-not-allowed bg-slate-300" : "bg-rose-600 hover:bg-rose-700")}>
+                {busy ? <Loader2 size={14} className="animate-spin" /> : <Ban size={14} />} {busy ? "Membatalkan…" : "Ya, Batalkan"}
+              </button>
             </div>
           </motion.div>
         </div>

@@ -5,7 +5,7 @@
  * Dipakai oleh seluruh halaman modul Inventory agar konsisten & ringkas.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { X, Search, Plus, ChevronDown, Check, type LucideIcon } from "lucide-react";
@@ -315,20 +315,61 @@ export function InvSelect({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
   const sel = options.find((o) => o.value === value);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- guard mount portal aman-SSR
+  useEffect(() => setMounted(true), []);
+
+  const place = () => {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) setRect(r);
+  };
+
+  // Re-posisi menu saat scroll (termasuk scroll dalam modal/drawer, capture) & resize.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onMove = () => place();
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("resize", onMove);
+    window.addEventListener("scroll", onMove, true);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onMove);
+      window.removeEventListener("scroll", onMove, true);
+    };
   }, [open]);
+
+  function toggle() {
+    if (!open) place();
+    setOpen((o) => !o);
+  }
+
+  // Posisi fixed (di-portal ke body → anti-clip overflow modal/drawer). Flip ke atas bila sempit.
+  let menuStyle: React.CSSProperties = {};
+  if (rect) {
+    const vw = typeof window !== "undefined" ? window.innerWidth : 9999;
+    const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+    const width = Math.max(rect.width, 240);
+    const left = Math.max(8, Math.min(rect.left, vw - width - 8));
+    const below = vh - rect.bottom;
+    const above = rect.top;
+    const up = below < 220 && above > below;
+    const maxHeight = Math.max(120, Math.min(288, (up ? above : below) - 12));
+    menuStyle = up
+      ? { position: "fixed", left, width, bottom: vh - rect.top + 6, maxHeight }
+      : { position: "fixed", left, width, top: rect.bottom + 6, maxHeight };
+  }
 
   return (
     <div className={cn("relative", className)}>
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         aria-haspopup="listbox"
         aria-expanded={open}
         className={cn(
@@ -340,10 +381,10 @@ export function InvSelect({
         <span className="flex-1 truncate text-left font-semibold">{sel ? sel.label : (placeholder ?? "Pilih…")}</span>
         <ChevronDown size={15} className={cn("shrink-0 text-slate-400 transition-transform", open && "rotate-180")} />
       </button>
-      {open && (
+      {mounted && open && rect && createPortal(
         <>
-          <button type="button" aria-hidden tabIndex={-1} onClick={() => setOpen(false)} className="fixed inset-0 z-40 cursor-default" />
-          <div role="listbox" className="absolute left-0 top-full z-50 mt-1.5 max-h-72 w-full min-w-[240px] overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl shadow-slate-900/10">
+          <button type="button" aria-hidden tabIndex={-1} onClick={() => setOpen(false)} className="fixed inset-0 z-99 cursor-default" />
+          <div role="listbox" style={menuStyle} className="z-100 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl shadow-slate-900/10">
             {options.map((o) => {
               const active = o.value === value;
               return (
@@ -367,7 +408,145 @@ export function InvSelect({
               );
             })}
           </div>
-        </>
+        </>,
+        document.body,
+      )}
+    </div>
+  );
+}
+
+// ── InvCombobox (searchable select) ───────────────────────
+// Input bisa diketik → filter opsi (label + sub) · dropdown di-portal (anti-clip, flip, fixed) ·
+// keyboard ↑/↓/Enter/Esc · tombol clear. Untuk daftar panjang (mis. picker barang per lokasi).
+
+export function InvCombobox({
+  value, onChange, options, icon: Icon = Search, placeholder, className, emptyText = "Tidak ditemukan",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: InvSelectOption[];
+  icon?: LucideIcon;
+  placeholder?: string;
+  className?: string;
+  emptyText?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [hi, setHi] = useState(0);
+  const [mounted, setMounted] = useState(false);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- guard mount portal aman-SSR
+  useEffect(() => setMounted(true), []);
+
+  const sel = options.find((o) => o.value === value);
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? options.filter((o) => o.label.toLowerCase().includes(q) || (o.sub?.toLowerCase().includes(q) ?? false))
+    : options;
+
+  const place = () => { const r = wrapRef.current?.getBoundingClientRect(); if (r) setRect(r); };
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (wrapRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const onMove = () => place();
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onMove);
+    window.addEventListener("scroll", onMove, true);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onMove);
+      window.removeEventListener("scroll", onMove, true);
+    };
+  }, [open]);
+
+  function openMenu() { place(); setQuery(""); setHi(0); setOpen(true); }
+  function pick(v: string) { onChange(v); setOpen(false); setQuery(""); }
+
+  function onKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "ArrowDown") { e.preventDefault(); if (!open) { openMenu(); return; } setHi((i) => Math.min(i + 1, filtered.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setHi((i) => Math.max(i - 1, 0)); }
+    else if (e.key === "Enter" && open && filtered[hi]) { e.preventDefault(); pick(filtered[hi].value); }
+  }
+
+  let menuStyle: React.CSSProperties = {};
+  if (rect) {
+    const vw = typeof window !== "undefined" ? window.innerWidth : 9999;
+    const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+    const width = Math.max(rect.width, 240);
+    const left = Math.max(8, Math.min(rect.left, vw - width - 8));
+    const below = vh - rect.bottom;
+    const above = rect.top;
+    const up = below < 240 && above > below;
+    const maxHeight = Math.max(140, Math.min(300, (up ? above : below) - 12));
+    menuStyle = up
+      ? { position: "fixed", left, width, bottom: vh - rect.top + 6, maxHeight }
+      : { position: "fixed", left, width, top: rect.bottom + 6, maxHeight };
+  }
+
+  return (
+    <div ref={wrapRef} className={cn("relative", className)}>
+      <div className={cn(
+        "flex w-full items-center gap-2 rounded-xl border bg-white px-3 py-2 transition",
+        open ? cn(INV_ACCENT.border, "ring-2 ring-cyan-100") : "border-slate-200 hover:border-slate-300",
+      )}>
+        <Icon size={15} className="shrink-0 text-cyan-600" />
+        <input
+          value={open ? query : (sel?.label ?? "")}
+          onChange={(e) => { if (!open) openMenu(); setQuery(e.target.value); setHi(0); }}
+          onFocus={openMenu}
+          onKeyDown={onKeyDown}
+          placeholder={sel ? sel.label : (placeholder ?? "Ketik untuk cari…")}
+          className="min-w-0 flex-1 bg-transparent text-[13px] font-semibold text-slate-700 outline-none placeholder:font-normal placeholder:text-slate-400"
+        />
+        {sel && !open ? (
+          <button type="button" aria-label="Hapus pilihan" onClick={() => onChange("")} className="shrink-0 rounded p-0.5 text-slate-300 transition hover:text-rose-500">
+            <X size={14} />
+          </button>
+        ) : (
+          <ChevronDown size={15} className={cn("shrink-0 text-slate-400 transition-transform", open && "rotate-180")} />
+        )}
+      </div>
+      {mounted && open && rect && createPortal(
+        <div ref={menuRef} role="listbox" style={menuStyle} className="z-100 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl shadow-slate-900/10">
+          {filtered.length === 0 ? (
+            <p className="px-2.5 py-3 text-center text-[12px] text-slate-400">{emptyText}</p>
+          ) : filtered.map((o, i) => {
+            const active = o.value === value;
+            const hl = i === hi;
+            return (
+              <button
+                key={o.value}
+                type="button"
+                role="option"
+                aria-selected={active}
+                onMouseEnter={() => setHi(i)}
+                onClick={() => pick(o.value)}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition",
+                  active ? cn(INV_ACCENT.bg, INV_ACCENT.text) : hl ? "bg-slate-100 text-slate-700" : "text-slate-600 hover:bg-slate-50",
+                )}
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13px] font-semibold">{o.label}</span>
+                  {o.sub && <span className="block truncate text-[11px] text-slate-400">{o.sub}</span>}
+                </span>
+                {active && <Check size={15} className="shrink-0 text-cyan-600" />}
+              </button>
+            );
+          })}
+        </div>,
+        document.body,
       )}
     </div>
   );
@@ -503,7 +682,7 @@ export function Modal({
   return createPortal(
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}

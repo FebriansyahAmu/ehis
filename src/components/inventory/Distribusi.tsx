@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/lib/ui/toastStore";
 import {
   InvShell, KpiCard, SectionCard, StatusPill, SearchInput, FilterChip, PrimaryButton,
-  EmptyState, SlideOver, InvSelect, useSkeletonDelay, INV_ACCENT,
+  EmptyState, SlideOver, InvSelect, InvCombobox, useSkeletonDelay, INV_ACCENT,
   tableWrap, tableCls, thCls, tdCls, trCls,
 } from "./inventoryShared";
 import { DOC_STATUS_CFG } from "@/lib/inventory/inventoryMock";
@@ -353,7 +353,7 @@ function AddDistribusiDrawer({ open, onClose, onCreated }: { open: boolean; onCl
           {lines.map((l) => (
             <div key={l.key} className="flex items-end gap-2 rounded-xl border border-slate-200 bg-slate-50/40 p-2.5">
               <div className="min-w-0 flex-1">
-                <InvSelect value={l.itemKey} onChange={(v) => setLine(l.key, { itemKey: v })} placeholder={fromId ? "Pilih barang…" : "Pilih sumber dulu"} options={itemOptions} />
+                <InvCombobox value={l.itemKey} onChange={(v) => setLine(l.key, { itemKey: v })} placeholder={fromId ? "Cari & pilih barang…" : "Pilih sumber dulu"} options={itemOptions} />
               </div>
               <label className="flex w-24 shrink-0 flex-col gap-1">
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Qty *</span>

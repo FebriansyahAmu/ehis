@@ -106,6 +106,7 @@ export function makeOpnameService() {
       const r = await opnameDal.findById(id, tx);
       if (!r) throw Errors.notFound("Sesi opname tidak ditemukan");
       if (r.status === "Posted") throw Errors.conflict("Sesi sudah diposting — tak bisa diubah");
+      if (r.status === "Dibatalkan") throw Errors.conflict("Sesi sudah dibatalkan — tak bisa diubah");
       const owned = new Set(r.items.map((i) => i.id));
       for (const c of input.items) {
         if (!owned.has(c.itemRowId)) continue;
@@ -125,6 +126,7 @@ export function makeOpnameService() {
       const r = await opnameDal.findById(id, tx);
       if (!r) throw Errors.notFound("Sesi opname tidak ditemukan");
       if (r.status === "Posted") throw Errors.conflict("Sesi sudah diposting");
+      if (r.status === "Dibatalkan") throw Errors.conflict("Sesi sudah dibatalkan — tak bisa diposting");
       if (r.items.some((i) => i.qtyFisik === null)) throw Errors.conflict("Masih ada item belum dihitung");
 
       for (const l of r.items) {
@@ -143,7 +145,21 @@ export function makeOpnameService() {
     return dto;
   }
 
-  return { list, get, create, saveCounts, post };
+  /** Batalkan sesi sebelum posting → status Dibatalkan. Tak menyentuh ledger (belum ada movement). */
+  async function cancel(id: string, _actor: Actor): Promise<OpnameDTO> {
+    const updated = await transaction(async (tx) => {
+      const r = await opnameDal.findById(id, tx);
+      if (!r) throw Errors.notFound("Sesi opname tidak ditemukan");
+      if (r.status === "Posted") throw Errors.conflict("Sesi sudah diposting — tak bisa dibatalkan");
+      if (r.status === "Dibatalkan") throw Errors.conflict("Sesi sudah dibatalkan");
+      await opnameDal.updateStatus(r.id, { status: "Dibatalkan" }, tx);
+      return opnameDal.findById(r.id, tx);
+    });
+    const [dto] = await enrichMany([updated as OpnameEntity]);
+    return dto;
+  }
+
+  return { list, get, create, saveCounts, post, cancel };
 }
 
 export const opnameService = makeOpnameService();

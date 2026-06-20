@@ -1,6 +1,7 @@
 import type { KategoriObat, StatusMAR, DecisionRekonsiliasi, ResepRIItem, MAREntry } from "@/lib/data";
 import { ALLERGY_MOCK, type AllergySeverity } from "@/components/shared/asesmen/asesmenShared";
 import type { ObatTersediaDTO } from "@/lib/schemas/master/obatTersedia";
+import type { StokKlinisRow, StokKlinisStatus } from "@/lib/api/inventory/stock";
 
 // ── Shared patient interface (minimal — RI, IGD, RJ all satisfy) ──
 
@@ -22,6 +23,8 @@ export interface ResepPatient {
 // ── Obat catalog ─────────────────────────────────────────
 
 export interface ObatCatalog {
+  /** UUID master Obat — kunci merge stok inventory per depo (absen utk katalog mock). */
+  obatId?:  string;
   kode:     string;
   nama:     string;
   dosis:    string;
@@ -29,6 +32,8 @@ export interface ObatCatalog {
   stok:     number;
   kategori: KategoriObat;
   isHAM?:   boolean;
+  /** Status stok di depo terpilih (overlay advisory). Absen → badge tak ditampilkan. */
+  stokStatus?: StokKlinisStatus;
 }
 
 export const OBAT_CATALOG: ObatCatalog[] = [
@@ -133,6 +138,7 @@ export function obatTersediaToCatalog(o: ObatTersediaDTO): ObatCatalog {
       ? "Psikotropika"
       : "Reguler";
   return {
+    obatId: o.id,
     kode: o.kode,
     nama: o.kekuatan ? `${o.namaGenerik} ${o.kekuatan}` : o.namaGenerik,
     dosis: o.kekuatan || "",
@@ -141,6 +147,32 @@ export function obatTersediaToCatalog(o: ObatTersediaDTO): ObatCatalog {
     kategori,
     isHAM: o.isHAM,
   };
+}
+
+// ── Overlay stok inventory (advisory) ─────────────────────
+// Stok TIDAK memfilter/menggagalkan peresepan — hanya info. Penjaga stok ada di dispensing Farmasi.
+
+/** Warna teks badge stok per status. */
+export const STOK_TEXT: Record<StokKlinisStatus, string> = {
+  Aman:    "text-emerald-600",
+  Menipis: "text-amber-600",
+  Habis:   "text-rose-500",
+};
+
+/** Label badge stok (number utk Aman/Menipis, "Habis" utk 0). */
+export function stokLabel(status: StokKlinisStatus, qty: number): string {
+  if (status === "Habis") return "Habis";
+  return `${status === "Menipis" ? "Menipis" : "Stok"}: ${qty}`;
+}
+
+/** Tempelkan stok depo ke katalog by `obatId`. Item tanpa saldo di depo → stokStatus undefined
+ *  (badge tak tampil). Map kosong → katalog dikembalikan apa adanya. */
+export function applyStokDepo(catalog: ObatCatalog[], stok: Map<string, StokKlinisRow>): ObatCatalog[] {
+  if (stok.size === 0) return catalog;
+  return catalog.map((o) => {
+    const s = o.obatId ? stok.get(o.obatId) : undefined;
+    return s ? { ...o, stok: s.qtyOnHand, stokStatus: s.status } : { ...o, stokStatus: undefined };
+  });
 }
 
 export function todayISO(): string {

@@ -147,6 +147,13 @@ export function listBalancesByLocation(locationId: string, tx?: Tx) {
 export function listBalancesByItem(ref: ItemRef, tx?: Tx) {
   return db(tx).stockBalance.findMany({ where: { itemJenis: ref.itemJenis, itemId: ref.itemId } });
 }
+/** Batch ber-stok di satu lokasi (FEFO) — basis ED terdekat per item (overlay stok klinis). */
+export function listBatchesByLocation(locationId: string, tx?: Tx) {
+  return db(tx).stockBatch.findMany({
+    where: { locationId, qtyOnHand: { gt: 0 } },
+    orderBy: [{ expiryDate: { sort: "asc", nulls: "last" } }],
+  });
+}
 export function listBatchesByItem(ref: ItemRef, tx?: Tx) {
   return db(tx).stockBatch.findMany({
     where: { itemJenis: ref.itemJenis, itemId: ref.itemId },

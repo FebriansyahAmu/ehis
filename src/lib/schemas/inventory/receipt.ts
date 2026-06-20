@@ -9,8 +9,8 @@ const optStr = z.string().trim().min(1).optional();
 export const GoodsReceiptLineInput = z.object({
   itemJenis: z.enum(["Obat", "BMHP"]),
   itemId: z.string().uuid("itemId tidak valid"),
-  batchNo: z.string().trim().min(1, "No. batch wajib").max(60),
-  expiryDate: z.string().regex(ISO_DATE, "Tanggal ED tidak valid (YYYY-MM-DD)").optional(),
+  batchNo: z.string().trim().min(1).max(60).optional(), // opsional → fallback diturunkan dari ED / "UMUM"
+  expiryDate: z.string().regex(ISO_DATE).optional(), // opsional (BMHP/non-ED) → batch null-ED
   qty: z.number().int().positive("Qty harus > 0"),
   hargaBeli: z.number().int().min(0).optional(),
 });

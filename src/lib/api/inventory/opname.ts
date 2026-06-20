@@ -46,3 +46,9 @@ export async function postOpname(id: string, signal?: AbortSignal): Promise<Opna
   const { data } = await api.post<OpnameDTO>(`/inventory/opname/${encodeURIComponent(id)}/post`, {}, { signal });
   return data;
 }
+
+/** POST /inventory/opname/:id/cancel — batalkan sesi (sebelum posting) → Dibatalkan. */
+export async function cancelOpname(id: string, signal?: AbortSignal): Promise<OpnameDTO> {
+  const { data } = await api.post<OpnameDTO>(`/inventory/opname/${encodeURIComponent(id)}/cancel`, {}, { signal });
+  return data;
+}

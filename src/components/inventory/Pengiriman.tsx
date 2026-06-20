@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/lib/ui/toastStore";
 import {
   InvShell, KpiCard, SectionCard, StatusPill, SearchInput, FilterChip, PrimaryButton,
-  EmptyState, SlideOver, InvSelect, useSkeletonDelay, INV_ACCENT,
+  EmptyState, SlideOver, InvSelect, InvCombobox, useSkeletonDelay, INV_ACCENT,
   tableWrap, tableCls, thCls, tdCls, trCls,
 } from "./inventoryShared";
 import { DOC_STATUS_CFG, fmtIDR } from "@/lib/inventory/inventoryMock";
@@ -15,6 +15,7 @@ import { listReceipts, createReceipt, postReceipt, type GoodsReceiptDTO } from "
 import { listTransfers, createTransfer, postTransfer, cancelTransfer, type StockTransferDTO } from "@/lib/api/inventory/transfer";
 import { listInvLocations, listInvStock, type InvLocationDTO, type InvStockRowDTO } from "@/lib/api/inventory/stock";
 import { fetchAllVendors, type VendorDTO } from "@/lib/api/inventory/vendor";
+import { DatePicker } from "@/components/shared/inputs";
 
 type Tab = "penerimaan" | "transfer";
 
@@ -378,7 +379,7 @@ function AddReceiptDrawer({ open, onClose, onCreated }: { open: boolean; onClose
     [items],
   );
 
-  const validLines = lines.filter((l) => l.itemKey && l.batchNo.trim() && Number(l.qty) > 0);
+  const validLines = lines.filter((l) => l.itemKey && Number(l.qty) > 0);
   const valid = !!(vendorId && tujuanId && validLines.length > 0);
 
   function reset() {
@@ -398,7 +399,7 @@ function AddReceiptDrawer({ open, onClose, onCreated }: { open: boolean; onClose
           return {
             itemJenis: jenis as "Obat" | "BMHP",
             itemId,
-            batchNo: l.batchNo.trim(),
+            batchNo: l.batchNo.trim() || undefined,
             expiryDate: l.expiryDate || undefined,
             qty: Number(l.qty),
             hargaBeli: l.hargaBeli ? Number(l.hargaBeli) : undefined,
@@ -459,7 +460,7 @@ function AddReceiptDrawer({ open, onClose, onCreated }: { open: boolean; onClose
             <div key={l.key} className="rounded-xl border border-slate-200 bg-slate-50/40 p-2.5">
               <div className="flex items-center gap-2">
                 <div className="flex-1">
-                  <InvSelect value={l.itemKey} onChange={(v) => setLine(l.key, { itemKey: v })} placeholder={tujuanId ? "Pilih barang…" : "Pilih lokasi dulu"} options={itemOptions} />
+                  <InvCombobox value={l.itemKey} onChange={(v) => setLine(l.key, { itemKey: v })} placeholder={tujuanId ? "Cari & pilih barang…" : "Pilih lokasi dulu"} options={itemOptions} />
                 </div>
                 {lines.length > 1 && (
                   <button type="button" onClick={() => setLines((prev) => prev.filter((x) => x.key !== l.key))}
@@ -469,8 +470,11 @@ function AddReceiptDrawer({ open, onClose, onCreated }: { open: boolean; onClose
                 )}
               </div>
               <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <LineInput label="No. Batch *" value={l.batchNo} onChange={(v) => setLine(l.key, { batchNo: v })} placeholder="LOT…" />
-                <LineInput label="ED" type="date" value={l.expiryDate} onChange={(v) => setLine(l.key, { expiryDate: v })} />
+                <LineInput label="No. Batch" value={l.batchNo} onChange={(v) => setLine(l.key, { batchNo: v })} placeholder="LOT… (opsional)" />
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">ED</span>
+                  <DatePicker value={l.expiryDate} onChange={(v) => setLine(l.key, { expiryDate: v })} placeholder="Pilih ED (opsional)" />
+                </div>
                 <LineInput label="Qty *" type="number" value={l.qty} onChange={(v) => setLine(l.key, { qty: v })} placeholder="0" />
                 <LineInput label="Harga Beli" type="number" value={l.hargaBeli} onChange={(v) => setLine(l.key, { hargaBeli: v })} placeholder="0" />
               </div>
@@ -601,7 +605,7 @@ function AddTransferDrawer({ open, onClose, onCreated }: { open: boolean; onClos
           {lines.map((l) => (
             <div key={l.key} className="flex items-end gap-2 rounded-xl border border-slate-200 bg-slate-50/40 p-2.5">
               <div className="min-w-0 flex-1">
-                <InvSelect value={l.itemKey} onChange={(v) => setLine(l.key, { itemKey: v })} placeholder={fromId ? "Pilih barang…" : "Pilih sumber dulu"} options={itemOptions} />
+                <InvCombobox value={l.itemKey} onChange={(v) => setLine(l.key, { itemKey: v })} placeholder={fromId ? "Cari & pilih barang…" : "Pilih sumber dulu"} options={itemOptions} />
               </div>
               <label className="flex w-24 shrink-0 flex-col gap-1">
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Qty *</span>

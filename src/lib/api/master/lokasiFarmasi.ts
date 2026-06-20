@@ -4,6 +4,7 @@
 import { api } from "@/lib/api/client";
 
 export interface LokasiFarmasi {
+  id: string; // UUID lokasi (= master.Location.id) — dipakai overlay stok inventory
   kode: string;
   nama: string;
 }

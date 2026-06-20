@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { OBAT_CATALOG, KATEGORI_BADGE, HAM_BADGE, type ObatCatalog } from "./resepShared";
+import { OBAT_CATALOG, KATEGORI_BADGE, HAM_BADGE, STOK_TEXT, stokLabel, type ObatCatalog } from "./resepShared";
 
 interface Props {
   value:        string;
@@ -88,11 +88,15 @@ export default function ObatSearch({
                     {obat.kategori}
                   </span>
                 </div>
-                {showStock && (
+                {obat.stokStatus ? (
+                  <span className={cn("text-[10px] font-medium", STOK_TEXT[obat.stokStatus])}>
+                    {stokLabel(obat.stokStatus, obat.stok)}
+                  </span>
+                ) : showStock ? (
                   <span className={cn("text-[10px] font-medium", obat.stok > 0 ? "text-emerald-600" : "text-rose-500")}>
                     {obat.stok > 0 ? `Stok: ${obat.stok}` : "Habis"}
                   </span>
-                )}
+                ) : null}
               </div>
             </button>
           ))}

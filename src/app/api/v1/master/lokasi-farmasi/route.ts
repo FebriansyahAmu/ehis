@@ -12,6 +12,6 @@ export const GET = route({
   scopeKunjungan: false,
   handler: async ({ actor }) => {
     const locs = await ruanganService.listRuanganByType("Farmasi", actor);
-    return reply(locs.map((l) => ({ kode: l.kode, nama: l.name })));
+    return reply(locs.map((l) => ({ id: l.id, kode: l.kode, nama: l.name })));
   },
 });

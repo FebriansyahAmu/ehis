@@ -3,13 +3,23 @@
 // boleh panggil langsung (SSR hybrid, API-RULES §6.1).
 
 import * as defaultDal from "@/lib/dal/inventory/stockDal";
+import { transaction } from "@/lib/db/prisma";
+import { movementService } from "@/lib/services/inventory/movementService";
 import { Errors } from "@/lib/errors/appError";
+import type { Actor } from "@/lib/auth/actor";
 import type {
   InvLocationDTO, InvStockRowDTO, InvItemDetailDTO, InvItemJenis,
-  SetStockPolicyInput, StockPolicyDTO,
+  SetStockPolicyInput, StockPolicyDTO, AdjustStockInput, AdjustStockResultDTO,
+  StokKlinisRow, StokKlinisStatus,
 } from "@/lib/schemas/inventory/stock";
 
 type Dal = typeof defaultDal;
+
+function stokKlinisStatus(qty: number, rop: number): StokKlinisStatus {
+  if (qty <= 0) return "Habis";
+  if (qty <= rop) return "Menipis";
+  return "Aman";
+}
 
 function tipeFromLocType(t: string): "Gudang" | "Depo" | "Unit" {
   if (t === "Gudang_Farmasi") return "Gudang";
@@ -110,7 +120,56 @@ export function makeStockService(deps: { dal?: Dal } = {}) {
     return { ...ref, min: input.min, reorderPoint: input.reorderPoint, max: input.max };
   }
 
-  return { listLocations, listStock, itemDetail, setPolicy };
+  /** Penyesuaian cepat 1 item (ADJUST) — set ke jumlah / ±selisih, dengan alasan. Tulis 1 movement. */
+  async function adjust(input: AdjustStockInput, actor: Actor): Promise<AdjustStockResultDTO> {
+    const ref = { itemJenis: input.itemJenis, itemId: input.itemId, locationId: input.locationId };
+    const existing = await dal.getBalance(ref);
+    if (!existing) throw Errors.notFound("Item belum punya saldo di lokasi ini");
+    const before = existing.qtyOnHand;
+    const delta = input.mode === "set" ? input.value - before : input.value;
+    if (delta === 0) throw Errors.validation("Tidak ada perubahan stok");
+    const after = before + delta;
+    if (after < 0) throw Errors.validation("Penyesuaian membuat stok menjadi negatif");
+
+    const petugas = (await dal.findPegawaiNama(actor.pegawaiId))?.namaLengkap ?? "Petugas Gudang";
+    const alasan = input.catatan ? `${input.alasan} — ${input.catatan}` : input.alasan;
+    await transaction(async (tx) => {
+      await movementService.postMovement(
+        { jenis: "ADJUST", itemJenis: input.itemJenis, itemId: input.itemId, fromLocationId: input.locationId, qty: delta },
+        { petugas, actorId: actor.userId, refType: "ADJ", alasan },
+        tx,
+      );
+    });
+    return { ...ref, qtyBefore: before, qtyAfter: after, delta };
+  }
+
+  /** Overlay stok klinis: saldo Obat di satu depo + ED terdekat, keyed by itemId. Advisory (read murni). */
+  async function listStokKlinis(lokasiId: string): Promise<StokKlinisRow[]> {
+    const [balances, batches] = await Promise.all([
+      dal.listBalancesByLocation(lokasiId),
+      dal.listBatchesByLocation(lokasiId),
+    ]);
+    const edByItem = new Map<string, string>(); // itemId → ED terdekat (YYYY-MM-DD)
+    for (const b of batches) {
+      if (b.itemJenis !== "Obat" || !b.expiryDate) continue;
+      const iso = b.expiryDate.toISOString().slice(0, 10);
+      const cur = edByItem.get(b.itemId);
+      if (!cur || iso < cur) edByItem.set(b.itemId, iso);
+    }
+    return balances
+      .filter((b) => b.itemJenis === "Obat")
+      .map((b) => ({
+        itemId: b.itemId,
+        qtyOnHand: b.qtyOnHand,
+        qtyReserved: b.qtyReserved,
+        available: Math.max(0, b.qtyOnHand - b.qtyReserved),
+        reorderPoint: b.reorderPoint,
+        status: stokKlinisStatus(b.qtyOnHand, b.reorderPoint),
+        nearestED: edByItem.get(b.itemId) ?? null,
+      }));
+  }
+
+  return { listLocations, listStock, itemDetail, setPolicy, adjust, listStokKlinis };
 }
 
 export const stockService = makeStockService();

@@ -29,14 +29,14 @@ export default function OpnameCetakModal({ open, onClose, data }: { open: boolea
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
             onClick={onClose}
-            className="no-print fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-[3px]"
+            className="no-print fixed inset-0 z-80 bg-slate-900/50 backdrop-blur-[3px]"
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.97, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: 10 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className="fixed inset-3 z-[90] flex flex-col overflow-hidden rounded-xl bg-slate-100 shadow-2xl ring-1 ring-slate-200 md:inset-6"
+            className="fixed inset-3 z-90 flex flex-col overflow-hidden rounded-xl bg-slate-100 shadow-2xl ring-1 ring-slate-200 md:inset-6"
             role="dialog" aria-modal="true" aria-labelledby="opname-print-title"
           >
             {/* Toolbar */}
