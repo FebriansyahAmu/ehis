@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LayoutGrid, ShieldAlert, BookOpen, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useFarmasiQueue } from "@/lib/farmasi/farmasiQueueStore";
+import { getPIOLogs } from "@/components/farmasi/pio/pioShared";
+import { listFarmasiResep } from "@/lib/api/resep/resep";
 import FarmasiBoard       from "./FarmasiBoard";
 import FarmasiQueueBoard  from "./antrean/FarmasiQueueBoard";
 import RegisterNarPsiPane from "./narPsi/RegisterNarPsiPane";
@@ -18,8 +21,79 @@ const TABS: { id: FarmasiMainTab; label: string; icon: IconComponent; sub: strin
   { id: "pio",      label: "Pelayanan Informasi Obat",          icon: BookOpen,    sub: "PMK 72/2016 Ps. 27-29"              },
 ];
 
+// ── Badge notifikasi (angka) ber-animasi: ping ring kontinu + pop spring saat angka berubah ──
+
+type BadgeTone = "sky" | "amber" | "rose" | "emerald";
+const BADGE_BG: Record<BadgeTone, string> = {
+  sky:     "bg-sky-500",
+  amber:   "bg-amber-500",
+  rose:    "bg-rose-500",
+  emerald: "bg-emerald-500",
+};
+
+function NotifBadge({ count, tone }: { count: number; tone: BadgeTone }) {
+  if (count <= 0) return null;
+  return (
+    <span className="relative ml-1.5 inline-flex shrink-0" aria-label={`${count} perlu perhatian`}>
+      <span className={cn("absolute inline-flex h-full w-full animate-ping rounded-full opacity-60", BADGE_BG[tone])} />
+      <motion.span
+        key={count}
+        initial={{ scale: 0.4 }}
+        animate={{ scale: 1 }}
+        transition={{ type: "spring", stiffness: 600, damping: 18 }}
+        className={cn(
+          "relative inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow-sm",
+          BADGE_BG[tone],
+        )}
+      >
+        {count > 99 ? "99+" : count}
+      </motion.span>
+    </span>
+  );
+}
+
 export default function FarmasiViewTabs() {
   const [active, setActive] = useState<FarmasiMainTab>("antrean");
+
+  // ── Sumber angka notifikasi per tab ──
+  const queue = useFarmasiQueue();
+  const antreanAktif = queue.filter((e) => e.status !== "Selesai").length; // antrean pasien belum selesai
+
+  // Angka badge non-reaktif (Worklist belum-diterima = DB · PIO pending = store) di-refresh TANPA
+  // reload halaman: poll ringan 15 dtk + refetch INSTAN saat tab/jendela kembali fokus + saat pindah tab.
+  // (Push real-time lintas-user sub-detik = butuh SSE — lihat catatan.)
+  const [belumDiterima, setBelumDiterima] = useState(0);
+  const [pioPending, setPioPending] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      if (alive) setPioPending(getPIOLogs().filter((l) => l.status === "Pending").length);
+      try {
+        const rows = await listFarmasiResep({});
+        if (alive) setBelumDiterima(rows.filter((o) => o.status === "Menunggu").length);
+      } catch {
+        /* diam — badge advisory */
+      }
+    };
+    void load();
+    const t = setInterval(load, 15_000);
+    const onFocus = () => { if (document.visibilityState === "visible") void load(); };
+    document.addEventListener("visibilitychange", onFocus);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      alive = false;
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onFocus);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [active]);
+
+  function badgeFor(id: FarmasiMainTab): { count: number; tone: BadgeTone } | null {
+    if (id === "antrean") return { count: antreanAktif, tone: "sky" };
+    if (id === "worklist") return { count: belumDiterima, tone: "amber" };
+    if (id === "pio") return { count: pioPending, tone: "rose" };
+    return null;
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -28,6 +102,7 @@ export default function FarmasiViewTabs() {
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = active === tab.id;
+          const badge = badgeFor(tab.id);
           return (
             <button
               key={tab.id}
@@ -46,7 +121,8 @@ export default function FarmasiViewTabs() {
                 </p>
                 <p className="mt-0.5 text-[10px] text-slate-400">{tab.sub}</p>
               </div>
-              {isActive && (
+              {badge && <NotifBadge count={badge.count} tone={badge.tone} />}
+              {isActive && !badge?.count && (
                 <span className="ml-1 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500" />
               )}
             </button>

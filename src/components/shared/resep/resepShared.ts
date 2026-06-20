@@ -183,6 +183,7 @@ export type ResepOrderBucket = "belum" | "proses" | "selesai" | "lain";
 
 const STATUS_BUCKET: Record<string, ResepOrderBucket> = {
   Menunggu:          "belum",
+  Diterima:          "proses",
   Ditelaah:          "proses",
   "Siap Diserahkan": "proses",
   Selesai:           "selesai",
@@ -203,7 +204,8 @@ export interface ResepOrderStatusCfg {
 
 export const RESEP_ORDER_STATUS: Record<string, ResepOrderStatusCfg> = {
   Menunggu:          { label: "Belum Diterima",       badge: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",        dot: "bg-amber-400"   },
-  Ditelaah:          { label: "Diterima · Ditelaah",  badge: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",              dot: "bg-sky-400"     },
+  Diterima:          { label: "Diterima Farmasi",     badge: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",              dot: "bg-sky-500"     },
+  Ditelaah:          { label: "Ditelaah",             badge: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",              dot: "bg-sky-400"     },
   "Siap Diserahkan": { label: "Disiapkan",            badge: "bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200",           dot: "bg-cyan-500"    },
   Selesai:           { label: "Selesai · Diserahkan", badge: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",  dot: "bg-emerald-500" },
   Dikembalikan:      { label: "Dikembalikan",         badge: "bg-rose-50 text-rose-700 ring-1 ring-rose-200",           dot: "bg-rose-400"    },

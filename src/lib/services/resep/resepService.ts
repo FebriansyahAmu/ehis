@@ -102,8 +102,10 @@ export function makeResepService(deps: { dal?: Dal; clock?: Clock } = {}) {
     input: ResepOrderInput,
     actor: Actor,
   ): Promise<ResepOrderDTO> {
-    await assertKunjungan(kunjunganId);
+    const k = await assertKunjungan(kunjunganId);
     if (input.items.length === 0) throw Errors.validation("Resep minimal berisi 1 obat");
+    // RJ/Poli → langsung worklist (resepsi = antrean fisik). IGD/RI → "Menunggu" (perlu diterima Farmasi dulu).
+    const statusAwal = k.unit === "Rawat_Jalan" ? "Diterima" : "Menunggu";
     const penulis = input.penulis?.trim() || (await resolveActorNama(actor));
     // TTE (mock always-success): resep ditanda-tangani elektronik oleh dokter saat dibuat. Hanya
     // role ber-izin clinical.resep:create (Dokter) yang sampai sini → penanda tangan = penulis/DPJP.
@@ -117,7 +119,7 @@ export function makeResepService(deps: { dal?: Dal; clock?: Clock } = {}) {
       kondisiMenyusui: input.kondisiMenyusui ?? null,
       kondisiKehamilan: input.kondisiKehamilan ?? null,
       prioritas: input.prioritas,
-      status: "Menunggu",
+      status: statusAwal,
       penulis,
       penulisKontak: input.penulisKontak ?? null,
       tteToken: makeTteToken(signedAt),
@@ -152,6 +154,18 @@ export function makeResepService(deps: { dal?: Dal; clock?: Clock } = {}) {
     return rows.map(toFarmasiDTO);
   }
 
+  /** Terima order (Farmasi) — non-Poli "Menunggu" → "Diterima" → masuk worklist. Lintas-kunjungan
+   *  (penunjang berdiri-sendiri, bukan careUnit). Guard atomik: hanya status "Menunggu". */
+  async function receive(resepId: string, _actor: Actor): Promise<ResepOrderDTO> {
+    const order = await dal.findById(resepId);
+    if (!order || order.deletedAt) throw Errors.notFound("Order resep tidak ditemukan");
+    if (order.status !== "Menunggu") throw Errors.conflict("Order sudah diterima / diproses Farmasi");
+    const n = await dal.receive(resepId);
+    if (n === 0) throw Errors.conflict("Order sudah diterima / diproses Farmasi");
+    const fresh = await dal.findById(resepId);
+    return toDTO(fresh!);
+  }
+
   /** Batalkan order resep (retraksi DPJP) — hanya saat "Menunggu" (Farmasi belum menerima).
    *  status → Dibatalkan (tetap terlihat di rekam medis sbg audit, hilang dari worklist Farmasi). */
   async function cancel(kunjunganId: string, resepId: string, _actor: Actor): Promise<ResepOrderDTO> {
@@ -165,7 +179,7 @@ export function makeResepService(deps: { dal?: Dal; clock?: Clock } = {}) {
     return toDTO(fresh!);
   }
 
-  return { list, create, listForFarmasi, cancel };
+  return { list, create, listForFarmasi, receive, cancel };
 }
 
 export const resepService = makeResepService();

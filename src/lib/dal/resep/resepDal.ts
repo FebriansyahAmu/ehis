@@ -84,6 +84,16 @@ export function listForFarmasi(filter: { depoKode?: string; status?: string }, t
   });
 }
 
+/** Terima order — hanya saat "Menunggu" (non-Poli) → "Diterima" (masuk worklist). Atomic guard.
+ *  Return count: 1 = berhasil, 0 = tak ada / status sudah lanjut. */
+export async function receive(id: string, tx?: Tx) {
+  const r = await db(tx).resepOrder.updateMany({
+    where: { id, deletedAt: null, status: "Menunggu" },
+    data: { status: "Diterima" },
+  });
+  return r.count;
+}
+
 /** Batalkan order — hanya saat masih "Menunggu" (belum disentuh Farmasi). Atomic guard via where.
  *  Return count: 1 = berhasil, 0 = tak ada / status sudah lanjut (race). */
 export async function cancel(id: string, kunjunganId: string, tx?: Tx) {

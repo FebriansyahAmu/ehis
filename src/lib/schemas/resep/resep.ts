@@ -53,6 +53,12 @@ export const ResepCancelParams = z.object({
 });
 export type ResepCancelParams = z.infer<typeof ResepCancelParams>;
 
+// ── Param order Farmasi (POST /farmasi/resep/:id/receive) — lintas-kunjungan, by order id ─────
+export const FarmasiResepIdParam = z.object({
+  id: z.string().uuid("Order resep tidak valid"),
+});
+export type FarmasiResepIdParam = z.infer<typeof FarmasiResepIdParam>;
+
 // ── Farmasi worklist query (GET /farmasi/resep) ───────────────────────────────
 export const FarmasiResepQuery = z.object({
   depoKode: z.string().trim().optional(),

@@ -36,6 +36,12 @@ export async function cancelResep(
   return data;
 }
 
+/** POST — Farmasi menerima order non-Poli (Menunggu → Diterima) → masuk worklist. */
+export async function receiveFarmasiResep(resepId: string, signal?: AbortSignal): Promise<ResepOrderDTO> {
+  const { data } = await api.post<ResepOrderDTO>(`/farmasi/resep/${encodeURIComponent(resepId)}/receive`, {}, { signal });
+  return data;
+}
+
 /** GET — worklist Farmasi (lintas-kunjungan). */
 export async function listFarmasiResep(
   query: FarmasiResepQuery = {},

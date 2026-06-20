@@ -6,7 +6,8 @@ import type { ResepOrderFarmasiDTO } from "@/lib/schemas/resep/resep";
 
 // ── Types ─────────────────────────────────────────────────
 
-export type FarmasiStatus  = "Menunggu" | "Ditelaah" | "Siap Diserahkan" | "Selesai" | "Dikembalikan";
+// "Menunggu" = belum diterima Farmasi (non-Poli, reception). "Diterima" = sudah diterima, menunggu telaah (worklist).
+export type FarmasiStatus  = "Menunggu" | "Diterima" | "Ditelaah" | "Siap Diserahkan" | "Selesai" | "Dikembalikan";
 export type DepoTujuan     = "Depo IGD" | "Apotek RI" | "Apotek RJ";
 export type UnitAsal       = "IGD" | "Rawat Inap" | "Rawat Jalan";
 export type PrioritasOrder = "CITO" | "Segera" | "Rutin";
@@ -121,7 +122,8 @@ export const STATUS_CFG: Record<FarmasiStatus, {
   action:    string;
   actionCls: string;
 }> = {
-  Menunggu:          { label: "Menunggu Telaah",  badge: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",         dot: "bg-amber-400",   step: 0, action: "Telaah",     actionCls: "bg-sky-600 hover:bg-sky-700 text-white"           },
+  Menunggu:          { label: "Belum Diterima",   badge: "bg-slate-100 text-slate-600 ring-1 ring-slate-200",        dot: "bg-slate-400",   step: 0, action: "Terima",     actionCls: "bg-sky-600 hover:bg-sky-700 text-white"           },
+  Diterima:          { label: "Menunggu Telaah",  badge: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",         dot: "bg-amber-400",   step: 0, action: "Telaah",     actionCls: "bg-sky-600 hover:bg-sky-700 text-white"           },
   Ditelaah:          { label: "Siap Dispensasi",  badge: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",               dot: "bg-sky-500",     step: 1, action: "Dispensasi", actionCls: "bg-sky-600 hover:bg-sky-700 text-white"           },
   "Siap Diserahkan": { label: "Siap Diserahkan",  badge: "bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200",            dot: "bg-cyan-500",    step: 2, action: "Serahkan",   actionCls: "bg-emerald-600 hover:bg-emerald-700 text-white"   },
   Selesai:           { label: "Diserahkan",        badge: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",   dot: "bg-emerald-500", step: 3, action: "Detail",     actionCls: "bg-slate-100 hover:bg-slate-200 text-slate-700"   },

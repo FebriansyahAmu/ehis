@@ -1,15 +1,17 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ChevronLeft, ChevronRight, AlertTriangle, Clock, CheckCircle2, Package, RotateCcw } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, AlertTriangle, Clock, CheckCircle2, Package, RotateCcw, Inbox, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  deriveResepOrders, mapDbResepOrder,
-  STATUS_CFG, DEPO_CFG,
+  mapDbResepOrder,
+  STATUS_CFG, DEPO_CFG, PRIORITAS_CFG,
   type FarmasiOrder, type FarmasiStatus, type DepoTujuan,
 } from "./farmasiShared";
-import { listFarmasiResep } from "@/lib/api/resep/resep";
+import { listFarmasiResep, receiveFarmasiResep } from "@/lib/api/resep/resep";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
 import OrderCard from "./OrderCard";
 
 // ── Constants ──────────────────────────────────────────────
@@ -17,7 +19,7 @@ import OrderCard from "./OrderCard";
 const ITEMS_PER_PAGE = 6;
 const DEPO_TABS: ("Semua" | DepoTujuan)[] = ["Semua", "Depo IGD", "Apotek RI", "Apotek RJ"];
 const STATUS_FILTERS: ("Semua" | FarmasiStatus)[] = [
-  "Semua", "Menunggu", "Ditelaah", "Siap Diserahkan", "Selesai", "Dikembalikan",
+  "Semua", "Diterima", "Ditelaah", "Siap Diserahkan", "Selesai", "Dikembalikan",
 ];
 
 // ── Stat card ──────────────────────────────────────────────
@@ -42,17 +44,45 @@ function StatCard({ label, value, badge, dot, icon }: StatCardProps) {
 // ── Main board ─────────────────────────────────────────────
 
 export default function FarmasiBoard() {
-  // Order DB (medicalrecord.ResepOrder) digabung di depan order mock (single-source transisi).
-  const [dbOrders, setDbOrders] = useState<FarmasiOrder[]>([]);
-  useEffect(() => {
-    const ac = new AbortController();
-    listFarmasiResep({}, ac.signal)
-      .then((rows) => { if (!ac.signal.aborted) setDbOrders(rows.map(mapDbResepOrder)); })
-      .catch(() => {}); // diam — board tetap tampil order mock
-    return () => ac.abort();
+  // Order resep dari DB (medicalrecord.ResepOrder via worklist Farmasi). 100% DB — tanpa mock.
+  const [allOrders, setAllOrders] = useState<FarmasiOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [receivingId, setReceivingId] = useState<string | null>(null);
+
+  const refetch = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const rows = await listFarmasiResep({}, signal);
+      if (!signal?.aborted) setAllOrders(rows.map(mapDbResepOrder));
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      toast.error("Gagal memuat order farmasi", e instanceof ApiError ? e.message : undefined);
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
   }, []);
 
-  const orders = useMemo(() => [...dbOrders, ...deriveResepOrders()], [dbOrders]);
+  useEffect(() => {
+    const ac = new AbortController();
+    void refetch(ac.signal);
+    return () => ac.abort();
+  }, [refetch]);
+
+  // "Menunggu" = belum diterima Farmasi (non-Poli) → reception. Sisanya = worklist (sudah diterima).
+  const pending = useMemo(() => allOrders.filter((o) => o.status === "Menunggu"), [allOrders]);
+  const orders  = useMemo(() => allOrders.filter((o) => o.status !== "Menunggu"), [allOrders]);
+
+  async function handleTerima(o: FarmasiOrder) {
+    setReceivingId(o.id);
+    try {
+      await receiveFarmasiResep(o.id);
+      toast.success("Order diterima", `${o.namaPasien} · ${o.noOrder} masuk worklist`);
+      await refetch();
+    } catch (e) {
+      toast.error("Gagal menerima order", e instanceof ApiError ? e.message : undefined);
+    } finally {
+      setReceivingId(null);
+    }
+  }
 
   const [depo,   setDepo]   = useState<"Semua" | DepoTujuan>("Semua");
   const [status, setStatus] = useState<"Semua" | FarmasiStatus>("Semua");
@@ -62,7 +92,7 @@ export default function FarmasiBoard() {
 
   // ── Stats ──────────────────────────────────────────────
   const stats = useMemo(() => ({
-    menunggu:     orders.filter((o) => o.status === "Menunggu").length,
+    menunggu:     orders.filter((o) => o.status === "Diterima").length,
     ditelaah:     orders.filter((o) => o.status === "Ditelaah").length,
     siapSerahkan: orders.filter((o) => o.status === "Siap Diserahkan").length,
     selesai:      orders.filter((o) => o.status === "Selesai").length,
@@ -112,6 +142,46 @@ export default function FarmasiBoard() {
             {stats.ham} order mengandung High Alert Medication — verifikasi ganda wajib sebelum dispensasi.
           </p>
         </motion.div>
+      )}
+
+      {/* ── Belum Diterima (reception non-Poli) — order IGD/RI wajib diterima sebelum masuk worklist ── */}
+      {pending.length > 0 && (
+        <motion.section
+          initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+          className="rounded-xl border border-amber-200 bg-amber-50/50 p-4"
+          aria-label="Order belum diterima"
+        >
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <Inbox size={16} className="text-amber-600 shrink-0" aria-hidden="true" />
+            <h2 className="text-sm font-bold text-amber-800">Belum Diterima · {pending.length}</h2>
+            <span className="text-[11px] text-amber-600">order IGD/RI menunggu diterima sebelum masuk worklist telaah</span>
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {pending.map((o) => (
+              <div key={o.id} className="flex items-center gap-3 rounded-lg border border-amber-200 bg-white px-3 py-2.5 shadow-sm">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate text-sm font-semibold text-slate-800">{o.namaPasien}</span>
+                    {o.prioritas !== "Rutin" && (
+                      <span className={cn("shrink-0 rounded px-1 py-0.5 text-[9px] font-bold", PRIORITAS_CFG[o.prioritas].badge)}>{o.prioritas}</span>
+                    )}
+                    {o.hasHAM && <span className="shrink-0 rounded bg-rose-600 px-1 py-0.5 text-[9px] font-black uppercase text-white">HAM</span>}
+                  </div>
+                  <p className="mt-0.5 truncate text-[11px] text-slate-400">{o.noRM} · {o.unit} · {o.items.length} item · {o.jam}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleTerima(o)}
+                  disabled={receivingId === o.id}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-sky-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-sky-700 disabled:opacity-50"
+                  aria-label={`Terima order ${o.noOrder}`}
+                >
+                  {receivingId === o.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Terima
+                </button>
+              </div>
+            ))}
+          </div>
+        </motion.section>
       )}
 
       {/* ── Depo tabs ── */}
@@ -189,7 +259,11 @@ export default function FarmasiBoard() {
       </p>
 
       {/* ── Cards grid ── */}
-      {paged.length > 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 py-16 text-slate-400">
+          <Loader2 size={16} className="animate-spin text-sky-500" /><span className="text-sm">Memuat order…</span>
+        </div>
+      ) : paged.length > 0 ? (
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={gridKey}

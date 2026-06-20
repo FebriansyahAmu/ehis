@@ -103,7 +103,8 @@ export default function OrderCard({ order, index = 0 }: OrderCardProps) {
   const hasLASA   = order.items.some((i) => i.isLASA);
 
   const borderCls = {
-    Menunggu:          "border-l-amber-400",
+    Menunggu:          "border-l-slate-300",
+    Diterima:          "border-l-amber-400",
     Ditelaah:          "border-l-sky-400",
     "Siap Diserahkan": "border-l-indigo-500",
     Selesai:           "border-l-emerald-500",
