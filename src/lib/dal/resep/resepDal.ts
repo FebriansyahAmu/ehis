@@ -2,6 +2,14 @@
 // deletedAt: null. Tanpa aturan bisnis. Terima `tx?`. Selaras tindakanMedisDal.
 
 import { db, type Tx } from "@/lib/db/prisma";
+import { Prisma } from "@/generated/prisma/client";
+
+type Json = Prisma.InputJsonValue;
+
+/** Kolom Json NULLABLE: null/undefined → SQL NULL (Prisma.DbNull), bukan literal null. */
+function jsonOrDbNull(v: Json | null | undefined): Json | typeof Prisma.DbNull {
+  return v == null ? Prisma.DbNull : v;
+}
 
 export interface CreateResepItemData {
   kodeObat: string;
@@ -61,6 +69,25 @@ export function findById(id: string, tx?: Tx) {
   return db(tx).resepOrder.findUnique({ where: { id }, include: withItems });
 }
 
+const latestTelaah = { telaahs: { orderBy: { createdAt: "desc" as const }, take: 1 } };
+
+const withKunjungan = {
+  ...withItems,
+  ...latestTelaah,
+  kunjungan: {
+    select: {
+      unit: true,
+      noKunjungan: true,
+      pasien: { select: { noRm: true, nama: true } },
+    },
+  },
+};
+
+/** Satu order + join kunjungan/pasien (detail Farmasi worklist). Filter deletedAt: null. */
+export function findByIdWithKunjungan(id: string, tx?: Tx) {
+  return db(tx).resepOrder.findFirst({ where: { id, deletedAt: null }, include: withKunjungan });
+}
+
 export function listForFarmasi(filter: { depoKode?: string; status?: string }, tx?: Tx) {
   return db(tx).resepOrder.findMany({
     where: {
@@ -69,19 +96,20 @@ export function listForFarmasi(filter: { depoKode?: string; status?: string }, t
       // Status eksplisit → pakai; default → kecualikan order yang dibatalkan klinisi (bukan antrian Farmasi).
       ...(filter.status ? { status: filter.status } : { status: { not: "Dibatalkan" } }),
     },
-    include: {
-      ...withItems,
-      kunjungan: {
-        select: {
-          unit: true,
-          noKunjungan: true,
-          pasien: { select: { noRm: true, nama: true } },
-        },
-      },
-    },
+    include: withKunjungan,
     orderBy: { createdAt: "desc" },
     take: 200,
   });
+}
+
+/** Transisi status ter-guard (atomik via where) — pindah hanya bila status ∈ `from`.
+ *  Return count: 1 = berhasil, 0 = tak ada / status sudah lanjut (race). */
+export async function transition(id: string, from: string[], to: string, tx?: Tx) {
+  const r = await db(tx).resepOrder.updateMany({
+    where: { id, deletedAt: null, status: { in: from } },
+    data: { status: to },
+  });
+  return r.count;
 }
 
 /** Terima order — hanya saat "Menunggu" (non-Poli) → "Diterima" (masuk worklist). Atomic guard.
@@ -112,5 +140,37 @@ export async function softDelete(id: string, tx?: Tx) {
   return r.count;
 }
 
+// ── Telaah resep (append-only) ────────────────────────────────────────────────
+export interface CreateResepTelaahData {
+  resepOrderId: string;
+  kunjunganId: string;
+  hasil: string;
+  alasanKembali?: string | null;
+  catatan?: string | null;
+  lulusAdministrasi: boolean;
+  lulusFarmasetik: boolean;
+  lulusKlinis: boolean;
+  answers: unknown; // {administrasi,farmasetik,klinis} → cast ke Json di boundary
+  substitusi?: unknown | null;
+  justifikasiNonFormularium?: unknown | null;
+  lasaKonfirmasi?: boolean | null;
+  apoteker: string;
+  authorUserId?: string | null;
+  authorPegawaiId?: string | null;
+}
+
+export function createTelaah(data: CreateResepTelaahData, tx?: Tx) {
+  const { answers, substitusi, justifikasiNonFormularium, ...rest } = data;
+  return db(tx).resepTelaah.create({
+    data: {
+      ...rest,
+      answers: (answers ?? {}) as Json,
+      substitusi: jsonOrDbNull(substitusi as Json | null | undefined),
+      justifikasiNonFormularium: jsonOrDbNull(justifikasiNonFormularium as Json | null | undefined),
+    },
+  });
+}
+
 export type ResepOrderEntity = NonNullable<Awaited<ReturnType<typeof findById>>>;
-export type ResepOrderFarmasiEntity = Awaited<ReturnType<typeof listForFarmasi>>[number];
+export type ResepOrderFarmasiEntity = NonNullable<Awaited<ReturnType<typeof findByIdWithKunjungan>>>;
+export type ResepTelaahEntity = ResepOrderFarmasiEntity["telaahs"][number];

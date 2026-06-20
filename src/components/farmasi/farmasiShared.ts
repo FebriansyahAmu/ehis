@@ -2,7 +2,9 @@ import {
   ORDERS_MOCK,
   type Order,
 } from "@/components/shared/medical-records/daftarOrder/daftarOrderShared";
-import type { ResepOrderFarmasiDTO } from "@/lib/schemas/resep/resep";
+import type { ResepOrderFarmasiDTO, ResepTelaahDTO, TelaahAnswers } from "@/lib/schemas/resep/resep";
+
+export type { TelaahAnswers };
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -54,7 +56,8 @@ export interface TelaahCheck {
 }
 
 export interface TelaahData {
-  checks:                     TelaahCheck;
+  checks:                     TelaahCheck;      // ringkasan lulus per-aspek (administratif/farmasetis/klinis)
+  answers?:                   TelaahAnswers;    // jawaban per-item (linkId→bool) faithful QuestionnaireResponse
   catatan?:                   string;
   apoteker:                   string;
   waktu:                      string;
@@ -150,9 +153,72 @@ export const INTERVENSI_CFG: Record<IntervensiType, { label: string; badge: stri
   Rekomendasi:     { label: "Rekomendasi",        badge: "bg-sky-50 text-sky-700 ring-1 ring-sky-200"          },
 };
 
-export const TELAAH_ADM_ITEMS  = ["Nama lengkap & identitas pasien", "No. RM sesuai gelang", "Tanggal penulisan resep", "Nama & paraf dokter penulis"];
-export const TELAAH_FARM_ITEMS = ["Dosis dalam rentang normal", "Bentuk sediaan sesuai kondisi", "Rute & cara pemberian tepat", "Aturan pakai & durasi jelas"];
-export const TELAAH_KLIN_ITEMS = ["Indikasi sesuai diagnosa", "Tidak ada kontraindikasi absolut", "Tidak ada interaksi signifikan", "Tidak ada duplikasi terapi"];
+// ── Pengkajian Resep (PMK 72/2016 · SatuSehat QuestionnaireResponse) ──────────────
+//  3 aspek baku: administratif · farmasetis · klinis. Tiap item punya `linkId` stabil →
+//  jawaban (linkId→boolean) jadi payload QuestionnaireResponse. `prefill` = item yang pada
+//  e-resep terstruktur sudah dijamin terisi (mis. identitas/tgl/dokter dari ResepOrder) →
+//  dicentang awal, apoteker tetap dapat membatalkan. linkId final dipetakan ke canonical
+//  Questionnaire SatuSehat saat membangun adapter FHIR (/ehis-fhir).
+
+export type TelaahGroupKey = "administrasi" | "farmasetik" | "klinis";
+export interface TelaahItem { linkId: string; text: string; prefill?: boolean }
+export interface TelaahGroup { key: TelaahGroupKey; label: string; items: TelaahItem[] }
+
+export const TELAAH_GROUPS: TelaahGroup[] = [
+  {
+    key: "administrasi",
+    label: "Administratif",
+    items: [
+      { linkId: "adm-identitas", text: "Nama & No. RM pasien sesuai (2 penanda identitas)", prefill: true },
+      { linkId: "adm-umur-jk",   text: "Umur & jenis kelamin pasien",                        prefill: true },
+      { linkId: "adm-dokter",    text: "Nama, no. SIP & paraf dokter penulis",               prefill: true },
+      { linkId: "adm-tanggal",   text: "Tanggal penulisan resep",                            prefill: true },
+      { linkId: "adm-unit",      text: "Ruangan / unit asal resep",                          prefill: true },
+    ],
+  },
+  {
+    key: "farmasetik",
+    label: "Farmasetis",
+    items: [
+      { linkId: "farm-nama-kekuatan", text: "Nama obat, bentuk & kekuatan sediaan jelas" },
+      { linkId: "farm-dosis-jumlah",  text: "Dosis & jumlah obat tertulis jelas" },
+      { linkId: "farm-stabilitas",    text: "Stabilitas sediaan (penyimpanan / BUD) terjaga" },
+      { linkId: "farm-aturan",        text: "Aturan & cara penggunaan jelas" },
+      { linkId: "farm-kompatibilitas",text: "Kompatibilitas / tidak ada inkompatibilitas campuran" },
+    ],
+  },
+  {
+    key: "klinis",
+    label: "Klinis",
+    items: [
+      { linkId: "klin-indikasi",       text: "Ketepatan indikasi sesuai diagnosa" },
+      { linkId: "klin-dosis",          text: "Ketepatan dosis (sesuai BB / usia / fungsi organ)" },
+      { linkId: "klin-aturan-lama",    text: "Ketepatan aturan, cara & lama penggunaan" },
+      { linkId: "klin-duplikasi",      text: "Tidak ada duplikasi / polifarmasi" },
+      { linkId: "klin-rotd",           text: "Tidak ada ROTD / alergi terkait" },
+      { linkId: "klin-kontraindikasi", text: "Tidak ada kontraindikasi" },
+      { linkId: "klin-interaksi",      text: "Tidak ada interaksi obat signifikan" },
+    ],
+  },
+];
+
+export const TELAAH_GROUP_BY_KEY: Record<TelaahGroupKey, TelaahGroup> =
+  Object.fromEntries(TELAAH_GROUPS.map((g) => [g.key, g])) as Record<TelaahGroupKey, TelaahGroup>;
+
+/** Default jawaban grup (prefill item e-resep tercentang). */
+export function initTelaahGroup(key: TelaahGroupKey): Record<string, boolean> {
+  return Object.fromEntries(TELAAH_GROUP_BY_KEY[key].items.map((it) => [it.linkId, !!it.prefill]));
+}
+
+/** Lulus aspek = semua item grup tercentang. */
+export function telaahGroupLulus(key: TelaahGroupKey, answers: Record<string, boolean>): boolean {
+  return TELAAH_GROUP_BY_KEY[key].items.every((it) => !!answers[it.linkId]);
+}
+
+// Backward-compat (string[]) — dipakai komponen modal legacy (TelaahModal/DispensasiModal).
+export const TELAAH_ADM_ITEMS  = TELAAH_GROUP_BY_KEY.administrasi.items.map((i) => i.text);
+export const TELAAH_FARM_ITEMS = TELAAH_GROUP_BY_KEY.farmasetik.items.map((i) => i.text);
+export const TELAAH_KLIN_ITEMS = TELAAH_GROUP_BY_KEY.klinis.items.map((i) => i.text);
 
 // ── LASA (Look-Alike Sound-Alike) — PMK 72/2016 Ps.8 · SKP 3 ───
 
@@ -487,6 +553,22 @@ function coerceStatus(s: string): FarmasiStatus {
   return (s in STATUS_CFG ? (s as FarmasiStatus) : "Menunggu");
 }
 
+/** ResepTelaahDTO (DB) → TelaahData (FE) — pulihkan telaah tersimpan saat reopen detail. */
+function telaahFromDTO(t: ResepTelaahDTO): TelaahData {
+  return {
+    checks: { administratif: t.lulusAdministrasi, farmasetis: t.lulusFarmasetik, klinis: t.lulusKlinis },
+    answers: t.answers,
+    catatan: t.catatan ?? undefined,
+    apoteker: t.apoteker,
+    waktu: new Date(t.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+    result: t.hasil === "Disetujui" ? "Disetujui" : "Dikembalikan",
+    alasanKembali: t.alasanKembali ?? undefined,
+    substitusi: t.substitusi ?? undefined,
+    justifikasiNonFormularium: t.justifikasiNonFormularium ?? undefined,
+    lasaKonfirmasi: t.lasaKonfirmasi ?? undefined,
+  };
+}
+
 export function mapDbResepOrder(o: ResepOrderFarmasiDTO): FarmasiOrder {
   const items: FarmasiOrderItem[] = o.items.map((it) => ({
     id:            it.id,
@@ -518,6 +600,7 @@ export function mapDbResepOrder(o: ResepOrderFarmasiDTO): FarmasiOrder {
     prioritas:     (o.prioritas as PrioritasOrder) || "Rutin",
     hasHAM:        items.some((i) => i.isHAM),
     items,
+    telaah:        o.telaah ? telaahFromDTO(o.telaah) : undefined,
     alergiPasien:  getPatientAllergies(o.noRM),
   };
 }

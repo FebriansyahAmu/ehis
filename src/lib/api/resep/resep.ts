@@ -3,10 +3,10 @@
 
 import { api } from "@/lib/api/client";
 import type {
-  ResepOrderBody, ResepOrderDTO, ResepOrderFarmasiDTO, FarmasiResepQuery,
+  ResepOrderBody, ResepOrderDTO, ResepOrderFarmasiDTO, FarmasiResepQuery, FarmasiTelaahBody,
 } from "@/lib/schemas/resep/resep";
 
-export type { ResepOrderBody, ResepOrderDTO, ResepOrderFarmasiDTO, FarmasiResepQuery };
+export type { ResepOrderBody, ResepOrderDTO, ResepOrderFarmasiDTO, FarmasiResepQuery, FarmasiTelaahBody };
 
 const base = (k: string) => `/kunjungan/${encodeURIComponent(k)}/resep`;
 
@@ -39,6 +39,28 @@ export async function cancelResep(
 /** POST — Farmasi menerima order non-Poli (Menunggu → Diterima) → masuk worklist. */
 export async function receiveFarmasiResep(resepId: string, signal?: AbortSignal): Promise<ResepOrderDTO> {
   const { data } = await api.post<ResepOrderDTO>(`/farmasi/resep/${encodeURIComponent(resepId)}/receive`, {}, { signal });
+  return data;
+}
+
+/** GET — detail satu order resep (halaman Farmasi telaah/dispensing). */
+export async function getFarmasiResep(resepId: string, signal?: AbortSignal): Promise<ResepOrderFarmasiDTO> {
+  const { data } = await api.get<ResepOrderFarmasiDTO>(`/farmasi/resep/${encodeURIComponent(resepId)}`, { signal });
+  return data;
+}
+
+/** POST — telaah resep (Diterima → Ditelaah | Dikembalikan). */
+export async function telaahFarmasiResep(
+  resepId: string,
+  body: FarmasiTelaahBody,
+  signal?: AbortSignal,
+): Promise<ResepOrderFarmasiDTO> {
+  const { data } = await api.post<ResepOrderFarmasiDTO>(`/farmasi/resep/${encodeURIComponent(resepId)}/telaah`, body, { signal });
+  return data;
+}
+
+/** POST — dispensing & serah (Ditelaah → Selesai). */
+export async function dispensingFarmasiResep(resepId: string, signal?: AbortSignal): Promise<ResepOrderFarmasiDTO> {
+  const { data } = await api.post<ResepOrderFarmasiDTO>(`/farmasi/resep/${encodeURIComponent(resepId)}/dispensing`, {}, { signal });
   return data;
 }
 

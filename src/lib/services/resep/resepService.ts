@@ -9,12 +9,14 @@ import * as defaultDal from "@/lib/dal/resep/resepDal";
 import * as kunjunganDal from "@/lib/dal/kunjunganDal";
 import { resolveActorNama } from "@/lib/services/actorName";
 import { systemClock, type Clock } from "@/lib/core/clock";
+import { transaction } from "@/lib/db/prisma";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type {
   ResepOrderInput, ResepOrderDTO, ResepItemDTO, ResepOrderFarmasiDTO, FarmasiResepQuery,
+  FarmasiTelaahInput, ResepTelaahDTO, TelaahAnswers, TelaahSubstitusiItem,
 } from "@/lib/schemas/resep/resep";
-import type { ResepOrderEntity, ResepOrderFarmasiEntity } from "@/lib/dal/resep/resepDal";
+import type { ResepOrderEntity, ResepOrderFarmasiEntity, ResepTelaahEntity } from "@/lib/dal/resep/resepDal";
 
 type Dal = typeof defaultDal;
 type ItemEntity = ResepOrderEntity["items"][number];
@@ -66,9 +68,30 @@ function makeTteToken(now: Date): string {
   return `TTE-${ymd}-${randomUUID().slice(0, 8).toUpperCase()}`;
 }
 
-/** "Rawat_Inap" → "Rawat Inap" (vocab FE worklist Farmasi). */
+/** enum KunjunganUnit → label FE worklist Farmasi (selaras UNIT_LABEL kunjunganService). */
+const UNIT_FE_LABEL: Record<string, string> = { IGD: "IGD", RawatJalan: "Rawat Jalan", RawatInap: "Rawat Inap" };
 function unitToFe(unit: string): string {
-  return unit.replace(/_/g, " ");
+  return UNIT_FE_LABEL[unit] ?? unit;
+}
+
+const EMPTY_ANSWERS: TelaahAnswers = { administrasi: {}, farmasetik: {}, klinis: {} };
+
+function toTelaahDTO(t: ResepTelaahEntity): ResepTelaahDTO {
+  return {
+    id: t.id,
+    hasil: t.hasil,
+    alasanKembali: t.alasanKembali ?? null,
+    catatan: t.catatan ?? null,
+    lulusAdministrasi: t.lulusAdministrasi,
+    lulusFarmasetik: t.lulusFarmasetik,
+    lulusKlinis: t.lulusKlinis,
+    answers: (t.answers as unknown as TelaahAnswers) ?? EMPTY_ANSWERS,
+    substitusi: (t.substitusi as unknown as TelaahSubstitusiItem[] | null) ?? null,
+    justifikasiNonFormularium: (t.justifikasiNonFormularium as unknown as Record<string, string> | null) ?? null,
+    lasaKonfirmasi: t.lasaKonfirmasi ?? null,
+    apoteker: t.apoteker,
+    createdAt: t.createdAt.toISOString(),
+  };
 }
 
 function toFarmasiDTO(o: ResepOrderFarmasiEntity): ResepOrderFarmasiDTO {
@@ -78,6 +101,7 @@ function toFarmasiDTO(o: ResepOrderFarmasiEntity): ResepOrderFarmasiDTO {
     noRM: o.kunjungan.pasien.noRm,
     namaPasien: o.kunjungan.pasien.nama,
     unit: unitToFe(o.kunjungan.unit),
+    telaah: o.telaahs[0] ? toTelaahDTO(o.telaahs[0]) : null,
   };
 }
 
@@ -105,7 +129,7 @@ export function makeResepService(deps: { dal?: Dal; clock?: Clock } = {}) {
     const k = await assertKunjungan(kunjunganId);
     if (input.items.length === 0) throw Errors.validation("Resep minimal berisi 1 obat");
     // RJ/Poli → langsung worklist (resepsi = antrean fisik). IGD/RI → "Menunggu" (perlu diterima Farmasi dulu).
-    const statusAwal = k.unit === "Rawat_Jalan" ? "Diterima" : "Menunggu";
+    const statusAwal = k.unit === "RawatJalan" ? "Diterima" : "Menunggu";
     const penulis = input.penulis?.trim() || (await resolveActorNama(actor));
     // TTE (mock always-success): resep ditanda-tangani elektronik oleh dokter saat dibuat. Hanya
     // role ber-izin clinical.resep:create (Dokter) yang sampai sini → penanda tangan = penulis/DPJP.
@@ -154,6 +178,70 @@ export function makeResepService(deps: { dal?: Dal; clock?: Clock } = {}) {
     return rows.map(toFarmasiDTO);
   }
 
+  /** Detail satu order utk halaman Farmasi (telaah/dispensing). Lintas-kunjungan. */
+  async function getFarmasiOne(resepId: string, _actor: Actor): Promise<ResepOrderFarmasiDTO> {
+    const row = await dal.findByIdWithKunjungan(resepId);
+    if (!row) throw Errors.notFound("Order resep tidak ditemukan");
+    return toFarmasiDTO(row);
+  }
+
+  async function freshFarmasi(resepId: string): Promise<ResepOrderFarmasiDTO> {
+    const row = await dal.findByIdWithKunjungan(resepId);
+    if (!row) throw Errors.notFound("Order resep tidak ditemukan");
+    return toFarmasiDTO(row);
+  }
+
+  /** Telaah / pengkajian resep (Apoteker, PMK 72/2016 · QuestionnaireResponse-ready):
+   *  "Diterima" → "Ditelaah" (Disetujui) | "Dikembalikan" (ditolak). Persist snapshot telaah
+   *  (answers + lulus per-aspek + keputusan) + transisi status ATOMIK (1 transaksi). Guard status. */
+  async function telaah(
+    resepId: string,
+    input: FarmasiTelaahInput,
+    actor: Actor,
+  ): Promise<ResepOrderFarmasiDTO> {
+    const order = await dal.findById(resepId);
+    if (!order || order.deletedAt) throw Errors.notFound("Order resep tidak ditemukan");
+    if (order.status !== "Diterima") throw Errors.conflict("Telaah hanya untuk order yang sudah diterima Farmasi");
+    if (input.result === "Dikembalikan" && !input.alasanKembali) {
+      throw Errors.validation("Alasan pengembalian wajib diisi");
+    }
+    const apoteker = input.apoteker?.trim() || (await resolveActorNama(actor));
+    const to = input.result === "Disetujui" ? "Ditelaah" : "Dikembalikan";
+    await transaction(async (tx) => {
+      const n = await dal.transition(resepId, ["Diterima"], to, tx);
+      if (n === 0) throw Errors.conflict("Status order berubah — muat ulang");
+      await dal.createTelaah({
+        resepOrderId: resepId,
+        kunjunganId: order.kunjunganId,
+        hasil: input.result,
+        alasanKembali: input.alasanKembali ?? null,
+        catatan: input.catatan ?? null,
+        lulusAdministrasi: input.lulusAdministrasi,
+        lulusFarmasetik: input.lulusFarmasetik,
+        lulusKlinis: input.lulusKlinis,
+        answers: input.answers,
+        substitusi: input.substitusi ?? null,
+        justifikasiNonFormularium: input.justifikasiNonFormularium ?? null,
+        lasaKonfirmasi: input.lasaKonfirmasi ?? null,
+        apoteker,
+        authorUserId: actor.userId,
+        authorPegawaiId: actor.pegawaiId,
+      }, tx);
+    });
+    return freshFarmasi(resepId);
+  }
+
+  /** Dispensing & serah (Apoteker) — "Ditelaah" → "Selesai" (obat disiapkan + diserahkan).
+   *  Fondasi: hanya transisi status (lot/ED/serah-terima belum dipersist). Guard atomik. */
+  async function dispensing(resepId: string, _actor: Actor): Promise<ResepOrderFarmasiDTO> {
+    const order = await dal.findById(resepId);
+    if (!order || order.deletedAt) throw Errors.notFound("Order resep tidak ditemukan");
+    if (order.status !== "Ditelaah") throw Errors.conflict("Dispensing hanya untuk order yang sudah ditelaah & disetujui");
+    const n = await dal.transition(resepId, ["Ditelaah"], "Selesai");
+    if (n === 0) throw Errors.conflict("Status order berubah — muat ulang");
+    return freshFarmasi(resepId);
+  }
+
   /** Terima order (Farmasi) — non-Poli "Menunggu" → "Diterima" → masuk worklist. Lintas-kunjungan
    *  (penunjang berdiri-sendiri, bukan careUnit). Guard atomik: hanya status "Menunggu". */
   async function receive(resepId: string, _actor: Actor): Promise<ResepOrderDTO> {
@@ -179,7 +267,7 @@ export function makeResepService(deps: { dal?: Dal; clock?: Clock } = {}) {
     return toDTO(fresh!);
   }
 
-  return { list, create, listForFarmasi, receive, cancel };
+  return { list, create, listForFarmasi, getFarmasiOne, receive, telaah, dispensing, cancel };
 }
 
 export const resepService = makeResepService();

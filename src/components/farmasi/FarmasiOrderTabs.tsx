@@ -5,13 +5,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Pill, FileText, Activity, ShieldAlert, ClipboardList, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  deriveResepOrders, updateFarmasiWorkflow,
+  mapDbResepOrder,
   type FarmasiOrder, type TelaahData,
   type FarmasiOrderItem, type SerahTerima, type CatatanFarmasi,
 } from "./farmasiShared";
-import { updateOrderStatus } from "@/components/shared/medical-records/daftarOrder/daftarOrderShared";
+import { telaahFarmasiResep, dispensingFarmasiResep, type FarmasiTelaahBody } from "@/lib/api/resep/resep";
 import { ingestFarmasiOrder } from "@/lib/billing/chargeIngest";
 import { emitFarmasiTask } from "@/lib/farmasi/farmasiQueueStore";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
 import CPPTTab           from "@/components/shared/medical-records/CPPTTab";
 import LayananFarmasiTab from "./tabs/LayananFarmasiTab";
 import PTOPane           from "./tabs/PTOPane";
@@ -70,52 +72,72 @@ export interface FarmasiOrderCallbacks {
 
 // ── Main ──────────────────────────────────────────────────
 
-export default function FarmasiOrderTabs({ orderId }: { orderId: string }) {
+export default function FarmasiOrderTabs({
+  order,
+  onOrderChange,
+}: {
+  order: FarmasiOrder;
+  onOrderChange: (o: FarmasiOrder) => void;
+}) {
   const [active, setActive] = useState<TabId>("layanan");
 
-  // Derive live order (with workflowStore overlay, client-side)
-  const [order, setOrder] = useState<FarmasiOrder | null>(() =>
-    deriveResepOrders().find((o) => o.id === orderId) ?? null,
-  );
+  // Transisi status persist ke DB (medicalrecord.ResepOrder). Snapshot telaah/serah/lot
+  // di-overlay client-side (fondasi: belum dipersist) agar tampil selama sesi. mapDbResepOrder
+  // membangun ulang order dari DTO segar → overlay data isian + catatan yang sudah ada.
 
-  function handleTelaahSubmit(id: string, data: TelaahData) {
-    const newStatus = data.result === "Disetujui" ? "Ditelaah" : "Dikembalikan" as const;
-    updateFarmasiWorkflow(id, { status: newStatus, telaah: data });
-    updateOrderStatus(id, data.result === "Disetujui" ? "Diproses" : "Menunggu");
-    setOrder((prev) => prev ? { ...prev, telaah: data, status: newStatus } : prev);
-    // Antrol T6 — telaah disetujui = mulai layan farmasi (best-effort, by No. RM).
-    if (data.result === "Disetujui") emitFarmasiTask(order?.noRM, 6);
-  }
-
-  function handleDispensasiSubmit(id: string, items: FarmasiOrderItem[], serahTerima: SerahTerima) {
-    updateFarmasiWorkflow(id, { status: "Selesai", items, serahTerima });
-    updateOrderStatus(id, "Selesai");
-    setOrder((prev) => prev ? { ...prev, items, serahTerima, status: "Selesai" } : prev);
-    // Antrol T7 — obat diserahkan (serah terima di worklist) = akhir layan farmasi.
-    emitFarmasiTask(order?.noRM, 7);
-    // BL6.1 — silent wiring ke Billing. Idempotent (dedupe by sourceRef).
-    if (order) {
-      const result = ingestFarmasiOrder({
-        ...order,
-        items,
-        serahTerima,
-        status: "Selesai",
-        timestamps: { ...(order.timestamps ?? { masuk: order.tanggal }), serahTerima: serahTerima.waktu },
-      });
-      if (result.ok && result.added > 0) {
-        // eslint-disable-next-line no-console
-        console.info(
-          `[Billing] Farmasi ${order.noOrder} → invoice ${result.invoiceId} (+${result.added} charges, ${result.skipped} skipped)`,
-        );
+  async function handleTelaahSubmit(id: string, data: TelaahData) {
+    try {
+      const body: FarmasiTelaahBody = {
+        result:            data.result,
+        alasanKembali:     data.alasanKembali,
+        catatan:           data.catatan,
+        answers:           data.answers,
+        lulusAdministrasi: data.checks.administratif,
+        lulusFarmasetik:   data.checks.farmasetis,
+        lulusKlinis:       data.checks.klinis,
+        substitusi:        data.substitusi,
+        lasaKonfirmasi:    data.lasaKonfirmasi,
+      };
+      const dto = await telaahFarmasiResep(id, body);
+      onOrderChange({ ...mapDbResepOrder(dto), catatan: order.catatan }); // telaah ikut dari DTO
+      if (data.result === "Disetujui") {
+        emitFarmasiTask(order.noRM, 6); // Antrol T6 — mulai layan farmasi (best-effort, by No. RM)
+        toast.success("Resep ditelaah", "Siap dispensasi & serah");
+      } else {
+        toast.success("Resep dikembalikan", "Dikembalikan ke DPJP");
       }
+    } catch (e) {
+      toast.error("Gagal menyimpan telaah", e instanceof ApiError ? e.message : undefined);
     }
   }
 
-  function handleCatatanAdd(id: string, catatan: CatatanFarmasi) {
-    const existing = order?.catatan ?? [];
-    const updated  = [...existing, catatan];
-    updateFarmasiWorkflow(id, { catatan: updated });
-    setOrder((prev) => prev ? { ...prev, catatan: updated } : prev);
+  async function handleDispensasiSubmit(id: string, items: FarmasiOrderItem[], serahTerima: SerahTerima) {
+    try {
+      const dto  = await dispensingFarmasiResep(id);
+      const next: FarmasiOrder = {
+        ...mapDbResepOrder(dto),
+        items, serahTerima, telaah: order.telaah, catatan: order.catatan,
+      };
+      onOrderChange(next);
+      emitFarmasiTask(order.noRM, 7); // Antrol T7 — obat diserahkan = akhir layan farmasi
+      // BL6.1 — silent wiring ke Billing. Idempotent (dedupe by sourceRef).
+      const result = ingestFarmasiOrder({
+        ...next,
+        timestamps: { ...(next.timestamps ?? { masuk: next.tanggal }), serahTerima: serahTerima.waktu },
+      });
+      if (result.ok && result.added > 0) {
+        console.info(
+          `[Billing] Farmasi ${next.noOrder} → invoice ${result.invoiceId} (+${result.added} charges, ${result.skipped} skipped)`,
+        );
+      }
+      toast.success("Obat diserahkan", `${next.noOrder} selesai`);
+    } catch (e) {
+      toast.error("Gagal menyelesaikan dispensing", e instanceof ApiError ? e.message : undefined);
+    }
+  }
+
+  function handleCatatanAdd(_id: string, catatan: CatatanFarmasi) {
+    onOrderChange({ ...order, catatan: [...(order.catatan ?? []), catatan] });
   }
 
   const callbacks: FarmasiOrderCallbacks = {
@@ -123,14 +145,6 @@ export default function FarmasiOrderTabs({ orderId }: { orderId: string }) {
     onDispensasiSubmit: handleDispensasiSubmit,
     onCatatanAdd:       handleCatatanAdd,
   };
-
-  if (!order) {
-    return (
-      <div className="flex flex-1 items-center justify-center text-sm text-slate-400">
-        Order tidak ditemukan.
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-0 flex-1">

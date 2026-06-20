@@ -53,11 +53,66 @@ export const ResepCancelParams = z.object({
 });
 export type ResepCancelParams = z.infer<typeof ResepCancelParams>;
 
-// ── Param order Farmasi (POST /farmasi/resep/:id/receive) — lintas-kunjungan, by order id ─────
+// ── Param order Farmasi (POST /farmasi/resep/:id/receive|telaah|dispensing · GET /:id) ─────
+//  Lintas-kunjungan (penunjang berdiri-sendiri), by order id.
 export const FarmasiResepIdParam = z.object({
   id: z.string().uuid("Order resep tidak valid"),
 });
 export type FarmasiResepIdParam = z.infer<typeof FarmasiResepIdParam>;
+
+// ── Body telaah resep (POST /farmasi/resep/:id/telaah) ─────────────────────────
+//  Pengkajian resep PMK 72/2016 (administrasi/farmasetik/klinis) → snapshot QuestionnaireResponse-
+//  ready (SatuSehat). `answers` = linkId→boolean per grup (faithful Questionnaire). `lulus*` =
+//  ringkasan per-aspek. result Disetujui → status "Ditelaah" · Dikembalikan → "Dikembalikan".
+const TelaahGroupAnswers = z.record(z.string(), z.boolean());
+
+export const TelaahAnswers = z.object({
+  administrasi: TelaahGroupAnswers.default({}),
+  farmasetik: TelaahGroupAnswers.default({}),
+  klinis: TelaahGroupAnswers.default({}),
+});
+export type TelaahAnswers = z.infer<typeof TelaahAnswers>;
+
+export const TelaahSubstitusiItem = z.object({
+  itemId: z.string(),
+  namaAsli: z.string(),
+  namaGenerik: z.string(),
+  alasan: optStr,
+});
+export type TelaahSubstitusiItem = z.infer<typeof TelaahSubstitusiItem>;
+
+export const FarmasiTelaahInput = z.object({
+  result: z.enum(["Disetujui", "Dikembalikan"]),
+  alasanKembali: optStr,
+  catatan: optStr,
+  apoteker: optStr,                          // kosong → nama actor (server)
+  answers: TelaahAnswers.default({ administrasi: {}, farmasetik: {}, klinis: {} }),
+  lulusAdministrasi: z.boolean().default(false),
+  lulusFarmasetik: z.boolean().default(false),
+  lulusKlinis: z.boolean().default(false),
+  substitusi: z.array(TelaahSubstitusiItem).optional(),
+  justifikasiNonFormularium: z.record(z.string(), z.string()).optional(),
+  lasaKonfirmasi: z.boolean().optional(),
+});
+export type FarmasiTelaahInput = z.infer<typeof FarmasiTelaahInput>;
+export type FarmasiTelaahBody = z.input<typeof FarmasiTelaahInput>;
+
+// ── DTO telaah (snapshot tersimpan) ────────────────────────────────────────────
+export interface ResepTelaahDTO {
+  id: string;
+  hasil: string; // Disetujui / Dikembalikan
+  alasanKembali: string | null;
+  catatan: string | null;
+  lulusAdministrasi: boolean;
+  lulusFarmasetik: boolean;
+  lulusKlinis: boolean;
+  answers: TelaahAnswers;
+  substitusi: TelaahSubstitusiItem[] | null;
+  justifikasiNonFormularium: Record<string, string> | null;
+  lasaKonfirmasi: boolean | null;
+  apoteker: string;
+  createdAt: string; // ISO
+}
 
 // ── Farmasi worklist query (GET /farmasi/resep) ───────────────────────────────
 export const FarmasiResepQuery = z.object({
@@ -105,10 +160,11 @@ export interface ResepOrderDTO {
   createdAt: string; // ISO
 }
 
-/** Order untuk worklist Farmasi — header + pasien (join kunjungan) + items. */
+/** Order untuk worklist Farmasi — header + pasien (join kunjungan) + items + telaah terkini. */
 export interface ResepOrderFarmasiDTO extends ResepOrderDTO {
   noOrder: string;     // = noKunjungan order ref (snapshot tampil)
   noRM: string;
   namaPasien: string;
   unit: string;        // "IGD" | "Rawat Inap" | "Rawat Jalan"
+  telaah: ResepTelaahDTO | null; // telaah terbaru (null = belum ditelaah)
 }

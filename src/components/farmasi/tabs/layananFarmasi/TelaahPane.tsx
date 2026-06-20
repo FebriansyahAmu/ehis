@@ -5,13 +5,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2, XCircle, AlertTriangle, ChevronDown,
   Check, ShieldAlert, RefreshCw, Pill, ChevronRight,
-  ClipboardList, Stethoscope, BookOpen,
+  ClipboardList, Stethoscope,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  TELAAH_ADM_ITEMS, TELAAH_FARM_ITEMS, TELAAH_KLIN_ITEMS,
+  TELAAH_GROUP_BY_KEY, initTelaahGroup, telaahGroupLulus,
   getLASAPair,
-  type FarmasiOrder, type TelaahData, type TelaahCheck,
+  type FarmasiOrder, type TelaahData, type TelaahCheck, type TelaahGroupKey, type TelaahItem,
   type AllergiPasien, type SubstitusiItem, type FarmasiOrderItem,
 } from "@/components/farmasi/farmasiShared";
 
@@ -252,15 +252,15 @@ function SubstitusiPanel({
 
 interface SectionProps {
   title:      string;
-  items:      string[];
-  checked:    boolean[];
-  onChange:   (i: number) => void;
+  items:      TelaahItem[];
+  answers:    Record<string, boolean>; // linkId → bool
+  onToggle:   (linkId: string) => void;
   onCheckAll: () => void;
 }
 
-function CheckSection({ title, items, checked, onChange, onCheckAll }: SectionProps) {
+function CheckSection({ title, items, answers, onToggle, onCheckAll }: SectionProps) {
   const [open, setOpen] = useState(true);
-  const done    = checked.filter(Boolean).length;
+  const done    = items.filter((it) => answers[it.linkId]).length;
   const total   = items.length;
   const pct     = total > 0 ? (done / total) * 100 : 0;
   const allDone = done === total;
@@ -343,38 +343,46 @@ function CheckSection({ title, items, checked, onChange, onCheckAll }: SectionPr
             className="overflow-hidden"
           >
             <div className="divide-y divide-slate-50 border-t border-slate-100 px-2 pb-2 pt-1">
-              {items.map((item, i) => (
-                <button
-                  key={i}
-                  onClick={() => onChange(i)}
-                  className={cn(
-                    "flex w-full items-start gap-3 rounded-lg px-2 py-2.5 text-left transition-colors duration-100",
-                    checked[i] ? "bg-emerald-50/50" : "hover:bg-slate-50/70",
-                  )}
-                >
-                  <div className={cn(
-                    "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-all duration-200",
-                    checked[i] ? "border-emerald-500 bg-emerald-500" : "border-slate-300 hover:border-sky-400",
-                  )}>
-                    <AnimatePresence>
-                      {checked[i] && (
-                        <motion.div
-                          initial={{ scale: 0, rotate: -20 }}
-                          animate={{ scale: 1, rotate: 0 }}
-                          exit={{ scale: 0 }}
-                          transition={{ type: "spring", stiffness: 600, damping: 20 }}
-                        >
-                          <Check size={9} className="text-white" />
-                        </motion.div>
+              {items.map((item) => {
+                const checked = !!answers[item.linkId];
+                return (
+                  <button
+                    key={item.linkId}
+                    onClick={() => onToggle(item.linkId)}
+                    className={cn(
+                      "flex w-full items-start gap-3 rounded-lg px-2 py-2.5 text-left transition-colors duration-100",
+                      checked ? "bg-emerald-50/50" : "hover:bg-slate-50/70",
+                    )}
+                  >
+                    <div className={cn(
+                      "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-all duration-200",
+                      checked ? "border-emerald-500 bg-emerald-500" : "border-slate-300 hover:border-sky-400",
+                    )}>
+                      <AnimatePresence>
+                        {checked && (
+                          <motion.div
+                            initial={{ scale: 0, rotate: -20 }}
+                            animate={{ scale: 1, rotate: 0 }}
+                            exit={{ scale: 0 }}
+                            transition={{ type: "spring", stiffness: 600, damping: 20 }}
+                          >
+                            <Check size={9} className="text-white" />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                    <span className={cn(
+                      "flex items-center gap-1.5 text-xs leading-relaxed transition-colors",
+                      checked ? "text-emerald-600/70 line-through" : "text-slate-600",
+                    )}>
+                      {item.text}
+                      {item.prefill && !checked && (
+                        <span className="rounded bg-sky-100 px-1 py-0.5 text-[8px] font-bold text-sky-600 no-underline">e-resep</span>
                       )}
-                    </AnimatePresence>
-                  </div>
-                  <span className={cn(
-                    "text-xs leading-relaxed transition-colors",
-                    checked[i] ? "text-emerald-600/70 line-through" : "text-slate-600",
-                  )}>{item}</span>
-                </button>
-              ))}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </motion.div>
         )}
@@ -451,65 +459,6 @@ function LASAConfirmPanel({ items, confirmed, onChange }: {
   );
 }
 
-// ── Formularium panel ──────────────────────────────────────
-
-function FormulariumPanel({ items, justifikasi, onChange }: {
-  items:      FarmasiOrderItem[];
-  justifikasi: Record<string, string>;
-  onChange:    (id: string, v: string) => void;
-}) {
-  const nonForm    = items.filter((i) => i.isFormularium === false);
-  const hasNonForm = nonForm.length > 0;
-  const allOk      = nonForm.every((i) => !!justifikasi[i.id]?.trim());
-
-  return (
-    <div className={cn(
-      "overflow-hidden rounded-xl border transition-colors",
-      hasNonForm && !allOk ? "border-rose-200" : hasNonForm ? "border-amber-200" : "border-emerald-200",
-    )}>
-      <div className={cn(
-        "flex items-center gap-2 px-3 py-2.5",
-        hasNonForm ? "bg-rose-50/40" : "bg-emerald-50/40",
-      )}>
-        <BookOpen size={11} className={cn("shrink-0", hasNonForm ? "text-rose-500" : "text-emerald-500")} />
-        <p className={cn("flex-1 text-xs font-semibold", hasNonForm ? "text-rose-700" : "text-emerald-700")}>
-          Formularium RS
-        </p>
-        <span className={cn(
-          "rounded px-1.5 py-0.5 text-[9px] font-black",
-          hasNonForm ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700",
-        )}>
-          {hasNonForm ? `${nonForm.length} NON-FORM` : "SEMUA FORM"}
-        </span>
-      </div>
-      <div className="divide-y divide-slate-50 border-t border-slate-100 px-2 pb-2 pt-1">
-        {items.map((item) => (
-          <div key={item.id} className="py-1.5">
-            <div className="flex items-center gap-2">
-              <span className={cn(
-                "shrink-0 rounded px-1.5 py-0.5 text-[8px] font-black",
-                item.isFormularium !== false ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700",
-              )}>
-                {item.isFormularium !== false ? "FORM" : "NON-FORM"}
-              </span>
-              <p className="flex-1 truncate text-[11px] font-medium text-slate-700">{item.namaObat}</p>
-            </div>
-            {item.isFormularium === false && (
-              <input
-                type="text"
-                value={justifikasi[item.id] ?? ""}
-                onChange={(e) => onChange(item.id, e.target.value)}
-                placeholder="Justifikasi non-formularium *"
-                className="mt-1.5 w-full rounded-lg border border-rose-200 bg-rose-50/50 px-2.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-rose-400 focus:ring-1 focus:ring-rose-100 transition"
-              />
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ── Panel wrapper ──────────────────────────────────────────
 
 interface PanelProps {
@@ -539,31 +488,35 @@ export default function TelaahPane({ order, onSubmit }: Props) {
   const existing = order.telaah;
   const isLocked = !!existing;
 
-  const init = (items: string[]) => items.map(() => false);
-
-  const [adm,  setAdm]  = useState<boolean[]>(() => init(TELAAH_ADM_ITEMS));
-  const [farm, setFarm] = useState<boolean[]>(() => init(TELAAH_FARM_ITEMS));
-  const [klin, setKlin] = useState<boolean[]>(() => init(TELAAH_KLIN_ITEMS));
+  // Jawaban per-aspek (linkId→bool). Item `prefill` (administrasi e-resep) tercentang awal.
+  const [answers, setAnswers] = useState<Record<TelaahGroupKey, Record<string, boolean>>>(() => ({
+    administrasi: initTelaahGroup("administrasi"),
+    farmasetik:   initTelaahGroup("farmasetik"),
+    klinis:       initTelaahGroup("klinis"),
+  }));
   const [catatan,       setCatatan]       = useState(existing?.catatan       ?? "");
   const [alasanKembali, setAlasanKembali] = useState(existing?.alasanKembali ?? "");
   const [result, setResult] = useState<"Disetujui" | "Dikembalikan" | null>(existing?.result ?? null);
   const [substitusiState,       setSubstitusiState]       = useState<Record<string, SubstitusiState | undefined>>({});
   const [lasaConfirmed,         setLasaConfirmed]         = useState<Record<string, boolean>>({});
-  const [formulariumJustifikasi,setFormulariumJustifikasi] = useState<Record<string, string>>({});
 
-  const toggle = (setter: React.Dispatch<React.SetStateAction<boolean[]>>, i: number) =>
-    setter((prev) => prev.map((v, idx) => idx === i ? !v : v));
+  const toggleItem = (key: TelaahGroupKey, linkId: string) =>
+    setAnswers((prev) => ({ ...prev, [key]: { ...prev[key], [linkId]: !prev[key][linkId] } }));
 
-  const checkAll = (setter: React.Dispatch<React.SetStateAction<boolean[]>>, current: boolean[]) => {
-    const all = current.every(Boolean);
-    setter(current.map(() => !all));
-  };
+  const checkAllGroup = (key: TelaahGroupKey) =>
+    setAnswers((prev) => {
+      const items = TELAAH_GROUP_BY_KEY[key].items;
+      const all   = items.every((it) => prev[key][it.linkId]);
+      return { ...prev, [key]: Object.fromEntries(items.map((it) => [it.linkId, !all])) };
+    });
+
+  const lulusAdm  = telaahGroupLulus("administrasi", answers.administrasi);
+  const lulusFarm = telaahGroupLulus("farmasetik",   answers.farmasetik);
+  const lulusKlin = telaahGroupLulus("klinis",       answers.klinis);
 
   const lasaItems   = order.items.filter((i) => i.isLASA);
-  const nonFormItems = order.items.filter((i) => i.isFormularium === false);
   const allLasaDone  = lasaItems.length === 0 || lasaItems.every((i) => lasaConfirmed[i.id]);
-  const allFormDone  = nonFormItems.every((i) => !!formulariumJustifikasi[i.id]?.trim());
-  const allDone      = adm.every(Boolean) && farm.every(Boolean) && klin.every(Boolean) && allLasaDone && allFormDone;
+  const allDone      = lulusAdm && lulusFarm && lulusKlin && allLasaDone;
   const hamItems     = order.items.filter((i) => i.isHAM);
   const allergies    = order.alergiPasien ?? [];
   const itemNames    = order.items.map((i) => i.namaObat);
@@ -574,11 +527,7 @@ export default function TelaahPane({ order, onSubmit }: Props) {
 
   function handleSubmit() {
     if (!result) return;
-    const checks: TelaahCheck = {
-      administratif: adm.every(Boolean),
-      farmasetis:    farm.every(Boolean),
-      klinis:        klin.every(Boolean),
-    };
+    const checks: TelaahCheck = { administratif: lulusAdm, farmasetis: lulusFarm, klinis: lulusKlin };
     const substitusi: SubstitusiItem[] = Object.entries(substitusiState)
       .filter(([, v]) => v?.namaGenerik)
       .map(([itemId, v]) => ({
@@ -589,14 +538,14 @@ export default function TelaahPane({ order, onSubmit }: Props) {
       }));
     onSubmit(order.id, {
       checks,
+      answers,
       catatan:       catatan || undefined,
       alasanKembali: result === "Dikembalikan" ? alasanKembali : undefined,
-      apoteker:      "Apt. Dewi Rahayu, S.Farm",
+      apoteker:      "",  // server isi nama actor (apoteker login)
       waktu:         new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
       result,
       substitusi:    substitusi.length > 0 ? substitusi : undefined,
-      justifikasiNonFormularium: nonFormItems.length > 0 ? formulariumJustifikasi : undefined,
-      lasaKonfirmasi:            lasaItems.length > 0 ? allLasaDone : undefined,
+      lasaKonfirmasi: lasaItems.length > 0 ? allLasaDone : undefined,
     });
   }
 
@@ -625,7 +574,7 @@ export default function TelaahPane({ order, onSubmit }: Props) {
           </div>
           {existing.catatan && (
             <p className={cn("mt-2 text-xs italic", isApproved ? "text-emerald-700" : "text-rose-700")}>
-              "{existing.catatan}"
+              &ldquo;{existing.catatan}&rdquo;
             </p>
           )}
           {existing.alasanKembali && (
@@ -696,22 +645,17 @@ export default function TelaahPane({ order, onSubmit }: Props) {
         >
           <CheckSection
             title="Administratif"
-            items={TELAAH_ADM_ITEMS}
-            checked={adm}
-            onChange={(i) => toggle(setAdm, i)}
-            onCheckAll={() => checkAll(setAdm, adm)}
+            items={TELAAH_GROUP_BY_KEY.administrasi.items}
+            answers={answers.administrasi}
+            onToggle={(l) => toggleItem("administrasi", l)}
+            onCheckAll={() => checkAllGroup("administrasi")}
           />
           <CheckSection
             title="Farmasetis"
-            items={TELAAH_FARM_ITEMS}
-            checked={farm}
-            onChange={(i) => toggle(setFarm, i)}
-            onCheckAll={() => checkAll(setFarm, farm)}
-          />
-          <FormulariumPanel
-            items={order.items}
-            justifikasi={formulariumJustifikasi}
-            onChange={(id, v) => setFormulariumJustifikasi((p) => ({ ...p, [id]: v }))}
+            items={TELAAH_GROUP_BY_KEY.farmasetik.items}
+            answers={answers.farmasetik}
+            onToggle={(l) => toggleItem("farmasetik", l)}
+            onCheckAll={() => checkAllGroup("farmasetik")}
           />
         </Panel>
 
@@ -723,10 +667,10 @@ export default function TelaahPane({ order, onSubmit }: Props) {
         >
           <CheckSection
             title="Klinis"
-            items={TELAAH_KLIN_ITEMS}
-            checked={klin}
-            onChange={(i) => toggle(setKlin, i)}
-            onCheckAll={() => checkAll(setKlin, klin)}
+            items={TELAAH_GROUP_BY_KEY.klinis.items}
+            answers={answers.klinis}
+            onToggle={(l) => toggleItem("klinis", l)}
+            onCheckAll={() => checkAllGroup("klinis")}
           />
 
           <SubstitusiPanel

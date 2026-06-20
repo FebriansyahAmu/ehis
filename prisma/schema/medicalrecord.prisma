@@ -975,7 +975,8 @@ model ResepOrder {
   tteSignedBy String?   @map("tte_signed_by") // nama dokter penanda tangan (DPJP)
   tteSignedAt DateTime? @map("tte_signed_at") @db.Timestamptz(3)
 
-  items ResepItem[]
+  items   ResepItem[]
+  telaahs ResepTelaah[]
 
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -984,6 +985,49 @@ model ResepOrder {
   @@index([kunjunganId, deletedAt])
   @@index([depoKode, status])
   @@map("resep_order")
+  @@schema("medicalrecord")
+}
+
+// ── Telaah / Pengkajian Resep (PMK 72/2016 · SatuSehat QuestionnaireResponse) ──────────
+//  1 baris = 1 telaah resep oleh Apoteker. Append-only: telaah ulang = baris baru, latest by
+//  createdAt = berlaku (selaras pola medicalrecord lain). Mengubah status order (Diterima →
+//  Ditelaah | Dikembalikan) di transaksi milik Service. FHIR-ready: `answers` JSONB faithful
+//  ke QuestionnaireResponse (grup administrasi/farmasetik/klinis → linkId→boolean), + ringkasan
+//  lulus per-aspek (queryable) + keputusan + ekstra (substitusi/non-formularium/LASA = di luar
+//  3 aspek PMK, kebijakan RS/SKP). Adapter emit QuestionnaireResponse = modul /ehis-fhir.
+
+model ResepTelaah {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  resepOrderId String     @map("resep_order_id") @db.Uuid
+  order        ResepOrder @relation(fields: [resepOrderId], references: [id], onDelete: Cascade)
+  kunjunganId  String     @map("kunjungan_id") @db.Uuid // denormalisasi (FHIR encounter ref)
+
+  // ── Keputusan (queryable) ──
+  hasil         String // Disetujui / Dikembalikan
+  alasanKembali String? @map("alasan_kembali")
+  catatan       String?
+
+  // ── Ringkasan lulus per-aspek PMK (turunan answers, disimpan utk laporan) ──
+  lulusAdministrasi Boolean @map("lulus_administrasi")
+  lulusFarmasetik   Boolean @map("lulus_farmasetik")
+  lulusKlinis       Boolean @map("lulus_klinis")
+
+  // ── Jawaban faithful QuestionnaireResponse (linkId→bool per grup) + ekstra ──
+  answers                   Json     @default("{}") // { administrasi:{}, farmasetik:{}, klinis:{} }
+  substitusi                Json? // [{itemId, namaAsli, namaGenerik, alasan}]
+  justifikasiNonFormularium Json?    @map("justifikasi_non_formularium") // {itemId: alasan}
+  lasaKonfirmasi            Boolean? @map("lasa_konfirmasi")
+
+  // ── Apoteker penelaah + author (dari actor) ──
+  apoteker        String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([resepOrderId, createdAt])
+  @@map("resep_telaah")
   @@schema("medicalrecord")
 }
 
