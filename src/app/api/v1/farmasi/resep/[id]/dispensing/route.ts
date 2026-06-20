@@ -4,7 +4,7 @@
 // Guard: hanya order berstatus "Ditelaah". Fondasi: lot/ED/serah-terima belum dipersist.
 
 import { route, reply } from "@/lib/http/route";
-import { FarmasiResepIdParam } from "@/lib/schemas/resep/resep";
+import { FarmasiResepIdParam, FarmasiDispensingInput } from "@/lib/schemas/resep/resep";
 import { resepService } from "@/lib/services/resep/resepService";
 
 export const POST = route({
@@ -12,6 +12,7 @@ export const POST = route({
   action: "update",
   scopeKunjungan: false,
   params: FarmasiResepIdParam,
-  handler: async ({ params, actor }) =>
-    reply(await resepService.dispensing(params.id, actor), { message: "Obat diserahkan — order selesai" }),
+  body: FarmasiDispensingInput,
+  handler: async ({ params, body, actor }) =>
+    reply(await resepService.dispensing(params.id, body, actor), { message: "Obat diserahkan — order selesai" }),
 });

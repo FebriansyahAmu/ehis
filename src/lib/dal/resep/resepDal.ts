@@ -70,10 +70,12 @@ export function findById(id: string, tx?: Tx) {
 }
 
 const latestTelaah = { telaahs: { orderBy: { createdAt: "desc" as const }, take: 1 } };
+const latestDispensing = { dispensings: { orderBy: { createdAt: "desc" as const }, take: 1 } };
 
 const withKunjungan = {
   ...withItems,
   ...latestTelaah,
+  ...latestDispensing,
   kunjungan: {
     select: {
       unit: true,
@@ -171,6 +173,25 @@ export function createTelaah(data: CreateResepTelaahData, tx?: Tx) {
   });
 }
 
+// ── Dispensing & serah (append-only) ──────────────────────────────────────────
+export interface CreateResepDispensingData {
+  resepOrderId: string;
+  kunjunganId: string;
+  edukasi: string[];
+  semuaLabelDicetak: boolean;
+  lasaKonfirmasi?: boolean | null;
+  petugas2Nar?: string | null;
+  narDoubleCheck?: boolean | null;
+  apoteker: string;
+  authorUserId?: string | null;
+  authorPegawaiId?: string | null;
+}
+
+export function createDispensing(data: CreateResepDispensingData, tx?: Tx) {
+  return db(tx).resepDispensing.create({ data });
+}
+
 export type ResepOrderEntity = NonNullable<Awaited<ReturnType<typeof findById>>>;
 export type ResepOrderFarmasiEntity = NonNullable<Awaited<ReturnType<typeof findByIdWithKunjungan>>>;
 export type ResepTelaahEntity = ResepOrderFarmasiEntity["telaahs"][number];
+export type ResepDispensingEntity = ResepOrderFarmasiEntity["dispensings"][number];

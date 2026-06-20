@@ -97,6 +97,32 @@ export const FarmasiTelaahInput = z.object({
 export type FarmasiTelaahInput = z.infer<typeof FarmasiTelaahInput>;
 export type FarmasiTelaahBody = z.input<typeof FarmasiTelaahInput>;
 
+// ── Body dispensing & serah (POST /farmasi/resep/:id/dispensing) ───────────────
+//  SNARS PKPO 5/6 · MedicationDispense-ready. Item yang diserahkan = ResepItem order (tanpa
+//  LOT/ED). edukasi = item edukasi pasien diberikan. apoteker kosong → nama actor (server).
+export const FarmasiDispensingInput = z.object({
+  edukasi: z.array(z.string()).default([]),
+  semuaLabelDicetak: z.boolean().default(false),
+  lasaKonfirmasi: z.boolean().optional(),
+  petugas2Nar: optStr,
+  narDoubleCheck: z.boolean().optional(),
+  apoteker: optStr,
+});
+export type FarmasiDispensingInput = z.infer<typeof FarmasiDispensingInput>;
+export type FarmasiDispensingBody = z.input<typeof FarmasiDispensingInput>;
+
+// ── DTO dispensing (snapshot tersimpan) ────────────────────────────────────────
+export interface ResepDispensingDTO {
+  id: string;
+  edukasi: string[];
+  semuaLabelDicetak: boolean;
+  lasaKonfirmasi: boolean | null;
+  petugas2Nar: string | null;
+  narDoubleCheck: boolean | null;
+  apoteker: string;
+  createdAt: string; // ISO
+}
+
 // ── DTO telaah (snapshot tersimpan) ────────────────────────────────────────────
 export interface ResepTelaahDTO {
   id: string;
@@ -166,5 +192,6 @@ export interface ResepOrderFarmasiDTO extends ResepOrderDTO {
   noRM: string;
   namaPasien: string;
   unit: string;        // "IGD" | "Rawat Inap" | "Rawat Jalan"
-  telaah: ResepTelaahDTO | null; // telaah terbaru (null = belum ditelaah)
+  telaah: ResepTelaahDTO | null;         // telaah terbaru (null = belum ditelaah)
+  dispensing: ResepDispensingDTO | null; // dispensing terbaru (null = belum diserahkan)
 }

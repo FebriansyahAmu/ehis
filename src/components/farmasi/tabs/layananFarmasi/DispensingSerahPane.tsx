@@ -7,6 +7,7 @@ import {
   Package, UserCheck, Tag, ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/contexts/SessionContext";
 import {
   type FarmasiOrder, type FarmasiOrderItem, type SerahTerima,
   getPatientInfo, getLASAPair,
@@ -41,30 +42,29 @@ interface Props {
 // ── Main ──────────────────────────────────────────────────
 
 export default function DispensingSerahPane({ order, onSubmit }: Props) {
-  type RowState = { lotNo: string; expDate: string; labeled: boolean };
+  type RowState = { labeled: boolean };
+
+  // Telaah akhir & penyerahan = apoteker yang sedang login (bukan input bebas).
+  const meName = useSession().session?.namaTampil ?? "";
 
   const patientInfo = getPatientInfo(order.noRM);
-  const patientName = patientInfo?.namaPasien ?? "—";
+  const patientName = order.namaPasien || patientInfo?.namaPasien || "—";
 
   const [rows, setRows] = useState<Record<string, RowState>>(() =>
-    Object.fromEntries(order.items.map((item) => [
-      item.id,
-      { lotNo: item.lotNo ?? "", expDate: item.expiredDate ?? "", labeled: item.labelDicetak ?? false },
-    ])),
+    Object.fromEntries(order.items.map((item) => [item.id, { labeled: item.labelDicetak ?? false }])),
   );
-  const [telaahAkhir,      setTelaahAkhir]      = useState<Record<string, boolean>>({});
-  const [lasaConfirmed,    setLasaConfirmed]    = useState<Record<string, boolean>>({});
-  const [verifikatorAkhir, setVerifikatorAkhir] = useState("");
-  const [penerima,         setPenerima]         = useState("");
-  const [edukasi,          setEdukasi]          = useState<boolean[]>(() => EDUKASI_ITEMS.map(() => false));
-  const [catatan,          setCatatan]          = useState("");
-  const [petugas2,         setPetugas2]         = useState("");
-  const [narConfirm,       setNarConfirm]       = useState(false);
-  const [submitted,        setSubmitted]        = useState(false);
+  const [telaahAkhir,   setTelaahAkhir]   = useState<Record<string, boolean>>({});
+  const [lasaConfirmed, setLasaConfirmed] = useState<Record<string, boolean>>({});
+  const [edukasi,       setEdukasi]       = useState<boolean[]>(() => EDUKASI_ITEMS.map(() => false));
+  const [petugas2,      setPetugas2]      = useState("");
+  const [narConfirm,    setNarConfirm]    = useState(false);
+  const [submitted,     setSubmitted]     = useState(false);
 
-  function updateRow(id: string, field: "lotNo" | "expDate" | "labeled", val: string | boolean) {
-    setRows((prev) => ({ ...prev, [id]: { ...prev[id], [field]: val } }));
+  function toggleLabel(id: string) {
+    setRows((prev) => ({ ...prev, [id]: { labeled: !prev[id]?.labeled } }));
   }
+  const toggleAllEdukasi = () =>
+    setEdukasi((prev) => { const all = prev.every(Boolean); return prev.map(() => !all); });
 
   const hasNarPsi     = order.items.some((i) => i.kategori === "Narkotika" || i.kategori === "Psikotropika");
   const narPsiOk      = !hasNarPsi || (!!petugas2 && narConfirm);
@@ -77,27 +77,29 @@ export default function DispensingSerahPane({ order, onSubmit }: Props) {
   const allLasaConfirmed = lasaItems.length === 0 || lasaItems.every((i) => lasaConfirmed[i.id]);
 
   const step1Done     = allLabeled && allLasaConfirmed;
-  const step2Done     = allTelaahDone && !!verifikatorAkhir;
+  const step2Done     = allTelaahDone;
   const edukasiDone   = edukasi.filter(Boolean).length;
   const isLocked      = order.status === "Selesai" || submitted;
   const canSubmit     = order.status === "Siap Diserahkan" || order.status === "Ditelaah";
-  const readyToSubmit = !!(penerima && canSubmit && narPsiOk && step2Done);
+  const readyToSubmit = !!(canSubmit && narPsiOk && step2Done);
 
   function handleSubmit() {
     if (!readyToSubmit) return;
     const updatedItems: FarmasiOrderItem[] = order.items.map((item) => ({
       ...item,
-      lotNo:        rows[item.id]?.lotNo   || undefined,
-      expiredDate:  rows[item.id]?.expDate || undefined,
       labelDicetak: rows[item.id]?.labeled ?? false,
     }));
     const data: SerahTerima = {
-      waktu:            new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
-      perawatPenerima:  penerima,
-      apoteker:         "Apt. Dewi Rahayu, S.Farm",
-      catatan:          catatan || undefined,
-      petugas2NAR:      petugas2 || undefined,
-      verifikatorAkhir: verifikatorAkhir || undefined,
+      waktu:             new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+      perawatPenerima:   "",
+      apoteker:          meName || "Apoteker",
+      petugas2NAR:       petugas2 || undefined,
+      verifikatorAkhir:  meName || undefined, // telaah akhir = apoteker login
+      // detail dispensing → persist (MedicationDispense-ready)
+      edukasi:           EDUKASI_ITEMS.filter((_, i) => edukasi[i]),
+      semuaLabelDicetak: allLabeled,
+      lasaKonfirmasi:    lasaItems.length > 0 ? allLasaConfirmed : undefined,
+      narDoubleCheck:    hasNarPsi ? narConfirm : undefined,
     };
     onSubmit(order.id, updatedItems, data);
     setSubmitted(true);
@@ -119,11 +121,9 @@ export default function DispensingSerahPane({ order, onSubmit }: Props) {
               <div className="mt-2 space-y-1 text-xs">
                 {(
                   [
-                    ["Penerima",       order.serahTerima.perawatPenerima],
                     ["Apoteker",       order.serahTerima.apoteker],
                     ["Waktu",          order.serahTerima.waktu],
-                    ...(order.serahTerima.verifikatorAkhir ? [["Telaah Akhir",    order.serahTerima.verifikatorAkhir]] : []),
-                    ...(order.serahTerima.petugas2NAR      ? [["Petugas NAR/PSI", order.serahTerima.petugas2NAR]]      : []),
+                    ...(order.serahTerima.petugas2NAR ? [["Petugas NAR/PSI", order.serahTerima.petugas2NAR]] : []),
                   ] as [string, string][]
                 ).map(([k, v]) => (
                   <div key={k}>
@@ -132,9 +132,6 @@ export default function DispensingSerahPane({ order, onSubmit }: Props) {
                   </div>
                 ))}
               </div>
-              {order.serahTerima.catatan && (
-                <p className="mt-2 text-xs italic text-emerald-600">"{order.serahTerima.catatan}"</p>
-              )}
             </div>
           </div>
         </div>
@@ -254,22 +251,10 @@ export default function DispensingSerahPane({ order, onSubmit }: Props) {
                     <p className="text-[10px] text-slate-400">{item.dosis} · {item.rute}</p>
                   </div>
 
-                  <input
-                    type="text" value={rows[item.id]?.lotNo ?? ""}
-                    onChange={(e) => updateRow(item.id, "lotNo", e.target.value)}
-                    placeholder="LOT"
-                    className="w-16 rounded-lg border border-slate-200 px-2 py-1.5 text-[10px] font-mono text-slate-600 outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-100"
-                  />
-                  <input
-                    type="month" value={rows[item.id]?.expDate ?? ""}
-                    onChange={(e) => updateRow(item.id, "expDate", e.target.value)}
-                    className="w-28 rounded-lg border border-slate-200 px-2 py-1.5 text-[10px] text-slate-600 outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-100"
-                  />
-
                   {/* Label toggle */}
                   <div className="flex shrink-0 flex-col items-center gap-0.5">
                     <motion.button
-                      onClick={() => updateRow(item.id, "labeled", !rowLabeled)}
+                      onClick={() => toggleLabel(item.id)}
                       whileTap={{ scale: 0.82 }}
                       className={cn(
                         "flex h-7 w-7 items-center justify-center rounded-lg border-2 transition-all",
@@ -387,17 +372,14 @@ export default function DispensingSerahPane({ order, onSubmit }: Props) {
             <motion.div
               initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.25 }}
-              className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4"
+              className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/40 px-4 py-3"
             >
-              <label className="mb-2 flex items-center gap-1.5 text-xs font-bold text-emerald-700">
-                <UserCheck size={12} />
-                Telaah Akhir Dilakukan Oleh <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text" value={verifikatorAkhir} onChange={(e) => setVerifikatorAkhir(e.target.value)}
-                placeholder="Nama apoteker / TTK yang melakukan telaah akhir"
-                className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-              />
+              <UserCheck size={14} className="shrink-0 text-emerald-600" />
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-500">Telaah Akhir Dilakukan Oleh</p>
+                <p className="truncate text-sm font-semibold text-emerald-800">{meName || "—"}</p>
+              </div>
+              <span className="ml-auto shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-bold text-emerald-600">akun login</span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -411,36 +393,26 @@ export default function DispensingSerahPane({ order, onSubmit }: Props) {
         {hasNarPsi && <SectionDivider />}
 
         {/* ── STEP 3 ── */}
-        <StepLabel n={3} label="Serahkan ke Penerima" />
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1.5 flex items-center gap-1 text-xs font-semibold text-slate-600">
-              <User size={10} /> Nama Penerima <span className="text-rose-500">*</span>
-            </label>
-            <input
-              type="text" value={penerima} onChange={(e) => setPenerima(e.target.value)}
-              placeholder="Perawat / pasien / keluarga"
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-slate-500">Catatan Penyerahan</label>
-            <input
-              type="text" value={catatan} onChange={(e) => setCatatan(e.target.value)}
-              placeholder="Mis: pasien mengerti cara injeksi"
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-            />
-          </div>
-        </div>
+        <StepLabel n={3} label="Penyerahan Obat & Edukasi" />
 
         {/* Edukasi */}
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2 flex items-center justify-between gap-2">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Edukasi Pasien</p>
-            <span className={cn("text-[10px] font-bold", edukasiDone === EDUKASI_ITEMS.length ? "text-emerald-600" : "text-slate-400")}>
-              {edukasiDone}/{EDUKASI_ITEMS.length}
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleAllEdukasi}
+                className={cn(
+                  "rounded-lg px-2 py-0.5 text-[10px] font-semibold transition-all",
+                  edukasi.every(Boolean) ? "text-slate-400 hover:bg-slate-50 hover:text-slate-600" : "text-sky-600 hover:bg-sky-50",
+                )}
+              >
+                {edukasi.every(Boolean) ? "Hapus" : "Semua"}
+              </button>
+              <span className={cn("text-[10px] font-bold", edukasiDone === EDUKASI_ITEMS.length ? "text-emerald-600" : "text-slate-400")}>
+                {edukasiDone}/{EDUKASI_ITEMS.length}
+              </span>
+            </div>
           </div>
           <div className="mb-3 h-1 overflow-hidden rounded-full bg-slate-100">
             <motion.div

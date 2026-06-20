@@ -4,9 +4,13 @@
 import { api } from "@/lib/api/client";
 import type {
   ResepOrderBody, ResepOrderDTO, ResepOrderFarmasiDTO, FarmasiResepQuery, FarmasiTelaahBody,
+  FarmasiDispensingBody,
 } from "@/lib/schemas/resep/resep";
 
-export type { ResepOrderBody, ResepOrderDTO, ResepOrderFarmasiDTO, FarmasiResepQuery, FarmasiTelaahBody };
+export type {
+  ResepOrderBody, ResepOrderDTO, ResepOrderFarmasiDTO, FarmasiResepQuery, FarmasiTelaahBody,
+  FarmasiDispensingBody,
+};
 
 const base = (k: string) => `/kunjungan/${encodeURIComponent(k)}/resep`;
 
@@ -58,9 +62,13 @@ export async function telaahFarmasiResep(
   return data;
 }
 
-/** POST — dispensing & serah (Ditelaah → Selesai). */
-export async function dispensingFarmasiResep(resepId: string, signal?: AbortSignal): Promise<ResepOrderFarmasiDTO> {
-  const { data } = await api.post<ResepOrderFarmasiDTO>(`/farmasi/resep/${encodeURIComponent(resepId)}/dispensing`, {}, { signal });
+/** POST — dispensing & serah (Ditelaah → Selesai) + simpan snapshot dispensing. */
+export async function dispensingFarmasiResep(
+  resepId: string,
+  body: FarmasiDispensingBody,
+  signal?: AbortSignal,
+): Promise<ResepOrderFarmasiDTO> {
+  const { data } = await api.post<ResepOrderFarmasiDTO>(`/farmasi/resep/${encodeURIComponent(resepId)}/dispensing`, body, { signal });
   return data;
 }
 

@@ -113,7 +113,13 @@ export default function FarmasiOrderTabs({
 
   async function handleDispensasiSubmit(id: string, items: FarmasiOrderItem[], serahTerima: SerahTerima) {
     try {
-      const dto  = await dispensingFarmasiResep(id);
+      const dto  = await dispensingFarmasiResep(id, {
+        edukasi:           serahTerima.edukasi,
+        semuaLabelDicetak: serahTerima.semuaLabelDicetak,
+        lasaKonfirmasi:    serahTerima.lasaKonfirmasi,
+        petugas2Nar:       serahTerima.petugas2NAR,
+        narDoubleCheck:    serahTerima.narDoubleCheck,
+      });
       const next: FarmasiOrder = {
         ...mapDbResepOrder(dto),
         items, serahTerima, telaah: order.telaah, catatan: order.catatan,

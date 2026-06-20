@@ -975,8 +975,9 @@ model ResepOrder {
   tteSignedBy String?   @map("tte_signed_by") // nama dokter penanda tangan (DPJP)
   tteSignedAt DateTime? @map("tte_signed_at") @db.Timestamptz(3)
 
-  items   ResepItem[]
-  telaahs ResepTelaah[]
+  items       ResepItem[]
+  telaahs     ResepTelaah[]
+  dispensings ResepDispensing[]
 
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -1028,6 +1029,41 @@ model ResepTelaah {
 
   @@index([resepOrderId, createdAt])
   @@map("resep_telaah")
+  @@schema("medicalrecord")
+}
+
+// ── Dispensing & Serah Obat (SNARS PKPO 5/6 · SatuSehat MedicationDispense) ────────────
+//  1 baris = 1 penyiapan+penyerahan obat oleh Apoteker. Append-only (dispensing ulang = baris
+//  baru, latest by createdAt = berlaku). Mengubah status order (Ditelaah → Selesai) di transaksi
+//  milik Service. FHIR-ready (MedicationDispense): performer=apoteker, item=ResepItem order (tanpa
+//  LOT/ED — tak dicatat), edukasi=dosageInstruction/note, double-check NAR/PSI (PMK 3/2015).
+//  Adapter emit MedicationDispense = modul /ehis-fhir.
+
+model ResepDispensing {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  resepOrderId String     @map("resep_order_id") @db.Uuid
+  order        ResepOrder @relation(fields: [resepOrderId], references: [id], onDelete: Cascade)
+  kunjunganId  String     @map("kunjungan_id") @db.Uuid // denormalisasi (FHIR encounter ref)
+
+  // ── Penyiapan & verifikasi ──
+  edukasi           String[] // item edukasi pasien yang diberikan (label)
+  semuaLabelDicetak Boolean  @default(false) @map("semua_label_dicetak")
+  lasaKonfirmasi    Boolean? @map("lasa_konfirmasi")
+
+  // ── Double-check Narkotika/Psikotropika (PMK 3/2015) ──
+  petugas2Nar    String?  @map("petugas2_nar")
+  narDoubleCheck Boolean? @map("nar_double_check")
+
+  // ── Apoteker penyerah + author (dari actor) ──
+  apoteker        String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([resepOrderId, createdAt])
+  @@map("resep_dispensing")
   @@schema("medicalrecord")
 }
 

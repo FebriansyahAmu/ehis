@@ -2,7 +2,7 @@ import {
   ORDERS_MOCK,
   type Order,
 } from "@/components/shared/medical-records/daftarOrder/daftarOrderShared";
-import type { ResepOrderFarmasiDTO, ResepTelaahDTO, TelaahAnswers } from "@/lib/schemas/resep/resep";
+import type { ResepOrderFarmasiDTO, ResepTelaahDTO, ResepDispensingDTO, TelaahAnswers } from "@/lib/schemas/resep/resep";
 
 export type { TelaahAnswers };
 
@@ -75,6 +75,11 @@ export interface SerahTerima {
   catatan?:          string;
   petugas2NAR?:      string;
   verifikatorAkhir?: string;
+  // detail dispensing (untuk persist → MedicationDispense)
+  edukasi?:           string[];
+  semuaLabelDicetak?: boolean;
+  lasaKonfirmasi?:    boolean;
+  narDoubleCheck?:    boolean;
 }
 
 export interface OrderTimestamps {
@@ -553,6 +558,21 @@ function coerceStatus(s: string): FarmasiStatus {
   return (s in STATUS_CFG ? (s as FarmasiStatus) : "Menunggu");
 }
 
+/** ResepDispensingDTO (DB) → SerahTerima (FE) — pulihkan dispensing tersimpan saat reopen. */
+function serahFromDispensing(d: ResepDispensingDTO): SerahTerima {
+  return {
+    waktu:             new Date(d.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+    perawatPenerima:   "",
+    apoteker:          d.apoteker,
+    petugas2NAR:       d.petugas2Nar ?? undefined,
+    verifikatorAkhir:  d.apoteker,
+    edukasi:           d.edukasi,
+    semuaLabelDicetak: d.semuaLabelDicetak,
+    lasaKonfirmasi:    d.lasaKonfirmasi ?? undefined,
+    narDoubleCheck:    d.narDoubleCheck ?? undefined,
+  };
+}
+
 /** ResepTelaahDTO (DB) → TelaahData (FE) — pulihkan telaah tersimpan saat reopen detail. */
 function telaahFromDTO(t: ResepTelaahDTO): TelaahData {
   return {
@@ -601,6 +621,7 @@ export function mapDbResepOrder(o: ResepOrderFarmasiDTO): FarmasiOrder {
     hasHAM:        items.some((i) => i.isHAM),
     items,
     telaah:        o.telaah ? telaahFromDTO(o.telaah) : undefined,
+    serahTerima:   o.dispensing ? serahFromDispensing(o.dispensing) : undefined,
     alergiPasien:  getPatientAllergies(o.noRM),
   };
 }

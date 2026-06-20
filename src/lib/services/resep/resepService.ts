@@ -15,8 +15,11 @@ import type { Actor } from "@/lib/auth/actor";
 import type {
   ResepOrderInput, ResepOrderDTO, ResepItemDTO, ResepOrderFarmasiDTO, FarmasiResepQuery,
   FarmasiTelaahInput, ResepTelaahDTO, TelaahAnswers, TelaahSubstitusiItem,
+  FarmasiDispensingInput, ResepDispensingDTO,
 } from "@/lib/schemas/resep/resep";
-import type { ResepOrderEntity, ResepOrderFarmasiEntity, ResepTelaahEntity } from "@/lib/dal/resep/resepDal";
+import type {
+  ResepOrderEntity, ResepOrderFarmasiEntity, ResepTelaahEntity, ResepDispensingEntity,
+} from "@/lib/dal/resep/resepDal";
 
 type Dal = typeof defaultDal;
 type ItemEntity = ResepOrderEntity["items"][number];
@@ -94,6 +97,19 @@ function toTelaahDTO(t: ResepTelaahEntity): ResepTelaahDTO {
   };
 }
 
+function toDispensingDTO(d: ResepDispensingEntity): ResepDispensingDTO {
+  return {
+    id: d.id,
+    edukasi: d.edukasi,
+    semuaLabelDicetak: d.semuaLabelDicetak,
+    lasaKonfirmasi: d.lasaKonfirmasi ?? null,
+    petugas2Nar: d.petugas2Nar ?? null,
+    narDoubleCheck: d.narDoubleCheck ?? null,
+    apoteker: d.apoteker,
+    createdAt: d.createdAt.toISOString(),
+  };
+}
+
 function toFarmasiDTO(o: ResepOrderFarmasiEntity): ResepOrderFarmasiDTO {
   return {
     ...toDTO(o),
@@ -102,6 +118,7 @@ function toFarmasiDTO(o: ResepOrderFarmasiEntity): ResepOrderFarmasiDTO {
     namaPasien: o.kunjungan.pasien.nama,
     unit: unitToFe(o.kunjungan.unit),
     telaah: o.telaahs[0] ? toTelaahDTO(o.telaahs[0]) : null,
+    dispensing: o.dispensings[0] ? toDispensingDTO(o.dispensings[0]) : null,
   };
 }
 
@@ -231,14 +248,34 @@ export function makeResepService(deps: { dal?: Dal; clock?: Clock } = {}) {
     return freshFarmasi(resepId);
   }
 
-  /** Dispensing & serah (Apoteker) — "Ditelaah" → "Selesai" (obat disiapkan + diserahkan).
-   *  Fondasi: hanya transisi status (lot/ED/serah-terima belum dipersist). Guard atomik. */
-  async function dispensing(resepId: string, _actor: Actor): Promise<ResepOrderFarmasiDTO> {
+  /** Dispensing & serah (Apoteker, SNARS PKPO 5/6 · MedicationDispense-ready):
+   *  "Ditelaah" → "Selesai" (obat disiapkan + diserahkan). Persist snapshot dispensing
+   *  (edukasi + label + double-check NAR/PSI + apoteker) + transisi status ATOMIK. Guard status. */
+  async function dispensing(
+    resepId: string,
+    input: FarmasiDispensingInput,
+    actor: Actor,
+  ): Promise<ResepOrderFarmasiDTO> {
     const order = await dal.findById(resepId);
     if (!order || order.deletedAt) throw Errors.notFound("Order resep tidak ditemukan");
     if (order.status !== "Ditelaah") throw Errors.conflict("Dispensing hanya untuk order yang sudah ditelaah & disetujui");
-    const n = await dal.transition(resepId, ["Ditelaah"], "Selesai");
-    if (n === 0) throw Errors.conflict("Status order berubah — muat ulang");
+    const apoteker = input.apoteker?.trim() || (await resolveActorNama(actor));
+    await transaction(async (tx) => {
+      const n = await dal.transition(resepId, ["Ditelaah"], "Selesai", tx);
+      if (n === 0) throw Errors.conflict("Status order berubah — muat ulang");
+      await dal.createDispensing({
+        resepOrderId: resepId,
+        kunjunganId: order.kunjunganId,
+        edukasi: input.edukasi,
+        semuaLabelDicetak: input.semuaLabelDicetak,
+        lasaKonfirmasi: input.lasaKonfirmasi ?? null,
+        petugas2Nar: input.petugas2Nar ?? null,
+        narDoubleCheck: input.narDoubleCheck ?? null,
+        apoteker,
+        authorUserId: actor.userId,
+        authorPegawaiId: actor.pegawaiId,
+      }, tx);
+    });
     return freshFarmasi(resepId);
   }
 
