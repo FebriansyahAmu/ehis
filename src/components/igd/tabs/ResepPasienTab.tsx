@@ -38,12 +38,14 @@ import {
   KondisiKlinisPanel, AlergiObatBanner, AlergiMatchWarning,
 } from "@/components/shared/resep/ResepKlinisPanel";
 import { getAlergi } from "@/lib/api/asesmenMedis/asesmenAlergi";
-import { createResep } from "@/lib/api/resep/resep";
+import { createResep, type ResepOrderDTO } from "@/lib/api/resep/resep";
+import { toast } from "@/lib/ui/toastStore";
 import { listLokasiFarmasi, type LokasiFarmasi } from "@/lib/api/master/lokasiFarmasi";
 import { listObatTersedia } from "@/lib/api/master/obatTersedia";
 import { listStokKlinis, type StokKlinisRow } from "@/lib/api/inventory/stock";
 import { useSession } from "@/contexts/SessionContext";
 import ResepCetakModal from "@/components/shared/resep/ResepCetakModal";
+import RiwayatOrderResep from "@/components/shared/resep/RiwayatOrderResep";
 import type { ResepCetakData } from "@/components/shared/resep/ResepCetakTemplate";
 import TteBarcode from "@/components/shared/resep/TteBarcode";
 
@@ -1105,6 +1107,27 @@ export default function ResepPasienTab({
     setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
   };
 
+  // Salin item dari order resep (mis. order Menunggu) ke form → re-prescribe / duplikat.
+  const copyOrderToForm = (o: ResepOrderDTO) => {
+    const ts = Date.now();
+    const newItems: ResepItem[] = o.items.map((it, i) => ({
+      id: `rx-${ts}-${i}`,
+      namaObat: it.namaObat,
+      kodeObat: it.kodeObat,
+      dosis: it.dosis ?? "",
+      dosisSekali: it.dosisSekali ?? "",
+      signa: it.signa ?? "",
+      jumlah: it.jumlah,
+      rute: it.rute ?? "",
+      aturanPakai: it.aturanPakai ?? "",
+      keterangan: it.keterangan ?? "",
+      kategori: it.kategori as KategoriObat,
+      isHAM: it.isHAM,
+    }));
+    setItems((prev) => [...prev, ...newItems]);
+    toast.success("Disalin ke resep", `${newItems.length} item dari order ${o.depoNama}`);
+  };
+
   const copyFromHistory = (histItem: RiwayatResepItem) => {
     const newItem: ResepItem = {
       id: `rx-${Date.now()}`,
@@ -1604,7 +1627,10 @@ export default function ResepPasienTab({
         </div>
       </div>
 
-      {/* ── Riwayat resep ── */}
+      {/* ── Riwayat order resep (status pemenuhan Farmasi: belum diterima / diproses / selesai) ── */}
+      <RiwayatOrderResep kunjunganId={patient.id} onCopy={copyOrderToForm} canWrite={canOrder} />
+
+      {/* ── Riwayat resep (template copy-dari-kunjungan lalu) ── */}
       {riwayat.length > 0 && (
         <RiwayatSection
           riwayat={riwayat}

@@ -45,6 +45,14 @@ export type ResepOrderInput = z.infer<typeof ResepOrderInput>;
 /** Bentuk pra-parse (field ber-default opsional) — dipakai pemanggil API/FE. */
 export type ResepOrderBody = z.input<typeof ResepOrderInput>;
 
+// ── Params batalkan order (POST /kunjungan/:id/resep/:resepId/cancel) ──────────
+// `id` = kunjungan (dipakai ABAC careUnit route()), `resepId` = order yang dibatalkan.
+export const ResepCancelParams = z.object({
+  id: z.string().uuid("Kunjungan tidak valid"),
+  resepId: z.string().uuid("Order resep tidak valid"),
+});
+export type ResepCancelParams = z.infer<typeof ResepCancelParams>;
+
 // ── Farmasi worklist query (GET /farmasi/resep) ───────────────────────────────
 export const FarmasiResepQuery = z.object({
   depoKode: z.string().trim().optional(),

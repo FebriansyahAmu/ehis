@@ -66,7 +66,8 @@ export function listForFarmasi(filter: { depoKode?: string; status?: string }, t
     where: {
       deletedAt: null,
       ...(filter.depoKode ? { depoKode: filter.depoKode } : {}),
-      ...(filter.status ? { status: filter.status } : {}),
+      // Status eksplisit → pakai; default → kecualikan order yang dibatalkan klinisi (bukan antrian Farmasi).
+      ...(filter.status ? { status: filter.status } : { status: { not: "Dibatalkan" } }),
     },
     include: {
       ...withItems,
@@ -81,6 +82,16 @@ export function listForFarmasi(filter: { depoKode?: string; status?: string }, t
     orderBy: { createdAt: "desc" },
     take: 200,
   });
+}
+
+/** Batalkan order — hanya saat masih "Menunggu" (belum disentuh Farmasi). Atomic guard via where.
+ *  Return count: 1 = berhasil, 0 = tak ada / status sudah lanjut (race). */
+export async function cancel(id: string, kunjunganId: string, tx?: Tx) {
+  const r = await db(tx).resepOrder.updateMany({
+    where: { id, kunjunganId, deletedAt: null, status: "Menunggu" },
+    data: { status: "Dibatalkan" },
+  });
+  return r.count;
 }
 
 export async function softDelete(id: string, tx?: Tx) {

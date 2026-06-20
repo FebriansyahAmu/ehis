@@ -152,7 +152,20 @@ export function makeResepService(deps: { dal?: Dal; clock?: Clock } = {}) {
     return rows.map(toFarmasiDTO);
   }
 
-  return { list, create, listForFarmasi };
+  /** Batalkan order resep (retraksi DPJP) — hanya saat "Menunggu" (Farmasi belum menerima).
+   *  status → Dibatalkan (tetap terlihat di rekam medis sbg audit, hilang dari worklist Farmasi). */
+  async function cancel(kunjunganId: string, resepId: string, _actor: Actor): Promise<ResepOrderDTO> {
+    await assertKunjungan(kunjunganId);
+    const order = await dal.findById(resepId);
+    if (!order || order.kunjunganId !== kunjunganId || order.deletedAt) throw Errors.notFound("Order resep tidak ditemukan");
+    if (order.status !== "Menunggu") throw Errors.conflict("Hanya order yang belum diterima Farmasi yang dapat dibatalkan");
+    const n = await dal.cancel(resepId, kunjunganId);
+    if (n === 0) throw Errors.conflict("Order sudah diproses Farmasi — tak bisa dibatalkan");
+    const fresh = await dal.findById(resepId);
+    return toDTO(fresh!);
+  }
+
+  return { list, create, listForFarmasi, cancel };
 }
 
 export const resepService = makeResepService();

@@ -26,6 +26,16 @@ export async function createResep(
   return data;
 }
 
+/** POST — batalkan order resep (hanya saat Menunggu) → status Dibatalkan. */
+export async function cancelResep(
+  kunjunganId: string,
+  resepId: string,
+  signal?: AbortSignal,
+): Promise<ResepOrderDTO> {
+  const { data } = await api.post<ResepOrderDTO>(`${base(kunjunganId)}/${encodeURIComponent(resepId)}/cancel`, {}, { signal });
+  return data;
+}
+
 /** GET — worklist Farmasi (lintas-kunjungan). */
 export async function listFarmasiResep(
   query: FarmasiResepQuery = {},

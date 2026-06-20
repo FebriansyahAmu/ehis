@@ -175,6 +175,56 @@ export function applyStokDepo(catalog: ObatCatalog[], stok: Map<string, StokKlin
   });
 }
 
+// ── Status order resep (pemenuhan Farmasi) ────────────────
+// Workflow Farmasi: Menunggu → Ditelaah → Siap Diserahkan → Selesai (atau Dikembalikan).
+// Dikelompokkan jadi 3 bucket klinis: belum diterima · diproses (sudah diterima Farmasi) · selesai.
+
+export type ResepOrderBucket = "belum" | "proses" | "selesai" | "lain";
+
+const STATUS_BUCKET: Record<string, ResepOrderBucket> = {
+  Menunggu:          "belum",
+  Ditelaah:          "proses",
+  "Siap Diserahkan": "proses",
+  Selesai:           "selesai",
+  Dikembalikan:      "lain",
+  Dibatalkan:        "lain",
+};
+
+/** Bucket klinis dari status workflow Farmasi (fallback "belum" utk status tak dikenal). */
+export function resepOrderBucket(status: string): ResepOrderBucket {
+  return STATUS_BUCKET[status] ?? "belum";
+}
+
+export interface ResepOrderStatusCfg {
+  label: string; // label klinis (sudut pandang DPJP/perawat, bukan petugas farmasi)
+  badge: string;
+  dot:   string;
+}
+
+export const RESEP_ORDER_STATUS: Record<string, ResepOrderStatusCfg> = {
+  Menunggu:          { label: "Belum Diterima",       badge: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",        dot: "bg-amber-400"   },
+  Ditelaah:          { label: "Diterima · Ditelaah",  badge: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",              dot: "bg-sky-400"     },
+  "Siap Diserahkan": { label: "Disiapkan",            badge: "bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200",           dot: "bg-cyan-500"    },
+  Selesai:           { label: "Selesai · Diserahkan", badge: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",  dot: "bg-emerald-500" },
+  Dikembalikan:      { label: "Dikembalikan",         badge: "bg-rose-50 text-rose-700 ring-1 ring-rose-200",           dot: "bg-rose-400"    },
+  Dibatalkan:        { label: "Dibatalkan",           badge: "bg-slate-100 text-slate-500 ring-1 ring-slate-200",       dot: "bg-slate-400"   },
+};
+
+export function resepOrderStatusCfg(status: string): ResepOrderStatusCfg {
+  return RESEP_ORDER_STATUS[status] ?? { label: status || "—", badge: "bg-slate-100 text-slate-600 ring-1 ring-slate-200", dot: "bg-slate-400" };
+}
+
+/** Warna latar baris (soft) per bucket: belum=kuning · diterima/selesai=hijau · dibatalkan/dikembalikan=merah. */
+const BUCKET_ROW_BG: Record<ResepOrderBucket, string> = {
+  belum:   "bg-amber-50/70 hover:bg-amber-100/70",
+  proses:  "bg-emerald-50/70 hover:bg-emerald-100/70",
+  selesai: "bg-emerald-50/70 hover:bg-emerald-100/70",
+  lain:    "bg-rose-50/70 hover:bg-rose-100/70",
+};
+export function resepOrderRowBg(status: string): string {
+  return BUCKET_ROW_BG[resepOrderBucket(status)];
+}
+
 export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
