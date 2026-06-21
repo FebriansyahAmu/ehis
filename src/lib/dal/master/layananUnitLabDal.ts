@@ -56,6 +56,42 @@ export async function list(
   return { items, nextCursor: hasMore ? items[items.length - 1].id : null };
 }
 
+// ── Read klinis: tes lab ter-assign (join LayananUnitLab → LabTest) ────────────
+// Untuk endpoint /master/lab-test-tersedia (gate clinical.tindakan). Hanya tes AKTIF & non-deleted
+// yang ter-assign ke ruangan LABORATORIUM (location_type=Laboratorium) — "unit tujuan order lab".
+// Opsional difilter ruangan (kode). Include lab test (field ramping) + kode ruangan → Service
+// agregasi distinct per tes dgn daftar ruanganKodes. HARGA: include relasi tarif yang match
+// (penjaminKode, jenisRuangan) — keduanya wajib bareng; bila absen, where pakai "" → harga null.
+export function listAssignedLabTest(
+  params: { ruanganKode?: string; penjaminKode?: string; jenisRuangan?: string },
+  tx?: Tx,
+) {
+  return db(tx).layananUnitLab.findMany({
+    where: {
+      labTest: { deletedAt: null, active: true },
+      location: {
+        deletedAt: null,
+        locationType: "Laboratorium",
+        ...(params.ruanganKode ? { kode: params.ruanganKode } : {}),
+      },
+    },
+    include: {
+      labTest: {
+        select: {
+          id: true, kode: true, nama: true, kategori: true, waktuTunggu: true,
+          tarif: {
+            where: { penjaminKode: params.penjaminKode ?? "", jenisRuangan: params.jenisRuangan ?? "" },
+            select: { harga: true },
+            take: 1,
+          },
+        },
+      },
+      location: { select: { kode: true } },
+    },
+    orderBy: [{ labTest: { nama: "asc" } }],
+  });
+}
+
 // ── Delete (hard) ────────────────────────────────────────────────────────────
 export function deleteById(id: string, tx?: Tx) {
   return db(tx).layananUnitLab.delete({ where: { id } });

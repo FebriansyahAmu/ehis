@@ -12,6 +12,21 @@
 
 ---
 
+## ✅ Selesai — Order Lab klinis (IGD/RI/RJ) DB-driven + Paket Cepat dari master (2026-06-21)
+
+Tab **Order Lab** shared ([OrderLabTab](../src/components/shared/medical-records/OrderLabTab.tsx)) berhenti pakai mock katalog — kini menarik tes lab **ter-assign ke ruangan Laboratorium** dari master, lengkap harga, dengan Paket Cepat yang nyata.
+
+- **Endpoint klinis baru** — `GET /api/v1/master/lab-test-tersedia` (gate **`clinical.tindakan:read`** = "Tindakan / Order" Dokter/Perawat, BUKAN master.katalog; `scopeKunjungan:false`). Layered: schema [labTestTersedia.ts](../src/lib/schemas/master/labTestTersedia.ts) → DAL `listAssignedLabTest` (join `LayananUnitLab` → `LabTest` aktif, **location_type=Laboratorium**, harga via relasi `tarif` match `penjaminKode`+`jenisRuangan`) → Service `listLabTestTersedia` (distinct per tes + `ruanganKodes[]`) → [route](../src/app/api/v1/master/lab-test-tersedia/route.ts) + browser client [labTestTersedia.ts](../src/lib/api/master/labTestTersedia.ts). Pola identik `tindakan-tersedia`.
+- **(1) Panduan Order Lab dihapus** — box rule statis dibuang; ruang dipakai search + paket.
+- **(2) Pencarian dari katalog ter-assign** — `LabSearch` prop-driven (catalog dari DB, loading state, dedup by catalog id), tampilkan kode + kategori + **harga** + TAT. Kategori diperluas ke 10 nilai master (tambah Feses/Imunologi/Toksikologi + ikon/warna). Empty/error state seperti TindakanTab.
+- **(3) Paket Cepat dari master + harga** — `PAKET_DEFS` kurasi by **kode master** (DR/ELE/KOL/HDL/TG/UR/CR/UA/SGOT/…); di-resolve terhadap katalog saat render (anggota tak tersedia disembunyikan, paket kosong disembunyikan), tombol tampilkan **jumlah anggota + total harga** dari Tarif Matrix. Estimasi biaya live di header daftar order + footer (+ peringatan "belum bertarif"). Validasi DB: 38 tes ter-assign semua berharga, 10/10 paket resolve penuh.
+- **Tarif context** — `tarifTierForUnit(unitPengirim)` (IGD→IGD · *inap*→RAWAT_INAP:Kelas_3 · ICU→ICU · fallback IGD); lab di-tagih flat lintas tier (penjamin UMUM) → harga standar tetap ter-resolve untuk semua unit.
+- **File split (≤800 baris)** — file lama 1038 baris dipecah: [orderLab/orderLabShared.tsx](../src/components/shared/medical-records/orderLab/orderLabShared.tsx) (tipe+config+helper+PAKET_DEFS) · [orderLab/orderLabMock.ts](../src/components/shared/medical-records/orderLab/orderLabMock.ts) (riwayat/aktif display-only) · [orderLab/OrderLabHistory.tsx](../src/components/shared/medical-records/orderLab/OrderLabHistory.tsx) (RiwayatLabSection + HasilModal). Main tab ramping.
+
+Follow-up: submit order lab belum persist (masih state lokal → DB order lab = Phase later, sejajar resep); endpoint klinis `rad-catalog-tersedia` untuk OrderRadTab (paralel).
+
+---
+
 ## ✅ Selesai — Farmasi Klinis: Detail wiring + Telaah/Dispensing persist + CPPT Apoteker + Register N/P (2026-06-20 → 06-21)
 
 Pematangan modul Farmasi klinis (`/ehis-care/farmasi`): halaman detail benar-benar DB-driven, telaah & dispensing tersimpan sebagai snapshot FHIR-ready, dokumen cetak nyata, worklist dirapikan, CPPT Apoteker terintegrasi, dan Register N/P di-reframe jadi laporan kepatuhan.

@@ -9,6 +9,8 @@ import * as defaultDal from "@/lib/dal/master/layananUnitLabDal";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type { GrantLayananLabInput, LayananLabQuery, LayananUnitLabEdgeDTO } from "@/lib/schemas/master/layananUnitLab";
+import type { LabTestTersediaQuery, LabTestTersediaDTO } from "@/lib/schemas/master/labTestTersedia";
+import type { LabKategoriDTO } from "@/lib/schemas/master/labTest";
 import type { LayananLabEntity } from "@/lib/dal/master/layananUnitLabDal";
 
 type Dal = typeof defaultDal;
@@ -36,6 +38,38 @@ export function makeLayananUnitLabService(deps: { dal?: Dal } = {}) {
       limit: query.limit,
     });
     return { items: items.map(toDTO), cursor: nextCursor };
+  }
+
+  /**
+   * Katalog tes lab ter-assign untuk konsumsi KLINIS (tab Order Lab). Agregasi baris edge → 1 DTO
+   * per tes dgn daftar ruanganKodes (ruangan laboratorium). ACTOR-LESS (read murni). Opsional
+   * difilter ruangan; harga ter-resolve bila (penjaminKode, jenisRuangan) lengkap.
+   */
+  async function listLabTestTersedia(query: LabTestTersediaQuery): Promise<LabTestTersediaDTO[]> {
+    const rows = await dal.listAssignedLabTest({
+      ruanganKode: query.ruanganKode,
+      penjaminKode: query.penjaminKode,
+      jenisRuangan: query.jenisRuangan,
+    });
+    const byId = new Map<string, LabTestTersediaDTO>();
+    for (const r of rows) {
+      const t = r.labTest;
+      const existing = byId.get(t.id);
+      if (existing) {
+        if (!existing.ruanganKodes.includes(r.location.kode)) existing.ruanganKodes.push(r.location.kode);
+        continue;
+      }
+      byId.set(t.id, {
+        id: t.id,
+        kode: t.kode,
+        nama: t.nama,
+        kategori: t.kategori as LabKategoriDTO,
+        waktuTunggu: t.waktuTunggu ?? null,
+        ruanganKodes: [r.location.kode],
+        harga: t.tarif[0]?.harga ?? null,
+      });
+    }
+    return [...byId.values()];
   }
 
   /**
@@ -71,7 +105,7 @@ export function makeLayananUnitLabService(deps: { dal?: Dal } = {}) {
     await dal.deleteById(id);
   }
 
-  return { list, grant, revoke };
+  return { list, listLabTestTersedia, grant, revoke };
 }
 
 export const layananUnitLabService = makeLayananUnitLabService();
