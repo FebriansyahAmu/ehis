@@ -50,7 +50,7 @@ function ProgressBar({ order }: { order: LabOrder }) {
   const total  = LAB_STATUS_STEPS.length - 1;
   const step   = LAB_STATUS_CFG[order.status].step;
   const pct    = Math.max(0, Math.min(100, (step / total) * 100));
-  const barCls = step >= 5 ? "bg-emerald-400" : step >= 3 ? "bg-violet-400" : "bg-sky-400";
+  const barCls = step >= 4 ? "bg-emerald-400" : step >= 2 ? "bg-violet-400" : "bg-sky-400";
 
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">

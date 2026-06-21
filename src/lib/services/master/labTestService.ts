@@ -120,6 +120,13 @@ export function makeLabTestService(deps: { dal?: Dal } = {}) {
     return { items: page.map(toDTO), cursor: hasMore ? page[page.length - 1].id : null };
   }
 
+  /** Batch read by ids (+parameter). ACTOR-LESS read (RBAC di Route). Dipakai entry hasil Lab. */
+  async function getByIds(ids: string[]): Promise<LabTestDTO[]> {
+    if (ids.length === 0) return [];
+    const rows = await dal.findByIds(ids);
+    return rows.map(toDTO);
+  }
+
   /** Tambah 1 tes + parameter. */
   async function create(input: CreateLabTestInput, _actor: Actor): Promise<LabTestDTO> {
     const data: CreateLabTestData = {
@@ -163,7 +170,7 @@ export function makeLabTestService(deps: { dal?: Dal } = {}) {
     if (count === 0) throw Errors.notFound("Tes laboratorium tidak ditemukan");
   }
 
-  return { list, create, update, remove };
+  return { list, getByIds, create, update, remove };
 }
 
 export const labTestService = makeLabTestService();

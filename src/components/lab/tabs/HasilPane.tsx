@@ -1,18 +1,20 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Save, AlertTriangle, CheckCircle2, Lock,
-  PhoneCall, MessageSquare, Users,
+  PhoneCall, MessageSquare, Users, UserCircle,
   X, TrendingUp, TrendingDown,
 } from "lucide-react";
 import { getPreviousResult, calcDelta } from "../trend/trendShared";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/contexts/SessionContext";
+import { getLabTestParams } from "@/lib/api/lab/labCatalog";
 import {
   type LabOrder, type HasilItem, type CriticalNotif,
   FLAG_CFG, KATEGORI_CFG,
-  autoFlag, hasCriticalResult, updateLabWorkflow,
+  autoFlag, hasCriticalResult, updateLabWorkflow, buildHasilFromCatalog, hasilKey,
 } from "../labShared";
 
 interface Props { order: LabOrder; onStatusChange: () => void }
@@ -232,18 +234,41 @@ function HasilRow({
 
 export default function HasilPane({ order, onStatusChange }: Props) {
   const isLocked   = ["Divalidasi", "Selesai"].includes(order.status);
-  const canEnter   = ["Sampel Diterima", "Dianalisa"].includes(order.status);
+  // Sampel diambil di luar aplikasi → entry hasil terbuka langsung sejak order Diterima.
+  const canEnter   = ["Diterima", "Sampel Diterima", "Dianalisa"].includes(order.status);
   const isRejected = order.status === "Ditolak";
 
+  const { session } = useSession();
+  // Analis pelaksana = user yang sedang login (read-only). Fallback ke yang tersimpan.
+  const analisName = order.analis || session?.namaTampil || "";
+
   const initialHasil = order.hasil ?? order.items.map((item) => ({
-    kode: item.kode, nama: item.nama, kategori: item.kategori,
+    rowKey: item.id, kode: item.kode, nama: item.nama, kategori: item.kategori,
     satuan: "", rujukanStr: "—",
   }));
 
   const [hasil,         setHasil]         = useState<HasilItem[]>(initialHasil);
   const [showCritical,  setShowCritical]  = useState(false);
-  const [analis,        setAnalis]        = useState(order.analis ?? "");
   const [saving,        setSaving]        = useState(false);
+
+  // Parameter baris hasil = parameter katalog (master.LabTest) tes yang diorder, rujukan
+  // disesuaikan gender+usia pasien. Hanya saat belum ada hasil tersimpan (jangan timpa).
+  useEffect(() => {
+    if (order.hasil) return;
+    const ids = [...new Set(order.items.map((i) => i.labTestId).filter((x): x is string => !!x))];
+    if (ids.length === 0) return;
+    const ac = new AbortController();
+    (async () => {
+      try {
+        const tests = await getLabTestParams(ids, ac.signal);
+        if (ac.signal.aborted) return;
+        const rows = buildHasilFromCatalog(order, tests);
+        setHasil((prev) => (prev.some((h) => h.nilai) ? prev : rows));
+      } catch { /* diam — baris fallback tetap dipakai */ }
+    })();
+    return () => ac.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order.id]);
 
   const pendingCritical = useMemo(
     () => hasil.filter((h) => {
@@ -280,10 +305,10 @@ export default function HasilPane({ order, onStatusChange }: Props) {
     [hasil, order.noRM],
   );
 
-  function updateNilai(kode: string, nilai: string) {
+  function updateNilai(key: string, nilai: string) {
     setHasil((prev) =>
       prev.map((h) =>
-        h.kode === kode
+        hasilKey(h) === key
           ? { ...h, nilai, flag: autoFlag(nilai, h.nilaiMin, h.nilaiMax, h.criticalLow, h.criticalHigh) }
           : h,
       ),
@@ -311,7 +336,7 @@ export default function HasilPane({ order, onStatusChange }: Props) {
           ...h,
           flag: autoFlag(h.nilai, h.nilaiMin, h.nilaiMax, h.criticalLow, h.criticalHigh),
         })),
-        analis,
+        analis: analisName,
         criticalNotifs,
         timestamps: { analisa: new Date().toISOString().slice(0, 16) },
       });
@@ -345,7 +370,7 @@ export default function HasilPane({ order, onStatusChange }: Props) {
     return (
       <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-slate-200 py-16 text-center">
         <Lock size={28} className="text-slate-300" />
-        <p className="text-sm font-medium text-slate-400">Selesaikan penerimaan dan registrasi sampel terlebih dahulu</p>
+        <p className="text-sm font-medium text-slate-400">Terima order pada tab Penerimaan terlebih dahulu</p>
       </div>
     );
   }
@@ -428,10 +453,10 @@ export default function HasilPane({ order, onStatusChange }: Props) {
                     <tbody className="divide-y divide-slate-50 px-4">
                       {items.map((item) => (
                         <HasilRow
-                          key={item.kode}
+                          key={hasilKey(item)}
                           item={item}
                           editable={!isLocked}
-                          onChange={(v) => updateNilai(item.kode, v)}
+                          onChange={(v) => updateNilai(hasilKey(item), v)}
                         />
                       ))}
                     </tbody>
@@ -448,16 +473,15 @@ export default function HasilPane({ order, onStatusChange }: Props) {
                 <label className="block text-[11px] font-semibold text-slate-500 mb-1">
                   Analis Pelaksana <span className="text-rose-400">*</span>
                 </label>
-                <input
-                  value={analis}
-                  onChange={(e) => setAnalis(e.target.value)}
-                  placeholder="Nama analis / A.Md.AK"
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400 placeholder:text-slate-400"
-                />
+                <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <UserCircle size={16} className="shrink-0 text-slate-400" />
+                  <span className="text-sm font-medium text-slate-700">{analisName || "—"}</span>
+                  <span className="ml-auto rounded bg-slate-200/70 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">user login</span>
+                </div>
               </div>
               <button
                 onClick={handleSave}
-                disabled={!analis.trim() || saving}
+                disabled={!analisName.trim() || saving}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 py-2.5 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-40"
               >
                 {saving ? "Menyimpan…" : (
@@ -483,6 +507,40 @@ export default function HasilPane({ order, onStatusChange }: Props) {
 
         {/* Right — Legend */}
         <div className="space-y-3">
+          {/* Pengingat kriteria penolakan sampel — pengambilan dilakukan di luar aplikasi,
+              jadi kualitas sampel jadi bahan pertimbangan analis sebelum entry hasil. */}
+          {!isLocked && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+              <div className="mb-2 flex items-start gap-2">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-600" />
+                <div>
+                  <h4 className="text-[12px] font-bold text-amber-800">Pertimbangkan Kualitas Sampel</h4>
+                  <p className="text-[10px] text-amber-700">
+                    Periksa kondisi sampel sebelum entry. Jangan entry bila memenuhi kriteria penolakan — minta pengambilan ulang.
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-1.5 text-[11px]">
+                {[
+                  { k: "Hemolisis",         d: "Sampel merah keruh, Hb terlepas dari eritrosit" },
+                  { k: "Lipemia",           d: "Serum keruh/putih seperti susu karena lemak" },
+                  { k: "Bekuan",            d: "Sampel membeku, tidak dapat dianalisa" },
+                  { k: "Volume Kurang",     d: "Volume tidak mencukupi untuk semua pemeriksaan" },
+                  { k: "Salah Tabung",      d: "Jenis tabung/antikoagulan tidak sesuai" },
+                  { k: "Label Rusak/Salah", d: "Label rusak, tulisan tidak terbaca, atau tidak cocok" },
+                ].map(({ k, d }) => (
+                  <div key={k} className="flex gap-2">
+                    <span className="w-24 shrink-0 font-semibold text-rose-600">{k}</span>
+                    <span className="text-slate-500">{d}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2.5 border-t border-amber-200/70 pt-2 text-[10px] text-amber-600">
+                Ref: ISO 15189:2022 §5.4.5 · PMK 43/2013
+              </p>
+            </div>
+          )}
+
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <h4 className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-400">Flag Hasil</h4>
             <div className="space-y-2">

@@ -27,8 +27,6 @@ function TATTimeline({ order }: { order: LabOrder }) {
   const steps: TSTep[] = [
     { label: "Order",        time: ts.order,       isDone: !!ts.order,       isCurrent: order.status === "Menunggu" },
     { label: "Terima",       time: ts.terima,      isDone: !!ts.terima,      isCurrent: order.status === "Diterima" },
-    { label: "Ambil Sampel", time: ts.ambil,       isDone: !!ts.ambil,       isCurrent: order.status === "Ambil Sampel" },
-    { label: "Reg. Sampel",  time: ts.registrasi,  isDone: !!ts.registrasi,  isCurrent: order.status === "Sampel Diterima" },
     { label: "Analisa",      time: ts.analisa,     isDone: !!ts.analisa,     isCurrent: order.status === "Dianalisa" },
     { label: "Validasi",     time: ts.validasi,    isDone: !!ts.validasi,    isCurrent: order.status === "Divalidasi" },
     { label: "Selesai",      time: ts.rilis,       isDone: !!ts.rilis,       isCurrent: order.status === "Selesai" },

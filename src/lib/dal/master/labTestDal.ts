@@ -89,6 +89,11 @@ export function findById(id: string, tx?: Tx) {
   return db(tx).labTest.findFirst({ where: { id, ...ALIVE }, include: INCLUDE });
 }
 
+/** Batch read by ids (+parameter) — entry hasil ambil parameter katalog per tes diorder. */
+export function findByIds(ids: string[], tx?: Tx) {
+  return db(tx).labTest.findMany({ where: { id: { in: ids }, ...ALIVE }, include: INCLUDE });
+}
+
 /**
  * Patch parsial. Bila `parameters` diberikan → replace-all (deleteMany + create) dalam
  * satu update atomik. Pakai update unique (id) → guard eksistensi/alive di Service.

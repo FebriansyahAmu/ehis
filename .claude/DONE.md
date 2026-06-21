@@ -12,6 +12,29 @@
 
 ---
 
+## ✅ Selesai — Lab detail: penerima & analis = user login · Entry Hasil = parameter katalog (2026-06-21)
+
+Pada `/ehis-care/laboratorium/{id}`: (1) tab **Penerimaan** "Diterima Oleh" = user yang sedang login (bukan input manual); (2) **Entry Hasil** baris parameter diturunkan dari **katalog master** (LabTest→LabParameter), "Analis Pelaksana" = user login.
+
+- **Penerima/Analis = user login** — [PenerimaanPane](../src/components/lab/tabs/PenerimaanPane.tsx) & [HasilPane](../src/components/lab/tabs/HasilPane.tsx) pakai `useSession().namaTampil` (read-only display + badge "user login"), input teks dihapus; `diterima_oleh`/`analis` disimpan dari sesi. **SessionProvider** ditambah ke [layout detail Lab](../src/app/ehis-care/(fullpage)/laboratorium/[id]/layout.tsx) (fullpage di luar shell).
+- **Entry Hasil dari katalog** — baris hasil = **parameter LabTest** yang diorder (mis. "Darah Rutin" → 15 parameter), bukan 1 baris/tes placeholder. Rujukan & critical disesuaikan **gender+usia pasien** (`pickRujukan`), satuan dari katalog. Helper baru `buildHasilFromCatalog`/`pickRujukan`/`hasilKey` di [labShared](../src/components/lab/labShared.ts); `LabOrderItem.labTestId` + `HasilItem.rowKey` (kunci unik param-level) ditambah; `mapDbLabOrder` membawa `labTestId`. HasilPane fetch parameter saat mount (skip bila hasil sudah tersimpan / nilai sudah diketik), fallback baris per-tes bila tes tanpa katalog.
+- **Endpoint baru (sisi lab)** — `GET /api/v1/lab/test-params?ids=` (gate **`ancillary.lab.worklist:read`**, scopeKunjungan:false) → parameter katalog utk daftar tes; analis lab boleh baca tanpa hak `master.katalog`. Layered: `labTestDal.findByIds` → `labTestService.getByIds` (actor-less) → route → API client [labCatalog.ts](../src/lib/api/lab/labCatalog.ts). Schema query `LabTestParamsQuery`.
+- **Verifikasi** — tsc bersih (app code) · ESLint bersih (sisa `_actor` konvensi); rantai data dicek DB: lab_order_item.lab_test_id terisi + LabTest punya parameter (Darah Rutin 15 · Elektrolit 3).
+
+---
+
+## ✅ Selesai — Workflow detail Lab: hapus step "Pengambilan & Sampel" (4→3 step) (2026-06-21)
+
+Halaman `/ehis-care/laboratorium/{id}` semula 4 step (Penerimaan · Pengambilan & Sampel · Entry Hasil · Validasi). Pengambilan sampel kini dilakukan **langsung di luar aplikasi** → step Sampel dihapus, alur jadi **3 step: Penerimaan → Entry Hasil → Validasi**.
+
+- **Tab dihapus** [LabOrderTabs](../src/components/lab/LabOrderTabs.tsx): tab `sampel` + import `SampelPane` + ikon `Syringe` dihapus; tab di-renumber penerimaan=1 · hasil=2 · validasi=3. File [SampelPane.tsx](../src/components/lab/tabs/) **dihapus** (orphan).
+- **Status & step** [labShared](../src/components/lab/labShared.ts): alur ringkas `Menunggu → Diterima → [Entry Hasil] → Divalidasi → Selesai`. `LAB_STATUS_STEPS` buang "Ambil Sampel"/"Sampel Diterima" (5 milestone); `LAB_STATUS_CFG` re-step (Diterima=1 · Dianalisa=2 · Divalidasi=3 · Selesai=4; dua status sampel disetarakan step 1 utk kompat tipe, tak lagi dihasilkan UI) + `Diterima.action` "Ambil Sampel"→**"Entry Hasil"** (tombol kartu worklist). Progress bar [LabOrderCard](../src/components/lab/LabOrderCard.tsx) threshold disesuaikan (max step 4).
+- **Entry Hasil langsung** [HasilPane](../src/components/lab/tabs/HasilPane.tsx): `canEnter` kini termasuk `"Diterima"` (entry terbuka sejak order diterima, tanpa registrasi sampel); pesan lock "Terima order pada tab Penerimaan terlebih dahulu".
+- **Kriteria Penolakan Sampel → reminder** dipindah dari panel SampelPane ke kolom kanan HasilPane sebagai **"Pertimbangkan Kualitas Sampel"** (panel amber, 6 kriteria Hemolisis/Lipemia/Bekuan/Volume Kurang/Salah Tabung/Label, ref ISO 15189 §5.4.5 · PMK 43/2013) — bahan pertimbangan analis sebelum entry, tampil saat fase entry (`!isLocked`).
+- **Verifikasi** — tsc bersih (app code) · ESLint bersih (LabOrderTabs/HasilPane/labShared/LabOrderCard/LabOrderHeader). LabBoard status-group ("Proses"/"Antrian") tetap toleran terhadap status sampel lama (tak lagi muncul). Catatan: penolakan sampel sebagai **aksi** tidak lagi di UI (sesuai pemindahan handling sampel ke luar aplikasi) — bisa ditambah kembali bila perlu.
+
+---
+
 ## ✅ Selesai — Riwayat Order Lab di tab klinis Order Lab (mirror Riwayat Order Resep) (2026-06-21)
 
 Tab **Order Lab** klinis (shared IGD/RI/RJ) kini menampilkan **Riwayat Order Lab** DB-backed setelah dokter berhasil order — sejajar fitur **Riwayat Order Resep** di tab Resep.

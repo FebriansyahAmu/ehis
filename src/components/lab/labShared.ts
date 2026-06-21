@@ -7,6 +7,7 @@
 // applyWorkflowOverlay = tempel overlay sesi.
 
 import type { LabOrderWorklistDTO } from "@/lib/schemas/lab/labOrder";
+import type { LabTestDTO, LabRujukanDTO } from "@/lib/schemas/master/labTest";
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -36,6 +37,8 @@ export type AlasanPenolakan =
 
 export interface LabOrderItem {
   id:          string;
+  /** Katalog master.LabTest.id (bila dari katalog) → ambil parameter saat entry hasil. */
+  labTestId?:  string | null;
   kode:        string;
   nama:        string;
   kategori:    KategoriLab;
@@ -44,6 +47,8 @@ export interface LabOrderItem {
 }
 
 export interface HasilItem {
+  /** Kunci unik baris (param-level bila dari katalog). Fallback ke `kode`. */
+  rowKey?:       string;
   kode:          string;
   nama:          string;
   kategori:      KategoriLab;
@@ -142,18 +147,20 @@ export const LAB_STATUS_CFG: Record<LabStatus, {
   label: string; badge: string; dot: string; step: number; action: string;
 }> = {
   "Menunggu":        { label: "Menunggu",         badge: "bg-slate-100 text-slate-600 ring-1 ring-slate-200",       dot: "bg-slate-400",    step: 0, action: "Terima Order"    },
-  "Diterima":        { label: "Diterima",          badge: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",              dot: "bg-sky-400",      step: 1, action: "Ambil Sampel"    },
-  "Ambil Sampel":    { label: "Ambil Sampel",      badge: "bg-blue-50 text-blue-700 ring-1 ring-blue-200",           dot: "bg-blue-400",     step: 2, action: "Daftar Sampel"   },
-  "Sampel Diterima": { label: "Sampel Diterima",   badge: "bg-violet-50 text-violet-700 ring-1 ring-violet-200",     dot: "bg-violet-400",   step: 3, action: "Entry Hasil"     },
-  "Dianalisa":       { label: "Dianalisa",         badge: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",        dot: "bg-amber-400",    step: 4, action: "Validasi Hasil"  },
-  "Divalidasi":      { label: "Menunggu Validasi", badge: "bg-orange-50 text-orange-700 ring-1 ring-orange-200",     dot: "bg-orange-400",   step: 5, action: "Rilis Hasil"     },
-  "Selesai":         { label: "Selesai",           badge: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",  dot: "bg-emerald-400",  step: 6, action: ""               },
+  "Diterima":        { label: "Diterima",          badge: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",              dot: "bg-sky-400",      step: 1, action: "Entry Hasil"     },
+  // Pengambilan/registrasi sampel dilakukan di luar aplikasi (step dihapus). Status berikut
+  // dipertahankan untuk kompatibilitas tipe (tak lagi dihasilkan UI) → step disetarakan "Diterima".
+  "Ambil Sampel":    { label: "Ambil Sampel",      badge: "bg-blue-50 text-blue-700 ring-1 ring-blue-200",           dot: "bg-blue-400",     step: 1, action: "Entry Hasil"     },
+  "Sampel Diterima": { label: "Sampel Diterima",   badge: "bg-violet-50 text-violet-700 ring-1 ring-violet-200",     dot: "bg-violet-400",   step: 1, action: "Entry Hasil"     },
+  "Dianalisa":       { label: "Dianalisa",         badge: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",        dot: "bg-amber-400",    step: 2, action: "Validasi Hasil"  },
+  "Divalidasi":      { label: "Menunggu Validasi", badge: "bg-orange-50 text-orange-700 ring-1 ring-orange-200",     dot: "bg-orange-400",   step: 3, action: "Rilis Hasil"     },
+  "Selesai":         { label: "Selesai",           badge: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",  dot: "bg-emerald-400",  step: 4, action: ""               },
   "Ditolak":         { label: "Ditolak",           badge: "bg-rose-50 text-rose-700 ring-1 ring-rose-200",           dot: "bg-rose-400",     step: -1, action: ""              },
 };
 
+// Alur ringkas (tanpa step sampel): Menunggu → Diterima → [Entry Hasil] → Divalidasi → Selesai.
 export const LAB_STATUS_STEPS: LabStatus[] = [
-  "Menunggu", "Diterima", "Ambil Sampel", "Sampel Diterima",
-  "Dianalisa", "Divalidasi", "Selesai",
+  "Menunggu", "Diterima", "Dianalisa", "Divalidasi", "Selesai",
 ];
 
 export const KATEGORI_CFG: Record<KategoriLab, { badge: string; dot: string; abbrev: string }> = {
@@ -253,6 +260,7 @@ export function mapDbLabOrder(dto: LabOrderWorklistDTO): LabOrder {
     catatan:      dto.catatan ?? undefined,
     items: dto.items.map((it) => ({
       id:          it.id,
+      labTestId:   it.labTestId,
       kode:        it.kodeTes,
       nama:        it.namaTes,
       kategori:    toKategori(it.kategori),
@@ -261,6 +269,63 @@ export function mapDbLabOrder(dto: LabOrderWorklistDTO): LabOrder {
     timestamps: { order: dto.createdAt },
   };
 }
+
+// ── Entry Hasil dari katalog (parameter master.LabTest → baris HasilItem) ──
+// Pengambilan sampel di luar aplikasi → baris hasil disusun langsung dari parameter
+// katalog tes yang diorder, rujukan disesuaikan gender+usia pasien.
+
+/** Baris rujukan paling cocok utk gender+usia (fallback LP / baris pertama). */
+function pickRujukan(rujukan: LabRujukanDTO[], gender: "L" | "P", usia: number): LabRujukanDTO | undefined {
+  if (rujukan.length === 0) return undefined;
+  const inAge = (r: LabRujukanDTO) =>
+    (r.usiaMin === undefined || usia >= r.usiaMin) && (r.usiaMax === undefined || usia <= r.usiaMax);
+  return (
+    rujukan.find((r) => r.gender === gender && inAge(r)) ??
+    rujukan.find((r) => r.gender === "LP" && inAge(r)) ??
+    rujukan.find((r) => r.gender === gender) ??
+    rujukan.find((r) => r.gender === "LP") ??
+    rujukan[0]
+  );
+}
+
+/** Susun baris Entry Hasil (1 baris per parameter katalog). Tes tanpa katalog → 1 baris tes. */
+export function buildHasilFromCatalog(order: LabOrder, tests: LabTestDTO[]): HasilItem[] {
+  const byId = new Map(tests.map((t) => [t.id, t]));
+  const rows: HasilItem[] = [];
+  for (const item of order.items) {
+    const test = item.labTestId ? byId.get(item.labTestId) : undefined;
+    if (test && test.parameters.length > 0) {
+      for (const p of test.parameters) {
+        const r = pickRujukan(p.rujukan, order.gender, order.usia);
+        rows.push({
+          rowKey:       `${test.id}:${p.id}`,
+          kode:         test.kode || item.kode,
+          nama:         p.nama,
+          kategori:     item.kategori,
+          satuan:       p.satuan ?? "",
+          rujukanStr:   r ? `${r.low} – ${r.high}` : (p.nilaiNormalText || "—"),
+          nilaiMin:     r?.low,
+          nilaiMax:     r?.high,
+          criticalLow:  p.criticalLow ?? undefined,
+          criticalHigh: p.criticalHigh ?? undefined,
+        });
+      }
+    } else {
+      rows.push({
+        rowKey:     item.id,
+        kode:       item.kode,
+        nama:       item.nama,
+        kategori:   item.kategori,
+        satuan:     "",
+        rujukanStr: "—",
+      });
+    }
+  }
+  return rows;
+}
+
+/** Kunci unik baris hasil (param-level bila dari katalog, else kode tes). */
+export const hasilKey = (h: HasilItem): string => h.rowKey ?? h.kode;
 
 // ── Workflow Overlay (in-session; BUKAN mock data — kosong saat awal) ──
 // Progres sampel/hasil/validasi belum punya endpoint persist → ditahan client per order id.

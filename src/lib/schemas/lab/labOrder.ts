@@ -56,6 +56,13 @@ export const LabWorklistQuery = z.object({
 });
 export type LabWorklistQuery = z.infer<typeof LabWorklistQuery>;
 
+// ── Query parameter katalog (GET /lab/test-params) ────────────────────────────
+// ids = daftar LabTest.id (comma-separated) → entry hasil ambil parameter dari katalog.
+export const LabTestParamsQuery = z.object({
+  ids: z.string().trim().min(1, "ids wajib"),
+});
+export type LabTestParamsQuery = z.infer<typeof LabTestParamsQuery>;
+
 // ── DTO (response) — mirror vocab FE ──────────────────────────────────────────
 export interface LabOrderItemDTO {
   id: string;

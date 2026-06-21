@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ShieldCheck, Syringe, FlaskConical, Award, History,
+  ShieldCheck, FlaskConical, Award, History,
   ClipboardList, TrendingUp, Activity, PlusCircle,
   type LucideIcon,
 } from "lucide-react";
@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 import { type LabOrder, LAB_STATUS_CFG } from "./labShared";
 
 import PenerimaanPane from "./tabs/PenerimaanPane";
-import SampelPane     from "./tabs/SampelPane";
 import HasilPane      from "./tabs/HasilPane";
 import ValidasiPane   from "./tabs/ValidasiPane";
 import RiwayatPane    from "./tabs/RiwayatPane";
@@ -30,10 +29,9 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
-  { id: "penerimaan", label: "Penerimaan",           icon: ShieldCheck,  step: 1, group: "workflow" },
-  { id: "sampel",     label: "Pengambilan & Sampel", icon: Syringe,      step: 2, group: "workflow" },
-  { id: "hasil",      label: "Entry Hasil",           icon: FlaskConical, step: 3, group: "workflow" },
-  { id: "validasi",   label: "Validasi",              icon: Award,        step: 4, group: "workflow" },
+  { id: "penerimaan", label: "Penerimaan",  icon: ShieldCheck,  step: 1, group: "workflow" },
+  { id: "hasil",      label: "Entry Hasil", icon: FlaskConical, step: 2, group: "workflow" },
+  { id: "validasi",   label: "Validasi",    icon: Award,        step: 3, group: "workflow" },
   { id: "trend",      label: "Trend & Delta",         icon: TrendingUp,            group: "klinis"   },
   { id: "poct",       label: "POCT Bedside",          icon: Activity,              group: "klinis"   },
   { id: "addon",      label: "Add-on Test",           icon: PlusCircle,            group: "klinis"   },
@@ -219,7 +217,6 @@ export default function LabOrderTabs({ order, onRefresh }: { order: LabOrder; on
             transition={{ duration: 0.15, ease: "easeOut" }}
           >
             {active === "penerimaan" && <PenerimaanPane order={order} onStatusChange={refresh} />}
-            {active === "sampel"     && <SampelPane     order={order} onStatusChange={refresh} />}
             {active === "hasil"      && <HasilPane       order={order} onStatusChange={refresh} />}
             {active === "validasi"   && <ValidasiPane    order={order} onStatusChange={refresh} />}
             {active === "trend"      && <TrendPane       order={order} />}

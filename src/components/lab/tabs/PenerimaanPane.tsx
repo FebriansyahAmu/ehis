@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, User, CalendarDays, Hash, ShieldCheck, Clock, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/contexts/SessionContext";
 import { type LabOrder, updateLabWorkflow } from "../labShared";
 
 // ── Props ─────────────────────────────────────────────────
@@ -40,17 +41,19 @@ function IdentityCard({
 // ── Main ──────────────────────────────────────────────────
 
 export default function PenerimaanPane({ order, onStatusChange }: Props) {
-  const isDone = !["Menunggu"].includes(order.status) && order.status !== undefined;
   const isAlreadyReceived = order.status !== "Menunggu";
+
+  const { session } = useSession();
+  // Diterima oleh = user yang sedang login (penerima order). Fallback ke yang tersimpan.
+  const penerimaName = order.diterima_oleh || session?.namaTampil || "";
 
   const [checked1,    setChecked1]    = useState(isAlreadyReceived);
   const [checked2,    setChecked2]    = useState(isAlreadyReceived);
   const [checked3,    setChecked3]    = useState(isAlreadyReceived);
-  const [petugasLab,  setPetugasLab]  = useState(order.diterima_oleh ?? "");
   const [saving,      setSaving]      = useState(false);
   const [saved,       setSaved]       = useState(isAlreadyReceived);
 
-  const canSubmit = checked1 && checked2 && checked3 && petugasLab.trim().length > 0;
+  const canSubmit = checked1 && checked2 && checked3 && penerimaName.trim().length > 0;
 
   function handleSubmit() {
     if (!canSubmit) return;
@@ -58,7 +61,7 @@ export default function PenerimaanPane({ order, onStatusChange }: Props) {
     setTimeout(() => {
       updateLabWorkflow(order.id, {
         status: "Diterima",
-        diterima_oleh: petugasLab,
+        diterima_oleh: penerimaName,
         timestamps: { terima: new Date().toISOString().slice(0, 16) },
       });
       setSaving(false);
@@ -66,8 +69,6 @@ export default function PenerimaanPane({ order, onStatusChange }: Props) {
       onStatusChange();
     }, 600);
   }
-
-  const inputCls = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400 placeholder:text-slate-400";
 
   return (
     <div className="grid grid-cols-1 gap-5 sm:grid-cols-[1fr_340px]">
@@ -133,14 +134,13 @@ export default function PenerimaanPane({ order, onStatusChange }: Props) {
 
               <div>
                 <label className="block text-[11px] font-semibold text-slate-500 mb-1">
-                  Petugas Lab yang Menerima <span className="text-rose-400">*</span>
+                  Diterima Oleh <span className="text-rose-400">*</span>
                 </label>
-                <input
-                  value={petugasLab}
-                  onChange={(e) => setPetugasLab(e.target.value)}
-                  placeholder="Nama petugas / analis"
-                  className={inputCls}
-                />
+                <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                  <User size={16} className="shrink-0 text-slate-400" />
+                  <span className="text-sm font-medium text-slate-700">{penerimaName || "—"}</span>
+                  <span className="ml-auto rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">user login</span>
+                </div>
               </div>
 
               <button
@@ -172,7 +172,7 @@ export default function PenerimaanPane({ order, onStatusChange }: Props) {
               <div>
                 <p className="text-sm font-bold text-emerald-800">Identitas Terverifikasi</p>
                 <p className="text-[11px] text-emerald-700">
-                  Diterima oleh: {order.diterima_oleh || petugasLab}
+                  Diterima oleh: {order.diterima_oleh || penerimaName}
                   {order.timestamps.terima && ` · ${new Date(order.timestamps.terima).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`}
                 </p>
               </div>
