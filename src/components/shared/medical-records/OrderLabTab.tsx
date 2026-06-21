@@ -11,6 +11,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { listLabTestTersedia } from "@/lib/api/master/labTestTersedia";
+import { createLabOrder } from "@/lib/api/lab/labOrder";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
 import {
   KATEGORI_ICON, KATEGORI_COLOR, STATUS_ORDER_BADGE, KategoriChip,
   TARIF_PENJAMIN_KODE, tarifTierForUnit, dtoToLabTest, fmtRp, PAKET_DEFS,
@@ -22,6 +25,8 @@ import RiwayatLabSection from "./orderLab/OrderLabHistory";
 // ── Normalized patient interface ──────────────────────────
 
 export interface OrderLabPatient {
+  /** kunjunganId — UUID → persist order ke DB (medicalrecord.LabOrder → worklist Lab); selain itu lokal (mock). */
+  kunjunganId?: string;
   doctor:       string;
   name:         string;
   noRM:         string;
@@ -30,6 +35,12 @@ export interface OrderLabPatient {
   tglOrder:     string;
   unitPengirim: string;
 }
+
+// kunjunganId UUID → mode DB (persist ke medicalrecord.LabOrder); selain itu lokal (mock).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** prioritas FE → vocab PrioritasLabEnum (CITO/Segera/Rutin). */
+const PRIORITAS_API: Record<"Rutin" | "Cito", "CITO" | "Rutin"> = { Rutin: "Rutin", Cito: "CITO" };
 
 // ── Lab search (katalog ter-assign, prop-driven) ──────────
 
@@ -217,8 +228,10 @@ export default function OrderLabTab({ patient }: { patient: OrderLabPatient }) {
   const [catatan,      setCatatan]      = useState("");
   const [priority,     setPriority]     = useState<"Rutin" | "Cito">("Rutin");
   const [submitted,    setSubmitted]    = useState(false);
+  const [submitting,   setSubmitting]   = useState(false);
   const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>(ACTIVE_ORDERS_MOCK[patient.noRM] ?? []);
 
+  const isPersisted = !!patient.kunjunganId && UUID_RE.test(patient.kunjunganId);
   const riwayat = RIWAYAT_LAB_MOCK[patient.noRM] ?? [];
 
   // Muat katalog tes lab ter-assign (Laboratorium) sekali saat mount. Harga via tier unit pengirim.
@@ -289,8 +302,7 @@ export default function OrderLabTab({ patient }: { patient: OrderLabPatient }) {
   const estTotal   = orderItems.reduce((s, i) => s + (i.harga ?? 0), 0);
   const untariffed = orderItems.filter((i) => i.harga == null).length;
 
-  const handleSubmit = () => {
-    if (orderItems.length === 0) return;
+  const addLocalActiveOrder = () => {
     const newOrder: ActiveOrder = {
       id:       `ao-${Date.now()}`,
       noOrder:  `LAB/2026/04/${String(Math.floor(Math.random() * 900) + 100).padStart(4, "0")}`,
@@ -302,6 +314,40 @@ export default function OrderLabTab({ patient }: { patient: OrderLabPatient }) {
       items:    orderItems,
     };
     setActiveOrders((prev) => [newOrder, ...prev]);
+  };
+
+  const handleSubmit = async () => {
+    if (orderItems.length === 0 || submitting) return;
+
+    // kunjunganId UUID → persist ke DB (medicalrecord.LabOrder) → muncul di worklist Lab.
+    if (isPersisted) {
+      setSubmitting(true);
+      try {
+        await createLabOrder(patient.kunjunganId!, {
+          labNama: "Laboratorium",
+          catatan: catatan || undefined,
+          prioritas: PRIORITAS_API[priority],
+          items: orderItems.map((i) => ({
+            labTestId: i.testId && UUID_RE.test(i.testId) ? i.testId : undefined,
+            kodeTes: i.kode,
+            namaTes: i.nama,
+            kategori: i.kategori,
+            waktuTunggu: i.waktuTunggu,
+            harga: i.harga ?? undefined,
+          })),
+        });
+        toast.success("Order Lab dikirim", `${orderItems.length} pemeriksaan → Laboratorium`);
+        setSubmitted(true);
+      } catch (e) {
+        toast.error("Gagal mengirim order lab", e instanceof ApiError ? e.message : undefined);
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // Pasien demo (non-UUID) → tetap lokal (mock).
+    addLocalActiveOrder();
     setSubmitted(true);
   };
 
@@ -643,14 +689,14 @@ export default function OrderLabTab({ patient }: { patient: OrderLabPatient }) {
           </button>
           <button
             onClick={handleSubmit}
-            disabled={orderItems.length === 0}
+            disabled={orderItems.length === 0 || submitting}
             className={cn(
               "flex items-center gap-1.5 rounded-lg px-5 py-2 text-xs font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-40",
               priority === "Cito" ? "bg-rose-600 hover:bg-rose-700" : "bg-indigo-600 hover:bg-indigo-700",
             )}
           >
-            <FlaskConical size={13} />
-            {priority === "Cito" ? "Kirim Order CITO" : "Kirim Order ke Lab"}
+            {submitting ? <Loader2 size={13} className="animate-spin" /> : <FlaskConical size={13} />}
+            {submitting ? "Mengirim…" : priority === "Cito" ? "Kirim Order CITO" : "Kirim Order ke Lab"}
           </button>
         </div>
       </div>

@@ -7,6 +7,7 @@ export default function OrderLabTab({ patient }: { patient: IGDPatientDetail }) 
   return (
     <SharedOrderLabTab
       patient={{
+        kunjunganId:  patient.id,
         doctor:       patient.doctor,
         name:         patient.name,
         noRM:         patient.noRM,

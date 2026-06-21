@@ -197,6 +197,7 @@ export default function RJRecordTabs({ patient }: { patient: RJPatientDetail }) 
               patient={{ noRM: patient.noRM, name: patient.name, kunjunganId: patient.id, dpjp: patient.dokter, gender: patient.gender, riwayatAlergi: patient.riwayatAlergi }}
             />)}
             {active === "order-lab" && withIdentitas(<OrderLabTab patient={{
+              kunjunganId:  patient.id,
               doctor:       patient.dokter,
               name:         patient.name,
               noRM:         patient.noRM,

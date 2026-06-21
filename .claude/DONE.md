@@ -12,6 +12,20 @@
 
 ---
 
+## ✅ Selesai — Order Lab contracts table + endpoints (persist order ke Laboratorium) (2026-06-21)
+
+Setelah katalog Order Lab DB-driven, sekarang **order-nya tersimpan** — mirror penuh alur "order resep ke Farmasi", tabel + API layered per [API-RULES](../docs/API-RULES.md).
+
+- **Contracts table** — `medicalrecord.LabOrder` (header) + `medicalrecord.LabOrderItem` (baris tes), mirror `ResepOrder`/`ResepItem`. Order append-only (soft-delete); `status`/`prioritas` mutable (workflow Lab Menunggu→Diterima→…→Selesai/Ditolak); lab tujuan = snapshot kode+nama Location Laboratorium; item snapshot katalog `master.LabTest` (labTestId soft-ref + kode/nama/kategori/TAT + **harga** Tarif Matrix). Migrasi drift-safe `20260621160000_init_medicalrecord_lab_order` (db execute → resolve → generate). Back-relation `Kunjungan.labOrder`.
+- **API layered (pola API-RULES)** — schema [lab/labOrder.ts](../src/lib/schemas/lab/labOrder.ts) (Zod input + DTO mirror FE) → DAL [lab/labOrderDal.ts](../src/lib/dal/lab/labOrderDal.ts) (create/list/findByIdWithKunjungan/listForLab/transition/receive/cancel, guard `deletedAt`) → Service [lab/labOrderService.ts](../src/lib/services/lab/labOrderService.ts) (penulis dari actor, statusAwal RJ=Diterima · IGD/RI=Menunggu, guard atomik) → routes:
+  - **Klinis** (gate `clinical.tindakan` + ABAC careUnit via params.id): `GET/POST /kunjungan/:id/lab` · `POST /kunjungan/:id/lab/:labId/cancel`.
+  - **Worklist Lab** (gate `ancillary.lab.worklist`, lintas-kunjungan `scopeKunjungan:false`): `GET /lab/orders` (filter labKode/status/noRM) · `GET /lab/orders/:id` · `POST /lab/orders/:id/receive`.
+  - FE client [api/lab/labOrder.ts](../src/lib/api/lab/labOrder.ts).
+- **Producer wiring (sesuaikan)** — `OrderLabPatient.kunjunganId` ditambah; wrapper IGD/RI/RJ kirim `patient.id`. [OrderLabTab](../src/components/shared/medical-records/OrderLabTab.tsx) submit: kunjunganId UUID → `createLabOrder` (map item → snapshot, prioritas Cito→CITO) + toast + state submitting; pasien demo (non-UUID) tetap lokal.
+- **Follow-up** — LabBoard worklist masih mock (endpoint `/lab/orders` siap dikonsumsi, mirror FarmasiBoard) · persist hasil/sampel/validasi (workflow lab) · billing ingest dari LabOrder.
+
+---
+
 ## ✅ Selesai — Order Lab klinis (IGD/RI/RJ) DB-driven + Paket Cepat dari master (2026-06-21)
 
 Tab **Order Lab** shared ([OrderLabTab](../src/components/shared/medical-records/OrderLabTab.tsx)) berhenti pakai mock katalog — kini menarik tes lab **ter-assign ke ruangan Laboratorium** dari master, lengkap harga, dengan Paket Cepat yang nyata.

@@ -1094,6 +1094,65 @@ model ResepItem {
   @@schema("medicalrecord")
 }
 
+// ── Order Lab (tab Order Lab — order pemeriksaan lab per kunjungan → Laboratorium) ──
+//  1 order = header (tujuan lab + prioritas + catatan + penulis) + items[] (baris tes). Mirror
+//  FE OrderLabTab + LabOrder (worklist lab). Order append-only (immutable; koreksi = soft-delete +
+//  order baru). status/prioritas MUTABLE → workflow Lab (Menunggu→Diterima→…→Selesai/Ditolak).
+//  Lab tujuan = snapshot kode+nama Location kategori "Laboratorium". Selaras ResepOrder.
+
+model LabOrder {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Tujuan unit Laboratorium (snapshot Location) ──
+  labKode String? @map("lab_kode") // Location.kode kategori Laboratorium
+  labNama String  @map("lab_nama") // nama lab tujuan (tampil)
+
+  catatan   String?
+  prioritas String @default("Rutin")    // CITO/Segera/Rutin
+  status    String @default("Menunggu") // workflow Lab
+
+  // ── Penulis order (DPJP) snapshot ──
+  penulis         String
+  penulisKontak   String? @map("penulis_kontak")
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  items LabOrderItem[]
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt])
+  @@index([labKode, status])
+  @@map("lab_order")
+  @@schema("medicalrecord")
+}
+
+model LabOrderItem {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  labOrderId String   @map("lab_order_id") @db.Uuid
+  order      LabOrder @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
+
+  // ── Snapshot katalog (master.LabTest saat order; labTestId nullable = ad-hoc/manual) ──
+  labTestId   String? @map("lab_test_id") @db.Uuid
+  kodeTes     String  @map("kode_tes")
+  namaTes     String  @map("nama_tes")
+  kategori    String  @default("")
+  waktuTunggu String? @map("waktu_tunggu")
+  harga       Int? // snapshot tarif (rupiah) saat order; null = belum bertarif
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([labOrderId])
+  @@map("lab_order_item")
+  @@schema("medicalrecord")
+}
+
 // ── Informed Consent (tab IC — persetujuan tindakan kedokteran, PMK 290/2008) ──
 //  Daftar hidup per-item: 1 baris = 1 formulir persetujuan (per tindakan). Tambah = INSERT,
 //  hapus = soft-delete (entered-in-error, jejak medico-legal). IMMUTABLE setelah dibuat
