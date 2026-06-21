@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Pill, FileText, Activity, ShieldAlert, ClipboardList, type LucideIcon } from "lucide-react";
+import { Pill, FileText, Activity, ShieldAlert, ClipboardList, ClipboardCheck, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   mapDbResepOrder,
@@ -15,6 +15,8 @@ import { emitFarmasiTask } from "@/lib/farmasi/farmasiQueueStore";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
 import CPPTTab           from "@/components/shared/medical-records/CPPTTab";
+import RekonsiliasTab    from "@/components/shared/medical-records/RekonsiliasTab";
+import type { RekonContext } from "@/components/shared/medical-records/rekonsiliasi/rekonsiliasiShared";
 import LayananFarmasiTab from "./tabs/LayananFarmasiTab";
 import PTOPane           from "./tabs/PTOPane";
 import MESOPane          from "./tabs/MESOPane";
@@ -25,14 +27,20 @@ import DRPPane           from "./tabs/DRPPane";
 interface TabDef { id: string; label: string; icon: LucideIcon; group: "workflow" | "klinis" }
 
 const TABS: TabDef[] = [
-  { id: "layanan", label: "Layanan Farmasi",       icon: Pill,          group: "workflow" },
-  { id: "cppt",    label: "CPPT Apoteker",          icon: FileText,      group: "workflow" },
-  { id: "pto",     label: "Monitoring Terapi",      icon: Activity,      group: "klinis"  },
-  { id: "meso",    label: "Pelaporan ESO",           icon: ShieldAlert,   group: "klinis"  },
-  { id: "drp",     label: "Masalah Terkait Obat",   icon: ClipboardList, group: "klinis"  },
+  { id: "layanan",      label: "Layanan Farmasi",      icon: Pill,           group: "workflow" },
+  { id: "cppt",         label: "CPPT Apoteker",         icon: FileText,       group: "workflow" },
+  { id: "rekonsiliasi", label: "Rekonsiliasi Obat",     icon: ClipboardCheck, group: "workflow" },
+  { id: "pto",          label: "Monitoring Terapi",     icon: Activity,       group: "klinis"  },
+  { id: "meso",         label: "Pelaporan ESO",          icon: ShieldAlert,    group: "klinis"  },
+  { id: "drp",          label: "Masalah Terkait Obat",  icon: ClipboardList,  group: "klinis"  },
 ];
 
-type TabId = "layanan" | "cppt" | "pto" | "meso" | "drp";
+type TabId = "layanan" | "cppt" | "rekonsiliasi" | "pto" | "meso" | "drp";
+
+/** Konteks rekonsiliasi dari unit asal order (location yang meng-order obat). */
+function rekonContextFor(unit: FarmasiOrder["unit"]): RekonContext {
+  return unit === "IGD" ? "igd" : "ri";
+}
 
 // ── Nav item ──────────────────────────────────────────────
 
@@ -183,6 +191,12 @@ export default function FarmasiOrderTabs({
           >
             {active === "layanan" && <LayananFarmasiTab order={order} callbacks={callbacks} />}
             {active === "cppt"    && <CPPTTab initialEntries={[]} showDate kunjunganId={order.kunjunganId} defaultProfesi="Apoteker" />}
+            {active === "rekonsiliasi" && (
+              <RekonsiliasTab
+                patient={{ id: order.kunjunganId, noRM: order.noRM, name: order.namaPasien }}
+                context={rekonContextFor(order.unit)}
+              />
+            )}
             {active === "pto"     && <PTOPane  items={order.items} noRM={order.noRM} />}
             {active === "meso"    && <MESOPane order={order} />}
             {active === "drp"     && <DRPPane  order={order} />}
