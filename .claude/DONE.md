@@ -12,6 +12,17 @@
 
 ---
 
+## ✅ Selesai — Riwayat Order Lab di tab klinis Order Lab (mirror Riwayat Order Resep) (2026-06-21)
+
+Tab **Order Lab** klinis (shared IGD/RI/RJ) kini menampilkan **Riwayat Order Lab** DB-backed setelah dokter berhasil order — sejajar fitur **Riwayat Order Resep** di tab Resep.
+
+- **Komponen baru** [RiwayatOrderLab](../src/components/shared/medical-records/orderLab/RiwayatOrderLab.tsx) (mirror [RiwayatOrderResep](../src/components/shared/resep/RiwayatOrderResep.tsx)): fetch `listLabOrders(kunjunganId)` (GET /kunjungan/:id/lab) · filter chips Semua/Belum Diterima/Diproses/Selesai + counts · tombol Muat ulang · baris expand → tabel item (Pemeriksaan/Kategori/TAT/Tarif + total + catatan) · badge CITO · status badge/dot/row-bg per bucket · **Salin** (re-order → isi form) · **Batalkan** (status Menunggu, gate `clinical.tindakan:update`) → `cancelLabOrder`. Pasien demo (non-UUID) → panel auto-hidden.
+- **Helper status** di [orderLabShared](../src/components/shared/medical-records/orderLab/orderLabShared.tsx): `labOrderBucket`/`labOrderStatusCfg`/`labOrderRowBg` (8 status Lab + Dibatalkan → 4 bucket belum/proses/selesai/lain) + `toKategoriLab` (coerce string DTO → KategoriLab). Pola identik `resepShared`.
+- **Wiring** [OrderLabTab](../src/components/shared/medical-records/OrderLabTab.tsx): pasca-kirim order **terpersist** (UUID) **tidak lagi takeover layar sukses** — form dibersihkan + `riwayatSignal++` → RiwayatOrderLab refetch → order baru langsung tampil di panel (mirip alur worklist). `copyOrderToForm(o)` re-order (dedup by labTestId, set prioritas/catatan). `canCancel = useSession().can("clinical.tindakan","update")`. Layar sukses lama hanya untuk pasien demo (non-UUID). Panel mock lama (Order Aktif + RiwayatLabSection) tetap untuk demo (kosong/hidden utk pasien real).
+- **Verifikasi** — cancel route gate `clinical.tindakan:update` + ABAC params.id; `listByKunjungan` filter `deletedAt:null` saja (semua status, newest-first → order Dibatalkan tetap tampil di "Semua"). tsc bersih (app code) · ESLint bersih.
+
+---
+
 ## ✅ Selesai — Pegawai: Spesialistik (kondisional) + profesi "Analis Laboratorium" (2026-06-21)
 
 Modal **Data Pegawai** (`/ehis-master/pengguna`, grup Kepegawaian) — saat **Jenis Profesi = "Dokter Spesialis"**, muncul dropdown **Spesialistik** (bidang spesialisasi); + ditambah profesi **"Analis Laboratorium"** ke daftar Jenis Profesi.

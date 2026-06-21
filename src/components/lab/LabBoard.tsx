@@ -245,7 +245,7 @@ export default function LabBoard({
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {pending.map((o) => (
-              <div key={o.id} className="flex items-center gap-3 rounded-lg border border-amber-200 bg-white px-3 py-2.5 shadow-sm">
+              <div key={o.id} className="flex items-start gap-3 rounded-lg border border-amber-200 bg-white px-3 py-2.5 shadow-sm">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="truncate text-sm font-semibold text-slate-800">{o.namaPasien}</span>
@@ -254,12 +254,35 @@ export default function LabBoard({
                     )}
                   </div>
                   <p className="mt-0.5 truncate text-[11px] text-slate-400">{o.noRM} · {o.unitAsal} · {o.items.length} tes · {o.jam}</p>
+                  {/* Detail tindakan — daftar pemeriksaan yang diorder */}
+                  {o.items.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {o.items.slice(0, 4).map((item) => (
+                        <span
+                          key={item.id}
+                          className={cn(
+                            "rounded-md px-1.5 py-0.5 text-[10px]",
+                            item.isSpecial
+                              ? "bg-rose-50 text-rose-700 ring-1 ring-rose-200"
+                              : "bg-slate-100 text-slate-600",
+                          )}
+                        >
+                          {item.nama}
+                        </span>
+                      ))}
+                      {o.items.length > 4 && (
+                        <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-400">
+                          +{o.items.length - 4} lainnya
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <button
                   type="button"
                   onClick={() => handleTerima(o)}
                   disabled={receivingId === o.id}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-sky-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-sky-700 disabled:opacity-50"
+                  className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-lg bg-sky-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-sky-700 disabled:opacity-50"
                   aria-label={`Terima order ${o.noOrder}`}
                 >
                   {receivingId === o.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Terima

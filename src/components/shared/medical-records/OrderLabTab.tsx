@@ -10,17 +10,20 @@ import {
   CheckCircle2, AlertCircle, Ban, FileText, Activity, Wallet, Loader2, Info, Check, ServerCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/contexts/SessionContext";
 import { listLabTestTersedia } from "@/lib/api/master/labTestTersedia";
-import { createLabOrder } from "@/lib/api/lab/labOrder";
+import { createLabOrder, type LabOrderDTO } from "@/lib/api/lab/labOrder";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
 import {
   KATEGORI_ICON, KATEGORI_COLOR, STATUS_ORDER_BADGE, KategoriChip,
   TARIF_PENJAMIN_KODE, tarifTierForUnit, dtoToLabTest, fmtRp, PAKET_DEFS,
+  toKategoriLab, DEFAULT_WAKTU_TUNGGU,
   type LabTest, type OrderItem, type ActiveOrder, type StatusOrder,
 } from "./orderLab/orderLabShared";
 import { ACTIVE_ORDERS_MOCK, RIWAYAT_LAB_MOCK } from "./orderLab/orderLabMock";
 import RiwayatLabSection from "./orderLab/OrderLabHistory";
+import RiwayatOrderLab from "./orderLab/RiwayatOrderLab";
 
 // ── Normalized patient interface ──────────────────────────
 
@@ -230,6 +233,10 @@ export default function OrderLabTab({ patient }: { patient: OrderLabPatient }) {
   const [submitted,    setSubmitted]    = useState(false);
   const [submitting,   setSubmitting]   = useState(false);
   const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>(ACTIVE_ORDERS_MOCK[patient.noRM] ?? []);
+  // Naik tiap order persisted terkirim → panel Riwayat Order Lab refetch (tampilkan order baru).
+  const [riwayatSignal, setRiwayatSignal] = useState(0);
+
+  const canCancel = useSession().can("clinical.tindakan", "update");
 
   const isPersisted = !!patient.kunjunganId && UUID_RE.test(patient.kunjunganId);
   const riwayat = RIWAYAT_LAB_MOCK[patient.noRM] ?? [];
@@ -296,6 +303,33 @@ export default function OrderLabTab({ patient }: { patient: OrderLabPatient }) {
     );
 
   const removeTest  = (id: string) => setOrderItems((prev) => prev.filter((i) => i.id !== id));
+
+  // Salin order lama → form (re-order): tambah item yg belum ada, set prioritas/catatan.
+  const copyOrderToForm = (o: LabOrderDTO) => {
+    setOrderItems((prev) => {
+      const seen = new Set(prev.map((i) => i.testId).filter((x): x is string => !!x));
+      const add: OrderItem[] = [];
+      o.items.forEach((it, idx) => {
+        if (it.labTestId && seen.has(it.labTestId)) return;
+        const kat = toKategoriLab(it.kategori);
+        add.push({
+          id: `oi-${Date.now()}-${idx}`,
+          testId: it.labTestId ?? undefined,
+          kode: it.kodeTes,
+          nama: it.namaTes,
+          kategori: kat,
+          waktuTunggu: it.waktuTunggu || DEFAULT_WAKTU_TUNGGU[kat] || "1 jam",
+          harga: it.harga,
+        });
+        if (it.labTestId) seen.add(it.labTestId);
+      });
+      return [...prev, ...add];
+    });
+    if (o.prioritas === "CITO") setPriority("Cito");
+    if (o.catatan) setCatatan(o.catatan);
+    toast.success("Pemeriksaan disalin ke form", `${o.items.length} pemeriksaan dari order ${o.labNama}`);
+  };
+
   const cancelOrder = (orderId: string) =>
     setActiveOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: "Dibatalkan" as StatusOrder } : o)));
 
@@ -337,7 +371,12 @@ export default function OrderLabTab({ patient }: { patient: OrderLabPatient }) {
           })),
         });
         toast.success("Order Lab dikirim", `${orderItems.length} pemeriksaan → Laboratorium`);
-        setSubmitted(true);
+        // Bukan takeover layar sukses: bersihkan form & refetch Riwayat Order Lab → order
+        // baru langsung tampil di panel riwayat (mirip alur worklist).
+        setOrderItems([]);
+        setCatatan("");
+        setPriority("Rutin");
+        setRiwayatSignal((n) => n + 1);
       } catch (e) {
         toast.error("Gagal mengirim order lab", e instanceof ApiError ? e.message : undefined);
       } finally {
@@ -652,6 +691,14 @@ export default function OrderLabTab({ patient }: { patient: OrderLabPatient }) {
           )}
         </div>
       </div>
+
+      {/* Riwayat Order Lab (DB) — pasien terpersist (UUID); status pemenuhan + Salin/Batalkan. */}
+      <RiwayatOrderLab
+        kunjunganId={patient.kunjunganId ?? ""}
+        onCopy={copyOrderToForm}
+        canWrite={canCancel}
+        refreshSignal={riwayatSignal}
+      />
 
       {riwayat.length > 0 && <RiwayatLabSection riwayat={riwayat} />}
 

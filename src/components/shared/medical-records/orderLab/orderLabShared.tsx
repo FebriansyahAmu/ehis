@@ -176,6 +176,68 @@ export const PAKET_DEFS: { label: string; codes: string[] }[] = [
   { label: "Panel Demam",   codes: ["DR", "WIDAL", "MAL"] },
 ];
 
+// ── Status order lab (pemenuhan Laboratorium) — panel Riwayat Order Lab ──
+// Workflow Lab: Menunggu → Diterima → Ambil Sampel → Sampel Diterima → Dianalisa →
+// Divalidasi → Selesai (atau Ditolak / Dibatalkan). Dikelompokkan jadi bucket klinis:
+// belum diterima · diproses (sudah masuk lab) · selesai · lain (negatif).
+
+export type LabOrderBucket = "belum" | "proses" | "selesai" | "lain";
+
+const LAB_STATUS_BUCKET: Record<string, LabOrderBucket> = {
+  Menunggu:          "belum",
+  Diterima:          "proses",
+  "Ambil Sampel":    "proses",
+  "Sampel Diterima": "proses",
+  Dianalisa:         "proses",
+  Divalidasi:        "proses",
+  Selesai:           "selesai",
+  Ditolak:           "lain",
+  Dibatalkan:        "lain",
+};
+
+/** Bucket klinis dari status workflow Lab (fallback "belum" utk status tak dikenal). */
+export function labOrderBucket(status: string): LabOrderBucket {
+  return LAB_STATUS_BUCKET[status] ?? "belum";
+}
+
+export interface LabOrderStatusCfg {
+  label: string; // label klinis (sudut pandang DPJP/perawat pengirim)
+  badge: string;
+  dot:   string;
+}
+
+export const LAB_ORDER_STATUS: Record<string, LabOrderStatusCfg> = {
+  Menunggu:          { label: "Belum Diterima",        badge: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",       dot: "bg-amber-400"   },
+  Diterima:          { label: "Diterima Lab",          badge: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",            dot: "bg-sky-500"     },
+  "Ambil Sampel":    { label: "Ambil Sampel",          badge: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",            dot: "bg-sky-400"     },
+  "Sampel Diterima": { label: "Sampel Diterima",       badge: "bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200",         dot: "bg-cyan-500"    },
+  Dianalisa:         { label: "Dianalisa",             badge: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200",   dot: "bg-indigo-500"  },
+  Divalidasi:        { label: "Validasi",              badge: "bg-violet-50 text-violet-700 ring-1 ring-violet-200",   dot: "bg-violet-500"  },
+  Selesai:           { label: "Selesai · Hasil Keluar", badge: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200", dot: "bg-emerald-500" },
+  Ditolak:           { label: "Sampel Ditolak",        badge: "bg-rose-50 text-rose-700 ring-1 ring-rose-200",         dot: "bg-rose-400"    },
+  Dibatalkan:        { label: "Dibatalkan",            badge: "bg-slate-100 text-slate-500 ring-1 ring-slate-200",     dot: "bg-slate-400"   },
+};
+
+export function labOrderStatusCfg(status: string): LabOrderStatusCfg {
+  return LAB_ORDER_STATUS[status] ?? { label: status || "—", badge: "bg-slate-100 text-slate-600 ring-1 ring-slate-200", dot: "bg-slate-400" };
+}
+
+/** Warna latar baris (soft) per bucket: belum=kuning · proses=biru · selesai=hijau · lain=merah. */
+const LAB_BUCKET_ROW_BG: Record<LabOrderBucket, string> = {
+  belum:   "bg-amber-50/70 hover:bg-amber-100/70",
+  proses:  "bg-sky-50/60 hover:bg-sky-100/60",
+  selesai: "bg-emerald-50/70 hover:bg-emerald-100/70",
+  lain:    "bg-rose-50/70 hover:bg-rose-100/70",
+};
+export function labOrderRowBg(status: string): string {
+  return LAB_BUCKET_ROW_BG[labOrderBucket(status)];
+}
+
+/** Coerce kategori string (DTO) → KategoriLab (fallback "Kimia Klinik" — punya ikon/warna). */
+export function toKategoriLab(s: string): KategoriLab {
+  return (s in KATEGORI_ICON ? s : "Kimia Klinik") as KategoriLab;
+}
+
 // ── DTO → LabTest ─────────────────────────────────────────
 export function dtoToLabTest(d: LabTestTersediaDTO): LabTest {
   const kat = d.kategori as KategoriLab;
