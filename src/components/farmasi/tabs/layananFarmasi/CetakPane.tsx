@@ -110,7 +110,7 @@ export default function CetakPane({ order }: { order: FarmasiOrder }) {
             ["No. Order", order.noOrder],
             ["Tanggal",   order.tanggal],
             ["Dokter",    order.dokterPeminta],
-            ["Depo",      order.depo],
+            ["Depo",      order.depoNama || "Depo Farmasi"],
             ...(patient?.ruangan ? [["Ruangan", `${patient.ruangan}${patient.noBed ? ` · ${patient.noBed}` : ""}`]] : []),
             ["Total",     fmtRupiah(totalHarga)],
           ].map(([k, v]) => (

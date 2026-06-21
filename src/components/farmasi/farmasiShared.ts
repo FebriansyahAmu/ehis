@@ -9,7 +9,7 @@ export type { TelaahAnswers };
 // ── Types ─────────────────────────────────────────────────
 
 // "Menunggu" = belum diterima Farmasi (non-Poli, reception). "Diterima" = sudah diterima, menunggu telaah (worklist).
-export type FarmasiStatus  = "Menunggu" | "Diterima" | "Ditelaah" | "Siap Diserahkan" | "Selesai" | "Dikembalikan";
+export type FarmasiStatus  = "Menunggu" | "Diterima" | "Ditelaah" | "Siap Diserahkan" | "Selesai" | "Dikembalikan" | "Dibatalkan";
 export type DepoTujuan     = "Depo IGD" | "Apotek RI" | "Apotek RJ";
 export type UnitAsal       = "IGD" | "Rawat Inap" | "Rawat Jalan";
 export type PrioritasOrder = "CITO" | "Segera" | "Rutin";
@@ -34,9 +34,11 @@ export interface FarmasiOrderItem {
   namaObat:       string;
   kodeObat:       string;
   dosis:          string;
+  dosisSekali?:   string;
   signa:          string;
   jumlah:         number;
   rute:           string;
+  aturanPakai?:   string;
   kategori:       "Reguler" | "Narkotika" | "Psikotropika";
   isHAM:          boolean;
   isLASA?:        boolean;
@@ -101,11 +103,13 @@ export interface CatatanFarmasi {
 
 export interface FarmasiOrder {
   id:             string;
+  kunjunganId?:   string;           // UUID kunjungan (DB) → CPPT terintegrasi & rekam medis pasien
   noOrder:        string;
   noRM:           string;
   namaPasien:     string;
   unit:           UnitAsal;
-  depo:           DepoTujuan;
+  depo:           DepoTujuan;       // sintetis: penanda asal order per-unit (warna/filter)
+  depoNama?:      string;           // depo Farmasi NYATA (dari DB) — tampil di field "Depo:"
   dokterPeminta:  string;
   tanggal:        string;
   jam:            string;
@@ -118,6 +122,15 @@ export interface FarmasiOrder {
   catatan?:       CatatanFarmasi[];
   alergiPasien?:  AllergiPasien[];
   timestamps?:    OrderTimestamps;
+  // ── Konteks resep (untuk cetak) — terisi dari DB (mapDbResepOrder), kosong utk mock ──
+  catatanResep?:     string;
+  penulisKontak?:    string;
+  kondisiGinjal?:    string;
+  kondisiKehamilan?: string;
+  kondisiMenyusui?:  string;
+  tteToken?:         string;
+  tteSignedBy?:      string;
+  tteSignedAt?:      string; // ISO
 }
 
 // ── Config maps ───────────────────────────────────────────
@@ -136,12 +149,21 @@ export const STATUS_CFG: Record<FarmasiStatus, {
   "Siap Diserahkan": { label: "Siap Diserahkan",  badge: "bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200",            dot: "bg-cyan-500",    step: 2, action: "Serahkan",   actionCls: "bg-emerald-600 hover:bg-emerald-700 text-white"   },
   Selesai:           { label: "Diserahkan",        badge: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",   dot: "bg-emerald-500", step: 3, action: "Detail",     actionCls: "bg-slate-100 hover:bg-slate-200 text-slate-700"   },
   Dikembalikan:      { label: "Dikembalikan",      badge: "bg-rose-50 text-rose-700 ring-1 ring-rose-200",            dot: "bg-rose-500",    step:-1, action: "Detail",     actionCls: "bg-slate-100 hover:bg-slate-200 text-slate-700"   },
+  Dibatalkan:        { label: "Dibatalkan",        badge: "bg-rose-100 text-rose-700 ring-1 ring-rose-300",           dot: "bg-rose-500",    step:-1, action: "Detail",     actionCls: "bg-slate-100 hover:bg-slate-200 text-slate-700"   },
 };
 
 export const DEPO_CFG: Record<DepoTujuan, { badge: string; unit: UnitAsal }> = {
   "Depo IGD":  { badge: "bg-rose-50 text-rose-700 ring-1 ring-rose-200",       unit: "IGD"         },
   "Apotek RI": { badge: "bg-violet-50 text-violet-700 ring-1 ring-violet-200", unit: "Rawat Inap"  },
   "Apotek RJ": { badge: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",          unit: "Rawat Jalan" },
+};
+
+// `depo` sintetis per-unit hanya penanda ASAL order — tak ada depo per-unit; depo nyata = Depo
+// Farmasi (`depoNama` dari DB). Untuk tampilan asal, pakai nama unit (bukan "Depo IGD"). SKP.
+export const DEPO_LABEL: Record<DepoTujuan, string> = {
+  "Depo IGD":  "IGD",
+  "Apotek RI": "Rawat Inap",
+  "Apotek RJ": "Rawat Jalan",
 };
 
 export const PRIORITAS_CFG: Record<PrioritasOrder, { badge: string }> = {
@@ -595,9 +617,11 @@ export function mapDbResepOrder(o: ResepOrderFarmasiDTO): FarmasiOrder {
     namaObat:      it.namaObat,
     kodeObat:      it.kodeObat || `RX-${it.id}`,
     dosis:         it.dosis ?? "",
+    dosisSekali:   it.dosisSekali ?? undefined,
     signa:         it.signa ?? "",
     jumlah:        it.jumlah,
     rute:          it.rute ?? "",
+    aturanPakai:   it.aturanPakai ?? undefined,
     kategori:      (it.kategori as FarmasiOrderItem["kategori"]) || kategoriObat(it.namaObat),
     isHAM:         it.isHAM || isHAMDrug(it.namaObat),
     isLASA:        isLASADrug(it.namaObat),
@@ -608,11 +632,13 @@ export function mapDbResepOrder(o: ResepOrderFarmasiDTO): FarmasiOrder {
   }));
   return {
     id:            o.id,
+    kunjunganId:   o.kunjunganId,
     noOrder:       o.noOrder,
     noRM:          o.noRM,
     namaPasien:    o.namaPasien,
     unit:          o.unit as UnitAsal,
     depo:          unitToDepo(o.unit),
+    depoNama:      o.depoNama,
     dokterPeminta: o.penulis,
     tanggal:       o.createdAt.slice(0, 10),
     jam:           new Date(o.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
@@ -623,5 +649,13 @@ export function mapDbResepOrder(o: ResepOrderFarmasiDTO): FarmasiOrder {
     telaah:        o.telaah ? telaahFromDTO(o.telaah) : undefined,
     serahTerima:   o.dispensing ? serahFromDispensing(o.dispensing) : undefined,
     alergiPasien:  getPatientAllergies(o.noRM),
+    catatanResep:     o.catatan ?? undefined,
+    penulisKontak:    o.penulisKontak ?? undefined,
+    kondisiGinjal:    o.kondisiGinjal ?? undefined,
+    kondisiKehamilan: o.kondisiKehamilan ?? undefined,
+    kondisiMenyusui:  o.kondisiMenyusui ?? undefined,
+    tteToken:         o.tteToken ?? undefined,
+    tteSignedBy:      o.tteSignedBy ?? undefined,
+    tteSignedAt:      o.tteSignedAt ?? undefined,
   };
 }

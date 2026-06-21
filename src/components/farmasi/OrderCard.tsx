@@ -6,7 +6,7 @@ import { Pill, Clock, Stethoscope, MapPin, AlertTriangle, Package, ChevronRight 
 import { cn } from "@/lib/utils";
 import {
   type FarmasiOrder,
-  STATUS_CFG, DEPO_CFG, PRIORITAS_CFG,
+  STATUS_CFG, DEPO_CFG, DEPO_LABEL, PRIORITAS_CFG,
   calcTATMenit, getTATStatus, TAT_TARGET_UNIT,
 } from "./farmasiShared";
 
@@ -109,6 +109,7 @@ export default function OrderCard({ order, index = 0 }: OrderCardProps) {
     "Siap Diserahkan": "border-l-indigo-500",
     Selesai:           "border-l-emerald-500",
     Dikembalikan:      "border-l-rose-500",
+    Dibatalkan:        "border-l-rose-500",
   }[order.status];
 
   return (
@@ -155,7 +156,7 @@ export default function OrderCard({ order, index = 0 }: OrderCardProps) {
         <div className="flex items-center gap-1.5">
           <MapPin size={12} className="text-slate-400 shrink-0" aria-hidden="true" />
           <span className={cn("rounded-md px-1.5 py-0.5 text-[10px] font-semibold", depoCfg.badge)}>
-            {order.depo}
+            {DEPO_LABEL[order.depo]}
           </span>
         </div>
         <div className="flex items-center gap-1 text-xs text-slate-500">

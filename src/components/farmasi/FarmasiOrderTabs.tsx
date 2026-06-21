@@ -182,7 +182,7 @@ export default function FarmasiOrderTabs({
             className="flex-1 p-4 md:p-6"
           >
             {active === "layanan" && <LayananFarmasiTab order={order} callbacks={callbacks} />}
-            {active === "cppt"    && <CPPTTab initialEntries={[]} showDate={true} />}
+            {active === "cppt"    && <CPPTTab initialEntries={[]} showDate kunjunganId={order.kunjunganId} defaultProfesi="Apoteker" />}
             {active === "pto"     && <PTOPane  items={order.items} noRM={order.noRM} />}
             {active === "meso"    && <MESOPane order={order} />}
             {active === "drp"     && <DRPPane  order={order} />}

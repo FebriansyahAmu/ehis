@@ -28,10 +28,20 @@ export function unitScopeBypassed(actor: { isSuperuser: boolean; isGlobal: boole
   return actor.isSuperuser || actor.isGlobal;
 }
 
+/** Aktor penunjang (Lab/Rad/Farmasi) — punya izin `ancillary.*`. Penunjang = layanan LINTAS-UNIT
+ *  (melayani IGD/RI/RJ) → tak diikat careUnit untuk rekam medis yang memang lintas-unit (mis. CPPT
+ *  terintegrasi, rekonsiliasi obat, baca resep). Selaras keputusan "penunjang standalone, TIDAK
+ *  kena careUnit ABAC". RBAC (assertCan, jalan SEBELUM ABAC) tetap membatasi resource yang boleh
+ *  disentuh — bypass ini hanya melonggarkan unit-scope, bukan memberi izin baru. */
+export function isAncillaryActor(actor: { permissions: Set<string> }): boolean {
+  for (const p of actor.permissions) if (p.startsWith("ancillary.")) return true;
+  return false;
+}
+
 /** Boleh akses konteks unit kunjungan? Bypass = bebas; selain itu harus termasuk unit kerjanya. */
 export function canAccessUnit(
-  actor: { isSuperuser: boolean; isGlobal: boolean; careUnits: string[] },
+  actor: { isSuperuser: boolean; isGlobal: boolean; careUnits: string[]; permissions: Set<string> },
   unit: string,
 ): boolean {
-  return unitScopeBypassed(actor) || actor.careUnits.includes(unit);
+  return unitScopeBypassed(actor) || isAncillaryActor(actor) || actor.careUnits.includes(unit);
 }

@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ChevronLeft, ChevronRight, AlertTriangle, Clock, CheckCircle2, Package, RotateCcw, Inbox, Check, Loader2 } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle, Clock, CheckCircle2, Package, RotateCcw, Inbox, Check, Loader2, ListFilter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   mapDbResepOrder,
-  STATUS_CFG, DEPO_CFG, PRIORITAS_CFG,
+  STATUS_CFG, DEPO_CFG, DEPO_LABEL, PRIORITAS_CFG,
   type FarmasiOrder, type FarmasiStatus, type DepoTujuan,
 } from "./farmasiShared";
 import { listFarmasiResep, receiveFarmasiResep } from "@/lib/api/resep/resep";
@@ -37,6 +37,98 @@ function StatCard({ label, value, badge, dot, icon }: StatCardProps) {
         <p className="mt-0.5 text-xs font-medium opacity-80">{label}</p>
       </div>
       <span className={cn("ml-auto h-2 w-2 rounded-full", dot)} />
+    </div>
+  );
+}
+
+// ── Status filter (custom dropdown) ────────────────────────
+// Dropdown ber-dot status + jumlah per status — gantikan <select> polos. Tutup saat klik-luar/Esc.
+
+type StatusOption = "Semua" | FarmasiStatus;
+
+function statusDot(s: StatusOption): string  { return s === "Semua" ? "bg-slate-400" : STATUS_CFG[s].dot; }
+function statusLabel(s: StatusOption): string { return s === "Semua" ? "Semua Status" : STATUS_CFG[s].label; }
+
+function StatusFilter({
+  value, counts, onChange,
+}: {
+  value: StatusOption;
+  counts: Record<string, number>;
+  onChange: (s: StatusOption) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const onEsc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onEsc);
+    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onEsc); };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox" aria-expanded={open}
+        className={cn(
+          "flex min-w-[10.5rem] items-center gap-2 rounded-lg border bg-white px-3 py-1.5 text-xs font-medium transition-all",
+          open ? "border-indigo-400 ring-2 ring-indigo-100" : "border-slate-200 hover:border-slate-300",
+        )}
+      >
+        <ListFilter size={12} className="shrink-0 text-slate-400" />
+        <span className={cn("h-2 w-2 shrink-0 rounded-full", statusDot(value))} />
+        <span className="truncate text-slate-700">{statusLabel(value)}</span>
+        <span className="ml-auto shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-slate-500">
+          {counts[value] ?? 0}
+        </span>
+        <ChevronDown size={13} className={cn("shrink-0 text-slate-400 transition-transform duration-200", open && "rotate-180")} />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.ul
+            role="listbox"
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.14, ease: "easeOut" }}
+            className="absolute left-0 top-full z-20 mt-1.5 w-60 origin-top overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-lg shadow-slate-200/60 ring-1 ring-black/[0.03]"
+          >
+            {STATUS_FILTERS.map((s) => {
+              const active = s === value;
+              return (
+                <li key={s}>
+                  <button
+                    type="button"
+                    role="option" aria-selected={active}
+                    onClick={() => { onChange(s); setOpen(false); }}
+                    className={cn(
+                      "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors",
+                      active ? "bg-indigo-50 font-semibold text-indigo-700" : "text-slate-600 hover:bg-slate-50",
+                    )}
+                  >
+                    <span className={cn("h-2 w-2 shrink-0 rounded-full", statusDot(s))} />
+                    <span className="truncate">{statusLabel(s)}</span>
+                    <span className={cn(
+                      "ml-auto shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
+                      active ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-500",
+                    )}>
+                      {counts[s] ?? 0}
+                    </span>
+                    {active
+                      ? <Check size={13} className="shrink-0 text-indigo-600" />
+                      : <span className="w-[13px] shrink-0" />}
+                  </button>
+                </li>
+              );
+            })}
+          </motion.ul>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -98,6 +190,16 @@ export default function FarmasiBoard() {
     selesai:      orders.filter((o) => o.status === "Selesai").length,
     ham:          orders.filter((o) => o.hasHAM && o.status !== "Selesai").length,
   }), [orders]);
+
+  // Jumlah per opsi status (utk badge dropdown filter)
+  const statusCounts = useMemo(() => {
+    const c: Record<string, number> = { Semua: orders.length };
+    for (const s of STATUS_FILTERS) {
+      if (s === "Semua") continue;
+      c[s] = orders.filter((o) => o.status === s).length;
+    }
+    return c;
+  }, [orders]);
 
   // ── Filtering ──────────────────────────────────────────
   const filtered = useMemo(() => orders.filter((o) => {
@@ -200,7 +302,7 @@ export default function FarmasiBoard() {
                   : "border-slate-200 text-slate-600 hover:bg-slate-50",
               )}
             >
-              {d}
+              {d === "Semua" ? "Semua" : DEPO_LABEL[d]}
               <span className={cn(
                 "rounded-full px-1.5 py-0.5 text-[9px] font-bold",
                 depo === d ? "bg-white/30 text-inherit" : "bg-slate-100 text-slate-500",
@@ -212,16 +314,11 @@ export default function FarmasiBoard() {
 
       {/* ── Filter bar ── */}
       <div className="flex flex-wrap items-center gap-2.5">
-        <select
+        <StatusFilter
           value={status}
-          onChange={(e) => { setStatus(e.target.value as typeof status); resetPage(); }}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-          aria-label="Filter status"
-        >
-          {STATUS_FILTERS.map((s) => (
-            <option key={s} value={s}>{s === "Semua" ? "Semua Status" : STATUS_CFG[s as FarmasiStatus]?.label ?? s}</option>
-          ))}
-        </select>
+          counts={statusCounts}
+          onChange={(s) => { setStatus(s); resetPage(); }}
+        />
 
         <label className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">
           <input

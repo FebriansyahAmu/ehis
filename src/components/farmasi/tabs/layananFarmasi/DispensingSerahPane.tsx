@@ -178,7 +178,7 @@ export default function DispensingSerahPane({ order, onSubmit }: Props) {
             )}
             <div className="text-slate-500"><span className="text-slate-400">Dokter: </span>{order.dokterPeminta}</div>
             <div className="flex items-center gap-3 text-slate-500">
-              <span><span className="text-slate-400">Depo: </span>{order.depo}</span>
+              <span><span className="text-slate-400">Depo: </span>{order.depoNama || "Depo Farmasi"}</span>
               <span className="h-3 w-px bg-slate-200" />
               <span><span className="text-slate-400">Unit: </span>{order.unit}</span>
             </div>

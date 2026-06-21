@@ -224,9 +224,12 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
   },
   Apoteker: {
     "clinical.resep": ["read"],
-    // Apoteker = penanggung jawab klinis rekonsiliasi (PMK 72/2016). RBAC mengizinkan create;
-    // NB: ABAC careUnit masih membatasi ke kunjungan unit kerjanya — akses lintas-unit farmasi
-    // adalah keputusan terpisah (lihat TECH_DEBT). Belum efektif untuk IGD/RI sampai itu beres.
+    // Apoteker = penanggung jawab klinis rekonsiliasi (PMK 72/2016) + peserta CPPT terintegrasi
+    // (SNARS PKPO — apoteker mendokumentasikan intervensi di CPPT pasien). Lintas-unit: farmasi
+    // melayani semua unit → ABAC careUnit di-BYPASS untuk aktor penunjang (isAncillaryActor di
+    // careUnit.ts); RBAC tetap membatasi resource yang boleh disentuh. delete CPPT = catatan
+    // miliknya saja (guard Service). Apoteker TIDAK punya update (tak boleh edit/verify co-sign DPJP).
+    "clinical.cppt": ["read", "create", "delete"],
     "clinical.rekonsiliasi": ["read", "create"],
     "ancillary.farmasi.telaah": ["read", "update"],
     "ancillary.farmasi.serah": ["read", "update"],

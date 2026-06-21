@@ -144,6 +144,7 @@ export interface ResepTelaahDTO {
 export const FarmasiResepQuery = z.object({
   depoKode: z.string().trim().optional(),
   status: z.string().trim().optional(),
+  noRM: z.string().trim().optional(), // filter riwayat per pasien (lintas-kunjungan, semua status)
 });
 export type FarmasiResepQuery = z.infer<typeof FarmasiResepQuery>;
 

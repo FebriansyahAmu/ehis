@@ -103,7 +103,10 @@ const ROLE_DEFAULT_GRANTS = {
     "registration.pasien": ["read"], "registration.kunjungan": ["read"],
   },
   Apoteker: {
-    "clinical.resep": ["read"], "ancillary.farmasi.telaah": ["read","update"], "ancillary.farmasi.serah": ["read","update"],
+    // CPPT terintegrasi (SNARS PKPO): apoteker peserta CPPT pasien (lintas-unit via isAncillaryActor;
+    // delete = catatan miliknya — guard Service; tanpa update → tak bisa edit/verify co-sign DPJP).
+    "clinical.resep": ["read"], "clinical.cppt": ["read","create","delete"],
+    "ancillary.farmasi.telaah": ["read","update"], "ancillary.farmasi.serah": ["read","update"],
     "master.view": ["read"], "master.katalog": ["read","update"], "report.clinical": ["read"],
     "inventory.view": ["read"], "inventory.barang": ["read","update"], "inventory.opname": ["read","create","update"],
     "inventory.pengiriman": ["read","create","update"], "inventory.distribusi": ["read","create","update"],

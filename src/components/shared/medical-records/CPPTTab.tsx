@@ -160,15 +160,18 @@ export interface CPPTTabProps {
   requiresVerification?: boolean; // SNARS: show DPJP co-sign UI per entry
   /** UUID kunjungan → mode DB (persist per-aksi ke medicalrecord.Cppt); selain itu demo lokal (mock). */
   kunjunganId?: string;
+  /** Profesi default form (mis. "Apoteker" di tab Farmasi). Default "Dokter". */
+  defaultProfesi?: CPPTProfesi;
 }
 
 // ── Component ─────────────────────────────────────────────
 
-export default function CPPTTab({ initialEntries, showDate = false, requiresVerification = false, kunjunganId }: CPPTTabProps) {
+export default function CPPTTab({ initialEntries, showDate = false, requiresVerification = false, kunjunganId, defaultProfesi = "Dokter" }: CPPTTabProps) {
   const isPersisted = !!kunjunganId && UUID_RE.test(kunjunganId);
   const { session } = useSession();
 
-  const [form, setForm]           = useState<CPPTForm>(EMPTY);
+  const emptyForm: CPPTForm     = { ...EMPTY, profesi: defaultProfesi };
+  const [form, setForm]         = useState<CPPTForm>(emptyForm);
   const [entries, setEntries]     = useState<CPPTEntry[]>(isPersisted ? [] : [...initialEntries]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -244,7 +247,7 @@ export default function CPPTTab({ initialEntries, showDate = false, requiresVeri
 
   const handleCopy = (e: CPPTEntry) => { setForm(entryToForm(e)); setEditingId(null); };
   const handleEdit = (e: CPPTEntry) => { setForm(entryToForm(e)); setEditingId(e.id); };
-  const handleCancelEdit = () => { setEditingId(null); setForm(EMPTY); };
+  const handleCancelEdit = () => { setEditingId(null); setForm(emptyForm); };
 
   const handleVerify = (id: string, verifiedBy: string, verifiedAt: string) => {
     if (isPersisted) {
@@ -285,7 +288,7 @@ export default function CPPTTab({ initialEntries, showDate = false, requiresVeri
 
     if (!isPersisted) {
       setEntries((prev) => prev.filter((e) => e.id !== id));
-      if (editingId === id) { setEditingId(null); setForm(EMPTY); }
+      if (editingId === id) { setEditingId(null); setForm(emptyForm); }
       setDeleteTarget(null);
       return;
     }
@@ -295,7 +298,7 @@ export default function CPPTTab({ initialEntries, showDate = false, requiresVeri
     try {
       await deleteCppt(kunjunganId!, id);
       setEntries((prev) => prev.filter((e) => e.id !== id));
-      if (editingId === id) { setEditingId(null); setForm(EMPTY); }
+      if (editingId === id) { setEditingId(null); setForm(emptyForm); }
       setDeleteTarget(null);
     } catch {
       setError("Gagal menghapus catatan CPPT");
@@ -343,7 +346,7 @@ export default function CPPTTab({ initialEntries, showDate = false, requiresVeri
       } else {
         void runPrepend(addCppt(kunjunganId!, payload));
       }
-      setForm(EMPTY);
+      setForm(emptyForm);
       return;
     }
 
@@ -381,7 +384,7 @@ export default function CPPTTab({ initialEntries, showDate = false, requiresVeri
       };
       setEntries((prev) => [newEntry, ...prev]);
     }
-    setForm(EMPTY);
+    setForm(emptyForm);
   };
 
   // ── Filter + sort ─────────────────────────────────────

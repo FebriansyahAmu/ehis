@@ -90,13 +90,15 @@ export function findByIdWithKunjungan(id: string, tx?: Tx) {
   return db(tx).resepOrder.findFirst({ where: { id, deletedAt: null }, include: withKunjungan });
 }
 
-export function listForFarmasi(filter: { depoKode?: string; status?: string }, tx?: Tx) {
+export function listForFarmasi(filter: { depoKode?: string; status?: string; noRM?: string }, tx?: Tx) {
   return db(tx).resepOrder.findMany({
     where: {
       deletedAt: null,
       ...(filter.depoKode ? { depoKode: filter.depoKode } : {}),
-      // Status eksplisit → pakai; default → kecualikan order yang dibatalkan klinisi (bukan antrian Farmasi).
-      ...(filter.status ? { status: filter.status } : { status: { not: "Dibatalkan" } }),
+      ...(filter.noRM ? { kunjungan: { pasien: { noRm: filter.noRM } } } : {}),
+      // Status eksplisit → pakai. Riwayat pasien (noRM) → SEMUA status (termasuk Dibatalkan).
+      // Worklist aktif (tanpa filter) → kecualikan order yang dibatalkan klinisi.
+      ...(filter.status ? { status: filter.status } : filter.noRM ? {} : { status: { not: "Dibatalkan" } }),
     },
     include: withKunjungan,
     orderBy: { createdAt: "desc" },

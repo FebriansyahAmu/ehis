@@ -53,7 +53,7 @@ function NotifBadge({ count, tone }: { count: number; tone: BadgeTone }) {
 }
 
 export default function FarmasiViewTabs() {
-  const [active, setActive] = useState<FarmasiMainTab>("antrean");
+  const [active, setActive] = useState<FarmasiMainTab>("worklist");
 
   // ── Sumber angka notifikasi per tab ──
   const queue = useFarmasiQueue();

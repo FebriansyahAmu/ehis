@@ -78,7 +78,7 @@ export async function listFarmasiResep(
   signal?: AbortSignal,
 ): Promise<ResepOrderFarmasiDTO[]> {
   const { data } = await api.get<ResepOrderFarmasiDTO[]>("/farmasi/resep", {
-    query: { depoKode: query.depoKode, status: query.status },
+    query: { depoKode: query.depoKode, status: query.status, noRM: query.noRM },
     signal,
   });
   return data;

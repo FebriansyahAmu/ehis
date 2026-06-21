@@ -191,7 +191,7 @@ export function makeResepService(deps: { dal?: Dal; clock?: Clock } = {}) {
     query: FarmasiResepQuery,
     _actor: Actor,
   ): Promise<ResepOrderFarmasiDTO[]> {
-    const rows = await dal.listForFarmasi({ depoKode: query.depoKode, status: query.status });
+    const rows = await dal.listForFarmasi({ depoKode: query.depoKode, status: query.status, noRM: query.noRM });
     return rows.map(toFarmasiDTO);
   }
 

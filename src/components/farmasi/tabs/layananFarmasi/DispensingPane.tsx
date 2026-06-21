@@ -159,7 +159,7 @@ export default function DispensingPane({ order, onSave }: Props) {
         <span>{order.unit}</span>
         <span className="h-3 w-px bg-slate-300" />
         <span className="font-semibold text-slate-700">Depo:</span>
-        <span>{order.depo}</span>
+        <span>{order.depoNama || "Depo Farmasi"}</span>
       </div>
 
       {/* Table */}

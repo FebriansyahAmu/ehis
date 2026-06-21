@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  STATUS_CFG, DEPO_CFG, PRIORITAS_CFG,
+  STATUS_CFG, DEPO_CFG, DEPO_LABEL, PRIORITAS_CFG,
   getPatientInfo, calcTATMenit, getTATStatus, TAT_TARGET_UNIT,
   type FarmasiOrder,
 } from "./farmasiShared";
@@ -73,11 +73,13 @@ function TATTimeline({ order }: { order: FarmasiOrder }) {
 
 // ── Progress stepper ──────────────────────────────────────
 
+// 3 aksi alur Farmasi: Telaah → Dispensasi → Serah. Serah selesai = order "Selesai"
+// (status Selesai = step 3 > indeks terakhir → ketiga step ter-check). Tak ada step "Selesai"
+// terpisah (redundan dgn Serah).
 const WORKFLOW_STEPS = [
   { label: "Telaah",     s: 0 },
   { label: "Dispensasi", s: 1 },
   { label: "Serah",      s: 2 },
-  { label: "Selesai",    s: 3 },
 ];
 
 function ProgressStepper({ step }: { step: number }) {
@@ -214,7 +216,7 @@ export default function FarmasiOrderHeader({ order }: { order: FarmasiOrder }) {
         <span className="flex items-center gap-1.5">
           <MapPin size={11} className="text-slate-400" aria-hidden="true" />
           <span className={cn("rounded-md px-1.5 py-0.5 text-[10px] font-semibold", depoCfg.badge)}>
-            {order.depo}
+            {DEPO_LABEL[order.depo]}
           </span>
         </span>
         <span className="flex items-center gap-1.5">
