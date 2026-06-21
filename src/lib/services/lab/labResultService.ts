@@ -7,6 +7,7 @@
 import { transaction } from "@/lib/db/prisma";
 import * as defaultDal from "@/lib/dal/lab/labResultDal";
 import * as labOrderDal from "@/lib/dal/lab/labOrderDal";
+import { assertActorAssignedToLab, resolveValidatorNama } from "@/lib/services/lab/labAssignment";
 import { resolveActorNama } from "@/lib/services/actorName";
 import { systemClock, type Clock } from "@/lib/core/clock";
 import { Errors } from "@/lib/errors/appError";
@@ -78,6 +79,8 @@ export function makeLabResultService(deps: { dal?: Dal; clock?: Clock } = {}) {
     if (!ENTRY_STATES.includes(order.status as (typeof ENTRY_STATES)[number])) {
       throw Errors.conflict("Order belum siap entry hasil atau sudah divalidasi");
     }
+    // ABAC SDM Assignment — analis HARUS ter-assign ke Lab (superuser/global bypass).
+    await assertActorAssignedToLab(actor, order.labKode);
     const analis = input.analis?.trim() || (await resolveActorNama(actor));
 
     const created = await transaction(async (tx) => {
@@ -125,7 +128,14 @@ export function makeLabResultService(deps: { dal?: Dal; clock?: Clock } = {}) {
     if (order.status !== "Divalidasi") throw Errors.conflict("Order belum siap divalidasi atau sudah selesai");
     const latest = await dal.findLatestByOrder(labId);
     if (!latest) throw Errors.conflict("Belum ada hasil untuk divalidasi");
-    const validator = input.validator?.trim() || (await resolveActorNama(actor));
+    // ABAC SDM Assignment — validator HARUS dokter ter-assign Lab (nama diturunkan dari roster,
+    // anti-spoof). Superuser/global boleh nama bebas/fallback actor.
+    const validator = await resolveValidatorNama(
+      actor,
+      order.labKode,
+      { pegawaiId: input.validatorPegawaiId, nama: input.validator },
+      () => resolveActorNama(actor),
+    );
 
     const result = await transaction(async (tx) => {
       const c = await dal.stampValidation(

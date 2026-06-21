@@ -53,8 +53,11 @@ export type SaveLabResultInput = z.infer<typeof SaveLabResultInput>;
 export type SaveLabResultBody = z.input<typeof SaveLabResultInput>;
 
 // ── Validasi hasil (POST /lab/orders/:id/validasi) — SpPK stamp + Divalidasi → Selesai ──
+// validatorPegawaiId = dokter terpilih (HARUS ter-assign Lab — diverifikasi server; nama diturunkan
+// dari roster, anti-spoof). `validator` (nama) hanya fallback utk actor bypass (superuser/global).
 export const ValidateLabResultInput = z.object({
-  validator: optStr,        // kosong → default nama actor (SpPK login)
+  validatorPegawaiId: z.string().uuid().optional(),
+  validator: optStr,        // fallback nama (actor bypass) — non-bypass: diturunkan dari roster
   catatanValidator: optStr,
 });
 export type ValidateLabResultInput = z.infer<typeof ValidateLabResultInput>;

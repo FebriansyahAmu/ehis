@@ -6,11 +6,12 @@
 
 import * as defaultDal from "@/lib/dal/lab/labOrderDal";
 import * as kunjunganDal from "@/lib/dal/kunjunganDal";
+import { labRoster, assertActorAssignedToLab } from "@/lib/services/lab/labAssignment";
 import { resolveActorNama } from "@/lib/services/actorName";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type {
-  LabOrderInput, LabOrderDTO, LabOrderItemDTO, LabOrderWorklistDTO, LabWorklistQuery,
+  LabOrderInput, LabOrderDTO, LabOrderItemDTO, LabOrderWorklistDTO, LabWorklistQuery, LabPetugasDTO,
 } from "@/lib/schemas/lab/labOrder";
 import type { LabOrderEntity, LabOrderWorklistEntity } from "@/lib/dal/lab/labOrderDal";
 
@@ -124,15 +125,29 @@ export function makeLabOrderService(deps: { dal?: Dal } = {}) {
   }
 
   /** Terima order (Lab) — non-Poli "Menunggu" → "Diterima" → masuk worklist. Lintas-kunjungan
-   *  (penunjang berdiri-sendiri, bukan careUnit). Guard atomik: hanya status "Menunggu". */
-  async function receive(labId: string, _actor: Actor): Promise<LabOrderDTO> {
+   *  (penunjang berdiri-sendiri, bukan careUnit). RBAC di route() + ABAC SDM Assignment: penerima
+   *  HARUS ter-assign ke Lab (superuser/global bypass). Guard atomik: hanya status "Menunggu". */
+  async function receive(labId: string, actor: Actor): Promise<LabOrderDTO> {
     const order = await dal.findById(labId);
     if (!order || order.deletedAt) throw Errors.notFound("Order lab tidak ditemukan");
     if (order.status !== "Menunggu") throw Errors.conflict("Order sudah diterima / diproses Lab");
+    await assertActorAssignedToLab(actor, order.labKode);
     const n = await dal.receive(labId);
     if (n === 0) throw Errors.conflict("Order sudah diterima / diproses Lab");
     const fresh = await dal.findById(labId);
     return toDTO(fresh!);
+  }
+
+  /**
+   * Roster petugas Lab utk satu order — pegawai aktif yang DITUGASKAN (SDM Assignment) ke
+   * Location Laboratorium. Dipakai FE: cek penerima (Penerimaan) & analis (Entry Hasil)
+   * sudah ter-assign, serta sumber dropdown validator (filter dokter di klien).
+   * Order ber-labKode → ruangan spesifik; bila kosong → semua Location tipe Laboratorium.
+   */
+  async function listPetugas(labId: string, _actor: Actor): Promise<LabPetugasDTO[]> {
+    const order = await dal.findById(labId);
+    if (!order || order.deletedAt) throw Errors.notFound("Order lab tidak ditemukan");
+    return labRoster(order.labKode);
   }
 
   /** Batalkan order lab (retraksi DPJP) — hanya saat "Menunggu" (Lab belum menerima).
@@ -148,7 +163,7 @@ export function makeLabOrderService(deps: { dal?: Dal } = {}) {
     return toDTO(fresh!);
   }
 
-  return { list, create, listForLab, getLabOne, receive, cancel };
+  return { list, create, listForLab, getLabOne, receive, listPetugas, cancel };
 }
 
 export const labOrderService = makeLabOrderService();

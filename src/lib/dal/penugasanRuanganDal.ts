@@ -83,6 +83,27 @@ export function listPetugas(
   });
 }
 
+/** Roster lintas beberapa ruangan (mis. semua Location Laboratorium) — pegawai AKTIF.
+ *  Dipakai endpoint penunjang (roster Lab → cek penerima/analis & dropdown validator). */
+export function listPetugasByLocations(
+  params: { locationIds: string[]; profesi?: string },
+  tx?: Tx,
+) {
+  if (params.locationIds.length === 0) return Promise.resolve([] as PenugasanListEntity[]);
+  return db(tx).penugasanRuangan.findMany({
+    where: {
+      locationId: { in: params.locationIds },
+      pegawai: {
+        deletedAt: null,
+        isActive: true,
+        ...(params.profesi ? { profesi: params.profesi } : {}),
+      },
+    },
+    include: includeRel,
+    orderBy: [{ pegawai: { namaLengkap: "asc" } }],
+  });
+}
+
 // ── Delete (hard) ────────────────────────────────────────────────────────────
 export function deleteById(id: string, tx?: Tx) {
   return db(tx).penugasanRuangan.delete({ where: { id } });

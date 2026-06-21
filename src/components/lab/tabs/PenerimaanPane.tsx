@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, User, CalendarDays, Hash, ShieldCheck, Clock, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/contexts/SessionContext";
+import { useLabRoster } from "../useLabRoster";
+import AssignmentGuardBanner from "../AssignmentGuardBanner";
 import { type LabOrder, updateLabWorkflow } from "../labShared";
 
 // ── Props ─────────────────────────────────────────────────
@@ -47,13 +49,20 @@ export default function PenerimaanPane({ order, onStatusChange }: Props) {
   // Diterima oleh = user yang sedang login (penerima order). Fallback ke yang tersimpan.
   const penerimaName = order.diterima_oleh || session?.namaTampil || "";
 
+  // Penerima HARUS petugas ter-assign ke Laboratorium (SDM Assignment) — ditegakkan juga di server
+  // (receive). Superuser/global bypass; tanpa sesi (dev) tak diblok. Peringatan hanya muncul
+  // setelah roster termuat (anti-kedip).
+  const { loading: rosterLoading, isAssigned } = useLabRoster(order.id);
+  const notAssigned =
+    !rosterLoading && !!session && !session.isSuperuser && !session.isGlobal && !isAssigned(session.pegawaiId);
+
   const [checked1,    setChecked1]    = useState(isAlreadyReceived);
   const [checked2,    setChecked2]    = useState(isAlreadyReceived);
   const [checked3,    setChecked3]    = useState(isAlreadyReceived);
   const [saving,      setSaving]      = useState(false);
   const [saved,       setSaved]       = useState(isAlreadyReceived);
 
-  const canSubmit = checked1 && checked2 && checked3 && penerimaName.trim().length > 0;
+  const canSubmit = checked1 && checked2 && checked3 && penerimaName.trim().length > 0 && !notAssigned;
 
   function handleSubmit() {
     if (!canSubmit) return;
@@ -142,6 +151,10 @@ export default function PenerimaanPane({ order, onStatusChange }: Props) {
                   <span className="ml-auto rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">user login</span>
                 </div>
               </div>
+
+              {notAssigned && (
+                <AssignmentGuardBanner message="Anda belum ditugaskan ke unit Laboratorium pada SDM Assignment. Hanya petugas ter-assign yang dapat menerima order. Hubungi admin untuk penugasan." />
+              )}
 
               <button
                 onClick={handleSubmit}

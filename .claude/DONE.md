@@ -12,6 +12,44 @@
 
 ---
 
+## ✅ Selesai — Lab: Cetak Hasil sesuai DB + parameter terisi saja + QR TTE validator (2026-06-21)
+
+Cetakan "Hasil Pemeriksaan Lab" (RiwayatPane → PrintPreviewModal) disesuaikan dgn hasil aktual + tanda tangan elektronik.
+
+- **Sumber hasil = DB** — modal fetch `getLabResult(order.id)` (medicalrecord.LabResult, fallback overlay sesi). Sebelumnya pakai `order.hasil` overlay → kosong saat fresh load. Validator/analis/catatan/`validatedAt` juga dari DB (fallback order).
+- **Hanya parameter TERISI** — `rows = values.filter(nilai != "")`; kategori tanpa baris terisi otomatis hilang; empty-state bila tak ada yang terisi.
+- **QR TTE validator (SpPK)** — komponen baru [TteQr](../src/components/lab/TteQr.tsx): matriks QR-style deterministik (finder 3-sudut + timing + alignment + data dari FNV-1a→mulberry32), SVG `shapeRendering=crispEdges`, SELARAS pola mock [TteBarcode](../src/components/shared/resep/TteBarcode.tsx) resep (QR ter-scan penuh butuh lib encoder → ditunda). Helper `tteSerial(seed)` → `TTE-LAB-…`; payload `EHIS-LAB|noOrder|RM|VALIDATOR|validatedAt|serial`. Footer cetak: TTD analis · **QR + nama + serial + "Tertandatangani elektronik"** (validator) · waktu rilis.
+- **CSS print** — kelas semantik (`sign-grid`/`sign-col`/`tte-box`/`cat`/`muted`) ditambah ke `<style>` iframe (Tailwind tak ikut ke iframe) agar tata letak tanda tangan & QR rapi saat dicetak.
+- **Kertas A4** — `@page { size:A4; margin:14mm 12mm }` + `*{box-sizing:border-box}` di iframe; preview on-screen jadi **lembar A4 WYSIWYG** (sheet `w-[210mm]` putih + shadow di atas latar abu, modal `max-w-4xl`, `max-h-[78vh]` scroll).
+- **Verifikasi** — tsc bersih (app code) · ESLint bersih.
+
+---
+
+## ✅ Selesai — Lab: SDM Assignment jadi HYBRID (enforcement server-side) + ASSIGNMENT-RULES.md (2026-06-21)
+
+Gating SDM Assignment Lab dinaikkan dari **UI-only** → **hybrid RBAC + ABAC** (ditegakkan di server). Client gating ≠ enforcement: tanpa lapis Service, pemegang role yang tak ter-assign bisa menembus via API langsung.
+
+- **Helper bersama** [labAssignment.ts](../src/lib/services/lab/labAssignment.ts) — `labRoster(labKode)` (dedup; labKode→ruangan spesifik else semua Location Laboratorium), `labAssignmentBypassed(actor)` = **`isSuperuser || isGlobal`**, `assertActorAssignedToLab(actor, labKode)` (throw `forbidden` bila bukan SDM ter-assign), `resolveValidatorNama(...)` (nama validator **diturunkan dari roster**, anti-spoof). `labOrderService.listPetugas` di-DRY-kan ke `labRoster`.
+- **Enforcement 3 titik (Service, sebelum mutasi):** `labOrderService.receive` & `labResultService.saveHasil` → `assertActorAssignedToLab` (penerima/analis HARUS ter-assign). `labResultService.validate` → `resolveValidatorNama` (validator HARUS dokter ter-assign; non-bypass: `validatorPegawaiId` wajib & diverifikasi → nama dari roster).
+- **Kontrak validator** — `ValidateLabResultInput` + `validatorPegawaiId` (uuid opsional); FE kirim pegawaiId (bukan nama). Server menurunkan nama; `validator` (nama) cuma fallback utk actor bypass.
+- **Bypass `isSuperuser || isGlobal`** — Admin SELALU lolos (tak terkunci); role global lolos krn SDM = unit-scoping (konsisten careUnit ABAC). DEV actor (`AUTH_ENFORCE=false`) otomatis bypass.
+- **FE sinkron** — Penerimaan/Entry Hasil bypass `isSuperuser||isGlobal`; ValidasiPane: select `value=pegawaiId` (bukan nama) + kirim `validatorPegawaiId`, superuser/global pilihan **opsional** (boleh validasi tanpa dokter ter-assign), pra-pilih SpPK login by pegawaiId.
+- **Doc baru** [docs/ASSIGNMENT-RULES.md](../docs/ASSIGNMENT-RULES.md) — pola hybrid + bypass + checklist + status penerapan (Lab ✅, Rad/Farmasi 📋), ditambahkan ke tabel Workflow Docs CLAUDE.md.
+- **Verifikasi** — tsc bersih (app code) · ESLint bersih (sisa `_actor`); roster DB: Location Laboratorium → 2 ter-assign (Dimas Analis + Rizal Dokter Spesialis). **Follow-up:** terapkan pola ke Rad/Farmasi.
+
+---
+
+## ✅ Selesai — Lab: gating SDM Assignment (penerima/analis ter-assign + validator = dropdown dokter) (2026-06-21)
+
+Penerimaan, Entry Hasil & Validasi kini sadar **SDM Assignment** (`penugasanRuangan` → Location tipe Laboratorium). Petugas yang bukan ter-assign tak bisa menerima/entry; validator dipilih dari dokter ter-assign (bukan otomatis user login).
+
+- **Roster endpoint** `GET /api/v1/lab/orders/:id/petugas` (gate `ancillary.lab.worklist:read`, `scopeKunjungan:false`) → pegawai aktif ter-assign ke Location tipe `Laboratorium`. Order ber-`labKode` → ruangan spesifik; bila kosong (realita sekarang, FE kirim `labNama:"Laboratorium"` tanpa kode) → **semua Location Laboratorium**. Layered: DAL [`listPetugasByLocations`](../src/lib/dal/penugasanRuanganDal.ts) (roster lintas-ruangan, pegawai aktif) → Service [`labOrderService.listPetugas`](../src/lib/services/lab/labOrderService.ts) (dedup per pegawai, nama+gelar, profesi) → DTO `LabPetugasDTO`. API client [`getLabRoster`](../src/lib/api/lab/labRoster.ts) + hook FE [`useLabRoster`](../src/components/lab/useLabRoster.ts) (`petugas`/`doctors` filter "dokter"/`isAssigned`/`loading`).
+- **Penerimaan & Entry Hasil** — penerima ([PenerimaanPane](../src/components/lab/tabs/PenerimaanPane.tsx)) & analis ([HasilPane](../src/components/lab/tabs/HasilPane.tsx)) **HARUS** ter-assign: bila bukan SDM ter-assign → [AssignmentGuardBanner](../src/components/lab/AssignmentGuardBanner.tsx) (amber, komponen lab bersama — global toast/banner pattern, bukan `window.alert`) + tombol di-disable. **Superuser bypass** (`isSuperuser`); **tanpa sesi** (dev) tak diblok; peringatan hanya muncul setelah roster termuat (anti-kedip).
+- **Validasi** ([ValidasiPane](../src/components/lab/tabs/ValidasiPane.tsx)) — Validator bukan lagi auto user login: **dropdown dokter ter-assign Lab** (profesi mengandung "dokter"), **required**, pra-pilih bila SpPK yang login termasuk roster; warning bila belum ada dokter ter-assign. Nama dokter terpilih dikirim sebagai `input.validator` (operator tetap `validatorUserId = actor.userId`). Tetap di-gate `ancillary.lab.validate:update`.
+- **Verifikasi** — tsc bersih (app code) · ESLint bersih (sisa `_actor`); roster DB diverifikasi (1 Location Laboratorium → 2 petugas ter-assign: 1 Analis + 1 Dokter Spesialis → dropdown validator = dokter tsb).
+
+---
+
 ## ✅ Selesai — Validasi Hasil Lab: persist + rilis (Divalidasi → Selesai) (2026-06-21)
 
 Validasi hasil lab (SpPK) kini **tersimpan ke DB** + transisi order ke Selesai. Melengkapi alur Entry Hasil.

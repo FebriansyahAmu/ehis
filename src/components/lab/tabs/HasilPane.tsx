@@ -10,6 +10,8 @@ import {
 import { getPreviousResult, calcDelta } from "../trend/trendShared";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/contexts/SessionContext";
+import { useLabRoster } from "../useLabRoster";
+import AssignmentGuardBanner from "../AssignmentGuardBanner";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
 import { getLabTestParams } from "@/lib/api/lab/labCatalog";
@@ -242,6 +244,13 @@ export default function HasilPane({ order, onStatusChange }: Props) {
   const isRejected = order.status === "Ditolak";
 
   const { session } = useSession();
+
+  // Analis HARUS petugas ter-assign ke Laboratorium (SDM Assignment) — ditegakkan juga di server
+  // (saveHasil). Superuser/global bypass; tanpa sesi (dev) tak diblok. Peringatan muncul setelah
+  // roster termuat (anti-kedip).
+  const { loading: rosterLoading, isAssigned } = useLabRoster(order.id);
+  const notAssigned =
+    !rosterLoading && !!session && !session.isSuperuser && !session.isGlobal && !isAssigned(session.pegawaiId);
 
   const initialHasil = order.hasil ?? order.items.map((item) => ({
     rowKey: item.id, kode: item.kode, nama: item.nama, kategori: item.kategori,
@@ -518,9 +527,12 @@ export default function HasilPane({ order, onStatusChange }: Props) {
                   <span className="ml-auto rounded bg-slate-200/70 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">user login</span>
                 </div>
               </div>
+              {notAssigned && (
+                <AssignmentGuardBanner message="Anda belum ditugaskan ke unit Laboratorium pada SDM Assignment. Hanya analis ter-assign yang dapat entry hasil. Hubungi admin untuk penugasan." />
+              )}
               <button
                 onClick={handleSave}
-                disabled={!analisName.trim() || saving}
+                disabled={!analisName.trim() || saving || notAssigned}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 py-2.5 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-40"
               >
                 {saving ? "Menyimpan…" : (

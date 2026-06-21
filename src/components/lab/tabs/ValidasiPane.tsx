@@ -8,10 +8,11 @@ import {
   Lock,
   AlertTriangle,
   FileText,
-  UserCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/contexts/SessionContext";
+import { useLabRoster } from "../useLabRoster";
+import ValidatorPicker from "../ValidatorPicker";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -103,7 +104,14 @@ export default function ValidasiPane({ order, onStatusChange }: Props) {
   const isRejected = order.status === "Ditolak";
   const canSign = can("ancillary.lab.validate", "update");
 
+  // Validator = DOKTER ter-assign ke Laboratorium (SDM Assignment), diverifikasi server. Superuser/
+  // global boleh validasi tanpa pilih dokter (selaras bypass server di labAssignment).
+  const { doctors, loading: rosterLoading } = useLabRoster(order.id);
+  const noDoctors = !rosterLoading && doctors.length === 0;
+  const bypass = !!session && (session.isSuperuser || session.isGlobal);
+
   const [result, setResult] = useState<LabResultDTO | null>(null);
+  const [validatorSel, setValidatorSel] = useState(""); // pegawaiId dokter terpilih
   const [catatan, setCatatan] = useState("");
   const [confirm1, setConfirm1] = useState(isDone);
   const [confirm2, setConfirm2] = useState(isDone);
@@ -113,14 +121,17 @@ export default function ValidasiPane({ order, onStatusChange }: Props) {
   const rows: HasilItem[] = (order.hasil?.length ? order.hasil : result?.values.map(dtoValueToHasil)) ?? [];
   const noHasil = rows.length === 0;
 
-  // Validator = SpPK yang login (read-only). Catatan tersimpan diutamakan saat sudah final.
-  const validator = result?.validator || order.validator || session?.namaTampil || "";
+  // Dokter terpilih + nama efektif (tersimpan saat final, else dari pilihan / fallback bypass).
+  const selectedDoctor = doctors.find((d) => d.pegawaiId === validatorSel);
+  const validatorName = isDone
+    ? (result?.validator || order.validator || "")
+    : (selectedDoctor?.namaTampil ?? (bypass ? session?.namaTampil ?? "" : ""));
   const catatanFinal = result?.catatanValidator ?? order.catatanValidator ?? null;
 
   const critNotifs = result?.criticalNotifs ?? order.criticalNotifs ?? [];
   const hasCritical = hasCriticalResult(rows);
   const allCriticalConfirmed = critNotifs.every((n) => n.confirmed);
-  const canSubmit = confirm1 && confirm2 && validator.trim().length > 0 && canSign;
+  const canSubmit = confirm1 && confirm2 && canSign && (validatorSel.length > 0 || bypass);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -133,15 +144,26 @@ export default function ValidasiPane({ order, onStatusChange }: Props) {
     return () => ac.abort();
   }, [order.id]);
 
+  // Pra-pilih: bila SpPK yang login termasuk dokter ter-assign Lab → pilih dirinya otomatis.
+  useEffect(() => {
+    if (isDone || validatorSel) return;
+    const me = doctors.find((d) => d.pegawaiId === session?.pegawaiId);
+    if (me) setValidatorSel(me.pegawaiId);
+  }, [doctors, session?.pegawaiId, isDone, validatorSel]);
+
   function handleValidate() {
     if (!canSubmit) return;
     setSaving(true);
     void (async () => {
       try {
-        await validateLabResult(order.id, { validator, catatanValidator: catatan || undefined });
+        const saved = await validateLabResult(order.id, {
+          validatorPegawaiId: validatorSel || undefined,
+          validator: validatorName || undefined,
+          catatanValidator: catatan || undefined,
+        });
         updateLabWorkflow(order.id, {
           status: "Selesai",
-          validator,
+          validator: saved.validator ?? validatorName,
           catatanValidator: catatan,
           timestamps: {
             validasi: new Date().toISOString().slice(0, 16),
@@ -156,7 +178,7 @@ export default function ValidasiPane({ order, onStatusChange }: Props) {
             `[Billing] Lab ${order.noOrder} → invoice ${ingest.invoiceId} (+${ingest.added} charges, ${ingest.skipped} skipped)`,
           );
         }
-        toast.success("Hasil tervalidasi & dirilis", `Validator: ${validator}`);
+        toast.success("Hasil tervalidasi & dirilis", `Validator: ${saved.validator ?? validatorName}`);
         onStatusChange();
       } catch (e) {
         toast.error("Gagal memvalidasi hasil", e instanceof ApiError ? e.message : undefined);
@@ -322,15 +344,26 @@ export default function ValidasiPane({ order, onStatusChange }: Props) {
 
               <div>
                 <label className={labelCls}>
-                  Validator (SpPK / Supervisor){" "}
+                  Validator (Dokter Penanggung Jawab Lab){" "}
                   <span className="text-rose-400">*</span>
                 </label>
-                <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                  <UserCircle size={16} className="shrink-0 text-slate-400" />
-                  <span className="text-sm font-medium text-slate-700">{validator || "—"}</span>
-                  <span className="ml-auto rounded bg-slate-200/70 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">user login</span>
-                </div>
+                <ValidatorPicker
+                  doctors={doctors}
+                  value={validatorSel}
+                  onChange={setValidatorSel}
+                  disabled={!canSign || (noDoctors && !bypass)}
+                  optional={bypass}
+                />
+                <p className="mt-1 text-[10px] text-slate-400">
+                  Daftar dokter yang ditugaskan ke Laboratorium (SDM Assignment).
+                </p>
               </div>
+
+              {noDoctors && !bypass && (
+                <p className="flex items-center gap-1.5 text-[11px] text-amber-600">
+                  <AlertTriangle size={12} /> Belum ada dokter ter-assign ke Laboratorium (SDM Assignment). Tetapkan dokter penanggung jawab terlebih dahulu.
+                </p>
+              )}
 
               {!canSign && (
                 <p className="flex items-center gap-1.5 text-[11px] text-amber-600">
@@ -366,7 +399,7 @@ export default function ValidasiPane({ order, onStatusChange }: Props) {
                   Hasil Tervalidasi &amp; Dirilis
                 </p>
                 <p className="text-[11px] text-emerald-700">
-                  Validator: {validator || "—"}
+                  Validator: {validatorName || "—"}
                   {(() => {
                     const t = result?.validatedAt ?? order.timestamps.rilis;
                     return t ? ` · ${new Date(t).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}` : "";

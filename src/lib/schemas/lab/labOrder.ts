@@ -88,6 +88,14 @@ export interface LabOrderDTO {
   createdAt: string; // ISO
 }
 
+/** Roster petugas Lab (SDM Assignment ke Location Laboratorium) — cek penerima/analis
+ *  & sumber dropdown validator. GET /lab/orders/:id/petugas. */
+export interface LabPetugasDTO {
+  pegawaiId: string;
+  namaTampil: string;
+  profesi: string | null;
+}
+
 /** Order untuk worklist Lab — header + pasien (join kunjungan) + items. */
 export interface LabOrderWorklistDTO extends LabOrderDTO {
   noOrder: string;     // = noKunjungan order ref (snapshot tampil)
