@@ -12,6 +12,31 @@
 
 ---
 
+## ✅ Selesai — Worklist Laboratorium DB-wired + notifikasi animasi + hapus mock order (2026-06-21)
+
+Worklist Lab di-wire ke DB (sama seperti Farmasi): order yang dibuat dari tab Order Lab kini **muncul di halaman worklist**, lengkap notifikasi animasi jumlah order, dan **semua mock order lab dihapus**.
+
+- **Worklist DB** — [LabPageView](../src/components/lab/LabPageView.tsx) jadi data-owner: fetch `listLabWorklist()` → `mapDbLabOrder` + `applyWorkflowOverlay` → pass ke [LabBoard](../src/components/lab/LabBoard.tsx) (kini props `orders`/`loading`/`onRefetch`). Section **"Belum Diterima"** (status Menunggu) + tombol **Terima** (`receiveLabOrder` → `ancillary.lab.worklist:update`) persis FarmasiBoard. StatCards/filter/paginasi/legend dipertahankan.
+- **Notifikasi animasi angka order** — badge di tab **"Worklist Order"** (jumlah order baru belum diterima): muncul via spring + **pulse ring** saat tab tak aktif; StatCards pakai `AnimatedNum` (count pop saat berubah); badge "Belum Diterima · N" animasi spring.
+- **Detail page DB** — [`[id]/page.tsx`](../src/app/ehis-care/(fullpage)/laboratorium/[id]/page.tsx) jadi thin server → client [LabOrderDetail](../src/components/lab/LabOrderDetail.tsx) (fetch `getLabOrder(id)` → map + overlay, mirror FarmasiOrderDetail). [LabOrderTabs](../src/components/lab/LabOrderTabs.tsx) kini terima `order`+`onRefresh` (state milik parent; `getLabOrderById` dibuang). Workflow panes (Penerimaan/Sampel/Hasil/Validasi) tetap pakai overlay sesi `updateLabWorkflow`.
+- **Riwayat pasien DB** — [RiwayatPane](../src/components/lab/tabs/RiwayatPane.tsx) tarik lintas-order via `listLabWorklist({ noRM })` (bukan `deriveLabOrders`).
+- **Hapus mock order** — [labShared](../src/components/lab/labShared.ts) dibersihkan: `LAB_ORDERS_BASE` (6 order seed) + `deriveLabOrders` + `getLabOrderById` + `mergeOrder` **dihapus**; diganti `mapDbLabOrder(dto)` + `applyWorkflowOverlay(order)`. `updateLabWorkflow` (overlay in-session, BUKAN mock data) dipertahankan. Header page.tsx tak lagi hitung stat dari mock (LabBoard sumber live). `KategoriLab` diperluas 7→10 (Feses/Imunologi/Toksikologi) + `KATEGORI_CFG` + `AddOnPane.VALIDITY_HOURS` selaras.
+- **Verifikasi** — tsc bersih (app code); ESLint bersih untuk file baru/ubah (sisa 1 warning pre-existing `Date.now` di handler AddOnPane, bukan dari perubahan ini); worklist join query divalidasi (rolled-back) → DTO + pasien join benar.
+- **Follow-up** — persist progres sampel/hasil/validasi (kini overlay client, hilang saat refresh) + billing ingest dari LabOrder.
+
+---
+
+## ✅ Selesai — Role "Analis/ATLM Laboratorium" (petugas bench lab) (2026-06-21)
+
+Lab sebelumnya cuma punya `SpPK` (validator) — tak ada role petugas/analis, asimetris dgn Radiologi (Radiografer + SpRad). Ditambah role **`Analis`** ("Analis Laboratorium") sebagai padanan Radiografer di sisi lab.
+
+- **Role baru** — key `Analis`, label "Analis Lab", grant `ancillary.lab.worklist:[read,update]` + `ancillary.lab.critical:[read,create]`. Validasi/sign-off TETAP eksklusif SpPK (`ancillary.lab.validate` tidak diberikan). unit_scoped=true (careUnit di-bypass via `isAncillaryActor` karena permission murni `ancillary.*`).
+- **FE** — `UserRole` + `ROLE_CFG` (accent blue, [penggunaShared.ts](../src/components/master/pengguna/penggunaShared.ts)) · `ROLE_OPTIONS` wizard ([penggunaFormShared.tsx](../src/components/master/pengguna/penggunaFormShared.tsx)) · `ROLE_ORDER` + `ROLE_DEFAULT_GRANTS` Mapping Hub RBAC ([rbacShared.ts](../src/components/master/mapping/rbac/rbacShared.ts)). Snapshot generator [gen-rbac-seed.mjs](../prisma/scripts/gen-rbac-seed.mjs) diselaraskan (tak di-rerun → hindari clobber checksum).
+- **DB** — migrasi drift-safe `20260621170000_rbac_analis_lab`: INSERT `auth.roles` (Analis) + grant `auth.role_permissions` (4 perm, idempoten). Total role 9→10. Verified role + 4 grants di DB.
+- **Dampak** — akun ber-role Analis kini memenuhi gate worklist Lab (`/lab/orders` + `/lab/orders/:id/receive`) yang dibangun di Order Lab contracts; SpPK fokus validasi.
+
+---
+
 ## ✅ Selesai — Order Lab contracts table + endpoints (persist order ke Laboratorium) (2026-06-21)
 
 Setelah katalog Order Lab DB-driven, sekarang **order-nya tersimpan** — mirror penuh alur "order resep ke Farmasi", tabel + API layered per [API-RULES](../docs/API-RULES.md).

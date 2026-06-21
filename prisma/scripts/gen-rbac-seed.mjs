@@ -114,6 +114,8 @@ const ROLE_DEFAULT_GRANTS = {
   },
   // Penunjang = unit berdiri-sendiri: akses MURNI via ancillary.* (TANPA clinical.ri/rj).
   Radiografer: { "ancillary.rad.worklist": ["read","update"] },
+  // Analis/ATLM Lab — petugas bench (padanan Radiografer): worklist + critical value; validasi milik SpPK.
+  Analis: { "ancillary.lab.worklist": ["read","update"], "ancillary.lab.critical": ["read","create"] },
   SpPK: {
     "ancillary.lab.worklist": ["read","update"], "ancillary.lab.validate": ["read","update"], "ancillary.lab.critical": ["read","create"],
     "report.clinical": ["read","export"],

@@ -6,6 +6,7 @@ export type UserRole =
   | "Perawat"
   | "Apoteker"
   | "Radiografer"
+  | "Analis"    // Analis/ATLM Laboratorium (petugas bench: terima order, sampel, entry hasil)
   | "SpPK"      // Sp Patologi Klinik (validator lab)
   | "SpRad"     // Sp Radiologi (validator radiologi)
   | "Kasir"
@@ -141,6 +142,7 @@ export const ROLE_CFG: Record<
   Perawat:     { label: "Perawat",      desc: "Asuhan keperawatan",         bg: "bg-emerald-50",  text: "text-emerald-700" },
   Apoteker:    { label: "Apoteker",     desc: "Pelayanan farmasi",          bg: "bg-violet-50",   text: "text-violet-700" },
   Radiografer: { label: "Radiografer",  desc: "Akuisisi gambar radiologi",  bg: "bg-amber-50",    text: "text-amber-700" },
+  Analis:      { label: "Analis Lab",   desc: "Pemrosesan sampel & hasil lab", bg: "bg-blue-50",  text: "text-blue-700" },
   SpPK:        { label: "Sp. Patologi", desc: "Validator hasil lab",        bg: "bg-sky-50",      text: "text-sky-700" },
   SpRad:       { label: "Sp. Radiologi",desc: "Pembaca expertise rad",      bg: "bg-pink-50",     text: "text-pink-700" },
   Kasir:       { label: "Kasir",        desc: "Billing & pembayaran",       bg: "bg-yellow-50",   text: "text-yellow-700" },

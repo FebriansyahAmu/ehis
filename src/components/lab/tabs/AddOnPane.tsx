@@ -72,6 +72,9 @@ const VALIDITY_HOURS: Record<KategoriLab, number> = {
   "Serologi":          24,
   "Analisa Gas Darah": 0.5,
   "Mikrobiologi":      0,  // no add-on for culture
+  "Imunologi":         24,
+  "Toksikologi":       6,
+  "Feses":             0,  // no add-on for feses
 };
 
 function getSpecimenAgeHours(waktuTerima?: string): number | null {

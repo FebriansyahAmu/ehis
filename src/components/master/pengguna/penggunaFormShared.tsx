@@ -21,7 +21,7 @@ export function useBodyScrollLock() {
 
 export const ROLE_OPTIONS: UserRole[] = [
   "Admin", "Dokter", "Perawat", "Apoteker", "Radiografer",
-  "SpPK", "SpRad", "Kasir", "Registrasi",
+  "Analis", "SpPK", "SpRad", "Kasir", "Registrasi",
 ];
 
 export const STATUS_OPTIONS: { value: UserStatus; label: string }[] = [

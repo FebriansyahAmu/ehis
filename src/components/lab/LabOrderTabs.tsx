@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShieldCheck, Syringe, FlaskConical, Award, History,
@@ -8,7 +8,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { type LabOrder, getLabOrderById, LAB_STATUS_CFG } from "./labShared";
+import { type LabOrder, LAB_STATUS_CFG } from "./labShared";
 
 import PenerimaanPane from "./tabs/PenerimaanPane";
 import SampelPane     from "./tabs/SampelPane";
@@ -99,16 +99,11 @@ function NavDivider({ label }: { label: string }) {
 
 // ── Main ──────────────────────────────────────────────────
 
-export default function LabOrderTabs({ initialOrder }: { initialOrder: LabOrder }) {
+export default function LabOrderTabs({ order, onRefresh }: { order: LabOrder; onRefresh: () => void }) {
   const [active, setActive] = useState<TabId>("penerimaan");
-  const [order,  setOrder]  = useState<LabOrder>(initialOrder);
 
   const currentStep = LAB_STATUS_CFG[order.status].step;
-
-  const refresh = useCallback(() => {
-    const fresh = getLabOrderById(initialOrder.id);
-    if (fresh) setOrder(fresh);
-  }, [initialOrder.id]);
+  const refresh = onRefresh;
 
   const WORKFLOW = TABS.filter((t) => t.group === "workflow");
   const KLINIS   = TABS.filter((t) => t.group === "klinis");

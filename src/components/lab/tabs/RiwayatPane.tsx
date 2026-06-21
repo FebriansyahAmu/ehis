@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Printer, FileText, FlaskConical, CheckCircle2, XCircle, Clock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   type LabOrder, FLAG_CFG, PRIORITAS_CFG, LAB_STATUS_CFG,
-  deriveLabOrders, fmtTimestamp,
+  mapDbLabOrder, applyWorkflowOverlay, fmtTimestamp,
 } from "../labShared";
+import { listLabWorklist } from "@/lib/api/lab/labOrder";
 
 interface Props { order: LabOrder }
 
@@ -273,9 +274,18 @@ function DocCard({ title, desc, available, onClick }: {
 // ── Main ──────────────────────────────────────────────────
 
 export default function RiwayatPane({ order }: Props) {
-  const allOrders   = deriveLabOrders().filter((o) => o.noRM === order.noRM);
+  // Riwayat lintas-order pasien dari DB (medicalrecord.LabOrder, semua status by noRM).
+  const [allOrders, setAllOrders] = useState<LabOrder[]>([order]);
   const isDone      = order.status === "Selesai";
   const [showPreview, setShowPreview] = useState(false);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    listLabWorklist({ noRM: order.noRM }, ac.signal)
+      .then((rows) => { if (!ac.signal.aborted) setAllOrders(rows.map((d) => applyWorkflowOverlay(mapDbLabOrder(d)))); })
+      .catch(() => { /* pertahankan order saat ini */ });
+    return () => ac.abort();
+  }, [order.noRM]);
 
   function handlePrint(type: string) {
     if (type === "Hasil Pemeriksaan") {

@@ -148,7 +148,7 @@ export const ACTION_CFG: Record<
 };
 
 export const ROLE_ORDER: UserRole[] = [
-  "Admin", "Dokter", "Perawat", "Apoteker", "Radiografer", "SpPK", "SpRad", "Kasir", "Registrasi",
+  "Admin", "Dokter", "Perawat", "Apoteker", "Radiografer", "Analis", "SpPK", "SpRad", "Kasir", "Registrasi",
 ];
 
 // ── Helpers ───────────────────────────────────────────────
@@ -250,6 +250,12 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
   // Konteks klinis order sudah denormal di worklist; tak perlu buka rekam medis kunjungan.
   Radiografer: {
     "ancillary.rad.worklist": ["read", "update"],
+  },
+  // Analis/ATLM Laboratorium — petugas bench (padanan Radiografer di sisi lab): terima order,
+  // ambil/registrasi sampel, entry hasil, lapor nilai kritis. Validasi/sign-off TETAP milik SpPK.
+  Analis: {
+    "ancillary.lab.worklist": ["read", "update"],
+    "ancillary.lab.critical": ["read", "create"],
   },
   SpPK: {
     "ancillary.lab.worklist": ["read", "update"],
