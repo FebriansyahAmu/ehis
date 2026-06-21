@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShieldCheck,
@@ -8,15 +8,23 @@ import {
   Lock,
   AlertTriangle,
   FileText,
+  UserCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/contexts/SessionContext";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
 import {
   type LabOrder,
+  type HasilItem,
   FLAG_CFG,
   KATEGORI_CFG,
   hasCriticalResult,
   updateLabWorkflow,
+  dtoValueToHasil,
+  hasilKey,
 } from "../labShared";
+import { getLabResult, validateLabResult, type LabResultDTO } from "@/lib/api/lab/labResult";
 import { ingestLabOrder } from "@/lib/billing/chargeIngest";
 
 interface Props {
@@ -89,48 +97,73 @@ function HasilSummaryRow({
 // ── Main ──────────────────────────────────────────────────
 
 export default function ValidasiPane({ order, onStatusChange }: Props) {
+  const { session, can } = useSession();
   const isDone = order.status === "Selesai";
   const canValidate = order.status === "Divalidasi";
-  const noHasil = !order.hasil?.length;
   const isRejected = order.status === "Ditolak";
+  const canSign = can("ancillary.lab.validate", "update");
 
-  const [validator, setValidator] = useState(order.validator ?? "");
-  const [catatan, setCatatan] = useState(order.catatanValidator ?? "");
+  const [result, setResult] = useState<LabResultDTO | null>(null);
+  const [catatan, setCatatan] = useState("");
   const [confirm1, setConfirm1] = useState(isDone);
   const [confirm2, setConfirm2] = useState(isDone);
   const [saving, setSaving] = useState(false);
 
-  const hasCritical = order.hasil ? hasCriticalResult(order.hasil) : false;
-  const allCriticalConfirmed =
-    order.criticalNotifs?.every((n) => n.confirmed) ?? true;
-  const canSubmit = confirm1 && confirm2 && validator.trim().length > 0;
+  // Hasil: overlay sesi (baru entry) atau DB (fresh load).
+  const rows: HasilItem[] = (order.hasil?.length ? order.hasil : result?.values.map(dtoValueToHasil)) ?? [];
+  const noHasil = rows.length === 0;
+
+  // Validator = SpPK yang login (read-only). Catatan tersimpan diutamakan saat sudah final.
+  const validator = result?.validator || order.validator || session?.namaTampil || "";
+  const catatanFinal = result?.catatanValidator ?? order.catatanValidator ?? null;
+
+  const critNotifs = result?.criticalNotifs ?? order.criticalNotifs ?? [];
+  const hasCritical = hasCriticalResult(rows);
+  const allCriticalConfirmed = critNotifs.every((n) => n.confirmed);
+  const canSubmit = confirm1 && confirm2 && validator.trim().length > 0 && canSign;
+
+  useEffect(() => {
+    const ac = new AbortController();
+    (async () => {
+      try {
+        const res = await getLabResult(order.id, ac.signal);
+        if (!ac.signal.aborted) setResult(res);
+      } catch { /* diam */ }
+    })();
+    return () => ac.abort();
+  }, [order.id]);
 
   function handleValidate() {
     if (!canSubmit) return;
     setSaving(true);
-    setTimeout(() => {
-      updateLabWorkflow(order.id, {
-        status: "Selesai",
-        validator,
-        catatanValidator: catatan,
-        timestamps: {
-          validasi: new Date().toISOString().slice(0, 16),
-          rilis: new Date().toISOString().slice(0, 16),
-        },
-      });
-      // BL6.1 — silent wiring ke Billing. Idempotent (dedupe by sourceRef).
-      // Jika invoice tidak ditemukan untuk noRM ini, ingest no-op (charges
-      // akan muncul di invoice saat pasien dapat tagihan baru — fallback ok).
-      const result = ingestLabOrder(order);
-      if (result.ok && result.added > 0) {
-        // eslint-disable-next-line no-console
-        console.info(
-          `[Billing] Lab ${order.noOrder} → invoice ${result.invoiceId} (+${result.added} charges, ${result.skipped} skipped)`,
-        );
+    void (async () => {
+      try {
+        await validateLabResult(order.id, { validator, catatanValidator: catatan || undefined });
+        updateLabWorkflow(order.id, {
+          status: "Selesai",
+          validator,
+          catatanValidator: catatan,
+          timestamps: {
+            validasi: new Date().toISOString().slice(0, 16),
+            rilis: new Date().toISOString().slice(0, 16),
+          },
+        });
+        // BL6.1 — silent wiring ke Billing. Idempotent (dedupe by sourceRef).
+        // Jika invoice tidak ditemukan untuk noRM ini, ingest no-op (fallback ok).
+        const ingest = ingestLabOrder(order);
+        if (ingest.ok && ingest.added > 0) {
+          console.info(
+            `[Billing] Lab ${order.noOrder} → invoice ${ingest.invoiceId} (+${ingest.added} charges, ${ingest.skipped} skipped)`,
+          );
+        }
+        toast.success("Hasil tervalidasi & dirilis", `Validator: ${validator}`);
+        onStatusChange();
+      } catch (e) {
+        toast.error("Gagal memvalidasi hasil", e instanceof ApiError ? e.message : undefined);
+      } finally {
+        setSaving(false);
       }
-      setSaving(false);
-      onStatusChange();
-    }, 700);
+    })();
   }
 
   if (isRejected || noHasil) {
@@ -156,12 +189,11 @@ export default function ValidasiPane({ order, onStatusChange }: Props) {
   }
 
   // Group results by category
-  const grouped = new Map<string, typeof order.hasil>();
-  for (const h of order.hasil ?? []) {
-    const k = h.kategori;
-    const list = grouped.get(k) ?? [];
+  const grouped = new Map<string, HasilItem[]>();
+  for (const h of rows) {
+    const list = grouped.get(h.kategori) ?? [];
     list.push(h);
-    grouped.set(k, list);
+    grouped.set(h.kategori, list);
   }
 
   const labelCls = "block text-[11px] font-semibold text-slate-500 mb-1";
@@ -194,7 +226,6 @@ export default function ValidasiPane({ order, onStatusChange }: Props) {
 
         {/* Results tables */}
         {[...grouped.entries()].map(([kat, items]) => {
-          if (!items) return null;
           const kCfg = KATEGORI_CFG[kat as keyof typeof KATEGORI_CFG];
           return (
             <div
@@ -233,7 +264,7 @@ export default function ValidasiPane({ order, onStatusChange }: Props) {
                   </thead>
                   <tbody>
                     {items.map((h) => (
-                      <HasilSummaryRow key={h.kode} {...h} />
+                      <HasilSummaryRow key={hasilKey(h)} {...h} />
                     ))}
                   </tbody>
                 </table>
@@ -294,13 +325,18 @@ export default function ValidasiPane({ order, onStatusChange }: Props) {
                   Validator (SpPK / Supervisor){" "}
                   <span className="text-rose-400">*</span>
                 </label>
-                <input
-                  value={validator}
-                  onChange={(e) => setValidator(e.target.value)}
-                  placeholder="dr. Nama, Sp.PK"
-                  className={inputCls}
-                />
+                <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <UserCircle size={16} className="shrink-0 text-slate-400" />
+                  <span className="text-sm font-medium text-slate-700">{validator || "—"}</span>
+                  <span className="ml-auto rounded bg-slate-200/70 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">user login</span>
+                </div>
               </div>
+
+              {!canSign && (
+                <p className="flex items-center gap-1.5 text-[11px] text-amber-600">
+                  <AlertTriangle size={12} /> Hanya SpPK / Supervisor (hak validasi) yang dapat merilis hasil.
+                </p>
+              )}
 
               <button
                 onClick={handleValidate}
@@ -330,17 +366,16 @@ export default function ValidasiPane({ order, onStatusChange }: Props) {
                   Hasil Tervalidasi &amp; Dirilis
                 </p>
                 <p className="text-[11px] text-emerald-700">
-                  Validator: {order.validator} ·{" "}
-                  {order.timestamps.rilis &&
-                    new Date(order.timestamps.rilis).toLocaleTimeString(
-                      "id-ID",
-                      { hour: "2-digit", minute: "2-digit" },
-                    )}
+                  Validator: {validator || "—"}
+                  {(() => {
+                    const t = result?.validatedAt ?? order.timestamps.rilis;
+                    return t ? ` · ${new Date(t).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}` : "";
+                  })()}
                 </p>
               </div>
             </div>
 
-            {order.catatanValidator && (
+            {catatanFinal && (
               <div className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="flex items-start gap-2">
                   <FileText
@@ -352,7 +387,7 @@ export default function ValidasiPane({ order, onStatusChange }: Props) {
                       Catatan Validator
                     </p>
                     <p className="text-[12px] text-slate-700 leading-relaxed">
-                      {order.catatanValidator}
+                      {catatanFinal}
                     </p>
                   </div>
                 </div>
@@ -412,7 +447,7 @@ export default function ValidasiPane({ order, onStatusChange }: Props) {
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Analis</span>
-              <span className="text-slate-700">{order.analis ?? "—"}</span>
+              <span className="text-slate-700">{result?.analis ?? order.analis ?? "—"}</span>
             </div>
           </div>
         </div>

@@ -1120,7 +1120,8 @@ model LabOrder {
   authorUserId    String? @map("author_user_id") @db.Uuid
   authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
 
-  items LabOrderItem[]
+  items   LabOrderItem[]
+  results LabResult[]
 
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -1150,6 +1151,76 @@ model LabOrderItem {
 
   @@index([labOrderId])
   @@map("lab_order_item")
+  @@schema("medicalrecord")
+}
+
+// ── Hasil Lab (tab Entry Hasil — nilai pemeriksaan per parameter) ──
+//  1 lab_result = 1 sesi entry hasil utk 1 lab_order (semua parameter). APPEND-ONLY "latest wins":
+//  koreksi = baris baru (revisi); terbaru (createdAt) = hasil berlaku. Saat tersimpan, status
+//  LabOrder → "Divalidasi" (transisi atomik dari Diterima/Dianalisa) → menunggu validasi SpPK.
+//  values[] = baris per parameter (snapshot katalog master.LabTest/LabParameter). Nilai kritis
+//  (ISO 15189 §5.6.2) disimpan sebagai JSONB snapshot konfirmasi. FHIR-ready: LabResult ≈
+//  DiagnosticReport · LabResultValue ≈ Observation. Analis = actor (user login). Gate ancillary.lab.worklist.
+
+model LabResult {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  labOrderId  String   @map("lab_order_id") @db.Uuid
+  order       LabOrder @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
+  kunjunganId String   @map("kunjungan_id") @db.Uuid // denormalisasi (FHIR encounter ref)
+
+  // ── Analis pelaksana (dari actor) ──
+  analis          String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  catatan String?
+
+  // ── Notifikasi nilai kritis = JSONB array (snapshot konfirmasi ke dokter pengirim) ──
+  criticalNotifs Json? @map("critical_notifs")
+
+  // ── Validasi (SpPK) — stamp sekali saat order Divalidasi → Selesai (rilis hasil) ──
+  validator        String?   @map("validator")
+  validatorUserId  String?   @map("validator_user_id") @db.Uuid
+  catatanValidator String?   @map("catatan_validator")
+  validatedAt      DateTime? @map("validated_at") @db.Timestamptz(3)
+
+  values LabResultValue[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([labOrderId, createdAt])
+  @@map("lab_result")
+  @@schema("medicalrecord")
+}
+
+model LabResultValue {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  labResultId String    @map("lab_result_id") @db.Uuid
+  result      LabResult @relation(fields: [labResultId], references: [id], onDelete: Cascade)
+
+  // ── Snapshot parameter katalog (master.LabTest/LabParameter) ──
+  labTestId      String? @map("lab_test_id") @db.Uuid
+  labParameterId String? @map("lab_parameter_id") @db.Uuid
+  rowKey         String  @map("row_key") // kunci unik baris (param-level)
+  kodeTes        String  @map("kode_tes")
+  nama           String // nama parameter
+  kategori       String  @default("")
+
+  nilai        String? // hasil terinput
+  satuan       String  @default("")
+  rujukanStr   String  @default("—") @map("rujukan_str")
+  nilaiMin     Float?  @map("nilai_min")
+  nilaiMax     Float?  @map("nilai_max")
+  criticalLow  Float?  @map("critical_low")
+  criticalHigh Float?  @map("critical_high")
+  flag         String? // N/H/L/C
+
+  urutan Int @default(0)
+
+  @@index([labResultId])
+  @@map("lab_result_value")
   @@schema("medicalrecord")
 }
 

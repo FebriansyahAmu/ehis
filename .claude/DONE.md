@@ -12,6 +12,28 @@
 
 ---
 
+## ✅ Selesai — Validasi Hasil Lab: persist + rilis (Divalidasi → Selesai) (2026-06-21)
+
+Validasi hasil lab (SpPK) kini **tersimpan ke DB** + transisi order ke Selesai. Melengkapi alur Entry Hasil.
+
+- **Schema** — kolom validasi ditambah ke `medicalrecord.LabResult` (migrasi `20260621200000`): `validator` · `validator_user_id` · `catatan_validator` · `validated_at`. **Stamp sekali** (pola SerahTerima) pada hasil terbaru; values tetap immutable.
+- **Endpoint** `POST /api/v1/lab/orders/:id/validasi` (gate **`ancillary.lab.validate:update`** — SpPK saja, Analis tak punya; `scopeKunjungan:false`): stamp validator + **transisi atomik** order `Divalidasi → Selesai` dalam satu transaksi. Guard `stampValidation` (`validated_at IS NULL`) → anti double-validate. Service `labResultService.validate` (+`clock` utk `validatedAt`); DTO diperluas (validator/catatanValidator/validatedAt). API client `validateLabResult`.
+- **Wiring FE** [ValidasiPane](../src/components/lab/tabs/ValidasiPane.tsx): mount fetch `getLabResult` → tampilkan hasil dari DB (overlay sesi diutamakan bila baru entry); **Validator = user login** (read-only, pola HasilPane analis); tombol Validasi di-gate `can("ancillary.lab.validate","update")` (+ hint bila tak berwenang); submit → `validateLabResult` (POST) → overlay + **billing ingest** (`ingestLabOrder`, tetap client-side, pakai `order.items`) + onStatusChange. Mapper DB→HasilItem `dtoValueToHasil` diangkat ke labShared (dipakai HasilPane + ValidasiPane).
+- **Verifikasi** — tsc bersih (app code) · ESLint bersih (sisa `_actor`); stamp validasi + guard double-validate (rowcount 1 lalu 0) divalidasi DB (rolled-back). **Follow-up:** billing ingest pindah server-side · cetak hasil tervalidasi dari DB · revisi hasil pasca-reject.
+
+---
+
+## ✅ Selesai — Entry Hasil Lab: contracts table + endpoint persist (2026-06-21)
+
+Hasil entry lab kini **tersimpan ke DB** (sebelumnya overlay client in-session). Tabel kontrak + endpoint layered per API-RULES.
+
+- **Schema** `medicalrecord.LabResult` + `LabResultValue` (migrasi `20260621190000`): 1 `lab_result` (header: analis + catatan + `critical_notifs` JSONB + author) → banyak `lab_result_value` (baris per parameter; snapshot kode/nama/satuan/rujukan/critical/flag + `row_key` + `lab_test_id`/`lab_parameter_id`). **APPEND-ONLY "latest wins"** (revisi = baris baru, terbaru berlaku). FK → `lab_order` cascade; back-relation `results` di LabOrder. FHIR-ready: LabResult ≈ DiagnosticReport · Value ≈ Observation.
+- **Endpoint** `/api/v1/lab/orders/:id/hasil` (folder-per-group `lab/`): **GET** hasil terbaru (gate `ancillary.lab.worklist:read`) · **POST** simpan hasil + **transisi atomik** order `Diterima/Sampel Diterima/Dianalisa → Divalidasi` dalam satu transaksi (gate `ancillary.lab.worklist:update`); `scopeKunjungan:false` (penunjang lintas-kunjungan). Layered: [schema](../src/lib/schemas/lab/labResult.ts) → [DAL](../src/lib/dal/lab/labResultDal.ts) (`create`+`findLatestByOrder`) → [Service](../src/lib/services/lab/labResultService.ts) (`makeLabResultService`, analis = `resolveActorNama` actor, transisi via `labOrderDal.transition`) → route → [API client](../src/lib/api/lab/labResult.ts).
+- **Wiring FE** [HasilPane](../src/components/lab/tabs/HasilPane.tsx): mount fetch `getLabResult` → kalau ada jadi sumber tampilan (locked view setelah Divalidasi), kalau belum → susun dari katalog; **Simpan** = `saveLabResult` (POST) → order status Divalidasi (remount via `key=active-status` → tampil locked + hasil DB) + overlay in-session (agar Validasi pane sefase tetap lihat). Analis & criticalNotifs dari hasil tersimpan diutamakan.
+- **Verifikasi** — tsc bersih (app code) · ESLint bersih (sisa `_actor`); rantai insert/read `lab_result`+`lab_result_value` (FK + JSONB criticalNotifs) divalidasi DB (rolled-back). **Follow-up:** ValidasiPane persist (Divalidasi→Selesai + validator) ke DB · billing ingest · cetak hasil dari DB.
+
+---
+
 ## ✅ Selesai — Lab detail: penerima & analis = user login · Entry Hasil = parameter katalog (2026-06-21)
 
 Pada `/ehis-care/laboratorium/{id}`: (1) tab **Penerimaan** "Diterima Oleh" = user yang sedang login (bukan input manual); (2) **Entry Hasil** baris parameter diturunkan dari **katalog master** (LabTest→LabParameter), "Analis Pelaksana" = user login.

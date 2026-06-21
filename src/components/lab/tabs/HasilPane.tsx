@@ -10,11 +10,14 @@ import {
 import { getPreviousResult, calcDelta } from "../trend/trendShared";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/contexts/SessionContext";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
 import { getLabTestParams } from "@/lib/api/lab/labCatalog";
+import { getLabResult, saveLabResult, type LabResultDTO } from "@/lib/api/lab/labResult";
 import {
   type LabOrder, type HasilItem, type CriticalNotif,
   FLAG_CFG, KATEGORI_CFG,
-  autoFlag, hasCriticalResult, updateLabWorkflow, buildHasilFromCatalog, hasilKey,
+  autoFlag, hasCriticalResult, updateLabWorkflow, buildHasilFromCatalog, hasilKey, dtoValueToHasil,
 } from "../labShared";
 
 interface Props { order: LabOrder; onStatusChange: () => void }
@@ -239,8 +242,6 @@ export default function HasilPane({ order, onStatusChange }: Props) {
   const isRejected = order.status === "Ditolak";
 
   const { session } = useSession();
-  // Analis pelaksana = user yang sedang login (read-only). Fallback ke yang tersimpan.
-  const analisName = order.analis || session?.namaTampil || "";
 
   const initialHasil = order.hasil ?? order.items.map((item) => ({
     rowKey: item.id, kode: item.kode, nama: item.nama, kategori: item.kategori,
@@ -248,18 +249,29 @@ export default function HasilPane({ order, onStatusChange }: Props) {
   }));
 
   const [hasil,         setHasil]         = useState<HasilItem[]>(initialHasil);
+  const [savedResult,   setSavedResult]   = useState<LabResultDTO | null>(null);
   const [showCritical,  setShowCritical]  = useState(false);
   const [saving,        setSaving]        = useState(false);
 
-  // Parameter baris hasil = parameter katalog (master.LabTest) tes yang diorder, rujukan
-  // disesuaikan gender+usia pasien. Hanya saat belum ada hasil tersimpan (jangan timpa).
+  // Analis pelaksana = user login (read-only). Fallback ke hasil tersimpan / overlay.
+  const analisName = savedResult?.analis || order.analis || session?.namaTampil || "";
+
+  // 1) Ambil hasil tersimpan (DB) → kalau ada, jadi sumber tampilan. 2) Belum ada → susun baris
+  // dari parameter katalog (master.LabTest), rujukan disesuaikan gender+usia. Jangan timpa nilai diketik.
   useEffect(() => {
-    if (order.hasil) return;
-    const ids = [...new Set(order.items.map((i) => i.labTestId).filter((x): x is string => !!x))];
-    if (ids.length === 0) return;
     const ac = new AbortController();
     (async () => {
       try {
+        const res = await getLabResult(order.id, ac.signal);
+        if (ac.signal.aborted) return;
+        if (res) {
+          setSavedResult(res);
+          setHasil(res.values.map(dtoValueToHasil));
+          return;
+        }
+        if (order.hasil) return;
+        const ids = [...new Set(order.items.map((i) => i.labTestId).filter((x): x is string => !!x))];
+        if (ids.length === 0) return;
         const tests = await getLabTestParams(ids, ac.signal);
         if (ac.signal.aborted) return;
         const rows = buildHasilFromCatalog(order, tests);
@@ -285,7 +297,8 @@ export default function HasilPane({ order, onStatusChange }: Props) {
     [hasil],
   );
 
-  const alreadyConfirmed = order.criticalNotifs?.filter((n) => n.confirmed) ?? [];
+  const alreadyConfirmed = ((savedResult?.criticalNotifs as CriticalNotif[] | undefined) ?? order.criticalNotifs ?? [])
+    .filter((n) => n.confirmed);
 
   const deltaAlerts = useMemo(() =>
     hasil
@@ -328,22 +341,48 @@ export default function HasilPane({ order, onStatusChange }: Props) {
   }
 
   function commitSave(criticalNotifs: CriticalNotif[]) {
+    const finalHasil = hasil.map((h) => ({
+      ...h,
+      flag: autoFlag(h.nilai, h.nilaiMin, h.nilaiMax, h.criticalLow, h.criticalHigh),
+    }));
     setSaving(true);
-    setTimeout(() => {
-      updateLabWorkflow(order.id, {
-        status: "Divalidasi",
-        hasil: hasil.map((h) => ({
-          ...h,
-          flag: autoFlag(h.nilai, h.nilaiMin, h.nilaiMax, h.criticalLow, h.criticalHigh),
-        })),
-        analis: analisName,
-        criticalNotifs,
-        timestamps: { analisa: new Date().toISOString().slice(0, 16) },
-      });
-      setSaving(false);
-      setShowCritical(false);
-      onStatusChange();
-    }, 600);
+    void (async () => {
+      try {
+        await saveLabResult(order.id, {
+          analis: analisName,
+          criticalNotifs,
+          values: finalHasil.map((h) => ({
+            rowKey: hasilKey(h),
+            kodeTes: h.kode,
+            nama: h.nama,
+            kategori: h.kategori,
+            nilai: h.nilai,
+            satuan: h.satuan,
+            rujukanStr: h.rujukanStr,
+            nilaiMin: h.nilaiMin,
+            nilaiMax: h.nilaiMax,
+            criticalLow: h.criticalLow,
+            criticalHigh: h.criticalHigh,
+            flag: h.flag,
+          })),
+        });
+        // Overlay in-session agar Validasi (pane lain) langsung lihat hasil; status final dari DB.
+        updateLabWorkflow(order.id, {
+          status: "Divalidasi",
+          hasil: finalHasil,
+          analis: analisName,
+          criticalNotifs,
+          timestamps: { analisa: new Date().toISOString().slice(0, 16) },
+        });
+        setShowCritical(false);
+        toast.success("Hasil tersimpan", "Menunggu validasi SpPK");
+        onStatusChange();
+      } catch (e) {
+        toast.error("Gagal menyimpan hasil", e instanceof ApiError ? e.message : undefined);
+      } finally {
+        setSaving(false);
+      }
+    })();
   }
 
   // Group by category

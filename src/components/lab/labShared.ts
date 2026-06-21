@@ -7,6 +7,7 @@
 // applyWorkflowOverlay = tempel overlay sesi.
 
 import type { LabOrderWorklistDTO } from "@/lib/schemas/lab/labOrder";
+import type { LabResultDTO } from "@/lib/schemas/lab/labResult";
 import type { LabTestDTO, LabRujukanDTO } from "@/lib/schemas/master/labTest";
 
 // ── Types ─────────────────────────────────────────────────
@@ -326,6 +327,24 @@ export function buildHasilFromCatalog(order: LabOrder, tests: LabTestDTO[]): Has
 
 /** Kunci unik baris hasil (param-level bila dari katalog, else kode tes). */
 export const hasilKey = (h: HasilItem): string => h.rowKey ?? h.kode;
+
+/** Nilai hasil tersimpan (DTO DB) → baris HasilItem (kategori di-coerce agar KATEGORI_CFG aman). */
+export function dtoValueToHasil(v: LabResultDTO["values"][number]): HasilItem {
+  return {
+    rowKey:       v.rowKey,
+    kode:         v.kodeTes,
+    nama:         v.nama,
+    kategori:     (v.kategori in KATEGORI_CFG ? v.kategori : "Kimia Klinik") as KategoriLab,
+    nilai:        v.nilai ?? undefined,
+    satuan:       v.satuan,
+    rujukanStr:   v.rujukanStr,
+    nilaiMin:     v.nilaiMin ?? undefined,
+    nilaiMax:     v.nilaiMax ?? undefined,
+    criticalLow:  v.criticalLow ?? undefined,
+    criticalHigh: v.criticalHigh ?? undefined,
+    flag:         v.flag ?? undefined,
+  };
+}
 
 // ── Workflow Overlay (in-session; BUKAN mock data — kosong saat awal) ──
 // Progres sampel/hasil/validasi belum punya endpoint persist → ditahan client per order id.
