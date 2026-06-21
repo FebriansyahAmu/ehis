@@ -73,6 +73,10 @@ model Pegawai {
   /// Jenis tenaga (Dokter/Perawat/Apoteker/…) — sumber kebenaran "user ini profesi apa".
   /// Dokter? = profesi ∈ {Dokter, Dokter Gigi, Dokter Spesialis} ATAU practitionerId terisi.
   profesi       String?
+  /// Bidang spesialisasi (hanya saat profesi = "Dokter Spesialis"). Deklarasi HR;
+  /// kredensial klinis penuh (Dokter.spesialisKode/STR/SIP) tetap di master Dokter →
+  /// field ini dipakai prefill profil Dokter, BUKAN sumber kebenaran kredensial.
+  spesialistik  String?
   unitKerja     String?       @map("unit_kerja")
   tglMasuk      DateTime?     @map("tgl_masuk") @db.Date
   // TODO(master): agamaId / pendidikanId / profesiId → master reference saat schema master siap.

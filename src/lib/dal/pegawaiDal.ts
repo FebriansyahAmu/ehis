@@ -31,6 +31,7 @@ export interface CreatePegawaiData {
   tanggalLahir?: Date;
   statusPegawai: StatusPegawai;
   profesi?: string;
+  spesialistik?: string;
   unitKerja?: string;
   tglMasuk?: Date;
   alamat?: string;
@@ -54,6 +55,7 @@ export interface UpdatePegawaiData {
   tanggalLahir?: Date;
   statusPegawai?: StatusPegawai;
   profesi?: string;
+  spesialistik?: string | null; // null = kosongkan; undefined = skip
   unitKerja?: string;
   tglMasuk?: Date;
   alamat?: string;

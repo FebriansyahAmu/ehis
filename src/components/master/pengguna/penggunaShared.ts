@@ -88,6 +88,8 @@ export interface PegawaiFormData {
   email?: string;
   /** Jenis tenaga (Dokter/Perawat/…) — sumber kebenaran profesi. */
   profesi?: string;
+  /** Bidang spesialisasi — hanya relevan saat profesi = "Dokter Spesialis". */
+  spesialistik?: string;
   /** Pegawai klinis (practitioner) — DITURUNKAN dari profesi dokter; set dokterId saat akun dibuat. */
   isDokter: boolean;
   kontakDarurat?: { nama: string; hubungan: string; noHp: string };
@@ -182,13 +184,47 @@ export const AGAMA_OPTS = ["Islam", "Kristen", "Katolik", "Hindu", "Buddha", "Ko
 export const PROFESI_OPTS = [
   "Dokter", "Dokter Gigi", "Dokter Spesialis", "Perawat", "Bidan",
   "Apoteker", "Tenaga Teknis Kefarmasian", "Ahli Teknologi Lab Medik",
-  "Radiografer", "Nutrisionis", "Fisioterapis", "Tenaga Kesehatan Lainnya",
-  "Administrator", "Non-Tenaga Kesehatan",
+  "Analis Laboratorium", "Radiografer", "Nutrisionis", "Fisioterapis",
+  "Tenaga Kesehatan Lainnya", "Administrator", "Non-Tenaga Kesehatan",
 ];
 
 // Profesi yang = dokter → turunkan isDokter (tautan master Dokter / Practitioner FHIR).
 const DOCTOR_PROFESI = new Set(["Dokter", "Dokter Gigi", "Dokter Spesialis"]);
 export const isDoctorProfesi = (p?: string): boolean => !!p && DOCTOR_PROFESI.has(p);
+
+// Profesi "Dokter Spesialis" → munculkan pilihan Spesialistik (bidang spesialisasi).
+export const SPESIALIS_PROFESI = "Dokter Spesialis";
+export const isSpesialisProfesi = (p?: string): boolean => p === SPESIALIS_PROFESI;
+
+// Daftar Spesialistik (bidang spesialisasi dokter). Label terbaca + singkatan SIP/gelar.
+// Catatan arsitektur: kredensial klinis (STR/SIP/spesialis FHIR) tetap di master Dokter
+// (Dokter.spesialisKode); field ini = deklarasi HR di Pegawai, dipakai prefill profil Dokter.
+export const SPESIALISTIK_OPTS = [
+  "Penyakit Dalam (Sp.PD)",
+  "Anak (Sp.A)",
+  "Obstetri & Ginekologi (Sp.OG)",
+  "Bedah Umum (Sp.B)",
+  "Jantung & Pembuluh Darah (Sp.JP)",
+  "Paru / Pulmonologi (Sp.P)",
+  "Saraf / Neurologi (Sp.S)",
+  "Kedokteran Jiwa (Sp.KJ)",
+  "Mata (Sp.M)",
+  "THT-KL (Sp.THT-KL)",
+  "Kulit & Kelamin (Sp.DV)",
+  "Anestesiologi (Sp.An)",
+  "Radiologi (Sp.Rad)",
+  "Patologi Klinik (Sp.PK)",
+  "Patologi Anatomi (Sp.PA)",
+  "Mikrobiologi Klinik (Sp.MK)",
+  "Urologi (Sp.U)",
+  "Orthopedi & Traumatologi (Sp.OT)",
+  "Bedah Saraf (Sp.BS)",
+  "Bedah Plastik (Sp.BP)",
+  "Rehabilitasi Medik (Sp.KFR)",
+  "Kedokteran Emergensi (Sp.EM)",
+  "Gizi Klinik (Sp.GK)",
+  "Forensik (Sp.F)",
+];
 
 // Opsi Unit Kerja (dropdown) — selaras daftar unit sistem.
 export const UNIT_KERJA_OPTS = UNIT_LIST.map((u) => u.nama);

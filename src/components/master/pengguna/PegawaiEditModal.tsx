@@ -14,7 +14,7 @@ import { ErrorText, useBodyScrollLock } from "./penggunaFormShared";
 import {
   type StatusPegawai,
   STATUS_PEGAWAI_OPTS, AGAMA_OPTS, PROFESI_OPTS, isDoctorProfesi, UNIT_KERJA_OPTS,
-  splitUnitKerja, joinUnitKerja,
+  SPESIALISTIK_OPTS, isSpesialisProfesi, splitUnitKerja, joinUnitKerja,
 } from "./penggunaShared";
 import { getPegawai, updatePegawai, type PegawaiDTO, type UpdatePegawaiInput } from "@/lib/api/pegawai";
 import { ApiError } from "@/lib/api/client";
@@ -39,6 +39,7 @@ interface FormState {
   tanggalLahir: string;
   statusPegawai: StatusPegawai;
   profesi: string;
+  spesialistik: string;
   unitKerja: string;
   alamat: string;
   noHp: string;
@@ -62,6 +63,7 @@ function dtoToForm(d: PegawaiDTO): FormState {
     tanggalLahir: d.tanggalLahir ?? "",
     statusPegawai: (d.statusPegawai as StatusPegawai) ?? "ASN",
     profesi: d.profesi ?? "",
+    spesialistik: d.spesialistik ?? "",
     unitKerja: d.unitKerja ?? "",
     alamat: d.alamat ?? "",
     noHp: d.noHp ?? "",
@@ -166,6 +168,7 @@ function EditContent({
     if (!f.nip.trim()) e.nip = "NIP wajib diisi.";
     if (!f.namaLengkap.trim()) e.namaLengkap = "Nama lengkap wajib diisi.";
     if (!f.profesi) e.profesi = "Pilih jenis profesi.";
+    if (isSpesialisProfesi(f.profesi) && !f.spesialistik) e.spesialistik = "Pilih bidang spesialisasi.";
     if (f.tanggalLahir && new Date(`${f.tanggalLahir}T00:00:00`) > new Date()) {
       e.tanggalLahir = "Tidak boleh di masa depan.";
     }
@@ -193,6 +196,8 @@ function EditContent({
         tanggalLahir: opt(form.tanggalLahir),
         statusPegawai: form.statusPegawai,
         profesi: opt(form.profesi),
+        // Bukan Dokter Spesialis → kirim null (kosongkan); Service jadi backstop.
+        spesialistik: isSpesialisProfesi(form.profesi) ? (opt(form.spesialistik) ?? null) : null,
         unitKerja: opt(form.unitKerja),
         alamat: opt(form.alamat),
         noHp: opt(form.noHp),
@@ -335,34 +340,64 @@ function EditContent({
             </FormSection>
 
             <FormSection title="Kepegawaian" icon={<ShieldCheck size={11} />}>
-              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
-                <Field label="Jenis Profesi" required>
-                  <Select
-                    value={form.profesi}
-                    onChange={(v) => { update("profesi", v); clearError("profesi"); }}
-                    options={PROFESI_OPTS}
-                    icon={Stethoscope}
-                    placeholder="Pilih profesi"
-                  />
-                  {errors.profesi
-                    ? <ErrorText msg={errors.profesi} />
-                    : isDoctorProfesi(form.profesi) && (
-                        <span className="mt-1 flex items-center gap-1 text-[9px] font-semibold text-sky-600">
-                          <Stethoscope size={10} /> Tertaut sebagai Practitioner (Dokter)
-                        </span>
-                      )}
-                </Field>
-                <Field label="Status Pegawai" required>
-                  <Select value={form.statusPegawai} onChange={(v) => update("statusPegawai", v as StatusPegawai)} options={STATUS_PEGAWAI_OPTS} />
-                </Field>
-                <Field label="Unit Kerja" hint="Boleh lebih dari satu unit">
-                  <MultiSelect
-                    value={splitUnitKerja(form.unitKerja)}
-                    onChange={(arr) => update("unitKerja", joinUnitKerja(arr))}
-                    options={UNIT_KERJA_OPTS}
-                    placeholder="Pilih unit"
-                  />
-                </Field>
+              <div className="flex flex-col gap-3.5">
+                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+                  <Field label="Jenis Profesi" required>
+                    <Select
+                      value={form.profesi}
+                      onChange={(v) => {
+                        update("profesi", v);
+                        if (!isSpesialisProfesi(v)) { update("spesialistik", ""); clearError("spesialistik"); }
+                        clearError("profesi");
+                      }}
+                      options={PROFESI_OPTS}
+                      icon={Stethoscope}
+                      placeholder="Pilih profesi"
+                    />
+                    {errors.profesi
+                      ? <ErrorText msg={errors.profesi} />
+                      : isDoctorProfesi(form.profesi) && (
+                          <span className="mt-1 flex items-center gap-1 text-[9px] font-semibold text-sky-600">
+                            <Stethoscope size={10} /> Tertaut sebagai Practitioner (Dokter)
+                          </span>
+                        )}
+                  </Field>
+                  <Field label="Status Pegawai" required>
+                    <Select value={form.statusPegawai} onChange={(v) => update("statusPegawai", v as StatusPegawai)} options={STATUS_PEGAWAI_OPTS} />
+                  </Field>
+                  <Field label="Unit Kerja" hint="Boleh lebih dari satu unit">
+                    <MultiSelect
+                      value={splitUnitKerja(form.unitKerja)}
+                      onChange={(arr) => update("unitKerja", joinUnitKerja(arr))}
+                      options={UNIT_KERJA_OPTS}
+                      placeholder="Pilih unit"
+                    />
+                  </Field>
+                </div>
+
+                <AnimatePresence initial={false}>
+                  {isSpesialisProfesi(form.profesi) && (
+                    <motion.div
+                      key="spesialistik"
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.18, ease: "easeOut" }}
+                      className="rounded-xl border border-sky-100 bg-sky-50/50 p-3.5"
+                    >
+                      <Field label="Spesialistik" required hint="Bidang spesialisasi — prefill profil Dokter">
+                        <Select
+                          value={form.spesialistik}
+                          onChange={(v) => { update("spesialistik", v); clearError("spesialistik"); }}
+                          options={SPESIALISTIK_OPTS}
+                          icon={Stethoscope}
+                          placeholder="Pilih bidang spesialisasi"
+                        />
+                        {errors.spesialistik && <ErrorText msg={errors.spesialistik} />}
+                      </Field>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </FormSection>
 

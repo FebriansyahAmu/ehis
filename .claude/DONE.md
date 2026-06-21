@@ -12,6 +12,18 @@
 
 ---
 
+## ✅ Selesai — Pegawai: Spesialistik (kondisional) + profesi "Analis Laboratorium" (2026-06-21)
+
+Modal **Data Pegawai** (`/ehis-master/pengguna`, grup Kepegawaian) — saat **Jenis Profesi = "Dokter Spesialis"**, muncul dropdown **Spesialistik** (bidang spesialisasi); + ditambah profesi **"Analis Laboratorium"** ke daftar Jenis Profesi.
+
+- **FE shared** ([penggunaShared.ts](../src/components/master/pengguna/penggunaShared.ts)) — `PROFESI_OPTS` +`"Analis Laboratorium"`; `SPESIALISTIK_OPTS` (24 bidang, label terbaca + singkatan SIP mis. "Jantung & Pembuluh Darah (Sp.JP)"); helper `isSpesialisProfesi` + const `SPESIALIS_PROFESI`; `PegawaiFormData.spesialistik?`.
+- **UI kondisional** — di [PegawaiEditModal](../src/components/master/pengguna/PegawaiEditModal.tsx) (ubah) & [PenggunaAddWizard](../src/components/master/pengguna/PenggunaAddWizard.tsx) Step 1 (tambah): field Spesialistik reveal beranimasi (framer-motion fade+slide, tanpa clip dropdown) di kartu beraksen sky/teal; ganti profesi ke non-spesialis → field dikosongkan otomatis; validasi `required` saat profesi spesialis.
+- **Backend vertical slice** — kolom `master.Pegawai.spesialistik` (TEXT nullable; migrasi drift-safe `20260621180000_pegawai_spesialistik`) → [schema Zod](../src/lib/schemas/pegawai.ts) (Create + Update nullable + DTO) → [DAL](../src/lib/dal/pegawaiDal.ts) (Create/Update data shape) → [Service](../src/lib/services/pegawaiService.ts) (gate by profesi efektif: bukan "Dokter Spesialis" → dipaksa `null`, anti data-stranded; backstop tak bergantung FE) → [API client](../src/lib/api/pegawai.ts) (mapping wizard→create).
+- **Catatan arsitektur** — kredensial klinis penuh (`Dokter.spesialisKode`/STR/SIP/FHIR) **tetap di master Dokter**; `Pegawai.spesialistik` = deklarasi HR, dipakai prefill profil Dokter, BUKAN sumber kebenaran kredensial (selaras catatan di [dokter.prisma](../prisma/schema/dokter.prisma)).
+- **Verifikasi** — kolom DB confirmed (information_schema); Prisma client regen; `tsc` bersih (app code); ESLint bersih (sisa 4 warning `_actor` konvensi).
+
+---
+
 ## ✅ Selesai — Worklist Laboratorium DB-wired + notifikasi animasi + hapus mock order (2026-06-21)
 
 Worklist Lab di-wire ke DB (sama seperti Farmasi): order yang dibuat dari tab Order Lab kini **muncul di halaman worklist**, lengkap notifikasi animasi jumlah order, dan **semua mock order lab dihapus**.

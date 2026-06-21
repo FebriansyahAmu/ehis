@@ -29,6 +29,7 @@ const TempatLahir = z.string().trim().max(120).optional();
 const UnitKerja = z.string().trim().max(120).optional();
 const Agama = z.string().trim().max(40).optional();
 const Profesi = z.string().trim().max(60).optional();
+const Spesialistik = z.string().trim().max(80).optional();
 const Alamat = z.string().trim().max(500).optional();
 const Email = z.string().trim().email().max(160).optional();
 const Foto = z.string().trim().max(1000).optional();
@@ -49,6 +50,7 @@ export const CreatePegawaiInput = z.object({
   tanggalLahir: ISO_DATE.optional(),
   statusPegawai: StatusPegawai,
   profesi: Profesi,
+  spesialistik: Spesialistik,
   unitKerja: UnitKerja,
   tglMasuk: ISO_DATE.optional(),
   alamat: Alamat,
@@ -74,6 +76,8 @@ export const UpdatePegawaiInput = z.object({
   tanggalLahir: ISO_DATE.optional(),
   statusPegawai: StatusPegawai.optional(),
   profesi: Profesi,
+  /** null = kosongkan (mis. profesi berubah dari Dokter Spesialis); undefined = skip. */
+  spesialistik: Spesialistik.nullable(),
   unitKerja: UnitKerja,
   tglMasuk: ISO_DATE.optional(),
   alamat: Alamat,
@@ -141,6 +145,7 @@ export interface PegawaiListItemDTO {
 export interface PegawaiDTO extends PegawaiListItemDTO {
   gelarDepan: string | null;
   gelarBelakang: string | null;
+  spesialistik: string | null;
   agama: string | null;
   tempatLahir: string | null;
   tanggalLahir: string | null; // ISO yyyy-mm-dd

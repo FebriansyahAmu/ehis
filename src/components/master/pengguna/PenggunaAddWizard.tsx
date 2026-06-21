@@ -7,6 +7,7 @@
 // Step yang sudah disimpan = committed (read-only di stepper); maju linear.
 
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   X, UserPlus, IdCard, KeyRound, ShieldCheck, ArrowRight, Check, Loader2,
   Eye, EyeOff, Stethoscope, AlertCircle,
@@ -16,7 +17,7 @@ import {
   type PegawaiFormData, type AkunData, type UserRole, type UserStatus, type StatusPegawai,
   type ExistingPegawaiSeed, namaTampilPegawai,
   STATUS_PEGAWAI_OPTS, AGAMA_OPTS, PROFESI_OPTS, isDoctorProfesi, UNIT_KERJA_OPTS,
-  splitUnitKerja, joinUnitKerja,
+  SPESIALISTIK_OPTS, isSpesialisProfesi, splitUnitKerja, joinUnitKerja,
 } from "./penggunaShared";
 import {
   ErrorText, IdentityCard, RoleGrid, StatusSelect, slugUsername, useBodyScrollLock,
@@ -89,9 +90,11 @@ export default function PenggunaAddWizard({
   const clearError = (key: string) => setErrors((e) => (e[key] ? { ...e, [key]: "" } : e));
 
   // Profesi = sumber kebenaran; isDokter diturunkan (checkbox manual tak perlu lagi).
+  // Spesialistik dikosongkan saat profesi bukan "Dokter Spesialis".
   const setProfesi = (v: string) => {
-    setPeg((p) => ({ ...p, profesi: v, isDokter: isDoctorProfesi(v) }));
+    setPeg((p) => ({ ...p, profesi: v, isDokter: isDoctorProfesi(v), spesialistik: isSpesialisProfesi(v) ? p.spesialistik : undefined }));
     clearError("profesi");
+    if (!isSpesialisProfesi(v)) clearError("spesialistik");
   };
 
   const identityView: IdentityView = existingPegawai
@@ -121,6 +124,7 @@ export default function PenggunaAddWizard({
     if (!peg.nip.trim()) e.nip = "NIP wajib diisi.";
     if (!peg.namaLengkap.trim()) e.namaLengkap = "Nama lengkap wajib diisi.";
     if (!peg.profesi) e.profesi = "Pilih jenis profesi.";
+    if (isSpesialisProfesi(peg.profesi) && !peg.spesialistik) e.spesialistik = "Pilih bidang spesialisasi.";
     if (peg.tanggalLahir && new Date(`${peg.tanggalLahir}T00:00:00`) > new Date()) {
       e.tanggalLahir = "Tidak boleh di masa depan.";
     }
@@ -490,6 +494,30 @@ function Step1Pegawai({
               />
             </Field>
           </div>
+
+          <AnimatePresence initial={false}>
+            {isSpesialisProfesi(peg.profesi) && (
+              <motion.div
+                key="spesialistik"
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                className="rounded-xl border border-teal-100 bg-teal-50/50 p-3.5"
+              >
+                <Field label="Spesialistik" required hint="Bidang spesialisasi — prefill profil Dokter">
+                  <Select
+                    value={peg.spesialistik ?? ""}
+                    onChange={(v) => { update("spesialistik", v); clearError("spesialistik"); }}
+                    options={SPESIALISTIK_OPTS}
+                    icon={Stethoscope}
+                    placeholder="Pilih bidang spesialisasi"
+                  />
+                  {errors.spesialistik && <ErrorText msg={errors.spesialistik} />}
+                </Field>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </FormSection>
 

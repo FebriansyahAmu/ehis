@@ -49,6 +49,10 @@ export function makePegawaiService(deps: { clock?: Clock; dal?: Dal } = {}) {
     return p.practitionerId !== null || (p.profesi !== null && DOKTER_PROFESI.has(p.profesi));
   }
 
+  // Spesialistik hanya bermakna saat profesi = "Dokter Spesialis" → di luar itu dipaksa kosong
+  // (anti data-stranded saat profesi diganti). Jaga integritas di sini, tak bergantung FE.
+  const SPESIALIS_PROFESI = "Dokter Spesialis";
+
   function umur(tgl: Date | null): number | null {
     if (!tgl) return null;
     const now = clock.now();
@@ -88,6 +92,7 @@ export function makePegawaiService(deps: { clock?: Clock; dal?: Dal } = {}) {
       namaTampil: namaTampil(p),
       gelarDepan: p.gelarDepan,
       gelarBelakang: p.gelarBelakang,
+      spesialistik: p.spesialistik,
       agama: p.agama,
       jenisKelamin: p.jenisKelamin,
       tempatLahir: p.tempatLahir,
@@ -136,6 +141,7 @@ export function makePegawaiService(deps: { clock?: Clock; dal?: Dal } = {}) {
       tanggalLahir: toDate(input.tanggalLahir, { noFuture: true }),
       statusPegawai: input.statusPegawai,
       profesi: input.profesi,
+      spesialistik: input.profesi === SPESIALIS_PROFESI ? input.spesialistik : undefined,
       unitKerja: input.unitKerja,
       tglMasuk: toDate(input.tglMasuk),
       alamat: input.alamat,
@@ -183,6 +189,12 @@ export function makePegawaiService(deps: { clock?: Clock; dal?: Dal } = {}) {
       if (dup && dup.id !== id) throw Errors.conflict(`NIP ${input.nip} sudah dipakai pegawai lain`);
     }
 
+    // Profesi efektif setelah patch (input bisa skip → pakai existing). Bila bukan
+    // "Dokter Spesialis" → spesialistik dipaksa null (kosongkan); bila ya → pass-through
+    // (undefined skip · null kosong · string set).
+    const effProfesi = input.profesi !== undefined ? input.profesi : existing.profesi;
+    const spesialistikPatch = effProfesi === SPESIALIS_PROFESI ? input.spesialistik : null;
+
     const patch: UpdatePegawaiData = {
       nip: input.nip,
       namaLengkap: input.namaLengkap,
@@ -194,6 +206,7 @@ export function makePegawaiService(deps: { clock?: Clock; dal?: Dal } = {}) {
       tanggalLahir: toDate(input.tanggalLahir, { noFuture: true }),
       statusPegawai: input.statusPegawai,
       profesi: input.profesi,
+      spesialistik: spesialistikPatch,
       unitKerja: input.unitKerja,
       tglMasuk: toDate(input.tglMasuk),
       alamat: input.alamat,

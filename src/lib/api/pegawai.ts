@@ -34,6 +34,7 @@ export function pegawaiFormToCreateInput(d: PegawaiFormData): CreatePegawaiInput
     tanggalLahir: opt(d.tanggalLahir),
     statusPegawai: d.statusPegawai,
     profesi: opt(d.profesi),
+    spesialistik: d.profesi === "Dokter Spesialis" ? opt(d.spesialistik) : undefined,
     unitKerja: opt(d.unitKerja),
     alamat: opt(d.alamat),
     noHp: opt(d.noHp),
