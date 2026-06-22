@@ -55,6 +55,7 @@ const EMPTY_FORM = {
   durasiHari:  7,
   keterangan:  "",
   kategori:    "Reguler"            as ResepRIItem["kategori"],
+  harga:       0,
 };
 
 function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
@@ -322,6 +323,7 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
       kodeObat: obat.kode,
       dosis:    `${obat.dosis} ${obat.satuan}`,
       kategori: obat.kategori,
+      harga:    obat.harga ?? 0,
     }));
   }
 
@@ -361,6 +363,7 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
       kategori:     src.kategori,
       keterangan:   src.keterangan,
       durasiHari:   src.durasiHari,
+      harga:        src.harga,
       tanggalOrder: todayISO(),
       dokterPj:     patient.dpjp,
       aktif:        true,
@@ -397,6 +400,7 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
             kategori: it.kategori,
             durasiHari: it.durasiHari,
             keterangan: it.keterangan || undefined,
+            harga: it.harga || undefined,
           })),
         });
       } catch {

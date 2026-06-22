@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Clock, Stethoscope, AlertCircle, ChevronDown, Ban } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  TYPE_CFG, STATUS_BADGE, STATUS_CARD,
+  TYPE_CFG, STATUS_BADGE, STATUS_CARD, fmtRp,
   type Order, type OrderType,
 } from "./daftarOrderShared";
 import { OrderTimeline } from "./OrderTimeline";
@@ -163,6 +163,11 @@ export function OrderRow({ order, onRequestCancel }: OrderRowProps) {
                         </p>
                       )}
                     </div>
+                    {item.harga != null && item.harga > 0 && (
+                      <span className="shrink-0 self-center font-mono text-[11px] font-semibold tabular-nums text-slate-600">
+                        {fmtRp(item.harga)}
+                      </span>
+                    )}
                   </motion.div>
                 ))}
               </div>

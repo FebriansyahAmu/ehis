@@ -236,6 +236,8 @@ export interface ResepRIItem {
   kategori:     KategoriObat;
   keterangan?:  string;
   durasiHari:   number;
+  /** Harga satuan (Rp) snapshot dari katalog Obat (absen = tak diketahui/obat manual). */
+  harga?:       number;
   tanggalOrder: string;
   dokterPj:     string;
   aktif:        boolean;

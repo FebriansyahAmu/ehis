@@ -186,6 +186,8 @@ export function mapResepToOrder(d: ResepOrderDTO): Order {
         .join(" · ") || undefined,
       keterangan: it.keterangan ?? undefined,
       isSpecial: it.isHAM,
+      // Biaya baris = harga satuan × jumlah (snapshot katalog Obat saat order).
+      harga: it.harga != null ? it.harga * it.jumlah : undefined,
     })),
   };
 }
