@@ -7,10 +7,35 @@ import * as defaultDal from "@/lib/dal/master/layananUnitRadDal";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type { GrantLayananRadInput, LayananRadQuery, LayananUnitRadEdgeDTO } from "@/lib/schemas/master/layananUnitRad";
+import type { RadCatalogTersediaQuery, RadCatalogTersediaDTO } from "@/lib/schemas/master/radCatalogTersedia";
+import type { RadModalitasDTO, RadRegionDTO, RadKategoriDTO } from "@/lib/schemas/master/radCatalog";
 import type { LayananRadEntity } from "@/lib/dal/master/layananUnitRadDal";
 
 type Dal = typeof defaultDal;
 type NonNullEntity = NonNullable<LayananRadEntity>;
+
+// ── Format blok JSONB → ramah-tampil (selaras helper FE lama OrderRadTab) ──────
+/** TAT rutin (menit) → string human-readable (mis. "30 mnt", "1 jam", "1–2 jam"). */
+function formatTAT(menit: number | undefined): string | null {
+  if (!menit || menit <= 0) return null;
+  if (menit < 60) return `${menit} mnt`;
+  const jam = Math.floor(menit / 60);
+  const sisa = menit % 60;
+  return sisa === 0 ? `${jam} jam` : `${jam}–${jam + 1} jam`;
+}
+
+/** Ringkas persiapan pasien (puasa + premedikasi + instruksi) → 1 kalimat, atau null. */
+function summarizePersiapan(p: { puasaJam?: number; premedikasi?: string; instruksiPasien?: string } | null): string | null {
+  if (!p) return null;
+  const parts: string[] = [];
+  if (p.puasaJam) parts.push(`Puasa ${p.puasaJam} jam`);
+  if (p.premedikasi) parts.push(p.premedikasi);
+  if (p.instruksiPasien) parts.push(p.instruksiPasien);
+  return parts.length > 0 ? parts.join(", ") : null;
+}
+
+type TatJson = { cito?: number; semiCito?: number; rutin?: number };
+type PersiapanJson = { puasaJam?: number; premedikasi?: string; instruksiPasien?: string };
 
 export function makeLayananUnitRadService(deps: { dal?: Dal } = {}) {
   const dal = deps.dal ?? defaultDal;
@@ -33,6 +58,45 @@ export function makeLayananUnitRadService(deps: { dal?: Dal } = {}) {
       limit: query.limit,
     });
     return { items: items.map(toDTO), cursor: nextCursor };
+  }
+
+  /**
+   * Katalog pemeriksaan radiologi ter-assign untuk konsumsi KLINIS (tab Order Radiologi). Agregasi
+   * baris edge → 1 DTO per pemeriksaan dgn daftar ruanganKodes (ruangan radiologi). ACTOR-LESS (read
+   * murni). Opsional difilter ruangan; harga ter-resolve bila (penjaminKode, jenisRuangan) lengkap.
+   * Blok JSONB (TAT/persiapan) di-format ke string ramah-tampil di sini.
+   */
+  async function listRadCatalogTersedia(query: RadCatalogTersediaQuery): Promise<RadCatalogTersediaDTO[]> {
+    const rows = await dal.listAssignedRadCatalog({
+      ruanganKode: query.ruanganKode,
+      penjaminKode: query.penjaminKode,
+      jenisRuangan: query.jenisRuangan,
+    });
+    const byId = new Map<string, RadCatalogTersediaDTO>();
+    for (const r of rows) {
+      const c = r.radCatalog;
+      const existing = byId.get(c.id);
+      if (existing) {
+        if (!existing.ruanganKodes.includes(r.location.kode)) existing.ruanganKodes.push(r.location.kode);
+        continue;
+      }
+      const tat = (c.tatTarget ?? null) as TatJson | null;
+      const persiapan = (c.persiapan ?? null) as PersiapanJson | null;
+      byId.set(c.id, {
+        id: c.id,
+        kode: c.kode,
+        nama: c.nama,
+        modalitas: c.modalitas as RadModalitasDTO,
+        modalitasSubtype: c.modalitasSubtype ?? null,
+        region: c.region as RadRegionDTO,
+        kategori: c.kategori as RadKategoriDTO,
+        waktuTunggu: formatTAT(tat?.rutin),
+        persiapan: summarizePersiapan(persiapan),
+        ruanganKodes: [r.location.kode],
+        harga: c.tarif[0]?.harga ?? null,
+      });
+    }
+    return [...byId.values()];
   }
 
   /** Beri layanan: pemeriksaan rad boleh dilakukan di ruangan (idempoten). Guard eksistensi. */
@@ -65,7 +129,7 @@ export function makeLayananUnitRadService(deps: { dal?: Dal } = {}) {
     await dal.deleteById(id);
   }
 
-  return { list, grant, revoke };
+  return { list, listRadCatalogTersedia, grant, revoke };
 }
 
 export const layananUnitRadService = makeLayananUnitRadService();

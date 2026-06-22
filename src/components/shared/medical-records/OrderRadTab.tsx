@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   Search, X, User, Building2, Calendar,
   Clock, Stethoscope, ChevronDown, ChevronRight, Printer,
   CheckCircle2, AlertCircle, Eye, Ban,
   FileText, Activity, Radiation, Scan, MonitorX,
-  Microscope, Layers, Zap, Check, Send,
+  Microscope, Layers, Check, Send, Loader2, ServerCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RadModalitas } from "@/lib/master/radCatalogMock";
-import { RAD_CATALOG_SEED } from "@/lib/master/radCatalogSeed";
+import { listRadCatalogTersedia, type RadCatalogTersediaDTO } from "@/lib/api/master/radCatalogTersedia";
 
 // ── Normalized patient interface ──────────────────────────
 
@@ -49,11 +49,14 @@ const MODALITAS_DISPLAY_MAP: Record<RadModalitas, ModalitasRad> = {
 type StatusOrder = "Menunggu" | "Diterima" | "Diproses" | "Selesai" | "Dibatalkan";
 
 interface RadTest {
+  id?: string;
   kode: string;
   nama: string;
   modalitas: ModalitasRad;
   waktuTunggu: string;
   persiapan?: string;
+  /** Harga (Rp) dari Tarif Matrix utk tier unit pengirim; absen bila belum bertarif. */
+  harga?: number;
 }
 
 interface OrderItem {
@@ -63,6 +66,7 @@ interface OrderItem {
   modalitas: ModalitasRad;
   waktuTunggu: string;
   persiapan?: string;
+  harga?: number;
 }
 
 interface HasilRad {
@@ -98,39 +102,50 @@ interface ActiveOrder {
   items: OrderItem[];
 }
 
-// ── Catalog (derived dari Master Katalog Radiologi) ───────
+// ── Catalog (pemeriksaan ter-assign ke ruangan Radiologi) ──
 //
-// Source-of-truth: master.RadCatalog (DB) — di sini baca seed src/lib/master/radCatalogSeed.ts
-// (RAD_CATALOG_SEED) hingga endpoint `rad-catalog-tersedia` klinis tersedia (follow-up).
-// `waktuTunggu` di-derive dari `tatTargetMenit.rutin` (di-format ke jam/menit
-// human-readable). `persiapan` di-rangkum dari `persiapan.puasaJam` +
-// `instruksiPasien` jika ada.
+// Source-of-truth: master.RadCatalog → hanya pemeriksaan yang TER-ASSIGN ke ruangan Radiologi via
+// Mapping Hub → Layanan Unit (grup Rad). Diambil runtime dari GET /master/rad-catalog-tersedia
+// (gate clinical.tindakan), harga dari Tarif Matrix per tier unit pengirim. Selaras tab Order Lab.
 
-function formatTAT(menit: number): string {
-  if (menit < 60) return `${menit} mnt`;
-  const jam = Math.floor(menit / 60);
-  const sisa = menit % 60;
-  if (sisa === 0) return `${jam} jam`;
-  return `${jam}–${jam + 1} jam`;
+const TARIF_PENJAMIN_KODE = "UMUM";
+
+/** Map unit pengirim → tier "Jenis Ruangan" Tarif Matrix. Fallback IGD (rad flat → harga standar tetap ter-resolve). */
+function tarifTierForUnit(unit: string): string {
+  const u = unit.toLowerCase();
+  if (u.includes("igd") || u.includes("gawat")) return "IGD";
+  if (u.includes("icu")) return "ICU";
+  if (u.includes("inap")) return "RAWAT_INAP:Kelas_3";
+  return "IGD";
 }
 
-function summarizePersiapan(p: { puasaJam?: number; instruksiPasien?: string; premedikasi?: string }): string | undefined {
-  const parts: string[] = [];
-  if (p.puasaJam) parts.push(`Puasa ${p.puasaJam} jam`);
-  if (p.premedikasi) parts.push(p.premedikasi);
-  if (p.instruksiPasien) parts.push(p.instruksiPasien);
-  return parts.length > 0 ? parts.join(", ") : undefined;
+const RP = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
+const fmtRp = (n: number) => RP.format(n);
+
+/** DTO (rad-catalog-tersedia) → RadTest FE (modalitas FHIR → label display). */
+function dtoToRadTest(d: RadCatalogTersediaDTO): RadTest {
+  return {
+    id: d.id,
+    kode: d.kode,
+    nama: d.nama,
+    modalitas: MODALITAS_DISPLAY_MAP[d.modalitas],
+    waktuTunggu: d.waktuTunggu ?? "—",
+    persiapan: d.persiapan ?? undefined,
+    harga: d.harga ?? undefined,
+  };
 }
 
-const RAD_CATALOG: RadTest[] = RAD_CATALOG_SEED
-  .filter((r) => r.status === "Aktif")
-  .map((r) => ({
-    kode: r.kode,
-    nama: r.nama,
-    modalitas: MODALITAS_DISPLAY_MAP[r.modalitas],
-    waktuTunggu: formatTAT(r.tatTargetMenit.rutin),
-    persiapan: summarizePersiapan(r.persiapan),
-  }));
+// ── Paket cepat (kurasi) — kode = master.RadCatalog.kode (seed RAD-NNNN) ──────
+// Resolve terhadap katalog ter-assign saat render: anggota tak tersedia disembunyikan, paket
+// tanpa anggota disembunyikan, harga = jumlah harga anggota dari Tarif Matrix.
+const PAKET_DEFS: { label: string; codes: string[] }[] = [
+  { label: "Trauma Survey",  codes: ["RAD-0001", "RAD-0003", "RAD-0004", "RAD-0005"] },
+  { label: "Thorax + Kepala", codes: ["RAD-0001", "RAD-0004"] },
+  { label: "Abdomen Akut",   codes: ["RAD-0003", "RAD-0011"] },
+  { label: "Stroke Protocol", codes: ["RAD-0010", "RAD-0016"] },
+  { label: "PE Protocol",    codes: ["RAD-0008", "RAD-0001"] },
+  { label: "Skrining Mammae", codes: ["RAD-0018", "RAD-0013"] },
+];
 
 // ── Mock active orders per noRM ───────────────────────────
 
@@ -368,7 +383,7 @@ const STATUS_ORDER_BADGE: Record<StatusOrder, string> = {
 
 // ── Rad search ────────────────────────────────────────────
 
-function RadSearch({ onSelect }: { onSelect: (test: RadTest) => void }) {
+function RadSearch({ catalog, onSelect }: { catalog: RadTest[]; onSelect: (test: RadTest) => void }) {
   const [query, setQuery]     = useState("");
   const [open, setOpen]       = useState(false);
   const [results, setResults] = useState<RadTest[]>([]);
@@ -386,7 +401,7 @@ function RadSearch({ onSelect }: { onSelect: (test: RadTest) => void }) {
   const handleInput = (q: string) => {
     setQuery(q);
     if (q.length < 2) { setResults([]); setOpen(false); return; }
-    const filtered = RAD_CATALOG.filter(
+    const filtered = catalog.filter(
       (t) => t.nama.toLowerCase().includes(q.toLowerCase()) || t.kode.toLowerCase().includes(q.toLowerCase()),
     ).slice(0, 8);
     setResults(filtered);
@@ -437,6 +452,9 @@ function RadSearch({ onSelect }: { onSelect: (test: RadTest) => void }) {
                   <span className="flex items-center gap-0.5 text-[10px] text-slate-400">
                     <Clock size={9} /> {test.waktuTunggu}
                   </span>
+                  {test.harga != null && (
+                    <span className="font-mono text-[10px] font-semibold tabular-nums text-emerald-600">{fmtRp(test.harga)}</span>
+                  )}
                 </div>
               </button>
             );
@@ -779,22 +797,64 @@ export default function OrderRadTab({ patient }: { patient: OrderRadPatient }) {
   const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>(
     ACTIVE_ORDERS_MOCK[patient.noRM] ?? [],
   );
+  const [catalog, setCatalog]           = useState<RadTest[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+
+  // Muat katalog pemeriksaan ter-assign (Radiologi) sekali saat mount. Harga via tier unit pengirim.
+  // setState dijalankan pasca-await → hindari set-state-in-effect sinkron.
+  useEffect(() => {
+    const ac = new AbortController();
+    let alive = true;
+    (async () => {
+      try {
+        const dtos = await listRadCatalogTersedia(
+          { penjaminKode: TARIF_PENJAMIN_KODE, jenisRuangan: tarifTierForUnit(patient.unitPengirim) },
+          ac.signal,
+        );
+        if (alive) { setCatalog(dtos.map(dtoToRadTest)); setCatalogError(null); }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        if (alive) setCatalogError("Gagal memuat katalog radiologi ter-assign");
+      } finally {
+        if (alive && !ac.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => { alive = false; ac.abort(); };
+  }, [patient.unitPengirim]);
 
   const riwayat = RIWAYAT_RAD_MOCK[patient.noRM] ?? [];
 
   const alreadyInOrder = new Set(orderItems.map((i) => i.kode));
+
+  const catalogByKode = useMemo(() => {
+    const m = new Map<string, RadTest>();
+    for (const t of catalog) m.set(t.kode, t);
+    return m;
+  }, [catalog]);
+
+  // Paket cepat dari master: resolve anggota by kode, sembunyikan paket tanpa anggota, harga = jumlah.
+  const pakets = useMemo(
+    () =>
+      PAKET_DEFS.map((p) => {
+        const tests = p.codes.map((c) => catalogByKode.get(c)).filter((t): t is RadTest => !!t);
+        return { label: p.label, tests, total: tests.reduce((s, t) => s + (t.harga ?? 0), 0) };
+      }).filter((p) => p.tests.length > 0),
+    [catalogByKode],
+  );
 
   const addTest = (test: RadTest) => {
     if (alreadyInOrder.has(test.kode)) return;
     setOrderItems((prev) => [
       ...prev,
       {
-        id: `roi-${Date.now()}`,
+        id: `roi-${Date.now()}-${test.kode}`,
         kode: test.kode,
         nama: test.nama,
         modalitas: test.modalitas,
         waktuTunggu: test.waktuTunggu,
         persiapan: test.persiapan,
+        harga: test.harga,
       },
     ]);
   };
@@ -850,6 +910,7 @@ export default function OrderRadTab({ patient }: { patient: OrderRadPatient }) {
   const cancelledOrders          = activeOrders.filter((o) => o.status === "Dibatalkan");
 
   const itemsWithPersiapan = orderItems.filter((i) => i.persiapan);
+  const orderTotal = orderItems.reduce((s, i) => s + (i.harga ?? 0), 0);
 
   return (
     <div className="flex flex-col gap-4">
@@ -911,80 +972,68 @@ export default function OrderRadTab({ patient }: { patient: OrderRadPatient }) {
       {/* ── Two-column area ── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
 
-        {/* ── Left: Panduan + Search ── */}
+        {/* ── Left: Search (katalog ter-assign Radiologi) ── */}
         <div className="flex flex-col gap-3">
-
-          {/* Panduan */}
-          <div className="rounded-xl border border-sky-200 bg-sky-50/60 px-4 py-3">
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-sky-600">Panduan Order Radiologi</p>
-            <ul className="space-y-1">
-              {[
-                "Foto polos (X-Ray) tidak memerlukan persiapan khusus.",
-                "CT Scan dengan kontras: cek fungsi ginjal (kreatinin) dan puasa 4 jam.",
-                "MRI: pastikan pasien bebas implan logam dan klaustrofobia.",
-                "USG abdomen: pasien puasa minimal 6 jam sebelum pemeriksaan.",
-                "Order CITO memerlukan konfirmasi telepon ke unit radiologi.",
-                "Cantumkan klinis dan diagnosis kerja pada setiap order.",
-                "Order dapat dibatalkan selama status masih 'Menunggu'.",
-              ].map((rule, i) => (
-                <li key={i} className="flex items-start gap-1.5 text-[11px] text-sky-700">
-                  <span className="mt-0.5 shrink-0 text-sky-400">•</span>
-                  {rule}
-                </li>
-              ))}
-            </ul>
-          </div>
 
           {/* Search */}
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="mb-3 text-xs font-semibold text-slate-700">Tambah Pemeriksaan</p>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-slate-700">Tambah Pemeriksaan</p>
+              {loading ? (
+                <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                  <Loader2 size={11} className="animate-spin" /> memuat…
+                </span>
+              ) : !catalogError ? (
+                <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-600 ring-1 ring-sky-200">
+                  {catalog.length} pemeriksaan
+                </span>
+              ) : null}
+            </div>
+
+            {catalogError && (
+              <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-[11px] text-amber-700">
+                <ServerCog size={12} className="mt-0.5 shrink-0 text-amber-500" />
+                <span>{catalogError}. Pastikan pemeriksaan sudah dipetakan ke ruangan Radiologi di Mapping Hub → Layanan Unit.</span>
+              </div>
+            )}
 
             <div className="flex flex-col gap-3">
               <div>
                 <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                   Cari Tindakan Radiologi <span className="text-rose-400">*</span>
                 </p>
-                <RadSearch onSelect={addTest} />
-                <p className="mt-1.5 text-[10px] text-slate-400">Ketik minimal 2 karakter · tindakan yang sudah ditambah tidak muncul kembali</p>
+                <RadSearch catalog={catalog} onSelect={addTest} />
+                <p className="mt-1.5 text-[10px] text-slate-400">Ketik minimal 2 karakter · hanya pemeriksaan ter-assign ke unit Radiologi · yang sudah ditambah tidak muncul kembali</p>
               </div>
 
-              {/* Quick-add paket */}
-              <div>
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Paket Cepat</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { label: "Trauma Survey",   tests: ["RAD-XR001", "RAD-XR003", "RAD-XR005", "RAD-XR010"] },
-                    { label: "Chest + Skull",   tests: ["RAD-XR001", "RAD-XR010"] },
-                    { label: "Abdomen Akut",    tests: ["RAD-XR003", "RAD-US003"] },
-                    { label: "Stroke Protocol", tests: ["RAD-CT001"] },
-                    { label: "PE Protocol",     tests: ["RAD-CT004"] },
-                    { label: "FAST USG",        tests: ["RAD-US006"] },
-                  ].map((pkg) => {
-                    const allAdded = pkg.tests.every((kode) => alreadyInOrder.has(kode));
-                    return (
-                      <button
-                        key={pkg.label}
-                        type="button"
-                        disabled={allAdded}
-                        onClick={() => {
-                          pkg.tests.forEach((kode) => {
-                            const test = RAD_CATALOG.find((t) => t.kode === kode);
-                            if (test && !alreadyInOrder.has(kode)) addTest(test);
-                          });
-                        }}
-                        className={cn(
-                          "rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition",
-                          allAdded
-                            ? "cursor-default border-emerald-200 bg-emerald-50 text-emerald-600"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700",
-                        )}
-                      >
-                        {allAdded ? <><Check size={9} className="mr-0.5 inline" />{pkg.label}</> : `+ ${pkg.label}`}
-                      </button>
-                    );
-                  })}
+              {/* Quick-add paket — resolve dari katalog ter-assign */}
+              {pakets.length > 0 && (
+                <div>
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Paket Cepat</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {pakets.map((pkg) => {
+                      const allAdded = pkg.tests.every((t) => alreadyInOrder.has(t.kode));
+                      return (
+                        <button
+                          key={pkg.label}
+                          type="button"
+                          disabled={allAdded}
+                          onClick={() => pkg.tests.forEach((t) => { if (!alreadyInOrder.has(t.kode)) addTest(t); })}
+                          title={pkg.total > 0 ? `${pkg.tests.length} tindakan · ${fmtRp(pkg.total)}` : `${pkg.tests.length} tindakan`}
+                          className={cn(
+                            "rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition",
+                            allAdded
+                              ? "cursor-default border-emerald-200 bg-emerald-50 text-emerald-600"
+                              : "border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700",
+                          )}
+                        >
+                          {allAdded ? <><Check size={9} className="mr-0.5 inline" />{pkg.label}</> : `+ ${pkg.label}`}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Persiapan notice */}
               {itemsWithPersiapan.length > 0 && (
@@ -1103,6 +1152,11 @@ export default function OrderRadTab({ patient }: { patient: OrderRadPatient }) {
                             </p>
                           )}
                         </div>
+                        {item.harga != null && (
+                          <span className="shrink-0 self-center font-mono text-[11px] font-semibold tabular-nums text-emerald-600">
+                            {fmtRp(item.harga)}
+                          </span>
+                        )}
                         <button
                           onClick={() => removeTest(item.id)}
                           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-400 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-500"
@@ -1158,6 +1212,11 @@ export default function OrderRadTab({ patient }: { patient: OrderRadPatient }) {
               <p className="text-xs text-slate-600">
                 <span className="font-semibold text-slate-800">{orderItems.length} tindakan</span> siap dikirim
               </p>
+              {orderTotal > 0 && (
+                <span className="rounded-md bg-emerald-50 px-2 py-0.5 font-mono text-[11px] font-semibold tabular-nums text-emerald-700 ring-1 ring-emerald-200">
+                  Est. {fmtRp(orderTotal)}
+                </span>
+              )}
               {priority === "Cito" && (
                 <span className="flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-600 ring-1 ring-rose-200">
                   <AlertCircle size={10} /> CITO

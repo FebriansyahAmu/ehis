@@ -12,6 +12,21 @@
 
 ---
 
+## ✅ Selesai — Tab Klinis Order Radiologi: katalog DB ter-assign + hapus Panduan (2026-06-22)
+
+Tab **Order Radiologi** (shared IGD/RI/RJ) kini ambil katalog dari **DB** (pemeriksaan ter-assign ke ruangan Radiologi), persis pola tab Order Lab — bukan lagi seed statis.
+
+- **Endpoint baru `GET /master/rad-catalog-tersedia`** (mirror `lab-test-tersedia`): hanya pemeriksaan yang ter-assign ke ruangan **Radiologi** (`location_type=Radiologi`) via Mapping Hub → Layanan Unit (grup Rad), distinct + `ruanganKodes[]` + **harga dari Tarif Matrix** per `penjaminKode`+`jenisRuangan`. Gate **`clinical.tindakan:read`** (Dokter/Perawat — bukan master), `scopeKunjungan:false`.
+  - Layered: DAL [layananUnitRadDal.listAssignedRadCatalog](../src/lib/dal/master/layananUnitRadDal.ts) (join LayananUnitRad→RadCatalog Aktif + tarif match) → Service [layananUnitRadService.listRadCatalogTersedia](../src/lib/services/master/layananUnitRadService.ts) (agregasi distinct + **format TAT rutin & ringkas persiapan dari blok JSONB** server-side) → route [/master/rad-catalog-tersedia](../src/app/api/v1/master/rad-catalog-tersedia/route.ts). Schema/DTO [radCatalogTersedia.ts](../src/lib/schemas/master/radCatalogTersedia.ts) + client [api/master/radCatalogTersedia.ts](../src/lib/api/master/radCatalogTersedia.ts).
+- **FE [OrderRadTab](../src/components/shared/medical-records/OrderRadTab.tsx)**: fetch sekali saat mount (`penjaminKode=UMUM`, `jenisRuangan` = tier dari unit pengirim); `RadSearch` terima `catalog` prop (bukan lagi modul-level statis); loading spinner + error banner (saran cek Mapping Hub) + badge jumlah pemeriksaan; harga tampil di hasil cari, per item daftar order, & **Est. total** di footer.
+- **Panduan Order Radiologi DIHAPUS** (panel tips statis) sesuai permintaan.
+- **Paket Cepat** di-resolve dari katalog ter-assign by **kode DB `RAD-NNNN`** (sebelumnya `RAD-XR001` yang tak ada di DB → selalu kosong): Trauma Survey / Thorax+Kepala / Abdomen Akut / Stroke Protocol / PE Protocol / Skrining Mammae; paket tanpa anggota disembunyikan, total harga di tooltip.
+- **`RAD_CATALOG_SEED`/`formatTAT`/`summarizePersiapan` dihapus dari tab** (formatting pindah server-side; seed masih dipakai Beranda).
+- **Belum** persist order rad ke DB (Active Orders masih state lokal mock) — follow-up `medicalrecord.RadOrder` mirror LabOrder.
+- **Verifikasi DB**: 24 pemeriksaan ter-assign ke 1 ruangan Radiologi (R2606012), semua ber-harga UMUM/IGD (Rp 100rb–850rb). tsc bersih (app code) · ESLint 0 error (warning pre-existing `_actor`/`no-unused-expressions`).
+
+---
+
 ## ✅ Selesai — Tab Klinis Daftar Order: DB-driven (Resep+Lab) + detail + Timeline Status (2026-06-22)
 
 Halaman **Daftar Order** (tab klinis IGD/RI/RJ) kini menampilkan **semua order Resep + Lab kunjungan dari DB** (sebelumnya `ORDERS_MOCK`), lengkap detail item & **Timeline Status** per order.

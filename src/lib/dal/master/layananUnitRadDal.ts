@@ -55,6 +55,43 @@ export async function list(
   return { items, nextCursor: hasMore ? items[items.length - 1].id : null };
 }
 
+// ── Read klinis: pemeriksaan rad ter-assign (join LayananUnitRad → RadCatalog) ─
+// Untuk endpoint /master/rad-catalog-tersedia (gate clinical.tindakan). Hanya pemeriksaan AKTIF &
+// non-deleted yang ter-assign ke ruangan RADIOLOGI (location_type=Radiologi) — "unit tujuan order rad".
+// Opsional difilter ruangan (kode). Include rad catalog (field ramping + blok JSONB TAT/persiapan) +
+// kode ruangan → Service agregasi distinct per pemeriksaan dgn daftar ruanganKodes. HARGA: include
+// relasi tarif yang match (penjaminKode, jenisRuangan) — keduanya wajib bareng; absen → harga null.
+export function listAssignedRadCatalog(
+  params: { ruanganKode?: string; penjaminKode?: string; jenisRuangan?: string },
+  tx?: Tx,
+) {
+  return db(tx).layananUnitRad.findMany({
+    where: {
+      radCatalog: { deletedAt: null, status: "Aktif" },
+      location: {
+        deletedAt: null,
+        locationType: "Radiologi",
+        ...(params.ruanganKode ? { kode: params.ruanganKode } : {}),
+      },
+    },
+    include: {
+      radCatalog: {
+        select: {
+          id: true, kode: true, nama: true, modalitas: true, modalitasSubtype: true,
+          region: true, kategori: true, tatTarget: true, persiapan: true,
+          tarif: {
+            where: { penjaminKode: params.penjaminKode ?? "", jenisRuangan: params.jenisRuangan ?? "" },
+            select: { harga: true },
+            take: 1,
+          },
+        },
+      },
+      location: { select: { kode: true } },
+    },
+    orderBy: [{ radCatalog: { nama: "asc" } }],
+  });
+}
+
 // ── Delete (hard) ────────────────────────────────────────────────────────────
 export function deleteById(id: string, tx?: Tx) {
   return db(tx).layananUnitRad.delete({ where: { id } });
