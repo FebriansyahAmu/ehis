@@ -1,20 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ListChecks, LayoutList, Search, X } from "lucide-react";
+import { ListChecks, LayoutList, Search, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "@/lib/ui/toastStore";
+import { listResep, cancelResep } from "@/lib/api/resep/resep";
+import { listLabOrders, cancelLabOrder } from "@/lib/api/lab/labOrder";
 
 import {
   ORDERS_MOCK, FILTER_OPTS, TODAY_LABEL,
-  groupByDate, matchesSearch,
+  groupByDate, matchesSearch, mergeDbOrders,
   type Order, type OrderType, type OrderStatus,
   type FilterValue, type ConfirmTarget, type ToastData,
   type DaftarOrderPatient,
 } from "./daftarOrder/daftarOrderShared";
 import { OrderRow } from "./daftarOrder/OrderRow";
 import { ActiveBanner, StatCard } from "./daftarOrder/OrderStats";
+import { OrderCostSummary } from "./daftarOrder/OrderCostSummary";
 import { ConfirmCancelDialog, CancelToast } from "./daftarOrder/CancelDialog";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Animations ────────────────────────────────────────────
 
@@ -72,32 +78,74 @@ function EmptyState({ filter, query }: { filter: FilterValue; query: string }) {
 // ── Main component ────────────────────────────────────────
 
 export default function DaftarOrderTab({ patient }: { patient: DaftarOrderPatient }) {
-  const [orders, setOrders]               = useState<Order[]>(() => ORDERS_MOCK[patient.noRM] ?? []);
+  const kunjunganId = patient.kunjunganId;
+  const isPersisted = !!kunjunganId && UUID_RE.test(kunjunganId);
+
+  const [orders, setOrders]               = useState<Order[]>(isPersisted ? [] : ORDERS_MOCK[patient.noRM] ?? []);
+  const [loading, setLoading]             = useState(isPersisted);
   const [filter, setFilter]               = useState<FilterValue>("Semua");
   const [query, setQuery]                 = useState("");
   const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget | null>(null);
-  const [toast, setToast]                 = useState<ToastData | null>(null);
+  const [toastData, setToastData]         = useState<ToastData | null>(null);
 
-  // Auto-dismiss toast after 3.5 s
+  // Ambil order Resep + Lab dari DB (kunjungan UUID). Gabung + urut terbaru.
+  const load = useCallback(async (signal?: AbortSignal) => {
+    if (!isPersisted || !kunjunganId) return;
+    try {
+      const [resep, lab] = await Promise.all([
+        listResep(kunjunganId, signal),
+        listLabOrders(kunjunganId, signal),
+      ]);
+      if (!signal?.aborted) setOrders(mergeDbOrders(resep, lab));
+    } catch {
+      /* diam — pertahankan daftar yang ada */
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, [isPersisted, kunjunganId]);
+
   useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3500);
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    void load(ac.signal);
+    return () => ac.abort();
+  }, [isPersisted, load]);
+
+  // Auto-dismiss toast lokal (mock) after 3.5 s
+  useEffect(() => {
+    if (!toastData) return;
+    const t = setTimeout(() => setToastData(null), 3500);
     return () => clearTimeout(t);
-  }, [toast]);
+  }, [toastData]);
 
   function handleRequestCancel(id: string, noOrder: string, type: OrderType, itemCount: number) {
     setConfirmTarget({ id, noOrder, type, itemCount });
   }
 
-  function handleConfirmCancel() {
+  async function handleConfirmCancel() {
     if (!confirmTarget) return;
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === confirmTarget.id ? { ...o, status: "Dibatalkan" as OrderStatus } : o,
-      ),
-    );
-    setToast({ uid: Date.now(), noOrder: confirmTarget.noOrder, type: confirmTarget.type });
+    const target = confirmTarget;
     setConfirmTarget(null);
+
+    // Order DB → batalkan via API (hanya saat Menunggu) + refetch.
+    if (isPersisted && kunjunganId) {
+      try {
+        if (target.type === "Resep") await cancelResep(kunjunganId, target.id);
+        else if (target.type === "Lab") await cancelLabOrder(kunjunganId, target.id);
+        else return;
+        toast.success("Order dibatalkan", target.noOrder);
+        await load();
+      } catch (e) {
+        toast.error("Gagal membatalkan order", e instanceof Error ? e.message : undefined);
+      }
+      return;
+    }
+
+    // Pasien demo (mock) → update lokal.
+    setOrders((prev) =>
+      prev.map((o) => (o.id === target.id ? { ...o, status: "Dibatalkan" as OrderStatus } : o)),
+    );
+    setToastData({ uid: Date.now(), noOrder: target.noOrder, type: target.type });
   }
 
   const byType   = (type: OrderType) => orders.filter((o) => o.type === type);
@@ -127,6 +175,9 @@ export default function DaftarOrderTab({ patient }: { patient: DaftarOrderPatien
           />
         ))}
       </div>
+
+      {/* Estimasi biaya order — per jenis + total */}
+      <OrderCostSummary orders={orders} />
 
       {/* Search + filter */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -189,7 +240,11 @@ export default function DaftarOrderTab({ patient }: { patient: DaftarOrderPatien
 
       {/* Order list grouped by date — with stagger animation */}
       <AnimatePresence mode="wait">
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div key="loading" className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 py-14 text-slate-400">
+            <Loader2 size={16} className="animate-spin" /> <span className="text-xs">Memuat order…</span>
+          </div>
+        ) : filtered.length === 0 ? (
           <EmptyState key="empty" filter={filter} query={query} />
         ) : (
           <motion.div
@@ -224,10 +279,10 @@ export default function DaftarOrderTab({ patient }: { patient: DaftarOrderPatien
         )}
       </AnimatePresence>
 
-      {/* Cancel toast */}
+      {/* Cancel toast (mock) */}
       <AnimatePresence>
-        {toast && (
-          <CancelToast data={toast} onClose={() => setToast(null)} />
+        {toastData && (
+          <CancelToast data={toastData} onClose={() => setToastData(null)} />
         )}
       </AnimatePresence>
 

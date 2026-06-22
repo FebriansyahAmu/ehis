@@ -12,6 +12,31 @@
 
 ---
 
+## ✅ Selesai — Tab Klinis Daftar Order: DB-driven (Resep+Lab) + detail + Timeline Status (2026-06-22)
+
+Halaman **Daftar Order** (tab klinis IGD/RI/RJ) kini menampilkan **semua order Resep + Lab kunjungan dari DB** (sebelumnya `ORDERS_MOCK`), lengkap detail item & **Timeline Status** per order.
+
+- **Gabung lintas-jenis** — kunjungan UUID → `Promise.all([listResep, listLabOrders])` → `mergeDbOrders` (map Resep+Lab → `Order` terpadu, urut `createdAt` desc). Pasien demo (non-UUID) → `ORDERS_MOCK` (tak berubah). Loading spinner. Adapter IGD/RI/RJ kirim `kunjunganId = patient.id`.
+- **Mapping** [daftarOrderShared.ts](../src/components/shared/medical-records/daftarOrder/daftarOrderShared.ts): `mapResepToOrder`/`mapLabToOrder` (detail item: Resep=dosis·signa·rute·jumlah + HAM badge, Lab=kategori·TAT + CITO); status DB→terpadu (Menunggu/Diterima/Diproses/Selesai/Dibatalkan) + simpan `nativeStatus` + `createdAtISO`. CITO disisipkan ke catatan.
+- **Timeline Status** [OrderTimeline](../src/components/shared/medical-records/daftarOrder/OrderTimeline.tsx) (vertikal, di detail OrderRow): tahapan **faithful per-jenis** dari `nativeStatus` — Resep (Order Dibuat→Diterima Farmasi→Telaah→Selesai) · Lab (Order Dibuat→Diterima Lab→Analisa→Validasi→Rilis), else generik; node done/current/pending + waktu order pada stage pertama; **Dibatalkan/Ditolak = kartu terminal**. `buildOrderTimeline`/`orderCreatedLabel` di shared. Stepper horizontal lama (`StatusPipeline`) dihapus.
+- **Batalkan** — order DB → API nyata (`cancelResep`/`cancelLabOrder`) + refetch + toast global; tombol hanya muncul saat `nativeStatus="Menunggu"` (cegah 409). Mock → update lokal + CancelToast.
+- Rad/BMHP belum punya order DB → kartu/​filter tetap (count 0) sampai endpoint order-nya ada.
+- **Latar kartu per status ✅** — `STATUS_CARD` (tint slate/sky/amber/emerald/rose selaras `STATUS_BADGE`) di OrderRow; header hover netral (`bg-black/3`), body detail dinetralkan agar tint status dominan.
+- **Widget Estimasi Biaya ✅** — [OrderCostSummary](../src/components/shared/medical-records/daftarOrder/OrderCostSummary.tsx): akumulasi tarif **per jenis** (Resep/Lab/Radiologi/BMHP, kartu bertint jenis) + **grand total** (emerald), order Dibatalkan tak dihitung. Helper `orderCost`/`costByType`/`fmtRp`; `OrderItem.harga` di-carry (Lab dari `item.harga` Tarif Matrix). **Catatan data**: Resep DTO belum simpan harga (→ Rp 0; follow-up snapshot harga obat saat order), Rad/BMHP belum ada order DB (→ Rp 0). Saat ini Lab yang ber-nilai nyata.
+- **Verifikasi** — tsc bersih (app code) · ESLint bersih (sisa warning pre-existing `ALL_TABS`).
+
+---
+
+## ✅ Selesai — Tab Klinis Order Lab: tombol "Lihat Hasil" → modal hasil pemeriksaan (2026-06-22)
+
+Card "Riwayat Order Lab" (tab klinis IGD/RI/RJ) kini punya tombol **Lihat Hasil** untuk order Selesai → hasil tampil dalam **modal** yang rapi (bukan inline).
+
+- **Endpoint klinis** `GET /api/v1/kunjungan/:id/lab/:labId/hasil` — gate **`clinical.tindakan:read`** (selaras read order lab; klinisi TIDAK punya `ancillary.lab.worklist` sehingga `getLabResult` lab-staff tak bisa dipakai) + **ABAC careUnit** via params kunjungan. Service `labResultService.getHasilForKunjungan` (verifikasi `order.kunjunganId === kunjungan` anti-IDOR → DTO hasil terbaru / null). Client `getLabResultForKunjungan`.
+- **FE** [RiwayatOrderLab](../src/components/shared/medical-records/orderLab/RiwayatOrderLab.tsx): order **Selesai** → chip **"Lihat Hasil"** (emerald, di baris, tanpa perlu expand) buka `LabHasilModal` — header gradient sky→indigo (FlaskConical + labNama + jumlah pemeriksaan), **meta strip** (waktu/CITO/Kritis/Abnormal/total tarif), body `LabHasilView` (parameter **terisi saja**, dikelompokkan kategori, nilai/satuan/rujukan + **flag berwarna** N/H/L/C, baris kritis/abnormal highlight), footer **grid analis/validator/rilis + catatan validator**. Modal: fetch sendiri saat buka (loading/empty state), **Escape + klik-luar** tutup, `backdrop-blur`, animasi framer-motion, `role=dialog`/`aria-modal`. **Di-portal ke `document.body`** (`createPortal`) — wajib karena tab klinis dibungkus `motion.div` ber-`transform` (IGD/RIRecordTabs) yang jadi containing-block `position:fixed` → tanpa portal blur/overlay hanya menutupi area konten, bukan seluruh layar. Status proses (Diterima/Divalidasi) → hint "Hasil sedang diproses". `FLAG_STYLE` self-contained.
+- **Verifikasi** — tsc bersih (app code) · ESLint bersih.
+
+---
+
 ## ✅ Selesai — Lab: Cetak Hasil sesuai DB + parameter terisi saja + QR TTE validator (2026-06-21)
 
 Cetakan "Hasil Pemeriksaan Lab" (RiwayatPane → PrintPreviewModal) disesuaikan dgn hasil aktual + tanda tangan elektronik.

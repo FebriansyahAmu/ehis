@@ -72,6 +72,21 @@ export function makeLabResultService(deps: { dal?: Dal; clock?: Clock } = {}) {
     return row ? toDTO(row) : null;
   }
 
+  /** Hasil terbaru utk 1 order DALAM kunjungan (read klinis — Riwayat Order Lab). Verifikasi
+   *  order ∈ kunjungan (anti-IDOR; ABAC careUnit ditegakkan route() via params kunjungan). */
+  async function getHasilForKunjungan(
+    kunjunganId: string,
+    labId: string,
+    _actor: Actor,
+  ): Promise<LabResultDTO | null> {
+    const order = await labOrderDal.findById(labId);
+    if (!order || order.deletedAt || order.kunjunganId !== kunjunganId) {
+      throw Errors.notFound("Order lab tidak ditemukan");
+    }
+    const row = await dal.findLatestByOrder(labId);
+    return row ? toDTO(row) : null;
+  }
+
   /** Simpan entry hasil + transisi order → Divalidasi (atomik). */
   async function saveHasil(labId: string, input: SaveLabResultInput, actor: Actor): Promise<LabResultDTO> {
     const order = await labOrderDal.findById(labId);
@@ -159,7 +174,7 @@ export function makeLabResultService(deps: { dal?: Dal; clock?: Clock } = {}) {
     return toDTO(result);
   }
 
-  return { getHasil, saveHasil, validate };
+  return { getHasil, getHasilForKunjungan, saveHasil, validate };
 }
 
 export const labResultService = makeLabResultService();

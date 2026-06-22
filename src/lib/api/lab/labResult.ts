@@ -14,6 +14,20 @@ export async function getLabResult(labId: string, signal?: AbortSignal): Promise
   return data;
 }
 
+/** GET — hasil lab klinis (Riwayat Order Lab di tab klinis). Gate clinical.tindakan:read
+ *  + ABAC careUnit (lewat kunjungan). null bila belum ada hasil. */
+export async function getLabResultForKunjungan(
+  kunjunganId: string,
+  labId: string,
+  signal?: AbortSignal,
+): Promise<LabResultDTO | null> {
+  const { data } = await api.get<LabResultDTO | null>(
+    `/kunjungan/${encodeURIComponent(kunjunganId)}/lab/${encodeURIComponent(labId)}/hasil`,
+    { signal },
+  );
+  return data;
+}
+
 /** POST — simpan entry hasil (header + values) → order status Divalidasi. */
 export async function saveLabResult(labId: string, input: SaveLabResultBody, signal?: AbortSignal): Promise<LabResultDTO> {
   const { data } = await api.post<LabResultDTO>(base(labId), input, { signal });

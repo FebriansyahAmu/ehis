@@ -34,6 +34,8 @@ export interface ObatTersediaDTO {
   isHAM: boolean;
   /** Efek samping (free-text) — dipakai decision-support resep saat alergi. */
   efekSamping: string | null;
+  /** Harga satuan (Rp) dari katalog Obat — snapshot tarif saat order resep. null = belum ditetapkan. */
+  hargaSatuan: number | null;
   /** Zat aktif termapping KFA (kode BZA + nama) — untuk pelinkan alergi obat. */
   bza: ObatBza[];
   /** Kode ruangan tempat obat ini masuk formularium (≥1). */

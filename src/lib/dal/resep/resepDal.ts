@@ -25,6 +25,7 @@ export interface CreateResepItemData {
   durasiHari: number;
   keterangan?: string | null;
   isHAM: boolean;
+  harga?: number | null;
 }
 
 export interface CreateResepOrderData {

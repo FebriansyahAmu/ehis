@@ -5,9 +5,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Clock, Stethoscope, AlertCircle, ChevronDown, Ban } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  TYPE_CFG, STATUS_BADGE, STATUS_STEPS,
+  TYPE_CFG, STATUS_BADGE, STATUS_CARD,
   type Order, type OrderType,
 } from "./daftarOrderShared";
+import { OrderTimeline } from "./OrderTimeline";
 
 // ── Type badge ────────────────────────────────────────────
 
@@ -27,58 +28,6 @@ export function TypeBadge({ type }: { type: OrderType }) {
   );
 }
 
-// ── Status pipeline ───────────────────────────────────────
-
-export function StatusPipeline({ status }: { status: Order["status"] }) {
-  if (status === "Selesai" || status === "Dibatalkan") return null;
-  const current = STATUS_STEPS.indexOf(status);
-  return (
-    <div className="mt-2.5 flex items-center">
-      {STATUS_STEPS.map((step, i) => {
-        const done   = i <= current;
-        const isLast = i === STATUS_STEPS.length - 1;
-        return (
-          <div key={step} className="flex items-center">
-            <motion.div
-              className="flex flex-col items-center gap-0.5"
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: i * 0.06, duration: 0.2 }}
-            >
-              <div
-                className={cn(
-                  "flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-bold transition-colors",
-                  done ? "bg-indigo-600 text-white shadow-sm" : "bg-slate-100 text-slate-400 ring-1 ring-slate-200",
-                  i === current && "ring-2 ring-indigo-200",
-                )}
-              >
-                {i + 1}
-              </div>
-              <span
-                className={cn(
-                  "text-[8px] font-medium leading-none",
-                  done ? "text-indigo-600" : "text-slate-400",
-                  i === current && "font-bold",
-                )}
-              >
-                {step}
-              </span>
-            </motion.div>
-            {!isLast && (
-              <div
-                className={cn(
-                  "mb-3.5 h-px w-8 transition-colors sm:w-12",
-                  i < current ? "bg-indigo-300" : "bg-slate-200",
-                )}
-              />
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 // ── Order row ─────────────────────────────────────────────
 
 interface OrderRowProps {
@@ -92,16 +41,16 @@ export function OrderRow({ order, onRequestCancel }: OrderRowProps) {
   const Icon        = cfg.icon;
   const isActive    = ["Menunggu", "Diterima", "Diproses"].includes(order.status);
   const isCancelled = order.status === "Dibatalkan";
+  // Order DB hanya bisa dibatalkan saat masih "Menunggu" (belum diterima unit). Mock → semua aktif.
+  const cancellable = order.nativeStatus ? order.nativeStatus === "Menunggu" : isActive;
 
   return (
     <div
       className={cn(
         "overflow-hidden rounded-xl border transition-all duration-200",
-        isActive
-          ? cn("border-slate-200 bg-white", open ? "shadow-md" : "shadow-xs hover:shadow-sm")
-          : isCancelled
-            ? "border-rose-100 bg-rose-50/20 opacity-60"
-            : "border-slate-100 bg-slate-50/50",
+        STATUS_CARD[order.status],
+        isCancelled && "opacity-70",
+        open ? "shadow-md" : "shadow-xs hover:shadow-sm",
       )}
     >
       {/* Header row — click to expand */}
@@ -110,7 +59,7 @@ export function OrderRow({ order, onRequestCancel }: OrderRowProps) {
         onClick={() => setOpen((p) => !p)}
         className={cn(
           "flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left transition-colors",
-          open ? "bg-slate-50/60" : "hover:bg-slate-50/70",
+          open ? "bg-black/3" : "hover:bg-black/2",
         )}
       >
         {/* Type icon */}
@@ -154,8 +103,6 @@ export function OrderRow({ order, onRequestCancel }: OrderRowProps) {
               {order.catatan}
             </p>
           )}
-
-          {isActive && open && <StatusPipeline status={order.status} />}
         </div>
 
         {/* Right: badge + count + chevron */}
@@ -185,7 +132,7 @@ export function OrderRow({ order, onRequestCancel }: OrderRowProps) {
             transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
             className="overflow-hidden"
           >
-            <div className={cn("border-t px-4 pb-3 pt-2.5", cfg.border, cfg.softBg + "/30")}>
+            <div className="border-t border-slate-200/60 px-4 pb-3 pt-2.5">
               <div className="flex flex-col gap-1.5">
                 {order.items.map((item, idx) => (
                   <motion.div
@@ -220,8 +167,11 @@ export function OrderRow({ order, onRequestCancel }: OrderRowProps) {
                 ))}
               </div>
 
+              {/* Timeline status */}
+              <OrderTimeline order={order} />
+
               {/* Cancel button */}
-              {isActive && (
+              {cancellable && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}

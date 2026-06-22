@@ -1086,6 +1086,7 @@ model ResepItem {
   durasiHari  Int     @default(1) @map("durasi_hari")
   keterangan  String?
   isHAM       Boolean @default(false) @map("is_ham")
+  harga       Int? // snapshot harga satuan (rupiah) saat order; null = belum bertarif. Biaya baris = harga × jumlah
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 

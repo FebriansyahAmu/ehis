@@ -1,4 +1,6 @@
 import { Pill, FlaskConical, Radiation, Package, type LucideIcon } from "lucide-react";
+import type { ResepOrderDTO } from "@/lib/api/resep/resep";
+import type { LabOrderDTO } from "@/lib/api/lab/labOrder";
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -12,6 +14,8 @@ export interface OrderItem {
   detail?: string;
   keterangan?: string;
   isSpecial?: boolean;
+  /** Tarif snapshot per item (Rp). Lab = dari Tarif Matrix; jenis lain belum tentu ada. */
+  harga?: number;
 }
 
 export interface Order {
@@ -25,6 +29,10 @@ export interface Order {
   catatan?: string;
   tujuan?: string;
   items: OrderItem[];
+  /** Status asli dari DB (per-jenis) — dipakai untuk Timeline yang faithful. */
+  nativeStatus?: string;
+  /** ISO createdAt (DB) — dipakai sort & cap waktu pada Timeline. */
+  createdAtISO?: string;
 }
 
 export interface ConfirmTarget {
@@ -45,6 +53,8 @@ export interface DaftarOrderPatient {
   name: string;
   dpjp?: string;
   konteks?: "igd" | "rawat-inap";
+  /** Kunjungan id (UUID) → ambil order Resep+Lab dari DB. Non-UUID/absen → mock (pasien demo). */
+  kunjunganId?: string;
 }
 
 // ── Config ────────────────────────────────────────────────
@@ -90,6 +100,15 @@ export const STATUS_BADGE: Record<OrderStatus, string> = {
   Dibatalkan: "bg-rose-50    text-rose-500   ring-1 ring-rose-200",
 };
 
+/** Latar kartu order disesuaikan status (tint lembut · selaras STATUS_BADGE). */
+export const STATUS_CARD: Record<OrderStatus, string> = {
+  Menunggu:   "border-slate-200   bg-slate-50/70",
+  Diterima:   "border-sky-200     bg-sky-50/60",
+  Diproses:   "border-amber-200   bg-amber-50/60",
+  Selesai:    "border-emerald-200 bg-emerald-50/50",
+  Dibatalkan: "border-rose-200    bg-rose-50/50",
+};
+
 export const STATUS_STEPS: OrderStatus[] = ["Menunggu", "Diterima", "Diproses", "Selesai"];
 
 export const FILTER_OPTS: { value: FilterValue; label: string }[] = [
@@ -122,6 +141,149 @@ export function matchesSearch(order: Order, q: string): boolean {
     order.items.some((i) => i.nama.toLowerCase().includes(lq)) ||
     (order.catatan?.toLowerCase().includes(lq) ?? false)
   );
+}
+
+// ── DB → Order mapping (Resep + Lab per kunjungan) ────────
+
+const fmtTanggal = (iso: string) =>
+  new Date(iso).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+const fmtJam = (iso: string) =>
+  new Date(iso).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+
+/** Status DB (per-jenis) → status terpadu Daftar Order. */
+const RESEP_STATUS_MAP: Record<string, OrderStatus> = {
+  Menunggu: "Menunggu", Diterima: "Diterima", Ditelaah: "Diproses",
+  Dikembalikan: "Diproses", Selesai: "Selesai", Dibatalkan: "Dibatalkan",
+};
+const LAB_STATUS_MAP: Record<string, OrderStatus> = {
+  Menunggu: "Menunggu", Diterima: "Diterima", Dianalisa: "Diproses",
+  Divalidasi: "Diproses", Selesai: "Selesai", Ditolak: "Dibatalkan", Dibatalkan: "Dibatalkan",
+};
+
+const withCito = (prioritas: string, catatan: string | null): string | undefined => {
+  if (prioritas === "CITO") return catatan ? `CITO — ${catatan}` : "CITO";
+  return catatan ?? undefined;
+};
+
+export function mapResepToOrder(d: ResepOrderDTO): Order {
+  return {
+    id: d.id,
+    type: "Resep",
+    noOrder: `RX-${d.id.slice(0, 8).toUpperCase()}`,
+    tanggal: fmtTanggal(d.createdAt),
+    jam: fmtJam(d.createdAt),
+    createdAtISO: d.createdAt,
+    dokter: d.penulis,
+    status: RESEP_STATUS_MAP[d.status] ?? "Menunggu",
+    nativeStatus: d.status,
+    catatan: withCito(d.prioritas, d.catatan),
+    tujuan: d.depoNama,
+    items: d.items.map((it) => ({
+      id: it.id,
+      nama: it.namaObat,
+      detail: [it.dosis, it.signa, it.rute, it.jumlah ? `×${it.jumlah}` : null]
+        .filter(Boolean)
+        .join(" · ") || undefined,
+      keterangan: it.keterangan ?? undefined,
+      isSpecial: it.isHAM,
+    })),
+  };
+}
+
+export function mapLabToOrder(d: LabOrderDTO): Order {
+  return {
+    id: d.id,
+    type: "Lab",
+    noOrder: `LAB-${d.id.slice(0, 8).toUpperCase()}`,
+    tanggal: fmtTanggal(d.createdAt),
+    jam: fmtJam(d.createdAt),
+    createdAtISO: d.createdAt,
+    dokter: d.penulis,
+    status: LAB_STATUS_MAP[d.status] ?? "Menunggu",
+    nativeStatus: d.status,
+    catatan: withCito(d.prioritas, d.catatan),
+    tujuan: d.labNama,
+    items: d.items.map((it) => ({
+      id: it.id,
+      nama: it.namaTes,
+      detail: [it.kategori, it.waktuTunggu].filter(Boolean).join(" · ") || undefined,
+      isSpecial: d.prioritas === "CITO",
+      harga: it.harga ?? undefined,
+    })),
+  };
+}
+
+// ── Estimasi biaya (akumulasi tarif per jenis + total) ────
+
+export const fmtRp = (n: number) => "Rp " + n.toLocaleString("id-ID");
+
+/** Total tarif 1 order (jumlahkan harga item yang tersedia). */
+export function orderCost(o: Order): number {
+  return o.items.reduce((s, it) => s + (it.harga ?? 0), 0);
+}
+
+/** Akumulasi tarif per jenis + grand total. Order Dibatalkan TIDAK dihitung. */
+export function costByType(orders: Order[]): { byType: Record<OrderType, number>; total: number } {
+  const byType: Record<OrderType, number> = { Resep: 0, Lab: 0, Radiologi: 0, BMHP: 0 };
+  for (const o of orders) {
+    if (o.status === "Dibatalkan") continue;
+    byType[o.type] += orderCost(o);
+  }
+  return { byType, total: byType.Resep + byType.Lab + byType.Radiologi + byType.BMHP };
+}
+
+/** Gabung + urutkan (terbaru dulu) order Resep & Lab DB → daftar terpadu. */
+export function mergeDbOrders(resep: ResepOrderDTO[], lab: LabOrderDTO[]): Order[] {
+  return [...resep.map(mapResepToOrder), ...lab.map(mapLabToOrder)].sort(
+    (a, b) => (b.createdAtISO ?? "").localeCompare(a.createdAtISO ?? ""),
+  );
+}
+
+// ── Timeline status (faithful per-jenis bila ada nativeStatus, else generik) ──
+
+export type TimelineState = "done" | "current" | "pending";
+export interface TimelineStage { label: string; state: TimelineState; }
+
+const RESEP_STAGES = ["Order Dibuat", "Diterima Farmasi", "Telaah & Penyiapan", "Selesai / Diserahkan"];
+const RESEP_IDX: Record<string, number> = { Menunggu: 0, Diterima: 1, Ditelaah: 2, Dikembalikan: 2, Selesai: 3 };
+const LAB_STAGES = ["Order Dibuat", "Diterima Lab", "Analisa", "Validasi", "Selesai / Rilis"];
+const LAB_IDX: Record<string, number> = { Menunggu: 0, Diterima: 1, Dianalisa: 2, Divalidasi: 3, Selesai: 4 };
+const GENERIC_STAGES = ["Menunggu", "Diterima", "Diproses", "Selesai"];
+const GENERIC_IDX: Record<OrderStatus, number> = { Menunggu: 0, Diterima: 1, Diproses: 2, Selesai: 3, Dibatalkan: 0 };
+
+export interface OrderTimeline {
+  stages: TimelineStage[];
+  cancelled: boolean;
+  cancelLabel?: string;
+}
+
+export function buildOrderTimeline(order: Order): OrderTimeline {
+  if (order.status === "Dibatalkan") {
+    return { stages: [], cancelled: true, cancelLabel: order.nativeStatus === "Ditolak" ? "Ditolak" : "Dibatalkan" };
+  }
+  let labels: string[];
+  let idx: number;
+  if (order.type === "Resep" && order.nativeStatus) {
+    labels = RESEP_STAGES; idx = RESEP_IDX[order.nativeStatus] ?? 0;
+  } else if (order.type === "Lab" && order.nativeStatus) {
+    labels = LAB_STAGES; idx = LAB_IDX[order.nativeStatus] ?? 0;
+  } else {
+    labels = GENERIC_STAGES; idx = GENERIC_IDX[order.status] ?? 0;
+  }
+  const last = labels.length - 1;
+  return {
+    cancelled: false,
+    stages: labels.map((label, i) => ({
+      label,
+      state: i < idx ? "done" : i === idx ? (i === last ? "done" : "current") : "pending",
+    })),
+  };
+}
+
+/** Label tanggal+jam createdAt untuk stage pertama Timeline. */
+export function orderCreatedLabel(order: Order): string | null {
+  if (!order.createdAtISO) return null;
+  return `${fmtTanggal(order.createdAtISO)} · ${fmtJam(order.createdAtISO)}`;
 }
 
 // ── Mock data ─────────────────────────────────────────────

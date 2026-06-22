@@ -40,6 +40,7 @@ function toItemDTO(i: ItemEntity): ResepItemDTO {
     durasiHari: i.durasiHari,
     keterangan: i.keterangan ?? null,
     isHAM: i.isHAM,
+    harga: i.harga ?? null,
   };
 }
 
@@ -182,6 +183,7 @@ export function makeResepService(deps: { dal?: Dal; clock?: Clock } = {}) {
         durasiHari: it.durasiHari,
         keterangan: it.keterangan ?? null,
         isHAM: it.isHAM,
+        harga: it.harga ?? null,
       })),
     });
     return toDTO(row);

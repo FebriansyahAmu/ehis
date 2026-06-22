@@ -69,6 +69,8 @@ interface ResepItem {
   keterangan: string;
   kategori: KategoriObat;
   isHAM: boolean;
+  /** Harga satuan (Rp) snapshot dari katalog Obat (0/absen = tak diketahui/obat manual). */
+  harga?: number;
   historyItemId?: string;
 }
 
@@ -957,6 +959,7 @@ const EMPTY_FORM = {
   keterangan: "",
   kategori: "Reguler" as KategoriObat,
   isHAM: false,
+  harga: 0,
 };
 
 // ── Main component ────────────────────────────────────────
@@ -1073,6 +1076,7 @@ export default function ResepPasienTab({
       dosis: `${obat.dosis} ${obat.satuan}`,
       kategori: obat.kategori,
       isHAM: obat.isHAM ?? false,
+      harga: obat.harga ?? 0,
     }));
   };
 
@@ -1123,6 +1127,7 @@ export default function ResepPasienTab({
       keterangan: it.keterangan ?? "",
       kategori: it.kategori as KategoriObat,
       isHAM: it.isHAM,
+      harga: it.harga ?? undefined,
     }));
     setItems((prev) => [...prev, ...newItems]);
     toast.success("Disalin ke resep", `${newItems.length} item dari order ${o.depoNama}`);
@@ -1234,6 +1239,7 @@ export default function ResepPasienTab({
             kategori: it.kategori,
             keterangan: it.keterangan || undefined,
             isHAM: it.isHAM,
+            harga: it.harga || undefined,
           })),
         });
         setSignedOrder(buildCetakData(

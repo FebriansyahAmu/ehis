@@ -7,10 +7,11 @@ export default function DaftarOrderTab({ patient }: { patient: RawatInapPatientD
   return (
     <SharedDaftarOrderTab
       patient={{
-        noRM:    patient.noRM,
-        name:    patient.name,
-        dpjp:    patient.dpjp,
-        konteks: "rawat-inap",
+        noRM:        patient.noRM,
+        name:        patient.name,
+        dpjp:        patient.dpjp,
+        kunjunganId: patient.id,
+        konteks:     "rawat-inap",
       }}
     />
   );

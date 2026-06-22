@@ -69,6 +69,7 @@ export function makeFormulariumService(deps: { dal?: Dal } = {}) {
         golongan: o.golongan ?? null,
         isHAM: o.isHAM,
         efekSamping: o.efekSamping ?? null,
+        hargaSatuan: o.hargaSatuan ?? null,
         bza,
         ruanganKodes: [r.location.kode],
       });

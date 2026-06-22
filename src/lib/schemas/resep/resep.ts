@@ -25,6 +25,7 @@ export const ResepItemInput = z.object({
   durasiHari: z.coerce.number().int().min(0).max(365).default(1),
   keterangan: optStr,
   isHAM: z.boolean().default(false),
+  harga: z.coerce.number().int().min(0).max(2_000_000_000).nullish(), // snapshot harga satuan saat order
 });
 export type ResepItemInput = z.infer<typeof ResepItemInput>;
 
@@ -164,6 +165,8 @@ export interface ResepItemDTO {
   durasiHari: number;
   keterangan: string | null;
   isHAM: boolean;
+  /** Snapshot harga satuan (Rp) saat order. null = belum bertarif. Biaya baris = harga × jumlah. */
+  harga: number | null;
 }
 
 export interface ResepOrderDTO {

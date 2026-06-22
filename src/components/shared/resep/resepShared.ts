@@ -32,6 +32,8 @@ export interface ObatCatalog {
   stok:     number;
   kategori: KategoriObat;
   isHAM?:   boolean;
+  /** Harga satuan (Rp) dari katalog Obat — snapshot tarif saat order. Absen utk katalog mock. */
+  harga?:   number;
   /** Status stok di depo terpilih (overlay advisory). Absen → badge tak ditampilkan. */
   stokStatus?: StokKlinisStatus;
 }
@@ -146,6 +148,7 @@ export function obatTersediaToCatalog(o: ObatTersediaDTO): ObatCatalog {
     stok: 0,
     kategori,
     isHAM: o.isHAM,
+    harga: o.hargaSatuan ?? undefined,
   };
 }
 
