@@ -175,6 +175,7 @@ model Kunjungan {
   serahTerima              SerahTerima[]
   resepOrder               ResepOrder[]
   labOrder                 LabOrder[]
+  radOrder                 RadOrder[]
   disposisiRiwayat         Disposisi[]
 
   // ── Tautan invoice (1:1, dibuat saat Registered→Queued) ──

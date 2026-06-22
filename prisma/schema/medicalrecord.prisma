@@ -1225,6 +1225,133 @@ model LabResultValue {
   @@schema("medicalrecord")
 }
 
+// ── Order Radiologi (tab Order Rad — order pemeriksaan radiologi per kunjungan → Radiologi) ──
+//  1 order = header (tujuan unit Radiologi + prioritas + klinis/indikasi + penulis) + items[] (baris
+//  pemeriksaan). Mirror FE OrderRadTab + alur LabOrder. Order append-only (immutable; koreksi =
+//  soft-delete + order baru). status/prioritas MUTABLE → workflow Rad (Menunggu→Diterima→…→Selesai/Ditolak).
+//  Rad tujuan = snapshot kode+nama Location kategori "Radiologi". Item snapshot katalog master.RadCatalog
+//  (kode/nama/modalitas/region/TAT/persiapan/harga). Selaras LabOrder.
+
+model RadOrder {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Tujuan unit Radiologi (snapshot Location) ──
+  radKode String? @map("rad_kode") // Location.kode kategori Radiologi
+  radNama String  @map("rad_nama") // nama unit rad tujuan (tampil)
+
+  catatan   String? // klinis & indikasi
+  prioritas String  @default("Rutin")    // CITO/Segera/Rutin
+  status    String  @default("Menunggu") // workflow Rad
+
+  // ── Penulis order (DPJP) snapshot ──
+  penulis         String
+  penulisKontak   String? @map("penulis_kontak")
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  items   RadOrderItem[]
+  results RadResult[]
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt])
+  @@index([radKode, status])
+  @@map("rad_order")
+  @@schema("medicalrecord")
+}
+
+model RadOrderItem {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  radOrderId String   @map("rad_order_id") @db.Uuid
+  order      RadOrder @relation(fields: [radOrderId], references: [id], onDelete: Cascade)
+
+  // ── Snapshot katalog (master.RadCatalog saat order; radCatalogId nullable = ad-hoc/manual) ──
+  radCatalogId String? @map("rad_catalog_id") @db.Uuid
+  kode         String  // RAD-NNNN snapshot
+  nama         String
+  modalitas    String  @default("") // method FHIR snapshot (XR/CT/MR/RF/US/MG/DXA/NM)
+  region       String  @default("")
+  waktuTunggu  String? @map("waktu_tunggu")
+  persiapan    String? // ringkasan persiapan pasien
+  harga        Int? // snapshot tarif (rupiah) saat order; null = belum bertarif
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([radOrderId])
+  @@map("rad_order_item")
+  @@schema("medicalrecord")
+}
+
+// ── Hasil Radiologi (tab Entry Hasil — ekspertise/bacaan radiolog per pemeriksaan) ──
+//  1 rad_result = 1 sesi ekspertise utk 1 rad_order. APPEND-ONLY "latest wins": koreksi = baris baru
+//  (revisi); terbaru (createdAt) = bacaan berlaku. Saat tersimpan, status RadOrder → "Divalidasi"
+//  (transisi atomik dari Diterima/Diperiksa, di Service) → menunggu validasi radiolog. items[] = baris
+//  per pemeriksaan (temuan/kesan narasi, snapshot katalog). criticalNotifs (ACR critical results) =
+//  JSONB snapshot konfirmasi ke dokter pengirim. Radiolog = actor (user login). Selaras LabResult.
+
+model RadResult {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  radOrderId  String   @map("rad_order_id") @db.Uuid
+  order       RadOrder @relation(fields: [radOrderId], references: [id], onDelete: Cascade)
+  kunjunganId String   @map("kunjungan_id") @db.Uuid // denormalisasi (FHIR encounter ref)
+
+  // ── Pelaksana ──
+  radiografer     String? // pelaksana akuisisi citra (opsional)
+  radiolog        String  // pembaca/ekspertise (dari actor)
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  catatan String?
+
+  // ── Notifikasi temuan kritis = JSONB array (snapshot konfirmasi ke dokter pengirim, ACR) ──
+  criticalNotifs Json? @map("critical_notifs")
+
+  // ── Validasi (radiolog) — stamp sekali saat order Divalidasi → Selesai (rilis hasil) ──
+  validator        String?   @map("validator")
+  validatorUserId  String?   @map("validator_user_id") @db.Uuid
+  catatanValidator String?   @map("catatan_validator")
+  validatedAt      DateTime? @map("validated_at") @db.Timestamptz(3)
+
+  items RadResultItem[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([radOrderId, createdAt])
+  @@map("rad_result")
+  @@schema("medicalrecord")
+}
+
+model RadResultItem {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  radResultId String    @map("rad_result_id") @db.Uuid
+  result      RadResult @relation(fields: [radResultId], references: [id], onDelete: Cascade)
+
+  // ── Snapshot pemeriksaan (link ke item order; nullable = manual) ──
+  radOrderItemId String? @map("rad_order_item_id") @db.Uuid
+  rowKey         String  @map("row_key")
+  kode           String  // snapshot kode pemeriksaan
+  nama           String  // nama pemeriksaan
+  modalitas      String  @default("") // snapshot method FHIR
+
+  proyeksi String? // mis. "PA", "AP + Lateral"
+  temuan   String? // deskripsi / temuan (narasi)
+  kesan    String? // kesimpulan / kesan
+
+  urutan Int @default(0)
+
+  @@index([radResultId])
+  @@map("rad_result_item")
+  @@schema("medicalrecord")
+}
+
 // ── Informed Consent (tab IC — persetujuan tindakan kedokteran, PMK 290/2008) ──
 //  Daftar hidup per-item: 1 baris = 1 formulir persetujuan (per tindakan). Tambah = INSERT,
 //  hapus = soft-delete (entered-in-error, jejak medico-legal). IMMUTABLE setelah dibuat

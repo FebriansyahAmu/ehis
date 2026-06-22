@@ -12,6 +12,37 @@
 
 ---
 
+## ✅ Selesai — Kontrak Order Radiologi + Hasil (mirror Lab) (2026-06-22)
+
+Fondasi data-contract untuk alur **Order Radiologi → Worklist → Entry Hasil (ekspertise) → Validasi**, persis pola Laboratorium (ASSIGNMENT-RULES + API-RULES). **Belum** ada DAL/Service/route/FE — ini layer kontrak saja; implementasi menyusul.
+
+- **Prisma models** (migrasi drift-safe `20260622130000_init_medicalrecord_rad_order_result`, 4 tabel):
+  - `RadOrder` (header: radKode/radNama Location Radiologi + prioritas + klinis/indikasi + penulis + author; status workflow; soft-delete) + `RadOrderItem` (snapshot katalog: kode/nama/**modalitas FHIR**/region/TAT/persiapan/harga).
+  - `RadResult` (ekspertise: radiografer + **radiolog** pembaca + catatan + **criticalNotifs JSONB** ACR + **validasi** radiolog stamp; append-only "latest wins") + `RadResultItem` (per pemeriksaan: proyeksi + **temuan + kesan** narasi). Beda dari Lab: hasil rad = narasi temuan/kesan, bukan nilai parameter.
+  - Back-relation `radOrder RadOrder[]` di `encounter.Kunjungan`.
+- **Zod + DTO** [schemas/rad/radOrder.ts](../src/lib/schemas/rad/radOrder.ts) (RadItemInput/RadOrderInput/RadCancelParams/RadOrderIdParam/RadWorklistQuery + RadOrderItemDTO/RadOrderDTO/**RadPetugasDTO**/RadOrderWorklistDTO) · [schemas/rad/radResult.ts](../src/lib/schemas/rad/radResult.ts) (RadCriticalNotifInput/RadResultItemInput/SaveRadResultInput/ValidateRadResultInput + RadResultItemDTO/RadResultDTO). Mirror schemas/lab/*.
+- **API client** [api/rad/radOrder.ts](../src/lib/api/rad/radOrder.ts) (list/create/cancel/worklist/get/receive) · [api/rad/radResult.ts](../src/lib/api/rad/radResult.ts) (get/getForKunjungan/save/validate). Endpoint target: `/kunjungan/:id/rad` · `/rad/orders[...]` · `/rad/orders/:id/hasil|validasi` (belum dibuat).
+- **SDM Assignment** [services/rad/radAssignment.ts](../src/lib/services/rad/radAssignment.ts) — mirror labAssignment per ASSIGNMENT-RULES: `radRoster` (`LocationType.Radiologi`), `assertActorAssignedToRad` (penerima/radiografer/radiolog), `resolveValidatorNama` (validator = **radiolog** ter-assign, anti-spoof), bypass `isSuperuser||isGlobal`. ASSIGNMENT-RULES §7 → Radiologi 🟡 (helper siap, enforcement menyusul).
+- **Verifikasi**: 4 tabel `rad_*` ada di DB · `prisma generate` OK · tsc bersih (app code) · ESLint 0 problem pada file rad baru.
+- **Follow-up (mirror Lab):** DAL (radOrderDal/radResultDal) · Service (radOrderService/radResultService + transisi atomik + assignment enforcement) · routes (`/kunjungan/:id/rad`, `/rad/orders/*`, hasil/validasi, `/rad/orders/:id/petugas`) · RBAC role `ancillary.rad.*` (Radiografer/Radiolog) · FE wiring OrderRadTab persist + Riwayat + worklist Rad.
+
+---
+
+## ✅ Selesai — Order Radiologi LIVE: buat order → Radiologi Terima (2026-06-22)
+
+Slice operasional "bisa terima order" (mirror Lab sampai receive). Order dari klinis tersimpan ke DB & dapat diterima unit Radiologi. **RBAC `ancillary.rad.worklist` (read/update) sudah ter-seed** ke Radiografer + SpRad (tak perlu migrasi RBAC).
+
+- **DAL** [radOrderDal](../src/lib/dal/rad/radOrderDal.ts) — create (header+items) · listByKunjungan · findById · findByIdWithKunjungan (join pasien) · listForRad (worklist) · receive (guard `status=Menunggu`) · cancel · transition · softDelete. Mirror labOrderDal.
+- **Service** [radOrderService](../src/lib/services/rad/radOrderService.ts) — create (status awal IGD/RI=`Menunggu`, RJ=`Diterima`; penulis dari input/actor) · list · listForRad · getRadOne · **receive (`assertActorAssignedToRad` — penerima HARUS ter-assign Radiologi, superuser/global bypass)** · listPetugas (roster) · cancel. Map entity→DTO. Mirror labOrderService.
+- **Routes** (mirror lab): `GET/POST /api/v1/kunjungan/:id/rad` + `POST /:radId/cancel` (gate **`clinical.tindakan`**, ABAC careUnit) · `GET /api/v1/rad/orders` (worklist) · `GET /:id` · `POST /:id/receive` · `GET /:id/petugas` (gate **`ancillary.rad.worklist`**, `scopeKunjungan:false`).
+- **FE OrderRadTab** ([shared](../src/components/shared/medical-records/OrderRadTab.tsx)) — `kunjunganId` di-thread dari wrapper IGD/RI/RJ; submit saat UUID → `createRadOrder` (radNama "Radiologi", item bawa `radCatalogId`+modalitas FHIR+region+harga snapshot) → Order Aktif dari DB (`listRadOrders` + `mapDbRadOrderToActive`); Batalkan → `cancelRadOrder`; tombol loading state. Pasien demo (non-UUID) tetap lokal (mock).
+- **FE Rad worklist** — [RadInbox](../src/components/rad/RadInbox.tsx) (DB) di [RadPageView](../src/components/rad/RadPageView.tsx): panel "Order Masuk dari Klinis" (Belum Diterima + Sudah Diterima) + tombol **Terima** (`receiveRadOrder`) + badge pending beranimasi di tab Worklist. **Board mock lama (`RadBoard`) tetap di bawah** utk workflow demo (akuisisi/ekspertise/validasi) — belum DB.
+- **ASSIGNMENT-RULES §7 → Radiologi ✅** (receive enforced).
+- **Verifikasi**: smoke test data-layer (kunjungan nyata) — CREATE → WORKLIST join → RECEIVE (Menunggu→Diterima) → guard idempoten (receive ke-2 = 0 baris) → cascade delete item, semua lulus. tsc bersih (app code) · ESLint 0 error (warning pre-existing). **Catatan:** roster Radiologi masih kosong → Terima hanya jalan utk Admin (bypass); assign Radiografer ke ruangan Radiologi via Mapping Hub → SDM Assignment agar bisa Terima sebagai Radiografer.
+- **Sisa (mirror Lab):** Entry Hasil (ekspertise temuan/kesan) + Validasi radiolog → radResultDal/Service/route + lifecycle penuh di RadBoard (DB) + Riwayat hasil rad di tab klinis.
+
+---
+
 ## ✅ Selesai — Tab Klinis Order Radiologi: katalog DB ter-assign + hapus Panduan (2026-06-22)
 
 Tab **Order Radiologi** (shared IGD/RI/RJ) kini ambil katalog dari **DB** (pemeriksaan ter-assign ke ruangan Radiologi), persis pola tab Order Lab — bukan lagi seed statis.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import {
   Search, X, User, Building2, Calendar,
   Clock, Stethoscope, ChevronDown, ChevronRight, Printer,
@@ -9,12 +9,19 @@ import {
   Microscope, Layers, Check, Send, Loader2, ServerCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
 import type { RadModalitas } from "@/lib/master/radCatalogMock";
 import { listRadCatalogTersedia, type RadCatalogTersediaDTO } from "@/lib/api/master/radCatalogTersedia";
+import { createRadOrder, listRadOrders, cancelRadOrder, type RadOrderDTO } from "@/lib/api/rad/radOrder";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Normalized patient interface ──────────────────────────
 
 export interface OrderRadPatient {
+  /** kunjunganId — UUID → persist order ke DB (medicalrecord.RadOrder → worklist Rad); selain itu lokal (mock). */
+  kunjunganId?: string;
   doctor:       string;
   name:         string;
   noRM:         string;
@@ -53,6 +60,9 @@ interface RadTest {
   kode: string;
   nama: string;
   modalitas: ModalitasRad;
+  /** Method FHIR asli (XR/CT/…) untuk snapshot DB; display = `modalitas`. */
+  modalitasFhir?: string;
+  region?: string;
   waktuTunggu: string;
   persiapan?: string;
   /** Harga (Rp) dari Tarif Matrix utk tier unit pengirim; absen bila belum bertarif. */
@@ -61,9 +71,12 @@ interface RadTest {
 
 interface OrderItem {
   id: string;
+  radCatalogId?: string;
   kode: string;
   nama: string;
   modalitas: ModalitasRad;
+  modalitasFhir?: string;
+  region?: string;
   waktuTunggu: string;
   persiapan?: string;
   harga?: number;
@@ -129,9 +142,46 @@ function dtoToRadTest(d: RadCatalogTersediaDTO): RadTest {
     kode: d.kode,
     nama: d.nama,
     modalitas: MODALITAS_DISPLAY_MAP[d.modalitas],
+    modalitasFhir: d.modalitas,
+    region: d.region,
     waktuTunggu: d.waktuTunggu ?? "—",
     persiapan: d.persiapan ?? undefined,
     harga: d.harga ?? undefined,
+  };
+}
+
+// ── DB RadOrderDTO → ActiveOrder (Order Aktif dari DB) ────
+const DB_STATUS_TO_ACTIVE: Record<string, StatusOrder> = {
+  Menunggu: "Menunggu", Diterima: "Diterima", Diperiksa: "Diproses",
+  Divalidasi: "Diproses", Selesai: "Selesai", Ditolak: "Dibatalkan", Dibatalkan: "Dibatalkan",
+};
+
+function dbModalitasToDisplay(fhir: string): ModalitasRad {
+  return MODALITAS_DISPLAY_MAP[fhir as RadModalitas] ?? "X-Ray";
+}
+
+function mapDbRadOrderToActive(d: RadOrderDTO): ActiveOrder {
+  const dt = new Date(d.createdAt);
+  return {
+    id: d.id,
+    noOrder: `RAD-${d.id.slice(0, 8).toUpperCase()}`,
+    tanggal: dt.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }),
+    jam: dt.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+    dokter: d.penulis,
+    status: DB_STATUS_TO_ACTIVE[d.status] ?? "Menunggu",
+    catatan: d.prioritas === "CITO" ? (d.catatan ? `CITO — ${d.catatan}` : "CITO") : (d.catatan ?? undefined),
+    items: d.items.map((it) => ({
+      id: it.id,
+      radCatalogId: it.radCatalogId ?? undefined,
+      kode: it.kode,
+      nama: it.nama,
+      modalitas: dbModalitasToDisplay(it.modalitas),
+      modalitasFhir: it.modalitas,
+      region: it.region,
+      waktuTunggu: it.waktuTunggu ?? "—",
+      persiapan: it.persiapan ?? undefined,
+      harga: it.harga ?? undefined,
+    })),
   };
 }
 
@@ -790,16 +840,38 @@ function ActiveOrderCard({
 // ── Main component ────────────────────────────────────────
 
 export default function OrderRadTab({ patient }: { patient: OrderRadPatient }) {
+  const kunjunganId = patient.kunjunganId;
+  const isPersisted = !!kunjunganId && UUID_RE.test(kunjunganId);
+
   const [orderItems, setOrderItems]     = useState<OrderItem[]>([]);
   const [catatan, setCatatan]           = useState("");
   const [priority, setPriority]         = useState<"Rutin" | "Cito">("Rutin");
   const [submitted, setSubmitted]       = useState(false);
+  const [sending, setSending]           = useState(false);
   const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>(
-    ACTIVE_ORDERS_MOCK[patient.noRM] ?? [],
+    isPersisted ? [] : ACTIVE_ORDERS_MOCK[patient.noRM] ?? [],
   );
   const [catalog, setCatalog]           = useState<RadTest[]>([]);
   const [loading, setLoading]           = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+
+  // Order Aktif dari DB (kunjungan UUID). Pasien demo (non-UUID) → mock lokal.
+  const refetchOrders = useCallback(async (signal?: AbortSignal) => {
+    if (!isPersisted || !kunjunganId) return;
+    try {
+      const rows = await listRadOrders(kunjunganId, signal);
+      if (!signal?.aborted) setActiveOrders(rows.map(mapDbRadOrderToActive));
+    } catch {
+      /* diam — pertahankan daftar yang ada */
+    }
+  }, [isPersisted, kunjunganId]);
+
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    void refetchOrders(ac.signal);
+    return () => ac.abort();
+  }, [isPersisted, refetchOrders]);
 
   // Muat katalog pemeriksaan ter-assign (Radiologi) sekali saat mount. Harga via tier unit pengirim.
   // setState dijalankan pasca-await → hindari set-state-in-effect sinkron.
@@ -849,9 +921,12 @@ export default function OrderRadTab({ patient }: { patient: OrderRadPatient }) {
       ...prev,
       {
         id: `roi-${Date.now()}-${test.kode}`,
+        radCatalogId: test.id,
         kode: test.kode,
         nama: test.nama,
         modalitas: test.modalitas,
+        modalitasFhir: test.modalitasFhir,
+        region: test.region,
         waktuTunggu: test.waktuTunggu,
         persiapan: test.persiapan,
         harga: test.harga,
@@ -861,13 +936,58 @@ export default function OrderRadTab({ patient }: { patient: OrderRadPatient }) {
 
   const removeTest = (id: string) => setOrderItems((prev) => prev.filter((i) => i.id !== id));
 
-  const cancelOrder = (orderId: string) =>
+  // Batalkan order — DB (UUID) → API nyata (hanya saat Menunggu) + refetch; mock → update lokal.
+  const cancelOrder = async (orderId: string) => {
+    if (isPersisted && kunjunganId) {
+      try {
+        await cancelRadOrder(kunjunganId, orderId);
+        toast.success("Order radiologi dibatalkan");
+        await refetchOrders();
+      } catch (e) {
+        toast.error("Gagal membatalkan order", e instanceof ApiError ? e.message : undefined);
+      }
+      return;
+    }
     setActiveOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: "Dibatalkan" as StatusOrder } : o)),
     );
+  };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (orderItems.length === 0) return;
+
+    // Kunjungan terpersist (UUID) → simpan ke DB (medicalrecord.RadOrder → worklist Rad).
+    if (isPersisted && kunjunganId) {
+      setSending(true);
+      try {
+        await createRadOrder(kunjunganId, {
+          radNama: "Radiologi",
+          catatan: catatan || undefined,
+          prioritas: priority === "Cito" ? "CITO" : "Rutin",
+          penulis: patient.doctor,
+          items: orderItems.map((it) => ({
+            radCatalogId: it.radCatalogId,
+            kode: it.kode,
+            nama: it.nama,
+            modalitas: it.modalitasFhir ?? "",
+            region: it.region ?? "",
+            waktuTunggu: it.waktuTunggu || undefined,
+            persiapan: it.persiapan || undefined,
+            harga: it.harga ?? undefined,
+          })),
+        });
+      } catch (e) {
+        setSending(false);
+        toast.error("Gagal mengirim order", e instanceof ApiError ? e.message : undefined);
+        return;
+      }
+      setSending(false);
+      await refetchOrders();
+      setSubmitted(true);
+      return;
+    }
+
+    // Pasien demo (non-UUID) → order lokal (mock).
     const newOrder: ActiveOrder = {
       id: `ao-rad-${Date.now()}`,
       noOrder: `RAD/2026/04/${String(Math.floor(Math.random() * 900) + 100).padStart(4, "0")}`,
@@ -1231,14 +1351,14 @@ export default function OrderRadTab({ patient }: { patient: OrderRadPatient }) {
           </button>
           <button
             onClick={handleSubmit}
-            disabled={orderItems.length === 0}
+            disabled={orderItems.length === 0 || sending}
             className={cn(
               "flex items-center gap-1.5 rounded-lg px-5 py-2 text-xs font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-40",
               priority === "Cito" ? "bg-rose-600 hover:bg-rose-700" : "bg-sky-600 hover:bg-sky-700",
             )}
           >
-            <Send size={13} />
-            {priority === "Cito" ? "Kirim Order CITO" : "Kirim Order ke Radiologi"}
+            {sending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+            {sending ? "Mengirim…" : priority === "Cito" ? "Kirim Order CITO" : "Kirim Order ke Radiologi"}
           </button>
         </div>
       </div>

@@ -96,5 +96,5 @@ bukan 403 generik — supaya petugas tahu remedi-nya.
 | Unit | Aksi ter-enforce SDM | Catatan |
 |---|---|---|
 | **Lab** ✅ (2026-06-21) | `receive` · `saveHasil` (analis) · `validate` (validator dipilih) | [labAssignment.ts](../src/lib/services/lab/labAssignment.ts) |
-| Radiologi | 📋 belum | pola sama (`radAssignment.ts`, `LocationType.Radiologi`) |
+| **Radiologi** ✅ (2026-06-22) | `receive` (penerima ter-assign Radiologi) — enforce via `assertActorAssignedToRad` di `radOrderService.receive` | [radAssignment.ts](../src/lib/services/rad/radAssignment.ts); Entry Hasil/Validasi menyusul (radResult) |
 | Farmasi | 📋 belum | dispensing/telaah; `LocationType.Farmasi` |

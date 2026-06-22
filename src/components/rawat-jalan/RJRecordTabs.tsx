@@ -207,6 +207,7 @@ export default function RJRecordTabs({ patient }: { patient: RJPatientDetail }) 
               unitPengirim: patient.poli.replace(/_/g, " "),
             }} />)}
             {active === "order-rad" && withIdentitas(<OrderRadTab patient={{
+              kunjunganId:  patient.id,
               doctor:       patient.dokter,
               name:         patient.name,
               noRM:         patient.noRM,

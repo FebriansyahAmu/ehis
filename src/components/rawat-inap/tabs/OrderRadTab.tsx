@@ -7,6 +7,7 @@ export default function OrderRadTab({ patient }: { patient: RawatInapPatientDeta
   return (
     <SharedOrderRadTab
       patient={{
+        kunjunganId:  patient.id,
         doctor:       patient.dpjp,
         name:         patient.name,
         noRM:         patient.noRM,
