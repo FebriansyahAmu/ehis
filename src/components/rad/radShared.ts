@@ -108,6 +108,13 @@ export interface PersiapanData {
   verified:  boolean;
 }
 
+/** Radiografer pelaksana akuisisi. Bisa >1 (DICOM Operators' Name VM 1-n) — mis. CT/intervensi
+ *  yang ditangani operator konsol + asisten. `pegawaiId` = referensi SDM (kosong utk entri mock lama). */
+export interface RadiograferRef {
+  pegawaiId: string;
+  nama:      string;
+}
+
 export interface AkuisisiData {
   // CT
   kvp?:       number;
@@ -123,7 +130,7 @@ export interface AkuisisiData {
   kv?:        number;
   mAs?:       number;
   // Common
-  radiografer: string;
+  radiografer: RadiograferRef[];
   operator?:   string;
   proteksi:    ProteksiChecklist;
   dosis?:      DosisLog;
@@ -344,7 +351,7 @@ const ORDERS_BASE: RadOrder[] = [
     },
     akuisisi: {
       kvp: 120, mas: 250, fov: "36 cm", slice: "1.25 mm",
-      radiografer: "Rina Wulandari, AMR",
+      radiografer: [{ pegawaiId: "", nama: "Rina Wulandari, AMR" }],
       proteksi: { apron: false, collar: false, gonadShield: false },
       dosis: { ctdiVol: 18.4, dlp: 620, drlCtdiVol: 30, drlDlp: 900 },
       isDone: true,
@@ -413,7 +420,7 @@ const ORDERS_BASE: RadOrder[] = [
     akuisisi: {
       probe: "Linear 7.5 MHz",
       frekuensi: "7.5 MHz",
-      radiografer: "Agus Prabowo, AMR",
+      radiografer: [{ pegawaiId: "", nama: "Agus Prabowo, AMR" }],
       proteksi: { apron: false, collar: false, gonadShield: false },
       isDone: true,
     },

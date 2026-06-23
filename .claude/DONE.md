@@ -12,6 +12,35 @@
 
 ---
 
+## ✅ Selesai — Akuisisi & Dosis Radiologi: form picker + persist DB (OPSIONAL) (2026-06-23)
+
+- **Form akuisisi disempurnakan** ([AkuisisiPane](../src/components/rad/tabs/AkuisisiPane.tsx)) — waktu Mulai/Selesai pakai [DateTimePicker](../src/components/shared/inputs/DateTimePicker.tsx) global (tanpa auto-fill); **radiografer = multi-select** [RadiograferPicker](../src/components/rad/RadiograferPicker.tsx) (accent teal, chip+toggle) dari **roster ter-assign Radiologi** (`useRadRoster`), default = user login (diderivasi via `useMemo`, bukan setState-in-effect), nama diturunkan dari roster (anti-spoof).
+- **Sadar radiasi pengion** — helper `isIonizing = mod ∉ {USG, MRI}`: log Dosis + checklist Proteksi Radiasi + DRL/ALARA hanya muncul utk modalitas pengion; USG/MRI tampil "Tanpa Radiasi Pengion". Parameter Teknis (probe/frekuensi) tetap utk USG.
+- **OPSIONAL** — tak ada field wajib (`canSubmit = !done`); badge "OPSIONAL"; tombol "Lewati Akuisisi → Expertise" bila kosong.
+- **Kontrak baru `medicalrecord.RadAkuisisi`** (append-only "latest wins", migrasi drift-safe `20260623140000`) — `radiografer`/`paramTeknis`/`proteksi`/`dosis` = JSONB (variatif per modalitas; dosis & proteksi NULL utk non-pengion); `mulaiAt`/`selesaiAt`. Relasi `RadOrder.akuisisi[]`.
+- **Layered** — [schemas/rad/radAkuisisi.ts](../src/lib/schemas/rad/radAkuisisi.ts) (Zod SaveRadAkuisisiInput + DTO) · [radAkuisisiDal](../src/lib/dal/rad/radAkuisisiDal.ts) · [radAkuisisiService](../src/lib/services/rad/radAkuisisiService.ts) (`getAkuisisi`/`saveAkuisisi`; guard status ∈ {Diterima,Diperiksa} · transisi opsional Diterima→Diperiksa atomik · **SDM Assignment** `assertActorAssignedToRad`) · route `GET/POST /rad/orders/:id/akuisisi` (gate `ancillary.rad.worklist` read/update, scopeKunjungan:false) · API client [radAkuisisi.ts](../src/lib/api/rad/radAkuisisi.ts).
+- **Wired FE** — [RadOrderWorkspace](../src/components/rad/RadOrderWorkspace.tsx) fetch `getRadAkuisisi` (paralel hasil) → `toAkuisisi` → `order.akuisisi` + timestamps; AkuisisiPane submit → `saveRadAkuisisi` (toast, `updateRadWorkflow` mock dilepas).
+- **Verifikasi**: tsc 0 error · ESLint 0 error (hanya warn `_actor` konvensi) · smoke DB (12 kolom + JSONB round-trip OK, rollback).
+
+---
+
+## ✅ Selesai — Worklist Card-Grid + Detail Order Radiologi DB-driven (desain dipertahankan) (2026-06-23)
+
+Dua permintaan: (1) worklist order jadi **grid kartu**, (2) Detail Order dengan pengisian **ekspertise** memakai **desain mock asli** (tak diubah) — hanya data/kontrak/endpoint disambungkan ke DB.
+
+- **Worklist card-grid** — [RadInbox](../src/components/rad/RadInbox.tsx) "Belum Diterima" & "Dalam Pengerjaan" dari list vertikal → **grid responsif** (`grid-cols-1 sm:grid-cols-2 xl:grid-cols-3`); kartu "Dalam Pengerjaan" → `Link` ke detail order.
+- **Detail Order DB-driven, desain dipertahankan** — desain lama (`RadOrderHeader` + `RadOrderTabs` 8 pane) **tidak diubah**; data dipetakan dari DB:
+  - [RadOrderWorkspace](../src/components/rad/RadOrderWorkspace.tsx) (client) fetch `getRadOrder` + `getRadResult` → `mapToRadOrder` (petakan enum DB status/modalitas/prioritas/unit → vokabuler desain; hasil DB → `ekspertasi`/`validasi` shape) → render header + tabs; `refresh` reload-counter.
+  - `RadOrderTabs` jadi **controlled** (`order` + `onRefresh`, bukan `initialOrder`+getRadOrderById mock). Detail page → `<RadOrderWorkspace id />`.
+- **Kontrak RadResult disesuaikan ke desain** (laporan tunggal, bukan per-item) — kolom additif `indikasi_klinis/teknik/temuan/kesan/saran/radiolog_sip` (migrasi drift-safe `20260623120000`, tabel kosong; `rad_result_item` ditinggalkan); `critical_notifs` JSONB simpan `CriticalFinding[]`; `radiolog`=spradNama. Rewrite [schemas/rad/radResult.ts](../src/lib/schemas/rad/radResult.ts) (SaveRadResultInput + `finalize` flag, ValidateRadResultInput, RadResultDTO single-report). 
+- **Backend** [radResultDal](../src/lib/dal/rad/radResultDal.ts) (append-only) + [radResultService](../src/lib/services/rad/radResultService.ts) (`saveHasil` finalize=false draft / finalize=true → transisi Diterima/Diperiksa→Divalidasi atomik · `validate` → Divalidasi→Selesai · SDM Assignment `assertActorAssignedToRad` aktor) + routes `GET/POST /rad/orders/:id/hasil` · `POST /:id/validasi` (gate `ancillary.rad.expertise`) · `GET /kunjungan/:id/rad/:radId/hasil` (klinis).
+- **Pane wired (desain utuh)** — `EkspertasiPane` Simpan Draft/Terbitkan → `saveRadResult`; `ValidasiPane` → `validateRadResult` (validator nama free-text sesuai desain) + billing ingest client. `updateRadWorkflow` mock dilepas dari kedua pane.
+- **Verifikasi Identitas (SKP 1) selaras Lab** — [VerifikasiPane](../src/components/rad/tabs/VerifikasiPane.tsx) "Diterima Oleh" = **user login** (read-only, badge "user login", bukan input bebas) + **SDM Assignment guard** (`useRadRoster` + banner amber "Belum Ditugaskan ke Radiologi"); layout detail di-wrap `SessionProvider`; `useRadRoster`/`api/rad/radRoster.ts` di-recreate. Pola = Penerimaan Lab (penerima sesi; receive nyata tetap di worklist RadInbox). 
+- **Verifikasi**: tsc 0 error · ESLint 0 error · smoke DB (insert/read kolom baru + JSONB criticalFindings OK).
+- **Sisa**: pane Persiapan/Kontras/Viewer masih lokal (belum ada DB backing; Akuisisi ✅ persist 2026-06-23) · cetak hasil A4+QR TTE · klinis "Lihat Hasil" di RiwayatOrderRad.
+
+---
+
 ## ✅ Selesai — Kontrak Order Radiologi + Hasil (mirror Lab) (2026-06-22)
 
 Fondasi data-contract untuk alur **Order Radiologi → Worklist → Entry Hasil (ekspertise) → Validasi**, persis pola Laboratorium (ASSIGNMENT-RULES + API-RULES). **Belum** ada DAL/Service/route/FE — ini layer kontrak saja; implementasi menyusul.

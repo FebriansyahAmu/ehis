@@ -1,16 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Camera, CheckCircle2, ShieldAlert, AlertTriangle,
-  TrendingUp, TrendingDown, Minus, UserCheck,
+  TrendingUp, TrendingDown, Minus, UserCheck, Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/contexts/SessionContext";
+import { DateTimePicker } from "@/components/shared/inputs/DateTimePicker";
 import {
-  type RadOrder, type AkuisisiData, type DosisLog, type ProteksiChecklist,
-  updateRadWorkflow,
+  type RadOrder, type ProteksiChecklist, type RadiograferRef,
 } from "../radShared";
+import { useRadRoster } from "../useRadRoster";
+import RadiograferPicker from "../RadiograferPicker";
+import { saveRadAkuisisi, type SaveRadAkuisisiBody } from "@/lib/api/rad/radAkuisisi";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
 
 // ── DRL Gauge ─────────────────────────────────────────────
 
@@ -89,12 +95,30 @@ export default function AkuisisiPane({
   order, onStatusChange,
 }: { order: RadOrder; onStatusChange: () => void }) {
   const mod     = order.items[0]?.modalitas ?? "Konvensional";
+  // Radiasi pengion? USG (gelombang suara) & MRI (medan magnet + RF) TIDAK pakai radiasi → tanpa
+  // log dosis & tanpa proteksi radiasi (apron/collar). Selaras riset: dosis hanya modalitas pengion.
+  const isIonizing = mod !== "USG" && mod !== "MRI";
   const saved   = order.akuisisi;
   const isDone  = saved?.isDone ||
     ["Expertise", "Verifikasi_Hasil", "Selesai"].includes(order.status);
 
+  // Radiografer pelaksana — bisa >1, dari roster ter-assign Radiologi (SDM Assignment).
+  // Default = user login (bila ter-assign); user bisa override. Default DIDERIVASI (useMemo) bukan
+  // ditulis via effect → hindari setState-in-effect; `pick` = null artinya "belum disentuh".
+  const { session } = useSession();
+  const { petugas, loading: rosterLoading, isAssigned } = useRadRoster(order.id);
+  const [pick, setPick] = useState<string[] | null>(() => {
+    const ids = saved?.radiografer?.map((r) => r.pegawaiId).filter(Boolean) ?? [];
+    return ids.length ? ids : null;
+  });
+  const defaultIds = useMemo<string[]>(
+    () => (!saved && session?.pegawaiId && isAssigned(session.pegawaiId) ? [session.pegawaiId] : []),
+    [saved, session, isAssigned],
+  );
+  const radiograferIds = pick ?? defaultIds;
+  const setRadiograferIds = (ids: string[]) => setPick(ids);
+
   // Technical params
-  const [radiografer, setRadiografer] = useState(saved?.radiografer ?? "");
   const [kvp,  setKvp]  = useState(saved?.kvp?.toString() ?? "");
   const [mas,  setMas]  = useState(saved?.mas?.toString() ?? "");
   const [fov,  setFov]  = useState(saved?.fov ?? "");
@@ -118,14 +142,16 @@ export default function AkuisisiPane({
   const toggleProt = (key: keyof ProteksiChecklist) =>
     setProt((p) => ({ ...p, [key]: !p[key] }));
 
-  const [waktuMulai,   setWaktuMulai]   = useState(saved ? order.timestamps.akuisisiMulai?.slice(11, 16) ?? "" : "");
-  const [waktuSelesai, setWaktuSelesai] = useState(saved ? order.timestamps.akuisisiSelesai?.slice(11, 16) ?? "" : "");
+  // Waktu = DateTimePicker (kontrak "YYYY-MM-DDTHH:mm"). Default kosong (tanpa auto-fill); tombol
+  // "Sekarang" tersedia di picker. Init dari timestamp tersimpan bila order sudah selesai akuisisi.
+  const [waktuMulai,   setWaktuMulai]   = useState(saved ? order.timestamps.akuisisiMulai?.slice(0, 16) ?? "" : "");
+  const [waktuSelesai, setWaktuSelesai] = useState(saved ? order.timestamps.akuisisiSelesai?.slice(0, 16) ?? "" : "");
 
   const [loading, setLoading] = useState(false);
   const [done,    setDone]    = useState(isDone);
 
   // DRL reference values (PMK 1014/2008 Annex / IAEA)
-  const DRL: DosisLog = {
+  const DRL = {
     ctdiVol:     mod === "CT" ? 30 : undefined,
     dlp:         mod === "CT" ? 900 : undefined,
     drlCtdiVol:  mod === "CT" ? 30 : undefined,
@@ -135,47 +161,63 @@ export default function AkuisisiPane({
     drlEntrance:  mod === "Konvensional" ? 0.5 : mod === "Mammografi" ? 2.0 : undefined,
   };
 
-  const canSubmit = radiografer.trim().length >= 3 && !done;
+  // Akuisisi & Dosis = OPSIONAL — tidak ada field wajib; boleh dikonfirmasi/dilewati tanpa data.
+  const canSubmit = !done;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 600));
 
-    const now = new Date();
-    const dosis: DosisLog = {};
-    if (ctdiVol) dosis.ctdiVol = parseFloat(ctdiVol);
-    if (dlp)     dosis.dlp     = parseFloat(dlp);
-    if (dap)     dosis.dap     = parseFloat(dap);
-    if (wFluoro) dosis.waktuFluoro = parseFloat(wFluoro);
-    if (dose)    dosis.doseEntrance = parseFloat(dose);
-    if (DRL.drlCtdiVol)  dosis.drlCtdiVol  = DRL.drlCtdiVol;
-    if (DRL.drlDlp)      dosis.drlDlp      = DRL.drlDlp;
-    if (DRL.drlEntrance) dosis.drlEntrance = DRL.drlEntrance;
+    // Nama radiografer diturunkan dari roster (anti-spoof) — bukan input bebas.
+    const radiografer: RadiograferRef[] = radiograferIds.map((id) => ({
+      pegawaiId: id,
+      nama: petugas.find((p) => p.pegawaiId === id)?.namaTampil ?? "—",
+    }));
 
-    const data: AkuisisiData = {
-      radiografer: radiografer.trim(),
-      proteksi: prot,
-      dosis: Object.keys(dosis).length > 0 ? dosis : undefined,
-      isDone: true,
-      ...(mod === "CT"  && { kvp: kvp ? Number(kvp) : undefined, mas: mas ? Number(mas) : undefined, fov: fov || undefined, slice: slice || undefined }),
-      ...(mod === "USG" && { probe: probe || undefined, frekuensi: freq || undefined }),
-      ...(mod === "Konvensional" && { kv: kv ? Number(kv) : undefined, mAs: mAs ? Number(mAs) : undefined }),
+    const num = (s: string) => (s ? Number(s) : undefined);
+    const str = (s: string) => (s ? s : undefined);
+
+    // Parameter teknis sesuai modalitas.
+    const paramTeknis: SaveRadAkuisisiBody["paramTeknis"] =
+      mod === "CT"           ? { kvp: num(kvp), mas: num(mas), fov: str(fov), slice: str(slice) }
+      : mod === "USG"        ? { probe: str(probe), frekuensi: str(freq) }
+      : mod === "Konvensional" ? { kv: num(kv), mAs: num(mAs) }
+      : undefined;
+
+    // Dosis & proteksi hanya untuk modalitas radiasi pengion.
+    let dosis: SaveRadAkuisisiBody["dosis"];
+    if (isIonizing) {
+      const d: NonNullable<SaveRadAkuisisiBody["dosis"]> = {};
+      if (ctdiVol) d.ctdiVol = parseFloat(ctdiVol);
+      if (dlp)     d.dlp     = parseFloat(dlp);
+      if (dap)     d.dap     = parseFloat(dap);
+      if (wFluoro) d.waktuFluoro = parseFloat(wFluoro);
+      if (dose)    d.doseEntrance = parseFloat(dose);
+      if (DRL.drlCtdiVol)  d.drlCtdiVol  = DRL.drlCtdiVol;
+      if (DRL.drlDlp)      d.drlDlp      = DRL.drlDlp;
+      if (DRL.drlEntrance) d.drlEntrance = DRL.drlEntrance;
+      if (Object.keys(d).length > 0) dosis = d;
+    }
+
+    const body: SaveRadAkuisisiBody = {
+      radiografer,
+      paramTeknis,
+      proteksi: isIonizing ? prot : undefined,
+      dosis,
+      mulaiAt: waktuMulai || undefined,
+      selesaiAt: waktuSelesai || undefined,
     };
 
-    updateRadWorkflow(order.id, {
-      status: "Expertise",
-      akuisisi: data,
-      timestamps: {
-        akuisisiMulai:   waktuMulai   ? `${order.tanggal}T${waktuMulai}:00` : now.toISOString(),
-        akuisisiSelesai: waktuSelesai ? `${order.tanggal}T${waktuSelesai}:00` : now.toISOString(),
-        expertise: now.toISOString(),
-      },
-    });
-
-    setDone(true);
-    setLoading(false);
-    onStatusChange();
+    try {
+      await saveRadAkuisisi(order.id, body);
+      toast.success("Akuisisi tersimpan");
+      setDone(true);
+      onStatusChange();
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Gagal menyimpan akuisisi");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -187,10 +229,15 @@ export default function AkuisisiPane({
         {/* Header */}
         <div className="flex items-center gap-3 rounded-xl bg-orange-500 px-4 py-3 text-white">
           <Camera size={20} className="shrink-0" />
-          <div>
-            <p className="font-bold">Akuisisi Gambar</p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="font-bold">Akuisisi Gambar</p>
+              <span className="rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide">Opsional</span>
+            </div>
             <p className="text-[11px] text-orange-100">
-              {mod} · Proteksi Radiasi · Perka BAPETEN No. 2/2018
+              {isIonizing
+                ? `${mod} · Proteksi Radiasi · Perka BAPETEN No. 2/2018`
+                : `${mod} · Tanpa Radiasi Pengion`}
             </p>
           </div>
         </div>
@@ -210,7 +257,7 @@ export default function AkuisisiPane({
                 <div>
                   <p className="font-bold text-emerald-800">Akuisisi Selesai</p>
                   <p className="text-sm text-emerald-600">
-                    Radiografer: {saved?.radiografer ?? radiografer}
+                    Radiografer: {saved?.radiografer?.map((r) => r.nama).join(", ") || "—"}
                   </p>
                   <p className="text-[11px] text-emerald-500">
                     {order.timestamps.akuisisiMulai?.slice(11, 16)} — {order.timestamps.akuisisiSelesai?.slice(11, 16)}
@@ -243,22 +290,29 @@ export default function AkuisisiPane({
               {/* Radiografer + Waktu */}
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
                 <p className="mb-3 text-[11px] font-bold text-slate-500">Petugas & Waktu</p>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="sm:col-span-1">
-                    <label className="mb-1 block text-[10px] font-bold text-slate-500">Radiografer</label>
-                    <input type="text" placeholder="Nama + gelar" value={radiografer}
-                      onChange={(e) => setRadiografer(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" />
-                  </div>
+                <div className="flex flex-col gap-3">
                   <div>
-                    <label className="mb-1 block text-[10px] font-bold text-slate-500">Mulai</label>
-                    <input type="time" value={waktuMulai} onChange={(e) => setWaktuMulai(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" />
+                    <label className="mb-1 flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
+                      <Users size={11} className="text-teal-500" />
+                      Radiografer Pelaksana
+                      <span className="font-normal text-slate-400">· opsional · bisa lebih dari satu</span>
+                    </label>
+                    <RadiograferPicker
+                      petugas={petugas}
+                      value={radiograferIds}
+                      onChange={setRadiograferIds}
+                      loading={rosterLoading}
+                    />
                   </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-bold text-slate-500">Selesai</label>
-                    <input type="time" value={waktuSelesai} onChange={(e) => setWaktuSelesai(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold text-slate-500">Mulai Akuisisi</label>
+                      <DateTimePicker value={waktuMulai} onChange={setWaktuMulai} placeholder="Pilih waktu mulai" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold text-slate-500">Selesai Akuisisi</label>
+                      <DateTimePicker value={waktuSelesai} onChange={setWaktuSelesai} placeholder="Pilih waktu selesai" />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -307,8 +361,8 @@ export default function AkuisisiPane({
                 </div>
               </div>
 
-              {/* Dose log */}
-              {mod !== "USG" && mod !== "MRI" && (
+              {/* Dose log — hanya modalitas radiasi pengion */}
+              {isIonizing && (
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
                   <p className="mb-3 text-[11px] font-bold text-slate-500">Log Dosis Radiasi · BAPETEN</p>
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -337,31 +391,33 @@ export default function AkuisisiPane({
                 </div>
               )}
 
-              {/* Proteksi radiasi */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="mb-3 flex items-center gap-2">
-                  <ShieldAlert size={14} className="text-teal-600" />
-                  <p className="text-[11px] font-bold text-slate-500">Peralatan Proteksi Radiasi</p>
+              {/* Proteksi radiasi — hanya modalitas radiasi pengion */}
+              {isIonizing && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <ShieldAlert size={14} className="text-teal-600" />
+                    <p className="text-[11px] font-bold text-slate-500">Peralatan Proteksi Radiasi</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {([
+                      { key: "apron",         label: "Apron Pb"      },
+                      { key: "collar",        label: "Collar Tiroid" },
+                      { key: "gonadShield",   label: "Gonad Shield"  },
+                      { key: "thyroidShield", label: "Thyroid Shield"},
+                    ] as { key: keyof ProteksiChecklist; label: string }[]).map(({ key, label }) => (
+                      <ProteksiCheck
+                        key={key} label={label}
+                        checked={!!prot[key]}
+                        onChange={() => toggleProt(key)}
+                        locked={done}
+                      />
+                    ))}
+                  </div>
+                  <p className="mt-2 text-[10px] text-slate-400">
+                    Untuk CT: apron tidak digunakan di dalam gantry. Untuk X-Ray konvensional: lindungi organ sensitif (gonad/tiroid).
+                  </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {([
-                    { key: "apron",         label: "Apron Pb"      },
-                    { key: "collar",        label: "Collar Tiroid" },
-                    { key: "gonadShield",   label: "Gonad Shield"  },
-                    { key: "thyroidShield", label: "Thyroid Shield"},
-                  ] as { key: keyof ProteksiChecklist; label: string }[]).map(({ key, label }) => (
-                    <ProteksiCheck
-                      key={key} label={label}
-                      checked={!!prot[key]}
-                      onChange={() => toggleProt(key)}
-                      locked={done}
-                    />
-                  ))}
-                </div>
-                <p className="mt-2 text-[10px] text-slate-400">
-                  Untuk CT dan MRI: apron tidak digunakan di dalam gantry. Untuk X-Ray konvensional: lindungi organ sensitif.
-                </p>
-              </div>
+              )}
 
               {/* Submit */}
               <motion.button
@@ -383,7 +439,11 @@ export default function AkuisisiPane({
                     className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white"
                   />
                 ) : <Camera size={16} />}
-                {loading ? "Menyimpan..." : "Konfirmasi Akuisisi Selesai → Expertise"}
+                {loading
+                  ? "Menyimpan..."
+                  : radiograferIds.length > 0
+                    ? "Konfirmasi Akuisisi Selesai → Expertise"
+                    : "Lewati Akuisisi → Expertise"}
               </motion.button>
             </motion.div>
           )}
@@ -424,23 +484,27 @@ export default function AkuisisiPane({
           )}
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-          <p className="text-[10px] font-bold text-slate-500">Tentang DRL</p>
-          <p className="mt-1 text-[10px] text-slate-400 leading-relaxed">
-            Diagnostic Reference Level (DRL) adalah nilai acuan dosis radiasi untuk pemeriksaan tertentu. Dosis pasien sebaiknya di bawah DRL. Jika melebihi, evaluasi teknik dan laporkan ke penanggung jawab proteksi radiasi.
-          </p>
-        </div>
-
-        {/* Proteksi reminder */}
-        <div className="rounded-xl border border-teal-200 bg-teal-50 p-3">
-          <div className="flex items-center gap-2">
-            <UserCheck size={13} className="text-teal-600" />
-            <p className="text-[10px] font-bold text-teal-800">Prinsip ALARA</p>
+        {isIonizing && (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+            <p className="text-[10px] font-bold text-slate-500">Tentang DRL</p>
+            <p className="mt-1 text-[10px] text-slate-400 leading-relaxed">
+              Diagnostic Reference Level (DRL) adalah nilai acuan dosis radiasi untuk pemeriksaan tertentu. Dosis pasien sebaiknya di bawah DRL. Jika melebihi, evaluasi teknik dan laporkan ke penanggung jawab proteksi radiasi.
+            </p>
           </div>
-          <p className="mt-1 text-[10px] text-teal-600 leading-relaxed">
-            As Low As Reasonably Achievable. Optimalkan dosis seminimal mungkin dengan tetap menghasilkan gambar diagnostik yang memadai.
-          </p>
-        </div>
+        )}
+
+        {/* Proteksi reminder — prinsip ALARA hanya relevan utk radiasi pengion */}
+        {isIonizing && (
+          <div className="rounded-xl border border-teal-200 bg-teal-50 p-3">
+            <div className="flex items-center gap-2">
+              <UserCheck size={13} className="text-teal-600" />
+              <p className="text-[10px] font-bold text-teal-800">Prinsip ALARA</p>
+            </div>
+            <p className="mt-1 text-[10px] text-teal-600 leading-relaxed">
+              As Low As Reasonably Achievable. Optimalkan dosis seminimal mungkin dengan tetap menghasilkan gambar diagnostik yang memadai.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -4,7 +4,10 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Award, CheckCircle2, AlertTriangle, FileText, User } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { type RadOrder, type ValidasiData, updateRadWorkflow, fmtDate } from "../radShared";
+import { type RadOrder, fmtDate } from "../radShared";
+import { validateRadResult } from "@/lib/api/rad/radResult";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
 import { ingestRadOrder } from "@/lib/billing/chargeIngest";
 
 // ── Report display (read-only) ────────────────────────────
@@ -40,34 +43,31 @@ export default function ValidasiPane({
   const handleValidasi = async () => {
     if (!canSubmit) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 600));
-    const now = new Date().toISOString();
-    const data: ValidasiData = {
-      catatan: catatan.trim() || undefined,
-      checkKlinis, checkLengkap: checkLen,
-      validator: validator.trim(),
-      waktu: now, isDone: true,
-    };
-    updateRadWorkflow(order.id, {
-      status: "Selesai",
-      validasi: data,
-      timestamps: { verifikasiHasil: now, rilis: now },
-    });
-    // BL6.1 — silent wiring ke Billing. Idempotent (dedupe by sourceRef).
-    const result = ingestRadOrder({
-      ...order,
-      status: "Selesai",
-      timestamps: { ...order.timestamps, verifikasiHasil: now, rilis: now },
-    });
-    if (result.ok && result.added > 0) {
-      // eslint-disable-next-line no-console
-      console.info(
-        `[Billing] Rad ${order.noOrder} → invoice ${result.invoiceId} (+${result.added} charges, ${result.skipped} skipped)`,
-      );
+    try {
+      await validateRadResult(order.id, {
+        validator: validator.trim(),
+        catatanValidator: catatan.trim() || undefined,
+      });
+      const now = new Date().toISOString();
+      // BL6.1 — silent wiring ke Billing. Idempotent (dedupe by sourceRef).
+      const result = ingestRadOrder({
+        ...order,
+        status: "Selesai",
+        timestamps: { ...order.timestamps, verifikasiHasil: now, rilis: now },
+      });
+      if (result.ok && result.added > 0) {
+        console.info(
+          `[Billing] Rad ${order.noOrder} → invoice ${result.invoiceId} (+${result.added} charges, ${result.skipped} skipped)`,
+        );
+      }
+      setDone(true);
+      toast.success("Laporan divalidasi & dirilis", `Validator: ${validator.trim()}`);
+      onStatusChange();
+    } catch (e) {
+      toast.error("Gagal memvalidasi laporan", e instanceof ApiError ? e.message : undefined);
+    } finally {
+      setLoading(false);
     }
-    setDone(true);
-    setLoading(false);
-    onStatusChange();
   };
 
   const hasCritical = (eksper?.criticalFindings ?? []).length > 0;

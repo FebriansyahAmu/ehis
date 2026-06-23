@@ -4,10 +4,12 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShieldCheck, User, Calendar, Hash, CheckCircle2,
-  Clock, UserCheck, Stethoscope, AlertCircle,
+  Clock, UserCheck, Stethoscope, AlertCircle, ShieldAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/contexts/SessionContext";
 import { type RadOrder, updateRadWorkflow } from "../radShared";
+import { useRadRoster } from "../useRadRoster";
 
 // ── Identity card ─────────────────────────────────────────
 
@@ -75,16 +77,26 @@ export default function VerifikasiPane({
   const isDone = order.diterima_oleh !== undefined ||
     ["Persiapan", "Akuisisi", "Expertise", "Verifikasi_Hasil", "Selesai"].includes(order.status);
 
+  const { session } = useSession();
+  // Diterima oleh = user yang sedang login (penerima order). Fallback ke yang tersimpan. Selaras Lab.
+  const penerima = order.diterima_oleh || session?.namaTampil || "";
+
+  // Penerima HARUS petugas ter-assign ke Radiologi (SDM Assignment) — ditegakkan juga di server
+  // (receive). Superuser/global bypass; tanpa sesi (dev) tak diblok. Peringatan muncul setelah
+  // roster termuat (anti-kedip).
+  const { loading: rosterLoading, isAssigned } = useRadRoster(order.id);
+  const notAssigned =
+    !rosterLoading && !!session && !session.isSuperuser && !session.isGlobal && !isAssigned(session.pegawaiId);
+
   const [chkNama,   setChkNama]   = useState(isDone);
   const [chkTgl,    setChkTgl]    = useState(isDone);
   const [chkRM,     setChkRM]     = useState(isDone);
-  const [petugas,   setPetugas]   = useState(order.diterima_oleh ?? "");
   const [waktu,     setWaktu]     = useState(order.timestamps.verifikasi?.slice(11, 16) ?? "");
   const [loading,   setLoading]   = useState(false);
   const [done,      setDone]      = useState(isDone);
 
   const allChecked  = chkNama && chkTgl && chkRM;
-  const canSubmit   = allChecked && petugas.trim().length >= 3 && !done;
+  const canSubmit   = allChecked && penerima.trim().length > 0 && !done && !notAssigned;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -94,7 +106,7 @@ export default function VerifikasiPane({
     const now = new Date().toISOString();
     updateRadWorkflow(order.id, {
       status: "Persiapan",
-      diterima_oleh: petugas.trim(),
+      diterima_oleh: penerima.trim(),
       timestamps: { verifikasi: now },
     });
 
@@ -136,7 +148,7 @@ export default function VerifikasiPane({
               <div className="text-center">
                 <p className="font-bold text-emerald-800">Identitas Terverifikasi</p>
                 <p className="text-sm text-emerald-600">
-                  oleh <span className="font-semibold">{order.diterima_oleh ?? petugas}</span>
+                  oleh <span className="font-semibold">{order.diterima_oleh || penerima || "—"}</span>
                 </p>
                 <p className="mt-1 text-[11px] text-emerald-500">
                   {order.timestamps.verifikasi
@@ -175,7 +187,7 @@ export default function VerifikasiPane({
           )}
         </AnimatePresence>
 
-        {/* Petugas + Waktu */}
+        {/* Diterima Oleh (user login) + Waktu */}
         {!done && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -185,15 +197,13 @@ export default function VerifikasiPane({
             <div>
               <label className="mb-1 flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
                 <UserCheck size={12} />
-                Nama Radiografer / Petugas
+                Diterima Oleh
               </label>
-              <input
-                type="text"
-                placeholder="Nama lengkap + gelar"
-                value={petugas}
-                onChange={(e) => setPetugas(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition-all focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
-              />
+              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                <User size={15} className="shrink-0 text-slate-400" />
+                <span className="text-sm font-medium text-slate-700">{penerima || "—"}</span>
+                <span className="ml-auto rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">user login</span>
+              </div>
             </div>
             <div>
               <label className="mb-1 flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
@@ -208,6 +218,19 @@ export default function VerifikasiPane({
               />
             </div>
           </motion.div>
+        )}
+
+        {/* SDM Assignment guard — penerima harus ter-assign Radiologi (selaras Lab) */}
+        {!done && notAssigned && (
+          <div className="flex items-start gap-2.5 rounded-xl border border-amber-300 bg-amber-50 p-3">
+            <ShieldAlert size={16} className="mt-0.5 shrink-0 text-amber-600" />
+            <div>
+              <p className="text-[12px] font-bold text-amber-800">Belum Ditugaskan ke Radiologi</p>
+              <p className="text-[11px] text-amber-700">
+                Anda belum ditugaskan ke unit Radiologi pada SDM Assignment. Hanya petugas ter-assign yang dapat memverifikasi & menerima order. Hubungi admin untuk penugasan.
+              </p>
+            </div>
+          </div>
         )}
 
         {/* Warning if not all checked */}

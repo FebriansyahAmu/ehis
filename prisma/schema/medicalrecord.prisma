@@ -1252,8 +1252,9 @@ model RadOrder {
   authorUserId    String? @map("author_user_id") @db.Uuid
   authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
 
-  items   RadOrderItem[]
-  results RadResult[]
+  items    RadOrderItem[]
+  results  RadResult[]
+  akuisisi RadAkuisisi[]
 
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -1302,15 +1303,23 @@ model RadResult {
   order       RadOrder @relation(fields: [radOrderId], references: [id], onDelete: Cascade)
   kunjunganId String   @map("kunjungan_id") @db.Uuid // denormalisasi (FHIR encounter ref)
 
-  // ── Pelaksana ──
+  // ── Laporan ekspertise (single report, ACR Practice Parameters) ──
+  indikasiKlinis String? @map("indikasi_klinis") // keluhan/indikasi pemeriksaan
+  teknik         String? // teknik pemeriksaan & parameter
+  temuan         String? // deskripsi temuan per organ/anatomi
+  kesan          String? // kesan/konklusi diagnostik
+  saran          String? // saran/rekomendasi (opsional)
+
+  // ── Pelaksana / pembaca ──
   radiografer     String? // pelaksana akuisisi citra (opsional)
-  radiolog        String  // pembaca/ekspertise (dari actor)
+  radiolog        String  // SpRad pembaca/ekspertise (spradNama)
+  radiologSip     String? @map("radiolog_sip") // No. SIP SpRad (spradSIP)
   authorUserId    String? @map("author_user_id") @db.Uuid
   authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
 
   catatan String?
 
-  // ── Notifikasi temuan kritis = JSONB array (snapshot konfirmasi ke dokter pengirim, ACR) ──
+  // ── Temuan kritis (ACR) = JSONB array CriticalFinding[] (kategori/deskripsi/metode/dokter/confirmed) ──
   criticalNotifs Json? @map("critical_notifs")
 
   // ── Validasi (radiolog) — stamp sekali saat order Divalidasi → Selesai (rilis hasil) ──
@@ -1349,6 +1358,46 @@ model RadResultItem {
 
   @@index([radResultId])
   @@map("rad_result_item")
+  @@schema("medicalrecord")
+}
+
+// ── Akuisisi & Dosis Radiologi (tab Akuisisi — OPSIONAL, metadata teknis + dosis) ──
+//  1 rad_akuisisi = 1 sesi akuisisi utk 1 rad_order. APPEND-ONLY "latest wins": koreksi = baris baru;
+//  terbaru (createdAt) = berlaku. Saat tersimpan, status RadOrder Diterima → Diperiksa (transisi atomik
+//  di Service; opsional → tak memblokir ekspertise). Radiografer = JSONB RadiograferRef[] (bisa >1,
+//  DICOM Operators' Name). paramTeknis/proteksi/dosis = JSONB (bentuk variatif per modalitas; dosis &
+//  proteksi NULL utk modalitas non-pengion USG/MRI). Dosis = catatan medico-legal (BAPETEN/DRL).
+
+model RadAkuisisi {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  radOrderId  String   @map("rad_order_id") @db.Uuid
+  order       RadOrder @relation(fields: [radOrderId], references: [id], onDelete: Cascade)
+  kunjunganId String   @map("kunjungan_id") @db.Uuid // denormalisasi (FHIR encounter ref)
+
+  // ── Radiografer pelaksana = JSONB RadiograferRef[] ({pegawaiId,nama}; bisa >1) ──
+  radiografer Json?
+
+  // ── Parameter teknis akuisisi (variatif per modalitas) = JSONB ──
+  //  {kvp,mas,fov,slice} CT · {probe,frekuensi} USG · {sekuens[]} MRI · {kv,mAs} Konvensional
+  paramTeknis Json? @map("param_teknis")
+
+  // ── Proteksi radiasi (apron/collar/gonad/thyroid) = JSONB ProteksiChecklist (NULL non-pengion) ──
+  proteksi Json?
+
+  // ── Log dosis radiasi (CTDIvol/DLP/DAP/fluoro/ESD + DRL ref) = JSONB DosisLog (NULL non-pengion) ──
+  dosis Json?
+
+  mulaiAt   DateTime? @map("mulai_at") @db.Timestamptz(3)
+  selesaiAt DateTime? @map("selesai_at") @db.Timestamptz(3)
+
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([radOrderId, createdAt])
+  @@map("rad_akuisisi")
   @@schema("medicalrecord")
 }
 

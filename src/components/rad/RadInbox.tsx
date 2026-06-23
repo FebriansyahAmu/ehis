@@ -3,11 +3,12 @@
 // Inbox order Radiologi (DB) — order masuk dari klinis (IGD/RI/RJ) untuk unit Radiologi.
 // Dua seksi: "Belum Diterima" (Menunggu → Terima) + "Dalam Pengerjaan" (sudah diterima Rad).
 // Terima → status Menunggu → Diterima (receiveRadOrder). RBAC ancillary.rad.worklist:update +
-// ABAC SDM Assignment (server). Lifecycle penuh (akuisisi/ekspertise/validasi) menyusul.
+// ABAC SDM Assignment (server). "Dalam Pengerjaan" → buka detail order (ekspertise/validasi).
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Inbox, Clock, Stethoscope, CheckCircle2, Loader2, User, Check } from "lucide-react";
+import { Inbox, Clock, Stethoscope, CheckCircle2, Loader2, User, Check, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
@@ -119,6 +120,7 @@ export default function RadInbox({ onPendingChange }: { onPendingChange?: (n: nu
             </div>
           )
         ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <AnimatePresence initial={false}>
             {belum.map((o) => (
               <motion.div
@@ -127,7 +129,7 @@ export default function RadInbox({ onPendingChange }: { onPendingChange?: (n: nu
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.97 }}
-                className="rounded-xl border border-amber-200 bg-amber-50/40 p-3"
+                className="flex flex-col rounded-xl border border-amber-200 bg-amber-50/40 p-3"
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -172,6 +174,7 @@ export default function RadInbox({ onPendingChange }: { onPendingChange?: (n: nu
               </motion.div>
             ))}
           </AnimatePresence>
+          </div>
         )}
 
         {/* Dalam pengerjaan (sudah diterima Rad) */}
@@ -180,7 +183,7 @@ export default function RadInbox({ onPendingChange }: { onPendingChange?: (n: nu
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
               Dalam Pengerjaan ({proses.length})
             </p>
-            <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <AnimatePresence initial={false}>
                 {proses.map((o) => {
                   const sc = STATUS_CFG[o.status] ?? STATUS_CFG.Diterima;
@@ -191,41 +194,46 @@ export default function RadInbox({ onPendingChange }: { onPendingChange?: (n: nu
                       initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.97 }}
-                      className="rounded-xl border border-teal-200 bg-teal-50/30 p-3"
                     >
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                            <span className="flex items-center gap-1 text-xs font-semibold text-slate-800">
-                              <User size={11} className="text-slate-400" />{o.namaPasien}
-                            </span>
-                            <span className="text-[11px] text-slate-400">{o.noRM} · {o.gender === "L" ? "L" : "P"} · {usia(o.tanggalLahir)}</span>
-                            <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold", PRIO_BADGE[o.prioritas] ?? PRIO_BADGE.Rutin)}>
-                              {o.prioritas}
-                            </span>
+                      <Link
+                        href={`/ehis-care/radiologi/${o.id}`}
+                        className="group flex h-full flex-col rounded-xl border border-teal-200 bg-teal-50/30 p-3 transition hover:border-teal-300 hover:bg-teal-50/60"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                              <span className="flex items-center gap-1 text-xs font-semibold text-slate-800">
+                                <User size={11} className="text-slate-400" />{o.namaPasien}
+                              </span>
+                              <span className="text-[11px] text-slate-400">{o.noRM} · {o.gender === "L" ? "L" : "P"} · {usia(o.tanggalLahir)}</span>
+                              <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold", PRIO_BADGE[o.prioritas] ?? PRIO_BADGE.Rutin)}>
+                                {o.prioritas}
+                              </span>
+                            </div>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-slate-400">
+                              <span className="flex items-center gap-0.5"><Clock size={9} />{fmtJam(o.createdAt)}</span>
+                              <span>·</span>
+                              <span className="flex items-center gap-0.5"><Stethoscope size={9} />{o.penulis}</span>
+                              <span>·</span>
+                              <span>{o.unit}</span>
+                            </div>
                           </div>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-slate-400">
-                            <span className="flex items-center gap-0.5"><Clock size={9} />{fmtJam(o.createdAt)}</span>
-                            <span>·</span>
-                            <span className="flex items-center gap-0.5"><Stethoscope size={9} />{o.penulis}</span>
-                            <span>·</span>
-                            <span>{o.unit}</span>
-                          </div>
-                        </div>
-                        <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold", sc.cls)}>
-                          {sc.label}
-                        </span>
-                      </div>
-
-                      {/* Items */}
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {o.items.map((it) => (
-                          <span key={it.id} className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-[10px] font-medium text-slate-600 ring-1 ring-slate-200">
-                            {it.nama}
-                            <span className="text-slate-400">· {modLabel(it.modalitas)}</span>
+                          <span className="flex shrink-0 items-center gap-1.5">
+                            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold", sc.cls)}>{sc.label}</span>
+                            <ChevronRight size={14} className="text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-teal-500" />
                           </span>
-                        ))}
-                      </div>
+                        </div>
+
+                        {/* Items */}
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {o.items.map((it) => (
+                            <span key={it.id} className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-[10px] font-medium text-slate-600 ring-1 ring-slate-200">
+                              {it.nama}
+                              <span className="text-slate-400">· {modLabel(it.modalitas)}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </Link>
                     </motion.div>
                   );
                 })}

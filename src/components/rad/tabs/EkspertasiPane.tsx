@@ -9,8 +9,11 @@ import {
 import { cn } from "@/lib/utils";
 import {
   type RadOrder, type EkspertasiData, type CriticalFinding,
-  type CriticalKategori, updateRadWorkflow,
+  type CriticalKategori,
 } from "../radShared";
+import { saveRadResult } from "@/lib/api/rad/radResult";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
 import CriticalFindingModal, { CriticalFindingSelector } from "../CriticalFindingModal";
 
 // ── Text area auto grow ───────────────────────────────────
@@ -79,18 +82,21 @@ export default function EkspertasiPane({
 
   const handleSaveDraft = async () => {
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 400));
-    const data: EkspertasiData = {
-      indikasiKlinis: indikasi,
-      teknik, temuan, kesan, saran: saran || undefined,
-      spradNama, spradSIP,
-      criticalFindings: buildFindings(),
-      isDraft: true, isDone: false,
-    };
-    updateRadWorkflow(order.id, { ekspertasi: data });
-    setDraftSaved(true);
-    setLoading(false);
-    setTimeout(() => setDraftSaved(false), 2000);
+    try {
+      await saveRadResult(order.id, {
+        indikasiKlinis: indikasi,
+        teknik, temuan, kesan, saran: saran || undefined,
+        radiolog: spradNama, radiologSip: spradSIP || undefined,
+        criticalFindings: buildFindings(),
+        finalize: false,
+      });
+      setDraftSaved(true);
+      setTimeout(() => setDraftSaved(false), 2000);
+    } catch (e) {
+      toast.error("Gagal menyimpan draft", e instanceof ApiError ? e.message : undefined);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = () => {
@@ -105,23 +111,29 @@ export default function EkspertasiPane({
 
   const finalizeExpertise = async (findings: CriticalFinding[]) => {
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 600));
-    const now = new Date().toISOString();
-    const data: EkspertasiData = {
-      indikasiKlinis: indikasi, teknik, temuan, kesan,
-      saran: saran || undefined, spradNama, spradSIP,
-      criticalFindings: findings, isDraft: false, isDone: true,
-    };
-    updateRadWorkflow(order.id, {
-      status: "Verifikasi_Hasil",
-      ekspertasi: data,
-      timestamps: { verifikasiHasil: now },
-    });
-    setSaved2(data);
-    setDone(true);
-    setLoading(false);
-    setShowModal(false);
-    onStatusChange();
+    try {
+      await saveRadResult(order.id, {
+        indikasiKlinis: indikasi, teknik, temuan, kesan,
+        saran: saran || undefined,
+        radiolog: spradNama, radiologSip: spradSIP || undefined,
+        criticalFindings: findings,
+        finalize: true,
+      });
+      const data: EkspertasiData = {
+        indikasiKlinis: indikasi, teknik, temuan, kesan,
+        saran: saran || undefined, spradNama, spradSIP,
+        criticalFindings: findings, isDraft: false, isDone: true,
+      };
+      setSaved2(data);
+      setDone(true);
+      setShowModal(false);
+      toast.success("Laporan diterbitkan", "Menunggu validasi SpRad");
+      onStatusChange();
+    } catch (e) {
+      toast.error("Gagal menerbitkan laporan", e instanceof ApiError ? e.message : undefined);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const modItem = order.items[0];

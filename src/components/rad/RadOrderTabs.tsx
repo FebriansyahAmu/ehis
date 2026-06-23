@@ -1,16 +1,15 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ShieldCheck, Settings, Camera, FileText, Award,
+  ShieldCheck, Camera, FileText, Award,
   History, Radiation, Monitor, Syringe, type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { type RadOrder, getRadOrderById, RAD_STATUS_CFG } from "./radShared";
+import { type RadOrder, RAD_STATUS_CFG } from "./radShared";
 
 import VerifikasiPane  from "./tabs/VerifikasiPane";
-import PersiapanPane   from "./tabs/PersiapanPane";
 import AkuisisiPane    from "./tabs/AkuisisiPane";
 import EkspertasiPane  from "./tabs/EkspertasiPane";
 import ValidasiPane    from "./tabs/ValidasiPane";
@@ -30,7 +29,6 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   { id: "verifikasi",  label: "Verifikasi Identitas", icon: ShieldCheck, step: 1, group: "workflow" },
-  { id: "persiapan",   label: "Persiapan Pasien",      icon: Settings,    step: 2, group: "workflow" },
   { id: "akuisisi",    label: "Akuisisi & Dosis",       icon: Camera,      step: 3, group: "workflow" },
   { id: "ekspertasi",  label: "Expertise SpRad",        icon: FileText,    step: 4, group: "workflow" },
   { id: "validasi",    label: "Validasi & Rilis",        icon: Award,       step: 5, group: "workflow" },
@@ -95,16 +93,11 @@ function NavDivider({ label }: { label: string }) {
 
 // ── Main ──────────────────────────────────────────────────
 
-export default function RadOrderTabs({ initialOrder }: { initialOrder: RadOrder }) {
+export default function RadOrderTabs({ order, onRefresh }: { order: RadOrder; onRefresh: () => void }) {
   const [active, setActive] = useState<TabId>("verifikasi");
-  const [order,  setOrder]  = useState<RadOrder>(initialOrder);
 
   const currentStep = RAD_STATUS_CFG[order.status].step;
-
-  const refresh = useCallback(() => {
-    const fresh = getRadOrderById(initialOrder.id);
-    if (fresh) setOrder(fresh);
-  }, [initialOrder.id]);
+  const refresh = onRefresh;
 
   const WORKFLOW = TABS.filter((t) => t.group === "workflow");
   const KLINIS   = TABS.filter((t) => t.group === "klinis");
@@ -218,7 +211,6 @@ export default function RadOrderTabs({ initialOrder }: { initialOrder: RadOrder 
             transition={{ duration: 0.15, ease: "easeOut" }}
           >
             {active === "verifikasi"  && <VerifikasiPane  order={order} onStatusChange={refresh} />}
-            {active === "persiapan"   && <PersiapanPane   order={order} onStatusChange={refresh} />}
             {active === "akuisisi"    && <AkuisisiPane    order={order} onStatusChange={refresh} />}
             {active === "ekspertasi"  && <EkspertasiPane  order={order} onStatusChange={refresh} />}
             {active === "validasi"    && <ValidasiPane    order={order} onStatusChange={refresh} />}
