@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { LayoutList, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import RadInbox          from "./RadInbox";
-import RadBoard          from "./RadBoard";
 import RadManajemenTabs  from "./RadManajemenTabs";
 
 type View = "worklist" | "manajemen";
@@ -44,11 +43,19 @@ export default function RadPageView() {
                   exit={{ scale: 0, opacity: 0 }}
                   transition={{ type: "spring", stiffness: 500, damping: 16 }}
                   className={cn(
-                    "ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-black tabular-nums",
+                    "relative ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-black tabular-nums",
                     view === id ? "bg-white text-teal-700" : "bg-rose-500 text-white",
                   )}
                 >
                   {pending}
+                  {/* Pulse ring (denyut) saat ada order baru & worklist tak aktif */}
+                  {view !== id && (
+                    <motion.span
+                      className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-rose-400"
+                      animate={{ scale: [1, 1.8, 1], opacity: [0.8, 0, 0.8] }}
+                      transition={{ repeat: Infinity, duration: 1.6, ease: "easeInOut" }}
+                    />
+                  )}
                 </motion.span>
               ) : null}
             </AnimatePresence>
@@ -66,12 +73,7 @@ export default function RadPageView() {
           transition={{ duration: 0.15 }}
           className="flex flex-col gap-4"
         >
-          {view === "worklist" && (
-            <>
-              <RadInbox onPendingChange={setPending} />
-              <RadBoard />
-            </>
-          )}
+          {view === "worklist" && <RadInbox onPendingChange={setPending} />}
           {view === "manajemen" && <RadManajemenTabs />}
         </motion.div>
       </AnimatePresence>

@@ -1,44 +1,14 @@
 import type { Metadata } from "next";
-import { Radiation, Clock, AlertTriangle, CheckCircle2, Activity, Camera } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Radiation } from "lucide-react";
 import RadPageView from "@/components/rad/RadPageView";
-import { deriveRadOrders } from "@/components/rad/radShared";
 
 export const metadata: Metadata = { title: "Radiologi" };
-
-// ── Stat badge ─────────────────────────────────────────────
-
-function HeaderStat({
-  icon, value, label, className,
-}: {
-  icon: React.ReactNode; value: number | string;
-  label: string; className?: string;
-}) {
-  return (
-    <div className={cn("flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm", className)}>
-      <div className="text-slate-400">{icon}</div>
-      <div>
-        <p className="text-sm font-bold leading-none tabular-nums text-slate-900">{value}</p>
-        <p className="mt-0.5 text-[11px] text-slate-400">{label}</p>
-      </div>
-    </div>
-  );
-}
 
 // ── Page ───────────────────────────────────────────────────
 
 export default function RadiologiPage() {
   const now   = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
   const today = new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long" });
-
-  const allOrders = deriveRadOrders();
-  const cito      = allOrders.filter((o) => o.prioritas === "CITO" && !["Selesai", "Ditolak"].includes(o.status)).length;
-  const antrian   = allOrders.filter((o) => ["Menunggu", "Dijadwalkan", "Verifikasi"].includes(o.status)).length;
-  const proses    = allOrders.filter((o) => ["Persiapan", "Akuisisi", "Expertise", "Verifikasi_Hasil"].includes(o.status)).length;
-  const selesai   = allOrders.filter((o) => o.status === "Selesai").length;
-  const hasCritical = allOrders.filter((o) =>
-    (o.ekspertasi?.criticalFindings ?? []).some((f) => !f.confirmed)
-  ).length;
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -58,41 +28,6 @@ export default function RadiologiPage() {
           <p className="mt-2 text-sm text-slate-400">
             {today} · Pukul {now} · Data diperbarui otomatis
           </p>
-        </div>
-
-        {/* Stats row */}
-        <div className="flex flex-wrap gap-2">
-          {cito > 0 && (
-            <HeaderStat
-              icon={<Activity size={15} className="text-rose-500" />}
-              value={cito}
-              label="CITO Aktif"
-              className="border-rose-200 ring-1 ring-rose-100"
-            />
-          )}
-          {hasCritical > 0 && (
-            <HeaderStat
-              icon={<AlertTriangle size={15} className="text-rose-500" />}
-              value={hasCritical}
-              label="Temuan Kritis"
-              className="border-rose-200 ring-1 ring-rose-100"
-            />
-          )}
-          <HeaderStat
-            icon={<Clock size={15} />}
-            value={antrian}
-            label="Antrian"
-          />
-          <HeaderStat
-            icon={<Camera size={15} />}
-            value={proses}
-            label="Diproses"
-          />
-          <HeaderStat
-            icon={<CheckCircle2 size={15} className="text-emerald-500" />}
-            value={selesai}
-            label="Selesai"
-          />
         </div>
       </header>
 

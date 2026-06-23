@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   Search, X, User, Building2, Calendar,
   Clock, Stethoscope, ChevronDown, ChevronRight, Printer,
@@ -11,9 +11,11 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
+import { useSession } from "@/contexts/SessionContext";
 import type { RadModalitas } from "@/lib/master/radCatalogMock";
 import { listRadCatalogTersedia, type RadCatalogTersediaDTO } from "@/lib/api/master/radCatalogTersedia";
-import { createRadOrder, listRadOrders, cancelRadOrder, type RadOrderDTO } from "@/lib/api/rad/radOrder";
+import { createRadOrder, type RadOrderDTO } from "@/lib/api/rad/radOrder";
+import RiwayatOrderRad from "./orderRad/RiwayatOrderRad";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -150,39 +152,9 @@ function dtoToRadTest(d: RadCatalogTersediaDTO): RadTest {
   };
 }
 
-// ── DB RadOrderDTO → ActiveOrder (Order Aktif dari DB) ────
-const DB_STATUS_TO_ACTIVE: Record<string, StatusOrder> = {
-  Menunggu: "Menunggu", Diterima: "Diterima", Diperiksa: "Diproses",
-  Divalidasi: "Diproses", Selesai: "Selesai", Ditolak: "Dibatalkan", Dibatalkan: "Dibatalkan",
-};
-
+// ── FHIR modalitas → label display (dipakai Salin order DB → form) ────────────
 function dbModalitasToDisplay(fhir: string): ModalitasRad {
   return MODALITAS_DISPLAY_MAP[fhir as RadModalitas] ?? "X-Ray";
-}
-
-function mapDbRadOrderToActive(d: RadOrderDTO): ActiveOrder {
-  const dt = new Date(d.createdAt);
-  return {
-    id: d.id,
-    noOrder: `RAD-${d.id.slice(0, 8).toUpperCase()}`,
-    tanggal: dt.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }),
-    jam: dt.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
-    dokter: d.penulis,
-    status: DB_STATUS_TO_ACTIVE[d.status] ?? "Menunggu",
-    catatan: d.prioritas === "CITO" ? (d.catatan ? `CITO — ${d.catatan}` : "CITO") : (d.catatan ?? undefined),
-    items: d.items.map((it) => ({
-      id: it.id,
-      radCatalogId: it.radCatalogId ?? undefined,
-      kode: it.kode,
-      nama: it.nama,
-      modalitas: dbModalitasToDisplay(it.modalitas),
-      modalitasFhir: it.modalitas,
-      region: it.region,
-      waktuTunggu: it.waktuTunggu ?? "—",
-      persiapan: it.persiapan ?? undefined,
-      harga: it.harga ?? undefined,
-    })),
-  };
 }
 
 // ── Paket cepat (kurasi) — kode = master.RadCatalog.kode (seed RAD-NNNN) ──────
@@ -848,30 +820,18 @@ export default function OrderRadTab({ patient }: { patient: OrderRadPatient }) {
   const [priority, setPriority]         = useState<"Rutin" | "Cito">("Rutin");
   const [submitted, setSubmitted]       = useState(false);
   const [sending, setSending]           = useState(false);
+  // Order Aktif (mock) hanya utk pasien demo (non-UUID). Persisted → Riwayat Order Rad (DB) yang menampilkan.
   const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>(
     isPersisted ? [] : ACTIVE_ORDERS_MOCK[patient.noRM] ?? [],
   );
   const [catalog, setCatalog]           = useState<RadTest[]>([]);
   const [loading, setLoading]           = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  // Naik tiap order persisted terkirim → panel Riwayat Order Rad refetch (order baru langsung tampil).
+  const [riwayatSignal, setRiwayatSignal] = useState(0);
 
-  // Order Aktif dari DB (kunjungan UUID). Pasien demo (non-UUID) → mock lokal.
-  const refetchOrders = useCallback(async (signal?: AbortSignal) => {
-    if (!isPersisted || !kunjunganId) return;
-    try {
-      const rows = await listRadOrders(kunjunganId, signal);
-      if (!signal?.aborted) setActiveOrders(rows.map(mapDbRadOrderToActive));
-    } catch {
-      /* diam — pertahankan daftar yang ada */
-    }
-  }, [isPersisted, kunjunganId]);
-
-  useEffect(() => {
-    if (!isPersisted) return;
-    const ac = new AbortController();
-    void refetchOrders(ac.signal);
-    return () => ac.abort();
-  }, [isPersisted, refetchOrders]);
+  // Hanya dokter pengirim (clinical.tindakan:update) boleh membatalkan order (server tetap penjaga).
+  const canCancel = useSession().can("clinical.tindakan", "update");
 
   // Muat katalog pemeriksaan ter-assign (Radiologi) sekali saat mount. Harga via tier unit pengirim.
   // setState dijalankan pasca-await → hindari set-state-in-effect sinkron.
@@ -936,21 +896,34 @@ export default function OrderRadTab({ patient }: { patient: OrderRadPatient }) {
 
   const removeTest = (id: string) => setOrderItems((prev) => prev.filter((i) => i.id !== id));
 
-  // Batalkan order — DB (UUID) → API nyata (hanya saat Menunggu) + refetch; mock → update lokal.
-  const cancelOrder = async (orderId: string) => {
-    if (isPersisted && kunjunganId) {
-      try {
-        await cancelRadOrder(kunjunganId, orderId);
-        toast.success("Order radiologi dibatalkan");
-        await refetchOrders();
-      } catch (e) {
-        toast.error("Gagal membatalkan order", e instanceof ApiError ? e.message : undefined);
-      }
-      return;
-    }
+  // Batalkan order demo (mock lokal). Order DB → dibatalkan dari panel Riwayat Order Rad.
+  const cancelOrder = (orderId: string) =>
     setActiveOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: "Dibatalkan" as StatusOrder } : o)),
     );
+
+  // Salin order DB (Riwayat) → form (re-order): tambah item yg belum ada di daftar.
+  const copyOrderToForm = (o: RadOrderDTO) => {
+    setOrderItems((prev) => {
+      const seen = new Set(prev.map((i) => i.kode));
+      const add: OrderItem[] = [];
+      o.items.forEach((it, idx) => {
+        if (seen.has(it.kode)) return;
+        add.push({
+          id: `roi-${Date.now()}-${idx}-${it.kode}`,
+          radCatalogId: it.radCatalogId ?? undefined,
+          kode: it.kode,
+          nama: it.nama,
+          modalitas: dbModalitasToDisplay(it.modalitas),
+          modalitasFhir: it.modalitas,
+          region: it.region,
+          waktuTunggu: it.waktuTunggu ?? "—",
+          persiapan: it.persiapan ?? undefined,
+          harga: it.harga ?? undefined,
+        });
+      });
+      return [...prev, ...add];
+    });
   };
 
   const handleSubmit = async () => {
@@ -976,14 +949,18 @@ export default function OrderRadTab({ patient }: { patient: OrderRadPatient }) {
             harga: it.harga ?? undefined,
           })),
         });
+        toast.success("Order Radiologi dikirim", `${orderItems.length} pemeriksaan → Radiologi`);
+        // Bukan takeover layar sukses: bersihkan form & refetch Riwayat Order Rad → order baru
+        // langsung tampil di panel riwayat (mirip alur Lab).
+        setOrderItems([]);
+        setCatatan("");
+        setPriority("Rutin");
+        setRiwayatSignal((n) => n + 1);
       } catch (e) {
-        setSending(false);
         toast.error("Gagal mengirim order", e instanceof ApiError ? e.message : undefined);
-        return;
+      } finally {
+        setSending(false);
       }
-      setSending(false);
-      await refetchOrders();
-      setSubmitted(true);
       return;
     }
 
@@ -1319,7 +1296,15 @@ export default function OrderRadTab({ patient }: { patient: OrderRadPatient }) {
         </div>
       </div>
 
-      {/* ── Riwayat ── */}
+      {/* ── Riwayat Order Radiologi (DB) — pasien terpersist (UUID); status + Salin/Batalkan ── */}
+      <RiwayatOrderRad
+        kunjunganId={kunjunganId ?? ""}
+        onCopy={copyOrderToForm}
+        canWrite={canCancel}
+        refreshSignal={riwayatSignal}
+      />
+
+      {/* ── Riwayat pemeriksaan (mock) — hanya pasien demo (noRM mock) ── */}
       {riwayat.length > 0 && <RiwayatRadSection riwayat={riwayat} />}
 
       {/* ── Sticky footer ── */}

@@ -1,9 +1,9 @@
 "use client";
 
-// Inbox order Radiologi (DB) — order masuk dari klinis (IGD/RI/RJ) yang siap diterima unit Radiologi.
-// Mirror alur "Belum Diterima" Lab. Terima → status Menunggu → Diterima (receiveRadOrder). RBAC
-// ancillary.rad.worklist:update + ABAC SDM Assignment (server). Order lifecycle penuh (akuisisi/
-// ekspertise/validasi) menyusul — board mock lama tetap di bawah utk workflow demo.
+// Inbox order Radiologi (DB) — order masuk dari klinis (IGD/RI/RJ) untuk unit Radiologi.
+// Dua seksi: "Belum Diterima" (Menunggu → Terima) + "Dalam Pengerjaan" (sudah diterima Rad).
+// Terima → status Menunggu → Diterima (receiveRadOrder). RBAC ancillary.rad.worklist:update +
+// ABAC SDM Assignment (server). Lifecycle penuh (akuisisi/ekspertise/validasi) menyusul.
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -22,6 +22,14 @@ const PRIO_BADGE: Record<string, string> = {
   CITO: "bg-rose-500 text-white",
   Segera: "bg-amber-500 text-white",
   Rutin: "bg-slate-200 text-slate-700",
+};
+
+// Status order yang sudah masuk pengerjaan Rad (di luar "Menunggu" & terminal).
+const ACTIVE_STATUSES = new Set(["Diterima", "Diperiksa", "Divalidasi"]);
+const STATUS_CFG: Record<string, { label: string; cls: string }> = {
+  Diterima:   { label: "Diterima",  cls: "bg-teal-100 text-teal-700" },
+  Diperiksa:  { label: "Diperiksa", cls: "bg-sky-100 text-sky-700" },
+  Divalidasi: { label: "Validasi",  cls: "bg-amber-100 text-amber-700" },
 };
 
 const fmtJam = (iso: string) => new Date(iso).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -60,8 +68,8 @@ export default function RadInbox({ onPendingChange }: { onPendingChange?: (n: nu
     return () => ac.abort();
   }, [refetch]);
 
-  const belum   = useMemo(() => orders.filter((o) => o.status === "Menunggu"), [orders]);
-  const diterima = useMemo(() => orders.filter((o) => o.status === "Diterima"), [orders]);
+  const belum  = useMemo(() => orders.filter((o) => o.status === "Menunggu"), [orders]);
+  const proses = useMemo(() => orders.filter((o) => ACTIVE_STATUSES.has(o.status)), [orders]);
 
   useEffect(() => { onPendingChange?.(belum.length); }, [belum.length, onPendingChange]);
 
@@ -99,10 +107,17 @@ export default function RadInbox({ onPendingChange }: { onPendingChange?: (n: nu
       <div className="flex flex-col gap-4 p-4">
         {/* Belum diterima */}
         {belum.length === 0 ? (
-          <div className="flex flex-col items-center gap-1.5 py-8 text-center">
-            <CheckCircle2 size={22} className="text-emerald-300" />
-            <p className="text-xs text-slate-400">Tidak ada order baru menunggu diterima</p>
-          </div>
+          proses.length === 0 ? (
+            <div className="flex flex-col items-center gap-1.5 py-8 text-center">
+              <CheckCircle2 size={22} className="text-emerald-300" />
+              <p className="text-xs text-slate-400">Belum ada order radiologi</p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+              <CheckCircle2 size={13} className="text-emerald-400" />
+              Semua order baru sudah diterima
+            </div>
+          )
         ) : (
           <AnimatePresence initial={false}>
             {belum.map((o) => (
@@ -159,21 +174,62 @@ export default function RadInbox({ onPendingChange }: { onPendingChange?: (n: nu
           </AnimatePresence>
         )}
 
-        {/* Sudah diterima (ringkas) */}
-        {diterima.length > 0 && (
+        {/* Dalam pengerjaan (sudah diterima Rad) */}
+        {proses.length > 0 && (
           <div className="border-t border-slate-100 pt-3">
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-              Sudah Diterima ({diterima.length})
+              Dalam Pengerjaan ({proses.length})
             </p>
-            <div className="flex flex-col gap-1.5">
-              {diterima.map((o) => (
-                <div key={o.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg border border-emerald-100 bg-emerald-50/40 px-3 py-1.5">
-                  <span className="text-[11px] font-semibold text-slate-700">{o.namaPasien}</span>
-                  <span className="text-[10px] text-slate-400">{o.noRM} · {o.unit}</span>
-                  <span className="ml-auto text-[10px] text-slate-400">{o.items.length} pemeriksaan</span>
-                  <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">Diterima</span>
-                </div>
-              ))}
+            <div className="flex flex-col gap-2">
+              <AnimatePresence initial={false}>
+                {proses.map((o) => {
+                  const sc = STATUS_CFG[o.status] ?? STATUS_CFG.Diterima;
+                  return (
+                    <motion.div
+                      key={o.id}
+                      layout
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.97 }}
+                      className="rounded-xl border border-teal-200 bg-teal-50/30 p-3"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                            <span className="flex items-center gap-1 text-xs font-semibold text-slate-800">
+                              <User size={11} className="text-slate-400" />{o.namaPasien}
+                            </span>
+                            <span className="text-[11px] text-slate-400">{o.noRM} · {o.gender === "L" ? "L" : "P"} · {usia(o.tanggalLahir)}</span>
+                            <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold", PRIO_BADGE[o.prioritas] ?? PRIO_BADGE.Rutin)}>
+                              {o.prioritas}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-slate-400">
+                            <span className="flex items-center gap-0.5"><Clock size={9} />{fmtJam(o.createdAt)}</span>
+                            <span>·</span>
+                            <span className="flex items-center gap-0.5"><Stethoscope size={9} />{o.penulis}</span>
+                            <span>·</span>
+                            <span>{o.unit}</span>
+                          </div>
+                        </div>
+                        <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold", sc.cls)}>
+                          {sc.label}
+                        </span>
+                      </div>
+
+                      {/* Items */}
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {o.items.map((it) => (
+                          <span key={it.id} className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-[10px] font-medium text-slate-600 ring-1 ring-slate-200">
+                            {it.nama}
+                            <span className="text-slate-400">· {modLabel(it.modalitas)}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
             </div>
           </div>
         )}

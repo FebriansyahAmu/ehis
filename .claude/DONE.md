@@ -43,6 +43,17 @@ Slice operasional "bisa terima order" (mirror Lab sampai receive). Order dari kl
 
 ---
 
+## ✅ Selesai — Riwayat Order Rad (klinis, DB) + hapus mock worklist Rad (2026-06-22)
+
+Dua hal: (1) tab klinis Order Rad kini punya **Riwayat Order Radiologi** (DB, status pemenuhan) seperti Lab; (2) **worklist Rad dibersihkan dari mock**.
+
+- **[RiwayatOrderRad](../src/components/shared/medical-records/orderRad/RiwayatOrderRad.tsx)** (mirror [RiwayatOrderLab](../src/components/shared/medical-records/orderLab/RiwayatOrderLab.tsx)) — fetch `listRadOrders(kunjunganId)`; filter chips per bucket (Belum Diterima/Diproses/Selesai, count); baris status (badge+dot+row-bg per status: Menunggu/Diterima/Diperiksa/Divalidasi/Selesai/Ditolak/Dibatalkan); expand item (nama/kode · modalitas · TAT · tarif + total); **Salin** (re-order → form) + **Batalkan** (`cancelRadOrder`, hanya saat Menunggu, `canWrite`); hint "sedang diproses" utk status proses. Pasien demo (non-UUID) → panel null (mock RiwayatRadSection lama tetap utk noRM mock). Self-contained (status cfg inline). **Lihat Hasil belum** (radResult slice berikutnya).
+- **OrderRadTab** refactor: persisted submit **tanpa takeover layar** (bersihkan form + toast + `riwayatSignal++` → RiwayatOrderRad refetch, order baru langsung tampil) — mirip Lab; `activeOrders` (mock) **demo-only** (persisted pakai RiwayatOrderRad, hindari duplikasi); tambah `copyOrderToForm(RadOrderDTO)` (Salin) + `canCancel` (useSession). Hapus jalur "Order Aktif dari DB" + `mapDbRadOrderToActive` (digantikan panel riwayat).
+- **Worklist Rad — MOCK DIHAPUS**: `RadPageView` worklist kini **RadInbox (DB) saja** (`<RadBoard/>` mock dilepas) · `(main)/radiologi/page.tsx` buang `deriveRadOrders()` + stat header mock (CITO/Antrian/Diproses/Selesai/Kritis) → tinggal judul + workflow guide (teks statis) + RadPageView. `RadBoard.tsx` + detail workflow mock (`RadOrderTabs`/`RiwayatRadPane`/detail page) **dibiarkan** (bukan worklist; jadi referensi slice lifecycle DB berikutnya).
+- **Verifikasi:** tsc bersih (app code) · ESLint 0 error (1 warning pre-existing `no-unused-expressions`).
+
+---
+
 ## ✅ Selesai — Tab Klinis Order Radiologi: katalog DB ter-assign + hapus Panduan (2026-06-22)
 
 Tab **Order Radiologi** (shared IGD/RI/RJ) kini ambil katalog dari **DB** (pemeriksaan ter-assign ke ruangan Radiologi), persis pola tab Order Lab — bukan lagi seed statis.
