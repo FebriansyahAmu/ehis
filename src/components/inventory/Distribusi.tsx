@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Share2, ArrowRight, PackageCheck, Inbox, FileStack, Send, Plus, Trash2, Loader2, MapPin, X } from "lucide-react";
+import { Share2, ArrowRight, PackageCheck, Inbox, FileStack, Send, Plus, Trash2, Loader2, MapPin, X, User, Check, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/ui/toastStore";
+import { useSession } from "@/contexts/SessionContext";
 import {
   InvShell, KpiCard, SectionCard, StatusPill, SearchInput, FilterChip, PrimaryButton,
-  EmptyState, SlideOver, InvSelect, InvCombobox, useSkeletonDelay, INV_ACCENT,
+  EmptyState, SlideOver, Modal, InvSelect, useSkeletonDelay, INV_ACCENT,
   tableWrap, tableCls, thCls, tdCls, trCls,
 } from "./inventoryShared";
 import { DOC_STATUS_CFG } from "@/lib/inventory/inventoryMock";
@@ -226,19 +227,21 @@ export default function Distribusi() {
   );
 }
 
-// ── Create drawer ─────────────────────────────────────────
+// ── Create modal (dua panel: katalog sumber ↔ keranjang amprahan) ─────────────
 
-interface NewLine { key: number; itemKey: string; qtyMinta: string; }
-let lineSeq = 1;
-const blankLine = (): NewLine => ({ key: lineSeq++, itemKey: "", qtyMinta: "" });
+interface CartRow { itemKey: string; qty: string; }
 
 function AddDistribusiDrawer({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: () => void }) {
+  // Petugas/pemohon = user yang sedang login (bukan input bebas) — selaras petugas SO.
+  const { session } = useSession();
+  const pemohon = session?.namaTampil?.trim() ?? "";
   const [locations, setLocations] = useState<InvLocationDTO[]>([]);
   const [fromId, setFromId] = useState("");
   const [toId, setToId] = useState("");
-  const [pemohon, setPemohon] = useState("");
   const [items, setItems] = useState<InvStockRowDTO[]>([]);
-  const [lines, setLines] = useState<NewLine[]>([blankLine()]);
+  const [query, setQuery] = useState("");
+  const [jenis, setJenis] = useState<"all" | "Obat" | "BMHP">("all");
+  const [cart, setCart] = useState<CartRow[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -256,8 +259,10 @@ function AddDistribusiDrawer({ open, onClose, onCreated }: { open: boolean; onCl
     return () => ac.abort();
   }, [open]);
 
-  // Item ber-stok di lokasi sumber (untuk picker baris).
+  // Item ber-stok di lokasi sumber (katalog panel kiri). Ganti sumber → keranjang & pencarian lama
+  // tak valid (item beda per lokasi) → reset.
   useEffect(() => {
+    setCart([]); setQuery(""); setJenis("all");
     if (!fromId) { setItems([]); return; }
     const ac = new AbortController();
     (async () => {
@@ -272,17 +277,37 @@ function AddDistribusiDrawer({ open, onClose, onCreated }: { open: boolean; onCl
     return () => ac.abort();
   }, [fromId]);
 
-  const itemOptions = useMemo(
-    () => items.map((r) => ({ value: `${r.itemJenis}:${r.itemId}`, label: r.nama, sub: `${r.kode} · sisa ${r.qty - r.qtyReserved} ${r.satuan}` })),
-    [items],
-  );
+  const itemByKey = useMemo(() => {
+    const m = new Map<string, InvStockRowDTO>();
+    for (const r of items) m.set(`${r.itemJenis}:${r.itemId}`, r);
+    return m;
+  }, [items]);
+  const inCart = useMemo(() => new Set(cart.map((c) => c.itemKey)), [cart]);
+  const counts = useMemo(() => {
+    let obat = 0;
+    for (const r of items) if (r.itemJenis === "Obat") obat++;
+    return { all: items.length, Obat: obat, BMHP: items.length - obat };
+  }, [items]);
+  const visibleItems = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return items.filter(
+      (r) =>
+        (jenis === "all" || r.itemJenis === jenis) &&
+        (!q || r.nama.toLowerCase().includes(q) || r.kode.toLowerCase().includes(q)),
+    );
+  }, [items, query, jenis]);
   const tujuanOptions = useMemo(() => locations.filter((l) => l.id !== fromId), [locations, fromId]);
 
-  const validLines = lines.filter((l) => l.itemKey && Number(l.qtyMinta) > 0);
-  const valid = !!(fromId && toId && fromId !== toId && pemohon.trim() && validLines.length > 0);
+  const validLines = cart.filter((c) => Number(c.qty) > 0);
+  const valid = !!(fromId && toId && fromId !== toId && pemohon && validLines.length > 0);
+
+  const addToCart = (key: string) =>
+    setCart((prev) => (prev.some((c) => c.itemKey === key) ? prev : [...prev, { itemKey: key, qty: "1" }]));
+  const removeFromCart = (key: string) => setCart((prev) => prev.filter((c) => c.itemKey !== key));
+  const setQty = (key: string, qty: string) => setCart((prev) => prev.map((c) => (c.itemKey === key ? { ...c, qty } : c)));
 
   function reset() {
-    setFromId(""); setToId(""); setPemohon(""); setItems([]); setLines([blankLine()]);
+    setFromId(""); setToId(""); setItems([]); setCart([]); setQuery("");
   }
 
   async function submit() {
@@ -292,10 +317,10 @@ function AddDistribusiDrawer({ open, onClose, onCreated }: { open: boolean; onCl
       await createDistribusi({
         fromLocationId: fromId,
         toLocationId: toId,
-        pemohon: pemohon.trim(),
-        lines: validLines.map((l) => {
-          const [jenis, itemId] = l.itemKey.split(":");
-          return { itemJenis: jenis as "Obat" | "BMHP", itemId, qtyMinta: Number(l.qtyMinta) };
+        pemohon,
+        lines: validLines.map((c) => {
+          const [jenis, itemId] = c.itemKey.split(":");
+          return { itemJenis: jenis as "Obat" | "BMHP", itemId, qtyMinta: Number(c.qty) };
         }),
       });
       toast.success("Draft permintaan dibuat", "Stok sumber direservasi · buka dokumen → Proses untuk mengeluarkan.");
@@ -308,20 +333,27 @@ function AddDistribusiDrawer({ open, onClose, onCreated }: { open: boolean; onCl
     }
   }
 
-  const setLine = (key: number, patch: Partial<NewLine>) => setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
-
   return (
-    <SlideOver
-      open={open} onClose={onClose} title="Tambah Permintaan (Amprahan)" subtitle="Draft — stok sumber direservasi saat disimpan"
+    <Modal
+      open={open} onClose={onClose} icon={Share2} width="max-w-5xl"
+      title="Tambah Permintaan (Amprahan)" subtitle="Pilih barang dari lokasi sumber → atur jumlah di keranjang"
       footer={
-        <button type="button" disabled={!valid || saving} onClick={submit}
-          className={cn("inline-flex w-full items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition", valid && !saving ? cn(INV_ACCENT.bgSolid, INV_ACCENT.bgSolidHover) : "cursor-not-allowed bg-slate-300")}>
-          {saving && <Loader2 size={13} className="animate-spin" />} {saving ? "Menyimpan…" : "Simpan Draft"}
-        </button>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[12px] text-slate-500">
+            {validLines.length > 0
+              ? <><span className="font-bold text-slate-700">{validLines.length}</span> barang akan diminta</>
+              : "Belum ada barang dipilih"}
+          </span>
+          <button type="button" disabled={!valid || saving} onClick={submit}
+            className={cn("inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition", valid && !saving ? cn(INV_ACCENT.bgSolid, INV_ACCENT.bgSolidHover) : "cursor-not-allowed bg-slate-300")}>
+            {saving && <Loader2 size={13} className="animate-spin" />} {saving ? "Menyimpan…" : "Simpan Draft"}
+          </button>
+        </div>
       }
     >
-      <div className="flex flex-col gap-3">
-        <div className="grid grid-cols-2 gap-2">
+      <div className="flex flex-col gap-4">
+        {/* Rute + petugas */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="flex flex-col gap-1">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Sumber *</span>
             <InvSelect value={fromId} onChange={setFromId} placeholder="Gudang/Depo…" icon={MapPin}
@@ -332,45 +364,124 @@ function AddDistribusiDrawer({ open, onClose, onCreated }: { open: boolean; onCl
             <InvSelect value={toId} onChange={setToId} placeholder="Depo/Unit…" icon={MapPin}
               options={tujuanOptions.map((l) => ({ value: l.id, label: l.nama, sub: l.tipe === "Gudang" ? "Gudang" : "Depo" }))} />
           </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Petugas (Pemohon)</span>
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-[13px] text-slate-700">
+              <User size={14} className="shrink-0 text-slate-400" />
+              <span className="min-w-0 flex-1 truncate font-semibold">{pemohon || "—"}</span>
+              <span className="shrink-0 rounded-md bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 ring-1 ring-slate-200">Sesi login</span>
+            </div>
+          </div>
         </div>
-        <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Pemohon *</span>
-          <input value={pemohon} onChange={(e) => setPemohon(e.target.value)} placeholder="Nama unit / petugas peminta…"
-            className={cn("w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[13px] text-slate-800 outline-none transition", INV_ACCENT.focus)} />
-        </label>
+        {!pemohon && <span className="-mt-2 text-[11px] text-amber-600">Sesi login tak terdeteksi — tak bisa menyimpan.</span>}
 
-        <div className="flex items-center justify-between pt-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Baris Barang</span>
-          <button type="button" onClick={() => setLines((prev) => [...prev, blankLine()])}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50">
-            <Plus size={12} /> Baris
-          </button>
-        </div>
-
-        {!fromId && <p className="text-[12px] text-slate-400">Pilih lokasi sumber dulu untuk memilih barang.</p>}
-
-        <div className="flex flex-col gap-2.5">
-          {lines.map((l) => (
-            <div key={l.key} className="flex items-end gap-2 rounded-xl border border-slate-200 bg-slate-50/40 p-2.5">
-              <div className="min-w-0 flex-1">
-                <InvCombobox value={l.itemKey} onChange={(v) => setLine(l.key, { itemKey: v })} placeholder={fromId ? "Cari & pilih barang…" : "Pilih sumber dulu"} options={itemOptions} />
+        {/* Dua panel: katalog sumber ↔ keranjang */}
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {/* LEFT — katalog barang di lokasi sumber */}
+          <div className="flex h-96 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5">
+              <p className="text-[12px] font-bold text-slate-700">Barang di Sumber</p>
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">{visibleItems.length}</span>
+            </div>
+            <div className="shrink-0 space-y-2 border-b border-slate-100 p-2">
+              <SearchInput value={query} onChange={setQuery} placeholder={fromId ? "Cari nama / kode barang…" : "Pilih sumber dulu"} />
+              <div className="flex items-center gap-0.5 rounded-lg bg-slate-100 p-0.5">
+                {([
+                  ["all", "Semua", counts.all],
+                  ["Obat", "Obat · OBT", counts.Obat],
+                  ["BMHP", "BMHP · BHP", counts.BMHP],
+                ] as const).map(([j, label, n]) => (
+                  <button key={j} type="button" onClick={() => setJenis(j)}
+                    className={cn("flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition",
+                      jenis === j ? cn("bg-white shadow-sm", INV_ACCENT.text) : "text-slate-500 hover:text-slate-700")}>
+                    {label}
+                    <span className={cn("rounded px-1 text-[9px] font-bold tabular-nums", jenis === j ? cn(INV_ACCENT.bg, INV_ACCENT.text) : "bg-slate-200 text-slate-500")}>{n}</span>
+                  </button>
+                ))}
               </div>
-              <label className="flex w-24 shrink-0 flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Qty *</span>
-                <input type="number" min={0} value={l.qtyMinta} onChange={(e) => setLine(l.key, { qtyMinta: e.target.value })} placeholder="0"
-                  className={cn("w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[12px] font-mono tabular-nums text-slate-800 outline-none transition", INV_ACCENT.focus)} />
-              </label>
-              {lines.length > 1 && (
-                <button type="button" onClick={() => setLines((prev) => prev.filter((x) => x.key !== l.key))}
-                  className="shrink-0 rounded-lg border border-slate-200 p-1.5 text-rose-500 transition hover:bg-rose-50" aria-label="Hapus baris">
-                  <Trash2 size={13} />
-                </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+              {!fromId ? (
+                <div className="flex h-full flex-col items-center justify-center gap-1.5 px-4 text-center text-slate-400">
+                  <MapPin size={22} className="text-slate-300" />
+                  <p className="text-[12px]">Pilih lokasi sumber untuk melihat barang.</p>
+                </div>
+              ) : visibleItems.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center gap-1.5 px-4 text-center text-slate-400">
+                  <Search size={22} className="text-slate-300" />
+                  <p className="text-[12px]">Tak ada barang cocok.</p>
+                </div>
+              ) : (
+                <ul className="flex flex-col gap-1">
+                  {visibleItems.map((r) => {
+                    const key = `${r.itemJenis}:${r.itemId}`;
+                    const sisa = r.qty - r.qtyReserved;
+                    const added = inCart.has(key);
+                    return (
+                      <li key={key}>
+                        <button type="button" disabled={added} onClick={() => addToCart(key)}
+                          className={cn("flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition",
+                            added ? cn("cursor-default", INV_ACCENT.border, INV_ACCENT.bg) : "border-slate-200 bg-white hover:border-cyan-300 hover:bg-cyan-50/40")}>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[12.5px] font-semibold text-slate-800">{r.nama}</p>
+                            <p className="text-[11px] text-slate-400">{r.kode} · sisa <span className={cn("font-mono tabular-nums", sisa <= 0 ? "text-rose-500" : "text-slate-500")}>{sisa}</span> {r.satuan}</p>
+                          </div>
+                          <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-lg", added ? INV_ACCENT.text : "bg-slate-100 text-slate-500")}>
+                            {added ? <Check size={14} /> : <Plus size={14} />}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
             </div>
-          ))}
+          </div>
+
+          {/* RIGHT — keranjang amprahan */}
+          <div className="flex h-96 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5">
+              <p className="text-[12px] font-bold text-slate-700">Akan Diminta</p>
+              <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold", cart.length > 0 ? cn(INV_ACCENT.bg, INV_ACCENT.text) : "bg-slate-100 text-slate-500")}>{cart.length}</span>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+              {cart.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center gap-1.5 px-4 text-center text-slate-400">
+                  <Inbox size={22} className="text-slate-300" />
+                  <p className="text-[12px]">Keranjang kosong — pilih barang di panel kiri.</p>
+                </div>
+              ) : (
+                <ul className="flex flex-col gap-1.5">
+                  {cart.map((c) => {
+                    const it = itemByKey.get(c.itemKey);
+                    const sisa = it ? it.qty - it.qtyReserved : 0;
+                    const over = Number(c.qty) > sisa;
+                    return (
+                      <li key={c.itemKey} className="rounded-lg border border-slate-200 bg-slate-50/40 p-2">
+                        <div className="flex items-start gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[12.5px] font-semibold text-slate-800">{it?.nama ?? c.itemKey}</p>
+                            <p className="text-[11px] text-slate-400">{it?.kode} · sisa {sisa} {it?.satuan}</p>
+                          </div>
+                          <input type="number" min={0} value={c.qty} onChange={(e) => setQty(c.itemKey, e.target.value)} placeholder="0"
+                            className={cn("w-20 shrink-0 rounded-lg border bg-white px-2 py-1.5 text-right text-[12px] font-mono tabular-nums text-slate-800 outline-none transition",
+                              over ? "border-amber-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100" : cn("border-slate-200", INV_ACCENT.focus))} />
+                          <button type="button" onClick={() => removeFromCart(c.itemKey)}
+                            className="shrink-0 rounded-lg border border-slate-200 p-1.5 text-rose-500 transition hover:bg-rose-50" aria-label="Hapus barang">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                        {over && <p className="mt-1 text-[10.5px] font-medium text-amber-600">Melebihi stok tersedia ({sisa} {it?.satuan}).</p>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
         </div>
       </div>
-    </SlideOver>
+    </Modal>
   );
 }
 
