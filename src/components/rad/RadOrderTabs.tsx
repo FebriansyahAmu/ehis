@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ShieldCheck, Camera, FileText, Award,
+  ShieldCheck, Camera, FileText,
   History, Radiation, Monitor, Syringe, type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,6 @@ import { type RadOrder, RAD_STATUS_CFG } from "./radShared";
 import VerifikasiPane  from "./tabs/VerifikasiPane";
 import AkuisisiPane    from "./tabs/AkuisisiPane";
 import EkspertasiPane  from "./tabs/EkspertasiPane";
-import ValidasiPane    from "./tabs/ValidasiPane";
 import RiwayatRadPane  from "./tabs/RiwayatRadPane";
 import ViewerPane      from "./tabs/ViewerPane";
 import KontrasPane     from "./tabs/KontrasPane";
@@ -28,10 +27,9 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
-  { id: "verifikasi",  label: "Verifikasi Identitas", icon: ShieldCheck, step: 1, group: "workflow" },
+  { id: "verifikasi",  label: "Verifikasi Identitas",   icon: ShieldCheck, step: 1, group: "workflow" },
   { id: "akuisisi",    label: "Akuisisi & Dosis",       icon: Camera,      step: 3, group: "workflow" },
-  { id: "ekspertasi",  label: "Expertise SpRad",        icon: FileText,    step: 4, group: "workflow" },
-  { id: "validasi",    label: "Validasi & Rilis",        icon: Award,       step: 5, group: "workflow" },
+  { id: "ekspertasi",  label: "Expertise & Validasi",   icon: FileText,    step: 4, group: "workflow" },
   { id: "viewer",      label: "Image Viewer",            icon: Monitor,              group: "klinis"   },
   { id: "kontras",     label: "Alergi Kontras",          icon: Syringe,              group: "klinis"   },
   { id: "riwayat",     label: "Riwayat & Cetak",         icon: History,              group: "dokumen"  },
@@ -213,7 +211,6 @@ export default function RadOrderTabs({ order, onRefresh }: { order: RadOrder; on
             {active === "verifikasi"  && <VerifikasiPane  order={order} onStatusChange={refresh} />}
             {active === "akuisisi"    && <AkuisisiPane    order={order} onStatusChange={refresh} />}
             {active === "ekspertasi"  && <EkspertasiPane  order={order} onStatusChange={refresh} />}
-            {active === "validasi"    && <ValidasiPane    order={order} onStatusChange={refresh} />}
             {active === "viewer"      && <ViewerPane      order={order} />}
             {active === "kontras"     && <KontrasPane     order={order} />}
             {active === "riwayat"     && <RiwayatRadPane  order={order} />}

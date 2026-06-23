@@ -3,31 +3,39 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft, User, Calendar, MapPin, Stethoscope,
+  ArrowLeft, User, MapPin, Stethoscope,
   Hash, Clock, CheckCircle2, Circle, AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  type RadOrder, RAD_STATUS_CFG, MODALITAS_CFG, URGENSI_CFG,
-  calcTATMenit, getTATStatus, fmtTimestamp, getStatusStep,
+  type RadOrder, type RadStatus, RAD_STATUS_CFG, MODALITAS_CFG, URGENSI_CFG,
+  calcTATMenit, getTATStatus, fmtTimestamp,
 } from "./radShared";
 
-// ── Timeline step ─────────────────────────────────────────
+// ── Timeline step — 3 langkah alur (selaras tab Proses Radiologi) ──────────
+//  Verifikasi → Akuisisi → Expertise & Validasi. Ekspertise = sekaligus tanda tangan & rilis;
+//  Selesai = ketiganya tuntas.
 
-const STEPS: { key: keyof typeof STEP_TS; label: string }[] = [
-  { key: "order",           label: "Order"        },
-  { key: "dijadwalkan",     label: "Jadwal"        },
-  { key: "verifikasi",      label: "Verifikasi"    },
-  { key: "persiapan",       label: "Persiapan"     },
-  { key: "akuisisiMulai",   label: "Akuisisi"      },
-  { key: "expertise",       label: "Expertise"     },
-  { key: "verifikasiHasil", label: "Validasi"      },
-  { key: "rilis",           label: "Selesai"       },
+const STEPS: { key: keyof RadOrder["timestamps"]; label: string }[] = [
+  { key: "verifikasi",    label: "Verifikasi" },
+  { key: "akuisisiMulai", label: "Akuisisi"   },
+  { key: "rilis",         label: "Expertise & Validasi" },
 ];
 
-const STEP_TS = {
-  order: "", dijadwalkan: "", verifikasi: "", persiapan: "",
-  akuisisiMulai: "", expertise: "", verifikasiHasil: "", rilis: "",
+const STEP_COUNT = STEPS.length; // 3
+
+// Status order (vokabuler desain) → indeks langkah tuntas (0..3). DB (ekspertise & validasi disatukan)
+// menghasilkan Menunggu/Akuisisi/Selesai/Ditolak; status lokal lain dipetakan utuh.
+const STEP_BY_STATUS: Record<RadStatus, number> = {
+  Menunggu: 0,
+  Dijadwalkan: 0,
+  Verifikasi: 0,
+  Persiapan: 1,
+  Akuisisi: 1,
+  Expertise: 2,
+  Verifikasi_Hasil: 2,
+  Selesai: 3,
+  Ditolak: -1,
 };
 
 // ── TAT display ───────────────────────────────────────────
@@ -67,7 +75,7 @@ export default function RadOrderHeader({ order }: { order: RadOrder }) {
   const modItem   = order.items[0];
   const modCfg    = modItem ? MODALITAS_CFG[modItem.modalitas] : null;
   const urgCfg    = URGENSI_CFG[order.prioritas];
-  const curStep   = getStatusStep(order.status);
+  const curStep   = STEP_BY_STATUS[order.status];
 
   return (
     <header className="shrink-0 border-b border-slate-200 bg-white">
@@ -153,12 +161,12 @@ export default function RadOrderHeader({ order }: { order: RadOrder }) {
                   order.prioritas === "CITO"  ? "bg-rose-500"    : "bg-teal-500",
                 )}
                 initial={{ width: 0 }}
-                animate={{ width: `${Math.max(0, curStep) / 7 * 100}%` }}
+                animate={{ width: `${Math.max(0, curStep) / STEP_COUNT * 100}%` }}
                 transition={{ duration: 0.8, ease: "easeOut" }}
               />
             </div>
             <p className="mt-0.5 text-[10px] text-slate-400">
-              Langkah {Math.max(0, curStep)} / 7
+              Langkah {Math.max(0, curStep)} / {STEP_COUNT}
             </p>
           </div>
         </div>

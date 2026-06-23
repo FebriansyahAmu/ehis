@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText, AlertTriangle, CheckCircle2,
-  Save, Send, BookOpen, User,
+  Save, Send, BookOpen, User, Printer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -14,7 +14,11 @@ import {
 import { saveRadResult } from "@/lib/api/rad/radResult";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
+import { ingestRadOrder } from "@/lib/billing/chargeIngest";
+import { useRadRoster } from "../useRadRoster";
 import CriticalFindingModal, { CriticalFindingSelector } from "../CriticalFindingModal";
+import RadPrintModal from "../RadPrintModal";
+import SpRadPicker from "../SpRadPicker";
 
 // ── Text area auto grow ───────────────────────────────────
 
@@ -54,7 +58,8 @@ export default function EkspertasiPane({
   const [kesan,    setKesan]    = useState(saved?.kesan    ?? "");
   const [saran,    setSaran]    = useState(saved?.saran    ?? "");
   const [spradNama, setSpradNama] = useState(saved?.spradNama ?? "");
-  const [spradSIP,  setSpradSIP]  = useState(saved?.spradSIP  ?? "");
+  // Radiolog penanda tangan dari roster dokter ter-assign Radiologi (combobox searchable).
+  const { doctors, loading: rosterLoading } = useRadRoster(order.id);
 
   const [critKat,  setCritKat]  = useState<CriticalKategori[]>(
     saved?.criticalFindings.map((f) => f.kategori) ?? [],
@@ -65,6 +70,7 @@ export default function EkspertasiPane({
   const [loading,  setLoading]  = useState(false);
   const [done,     setDone]     = useState(isDone);
   const [draftSaved, setDraftSaved] = useState(false);
+  const [showPrint, setShowPrint] = useState(false);
 
   const hasContent = temuan.trim().length > 20 && kesan.trim().length > 5;
   const canSubmit  = hasContent && spradNama.trim().length >= 3 && !done;
@@ -86,7 +92,7 @@ export default function EkspertasiPane({
       await saveRadResult(order.id, {
         indikasiKlinis: indikasi,
         teknik, temuan, kesan, saran: saran || undefined,
-        radiolog: spradNama, radiologSip: spradSIP || undefined,
+        radiolog: spradNama,
         criticalFindings: buildFindings(),
         finalize: false,
       });
@@ -115,19 +121,29 @@ export default function EkspertasiPane({
       await saveRadResult(order.id, {
         indikasiKlinis: indikasi, teknik, temuan, kesan,
         saran: saran || undefined,
-        radiolog: spradNama, radiologSip: spradSIP || undefined,
+        radiolog: spradNama,
         criticalFindings: findings,
         finalize: true,
       });
       const data: EkspertasiData = {
         indikasiKlinis: indikasi, teknik, temuan, kesan,
-        saran: saran || undefined, spradNama, spradSIP,
+        saran: saran || undefined, spradNama, spradSIP: "",
         criticalFindings: findings, isDraft: false, isDone: true,
       };
+      // BL6.1 — silent wiring ke Billing (idempotent by sourceRef). Terbit = sekaligus dirilis → Selesai.
+      const now = new Date().toISOString();
+      const ing = ingestRadOrder({
+        ...order,
+        status: "Selesai",
+        timestamps: { ...order.timestamps, verifikasiHasil: now, rilis: now },
+      });
+      if (ing.ok && ing.added > 0) {
+        console.info(`[Billing] Rad ${order.noOrder} → invoice ${ing.invoiceId} (+${ing.added} charges, ${ing.skipped} skipped)`);
+      }
       setSaved2(data);
       setDone(true);
       setShowModal(false);
-      toast.success("Laporan diterbitkan", "Menunggu validasi SpRad");
+      toast.success("Laporan divalidasi & dirilis", `Penanda tangan: ${spradNama}`);
       onStatusChange();
     } catch (e) {
       toast.error("Gagal menerbitkan laporan", e instanceof ApiError ? e.message : undefined);
@@ -149,9 +165,9 @@ export default function EkspertasiPane({
           <div className="flex items-center gap-3 rounded-xl bg-teal-600 px-4 py-3 text-white">
             <FileText size={20} className="shrink-0" />
             <div className="flex-1">
-              <p className="font-bold">Expertise / Laporan Radiologi</p>
+              <p className="font-bold">Expertise & Validasi Radiologi</p>
               <p className="text-[11px] text-teal-200">
-                {modItem?.nama} · {modItem?.region} · ACR Practice Parameters
+                {modItem?.nama} · {modItem?.region} · terbit = tanda tangan & rilis (ACR)
               </p>
             </div>
             {!done && (
@@ -177,15 +193,23 @@ export default function EkspertasiPane({
                 className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5"
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-600">
-                    <FileText size={20} className="text-white" />
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500">
+                    <CheckCircle2 size={20} className="text-white" />
                   </div>
-                  <div>
-                    <p className="font-bold text-slate-900">Laporan Diterbitkan</p>
-                    <p className="text-sm text-teal-600">
-                      {saved2?.spradNama ?? spradNama} · {saved2?.spradSIP ?? spradSIP}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-slate-900">Laporan Divalidasi & Dirilis</p>
+                    <p className="truncate text-sm text-teal-600">
+                      {saved2?.spradNama ?? spradNama}
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPrint(true)}
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2 text-[12px] font-semibold text-white shadow-sm transition-colors hover:bg-teal-700"
+                  >
+                    <Printer size={13} />
+                    Cetak Hasil
+                  </button>
                 </div>
 
                 <div className="flex flex-col gap-3">
@@ -253,20 +277,18 @@ export default function EkspertasiPane({
                     />
                   </div>
 
-                  {/* SpRad identity */}
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1 block text-[10px] font-bold text-slate-500">Nama SpRad *</label>
-                      <input type="text" placeholder="dr. Nama Lengkap Sp.Rad"
-                        value={spradNama} onChange={(e) => setSpradNama(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-bold text-slate-500">No. SIP SpRad *</label>
-                      <input type="text" placeholder="SIP/RAD/YYYY/XXXX"
-                        value={spradSIP} onChange={(e) => setSpradSIP(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" />
-                    </div>
+                  {/* SpRad penanda tangan — combobox dari roster dokter ter-assign Radiologi */}
+                  <div className="mt-4">
+                    <label className="mb-1 block text-[10px] font-bold text-slate-500">
+                      Dokter Spesialis Radiologi (Penanda Tangan) *
+                    </label>
+                    <SpRadPicker
+                      doctors={doctors}
+                      value={spradNama}
+                      onChange={setSpradNama}
+                      loading={rosterLoading}
+                      disabled={done}
+                    />
                   </div>
                 </div>
 
@@ -291,8 +313,8 @@ export default function EkspertasiPane({
                     />
                   ) : <Send size={16} />}
                   {loading ? "Memproses..." : critKat.length > 0
-                    ? `Terbitkan Laporan + Konfirmasi ${critKat.length} Temuan Kritis`
-                    : "Terbitkan Laporan → Validasi SpRad"}
+                    ? `Terbitkan + Konfirmasi ${critKat.length} Temuan Kritis → Selesai`
+                    : "Terbitkan, Validasi & Rilis → Selesai"}
                 </motion.button>
               </motion.div>
             )}
@@ -375,6 +397,11 @@ export default function EkspertasiPane({
           onCancel={() => setShowModal(false)}
         />
       )}
+
+      {/* Cetak Hasil — A4 + QR TTE */}
+      <AnimatePresence>
+        {showPrint && <RadPrintModal order={order} onClose={() => setShowPrint(false)} />}
+      </AnimatePresence>
     </>
   );
 }

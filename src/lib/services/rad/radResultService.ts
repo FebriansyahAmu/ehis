@@ -86,19 +86,22 @@ export function makeRadResultService(deps: { dal?: Dal; clock?: Clock } = {}) {
     return row ? toDTO(row) : null;
   }
 
-  /** Simpan ekspertise. finalize=false → draft (status tetap). finalize=true → terbitkan → Divalidasi. */
+  /** Simpan ekspertise. finalize=false → draft (status tetap). finalize=true → TERBIT + VALIDASI +
+   *  RILIS sekaligus (ekspertise & validasi disatukan: radiolog penulis = penanda tangan) → Selesai. */
   async function saveHasil(radId: string, input: SaveRadResultInput, actor: Actor): Promise<RadResultDTO> {
     const order = await radOrderDal.findById(radId);
     if (!order || order.deletedAt) throw Errors.notFound("Order radiologi tidak ditemukan");
     if (!ENTRY_STATES.includes(order.status as (typeof ENTRY_STATES)[number])) {
       throw Errors.conflict("Order belum siap entry hasil atau sudah divalidasi");
     }
-    // ABAC SDM Assignment — penulis ekspertise HARUS ter-assign ke Radiologi (superuser/global bypass).
+    // ABAC SDM Assignment — penulis ekspertise (= penanda tangan) HARUS ter-assign Radiologi (superuser/global bypass).
     await assertActorAssignedToRad(actor, order.radKode);
     if (input.finalize) {
       if (!input.temuan.trim() || !input.kesan.trim()) throw Errors.validation("Temuan & Kesan wajib diisi sebelum diterbitkan");
       if (!input.radiolog.trim()) throw Errors.validation("Nama SpRad wajib diisi");
     }
+
+    const signedAt = input.finalize ? clock.now() : null;
 
     const created = await transaction(async (tx) => {
       const row = await dal.create(
@@ -116,11 +119,16 @@ export function makeRadResultService(deps: { dal?: Dal; clock?: Clock } = {}) {
           authorUserId: actor.userId,
           authorPegawaiId: actor.pegawaiId,
           criticalNotifs: input.criticalFindings ?? null,
+          // Terbit = sekaligus tervalidasi (penanda tangan = radiolog penulis).
+          validator: input.finalize ? input.radiolog.trim() || null : null,
+          validatorUserId: input.finalize ? actor.userId : null,
+          validatedAt: signedAt,
         },
         tx,
       );
       if (input.finalize) {
-        const n = await radOrderDal.transition(radId, [...ENTRY_STATES], "Divalidasi", tx);
+        // Langsung Selesai (Divalidasi dilewati — ekspertise & validasi disatukan).
+        const n = await radOrderDal.transition(radId, [...ENTRY_STATES], "Selesai", tx);
         if (n === 0) throw Errors.conflict("Status order berubah — muat ulang halaman");
       }
       return row;

@@ -18,6 +18,11 @@ export interface CreateRadResultData {
   authorUserId?: string | null;
   authorPegawaiId?: string | null;
   criticalNotifs?: unknown; // CriticalFinding[]
+  // Validasi tersatu (ekspertise = penanda tangan) — di-stamp saat create bila terbit.
+  validator?: string | null;
+  validatorUserId?: string | null;
+  catatanValidator?: string | null;
+  validatedAt?: Date | null;
 }
 
 export function create(data: CreateRadResultData, tx?: Tx) {

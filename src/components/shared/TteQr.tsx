@@ -1,7 +1,8 @@
-// QR TTE — representasi visual tanda tangan elektronik (validator SpPK) pada hasil lab.
+// QR TTE — representasi visual tanda tangan elektronik (validator) pada dokumen hasil (Lab/Rad).
 // Matriks QR-style deterministik dari `value` (finder 3-sudut + timing + alignment + data),
 // SELARAS pola TteBarcode resep (mock always-success, bukan QR ter-decode penuh). Render SVG
 // (shape-rendering crispEdges) → tajam saat dicetak. Untuk QR ter-scan butuh lib encoder (ditunda).
+// Generic lintas-modul → prefix serial dapat di-override (TTE-LAB / TTE-RAD / …).
 
 interface Props {
   value: string;
@@ -30,7 +31,7 @@ function mulberry32(a: number): () => number {
   };
 }
 
-/** Serial TTE deterministik (mis. "TTE-LAB-1A2B3C"). */
+/** Serial TTE deterministik (mis. "TTE-LAB-1A2B3C" / "TTE-RAD-…"). */
 export function tteSerial(seed: string, prefix = "TTE-LAB"): string {
   const h = fnv1a(seed).toString(36).toUpperCase();
   return `${prefix}-${h.padStart(6, "0").slice(0, 8)}`;

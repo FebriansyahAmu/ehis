@@ -12,6 +12,18 @@
 
 ---
 
+## ✅ Selesai — Ekspertise & Validasi Radiologi DIGABUNG + Cetak Hasil TTE/QR (2026-06-23)
+
+- **Workflow disatukan** — tab "Validasi & Rilis" dihapus dari nav (file [ValidasiPane](../src/components/rad/tabs/ValidasiPane.tsx) disisakan, tidak dihapus). Alur: isi Ekspertise → **Terbitkan, Validasi & Rilis → Selesai** (satu tombol) → **Cetak Hasil**.
+- **Backend (tanpa migrasi)** — `radResultService.saveHasil(finalize=true)` kini = terbit + validasi + rilis sekaligus: stamp `validator`/`validatorUserId`/`validatedAt` saat `create` (validator = radiolog penulis = penanda tangan), transisi `Diterima/Diperiksa → Selesai` langsung (Divalidasi dilewati). [radResultDal.CreateRadResultData](../src/lib/dal/rad/radResultDal.ts) diperluas field validasi. `validate` lama disisakan (legacy). SDM Assignment `assertActorAssignedToRad` tetap.
+- **EkspertasiPane** ([EkspertasiPane](../src/components/rad/tabs/EkspertasiPane.tsx)) jadi "Expertise & Validasi" — billing ingest (`ingestRadOrder`, idempotent) saat terbit; done-state + tombol **Cetak Hasil**; alur konfirmasi temuan kritis dipertahankan.
+- **Cetak Hasil A4 + QR TTE** — [RadPrintModal](../src/components/rad/RadPrintModal.tsx) (pola PrintPreviewModal Lab): iframe srcdoc + `@page A4` + watermark; narasi indikasi/teknik/temuan/kesan/saran + temuan kritis; TTD radiografer (dari `order.akuisisi`) + **QR TTE radiolog** (`TteQr`, serial `TTE-RAD-…`, payload `EHIS-RAD|…`, deterministik mock-success). Hasil RESMI dari DB (`getRadResult`) fallback `order.ekspertasi`.
+- **TteQr dipindah ke shared** — [shared/TteQr](../src/components/shared/TteQr.tsx) (dari `components/lab/`), prefix serial generik; import Lab RiwayatPane di-update.
+- **Header 4→3 step** ([RadOrderHeader](../src/components/rad/RadOrderHeader.tsx)) — Verifikasi → Akuisisi → Expertise & Validasi; `STEP_BY_STATUS` disesuaikan (Selesai=3).
+- **Verifikasi**: tsc 0 error · ESLint 0 error (hanya warn `_actor` konvensi).
+
+---
+
 ## ✅ Selesai — Akuisisi & Dosis Radiologi: form picker + persist DB (OPSIONAL) (2026-06-23)
 
 - **Form akuisisi disempurnakan** ([AkuisisiPane](../src/components/rad/tabs/AkuisisiPane.tsx)) — waktu Mulai/Selesai pakai [DateTimePicker](../src/components/shared/inputs/DateTimePicker.tsx) global (tanpa auto-fill); **radiografer = multi-select** [RadiograferPicker](../src/components/rad/RadiograferPicker.tsx) (accent teal, chip+toggle) dari **roster ter-assign Radiologi** (`useRadRoster`), default = user login (diderivasi via `useMemo`, bukan setState-in-effect), nama diturunkan dari roster (anti-spoof).

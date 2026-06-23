@@ -8,7 +8,7 @@ import {
   type LabOrder, type HasilItem, FLAG_CFG, PRIORITAS_CFG, LAB_STATUS_CFG,
   mapDbLabOrder, applyWorkflowOverlay, fmtTimestamp, dtoValueToHasil, hasilKey,
 } from "../labShared";
-import TteQr, { tteSerial } from "../TteQr";
+import TteQr, { tteSerial } from "@/components/shared/TteQr";
 import { listLabWorklist } from "@/lib/api/lab/labOrder";
 import { getLabResult, type LabResultDTO } from "@/lib/api/lab/labResult";
 
