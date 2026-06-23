@@ -11,6 +11,7 @@ import type { Actor } from "@/lib/auth/actor";
 import type {
   GrantFormulariumBmhpInput, FormulariumBmhpQuery, FormulariumBmhpEdgeDTO,
 } from "@/lib/schemas/master/formulariumBmhp";
+import type { BmhpTersediaQuery, BmhpTersediaDTO } from "@/lib/schemas/master/bmhpTersedia";
 import type { FormulariumBmhpEntity } from "@/lib/dal/master/formulariumBmhpDal";
 
 type Dal = typeof defaultDal;
@@ -38,6 +39,38 @@ export function makeFormulariumBmhpService(deps: { dal?: Dal } = {}) {
       limit: query.limit,
     });
     return { items: items.map(toDTO), cursor: nextCursor };
+  }
+
+  /**
+   * Katalog BMHP ter-assign untuk konsumsi KLINIS (tab Order BMHP). Agregasi baris edge → 1 DTO
+   * per BMHP dgn daftar ruanganKodes. ACTOR-LESS (read murni). Opsional difilter lokasi.
+   * DAL sudah membatasi kode "BHP-…" (cegah bocor katalog Obat).
+   */
+  async function listBmhpTersedia(query: BmhpTersediaQuery): Promise<BmhpTersediaDTO[]> {
+    const rows = await dal.listAssignedBmhp({ ruanganKode: query.ruanganKode });
+    const byId = new Map<string, BmhpTersediaDTO>();
+    for (const r of rows) {
+      const b = r.bmhp;
+      const existing = byId.get(b.id);
+      if (existing) {
+        if (!existing.ruanganKodes.includes(r.location.kode)) existing.ruanganKodes.push(r.location.kode);
+        continue;
+      }
+      byId.set(b.id, {
+        id: b.id,
+        kode: b.kode,
+        nama: b.nama,
+        merek: b.merek ?? null,
+        kategori: b.kategori,
+        ukuran: b.ukuran ?? null,
+        satuan: b.satuan,
+        hargaSatuan: b.hargaSatuan,
+        isSteril: b.isSteril,
+        isSingleUse: b.isSingleUse,
+        ruanganKodes: [r.location.kode],
+      });
+    }
+    return [...byId.values()];
   }
 
   /**
@@ -70,7 +103,7 @@ export function makeFormulariumBmhpService(deps: { dal?: Dal } = {}) {
     await dal.deleteById(id);
   }
 
-  return { list, grant, revoke };
+  return { list, listBmhpTersedia, grant, revoke };
 }
 
 export const formulariumBmhpService = makeFormulariumBmhpService();

@@ -218,6 +218,25 @@ export function findBmhpByIds(ids: string[], tx?: Tx) {
 export function findLocationNames(ids: string[], tx?: Tx) {
   return db(tx).location.findMany({ where: { id: { in: ids } }, select: { id: true, nama: true } });
 }
+/** Resolve Location.kode → id (aktif/non-deleted) — untuk pengeluaran stok dari depo (dispenseOut). */
+export function findLocationIdByKode(kode: string, tx?: Tx) {
+  return db(tx).location.findFirst({ where: { kode, deletedAt: null }, select: { id: true } });
+}
+/** Resolve kode Obat (OBT-…) → id — item resep hanya menyimpan kode, butuh UUID utk movement. */
+export function findObatByKodes(kodes: string[], tx?: Tx) {
+  return db(tx).obat.findMany({ where: { kode: { in: kodes }, deletedAt: null }, select: { id: true, kode: true } });
+}
+/** Batch by id (no + ED) — utk reversal IN (kompensasi) saat order dibatalkan. */
+export function findBatchById(id: string, tx?: Tx) {
+  return db(tx).stockBatch.findUnique({ where: { id }, select: { batchNo: true, expiryDate: true } });
+}
+/** Movement OUT ber-ref tertentu (refType+refId) — basis reversal kompensasi. */
+export function listMovementsByRef(refType: string, refId: string, jenis: MovementJenisDal, tx?: Tx) {
+  return db(tx).stockMovement.findMany({
+    where: { refType, refId, jenis },
+    select: { itemJenis: true, itemId: true, fromLocationId: true, batchId: true, qty: true },
+  });
+}
 export function findPegawaiNama(id: string | null | undefined, tx?: Tx) {
   if (!id) return Promise.resolve(null);
   return db(tx).pegawai.findFirst({ where: { id }, select: { namaLengkap: true } });

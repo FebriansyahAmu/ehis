@@ -8,6 +8,7 @@ import { randomUUID } from "node:crypto";
 import * as defaultDal from "@/lib/dal/resep/resepDal";
 import * as kunjunganDal from "@/lib/dal/kunjunganDal";
 import { resolveActorNama } from "@/lib/services/actorName";
+import { dispenseService } from "@/lib/services/inventory/dispenseService";
 import { systemClock, type Clock } from "@/lib/core/clock";
 import { transaction } from "@/lib/db/prisma";
 import { Errors } from "@/lib/errors/appError";
@@ -277,6 +278,17 @@ export function makeResepService(deps: { dal?: Dal; clock?: Clock } = {}) {
         authorUserId: actor.userId,
         authorPegawaiId: actor.pegawaiId,
       }, tx);
+    });
+    // Pengeluaran stok (OUT) dari depo atas obat yang diserahkan — best-effort, NON-BLOCKING (dispensing
+    // sudah commit; stok kurang/tak ada tak menggagalkannya). Obat di-resolve by kode, lokasi by depoKode.
+    await dispenseService.dispenseOut({
+      locationKode: order.depoKode,
+      lines: order.items.map((it) => ({ itemJenis: "Obat" as const, kode: it.kodeObat, qty: it.jumlah })),
+      refType: "RESEP_DISPENSING",
+      refNo: resepId,
+      refId: resepId,
+      petugas: apoteker,
+      actorId: actor.userId,
     });
     return freshFarmasi(resepId);
   }

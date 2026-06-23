@@ -7,7 +7,7 @@ import {
   FileText, HeartPulse, Tag, HeartHandshake, ScanLine,
   Pill, FlaskConical, Radiation, ClipboardList, LogOut,
   MessageSquare, Droplets, DoorOpen, Stethoscope, ArrowRightLeft,
-  ListChecks, ShieldCheck, Repeat, Target, Salad, Activity, ClipboardCheck, BookOpen, type LucideIcon,
+  ListChecks, ShieldCheck, Repeat, Target, Salad, Activity, ClipboardCheck, BookOpen, Package, type LucideIcon,
 } from "lucide-react";
 import type { RawatInapPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,7 @@ import KeperawatanTab   from "./tabs/KeperawatanTab";
 import PemeriksaanTab   from "./tabs/PemeriksaanTab";
 import IntakeOutputTab  from "./tabs/IntakeOutputTab";
 import ResepTab         from "@/components/shared/medical-records/ResepTab";
+import BmhpOrderTab     from "@/components/shared/medical-records/orderBmhp/BmhpOrderTab";
 import OrderLabTab      from "./tabs/OrderLabTab";
 import OrderRadTab      from "./tabs/OrderRadTab";
 import KonsultasiTab    from "@/components/shared/medical-records/KonsultasiTab";
@@ -58,6 +59,7 @@ const REKAM_MEDIS: TabDef[] = [
 const LAYANAN: TabDef[] = [
   { id: "daftar-order", label: "Daftar Order",          icon: ListChecks,     done: true  },
   { id: "resep",        label: "Resep & Obat",         icon: Pill,           done: true  },
+  { id: "order-bmhp",   label: "Order BMHP",           icon: Package,        done: true  },
   { id: "mar",          label: "MAR",                  icon: ClipboardCheck, done: true  },
   { id: "order-lab",    label: "Order Lab",            icon: FlaskConical,   done: true  },
   { id: "order-rad",    label: "Order Radiologi",      icon: Radiation,      done: true  },
@@ -245,6 +247,16 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
               riwayatAlergi: patient.riwayatAlergi,
               resepRI:       patient.resepRI ? { items: patient.resepRI.items, mar: patient.resepRI.mar } : undefined,
               perawatJaga:   patient.ttvHistory?.[0]?.perawat,
+            }} />)}
+            {active === "order-bmhp"    && withIdentitas(<BmhpOrderTab patient={{
+              id:           patient.id,
+              noRM:         patient.noRM,
+              name:         patient.name,
+              dpjp:         patient.dpjp,
+              gender:       patient.gender,
+              age:          patient.age,
+              unitLabel:    "Rawat Inap",
+              tglKunjungan: patient.tglMasuk,
             }} />)}
             {active === "order-lab"     && withIdentitas(<OrderLabTab    patient={patient} />)}
             {active === "order-rad"     && withIdentitas(<OrderRadTab    patient={patient} />)}

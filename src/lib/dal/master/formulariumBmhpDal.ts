@@ -61,6 +61,30 @@ export function deleteById(id: string, tx?: Tx) {
   return db(tx).formulariumBmhp.delete({ where: { id } });
 }
 
+// ── Read klinis: BMHP ter-assign (join FormulariumBmhp → Bmhp) ─────────────────
+// Untuk endpoint /master/bmhp-tersedia (gate clinical.tindakan). Hanya BMHP AKTIF & non-deleted,
+// dan HANYA kode "BHP-…" (defensif — katalog Obat (OBT-…) vs BMHP terpisah; cegah bocor lintas
+// katalog). Opsional difilter lokasi (kode). Include bmhp (field ramping katalog FE) + kode lokasi
+// → Service agregasi distinct per BMHP dgn daftar ruanganKodes.
+export function listAssignedBmhp(params: { ruanganKode?: string }, tx?: Tx) {
+  return db(tx).formulariumBmhp.findMany({
+    where: {
+      bmhp: { deletedAt: null, status: "Aktif", kode: { startsWith: "BHP" } },
+      ...(params.ruanganKode ? { location: { kode: params.ruanganKode } } : {}),
+    },
+    include: {
+      bmhp: {
+        select: {
+          id: true, kode: true, nama: true, merek: true, kategori: true,
+          ukuran: true, satuan: true, hargaSatuan: true, isSteril: true, isSingleUse: true,
+        },
+      },
+      location: { select: { kode: true } },
+    },
+    orderBy: [{ bmhp: { nama: "asc" } }],
+  });
+}
+
 // ── Guards (eksistensi parent; soft-delete difilter) ──────────────────────────
 export function findBmhp(id: string, tx?: Tx) {
   return db(tx).bmhp.findFirst({ where: { id, deletedAt: null }, select: { id: true, nama: true } });

@@ -6,7 +6,7 @@ import {
   ClipboardList, HeartPulse, Stethoscope, Tag, FileText, Zap,
   Pill, FlaskConical, Radiation, Send, Home,
   Repeat, HeartHandshake, ScanLine, ClipboardCheck, ScanEye, ListChecks, ShieldCheck,
-  ArrowRightLeft, Lock,
+  ArrowRightLeft, Lock, Package,
   type LucideIcon,
 } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
@@ -22,6 +22,7 @@ import DiagnosaTab      from "./tabs/DiagnosaTab";
 import CPPTTab          from "./tabs/CPPTTab";
 import TindakanTab      from "./tabs/TindakanTab";
 import ResepPasienTab   from "./tabs/ResepPasienTab";
+import BmhpOrderTab     from "@/components/shared/medical-records/orderBmhp/BmhpOrderTab";
 import OrderLabTab      from "./tabs/OrderLabTab";
 import OrderRadTab      from "./tabs/OrderRadTab";
 import PasienPulangTab  from "./tabs/PasienPulangTab";
@@ -58,6 +59,7 @@ const REKAM_MEDIS: TabDef[] = [
 const LAYANAN: TabDef[] = [
   { id: "daftar-order", label: "Daftar Order",    icon: ListChecks   },
   { id: "resep",        label: "Resep Pasien",    icon: Pill         },
+  { id: "order-bmhp",   label: "Order BMHP",      icon: Package      },
   { id: "order-lab",    label: "Order Lab",       icon: FlaskConical },
   { id: "order-rad",    label: "Order Radiologi", icon: Radiation    },
   { id: "rujukan",      label: "Rujukan Keluar",  icon: Send         },
@@ -253,6 +255,17 @@ export default function IGDRecordTabs({
             {active === "informed-consent" && <InformedConsentTab   patient={patient} />}
             {active === "daftar-order"     && <DaftarOrderTab       patient={patient} />}
             {active === "resep"        && withIdentitas(<ResepPasienTab patient={patient} />)}
+            {active === "order-bmhp"   && withIdentitas(<BmhpOrderTab patient={{
+              id:           patient.id,
+              noRM:         patient.noRM,
+              name:         patient.name,
+              dpjp:         patient.doctor,
+              dpjpKontak:   (patient as { dpjpKontak?: string }).dpjpKontak,
+              gender:       patient.gender,
+              age:          patient.age,
+              unitLabel:    "IGD",
+              tglKunjungan: patient.tglKunjungan,
+            }} />)}
             {active === "order-lab"    && withIdentitas(<OrderLabTab    patient={patient} />)}
             {active === "order-rad"    && withIdentitas(<OrderRadTab    patient={patient} />)}
             {active === "pulang"       && <PasienPulangTab patient={patient} onComplete={onComplete} />}

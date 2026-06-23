@@ -40,8 +40,13 @@ export async function adjustStock(input: AdjustStockInput, signal?: AbortSignal)
   return data;
 }
 
-/** GET /inventory/stok-klinis?lokasiId= — saldo Obat di depo (advisory overlay picker Resep). */
-export async function listStokKlinis(lokasiId: string, signal?: AbortSignal): Promise<StokKlinisRow[]> {
-  const { data } = await api.get<StokKlinisRow[]>("/inventory/stok-klinis", { query: { lokasiId }, signal });
+/** GET /inventory/stok-klinis?lokasiId=&jenis= — saldo item di depo (advisory overlay).
+ *  `jenis`: "Obat" (default, picker Resep) | "BMHP" (Order BMHP). */
+export async function listStokKlinis(
+  lokasiId: string,
+  jenis: InvItemJenis = "Obat",
+  signal?: AbortSignal,
+): Promise<StokKlinisRow[]> {
+  const { data } = await api.get<StokKlinisRow[]>("/inventory/stok-klinis", { query: { lokasiId, jenis }, signal });
   return data;
 }

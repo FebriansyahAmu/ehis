@@ -68,7 +68,9 @@ export function deleteById(id: string, tx?: Tx) {
 export function listAssignedObat(params: { ruanganKode?: string }, tx?: Tx) {
   return db(tx).formulariumObat.findMany({
     where: {
-      obat: { deletedAt: null, status: "Aktif" },
+      // Hanya kode "OBT-…" → tab Resep Pasien menampilkan OBAT saja, BUKAN BMHP (BHP-…).
+      // Defensif: katalog Obat & BMHP memang tabel terpisah; filter ini mencegah bocor lintas katalog.
+      obat: { deletedAt: null, status: "Aktif", kode: { startsWith: "OBT" } },
       ...(params.ruanganKode ? { location: { kode: params.ruanganKode } } : {}),
     },
     include: {

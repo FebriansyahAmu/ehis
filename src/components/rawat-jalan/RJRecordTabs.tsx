@@ -6,7 +6,7 @@ import IdentitasVerifikasiBanner, { type VerifikasiInfo } from "@/components/sha
 import {
   Stethoscope, HeartPulse, FileText, Tag, ScanLine,
   MessageSquare, ShieldCheck, ListChecks, Pill,
-  FlaskConical, Radiation, ScrollText, Navigation, Lock,
+  FlaskConical, Radiation, ScrollText, Navigation, Lock, Package,
   type LucideIcon,
 } from "lucide-react";
 import type { RJPatientDetail } from "@/lib/data";
@@ -22,6 +22,7 @@ import KonsultasiTab      from "@/components/shared/medical-records/KonsultasiTa
 import InformedConsentTab from "@/components/shared/medical-records/InformedConsentTab";
 import DaftarOrderTab    from "@/components/shared/medical-records/DaftarOrderTab";
 import ResepTab          from "@/components/shared/medical-records/ResepTab";
+import BmhpOrderTab      from "@/components/shared/medical-records/orderBmhp/BmhpOrderTab";
 import OrderLabTab       from "@/components/shared/medical-records/OrderLabTab";
 import OrderRadTab       from "@/components/shared/medical-records/OrderRadTab";
 import SuratDokumenTab  from "@/components/shared/medical-records/SuratDokumenTab";
@@ -44,6 +45,7 @@ const REKAM_MEDIS: TabDef[] = [
 const LAYANAN: TabDef[] = [
   { id: "daftar-order", label: "Daftar Order",     icon: ListChecks,  done: true  },
   { id: "resep",        label: "Resep & Obat",     icon: Pill,        done: true  },
+  { id: "order-bmhp",   label: "Order BMHP",       icon: Package,     done: true  },
   { id: "order-lab",    label: "Order Lab",        icon: FlaskConical,done: true  },
   { id: "order-rad",    label: "Order Radiologi",  icon: Radiation,   done: true  },
   { id: "surat",        label: "Surat & Dokumen",  icon: ScrollText,  done: true  },
@@ -196,6 +198,16 @@ export default function RJRecordTabs({ patient }: { patient: RJPatientDetail }) 
               showMAR={false}
               patient={{ noRM: patient.noRM, name: patient.name, kunjunganId: patient.id, dpjp: patient.dokter, gender: patient.gender, riwayatAlergi: patient.riwayatAlergi }}
             />)}
+            {active === "order-bmhp" && withIdentitas(<BmhpOrderTab patient={{
+              id:           patient.id,
+              noRM:         patient.noRM,
+              name:         patient.name,
+              dpjp:         patient.dokter,
+              gender:       patient.gender,
+              age:          patient.age,
+              unitLabel:    patient.poli.replace(/_/g, " "),
+              tglKunjungan: patient.tanggalKunjungan,
+            }} />)}
             {active === "order-lab" && withIdentitas(<OrderLabTab patient={{
               kunjunganId:  patient.id,
               doctor:       patient.dokter,

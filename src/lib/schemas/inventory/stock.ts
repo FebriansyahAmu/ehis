@@ -128,11 +128,13 @@ export interface InvItemDetailDTO {
   movements: InvItemMovementDTO[];
 }
 
-// ── Stok klinis (advisory overlay untuk picker Resep) ──────────────────────────
-// Read RINGAN saldo Obat di satu depo, keyed by `itemId` (UUID master Obat) — FE merge ke
-// katalog formularium. Gate KLINIS (`clinical.resep:read`), BUKAN inventory.* (klinisi tak punya).
+// ── Stok klinis (advisory overlay untuk picker Resep / Order BMHP) ─────────────
+// Read RINGAN saldo item di satu depo, keyed by `itemId` (UUID master Obat/BMHP) — FE merge ke
+// katalog formularium/ketersediaan. `jenis` = Obat (default, picker Resep) | BMHP (Order BMHP).
+// Gate KLINIS (`clinical.resep:read`), BUKAN inventory.* (klinisi tak punya).
 export const StokKlinisQuery = z.object({
   lokasiId: z.string().uuid("Lokasi tidak valid"),
+  jenis: z.enum(["Obat", "BMHP"]).default("Obat"),
 });
 export type StokKlinisQuery = z.infer<typeof StokKlinisQuery>;
 

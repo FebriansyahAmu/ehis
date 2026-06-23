@@ -1067,6 +1067,69 @@ model ResepDispensing {
   @@schema("medicalrecord")
 }
 
+// ── Order BMHP (tab Order BMHP — permintaan Bahan Medis Habis Pakai per kunjungan → depo Farmasi) ──
+//  1 BmhpOrder = header (depo Farmasi tujuan + prioritas + catatan + pemohon) → banyak BmhpItem
+//  (baris BMHP). Mirror FE BmhpOrderTab + alur ResepOrder/LabOrder. Order append-only (immutable;
+//  koreksi = soft-delete + order baru). status/prioritas MUTABLE → workflow Farmasi
+//  (Menunggu→Diterima→…→Selesai). Depo = snapshot kode+nama Location kategori "Farmasi".
+//  Pemohon = Dokter ATAU Perawat (gate clinical.tindakan, bukan clinical.resep — BMHP ≠ obat).
+//  Item = snapshot katalog master.Bmhp (kode BHP-… + nama/satuan/harga). Selaras LabOrder.
+
+model BmhpOrder {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Tujuan depo Farmasi (snapshot Location) ──
+  depoKode String? @map("depo_kode") // Location.kode kategori Farmasi
+  depoNama String  @map("depo_nama") // nama depo (tampil)
+
+  catatan   String?
+  prioritas String @default("Rutin")    // CITO/Segera/Rutin
+  status    String @default("Menunggu") // workflow Farmasi
+
+  // ── Pemohon (Dokter/Perawat) snapshot ──
+  penulis         String
+  penulisKontak   String? @map("penulis_kontak")
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  items BmhpItem[]
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt])
+  @@index([depoKode, status])
+  @@map("bmhp_order")
+  @@schema("medicalrecord")
+}
+
+model BmhpItem {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  bmhpOrderId String    @map("bmhp_order_id") @db.Uuid
+  order       BmhpOrder @relation(fields: [bmhpOrderId], references: [id], onDelete: Cascade)
+
+  // ── Snapshot katalog (master.Bmhp saat order; bmhpId nullable = ad-hoc/manual) ──
+  bmhpId     String? @map("bmhp_id") @db.Uuid
+  kode       String  // BHP-<YYMM><NNN>
+  nama       String
+  satuan     String  @default("")
+  kategori   String  @default("")
+  jumlah     Int     @default(1)
+  keterangan String?
+  harga      Int? // snapshot harga satuan (rupiah) saat order; null = belum bertarif
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([bmhpOrderId])
+  @@map("bmhp_item")
+  @@schema("medicalrecord")
+}
+
 model ResepItem {
   id String @id @default(uuid(7)) @db.Uuid
 

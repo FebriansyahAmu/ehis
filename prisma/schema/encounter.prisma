@@ -174,6 +174,7 @@ model Kunjungan {
   penandaanGambar          PenandaanGambar[]
   serahTerima              SerahTerima[]
   resepOrder               ResepOrder[]
+  bmhpOrder                BmhpOrder[]
   labOrder                 LabOrder[]
   radOrder                 RadOrder[]
   disposisiRiwayat         Disposisi[]

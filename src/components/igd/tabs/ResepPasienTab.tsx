@@ -1023,7 +1023,7 @@ export default function ResepPasienTab({
   useEffect(() => {
     if (!depoId) return;
     const ac = new AbortController();
-    listStokKlinis(depoId, ac.signal)
+    listStokKlinis(depoId, "Obat", ac.signal)
       .then((rows) => { if (!ac.signal.aborted) setStokDepo({ depoId, map: new Map(rows.map((r) => [r.itemId, r])) }); })
       .catch(() => {}); // diam — stok hanya advisory, kegagalan tak menghalangi resep
     return () => ac.abort();

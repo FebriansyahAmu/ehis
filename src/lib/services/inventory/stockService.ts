@@ -143,21 +143,22 @@ export function makeStockService(deps: { dal?: Dal } = {}) {
     return { ...ref, qtyBefore: before, qtyAfter: after, delta };
   }
 
-  /** Overlay stok klinis: saldo Obat di satu depo + ED terdekat, keyed by itemId. Advisory (read murni). */
-  async function listStokKlinis(lokasiId: string): Promise<StokKlinisRow[]> {
+  /** Overlay stok klinis: saldo item (Obat default / BMHP) di satu depo + ED terdekat, keyed by
+   *  itemId. Advisory (read murni) — dipakai picker Resep (Obat) & Order BMHP (BMHP). */
+  async function listStokKlinis(lokasiId: string, jenis: "Obat" | "BMHP" = "Obat"): Promise<StokKlinisRow[]> {
     const [balances, batches] = await Promise.all([
       dal.listBalancesByLocation(lokasiId),
       dal.listBatchesByLocation(lokasiId),
     ]);
     const edByItem = new Map<string, string>(); // itemId → ED terdekat (YYYY-MM-DD)
     for (const b of batches) {
-      if (b.itemJenis !== "Obat" || !b.expiryDate) continue;
+      if (b.itemJenis !== jenis || !b.expiryDate) continue;
       const iso = b.expiryDate.toISOString().slice(0, 10);
       const cur = edByItem.get(b.itemId);
       if (!cur || iso < cur) edByItem.set(b.itemId, iso);
     }
     return balances
-      .filter((b) => b.itemJenis === "Obat")
+      .filter((b) => b.itemJenis === jenis)
       .map((b) => ({
         itemId: b.itemId,
         qtyOnHand: b.qtyOnHand,
