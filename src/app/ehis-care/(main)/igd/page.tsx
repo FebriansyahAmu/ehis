@@ -3,10 +3,12 @@ import type { Metadata } from "next";
 
 import IGDWorkspace from "@/components/igd/IGDWorkspace";
 import IGDTriaseButton from "@/components/igd/IGDTriaseButton";
+import { requireCareService } from "@/lib/auth/requireCareService";
 
 export const metadata: Metadata = { title: "IGD" };
 
-export default function IGDPage() {
+export default async function IGDPage() {
+  await requireCareService("/ehis-care/igd");
   return (
     <div className="flex flex-col gap-6 p-6">
       {/* Page header */}

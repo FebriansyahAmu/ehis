@@ -6,6 +6,7 @@ import {
 import RJBoardLive from "@/components/rawat-jalan/RJBoardLive";
 import { rjPatients, rjStats } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { requireCareService } from "@/lib/auth/requireCareService";
 
 export const metadata: Metadata = { title: "Rawat Jalan" };
 
@@ -43,7 +44,8 @@ function StatCard({
 
 // ── Page ──────────────────────────────────────────────────
 
-export default function RawatJalanPage() {
+export default async function RawatJalanPage() {
+  await requireCareService("/ehis-care/rawat-jalan");
   const now = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
   const s   = rjStats;
 

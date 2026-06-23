@@ -583,8 +583,9 @@ function permList(p?: string | readonly string[]): readonly string[] {
 }
 
 /** Item terlihat: lolos RBAC (perm) DAN — bila ber-careUnit — unit kerja user mencakupnya
- *  (kecuali `scope.unrestricted`). Tanpa `scope` → careUnit diabaikan (mis. saat loading sesi). */
-export function navItemVisible(item: NavItem, can: Can, scope?: NavScope): boolean {
+ *  (kecuali `scope.unrestricted`). Tanpa `scope` → careUnit diabaikan (mis. saat loading sesi).
+ *  Param di-narrow ke {perm,careUnit} agar bisa dipakai ulang guard server (requireCareService). */
+export function navItemVisible(item: Pick<NavItem, "perm" | "careUnit">, can: Can, scope?: NavScope): boolean {
   const ps = permList(item.perm);
   if (ps.length > 0 && !ps.some((p) => can(p, "read"))) return false;
   if (item.careUnit && scope && !scope.unrestricted && !scope.careUnits.includes(item.careUnit)) {

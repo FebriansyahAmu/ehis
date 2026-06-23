@@ -9,6 +9,7 @@ import RIRuanganPanel from "@/components/rawat-inap/RIRuanganPanel";
 import RIBoard from "@/components/rawat-inap/RIBoard";
 import { rawatInapPatients, rawatInapRuangan, rawatInapStats } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { requireCareService } from "@/lib/auth/requireCareService";
 
 export const metadata: Metadata = { title: "Rawat Inap" };
 
@@ -83,7 +84,8 @@ function StatCard({
 
 // ── Page ──────────────────────────────────────────────────
 
-export default function RawatInapPage() {
+export default async function RawatInapPage() {
+  await requireCareService("/ehis-care/rawat-inap");
   const now = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
   const s   = rawatInapStats;
 

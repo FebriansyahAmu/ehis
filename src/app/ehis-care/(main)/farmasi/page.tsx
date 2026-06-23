@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import { Pill } from "lucide-react";
 import FarmasiViewTabs from "@/components/farmasi/FarmasiViewTabs";
 import { cn } from "@/lib/utils";
+import { requireCareService } from "@/lib/auth/requireCareService";
 
 export const metadata: Metadata = { title: "Farmasi" };
 
 // ── Page ───────────────────────────────────────────────────
 
-export default function FarmasiPage() {
+export default async function FarmasiPage() {
+  await requireCareService("/ehis-care/farmasi");
   const now       = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
   const today     = new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long" });
 

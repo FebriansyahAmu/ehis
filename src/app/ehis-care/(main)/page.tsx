@@ -11,9 +11,13 @@ import {
   Users,
   Clock,
   AlertCircle,
+  Lock,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getServerActor } from "@/lib/auth/actor";
+import { navItemVisible, navScopeFrom, type Can } from "@/lib/navigation";
+import type { CareUnit } from "@/lib/auth/careUnit";
 
 export const metadata: Metadata = { title: "Pelayanan Medis" };
 
@@ -33,6 +37,11 @@ interface ServiceDef {
   accent: { bg: string; text: string; border: string; badge: string };
   stats: ServiceStat[];
   cta: string;
+  /** RBAC penggerak visibilitas (selaras careNav). Kartu tampil bila `can(perm,"read")`. */
+  perm: string | readonly string[];
+  /** Konteks unit care (IGD/RI/RJ) — kartu hanya tampil bila user ter-assign ke unit itu (ABAC).
+   *  Penunjang (Lab/Rad/Farmasi) tanpa careUnit (lintas-unit, digerakkan RBAC `ancillary.*`). */
+  careUnit?: CareUnit;
 }
 
 const SERVICES: ServiceDef[] = [
@@ -53,6 +62,8 @@ const SERVICES: ServiceDef[] = [
       { label: "Bed tersedia", value: "4/12" },
     ],
     cta: "Buka IGD",
+    perm: "clinical.igd",
+    careUnit: "IGD",
   },
   {
     label: "Rawat Jalan",
@@ -71,6 +82,8 @@ const SERVICES: ServiceDef[] = [
       { label: "Poli buka", value: "8/10" },
     ],
     cta: "Buka Rawat Jalan",
+    perm: "clinical.rj",
+    careUnit: "RawatJalan",
   },
   {
     label: "Rawat Inap",
@@ -89,6 +102,8 @@ const SERVICES: ServiceDef[] = [
       { label: "Bed kosong", value: "18/92" },
     ],
     cta: "Buka Rawat Inap",
+    perm: "clinical.ri",
+    careUnit: "RawatInap",
   },
   {
     label: "Farmasi",
@@ -107,6 +122,7 @@ const SERVICES: ServiceDef[] = [
       { label: "Stok rendah", value: 3, alert: true },
     ],
     cta: "Buka Farmasi",
+    perm: ["ancillary.farmasi.telaah", "ancillary.farmasi.serah"],
   },
   {
     label: "Laboratorium",
@@ -125,6 +141,7 @@ const SERVICES: ServiceDef[] = [
       { label: "Kritis", value: 1, alert: true },
     ],
     cta: "Buka Lab",
+    perm: ["ancillary.lab.worklist", "ancillary.lab.validate", "ancillary.lab.critical"],
   },
   {
     label: "Radiologi",
@@ -143,6 +160,7 @@ const SERVICES: ServiceDef[] = [
       { label: "Rata-rata tunggu", value: "25 mnt" },
     ],
     cta: "Buka Radiologi",
+    perm: ["ancillary.rad.worklist", "ancillary.rad.expertise"],
   },
 ];
 
@@ -157,7 +175,7 @@ const QUICK_STATS = [
 
 // ── Page ─────────────────────────────────────────────────
 
-export default function EhisCareHubPage() {
+export default async function EhisCareHubPage() {
   const now = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
   const today = new Date().toLocaleDateString("id-ID", {
     weekday: "long",
@@ -165,6 +183,16 @@ export default function EhisCareHubPage() {
     month: "long",
     year: "numeric",
   });
+
+  // ── Filter kartu layanan per assignment user (selaras sidebar careNav) ──
+  // Hanya tampilkan layanan yang user boleh akses: RBAC (perm) + careUnit ABAC
+  // (unit kerja). Superuser (Admin) & role global → unrestricted → lihat semua.
+  // Sumber kebenaran assignment = Pegawai.unitKerja (careUnit) + roster RBAC,
+  // sama dgn yang menggerakkan menu Sidebar & enforcement server (requireModule).
+  const actor = await getServerActor();
+  const can: Can = (r, a) => actor.isSuperuser || actor.permissions.has("*") || actor.permissions.has(`${r}:${a}`);
+  const scope = navScopeFrom(actor);
+  const services = SERVICES.filter((svc) => navItemVisible(svc, can, scope));
 
   return (
     <div className="w-full space-y-6 p-4 sm:p-6">
@@ -207,8 +235,24 @@ export default function EhisCareHubPage() {
         <h2 className="animate-fade-in mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400" style={{ animationDelay: "100ms" }}>
           Layanan Aktif
         </h2>
+
+        {services.length === 0 ? (
+          <div
+            className="animate-fade-in flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center"
+            style={{ animationDelay: "120ms" }}
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+              <Lock size={20} />
+            </span>
+            <p className="text-sm font-semibold text-slate-700">Belum ada layanan yang dapat diakses</p>
+            <p className="max-w-md text-xs leading-relaxed text-slate-500">
+              Anda belum ditugaskan ke unit pelayanan mana pun. Hubungi administrator untuk penugasan
+              ruangan/unit kerja agar layanan terkait muncul di sini.
+            </p>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {SERVICES.map((svc, i) => {
+          {services.map((svc, i) => {
             const Icon = svc.icon;
             return (
               <Link
@@ -276,6 +320,7 @@ export default function EhisCareHubPage() {
             );
           })}
         </div>
+        )}
       </section>
     </div>
   );

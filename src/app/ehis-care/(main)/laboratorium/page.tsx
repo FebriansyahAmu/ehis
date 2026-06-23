@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import { FlaskConical } from "lucide-react";
 import LabPageView from "@/components/lab/LabPageView";
+import { requireCareService } from "@/lib/auth/requireCareService";
 
 export const metadata: Metadata = { title: "Laboratorium" };
 
 // ── Page ───────────────────────────────────────────────────
 // Worklist + statistik dibaca dari DB (medicalrecord.LabOrder) di LabPageView/LabBoard — tanpa mock.
 
-export default function LaboratoriumPage() {
+export default async function LaboratoriumPage() {
+  await requireCareService("/ehis-care/laboratorium");
   const now   = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
   const today = new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long" });
 

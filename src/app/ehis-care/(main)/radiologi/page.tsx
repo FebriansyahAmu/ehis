@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { Radiation } from "lucide-react";
 import RadPageView from "@/components/rad/RadPageView";
+import { requireCareService } from "@/lib/auth/requireCareService";
 
 export const metadata: Metadata = { title: "Radiologi" };
 
 // ── Page ───────────────────────────────────────────────────
 
-export default function RadiologiPage() {
+export default async function RadiologiPage() {
+  await requireCareService("/ehis-care/radiologi");
   const now   = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
   const today = new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long" });
 
