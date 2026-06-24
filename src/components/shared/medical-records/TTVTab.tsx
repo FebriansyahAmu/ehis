@@ -7,6 +7,7 @@ import type { IGDVitalSigns, StatusKesadaran, RITTVRecord, RIShift, TriageLevel 
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
+import { TimePicker } from "@/components/shared/inputs";
 
 // ── Vital status helpers ──────────────────────────────────
 
@@ -650,11 +651,11 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history, triage, o
           <div className="mb-4 grid grid-cols-2 gap-3">
             <div>
               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Jam Observasi</p>
-              <input
-                type="time"
+              <TimePicker
                 value={form.jam}
-                onChange={(e) => set("jam", e.target.value)}
-                className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                onChange={(v) => set("jam", v)}
+                minuteStep={1}
+                placeholder="Pilih jam observasi"
               />
             </div>
             {perawatField}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, Check, AlertCircle, ClipboardList, Printer } from "lucide-react";
+import { Loader2, Check, AlertCircle, ClipboardList, Printer, User } from "lucide-react";
 import type { IGDPatientDetail, TriageLevel } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { getTriase, saveTriase } from "@/lib/api/triase";
@@ -10,7 +10,7 @@ import { listTriaseProtocols } from "@/lib/api/triaseProtocol";
 import type { TriaseDTO } from "@/lib/schemas/triase";
 import type { TriaseRecordDTO } from "@/lib/schemas/triaseProtocol";
 import { ApiError } from "@/lib/api/client";
-import { Select } from "@/components/shared/inputs/Select";
+import { Select, DateTimePicker } from "@/components/shared/inputs";
 import { toast } from "@/lib/ui/toastStore";
 import TriaseCetakModal from "./triase-cetak/TriaseCetakModal";
 
@@ -1257,24 +1257,21 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <Label required>Nama Perawat Triase</Label>
-            <select
+            <Select
               value={form.perawatTriase}
-              onChange={(e) => set("perawatTriase", e.target.value)}
-              className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
-            >
-              <option value="">{perawatLoading ? "Memuat perawat…" : "— Pilih perawat —"}</option>
-              {perawatOptions.map((nama) => (
-                <option key={nama} value={nama}>{nama}</option>
-              ))}
-            </select>
+              onChange={(v) => set("perawatTriase", v)}
+              options={perawatOptions}
+              icon={User}
+              searchable
+              placeholder={perawatLoading ? "Memuat perawat…" : "— Pilih perawat —"}
+            />
           </div>
           <div>
             <Label>Waktu Triase</Label>
-            <input
-              type="datetime-local"
+            <DateTimePicker
               value={form.waktuTriase}
-              onChange={(e) => set("waktuTriase", e.target.value)}
-              className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
+              onChange={(v) => set("waktuTriase", v)}
+              placeholder="Pilih tanggal & waktu triase"
             />
           </div>
         </div>
