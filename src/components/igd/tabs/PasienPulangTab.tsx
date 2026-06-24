@@ -9,7 +9,7 @@ import type { IGDPatientDetail } from "@/lib/data";
 import type { DisposisiInput } from "@/lib/schemas/disposisi/disposisi";
 import { nowInputValue } from "@/components/shared/inputs/DateTimePicker";
 import { Select, DateTimePicker } from "@/components/shared/inputs";
-import { listPetugasKunjungan } from "@/lib/api/penugasanRuangan";
+import { listPetugasKunjungan, type PetugasDTO } from "@/lib/api/penugasanRuangan";
 import IcdSearch, { type IcdSearchAccent } from "@/components/shared/medical-records/diagnosa/IcdSearch";
 import { ICD10 } from "@/components/shared/medical-records/diagnosaShared";
 import { cn } from "@/lib/utils";
@@ -81,20 +81,21 @@ export default function PasienPulangTab({
   const [submitted, setSubmitted]           = useState(false);
 
   // Roster dokter ter-assign ruangan kunjungan (konsumen klinis — sama pola Pemeriksaan Fisik).
-  const [dokterRoster, setDokterRoster] = useState<string[]>([]);
+  // Simpan PetugasDTO penuh: nama utk Select + `spesialistik` utk turunkan SMF/poli SPRI.
+  const [dokterRoster, setDokterRoster] = useState<PetugasDTO[]>([]);
 
   useEffect(() => {
     if (!isPersisted) return;
     const ac = new AbortController();
     listPetugasKunjungan(kunjunganId, "Dokter", ac.signal)
-      .then((items) => setDokterRoster(items.map((p) => p.namaTampil)))
+      .then(setDokterRoster)
       .catch(() => { /* 403/belum login → fallback DPJP header */ });
     return () => ac.abort();
   }, [isPersisted, kunjunganId]);
 
   // Opsi dokter pemulang = roster + DPJP header (patient.doctor) + nilai terpilih.
   const dokterOptions = useMemo(() => {
-    const set = new Set(dokterRoster);
+    const set = new Set(dokterRoster.map((p) => p.namaTampil));
     if (patient.doctor && patient.doctor !== "—") set.add(patient.doctor);
     if (dokterPulang) set.add(dokterPulang);
     return [...set].sort((a, b) => a.localeCompare(b, "id"));
@@ -475,7 +476,12 @@ export default function PasienPulangTab({
               <SembuhPanel status={statusPulang} patient={patient} />
             )}
             {statusPulang === "Rawat_Inap" && (
-              <SPRIPanel patient={patient} dokterOptions={dokterOptions} onIssuedChange={setSpriIssued} />
+              <SPRIPanel
+                patient={patient}
+                dokterOptions={dokterOptions}
+                roster={dokterRoster}
+                onIssuedChange={setSpriIssued}
+              />
             )}
             {statusPulang === "APS" && (
               <APSPanel onConfirmedChange={setApsConfirmed} />

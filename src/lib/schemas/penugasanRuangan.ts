@@ -36,6 +36,9 @@ export interface PetugasDTO {
   pegawaiId: string;
   namaTampil: string;
   profesi: string | null;
+  /** Bidang spesialisasi (SMF) — relevan utk Dokter Spesialis; null bila non-spesialis.
+   *  Dipakai konsumen klinis menurunkan SMF/poli tujuan (mis. poliKontrol SPRI). */
+  spesialistik: string | null;
   /** Ruangan asal penugasan — null bila fallback lintas-ruangan (kunjungan tanpa ruangan). */
   ruanganKode: string | null;
   ruanganNama: string | null;

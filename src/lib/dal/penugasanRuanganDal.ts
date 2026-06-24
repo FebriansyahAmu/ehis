@@ -15,7 +15,7 @@ const includeRel = {
   pegawai: {
     select: {
       id: true, nip: true, namaLengkap: true,
-      gelarDepan: true, gelarBelakang: true, profesi: true,
+      gelarDepan: true, gelarBelakang: true, profesi: true, spesialistik: true,
     },
   },
   location: { select: { id: true, kode: true, nama: true } },

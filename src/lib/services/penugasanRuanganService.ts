@@ -115,6 +115,7 @@ export function makePenugasanRuanganService(deps: { dal?: Dal } = {}) {
         pegawaiId: r.pegawaiId,
         namaTampil: namaTampil(r.pegawai),
         profesi: r.pegawai.profesi,
+        spesialistik: r.pegawai.spesialistik,
         ruanganKode: perRuangan ? r.location.kode : null,
         ruanganNama: perRuangan ? r.location.nama : null,
       });

@@ -1,21 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BedDouble, Stethoscope, Loader2, CheckCircle2,
-  Copy, Check, RefreshCw, ShieldCheck, Hash, Info,
+  Copy, Check, RefreshCw, ShieldCheck, Hash, Info, Activity, AlertTriangle,
 } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
+import type { PetugasDTO } from "@/lib/api/penugasanRuangan";
 import { useSession } from "@/contexts/SessionContext";
 import { Select, DatePicker } from "@/components/shared/inputs";
 import { toast } from "@/lib/ui/toastStore";
 import { cn } from "@/lib/utils";
 import { Field, SectionHeader, textareaCls } from "./pasienPulangShared";
 import { terbitkanSPRI, type SPRIRequest, type SPRIResult } from "./spriMock";
+import { resolvePoliBpjs } from "./smfPoliMap";
 
-// Jenis ruang perawatan (selaras RIKelas — hak kelas / tipe ruang rawat inap).
-const RUANG_OPTS = ["VIP", "Kelas 1", "Kelas 2", "Kelas 3", "ICU", "HCU", "Isolasi"];
+// Jenis ruang perawatan — tingkat perawatan (level of care), bukan kelas BPJS.
+const RUANG_OPTS = ["Perawatan Biasa", "Perawatan Intensif", "Isolasi", "HCU", "ICU"];
 
 function todayYmd(): string {
   const n = new Date();
@@ -26,11 +28,13 @@ interface Props {
   patient: IGDPatientDetail;
   /** Opsi DPJP dari roster ruangan (dihitung di parent — sama pool dgn Dokter Pemulang). */
   dokterOptions: string[];
+  /** Roster penuh — utk turunkan SMF/spesialistik dari DPJP terpilih (by namaTampil). */
+  roster: PetugasDTO[];
   /** Gerbang submit parent: true setelah SPRI terbit. */
   onIssuedChange: (v: boolean) => void;
 }
 
-export default function SPRIPanel({ patient, dokterOptions, onIssuedChange }: Props) {
+export default function SPRIPanel({ patient, dokterOptions, roster, onIssuedChange }: Props) {
   const { session } = useSession();
   const userName = session?.namaTampil ?? "Petugas IGD";
 
@@ -44,6 +48,13 @@ export default function SPRIPanel({ patient, dokterOptions, onIssuedChange }: Pr
   const [result, setResult]           = useState<SPRIResult | null>(null);
   const [copied, setCopied]           = useState(false);
 
+  // SMF/poli tujuan diturunkan dari DPJP terpilih (DPJP = Dokter ber-spesialistik) → poliKontrol.
+  const spesialistik = useMemo(
+    () => roster.find((p) => p.namaTampil === dpjp)?.spesialistik ?? null,
+    [roster, dpjp],
+  );
+  const poli = useMemo(() => resolvePoliBpjs(spesialistik), [spesialistik]);
+
   const noKartu = patient.noBpjs ?? "";
   const canIssue =
     dpjp.trim() !== "" && ruang.trim() !== "" && tglRawat.trim() !== "" && indikasi.trim() !== "" && !issuing;
@@ -53,7 +64,7 @@ export default function SPRIPanel({ patient, dokterOptions, onIssuedChange }: Pr
     const req: SPRIRequest = {
       noKartu,
       kodeDokter: dpjp,            // TODO produksi: map nama DPJP → kode dokter BPJS
-      poliKontrol: ruang,          // TODO produksi: kode poli/spesialistik tujuan rawat (lihat doc)
+      poliKontrol: poli?.kode ?? "", // poli tujuan diturunkan dari spesialistik DPJP (SMF)
       tglRencanaKontrol: tglRawat,
       user: userName,
     };
@@ -136,6 +147,30 @@ export default function SPRIPanel({ patient, dokterOptions, onIssuedChange }: Pr
               />
             </Field>
           </div>
+
+          {/* SMF / Poli tujuan — read-only, diturunkan dari spesialistik DPJP (→ poliKontrol). */}
+          <Field label="SMF / Poli Tujuan (BPJS)" hint="Otomatis dari spesialistik DPJP — dikirim sebagai poliKontrol.">
+            {poli ? (
+              <div className="flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2.5">
+                <Activity size={14} className="shrink-0 text-violet-500" />
+                <span className="text-xs font-semibold text-violet-800">{poli.nama}</span>
+                <span className="ml-auto rounded-md bg-white px-2 py-0.5 font-mono text-[11px] font-bold text-violet-600 ring-1 ring-violet-200">
+                  {poli.kode}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-500" />
+                <p className="text-[11px] leading-snug text-amber-700">
+                  {dpjp.trim() === ""
+                    ? "Pilih DPJP untuk menentukan SMF/poli tujuan."
+                    : spesialistik
+                    ? `Spesialistik "${spesialistik}" belum dipetakan ke poli BPJS — lengkapi smfPoliMap.`
+                    : "DPJP terpilih bukan dokter spesialis (tanpa SMF) — poliKontrol akan dikirim kosong."}
+                </p>
+              </div>
+            )}
+          </Field>
 
           {/* Jenis ruang perawatan */}
           <Field label="Jenis Ruang Perawatan" required>
