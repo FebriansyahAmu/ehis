@@ -1,18 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   HeartOff, CheckCircle2, Clock, User, Stethoscope, FileText,
-  Calendar, Activity, ClipboardCheck, Check, Printer,
-  Send, HeartPulse, Thermometer, Wind,
+  Calendar, ClipboardCheck, Check, Printer, Send, Plus, X,
 } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
 import type { DisposisiInput } from "@/lib/schemas/disposisi/disposisi";
 import { nowInputValue } from "@/components/shared/inputs/DateTimePicker";
+import { Select, DateTimePicker } from "@/components/shared/inputs";
+import { listPetugasKunjungan } from "@/lib/api/penugasanRuangan";
+import IcdSearch, { type IcdSearchAccent } from "@/components/shared/medical-records/diagnosa/IcdSearch";
+import { ICD10 } from "@/components/shared/medical-records/diagnosaShared";
 import { cn } from "@/lib/utils";
 import {
-  type StatusPulang, type KondisiUmum,
-  STATUS_OPTIONS, KONDISI_OPTIONS, KONDISI_CLS,
+  type StatusPulang,
+  STATUS_OPTIONS,
   inputCls, Field, SectionHeader, SelectStatusPlaceholder,
 } from "./pasienPulang/pasienPulangShared";
 
@@ -25,11 +28,31 @@ const STATUS_TO_JENIS: Record<StatusPulang, DisposisiInput["jenis"]> = {
   APS: "APS",
   Meninggal: "Meninggal",
 };
-import SBARTransferPanel from "./pasienPulang/SBARTransferPanel";
+
+// kondisiUmum tidak lagi dinilai terpisah di form (card dihapus) — backend tetap wajib
+// (Zod min(1) + DB NOT NULL), jadi diturunkan dari status pemulangan yang dipilih.
+const KONDISI_DEFAULT: Record<StatusPulang, string> = {
+  Sembuh:     "Baik",
+  Membaik:    "Membaik",
+  Rawat_Inap: "Dalam perawatan",
+  Dirujuk:    "Dirujuk ke faskes lain",
+  APS:        "Pulang atas permintaan sendiri",
+  Meninggal:  "Meninggal",
+};
+import SPRIPanel         from "./pasienPulang/SPRIPanel";
 import SembuhPanel       from "./pasienPulang/SembuhPanel";
-import RujukanPanel      from "./pasienPulang/RujukanPanel";
 import APSPanel          from "./pasienPulang/APSPanel";
 import MeninggalPanel    from "./pasienPulang/MeninggalPanel";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Accent IcdSearch (selaras DiagnosaTab — ICD-10 = sky).
+const SKY: IcdSearchAccent = {
+  focus: "focus:border-sky-300 focus:ring-2 focus:ring-sky-100",
+  itemActive: "bg-sky-50",
+  kodeText: "text-sky-600",
+  badge: "bg-sky-50 text-sky-600",
+};
 
 // ── Main component ─────────────────────────────────────────────
 
@@ -41,35 +64,50 @@ export default function PasienPulangTab({
   /** Selesaikan kunjungan (persist + kunci). Absen → mode demo (sukses lokal). */
   onComplete?: (disposisi: DisposisiInput, waktuSelesai: string) => Promise<void> | void;
 }) {
+  const kunjunganId = patient.id ?? "";
+  const isPersisted = UUID_RE.test(kunjunganId);
+
   // Core left-column state
   const [statusPulang, setStatusPulang]     = useState<StatusPulang | null>(null);
   const [dokterPulang, setDokterPulang]     = useState(patient.doctor);
-  const [tanggalPulang, setTanggalPulang]   = useState(() => nowInputValue().slice(0, 10)); // tgl lokal
-  const [jamPulang, setJamPulang]           = useState("");
+  const [waktuPulang, setWaktuPulang]       = useState(() => nowInputValue()); // "YYYY-MM-DDTHH:mm"
   const [saving, setSaving]                 = useState(false);
-  const [kondisiUmum, setKondisiUmum]       = useState<KondisiUmum | null>(null);
   const [diagnosaKeluar, setDiagnosaKeluar] = useState<string[]>(
     patient.diagnosa.filter((d) => d.tipe === "Utama").map((d) => d.id),
   );
+  const [draftDiag, setDraftDiag]           = useState("");
+  const [extraDiagnosa, setExtraDiagnosa]   = useState<string[]>([]);
   const [catatanUmum, setCatatanUmum]       = useState("");
   const [submitted, setSubmitted]           = useState(false);
 
-  // TTV terakhir
-  const [tdSis, setTdSis] = useState(String(patient.vitalSigns.tdSistolik));
-  const [tdDia, setTdDia] = useState(String(patient.vitalSigns.tdDiastolik));
-  const [nadi, setNadi]   = useState(String(patient.vitalSigns.nadi));
-  const [rr, setRr]       = useState(String(patient.vitalSigns.respirasi));
-  const [suhu, setSuhu]   = useState(String(patient.vitalSigns.suhu));
-  const [spo2, setSpo2]   = useState(String(patient.vitalSigns.spo2));
+  // Roster dokter ter-assign ruangan kunjungan (konsumen klinis — sama pola Pemeriksaan Fisik).
+  const [dokterRoster, setDokterRoster] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    listPetugasKunjungan(kunjunganId, "Dokter", ac.signal)
+      .then((items) => setDokterRoster(items.map((p) => p.namaTampil)))
+      .catch(() => { /* 403/belum login → fallback DPJP header */ });
+    return () => ac.abort();
+  }, [isPersisted, kunjunganId]);
+
+  // Opsi dokter pemulang = roster + DPJP header (patient.doctor) + nilai terpilih.
+  const dokterOptions = useMemo(() => {
+    const set = new Set(dokterRoster);
+    if (patient.doctor && patient.doctor !== "—") set.add(patient.doctor);
+    if (dokterPulang) set.add(dokterPulang);
+    return [...set].sort((a, b) => a.localeCompare(b, "id"));
+  }, [dokterRoster, patient.doctor, dokterPulang]);
 
   // Confirmation callbacks from sub-panels
-  const [sbarConfirmed, setSbarConfirmed] = useState(false);
+  const [spriIssued, setSpriIssued]       = useState(false);
   const [apsConfirmed, setApsConfirmed]   = useState(false);
   const [matiConfirmed, setMatiConfirmed] = useState(false);
 
   const handleStatusChange = (s: StatusPulang) => {
     setStatusPulang(s);
-    setSbarConfirmed(false);
+    setSpriIssued(false);
     setApsConfirmed(false);
     setMatiConfirmed(false);
   };
@@ -79,32 +117,43 @@ export default function PasienPulangTab({
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
 
+  const addExtraDiag = () => {
+    const v = draftDiag.trim();
+    if (!v) return;
+    setExtraDiagnosa((p) => [...p, v]);
+    setDraftDiag("");
+  };
+  const removeExtraDiag = (i: number) =>
+    setExtraDiagnosa((p) => p.filter((_, idx) => idx !== i));
+
   const canSubmit =
     statusPulang !== null &&
-    kondisiUmum !== null &&
-    jamPulang !== "" &&
+    waktuPulang !== "" &&
     (statusPulang !== "Meninggal"  || matiConfirmed) &&
     (statusPulang !== "APS"        || apsConfirmed) &&
-    (statusPulang !== "Rawat_Inap" || sbarConfirmed);
+    (statusPulang !== "Rawat_Inap" || spriIssued);
 
   // Submit → Selesaikan Kunjungan (persist + kunci) bila onComplete ada; selain itu demo lokal.
   async function handleSubmit() {
     if (!canSubmit || saving) return;
     if (!onComplete) { setSubmitted(true); return; }
-    const diagnosaLabels = patient.diagnosa
-      .filter((d) => diagnosaKeluar.includes(d.id))
-      .map((d) => `${d.kodeIcd10} ${d.namaDiagnosis}`);
+    const diagnosaLabels = [
+      ...patient.diagnosa
+        .filter((d) => diagnosaKeluar.includes(d.id))
+        .map((d) => `${d.kodeIcd10} ${d.namaDiagnosis}`),
+      ...extraDiagnosa,
+    ];
     const disposisi: DisposisiInput = {
       jenis: STATUS_TO_JENIS[statusPulang!],
       dokter: dokterPulang.trim() || undefined,
-      kondisiUmum: kondisiUmum!,
+      kondisiUmum: KONDISI_DEFAULT[statusPulang!],
       diagnosaKeluar: diagnosaLabels,
       instruksi: catatanUmum.trim() || undefined,
       catatan: catatanUmum.trim() || undefined,
     };
     try {
       setSaving(true);
-      await onComplete(disposisi, `${tanggalPulang}T${jamPulang}`);
+      await onComplete(disposisi, waktuPulang);
       setSubmitted(true);
     } catch {
       /* toast ditangani pemanggil (shell); tetap di form */
@@ -112,6 +161,8 @@ export default function PasienPulangTab({
       setSaving(false);
     }
   }
+
+  const waktuLabel = waktuPulang ? waktuPulang.replace("T", " ") : "—";
 
   // ── Success screen ──
   if (submitted && statusPulang) {
@@ -135,7 +186,7 @@ export default function PasienPulangTab({
             <span className="font-semibold text-slate-700">{def.label}</span>
           </p>
           <p className="mt-0.5 text-[11px] text-slate-400">
-            Dicatat oleh: {dokterPulang} · {tanggalPulang} {jamPulang}
+            Dicatat oleh: {dokterPulang} · {waktuLabel}
           </p>
         </div>
         <div className="flex gap-2">
@@ -157,6 +208,8 @@ export default function PasienPulangTab({
   }
 
   const isMeninggal = statusPulang === "Meninggal";
+  // Dirujuk: cukup status saja (tanpa panel surat rujukan eksternal).
+  const hasRightPanel = statusPulang !== null && statusPulang !== "Dirujuk";
 
   return (
     <div className="flex flex-col gap-4">
@@ -211,7 +264,7 @@ export default function PasienPulangTab({
       </div>
 
       {/* ── Two-column layout ── */}
-      <div className={cn("grid grid-cols-1 gap-4", statusPulang !== null && "lg:grid-cols-2")}>
+      <div className={cn("grid grid-cols-1 gap-4", hasRightPanel && "lg:grid-cols-2")}>
 
         {/* ── Left: Main form ── */}
         <div className="flex flex-col gap-4">
@@ -270,127 +323,131 @@ export default function PasienPulangTab({
           {/* Waktu & DPJP */}
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <SectionHeader icon={Clock} title="Waktu & Penanggung Jawab" />
-            <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-3">
-              <Field label="Dokter Pemulang" required>
-                <input
+            <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2">
+              <Field label="Dokter Pemulang (DPJP)" required hint="Dipilih dari dokter yang ditugaskan ke ruangan ini.">
+                <Select
                   value={dokterPulang}
-                  onChange={(e) => setDokterPulang(e.target.value)}
-                  className={inputCls}
+                  onChange={setDokterPulang}
+                  options={dokterOptions}
+                  icon={Stethoscope}
+                  searchable
+                  placeholder="— Pilih dokter penanggung jawab —"
                 />
               </Field>
-              <Field label={isMeninggal ? "Tanggal Meninggal" : "Tanggal Pulang"} required>
-                <input
-                  type="date"
-                  value={tanggalPulang}
-                  onChange={(e) => setTanggalPulang(e.target.value)}
-                  className={inputCls}
+              <Field label={isMeninggal ? "Tanggal & Jam Meninggal" : "Tanggal & Jam Pulang"} required>
+                <DateTimePicker
+                  value={waktuPulang}
+                  onChange={setWaktuPulang}
+                  placeholder="Pilih tanggal & jam"
                 />
               </Field>
-              <Field label={isMeninggal ? "Jam Meninggal" : "Jam Pulang"} required>
-                <input
-                  type="time"
-                  value={jamPulang}
-                  onChange={(e) => setJamPulang(e.target.value)}
-                  className={inputCls}
-                />
-              </Field>
-            </div>
-          </div>
-
-          {/* Kondisi umum + TTV terakhir */}
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <SectionHeader icon={Activity} title="Kondisi Saat Pulang" />
-            <div className="flex flex-col gap-4 p-4">
-              <Field label="Kondisi Umum" required>
-                <div className="flex flex-wrap gap-2">
-                  {KONDISI_OPTIONS.map((k) => (
-                    <button
-                      key={k}
-                      type="button"
-                      onClick={() => setKondisiUmum(k)}
-                      className={cn(
-                        "rounded-lg border px-4 py-1.5 text-xs font-medium transition",
-                        kondisiUmum === k
-                          ? KONDISI_CLS[k]
-                          : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
-                      )}
-                    >
-                      {k}
-                    </button>
-                  ))}
-                </div>
-              </Field>
-              <div>
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Tanda Vital Terakhir
-                </p>
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-                  {[
-                    { label: "TD Sis",  val: tdSis,  set: setTdSis,  unit: "mmHg",  icon: HeartPulse },
-                    { label: "TD Dia",  val: tdDia,  set: setTdDia,  unit: "mmHg",  icon: HeartPulse },
-                    { label: "Nadi",    val: nadi,   set: setNadi,   unit: "×/mnt", icon: Activity   },
-                    { label: "RR",      val: rr,     set: setRr,     unit: "×/mnt", icon: Wind       },
-                    { label: "Suhu",    val: suhu,   set: setSuhu,   unit: "°C",    icon: Thermometer },
-                    { label: "SpO₂",   val: spo2,   set: setSpo2,   unit: "%",     icon: Activity   },
-                  ].map(({ label, val, set, unit }) => (
-                    <div key={label} className="flex flex-col gap-0.5">
-                      <label className="text-center text-[10px] font-medium text-slate-400">{label}</label>
-                      <input
-                        value={val}
-                        onChange={(e) => set(e.target.value)}
-                        className="h-8 w-full rounded-lg border border-slate-200 bg-white px-1 text-center text-xs font-semibold tabular-nums text-slate-800 shadow-xs outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-300"
-                      />
-                      <span className="text-center text-[9px] text-slate-400">{unit}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
 
           {/* Diagnosa keluar */}
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <SectionHeader icon={FileText} title="Diagnosa Keluar" />
-            <div className="flex flex-col gap-2 p-4">
-              {patient.diagnosa.map((d) => {
-                const sel = diagnosaKeluar.includes(d.id);
-                return (
+            <div className="flex flex-col gap-3 p-4">
+              {patient.diagnosa.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                    Dari Rekam Medis
+                  </p>
+                  {patient.diagnosa.map((d) => {
+                    const sel = diagnosaKeluar.includes(d.id);
+                    return (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => toggleDiagnosa(d.id)}
+                        className={cn(
+                          "flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition",
+                          sel
+                            ? "border-indigo-300 bg-indigo-50 text-indigo-800"
+                            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "flex h-5 w-5 shrink-0 items-center justify-center rounded border transition",
+                            sel ? "border-indigo-500 bg-indigo-500 text-white" : "border-slate-300 bg-white",
+                          )}
+                        >
+                          {sel && <Check size={10} />}
+                        </span>
+                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                          <span className="font-mono text-[11px] text-slate-400">{d.kodeIcd10}</span>
+                          <span className="text-xs font-medium">{d.namaDiagnosis}</span>
+                        </div>
+                        <span
+                          className={cn(
+                            "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ring-1",
+                            d.tipe === "Utama"
+                              ? "bg-indigo-100 text-indigo-700 ring-indigo-200"
+                              : "bg-slate-100 text-slate-500 ring-slate-200",
+                          )}
+                        >
+                          {d.tipe}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Tambah diagnosa: pilih kode ICD-10 lalu sambung ketikan, atau tulis manual. */}
+              <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  Tambah Diagnosa Lain
+                </p>
+                <IcdSearch
+                  jenis="ICD-10"
+                  placeholder="Cari kode / nama ICD-10… (min. 2 karakter)"
+                  accent={SKY}
+                  fallback={ICD10}
+                  onSelect={(p) => setDraftDiag(`${p.kode} — ${p.nama}`)}
+                />
+                <div className="flex items-center gap-2">
+                  <input
+                    value={draftDiag}
+                    onChange={(e) => setDraftDiag(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { e.preventDefault(); addExtraDiag(); }
+                    }}
+                    placeholder="Pilih ICD di atas lalu sambung ketikan, atau tulis manual…"
+                    className={cn(inputCls, "flex-1")}
+                  />
                   <button
-                    key={d.id}
                     type="button"
-                    onClick={() => toggleDiagnosa(d.id)}
-                    className={cn(
-                      "flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition",
-                      sel
-                        ? "border-indigo-300 bg-indigo-50 text-indigo-800"
-                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
-                    )}
+                    onClick={addExtraDiag}
+                    disabled={!draftDiag.trim()}
+                    className="flex shrink-0 items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    <span
-                      className={cn(
-                        "flex h-5 w-5 shrink-0 items-center justify-center rounded border transition",
-                        sel ? "border-indigo-500 bg-indigo-500 text-white" : "border-slate-300 bg-white",
-                      )}
-                    >
-                      {sel && <Check size={10} />}
-                    </span>
-                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                      <span className="font-mono text-[11px] text-slate-400">{d.kodeIcd10}</span>
-                      <span className="text-xs font-medium">{d.namaDiagnosis}</span>
-                    </div>
-                    <span
-                      className={cn(
-                        "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ring-1",
-                        d.tipe === "Utama"
-                          ? "bg-indigo-100 text-indigo-700 ring-indigo-200"
-                          : "bg-slate-100 text-slate-500 ring-slate-200",
-                      )}
-                    >
-                      {d.tipe}
-                    </span>
+                    <Plus size={13} /> Tambah
                   </button>
-                );
-              })}
+                </div>
+                {extraDiagnosa.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    {extraDiagnosa.map((label, i) => (
+                      <div
+                        key={`${label}-${i}`}
+                        className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-800"
+                      >
+                        <FileText size={12} className="shrink-0 text-indigo-400" />
+                        <span className="min-w-0 flex-1 wrap-break-word">{label}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeExtraDiag(i)}
+                          aria-label="Hapus diagnosa"
+                          className="shrink-0 text-indigo-400 transition hover:text-rose-500"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -409,16 +466,17 @@ export default function PasienPulangTab({
           </div>
         </div>
 
-        {/* ── Right: Conditional panel ── */}
-        {statusPulang !== null ? (
+        {/* ── Right: Conditional panel (Dirujuk tanpa panel) ── */}
+        {statusPulang === null ? (
+          <SelectStatusPlaceholder />
+        ) : hasRightPanel ? (
           <div className="flex flex-col gap-4">
             {(statusPulang === "Sembuh" || statusPulang === "Membaik") && (
               <SembuhPanel status={statusPulang} patient={patient} />
             )}
             {statusPulang === "Rawat_Inap" && (
-              <SBARTransferPanel patient={patient} onConfirmedChange={setSbarConfirmed} />
+              <SPRIPanel patient={patient} dokterOptions={dokterOptions} onIssuedChange={setSpriIssued} />
             )}
-            {statusPulang === "Dirujuk" && <RujukanPanel />}
             {statusPulang === "APS" && (
               <APSPanel onConfirmedChange={setApsConfirmed} />
             )}
@@ -426,9 +484,7 @@ export default function PasienPulangTab({
               <MeninggalPanel patient={patient} onConfirmedChange={setMatiConfirmed} />
             )}
           </div>
-        ) : (
-          <SelectStatusPlaceholder />
-        )}
+        ) : null}
       </div>
 
       {/* ── Sticky footer ── */}
@@ -462,7 +518,7 @@ export default function PasienPulangTab({
               {!canSubmit && (
                 <p className={cn("text-[11px]", isMeninggal ? "text-slate-500" : "text-slate-400")}>
                   Lengkapi semua field wajib
-                  {statusPulang === "Rawat_Inap" && " + konfirmasi SBAR"}
+                  {statusPulang === "Rawat_Inap" && " + terbitkan SPRI"}
                   {statusPulang === "APS" && " + konfirmasi APS"}
                   {statusPulang === "Meninggal" && " + konfirmasi SKM"}
                 </p>
@@ -506,9 +562,7 @@ export default function PasienPulangTab({
               : statusPulang === "APS"
               ? "Proses Pemulangan APS"
               : statusPulang === "Rawat_Inap"
-              ? "Proses Transfer SBAR"
-              : statusPulang === "Dirujuk"
-              ? "Buat Surat Rujukan"
+              ? "Selesaikan & Rawat Inap"
               : "Selesaikan Pemulangan"}
           </button>
         </div>
