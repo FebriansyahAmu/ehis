@@ -2,21 +2,24 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutGrid, ShieldAlert, BookOpen, Users } from "lucide-react";
+import { LayoutGrid, ShieldAlert, BookOpen, Users, Syringe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFarmasiQueue } from "@/lib/farmasi/farmasiQueueStore";
 import { getPIOLogs } from "@/components/farmasi/pio/pioShared";
 import { listFarmasiResep } from "@/lib/api/resep/resep";
+import { listFarmasiBmhp } from "@/lib/api/bmhpOrder/bmhpOrder";
 import FarmasiBoard       from "./FarmasiBoard";
+import FarmasiBmhpBoard   from "./FarmasiBmhpBoard";
 import FarmasiQueueBoard  from "./antrean/FarmasiQueueBoard";
 import RegisterNarPsiPane from "./narPsi/RegisterNarPsiPane";
 import PIOPane            from "./pio/PIOPane";
 
-type FarmasiMainTab = "antrean" | "worklist" | "narpsi" | "pio";
+type FarmasiMainTab = "antrean" | "worklist" | "bmhp" | "narpsi" | "pio";
 
 const TABS: { id: FarmasiMainTab; label: string; icon: IconComponent; sub: string }[] = [
   { id: "antrean",  label: "Antrean Farmasi",                   icon: Users,       sub: "Panggil · Siapkan (T6) · Serah (T7)" },
   { id: "worklist", label: "Worklist Order",                    icon: LayoutGrid,  sub: "Telaah · Dispensasi · Serah Terima" },
+  { id: "bmhp",     label: "Worklist BMHP",                     icon: Syringe,     sub: "Terima & keluarkan BMHP (tanpa telaah)" },
   { id: "narpsi",   label: "Register Narkotika / Psikotropika", icon: ShieldAlert, sub: "UU 35/2009 · PMK 3/2015"            },
   { id: "pio",      label: "Pelayanan Informasi Obat",          icon: BookOpen,    sub: "PMK 72/2016 Ps. 27-29"              },
 ];
@@ -63,6 +66,7 @@ export default function FarmasiViewTabs() {
   // reload halaman: poll ringan 15 dtk + refetch INSTAN saat tab/jendela kembali fokus + saat pindah tab.
   // (Push real-time lintas-user sub-detik = butuh SSE — lihat catatan.)
   const [belumDiterima, setBelumDiterima] = useState(0);
+  const [bmhpBelum, setBmhpBelum] = useState(0);
   const [pioPending, setPioPending] = useState(0);
   useEffect(() => {
     let alive = true;
@@ -71,6 +75,12 @@ export default function FarmasiViewTabs() {
       try {
         const rows = await listFarmasiResep({});
         if (alive) setBelumDiterima(rows.filter((o) => o.status === "Menunggu").length);
+      } catch {
+        /* diam — badge advisory */
+      }
+      try {
+        const brows = await listFarmasiBmhp({});
+        if (alive) setBmhpBelum(brows.filter((o) => o.status === "Menunggu").length);
       } catch {
         /* diam — badge advisory */
       }
@@ -91,6 +101,7 @@ export default function FarmasiViewTabs() {
   function badgeFor(id: FarmasiMainTab): { count: number; tone: BadgeTone } | null {
     if (id === "antrean") return { count: antreanAktif, tone: "sky" };
     if (id === "worklist") return { count: belumDiterima, tone: "amber" };
+    if (id === "bmhp") return { count: bmhpBelum, tone: "amber" };
     if (id === "pio") return { count: pioPending, tone: "rose" };
     return null;
   }
@@ -141,6 +152,7 @@ export default function FarmasiViewTabs() {
         >
           {active === "antrean"  && <FarmasiQueueBoard />}
           {active === "worklist" && <FarmasiBoard />}
+          {active === "bmhp"     && <FarmasiBmhpBoard />}
           {active === "narpsi"   && <RegisterNarPsiPane />}
           {active === "pio"      && <PIOPane />}
         </motion.div>

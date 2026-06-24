@@ -2,9 +2,11 @@
 // Endpoint: /api/v1/kunjungan/:id/bmhp (GET daftar · POST buat order · :bmhpOrderId/cancel).
 
 import { api } from "@/lib/api/client";
-import type { BmhpOrderBody, BmhpOrderDTO } from "@/lib/schemas/bmhpOrder/bmhpOrder";
+import type {
+  BmhpOrderBody, BmhpOrderDTO, BmhpOrderFarmasiDTO, FarmasiBmhpQuery,
+} from "@/lib/schemas/bmhpOrder/bmhpOrder";
 
-export type { BmhpOrderBody, BmhpOrderDTO };
+export type { BmhpOrderBody, BmhpOrderDTO, BmhpOrderFarmasiDTO, FarmasiBmhpQuery };
 
 const base = (k: string) => `/kunjungan/${encodeURIComponent(k)}/bmhp`;
 
@@ -31,5 +33,23 @@ export async function cancelBmhpOrder(
   signal?: AbortSignal,
 ): Promise<BmhpOrderDTO> {
   const { data } = await api.post<BmhpOrderDTO>(`${base(kunjunganId)}/${encodeURIComponent(bmhpOrderId)}/cancel`, {}, { signal });
+  return data;
+}
+
+/** GET — worklist Farmasi BMHP (lintas-kunjungan). */
+export async function listFarmasiBmhp(
+  query: FarmasiBmhpQuery = {},
+  signal?: AbortSignal,
+): Promise<BmhpOrderFarmasiDTO[]> {
+  const { data } = await api.get<BmhpOrderFarmasiDTO[]>("/farmasi/bmhp", {
+    query: { depoKode: query.depoKode, status: query.status, noRM: query.noRM },
+    signal,
+  });
+  return data;
+}
+
+/** POST — Depo Farmasi menerima order BMHP (Menunggu → Selesai) + keluarkan stok (OUT). */
+export async function receiveFarmasiBmhp(bmhpOrderId: string, signal?: AbortSignal): Promise<BmhpOrderFarmasiDTO> {
+  const { data } = await api.post<BmhpOrderFarmasiDTO>(`/farmasi/bmhp/${encodeURIComponent(bmhpOrderId)}/receive`, {}, { signal });
   return data;
 }

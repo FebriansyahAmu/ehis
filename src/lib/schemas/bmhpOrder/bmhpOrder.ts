@@ -43,6 +43,19 @@ export const BmhpCancelParams = z.object({
 });
 export type BmhpCancelParams = z.infer<typeof BmhpCancelParams>;
 
+// ── Worklist Farmasi BMHP (GET /farmasi/bmhp) ─────────────────────────────────
+export const FarmasiBmhpQuery = z.object({
+  depoKode: z.string().trim().optional(),
+  status: z.string().trim().optional(),
+  noRM: z.string().trim().optional(), // filter riwayat per pasien (lintas-kunjungan, semua status)
+});
+export type FarmasiBmhpQuery = z.infer<typeof FarmasiBmhpQuery>;
+
+// ── Params terima order di Farmasi (POST /farmasi/bmhp/:id/receive) ───────────
+// `id` = bmhpOrderId. Lintas-kunjungan (penunjang) → route() scopeKunjungan:false.
+export const BmhpOrderIdParam = z.object({ id: z.string().uuid("Order BMHP tidak valid") });
+export type BmhpOrderIdParam = z.infer<typeof BmhpOrderIdParam>;
+
 // ── DTO (response) — mirror vocab FE ──────────────────────────────────────────
 export interface BmhpItemDTO {
   id: string;
@@ -69,4 +82,12 @@ export interface BmhpOrderDTO {
   penulisKontak: string | null;
   items: BmhpItemDTO[];
   createdAt: string; // ISO
+}
+
+/** Order untuk worklist Farmasi BMHP — header + pasien (join kunjungan) + items. */
+export interface BmhpOrderFarmasiDTO extends BmhpOrderDTO {
+  noOrder: string;     // = noKunjungan (snapshot tampil)
+  noRM: string;
+  namaPasien: string;
+  unit: string;        // "IGD" | "Rawat Inap" | "Rawat Jalan"
 }

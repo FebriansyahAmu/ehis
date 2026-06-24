@@ -50,6 +50,49 @@ export function findById(id: string, tx?: Tx) {
   return db(tx).bmhpOrder.findUnique({ where: { id }, include: withItems });
 }
 
+// ── Worklist Farmasi (lintas-kunjungan) — join pasien utk tampil noRM/nama/unit ──
+const withKunjungan = {
+  ...withItems,
+  kunjungan: {
+    select: {
+      unit: true,
+      noKunjungan: true,
+      pasien: { select: { noRm: true, nama: true } },
+    },
+  },
+};
+
+/** Satu order + join kunjungan/pasien (detail worklist Farmasi). Filter deletedAt: null. */
+export function findByIdWithKunjungan(id: string, tx?: Tx) {
+  return db(tx).bmhpOrder.findFirst({ where: { id, deletedAt: null }, include: withKunjungan });
+}
+
+export function listForFarmasi(filter: { depoKode?: string; status?: string; noRM?: string }, tx?: Tx) {
+  return db(tx).bmhpOrder.findMany({
+    where: {
+      deletedAt: null,
+      ...(filter.depoKode ? { depoKode: filter.depoKode } : {}),
+      ...(filter.noRM ? { kunjungan: { pasien: { noRm: filter.noRM } } } : {}),
+      // Status eksplisit → pakai. Riwayat pasien (noRM) → SEMUA status (termasuk Dibatalkan).
+      // Worklist aktif (tanpa filter) → kecualikan order yang dibatalkan klinisi.
+      ...(filter.status ? { status: filter.status } : filter.noRM ? {} : { status: { not: "Dibatalkan" } }),
+    },
+    include: withKunjungan,
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
+}
+
+/** Transisi status ter-guard (atomik via where) — pindah hanya bila status ∈ `from`.
+ *  Return count: 1 = berhasil, 0 = tak ada / status sudah lanjut (race). */
+export async function transition(id: string, from: string[], to: string, tx?: Tx) {
+  const r = await db(tx).bmhpOrder.updateMany({
+    where: { id, deletedAt: null, status: { in: from } },
+    data: { status: to },
+  });
+  return r.count;
+}
+
 /** Batalkan order — hanya saat masih "Menunggu" (belum disentuh Farmasi). Atomic guard via where.
  *  Return count: 1 = berhasil, 0 = tak ada / status sudah lanjut (race). */
 export async function cancel(id: string, kunjunganId: string, tx?: Tx) {
@@ -61,3 +104,4 @@ export async function cancel(id: string, kunjunganId: string, tx?: Tx) {
 }
 
 export type BmhpOrderEntity = NonNullable<Awaited<ReturnType<typeof findById>>>;
+export type BmhpOrderFarmasiEntity = NonNullable<Awaited<ReturnType<typeof findByIdWithKunjungan>>>;
