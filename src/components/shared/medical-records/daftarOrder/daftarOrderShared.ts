@@ -1,6 +1,7 @@
 import { Pill, FlaskConical, Radiation, Package, type LucideIcon } from "lucide-react";
 import type { ResepOrderDTO } from "@/lib/api/resep/resep";
 import type { LabOrderDTO } from "@/lib/api/lab/labOrder";
+import type { BmhpOrderDTO } from "@/lib/api/bmhpOrder/bmhpOrder";
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -159,6 +160,9 @@ const LAB_STATUS_MAP: Record<string, OrderStatus> = {
   Menunggu: "Menunggu", Diterima: "Diterima", Dianalisa: "Diproses",
   Divalidasi: "Diproses", Selesai: "Selesai", Ditolak: "Dibatalkan", Dibatalkan: "Dibatalkan",
 };
+const BMHP_STATUS_MAP: Record<string, OrderStatus> = {
+  Menunggu: "Menunggu", Diterima: "Diterima", Selesai: "Selesai", Dibatalkan: "Dibatalkan",
+};
 
 const withCito = (prioritas: string, catatan: string | null): string | undefined => {
   if (prioritas === "CITO") return catatan ? `CITO — ${catatan}` : "CITO";
@@ -215,6 +219,30 @@ export function mapLabToOrder(d: LabOrderDTO): Order {
   };
 }
 
+export function mapBmhpToOrder(d: BmhpOrderDTO): Order {
+  return {
+    id: d.id,
+    type: "BMHP",
+    noOrder: `BHP-${d.id.slice(0, 8).toUpperCase()}`,
+    tanggal: fmtTanggal(d.createdAt),
+    jam: fmtJam(d.createdAt),
+    createdAtISO: d.createdAt,
+    dokter: d.penulis,
+    status: BMHP_STATUS_MAP[d.status] ?? "Menunggu",
+    nativeStatus: d.status,
+    catatan: withCito(d.prioritas, d.catatan),
+    tujuan: d.depoNama,
+    items: d.items.map((it) => ({
+      id: it.id,
+      nama: it.nama,
+      detail: [`×${it.jumlah}`, it.satuan].filter(Boolean).join(" ") || undefined,
+      keterangan: it.keterangan ?? undefined,
+      // Biaya baris = harga satuan × jumlah (snapshot katalog BMHP saat order).
+      harga: it.harga != null ? it.harga * it.jumlah : undefined,
+    })),
+  };
+}
+
 // ── Estimasi biaya (akumulasi tarif per jenis + total) ────
 
 export const fmtRp = (n: number) => "Rp " + n.toLocaleString("id-ID");
@@ -234,9 +262,9 @@ export function costByType(orders: Order[]): { byType: Record<OrderType, number>
   return { byType, total: byType.Resep + byType.Lab + byType.Radiologi + byType.BMHP };
 }
 
-/** Gabung + urutkan (terbaru dulu) order Resep & Lab DB → daftar terpadu. */
-export function mergeDbOrders(resep: ResepOrderDTO[], lab: LabOrderDTO[]): Order[] {
-  return [...resep.map(mapResepToOrder), ...lab.map(mapLabToOrder)].sort(
+/** Gabung + urutkan (terbaru dulu) order Resep + Lab + BMHP DB → daftar terpadu. */
+export function mergeDbOrders(resep: ResepOrderDTO[], lab: LabOrderDTO[], bmhp: BmhpOrderDTO[] = []): Order[] {
+  return [...resep.map(mapResepToOrder), ...lab.map(mapLabToOrder), ...bmhp.map(mapBmhpToOrder)].sort(
     (a, b) => (b.createdAtISO ?? "").localeCompare(a.createdAtISO ?? ""),
   );
 }
@@ -250,6 +278,9 @@ const RESEP_STAGES = ["Order Dibuat", "Diterima Farmasi", "Telaah & Penyiapan", 
 const RESEP_IDX: Record<string, number> = { Menunggu: 0, Diterima: 1, Ditelaah: 2, Dikembalikan: 2, Selesai: 3 };
 const LAB_STAGES = ["Order Dibuat", "Diterima Lab", "Analisa", "Validasi", "Selesai / Rilis"];
 const LAB_IDX: Record<string, number> = { Menunggu: 0, Diterima: 1, Dianalisa: 2, Divalidasi: 3, Selesai: 4 };
+// BMHP = 1 langkah (tanpa telaah): Menunggu → Selesai (Depo terima & keluarkan stok).
+const BMHP_STAGES = ["Order Dibuat", "Diterima & Diserahkan Farmasi"];
+const BMHP_IDX: Record<string, number> = { Menunggu: 0, Diterima: 1, Selesai: 1 };
 const GENERIC_STAGES = ["Menunggu", "Diterima", "Diproses", "Selesai"];
 const GENERIC_IDX: Record<OrderStatus, number> = { Menunggu: 0, Diterima: 1, Diproses: 2, Selesai: 3, Dibatalkan: 0 };
 
@@ -269,6 +300,8 @@ export function buildOrderTimeline(order: Order): OrderTimeline {
     labels = RESEP_STAGES; idx = RESEP_IDX[order.nativeStatus] ?? 0;
   } else if (order.type === "Lab" && order.nativeStatus) {
     labels = LAB_STAGES; idx = LAB_IDX[order.nativeStatus] ?? 0;
+  } else if (order.type === "BMHP" && order.nativeStatus) {
+    labels = BMHP_STAGES; idx = BMHP_IDX[order.nativeStatus] ?? 0;
   } else {
     labels = GENERIC_STAGES; idx = GENERIC_IDX[order.status] ?? 0;
   }
