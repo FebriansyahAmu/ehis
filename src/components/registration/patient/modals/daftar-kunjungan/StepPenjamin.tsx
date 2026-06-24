@@ -122,6 +122,7 @@ export function StepPenjamin({
               </div>
               <BpjsPanel
                 defaultValue={patient.penjamin.nomor}
+                patientName={patient.name}
                 onSelect={onSelectBpjs}
                 onDeselect={() => setBpjsData(null)}
               />

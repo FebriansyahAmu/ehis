@@ -11,6 +11,7 @@ import {
   type BpjsData, type BpjsMode, type BpjsPhase, type SepDraft,
   BPJS_MOCK, sInp,
 } from "./sepTypes";
+import { cariKepesertaanJkn } from "./kepesertaanJknMock";
 import { SepField } from "./SepShared";
 
 // White-bg variant used in the standalone BpjsPanel (Ubah Penjamin tab)
@@ -41,10 +42,13 @@ function InfoItem({
 
 export function BpjsPanel({
   defaultValue,
+  patientName,
   onSelect,
   onDeselect,
 }: {
   defaultValue?: string;
+  /** Nama pasien yang sedang didaftarkan → dipakai sbg nama peserta hasil cek (mock JKN). */
+  patientName?: string;
   onSelect?: (data: BpjsData) => void;
   onDeselect?: () => void;
 }) {
@@ -58,14 +62,13 @@ export function BpjsPanel({
   const maxLen   = mode === "nik" ? 16 : 13;
   const isValid  = digitLen >= maxLen;
 
-  const handleSearch = () => {
+  // MOCK JKN: kepesertaan SELALU ditemukan & AKTIF (lihat kepesertaanJknMock.ts +
+  // docs/MOCK-JKN-KEPESERTAAN.md). Swap ke V-Claim saat produksi → cabang "notfound" bisa kembali.
+  const handleSearch = async () => {
     if (!isValid) return;
     setPhase("searching"); setResult(null); setUsed(false);
-    setTimeout(() => {
-      const key   = query.replace(/\D/g, "");
-      const found = BPJS_MOCK[key] ?? null;
-      setResult(found); setPhase(found ? "found" : "notfound");
-    }, 1200);
+    const data = await cariKepesertaanJkn({ mode, value: query, nama: patientName });
+    setResult(data); setPhase("found");
   };
 
   const handleModeChange = (m: BpjsMode) => {
@@ -99,7 +102,7 @@ export function BpjsPanel({
               setQuery(v);
               if (phase !== "idle") setPhase("idle");
             }}
-            onKeyDown={e => e.key === "Enter" && handleSearch()}
+            onKeyDown={e => { if (e.key === "Enter") void handleSearch(); }}
           />
           <span className={cn(
             "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold tabular-nums",
@@ -109,7 +112,7 @@ export function BpjsPanel({
           </span>
         </div>
 
-        <button type="button" disabled={!isValid || phase === "searching"} onClick={handleSearch}
+        <button type="button" disabled={!isValid || phase === "searching"} onClick={() => void handleSearch()}
           className={cn(
             "flex items-center justify-center gap-2 rounded-lg py-2.5 text-[12px] font-bold transition",
             isValid && phase !== "searching"
@@ -122,19 +125,12 @@ export function BpjsPanel({
             : <><Search size={12} />Cari Kepesertaan</>}
         </button>
 
-        <div className="rounded-lg bg-sky-50 px-2.5 py-2 ring-1 ring-sky-100">
-          <p className="mb-1 text-[8.5px] font-bold uppercase tracking-wider text-sky-500">Demo</p>
-          {mode === "kartu" ? (
-            <>
-              <p className="font-mono text-[9.5px] text-slate-500">0001234567890 → Aktif</p>
-              <p className="font-mono text-[9.5px] text-slate-500">0009876543210 → Tidak Aktif</p>
-            </>
-          ) : (
-            <>
-              <p className="font-mono text-[9.5px] text-slate-500">3275011301700001 → Aktif</p>
-              <p className="font-mono text-[9.5px] text-slate-500">3275025202920002 → Tidak Aktif</p>
-            </>
-          )}
+        <div className="rounded-lg bg-amber-50 px-2.5 py-2 ring-1 ring-amber-100">
+          <p className="mb-0.5 text-[8.5px] font-bold uppercase tracking-wider text-amber-600">Mode Demo · Mock JKN</p>
+          <p className="text-[9.5px] text-slate-600">
+            Nomor apa pun → peserta <span className="font-semibold text-emerald-600">AKTIF</span> + data lengkap.
+          </p>
+          <p className="text-[9px] text-slate-400">Stub sementara — ganti ke V-Claim saat produksi.</p>
         </div>
       </div>
 

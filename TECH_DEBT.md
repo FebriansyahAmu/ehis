@@ -219,6 +219,7 @@ Endokrin & Limfatik **regional** (tiroid, KGB) → masuk Kepala–Leher; tanda s
 - [ ] **Invoice draft saat check-in** (`Registered→Queued`) — TODO eksplisit di [kunjunganService](src/lib/services/kunjunganService.ts); depend domain Billing backend.
 - [ ] **Antrean** — `antreanKodebooking` + nomor antri belum digenerate; depend domain Antrean ([TODO-ANTREAN.md](TODO-ANTREAN.md)).
 - [ ] **Auth/RBAC nyata** — `getActor()` masih DEV actor super-akses; depend [docs/BACKEND-AUTH.md](docs/BACKEND-AUTH.md).
+- [ ] **🟡 MOCK Cek Kepesertaan JKN "selalu Aktif"** *(2026-06-24)* — `cariKepesertaanJkn()` ([kepesertaanJknMock.ts](src/components/registration/kunjungan/Tabs/sep/kepesertaanJknMock.ts)) SELALU mengembalikan peserta AKTIF + data lengkap (sintesis dari nomor). Di-wire ke `BpjsPanel` (modal Pendaftaran Kunjungan Baru). **Ganti ke V-Claim saat produksi** — checklist + call-site di [docs/MOCK-JKN-KEPESERTAAN.md](docs/MOCK-JKN-KEPESERTAAN.md). Sisa: `SepStep1` (Update SEP) belum di-wire ke fungsi yang sama.
 - [ ] **`berlakuSampai` persist di Ubah Penjamin** — butuh date picker (field display-only sekarang; schema `UpdatePenjaminInput` belum terima tgl).
 - [ ] **Konsistensi taksonomi 3-jenis** — `PENJAMIN_CFG` (badge tab Jaminan/board) masih label kanonik "BPJS Non-PBI"; StepPenjamin (DaftarKunjungan) masih 5 jenis. Selaraskan ke "Umum/Mandiri · BPJS/JKN · Asuransi Lainnya" bila diinginkan (kena lintas modul).
 
