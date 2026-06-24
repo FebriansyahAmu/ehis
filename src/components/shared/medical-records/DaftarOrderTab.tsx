@@ -8,6 +8,7 @@ import { toast } from "@/lib/ui/toastStore";
 import { listResep, cancelResep } from "@/lib/api/resep/resep";
 import { listLabOrders, cancelLabOrder } from "@/lib/api/lab/labOrder";
 import { listBmhpOrders, cancelBmhpOrder } from "@/lib/api/bmhpOrder/bmhpOrder";
+import { listRadOrders, cancelRadOrder } from "@/lib/api/rad/radOrder";
 
 import {
   ORDERS_MOCK, FILTER_OPTS, TODAY_LABEL,
@@ -89,16 +90,17 @@ export default function DaftarOrderTab({ patient }: { patient: DaftarOrderPatien
   const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget | null>(null);
   const [toastData, setToastData]         = useState<ToastData | null>(null);
 
-  // Ambil order Resep + Lab + BMHP dari DB (kunjungan UUID). Gabung + urut terbaru.
+  // Ambil order Resep + Lab + BMHP + Radiologi dari DB (kunjungan UUID). Gabung + urut terbaru.
   const load = useCallback(async (signal?: AbortSignal) => {
     if (!isPersisted || !kunjunganId) return;
     try {
-      const [resep, lab, bmhp] = await Promise.all([
+      const [resep, lab, bmhp, rad] = await Promise.all([
         listResep(kunjunganId, signal),
         listLabOrders(kunjunganId, signal),
         listBmhpOrders(kunjunganId, signal),
+        listRadOrders(kunjunganId, signal),
       ]);
-      if (!signal?.aborted) setOrders(mergeDbOrders(resep, lab, bmhp));
+      if (!signal?.aborted) setOrders(mergeDbOrders(resep, lab, bmhp, rad));
     } catch {
       /* diam — pertahankan daftar yang ada */
     } finally {
@@ -135,6 +137,7 @@ export default function DaftarOrderTab({ patient }: { patient: DaftarOrderPatien
         if (target.type === "Resep") await cancelResep(kunjunganId, target.id);
         else if (target.type === "Lab") await cancelLabOrder(kunjunganId, target.id);
         else if (target.type === "BMHP") await cancelBmhpOrder(kunjunganId, target.id);
+        else if (target.type === "Radiologi") await cancelRadOrder(kunjunganId, target.id);
         else return;
         toast.success("Order dibatalkan", target.noOrder);
         await load();

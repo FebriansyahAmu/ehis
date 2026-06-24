@@ -2,6 +2,7 @@ import { Pill, FlaskConical, Radiation, Package, type LucideIcon } from "lucide-
 import type { ResepOrderDTO } from "@/lib/api/resep/resep";
 import type { LabOrderDTO } from "@/lib/api/lab/labOrder";
 import type { BmhpOrderDTO } from "@/lib/api/bmhpOrder/bmhpOrder";
+import type { RadOrderDTO } from "@/lib/api/rad/radOrder";
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -163,6 +164,10 @@ const LAB_STATUS_MAP: Record<string, OrderStatus> = {
 const BMHP_STATUS_MAP: Record<string, OrderStatus> = {
   Menunggu: "Menunggu", Diterima: "Diterima", Selesai: "Selesai", Dibatalkan: "Dibatalkan",
 };
+const RAD_STATUS_MAP: Record<string, OrderStatus> = {
+  Menunggu: "Menunggu", Diterima: "Diterima", Diperiksa: "Diproses",
+  Divalidasi: "Diproses", Selesai: "Selesai", Dibatalkan: "Dibatalkan",
+};
 
 const withCito = (prioritas: string, catatan: string | null): string | undefined => {
   if (prioritas === "CITO") return catatan ? `CITO — ${catatan}` : "CITO";
@@ -243,6 +248,29 @@ export function mapBmhpToOrder(d: BmhpOrderDTO): Order {
   };
 }
 
+export function mapRadToOrder(d: RadOrderDTO): Order {
+  return {
+    id: d.id,
+    type: "Radiologi",
+    noOrder: `RAD-${d.id.slice(0, 8).toUpperCase()}`,
+    tanggal: fmtTanggal(d.createdAt),
+    jam: fmtJam(d.createdAt),
+    createdAtISO: d.createdAt,
+    dokter: d.penulis,
+    status: RAD_STATUS_MAP[d.status] ?? "Menunggu",
+    nativeStatus: d.status,
+    catatan: withCito(d.prioritas, d.catatan),
+    tujuan: d.radNama,
+    items: d.items.map((it) => ({
+      id: it.id,
+      nama: it.nama,
+      detail: [it.modalitas, it.region, it.waktuTunggu].filter(Boolean).join(" · ") || undefined,
+      isSpecial: d.prioritas === "CITO",
+      harga: it.harga ?? undefined,
+    })),
+  };
+}
+
 // ── Estimasi biaya (akumulasi tarif per jenis + total) ────
 
 export const fmtRp = (n: number) => "Rp " + n.toLocaleString("id-ID");
@@ -262,11 +290,19 @@ export function costByType(orders: Order[]): { byType: Record<OrderType, number>
   return { byType, total: byType.Resep + byType.Lab + byType.Radiologi + byType.BMHP };
 }
 
-/** Gabung + urutkan (terbaru dulu) order Resep + Lab + BMHP DB → daftar terpadu. */
-export function mergeDbOrders(resep: ResepOrderDTO[], lab: LabOrderDTO[], bmhp: BmhpOrderDTO[] = []): Order[] {
-  return [...resep.map(mapResepToOrder), ...lab.map(mapLabToOrder), ...bmhp.map(mapBmhpToOrder)].sort(
-    (a, b) => (b.createdAtISO ?? "").localeCompare(a.createdAtISO ?? ""),
-  );
+/** Gabung + urutkan (terbaru dulu) order Resep + Lab + BMHP + Radiologi DB → daftar terpadu. */
+export function mergeDbOrders(
+  resep: ResepOrderDTO[],
+  lab: LabOrderDTO[],
+  bmhp: BmhpOrderDTO[] = [],
+  rad: RadOrderDTO[] = [],
+): Order[] {
+  return [
+    ...resep.map(mapResepToOrder),
+    ...lab.map(mapLabToOrder),
+    ...bmhp.map(mapBmhpToOrder),
+    ...rad.map(mapRadToOrder),
+  ].sort((a, b) => (b.createdAtISO ?? "").localeCompare(a.createdAtISO ?? ""));
 }
 
 // ── Timeline status (faithful per-jenis bila ada nativeStatus, else generik) ──
@@ -281,6 +317,8 @@ const LAB_IDX: Record<string, number> = { Menunggu: 0, Diterima: 1, Dianalisa: 2
 // BMHP = 1 langkah (tanpa telaah): Menunggu → Selesai (Depo terima & keluarkan stok).
 const BMHP_STAGES = ["Order Dibuat", "Diterima & Diserahkan Farmasi"];
 const BMHP_IDX: Record<string, number> = { Menunggu: 0, Diterima: 1, Selesai: 1 };
+const RAD_STAGES = ["Order Dibuat", "Diterima Radiologi", "Akuisisi / Pemeriksaan", "Selesai / Rilis"];
+const RAD_IDX: Record<string, number> = { Menunggu: 0, Diterima: 1, Diperiksa: 2, Divalidasi: 2, Selesai: 3 };
 const GENERIC_STAGES = ["Menunggu", "Diterima", "Diproses", "Selesai"];
 const GENERIC_IDX: Record<OrderStatus, number> = { Menunggu: 0, Diterima: 1, Diproses: 2, Selesai: 3, Dibatalkan: 0 };
 
@@ -302,6 +340,8 @@ export function buildOrderTimeline(order: Order): OrderTimeline {
     labels = LAB_STAGES; idx = LAB_IDX[order.nativeStatus] ?? 0;
   } else if (order.type === "BMHP" && order.nativeStatus) {
     labels = BMHP_STAGES; idx = BMHP_IDX[order.nativeStatus] ?? 0;
+  } else if (order.type === "Radiologi" && order.nativeStatus) {
+    labels = RAD_STAGES; idx = RAD_IDX[order.nativeStatus] ?? 0;
   } else {
     labels = GENERIC_STAGES; idx = GENERIC_IDX[order.status] ?? 0;
   }

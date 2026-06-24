@@ -21,9 +21,16 @@ interface SessionContextValue {
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
-export function SessionProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<SessionDTO | null>(null);
-  const [loading, setLoading] = useState(true);
+export function SessionProvider({
+  children,
+  initialSession = null,
+}: {
+  children: ReactNode;
+  /** Sesi hasil seed SSR (cookie) — bila ada, first paint langsung benar (anti-flicker sidebar). */
+  initialSession?: SessionDTO | null;
+}) {
+  const [session, setSession] = useState<SessionDTO | null>(initialSession);
+  const [loading, setLoading] = useState(initialSession == null);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -39,10 +46,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Sudah di-seed dari SSR → tak perlu fetch awal (hindari flicker + hemat 1 request).
+    if (initialSession) return;
     const ac = new AbortController();
     void load(ac.signal);
     return () => ac.abort();
-  }, [load]);
+  }, [load, initialSession]);
 
   const refetch = useCallback(async () => {
     setLoading(true);
