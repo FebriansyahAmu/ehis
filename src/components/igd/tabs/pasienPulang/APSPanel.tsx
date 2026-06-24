@@ -1,9 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { ShieldAlert, AlertTriangle, Check } from "lucide-react";
+import { ShieldAlert, AlertTriangle, Check, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Select } from "@/components/shared/inputs";
 import { Field, SectionHeader, inputCls, textareaCls } from "./pasienPulangShared";
+
+// Hubungan penandatangan dengan pasien (APS).
+const HUBUNGAN_OPTS = ["Pasien Sendiri", "Suami", "Istri", "Anak", "Orang Tua", "Saudara Kandung", "Wali / Keluarga Lain"];
 
 interface Props {
   onConfirmedChange: (v: boolean) => void;
@@ -14,7 +18,6 @@ export default function APSPanel({ onConfirmedChange }: Props) {
   const [edukasi, setEdukasi]           = useState("");
   const [penandatangan, setPenandatangan] = useState("");
   const [hubungan, setHubungan]         = useState("");
-  const [saksi, setSaksi]               = useState("");
   const [confirmed, setConfirmed]       = useState(false);
 
   const toggle = () => {
@@ -66,23 +69,15 @@ export default function APSPanel({ onConfirmedChange }: Props) {
             />
           </Field>
           <Field label="Hubungan dengan Pasien">
-            <input
+            <Select
               value={hubungan}
-              onChange={(e) => setHubungan(e.target.value)}
-              placeholder="Pasien sendiri / Suami / Istri / Anak..."
-              className={inputCls}
+              onChange={setHubungan}
+              options={HUBUNGAN_OPTS}
+              icon={Users}
+              placeholder="— Pilih hubungan —"
             />
           </Field>
         </div>
-
-        <Field label="Nama Saksi">
-          <input
-            value={saksi}
-            onChange={(e) => setSaksi(e.target.value)}
-            placeholder="Nama perawat / dokter jaga sebagai saksi"
-            className={inputCls}
-          />
-        </Field>
 
         <button
           type="button"

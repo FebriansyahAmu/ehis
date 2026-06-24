@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Home, Activity } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
-import { Field, SectionHeader, inputCls, textareaCls } from "./pasienPulangShared";
+import { Field, SectionHeader, textareaCls } from "./pasienPulangShared";
 
 interface Props {
   status: "Sembuh" | "Membaik";
@@ -14,8 +14,6 @@ interface Props {
 export default function SembuhPanel({ status, patient }: Props) {
   const [instruksi, setInstruksi]     = useState("");
   const [obatPulang, setObatPulang]   = useState("");
-  const [kontrolDate, setKontrolDate] = useState("");
-  const [kontrolPoli, setKontrolPoli] = useState("");
 
   const isSembuh = status === "Sembuh";
   const accent = isSembuh
@@ -48,25 +46,6 @@ export default function SembuhPanel({ status, patient }: Props) {
             className={textareaCls}
           />
         </Field>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Jadwal Kontrol">
-            <input
-              type="date"
-              value={kontrolDate}
-              onChange={(e) => setKontrolDate(e.target.value)}
-              className={inputCls}
-            />
-          </Field>
-          <Field label="Poliklinik Tujuan">
-            <input
-              value={kontrolPoli}
-              onChange={(e) => setKontrolPoli(e.target.value)}
-              placeholder="Contoh: Poli Jantung"
-              className={inputCls}
-            />
-          </Field>
-        </div>
 
         <div className={cn("rounded-xl border px-3 py-2.5", accent.bg, accent.border)}>
           <p className={cn("mb-1 text-[10px] font-bold uppercase tracking-widest", accent.text)}>
