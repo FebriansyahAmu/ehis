@@ -6,7 +6,7 @@ import {
   Calendar, ClipboardCheck, Check, Printer, Send, Plus, X,
 } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
-import type { DisposisiInput } from "@/lib/schemas/disposisi/disposisi";
+import type { DisposisiInput, SpriInput } from "@/lib/schemas/disposisi/disposisi";
 import { nowInputValue } from "@/components/shared/inputs/DateTimePicker";
 import { Select, DateTimePicker } from "@/components/shared/inputs";
 import { listPetugasKunjungan, type PetugasDTO } from "@/lib/api/penugasanRuangan";
@@ -101,14 +101,16 @@ export default function PasienPulangTab({
     return [...set].sort((a, b) => a.localeCompare(b, "id"));
   }, [dokterRoster, patient.doctor, dokterPulang]);
 
-  // Confirmation callbacks from sub-panels
-  const [spriIssued, setSpriIssued]       = useState(false);
+  // Data + konfirmasi dari sub-panel per-status (di-emit via onChange → disertakan saat complete).
+  const [spriForm, setSpriForm]           = useState<SpriInput | null>(null);
+  const [sembuhData, setSembuhData]       = useState({ instruksi: "", obatPulang: "" });
+  const [apsData, setApsData]             = useState({ alasan: "", edukasi: "", penandatangan: "", hubungan: "" });
   const [apsConfirmed, setApsConfirmed]   = useState(false);
   const [matiConfirmed, setMatiConfirmed] = useState(false);
 
   const handleStatusChange = (s: StatusPulang) => {
     setStatusPulang(s);
-    setSpriIssued(false);
+    setSpriForm(null);
     setApsConfirmed(false);
     setMatiConfirmed(false);
   };
@@ -132,7 +134,7 @@ export default function PasienPulangTab({
     waktuPulang !== "" &&
     (statusPulang !== "Meninggal"  || matiConfirmed) &&
     (statusPulang !== "APS"        || apsConfirmed) &&
-    (statusPulang !== "Rawat_Inap" || spriIssued);
+    (statusPulang !== "Rawat_Inap" || spriForm !== null);
 
   // Submit → Selesaikan Kunjungan (persist + kunci) bila onComplete ada; selain itu demo lokal.
   async function handleSubmit() {
@@ -144,13 +146,25 @@ export default function PasienPulangTab({
         .map((d) => `${d.kodeIcd10} ${d.namaDiagnosis}`),
       ...extraDiagnosa,
     ];
+    const isSembuhMembaik = statusPulang === "Sembuh" || statusPulang === "Membaik";
+    const isAps = statusPulang === "APS";
     const disposisi: DisposisiInput = {
       jenis: STATUS_TO_JENIS[statusPulang!],
       dokter: dokterPulang.trim() || undefined,
       kondisiUmum: KONDISI_DEFAULT[statusPulang!],
       diagnosaKeluar: diagnosaLabels,
-      instruksi: catatanUmum.trim() || undefined,
+      // instruksi pulang: dari panel Sembuh/Membaik bila ada; selain itu catatan penutup.
+      instruksi: (isSembuhMembaik ? sembuhData.instruksi.trim() : "") || catatanUmum.trim() || undefined,
       catatan: catatanUmum.trim() || undefined,
+      // Sembuh/Membaik
+      obatPulang: isSembuhMembaik ? (sembuhData.obatPulang.trim() || undefined) : undefined,
+      // APS
+      apsAlasan: isAps ? (apsData.alasan.trim() || undefined) : undefined,
+      edukasiRisiko: isAps ? (apsData.edukasi.trim() || undefined) : undefined,
+      penandatangan: isAps ? (apsData.penandatangan.trim() || undefined) : undefined,
+      hubunganPenandatangan: isAps ? (apsData.hubungan.trim() || undefined) : undefined,
+      // Rawat Inap → SPRI (server menerbitkan No. Referensi atomik)
+      spri: statusPulang === "Rawat_Inap" ? (spriForm ?? undefined) : undefined,
     };
     try {
       setSaving(true);
@@ -189,6 +203,12 @@ export default function PasienPulangTab({
           <p className="mt-0.5 text-[11px] text-slate-400">
             Dicatat oleh: {dokterPulang} · {waktuLabel}
           </p>
+          {statusPulang === "Rawat_Inap" && (
+            <p className="mx-auto mt-3 max-w-sm rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] leading-snug text-violet-700">
+              SPRI telah diterbitkan. No. Referensi BPJS &amp; admisi Rawat Inap dilanjutkan di{" "}
+              <span className="font-semibold">Worklist Admisi Registrasi</span> (bila BPJS bermasalah, dapat direvisi di sana).
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           <button
@@ -473,18 +493,18 @@ export default function PasienPulangTab({
         ) : hasRightPanel ? (
           <div className="flex flex-col gap-4">
             {(statusPulang === "Sembuh" || statusPulang === "Membaik") && (
-              <SembuhPanel status={statusPulang} patient={patient} />
+              <SembuhPanel status={statusPulang} patient={patient} onChange={setSembuhData} />
             )}
             {statusPulang === "Rawat_Inap" && (
               <SPRIPanel
                 patient={patient}
                 dokterOptions={dokterOptions}
                 roster={dokterRoster}
-                onIssuedChange={setSpriIssued}
+                onChange={setSpriForm}
               />
             )}
             {statusPulang === "APS" && (
-              <APSPanel onConfirmedChange={setApsConfirmed} />
+              <APSPanel onConfirmedChange={setApsConfirmed} onChange={setApsData} />
             )}
             {statusPulang === "Meninggal" && (
               <MeninggalPanel patient={patient} onConfirmedChange={setMatiConfirmed} />

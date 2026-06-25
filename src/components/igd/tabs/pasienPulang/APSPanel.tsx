@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ShieldAlert, AlertTriangle, Check, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Select } from "@/components/shared/inputs";
@@ -11,14 +11,21 @@ const HUBUNGAN_OPTS = ["Pasien Sendiri", "Suami", "Istri", "Anak", "Orang Tua", 
 
 interface Props {
   onConfirmedChange: (v: boolean) => void;
+  /** Emit isi form → parent sertakan ke disposisi saat complete. */
+  onChange?: (data: { alasan: string; edukasi: string; penandatangan: string; hubungan: string }) => void;
 }
 
-export default function APSPanel({ onConfirmedChange }: Props) {
+export default function APSPanel({ onConfirmedChange, onChange }: Props) {
   const [alasan, setAlasan]             = useState("");
   const [edukasi, setEdukasi]           = useState("");
   const [penandatangan, setPenandatangan] = useState("");
   const [hubungan, setHubungan]         = useState("");
   const [confirmed, setConfirmed]       = useState(false);
+
+  // onChange = setter stabil dari parent → emit saat field berubah (tanpa loop).
+  useEffect(() => {
+    onChange?.({ alasan, edukasi, penandatangan, hubungan });
+  }, [alasan, edukasi, penandatangan, hubungan, onChange]);
 
   const toggle = () => {
     const next = !confirmed;

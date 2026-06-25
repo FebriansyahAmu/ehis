@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Home, Activity } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -9,11 +9,16 @@ import { Field, SectionHeader, textareaCls } from "./pasienPulangShared";
 interface Props {
   status: "Sembuh" | "Membaik";
   patient: IGDPatientDetail;
+  /** Emit isi form → parent sertakan ke disposisi saat complete. */
+  onChange?: (data: { instruksi: string; obatPulang: string }) => void;
 }
 
-export default function SembuhPanel({ status, patient }: Props) {
+export default function SembuhPanel({ status, patient, onChange }: Props) {
   const [instruksi, setInstruksi]     = useState("");
   const [obatPulang, setObatPulang]   = useState("");
+
+  // onChange = setter stabil dari parent → emit saat field berubah (tanpa loop).
+  useEffect(() => { onChange?.({ instruksi, obatPulang }); }, [instruksi, obatPulang, onChange]);
 
   const isSembuh = status === "Sembuh";
   const accent = isSembuh

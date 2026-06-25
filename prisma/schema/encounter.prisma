@@ -135,6 +135,9 @@ model Kunjungan {
   // ── Alokasi bed (operasional; okupansi/reservasi) ──
   bedAllocations BedAllocation[]
 
+  // ── SPRI (artefak admisi BPJS; kunjungan IGD asal) ──
+  spriRiwayat Spri[]
+
   // ── Klinis (schema medicalrecord; menggantung via kunjunganId) ──
   triase                Triase[]
   observation           Observation[]
@@ -235,5 +238,58 @@ model BedAllocation {
   @@index([bedId])
   @@index([kunjunganId])
   @@map("bed_allocation")
+  @@schema("encounter")
+}
+
+// ── Spri (Surat Perintah Rawat Inap) ───────────────────────────────────────────
+//  Artefak ADMINISTRATIF BPJS dgn lifecycle sendiri — DIPISAH dari medicalrecord.Disposisi
+//  (snapshot klinis immutable + ikut lock kunjungan). SPRI punya status + versi yg dapat
+//  di-REVISI setelah kunjungan IGD terkunci (mis. isi No. Referensi saat BPJS aktif kembali),
+//  karena bukan resource `clinical.*`. Diterbitkan atomik saat IGD complete (jenis Rawat_Inap),
+//  lalu dikonsumsi worklist admisi registrasi → buat kunjungan Rawat Inap.
+//  riKunjunganId = kunjungan RI hasil admisi (placeholder UUID lintas-baris, divalidasi Service
+//  — selaras konvensi bedId/dpjpId/ruanganId).
+
+model Spri {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // Kunjungan IGD asal (FK riil)
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  noKartu String @map("no_kartu") // No. kartu BPJS peserta (snapshot)
+
+  // DPJP + SMF/poli tujuan rawat (poli diturunkan dari spesialistik DPJP)
+  dpjpNama        String  @map("dpjp_nama")
+  dpjpPegawaiId   String? @map("dpjp_pegawai_id") @db.Uuid
+  smfSpesialistik String? @map("smf_spesialistik")
+  poliKode        String? @map("poli_kode")
+  poliNama        String? @map("poli_nama")
+
+  tglRencanaRawat DateTime @map("tgl_rencana_rawat") @db.Date
+  jenisPerawatan  String   @map("jenis_perawatan") // Perawatan Biasa/Intensif/Isolasi/HCU/ICU (Zod)
+  indikasi        String
+  keterangan      String?
+
+  // Respons BPJS
+  noReferensi String? @map("no_referensi") // null = BPJS belum terbit → revisi nanti
+  status      String  @default("MenungguRef") // MenungguRef/Terbit/Dikonsumsi/Batal (Zod)
+
+  // Admisi Rawat Inap hasil konsumsi (placeholder UUID; divalidasi Service)
+  riKunjunganId String? @map("ri_kunjungan_id") @db.Uuid
+
+  // Pembuat + audit
+  user            String  // user pembuat SPRI (login, denormalisasi)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  version   Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([status, createdAt]) // worklist admisi (query terpanas)
+  @@index([kunjunganId])
+  @@index([riKunjunganId])
+  @@map("spri")
   @@schema("encounter")
 }

@@ -1,88 +1,80 @@
-# MOCK — Penerbitan SPRI (Surat Perintah Rawat Inap) "Selalu Berhasil"
+# MOCK — SPRI (Surat Perintah Rawat Inap) + Lifecycle Admisi
 
-> **Status:** 🟡 MOCK aktif (pengembangan) · dibuat 2026-06-24
-> **Tujuan:** alur **Selesaikan Kunjungan → Rawat Inap** di IGD (tab Pasien Pulang) bisa
-> dijalankan tanpa integrasi V-Claim BPJS.
-> **Aksi produksi:** ganti satu fungsi (`terbitkanSPRI`) ke panggilan V-Claim `insertSPRI`.
-> Checklist di bawah.
+> **Status:** 🟡 MOCK aktif (pengembangan) · dibuat 2026-06-24 · arsitektur lifecycle 2026-06-25
+> **Tujuan:** alur **IGD pulang → Rawat Inap** berjalan tanpa integrasi V-Claim BPJS, dengan
+> penerbitan No. Referensi + revisi + worklist admisi yang terpersist.
+> **Aksi produksi:** ganti satu fungsi server (`issueSpriRef`) ke V-Claim `insertSPRI`.
 
 ---
 
+## Arsitektur (ringkas)
+
+SPRI = **artefak administratif BPJS dengan lifecycle sendiri**, DIPISAH dari `medicalrecord.Disposisi`
+(snapshot klinis immutable yang ikut lock kunjungan). Tabel **`encounter.Spri`** punya `status` +
+`version`, sehingga **No. Referensi bisa direvisi SETELAH kunjungan IGD terkunci**.
+
+```
+IGD: status pulang "Rawat Inap" → Selesaikan
+  └─ kunjunganService.transition("complete") [1 transaksi]
+       ├─ tulis medicalrecord.Disposisi (jenis Rawat_Inap)
+       ├─ issueSpriRef(noKartu) → No. Referensi | null
+       ├─ buat encounter.Spri (status Terbit | MenungguRef)
+       └─ set kunjungan.lockedAt (selesai + terkunci)
+
+Registrasi: /ehis-registration/admisi-ranap (worklist kartu)
+  ├─ "Revisi & Kirim Ulang" → PATCH /spri/:id/revisi → retry issueSpriRef  (boleh saat IGD terkunci)
+  └─ "Daftar Rawat Inap"    → /pasien/{noRM}?daftar=ranap&spri={id}
+       └─ DaftarKunjunganModal (initial unit=Rawat Inap) → daftar RI sukses
+            └─ POST /spri/:id/konsumsi (riKunjunganId) → status Dikonsumsi (keluar worklist)
+```
+
+**Status SPRI:** `MenungguRef` (ref belum terbit / BPJS bermasalah) · `Terbit` (ref ada) ·
+`Dikonsumsi` (admisi RI dibuat) · `Batal`.
+
 ## Apa yang di-mock
 
-`terbitkanSPRI(request)` **selalu sukses** dan mengembalikan **nomor referensi SPRI** tiruan.
-Tidak pernah melempar / gagal.
-
-- **Format nomor referensi:** `PPK(4) R 001 MM YY K SEQ(6)` — contoh BPJS `0491R0010626K000291`
-  = `0491` · `R` · `001` · `06` (bulan) · `26` (tahun) · `K` · `000291` (urutan).
-  Bagian `MM/YY` sadar-waktu; `SEQ` 6-digit acak per terbit.
-- Delay ~600ms meniru latensi jaringan (skeleton/loading tetap terlihat).
+`issueSpriRef(noKartu)` (server) — mengembalikan No. Referensi format `0491R0010625K000291`
+(`PPK·R·001·MM·YY·K·SEQ`), atau **`null`** bila kepesertaan dianggap bermasalah. Aturan demo
+"tidak aktif" (sampai V-Claim nyata): **noKartu kosong** ATAU **digit terakhir = `0`**. Surat SPRI
+TETAP terbit saat null — referensi diisi via revisi.
 
 ## Sumber tunggal (swap point)
 
 | Item | Lokasi |
 |---|---|
-| **Fungsi mock** | [`src/components/igd/tabs/pasienPulang/spriMock.ts`](../src/components/igd/tabs/pasienPulang/spriMock.ts) → `terbitkanSPRI(req)` |
-| Panel UI | [`SPRIPanel.tsx`](../src/components/igd/tabs/pasienPulang/SPRIPanel.tsx) (dipakai saat status pemulangan = **Rawat Inap**) |
-| Tab induk | [`PasienPulangTab.tsx`](../src/components/igd/tabs/PasienPulangTab.tsx) — gerbang submit `spriIssued` |
+| **Mock BPJS (issue ref)** | [`src/lib/services/spri/spriBpjsMock.ts`](../src/lib/services/spri/spriBpjsMock.ts) → `issueSpriRef(noKartu)` |
+| Penerbitan atomik (complete) | [`kunjunganService.ts`](../src/lib/services/kunjunganService.ts) blok `action === "complete"` |
+| Lifecycle (worklist/revisi/konsumsi) | [`spriService.ts`](../src/lib/services/spri/spriService.ts) · DAL [`spriDal.ts`](../src/lib/dal/spri/spriDal.ts) |
+| Kontrak | `encounter.Spri` (prisma/schema/encounter.prisma) · Zod `SpriInput`/`SpriDTO` [disposisi.ts](../src/lib/schemas/disposisi/disposisi.ts) |
+| API client | [`src/lib/api/spri/spri.ts`](../src/lib/api/spri/spri.ts) (`listSpri`/`reviseSpri`/`consumeSpri`) |
+| Form IGD | [`SPRIPanel.tsx`](../src/components/igd/tabs/pasienPulang/SPRIPanel.tsx) (form murni; emit `onChange`) |
+| Worklist admisi | [`AdmisiRanapBoard.tsx`](../src/components/registration/admisi/AdmisiRanapBoard.tsx) |
+| SMF→poli | [`smfPoliMap.ts`](../src/components/igd/tabs/pasienPulang/smfPoliMap.ts) (turun dari spesialistik DPJP) |
 
-```ts
-// Kontrak yang DIPERTAHANKAN saat ganti ke produksi (1:1 payload BPJS request.*):
-export interface SPRIRequest {
-  noKartu: string;            // nomor kartu BPJS peserta
-  kodeDokter: string;         // kode dokter DPJP (kode BPJS)
-  poliKontrol: string;        // kode poli/spesialistik TUJUAN rawat (lihat catatan di bawah)
-  tglRencanaKontrol: string;  // yyyy-MM-dd — tanggal mulai rawat inap
-  user: string;               // user pembuat SPRI (login)
-}
-export async function terbitkanSPRI(req: SPRIRequest): Promise<SPRIResult>; // { noReferensi, ... }
-```
+## Pemetaan form → kontrak
 
-## Pemetaan form → payload
-
-Form panel (4 field yang diminta) → payload BPJS:
-
-| Field form | Payload | Catatan |
+| Field form (SPRIPanel) | Tujuan | Catatan |
 |---|---|---|
-| **Nomor Referensi** | *(response)* | read-only, muncul setelah terbit |
-| **DPJP** | `kodeDokter` **+ sumber SMF** | kirim **nama** DPJP (TODO map → kode BPJS) · **`spesialistik` DPJP → `poliKontrol`** |
-| **SMF / Poli Tujuan** | `poliKontrol` | **read-only, auto** dari spesialistik DPJP via [`smfPoliMap.ts`](../src/components/igd/tabs/pasienPulang/smfPoliMap.ts) |
-| **Jenis Ruang Perawatan** | — (field RS) | tipe ruang/kelas rawat; **tidak lagi** dipakai sbg poliKontrol |
-| **Indikasi / Keterangan** | — | field RS untuk dokumen SPRI cetak; tidak ada di payload BPJS |
-| *(otomatis)* `patient.noBpjs` | `noKartu` | dari penjamin pasien |
-| *(otomatis)* tgl dipilih | `tglRencanaKontrol` | default hari ini (DatePicker) |
-| *(otomatis)* user login | `user` | `session.namaTampil` |
-
-## ✅ `poliKontrol` = SMF tujuan, diturunkan dari DPJP (sudah diimplementasi)
-
-`poliKontrol` pada `insertSPRI` BPJS = **kode poli/spesialistik TUJUAN tempat pasien akan
-dirawat-inapkan** (mis. `INT` Penyakit Dalam, `JAN` Jantung) — yaitu SMF/spesialistik DPJP
-penanggung jawab rawat inap. **Bukan** ruang/IGD asal tempat SPRI diterbitkan. (Fakta "SPRI
-sebagian besar terbit lewat IGD" hanya menentukan *asal* penerbitan.)
-
-**Rantai turunan (live):** DPJP terpilih → `roster.spesialistik` (dari `master.Pegawai.spesialistik`,
-disurface lewat `PetugasDTO.spesialistik` di `GET /kunjungan/:id/petugas`) → `resolvePoliBpjs()`
-([`smfPoliMap.ts`](../src/components/igd/tabs/pasienPulang/smfPoliMap.ts)) → `{ kode, nama }` poli →
-`poliKontrol`. Ditampilkan read-only di panel (kartu "SMF / Poli Tujuan").
-
-> ⚠️ Kode poli di `smfPoliMap` = **aproksimasi gaya BPJS**. Saat produksi, RECONCILE dgn referensi
-> resmi V-Claim `getPoliRK`/`getDokterRK` ([`vClaimRencanaKontrol.ts`](../src/lib/bpjs/vClaimRencanaKontrol.ts)
-> spec 10–11) — kode bisa beda per regional/PPK.
->
-> **Edge case:** DPJP **dokter umum** (tanpa `spesialistik`) → tak ada SMF → `poliKontrol` dikirim
-> kosong + panel menampilkan peringatan. Putuskan fallback (poli "Umum" / pilih manual) saat produksi.
-
----
+| DPJP | `Spri.dpjpNama` + `kodeDokter` (produksi) | dari roster ruangan; `dpjpPegawaiId` ikut |
+| (otomatis) spesialistik DPJP → poli | `Spri.poliKode/poliNama` = `poliKontrol` | via `smfPoliMap`; null bila dokter umum |
+| Tanggal Rencana Rawat | `Spri.tglRencanaRawat` | default hari ini (DatePicker) |
+| Jenis Ruang Perawatan | `Spri.jenisPerawatan` | Perawatan Biasa/Intensif/Isolasi/HCU/ICU |
+| Indikasi / Keterangan | `Spri.indikasi/keterangan` | field RS |
+| (otomatis) `patient.noBpjs` | `Spri.noKartu` | dipakai issueSpriRef |
+| (server) issueSpriRef | `Spri.noReferensi` + `status` | Terbit / MenungguRef |
 
 ## ✅ Checklist migrasi ke PRODUKSI (V-Claim insertSPRI)
 
-1. Implementasikan body `terbitkanSPRI()` → panggil BFF V-Claim `insertSPRI`
-   (sudah ada adapter mock: [`vClaimRencanaKontrol.ts`](../src/lib/bpjs/vClaimRencanaKontrol.ts) `insertSPRI`).
-2. **`kodeDokter`**: tambah pemetaan `Pegawai/Dokter → kode dokter BPJS`; ganti pengiriman nama DPJP.
-3. **`poliKontrol`**: derivasi dari spesialistik DPJP **sudah jalan** ([`smfPoliMap.ts`](../src/components/igd/tabs/pasienPulang/smfPoliMap.ts)).
-   Sisa: (a) reconcile kode poli dgn referensi `getPoliRK`; (b) tentukan fallback DPJP dokter umum (tanpa SMF).
-4. Aktifkan kembali kemungkinan **gagal**: panel `SPRIPanel` perlu menampilkan error & TIDAK
-   meng-set `spriIssued` saat respons BPJS bukan sukses (sekarang dipaksa sukses).
-5. Hapus banner **"Mode Demo · Mock SPRI"** di `SPRIPanel`.
-6. (Opsional) Simpan SPRI ke domain RS (mis. `medicalrecord.Disposisi` / tabel SPRI) + cetak A4.
-7. Hapus delay tiruan 600ms.
+1. Ganti body `issueSpriRef()` → panggil BFF V-Claim `insertSPRI` (adapter mock sudah ada:
+   [`vClaimRencanaKontrol.ts`](../src/lib/bpjs/vClaimRencanaKontrol.ts) `insertSPRI`). Map timeout/error → `null`.
+2. **`kodeDokter`**: tambah pemetaan `Pegawai/Dokter → kode dokter BPJS`; SPRIPanel kirim kode (bukan nama).
+3. **`poliKontrol`**: reconcile kode `smfPoliMap` dgn referensi resmi `getPoliRK`; fallback DPJP dokter umum (tanpa SMF).
+4. **Idempotency**: `issueSpriRef` dipanggil di dalam transaksi `complete` — pertimbangkan idempotency-key / kompensasi bila BPJS sukses tapi tx rollback (mock: tak ada efek samping).
+5. Hapus banner "Mode Demo · Mock SPRI" di SPRIPanel; hapus aturan demo "digit 0 = nonaktif".
+6. (Opsional) Cetak A4 SPRI + QR; tampilkan No. Referensi di dokumen (kosong saat MenungguRef).
+
+## Catatan
+
+- **Non-BPJS (Umum) Rawat Inap**: `noKartu` kosong → `issueSpriRef` null → status `MenungguRef`
+  (label worklist "Menunggu Ref BPJS" kurang tepat utk Umum). Admisi tetap bisa dilanjutkan; perketat saat produksi bila SPRI di-skip untuk non-BPJS.
+- **RBAC**: worklist + revisi + konsumsi pakai `registration.kunjungan` (read/update) — tanpa permission baru.

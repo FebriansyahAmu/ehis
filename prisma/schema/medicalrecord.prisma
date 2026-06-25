@@ -2207,6 +2207,12 @@ model Disposisi {
   rawatInapKelas   String? @map("rawat_inap_kelas")
   catatan          String?
 
+  // ── Tambahan per-jenis (form Pasien Pulang IGD) ──
+  obatPulang            String? @map("obat_pulang")            // Sembuh/Membaik — obat dibawa pulang
+  edukasiRisiko         String? @map("edukasi_risiko")         // APS — edukasi risiko diberikan
+  penandatangan         String? @map("penandatangan")          // APS — nama penandatangan pernyataan
+  hubunganPenandatangan String? @map("hubungan_penandatangan") // APS — hubungan dgn pasien
+
   // ── Pencatat + author (dari actor) ──
   pemeriksa       String  // nama denormalisasi pencatat (dari user login)
   authorUserId    String? @map("author_user_id") @db.Uuid

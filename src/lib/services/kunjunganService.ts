@@ -16,6 +16,8 @@ import * as defaultDal from "@/lib/dal/kunjunganDal";
 import * as patientDal from "@/lib/dal/patientDal";
 import * as diagnosaDal from "@/lib/dal/diagnosa/diagnosaDal";
 import * as disposisiDal from "@/lib/dal/disposisi/disposisiDal";
+import * as spriDal from "@/lib/dal/spri/spriDal";
+import { issueSpriRef } from "@/lib/services/spri/spriBpjsMock";
 import { makeBpjsService, toSepDTO, toRujukanDTO } from "@/lib/services/bpjsService";
 import { makeBedAllocationService } from "@/lib/services/bedAllocationService";
 import { resolveActorNama } from "@/lib/services/actorName";
@@ -413,10 +415,39 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
           rawatInapRuangan: disp.rawatInapRuangan?.trim() || null,
           rawatInapKelas: disp.rawatInapKelas?.trim() || null,
           catatan: disp.catatan?.trim() || null,
+          obatPulang: disp.obatPulang?.trim() || null,
+          edukasiRisiko: disp.edukasiRisiko?.trim() || null,
+          penandatangan: disp.penandatangan?.trim() || null,
+          hubunganPenandatangan: disp.hubunganPenandatangan?.trim() || null,
           pemeriksa,
           authorUserId: actor.userId,
           authorPegawaiId: actor.pegawaiId,
         }, tx);
+
+        // SPRI (Surat Perintah Rawat Inap) — terbit atomik bersama disposisi Rawat_Inap.
+        // No. Referensi diterbitkan server (mock BPJS); null bila kepesertaan bermasalah →
+        // status MenungguRef (surat tetap terbit, ref diisi via revisi di worklist admisi).
+        if (disp.jenis === "Rawat_Inap" && disp.spri) {
+          const s = disp.spri;
+          const noReferensi = await issueSpriRef(s.noKartu);
+          await spriDal.create({
+            kunjunganId: id,
+            noKartu: s.noKartu,
+            dpjpNama: s.dpjpNama,
+            dpjpPegawaiId: s.dpjpPegawaiId ?? null,
+            smfSpesialistik: s.smfSpesialistik ?? null,
+            poliKode: s.poliKode ?? null,
+            poliNama: s.poliNama ?? null,
+            tglRencanaRawat: new Date(s.tglRencanaRawat),
+            jenisPerawatan: s.jenisPerawatan,
+            indikasi: s.indikasi.trim(),
+            keterangan: s.keterangan?.trim() || null,
+            noReferensi,
+            status: noReferensi ? "Terbit" : "MenungguRef",
+            user: pemeriksa,
+            createdByUserId: actor.userId,
+          }, tx);
+        }
         patch.selesaiAt = waktuSelesai;
         if (!k.selesaiPertamaAt) patch.selesaiPertamaAt = waktuSelesai; // immutable, sekali
         patch.lockedAt = clock.now();

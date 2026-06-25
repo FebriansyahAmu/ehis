@@ -20,6 +20,10 @@ export interface CreateDisposisiData {
   rawatInapRuangan?: string | null;
   rawatInapKelas?: string | null;
   catatan?: string | null;
+  obatPulang?: string | null;
+  edukasiRisiko?: string | null;
+  penandatangan?: string | null;
+  hubunganPenandatangan?: string | null;
   pemeriksa: string;
   authorUserId?: string | null;
   authorPegawaiId?: string | null;

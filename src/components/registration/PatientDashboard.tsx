@@ -7,8 +7,11 @@ import { ChevronRight, X, Plus, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PatientMaster } from "@/lib/data";
 import { patientMasterData } from "@/lib/data";
-import { listKunjungan } from "@/lib/api/kunjungan";
+import { listKunjungan, type KunjunganDTO } from "@/lib/api/kunjungan";
 import { getPatient } from "@/lib/api/patients";
+import { consumeSpri } from "@/lib/api/spri/spri";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
 import { dtoToKunjunganRecord } from "./patient/kunjunganRiwayatApi";
 import { dtoToPatientMaster } from "./pasien-list/pasienListApi";
 
@@ -94,17 +97,38 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
 
-  // ANT4 — auto-buka Daftar Kunjungan bila datang dari Respon Kedatangan antrean
-  // (deep-link: /pasien/{rm}?daftar=rj&kodebooking=...). Hanya sekali saat mount.
+  // Auto-buka Daftar Kunjungan via deep-link (hanya sekali saat mount):
+  //  · ?daftar=rj&kodebooking=…  → Respon Kedatangan antrean (ANT4)
+  //  · ?daftar=ranap&spri=…      → Admisi Rawat Inap dari worklist SPRI (seed unit Rawat Inap;
+  //    konsumsi SPRI setelah kunjungan RI terdaftar)
   const searchParams = useSearchParams();
   const [antreanKode, setAntreanKode] = useState<string | undefined>(undefined);
+  const [ranapMode, setRanapMode] = useState(false);
+  const [ranapSpriId, setRanapSpriId] = useState<string | undefined>(undefined);
   useEffect(() => {
-    if (searchParams.get("daftar") === "rj") {
+    const daftar = searchParams.get("daftar");
+    if (daftar === "rj") {
       setAntreanKode(searchParams.get("kodebooking") ?? undefined);
+      setDaftarKunjungan(true);
+    } else if (daftar === "ranap") {
+      setRanapMode(true);
+      setRanapSpriId(searchParams.get("spri") ?? undefined);
       setDaftarKunjungan(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Konsumsi SPRI setelah admisi Rawat Inap terdaftar → tautkan kunjungan RI + keluar worklist.
+  async function handleRanapRegistered(kunjungan: KunjunganDTO) {
+    await refreshPatientData(patient.id);
+    if (!ranapSpriId) return;
+    try {
+      await consumeSpri(ranapSpriId, kunjungan.id);
+      toast.success("Admisi Rawat Inap dibuat", "SPRI ditandai dikonsumsi — keluar dari worklist admisi.");
+    } catch (e) {
+      toast.error("Gagal menautkan SPRI", e instanceof ApiError ? e.message : undefined);
+    }
+  }
 
   // Riwayat kunjungan dari API (pasien DB). Sumber kebenaran = DB → REPLACE riwayat tab
   // (idempoten). Tandai loaded SETELAH sukses, bukan sebelum: di React StrictMode (dev)
@@ -125,7 +149,6 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
       })
       .catch(() => { /* abort/gagal: jangan tandai → boleh retry */ });
     return () => ac.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patient.id]);
 
   // Refresh data DB pasien (penjamin + riwayat) — dipakai setelah daftar kunjungan.
@@ -390,8 +413,12 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
         <DaftarKunjunganModal
           patient={patient}
           kodebooking={antreanKode}
-          onClose={() => { setDaftarKunjungan(false); setAntreanKode(undefined); }}
-          onRegistered={() => refreshPatientData(patient.id)}
+          initial={ranapMode ? { unit: "Rawat Inap", asalMasuk: "Dari IGD" } : undefined}
+          onClose={() => {
+            setDaftarKunjungan(false); setAntreanKode(undefined);
+            setRanapMode(false); setRanapSpriId(undefined);
+          }}
+          onRegistered={ranapMode ? handleRanapRegistered : () => refreshPatientData(patient.id)}
         />
       )}
       {showTambahJadwal && (

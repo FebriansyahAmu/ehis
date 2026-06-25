@@ -37,6 +37,7 @@ export function DaftarKunjunganModal({
   onClose,
   kodebooking,
   onRegistered,
+  initial,
 }: {
   patient: PatientMaster;
   onClose: () => void;
@@ -44,6 +45,8 @@ export function DaftarKunjunganModal({
   kodebooking?: string;
   /** Dipanggil setelah kunjungan tersimpan → dashboard refresh Riwayat + Jaminan. */
   onRegistered?: (kunjungan: KunjunganDTO) => void;
+  /** Seed awal form (mis. admisi dari SPRI → unit Rawat Inap). Default = Rawat Jalan. */
+  initial?: Partial<KunjunganForm>;
 }) {
   const today = new Date().toISOString().split("T")[0];
   const nowTime = new Date().toTimeString().slice(0, 5);
@@ -54,6 +57,7 @@ export function DaftarKunjunganModal({
     poli: "Poli Umum", asalMasuk: "Dari Poli", kelasRawat: "2",
     ruanganId: "", ruanganNama: "", dpjpId: "", dpjpNama: "",
     bedId: "", bedNama: "",
+    ...initial,
   });
 
   const [penjamin, setPenjamin] = useState<PenjaminForm>({
