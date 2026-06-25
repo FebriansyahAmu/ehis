@@ -10,16 +10,17 @@ import { StepKunjunganRi } from "./StepKunjunganRi";
 import {
   UNIT_DAFTAR_CFG,
   inputCls, labelCls,
-  type KunjunganForm, type UnitDaftar,
+  type KunjunganForm, type UnitDaftar, type SpriDpjpHint,
 } from "./config";
 
 const KELAS_OPTS: [string, string][] = [["1", "Kelas 1"], ["2", "Kelas 2"], ["3", "Kelas 3"], ["vip", "VIP"]];
 
 export function StepKunjungan({
-  form, setForm,
+  form, setForm, spriDpjp,
 }: {
   form: KunjunganForm;
   setForm: React.Dispatch<React.SetStateAction<KunjunganForm>>;
+  spriDpjp?: SpriDpjpHint;
 }) {
   const set = <K extends keyof KunjunganForm>(k: K, v: KunjunganForm[K]) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -137,15 +138,16 @@ export function StepKunjungan({
                   ))}
                 </div>
               </div>
-              {/* Ruangan + bed (di-reserve saat daftar) */}
-              <StepKunjunganRi form={form} setForm={setForm} />
+              {/* Ruangan + bed (di-reserve saat daftar) + DPJP ter-assign + peringatan SPRI */}
+              <StepKunjunganRi form={form} setForm={setForm} spriDpjp={spriDpjp} />
             </>
           )}
         </motion.div>
       </AnimatePresence>
 
-      {/* Dokter (non-IGD): teks bebas. IGD → DPJP dari dokter ter-assign ruangan (di atas). */}
-      {form.unit !== "IGD" && (
+      {/* Dokter Rawat Jalan: teks bebas. IGD & RI → DPJP dari dokter ter-assign ruangan
+          (picker di dalam StepKunjunganIgd / StepKunjunganRi). */}
+      {form.unit === "Rawat Jalan" && (
         <div>
           <label className={labelCls}>Dokter Penanggung Jawab</label>
           <input

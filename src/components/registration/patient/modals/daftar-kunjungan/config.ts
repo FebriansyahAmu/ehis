@@ -119,6 +119,13 @@ export interface PenjaminForm {
   noPolis: string;
 }
 
+/** DPJP yang DITETAPKAN SPRI (admisi RI dari worklist) — untuk peringatan bila operator
+ * memilih DPJP berbeda saat pendaftaran Rawat Inap. */
+export interface SpriDpjpHint {
+  nama: string;
+  smf?: string | null;
+}
+
 export type WizardStepId = "kunjungan" | "penjamin" | "rujukan" | "sep" | "review";
 export interface WizardStep { id: WizardStepId; label: string }
 

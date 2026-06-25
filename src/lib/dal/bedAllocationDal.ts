@@ -14,6 +14,7 @@ export interface CreateAllocationData {
 }
 
 export type BedAllocationEntity = Awaited<ReturnType<typeof findActiveByKunjungan>>;
+export type BedAllocationActiveRow = Awaited<ReturnType<typeof listActive>>[number];
 
 // ── Create ───────────────────────────────────────────────────────────────────
 export function create(data: CreateAllocationData, tx?: Tx) {
@@ -21,7 +22,10 @@ export function create(data: CreateAllocationData, tx?: Tx) {
 }
 
 // ── Reads ──────────────────────────────────────────────────────────────────────
-/** Alokasi aktif (Reserved/Occupied) — semua, atau dibatasi ke set bed tertentu. */
+/**
+ * Alokasi aktif (Reserved/Occupied) — semua, atau dibatasi ke set bed tertentu.
+ * Sertakan ringkasan kunjungan+pasien (nama/no RM) untuk bed-map visual "siapa mengisi".
+ */
 export function listActive(bedIds?: string[], tx?: Tx) {
   return db(tx).bedAllocation.findMany({
     where: {
@@ -29,6 +33,9 @@ export function listActive(bedIds?: string[], tx?: Tx) {
       ...(bedIds ? { bedId: { in: bedIds } } : {}),
     },
     orderBy: { reservedAt: "desc" },
+    include: {
+      kunjungan: { select: { noKunjungan: true, pasien: { select: { nama: true, noRm: true } } } },
+    },
   });
 }
 

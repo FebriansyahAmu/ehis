@@ -26,7 +26,7 @@ import { SepPrintModal } from "./daftar-kunjungan/SepCetak";
 import { buildRegisterInput } from "./daftar-kunjungan/daftarKunjunganApi";
 import {
   isBpjs,
-  type KunjunganForm, type PenjaminForm, type RujukanPick, type WizardStep,
+  type KunjunganForm, type PenjaminForm, type RujukanPick, type WizardStep, type SpriDpjpHint,
 } from "./daftar-kunjungan/config";
 
 // id pasien DB = UUID v7; pasien demo/seed = "RM-2025-..." → hanya UUID yang bisa ke API.
@@ -38,6 +38,7 @@ export function DaftarKunjunganModal({
   kodebooking,
   onRegistered,
   initial,
+  spriDpjp,
 }: {
   patient: PatientMaster;
   onClose: () => void;
@@ -47,6 +48,8 @@ export function DaftarKunjunganModal({
   onRegistered?: (kunjungan: KunjunganDTO) => void;
   /** Seed awal form (mis. admisi dari SPRI → unit Rawat Inap). Default = Rawat Jalan. */
   initial?: Partial<KunjunganForm>;
+  /** DPJP yang ditetapkan SPRI (admisi RI) → peringatan bila operator pilih DPJP berbeda. */
+  spriDpjp?: SpriDpjpHint;
 }) {
   const today = new Date().toISOString().split("T")[0];
   const nowTime = new Date().toTimeString().slice(0, 5);
@@ -235,7 +238,7 @@ export function DaftarKunjunganModal({
                   exit="exit"
                   transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                 >
-                  {current === "kunjungan" && <StepKunjungan form={form} setForm={setForm} />}
+                  {current === "kunjungan" && <StepKunjungan form={form} setForm={setForm} spriDpjp={spriDpjp} />}
                   {current === "penjamin" && (
                     <StepPenjamin
                       patient={patient}

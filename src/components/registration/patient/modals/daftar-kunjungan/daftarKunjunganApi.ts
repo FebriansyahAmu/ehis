@@ -96,8 +96,8 @@ export function buildRegisterInput(args: BuildRegisterArgs): RegisterKunjunganIn
     jam: form.jam || undefined,
     poli,
     triaseLevel: isIgd ? (form.triase ?? undefined) : undefined, // triase opsional di loket
-    // IGD: DPJP + ruangan dari master (dokter ter-assign ruangan). Non-IGD: dpjp via SEP.dpjpLayan.
-    dpjpId: isIgd ? orUndef(form.dpjpId) : undefined,
+    // IGD & RI: DPJP dari master (dokter ter-assign ruangan). RJ: dpjp via SEP.dpjpLayan.
+    dpjpId: isIgd || isRi ? orUndef(form.dpjpId) : undefined,
     // Ruangan master: IGD bay/zona, atau RI bangsal. RI juga kirim kelas + bed (reserve).
     ruanganId: isIgd || isRi ? orUndef(form.ruanganId) : undefined,
     kelas: isRi ? KELAS_MAP[form.kelasRawat] : undefined,

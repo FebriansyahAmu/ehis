@@ -43,7 +43,7 @@ export function StepReview({
           {form.unit === "Rawat Inap" && <RvItem label="Bed (reserve)" value={form.bedNama.trim() || "—"} />}
           <RvItem
             label="Dokter Penanggung Jawab"
-            value={(form.unit === "IGD" ? form.dpjpNama : form.dokter).trim() || "—"}
+            value={(form.unit === "Rawat Jalan" ? form.dokter : form.dpjpNama).trim() || "—"}
             fullWidth
           />
           {form.keluhan.trim() && <RvItem label="Keluhan Utama" value={form.keluhan.trim()} fullWidth />}

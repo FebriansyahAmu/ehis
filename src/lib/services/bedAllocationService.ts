@@ -12,7 +12,7 @@ import { Errors } from "@/lib/errors/appError";
 import type { Tx } from "@/lib/db/prisma";
 import type { Actor } from "@/lib/auth/actor";
 import type { ActiveAllocationQuery, BedAllocationDTO, AllocStatus } from "@/lib/schemas/bedAllocation";
-import type { BedAllocationEntity } from "@/lib/dal/bedAllocationDal";
+import type { BedAllocationActiveRow } from "@/lib/dal/bedAllocationDal";
 
 type Dal = typeof defaultDal;
 type RuanganDal = typeof defaultRuanganDal;
@@ -20,7 +20,8 @@ type RuanganDal = typeof defaultRuanganDal;
 const isP2002 = (e: unknown): boolean =>
   typeof e === "object" && e !== null && "code" in e && (e as { code: unknown }).code === "P2002";
 
-function toDTO(a: NonNullable<BedAllocationEntity>): BedAllocationDTO {
+// Map baris alokasi aktif (+ringkasan kunjungan/pasien) → DTO bed-map.
+function toActiveDTO(a: NonNullable<BedAllocationActiveRow>): BedAllocationDTO {
   return {
     id: a.id,
     bedId: a.bedId,
@@ -29,6 +30,9 @@ function toDTO(a: NonNullable<BedAllocationEntity>): BedAllocationDTO {
     reservedAt: a.reservedAt.toISOString(),
     occupiedAt: a.occupiedAt ? a.occupiedAt.toISOString() : null,
     releasedAt: a.releasedAt ? a.releasedAt.toISOString() : null,
+    kunjunganNo: a.kunjungan?.noKunjungan ?? null,
+    pasienNama: a.kunjungan?.pasien?.nama ?? null,
+    pasienNoRm: a.kunjungan?.pasien?.noRm ?? null,
   };
 }
 
@@ -77,7 +81,7 @@ export function makeBedAllocationService(
       if (bedIds.length === 0) return [];
     }
     const rows = await dal.listActive(bedIds);
-    return rows.map(toDTO);
+    return rows.map(toActiveDTO);
   }
 
   return { reserve, occupy, release, listActive };

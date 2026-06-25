@@ -295,6 +295,13 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
     ).length;
   }, [jadwalList]);
 
+  // SPRI yang sedang diadmisi (deep-link ?spri=) → DPJP yang ditetapkan SPRI dipakai untuk
+  // peringatan bila operator memilih DPJP berbeda di modal.
+  const ranapSpri = useMemo(
+    () => (ranapSpriId ? Object.values(spriByKunjungan).find((s) => s.id === ranapSpriId) : undefined),
+    [ranapSpriId, spriByKunjungan],
+  );
+
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (f) setPhotoPreview(URL.createObjectURL(f));
@@ -523,6 +530,7 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
           patient={patient}
           kodebooking={antreanKode}
           initial={ranapMode ? { unit: "Rawat Inap", asalMasuk: "Dari IGD" } : undefined}
+          spriDpjp={ranapMode && ranapSpri ? { nama: ranapSpri.dpjpNama, smf: ranapSpri.smfSpesialistik } : undefined}
           onClose={() => {
             setDaftarKunjungan(false); setAntreanKode(undefined);
             setRanapMode(false); setRanapSpriId(undefined);

@@ -12,6 +12,32 @@
 
 ---
 
+## ✅ Selesai — Admisi Rawat Inap: Bed-Map Visual + DPJP ter-assign + Peringatan SPRI (2026-06-25)
+
+Penyempurnaan modal **Pendaftaran Kunjungan Baru** (dibuka dari worklist Admisi via SPRI → "Daftar Rawat Inap").
+
+- **Reservasi Bed = peta visual fullscreen** (ganti dropdown) — [StepKunjunganRi](../src/components/registration/patient/modals/daftar-kunjungan/StepKunjunganRi.tsx): field "nomor reservasi" read-only (bed terpilih) + tombol **Reservasi** → buka [BedMapModal](../src/components/registration/patient/modals/daftar-kunjungan/BedMapModal.tsx) (`createPortal` z-70, di atas wizard z-50). Grid kartu bed ruangan terpilih: **🟢 Tersedia** (klik pilih) · **🔴 Terisi** (+nama pasien & No. RM pemakai, badge "Ditempati"/"Dipesan") · **⚪ Tidak Aktif**. Header ringkasan (Total/Tersedia/Terisi) + search (bed/pasien) + filter Semua/Tersedia/Terisi + footer konfirmasi. Bed terpilih → badge **"✓ Direservasi"** (emerald solid). Animasi buka/tutup mulus via `AnimatePresence` (backdrop fade + panel scale).
+- **Backend — enrichment okupansi** (agar "siapa mengisi" muncul): [bedAllocationDal.listActive](../src/lib/dal/bedAllocationDal.ts) join `kunjungan→pasien`; [bedAllocationService](../src/lib/services/bedAllocationService.ts) `toActiveDTO` map `kunjunganNo`/`pasienNama`/`pasienNoRm`; [BedAllocationDTO](../src/lib/schemas/bedAllocation.ts) +field opsional (backward-compat, konsumen lain tak terpengaruh). Endpoint tetap `GET /bed-allocations` (gate `registration.kunjungan:read`).
+- **DPJP RI = search dropdown dokter ter-assign ruangan** — `listDokter({ locationId })` (master.PenugasanRuangan, pola IGD) → `Select searchable`; auto-pilih bila 1; ganti ruangan reset bed+DPJP. Input DPJP teks-bebas kini **hanya Rawat Jalan** ([StepKunjungan](../src/components/registration/patient/modals/daftar-kunjungan/StepKunjungan.tsx)). `dpjpId` kini dikirim utk RI juga ([daftarKunjunganApi](../src/components/registration/patient/modals/daftar-kunjungan/daftarKunjunganApi.ts)) → persist `Kunjungan.dpjpId`. Review pakai `dpjpNama` utk IGD & RI.
+- **Peringatan DPJP ≠ SPRI** — banner di bawah dropdown DPJP saat admisi via SPRI: 🟠 berbeda (SPRI menetapkan dr. X · SMF Y — Anda memilih dr. Z, non-blocking) · 🟢 sesuai · ⚪ info SPRI sebelum memilih. Pencocokan via nama ter-normalisasi (DTO SPRI ekspos `dpjpNama`/`smfSpesialistik`, bukan pegawaiId). SPRI aktif diturunkan di [PatientDashboard](../src/components/registration/PatientDashboard.tsx) (`ranapSpri` by `?spri=`), prop `spriDpjp` di-thread modal→step. Tipe `SpriDpjpHint` di [config](../src/components/registration/patient/modals/daftar-kunjungan/config.ts).
+- **Verifikasi**: tsc 0 error · ESLint 0 error (sisa warn `_actor` konvensi, pre-existing).
+
+---
+
+## ✅ Selesai — Pasien Detail Registrasi: Redesign SaaS + Riwayat Journey Tree (2026-06-25)
+
+Halaman `/ehis-registration/pasien/{id}` di-redesign modern SaaS, full-width.
+
+- **Hero identitas full-width** ([PatientHero](../src/components/registration/patient/PatientHero.tsx)) — avatar (upload hover + pulse dot kunjungan aktif), chips (umur/gender/gol. darah/penjamin), meta grid (RM/NIK/Satusehat/Terdaftar), CTA "Daftar Kunjungan" (terkunci saat ada kunjungan aktif + banner), 3 KPI tile (Total/Aktif/Jadwal) bg soft per-tint. Widget "Sisa Tagihan" **dihapus**. Layout dashboard hero + grid asimetris (kiri 2 / kanan 3), `max-w` dilepas (full width).
+- **Aksi Cepat** ([PatientLeftPanel](../src/components/registration/patient/PatientLeftPanel.tsx)) — pane + box tombol bg soft sky (dua tona); Tagihan read-only + deep-link Billing.
+- **Riwayat = pohon perjalanan gabungan** ([RiwayatTab](../src/components/registration/patient/RiwayatTab.tsx)) — alur + riwayat jadi 1 tree vertikal (urut terbaru), node teratas/aktif = spotlight "Kunjungan Terakhir" (lebih besar), tiap node **expandable default-terbuka**: Penjamin (Umum/BPJS), No. SEP bila JKN, DPJP, ruangan, diagnosa, cabang Order Layanan. **Keterangan SPRI** (🟢 ber-No.Ref / 🟠 "Menunggu No. Referensi BPJS" — tetap muncul walau ref kosong) dari `listSpri()` di [PatientDashboard](../src/components/registration/PatientDashboard.tsx) (map by kunjunganId/riKunjunganId).
+- **Resolve DPJP & Ruangan** — list-item DTO hanya bawa `dpjpId`/`ruanganId`; nama diresolusi lazy: DPJP via `getDokter` (dedup global, pola KunjunganResolver), Ruangan via `getTree()` sekali (peta Location.id→name). `KunjunganRecord` +field `dpjpId`/`ruanganId`/`ruangan` ([data.ts](../src/lib/data.ts)); list adapter [kunjunganRiwayatApi](../src/components/registration/patient/kunjunganRiwayatApi.ts) isi `dpjpId`/`ruanganId`/`klinisPath`. `patientView` enrich `dokter`/`ruangan` (mock tak tersentuh). Nama ruangan tampil **di sebelah unit** (mis. "IGD · Bedah") font sama besar.
+- **Tombol "Buka Rekam Medis" per node** — header tiap kunjungan: toggle expand + link **Rekam Medis** (`klinisPath` → worklist klinis unit, tab baru) + chevron (tanpa nested button).
+- **Bugfix SDM Assignment** ([SDMAssignmentPane](../src/components/master/mapping/sdm/SDMAssignmentPane.tsx)) — revalidate-on-mount (preserve temp optimistik) agar perubahan assignment tampil tanpa refresh penuh (pane remount via AnimatePresence keyed sebelumnya re-seed snapshot SSR lama).
+- **Verifikasi**: tsc 0 error · ESLint 0 error (sisa warn `<img>` LCP avatar, diterima).
+
+---
+
 ## ✅ Selesai — Ekspertise & Validasi Radiologi DIGABUNG + Cetak Hasil TTE/QR (2026-06-23)
 
 - **Workflow disatukan** — tab "Validasi & Rilis" dihapus dari nav (file [ValidasiPane](../src/components/rad/tabs/ValidasiPane.tsx) disisakan, tidak dihapus). Alur: isi Ekspertise → **Terbitkan, Validasi & Rilis → Selesai** (satu tombol) → **Cetak Hasil**.

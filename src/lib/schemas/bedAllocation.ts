@@ -27,4 +27,11 @@ export interface BedAllocationDTO {
   reservedAt: string; // ISO
   occupiedAt: string | null;
   releasedAt: string | null;
+  // ── Okupansi (enrichment read: bed-map visual "siapa mengisi") — opsional ──
+  /** No. kunjungan pemakai bed (audit/tooltip). */
+  kunjunganNo?: string | null;
+  /** Nama pasien yang memakai bed (tampilan bed-map). */
+  pasienNama?: string | null;
+  /** No. RM pasien pemakai bed. */
+  pasienNoRm?: string | null;
 }
