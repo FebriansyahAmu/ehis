@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   Stethoscope,
   MapPin,
+  DoorOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PatientMaster, KunjunganRecord } from "@/lib/data";
@@ -118,6 +119,7 @@ function JourneyNode({
   const rujukan = k.dokumen?.rujukan === "Ada";
   const jkn = isJKN(k.penjamin);
   const dpjp = k.dokter && k.dokter !== "—" ? k.dokter : null;
+  const ruangan = k.ruangan?.trim();
   const spriHasRef = !!spri?.noReferensi;
 
   return (
@@ -143,47 +145,76 @@ function JourneyNode({
           isLatest ? "border-sky-200 bg-sky-50/40 shadow-xs ring-1 ring-sky-100" : "border-slate-100 bg-white",
         )}
       >
-        {/* Header (klik = expand/collapse) */}
-        <button
-          onClick={onToggle}
-          aria-expanded={open}
-          className={cn(
-            "flex w-full cursor-pointer items-start gap-1.5 text-left transition hover:bg-black/[0.02]",
-            isLatest ? "px-3 py-2.5" : "px-2.5 py-2",
-          )}
-        >
-          <div className="min-w-0 flex-1">
-            {isLatest && (
-              <p className="mb-0.5 flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-sky-600">
-                <MapPin size={9} /> Kunjungan Terakhir
-              </p>
-            )}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className={cn("font-bold text-slate-800", isLatest ? "text-sm" : "text-[11px]")}>{k.unit}</span>
-              <span className={cn("rounded-full px-1.5 py-0.5 text-[9px] font-semibold", sv.badge)}>{sv.label}</span>
-              {spri && (
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[8px] font-bold",
-                    spriHasRef ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700",
-                  )}
-                >
-                  <FileCheck2 size={8} /> SPRI
-                </span>
+        {/* Header: toggle expand/collapse + tombol Buka Rekam Medis (di bagian atas tiap node) */}
+        <div className={cn("flex items-start gap-1.5", isLatest ? "px-3 py-2.5" : "px-2.5 py-2")}>
+          <button
+            onClick={onToggle}
+            aria-expanded={open}
+            className="flex min-w-0 flex-1 cursor-pointer items-start gap-1.5 rounded-md text-left transition hover:bg-black/[0.02]"
+          >
+            <div className="min-w-0 flex-1">
+              {isLatest && (
+                <p className="mb-0.5 flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-sky-600">
+                  <MapPin size={9} /> Kunjungan Terakhir
+                </p>
               )}
-              {!isLatest && <span className="ml-auto shrink-0 text-[9px] text-slate-400">{k.tanggal}</span>}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className={cn("font-bold text-slate-800", isLatest ? "text-sm" : "text-[11px]")}>{k.unit}</span>
+                {ruangan && (
+                  <span className={cn("inline-flex items-center gap-0.5 font-bold text-teal-700", isLatest ? "text-sm" : "text-[11px]")}>
+                    <span className="text-slate-300">·</span>
+                    <DoorOpen size={isLatest ? 13 : 11} /> {ruangan}
+                  </span>
+                )}
+                <span className={cn("rounded-full px-1.5 py-0.5 text-[9px] font-semibold", sv.badge)}>{sv.label}</span>
+                {spri && (
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[8px] font-bold",
+                      spriHasRef ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700",
+                    )}
+                  >
+                    <FileCheck2 size={8} /> SPRI
+                  </span>
+                )}
+                {!isLatest && <span className="ml-auto shrink-0 text-[9px] text-slate-400">{k.tanggal}</span>}
+              </div>
+              {isLatest && (
+                <p className="mt-0.5 text-[10px] text-slate-400">
+                  {k.tanggal} · <span className="font-mono">{k.noKunjungan}</span>
+                </p>
+              )}
             </div>
-            {isLatest && (
-              <p className="mt-0.5 text-[10px] text-slate-400">
-                {k.tanggal} · <span className="font-mono">{k.noKunjungan}</span>
-              </p>
-            )}
-          </div>
-          <ChevronDown
-            size={12}
-            className={cn("mt-0.5 shrink-0 text-slate-300 transition-transform duration-200", open && "rotate-180")}
-          />
-        </button>
+          </button>
+
+          {/* Buka Rekam Medis → worklist klinis unit (modul perawatan), tab baru */}
+          {k.klinisPath && (
+            <Link
+              href={k.klinisPath}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Buka Rekam Medis di modul perawatan"
+              className={cn(
+                "inline-flex shrink-0 items-center gap-1 rounded-lg border border-indigo-200 bg-white font-semibold text-indigo-700 shadow-xs transition hover:border-indigo-300 hover:bg-indigo-50 active:scale-95",
+                isLatest ? "px-2 py-1 text-[10px]" : "px-1.5 py-1 text-[9px]",
+              )}
+            >
+              <FileText size={isLatest ? 12 : 10} />
+              Rekam Medis
+            </Link>
+          )}
+
+          <button
+            onClick={onToggle}
+            aria-label={open ? "Tutup detail" : "Buka detail"}
+            className="shrink-0 cursor-pointer pt-0.5 text-slate-300 transition hover:text-slate-500"
+          >
+            <ChevronDown
+              size={12}
+              className={cn("transition-transform duration-200", open && "rotate-180")}
+            />
+          </button>
+        </div>
 
         {/* Detail (default terbuka) */}
         <AnimatePresence initial={false}>

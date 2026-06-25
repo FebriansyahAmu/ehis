@@ -31,12 +31,12 @@ interface PatientHeroProps {
 
 type Tint = "indigo" | "sky" | "emerald" | "slate" | "rose";
 
-const TINT: Record<Tint, { chip: string; value: string }> = {
-  indigo:  { chip: "bg-indigo-50 text-indigo-600",  value: "text-indigo-700" },
-  sky:     { chip: "bg-sky-50 text-sky-600",        value: "text-sky-700" },
-  emerald: { chip: "bg-emerald-50 text-emerald-600", value: "text-emerald-700" },
-  slate:   { chip: "bg-slate-100 text-slate-400",   value: "text-slate-400" },
-  rose:    { chip: "bg-rose-50 text-rose-600",      value: "text-rose-700" },
+const TINT: Record<Tint, { chip: string; value: string; card: string }> = {
+  indigo:  { chip: "bg-white text-indigo-600 ring-1 ring-indigo-100",  value: "text-indigo-700",  card: "border-indigo-100 bg-indigo-50/50 hover:bg-indigo-50" },
+  sky:     { chip: "bg-white text-sky-600 ring-1 ring-sky-100",        value: "text-sky-700",     card: "border-sky-100 bg-sky-50/50 hover:bg-sky-50" },
+  emerald: { chip: "bg-white text-emerald-600 ring-1 ring-emerald-100", value: "text-emerald-700", card: "border-emerald-100 bg-emerald-50/50 hover:bg-emerald-50" },
+  slate:   { chip: "bg-white text-slate-400 ring-1 ring-slate-200",    value: "text-slate-400",   card: "border-slate-200 bg-slate-50/70 hover:bg-slate-100/60" },
+  rose:    { chip: "bg-white text-rose-600 ring-1 ring-rose-100",      value: "text-rose-700",    card: "border-rose-100 bg-rose-50/50 hover:bg-rose-50" },
 };
 
 export function PatientHero({
@@ -275,7 +275,7 @@ function StatTile({
 }) {
   const t = TINT[tint];
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-3.5 py-3 transition hover:border-slate-200 hover:bg-white">
+    <div className={cn("flex items-center gap-3 rounded-xl border px-3.5 py-3 transition", t.card)}>
       <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", t.chip)}>
         <Icon size={15} />
       </span>

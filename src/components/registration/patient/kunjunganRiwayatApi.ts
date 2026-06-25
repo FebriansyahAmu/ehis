@@ -75,7 +75,12 @@ export function dtoToKunjunganRecord(dto: KunjunganListItemDTO): KunjunganRecord
     noKunjungan: dto.noKunjungan,
     tanggal: fmtTglIndo(dto.waktuKunjungan),
     unit: UNIT_LABEL[dto.unit] ?? "Rawat Jalan",
+    // DPJP: list-item hanya bawa dpjpId (UUID) → nama diresolusi pemanggil (PatientDashboard)
+    // dari master Dokter. Tetap "—" sampai resolusi mendarat / tanpa DPJP (mis. RJ).
     dokter: "—",
+    dpjpId: dto.dpjpId ?? undefined,
+    // Ruangan perawatan: list-item bawa ruanganId (UUID) → nama diresolusi pemanggil dari master.
+    ruanganId: dto.ruanganId ?? undefined,
     keluhan: dto.keluhan ?? "",
     diagnosa: dto.diagnosaMasuk ?? "—",
     penjamin: PENJAMIN_LABEL[dto.penjaminTipe] ?? dto.penjaminTipe,
@@ -83,6 +88,8 @@ export function dtoToKunjunganRecord(dto: KunjunganListItemDTO): KunjunganRecord
     kodeICD: dto.kodeIcdMasuk ?? undefined,
     status: STATUS_MAP[dto.status] ?? "Aktif",
     fase: FASE_MAP[dto.status],
+    // Deep-link "Buka Rekam Medis" → worklist klinis unit terkait (by kunjungan id).
+    klinisPath: KLINIS_BASE[dto.unit] ? `${KLINIS_BASE[dto.unit]}/${dto.id}` : undefined,
     detailPath: regDetailPath(dto.pasien.noRm, dto.id),
   };
 }
@@ -108,6 +115,8 @@ export function dtoDetailToKunjunganRecord(
     tanggal: fmtTglIndo(dto.waktuKunjungan),
     unit: UNIT_LABEL[dto.unit] ?? "Rawat Jalan",
     dokter: opts?.dpjpNama?.trim() || "—",
+    dpjpId: dto.dpjpId ?? undefined,
+    ruanganId: dto.ruanganId ?? undefined,
     keluhan: dto.keluhan ?? "",
     diagnosa: dto.diagnosaMasuk ?? "—",
     penjamin: PENJAMIN_LABEL[dto.penjaminTipe] ?? dto.penjaminTipe,

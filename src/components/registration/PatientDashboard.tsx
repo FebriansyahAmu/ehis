@@ -9,6 +9,8 @@ import type { PatientMaster } from "@/lib/data";
 import { patientMasterData } from "@/lib/data";
 import { listKunjungan, type KunjunganDTO } from "@/lib/api/kunjungan";
 import { getPatient } from "@/lib/api/patients";
+import { getDokter } from "@/lib/api/dokter";
+import { getTree } from "@/lib/api/ruangan";
 import { consumeSpri, listSpri, type SpriDTO } from "@/lib/api/spri/spri";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
@@ -39,6 +41,12 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
   // SPRI worklist (terbit, belum dikonsumsi) → keterangan "SPRI Diterbitkan" di node Riwayat.
   // Key by kunjunganId (IGD asal) + riKunjunganId (RI hasil). Lintas-pasien (filter di node by id).
   const [spriByKunjungan, setSpriByKunjungan] = useState<Record<string, SpriDTO>>({});
+  // Nama DPJP per id (master Dokter.id → namaTampil). Riwayat dari API hanya bawa dpjpId;
+  // nama diresolusi lazy + dedup (global lintas-tab — id dokter sama di mana pun).
+  const [dokterNama, setDokterNama] = useState<Record<string, string>>({});
+  const resolvedDpjp = useRef<Set<string>>(new Set());
+  // Nama ruangan/lokasi perawatan per id (master Location.id → name). Tree global → fetch sekali.
+  const [ruanganNama, setRuanganNama] = useState<Record<string, string>>({});
 
   const patient = tabs.find((t) => t.id === activeId) ?? tabs[0];
 
@@ -176,6 +184,70 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
       .catch(() => { /* abort/gagal: jangan tandai → boleh retry */ });
     return () => ac.abort();
   }, [patient.id]);
+
+  // Resolusi nama DPJP untuk record riwayat (yang cuma punya dpjpId). Kumpulkan id unik
+  // yang belum diresolusi → fetch master Dokter (dedup via ref global). Pola sama
+  // KunjunganResolver. Gagal → lepas tanda agar boleh retry.
+  useEffect(() => {
+    const ids = Array.from(
+      new Set(
+        patient.riwayatKunjungan
+          .map((k) => k.dpjpId)
+          .filter((id): id is string => !!id && UUID_RE.test(id) && !resolvedDpjp.current.has(id)),
+      ),
+    );
+    if (ids.length === 0) return;
+    const ac = new AbortController();
+    ids.forEach((id) => resolvedDpjp.current.add(id));
+    Promise.all(
+      ids.map(async (id) => {
+        try {
+          const d = await getDokter(id, ac.signal);
+          return [id, d.namaTampil] as const;
+        } catch {
+          resolvedDpjp.current.delete(id); // gagal → boleh retry
+          return null;
+        }
+      }),
+    ).then((pairs) => {
+      const valid = pairs.filter((p): p is readonly [string, string] => p !== null);
+      if (valid.length) setDokterNama((prev) => ({ ...prev, ...Object.fromEntries(valid) }));
+    });
+    return () => ac.abort();
+  }, [patient.riwayatKunjungan]);
+
+  // Peta nama ruangan perawatan (master Location.id → name) — fetch tree SEKALI (global,
+  // tak per-pasien). Dipakai enrich `ruangan` di record riwayat (mis. "Bedah"/"Non Bedah").
+  useEffect(() => {
+    const ac = new AbortController();
+    getTree(ac.signal)
+      .then((nodes) => {
+        const map: Record<string, string> = {};
+        for (const n of nodes) if (n.type === "Location") map[n.id] = n.name;
+        setRuanganNama(map);
+      })
+      .catch(() => { /* abort/gagal → tanpa nama ruangan */ });
+    return () => ac.abort();
+  }, []);
+
+  // Pasien dengan nama DPJP + ruangan terisi (dari peta) untuk panel tampilan. Enrich hanya
+  // field yang punya id-nya & sudah diresolusi → tak ganggu data mock (yang sudah lengkap).
+  const patientView = useMemo<PatientMaster>(() => {
+    if (Object.keys(dokterNama).length === 0 && Object.keys(ruanganNama).length === 0) return patient;
+    let changed = false;
+    const recs = patient.riwayatKunjungan.map((k) => {
+      let next = k;
+      if (k.dpjpId && k.dokter === "—" && dokterNama[k.dpjpId]) {
+        next = { ...next, dokter: dokterNama[k.dpjpId] };
+      }
+      if (k.ruanganId && !k.ruangan && ruanganNama[k.ruanganId]) {
+        next = { ...next, ruangan: ruanganNama[k.ruanganId] };
+      }
+      if (next !== k) changed = true;
+      return next;
+    });
+    return changed ? { ...patient, riwayatKunjungan: recs } : patient;
+  }, [patient, dokterNama, ruanganNama]);
 
   // Refresh data DB pasien (penjamin + riwayat) — dipakai setelah daftar kunjungan.
   // Jaminan aktif ikut kunjungan terakhir → ambil ulang penjamin primer + timeline.
@@ -399,7 +471,7 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
       <div className="flex-1 overflow-y-auto">
         <div className="space-y-5 p-4 sm:p-6">
           <PatientHero
-            patient={patient}
+            patient={patientView}
             upcomingCount={upcomingCount}
             photoPreview={photoPreview}
             photoRef={photoRef}
@@ -408,7 +480,7 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
             <div className="lg:col-span-2">
               <PatientLeftPanel
-                patient={patient}
+                patient={patientView}
                 photoRef={photoRef}
                 onInfoLengkap={() => setInfoLengkap(true)}
                 onOpenBilling={(id) => setOpenBillingId(id)}
@@ -416,7 +488,7 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
             </div>
             <div className="lg:col-span-3">
               <PatientRightPanel
-                patient={patient}
+                patient={patientView}
                 jadwalList={jadwalList}
                 upcomingCount={upcomingCount}
                 onLihatRiwayat={() => setRiwayat(true)}
@@ -444,7 +516,7 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
         />
       )}
       {showRiwayat && (
-        <RiwayatKunjunganModal kunjungan={patient.riwayatKunjungan} onClose={() => setRiwayat(false)} />
+        <RiwayatKunjunganModal kunjungan={patientView.riwayatKunjungan} onClose={() => setRiwayat(false)} />
       )}
       {showDaftarKunjungan && (
         <DaftarKunjunganModal

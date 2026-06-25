@@ -571,6 +571,12 @@ export interface KunjunganRecord {
   tanggal: string;
   unit: UnitKunjungan;
   dokter: string;
+  /** DPJP id (master Dokter.id) — sumber resolve nama `dokter` untuk record dari API list. */
+  dpjpId?: string;
+  /** Ruangan/lokasi perawatan id (master Location.id) — sumber resolve nama `ruangan`. */
+  ruanganId?: string;
+  /** Nama ruangan/lokasi perawatan (mis. "Bedah", "Non Bedah") — diresolusi dari master. */
+  ruangan?: string;
   keluhan: string;
   diagnosa: string;
   penjamin?: string;
