@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Link from "next/link";
 import {
   Shield,
   ClipboardList,
@@ -10,20 +9,17 @@ import {
   Plus,
   ChevronDown,
   ChevronRight,
-  Hash,
-  FileText,
-  ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PatientMaster } from "@/lib/data";
 import {
   PENJAMIN_CFG,
   UNIT_CFG,
-  kunjunganStatusView,
   JADWAL_CFG,
   type JadwalItem,
   type JadwalStatus,
 } from "./config";
+import { RiwayatTab } from "./RiwayatTab";
 
 type TabId = "riwayat" | "penjamin" | "jadwal";
 
@@ -43,22 +39,12 @@ export function PatientRightPanel({
   onTambahJadwal,
 }: PatientRightPanelProps) {
   const [tab, setTab]           = useState<TabId>("riwayat");
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [jadwalAll, setJadwalAll] = useState(false);
 
   const pjCfg      = PENJAMIN_CFG[patient.penjamin.tipe];
   const activeVisit = patient.riwayatKunjungan.find((k) => k.status === "Aktif");
   // No. SEP terbaru: utamakan field penjamin (mock), fallback SEP kunjungan terkini (API).
   const latestSEP  = patient.penjamin.noSEP ?? patient.riwayatKunjungan.find((k) => k.noSEP)?.noSEP;
-
-  function toggle(id: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
 
   const TABS: { id: TabId; label: string; icon: typeof Shield; badge: number | null }[] = [
     { id: "riwayat",  label: "Riwayat", icon: ClipboardList, badge: patient.riwayatKunjungan.length },
@@ -150,144 +136,7 @@ export function PatientRightPanel({
         >
 
           {/* ══ Riwayat ══ */}
-          {tab === "riwayat" && (
-            <div className="p-3 space-y-1.5">
-              {patient.riwayatKunjungan.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 py-10 text-center">
-                  <ClipboardList size={24} className="text-slate-200" />
-                  <p className="text-xs text-slate-400">Belum ada pendaftaran</p>
-                </div>
-              ) : (
-                patient.riwayatKunjungan.map((k) => {
-                  const uc    = UNIT_CFG[k.unit];
-                  const UIcon = uc.icon;
-                  const isExp = expanded.has(k.noKunjungan);
-                  const sv    = kunjunganStatusView(k);
-                  return (
-                    <div key={k.noKunjungan} className="overflow-hidden rounded-xl border border-slate-100">
-                      {/* Status stripe */}
-                      <div className={cn("h-0.5 w-full", sv.stripe)} />
-
-                      {/* Header row */}
-                      <button
-                        onClick={() => toggle(k.noKunjungan)}
-                        className="flex w-full cursor-pointer items-center gap-2.5 bg-slate-50/40 px-3 py-2.5 text-left transition hover:bg-slate-100/70"
-                      >
-                        <div className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg", uc.bg)}>
-                          <UIcon size={11} className={uc.text} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-[10px] font-bold text-slate-800 truncate">
-                              {k.noPendaftaran}
-                            </span>
-                            <span
-                              className={cn(
-                                "shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold",
-                                sv.badge,
-                              )}
-                            >
-                              {sv.label}
-                            </span>
-                          </div>
-                          <p className="mt-0.5 text-[10px] text-slate-400">
-                            {k.tanggal} · {k.unit}
-                          </p>
-                        </div>
-                        <ChevronDown
-                          size={12}
-                          className={cn(
-                            "shrink-0 text-slate-300 transition-transform duration-200",
-                            isExp && "rotate-180",
-                          )}
-                        />
-                      </button>
-
-                      {/* Expandable detail */}
-                      <AnimatePresence initial={false}>
-                        {isExp && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.2, ease: "easeInOut" }}
-                            className="overflow-hidden"
-                          >
-                            <div className="border-t border-slate-100 px-3 pb-3 pt-2.5 space-y-2">
-                              {(k.penjamin || k.noPenjamin || k.noSEP) && (
-                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                  {k.penjamin && (
-                                    <span className="text-[10px] font-semibold text-slate-600">{k.penjamin}</span>
-                                  )}
-                                  {k.noPenjamin && (
-                                    <span className="flex items-center gap-0.5 font-mono text-[10px] text-slate-400">
-                                      <Hash size={9} /> {k.noPenjamin}
-                                    </span>
-                                  )}
-                                  {k.noSEP && (
-                                    <span className="flex items-center gap-0.5 rounded-md bg-emerald-50 px-1.5 py-0.5 font-mono text-[9px] font-semibold text-emerald-700">
-                                      <FileText size={8} /> SEP {k.noSEP}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-
-                              {k.diagnosa && (
-                                <p className="line-clamp-2 text-[11px] leading-snug text-slate-600">
-                                  {k.diagnosa}
-                                </p>
-                              )}
-
-                              {k.orderedServices && k.orderedServices.length > 0 && (
-                                <div className="ml-1.5 border-l-2 border-slate-200 pl-3 space-y-1">
-                                  {k.orderedServices.map((svc) => {
-                                    const sc    = UNIT_CFG[svc.unit];
-                                    const SIcon = sc.icon;
-                                    return (
-                                      <div key={svc.unit} className="flex items-center gap-2">
-                                        <span
-                                          className={cn(
-                                            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold",
-                                            sc.bg,
-                                            sc.text,
-                                          )}
-                                        >
-                                          <SIcon size={8} /> {svc.unit}
-                                        </span>
-                                        <span
-                                          className={cn(
-                                            "text-[9px] font-semibold",
-                                            svc.selesai ? "text-emerald-500" : "text-amber-500",
-                                          )}
-                                        >
-                                          {svc.selesai ? "Selesai" : "Proses"}
-                                        </span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-
-                              {k.detailPath && (
-                                <div className="pt-1">
-                                  <Link
-                                    href={k.detailPath}
-                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 transition hover:text-indigo-800"
-                                  >
-                                    <ArrowRight size={10} /> Lihat Detail
-                                  </Link>
-                                </div>
-                              )}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          )}
+          {tab === "riwayat" && <RiwayatTab patient={patient} />}
 
           {/* ══ Penjamin ══ */}
           {tab === "penjamin" && (
