@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Search,
   Bell,
   ChevronDown,
   LogOut,
@@ -17,6 +16,7 @@ import { useSession } from "@/contexts/SessionContext";
 import { cn } from "@/lib/utils";
 import type { ModuleKey } from "@/lib/navigation";
 import ModuleSwitcher from "./ModuleSwitcher";
+import GlobalSearch from "./GlobalSearch";
 
 /** Inisial dari namaTampil (abaikan gelar bertanda titik, mis. "dr.", "Sp.JP"). */
 function initialsOf(name?: string): string {
@@ -85,24 +85,9 @@ export default function Navbar({ activeModule }: { activeModule: ModuleKey }) {
         <ModuleSwitcher active={activeModule} />
       </div>
 
-      {/* Center — search */}
+      {/* Center — search pasien */}
       <div className="flex justify-center">
-        <label htmlFor="global-search" className="sr-only">
-          Cari pasien, dokter, modul…
-        </label>
-        <div className="relative w-full max-w-md">
-          <Search
-            size={15}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-            aria-hidden="true"
-          />
-          <input
-            id="global-search"
-            type="search"
-            placeholder="Cari pasien, dokter, modul…"
-            className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-4 text-sm text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-          />
-        </div>
+        <GlobalSearch />
       </div>
 
       {/* Right — bell + avatar */}

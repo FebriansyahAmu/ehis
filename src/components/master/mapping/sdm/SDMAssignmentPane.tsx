@@ -119,14 +119,20 @@ export default function SDMAssignmentPane({ initialTree, initialDokters, initial
     return () => ctrl.abort();
   }, [initialPegawai]);
 
+  // Revalidasi penugasan SETIAP mount — SSR seed = paint instan, lalu SELALU sinkron ke server.
+  // Krusial: pane remount saat ganti sub-pane (AnimatePresence keyed di MappingHubPage), tanpa ini
+  // state kembali ke snapshot SSR lama → assignment baru "hilang" sampai refresh penuh. Temp
+  // optimistik (POST in-flight) dipertahankan agar tak ter-clobber revalidasi yang mendarat.
   useEffect(() => {
-    if (initialPenugasan != null) return;
     const ctrl = new AbortController();
     listPenugasan({ limit: 100 }, ctrl.signal)
-      .then(({ items }) => setPenugasan(items))
-      .catch((e) => { if (!(e instanceof DOMException && e.name === "AbortError")) { /* mulai kosong */ } });
+      .then(({ items }) => setPenugasan((prev) => {
+        const temps = prev.filter((p) => p.id.startsWith("temp-"));
+        return temps.length ? [...items, ...temps] : items;
+      }))
+      .catch((e) => { if (!(e instanceof DOMException && e.name === "AbortError")) { /* pertahankan state saat ini */ } });
     return () => ctrl.abort();
-  }, [initialPenugasan]);
+  }, []);
 
   // Pilih ruangan pertama begitu data tersedia (sekali, bila belum ada pilihan).
   useEffect(() => {
