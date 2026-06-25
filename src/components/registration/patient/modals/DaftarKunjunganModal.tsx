@@ -156,9 +156,10 @@ export function DaftarKunjunganModal({
     const target = Math.min(safeIdx + 1, steps.length - 1);
     // Seed field SEP turunan-kunjungan saat masuk step SEP (lalu bebas diedit operator).
     if (steps[target].id === "sep") {
+      const isRanap = form.unit === "Rawat Inap";
       setSepDraft((s) => ({
         ...s,
-        jnsPelayanan: form.unit === "Rawat Inap" ? "1" : "2",
+        jnsPelayanan: isRanap ? "1" : "2",
         tglSep: form.tanggal,
         noMR: patient.noRM,
         // Rujukan & poli (Rawat Jalan BPJS) dari step Rujukan.
@@ -169,6 +170,17 @@ export function DaftarKunjunganModal({
               asalRujukan: rujukan.source === "kontrol" ? ("2" as const) : ("1" as const),
               tglRujukan: s.tglRujukan || form.tanggal,
               poliTujuan: form.poli,
+            }
+          : {}),
+        // Rawat Inap: rujukan INTERNAL (IGD → RI). t_sep tetap butuh blok rujukan, tapi asal = RS
+        // sendiri (Faskes 2), tgl = tgl sistem, PPK = faskes RS sendiri. No. rujukan auto-gen &
+        // diagAwal (diagnosa utama IGD) diisi saat build payload — lihat TECH_DEBT.
+        ...(isRanap
+          ? {
+              asalRujukan: "2" as const,
+              tglRujukan: s.tglRujukan || form.tanggal,
+              ppkRujukan: s.ppkRujukan || s.ppkPelayanan,
+              poliTujuan: "",
             }
           : {}),
       }));

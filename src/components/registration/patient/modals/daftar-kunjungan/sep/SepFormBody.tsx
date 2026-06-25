@@ -7,7 +7,7 @@ import { useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
   CalendarDays, Stethoscope, ShieldAlert, ListChecks, Share2, PhoneCall,
-  TrendingUp, Eye, Crown, Layers, FileSearch, X,
+  TrendingUp, Eye, Crown, Layers, FileSearch, X, Building2, Hash, Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DatePicker, Select } from "@/components/shared/inputs";
@@ -44,6 +44,16 @@ export function SepFormBody({
   const isRJ = draft.jnsPelayanan === "2";
   const isLaka = draft.lakaLantas !== "0";
 
+  // Ganti jenis pelayanan. Rawat Inap → siapkan default RUJUKAN INTERNAL (IGD → RI):
+  // asal RS (Faskes 2) · tgl = tgl SEP (sistem) · PPK = faskes RS sendiri. No. rujukan & diagAwal
+  // diisi otomatis saat build payload (auto-gen + diagnosa utama IGD) — lihat TECH_DEBT.
+  const setJnsPelayanan = (v: "1" | "2") =>
+    setDraft((d) =>
+      v === "1"
+        ? { ...d, jnsPelayanan: v, asalRujukan: "2", tglRujukan: d.tglRujukan || d.tglSep, ppkRujukan: d.ppkRujukan || d.ppkPelayanan, poliTujuan: "" }
+        : { ...d, jnsPelayanan: v },
+    );
+
   // Pemilih SPRI → No. Referensi SPRI mengisi No. SKDP. `pickedSpri` utk hint DPJP/tanggal.
   const [spriOpen, setSpriOpen] = useState(false);
   const [pickedSpri, setPickedSpri] = useState<SpriDTO | null>(null);
@@ -78,7 +88,7 @@ export function SepFormBody({
           </Field>
           <Field label="Jenis Pelayanan">
             <Segmented accent="sky" value={draft.jnsPelayanan}
-              onChange={(v) => set("jnsPelayanan", v as "1" | "2")}
+              onChange={(v) => setJnsPelayanan(v as "1" | "2")}
               options={[{ value: "2", label: "Rawat Jalan" }, { value: "1", label: "Rawat Inap" }]} />
           </Field>
           <Field label="Kode PPK Pelayanan">
@@ -141,9 +151,17 @@ export function SepFormBody({
         </Reveal>
       </SectionCard>
 
-      {/* ── Rujukan & Poli Tujuan (Rawat Jalan) ── */}
-      <Reveal open={isRJ}>
-        <SectionCard title="Rujukan & Poli Tujuan" desc="Dasar rujukan layanan rawat jalan" icon={Share2} accent="cyan">
+      {/* ── Rujukan ── selalu ada (t_sep wajib blok rujukan). RJ = rujukan faskes; RI = internal ── */}
+      <SectionCard
+        title={isRJ ? "Rujukan & Poli Tujuan" : "Rujukan Internal"}
+        desc={isRJ ? "Dasar rujukan layanan rawat jalan" : "IGD → Rawat Inap (rujukan internal RS)"}
+        icon={Share2}
+        accent="cyan"
+        badge={!isRJ && (
+          <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-bold text-cyan-600">Internal</span>
+        )}
+      >
+        {isRJ ? (
           <div className="grid grid-cols-2 gap-3">
             <Field label="Asal Rujukan">
               <Segmented accent="cyan" value={draft.asalRujukan}
@@ -170,8 +188,43 @@ export function SepFormBody({
                 onChange={(e) => set("poliTujuan", e.target.value)} />
             </Field>
           </div>
-        </SectionCard>
-      </Reveal>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-start gap-2 rounded-xl border border-cyan-100 bg-cyan-50/60 px-3 py-2 text-[11px] leading-relaxed text-cyan-700">
+              <Info size={14} className="mt-0.5 shrink-0 text-cyan-500" />
+              <p>
+                Rujukan <b>internal</b> (IGD → Rawat Inap). Nomor &amp; tanggal dibuat otomatis sistem; diagnosa awal
+                diambil dari <b>diagnosa utama IGD</b>.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Asal Rujukan" hint="terkunci">
+                <div className="flex h-10 items-center gap-2 rounded-xl bg-cyan-50 px-3 ring-1 ring-cyan-100">
+                  <Building2 size={13} className="shrink-0 text-cyan-500" />
+                  <span className="truncate text-[13px] font-semibold text-cyan-700">Faskes Tingkat 2 (RS)</span>
+                </div>
+              </Field>
+              <Field label="Tgl. Rujukan" hint="tanggal sistem">
+                <div className="flex h-10 items-center gap-2 rounded-xl bg-slate-50 px-3 ring-1 ring-slate-200">
+                  <CalendarDays size={13} className="shrink-0 text-slate-400" />
+                  <span className="text-[13px] font-medium text-slate-600">{draft.tglRujukan ? fmtTglShort(draft.tglRujukan) : "—"}</span>
+                </div>
+              </Field>
+            </div>
+            <Field label="No. Rujukan" hint="otomatis">
+              <div className="flex h-10 items-center gap-2 rounded-xl bg-slate-50 px-3 ring-1 ring-slate-200">
+                <Hash size={13} className="shrink-0 text-slate-400" />
+                <span className="truncate text-[12px] font-medium italic text-slate-400">Dibuat otomatis oleh sistem</span>
+              </div>
+            </Field>
+            <Field label="Diagnosa Awal (ICD-10)" hint="dari diagnosa utama IGD">
+              <input className={cn(fieldInput, "font-mono")} value={draft.diagAwal}
+                placeholder="Mis. S06.0 — terisi dari diagnosa utama IGD"
+                onChange={(e) => set("diagAwal", e.target.value)} />
+            </Field>
+          </div>
+        )}
+      </SectionCard>
 
       {/* ── Tujuan Kunjungan & Prosedur (Rawat Jalan) ── */}
       <Reveal open={isRJ}>
