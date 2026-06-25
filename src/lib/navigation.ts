@@ -384,7 +384,6 @@ export const registrationNav: readonly NavGroup[] = [
     label: "Loket",
     items: [
       { label: "Pasien", href: "/ehis-registration/pasien", icon: Users },
-      { label: "Admisi Rawat Inap", href: "/ehis-registration/admisi-ranap", icon: BedDouble },
     ],
   },
 ] as const;

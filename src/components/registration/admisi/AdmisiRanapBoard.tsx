@@ -83,14 +83,10 @@ export default function AdmisiRanapBoard() {
   }
 
   return (
-    <div className="flex flex-col gap-5 p-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-base font-bold text-slate-900">Admisi Rawat Inap</h1>
-        <p className="mt-0.5 text-xs text-slate-400">
-          SPRI yang terbit dari IGD — revisi No. Referensi BPJS &amp; daftarkan kunjungan Rawat Inap.
-        </p>
-      </div>
+    <div className="flex flex-col gap-4">
+      <p className="text-[11px] text-slate-400">
+        SPRI yang terbit dari IGD — revisi No. Referensi BPJS &amp; daftarkan kunjungan Rawat Inap.
+      </p>
 
       {/* Stat strip */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

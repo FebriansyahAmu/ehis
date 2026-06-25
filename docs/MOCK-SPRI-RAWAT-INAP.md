@@ -21,7 +21,7 @@ IGD: status pulang "Rawat Inap" → Selesaikan
        ├─ buat encounter.Spri (status Terbit | MenungguRef)
        └─ set kunjungan.lockedAt (selesai + terkunci)
 
-Registrasi: /ehis-registration/admisi-ranap (worklist kartu)
+Registrasi: /ehis-registration (Beranda → tab "Admisi IGD & RI" — worklist kartu SPRI)
   ├─ "Revisi & Kirim Ulang" → PATCH /spri/:id/revisi → retry issueSpriRef  (boleh saat IGD terkunci)
   └─ "Daftar Rawat Inap"    → /pasien/{noRM}?daftar=ranap&spri={id}
        └─ DaftarKunjunganModal (initial unit=Rawat Inap) → daftar RI sukses
@@ -48,7 +48,7 @@ TETAP terbit saat null — referensi diisi via revisi.
 | Kontrak | `encounter.Spri` (prisma/schema/encounter.prisma) · Zod `SpriInput`/`SpriDTO` [disposisi.ts](../src/lib/schemas/disposisi/disposisi.ts) |
 | API client | [`src/lib/api/spri/spri.ts`](../src/lib/api/spri/spri.ts) (`listSpri`/`reviseSpri`/`consumeSpri`) |
 | Form IGD | [`SPRIPanel.tsx`](../src/components/igd/tabs/pasienPulang/SPRIPanel.tsx) (form murni; emit `onChange`) |
-| Worklist admisi | [`AdmisiRanapBoard.tsx`](../src/components/registration/admisi/AdmisiRanapBoard.tsx) |
+| Worklist admisi | [`AdmisiRanapBoard.tsx`](../src/components/registration/admisi/AdmisiRanapBoard.tsx) — tab "Admisi IGD & RI" di Beranda Registrasi ([RegistrationBerandaPage.tsx](../src/components/registration/beranda/RegistrationBerandaPage.tsx)); tab "Admisi RJ" = [`AdmisiRjBoard.tsx`](../src/components/registration/admisi/AdmisiRjBoard.tsx) (riwayat pendaftaran RJ) |
 | SMF→poli | [`smfPoliMap.ts`](../src/components/igd/tabs/pasienPulang/smfPoliMap.ts) (turun dari spesialistik DPJP) |
 
 ## Pemetaan form → kontrak
