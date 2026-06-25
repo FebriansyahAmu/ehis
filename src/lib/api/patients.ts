@@ -48,6 +48,18 @@ export async function getPatient(id: string, signal?: AbortSignal): Promise<Pati
   return data;
 }
 
+/** GET /patients/:id/no-kartu — No. Kartu BPJS PENUH (un-mask) utk prefilling verifikasi kepesertaan. */
+export async function getPatientNoKartu(
+  id: string,
+  signal?: AbortSignal,
+): Promise<{ noKartu: string | null; penjaminTipe: string | null }> {
+  const { data } = await api.get<{ noKartu: string | null; penjaminTipe: string | null }>(
+    `/patients/${encodeURIComponent(id)}/no-kartu`,
+    { signal },
+  );
+  return data;
+}
+
 /** PATCH /patients/:id — lengkapi data draft (kirim expectedVersion). */
 export async function completePatient(
   id: string,

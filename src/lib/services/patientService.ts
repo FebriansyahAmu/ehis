@@ -319,7 +319,28 @@ export function makePatientService(deps: { clock?: Clock; dal?: Dal } = {}) {
     return toDTO(found);
   }
 
-  return { registerPatient, completePatient, searchPatient, getPatient, updatePenjamin };
+  /**
+   * No. Kartu BPJS PENUH (un-mask) untuk prefilling Verifikasi Kepesertaan di loket.
+   * Reveal sengaja (di luar DTO yang selalu di-mask) — di-gate `registration.pasien:read`.
+   * Ambil penjamin BPJS (prioritas primer) yang punya No. Kartu tersimpan (`nomorEnc`).
+   */
+  async function revealNoKartu(
+    id: string,
+    _actor: Actor,
+  ): Promise<{ noKartu: string | null; penjaminTipe: string | null }> {
+    const p = await dal.findById(id);
+    if (!p) throw Errors.notFound("Pasien tidak ditemukan");
+    const bpjs = p.penjamin.filter(
+      (pj) => (pj.tipe === "BPJS_Non_PBI" || pj.tipe === "BPJS_PBI") && pj.nomorEnc,
+    );
+    const pj = bpjs.find((x) => x.isPrimer) ?? bpjs[0];
+    return {
+      noKartu: pj?.nomorEnc ? decryptPii(pj.nomorEnc) : null,
+      penjaminTipe: pj?.tipe ?? null,
+    };
+  }
+
+  return { registerPatient, completePatient, searchPatient, getPatient, revealNoKartu, updatePenjamin };
 }
 
 /** Nama penjamin default bila operator tak isi nama. */

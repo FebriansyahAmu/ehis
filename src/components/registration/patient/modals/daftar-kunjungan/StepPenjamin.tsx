@@ -15,7 +15,7 @@ import {
 const KLS_MAP: Record<string, "1" | "2" | "3"> = { "Kelas I": "1", "Kelas II": "2", "Kelas III": "3" };
 
 export function StepPenjamin({
-  patient, penjamin, setPenjamin, bpjsData, setBpjsData, setSepDraft,
+  patient, penjamin, setPenjamin, bpjsData, setBpjsData, setSepDraft, prefilledNoKartu,
 }: {
   patient: PatientMaster;
   penjamin: PenjaminForm;
@@ -23,6 +23,8 @@ export function StepPenjamin({
   bpjsData: BpjsData | null;
   setBpjsData: React.Dispatch<React.SetStateAction<BpjsData | null>>;
   setSepDraft: React.Dispatch<React.SetStateAction<SepDraft>>;
+  /** No. Kartu BPJS PENUH (un-mask) dari DB → prefill pencarian kepesertaan. */
+  prefilledNoKartu?: string;
 }) {
   const set = <K extends keyof PenjaminForm>(k: K, v: PenjaminForm[K]) => setPenjamin((p) => ({ ...p, [k]: v }));
   const kategori = kategoriOf(penjamin.tipe);
@@ -121,7 +123,10 @@ export function StepPenjamin({
                 )}
               </div>
               <BpjsPanel
-                defaultValue={patient.penjamin.nomor}
+                // Remount saat No. Kartu penuh dari DB tiba (async) → field pencarian ter-seed
+                // dengan nomor PENUH, bukan masked. Operator tinggal "Cari Kepesertaan".
+                key={prefilledNoKartu ? "prefilled" : "default"}
+                defaultValue={prefilledNoKartu || patient.penjamin.nomor}
                 patientName={patient.name}
                 onSelect={onSelectBpjs}
                 onDeselect={() => setBpjsData(null)}

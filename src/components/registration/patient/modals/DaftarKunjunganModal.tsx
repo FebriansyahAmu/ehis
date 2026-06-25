@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import type { PatientMaster } from "@/lib/data";
 import { emitTask, setStatus } from "@/lib/antrean/antreanStore";
 import { registerKunjungan, type KunjunganDTO } from "@/lib/api/kunjungan";
+import { getPatientNoKartu } from "@/lib/api/patients";
 import { ApiError } from "@/lib/api/client";
 import { toast } from "@/lib/ui/toastStore";
 import {
@@ -91,10 +92,23 @@ export function DaftarKunjunganModal({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showPrint, setShowPrint] = useState(false);
+  // No. Kartu BPJS PENUH dari DB (un-mask) → prefill Verifikasi Kepesertaan (Step Penjamin).
+  // Ditarik saat modal buka (pasien DB) supaya operator tinggal "Cari Kepesertaan".
+  const [prefilledNoKartu, setPrefilledNoKartu] = useState<string | undefined>(undefined);
   const submitAbort = useRef<AbortController | null>(null);
 
   // Batalkan request in-flight saat unmount (anti memory leak / set-state-after-unmount).
   useEffect(() => () => submitAbort.current?.abort(), []);
+
+  // Prefetch No. Kartu penuh (pasien DB) — sudah ter-insert saat daftar IGD/RJ/RI sebelumnya.
+  useEffect(() => {
+    if (!UUID_RE.test(patient.id)) return;
+    const ac = new AbortController();
+    getPatientNoKartu(patient.id, ac.signal)
+      .then(({ noKartu }) => { if (noKartu) setPrefilledNoKartu(noKartu); })
+      .catch(() => { /* abaikan → fallback nomor masked dari DTO pasien */ });
+    return () => ac.abort();
+  }, [patient.id]);
 
   const bpjsFlow = isBpjs(penjamin.tipe);
   const needsRujukan = bpjsFlow && form.unit === "Rawat Jalan";
@@ -247,6 +261,7 @@ export function DaftarKunjunganModal({
                       bpjsData={bpjsData}
                       setBpjsData={setBpjsData}
                       setSepDraft={setSepDraft}
+                      prefilledNoKartu={prefilledNoKartu}
                     />
                   )}
                   {current === "rujukan" && (
