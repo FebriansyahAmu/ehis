@@ -1,10 +1,11 @@
 "use client";
 
-// Isi tab "Riwayat" di PatientRightPanel — GABUNGAN alur + riwayat kunjungan jadi satu pohon
-// perjalanan vertikal. Tiap node = satu kunjungan (urut terbaru dulu); node berurutan
-// menggambarkan alur unit (mis. IGD → Rawat Inap). Tiap node EXPANDABLE (default terbuka)
-// menampilkan detail: Penjamin (Umum/BPJS/…), No. SEP bila JKN (BPJS), asal (caraMasuk),
-// diagnosa, dan cabang order layanan (Lab/Rad/Farmasi). Node teratas/aktif = "Posisi Terkini".
+// Isi tab "Riwayat" — GABUNGAN alur + riwayat kunjungan jadi satu pohon perjalanan vertikal.
+// Tiap node = satu kunjungan (urut terbaru dulu); node berurutan menggambarkan alur unit
+// (mis. IGD → Rawat Inap). Node teratas/aktif dirender LEBIH BESAR (spotlight "Kunjungan
+// Terakhir"). Tiap node EXPANDABLE (default terbuka) menampilkan: Penjamin (Umum/BPJS/…),
+// No. SEP bila JKN, DPJP, asal (caraMasuk), diagnosa, cabang order layanan, dan KETERANGAN
+// SPRI bila kunjungan sudah diterbitkan SPRI (walau No. Referensi belum ada).
 
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,13 +14,17 @@ import {
   ChevronDown,
   Hash,
   FileText,
+  FileCheck2,
   ArrowRight,
   CornerDownRight,
   ClipboardList,
   ShieldCheck,
+  Stethoscope,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PatientMaster, KunjunganRecord } from "@/lib/data";
+import type { SpriDTO } from "@/lib/api/spri/spri";
 import { UNIT_CFG, kunjunganStatusView } from "./config";
 
 /** JKN = peserta BPJS (punya No. SEP). Penjamin string dari adapter: "BPJS Non-PBI"/"BPJS PBI". */
@@ -31,7 +36,13 @@ function isJKN(penjamin?: string): boolean {
 /** Identitas stabil per kunjungan untuk key + state collapse. */
 const visitKey = (k: KunjunganRecord) => k.id || k.noKunjungan;
 
-export function RiwayatTab({ patient }: { patient: PatientMaster }) {
+interface RiwayatTabProps {
+  patient: PatientMaster;
+  /** SPRI per kunjungan (key = kunjunganId IGD asal / riKunjunganId RI). Dari worklist admisi. */
+  spriByKunjungan?: Record<string, SpriDTO>;
+}
+
+export function RiwayatTab({ patient, spriByKunjungan }: RiwayatTabProps) {
   const visits = patient.riwayatKunjungan;
   // Default SEMUA terbuka → lacak yang DI-collapse (bukan yang di-expand).
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -73,6 +84,7 @@ export function RiwayatTab({ patient }: { patient: PatientMaster }) {
               isLatest={key === latestKey}
               open={!collapsed.has(key)}
               onToggle={() => toggle(key)}
+              spri={k.id ? spriByKunjungan?.[k.id] : undefined}
             />
           );
         })}
@@ -81,7 +93,7 @@ export function RiwayatTab({ patient }: { patient: PatientMaster }) {
   );
 }
 
-// ── Node perjalanan (expandable, default terbuka) ────────────
+// ── Node perjalanan (expandable, default terbuka; latest = lebih besar) ───────
 
 function JourneyNode({
   k,
@@ -89,12 +101,14 @@ function JourneyNode({
   isLatest,
   open,
   onToggle,
+  spri,
 }: {
   k: KunjunganRecord;
   isLast: boolean;
   isLatest: boolean;
   open: boolean;
   onToggle: () => void;
+  spri?: SpriDTO;
 }) {
   const uc = UNIT_CFG[k.unit];
   const UIcon = uc.icon;
@@ -103,13 +117,21 @@ function JourneyNode({
   const asal = k.caraMasuk?.trim();
   const rujukan = k.dokumen?.rujukan === "Ada";
   const jkn = isJKN(k.penjamin);
+  const dpjp = k.dokter && k.dokter !== "—" ? k.dokter : null;
+  const spriHasRef = !!spri?.noReferensi;
 
   return (
-    <div className="relative flex gap-3 pb-3 last:pb-0">
-      {/* Rail: dot unit + connector */}
+    <div className={cn("relative flex gap-3", isLatest ? "pb-4 last:pb-0" : "pb-3 last:pb-0")}>
+      {/* Rail: dot unit + connector (latest = lebih besar) */}
       <div className="relative flex shrink-0 flex-col items-center">
-        <span className={cn("z-10 flex h-7 w-7 items-center justify-center rounded-lg ring-2 ring-white", uc.bg)}>
-          <UIcon size={12} className={uc.text} />
+        <span
+          className={cn(
+            "z-10 flex items-center justify-center rounded-lg ring-2 ring-white",
+            isLatest ? "h-9 w-9" : "h-7 w-7",
+            uc.bg,
+          )}
+        >
+          <UIcon size={isLatest ? 16 : 12} className={uc.text} />
         </span>
         {!isLast && <span className="mt-1 w-0.5 flex-1 rounded-full bg-slate-200" />}
       </div>
@@ -117,25 +139,49 @@ function JourneyNode({
       {/* Kartu node */}
       <div
         className={cn(
-          "min-w-0 flex-1 overflow-hidden rounded-xl border bg-white",
-          isLatest ? "border-sky-200 ring-1 ring-sky-100" : "border-slate-100",
+          "min-w-0 flex-1 overflow-hidden rounded-xl border",
+          isLatest ? "border-sky-200 bg-sky-50/40 shadow-xs ring-1 ring-sky-100" : "border-slate-100 bg-white",
         )}
       >
         {/* Header (klik = expand/collapse) */}
         <button
           onClick={onToggle}
           aria-expanded={open}
-          className="flex w-full cursor-pointer items-center gap-1.5 px-2.5 py-2 text-left transition hover:bg-slate-50/70"
-        >
-          <span className="text-[11px] font-bold text-slate-800">{k.unit}</span>
-          <span className={cn("rounded-full px-1.5 py-0.5 text-[9px] font-semibold", sv.badge)}>{sv.label}</span>
-          {isLatest && (
-            <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-bold text-sky-700">Posisi Terkini</span>
+          className={cn(
+            "flex w-full cursor-pointer items-start gap-1.5 text-left transition hover:bg-black/[0.02]",
+            isLatest ? "px-3 py-2.5" : "px-2.5 py-2",
           )}
-          <span className="ml-auto shrink-0 text-[9px] text-slate-400">{k.tanggal}</span>
+        >
+          <div className="min-w-0 flex-1">
+            {isLatest && (
+              <p className="mb-0.5 flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-sky-600">
+                <MapPin size={9} /> Kunjungan Terakhir
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className={cn("font-bold text-slate-800", isLatest ? "text-sm" : "text-[11px]")}>{k.unit}</span>
+              <span className={cn("rounded-full px-1.5 py-0.5 text-[9px] font-semibold", sv.badge)}>{sv.label}</span>
+              {spri && (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[8px] font-bold",
+                    spriHasRef ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700",
+                  )}
+                >
+                  <FileCheck2 size={8} /> SPRI
+                </span>
+              )}
+              {!isLatest && <span className="ml-auto shrink-0 text-[9px] text-slate-400">{k.tanggal}</span>}
+            </div>
+            {isLatest && (
+              <p className="mt-0.5 text-[10px] text-slate-400">
+                {k.tanggal} · <span className="font-mono">{k.noKunjungan}</span>
+              </p>
+            )}
+          </div>
           <ChevronDown
             size={12}
-            className={cn("shrink-0 text-slate-300 transition-transform duration-200", open && "rotate-180")}
+            className={cn("mt-0.5 shrink-0 text-slate-300 transition-transform duration-200", open && "rotate-180")}
           />
         </button>
 
@@ -149,7 +195,47 @@ function JourneyNode({
               transition={{ duration: 0.2, ease: "easeInOut" }}
               className="overflow-hidden"
             >
-              <div className="space-y-2 border-t border-slate-100 px-2.5 pb-2.5 pt-2">
+              <div
+                className={cn(
+                  "space-y-2 border-t pt-2",
+                  isLatest ? "border-sky-100 px-3 pb-3" : "border-slate-100 px-2.5 pb-2.5",
+                )}
+              >
+                {/* Keterangan SPRI (sudah diterbitkan — walau No. Referensi belum ada) */}
+                {spri && (
+                  <div
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg border px-2 py-1.5",
+                      spriHasRef ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex h-6 w-6 shrink-0 items-center justify-center rounded-md",
+                        spriHasRef ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600",
+                      )}
+                    >
+                      <FileCheck2 size={12} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className={cn("text-[10px] font-bold", spriHasRef ? "text-emerald-800" : "text-amber-800")}>
+                        SPRI Diterbitkan{spri.status === "Dikonsumsi" ? " · Teradmisi" : ""}
+                      </p>
+                      <p
+                        className={cn(
+                          "truncate font-mono text-[9px]",
+                          spriHasRef ? "text-emerald-600" : "text-amber-700",
+                        )}
+                      >
+                        {spriHasRef ? `No. Ref ${spri.noReferensi}` : "Menunggu No. Referensi BPJS"}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-white/70 px-1.5 py-0.5 text-[8px] font-semibold text-slate-500">
+                      {spri.jenisPerawatan}
+                    </span>
+                  </div>
+                )}
+
                 {/* Penjamin + No. SEP (bila JKN) */}
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
                   <span className="text-[10px] text-slate-400">Penjamin</span>
@@ -174,9 +260,14 @@ function JourneyNode({
                   )}
                 </div>
 
-                {/* Asal / rujukan */}
-                {(asal || rujukan) && (
+                {/* DPJP + asal + rujukan */}
+                {(dpjp || asal || rujukan) && (
                   <div className="flex flex-wrap items-center gap-1">
+                    {dpjp && (
+                      <span className="inline-flex items-center gap-0.5 rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600">
+                        <Stethoscope size={9} /> {dpjp}
+                      </span>
+                    )}
                     {asal && (
                       <span className="rounded-md bg-indigo-50 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-600">
                         <CornerDownRight size={9} className="mr-0.5 inline" />
@@ -193,7 +284,9 @@ function JourneyNode({
 
                 {/* Diagnosa */}
                 {k.diagnosa && k.diagnosa !== "—" && (
-                  <p className="line-clamp-2 text-[11px] leading-snug text-slate-600">{k.diagnosa}</p>
+                  <p className={cn("leading-snug text-slate-600", isLatest ? "line-clamp-3 text-[11px]" : "line-clamp-2 text-[11px]")}>
+                    {k.diagnosa}
+                  </p>
                 )}
 
                 {/* Order layanan (cabang) */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo, useEffect } from "react";
+import { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ChevronRight, X, Plus, Search } from "lucide-react";
@@ -9,7 +9,7 @@ import type { PatientMaster } from "@/lib/data";
 import { patientMasterData } from "@/lib/data";
 import { listKunjungan, type KunjunganDTO } from "@/lib/api/kunjungan";
 import { getPatient } from "@/lib/api/patients";
-import { consumeSpri } from "@/lib/api/spri/spri";
+import { consumeSpri, listSpri, type SpriDTO } from "@/lib/api/spri/spri";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
 import { dtoToKunjunganRecord } from "./patient/kunjunganRiwayatApi";
@@ -36,6 +36,9 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
   const [activeId, setActiveId] = useState(init.id);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  // SPRI worklist (terbit, belum dikonsumsi) → keterangan "SPRI Diterbitkan" di node Riwayat.
+  // Key by kunjunganId (IGD asal) + riKunjunganId (RI hasil). Lintas-pasien (filter di node by id).
+  const [spriByKunjungan, setSpriByKunjungan] = useState<Record<string, SpriDTO>>({});
 
   const patient = tabs.find((t) => t.id === activeId) ?? tabs[0];
 
@@ -98,6 +101,27 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
 
+  // SPRI worklist (Terbit/MenungguRef, belum dikonsumsi) → keterangan "SPRI Diterbitkan" di
+  // node Riwayat. Map by kunjunganId (IGD asal) + riKunjunganId (RI hasil). Refetch pasca-admisi.
+  const loadSpri = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const items = await listSpri({}, signal);
+      const map: Record<string, SpriDTO> = {};
+      for (const s of items) {
+        map[s.kunjunganId] = s;
+        if (s.riKunjunganId) map[s.riKunjunganId] = s;
+      }
+      setSpriByKunjungan(map);
+    } catch {
+      /* abort/gagal → tanpa keterangan SPRI */
+    }
+  }, []);
+  useEffect(() => {
+    const ac = new AbortController();
+    void loadSpri(ac.signal);
+    return () => ac.abort();
+  }, [loadSpri]);
+
   // Auto-buka Daftar Kunjungan via deep-link (hanya sekali saat mount):
   //  · ?daftar=rj&kodebooking=…  → Respon Kedatangan antrean (ANT4)
   //  · ?daftar=ranap&spri=…      → Admisi Rawat Inap dari worklist SPRI (seed unit Rawat Inap;
@@ -125,6 +149,7 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
     if (!ranapSpriId) return;
     try {
       await consumeSpri(ranapSpriId, kunjungan.id);
+      void loadSpri(); // segarkan keterangan SPRI (status berubah Dikonsumsi → keluar worklist)
       toast.success("Admisi Rawat Inap dibuat", "SPRI ditandai dikonsumsi — keluar dari worklist admisi.");
     } catch (e) {
       toast.error("Gagal menautkan SPRI", e instanceof ApiError ? e.message : undefined);
@@ -396,6 +421,7 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
                 upcomingCount={upcomingCount}
                 onLihatRiwayat={() => setRiwayat(true)}
                 onTambahJadwal={() => setShowTambahJadwal(true)}
+                spriByKunjungan={spriByKunjungan}
               />
             </div>
           </div>

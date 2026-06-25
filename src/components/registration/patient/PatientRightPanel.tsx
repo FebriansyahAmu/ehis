@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PatientMaster } from "@/lib/data";
+import type { SpriDTO } from "@/lib/api/spri/spri";
 import {
   PENJAMIN_CFG,
   UNIT_CFG,
@@ -29,6 +30,8 @@ interface PatientRightPanelProps {
   upcomingCount: number;
   onLihatRiwayat: () => void;
   onTambahJadwal: () => void;
+  /** SPRI per kunjungan (key kunjunganId/riKunjunganId) → keterangan SPRI di node Riwayat. */
+  spriByKunjungan?: Record<string, SpriDTO>;
 }
 
 export function PatientRightPanel({
@@ -37,6 +40,7 @@ export function PatientRightPanel({
   upcomingCount,
   onLihatRiwayat,
   onTambahJadwal,
+  spriByKunjungan,
 }: PatientRightPanelProps) {
   const [tab, setTab]           = useState<TabId>("riwayat");
   const [jadwalAll, setJadwalAll] = useState(false);
@@ -136,7 +140,7 @@ export function PatientRightPanel({
         >
 
           {/* ══ Riwayat ══ */}
-          {tab === "riwayat" && <RiwayatTab patient={patient} />}
+          {tab === "riwayat" && <RiwayatTab patient={patient} spriByKunjungan={spriByKunjungan} />}
 
           {/* ══ Penjamin ══ */}
           {tab === "penjamin" && (
