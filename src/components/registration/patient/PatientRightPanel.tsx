@@ -54,7 +54,8 @@ export function PatientRightPanel({
   function toggle(id: string) {
     setExpanded((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
@@ -92,10 +93,10 @@ export function PatientRightPanel({
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
 
       {/* ── Tab navigation ── */}
-      <div className="flex border-b border-slate-100 px-1 pt-1">
+      <div className="flex border-b border-slate-100 px-1.5 pt-1.5">
         {TABS.map((t) => {
           const Icon = t.icon;
           const isActive = tab === t.id;

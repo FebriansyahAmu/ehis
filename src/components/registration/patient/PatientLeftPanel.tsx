@@ -5,265 +5,81 @@ import Link from "next/link";
 import {
   Camera,
   Printer,
-  CalendarPlus,
   Info,
   ClipboardList,
   Receipt,
   ArrowRight,
   ExternalLink,
-  TriangleAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PatientMaster } from "@/lib/data";
-import {
-  PENJAMIN_CFG,
-  UNIT_CFG,
-  TAGIHAN_STATUS,
-  calcKasir,
-  fmtRp,
-} from "./config";
+import { UNIT_CFG, TAGIHAN_STATUS, calcKasir, fmtRp } from "./config";
 
 interface PatientLeftPanelProps {
   patient: PatientMaster;
-  upcomingCount: number;
-  photoPreview: string | null;
   photoRef: React.RefObject<HTMLInputElement | null>;
   onInfoLengkap: () => void;
-  onDaftarKunjungan: () => void;
   onOpenBilling: (id: string) => void;
 }
 
 export function PatientLeftPanel({
   patient,
-  upcomingCount,
-  photoPreview,
   photoRef,
   onInfoLengkap,
-  onDaftarKunjungan,
   onOpenBilling,
 }: PatientLeftPanelProps) {
-  const pjCfg = PENJAMIN_CFG[patient.penjamin.tipe];
-  const initials = patient.name
-    .split(" ")
-    .slice(0, 2)
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase();
   const kasirCalc = useMemo(
     () => (patient.kasir ? calcKasir(patient.kasir) : null),
     [patient.kasir],
   );
   const totalDeposit = patient.kasir?.deposits.reduce((s, d) => s + d.jumlah, 0) ?? 0;
-  // Guard kunjungan-ganda: satu pasien hanya boleh punya satu kunjungan berjalan.
-  // Selama ada kunjungan aktif (belum Selesai/Batal), CTA Daftar dikunci — selaras
-  // enforcement server (registerKunjungan → 409). Selesaikan/batalkan dulu yang aktif.
-  const activeKunjungan = useMemo(
-    () => patient.riwayatKunjungan.find((k) => k.status === "Aktif"),
-    [patient.riwayatKunjungan],
-  );
+
+  // Data-only (tanpa closure pembaca-ref di dalam array yang di-render). Ref dibaca dalam
+  // arrow onClick inline di JSX → konteks event handler (lolos react-hooks/refs).
+  const quickActions = [
+    { key: "info",  icon: Info,          label: "Info Pasien" },
+    { key: "rm",    icon: ClipboardList, label: "Rekam Medis" },
+    { key: "cetak", icon: Printer,       label: "Cetak Kartu" },
+    { key: "foto",  icon: Camera,        label: "Ubah Foto" },
+  ] as const;
 
   return (
     <div className="flex flex-col gap-4">
-      {/* ── Profil card ── */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
-        {/* Cover — no overflow-hidden so avatar can bleed below */}
-        <div
-          className={cn(
-            "relative h-24 bg-linear-to-br",
-            patient.gender === "L"
-              ? "from-slate-600 to-teal-800"
-              : "from-pink-500 to-rose-600",
-          )}
-        >
-          <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10" />
-          <div className="absolute -right-3 bottom-0 h-20 w-20 rounded-full bg-white/6" />
-
-          {/* Avatar */}
-          <div className="absolute -bottom-8 left-4 group">
-            {photoPreview ? (
-              <img
-                src={photoPreview}
-                alt={patient.name}
-                className="h-16 w-16 rounded-full object-cover ring-2 ring-white shadow-lg"
-              />
-            ) : (
-              <div
-                className={cn(
-                  "flex h-16 w-16 items-center justify-center rounded-full text-base font-black ring-2 ring-white shadow-lg",
-                  patient.gender === "L"
-                    ? "bg-sky-100 text-sky-700"
-                    : "bg-pink-100 text-pink-700",
-                )}
-              >
-                {initials}
-              </div>
-            )}
-            <button
-              onClick={() => photoRef.current?.click()}
-              aria-label="Ubah foto pasien"
-              className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-full bg-black/0 transition group-hover:bg-black/30"
-            >
-              <Camera size={14} className="text-white opacity-0 transition group-hover:opacity-100" />
-            </button>
-          </div>
-
-          {/* Top-right: gender chip + print */}
-          <div className="absolute right-2 top-2 flex items-center gap-1.5">
-            <span className="rounded-md bg-black/20 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-sm">
-              {patient.gender === "L" ? "Laki-laki" : "Perempuan"}
-            </span>
-            <button
-              onClick={() => window.print()}
-              aria-label="Cetak kartu"
-              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-white/15 text-white/80 backdrop-blur-sm transition hover:bg-white/30 active:scale-95"
-            >
-              <Printer size={11} />
-            </button>
-          </div>
-        </div>
-
-        <div className="px-4 pt-10 pb-4">
-          {/* Name + badges */}
-          <div className="mb-3">
-            <h2 className="text-sm font-bold leading-snug text-slate-900 line-clamp-2 wrap-break-words">
-              {patient.name}
-            </h2>
-            <div className="mt-1.5 flex flex-wrap items-center gap-1">
-              <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
-                {patient.age} thn · {patient.gender === "L" ? "L" : "P"}
-              </span>
-              <span className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-black text-rose-700">
-                {patient.golonganDarah}
-              </span>
-              <span className={cn("rounded-md px-1.5 py-0.5 text-[10px] font-bold", pjCfg.badge)}>
-                {pjCfg.label}
-              </span>
-            </div>
-          </div>
-
-          {/* ID info */}
-          <div className="rounded-xl bg-slate-50 px-3 py-2.5 space-y-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-slate-400">No. Rekam Medis</span>
-              <span className="font-mono text-xs font-bold text-slate-800">{patient.noRM}</span>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-slate-400">NIK</span>
-              <span className="font-mono text-xs text-slate-600">{patient.nik}</span>
-            </div>
-            {patient.idSatusehat && (
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-slate-400">ID Satusehat</span>
-                <span className="font-mono text-xs font-semibold text-sky-600">{patient.idSatusehat}</span>
-              </div>
-            )}
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-slate-400">Terdaftar</span>
-              <span className="text-xs text-slate-600">{patient.terdaftar}</span>
-            </div>
-          </div>
-
-          {/* Stats */}
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            <div className="rounded-xl bg-indigo-50 p-2.5 text-center ring-1 ring-inset ring-indigo-100">
-              <p className="text-base font-black text-indigo-700">{patient.riwayatKunjungan.length}</p>
-              <p className="text-[9px] font-bold uppercase tracking-wider text-indigo-400">Kunjungan</p>
-            </div>
-            <div className="rounded-xl bg-sky-50 p-2.5 text-center ring-1 ring-inset ring-sky-100">
-              <p className="text-base font-black text-sky-700">
-                {patient.riwayatKunjungan.filter((k) => k.status === "Aktif").length}
-              </p>
-              <p className="text-[9px] font-bold uppercase tracking-wider text-sky-400">Aktif</p>
-            </div>
-            <div
-              className={cn(
-                "rounded-xl p-2.5 text-center ring-1 ring-inset",
-                upcomingCount > 0
-                  ? "bg-emerald-50 ring-emerald-100"
-                  : "bg-slate-50 ring-slate-100",
-              )}
-            >
-              <p className={cn("text-base font-black", upcomingCount > 0 ? "text-emerald-700" : "text-slate-400")}>
-                {upcomingCount}
-              </p>
-              <p className={cn("text-[9px] font-bold uppercase tracking-wider", upcomingCount > 0 ? "text-emerald-400" : "text-slate-400")}>
-                Jadwal
-              </p>
-            </div>
-          </div>
-
-          {/* Primary CTA — dikunci bila ada kunjungan aktif (cegah pendaftaran ganda) */}
-          {activeKunjungan ? (
-            <div className="mt-3 space-y-2">
+      {/* ── Aksi Cepat ── */}
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+        <p className="mb-3 text-xs font-semibold text-slate-800">Aksi Cepat</p>
+        <div className="grid grid-cols-2 gap-2">
+          {quickActions.map((a) => {
+            const Icon = a.icon;
+            return (
               <button
-                type="button"
-                disabled
-                aria-disabled
-                title="Pasien masih punya kunjungan aktif — selesaikan dulu sebelum daftar lagi."
-                className="flex w-full cursor-not-allowed items-center justify-center gap-1.5 rounded-xl bg-slate-100 py-2.5 text-xs font-semibold text-slate-400 ring-1 ring-inset ring-slate-200"
+                key={a.key}
+                onClick={() => {
+                  if (a.key === "info") onInfoLengkap();
+                  else if (a.key === "cetak") window.print();
+                  else if (a.key === "foto") photoRef.current?.click();
+                  // "rm": placeholder Rekam Medis (belum di-wire)
+                }}
+                className="group flex cursor-pointer flex-col items-start gap-2 rounded-xl border border-slate-100 bg-slate-50/50 p-3 text-left transition hover:border-sky-200 hover:bg-sky-50 active:scale-[0.97]"
               >
-                <CalendarPlus size={12} />
-                Daftar Kunjungan Baru
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-slate-500 ring-1 ring-slate-100 transition group-hover:text-sky-600 group-hover:ring-sky-200">
+                  <Icon size={14} />
+                </span>
+                <span className="text-[11px] font-semibold text-slate-600 transition group-hover:text-sky-700">
+                  {a.label}
+                </span>
               </button>
-              <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2.5">
-                <TriangleAlert size={13} className="mt-0.5 shrink-0 text-amber-500" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-semibold leading-snug text-amber-800">
-                    Masih ada kunjungan aktif
-                  </p>
-                  <p className="mt-0.5 text-[10.5px] leading-snug text-amber-700">
-                    <span className="font-mono font-semibold">{activeKunjungan.noKunjungan}</span>
-                    {" · "}{activeKunjungan.unit}. Selesaikan atau batalkan dulu sebelum mendaftarkan kunjungan baru.
-                  </p>
-                  {activeKunjungan.detailPath && (
-                    <Link
-                      href={activeKunjungan.detailPath}
-                      className="mt-1.5 inline-flex items-center gap-1 text-[10.5px] font-semibold text-amber-700 underline-offset-2 transition hover:text-amber-900 hover:underline"
-                    >
-                      Lihat kunjungan aktif
-                      <ArrowRight size={11} />
-                    </Link>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={onDaftarKunjungan}
-              className="group mt-3 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-sky-600 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-sky-700 active:scale-[0.98]"
-            >
-              <CalendarPlus size={12} className="transition group-hover:scale-110" />
-              Daftar Kunjungan Baru
-            </button>
-          )}
-
-          {/* Secondary actions */}
-          <div className="mt-2 grid grid-cols-2 gap-1.5">
-            {[
-              { icon: Camera,        label: "Ubah Foto",   onClick: () => photoRef.current?.click() },
-              { icon: Printer,       label: "Cetak Kartu", onClick: () => window.print() },
-              { icon: Info,          label: "Info Pasien", onClick: onInfoLengkap },
-              { icon: ClipboardList, label: "Rekam Medis", onClick: () => {} },
-            ].map(({ icon: Icon, label, onClick }) => (
-              <button
-                key={label}
-                onClick={onClick}
-                className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-100 px-3 py-2 text-[11px] font-medium text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 active:scale-[0.97]"
-              >
-                <Icon size={11} className="shrink-0 text-slate-400" />
-                {label}
-              </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* ── Tagihan card (read-only ringkasan — aksi pembayaran di /ehis-billing) ── */}
+      {/* ── Tagihan (read-only ringkasan — aksi pembayaran di /ehis-billing) ── */}
       {patient.billing.length > 0 ? (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <div className="flex items-center gap-1.5">
-              <Receipt size={12} className="text-slate-400" />
+              <Receipt size={13} className="text-slate-400" />
               <span className="text-xs font-semibold text-slate-700">Rincian Tagihan</span>
               <span
                 title="Tampilan ringkasan. Pembayaran dikelola di modul Billing Kasir."
@@ -287,12 +103,12 @@ export function PatientLeftPanel({
                   title="Lihat rincian tagihan (read-only)"
                   className="group flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50/70"
                 >
-                  <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", uc.bg)}>
-                    <UIcon size={13} className={uc.text} />
+                  <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", uc.bg)}>
+                    <UIcon size={14} className={uc.text} />
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-[11px] font-semibold text-slate-700">{b.unit}</p>
-                    <p className="font-mono text-[9px] text-slate-400 truncate">{b.noKunjungan}</p>
+                    <p className="truncate font-mono text-[9px] text-slate-400">{b.noKunjungan}</p>
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-xs font-black text-slate-900">{fmtRp(b.totalBiaya)}</p>
@@ -313,7 +129,7 @@ export function PatientLeftPanel({
             })}
           </div>
           {((kasirCalc?.sisaBayar ?? 0) > 0 || totalDeposit > 0) && (
-            <div className="border-t border-slate-100 bg-slate-50 px-4 py-3 space-y-1">
+            <div className="space-y-1 border-t border-slate-100 bg-slate-50 px-4 py-3">
               {kasirCalc && kasirCalc.sisaBayar > 0 && (
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-rose-500">Sisa Bayar Aktif</span>
@@ -348,9 +164,12 @@ export function PatientLeftPanel({
           </div>
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center">
-          <Receipt size={20} className="text-slate-200" />
-          <p className="text-xs text-slate-400">Tidak ada tagihan</p>
+        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center">
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-50">
+            <Receipt size={20} className="text-slate-300" />
+          </span>
+          <p className="text-xs font-medium text-slate-500">Belum ada tagihan</p>
+          <p className="text-[10px] text-slate-400">Tagihan muncul setelah ada kunjungan berbiaya.</p>
         </div>
       )}
     </div>

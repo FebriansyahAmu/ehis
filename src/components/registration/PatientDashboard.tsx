@@ -19,6 +19,7 @@ import { dtoToPatientMaster } from "./pasien-list/pasienListApi";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 import { parseIndoDate, type JadwalItem } from "./patient/config";
+import { PatientHero } from "./patient/PatientHero";
 import { PatientLeftPanel } from "./patient/PatientLeftPanel";
 import { PatientRightPanel } from "./patient/PatientRightPanel";
 import { EditDataModal } from "./patient/modals/EditDataModal";
@@ -370,24 +371,34 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
       )}
 
       {/* ── Body ── */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-5">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <PatientLeftPanel
+      <div className="flex-1 overflow-y-auto">
+        <div className="space-y-5 p-4 sm:p-6">
+          <PatientHero
             patient={patient}
             upcomingCount={upcomingCount}
             photoPreview={photoPreview}
             photoRef={photoRef}
-            onInfoLengkap={() => setInfoLengkap(true)}
             onDaftarKunjungan={() => setDaftarKunjungan(true)}
-            onOpenBilling={(id) => setOpenBillingId(id)}
           />
-          <PatientRightPanel
-            patient={patient}
-            jadwalList={jadwalList}
-            upcomingCount={upcomingCount}
-            onLihatRiwayat={() => setRiwayat(true)}
-            onTambahJadwal={() => setShowTambahJadwal(true)}
-          />
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
+            <div className="lg:col-span-2">
+              <PatientLeftPanel
+                patient={patient}
+                photoRef={photoRef}
+                onInfoLengkap={() => setInfoLengkap(true)}
+                onOpenBilling={(id) => setOpenBillingId(id)}
+              />
+            </div>
+            <div className="lg:col-span-3">
+              <PatientRightPanel
+                patient={patient}
+                jadwalList={jadwalList}
+                upcomingCount={upcomingCount}
+                onLihatRiwayat={() => setRiwayat(true)}
+                onTambahJadwal={() => setShowTambahJadwal(true)}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
