@@ -1,37 +1,46 @@
-// MOCK SERVER-SIDE — Penerbitan No. Referensi SPRI ke BPJS (V-Claim insertSPRI).
+// Penerbitan No. Referensi SPRI (= noSuratKontrol) via kontrak V-Claim RencanaKontrol/InsertSPRI.
 //
-// Dipanggil saat IGD complete (jenis Rawat_Inap) DAN saat revisi di worklist admisi. Mengembalikan
-// nomor referensi BILA "kepesertaan aktif"; mengembalikan `null` bila BPJS bermasalah / nonaktif —
-// SPRI tetap terbit, No. Referensi diisi nanti via revisi (lihat docs/MOCK-SPRI-RAWAT-INAP.md).
+// Sekarang BPJS_MODE=mock (belum ada cons-id) → insertSPRI SELALU sukses → ref SELALU terbit
+// (status SPRI selalu "Terbit"; jalur MenungguRef/revise tak terpicu di mock). ⚠️ removable —
+// ganti BPJS_MODE / wire real. Lihat TECH_DEBT.
 //
-// Aturan demo "tidak aktif" (sampai V-Claim nyata): noKartu kosong, ATAU digit terakhir = "0"
-// (mudah diuji: kartu berakhir 0 → simulasi BPJS bermasalah). Swap produksi = ganti body →
-// panggil BFF V-Claim insertSPRI, map error/timeout → null.
+// ⚠️ R4: dipanggil DI DALAM transaksi kunjungan (complete). Aman untuk mock (tanpa HTTP). Saat
+// BPJS_MODE!=mock, panggilan HTTP nyata TIDAK boleh di dalam tx → pindahkan ke OUTBOX (post-commit).
+// Lihat TECH_DEBT.
 
-const pad = (n: number, len: number) => String(n).padStart(len, "0");
+import { insertSPRI } from "@/lib/services/bpjs/rencanaKontrol";
+import type { InsertSPRIPayload } from "@/lib/bpjs/bpjsContracts";
 
-/** Format No. Referensi SPRI: PPK(4) R 001 MM YY K SEQ(6) — mis. 0491R0010625K000291. */
-function genNoReferensi(): string {
-  const now = new Date();
-  const mm = pad(now.getMonth() + 1, 2);
-  const yy = pad(now.getFullYear() % 100, 2);
-  const seq = pad(Math.floor(Math.random() * 1_000_000), 6);
-  return `0491R001${mm}${yy}K${seq}`;
-}
-
-/** true = kepesertaan dianggap aktif (boleh dapat ref). Aturan demo, ganti saat produksi. */
-function isMembershipActive(noKartu: string): boolean {
-  const k = noKartu.trim();
-  if (!k) return false;             // tanpa kartu → tak bisa terbit ref
-  if (k.endsWith("0")) return false; // demo: kartu berakhir "0" → BPJS bermasalah
-  return true;
+export interface IssueSpriInput {
+  noKartu: string;
+  /** Kode dokter DPJP BPJS — kosong bila mapping internal→BPJS belum ada (TECH_DEBT). */
+  kodeDokter?: string;
+  /** Kode poli kontrol BPJS. */
+  poliKontrol?: string;
+  /** yyyy-MM-dd. */
+  tglRencanaKontrol: string;
+  /** User pembuat SPRI. */
+  user: string;
+  /** Audit (R9) — default sistem bila tak diberi. */
+  actor?: string;
+  actorRole?: string;
 }
 
 /**
- * Terbitkan No. Referensi SPRI. Latensi ~400ms meniru jaringan.
- * @returns string No. Referensi bila aktif; `null` bila BPJS nonaktif/bermasalah (surat tetap terbit).
+ * Terbitkan No. Referensi SPRI via InsertSPRI.
+ * @returns noSuratKontrol bila sukses; `null` bila BPJS gagal (mock SELALU sukses → tak null).
  */
-export async function issueSpriRef(noKartu: string): Promise<string | null> {
-  await new Promise((r) => setTimeout(r, 400));
-  return isMembershipActive(noKartu) ? genNoReferensi() : null;
+export async function issueSpriRef(input: IssueSpriInput): Promise<string | null> {
+  const payload: InsertSPRIPayload = {
+    noKartu: input.noKartu.trim(),
+    kodeDokter: input.kodeDokter?.trim() || "",
+    poliKontrol: input.poliKontrol?.trim() || "",
+    tglRencanaKontrol: input.tglRencanaKontrol,
+    user: input.user,
+  };
+  const res = await insertSPRI(payload, {
+    actor: input.actor ?? "system@spri",
+    actorRole: input.actorRole ?? "registration",
+  });
+  return res.ok ? res.value.response?.noSuratKontrol ?? null : null;
 }

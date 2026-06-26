@@ -33,6 +33,11 @@ export interface BpjsCallOptions {
   path: string;
   /** Body JSON untuk POST/PUT/DELETE (V-Claim: body plaintext JSON; response yg ter-enkripsi). */
   body?: unknown;
+  /**
+   * Override Content-Type. Sebagian endpoint V-Claim (mis. RencanaKontrol/InsertSPRI) minta
+   * `application/x-www-form-urlencoded` walau body tetap string JSON. Default JSON.
+   */
+  contentType?: string;
   /** Decode response (AES+LZ). Default true utk vclaim, false utk service lain. Override sesuai endpoint. */
   decode?: boolean;
   /** Timeout per attempt (ms). Default dari config. */
@@ -83,6 +88,7 @@ export async function callBpjs<T = unknown>(opts: BpjsCallOptions): Promise<Resu
       consSecret: cfg.consSecret,
       userKey: svc.userKey,
     });
+    if (opts.contentType) headers["Content-Type"] = opts.contentType;
 
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), timeoutMs);

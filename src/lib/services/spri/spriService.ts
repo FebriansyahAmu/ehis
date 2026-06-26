@@ -55,13 +55,20 @@ export function makeSpriService(deps: { dal?: Dal } = {}) {
 
   /** Revisi & kirim ulang → retry penerbitan No. Referensi ke BPJS. Hanya saat MenungguRef.
    *  Tidak kena lock kunjungan (resource administratif sendiri). */
-  async function revise(id: string, _actor: Actor): Promise<SpriDTO> {
+  async function revise(id: string, actor: Actor): Promise<SpriDTO> {
     const row = await dal.findById(id);
     if (!row) throw Errors.notFound("SPRI tidak ditemukan");
     if (row.status !== "MenungguRef") {
       throw Errors.conflict("SPRI sudah terbit referensi / dikonsumsi — revisi tidak berlaku");
     }
-    const noReferensi = await issueSpriRef(row.noKartu);
+    const noReferensi = await issueSpriRef({
+      noKartu: row.noKartu,
+      poliKontrol: row.poliKode ?? undefined,
+      tglRencanaKontrol: fmtDate(row.tglRencanaRawat),
+      user: row.user,
+      actor: actor.userId,
+      actorRole: actor.roles[0] ?? "registration",
+    });
     if (!noReferensi) {
       // BPJS masih bermasalah → tetap MenungguRef (idempoten), kembalikan apa adanya.
       const fresh = await dal.findByIdWithKunjungan(id);

@@ -622,6 +622,7 @@ export type {
   FormPRB,
   InsertRKV2Payload,
   InsertSPRIPayload,
+  InsertSPRIResponse,
   PoliRKSpecItem,
   PRBFormData,
   PRBKodeStatus,

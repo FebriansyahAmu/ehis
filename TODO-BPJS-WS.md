@@ -86,7 +86,8 @@
 - [ ] Wire ke `kunjunganService` (registrasi) via **outbox/kompensasi** (panggilan eksternal di luar DB tx).
 
 ## BWS5 — Rujukan + Rencana Kontrol / SPRI
-- [ ] Rujukan cari/list live; RK/SPRI insert → **ganti `spriBpjsMock`** ([docs/MOCK-SPRI-RAWAT-INAP.md](docs/MOCK-SPRI-RAWAT-INAP.md)).
+- [~] **InsertSPRI (RencanaKontrol/InsertSPRI) — kontrak + service ✅ (2026-06-26, dibangun lebih awal "sesuai Kunjungan dulu")**: Zod request [schemas/bpjs/rencanaKontrol.ts](src/lib/schemas/bpjs/rencanaKontrol.ts) · `InsertSPRIResponse` [bpjsContracts.ts](src/lib/bpjs/bpjsContracts.ts) · service [services/bpjs/rencanaKontrol.ts](src/lib/services/bpjs/rencanaKontrol.ts) `insertSPRI` (mock=always-true / real=`callBpjs` POST `Content-Type: x-www-form-urlencoded`, audited). Wired: `issueSpriRef` → `insertSPRI` (Kunjungan complete + revise). **Sisa:** flip ke real (creds), `kodeDokter`/`poliKontrol` BPJS (BWS3), **outbox** (R4) — lihat [TECH_DEBT.md](TECH_DEBT.md) §BPJS InsertSPRI.
+- [ ] Rujukan cari/list live; UpdateSPRI/DeleteSPRI + RK insert; selebihnya **ganti `spriBpjsMock`** ([docs/MOCK-SPRI-RAWAT-INAP.md](docs/MOCK-SPRI-RAWAT-INAP.md)).
 
 ## BWS6 — Monitoring + Klaim
 - [ ] Monitoring kunjungan/klaim; **claim submission** → tautkan ke `/ehis-eklaim`.

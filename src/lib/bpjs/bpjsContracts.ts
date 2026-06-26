@@ -715,6 +715,25 @@ export interface InsertSPRIPayload {
 }
 
 /**
+ * Response Insert SPRI (RencanaKontrol/InsertSPRI). Field inti = `noSuratKontrol`
+ * (No. Referensi SPRI yang diterbitkan BPJS → disimpan ke `encounter.Spri.noReferensi`).
+ * Field lain variatif per versi V-Claim → opsional.
+ *
+ * Wire format: `{ "response": <this>, "metaData": { code, message } }`.
+ */
+export interface InsertSPRIResponse {
+  noSuratKontrol: string;
+  namaJnsKontrol?: string;
+  tglRencanaKontrol?: string;
+  namaDokter?: string;
+  noKartu?: string;
+  namaPeserta?: string;
+  kelamin?: string;
+  tglLahir?: string;
+  namaDiagnosa?: string;
+}
+
+/**
  * Update SPRI — spec endpoint 5.
  * Method: PUT. Wire format: `{ "request": <this> }`.
  */

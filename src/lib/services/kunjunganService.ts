@@ -429,7 +429,14 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
         // status MenungguRef (surat tetap terbit, ref diisi via revisi di worklist admisi).
         if (disp.jenis === "Rawat_Inap" && disp.spri) {
           const s = disp.spri;
-          const noReferensi = await issueSpriRef(s.noKartu);
+          const noReferensi = await issueSpriRef({
+            noKartu: s.noKartu,
+            poliKontrol: s.poliKode ?? undefined,
+            tglRencanaKontrol: s.tglRencanaRawat,
+            user: pemeriksa,
+            actor: actor.userId,
+            actorRole: actor.roles[0] ?? "registration",
+          });
           await spriDal.create({
             kunjunganId: id,
             noKartu: s.noKartu,
