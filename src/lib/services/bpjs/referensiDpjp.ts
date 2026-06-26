@@ -38,6 +38,7 @@ const MOCK_DPJP: dpjpDal.RefDpjpItem[] = [
   { kode: "31540", nama: "Hendra Wijaya, dr, Sp.PD", kodeSpesialis: "INT" },
   { kode: "31555", nama: "Maya Sari, dr, Sp.A", kodeSpesialis: "ANA" },
   { kode: "31561", nama: "Rina Hartati, dr, Sp.OG", kodeSpesialis: "OBG" },
+  { kode: "31692", nama: "dr. Dimas Arya Nugraha, Sp.B", kodeSpesialis: "BED" },
 ];
 
 function todayYmd(): string {
@@ -45,7 +46,13 @@ function todayYmd(): string {
 }
 
 function ctx(endpoint: string, who: BpjsAuditActor): AuditContext {
-  return { service: "vclaim", endpoint, method: "GET", actor: who.actor, actorRole: who.actorRole };
+  return {
+    service: "vclaim",
+    endpoint,
+    method: "GET",
+    actor: who.actor,
+    actorRole: who.actorRole,
+  };
 }
 
 /** Referensi pakai SEED mock? true bila mode mock DAN tanpa override BPJS_REFERENSI_LIVE. */
@@ -62,9 +69,12 @@ export async function syncRefSpesialis(who: BpjsAuditActor): Promise<number> {
   }
   const path = refSpesialistikPath();
   const res = await auditedCall<unknown>(ctx(path, who), () =>
-    callBpjs({ service: "vclaim", method: "GET", path, allowInMock: true }));
+    callBpjs({ service: "vclaim", method: "GET", path, allowInMock: true }),
+  );
   if (!res.ok) throw new Error(`Sync spesialis gagal: ${res.error.type}`);
-  const parsed = RefListResponseSchema.parse(res.value.response ?? { list: [] });
+  const parsed = RefListResponseSchema.parse(
+    res.value.response ?? { list: [] },
+  );
   await dpjpDal.upsertRefSpesialis(parsed.list);
   return parsed.list.length;
 }
@@ -90,11 +100,19 @@ export async function syncRefDpjp(
   for (const sp of spesialis) {
     const path = refDokterPelayananPath(jp, tgl, sp.kode);
     const res = await auditedCall<unknown>(ctx(path, who), () =>
-      callBpjs({ service: "vclaim", method: "GET", path, allowInMock: true }));
+      callBpjs({ service: "vclaim", method: "GET", path, allowInMock: true }),
+    );
     if (!res.ok) continue; // spesialis tanpa dokter / error transien → lanjut
-    const parsed = RefListResponseSchema.parse(res.value.response ?? { list: [] });
+    const parsed = RefListResponseSchema.parse(
+      res.value.response ?? { list: [] },
+    );
     for (const d of parsed.list) {
-      if (!seen.has(d.kode)) seen.set(d.kode, { kode: d.kode, nama: d.nama, kodeSpesialis: sp.kode });
+      if (!seen.has(d.kode))
+        seen.set(d.kode, {
+          kode: d.kode,
+          nama: d.nama,
+          kodeSpesialis: sp.kode,
+        });
     }
   }
   const items = [...seen.values()];
@@ -104,13 +122,17 @@ export async function syncRefDpjp(
 
 // ── Resolver build-payload ────────────────────────────────────────────────────
 /** Kode DPJP BPJS dari dokterId. "" bila belum ter-map. */
-export async function resolveKodeDpjpBpjs(dokterId: string | null | undefined): Promise<string> {
+export async function resolveKodeDpjpBpjs(
+  dokterId: string | null | undefined,
+): Promise<string> {
   if (!dokterId) return "";
   return (await dpjpDal.getKodeByDokterId(dokterId)) ?? "";
 }
 
 /** Kode DPJP BPJS dari pegawaiId (Pegawai→Dokter→mapping). "" bila belum ter-map. */
-export async function resolveKodeDpjpBpjsByPegawai(pegawaiId: string | null | undefined): Promise<string> {
+export async function resolveKodeDpjpBpjsByPegawai(
+  pegawaiId: string | null | undefined,
+): Promise<string> {
   if (!pegawaiId) return "";
   return (await dpjpDal.getKodeByPegawaiId(pegawaiId)) ?? "";
 }
