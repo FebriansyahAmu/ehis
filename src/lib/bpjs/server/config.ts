@@ -40,6 +40,9 @@ const EnvSchema = z.object({
   BPJS_ANTREAN_USER_KEY: blankToUndef(z.string().trim().optional()),
   BPJS_TIMESTAMP_TOLERANCE_SEC: blankToUndef(z.coerce.number().int().positive().default(300)),
   BPJS_REQUEST_TIMEOUT_MS: blankToUndef(z.coerce.number().int().positive().default(15_000)),
+  // Override khusus: paksa sync REFERENSI (read-only) ke BPJS nyata walau BPJS_MODE=mock.
+  // Untuk uji konektivitas referensi tanpa mengaktifkan write (InsertSPRI/SEP) ke nyata.
+  BPJS_REFERENSI_LIVE: blankToUndef(z.enum(["true", "false"]).default("false")),
 });
 
 export interface ServiceEndpoint {
@@ -54,6 +57,8 @@ export interface BpjsConfig {
   kodePpk: string;
   timestampToleranceSec: number;
   requestTimeoutMs: number;
+  /** Paksa sync referensi (read-only) ke BPJS nyata walau mode mock. */
+  referensiLive: boolean;
   /** Per-service base URL + user_key. baseUrl kosong = service belum dikonfigurasi. */
   services: Record<BpjsService, ServiceEndpoint>;
 }
@@ -84,6 +89,7 @@ export function getBpjsConfig(): BpjsConfig {
       kodePpk: e.BPJS_KODE_PPK ?? "00000000",
       timestampToleranceSec: e.BPJS_TIMESTAMP_TOLERANCE_SEC,
       requestTimeoutMs: e.BPJS_REQUEST_TIMEOUT_MS,
+      referensiLive: e.BPJS_REFERENSI_LIVE === "true",
       services: {
         vclaim: { baseUrl: e.BPJS_VCLAIM_BASE_URL ?? "", userKey: e.BPJS_USER_KEY ?? "mock-key" },
         aplicares: { baseUrl: e.BPJS_APLICARES_BASE_URL ?? "", userKey: e.BPJS_APLICARES_USER_KEY ?? e.BPJS_USER_KEY ?? "mock-key" },
@@ -110,6 +116,7 @@ export function getBpjsConfig(): BpjsConfig {
     kodePpk: e.BPJS_KODE_PPK ?? "",
     timestampToleranceSec: e.BPJS_TIMESTAMP_TOLERANCE_SEC,
     requestTimeoutMs: e.BPJS_REQUEST_TIMEOUT_MS,
+    referensiLive: e.BPJS_REFERENSI_LIVE === "true",
     services: {
       vclaim: { baseUrl: e.BPJS_VCLAIM_BASE_URL!, userKey: e.BPJS_USER_KEY! },
       // aplicares/antrean opsional — baseUrl kosong → ditolak saat dipanggil.

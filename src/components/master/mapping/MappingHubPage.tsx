@@ -31,6 +31,7 @@ import LayananUnitPane from "./layanan/LayananUnitPane";
 import TarifPane from "./tarif/TarifPane";
 import KetersediaanFarmasiPane from "./formularium/KetersediaanFarmasiPane";
 import PenjaminRuanganPane from "./penjamin-ruangan/PenjaminRuanganPane";
+import DpjpBpjsPane from "./dpjp/DpjpBpjsPane";
 import RBACPane from "./rbac/RBACPane";
 import ComingSoonPane from "./ComingSoonPane";
 import DensityToggle, { useDensity } from "./DensityToggle";
@@ -215,6 +216,7 @@ function renderPane(
   if (key === "tarif")       return <TarifPane tindakan={initialTindakan} lab={initialLab} rad={initialRad} tree={initialTree} tarif={initialTarif} tarifLab={initialTarifLab} tarifRad={initialTarifRad} />;
   if (key === "formularium") return <KetersediaanFarmasiPane obat={initialObat} formularium={initialFormularium} bmhp={initialBmhp} formulariumBmhp={initialFormulariumBmhp} tree={initialTree} />;
   if (key === "penjamin-ruangan") return <PenjaminRuanganPane />;
+  if (key === "dpjp-bpjs")   return <DpjpBpjsPane />;
   if (key === "rbac")        return <RBACPane />;
 
   // Fallback (semua sub-page sekarang sudah ready)

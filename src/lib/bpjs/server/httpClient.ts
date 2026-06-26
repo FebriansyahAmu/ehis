@@ -44,6 +44,8 @@ export interface BpjsCallOptions {
   timeoutMs?: number;
   /** Maksimum retry network (bukan business). Default 2. */
   retries?: number;
+  /** Izinkan panggilan nyata walau BPJS_MODE=mock (mis. uji referensi read-only). Default false. */
+  allowInMock?: boolean;
 }
 
 const isAbortError = (e: unknown): boolean =>
@@ -63,7 +65,7 @@ const backoff = (attempt: number): Promise<void> =>
  */
 export async function callBpjs<T = unknown>(opts: BpjsCallOptions): Promise<Result<BPJSEnvelope<T>, BPJSError>> {
   const cfg = getBpjsConfig();
-  if (cfg.mode === "mock") {
+  if (cfg.mode === "mock" && !opts.allowInMock) {
     throw new BpjsConfigError("callBpjs dipanggil saat BPJS_MODE=mock — gunakan adapter mock di layer service.");
   }
 

@@ -29,7 +29,7 @@
 
 > Fondasi. Tanpa ini tidak ada endpoint yang bisa real. Target uji = **sandbox** (read dulu).
 >
-> **✅ Status (2026-06-26):** BWS0.1–0.5 **SELESAI** (transport core + audit/rate-limit/idempotency) — tsc+eslint clean. Crypto **terverifikasi**: HMAC cocok vektor dok BPJS (`"aaa"/"bbb" → 20BKS3PW…`), AES-256-CBC+LZ-String round-trip identik. Tabel `bpjs.bpjs_audit_log` dibuat + migrasi ter-apply. **Sisa BWS0:** 0.6 smoke READ live ke sandbox — **DITUNDA** (belum ada cons-id/keys; akan diisi di `.env` saat kredensial sandbox tersedia).
+> **✅ Status (2026-06-26):** BWS0.1–0.6 **SELESAI** (transport core + audit/rate-limit/idempotency + smoke LIVE). Crypto terverifikasi (HMAC vektor + AES/LZ round-trip). **🎉 KONEKTIVITAS LIVE TERBUKTI ke PRODUKSI** (`apijkn.bpjs-kesehatan.go.id/vclaim-rest`, cons-id 26942): `referensi/spesialistik` → HTTP 200 + decode OK (**29 spesialis**), `referensi/dokter/pelayanan` → 16 dokter/spesialis. Seluruh pipeline (sign→GET→AES-256-CBC→LZ-String→envelope) **bekerja melawan BPJS asli**. Tabel `bpjs.bpjs_audit_log` ter-apply.
 
 ### BWS0.1 — Secrets & Config (server)
 - [x] **Env contract** ([config.ts](src/lib/bpjs/server/config.ts) `EnvSchema`): `BPJS_MODE`, `BPJS_CONS_ID/SECRET/USER_KEY`, `BPJS_KODE_PPK`, `BPJS_{VCLAIM,APLICARES,ANTREAN}_BASE_URL` (+ per-service `user_key`), `BPJS_TIMESTAMP_TOLERANCE_SEC`, `BPJS_REQUEST_TIMEOUT_MS`. Sandbox base: `https://apijkn-dev.bpjs-kesehatan.go.id/vclaim-rest-dev/` *(verifikasi di katalog layanan BPJS — versi/path berubah-ubah)*. **TODO ops:** isi `.env` sandbox nyata.
@@ -58,9 +58,9 @@
 - [x] **Rate-limit per cons-id** ([bpjs/server/rateLimit.ts](src/lib/bpjs/server/rateLimit.ts) `consumeRateLimit`/`checkRateLimit`, counter harian). ⚠️ **in-memory per-proses** — swap ke **Redis** untuk multi-instance (signature tetap).
 - [x] **Idempotency** ([services/bpjs/idempotency.ts](src/lib/services/bpjs/idempotency.ts)): `generateIdempotencyKey` (reuse bpjsShared) + `hasRecentSuccess` (cek audit sukses dlm window). Hard-stop durable = unique DB domain (bpjs.SEP). Simpan `noSep` = tx#2 issueSep (BWS4).
 
-### BWS0.6 — Verifikasi spine (sandbox)
-- [ ] Smoke 1 endpoint **read** (Kepesertaan / Referensi) live ke sandbox → decode sukses → audit row tertulis. Tanpa ini, BWS1+ tak boleh lanjut.
-- [ ] Test vektor signature & decrypt dari dok resmi BPJS cocok 1:1.
+### BWS0.6 — Verifikasi spine ✅ (LIVE PRODUKSI 2026-06-26)
+- [x] Smoke read **live** → `referensi/spesialistik` HTTP 200 + decode OK (29 spesialis), `referensi/dokter/pelayanan` 16 dokter. **Pipeline bekerja melawan BPJS produksi nyata** (cons-id 26942). *(Tervalidasi via skrip standalone replikasi connector; sync via tombol = lewat callBpjs server.)*
+- [x] Test vektor signature & decrypt 1:1 dok BPJS.
 
 **DoD BWS0:** satu panggilan read sandbox nyata berhasil decode + ter-audit di DB; secret tak pernah ke client (`grep` bundle bersih); `BPJS_MODE=mock` tetap jalan untuk CI.
 
@@ -76,9 +76,16 @@
 - [ ] Prefill verifikasi kepesertaan registrasi pakai data nyata (kini un-mask dari DB).
 
 ## BWS3 — Reference sync (cron/BullMQ) — **unblock kode DPJP/SEP**
-- [ ] Tabel referensi + sync: **dokter DPJP** · poli · diagnosa (ICD) · faskes · propinsi/kab/kec BPJS.
-- [ ] **Mapping internal↔BPJS**: `master.Dokter` ↔ kode DPJP BPJS (kolom/ tabel map) — **langsung membuka gap `skdp.kodeDPJP`** (lihat [TECH_DEBT.md](TECH_DEBT.md) §Step SEP). Ekspos `dpjpPegawaiId` di `SpriDTO`.
-- [ ] Job repeatable (default 24h) + `POST /api/v1/bpjs/admin/sync-references`.
+
+> **DPJP: Fase 1 (contracts) + Fase 2 (DAL+sync+resolver) + Fase 3 (endpoint + halaman Mapping Hub) ✅ (2026-06-26).** Desain: Referensi (sync BPJS) terpisah dari Mapping (keputusan kita); sumbu **Dokter↔kode DPJP BPJS** (bukan "× Penjamin").
+
+- [x] **DPJP contracts ✅**: `bpjs.RefSpesialis` + `bpjs.RefDpjp` + `bpjs.DpjpMapping` (migrasi `20260626130000`, FK RESTRICT diverifikasi, soft-ref `dokterId` lintas-schema) · Zod/path [schemas/bpjs/referensi.ts](src/lib/schemas/bpjs/referensi.ts).
+- [x] **DPJP sync + resolver ✅**: DAL [dal/bpjs/dpjpDal.ts](src/lib/dal/bpjs/dpjpDal.ts) · service [services/bpjs/referensiDpjp.ts](src/lib/services/bpjs/referensiDpjp.ts) (`syncRefSpesialis`/`syncRefDpjp` mock=seed demo / real=`callBpjs` iterasi spesialis, audited; `resolveKodeDpjpBpjs`/`ByPegawai`). **Resolver ter-wire ke `issueSpriRef`** → `kodeDokter` InsertSPRI auto-isi saat ter-map (kini "" — belum ada mapping).
+- [x] **DPJP Fase 3 ✅**: routes `/api/v1/bpjs/{dpjp-mapping,dpjp-mapping/:dokterId,ref-dpjp,admin/sync-references}` (gate `master.mapping`, service [dpjpMappingService.ts](src/lib/services/bpjs/dpjpMappingService.ts)) + **Mapping Hub sub-pane "DPJP BPJS"** ([DpjpBpjsPane.tsx](src/components/master/mapping/dpjp/DpjpBpjsPane.tsx) + [RefDpjpPickerModal.tsx](src/components/master/mapping/dpjp/RefDpjpPickerModal.tsx)): tombol Sinkronkan Referensi · stat ter-map/belum · list dokter × picker fuzzy nama · badge belum-dipetakan · Petakan/Ganti/Lepas. API client [dpjpMapping.ts](src/lib/api/bpjs/dpjpMapping.ts).
+- [x] **Override `BPJS_REFERENSI_LIVE` ✅**: flag env memaksa sync REFERENSI (read-only) ke BPJS nyata walau `BPJS_MODE=mock` (opsi `callBpjs.allowInMock`) — write (InsertSPRI/SEP) tetap mock. **Sudah dipakai → tombol "Sinkronkan Referensi" kini menarik 29 spesialis + dokter DPJP NYATA per faskes.** `syncRefDpjp` dedup by-kode lintas-spesialis (hitungan dokter distinct).
+- [ ] **DPJP Fase 4**: pasang resolver ke **SEP** (`skdp.kodeDPJP` + `dpjpLayan` RJ) saat SEP real; map enum `Dokter.spesialisKode`→kode spesialis BPJS (penggerak iterasi sync).
+- [ ] **Referensi lain** (poli · diagnosa ICD · faskes · propinsi/kab/kec BPJS) — pola sama, menyusul.
+- [ ] Job repeatable (default 24h) + jadwalkan `sync-references`.
 
 ## BWS4 — V-Claim SEP (write) — ganti mock SEP registrasi
 - [ ] `insertSEP`/`updateSEP`/`deleteSEP` live; **idempotency wajib** (jangan dobel terbit); simpan `noSep`.

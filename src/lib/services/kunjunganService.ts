@@ -431,6 +431,7 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
           const s = disp.spri;
           const noReferensi = await issueSpriRef({
             noKartu: s.noKartu,
+            dpjpPegawaiId: s.dpjpPegawaiId ?? null,
             poliKontrol: s.poliKode ?? undefined,
             tglRencanaKontrol: s.tglRencanaRawat,
             user: pemeriksa,

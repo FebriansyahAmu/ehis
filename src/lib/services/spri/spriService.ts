@@ -63,6 +63,7 @@ export function makeSpriService(deps: { dal?: Dal } = {}) {
     }
     const noReferensi = await issueSpriRef({
       noKartu: row.noKartu,
+      dpjpPegawaiId: row.dpjpPegawaiId ?? null,
       poliKontrol: row.poliKode ?? undefined,
       tglRencanaKontrol: fmtDate(row.tglRencanaRawat),
       user: row.user,

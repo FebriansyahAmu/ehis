@@ -225,3 +225,56 @@ model BpjsAuditLog {
   @@map("bpjs_audit_log")
   @@schema("bpjs")
 }
+
+// ── Referensi & Mapping DPJP BPJS (BWS3) ───────────────────────────────────────
+// REFERENSI (RefSpesialis/RefDpjp) = hasil sync dari BPJS (re-syncable, jangan diedit manual).
+// MAPPING (DpjpMapping) = KEPUTUSAN kita (Dokter↔kode), diedit di Mapping Hub. Resolver build-payload:
+// Pegawai→Dokter→DpjpMapping→RefDpjp.kode → isi kodeDokter (InsertSPRI) / skdp.kodeDPJP / dpjpLayan (SEP).
+
+/// Referensi spesialis BPJS (referensi/spesialistik) — penggerak iterasi sync DPJP + map enum spesialis kita.
+model RefSpesialis {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  kode         String   @unique // kode spesialis BPJS
+  nama         String
+  aktif        Boolean  @default(true)
+  lastSyncedAt DateTime @map("last_synced_at") @db.Timestamptz(3)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("ref_spesialis")
+  @@schema("bpjs")
+}
+
+/// Referensi dokter DPJP BPJS (referensi/dokter/pelayanan/.../Spesialis/...). `kode` unik per dokter di faskes.
+model RefDpjp {
+  id            String       @id @default(uuid(7)) @db.Uuid
+  kode          String       @unique // kode DPJP BPJS ("31486")
+  nama          String // nama dari BPJS ("Satro Jadhit, dr")
+  kodeSpesialis String?      @map("kode_spesialis") // konteks spesialis saat ditemukan
+  /// false bila hilang dari sync berikutnya — JANGAN hard-delete bila masih ter-map.
+  aktif         Boolean      @default(true)
+  lastSyncedAt  DateTime     @map("last_synced_at") @db.Timestamptz(3)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  mapping       DpjpMapping?
+
+  @@index([kodeSpesialis])
+  @@index([nama])
+  @@map("ref_dpjp")
+  @@schema("bpjs")
+}
+
+/// Keputusan mapping Dokter RS ↔ kode DPJP BPJS (1:1). `dokterId` = soft-ref master.Dokter
+/// (TANPA FK lintas-schema; validasi di Service — pola inventory).
+model DpjpMapping {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  dokterId       String   @unique @map("dokter_id") @db.Uuid
+  refDpjpKode    String   @unique @map("ref_dpjp_kode")
+  refDpjp        RefDpjp  @relation(fields: [refDpjpKode], references: [kode], onDelete: Restrict)
+  mappedByUserId String?  @map("mapped_by_user_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("dpjp_mapping")
+  @@schema("bpjs")
+}

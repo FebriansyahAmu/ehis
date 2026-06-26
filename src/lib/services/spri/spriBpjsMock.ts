@@ -9,12 +9,15 @@
 // Lihat TECH_DEBT.
 
 import { insertSPRI } from "@/lib/services/bpjs/rencanaKontrol";
+import { resolveKodeDpjpBpjsByPegawai } from "@/lib/services/bpjs/referensiDpjp";
 import type { InsertSPRIPayload } from "@/lib/bpjs/bpjsContracts";
 
 export interface IssueSpriInput {
   noKartu: string;
-  /** Kode dokter DPJP BPJS — kosong bila mapping internal→BPJS belum ada (TECH_DEBT). */
+  /** Kode dokter DPJP BPJS (eksplisit). Bila kosong → di-resolve dari `dpjpPegawaiId` via mapping. */
   kodeDokter?: string;
+  /** PegawaiId DPJP — dipakai resolve kode DPJP BPJS (Pegawai→Dokter→DpjpMapping). */
+  dpjpPegawaiId?: string | null;
   /** Kode poli kontrol BPJS. */
   poliKontrol?: string;
   /** yyyy-MM-dd. */
@@ -31,9 +34,11 @@ export interface IssueSpriInput {
  * @returns noSuratKontrol bila sukses; `null` bila BPJS gagal (mock SELALU sukses → tak null).
  */
 export async function issueSpriRef(input: IssueSpriInput): Promise<string | null> {
+  // Kode DPJP BPJS: eksplisit > resolve dari mapping (Pegawai→Dokter→DpjpMapping). "" bila belum ter-map.
+  const kodeDokter = input.kodeDokter?.trim() || (await resolveKodeDpjpBpjsByPegawai(input.dpjpPegawaiId));
   const payload: InsertSPRIPayload = {
     noKartu: input.noKartu.trim(),
-    kodeDokter: input.kodeDokter?.trim() || "",
+    kodeDokter,
     poliKontrol: input.poliKontrol?.trim() || "",
     tglRencanaKontrol: input.tglRencanaKontrol,
     user: input.user,

@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Users, ShieldCheck, Activity, BadgePercent, Pill, Lock, Building,
+  Users, ShieldCheck, Activity, BadgePercent, Pill, Lock, Building, Stethoscope,
 } from "lucide-react";
 
 // ── Sub-page Registry ─────────────────────────────────────
@@ -12,6 +12,7 @@ export type SubpageKey =
   | "tarif"
   | "formularium"
   | "penjamin-ruangan"
+  | "dpjp-bpjs"
   | "rbac";
 
 export type SubpageStatus = "ready" | "soon";
@@ -76,6 +77,14 @@ export const SUBPAGE_REGISTRY: SubpageConfig[] = [
     icon: Building,
     status: "ready",
     accent: { bg: "bg-emerald-50", text: "text-emerald-700", ring: "ring-emerald-200" },
+  },
+  {
+    key: "dpjp-bpjs",
+    label: "DPJP BPJS",
+    desc: "Dokter RS ↔ kode DPJP BPJS (V-Claim referensi dokter)",
+    icon: Stethoscope,
+    status: "ready",
+    accent: { bg: "bg-cyan-50", text: "text-cyan-700", ring: "ring-cyan-200" },
   },
   {
     key: "rbac",

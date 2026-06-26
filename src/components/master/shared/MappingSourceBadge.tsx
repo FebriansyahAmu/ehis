@@ -77,6 +77,12 @@ const PALETTE: Record<SubpageKey, Palette> = {
     titleText: "text-emerald-800",
     ctaBg: "bg-emerald-600", ctaHover: "hover:bg-emerald-700", ctaRing: "focus-visible:ring-emerald-300",
   },
+  "dpjp-bpjs": {
+    stripe: "bg-cyan-500", iconBg: "bg-cyan-50", iconText: "text-cyan-600",
+    bannerBg: "bg-cyan-50/70", bannerBorder: "border-cyan-200",
+    titleText: "text-cyan-800",
+    ctaBg: "bg-cyan-600", ctaHover: "hover:bg-cyan-700", ctaRing: "focus-visible:ring-cyan-300",
+  },
   rbac: {
     stripe: "bg-slate-500", iconBg: "bg-slate-100", iconText: "text-slate-600",
     bannerBg: "bg-slate-50/80", bannerBorder: "border-slate-200",
