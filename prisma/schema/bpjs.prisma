@@ -184,3 +184,44 @@ model SEP {
   @@map("sep")
   @@schema("bpjs")
 }
+
+// ── BpjsAuditLog (BWS0.5) ──────────────────────────────────────────────────────
+// 1 baris per panggilan connector BPJS (R9). PII di-HASH (noKartu/NIK), bukan plaintext
+// (R14 · UU PDP 27/2022, retensi 5 thn = purge cron). Ditulis di rung Service (auditedCall),
+// connector tetap murni. `idempotencyKey` dipakai dedupe write (R8).
+model BpjsAuditLog {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  startedAt DateTime @map("started_at") @db.Timestamptz(3)
+  mode      String // mock | sandbox | prod
+  service   String // vclaim | aplicares | antrean
+  /// Path relatif dengan placeholder (TANPA PII), mis. "Peserta/nokartu/{kartu}/tglSEP/{tgl}".
+  endpoint  String
+  method    String // GET | POST | PUT | DELETE
+
+  requestHash  String? @map("request_hash")
+  responseHash String? @map("response_hash")
+  /// PII di-hash (sha256) — bukan plaintext.
+  noKartuHash  String? @map("no_kartu_hash")
+  nikHash      String? @map("nik_hash")
+
+  responseCode String  @map("response_code") // metaData.code / "ERR"
+  success      Boolean
+  durationMs   Int     @map("duration_ms")
+  errorType    String? @map("error_type")
+  retryCount   Int     @default(0) @map("retry_count")
+
+  actor          String
+  actorRole      String  @map("actor_role")
+  consId         String  @map("cons_id")
+  idempotencyKey String? @map("idempotency_key")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([startedAt])
+  @@index([service, endpoint])
+  @@index([idempotencyKey])
+  @@index([consId])
+  @@map("bpjs_audit_log")
+  @@schema("bpjs")
+}
