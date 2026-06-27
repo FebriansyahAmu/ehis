@@ -29,10 +29,12 @@ export interface BuildRegisterArgs {
   needsRujukan: boolean;
   /** No. Kartu hasil verifikasi kepesertaan BPJS di step Penjamin. */
   noKartu?: string;
+  /** Tetap daftarkan walau SEP DITOLAK BPJS → kunjungan dibuat, SEP ditangguhkan. */
+  forceSep?: boolean;
 }
 
 export function buildRegisterInput(args: BuildRegisterArgs): RegisterKunjunganInput {
-  const { patientId, form, penjamin, rujukan, sepDraft, issueSep, needsRujukan, noKartu } = args;
+  const { patientId, form, penjamin, rujukan, sepDraft, issueSep, needsRujukan, noKartu, forceSep } = args;
 
   const isIgd = form.unit === "IGD";
   const isRi = form.unit === "Rawat Inap";
@@ -109,5 +111,6 @@ export function buildRegisterInput(args: BuildRegisterArgs): RegisterKunjunganIn
     noKartu: orUndef(noKartu),
     rujukan: rujukanInput,
     sep: sepInput,
+    forceSep: forceSep || undefined,
   };
 }

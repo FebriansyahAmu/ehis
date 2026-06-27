@@ -1,17 +1,26 @@
 // bpjsService — domain artefak BPJS (Rujukan + SEP). Tak import prisma langsung (pakai
 // DAL + `tx` dari use-case). Non-determinisme via `clock` inject (FLOWS §14).
 //
-// ⚠️ MOCK ISSUANCE: BPJS V-Claim belum bisa di-hit. `issueSep` mensimulasikan skenario
-// BERHASIL — status `Terbit` + no. SEP digenerate lokal (atomik via sequence). Saat
-// V-Claim siap: ganti isi `issueSep` (POST t_sep → terima noSep). SIGNATURE TETAP.
+// ⚠️ MOCK ISSUANCE: BPJS V-Claim belum bisa di-hit. `issueSep` membangun payload t_sep
+// (buildInsertSepPayload) lalu memanggil konektor MOCK (insertSepMock) yang mensimulasikan
+// respons BPJS — SUKSES (status `Terbit` + no. SEP digenerate lokal via sequence) ATAU
+// ERROR metaData ala asli (data tak sesuai). Saat V-Claim siap: ganti isi `insertSepMock`
+// dengan `callBpjs(... toSepWire(payload))`. SIGNATURE issueSep TETAP (Result).
 
 import { systemClock, type Clock } from "@/lib/core/clock";
 import * as defaultBpjsDal from "@/lib/dal/bpjsDal";
 import type { Tx } from "@/lib/db/prisma";
 import type { RujukanInput, SepInput, RujukanDTO, SepDTO } from "@/lib/schemas/kunjungan";
 import type { RujukanEntity, SepEntity } from "@/lib/dal/bpjsDal";
+import { buildInsertSepPayload, type BpjsMetaError, type SepWireRujukan } from "@/lib/schemas/bpjs/sepInsert";
+import { insertSepMock } from "@/lib/services/bpjs/sepInsertMock";
 
 type BpjsDal = typeof defaultBpjsDal;
+
+/** Hasil penerbitan SEP — sukses (persisted) atau ditolak BPJS (metaData error, tak persist). */
+export type IssueSepResult =
+  | { ok: true; sep: SepEntity }
+  | { ok: false; error: BpjsMetaError };
 
 const pad = (n: number, len: number) => String(n).padStart(len, "0");
 function dateOnly(iso?: string): Date | undefined {
@@ -97,16 +106,40 @@ export function makeBpjsService(deps: { clock?: Clock; dal?: BpjsDal } = {}) {
   }
 
   /**
-   * Terbitkan SEP (MOCK — selalu BERHASIL). Persist status `Terbit` + noSep generated.
-   * `noKartu`/`klsRawatHak`/`tglSep` di-resolve use-case dari penjamin+kunjungan.
+   * Terbitkan SEP via konektor V-Claim (MOCK). Build payload t_sep → `insertSepMock`:
+   *  • ok → persist status `Terbit` + No. SEP (sequence DB) → { ok:true, sep }.
+   *  • error → { ok:false, error } (TIDAK persist — use-case putuskan tangguh/rollback).
+   * `noKartu`/`klsRawatHak`/`diagAwal`/`noTelp`/`tglSep` di-resolve use-case (PII + turunan).
    */
   async function issueSep(
-    args: { kunjunganId: string; rujukanId?: string; noKartu: string; klsRawatHak?: string; tglSep: Date; input: SepInput },
+    args: {
+      kunjunganId: string;
+      rujukanId?: string;
+      noKartu: string;
+      klsRawatHak?: string;
+      tglSep: Date;
+      /** Diagnosa awal efektif (ICD-10) — RI = diagnosa utama IGD. */
+      diagAwal: string;
+      /** No. telepon efektif (data pasien). */
+      noTelp: string;
+      /** Kode DPJP BPJS efektif (skdp.kodeDPJP) — di-resolve use-case dari SPRI/Dokter. */
+      skdpKodeDpjp?: string;
+      /** Blok rujukan t_sep (RJ = faskes; RI = internal RS). */
+      rujukan: SepWireRujukan;
+      input: SepInput;
+    },
     tx?: Tx,
-  ): Promise<SepEntity> {
-    const { kunjunganId, rujukanId, noKartu, klsRawatHak, tglSep, input } = args;
-    const noSep = await genNoSep(input.ppkPelayanan, tx);
-    return dal.createSep(
+  ): Promise<IssueSepResult> {
+    const { kunjunganId, rujukanId, noKartu, klsRawatHak, tglSep, diagAwal, noTelp, skdpKodeDpjp, rujukan, input } = args;
+    const tglSepYmd = tglSep.toISOString().slice(0, 10);
+
+    // Build t_sep + panggil konektor BPJS (mock). Konektor nyata kelak return noSep BPJS.
+    const payload = buildInsertSepPayload({ sep: input, noKartu, tglSep: tglSepYmd, klsRawatHak, diagAwal, noTelp, skdpKodeDpjp, rujukan });
+    const res = insertSepMock(payload);
+    if (!res.ok) return { ok: false, error: res.error };
+
+    const noSep = res.noSep ?? (await genNoSep(input.ppkPelayanan, tx));
+    const sep = await dal.createSep(
       {
         kunjunganId,
         rujukanId,
@@ -129,7 +162,7 @@ export function makeBpjsService(deps: { clock?: Clock; dal?: BpjsDal } = {}) {
         poliEksekutif: input.poliEksekutif,
         dpjpLayan: input.dpjpLayan,
         poliTujuan: input.poliTujuan,
-        diagAwal: input.diagAwal,
+        diagAwal, // diagnosa efektif (RI = utama IGD)
         lakaLantas: input.lakaLantas,
         noLp: input.noLp,
         tglKejadian: dateOnly(input.tglKejadian),
@@ -139,13 +172,14 @@ export function makeBpjsService(deps: { clock?: Clock; dal?: BpjsDal } = {}) {
         cob: input.cob,
         katarak: input.katarak,
         skdpNoSurat: input.skdpNoSurat,
-        skdpKodeDpjp: input.skdpKodeDpjp,
-        noTelp: input.noTelp,
+        skdpKodeDpjp: skdpKodeDpjp || input.skdpKodeDpjp, // kode DPJP BPJS ter-resolve
+        noTelp, // telepon efektif (data pasien)
         catatan: input.catatan,
         userPembuat: input.user,
       },
       tx,
     );
+    return { ok: true, sep };
   }
 
   return { createRujukan, issueSep };

@@ -33,6 +33,15 @@ import {
 // id pasien DB = UUID v7; pasien demo/seed = "RM-2025-..." → hanya UUID yang bisa ke API.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Label field penyebab penolakan SEP (BpjsMetaError.field) → teks yang dikenali operator.
+const SEP_FIELD_LABEL: Record<string, string> = {
+  noTelp: "No. Telepon",
+  diagAwal: "Diagnosa Awal (ICD-10)",
+  skdpNoSurat: "No. Referensi SPRI",
+  noKartu: "No. Kartu BPJS",
+  ppkPelayanan: "Kode PPK Pelayanan",
+};
+
 export function DaftarKunjunganModal({
   patient,
   onClose,
@@ -82,6 +91,8 @@ export function DaftarKunjunganModal({
     tglSep: today,
     jnsPelayanan: "2",
     ppkPelayanan: "0107R001",
+    // No. telepon dari data pasien (wajib utk SEP). Operator boleh ubah di form.
+    noTelp: patient.noHp ?? "",
     user: "Operator Loket",
   }));
 
@@ -91,6 +102,8 @@ export function DaftarKunjunganModal({
   const [created, setCreated] = useState<KunjunganDTO | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // SEP DITOLAK BPJS (data tak lengkap / peserta non-aktif) → tawarkan "Tetap daftarkan" / "Revisi".
+  const [sepReject, setSepReject] = useState<{ code: string; message: string; field?: string } | null>(null);
   const [showPrint, setShowPrint] = useState(false);
   // No. Kartu BPJS PENUH dari DB (un-mask) → prefill Verifikasi Kepesertaan (Step Penjamin).
   // Ditarik saat modal buka (pasien DB) supaya operator tinggal "Cari Kepesertaan".
@@ -153,6 +166,7 @@ export function DaftarKunjunganModal({
   const goNext = () => {
     if (!canNext) return;
     setSubmitError(null);
+    setSepReject(null);
     const target = Math.min(safeIdx + 1, steps.length - 1);
     // Seed field SEP turunan-kunjungan saat masuk step SEP (lalu bebas diedit operator).
     if (steps[target].id === "sep") {
@@ -188,9 +202,12 @@ export function DaftarKunjunganModal({
     setDir(1);
     setStepIdx(target);
   };
-  const goBack = () => { setSubmitError(null); setDir(-1); setStepIdx(Math.max(safeIdx - 1, 0)); };
+  const goBack = () => { setSubmitError(null); setSepReject(null); setDir(-1); setStepIdx(Math.max(safeIdx - 1, 0)); };
 
-  async function handleDaftar() {
+  const sepStepIdx = steps.findIndex((s) => s.id === "sep");
+
+  /** `force` true = "Tetap daftarkan walau SEP error" (kunjungan dibuat, SEP ditangguhkan). */
+  async function handleDaftar(force = false) {
     // Guard pre-submit dengan pesan jelas (hindari error server membingungkan).
     if (!isDbPatient) {
       setSubmitError("Pasien demo tidak dapat didaftarkan ke server. Gunakan pasien hasil pendaftaran.");
@@ -198,16 +215,21 @@ export function DaftarKunjunganModal({
     }
 
     setSubmitError(null);
+    setSepReject(null);
     setSubmitting(true);
     const controller = new AbortController();
     submitAbort.current = controller;
     try {
-      const input = buildRegisterInput({ patientId: patient.id, form, penjamin, rujukan, sepDraft, issueSep: bpjsFlow && terbitSep, needsRujukan, noKartu: bpjsData?.noKartu });
+      const input = buildRegisterInput({ patientId: patient.id, form, penjamin, rujukan, sepDraft, issueSep: bpjsFlow && terbitSep, needsRujukan, noKartu: bpjsData?.noKartu, forceSep: force });
       const { kunjungan, message } = await registerKunjungan(input, controller.signal);
-      toast.success(
-        message ?? "Kunjungan terdaftar",
-        kunjungan.sep?.noSep ? `SEP ${kunjungan.sep.noSep} terbit` : `No. ${kunjungan.noKunjungan}`,
-      );
+      if (kunjungan.sepError) {
+        toast.error("SEP belum terbit", `${kunjungan.sepError.message} — kunjungan tetap terdaftar`);
+      } else {
+        toast.success(
+          message ?? "Kunjungan terdaftar",
+          kunjungan.sep?.noSep ? `SEP ${kunjungan.sep.noSep} terbit` : `No. ${kunjungan.noKunjungan}`,
+        );
+      }
       // ANT4 (mock antrean — backend antrean belum ada): teruskan status booking.
       if (kodebooking) { emitTask(kodebooking, 3); setStatus(kodebooking, "MenungguPoli"); }
       setCreated(kunjungan);
@@ -216,6 +238,14 @@ export function DaftarKunjunganModal({
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return; // dibatalkan
       if (err instanceof ApiError) {
+        // SEP DITOLAK BPJS → JANGAN tutup modal; arahkan ke step SEP + tawarkan pilihan.
+        const sr = (err.details as { sepReject?: { code: string; message: string; field?: string } } | undefined)?.sepReject;
+        if (sr) {
+          setSepReject(sr);
+          if (sepStepIdx >= 0 && safeIdx !== sepStepIdx) { setDir(-1); setStepIdx(sepStepIdx); }
+          toast.error("SEP ditolak BPJS", sr.message);
+          return;
+        }
         const fe = err.fieldErrors();
         setSubmitError(fe.length ? `${err.message}: ${fe.map((f) => f.message).join(", ")}` : err.message);
         toast.error("Gagal mendaftarkan kunjungan", err.message);
@@ -293,6 +323,47 @@ export function DaftarKunjunganModal({
               </AnimatePresence>
             </div>
 
+            {/* SEP ditolak BPJS → tetap daftarkan (tangguhkan SEP) ATAU revisi dulu */}
+            {sepReject && (
+              <div className="shrink-0 px-6 pt-1">
+                <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3">
+                  <div className="flex items-start gap-2.5">
+                    <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+                      <AlertTriangle size={15} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12px] font-bold text-amber-800">SEP ditolak BPJS · kode {sepReject.code}</p>
+                      <p className="mt-0.5 text-[11px] leading-relaxed text-amber-700">
+                        {sepReject.message}
+                        {sepReject.field && SEP_FIELD_LABEL[sepReject.field] && (
+                          <> — periksa <span className="font-semibold">{SEP_FIELD_LABEL[sepReject.field]}</span> di langkah SEP.</>
+                        )}
+                      </p>
+                      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleDaftar(true)}
+                          disabled={submitting}
+                          className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-emerald-700 active:scale-95 disabled:opacity-60"
+                        >
+                          {submitting ? <Loader2 size={12} className="animate-spin" /> : <CalendarPlus size={12} />}
+                          Tetap Daftarkan (SEP ditangguhkan)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setSepReject(null); if (sepStepIdx >= 0) { setDir(-1); setStepIdx(sepStepIdx); } }}
+                          disabled={submitting}
+                          className="cursor-pointer rounded-lg border border-amber-300 bg-white px-3.5 py-1.5 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-50 active:scale-95 disabled:opacity-60"
+                        >
+                          Revisi Dulu
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Error & validation banners */}
             {(submitError || (isLast && !isDbPatient)) && (
               <div className="shrink-0 px-6">
@@ -322,7 +393,7 @@ export function DaftarKunjunganModal({
               {isLast ? (
                 <button
                   type="button"
-                  onClick={handleDaftar}
+                  onClick={() => handleDaftar()}
                   disabled={submitting}
                   className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-70 active:scale-[0.98]"
                 >

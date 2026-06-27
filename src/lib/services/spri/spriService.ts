@@ -7,6 +7,7 @@
 
 import * as defaultDal from "@/lib/dal/spri/spriDal";
 import * as kunjunganDal from "@/lib/dal/kunjunganDal";
+import * as diagnosaDal from "@/lib/dal/diagnosa/diagnosaDal";
 import { issueSpriRef } from "@/lib/services/spri/spriBpjsMock";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
@@ -15,11 +16,14 @@ import type { SpriDTO, SpriQuery, SpriStatus, ConsumeSpriInput } from "@/lib/sch
 
 type Dal = typeof defaultDal;
 
+/** Diagnosa utama IGD asal (sumber diagAwal SEP RI). */
+interface DiagAwal { kode: string; nama: string }
+
 function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function toDTO(e: SpriEntity): SpriDTO {
+function toDTO(e: SpriEntity, diag?: DiagAwal): SpriDTO {
   return {
     id: e.id,
     kunjunganId: e.kunjunganId,
@@ -35,6 +39,8 @@ function toDTO(e: SpriEntity): SpriDTO {
     jenisPerawatan: e.jenisPerawatan,
     indikasi: e.indikasi,
     keterangan: e.keterangan ?? null,
+    diagAwalKode: diag?.kode ?? null,
+    diagAwalNama: diag?.nama ?? null,
     noReferensi: e.noReferensi ?? null,
     status: e.status as SpriStatus,
     riKunjunganId: e.riKunjunganId ?? null,
@@ -44,13 +50,24 @@ function toDTO(e: SpriEntity): SpriDTO {
   };
 }
 
+/** Map kunjungan IGD → diagnosa utama (batched, first-per-kunjungan = terbaru). */
+async function resolveDiagAwal(kunjunganIds: string[]): Promise<Map<string, DiagAwal>> {
+  const rows = await diagnosaDal.listUtamaByKunjunganIds([...new Set(kunjunganIds)]);
+  const map = new Map<string, DiagAwal>();
+  for (const d of rows) {
+    if (!map.has(d.kunjunganId)) map.set(d.kunjunganId, { kode: d.kodeIcd10, nama: d.namaDiagnosis });
+  }
+  return map;
+}
+
 export function makeSpriService(deps: { dal?: Dal } = {}) {
   const dal = deps.dal ?? defaultDal;
 
   /** Worklist admisi. Default = belum dikonsumsi (MenungguRef + Terbit). */
   async function listWorklist(query: SpriQuery, _actor: Actor): Promise<SpriDTO[]> {
     const rows = await dal.listWorklist({ status: query.status });
-    return rows.map(toDTO);
+    const diagMap = await resolveDiagAwal(rows.map((r) => r.kunjunganId));
+    return rows.map((r) => toDTO(r, diagMap.get(r.kunjunganId)));
   }
 
   /** Revisi & kirim ulang → retry penerbitan No. Referensi ke BPJS. Hanya saat MenungguRef.

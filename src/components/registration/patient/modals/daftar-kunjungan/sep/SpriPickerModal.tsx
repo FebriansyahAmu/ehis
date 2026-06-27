@@ -34,17 +34,20 @@ const STATUS_CFG: Record<string, { label: string; cls: string }> = {
 };
 
 export function SpriPickerModal({
-  noKartu, selectedRef, onSelect, onClose,
+  noKartu, noRM, selectedRef, onSelect, onClose,
 }: {
   noKartu: string;
+  /** No. RM pasien — kunci filter ANDAL (No. Kartu SPRI bisa tersimpan ter-mask). */
+  noRM?: string;
   selectedRef?: string;
   onSelect: (spri: SpriDTO) => void;
   onClose: () => void;
 }) {
   const kartuDigits = onlyDigits(noKartu);
+  const rmKey = (noRM ?? "").trim();
+  const hasKey = rmKey.length > 0 || kartuDigits.length > 0;
   const [rows, setRows] = useState<SpriDTO[]>([]);
-  // Loading awal hanya bila ada No. Kartu untuk dicari (hindari setState sinkron di effect).
-  const [loading, setLoading] = useState(kartuDigits.length > 0);
+  const [loading, setLoading] = useState(hasKey);
   const [error, setError] = useState(false);
   const [tgl, setTgl] = useState(""); // filter tanggal (tglRencanaRawat), kosong = semua
 
@@ -55,20 +58,24 @@ export function SpriPickerModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // Auto-search: tarik SPRI lalu filter by No. Kartu peserta (client-side).
+  // Auto-search: tarik SPRI lalu filter by pasien. Cocokkan No. RM (primer, andal) ATAU
+  // No. Kartu (fallback) — No. Kartu yang tersimpan di SPRI bisa ter-mask (mis. "0001•••••7890").
   useEffect(() => {
-    if (!kartuDigits) return; // tak ada kartu → loading awal sudah false (render guard menangani)
+    if (!hasKey) return; // tak ada kunci → render guard menangani
     const ac = new AbortController();
     let cancelled = false;
     listSpri({}, ac.signal)
       .then((items) => {
         if (cancelled) return;
-        setRows(items.filter((s) => onlyDigits(s.noKartu) === kartuDigits));
+        setRows(items.filter((s) =>
+          (rmKey && s.noRM === rmKey) ||
+          (kartuDigits.length > 0 && onlyDigits(s.noKartu) === kartuDigits),
+        ));
       })
       .catch((e) => { if (!cancelled && !isAbort(e)) setError(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; ac.abort(); };
-  }, [kartuDigits]);
+  }, [rmKey, kartuDigits, hasKey]);
 
   const filtered = useMemo(
     () => (tgl ? rows.filter((s) => s.tglRencanaRawat === tgl) : rows),
@@ -118,8 +125,13 @@ export function SpriPickerModal({
             <CreditCard size={13} className="text-sky-500" />
             Kartu: <span className="font-mono text-slate-800">{noKartu || "—"}</span>
           </span>
+          {noRM && (
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200">
+              RM: <span className="font-mono text-slate-800">{noRM}</span>
+            </span>
+          )}
           <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-600">
-            <Search size={11} /> Auto-cari berdasarkan No. Kartu
+            <Search size={11} /> Auto-cari berdasarkan pasien
           </span>
           <div className="ml-auto flex items-center gap-2">
             <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Tgl SPRI</span>
@@ -139,9 +151,9 @@ export function SpriPickerModal({
 
         {/* Body */}
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-          {!kartuDigits ? (
-            <Empty icon={CreditCard} title="No. Kartu BPJS belum ada"
-              desc="Verifikasi kepesertaan dulu di langkah Penjamin." />
+          {!hasKey ? (
+            <Empty icon={CreditCard} title="Data pasien belum ada"
+              desc="Verifikasi kepesertaan / pastikan No. RM pasien tersedia." />
           ) : loading ? (
             <div className="flex items-center justify-center gap-2 py-16 text-slate-400">
               <Loader2 size={16} className="animate-spin text-emerald-500" />
@@ -151,7 +163,7 @@ export function SpriPickerModal({
             <Empty icon={Inbox} title="Gagal memuat SPRI" desc="Periksa koneksi lalu coba lagi." tone="rose" />
           ) : filtered.length === 0 ? (
             <Empty icon={Inbox} title="Tidak ada SPRI"
-              desc={tgl ? "Tidak ada SPRI pada tanggal ini. Reset filter tanggal." : "Belum ada SPRI untuk kartu peserta ini."} />
+              desc={tgl ? "Tidak ada SPRI pada tanggal ini. Reset filter tanggal." : "Belum ada SPRI untuk pasien ini."} />
           ) : (
             <div className="space-y-2">
               {filtered.map((s) => {

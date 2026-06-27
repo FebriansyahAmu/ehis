@@ -18,6 +18,7 @@ import * as diagnosaDal from "@/lib/dal/diagnosa/diagnosaDal";
 import * as disposisiDal from "@/lib/dal/disposisi/disposisiDal";
 import * as spriDal from "@/lib/dal/spri/spriDal";
 import { issueSpriRef } from "@/lib/services/spri/spriBpjsMock";
+import { resolveKodeDpjpBpjs, resolveKodeDpjpBpjsByPegawai } from "@/lib/services/bpjs/referensiDpjp";
 import { makeBpjsService, toSepDTO, toRujukanDTO } from "@/lib/services/bpjsService";
 import { makeBedAllocationService } from "@/lib/services/bedAllocationService";
 import { resolveActorNama } from "@/lib/services/actorName";
@@ -140,6 +141,7 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
       pasien: { id: k.pasien.id, noRm: k.pasien.noRm, nama: k.pasien.nama },
       rujukan: k.rujukan ? toRujukanDTO(k.rujukan) : null,
       sep: k.sep ? toSepDTO(k.sep) : null,
+      sepError: null, // di-set use-case bila SEP ditolak BPJS tapi kunjungan tetap didaftarkan
       lockedAt: k.lockedAt ? k.lockedAt.toISOString() : null,
       selesaiAt: k.selesaiAt ? k.selesaiAt.toISOString() : null,
       selesaiPertamaAt: k.selesaiPertamaAt ? k.selesaiPertamaAt.toISOString() : null,
@@ -219,6 +221,41 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
 
     const waktu = combineDateTime(input.tanggal, input.jam);
 
+    // SEP turunan: No. Telepon dari data pasien (input override) — BPJS menolak SEP tanpa kontak.
+    // Diagnosa awal efektif = yang dikirim form (RI = diagnosa utama IGD, ter-prefill dari SPRI).
+    const noTelpEff = (input.sep?.noTelp?.trim() || patient.noHp?.trim() || "");
+    const diagAwalEff = (input.sep?.diagAwal?.trim() || "");
+
+    // skdp.kodeDPJP SEP = kode DPJP BPJS (referensi dokter, bukan id internal). Rantai authoritative:
+    // No. Referensi SPRI → SPRI.dpjpPegawaiId → mapping Dokter↔kodeDpjpBpjs (Mapping Hub DPJP BPJS).
+    // Fallback: DPJP kunjungan (input.dpjpId via Dokter) → kode dari form (legacy). "" bila belum di-map.
+    let skdpKodeDpjpEff = "";
+    if (bpjsFlow && input.sep) {
+      if (input.sep.skdpNoSurat?.trim()) {
+        const spri = await spriDal.findByNoReferensi(input.sep.skdpNoSurat.trim());
+        if (spri?.dpjpPegawaiId) skdpKodeDpjpEff = await resolveKodeDpjpBpjsByPegawai(spri.dpjpPegawaiId);
+      }
+      if (!skdpKodeDpjpEff && input.dpjpId) skdpKodeDpjpEff = await resolveKodeDpjpBpjs(input.dpjpId);
+      if (!skdpKodeDpjpEff) skdpKodeDpjpEff = input.sep.skdpKodeDpjp?.trim() ?? "";
+    }
+    // Blok rujukan t_sep: RJ pakai RujukanInput; RI = rujukan INTERNAL RS (asal Faskes 2, tgl =
+    // tgl SEP, PPK = faskes RS sendiri; No. rujukan internal belum di-generate → kosong).
+    const sepRujukan = input.rujukan
+      ? {
+          asalRujukan: (input.rujukan.asalRujukan === "Faskes2" ? "2" : "1") as "1" | "2",
+          tglRujukan: input.rujukan.tglRujukan,
+          noRujukan: input.rujukan.noRujukan,
+          ppkRujukan: input.rujukan.ppkRujukan,
+        }
+      : {
+          asalRujukan: "2" as const,
+          tglRujukan: input.tanggal,
+          ppkRujukan: input.sep?.ppkPelayanan,
+        };
+
+    // SEP ditolak BPJS tapi forceSep → kunjungan tetap dibuat, SEP ditangguhkan (transient → DTO).
+    let sepError: { code: string; message: string; field?: string } | null = null;
+
     const created = await transaction(async (tx) => {
       // Guard kunjungan ganda: pasien tak boleh punya >1 kunjungan berjalan. Kunjungan
       // aktif (Registered/Queued/InService) harus Diselesaikan/Dibatalkan dulu sebelum
@@ -281,17 +318,30 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
         rujukanId = r.id;
       }
       if (bpjsFlow && input.sep) {
-        await bpjs.issueSep(
+        const res = await bpjs.issueSep(
           {
             kunjunganId: k.id,
             rujukanId,
             noKartu: noKartu!,
             klsRawatHak: penjamin?.kelas ?? undefined,
             tglSep: waktu,
+            diagAwal: diagAwalEff,
+            noTelp: noTelpEff,
+            skdpKodeDpjp: skdpKodeDpjpEff,
+            rujukan: sepRujukan,
             input: input.sep,
           },
           tx,
         );
+        if (!res.ok) {
+          // SEP DITOLAK BPJS. Default → batalkan pendaftaran (rollback tx) + lempar error
+          // terstruktur (FE arahkan operator ke field & tawarkan "Tetap daftarkan" / "Revisi").
+          if (!input.forceSep) {
+            throw Errors.validation(res.error.message, { sepReject: res.error });
+          }
+          // forceSep → kunjungan TETAP dibuat, SEP DITANGGUHKAN (tak persist; terbitkan ulang nanti).
+          sepError = res.error;
+        }
       }
       // RI: reserve bed terpilih saat daftar (Reserved). Bed sudah dipakai → P2002 → CONFLICT.
       if (input.unit === "RawatInap" && input.bedId) {
@@ -303,7 +353,7 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
       return fresh;
     });
 
-    return toDTO(created);
+    return { ...toDTO(created), sepError };
   }
 
   /** Detail kunjungan (incl. rujukan + SEP utk cetak). Unit-scope: anti-IDOR lintas unit. */
@@ -429,8 +479,17 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
         // status MenungguRef (surat tetap terbit, ref diisi via revisi di worklist admisi).
         if (disp.jenis === "Rawat_Inap" && disp.spri) {
           const s = disp.spri;
+          // No. Kartu PENUH dari penjamin BPJS pasien (FE mengirim nilai ter-mask "0001•••••7890").
+          // Server-authoritative → SPRI joinable di worklist + InsertSPRI nyata kirim kartu valid.
+          let noKartuSpri = s.noKartu;
+          const pt = await patientDal.findById(k.patientId, tx);
+          const enc = pt?.penjamin.find(
+            (p) => (p.tipe === "BPJS_Non_PBI" || p.tipe === "BPJS_PBI") && p.nomorEnc,
+          )?.nomorEnc;
+          if (enc) noKartuSpri = decryptPii(enc);
+
           const noReferensi = await issueSpriRef({
-            noKartu: s.noKartu,
+            noKartu: noKartuSpri,
             dpjpPegawaiId: s.dpjpPegawaiId ?? null,
             poliKontrol: s.poliKode ?? undefined,
             tglRencanaKontrol: s.tglRencanaRawat,
@@ -440,7 +499,7 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
           });
           await spriDal.create({
             kunjunganId: id,
-            noKartu: s.noKartu,
+            noKartu: noKartuSpri,
             dpjpNama: s.dpjpNama,
             dpjpPegawaiId: s.dpjpPegawaiId ?? null,
             smfSpesialistik: s.smfSpesialistik ?? null,

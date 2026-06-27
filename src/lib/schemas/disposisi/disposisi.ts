@@ -98,6 +98,9 @@ export interface SpriDTO {
   jenisPerawatan: string;
   indikasi: string;
   keterangan: string | null;
+  // Diagnosa utama IGD asal (sumber diagAwal SEP Rawat Inap) — diturunkan dari kunjungan IGD.
+  diagAwalKode: string | null;
+  diagAwalNama: string | null;
   noReferensi: string | null;
   status: SpriStatus;
   riKunjunganId: string | null;

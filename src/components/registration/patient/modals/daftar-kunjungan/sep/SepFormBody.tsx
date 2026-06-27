@@ -58,8 +58,13 @@ export function SepFormBody({
   const [spriOpen, setSpriOpen] = useState(false);
   const [pickedSpri, setPickedSpri] = useState<SpriDTO | null>(null);
   const onPickSpri = (s: SpriDTO) => {
-    // DPJP (nama+kode) & tanggal akan ditarik ulang dari SPRI saat build payload (gap).
-    setDraft((d) => ({ ...d, skdpNoSurat: s.noReferensi ?? "" }));
+    // No. Referensi SPRI → No. SKDP · Diagnosa awal SEP = diagnosa utama IGD asal (dari SPRI).
+    // DPJP (nama+kode) ditarik ulang dari SPRI saat build payload (gap).
+    setDraft((d) => ({
+      ...d,
+      skdpNoSurat: s.noReferensi ?? "",
+      diagAwal: s.diagAwalKode ?? d.diagAwal,
+    }));
     setPickedSpri(s);
     setSpriOpen(false);
   };
@@ -363,6 +368,12 @@ export function SepFormBody({
                 <CalendarDays size={11} /> {fmtTglShort(pickedSpri.tglRencanaRawat)}
               </span>
               <span className="text-emerald-600">· {pickedSpri.jenisPerawatan}</span>
+              {pickedSpri.diagAwalKode && (
+                <span className="inline-flex items-center gap-1 font-mono font-semibold text-emerald-700">
+                  · {pickedSpri.diagAwalKode}
+                  {pickedSpri.diagAwalNama && <span className="font-sans font-normal text-emerald-600">{pickedSpri.diagAwalNama}</span>}
+                </span>
+              )}
               <span className="text-emerald-500">· DPJP terisi otomatis saat terbit SEP</span>
             </div>
           ) : (
@@ -373,9 +384,21 @@ export function SepFormBody({
         </Field>
 
         <div className="mt-3 grid grid-cols-2 gap-3">
-          <Field label="No. Telepon" hint="dapat diubah">
-            <input className={fieldInput} value={draft.noTelp} placeholder="08XX…"
-              onChange={(e) => set("noTelp", e.target.value)} />
+          <Field label="No. Telepon" hint="wajib · dari data pasien">
+            <input
+              className={cn(
+                fieldInput,
+                !draft.noTelp.trim() && "border-rose-300 bg-rose-50/40 focus:border-rose-400 focus:ring-rose-100",
+              )}
+              value={draft.noTelp}
+              placeholder="08XX… (wajib untuk SEP)"
+              onChange={(e) => set("noTelp", e.target.value)}
+            />
+            {!draft.noTelp.trim() && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-[10px] font-semibold text-rose-600">
+                <Info size={11} /> No. Telepon wajib diisi — BPJS menolak SEP tanpa kontak peserta.
+              </p>
+            )}
           </Field>
           <div className="col-span-2">
             <Field label="Catatan">
@@ -391,6 +414,7 @@ export function SepFormBody({
         {spriOpen && (
           <SpriPickerModal
             noKartu={draft.noKartu}
+            noRM={draft.noMR}
             selectedRef={draft.skdpNoSurat || undefined}
             onSelect={onPickSpri}
             onClose={() => setSpriOpen(false)}

@@ -93,6 +93,10 @@ export const RegisterKunjunganInput = z
     noKartu: z.string().trim().max(40).optional(),
     rujukan: RujukanInput.optional(),
     sep: SepInput.optional(),
+    // Tetap daftarkan walau SEP DITOLAK BPJS (data tak lengkap / peserta non-aktif): kunjungan
+    // dibuat, SEP DITANGGUHKAN (bukan rollback). Default false → SEP gagal = batalkan pendaftaran
+    // (operator pilih "Tetap daftarkan" / "Revisi" di review). Lihat KunjunganDTO.sepError.
+    forceSep: z.boolean().optional(),
   })
   .superRefine((v, ctx) => {
     const isBpjs = v.penjaminTipe === "BPJS_Non_PBI" || v.penjaminTipe === "BPJS_PBI";
@@ -244,6 +248,9 @@ export interface KunjunganDTO {
   pasien: { id: string; noRm: string; nama: string };
   rujukan: RujukanDTO | null;
   sep: SepDTO | null;
+  // SEP DITOLAK BPJS tapi kunjungan tetap didaftarkan (forceSep). Null = SEP terbit / tak diminta /
+  // ditangguhkan manual. Terisi → tampilkan peringatan "SEP gagal, terbitkan ulang nanti".
+  sepError: { code: string; message: string; field?: string } | null;
   // ── Finalize / lock (Selesaikan Kunjungan) ──
   lockedAt: string | null; // ISO — terisi = rekam medis terkunci (Completed)
   selesaiAt: string | null; // ISO — waktu selesai efektif

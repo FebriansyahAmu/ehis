@@ -43,6 +43,14 @@ export function findByIdWithKunjungan(id: string, tx?: Tx) {
   return db(tx).spri.findFirst({ where: { id, deletedAt: null }, include: withKunjungan });
 }
 
+/** Cari SPRI by No. Referensi (BPJS) — dipakai resolve DPJP saat build SEP RI. Terbaru dulu. */
+export function findByNoReferensi(noReferensi: string, tx?: Tx) {
+  return db(tx).spri.findFirst({
+    where: { noReferensi, deletedAt: null },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
 /** Worklist admisi. Tanpa status → belum dikonsumsi (MenungguRef + Terbit). Status eksplisit → tepat. */
 export function listWorklist(filter: { status?: string }, tx?: Tx) {
   return db(tx).spri.findMany({

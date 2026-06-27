@@ -58,6 +58,20 @@ export function findDiagnosaAktifByKode(kunjunganId: string, kodeIcd10: string, 
   });
 }
 
+/**
+ * Diagnosa UTAMA (tipe="Utama") aktif untuk sekumpulan kunjungan — batched (anti N+1).
+ * Dipakai mis. enrich SPRI: diagnosa awal SEP Rawat Inap = diagnosa utama IGD asal.
+ * Urut terbaru dulu → konsumen ambil first-per-kunjungan.
+ */
+export function listUtamaByKunjunganIds(kunjunganIds: string[], tx?: Tx) {
+  if (kunjunganIds.length === 0) return Promise.resolve([]);
+  return db(tx).diagnosa.findMany({
+    where: { kunjunganId: { in: kunjunganIds }, tipe: "Utama", deletedAt: null },
+    orderBy: { createdAt: "desc" },
+    select: { kunjunganId: true, kodeIcd10: true, namaDiagnosis: true },
+  });
+}
+
 export function createDiagnosa(data: CreateDiagnosaData, tx?: Tx) {
   return db(tx).diagnosa.create({ data });
 }

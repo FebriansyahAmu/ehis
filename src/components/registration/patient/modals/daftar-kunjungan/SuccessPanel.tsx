@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, FileText, Printer } from "lucide-react";
+import { Check, FileText, Printer, AlertTriangle } from "lucide-react";
 import { motion } from "framer-motion";
 import type { KunjunganDTO } from "@/lib/api/kunjungan";
 
@@ -21,6 +21,7 @@ export function SuccessPanel({
   onCetakSep?: () => void;
 }) {
   const sep = created.sep;
+  const sepError = created.sepError;
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 py-12 text-center" style={{ minHeight: 460 }}>
       <motion.div
@@ -48,6 +49,16 @@ export function SuccessPanel({
         <p className="flex max-w-xs items-center justify-center gap-1.5 text-xs text-sky-600">
           <FileText size={12} /> SEP berhasil diterbitkan bersama pendaftaran kunjungan.
         </p>
+      )}
+
+      {sepError && (
+        <div className="flex w-full max-w-xs items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-left">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-500" />
+          <div className="text-[11px] leading-relaxed text-amber-700">
+            <p className="font-bold">SEP belum terbit ({sepError.code}).</p>
+            <p>{sepError.message}. Kunjungan tetap terdaftar — terbitkan SEP nanti dari detail kunjungan / menu BPJS setelah data diperbaiki.</p>
+          </div>
+        </div>
       )}
 
       <div className="flex items-center gap-2.5">
