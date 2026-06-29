@@ -135,6 +135,9 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
       dpjpId: k.dpjpId,
       ruanganId: k.ruanganId,
       kelas: k.kelas,
+      kelasHak: k.kelasHak,
+      titipan: k.titipan,
+      titipanAlasan: k.titipanAlasan,
       triaseLevel: k.triaseLevel,
       caraMasuk: k.caraMasuk,
       caraDatang: k.caraDatang,
@@ -171,6 +174,8 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
       dpjpId: k.dpjpId,
       ruanganId: k.ruanganId,
       kelas: k.kelas,
+      kelasHak: k.kelasHak,
+      titipan: k.titipan,
       triaseLevel: k.triaseLevel,
       callState: k.callState,
       recallCount: k.recallCount,
@@ -306,6 +311,11 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
           poli: input.unit === "RawatJalan" ? input.poli : undefined,
           triaseLevel: input.unit === "IGD" ? input.triaseLevel : undefined,
           kelas: input.unit === "RawatInap" ? input.kelas : undefined,
+          // TITIPAN: simpan apa adanya dari FE (kelas hak = basis tagihan; tidak auto-sync kelas
+          // kamar — keputusan mismatch via konfirmasi di modal admisi).
+          kelasHak: input.unit === "RawatInap" ? input.kelasHak : undefined,
+          titipan: input.unit === "RawatInap" ? (input.titipan ?? false) : undefined,
+          titipanAlasan: input.unit === "RawatInap" ? input.titipanAlasan : undefined,
           bedId: input.unit === "RawatInap" ? input.bedId : undefined, // pointer; alokasi di bawah
           dpjpId: input.dpjpId,
           ruanganId: input.ruanganId,
@@ -454,6 +464,13 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
       }
       if (action === "cancel") {
         await bedAlloc.release(id, tx);
+        // Admisi RI dibatalkan → PULIHKAN SPRI yang dikonsumsi kunjungan ini (order tetap valid):
+        // status balik Terbit (sudah ada No. Ref) / MenungguRef + lepas riKunjunganId →
+        // muncul lagi di worklist admisi & dashboard pasien untuk re-admisi.
+        const spri = await spriDal.findConsumedByRiKunjungan(id, tx);
+        if (spri) {
+          await spriDal.revertConsumed(spri.id, spri.noReferensi ? "Terbit" : "MenungguRef", tx);
+        }
       }
 
       // Selesaikan Kunjungan: gate klinis → disposisi atomik → kunci.

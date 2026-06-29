@@ -4,7 +4,7 @@
 
 import type { RegisterKunjunganInput, RujukanInput, SepInput } from "@/lib/schemas/kunjungan";
 import type { SepDraft } from "@/components/registration/kunjungan/Tabs/sep/sepTypes";
-import type { KunjunganForm, PenjaminForm, RujukanPick } from "./config";
+import { HAK_TO_RIKELAS, isBpjs, type KunjunganForm, type PenjaminForm, type RujukanPick } from "./config";
 
 const SUMBER_MAP = { masuk: "RujukanMasuk", kontrol: "KontrolPascaRanap" } as const;
 const JNS_MAP = { "1": "RawatInap", "2": "RawatJalan" } as const;
@@ -31,10 +31,13 @@ export interface BuildRegisterArgs {
   noKartu?: string;
   /** Tetap daftarkan walau SEP DITOLAK BPJS → kunjungan dibuat, SEP ditangguhkan. */
   forceSep?: boolean;
+  /** RI TITIPAN: kamar ≠ hak kelas (kelas hak penuh) → tagihan ikut hak kelas. */
+  titipan?: boolean;
+  titipanAlasan?: string;
 }
 
 export function buildRegisterInput(args: BuildRegisterArgs): RegisterKunjunganInput {
-  const { patientId, form, penjamin, rujukan, sepDraft, issueSep, needsRujukan, noKartu, forceSep } = args;
+  const { patientId, form, penjamin, rujukan, sepDraft, issueSep, needsRujukan, noKartu, forceSep, titipan, titipanAlasan } = args;
 
   const isIgd = form.unit === "IGD";
   const isRi = form.unit === "Rawat Inap";
@@ -102,7 +105,12 @@ export function buildRegisterInput(args: BuildRegisterArgs): RegisterKunjunganIn
     dpjpId: isIgd || isRi ? orUndef(form.dpjpId) : undefined,
     // Ruangan master: IGD bay/zona, atau RI bangsal. RI juga kirim kelas + bed (reserve).
     ruanganId: isIgd || isRi ? orUndef(form.ruanganId) : undefined,
-    kelas: isRi ? KELAS_MAP[form.kelasRawat] : undefined,
+    // kelas KAMAR = ruangan terpilih (placement fisik); fallback button lama bila kamar kosong.
+    kelas: isRi ? ((form.kelasKamar || KELAS_MAP[form.kelasRawat] || undefined) as RegisterKunjunganInput["kelas"]) : undefined,
+    // hak kelas (basis tagihan TITIPAN) — hanya BPJS yang punya hak kelas.
+    kelasHak: isRi && isBpjs(penjamin.tipe) && penjamin.kelas ? HAK_TO_RIKELAS[penjamin.kelas] : undefined,
+    titipan: isRi ? (titipan ?? false) : undefined,
+    titipanAlasan: isRi ? orUndef(titipanAlasan) : undefined,
     bedId: isRi ? orUndef(form.bedId) : undefined,
     keluhan: orUndef(form.keluhan),
     caraMasuk: orUndef(form.caraMasuk),

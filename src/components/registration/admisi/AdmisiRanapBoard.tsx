@@ -11,12 +11,13 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   BedDouble, Search, Loader2, Inbox, Send, RefreshCw, Hash, Stethoscope,
-  Activity, CheckCircle2, Clock, CalendarDays, ArrowRight,
+  Activity, CheckCircle2, Clock, CalendarDays, ArrowRight, FilePen, Ban,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
 import { listSpri, reviseSpri, type SpriDTO } from "@/lib/api/spri/spri";
+import { SpriEditModal, SpriCancelDialog } from "./SpriEditModal";
 
 function fmtDate(ymd: string): string {
   const [y, m, d] = ymd.split("-").map(Number);
@@ -34,6 +35,8 @@ export default function AdmisiRanapBoard() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<SpriDTO | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<SpriDTO | null>(null);
 
   const refetch = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -114,9 +117,29 @@ export default function AdmisiRanapBoard() {
       ) : (
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
           {filtered.map((s) => (
-            <SpriCard key={s.id} spri={s} busy={busyId === s.id} onRevise={() => doRevise(s.id)} />
+            <SpriCard
+              key={s.id} spri={s} busy={busyId === s.id}
+              onRevise={() => doRevise(s.id)}
+              onEdit={() => setEditTarget(s)}
+              onBatal={() => setCancelTarget(s)}
+            />
           ))}
         </div>
+      )}
+
+      {editTarget && (
+        <SpriEditModal
+          spri={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSaved={() => { setEditTarget(null); void refetch(); }}
+        />
+      )}
+      {cancelTarget && (
+        <SpriCancelDialog
+          spri={cancelTarget}
+          onClose={() => setCancelTarget(null)}
+          onCancelled={() => { setCancelTarget(null); void refetch(); }}
+        />
       )}
     </div>
   );
@@ -137,7 +160,11 @@ function Stat({ icon, label, value, cls, dot }: { icon: React.ReactNode; label: 
   );
 }
 
-function SpriCard({ spri, busy, onRevise }: { spri: SpriDTO; busy: boolean; onRevise: () => void }) {
+function SpriCard({
+  spri, busy, onRevise, onEdit, onBatal,
+}: {
+  spri: SpriDTO; busy: boolean; onRevise: () => void; onEdit: () => void; onBatal: () => void;
+}) {
   const cfg = STATUS_CFG[spri.status] ?? STATUS_CFG.MenungguRef;
   const daftarHref = `/ehis-registration/pasien/${encodeURIComponent(spri.noRM)}?daftar=ranap&spri=${encodeURIComponent(spri.id)}`;
   return (
@@ -179,22 +206,37 @@ function SpriCard({ spri, busy, onRevise }: { spri: SpriDTO; busy: boolean; onRe
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2 border-t border-slate-100 px-3.5 py-2.5">
-        {spri.status === "MenungguRef" && (
+      <div className="space-y-2 border-t border-slate-100 px-3.5 py-2.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
-            type="button" onClick={onRevise} disabled={busy}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px] font-semibold transition",
-              busy ? "cursor-not-allowed border-slate-200 text-slate-300" : "border-amber-300 text-amber-700 hover:bg-amber-50",
-            )}
+            type="button" onClick={onEdit} disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-teal-200 px-2.5 py-1.5 text-[12px] font-semibold text-teal-700 transition hover:bg-teal-50 disabled:opacity-40"
           >
-            {busy ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-            Revisi &amp; Kirim Ulang
+            <FilePen size={13} /> Revisi SPRI
           </button>
-        )}
+          <button
+            type="button" onClick={onBatal} disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 px-2.5 py-1.5 text-[12px] font-semibold text-rose-600 transition hover:bg-rose-50 disabled:opacity-40"
+          >
+            <Ban size={13} /> Batalkan SPRI
+          </button>
+          {spri.status === "MenungguRef" && (
+            <button
+              type="button" onClick={onRevise} disabled={busy}
+              title="Kirim ulang ke BPJS untuk menerbitkan No. Referensi"
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px] font-semibold transition",
+                busy ? "cursor-not-allowed border-slate-200 text-slate-300" : "border-amber-300 text-amber-700 hover:bg-amber-50",
+              )}
+            >
+              {busy ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+              Kirim Ulang
+            </button>
+          )}
+        </div>
         <Link
           href={daftarHref}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm transition hover:bg-teal-700"
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2 text-[12px] font-semibold text-white shadow-sm transition hover:bg-teal-700"
         >
           <Send size={13} /> Daftar Rawat Inap <ArrowRight size={12} />
         </Link>

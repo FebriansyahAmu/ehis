@@ -25,8 +25,9 @@ import { StepReview } from "./daftar-kunjungan/StepReview";
 import { SuccessPanel } from "./daftar-kunjungan/SuccessPanel";
 import { SepPrintModal } from "./daftar-kunjungan/SepCetak";
 import { buildRegisterInput } from "./daftar-kunjungan/daftarKunjunganApi";
+import { KelasMismatchDialog, type KelasDecision } from "./daftar-kunjungan/KelasMismatchDialog";
 import {
-  isBpjs,
+  isBpjs, HAK_TO_RIKELAS,
   type KunjunganForm, type PenjaminForm, type RujukanPick, type WizardStep, type SpriDpjpHint,
 } from "./daftar-kunjungan/config";
 
@@ -67,7 +68,7 @@ export function DaftarKunjunganModal({
   const [form, setForm] = useState<KunjunganForm>({
     unit: "Rawat Jalan", tanggal: today, jam: nowTime, caraMasuk: "Datang Sendiri",
     dokter: "", keluhan: "", triase: null,
-    poli: "Poli Umum", asalMasuk: "Dari Poli", kelasRawat: "2",
+    poli: "Poli Umum", asalMasuk: "Dari Poli", kelasRawat: "2", kelasKamar: "",
     ruanganId: "", ruanganNama: "", dpjpId: "", dpjpNama: "",
     bedId: "", bedNama: "",
     ...initial,
@@ -126,6 +127,17 @@ export function DaftarKunjunganModal({
   const bpjsFlow = isBpjs(penjamin.tipe);
   const needsRujukan = bpjsFlow && form.unit === "Rawat Jalan";
   const isDbPatient = UUID_RE.test(patient.id);
+
+  // ── Konfirmasi kelas RI (hanya BPJS): kamar terpilih ≠ hak kelas → dialog Titipan/Beda kelas ──
+  const hakRIKelas = bpjsFlow && penjamin.kelas ? HAK_TO_RIKELAS[penjamin.kelas] : "";
+  const kelasMismatch =
+    form.unit === "Rawat Inap" && !!hakRIKelas && !!form.kelasKamar && hakRIKelas !== form.kelasKamar;
+  const [kelasDialogOpen, setKelasDialogOpen] = useState(false);
+  const kelasAckRef = useRef(false);           // sudah dikonfirmasi → jangan tampilkan ulang
+  const kelasDecisionRef = useRef<KelasDecision | null>(null); // {titipan, alasan}
+  const pendingForceRef = useRef(false);        // nilai `force` yang tertunda saat dialog terbuka
+  // Reset konfirmasi bila kamar/hak kelas berubah → wajib konfirmasi ulang.
+  useEffect(() => { kelasAckRef.current = false; kelasDecisionRef.current = null; }, [form.kelasKamar, penjamin.kelas]);
 
   const steps = useMemo<WizardStep[]>(() => {
     const s: WizardStep[] = [
@@ -205,9 +217,28 @@ export function DaftarKunjunganModal({
   const goBack = () => { setSubmitError(null); setSepReject(null); setDir(-1); setStepIdx(Math.max(safeIdx - 1, 0)); };
 
   const sepStepIdx = steps.findIndex((s) => s.id === "sep");
+  const kunjStepIdx = steps.findIndex((s) => s.id === "kunjungan");
 
   /** `force` true = "Tetap daftarkan walau SEP error" (kunjungan dibuat, SEP ditangguhkan). */
+  // Gate: konfirmasi kelas RI (BPJS) bila kamar ≠ hak → dialog Titipan/Beda kelas dulu.
   async function handleDaftar(force = false) {
+    if (kelasMismatch && !kelasAckRef.current) {
+      pendingForceRef.current = force;
+      setKelasDialogOpen(true);
+      return;
+    }
+    return doSubmit(force);
+  }
+
+  // Hasil dialog konfirmasi kelas → simpan keputusan (titipan/alasan) lalu lanjut submit.
+  function onKelasConfirm(d: KelasDecision) {
+    kelasAckRef.current = true;
+    kelasDecisionRef.current = d;
+    setKelasDialogOpen(false);
+    void doSubmit(pendingForceRef.current);
+  }
+
+  async function doSubmit(force = false) {
     // Guard pre-submit dengan pesan jelas (hindari error server membingungkan).
     if (!isDbPatient) {
       setSubmitError("Pasien demo tidak dapat didaftarkan ke server. Gunakan pasien hasil pendaftaran.");
@@ -220,7 +251,11 @@ export function DaftarKunjunganModal({
     const controller = new AbortController();
     submitAbort.current = controller;
     try {
-      const input = buildRegisterInput({ patientId: patient.id, form, penjamin, rujukan, sepDraft, issueSep: bpjsFlow && terbitSep, needsRujukan, noKartu: bpjsData?.noKartu, forceSep: force });
+      const input = buildRegisterInput({
+        patientId: patient.id, form, penjamin, rujukan, sepDraft,
+        issueSep: bpjsFlow && terbitSep, needsRujukan, noKartu: bpjsData?.noKartu, forceSep: force,
+        titipan: kelasDecisionRef.current?.titipan, titipanAlasan: kelasDecisionRef.current?.alasan,
+      });
       const { kunjungan, message } = await registerKunjungan(input, controller.signal);
       if (kunjungan.sepError) {
         toast.error("SEP belum terbit", `${kunjungan.sepError.message} — kunjungan tetap terdaftar`);
@@ -424,6 +459,19 @@ export function DaftarKunjunganModal({
       {showPrint && created && (
         <SepPrintModal kunjungan={created} onClose={() => setShowPrint(false)} />
       )}
+
+      <KelasMismatchDialog
+        open={kelasDialogOpen}
+        hakKelas={hakRIKelas}
+        kamarKelas={form.kelasKamar}
+        busy={submitting}
+        onConfirm={onKelasConfirm}
+        onCancel={() => {
+          setKelasDialogOpen(false);
+          // "Perbaiki Kamar" → kembali ke langkah Kunjungan untuk ganti ruangan/bed.
+          if (kunjStepIdx >= 0) { setDir(-1); setStepIdx(kunjStepIdx); }
+        }}
+      />
     </>
   );
 }

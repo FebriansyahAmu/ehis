@@ -22,6 +22,14 @@ function namesMatch(a: string, b: string): boolean {
 const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name === "AbortError";
 const RI_TYPES = new Set(["Rawat_Inap", "ICU", "HCU", "Isolasi"]);
 
+/** Kelas efektif sebuah ruangan RI (RIKelas) — placement fisik untuk kunjungan.kelas. */
+function roomKelas(r: LocationNode): string {
+  if (r.locationType === "ICU") return "ICU";
+  if (r.locationType === "HCU") return "HCU";
+  if (r.locationType === "Isolasi") return "Isolasi";
+  return r.kelas && r.kelas !== "—" ? r.kelas : "Kelas_3";
+}
+
 /**
  * Detail Rawat Inap: pilih ruangan (master Location tipe RI) + bed lewat PETA VISUAL (modal
  * fullscreen, bukan dropdown). Bed terpilih di-RESERVE saat pendaftaran (Kunjungan.bedId).
@@ -98,8 +106,9 @@ export function StepKunjunganRi({
   const onPickRuangan = (id: string) => {
     if (id === form.ruanganId) return; // pilih ruangan sama → no-op (jangan reset/stuck loading)
     const r = rooms.find((x) => x.id === id);
-    // Ganti ruangan → reset bed + DPJP terpilih (daftar dokter & bed berubah).
-    setForm((f) => ({ ...f, ruanganId: id, ruanganNama: r?.name ?? "", bedId: "", bedNama: "", dpjpId: "", dpjpNama: "" }));
+    // Ganti ruangan → reset bed + DPJP terpilih (daftar dokter & bed berubah). kelasKamar ikut
+    // ruangan (placement fisik → kunjungan.kelas; basis cek titipan vs hak kelas).
+    setForm((f) => ({ ...f, ruanganId: id, ruanganNama: r?.name ?? "", kelasKamar: r ? roomKelas(r) : "", bedId: "", bedNama: "", dpjpId: "", dpjpNama: "" }));
     setDokter([]);          // buang dokter ruangan lama (hindari flash stale)
     setDokterLoading(true); // tampilkan loading sampai fetch effect selesai
   };

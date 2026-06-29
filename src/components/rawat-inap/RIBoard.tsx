@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, BedDouble, Stethoscope, Clock, StickyNote,
-  AlertTriangle, LogOut, ChevronLeft, ChevronRight, CalendarDays, X,
+  AlertTriangle, LogOut, ChevronLeft, ChevronRight, CalendarDays, X, ArrowLeftRight,
 } from "lucide-react";
 import type { RawatInapPatient, RIStatus, RIKelas, RIPenjamin } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -129,6 +129,14 @@ function PatientCard({ p }: { p: RawatInapPatient }) {
           {p.noBed}
         </span>
         <span className="text-[10px] text-slate-400">{p.ruangan}</span>
+        {p.titipan && (
+          <span
+            title={p.kelasHak ? `Pasien titipan — tagihan ikut hak ${KELAS_LABEL[p.kelasHak as RIKelas] ?? p.kelasHak}` : "Pasien titipan"}
+            className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-700 ring-1 ring-amber-200"
+          >
+            <ArrowLeftRight size={9} /> Titipan
+          </span>
+        )}
         <span className="ml-auto">
           <span className={cn(
             "rounded-full px-1.5 py-0.5 text-[9px] font-semibold",

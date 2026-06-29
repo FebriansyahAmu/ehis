@@ -104,7 +104,12 @@ model Kunjungan {
 
   // ── Field per-unit (validasi unit-spesifik di Zod/Service) ──
   poli        String? // RJ — poli tujuan
-  kelas       KelasRawat? // RI
+  kelas       KelasRawat? // RI — kelas KAMAR (placement fisik; diturunkan dari ruangan)
+  /// RI — hak kelas (basis tagihan saat TITIPAN); snapshot dari penjamin.kelas. Null = ikut `kelas`.
+  kelasHak    KelasRawat? @map("kelas_hak")
+  /// RI — pasien TITIPAN: kamar ≠ hak kelas (mis. kelas hak penuh) → tagihan ikut `kelasHak`.
+  titipan       Boolean @default(false)
+  titipanAlasan String? @map("titipan_alasan")
   /// Bed RI — FK→master Bed/Ruangan saat siap. Alokasi/status bed bukan domain ini.
   bedId       String?     @map("bed_id") @db.Uuid
   triaseLevel Int?        @map("triase_level") // IGD 1..5 (CHECK di SQL)

@@ -5,14 +5,15 @@
 //
 // RBAC di Route: registration.kunjungan (petugas loket/admisi). Tanpa permission baru.
 
+import { transaction } from "@/lib/db/prisma";
 import * as defaultDal from "@/lib/dal/spri/spriDal";
 import * as kunjunganDal from "@/lib/dal/kunjunganDal";
 import * as diagnosaDal from "@/lib/dal/diagnosa/diagnosaDal";
-import { issueSpriRef } from "@/lib/services/spri/spriBpjsMock";
+import { issueSpriRef, updateSpriRef, cancelSpriRef } from "@/lib/services/spri/spriBpjsMock";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type { SpriEntity } from "@/lib/dal/spri/spriDal";
-import type { SpriDTO, SpriQuery, SpriStatus, ConsumeSpriInput } from "@/lib/schemas/disposisi/disposisi";
+import type { SpriDTO, SpriQuery, SpriStatus, ConsumeSpriInput, EditSpriInput } from "@/lib/schemas/disposisi/disposisi";
 
 type Dal = typeof defaultDal;
 
@@ -32,6 +33,7 @@ function toDTO(e: SpriEntity, diag?: DiagAwal): SpriDTO {
     namaPasien: e.kunjungan.pasien.nama,
     noKartu: e.noKartu,
     dpjpNama: e.dpjpNama,
+    dpjpPegawaiId: e.dpjpPegawaiId ?? null,
     smfSpesialistik: e.smfSpesialistik ?? null,
     poliKode: e.poliKode ?? null,
     poliNama: e.poliNama ?? null,
@@ -105,13 +107,78 @@ export function makeSpriService(deps: { dal?: Dal } = {}) {
     if (row.status === "Dikonsumsi") throw Errors.conflict("SPRI sudah dikonsumsi (admisi sudah dibuat)");
     const ri = await kunjunganDal.findById(input.riKunjunganId);
     if (!ri) throw Errors.notFound("Kunjungan Rawat Inap tidak ditemukan");
-    const n = await dal.consume(id, input.riKunjunganId);
-    if (n === 0) throw Errors.conflict("Status SPRI berubah — muat ulang");
+    // Atomik: konsumsi SPRI ini + TUTUP SPRI saudara pasien (Tergantikan) → anti-admisi ganda.
+    await transaction(async (tx) => {
+      const n = await dal.consume(id, input.riKunjunganId, tx);
+      if (n === 0) throw Errors.conflict("Status SPRI berubah — muat ulang");
+      await dal.supersedeSiblings(id, ri.patientId, tx);
+    });
     const fresh = await dal.findByIdWithKunjungan(id);
     return toDTO(fresh!);
   }
 
-  return { listWorklist, revise, consume };
+  /** Revisi SPRI → UpdateSPRI ke BPJS (bila sudah ada No. Referensi) lalu perbarui field lokal.
+   *  WS gagal → tolak (jangan ubah lokal). Hanya SPRI aktif (MenungguRef/Terbit). */
+  async function editSpri(id: string, input: EditSpriInput, actor: Actor): Promise<SpriDTO> {
+    const row = await dal.findById(id);
+    if (!row) throw Errors.notFound("SPRI tidak ditemukan");
+    if (row.status === "Dikonsumsi") throw Errors.conflict("SPRI sudah dikonsumsi (admisi dibuat) — tak bisa diubah");
+    if (row.status !== "MenungguRef" && row.status !== "Terbit") throw Errors.conflict("SPRI sudah tidak aktif");
+
+    // BPJS: SPRI yang sudah punya No. Referensi → sinkronkan ke BPJS (UpdateSPRI) lebih dulu.
+    if (row.noReferensi) {
+      const ws = await updateSpriRef({
+        noReferensi: row.noReferensi,
+        dpjpPegawaiId: input.dpjpPegawaiId ?? null,
+        poliKontrol: input.poliKode ?? undefined,
+        tglRencanaKontrol: input.tglRencanaRawat,
+        user: row.user,
+        actor: actor.userId,
+        actorRole: actor.roles[0] ?? "registration",
+      });
+      if (!ws.ok) throw Errors.validation(ws.error.message, { spriReject: ws.error });
+    }
+
+    const n = await dal.updateFields(id, input.version, {
+      dpjpNama: input.dpjpNama,
+      dpjpPegawaiId: input.dpjpPegawaiId ?? null,
+      smfSpesialistik: input.smfSpesialistik ?? null,
+      poliKode: input.poliKode ?? null,
+      poliNama: input.poliNama ?? null,
+      tglRencanaRawat: new Date(input.tglRencanaRawat),
+      jenisPerawatan: input.jenisPerawatan,
+      indikasi: input.indikasi,
+      keterangan: input.keterangan ?? null,
+    });
+    if (n === 0) throw Errors.conflict("SPRI berubah / tidak aktif — muat ulang");
+    const fresh = await dal.findByIdWithKunjungan(id);
+    return toDTO(fresh!);
+  }
+
+  /** Batalkan SPRI → DeleteSPRI ke BPJS (bila ada No. Referensi) lalu status Batal.
+   *  Tak berlaku utk SPRI yang sudah dikonsumsi (admisi sudah dibuat → batalkan via batal order RI). */
+  async function cancelSpri(id: string, actor: Actor): Promise<SpriDTO> {
+    const row = await dal.findById(id);
+    if (!row) throw Errors.notFound("SPRI tidak ditemukan");
+    if (row.status === "Dikonsumsi") throw Errors.conflict("SPRI sudah dikonsumsi (admisi dibuat) — batalkan lewat Batalkan Order Rawat Inap");
+    if (row.status !== "MenungguRef" && row.status !== "Terbit") throw Errors.conflict("SPRI sudah tidak aktif");
+
+    if (row.noReferensi) {
+      const ws = await cancelSpriRef({
+        noReferensi: row.noReferensi,
+        user: row.user,
+        actor: actor.userId,
+        actorRole: actor.roles[0] ?? "registration",
+      });
+      if (!ws.ok) throw Errors.validation(ws.error.message, { spriReject: ws.error });
+    }
+    const n = await dal.cancel(id);
+    if (n === 0) throw Errors.conflict("SPRI sudah tidak aktif — muat ulang");
+    const fresh = await dal.findByIdWithKunjungan(id);
+    return toDTO(fresh!);
+  }
+
+  return { listWorklist, revise, consume, editSpri, cancelSpri };
 }
 
 export const spriService = makeSpriService();

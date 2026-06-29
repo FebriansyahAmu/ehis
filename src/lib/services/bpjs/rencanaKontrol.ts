@@ -8,13 +8,22 @@
 // Audit (R9) + PII hash (R14) via auditedCall. Connector tetap murni.
 
 import { Ok, type Result, type BPJSEnvelope, type BPJSError } from "@/lib/bpjs/bpjsShared";
-import type { InsertSPRIPayload, InsertSPRIResponse } from "@/lib/bpjs/bpjsContracts";
+import type {
+  InsertSPRIPayload, InsertSPRIResponse, UpdateSPRIPayload, DeleteRKPayload,
+} from "@/lib/bpjs/bpjsContracts";
 import { isBpjsMockMode } from "@/lib/bpjs/server/config";
 import { callBpjs } from "@/lib/bpjs/server/httpClient";
-import { toSpriWire } from "@/lib/schemas/bpjs/rencanaKontrol";
+import { toSpriWire, toSpriUpdateWire, toSpriDeleteWire } from "@/lib/schemas/bpjs/rencanaKontrol";
 import { auditedCall, type AuditContext } from "./audit";
 
 const ENDPOINT = "RencanaKontrol/InsertSPRI";
+const ENDPOINT_UPDATE = "RencanaKontrol/UpdateSPRI";
+const ENDPOINT_DELETE = "RencanaKontrol/Delete";
+
+/** Response Delete RK/SPRI — V-Claim hanya kirim metaData; response = pesan. */
+export interface DeleteRKResponse {
+  message?: string;
+}
 
 export interface BpjsAuditActor {
   actor: string;
@@ -71,6 +80,62 @@ export async function insertSPRI(
       path: ENDPOINT,
       body: toSpriWire(input),
       contentType: "application/x-www-form-urlencoded",
+    }),
+  );
+}
+
+/**
+ * V-Claim RencanaKontrol/UpdateSPRI (PUT) — perbarui SPRI (DPJP/poli/tgl rencana).
+ * Mock SELALU sukses (kembalikan noSuratKontrol = noSPRI). `noSPRI` = No. Referensi SPRI.
+ */
+export async function updateSPRI(
+  input: UpdateSPRIPayload,
+  who: BpjsAuditActor,
+): Promise<Result<BPJSEnvelope<InsertSPRIResponse>, BPJSError>> {
+  const ctx: AuditContext = {
+    service: "vclaim", endpoint: ENDPOINT_UPDATE, method: "PUT",
+    actor: who.actor, actorRole: who.actorRole, requestBody: toSpriUpdateWire(input),
+  };
+  if (isBpjsMockMode()) {
+    return auditedCall<InsertSPRIResponse>(ctx, async () =>
+      Ok({
+        metaData: { code: "200", message: "Update berhasil (mock — tanpa cons-id)" },
+        response: { noSuratKontrol: input.noSPRI, tglRencanaKontrol: input.tglRencanaKontrol },
+      }),
+    );
+  }
+  return auditedCall<InsertSPRIResponse>(ctx, () =>
+    callBpjs<InsertSPRIResponse>({
+      service: "vclaim", method: "PUT", path: ENDPOINT_UPDATE,
+      body: toSpriUpdateWire(input), contentType: "application/x-www-form-urlencoded",
+    }),
+  );
+}
+
+/**
+ * V-Claim RencanaKontrol/Delete (DELETE) — batalkan SPRI. Mock SELALU sukses.
+ * `noSuratKontrol` = No. Referensi SPRI.
+ */
+export async function deleteSPRI(
+  input: DeleteRKPayload,
+  who: BpjsAuditActor,
+): Promise<Result<BPJSEnvelope<DeleteRKResponse>, BPJSError>> {
+  const ctx: AuditContext = {
+    service: "vclaim", endpoint: ENDPOINT_DELETE, method: "DELETE",
+    actor: who.actor, actorRole: who.actorRole, requestBody: toSpriDeleteWire(input),
+  };
+  if (isBpjsMockMode()) {
+    return auditedCall<DeleteRKResponse>(ctx, async () =>
+      Ok({
+        metaData: { code: "200", message: "Pembatalan SPRI berhasil (mock — tanpa cons-id)" },
+        response: { message: "Surat kontrol/SPRI dibatalkan" },
+      }),
+    );
+  }
+  return auditedCall<DeleteRKResponse>(ctx, () =>
+    callBpjs<DeleteRKResponse>({
+      service: "vclaim", method: "DELETE", path: ENDPOINT_DELETE,
+      body: toSpriDeleteWire(input), contentType: "application/x-www-form-urlencoded",
     }),
   );
 }

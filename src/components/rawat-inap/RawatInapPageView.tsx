@@ -204,8 +204,11 @@ function toPatient(k: KunjunganListItemDTO, L: Lookups): RawatInapPatient {
   const bed = alloc ? L.bedByIdCode.get(alloc.bedId) : undefined;
   const dok = k.dpjpId ? L.dokterById.get(k.dpjpId) : undefined;
 
-  const kelas: RIKelas =
-    k.kelas && KELAS_SET.has(k.kelas as RIKelas) ? (k.kelas as RIKelas) : room ? riKelasOf(room) : "Kelas_3";
+  // Kelas = ruangan tempat bed berada (placement fisik) — lebih otoritatif daripada
+  // kunjungan.kelas (kelas hak/dipesan) yang bisa out-of-sync dgn pilihan kamar saat admisi.
+  const kelas: RIKelas = room
+    ? riKelasOf(room)
+    : k.kelas && KELAS_SET.has(k.kelas as RIKelas) ? (k.kelas as RIKelas) : "Kelas_3";
 
   // Lifecycle kunjungan → status board (klinis Kritis/Observasi belum terderivasi dari worklist).
   const status: RIStatus = k.selesaiAt && isToday(k.selesaiAt) ? "Pulang Hari Ini" : "Aktif";
@@ -228,6 +231,8 @@ function toPatient(k: KunjunganListItemDTO, L: Lookups): RawatInapPatient {
     status,
     penjamin: toRIPenjamin(k.penjaminTipe),
     catatan: k.keluhan ?? undefined,
+    titipan: k.titipan,
+    kelasHak: k.kelasHak ?? undefined,
   };
 }
 
@@ -238,8 +243,11 @@ function toOrder(k: KunjunganListItemDTO, L: Lookups): RIOrder {
   const bed = alloc ? L.bedByIdCode.get(alloc.bedId) : undefined;
   const dok = k.dpjpId ? L.dokterById.get(k.dpjpId) : undefined;
 
-  const kelas: RIKelas =
-    k.kelas && KELAS_SET.has(k.kelas as RIKelas) ? (k.kelas as RIKelas) : room ? riKelasOf(room) : "Kelas_3";
+  // Kelas = ruangan tempat bed berada (placement fisik) — lebih otoritatif daripada
+  // kunjungan.kelas (kelas hak/dipesan) yang bisa out-of-sync dgn pilihan kamar saat admisi.
+  const kelas: RIKelas = room
+    ? riKelasOf(room)
+    : k.kelas && KELAS_SET.has(k.kelas as RIKelas) ? (k.kelas as RIKelas) : "Kelas_3";
 
   return {
     id: k.id,
@@ -251,6 +259,8 @@ function toOrder(k: KunjunganListItemDTO, L: Lookups): RIOrder {
     gender: k.pasien.gender,
     ruangan: room?.name ?? "—",
     kelas,
+    titipan: k.titipan,
+    kelasHak: k.kelasHak,
     bedKode: bed?.kode ?? null,
     dpjp: dok?.namaTampil ?? "Belum ditetapkan",
     admitDate: k.waktuKunjungan,

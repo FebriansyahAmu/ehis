@@ -1092,6 +1092,10 @@ export interface RawatInapPatient {
   penjamin:  RIPenjamin;
   noBpjs?:   string;
   catatan?:  string;
+  /** Pasien TITIPAN: kelas kamar ≠ hak kelas (tagihan ikut hak). */
+  titipan?:  boolean;
+  /** RIKelas hak (basis tagihan saat titipan). */
+  kelasHak?: string;
 }
 
 // ── Rawat Inap Patient Detail types ──────────────────

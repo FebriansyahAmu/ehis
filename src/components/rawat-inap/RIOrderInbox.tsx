@@ -10,7 +10,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   Inbox, Stethoscope, DoorOpen, BedDouble, Shield, CheckCircle2, Loader2,
-  Clock, CalendarDays, ClipboardList, AlertTriangle, X, Ban,
+  Clock, CalendarDays, ClipboardList, AlertTriangle, X, Ban, ArrowLeftRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RIKelas, RIPenjamin } from "@/lib/data";
@@ -28,13 +28,19 @@ export interface RIOrder {
   age: number;
   gender: string;
   ruangan: string;
-  kelas: RIKelas;
+  kelas: RIKelas; // kelas KAMAR (placement fisik)
+  titipan: boolean; // kamar ≠ hak kelas → tagihan ikut hak
+  kelasHak: string | null; // RIKelas hak (basis tagihan saat titipan)
   bedKode: string | null; // bed yang direservasi admisi (null = belum direservasi)
   dpjp: string;
   admitDate: string; // waktuKunjungan = rencana masuk
   penjamin: RIPenjamin;
   sepNoSep: string | null;
 }
+
+const RIKELAS_LABEL: Record<string, string> = {
+  VIP: "VIP", Kelas_1: "Kelas 1", Kelas_2: "Kelas 2", Kelas_3: "Kelas 3", ICU: "ICU", HCU: "HCU", Isolasi: "Isolasi",
+};
 
 function fmtDateTime(iso: string): string {
   const d = new Date(iso);
@@ -138,9 +144,19 @@ function OrderCard({
             </p>
           </div>
         </div>
-        <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold text-white", cfg.header)}>
-          <KIcon size={10} /> {cfg.label}
-        </span>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold text-white", cfg.header)}>
+            <KIcon size={10} /> {cfg.label}
+          </span>
+          {order.titipan && (
+            <span
+              title={order.kelasHak ? `Tagihan ikut hak ${RIKELAS_LABEL[order.kelasHak] ?? order.kelasHak}` : "Pasien titipan"}
+              className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-700 ring-1 ring-amber-200"
+            >
+              <ArrowLeftRight size={9} /> Titipan{order.kelasHak ? ` · hak ${RIKELAS_LABEL[order.kelasHak] ?? order.kelasHak}` : ""}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Detail */}

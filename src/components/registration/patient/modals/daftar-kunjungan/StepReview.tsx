@@ -5,7 +5,7 @@ import { RvItem, RvSection2 } from "@/components/registration/kunjungan/Tabs/sep
 import { SepStep4 } from "@/components/registration/kunjungan/Tabs/sep/SepSteps";
 import type { SepDraft } from "@/components/registration/kunjungan/Tabs/sep/sepTypes";
 import { PENJAMIN_CFG } from "../../config";
-import { TRIASE_CFG, kategoriOf, type KunjunganForm, type PenjaminForm, type RujukanPick } from "./config";
+import { TRIASE_CFG, RIKELAS_LABEL, kategoriOf, type KunjunganForm, type PenjaminForm, type RujukanPick } from "./config";
 
 const KELAS_LABEL: Record<string, string> = { "1": "Kelas 1", "2": "Kelas 2", "3": "Kelas 3", vip: "VIP" };
 const RUJUKAN_SOURCE_LABEL: Record<RujukanPick["source"], string> = {
@@ -38,7 +38,12 @@ export function StepReview({
           {form.unit === "IGD" && <RvItem label="Ruangan IGD" value={form.ruanganNama.trim() || "—"} />}
           {form.unit === "Rawat Jalan" && <RvItem label="Poli Tujuan" value={form.poli} />}
           {form.unit === "Rawat Inap" && <RvItem label="Asal Masuk" value={form.asalMasuk} />}
-          {form.unit === "Rawat Inap" && <RvItem label="Kelas Rawat" value={KELAS_LABEL[form.kelasRawat] ?? form.kelasRawat} />}
+          {form.unit === "Rawat Inap" && (
+            <RvItem
+              label="Kelas Kamar"
+              value={form.kelasKamar ? (RIKELAS_LABEL[form.kelasKamar] ?? form.kelasKamar) : (KELAS_LABEL[form.kelasRawat] ?? "—")}
+            />
+          )}
           {form.unit === "Rawat Inap" && <RvItem label="Ruangan" value={form.ruanganNama.trim() || "—"} />}
           {form.unit === "Rawat Inap" && <RvItem label="Bed (reserve)" value={form.bedNama.trim() || "—"} />}
           <RvItem

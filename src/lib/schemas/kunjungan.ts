@@ -82,7 +82,10 @@ export const RegisterKunjunganInput = z
     triaseLevel: z.number().int().min(1).max(4).optional(), // IGD prioritas P1..P4
     dpjpId: z.string().uuid().optional(), // DPJP master (Dokter id, bukan nama bebas)
     ruanganId: z.string().uuid().optional(), // ruangan layanan (master Location) — IGD bay / RI bangsal
-    kelas: KelasRawat.optional(), // RI — kelas rawat
+    kelas: KelasRawat.optional(), // RI — kelas KAMAR (placement fisik; ikut ruangan)
+    kelasHak: KelasRawat.optional(), // RI — hak kelas (basis tagihan saat TITIPAN); snapshot penjamin
+    titipan: z.boolean().optional(), // RI — pasien titipan (kamar ≠ hak kelas; mis. hak penuh)
+    titipanAlasan: z.string().trim().max(200).optional(),
     bedId: z.string().uuid().optional(), // RI — bed di-reserve saat daftar (master Bed)
     keluhan: z.string().trim().max(1000).optional(),
     caraMasuk: z.string().trim().max(60).optional(),
@@ -208,6 +211,8 @@ export interface KunjunganListItemDTO {
   dpjpId: string | null;
   ruanganId: string | null;
   kelas: string | null;
+  kelasHak: string | null; // RI — hak kelas (basis tagihan titipan)
+  titipan: boolean; // RI — pasien titipan (kamar ≠ hak kelas)
   triaseLevel: number | null;
   callState: "Idle" | "Dipanggil" | null;
   recallCount: number;
@@ -234,6 +239,9 @@ export interface KunjunganDTO {
   dpjpId: string | null;
   ruanganId: string | null;
   kelas: string | null;
+  kelasHak: string | null; // RI — hak kelas (basis tagihan titipan)
+  titipan: boolean; // RI — pasien titipan (kamar ≠ hak kelas)
+  titipanAlasan: string | null;
   triaseLevel: number | null;
   caraMasuk: string | null;
   caraDatang: string | null;

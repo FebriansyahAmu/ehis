@@ -15,7 +15,8 @@ export const SpriJenisPerawatan = z.enum([
 export type SpriJenisPerawatan = z.infer<typeof SpriJenisPerawatan>;
 
 // Lifecycle SPRI (encounter.Spri.status).
-export const SpriStatus = z.enum(["MenungguRef", "Terbit", "Dikonsumsi", "Batal"]);
+// Tergantikan = SPRI saudara (pasien sama) ditutup otomatis saat SPRI lain dikonsumsi (admisi).
+export const SpriStatus = z.enum(["MenungguRef", "Terbit", "Dikonsumsi", "Batal", "Tergantikan"]);
 export type SpriStatus = z.infer<typeof SpriStatus>;
 
 // ── Blok SPRI (menyertai complete saat jenis = Rawat_Inap) ──────────────────────
@@ -82,6 +83,21 @@ export const ConsumeSpriInput = z.object({
 });
 export type ConsumeSpriInput = z.infer<typeof ConsumeSpriInput>;
 
+// ── Edit SPRI (revisi konten + kirim UpdateSPRI ke BPJS bila sudah ada No. Referensi) ──
+export const EditSpriInput = z.object({
+  dpjpNama: z.string().trim().min(1, "DPJP wajib").max(160),
+  dpjpPegawaiId: z.string().uuid().optional(),
+  smfSpesialistik: z.string().trim().max(120).optional(),
+  poliKode: z.string().trim().max(20).optional(),
+  poliNama: z.string().trim().max(120).optional(),
+  tglRencanaRawat: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format tanggal harus YYYY-MM-DD"),
+  jenisPerawatan: SpriJenisPerawatan,
+  indikasi: z.string().trim().min(1, "Indikasi rawat inap wajib").max(2000),
+  keterangan: z.string().trim().max(2000).optional(),
+  version: z.number().int().nonnegative(),
+});
+export type EditSpriInput = z.infer<typeof EditSpriInput>;
+
 // DTO worklist/kartu admisi
 export interface SpriDTO {
   id: string;
@@ -91,6 +107,7 @@ export interface SpriDTO {
   namaPasien: string;
   noKartu: string;
   dpjpNama: string;
+  dpjpPegawaiId: string | null;
   smfSpesialistik: string | null;
   poliKode: string | null;
   poliNama: string | null;

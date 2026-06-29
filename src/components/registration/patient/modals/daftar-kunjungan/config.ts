@@ -61,6 +61,16 @@ export const UNIT_DAFTAR_CFG: {
 
 export const isBpjs = (t: TipePenjamin): boolean => t === "BPJS_Non_PBI" || t === "BPJS_PBI";
 
+// Hak kelas BPJS ("1"/"2"/"3") → RIKelas (untuk bandingkan dgn kelas kamar & basis tagihan titipan).
+export const HAK_TO_RIKELAS: Record<string, "Kelas_1" | "Kelas_2" | "Kelas_3"> = {
+  "1": "Kelas_1", "2": "Kelas_2", "3": "Kelas_3",
+};
+// Label tampilan RIKelas (dipakai dialog konfirmasi kelas + titipan).
+export const RIKELAS_LABEL: Record<string, string> = {
+  VIP: "VIP", Kelas_1: "Kelas 1", Kelas_2: "Kelas 2", Kelas_3: "Kelas 3",
+  ICU: "ICU", HCU: "HCU", Isolasi: "Isolasi",
+};
+
 // Kategori penjamin di level UI (3 opsi). PBI/Non-PBI ditentukan dari hasil
 // verifikasi kepesertaan, bukan dipilih manual. `tipe` = representatif untuk styling.
 export type PenjaminKategori = "Umum" | "BPJS" | "Asuransi";
@@ -98,6 +108,9 @@ export interface KunjunganForm {
   poli: string;
   asalMasuk: string;
   kelasRawat: string;
+  /** Kelas KAMAR aktual dari ruangan RI terpilih (RIKelas: "Kelas_3"/"VIP"/"ICU"…). Placement fisik
+   *  → jadi `kunjungan.kelas`. Diisi saat pilih ruangan (StepKunjunganRi). */
+  kelasKamar: string;
   // ── IGD: ruangan layanan + DPJP ter-assign ruangan (master) ──
   /** Ruangan IGD terpilih (master Location id) → persist Kunjungan.ruanganId. */
   ruanganId: string;

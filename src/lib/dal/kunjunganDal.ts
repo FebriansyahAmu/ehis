@@ -25,6 +25,9 @@ export interface CreateKunjunganData {
   ruanganId?: string;
   poli?: string;
   kelas?: KelasRawat;
+  kelasHak?: KelasRawat;
+  titipan?: boolean;
+  titipanAlasan?: string;
   bedId?: string;
   triaseLevel?: number;
   caraDatang?: string;
