@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 
 import RIPatientHeader from "@/components/rawat-inap/RIPatientHeader";
 import RIRecordTabs    from "@/components/rawat-inap/RIRecordTabs";
-import { RIDetailFallbackClient } from "@/components/rawat-inap/RIDetailFallbackClient";
+import RIRecordResolver from "@/components/rawat-inap/RIRecordResolver";
 import { rawatInapPatientDetails } from "@/lib/data";
 
 // id pasien DB = UUID v7; pasien demo/seed = "ri-1" dst → hanya UUID yang menempuh fallback DB.
@@ -27,10 +27,11 @@ export default async function RIPatientPage({
   const { id } = await params;
   const patient = rawatInapPatientDetails[id];
 
-  // Pasien NYATA (kunjungan DB) belum punya rekam mock → fallback ringkasan admisi (anti-404).
-  // Migrasi rekam medis 19-tab penuh menyusul.
+  // Pasien NYATA (kunjungan DB, id UUID) → resolver klien fetch kunjungan + pasien + master,
+  // bangun RawatInapPatientDetail (klinis kosong), render rekam medis 19-tab penuh untuk mulai
+  // pengisian. Pasien demo/seed (non-UUID) yang tak ada di mock → notFound.
   if (!patient) {
-    if (UUID_RE.test(id)) return <RIDetailFallbackClient id={id} />;
+    if (UUID_RE.test(id)) return <RIRecordResolver id={id} />;
     notFound();
   }
 
