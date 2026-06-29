@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
-  Inbox, Stethoscope, DoorOpen, BedDouble, Shield, FileText, CheckCircle2, Loader2,
+  Inbox, Stethoscope, DoorOpen, BedDouble, Shield, CheckCircle2, Loader2,
   Clock, CalendarDays, ClipboardList, AlertTriangle, X, Ban,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,8 +31,6 @@ export interface RIOrder {
   kelas: RIKelas;
   bedKode: string | null; // bed yang direservasi admisi (null = belum direservasi)
   dpjp: string;
-  diagnosis: string;
-  kodeIcd: string;
   admitDate: string; // waktuKunjungan = rencana masuk
   penjamin: RIPenjamin;
   sepNoSep: string | null;
@@ -157,14 +155,6 @@ function OrderCard({
               <AlertTriangle size={11} /> belum direservasi
             </span>
           )}
-        </Row>
-        <Row icon={<FileText size={12} className="text-slate-400" />} label="Diagnosa">
-          {order.diagnosis !== "—" ? (
-            <span className="truncate">
-              {order.kodeIcd !== "—" && <span className="font-mono text-[10px] text-slate-400">{order.kodeIcd} </span>}
-              {order.diagnosis}
-            </span>
-          ) : <span className="text-slate-400">—</span>}
         </Row>
         <Row icon={<Shield size={12} className="text-emerald-400" />} label="Penjamin">{RI_PENJAMIN_LABEL[order.penjamin]}</Row>
         <Row icon={<CalendarDays size={12} className="text-slate-400" />} label="Didaftarkan">{fmtDateTime(order.admitDate)}</Row>

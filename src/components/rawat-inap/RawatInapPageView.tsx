@@ -253,8 +253,6 @@ function toOrder(k: KunjunganListItemDTO, L: Lookups): RIOrder {
     kelas,
     bedKode: bed?.kode ?? null,
     dpjp: dok?.namaTampil ?? "Belum ditetapkan",
-    diagnosis: k.diagnosaMasuk ?? "—",
-    kodeIcd: k.kodeIcdMasuk ?? "—",
     admitDate: k.waktuKunjungan,
     penjamin: toRIPenjamin(k.penjaminTipe),
     sepNoSep: k.sep?.noSep ?? null,
