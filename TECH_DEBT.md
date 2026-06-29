@@ -60,6 +60,13 @@
 
 ## 🛏 Rawat Inap
 
+### Invarian unit Kunjungan — DB hardening (Tier 1 ✅ 2026-06-29)
+- [x] **Partial CHECK constraint per-unit** — invarian unit kini ditegakkan DB (bukan hanya Zod/Service). Migrasi `20260629140000_kunjungan_unit_invariants` (audit 0 pelanggar, anti-drift `migrate resolve --applied`): `kunjungan_titipan_kelashak_chk` (titipan→kelas_hak) · `kunjungan_ri_kelas_chk` (RI→kelas) · `kunjungan_unit_kelas_scope_chk` (hanya RI bawa kelas/kelasHak/titipan) · `kunjungan_rj_poli_chk` (RJ→poli); melengkapi `kunjungan_triase_range_chk` lama. Terbukti menolak pelanggar (23514).
+- [ ] **Tutup soft-FK lintas-schema** (Tier 3) — `dpjpId`/`ruanganId`/`bedId` masih "FK saat siap" (integritas di aplikasi). Pasang FK nyata saat master stabil.
+
+### Rawat Inap — DB-wiring tab klinis (Tier 2)
+- [ ] **Lanjutkan wiring tab RI mock → DB** — roadmap [TODO-CLINICAL-RI.md](TODO-CLINICAL-RI.md) (fase RI-CL1/2/3 + tracker 23 tab), aturan main [docs/RAWAT-INAP-RECORD-RULES.md](docs/RAWAT-INAP-RECORD-RULES.md) (R1–R10 + DoD). Urutan: Asuhan Keperawatan → Pemeriksaan Fisik → Asesmen Awal → Pasien Pulang (Disposisi) → Intake/Output → Gizi → ICU Scoring/Discharge/MAR/Konseling. Jaga tracker sinkron saat tiap tab naik 🟢.
+
 ### Landing DB-driven (2026-06-28) — follow-up
 - [ ] **Status klinis board** — kartu census memetakan lifecycle kunjungan → `Aktif`/`Pulang Hari Ini` saja; status klinis **Kritis/Observasi/Konsultasi** belum terderivasi dari worklist DTO (tab filter status tsb. menampilkan 0). Butuh enrichment (mis. flag kritis dari TTV/observasi terakhir, konsultasi aktif) di worklist atau fetch tambahan. [RawatInapPageView.toPatient](src/components/rawat-inap/RawatInapPageView.tsx).
 - [x] **Detail RI 19-tab ke DB — header+tabs nyata ✅ (2026-06-29)** — pasien NYATA (kunjungan DB) kini buka rekam medis penuh via [RIRecordResolver](src/components/rawat-inap/RIRecordResolver.tsx) → adapter [riDetailApi](src/components/rawat-inap/riDetailApi.ts) (`dtoToRawatInapPatientDetail`, klinis kosong) → `RIPatientHeader`+`RIRecordTabs` (`kunjunganId=patient.id` UUID); klik kartu census → mulai pengisian. **Sisa:** sebagian tab belum DB-wired (CPPT/TTV/Diagnosa/Resep/Order persist by kunjungan; tapi Asesmen Awal/Care Plan/Gizi/Isolasi/Discharge/MAR masih komponen mock-UI — wiring per-domain `medicalrecord.*` menyusul). `RIDetailFallbackClient` dihapus.
