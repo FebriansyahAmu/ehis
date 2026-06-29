@@ -43,7 +43,7 @@ interface TabDef { id: string; label: string; icon: LucideIcon }
 const REKAM_MEDIS: TabDef[] = [
   { id: "triase",        label: "Triase",          icon: ClipboardList  },
   { id: "ttv",           label: "TTV",             icon: HeartPulse     },
-  { id: "asesmen",       label: "Asesmen Medis",   icon: Stethoscope    },
+  { id: "asesmen",       label: "Asesmen Awal",    icon: Stethoscope    },
   { id: "diagnosa",      label: "Diagnosa",        icon: Tag            },
   { id: "cppt",          label: "CPPT / SOAP",     icon: FileText       },
   { id: "tindakan",        label: "Tindakan IGD",      icon: Zap        },

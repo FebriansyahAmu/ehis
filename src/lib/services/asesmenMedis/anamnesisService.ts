@@ -10,11 +10,25 @@ import * as kunjunganDal from "@/lib/dal/kunjunganDal";
 import * as pegawaiDal from "@/lib/dal/pegawaiDal";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
-import type { AnamnesisInput, AnamnesisDTO, SumberAnamnesis } from "@/lib/schemas/asesmenMedis/anamnesis";
+import type {
+  AnamnesisInput, AnamnesisDTO, SumberAnamnesis, SosialData, SpiritualData,
+  AnamnesisRiwayatDTO, AnamnesisRiwayatEpisodeDTO,
+} from "@/lib/schemas/asesmenMedis/anamnesis";
 import type { AnamnesisEntity } from "@/lib/dal/asesmenMedis/anamnesisDal";
 
 type Dal = typeof defaultDal;
 type NonNullEntity = NonNullable<AnamnesisEntity>;
+
+const UNIT_LABEL: Record<string, string> = {
+  IGD: "IGD", RawatJalan: "Rawat Jalan", RawatInap: "Rawat Inap",
+};
+
+function jakartaDate(d: Date): string {
+  const p = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(d);
+  return p; // en-CA → YYYY-MM-DD
+}
 
 /** Nama tampil pegawai (gelar depan + nama + gelar belakang) — mirror authService. */
 function namaTampil(p: { gelarDepan: string | null; namaLengkap: string; gelarBelakang: string | null }): string {
@@ -43,6 +57,8 @@ function toDTO(a: NonNullEntity): AnamnesisDTO {
     faktorPeringan: a.faktorPeringan,
     statusGeneralis: a.statusGeneralis,
     obatSaatIni: a.obatSaatIni,
+    sosial: (a.sosial as SosialData | null) ?? null,
+    spiritual: (a.spiritual as SpiritualData | null) ?? null,
     pemeriksa: a.pemeriksa,
     authorUserId: a.authorUserId,
     createdAt: a.createdAt.toISOString(),
@@ -75,6 +91,8 @@ export function makeAnamnesisService(deps: { dal?: Dal } = {}) {
       faktorPeringan: input.faktorPeringan ?? null,
       statusGeneralis: input.statusGeneralis,
       obatSaatIni: input.obatSaatIni ?? null,
+      sosial: input.sosial, // undefined (IGD) → DAL omit; objek (RI) → JSONB
+      spiritual: input.spiritual,
       pemeriksa,
       authorUserId: actor.userId,
       authorPegawaiId: actor.pegawaiId,
@@ -90,7 +108,43 @@ export function makeAnamnesisService(deps: { dal?: Dal } = {}) {
     return row ? toDTO(row) : null;
   }
 
-  return { save, getLatest };
+  /** "Anamnesis Sebelumnya": anamnesis terbaru per kunjungan, lintas semua kunjungan pasien.
+   *  Pintu = kunjungan yang sedang dibuka (divalidasi ∈ unit di Route); agregasi lintas-unit
+   *  milik pasien sama = kesinambungan asuhan (SNARS AP 1.2). */
+  async function getRiwayat(kunjunganId: string, _actor: Actor): Promise<AnamnesisRiwayatDTO> {
+    const cur = await kunjunganDal.findById(kunjunganId);
+    if (!cur) throw Errors.notFound("Kunjungan tidak ditemukan");
+
+    const { items } = await kunjunganDal.listByUnitStatus({ patientId: cur.patientId, limit: 100 });
+    const noRM = items[0]?.pasien.noRm ?? "";
+
+    const rows = await dal.listLatestByKunjunganIds(items.map((k) => k.id));
+    const byKunjungan = new Map(rows.map((r) => [r.kunjunganId, r]));
+
+    const episodes: AnamnesisRiwayatEpisodeDTO[] = [];
+    for (const k of items) {
+      const a = byKunjungan.get(k.id);
+      if (!a) continue; // hanya kunjungan yang punya anamnesis
+      episodes.push({
+        kunjunganId: k.id,
+        noKunjungan: k.noKunjungan,
+        unit: k.unit,
+        unitLabel: UNIT_LABEL[k.unit] ?? k.unit,
+        poli: k.poli ?? null,
+        tanggal: jakartaDate(a.createdAt),
+        isCurrent: k.id === kunjunganId,
+        pemeriksa: a.pemeriksa,
+        keluhanUtama: a.keluhanUtama,
+        rps: a.rps,
+        statusGeneralis: a.statusGeneralis,
+        obatSaatIni: a.obatSaatIni,
+      });
+    }
+
+    return { kunjunganId, patientId: cur.patientId, noRM, total: episodes.length, episodes };
+  }
+
+  return { save, getLatest, getRiwayat };
 }
 
 export const anamnesisService = makeAnamnesisService();

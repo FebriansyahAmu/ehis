@@ -219,6 +219,10 @@ model Anamnesis {
   statusGeneralis String  @map("status_generalis") // keadaan umum (pemeriksaan fisik lengkap = domain Assessment lain)
   obatSaatIni     String? @map("obat_saat_ini") // snapshot bebas (riwayat obat lengkap = domain Riwayat)
 
+  // ── Psikososial & spiritual (RI — SNARS AP 1.1 / HPK 1.1; IGD null) ──
+  sosial    Json? @map("sosial") // { pekerjaan, pendidikan, statusPernikahan, dukunganKeluarga, hambatanKomunikasi[], ... }
+  spiritual Json? @map("spiritual") // { agama, kebutuhanSpiritual, penolakanProsedur, ... }
+
   // ── Pemeriksa + author (dari actor) ──
   pemeriksa       String  // nama denormalisasi pencatat (dari user login)
   authorUserId    String? @map("author_user_id") @db.Uuid

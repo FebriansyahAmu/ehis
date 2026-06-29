@@ -102,7 +102,8 @@ function NavItem({ tab, active, onClick }: { tab: TabDef; active: boolean; onCli
 // ── Main ─────────────────────────────────────────────────
 
 export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDetail }) {
-  const [active, setActive] = useState<TabId>("cppt");
+  // Default = Asesmen Awal: pintu masuk dokumentasi RI (SNARS AP 1, wajib 24 jam pertama).
+  const [active, setActive] = useState<TabId>("asesmen-awal");
 
   const visibleRM   = REKAM_MEDIS.filter((t) => !t.showFor || t.showFor.includes(patient.kelas));
   const visibleTabs = [...visibleRM, ...LAYANAN];

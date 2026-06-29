@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ChevronDown, ChevronUp, FileText, Sparkles, Check,
+  ChevronDown, ChevronUp, FileText, Sparkles, Check, Loader2, AlertTriangle, User,
 } from "lucide-react";
 import type { RawatInapPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,14 @@ import {
   type AnamnesisRIData, type SosialData, type SpiritualData,
   ANAMNESIS_TEMPLATES, ASESMEN_AWAL_MOCK,
 } from "./asesmenAwalShared";
+import AnamnesisSebelumnya from "@/components/shared/medical-records/AnamnesisSebelumnya";
+import { getAnamnesis, saveAnamnesis } from "@/lib/api/asesmenMedis/anamnesis";
+import type { SumberAnamnesis, AnamnesisInput } from "@/lib/schemas/asesmenMedis/anamnesis";
+import { useSession } from "@/contexts/SessionContext";
+
+// id kunjungan DB = UUID; id demo/seed ("ri-1") → tak tersimpan ke DB.
+const ANAMNESIS_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SUMBER_OPTS: SumberAnamnesis[] = ["Pasien", "Keluarga", "Pengantar", "Rekam Medis"];
 
 // ── Primitives ────────────────────────────────────────────
 
@@ -326,6 +334,70 @@ export default function AnamnesisPaneRI({ patient, onComplete }: AnamnesisPaneRI
     savedAt: "",
   });
 
+  const { session } = useSession();
+  const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
+
+  const [sumber, setSumber] = useState<SumberAnamnesis>("Pasien");
+  const [saving, setSaving] = useState(false);
+  const [error, setError]   = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  // Muat anamnesis terbaru dari DB (kunjungan nyata, UUID). Demo (non-UUID) → tetap mock.
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    getAnamnesis(patient.id, ac.signal)
+      .then((dto) => {
+        if (ac.signal.aborted || !dto) return;
+        setSumber((dto.sumberAnamnesis as SumberAnamnesis) ?? "Pasien");
+        setForm((f) => ({
+          ...f,
+          keluhanUtama: dto.keluhanUtama,
+          rps: dto.rps,
+          onsetDurasi: dto.onsetDurasi ?? "",
+          faktorPemberat: dto.faktorPemberat ?? "",
+          faktorPemerut: dto.faktorPeringan ?? "",
+          statusGeneralis: dto.statusGeneralis,
+          obatSaatIni: dto.obatSaatIni ?? "",
+          sosial: (dto.sosial as AnamnesisRIData["sosial"]) ?? f.sosial,
+          spiritual: (dto.spiritual as AnamnesisRIData["spiritual"]) ?? f.spiritual,
+        }));
+        setSavedAt(dto.createdAt);
+        onComplete?.(dto.keluhanUtama.trim().length > 3 && dto.rps.trim().length > 10 && dto.statusGeneralis.trim().length > 3);
+      })
+      .catch(() => { /* abaikan — biarkan form kosong */ });
+    return () => ac.abort();
+  }, [patient.id, isPersisted, onComplete]);
+
+  async function handleSave() {
+    if (!isPersisted) { setError("Pasien demo — anamnesis tidak tersimpan ke database."); return; }
+    if (!form.keluhanUtama.trim() || !form.rps.trim() || !form.statusGeneralis.trim()) {
+      setError("Lengkapi Keluhan Utama, RPS, dan Status Generalis (wajib).");
+      return;
+    }
+    setSaving(true); setError(null);
+    try {
+      const dto = await saveAnamnesis(patient.id, {
+        sumberAnamnesis: sumber,
+        keluhanUtama: form.keluhanUtama,
+        rps: form.rps,
+        onsetDurasi: form.onsetDurasi || undefined,
+        mekanismeCedera: undefined, // RI tak fokus trauma; isi bila relevan
+        faktorPemberat: form.faktorPemberat || undefined,
+        faktorPeringan: form.faktorPemerut || undefined,
+        statusGeneralis: form.statusGeneralis,
+        obatSaatIni: form.obatSaatIni || undefined,
+        sosial: form.sosial as AnamnesisInput["sosial"],
+        spiritual: form.spiritual as AnamnesisInput["spiritual"],
+      });
+      setSavedAt(dto.createdAt);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal menyimpan anamnesis.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const set = <K extends keyof AnamnesisRIData>(k: K, v: AnamnesisRIData[K]) => {
     const updated = { ...form, [k]: v };
     setForm(updated);
@@ -347,11 +419,6 @@ export default function AnamnesisPaneRI({ patient, onComplete }: AnamnesisPaneRI
     onComplete?.(updated.keluhanUtama.length > 3 && updated.rps.length > 10);
   }
 
-  const PREV_NOTES = [
-    { tanggal: "10 Jan 2026", unit: "Poli Jantung", dokter: "dr. Hendra Wijaya, Sp.JP", diagnosa: "CAD, Hipertensi Grade II", catatan: "Pasien kontrol rutin. TD 150/90 mmHg. Terapi dilanjutkan: amlodipine 5 mg, bisoprolol 2.5 mg." },
-    { tanggal: "15 Nov 2025", unit: "IGD",          dokter: "dr. Rizal Akbar, Sp.EM",    diagnosa: "Nyeri Dada Atipikal",     catatan: "EKG normal, enzim jantung negatif. Dipulangkan terapi simtomatik." },
-  ];
-
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-start md:gap-4">
 
@@ -363,6 +430,12 @@ export default function AnamnesisPaneRI({ patient, onComplete }: AnamnesisPaneRI
           <div className="flex items-center justify-between">
             <span className="text-[11px] text-slate-400">Lengkapi riwayat penyakit sekarang</span>
             <TemplatePicker onApply={applyTemplate} />
+          </div>
+          <div className="max-w-55">
+            <Label required>Sumber Anamnesis</Label>
+            <select value={sumber} onChange={e => setSumber(e.target.value as SumberAnamnesis)} className={SEL_CLS}>
+              {SUMBER_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
           </div>
           <TA label="Keluhan Utama" required value={form.keluhanUtama} onChange={v => set("keluhanUtama", v)}
             placeholder="Keluhan utama yang membawa pasien masuk RS..." />
@@ -397,35 +470,41 @@ export default function AnamnesisPaneRI({ patient, onComplete }: AnamnesisPaneRI
           onSpiritualChange={v => set("spiritual", v)}
         />
 
-        <div className="flex justify-end">
-          <button type="button"
-            className="rounded-lg bg-sky-600 px-5 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-sky-700">
-            Simpan Anamnesis
-          </button>
+        <div className="flex flex-col items-end gap-2 pt-1">
+          {error && (
+            <div role="alert" className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-700">
+              <AlertTriangle size={13} className="shrink-0" /> {error}
+            </div>
+          )}
+          {!error && savedAt && (
+            <div className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700">
+              <Check size={13} className="shrink-0" /> Tersimpan · {savedAt.slice(0, 16).replace("T", " ")} WIB
+            </div>
+          )}
+          {!isPersisted && !error && (
+            <p className="text-[11px] text-amber-600">Pasien demo — perubahan tidak tersimpan ke database.</p>
+          )}
+          <div className="flex items-center gap-3">
+            {isPersisted && (
+              <span className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                <User size={12} className="text-slate-400" />
+                Dicatat oleh <span className="font-semibold text-slate-700">{session?.namaTampil ?? "—"}</span>
+              </span>
+            )}
+            <button type="button" onClick={handleSave} disabled={saving}
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-5 py-2 text-xs font-medium text-white shadow-sm transition",
+                saving ? "cursor-not-allowed bg-slate-300" : "bg-sky-600 hover:bg-sky-700",
+              )}>
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+              {saving ? "Menyimpan…" : "Simpan Anamnesis"}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Right: previous notes */}
-      <div className="flex flex-col gap-2 md:w-80 md:shrink-0">
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-3">
-            <span className="text-xs font-semibold text-slate-700">Catatan Medis Sebelumnya</span>
-          </div>
-          <div className="flex flex-col divide-y divide-slate-100">
-            {PREV_NOTES.map((note, i) => (
-              <div key={i} className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="rounded-md bg-slate-100 px-2.5 py-1 font-mono text-xs font-semibold text-slate-600">{note.tanggal}</span>
-                  <span className="rounded-md bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-600">{note.unit}</span>
-                </div>
-                <p className="mt-2 text-xs font-bold text-slate-800">{note.diagnosa}</p>
-                <p className="mt-1.5 text-xs leading-relaxed text-slate-600">{note.catatan}</p>
-                <p className="mt-2 text-[11px] italic text-slate-400">{note.dokter}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      {/* Right: Anamnesis Sebelumnya (longitudinal lintas kunjungan, read-only) */}
+      <AnamnesisSebelumnya kunjunganId={patient.id} className="md:w-80 md:shrink-0" />
 
     </div>
   );

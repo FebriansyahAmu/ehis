@@ -29,6 +29,7 @@ import { getObstetri, saveObstetri } from "@/lib/api/asesmenMedis/asesmenObstetr
 import { getAlergi, addAlergi, deleteAlergi, setAlergiNka, type AlergiItemDTO } from "@/lib/api/asesmenMedis/asesmenAlergi";
 import { listObatTersedia, type ObatTersediaDTO } from "@/lib/api/master/obatTersedia";
 import ObatAllergenInput from "@/components/shared/asesmen/ObatAllergenInput";
+import AnamnesisSebelumnya from "@/components/shared/medical-records/AnamnesisSebelumnya";
 import { getAsesmenRingkasan } from "@/lib/api/asesmenMedis/ringkasan";
 import { useSession } from "@/contexts/SessionContext";
 import { toast } from "@/lib/ui/toastStore";
@@ -168,7 +169,7 @@ function ProgressHeader({ doneCount, total }: { doneCount: number; total: number
       <div className="mb-2 flex items-center justify-between">
         <div>
           <p className={cn("text-xs font-bold", allDone ? "text-emerald-800" : "text-sky-800")}>
-            {allDone ? "Asesmen Medis Lengkap" : "Asesmen Medis IGD"}
+            {allDone ? "Asesmen Awal Lengkap" : "Asesmen Awal IGD"}
           </p>
           <p className={cn("mt-0.5 text-[10px]", allDone ? "text-emerald-600" : "text-sky-600")}>
             {allDone
@@ -272,29 +273,6 @@ function TemplatePicker({ onApply }: { onApply: (t: IGDTemplate) => void }) {
     </div>
   );
 }
-
-// ── Mock: previous medical notes ─────────────────────────
-
-const PREV_NOTES = [
-  {
-    tanggal: "10 Jan 2026", unit: "Poli Jantung",
-    dokter: "dr. Hendra Wijaya, Sp.JP",
-    diagnosa: "CAD, Hipertensi Grade II",
-    catatan: "Pasien kontrol rutin. TD 150/90 mmHg. Terapi dilanjutkan: amlodipine 5 mg, bisoprolol 2.5 mg.",
-  },
-  {
-    tanggal: "15 Nov 2025", unit: "IGD",
-    dokter: "dr. Rizal Akbar, Sp.EM",
-    diagnosa: "Nyeri Dada Atipikal",
-    catatan: "EKG: sinus rhythm, normal. Enzim jantung negatif. Dipulangkan dengan terapi simtomatik.",
-  },
-  {
-    tanggal: "03 Agu 2025", unit: "Poli Penyakit Dalam",
-    dokter: "dr. Anisa Putri, Sp.PD",
-    diagnosa: "Hipertensi, DM Tipe 2",
-    catatan: "HbA1c 8.2%. Gula darah puasa 180 mg/dL. Penyesuaian dosis metformin.",
-  },
-];
 
 // ─────────────────────────────────────────────────────────
 // ANAMNESIS sub-tab
@@ -539,31 +517,8 @@ function AnamnesisPane({
         </div>
       </div>
 
-      {/* ── Right: previous notes ── */}
-      <div className="flex flex-col gap-2 md:w-80 md:shrink-0">
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-3">
-            <span className="text-xs font-semibold text-slate-700">Catatan Medis Sebelumnya</span>
-          </div>
-          <div className="flex flex-col divide-y divide-slate-100">
-            {PREV_NOTES.map((note, i) => (
-              <div key={i} className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="rounded-md bg-slate-100 px-2.5 py-1 font-mono text-xs font-semibold text-slate-600">
-                    {note.tanggal}
-                  </span>
-                  <span className="rounded-md bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-600">
-                    {note.unit}
-                  </span>
-                </div>
-                <p className="mt-2 text-xs font-bold text-slate-800">{note.diagnosa}</p>
-                <p className="mt-1.5 text-xs leading-relaxed text-slate-600">{note.catatan}</p>
-                <p className="mt-2 text-[11px] italic text-slate-400">{note.dokter}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      {/* ── Right: Anamnesis Sebelumnya (longitudinal lintas kunjungan, read-only) ── */}
+      <AnamnesisSebelumnya kunjunganId={patient.id} className="md:w-80 md:shrink-0" />
 
     </div>
   );
@@ -2772,7 +2727,7 @@ export default function AsesmenMedisTab({ patient }: { patient: IGDPatientDetail
         {/* ── Vertical sub-nav ── */}
         <nav
           className="flex gap-2 overflow-x-auto pb-1 lg:w-52 lg:shrink-0 lg:flex-col lg:pb-0"
-          aria-label="Asesmen Medis IGD sub-tab"
+          aria-label="Asesmen Awal IGD sub-tab"
         >
           {SUB_TABS.map(tab => (
             <SubNavItem
