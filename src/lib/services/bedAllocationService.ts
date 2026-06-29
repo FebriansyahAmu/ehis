@@ -67,6 +67,17 @@ export function makeBedAllocationService(
   function occupy(bedId: string, kunjunganId: string, tx?: Tx) {
     return allocate(bedId, kunjunganId, "Occupied", tx);
   }
+  /**
+   * RI saat "Terima Order": tempati bed yang SUDAH direservasi admisi (Reserved→Occupied)
+   * via update in-place — JANGAN create baru (akan tabrak partial-unique → P2002). Kembalikan
+   * bedId yang ditempati, atau null bila tak ada reservasi aktif (mis. IGD belum reservasi).
+   */
+  async function occupyReserved(kunjunganId: string, tx?: Tx): Promise<string | null> {
+    const active = await dal.findActiveByKunjungan(kunjunganId, tx);
+    if (!active || active.status !== "Reserved") return null;
+    await dal.occupyByKunjungan(kunjunganId, clock.now(), tx);
+    return active.bedId;
+  }
   /** Lepas semua alokasi aktif kunjungan (batal/pulang/transfer). */
   function release(kunjunganId: string, tx?: Tx) {
     return dal.releaseByKunjungan(kunjunganId, clock.now(), tx);
@@ -84,7 +95,7 @@ export function makeBedAllocationService(
     return rows.map(toActiveDTO);
   }
 
-  return { reserve, occupy, release, listActive };
+  return { reserve, occupy, occupyReserved, release, listActive };
 }
 
 export const bedAllocationService = makeBedAllocationService();

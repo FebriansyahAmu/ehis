@@ -56,12 +56,20 @@ const isBpjs = (t: string): boolean => t === "BPJS_Non_PBI" || t === "BPJS_PBI";
  *  · transisi administratif lain (checkIn/call/recall/cancel) = wewenang loket.
  *  Superuser bypass. ABAC unit-scope (IGD nurse hanya pasien IGD) ditegakkan terpisah di route
  *  via scopeKunjungan. */
-function assertTransitionAllowed(actor: Actor, action: KunjunganActionName): void {
+function assertTransitionAllowed(actor: Actor, action: KunjunganActionName, status: string): void {
   if (actor.isSuperuser || actor.permissions.has("*")) return;
   const can = (r: string, a: string): boolean => actor.permissions.has(`${r}:${a}`);
+  const clinicalOrLoket = can("clinical.rekammedis", "update") || can("registration.kunjungan", "update");
   if (action === "receive" || action === "complete" || action === "reopen") {
-    if (can("clinical.rekammedis", "update") || can("registration.kunjungan", "update")) return;
+    if (clinicalOrLoket) return;
     throw Errors.forbidden("Tidak punya izin transisi klinis (perlu clinical.rekammedis:update atau registration.kunjungan:update)");
+  }
+  // Batalkan ORDER yang BELUM dilayani (status Registered — mis. "Tolak Order" di bangsal RI/IGD)
+  // = keputusan unit penerima → boleh klinis. Pembatalan setelah pelayanan dimulai
+  // (Queued/InService) tetap wewenang loket/admisi.
+  if (action === "cancel" && status === "Registered") {
+    if (clinicalOrLoket) return;
+    throw Errors.forbidden("Tidak punya izin membatalkan order (perlu clinical.rekammedis:update atau registration.kunjungan:update)");
   }
   if (!can("registration.kunjungan", "update")) {
     throw Errors.forbidden("Tidak punya izin registration.kunjungan:update");
@@ -422,19 +430,27 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
     actor: Actor,
     opts: TransitionOpts = {},
   ): Promise<KunjunganDTO> {
-    assertTransitionAllowed(actor, action); // authz per-aksi (receive/complete/reopen boleh klinis)
     const updated = await transaction(async (tx) => {
       const k = await dal.findById(id, tx);
       if (!k) throw Errors.notFound("Kunjungan tidak ditemukan");
+      assertTransitionAllowed(actor, action, k.status); // authz per-aksi (status-aware: cancel order Registered boleh klinis)
       if (expectedVersion !== undefined && k.version !== expectedVersion) throw Errors.conflictVersion();
       const patch = buildTransition(action, k);
 
       // Efek samping alokasi bed (dalam tx yang sama):
       //  · receive + bedId → tempati bed (Occupied) + simpan pointer Kunjungan.bedId
       //  · complete/cancel → lepas alokasi aktif kunjungan (bed bebas kembali)
-      if (action === "receive" && opts.bedId) {
-        await bedAlloc.occupy(opts.bedId, id, tx); // P2002 → CONFLICT "Bed sudah dipakai"
-        patch.bedId = opts.bedId;
+      if (action === "receive") {
+        // RI ("Terima Order"): admisi sudah reservasi bed → tempati bed yang SAMA
+        // (Reserved→Occupied), hindari create ganda (P2002). IGD: belum ada reservasi →
+        // tempati bed yang dipilih petugas saat menerima.
+        const reservedBedId = await bedAlloc.occupyReserved(id, tx);
+        if (reservedBedId) {
+          patch.bedId = reservedBedId;
+        } else if (opts.bedId) {
+          await bedAlloc.occupy(opts.bedId, id, tx); // P2002 → CONFLICT "Bed sudah dipakai"
+          patch.bedId = opts.bedId;
+        }
       }
       if (action === "cancel") {
         await bedAlloc.release(id, tx);

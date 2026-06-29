@@ -60,6 +60,11 @@
 
 ## 🛏 Rawat Inap
 
+### Landing DB-driven (2026-06-28) — follow-up
+- [ ] **Status klinis board** — kartu census memetakan lifecycle kunjungan → `Aktif`/`Pulang Hari Ini` saja; status klinis **Kritis/Observasi/Konsultasi** belum terderivasi dari worklist DTO (tab filter status tsb. menampilkan 0). Butuh enrichment (mis. flag kritis dari TTV/observasi terakhir, konsultasi aktif) di worklist atau fetch tambahan. [RawatInapPageView.toPatient](src/components/rawat-inap/RawatInapPageView.tsx).
+- [ ] **Detail RI 19-tab ke DB** — pasien NYATA (kunjungan DB) saat ini buka [RIDetailFallbackClient](src/components/rawat-inap/RIDetailFallbackClient.tsx) (ringkasan admisi, anti-404). Tab klinis penuh (`RIPatientHeader`+`RIRecordTabs`) masih `rawatInapPatientDetails` mock (id `ri-1`/`ri-3`). Migrasi: resolve kunjungan → `RawatInapPatientDetail` (identitas DB + array klinis dari domain medicalrecord by `kunjunganId`) → render header+tabs nyata.
+- [ ] **`noBed` saat ruangan/alokasi tak resolve** — adapter fallback ke `alloc.bedId.slice(0,6)` bila bed code master tak ketemu; idealnya worklist DTO bawa `bedKode`/`ruanganNama` (hindari resolusi FE multi-fetch).
+
 ### CarePlanTab (RAT)
 - [ ] **Link ke DiagnosaTab** — masalah aktif di RAT idealnya pull dari entri ICD-10 di `DiagnosaTab` (bukan diketik ulang). Perlu shared state atau props `diagnosaList` dari parent `RIRecordTabs` diteruskan ke `CarePlanTab`.
 - [ ] **Template per diagnosis** — library template RAT per diagnosis umum (GJK, Pneumonia, Sepsis, App Akut, dll). Target/intervensi pre-fill saat masalah dikenali. Kandidat: `carePlan/careplanTemplates.ts`.
