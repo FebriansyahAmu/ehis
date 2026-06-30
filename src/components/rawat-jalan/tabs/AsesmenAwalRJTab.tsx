@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import AnamnesisPaneRJ from "@/components/rawat-jalan/asesmenAwal/AnamnesisPaneRJ";
 import RiwayatPane     from "@/components/shared/asesmen/RiwayatPane";
 import AllergyPane     from "@/components/shared/asesmen/AllergyPane";
+import { AsesmenKatalogProvider } from "@/components/shared/asesmen/asesmenKatalogContext";
 import { getAsesmenRingkasan } from "@/lib/api/asesmenMedis/ringkasan";
 
 // id kunjungan DB = UUID; pasien demo/mock → ringkasan di-skip.
@@ -205,6 +206,7 @@ export default function AsesmenAwalRJTab({ patient }: { patient: RJPatientDetail
   };
 
   return (
+    <AsesmenKatalogProvider>
     <div className="flex flex-col gap-4">
 
       <ProgressHeader doneCount={doneCount} total={SUB_TABS.length} />
@@ -250,7 +252,7 @@ export default function AsesmenAwalRJTab({ patient }: { patient: RJPatientDetail
                 <RiwayatPane patient={patientBase} kunjunganId={patient.id} onComplete={setDoneRiwayat} />
               )}
               {active === "alergi" && (
-                <AllergyPane noRM={patient.noRM} onComplete={setDoneAlergi} />
+                <AllergyPane noRM={patient.noRM} kunjunganId={patient.id} onComplete={setDoneAlergi} />
               )}
             </motion.div>
           </AnimatePresence>
@@ -289,5 +291,6 @@ export default function AsesmenAwalRJTab({ patient }: { patient: RJPatientDetail
       )}
 
     </div>
+    </AsesmenKatalogProvider>
   );
 }

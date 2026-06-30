@@ -14,6 +14,7 @@ import RiwayatPane       from "@/components/shared/asesmen/RiwayatPane";
 import AllergyPane       from "@/components/shared/asesmen/AllergyPane";
 import SkriningPane      from "@/components/rawat-inap/asesmenAwal/SkriningPane";
 import PenilaianRisikoPane from "@/components/rawat-inap/asesmenAwal/PenilaianRisikoPane";
+import { AsesmenKatalogProvider } from "@/components/shared/asesmen/asesmenKatalogContext";
 import { getAsesmenRingkasan } from "@/lib/api/asesmenMedis/ringkasan";
 
 // id kunjungan DB = UUID; pasien demo/mock → ringkasan di-skip.
@@ -272,6 +273,7 @@ export default function AsesmenAwalTab({ patient }: AsesmenAwalTabProps) {
   };
 
   return (
+    <AsesmenKatalogProvider>
     <div className="flex flex-col gap-4">
 
       {/* Progress header */}
@@ -325,6 +327,7 @@ export default function AsesmenAwalTab({ patient }: AsesmenAwalTabProps) {
               {active === "alergi" && (
                 <AllergyPane
                   noRM={patient.noRM}
+                  kunjunganId={patient.id}
                   onComplete={setDoneAlergi}
                 />
               )}
@@ -376,5 +379,6 @@ export default function AsesmenAwalTab({ patient }: AsesmenAwalTabProps) {
       )}
 
     </div>
+    </AsesmenKatalogProvider>
   );
 }

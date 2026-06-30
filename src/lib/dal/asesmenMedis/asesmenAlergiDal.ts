@@ -30,6 +30,24 @@ export function listByKunjungan(kunjunganId: string, tx?: Tx) {
   });
 }
 
+/** Alergi aktif lintas kunjungan (terbaru dulu) — untuk panel "Riwayat Alergi Sebelumnya". */
+export function listByKunjunganIds(kunjunganIds: string[], tx?: Tx) {
+  if (kunjunganIds.length === 0) return Promise.resolve([]);
+  return db(tx).asesmenAlergi.findMany({
+    where: { kunjunganId: { in: kunjunganIds }, deletedAt: null },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+/** Kunjungan-kunjungan yang menyatakan NKA (true) di antara id — utk hint NKA sebelumnya. */
+export function listNkaTrueByKunjunganIds(kunjunganIds: string[], tx?: Tx) {
+  if (kunjunganIds.length === 0) return Promise.resolve([]);
+  return db(tx).asesmenAlergiNka.findMany({
+    where: { kunjunganId: { in: kunjunganIds }, nka: true },
+    select: { kunjunganId: true },
+  });
+}
+
 export function createItem(data: CreateAlergiData, tx?: Tx) {
   return db(tx).asesmenAlergi.create({ data });
 }
