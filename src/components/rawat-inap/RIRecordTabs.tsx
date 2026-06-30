@@ -7,7 +7,7 @@ import {
   FileText, HeartPulse, Tag, HeartHandshake, ScanLine,
   Pill, FlaskConical, Radiation, ClipboardList, LogOut,
   MessageSquare, Droplets, DoorOpen, Stethoscope, ArrowRightLeft,
-  ListChecks, ShieldCheck, Repeat, Target, Salad, Activity, ClipboardCheck, BookOpen, Package, type LucideIcon,
+  ListChecks, ShieldCheck, Repeat, Target, Salad, Activity, ClipboardCheck, BookOpen, Package, Gauge, type LucideIcon,
 } from "lucide-react";
 import type { RawatInapPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,7 @@ import TTVTab           from "./tabs/TTVTab";
 import DiagnosaTab      from "./tabs/DiagnosaTab";
 import KeperawatanTab   from "./tabs/KeperawatanTab";
 import PemeriksaanTab   from "./tabs/PemeriksaanTab";
+import PenilaianTab     from "@/components/shared/penilaian/PenilaianTab";
 import IntakeOutputTab  from "./tabs/IntakeOutputTab";
 import ResepTab         from "@/components/shared/medical-records/ResepTab";
 import BmhpOrderTab     from "@/components/shared/medical-records/orderBmhp/BmhpOrderTab";
@@ -48,6 +49,7 @@ const REKAM_MEDIS: TabDef[] = [
   { id: "diagnosa",     label: "Diagnosa",             icon: Tag,            done: true  },
   { id: "keperawatan",  label: "Asuhan Keperawatan",   icon: HeartHandshake, done: true  },
   { id: "pemeriksaan",  label: "Pemeriksaan Fisik",    icon: ScanLine,       done: true  },
+  { id: "penilaian",    label: "Penilaian",            icon: Gauge,          done: true  },
   { id: "intake-output",label: "Intake / Output",      icon: Droplets,       done: true  },
   { id: "gizi-nutrisi", label: "Gizi & Nutrisi",       icon: Salad,          done: true  },
   { id: "icu-scoring",  label: "ICU Scoring",          icon: Activity,       done: true, showFor: ["ICU", "HCU"] },
@@ -231,6 +233,7 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
             {active === "diagnosa"    && <DiagnosaTab    patient={patient} />}
             {active === "keperawatan" && <KeperawatanTab patient={patient} />}
             {active === "pemeriksaan"   && <PemeriksaanTab   patient={patient} />}
+            {active === "penilaian"     && <PenilaianTab     kunjunganId={patient.id} modul="RI" />}
             {active === "intake-output" && <IntakeOutputTab   patient={patient} />}
             {active === "gizi-nutrisi"  && <GiziNutrisiTab   patient={patient} />}
             {active === "icu-scoring"   && <ICUScoringTab    patient={patient} />}

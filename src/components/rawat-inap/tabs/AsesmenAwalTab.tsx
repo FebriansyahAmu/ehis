@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ClipboardList, History, AlertTriangle,
-  Salad, ShieldCheck, CheckCircle2,
+  Salad, CheckCircle2,
 } from "lucide-react";
 import type { RawatInapPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -13,7 +13,6 @@ import AnamnesisPaneRI   from "@/components/rawat-inap/asesmenAwal/AnamnesisPane
 import RiwayatPane       from "@/components/shared/asesmen/RiwayatPane";
 import AllergyPane       from "@/components/shared/asesmen/AllergyPane";
 import SkriningPane      from "@/components/rawat-inap/asesmenAwal/SkriningPane";
-import PenilaianRisikoPane from "@/components/rawat-inap/asesmenAwal/PenilaianRisikoPane";
 import { AsesmenKatalogProvider } from "@/components/shared/asesmen/asesmenKatalogContext";
 import { useSession } from "@/contexts/SessionContext";
 import { getAsesmenRingkasan } from "@/lib/api/asesmenMedis/ringkasan";
@@ -23,7 +22,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 // ── Sub-tab definitions ───────────────────────────────────
 
-type SubTabId = "anamnesis" | "riwayat" | "alergi" | "skrining" | "penilaian";
+type SubTabId = "anamnesis" | "riwayat" | "alergi" | "skrining";
 
 interface SubTabDef {
   id: SubTabId;
@@ -61,13 +60,6 @@ const SUB_TABS: SubTabDef[] = [
     sublabel: "Gizi",
     icon: Salad,
     standard: "AP 1.3",
-  },
-  {
-    id: "penilaian",
-    label: "Penilaian Risiko",
-    sublabel: "Barthel · Morse · Braden",
-    icon: ShieldCheck,
-    standard: "AP 1.4–1.5",
   },
 ];
 
@@ -224,13 +216,12 @@ export default function AsesmenAwalTab({ patient }: AsesmenAwalTabProps) {
   const [doneRiwayat,    setDoneRiwayat]    = useState(false);
   const [doneAlergi,     setDoneAlergi]     = useState(false);
   const [doneGizi,       setDoneGizi]       = useState(false);
-  const [donePenilaian,  setDonePenilaian]  = useState(false);
 
   const doneSkrining = doneGizi;
 
   // Ringkasan status semua sub-menu dalam 1 panggilan saat tab dibuka → indikator hijau
   // SubNav + progress langsung akurat tanpa harus membuka tiap sub-tab dulu (selaras IGD).
-  // Penilaian Risiko belum DB-wired → tetap di-set saat pane melapor. Hanya kunjungan DB (UUID).
+  // Hanya kunjungan DB (UUID). (Penilaian Risiko dipindah ke tab top-level "Penilaian".)
   useEffect(() => {
     if (!UUID_RE.test(patient.id)) return;
     const ac = new AbortController();
@@ -254,7 +245,6 @@ export default function AsesmenAwalTab({ patient }: AsesmenAwalTabProps) {
     riwayat:   doneRiwayat,
     alergi:    doneAlergi,
     skrining:  doneSkrining,
-    penilaian: donePenilaian,
   };
 
   const doneCount = Object.values(DONE_MAP).filter(Boolean).length;
@@ -339,11 +329,6 @@ export default function AsesmenAwalTab({ patient }: AsesmenAwalTabProps) {
                   kunjunganId={patient.id}
                   recordedBy={session?.namaTampil}
                   onGiziComplete={setDoneGizi}
-                />
-              )}
-              {active === "penilaian" && (
-                <PenilaianRisikoPane
-                  onComplete={setDonePenilaian}
                 />
               )}
             </motion.div>

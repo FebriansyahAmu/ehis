@@ -6,7 +6,6 @@ import {
   Activity, Zap, Stethoscope, Baby, Gauge,
   Heart, Microscope, ClipboardCheck, type LucideIcon,
 } from "lucide-react";
-import type { IGDPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/contexts/SessionContext";
 import { toast } from "@/lib/ui/toastStore";
@@ -17,13 +16,13 @@ import { getPenilaianStatus, createPenilaianStatus, type PenilaianStatusDTO } fr
 import { getPenilaianPediatrik, createPenilaianPediatrik, type PenilaianPediatrikDTO } from "@/lib/api/penilaian/penilaianPediatrik";
 import { listObservasi } from "@/lib/api/observation";
 
-import SkalaRisikoPanel from "./penilaian/SkalaRisikoPanel";
-import JantungPanel from "./penilaian/JantungPanel";
-import KankerPanel from "./penilaian/KankerPanel";
+import SkalaRisikoPanel from "./SkalaRisikoPanel";
+import JantungPanel from "./JantungPanel";
+import KankerPanel from "./KankerPanel";
 import {
   UUID_RE, NOTE_DATE_FMT, inputCls, AutoTextarea, Label, SaveBtn,
   HistoryPanel, TwoPanel, type NoteEntry, type PanelCtx,
-} from "./penilaian/shared";
+} from "./shared";
 
 // ── 1. FISIK ───────────────────────────────────────────────────
 const FISIK_NOTES: NoteEntry[] = [
@@ -574,14 +573,15 @@ const TABS: TabDef[] = [
 ];
 
 // ── Main ───────────────────────────────────────────────────────
-export default function PenilaianTab({ patient }: { patient: IGDPatientDetail }) {
+// Shared lintas-unit (IGD/RI/…): `modul` mem-filter master skala (konsumenModul);
+// `kunjunganId` kunci domain medicalrecord.penilaian_*; `perawat` dari sesi login.
+export default function PenilaianTab({ kunjunganId, modul }: { kunjunganId: string; modul: string }) {
   const { session } = useSession();
-  const kunjunganId = patient.id ?? "";
   const ctx: PanelCtx = {
     kunjunganId,
     isPersisted: UUID_RE.test(kunjunganId),
     perawat: session?.namaTampil ?? "",
-    modul: "IGD", // unit konsumen — filter master skala (konsumenModul)
+    modul, // unit konsumen — filter master skala (konsumenModul)
   };
   const [activeId, setActiveId] = useState("fisik");
   const tabBarRef = useRef<HTMLDivElement>(null);

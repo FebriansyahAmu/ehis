@@ -29,7 +29,7 @@ import PasienPulangTab  from "./tabs/PasienPulangTab";
 import RekonsiliasTab   from "./tabs/RekonsiliasTab";
 import KeperawatanTab   from "./tabs/KeperawatanTab";
 import PemeriksaanTab   from "./tabs/PemeriksaanTab";
-import PenilaianTab      from "./tabs/PenilaianTab";
+import PenilaianTab      from "@/components/shared/penilaian/PenilaianTab";
 import RujukanKeluarTab      from "./tabs/RujukanKeluarTab";
 import PenandaanGambarTab   from "./tabs/PenandaanGambarTab";
 import DaftarOrderTab        from "./tabs/DaftarOrderTab";
@@ -272,7 +272,7 @@ export default function IGDRecordTabs({
             {active === "rekonsiliasi" && <RekonsiliasTab  patient={patient} />}
             {active === "keperawatan"  && <KeperawatanTab  patient={patient} />}
             {active === "pemeriksaan"  && <PemeriksaanTab    patient={patient} />}
-            {active === "penilaian"    && <PenilaianTab    patient={patient} />}
+            {active === "penilaian"    && <PenilaianTab    kunjunganId={patient.id} modul="IGD" />}
             {active === "rujukan"      && <RujukanKeluarTab    patient={patient} />}
             {active === "penandaan"   && <PenandaanGambarTab patient={patient} />}
             {active === "handover"    && <HandoverTab        patient={patient} />}
