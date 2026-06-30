@@ -15,6 +15,7 @@ import AllergyPane       from "@/components/shared/asesmen/AllergyPane";
 import SkriningPane      from "@/components/rawat-inap/asesmenAwal/SkriningPane";
 import PenilaianRisikoPane from "@/components/rawat-inap/asesmenAwal/PenilaianRisikoPane";
 import { AsesmenKatalogProvider } from "@/components/shared/asesmen/asesmenKatalogContext";
+import { useSession } from "@/contexts/SessionContext";
 import { getAsesmenRingkasan } from "@/lib/api/asesmenMedis/ringkasan";
 
 // id kunjungan DB = UUID; pasien demo/mock → ringkasan di-skip.
@@ -215,6 +216,7 @@ interface AsesmenAwalTabProps {
 // ── Main component ────────────────────────────────────────
 
 export default function AsesmenAwalTab({ patient }: AsesmenAwalTabProps) {
+  const { session } = useSession();
   const [active, setActive] = useState<SubTabId>("anamnesis");
   const [prevTab, setPrevTab] = useState<SubTabId>("anamnesis");
 
@@ -334,6 +336,8 @@ export default function AsesmenAwalTab({ patient }: AsesmenAwalTabProps) {
               {active === "skrining" && (
                 <SkriningPane
                   noRM={patient.noRM}
+                  kunjunganId={patient.id}
+                  recordedBy={session?.namaTampil}
                   onGiziComplete={setDoneGizi}
                 />
               )}

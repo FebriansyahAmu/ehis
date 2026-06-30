@@ -12,6 +12,7 @@ import {
 } from "./asesmenShared";
 import { getGiziList, recordGizi, type AsesmenGiziDTO } from "@/lib/api/asesmenMedis/asesmenGizi";
 import { ApiError } from "@/lib/api/client";
+import { DatePicker } from "@/components/shared/inputs/DatePicker";
 
 // id kunjungan DB = UUID; id demo/mock ("igd-1") tak tersimpan ke DB.
 const GIZI_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -92,8 +93,8 @@ function HistoryCard({
       animate={{
         opacity: 1,
         y: 0,
-        borderColor: isNew ? "#818cf8" : "#e2e8f0",
-        backgroundColor: isNew ? "#eef2ff" : "#ffffff",
+        borderColor: isNew ? "#38bdf8" : "#e2e8f0",
+        backgroundColor: isNew ? "#f0f9ff" : "#ffffff",
       }}
       transition={{
         duration: 0.28,
@@ -113,7 +114,7 @@ function HistoryCard({
         {/* Index / icon */}
         <div className={cn(
           "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold",
-          isNew ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-500",
+          isNew ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-500",
         )}>
           {isNew ? <Salad size={12} /> : String(index + 1)}
         </div>
@@ -128,7 +129,7 @@ function HistoryCard({
               <motion.span
                 initial={{ scale: 0.7, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="rounded-full bg-indigo-600 px-1.5 py-0.5 text-[9px] font-bold text-white"
+                className="rounded-full bg-sky-600 px-1.5 py-0.5 text-[9px] font-bold text-white"
               >
                 Baru
               </motion.span>
@@ -261,13 +262,13 @@ function HistorySection({
         className="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-slate-100/60 rounded-xl"
       >
         <div className="flex items-center gap-2">
-          <History size={13} className="text-indigo-500" />
+          <History size={13} className="text-sky-500" />
           <span className="text-xs font-semibold text-slate-700">Riwayat Skrining Gizi</span>
           <motion.span
             key={entries.length}
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
-            className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700"
+            className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-700"
           >
             {entries.length} entri
           </motion.span>
@@ -445,7 +446,7 @@ export default function GiziPane({ noRM, kunjunganId, recordedBy, onComplete }: 
 
   const INPUT_CLS =
     "h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 " +
-    "placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100";
+    "placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100";
 
   return (
     <div className="flex flex-col gap-3">
@@ -503,7 +504,7 @@ export default function GiziPane({ noRM, kunjunganId, recordedBy, onComplete }: 
                       className={cn(
                         "flex items-center justify-between rounded-md border px-3 py-2 text-left text-xs font-medium transition",
                         scores[q.key] === opt.score
-                          ? "border-indigo-400 bg-indigo-50 text-indigo-700"
+                          ? "border-sky-400 bg-sky-50 text-sky-700"
                           : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
                       )}
                     >
@@ -632,7 +633,7 @@ export default function GiziPane({ noRM, kunjunganId, recordedBy, onComplete }: 
                   value={catatan}
                   onChange={e => setCatatan(e.target.value)}
                   placeholder="Rencana diet, suplemen, konsultasi lanjutan..."
-                  className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                  className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
                 />
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -659,11 +660,10 @@ export default function GiziPane({ noRM, kunjunganId, recordedBy, onComplete }: 
                 </div>
                 <div>
                   <Label>Tanggal Skrining</Label>
-                  <input
-                    type="date"
+                  <DatePicker
                     value={tanggal}
-                    onChange={e => setTanggal(e.target.value)}
-                    className={INPUT_CLS}
+                    onChange={setTanggal}
+                    placeholder="Pilih tanggal"
                   />
                 </div>
               </div>
@@ -676,7 +676,7 @@ export default function GiziPane({ noRM, kunjunganId, recordedBy, onComplete }: 
                 className={cn(
                   "flex w-full items-center justify-center gap-2 rounded-md py-2 text-xs font-semibold transition-all",
                   canSave
-                    ? "cursor-pointer bg-indigo-600 text-white shadow-sm hover:bg-indigo-700"
+                    ? "cursor-pointer bg-sky-600 text-white shadow-sm hover:bg-sky-700"
                     : "cursor-not-allowed bg-slate-100 text-slate-400",
                 )}
               >
