@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Pill, Utensils, ShieldAlert, AlertTriangle,
   Trash2, Plus, CheckCircle2, HelpCircle, ShieldCheck,
-  Check, X, ChevronDown, FileText, Sparkles,
+  Check, X,
   ClipboardList, History, Salad, BookOpen, Loader2, User,
   type LucideIcon,
 } from "lucide-react";
@@ -30,6 +30,7 @@ import { getAlergi, addAlergi, deleteAlergi, setAlergiNka, type AlergiItemDTO } 
 import { listObatTersedia, type ObatTersediaDTO } from "@/lib/api/master/obatTersedia";
 import ObatAllergenInput from "@/components/shared/asesmen/ObatAllergenInput";
 import AnamnesisSebelumnya from "@/components/shared/medical-records/AnamnesisSebelumnya";
+import AnamnesisTemplatePicker, { type AnamnesisTemplateDTO } from "@/components/shared/medical-records/AnamnesisTemplatePicker";
 import { getAsesmenRingkasan } from "@/lib/api/asesmenMedis/ringkasan";
 import { useSession } from "@/contexts/SessionContext";
 import { toast } from "@/lib/ui/toastStore";
@@ -202,78 +203,6 @@ function ProgressHeader({ doneCount, total }: { doneCount: number; total: number
   );
 }
 
-// ── IGD Anamnesis Templates ───────────────────────────────
-
-const IGD_TEMPLATES = [
-  {
-    id: "nyeri-dada", label: "Nyeri Dada / Angina",
-    keluhanUtama: "Nyeri dada kiri menjalar ke lengan kiri",
-    rps: "Pasien mengeluh nyeri dada kiri seperti ditekan sejak ± 1 jam. Nyeri menjalar ke lengan kiri. Disertai keringat dingin dan mual. Tidak membaik dengan istirahat.",
-    onsetDurasi: "Mendadak, ± 1 jam", mekanismeCedera: "",
-    faktorPemberat: "Aktivitas fisik, emosi", faktorPemerut: "Istirahat, nitrogliserin sublingual",
-    statusGeneralis: "Tampak sakit sedang, kompos mentis, akral dingin, diaforesis",
-  },
-  {
-    id: "sesak-napas", label: "Sesak Napas Akut",
-    keluhanUtama: "Sesak napas mendadak",
-    rps: "Pasien mengeluh sesak napas mendadak sejak ± 2 jam. Sesak memberat saat berbaring (ortopnea). Disertai batuk dan bengkak kedua tungkai.",
-    onsetDurasi: "Mendadak, ± 2 jam", mekanismeCedera: "",
-    faktorPemberat: "Berbaring, aktivitas fisik", faktorPemerut: "Posisi duduk tegak",
-    statusGeneralis: "Tampak sakit berat, kompos mentis, sesak, RR meningkat, SpO2 turun",
-  },
-  {
-    id: "nyeri-abdomen", label: "Nyeri Abdomen Akut",
-    keluhanUtama: "Nyeri perut hebat, mual, muntah",
-    rps: "Pasien mengeluh nyeri perut sejak ± 4 jam. Nyeri di perut kanan bawah / epigastrium. Disertai mual, muntah, dan demam.",
-    onsetDurasi: "Bertahap, ± 4–6 jam", mekanismeCedera: "",
-    faktorPemberat: "Makan, gerakan", faktorPemerut: "Posisi tertentu",
-    statusGeneralis: "Tampak sakit sedang, kompos mentis, demam, abdomen tegang saat palpasi",
-  },
-  {
-    id: "trauma", label: "Trauma / Kecelakaan",
-    keluhanUtama: "Nyeri setelah trauma / kecelakaan",
-    rps: "Pasien datang dengan nyeri akibat trauma. Mekanisme cedera: kecelakaan lalu lintas / jatuh / benturan langsung. Disertai perdarahan / deformitas / keterbatasan gerak.",
-    onsetDurasi: "Akut, segera setelah trauma", mekanismeCedera: "Benturan langsung / KLL",
-    faktorPemberat: "Pergerakan, penekanan", faktorPemerut: "Immobilisasi, kompres",
-    statusGeneralis: "Tampak sakit sedang–berat, kesadaran sesuai GCS, terdapat luka / deformitas",
-  },
-] as const;
-
-type IGDTemplate = typeof IGD_TEMPLATES[number];
-
-// ── Template picker ───────────────────────────────────────
-
-function TemplatePicker({ onApply }: { onApply: (t: IGDTemplate) => void }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button type="button" onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100">
-        <Sparkles size={12} /> Template Cepat
-        <ChevronDown size={11} className={cn("transition-transform", open && "rotate-180")} />
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -4, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.97 }} transition={{ duration: 0.15 }}
-            className="absolute left-0 top-8 z-20 w-56 rounded-xl border border-slate-200 bg-white shadow-lg"
-          >
-            {IGD_TEMPLATES.map(t => (
-              <button key={t.id} type="button"
-                onClick={() => { onApply(t); setOpen(false); }}
-                className="flex w-full items-start gap-2.5 px-4 py-3 text-left text-xs transition hover:bg-sky-50 first:rounded-t-xl last:rounded-b-xl">
-                <FileText size={13} className="mt-0.5 shrink-0 text-sky-500" />
-                <span className="font-semibold text-slate-700">{t.label}</span>
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
 // ─────────────────────────────────────────────────────────
 // ANAMNESIS sub-tab
 // ─────────────────────────────────────────────────────────
@@ -341,7 +270,7 @@ function AnamnesisPane({
     onComplete?.(anamnesisDone(updated));
   }
 
-  function applyTemplate(t: IGDTemplate) {
+  function applyTemplate(t: AnamnesisTemplateDTO) {
     const updated: AnamnesisIGDForm = {
       ...form,
       keluhanUtama:    t.keluhanUtama,
@@ -447,7 +376,7 @@ function AnamnesisPane({
         <Block title="Keluhan & Anamnesis" badge="Wajib">
           <div className="flex items-center justify-between">
             <span className="text-[11px] text-slate-400">Lengkapi riwayat penyakit sekarang</span>
-            <TemplatePicker onApply={applyTemplate} />
+            <AnamnesisTemplatePicker modul="IGD" onApply={applyTemplate} />
           </div>
           <TA label="Keluhan Utama" required value={form.keluhanUtama}
             onChange={v => set("keluhanUtama", v)} placeholder="Keluhan utama yang membawa pasien ke IGD..." />

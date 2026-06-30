@@ -146,41 +146,6 @@ export const KARAKTER_NYERI = [
   "Menjalar", "Tertekan", "Kolik / Kram", "Bergerak",
 ];
 
-// ── Anamnesis templates ───────────────────────────────────
-
-export const ANAMNESIS_TEMPLATES = [
-  {
-    id: "gjk",
-    label: "Gagal Jantung / Sesak",
-    keluhanUtama: "Sesak napas memberat",
-    rps: "Pasien mengeluhkan sesak napas yang memberat sejak ± ____ hari/jam SMRS. Sesak dirasakan memberat saat aktivitas ringan dan saat berbaring, berkurang sedikit dengan posisi duduk/setengah duduk. Disertai bengkak pada kedua tungkai. Pasien riwayat hipertensi dan penyakit jantung sebelumnya.",
-    onsetDurasi: "Bertahap, ± 3 hari SMRS",
-    faktorPemberat: "Aktivitas fisik, posisi berbaring",
-    faktorPemerut: "Posisi duduk / setengah duduk",
-    statusGeneralis: "Tampak sakit sedang, kesadaran kompos mentis, terpasang oksigen nasal kanul.",
-  },
-  {
-    id: "infeksi",
-    label: "Demam / Infeksi Sepsis",
-    keluhanUtama: "Demam tinggi disertai lemas",
-    rps: "Pasien datang dengan demam tinggi sejak ± ____ hari SMRS, mencapai suhu ____°C. Disertai menggigil, berkeringat, dan lemas. Keluhan nyeri di ____. Tidak ada perbaikan dengan obat penurun panas sebelumnya. Pasien tidak memiliki riwayat infeksi serupa sebelumnya.",
-    onsetDurasi: "Mendadak, ± 2 hari SMRS",
-    faktorPemberat: "Aktivitas, asupan oral buruk",
-    faktorPemerut: "Istirahat, pemberian antipiretik",
-    statusGeneralis: "Tampak sakit sedang–berat, kesadaran kompos mentis, tanda infeksi sistemik.",
-  },
-  {
-    id: "stroke",
-    label: "Defisit Neurologis / Stroke",
-    keluhanUtama: "Kelemahan sisi tubuh / bicara pelo",
-    rps: "Pasien ditemukan / mengeluhkan tiba-tiba ____ (kelemahan anggota gerak / bicara pelo / penurunan kesadaran) sejak ± ____ jam SMRS. Onset mendadak saat ____. Tidak ada riwayat trauma. Riwayat hipertensi sebelumnya ____.",
-    onsetDurasi: "Mendadak",
-    faktorPemberat: "—",
-    faktorPemerut: "—",
-    statusGeneralis: "Tampak sakit sedang–berat, kesadaran ____, defisit neurologis fokal.",
-  },
-];
-
 // ── Mock data ─────────────────────────────────────────────
 
 const EMPTY_SOSIAL: SosialData = {

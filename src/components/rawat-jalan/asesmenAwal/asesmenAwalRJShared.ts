@@ -13,51 +13,6 @@ export interface AnamnesisRJData {
   savedAt:        string;
 }
 
-// ── Templates ─────────────────────────────────────────────
-
-export const ANAMNESIS_RJ_TEMPLATES = [
-  {
-    id: "ispa",
-    label: "ISPA",
-    keluhanUtama:   "Demam, batuk berdahak, hidung tersumbat",
-    rps:            "Pasien datang dengan keluhan demam sejak __ hari yang lalu, disertai batuk berdahak dan hidung tersumbat. Batuk dirasakan semakin memberat. Tidak ada sesak napas. Nafsu makan menurun.",
-    onsetDurasi:    "__ hari, bertahap",
-    faktorPemberat: "Cuaca dingin, kelelahan, paparan orang sakit",
-    faktorPemerut:  "Istirahat, obat pereda demam",
-    keadaanUmum:    "Tampak sakit ringan-sedang, kesadaran kompos mentis",
-  },
-  {
-    id: "nyeri-dada",
-    label: "Nyeri Dada",
-    keluhanUtama:   "Nyeri dada",
-    rps:            "Pasien mengeluhkan nyeri dada sejak __ hari/jam yang lalu. Nyeri dirasakan di dada bagian __, menjalar ke __. Sifat nyeri: tumpul/tajam/seperti tertekan. Disertai keringat dingin.",
-    onsetDurasi:    "__ hari/jam",
-    faktorPemberat: "Aktivitas fisik, emosi",
-    faktorPemerut:  "Istirahat, nitrat sublingual",
-    keadaanUmum:    "Tampak sakit sedang, kesadaran kompos mentis",
-  },
-  {
-    id: "kontrol-dm",
-    label: "Kontrol DM",
-    keluhanUtama:   "Kontrol diabetes melitus tipe 2",
-    rps:            "Pasien kontrol rutin DM tipe 2. Keluhan saat ini: __. GDS terakhir di rumah: __ mg/dL. Kepatuhan minum obat: __. Pola makan: __. Aktivitas fisik: __.",
-    onsetDurasi:    "Kronik, terkontrol/tidak terkontrol",
-    faktorPemberat: "Diet tidak terkontrol, obat tidak teratur",
-    faktorPemerut:  "Diet ketat, olahraga teratur",
-    keadaanUmum:    "Tampak sakit ringan, kesadaran kompos mentis",
-  },
-  {
-    id: "kontrol-htn",
-    label: "Kontrol Hipertensi",
-    keluhanUtama:   "Kontrol hipertensi",
-    rps:            "Pasien kontrol hipertensi. Keluhan saat ini: sakit kepala/tidak ada keluhan. TD terukur terakhir: __/__ mmHg. Obat yang diminum: __. Kepatuhan minum obat: __.",
-    onsetDurasi:    "Kronik",
-    faktorPemberat: "Stres, konsumsi garam berlebih, lupa minum obat",
-    faktorPemerut:  "Minum obat teratur, diet rendah garam",
-    keadaanUmum:    "Tampak sakit ringan, kesadaran kompos mentis",
-  },
-] as const;
-
 // ── Mock data ──────────────────────────────────────────────
 
 export const ASESMEN_RJ_MOCK: Record<string, Partial<AnamnesisRJData>> = {

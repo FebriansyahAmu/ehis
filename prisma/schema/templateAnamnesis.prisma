@@ -1,0 +1,42 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Template Anamnesis  (Postgres schema "master")
+//  FE: /ehis-master/template-anamnesis · Tipe/config FE: src/lib/master/
+//  templateAnamnesisMock.ts (TemplateAnamnesisItem) + templateAnamnesisSeed.ts (data).
+//
+//  Koleksi template anamnesis pre-fill, dikonsumsi AnamnesisPane IGD/RI/RJ via picker
+//  "Template Cepat". `contextTags` = modul mana template relevan (filter konsumen).
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz · soft-delete. Katalog leaf →
+//  TANPA optimistic-version. TANPA kode/counter (identitas = uuid + label; tak ada
+//  sistem penomoran resmi). Enum FE-facing (kategori/status) = TEXT pass-through
+//  (validasi di Zod). `contextTags` = text[] (subset {IGD,RI,RJ}).
+// ════════════════════════════════════════════════════════════════════════════
+
+model TemplateAnamnesis {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Identitas ──
+  label       String
+  kategori    String   // FE union ChiefComplaintCategory ("Kardiovaskular" | … | "Lainnya")
+  contextTags String[] @map("context_tags") // subset {"IGD","RI","RJ"} — modul relevan
+
+  // ── Isi anamnesis (pre-fill field form) ──
+  keluhanUtama    String  @map("keluhan_utama")
+  rps             String  @default("")
+  onsetDurasi     String  @default("") @map("onset_durasi")
+  mekanismeCedera String? @map("mekanisme_cedera") // khusus trauma (IGD)
+  faktorPemberat  String  @default("") @map("faktor_pemberat")
+  faktorPemerut   String  @default("") @map("faktor_pemerut") // peringan
+  statusGeneralis String  @default("") @map("status_generalis")
+  catatanPerawat  String? @map("catatan_perawat") // instruksi/reminder perawat (opsional)
+
+  // ── Meta ──
+  status    String    @default("Aktif") // FE union: "Aktif" | "NonAktif"
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([status, deletedAt]) // list/filter status
+  @@map("template_anamnesis")
+  @@schema("master")
+}

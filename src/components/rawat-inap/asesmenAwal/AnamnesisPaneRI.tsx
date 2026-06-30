@@ -3,18 +3,20 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ChevronDown, ChevronUp, FileText, Sparkles, Check, Loader2, AlertTriangle, User,
+  ChevronDown, ChevronUp, FileText, Check, Loader2, AlertTriangle, User,
 } from "lucide-react";
 import type { RawatInapPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import {
   type AnamnesisRIData, type SosialData, type SpiritualData,
-  ANAMNESIS_TEMPLATES, ASESMEN_AWAL_MOCK,
+  ASESMEN_AWAL_MOCK,
 } from "./asesmenAwalShared";
 import AnamnesisSebelumnya from "@/components/shared/medical-records/AnamnesisSebelumnya";
+import AnamnesisTemplatePicker, { type AnamnesisTemplateDTO } from "@/components/shared/medical-records/AnamnesisTemplatePicker";
 import { getAnamnesis, saveAnamnesis } from "@/lib/api/asesmenMedis/anamnesis";
 import type { SumberAnamnesis, AnamnesisInput } from "@/lib/schemas/asesmenMedis/anamnesis";
 import { useSession } from "@/contexts/SessionContext";
+import { toast } from "@/lib/ui/toastStore";
 
 // id kunjungan DB = UUID; id demo/seed ("ri-1") → tak tersimpan ke DB.
 const ANAMNESIS_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -51,7 +53,7 @@ function Block({ title, badge, children }: { title?: string; badge?: string; chi
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
       {title && (
-        <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-2.5">
+        <div className="flex items-center justify-between border-b border-slate-100 bg-linear-to-r from-slate-50 to-white px-4 py-2.5">
           <span className="text-xs font-semibold text-slate-700">{title}</span>
           {badge && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-700">{badge}</span>}
         </div>
@@ -98,7 +100,7 @@ function SosialSpiritualAccordion({
         </div>
         <div className="flex-1">
           <p className="text-xs font-semibold text-sky-800">Asesmen Psikososial & Spiritual</p>
-          <p className="text-[11px] text-sky-600">SNARS AP 1.1 — HPK 1.1 · Wajib diisi</p>
+          <p className="text-[11px] text-sky-600">SNARS AP 1.1 — HPK 1.1 · Opsional — lengkapi bila relevan</p>
         </div>
         <div className="flex items-center gap-2">
           {(isSosDone || isSpiDone) && (
@@ -265,41 +267,6 @@ function SosialSpiritualAccordion({
   );
 }
 
-// ── Template picker ───────────────────────────────────────
-
-function TemplatePicker({ onApply }: { onApply: (t: typeof ANAMNESIS_TEMPLATES[number]) => void }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button type="button" onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100">
-        <Sparkles size={12} /> Template Cepat
-        <ChevronDown size={11} className={cn("transition-transform", open && "rotate-180")} />
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -4, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.97 }}
-            transition={{ duration: 0.15 }}
-            className="absolute left-0 top-8 z-20 w-56 rounded-xl border border-slate-200 bg-white shadow-lg"
-          >
-            {ANAMNESIS_TEMPLATES.map(t => (
-              <button key={t.id} type="button"
-                onClick={() => { onApply(t); setOpen(false); }}
-                className="flex w-full items-start gap-2.5 px-4 py-3 text-left text-xs transition hover:bg-sky-50 first:rounded-t-xl last:rounded-b-xl">
-                <FileText size={13} className="mt-0.5 shrink-0 text-sky-500" />
-                <span className="font-semibold text-slate-700">{t.label}</span>
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
 // ── Props ─────────────────────────────────────────────────
 
 interface AnamnesisPaneRIProps {
@@ -338,6 +305,7 @@ export default function AnamnesisPaneRI({ patient, onComplete }: AnamnesisPaneRI
   const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
 
   const [sumber, setSumber] = useState<SumberAnamnesis>("Pasien");
+  const [loading, setLoading] = useState(isPersisted);
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
@@ -365,7 +333,11 @@ export default function AnamnesisPaneRI({ patient, onComplete }: AnamnesisPaneRI
         setSavedAt(dto.createdAt);
         onComplete?.(dto.keluhanUtama.trim().length > 3 && dto.rps.trim().length > 10 && dto.statusGeneralis.trim().length > 3);
       })
-      .catch(() => { /* abaikan — biarkan form kosong */ });
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        if (!ac.signal.aborted) setError("Gagal memuat anamnesis dari rekam medis.");
+      })
+      .finally(() => { if (!ac.signal.aborted) setLoading(false); });
     return () => ac.abort();
   }, [patient.id, isPersisted, onComplete]);
 
@@ -391,6 +363,7 @@ export default function AnamnesisPaneRI({ patient, onComplete }: AnamnesisPaneRI
         spiritual: form.spiritual as AnamnesisInput["spiritual"],
       });
       setSavedAt(dto.createdAt);
+      toast.success("Asesmen anamnesis tersimpan", `${patient.name} · tercatat ke rekam medis.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal menyimpan anamnesis.");
     } finally {
@@ -405,7 +378,7 @@ export default function AnamnesisPaneRI({ patient, onComplete }: AnamnesisPaneRI
     onComplete?.(done);
   };
 
-  function applyTemplate(t: typeof ANAMNESIS_TEMPLATES[number]) {
+  function applyTemplate(t: AnamnesisTemplateDTO) {
     const updated = {
       ...form,
       keluhanUtama:    t.keluhanUtama,
@@ -416,7 +389,7 @@ export default function AnamnesisPaneRI({ patient, onComplete }: AnamnesisPaneRI
       statusGeneralis: t.statusGeneralis,
     };
     setForm(updated);
-    onComplete?.(updated.keluhanUtama.length > 3 && updated.rps.length > 10);
+    onComplete?.(updated.keluhanUtama.trim().length > 3 && updated.rps.trim().length > 10 && updated.statusGeneralis.trim().length > 3);
   }
 
   return (
@@ -425,17 +398,35 @@ export default function AnamnesisPaneRI({ patient, onComplete }: AnamnesisPaneRI
       {/* Left: form */}
       <div className="flex flex-col gap-3 md:flex-1 md:min-w-0">
 
+        {loading && (
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+            <Loader2 size={13} className="animate-spin" /> Memuat anamnesis dari rekam medis…
+          </div>
+        )}
+
+        {/* Sumber anamnesis — dipilih langsung (selaras IGD): siapa pemberi keterangan */}
+        <div className="flex flex-wrap gap-2">
+          <p className="w-full text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            Sumber Anamnesis<span className="ml-0.5 text-rose-400">*</span>
+          </p>
+          {SUMBER_OPTS.map((s) => (
+            <button key={s} type="button" onClick={() => setSumber(s)}
+              className={cn(
+                "rounded-lg border px-3 py-1.5 text-xs font-semibold transition",
+                sumber === s
+                  ? "border-sky-400 bg-sky-50 text-sky-700"
+                  : "border-slate-200 bg-white text-slate-500 hover:border-sky-200 hover:bg-sky-50/40",
+              )}>
+              {s}
+            </button>
+          ))}
+        </div>
+
         {/* Keluhan & RPS */}
         <Block title="Keluhan & Anamnesis" badge="Wajib">
           <div className="flex items-center justify-between">
             <span className="text-[11px] text-slate-400">Lengkapi riwayat penyakit sekarang</span>
-            <TemplatePicker onApply={applyTemplate} />
-          </div>
-          <div className="max-w-55">
-            <Label required>Sumber Anamnesis</Label>
-            <select value={sumber} onChange={e => setSumber(e.target.value as SumberAnamnesis)} className={SEL_CLS}>
-              {SUMBER_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <AnamnesisTemplatePicker modul="RI" onApply={applyTemplate} />
           </div>
           <TA label="Keluhan Utama" required value={form.keluhanUtama} onChange={v => set("keluhanUtama", v)}
             placeholder="Keluhan utama yang membawa pasien masuk RS..." />

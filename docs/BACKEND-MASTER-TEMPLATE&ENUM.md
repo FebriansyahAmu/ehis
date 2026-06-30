@@ -8,7 +8,7 @@
 > **Terkait:** [CLAUDE.md](../CLAUDE.md) · [TODOS_BACKEND.md](../TODOS_BACKEND.md).
 >
 > **Stack:** PostgreSQL · Prisma (`@@schema("master")`) · layered **Route→Service→DAL→Prisma** · Redis cache-aside (menyusul) · Auth.js RBAC.
-> **Status:** 📋 **PLANNED (2026-06-17)** — dokumen perencanaan. Belum ada kode. Eksekusi **per tab** (TE1 → TE2 → TE3), tiap tab = vertical slice lengkap (schema+migrasi → Zod → DAL → Service → endpoint → seed → page SSR-hybrid → wiring klinis).
+> **Status:** 🟢 **TE1 ✅ (2026-06-17) · TE2 ✅ (2026-06-30) · TE3 📋 PLANNED.** Eksekusi **per tab** (TE1 → TE2 → TE3), tiap tab = vertical slice lengkap (schema+migrasi → Zod → DAL → Service → endpoint → seed → page SSR-hybrid → wiring klinis).
 
 ---
 
@@ -19,7 +19,7 @@ Menu **Template & Enum** di `/ehis-master` (gate **`master.konfigurasi`**, Admin
 | # | Tab | Route FE | Mock / tipe FE | Konsumen klinis (saat ini hardcode) | Status backend |
 |---|---|---|---|---|---|
 | TE1 | **Status Enum** | [/ehis-master/status-enum](../src/app/ehis-master/status-enum/) | [statusEnumMock.ts](../src/lib/master/statusEnumMock.ts) — **3 grup / 15 entri** (6 grup dihapus 2026-06-17) | SBAR Transfer/Handover (Kondisi Transfer · Mode Transport) · Informed Consent (Hubungan Keluarga) | ✅ |
-| TE2 | **Template Anamnesis** | [/ehis-master/template-anamnesis](../src/app/ehis-master/template-anamnesis/) | [templateAnamnesisMock.ts](../src/lib/master/templateAnamnesisMock.ts) — 17 template | AnamnesisPane IGD/RI/RJ | 📋 |
+| TE2 | **Template Anamnesis** | [/ehis-master/template-anamnesis](../src/app/ehis-master/template-anamnesis/) | [templateAnamnesisMock.ts](../src/lib/master/templateAnamnesisMock.ts) (tipe+config) + [templateAnamnesisSeed.ts](../src/lib/master/templateAnamnesisSeed.ts) — 17 template | AnamnesisPane IGD/RI/RJ (picker `?modul=`) | ✅ |
 | TE3 | **Template Form** | [/ehis-master/template-form](../src/app/ehis-master/template-form/) | [templateFormMock.ts](../src/lib/master/templateFormMock.ts) — 20 template (4 jenis) | HandoverTab · KonsultasiTab · InformedConsentTab · PasienPulang · SuratDokumen · CPPT quick-text | 📋 |
 
 > **Fakta awal (verifikasi 2026-06-17):** Ketiga mock **belum dikonsumsi tab klinis manapun** — hanya dipakai page master masing-masing + hitungan Beranda master ([berandaShared.ts](../src/components/master/beranda/berandaShared.ts)). Tab klinis kini punya **konstanta hardcode sendiri**. "Wiring" = arahkan tab klinis konsumsi master via API (ganti konstanta → fetch + fallback), **bukan** menyambung mock yang sudah dipakai.
@@ -128,6 +128,8 @@ model EnumCounter {                         // scope = prefix grup (KTR/MTR/HKL)
 
 **Keputusan (user):** wire **HANYA field yang disimpan free-string & cocok**; field **typed-union TETAP union kode** (master = admin/reference, BUKAN sumber field bertipe). Lalu lanjut TE2/TE3.
 
+> **Lanjut: TE3 Template Form** (TE2 selesai — §3).
+
 **Infra reusable ✅** [useStatusEnum.ts](../src/components/shared/enum/useStatusEnum.ts) — hook `useStatusEnum(groupKey)`: fetch SEKALI per grup (cache + inflight dedupe lintas mount) dari `/status-enum-tersedia`, FALLBACK ke `STATUS_ENUM_GROUPS` (entri Aktif) → tanpa kedip. Mengembalikan `{ options, labels, loaded, fromDb }`. **Hanya untuk field free-string.**
 
 **Konsumen ter-wire ✅:**
@@ -141,6 +143,14 @@ Master Status Enum kini **murni 3 grup operasional** (Kondisi Transfer · Mode T
 ---
 
 ## 3. TE2 — Template Anamnesis
+
+> **Status: ✅ TE2 SELESAI (2026-06-30)** — schema+migrasi `20260630120000` (applied, no drift) · Zod · DAL · Service · 3 endpoint (master CRUD + `template-anamnesis-tersedia?modul=`) · browser API · seed **17 template** (IGD 8 · RI 6 · RJ 5, dual-tag terhitung) · master page SSR-hybrid · **wiring klinis 3 pane** (IGD/RI/RJ). tsc+eslint bersih (`_actor` unused = sengaja).
+>
+> **Deviasi dari rencana (as-built):**
+> 1. Query konsumen = **`?modul=`** (bukan `?context=`); DTO konsumen ringkas terpisah **`AnamnesisTemplateDTO`** (hanya field pre-fill).
+> 2. Wiring **bukan** Context-provider + fallback konstanta → pakai **shared komponen** [AnamnesisTemplatePicker](../src/components/shared/medical-records/AnamnesisTemplatePicker.tsx) (fetch saat mount, loading/empty/error in-place). **3 array hardcode lama DIHAPUS** (`IGD_TEMPLATES` di AsesmenMedisTab · `ANAMNESIS_TEMPLATES` di asesmenAwalShared · `ANAMNESIS_RJ_TEMPLATES` di asesmenAwalRJShared) → DB = single source; picker degradasi ke empty/error, form anamnesis tetap berfungsi.
+> 3. Bukan 1 "AnamnesisPane shared" — IGD (inline `AsesmenMedisTab`), RI (`AnamnesisPaneRI`), RJ (`AnamnesisPaneRJ`) pane terpisah; **ketiganya** di-wire (`modul="IGD|RI|RJ"`, RJ map `statusGeneralis→keadaanUmum`).
+> 4. `TEMPLATE_ANAMNESIS_MOCK` **dihapus**; data → [templateAnamnesisSeed.ts](../src/lib/master/templateAnamnesisSeed.ts), tipe+config (KATEGORI_CFG/CONTEXT_CFG/helper) tetap di `templateAnamnesisMock.ts`; Beranda master baca `TEMPLATE_ANAMNESIS_SEED.length`.
 
 **Domain OWNS:** koleksi template anamnesis pre-fill. Flat, field teks kaya. `label` + `kategori` (ChiefComplaint) + `contextTags[]` (IGD/RI/RJ) + isi (`keluhanUtama`/`rps`/`onsetDurasi`/`mekanismeCedera?`/`faktorPemberat`/`faktorPemerut`/`statusGeneralis`/`catatanPerawat?`) + `status`.
 
@@ -179,13 +189,13 @@ Tanpa kode, tanpa counter. `contextTags` = `String[]` (filter konsumen per modul
 | **DAL** | `src/lib/dal/master/templateAnamnesisDal.ts` | CRUD + `list` (filter q/kategori/context(`has`)/status, orderBy `label`). |
 | **Service** | `src/lib/services/master/templateAnamnesisService.ts` | `makeTemplateAnamnesisService` · `list` actor-less + CRUD. Singleton. |
 | **Route master** | `src/app/api/v1/master/template-anamnesis/route.ts` + `[id]/route.ts` | gate `master.konfigurasi`. |
-| **Route klinis** | `src/app/api/v1/master/template-anamnesis-tersedia/route.ts` | gate `clinical.rekammedis:read`, `?context=IGD\|RI\|RJ`, status Aktif. |
+| **Route klinis** | [template-anamnesis-tersedia/route.ts](../src/app/api/v1/master/template-anamnesis-tersedia/route.ts) | gate `clinical.rekammedis:read`, `scopeKunjungan:false`, `?modul=IGD\|RI\|RJ` (wajib), status Aktif. |
 | **Browser API** | `src/lib/api/master/templateAnamnesis.ts` | list/listTersedia/create/update/delete. |
 | **Seed** | `src/lib/master/templateAnamnesisSeed.ts` (plain) + `prisma/scripts/seed-templateAnamnesis.mts` | 17 template. KATEGORI_CFG/CONTEXT_CFG tetap di mock. |
 | **Page swap** | `page.tsx` SSR + `TemplateAnamnesisPage.tsx` SSR-hybrid | `useMasterCrud` sudah dipakai → tinggal seed dari `initial` + DiscardDialog. |
 
-### 3.3 Wiring klinis (fase akhir TE2)
-Context `src/components/shared/anamnesis/templateAnamnesisContext.tsx` (`useTemplateAnamnesis(context)`), fallback konstanta. Konsumen: **AnamnesisPane** (shared, dipakai IGD/RI/RJ) — picker template kini tarik dari master ter-filter `contextTags` sesuai modul aktif. Identifikasi lokasi picker hardcode saat fase wiring.
+### 3.3 Wiring klinis ✅ (as-built)
+Shared komponen [AnamnesisTemplatePicker](../src/components/shared/medical-records/AnamnesisTemplatePicker.tsx) (`modul` prop) menggantikan 3 picker hardcode. Fetch `template-anamnesis-tersedia?modul=` saat mount; klik template → `onApply(t: AnamnesisTemplateDTO)` prefill form. Di-wire ke **3 pane**: IGD ([AsesmenMedisTab](../src/components/igd/tabs/AsesmenMedisTab.tsx) `AnamnesisPane`), RI ([AnamnesisPaneRI](../src/components/rawat-inap/asesmenAwal/AnamnesisPaneRI.tsx)), RJ ([AnamnesisPaneRJ](../src/components/rawat-jalan/asesmenAwal/AnamnesisPaneRJ.tsx) — map `statusGeneralis→keadaanUmum`). **Tanpa fallback konstanta** (DB single source) — picker degradasi anggun ke empty/error, form tetap jalan.
 
 ---
 
@@ -270,14 +280,14 @@ Context `src/components/shared/template-form/templateFormContext.tsx` (`useTempl
 - [x] **TE1.10** Wiring klinis **SELEKTIF** (keputusan user 2026-06-17): hook reusable [useStatusEnum](../src/components/shared/enum/useStatusEnum.ts) (fetch-once + cache + fallback) + 1 konsumen free-string ter-wire ([InformedConsentTab](../src/components/shared/medical-records/InformedConsentTab.tsx) hubungan = master `hubungan-keluarga` + "Pasien Sendiri"). Field typed-union (Kesadaran/KU/RIKelas/Disposisi/HubunganPenanda) **TIDAK di-wire by design** (§2.3). ✅
 - [x] **TE1.11** Update progress: doc ini (status ✅ + §2.2/§2.3). CLAUDE.md cell `/ehis-master` + DONE.md → saat batch TE selesai. ✅
 
-### TE2 — Template Anamnesis
-- [ ] **TE2.1** Schema `templateAnamnesis.prisma` + migration → apply + resolve + generate.
-- [ ] **TE2.2** Zod `schemas/master/templateAnamnesis.ts`.
-- [ ] **TE2.3** DAL · **TE2.4** Service · **TE2.5** Route master · **TE2.6** Route klinis (`?context=`) · **TE2.7** Browser API.
-- [ ] **TE2.8** Seed (17 template).
-- [ ] **TE2.9** Page swap SSR-hybrid (seed `useMasterCrud` + DiscardDialog).
-- [ ] **TE2.10** Wiring klinis: Context + AnamnesisPane picker (filter `contextTags` per modul).
-- [ ] **TE2.11** Update progress.
+### TE2 — Template Anamnesis ✅ (2026-06-30)
+- [x] **TE2.1** Schema `templateAnamnesis.prisma` + migration `20260630120000` → apply (pg) + resolve --applied + generate. ✅
+- [x] **TE2.2** Zod `schemas/master/templateAnamnesis.ts` (ChiefComplaint 12 · Modul IGD/RI/RJ · Create/Update/Query/IdParam + `TemplateAnamnesisDTO` + `AnamnesisTemplateDTO` konsumen). ✅
+- [x] **TE2.3** DAL · **TE2.4** Service (factory, list actor-less + CRUD + `listForModul`) · **TE2.5** Route master (gate `master.konfigurasi`) · **TE2.6** Route klinis `template-anamnesis-tersedia?modul=` (gate `clinical.rekammedis:read`) · **TE2.7** Browser API (master + tersedia). ✅
+- [x] **TE2.8** Seed: `templateAnamnesisSeed.ts` (plain) + `seed-template-anamnesis.mts` → **17 template**; `TEMPLATE_ANAMNESIS_MOCK` dihapus; beranda → `TEMPLATE_ANAMNESIS_SEED.length`. ✅
+- [x] **TE2.9** Page swap SSR-hybrid ([page.tsx](../src/app/ehis-master/template-anamnesis/page.tsx) + [TemplateAnamnesisPage.tsx](../src/components/master/template-anamnesis/TemplateAnamnesisPage.tsx)) — `useMasterCrud` seed dari `initial` + CRUD via /api + toast. ✅
+- [x] **TE2.10** Wiring klinis: **shared [AnamnesisTemplatePicker](../src/components/shared/medical-records/AnamnesisTemplatePicker.tsx)** (fetch `?modul=`) di IGD/RI/RJ; 3 array hardcode dihapus. _(Bukan Context-provider — §3.3 deviasi.)_ ✅
+- [x] **TE2.11** Update progress: doc ini (§0/§3/§6 + header) + CLAUDE.md. ✅
 
 ### TE3 — Template Form
 - [ ] **TE3.1** Schema `templateForm.prisma` (JSONB payload) + migration → apply + resolve + generate.

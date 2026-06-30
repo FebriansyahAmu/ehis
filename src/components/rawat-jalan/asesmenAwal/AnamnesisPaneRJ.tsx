@@ -1,15 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, FileText, Sparkles } from "lucide-react";
 import type { RJPatientDetail } from "@/lib/data";
-import { cn } from "@/lib/utils";
 import {
   type AnamnesisRJData,
-  ANAMNESIS_RJ_TEMPLATES,
   ASESMEN_RJ_MOCK,
 } from "./asesmenAwalRJShared";
+import AnamnesisTemplatePicker, { type AnamnesisTemplateDTO } from "@/components/shared/medical-records/AnamnesisTemplatePicker";
 
 // ── Primitives ────────────────────────────────────────────
 
@@ -50,41 +47,6 @@ function Block({ title, badge, children }: { title?: string; badge?: string; chi
   );
 }
 
-// ── Template picker ───────────────────────────────────────
-
-function TemplatePicker({ onApply }: { onApply: (t: typeof ANAMNESIS_RJ_TEMPLATES[number]) => void }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button type="button" onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100">
-        <Sparkles size={12} /> Template Cepat
-        <ChevronDown size={11} className={cn("transition-transform", open && "rotate-180")} />
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -4, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.97 }}
-            transition={{ duration: 0.15 }}
-            className="absolute left-0 top-8 z-20 w-52 rounded-xl border border-slate-200 bg-white shadow-lg"
-          >
-            {ANAMNESIS_RJ_TEMPLATES.map(t => (
-              <button key={t.id} type="button"
-                onClick={() => { onApply(t); setOpen(false); }}
-                className="flex w-full items-start gap-2.5 px-4 py-3 text-left text-xs transition hover:bg-sky-50 first:rounded-t-xl last:rounded-b-xl">
-                <FileText size={13} className="mt-0.5 shrink-0 text-sky-500" />
-                <span className="font-semibold text-slate-700">{t.label}</span>
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
 // ── Props ─────────────────────────────────────────────────
 
 interface Props {
@@ -118,7 +80,7 @@ export default function AnamnesisPaneRJ({ patient, onComplete }: Props) {
     onComplete?.(done);
   }
 
-  function applyTemplate(t: typeof ANAMNESIS_RJ_TEMPLATES[number]) {
+  function applyTemplate(t: AnamnesisTemplateDTO) {
     const updated = {
       ...form,
       keluhanUtama:   t.keluhanUtama,
@@ -126,7 +88,7 @@ export default function AnamnesisPaneRJ({ patient, onComplete }: Props) {
       onsetDurasi:    t.onsetDurasi,
       faktorPemberat: t.faktorPemberat,
       faktorPemerut:  t.faktorPemerut,
-      keadaanUmum:    t.keadaanUmum,
+      keadaanUmum:    t.statusGeneralis, // RJ: status generalis → keadaan umum
     };
     setForm(updated);
     onComplete?.(updated.keluhanUtama.length > 3 && updated.rps.length > 10);
@@ -142,7 +104,7 @@ export default function AnamnesisPaneRJ({ patient, onComplete }: Props) {
         <Block title="Keluhan & Anamnesis" badge="Wajib">
           <div className="flex items-center justify-between">
             <span className="text-[11px] text-slate-400">Lengkapi riwayat penyakit sekarang</span>
-            <TemplatePicker onApply={applyTemplate} />
+            <AnamnesisTemplatePicker modul="RJ" onApply={applyTemplate} />
           </div>
           <TA label="Keluhan Utama" required value={form.keluhanUtama}
             onChange={v => set("keluhanUtama", v)}

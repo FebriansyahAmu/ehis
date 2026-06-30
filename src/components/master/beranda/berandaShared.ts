@@ -45,7 +45,7 @@ import { SKALA_UMUM_MOCK } from "@/lib/master/skalaUmumMock";
 import { SKALA_PENYAKIT_MOCK } from "@/lib/master/skalaPenyakitMock";
 import { TRIASE_MOCK } from "@/lib/master/triaseMock";
 import { STATUS_ENUM_GROUPS } from "@/lib/master/statusEnumMock";
-import { TEMPLATE_ANAMNESIS_MOCK } from "@/lib/master/templateAnamnesisMock";
+import { TEMPLATE_ANAMNESIS_SEED } from "@/lib/master/templateAnamnesisSeed";
 import { TEMPLATE_FORM_MOCK } from "@/lib/master/templateFormMock";
 import { EDUKASI_COLLECTIONS } from "@/lib/master/edukasiMock";
 import { OPERASIONAL_INITIAL_STATE } from "@/lib/master/operasionalKlinisMock";
@@ -175,7 +175,7 @@ export function getQuickNavGroups(): QuickNavGroup[] {
       desc: "Form, anamnesis, dan opsi terstandar",
       items: [
         { label: "Status Enum",        href: "/ehis-master/status-enum",        icon: Layers,        count: sumStatusEnum(), subLabel: `${STATUS_ENUM_GROUPS.length} grup` },
-        { label: "Template Anamnesis", href: "/ehis-master/template-anamnesis", icon: MessageSquare, count: TEMPLATE_ANAMNESIS_MOCK.length },
+        { label: "Template Anamnesis", href: "/ehis-master/template-anamnesis", icon: MessageSquare, count: TEMPLATE_ANAMNESIS_SEED.length },
         { label: "Template Form",      href: "/ehis-master/template-form",      icon: FileText,      count: TEMPLATE_FORM_MOCK.length },
       ],
     },
