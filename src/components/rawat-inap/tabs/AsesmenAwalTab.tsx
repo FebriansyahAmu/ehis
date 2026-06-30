@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ClipboardList, History, AlertTriangle,
@@ -14,6 +14,10 @@ import RiwayatPane       from "@/components/shared/asesmen/RiwayatPane";
 import AllergyPane       from "@/components/shared/asesmen/AllergyPane";
 import SkriningPane      from "@/components/rawat-inap/asesmenAwal/SkriningPane";
 import PenilaianRisikoPane from "@/components/rawat-inap/asesmenAwal/PenilaianRisikoPane";
+import { getAsesmenRingkasan } from "@/lib/api/asesmenMedis/ringkasan";
+
+// id kunjungan DB = UUID; pasien demo/mock → ringkasan di-skip.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Sub-tab definitions ───────────────────────────────────
 
@@ -221,6 +225,27 @@ export default function AsesmenAwalTab({ patient }: AsesmenAwalTabProps) {
 
   const doneSkrining = doneGizi;
 
+  // Ringkasan status semua sub-menu dalam 1 panggilan saat tab dibuka → indikator hijau
+  // SubNav + progress langsung akurat tanpa harus membuka tiap sub-tab dulu (selaras IGD).
+  // Penilaian Risiko belum DB-wired → tetap di-set saat pane melapor. Hanya kunjungan DB (UUID).
+  useEffect(() => {
+    if (!UUID_RE.test(patient.id)) return;
+    const ac = new AbortController();
+    (async () => {
+      try {
+        const r = await getAsesmenRingkasan(patient.id, ac.signal);
+        if (ac.signal.aborted) return;
+        setDoneAnamnesis(r.anamnesis);
+        setDoneRiwayat(r.riwayat);
+        setDoneAlergi(r.alergi);
+        setDoneGizi(r.skrining);
+      } catch {
+        /* diam — ringkasan opsional, tak menghalangi pengisian sub-tab */
+      }
+    })();
+    return () => ac.abort();
+  }, [patient.id]);
+
   const DONE_MAP: Record<SubTabId, boolean> = {
     anamnesis: doneAnamnesis,
     riwayat:   doneRiwayat,
@@ -293,6 +318,7 @@ export default function AsesmenAwalTab({ patient }: AsesmenAwalTabProps) {
               {active === "riwayat" && (
                 <RiwayatPane
                   patient={patientBase}
+                  kunjunganId={patient.id}
                   onComplete={setDoneRiwayat}
                 />
               )}

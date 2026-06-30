@@ -24,3 +24,13 @@ export function latestByKunjungan(kunjunganId: string, tx?: Tx) {
     orderBy: { createdAt: "desc" },
   });
 }
+
+// Latest per kunjungan untuk sekumpulan kunjungan (feed "Riwayat Sebelumnya").
+export function listLatestByKunjunganIds(kunjunganIds: string[], tx?: Tx) {
+  if (kunjunganIds.length === 0) return Promise.resolve([]);
+  return db(tx).asesmenPenyakitDahulu.findMany({
+    where: { kunjunganId: { in: kunjunganIds } },
+    orderBy: [{ kunjunganId: "asc" }, { createdAt: "desc" }],
+    distinct: ["kunjunganId"],
+  });
+}

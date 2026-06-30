@@ -37,3 +37,13 @@ export function latestByKunjungan(kunjunganId: string, tx?: Tx) {
     include: withItems,
   });
 }
+
+export function listLatestByKunjunganIds(kunjunganIds: string[], tx?: Tx) {
+  if (kunjunganIds.length === 0) return Promise.resolve([]);
+  return db(tx).asesmenPenyakitKeluarga.findMany({
+    where: { kunjunganId: { in: kunjunganIds } },
+    orderBy: [{ kunjunganId: "asc" }, { createdAt: "desc" }],
+    distinct: ["kunjunganId"],
+    include: withItems,
+  });
+}

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, X, Check } from "lucide-react";
+import { Plus, X, Check, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   type SmokingStatus, type ObatEntry, type KeluargaEntry,
@@ -12,6 +12,41 @@ import {
   METODE_KB, JENIS_PERSALINAN,
   type AsesmenPatientBase,
 } from "./asesmenShared";
+import { getPenyakitDahulu, savePenyakitDahulu } from "@/lib/api/asesmenMedis/asesmenPenyakitDahulu";
+import { getObat, saveObat } from "@/lib/api/asesmenMedis/asesmenObat";
+import { getGayaHidup, saveGayaHidup } from "@/lib/api/asesmenMedis/asesmenGayaHidup";
+import { getFaktorResiko, saveFaktorResiko } from "@/lib/api/asesmenMedis/asesmenFaktorResiko";
+import { getPenyakitKeluarga, savePenyakitKeluarga } from "@/lib/api/asesmenMedis/asesmenPenyakitKeluarga";
+import { getTuberkulosis, saveTuberkulosis } from "@/lib/api/asesmenMedis/asesmenTuberkulosis";
+import { getGinekologi, saveGinekologi } from "@/lib/api/asesmenMedis/asesmenGinekologi";
+import { getPerawatan, savePerawatan } from "@/lib/api/asesmenMedis/asesmenPerawatan";
+import { getObstetri, saveObstetri } from "@/lib/api/asesmenMedis/asesmenObstetri";
+import RiwayatSebelumnya from "./RiwayatSebelumnya";
+import {
+  getRiwayatSebelumnya, type RiwayatDomainKey, type RiwayatSebelumnyaDTO,
+} from "@/lib/api/asesmenMedis/riwayatSebelumnya";
+
+// id kunjungan DB = UUID; id demo/mock → tak tersimpan ke DB.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name === "AbortError";
+const u = (v: string): string | undefined => { const t = v.trim(); return t ? t : undefined; };
+
+interface PaneProps { kunjunganId: string; persisted: boolean; onSaved: () => void }
+
+// ── Save state hook (saving/error/savedAt + run) ──────────
+function useSaveState() {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  async function run(make: () => Promise<{ createdAt: string }>, onOk?: () => void) {
+    setSaving(true); setError(null);
+    try { const r = await make(); setSavedAt(r.createdAt); onOk?.(); }
+    catch (e) { setError(e instanceof Error ? e.message : "Gagal menyimpan."); }
+    finally { setSaving(false); }
+  }
+  return { saving, error, savedAt, run };
+}
+type SaveState = ReturnType<typeof useSaveState>;
 
 // ── Shared primitives ─────────────────────────────────────
 
@@ -27,7 +62,7 @@ function Block({ title, children, className }: { title?: string; children: React
   return (
     <div className={cn("rounded-xl border border-slate-200 bg-white shadow-sm", className)}>
       {title && (
-        <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-2.5">
+        <div className="border-b border-slate-100 bg-linear-to-r from-slate-50 to-white px-4 py-2.5">
           <span className="text-xs font-semibold text-slate-700">{title}</span>
         </div>
       )}
@@ -45,20 +80,20 @@ function TA({ label, value, onChange, placeholder, rows = 2, required }: {
       <textarea rows={rows} value={value}
         onChange={onChange ? e => onChange(e.target.value) : undefined} readOnly={!onChange}
         placeholder={placeholder}
-        className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
+        className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100" />
     </div>
   );
 }
 
-const INPUT_CLS = "h-8 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50";
+const INPUT_CLS = "h-8 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-50";
 
 function ChkBtn({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
   return (
     <button type="button" onClick={onChange}
       className={cn("flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs font-medium transition",
-        checked ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50/40")}>
+        checked ? "border-sky-300 bg-sky-50 text-sky-700" : "border-slate-200 bg-white text-slate-600 hover:border-sky-200 hover:bg-sky-50/40")}>
       <span className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded border transition",
-        checked ? "border-indigo-500 bg-indigo-500" : "border-slate-300")}>
+        checked ? "border-sky-500 bg-sky-500" : "border-slate-300")}>
         {checked && <Check size={10} className="text-white" />}
       </span>
       {label}
@@ -84,12 +119,27 @@ function YesNoRadio({ value, onChange, yesLabel = "Ya", noLabel = "Tidak" }: {
   );
 }
 
-function SaveBtn() {
+function SaveBtn({ onSave, state, persisted }: { onSave: () => void; state: SaveState; persisted: boolean }) {
   return (
-    <div className="flex justify-end pt-1">
-      <button type="button"
-        className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-indigo-700 active:scale-95">
-        Simpan
+    <div className="flex flex-col items-end gap-2 pt-1">
+      {state.error && (
+        <div role="alert" className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-700">
+          <AlertTriangle size={13} className="shrink-0" /> {state.error}
+        </div>
+      )}
+      {!state.error && state.savedAt && (
+        <div className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700">
+          <Check size={13} className="shrink-0" /> Tersimpan · {state.savedAt.slice(0, 16).replace("T", " ")} WIB
+        </div>
+      )}
+      {!persisted && !state.error && (
+        <p className="text-[11px] text-amber-600">Pasien demo — perubahan tidak tersimpan ke database.</p>
+      )}
+      <button type="button" onClick={onSave} disabled={state.saving || !persisted}
+        className={cn("flex items-center gap-2 rounded-lg px-4 py-1.5 text-xs font-medium text-white shadow-sm transition",
+          state.saving || !persisted ? "cursor-not-allowed bg-slate-300" : "bg-sky-600 hover:bg-sky-700 active:scale-95")}>
+        {state.saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+        {state.saving ? "Menyimpan…" : "Simpan"}
       </button>
     </div>
   );
@@ -97,9 +147,18 @@ function SaveBtn() {
 
 // ── Sub-panes ─────────────────────────────────────────────
 
-function PenyakitDahuluPane({ patient }: { patient: AsesmenPatientBase }) {
+function PenyakitDahuluPane({ patient, kunjunganId, persisted, onSaved }: { patient: AsesmenPatientBase } & PaneProps) {
   const [checked, setChecked] = useState<string[]>([]);
   const [catatan, setCatatan] = useState(patient.riwayatPenyakitDahulu ?? "");
+  const st = useSaveState();
+  useEffect(() => {
+    if (!persisted) return;
+    const ac = new AbortController();
+    getPenyakitDahulu(kunjunganId, ac.signal)
+      .then(d => { if (ac.signal.aborted || !d) return; setChecked(d.penyakit); setCatatan(d.catatan ?? ""); })
+      .catch(e => { if (!isAbort(e)) { /* biarkan kosong */ } });
+    return () => ac.abort();
+  }, [kunjunganId, persisted]);
   const toggle = (p: string) => setChecked(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
   return (
     <div className="flex flex-col gap-4">
@@ -114,18 +173,32 @@ function PenyakitDahuluPane({ patient }: { patient: AsesmenPatientBase }) {
         <TA label="Detail / Catatan" value={catatan} onChange={setCatatan} rows={3}
           placeholder="Tahun diagnosis, kondisi saat ini, komplikasi yang pernah terjadi..." />
       </Block>
-      <SaveBtn />
+      <SaveBtn persisted={persisted} state={st}
+        onSave={() => st.run(() => savePenyakitDahulu(kunjunganId, { penyakit: checked, catatan: u(catatan) }), onSaved)} />
     </div>
   );
 }
 
-function PemberianObatPane() {
-  const [obats, setObats] = useState<ObatEntry[]>([
-    { id: "ob-1", nama: "", dosis: "", frekuensi: "", rute: "Oral", sejak: "", indikasi: "" },
-  ]);
+function PemberianObatPane({ kunjunganId, persisted, onSaved }: PaneProps) {
+  const [obats, setObats] = useState<ObatEntry[]>([{ id: "ob-1", nama: "", dosis: "", frekuensi: "", rute: "Oral", sejak: "", indikasi: "" }]);
+  const st = useSaveState();
+  useEffect(() => {
+    if (!persisted) return;
+    const ac = new AbortController();
+    getObat(kunjunganId, ac.signal)
+      .then(d => {
+        if (ac.signal.aborted || !d || d.items.length === 0) return;
+        setObats(d.items.map(it => ({ id: it.id, nama: it.nama, dosis: it.dosis ?? "", frekuensi: it.frekuensi ?? "", rute: it.rute ?? "Oral", sejak: it.sejak ?? "", indikasi: it.indikasi ?? "" })));
+      })
+      .catch(e => { if (!isAbort(e)) { /* */ } });
+    return () => ac.abort();
+  }, [kunjunganId, persisted]);
   const add = () => setObats(p => [...p, { id: `ob-${Date.now()}`, nama: "", dosis: "", frekuensi: "", rute: "Oral", sejak: "", indikasi: "" }]);
   const rem = (id: string) => setObats(p => p.filter(e => e.id !== id));
   const upd = (id: string, k: keyof ObatEntry, v: string) => setObats(p => p.map(e => e.id === id ? { ...e, [k]: v } : e));
+  const onSave = () => st.run(() => saveObat(kunjunganId, {
+    items: obats.filter(o => o.nama.trim()).map(o => ({ nama: o.nama.trim(), dosis: u(o.dosis), frekuensi: u(o.frekuensi), rute: u(o.rute), sejak: u(o.sejak), indikasi: u(o.indikasi) })),
+  }), onSaved);
   return (
     <div className="flex flex-col gap-4">
       <Block title="Daftar Obat yang Sedang / Pernah Diminum">
@@ -149,20 +222,38 @@ function PemberianObatPane() {
             </div>
           ))}
           <button type="button" onClick={add}
-            className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-2.5 text-xs font-medium text-slate-400 transition hover:border-indigo-300 hover:text-indigo-500">
+            className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-2.5 text-xs font-medium text-slate-400 transition hover:border-sky-300 hover:text-sky-500">
             <Plus size={15} /> Tambah Obat
           </button>
         </div>
       </Block>
-      <SaveBtn />
+      <SaveBtn persisted={persisted} state={st} onSave={onSave} />
     </div>
   );
 }
 
-function LainnyaPane() {
+function LainnyaPane({ kunjunganId, persisted, onSaved }: PaneProps) {
   const [merokok, setMerokok] = useState<SmokingStatus | null>(null);
   const [batang, setBatang] = useState(""); const [merokokSejak, setMerokokSejak] = useState(""); const [berhentiSejak, setBerhentiSejak] = useState("");
   const [paparanAsap, setPaparanAsap] = useState<boolean | null>(null); const [paparanDetail, setPaparanDetail] = useState(""); const [catatan, setCatatan] = useState("");
+  const st = useSaveState();
+  useEffect(() => {
+    if (!persisted) return;
+    const ac = new AbortController();
+    getGayaHidup(kunjunganId, ac.signal)
+      .then(d => {
+        if (ac.signal.aborted || !d) return;
+        setMerokok((d.merokokStatus as SmokingStatus | null) ?? null);
+        setBatang(d.rokokPerHari ?? ""); setMerokokSejak(d.merokokSejak ?? ""); setBerhentiSejak(d.berhentiSejak ?? "");
+        setPaparanAsap(d.paparanAsap); setPaparanDetail(d.paparanDetail ?? ""); setCatatan(d.catatan ?? "");
+      })
+      .catch(e => { if (!isAbort(e)) { /* */ } });
+    return () => ac.abort();
+  }, [kunjunganId, persisted]);
+  const onSave = () => st.run(() => saveGayaHidup(kunjunganId, {
+    merokokStatus: merokok ?? undefined, rokokPerHari: u(batang), merokokSejak: u(merokokSejak), berhentiSejak: u(berhentiSejak),
+    paparanAsap, paparanDetail: u(paparanDetail), catatan: u(catatan),
+  }), onSaved);
   return (
     <div className="flex flex-col gap-4">
       <Block title="Status Merokok">
@@ -216,16 +307,26 @@ function LainnyaPane() {
         <TA label="Catatan" value={catatan} onChange={setCatatan} rows={3}
           placeholder="Konsumsi alkohol, pola makan, aktivitas fisik, pola tidur, dll..." />
       </Block>
-      <SaveBtn />
+      <SaveBtn persisted={persisted} state={st} onSave={onSave} />
     </div>
   );
 }
 
-function FaktorResikoPane() {
+function FaktorResikoPane({ kunjunganId, persisted, onSaved }: PaneProps) {
   const [penyakitB, setPenyakitB] = useState<string[]>([]); const [penyakitLain, setPenyakitLain] = useState("");
   const [perilakuB, setPerilakuB] = useState<string[]>([]); const [perilakuLain, setPerilakuLain] = useState("");
+  const st = useSaveState();
+  useEffect(() => {
+    if (!persisted) return;
+    const ac = new AbortController();
+    getFaktorResiko(kunjunganId, ac.signal)
+      .then(d => { if (ac.signal.aborted || !d) return; setPenyakitB(d.penyakit); setPenyakitLain(d.penyakitLain ?? ""); setPerilakuB(d.perilaku); setPerilakuLain(d.perilakuLain ?? ""); })
+      .catch(e => { if (!isAbort(e)) { /* */ } });
+    return () => ac.abort();
+  }, [kunjunganId, persisted]);
   const tP = (v: string) => setPenyakitB(p => p.includes(v) ? p.filter(x => x !== v) : [...p, v]);
   const tB = (v: string) => setPerilakuB(p => p.includes(v) ? p.filter(x => x !== v) : [...p, v]);
+  const onSave = () => st.run(() => saveFaktorResiko(kunjunganId, { penyakit: penyakitB, penyakitLain: u(penyakitLain), perilaku: perilakuB, perilakuLain: u(perilakuLain) }), onSaved);
   return (
     <div className="flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -238,20 +339,41 @@ function FaktorResikoPane() {
           <div className="mt-3"><Label>Perilaku Beresiko Lainnya</Label><input value={perilakuLain} onChange={e => setPerilakuLain(e.target.value)} placeholder="Tambahkan..." className={INPUT_CLS} /></div>
         </Block>
       </div>
-      <SaveBtn />
+      <SaveBtn persisted={persisted} state={st} onSave={onSave} />
     </div>
   );
 }
 
-function PenyakitKeluargaPane({ patient }: { patient: AsesmenPatientBase }) {
+function PenyakitKeluargaPane({ patient, kunjunganId, persisted, onSaved }: { patient: AsesmenPatientBase } & PaneProps) {
   const [entries, setEntries] = useState<KeluargaEntry[]>(ANGGOTA_KELUARGA.map(a => ({ anggota: a, penyakit: [], keterangan: "" })));
   const [riwayatLain, setRiwayatLain] = useState(patient.riwayatKeluarga ?? "");
+  const st = useSaveState();
+  useEffect(() => {
+    if (!persisted) return;
+    const ac = new AbortController();
+    getPenyakitKeluarga(kunjunganId, ac.signal)
+      .then(d => {
+        if (ac.signal.aborted || !d) return;
+        setRiwayatLain(d.riwayatLain ?? "");
+        const byAnggota = new Map(d.items.map(it => [it.anggota, it]));
+        setEntries(ANGGOTA_KELUARGA.map(a => {
+          const it = byAnggota.get(a);
+          return { anggota: a, penyakit: it?.penyakit ?? [], keterangan: it?.keterangan ?? "" };
+        }));
+      })
+      .catch(e => { if (!isAbort(e)) { /* */ } });
+    return () => ac.abort();
+  }, [kunjunganId, persisted]);
   const toggleP = (idx: number, p: string) => setEntries(prev => prev.map((e, i) => i !== idx ? e : { ...e, penyakit: e.penyakit.includes(p) ? e.penyakit.filter(x => x !== p) : [...e.penyakit, p] }));
   const setKet = (idx: number, v: string) => setEntries(prev => prev.map((e, i) => i !== idx ? e : { ...e, keterangan: v }));
+  const onSave = () => st.run(() => savePenyakitKeluarga(kunjunganId, {
+    riwayatLain: u(riwayatLain),
+    items: entries.filter(e => e.penyakit.length > 0 || e.keterangan.trim()).map(e => ({ anggota: e.anggota, penyakit: e.penyakit, keterangan: u(e.keterangan) })),
+  }), onSaved);
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-3">
+        <div className="border-b border-slate-100 bg-linear-to-r from-slate-50 to-white px-4 py-3">
           <span className="text-xs font-semibold text-slate-700">Riwayat Penyakit per Anggota Keluarga</span>
         </div>
         <div className="divide-y divide-slate-100">
@@ -262,7 +384,7 @@ function PenyakitKeluargaPane({ patient }: { patient: AsesmenPatientBase }) {
                 {PENYAKIT_KELUARGA_LIST.map(p => (
                   <button key={p} type="button" onClick={() => toggleP(idx, p)}
                     className={cn("rounded-md border px-2.5 py-1 text-xs font-medium transition",
-                      e.penyakit.includes(p) ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-500 hover:bg-indigo-50/40")}>
+                      e.penyakit.includes(p) ? "border-sky-300 bg-sky-50 text-sky-700" : "border-slate-200 bg-white text-slate-500 hover:bg-sky-50/40")}>
                     {p}
                   </button>
                 ))}
@@ -275,17 +397,37 @@ function PenyakitKeluargaPane({ patient }: { patient: AsesmenPatientBase }) {
       <Block title="Catatan Tambahan Riwayat Keluarga">
         <TA label="Keterangan" value={riwayatLain} onChange={setRiwayatLain} rows={3} placeholder="Pola herediter, penyakit genetik, riwayat lainnya..." />
       </Block>
-      <SaveBtn />
+      <SaveBtn persisted={persisted} state={st} onSave={onSave} />
     </div>
   );
 }
 
-function TuberkulosisPane() {
+function TuberkulosisPane({ kunjunganId, persisted, onSaved }: PaneProps) {
   const [riwayatTBC, setRiwayatTBC] = useState<boolean | null>(null); const [tahun, setTahun] = useState(""); const [statusOAT, setStatusOAT] = useState("");
   const [kontakTBC, setKontakTBC] = useState<boolean | null>(null); const [penunjang, setPenunjang] = useState("");
   const [tcmDilakukan, setTcmDilakukan] = useState<boolean | null>(null); const [tcmHasil, setTcmHasil] = useState("");
   const [sputumDilakukan, setSputumDilakukan] = useState<boolean | null>(null); const [sputumHasil, setSputumHasil] = useState(""); const [sputumGrade, setSputumGrade] = useState("");
   const [catatan, setCatatan] = useState("");
+  const st = useSaveState();
+  useEffect(() => {
+    if (!persisted) return;
+    const ac = new AbortController();
+    getTuberkulosis(kunjunganId, ac.signal)
+      .then(d => {
+        if (ac.signal.aborted || !d) return;
+        setRiwayatTBC(d.riwayatTbc); setTahun(d.tahunPengobatan ?? ""); setStatusOAT(d.statusOat ?? "");
+        setKontakTBC(d.kontakTbc); setPenunjang(d.penunjang ?? "");
+        setTcmDilakukan(d.tcmDilakukan); setTcmHasil(d.tcmHasil ?? "");
+        setSputumDilakukan(d.sputumDilakukan); setSputumHasil(d.sputumHasil ?? ""); setSputumGrade(d.sputumGrade ?? "");
+        setCatatan(d.catatan ?? "");
+      })
+      .catch(e => { if (!isAbort(e)) { /* */ } });
+    return () => ac.abort();
+  }, [kunjunganId, persisted]);
+  const onSave = () => st.run(() => saveTuberkulosis(kunjunganId, {
+    riwayatTbc: riwayatTBC, tahunPengobatan: u(tahun), statusOat: u(statusOAT), kontakTbc: kontakTBC, penunjang: u(penunjang),
+    tcmDilakukan, tcmHasil: u(tcmHasil), sputumDilakukan, sputumHasil: u(sputumHasil), sputumGrade: u(sputumGrade), catatan: u(catatan),
+  }), onSaved);
   return (
     <div className="flex flex-col gap-4">
       <Block title="Riwayat Penyakit Tuberkulosis">
@@ -343,21 +485,41 @@ function TuberkulosisPane() {
         </div>
         <TA label="Catatan" value={catatan} onChange={setCatatan} rows={2} placeholder="Hasil lab, klinis, rencana follow-up..." />
       </Block>
-      <SaveBtn />
+      <SaveBtn persisted={persisted} state={st} onSave={onSave} />
     </div>
   );
 }
 
-function GinekologiPane() {
+function GinekologiPane({ kunjunganId, persisted, onSaved }: PaneProps) {
   const [statusMens, setStatusMens] = useState(""); const [hpht, setHpht] = useState(""); const [siklus, setSiklus] = useState(""); const [lama, setLama] = useState("");
   const [dismenorea, setDismenorea] = useState<boolean | null>(null); const [menoragia, setMenoragia] = useState<boolean | null>(null); const [keputihan, setKeputihan] = useState<boolean | null>(null);
   const [papSmear, setPapSmear] = useState<boolean | null>(null); const [papTahun, setPapTahun] = useState(""); const [papHasil, setPapHasil] = useState("");
   const [iva, setIva] = useState<boolean | null>(null); const [ivaTahun, setIvaTahun] = useState(""); const [ivaHasil, setIvaHasil] = useState(""); const [catatan, setCatatan] = useState("");
+  const st = useSaveState();
+  useEffect(() => {
+    if (!persisted) return;
+    const ac = new AbortController();
+    getGinekologi(kunjunganId, ac.signal)
+      .then(d => {
+        if (ac.signal.aborted || !d) return;
+        setStatusMens(d.statusMenstruasi ?? ""); setHpht(d.hpht ?? ""); setSiklus(d.siklus ?? ""); setLama(d.lamaMenstruasi ?? "");
+        setDismenorea(d.dismenorea); setMenoragia(d.menoragia); setKeputihan(d.keputihan);
+        setPapSmear(d.papSmear); setPapTahun(d.papTahun ?? ""); setPapHasil(d.papHasil ?? "");
+        setIva(d.iva); setIvaTahun(d.ivaTahun ?? ""); setIvaHasil(d.ivaHasil ?? ""); setCatatan(d.catatan ?? "");
+      })
+      .catch(e => { if (!isAbort(e)) { /* */ } });
+    return () => ac.abort();
+  }, [kunjunganId, persisted]);
+  const onSave = () => st.run(() => saveGinekologi(kunjunganId, {
+    statusMenstruasi: u(statusMens), hpht: u(hpht), siklus: u(siklus), lamaMenstruasi: u(lama),
+    dismenorea, menoragia, keputihan, papSmear, papTahun: u(papTahun), papHasil: u(papHasil),
+    iva, ivaTahun: u(ivaTahun), ivaHasil: u(ivaHasil), catatan: u(catatan),
+  }), onSaved);
   return (
     <div className="flex flex-col gap-4">
       <Block title="Riwayat Menstruasi">
         <div className="flex flex-col gap-3">
-          <div><Label>Status Menstruasi</Label><div className="flex flex-wrap gap-2">{(["Reguler", "Tidak Reguler", "Menopause", "Belum Menstruasi"] as const).map(s => (<button key={s} type="button" onClick={() => setStatusMens(s)} className={cn("rounded-lg border px-3.5 py-1.5 text-xs font-semibold transition", statusMens === s ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50")}>{s}</button>))}</div></div>
+          <div><Label>Status Menstruasi</Label><div className="flex flex-wrap gap-2">{(["Reguler", "Tidak Reguler", "Menopause", "Belum Menstruasi"] as const).map(s => (<button key={s} type="button" onClick={() => setStatusMens(s)} className={cn("rounded-lg border px-3.5 py-1.5 text-xs font-semibold transition", statusMens === s ? "border-sky-400 bg-sky-50 text-sky-700" : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50")}>{s}</button>))}</div></div>
           <div className="grid grid-cols-3 gap-3">
             <div><Label>HPHT</Label><input type="date" value={hpht} onChange={e => setHpht(e.target.value)} className={INPUT_CLS} /></div>
             <div><Label>Siklus (hari)</Label><input value={siklus} onChange={e => setSiklus(e.target.value)} placeholder="28 hari" className={INPUT_CLS} /></div>
@@ -391,20 +553,37 @@ function GinekologiPane() {
         </div>
       </Block>
       <Block title="Catatan Ginekologi"><TA label="Keterangan" value={catatan} onChange={setCatatan} rows={3} placeholder="Riwayat gangguan ginekologi, terapi hormonal, kontrasepsi, dll..." /></Block>
-      <SaveBtn />
+      <SaveBtn persisted={persisted} state={st} onSave={onSave} />
     </div>
   );
 }
 
-function PerawatanTindakanPane() {
+function PerawatanTindakanPane({ kunjunganId, persisted, onSaved }: PaneProps) {
   const [rawats, setRawats] = useState<RawatEntry[]>([{ id: "rw-1", rs: "", unit: "", tanggal: "", diagnosa: "", keterangan: "" }]);
-  const [bedahs, setBedahs]  = useState<BedahEntry[]>([]);
+  const [bedahs, setBedahs] = useState<BedahEntry[]>([]);
+  const st = useSaveState();
+  useEffect(() => {
+    if (!persisted) return;
+    const ac = new AbortController();
+    getPerawatan(kunjunganId, ac.signal)
+      .then(d => {
+        if (ac.signal.aborted || !d) return;
+        if (d.rawat.length > 0) setRawats(d.rawat.map(r => ({ id: r.id, rs: r.rs ?? "", unit: r.unit ?? "", tanggal: r.tanggal ?? "", diagnosa: r.diagnosa ?? "", keterangan: r.keterangan ?? "" })));
+        if (d.bedah.length > 0) setBedahs(d.bedah.map(b => ({ id: b.id, tanggal: b.tanggal ?? "", tindakan: b.tindakan ?? "", rs: b.rs ?? "", dokter: b.dokter ?? "", keterangan: b.keterangan ?? "" })));
+      })
+      .catch(e => { if (!isAbort(e)) { /* */ } });
+    return () => ac.abort();
+  }, [kunjunganId, persisted]);
   const addR = () => setRawats(p => [...p, { id: `rw-${Date.now()}`, rs: "", unit: "", tanggal: "", diagnosa: "", keterangan: "" }]);
   const remR = (id: string) => setRawats(p => p.filter(e => e.id !== id));
   const updR = (id: string, k: keyof RawatEntry, v: string) => setRawats(p => p.map(e => e.id === id ? { ...e, [k]: v } : e));
   const addB = () => setBedahs(p => [...p, { id: `bd-${Date.now()}`, tanggal: "", tindakan: "", rs: "", dokter: "", keterangan: "" }]);
   const remB = (id: string) => setBedahs(p => p.filter(e => e.id !== id));
   const updB = (id: string, k: keyof BedahEntry, v: string) => setBedahs(p => p.map(e => e.id === id ? { ...e, [k]: v } : e));
+  const onSave = () => st.run(() => savePerawatan(kunjunganId, {
+    rawat: rawats.filter(r => r.rs.trim() || r.diagnosa.trim() || r.tanggal.trim()).map(r => ({ rs: u(r.rs), unit: u(r.unit), tanggal: u(r.tanggal), diagnosa: u(r.diagnosa), keterangan: u(r.keterangan) })),
+    bedah: bedahs.filter(b => b.tindakan.trim() || b.tanggal.trim()).map(b => ({ tanggal: u(b.tanggal), tindakan: u(b.tindakan), rs: u(b.rs), dokter: u(b.dokter), keterangan: u(b.keterangan) })),
+  }), onSaved);
   return (
     <div className="flex flex-col gap-4">
       <Block title="Riwayat Rawat Inap Terakhir">
@@ -421,7 +600,7 @@ function PerawatanTindakanPane() {
               </div>
             </div>
           ))}
-          <button type="button" onClick={addR} className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-2.5 text-xs font-medium text-slate-400 transition hover:border-indigo-300 hover:text-indigo-500"><Plus size={15} /> Tambah Riwayat</button>
+          <button type="button" onClick={addR} className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-2.5 text-xs font-medium text-slate-400 transition hover:border-sky-300 hover:text-sky-500"><Plus size={15} /> Tambah Riwayat</button>
         </div>
       </Block>
       <Block title="Riwayat Pembedahan / Operasi">
@@ -439,27 +618,48 @@ function PerawatanTindakanPane() {
               </div>
             </div>
           ))}
-          <button type="button" onClick={addB} className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-2.5 text-xs font-medium text-slate-400 transition hover:border-indigo-300 hover:text-indigo-500"><Plus size={15} /> Tambah Riwayat Pembedahan</button>
+          <button type="button" onClick={addB} className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-2.5 text-xs font-medium text-slate-400 transition hover:border-sky-300 hover:text-sky-500"><Plus size={15} /> Tambah Riwayat Pembedahan</button>
         </div>
       </Block>
-      <SaveBtn />
+      <SaveBtn persisted={persisted} state={st} onSave={onSave} />
     </div>
   );
 }
 
-function ObstetriPane() {
+function ObstetriPane({ kunjunganId, persisted, onSaved }: PaneProps) {
   const [metodeKB, setMetodeKB] = useState(""); const [kbSejak, setKbSejak] = useState(""); const [kbKet, setKbKet] = useState("");
   const [gravida, setGravida] = useState(""); const [para, setPara] = useState(""); const [abortus, setAbortus] = useState("");
   const [persalinans, setPersalinans] = useState<PersalinanEntry[]>([]);
   const [ancKunjungan, setAncKunjungan] = useState(""); const [ancUsia, setAncUsia] = useState(""); const [ancTempat, setAncTempat] = useState(""); const [ancPetugas, setAncPetugas] = useState(""); const [ancKet, setAncKet] = useState("");
+  const st = useSaveState();
+  useEffect(() => {
+    if (!persisted) return;
+    const ac = new AbortController();
+    getObstetri(kunjunganId, ac.signal)
+      .then(d => {
+        if (ac.signal.aborted || !d) return;
+        setMetodeKB(d.metodeKb ?? ""); setKbSejak(d.kbSejak ?? ""); setKbKet(d.kbKeterangan ?? "");
+        setGravida(d.gravida ?? ""); setPara(d.para ?? ""); setAbortus(d.abortus ?? "");
+        setAncKunjungan(d.ancKunjungan ?? ""); setAncUsia(d.ancUsiaKehamilan ?? ""); setAncTempat(d.ancTempat ?? ""); setAncPetugas(d.ancPetugas ?? ""); setAncKet(d.ancCatatan ?? "");
+        if (d.persalinan.length > 0) setPersalinans(d.persalinan.map(ps => ({ id: ps.id, tahun: ps.tahun ?? "", usiaKeh: ps.usiaKehamilan ?? "", jenis: ps.jenis ?? JENIS_PERSALINAN[0], bbLahir: ps.bbLahir ?? "", kondisiAnak: ps.kondisiAnak ?? "", keterangan: ps.keterangan ?? "" })));
+      })
+      .catch(e => { if (!isAbort(e)) { /* */ } });
+    return () => ac.abort();
+  }, [kunjunganId, persisted]);
   const addPs = () => setPersalinans(p => [...p, { id: `ps-${Date.now()}`, tahun: "", usiaKeh: "", jenis: JENIS_PERSALINAN[0], bbLahir: "", kondisiAnak: "", keterangan: "" }]);
   const remPs = (id: string) => setPersalinans(p => p.filter(e => e.id !== id));
   const updPs = (id: string, k: keyof PersalinanEntry, v: string) => setPersalinans(p => p.map(e => e.id === id ? { ...e, [k]: v } : e));
+  const onSave = () => st.run(() => saveObstetri(kunjunganId, {
+    metodeKb: u(metodeKB), kbSejak: u(kbSejak), kbKeterangan: u(kbKet),
+    gravida: u(gravida), para: u(para), abortus: u(abortus),
+    ancKunjungan: u(ancKunjungan), ancUsiaKehamilan: u(ancUsia), ancTempat: u(ancTempat), ancPetugas: u(ancPetugas), ancCatatan: u(ancKet),
+    persalinan: persalinans.filter(ps => ps.tahun.trim() || ps.jenis.trim()).map(ps => ({ tahun: u(ps.tahun), usiaKehamilan: u(ps.usiaKeh), jenis: u(ps.jenis), bbLahir: u(ps.bbLahir), kondisiAnak: u(ps.kondisiAnak), keterangan: u(ps.keterangan) })),
+  }), onSaved);
   return (
     <div className="flex flex-col gap-4">
       <Block title="Keluarga Berencana (KB)">
         <div className="flex flex-col gap-3">
-          <div><Label>Metode KB yang Digunakan</Label><div className="flex flex-wrap gap-2">{METODE_KB.map(m => (<button key={m} type="button" onClick={() => setMetodeKB(m)} className={cn("rounded-lg border px-3 py-1.5 text-xs font-medium transition", metodeKB === m ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-500 hover:bg-indigo-50/40")}>{m}</button>))}</div></div>
+          <div><Label>Metode KB yang Digunakan</Label><div className="flex flex-wrap gap-2">{METODE_KB.map(m => (<button key={m} type="button" onClick={() => setMetodeKB(m)} className={cn("rounded-lg border px-3 py-1.5 text-xs font-medium transition", metodeKB === m ? "border-sky-400 bg-sky-50 text-sky-700" : "border-slate-200 bg-white text-slate-500 hover:bg-sky-50/40")}>{m}</button>))}</div></div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Sejak / Durasi</Label><input value={kbSejak} onChange={e => setKbSejak(e.target.value)} placeholder="2020, 3 tahun..." className={INPUT_CLS} /></div>
             <div><Label>Keterangan</Label><input value={kbKet} onChange={e => setKbKet(e.target.value)} placeholder="Efek samping, alasan berhenti..." className={INPUT_CLS} /></div>
@@ -489,7 +689,7 @@ function ObstetriPane() {
                 </div>
               </div>
             ))}
-            <button type="button" onClick={addPs} className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-2.5 text-xs font-medium text-slate-400 transition hover:border-indigo-300 hover:text-indigo-500"><Plus size={15} /> Tambah Riwayat Persalinan</button>
+            <button type="button" onClick={addPs} className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-2.5 text-xs font-medium text-slate-400 transition hover:border-sky-300 hover:text-sky-500"><Plus size={15} /> Tambah Riwayat Persalinan</button>
           </div>
         </div>
       </Block>
@@ -502,7 +702,7 @@ function ObstetriPane() {
         </div>
         <TA label="Catatan ANC" value={ancKet} onChange={setAncKet} rows={2} placeholder="Komplikasi kehamilan, suplemen, imunisasi TT, USG, dll..." />
       </Block>
-      <SaveBtn />
+      <SaveBtn persisted={persisted} state={st} onSave={onSave} />
     </div>
   );
 }
@@ -515,40 +715,85 @@ const RWY_TABS = [
 ] as const;
 type RwyTab = typeof RWY_TABS[number];
 
+// Peta sub-menu → domain key panel "Riwayat Sebelumnya".
+const TAB_DOMAIN: Record<RwyTab, RiwayatDomainKey> = {
+  "Penyakit Dahulu": "penyakitDahulu", "Pemberian Obat": "obat", "Lainnya": "gayaHidup",
+  "Faktor Resiko": "faktorResiko", "Penyakit Keluarga": "penyakitKeluarga", "Tuberkulosis": "tuberkulosis",
+  "Ginekologi": "ginekologi", "Perawatan & Tindakan": "perawatan", "Obstetri": "obstetri",
+};
+
 interface RiwayatPaneProps {
   patient: AsesmenPatientBase;
+  kunjunganId?: string; // id kunjungan DB (UUID) → persist; non-UUID/undefined → demo lokal
   onComplete?: (done: boolean) => void;
 }
 
-export default function RiwayatPane({ patient, onComplete }: RiwayatPaneProps) {
-  const [activeTab, setActiveTab] = useState<RwyTab>("Penyakit Dahulu");
+// Domain "terisi" bila punya episode kunjungan ini (isCurrent).
+const isFilled = (eps?: { isCurrent: boolean }[]) => (eps ?? []).some(ep => ep.isCurrent);
 
-  void onComplete; // available for future completion-tracking integration
+export default function RiwayatPane({ patient, kunjunganId, onComplete }: RiwayatPaneProps) {
+  const [activeTab, setActiveTab] = useState<RwyTab>("Penyakit Dahulu");
+  const kid = kunjunganId ?? "";
+  const persisted = UUID_RE.test(kid);
+
+  // Riwayat longitudinal (1 fetch + reload pasca-simpan) — sumber panel kanan + status "terisi".
+  const [data, setData] = useState<RiwayatSebelumnyaDTO | null>(null);
+  const [histState, setHistState] = useState<"loading" | "done" | "error">(persisted ? "loading" : "done");
+
+  useEffect(() => {
+    if (!persisted) return;
+    const ac = new AbortController();
+    getRiwayatSebelumnya(kid, ac.signal)
+      .then(dto => {
+        if (ac.signal.aborted) return;
+        setData(dto); setHistState("done");
+        if (Object.values(dto.domains).some(isFilled)) onComplete?.(true);
+      })
+      .catch(e => { if (!isAbort(e) && !ac.signal.aborted) setHistState("error"); });
+    return () => ac.abort();
+  }, [kid, persisted, onComplete]);
+
+  // Pasca-simpan: tandai selesai (instan) + muat ulang riwayat → entri baru langsung muncul.
+  const handleSaved = useCallback(() => {
+    onComplete?.(true);
+    if (!persisted) return;
+    getRiwayatSebelumnya(kid).then(dto => setData(dto)).catch(() => { /* keep last */ });
+  }, [kid, persisted, onComplete]);
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex overflow-x-auto rounded-xl bg-slate-100 p-1 shadow-sm" style={{ scrollbarWidth: "none" }}>
-        {RWY_TABS.map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
-            className={cn("shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition",
-              activeTab === tab ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200/80" : "text-slate-500 hover:text-slate-700")}>
-            {tab}
-          </button>
-        ))}
+        {RWY_TABS.map(tab => {
+          const filled = isFilled(data?.domains[TAB_DOMAIN[tab]]);
+          return (
+            <button key={tab} onClick={() => setActiveTab(tab)}
+              className={cn("flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition",
+                activeTab === tab ? "bg-white text-sky-700 shadow-sm ring-1 ring-slate-200/80"
+                  : filled ? "text-emerald-600 hover:text-emerald-700" : "text-slate-500 hover:text-slate-700")}>
+              {filled && <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", activeTab === tab ? "bg-emerald-500" : "bg-emerald-400")} />}
+              {tab}
+            </button>
+          );
+        })}
       </div>
-      <AnimatePresence mode="wait">
-        <motion.div key={activeTab} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.14 }}>
-          {activeTab === "Penyakit Dahulu"      && <PenyakitDahuluPane patient={patient} />}
-          {activeTab === "Pemberian Obat"       && <PemberianObatPane />}
-          {activeTab === "Lainnya"              && <LainnyaPane />}
-          {activeTab === "Faktor Resiko"        && <FaktorResikoPane />}
-          {activeTab === "Penyakit Keluarga"    && <PenyakitKeluargaPane patient={patient} />}
-          {activeTab === "Tuberkulosis"         && <TuberkulosisPane />}
-          {activeTab === "Ginekologi"           && <GinekologiPane />}
-          {activeTab === "Perawatan & Tindakan" && <PerawatanTindakanPane />}
-          {activeTab === "Obstetri"             && <ObstetriPane />}
-        </motion.div>
-      </AnimatePresence>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-4">
+        <div className="min-w-0 flex-1">
+          <AnimatePresence mode="wait">
+            <motion.div key={activeTab} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.14 }}>
+              {activeTab === "Penyakit Dahulu"      && <PenyakitDahuluPane patient={patient} kunjunganId={kid} persisted={persisted} onSaved={handleSaved} />}
+              {activeTab === "Pemberian Obat"       && <PemberianObatPane kunjunganId={kid} persisted={persisted} onSaved={handleSaved} />}
+              {activeTab === "Lainnya"              && <LainnyaPane kunjunganId={kid} persisted={persisted} onSaved={handleSaved} />}
+              {activeTab === "Faktor Resiko"        && <FaktorResikoPane kunjunganId={kid} persisted={persisted} onSaved={handleSaved} />}
+              {activeTab === "Penyakit Keluarga"    && <PenyakitKeluargaPane patient={patient} kunjunganId={kid} persisted={persisted} onSaved={handleSaved} />}
+              {activeTab === "Tuberkulosis"         && <TuberkulosisPane kunjunganId={kid} persisted={persisted} onSaved={handleSaved} />}
+              {activeTab === "Ginekologi"           && <GinekologiPane kunjunganId={kid} persisted={persisted} onSaved={handleSaved} />}
+              {activeTab === "Perawatan & Tindakan" && <PerawatanTindakanPane kunjunganId={kid} persisted={persisted} onSaved={handleSaved} />}
+              {activeTab === "Obstetri"             && <ObstetriPane kunjunganId={kid} persisted={persisted} onSaved={handleSaved} />}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+        <RiwayatSebelumnya data={data} state={histState} domainKey={TAB_DOMAIN[activeTab]} domainLabel={activeTab} className="lg:w-80 lg:shrink-0" />
+      </div>
     </div>
   );
 }

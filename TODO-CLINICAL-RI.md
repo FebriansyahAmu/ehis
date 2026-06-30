@@ -48,7 +48,7 @@ Legenda: 🟢 DB-wired · 🟡 sebagian/verifikasi · ⬜ mock/lokal (target). S
 | 12 | Konsultasi (Lyn) | 🟡 | A | (konsultasi lintas-unit) | verifikasi domain + wire |
 | 13 | Asuhan Keperawatan (RM) | ⬜ | A | `AsuhanKeperawatan`+`AsuhanEvaluasi` | wiring ada di IGD; wire tab RI |
 | 14 | Pemeriksaan Fisik (RM) | ⬜ | A | `PemeriksaanFisik`+`PenandaanAnatomi` | RI per-sistem ditunda → bangun+wire |
-| 15 | Asesmen Awal (RM) | 🟡 | A | `Anamnesis` (+riwayat/alergi/skrining/penilaian) | **Anamnesis 🟢 wired** (2026-06-30) · 4 sub-pane lain ⬜ → rincian [§Sub-pane Asesmen Awal](#sub-pane-asesmen-awal-tab-15--per-2026-06-30) |
+| 15 | Asesmen Awal (RM) | 🟡 | A | `Anamnesis` (+riwayat/alergi/skrining/penilaian) | **Anamnesis + Riwayat Medis 🟢 wired** (2026-06-30) · 3 sub-pane lain ⬜ → rincian [§Sub-pane Asesmen Awal](#sub-pane-asesmen-awal-tab-15--per-2026-06-30) |
 | 16 | Pasien Pulang (Lyn) | ⬜ | A | `Disposisi` (transisi `complete`) | pola IGD; sambung pintu RI + lock |
 | 17 | Rencana Asuhan / Care Plan (RM) | ⬜ | B | **belum ada** | desain domain dulu |
 | 18 | Intake / Output (RM) | ⬜ | B | **belum ada** | balance cairan per-shift |
@@ -63,12 +63,12 @@ Legenda: 🟢 DB-wired · 🟡 sebagian/verifikasi · ⬜ mock/lokal (target). S
 
 ### Sub-pane Asesmen Awal (tab #15) — per 2026-06-30
 
-Tab Asesmen Awal RI = **5 sub-pane** ([AsesmenAwalTab](src/components/rawat-inap/tabs/AsesmenAwalTab.tsx)). **Anamnesis 🟢** (DB-wired sesi 2026-06-30); 4 sisanya ⬜.
+Tab Asesmen Awal RI = **5 sub-pane** ([AsesmenAwalTab](src/components/rawat-inap/tabs/AsesmenAwalTab.tsx)). **Anamnesis + Riwayat Medis 🟢** (DB-wired 2026-06-30); 3 sisanya ⬜. **Indikator hijau SubNav + progress kini akurat saat tab dibuka** — 1 panggilan `GET /kunjungan/:id/asesmen/ringkasan` (reuse pola IGD) men-set status terisi per sub-tab tanpa harus mengklik tiap sub-tab dulu (berlaku RI **dan** RJ).
 
 | # | Sub-pane | Std | Status | Domain / endpoint | Catatan RI |
 |---|---|---|---|---|---|
 | 1 | **Anamnesis** | AP 1.1 | 🟢 | `medicalrecord.Anamnesis` (+JSONB `sosial`/`spiritual`) · `GET/POST /kunjungan/:id/anamnesis` + `/anamnesis-sebelumnya` | **DB-wired (2026-06-30)** [AnamnesisPaneRI](src/components/rawat-inap/asesmenAwal/AnamnesisPaneRI.tsx): tombol **Simpan** persist (append-only, pemeriksa=sesi login); muat anamnesis terbaru saat mount; panel **Anamnesis Sebelumnya** longitudinal lintas-kunjungan ([AnamnesisSebelumnya](src/components/shared/medical-records/AnamnesisSebelumnya.tsx)); Sumber Anamnesis = tombol pilih; **Psikososial & Spiritual opsional**; **Template Cepat dari DB** ([AnamnesisTemplatePicker](src/components/shared/medical-records/AnamnesisTemplatePicker.tsx) `modul="RI"`, master Template Anamnesis TE2). Guard UUID (demo `ri-1`/`ri-3` → lokal). |
-| 2 | Riwayat Medis | AP 1.1 | ⬜ | asesmen riwayat (domain IGD ada) | shared [RiwayatPane](src/components/shared/asesmen/RiwayatPane.tsx) masih by `noRM`/mock → wire `kunjunganId` |
+| 2 | **Riwayat Medis** | AP 1.1 | 🟢 | 9 domain `medicalrecord.asesmen*` (Penyakit Dahulu/Obat/GayaHidup/FaktorResiko/PenyakitKeluarga/Tuberkulosis/Ginekologi/Perawatan/Obstetri) · `GET/POST /kunjungan/:id/asesmen/<domain>` + `/asesmen/riwayat-sebelumnya` | **DB-wired (2026-06-30)** [RiwayatPane](src/components/shared/asesmen/RiwayatPane.tsx): 9 sub-menu muat saat dibuka + **Simpan** persist (append-only "latest wins"); warna **sky** (bukan violet/indigo); panel **Riwayat Sebelumnya** longitudinal per sub-menu (1 endpoint konsolidasi [riwayatSebelumnyaService](src/lib/services/asesmenMedis/riwayatSebelumnyaService.ts) agregasi 9 DAL `listLatestByKunjunganIds`); **reload pasca-simpan tanpa refresh** → entri baru langsung muncul ("Kunjungan Ini") + dot hijau sub-menu; progress naik + nav hijau saat ≥1 sub-menu terisi. Guard UUID (demo lokal). |
 | 3 | Alergi | AP 1.1 | ⬜ | `asesmenAlergi` (domain IGD ada) | shared [AllergyPane](src/components/shared/asesmen/AllergyPane.tsx) masih by `noRM` → wire `kunjunganId` |
 | 4 | Skrining Gizi | AP 1.3 | ⬜ | gizi (sebagian) | [SkriningPane](src/components/rawat-inap/asesmenAwal/SkriningPane.tsx)/[GiziPane](src/components/shared/asesmen/GiziPane.tsx) belum wire |
 | 5 | Penilaian Risiko | AP 1.4–1.5 | ⬜ | `PenilaianSkala` (master skala, pola IGD `SkalaRisikoPanel`) | [PenilaianRisikoPane](src/components/rawat-inap/asesmenAwal/PenilaianRisikoPane.tsx) masih lokal (Barthel/Morse/Braden) → tarik master `?modul=` + persist |
@@ -87,7 +87,9 @@ Tab Asesmen Awal RI = **5 sub-pane** ([AsesmenAwalTab](src/components/rawat-inap
 - [ ] **Pemeriksaan Fisik** — bangun varian RI per-sistem (head-to-toe RI ditunda di IGD) + wire `PemeriksaanTab` → `PemeriksaanFisik`(+`PenandaanAnatomi`), gate `clinical.pemeriksaan`.
 - [~] **Asesmen Awal** — 5 sub-pane ([§Sub-pane Asesmen Awal](#sub-pane-asesmen-awal-tab-15--per-2026-06-30)):
   - [x] **Anamnesis 🟢** (2026-06-30) — `medicalrecord.Anamnesis` (+sosial/spiritual) · Simpan persist + muat saat mount · panel **Anamnesis Sebelumnya** · Sumber tombol · Psikososial opsional · **Template Cepat dari DB** (master Template Anamnesis TE2).
-  - [ ] **Riwayat Medis · Alergi · Skrining Gizi · Penilaian Risiko** — wire shared `asesmen/*` pane ke domain via `kunjunganId` (Riwayat/Alergi domain IGD sudah ada; Penilaian tarik master skala `?modul=`). Tutup juga gap RJ.
+  - [x] **Riwayat Medis 🟢** (2026-06-30) — 9 domain `asesmen*` wired via `kunjunganId` (muat + Simpan append-only) · warna sky · panel **Riwayat Sebelumnya** longitudinal (`/asesmen/riwayat-sebelumnya`, 1 endpoint agregasi 9 DAL `listLatestByKunjunganIds`) · **reload tanpa refresh** + dot hijau sub-menu · progress/nav hijau saat ≥1 terisi. Berlaku RJ (shared pane sama).
+  - [x] **Ringkasan SubNav** (2026-06-30) — `GET /kunjungan/:id/asesmen/ringkasan` (reuse pola IGD) dipanggil saat tab dibuka → sub-tab terisi langsung hijau + progress akurat tanpa klik tiap sub-tab (RI + RJ).
+  - [ ] **Alergi · Skrining Gizi · Penilaian Risiko** — wire shared `asesmen/*` pane ke domain via `kunjunganId` (Alergi domain IGD sudah ada; Penilaian tarik master skala `?modul=`). Tutup juga gap RJ.
 - [ ] **Pasien Pulang (Disposisi)** — sambungkan pintu RI ke transisi `complete` (`medicalrecord.Disposisi` + lock + gate Diagnosa Utama). Deep-link dari board "Selesai".
 - [ ] **Informed Consent / Konsultasi** — verifikasi persist by `kunjunganId` di konteks RI; wire bila belum.
 

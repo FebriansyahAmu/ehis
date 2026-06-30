@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ClipboardList, History, AlertTriangle, CheckCircle2 } from "lucide-react";
 import type { RJPatientDetail } from "@/lib/data";
@@ -9,6 +9,10 @@ import { cn } from "@/lib/utils";
 import AnamnesisPaneRJ from "@/components/rawat-jalan/asesmenAwal/AnamnesisPaneRJ";
 import RiwayatPane     from "@/components/shared/asesmen/RiwayatPane";
 import AllergyPane     from "@/components/shared/asesmen/AllergyPane";
+import { getAsesmenRingkasan } from "@/lib/api/asesmenMedis/ringkasan";
+
+// id kunjungan DB = UUID; pasien demo/mock → ringkasan di-skip.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Sub-tab definitions ───────────────────────────────────
 
@@ -158,6 +162,26 @@ export default function AsesmenAwalRJTab({ patient }: { patient: RJPatientDetail
   const [doneRiwayat,   setDoneRiwayat]   = useState(false);
   const [doneAlergi,    setDoneAlergi]    = useState(false);
 
+  // Ringkasan status semua sub-menu dalam 1 panggilan saat tab dibuka → indikator hijau
+  // SubNav + progress langsung akurat tanpa harus membuka tiap sub-tab dulu (selaras IGD).
+  // Hanya kunjungan DB (UUID); pasien demo (mock) di-skip.
+  useEffect(() => {
+    if (!UUID_RE.test(patient.id)) return;
+    const ac = new AbortController();
+    (async () => {
+      try {
+        const r = await getAsesmenRingkasan(patient.id, ac.signal);
+        if (ac.signal.aborted) return;
+        setDoneAnamnesis(r.anamnesis);
+        setDoneRiwayat(r.riwayat);
+        setDoneAlergi(r.alergi);
+      } catch {
+        /* diam — ringkasan opsional, tak menghalangi pengisian sub-tab */
+      }
+    })();
+    return () => ac.abort();
+  }, [patient.id]);
+
   const DONE_MAP: Record<SubTabId, boolean> = {
     anamnesis: doneAnamnesis,
     riwayat:   doneRiwayat,
@@ -223,7 +247,7 @@ export default function AsesmenAwalRJTab({ patient }: { patient: RJPatientDetail
                 <AnamnesisPaneRJ patient={patient} onComplete={setDoneAnamnesis} />
               )}
               {active === "riwayat" && (
-                <RiwayatPane patient={patientBase} onComplete={setDoneRiwayat} />
+                <RiwayatPane patient={patientBase} kunjunganId={patient.id} onComplete={setDoneRiwayat} />
               )}
               {active === "alergi" && (
                 <AllergyPane noRM={patient.noRM} onComplete={setDoneAlergi} />
