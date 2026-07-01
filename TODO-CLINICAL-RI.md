@@ -36,7 +36,7 @@ Legenda: 🟢 DB-wired · 🟡 sebagian/verifikasi · ⬜ mock/lokal (target). S
 |---|---|---|---|---|---|
 | 1 | CPPT / SOAP (RM) | 🟢 | — | `Cppt` | shared wired (co-sign DPJP); **default jenis catatan = SBAR** saat tab dibuka (prop `defaultJenis`, 2026-07-01) |
 | 2 | TTV (RM) | 🟢 | — | `Observation` | **DB-wired (2026-07-01)** — wrapper RI [rawat-inap/tabs/TTVTab](src/components/rawat-inap/tabs/TTVTab.tsx) fetch `listObservasi` + `onSave`=`recordObservasi` (mode RI multi-shift: shift dipilih, waktu=now server); perawat=user login (server otoritatif `resolvePerawat(actor)`, `recordedBy` display); `emitRecordChange` header sync. Backend `Observation` shared IGD/RI/RJ (gate `clinical.rekammedis`) |
-| 3 | Diagnosa (RM) | 🟢 | — | `Diagnosa` | shared wired |
+| 3 | Diagnosa (RM) | 🟢 | — | `Diagnosa`+`DiagnosaProsedur` | **DB-wired** (verifikasi 2026-07-01) — RI wrapper teruskan `kunjunganId`; shared persist per-aksi (add/update/delete ICD-10 + add/delete ICD-9). Gate ICD-10 **`clinical.diagnosa`** (Dokter c/r/u, Perawat **read-only**, delete Admin-only) · ICD-9 **`clinical.prosedur`** (Dokter+Perawat c/r/d). ⚠️ `clinical.diagnosa:delete` belum di-grant ke Dokter → tombol hapus diagnosis 403 utk Dokter (pre-existing, sama IGD) |
 | 4 | Serah Terima Shift (RM) | 🟢 | — | `SerahTerima` | shared wired (SBAR closed-loop) |
 | 5 | Rekonsiliasi Obat (RM) | 🟢 | — | `Rekonsiliasi` | shared wired (context `ri`) |
 | 6 | Resep & Obat (Lyn) | 🟢 | — | `ResepOrder` | shared wired; **TTE+cetak baru IGD** (RI menyusul) |
@@ -46,7 +46,7 @@ Legenda: 🟢 DB-wired · 🟡 sebagian/verifikasi · ⬜ mock/lokal (target). S
 | 10 | Order BMHP (Lyn) | 🟢 | — | (order BMHP) | shared wired |
 | 11 | Informed Consent (RM) | 🟡 | A | `InformedConsent` | verifikasi persist di konteks RI |
 | 12 | Konsultasi (Lyn) | 🟡 | A | (konsultasi lintas-unit) | verifikasi domain + wire |
-| 13 | Asuhan Keperawatan (RM) | ⬜ | A | `AsuhanKeperawatan`+`AsuhanEvaluasi` | wiring ada di IGD; wire tab RI |
+| 13 | Asuhan Keperawatan (RM) | 🟢 | A | `AsuhanKeperawatan`+`AsuhanEvaluasi` | **DB-wired (2026-07-01)** — port pola IGD ke wrapper RI [rawat-inap/tabs/KeperawatanTab](src/components/rawat-inap/tabs/KeperawatanTab.tsx): `getAsuhanKeperawatan`/create/update/delete + `addEvaluasiShift` (evaluasi shift anak) + template `listSdkiTemplate`; `isPersisted` UUID guard (demo lokal); petugas=user login (`session.namaTampil`); co-sign verify; gate `clinical.keperawatan`. Pertahankan BundleHAI (ICU/HCU) |
 | 14 | Pemeriksaan Fisik (RM) | ⬜ | A | `PemeriksaanFisik`+`PenandaanAnatomi` | RI per-sistem ditunda → bangun+wire |
 | 15 | Asesmen Awal (RM) | 🟢 | A | `Anamnesis` (+riwayat/alergi/skrining) | **4 sub-pane (Anamnesis/Riwayat/Alergi/Skrining) 🟢 wired** (2026-06-30). Penilaian Risiko **dipindah** ke tab top-level "Penilaian" → rincian [§Sub-pane Asesmen Awal](#sub-pane-asesmen-awal-tab-15--per-2026-06-30) |
 | 15b | **Penilaian (RM)** | 🟢 | A | `medicalrecord.penilaian_*` (Fisik/Nyeri/Status/Pediatrik) + `PenilaianSkala` (master skala) + `PenilaianKomposit` (Jantung/Kanker) | **Tab top-level shared BARU (2026-06-30)** — [PenilaianTab](src/components/shared/penilaian/PenilaianTab.tsx) dipromosikan dari IGD ke `components/shared/penilaian/` + di-parametrize `modul`; RI render `modul="RI"`. 7 sub-menu DB-wired; skala Risiko/Jantung/Kanker **master-driven** via `konsumenModul`. Hardcode Barthel/Morse/Braden + violet dihapus. |
