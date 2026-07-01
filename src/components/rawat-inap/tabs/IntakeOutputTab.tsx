@@ -1,10 +1,20 @@
 "use client";
 
-import { useState } from "react";
+// Tab Intake/Output (Balance Cairan, SNARS PP). DB-wired (medicalrecord.IntakeOutput +
+// IntakeOutputTarget via /kunjungan/:id/intake-output, gate clinical.rekammedis). Pasien NYATA
+// (UUID) persist per-aksi (entri append + soft-delete · target latest-wins); pasien demo
+// (non-UUID) = state lokal efemeral. Pencatat/updatedBy = user login (server otoritatif).
+
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, BarChart2, History, Droplets } from "lucide-react";
 import type { IOEntry, IOTargetDPJP, RawatInapPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
+import {
+  getIntakeOutput, addIOEntry, deleteIOEntry, setIOTarget,
+} from "@/lib/api/intakeOutput/intakeOutput";
 
 import EntriPane    from "./intakeOutput/EntriPane";
 import RingkasanPane from "./intakeOutput/RingkasanPane";
@@ -22,6 +32,8 @@ const SUB_TABS: { id: SubTab; label: string; Icon: IconComponent }[] = [
 
 // ── Helpers ──────────────────────────────────────────────────
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function genId(): string {
   return `io-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
@@ -29,20 +41,78 @@ function genId(): string {
 // ── Main ─────────────────────────────────────────────────────
 
 export default function IntakeOutputTab({ patient }: { patient: RawatInapPatientDetail }) {
+  const kunjunganId = patient.id;
+  const isPersisted = UUID_RE.test(kunjunganId);
+
   const [active,     setActive]     = useState<SubTab>("entri");
-  const [entries,    setEntries]    = useState<IOEntry[]>(patient.intakeOutput?.entries ?? []);
-  const [targetDPJP, setTargetDPJP] = useState<IOTargetDPJP | undefined>(patient.intakeOutput?.targetDPJP);
+  const [entries,    setEntries]    = useState<IOEntry[]>(isPersisted ? [] : (patient.intakeOutput?.entries ?? []));
+  const [targetDPJP, setTargetDPJP] = useState<IOTargetDPJP | undefined>(isPersisted ? undefined : patient.intakeOutput?.targetDPJP);
+
+  // Muat entri + target (kunjungan UUID). Demo → state awal dari mock.
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    getIntakeOutput(kunjunganId, ac.signal)
+      .then((dto) => { setEntries(dto.entries); setTargetDPJP(dto.target ?? undefined); })
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat intake/output", e instanceof ApiError ? e.message : undefined);
+      });
+    return () => ac.abort();
+  }, [kunjunganId, isPersisted]);
 
   const today        = new Date().toISOString().slice(0, 10);
   const todayEntries = entries.filter((e) => e.tanggal === today);
   const totalEntries = entries.length;
 
-  function handleAdd(entry: Omit<IOEntry, "id">) {
-    setEntries((prev) => [...prev, { id: genId(), ...entry }]);
+  async function handleAdd(entry: Omit<IOEntry, "id">) {
+    if (!isPersisted) {
+      setEntries((prev) => [...prev, { id: genId(), ...entry }]);
+      return;
+    }
+    try {
+      const dto = await addIOEntry(kunjunganId, {
+        waktu: `${entry.tanggal}T${entry.waktu}`, // datetime-local wall-clock
+        shift: entry.shift,
+        tipe: entry.tipe,
+        kategori: entry.kategori,
+        subKategori: entry.subKategori,
+        volume: entry.volume,
+        catatan: entry.catatan,
+        pencatat: undefined, // server otoritatif dari actor (user login)
+      });
+      setEntries((prev) => [...prev, dto]);
+    } catch (e) {
+      toast.error("Gagal menyimpan entri", e instanceof ApiError ? e.message : undefined);
+    }
   }
 
   function handleRemove(id: string) {
-    setEntries((prev) => prev.filter((e) => e.id !== id));
+    if (!isPersisted) {
+      setEntries((prev) => prev.filter((e) => e.id !== id));
+      return;
+    }
+    const snapshot = entries;
+    setEntries((prev) => prev.filter((e) => e.id !== id)); // optimistik
+    deleteIOEntry(kunjunganId, id).catch((e) => {
+      toast.error("Gagal menghapus entri", e instanceof ApiError ? e.message : undefined);
+      setEntries(snapshot); // rekonsiliasi
+    });
+  }
+
+  async function handleTargetChange(t: IOTargetDPJP) {
+    if (!isPersisted) { setTargetDPJP(t); return; }
+    try {
+      const dto = await setIOTarget(kunjunganId, {
+        restriksiIntake: t.restriksiIntake,
+        targetBalance: t.targetBalance,
+        catatan: t.catatan,
+        updatedBy: undefined, // server otoritatif dari actor
+      });
+      setTargetDPJP(dto);
+    } catch (e) {
+      toast.error("Gagal menyimpan target", e instanceof ApiError ? e.message : undefined);
+    }
   }
 
   return (
@@ -120,7 +190,7 @@ export default function IntakeOutputTab({ patient }: { patient: RawatInapPatient
               entries={entries}
               patient={patient}
               targetDPJP={targetDPJP}
-              onTargetChange={setTargetDPJP}
+              onTargetChange={handleTargetChange}
             />
           )}
 

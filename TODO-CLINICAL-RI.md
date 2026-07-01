@@ -17,7 +17,7 @@
 - ⚠️ **Persistensi sebagian tab di-wire di lapis tab IGD, bukan tab RI.** Komponen shared form
   (`keperawatan/`, `pemeriksaan/`) TIDAK memanggil API sendiri → wrapper RI (`rawat-inap/tabs/*`) yang
   harus menyambung GET/POST (mirror IGD).
-- ⚠️ **Sebagian tab RI belum punya domain** (Intake/Output, ICU Scoring, Discharge, MAR, Konseling) → butuh BE baru. (Care Plan ✅ 2026-07-01.)
+- ⚠️ **Sebagian tab RI belum punya domain** (ICU Scoring, Discharge, MAR, Konseling) → butuh BE baru. (Care Plan ✅ · Intake/Output ✅ 2026-07-01.)
 
 ## Dua kategori kerja
 
@@ -52,7 +52,7 @@ Legenda: 🟢 DB-wired · 🟡 sebagian/verifikasi · ⬜ mock/lokal (target). S
 | 15b | **Penilaian (RM)** | 🟢 | A | `medicalrecord.penilaian_*` (Fisik/Nyeri/Status/Pediatrik) + `PenilaianSkala` (master skala) + `PenilaianKomposit` (Jantung/Kanker) | **Tab top-level shared BARU (2026-06-30)** — [PenilaianTab](src/components/shared/penilaian/PenilaianTab.tsx) dipromosikan dari IGD ke `components/shared/penilaian/` + di-parametrize `modul`; RI render `modul="RI"`. 7 sub-menu DB-wired; skala Risiko/Jantung/Kanker **master-driven** via `konsumenModul`. Hardcode Barthel/Morse/Braden + violet dihapus. |
 | 16 | Pasien Pulang (Lyn) | ⬜ | A | `Disposisi` (transisi `complete`) | pola IGD; sambung pintu RI + lock |
 | 17 | Rencana Asuhan / Care Plan (RM) | 🟢 | B | `CarePlanMasalah`+`CarePlanGoal` (BARU) | **DB-wired (2026-07-01)** — RAT **Goal-centric & problem-oriented** (anti re-entry: masalah link Diagnosa/SDKI via `sumber`+`refKode`; goal terukur per PPA = data baru). Parent/child + co-sign DPJP per-masalah (gate **`clinical.careplan`** BARU, verify khusus Dokter di Service). `/kunjungan/:id/care-plan` (+`/:masalahId`, `/goal`, `/goal/:goalId`) layered. FE [CarePlanTab](src/components/rawat-inap/tabs/CarePlanTab.tsx) rewrite problem-oriented (UUID guard; demo lokal). Phase-based hardcode (PhaseSection) dihapus. |
-| 18 | Intake / Output (RM) | ⬜ | B | **belum ada** | balance cairan per-shift |
+| 18 | Intake / Output (RM) | 🟢 | B | `IntakeOutput`+`IntakeOutputTarget` (BARU) | **DB-wired (2026-07-01)** — domain BARU: entri cairan append-only time-series + soft-delete (`intake_output`) + target DPJP latest-wins (`intake_output_target`). `/kunjungan/:id/intake-output` (GET agregat · POST entri · DELETE `/:itemId` · POST `/target`) layered, gate **`clinical.rekammedis`** (reuse). FE [IntakeOutputTab](src/components/rawat-inap/tabs/IntakeOutputTab.tsx) wired (UUID guard; demo lokal; pencatat/updatedBy=user login). Follow-up: target belum DPJP-only |
 | 19 | Gizi & Nutrisi (RM) | ⬜ | B? | sebagian gizi | verifikasi domain; extend |
 | 20 | ICU Scoring (RM) | ⬜ | B | **belum ada** (SOFA/APACHE) | hanya kelas ICU/HCU (`showFor`) |
 | 21 | Discharge Planning (Lyn) | ⬜ | B | **belum ada** | rencana pulang SNARS |
@@ -97,7 +97,7 @@ Tab Asesmen Awal RI = **4 sub-pane** ([AsesmenAwalTab](src/components/rawat-inap
 - [ ] **Informed Consent / Konsultasi** — verifikasi persist by `kunjunganId` di konteks RI; wire bila belum.
 
 ### RI-CL2 — Kategori B: domain baru (BE + FE)
-- [ ] **Intake / Output** — domain `medicalrecord.IntakeOutput` (entri per-shift + balance) + endpoint + wire tab.
+- [✅] **Intake / Output** — domain `medicalrecord.IntakeOutput`+`IntakeOutputTarget` (entri per-shift append-only + target balance latest-wins) + endpoint + wire tab (2026-07-01).
 - [ ] **ICU Scoring** — domain SOFA/APACHE (append-only, skor terhitung) + wire (hanya kelas ICU/HCU).
 - [✅] **Rencana Asuhan / Care Plan** — domain `CarePlanMasalah`+`CarePlanGoal` (Goal-centric, problem-oriented) + co-sign DPJP + wire (2026-07-01).
 - [ ] **Gizi & Nutrisi** — verifikasi/extend domain gizi + wire (diet order + monitoring).

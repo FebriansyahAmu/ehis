@@ -2314,3 +2314,66 @@ model CarePlanGoal {
   @@map("care_plan_goal")
   @@schema("medicalrecord")
 }
+
+// ── Intake / Output — Balance Cairan (tab Intake/Output, SNARS PP) ─────────────
+//  Pemantauan cairan masuk/keluar per-shift. Append-only time-series (mirror Observation):
+//  tiap entri = 1 pengukuran; add=INSERT, koreksi entered-in-error=soft-delete (tanpa edit).
+//  Shared lintas unit (key kunjunganId, tanpa kolom unit) — dipakai RI (bangsal). waktu =
+//  timestamptz (dari tanggal+jam FE); shift disimpan (bisa diturunkan dari waktu). Gate
+//  clinical.rekammedis (perawat pencatat utama, DPJP set target) + ABAC careUnit (route()).
+
+model IntakeOutput {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Spine (FK riil, cross-schema ke encounter) ──
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Entri cairan ──
+  tipe        String // intake/output (Zod)
+  kategori    String // IntakeKategori (Oral/IV/NGT/Transfusi/Lainnya) | OutputKategori (Urine/Drainase/Feses/Muntah/Perdarahan/Lainnya)
+  subKategori String @default("") @map("sub_kategori")
+  volume      Int    // mL (> 0)
+  shift       String // Pagi/Siang/Malam (label periode; bisa diturunkan dari waktu)
+  catatan     String @default("")
+
+  // ── Waktu klinis + pencatat/author (dari actor) ──
+  waktu           DateTime @db.Timestamptz(3)
+  pencatat        String   // nama denormalisasi pencatat (dari user login)
+  authorUserId    String?  @map("author_user_id") @db.Uuid
+  authorPegawaiId String?  @map("author_pegawai_id") @db.Uuid
+
+  // ── Audit (append-only + soft-delete entered-in-error) ──
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, waktu]) // time-series per kunjungan
+  @@map("intake_output")
+  @@schema("medicalrecord")
+}
+
+// ── Target Balance Cairan DPJP (restriksi intake + target balance per-24jam) ──
+//  Order DPJP untuk balance cairan. Latest-wins append-only (baris terbaru berlaku;
+//  koreksi = baris baru). Nilai null = tanpa restriksi/target. updatedBy = actor.
+
+model IntakeOutputTarget {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  restriksiIntake Int?   @map("restriksi_intake") // mL/24jam; null = tanpa restriksi
+  targetBalance   Int?   @map("target_balance")   // mL/24jam; negatif = target defisit; null = tanpa target
+  catatan         String @default("")
+
+  // ── Pencatat/author (dari actor) ──
+  updatedBy       String  @map("updated_by") // nama denormalisasi (DPJP/pencatat)
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt]) // target terbaru per kunjungan
+  @@map("intake_output_target")
+  @@schema("medicalrecord")
+}

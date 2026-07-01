@@ -187,6 +187,8 @@ model Kunjungan {
   radOrder                 RadOrder[]
   disposisiRiwayat         Disposisi[]
   carePlanMasalah          CarePlanMasalah[]
+  intakeOutput             IntakeOutput[]
+  intakeOutputTarget       IntakeOutputTarget[]
 
   // ── Tautan invoice (1:1, dibuat saat Registered→Queued) ──
   invoiceId String? @unique @map("invoice_id") @db.Uuid // FK→billing.Invoice saat siap
