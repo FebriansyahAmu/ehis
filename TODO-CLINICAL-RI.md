@@ -35,7 +35,7 @@ Legenda: 🟢 DB-wired · 🟡 sebagian/verifikasi · ⬜ mock/lokal (target). S
 | # | Tab (grup) | Status | Kat. | Domain `medicalrecord.*` | Catatan RI |
 |---|---|---|---|---|---|
 | 1 | CPPT / SOAP (RM) | 🟢 | — | `Cppt` | shared wired (co-sign DPJP); **default jenis catatan = SBAR** saat tab dibuka (prop `defaultJenis`, 2026-07-01) |
-| 2 | TTV (RM) | 🟢 | — | `Observation` | shared wired; RI multi-shift (`history`) |
+| 2 | TTV (RM) | 🟢 | — | `Observation` | **DB-wired (2026-07-01)** — wrapper RI [rawat-inap/tabs/TTVTab](src/components/rawat-inap/tabs/TTVTab.tsx) fetch `listObservasi` + `onSave`=`recordObservasi` (mode RI multi-shift: shift dipilih, waktu=now server); perawat=user login (server otoritatif `resolvePerawat(actor)`, `recordedBy` display); `emitRecordChange` header sync. Backend `Observation` shared IGD/RI/RJ (gate `clinical.rekammedis`) |
 | 3 | Diagnosa (RM) | 🟢 | — | `Diagnosa` | shared wired |
 | 4 | Serah Terima Shift (RM) | 🟢 | — | `SerahTerima` | shared wired (SBAR closed-loop) |
 | 5 | Rekonsiliasi Obat (RM) | 🟢 | — | `Rekonsiliasi` | shared wired (context `ri`) |
