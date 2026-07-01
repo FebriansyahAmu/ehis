@@ -17,7 +17,7 @@
 - ⚠️ **Persistensi sebagian tab di-wire di lapis tab IGD, bukan tab RI.** Komponen shared form
   (`keperawatan/`, `pemeriksaan/`) TIDAK memanggil API sendiri → wrapper RI (`rawat-inap/tabs/*`) yang
   harus menyambung GET/POST (mirror IGD).
-- ⚠️ **Sebagian tab RI belum punya domain** (Care Plan, Intake/Output, ICU Scoring, Discharge, MAR, Konseling) → butuh BE baru.
+- ⚠️ **Sebagian tab RI belum punya domain** (Intake/Output, ICU Scoring, Discharge, MAR, Konseling) → butuh BE baru. (Care Plan ✅ 2026-07-01.)
 
 ## Dua kategori kerja
 
@@ -51,7 +51,7 @@ Legenda: 🟢 DB-wired · 🟡 sebagian/verifikasi · ⬜ mock/lokal (target). S
 | 15 | Asesmen Awal (RM) | 🟢 | A | `Anamnesis` (+riwayat/alergi/skrining) | **4 sub-pane (Anamnesis/Riwayat/Alergi/Skrining) 🟢 wired** (2026-06-30). Penilaian Risiko **dipindah** ke tab top-level "Penilaian" → rincian [§Sub-pane Asesmen Awal](#sub-pane-asesmen-awal-tab-15--per-2026-06-30) |
 | 15b | **Penilaian (RM)** | 🟢 | A | `medicalrecord.penilaian_*` (Fisik/Nyeri/Status/Pediatrik) + `PenilaianSkala` (master skala) + `PenilaianKomposit` (Jantung/Kanker) | **Tab top-level shared BARU (2026-06-30)** — [PenilaianTab](src/components/shared/penilaian/PenilaianTab.tsx) dipromosikan dari IGD ke `components/shared/penilaian/` + di-parametrize `modul`; RI render `modul="RI"`. 7 sub-menu DB-wired; skala Risiko/Jantung/Kanker **master-driven** via `konsumenModul`. Hardcode Barthel/Morse/Braden + violet dihapus. |
 | 16 | Pasien Pulang (Lyn) | ⬜ | A | `Disposisi` (transisi `complete`) | pola IGD; sambung pintu RI + lock |
-| 17 | Rencana Asuhan / Care Plan (RM) | ⬜ | B | **belum ada** | desain domain dulu |
+| 17 | Rencana Asuhan / Care Plan (RM) | 🟢 | B | `CarePlanMasalah`+`CarePlanGoal` (BARU) | **DB-wired (2026-07-01)** — RAT **Goal-centric & problem-oriented** (anti re-entry: masalah link Diagnosa/SDKI via `sumber`+`refKode`; goal terukur per PPA = data baru). Parent/child + co-sign DPJP per-masalah (gate **`clinical.careplan`** BARU, verify khusus Dokter di Service). `/kunjungan/:id/care-plan` (+`/:masalahId`, `/goal`, `/goal/:goalId`) layered. FE [CarePlanTab](src/components/rawat-inap/tabs/CarePlanTab.tsx) rewrite problem-oriented (UUID guard; demo lokal). Phase-based hardcode (PhaseSection) dihapus. |
 | 18 | Intake / Output (RM) | ⬜ | B | **belum ada** | balance cairan per-shift |
 | 19 | Gizi & Nutrisi (RM) | ⬜ | B? | sebagian gizi | verifikasi domain; extend |
 | 20 | ICU Scoring (RM) | ⬜ | B | **belum ada** (SOFA/APACHE) | hanya kelas ICU/HCU (`showFor`) |
@@ -99,7 +99,7 @@ Tab Asesmen Awal RI = **4 sub-pane** ([AsesmenAwalTab](src/components/rawat-inap
 ### RI-CL2 — Kategori B: domain baru (BE + FE)
 - [ ] **Intake / Output** — domain `medicalrecord.IntakeOutput` (entri per-shift + balance) + endpoint + wire tab.
 - [ ] **ICU Scoring** — domain SOFA/APACHE (append-only, skor terhitung) + wire (hanya kelas ICU/HCU).
-- [ ] **Rencana Asuhan / Care Plan** — domain rencana asuhan (fase/target) + wire.
+- [✅] **Rencana Asuhan / Care Plan** — domain `CarePlanMasalah`+`CarePlanGoal` (Goal-centric, problem-oriented) + co-sign DPJP + wire (2026-07-01).
 - [ ] **Gizi & Nutrisi** — verifikasi/extend domain gizi + wire (diet order + monitoring).
 - [ ] **Discharge Planning · MAR · Konseling Obat** — domain + wire (SNARS PP 5 / PKPO 6).
 

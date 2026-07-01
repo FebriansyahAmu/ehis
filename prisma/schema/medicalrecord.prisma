@@ -2230,3 +2230,87 @@ model Disposisi {
   @@map("disposisi")
   @@schema("medicalrecord")
 }
+
+// ── Rencana Asuhan Terintegrasi / RAT (tab Rencana Asuhan) ─────────────────────
+//  SNARS PP 1 & PP 2 — rencana asuhan multi-PPA dipimpin DPJP (ketua tim). Model
+//  Goal-centric & PROBLEM-ORIENTED (bukan re-entry): parent = MASALAH aktif (boleh
+//  di-link ke Diagnosa/SDKI via sumber+refKode → anti-redundan), anak = GOAL terukur
+//  per PPA (target outcome + indikator + batas waktu + status tercapai). Data baru yang
+//  TIDAK ada di domain lain = lapis Goal ini. Verifikasi DPJP co-sign di level masalah
+//  (granular, pola AsuhanKeperawatan per-item); "semua masalah verified" = RAT diverifikasi.
+//  Shared lintas unit (di-key kunjunganId, tanpa kolom unit). Gate clinical.careplan +
+//  ABAC careUnit (route() choke-point). CRUD + soft-delete (entered-in-error).
+
+model CarePlanMasalah {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // ── Spine (FK riil, cross-schema ke encounter) ──
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Masalah (problem) ──
+  masalah   String
+  sumber    String  @default("Manual") // Diagnosa/Keperawatan/Manual (Zod) — asal masalah
+  refKode   String  @default("") @map("ref_kode") // soft-ref kode ICD-10/SDKI (link, snapshot)
+  fase      String? // Admisi/Perawatan/Pre_Discharge (atribut, bukan sumbu kaku)
+  prioritas String? // Tinggi/Sedang/Rendah
+  status    String  @default("Aktif") // Aktif/Teratasi/Batal (problem-level)
+
+  // ── Goal terukur per PPA (anak) ──
+  goals CarePlanGoal[]
+
+  // ── Waktu + pencatat/author (dari actor) ──
+  tanggalInput    DateTime @map("tanggal_input") @db.Timestamptz(3)
+  pencatat        String   // nama denormalisasi pencatat (dari user login)
+  authorUserId    String?  @map("author_user_id") @db.Uuid
+  authorPegawaiId String?  @map("author_pegawai_id") @db.Uuid
+
+  // ── Verifikasi (co-sign DPJP sebagai ketua tim PPA) ──
+  verified   Boolean   @default(false)
+  verifiedBy String?   @map("verified_by")
+  verifiedAt DateTime? @map("verified_at") @db.Timestamptz(3)
+
+  // ── Audit (CRUD + soft-delete entered-in-error) ──
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt])
+  @@map("care_plan_masalah")
+  @@schema("medicalrecord")
+}
+
+// ── Goal / luaran terukur per PPA (anak dari CarePlanMasalah) ──────────────────
+//  1 baris = 1 goal yang dimiliki satu PPA (DPJP/Perawat/Apoteker/Dietisien/…).
+//  Banyak goal per masalah (multi-PPA). Editable (status berkembang Belum→Tercapai;
+//  evaluasi diisi saat review). intervensi = string[] RINGAN (referensi SIKI/order, bukan
+//  re-entry detail). Soft-delete entered-in-error. FK cascade ke masalah.
+
+model CarePlanGoal {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  masalahId String          @map("masalah_id") @db.Uuid
+  masalah   CarePlanMasalah @relation(fields: [masalahId], references: [id], onDelete: Cascade)
+
+  ppa         String   // DPJP/Perawat/Apoteker/Dietisien/Fisioterapis/Lainnya (Zod)
+  target      String   // target outcome terukur (Goal)
+  indikator   String   @default("") // parameter/indikator terukur
+  targetWaktu String   @default("") @map("target_waktu") // mis. "3×24 jam"
+  intervensi  String[] // referensi intervensi (ringan)
+  status      String   @default("Belum_Tercapai") // Belum_Tercapai/Tercapai_Sebagian/Tercapai
+  evaluasi    String   @default("") // catatan evaluasi ketercapaian
+
+  // ── Waktu + pencatat/author (dari actor) ──
+  waktu           DateTime @db.Timestamptz(3)
+  pencatat        String   // nama denormalisasi pencatat (dari user login)
+  authorUserId    String?  @map("author_user_id") @db.Uuid
+  authorPegawaiId String?  @map("author_pegawai_id") @db.Uuid
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([masalahId, deletedAt])
+  @@map("care_plan_goal")
+  @@schema("medicalrecord")
+}
