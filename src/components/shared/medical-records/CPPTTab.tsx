@@ -162,15 +162,17 @@ export interface CPPTTabProps {
   kunjunganId?: string;
   /** Profesi default form (mis. "Apoteker" di tab Farmasi). Default "Dokter". */
   defaultProfesi?: CPPTProfesi;
+  /** Jenis catatan aktif saat tab dibuka. Default "SBAR" (pelaporan/komunikasi kondisi). */
+  defaultJenis?: CPPTJenis;
 }
 
 // ── Component ─────────────────────────────────────────────
 
-export default function CPPTTab({ initialEntries, showDate = false, requiresVerification = false, kunjunganId, defaultProfesi = "Dokter" }: CPPTTabProps) {
+export default function CPPTTab({ initialEntries, showDate = false, requiresVerification = false, kunjunganId, defaultProfesi = "Dokter", defaultJenis = "SBAR" }: CPPTTabProps) {
   const isPersisted = !!kunjunganId && UUID_RE.test(kunjunganId);
   const { session } = useSession();
 
-  const emptyForm: CPPTForm     = { ...EMPTY, profesi: defaultProfesi };
+  const emptyForm: CPPTForm     = { ...EMPTY, profesi: defaultProfesi, jenis: defaultJenis };
   const [form, setForm]         = useState<CPPTForm>(emptyForm);
   const [entries, setEntries]     = useState<CPPTEntry[]>(isPersisted ? [] : [...initialEntries]);
   const [editingId, setEditingId] = useState<string | null>(null);

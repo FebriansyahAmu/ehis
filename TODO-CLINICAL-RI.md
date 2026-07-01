@@ -34,7 +34,7 @@ Legenda: 🟢 DB-wired · 🟡 sebagian/verifikasi · ⬜ mock/lokal (target). S
 
 | # | Tab (grup) | Status | Kat. | Domain `medicalrecord.*` | Catatan RI |
 |---|---|---|---|---|---|
-| 1 | CPPT / SOAP (RM) | 🟢 | — | `Cppt` | shared wired (co-sign DPJP) |
+| 1 | CPPT / SOAP (RM) | 🟢 | — | `Cppt` | shared wired (co-sign DPJP); **default jenis catatan = SBAR** saat tab dibuka (prop `defaultJenis`, 2026-07-01) |
 | 2 | TTV (RM) | 🟢 | — | `Observation` | shared wired; RI multi-shift (`history`) |
 | 3 | Diagnosa (RM) | 🟢 | — | `Diagnosa` | shared wired |
 | 4 | Serah Terima Shift (RM) | 🟢 | — | `SerahTerima` | shared wired (SBAR closed-loop) |
