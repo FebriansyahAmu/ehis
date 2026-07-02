@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "@/contexts/SessionContext";
 import IdentitasVerifikasiBanner, { type VerifikasiInfo } from "@/components/shared/medical-records/IdentitasVerifikasiBanner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -106,6 +107,7 @@ function NavItem({ tab, active, onClick }: { tab: TabDef; active: boolean; onCli
 export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDetail }) {
   // Default = Asesmen Awal: pintu masuk dokumentasi RI (SNARS AP 1, wajib 24 jam pertama).
   const [active, setActive] = useState<TabId>("asesmen-awal");
+  const { session } = useSession();
 
   const visibleRM   = REKAM_MEDIS.filter((t) => !t.showFor || t.showFor.includes(patient.kelas));
   const visibleTabs = [...visibleRM, ...LAYANAN];
@@ -132,6 +134,7 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
           isVerified={identitasVerified}
           verifikasiInfo={verifikasiInfo ?? undefined}
           onVerify={handleVerifikasiIdentitas}
+          defaultPerawat={session?.namaTampil}
         />
         <motion.div
           animate={{

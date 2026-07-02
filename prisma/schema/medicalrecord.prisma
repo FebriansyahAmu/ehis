@@ -2377,3 +2377,41 @@ model IntakeOutputTarget {
   @@map("intake_output_target")
   @@schema("medicalrecord")
 }
+
+// ── MAR (tab MAR RI — Medication Administration Record per shift, SNARS PKPO 6 · PMK 72/2016) ──
+//  Pencatatan pemberian obat per (obat × tanggal × shift). Append-only "latest wins": koreksi =
+//  INSERT baris baru, read ambil createdAt terbaru per slot (jejak medikolegal utuh). Baris obat
+//  TIDAK disimpan di sini — diturunkan dari ResepItem order non-batal kunjungan; namaObat/dosis/
+//  rute di-SNAPSHOT saat pencatatan (apa yang benar-benar diberikan). resepItemId = soft-ref
+//  (tanpa FK — entri tetap sah walau order dikoreksi). perawat = actor login (server otoritatif);
+//  obat HAM wajib perawat2 (double-check 2 perawat) saat status Diberikan — ditegakkan Service.
+model MarEntry {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  resepItemId String @map("resep_item_id") @db.Uuid // soft-ref medicalrecord.ResepItem
+  namaObat    String @map("nama_obat") // snapshot medikolegal saat pencatatan
+  dosis       String @default("")
+  rute        String @default("")
+
+  tanggal String // "YYYY-MM-DD" (business date — key slot MAR, bukan timestamptz)
+  shift   String // Pagi/Siang/Malam
+  status  String // Diberikan/Ditunda/Ditolak/TidakTersedia
+
+  waktuPemberian String? @map("waktu_pemberian") // "HH:mm" — hanya saat Diberikan
+  perawat        String // pemberi/pencatat = actor login
+  perawat2       String  @default("") @map("perawat2") // verifikator ke-2 (wajib HAM + Diberikan)
+  catatan        String  @default("")
+
+  // ── Author (dari actor) ──
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, tanggal]) // grid MAR per hari
+  @@map("mar_entry")
+  @@schema("medicalrecord")
+}

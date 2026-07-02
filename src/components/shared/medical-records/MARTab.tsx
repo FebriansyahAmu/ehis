@@ -1,12 +1,21 @@
 "use client";
 
-import { useState, Fragment } from "react";
+// Tab MAR (Medication Administration Record per shift, SNARS PKPO 6). DB-wired: pasien NYATA
+// (kunjungan UUID) → baris obat dari ResepItem order non-batal + entri persist append-only
+// "latest wins" via /kunjungan/:id/mar (gate clinical.keperawatan); perawat = user login
+// (server otoritatif), HAM wajib verifikator ke-2. Pasien demo (non-UUID) = mock lokal.
+
+import { useState, useEffect, Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BookOpen, AlertTriangle, Clock, ChevronLeft, ChevronRight,
   Pill, X, User, Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/contexts/SessionContext";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
+import { getMar, addMarEntry, type MarObatDTO } from "@/lib/api/mar/mar";
 import type { RawatInapPatientDetail, MAREntry, ResepRIItem, StatusMAR } from "@/lib/data";
 import {
   type MARShift,
@@ -19,6 +28,12 @@ import {
 
 interface MARTabProps { patient: RawatInapPatientDetail }
 
+/** Baris obat MAR — view gabungan: mock ResepRIItem (demo) / MarObatDTO (DB, derivasi resep). */
+interface MarDrug {
+  id: string; namaObat: string; dosis: string; rute: string;
+  signa: string; kategori: string; aktif: boolean; isHAM: boolean;
+}
+
 interface InputForm {
   status:   StatusMAR;
   waktu:    string;
@@ -27,11 +42,24 @@ interface InputForm {
   perawat2: string;
 }
 
-interface CellTarget { item: ResepRIItem; slotWaktu: string | null }
+interface CellTarget { item: MarDrug; slotWaktu: string | null }
 
 // ── Helpers ───────────────────────────────────────────────
 
-function getShiftCols(items: ResepRIItem[], shift: MARShift): string[] {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function fromMock(i: ResepRIItem): MarDrug {
+  return {
+    id: i.id, namaObat: i.namaObat, dosis: i.dosis, rute: i.rute,
+    signa: i.signa, kategori: i.kategori, aktif: i.aktif, isHAM: isHAMDrug(i.namaObat),
+  };
+}
+
+function fromDb(d: MarObatDTO): MarDrug {
+  return { ...d, isHAM: d.isHAM || isHAMDrug(d.namaObat) };
+}
+
+function getShiftCols(items: MarDrug[], shift: MARShift): string[] {
   const slots = new Set<string>();
   items
     .filter((i) => i.aktif && !isFlexibleSigna(i.signa))
@@ -128,13 +156,13 @@ function SlotCell({
 function DrugRow({
   item, group, shiftCols, entry, isHAM, isToday, onCellClick, index,
 }: {
-  item: ResepRIItem;
+  item: MarDrug;
   group: DrugGroup;
   shiftCols: string[];
   entry?: MAREntry;
   isHAM: boolean;
   isToday: boolean;
-  onCellClick: (item: ResepRIItem, slotWaktu: string | null) => void;
+  onCellClick: (item: MarDrug, slotWaktu: string | null) => void;
   index: number;
 }) {
   const flexible  = isFlexibleSigna(item.signa);
@@ -247,18 +275,21 @@ function DrugRow({
 const STATUS_OPTIONS: StatusMAR[] = ["Diberikan", "Ditunda", "Ditolak", "TidakTersedia"];
 
 function InputModal({
-  item, slotWaktu, entry, shift, isHAM, onSave, onClose,
+  item, slotWaktu, entry, shift, isHAM, defaultPerawat, onSave, onClose,
 }: {
-  item: ResepRIItem; slotWaktu: string | null; entry?: MAREntry;
+  item: MarDrug; slotWaktu: string | null; entry?: MAREntry;
   shift: MARShift; isHAM: boolean;
+  /** Nama user login → perawat read-only (server otoritatif); absen → input manual (demo). */
+  defaultPerawat?: string;
   onSave: (data: Omit<MAREntry, "id">) => void;
   onClose: () => void;
 }) {
+  const fromSession  = !!defaultPerawat?.trim();
   const defaultWaktu = slotWaktu ?? new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
   const [form, setForm] = useState<InputForm>({
     status:   entry?.status ?? "Diberikan",
     waktu:    entry?.waktuPemberian ?? defaultWaktu,
-    perawat:  entry?.perawat ?? "",
+    perawat:  fromSession ? defaultPerawat!.trim() : (entry?.perawat ?? ""),
     catatan:  entry?.catatan ?? "",
     perawat2: "",
   });
@@ -277,6 +308,7 @@ function InputModal({
       status:         form.status,
       waktuPemberian: needsWaktu ? form.waktu : undefined,
       perawat:        form.perawat || undefined,
+      perawat2:       form.perawat2.trim() || undefined,
       catatan:        form.catatan || undefined,
     });
     onClose();
@@ -366,12 +398,21 @@ function InputModal({
             <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-600">
               <User size={11} />Nama Perawat
             </label>
-            <input
-              type="text" value={form.perawat}
-              onChange={(e) => setForm((f) => ({ ...f, perawat: e.target.value }))}
-              placeholder="Ns. Sari Dewi, S.Kep"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-            />
+            {fromSession ? (
+              <div className="flex items-center justify-between rounded-lg border border-sky-200 bg-sky-50/60 px-3 py-2">
+                <span className="text-sm font-semibold text-slate-800">{form.perawat}</span>
+                <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-sky-600">
+                  Sesi Login
+                </span>
+              </div>
+            ) : (
+              <input
+                type="text" value={form.perawat}
+                onChange={(e) => setForm((f) => ({ ...f, perawat: e.target.value }))}
+                placeholder="Ns. Sari Dewi, S.Kep"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+              />
+            )}
           </div>
 
           {hamRequired && (
@@ -458,8 +499,14 @@ function ShiftBtn({ shift, active, count, onClick }: {
 // ── Main ──────────────────────────────────────────────────
 
 export default function MARTab({ patient }: MARTabProps) {
-  const resepRI     = patient.resepRI;
-  const allItems    = resepRI?.items ?? [];
+  const kunjunganId = patient.id;
+  const isPersisted = UUID_RE.test(kunjunganId); // UUID = DB; demo = lokal
+  const { session } = useSession();
+
+  const [dbObat, setDbObat] = useState<MarObatDTO[]>([]);
+  const allItems: MarDrug[] = isPersisted
+    ? dbObat.map(fromDb)
+    : (patient.resepRI?.items ?? []).map(fromMock);
   const activeItems = allItems.filter((i) => i.aktif);
 
   const [activeShift, setActiveShift] = useState<MARShift>(getCurrentShift());
@@ -468,8 +515,21 @@ export default function MARTab({ patient }: MARTabProps) {
   const activeDate = dates[dateIdx];
   const isToday    = dateIdx === 0;
 
-  const [localMAR,    setLocalMAR]    = useState<MAREntry[]>(resepRI?.mar ?? []);
+  const [localMAR,    setLocalMAR]    = useState<MAREntry[]>(isPersisted ? [] : (patient.resepRI?.mar ?? []));
   const [cellTarget,  setCellTarget]  = useState<CellTarget | null>(null);
+
+  // Muat baris obat (derivasi resep) + entri (kunjungan UUID). Demo → mock.
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    getMar(kunjunganId, ac.signal)
+      .then((dto) => { setDbObat(dto.items); setLocalMAR(dto.entries); })
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat MAR", e instanceof ApiError ? e.message : undefined);
+      });
+    return () => ac.abort();
+  }, [kunjunganId, isPersisted]);
 
   function getEntry(itemId: string): MAREntry | undefined {
     return localMAR.find(
@@ -477,14 +537,36 @@ export default function MARTab({ patient }: MARTabProps) {
     );
   }
 
-  function handleSave(data: Omit<MAREntry, "id">) {
-    const newEntry: MAREntry = { id: `mar-local-${Date.now()}`, ...data };
+  function upsertSlot(entry: MAREntry) {
     setLocalMAR((prev) => [
       ...prev.filter(
-        (e) => !(e.resepItemId === data.resepItemId && e.tanggal === data.tanggal && e.shift === data.shift),
+        (e) => !(e.resepItemId === entry.resepItemId && e.tanggal === entry.tanggal && e.shift === entry.shift),
       ),
-      newEntry,
+      entry,
     ]);
+  }
+
+  async function handleSave(data: Omit<MAREntry, "id">) {
+    if (!isPersisted) {
+      upsertSlot({ id: `mar-local-${Date.now()}`, ...data });
+      return;
+    }
+    if (data.status === "NA") return; // NA = render-only, tak pernah disimpan
+    try {
+      const dto = await addMarEntry(kunjunganId, {
+        resepItemId: data.resepItemId,
+        tanggal: data.tanggal,
+        shift: data.shift,
+        status: data.status,
+        waktuPemberian: data.waktuPemberian,
+        perawat: undefined, // server otoritatif dari actor (user login)
+        perawat2: data.perawat2,
+        catatan: data.catatan,
+      });
+      upsertSlot(dto);
+    } catch (e) {
+      toast.error("Gagal mencatat pemberian", e instanceof ApiError ? e.message : undefined);
+    }
   }
 
   const shiftCols = getShiftCols(activeItems, activeShift);
@@ -497,7 +579,7 @@ export default function MARTab({ patient }: MARTabProps) {
   const diberikan  = entriesNow.filter((e) => e.status === "Diberikan").length;
   const tertunda   = entriesNow.filter((e) => e.status !== "Diberikan").length;
   const hamPending = isToday
-    ? activeItems.filter((i) => isHAMDrug(i.namaObat) && !getEntry(i.id)).length
+    ? activeItems.filter((i) => i.isHAM && !getEntry(i.id)).length
     : 0;
 
   return (
@@ -659,7 +741,7 @@ export default function MARTab({ patient }: MARTabProps) {
                           group={group}
                           shiftCols={shiftCols}
                           entry={getEntry(item.id)}
-                          isHAM={isHAMDrug(item.namaObat)}
+                          isHAM={item.isHAM}
                           isToday={isToday}
                           onCellClick={(it, slot) => setCellTarget({ item: it, slotWaktu: slot })}
                           index={i}
@@ -713,7 +795,8 @@ export default function MARTab({ patient }: MARTabProps) {
             slotWaktu={cellTarget.slotWaktu}
             entry={getEntry(cellTarget.item.id)}
             shift={activeShift}
-            isHAM={isHAMDrug(cellTarget.item.namaObat)}
+            isHAM={cellTarget.item.isHAM}
+            defaultPerawat={session?.namaTampil}
             onSave={handleSave}
             onClose={() => setCellTarget(null)}
           />

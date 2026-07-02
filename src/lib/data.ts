@@ -251,6 +251,8 @@ export interface MAREntry {
   status:          StatusMAR;
   waktuPemberian?: string;
   perawat?:        string;
+  /** Verifikator ke-2 (double-check 2 perawat — wajib obat HAM saat Diberikan). */
+  perawat2?:       string;
   catatan?:        string;
 }
 

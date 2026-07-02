@@ -44,7 +44,7 @@ Legenda: 🟢 DB-wired · 🟡 sebagian/verifikasi · ⬜ mock/lokal (target). S
 | 8 | Order Lab (Lyn) | 🟢 | — | `LabOrder` | shared wired |
 | 9 | Order Radiologi (Lyn) | 🟢 | — | `RadOrder` | shared wired |
 | 10 | Order BMHP (Lyn) | 🟢 | — | (order BMHP) | shared wired |
-| 11 | Informed Consent (RM) | 🟡 | A | `InformedConsent` | verifikasi persist di konteks RI |
+| 11 | Informed Consent (RM) | 🟢 | — | `InformedConsent` | shared wired — terverifikasi 2026-07-02 (wrapper RI kirim `patient.id` UUID; add/list/detail+TTD/delete via `/kunjungan/:id/consent`) |
 | 12 | Konsultasi (Lyn) | 🟡 | A | (konsultasi lintas-unit) | verifikasi domain + wire |
 | 13 | Asuhan Keperawatan (RM) | 🟢 | A | `AsuhanKeperawatan`+`AsuhanEvaluasi` | **DB-wired (2026-07-01)** — port pola IGD ke wrapper RI [rawat-inap/tabs/KeperawatanTab](src/components/rawat-inap/tabs/KeperawatanTab.tsx): `getAsuhanKeperawatan`/create/update/delete + `addEvaluasiShift` (evaluasi shift anak) + template `listSdkiTemplate`; `isPersisted` UUID guard (demo lokal); petugas=user login (`session.namaTampil`); co-sign verify; gate `clinical.keperawatan`. Pertahankan BundleHAI (ICU/HCU) |
 | 14 | Pemeriksaan Fisik (RM) | ⬜ | A | `PemeriksaanFisik`+`PenandaanAnatomi` | RI per-sistem ditunda → bangun+wire |
@@ -56,7 +56,7 @@ Legenda: 🟢 DB-wired · 🟡 sebagian/verifikasi · ⬜ mock/lokal (target). S
 | 19 | Gizi & Nutrisi (RM) | ⬜ | B? | sebagian gizi | verifikasi domain; extend |
 | 20 | ICU Scoring (RM) | ⬜ | B | **belum ada** (SOFA/APACHE) | hanya kelas ICU/HCU (`showFor`) |
 | 21 | Discharge Planning (Lyn) | ⬜ | B | **belum ada** | rencana pulang SNARS |
-| 22 | MAR (Lyn) | ⬜ | B | turunan dispensing/administrasi | Medication Administration Record per-shift |
+| 22 | MAR (Lyn) | 🟢 | B | `MarEntry` (BARU) | **DB-wired (2026-07-02)** — baris obat = derivasi `ResepItem` order non-batal (bukan tabel sendiri); entri append-only **"latest wins"** per (obat×tanggal×shift), snapshot namaObat/dosis/rute medikolegal; `GET/POST /kunjungan/:id/mar` (gate `clinical.keperawatan`); perawat = **user login** (server otoritatif, modal read-only "Sesi Login"); **HAM wajib verifikator ke-2 ditegakkan Service**; demo (non-UUID) tetap mock lokal |
 | 23 | Konseling Obat (Lyn) | ⬜ | B | **belum ada** | discharge counseling PP 5 |
 
 > Tab shared yang ⬜ (Keperawatan/Pemeriksaan/Asesmen) = wiring lintas-unit → menyelesaikannya juga
@@ -94,14 +94,16 @@ Tab Asesmen Awal RI = **4 sub-pane** ([AsesmenAwalTab](src/components/rawat-inap
   - [x] **Skrining Gizi 🟢** (2026-06-30) — `medicalrecord.AsesmenGizi` (MUST) via `GET/POST /kunjungan/:id/asesmen/gizi`; shared `GiziPane` sudah DB-ready, `SkriningPane` forward `kunjunganId`+`recordedBy` (petugas=sesi login); warna indigo→sky. Hanya RI+IGD (RJ tak punya sub-tab ini).
   - [x] **Penilaian → tab top-level shared 🟢** (2026-06-30) — alih-alih wire pane hardcode, **[PenilaianTab](src/components/shared/penilaian/PenilaianTab.tsx) IGD dipromosikan ke `components/shared/penilaian/`** (parametrize `modul`), RI render `modul="RI"` sebagai tab top-level baru. 7 sub-menu DB-wired (Fisik/Nyeri/Status/Pediatrik/Asesmen Risiko/Jantung/Kanker); skala master-driven via `konsumenModul`. Penilaian Risiko keluar dari Asesmen Awal; hardcode Barthel/Morse/Braden + violet dihapus. **Penyempurnaan lanjut:** badge "wajib" minimal-set RI · `modul` ICU-aware untuk kelas ICU/HCU.
 - [ ] **Pasien Pulang (Disposisi)** — sambungkan pintu RI ke transisi `complete` (`medicalrecord.Disposisi` + lock + gate Diagnosa Utama). Deep-link dari board "Selesai".
-- [ ] **Informed Consent / Konsultasi** — verifikasi persist by `kunjunganId` di konteks RI; wire bila belum.
+- [x] **Informed Consent 🟢** (terverifikasi 2026-07-02) — shared tab sudah DB-wired (UUID guard; `addInformedConsent` + `DaftarICPane` self-fetch list/detail TTD + cetak; soft-delete) dan wrapper RI meneruskan `patient.id` = kunjungan UUID. Tidak perlu kerja tambahan.
+- [ ] **Konsultasi** — verifikasi persist by `kunjunganId` di konteks RI; wire bila belum.
 
 ### RI-CL2 — Kategori B: domain baru (BE + FE)
 - [✅] **Intake / Output** — domain `medicalrecord.IntakeOutput`+`IntakeOutputTarget` (entri per-shift append-only + target balance latest-wins) + endpoint + wire tab (2026-07-01).
 - [ ] **ICU Scoring** — domain SOFA/APACHE (append-only, skor terhitung) + wire (hanya kelas ICU/HCU).
 - [✅] **Rencana Asuhan / Care Plan** — domain `CarePlanMasalah`+`CarePlanGoal` (Goal-centric, problem-oriented) + co-sign DPJP + wire (2026-07-01).
 - [ ] **Gizi & Nutrisi** — verifikasi/extend domain gizi + wire (diet order + monitoring).
-- [ ] **Discharge Planning · MAR · Konseling Obat** — domain + wire (SNARS PP 5 / PKPO 6).
+- [✅] **MAR** — domain `medicalrecord.MarEntry` (append-only latest-wins per obat×tanggal×shift; baris obat derivasi ResepItem order non-batal; HAM double-check server-side; perawat = actor login) + `GET/POST /kunjungan/:id/mar` + wire [MARTab](src/components/shared/medical-records/MARTab.tsx) (2026-07-02).
+- [ ] **Discharge Planning · Konseling Obat** — domain + wire (SNARS PP 5 / PKPO 6).
 
 ### RI-CL3 — Polish RI-spesifik
 - [ ] **Status klinis board** — derivasi Kritis/Observasi/Konsultasi dari data klinis (bukan hanya lifecycle). [RawatInapPageView.toPatient](src/components/rawat-inap/RawatInapPageView.tsx).
