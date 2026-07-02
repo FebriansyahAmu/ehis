@@ -191,7 +191,7 @@ export default function RJRecordTabs({ patient }: { patient: RJPatientDetail }) 
               <DiagnosaTab initialDiagnosa={patient.diagnosa} kunjunganId={patient.id} />
             )}
             {active === "pemeriksaan" && <PemeriksaanRJTab patient={patient} />}
-            {active === "konsultasi"      && <KonsultasiTab noRM={patient.noRM} dokterPeminta={patient.dokter} />}
+            {active === "konsultasi"      && <KonsultasiTab noRM={patient.noRM} dokterPeminta={patient.dokter} kunjunganId={patient.id} />}
             {active === "informed-consent" && <InformedConsentTab patient={patient} />}
             {active === "daftar-order" && <DaftarOrderTab patient={{ noRM: patient.noRM, name: patient.name, dpjp: patient.dokter, kunjunganId: patient.id }} />}
             {active === "resep"        && withIdentitas(<ResepTab

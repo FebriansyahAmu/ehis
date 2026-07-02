@@ -2415,3 +2415,63 @@ model MarEntry {
   @@map("mar_entry")
   @@schema("medicalrecord")
 }
+
+// ── Konsultasi antar-SMF (tab Konsultasi IGD/RI/RJ → worklist konsultan di Rawat Jalan) ──
+//  Closed-loop SBAR (SNARS SKP 2): peminta (DPJP unit asal) kirim permintaan → konsultan SMF
+//  tujuan TERIMA (stamp sekali) → JAWAB (asesmen/rekomendasi/tindak-lanjut; auto-tulis CPPT ke
+//  kunjungan asal, tx sama) → peminta KONFIRMASI SELESAI (read-back DPJP). Batal = soft-delete
+//  hanya saat masih Terkirim. Semua nama aktor (peminta/penerima/konsultan/penyelesai) = actor
+//  login server-otoritatif. SMF snapshot dari SMF_LIST FE; worklist konsultan = endpoint
+//  standalone /konsultasi (scopeKunjungan:false — konsultan lintas careUnit, anti-ABAC-block).
+model Konsultasi {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid // kunjungan ASAL (peminta)
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  urgency String @default("Rutin")    // CITO/Urgen/Rutin (Zod)
+  status  String @default("Terkirim") // Terkirim → Diterima → Dijawab → Selesai
+
+  // ── SMF tujuan (snapshot) + dokter konsultan yang dituju (opsional, free-text) ──
+  smfId           String  @map("smf_id")
+  smfNama         String  @map("smf_nama")
+  smfSingkatan    String  @map("smf_singkatan")
+  dokterKonsultan String? @map("dokter_konsultan")
+
+  // ── SBAR permintaan ──
+  situation      String
+  background     String @default("")
+  assessment     String @default("")
+  recommendation String
+
+  // ── Peminta (actor pembuat) ──
+  dokterPeminta   String   @map("dokter_peminta")
+  authorUserId    String?  @map("author_user_id") @db.Uuid
+  authorPegawaiId String?  @map("author_pegawai_id") @db.Uuid
+
+  // ── Terima (stamp sekali oleh konsultan) ──
+  diterimaAt   DateTime? @map("diterima_at") @db.Timestamptz(3)
+  diterimaOleh String?   @map("diterima_oleh")
+
+  // ── Jawaban (konsultan = actor penjawab) ──
+  dijawabAt          DateTime? @map("dijawab_at") @db.Timestamptz(3)
+  konsultanNama      String?   @map("konsultan_nama")
+  konsultanUserId    String?   @map("konsultan_user_id") @db.Uuid
+  konsultanPegawaiId String?   @map("konsultan_pegawai_id") @db.Uuid
+  jawabanAsesmen     String    @default("") @map("jawaban_asesmen")
+  jawabanRekomendasi String    @default("") @map("jawaban_rekomendasi")
+  jawabanTindakLanjut String   @default("") @map("jawaban_tindak_lanjut")
+  jawabanFollowUp    String?   @map("jawaban_follow_up") // "YYYY-MM-DD" kontrol kembali
+
+  // ── Selesai (konfirmasi read-back DPJP peminta) ──
+  selesaiAt   DateTime? @map("selesai_at") @db.Timestamptz(3)
+  selesaiOleh String?   @map("selesai_oleh")
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId])
+  @@index([status, createdAt]) // worklist konsultan
+  @@map("konsultasi")
+  @@schema("medicalrecord")
+}

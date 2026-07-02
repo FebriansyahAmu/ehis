@@ -4,6 +4,7 @@ import {
   Stethoscope, Users, Clock, CheckCircle2, Building2, Plus,
 } from "lucide-react";
 import RJBoardLive from "@/components/rawat-jalan/RJBoardLive";
+import KonsultasiInbox from "@/components/rawat-jalan/KonsultasiInbox";
 import { rjPatients, rjStats } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { requireCareService } from "@/lib/auth/requireCareService";
@@ -85,6 +86,11 @@ export default async function RawatJalanPage() {
         <StatCard label="Sedang Diperiksa"   value={s.aktif}        sub="dalam proses"      icon={Stethoscope}  variant="active"  />
         <StatCard label="Selesai"            value={s.selesai}      sub="kunjungan tuntas"  icon={CheckCircle2} variant="success" />
         <StatCard label="Poli Aktif"         value={s.poliAktif}    sub="poliklinik"        icon={Building2}    variant="info"    />
+      </section>
+
+      {/* Worklist Konsultasi Masuk (antar-SMF, DB) */}
+      <section className="animate-fade-in" style={{ animationDelay: "90ms" }}>
+        <KonsultasiInbox />
       </section>
 
       {/* Board */}

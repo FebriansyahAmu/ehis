@@ -1,17 +1,29 @@
 "use client";
 
-import { useState, useMemo } from "react";
+// Tab Konsultasi antar-SMF (sisi PEMINTA). DB-wired: kunjungan UUID → persist
+// medicalrecord.Konsultasi via /kunjungan/:id/konsultasi (gate clinical.konsultasi); kirim SBAR →
+// worklist konsultan di Rawat Jalan; peminta konfirmasi Selesai (read-back DPJP) + Batalkan saat
+// masih Terkirim. dokterPeminta = user login (server otoritatif). Demo (non-UUID) = mock lokal.
+
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Search, MessageSquare, Clock, CheckCircle2, AlertCircle, ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
+import {
+  listKonsultasi, createKonsultasi, selesaiKonsultasi, batalKonsultasi,
+} from "@/lib/api/konsultasi/konsultasi";
 import {
   KONSULTASI_MOCK, URGENCY_CONFIG, STATUS_CONFIG, elapsedSince,
   type KonsultasiItem, type StatusKonsultasi,
 } from "./konsultasi/konsultasiShared";
 import RequestPane from "./konsultasi/RequestPane";
 import DetailPane  from "./konsultasi/DetailPane";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -29,6 +41,8 @@ const STATUS_FILTERS: { label: string; value: FilterVal }[] = [
 export interface KonsultasiTabProps {
   noRM: string;
   dokterPeminta: string;
+  /** kunjungan UUID → persist DB; absen/non-UUID → demo lokal (mock by noRM). */
+  kunjunganId?: string;
 }
 
 // ── KonsultasiCard ────────────────────────────────────────
@@ -87,8 +101,10 @@ function KonsultasiCard({
 
 // ── Main ─────────────────────────────────────────────────
 
-export default function KonsultasiTab({ noRM, dokterPeminta }: KonsultasiTabProps) {
-  const [items,            setItems]           = useState<KonsultasiItem[]>(KONSULTASI_MOCK[noRM] ?? []);
+export default function KonsultasiTab({ noRM, dokterPeminta, kunjunganId }: KonsultasiTabProps) {
+  const isPersisted = !!kunjunganId && UUID_RE.test(kunjunganId);
+
+  const [items,            setItems]           = useState<KonsultasiItem[]>(isPersisted ? [] : (KONSULTASI_MOCK[noRM] ?? []));
   const [mode,             setMode]            = useState<Mode>("idle");
   const [selectedId,       setSelectedId]      = useState<string | null>(null);
   const [search,           setSearch]          = useState("");
@@ -96,6 +112,19 @@ export default function KonsultasiTab({ noRM, dokterPeminta }: KonsultasiTabProp
   const [showMobileDetail, setShowMobileDetail] = useState(false);
 
   const selectedItem = items.find(i => i.id === selectedId) ?? null;
+
+  // Muat daftar konsultasi kunjungan (UUID). Demo → mock by noRM.
+  useEffect(() => {
+    if (!isPersisted || !kunjunganId) return;
+    const ac = new AbortController();
+    listKonsultasi(kunjunganId, ac.signal)
+      .then(setItems)
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat konsultasi", e instanceof ApiError ? e.message : undefined);
+      });
+    return () => ac.abort();
+  }, [kunjunganId, isPersisted]);
 
   const filtered = useMemo(() => items.filter(item => {
     const matchStatus = statusFilter === "all" || item.status === statusFilter;
@@ -114,15 +143,61 @@ export default function KonsultasiTab({ noRM, dokterPeminta }: KonsultasiTabProp
     selesai: items.filter(i => i.status === "Selesai").length,
   }), [items]);
 
-  function handleNewRequest(item: KonsultasiItem) {
-    setItems(prev => [item, ...prev]);
-    setSelectedId(item.id);
-    setMode("detail");
-    setShowMobileDetail(true);
+  async function handleNewRequest(item: KonsultasiItem) {
+    if (!isPersisted || !kunjunganId) {
+      setItems(prev => [item, ...prev]);
+      selectItem(item.id);
+      return;
+    }
+    try {
+      const dto = await createKonsultasi(kunjunganId, {
+        urgency: item.urgency,
+        smfId: item.smfId,
+        smfNama: item.smfNama,
+        smfSingkatan: item.smfSingkatan,
+        dokterKonsultan: item.dokterKonsultan,
+        situation: item.situation,
+        background: item.background || undefined,
+        assessment: item.assessment || undefined,
+        recommendation: item.recommendation,
+        dokterPeminta: undefined, // server otoritatif dari actor (user login)
+      });
+      setItems(prev => [dto, ...prev]);
+      selectItem(dto.id);
+    } catch (e) {
+      toast.error("Gagal mengirim konsultasi", e instanceof ApiError ? e.message : undefined);
+    }
   }
 
   function handleUpdate(updated: KonsultasiItem) {
     setItems(prev => prev.map(i => i.id === updated.id ? updated : i));
+  }
+
+  /** Konfirmasi selesai (read-back DPJP peminta) — mode wired. */
+  async function handleSelesai() {
+    if (!kunjunganId || !selectedItem) return;
+    try {
+      const dto = await selesaiKonsultasi(kunjunganId, selectedItem.id);
+      handleUpdate(dto);
+      toast.success("Konsultasi selesai", "Jawaban konsultan telah dikonfirmasi DPJP");
+    } catch (e) {
+      toast.error("Gagal konfirmasi selesai", e instanceof ApiError ? e.message : undefined);
+    }
+  }
+
+  /** Batalkan permintaan (hanya saat masih Terkirim) — mode wired. */
+  async function handleBatal() {
+    if (!kunjunganId || !selectedItem) return;
+    try {
+      await batalKonsultasi(kunjunganId, selectedItem.id);
+      setItems(prev => prev.filter(i => i.id !== selectedItem.id));
+      setSelectedId(null);
+      setMode("idle");
+      setShowMobileDetail(false);
+      toast.success("Permintaan konsultasi dibatalkan");
+    } catch (e) {
+      toast.error("Gagal membatalkan", e instanceof ApiError ? e.message : undefined);
+    }
   }
 
   function selectItem(id: string) {
@@ -284,6 +359,9 @@ export default function KonsultasiTab({ noRM, dokterPeminta }: KonsultasiTabProp
                 key={selectedItem.id}
                 item={selectedItem}
                 onUpdate={handleUpdate}
+                actions={isPersisted ? "peminta" : "demo"}
+                onSelesai={isPersisted ? handleSelesai : undefined}
+                onBatal={isPersisted ? handleBatal : undefined}
                 onBack={showMobileDetail ? () => setShowMobileDetail(false) : undefined}
               />
             )}

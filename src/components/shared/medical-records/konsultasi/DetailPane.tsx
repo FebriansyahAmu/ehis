@@ -16,7 +16,18 @@ interface Props {
   item: KonsultasiItem;
   onUpdate: (updated: KonsultasiItem) => void;
   onBack?: () => void;
+  /** Peran panel: demo (simulasi lokal penuh) · peminta (tab klinis wired — konfirmasi selesai +
+   *  batal) · konsultan (worklist RJ — terima + jawab). Default demo (kompatibel mock). */
+  actions?: "demo" | "peminta" | "konsultan";
+  /** Nama konsultan dari sesi login (mode konsultan) — field nama jadi read-only. */
+  konsultanNama?: string;
+  onTerima?: () => Promise<void>;
+  onJawab?: (j: KonsultasiJawaban) => Promise<void>;
+  onSelesai?: () => Promise<void>;
+  onBatal?: () => Promise<void>;
 }
+
+const nowHHmm = () => new Date().toISOString().slice(11, 16);
 
 const SBAR_SECTIONS = [
   { key: "situation"      as const, label: "S — Situation",      color: "bg-sky-50 text-sky-700 border-sky-200"      },
@@ -31,12 +42,16 @@ const JAWABAN_FIELDS: { key: keyof Omit<KonsultasiJawaban,"followUp">; label: st
   { key: "tindakLanjut", label: "Tindak Lanjut",       rows: 2 },
 ];
 
-export default function DetailPane({ item, onUpdate, onBack }: Props) {
+export default function DetailPane({
+  item, onUpdate, onBack, actions = "demo", konsultanNama,
+  onTerima, onJawab, onSelesai, onBatal,
+}: Props) {
   const [sbarOpen,    setSbarOpen]   = useState(false);
   const [jawabMode,   setJawabMode]  = useState(false);
   const [cpptNotif,   setCpptNotif]  = useState(false);
+  const [busy,        setBusy]       = useState(false);
   const [jawaban, setJawaban] = useState<Partial<KonsultasiJawaban>>({
-    konsultan: item.dokterKonsultan ?? "",
+    konsultan: konsultanNama ?? item.dokterKonsultan ?? "",
     asesmen: "", rekomendasi: "", tindakLanjut: "", followUp: "",
   });
 
@@ -44,29 +59,45 @@ export default function DetailPane({ item, onUpdate, onBack }: Props) {
   const statCfg = STATUS_CONFIG[item.status];
   const stepIdx = STATUS_STEPS.indexOf(item.status as typeof STATUS_STEPS[number]);
 
-  function handleConfirmReceived() {
-    onUpdate({ ...item, status: "Diterima", waktuDiterima: "10:30" });
+  async function runAction(fn?: () => Promise<void>) {
+    if (!fn || busy) return;
+    setBusy(true);
+    try { await fn(); } catch { /* parent sudah toast */ } finally { setBusy(false); }
   }
 
-  function handleSubmitJawaban() {
+  function handleConfirmReceived() {
+    if (actions === "konsultan") { void runAction(onTerima); return; }
+    onUpdate({ ...item, status: "Diterima", waktuDiterima: nowHHmm() }); // demo lokal
+  }
+
+  async function handleSubmitJawaban() {
     if (!jawaban.asesmen?.trim() || !jawaban.rekomendasi?.trim() || !jawaban.tindakLanjut?.trim()) return;
-    onUpdate({
-      ...item,
-      status: "Dijawab",
-      waktuDijawab: "11:00",
-      jawaban: {
-        konsultan:    jawaban.konsultan ?? item.dokterKonsultan ?? "dr. Konsultan",
-        asesmen:      jawaban.asesmen,
-        rekomendasi:  jawaban.rekomendasi,
-        tindakLanjut: jawaban.tindakLanjut,
-        followUp:     jawaban.followUp || undefined,
-      },
-    });
+    const j: KonsultasiJawaban = {
+      konsultan:    (konsultanNama ?? jawaban.konsultan ?? item.dokterKonsultan ?? "dr. Konsultan"),
+      asesmen:      jawaban.asesmen,
+      rekomendasi:  jawaban.rekomendasi,
+      tindakLanjut: jawaban.tindakLanjut,
+      followUp:     jawaban.followUp || undefined,
+    };
+    if (actions === "konsultan" && onJawab) {
+      if (busy) return;
+      setBusy(true);
+      try {
+        await onJawab(j);       // server: jawab + auto-CPPT (tx sama)
+        setCpptNotif(true);
+        setJawabMode(false);
+      } catch {
+        // parent sudah toast — form tetap terbuka agar isian tidak hilang
+      } finally { setBusy(false); }
+      return;
+    }
+    onUpdate({ ...item, status: "Dijawab", waktuDijawab: nowHHmm(), jawaban: j }); // demo lokal
     setJawabMode(false);
   }
 
   function handleDpjpConfirm() {
-    onUpdate({ ...item, status: "Selesai", waktuSelesai: "11:15" });
+    if (actions === "peminta") { void runAction(onSelesai); return; }
+    onUpdate({ ...item, status: "Selesai", waktuSelesai: nowHHmm() }); // demo lokal
     setCpptNotif(true);
   }
 
@@ -290,12 +321,21 @@ export default function DetailPane({ item, onUpdate, onBack }: Props) {
               <div className="space-y-3 p-4">
                 <div>
                   <label className="mb-1 block text-[11px] font-semibold text-slate-600">Nama Konsultan</label>
-                  <input
-                    value={jawaban.konsultan ?? ""}
-                    onChange={e => setJawaban(p => ({ ...p, konsultan: e.target.value }))}
-                    className="w-full rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-sky-400 focus:ring-1 focus:ring-sky-200"
-                    placeholder="dr. Nama, Sp.XX"
-                  />
+                  {konsultanNama ? (
+                    <div className="flex items-center justify-between rounded-lg border border-sky-200 bg-white px-3 py-1.5">
+                      <span className="text-xs font-semibold text-slate-800">{konsultanNama}</span>
+                      <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-sky-600">
+                        Sesi Login
+                      </span>
+                    </div>
+                  ) : (
+                    <input
+                      value={jawaban.konsultan ?? ""}
+                      onChange={e => setJawaban(p => ({ ...p, konsultan: e.target.value }))}
+                      className="w-full rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-sky-400 focus:ring-1 focus:ring-sky-200"
+                      placeholder="dr. Nama, Sp.XX"
+                    />
+                  )}
                 </div>
                 {JAWABAN_FIELDS.map(({ key, label, rows }) => (
                   <div key={key}>
@@ -328,10 +368,11 @@ export default function DetailPane({ item, onUpdate, onBack }: Props) {
                     Batal
                   </button>
                   <button
-                    onClick={handleSubmitJawaban}
-                    className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-sky-700 active:scale-95"
+                    onClick={() => void handleSubmitJawaban()}
+                    disabled={busy}
+                    className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-sky-700 active:scale-95 disabled:opacity-60"
                   >
-                    <CheckSquare size={12} /> Kirim Jawaban
+                    <CheckSquare size={12} /> {busy ? "Mengirim…" : "Kirim Jawaban"}
                   </button>
                 </div>
               </div>
@@ -340,19 +381,37 @@ export default function DetailPane({ item, onUpdate, onBack }: Props) {
         </AnimatePresence>
       </div>
 
-      {/* Action footer */}
+      {/* Action footer — aksi berbeda per peran (peminta vs konsultan; demo = keduanya) */}
       {!jawabMode && item.status !== "Selesai" && item.status !== "Ditolak" && (
         <div className="shrink-0 border-t border-slate-200 bg-white px-5 py-3">
-          {item.status === "Terkirim" && (
+          {item.status === "Terkirim" && (actions === "peminta" ? (
+            <div className="flex items-center gap-3">
+              <p className="flex-1 text-xs text-slate-400">Menunggu diterima dokter konsultan…</p>
+              {onBatal && (
+                <button
+                  onClick={() => void runAction(onBatal)}
+                  disabled={busy}
+                  className="shrink-0 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-100 active:scale-95 disabled:opacity-50"
+                >
+                  Batalkan Permintaan
+                </button>
+              )}
+            </div>
+          ) : (
             <button
               onClick={handleConfirmReceived}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 py-2.5 text-sm font-medium text-white transition hover:bg-sky-700 active:scale-95"
+              disabled={busy}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 py-2.5 text-sm font-medium text-white transition hover:bg-sky-700 active:scale-95 disabled:opacity-60"
             >
               <UserCheck size={14} />
-              Konfirmasi Diterima (Konsultan)
+              {busy ? "Memproses…" : "Konfirmasi Diterima (Konsultan)"}
             </button>
-          )}
-          {item.status === "Diterima" && (
+          ))}
+          {item.status === "Diterima" && (actions === "peminta" ? (
+            <p className="py-1 text-center text-xs text-slate-400">
+              Diterima {item.waktuDiterima ?? "—"} · sedang ditangani {item.dokterKonsultan ?? "dokter konsultan"}…
+            </p>
+          ) : (
             <button
               onClick={() => setJawabMode(true)}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-2.5 text-sm font-medium text-white transition hover:bg-amber-600 active:scale-95"
@@ -360,16 +419,21 @@ export default function DetailPane({ item, onUpdate, onBack }: Props) {
               <FileText size={14} />
               Isi Jawaban Konsultasi
             </button>
-          )}
-          {item.status === "Dijawab" && (
+          ))}
+          {item.status === "Dijawab" && (actions === "konsultan" ? (
+            <p className="py-1 text-center text-xs text-slate-400">
+              Jawaban terkirim — menunggu konfirmasi DPJP peminta
+            </p>
+          ) : (
             <button
               onClick={handleDpjpConfirm}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-95"
+              disabled={busy}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-95 disabled:opacity-60"
             >
               <CheckCircle2 size={14} />
-              Konfirmasi &amp; Tandatangani DPJP
+              {busy ? "Memproses…" : "Konfirmasi & Tandatangani DPJP"}
             </button>
-          )}
+          ))}
         </div>
       )}
     </motion.div>

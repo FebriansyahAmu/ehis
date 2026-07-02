@@ -139,9 +139,10 @@ export const STATUS_CONFIG: Record<StatusKonsultasi, {
 export const STATUS_STEPS: StatusKonsultasi[] = ["Terkirim", "Diterima", "Dijawab", "Selesai"];
 
 export function elapsedSince(dateStr: string, timeStr: string): string {
-  const now  = new Date("2026-05-09T10:00:00");
-  const then = new Date(`${dateStr}T${timeStr}:00`);
-  const min  = Math.floor((now.getTime() - then.getTime()) / 60000);
+  // Data DB = UTC wall-clock (ISO slice) → banding terhadap UTC sekarang (konsisten server DTO).
+  const now  = new Date();
+  const then = new Date(`${dateStr}T${timeStr}:00Z`);
+  const min  = Math.max(0, Math.floor((now.getTime() - then.getTime()) / 60000));
   if (min < 60)  return `${min} menit`;
   const h = Math.floor(min / 60);
   if (h  < 24)   return `${h} jam ${min % 60} mnt`;

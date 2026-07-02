@@ -267,7 +267,7 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
             }} />)}
             {active === "order-lab"     && withIdentitas(<OrderLabTab    patient={patient} />)}
             {active === "order-rad"     && withIdentitas(<OrderRadTab    patient={patient} />)}
-            {active === "konsultasi"    && <KonsultasiTab     noRM={patient.noRM} dokterPeminta={patient.dpjp} />}
+            {active === "konsultasi"    && <KonsultasiTab     noRM={patient.noRM} dokterPeminta={patient.dpjp} kunjunganId={patient.id} />}
             {active === "discharge"     && <DischargePlanTab  patient={patient} />}
             {active === "pasien-pulang" && withIdentitas(<PasienPulangTab patient={patient} />)}
             {active === "konseling"     && <KonselingTab patient={patient} />}

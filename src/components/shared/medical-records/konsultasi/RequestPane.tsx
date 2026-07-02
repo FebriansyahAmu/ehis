@@ -76,11 +76,12 @@ export default function RequestPane({ noRM, dokterPeminta, onSubmit, onCancel }:
 
   function handleSubmit() {
     if (!validate() || !selectedSmf) return;
+    const nowIso = new Date().toISOString();
     const item: KonsultasiItem = {
       id:              `kons-${Date.now()}`,
       noRM,
-      tanggalRequest:  "2026-05-09",
-      waktuRequest:    "10:00",
+      tanggalRequest:  nowIso.slice(0, 10),
+      waktuRequest:    nowIso.slice(11, 16),
       urgency,
       smfId:           selectedSmf.id,
       smfNama:         selectedSmf.nama,
