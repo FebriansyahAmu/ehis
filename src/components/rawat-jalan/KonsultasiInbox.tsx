@@ -91,7 +91,12 @@ function KonsultasiCard({ item, index }: { item: KonsultasiWorklistDTO; index: n
   );
 }
 
-export default function KonsultasiInbox() {
+export default function KonsultasiInbox({
+  onMenungguChange,
+}: {
+  /** Lapor jumlah konsultasi berstatus Terkirim (badge tab parent). */
+  onMenungguChange?: (n: number) => void;
+}) {
   const [items,   setItems]   = useState<KonsultasiWorklistDTO[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -108,6 +113,10 @@ export default function KonsultasiInbox() {
   }, []);
 
   const menunggu = items.filter((i) => i.status === "Terkirim").length;
+
+  useEffect(() => {
+    if (!loading) onMenungguChange?.(menunggu);
+  }, [menunggu, loading, onMenungguChange]);
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm">

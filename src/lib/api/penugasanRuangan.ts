@@ -34,6 +34,18 @@ export async function deletePenugasan(id: string, signal?: AbortSignal): Promise
   await api.del(`/master/penugasan-ruangan/${encodeURIComponent(id)}`, { signal });
 }
 
+export interface RuanganSayaDTO {
+  locationId: string;
+  ruanganKode: string;
+  ruanganNama: string;
+}
+
+/** GET /master/poli-saya — ruangan tempat user login di-assign (self-scoped, gate klinis). */
+export async function listRuanganSaya(signal?: AbortSignal): Promise<RuanganSayaDTO[]> {
+  const { data } = await api.get<RuanganSayaDTO[]>("/master/poli-saya", { signal });
+  return data;
+}
+
 /** GET /kunjungan/:id/petugas — roster petugas ruangan kunjungan (gate kunjungan:read, konsumen klinis). */
 export async function listPetugasKunjungan(
   kunjunganId: string,

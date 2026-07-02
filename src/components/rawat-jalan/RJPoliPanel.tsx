@@ -112,16 +112,24 @@ interface Props {
   patients: RJPatient[];
   selected: RJPoli | "Semua";
   onSelect: (poli: RJPoli | "Semua") => void;
+  /** Poli tempat user login di-assign (SDM Assignment) — panel HANYA menampilkan poli ini.
+   *  null/undefined = tanpa pembatasan (superuser/global/akun tanpa penugasan). */
+  allowedPolis?: ReadonlySet<RJPoli> | null;
 }
 
-export default function RJPoliPanel({ patients, selected, onSelect }: Props) {
-  const stats = buildPoliStats(patients);
+export default function RJPoliPanel({ patients, selected, onSelect, allowedPolis }: Props) {
+  const all   = buildPoliStats(patients);
+  const stats = allowedPolis ? all.filter((s) => allowedPolis.has(s.poli)) : all;
 
   return (
     <div>
       <div className="mb-2.5 flex items-center justify-between">
         <p className="text-sm font-bold text-slate-700">Panel Poliklinik</p>
-        <p className="text-[11px] text-slate-400">{stats.length} poli aktif hari ini</p>
+        <p className="text-[11px] text-slate-400">
+          {allowedPolis
+            ? `${stats.length} poli penugasan Anda`
+            : `${stats.length} poli aktif hari ini`}
+        </p>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1.5">

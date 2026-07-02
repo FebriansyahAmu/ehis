@@ -15,6 +15,13 @@ export function toRJPoli(poli: string | null): RJPoli {
   return (RJ_POLI.has(k) ? k : "Poli_Umum") as RJPoli;
 }
 
+/** Mapping STRICT nama ruangan → RJPoli (tanpa fallback Poli_Umum) — untuk filter penugasan
+ *  SDM (ruangan non-poli mis. "Laboratorium" → null, jangan nyasar jadi Poli Umum). */
+export function rjPoliStrict(nama: string | null): RJPoli | null {
+  const k = (nama ?? "").replace(/\s+/g, "_");
+  return RJ_POLI.has(k) ? (k as RJPoli) : null;
+}
+
 export function ageFrom(iso: string | null): number {
   if (!iso) return 0;
   const d = new Date(iso);

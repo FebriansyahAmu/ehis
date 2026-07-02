@@ -44,6 +44,8 @@ export default function RJBoard({
   statusOverride,
   recallOverride,
   onApiAction,
+  statusLock,
+  allowedPolis,
 }: {
   patients: RJPatient[];
   /** Order untuk pasien dari API (tak ada di mock queue store) — mis. kunjungan baru. */
@@ -52,12 +54,18 @@ export default function RJBoard({
   recallOverride?: Record<string, number>;
   /** Handler aksi kartu API → transisi server. Kembalikan ok + pesan untuk toast. */
   onApiAction?: (patient: RJPatient, action: BoardApiAction) => Promise<{ ok: boolean; message?: string }>;
+  /** Kunci board ke 1 status (tab "Order Masuk") — chips filter status disembunyikan. */
+  statusLock?: RJOrderStatus;
+  /** Poli penugasan user login — Panel Poliklinik hanya menampilkan poli ini (null = semua). */
+  allowedPolis?: ReadonlySet<RJPoli> | null;
 }) {
   const queue = useRJQueue();
-  // Kartu bersumber API bila id-nya ada di statusOverride (dibangun RJBoardLive dari worklist).
+  // Kartu bersumber API bila id-nya ada di statusOverride (dibangun RJPageView dari worklist).
   const isApi = (id: string) => statusOverride !== undefined && id in statusOverride;
 
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("Semua");
+  const [statusPick, setStatusPick] = useState<StatusFilter>("Semua");
+  const statusFilter = statusLock ?? statusPick;
+  const setStatusFilter = setStatusPick;
   const [poliFilter, setPoliFilter] = useState<RJPoli | "Semua">("Semua");
   const [dokterFilter, setDokterFilter] = useState("Semua");
   const [penjaminFilter, setPenjaminFilter] = useState("Semua");
@@ -142,13 +150,13 @@ export default function RJBoard({
 
   return (
     <div className="flex flex-col gap-4">
-      <RJPoliPanel patients={patients} selected={poliFilter} onSelect={setPoliFilter} />
+      <RJPoliPanel patients={patients} selected={poliFilter} onSelect={setPoliFilter} allowedPolis={allowedPolis} />
 
       <div className="h-px bg-slate-100" />
 
       {/* Filter bar */}
       <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap gap-1.5">
+        {!statusLock && <div className="flex flex-wrap gap-1.5">
           {ALL_STATUSES.map((s) => {
             const isActive = statusFilter === s;
             const activeCls = s === "Semua" ? "bg-slate-800 text-white border-slate-800" : ORDER_CFG[s].active;
@@ -169,7 +177,7 @@ export default function RJBoard({
               </button>
             );
           })}
-        </div>
+        </div>}
 
         <div className="flex flex-wrap items-center gap-2">
           <select
