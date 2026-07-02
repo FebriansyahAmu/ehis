@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Search, ChevronDown, X, Send, AlertCircle } from "lucide-react";
+import { Search, ChevronDown, X, Send, AlertCircle, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { listKonsultanTersedia, type KonsultanDTO } from "@/lib/api/konsultasi/konsultasi";
 import {
-  SMF_LIST,
+  SMF_LIST, SMF_SP_TOKEN, matchSpesialistik,
   URGENCY_CONFIG,
   type UrgencyKonsultasi,
   type SmfOption,
@@ -50,7 +51,14 @@ export default function RequestPane({ noRM, dokterPeminta, onSubmit, onCancel }:
   });
   const [errors, setErrors] = useState<Partial<Record<SbarKey | "smf", string>>>({});
 
-  const smfRef = useRef<HTMLDivElement>(null);
+  // Picker Dokter Konsultan — dokter ter-assign ke ruangan poli (SDM Assignment).
+  // null = belum termuat/gagal → fallback input teks bebas (offline/demo).
+  const [konsultanList, setKonsultanList] = useState<KonsultanDTO[] | null>(null);
+  const [konsOpen,  setKonsOpen]  = useState(false);
+  const [konsQuery, setKonsQuery] = useState("");
+
+  const smfRef  = useRef<HTMLDivElement>(null);
+  const konsRef = useRef<HTMLDivElement>(null);
 
   const filteredSmf = SMF_LIST.filter(s =>
     s.nama.toLowerCase().includes(smfQuery.toLowerCase()) ||
@@ -60,10 +68,35 @@ export default function RequestPane({ noRM, dokterPeminta, onSubmit, onCancel }:
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
       if (smfRef.current && !smfRef.current.contains(e.target as Node)) setSmfOpen(false);
+      if (konsRef.current && !konsRef.current.contains(e.target as Node)) setKonsOpen(false);
     }
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    listKonsultanTersedia(ac.signal)
+      .then((rows) => { if (!ac.signal.aborted) setKonsultanList(rows); })
+      .catch(() => { /* fallback input teks bebas */ });
+    return () => ac.abort();
+  }, []);
+
+  // Filter by SMF terpilih: cocokkan spesialistik ↔ token gelar ("Sp.B"). SMF tanpa kode /
+  // tanpa dokter yang cocok → tampilkan SEMUA dokter ter-assign poli (jangan buntu).
+  const spToken = selectedSmf ? SMF_SP_TOKEN[selectedSmf.id] : undefined;
+  const bySmf = useMemo(() => {
+    if (!konsultanList) return [];
+    if (!spToken) return konsultanList;
+    const matched = konsultanList.filter((k) => matchSpesialistik(k.spesialistik, spToken));
+    return matched.length > 0 ? matched : konsultanList;
+  }, [konsultanList, spToken]);
+  const smfMatchEmpty = !!spToken && !!konsultanList?.length
+    && !konsultanList.some((k) => matchSpesialistik(k.spesialistik, spToken));
+  const konsOptions = bySmf.filter((k) => {
+    const q = konsQuery.toLowerCase();
+    return !q || k.namaTampil.toLowerCase().includes(q) || k.ruanganNama.toLowerCase().includes(q);
+  });
 
   function validate() {
     const errs: typeof errors = {};
@@ -164,9 +197,9 @@ export default function RequestPane({ noRM, dokterPeminta, onSubmit, onCancel }:
                     {filteredSmf.map(s => (
                       <button
                         key={s.id}
-                        onClick={() => { setSelectedSmf(s); setSmfOpen(false); setSmfQuery(""); }}
+                        onClick={() => { setSelectedSmf(s); setSmfOpen(false); setSmfQuery(""); setDokterKons(""); }}
                         className={cn(
-                          "flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs transition hover:bg-sky-50",
+                          "flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs text-slate-700 transition hover:bg-sky-50",
                           selectedSmf?.id === s.id && "bg-sky-50 font-semibold text-sky-700",
                         )}
                       >
@@ -190,17 +223,96 @@ export default function RequestPane({ noRM, dokterPeminta, onSubmit, onCancel }:
             )}
           </div>
 
-          {/* Dokter konsultan */}
+          {/* Dokter konsultan — picker dokter ter-assign ke ruangan poli (SDM Assignment) */}
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-slate-700">
               Dokter Konsultan <span className="text-slate-400 font-normal">(opsional)</span>
             </label>
-            <input
-              value={dokterKons}
-              onChange={e => setDokterKons(e.target.value)}
-              placeholder="dr. Nama Konsultan, Sp.XX"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none placeholder:text-slate-400 transition hover:border-sky-300 focus:border-sky-400 focus:ring-1 focus:ring-sky-200"
-            />
+            {konsultanList && konsultanList.length > 0 ? (
+              <div className="relative" ref={konsRef}>
+                <button
+                  type="button"
+                  onClick={() => setKonsOpen(v => !v)}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm transition-all hover:border-sky-300",
+                    konsOpen && "border-sky-400 ring-1 ring-sky-200",
+                  )}
+                >
+                  <span className={cn("truncate", dokterKons ? "text-slate-800" : "text-slate-400")}>
+                    {dokterKons || "Pilih dokter ter-assign poli…"}
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={cn("shrink-0 text-slate-400 transition-transform", konsOpen && "rotate-180")}
+                  />
+                </button>
+
+                {konsOpen && (
+                  <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+                    <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2">
+                      <Search size={12} className="text-slate-400" />
+                      <input
+                        autoFocus
+                        value={konsQuery}
+                        onChange={e => setKonsQuery(e.target.value)}
+                        placeholder="Cari dokter / poli…"
+                        className="flex-1 bg-transparent text-xs text-slate-700 outline-none placeholder:text-slate-400"
+                      />
+                    </div>
+                    {smfMatchEmpty && (
+                      <p className="border-b border-amber-100 bg-amber-50 px-3 py-1.5 text-[10px] text-amber-600">
+                        Belum ada dokter ter-assign untuk SMF ini — menampilkan semua dokter poli
+                      </p>
+                    )}
+                    <div className="max-h-52 overflow-y-auto">
+                      <button
+                        type="button"
+                        onClick={() => { setDokterKons(""); setKonsOpen(false); setKonsQuery(""); }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs italic text-slate-400 transition hover:bg-slate-50"
+                      >
+                        — Tanpa dokter spesifik (ditujukan ke SMF) —
+                      </button>
+                      {konsOptions.map(k => (
+                        <button
+                          key={`${k.pegawaiId}-${k.ruanganKode}`}
+                          type="button"
+                          onClick={() => { setDokterKons(k.namaTampil); setKonsOpen(false); setKonsQuery(""); }}
+                          className={cn(
+                            "flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs text-slate-700 transition hover:bg-sky-50",
+                            dokterKons === k.namaTampil && "bg-sky-50 text-sky-700",
+                          )}
+                        >
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100">
+                            <UserRound size={11} className="text-slate-500" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className={cn(
+                              "block truncate font-semibold text-slate-800",
+                              dokterKons === k.namaTampil && "text-sky-700",
+                            )}>
+                              {k.namaTampil}
+                            </span>
+                            <span className="block truncate text-[10px] font-normal text-slate-500">
+                              {k.ruanganNama}{k.spesialistik ? ` · ${k.spesialistik}` : ""}
+                            </span>
+                          </span>
+                        </button>
+                      ))}
+                      {konsOptions.length === 0 && (
+                        <p className="px-3 py-3 text-xs text-slate-400">Dokter tidak ditemukan</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <input
+                value={dokterKons}
+                onChange={e => setDokterKons(e.target.value)}
+                placeholder="dr. Nama Konsultan, Sp.XX"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none placeholder:text-slate-400 transition hover:border-sky-300 focus:border-sky-400 focus:ring-1 focus:ring-sky-200"
+              />
+            )}
           </div>
         </div>
 

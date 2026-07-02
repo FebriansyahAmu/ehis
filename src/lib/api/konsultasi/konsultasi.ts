@@ -9,8 +9,15 @@ import type {
   KonsultasiCreateInput, KonsultasiJawabInput,
   KonsultasiDTO, KonsultasiWorklistDTO,
 } from "@/lib/schemas/konsultasi/konsultasi";
+import type { KonsultanDTO } from "@/lib/schemas/penugasanRuangan";
 
-export type { KonsultasiCreateInput, KonsultasiJawabInput, KonsultasiDTO, KonsultasiWorklistDTO };
+export type { KonsultasiCreateInput, KonsultasiJawabInput, KonsultasiDTO, KonsultasiWorklistDTO, KonsultanDTO };
+
+/** GET /master/konsultan-tersedia — dokter aktif ter-assign ke ruangan poli (picker konsultan). */
+export async function listKonsultanTersedia(signal?: AbortSignal): Promise<KonsultanDTO[]> {
+  const { data } = await api.get<KonsultanDTO[]>("/master/konsultan-tersedia", { signal });
+  return data;
+}
 
 const base = (k: string) => `/kunjungan/${encodeURIComponent(k)}/konsultasi`;
 

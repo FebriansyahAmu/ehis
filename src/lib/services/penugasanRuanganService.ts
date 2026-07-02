@@ -8,7 +8,7 @@ import * as kunjunganDal from "@/lib/dal/kunjunganDal";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type {
-  CreatePenugasanInput, ListQuery, PenugasanRuanganDTO, PetugasDTO,
+  CreatePenugasanInput, ListQuery, PenugasanRuanganDTO, PetugasDTO, KonsultanDTO,
 } from "@/lib/schemas/penugasanRuangan";
 import type { PenugasanEntity } from "@/lib/dal/penugasanRuanganDal";
 
@@ -123,7 +123,24 @@ export function makePenugasanRuanganService(deps: { dal?: Dal } = {}) {
     return petugas;
   }
 
-  return { listPenugasan, createPenugasan, deletePenugasan, listPetugasKunjungan };
+  /**
+   * Dokter konsultan tersedia (konsumen tab Konsultasi): dokter aktif yang di-ASSIGN ke ruangan
+   * poli (LocationType Rawat_Jalan) via SDM Assignment. Pasangan pegawai×ruangan unik by
+   * constraint — tanpa dedup. Identitas terbatas (bukan master SDM penuh).
+   */
+  async function listKonsultanPoli(): Promise<KonsultanDTO[]> {
+    const rows = await dal.listDokterPoli();
+    return rows.map((r) => ({
+      pegawaiId: r.pegawaiId,
+      namaTampil: namaTampil(r.pegawai),
+      profesi: r.pegawai.profesi ?? "",
+      spesialistik: r.pegawai.spesialistik,
+      ruanganKode: r.location.kode,
+      ruanganNama: r.location.nama,
+    }));
+  }
+
+  return { listPenugasan, createPenugasan, deletePenugasan, listPetugasKunjungan, listKonsultanPoli };
 }
 
 export const penugasanRuanganService = makePenugasanRuanganService();

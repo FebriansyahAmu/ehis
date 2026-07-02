@@ -83,6 +83,19 @@ export function listPetugas(
   });
 }
 
+/** Dokter ter-assign ke ruangan POLI (LocationType Rawat_Jalan) — picker "Dokter Konsultan"
+ *  tab Konsultasi. Pegawai AKTIF berprofesi dokter; include ruangan (label poli tujuan). */
+export function listDokterPoli(tx?: Tx) {
+  return db(tx).penugasanRuangan.findMany({
+    where: {
+      location: { locationType: "Rawat_Jalan", deletedAt: null },
+      pegawai: { deletedAt: null, isActive: true, profesi: { contains: "Dokter" } },
+    },
+    include: includeRel,
+    orderBy: [{ pegawai: { namaLengkap: "asc" } }],
+  });
+}
+
 /** Roster lintas beberapa ruangan (mis. semua Location Laboratorium) — pegawai AKTIF.
  *  Dipakai endpoint penunjang (roster Lab → cek penerima/analis & dropdown validator). */
 export function listPetugasByLocations(

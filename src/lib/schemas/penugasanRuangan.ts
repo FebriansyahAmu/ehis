@@ -44,6 +44,17 @@ export interface PetugasDTO {
   ruanganNama: string | null;
 }
 
+/** Dokter konsultan tersedia (GET /master/konsultan-tersedia) — dokter aktif ter-assign ke
+ *  ruangan poli (LocationType Rawat_Jalan). Konsumen tab Konsultasi (picker dokter tujuan). */
+export interface KonsultanDTO {
+  pegawaiId: string;
+  namaTampil: string;
+  profesi: string;
+  spesialistik: string | null;
+  ruanganKode: string;
+  ruanganNama: string;
+}
+
 // ── DTO output (identitas & ruangan dari join; entity Prisma tak bocor) ───────
 export interface PenugasanRuanganDTO {
   id: string;

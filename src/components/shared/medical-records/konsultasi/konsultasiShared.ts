@@ -99,6 +99,21 @@ export const SMF_LIST: SmfOption[] = [
   ...SMF_EXTENSION,
 ];
 
+/** smfId → token gelar spesialis ("Sp.B") — mencocokkan `Pegawai.spesialistik` (format master:
+ *  "Bedah Umum (Sp.B)") utk filter picker Dokter Konsultan. Entri SMF_EXTENSION tak punya kode
+ *  → undefined (picker menampilkan semua dokter ter-assign poli). */
+export const SMF_SP_TOKEN: Record<string, string> = Object.fromEntries(
+  (Object.entries(SMF_FROM_DOKTER) as [SpesialisCode, { id: string }][])
+    .filter(([code]) => code !== "Umum")
+    .map(([code, cfg]) => [cfg.id, code.replace(/^Sp/, "Sp.")]),
+);
+
+/** Cocokkan spesialistik pegawai dgn token SMF — toleran varian gelar ("(Sp.THT-KL)"). */
+export function matchSpesialistik(spesialistik: string | null, token: string): boolean {
+  if (!spesialistik) return false;
+  return spesialistik.includes(`(${token})`) || spesialistik.includes(`(${token}-`);
+}
+
 // ── Config ────────────────────────────────────────────────
 
 export const URGENCY_CONFIG: Record<UrgencyKonsultasi, {
