@@ -304,18 +304,6 @@ export function calcDischargeReadiness(data: DischargePlanData): number {
   );
 }
 
-export function daysAdmitted(tglMasuk: string): number {
-  const BULAN: Record<string, number> = {
-    Januari: 0, Februari: 1, Maret: 2, April: 3, Mei: 4, Juni: 5,
-    Juli: 6, Agustus: 7, September: 8, Oktober: 9, November: 10, Desember: 11,
-  };
-  const parts = tglMasuk.split(" ");
-  if (parts.length < 3) return 0;
-  const d = parseInt(parts[0]), m = BULAN[parts[1]], y = parseInt(parts[2]);
-  if (isNaN(d) || m === undefined || isNaN(y)) return 0;
-  return Math.max(0, Math.floor((Date.now() - new Date(y, m, d).getTime()) / 86400000));
-}
-
 // ── Mock data ─────────────────────────────────────────────
 
 function makeMockEdukasiRM2025003(): EdukasiItem[] {

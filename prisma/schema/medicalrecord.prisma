@@ -2475,3 +2475,48 @@ model Konsultasi {
   @@map("konsultasi")
   @@schema("medicalrecord")
 }
+
+// ── Discharge Planning — Asesmen Pemulangan (tab Discharge Planning RI, step 1 · SNARS ARK 5) ──
+//  Asesmen awal pemulangan (hari 1–2 MRS): rencana tgl KRS, kondisi pulang, caregiver, kebutuhan
+//  pasca-pulang (homecare/alat bantu), skrining risiko re-admisi. Append-only "latest wins" per
+//  kunjungan: simpan = INSERT baris baru, read ambil createdAt terbaru (jejak revisi utuh).
+//  Risiko re-admisi TIDAK disimpan (derivasi dari 3 field skrining — anti-drift). pencatat =
+//  actor login (server otoritatif). Step Edukasi & Checklist = tabel menyusul (fase berikut).
+model DischargeAsesmen {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  tanggalRencanaKrs String @default("") @map("tanggal_rencana_krs") // "YYYY-MM-DD" ("" = belum)
+  kondisiPulang     String @default("") @map("kondisi_pulang")      // Sembuh/Membaik/… (Zod)
+
+  // ── Caregiver / penanggung jawab di rumah ──
+  caregiverNama      String @default("") @map("caregiver_nama")
+  caregiverHubungan  String @default("") @map("caregiver_hubungan")
+  caregiverKemampuan String @default("") @map("caregiver_kemampuan")
+
+  // ── Kebutuhan pasca pulang ──
+  kebutuhanHomecare  Boolean  @default(false) @map("kebutuhan_homecare")
+  jenisHomecare      String[] @map("jenis_homecare")
+  kebutuhanAlatBantu Boolean  @default(false) @map("kebutuhan_alat_bantu")
+  alatBantu          String[] @map("alat_bantu")
+
+  // ── Skrining risiko re-admisi (risiko = derivasi FE/Service, tak disimpan) ──
+  dukunganKeluarga        String @default("") @map("dukungan_keluarga")
+  kepatuhanObatSebelumnya String @default("") @map("kepatuhan_obat_sebelumnya")
+  riwayatReadmisi         String @default("") @map("riwayat_readmisi")
+
+  catatan String @default("")
+
+  // ── Pencatat/author (dari actor) ──
+  pencatat        String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt]) // latest-wins per kunjungan
+  @@map("discharge_asesmen")
+  @@schema("medicalrecord")
+}

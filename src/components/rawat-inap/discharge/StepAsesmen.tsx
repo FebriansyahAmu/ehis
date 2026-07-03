@@ -5,6 +5,7 @@ import {
   Heart, User, Home, Activity, Stethoscope, Calendar, BedDouble, FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DatePicker, Select } from "@/components/shared/inputs";
 import type { RawatInapPatientDetail } from "@/lib/data";
 import {
   type DischargeAsesmen, type HubunganCaregiver, type KemampuanCaregiver,
@@ -72,19 +73,6 @@ function SectionLabel({ icon: Icon, label }: { icon: IconComponent; label: strin
   );
 }
 
-function hariDirawat(tglMasuk: string): string {
-  const BULAN: Record<string, number> = {
-    Januari: 0, Februari: 1, Maret: 2, April: 3, Mei: 4, Juni: 5,
-    Juli: 6, Agustus: 7, September: 8, Oktober: 9, November: 10, Desember: 11,
-  };
-  const parts = tglMasuk.split(" ");
-  if (parts.length < 3) return "—";
-  const d = parseInt(parts[0]), m = BULAN[parts[1]], y = parseInt(parts[2]);
-  if (isNaN(d) || m === undefined || isNaN(y)) return "—";
-  const diff = Math.floor((Date.now() - new Date(y, m, d).getTime()) / 86400000);
-  return diff >= 0 ? `${diff} hari` : "—";
-}
-
 export default function StepAsesmen({ data, onChange, patient }: Props) {
   function set<K extends keyof DischargeAsesmen>(key: K, val: DischargeAsesmen[K]) {
     onChange({ ...data, [key]: val });
@@ -96,7 +84,6 @@ export default function StepAsesmen({ data, onChange, patient }: Props) {
 
   const kondisiCfg = data.kondisiPulang ? KONDISI_PULANG_CONFIG[data.kondisiPulang] : null;
   const initials   = patient.name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase();
-  const lama       = hariDirawat(patient.tglMasuk);
   const risiko     = calcRisikoReadmisi(data);
 
   return (
@@ -148,11 +135,10 @@ export default function StepAsesmen({ data, onChange, patient }: Props) {
             </div>
             <div className="max-w-xs">
               <p className="mb-1 text-[11px] font-semibold text-slate-500">Rencana Tanggal KRS</p>
-              <input
-                type="date"
+              <DatePicker
                 value={data.tanggalRencanaKRS}
-                onChange={e => set("tanggalRencanaKRS", e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                onChange={iso => set("tanggalRencanaKRS", iso)}
+                placeholder="Pilih tanggal KRS"
               />
             </div>
           </div>
@@ -174,14 +160,12 @@ export default function StepAsesmen({ data, onChange, patient }: Props) {
               </div>
               <div>
                 <p className="mb-1 text-[11px] font-semibold text-slate-500">Hubungan</p>
-                <select
+                <Select
                   value={data.caregiverHubungan}
-                  onChange={e => set("caregiverHubungan", e.target.value as HubunganCaregiver)}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-                >
-                  <option value="">Pilih...</option>
-                  {HUBUNGAN_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
-                </select>
+                  onChange={v => set("caregiverHubungan", v as HubunganCaregiver)}
+                  options={[...HUBUNGAN_OPTIONS]}
+                  placeholder="Pilih…"
+                />
               </div>
             </div>
             <div>
@@ -422,7 +406,7 @@ export default function StepAsesmen({ data, onChange, patient }: Props) {
           <div className="space-y-0">
             {[
               { icon: Stethoscope, label: "Diagnosis", value: patient.diagnosis },
-              { icon: Calendar,    label: "MRS",       value: `${patient.tglMasuk} · ${lama} dirawat` },
+              { icon: Calendar,    label: "MRS",       value: `${patient.tglMasuk} · Hari ke-${patient.hariKe}` },
               { icon: User,        label: "DPJP",      value: patient.dpjp },
               { icon: BedDouble,   label: "Ruangan",   value: `${patient.ruangan} / ${patient.noBed} · ${patient.kelas.replace(/_/g, " ")}` },
               { icon: FileText,    label: "Kunjungan", value: patient.noKunjungan },

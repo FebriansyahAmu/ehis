@@ -55,7 +55,7 @@ Legenda: 🟢 DB-wired · 🟡 sebagian/verifikasi · ⬜ mock/lokal (target). S
 | 18 | Intake / Output (RM) | 🟢 | B | `IntakeOutput`+`IntakeOutputTarget` (BARU) | **DB-wired (2026-07-01)** — domain BARU: entri cairan append-only time-series + soft-delete (`intake_output`) + target DPJP latest-wins (`intake_output_target`). `/kunjungan/:id/intake-output` (GET agregat · POST entri · DELETE `/:itemId` · POST `/target`) layered, gate **`clinical.rekammedis`** (reuse). FE [IntakeOutputTab](src/components/rawat-inap/tabs/IntakeOutputTab.tsx) wired (UUID guard; demo lokal; pencatat/updatedBy=user login). Follow-up: target belum DPJP-only |
 | 19 | Gizi & Nutrisi (RM) | ⬜ | B? | sebagian gizi | verifikasi domain; extend |
 | 20 | ICU Scoring (RM) | ⬜ | B | **belum ada** (SOFA/APACHE) | hanya kelas ICU/HCU (`showFor`) |
-| 21 | Discharge Planning (Lyn) | ⬜ | B | **belum ada** | rencana pulang SNARS |
+| 21 | Discharge Planning (Lyn) | 🟡 | B | `DischargeAsesmen` (BARU) | **Step 1 Asesmen DB-wired (2026-07-02)** — `medicalrecord.DischargeAsesmen` append-only latest-wins per kunjungan (rencana KRS/kondisi/caregiver/homecare/alat bantu/skrining re-admisi; risiko TIDAK disimpan = derivasi) + `GET/POST /kunjungan/:id/discharge/asesmen` (gate `clinical.rekammedis`); tombol **Simpan Asesmen** + meta pencatat=user login; form pakai global `Select`+`DatePicker` (native dihapus); info pasien pakai `patient.hariKe`. Sisa: step **Edukasi** + **Checklist** (domain menyusul, sibling `/discharge/*`) |
 | 22 | MAR (Lyn) | 🟢 | B | `MarEntry` (BARU) | **DB-wired (2026-07-02)** — baris obat = derivasi `ResepItem` order non-batal (bukan tabel sendiri); entri append-only **"latest wins"** per (obat×tanggal×shift), snapshot namaObat/dosis/rute medikolegal; `GET/POST /kunjungan/:id/mar` (gate `clinical.keperawatan`); perawat = **user login** (server otoritatif, modal read-only "Sesi Login"); **HAM wajib verifikator ke-2 ditegakkan Service**; demo (non-UUID) tetap mock lokal |
 | 23 | Konseling Obat (Lyn) | ⬜ | B | **belum ada** | discharge counseling PP 5 |
 
@@ -103,7 +103,8 @@ Tab Asesmen Awal RI = **4 sub-pane** ([AsesmenAwalTab](src/components/rawat-inap
 - [✅] **Rencana Asuhan / Care Plan** — domain `CarePlanMasalah`+`CarePlanGoal` (Goal-centric, problem-oriented) + co-sign DPJP + wire (2026-07-01).
 - [ ] **Gizi & Nutrisi** — verifikasi/extend domain gizi + wire (diet order + monitoring).
 - [✅] **MAR** — domain `medicalrecord.MarEntry` (append-only latest-wins per obat×tanggal×shift; baris obat derivasi ResepItem order non-batal; HAM double-check server-side; perawat = actor login) + `GET/POST /kunjungan/:id/mar` + wire [MARTab](src/components/shared/medical-records/MARTab.tsx) (2026-07-02).
-- [ ] **Discharge Planning · Konseling Obat** — domain + wire (SNARS PP 5 / PKPO 6).
+- [🟡] **Discharge Planning** — **Step 1 Asesmen ✅ (2026-07-02)**: domain `medicalrecord.DischargeAsesmen` (append-only latest-wins) + `/kunjungan/:id/discharge/asesmen` + wire [DischargePlanTab](src/components/rawat-inap/tabs/DischargePlanTab.tsx) (Simpan Asesmen, hydrate saat mount, dropdown/datepicker global, info pasien `hariKe`). Sisa: step Edukasi (log per topik) + Checklist (konfirmasi H-1) → tabel + route sibling `/discharge/edukasi` & `/discharge/checklist`.
+- [ ] **Konseling Obat** — domain + wire (SNARS PP 5 / PKPO 6).
 
 ### RI-CL3 — Polish RI-spesifik
 - [ ] **Status klinis board** — derivasi Kritis/Observasi/Konsultasi dari data klinis (bukan hanya lifecycle). [RawatInapPageView.toPatient](src/components/rawat-inap/RawatInapPageView.tsx).

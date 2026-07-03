@@ -1,23 +1,54 @@
 "use client";
 
-import { useState } from "react";
+// Tab Discharge Planning (RI, SNARS ARK 5 / HPK 2 / ARK 3). Step Asesmen DB-wired: pasien NYATA
+// (kunjungan UUID) → muat revisi terkini + Simpan (append latest-wins) via
+// /kunjungan/:id/discharge/asesmen (gate clinical.rekammedis); pencatat = user login.
+// Step Edukasi & Checklist masih lokal (domain menyusul). Pasien demo (non-UUID) = mock.
+
+import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight, BookOpen, Calendar, CheckCircle2,
-  CheckSquare, ChevronLeft, ChevronRight, ClipboardList, LogOut,
+  CheckSquare, ChevronLeft, ChevronRight, ClipboardList, LogOut, Save,
 } from "lucide-react";
 import type { RawatInapPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
+import { getDischargeAsesmen, saveDischargeAsesmen, type DischargeAsesmenDTO } from "@/lib/api/discharge/discharge";
 import {
-  type DischargePlanData, type PhaseColor,
+  type DischargePlanData, type DischargeAsesmen, type PhaseColor,
+  type KondisiPulang, type HubunganCaregiver, type KemampuanCaregiver,
+  type DukunganKeluarga, type KepatuhanObat, type RiwayatReadmisi,
   DISCHARGE_MOCK, STEP_PHASES,
   makeInitialEdukasi, makeInitialChecklist,
   isAsesmenComplete, isEdukasiComplete, isChecklistComplete,
-  calcDischargeReadiness, daysAdmitted,
+  calcDischargeReadiness,
 } from "../discharge/dischargeShared";
 import StepAsesmen   from "../discharge/StepAsesmen";
 import StepEdukasi   from "../discharge/StepEdukasi";
 import StepChecklist from "../discharge/StepChecklist";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** DTO server → bentuk state FE (vocab union longgar dari string DB). */
+function dtoToAsesmen(d: DischargeAsesmenDTO): DischargeAsesmen {
+  return {
+    tanggalRencanaKRS: d.tanggalRencanaKRS,
+    kondisiPulang: d.kondisiPulang as KondisiPulang | "",
+    caregiverNama: d.caregiverNama,
+    caregiverHubungan: d.caregiverHubungan as HubunganCaregiver | "",
+    caregiverKemampuan: d.caregiverKemampuan as KemampuanCaregiver | "",
+    kebutuhanHomecare: d.kebutuhanHomecare,
+    jenisHomecare: d.jenisHomecare,
+    kebutuhanAlatBantu: d.kebutuhanAlatBantu,
+    alatBantu: d.alatBantu,
+    dukunganKeluarga: d.dukunganKeluarga as DukunganKeluarga | "",
+    kepatuhanObatSebelumnya: d.kepatuhanObatSebelumnya as KepatuhanObat | "",
+    riwayatReadmisi: d.riwayatReadmisi as RiwayatReadmisi | "",
+    catatan: d.catatan,
+  };
+}
 
 // ── Step definitions ──────────────────────────────────────
 
@@ -52,11 +83,12 @@ const slideVariants = {
 function DischargeHeader({
   patient, data,
 }: { patient: RawatInapPatientDetail; data: DischargePlanData }) {
-  const days      = daysAdmitted(patient.tglMasuk);
+  const [now]     = useState(() => Date.now()); // snapshot render pertama (react-hooks/purity)
+  const days      = patient.hariKe;
   const krsISO    = data.asesmen.tanggalRencanaKRS;
   const krsDate   = krsISO ? new Date(krsISO) : null;
   const daysToKRS = krsDate
-    ? Math.ceil((krsDate.getTime() - Date.now()) / 86400000)
+    ? Math.ceil((krsDate.getTime() - now) / 86400000)
     : null;
   const readiness = calcDischargeReadiness(data);
 
@@ -220,13 +252,17 @@ function FinalizeBanner({ allDone, patientName }: { allDone: boolean; patientNam
 // ── Main ──────────────────────────────────────────────────
 
 export default function DischargePlanTab({ patient }: { patient: RawatInapPatientDetail }) {
-  const initial: DischargePlanData = DISCHARGE_MOCK[patient.noRM] ?? {
-    asesmen: {
-      tanggalRencanaKRS: "", kondisiPulang: "", caregiverNama: "",
-      caregiverHubungan: "", caregiverKemampuan: "", kebutuhanHomecare: false,
-      jenisHomecare: [], kebutuhanAlatBantu: false, alatBantu: [],
-      dukunganKeluarga: "", kepatuhanObatSebelumnya: "", riwayatReadmisi: "", catatan: "",
-    },
+  const kunjunganId = patient.id;
+  const isPersisted = UUID_RE.test(kunjunganId); // UUID = DB; demo = lokal
+
+  const emptyAsesmen: DischargeAsesmen = {
+    tanggalRencanaKRS: "", kondisiPulang: "", caregiverNama: "",
+    caregiverHubungan: "", caregiverKemampuan: "", kebutuhanHomecare: false,
+    jenisHomecare: [], kebutuhanAlatBantu: false, alatBantu: [],
+    dukunganKeluarga: "", kepatuhanObatSebelumnya: "", riwayatReadmisi: "", catatan: "",
+  };
+  const initial: DischargePlanData = (!isPersisted && DISCHARGE_MOCK[patient.noRM]) || {
+    asesmen:   emptyAsesmen,
     edukasi:   makeInitialEdukasi(),
     checklist: makeInitialChecklist(),
   };
@@ -234,6 +270,41 @@ export default function DischargePlanTab({ patient }: { patient: RawatInapPatien
   const [data,        setData]        = useState<DischargePlanData>(initial);
   const [currentStep, setCurrentStep] = useState(0);
   const [direction,   setDirection]   = useState(1);
+  const [saving,      setSaving]      = useState(false);
+  const [asesmenMeta, setAsesmenMeta] = useState<{ pencatat: string; updatedAt: string } | null>(null);
+
+  // Muat asesmen terkini (kunjungan UUID). Demo → mock by noRM.
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    getDischargeAsesmen(kunjunganId, ac.signal)
+      .then((dto) => {
+        if (ac.signal.aborted || !dto) return;
+        setData((d) => ({ ...d, asesmen: dtoToAsesmen(dto) }));
+        setAsesmenMeta({ pencatat: dto.pencatat, updatedAt: dto.updatedAt });
+      })
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat asesmen pemulangan", e instanceof ApiError ? e.message : undefined);
+      });
+    return () => ac.abort();
+  }, [kunjunganId, isPersisted]);
+
+  /** Simpan asesmen (append latest-wins; pencatat = user login server-side). */
+  async function handleSaveAsesmen() {
+    if (!isPersisted || saving) return;
+    setSaving(true);
+    try {
+      const dto = await saveDischargeAsesmen(kunjunganId, data.asesmen);
+      setData((d) => ({ ...d, asesmen: dtoToAsesmen(dto) }));
+      setAsesmenMeta({ pencatat: dto.pencatat, updatedAt: dto.updatedAt });
+      toast.success("Asesmen pemulangan tersimpan");
+    } catch (e) {
+      toast.error("Gagal menyimpan asesmen", e instanceof ApiError ? e.message : undefined);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const completions = [
     isAsesmenComplete(data.asesmen),
@@ -261,19 +332,39 @@ export default function DischargePlanTab({ patient }: { patient: RawatInapPatien
 
       {/* Step label bar */}
       <div className="shrink-0 border-b border-slate-100 bg-white px-5 py-2.5">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-bold text-slate-800">{STEPS[currentStep].label}</p>
             <p className="text-[11px] text-slate-400">{currentPhase.desc} · {currentPhase.std}</p>
           </div>
-          {completions[currentStep] && (
-            <motion.div
-              initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-              className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700"
-            >
-              <CheckCircle2 size={11} /> Lengkap
-            </motion.div>
-          )}
+          <div className="flex items-center gap-2">
+            {completions[currentStep] && (
+              <motion.div
+                initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700"
+              >
+                <CheckCircle2 size={11} /> Lengkap
+              </motion.div>
+            )}
+            {currentStep === 0 && isPersisted && (
+              <>
+                {asesmenMeta && (
+                  <span className="hidden text-[10px] text-slate-400 sm:inline">
+                    Tersimpan oleh {asesmenMeta.pencatat} ·{" "}
+                    {asesmenMeta.updatedAt.slice(0, 10)} {asesmenMeta.updatedAt.slice(11, 16)}
+                  </span>
+                )}
+                <button
+                  onClick={() => void handleSaveAsesmen()}
+                  disabled={saving}
+                  className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-700 active:scale-95 disabled:opacity-60"
+                >
+                  <Save size={12} />
+                  {saving ? "Menyimpan…" : "Simpan Asesmen"}
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
