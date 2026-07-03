@@ -1,9 +1,11 @@
 "use client";
 
-// Tab Discharge Planning (RI, SNARS ARK 5 / HPK 2 / ARK 3). Step Asesmen DB-wired: pasien NYATA
-// (kunjungan UUID) → muat revisi terkini + Simpan (append latest-wins) via
-// /kunjungan/:id/discharge/asesmen (gate clinical.rekammedis); pencatat = user login.
-// Step Edukasi & Checklist masih lokal (domain menyusul). Pasien demo (non-UUID) = mock.
+// Tab Discharge Planning (RI, SNARS ARK 5 / HPK 2 / ARK 3). Pasien NYATA (kunjungan UUID):
+// step Asesmen DB-wired (revisi terkini + Simpan append latest-wins via
+// /kunjungan/:id/discharge/asesmen) + step Edukasi DB-wired (log per topik via
+// /kunjungan/:id/discharge/edukasi — POST catat sesi · DELETE soft-delete; petugas = user
+// login server-otoritatif). Gate clinical.rekammedis. Step Checklist masih lokal (domain
+// menyusul). Pasien demo (non-UUID) = mock lokal.
 
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -13,20 +15,26 @@ import {
 } from "lucide-react";
 import type { RawatInapPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/contexts/SessionContext";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
-import { getDischargeAsesmen, saveDischargeAsesmen, type DischargeAsesmenDTO } from "@/lib/api/discharge/discharge";
+import {
+  getDischargeAsesmen, saveDischargeAsesmen,
+  listDischargeEdukasi, addDischargeEdukasi, deleteDischargeEdukasi,
+  type DischargeAsesmenDTO, type DischargeEdukasiDTO,
+} from "@/lib/api/discharge/discharge";
 import {
   type DischargePlanData, type DischargeAsesmen, type PhaseColor,
   type KondisiPulang, type HubunganCaregiver, type KemampuanCaregiver,
   type DukunganKeluarga, type KepatuhanObat, type RiwayatReadmisi,
+  type EdukasiItem, type EdukasiLog,
   DISCHARGE_MOCK, STEP_PHASES,
   makeInitialEdukasi, makeInitialChecklist,
   isAsesmenComplete, isEdukasiComplete, isChecklistComplete,
   calcDischargeReadiness,
 } from "../discharge/dischargeShared";
 import StepAsesmen   from "../discharge/StepAsesmen";
-import StepEdukasi   from "../discharge/StepEdukasi";
+import StepEdukasi, { type EdukasiLogDraft } from "../discharge/StepEdukasi";
 import StepChecklist from "../discharge/StepChecklist";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -48,6 +56,36 @@ function dtoToAsesmen(d: DischargeAsesmenDTO): DischargeAsesmen {
     riwayatReadmisi: d.riwayatReadmisi as RiwayatReadmisi | "",
     catatan: d.catatan,
   };
+}
+
+/** DTO log server → EdukasiLog FE (vocab union longgar dari string DB). */
+function dtoToLog(d: DischargeEdukasiDTO): EdukasiLog {
+  return {
+    id:        d.id,
+    tanggal:   d.tanggal,
+    petugas:   d.petugas,
+    profesi:   d.profesi   as EdukasiLog["profesi"],
+    metode:    d.metode    as EdukasiLog["metode"],
+    penerima:  d.penerima  as EdukasiLog["penerima"],
+    pemahaman: d.pemahaman as EdukasiLog["pemahaman"],
+    catatan:   d.catatan,
+  };
+}
+
+/** Grup log DB per topik ke atas template FE; topikId tak dikenal (template berubah) → item ekstra dari snapshot. */
+function logsToEdukasi(rows: DischargeEdukasiDTO[]): EdukasiItem[] {
+  const items = makeInitialEdukasi();
+  const byId  = new Map(items.map(i => [i.id, i]));
+  for (const r of rows) { // rows = createdAt desc → logs terbaru dulu (konvensi FE)
+    let item = byId.get(r.topikId);
+    if (!item) {
+      item = { id: r.topikId, topik: r.topik, kategori: r.kategori, logs: [] };
+      byId.set(r.topikId, item);
+      items.push(item);
+    }
+    item.logs.push(dtoToLog(r));
+  }
+  return items;
 }
 
 // ── Step definitions ──────────────────────────────────────
@@ -254,6 +292,8 @@ function FinalizeBanner({ allDone, patientName }: { allDone: boolean; patientNam
 export default function DischargePlanTab({ patient }: { patient: RawatInapPatientDetail }) {
   const kunjunganId = patient.id;
   const isPersisted = UUID_RE.test(kunjunganId); // UUID = DB; demo = lokal
+  const { session } = useSession();
+  const petugasNama = session?.namaTampil ?? "";
 
   const emptyAsesmen: DischargeAsesmen = {
     tanggalRencanaKRS: "", kondisiPulang: "", caregiverNama: "",
@@ -273,7 +313,7 @@ export default function DischargePlanTab({ patient }: { patient: RawatInapPatien
   const [saving,      setSaving]      = useState(false);
   const [asesmenMeta, setAsesmenMeta] = useState<{ pencatat: string; updatedAt: string } | null>(null);
 
-  // Muat asesmen terkini (kunjungan UUID). Demo → mock by noRM.
+  // Muat asesmen terkini + log edukasi (kunjungan UUID). Demo → mock by noRM.
   useEffect(() => {
     if (!isPersisted) return;
     const ac = new AbortController();
@@ -286,6 +326,15 @@ export default function DischargePlanTab({ patient }: { patient: RawatInapPatien
       .catch((e) => {
         if (e instanceof DOMException && e.name === "AbortError") return;
         toast.error("Gagal memuat asesmen pemulangan", e instanceof ApiError ? e.message : undefined);
+      });
+    listDischargeEdukasi(kunjunganId, ac.signal)
+      .then((rows) => {
+        if (ac.signal.aborted) return;
+        setData((d) => ({ ...d, edukasi: logsToEdukasi(rows) }));
+      })
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat log edukasi", e instanceof ApiError ? e.message : undefined);
       });
     return () => ac.abort();
   }, [kunjunganId, isPersisted]);
@@ -303,6 +352,59 @@ export default function DischargePlanTab({ patient }: { patient: RawatInapPatien
       toast.error("Gagal menyimpan asesmen", e instanceof ApiError ? e.message : undefined);
     } finally {
       setSaving(false);
+    }
+  }
+
+  /** Sisipkan/hapus log pada 1 item edukasi di state. */
+  function patchEdukasiItem(itemId: string, fn: (logs: EdukasiLog[]) => EdukasiLog[]) {
+    setData((d) => ({
+      ...d,
+      edukasi: d.edukasi.map((i) => (i.id === itemId ? { ...i, logs: fn(i.logs) } : i)),
+    }));
+  }
+
+  /** Catat 1 sesi edukasi (persisted → POST DB, petugas = server; demo → lokal). */
+  async function handleAddEdukasiLog(item: EdukasiItem, draft: EdukasiLogDraft): Promise<boolean> {
+    if (!isPersisted) {
+      const log: EdukasiLog = { id: `log-${Date.now()}`, petugas: petugasNama || "Petugas", ...draft };
+      patchEdukasiItem(item.id, (logs) => [log, ...logs]);
+      return true;
+    }
+    try {
+      const dto = await addDischargeEdukasi(kunjunganId, {
+        topikId:   item.id,
+        topik:     item.topik,
+        kategori:  item.kategori,
+        tanggal:   draft.tanggal,
+        profesi:   draft.profesi,
+        metode:    draft.metode,
+        penerima:  draft.penerima,
+        pemahaman: draft.pemahaman,
+        catatan:   draft.catatan,
+      });
+      patchEdukasiItem(item.id, (logs) => [dtoToLog(dto), ...logs]);
+      toast.success("Log edukasi tersimpan");
+      return true;
+    } catch (e) {
+      toast.error("Gagal menyimpan log edukasi", e instanceof ApiError ? e.message : undefined);
+      return false;
+    }
+  }
+
+  /** Hapus (koreksi) 1 log edukasi (persisted → DELETE soft-delete; demo → lokal). */
+  async function handleDeleteEdukasiLog(item: EdukasiItem, logId: string): Promise<boolean> {
+    if (!isPersisted) {
+      patchEdukasiItem(item.id, (logs) => logs.filter((l) => l.id !== logId));
+      return true;
+    }
+    try {
+      await deleteDischargeEdukasi(kunjunganId, logId);
+      patchEdukasiItem(item.id, (logs) => logs.filter((l) => l.id !== logId));
+      toast.success("Log edukasi dihapus");
+      return true;
+    } catch (e) {
+      toast.error("Gagal menghapus log edukasi", e instanceof ApiError ? e.message : undefined);
+      return false;
     }
   }
 
@@ -393,7 +495,9 @@ export default function DischargePlanTab({ patient }: { patient: RawatInapPatien
               {currentStep === 1 && (
                 <StepEdukasi
                   items={data.edukasi}
-                  onChange={edukasi => setData(d => ({ ...d, edukasi }))}
+                  petugasNama={petugasNama}
+                  onAddLog={handleAddEdukasiLog}
+                  onDeleteLog={handleDeleteEdukasiLog}
                 />
               )}
               {currentStep === 2 && (

@@ -6,6 +6,7 @@ import {
   BookOpen, ChevronDown, CheckCircle2, Plus, Trash2, Clock, AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DatePicker, Select } from "@/components/shared/inputs";
 import {
   type EdukasiItem, type EdukasiLog,
   type MetodeEdukasi, type PenerimaEdukasi, type PemahamanEdukasi,
@@ -18,6 +19,9 @@ import {
 const METODE_OPTIONS: MetodeEdukasi[]     = ["Lisan", "Demonstrasi", "Leaflet", "Video"];
 const PENERIMA_OPTIONS: PenerimaEdukasi[] = ["Pasien", "Keluarga", "Keduanya"];
 const PEMAHAMAN_OPTIONS: PemahamanEdukasi[] = ["Paham", "Perlu Ulang", "Tidak Paham"];
+
+/** Payload log dari form — petugas TIDAK diisi form (nama = user login, server-otoritatif). */
+export type EdukasiLogDraft = Omit<EdukasiLog, "id" | "petugas">;
 
 function todayISO() {
   return new Date().toISOString().split("T")[0];
@@ -34,7 +38,6 @@ function fmtDate(iso: string) {
 
 interface LogDraft {
   tanggal:   string;
-  petugas:   string;
   profesi:   string;
   metode:    string;
   penerima:  string;
@@ -44,35 +47,42 @@ interface LogDraft {
 
 function emptyDraft(): LogDraft {
   return {
-    tanggal: todayISO(), petugas: "", profesi: "",
+    tanggal: todayISO(), profesi: "",
     metode: "", penerima: "", pemahaman: "", catatan: "",
   };
 }
 
 function AddLogForm({
-  onSave, onCancel,
-}: { onSave: (log: Omit<EdukasiLog, "id">) => void; onCancel: () => void }) {
-  const [draft, setDraft] = useState<LogDraft>(emptyDraft);
+  petugasNama, onSave, onCancel,
+}: {
+  petugasNama: string;
+  onSave:      (log: EdukasiLogDraft) => Promise<boolean>;
+  onCancel:    () => void;
+}) {
+  const [draft,  setDraft]  = useState<LogDraft>(emptyDraft);
+  const [saving, setSaving] = useState(false);
 
   function set<K extends keyof LogDraft>(key: K, val: string) {
     setDraft(d => ({ ...d, [key]: val }));
   }
 
   const canSave =
-    draft.petugas.trim() !== "" && draft.profesi !== "" &&
+    !saving && draft.tanggal !== "" && draft.profesi !== "" &&
     draft.metode !== "" && draft.penerima !== "" && draft.pemahaman !== "";
 
-  function handleSave() {
+  async function handleSave() {
     if (!canSave) return;
-    onSave({
+    setSaving(true);
+    const ok = await onSave({
       tanggal:   draft.tanggal,
-      petugas:   draft.petugas.trim(),
       profesi:   draft.profesi   as EdukasiLog["profesi"],
       metode:    draft.metode    as MetodeEdukasi,
       penerima:  draft.penerima  as PenerimaEdukasi,
       pemahaman: draft.pemahaman as PemahamanEdukasi,
       catatan:   draft.catatan.trim(),
     });
+    setSaving(false);
+    if (ok) setDraft(emptyDraft());
   }
 
   return (
@@ -87,33 +97,33 @@ function AddLogForm({
         <div className="grid gap-2.5 sm:grid-cols-3">
           <div>
             <label className="mb-1 block text-[10px] font-semibold text-slate-500">Tanggal</label>
-            <input
-              type="date" value={draft.tanggal}
-              onChange={e => set("tanggal", e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-100"
+            <DatePicker
+              value={draft.tanggal}
+              onChange={iso => set("tanggal", iso)}
+              placeholder="Pilih tanggal sesi"
             />
           </div>
           <div>
-            <label className="mb-1 block text-[10px] font-semibold text-slate-500">
-              Nama Petugas <span className="text-red-400">*</span>
-            </label>
-            <input
-              value={draft.petugas} onChange={e => set("petugas", e.target.value)}
-              placeholder="Ns. / dr. / apt. ..."
-              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-100"
-            />
+            <label className="mb-1 block text-[10px] font-semibold text-slate-500">Nama Petugas</label>
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-sky-200 bg-sky-50/60 px-2.5 py-1.5">
+              <span className="truncate text-xs font-semibold text-slate-800">
+                {petugasNama || "—"}
+              </span>
+              <span className="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-sky-600">
+                Sesi Login
+              </span>
+            </div>
           </div>
           <div>
             <label className="mb-1 block text-[10px] font-semibold text-slate-500">
               Profesi <span className="text-red-400">*</span>
             </label>
-            <select
-              value={draft.profesi} onChange={e => set("profesi", e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-100"
-            >
-              <option value="">Pilih profesi...</option>
-              {PROFESI_EDUKASI_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
+            <Select
+              value={draft.profesi}
+              onChange={v => set("profesi", v)}
+              options={[...PROFESI_EDUKASI_OPTIONS]}
+              placeholder="Pilih profesi…"
+            />
           </div>
         </div>
 
@@ -182,7 +192,7 @@ function AddLogForm({
 
         <div className="flex items-center gap-2">
           <button
-            type="button" onClick={handleSave} disabled={!canSave}
+            type="button" onClick={() => void handleSave()} disabled={!canSave}
             className={cn(
               "rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all",
               canSave
@@ -190,7 +200,7 @@ function AddLogForm({
                 : "cursor-not-allowed bg-slate-200 text-slate-400",
             )}
           >
-            Simpan Log
+            {saving ? "Menyimpan…" : "Simpan Log"}
           </button>
           <button
             type="button" onClick={onCancel}
@@ -250,23 +260,30 @@ function LogEntry({ log, onDelete }: { log: EdukasiLog; onDelete: () => void }) 
 // ── EdukasiRow ────────────────────────────────────────────
 
 function EdukasiRow({
-  item, onUpdate,
-}: { item: EdukasiItem; onUpdate: (u: EdukasiItem) => void }) {
+  item, petugasNama, onAddLog, onDeleteLog,
+}: {
+  item:        EdukasiItem;
+  petugasNama: string;
+  onAddLog:    (item: EdukasiItem, log: EdukasiLogDraft) => Promise<boolean>;
+  onDeleteLog: (item: EdukasiItem, logId: string) => Promise<boolean>;
+}) {
   const [expanded, setExpanded] = useState(item.logs.length > 0);
   const [showForm, setShowForm] = useState(false);
   const latest        = getLatestLog(item);
   const covered       = item.logs.length > 0;
   const needsFollowUp = latest?.pemahaman === "Perlu Ulang" || latest?.pemahaman === "Tidak Paham";
 
-  function addLog(partial: Omit<EdukasiLog, "id">) {
-    const newLog: EdukasiLog = { id: `log-${Date.now()}`, ...partial };
-    onUpdate({ ...item, logs: [newLog, ...item.logs] });
-    setShowForm(false);
-    setExpanded(true);
+  async function addLog(draft: EdukasiLogDraft): Promise<boolean> {
+    const ok = await onAddLog(item, draft);
+    if (ok) {
+      setShowForm(false);
+      setExpanded(true);
+    }
+    return ok;
   }
 
   function deleteLog(id: string) {
-    onUpdate({ ...item, logs: item.logs.filter(l => l.id !== id) });
+    void onDeleteLog(item, id);
   }
 
   return (
@@ -337,7 +354,12 @@ function EdukasiRow({
             <div className="border-t border-slate-100 px-4 pb-4 pt-3 space-y-2">
               <AnimatePresence mode="wait">
                 {showForm ? (
-                  <AddLogForm key="form" onSave={addLog} onCancel={() => setShowForm(false)} />
+                  <AddLogForm
+                    key="form"
+                    petugasNama={petugasNama}
+                    onSave={addLog}
+                    onCancel={() => setShowForm(false)}
+                  />
                 ) : (
                   <motion.button
                     key="btn"
@@ -378,11 +400,16 @@ function EdukasiRow({
 // ── Main ──────────────────────────────────────────────────
 
 type Props = {
-  items:    EdukasiItem[];
-  onChange: (items: EdukasiItem[]) => void;
+  items:       EdukasiItem[];
+  /** Nama user login — ditampilkan read-only di form (server tetap otoritatif). */
+  petugasNama: string;
+  /** Catat 1 sesi (persisted → POST DB; demo → lokal). true = sukses (form ditutup). */
+  onAddLog:    (item: EdukasiItem, log: EdukasiLogDraft) => Promise<boolean>;
+  /** Hapus (koreksi) 1 log (persisted → DELETE soft-delete; demo → lokal). */
+  onDeleteLog: (item: EdukasiItem, logId: string) => Promise<boolean>;
 };
 
-export default function StepEdukasi({ items, onChange }: Props) {
+export default function StepEdukasi({ items, petugasNama, onAddLog, onDeleteLog }: Props) {
   const covered       = items.filter(i => i.logs.length > 0).length;
   const pct           = items.length > 0 ? Math.round((covered / items.length) * 100) : 0;
   const circumference = 2 * Math.PI * 15;
@@ -403,10 +430,6 @@ export default function StepEdukasi({ items, onChange }: Props) {
     perluUlangCount > 0 ? "#fbbf24" :
     "#0ea5e9";
 
-  function updateItem(updated: EdukasiItem) {
-    onChange(items.map(i => i.id === updated.id ? updated : i));
-  }
-
   return (
     <div className="flex flex-col gap-4 xl:flex-row">
 
@@ -419,7 +442,12 @@ export default function StepEdukasi({ items, onChange }: Props) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.025, duration: 0.15 }}
           >
-            <EdukasiRow item={item} onUpdate={updateItem} />
+            <EdukasiRow
+              item={item}
+              petugasNama={petugasNama}
+              onAddLog={onAddLog}
+              onDeleteLog={onDeleteLog}
+            />
           </motion.div>
         ))}
         <p className="pt-2 text-center text-[11px] text-slate-400">

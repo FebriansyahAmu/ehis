@@ -2520,3 +2520,38 @@ model DischargeAsesmen {
   @@map("discharge_asesmen")
   @@schema("medicalrecord")
 }
+
+// ── Discharge Planning step 2: Edukasi Bertahap (SNARS HPK 2) ─────────────────
+// 1 baris = 1 sesi/log pemberian edukasi per topik. Add + soft-delete only (koreksi =
+// hapus baris lama + baris baru; jejak medico-legal utuh). Topik = soft-ref template FE
+// (TOPIK_EDUKASI_TEMPLATE, "edu-01" dst.) + SNAPSHOT judul/kategori — tahan perubahan
+// template. petugas = actor login (server-otoritatif, Service).
+model DischargeEdukasi {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  topikId  String @map("topik_id") // soft-ref template FE ("edu-01"…)
+  topik    String // snapshot judul topik
+  kategori String // snapshot kategori (Medis/Farmasi/Nutrisi/…)
+
+  tanggal   String // "YYYY-MM-DD" tanggal sesi edukasi
+  profesi   String // Perawat/Dokter/Apoteker/Ahli Gizi/Fisioterapis (Zod)
+  metode    String // Lisan/Demonstrasi/Leaflet/Video
+  penerima  String // Pasien/Keluarga/Keduanya
+  pemahaman String // Paham/Perlu Ulang/Tidak Paham
+  catatan   String @default("")
+
+  // ── Petugas/author (dari actor login) ──
+  petugas         String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, topikId])
+  @@map("discharge_edukasi")
+  @@schema("medicalrecord")
+}
