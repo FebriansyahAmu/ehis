@@ -13,6 +13,7 @@ import { transaction } from "@/lib/db/prisma";
 import { resolveActorNama } from "@/lib/services/actorName";
 import { resolveKodeDpjpBpjs } from "@/lib/services/bpjs/referensiDpjp";
 import { insertRencanaKontrol, deleteSPRI } from "@/lib/services/bpjs/rencanaKontrol";
+import { InsertRencanaKontrolRequestSchema } from "@/lib/schemas/bpjs/rencanaKontrol";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type { BPJSError } from "@/lib/bpjs/bpjsShared";
@@ -104,14 +105,17 @@ export function makeJadwalKontrolService(deps: { dal?: Dal } = {}) {
           "Dokter belum memiliki kode DPJP BPJS — lengkapi di Mapping Hub → DPJP BPJS",
         );
       }
+      // Kontrak wire ditegakkan SEBELUM connector (mock selalu sukses, tapi payload harus
+      // sudah valid → swap sandbox/prod zero-refactor).
+      const payload = InsertRencanaKontrolRequestSchema.parse({
+        noSEP: input.noSep.trim(),
+        kodeDokter,
+        poliKontrol: input.poliKontrol.trim(),
+        tglRencanaKontrol: input.tanggal,
+        user: pencatat,
+      });
       const res = await insertRencanaKontrol(
-        {
-          noSEP: input.noSep.trim(),
-          kodeDokter,
-          poliKontrol: input.poliKontrol.trim(),
-          tglRencanaKontrol: input.tanggal,
-          user: pencatat,
-        },
+        payload,
         { actor: actor.userId, actorRole: actor.roles[0] ?? "clinical" },
       );
       if (!res.ok) throw Errors.validation(bpjsErrMsg(res.error));

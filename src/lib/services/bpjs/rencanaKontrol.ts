@@ -13,7 +13,10 @@ import type {
 } from "@/lib/bpjs/bpjsContracts";
 import { isBpjsMockMode } from "@/lib/bpjs/server/config";
 import { callBpjs } from "@/lib/bpjs/server/httpClient";
-import { toSpriWire, toSpriUpdateWire, toSpriDeleteWire } from "@/lib/schemas/bpjs/rencanaKontrol";
+import {
+  toSpriWire, toSpriUpdateWire, toSpriDeleteWire, toRencanaKontrolWire,
+  type InsertRencanaKontrolRequest,
+} from "@/lib/schemas/bpjs/rencanaKontrol";
 import { auditedCall, type AuditContext } from "./audit";
 
 const ENDPOINT = "RencanaKontrol/InsertSPRI";
@@ -21,19 +24,9 @@ const ENDPOINT_UPDATE = "RencanaKontrol/UpdateSPRI";
 const ENDPOINT_DELETE = "RencanaKontrol/Delete";
 const ENDPOINT_INSERT_RK = "RencanaKontrol/insert";
 
-/**
- * Payload RencanaKontrol/insert (surat kontrol pasca-pulang, doc resmi) — pakai `noSEP`
- * (beda dari SPRI yang pakai noKartu). formPRB tidak dikirim (non-PRB); peserta PRB pakai
- * InsertRKV2Payload penuh (fase later).
- */
-export interface InsertRencanaKontrolInput {
-  noSEP: string;
-  kodeDokter: string;
-  poliKontrol: string;
-  /** Format yyyy-MM-dd. */
-  tglRencanaKontrol: string;
-  user: string;
-}
+/** Payload RencanaKontrol/insert — kontrak Zod di schemas/bpjs/rencanaKontrol.ts
+ *  (`InsertRencanaKontrolRequestSchema`); validasi di Service sebelum connector dipanggil. */
+export type InsertRencanaKontrolInput = InsertRencanaKontrolRequest;
 
 /** Response Delete RK/SPRI — V-Claim hanya kirim metaData; response = pesan. */
 export interface DeleteRKResponse {
@@ -109,14 +102,17 @@ export async function insertRencanaKontrol(
 ): Promise<Result<BPJSEnvelope<InsertSPRIResponse>, BPJSError>> {
   const ctx: AuditContext = {
     service: "vclaim", endpoint: ENDPOINT_INSERT_RK, method: "POST",
-    actor: who.actor, actorRole: who.actorRole, requestBody: { request: input },
+    actor: who.actor, actorRole: who.actorRole, requestBody: toRencanaKontrolWire(input),
   };
+  // Mock SELALU sukses (belum ada cons-id dev/sandbox) — return noSuratKontrol format valid
+  // (PPK+R001+MMYY+K+seq, pola sama SPRI). ⚠️ removable saat sandbox siap (ganti BPJS_MODE).
   if (isBpjsMockMode()) {
     return auditedCall<InsertSPRIResponse>(ctx, async () =>
       Ok({
         metaData: { code: "200", message: "Ok (mock — tanpa cons-id)" },
         response: {
           noSuratKontrol: genNoSuratKontrol(),
+          namaJnsKontrol: "Surat Kontrol",
           tglRencanaKontrol: input.tglRencanaKontrol,
         },
       }),
@@ -125,7 +121,7 @@ export async function insertRencanaKontrol(
   return auditedCall<InsertSPRIResponse>(ctx, () =>
     callBpjs<InsertSPRIResponse>({
       service: "vclaim", method: "POST", path: ENDPOINT_INSERT_RK,
-      body: { request: input }, contentType: "application/x-www-form-urlencoded",
+      body: toRencanaKontrolWire(input), contentType: "application/x-www-form-urlencoded",
     }),
   );
 }

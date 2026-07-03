@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  AlertTriangle, CalendarCheck, CheckCircle2, ChevronDown, Clock,
+  AlertTriangle, CalendarCheck, CheckCircle2, ChevronDown, Clock, Copy,
   Minus, Pill, Plus, Search, Send, ShieldCheck, Trash2, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,7 +26,7 @@ import { Select, DatePicker } from "@/components/shared/inputs";
 import { listObatTersedia, type ObatTersediaDTO } from "@/lib/api/master/obatTersedia";
 import { listLokasiFarmasi, type LokasiFarmasi } from "@/lib/api/master/lokasiFarmasi";
 import { listDpjpTersedia, type DpjpTersediaDTO } from "@/lib/api/master/dpjpTersedia";
-import { createResep, listResep, type ResepOrderDTO } from "@/lib/api/resep/resep";
+import { createResep, listResep, cancelResep, type ResepOrderDTO } from "@/lib/api/resep/resep";
 import {
   listJadwalKontrol, createJadwalKontrol, deleteJadwalKontrol, listSepTerbit,
   type JadwalKontrolDTO, type SepTerbitDTO,
@@ -121,13 +121,20 @@ interface DraftObat {
 }
 
 const RESEP_STATUS_CHIP: Record<string, string> = {
-  Menunggu:          "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
-  Diterima:          "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+  Menunggu:          "bg-amber-100 text-amber-700 ring-1 ring-amber-200",
+  Diterima:          "bg-amber-100 text-amber-700 ring-1 ring-amber-200",
   Ditelaah:          "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
   "Siap Diserahkan": "bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200",
-  Selesai:           "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-  Dibatalkan:        "bg-rose-50 text-rose-600 ring-1 ring-rose-200",
+  Selesai:           "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200",
+  Dibatalkan:        "bg-rose-100 text-rose-600 ring-1 ring-rose-200",
 };
+
+/** Latar kartu order by status: kuning = berjalan · merah = dibatalkan · hijau = selesai. */
+function orderCardCls(status: string): string {
+  if (status === "Dibatalkan") return "border-rose-200 bg-rose-50";
+  if (status === "Selesai")    return "border-emerald-200 bg-emerald-50";
+  return "border-amber-200 bg-amber-50";
+}
 
 const rupiah = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
 
@@ -157,6 +164,8 @@ function ObatPulangSection({
   const [drafts, setDrafts]   = useState<DraftObat[]>([]);
   const [sending, setSending] = useState(false);
   const [sent, setSent]       = useState<ResepOrderDTO[]>([]);
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null); // konfirmasi inline
+  const [cancelingId, setCancelingId]         = useState<string | null>(null);
 
   useEffect(() => {
     if (!isPersisted) return;
@@ -259,6 +268,23 @@ function ObatPulangSection({
       toast.error("Gagal mengirim order obat pulang", e instanceof ApiError ? e.message : undefined);
     } finally {
       setSending(false);
+    }
+  }
+
+  /** Batalkan order obat pulang (Dokter; backend tolak selain status "Menunggu"). */
+  async function batalkanOrder(id: string) {
+    if (cancelingId) return;
+    setCancelingId(id);
+    try {
+      await cancelResep(kunjunganId, id);
+      const rows = await listResep(kunjunganId);
+      setSent(rows.filter((o) => o.isObatPulang));
+      toast.success("Order obat pulang dibatalkan");
+    } catch (e) {
+      toast.error("Gagal membatalkan order", e instanceof ApiError ? e.message : undefined);
+    } finally {
+      setCancelingId(null);
+      setConfirmCancelId(null);
     }
   }
 
@@ -496,28 +522,67 @@ function ObatPulangSection({
         </div>
       )}
 
-      {/* Order terkirim */}
+      {/* Order terkirim — latar by status: kuning = berjalan · merah = dibatalkan · hijau = selesai */}
       {isPersisted && sent.length > 0 && (
         <div className="space-y-2 border-t border-slate-100 pt-3">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Order Obat Pulang Terkirim</p>
-          {sent.map((o) => (
-            <div key={o.id} className="rounded-xl border border-slate-100 bg-white p-3 shadow-xs">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <CheckCircle2 size={12} className="text-orange-400" />
-                <span className="text-[11px] font-semibold text-slate-700">{o.depoNama}</span>
-                <span className="rounded bg-orange-100 px-1.5 py-0.5 text-[8px] font-bold text-orange-700 ring-1 ring-orange-200">Obat Pulang</span>
-                <span className={cn("ml-auto rounded-full px-2 py-0.5 text-[9px] font-bold", RESEP_STATUS_CHIP[o.status] ?? RESEP_STATUS_CHIP.Menunggu)}>
-                  {o.status}
-                </span>
+          {sent.map((o) => {
+            const batal = o.status === "Dibatalkan";
+            const selesai = o.status === "Selesai";
+            return (
+              <div key={o.id} className={cn("rounded-xl border p-3 shadow-xs transition-colors", orderCardCls(o.status))}>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {batal
+                    ? <X size={12} className="text-rose-500" />
+                    : <CheckCircle2 size={12} className={selesai ? "text-emerald-500" : "text-amber-500"} />}
+                  <span className="text-[11px] font-semibold text-slate-700">{o.depoNama}</span>
+                  <span className="rounded bg-orange-100 px-1.5 py-0.5 text-[8px] font-bold text-orange-700 ring-1 ring-orange-200">Obat Pulang</span>
+                  <span className={cn("ml-auto rounded-full px-2 py-0.5 text-[9px] font-bold", RESEP_STATUS_CHIP[o.status] ?? RESEP_STATUS_CHIP.Menunggu)}>
+                    {o.status}
+                  </span>
+                </div>
+                <p className={cn("mt-1 text-[11px]", batal ? "text-rose-400 line-through" : "text-slate-500")}>
+                  {o.items.map((i) => i.namaObat).join(", ")}
+                </p>
+                <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2">
+                  <p className="flex items-center gap-1 text-[10px] text-slate-400">
+                    <Clock size={9} /> {o.createdAt.slice(0, 10)} {o.createdAt.slice(11, 16)} · {o.items.length} item · {o.penulis}
+                  </p>
+                  {/* Batalkan — hanya sebelum diterima Farmasi (status Menunggu; backend menegakkan) */}
+                  {o.status === "Menunggu" && (
+                    confirmCancelId === o.id ? (
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-semibold text-rose-600">Batalkan order ini?</span>
+                        <button
+                          type="button"
+                          onClick={() => void batalkanOrder(o.id)}
+                          disabled={cancelingId === o.id}
+                          className="rounded-md bg-rose-600 px-2 py-1 text-[10px] font-bold text-white transition hover:bg-rose-700 active:scale-95 disabled:opacity-50"
+                        >
+                          {cancelingId === o.id ? "Membatalkan…" : "Ya, Batalkan"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmCancelId(null)}
+                          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[10px] font-medium text-slate-500 transition hover:bg-slate-50"
+                        >
+                          Tidak
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmCancelId(o.id)}
+                        className="flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2 py-1 text-[10px] font-semibold text-rose-600 transition hover:bg-rose-50 active:scale-95"
+                      >
+                        <X size={10} /> Batalkan
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
-              <p className="mt-1 text-[11px] text-slate-500">
-                {o.items.map((i) => i.namaObat).join(", ")}
-              </p>
-              <p className="mt-0.5 flex items-center gap-1 text-[10px] text-slate-400">
-                <Clock size={9} /> {o.createdAt.slice(0, 10)} {o.createdAt.slice(11, 16)} · {o.items.length} item · {o.penulis}
-              </p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -557,6 +622,7 @@ function JadwalKontrolSection({
   const [showPayload, setShowPayload] = useState(false);
   const [saving, setSaving] = useState(false);
   const [serverItems, setServerItems] = useState<JadwalKontrolDTO[]>([]);
+  const [issued, setIssued] = useState<JadwalKontrolDTO | null>(null); // panel "Surat Kontrol Terbit"
   // Dokter melekat dengan kode DPJP BPJS-nya (bpjs.DpjpMapping — sumber sama dgn SPRI):
   // pilih dokter → kode ketarik otomatis & di-embed server saat submit (tanpa form kode).
   const [dokterList, setDokterList] = useState<DpjpTersediaDTO[] | null>(null);
@@ -660,10 +726,7 @@ function JadwalKontrolSection({
         noSep: draft.noSEP.trim(),
       });
       setServerItems((arr) => [dto, ...arr]);
-      toast.success(
-        `Jadwal kontrol ${dto.nomor} diterbitkan`,
-        dto.noReferensi ? `No. Referensi BPJS: ${dto.noReferensi}` : undefined,
-      );
+      setIssued(dto); // panel terbit (visual utama — toast tidak perlu dobel)
       resetForm();
     } catch (e) {
       toast.error("Gagal menerbitkan jadwal kontrol", e instanceof ApiError ? e.message : undefined);
@@ -701,10 +764,114 @@ function JadwalKontrolSection({
         noSEP: jk.noSEP, noReferensi: undefined,
       }));
 
+  function salinReferensi(teks: string) {
+    void navigator.clipboard?.writeText(teks).then(() => toast.success("Disalin ke clipboard", teks));
+  }
+
   return (
     <div>
+      {/* ── Panel "Surat Kontrol Terbit" — visual sukses pasca-submit ── */}
+      <AnimatePresence>
+        {issued && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: -6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.97, height: 0, marginBottom: 0 }}
+            transition={{ type: "spring", stiffness: 320, damping: 26 }}
+            className="mb-3 overflow-hidden rounded-2xl border border-emerald-200 shadow-md shadow-emerald-100/60"
+          >
+            {/* Header gradient */}
+            <div className="flex items-center gap-3 bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-3">
+              <motion.span
+                initial={{ scale: 0, rotate: -90 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 300, damping: 14, delay: 0.12 }}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white"
+              >
+                <CheckCircle2 size={20} />
+              </motion.span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-white">Surat Kontrol Terbit</p>
+                <p className="text-[11px] text-emerald-50">
+                  {issued.noReferensi
+                    ? "V-Claim RencanaKontrol/insert — metaData 200 Ok"
+                    : "Tersimpan di sistem (non-BPJS)"}
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-white/20 px-2.5 py-1 font-mono text-[10px] font-bold text-white">
+                {issued.nomor}
+              </span>
+            </div>
+
+            {/* Body */}
+            <div className="bg-white px-4 py-3.5">
+              {issued.noReferensi && (
+                <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3.5 py-2.5">
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-600">
+                    No. Referensi (noSuratKontrol)
+                  </p>
+                  <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-mono text-base font-bold tracking-wide text-emerald-800">
+                      {issued.noReferensi}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => salinReferensi(issued.noReferensi!)}
+                      className="flex shrink-0 items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-emerald-700 transition hover:bg-emerald-50 active:scale-95"
+                    >
+                      <Copy size={11} /> Salin
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
+                {[
+                  {
+                    label: "Tanggal Kontrol",
+                    val: new Date(issued.tanggal).toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "short", year: "numeric" }),
+                  },
+                  { label: "Poliklinik", val: issued.poliKontrol ? `${issued.poliNama} (${issued.poliKontrol})` : issued.poliNama },
+                  { label: "Dokter", val: issued.dokterNama || "—" },
+                  { label: "No. SEP", val: issued.noSep || "—", mono: true },
+                ].map(({ label, val, mono }) => (
+                  <div key={label}>
+                    <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
+                    <p className={cn("mt-0.5 text-[11px] font-semibold text-slate-700", mono && "font-mono")}>
+                      {val}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5">
+                <p className="text-[10px] text-slate-400">
+                  Diterbitkan oleh {issued.pencatat} · {issued.createdAt.slice(0, 10)} {issued.createdAt.slice(11, 16)}
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setIssued(null); setShowForm(true); }}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50"
+                  >
+                    Buat Lagi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIssued(null)}
+                    className="rounded-lg bg-emerald-600 px-3.5 py-1.5 text-[11px] font-bold text-white transition hover:bg-emerald-700 active:scale-95"
+                  >
+                    Selesai
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="space-y-2">
-        {views.length === 0 && !showForm && (
+        {views.length === 0 && !showForm && !issued && (
           <p className="rounded-lg border border-dashed border-slate-200 py-4 text-center text-[11px] text-slate-400">
             Belum ada jadwal kontrol
           </p>
@@ -714,9 +881,14 @@ function JadwalKontrolSection({
             <motion.div
               key={jk.id}
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, height: 0 }}
-              className="flex items-start gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3"
+              className={cn(
+                "flex items-start gap-2 rounded-xl border p-3",
+                jk.noReferensi
+                  ? "border-emerald-200 border-l-4 border-l-emerald-400 bg-emerald-50/40"
+                  : "border-slate-100 bg-slate-50",
+              )}
             >
-              <CalendarCheck size={12} className="mt-0.5 shrink-0 text-orange-400" />
+              <CalendarCheck size={12} className={cn("mt-0.5 shrink-0", jk.noReferensi ? "text-emerald-500" : "text-orange-400")} />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5">
                   {jk.nomor && (

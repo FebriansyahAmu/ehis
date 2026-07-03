@@ -32,6 +32,28 @@ export function toSpriWire(payload: InsertSPRIPayload): { request: InsertSPRIPay
 }
 
 /**
+ * RencanaKontrol/insert — request surat kontrol pasca-pulang (doc resmi; pakai `noSEP`, beda
+ * dari SPRI yang pakai noKartu). Semua field WAJIB terisi — BPJS menolak yang kosong; validasi
+ * di Service SEBELUM connector dipanggil (mock selalu sukses, tapi kontrak tetap ditegakkan
+ * agar swap ke sandbox/prod zero-refactor). formPRB tidak dikirim (non-PRB; PRB = fase later).
+ */
+export const InsertRencanaKontrolRequestSchema = z.object({
+  noSEP: z.string().trim().min(1, "No. SEP wajib"),
+  kodeDokter: z.string().trim().min(1, "Kode dokter BPJS wajib"),
+  poliKontrol: z.string().trim().min(1, "Kode poli BPJS wajib"),
+  tglRencanaKontrol: TGL,
+  user: z.string().trim().min(1, "User pembuat wajib"),
+});
+export type InsertRencanaKontrolRequest = z.infer<typeof InsertRencanaKontrolRequestSchema>;
+
+/** RencanaKontrol/insert wire: `{ request: <payload> }`. */
+export function toRencanaKontrolWire(
+  payload: InsertRencanaKontrolRequest,
+): { request: InsertRencanaKontrolRequest } {
+  return { request: payload };
+}
+
+/**
  * RencanaKontrol/UpdateSPRI — request (PUT). `noSPRI` = No. Referensi SPRI yang diperbarui.
  * Field editable selaras BPJS: kodeDokter (DPJP) · poliKontrol · tglRencanaKontrol.
  */
