@@ -1,11 +1,11 @@
 "use client";
 
-// Tab Discharge Planning (RI, SNARS ARK 5 / HPK 2 / ARK 3). Pasien NYATA (kunjungan UUID):
-// step Asesmen DB-wired (revisi terkini + Simpan append latest-wins via
-// /kunjungan/:id/discharge/asesmen) + step Edukasi DB-wired (log per topik via
-// /kunjungan/:id/discharge/edukasi — POST catat sesi · DELETE soft-delete; petugas = user
-// login server-otoritatif). Gate clinical.rekammedis. Step Checklist masih lokal (domain
-// menyusul). Pasien demo (non-UUID) = mock lokal.
+// Tab Discharge Planning (RI, SNARS ARK 5 / HPK 2 / ARK 3). Pasien NYATA (kunjungan UUID) —
+// 3 step DB-wired penuh via /kunjungan/:id/discharge/* (gate clinical.rekammedis):
+//   Asesmen   → append latest-wins (revisi terkini + Simpan)
+//   Edukasi   → log per topik (POST catat sesi · DELETE soft-delete; petugas = user login)
+//   Checklist → snapshot dokumen append latest-wins (items JSONB + catatan DPJP + Simpan)
+// Pasien demo (non-UUID) = mock lokal.
 
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -21,13 +21,14 @@ import { ApiError } from "@/lib/api/client";
 import {
   getDischargeAsesmen, saveDischargeAsesmen,
   listDischargeEdukasi, addDischargeEdukasi, deleteDischargeEdukasi,
-  type DischargeAsesmenDTO, type DischargeEdukasiDTO,
+  getDischargeChecklist, saveDischargeChecklist,
+  type DischargeAsesmenDTO, type DischargeEdukasiDTO, type DischargeChecklistDTO,
 } from "@/lib/api/discharge/discharge";
 import {
   type DischargePlanData, type DischargeAsesmen, type PhaseColor,
   type KondisiPulang, type HubunganCaregiver, type KemampuanCaregiver,
   type DukunganKeluarga, type KepatuhanObat, type RiwayatReadmisi,
-  type EdukasiItem, type EdukasiLog,
+  type EdukasiItem, type EdukasiLog, type ChecklistItem, type DischargeChecklist,
   DISCHARGE_MOCK, STEP_PHASES,
   makeInitialEdukasi, makeInitialChecklist,
   isAsesmenComplete, isEdukasiComplete, isChecklistComplete,
@@ -70,6 +71,25 @@ function dtoToLog(d: DischargeEdukasiDTO): EdukasiLog {
     pemahaman: d.pemahaman as EdukasiLog["pemahaman"],
     catatan:   d.catatan,
   };
+}
+
+/** Overlay checklist DB ke atas template FE; id tak dikenal (template berubah) → item ekstra dari snapshot. */
+function dtoToChecklist(d: DischargeChecklistDTO): DischargeChecklist {
+  const items: ChecklistItem[] = makeInitialChecklist().items.map((i) => ({ ...i }));
+  const byId = new Map(items.map((i) => [i.id, i]));
+  for (const r of d.items) {
+    const t = byId.get(r.id);
+    if (t) {
+      t.confirmed = r.confirmed;
+      t.catatan   = r.catatan;
+    } else {
+      items.push({
+        id: r.id, label: r.label, sublabel: r.sublabel,
+        required: r.required, confirmed: r.confirmed, catatan: r.catatan,
+      });
+    }
+  }
+  return { items, catatanKhusus: d.catatanKhusus, confirmedBy: d.pencatat, confirmedAt: d.updatedAt };
 }
 
 /** Grup log DB per topik ke atas template FE; topikId tak dikenal (template berubah) → item ekstra dari snapshot. */
@@ -336,6 +356,15 @@ export default function DischargePlanTab({ patient }: { patient: RawatInapPatien
         if (e instanceof DOMException && e.name === "AbortError") return;
         toast.error("Gagal memuat log edukasi", e instanceof ApiError ? e.message : undefined);
       });
+    getDischargeChecklist(kunjunganId, ac.signal)
+      .then((dto) => {
+        if (ac.signal.aborted || !dto) return;
+        setData((d) => ({ ...d, checklist: dtoToChecklist(dto) }));
+      })
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        toast.error("Gagal memuat checklist kesiapan", e instanceof ApiError ? e.message : undefined);
+      });
     return () => ac.abort();
   }, [kunjunganId, isPersisted]);
 
@@ -350,6 +379,28 @@ export default function DischargePlanTab({ patient }: { patient: RawatInapPatien
       toast.success("Asesmen pemulangan tersimpan");
     } catch (e) {
       toast.error("Gagal menyimpan asesmen", e instanceof ApiError ? e.message : undefined);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /** Simpan checklist (append latest-wins snapshot penuh; pencatat = user login server-side). */
+  async function handleSaveChecklist() {
+    if (!isPersisted || saving) return;
+    setSaving(true);
+    try {
+      const c = data.checklist;
+      const dto = await saveDischargeChecklist(kunjunganId, {
+        items: c.items.map((i) => ({
+          id: i.id, label: i.label, sublabel: i.sublabel,
+          required: i.required, confirmed: i.confirmed, catatan: i.catatan,
+        })),
+        catatanKhusus: c.catatanKhusus,
+      });
+      setData((d) => ({ ...d, checklist: dtoToChecklist(dto) }));
+      toast.success("Checklist kesiapan tersimpan");
+    } catch (e) {
+      toast.error("Gagal menyimpan checklist", e instanceof ApiError ? e.message : undefined);
     } finally {
       setSaving(false);
     }
@@ -463,6 +514,24 @@ export default function DischargePlanTab({ patient }: { patient: RawatInapPatien
                 >
                   <Save size={12} />
                   {saving ? "Menyimpan…" : "Simpan Asesmen"}
+                </button>
+              </>
+            )}
+            {currentStep === 2 && isPersisted && (
+              <>
+                {data.checklist.confirmedBy && (
+                  <span className="hidden text-[10px] text-slate-400 sm:inline">
+                    Tersimpan oleh {data.checklist.confirmedBy} ·{" "}
+                    {data.checklist.confirmedAt.slice(0, 10)} {data.checklist.confirmedAt.slice(11, 16)}
+                  </span>
+                )}
+                <button
+                  onClick={() => void handleSaveChecklist()}
+                  disabled={saving}
+                  className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-amber-600 active:scale-95 disabled:opacity-60"
+                >
+                  <Save size={12} />
+                  {saving ? "Menyimpan…" : "Simpan Checklist"}
                 </button>
               </>
             )}

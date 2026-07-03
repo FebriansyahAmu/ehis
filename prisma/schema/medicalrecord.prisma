@@ -2555,3 +2555,30 @@ model DischargeEdukasi {
   @@map("discharge_edukasi")
   @@schema("medicalrecord")
 }
+
+// ── Discharge Planning step 3: Checklist Kesiapan H-1 (SNARS ARK 3) ───────────
+// Snapshot dokumen checklist per kunjungan, append-only "latest wins" (simpan = INSERT
+// baris baru; read ambil created_at terbaru — jejak revisi utuh, pola DischargeAsesmen).
+// items = JSONB array {id,label,sublabel,required,confirmed,catatan} — SNAPSHOT penuh
+// template FE (CHECKLIST_TEMPLATE) saat simpan → medico-legal tahan perubahan template.
+// pencatat = actor login (server-otoritatif, Service).
+model DischargeChecklist {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  items         Json   // [{id,label,sublabel,required,confirmed,catatan}]
+  catatanKhusus String @default("") @map("catatan_khusus") // catatan DPJP / instruksi khusus
+
+  // ── Pencatat/author (dari actor login) ──
+  pencatat        String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt]) // latest-wins per kunjungan
+  @@map("discharge_checklist")
+  @@schema("medicalrecord")
+}

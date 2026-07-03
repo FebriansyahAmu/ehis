@@ -1,7 +1,7 @@
 // API Discharge Planning (browser) — tab Discharge Planning RI. Tipe DI-REUSE dari schema server.
 // Endpoint: /api/v1/kunjungan/:id/discharge/asesmen (GET revisi terkini · POST simpan)
-//         · /api/v1/kunjungan/:id/discharge/edukasi (GET log · POST catat sesi · DELETE /:itemId).
-// Step Checklist menyusul (sibling /discharge/checklist).
+//         · /api/v1/kunjungan/:id/discharge/edukasi (GET log · POST catat sesi · DELETE /:itemId)
+//         · /api/v1/kunjungan/:id/discharge/checklist (GET revisi terkini · POST simpan).
 
 import { api } from "@/lib/api/client";
 import type {
@@ -10,9 +10,13 @@ import type {
 import type {
   DischargeEdukasiInput, DischargeEdukasiDTO,
 } from "@/lib/schemas/discharge/dischargeEdukasi";
+import type {
+  DischargeChecklistInput, DischargeChecklistDTO,
+} from "@/lib/schemas/discharge/dischargeChecklist";
 
 export type { DischargeAsesmenInput, DischargeAsesmenDTO };
 export type { DischargeEdukasiInput, DischargeEdukasiDTO };
+export type { DischargeChecklistInput, DischargeChecklistDTO };
 
 const base = (k: string) => `/kunjungan/${encodeURIComponent(k)}/discharge`;
 
@@ -53,4 +57,20 @@ export async function deleteDischargeEdukasi(
   kunjunganId: string, itemId: string, signal?: AbortSignal,
 ): Promise<void> {
   await api.del(`${base(kunjunganId)}/edukasi/${encodeURIComponent(itemId)}`, { signal });
+}
+
+/** GET — checklist kesiapan terkini (null = belum pernah diisi). */
+export async function getDischargeChecklist(
+  kunjunganId: string, signal?: AbortSignal,
+): Promise<DischargeChecklistDTO | null> {
+  const { data } = await api.get<DischargeChecklistDTO | null>(`${base(kunjunganId)}/checklist`, { signal });
+  return data;
+}
+
+/** POST — simpan checklist (append latest-wins; snapshot penuh items + catatan DPJP). */
+export async function saveDischargeChecklist(
+  kunjunganId: string, input: DischargeChecklistInput, signal?: AbortSignal,
+): Promise<DischargeChecklistDTO> {
+  const { data } = await api.post<DischargeChecklistDTO>(`${base(kunjunganId)}/checklist`, input, { signal });
+  return data;
 }
