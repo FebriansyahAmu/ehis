@@ -2,13 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { Home, Activity } from "lucide-react";
-import type { IGDPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
-import { Field, SectionHeader, textareaCls } from "./pasienPulangShared";
+import { type PulangPatient, Field, SectionHeader, textareaCls } from "./pasienPulangShared";
 
 interface Props {
   status: "Sembuh" | "Membaik";
-  patient: IGDPatientDetail;
+  patient: PulangPatient;
   /** Emit isi form → parent sertakan ke disposisi saat complete. */
   onChange?: (data: { instruksi: string; obatPulang: string }) => void;
 }

@@ -5,7 +5,6 @@ import {
   HeartOff, CheckCircle2, Clock, User, Stethoscope, FileText,
   Calendar, ClipboardCheck, Check, Printer, Send, Plus, X,
 } from "lucide-react";
-import type { IGDPatientDetail } from "@/lib/data";
 import type { DisposisiInput, SpriInput } from "@/lib/schemas/disposisi/disposisi";
 import { nowInputValue } from "@/components/shared/inputs/DateTimePicker";
 import { Select, DateTimePicker } from "@/components/shared/inputs";
@@ -14,7 +13,7 @@ import IcdSearch, { type IcdSearchAccent } from "@/components/shared/medical-rec
 import { ICD10 } from "@/components/shared/medical-records/diagnosaShared";
 import { cn } from "@/lib/utils";
 import {
-  type StatusPulang,
+  type StatusPulang, type PulangPatient,
   STATUS_OPTIONS,
   inputCls, Field, SectionHeader, SelectStatusPlaceholder,
 } from "./pasienPulang/pasienPulangShared";
@@ -59,13 +58,19 @@ const SKY: IcdSearchAccent = {
 export default function PasienPulangTab({
   patient,
   onComplete,
+  excludeStatus,
 }: {
-  patient: IGDPatientDetail;
+  patient: PulangPatient;
   /** Selesaikan kunjungan (persist + kunci). Absen → mode demo (sukses lokal). */
   onComplete?: (disposisi: DisposisiInput, waktuSelesai: string) => Promise<void> | void;
+  /** Status yang disembunyikan dari pilihan (mis. RI sembunyikan "Rawat_Inap"). */
+  excludeStatus?: StatusPulang[];
 }) {
   const kunjunganId = patient.id ?? "";
   const isPersisted = UUID_RE.test(kunjunganId);
+  const statusOptions = excludeStatus?.length
+    ? STATUS_OPTIONS.filter((o) => !excludeStatus.includes(o.id))
+    : STATUS_OPTIONS;
 
   // Core left-column state
   const [statusPulang, setStatusPulang]     = useState<StatusPulang | null>(null);
@@ -268,7 +273,9 @@ export default function PasienPulangTab({
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Masuk</p>
               <p className="text-xs font-semibold text-slate-800">{patient.tglKunjungan}</p>
-              <p className="text-[11px] text-slate-400">Pukul {patient.arrivalTime}</p>
+              {patient.arrivalTime && (
+                <p className="text-[11px] text-slate-400">Pukul {patient.arrivalTime}</p>
+              )}
             </div>
           </div>
           <div className="hidden h-7 w-px bg-slate-100 sm:block" />
@@ -294,7 +301,7 @@ export default function PasienPulangTab({
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <SectionHeader icon={ClipboardCheck} title="Status Pemulangan" />
             <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-3">
-              {STATUS_OPTIONS.map((opt) => {
+              {statusOptions.map((opt) => {
                 const Icon = opt.icon;
                 const sel  = statusPulang === opt.id;
                 return (

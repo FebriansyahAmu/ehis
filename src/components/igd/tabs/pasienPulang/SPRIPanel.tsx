@@ -4,11 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import {
   BedDouble, Stethoscope, ShieldCheck, Activity, AlertTriangle, Info,
 } from "lucide-react";
-import type { IGDPatientDetail } from "@/lib/data";
 import type { PetugasDTO } from "@/lib/api/penugasanRuangan";
 import type { SpriInput } from "@/lib/schemas/disposisi/disposisi";
 import { Select, DatePicker } from "@/components/shared/inputs";
-import { Field, SectionHeader, textareaCls } from "./pasienPulangShared";
+import { type PulangPatient, Field, SectionHeader, textareaCls } from "./pasienPulangShared";
 import { resolvePoliBpjs } from "./smfPoliMap";
 
 // Jenis ruang perawatan — tingkat perawatan (level of care), bukan kelas BPJS.
@@ -20,7 +19,7 @@ function todayYmd(): string {
 }
 
 interface Props {
-  patient: IGDPatientDetail;
+  patient: PulangPatient;
   /** Opsi DPJP dari roster ruangan (dihitung di parent — sama pool dgn Dokter Pemulang). */
   dokterOptions: string[];
   /** Roster penuh — utk turunkan SMF/spesialistik + pegawaiId dari DPJP terpilih (by namaTampil). */

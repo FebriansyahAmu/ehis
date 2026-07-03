@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { FileText, Check } from "lucide-react";
-import type { IGDPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
-import { SectionHeader } from "./pasienPulangShared";
+import { type PulangPatient, SectionHeader } from "./pasienPulangShared";
 
 type JenisKematian = "Wajar" | "Tidak Wajar" | "Belum Ditentukan";
 
@@ -38,7 +37,7 @@ function DarkField({
 }
 
 interface Props {
-  patient: IGDPatientDetail;
+  patient: PulangPatient;
   onConfirmedChange: (v: boolean) => void;
 }
 

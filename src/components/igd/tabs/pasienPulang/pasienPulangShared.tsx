@@ -5,9 +5,33 @@ import {
   Home, Activity, Bed, ArrowRightCircle,
   ShieldAlert, HeartOff, ClipboardCheck,
 } from "lucide-react";
+import type { IGDDiagnosa } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
 // ── Types ──────────────────────────────────────────────────────
+
+/**
+ * Potongan data pasien yang dibutuhkan form pemulangan/disposisi — tipe SEMPIT agar
+ * tab dipakai lintas unit tanpa fork: IGDPatientDetail memenuhinya secara struktural,
+ * RawatInapPatientDetail cukup lewat adapter kecil (doctor=dpjp, tglKunjungan=tglMasuk).
+ */
+export interface PulangPatient {
+  id: string;
+  noRM: string;
+  noKunjungan: string;
+  name: string;
+  age: number;
+  gender: "L" | "P";
+  doctor: string;
+  diagnosa: IGDDiagnosa[];
+  tglKunjungan: string;
+  /** Jam masuk — boleh "" (RI tak mencatat jam di header). */
+  arrivalTime: string;
+  noBpjs?: string;
+  namaKeluarga: string;
+  hubunganKeluarga: string;
+  noHp: string;
+}
 
 export type StatusPulang =
   | "Sembuh"

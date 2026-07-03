@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CalendarCheck, ClipboardList, FileCheck2, FileText, LogOut,
@@ -15,25 +15,28 @@ import {
   STATUS_KEPULANGAN_CONFIG,
 } from "../pasienPulang/pasienPulangShared";
 import BillingGateBanner from "../pasienPulang/BillingGateBanner";
-import StatusPane        from "../pasienPulang/StatusPane";
 import ObatJadwalPane    from "../pasienPulang/ObatJadwalPane";
 import SuratPane         from "../pasienPulang/SuratPane";
 import ResumeMedikPane   from "../pasienPulang/ResumeMedikPane";
 import ResumeMedisPane   from "../pasienPulang/ResumeMedisPane";
 import PengembalianPane  from "@/components/farmasi/pengembalian/PengembalianPane";
+import DisposisiPane     from "@/components/igd/tabs/PasienPulangTab";
+import type { PulangPatient } from "@/components/igd/tabs/pasienPulang/pasienPulangShared";
 
 // ── Tab definitions ───────────────────────────────────────
+// Sub "Pasien Pulang" (disposisi, reuse form IGD tanpa opsi Rawat Inap) diposisikan
+// SEBELUM Resume Pulang — urutan kerja: administrasi → disposisi → cetak resume.
 
 type TabId = "status" | "obat" | "surat" | "resume-medik" | "resume-pulang" | "pengembalian";
 
 interface TabDef { id: TabId; label: string; icon: LucideIcon }
 
 const TABS: TabDef[] = [
-  { id: "status",        label: "Status Pulang",  icon: LogOut        },
   { id: "obat",          label: "Obat & Jadwal",  icon: Pill          },
   { id: "pengembalian",  label: "Kembalian Obat", icon: CalendarCheck },
   { id: "surat",         label: "Surat-surat",    icon: ClipboardList },
   { id: "resume-medik",  label: "Resume Medik",   icon: FileCheck2    },
+  { id: "status",        label: "Pasien Pulang",  icon: LogOut        },
   { id: "resume-pulang", label: "Resume Pulang",  icon: FileText      },
 ];
 
@@ -105,7 +108,25 @@ export default function PasienPulangTab({ patient }: { patient: RawatInapPatient
   };
 
   const [data,      setData]      = useState<PasienPulangData>(initial);
-  const [activeTab, setActiveTab] = useState<TabId>("status");
+  const [activeTab, setActiveTab] = useState<TabId>("obat");
+
+  // Adapter RI → potongan pasien yang dibutuhkan form disposisi (reuse form IGD, tanpa fork).
+  const pulangPatient: PulangPatient = useMemo(() => ({
+    id:               patient.id,
+    noRM:             patient.noRM,
+    noKunjungan:      patient.noKunjungan,
+    name:             patient.name,
+    age:              patient.age,
+    gender:           patient.gender,
+    doctor:           patient.dpjp,
+    diagnosa:         patient.diagnosa,
+    tglKunjungan:     patient.tglMasuk,
+    arrivalTime:      "", // RI tak mencatat jam masuk di header
+    noBpjs:           patient.noBpjs,
+    namaKeluarga:     patient.namaKeluarga,
+    hubunganKeluarga: patient.hubunganKeluarga,
+    noHp:             patient.noHp,
+  }), [patient]);
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -153,7 +174,7 @@ export default function PasienPulangTab({ patient }: { patient: RawatInapPatient
               transition={{ duration: 0.15, ease: "easeOut" }}
             >
               {activeTab === "status" && (
-                <StatusPane data={data} onChange={setData} patient={patient} />
+                <DisposisiPane patient={pulangPatient} excludeStatus={["Rawat_Inap"]} />
               )}
               {activeTab === "obat" && (
                 <ObatJadwalPane data={data} onChange={setData} />
