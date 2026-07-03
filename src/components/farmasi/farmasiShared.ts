@@ -115,6 +115,8 @@ export interface FarmasiOrder {
   jam:            string;
   status:         FarmasiStatus;
   prioritas:      PrioritasOrder;
+  /** Obat pulang (discharge medication) dari tab Pasien Pulang — badge khusus worklist. */
+  isObatPulang?:  boolean;
   hasHAM:         boolean;
   items:          FarmasiOrderItem[];
   telaah?:        TelaahData;
@@ -644,6 +646,7 @@ export function mapDbResepOrder(o: ResepOrderFarmasiDTO): FarmasiOrder {
     jam:           new Date(o.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
     status:        coerceStatus(o.status),
     prioritas:     (o.prioritas as PrioritasOrder) || "Rutin",
+    isObatPulang:  o.isObatPulang,
     hasHAM:        items.some((i) => i.isHAM),
     items,
     telaah:        o.telaah ? telaahFromDTO(o.telaah) : undefined,

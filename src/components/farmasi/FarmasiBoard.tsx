@@ -267,6 +267,9 @@ export default function FarmasiBoard() {
                     {o.prioritas !== "Rutin" && (
                       <span className={cn("shrink-0 rounded px-1 py-0.5 text-[9px] font-bold", PRIORITAS_CFG[o.prioritas].badge)}>{o.prioritas}</span>
                     )}
+                    {o.isObatPulang && (
+                      <span className="shrink-0 rounded bg-orange-100 px-1 py-0.5 text-[9px] font-bold text-orange-700 ring-1 ring-orange-200">Obat Pulang</span>
+                    )}
                     {o.hasHAM && <span className="shrink-0 rounded bg-rose-600 px-1 py-0.5 text-[9px] font-black uppercase text-white">HAM</span>}
                   </div>
                   <p className="mt-0.5 truncate text-[11px] text-slate-400">{o.noRM} · {o.unit} · {o.items.length} item · {o.jam}</p>

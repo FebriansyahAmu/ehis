@@ -38,6 +38,8 @@ export const ResepOrderInput = z.object({
   kondisiMenyusui: optStr,
   kondisiKehamilan: optStr,
   prioritas: PrioritasEnum.default("Rutin"),
+  /** Obat pulang (discharge medication) — order dari tab Pasien Pulang; Farmasi tampilkan badge khusus. */
+  isObatPulang: z.boolean().default(false),
   penulis: optStr,                          // kosong → default nama actor (server)
   penulisKontak: optStr,
   items: z.array(ResepItemInput).min(1, "Resep minimal berisi 1 obat"),
@@ -180,6 +182,8 @@ export interface ResepOrderDTO {
   kondisiKehamilan: string | null;
   prioritas: string;
   status: string;
+  /** Obat pulang (discharge medication) — badge khusus di worklist Farmasi. */
+  isObatPulang: boolean;
   penulis: string;
   penulisKontak: string | null;
   /** TTE (Tanda Tangan Elektronik) — serial barcode + penanda tangan + waktu. null = belum/ tak ditandatangani. */

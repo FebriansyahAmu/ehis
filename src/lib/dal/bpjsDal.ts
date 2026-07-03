@@ -85,3 +85,16 @@ export function createSep(data: CreateSepData, tx?: Tx) {
 export function findSepByKunjungan(kunjunganId: string, tx?: Tx) {
   return db(tx).sEP.findFirst({ where: { kunjunganId, deletedAt: null } });
 }
+
+/** SEP TERBIT milik pasien (lintas kunjungan), terbaru dulu — picker No. SEP (jadwal kontrol dsb). */
+export function listSepTerbitByPatient(patientId: string, tx?: Tx) {
+  return db(tx).sEP.findMany({
+    where: { status: "Terbit", noSep: { not: null }, deletedAt: null, kunjungan: { patientId } },
+    select: {
+      noSep: true, tglSep: true, jnsPelayanan: true, poliTujuan: true,
+      kunjunganId: true, createdAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+}

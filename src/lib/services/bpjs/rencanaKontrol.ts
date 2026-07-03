@@ -19,6 +19,21 @@ import { auditedCall, type AuditContext } from "./audit";
 const ENDPOINT = "RencanaKontrol/InsertSPRI";
 const ENDPOINT_UPDATE = "RencanaKontrol/UpdateSPRI";
 const ENDPOINT_DELETE = "RencanaKontrol/Delete";
+const ENDPOINT_INSERT_RK = "RencanaKontrol/insert";
+
+/**
+ * Payload RencanaKontrol/insert (surat kontrol pasca-pulang, doc resmi) — pakai `noSEP`
+ * (beda dari SPRI yang pakai noKartu). formPRB tidak dikirim (non-PRB); peserta PRB pakai
+ * InsertRKV2Payload penuh (fase later).
+ */
+export interface InsertRencanaKontrolInput {
+  noSEP: string;
+  kodeDokter: string;
+  poliKontrol: string;
+  /** Format yyyy-MM-dd. */
+  tglRencanaKontrol: string;
+  user: string;
+}
 
 /** Response Delete RK/SPRI — V-Claim hanya kirim metaData; response = pesan. */
 export interface DeleteRKResponse {
@@ -80,6 +95,37 @@ export async function insertSPRI(
       path: ENDPOINT,
       body: toSpriWire(input),
       contentType: "application/x-www-form-urlencoded",
+    }),
+  );
+}
+
+/**
+ * V-Claim RencanaKontrol/insert — terbitkan surat kontrol pasca-pulang, kembalikan
+ * `noSuratKontrol` (= No. Referensi jadwal kontrol). Mock SELALU sukses (pola insertSPRI).
+ */
+export async function insertRencanaKontrol(
+  input: InsertRencanaKontrolInput,
+  who: BpjsAuditActor,
+): Promise<Result<BPJSEnvelope<InsertSPRIResponse>, BPJSError>> {
+  const ctx: AuditContext = {
+    service: "vclaim", endpoint: ENDPOINT_INSERT_RK, method: "POST",
+    actor: who.actor, actorRole: who.actorRole, requestBody: { request: input },
+  };
+  if (isBpjsMockMode()) {
+    return auditedCall<InsertSPRIResponse>(ctx, async () =>
+      Ok({
+        metaData: { code: "200", message: "Ok (mock — tanpa cons-id)" },
+        response: {
+          noSuratKontrol: genNoSuratKontrol(),
+          tglRencanaKontrol: input.tglRencanaKontrol,
+        },
+      }),
+    );
+  }
+  return auditedCall<InsertSPRIResponse>(ctx, () =>
+    callBpjs<InsertSPRIResponse>({
+      service: "vclaim", method: "POST", path: ENDPOINT_INSERT_RK,
+      body: { request: input }, contentType: "application/x-www-form-urlencoded",
     }),
   );
 }

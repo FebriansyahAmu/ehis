@@ -28,10 +28,14 @@ export interface ObatPulangItem {
 
 export interface JadwalKontrol {
   id:      string;
-  tanggal: string;
-  poli:    string;
+  tanggal: string; // "YYYY-MM-DD" — BPJS: tglRencanaKontrol
+  poli:    string; // nama poli (tampil)
   dokter:  string;
   catatan: string;
+  // ── Pasien BPJS — payload V-Claim RencanaKontrol/insert (wajib saat penjamin BPJS) ──
+  noSEP?:       string; // nomor SEP kunjungan
+  kodeDokter?:  string; // kode dokter BPJS (HFIS)
+  poliKontrol?: string; // kode poli BPJS (mis. "INT")
 }
 
 export interface JadwalPemeriksaan {

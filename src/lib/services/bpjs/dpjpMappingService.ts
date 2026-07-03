@@ -6,12 +6,25 @@ import { syncRefSpesialis, syncRefDpjp } from "./referensiDpjp";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type {
-  DpjpBoardRow, RefDpjpOption, RefDpjpQuery, SyncRefResult,
+  DpjpBoardRow, DpjpTersediaDTO, RefDpjpOption, RefDpjpQuery, SyncRefResult,
 } from "@/lib/schemas/bpjs/dpjpMapping";
 
 /** Board: semua dokter RS + status mapping. */
 export async function listBoard(): Promise<DpjpBoardRow[]> {
   return dpjpDal.listDokterWithMapping();
+}
+
+/** Konsumsi klinis: dokter RS + kode DPJP BPJS ter-map (picker kodeDokter payload BPJS).
+ *  Gate di Route = clinical.rekammedis:read (BUKAN master.mapping) — read-only, tanpa aksi mapping. */
+export async function listDpjpTersedia(): Promise<DpjpTersediaDTO[]> {
+  const rows = await dpjpDal.listDokterWithMapping();
+  return rows.map((r) => ({
+    dokterId: r.dokterId,
+    pegawaiId: r.pegawaiId,
+    nama: r.nama,
+    spesialisKode: r.spesialisKode,
+    kodeBpjs: r.mapped?.kode ?? null,
+  }));
 }
 
 /** Picker referensi DPJP BPJS (search + filter spesialis). */

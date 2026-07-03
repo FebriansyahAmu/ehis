@@ -968,6 +968,10 @@ model ResepOrder {
   prioritas String @default("Rutin")    // CITO/Segera/Rutin
   status    String @default("Menunggu") // workflow Farmasi
 
+  // Obat pulang (discharge medication) — order dari tab Pasien Pulang RI; Farmasi tampilkan
+  // badge khusus (edukasi/serah beda perlakuan). Additive, default false (resep reguler).
+  isObatPulang Boolean @default(false) @map("is_obat_pulang")
+
   // ── Penulis resep (DPJP) snapshot ──
   penulis         String  // nama penulis resep
   penulisKontak   String? @map("penulis_kontak")
@@ -2580,5 +2584,53 @@ model DischargeChecklist {
 
   @@index([kunjunganId, createdAt]) // latest-wins per kunjungan
   @@map("discharge_checklist")
+  @@schema("medicalrecord")
+}
+
+// ── Jadwal Kontrol Poliklinik (tab Pasien Pulang — sub Obat & Jadwal) ─────────
+// Surat kontrol pasca-pulang per kunjungan. `nomor` = auto sistem (counter JK-<YYMM><NNN>).
+// Pasien BPJS: create memanggil V-Claim RencanaKontrol/insert (konektor, mock pola SPRI) →
+// `noReferensi` = noSuratKontrol response BPJS (null = non-BPJS). kodeDokter di-resolve
+// SERVER dari bpjs.DpjpMapping via dokterId (anti-spoof, tidak diterima dari client).
+// Hapus = soft-delete (+ RencanaKontrol/Delete ke BPJS bila ber-noReferensi).
+model JadwalKontrol {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  nomor   String @unique // JK-<YYMM><NNN> — auto counter sistem
+  tanggal String // "YYYY-MM-DD" tglRencanaKontrol
+
+  poliNama    String  @map("poli_nama")
+  poliKontrol String  @default("") @map("poli_kontrol") // kode poli BPJS ("" = non-BPJS)
+  dokterNama  String  @default("") @map("dokter_nama")
+  dokterId    String? @map("dokter_id") @db.Uuid // soft-ref master.Dokter
+  kodeDokter  String  @default("") @map("kode_dokter") // kode DPJP BPJS (resolve server)
+  catatan     String  @default("")
+
+  // ── BPJS (RencanaKontrol/insert) ──
+  noSep       String  @default("") @map("no_sep")
+  noReferensi String? @map("no_referensi") // noSuratKontrol dari BPJS (null = non-BPJS)
+
+  // ── Pencatat/author (dari actor login) ──
+  pencatat        String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt])
+  @@map("jadwal_kontrol")
+  @@schema("medicalrecord")
+}
+
+// Counter nomor Jadwal Kontrol — scope = "JK-<YYMM>" (reset per bulan), seq naik atomik.
+model JadwalKontrolCounter {
+  scope String @id
+  seq   Int    @default(0)
+
+  @@map("jadwal_kontrol_counter")
   @@schema("medicalrecord")
 }

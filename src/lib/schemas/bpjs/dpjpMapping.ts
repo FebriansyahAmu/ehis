@@ -41,3 +41,14 @@ export interface SyncRefResult {
   spesialis: number;
   dpjp: number;
 }
+
+/** Konsumsi KLINIS (GET /master/dpjp-tersedia) — picker dokter + kode DPJP BPJS ter-map.
+ *  Dipakai form yang butuh kodeDokter payload BPJS (mis. RencanaKontrol/insert Jadwal Kontrol). */
+export interface DpjpTersediaDTO {
+  dokterId: string;
+  pegawaiId: string;
+  nama: string;
+  spesialisKode: string;
+  /** Kode DPJP BPJS dari Mapping Hub DPJP BPJS. null = dokter belum di-map. */
+  kodeBpjs: string | null;
+}

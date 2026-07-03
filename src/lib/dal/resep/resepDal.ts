@@ -38,6 +38,7 @@ export interface CreateResepOrderData {
   kondisiKehamilan?: string | null;
   prioritas: string;
   status: string;
+  isObatPulang?: boolean;
   penulis: string;
   penulisKontak?: string | null;
   tteToken?: string | null;

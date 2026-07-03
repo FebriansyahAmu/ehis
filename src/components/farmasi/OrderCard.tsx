@@ -132,6 +132,11 @@ export default function OrderCard({ order, index = 0 }: OrderCardProps) {
           <span className={cn("rounded-md px-1.5 py-0.5 text-[10px] font-semibold", unitCfg.cls)}>
             {unitCfg.short}
           </span>
+          {order.isObatPulang && (
+            <span className="rounded-md bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-700 ring-1 ring-orange-200">
+              Obat Pulang
+            </span>
+          )}
           {order.hasHAM && <HAMBadge />}
           {hasLASA     && <LASABadge />}
         </div>

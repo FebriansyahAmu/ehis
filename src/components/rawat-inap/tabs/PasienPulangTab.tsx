@@ -177,7 +177,7 @@ export default function PasienPulangTab({ patient }: { patient: RawatInapPatient
                 <DisposisiPane patient={pulangPatient} excludeStatus={["Rawat_Inap"]} />
               )}
               {activeTab === "obat" && (
-                <ObatJadwalPane data={data} onChange={setData} />
+                <ObatJadwalPane data={data} onChange={setData} patient={patient} />
               )}
               {activeTab === "pengembalian" && (
                 <PengembalianPane noRM={patient.noRM} />
