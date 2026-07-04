@@ -135,6 +135,9 @@ export interface ResumeMedikData {
   // Sign-off
   dpjpApproved:   boolean;
   dpjpApprovedAt: string;
+  // TTE server (pasien nyata) — serial + penanda tangan, dipakai QR pada cetakan.
+  tteToken?:    string | null;
+  tteSignedBy?: string | null;
 }
 
 // ── Main composite type ───────────────────────────────────

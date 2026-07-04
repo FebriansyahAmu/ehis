@@ -196,6 +196,7 @@ model Kunjungan {
   dischargeChecklist       DischargeChecklist[]
   jadwalKontrol            JadwalKontrol[]
   pengembalianObat         PengembalianObat[]
+  resumeMedik              ResumeMedik[]
 
   // ── Tautan invoice (1:1, dibuat saat Registered→Queued) ──
   invoiceId String? @unique @map("invoice_id") @db.Uuid // FK→billing.Invoice saat siap

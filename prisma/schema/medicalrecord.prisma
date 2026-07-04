@@ -2698,3 +2698,44 @@ model PengembalianObatItem {
   @@map("pengembalian_obat_item")
   @@schema("medicalrecord")
 }
+
+// ── Resume Medik Rawat Inap (tab Pasien Pulang — sub Resume Medik) ───────────
+// Dokumen kelengkapan RM + klaim BPJS. Append-only "latest wins" per kunjungan
+// (jejak revisi utuh). dataKlinis = snapshot agregat medikolegal JSONB (TTV masuk/
+// pulang · lab abnormal · rad · obat · tindakan — dibekukan saat simpan; sumber
+// live = domain masing-masing). TTE sign-off DPJP stamp SEKALI per revisi
+// (revisi baru pasca-sign = perlu tanda tangan ulang). Sign Dokter-only di Service.
+
+model ResumeMedik {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Manual — diisi DPJP ──
+  asalMasuk       String @default("") @map("asal_masuk") // IGD | Poliklinik | Transfer RS Lain | Langsung
+  tanggalMasukIgd String @default("") @map("tanggal_masuk_igd")
+  diagnosisIgd    String @default("") @map("diagnosis_igd")
+  kondisiMasuk    String @default("") @map("kondisi_masuk")
+  kondisiPulang   String @default("") @map("kondisi_pulang")
+  ringkasanKlinis String @default("") @map("ringkasan_klinis")
+
+  // Snapshot agregat medikolegal (Zod-validated saat tulis)
+  dataKlinis Json? @map("data_klinis")
+
+  // ── Pencatat/author (dari actor login) ──
+  pencatat        String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  // ── TTE sign-off DPJP (stamp sekali per revisi; guard tte_signed_at IS NULL) ──
+  tteToken    String?   @map("tte_token")
+  tteSignedBy String?   @map("tte_signed_by")
+  tteSignedAt DateTime? @map("tte_signed_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt]) // latest-wins per kunjungan
+  @@map("resume_medik")
+  @@schema("medicalrecord")
+}
