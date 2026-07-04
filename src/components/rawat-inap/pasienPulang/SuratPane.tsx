@@ -1,15 +1,23 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { CheckCircle2, FileText, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { RawatInapPatientDetail } from "@/lib/data";
+import { listJadwalKontrol, type JadwalKontrolDTO } from "@/lib/api/jadwalKontrol/jadwalKontrol";
 import {
   type JenisSurat, type PasienPulangData, type SuratPulang,
 } from "./pasienPulangShared";
+import SuratKontrolCetakModal from "./SuratKontrolCetakModal";
+import type { SuratKontrolCetakData } from "./SuratKontrolCetakTemplate";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Props = {
   data:     PasienPulangData;
   onChange: (d: PasienPulangData) => void;
+  patient:  RawatInapPatientDetail;
 };
 
 const SURAT_INFO: Record<JenisSurat, { icon: string; priority: "wajib" | "opsional" | "kondisional" }> = {
@@ -33,11 +41,14 @@ function isVisible(surat: SuratPulang, data: PasienPulangData): boolean {
 }
 
 function SuratCard({
-  surat, data, onChange,
+  surat, onChange, onCetak, cetakDisabled, cetakHint,
 }: {
   surat:    SuratPulang;
-  data:     PasienPulangData;
   onChange: (updated: SuratPulang) => void;
+  /** Handler tombol Cetak — hanya surat yang punya template cetak. */
+  onCetak?:       () => void;
+  cetakDisabled?: boolean;
+  cetakHint?:     string;
 }) {
   const info     = SURAT_INFO[surat.jenis];
   const priority = PRIORITY_CONFIG[info.priority];
@@ -79,6 +90,14 @@ function SuratCard({
             )}
           </div>
           <p className="mt-0.5 text-[11px] text-slate-400">{surat.keterangan}</p>
+          {cetakHint && (
+            <p className={cn(
+              "mt-1 text-[10px] font-medium",
+              cetakDisabled ? "text-amber-600" : "text-emerald-600",
+            )}>
+              {cetakHint}
+            </p>
+          )}
           {surat.diterbitkan && surat.diterbitkanAt && (
             <p className="mt-1 text-[10px] text-emerald-600">Diterbitkan: {surat.diterbitkanAt}</p>
           )}
@@ -88,7 +107,15 @@ function SuratCard({
           {surat.diterbitkan ? (
             <>
               <button
-                className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50"
+                onClick={onCetak}
+                disabled={!!onCetak && cetakDisabled}
+                title={onCetak && cetakDisabled ? cetakHint : undefined}
+                className={cn(
+                  "flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition",
+                  onCetak && !cetakDisabled
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50",
+                )}
               >
                 <Printer size={11} /> Cetak
               </button>
@@ -113,7 +140,64 @@ function SuratCard({
   );
 }
 
-export default function SuratPane({ data, onChange }: Props) {
+export default function SuratPane({ data, onChange, patient }: Props) {
+  const isPersisted = UUID_RE.test(patient.id);
+  const [serverJadwal, setServerJadwal] = useState<JadwalKontrolDTO[]>([]);
+  const [printOpen,    setPrintOpen]    = useState(false);
+
+  // Pasien NYATA → jadwal kontrol dari DB (medicalrecord.JadwalKontrol, terbaru dulu);
+  // pasien demo → daftar lokal data.jadwalKontrol.
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    listJadwalKontrol(patient.id, ac.signal).then(setServerJadwal).catch(() => {});
+    return () => ac.abort();
+  }, [isPersisted, patient.id]);
+
+  // 1 surat cetak per jadwal kontrol — identitas pasien & konteks perawatan sama.
+  const cetakList: SuratKontrolCetakData[] = useMemo(() => {
+    const pasien = {
+      nama:         patient.name,
+      noRM:         patient.noRM,
+      gender:       patient.gender,
+      umur:         `${patient.age} tahun`,
+      tanggalLahir: patient.tanggalLahir || undefined,
+      alamat:       patient.alamat || undefined,
+      penjamin:     patient.penjamin.replace(/_/g, " "),
+      noBpjs:       patient.noBpjs,
+    };
+    const perawatan = {
+      ruangan:  patient.ruangan,
+      kelas:    patient.kelas.replace(/_/g, " "),
+      dpjp:     patient.dpjp,
+      tglMasuk: patient.tglMasuk,
+      diagnosa: patient.diagnosa.slice(0, 4).map(d => ({
+        kode: d.kodeIcd10, nama: d.namaDiagnosis, utama: d.tipe === "Utama",
+      })),
+    };
+    const jadwalList = isPersisted
+      ? serverJadwal.map(d => ({
+          nomor: d.nomor, tanggal: d.tanggal,
+          poliNama: d.poliNama, poliKontrol: d.poliKontrol || undefined,
+          dokterNama: d.dokterNama, kodeDokter: d.kodeDokter || undefined,
+          noSep: d.noSep || undefined, noReferensi: d.noReferensi,
+          catatan: d.catatan || undefined, pencatat: d.pencatat || undefined,
+          terbitAt: d.createdAt,
+        }))
+      : data.jadwalKontrol.map(jk => ({
+          nomor: "", tanggal: jk.tanggal,
+          poliNama: jk.poli, poliKontrol: jk.poliKontrol,
+          dokterNama: jk.dokter, kodeDokter: jk.kodeDokter,
+          noSep: jk.noSEP, noReferensi: undefined,
+          catatan: jk.catatan || undefined,
+        }));
+    return jadwalList.map(jadwal => ({ jadwal, pasien, perawatan }));
+  }, [isPersisted, serverJadwal, data.jadwalKontrol, patient]);
+
+  const kontrolHint = cetakList.length > 0
+    ? `${cetakList.length} jadwal kontrol siap dicetak${cetakList.some(c => c.jadwal.noReferensi) ? " · No. Referensi BPJS tersedia" : ""}`
+    : "Belum ada jadwal kontrol — buat di sub-tab Obat & Jadwal";
+
   function updateSurat(updated: SuratPulang) {
     onChange({ ...data, surat: data.surat.map(s => s.id === updated.id ? updated : s) });
   }
@@ -148,7 +232,16 @@ export default function SuratPane({ data, onChange }: Props) {
         ) : (
           <div className="space-y-2">
             {visible.map(surat => (
-              <SuratCard key={surat.id} surat={surat} data={data} onChange={updateSurat} />
+              <SuratCard
+                key={surat.id}
+                surat={surat}
+                onChange={updateSurat}
+                {...(surat.jenis === "Surat Kontrol" ? {
+                  onCetak:       () => setPrintOpen(true),
+                  cetakDisabled: cetakList.length === 0,
+                  cetakHint:     kontrolHint,
+                } : {})}
+              />
             ))}
           </div>
         )}
@@ -220,6 +313,13 @@ export default function SuratPane({ data, onChange }: Props) {
 
         </div>
       </div>
+
+      {/* Modal cetak Surat Kontrol (A4) */}
+      <SuratKontrolCetakModal
+        open={printOpen}
+        onClose={() => setPrintOpen(false)}
+        list={cetakList}
+      />
 
     </div>
   );

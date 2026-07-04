@@ -183,7 +183,7 @@ export default function PasienPulangTab({ patient }: { patient: RawatInapPatient
                 <PengembalianPane noRM={patient.noRM} kunjunganId={patient.id} />
               )}
               {activeTab === "surat" && (
-                <SuratPane data={data} onChange={setData} />
+                <SuratPane data={data} onChange={setData} patient={patient} />
               )}
               {activeTab === "resume-medik" && (
                 <ResumeMedikPane data={data} onChange={setData} patient={patient} />
