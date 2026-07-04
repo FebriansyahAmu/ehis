@@ -180,7 +180,7 @@ export default function PasienPulangTab({ patient }: { patient: RawatInapPatient
                 <ObatJadwalPane data={data} onChange={setData} patient={patient} />
               )}
               {activeTab === "pengembalian" && (
-                <PengembalianPane noRM={patient.noRM} />
+                <PengembalianPane noRM={patient.noRM} kunjunganId={patient.id} />
               )}
               {activeTab === "surat" && (
                 <SuratPane data={data} onChange={setData} />

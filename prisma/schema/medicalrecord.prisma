@@ -2634,3 +2634,67 @@ model JadwalKontrolCounter {
   @@map("jadwal_kontrol_counter")
   @@schema("medicalrecord")
 }
+
+// ── Pengembalian Obat pasien pulang (PMK 72/2016 Ps. 20) ──────────────────────
+// Obat sisa dikembalikan ke Farmasi saat pulang. 1 dokumen per sumber resep berisi item[]
+// (derivasi ResepItem, snapshot medikolegal). Workflow: Draft (perawat isi/koreksi) →
+// Diverifikasi (APOTEKER verifikasi fisik — ditegakkan Service, stamp sekali).
+// perawatPenyerah/apotekerPenerima = actor login (server-otoritatif). Gate RBAC BARU
+// `clinical.pengembalian` (Dokter/Perawat r+c+u · Apoteker r+u; Apoteker lolos careUnit
+// ABAC via isAncillaryActor). Hapus = soft-delete (Draft saja). Stok masuk depo = Inventory later.
+model PengembalianObat {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  resepOrderId String? @map("resep_order_id") @db.Uuid // soft-ref ResepOrder sumber
+  noResepRef   String  @default("") @map("no_resep_ref") // snapshot ref tampilan
+
+  tanggal String // "YYYY-MM-DD"
+  status  String @default("Draft") // Draft | Diverifikasi
+  catatan String @default("")
+
+  perawatPenyerah  String    @map("perawat_penyerah") // actor create
+  apotekerPenerima String    @default("") @map("apoteker_penerima") // actor verify (Apoteker)
+  verifiedAt       DateTime? @map("verified_at") @db.Timestamptz(3)
+
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  items PengembalianObatItem[]
+
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt])
+  @@map("pengembalian_obat")
+  @@schema("medicalrecord")
+}
+
+model PengembalianObatItem {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  pengembalianId String           @map("pengembalian_id") @db.Uuid
+  pengembalian   PengembalianObat @relation(fields: [pengembalianId], references: [id], onDelete: Cascade)
+
+  resepItemId String? @map("resep_item_id") @db.Uuid // soft-ref ResepItem asal
+  namaObat    String  @map("nama_obat") // snapshot medikolegal
+  satuan      String  @default("Unit")
+  isHAM       Boolean @default(false) @map("is_ham")
+  isNarPsi    Boolean @default(false) @map("is_nar_psi")
+
+  jumlahDispensasi Int @default(0) @map("jumlah_dispensasi")
+  jumlahDiberikan  Int @default(0) @map("jumlah_diberikan")
+  jumlahKembalikan Int @default(0) @map("jumlah_kembalikan")
+
+  kondisi String @default("Baik") // Baik | Rusak | Kadaluarsa (Zod)
+  alasan  String @default("Pasien Pulang")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([pengembalianId])
+  @@map("pengembalian_obat_item")
+  @@schema("medicalrecord")
+}
