@@ -12,6 +12,7 @@ import { jadwalKontrolService } from "@/lib/services/jadwalKontrol/jadwalKontrol
 export const DELETE = route({
   resource: "clinical.rekammedis",
   action: "update",
+  allowWhenLocked: true, // dokumen kepulangan — pembatalan surat kontrol pasca-Selesai sah
   params: ItemParam,
   handler: async ({ params, actor }) => {
     await jadwalKontrolService.remove(params.id, params.itemId, actor);

@@ -259,9 +259,9 @@ export function checkResumeMedikCompletion(
     { id: "m2", label: "Diagnosa ICD-10",           hint: "Isi minimal 1 diagnosa di tab Diagnosa RM",  done: hasDiagnosa,                                                    source: "tab-lain" },
     { id: "m3", label: "Obat pulang",               hint: "Tambah obat di tab Obat & Jadwal",            done: data.obatPulang.length > 0,                                     source: "tab-lain", tab: "obat" },
     { id: "m4", label: "Asal masuk",                hint: "Pilih asal masuk pasien di form ini",         done: rm.asalMasuk !== "",                                            source: "form-ini" },
-    { id: "m5", label: "Kondisi masuk",             hint: "Isi kondisi klinis saat masuk RS",            done: rm.kondisiMasuk.trim().length > 10,                             source: "form-ini" },
-    { id: "m6", label: "Kondisi pulang",            hint: "Isi kondisi klinis saat pulang",              done: rm.kondisiPulang.trim().length > 10,                            source: "form-ini" },
-    { id: "m7", label: "Ringkasan klinis DPJP",    hint: "Isi ringkasan perjalanan klinis oleh DPJP",   done: rm.ringkasanKlinis.trim().length > 10,                          source: "form-ini" },
+    { id: "m5", label: "Kondisi masuk",             hint: "Isi kondisi klinis saat masuk RS",            done: rm.kondisiMasuk.trim().length > 0,                              source: "form-ini" },
+    { id: "m6", label: "Kondisi pulang",            hint: "Isi kondisi klinis saat pulang",              done: rm.kondisiPulang.trim().length > 0,                             source: "form-ini" },
+    { id: "m7", label: "Ringkasan klinis DPJP",    hint: "Isi ringkasan perjalanan klinis oleh DPJP",   done: rm.ringkasanKlinis.trim().length > 0,                           source: "form-ini" },
     { id: "m8", label: "TTD DPJP",                  hint: "DPJP belum menandatangani Resume Medik",      done: rm.dpjpApproved,                                                source: "form-ini" },
   ];
 }

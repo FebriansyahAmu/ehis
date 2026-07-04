@@ -18,6 +18,7 @@ export const GET = route({
 export const POST = route({
   resource: "clinical.pengembalian",
   action: "create",
+  allowWhenLocked: true, // dokumen kepulangan — pengembalian obat terjadi PASCA-pulang
   params: IdParam,
   body: PengembalianCreateInput,
   handler: async ({ params, body, actor }) =>

@@ -65,6 +65,11 @@ interface RouteConfig<B, Q, P, R> {
    *  → ditolak (404) bila di luar unit kerja actor. Default ON untuk resource `clinical.*`
    *  (semua endpoint rekam medis = /kunjungan/[id]/…). Set `false` utk mematikan. */
   scopeKunjungan?: boolean;
+  /** Kecualikan dari LOCK rekam medis (kunjungan Selesai). HANYA untuk dokumen
+   *  administrasi kepulangan yang memang dikerjakan PASCA-pulang (tab Pasien Pulang):
+   *  resume medik (PMK 269 — dilengkapi ≤1×24 jam setelah pulang), jadwal kontrol,
+   *  pengembalian obat. Data klinis inti (CPPT/TTV/diagnosa/…) TIDAK boleh pakai ini. */
+  allowWhenLocked?: boolean;
   handler: (args: HandlerArgs<B, Q, P>) => Promise<R> | R;
 }
 
@@ -99,10 +104,11 @@ export function route<B = undefined, Q = undefined, P = undefined, R = unknown>(
           const k = await loadKunjunganInScope(id, actor);
           // Lock rekam medis: kunjungan Selesai (lockedAt) → tolak TULIS clinical.* (baca tetap
           // lolos). Transisi lifecycle pakai resource registration.* (action read) → tak terkena,
-          // jadi "Batal Selesai" tetap bisa membuka kunci.
+          // jadi "Batal Selesai" tetap bisa membuka kunci. Rute ber-`allowWhenLocked` (dokumen
+          // administrasi kepulangan — tab Pasien Pulang) dikecualikan.
           const isWrite =
             config.action === "create" || config.action === "update" || config.action === "delete";
-          if (isWrite && config.resource?.startsWith("clinical.") && k.lockedAt) {
+          if (isWrite && !config.allowWhenLocked && config.resource?.startsWith("clinical.") && k.lockedAt) {
             throw Errors.forbiddenState(
               "Rekam medis terkunci — kunjungan sudah diselesaikan. Batalkan penyelesaian untuk mengubah.",
             );

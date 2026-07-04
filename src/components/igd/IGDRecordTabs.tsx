@@ -225,7 +225,7 @@ export default function IGDRecordTabs({
 
       {/* ── Content with smooth fade transition ── */}
       <main className="flex-1 overflow-y-auto bg-slate-50 p-4 md:p-5">
-        {locked && (
+        {locked && active !== "pulang" && (
           <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-slate-300 bg-slate-100 px-4 py-2.5 shadow-xs">
             <Lock size={15} className="shrink-0 text-slate-500" />
             <p className="text-xs font-semibold text-slate-700">
@@ -234,9 +234,20 @@ export default function IGDRecordTabs({
             <span className="ml-auto text-[11px] text-slate-400">Gunakan “Batal Selesai” untuk mengubah.</span>
           </div>
         )}
+        {locked && active === "pulang" && (
+          <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 shadow-xs">
+            <Lock size={15} className="shrink-0 text-emerald-600" />
+            <p className="text-xs font-semibold text-emerald-800">
+              Rekam medis terkunci — tab Pasien Pulang tetap aktif untuk dokumen kepulangan
+              (resume, surat kontrol, cetak).
+            </p>
+          </div>
+        )}
+        {/* Tab Pasien Pulang DIKECUALIKAN dari kunci: cetak resume/surat + dokumen
+            administrasi kepulangan justru dikerjakan pasca-Selesai (BE: allowWhenLocked). */}
         <div
-          className={cn(locked && "pointer-events-none select-none opacity-50 blur-[1.5px]")}
-          aria-hidden={locked || undefined}
+          className={cn(locked && active !== "pulang" && "pointer-events-none select-none opacity-50 blur-[1.5px]")}
+          aria-hidden={(locked && active !== "pulang") || undefined}
         >
         <AnimatePresence mode="wait" initial={false}>
           <motion.div

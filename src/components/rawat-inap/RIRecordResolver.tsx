@@ -9,7 +9,10 @@
 import { useEffect, useState } from "react";
 import { notFound } from "next/navigation";
 import type { RawatInapPatientDetail, RIKelas } from "@/lib/data";
-import { getKunjungan } from "@/lib/api/kunjungan";
+import { getKunjungan, transitionKunjungan, type KunjunganDTO } from "@/lib/api/kunjungan";
+import type { DisposisiInput } from "@/lib/schemas/disposisi/disposisi";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
 import { getPatient } from "@/lib/api/patients";
 import { getDokter } from "@/lib/api/dokter";
 import { getTree } from "@/lib/api/ruangan";
@@ -32,9 +35,24 @@ function ResolverLoading() {
   );
 }
 
+// Lifecycle kunjungan (pola IGDRecordShell — dipakai lock + transisi complete).
+interface Life {
+  status: string;
+  version: number;
+  locked: boolean;
+  selesaiAt: string | null;
+}
+const lifeFrom = (k: KunjunganDTO): Life => ({
+  status: k.status,
+  version: k.version,
+  locked: !!k.lockedAt,
+  selesaiAt: k.selesaiAt,
+});
+
 export default function RIRecordResolver({ id }: { id: string }) {
   const [patient, setPatient] = useState<RawatInapPatientDetail | null>(null);
   const [state, setState] = useState<"loading" | "done">("loading");
+  const [life, setLife] = useState<Life>({ status: "InService", version: 0, locked: false, selesaiAt: null });
 
   // Fetch SEKALI per id. Guard set-state via !aborted (StrictMode-safe).
   useEffect(() => {
@@ -47,6 +65,7 @@ export default function RIRecordResolver({ id }: { id: string }) {
         if (ac.signal.aborted) return;
         // Hanya kunjungan Rawat Inap yang dibuka di modul ini.
         if (k.unit !== "RawatInap") { setPatient(null); return; }
+        setLife(lifeFrom(k));
 
         const [p, tree, allocs] = await Promise.all([
           getPatient(k.pasien.id, ac.signal),
@@ -96,6 +115,19 @@ export default function RIRecordResolver({ id }: { id: string }) {
     return () => ac.abort();
   }, [id]);
 
+  // Selesaikan kunjungan (persist Disposisi + kunci) dari tab Pasien Pulang.
+  // Throw saat gagal → form pemanggil tetap terbuka (pola IGDRecordShell).
+  async function handleComplete(disposisi: DisposisiInput, waktuSelesai: string) {
+    try {
+      const k = await transitionKunjungan(id, "complete", life.version, { waktuSelesai, disposisi });
+      setLife(lifeFrom(k));
+      toast.success("Kunjungan diselesaikan", "Rekam medis terkunci — tab Pasien Pulang tetap aktif");
+    } catch (e) {
+      toast.error("Gagal menyelesaikan kunjungan", e instanceof ApiError ? e.message : undefined);
+      throw e;
+    }
+  }
+
   if (!patient) {
     if (state !== "done") return <ResolverLoading />;
     notFound();
@@ -104,7 +136,7 @@ export default function RIRecordResolver({ id }: { id: string }) {
   return (
     <div className="flex h-full flex-col">
       <RIPatientHeader patient={patient} />
-      <RIRecordTabs patient={patient} />
+      <RIRecordTabs patient={patient} locked={life.locked} onComplete={handleComplete} />
     </div>
   );
 }

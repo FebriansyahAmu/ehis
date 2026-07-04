@@ -11,6 +11,7 @@ import { resumeMedikService } from "@/lib/services/resumeMedik/resumeMedikServic
 export const POST = route({
   resource: "clinical.rekammedis",
   action: "update",
+  allowWhenLocked: true, // TTE DPJP pada resume lazim dibubuhkan pasca-pulang
   params: IdParam,
   handler: async ({ params, actor }) =>
     reply(await resumeMedikService.sign(params.id, actor), {

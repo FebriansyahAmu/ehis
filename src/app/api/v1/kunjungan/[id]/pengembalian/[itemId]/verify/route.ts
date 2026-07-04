@@ -11,6 +11,7 @@ import { pengembalianService } from "@/lib/services/pengembalian/pengembalianSer
 export const POST = route({
   resource: "clinical.pengembalian",
   action: "update",
+  allowWhenLocked: true, // verifikasi Apoteker lazim terjadi SETELAH pasien pulang
   params: ItemParam,
   handler: async ({ params, actor }) =>
     reply(await pengembalianService.verify(params.id, params.itemId, actor), {

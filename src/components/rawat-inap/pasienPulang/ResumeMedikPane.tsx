@@ -23,10 +23,32 @@ import {
   getResumeMedik, saveResumeMedik, signResumeMedik, getAsalMasuk,
   type ResumeMedikInput, type AsalMasukDTO,
 } from "@/lib/api/resumeMedik/resumeMedik";
+import { getDisposisi, type DisposisiDTO } from "@/lib/api/disposisi/disposisi";
 import {
   type AsalMasuk, type PasienPulangData, type ResumeMedikData, type TVVSummaryItem,
+  type StatusKepulangan,
   checkResumeMedikCompletion,
 } from "./pasienPulangShared";
+
+// Disposisi.jenis (DB) → StatusKepulangan (view-model resume). Rawat_Inap tak terjadi di RI.
+const JENIS_TO_STATUS: Record<DisposisiDTO["jenis"], StatusKepulangan | ""> = {
+  Pulang:     "Pulang Atas Saran Dokter",
+  APS:        "APS",
+  Rujuk:      "Dirujuk RS Lain",
+  Meninggal:  "Meninggal",
+  Rawat_Inap: "",
+};
+
+/** ISO waktu keluar → { tanggal "YYYY-MM-DD", jam "HH:mm" } (zona lokal). */
+function splitWaktuKeluar(iso: string): { tanggal: string; jam: string } {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return { tanggal: "", jam: "" };
+  const p = (n: number) => String(n).padStart(2, "0");
+  return {
+    tanggal: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`,
+    jam: `${p(d.getHours())}:${p(d.getMinutes())}`,
+  };
+}
 import { fetchResumeAggregates, fmtSignedAt, obsToTtv } from "./resumeMedikAggregates";
 import ResumeMedikCetakModal, { type ResumeMedikTte } from "./ResumeMedikCetak";
 import TtvPulangQuickRecord from "./TtvPulangQuickRecord";
@@ -145,10 +167,11 @@ export default function ResumeMedikPane({ data, onChange, patient }: Props) {
     const ac = new AbortController();
     (async () => {
       try {
-        const [agg, dto, det] = await Promise.all([
+        const [agg, dto, det, disp] = await Promise.all([
           fetchResumeAggregates(patient.id, ac.signal),
           getResumeMedik(patient.id, ac.signal).catch(() => null),
           getAsalMasuk(patient.id, ac.signal).catch(() => null),
+          getDisposisi(patient.id, ac.signal).catch(() => null),
         ]);
         // Aborted → allSettled pulang kosong; JANGAN timpa state dengan hasil kosong.
         if (ac.signal.aborted) return;
@@ -183,12 +206,24 @@ export default function ResumeMedikPane({ data, onChange, patient }: Props) {
           }
           if (!patch.diagnosisIGD) patch.diagnosisIGD = det.diagnosisAsal;
         }
+        // Status + tanggal/jam pulang di ROOT PasienPulangData (sumber ceklis m1 + Identitas &
+        // Episode). Disposisi DB (transisi complete) = otoritatif → mengisi bila kunjungan sudah
+        // diselesaikan; belum → tetap kosong (ceklis mendorong ke tab Pasien Pulang).
+        const rootPatch: Partial<PasienPulangData> = { obatPulang: agg.obatPulang };
+        if (disp) {
+          const status = JENIS_TO_STATUS[disp.jenis];
+          const { tanggal, jam } = splitWaktuKeluar(disp.waktuKeluar);
+          if (status) rootPatch.status = status;
+          if (tanggal) rootPatch.tanggalPulang = tanggal;
+          if (jam) rootPatch.jamPulang = jam;
+          if (disp.dokter) rootPatch.dokterYangMemulangkan = disp.dokter;
+        }
         // obatPulang di ROOT PasienPulangData (bukan resumeMedik) — sumber ceklis
         // "Minimal 1 obat pulang" + counter header = order resep DB ber-flag isObatPulang.
         const cur = dataRef.current;
         onChange({
           ...cur,
-          obatPulang: agg.obatPulang,
+          ...rootPatch,
           resumeMedik: { ...cur.resumeMedik, ...patch },
         });
       } catch { /* agregat gagal → panel tetap tampil kosong */ }

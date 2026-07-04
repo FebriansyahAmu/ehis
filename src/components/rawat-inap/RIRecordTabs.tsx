@@ -8,9 +8,10 @@ import {
   FileText, HeartPulse, Tag, HeartHandshake, ScanLine,
   Pill, FlaskConical, Radiation, ClipboardList, LogOut,
   MessageSquare, Droplets, DoorOpen, Stethoscope, ArrowRightLeft,
-  ListChecks, ShieldCheck, Repeat, Target, Salad, Activity, ClipboardCheck, BookOpen, Package, Gauge, type LucideIcon,
+  ListChecks, ShieldCheck, Repeat, Target, Salad, Activity, ClipboardCheck, BookOpen, Package, Gauge, Lock, type LucideIcon,
 } from "lucide-react";
 import type { RawatInapPatientDetail } from "@/lib/data";
+import type { DisposisiCompleteFn } from "@/components/igd/IGDRecordTabs";
 import { cn } from "@/lib/utils";
 
 import AsesmenAwalTab   from "./tabs/AsesmenAwalTab";
@@ -104,10 +105,23 @@ function NavItem({ tab, active, onClick }: { tab: TabDef; active: boolean; onCli
 
 // ── Main ─────────────────────────────────────────────────
 
-export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDetail }) {
+export default function RIRecordTabs({
+  patient,
+  locked = false,
+  onComplete,
+}: {
+  patient: RawatInapPatientDetail;
+  /** Rekam medis terkunci (kunjungan Selesai) → blur + non-interaktif, KECUALI tab Pasien Pulang. */
+  locked?: boolean;
+  /** Selesaikan kunjungan dari tab Pasien Pulang. Absen → mode demo (sukses lokal). */
+  onComplete?: DisposisiCompleteFn;
+}) {
   // Default = Asesmen Awal: pintu masuk dokumentasi RI (SNARS AP 1, wajib 24 jam pertama).
   const [active, setActive] = useState<TabId>("asesmen-awal");
   const { session } = useSession();
+  // Tab Pasien Pulang DIKECUALIKAN dari kunci: cetak resume/surat + dokumen administrasi
+  // kepulangan dikerjakan pasca-Selesai (BE: allowWhenLocked). Pola sama IGDRecordTabs.
+  const lockHere = locked && active !== "pasien-pulang";
 
   const visibleRM   = REKAM_MEDIS.filter((t) => !t.showFor || t.showFor.includes(patient.kelas));
   const visibleTabs = [...visibleRM, ...LAYANAN];
@@ -221,6 +235,28 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
 
       {/* ── Tab content ── */}
       <main className="flex-1 overflow-y-auto bg-slate-50 p-4 md:p-5">
+        {lockHere && (
+          <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-slate-300 bg-slate-100 px-4 py-2.5 shadow-xs">
+            <Lock size={15} className="shrink-0 text-slate-500" />
+            <p className="text-xs font-semibold text-slate-700">
+              Kunjungan telah diselesaikan — rekam medis terkunci (hanya-baca).
+            </p>
+            <span className="ml-auto text-[11px] text-slate-400">Dokumen kepulangan tetap di tab Pasien Pulang.</span>
+          </div>
+        )}
+        {locked && active === "pasien-pulang" && (
+          <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 shadow-xs">
+            <Lock size={15} className="shrink-0 text-emerald-600" />
+            <p className="text-xs font-semibold text-emerald-800">
+              Rekam medis terkunci — tab Pasien Pulang tetap aktif untuk dokumen kepulangan
+              (resume, surat kontrol, kembalian obat, cetak).
+            </p>
+          </div>
+        )}
+        <div
+          className={cn(lockHere && "pointer-events-none select-none opacity-50 blur-[1.5px]")}
+          aria-hidden={lockHere || undefined}
+        >
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={active}
@@ -269,10 +305,11 @@ export default function RIRecordTabs({ patient }: { patient: RawatInapPatientDet
             {active === "order-rad"     && withIdentitas(<OrderRadTab    patient={patient} />)}
             {active === "konsultasi"    && <KonsultasiTab     noRM={patient.noRM} dokterPeminta={patient.dpjp} kunjunganId={patient.id} />}
             {active === "discharge"     && <DischargePlanTab  patient={patient} />}
-            {active === "pasien-pulang" && withIdentitas(<PasienPulangTab patient={patient} />)}
+            {active === "pasien-pulang" && withIdentitas(<PasienPulangTab patient={patient} onComplete={onComplete} />)}
             {active === "konseling"     && <KonselingTab patient={patient} />}
           </motion.div>
         </AnimatePresence>
+        </div>
       </main>
 
     </div>

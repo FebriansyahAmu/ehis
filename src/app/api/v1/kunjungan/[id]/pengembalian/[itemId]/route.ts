@@ -12,6 +12,7 @@ import { pengembalianService } from "@/lib/services/pengembalian/pengembalianSer
 export const PATCH = route({
   resource: "clinical.pengembalian",
   action: "update",
+  allowWhenLocked: true, // dokumen kepulangan — koreksi Draft pasca-pulang sah
   params: ItemParam,
   body: PengembalianUpdateInput,
   handler: async ({ params, body, actor }) =>
@@ -23,6 +24,7 @@ export const PATCH = route({
 export const DELETE = route({
   resource: "clinical.pengembalian",
   action: "update",
+  allowWhenLocked: true, // dokumen kepulangan — hapus Draft pasca-pulang sah
   params: ItemParam,
   handler: async ({ params, actor }) => {
     await pengembalianService.remove(params.id, params.itemId, actor);

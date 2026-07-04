@@ -18,6 +18,7 @@ export const GET = route({
 export const POST = route({
   resource: "clinical.rekammedis",
   action: "create",
+  allowWhenLocked: true, // resume medik DILENGKAPI pasca-pulang (PMK 269 ≤1×24 jam)
   params: IdParam,
   body: ResumeMedikInput,
   handler: async ({ params, body, actor }) =>

@@ -21,6 +21,7 @@ import ResumeMedikPane   from "../pasienPulang/ResumeMedikPane";
 import ResumeMedisPane   from "../pasienPulang/ResumeMedisPane";
 import PengembalianPane  from "@/components/farmasi/pengembalian/PengembalianPane";
 import DisposisiPane     from "@/components/igd/tabs/PasienPulangTab";
+import type { DisposisiCompleteFn } from "@/components/igd/IGDRecordTabs";
 import type { PulangPatient } from "@/components/igd/tabs/pasienPulang/pasienPulangShared";
 
 // ── Tab definitions ───────────────────────────────────────
@@ -84,7 +85,14 @@ function PasienPulangHeader({ data }: { data: PasienPulangData }) {
 
 // ── Main ──────────────────────────────────────────────────
 
-export default function PasienPulangTab({ patient }: { patient: RawatInapPatientDetail }) {
+export default function PasienPulangTab({
+  patient,
+  onComplete,
+}: {
+  patient: RawatInapPatientDetail;
+  /** Selesaikan kunjungan (persist Disposisi + kunci) — diteruskan ke form disposisi. */
+  onComplete?: DisposisiCompleteFn;
+}) {
   const initial: PasienPulangData = PASIEN_PULANG_MOCK[patient.noRM] ?? {
     status: "", tanggalPulang: "", jamPulang: "",
     dokterYangMemulangkan: patient.dpjp,
@@ -174,7 +182,7 @@ export default function PasienPulangTab({ patient }: { patient: RawatInapPatient
               transition={{ duration: 0.15, ease: "easeOut" }}
             >
               {activeTab === "status" && (
-                <DisposisiPane patient={pulangPatient} excludeStatus={["Rawat_Inap"]} />
+                <DisposisiPane patient={pulangPatient} excludeStatus={["Rawat_Inap"]} onComplete={onComplete} />
               )}
               {activeTab === "obat" && (
                 <ObatJadwalPane data={data} onChange={setData} patient={patient} />

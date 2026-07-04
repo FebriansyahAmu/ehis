@@ -18,6 +18,7 @@ export const GET = route({
 export const POST = route({
   resource: "clinical.rekammedis",
   action: "create",
+  allowWhenLocked: true, // dokumen kepulangan — surat kontrol boleh terbit pasca-Selesai
   params: IdParam,
   body: JadwalKontrolInput,
   handler: async ({ params, body, actor }) =>
