@@ -1,17 +1,36 @@
 "use client";
 
-import { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+// Resume Pulang Pane — tab Pasien Pulang RI, sub Resume Pulang (salinan discharge summary
+// untuk PASIEN, PMK 24/2022). Pasien NYATA (kunjungan UUID): 4 narasi autofill dari domain
+// klinis (anamnesis · lab/rad · resep/tindakan · TTV pulang) → DPJP suntingan; persist
+// medicalrecord.ResumePulang (append latest-wins); TTD DPJP = TTE server (Dokter-only) → QR
+// pada cetakan A4. Pasien demo: mock lokal (perilaku lama).
+
+import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import {
-  AlertCircle, CheckCircle2, Circle, FileText, Lock,
-  Printer, ShieldCheck, X,
+  AlertCircle, CheckCircle2, Circle, Lock, Printer, Save, ShieldCheck, Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { RawatInapPatientDetail } from "@/lib/data";
+import type { RawatInapPatientDetail, IGDDiagnosa } from "@/lib/data";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
+import { useSession } from "@/contexts/SessionContext";
+import { tteSerial } from "@/components/shared/TteQr";
+import {
+  getResumePulang, saveResumePulang, signResumePulang, type ResumePulangInput,
+} from "@/lib/api/resumePulang/resumePulang";
+import { getAnamnesis } from "@/lib/api/asesmenMedis/anamnesis";
+import { getDisposisi } from "@/lib/api/disposisi/disposisi";
+import { fetchResumeAggregates, fmtSignedAt } from "./resumeMedikAggregates";
+import { composeResumePulangSuggestion, type ResumePulangSuggestion } from "./resumePulangAutofill";
 import {
   type PasienPulangData, type ResumeMedisRI,
-  checkResumeCompletion, STATUS_KEPULANGAN_CONFIG,
+  checkResumeCompletion,
 } from "./pasienPulangShared";
+import ResumePulangCetakModal, { type ResumePulangTte } from "./ResumePulangCetak";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Props = {
   data:     PasienPulangData;
@@ -19,17 +38,27 @@ type Props = {
   patient:  RawatInapPatientDetail;
 };
 
+// Field yang bisa di-autofill (kunci ResumeMedisRI).
+const AUTOFILL_KEYS = ["ringkasanAnamnesis", "hasilPemeriksaan", "terapiDiberikan", "kondisiSaatPulang"] as const;
+
 function FormArea({
-  label, value, onChange, rows = 3, required, placeholder,
+  label, value, onChange, rows = 3, required, placeholder, autoFilled,
 }: {
   label: string; value: string; onChange: (v: string) => void;
-  rows?: number; required?: boolean; placeholder?: string;
+  rows?: number; required?: boolean; placeholder?: string; autoFilled?: boolean;
 }) {
   return (
     <div>
-      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-500">
-        {label} {required && <span className="text-red-400">*</span>}
-      </label>
+      <div className="mb-1 flex items-center gap-1.5">
+        <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+          {label} {required && <span className="text-red-400">*</span>}
+        </label>
+        {autoFilled && (
+          <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-emerald-600">
+            <Sparkles size={8} /> Auto
+          </span>
+        )}
+      </div>
       <textarea
         value={value}
         onChange={e => onChange(e.target.value)}
@@ -52,186 +81,177 @@ function ReadOnly({ label, value }: { label: string; value: string }) {
   );
 }
 
-// ── Print Preview Modal ───────────────────────────────────
-
-function PrintPreviewModal({
-  data, patient, onClose,
-}: { data: PasienPulangData; patient: RawatInapPatientDetail; onClose: () => void }) {
-  const diagnosaPrimer = patient.diagnosa.find(d => d.tipe === "Utama");
-  const diagnosaLain   = patient.diagnosa.filter(d => d.tipe !== "Utama");
-  const statusCfg      = data.status ? STATUS_KEPULANGAN_CONFIG[data.status] : null;
-
-  const lamaRawat = (() => {
-    if (!data.tanggalPulang || !patient.admitDate) return "—";
-    const ms   = new Date(data.tanggalPulang).getTime() - new Date(patient.admitDate).getTime();
-    const days = Math.ceil(ms / 86400000);
-    return `${days} hari`;
-  })();
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.96 }}
-        className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
-      >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3">
-          <div className="flex items-center gap-2">
-            <FileText size={14} className="text-slate-500" />
-            <p className="text-sm font-bold text-slate-700">Resume Pulang — Preview</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="flex items-center gap-1.5 rounded-xl bg-orange-500 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-orange-600">
-              <Printer size={12} /> Cetak
-            </button>
-            <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
-              <X size={16} />
-            </button>
-          </div>
-        </div>
-
-        {/* Document */}
-        <div className="p-8 font-mono text-xs leading-relaxed text-slate-800">
-          {/* Header RS */}
-          <div className="mb-4 border-b-2 border-slate-800 pb-3 text-center">
-            <p className="text-base font-bold uppercase tracking-wider">RESUME PULANG RAWAT INAP</p>
-            <p className="text-[10px] text-slate-500">Salinan untuk Pasien · PMK 24/2022</p>
-            <p className="text-[10px] text-slate-500">Rumah Sakit EHIS · Jl. Kesehatan No. 1, Jakarta</p>
-          </div>
-
-          {/* Identitas */}
-          <section className="mb-4">
-            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">I. IDENTITAS PASIEN</p>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
-              <div><span className="font-bold">Nama</span>          : {patient.name}</div>
-              <div><span className="font-bold">No. RM</span>        : {patient.noRM}</div>
-              <div><span className="font-bold">Umur / Jenis Kelamin</span>: {patient.age} tahun / {patient.gender === "L" ? "Laki-laki" : "Perempuan"}</div>
-              <div><span className="font-bold">Penjamin</span>      : {patient.penjamin.replace(/_/g, " ")}{patient.noBpjs ? ` (${patient.noBpjs})` : ""}</div>
-              <div className="col-span-2"><span className="font-bold">Alamat</span>        : {patient.alamat}</div>
-            </div>
-          </section>
-
-          {/* Periode rawat */}
-          <section className="mb-4">
-            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">II. PERIODE PERAWATAN</p>
-            <div className="grid grid-cols-3 gap-x-4 text-[11px]">
-              <div><span className="font-bold">Tanggal Masuk</span> : {patient.tglMasuk}</div>
-              <div><span className="font-bold">Tanggal Pulang</span>: {data.tanggalPulang ? new Date(data.tanggalPulang).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "—"}</div>
-              <div><span className="font-bold">Lama Rawat</span>    : {lamaRawat}</div>
-              <div><span className="font-bold">Ruangan / Kelas</span>: {patient.ruangan} / {patient.kelas.replace("_", " ")}</div>
-              <div><span className="font-bold">DPJP</span>          : {patient.dpjp}</div>
-              <div><span className="font-bold">Status Pulang</span> : {data.status || "—"}{statusCfg ? "" : ""}</div>
-            </div>
-          </section>
-
-          {/* Diagnosa */}
-          <section className="mb-4">
-            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">III. DIAGNOSA</p>
-            <div className="text-[11px]">
-              <p><span className="font-bold">Diagnosa Masuk</span>   : {patient.diagnosis}</p>
-              {diagnosaPrimer && (
-                <p><span className="font-bold">Diagnosa Keluar (Primer)</span>: {diagnosaPrimer.namaDiagnosis} ({diagnosaPrimer.kodeIcd10})</p>
-              )}
-              {diagnosaLain.map(d => (
-                <p key={d.id}><span className="font-bold">  {d.tipe}</span>: {d.namaDiagnosis} ({d.kodeIcd10})</p>
-              ))}
-            </div>
-          </section>
-
-          {/* Klinis */}
-          {[
-            ["IV. ANAMNESIS SINGKAT & PEMERIKSAAN FISIK", data.resumePulang.ringkasanAnamnesis],
-            ["V. HASIL PENUNJANG BERMAKNA",               data.resumePulang.hasilPemeriksaan],
-            ["VI. TERAPI YANG DIBERIKAN",                 data.resumePulang.terapiDiberikan],
-            ["VII. KONDISI SAAT PULANG",                  data.resumePulang.kondisiSaatPulang],
-            ["VIII. INSTRUKSI & ANJURAN",                 data.resumePulang.instruksiPulang],
-            ["IX. PEMBATASAN AKTIVITAS",                  data.resumePulang.pembatasanAktivitas],
-            ["X. DIET",                                   data.resumePulang.dietPulang],
-          ].map(([title, content]) => (
-            <section key={title} className="mb-4">
-              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">{title}</p>
-              <p className="whitespace-pre-wrap text-[11px]">{content || "—"}</p>
-            </section>
-          ))}
-
-          {/* Obat pulang */}
-          <section className="mb-4">
-            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">XI. OBAT YANG DIBAWA PULANG</p>
-            {data.obatPulang.length === 0 ? (
-              <p className="text-[11px]">—</p>
-            ) : (
-              <div className="text-[11px]">
-                {data.obatPulang.map((ob, i) => (
-                  <p key={ob.id}>{i + 1}. {ob.namaObat} {ob.dosis} — {ob.frekuensi}, selama {ob.durasi}</p>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* Jadwal kontrol */}
-          <section className="mb-6">
-            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">XII. RENCANA FOLLOW-UP</p>
-            {data.jadwalKontrol.length === 0 ? (
-              <p className="text-[11px]">—</p>
-            ) : (
-              <div className="text-[11px]">
-                {data.jadwalKontrol.map(jk => (
-                  <p key={jk.id}>
-                    • {new Date(jk.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })} — {jk.poli}{jk.dokter ? ` (${jk.dokter})` : ""}
-                  </p>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* TTD */}
-          <div className="mt-8 border-t border-slate-300 pt-4">
-            <div className="grid grid-cols-2 gap-8 text-[11px]">
-              <div className="text-center">
-                <p>Yang Menerima,</p>
-                <p>Pasien / Wali</p>
-                <div className="my-8" />
-                <p className="border-t border-slate-400 pt-1">( _________________________ )</p>
-              </div>
-              <div className="text-center">
-                <p>Dokter Penanggung Jawab,</p>
-                <p>{patient.dpjp}</p>
-                <div className="my-8" />
-                <p className="border-t border-slate-400 pt-1">( {patient.dpjp} )</p>
-                {data.resumePulang.dpjpApproved && (
-                  <p className="mt-1 text-[9px] text-emerald-600">Ditandatangani: {data.resumePulang.dpjpApprovedAt}</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
 // ── Main ──────────────────────────────────────────────────
 
 export default function ResumeMedisPane({ data, onChange, patient }: Props) {
-  const [showPrint, setShowPrint] = useState(false);
+  const isPersisted = UUID_RE.test(patient.id);
+  const { session } = useSession();
+  const canSignRole = !isPersisted ||
+    (!!session && (session.isSuperuser || session.isGlobal || session.roles.includes("Dokter")));
+
+  const [showPrint,  setShowPrint]  = useState(false);
+  const [saving,     setSaving]     = useState(false);
+  const [signing,    setSigning]    = useState(false);
+  const [diagnosaDb, setDiagnosaDb] = useState<IGDDiagnosa[]>([]);
+  // Saran autofill terkini (untuk tombol "Isi Otomatis" + badge field).
+  const [suggestion, setSuggestion] = useState<ResumePulangSuggestion | null>(null);
+
+  // Ref data terkini — patch async tidak menimpa ketikan user antar-render.
+  const dataRef = useRef(data);
+  useEffect(() => { dataRef.current = data; });
+
+  // ── Hydrate (pasien nyata): saved resume-pulang + saran autofill + status/obat/diagnosa ──
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    (async () => {
+      try {
+        const [agg, saved, anamnesis, disposisi] = await Promise.all([
+          fetchResumeAggregates(patient.id, ac.signal),
+          getResumePulang(patient.id, ac.signal).catch(() => null),
+          getAnamnesis(patient.id, ac.signal).catch(() => null),
+          getDisposisi(patient.id, ac.signal).catch(() => null),
+        ]);
+        if (ac.signal.aborted) return;
+        setDiagnosaDb(agg.diagnosa);
+        const sug = composeResumePulangSuggestion(agg, anamnesis, disposisi);
+        setSuggestion(sug);
+
+        const cur = dataRef.current;
+        const rp = { ...cur.resumePulang };
+        if (saved) {
+          rp.ringkasanAnamnesis  = saved.ringkasanAnamnesis;
+          rp.hasilPemeriksaan    = saved.hasilPemeriksaan;
+          rp.terapiDiberikan     = saved.terapiDiberikan;
+          rp.kondisiSaatPulang   = saved.kondisiSaatPulang;
+          rp.instruksiPulang     = saved.instruksiPulang;
+          rp.pembatasanAktivitas = saved.pembatasanAktivitas;
+          rp.dietPulang          = saved.dietPulang;
+          rp.tandaTanganPasien   = saved.tandaTanganPasien;
+          rp.dpjpApproved        = !!saved.tteSignedAt;
+          rp.dpjpApprovedAt      = saved.tteSignedAt ? fmtSignedAt(saved.tteSignedAt) : "";
+          rp.tteToken            = saved.tteToken;
+          rp.tteSignedBy         = saved.tteSignedBy;
+        }
+        // Prefill autofill fields yang KOSONG (saved / ketikan menang).
+        for (const k of AUTOFILL_KEYS) {
+          if (!rp[k].trim() && sug[k].trim()) rp[k] = sug[k];
+        }
+
+        // Root: status + tanggal/jam pulang (disposisi) + obat pulang (agg).
+        const rootPatch: Partial<PasienPulangData> = { obatPulang: agg.obatPulang };
+        if (disposisi) {
+          const d = new Date(disposisi.waktuKeluar);
+          if (!Number.isNaN(d.getTime())) {
+            const p = (n: number) => String(n).padStart(2, "0");
+            if (!cur.tanggalPulang) rootPatch.tanggalPulang = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+            if (!cur.jamPulang) rootPatch.jamPulang = `${p(d.getHours())}:${p(d.getMinutes())}`;
+          }
+          if (!cur.status) {
+            const map: Record<string, PasienPulangData["status"]> = {
+              Pulang: "Pulang Atas Saran Dokter", APS: "APS", Rujuk: "Dirujuk RS Lain", Meninggal: "Meninggal",
+            };
+            const s = map[disposisi.jenis];
+            if (s) rootPatch.status = s;
+          }
+        }
+        onChange({ ...cur, ...rootPatch, resumePulang: rp });
+      } catch { /* gagal → panel tetap tampil kosong */ }
+    })();
+    return () => ac.abort();
+    // dataRef stabil; deps cukup identitas kunjungan.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPersisted, patient.id]);
 
   function setResume<K extends keyof ResumeMedisRI>(key: K, val: ResumeMedisRI[K]) {
     onChange({ ...data, resumePulang: { ...data.resumePulang, [key]: val } });
   }
 
-  function handleApprove() {
-    const now = new Date().toLocaleDateString("id-ID", {
-      day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
-    });
-    onChange({ ...data, resumePulang: { ...data.resumePulang, dpjpApproved: true, dpjpApprovedAt: now } });
+  const rp = data.resumePulang;
+
+  // Isi Otomatis: timpa 4 field autofill dengan saran terkini (aksi eksplisit DPJP).
+  function handleAutofill() {
+    if (!suggestion) return;
+    const cur = dataRef.current;
+    const next = { ...cur.resumePulang };
+    let filled = 0;
+    for (const k of AUTOFILL_KEYS) {
+      if (suggestion[k].trim()) { next[k] = suggestion[k]; filled++; }
+    }
+    onChange({ ...cur, resumePulang: next });
+    toast.success("Terisi dari rekam medis", `${filled} bagian narasi diisi otomatis`);
   }
 
-  const hasDiagnosa = patient.diagnosa.length > 0;
-  const completions = checkResumeCompletion(data, hasDiagnosa);
-  const doneCount   = completions.filter(c => c.done).length;
-  const canPrint    = completions.every(c => c.done);
+  function buildInput(): ResumePulangInput {
+    return {
+      ringkasanAnamnesis: rp.ringkasanAnamnesis,
+      hasilPemeriksaan: rp.hasilPemeriksaan,
+      terapiDiberikan: rp.terapiDiberikan,
+      kondisiSaatPulang: rp.kondisiSaatPulang,
+      instruksiPulang: rp.instruksiPulang,
+      pembatasanAktivitas: rp.pembatasanAktivitas,
+      dietPulang: rp.dietPulang,
+      tandaTanganPasien: rp.tandaTanganPasien,
+    };
+  }
+
+  async function handleSave() {
+    if (!isPersisted || saving) return;
+    setSaving(true);
+    try {
+      const dto = await saveResumePulang(patient.id, buildInput());
+      const cur = dataRef.current;
+      onChange({ ...cur, resumePulang: { ...cur.resumePulang,
+        dpjpApproved: false, dpjpApprovedAt: "", tteToken: dto.tteToken, tteSignedBy: dto.tteSignedBy } });
+      toast.success("Resume pulang tersimpan", `Pencatat: ${dto.pencatat}`);
+    } catch (e) {
+      toast.error("Gagal menyimpan resume pulang", e instanceof ApiError ? e.message : undefined);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleApprove() {
+    if (!isPersisted) {
+      const now = new Date().toLocaleDateString("id-ID", {
+        day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
+      });
+      onChange({ ...data, resumePulang: { ...data.resumePulang, dpjpApproved: true, dpjpApprovedAt: now } });
+      return;
+    }
+    if (signing) return;
+    setSigning(true);
+    try {
+      await saveResumePulang(patient.id, buildInput()); // pastikan konten terkini yang ditandatangani
+      const dto = await signResumePulang(patient.id);
+      const cur = dataRef.current;
+      onChange({ ...cur, resumePulang: { ...cur.resumePulang,
+        dpjpApproved: true,
+        dpjpApprovedAt: dto.tteSignedAt ? fmtSignedAt(dto.tteSignedAt) : "",
+        tteToken: dto.tteToken, tteSignedBy: dto.tteSignedBy } });
+      toast.success("Resume pulang ditandatangani", dto.tteToken ?? undefined);
+    } catch (e) {
+      toast.error("Gagal menandatangani", e instanceof ApiError ? e.message : undefined);
+    } finally {
+      setSigning(false);
+    }
+  }
+
+  const diagnosaList = isPersisted ? diagnosaDb : patient.diagnosa;
+  const hasDiagnosa  = diagnosaList.length > 0;
+  const completions  = checkResumeCompletion(data, hasDiagnosa);
+  const doneCount    = completions.filter(c => c.done).length;
+  const canPrint     = completions.every(c => c.done);
+  const prereqSign   = completions.filter(c => c.id !== "c7").every(c => c.done);
+
+  // TTE untuk cetakan: serial server (persisted) / derivatif deterministik (demo).
+  const tteInfo: ResumePulangTte | null = rp.dpjpApproved
+    ? {
+        serial: rp.tteToken || tteSerial(`${patient.noRM}|${rp.dpjpApprovedAt}`, "TTE-RSP"),
+        signedBy: rp.tteSignedBy || patient.dpjp,
+        signedAt: rp.dpjpApprovedAt,
+      }
+    : null;
 
   return (
     <>
@@ -258,7 +278,7 @@ export default function ResumeMedisPane({ data, onChange, patient }: Props) {
             <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Diagnosa (dari Tab Diagnosa)</p>
             {hasDiagnosa ? (
               <div className="space-y-1.5">
-                {patient.diagnosa.map(d => (
+                {diagnosaList.map(d => (
                   <div key={d.id} className="flex items-start gap-2 text-xs">
                     <span className={cn(
                       "mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[8px] font-bold",
@@ -277,19 +297,39 @@ export default function ResumeMedisPane({ data, onChange, patient }: Props) {
             )}
           </div>
 
+          {/* Autofill banner (pasien nyata) */}
+          {isPersisted && suggestion && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5">
+              <div className="flex items-center gap-2">
+                <Sparkles size={14} className="shrink-0 text-emerald-500" />
+                <p className="text-[11px] text-emerald-800">
+                  Narasi Anamnesis · Penunjang · Terapi · Kondisi Pulang dapat diisi otomatis dari rekam medis.
+                </p>
+              </div>
+              <button
+                onClick={handleAutofill}
+                className="shrink-0 rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-emerald-700 active:scale-95"
+              >
+                Isi Otomatis dari Rekam Medis
+              </button>
+            </div>
+          )}
+
           {/* Manual sections */}
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Anamnesis & Pemeriksaan</p>
             <div className="space-y-3">
               <FormArea
                 label="Anamnesis Singkat & Pemeriksaan Fisik" rows={4}
-                value={data.resumePulang.ringkasanAnamnesis}
+                autoFilled={isPersisted && rp.ringkasanAnamnesis.trim().length > 0}
+                value={rp.ringkasanAnamnesis}
                 onChange={v => setResume("ringkasanAnamnesis", v)}
                 placeholder="Keluhan masuk, riwayat singkat, pemeriksaan fisik bermakna saat masuk..."
               />
               <FormArea
                 label="Hasil Penunjang Bermakna" rows={3}
-                value={data.resumePulang.hasilPemeriksaan}
+                autoFilled={isPersisted && rp.hasilPemeriksaan.trim().length > 0}
+                value={rp.hasilPemeriksaan}
                 onChange={v => setResume("hasilPemeriksaan", v)}
                 placeholder="Lab, radiologi, dan pemeriksaan khusus yang bermakna..."
               />
@@ -300,14 +340,16 @@ export default function ResumeMedisPane({ data, onChange, patient }: Props) {
             <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Terapi & Kondisi Pulang</p>
             <div className="space-y-3">
               <FormArea
-                label="Terapi yang Diberikan *" rows={3} required
-                value={data.resumePulang.terapiDiberikan}
+                label="Terapi yang Diberikan" rows={3} required
+                autoFilled={isPersisted && rp.terapiDiberikan.trim().length > 0}
+                value={rp.terapiDiberikan}
                 onChange={v => setResume("terapiDiberikan", v)}
                 placeholder="Obat, tindakan, prosedur, konsultasi yang dilakukan selama rawat inap..."
               />
               <FormArea
-                label="Kondisi Saat Pulang *" rows={3} required
-                value={data.resumePulang.kondisiSaatPulang}
+                label="Kondisi Saat Pulang" rows={3} required
+                autoFilled={isPersisted && rp.kondisiSaatPulang.trim().length > 0}
+                value={rp.kondisiSaatPulang}
                 onChange={v => setResume("kondisiSaatPulang", v)}
                 placeholder="Kondisi objektif pasien saat pulang (TTV, keluhan, status fungsional)..."
               />
@@ -318,20 +360,20 @@ export default function ResumeMedisPane({ data, onChange, patient }: Props) {
             <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Instruksi & Diet</p>
             <div className="space-y-3">
               <FormArea
-                label="Instruksi & Anjuran Pulang *" rows={4} required
-                value={data.resumePulang.instruksiPulang}
+                label="Instruksi & Anjuran Pulang" rows={4} required
+                value={rp.instruksiPulang}
                 onChange={v => setResume("instruksiPulang", v)}
                 placeholder="Instruksi kepulangan, anjuran, tanda bahaya yang harus segera ke RS..."
               />
               <FormArea
                 label="Pembatasan Aktivitas" rows={2}
-                value={data.resumePulang.pembatasanAktivitas}
+                value={rp.pembatasanAktivitas}
                 onChange={v => setResume("pembatasanAktivitas", v)}
                 placeholder="Aktivitas yang diperbolehkan / dibatasi..."
               />
               <FormArea
                 label="Diet Pulang" rows={2}
-                value={data.resumePulang.dietPulang}
+                value={rp.dietPulang}
                 onChange={v => setResume("dietPulang", v)}
                 placeholder="Anjuran diet di rumah..."
               />
@@ -386,35 +428,63 @@ export default function ResumeMedisPane({ data, onChange, patient }: Props) {
             </div>
           </div>
 
+          {/* Simpan draft (pasien nyata) */}
+          {isPersisted && (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className={cn(
+                "flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-[11px] font-bold transition",
+                saving
+                  ? "cursor-wait border-slate-200 bg-slate-50 text-slate-400"
+                  : "border-orange-300 bg-white text-orange-700 hover:bg-orange-50 active:scale-95",
+              )}
+            >
+              <Save size={12} />
+              {saving ? "Menyimpan…" : "Simpan Resume (Draft)"}
+            </button>
+          )}
+
           {/* DPJP sign-off */}
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">TTD DPJP</p>
-            {data.resumePulang.dpjpApproved ? (
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">TTD DPJP (TTE)</p>
+            {rp.dpjpApproved ? (
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
                 <div className="flex items-center gap-2">
-                  <ShieldCheck size={14} className="text-emerald-500" />
-                  <div>
-                    <p className="text-[11px] font-bold text-emerald-800">Ditandatangani</p>
-                    <p className="text-[10px] text-emerald-600">{data.resumePulang.dpjpApprovedAt}</p>
+                  <ShieldCheck size={14} className="shrink-0 text-emerald-500" />
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold text-emerald-800">Ditandatangani Elektronik</p>
+                    <p className="text-[10px] text-emerald-600">{rp.dpjpApprovedAt}</p>
+                    {rp.tteToken && (
+                      <p className="mt-0.5 truncate font-mono text-[9px] font-semibold text-emerald-700">{rp.tteToken}</p>
+                    )}
+                    {rp.tteSignedBy && <p className="text-[9px] text-emerald-600">oleh {rp.tteSignedBy}</p>}
                   </div>
                 </div>
+                {isPersisted && (
+                  <p className="mt-2 border-t border-emerald-100 pt-1.5 text-[9px] text-emerald-600/80">
+                    Perubahan isi setelah TTD membuat revisi baru — perlu simpan &amp; tanda tangan ulang.
+                  </p>
+                )}
               </div>
             ) : (
-              <button
-                onClick={handleApprove}
-                disabled={!completions.filter(c => c.id !== "c7").every(c => c.done)}
-                className={cn(
-                  "w-full rounded-xl py-2.5 text-[11px] font-bold transition",
-                  completions.filter(c => c.id !== "c7").every(c => c.done)
-                    ? "bg-orange-500 text-white hover:bg-orange-600 active:scale-95"
-                    : "cursor-not-allowed bg-slate-100 text-slate-400",
+              <>
+                <button
+                  onClick={handleApprove}
+                  disabled={!prereqSign || signing || !canSignRole}
+                  className={cn(
+                    "w-full rounded-xl py-2.5 text-[11px] font-bold transition",
+                    prereqSign && !signing && canSignRole
+                      ? "bg-orange-500 text-white hover:bg-orange-600 active:scale-95"
+                      : "cursor-not-allowed bg-slate-100 text-slate-400",
+                  )}
+                >
+                  {signing ? "Menandatangani…" : prereqSign ? "Tandatangani Resume Pulang" : "Lengkapi data terlebih dahulu"}
+                </button>
+                {!canSignRole && (
+                  <p className="mt-1.5 text-center text-[9px] text-amber-600">Tanda tangan hanya oleh DPJP (Dokter)</p>
                 )}
-              >
-                {completions.filter(c => c.id !== "c7").every(c => c.done)
-                  ? "Tandatangani Resume Pulang"
-                  : "Lengkapi data terlebih dahulu"
-                }
-              </button>
+              </>
             )}
           </div>
 
@@ -446,19 +516,23 @@ export default function ResumeMedisPane({ data, onChange, patient }: Props) {
           <div className="rounded-xl border border-orange-100 bg-orange-50 p-3">
             <p className="text-[10px] font-semibold text-orange-700">Dokumen Pasien</p>
             <p className="mt-1 text-[10px] text-orange-600">
-              Resume Pulang adalah salinan untuk pasien berisi instruksi, obat, dan jadwal kontrol. Untuk kelengkapan klaim BPJS, gunakan tab Resume Medik.
+              Resume Pulang adalah salinan untuk pasien berisi instruksi, obat, dan jadwal kontrol.
+              Cetakan memuat QR tanda tangan elektronik (TTE) DPJP. Untuk klaim BPJS gunakan tab Resume Medik.
             </p>
           </div>
 
         </div>
       </div>
 
-      {/* Print modal */}
-      <AnimatePresence>
-        {showPrint && (
-          <PrintPreviewModal data={data} patient={patient} onClose={() => setShowPrint(false)} />
-        )}
-      </AnimatePresence>
+      {/* Cetak A4 + QR TTE */}
+      <ResumePulangCetakModal
+        open={showPrint}
+        onClose={() => setShowPrint(false)}
+        data={data}
+        patient={patient}
+        diagnosa={diagnosaList}
+        tte={tteInfo}
+      />
     </>
   );
 }

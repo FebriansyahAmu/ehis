@@ -67,6 +67,9 @@ export interface ResumeMedisRI {
   tandaTanganPasien:   boolean;
   dpjpApproved:        boolean;
   dpjpApprovedAt:      string;
+  // TTE server (pasien nyata) — serial + penanda tangan, dipakai QR pada cetakan.
+  tteToken?:    string | null;
+  tteSignedBy?: string | null;
 }
 
 // ── Resume Medik (kelengkapan RM + klaim BPJS) ────────────

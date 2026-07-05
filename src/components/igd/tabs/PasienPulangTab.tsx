@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   HeartOff, CheckCircle2, Clock, User, Stethoscope, FileText,
-  Calendar, ClipboardCheck, Check, Printer, Send, Plus, X,
+  Calendar, ClipboardCheck, Check, Printer, Send, Plus, X, Pill,
 } from "lucide-react";
 import type { DisposisiInput, SpriInput } from "@/lib/schemas/disposisi/disposisi";
 import { nowInputValue } from "@/components/shared/inputs/DateTimePicker";
@@ -52,6 +52,132 @@ const SKY: IcdSearchAccent = {
   kodeText: "text-sky-600",
   badge: "bg-sky-50 text-sky-600",
 };
+
+// ── Widget ringkasan pemulangan (live, dari field yang sudah diisi) ─────────────
+
+function RingkasanPulang({
+  patient, statusPulang, statusLabel, dokter, waktuLabel, diagnosaLabels, catatan, sembuhData, apsData,
+}: {
+  patient: PulangPatient;
+  statusPulang: StatusPulang;
+  statusLabel: string;
+  dokter: string;
+  waktuLabel: string;
+  diagnosaLabels: string[];
+  catatan: string;
+  sembuhData: { instruksi: string; obatPulang: string };
+  apsData: { alasan: string; edukasi: string; penandatangan: string; hubungan: string };
+}) {
+  const isMeninggal = statusPulang === "Meninggal";
+  const isSembuh    = statusPulang === "Sembuh" || statusPulang === "Membaik";
+  const isAps       = statusPulang === "APS";
+
+  // Meninggal bukan "pulang" → nada slate; selain itu hijau (emerald) sesuai permintaan.
+  const tone = isMeninggal
+    ? { wrap: "border-slate-300 bg-slate-50", chipIcon: "bg-slate-700 text-slate-100", head: "text-slate-700",
+        label: "text-slate-500", val: "text-slate-800", icon: "text-slate-400", desc: "text-slate-600",
+        chip: "bg-slate-200 text-slate-600", divider: "border-slate-200" }
+    : { wrap: "border-emerald-200 bg-emerald-50", chipIcon: "bg-emerald-500 text-white", head: "text-emerald-800",
+        label: "text-emerald-600/70", val: "text-emerald-900", icon: "text-emerald-500", desc: "text-emerald-800",
+        chip: "bg-white text-emerald-700 ring-1 ring-emerald-200", divider: "border-emerald-100" };
+
+  const jk = patient.gender === "L" ? "Laki-laki" : "Perempuan";
+  const waktuTxt = waktuLabel && waktuLabel !== "—" ? ` pada ${waktuLabel}` : "";
+  const desc = isMeninggal
+    ? `${patient.name} (${patient.noRM} · ${patient.age} thn) dinyatakan meninggal${dokter ? `, dicatat oleh ${dokter}` : ""}${waktuTxt}.`
+    : `${patient.name} (${patient.noRM} · ${patient.age} thn, ${jk}) dinyatakan ${statusLabel.toLowerCase()} dan diizinkan pulang${dokter ? ` oleh ${dokter}` : ""}${waktuTxt}.`;
+
+  return (
+    <div className={cn("overflow-hidden rounded-xl border shadow-sm", tone.wrap)}>
+      {/* Header + deskripsi */}
+      <div className="flex items-start gap-2.5 px-4 pt-3">
+        <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", tone.chipIcon)}>
+          {isMeninggal ? <HeartOff size={15} /> : <CheckCircle2 size={15} />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className={cn("text-[10px] font-bold uppercase tracking-widest", tone.label)}>
+            {isMeninggal ? "Ringkasan Kepulangan" : "Pasien Pulang — Ringkasan"}
+          </p>
+          <p className={cn("text-sm font-bold leading-tight", tone.head)}>{statusLabel}</p>
+        </div>
+      </div>
+      <p className={cn("px-4 pt-2 text-[12px] leading-relaxed", tone.desc)}>{desc}</p>
+
+      {/* Detail grid */}
+      <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3">
+        {[
+          { icon: Stethoscope, label: "Dokter Pemulang", value: dokter || "—" },
+          { icon: Clock,       label: isMeninggal ? "Waktu Meninggal" : "Waktu Pulang", value: waktuLabel },
+          { icon: FileText,    label: "Diagnosa Keluar", value: `${diagnosaLabels.length} diagnosa` },
+        ].map(({ icon: Icon, label, value }) => (
+          <div key={label} className="flex items-start gap-2">
+            <Icon size={13} className={cn("mt-0.5 shrink-0", tone.icon)} />
+            <div className="min-w-0">
+              <p className={cn("text-[9px] font-bold uppercase tracking-wide", tone.label)}>{label}</p>
+              <p className={cn("truncate text-[12px] font-semibold", tone.val)}>{value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Diagnosa chips */}
+      {diagnosaLabels.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 px-4 pb-3">
+          {diagnosaLabels.map((d, i) => (
+            <span key={`${d}-${i}`} className={cn("rounded-md px-2 py-0.5 text-[10.5px] font-medium", tone.chip)}>{d}</span>
+          ))}
+        </div>
+      )}
+
+      {/* Sembuh/Membaik: instruksi + obat pulang */}
+      {isSembuh && (sembuhData.instruksi.trim() || sembuhData.obatPulang.trim()) && (
+        <div className={cn("space-y-2 border-t px-4 py-3", tone.divider)}>
+          {sembuhData.instruksi.trim() && (
+            <div>
+              <p className={cn("text-[9px] font-bold uppercase tracking-wide", tone.label)}>Instruksi Pulang</p>
+              <p className={cn("whitespace-pre-wrap text-[11.5px]", tone.val)}>{sembuhData.instruksi.trim()}</p>
+            </div>
+          )}
+          {sembuhData.obatPulang.trim() && (
+            <div className="flex items-start gap-2">
+              <Pill size={13} className={cn("mt-0.5 shrink-0", tone.icon)} />
+              <div className="min-w-0">
+                <p className={cn("text-[9px] font-bold uppercase tracking-wide", tone.label)}>Obat Dibawa Pulang</p>
+                <p className={cn("whitespace-pre-wrap text-[11.5px]", tone.val)}>{sembuhData.obatPulang.trim()}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* APS: alasan + penandatangan */}
+      {isAps && (apsData.alasan.trim() || apsData.penandatangan.trim()) && (
+        <div className={cn("space-y-1.5 border-t px-4 py-3", tone.divider)}>
+          {apsData.alasan.trim() && (
+            <div>
+              <p className={cn("text-[9px] font-bold uppercase tracking-wide", tone.label)}>Alasan APS</p>
+              <p className={cn("text-[11.5px]", tone.val)}>{apsData.alasan.trim()}</p>
+            </div>
+          )}
+          {apsData.penandatangan.trim() && (
+            <p className={cn("text-[11px]", tone.val)}>
+              Ditandatangani: <span className="font-semibold">{apsData.penandatangan.trim()}</span>
+              {apsData.hubungan.trim() ? ` (${apsData.hubungan.trim()})` : ""}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Catatan penutup */}
+      {catatan.trim() && (
+        <div className={cn("border-t px-4 py-3", tone.divider)}>
+          <p className={cn("text-[9px] font-bold uppercase tracking-wide", tone.label)}>Catatan Penutup</p>
+          <p className={cn("whitespace-pre-wrap text-[11.5px]", tone.val)}>{catatan.trim()}</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Main component ─────────────────────────────────────────────
 
@@ -134,6 +260,12 @@ export default function PasienPulangTab({
   const removeExtraDiag = (i: number) =>
     setExtraDiagnosa((p) => p.filter((_, idx) => idx !== i));
 
+  // Label diagnosa keluar (RM terpilih + tambahan manual) — dipakai widget ringkasan & submit.
+  const diagnosaLabels = useMemo(() => [
+    ...patient.diagnosa.filter((d) => diagnosaKeluar.includes(d.id)).map((d) => `${d.kodeIcd10} ${d.namaDiagnosis}`),
+    ...extraDiagnosa,
+  ], [patient.diagnosa, diagnosaKeluar, extraDiagnosa]);
+
   const canSubmit =
     statusPulang !== null &&
     waktuPulang !== "" &&
@@ -145,12 +277,6 @@ export default function PasienPulangTab({
   async function handleSubmit() {
     if (!canSubmit || saving) return;
     if (!onComplete) { setSubmitted(true); return; }
-    const diagnosaLabels = [
-      ...patient.diagnosa
-        .filter((d) => diagnosaKeluar.includes(d.id))
-        .map((d) => `${d.kodeIcd10} ${d.namaDiagnosis}`),
-      ...extraDiagnosa,
-    ];
     const isSembuhMembaik = statusPulang === "Sembuh" || statusPulang === "Membaik";
     const isAps = statusPulang === "APS";
     const disposisi: DisposisiInput = {
@@ -519,6 +645,21 @@ export default function PasienPulangTab({
           </div>
         ) : null}
       </div>
+
+      {/* ── Widget ringkasan pemulangan (hijau, live dari field terisi) ── */}
+      {statusPulang && (
+        <RingkasanPulang
+          patient={patient}
+          statusPulang={statusPulang}
+          statusLabel={STATUS_OPTIONS.find((s) => s.id === statusPulang)?.label ?? statusPulang}
+          dokter={dokterPulang}
+          waktuLabel={waktuLabel}
+          diagnosaLabels={diagnosaLabels}
+          catatan={catatanUmum}
+          sembuhData={sembuhData}
+          apsData={apsData}
+        />
+      )}
 
       {/* ── Sticky footer ── */}
       <div

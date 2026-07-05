@@ -2739,3 +2739,45 @@ model ResumeMedik {
   @@map("resume_medik")
   @@schema("medicalrecord")
 }
+
+// ── Resume Pulang Rawat Inap (tab Pasien Pulang — sub Resume Pulang) ─────────
+// Salinan discharge summary UNTUK PASIEN (PMK 24/2022). Append-only "latest wins"
+// per kunjungan. Narasi bebas (bukan snapshot terstruktur — teks = rekam medikolegal):
+// autofill FE mengkomposisi saran dari domain hidup (anamnesis · lab/rad · resep/tindakan ·
+// TTV pulang) → DPJP suntingan sebelum simpan. TTE sign-off DPJP stamp SEKALI per revisi
+// (guard tte_signed_at IS NULL; Dokter-only di Service). tandaTanganPasien = ack pasien/wali.
+
+model ResumePulang {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  // ── Narasi (autofill-able + DPJP edit) ──
+  ringkasanAnamnesis  String @default("") @map("ringkasan_anamnesis")   // ← anamnesis
+  hasilPemeriksaan    String @default("") @map("hasil_pemeriksaan")     // ← lab/rad penunjang
+  terapiDiberikan     String @default("") @map("terapi_diberikan")      // ← resep + tindakan
+  kondisiSaatPulang   String @default("") @map("kondisi_saat_pulang")   // ← TTV pulang + disposisi
+  // ── Narasi manual ──
+  instruksiPulang     String @default("") @map("instruksi_pulang")
+  pembatasanAktivitas String @default("") @map("pembatasan_aktivitas")
+  dietPulang          String @default("") @map("diet_pulang")
+
+  tandaTanganPasien Boolean @default(false) @map("tanda_tangan_pasien")
+
+  // ── Pencatat/author (dari actor login) ──
+  pencatat        String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  // ── TTE sign-off DPJP (stamp sekali per revisi; guard tte_signed_at IS NULL) ──
+  tteToken    String?   @map("tte_token")
+  tteSignedBy String?   @map("tte_signed_by")
+  tteSignedAt DateTime? @map("tte_signed_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, createdAt]) // latest-wins per kunjungan
+  @@map("resume_pulang")
+  @@schema("medicalrecord")
+}

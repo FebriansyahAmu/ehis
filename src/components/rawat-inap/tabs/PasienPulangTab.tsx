@@ -1,13 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CalendarCheck, ClipboardList, FileCheck2, FileText, LogOut,
-  Pill, type LucideIcon,
+  Pill, CheckCircle2, HeartOff, Stethoscope, Clock, type LucideIcon,
 } from "lucide-react";
 import type { RawatInapPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { getDisposisi, type DisposisiDTO } from "@/lib/api/disposisi/disposisi";
 import {
   type PasienPulangData,
   PASIEN_PULANG_MOCK,
@@ -41,6 +42,76 @@ const TABS: TabDef[] = [
   { id: "resume-pulang", label: "Resume Pulang",  icon: FileText      },
 ];
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// ── Banner "Pasien Sudah Dipulangkan" (dari disposisi persisted) ──────────────
+
+const JENIS_BANNER: Record<DisposisiDTO["jenis"], { label: string; meninggal?: boolean }> = {
+  Pulang:     { label: "Pulang Atas Saran Dokter" },
+  APS:        { label: "Pulang Atas Permintaan Sendiri (APS)" },
+  Rujuk:      { label: "Dirujuk ke RS Lain" },
+  Meninggal:  { label: "Meninggal", meninggal: true },
+  Rawat_Inap: { label: "Rawat Inap" },
+};
+
+function fmtWaktuKeluar(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString("id-ID", {
+    day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+}
+
+function DischargedBanner({ disposisi }: { disposisi: DisposisiDTO }) {
+  const cfg = JENIS_BANNER[disposisi.jenis];
+  const isMeninggal = !!cfg.meninggal;
+  const tone = isMeninggal
+    ? { wrap: "border-slate-300 bg-slate-100", icon: "bg-slate-700 text-slate-100", head: "text-slate-800", sub: "text-slate-500", val: "text-slate-700" }
+    : { wrap: "border-emerald-300 bg-emerald-50", icon: "bg-emerald-500 text-white", head: "text-emerald-800", sub: "text-emerald-600/80", val: "text-emerald-800" };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+      className={cn("shrink-0 border-b px-4 py-2.5", tone.wrap)}
+    >
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex items-center gap-2.5">
+          <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", tone.icon)}>
+            {isMeninggal ? <HeartOff size={15} /> : <CheckCircle2 size={15} />}
+          </span>
+          <div className="min-w-0">
+            <p className={cn("text-[10px] font-bold uppercase tracking-widest", tone.sub)}>
+              {isMeninggal ? "Kunjungan Selesai" : "Pasien Sudah Dipulangkan"}
+            </p>
+            <p className={cn("text-sm font-bold leading-tight", tone.head)}>{cfg.label}</p>
+          </div>
+        </div>
+
+        <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span className="flex items-center gap-1.5">
+            <Clock size={12} className={tone.sub} />
+            <span className={cn("text-[11px] font-medium", tone.val)}>{fmtWaktuKeluar(disposisi.waktuKeluar)}</span>
+          </span>
+          {disposisi.dokter && (
+            <span className="flex items-center gap-1.5">
+              <Stethoscope size={12} className={tone.sub} />
+              <span className={cn("text-[11px] font-medium", tone.val)}>{disposisi.dokter}</span>
+            </span>
+          )}
+          {disposisi.diagnosaKeluar.length > 0 && (
+            <span className="flex items-center gap-1.5">
+              <FileText size={12} className={tone.sub} />
+              <span className={cn("text-[11px] font-medium", tone.val)}>{disposisi.diagnosaKeluar.length} diagnosa keluar</span>
+            </span>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 // ── Header ────────────────────────────────────────────────
 
 function PasienPulangHeader({ data }: { data: PasienPulangData }) {
@@ -49,14 +120,6 @@ function PasienPulangHeader({ data }: { data: PasienPulangData }) {
   return (
     <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-3">
       <div className="flex flex-wrap items-center gap-3">
-
-        {/* Phase banner */}
-        <div className="flex items-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-1.5">
-          <span className="rounded-full bg-orange-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
-            Fase 4
-          </span>
-          <span className="text-[11px] font-semibold text-orange-800">Hari Pulang · PMK 24/2022</span>
-        </div>
 
         {/* Status kepulangan chip */}
         {statusCfg && data.status && (
@@ -117,6 +180,27 @@ export default function PasienPulangTab({
 
   const [data,      setData]      = useState<PasienPulangData>(initial);
   const [activeTab, setActiveTab] = useState<TabId>("obat");
+  // Disposisi persisted (transisi complete) → banner "sudah dipulangkan" lintas sub-tab.
+  const [disposisi, setDisposisi] = useState<DisposisiDTO | null>(null);
+
+  useEffect(() => {
+    if (!UUID_RE.test(patient.id)) return;
+    const ac = new AbortController();
+    getDisposisi(patient.id, ac.signal)
+      .then((d) => { if (!ac.signal.aborted) setDisposisi(d); })
+      .catch(() => { /* belum diselesaikan → banner tak tampil */ });
+    return () => ac.abort();
+  }, [patient.id]);
+
+  // Bungkus onComplete: setelah selesai → refetch disposisi agar banner hijau muncul segera.
+  const handleComplete: DisposisiCompleteFn | undefined = onComplete
+    ? async (disp, waktu) => {
+        await onComplete(disp, waktu);
+        if (UUID_RE.test(patient.id)) {
+          getDisposisi(patient.id).then(setDisposisi).catch(() => {});
+        }
+      }
+    : undefined;
 
   // Adapter RI → potongan pasien yang dibutuhkan form disposisi (reuse form IGD, tanpa fork).
   const pulangPatient: PulangPatient = useMemo(() => ({
@@ -141,6 +225,9 @@ export default function PasienPulangTab({
 
       {/* Header */}
       <PasienPulangHeader data={data} />
+
+      {/* Banner hijau "Pasien Sudah Dipulangkan" — muncul saat disposisi persisted */}
+      {disposisi && <DischargedBanner disposisi={disposisi} />}
 
       {/* BL6.2 — Discharge gate: sisa tagihan banner (reactive via billingStore) */}
       <BillingGateBanner noRM={patient.noRM} />
@@ -182,7 +269,7 @@ export default function PasienPulangTab({
               transition={{ duration: 0.15, ease: "easeOut" }}
             >
               {activeTab === "status" && (
-                <DisposisiPane patient={pulangPatient} excludeStatus={["Rawat_Inap"]} onComplete={onComplete} />
+                <DisposisiPane patient={pulangPatient} excludeStatus={["Rawat_Inap"]} onComplete={handleComplete} />
               )}
               {activeTab === "obat" && (
                 <ObatJadwalPane data={data} onChange={setData} patient={patient} />
