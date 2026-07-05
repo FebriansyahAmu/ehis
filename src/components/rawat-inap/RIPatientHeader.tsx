@@ -46,6 +46,7 @@ const STATUS_CFG: Record<RIStatus, {
   "Kritis":          { stripe: "bg-rose-600",   topBarBg: "bg-rose-50/60",    identityWash: "from-rose-50/40",    avatarRing: "ring-rose-400",   badge: "bg-rose-100 text-rose-700 ring-1 ring-rose-200",         icon: AlertTriangle, pulse: true },
   "Pulang Hari Ini": { stripe: "bg-amber-500",  topBarBg: "bg-amber-50/40",   identityWash: "from-amber-50/25",   avatarRing: "ring-amber-200",  badge: "bg-amber-100 text-amber-700 ring-1 ring-amber-200",      icon: LogOut        },
   "Konsultasi":      { stripe: "bg-violet-500", topBarBg: "bg-violet-50/40",  identityWash: "from-violet-50/25",  avatarRing: "ring-violet-200", badge: "bg-violet-100 text-violet-700 ring-1 ring-violet-200",   icon: MessageSquare },
+  "Selesai":         { stripe: "bg-slate-400",  topBarBg: "bg-slate-50/60",   identityWash: "from-slate-100/40",  avatarRing: "ring-slate-300",  badge: "bg-slate-200 text-slate-600 ring-1 ring-slate-300",      icon: CheckCircle2  },
 };
 
 // ── Vital helpers ─────────────────────────────────────────

@@ -1071,7 +1071,7 @@ export const patientMasterData: Record<string, PatientMaster> = {
 
 // ── Rawat Inap types & mock data ──────────────────────────
 
-export type RIStatus   = "Aktif" | "Observasi" | "Kritis" | "Pulang Hari Ini" | "Konsultasi";
+export type RIStatus   = "Aktif" | "Observasi" | "Kritis" | "Pulang Hari Ini" | "Konsultasi" | "Selesai";
 export type RIPenjamin = "BPJS_PBI" | "BPJS_Non_PBI" | "Umum" | "Asuransi" | "Jamkesda";
 export type RIKelas    = "VIP" | "Kelas_1" | "Kelas_2" | "Kelas_3" | "ICU" | "HCU" | "Isolasi";
 

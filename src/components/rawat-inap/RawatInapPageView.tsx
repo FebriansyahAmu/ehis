@@ -29,7 +29,8 @@ const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name ===
 const KELAS_SET = new Set<RIKelas>(["VIP", "Kelas_1", "Kelas_2", "Kelas_3", "ICU", "HCU", "Isolasi"]);
 
 interface Data {
-  patients: RawatInapPatient[];
+  patients: RawatInapPatient[]; // census: aktif + selesai terkini (agar bisa difilter)
+  aktifCount: number;           // pasien benar-benar aktif (InService/Queued)
   orders: RIOrder[];
   bedItems: BedItem[];
   rooms: LocationNode[];
@@ -45,8 +46,10 @@ export function RawatInapPageView() {
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
-      const [worklist, tree, allocs, dokter] = await Promise.all([
+      const [worklist, completedWl, tree, allocs, dokter] = await Promise.all([
         listKunjungan({ unit: "RawatInap", limit: 50 }, signal),
+        // Pasien yang sudah selesai (terkini) → census read-only + bisa difilter "Selesai".
+        listKunjungan({ unit: "RawatInap", status: "Completed", limit: 30 }, signal).catch(() => ({ items: [], cursor: null })),
         getTree(signal),
         listActiveBedAllocations(undefined, signal),
         listDokter({ status: "Aktif", limit: 200 }, signal).catch(() => ({ items: [] })),
@@ -65,12 +68,14 @@ export function RawatInapPageView() {
       const L: Lookups = { roomById, bedByIdCode, allocByKunjungan, dokterById };
 
       // Order masuk = belum diterima bangsal (Registered, bed direservasi admisi).
-      // Census = sudah diterima / dalam perawatan (InService/Queued).
+      // Census aktif = sudah diterima / dalam perawatan (InService/Queued).
       const orders = worklist.items.filter((k) => k.status === "Registered").map((k) => toOrder(k, L));
-      const patients = worklist.items.filter((k) => k.status !== "Registered").map((k) => toPatient(k, L));
+      const aktifPatients = worklist.items.filter((k) => k.status !== "Registered").map((k) => toPatient(k, L));
+      const selesaiPatients = completedWl.items.map((k) => toPatient(k, L));
+      const patients = [...aktifPatients, ...selesaiPatients];
       const bedItems = buildBedItems(rooms, allocByBed);
-      const masukHariIni = worklist.items.filter((k) => isToday(k.waktuKunjungan)).length;
-      if (!signal?.aborted) setData({ patients, orders, bedItems, rooms, masukHariIni });
+      const masukHariIni = [...worklist.items, ...completedWl.items].filter((k) => isToday(k.waktuKunjungan)).length;
+      if (!signal?.aborted) setData({ patients, aktifCount: aktifPatients.length, orders, bedItems, rooms, masukHariIni });
     } catch (e) {
       if (!isAbort(e) && !signal?.aborted) setError(true);
       throw e;
@@ -149,7 +154,7 @@ export function RawatInapPageView() {
           {/* Stats — nyata dari DB */}
           <section className="animate-fade-in grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6" style={{ animationDelay: "60ms" }}>
             <BORGauge value={beds.bor} />
-            <StatCard label="Pasien Aktif" value={data.patients.length} sub="dirawat saat ini" icon={Users} />
+            <StatCard label="Pasien Aktif" value={data.aktifCount} sub="dirawat saat ini" icon={Users} />
             <StatCard label="Masuk Hari Ini" value={data.masukHariIni} sub="admisi baru" icon={ArrowDownToLine} variant="info" />
             <StatCard label="Bed Terisi" value={beds.occupied} sub={`+${beds.reserved} dipesan`} icon={BedSingle} variant={beds.bor >= 85 ? "critical" : "default"} />
             <StatCard label="Bed Tersedia" value={beds.available} sub={`dari ${beds.active} aktif`} icon={BedDouble} variant="success" />
@@ -172,7 +177,12 @@ export function RawatInapPageView() {
           <section className="animate-fade-in" style={{ animationDelay: "180ms" }}>
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm font-bold text-slate-700">Daftar Pasien Rawat Inap</p>
-              <p className="text-[11px] text-slate-400">{data.patients.length} pasien teradmisi</p>
+              <p className="text-[11px] text-slate-500">
+                {data.aktifCount} aktif
+                {data.patients.length - data.aktifCount > 0 && (
+                  <> · <span className="text-slate-400">{data.patients.length - data.aktifCount} selesai</span></>
+                )}
+              </p>
             </div>
             {data.patients.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 py-16 text-center">
@@ -211,7 +221,10 @@ function toPatient(k: KunjunganListItemDTO, L: Lookups): RawatInapPatient {
     : k.kelas && KELAS_SET.has(k.kelas as RIKelas) ? (k.kelas as RIKelas) : "Kelas_3";
 
   // Lifecycle kunjungan → status board (klinis Kritis/Observasi belum terderivasi dari worklist).
-  const status: RIStatus = k.selesaiAt && isToday(k.selesaiAt) ? "Pulang Hari Ini" : "Aktif";
+  // selesaiAt terisi = kunjungan sudah diselesaikan: hari ini → "Pulang Hari Ini", lebih lama → "Selesai".
+  const status: RIStatus = k.selesaiAt
+    ? (isToday(k.selesaiAt) ? "Pulang Hari Ini" : "Selesai")
+    : "Aktif";
 
   return {
     id: k.id,

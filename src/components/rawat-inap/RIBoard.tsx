@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, BedDouble, Stethoscope, Clock, StickyNote,
-  AlertTriangle, LogOut, ChevronLeft, ChevronRight, CalendarDays, X, ArrowLeftRight,
+  AlertTriangle, LogOut, ChevronLeft, ChevronRight, CalendarDays, X, ArrowLeftRight, CheckCircle2,
 } from "lucide-react";
 import type { RawatInapPatient, RIStatus, RIKelas, RIPenjamin } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { Select, type SelectOption } from "@/components/shared/inputs/Select";
 
 // ── Config ────────────────────────────────────────────────
 
@@ -20,6 +21,7 @@ const STATUS_CFG: Record<RIStatus, { label: string; badge: string; border: strin
   Kritis:            { label: "Kritis",          badge: "bg-rose-100 text-rose-700",       border: "border-l-rose-500"    },
   "Pulang Hari Ini": { label: "Pulang Hari Ini", badge: "bg-emerald-100 text-emerald-700", border: "border-l-emerald-500" },
   Konsultasi:        { label: "Konsultasi",      badge: "bg-indigo-100 text-indigo-700",   border: "border-l-indigo-400"  },
+  Selesai:           { label: "Selesai",         badge: "bg-slate-200 text-slate-700",     border: "border-l-slate-500"   },
 };
 
 const ACTIVE_STATUS_BTN: Record<RIStatus | "Semua", string> = {
@@ -29,6 +31,7 @@ const ACTIVE_STATUS_BTN: Record<RIStatus | "Semua", string> = {
   Observasi:         "bg-amber-500 text-white border-amber-500",
   Konsultasi:        "bg-indigo-600 text-white border-indigo-600",
   "Pulang Hari Ini": "bg-emerald-600 text-white border-emerald-600",
+  Selesai:           "bg-slate-700 text-white border-slate-700",
 };
 
 const KELAS_LABEL: Record<RIKelas, string> = {
@@ -59,9 +62,15 @@ const PENJAMIN_LABEL: Record<RIPenjamin, string> = {
   Umum: "Umum", Asuransi: "Asuransi", Jamkesda: "Jamkesda",
 };
 
+// Chip status = HANYA yang benar-benar terderivasi dari worklist DB. Kritis/Observasi/
+// Konsultasi belum diturunkan (butuh sinyal klinis) → tak ditampilkan agar chip tak "mati".
 const ALL_STATUSES: (RIStatus | "Semua")[] = [
-  "Semua", "Aktif", "Kritis", "Observasi", "Konsultasi", "Pulang Hari Ini",
+  "Semua", "Aktif", "Pulang Hari Ini", "Selesai",
 ];
+
+// Kunjungan sudah selesai (discharged) — "Pulang Hari Ini" = selesai HARI INI (subset),
+// "Selesai" = selesai (kapan pun). Chip "Selesai" mencakup keduanya agar intuitif.
+const isCompletedStatus = (s: RIStatus): boolean => s === "Selesai" || s === "Pulang Hari Ini";
 
 type DatePreset = "Semua" | "Hari Ini" | "3 Hari" | "7 Hari" | "Kustom";
 const DATE_PRESETS: DatePreset[] = ["Semua", "Hari Ini", "3 Hari", "7 Hari", "Kustom"];
@@ -77,9 +86,10 @@ const DATE_PRESET_LABEL: Record<DatePreset, string> = {
 // ── Patient Card ──────────────────────────────────────────
 
 function PatientCard({ p }: { p: RawatInapPatient }) {
-  const sc       = STATUS_CFG[p.status];
-  const isKritis = p.status === "Kritis";
-  const isPulang = p.status === "Pulang Hari Ini";
+  const sc        = STATUS_CFG[p.status];
+  const isKritis  = p.status === "Kritis";
+  const isPulang  = p.status === "Pulang Hari Ini";
+  const isSelesai = p.status === "Selesai";
 
   const admitFormatted = new Date(p.admitDate).toLocaleDateString("id-ID", {
     day: "2-digit", month: "short", year: "numeric",
@@ -113,8 +123,9 @@ function PatientCard({ p }: { p: RawatInapPatient }) {
           "flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold",
           sc.badge,
         )}>
-          {isKritis && <AlertTriangle size={8} />}
+          {isKritis  && <AlertTriangle size={8} />}
           {isPulang  && <LogOut size={8} />}
+          {isSelesai && <CheckCircle2 size={8} />}
           {sc.label}
         </span>
       </div>
@@ -190,7 +201,9 @@ interface RIBoardProps {
 }
 
 export default function RIBoard({ patients }: RIBoardProps) {
-  const [statusFilter, setStatusFilter] = useState<RIStatus | "Semua">("Semua");
+  // Default saat halaman dibuka/refresh = "Kunjungan Aktif" (bukan "Semua") → fokus ke pasien
+  // yang sedang dirawat; selesai/pulang disembunyikan sampai chip-nya dipilih.
+  const [statusFilter, setStatusFilter] = useState<RIStatus | "Semua">("Aktif");
   const [kelasFilter,  setKelasFilter]  = useState<RIKelas  | "Semua">("Semua");
   const [dpjpFilter,   setDpjpFilter]   = useState("Semua");
   const [search,       setSearch]       = useState("");
@@ -199,14 +212,36 @@ export default function RIBoard({ patients }: RIBoardProps) {
   const [dateTo,       setDateTo]       = useState("");
   const [page,         setPage]         = useState(1);
 
-  useEffect(() => {
+  // Reset ke halaman 1 saat filter berubah — pola "adjust state during render" (bukan efek,
+  // agar tak memicu cascading render / lint react-hooks/set-state-in-effect).
+  const filterKey = `${statusFilter}|${kelasFilter}|${dpjpFilter}|${search}|${datePreset}|${dateFrom}|${dateTo}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (prevFilterKey !== filterKey) {
+    setPrevFilterKey(filterKey);
     setPage(1);
-  }, [statusFilter, kelasFilter, dpjpFilter, search, datePreset, dateFrom, dateTo]);
+  }
 
   const dpjpList = ["Semua", ...Array.from(new Set(patients.map((p) => p.dpjp)))];
 
+  const kelasOptions: SelectOption[] = [
+    { value: "Semua", label: "Semua Kelas" },
+    ...(Object.keys(KELAS_LABEL) as RIKelas[]).map((k) => ({ value: k, label: KELAS_LABEL[k] })),
+  ];
+  const dpjpOptions: SelectOption[] = dpjpList.map((d) => ({
+    value: d, label: d === "Semua" ? "Semua DPJP" : d,
+  }));
+
+  // Cocokkan status chip → pasien. "Aktif" = belum selesai; "Selesai" = semua yang selesai
+  // (termasuk pulang hari ini); "Pulang Hari Ini" = subset selesai hari ini.
+  const matchStatus = (p: RawatInapPatient): boolean => {
+    if (statusFilter === "Semua")   return true;
+    if (statusFilter === "Aktif")   return !isCompletedStatus(p.status);
+    if (statusFilter === "Selesai") return isCompletedStatus(p.status);
+    return p.status === statusFilter; // "Pulang Hari Ini" (persis)
+  };
+
   const filtered = patients.filter((p) => {
-    if (statusFilter !== "Semua" && p.status !== statusFilter) return false;
+    if (!matchStatus(p)) return false;
     if (kelasFilter  !== "Semua" && p.kelas  !== kelasFilter)  return false;
     if (dpjpFilter   !== "Semua" && p.dpjp   !== dpjpFilter)   return false;
     if (search) {
@@ -244,9 +279,11 @@ export default function RIBoard({ patients }: RIBoardProps) {
   const visible    = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
   const counts = ALL_STATUSES.reduce<Record<string, number>>((acc, s) => {
-    acc[s] = s === "Semua"
-      ? patients.length
-      : patients.filter((p) => p.status === s).length;
+    acc[s] =
+      s === "Semua"   ? patients.length
+      : s === "Aktif"   ? patients.filter((p) => !isCompletedStatus(p.status)).length
+      : s === "Selesai" ? patients.filter((p) => isCompletedStatus(p.status)).length
+      : patients.filter((p) => p.status === s).length; // "Pulang Hari Ini"
     return acc;
   }, {});
 
@@ -280,7 +317,7 @@ export default function RIBoard({ patients }: RIBoardProps) {
                     ? ACTIVE_STATUS_BTN[s as RIStatus | "Semua"]
                     : "border-slate-200 text-slate-600 hover:bg-slate-50",
                 )}>
-                {s === "Semua" ? "Semua" : STATUS_CFG[s as RIStatus].label}
+                {s === "Semua" ? "Semua" : s === "Aktif" ? "Kunjungan Aktif" : STATUS_CFG[s as RIStatus].label}
                 <span className={cn(
                   "rounded-full px-1.5 py-0.5 text-[9px] font-black",
                   isActive ? "bg-white/25" : "bg-slate-100 text-slate-500",
@@ -294,30 +331,27 @@ export default function RIBoard({ patients }: RIBoardProps) {
 
         <span className="hidden h-5 w-px bg-slate-200 sm:block" aria-hidden="true" />
 
-        {/* Kelas select */}
-        <select
-          value={kelasFilter}
-          onChange={(e) => setKelasFilter(e.target.value as RIKelas | "Semua")}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-          aria-label="Filter kelas"
-        >
-          <option value="Semua">Semua Kelas</option>
-          {(Object.keys(KELAS_LABEL) as RIKelas[]).map((k) => (
-            <option key={k} value={k}>{KELAS_LABEL[k]}</option>
-          ))}
-        </select>
+        {/* Kelas filter — dropdown kustom (kontras terbaca) */}
+        <div className="w-40">
+          <Select
+            value={kelasFilter}
+            onChange={(v) => setKelasFilter(v as RIKelas | "Semua")}
+            options={kelasOptions}
+            icon={BedDouble}
+            placeholder="Semua Kelas"
+          />
+        </div>
 
-        {/* DPJP select */}
-        <select
-          value={dpjpFilter}
-          onChange={(e) => setDpjpFilter(e.target.value)}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-          aria-label="Filter DPJP"
-        >
-          {dpjpList.map((d) => (
-            <option key={d} value={d}>{d === "Semua" ? "Semua DPJP" : d}</option>
-          ))}
-        </select>
+        {/* DPJP filter — dropdown kustom (searchable bila >8) */}
+        <div className="w-52">
+          <Select
+            value={dpjpFilter}
+            onChange={setDpjpFilter}
+            options={dpjpOptions}
+            icon={Stethoscope}
+            placeholder="Semua DPJP"
+          />
+        </div>
 
         {/* Search */}
         <div className="relative ml-auto">
@@ -326,8 +360,8 @@ export default function RIBoard({ patients }: RIBoardProps) {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari nama / No. RM…"
-            className="h-8 w-52 rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-xs placeholder:text-slate-400 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            placeholder="Cari nama / No. RM / diagnosis…"
+            className="h-9 w-56 rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-xs font-medium text-slate-700 placeholder:font-normal placeholder:text-slate-400 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
             aria-label="Cari pasien rawat inap"
           />
         </div>
@@ -362,10 +396,10 @@ export default function RIBoard({ patients }: RIBoardProps) {
                 type="button"
                 onClick={() => setDatePreset(preset)}
                 className={cn(
-                  "rounded-lg border px-2.5 py-1 text-[11px] font-medium transition",
+                  "rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition",
                   isActive
                     ? "border-emerald-400 bg-emerald-600 text-white shadow-sm"
-                    : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700",
+                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-800",
                 )}
               >
                 {DATE_PRESET_LABEL[preset]}
