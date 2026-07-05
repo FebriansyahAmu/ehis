@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
-import RIPatientHeader from "@/components/rawat-inap/RIPatientHeader";
-import RIRecordTabs    from "@/components/rawat-inap/RIRecordTabs";
+import RIRecordShell    from "@/components/rawat-inap/RIRecordShell";
 import RIRecordResolver from "@/components/rawat-inap/RIRecordResolver";
 import { rawatInapPatientDetails } from "@/lib/data";
 
@@ -35,10 +34,6 @@ export default async function RIPatientPage({
     notFound();
   }
 
-  return (
-    <div className="flex h-full flex-col">
-      <RIPatientHeader patient={patient} />
-      <RIRecordTabs    patient={patient} />
-    </div>
-  );
+  // Pasien demo/seed → shell dengan lifecycle lokal (Selesaikan/Batal Selesai tidak persist).
+  return <RIRecordShell patient={patient} />;
 }

@@ -1,17 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  X, CreditCard, Phone, MapPin, Pencil, Check,
-  Stethoscope, CalendarDays, BedDouble, Clock,
+  X, CreditCard, Pencil, Check,
+  Stethoscope, BedDouble, Clock, FileCheck2,
   Activity, Heart, Wind, Gauge, Thermometer, Zap, Layers,
-  ChevronRight, AlertTriangle, Eye, LogOut, MessageSquare,
+  ChevronRight, AlertTriangle, Eye, LogIn, LogOut, MessageSquare,
   CheckCircle2, ShieldAlert, Shield, ChevronDown,
 } from "lucide-react";
 import type {
-  RawatInapPatientDetail, RIStatus,
+  RawatInapPatientDetail, RIStatus, RIKelas,
 } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import {
@@ -19,6 +19,16 @@ import {
   type IsolasiTipe,
 } from "@/components/rawat-inap/ppiIsolasi/ppiIsolasiShared";
 import BillingMiniWidget from "@/components/shared/medical-records/BillingMiniWidget";
+import { listObservasi, type ObservationVitalSigns } from "@/lib/api/observation";
+import { useRecordVersion } from "@/lib/realtime/recordBus";
+
+// id kunjungan DB = UUID; id demo/mock ("ri-1") tak punya time-series TTV di DB.
+const HEADER_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const KELAS_LABEL: Record<RIKelas, string> = {
+  VIP: "VIP", Kelas_1: "Kelas 1", Kelas_2: "Kelas 2", Kelas_3: "Kelas 3",
+  ICU: "ICU", HCU: "HCU", Isolasi: "Isolasi",
+};
 
 // ── Status config ─────────────────────────────────────────
 
@@ -100,7 +110,7 @@ function InfoChip({ icon: Icon, value, cls }: {
   );
 }
 
-// ── DPJPCard ──────────────────────────────────────────────
+// ── DPJPCard — compact emerald card, click name to edit (pola IGD) ─────────
 
 function DPJPCard({ value, onSave }: { value: string; onSave: (v: string) => void }) {
   const [editing, setEditing] = useState(false);
@@ -111,61 +121,113 @@ function DPJPCard({ value, onSave }: { value: string; onSave: (v: string) => voi
   const cancel = () => { setDraft(current); setEditing(false); };
 
   return (
-    <div className={cn(
-      "group relative min-w-0 flex-1 overflow-hidden rounded-xl bg-linear-to-br from-emerald-600 to-emerald-800 shadow-md transition-shadow duration-200",
-      !editing && "hover:shadow-lg hover:shadow-emerald-300/40",
-    )}>
-      <Stethoscope size={90} className="pointer-events-none absolute -right-6 -top-6 rotate-12 text-white/[0.07]" />
-      <div className="relative flex h-full flex-col px-3 py-2.5">
-        <span className="mb-2 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-emerald-200">
-          <Stethoscope size={9} /> DPJP
-        </span>
-        {editing ? (
-          <div className="flex flex-col gap-2">
-            <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") cancel(); }}
-              className="w-full rounded-lg border border-white/30 bg-white/15 px-2.5 py-1.5 text-sm font-semibold text-white outline-none placeholder-white/30 focus:border-white/50 focus:ring-1 focus:ring-white/40" />
-            <div className="flex gap-1.5">
-              <button onClick={save} className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-white/20 py-1.5 text-xs font-semibold text-white transition hover:bg-white/30">
-                <Check size={11} /> Simpan
-              </button>
-              <button onClick={cancel} className="flex cursor-pointer items-center justify-center gap-1 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/15 hover:text-white">
-                <X size={11} /> Batal
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button onClick={() => setEditing(true)} className="group/val w-full cursor-pointer rounded-lg px-0 text-left transition hover:bg-white/8" aria-label="Edit DPJP">
-            <p className="truncate text-sm font-bold leading-tight text-white">{current}</p>
-            <span className="mt-1 flex items-center gap-1 text-[9px] text-emerald-200/0 transition-all group-hover/val:text-emerald-200/70">
-              <Pencil size={8} /> Klik untuk edit
-            </span>
+    <div className="group flex min-w-0 flex-1 flex-col justify-center rounded-lg bg-linear-to-br from-emerald-600 to-emerald-700 px-2.5 py-1.5 shadow-sm">
+      <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-emerald-200">
+        <Stethoscope size={9} /> DPJP
+      </span>
+
+      {editing ? (
+        <div className="mt-1 flex items-center gap-1">
+          <input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") cancel(); }}
+            className="min-w-0 flex-1 rounded-md border border-white/30 bg-white/15 px-2 py-1 text-xs font-semibold text-white outline-none placeholder-white/30 focus:border-white/50 focus:bg-white/20"
+            placeholder="Nama dokter..."
+          />
+          <button onClick={save} aria-label="Simpan DPJP" className="shrink-0 cursor-pointer rounded-md bg-white/20 p-1 text-white transition hover:bg-white/30">
+            <Check size={12} />
           </button>
-        )}
-        {!editing && <p className="mt-auto pt-1.5 text-[9px] tracking-wide text-emerald-200/50">Dokter Penanggung Jawab</p>}
-      </div>
+          <button onClick={cancel} aria-label="Batal" className="shrink-0 cursor-pointer rounded-md bg-white/10 p-1 text-white/70 transition hover:bg-white/20 hover:text-white">
+            <X size={12} />
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setEditing(true)}
+          className="mt-0.5 flex w-full cursor-pointer items-center gap-1 text-left"
+          aria-label="Edit DPJP"
+          title="Klik untuk edit DPJP"
+        >
+          <p className="min-w-0 flex-1 truncate text-sm font-bold leading-tight text-white">{current}</p>
+          <Pencil size={10} className="shrink-0 text-emerald-200/0 transition group-hover:text-emerald-200/80" />
+        </button>
+      )}
     </div>
   );
 }
 
-// ── Admission info card ───────────────────────────────────
+// ── Date helpers ──────────────────────────────────────────
 
-function AdmitCard({ tglMasuk, hariKe }: { tglMasuk: string; hariKe: number }) {
+const MONTHS_ID = [
+  "Januari","Februari","Maret","April","Mei","Juni",
+  "Juli","Agustus","September","Oktober","November","Desember",
+];
+const MONTHS_SHORT = MONTHS_ID.map((m) => m.slice(0, 3));
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** "3 Mei 2025" → "3 Mei 2025" (bulan sudah pendek utk RI); tetap ringkas 3-huruf. */
+function shortDisplay(display: string): string {
+  const parts = display.trim().split(" ");
+  if (parts.length !== 3) return display;
+  return `${parts[0]} ${parts[1].slice(0, 3)} ${parts[2]}`;
+}
+
+/** admitDate ISO → jam "HH:mm" (UTC, konvensi repo). Date-only → null (tak ada jam). */
+function jamFromIso(iso: string): string | null {
+  if (!/T\d{2}:\d{2}/.test(iso)) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+}
+
+/** ISO (wall-clock UTC) → { tgl "3 Mei 2025", jam "14:15" }. */
+function fmtKeluar(iso: string): { tgl: string; jam: string } | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return {
+    tgl: `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}`,
+    jam: `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`,
+  };
+}
+
+// ── WaktuCard — compact Masuk + Keluar (pola IGD) ─────────────────────────
+
+function WaktuCard({
+  tglMasuk,
+  masukJam,
+  keluarIso,
+}: {
+  tglMasuk: string;
+  masukJam: string | null;
+  keluarIso?: string | null;
+}) {
+  const keluar = keluarIso ? fmtKeluar(keluarIso) : null;
+
   return (
-    <div className="relative w-44 shrink-0 overflow-hidden rounded-xl bg-linear-to-br from-slate-700 to-slate-900 shadow-md">
-      <CalendarDays size={64} className="pointer-events-none absolute -right-3 -bottom-3 text-white/[0.07]" />
-      <div className="relative flex flex-col px-3 py-2.5">
-        <span className="mb-2 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-300">
-          <CalendarDays size={9} /> Tgl Masuk
+    <div className="flex w-52 shrink-0 flex-col justify-center gap-1 rounded-lg bg-linear-to-br from-slate-700 to-slate-900 px-2.5 py-1.5 shadow-sm">
+
+      {/* ── Masuk ── */}
+      <div className="flex w-full items-center gap-1.5">
+        <LogIn size={11} className="shrink-0 text-emerald-300" />
+        <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-300/90">Masuk</span>
+        <span className="ml-auto min-w-0 truncate text-xs font-semibold text-white">
+          {shortDisplay(tglMasuk)}{masukJam ? ` · ${masukJam}` : ""}
         </span>
-        <p className="text-sm font-bold leading-tight text-white">{tglMasuk}</p>
-        <div className="mt-2 flex items-center gap-1.5">
-          <Clock size={9} className="text-slate-400" />
-          <span className="text-[11px] font-semibold text-slate-300">
-            Hari ke-<strong className="text-white">{hariKe}</strong>
-          </span>
-        </div>
-        <p className="mt-auto pt-1.5 text-[9px] tracking-wide text-slate-400/70">Hari Perawatan</p>
+      </div>
+
+      <div className="h-px bg-white/10" />
+
+      {/* ── Keluar ── */}
+      <div className="flex w-full items-center gap-1.5">
+        <LogOut size={11} className="shrink-0 text-rose-300" />
+        <span className="text-[10px] font-bold uppercase tracking-wide text-rose-300/90">Keluar</span>
+        {keluar ? (
+          <span className="ml-auto min-w-0 truncate text-xs font-semibold text-white">{keluar.tgl} · {keluar.jam}</span>
+        ) : (
+          <span className="ml-auto text-[11px] italic text-slate-400">Masih dirawat</span>
+        )}
       </div>
     </div>
   );
@@ -281,11 +343,44 @@ function IsolasiPanel({
 
 // ── Main ──────────────────────────────────────────────────
 
-export default function RIPatientHeader({ patient }: { patient: RawatInapPatientDetail }) {
+export default function RIPatientHeader({
+  patient,
+  headerAction,
+  selesaiAt,
+}: {
+  patient: RawatInapPatientDetail;
+  headerAction?: ReactNode;
+  /** Waktu selesai efektif (ISO) — kunjungan Completed. Null = masih dirawat. */
+  selesaiAt?: string | null;
+}) {
   const cfg        = STATUS_CFG[patient.status];
   const StatusIcon = cfg.icon;
-  const vs         = patient.vitalSigns;
-  const gcsTotal   = vs.gcsEye + vs.gcsVerbal + vs.gcsMotor;
+
+  // TTV terakhir yang diinput di tab TTV (Observation, keyed by kunjungan UUID — unit-agnostic).
+  // Pasien DB → ganti vital statis dengan pengukuran terbaru; demo/kosong → fallback vitalSigns.
+  const isPersisted = HEADER_UUID_RE.test(patient.id);
+  const [liveVs, setLiveVs] = useState<{ vs: ObservationVitalSigns; jam: string; perawat: string } | null>(null);
+  const obsVersion = useRecordVersion(patient.id, "observation", isPersisted);
+
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    (async () => {
+      try {
+        const list = await listObservasi(patient.id, ac.signal);
+        if (ac.signal.aborted || list.length === 0) return;
+        const latest = list[0]; // service mengembalikan terbaru dulu
+        setLiveVs({ vs: latest.vitalSigns, jam: latest.jam, perawat: latest.perawat });
+      } catch {
+        /* diam — fallback ke vital statis bila gagal/kosong */
+      }
+    })();
+    return () => ac.abort();
+  }, [patient.id, isPersisted, obsVersion]);
+
+  const vs       = liveVs?.vs ?? patient.vitalSigns;
+  const gcsTotal = vs.gcsEye + vs.gcsVerbal + vs.gcsMotor;
+  const masukJam = jamFromIso(patient.admitDate);
 
   const [isolasiTipe,     setIsolasiTipe]     = useState<IsolasiTipe | null>(null);
   const [showIsolasiForm, setShowIsolasiForm] = useState(false);
@@ -350,18 +445,18 @@ export default function RIPatientHeader({ patient }: { patient: RawatInapPatient
               </Link>
             )}
 
-            {/* BL6.3 — Mini billing widget (reactive sisa tagihan, deep-link ke Billing) */}
-            <div className="ml-auto">
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              {/* BL6.3 — Mini billing widget (reactive sisa tagihan, deep-link ke Billing) */}
               <BillingMiniWidget noRM={patient.noRM} compact />
+              {headerAction}
+              <Link
+                href="/ehis-care/rawat-inap"
+                className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:bg-white hover:text-slate-700"
+                aria-label="Tutup"
+              >
+                <X size={12} />
+              </Link>
             </div>
-
-            <Link
-              href="/ehis-care/rawat-inap"
-              className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:bg-white hover:text-slate-700"
-              aria-label="Tutup"
-            >
-              <X size={12} />
-            </Link>
           </div>
 
           {/* Identity section */}
@@ -401,17 +496,26 @@ export default function RIPatientHeader({ patient }: { patient: RawatInapPatient
                       <span>{patient.gender === "L" ? "Laki-laki" : "Perempuan"}</span>
                       <span className="text-slate-300">·</span>
                       <span className="font-mono text-slate-500">{patient.noRM}</span>
-                      <span className="text-slate-300">·</span>
-                      <span className="font-medium text-slate-600">{patient.spesialis}</span>
+                      <span className="inline text-slate-300 md:hidden">·</span>
+                      <span className="inline font-medium text-indigo-600 md:hidden">{patient.dpjp}</span>
                     </p>
                   </div>
                 </div>
 
                 {/* Info chips */}
                 <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {/* Ruangan + kelas + bed — "Perawatan Interna · Kelas 2 · Bed 2A-1" */}
                   <InfoChip
                     icon={BedDouble}
-                    value={<>{patient.ruangan}<span className="mx-1 text-slate-300">·</span><strong>{patient.noBed}</strong></>}
+                    value={
+                      <>
+                        {patient.ruangan}
+                        <span className="mx-1 text-slate-300">·</span>
+                        {KELAS_LABEL[patient.kelas]}
+                        <span className="mx-1 text-slate-300">·</span>
+                        Bed <strong>{patient.noBed}</strong>
+                      </>
+                    }
                     cls="bg-slate-100 ring-slate-200 text-slate-700"
                   />
                   <InfoChip
@@ -419,21 +523,27 @@ export default function RIPatientHeader({ patient }: { patient: RawatInapPatient
                     value={<>Hari ke-<strong>{patient.hariKe}</strong></>}
                     cls="bg-indigo-50 ring-indigo-200 text-indigo-800"
                   />
+                  {selesaiAt && fmtKeluar(selesaiAt) && (
+                    <InfoChip
+                      icon={LogOut}
+                      value={<>Keluar <strong>{fmtKeluar(selesaiAt)!.jam}</strong>
+                        <span className="ml-1 text-rose-400">{fmtKeluar(selesaiAt)!.tgl}</span></>}
+                      cls="bg-rose-50 ring-rose-200 text-rose-800"
+                    />
+                  )}
                   <InfoChip
                     icon={CreditCard}
                     value={<>{penjaminLabel[patient.penjamin]}{patient.noBpjs && <span className="ml-1 font-mono text-emerald-500">{patient.noBpjs}</span>}</>}
                     cls="bg-emerald-50 ring-emerald-200 text-emerald-800"
                   />
-                  <InfoChip
-                    icon={Phone}
-                    value={`${patient.namaKeluarga} (${patient.hubunganKeluarga})`}
-                    cls="bg-amber-50 ring-amber-200 text-amber-800"
-                  />
-                  <InfoChip
-                    icon={MapPin}
-                    value={patient.alamat}
-                    cls="bg-teal-50 ring-teal-200 text-teal-800"
-                  />
+                  {/* No. SEP */}
+                  {patient.noSep && (
+                    <InfoChip
+                      icon={FileCheck2}
+                      value={<>SEP <span className="font-mono font-semibold">{patient.noSep}</span></>}
+                      cls="bg-sky-50 ring-sky-200 text-sky-800"
+                    />
+                  )}
                   {/* Isolasi chip */}
                   <button
                     onClick={() => setShowIsolasiForm((v) => !v)}
@@ -453,7 +563,7 @@ export default function RIPatientHeader({ patient }: { patient: RawatInapPatient
                 </div>
               </motion.div>
 
-              {/* Right: DPJP + Admit cards */}
+              {/* Right: DPJP + Waktu cards (compact, pola IGD) — desktop only */}
               <motion.div
                 className="hidden gap-2 md:flex"
                 initial={{ opacity: 0, x: 8 }}
@@ -461,7 +571,7 @@ export default function RIPatientHeader({ patient }: { patient: RawatInapPatient
                 transition={{ duration: 0.3, ease: "easeOut", delay: 0.05 }}
               >
                 <DPJPCard value={patient.dpjp} onSave={() => {}} />
-                <AdmitCard tglMasuk={patient.tglMasuk} hariKe={patient.hariKe} />
+                <WaktuCard tglMasuk={patient.tglMasuk} masukJam={masukJam} keluarIso={selesaiAt} />
               </motion.div>
             </div>
 
@@ -477,7 +587,7 @@ export default function RIPatientHeader({ patient }: { patient: RawatInapPatient
                 >
                   <IsolasiPanel
                     current={isolasiTipe}
-                    onSave={(tipe, tanggal, alasan, dokter) => {
+                    onSave={(tipe, tanggal) => {
                       setIsolasiTipe(tanggal ? tipe : null);
                     }}
                     onClose={() => setShowIsolasiForm(false)}
@@ -490,14 +600,29 @@ export default function RIPatientHeader({ patient }: { patient: RawatInapPatient
           {/* Vitals bar */}
           <div className="border-t border-slate-200 bg-linear-to-r from-slate-100 to-slate-50 px-3 py-2 md:px-4">
             <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <span className="mr-1 shrink-0 text-[9px] font-bold uppercase tracking-widest text-slate-400">Vital</span>
-              <VitalChip icon={Activity}    label="TD"    value={`${vs.tdSistolik}/${vs.tdDiastolik}`} unit="mmHg" lvl={lvlTD(vs.tdSistolik, vs.tdDiastolik)} />
-              <VitalChip icon={Heart}       label="Nadi"  value={`${vs.nadi}`}       unit="bpm"  lvl={lvlNadi(vs.nadi)} />
-              <VitalChip icon={Wind}        label="RR"    value={`${vs.respirasi}`}  unit="/mnt" lvl={lvlResp(vs.respirasi)} />
-              <VitalChip icon={Gauge}       label="SpO₂"  value={`${vs.spo2}`}       unit="%"    lvl={lvlSpo2(vs.spo2)} />
-              <VitalChip icon={Thermometer} label="Suhu"  value={`${vs.suhu}`}       unit="°C"   lvl={lvlSuhu(vs.suhu)} />
-              <VitalChip icon={Layers}      label="GCS"   value={`${gcsTotal}`}      unit="/15"  lvl={lvlGCS(gcsTotal)} />
-              <VitalChip icon={Zap}         label="Nyeri" value={`${vs.skalaNyeri}`} unit="/10"  lvl={lvlNyeri(vs.skalaNyeri)} />
+              <span className="mr-1 flex shrink-0 flex-col leading-none">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Vital</span>
+                {liveVs && (
+                  <motion.span
+                    key={`${liveVs.jam}-${liveVs.perawat}`}
+                    initial={{ opacity: 0.2 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.4, ease: "easeOut" }}
+                    className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-[8px] font-medium text-slate-400"
+                    title={`TTV terakhir ${liveVs.jam} oleh ${liveVs.perawat}`}
+                  >
+                    <span className="inline-flex h-1 w-1 rounded-full bg-emerald-400" aria-hidden />
+                    {liveVs.jam} · {liveVs.perawat}
+                  </motion.span>
+                )}
+              </span>
+              <VitalChip icon={Activity}    label="TD"    value={`${vs.tdSistolik}/${vs.tdDiastolik}`} unit="mmHg" lvl={lvlTD(vs.tdSistolik, vs.tdDiastolik)} title={`Tekanan Darah: ${vs.tdSistolik}/${vs.tdDiastolik} mmHg`} />
+              <VitalChip icon={Heart}       label="Nadi"  value={`${vs.nadi}`}       unit="bpm"  lvl={lvlNadi(vs.nadi)}        title={`Denyut Nadi: ${vs.nadi} bpm`} />
+              <VitalChip icon={Wind}        label="RR"    value={`${vs.respirasi}`}  unit="/mnt" lvl={lvlResp(vs.respirasi)}    title={`Laju Napas: ${vs.respirasi}×/mnt`} />
+              <VitalChip icon={Gauge}       label="SpO₂"  value={`${vs.spo2}`}       unit="%"    lvl={lvlSpo2(vs.spo2)}        title={`Saturasi: ${vs.spo2}%`} />
+              <VitalChip icon={Thermometer} label="Suhu"  value={`${vs.suhu}`}       unit="°C"   lvl={lvlSuhu(vs.suhu)}        title={`Suhu: ${vs.suhu}°C`} />
+              <VitalChip icon={Layers}      label="GCS"   value={`${gcsTotal}`}      unit="/15"  lvl={lvlGCS(gcsTotal)}        title={`GCS: E${vs.gcsEye} V${vs.gcsVerbal} M${vs.gcsMotor} = ${gcsTotal}`} />
+              <VitalChip icon={Zap}         label="Nyeri" value={`${vs.skalaNyeri}`} unit="/10"  lvl={lvlNyeri(vs.skalaNyeri)}  title={`Nyeri: ${vs.skalaNyeri}/10`} />
             </div>
           </div>
 

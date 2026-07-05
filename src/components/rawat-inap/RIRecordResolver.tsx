@@ -2,17 +2,15 @@
 // memuat detail dari mock bila ada; bila id = UUID (kunjungan DB hasil admisi), fetch
 // GET /kunjungan/:id + GET /patients/:id + master (tree ruangan/bed, alokasi bed aktif, Dokter)
 // lalu bangun RawatInapPatientDetail (klinis kosong → mulai pengisian). DPJP/ruangan/bed/kelas
-// diresolusi dari master. notFound hanya SETELAH fetch selesai gagal.
+// diresolusi dari master. notFound hanya SETELAH fetch selesai gagal. Lifecycle (Selesaikan/
+// Batal Selesai + lock) dimiliki RIRecordShell — kunjungan DB diteruskan sebagai initialKunjungan.
 
 "use client";
 
 import { useEffect, useState } from "react";
 import { notFound } from "next/navigation";
 import type { RawatInapPatientDetail, RIKelas } from "@/lib/data";
-import { getKunjungan, transitionKunjungan, type KunjunganDTO } from "@/lib/api/kunjungan";
-import type { DisposisiInput } from "@/lib/schemas/disposisi/disposisi";
-import { toast } from "@/lib/ui/toastStore";
-import { ApiError } from "@/lib/api/client";
+import { getKunjungan, type KunjunganDTO } from "@/lib/api/kunjungan";
 import { getPatient } from "@/lib/api/patients";
 import { getDokter } from "@/lib/api/dokter";
 import { getTree } from "@/lib/api/ruangan";
@@ -20,8 +18,7 @@ import { listActiveBedAllocations } from "@/lib/api/bedAllocation";
 import type { LocationNode, BedSubRecord } from "@/components/master/ruangan/ruanganShared";
 import { riRoomsFromTree, riKelasOf } from "./riLandingShared";
 import { dtoToRawatInapPatientDetail } from "./riDetailApi";
-import RIPatientHeader from "./RIPatientHeader";
-import RIRecordTabs from "./RIRecordTabs";
+import RIRecordShell from "./RIRecordShell";
 
 // id kunjungan DB = UUID; id demo/mock = "ri-1"/… → hanya UUID yang di-fetch ke API.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -35,24 +32,10 @@ function ResolverLoading() {
   );
 }
 
-// Lifecycle kunjungan (pola IGDRecordShell — dipakai lock + transisi complete).
-interface Life {
-  status: string;
-  version: number;
-  locked: boolean;
-  selesaiAt: string | null;
-}
-const lifeFrom = (k: KunjunganDTO): Life => ({
-  status: k.status,
-  version: k.version,
-  locked: !!k.lockedAt,
-  selesaiAt: k.selesaiAt,
-});
-
 export default function RIRecordResolver({ id }: { id: string }) {
   const [patient, setPatient] = useState<RawatInapPatientDetail | null>(null);
+  const [kunjungan, setKunjungan] = useState<KunjunganDTO | null>(null);
   const [state, setState] = useState<"loading" | "done">("loading");
-  const [life, setLife] = useState<Life>({ status: "InService", version: 0, locked: false, selesaiAt: null });
 
   // Fetch SEKALI per id. Guard set-state via !aborted (StrictMode-safe).
   useEffect(() => {
@@ -65,7 +48,6 @@ export default function RIRecordResolver({ id }: { id: string }) {
         if (ac.signal.aborted) return;
         // Hanya kunjungan Rawat Inap yang dibuka di modul ini.
         if (k.unit !== "RawatInap") { setPatient(null); return; }
-        setLife(lifeFrom(k));
 
         const [p, tree, allocs] = await Promise.all([
           getPatient(k.pasien.id, ac.signal),
@@ -99,6 +81,7 @@ export default function RIRecordResolver({ id }: { id: string }) {
         }
         if (ac.signal.aborted) return;
 
+        setKunjungan(k);
         setPatient(dtoToRawatInapPatientDetail(k, p, {
           dpjpNama,
           spesialis,
@@ -115,28 +98,10 @@ export default function RIRecordResolver({ id }: { id: string }) {
     return () => ac.abort();
   }, [id]);
 
-  // Selesaikan kunjungan (persist Disposisi + kunci) dari tab Pasien Pulang.
-  // Throw saat gagal → form pemanggil tetap terbuka (pola IGDRecordShell).
-  async function handleComplete(disposisi: DisposisiInput, waktuSelesai: string) {
-    try {
-      const k = await transitionKunjungan(id, "complete", life.version, { waktuSelesai, disposisi });
-      setLife(lifeFrom(k));
-      toast.success("Kunjungan diselesaikan", "Rekam medis terkunci — tab Pasien Pulang tetap aktif");
-    } catch (e) {
-      toast.error("Gagal menyelesaikan kunjungan", e instanceof ApiError ? e.message : undefined);
-      throw e;
-    }
-  }
-
   if (!patient) {
     if (state !== "done") return <ResolverLoading />;
     notFound();
   }
 
-  return (
-    <div className="flex h-full flex-col">
-      <RIPatientHeader patient={patient} />
-      <RIRecordTabs patient={patient} locked={life.locked} onComplete={handleComplete} />
-    </div>
-  );
+  return <RIRecordShell patient={patient} initialKunjungan={kunjungan ?? undefined} />;
 }

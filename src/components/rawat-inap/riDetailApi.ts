@@ -106,6 +106,7 @@ export function dtoToRawatInapPatientDetail(
     status,
     penjamin: toRIPenjamin(k.penjaminTipe),
     noBpjs,
+    noSep: k.sep?.noSep ?? undefined,
     namaKeluarga: kontak?.nama ?? "—",
     hubunganKeluarga: kontak?.hubungan ?? "—",
     tanggalLahir: fmtTanggalLahir(p.tanggalLahir),

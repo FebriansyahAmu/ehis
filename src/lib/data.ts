@@ -1134,6 +1134,7 @@ export interface RawatInapPatientDetail {
   status:           RIStatus;
   penjamin:         RIPenjamin;
   noBpjs?:          string;
+  noSep?:           string;           // No. SEP BPJS (dari kunjungan DB)
   namaKeluarga:     string;
   hubunganKeluarga: string;
   tanggalLahir:     string;
