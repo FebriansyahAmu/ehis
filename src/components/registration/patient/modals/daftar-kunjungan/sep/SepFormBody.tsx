@@ -7,7 +7,7 @@ import { useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
   CalendarDays, Stethoscope, ShieldAlert, ListChecks, Share2, PhoneCall,
-  TrendingUp, Eye, Crown, Layers, FileSearch, X, Building2, Hash, Info,
+  TrendingUp, Eye, Crown, Layers, FileSearch, X, Building2, Hash, Info, Braces,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DatePicker, Select } from "@/components/shared/inputs";
@@ -15,9 +15,10 @@ import {
   type SepDraft,
   TUJUAN_KUNJ_OPTS, FLAG_PROCEDURE_OPTS, KD_PENUNJANG_OPTS, ASSESMENT_PEL_OPTS,
 } from "@/components/registration/kunjungan/Tabs/sep/sepTypes";
-import type { SpriDTO } from "@/lib/api/spri/spri";
 import { Field, Segmented, CheckCard, SectionCard, Reveal, fieldInput } from "./sepFormShared";
-import { SpriPickerModal } from "./SpriPickerModal";
+import { SkdpPickerModal, type SkdpPick } from "./SkdpPickerModal";
+import { DpjpLayanPicker } from "./DpjpLayanPicker";
+import { SepPayloadModal } from "./SepPayloadModal";
 
 function fmtTglShort(ymd: string): string {
   const [y, m, d] = ymd.split("-").map(Number);
@@ -34,8 +35,9 @@ const PEMBIAYAAN = [
 ];
 
 export function SepFormBody({
-  draft, setDraft,
+  patientId, draft, setDraft,
 }: {
+  patientId: string;
   draft: SepDraft;
   setDraft: React.Dispatch<React.SetStateAction<SepDraft>>;
 }) {
@@ -54,19 +56,22 @@ export function SepFormBody({
         : { ...d, jnsPelayanan: v },
     );
 
-  // Pemilih SPRI → No. Referensi SPRI mengisi No. SKDP. `pickedSpri` utk hint DPJP/tanggal.
-  const [spriOpen, setSpriOpen] = useState(false);
-  const [pickedSpri, setPickedSpri] = useState<SpriDTO | null>(null);
-  const onPickSpri = (s: SpriDTO) => {
-    // No. Referensi SPRI → No. SKDP · Diagnosa awal SEP = diagnosa utama IGD asal (dari SPRI).
-    // DPJP (nama+kode) ditarik ulang dari SPRI saat build payload (gap).
+  // Pemilih Surat Kontrol/SPRI → No. Referensi mengisi No. SKDP. `pickedSkdp` utk hint DPJP/tanggal.
+  const [skdpOpen, setSkdpOpen] = useState(false);
+  const [pickedSkdp, setPickedSkdp] = useState<SkdpPick | null>(null);
+  const [payloadOpen, setPayloadOpen] = useState(false); // pratinjau payload JSON
+  const onPickSkdp = (p: SkdpPick) => {
+    // No. Referensi → No. SKDP · kodeDPJP surat kontrol → skdp.kodeDPJP · diagAwal prefill dari SPRI.
+    // Surat kontrol pasca ranap: perujuk = RS kita sendiri → PPK Rujukan = PPK Pelayanan (Faskes 2).
     setDraft((d) => ({
       ...d,
-      skdpNoSurat: s.noReferensi ?? "",
-      diagAwal: s.diagAwalKode ?? d.diagAwal,
+      skdpNoSurat: p.noReferensi ?? "",
+      skdpKodeDPJP: p.kodeDokter ?? d.skdpKodeDPJP,
+      diagAwal: p.diagAwalKode ?? d.diagAwal,
+      ...(p.source === "kontrol" ? { ppkRujukan: d.ppkPelayanan, asalRujukan: "2" as const } : {}),
     }));
-    setPickedSpri(s);
-    setSpriOpen(false);
+    setPickedSkdp(p);
+    setSkdpOpen(false);
   };
 
   // Tujuan kunjungan mengatur field bergantung (flagProcedure/kdPenunjang utk Prosedur).
@@ -238,9 +243,8 @@ export function SepFormBody({
             <Field label="Tujuan Kunjungan">
               <Segmented accent="teal" value={draft.tujuanKunj} onChange={setTujuan} options={[...TUJUAN_KUNJ_OPTS]} />
             </Field>
-            <Field label="DPJP Pelayanan">
-              <input className={fieldInput} value={draft.dpjpLayan} placeholder="Kode DPJP yang melayani…"
-                onChange={(e) => set("dpjpLayan", e.target.value)} />
+            <Field label="DPJP Pelayanan" hint="cari nama · payload = kode DPJP">
+              <DpjpLayanPicker value={draft.dpjpLayan} onChange={(kode) => set("dpjpLayan", kode)} />
             </Field>
           </div>
 
@@ -259,9 +263,10 @@ export function SepFormBody({
 
           <Reveal open={draft.tujuanKunj === "0" || draft.tujuanKunj === "2"}>
             <div className="mt-3">
-              <Field label="Asesmen Pelayanan">
+              <Field label="Asesmen Pelayanan" hint="opsional">
                 <Select variant="filled" value={draft.assesmentPel} placeholder="Pilih asesmen…"
-                  onChange={(v) => set("assesmentPel", v)} options={ASSESMENT_PEL_OPTS} />
+                  onChange={(v) => set("assesmentPel", v)}
+                  options={[{ value: "", label: "— Tidak perlu asesmen —" }, ...ASSESMENT_PEL_OPTS]} />
               </Field>
             </div>
           </Reveal>
@@ -323,18 +328,18 @@ export function SepFormBody({
         </Reveal>
       </SectionCard>
 
-      {/* ── Surat Kontrol (SPRI) & Kontak ── */}
-      <SectionCard title="Surat Kontrol & Kontak" desc="No. Referensi SPRI (SKDP) & kontak peserta" icon={PhoneCall} accent="emerald">
-        {/* No. Referensi SPRI (= No. SKDP) — dipilih dari daftar SPRI */}
-        <Field label="No. Referensi SPRI" hint="dipakai sebagai No. SKDP">
+      {/* ── Surat Kontrol (SKDP) & Kontak ── */}
+      <SectionCard title="Surat Kontrol/SPRI & Kontak" desc="No. SKDP (surat kontrol) & kontak peserta" icon={PhoneCall} accent="emerald">
+        {/* No. SKDP — ditarik dari surat kontrol terbit (No. Referensi kontrol) */}
+        <Field label="No. SKDP" hint="dari surat kontrol / rencana kontrol">
           <div className="flex items-stretch gap-2">
             <div className="relative flex-1">
               <FileSearch size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 readOnly
                 value={draft.skdpNoSurat}
-                placeholder="Pilih dari daftar SPRI…"
-                onClick={() => setSpriOpen(true)}
+                placeholder="Pilih SKDP…"
+                onClick={() => setSkdpOpen(true)}
                 className={cn(
                   "h-10 w-full cursor-pointer rounded-xl border bg-white pl-8 pr-8 text-[13px] outline-none transition hover:border-slate-300",
                   draft.skdpNoSurat ? "border-emerald-300 font-mono font-semibold text-emerald-700" : "border-slate-200 text-slate-700",
@@ -343,8 +348,8 @@ export function SepFormBody({
               {draft.skdpNoSurat && (
                 <button
                   type="button"
-                  aria-label="Hapus pilihan SPRI"
-                  onClick={() => { set("skdpNoSurat", ""); setPickedSpri(null); }}
+                  aria-label="Hapus pilihan surat kontrol"
+                  onClick={() => { set("skdpNoSurat", ""); setPickedSkdp(null); }}
                   className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                 >
                   <X size={13} />
@@ -353,32 +358,31 @@ export function SepFormBody({
             </div>
             <button
               type="button"
-              onClick={() => setSpriOpen(true)}
+              onClick={() => setSkdpOpen(true)}
               className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 active:scale-95"
             >
-              <FileSearch size={14} /> Pilih SPRI
+              <FileSearch size={14} /> Pilih SKDP
             </button>
           </div>
-          {pickedSpri ? (
+          {pickedSkdp ? (
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-emerald-100 bg-emerald-50/60 px-2.5 py-1.5 text-[10px] text-emerald-700">
               <span className="inline-flex items-center gap-1 font-semibold">
-                <Stethoscope size={11} /> {pickedSpri.dpjpNama}
+                <Stethoscope size={11} /> {pickedSkdp.dokterNama || "—"}
               </span>
               <span className="inline-flex items-center gap-1 text-emerald-600">
-                <CalendarDays size={11} /> {fmtTglShort(pickedSpri.tglRencanaRawat)}
+                <CalendarDays size={11} /> {pickedSkdp.tglLabel}
               </span>
-              <span className="text-emerald-600">· {pickedSpri.jenisPerawatan}</span>
-              {pickedSpri.diagAwalKode && (
+              {pickedSkdp.info && <span className="text-emerald-600">· {pickedSkdp.info}</span>}
+              {pickedSkdp.diagAwalKode && (
                 <span className="inline-flex items-center gap-1 font-mono font-semibold text-emerald-700">
-                  · {pickedSpri.diagAwalKode}
-                  {pickedSpri.diagAwalNama && <span className="font-sans font-normal text-emerald-600">{pickedSpri.diagAwalNama}</span>}
+                  · {pickedSkdp.diagAwalKode}
+                  {pickedSkdp.diagAwalNama && <span className="font-sans font-normal text-emerald-600">{pickedSkdp.diagAwalNama}</span>}
                 </span>
               )}
-              <span className="text-emerald-500">· DPJP terisi otomatis saat terbit SEP</span>
             </div>
           ) : (
             <p className="mt-1.5 text-[10px] text-slate-400">
-              No. SPRI &amp; No. SEP harus sama agar SEP dapat terbit. DPJP &amp; kode otomatis dari SPRI terpilih.
+              No. SKDP ditarik dari <b className="font-semibold text-slate-500">surat kontrol</b> (default hari ini) atau <b className="font-semibold text-slate-500">SPRI</b> rawat inap (bebas tanggal).
             </p>
           )}
         </Field>
@@ -410,16 +414,30 @@ export function SepFormBody({
         </div>
       </SectionCard>
 
+      {/* Pratinjau payload SEP (JSON) — link teks, bukan tombol full-width */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => setPayloadOpen(true)}
+          className="inline-flex items-center gap-1.5 text-[11px] font-medium text-sky-600 underline-offset-2 transition hover:text-sky-700 hover:underline"
+        >
+          <Braces size={12} /> Lihat Payload (JSON)
+        </button>
+      </div>
+
       <AnimatePresence>
-        {spriOpen && (
-          <SpriPickerModal
+        {skdpOpen && (
+          <SkdpPickerModal
+            patientId={patientId}
             noKartu={draft.noKartu}
             noRM={draft.noMR}
             selectedRef={draft.skdpNoSurat || undefined}
-            onSelect={onPickSpri}
-            onClose={() => setSpriOpen(false)}
+            defaultTab={isRJ ? "kontrol" : "spri"}
+            onSelect={onPickSkdp}
+            onClose={() => setSkdpOpen(false)}
           />
         )}
+        {payloadOpen && <SepPayloadModal draft={draft} onClose={() => setPayloadOpen(false)} />}
       </AnimatePresence>
     </div>
   );

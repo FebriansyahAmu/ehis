@@ -29,6 +29,15 @@ export function list(kunjunganId: string, tx?: Tx) {
   });
 }
 
+/** Jadwal kontrol (surat kontrol) pasien LINTAS kunjungan — picker No. SKDP saat SEP Rawat Jalan.
+ *  Join via relasi kunjungan.patientId. Terbaru dulu (tanggal string YYYY-MM-DD → sort leksikal). */
+export function listByPatient(patientId: string, tx?: Tx) {
+  return db(tx).jadwalKontrol.findMany({
+    where: { deletedAt: null, kunjungan: { patientId } },
+    orderBy: [{ tanggal: "desc" }, { createdAt: "desc" }],
+  });
+}
+
 export function findById(id: string, tx?: Tx) {
   return db(tx).jadwalKontrol.findUnique({ where: { id } });
 }

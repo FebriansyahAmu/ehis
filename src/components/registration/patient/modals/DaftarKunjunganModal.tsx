@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { CalendarPlus, ChevronLeft, ChevronRight, Loader2, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/contexts/SessionContext";
 import type { PatientMaster } from "@/lib/data";
 import { emitTask, setStatus } from "@/lib/antrean/antreanStore";
 import { registerKunjungan, type KunjunganDTO } from "@/lib/api/kunjungan";
@@ -64,6 +65,9 @@ export function DaftarKunjunganModal({
 }) {
   const today = new Date().toISOString().split("T")[0];
   const nowTime = new Date().toTimeString().slice(0, 5);
+  const { session } = useSession(); // sesi SSR-seed (ModuleLayout) → nama operator SEP = user login
+
+  const operatorNama = session?.namaTampil ?? "Operator Loket";
 
   const [form, setForm] = useState<KunjunganForm>({
     unit: "Rawat Jalan", tanggal: today, jam: nowTime, caraMasuk: "Datang Sendiri",
@@ -94,7 +98,7 @@ export function DaftarKunjunganModal({
     ppkPelayanan: "0107R001",
     // No. telepon dari data pasien (wajib utk SEP). Operator boleh ubah di form.
     noTelp: patient.noHp ?? "",
-    user: "Operator Loket",
+    user: operatorNama, // nama user login (server tetap otoritatif saat terbit — anti-spoof)
   }));
 
   const [stepIdx, setStepIdx] = useState(0);
@@ -343,13 +347,14 @@ export function DaftarKunjunganModal({
                   )}
                   {current === "rujukan" && (
                     <StepRujukan
+                      patientId={patient.id}
                       noBpjs={penjamin.nomor || bpjsData?.noKartu || patient.penjamin.nomor || "—"}
                       rujukan={rujukan}
                       setRujukan={setRujukan}
                     />
                   )}
                   {current === "sep" && (
-                    <StepSEP draft={sepDraft} setDraft={setSepDraft} terbitSep={terbitSep} setTerbitSep={setTerbitSep} />
+                    <StepSEP patientId={patient.id} draft={sepDraft} setDraft={setSepDraft} terbitSep={terbitSep} setTerbitSep={setTerbitSep} />
                   )}
                   {current === "review" && (
                     <StepReview form={form} penjamin={penjamin} isBpjsFlow={bpjsFlow} terbitSep={terbitSep} rujukan={needsRujukan ? rujukan : null} draft={sepDraft} />

@@ -75,6 +75,13 @@ export function makeJadwalKontrolService(deps: { dal?: Dal } = {}) {
     return rows.map(toDTO);
   }
 
+  /** GET — jadwal kontrol (surat kontrol) PASIEN lintas kunjungan (picker No. SKDP saat SEP RJ).
+   *  Registration = role global (bypass unit-scope); tak ada assertion kunjungan (patient-level). */
+  async function listByPatient(patientId: string, _actor: Actor): Promise<JadwalKontrolDTO[]> {
+    const rows = await dal.listByPatient(patientId);
+    return rows.map(toDTO);
+  }
+
   /** GET — SEP TERBIT milik pasien kunjungan ini (lintas kunjungan, terbaru dulu) utk picker No. SEP. */
   async function listSepTerbit(kunjunganId: string, _actor: Actor): Promise<SepTerbitDTO[]> {
     const k = await assertKunjungan(kunjunganId);
@@ -220,7 +227,7 @@ export function makeJadwalKontrolService(deps: { dal?: Dal } = {}) {
     await dal.softDelete(itemId);
   }
 
-  return { list, listSepTerbit, create, update, remove };
+  return { list, listByPatient, listSepTerbit, create, update, remove };
 }
 
 export const jadwalKontrolService = makeJadwalKontrolService();

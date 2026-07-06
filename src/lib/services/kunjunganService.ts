@@ -204,7 +204,7 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
    * RJ wajib pasien `dataLengkap`. Pasien BPJS → buat Rujukan + terbitkan SEP (mock) di
    * transaksi yang sama; semua-atau-tidak (rollback bila salah satu gagal).
    */
-  async function registerKunjungan(input: RegisterKunjunganInput, _actor: Actor): Promise<KunjunganDTO> {
+  async function registerKunjungan(input: RegisterKunjunganInput, actor: Actor): Promise<KunjunganDTO> {
     const patient = await patientDal.findById(input.patientId);
     if (!patient) throw Errors.notFound("Pasien tidak ditemukan");
     // Kontrak Patient↔Kunjungan (BACKEND-ENCOUNTER §10): RJ/RI terjadwal wajib `dataLengkap`;
@@ -347,7 +347,8 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
             noTelp: noTelpEff,
             skdpKodeDpjp: skdpKodeDpjpEff,
             rujukan: sepRujukan,
-            input: input.sep,
+            // user SEP = nama actor login (server-otoritatif, anti-spoof) — override nilai client.
+            input: { ...input.sep, user: await resolveActorNama(actor) },
           },
           tx,
         );
@@ -380,6 +381,20 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
     if (!found) throw Errors.notFound("Kunjungan tidak ditemukan");
     assertUnitInScope(actor, found);
     return toDTO(found);
+  }
+
+  /**
+   * Diagnosa UTAMA (primary) satu kunjungan — untuk pra-isi rujukan "Kontrol Pasca Ranap"
+   * (SEP ranap terakhir → diagnosa primer episode ranap). Gate registration.kunjungan:read;
+   * Registrasi/Kasir = role global (bypass unit-scope). Null bila belum ada diagnosa utama.
+   */
+  async function getDiagnosaUtama(id: string, actor: Actor): Promise<{ kode: string | null; nama: string | null }> {
+    const found = await dal.findById(id);
+    if (!found) throw Errors.notFound("Kunjungan tidak ditemukan");
+    assertUnitInScope(actor, found);
+    const rows = await diagnosaDal.listUtamaByKunjunganIds([id]);
+    const d = rows[0]; // urut createdAt desc → Utama terbaru
+    return { kode: d?.kodeIcd10 ?? null, nama: d?.namaDiagnosis ?? null };
   }
 
   // ── State machine worklist (BACKEND-ENCOUNTER §3) ──────────────────────────--
@@ -596,7 +611,7 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
     return { items: items.map(toListDTO), cursor: nextCursor };
   }
 
-  return { registerKunjungan, getKunjungan, getWorklist, transition };
+  return { registerKunjungan, getKunjungan, getDiagnosaUtama, getWorklist, transition };
 }
 
 export const kunjunganService = makeKunjunganService();

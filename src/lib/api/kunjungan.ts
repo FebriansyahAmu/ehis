@@ -33,6 +33,18 @@ export async function getKunjungan(id: string, signal?: AbortSignal): Promise<Ku
   return data;
 }
 
+/** GET /kunjungan/:id/diagnosa-utama — diagnosa UTAMA (primary) kunjungan (pra-isi rujukan kontrol). */
+export async function getDiagnosaUtama(
+  id: string,
+  signal?: AbortSignal,
+): Promise<{ kode: string | null; nama: string | null }> {
+  const { data } = await api.get<{ kode: string | null; nama: string | null }>(
+    `/kunjungan/${encodeURIComponent(id)}/diagnosa-utama`,
+    { signal },
+  );
+  return data;
+}
+
 /** PATCH /kunjungan/:id/status — transisi worklist (call/recall/receive/complete/cancel…). */
 export async function transitionKunjungan(
   id: string,

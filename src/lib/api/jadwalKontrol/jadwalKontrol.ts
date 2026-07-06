@@ -29,6 +29,16 @@ export async function listJadwalKontrol(
   return data;
 }
 
+/** GET — jadwal kontrol (surat kontrol) PASIEN lintas kunjungan (picker No. SKDP saat SEP RJ). */
+export async function listJadwalKontrolByPatient(
+  patientId: string, signal?: AbortSignal,
+): Promise<JadwalKontrolDTO[]> {
+  const { data } = await api.get<JadwalKontrolDTO[]>(
+    `/patients/${encodeURIComponent(patientId)}/jadwal-kontrol`, { signal },
+  );
+  return data;
+}
+
 /** POST — terbitkan jadwal kontrol (BPJS → server kirim RencanaKontrol/insert). */
 export async function createJadwalKontrol(
   kunjunganId: string, input: JadwalKontrolInput, signal?: AbortSignal,

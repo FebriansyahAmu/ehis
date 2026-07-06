@@ -7,8 +7,14 @@ import type { DpjpTersediaDTO } from "@/lib/schemas/bpjs/dpjpMapping";
 
 export type { DpjpTersediaDTO };
 
-/** GET /master/dpjp-tersedia — dokter + kode DPJP BPJS (null = belum di-map). */
+/** GET /master/dpjp-tersedia — dokter + kode DPJP BPJS (null = belum di-map). Gate klinis. */
 export async function listDpjpTersedia(signal?: AbortSignal): Promise<DpjpTersediaDTO[]> {
   const { data } = await api.get<DpjpTersediaDTO[]>("/master/dpjp-tersedia", { signal });
+  return data;
+}
+
+/** GET /bpjs/dpjp-tersedia — varian LOKET (gate registration.kunjungan:read) untuk form SEP. */
+export async function listDpjpTersediaLoket(signal?: AbortSignal): Promise<DpjpTersediaDTO[]> {
+  const { data } = await api.get<DpjpTersediaDTO[]>("/bpjs/dpjp-tersedia", { signal });
   return data;
 }
