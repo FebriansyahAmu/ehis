@@ -1,52 +1,16 @@
 import type { Metadata } from "next";
-import type { LucideIcon } from "lucide-react";
-import {
-  Stethoscope, Users, Clock, CheckCircle2,
-} from "lucide-react";
+import { Stethoscope } from "lucide-react";
 import RJPageView from "@/components/rawat-jalan/RJPageView";
-import { rjPatients, rjStats } from "@/lib/data";
-import { cn } from "@/lib/utils";
 import { requireCareService } from "@/lib/auth/requireCareService";
 
 export const metadata: Metadata = { title: "Rawat Jalan" };
 
-// ── Stat card ─────────────────────────────────────────────
-
-type Variant = "default" | "warning" | "active" | "success";
-
-const VARIANT_CLS: Record<Variant, { card: string; text: string; lbl: string; ico: string }> = {
-  default: { card: "border-slate-200 bg-white",         text: "text-slate-900",   lbl: "text-slate-600",   ico: "text-slate-400"   },
-  warning: { card: "border-amber-200 bg-amber-50",      text: "text-amber-700",   lbl: "text-amber-600",   ico: "text-amber-500"   },
-  active:  { card: "border-sky-200 bg-sky-50",          text: "text-sky-700",     lbl: "text-sky-600",     ico: "text-sky-500"     },
-  success: { card: "border-emerald-200 bg-emerald-50",  text: "text-emerald-700", lbl: "text-emerald-600", ico: "text-emerald-500" },
-};
-
-function StatCard({
-  label, value, sub, icon: Icon, variant = "default",
-}: {
-  label: string; value: string | number; sub?: string; icon: LucideIcon; variant?: Variant;
-}) {
-  const s = VARIANT_CLS[variant];
-  return (
-    <div className={cn("rounded-xl border p-4 shadow-sm", s.card)}>
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className={cn("text-2xl font-black tabular-nums leading-none", s.text)}>{value}</p>
-          <p className={cn("mt-1 text-sm font-medium", s.lbl)}>{label}</p>
-          {sub && <p className="mt-0.5 text-[10px] text-slate-400">{sub}</p>}
-        </div>
-        <Icon size={18} className={s.ico} />
-      </div>
-    </div>
-  );
-}
-
 // ── Page ──────────────────────────────────────────────────
+// Worklist DB-driven (tanpa data mock). Statistik + census dari GET /kunjungan di RJPageView.
 
 export default async function RawatJalanPage() {
   await requireCareService("/ehis-care/rawat-jalan");
   const now = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
-  const s   = rjStats;
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -59,26 +23,12 @@ export default async function RawatJalanPage() {
           </span>
           <h1 className="text-xl font-bold text-slate-900">Rawat Jalan</h1>
         </div>
-        <p className="mt-1 text-sm text-slate-400">
-          Data per pukul {now} · {s.poliAktif} poliklinik aktif hari ini
-        </p>
+        <p className="mt-1 text-sm text-slate-400">Data per pukul {now}</p>
       </header>
 
-      {/* Stats */}
-      <section
-        className="animate-fade-in grid grid-cols-2 gap-3 lg:grid-cols-4"
-        aria-label="Ringkasan Rawat Jalan"
-        style={{ animationDelay: "60ms" }}
-      >
-        <StatCard label="Total Kunjungan"   value={s.totalHariIni} sub="hari ini"          icon={Users}        />
-        <StatCard label="Menunggu"           value={s.menunggu}     sub="antrian aktif"     icon={Clock}        variant="warning" />
-        <StatCard label="Sedang Diperiksa"   value={s.aktif}        sub="dalam proses"      icon={Stethoscope}  variant="active"  />
-        <StatCard label="Selesai"            value={s.selesai}      sub="kunjungan tuntas"  icon={CheckCircle2} variant="success" />
-      </section>
-
-      {/* Tab Order Masuk | Worklist Pasien | Konsultasi (badge kedip merah saat ada yang masuk) */}
+      {/* Statistik + tab Order Masuk | Worklist Pasien | Konsultasi (data nyata) */}
       <section className="animate-fade-in" style={{ animationDelay: "120ms" }}>
-        <RJPageView seed={rjPatients} />
+        <RJPageView />
       </section>
 
     </div>

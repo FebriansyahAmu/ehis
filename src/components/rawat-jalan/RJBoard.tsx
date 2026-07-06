@@ -1,23 +1,16 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Users, ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
+import { Search, Users, ChevronLeft, ChevronRight, CheckCircle2, CalendarDays, X } from "lucide-react";
 import type { RJPatient, RJPoli } from "@/lib/data";
 import { cn } from "@/lib/utils";
-import {
-  useRJQueue,
-  panggilPoli,
-  panggilUlangPoli,
-  terimaPoli,
-  batalKunjungan,
-  selesaikanPoli,
-  ORDER_CFG,
-  type RJOrderStatus,
-} from "@/lib/rawat-jalan/rjQueueStore";
+import { Select, DatePicker, type SelectOption } from "@/components/shared/inputs";
+import { ORDER_CFG, type RJOrderStatus } from "@/lib/rawat-jalan/rjQueueStore";
 import { PENJAMIN_CFG } from "./rjShared";
 import RJPatientCard from "./RJPatientCard";
 import RJPoliPanel from "./RJPoliPanel";
+import RJCancelDialog from "./RJCancelDialog";
 
 // ── Constants ─────────────────────────────────────────────
 
@@ -25,9 +18,20 @@ const ITEMS_PER_PAGE = 9;
 
 type StatusFilter = RJOrderStatus | "Semua";
 
-const ALL_STATUSES: StatusFilter[] = [
-  "Semua", "Order_Masuk", "Dipanggil", "Dilayani", "Selesai", "Dikembalikan_Admisi",
+// Worklist mengecualikan status pra-pelayanan (Order Masuk & Dipanggil) → keduanya ada di
+// sub-menu "Order Masuk". Chip worklist pun tanpa keduanya; default aktif = "Dilayani".
+const WORKLIST_STATUSES: StatusFilter[] = [
+  "Semua", "Dilayani", "Selesai", "Dikembalikan_Admisi",
 ];
+
+// Status yang ditangani tab "Order Masuk" (antrean pra-pelayanan). Dikecualikan dari worklist.
+export const ORDER_TAB_STATUSES: readonly RJOrderStatus[] = ["Order_Masuk", "Dipanggil"];
+
+type DatePreset = "Semua" | "Hari Ini" | "3 Hari" | "7 Hari" | "Kustom";
+const DATE_PRESETS: DatePreset[] = ["Semua", "Hari Ini", "3 Hari", "7 Hari", "Kustom"];
+const DATE_PRESET_LABEL: Record<DatePreset, string> = {
+  Semua: "Semua", "Hari Ini": "Hari Ini", "3 Hari": "3 Hari", "7 Hari": "7 Hari", Kustom: "Rentang",
+};
 
 interface Toast {
   id: number;
@@ -44,38 +48,42 @@ export default function RJBoard({
   statusOverride,
   recallOverride,
   onApiAction,
-  statusLock,
+  lockStatuses,
   allowedPolis,
 }: {
   patients: RJPatient[];
-  /** Order untuk pasien dari API (tak ada di mock queue store) — mis. kunjungan baru. */
+  /** Order per pasien (dibangun RJPageView dari worklist DB). */
   statusOverride?: Record<string, RJOrderStatus>;
-  /** Recall count untuk pasien API (mock store tak punya entry). */
+  /** Recall count per pasien (dari worklist DB). */
   recallOverride?: Record<string, number>;
-  /** Handler aksi kartu API → transisi server. Kembalikan ok + pesan untuk toast. */
-  onApiAction?: (patient: RJPatient, action: BoardApiAction) => Promise<{ ok: boolean; message?: string }>;
-  /** Kunci board ke 1 status (tab "Order Masuk") — chips filter status disembunyikan. */
-  statusLock?: RJOrderStatus;
+  /** Handler aksi kartu → transisi server (version-guarded). Kembalikan ok + pesan untuk toast. */
+  onApiAction: (patient: RJPatient, action: BoardApiAction) => Promise<{ ok: boolean; message?: string }>;
+  /** Kunci board ke sekumpulan status (tab "Order Masuk") — chips filter status disembunyikan. */
+  lockStatuses?: readonly RJOrderStatus[];
   /** Poli penugasan user login — Panel Poliklinik hanya menampilkan poli ini (null = semua). */
   allowedPolis?: ReadonlySet<RJPoli> | null;
 }) {
-  const queue = useRJQueue();
-  // Kartu bersumber API bila id-nya ada di statusOverride (dibangun RJPageView dari worklist).
-  const isApi = (id: string) => statusOverride !== undefined && id in statusOverride;
+  const orderOf = (id: string): RJOrderStatus => statusOverride?.[id] ?? "Dilayani";
 
-  const [statusPick, setStatusPick] = useState<StatusFilter>("Semua");
-  const statusFilter = statusLock ?? statusPick;
-  const setStatusFilter = setStatusPick;
+  const [statusPick, setStatusPick] = useState<StatusFilter>("Dilayani");
+  // Tab terkunci (Order Masuk) → tampilkan semua status terkunci (tanpa chip). Worklist → chip aktif.
+  const statusFilter: StatusFilter = lockStatuses ? "Semua" : statusPick;
   const [poliFilter, setPoliFilter] = useState<RJPoli | "Semua">("Semua");
   const [dokterFilter, setDokterFilter] = useState("Semua");
   const [penjaminFilter, setPenjaminFilter] = useState("Semua");
   const [search, setSearch] = useState("");
+  const [datePreset, setDatePreset] = useState<DatePreset>("Semua");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<RJPatient | null>(null); // konfirmasi batal kunjungan
+  const [canceling, setCanceling] = useState(false);
 
-  useEffect(() => { setPage(1); }, [statusFilter, poliFilter, dokterFilter, penjaminFilter, search]);
-
-  const orderOf = (id: string): RJOrderStatus => statusOverride?.[id] ?? queue[id]?.order ?? "Dilayani";
+  // Reset halaman saat filter berubah — pola "adjust state during render" (bukan efek).
+  const filterKey = `${statusFilter}|${poliFilter}|${dokterFilter}|${penjaminFilter}|${search}|${datePreset}|${dateFrom}|${dateTo}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (prevFilterKey !== filterKey) { setPrevFilterKey(filterKey); setPage(1); }
 
   const showToast = (text: string) => {
     const id = Date.now();
@@ -83,28 +91,69 @@ export default function RJBoard({
     setTimeout(() => setToast((t) => (t?.id === id ? null : t)), 2400);
   };
 
-  const dokterList = useMemo(
-    () => ["Semua", ...Array.from(new Set(patients.map((p) => p.dokter))).sort()],
-    [patients],
+  // Worklist mengecualikan Order_Masuk (ada di sub-menu Order Masuk sendiri). Tab Order Masuk
+  // (statusLock) hanya menampilkan status yang dilock → panel poli/dokter/empty akurat.
+  const boardPatients = useMemo(
+    () =>
+      lockStatuses
+        ? patients.filter((p) => lockStatuses.includes(orderOf(p.id)))
+        : patients.filter((p) => !ORDER_TAB_STATUSES.includes(orderOf(p.id))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [patients, lockStatuses, statusOverride],
   );
+
+  const dokterOptions: SelectOption[] = useMemo(
+    () => [
+      { value: "Semua", label: "Semua Dokter" },
+      ...Array.from(new Set(boardPatients.map((p) => p.dokter))).sort()
+        .map((d) => ({ value: d, label: d })),
+    ],
+    [boardPatients],
+  );
+  const penjaminOptions: SelectOption[] = [
+    { value: "Semua", label: "Semua Penjamin" },
+    ...(Object.keys(PENJAMIN_CFG) as Array<keyof typeof PENJAMIN_CFG>)
+      .map((k) => ({ value: k, label: PENJAMIN_CFG[k].label })),
+  ];
 
   const counts = useMemo(
     () =>
-      ALL_STATUSES.reduce<Record<string, number>>((acc, s) => {
-        acc[s] = s === "Semua" ? patients.length : patients.filter((p) => orderOf(p.id) === s).length;
+      WORKLIST_STATUSES.reduce<Record<string, number>>((acc, s) => {
+        acc[s] = s === "Semua" ? boardPatients.length : boardPatients.filter((p) => orderOf(p.id) === s).length;
         return acc;
       }, {}),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [patients, queue],
+    [boardPatients, statusOverride],
   );
+
+  const inDateRange = (tgl: string): boolean => {
+    if (datePreset === "Semua") return true;
+    const admit = new Date(tgl);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    if (datePreset === "Hari Ini") {
+      const next = new Date(today); next.setDate(next.getDate() + 1);
+      return admit >= today && admit < next;
+    }
+    if (datePreset === "3 Hari") {
+      const c = new Date(today); c.setDate(c.getDate() - 2); return admit >= c;
+    }
+    if (datePreset === "7 Hari") {
+      const c = new Date(today); c.setDate(c.getDate() - 6); return admit >= c;
+    }
+    // Kustom
+    if (dateFrom && admit < new Date(dateFrom)) return false;
+    if (dateTo) { const end = new Date(dateTo); end.setDate(end.getDate() + 1); if (admit >= end) return false; }
+    return true;
+  };
 
   const filtered = useMemo(
     () =>
-      patients.filter((p) => {
+      boardPatients.filter((p) => {
         if (statusFilter !== "Semua" && orderOf(p.id) !== statusFilter) return false;
         if (poliFilter !== "Semua" && p.poli !== poliFilter) return false;
         if (dokterFilter !== "Semua" && p.dokter !== dokterFilter) return false;
         if (penjaminFilter !== "Semua" && p.penjamin !== penjaminFilter) return false;
+        if (!inDateRange(p.tanggalKunjungan)) return false;
         if (search) {
           const q = search.toLowerCase();
           return p.name.toLowerCase().includes(q) || p.noRM.toLowerCase().includes(q) || p.keluhan.toLowerCase().includes(q);
@@ -112,108 +161,164 @@ export default function RJBoard({
         return true;
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [patients, queue, statusFilter, poliFilter, dokterFilter, penjaminFilter, search],
+    [boardPatients, statusOverride, statusFilter, poliFilter, dokterFilter, penjaminFilter, search, datePreset, dateFrom, dateTo],
   );
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const visible = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
   const startIdx = filtered.length === 0 ? 0 : (page - 1) * ITEMS_PER_PAGE + 1;
   const endIdx = Math.min(page * ITEMS_PER_PAGE, filtered.length);
-  const gridKey = `${statusFilter}|${poliFilter}|${dokterFilter}|${penjaminFilter}|${search}|${page}`;
+  const gridKey = `${filterKey}|${page}`;
+  const hasDateActive = datePreset !== "Semua" || dateFrom || dateTo;
+  function clearDate() { setDatePreset("Semua"); setDateFrom(""); setDateTo(""); }
 
-  // ── Aksi worklist ────────────────────────────────────────
-  // Kartu API → transisi server (onApiAction); kartu mock/seed → queue store lokal.
+  // ── Aksi worklist → transisi server ──────────────────────
   const runApi = async (p: RJPatient, action: BoardApiAction, okMsg: string) => {
-    const r = await onApiAction!(p, action);
+    const r = await onApiAction(p, action);
     showToast(r.ok ? okMsg : (r.message ?? "Gagal memproses aksi"));
   };
-  const handlePanggil = (p: RJPatient) => {
-    if (isApi(p.id)) { void runApi(p, "call", `Memanggil ${p.name} ke ${p.dokter}`); return; }
-    panggilPoli(p.id); showToast(`Memanggil ${p.name} ke ${p.dokter}`);
-  };
-  const handlePanggilUlang = (p: RJPatient) => {
-    if (isApi(p.id)) { void runApi(p, "recall", `Panggil ulang ${p.name}`); return; }
-    const n = panggilUlangPoli(p.id); showToast(`Panggil ulang ${p.name} (ke-${n + 1})`);
-  };
-  const handleTerima = (p: RJPatient) => {
-    if (isApi(p.id)) { void runApi(p, "receive", `${p.name} diterima — mulai pelayanan`); return; }
-    terimaPoli(p.id); showToast(`${p.name} diterima — mulai pelayanan`);
-  };
-  const handleBatal = (p: RJPatient) => {
-    if (isApi(p.id)) { void runApi(p, "cancel", `Kunjungan ${p.name} dikembalikan ke admisi`); return; }
-    batalKunjungan(p.id); showToast(`Kunjungan ${p.name} dikembalikan ke admisi`);
-  };
-  const handleSelesai = (p: RJPatient) => {
-    if (isApi(p.id)) { void runApi(p, "complete", `Pelayanan ${p.name} selesai`); return; }
-    selesaikanPoli(p.id); showToast(`Pelayanan ${p.name} selesai`);
+  const handlePanggil = (p: RJPatient) => void runApi(p, "call", `Memanggil ${p.name} ke ${p.dokter}`);
+  const handlePanggilUlang = (p: RJPatient) => void runApi(p, "recall", `Panggil ulang ${p.name}`);
+  const handleTerima = (p: RJPatient) => void runApi(p, "receive", `${p.name} diterima — mulai pelayanan`);
+  // Batal kunjungan = destruktif (kembali ke admisi) → buka dialog konfirmasi dulu.
+  const handleBatal = (p: RJPatient) => setCancelTarget(p);
+  const confirmCancel = async () => {
+    if (!cancelTarget || canceling) return;
+    const p = cancelTarget;
+    setCanceling(true);
+    const r = await onApiAction(p, "cancel");
+    showToast(r.ok ? `Kunjungan ${p.name} dikembalikan ke admisi` : (r.message ?? "Gagal membatalkan kunjungan"));
+    setCanceling(false);
+    setCancelTarget(null);
   };
 
   return (
     <div className="flex flex-col gap-4">
-      <RJPoliPanel patients={patients} selected={poliFilter} onSelect={setPoliFilter} allowedPolis={allowedPolis} />
+      <RJPoliPanel patients={boardPatients} selected={poliFilter} onSelect={setPoliFilter} allowedPolis={allowedPolis} />
 
       <div className="h-px bg-slate-100" />
 
       {/* Filter bar */}
       <div className="flex flex-col gap-3">
-        {!statusLock && <div className="flex flex-wrap gap-1.5">
-          {ALL_STATUSES.map((s) => {
-            const isActive = statusFilter === s;
-            const activeCls = s === "Semua" ? "bg-slate-800 text-white border-slate-800" : ORDER_CFG[s].active;
-            return (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setStatusFilter(s)}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all duration-150",
-                  isActive ? activeCls : "border-slate-200 text-slate-600 hover:bg-slate-50",
-                )}
-              >
-                {s === "Semua" ? "Semua" : ORDER_CFG[s].label}
-                <span className={cn("rounded-full px-1.5 py-0.5 text-[9px] font-black", isActive ? "bg-white/25" : "bg-slate-100 text-slate-500")}>
-                  {counts[s]}
-                </span>
-              </button>
-            );
-          })}
-        </div>}
+        {!lockStatuses && (
+          <div className="flex flex-wrap gap-1.5">
+            {WORKLIST_STATUSES.map((s) => {
+              const isActive = statusFilter === s;
+              const activeCls = s === "Semua" ? "bg-slate-800 text-white border-slate-800" : ORDER_CFG[s].active;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setStatusPick(s)}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all duration-150",
+                    isActive ? activeCls : "border-slate-200 text-slate-600 hover:bg-slate-50",
+                  )}
+                >
+                  {s === "Semua" ? "Semua" : ORDER_CFG[s].label}
+                  <span className={cn("rounded-full px-1.5 py-0.5 text-[9px] font-black", isActive ? "bg-white/25" : "bg-slate-100 text-slate-500")}>
+                    {counts[s]}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={dokterFilter}
-            onChange={(e) => setDokterFilter(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-            aria-label="Filter dokter"
-          >
-            {dokterList.map((d) => (
-              <option key={d} value={d}>{d === "Semua" ? "Semua Dokter" : d}</option>
-            ))}
-          </select>
+          {/* Dokter — dropdown kustom (kontras terbaca, bukan native) */}
+          <div className="w-48">
+            <Select value={dokterFilter} onChange={setDokterFilter} options={dokterOptions} placeholder="Semua Dokter" />
+          </div>
 
-          <select
-            value={penjaminFilter}
-            onChange={(e) => setPenjaminFilter(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-            aria-label="Filter penjamin"
-          >
-            <option value="Semua">Semua Penjamin</option>
-            {(Object.keys(PENJAMIN_CFG) as Array<keyof typeof PENJAMIN_CFG>).map((k) => (
-              <option key={k} value={k}>{PENJAMIN_CFG[k].label}</option>
-            ))}
-          </select>
+          {/* Penjamin — dropdown kustom */}
+          <div className="w-44">
+            <Select value={penjaminFilter} onChange={setPenjaminFilter} options={penjaminOptions} placeholder="Semua Penjamin" />
+          </div>
 
+          {/* Cari — font tegas (bukan terang) */}
           <div className="relative ml-auto">
             <Search size={12} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari nama / No. RM…"
-              className="h-8 w-52 rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-xs placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+              placeholder="Cari nama / No. RM / keluhan…"
+              className="h-9 w-56 rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-xs font-medium text-slate-700 placeholder:font-normal placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
               aria-label="Cari pasien rawat jalan"
             />
           </div>
+        </div>
+
+        {/* Filter tanggal / periode kunjungan */}
+        <div className={cn(
+          "flex flex-wrap items-center gap-2 rounded-xl border px-4 py-2.5 transition-colors",
+          hasDateActive ? "border-sky-200 bg-sky-50/60" : "border-slate-100 bg-slate-50/60",
+        )}>
+          <div className="flex items-center gap-1.5">
+            <CalendarDays size={12} className={hasDateActive ? "text-sky-500" : "text-slate-400"} />
+            <span className={cn("text-[11px] font-semibold", hasDateActive ? "text-sky-700" : "text-slate-500")}>
+              Tanggal Kunjungan
+            </span>
+          </div>
+
+          <span className="h-3.5 w-px bg-slate-200" aria-hidden="true" />
+
+          <div className="flex flex-wrap items-center gap-1">
+            {DATE_PRESETS.map((preset) => {
+              const isActive = datePreset === preset;
+              return (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setDatePreset(preset)}
+                  className={cn(
+                    "rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition",
+                    isActive
+                      ? "border-sky-400 bg-sky-600 text-white shadow-sm"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-800",
+                  )}
+                >
+                  {DATE_PRESET_LABEL[preset]}
+                </button>
+              );
+            })}
+          </div>
+
+          <AnimatePresence>
+            {datePreset === "Kustom" && (
+              <motion.div
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: "auto" }}
+                exit={{ opacity: 0, width: 0 }}
+                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                style={{ overflow: "hidden" }}
+                className="flex items-center gap-2"
+              >
+                <span className="w-1" />
+                <div className="w-40"><DatePicker value={dateFrom} onChange={setDateFrom} placeholder="Dari tanggal" /></div>
+                <span className="text-xs text-slate-400">–</span>
+                <div className="w-40"><DatePicker value={dateTo} onChange={setDateTo} placeholder="Sampai tanggal" /></div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {hasDateActive && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.15 }}
+                type="button"
+                onClick={clearDate}
+                className="ml-auto flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                aria-label="Hapus filter tanggal"
+              >
+                <X size={10} /> Hapus
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -234,12 +339,11 @@ export default function RJBoard({
                 patient={p}
                 index={i}
                 order={orderOf(p.id)}
-                recalls={recallOverride?.[p.id] ?? queue[p.id]?.recalls ?? 0}
+                recalls={recallOverride?.[p.id] ?? 0}
                 onPanggil={handlePanggil}
                 onPanggilUlang={handlePanggilUlang}
                 onTerima={handleTerima}
                 onBatal={handleBatal}
-                onSelesai={handleSelesai}
               />
             ))}
           </motion.div>
@@ -324,6 +428,14 @@ export default function RJBoard({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Konfirmasi batalkan kunjungan (portal → di luar Link kartu) */}
+      <RJCancelDialog
+        patient={cancelTarget}
+        busy={canceling}
+        onConfirm={() => void confirmCancel()}
+        onCancel={() => { if (!canceling) setCancelTarget(null); }}
+      />
     </div>
   );
 }

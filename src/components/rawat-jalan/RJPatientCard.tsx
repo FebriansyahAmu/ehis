@@ -4,7 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   Stethoscope, Clock, PhoneCall, BellRing, UserCheck, XCircle,
-  CheckCircle2, FolderOpen, Lock, Undo2,
+  FolderOpen, Lock, Undo2,
 } from "lucide-react";
 import type { RJPatient } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,6 @@ interface Props {
   onPanggilUlang: (p: RJPatient) => void;
   onTerima: (p: RJPatient) => void;
   onBatal: (p: RJPatient) => void;
-  onSelesai: (p: RJPatient) => void;
 }
 
 export default function RJPatientCard({
@@ -32,7 +31,6 @@ export default function RJPatientCard({
   onPanggilUlang,
   onTerima,
   onBatal,
-  onSelesai,
 }: Props) {
   const oc = ORDER_CFG[order];
   const pc = POLI_CFG[p.poli];
@@ -40,106 +38,105 @@ export default function RJPatientCard({
   const detailHref = `/ehis-care/rawat-jalan/${p.id}`;
   const dimmed = order === "Selesai" || order === "Dikembalikan_Admisi";
 
+  // Seluruh kartu = link ke rekam medis RJ. Tombol aksi (Panggil/Terima/…) stopPropagation +
+  // preventDefault agar tidak ikut menavigasi.
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04, duration: 0.2, ease: "easeOut" }}
-      className={cn(
-        "flex flex-col overflow-hidden rounded-xl border border-l-4 border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md",
-        oc.border,
-        dimmed && "opacity-75",
-      )}
-    >
-      {/* Header row */}
-      <div className="flex items-start gap-3 p-4 pb-2.5">
-        <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-xl bg-slate-100">
-          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-400">No</span>
-          <span className="text-base font-black leading-none text-slate-700">{p.nomorAntrian}</span>
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold text-slate-900">{p.name}</p>
-          <p className="text-[10px] text-slate-400">
-            <span className="font-mono">{p.noRM}</span>
-            <span className="mx-1 text-slate-300">·</span>
-            <span>{p.age} thn · {p.gender === "L" ? "♂" : "♀"}</span>
-          </p>
-        </div>
-
-        <span className={cn("flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[9px] font-bold", oc.badge)}>
-          <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", oc.dot, (order === "Dipanggil") && "animate-pulse")} />
-          {oc.label}
-        </span>
-      </div>
-
-      {/* Poli + Penjamin */}
-      <div className="flex flex-wrap items-center gap-1.5 px-4 pb-2.5">
-        <span className={cn("rounded-lg px-2 py-0.5 text-[10px] font-bold", pc.badge)}>{pc.label}</span>
-        {order === "Order_Masuk" && (
-          <span className="rounded-lg bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">Order dari Admisi</span>
+    <Link href={detailHref} className="block focus:outline-none">
+      <motion.article
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.04, duration: 0.2, ease: "easeOut" }}
+        className={cn(
+          "flex cursor-pointer flex-col overflow-hidden rounded-xl border border-l-4 border-slate-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
+          oc.border,
+          dimmed && "opacity-75",
         )}
-        {recalls > 0 && (
-          <span className="inline-flex items-center gap-1 rounded-lg bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-            <BellRing size={10} /> {recalls + 1}×
+      >
+        {/* Header row */}
+        <div className="flex items-start gap-3 p-4 pb-2.5">
+          <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-xl bg-slate-100">
+            <span className="text-[8px] font-bold uppercase tracking-widest text-slate-400">No</span>
+            <span className="text-base font-black leading-none text-slate-700">{p.nomorAntrian}</span>
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-bold text-slate-900">{p.name}</p>
+            <p className="text-[10px] text-slate-400">
+              <span className="font-mono">{p.noRM}</span>
+              <span className="mx-1 text-slate-300">·</span>
+              <span>{p.age} thn · {p.gender === "L" ? "♂" : "♀"}</span>
+            </p>
+          </div>
+
+          <span className={cn("flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[9px] font-bold", oc.badge)}>
+            <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", oc.dot, (order === "Dipanggil") && "animate-pulse")} />
+            {oc.label}
           </span>
-        )}
-        <span className="ml-auto">
-          <span className={cn("rounded-full px-1.5 py-0.5 text-[9px] font-semibold", pj.badge)}>{pj.label}</span>
-        </span>
-      </div>
-
-      {/* Keluhan */}
-      <div className="px-4 pb-2.5">
-        <p className="line-clamp-1 text-xs text-slate-600">{p.keluhan}</p>
-      </div>
-
-      {/* Dokter */}
-      <div className="flex items-center gap-3 px-4 pb-2.5">
-        <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          <Stethoscope size={11} className="shrink-0 text-slate-400" />
-          <p className="truncate text-[10px] text-slate-500">{p.dokter}</p>
         </div>
-        <div className="flex shrink-0 items-center gap-1 text-[10px] text-slate-400">
-          <Clock size={10} />
-          <span>{p.waktuDaftar}</span>
-        </div>
-      </div>
 
-      {/* Action row */}
-      <div className="flex items-center gap-1.5 border-t border-slate-100 bg-slate-50/60 px-3 py-2.5">
-        <ActionRow
-          order={order}
-          detailHref={detailHref}
-          onPanggil={() => onPanggil(p)}
-          onPanggilUlang={() => onPanggilUlang(p)}
-          onTerima={() => onTerima(p)}
-          onBatal={() => onBatal(p)}
-          onSelesai={() => onSelesai(p)}
-        />
-      </div>
-    </motion.article>
+        {/* Poli + Penjamin */}
+        <div className="flex flex-wrap items-center gap-1.5 px-4 pb-2.5">
+          <span className={cn("rounded-lg px-2 py-0.5 text-[10px] font-bold", pc.badge)}>{pc.label}</span>
+          {order === "Order_Masuk" && (
+            <span className="rounded-lg bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">Order dari Admisi</span>
+          )}
+          {recalls > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-lg bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+              <BellRing size={10} /> {recalls + 1}×
+            </span>
+          )}
+          <span className="ml-auto">
+            <span className={cn("rounded-full px-1.5 py-0.5 text-[9px] font-semibold", pj.badge)}>{pj.label}</span>
+          </span>
+        </div>
+
+        {/* Keluhan */}
+        <div className="px-4 pb-2.5">
+          <p className="line-clamp-1 text-xs text-slate-600">{p.keluhan}</p>
+        </div>
+
+        {/* Dokter */}
+        <div className="flex items-center gap-3 px-4 pb-2.5">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+            <Stethoscope size={11} className="shrink-0 text-slate-400" />
+            <p className="truncate text-[10px] text-slate-500">{p.dokter}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1 text-[10px] text-slate-400">
+            <Clock size={10} />
+            <span>{p.waktuDaftar}</span>
+          </div>
+        </div>
+
+        {/* Action row */}
+        <div className="flex items-center gap-1.5 border-t border-slate-100 bg-slate-50/60 px-3 py-2.5">
+          <ActionRow
+            order={order}
+            onPanggil={() => onPanggil(p)}
+            onPanggilUlang={() => onPanggilUlang(p)}
+            onTerima={() => onTerima(p)}
+            onBatal={() => onBatal(p)}
+          />
+        </div>
+      </motion.article>
+    </Link>
   );
 }
 
 // ── Action row per status ─────────────────────────────────
+// Buka Rekam & Selesai DIHILANGKAN — buka rekam = klik kartu; selesaikan = di dalam rekam (disposisi).
 
 function ActionRow({
   order,
-  detailHref,
   onPanggil,
   onPanggilUlang,
   onTerima,
   onBatal,
-  onSelesai,
 }: {
   order: RJOrderStatus;
-  detailHref: string;
   onPanggil: () => void;
   onPanggilUlang: () => void;
   onTerima: () => void;
   onBatal: () => void;
-  onSelesai: () => void;
 }) {
   if (order === "Order_Masuk") {
     return (
@@ -160,16 +157,17 @@ function ActionRow({
   }
   if (order === "Dilayani") {
     return (
-      <>
-        <LinkBtn icon={FolderOpen} label="Buka Rekam" href={detailHref} />
-        <Btn icon={CheckCircle2} label="Selesai" tone="emerald" onClick={onSelesai} />
-      </>
+      <span className="inline-flex items-center gap-1.5 px-1 text-[11px] font-medium text-sky-600">
+        <FolderOpen size={12} /> Sedang dilayani — klik kartu untuk buka rekam
+      </span>
     );
   }
   if (order === "Selesai") {
     return (
       <>
-        <LinkBtn icon={FolderOpen} label="Lihat Rekam" href={detailHref} tone="slate" />
+        <span className="inline-flex items-center gap-1.5 px-1 text-[11px] font-medium text-slate-500">
+          <FolderOpen size={12} /> Klik kartu untuk lihat rekam
+        </span>
         <span className="ml-auto inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">
           <Lock size={10} /> Terkunci
         </span>
@@ -209,7 +207,8 @@ function Btn({
   return (
     <button
       type="button"
-      onClick={onClick}
+      // Cegah navigasi kartu (Link) saat menekan tombol aksi.
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick(); }}
       title={title ?? label}
       className={cn(
         "inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition active:scale-95",
@@ -220,32 +219,5 @@ function Btn({
       <Icon size={13} />
       {label}
     </button>
-  );
-}
-
-function LinkBtn({
-  icon: Icon,
-  label,
-  href,
-  tone = "sky",
-}: {
-  icon: typeof FolderOpen;
-  label: string;
-  href: string;
-  tone?: "sky" | "slate";
-}) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition active:scale-95",
-        tone === "sky"
-          ? "bg-white text-sky-700 ring-1 ring-sky-200 hover:bg-sky-50"
-          : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50",
-      )}
-    >
-      <Icon size={13} />
-      {label}
-    </Link>
   );
 }

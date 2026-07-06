@@ -9,7 +9,6 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { rjPatients } from "@/lib/data";
 import { getAntreanByPasien, emitTask, setStatus } from "@/lib/antrean/antreanStore";
 
 const STORAGE_KEY = "ehis.rj.queue.v1";
@@ -84,30 +83,12 @@ export const ORDER_SEQUENCE: RJOrderStatus[] = [
   "Dikembalikan_Admisi",
 ];
 
-// ── Seed (deterministik) ───────────────────────────────────
-
-// Demo: sebagian pasien sengaja "belum dipanggil"/"belum diterima" agar board
-// menampilkan tombol aksi. Sisanya dianggap sudah dilayani / selesai.
-const SEED_ORDER: Record<string, RJOrderStatus> = {
-  "rj-3": "Order_Masuk",
-  "rj-10": "Order_Masuk",
-  "rj-8": "Dipanggil",
-};
-
+// ── Seed ───────────────────────────────────────────────────
+// Tanpa mock (data rawat jalan mock dihapus). Store hanya menampung lifecycle antrean-poli
+// pasien demo record-detail yang di-mutasi runtime (mis. Selesai/reopen di halaman rekam);
+// pasien NYATA (worklist DB) memakai transisi server, bukan store ini.
 function seed(): Record<string, RJQueueEntry> {
-  const out: Record<string, RJQueueEntry> = {};
-  for (const p of rjPatients) {
-    const order: RJOrderStatus =
-      SEED_ORDER[p.id] ?? (p.status === "Selesai" ? "Selesai" : "Dilayani");
-    out[p.id] = {
-      id: p.id,
-      noRM: p.noRM,
-      order,
-      locked: order === "Selesai",
-      recalls: 0,
-    };
-  }
-  return out;
+  return {};
 }
 
 // ── Store ──────────────────────────────────────────────────
