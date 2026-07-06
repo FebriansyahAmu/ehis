@@ -37,6 +37,21 @@ export function create(data: CreateJadwalKontrolData, tx?: Tx) {
   return db(tx).jadwalKontrol.create({ data });
 }
 
+export interface UpdateJadwalKontrolData {
+  tanggal: string;
+  poliNama: string;
+  poliKontrol: string;
+  dokterNama: string;
+  dokterId?: string | null;
+  kodeDokter: string;
+}
+
+/** Update field editable (identitas nomor/noReferensi/noSep TIDAK diubah). Row sudah dipastikan
+ *  ada + tidak terhapus oleh Service (assertMilik) → update by id langsung, kembalikan entity. */
+export function update(id: string, data: UpdateJadwalKontrolData, tx?: Tx) {
+  return db(tx).jadwalKontrol.update({ where: { id }, data });
+}
+
 export async function softDelete(id: string, tx?: Tx) {
   const r = await db(tx).jadwalKontrol.updateMany({
     where: { id, deletedAt: null },

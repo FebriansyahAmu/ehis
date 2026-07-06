@@ -4,10 +4,10 @@
 
 import { api } from "@/lib/api/client";
 import type {
-  JadwalKontrolInput, JadwalKontrolDTO, SepTerbitDTO,
+  JadwalKontrolInput, JadwalKontrolEditInput, JadwalKontrolDTO, SepTerbitDTO,
 } from "@/lib/schemas/jadwalKontrol/jadwalKontrol";
 
-export type { JadwalKontrolInput, JadwalKontrolDTO, SepTerbitDTO };
+export type { JadwalKontrolInput, JadwalKontrolEditInput, JadwalKontrolDTO, SepTerbitDTO };
 
 const base = (k: string) => `/kunjungan/${encodeURIComponent(k)}/jadwal-kontrol`;
 
@@ -34,6 +34,16 @@ export async function createJadwalKontrol(
   kunjunganId: string, input: JadwalKontrolInput, signal?: AbortSignal,
 ): Promise<JadwalKontrolDTO> {
   const { data } = await api.post<JadwalKontrolDTO>(base(kunjunganId), input, { signal });
+  return data;
+}
+
+/** PATCH — perbarui jadwal (noSuratKontrol SAMA; BPJS → server kirim RencanaKontrol/Update). */
+export async function updateJadwalKontrol(
+  kunjunganId: string, itemId: string, input: JadwalKontrolEditInput, signal?: AbortSignal,
+): Promise<JadwalKontrolDTO> {
+  const { data } = await api.patch<JadwalKontrolDTO>(
+    `${base(kunjunganId)}/${encodeURIComponent(itemId)}`, input, { signal },
+  );
   return data;
 }
 

@@ -14,8 +14,8 @@ import type {
 import { isBpjsMockMode } from "@/lib/bpjs/server/config";
 import { callBpjs } from "@/lib/bpjs/server/httpClient";
 import {
-  toSpriWire, toSpriUpdateWire, toSpriDeleteWire, toRencanaKontrolWire,
-  type InsertRencanaKontrolRequest,
+  toSpriWire, toSpriUpdateWire, toSpriDeleteWire, toRencanaKontrolWire, toRencanaKontrolUpdateWire,
+  type InsertRencanaKontrolRequest, type UpdateRencanaKontrolRequest,
 } from "@/lib/schemas/bpjs/rencanaKontrol";
 import { auditedCall, type AuditContext } from "./audit";
 
@@ -23,10 +23,14 @@ const ENDPOINT = "RencanaKontrol/InsertSPRI";
 const ENDPOINT_UPDATE = "RencanaKontrol/UpdateSPRI";
 const ENDPOINT_DELETE = "RencanaKontrol/Delete";
 const ENDPOINT_INSERT_RK = "RencanaKontrol/insert";
+const ENDPOINT_UPDATE_RK = "RencanaKontrol/Update";
 
 /** Payload RencanaKontrol/insert — kontrak Zod di schemas/bpjs/rencanaKontrol.ts
  *  (`InsertRencanaKontrolRequestSchema`); validasi di Service sebelum connector dipanggil. */
 export type InsertRencanaKontrolInput = InsertRencanaKontrolRequest;
+
+/** Payload RencanaKontrol/Update — kontrak Zod `UpdateRencanaKontrolRequestSchema`. */
+export type UpdateRencanaKontrolInput = UpdateRencanaKontrolRequest;
 
 /** Response Delete RK/SPRI — V-Claim hanya kirim metaData; response = pesan. */
 export interface DeleteRKResponse {
@@ -122,6 +126,35 @@ export async function insertRencanaKontrol(
     callBpjs<InsertSPRIResponse>({
       service: "vclaim", method: "POST", path: ENDPOINT_INSERT_RK,
       body: toRencanaKontrolWire(input), contentType: "application/x-www-form-urlencoded",
+    }),
+  );
+}
+
+/**
+ * V-Claim RencanaKontrol/Update (PUT) — perbarui surat kontrol pasca-pulang MEMAKAI
+ * `noSuratKontrol` yang SAMA (bukan terbit baru). Mengubah DPJP/poli/tgl rencana di BPJS.
+ * Mock SELALU sukses → kembalikan noSuratKontrol sama (pola updateSPRI). ⚠️ removable saat sandbox.
+ */
+export async function updateRencanaKontrol(
+  input: UpdateRencanaKontrolInput,
+  who: BpjsAuditActor,
+): Promise<Result<BPJSEnvelope<InsertSPRIResponse>, BPJSError>> {
+  const ctx: AuditContext = {
+    service: "vclaim", endpoint: ENDPOINT_UPDATE_RK, method: "PUT",
+    actor: who.actor, actorRole: who.actorRole, requestBody: toRencanaKontrolUpdateWire(input),
+  };
+  if (isBpjsMockMode()) {
+    return auditedCall<InsertSPRIResponse>(ctx, async () =>
+      Ok({
+        metaData: { code: "200", message: "Update berhasil (mock — tanpa cons-id)" },
+        response: { noSuratKontrol: input.noSuratKontrol, tglRencanaKontrol: input.tglRencanaKontrol },
+      }),
+    );
+  }
+  return auditedCall<InsertSPRIResponse>(ctx, () =>
+    callBpjs<InsertSPRIResponse>({
+      service: "vclaim", method: "PUT", path: ENDPOINT_UPDATE_RK,
+      body: toRencanaKontrolUpdateWire(input), contentType: "application/x-www-form-urlencoded",
     }),
   );
 }

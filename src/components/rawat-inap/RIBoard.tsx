@@ -98,7 +98,9 @@ function PatientCard({ p }: { p: RawatInapPatient }) {
   return (
     <Link href={`/ehis-care/rawat-inap/${p.id}`} className="block">
     <article className={cn(
-      "group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border-l-4 cursor-pointer",
+      "group flex flex-col overflow-hidden rounded-xl border shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border-l-4 cursor-pointer",
+      // Latar kartu by status: hijau = selesai/pulang · kuning = masih dalam perawatan (aktif).
+      isCompletedStatus(p.status) ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50",
       sc.border,
     )}>
       {/* Header row */}

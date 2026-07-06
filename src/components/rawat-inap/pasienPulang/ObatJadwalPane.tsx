@@ -16,7 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle, CalendarCheck, CheckCircle2, ChevronDown, Clock, Copy,
-  Minus, Pill, Plus, Search, Send, ShieldCheck, Trash2, X,
+  Minus, Pencil, Pill, Plus, Search, Send, ShieldCheck, Trash2, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/ui/toastStore";
@@ -28,7 +28,7 @@ import { listLokasiFarmasi, type LokasiFarmasi } from "@/lib/api/master/lokasiFa
 import { listDpjpTersedia, type DpjpTersediaDTO } from "@/lib/api/master/dpjpTersedia";
 import { createResep, listResep, cancelResep, type ResepOrderDTO } from "@/lib/api/resep/resep";
 import {
-  listJadwalKontrol, createJadwalKontrol, deleteJadwalKontrol, listSepTerbit,
+  listJadwalKontrol, createJadwalKontrol, updateJadwalKontrol, deleteJadwalKontrol, listSepTerbit,
   type JadwalKontrolDTO, type SepTerbitDTO,
 } from "@/lib/api/jadwalKontrol/jadwalKontrol";
 import { SMF_POLI_MAP } from "@/components/igd/tabs/pasienPulang/smfPoliMap";
@@ -623,6 +623,7 @@ function JadwalKontrolSection({
   const [saving, setSaving] = useState(false);
   const [serverItems, setServerItems] = useState<JadwalKontrolDTO[]>([]);
   const [issued, setIssued] = useState<JadwalKontrolDTO | null>(null); // panel "Surat Kontrol Terbit"
+  const [editId, setEditId] = useState<string | null>(null); // null = tambah · id = edit (noSuratKontrol sama)
   // Dokter melekat dengan kode DPJP BPJS-nya (bpjs.DpjpMapping — sumber sama dgn SPRI):
   // pilih dokter → kode ketarik otomatis & di-embed server saat submit (tanpa form kode).
   const [dokterList, setDokterList] = useState<DpjpTersediaDTO[] | null>(null);
@@ -664,6 +665,9 @@ function JadwalKontrolSection({
     return () => ac.abort();
   }, [showForm, isBpjs, isPersisted, sepList, kunjunganId]);
 
+  // Baris yang sedang diedit (persisted) → sumber nomor/noReferensi/noSep read-only + payload Update.
+  const editingDto = editId && isPersisted ? serverItems.find((d) => d.id === editId) ?? null : null;
+
   const dokterTerpilih = dokterList?.find((d) => d.dokterId === draft.dokterId) ?? null;
   const kodeAuto = !!dokterTerpilih?.kodeBpjs;
 
@@ -682,8 +686,10 @@ function JadwalKontrolSection({
   const canSave = !saving && !!draft.tanggal && !!draft.poliKontrol &&
     (!isBpjs || (!!draft.noSEP.trim() && kodeAuto));
 
+  // Edit → RencanaKontrol/Update (noSuratKontrol di depan). Tambah → RencanaKontrol/insert.
   const payloadPreview = JSON.stringify({
     request: {
+      ...(editId ? { noSuratKontrol: editingDto?.noReferensi || "{noSuratKontrol}" } : {}),
       noSEP: draft.noSEP || "{nomor SEP}",
       kodeDokter: draft.kodeDokter || "{kode dokter — resolve server}",
       poliKontrol: draft.poliKontrol || "{kode poli}",
@@ -696,40 +702,86 @@ function JadwalKontrolSection({
     setDraft({ tanggal: "", poliKontrol: "", dokterId: "", dokter: "", catatan: "", noSEP: "", kodeDokter: "" });
     setShowForm(false);
     setShowPayload(false);
+    setEditId(null);
+  }
+
+  /** Buka form dalam mode EDIT — prefill dari baris (server DTO / lokal), noSuratKontrol/noSep tetap. */
+  function startEdit(id: string) {
+    setIssued(null);
+    if (isPersisted) {
+      const d = serverItems.find((x) => x.id === id);
+      if (!d) return;
+      setDraft({
+        tanggal: d.tanggal, poliKontrol: d.poliKontrol, dokterId: d.dokterId ?? "",
+        dokter: d.dokterNama, catatan: d.catatan, noSEP: d.noSep, kodeDokter: d.kodeDokter,
+      });
+    } else {
+      const jk = items.find((x) => x.id === id);
+      if (!jk) return;
+      setDraft({
+        tanggal: jk.tanggal, poliKontrol: jk.poliKontrol ?? "", dokterId: "",
+        dokter: jk.dokter, catatan: jk.catatan, noSEP: jk.noSEP ?? "", kodeDokter: jk.kodeDokter ?? "",
+      });
+    }
+    setEditId(id);
+    setShowForm(true);
   }
 
   async function save() {
     if (!canSave) return;
     if (!isPersisted) {
       // Demo — daftar lokal (tanpa nomor sistem / WS BPJS).
-      onChange([...items, {
-        id: `jk-${Date.now()}`,
+      const patch = {
         tanggal: draft.tanggal,
         poli: poliNamaBersih,
         dokter: draft.dokter.trim(),
         catatan: draft.catatan.trim(),
         ...(isBpjs ? { noSEP: draft.noSEP.trim(), kodeDokter: draft.kodeDokter.trim(), poliKontrol: draft.poliKontrol } : {}),
-      }]);
+      };
+      onChange(editId
+        ? items.map((it) => (it.id === editId ? { ...it, ...patch } : it))
+        : [...items, { id: `jk-${Date.now()}`, ...patch }]);
       resetForm();
       return;
     }
     setSaving(true);
     try {
-      const dto = await createJadwalKontrol(kunjunganId, {
-        tanggal: draft.tanggal,
-        poliNama: poliNamaBersih,
-        poliKontrol: draft.poliKontrol,
-        dokterId: draft.dokterId || undefined,
-        dokterNama: draft.dokter.trim(),
-        catatan: draft.catatan.trim(),
-        bpjs: isBpjs,
-        noSep: draft.noSEP.trim(),
-      });
-      setServerItems((arr) => [dto, ...arr]);
-      setIssued(dto); // panel terbit (visual utama — toast tidak perlu dobel)
-      resetForm();
+      if (editId) {
+        // EDIT — noSuratKontrol + noSep tetap; baris BPJS → server kirim RencanaKontrol/Update.
+        const dto = await updateJadwalKontrol(kunjunganId, editId, {
+          tanggal: draft.tanggal,
+          poliNama: poliNamaBersih,
+          poliKontrol: draft.poliKontrol,
+          dokterId: draft.dokterId || undefined,
+          dokterNama: draft.dokter.trim(),
+          catatan: draft.catatan.trim(),
+        });
+        setServerItems((arr) => arr.map((d) => (d.id === dto.id ? dto : d)));
+        toast.success(
+          "Jadwal kontrol diperbarui",
+          dto.noReferensi ? `BPJS RencanaKontrol/Update · ${dto.noReferensi}` : undefined,
+        );
+        resetForm();
+      } else {
+        const dto = await createJadwalKontrol(kunjunganId, {
+          tanggal: draft.tanggal,
+          poliNama: poliNamaBersih,
+          poliKontrol: draft.poliKontrol,
+          dokterId: draft.dokterId || undefined,
+          dokterNama: draft.dokter.trim(),
+          catatan: draft.catatan.trim(),
+          bpjs: isBpjs,
+          noSep: draft.noSEP.trim(),
+        });
+        setServerItems((arr) => [dto, ...arr]);
+        setIssued(dto); // panel terbit (visual utama — toast tidak perlu dobel)
+        resetForm();
+      }
     } catch (e) {
-      toast.error("Gagal menerbitkan jadwal kontrol", e instanceof ApiError ? e.message : undefined);
+      toast.error(
+        editId ? "Gagal memperbarui jadwal kontrol" : "Gagal menerbitkan jadwal kontrol",
+        e instanceof ApiError ? e.message : undefined,
+      );
     } finally {
       setSaving(false);
     }
@@ -918,12 +970,22 @@ function JadwalKontrolSection({
                 )}
                 {jk.catatan && <p className="mt-0.5 text-[10px] text-slate-400">{jk.catatan}</p>}
               </div>
-              <button
-                onClick={() => void hapus(jk.id)}
-                className="shrink-0 rounded-lg p-1 text-slate-300 transition hover:bg-red-50 hover:text-red-400"
-              >
-                <Trash2 size={12} />
-              </button>
+              <div className="flex shrink-0 items-center gap-0.5">
+                <button
+                  onClick={() => startEdit(jk.id)}
+                  title="Edit jadwal (nomor surat kontrol sama)"
+                  className="rounded-lg p-1 text-slate-300 transition hover:bg-orange-50 hover:text-orange-500"
+                >
+                  <Pencil size={12} />
+                </button>
+                <button
+                  onClick={() => void hapus(jk.id)}
+                  title="Batalkan jadwal"
+                  className="rounded-lg p-1 text-slate-300 transition hover:bg-red-50 hover:text-red-400"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
             </motion.div>
           ))}
         </AnimatePresence>
@@ -935,32 +997,37 @@ function JadwalKontrolSection({
               className="rounded-xl border border-orange-200 bg-orange-50/70 p-3"
             >
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-[10px] font-bold text-orange-700">Tambah Jadwal Kontrol</p>
+                <p className="text-[10px] font-bold text-orange-700">
+                  {editId ? "Edit Jadwal Kontrol" : "Tambah Jadwal Kontrol"}
+                </p>
                 <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600"><X size={13} /></button>
               </div>
 
-              {/* Nomor (auto sistem) + No. Referensi (return BPJS) — read-only, bukan isian */}
+              {/* Nomor (auto sistem) + No. Referensi (return BPJS) — read-only, bukan isian.
+                  Edit → tampilkan nilai NYATA (tetap sama; surat tidak diterbitkan ulang). */}
               <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div>
                   <FieldLabel label="Nomor" />
                   <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white/70 px-2.5 py-2">
-                    <span className="font-mono text-xs text-slate-400">JK-…</span>
+                    <span className={cn("font-mono text-xs", editingDto ? "text-slate-600" : "text-slate-400")}>
+                      {editingDto ? editingDto.nomor : "JK-…"}
+                    </span>
                     <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-500">
-                      Auto · Sistem
+                      {editId ? "Tetap" : "Auto · Sistem"}
                     </span>
                   </div>
                 </div>
                 <div>
                   <FieldLabel label="No. Referensi" />
                   <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white/70 px-2.5 py-2">
-                    <span className="font-mono text-xs text-slate-400">
-                      {isBpjs ? "noSuratKontrol…" : "—"}
+                    <span className={cn("truncate font-mono text-xs", editingDto?.noReferensi ? "text-emerald-700" : "text-slate-400")}>
+                      {editingDto?.noReferensi ? editingDto.noReferensi : isBpjs ? "noSuratKontrol…" : "—"}
                     </span>
                     <span className={cn(
                       "shrink-0 rounded-full px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide",
                       isBpjs ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-400",
                     )}>
-                      {isBpjs ? "Return BPJS" : "Non-BPJS"}
+                      {editId ? "Tetap" : isBpjs ? "Return BPJS" : "Non-BPJS"}
                     </span>
                   </div>
                 </div>
@@ -1024,12 +1091,20 @@ function JadwalKontrolSection({
                   <div className="mb-2 flex items-center gap-1.5">
                     <ShieldCheck size={11} className="text-emerald-600" />
                     <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">
-                      Pasien BPJS — data RencanaKontrol/insert wajib
+                      {editId
+                        ? "Pasien BPJS — RencanaKontrol/Update (No. Surat Kontrol sama)"
+                        : "Pasien BPJS — data RencanaKontrol/insert wajib"}
                     </p>
                   </div>
                   <div>
                     <FieldLabel label="No. SEP" required />
-                    {sepList && sepList.length > 0 ? (
+                    {editId ? (
+                      // Edit → SEP asal = identitas surat, TIDAK diubah.
+                      <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white/70 px-2.5 py-2">
+                        <span className="truncate font-mono text-xs text-slate-600">{draft.noSEP || "—"}</span>
+                        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-500">Tetap</span>
+                      </div>
+                    ) : sepList && sepList.length > 0 ? (
                       <Select
                         value={draft.noSEP}
                         onChange={(v) => setDraft((d) => ({ ...d, noSEP: v }))}
@@ -1048,7 +1123,7 @@ function JadwalKontrolSection({
                         className={cn(inputCls, "font-mono")}
                       />
                     )}
-                    {sepList && sepList.length > 0 && (
+                    {!editId && sepList && sepList.length > 0 && (
                       <p className="mt-1 text-[9px] text-emerald-700">
                         {sepList.length} SEP terbit milik pasien — urut terbaru; default SEP kunjungan ini.
                       </p>
@@ -1104,7 +1179,9 @@ function JadwalKontrolSection({
                   disabled={!canSave}
                   className="rounded-lg bg-orange-500 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-orange-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {saving ? "Menerbitkan…" : "Simpan Jadwal"}
+                  {saving
+                    ? (editId ? "Menyimpan…" : "Menerbitkan…")
+                    : (editId ? "Perbarui Jadwal" : "Simpan Jadwal")}
                 </button>
               </div>
             </motion.div>

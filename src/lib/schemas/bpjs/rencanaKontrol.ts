@@ -54,6 +54,30 @@ export function toRencanaKontrolWire(
 }
 
 /**
+ * RencanaKontrol/Update — request (PUT) surat kontrol pasca-pulang. `noSuratKontrol` = No.
+ * Referensi surat yang DIPERBARUI (tetap sama — bukan terbit baru). Field editable selaras
+ * insert: kodeDokter (DPJP) · poliKontrol · tglRencanaKontrol; `noSEP` diikutkan (identitas SEP
+ * asal). Non-PRB (formPRB tidak dikirim, konsisten dgn insert; PRB = fase later). Validasi di
+ * Service SEBELUM connector (mock selalu sukses, kontrak tetap ditegakkan → swap sandbox/prod).
+ */
+export const UpdateRencanaKontrolRequestSchema = z.object({
+  noSuratKontrol: z.string().trim().min(1, "No. Surat Kontrol wajib"),
+  noSEP: z.string().trim().min(1, "No. SEP wajib"),
+  kodeDokter: z.string().trim().min(1, "Kode dokter BPJS wajib"),
+  poliKontrol: z.string().trim().min(1, "Kode poli BPJS wajib"),
+  tglRencanaKontrol: TGL,
+  user: z.string().trim().min(1, "User pembuat wajib"),
+});
+export type UpdateRencanaKontrolRequest = z.infer<typeof UpdateRencanaKontrolRequestSchema>;
+
+/** RencanaKontrol/Update wire: `{ request: <payload> }`. */
+export function toRencanaKontrolUpdateWire(
+  payload: UpdateRencanaKontrolRequest,
+): { request: UpdateRencanaKontrolRequest } {
+  return { request: payload };
+}
+
+/**
  * RencanaKontrol/UpdateSPRI — request (PUT). `noSPRI` = No. Referensi SPRI yang diperbarui.
  * Field editable selaras BPJS: kodeDokter (DPJP) · poliKontrol · tglRencanaKontrol.
  */

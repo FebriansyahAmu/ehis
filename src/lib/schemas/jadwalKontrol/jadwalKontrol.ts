@@ -21,6 +21,21 @@ export const JadwalKontrolInput = z.object({
 });
 export type JadwalKontrolInput = z.infer<typeof JadwalKontrolInput>;
 
+// ── Edit (PATCH /kunjungan/:id/jadwal-kontrol/:itemId) ─────────────────────────
+// EDIT memakai `noSuratKontrol` (= noReferensi) + `noSep` yang SAMA (identitas surat, TIDAK
+// diterima dari client). Editable: tgl/poli/dokter/catatan. Baris BPJS (ber-noReferensi) →
+// Service kirim RencanaKontrol/Update ke BPJS DULU, lalu update DB. `kodeDokter` resolve SERVER
+// dari dokterId (anti-spoof), tak diterima client.
+export const JadwalKontrolEditInput = z.object({
+  tanggal: TGL,
+  poliNama: z.string().trim().min(1, "Poliklinik wajib").max(120),
+  poliKontrol: z.string().trim().max(10).default(""),
+  dokterId: z.string().uuid().optional(),
+  dokterNama: z.string().trim().max(160).default(""),
+  catatan: z.string().trim().max(1000).default(""),
+});
+export type JadwalKontrolEditInput = z.infer<typeof JadwalKontrolEditInput>;
+
 export const IdParam = z.object({ id: z.string().uuid() });
 export const ItemParam = z.object({ id: z.string().uuid(), itemId: z.string().uuid() });
 
@@ -42,6 +57,7 @@ export interface JadwalKontrolDTO {
   tanggal: string;
   poliNama: string;
   poliKontrol: string;
+  dokterId: string | null;    // master.Dokter (utk pre-select saat edit)
   dokterNama: string;
   kodeDokter: string;         // ter-embed payload (resolve server)
   catatan: string;

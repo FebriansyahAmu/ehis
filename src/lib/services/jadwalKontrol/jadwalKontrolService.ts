@@ -12,14 +12,16 @@ import * as bpjsDal from "@/lib/dal/bpjsDal";
 import { transaction } from "@/lib/db/prisma";
 import { resolveActorNama } from "@/lib/services/actorName";
 import { resolveKodeDpjpBpjs } from "@/lib/services/bpjs/referensiDpjp";
-import { insertRencanaKontrol, deleteSPRI } from "@/lib/services/bpjs/rencanaKontrol";
-import { InsertRencanaKontrolRequestSchema } from "@/lib/schemas/bpjs/rencanaKontrol";
+import { insertRencanaKontrol, updateRencanaKontrol, deleteSPRI } from "@/lib/services/bpjs/rencanaKontrol";
+import {
+  InsertRencanaKontrolRequestSchema, UpdateRencanaKontrolRequestSchema,
+} from "@/lib/schemas/bpjs/rencanaKontrol";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type { BPJSError } from "@/lib/bpjs/bpjsShared";
 import type { JadwalKontrolEntity } from "@/lib/dal/jadwalKontrol/jadwalKontrolDal";
 import {
-  type JadwalKontrolInput, type JadwalKontrolDTO, type SepTerbitDTO,
+  type JadwalKontrolInput, type JadwalKontrolEditInput, type JadwalKontrolDTO, type SepTerbitDTO,
 } from "@/lib/schemas/jadwalKontrol/jadwalKontrol";
 
 type Dal = typeof defaultDal;
@@ -31,6 +33,7 @@ function toDTO(e: JadwalKontrolEntity): JadwalKontrolDTO {
     tanggal: e.tanggal,
     poliNama: e.poliNama,
     poliKontrol: e.poliKontrol,
+    dokterId: e.dokterId ?? null,
     dokterNama: e.dokterNama,
     kodeDokter: e.kodeDokter,
     catatan: e.catatan,
@@ -147,6 +150,61 @@ export function makeJadwalKontrolService(deps: { dal?: Dal } = {}) {
     return toDTO(row);
   }
 
+  /**
+   * PATCH — perbarui jadwal kontrol MEMAKAI noSuratKontrol (= noReferensi) + noSep yang SAMA
+   * (identitas surat dipertahankan). Baris BPJS (ber-noReferensi) → kirim RencanaKontrol/Update ke
+   * BPJS DULU (R4, di luar tx) lalu update DB. kodeDokter resolve SERVER dari dokterId (anti-spoof).
+   */
+  async function update(
+    kunjunganId: string, itemId: string, input: JadwalKontrolEditInput, actor: Actor,
+  ): Promise<JadwalKontrolDTO> {
+    await assertKunjungan(kunjunganId);
+    const item = await assertMilik(kunjunganId, itemId);
+
+    // Resolve ulang kode DPJP BPJS dari dokter terpilih (anti-spoof). Dokter tak diubah → pertahankan.
+    const kodeDokter = input.dokterId ? await resolveKodeDpjpBpjs(input.dokterId) : item.kodeDokter;
+
+    // ── Surat BPJS (ber-noReferensi): RencanaKontrol/Update ke BPJS SEBELUM tulis DB (R4) ──
+    if (item.noReferensi) {
+      if (!item.noSep.trim()) {
+        throw Errors.validation("Surat kontrol BPJS tanpa No. SEP — tidak dapat diperbarui");
+      }
+      if (!input.poliKontrol.trim()) {
+        throw Errors.validation("Kode poli BPJS wajib untuk jadwal kontrol BPJS");
+      }
+      if (!kodeDokter) {
+        throw Errors.validation(
+          "Dokter belum memiliki kode DPJP BPJS — lengkapi di Mapping Hub → DPJP BPJS",
+        );
+      }
+      const user = await resolveActorNama(actor);
+      const payload = UpdateRencanaKontrolRequestSchema.parse({
+        noSuratKontrol: item.noReferensi, // TETAP sama
+        noSEP: item.noSep.trim(),         // TETAP sama
+        kodeDokter,
+        poliKontrol: input.poliKontrol.trim(),
+        tglRencanaKontrol: input.tanggal,
+        user,
+      });
+      const res = await updateRencanaKontrol(
+        payload,
+        { actor: actor.userId, actorRole: actor.roles[0] ?? "clinical" },
+      );
+      if (!res.ok) throw Errors.validation(bpjsErrMsg(res.error));
+    }
+
+    // ── Update DB (field editable saja; nomor/noReferensi/noSep dipertahankan) ──
+    const row = await dal.update(itemId, {
+      tanggal: input.tanggal,
+      poliNama: input.poliNama,
+      poliKontrol: input.poliKontrol,
+      dokterNama: input.dokterNama,
+      dokterId: input.dokterId ?? null,
+      kodeDokter,
+    });
+    return toDTO(row);
+  }
+
   /** DELETE — batalkan jadwal (soft-delete; ber-referensi → RencanaKontrol/Delete ke BPJS dulu). */
   async function remove(kunjunganId: string, itemId: string, actor: Actor): Promise<void> {
     await assertKunjungan(kunjunganId);
@@ -162,7 +220,7 @@ export function makeJadwalKontrolService(deps: { dal?: Dal } = {}) {
     await dal.softDelete(itemId);
   }
 
-  return { list, listSepTerbit, create, remove };
+  return { list, listSepTerbit, create, update, remove };
 }
 
 export const jadwalKontrolService = makeJadwalKontrolService();
