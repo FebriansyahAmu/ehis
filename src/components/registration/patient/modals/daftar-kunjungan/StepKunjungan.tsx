@@ -1,12 +1,11 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { POLI_OPTS } from "../../config";
-import { DatePicker, TimePicker, Select } from "@/components/shared/inputs";
+import { DatePicker, TimePicker } from "@/components/shared/inputs";
 import { StepKunjunganIgd } from "./StepKunjunganIgd";
 import { StepKunjunganRi } from "./StepKunjunganRi";
+import { StepKunjunganRj } from "./StepKunjunganRj";
 import {
   UNIT_DAFTAR_CFG,
   inputCls, labelCls,
@@ -85,15 +84,7 @@ export function StepKunjungan({
         >
           {form.unit === "IGD" && <StepKunjunganIgd form={form} setForm={setForm} />}
 
-          {form.unit === "Rawat Jalan" && (
-            <>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Detail Rawat Jalan</p>
-              <div>
-                <label className={labelCls}>Poli Tujuan</label>
-                <Select value={form.poli} onChange={(v) => set("poli", v)} options={POLI_OPTS} icon={Building2} />
-              </div>
-            </>
-          )}
+          {form.unit === "Rawat Jalan" && <StepKunjunganRj form={form} setForm={setForm} />}
 
           {form.unit === "Rawat Inap" && (
             <>
@@ -145,20 +136,8 @@ export function StepKunjungan({
         </motion.div>
       </AnimatePresence>
 
-      {/* Dokter Rawat Jalan: teks bebas. IGD & RI → DPJP dari dokter ter-assign ruangan
-          (picker di dalam StepKunjunganIgd / StepKunjunganRi). */}
-      {form.unit === "Rawat Jalan" && (
-        <div>
-          <label className={labelCls}>Dokter Penanggung Jawab</label>
-          <input
-            type="text"
-            value={form.dokter}
-            onChange={(e) => set("dokter", e.target.value)}
-            placeholder="dr. Nama Dokter, Sp.X"
-            className={inputCls}
-          />
-        </div>
-      )}
+      {/* DPJP semua unit kini dari dokter ter-assign ruangan/poli (picker di dalam
+          StepKunjunganIgd / StepKunjunganRi / StepKunjunganRj). */}
       <div>
         <label className={labelCls}>
           Keluhan Utama <span className="font-normal normal-case text-slate-300">(opsional)</span>

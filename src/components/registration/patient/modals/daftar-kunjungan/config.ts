@@ -105,7 +105,11 @@ export interface KunjunganForm {
   keluhan: string;
   /** Level triase IGD — opsional (boleh `null`; triase dapat ditentukan perawat IGD nanti). */
   triase: TriaseLevel | null;
+  /** Poli Tujuan (Rawat Jalan) — NAMA poli (kontrak `kunjungan.poli`, dibaca worklist). */
   poli: string;
+  /** Master Location id poli terpilih (Rawat_Jalan) — transient: untuk memuat dokter ter-assign
+   *  poli (tidak dikirim ke server; DPJP dikirim via dpjpId). */
+  poliRuanganId: string;
   asalMasuk: string;
   kelasRawat: string;
   /** Kelas KAMAR aktual dari ruangan RI terpilih (RIKelas: "Kelas_3"/"VIP"/"ICU"…). Placement fisik
