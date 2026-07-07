@@ -80,12 +80,12 @@ function TA({ label, value, onChange, placeholder, rows = 2, required }: {
       <textarea rows={rows} value={value}
         onChange={onChange ? e => onChange(e.target.value) : undefined} readOnly={!onChange}
         placeholder={placeholder}
-        className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100" />
+        className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100" />
     </div>
   );
 }
 
-const INPUT_CLS = "h-8 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-50";
+const INPUT_CLS = "h-8 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-50";
 
 function ChkBtn({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
   return (
