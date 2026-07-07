@@ -79,3 +79,33 @@ export interface DiagnosaDTO {
   items: DiagnosaItemDTO[];
   prosedur: ProsedurItemDTO[];
 }
+
+// ── DTO "Diagnosa Sebelumnya" (longitudinal, read-only) ────────────────────────
+//  Diagnosa (semua tipe: Utama/Sekunder/Komplikasi/Komorbid) dari kunjungan-kunjungan
+//  SEBELUMNYA pasien yang sama (IGD/RJ/RI), dikelompokkan per kunjungan, terbaru dulu.
+//  Dipakai panel referensi "Catatan Diagnosa Medis Sebelumnya" di tab Diagnosa (SNARS AP 1.2).
+export interface DiagnosaSebelumnyaItemDTO {
+  kodeIcd10: string;
+  namaDiagnosis: string;
+  tipe: DiagnosaTipe;
+  status: DiagnosaStatus;
+  pemeriksa: string;
+}
+
+export interface DiagnosaSebelumnyaEpisodeDTO {
+  kunjunganId: string;
+  noKunjungan: string;
+  unit: string; // IGD | RawatJalan | RawatInap
+  unitLabel: string;
+  poli: string | null;
+  tanggal: string; // YYYY-MM-DD (WIB) — saat diagnosa terakhir dicatat di kunjungan itu
+  diagnosa: DiagnosaSebelumnyaItemDTO[]; // Utama dulu
+}
+
+export interface DiagnosaSebelumnyaDTO {
+  kunjunganId: string; // kunjungan yang sedang dibuka (pintu)
+  patientId: string;
+  noRM: string;
+  total: number; // total diagnosa lintas kunjungan sebelumnya
+  episodes: DiagnosaSebelumnyaEpisodeDTO[]; // kunjungan terbaru dulu
+}

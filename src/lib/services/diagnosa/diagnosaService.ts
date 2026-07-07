@@ -22,10 +22,24 @@ import type {
   DiagnosaDTO,
   DiagnosaTipe,
   DiagnosaStatus,
+  DiagnosaSebelumnyaDTO,
+  DiagnosaSebelumnyaEpisodeDTO,
 } from "@/lib/schemas/diagnosa/diagnosa";
 import type { DiagnosaEntity, ProsedurEntity } from "@/lib/dal/diagnosa/diagnosaDal";
 
 type Dal = typeof defaultDal;
+
+const UNIT_LABEL: Record<string, string> = {
+  IGD: "IGD", RawatJalan: "Rawat Jalan", RawatInap: "Rawat Inap",
+};
+// Urutan tampil tipe diagnosa (Utama dulu).
+const TIPE_SORT: DiagnosaTipe[] = ["Utama", "Sekunder", "Komplikasi", "Komorbid"];
+
+function jakartaDate(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(d); // en-CA → YYYY-MM-DD
+}
 
 function toItemDTO(d: DiagnosaEntity): DiagnosaItemDTO {
   return {
@@ -87,6 +101,58 @@ export function makeDiagnosaService(deps: { dal?: Dal } = {}) {
   async function get(kunjunganId: string, _actor: Actor): Promise<DiagnosaDTO> {
     await assertKunjungan(kunjunganId);
     return aggregate(kunjunganId);
+  }
+
+  /** "Diagnosa Sebelumnya": diagnosa (semua tipe) dari kunjungan-kunjungan SEBELUMNYA
+   *  pasien yang sama (kunjungan saat ini dikecualikan), dikelompokkan per kunjungan,
+   *  terbaru dulu; Utama diurut lebih dulu di tiap kelompok. Kesinambungan asuhan
+   *  (SNARS AP 1.2). Pintu = kunjungan dibuka (divalidasi ∈ unit di Route/ABAC). */
+  async function getRiwayat(kunjunganId: string, _actor: Actor): Promise<DiagnosaSebelumnyaDTO> {
+    const cur = await kunjunganDal.findById(kunjunganId);
+    if (!cur) throw Errors.notFound("Kunjungan tidak ditemukan");
+
+    const { items } = await kunjunganDal.listByUnitStatus({ patientId: cur.patientId, limit: 100 });
+    const noRM = items[0]?.pasien.noRm ?? "";
+
+    // Hanya kunjungan SEBELUMNYA (kecualikan yang sedang dibuka). items = createdAt desc.
+    const prev = items.filter((k) => k.id !== kunjunganId);
+    const rows = await dal.listByKunjunganIds(prev.map((k) => k.id));
+
+    type Row = (typeof rows)[number]; // ([] early-return → never[]) ∪ baris → bentuk baris
+    const byKunjungan = new Map<string, Row[]>();
+    for (const r of rows) {
+      const arr = byKunjungan.get(r.kunjunganId);
+      if (arr) arr.push(r);
+      else byKunjungan.set(r.kunjunganId, [r]);
+    }
+
+    const episodes: DiagnosaSebelumnyaEpisodeDTO[] = [];
+    for (const k of prev) {
+      const diags = byKunjungan.get(k.id);
+      if (!diags || diags.length === 0) continue; // hanya kunjungan yang punya diagnosa
+      const tanggal = diags.reduce((a, b) => (a.createdAt > b.createdAt ? a : b)).createdAt;
+      const sorted = [...diags].sort(
+        (a, b) => TIPE_SORT.indexOf(a.tipe as DiagnosaTipe) - TIPE_SORT.indexOf(b.tipe as DiagnosaTipe),
+      );
+      episodes.push({
+        kunjunganId: k.id,
+        noKunjungan: k.noKunjungan,
+        unit: k.unit,
+        unitLabel: UNIT_LABEL[k.unit] ?? k.unit,
+        poli: k.poli ?? null,
+        tanggal: jakartaDate(tanggal),
+        diagnosa: sorted.map((d) => ({
+          kodeIcd10: d.kodeIcd10,
+          namaDiagnosis: d.namaDiagnosis,
+          tipe: d.tipe as DiagnosaTipe,
+          status: d.status as DiagnosaStatus,
+          pemeriksa: d.pemeriksa,
+        })),
+      });
+    }
+
+    const total = episodes.reduce((n, e) => n + e.diagnosa.length, 0);
+    return { kunjunganId, patientId: cur.patientId, noRM, total, episodes };
   }
 
   async function addDiagnosa(
@@ -190,7 +256,7 @@ export function makeDiagnosaService(deps: { dal?: Dal } = {}) {
     await dal.softDeleteProsedur(itemId);
   }
 
-  return { get, addDiagnosa, updateDiagnosa, deleteDiagnosa, addProsedur, deleteProsedur };
+  return { get, getRiwayat, addDiagnosa, updateDiagnosa, deleteDiagnosa, addProsedur, deleteProsedur };
 }
 
 export const diagnosaService = makeDiagnosaService();

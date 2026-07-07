@@ -11,6 +11,7 @@ import type {
   DiagnosaItemDTO,
   ProsedurItemDTO,
   DiagnosaDTO,
+  DiagnosaSebelumnyaDTO,
 } from "@/lib/schemas/diagnosa/diagnosa";
 
 export type {
@@ -20,12 +21,29 @@ export type {
   DiagnosaItemDTO,
   ProsedurItemDTO,
   DiagnosaDTO,
+  DiagnosaSebelumnyaDTO,
 };
+export type {
+  DiagnosaSebelumnyaEpisodeDTO,
+  DiagnosaSebelumnyaItemDTO,
+} from "@/lib/schemas/diagnosa/diagnosa";
 
 const base = (k: string) => `/kunjungan/${encodeURIComponent(k)}/diagnosa`;
 
 export async function getDiagnosa(kunjunganId: string, signal?: AbortSignal): Promise<DiagnosaDTO> {
   const { data } = await api.get<DiagnosaDTO>(base(kunjunganId), { signal });
+  return data;
+}
+
+/** GET /kunjungan/:id/diagnosa-sebelumnya — diagnosa lintas kunjungan sebelumnya (terbaru dulu). */
+export async function getDiagnosaSebelumnya(
+  kunjunganId: string,
+  signal?: AbortSignal,
+): Promise<DiagnosaSebelumnyaDTO> {
+  const { data } = await api.get<DiagnosaSebelumnyaDTO>(
+    `${base(kunjunganId)}-sebelumnya`,
+    { signal },
+  );
   return data;
 }
 

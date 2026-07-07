@@ -72,6 +72,22 @@ export function listUtamaByKunjunganIds(kunjunganIds: string[], tx?: Tx) {
   });
 }
 
+/**
+ * Semua diagnosa aktif (segala tipe) untuk sekumpulan kunjungan — batched (anti N+1).
+ * Dipakai panel "Diagnosa Sebelumnya" (lintas kunjungan pasien). Terbaru dulu.
+ */
+export function listByKunjunganIds(kunjunganIds: string[], tx?: Tx) {
+  if (kunjunganIds.length === 0) return Promise.resolve([]);
+  return db(tx).diagnosa.findMany({
+    where: { kunjunganId: { in: kunjunganIds }, deletedAt: null },
+    orderBy: { createdAt: "desc" },
+    select: {
+      kunjunganId: true, kodeIcd10: true, namaDiagnosis: true,
+      tipe: true, status: true, pemeriksa: true, createdAt: true,
+    },
+  });
+}
+
 export function createDiagnosa(data: CreateDiagnosaData, tx?: Tx) {
   return db(tx).diagnosa.create({ data });
 }

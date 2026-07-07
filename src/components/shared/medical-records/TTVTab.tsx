@@ -407,14 +407,17 @@ export interface TTVTabProps {
   /** Mode DB: nama user login (pencatat). Ditampilkan read-only menggantikan input
    *  free-text "Nama Perawat" — pencatat resmi diturunkan server dari actor. */
   recordedBy?:     string;
+  /** Rawat Jalan: sembunyikan pemilih Shift (irrelevan utk rawat jalan / poliklinik).
+   *  Tetap menampilkan "Dicatat oleh" + riwayat; shift tak ditampilkan di form & timeline. */
+  hideShift?:      boolean;
 }
 
 // ── Component ─────────────────────────────────────────────
 
-export default function TTVTab({ vitalSigns, statusKesadaran, history, triage, onSave, recordedBy }: TTVTabProps) {
+export default function TTVTab({ vitalSigns, statusKesadaran, history, triage, onSave, recordedBy, hideShift }: TTVTabProps) {
   const isRIMode    = history !== undefined && !triage;
   const isIGDMode   = history !== undefined && !!triage;
-  const showShift   = isRIMode;
+  const showShift   = isRIMode && !hideShift;
   const showHistory = history !== undefined;
 
   const [currentVS,  setCurrentVS]  = useState(vitalSigns);
@@ -643,7 +646,7 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history, triage, o
         transition={{ duration: 0.2, delay: 0.08 }}
       >
         <h2 className="mb-4 text-sm font-semibold text-slate-700">
-          {isIGDMode ? "Catat Observasi TTV" : showShift ? "Catat TTV Baru" : "Perbarui TTV"}
+          {isIGDMode ? "Catat Observasi TTV" : showHistory ? "Catat TTV Baru" : "Perbarui TTV"}
         </h2>
 
         {/* IGD obs mode: jam + perawat (no shift selector) */}
@@ -662,23 +665,25 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history, triage, o
           </div>
         )}
 
-        {/* RI mode: shift + perawat */}
-        {showShift && (
-          <div className="mb-4 grid grid-cols-2 gap-3">
-            <div>
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Shift</p>
-              <div className="flex gap-1.5">
-                {(["Pagi","Siang","Malam"] as RIShift[]).map((s) => (
-                  <button key={s} type="button" onClick={() => set("shift", s)}
-                    className={cn(
-                      "flex-1 rounded-lg border py-1.5 text-xs font-semibold transition",
-                      form.shift === s ? SHIFT_CLS[s] : "border-slate-200 bg-white text-slate-500 hover:border-slate-300",
-                    )}>
-                    {s}
-                  </button>
-                ))}
+        {/* RI mode: shift + perawat · RJ mode (hideShift): hanya "Dicatat oleh" */}
+        {isRIMode && (
+          <div className={cn("mb-4 grid gap-3", showShift ? "grid-cols-2" : "sm:max-w-xs")}>
+            {showShift && (
+              <div>
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Shift</p>
+                <div className="flex gap-1.5">
+                  {(["Pagi","Siang","Malam"] as RIShift[]).map((s) => (
+                    <button key={s} type="button" onClick={() => set("shift", s)}
+                      className={cn(
+                        "flex-1 rounded-lg border py-1.5 text-xs font-semibold transition",
+                        form.shift === s ? SHIFT_CLS[s] : "border-slate-200 bg-white text-slate-500 hover:border-slate-300",
+                      )}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
             {perawatField}
           </div>
         )}
@@ -809,7 +814,7 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history, triage, o
               saving ? "cursor-not-allowed bg-slate-300" : "bg-indigo-600 hover:bg-indigo-700",
             )}>
             {saving && <Loader2 size={14} className="animate-spin" />}
-            {saving ? "Menyimpan…" : isIGDMode ? "Catat Observasi" : showShift ? "Simpan Rekaman TTV" : "Simpan TTV"}
+            {saving ? "Menyimpan…" : isIGDMode ? "Catat Observasi" : showHistory ? "Simpan Rekaman TTV" : "Simpan TTV"}
           </button>
         </div>
       </motion.section>
@@ -845,7 +850,7 @@ export default function TTVTab({ vitalSigns, statusKesadaran, history, triage, o
                   <span className="text-[10px] text-slate-300">{histGroups[date].length} entri</span>
                 </div>
                 {histGroups[date].map((rec, i) => (
-                  <HistoryRow key={rec.id} rec={rec} delay={i * 0.05} hideShift={isIGDMode} />
+                  <HistoryRow key={rec.id} rec={rec} delay={i * 0.05} hideShift={isIGDMode || !!hideShift} />
                 ))}
               </div>
             ))

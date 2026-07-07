@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { useRJQueue } from "@/lib/rawat-jalan/rjQueueStore";
 
 import AsesmenAwalRJTab from "./tabs/AsesmenAwalRJTab";
-import TTVTab           from "@/components/shared/medical-records/TTVTab";
+import TTVTab           from "./tabs/TTVTab";
 import CPPTTab          from "@/components/shared/medical-records/CPPTTab";
 import DiagnosaTab      from "@/components/shared/medical-records/DiagnosaTab";
 import PemeriksaanRJTab from "./tabs/PemeriksaanRJTab";
@@ -178,12 +178,7 @@ export default function RJRecordTabs({ patient }: { patient: RJPatientDetail }) 
             className="flex-1 p-4 md:p-6"
           >
             {active === "asesmen-awal" && <AsesmenAwalRJTab patient={patient} />}
-            {active === "ttv" && (
-              <TTVTab
-                vitalSigns={patient.vitalSigns}
-                statusKesadaran={patient.statusKesadaran}
-              />
-            )}
+            {active === "ttv" && <TTVTab patient={patient} />}
             {active === "cppt" && (
               <CPPTTab initialEntries={patient.cppt} kunjunganId={patient.id} />
             )}

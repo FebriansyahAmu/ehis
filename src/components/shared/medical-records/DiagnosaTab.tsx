@@ -19,6 +19,7 @@ import {
   type Icd9ProsedurEntry,
 } from "./diagnosaShared";
 import IcdSearch, { type IcdPick, type IcdSearchAccent } from "./diagnosa/IcdSearch";
+import DiagnosaSebelumnya from "./DiagnosaSebelumnya";
 import {
   getDiagnosa,
   addDiagnosa as apiAddDiagnosa,
@@ -1268,6 +1269,9 @@ export default function DiagnosaTab({ initialDiagnosa, kunjunganId }: DiagnosaTa
           <RingkasanPanel icd10List={icd10List} icd9Count={icd9List.length} inaCbg={inaCbg} />
         </div>
       </div>
+
+      {/* ── Catatan Diagnosa Medis Sebelumnya (lintas kunjungan, read-only) ── */}
+      <DiagnosaSebelumnya kunjunganId={kunjunganId} />
     </div>
   );
 }
