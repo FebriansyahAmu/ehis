@@ -37,19 +37,20 @@ export default function RJPatientCard({
   const pj = PENJAMIN_CFG[p.penjamin];
   const detailHref = `/ehis-care/rawat-jalan/${p.id}`;
   const dimmed = order === "Selesai" || order === "Dikembalikan_Admisi";
+  // Rekam medis hanya boleh dibuka saat pasien sudah DILAYANI (diterima) atau SELESAI. Order yang
+  // belum diterima (Order_Masuk/Dipanggil) atau dikembalikan → kartu TIDAK menavigasi ke rekam.
+  const canOpenRecord = order === "Dilayani" || order === "Selesai";
 
-  // Seluruh kartu = link ke rekam medis RJ. Tombol aksi (Panggil/Terima/…) stopPropagation +
-  // preventDefault agar tidak ikut menavigasi.
-  return (
-    <Link href={detailHref} className="block focus:outline-none">
+  const card = (
       <motion.article
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: index * 0.04, duration: 0.2, ease: "easeOut" }}
         className={cn(
-          "flex cursor-pointer flex-col overflow-hidden rounded-xl border border-l-4 border-slate-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
+          "flex flex-col overflow-hidden rounded-xl border border-l-4 border-slate-200 bg-white shadow-sm transition-all duration-200",
           oc.border,
           dimmed && "opacity-75",
+          canOpenRecord && "cursor-pointer hover:-translate-y-0.5 hover:shadow-md",
         )}
       >
         {/* Header row */}
@@ -118,7 +119,13 @@ export default function RJPatientCard({
           />
         </div>
       </motion.article>
-    </Link>
+  );
+
+  // Bungkus Link (buka rekam) HANYA saat boleh; tombol aksi tetap stopPropagation/preventDefault.
+  return canOpenRecord ? (
+    <Link href={detailHref} className="block focus:outline-none">{card}</Link>
+  ) : (
+    card
   );
 }
 

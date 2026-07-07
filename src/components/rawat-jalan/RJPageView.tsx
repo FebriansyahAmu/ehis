@@ -16,6 +16,7 @@ import type { RJPatient, RJPoli } from "@/lib/data";
 import { listKunjungan, transitionKunjungan, type KunjunganListItemDTO } from "@/lib/api/kunjungan";
 import { listKonsultasiWorklist } from "@/lib/api/konsultasi/konsultasi";
 import { listRuanganSaya } from "@/lib/api/penugasanRuangan";
+import { listDpjpTersedia } from "@/lib/api/master/dpjpTersedia";
 import { ApiError } from "@/lib/api/client";
 import type { RJOrderStatus } from "@/lib/rawat-jalan/rjQueueStore";
 import { dtoToRJPatient, orderFromStatus, rjPoliStrict } from "./rjLiveApi";
@@ -30,6 +31,7 @@ export default function RJPageView() {
   const [items, setItems]         = useState<KunjunganListItemDTO[]>([]);
   const [konsulMasuk, setKonsulMasuk] = useState(0);
   const [myPolis, setMyPolis]     = useState<ReadonlySet<RJPoli> | null>(null);
+  const [dokterNama, setDokterNama] = useState<Record<string, string>>({}); // dpjpId → nama DPJP
   const pending = useRef<Set<string>>(new Set()); // cegah aksi ganda in-flight per id
 
   // ── Tooltip singkat "ada order/konsul masuk" (auto-muncul ±2,5 dtk, antre berurutan) ──
@@ -103,8 +105,28 @@ export default function RJPageView() {
     return () => ac.abort();
   }, [session]);
 
+  // ── Nama DPJP (dpjpId → nama) dari katalog dokter RS (fetch sekali) → tampil di kartu. ──
+  useEffect(() => {
+    const ac = new AbortController();
+    listDpjpTersedia(ac.signal)
+      .then((rows) => {
+        if (ac.signal.aborted) return;
+        setDokterNama(Object.fromEntries(rows.map((d) => [d.dokterId, d.nama])));
+      })
+      .catch(() => { /* gagal → kartu tetap "—" */ });
+    return () => ac.abort();
+  }, []);
+
   // ── Derivasi board (sumber kebenaran version/callState/recallCount) ──
-  const live = useMemo<RJPatient[]>(() => items.map(dtoToRJPatient), [items]);
+  // Resolusi nama DPJP dari dpjpId (kartu RJ menampilkan nama, bukan "—").
+  const live = useMemo<RJPatient[]>(
+    () => items.map((it) => {
+      const p = dtoToRJPatient(it);
+      const nama = it.dpjpId ? dokterNama[it.dpjpId] : undefined;
+      return nama ? { ...p, dokter: nama } : p;
+    }),
+    [items, dokterNama],
+  );
   const statusOverride = useMemo<Record<string, RJOrderStatus>>(
     () => Object.fromEntries(items.map((it) => [it.id, orderFromStatus(it.status, it.callState)])),
     [items],

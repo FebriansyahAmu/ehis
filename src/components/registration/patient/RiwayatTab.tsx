@@ -3,9 +3,10 @@
 // Isi tab "Riwayat" — GABUNGAN alur + riwayat kunjungan jadi satu pohon perjalanan vertikal.
 // Tiap node = satu kunjungan (urut terbaru dulu); node berurutan menggambarkan alur unit
 // (mis. IGD → Rawat Inap). Node teratas/aktif dirender LEBIH BESAR (spotlight "Kunjungan
-// Terakhir"). Tiap node EXPANDABLE (default terbuka) menampilkan: Penjamin (Umum/BPJS/…),
-// No. SEP bila JKN, DPJP, asal (caraMasuk), diagnosa, cabang order layanan, dan KETERANGAN
-// SPRI bila kunjungan sudah diterbitkan SPRI (walau No. Referensi belum ada).
+// Terakhir") + default TERBUKA; node lain default RINGKAS (collapsed) agar rapi/tak scroll
+// panjang. Inline dibatasi N terbaru + toggle "lihat lainnya"; daftar penuh via modal "Semua".
+// Node expandable menampilkan: Penjamin (Umum/BPJS/…), No. SEP bila JKN, DPJP, asal (caraMasuk),
+// diagnosa, cabang order layanan, dan KETERANGAN SPRI bila kunjungan sudah diterbitkan SPRI.
 
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -43,16 +44,30 @@ interface RiwayatTabProps {
   spriByKunjungan?: Record<string, SpriDTO>;
 }
 
+const INLINE_LIMIT = 5; // jumlah kunjungan terbaru yang tampil inline (sisanya via "lihat lainnya")
+
 export function RiwayatTab({ patient, spriByKunjungan }: RiwayatTabProps) {
   const visits = patient.riwayatKunjungan;
-  // Default SEMUA terbuka → lacak yang DI-collapse (bukan yang di-expand).
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   // Posisi terkini = kunjungan aktif bila ada, else teratas (list di-urut terbaru dulu).
   const latestKey = useMemo(() => {
     const latest = visits.find((k) => k.status === "Aktif") ?? visits[0];
     return latest ? visitKey(latest) : "";
   }, [visits]);
+
+  // Default: HANYA kunjungan terakhir terbuka; sisanya ringkas (collapsed). Lacak yang di-collapse.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [showAll, setShowAll] = useState(false);
+
+  // Re-inisialisasi default (latest terbuka, lainnya ringkas) saat DAFTAR kunjungan berubah —
+  // pola "adjust state during render" (bukan efek → tak kena set-state-in-effect).
+  const sig = visits.map(visitKey).join("|");
+  const [initSig, setInitSig] = useState<string | null>(null);
+  if (initSig !== sig) {
+    setInitSig(sig);
+    setCollapsed(new Set(visits.filter((k) => visitKey(k) !== latestKey).map(visitKey)));
+    setShowAll(false);
+  }
 
   function toggle(key: string) {
     setCollapsed((prev) => {
@@ -72,16 +87,20 @@ export function RiwayatTab({ patient, spriByKunjungan }: RiwayatTabProps) {
     );
   }
 
+  const visible = showAll ? visits : visits.slice(0, INLINE_LIMIT);
+  const hidden = visits.length - visible.length;
+
   return (
     <div className="p-3">
       <div className="relative">
-        {visits.map((k, i) => {
+        {visible.map((k, i) => {
           const key = visitKey(k);
           return (
             <JourneyNode
               key={key}
               k={k}
-              isLast={i === visits.length - 1}
+              // Connector menutup hanya bila node ini benar-benar terakhir (tak ada yang tersembunyi).
+              isLast={i === visible.length - 1 && hidden === 0}
               isLatest={key === latestKey}
               open={!collapsed.has(key)}
               onToggle={() => toggle(key)}
@@ -90,6 +109,19 @@ export function RiwayatTab({ patient, spriByKunjungan }: RiwayatTabProps) {
           );
         })}
       </div>
+
+      {visits.length > INLINE_LIMIT && (
+        <button
+          onClick={() => setShowAll((v) => !v)}
+          className="mt-1 flex w-full cursor-pointer items-center justify-center gap-1 rounded-lg py-1.5 text-[10px] font-semibold text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
+        >
+          {showAll ? (
+            <><ChevronDown size={11} className="rotate-180" /> Sembunyikan</>
+          ) : (
+            <><ChevronDown size={11} /> Lihat {hidden} kunjungan lainnya</>
+          )}
+        </button>
+      )}
     </div>
   );
 }
