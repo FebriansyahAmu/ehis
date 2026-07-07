@@ -104,8 +104,9 @@ export function buildRegisterInput(args: BuildRegisterArgs): RegisterKunjunganIn
     // DPJP dari master (dokter ter-assign ruangan/poli) untuk SEMUA unit — RJ kini pilih dokter
     // ter-assign Poli Tujuan (fallback teks-bebas tak persist dpjpId → orUndef("") = undefined).
     dpjpId: orUndef(form.dpjpId),
-    // Ruangan master: IGD bay/zona, atau RI bangsal. RI juga kirim kelas + bed (reserve).
-    ruanganId: isIgd || isRi ? orUndef(form.ruanganId) : undefined,
+    // Ruangan master: IGD bay/zona, RI bangsal, atau RJ = Poli Tujuan (Location poli).
+    // RJ menyimpan poliRuanganId agar roster dokter bisa di-scope ke poli (SDM Assignment).
+    ruanganId: isIgd || isRi ? orUndef(form.ruanganId) : orUndef(form.poliRuanganId),
     // kelas KAMAR = ruangan terpilih (placement fisik); fallback button lama bila kamar kosong.
     kelas: isRi ? ((form.kelasKamar || KELAS_MAP[form.kelasRawat] || undefined) as RegisterKunjunganInput["kelas"]) : undefined,
     // hak kelas (basis tagihan TITIPAN) — hanya BPJS yang punya hak kelas.

@@ -64,7 +64,9 @@ export async function list(
 }
 
 /** Roster petugas: penugasan ber-pegawai AKTIF, opsional per-ruangan & per-profesi.
- *  Dipakai endpoint klinis (dropdown PJ/DPJP) — tanpa pagination (roster ruangan kecil). */
+ *  Dipakai endpoint klinis (dropdown PJ/DPJP) — tanpa pagination (roster ruangan kecil).
+ *  profesi = match KELUARGA (`contains`, selaras listDokterPoli): "Dokter" cocok dgn
+ *  "Dokter Spesialis"/"Dokter Umum"/"Dokter" (bukan exact → dropdown tak kosong). */
 export function listPetugas(
   params: { locationId?: string; profesi?: string },
   tx?: Tx,
@@ -75,7 +77,7 @@ export function listPetugas(
       pegawai: {
         deletedAt: null,
         isActive: true,
-        ...(params.profesi ? { profesi: params.profesi } : {}),
+        ...(params.profesi ? { profesi: { contains: params.profesi } } : {}),
       },
     },
     include: includeRel,
