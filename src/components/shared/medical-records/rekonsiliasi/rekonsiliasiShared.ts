@@ -2,7 +2,7 @@ import { LogIn, ArrowLeftRight, LogOut, type LucideIcon } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────
 
-export type RekonContext = "igd" | "ri";
+export type RekonContext = "igd" | "ri" | "rj";
 export type RekonPhase   = "admisi" | "transfer" | "discharge";
 export type Keputusan    = "Lanjut" | "Stop" | "Sesuaikan" | "Tunda";
 
@@ -76,6 +76,28 @@ export const REKON_PHASES: Record<RekonContext, RekonPhaseDef[]> = {
     {
       id: "discharge", label: "Rekonsiliasi KLRS",
       desc: "Obat yang diberikan saat pasien keluar rawat inap",
+      Icon: LogOut, iconColor: "text-emerald-500",
+      accentBorder: "border-l-emerald-400", accentBg: "bg-emerald-50/50",
+    },
+  ],
+  // Rawat Jalan = struktur 3-fase identik IGD (Admisi/Transfer/Discharge), wording disesuaikan
+  // konteks poliklinik. Pakai ulang enum fase backend → tanpa migrasi.
+  rj: [
+    {
+      id: "admisi", label: "Rekonsiliasi Admisi",
+      desc: "Obat yang sedang digunakan pasien saat datang ke poliklinik",
+      Icon: LogIn, iconColor: "text-indigo-500",
+      accentBorder: "border-l-indigo-400", accentBg: "bg-indigo-50/50",
+    },
+    {
+      id: "transfer", label: "Rekonsiliasi Transfer",
+      desc: "Obat saat rujuk / pindah antar poli atau unit",
+      Icon: ArrowLeftRight, iconColor: "text-sky-500",
+      accentBorder: "border-l-sky-400", accentBg: "bg-sky-50/50",
+    },
+    {
+      id: "discharge", label: "Rekonsiliasi Discharge",
+      desc: "Obat yang diberikan saat pasien pulang dari poliklinik",
       Icon: LogOut, iconColor: "text-emerald-500",
       accentBorder: "border-l-emerald-400", accentBg: "bg-emerald-50/50",
     },

@@ -6,7 +6,7 @@ import IdentitasVerifikasiBanner, { type VerifikasiInfo } from "@/components/sha
 import {
   Stethoscope, HeartPulse, FileText, Tag, ScanLine,
   MessageSquare, ShieldCheck, ListChecks, Pill,
-  FlaskConical, Radiation, ScrollText, Navigation, Lock, Package,
+  FlaskConical, Radiation, ScrollText, Navigation, Lock, Package, Repeat,
   type LucideIcon,
 } from "lucide-react";
 import type { RJPatientDetail } from "@/lib/data";
@@ -18,6 +18,7 @@ import TTVTab           from "./tabs/TTVTab";
 import CPPTTab          from "@/components/shared/medical-records/CPPTTab";
 import DiagnosaTab      from "@/components/shared/medical-records/DiagnosaTab";
 import PemeriksaanRJTab from "./tabs/PemeriksaanRJTab";
+import RekonsiliasTab   from "./tabs/RekonsiliasTab";
 import KonsultasiTab      from "@/components/shared/medical-records/KonsultasiTab";
 import InformedConsentTab from "@/components/shared/medical-records/InformedConsentTab";
 import DaftarOrderTab    from "@/components/shared/medical-records/DaftarOrderTab";
@@ -43,6 +44,7 @@ const REKAM_MEDIS: TabDef[] = [
 ];
 
 const LAYANAN: TabDef[] = [
+  { id: "rekonsiliasi", label: "Rekonsiliasi Obat", icon: Repeat,     done: true  },
   { id: "daftar-order", label: "Daftar Order",     icon: ListChecks,  done: true  },
   { id: "resep",        label: "Resep & Obat",     icon: Pill,        done: true  },
   { id: "order-bmhp",   label: "Order BMHP",       icon: Package,     done: true  },
@@ -188,6 +190,7 @@ export default function RJRecordTabs({ patient }: { patient: RJPatientDetail }) 
             {active === "pemeriksaan" && <PemeriksaanRJTab patient={patient} />}
             {active === "konsultasi"      && <KonsultasiTab noRM={patient.noRM} dokterPeminta={patient.dokter} kunjunganId={patient.id} />}
             {active === "informed-consent" && <InformedConsentTab patient={patient} />}
+            {active === "rekonsiliasi" && <RekonsiliasTab patient={patient} />}
             {active === "daftar-order" && <DaftarOrderTab patient={{ noRM: patient.noRM, name: patient.name, dpjp: patient.dokter, kunjunganId: patient.id }} />}
             {active === "resep"        && withIdentitas(<ResepTab
               showMAR={false}
