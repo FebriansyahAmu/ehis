@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity, AlertCircle, CheckCircle2, Circle, FlaskConical, Lock,
-  Pill, Printer, Radiation, Save, ShieldCheck,
+  Pill, Printer, Radiation, Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RawatInapPatientDetail, IGDDiagnosa } from "@/lib/data";
@@ -19,6 +19,7 @@ import { ApiError } from "@/lib/api/client";
 import { useSession } from "@/contexts/SessionContext";
 import { Select, DatePicker } from "@/components/shared/inputs";
 import { tteSerial } from "@/components/shared/TteQr";
+import ResumeMedikTteCard from "@/components/shared/medical-records/resumeMedik/ResumeMedikTteCard";
 import {
   getResumeMedik, saveResumeMedik, signResumeMedik, getAsalMasuk,
   type ResumeMedikInput, type AsalMasukDTO,
@@ -765,23 +766,16 @@ export default function ResumeMedikPane({ data, onChange, patient }: Props) {
           {/* DPJP sign-off */}
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">TTD DPJP (TTE)</p>
-            {rm.dpjpApproved ? (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck size={14} className="shrink-0 text-emerald-500" />
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-bold text-emerald-800">Ditandatangani Elektronik</p>
-                    <p className="text-[10px] text-emerald-600">{rm.dpjpApprovedAt}</p>
-                    {rm.tteToken && (
-                      <p className="mt-0.5 truncate font-mono text-[9px] font-semibold text-emerald-700">{rm.tteToken}</p>
-                    )}
-                    {rm.tteSignedBy && (
-                      <p className="text-[9px] text-emerald-600">oleh {rm.tteSignedBy}</p>
-                    )}
-                  </div>
-                </div>
+            {rm.dpjpApproved && tteInfo ? (
+              <div className="flex flex-col gap-2">
+                <ResumeMedikTteCard
+                  tte={tteInfo}
+                  noKunjungan={patient.noKunjungan}
+                  noRM={patient.noRM}
+                  size={84}
+                />
                 {isPersisted && (
-                  <p className="mt-2 border-t border-emerald-100 pt-1.5 text-[9px] text-emerald-600/80">
+                  <p className="text-[9px] leading-snug text-emerald-600/80">
                     Perubahan isi setelah TTD membuat revisi baru — perlu simpan &amp; tanda tangan ulang.
                   </p>
                 )}

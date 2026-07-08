@@ -8,7 +8,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  Activity, AlertCircle, CheckCircle2, FlaskConical, Pill, Printer, Radiation, Save, ShieldCheck, Stethoscope,
+  Activity, CheckCircle2, FlaskConical, Pill, Printer, Radiation, Save, ShieldCheck, Stethoscope,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/contexts/SessionContext";
@@ -246,12 +246,20 @@ export default function ResumeMedikPaneRJ({ patient }: { patient: SuratPatient }
     <>
       <div className="flex flex-col gap-4">
 
-        {/* Identitas & kunjungan */}
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-          <div className="mb-3 flex items-center gap-2">
-            <Stethoscope size={13} className="text-sky-500" />
+        {/* Identitas & kunjungan — hijau bila sudah TTE (status TTE terkonsolidasi di sini) */}
+        <div className={cn(
+          "rounded-xl border p-4 shadow-xs transition-colors",
+          rm.dpjpApproved ? "border-emerald-300 bg-emerald-50/70" : "border-slate-200 bg-white",
+        )}>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <Stethoscope size={13} className={rm.dpjpApproved ? "text-emerald-600" : "text-sky-500"} />
             <p className="text-sm font-semibold text-slate-700">Resume Medik Rawat Jalan</p>
             <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-sky-600">Auto</span>
+            {rm.dpjpApproved && (
+              <span className="ml-auto flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                <ShieldCheck size={11} /> Sudah di-TTE
+              </span>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-[11px] sm:grid-cols-4">
             {[
@@ -268,6 +276,20 @@ export default function ResumeMedikPaneRJ({ patient }: { patient: SuratPatient }
               </div>
             ))}
           </div>
+          {rm.dpjpApproved && (
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-100/50 px-3 py-2 text-[11px] text-emerald-800">
+              <CheckCircle2 size={13} className="mt-0.5 shrink-0 text-emerald-600" />
+              <span>
+                <span className="font-semibold">Resume medik sudah ditandatangani secara elektronik (TTE).</span>
+                {(rm.tteSignedBy || rm.dpjpApprovedAt) && (
+                  <>{rm.tteSignedBy ? ` Oleh ${rm.tteSignedBy}` : ""}{rm.dpjpApprovedAt ? ` · ${rm.dpjpApprovedAt}` : ""}.</>
+                )}
+                <span className="mt-0.5 block text-[10px] text-emerald-600/80">
+                  QR tanda tangan elektronik tercetak pada dokumen resmi — tekan “Cetak”.
+                </span>
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Data klinis terkumpul (agregat DB) */}
@@ -334,19 +356,8 @@ export default function ResumeMedikPaneRJ({ patient }: { patient: SuratPatient }
           </div>
         </div>
 
-        {/* Status TTE + aksi */}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-xs">
-          <div className="flex items-center gap-2 text-[11px]">
-            {rm.dpjpApproved ? (
-              <span className="flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 font-semibold text-emerald-700">
-                <CheckCircle2 size={12} /> Ditandatangani · {rm.dpjpApprovedAt}
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 font-semibold text-amber-700">
-                <AlertCircle size={12} /> Belum ditandatangani
-              </span>
-            )}
-          </div>
+        {/* Aksi (status TTE terkonsolidasi di kartu atas Resume Medik) */}
+        <div className="flex flex-wrap items-center justify-end gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-xs">
           <div className="flex items-center gap-2">
             <button
               type="button" onClick={handleSave} disabled={saving || !isPersisted}
