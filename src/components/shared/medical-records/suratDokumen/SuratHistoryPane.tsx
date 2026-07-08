@@ -23,7 +23,7 @@ const JENIS_ICON: Record<JenisSurat, IconComponent> = {
 
 // ── Sub-components ────────────────────────────────────────
 
-function SuratCard({ surat }: { surat: SuratDibuat }) {
+function SuratCard({ surat, onCetak }: { surat: SuratDibuat; onCetak?: (surat: SuratDibuat) => void }) {
   const [expanded, setExpanded] = useState(false);
   const cfg    = SURAT_CONFIG[surat.jenis];
   const colors = COLOR_MAP[cfg.colorBase];
@@ -58,7 +58,7 @@ function SuratCard({ surat }: { surat: SuratDibuat }) {
         <div className="flex items-center gap-1.5">
           <button
             type="button"
-            onClick={() => window.print()}
+            onClick={() => (onCetak ? onCetak(surat) : window.print())}
             className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-500 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
           >
             <Printer size={10} />
@@ -113,9 +113,11 @@ function SuratCard({ surat }: { surat: SuratDibuat }) {
 
 interface Props {
   riwayat: SuratDibuat[];
+  /** Override tombol Cetak (mis. Surat Kontrol → modal A4). Default: window.print(). */
+  onCetak?: (surat: SuratDibuat) => void;
 }
 
-export default function SuratHistoryPane({ riwayat }: Props) {
+export default function SuratHistoryPane({ riwayat, onCetak }: Props) {
   if (riwayat.length === 0) {
     return (
       <motion.div
@@ -136,7 +138,7 @@ export default function SuratHistoryPane({ riwayat }: Props) {
         Riwayat Surat ({riwayat.length})
       </p>
       <AnimatePresence initial={false}>
-        {riwayat.map(s => <SuratCard key={s.id} surat={s} />)}
+        {riwayat.map(s => <SuratCard key={s.id} surat={s} onCetak={onCetak} />)}
       </AnimatePresence>
     </div>
   );

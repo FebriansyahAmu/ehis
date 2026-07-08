@@ -235,6 +235,9 @@ export default function RJRecordTabs({ patient }: { patient: RJPatientDetail }) 
               dokter:           patient.dokter,
               diagnosa:         patient.diagnosa.find(d => d.tipe === "Utama")?.namaDiagnosis,
               tanggalKunjungan: patient.tanggalKunjungan,
+              kunjunganId:      patient.id,
+              penjamin:         patient.penjamin,
+              poli:             patient.poli.replace(/_/g, " "),
             }} />}
             {active === "disposisi" && <DisposisiRJTab patient={patient} />}
           </motion.div>

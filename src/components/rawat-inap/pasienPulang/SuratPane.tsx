@@ -9,8 +9,8 @@ import { listJadwalKontrol, type JadwalKontrolDTO } from "@/lib/api/jadwalKontro
 import {
   type JenisSurat, type PasienPulangData, type SuratPulang,
 } from "./pasienPulangShared";
-import SuratKontrolCetakModal from "./SuratKontrolCetakModal";
-import type { SuratKontrolCetakData } from "./SuratKontrolCetakTemplate";
+import SuratKontrolCetakModal from "@/components/shared/medical-records/jadwalKontrol/SuratKontrolCetakModal";
+import type { SuratKontrolCetakData } from "@/components/shared/medical-records/jadwalKontrol/SuratKontrolCetakTemplate";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

@@ -1,10 +1,12 @@
 "use client";
 
-// Template cetak SURAT KONTROL (A4) — tab Pasien Pulang RI, sub Surat-surat.
-// Sumber data = medicalrecord.JadwalKontrol (nomor JK-… + noReferensi/noSuratKontrol BPJS)
-// via adapter SuratKontrolCetakData. Layout surat resmi: KOP RS · nomor · identitas pasien ·
-// jadwal kontrol highlight · blok BPJS · instruksi · TTD. Light tones (printer-friendly).
-// Dipakai di dalam `.print-area` oleh SuratKontrolCetakModal.
+// Template cetak SURAT KONTROL (A4) — SHARED (Rawat Inap sub Surat-surat · Rawat Jalan Surat &
+// Dokumen). Sumber data = medicalrecord.JadwalKontrol (nomor JK-… + noReferensi/noSuratKontrol
+// BPJS) via adapter SuratKontrolCetakData. Narasi konteks perawatan menyesuaikan `konteks`:
+//   "ri" → "menjalani perawatan rawat inap di {ruangan} ({kelas}) sejak {tglMasuk}"
+//   "rj" → "menjalani pemeriksaan di {ruangan} pada {tglMasuk}"
+// Layout surat resmi: KOP RS · nomor · identitas pasien · jadwal kontrol highlight · blok BPJS ·
+// instruksi · TTD. Light tones (printer-friendly). Dipakai di dalam `.print-area` oleh modal.
 
 import KopSuratEklaim from "@/components/eklaim/berkas/KopSuratEklaim";
 import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
@@ -12,6 +14,8 @@ import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
 // ── Data contract (adapter dari JadwalKontrolDTO / mock demo) ────────────────
 
 export interface SuratKontrolCetakData {
+  /** Konteks unit penerbit — mengubah narasi & label TTD. Default "ri". */
+  konteks?: "ri" | "rj";
   jadwal: {
     nomor: string;               // JK-<YYMM><NNN> — "" bila demo/lokal
     tanggal: string;             // "YYYY-MM-DD" — tglRencanaKontrol
@@ -36,10 +40,10 @@ export interface SuratKontrolCetakData {
     noBpjs?: string;
   };
   perawatan: {
-    ruangan: string;
-    kelas: string;
-    dpjp: string;
-    tglMasuk: string;            // display
+    ruangan: string;             // RI: bangsal · RJ: "Poliklinik …"
+    kelas: string;               // RI: kelas rawat · RJ: "" (tak dipakai)
+    dpjp: string;                // penanda tangan (DPJP / dokter pemeriksa)
+    tglMasuk: string;            // RI: tgl masuk · RJ: tgl kunjungan (display)
     diagnosa: { kode: string; nama: string; utama: boolean }[];
   };
 }
@@ -85,11 +89,26 @@ const INSTRUKSI_HADIR = [
 export default function SuratKontrolCetakTemplate({ data }: { data: SuratKontrolCetakData }) {
   const rs = RS_PROFIL_INITIAL;
   const { jadwal, pasien, perawatan } = data;
+  const isRJ = data.konteks === "rj";
   const isBpjs = !!jadwal.noReferensi || !!jadwal.noSep;
   const diagnosa = [...perawatan.diagnosa].sort((a, b) => Number(b.utama) - Number(a.utama));
   const tglTerbit = jadwal.terbitAt
     ? new Date(jadwal.terbitAt).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })
     : new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+
+  const diagnosaNode = diagnosa.length > 0 ? (
+    <>
+      {" "}dengan diagnosis{" "}
+      {diagnosa.map((d, i) => (
+        <span key={`${d.kode}-${i}`}>
+          {i > 0 && "; "}
+          <span className="font-semibold">{d.nama}</span>
+          {d.kode && <span className="font-mono text-[8.5pt] text-slate-500"> ({d.kode})</span>}
+          {d.utama && <span className="text-[8pt] text-slate-400"> [utama]</span>}
+        </span>
+      ))}
+    </>
+  ) : null;
 
   return (
     <div className="flex min-h-full w-full flex-col bg-white px-12 py-9 font-sans text-slate-900">
@@ -107,7 +126,7 @@ export default function SuratKontrolCetakTemplate({ data }: { data: SuratKontrol
 
       {/* ── Pembuka ── */}
       <p className="mt-4 text-[9.5pt] leading-relaxed text-slate-700">
-        Yang bertanda tangan di bawah ini, Dokter Penanggung Jawab Pelayanan (DPJP) {rs.nama},
+        Yang bertanda tangan di bawah ini, {isRJ ? "Dokter Pemeriksa" : "Dokter Penanggung Jawab Pelayanan (DPJP)"} {rs.nama},
         menerangkan bahwa pasien:
       </p>
 
@@ -133,25 +152,23 @@ export default function SuratKontrolCetakTemplate({ data }: { data: SuratKontrol
       </div>
 
       {/* ── Konteks perawatan ── */}
-      <p className="mt-3 text-[9.5pt] leading-relaxed text-slate-700">
-        telah menjalani perawatan rawat inap di <span className="font-semibold">{perawatan.ruangan}</span> ({perawatan.kelas})
-        sejak <span className="font-semibold">{perawatan.tglMasuk}</span> di bawah DPJP{" "}
-        <span className="font-semibold">{perawatan.dpjp}</span>
-        {diagnosa.length > 0 && (
-          <>
-            {" "}dengan diagnosis{" "}
-            {diagnosa.map((d, i) => (
-              <span key={`${d.kode}-${i}`}>
-                {i > 0 && "; "}
-                <span className="font-semibold">{d.nama}</span>
-                <span className="font-mono text-[8.5pt] text-slate-500"> ({d.kode})</span>
-                {d.utama && <span className="text-[8pt] text-slate-400"> [utama]</span>}
-              </span>
-            ))}
-          </>
-        )}
-        , dan dijadwalkan untuk <span className="font-bold">kontrol kembali</span> pada:
-      </p>
+      {isRJ ? (
+        <p className="mt-3 text-[9.5pt] leading-relaxed text-slate-700">
+          telah menjalani pemeriksaan di <span className="font-semibold">{perawatan.ruangan}</span>
+          {perawatan.tglMasuk && <> pada <span className="font-semibold">{perawatan.tglMasuk}</span></>}
+          {perawatan.dpjp && <> di bawah dokter <span className="font-semibold">{perawatan.dpjp}</span></>}
+          {diagnosaNode}
+          , dan dijadwalkan untuk <span className="font-bold">kontrol kembali</span> pada:
+        </p>
+      ) : (
+        <p className="mt-3 text-[9.5pt] leading-relaxed text-slate-700">
+          telah menjalani perawatan rawat inap di <span className="font-semibold">{perawatan.ruangan}</span> ({perawatan.kelas})
+          sejak <span className="font-semibold">{perawatan.tglMasuk}</span> di bawah DPJP{" "}
+          <span className="font-semibold">{perawatan.dpjp}</span>
+          {diagnosaNode}
+          , dan dijadwalkan untuk <span className="font-bold">kontrol kembali</span> pada:
+        </p>
+      )}
 
       {/* ── Jadwal kontrol — highlight ── */}
       <div className="page-break-avoid mt-3 overflow-hidden rounded-xl border-2 border-emerald-600">
@@ -232,7 +249,9 @@ export default function SuratKontrolCetakTemplate({ data }: { data: SuratKontrol
         </div>
         <div className="text-center">
           <p className="text-[9pt] text-slate-600">{rs.alamat.kota}, {tglTerbit}</p>
-          <p className="mt-0.5 text-[9pt] font-bold text-slate-800">Dokter Penanggung Jawab (DPJP)</p>
+          <p className="mt-0.5 text-[9pt] font-bold text-slate-800">
+            {isRJ ? "Dokter Pemeriksa" : "Dokter Penanggung Jawab (DPJP)"}
+          </p>
           <div className="mx-6 mt-14 border-b border-slate-800" />
           <p className="mt-0.5 text-[8.5pt] font-semibold text-slate-700">{perawatan.dpjp}</p>
           {jadwal.kodeDokter && <p className="text-[8pt] text-slate-400">Kode DPJP: {jadwal.kodeDokter}</p>}

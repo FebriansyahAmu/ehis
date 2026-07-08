@@ -1,8 +1,8 @@
 "use client";
 
-// Surat Kontrol Cetak Modal — overlay + toolbar (picker jadwal bila >1 · Cetak · tutup)
-// + preview A4 interaktif. Pakai infra print global globals.css: `.print-area` (isolasi
-// saat print) + `.no-print` (toolbar di-hide). Pola identik ResepCetakModal.
+// Surat Kontrol Cetak Modal — SHARED (Rawat Inap · Rawat Jalan). Overlay + toolbar (picker jadwal
+// bila >1 · Cetak · tutup) + preview A4 interaktif. Pakai infra print global globals.css:
+// `.print-area` (isolasi saat print) + `.no-print` (toolbar di-hide). Pola identik ResepCetakModal.
 // State pilihan jadwal hidup di ModalBody (mount saat open) → reset alami tiap buka.
 
 import { useEffect, useState } from "react";

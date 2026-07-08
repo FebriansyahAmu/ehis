@@ -11,6 +11,12 @@ export interface SuratPatient {
   dokter:            string;
   diagnosa?:         string;
   tanggalKunjungan?: string;
+  /** kunjunganId (UUID) → Surat Kontrol persist ke medicalrecord.JadwalKontrol; demo = lokal. */
+  kunjunganId?:      string;
+  /** Penjamin (mis. "BPJS_Non_PBI") → Surat Kontrol sadar-BPJS (RencanaKontrol/insert). */
+  penjamin?:         string;
+  /** Poli kunjungan (RJ) → narasi konteks cetak Surat Kontrol. */
+  poli?:             string;
 }
 
 export interface FormField {

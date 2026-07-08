@@ -10,7 +10,10 @@ import {
   SURAT_CONFIG, COLOR_MAP,
 } from "./suratDokumen/suratDokumenShared";
 import SuratFormPane    from "./suratDokumen/SuratFormPane";
+import SuratKontrolPane, { type KontrolSuratEntry } from "./suratDokumen/SuratKontrolPane";
 import SuratHistoryPane from "./suratDokumen/SuratHistoryPane";
+import SuratKontrolCetakModal from "./jadwalKontrol/SuratKontrolCetakModal";
+import type { SuratKontrolCetakData } from "./jadwalKontrol/SuratKontrolCetakTemplate";
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -85,6 +88,14 @@ function JenisCard({
 export default function SuratDokumenTab({ patient, initialRiwayat = [] }: Props) {
   const [selected, setSelected] = useState<JenisSurat | null>(null);
   const [riwayat,  setRiwayat]  = useState<SuratDibuat[]>(initialRiwayat);
+  // Surat Kontrol tersimpan di medicalrecord.JadwalKontrol → daftar di-mirror dari DB (bukan
+  // in-memory): SuratKontrolPane emit entri (kartu + data cetak) via onListChange tiap
+  // fetch/create/edit/hapus. Tiap entri membawa SuratKontrolCetakData utk modal cetak A4.
+  const [kontrolEntries, setKontrolEntries] = useState<KontrolSuratEntry[]>([]);
+  const [printList, setPrintList] = useState<SuratKontrolCetakData[]>([]);
+  const [printOpen, setPrintOpen] = useState(false);
+  const kontrolRiwayat = kontrolEntries.map(e => e.surat);
+  const allRiwayat = [...kontrolRiwayat, ...riwayat];
 
   function handleSelect(id: JenisSurat) {
     setSelected(prev => prev === id ? null : id);
@@ -92,6 +103,15 @@ export default function SuratDokumenTab({ patient, initialRiwayat = [] }: Props)
 
   function handleSubmit(surat: SuratDibuat) {
     setRiwayat(prev => [surat, ...prev]);
+  }
+
+  // Cetak: Surat Kontrol → modal A4 (template resmi); jenis lain → print halaman (perilaku lama).
+  function handleCetak(surat: SuratDibuat) {
+    if (surat.jenis === "surat-kontrol") {
+      const entry = kontrolEntries.find(e => e.surat.id === surat.id);
+      if (entry) { setPrintList([entry.cetak]); setPrintOpen(true); return; }
+    }
+    window.print();
   }
 
   return (
@@ -103,14 +123,14 @@ export default function SuratDokumenTab({ patient, initialRiwayat = [] }: Props)
         <span className="text-sm font-semibold text-slate-700">Surat & Dokumen</span>
         <span className="text-slate-300">·</span>
         <span className="text-xs text-slate-400">PMK 269/2008</span>
-        {riwayat.length > 0 && (
+        {allRiwayat.length > 0 && (
           <motion.span
-            key={riwayat.length}
+            key={allRiwayat.length}
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             className="ml-auto rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700"
           >
-            {riwayat.length} surat dibuat
+            {allRiwayat.length} surat dibuat
           </motion.span>
         )}
       </div>
@@ -133,7 +153,9 @@ export default function SuratDokumenTab({ patient, initialRiwayat = [] }: Props)
 
         {/* Form area */}
         <AnimatePresence mode="wait">
-          {selected ? (
+          {selected === "surat-kontrol" ? (
+            <SuratKontrolPane key="surat-kontrol" patient={patient} onListChange={setKontrolEntries} />
+          ) : selected ? (
             <SuratFormPane
               key={selected}
               jenis={selected}
@@ -157,8 +179,11 @@ export default function SuratDokumenTab({ patient, initialRiwayat = [] }: Props)
         </AnimatePresence>
 
         {/* History */}
-        <SuratHistoryPane riwayat={riwayat} />
+        <SuratHistoryPane riwayat={allRiwayat} onCetak={handleCetak} />
       </div>
+
+      {/* Modal cetak Surat Kontrol (A4) */}
+      <SuratKontrolCetakModal open={printOpen} onClose={() => setPrintOpen(false)} list={printList} />
 
     </div>
   );
