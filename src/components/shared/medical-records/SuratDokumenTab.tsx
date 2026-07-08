@@ -11,10 +11,13 @@ import {
 } from "./suratDokumen/suratDokumenShared";
 import SuratFormPane    from "./suratDokumen/SuratFormPane";
 import SuratKontrolPane, { type KontrolSuratEntry } from "./suratDokumen/SuratKontrolPane";
+import SuratSakitPane, { type SakitSuratEntry } from "./suratSakit/SuratSakitPane";
 import ResumeMedikPaneRJ from "./resumeMedik/ResumeMedikPaneRJ";
 import SuratHistoryPane from "./suratDokumen/SuratHistoryPane";
 import SuratKontrolCetakModal from "./jadwalKontrol/SuratKontrolCetakModal";
 import type { SuratKontrolCetakData } from "./jadwalKontrol/SuratKontrolCetakTemplate";
+import SuratSakitCetakModal from "./suratSakit/SuratSakitCetakModal";
+import type { SuratSakitCetakData } from "./suratSakit/SuratKeteranganSakitTemplate";
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -95,8 +98,14 @@ export default function SuratDokumenTab({ patient, initialRiwayat = [] }: Props)
   const [kontrolEntries, setKontrolEntries] = useState<KontrolSuratEntry[]>([]);
   const [printList, setPrintList] = useState<SuratKontrolCetakData[]>([]);
   const [printOpen, setPrintOpen] = useState(false);
+  // Surat Keterangan Sakit → medicalrecord.SuratKeteranganSakit (pola sama dgn Surat Kontrol):
+  // SuratSakitPane emit entri (kartu + data cetak A4) via onListChange tiap fetch/create/hapus.
+  const [sakitEntries, setSakitEntries] = useState<SakitSuratEntry[]>([]);
+  const [sakitPrintList, setSakitPrintList] = useState<SuratSakitCetakData[]>([]);
+  const [sakitPrintOpen, setSakitPrintOpen] = useState(false);
   const kontrolRiwayat = kontrolEntries.map(e => e.surat);
-  const allRiwayat = [...kontrolRiwayat, ...riwayat];
+  const sakitRiwayat = sakitEntries.map(e => e.surat);
+  const allRiwayat = [...kontrolRiwayat, ...sakitRiwayat, ...riwayat];
 
   function handleSelect(id: JenisSurat) {
     setSelected(prev => prev === id ? null : id);
@@ -106,11 +115,15 @@ export default function SuratDokumenTab({ patient, initialRiwayat = [] }: Props)
     setRiwayat(prev => [surat, ...prev]);
   }
 
-  // Cetak: Surat Kontrol → modal A4 (template resmi); jenis lain → print halaman (perilaku lama).
+  // Cetak: Surat Kontrol / Keterangan Sakit → modal A4 (template resmi); jenis lain → print halaman.
   function handleCetak(surat: SuratDibuat) {
     if (surat.jenis === "surat-kontrol") {
       const entry = kontrolEntries.find(e => e.surat.id === surat.id);
       if (entry) { setPrintList([entry.cetak]); setPrintOpen(true); return; }
+    }
+    if (surat.jenis === "ket-sakit") {
+      const entry = sakitEntries.find(e => e.surat.id === surat.id);
+      if (entry) { setSakitPrintList([entry.cetak]); setSakitPrintOpen(true); return; }
     }
     window.print();
   }
@@ -156,6 +169,8 @@ export default function SuratDokumenTab({ patient, initialRiwayat = [] }: Props)
         <AnimatePresence mode="wait">
           {selected === "surat-kontrol" ? (
             <SuratKontrolPane key="surat-kontrol" patient={patient} onListChange={setKontrolEntries} />
+          ) : selected === "ket-sakit" ? (
+            <SuratSakitPane key="ket-sakit" patient={patient} onListChange={setSakitEntries} />
           ) : selected === "resume-medis" ? (
             <ResumeMedikPaneRJ key="resume-medis" patient={patient} />
           ) : selected ? (
@@ -187,6 +202,9 @@ export default function SuratDokumenTab({ patient, initialRiwayat = [] }: Props)
 
       {/* Modal cetak Surat Kontrol (A4) */}
       <SuratKontrolCetakModal open={printOpen} onClose={() => setPrintOpen(false)} list={printList} />
+
+      {/* Modal cetak Surat Keterangan Sakit (A4) */}
+      <SuratSakitCetakModal open={sakitPrintOpen} onClose={() => setSakitPrintOpen(false)} list={sakitPrintList} />
 
     </div>
   );

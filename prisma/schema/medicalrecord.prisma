@@ -2781,3 +2781,65 @@ model ResumePulang {
   @@map("resume_pulang")
   @@schema("medicalrecord")
 }
+
+// ── Surat Keterangan Sakit (tab Surat & Dokumen) ─────────────────────────────
+// Surat keterangan istirahat sakit per kunjungan (PMK 269/2008 · UU 29/2004). LIST
+// append-only (1 kunjungan boleh terbitkan >1 surat) + soft-delete (batal = koreksi
+// administratif). `nomor` = auto sistem (counter SKS-<YYMM><NNN>, reset per bulan).
+// `tgl_selesai` di-hitung SERVER dari tgl_mulai + lama_hari (anti-drift). Diagnosis =
+// rahasia medis → `cantumkan_diagnosa` mengatur tampil/sembunyi di cetakan. pencatat =
+// actor login (server-otoritatif). FK → encounter.kunjungan cascade. Gate clinical.rekammedis
+// + ABAC careUnit (route()) — unit-agnostic, tanpa permission baru.
+model SuratKeteranganSakit {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  nomor String @unique // SKS-<YYMM><NNN> — auto counter sistem
+
+  // ── Periode istirahat ──
+  tglPeriksa String @map("tgl_periksa") // "YYYY-MM-DD" — tanggal pemeriksaan
+  tglMulai   String @map("tgl_mulai") // mulai istirahat
+  tglSelesai String @map("tgl_selesai") // selesai istirahat (server = mulai + lama - 1)
+  lamaHari   Int    @map("lama_hari")
+
+  // ── Isi keterangan ──
+  keperluan         String  @default("") // Istirahat Bekerja | Istirahat Sekolah | Pemulihan | Lainnya
+  diagnosa          String  @default("")
+  cantumkanDiagnosa Boolean @default(false) @map("cantumkan_diagnosa") // rahasia medis
+  pekerjaan         String  @default("")
+  instansi          String  @default("") // ditujukan kepada (perusahaan/sekolah)
+  catatan           String  @default("")
+
+  // ── Dokter pemeriksa (penanda tangan) ──
+  dokterNama String  @default("") @map("dokter_nama")
+  dokterId   String? @map("dokter_id") @db.Uuid // soft-ref master.Dokter
+
+  // ── Pencatat/author (dari actor login) ──
+  pencatat        String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  // ── TTE Dokter Pemeriksa (auto-stamp saat create bila actor Dokter; signer server-otoritatif
+  //    anti-spoof, UU ITE 11/2008). Non-Dokter → null (surat terbit tanpa TTE). ──
+  tteToken    String?   @map("tte_token")
+  tteSignedBy String?   @map("tte_signed_by")
+  tteSignedAt DateTime? @map("tte_signed_at") @db.Timestamptz(3)
+
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt])
+  @@map("surat_keterangan_sakit")
+  @@schema("medicalrecord")
+}
+
+// Counter nomor Surat Keterangan Sakit — scope = "SKS-<YYMM>" (reset per bulan), seq atomik.
+model SuratSakitCounter {
+  scope String @id
+  seq   Int    @default(0)
+
+  @@map("surat_sakit_counter")
+  @@schema("medicalrecord")
+}

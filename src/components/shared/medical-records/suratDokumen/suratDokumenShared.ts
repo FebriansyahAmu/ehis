@@ -53,11 +53,17 @@ export const SURAT_CONFIG: Record<JenisSurat, SuratConfig> = {
     label:       "Surat Keterangan Sakit",
     description: "Keterangan tidak dapat bekerja / sekolah",
     colorBase:   "rose",
+    // Form ditangani SuratSakitPane (DB-wired). `fields` di sini dipakai untuk pemetaan LABEL
+    // di kartu Riwayat (SuratHistoryPane) — id selaras `data` yang diemit SuratSakitPane.
     fields: [
-      { id: "mulai",    label: "Tanggal Mulai Sakit",   type: "date",     required: true, autoFill: "tanggalKunjungan" },
-      { id: "selesai",  label: "Tanggal Selesai Sakit", type: "date",     required: true },
-      { id: "diagnosa", label: "Diagnosa",               type: "text",     required: true, placeholder: "Diagnosa utama", autoFill: "diagnosa" },
-      { id: "catatan",  label: "Keterangan Tambahan",    type: "textarea", placeholder: "Catatan tambahan (opsional)", rows: 3 },
+      { id: "mulai",     label: "Mulai Istirahat",    type: "date"     },
+      { id: "selesai",   label: "Selesai Istirahat",  type: "date"     },
+      { id: "lama",      label: "Lama Istirahat",     type: "text"     },
+      { id: "keperluan", label: "Keperluan",          type: "text"     },
+      { id: "diagnosa",  label: "Diagnosa",           type: "text"     },
+      { id: "pekerjaan", label: "Pekerjaan",          type: "text"     },
+      { id: "instansi",  label: "Ditujukan Kepada",   type: "text"     },
+      { id: "catatan",   label: "Keterangan Tambahan", type: "textarea" },
     ],
   },
   "surat-kontrol": {
