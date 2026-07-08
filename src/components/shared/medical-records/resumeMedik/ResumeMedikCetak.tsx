@@ -1,18 +1,19 @@
 "use client";
 
-// Resume Medik Cetak — modal preview + template A4 (KOP RS) + blok TTE QR DPJP.
-// Modal pola ResepCetakModal (infra print global: `.print-area` isolasi + `.no-print`).
-// TTE: QR deterministik dari payload EHIS-RESMED (shared TteQr, pola Lab/Rad); serial dari
-// server (medicalrecord.ResumeMedik.tteToken) — pasien demo pakai serial derivatif lokal.
+// Resume Medik Cetak — SHARED (RI · RJ). Modal preview + template A4 (KOP RS) + blok TTE QR.
+// Model NORMALIZED (ResumeMedikPrintModel) — dibangun pane RI/RJ; `konteks` menyetel judul,
+// label periode, judul narasi/TTV, dan label penanda tangan. Modal pola ResepCetakModal (infra
+// print global: `.print-area` isolasi + `.no-print`). TTE: QR deterministik payload EHIS-RESMED
+// (shared TteQr, pola Lab/Rad); serial dari server (tteToken) — demo pakai serial derivatif.
 
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Printer, ShieldCheck } from "lucide-react";
-import type { RawatInapPatientDetail, IGDDiagnosa } from "@/lib/data";
+import type { IGDDiagnosa } from "@/lib/data";
 import KopSuratEklaim from "@/components/eklaim/berkas/KopSuratEklaim";
 import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
 import TteQr from "@/components/shared/TteQr";
-import type { PasienPulangData } from "./pasienPulangShared";
+import type { ResumeMedikData } from "./resumeMedikTypes";
 
 export interface ResumeMedikTte {
   serial: string;
@@ -20,15 +21,27 @@ export interface ResumeMedikTte {
   signedAt: string; // display
 }
 
+export interface PeriodeRow { label: string; value: string; strong?: boolean }
+
+export interface ResumeMedikPrintModel {
+  konteks: "ri" | "rj";
+  pasien: {
+    nama: string; noRM: string; umur: string; gender: "L" | "P";
+    penjamin: string; tanggalLahir?: string; alamat?: string; noBpjs?: string;
+  };
+  periodeTitle: string;        // "Periode Perawatan" / "Data Kunjungan"
+  periodeRows: PeriodeRow[];
+  rm: ResumeMedikData;         // narasi + aggregates
+  diagnosa: IGDDiagnosa[];
+  noKunjungan: string;         // footer + payload TTE
+  dpjp: string;                // nama penanda tangan
+  tte: ResumeMedikTte | null;  // null = belum ditandatangani
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
-  data: PasienPulangData;
-  patient: RawatInapPatientDetail;
-  /** Diagnosa efektif (DB utk pasien nyata; mock utk demo). */
-  diagnosa: IGDDiagnosa[];
-  /** null = belum ditandatangani (blok TTE tampil placeholder). */
-  tte: ResumeMedikTte | null;
+  model: ResumeMedikPrintModel;
 }
 
 const FLAG_LABEL: Record<string, string> = {
@@ -66,24 +79,31 @@ function Th({ children, right }: { children: React.ReactNode; right?: boolean })
 
 // ── Template A4 ───────────────────────────────────────────────────────────────
 
-function ResumeMedikTemplate({ data, patient, diagnosa, tte }: Omit<Props, "open" | "onClose">) {
+function ResumeMedikTemplate({ model }: { model: ResumeMedikPrintModel }) {
   const rs = RS_PROFIL_INITIAL;
-  const rm = data.resumeMedik;
+  const { konteks, pasien, periodeTitle, periodeRows, rm, diagnosa, noKunjungan, dpjp, tte } = model;
+  const isRJ = konteks === "rj";
   const diagnosaPrimer = diagnosa.find(d => d.tipe === "Utama");
   const diagnosaLain   = diagnosa.filter(d => d.tipe !== "Utama");
 
-  const tglKrs = data.tanggalPulang
-    ? new Date(data.tanggalPulang).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })
-    : "—";
-  const lamaRawat = (() => {
-    if (!data.tanggalPulang || !patient.admitDate) return "—";
-    const ms = new Date(data.tanggalPulang).getTime() - new Date(patient.admitDate).getTime();
-    return `${Math.max(1, Math.ceil(ms / 86400000))} hari`;
-  })();
+  const judul = isRJ ? "Resume Medik Rawat Jalan" : "Resume Medik Rawat Inap";
+  const dpjpLabel = isRJ ? "Dokter Pemeriksa" : "Dokter Penanggung Jawab (DPJP)";
+  const ttvTitle = isRJ ? "Tanda-Tanda Vital Kunjungan" : "Tanda-Tanda Vital — Masuk vs Pulang";
+  const ttvColMasuk = isRJ ? "Saat Datang" : "Masuk";
+  const ttvColPulang = isRJ ? "Terkini" : "Pulang";
+  const narasi: Array<[string, string, string]> = [
+    ["IX", isRJ ? "Kondisi Saat Datang" : "Kondisi Saat Masuk", rm.kondisiMasuk],
+    ["X", "Kondisi Saat Pulang", rm.kondisiPulang],
+    ["XI", isRJ ? "Ringkasan Klinis (Dokter Pemeriksa)" : "Ringkasan Perjalanan Klinis (DPJP)", rm.ringkasanKlinis],
+  ];
 
   const qrPayload = tte
-    ? `EHIS-RESMED|${patient.noKunjungan}|${patient.noRM}|${tte.signedBy}|${tte.signedAt}|${tte.serial}`
+    ? `EHIS-RESMED|${noKunjungan}|${pasien.noRM}|${tte.signedBy}|${tte.signedAt}|${tte.serial}`
     : "";
+
+  const half = Math.ceil(periodeRows.length / 2);
+  const periodeLeft = periodeRows.slice(0, half);
+  const periodeRight = periodeRows.slice(half);
 
   const ttvRows: Array<[string, string, string]> = [
     ["Tekanan Darah (mmHg)", rm.ttvMasuk?.tekananDarah ?? "—", rm.ttvPulang?.tekananDarah ?? "—"],
@@ -102,7 +122,7 @@ function ResumeMedikTemplate({ data, patient, diagnosa, tte }: Omit<Props, "open
       {/* Judul */}
       <div className="mt-3 text-center">
         <h2 className="text-[12.5pt] font-bold uppercase tracking-[0.25em] text-slate-900 underline decoration-2 underline-offset-4">
-          Resume Medik Rawat Inap
+          {judul}
         </h2>
         <p className="mt-0.5 text-[7.5pt] text-slate-500">
           Kelengkapan Rekam Medis · Dokumen Klaim BPJS · PMK 269/2008
@@ -113,34 +133,34 @@ function ResumeMedikTemplate({ data, patient, diagnosa, tte }: Omit<Props, "open
       <Sec no="I" title="Identitas Pasien">
         <div className="grid grid-cols-2 gap-x-8">
           <table style={{ borderCollapse: "collapse" }}><tbody>
-            <FR label="Nama Pasien"><span className="font-bold">{patient.name}</span></FR>
-            <FR label="No. Rekam Medis"><span className="font-mono font-semibold">{patient.noRM}</span></FR>
-            <FR label="Umur / JK">{patient.age} tahun / {patient.gender === "L" ? "Laki-laki" : "Perempuan"}</FR>
+            <FR label="Nama Pasien"><span className="font-bold">{pasien.nama}</span></FR>
+            <FR label="No. Rekam Medis"><span className="font-mono font-semibold">{pasien.noRM}</span></FR>
+            <FR label="Umur / JK">{pasien.umur} / {pasien.gender === "L" ? "Laki-laki" : "Perempuan"}</FR>
           </tbody></table>
           <table style={{ borderCollapse: "collapse" }}><tbody>
-            <FR label="Penjamin">{patient.penjamin.replace(/_/g, " ")}{patient.noBpjs ? ` · ${patient.noBpjs}` : ""}</FR>
-            <FR label="Tanggal Lahir">{patient.tanggalLahir || "—"}</FR>
-            <FR label="Alamat">{patient.alamat || "—"}</FR>
+            <FR label="Penjamin">{pasien.penjamin}{pasien.noBpjs ? ` · ${pasien.noBpjs}` : ""}</FR>
+            <FR label="Tanggal Lahir">{pasien.tanggalLahir || "—"}</FR>
+            <FR label="Alamat">{pasien.alamat || "—"}</FR>
           </tbody></table>
         </div>
       </Sec>
 
-      {/* II. Periode */}
-      <Sec no="II" title="Periode Perawatan">
+      {/* II. Periode / Kunjungan */}
+      <Sec no="II" title={periodeTitle}>
         <div className="grid grid-cols-2 gap-x-8">
           <table style={{ borderCollapse: "collapse" }}><tbody>
-            <FR label="Asal Masuk">{rm.asalMasuk || "—"}</FR>
-            {rm.asalMasuk === "IGD" && (
-              <FR label="Masuk IGD">{rm.tanggalMasukIGD || "—"}{rm.diagnosisIGD ? ` · Dx: ${rm.diagnosisIGD}` : ""}</FR>
-            )}
-            <FR label="Tanggal MRS">{patient.tglMasuk}</FR>
-            <FR label="Tanggal KRS">{tglKrs}</FR>
+            {periodeLeft.map((r) => (
+              <FR key={r.label} label={r.label}>
+                {r.strong ? <span className="font-semibold">{r.value || "—"}</span> : (r.value || "—")}
+              </FR>
+            ))}
           </tbody></table>
           <table style={{ borderCollapse: "collapse" }}><tbody>
-            <FR label="Lama Rawat (LOS)">{lamaRawat}</FR>
-            <FR label="Ruangan / Kelas">{patient.ruangan} / {patient.kelas.replace(/_/g, " ")}</FR>
-            <FR label="DPJP">{patient.dpjp}</FR>
-            <FR label="Status Kepulangan"><span className="font-semibold">{data.status || "—"}</span></FR>
+            {periodeRight.map((r) => (
+              <FR key={r.label} label={r.label}>
+                {r.strong ? <span className="font-semibold">{r.value || "—"}</span> : (r.value || "—")}
+              </FR>
+            ))}
           </tbody></table>
         </div>
       </Sec>
@@ -185,14 +205,14 @@ function ResumeMedikTemplate({ data, patient, diagnosa, tte }: Omit<Props, "open
       )}
 
       {/* V. TTV */}
-      <Sec no="V" title="Tanda-Tanda Vital — Masuk vs Pulang">
+      <Sec no="V" title={ttvTitle}>
         {rm.ttvMasuk ? (
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-slate-200">
                 <Th>Parameter</Th>
-                <Th>Masuk ({rm.ttvMasuk.tanggal})</Th>
-                <Th>Pulang ({rm.ttvPulang?.tanggal ?? "—"})</Th>
+                <Th>{ttvColMasuk} ({rm.ttvMasuk.tanggal})</Th>
+                <Th>{ttvColPulang} ({rm.ttvPulang?.tanggal ?? "—"})</Th>
               </tr>
             </thead>
             <tbody>
@@ -251,7 +271,7 @@ function ResumeMedikTemplate({ data, patient, diagnosa, tte }: Omit<Props, "open
 
       {/* VIII. Obat */}
       {rm.obatSelamaRawat.length > 0 && (
-        <Sec no="VIII" title="Obat Selama Perawatan">
+        <Sec no="VIII" title={isRJ ? "Obat / Terapi" : "Obat Selama Perawatan"}>
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-slate-200">
@@ -277,11 +297,7 @@ function ResumeMedikTemplate({ data, patient, diagnosa, tte }: Omit<Props, "open
       )}
 
       {/* IX–XI. Narasi klinis */}
-      {([
-        ["IX", "Kondisi Saat Masuk", rm.kondisiMasuk],
-        ["X", "Kondisi Saat Pulang", rm.kondisiPulang],
-        ["XI", "Ringkasan Perjalanan Klinis (DPJP)", rm.ringkasanKlinis],
-      ] as const).map(([no, title, content]) => (
+      {narasi.map(([no, title, content]) => (
         <Sec key={no} no={no} title={title}>
           <p className="whitespace-pre-wrap text-[8.5pt] leading-relaxed text-slate-800">{content || "—"}</p>
         </Sec>
@@ -292,14 +308,14 @@ function ResumeMedikTemplate({ data, patient, diagnosa, tte }: Omit<Props, "open
         <div className="text-[7.5pt] leading-relaxed text-slate-400">
           <p>Dokumen ini diterbitkan melalui EHIS dan sah tanpa tanda tangan basah</p>
           <p>sesuai UU ITE No. 11/2008 Pasal 11 tentang Tanda Tangan Elektronik.</p>
-          <p className="mt-1">Pencatat: {data.resumeMedik.tteSignedBy || patient.dpjp} · {rs.nama}</p>
+          <p className="mt-1">Pencatat: {rm.tteSignedBy || dpjp} · {rs.nama}</p>
         </div>
 
         <div className="shrink-0 text-center">
           <p className="text-[8.5pt] text-slate-600">
             {rs.alamat.kota}, {tte ? tte.signedAt : "________________"}
           </p>
-          <p className="text-[8.5pt] font-bold text-slate-800">Dokter Penanggung Jawab (DPJP)</p>
+          <p className="text-[8.5pt] font-bold text-slate-800">{dpjpLabel}</p>
 
           {tte ? (
             <div className="mt-1.5 inline-flex flex-col items-center rounded-lg border border-emerald-200 bg-emerald-50/60 px-4 py-2.5">
@@ -311,7 +327,7 @@ function ResumeMedikTemplate({ data, patient, diagnosa, tte }: Omit<Props, "open
           ) : (
             <>
               <div className="mx-4 mt-14 border-b border-slate-800" />
-              <p className="mt-0.5 text-[8.5pt] font-semibold text-slate-700">{patient.dpjp}</p>
+              <p className="mt-0.5 text-[8.5pt] font-semibold text-slate-700">{dpjp}</p>
               <p className="text-[7pt] italic text-slate-400">Belum ditandatangani elektronik</p>
             </>
           )}
@@ -320,7 +336,7 @@ function ResumeMedikTemplate({ data, patient, diagnosa, tte }: Omit<Props, "open
 
       {/* Footer */}
       <div className="mt-auto border-t border-slate-200 pt-2 text-center text-[7pt] text-slate-400">
-        Resume Medik · {patient.noRM} · {patient.noKunjungan} &nbsp;·&nbsp; dicetak {new Date().toLocaleString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })} &nbsp;·&nbsp; {rs.nama}
+        {judul} · {pasien.noRM}{noKunjungan ? ` · ${noKunjungan}` : ""} &nbsp;·&nbsp; dicetak {new Date().toLocaleString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })} &nbsp;·&nbsp; {rs.nama}
       </div>
     </div>
   );
@@ -328,7 +344,7 @@ function ResumeMedikTemplate({ data, patient, diagnosa, tte }: Omit<Props, "open
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
 
-export default function ResumeMedikCetakModal({ open, onClose, data, patient, diagnosa, tte }: Props) {
+export default function ResumeMedikCetakModal({ open, onClose, model }: Props) {
   useEffect(() => {
     if (!open) return;
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -368,10 +384,10 @@ export default function ResumeMedikCetakModal({ open, onClose, data, patient, di
                     Cetak Resume Medik
                   </h2>
                   <p className="flex items-center gap-1 text-[10.5px] text-slate-500">
-                    Preview · A4 · {patient.name} · {patient.noRM}
-                    {tte && (
+                    Preview · A4 · {model.pasien.nama} · {model.pasien.noRM}
+                    {model.tte && (
                       <span className="ml-1 inline-flex items-center gap-0.5 rounded bg-emerald-50 px-1 py-0.5 text-[9px] font-semibold text-emerald-700 ring-1 ring-emerald-200">
-                        <ShieldCheck size={9} /> TTE {tte.serial}
+                        <ShieldCheck size={9} /> TTE {model.tte.serial}
                       </span>
                     )}
                   </p>
@@ -402,7 +418,7 @@ export default function ResumeMedikCetakModal({ open, onClose, data, patient, di
             {/* Preview area */}
             <div className="flex-1 overflow-auto bg-slate-200/60 px-3 py-5">
               <div className="print-area mx-auto w-[794px] max-w-full bg-white shadow-sm" data-paper="A4">
-                <ResumeMedikTemplate data={data} patient={patient} diagnosa={diagnosa} tte={tte} />
+                <ResumeMedikTemplate model={model} />
               </div>
             </div>
 

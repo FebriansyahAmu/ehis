@@ -49,8 +49,10 @@ function splitWaktuKeluar(iso: string): { tanggal: string; jam: string } {
     jam: `${p(d.getHours())}:${p(d.getMinutes())}`,
   };
 }
-import { fetchResumeAggregates, fmtSignedAt, obsToTtv } from "./resumeMedikAggregates";
-import ResumeMedikCetakModal, { type ResumeMedikTte } from "./ResumeMedikCetak";
+import { fetchResumeAggregates, fmtSignedAt, obsToTtv } from "@/components/shared/medical-records/resumeMedik/resumeMedikAggregates";
+import ResumeMedikCetakModal, {
+  type ResumeMedikTte, type ResumeMedikPrintModel,
+} from "@/components/shared/medical-records/resumeMedik/ResumeMedikCetak";
 import TtvPulangQuickRecord from "./TtvPulangQuickRecord";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -329,6 +331,38 @@ export default function ResumeMedikPane({ data, onChange, patient }: Props) {
         signedAt: rm.dpjpApprovedAt,
       }
     : null;
+
+  const tglKrs = data.tanggalPulang
+    ? new Date(data.tanggalPulang).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })
+    : "—";
+  const printModel: ResumeMedikPrintModel = {
+    konteks: "ri",
+    pasien: {
+      nama: patient.name, noRM: patient.noRM, umur: `${patient.age} tahun`, gender: patient.gender,
+      penjamin: patient.penjamin.replace(/_/g, " "),
+      tanggalLahir: patient.tanggalLahir || undefined,
+      alamat: patient.alamat || undefined,
+      noBpjs: patient.noBpjs || undefined,
+    },
+    periodeTitle: "Periode Perawatan",
+    periodeRows: [
+      { label: "Asal Masuk", value: rm.asalMasuk || "—" },
+      ...(rm.asalMasuk === "IGD"
+        ? [{ label: "Masuk IGD", value: `${rm.tanggalMasukIGD || "—"}${rm.diagnosisIGD ? ` · Dx: ${rm.diagnosisIGD}` : ""}` }]
+        : []),
+      { label: "Tanggal MRS", value: patient.tglMasuk },
+      { label: "Tanggal KRS", value: tglKrs },
+      { label: "Lama Rawat (LOS)", value: lamaRawat },
+      { label: "Ruangan / Kelas", value: `${patient.ruangan} / ${patient.kelas.replace(/_/g, " ")}` },
+      { label: "DPJP", value: patient.dpjp },
+      { label: "Status Kepulangan", value: data.status || "—", strong: true },
+    ],
+    rm,
+    diagnosa: diagnosaList,
+    noKunjungan: patient.noKunjungan,
+    dpjp: patient.dpjp,
+    tte: tteInfo,
+  };
 
   return (
     <>
@@ -821,10 +855,7 @@ export default function ResumeMedikPane({ data, onChange, patient }: Props) {
       <ResumeMedikCetakModal
         open={showPrint}
         onClose={() => setShowPrint(false)}
-        data={data}
-        patient={patient}
-        diagnosa={diagnosaList}
-        tte={tteInfo}
+        model={printModel}
       />
     </>
   );

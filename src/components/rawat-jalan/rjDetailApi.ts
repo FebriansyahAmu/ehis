@@ -61,7 +61,9 @@ function composeAlamat(addr: PatientAddressDTO | undefined): string {
 
 const isBpjs = (t: string): boolean => t === "BPJS_Non_PBI" || t === "BPJS_PBI";
 
-export function dtoToRJPatientDetail(k: KunjunganDTO, p: PatientDTO): RJPatientDetail {
+export function dtoToRJPatientDetail(
+  k: KunjunganDTO, p: PatientDTO, dokterNama?: string,
+): RJPatientDetail {
   const alamatKtp = p.alamat.find((a) => a.jenis === "KTP") ?? p.alamat[0];
   const kontak = p.kontakDarurat[0];
   const bpjsPenjamin = p.penjamin.find((j) => isBpjs(j.tipe));
@@ -80,7 +82,7 @@ export function dtoToRJPatientDetail(k: KunjunganDTO, p: PatientDTO): RJPatientD
     gender: p.gender,
     tanggalLahir: fmtTanggalLahir(p.tanggalLahir),
     poli: toRJPoli(k.poli),
-    dokter: "—", // DPJP master belum di-resolve (dpjpId → nama)
+    dokter: dokterNama || "—", // DPJP: dpjpId → nama (diresolusi di RJRecordResolver)
     nomorAntrian: 0,
     status: rjStatusFrom(k.status, k.callState),
     keluhan: k.keluhan ?? "",

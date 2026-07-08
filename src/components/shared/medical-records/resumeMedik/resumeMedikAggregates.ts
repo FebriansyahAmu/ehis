@@ -1,8 +1,8 @@
-// Agregator Resume Medik — tarik data klinis NYATA per kunjungan dari domain DB
-// (Observation/Diagnosa+Prosedur/TindakanMedis/Resep/LabResult/RadResult) → bentuk
-// view-model ResumeMedikData (TTV masuk vs pulang · lab abnormal · rad · obat · tindakan).
-// Tiap sumber independen & toleran gagal (gagal 1 domain ≠ gagal semua). Dipakai
-// ResumeMedikPane saat kunjunganId = UUID (pasien nyata); demo tetap mock.
+// Agregator Resume Medik — SHARED (RI · RJ). Tarik data klinis NYATA per kunjungan dari domain
+// DB (Observation/Diagnosa+Prosedur/TindakanMedis/Resep/LabResult/RadResult) → view-model
+// ResumeMedikData (TTV masuk vs pulang · lab abnormal · rad · obat · tindakan). Tiap sumber
+// independen & toleran gagal (gagal 1 domain ≠ gagal semua). Unit-agnostic: dipanggil pane RI/RJ
+// saat kunjunganId = UUID (pasien nyata); demo tetap mock.
 
 import { listObservasi, type ObservationDTO } from "@/lib/api/observation";
 import { getDiagnosa } from "@/lib/api/diagnosa/diagnosa";
@@ -16,7 +16,7 @@ import type { IGDDiagnosa } from "@/lib/data";
 import type {
   TVVSummaryItem, HasilLabSummary, HasilRadSummary, ObatSelamaRawat, TindakanResume,
   ObatPulangItem,
-} from "./pasienPulangShared";
+} from "./resumeMedikTypes";
 
 export interface ResumeAggregates {
   ttvMasuk: TVVSummaryItem | null;
@@ -25,7 +25,7 @@ export interface ResumeAggregates {
   hasilRad: HasilRadSummary[];
   obatSelamaRawat: ObatSelamaRawat[];
   /** Obat pulang NYATA = item order resep ber-flag isObatPulang (non-batal) — sumber
-   *  ceklis kelengkapan "Minimal 1 obat pulang" + counter header. */
+   *  ceklis kelengkapan "Minimal 1 obat pulang" + counter header (RI). */
   obatPulang: ObatPulangItem[];
   tindakan: TindakanResume[];
   diagnosa: IGDDiagnosa[];

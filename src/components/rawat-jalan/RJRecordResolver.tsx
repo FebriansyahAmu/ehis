@@ -10,6 +10,7 @@ import { notFound } from "next/navigation";
 import type { RJPatientDetail } from "@/lib/data";
 import { getKunjungan } from "@/lib/api/kunjungan";
 import { getPatient } from "@/lib/api/patients";
+import { listDpjpTersedia } from "@/lib/api/master/dpjpTersedia";
 import { dtoToRJPatientDetail } from "./rjDetailApi";
 import RJPatientHeader from "./RJPatientHeader";
 import RJRecordTabs from "./RJRecordTabs";
@@ -40,9 +41,16 @@ export default function RJRecordResolver({ id }: { id: string }) {
         if (ac.signal.aborted) return;
         // Hanya kunjungan Rawat Jalan yang dibuka di modul ini.
         if (k.unit !== "RawatJalan") { setPatient(null); return; }
-        const p = await getPatient(k.pasien.id, ac.signal);
+        // Pasien + resolusi nama DPJP (dpjpId → nama) paralel — pola sama dgn board RJ.
+        const [p, dokterList] = await Promise.all([
+          getPatient(k.pasien.id, ac.signal),
+          k.dpjpId ? listDpjpTersedia(ac.signal).catch(() => []) : Promise.resolve([]),
+        ]);
         if (ac.signal.aborted) return;
-        setPatient(dtoToRJPatientDetail(k, p));
+        const dokterNama = k.dpjpId
+          ? dokterList.find((d) => d.dokterId === k.dpjpId)?.nama
+          : undefined;
+        setPatient(dtoToRJPatientDetail(k, p, dokterNama));
       } catch {
         if (!ac.signal.aborted) setPatient(null);
       } finally {

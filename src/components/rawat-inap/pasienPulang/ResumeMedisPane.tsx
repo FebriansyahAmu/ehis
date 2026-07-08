@@ -22,7 +22,7 @@ import {
 } from "@/lib/api/resumePulang/resumePulang";
 import { getAnamnesis } from "@/lib/api/asesmenMedis/anamnesis";
 import { getDisposisi } from "@/lib/api/disposisi/disposisi";
-import { fetchResumeAggregates, fmtSignedAt } from "./resumeMedikAggregates";
+import { fetchResumeAggregates, fmtSignedAt } from "@/components/shared/medical-records/resumeMedik/resumeMedikAggregates";
 import { composeResumePulangSuggestion, type ResumePulangSuggestion } from "./resumePulangAutofill";
 import {
   type PasienPulangData, type ResumeMedisRI,

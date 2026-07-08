@@ -11,20 +11,18 @@ export type JenisSurat =
   | "Surat Rujukan Balik"
   | "Surat Kematian";
 
-export type AsalMasuk = "IGD" | "Poliklinik" | "Transfer RS Lain" | "Langsung";
+// Tipe view-model Resume Medik + agregat kini kanonik di shared; import ke scope (dipakai
+// PasienPulangData di bawah) + re-export agar konsumen lama (import dari file ini) tetap jalan.
+import type {
+  AsalMasuk, ObatPulangItem, TVVSummaryItem, HasilLabSummary, HasilRadSummary,
+  ObatSelamaRawat, TindakanResume, ResumeMedikData,
+} from "@/components/shared/medical-records/resumeMedik/resumeMedikTypes";
+export type {
+  AsalMasuk, ObatPulangItem, TVVSummaryItem, HasilLabSummary, HasilRadSummary,
+  ObatSelamaRawat, TindakanResume, ResumeMedikData,
+};
 
 // ── Core interfaces ───────────────────────────────────────
-
-export interface ObatPulangItem {
-  id:        string;
-  namaObat:  string;
-  dosis:     string;
-  frekuensi: string;
-  durasi:    string;
-  instruksi: string;
-  isHAM:     boolean;
-  fromResep: boolean;
-}
 
 export interface JadwalKontrol {
   id:      string;
@@ -74,74 +72,8 @@ export interface ResumeMedisRI {
 
 // ── Resume Medik (kelengkapan RM + klaim BPJS) ────────────
 
-export interface TVVSummaryItem {
-  label:        "Masuk" | "Pulang";
-  tanggal:      string;
-  tekananDarah: string;
-  nadi:         number;
-  rr:           number;
-  suhu:         number;
-  spo2:         number;
-  gcs:          number;
-  kesadaran:    string;
-}
-
-export interface HasilLabSummary {
-  nama:    string;
-  nilai:   string;
-  satuan:  string;
-  rujukan: string;
-  flag:    "normal" | "tinggi" | "rendah" | "kritis";
-  tanggal: string;
-}
-
-export interface HasilRadSummary {
-  jenis:      string;
-  tanggal:    string;
-  kesimpulan: string;
-}
-
-export interface ObatSelamaRawat {
-  namaObat:     string;
-  dosis:        string;
-  rute:         string;
-  mulaiTanggal: string;
-  akhirTanggal: string;
-  isHAM:        boolean;
-}
-
-export interface TindakanResume {
-  kodeIcd9:     string;
-  namaTindakan: string;
-  tanggal:      string;
-}
-
-export interface ResumeMedikData {
-  // Asal masuk — manual
-  asalMasuk:       AsalMasuk | "";
-  tanggalMasukIGD: string;
-  diagnosisIGD:    string;
-
-  // Auto-aggregated dari tab terkait
-  ttvMasuk:         TVVSummaryItem | null;
-  ttvPulang:        TVVSummaryItem | null;
-  hasilLabAbnormal: HasilLabSummary[];
-  hasilRad:         HasilRadSummary[];
-  obatSelamaRawat:  ObatSelamaRawat[];
-  tindakan:         TindakanResume[];
-
-  // Manual — diisi DPJP
-  kondisiMasuk:    string;
-  kondisiPulang:   string;
-  ringkasanKlinis: string;
-
-  // Sign-off
-  dpjpApproved:   boolean;
-  dpjpApprovedAt: string;
-  // TTE server (pasien nyata) — serial + penanda tangan, dipakai QR pada cetakan.
-  tteToken?:    string | null;
-  tteSignedBy?: string | null;
-}
+// (TVVSummaryItem · HasilLabSummary · HasilRadSummary · ObatSelamaRawat · TindakanResume ·
+//  ResumeMedikData → dipindah ke shared resumeMedik/resumeMedikTypes, re-export di atas.)
 
 // ── Main composite type ───────────────────────────────────
 

@@ -6,7 +6,7 @@
 
 import type { AnamnesisDTO } from "@/lib/api/asesmenMedis/anamnesis";
 import type { DisposisiDTO } from "@/lib/api/disposisi/disposisi";
-import type { ResumeAggregates } from "./resumeMedikAggregates";
+import type { ResumeAggregates } from "@/components/shared/medical-records/resumeMedik/resumeMedikAggregates";
 
 export interface ResumePulangSuggestion {
   ringkasanAnamnesis: string;

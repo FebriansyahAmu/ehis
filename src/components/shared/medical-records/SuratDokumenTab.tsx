@@ -11,6 +11,7 @@ import {
 } from "./suratDokumen/suratDokumenShared";
 import SuratFormPane    from "./suratDokumen/SuratFormPane";
 import SuratKontrolPane, { type KontrolSuratEntry } from "./suratDokumen/SuratKontrolPane";
+import ResumeMedikPaneRJ from "./resumeMedik/ResumeMedikPaneRJ";
 import SuratHistoryPane from "./suratDokumen/SuratHistoryPane";
 import SuratKontrolCetakModal from "./jadwalKontrol/SuratKontrolCetakModal";
 import type { SuratKontrolCetakData } from "./jadwalKontrol/SuratKontrolCetakTemplate";
@@ -155,6 +156,8 @@ export default function SuratDokumenTab({ patient, initialRiwayat = [] }: Props)
         <AnimatePresence mode="wait">
           {selected === "surat-kontrol" ? (
             <SuratKontrolPane key="surat-kontrol" patient={patient} onListChange={setKontrolEntries} />
+          ) : selected === "resume-medis" ? (
+            <ResumeMedikPaneRJ key="resume-medis" patient={patient} />
           ) : selected ? (
             <SuratFormPane
               key={selected}
