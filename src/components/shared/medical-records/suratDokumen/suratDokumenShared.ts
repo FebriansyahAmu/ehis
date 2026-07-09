@@ -80,13 +80,17 @@ export const SURAT_CONFIG: Record<JenisSurat, SuratConfig> = {
   },
   "ket-sehat": {
     label:       "Surat Keterangan Sehat",
-    description: "Pernyataan kondisi kesehatan baik",
+    description: "Pernyataan kondisi sehat jasmani",
     colorBase:   "emerald",
+    // Form ditangani SuratSehatPane (DB-wired). `fields` di sini dipakai untuk pemetaan LABEL
+    // di kartu Riwayat (SuratHistoryPane) — id selaras `data` yang diemit SuratSehatPane.
     fields: [
-      { id: "tujuan",  label: "Tujuan Surat",           type: "select",   required: true,
-        options: ["Melamar Pekerjaan","Keperluan Sekolah","Keperluan Administrasi","Keperluan Olahraga","Keperluan SIM / SKCK","Lainnya"] },
-      { id: "hasil",   label: "Hasil Pemeriksaan Umum", type: "textarea", required: true, placeholder: "Pasien dalam keadaan sehat secara umum...", rows: 3 },
-      { id: "catatan", label: "Catatan Tambahan",        type: "textarea", placeholder: "Catatan lain (opsional)", rows: 2 },
+      { id: "kesimpulan",  label: "Kesimpulan",        type: "text"     },
+      { id: "pemeriksaan", label: "Hasil Pemeriksaan", type: "textarea" },
+      { id: "keperluan",   label: "Keperluan",         type: "text"     },
+      { id: "instansi",    label: "Ditujukan Kepada",  type: "text"     },
+      { id: "berlaku",     label: "Berlaku Hingga",    type: "text"     },
+      { id: "catatan",     label: "Catatan",           type: "textarea" },
     ],
   },
   "resume-medis": {

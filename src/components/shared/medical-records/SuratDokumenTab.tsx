@@ -18,6 +18,9 @@ import SuratKontrolCetakModal from "./jadwalKontrol/SuratKontrolCetakModal";
 import type { SuratKontrolCetakData } from "./jadwalKontrol/SuratKontrolCetakTemplate";
 import SuratSakitCetakModal from "./suratSakit/SuratSakitCetakModal";
 import type { SuratSakitCetakData } from "./suratSakit/SuratKeteranganSakitTemplate";
+import SuratSehatPane, { type SehatSuratEntry } from "./suratSehat/SuratSehatPane";
+import SuratSehatCetakModal from "./suratSehat/SuratSehatCetakModal";
+import type { SuratSehatCetakData } from "./suratSehat/SuratKeteranganSehatTemplate";
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -103,9 +106,14 @@ export default function SuratDokumenTab({ patient, initialRiwayat = [] }: Props)
   const [sakitEntries, setSakitEntries] = useState<SakitSuratEntry[]>([]);
   const [sakitPrintList, setSakitPrintList] = useState<SuratSakitCetakData[]>([]);
   const [sakitPrintOpen, setSakitPrintOpen] = useState(false);
+  // Surat Keterangan Sehat → medicalrecord.SuratKeteranganSehat (pola sama dgn Surat Sakit).
+  const [sehatEntries, setSehatEntries] = useState<SehatSuratEntry[]>([]);
+  const [sehatPrintList, setSehatPrintList] = useState<SuratSehatCetakData[]>([]);
+  const [sehatPrintOpen, setSehatPrintOpen] = useState(false);
   const kontrolRiwayat = kontrolEntries.map(e => e.surat);
   const sakitRiwayat = sakitEntries.map(e => e.surat);
-  const allRiwayat = [...kontrolRiwayat, ...sakitRiwayat, ...riwayat];
+  const sehatRiwayat = sehatEntries.map(e => e.surat);
+  const allRiwayat = [...kontrolRiwayat, ...sakitRiwayat, ...sehatRiwayat, ...riwayat];
 
   function handleSelect(id: JenisSurat) {
     setSelected(prev => prev === id ? null : id);
@@ -124,6 +132,10 @@ export default function SuratDokumenTab({ patient, initialRiwayat = [] }: Props)
     if (surat.jenis === "ket-sakit") {
       const entry = sakitEntries.find(e => e.surat.id === surat.id);
       if (entry) { setSakitPrintList([entry.cetak]); setSakitPrintOpen(true); return; }
+    }
+    if (surat.jenis === "ket-sehat") {
+      const entry = sehatEntries.find(e => e.surat.id === surat.id);
+      if (entry) { setSehatPrintList([entry.cetak]); setSehatPrintOpen(true); return; }
     }
     window.print();
   }
@@ -171,6 +183,8 @@ export default function SuratDokumenTab({ patient, initialRiwayat = [] }: Props)
             <SuratKontrolPane key="surat-kontrol" patient={patient} onListChange={setKontrolEntries} />
           ) : selected === "ket-sakit" ? (
             <SuratSakitPane key="ket-sakit" patient={patient} onListChange={setSakitEntries} />
+          ) : selected === "ket-sehat" ? (
+            <SuratSehatPane key="ket-sehat" patient={patient} onListChange={setSehatEntries} />
           ) : selected === "resume-medis" ? (
             <ResumeMedikPaneRJ key="resume-medis" patient={patient} />
           ) : selected ? (
@@ -205,6 +219,9 @@ export default function SuratDokumenTab({ patient, initialRiwayat = [] }: Props)
 
       {/* Modal cetak Surat Keterangan Sakit (A4) */}
       <SuratSakitCetakModal open={sakitPrintOpen} onClose={() => setSakitPrintOpen(false)} list={sakitPrintList} />
+
+      {/* Modal cetak Surat Keterangan Sehat (A4) */}
+      <SuratSehatCetakModal open={sehatPrintOpen} onClose={() => setSehatPrintOpen(false)} list={sehatPrintList} />
 
     </div>
   );

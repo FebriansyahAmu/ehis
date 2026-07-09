@@ -2843,3 +2843,74 @@ model SuratSakitCounter {
   @@map("surat_sakit_counter")
   @@schema("medicalrecord")
 }
+
+// ── Surat Keterangan Sehat / Berbadan Sehat (tab Surat & Dokumen) ────────────
+// Surat keterangan sehat jasmani per kunjungan (PMK 269/2008 · UU 29/2004). LIST append-only
+// (1 kunjungan boleh terbitkan >1 surat) + soft-delete (batal = koreksi administratif, pola
+// surat_keterangan_sakit). `nomor` = auto sistem (counter SKH-<YYMM><NNN>). Ciri khas SKBS =
+// blok hasil pemeriksaan fisik (antropometri + tanda vital + golongan darah + penglihatan/buta
+// warna/pendengaran) → kesimpulan "Sehat". TTE Dokter Pemeriksa auto-stamp saat terbit bila
+// actor Dokter (signer server-otoritatif). FK → encounter.kunjungan cascade. Gate
+// clinical.rekammedis + ABAC careUnit (route()) — unit-agnostic, tanpa permission baru.
+model SuratKeteranganSehat {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  nomor      String @unique // SKH-<YYMM><NNN> — auto counter sistem
+  tglPeriksa String @map("tgl_periksa") // "YYYY-MM-DD" — tanggal pemeriksaan
+
+  // ── Hasil pemeriksaan fisik (antropometri + tanda vital) ──
+  tinggiBadan  Int?   @map("tinggi_badan") // cm
+  beratBadan   Int?   @map("berat_badan") // kg
+  tekananDarah String @default("") @map("tekanan_darah") // "120/80"
+  nadi         Int? // x/menit
+
+  // ── Pemeriksaan khusus SKBS ──
+  golonganDarah String @default("") @map("golongan_darah") // A|B|AB|O (+rhesus)
+  penglihatan   String @default("") // Normal | Rabun (berkacamata) | dll
+  butaWarna     String @default("") @map("buta_warna") // Normal | Parsial | Total
+  pendengaran   String @default("") // Normal | Terganggu
+  riwayatPenyakit String @default("") @map("riwayat_penyakit")
+
+  // ── Kesimpulan & keperluan ──
+  kesimpulan   String @default("Sehat") // Sehat | Sehat dengan Catatan | Tidak Sehat
+  keperluan    String @default("")
+  instansi     String @default("") // ditujukan kepada
+  berlakuHingga String @default("") @map("berlaku_hingga") // "YYYY-MM-DD" (masa berlaku, opsional)
+  catatan      String @default("")
+
+  // ── Pekerjaan pasien (dicetak pada identitas SKBS) ──
+  pekerjaan String @default("")
+
+  // ── Dokter pemeriksa (penanda tangan) ──
+  dokterNama String  @default("") @map("dokter_nama")
+  dokterId   String? @map("dokter_id") @db.Uuid // soft-ref master.Dokter
+
+  // ── Pencatat/author (dari actor login) ──
+  pencatat        String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  // ── TTE Dokter Pemeriksa (auto-stamp saat create bila actor Dokter; anti-spoof, UU ITE) ──
+  tteToken    String?   @map("tte_token")
+  tteSignedBy String?   @map("tte_signed_by")
+  tteSignedAt DateTime? @map("tte_signed_at") @db.Timestamptz(3)
+
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt])
+  @@map("surat_keterangan_sehat")
+  @@schema("medicalrecord")
+}
+
+// Counter nomor Surat Keterangan Sehat — scope = "SKH-<YYMM>" (reset per bulan), seq atomik.
+model SuratSehatCounter {
+  scope String @id
+  seq   Int    @default(0)
+
+  @@map("surat_sehat_counter")
+  @@schema("medicalrecord")
+}
