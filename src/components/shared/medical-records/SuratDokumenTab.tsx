@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ScrollText, FileX2, CalendarCheck, CheckCircle, FileText, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -10,17 +10,23 @@ import {
   SURAT_CONFIG, COLOR_MAP,
 } from "./suratDokumen/suratDokumenShared";
 import SuratFormPane    from "./suratDokumen/SuratFormPane";
-import SuratKontrolPane, { type KontrolSuratEntry } from "./suratDokumen/SuratKontrolPane";
-import SuratSakitPane, { type SakitSuratEntry } from "./suratSakit/SuratSakitPane";
+import SuratKontrolPane, { type KontrolSuratEntry, kontrolEntriesFromDtos } from "./suratDokumen/SuratKontrolPane";
+import SuratSakitPane, { type SakitSuratEntry, sakitEntriesFromDtos } from "./suratSakit/SuratSakitPane";
 import ResumeMedikPaneRJ from "./resumeMedik/ResumeMedikPaneRJ";
 import SuratHistoryPane from "./suratDokumen/SuratHistoryPane";
 import SuratKontrolCetakModal from "./jadwalKontrol/SuratKontrolCetakModal";
 import type { SuratKontrolCetakData } from "./jadwalKontrol/SuratKontrolCetakTemplate";
 import SuratSakitCetakModal from "./suratSakit/SuratSakitCetakModal";
 import type { SuratSakitCetakData } from "./suratSakit/SuratKeteranganSakitTemplate";
-import SuratSehatPane, { type SehatSuratEntry } from "./suratSehat/SuratSehatPane";
+import SuratSehatPane, { type SehatSuratEntry, sehatEntriesFromDtos } from "./suratSehat/SuratSehatPane";
 import SuratSehatCetakModal from "./suratSehat/SuratSehatCetakModal";
 import type { SuratSehatCetakData } from "./suratSehat/SuratKeteranganSehatTemplate";
+import { listJadwalKontrol } from "@/lib/api/jadwalKontrol/jadwalKontrol";
+import { listSuratSakit } from "@/lib/api/suratSakit/suratSakit";
+import { listSuratSehat } from "@/lib/api/suratSehat/suratSehat";
+
+// id kunjungan DB = UUID; demo = "rj-1"/… → hanya UUID yang pramuat dari server.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -114,6 +120,30 @@ export default function SuratDokumenTab({ patient, initialRiwayat = [] }: Props)
   const sakitRiwayat = sakitEntries.map(e => e.surat);
   const sehatRiwayat = sehatEntries.map(e => e.surat);
   const allRiwayat = [...kontrolRiwayat, ...sakitRiwayat, ...sehatRiwayat, ...riwayat];
+
+  // Pramuat Riwayat Surat saat tab dibuka: fetch ketiga jenis surat (Kontrol/Sakit/Sehat) sekaligus
+  // → panel kanan langsung terisi tanpa menunggu sub-menu dibuka satu per satu. Pane tetap
+  // mensinkronkan saat create/hapus via onListChange. Resume Medis TIDAK termasuk (dokumen tunggal,
+  // bukan daftar surat). Pasien demo (non-UUID) tak dipramuat (tak ada data server).
+  const patientRef = useRef(patient);
+  useEffect(() => { patientRef.current = patient; });
+  const kunjunganId = patient.kunjunganId ?? "";
+  useEffect(() => {
+    if (!UUID_RE.test(kunjunganId)) return;
+    const ac = new AbortController();
+    Promise.all([
+      listJadwalKontrol(kunjunganId, ac.signal).catch(() => []),
+      listSuratSakit(kunjunganId, ac.signal).catch(() => []),
+      listSuratSehat(kunjunganId, ac.signal).catch(() => []),
+    ]).then(([kontrol, sakit, sehat]) => {
+      if (ac.signal.aborted) return;
+      const p = patientRef.current;
+      setKontrolEntries(kontrolEntriesFromDtos(kontrol, p));
+      setSakitEntries(sakitEntriesFromDtos(sakit, p));
+      setSehatEntries(sehatEntriesFromDtos(sehat, p));
+    }).catch(() => { /* diabaikan — panel tetap tampil */ });
+    return () => ac.abort();
+  }, [kunjunganId]);
 
   function handleSelect(id: JenisSurat) {
     setSelected(prev => prev === id ? null : id);

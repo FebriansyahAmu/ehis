@@ -91,6 +91,13 @@ function dtoToCetak(dto: JadwalKontrolDTO, base: Pick<SuratKontrolCetakData, "pa
   };
 }
 
+/** Bangun entri (kartu + cetak) dari DTO server — dipakai induk untuk PRAMUAT Riwayat Surat
+ *  saat tab dibuka (tanpa menunggu pane dibuka). Sumber tunggal pemetaan (dipakai mirror pane juga). */
+export function kontrolEntriesFromDtos(dtos: JadwalKontrolDTO[], patient: SuratPatient): KontrolSuratEntry[] {
+  const base = { pasien: buildPasien(patient), perawatan: buildPerawatan(patient) };
+  return dtos.map((dto) => ({ surat: dtoToSurat(dto), cetak: dtoToCetak(dto, base) }));
+}
+
 function localToSurat(jk: JadwalKontrolLocal, dokterPembuat: string): SuratDibuat {
   return {
     id: jk.id,
@@ -142,7 +149,7 @@ export default function SuratKontrolPane({
     if (!onListChange) return;
     const base = { pasien: buildPasien(patient), perawatan: buildPerawatan(patient) };
     const entries: KontrolSuratEntry[] = isPersisted
-      ? serverItems.map((dto) => ({ surat: dtoToSurat(dto), cetak: dtoToCetak(dto, base) }))
+      ? kontrolEntriesFromDtos(serverItems, patient)
       : localItems.map((jk) => ({ surat: localToSurat(jk, patient.dokter), cetak: localToCetak(jk, base) }));
     onListChange(entries);
   }, [isPersisted, serverItems, localItems, patient, onListChange]);

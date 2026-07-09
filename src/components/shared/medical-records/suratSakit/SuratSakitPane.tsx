@@ -139,6 +139,13 @@ function localToSurat(l: SuratSakitLocal, dokter: string): SuratDibuat {
   };
 }
 
+/** Bangun entri (kartu + cetak) dari DTO server — dipakai induk untuk PRAMUAT Riwayat Surat
+ *  saat tab dibuka (tanpa menunggu pane dibuka). Sumber tunggal pemetaan (dipakai mirror pane juga). */
+export function sakitEntriesFromDtos(dtos: SuratSakitDTO[], patient: SuratPatient): SakitSuratEntry[] {
+  const pasien = buildPasien(patient);
+  return dtos.map((dto) => ({ surat: dtoToSurat(dto), cetak: dtoToCetak(dto, pasien, patient.dokter) }));
+}
+
 function localToCetak(l: SuratSakitLocal, pasien: SuratSakitCetakData["pasien"], dokter: string): SuratSakitCetakData {
   // Demo (non-UUID): TTE derivatif deterministik agar cetak tetap menampilkan QR (pola ResumeMedik demo).
   const tte: SuratSakitTte = {
@@ -228,7 +235,7 @@ export default function SuratSakitPane({
     if (!onListChange) return;
     const pasien = buildPasien(patient);
     const entries: SakitSuratEntry[] = isPersisted
-      ? serverItems.map((dto) => ({ surat: dtoToSurat(dto), cetak: dtoToCetak(dto, pasien, patient.dokter) }))
+      ? sakitEntriesFromDtos(serverItems, patient)
       : localItems.map((l) => ({ surat: localToSurat(l, patient.dokter), cetak: localToCetak(l, pasien, patient.dokter) }));
     onListChange(entries);
   }, [isPersisted, serverItems, localItems, patient, onListChange]);
