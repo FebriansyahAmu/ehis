@@ -94,8 +94,8 @@ export default function RujukanPayloadModal({
           <pre className="whitespace-pre font-mono text-[11px] leading-relaxed text-emerald-100">{json}</pre>
         </div>
         <div className="border-t border-slate-100 bg-amber-50/60 px-5 py-2.5 text-[10px] leading-relaxed text-amber-700">
-          Pratinjau dari isian form. <span className="font-mono">noSep</span> di-resolve server dari SEP kunjungan aktif dan{" "}
-          <span className="font-mono">user</span> (WS) di-inject server-side (anti-spoof) saat pengiriman nyata.
+          Pratinjau dari isian form. <span className="font-mono">noSep</span> diambil dari SEP kunjungan aktif;{" "}
+          <span className="font-mono">user</span> = akun yang sedang login.
         </div>
       </motion.div>
     </motion.div>,

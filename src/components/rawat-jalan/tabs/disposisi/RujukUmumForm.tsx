@@ -11,7 +11,7 @@ import {
 import type { RJPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import {
-  SectionHeader, Field, Checklist, PreviewRow, inputCls, textareaCls,
+  SectionHeader, Field, Checklist, PreviewRow, inputCls, textareaCls, type DisposisiResult,
 } from "./shared";
 
 const PELAYANAN = [
@@ -25,7 +25,7 @@ export default function RujukUmumForm({
   onSubmit,
 }: {
   patient: RJPatientDetail;
-  onSubmit: (r: { noRujukan?: string }) => void;
+  onSubmit: (r: DisposisiResult) => void;
 }) {
   const [noSurat, setNoSurat] = useState(
     () => `RUJ/RJ/2026/05/${Math.floor(Math.random() * 900 + 100)}`,

@@ -10,15 +10,13 @@ import {
 import type { RJPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import RujukEksternalForm from "./disposisi/RujukEksternalForm";
-import { SectionHeader, Field, PreviewRow, inputCls, textareaCls } from "./disposisi/shared";
+import RujukanCetakModal from "./disposisi/RujukanCetakModal";
+import { SectionHeader, Field, PreviewRow, inputCls, textareaCls, type DisposisiResult } from "./disposisi/shared";
 
 // ── Types ──────────────────────────────────────────────────
 
 type DisposisiTipe = "rujuk-eksternal" | "admisi-ri";
 type KelasRI = "VIP" | "Kelas_1" | "Kelas_2" | "Kelas_3" | "ICU" | "HCU" | "Isolasi";
-
-/** Hasil pengiriman disposisi (rujuk-eksternal JKN membawa noRujukan V-Claim). */
-type DisposisiResult = { noRujukan?: string; noSep?: string };
 
 // ── Config ─────────────────────────────────────────────────
 
@@ -324,8 +322,11 @@ function SuccessScreen({
     "admisi-ri":       { label: "Surat Pengantar Admisi Berhasil Dibuat", cls: "bg-emerald-100 text-emerald-600" },
   } as const;
   const def = MAP[tipe];
+  const [cetakOpen, setCetakOpen] = useState(false);
+  const hasSurat = !!result?.rujukan;
   return (
     <div className="flex flex-col items-center justify-center gap-6 py-24 text-center">
+      <RujukanCetakModal open={cetakOpen} onClose={() => setCetakOpen(false)} data={result?.rujukan ?? null} />
       <span className={cn("flex h-16 w-16 items-center justify-center rounded-2xl", def.cls)}>
         <CheckCircle2 size={30} />
       </span>
@@ -341,10 +342,17 @@ function SuccessScreen({
         )}
       </div>
       <div className="flex gap-2">
-        <button onClick={() => window.print()}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50">
-          <Printer size={13} /> Cetak Dokumen
-        </button>
+        {hasSurat ? (
+          <button onClick={() => setCetakOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700">
+            <Printer size={13} /> Cetak Surat Rujukan
+          </button>
+        ) : (
+          <button onClick={() => window.print()}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50">
+            <Printer size={13} /> Cetak Dokumen
+          </button>
+        )}
         <button onClick={onBack}
           className="rounded-lg bg-slate-800 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-700">
           Kembali ke Form

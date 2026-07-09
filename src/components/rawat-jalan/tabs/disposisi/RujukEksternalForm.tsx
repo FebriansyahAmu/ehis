@@ -7,13 +7,14 @@
 import type { RJPatientDetail } from "@/lib/data";
 import RujukJknForm from "./RujukJknForm";
 import RujukUmumForm from "./RujukUmumForm";
+import type { DisposisiResult } from "./shared";
 
 export default function RujukEksternalForm({
   patient,
   onSubmit,
 }: {
   patient: RJPatientDetail;
-  onSubmit: (r: { noRujukan?: string; noSep?: string }) => void;
+  onSubmit: (r: DisposisiResult) => void;
 }) {
   const isJkn = patient.penjamin.startsWith("BPJS");
   return isJkn ? (

@@ -5,6 +5,14 @@
 
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { RujukanCetakData } from "./RujukanCetakTemplate";
+
+/** Hasil submit disposisi. Rujuk-eksternal JKN membawa No. Rujukan + data cetak surat rujukan. */
+export type DisposisiResult = {
+  noRujukan?: string;
+  noSep?: string;
+  rujukan?: RujukanCetakData;
+};
 
 export const inputCls =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 shadow-xs outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-300 transition";

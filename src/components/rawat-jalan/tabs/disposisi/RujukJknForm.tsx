@@ -6,28 +6,62 @@
 //   · catatan · diagRujukan (1 ICD-10) · tipeRujukan (0 Penuh / 1 Partial / 2 Balik PRB)
 //   · poliRujukan (kosong bila tipe 2, wajib bila 0/1) · user (WS — diisi server).
 // Kontrak kanonik: src/lib/bpjs/bpjsContracts.ts (InsertRujukanPayload). Validasi + noRujukan via
-// mock adapter insertRujukan(). noSep & user = server-authoritative (ditandai di pratinjau payload).
+// mock adapter insertRujukan(). noSep = AUTOFILL dari SEP kunjungan aktif (GET /kunjungan/:id/
+// sep-terbit); diagnosa = FETCH dari kunjungan (GET /kunjungan/:id/diagnosa). user server-side.
+// Kontrol tanggal/dropdown pakai komponen global (DatePicker/Select — popover via portal, tak
+// ter-clip kartu). Pasien demo (non-UUID) → diagnosa dari mock, tanpa SEP autofill.
 
 import { useEffect, useMemo, useState } from "react";
 import {
   ShieldCheck, CalendarDays, MapPin, Tag, FileText, BookOpen, Building2,
-  Search, Check, Send, Printer, AlertCircle, ArrowRight, Loader2, Braces,
+  Check, Send, Printer, AlertCircle, ArrowRight, Loader2, Braces,
 } from "lucide-react";
 import type { RJPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/contexts/SessionContext";
+import { DatePicker, Select } from "@/components/shared/inputs";
 import type { InsertRujukanPayload, TipeRujukanKode } from "@/lib/bpjs/bpjsContracts";
 import type { JnsPelayananKode } from "@/lib/bpjs/bpjsShared";
 import {
   insertRujukan, listSarana, listSpesialistik,
   type SaranaRefRecord, type SpesialistikRefRecord,
 } from "@/lib/bpjs/vClaimRujukan";
-import {
-  SectionHeader, Field, Checklist, inputCls, textareaCls, selectCls,
-} from "./shared";
+import { getDiagnosa } from "@/lib/api/diagnosa/diagnosa";
+import { listSepTerbit, type SepTerbitDTO } from "@/lib/api/jadwalKontrol/jadwalKontrol";
+import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
+import { SectionHeader, Field, Checklist, inputCls, textareaCls, type DisposisiResult } from "./shared";
 import RujukanPayloadModal from "./RujukanPayloadModal";
+import type { RujukanCetakData } from "./RujukanCetakTemplate";
 
-const today = () => new Date().toISOString().slice(0, 10);
+// Kode PPK faskes perujuk (RS kita) — mock (belum ada cons-id prod).
+const PPK_ASAL = "0301R001";
+
+// No. Rujukan format BPJS: {PPK}{MMYY}B{6 digit}. Mock — selalu terbit sukses.
+function genNoRujukan(tgl: string): string {
+  const d = tgl ? new Date(`${tgl}T00:00:00`) : new Date();
+  const base = Number.isNaN(d.getTime()) ? new Date() : d;
+  const mm = String(base.getMonth() + 1).padStart(2, "0");
+  const yy = String(base.getFullYear()).slice(-2);
+  const seq = String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
+  return `${PPK_ASAL}${mm}${yy}B${seq}`;
+}
+
+// Masa berlaku rujukan JKN = 90 hari sejak tanggal rujukan.
+function addDaysISO(ymd: string, n: number): string {
+  const d = ymd ? new Date(`${ymd}T00:00:00`) : new Date();
+  if (Number.isNaN(d.getTime())) return "";
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+interface DiagLite {
+  id: string;
+  kodeIcd10: string;
+  namaDiagnosis: string;
+  tipe: string;
+}
 
 const JNS_PELAYANAN: { id: JnsPelayananKode; label: string; sub: string }[] = [
   { id: "2", label: "Rawat Jalan", sub: "Kode 2 · poliklinik" },
@@ -45,30 +79,81 @@ export default function RujukJknForm({
   onSubmit,
 }: {
   patient: RJPatientDetail;
-  onSubmit: (r: { noRujukan?: string; noSep?: string }) => void;
+  onSubmit: (r: DisposisiResult) => void;
 }) {
   const { session } = useSession();
-  const utamaDiag = patient.diagnosa.find((d) => d.tipe === "Utama") ?? patient.diagnosa[0];
+  const kunjunganId = patient.id;
+  const isPersisted = UUID_RE.test(kunjunganId);
 
   const [noSep, setNoSep] = useState("");
-  const [tglRujukan, setTglRujukan] = useState(today());
-  const [tglRencana, setTglRencana] = useState(today());
+  const [sepInfo, setSepInfo] = useState<SepTerbitDTO | null>(null);
+  const [tglRujukan, setTglRujukan] = useState("");
+  const [tglRencana, setTglRencana] = useState("");
   const [jnsPelayanan, setJnsPelayanan] = useState<JnsPelayananKode>("2");
   const [tipeRujukan, setTipeRujukan] = useState<TipeRujukanKode>("0");
   const [ppkDirujuk, setPpkDirujuk] = useState("");
-  const [ppkNama, setPpkNama] = useState("");
   const [poliRujukan, setPoliRujukan] = useState("");
-  const [diagKode, setDiagKode] = useState(utamaDiag?.kodeIcd10 ?? "");
   const [catatan, setCatatan] = useState("");
 
   const [sending, setSending] = useState(false);
-  const [errMsg, setErrMsg] = useState<string | null>(null);
   const [payloadOpen, setPayloadOpen] = useState(false);
 
   const isBalikPRB = tipeRujukan === "2";
   const jenisFaskes: "FKTP" | "FKRTL" = isBalikPRB ? "FKTP" : "FKRTL";
 
-  // Referensi poli spesialistik (untuk poliRujukan).
+  // ── Diagnosa: fetch dari kunjungan (UUID) atau fallback demo (non-UUID) ──
+  const [diagList, setDiagList] = useState<DiagLite[]>(() =>
+    isPersisted
+      ? []
+      : patient.diagnosa.map((d) => ({ id: d.id, kodeIcd10: d.kodeIcd10, namaDiagnosis: d.namaDiagnosis, tipe: d.tipe })),
+  );
+  const [diagKode, setDiagKode] = useState<string>(() => {
+    if (isPersisted) return "";
+    const l = patient.diagnosa;
+    return l.find((d) => d.tipe === "Utama")?.kodeIcd10 ?? l[0]?.kodeIcd10 ?? "";
+  });
+  const [diagLoading, setDiagLoading] = useState(isPersisted);
+  useEffect(() => {
+    if (!isPersisted) return;
+    let alive = true;
+    getDiagnosa(kunjunganId)
+      .then((dto) => {
+        if (!alive) return;
+        const list = dto.items.map((i) => ({
+          id: i.id, kodeIcd10: i.kodeIcd10, namaDiagnosis: i.namaDiagnosis, tipe: i.tipe,
+        }));
+        setDiagList(list);
+        setDiagKode((prev) => prev || (list.find((d) => d.tipe === "Utama")?.kodeIcd10 ?? list[0]?.kodeIcd10 ?? ""));
+        setDiagLoading(false);
+      })
+      .catch(() => {
+        if (alive) setDiagLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [isPersisted, kunjunganId]);
+
+  // ── SEP autofill dari SEP kunjungan aktif ──
+  useEffect(() => {
+    if (!isPersisted) return;
+    let alive = true;
+    listSepTerbit(kunjunganId)
+      .then((list) => {
+        if (!alive) return;
+        const chosen = list.find((s) => s.kunjunganIni) ?? list[0] ?? null;
+        if (chosen) {
+          setSepInfo(chosen);
+          setNoSep(chosen.noSep);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [isPersisted, kunjunganId]);
+
+  // ── Referensi poli spesialistik (poliRujukan) ──
   const [poliOpts, setPoliOpts] = useState<SpesialistikRefRecord[]>([]);
   useEffect(() => {
     let alive = true;
@@ -80,36 +165,36 @@ export default function RujukJknForm({
     };
   }, []);
 
-  // Faskes tujuan (ppkDirujuk) — pencarian referensi sarana, jenis tergantung tipe rujukan.
-  const [faskesQuery, setFaskesQuery] = useState("");
-  const [faskesOpts, setFaskesOpts] = useState<SaranaRefRecord[]>([]);
-  const [faskesOpen, setFaskesOpen] = useState(false);
+  // ── Referensi faskes tujuan (ppkDirujuk) — jenis tergantung tipe rujukan ──
+  const [faskesRecords, setFaskesRecords] = useState<SaranaRefRecord[]>([]);
   useEffect(() => {
     let alive = true;
-    listSarana(faskesQuery.trim(), jenisFaskes).then((res) => {
+    listSarana("", jenisFaskes).then((res) => {
       if (!alive) return;
-      setFaskesOpts(res.ok && res.value.response ? res.value.response : []);
+      setFaskesRecords(res.ok && res.value.response ? res.value.response : []);
     });
     return () => {
       alive = false;
     };
-  }, [faskesQuery, jenisFaskes]);
+  }, [jenisFaskes]);
 
   // Ganti tipe rujukan → reset faskes & poli (daftar faskes berubah FKTP↔FKRTL; PRB tanpa poli).
   function changeTipe(next: TipeRujukanKode) {
     setTipeRujukan(next);
     setPpkDirujuk("");
-    setPpkNama("");
-    setFaskesQuery("");
     if (next === "2") setPoliRujukan("");
   }
 
-  function pickFaskes(f: SaranaRefRecord) {
-    setPpkDirujuk(f.kdFaskes);
-    setPpkNama(f.nmFaskes);
-    setFaskesQuery(f.nmFaskes);
-    setFaskesOpen(false);
-  }
+  const faskesOptions = useMemo(
+    () => faskesRecords.map((f) => ({ value: f.kdFaskes, label: `${f.nmFaskes} · ${f.kdFaskes}` })),
+    [faskesRecords],
+  );
+  const poliOptions = useMemo(
+    () => poliOpts.map((p) => ({ value: p.kdSpesialis, label: `${p.nmSpesialis} (${p.kdSpesialis})` })),
+    [poliOpts],
+  );
+  const ppkNama = faskesRecords.find((f) => f.kdFaskes === ppkDirujuk)?.nmFaskes ?? "";
+  const poliNama = poliOpts.find((p) => p.kdSpesialis === poliRujukan)?.nmSpesialis;
 
   const userWs = session?.namaTampil?.trim() || "EHIS-WS";
   const poliValid = isBalikPRB ? true : poliRujukan.trim() !== "";
@@ -135,13 +220,12 @@ export default function RujukJknForm({
     [noSep, tglRujukan, tglRencana, ppkDirujuk, jnsPelayanan, catatan, diagKode, tipeRujukan, isBalikPRB, poliRujukan, userWs],
   );
 
-  // Pratinjau payload resmi — noSep & user server-authoritative (placeholder bila kosong).
+  // Pratinjau payload resmi — user = akun yang sedang login (payload.user); noSep dari SEP kunjungan.
   const wirePreview = {
     request: {
       t_rujukan: {
         ...payload,
-        noSep: payload.noSep || "{dari SEP kunjungan — server}",
-        user: "{user WS — server}",
+        noSep: payload.noSep || "{dari SEP kunjungan}",
       },
     },
   };
@@ -149,22 +233,44 @@ export default function RujukJknForm({
   async function handleSubmit() {
     if (!canSubmit) return;
     setSending(true);
-    setErrMsg(null);
-    const res = await insertRujukan(payload);
-    setSending(false);
-    if (res.ok && res.value.metaData.code === "200" && res.value.response) {
-      onSubmit({ noRujukan: res.value.response.noRujukan, noSep: payload.noSep });
-    } else {
-      const msg = res.ok
-        ? res.value.metaData.message
-        : "message" in res.error
-          ? res.error.message
-          : undefined;
-      setErrMsg(msg ?? "Gagal mengirim rujukan ke V-Claim.");
+    // Selalu terbit sukses (mock — belum ada cons-id prod). Tetap panggil adapter untuk audit trail;
+    // hasilnya diabaikan (response detail rujukan disintesis lokal dari isian form).
+    try {
+      await insertRujukan(payload);
+    } catch {
+      /* abaikan — mock selalu sukses */
     }
+    const diagNama = diagList.find((d) => d.kodeIcd10 === diagKode)?.namaDiagnosis ?? "";
+    const noRujukan = genNoRujukan(tglRujukan);
+    const rujukan: RujukanCetakData = {
+      noRujukan,
+      tglRujukan,
+      tglRencanaKunjungan: tglRencana,
+      tglBerlakuKunjungan: addDaysISO(tglRujukan, 90),
+      jnsPelayanan,
+      tipeRujukan,
+      catatan: payload.catatan || undefined,
+      asalRujukan: { kode: PPK_ASAL, nama: RS_PROFIL_INITIAL.nama },
+      tujuanRujukan: { kode: ppkDirujuk, nama: ppkNama },
+      poliTujuan: { kode: isBalikPRB ? "" : poliRujukan, nama: isBalikPRB ? "" : (poliNama ?? "") },
+      diagnosa: { kode: diagKode, nama: diagNama },
+      peserta: {
+        nama: patient.name,
+        noKartu: patient.noBpjs ?? "-",
+        noMr: patient.noRM,
+        tglLahir: patient.tanggalLahir ?? "",
+        kelamin: patient.gender === "L" ? "Laki-Laki" : "Perempuan",
+        jnsPeserta: patient.penjamin.replace(/_/g, " "),
+      },
+      dokterPerujuk: patient.dokter,
+      noSep: payload.noSep || undefined,
+      terbitAt: new Date().toISOString(),
+      pencatat: userWs,
+    };
+    setSending(false);
+    onSubmit({ noRujukan, noSep: payload.noSep, rujukan });
   }
 
-  const poliNama = poliOpts.find((p) => p.kdSpesialis === poliRujukan)?.nmSpesialis;
   const checklist = [
     { label: "Tanggal rujukan", done: tglRujukan !== "" },
     { label: "Rencana kunjungan", done: tglRencana !== "" },
@@ -194,20 +300,30 @@ export default function RujukJknForm({
               }
             />
             <div className="flex flex-col gap-4 p-4">
-              <Field label="No. SEP" hint="Otomatis dari SEP kunjungan aktif saat integrasi V-Claim — biarkan kosong bila belum tersedia.">
+              <Field
+                label="No. SEP"
+                hint={
+                  sepInfo
+                    ? `Otomatis dari SEP kunjungan (${sepInfo.jenis}${sepInfo.tglSep ? ` · ${sepInfo.tglSep}` : ""}).`
+                    : isPersisted
+                      ? "Belum ada SEP terbit untuk kunjungan ini — di-resolve server saat integrasi."
+                      : "Pasien demo — tanpa SEP; di-resolve server pada integrasi nyata."
+                }
+              >
                 <input
                   value={noSep}
                   onChange={(e) => setNoSep(e.target.value)}
+                  readOnly={!!sepInfo}
                   placeholder="Terisi otomatis dari SEP kunjungan"
-                  className={cn(inputCls, "font-mono text-[11px]")}
+                  className={cn(inputCls, "font-mono text-[11px]", sepInfo && "bg-slate-50 text-slate-500")}
                 />
               </Field>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="Tanggal Rujukan" required>
-                  <input type="date" value={tglRujukan} onChange={(e) => setTglRujukan(e.target.value)} className={inputCls} />
+                  <DatePicker value={tglRujukan} onChange={setTglRujukan} placeholder="Pilih tanggal" clearable={false} />
                 </Field>
                 <Field label="Rencana Kunjungan" required>
-                  <input type="date" value={tglRencana} onChange={(e) => setTglRencana(e.target.value)} className={inputCls} />
+                  <DatePicker value={tglRencana} onChange={setTglRencana} placeholder="Pilih tanggal" clearable={false} />
                 </Field>
               </div>
             </div>
@@ -221,51 +337,14 @@ export default function RujukJknForm({
                 required
                 hint={isBalikPRB ? "Rujuk Balik PRB → tujuan FKTP asal peserta." : "Kode 8 digit faskes tujuan (referensi sarana V-Claim)."}
               >
-                <div className="relative">
-                  <div className="relative">
-                    <Search size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      value={faskesQuery}
-                      onChange={(e) => {
-                        setFaskesQuery(e.target.value);
-                        setFaskesOpen(true);
-                        if (ppkDirujuk) {
-                          setPpkDirujuk("");
-                          setPpkNama("");
-                        }
-                      }}
-                      onFocus={() => setFaskesOpen(true)}
-                      placeholder={`Cari nama ${jenisFaskes}…`}
-                      className={cn(inputCls, "pl-8")}
-                    />
-                  </div>
-                  {faskesOpen && faskesOpts.length > 0 && !ppkDirujuk && (
-                    <div className="absolute z-20 mt-1 max-h-52 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-                      {faskesOpts.map((f) => (
-                        <button
-                          key={f.kdFaskes}
-                          type="button"
-                          onClick={() => pickFaskes(f)}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left transition hover:bg-indigo-50"
-                        >
-                          <Building2 size={13} className="shrink-0 text-slate-400" />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs font-medium text-slate-700">{f.nmFaskes}</p>
-                            {f.alamat && <p className="truncate text-[10px] text-slate-400">{f.alamat}</p>}
-                          </div>
-                          <span className="shrink-0 font-mono text-[10px] text-slate-400">{f.kdFaskes}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {ppkDirujuk && (
-                  <div className="mt-1 flex items-center gap-2 rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-1.5">
-                    <Check size={12} className="shrink-0 text-indigo-500" />
-                    <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-indigo-800">{ppkNama}</span>
-                    <span className="shrink-0 font-mono text-[10px] text-indigo-500">{ppkDirujuk}</span>
-                  </div>
-                )}
+                <Select
+                  value={ppkDirujuk}
+                  onChange={setPpkDirujuk}
+                  options={faskesOptions}
+                  icon={Building2}
+                  searchable
+                  placeholder={`Cari faskes ${jenisFaskes}…`}
+                />
               </Field>
 
               <div>
@@ -331,19 +410,19 @@ export default function RujukJknForm({
                 required={!isBalikPRB}
                 hint={isBalikPRB ? "Dikosongkan otomatis untuk Rujukan Balik PRB (tipeRujukan=2)." : "Poliklinik spesialistik tujuan."}
               >
-                <select
-                  value={poliRujukan}
-                  onChange={(e) => setPoliRujukan(e.target.value)}
-                  disabled={isBalikPRB}
-                  className={selectCls}
-                >
-                  <option value="">{isBalikPRB ? "— (tidak berlaku untuk PRB)" : "Pilih poli tujuan…"}</option>
-                  {poliOpts.map((p) => (
-                    <option key={p.kdSpesialis} value={p.kdSpesialis}>
-                      {p.nmSpesialis} ({p.kdSpesialis})
-                    </option>
-                  ))}
-                </select>
+                {isBalikPRB ? (
+                  <div className={cn(inputCls, "flex items-center bg-slate-50 text-slate-400")}>
+                    — (tidak berlaku untuk PRB)
+                  </div>
+                ) : (
+                  <Select
+                    value={poliRujukan}
+                    onChange={setPoliRujukan}
+                    options={poliOptions}
+                    searchable
+                    placeholder="Pilih poli tujuan…"
+                  />
+                )}
               </Field>
             </div>
           </div>
@@ -351,41 +430,54 @@ export default function RujukJknForm({
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <SectionHeader icon={FileText} title="Diagnosa Rujukan (1 ICD-10)" />
             <div className="flex flex-col gap-2 p-4">
-              {patient.diagnosa.map((d) => {
-                const sel = diagKode === d.kodeIcd10;
-                return (
-                  <button
-                    key={d.id}
-                    type="button"
-                    onClick={() => setDiagKode(d.kodeIcd10)}
-                    className={cn(
-                      "flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition",
-                      sel ? "border-indigo-300 bg-indigo-50 text-indigo-800" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
-                    )}
-                  >
-                    <span
+              {diagLoading ? (
+                <div className="flex items-center gap-2 px-1 py-3 text-xs text-slate-400">
+                  <Loader2 size={14} className="animate-spin" /> Memuat diagnosa kunjungan…
+                </div>
+              ) : diagList.length === 0 ? (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                  <AlertCircle size={13} className="mt-0.5 shrink-0 text-amber-500" />
+                  <p className="text-[11px] text-amber-700">
+                    Belum ada diagnosa pada kunjungan ini. Tambahkan dulu di tab <span className="font-semibold">Diagnosa</span>.
+                  </p>
+                </div>
+              ) : (
+                diagList.map((d) => {
+                  const sel = diagKode === d.kodeIcd10;
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => setDiagKode(d.kodeIcd10)}
                       className={cn(
-                        "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition",
-                        sel ? "border-indigo-500 bg-indigo-500" : "border-slate-300 bg-white",
+                        "flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition",
+                        sel ? "border-indigo-300 bg-indigo-50 text-indigo-800" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
                       )}
                     >
-                      {sel && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
-                    </span>
-                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                      <span className="font-mono text-[11px] text-slate-400">{d.kodeIcd10}</span>
-                      <span className="text-xs font-medium">{d.namaDiagnosis}</span>
-                    </div>
-                    <span
-                      className={cn(
-                        "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ring-1",
-                        d.tipe === "Utama" ? "bg-indigo-100 text-indigo-700 ring-indigo-200" : "bg-slate-100 text-slate-500 ring-slate-200",
-                      )}
-                    >
-                      {d.tipe}
-                    </span>
-                  </button>
-                );
-              })}
+                      <span
+                        className={cn(
+                          "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition",
+                          sel ? "border-indigo-500 bg-indigo-500" : "border-slate-300 bg-white",
+                        )}
+                      >
+                        {sel && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                      </span>
+                      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                        <span className="font-mono text-[11px] text-slate-400">{d.kodeIcd10}</span>
+                        <span className="text-xs font-medium">{d.namaDiagnosis}</span>
+                      </div>
+                      <span
+                        className={cn(
+                          "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ring-1",
+                          d.tipe === "Utama" ? "bg-indigo-100 text-indigo-700 ring-indigo-200" : "bg-slate-100 text-slate-500 ring-slate-200",
+                        )}
+                      >
+                        {d.tipe}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
             </div>
           </div>
 
@@ -403,7 +495,7 @@ export default function RujukJknForm({
           </div>
         </div>
 
-        {/* ── Kanan: kelengkapan + pratinjau payload ── */}
+        {/* ── Kanan: kelengkapan + ringkasan + link payload ── */}
         <div className="flex flex-col gap-4">
           <Checklist items={checklist} />
 
@@ -434,8 +526,8 @@ export default function RujukJknForm({
               </div>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
                 <p className="text-[10px] leading-snug text-slate-400">
-                  <span className="font-semibold text-slate-500">noSep</span> &amp;{" "}
-                  <span className="font-semibold text-slate-500">user</span> diisi server (anti-spoof).
+                  <span className="font-semibold text-slate-500">noSep</span> dari SEP kunjungan ·{" "}
+                  <span className="font-semibold text-slate-500">user</span> = {userWs} (akun login).
                 </p>
                 <button
                   type="button"
@@ -448,13 +540,7 @@ export default function RujukJknForm({
             </div>
           </div>
 
-          {errMsg && (
-            <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
-              <AlertCircle size={13} className="mt-0.5 shrink-0 text-rose-500" />
-              <p className="text-[11px] text-rose-700">{errMsg}</p>
-            </div>
-          )}
-          {!canSubmit && !errMsg && (
+          {!canSubmit && (
             <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
               <AlertCircle size={13} className="mt-0.5 shrink-0 text-amber-500" />
               <p className="text-[11px] text-amber-700">

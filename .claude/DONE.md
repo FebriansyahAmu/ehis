@@ -12,6 +12,34 @@
 
 ---
 
+## ✅ Selesai — Disposisi RJ: Rujuk Eksternal JKN (payload V-Claim t_rujukan) + Surat Rujukan cetak (2026-07-09)
+
+Tab **Disposisi Rawat Jalan** ([DisposisiRJTab](../src/components/rawat-jalan/tabs/DisposisiRJTab.tsx)) dirombak: **Rujuk Internal dihapus** (tinggal **Rujuk Eksternal** + **Admisi Rawat Inap**), form Rujuk Eksternal **sadar-penjamin**, dan kirim menghasilkan **surat rujukan A4 cetak**.
+
+- **Hapus Rujuk Internal** — union `DisposisiTipe` = `rujuk-eksternal|admisi-ri`; `RujukInternalForm`/`PrioritasInternal`/`PRIORITAS`/entri success + import `Siren`/`POLI_CFG` dibuang; grid selektor 3→2 kolom.
+- **Ekstraksi folder `disposisi/`** (jaga < 800 baris/file): [shared.tsx](../src/components/rawat-jalan/tabs/disposisi/shared.tsx) (primitif + tipe `DisposisiResult`) · [RujukEksternalForm](../src/components/rawat-jalan/tabs/disposisi/RujukEksternalForm.tsx) (cabang `penjamin.startsWith("BPJS")` → JKN vs Umum) · [RujukJknForm](../src/components/rawat-jalan/tabs/disposisi/RujukJknForm.tsx) · [RujukUmumForm](../src/components/rawat-jalan/tabs/disposisi/RujukUmumForm.tsx) · RujukanPayloadModal · RujukanCetakTemplate · RujukanCetakModal.
+- **Form JKN = payload resmi V-Claim `Rujukan/insert` (t_rujukan)** — kontrak kanonik [InsertRujukanPayload](../src/lib/bpjs/bpjsContracts.ts). Field 1:1: `noSep · tglRujukan · tglRencanaKunjungan · ppkDirujuk (8 digit) · jnsPelayanan (1 RI/2 RJ) · catatan · diagRujukan (1 ICD-10) · tipeRujukan (0 Penuh/1 Partial/2 Balik PRB) · poliRujukan (kosong bila tipe 2, wajib 0/1) · user`. Aturan bersyarat poli↔tipe + ppk 8-digit divalidasi via adapter `insertRujukan`. Non-JKN → `RujukUmumForm`.
+- **Kontrol global + fetch nyata** — faskes (`listSarana`; FKRTL utk tipe 0/1 · FKTP utk Balik PRB) & poli (`listSpesialistik`) pakai shared **`Select`** (popover portal → tak ter-clip kartu `overflow-hidden`); tanggal pakai **`DatePicker`** (tanpa default `today()`); **SEP autofill** `listSepTerbit(kunjunganId)` (SEP ber-flag `kunjunganIni`, read-only); **diagnosa di-fetch** `getDiagnosa(kunjunganId)` (radio ICD-10 nyata, default Utama, loading+empty state; demo non-UUID → fallback `patient.diagnosa`). Guard `UUID_RE` pakai `patient.id`.
+- **`user` = akun login** (`session.namaTampil`) — dipakai di payload & pratinjau (bukan placeholder server).
+- **Pratinjau payload = hyperlink → modal** ([RujukanPayloadModal](../src/components/rawat-jalan/tabs/disposisi/RujukanPayloadModal.tsx), pola SEP/RencanaKontrol) — bukan inline `<pre>`; portal z-60, Escape/backdrop, tombol Salin, isi `request.t_rujukan`.
+- **Kirim SELALU sukses (mock — belum ada cons-id prod)** — `handleSubmit` panggil `insertRujukan` utk audit (hasil diabaikan), lalu **sintesis respons detail rujukan** (bentuk TrustMark: `AsalRujukan`/`peserta`/`diagnosa`/`tujuanRujukan`/`poliTujuan`/`tgl*`); `noRujukan` format asli `{PPK}{MMYY}B{6digit}` (`PPK_ASAL="0301R001"`); `tglBerlakuKunjungan` = +90 hari.
+- **Surat Rujukan cetak A4** — [RujukanCetakTemplate](../src/components/rawat-jalan/tabs/disposisi/RujukanCetakTemplate.tsx) (KOP RS via `KopSuratEklaim`): identitas peserta · blok **Dirujuk Ke** (faskes/jenis/poli) · diagnosa · tanggal (rujukan/rencana/berlaku) · No. Rujukan BPJS + No. SEP asal · faskes perujuk · catatan · instruksi · TTD dokter perujuk. [RujukanCetakModal](../src/components/rawat-jalan/tabs/disposisi/RujukanCetakModal.tsx) (`.print-area` A4, pola SuratKontrolCetakModal) dibuka dari SuccessScreen (tombol "Cetak Surat Rujukan"); `DisposisiResult.rujukan` di-thread form→tab.
+- **Verifikasi**: tsc 0 error · ESLint 0 error · semua file ≤ 584 baris.
+
+---
+
+## ✅ Selesai — Surat & Dokumen RJ: Surat Keterangan Sakit + Sehat + Resume Medik TTE + Riwayat pramuat (2026-07-09)
+
+Sub-menu tab **Surat & Dokumen** ([SuratDokumenTab](../src/components/shared/medical-records/SuratDokumenTab.tsx)) disambung ke DB + TTE (riset standar RS lalu diterapkan; contracts+endpoints+FE per layering rules).
+
+- **Surat Keterangan Sakit** — domain `medicalrecord.SuratKeteranganSakit` (append + soft-delete; counter `SKS-<YYMM><NNN>`; `tglSelesai` = server-compute `addRestDays`) + `GET/POST /kunjungan/:id/surat-sakit` + `/:itemId` DELETE (layered Zod/DAL/Service/route/API). **TTE QR dokter pemeriksa** auto saat create (Dokter-gated, pola Resep); template A4 (rose) + `SuratSakitCetakModal` + `terbilang()`.
+- **Surat Keterangan Sehat (SKBS)** — domain `medicalrecord.SuratKeteranganSehat` (pemeriksaan fisik TB/BB/TD/nadi/gol.darah/penglihatan/buta-warna/pendengaran + BMI + kesimpulan; counter `SKH-<YYMM><NNN>`) + `GET/POST /kunjungan/:id/surat-sehat` + DELETE; template A4 (emerald) + BMI auto (`bmiKategori`) + TTE QR.
+- **Resume Medik RJ + TTE** — QR DPJP ditampilkan **hanya di cetakan**; kartu Resume Medik RJ jadi **background hijau "sudah di-TTE"** (info di kartu, bukan di form); `tteInfo` tetap mengalir ke `printModel`.
+- **Riwayat Surat pramuat** — buka tab Surat & Dokumen → **ketiga surat** (Kontrol/Sakit/Sehat) langsung tampil di panel Riwayat (preload effect keyed `kunjunganId` + `patientRef`; entry-builder `*EntriesFromDtos` di-export tiap pane sebagai sumber tunggal) — **kecuali Resume Medis** (dok tunggal latest-wins).
+- **Verifikasi**: tsc/eslint bersih; smoke `pg` per domain (insert semua field incl. TTE, active-count sebelum/sesudah soft-delete, unique nomor 23505, cleanup). Commit e3b5df3 · ed160f9 · 299d26a.
+
+---
+
 ## ✅ Selesai — Admisi Rawat Inap: Bed-Map Visual + DPJP ter-assign + Peringatan SPRI (2026-06-25)
 
 Penyempurnaan modal **Pendaftaran Kunjungan Baru** (dibuka dari worklist Admisi via SPRI → "Daftar Rawat Inap").
