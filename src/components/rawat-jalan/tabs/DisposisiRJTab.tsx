@@ -6,21 +6,19 @@ import {
   Navigation, ArrowRight, Building2, Send, User, Stethoscope,
   Calendar, FileText, Tag, MapPin, ClipboardList, BookOpen,
   Check, CheckCircle2, Printer, AlertCircle, ChevronRight,
-  Ambulance, Hospital, Microscope, BedDouble, Siren,
+  Ambulance, Hospital, Microscope, BedDouble,
   type LucideIcon,
 } from "lucide-react";
 import type { RJPatientDetail } from "@/lib/data";
-import { POLI_CFG } from "@/components/rawat-jalan/rjShared";
 import { cn } from "@/lib/utils";
 
 // ── Types ──────────────────────────────────────────────────
 
-type DisposisiTipe = "rujuk-internal" | "rujuk-eksternal" | "admisi-ri";
+type DisposisiTipe = "rujuk-eksternal" | "admisi-ri";
 
 type JenisPelayanan = "Rawat_Jalan" | "Rawat_Inap" | "Rawat_Darurat" | "ICU_Intensif";
 type JenisRujukan   = "FKTP_ke_FKRTL" | "Antar_FKRTL" | "Spesialistik" | "Parsial" | "Rujukan_Balik";
 type KelasRI        = "VIP" | "Kelas_1" | "Kelas_2" | "Kelas_3" | "ICU" | "HCU" | "Isolasi";
-type PrioritasInternal = "Segera" | "Elektif" | "Konsultasi";
 
 // ── Config ─────────────────────────────────────────────────
 
@@ -35,15 +33,6 @@ interface DisposisiDef {
 }
 
 const DISPOSISI: DisposisiDef[] = [
-  {
-    id:    "rujuk-internal",
-    label: "Rujuk Internal",
-    sub:   "Ke poli lain dalam RS",
-    icon:  ArrowRight,
-    sel:   "border-sky-400 bg-sky-50 text-sky-800 ring-1 ring-sky-200",
-    idle:  "border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:bg-sky-50/40",
-    dot:   "bg-sky-500",
-  },
   {
     id:    "rujuk-eksternal",
     label: "Rujuk Eksternal",
@@ -91,12 +80,6 @@ const KELAS_RI: { id: KelasRI; label: string; sub: string; sel: string; idle: st
   { id: "Isolasi", label: "Isolasi", sub: "Ruang isolasi",     sel: "border-violet-400 bg-violet-50 text-violet-800 ring-1 ring-violet-200", idle: "border-slate-200 bg-white text-slate-600 hover:border-violet-300 hover:bg-violet-50/40" },
 ];
 
-const PRIORITAS: { id: PrioritasInternal; label: string; sub: string; sel: string; idle: string }[] = [
-  { id: "Segera",     label: "Segera",     sub: "Butuh penanganan cepat", sel: "border-rose-400 bg-rose-50 text-rose-800 ring-1 ring-rose-200",   idle: "border-slate-200 bg-white text-slate-600 hover:border-rose-300 hover:bg-rose-50/40"   },
-  { id: "Elektif",    label: "Elektif",    sub: "Terencana / jadwal",     sel: "border-sky-400 bg-sky-50 text-sky-800 ring-1 ring-sky-200",       idle: "border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:bg-sky-50/40"     },
-  { id: "Konsultasi", label: "Konsultasi", sub: "Opini/saran dokter lain",sel: "border-teal-400 bg-teal-50 text-teal-800 ring-1 ring-teal-200",   idle: "border-slate-200 bg-white text-slate-600 hover:border-teal-300 hover:bg-teal-50/40"   },
-];
-
 // ── Helpers ────────────────────────────────────────────────
 
 function SectionHeader({ icon: Icon, title }: { icon: LucideIcon; title: string }) {
@@ -138,248 +121,6 @@ function PreviewRow({ label, value, mono, highlight }: { label: string; value: s
   );
 }
 
-// ── Sub-forms ──────────────────────────────────────────────
-
-interface InternalFormProps {
-  patient: RJPatientDetail;
-  onSubmit: () => void;
-}
-
-function RujukInternalForm({ patient, onSubmit }: InternalFormProps) {
-  const [poliTujuan, setPoliTujuan]   = useState("");
-  const [dokterTujuan, setDokterTujuan] = useState("");
-  const [prioritas, setPrioritas]     = useState<PrioritasInternal | null>(null);
-  const [alasan, setAlasan]           = useState("");
-  const [catatan, setCatatan]         = useState("");
-  const [selectedDiagnosa, setSelectedDiagnosa] = useState<string[]>(
-    patient.diagnosa.filter(d => d.tipe === "Utama").map(d => d.id),
-  );
-
-  const toggleDiagnosa = (id: string) =>
-    setSelectedDiagnosa(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-
-  const poliLabel = poliTujuan && POLI_CFG[poliTujuan as keyof typeof POLI_CFG]?.label;
-
-  const canSubmit = poliTujuan !== "" && prioritas !== null && alasan.trim() !== "" && selectedDiagnosa.length > 0;
-
-  const checklist = [
-    { label: "Poli tujuan",       done: poliTujuan !== "" },
-    { label: "Prioritas",         done: prioritas !== null },
-    { label: "Alasan rujukan",    done: alasan.trim() !== "" },
-    { label: "Diagnosa dipilih",  done: selectedDiagnosa.length > 0 },
-  ];
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-
-        {/* Form */}
-        <div className="flex flex-col gap-4">
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <SectionHeader icon={MapPin} title="Poli Tujuan" />
-            <div className="flex flex-col gap-4 p-4">
-              <Field label="Pilih Poli Tujuan" required>
-                <select value={poliTujuan} onChange={e => setPoliTujuan(e.target.value)} className={inputCls}>
-                  <option value="">— Pilih poli —</option>
-                  {Object.entries(POLI_CFG).map(([key, val]) => (
-                    <option key={key} value={key}>{val.label}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Dokter Tujuan" hint="Kosongkan jika belum ditentukan">
-                <input value={dokterTujuan} onChange={e => setDokterTujuan(e.target.value)} placeholder="Nama dokter di poli tujuan" className={inputCls} />
-              </Field>
-            </div>
-          </div>
-
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <SectionHeader icon={Siren} title="Prioritas Rujukan" />
-            <div className="p-4">
-              <div className="grid grid-cols-3 gap-2">
-                {PRIORITAS.map(opt => {
-                  const sel = prioritas === opt.id;
-                  return (
-                    <button key={opt.id} type="button" onClick={() => setPrioritas(opt.id)}
-                      className={cn("flex flex-col items-start gap-1 rounded-xl border px-3 py-2.5 text-left transition", sel ? opt.sel : opt.idle)}>
-                      <div className="flex w-full items-center gap-1">
-                        <p className="text-xs font-semibold leading-none">{opt.label}</p>
-                        {sel && <Check size={10} className="ml-auto shrink-0" />}
-                      </div>
-                      <p className="text-[10px] leading-snug opacity-60">{opt.sub}</p>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <SectionHeader icon={FileText} title="Diagnosa" />
-            <div className="flex flex-col gap-2 p-4">
-              {patient.diagnosa.map(d => {
-                const sel = selectedDiagnosa.includes(d.id);
-                return (
-                  <button key={d.id} type="button" onClick={() => toggleDiagnosa(d.id)}
-                    className={cn("flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition",
-                      sel ? "border-sky-300 bg-sky-50 text-sky-800" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50")}>
-                    <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded border transition",
-                      sel ? "border-sky-500 bg-sky-500 text-white" : "border-slate-300 bg-white")}>
-                      {sel && <Check size={10} />}
-                    </span>
-                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                      <span className="font-mono text-[11px] text-slate-400">{d.kodeIcd10}</span>
-                      <span className="text-xs font-medium">{d.namaDiagnosis}</span>
-                    </div>
-                    <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ring-1",
-                      d.tipe === "Utama" ? "bg-indigo-100 text-indigo-700 ring-indigo-200" : "bg-slate-100 text-slate-500 ring-slate-200")}>
-                      {d.tipe}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <SectionHeader icon={BookOpen} title="Alasan & Catatan" />
-            <div className="flex flex-col gap-3 p-4">
-              <Field label="Alasan Rujukan" required>
-                <textarea value={alasan} onChange={e => setAlasan(e.target.value)} rows={3}
-                  placeholder="Alasan merujuk pasien ke poli ini..." className={textareaCls} />
-              </Field>
-              <Field label="Catatan Tambahan">
-                <textarea value={catatan} onChange={e => setCatatan(e.target.value)} rows={2}
-                  placeholder="Catatan untuk dokter poli tujuan..." className={textareaCls} />
-              </Field>
-            </div>
-          </div>
-        </div>
-
-        {/* Preview */}
-        <div className="flex flex-col gap-4">
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 bg-slate-50/60 px-4 py-2.5">
-              <p className="text-xs font-semibold text-slate-700">Kelengkapan Form</p>
-            </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-4">
-              {checklist.map(({ label, done }) => (
-                <div key={label} className="flex items-center gap-2">
-                  <span className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition",
-                    done ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-300")}>
-                    {done ? <Check size={9} /> : <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />}
-                  </span>
-                  <span className={cn("text-[11px] transition", done ? "text-slate-700" : "text-slate-400")}>{label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-sky-600 px-4 py-2.5">
-              <div className="flex items-center gap-2">
-                <Navigation size={13} className="text-sky-200" />
-                <p className="text-xs font-semibold text-white">Preview Rujuk Internal</p>
-              </div>
-              <span className="rounded-md bg-sky-500/60 px-2 py-0.5 text-[10px] font-semibold text-sky-100 ring-1 ring-sky-400">Live</span>
-            </div>
-            <div className="p-5">
-              <div className="mb-4 border-b border-slate-200 pb-4">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-600">
-                    <ArrowRight size={13} />
-                  </span>
-                  <p className="text-sm font-bold text-slate-900">Rujuk Internal</p>
-                </div>
-                <p className="mt-1 text-[11px] text-slate-400">
-                  {patient.poli.replace(/_/g, " ")} → {poliLabel || "—"}
-                </p>
-              </div>
-              <div className="flex flex-col gap-3">
-                <div className="rounded-lg bg-slate-50 p-3">
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Data Pasien</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <PreviewRow label="Nama" value={patient.name} />
-                    <PreviewRow label="No. RM" value={patient.noRM} mono />
-                    <PreviewRow label="Usia / JK" value={`${patient.age} thn / ${patient.gender === "L" ? "Laki-laki" : "Perempuan"}`} />
-                    <PreviewRow label="Poli Asal" value={patient.poli.replace(/_/g, " ")} />
-                  </div>
-                </div>
-                <div className="h-px bg-slate-100" />
-                {poliLabel && (
-                  <div className="rounded-lg border border-sky-100 bg-sky-50/60 p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-sky-400">Dirujuk Ke</p>
-                    <p className="text-xs font-semibold text-sky-800">{poliLabel}</p>
-                    {dokterTujuan && <p className="mt-0.5 text-[11px] text-sky-600">{dokterTujuan}</p>}
-                  </div>
-                )}
-                {prioritas && (
-                  <div className="flex items-center gap-2">
-                    <span className={cn("rounded-md px-2 py-0.5 text-[11px] font-semibold ring-1",
-                      prioritas === "Segera" ? "bg-rose-50 text-rose-700 ring-rose-200" :
-                      prioritas === "Elektif" ? "bg-sky-50 text-sky-700 ring-sky-200" :
-                      "bg-teal-50 text-teal-700 ring-teal-200")}>
-                      Prioritas: {prioritas}
-                    </span>
-                  </div>
-                )}
-                {selectedDiagnosa.length > 0 && (
-                  <div>
-                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">Diagnosa</p>
-                    {patient.diagnosa.filter(d => selectedDiagnosa.includes(d.id)).map(d => (
-                      <div key={d.id} className="flex items-center gap-2">
-                        <span className="font-mono text-[10px] text-slate-400">{d.kodeIcd10}</span>
-                        <span className="text-[11px] text-slate-700">{d.namaDiagnosis}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {alasan && (
-                  <div>
-                    <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Alasan</p>
-                    <p className="text-[11px] leading-relaxed text-slate-600">{alasan}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {!canSubmit && (
-            <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-              <AlertCircle size={13} className="mt-0.5 shrink-0 text-amber-500" />
-              <p className="text-[11px] text-amber-700">
-                Lengkapi semua field bertanda <span className="font-bold text-rose-500">*</span> untuk melanjutkan.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <div>
-          {poliLabel ? (
-            <span className="flex items-center gap-1.5 rounded-md bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 ring-1 ring-sky-200">
-              <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
-              {patient.poli.replace(/_/g, " ")} → {poliLabel}
-            </span>
-          ) : (
-            <p className="text-xs text-slate-400">Pilih poli tujuan untuk melanjutkan</p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => window.print()}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50">
-            <Printer size={13} /> Cetak
-          </button>
-          <button onClick={() => canSubmit && onSubmit()} disabled={!canSubmit}
-            className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40">
-            <ArrowRight size={13} /> Kirim Rujukan Internal
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Rujuk Eksternal Form ───────────────────────────────────
 
 interface EksternalFormProps {
@@ -388,7 +129,7 @@ interface EksternalFormProps {
 }
 
 function RujukEksternalForm({ patient, onSubmit }: EksternalFormProps) {
-  const [noSurat, setNoSurat]           = useState(`RUJ/RJ/2026/05/${Math.floor(Math.random() * 900 + 100)}`);
+  const [noSurat, setNoSurat]           = useState(() => `RUJ/RJ/2026/05/${Math.floor(Math.random() * 900 + 100)}`);
   const [tglKeluar, setTglKeluar]       = useState("");
   const [jamKeluar, setJamKeluar]       = useState("");
   const [tglRencana, setTglRencana]     = useState("");
@@ -979,12 +720,10 @@ function SuccessScreen({
   onBack: () => void;
 }) {
   const MAP = {
-    "rujuk-internal":  { label: "Rujuk Internal Berhasil Dikirim",     icon: ArrowRight, cls: "bg-sky-100 text-sky-600"     },
     "rujuk-eksternal": { label: "Surat Rujukan Berhasil Dibuat",        icon: Send,       cls: "bg-indigo-100 text-indigo-600" },
     "admisi-ri":       { label: "Surat Pengantar Admisi Berhasil Dibuat", icon: BedDouble,cls: "bg-emerald-100 text-emerald-600" },
   } as const;
   const def = MAP[tipe];
-  const Icon = def.icon;
   return (
     <div className="flex flex-col items-center justify-center gap-6 py-24 text-center">
       <span className={cn("flex h-16 w-16 items-center justify-center rounded-2xl", def.cls)}>
@@ -1085,7 +824,7 @@ export default function DisposisiRJTab({ patient }: { patient: RJPatientDetail }
       {/* ── Tipe selector ── */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <SectionHeader icon={Navigation} title="Jenis Disposisi" />
-        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2">
           {DISPOSISI.map(opt => {
             const Icon = opt.icon;
             const sel = tipe === opt.id;
@@ -1120,19 +859,13 @@ export default function DisposisiRJTab({ patient }: { patient: RJPatientDetail }
               <Navigation size={22} />
             </span>
             <p className="font-semibold text-slate-500">Pilih jenis disposisi</p>
-            <p className="mt-1 text-sm text-slate-400">Rujuk internal, rujuk eksternal, atau admisi rawat inap</p>
+            <p className="mt-1 text-sm text-slate-400">Rujuk eksternal atau admisi rawat inap</p>
           </motion.div>
         )}
 
         {tipe && submitted && (
           <motion.div key="success" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             <SuccessScreen tipe={tipe} patient={patient} onBack={() => setSubmitted(false)} />
-          </motion.div>
-        )}
-
-        {tipe && !submitted && tipe === "rujuk-internal" && (
-          <motion.div key="internal" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-            <RujukInternalForm patient={patient} onSubmit={() => setSubmitted(true)} />
           </motion.div>
         )}
 
