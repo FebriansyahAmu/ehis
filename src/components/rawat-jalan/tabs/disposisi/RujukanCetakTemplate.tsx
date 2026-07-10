@@ -9,34 +9,12 @@
 
 import KopSuratEklaim from "@/components/eklaim/berkas/KopSuratEklaim";
 import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
+import type { RujukanDetail } from "@/lib/schemas/rujukanEksternal/rujukanEksternal";
 
-// ── Data contract (adapter dari payload t_rujukan + respons detail rujukan) ────
-
-export interface RujukanCetakData {
-  noRujukan: string;
-  tglRujukan: string;             // yyyy-MM-dd
-  tglRencanaKunjungan: string;    // yyyy-MM-dd
-  tglBerlakuKunjungan?: string;   // yyyy-MM-dd (masa berlaku rujukan)
-  jnsPelayanan: "1" | "2";        // 1 Rawat Inap · 2 Rawat Jalan
-  tipeRujukan: "0" | "1" | "2";   // 0 Penuh · 1 Partial · 2 Balik PRB
-  catatan?: string;
-  asalRujukan: { kode: string; nama: string };    // faskes perujuk (RS kita)
-  tujuanRujukan: { kode: string; nama: string };   // faskes tujuan (ppkDirujuk)
-  poliTujuan: { kode: string; nama: string };      // poliRujukan (kosong utk PRB)
-  diagnosa: { kode: string; nama: string };
-  peserta: {
-    nama: string;
-    noKartu: string;
-    noMr: string;
-    tglLahir: string;
-    kelamin: string;   // "Laki-Laki" | "Perempuan"
-    jnsPeserta: string; // penjamin display
-  };
-  dokterPerujuk: string;
-  noSep?: string;
-  terbitAt?: string;   // ISO
-  pencatat?: string;   // user login
-}
+// Kontrak CETAK = snapshot `RujukanDetail` (schema server, tersimpan di detail JSONB). Alias agar
+// konsumen FE (form/modal/DisposisiResult) tetap pakai nama `RujukanCetakData` + `dto.detail`
+// langsung bisa dicetak (cetak ulang) tanpa adapter.
+export type RujukanCetakData = RujukanDetail;
 
 const TIPE_LABEL: Record<string, string> = {
   "0": "Rujukan Penuh",

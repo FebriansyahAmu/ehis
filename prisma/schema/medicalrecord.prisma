@@ -2914,3 +2914,43 @@ model SuratSehatCounter {
   @@map("surat_sehat_counter")
   @@schema("medicalrecord")
 }
+
+// ── Rujukan Eksternal / Rujukan Keluar (tab Disposisi Rawat Jalan → Rujuk Eksternal) ─────────
+// Surat rujukan KELUAR peserta JKN (V-Claim Rujukan/insert) per kunjungan. LIST append-only
+// (1 kunjungan boleh terbitkan >1 rujukan) + soft-delete (batal = koreksi administratif, baris
+// dipertahankan + stamp deleted_at, pola surat_keterangan_sakit). `nomor` = No. Rujukan format
+// BPJS {PPK}{MMYY}B{6} auto counter (reset per bulan). `detail` JSONB = snapshot penuh surat
+// (RujukanDetail: peserta/diagnosa/tujuan/tgl/…) → sumber CETAK ULANG mandiri (tak butuh state
+// pasien saat cetak; medico-legal snapshot). BPJS issuance = MOCK (selalu sukses, belum cons-id
+// prod). FK → encounter.kunjungan cascade. Gate clinical.rekammedis + ABAC careUnit (route()) —
+// unit-agnostic, tanpa permission baru. (BEDA dari bpjs.Rujukan = rujukan MASUK 1:1.)
+model RujukanEksternal {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  nomor  String @unique // {PPK}{MMYY}B{6} — No. Rujukan (auto counter sistem)
+  detail Json // RujukanDetail snapshot penuh (cetak ulang)
+
+  // ── Pencatat/author (dari actor login; pencatat = server-otoritatif anti-spoof) ──
+  pencatat        String
+  authorUserId    String? @map("author_user_id") @db.Uuid
+  authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
+
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId, deletedAt])
+  @@map("rujukan_eksternal")
+  @@schema("medicalrecord")
+}
+
+// Counter No. Rujukan keluar — scope = "RUJ-<YYMM>" (reset per bulan), seq atomik.
+model RujukanEksternalCounter {
+  scope String @id
+  seq   Int    @default(0)
+
+  @@map("rujukan_eksternal_counter")
+  @@schema("medicalrecord")
+}

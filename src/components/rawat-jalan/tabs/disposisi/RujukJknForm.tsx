@@ -23,11 +23,12 @@ import { DatePicker, Select } from "@/components/shared/inputs";
 import type { InsertRujukanPayload, TipeRujukanKode } from "@/lib/bpjs/bpjsContracts";
 import type { JnsPelayananKode } from "@/lib/bpjs/bpjsShared";
 import {
-  insertRujukan, listSarana, listSpesialistik,
+  listSarana, listSpesialistik,
   type SaranaRefRecord, type SpesialistikRefRecord,
 } from "@/lib/bpjs/vClaimRujukan";
 import { getDiagnosa } from "@/lib/api/diagnosa/diagnosa";
 import { listSepTerbit, type SepTerbitDTO } from "@/lib/api/jadwalKontrol/jadwalKontrol";
+import { createRujukan, type RujukanEksternalInput } from "@/lib/api/rujukanEksternal/rujukanEksternal";
 import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
 import { SectionHeader, Field, Checklist, inputCls, textareaCls, type DisposisiResult } from "./shared";
 import RujukanPayloadModal from "./RujukanPayloadModal";
@@ -233,23 +234,13 @@ export default function RujukJknForm({
   async function handleSubmit() {
     if (!canSubmit) return;
     setSending(true);
-    // Selalu terbit sukses (mock — belum ada cons-id prod). Tetap panggil adapter untuk audit trail;
-    // hasilnya diabaikan (response detail rujukan disintesis lokal dari isian form).
-    try {
-      await insertRujukan(payload);
-    } catch {
-      /* abaikan — mock selalu sukses */
-    }
     const diagNama = diagList.find((d) => d.kodeIcd10 === diagKode)?.namaDiagnosis ?? "";
-    const noRujukan = genNoRujukan(tglRujukan);
-    const rujukan: RujukanCetakData = {
-      noRujukan,
+    const input: RujukanEksternalInput = {
       tglRujukan,
       tglRencanaKunjungan: tglRencana,
-      tglBerlakuKunjungan: addDaysISO(tglRujukan, 90),
       jnsPelayanan,
       tipeRujukan,
-      catatan: payload.catatan || undefined,
+      catatan: catatan.trim(),
       asalRujukan: { kode: PPK_ASAL, nama: RS_PROFIL_INITIAL.nama },
       tujuanRujukan: { kode: ppkDirujuk, nama: ppkNama },
       poliTujuan: { kode: isBalikPRB ? "" : poliRujukan, nama: isBalikPRB ? "" : (poliNama ?? "") },
@@ -264,6 +255,24 @@ export default function RujukJknForm({
       },
       dokterPerujuk: patient.dokter,
       noSep: payload.noSep || undefined,
+    };
+    // Persisted (UUID) → simpan ke DB (No. Rujukan + berlaku/terbit dari server, bisa cetak ulang).
+    // Demo (non-UUID) → sintesis lokal (tak persist). Keduanya SELALU sukses (mock, belum cons-id prod).
+    if (isPersisted) {
+      try {
+        const dto = await createRujukan(kunjunganId, input);
+        setSending(false);
+        onSubmit({ noRujukan: dto.nomor, noSep: payload.noSep, rujukan: dto.detail });
+        return;
+      } catch {
+        /* gagal simpan → fallback sintesis lokal di bawah (tetap sukses) */
+      }
+    }
+    const noRujukan = genNoRujukan(tglRujukan);
+    const rujukan: RujukanCetakData = {
+      ...input,
+      noRujukan,
+      tglBerlakuKunjungan: addDaysISO(tglRujukan, 90),
       terbitAt: new Date().toISOString(),
       pencatat: userWs,
     };

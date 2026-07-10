@@ -11,7 +11,11 @@ import type { RJPatientDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import RujukEksternalForm from "./disposisi/RujukEksternalForm";
 import RujukanCetakModal from "./disposisi/RujukanCetakModal";
+import RujukanKeluarWidget from "./disposisi/RujukanKeluarWidget";
+import type { RujukanCetakData } from "./disposisi/RujukanCetakTemplate";
 import { SectionHeader, Field, PreviewRow, inputCls, textareaCls, type DisposisiResult } from "./disposisi/shared";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -367,6 +371,9 @@ function SuccessScreen({
 export default function DisposisiRJTab({ patient }: { patient: RJPatientDetail }) {
   const [tipe, setTipe]     = useState<DisposisiTipe | null>(null);
   const [result, setResult] = useState<DisposisiResult | null>(null);
+  const [rujukanVer, setRujukanVer] = useState(0); // bump → widget refetch surat rujukan (persisted)
+  const [demoRujukan, setDemoRujukan] = useState<RujukanCetakData[]>([]); // pasien demo (non-UUID)
+  const isPersisted = UUID_RE.test(patient.id);
 
   function handleTipeChange(newTipe: DisposisiTipe) {
     setTipe(newTipe);
@@ -463,6 +470,17 @@ export default function DisposisiRJTab({ patient }: { patient: RJPatientDetail }
         </div>
       </div>
 
+      {/* ── Widget "Surat Rujukan Sudah Terbit" (hijau) — di bawah Jenis Disposisi ── */}
+      {tipe === "rujuk-eksternal" && (
+        <RujukanKeluarWidget
+          kunjunganId={patient.id}
+          isPersisted={isPersisted}
+          localItems={demoRujukan}
+          onRemoveLocal={(nomor) => setDemoRujukan((prev) => prev.filter((x) => x.noRujukan !== nomor))}
+          refreshKey={rujukanVer}
+        />
+      )}
+
       {/* ── Form area ── */}
       <AnimatePresence mode="wait">
         {!tipe && (
@@ -484,7 +502,13 @@ export default function DisposisiRJTab({ patient }: { patient: RJPatientDetail }
 
         {tipe && !result && tipe === "rujuk-eksternal" && (
           <motion.div key="eksternal" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-            <RujukEksternalForm patient={patient} onSubmit={(r) => setResult(r)} />
+            <RujukEksternalForm patient={patient} onSubmit={(r) => {
+              setResult(r);
+              if (r.rujukan) {
+                if (isPersisted) setRujukanVer((v) => v + 1);
+                else setDemoRujukan((prev) => [r.rujukan!, ...prev]);
+              }
+            }} />
           </motion.div>
         )}
 
