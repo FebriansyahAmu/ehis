@@ -8,12 +8,15 @@
 import { transaction } from "@/lib/db/prisma";
 import * as defaultDal from "@/lib/dal/spri/spriDal";
 import * as kunjunganDal from "@/lib/dal/kunjunganDal";
+import * as patientDal from "@/lib/dal/patientDal";
 import * as diagnosaDal from "@/lib/dal/diagnosa/diagnosaDal";
 import { issueSpriRef, updateSpriRef, cancelSpriRef } from "@/lib/services/spri/spriBpjsMock";
+import { resolveActorNama } from "@/lib/services/actorName";
+import { decryptPii } from "@/lib/crypto/pii";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type { SpriEntity } from "@/lib/dal/spri/spriDal";
-import type { SpriDTO, SpriQuery, SpriStatus, ConsumeSpriInput, EditSpriInput } from "@/lib/schemas/disposisi/disposisi";
+import type { SpriDTO, SpriQuery, SpriStatus, ConsumeSpriInput, EditSpriInput, CreateSpriInput } from "@/lib/schemas/disposisi/disposisi";
 
 type Dal = typeof defaultDal;
 
@@ -65,9 +68,68 @@ async function resolveDiagAwal(kunjunganIds: string[]): Promise<Map<string, Diag
 export function makeSpriService(deps: { dal?: Dal } = {}) {
   const dal = deps.dal ?? defaultDal;
 
+  /** Buat SPRI mandiri dari worklist Admisi Registrasi (rawat inap terencana, bukan dari IGD).
+   *  Ditautkan ke kunjungan sumber pasien. No. Kartu di-resolusi SERVER dari penjamin BPJS
+   *  pasien (anti-spoof). Penerbitan No. Referensi = mock BPJS (di luar tx — insert tunggal). */
+  async function create(input: CreateSpriInput, actor: Actor): Promise<SpriDTO> {
+    const k = await kunjunganDal.findById(input.kunjunganId);
+    if (!k) throw Errors.notFound("Kunjungan sumber tidak ditemukan");
+
+    // No. Kartu PENUH dari penjamin BPJS pasien (server-authoritative; FE tak dipercaya).
+    let noKartu = input.noKartu ?? "";
+    const pt = await patientDal.findById(k.patientId);
+    const enc = pt?.penjamin.find(
+      (p) => (p.tipe === "BPJS_Non_PBI" || p.tipe === "BPJS_PBI") && p.nomorEnc,
+    )?.nomorEnc;
+    if (enc) noKartu = decryptPii(enc);
+
+    const user = await resolveActorNama(actor);
+    const noReferensi = await issueSpriRef({
+      noKartu,
+      dpjpPegawaiId: input.dpjpPegawaiId ?? null,
+      poliKontrol: input.poliKode ?? undefined,
+      tglRencanaKontrol: input.tglRencanaRawat,
+      user,
+      actor: actor.userId,
+      actorRole: actor.roles[0] ?? "registration",
+    });
+
+    const created = await dal.create({
+      kunjunganId: input.kunjunganId,
+      noKartu,
+      dpjpNama: input.dpjpNama,
+      dpjpPegawaiId: input.dpjpPegawaiId ?? null,
+      smfSpesialistik: input.smfSpesialistik ?? null,
+      poliKode: input.poliKode ?? null,
+      poliNama: input.poliNama ?? null,
+      tglRencanaRawat: new Date(input.tglRencanaRawat),
+      jenisPerawatan: input.jenisPerawatan,
+      indikasi: input.indikasi.trim(),
+      keterangan: input.keterangan?.trim() || null,
+      noReferensi,
+      status: noReferensi ? "Terbit" : "MenungguRef",
+      user,
+      createdByUserId: actor.userId,
+    });
+
+    const fresh = await dal.findByIdWithKunjungan(created.id);
+    const diagMap = await resolveDiagAwal([input.kunjunganId]);
+    return toDTO(fresh!, diagMap.get(input.kunjunganId));
+  }
+
   /** Worklist admisi. Default = belum dikonsumsi (MenungguRef + Terbit). */
   async function listWorklist(query: SpriQuery, _actor: Actor): Promise<SpriDTO[]> {
     const rows = await dal.listWorklist({ status: query.status });
+    const diagMap = await resolveDiagAwal(rows.map((r) => r.kunjunganId));
+    return rows.map((r) => toDTO(r, diagMap.get(r.kunjunganId)));
+  }
+
+  /** Riwayat SPRI pasien — dari kunjungan konteks (resolve patientId → semua SPRI pasien, semua
+   *  status, terbaru dulu). Konsumsi KLINIS (tab Disposisi RJ panel kanan). */
+  async function listRiwayatByKunjungan(kunjunganId: string, _actor: Actor): Promise<SpriDTO[]> {
+    const k = await kunjunganDal.findById(kunjunganId);
+    if (!k) throw Errors.notFound("Kunjungan tidak ditemukan");
+    const rows = await dal.listByPatientId(k.patientId);
     const diagMap = await resolveDiagAwal(rows.map((r) => r.kunjunganId));
     return rows.map((r) => toDTO(r, diagMap.get(r.kunjunganId)));
   }
@@ -178,7 +240,7 @@ export function makeSpriService(deps: { dal?: Dal } = {}) {
     return toDTO(fresh!);
   }
 
-  return { listWorklist, revise, consume, editSpri, cancelSpri };
+  return { create, listWorklist, listRiwayatByKunjungan, revise, consume, editSpri, cancelSpri };
 }
 
 export const spriService = makeSpriService();

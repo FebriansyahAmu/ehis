@@ -6,12 +6,16 @@
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RujukanCetakData } from "./RujukanCetakTemplate";
+import type { SpriDTO } from "@/lib/api/spri/spri";
 
-/** Hasil submit disposisi. Rujuk-eksternal JKN membawa No. Rujukan + data cetak surat rujukan. */
+/** Hasil submit disposisi. Rujuk-eksternal JKN membawa No. Rujukan + data cetak surat rujukan;
+ *  Admisi Rawat Inap membawa SPRI terbit (persisted) atau penanda demo (pasien contoh non-UUID). */
 export type DisposisiResult = {
   noRujukan?: string;
   noSep?: string;
   rujukan?: RujukanCetakData;
+  spri?: SpriDTO;      // Admisi RI — SPRI terbit & tersimpan (encounter.Spri)
+  spriDemo?: boolean;  // Admisi RI — pasien demo (non-UUID) → SPRI tak disimpan
 };
 
 export const inputCls =

@@ -11,13 +11,14 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   BedDouble, Search, Loader2, Inbox, Send, RefreshCw, Hash, Stethoscope,
-  Activity, CheckCircle2, Clock, CalendarDays, ArrowRight, FilePen, Ban,
+  Activity, CheckCircle2, Clock, CalendarDays, ArrowRight, FilePen, Ban, Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
 import { listSpri, reviseSpri, type SpriDTO } from "@/lib/api/spri/spri";
 import { SpriEditModal, SpriCancelDialog } from "./SpriEditModal";
+import SpriCreateModal from "./SpriCreateModal";
 
 function fmtDate(ymd: string): string {
   const [y, m, d] = ymd.split("-").map(Number);
@@ -37,6 +38,7 @@ export default function AdmisiRanapBoard() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editTarget, setEditTarget] = useState<SpriDTO | null>(null);
   const [cancelTarget, setCancelTarget] = useState<SpriDTO | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const refetch = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -87,9 +89,17 @@ export default function AdmisiRanapBoard() {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-[11px] text-slate-400">
-        SPRI yang terbit dari IGD — revisi No. Referensi BPJS &amp; daftarkan kunjungan Rawat Inap.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] text-slate-400">
+          SPRI terbit dari IGD atau dibuat langsung — revisi No. Referensi BPJS &amp; daftarkan kunjungan Rawat Inap.
+        </p>
+        <button
+          type="button" onClick={() => setCreateOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm transition hover:bg-teal-700 active:scale-[0.98]"
+        >
+          <Plus size={13} /> Buat SPRI Baru
+        </button>
+      </div>
 
       {/* Stat strip */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -139,6 +149,12 @@ export default function AdmisiRanapBoard() {
           spri={cancelTarget}
           onClose={() => setCancelTarget(null)}
           onCancelled={() => { setCancelTarget(null); void refetch(); }}
+        />
+      )}
+      {createOpen && (
+        <SpriCreateModal
+          onClose={() => setCreateOpen(false)}
+          onCreated={() => { setCreateOpen(false); void refetch(); }}
         />
       )}
     </div>

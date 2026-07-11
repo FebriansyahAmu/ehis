@@ -51,6 +51,16 @@ export function findByNoReferensi(noReferensi: string, tx?: Tx) {
   });
 }
 
+/** Riwayat SPRI seluruh kunjungan milik pasien (via kunjungan.patientId). Semua status, terbaru dulu. */
+export function listByPatientId(patientId: string, tx?: Tx) {
+  return db(tx).spri.findMany({
+    where: { deletedAt: null, kunjungan: { patientId } },
+    include: withKunjungan,
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  });
+}
+
 /** Worklist admisi. Tanpa status → belum dikonsumsi (MenungguRef + Terbit). Status eksplisit → tepat. */
 export function listWorklist(filter: { status?: string }, tx?: Tx) {
   return db(tx).spri.findMany({

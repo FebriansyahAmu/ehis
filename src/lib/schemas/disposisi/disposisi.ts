@@ -35,6 +35,15 @@ export const SpriInput = z.object({
 });
 export type SpriInput = z.infer<typeof SpriInput>;
 
+// ── Buat SPRI mandiri (POST /api/v1/spri) — dari worklist Admisi Registrasi ──────
+// Admisi menerbitkan SPRI untuk pasien yang perlu rawat inap terencana (bukan dari IGD),
+// ditautkan ke kunjungan sumber (poliklinik/RJ) pasien. Penerbitan No. Referensi tetap
+// SERVER (mock BPJS); noKartu di-resolusi server dari penjamin pasien (anti-spoof, FE abaikan).
+export const CreateSpriInput = SpriInput.extend({
+  kunjunganId: z.string().uuid("kunjunganId (kunjungan sumber) tidak valid"),
+});
+export type CreateSpriInput = z.infer<typeof CreateSpriInput>;
+
 // ── Input (menyertai complete) ─────────────────────────────────────────────────
 export const DisposisiInput = z
   .object({

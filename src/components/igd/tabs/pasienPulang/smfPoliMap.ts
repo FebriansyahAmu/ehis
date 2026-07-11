@@ -46,3 +46,32 @@ export function resolvePoliBpjs(spesialistik: string | null | undefined): PoliBp
   if (!spesialistik) return null;
   return SMF_POLI_MAP[spesialistik] ?? null;
 }
+
+// Jembatan SpesialisKode (vocab master.Dokter, mis. "SpPD") → label spesialistik (SPESIALISTIK_OPTS,
+// mis. "Penyakit Dalam (Sp.PD)") = kunci SMF_POLI_MAP. Dipakai worklist Admisi Registrasi: DPJP
+// dipilih dari `listDokter` (punya spesialisKode, BUKAN Pegawai.spesialistik) → feed roster SPRIPanel
+// agar SMF/poli auto-derive (resolvePoliBpjs) bekerja seperti di IGD. Null = umum / tak terpeta.
+const SPKODE_TO_SMF: Record<string, string> = {
+  SpJP:  "Jantung & Pembuluh Darah (Sp.JP)",
+  SpPD:  "Penyakit Dalam (Sp.PD)",
+  SpA:   "Anak (Sp.A)",
+  SpOG:  "Obstetri & Ginekologi (Sp.OG)",
+  SpB:   "Bedah Umum (Sp.B)",
+  SpAn:  "Anestesiologi (Sp.An)",
+  SpS:   "Saraf / Neurologi (Sp.S)",
+  SpM:   "Mata (Sp.M)",
+  SpEM:  "Kedokteran Emergensi (Sp.EM)",
+  SpKK:  "Kulit & Kelamin (Sp.DV)",
+  SpKJ:  "Kedokteran Jiwa (Sp.KJ)",
+  SpPK:  "Patologi Klinik (Sp.PK)",
+  SpRad: "Radiologi (Sp.Rad)",
+  SpTHT: "THT-KL (Sp.THT-KL)",
+  SpU:   "Urologi (Sp.U)",
+};
+
+/** SpesialisKode master.Dokter → label spesialistik (SPESIALISTIK_OPTS). Null = umum/tak terpeta.
+ *  Dipakai membangun roster SPRIPanel dari `listDokter` (SMF/poli auto seperti IGD). */
+export function spesialistikFromSpesialisKode(kode: string | null | undefined): string | null {
+  if (!kode) return null;
+  return SPKODE_TO_SMF[kode] ?? null;
+}

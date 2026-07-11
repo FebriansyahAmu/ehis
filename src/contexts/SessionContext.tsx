@@ -84,3 +84,9 @@ export function useSession(): SessionContextValue {
   if (!ctx) throw new Error("useSession must be used inside <SessionProvider>");
   return ctx;
 }
+
+/** Varian tak-melempar — null bila dipakai di luar <SessionProvider> (mis. halaman tanpa shell
+ *  sesi). Untuk komponen bersama yang render di konteks ber-/tanpa-provider (mis. SpriIssuePanel). */
+export function useSessionOptional(): SessionContextValue | null {
+  return useContext(SessionContext);
+}

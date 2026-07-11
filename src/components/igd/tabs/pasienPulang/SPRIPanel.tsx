@@ -26,9 +26,11 @@ interface Props {
   roster: PetugasDTO[];
   /** Emit data SPRI valid (atau null bila form belum lengkap) → parent sertakan saat complete. */
   onChange: (spri: SpriInput | null) => void;
+  /** Catatan penutup (kustom per-konteks). Default = alur IGD "Selesaikan & Rawat Inap". */
+  submitHint?: React.ReactNode;
 }
 
-export default function SPRIPanel({ patient, dokterOptions, roster, onChange }: Props) {
+export default function SPRIPanel({ patient, dokterOptions, roster, onChange, submitHint }: Props) {
   const [dpjp, setDpjp]             = useState(patient.doctor);
   const [tglRawat, setTglRawat]     = useState(todayYmd); // default hari ini, bisa dipilih
   const [ruang, setRuang]           = useState("");
@@ -155,10 +157,12 @@ export default function SPRIPanel({ patient, dokterOptions, roster, onChange }: 
           />
         </Field>
 
-        <p className="flex items-center gap-1.5 text-[11px] text-slate-400">
-          <Info size={11} className="shrink-0" />
-          SPRI terbit otomatis saat menekan <span className="font-semibold text-slate-500">Selesaikan &amp; Rawat Inap</span>.
-        </p>
+        {submitHint ?? (
+          <p className="flex items-center gap-1.5 text-[11px] text-slate-400">
+            <Info size={11} className="shrink-0" />
+            SPRI terbit otomatis saat menekan <span className="font-semibold text-slate-500">Selesaikan &amp; Rawat Inap</span>.
+          </p>
+        )}
       </div>
     </div>
   );
