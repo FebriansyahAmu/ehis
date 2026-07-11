@@ -118,18 +118,18 @@ function WaktuCard({ tglMasuk, jamMasuk, keluar }: {
   tglMasuk: string; jamMasuk: string; keluar: { tgl: string; jam: string } | null;
 }) {
   return (
-    <div className="flex w-44 shrink-0 flex-col justify-center gap-1 rounded-lg bg-linear-to-br from-slate-700 to-slate-900 px-2.5 py-1.5 shadow-sm">
+    <div className="flex w-56 shrink-0 flex-col justify-center gap-1 rounded-lg bg-linear-to-br from-slate-700 to-slate-900 px-2.5 py-1.5 shadow-sm">
       <div className="flex w-full items-center gap-1.5">
         <LogIn size={11} className="shrink-0 text-emerald-300" />
         <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-300/90">Masuk</span>
-        <span className="ml-auto min-w-0 truncate text-xs font-semibold text-white">{fmtTglIso(tglMasuk)} · {jamMasuk}</span>
+        <span className="ml-auto whitespace-nowrap text-xs font-semibold text-white tabular-nums">{fmtTglIso(tglMasuk)} · {jamMasuk}</span>
       </div>
       <div className="h-px bg-white/10" />
       <div className="flex w-full items-center gap-1.5">
         <LogOut size={11} className="shrink-0 text-rose-300" />
         <span className="text-[10px] font-bold uppercase tracking-wide text-rose-300/90">Keluar</span>
         {keluar ? (
-          <span className="ml-auto min-w-0 truncate text-xs font-semibold text-white">{keluar.tgl} · {keluar.jam}</span>
+          <span className="ml-auto whitespace-nowrap text-xs font-semibold text-white tabular-nums">{keluar.tgl} · {keluar.jam}</span>
         ) : (
           <span className="ml-auto text-[11px] italic text-slate-400">Masih diperiksa</span>
         )}
@@ -389,7 +389,7 @@ export default function RJPatientHeader({ patient, onCompleted }: {
               hdr.identityWash, "to-transparent"
             )} />
 
-            <div className="relative grid grid-cols-1 gap-2 px-3 py-2 md:grid-cols-[1fr_400px] md:gap-3 md:px-4">
+            <div className="relative grid grid-cols-1 gap-2 px-3 py-2 md:grid-cols-[1fr_480px] md:gap-3 md:px-4">
 
               {/* Left: avatar + name + info chips */}
               <motion.div
