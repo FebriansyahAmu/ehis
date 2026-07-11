@@ -1770,6 +1770,11 @@ export interface RJPatientDetail extends RJPatient {
   namaKeluarga: string;
   hubunganKeluarga: string;
   noBpjs?: string;
+  noSep?: string;
+  /** Lifecycle DB (kunjungan) — real; kosong utk pasien demo. */
+  selesaiAt?: string; // ISO — waktu selesai efektif (Keluar)
+  lockedAt?: string;  // ISO — rekam terkunci (Completed)
+  version?: number;   // optimistic concurrency (transisi complete)
   riwayatAlergi?: string;
   obatSaatIni?: string;
   riwayatKunjungan: RJKunjunganHistory[];
@@ -1792,6 +1797,7 @@ export const rawatJalanPatientDetails: Record<string, RJPatientDetail> = {
     namaKeluarga: "Siti Aminah",
     hubunganKeluarga: "Istri",
     noBpjs: "0001-2345-6789-0001",
+    noSep: "0301R0012505000123",
     riwayatAlergi: "Aspirin — reaksi kemerahan kulit",
     obatSaatIni: "Amlodipine 5mg (1x1 malam)\nBisoprolol 2.5mg (1x1 pagi)\nAtorvastatin 20mg (1x1 malam)",
     vitalSigns: {

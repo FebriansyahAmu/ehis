@@ -1,15 +1,26 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  X, CreditCard, Phone, Stethoscope, CalendarDays,
-  ChevronRight, MapPin, Hash, CheckCircle2, Lock, Undo2, AlertTriangle,
+  X, CreditCard, Phone, Stethoscope, FileText,
+  ChevronRight, Hash, CheckCircle2, Lock, Undo2, AlertTriangle, LogIn, LogOut,
 } from "lucide-react";
 import type { RJPatientDetail, RJStatus } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { toast } from "@/lib/ui/toastStore";
+import { ApiError } from "@/lib/api/client";
+import { getDiagnosa } from "@/lib/api/diagnosa/diagnosa";
+import { transitionKunjungan } from "@/lib/api/kunjungan";
+import type { DisposisiInput } from "@/lib/schemas/disposisi/disposisi";
+import { useRecordVersion } from "@/lib/realtime/recordBus";
 import { STATUS_CFG, POLI_CFG, PENJAMIN_CFG } from "./rjShared";
 import { useRJQueue, selesaikanPoli, bukaKembaliPoli } from "@/lib/rawat-jalan/rjQueueStore";
+import SelesaikanDialog from "@/components/igd/selesai/SelesaikanDialog";
+
+// id kunjungan DB = UUID; id demo/mock ("rj-1") → diagnosa gate baca prop lokal.
+const HDR_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Header status config ───────────────────────────────────
 
@@ -22,6 +33,39 @@ const HEADER_STATUS: Record<RJStatus, {
   Sedang_Diperiksa:  { stripe: "bg-sky-500",      topBar: "bg-sky-50/50",     identityWash: "from-sky-50/30",     avatarRing: "ring-sky-200",   pulse: true },
   Selesai:           { stripe: "bg-emerald-500",  topBar: "bg-emerald-50/40", identityWash: "from-emerald-50/20", avatarRing: "ring-emerald-200" },
 };
+
+// ── Date helpers ──────────────────────────────────────────
+
+const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** ISO date "2025-05-15" → "15 Mei 2025" (split string; hindari shift zona). */
+function fmtTglIso(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return iso;
+  const [, y, mo, d] = m;
+  const idx = Number(mo) - 1;
+  return `${Number(d)} ${MONTHS_SHORT[idx] ?? mo} ${y}`;
+}
+
+/** ISO datetime DB (wall-clock UTC, konvensi repo) → { tgl, jam }. */
+function fmtKeluarIso(iso: string): { tgl: string; jam: string } | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return {
+    tgl: `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}`,
+    jam: `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`,
+  };
+}
+
+/** Timestamp finalize demo (Date.now, client) → { tgl, jam } lokal. */
+function fmtKeluarTs(ts: number): { tgl: string; jam: string } {
+  const d = new Date(ts);
+  return {
+    tgl: `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`,
+    jam: `${pad2(d.getHours())}:${pad2(d.getMinutes())}`,
+  };
+}
 
 // ── InfoChip ──────────────────────────────────────────────
 
@@ -39,52 +83,55 @@ function InfoChip({ icon: Icon, value, cls }: {
   );
 }
 
-// ── Antrian card ──────────────────────────────────────────
+// ── Widget 1: Antrian (compact) ───────────────────────────
 
-function AntrianCard({ nomor, status, poli }: { nomor: number; status: RJStatus; poli: string }) {
+function AntrianCard({ nomor, status }: { nomor: number; status: RJStatus }) {
   const sc = STATUS_CFG[status];
   return (
-    <div className="relative w-36 shrink-0 overflow-hidden rounded-xl bg-linear-to-br from-slate-700 to-slate-900 shadow-md">
-      <Hash size={64} className="pointer-events-none absolute -right-3 -bottom-3 text-white/[0.06]" />
-      <div className="relative flex flex-col px-3 py-2.5">
-        <span className="mb-1.5 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-300">
-          <Hash size={9} /> Antrian
-        </span>
-        <p className="text-3xl font-black leading-none text-white tabular-nums">{nomor}</p>
-        <span className={cn(
-          "mt-2 inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold",
-          sc.badge,
-        )}>
-          <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", sc.dot,
-            status !== "Selesai" && "animate-pulse"
-          )} />
-          {sc.label}
-        </span>
-        <p className="mt-auto pt-1.5 text-[9px] tracking-wide text-slate-400/70">{poli}</p>
-      </div>
+    <div className="relative flex w-14 shrink-0 flex-col items-center justify-center rounded-lg bg-linear-to-br from-slate-700 to-slate-900 px-1.5 py-1.5 shadow-sm">
+      <span className="flex items-center gap-0.5 text-[8px] font-bold uppercase tracking-widest text-slate-300">
+        <Hash size={8} /> Antre
+      </span>
+      <p className="text-2xl font-black leading-none text-white tabular-nums">{nomor || "—"}</p>
+      <span className={cn("mt-1 h-1.5 w-1.5 rounded-full", sc.dot, status !== "Selesai" && "animate-pulse")} />
     </div>
   );
 }
 
-// ── Dokter card ───────────────────────────────────────────
+// ── Widget 2: DPJP (read-only) ────────────────────────────
 
-function DokterCard({ dokter, waktu, tanggal }: { dokter: string; waktu: string; tanggal: string }) {
+function DPJPCard({ dokter }: { dokter: string }) {
   return (
-    <div className="relative min-w-0 flex-1 overflow-hidden rounded-xl bg-linear-to-br from-sky-500 to-sky-700 shadow-md">
-      <Stethoscope size={72} className="pointer-events-none absolute -right-4 -top-4 rotate-12 text-white/[0.07]" />
-      <div className="relative flex h-full flex-col px-3 py-2.5">
-        <span className="mb-1.5 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-sky-100">
-          <Stethoscope size={9} /> Dokter
-        </span>
-        <p className="truncate text-sm font-bold leading-tight text-white">{dokter}</p>
-        <div className="mt-auto flex items-center gap-2 pt-2">
-          <div className="flex items-center gap-1 text-[10px] text-sky-100">
-            <CalendarDays size={9} />
-            <span>{tanggal}</span>
-          </div>
-          <span className="text-sky-200/60">·</span>
-          <span className="text-[10px] font-semibold text-white">{waktu}</span>
-        </div>
+    <div className="flex min-w-0 flex-1 flex-col justify-center rounded-lg bg-linear-to-br from-emerald-600 to-emerald-700 px-2.5 py-1.5 shadow-sm">
+      <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-emerald-200">
+        <Stethoscope size={9} /> DPJP
+      </span>
+      <p className="mt-0.5 truncate text-sm font-bold leading-tight text-white">{dokter}</p>
+    </div>
+  );
+}
+
+// ── Widget 3: Masuk → Keluar (read-only) ──────────────────
+
+function WaktuCard({ tglMasuk, jamMasuk, keluar }: {
+  tglMasuk: string; jamMasuk: string; keluar: { tgl: string; jam: string } | null;
+}) {
+  return (
+    <div className="flex w-44 shrink-0 flex-col justify-center gap-1 rounded-lg bg-linear-to-br from-slate-700 to-slate-900 px-2.5 py-1.5 shadow-sm">
+      <div className="flex w-full items-center gap-1.5">
+        <LogIn size={11} className="shrink-0 text-emerald-300" />
+        <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-300/90">Masuk</span>
+        <span className="ml-auto min-w-0 truncate text-xs font-semibold text-white">{fmtTglIso(tglMasuk)} · {jamMasuk}</span>
+      </div>
+      <div className="h-px bg-white/10" />
+      <div className="flex w-full items-center gap-1.5">
+        <LogOut size={11} className="shrink-0 text-rose-300" />
+        <span className="text-[10px] font-bold uppercase tracking-wide text-rose-300/90">Keluar</span>
+        {keluar ? (
+          <span className="ml-auto min-w-0 truncate text-xs font-semibold text-white">{keluar.tgl} · {keluar.jam}</span>
+        ) : (
+          <span className="ml-auto text-[11px] italic text-slate-400">Masih diperiksa</span>
+        )}
       </div>
     </div>
   );
@@ -92,28 +139,62 @@ function DokterCard({ dokter, waktu, tanggal }: { dokter: string; waktu: string;
 
 // ── Finalize & Lock (ANT-RJ) ───────────────────────────────
 
-function FinalizeControl({ patient }: { patient: RJPatientDetail }) {
+function FinalizeControl({ patient, selesaiJam, onCompleted }: {
+  patient: RJPatientDetail; selesaiJam: string | null; onCompleted?: () => void;
+}) {
   const queue = useRJQueue();
   const entry = queue[patient.id];
-  const locked = entry?.locked ?? false;
-  const hasDiagnosa = (patient.diagnosa ?? []).some((d) => !!d.kodeIcd10?.trim());
+  const dbLocked = !!patient.lockedAt;               // real DB (kunjungan Completed)
+  const demoLocked = entry?.locked ?? false;         // demo (queue store)
+  const locked = dbLocked || demoLocked;
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Diagnosa (gate Selesaikan): pasien DB (UUID) → hitung dari domain Condition DB, reaktif atas
+  // penyimpanan di tab Diagnosa (recordBus). Pasien demo → dari prop lokal snapshot.
+  const isPersisted = HDR_UUID_RE.test(patient.id);
+  const diagVer = useRecordVersion(patient.id, "diagnosa", isPersisted);
+  const [dbHasDiagnosa, setDbHasDiagnosa] = useState(false);
+  useEffect(() => {
+    if (!isPersisted) return;
+    const ac = new AbortController();
+    getDiagnosa(patient.id, ac.signal)
+      .then((dto) => setDbHasDiagnosa(dto.items.some((i) => !!i.kodeIcd10?.trim())))
+      .catch(() => { /* diam — biarkan gate apa adanya */ });
+    return () => ac.abort();
+  }, [patient.id, isPersisted, diagVer]);
+
+  const hasDiagnosa = isPersisted
+    ? dbHasDiagnosa
+    : (patient.diagnosa ?? []).some((d) => !!d.kodeIcd10?.trim());
+
+  // Selesaikan → DB (kunjungan complete) utk pasien nyata; demo → store lokal.
+  async function handleComplete(disposisi: DisposisiInput, waktuSelesai: string) {
+    try {
+      await transitionKunjungan(patient.id, "complete", patient.version, { waktuSelesai, disposisi });
+      toast.success("Kunjungan diselesaikan", "Rekam medis terkunci");
+      onCompleted?.();
+    } catch (e) {
+      toast.error("Gagal menyelesaikan kunjungan", e instanceof ApiError ? e.message : undefined);
+      throw e; // dialog tetap terbuka
+    }
+  }
 
   if (locked) {
-    const jam = entry?.selesaiAt
-      ? new Date(entry.selesaiAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })
-      : null;
     return (
       <div className="flex items-center gap-1.5">
         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-200">
-          <Lock size={10} /> Terkunci{jam ? ` · ${jam}` : ""}
+          <Lock size={10} /> Terkunci{selesaiJam ? ` · ${selesaiJam}` : ""}
         </span>
-        <button
-          type="button"
-          onClick={() => bukaKembaliPoli(patient.id)}
-          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-50"
-        >
-          <Undo2 size={11} /> Batalkan Selesai
-        </button>
+        {/* Reopen hanya utk demo (DB reopen RJ belum di-wire) */}
+        {demoLocked && !dbLocked && (
+          <button
+            type="button"
+            onClick={() => bukaKembaliPoli(patient.id)}
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-50"
+          >
+            <Undo2 size={11} /> Batalkan Selesai
+          </button>
+        )}
       </div>
     );
   }
@@ -123,7 +204,7 @@ function FinalizeControl({ patient }: { patient: RJPatientDetail }) {
       {!hasDiagnosa && (
         <span
           className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200"
-          title="Diagnosa ICD-10 wajib diisi sebelum encounter dapat diselesaikan (syarat klaim)."
+          title="Diagnosa Utama (Pasti) wajib diisi sebelum kunjungan dapat diselesaikan (syarat klaim)."
         >
           <AlertTriangle size={10} /> Diagnosa belum lengkap
         </span>
@@ -131,8 +212,8 @@ function FinalizeControl({ patient }: { patient: RJPatientDetail }) {
       <button
         type="button"
         disabled={!hasDiagnosa}
-        onClick={() => selesaikanPoli(patient.id)}
-        title={hasDiagnosa ? "Selesaikan & kunci encounter" : "Lengkapi diagnosa ICD-10 dahulu"}
+        onClick={() => (isPersisted ? setDialogOpen(true) : selesaikanPoli(patient.id))}
+        title={hasDiagnosa ? "Selesaikan & kunci kunjungan" : "Lengkapi diagnosa ICD-10 dahulu"}
         className={cn(
           "inline-flex items-center gap-1 rounded-lg px-2.5 py-0.5 text-[11px] font-bold transition active:scale-95",
           hasDiagnosa
@@ -142,17 +223,36 @@ function FinalizeControl({ patient }: { patient: RJPatientDetail }) {
       >
         <CheckCircle2 size={12} /> Selesaikan
       </button>
+
+      {dialogOpen && (
+        <SelesaikanDialog
+          patientName={patient.name}
+          onSubmit={handleComplete}
+          onClose={() => setDialogOpen(false)}
+        />
+      )}
     </div>
   );
 }
 
 // ── Main ──────────────────────────────────────────────────
 
-export default function RJPatientHeader({ patient }: { patient: RJPatientDetail }) {
+export default function RJPatientHeader({ patient, onCompleted }: {
+  patient: RJPatientDetail; onCompleted?: () => void;
+}) {
   const hdr = HEADER_STATUS[patient.status];
   const sc  = STATUS_CFG[patient.status];
   const pc  = POLI_CFG[patient.poli];
   const pj  = PENJAMIN_CFG[patient.penjamin];
+
+  // Keluar/lock — REAL dari DB (kunjungan selesaiAt/lockedAt); fallback store demo (pasien contoh).
+  const queue = useRJQueue();
+  const demoEntry = queue[patient.id];
+  const keluar: { tgl: string; jam: string } | null =
+    patient.selesaiAt ? fmtKeluarIso(patient.selesaiAt)
+    : (demoEntry?.locked && demoEntry.selesaiAt) ? fmtKeluarTs(demoEntry.selesaiAt)
+    : null;
+  const selesaiJam = keluar?.jam ?? null;
 
   const initials = patient.name
     .split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase();
@@ -180,7 +280,7 @@ export default function RJPatientHeader({ patient }: { patient: RJPatientDetail 
 
           {/* Breadcrumb */}
           <div className={cn(
-            "flex items-center gap-2 border-b border-slate-100 px-3 py-2 md:px-4",
+            "flex items-center gap-2 border-b border-slate-100 px-3 py-1.5 md:px-4",
             hdr.topBar,
           )}>
             <Link href="/ehis-care/rawat-jalan"
@@ -207,14 +307,14 @@ export default function RJPatientHeader({ patient }: { patient: RJPatientDetail 
             {patient.noBpjs && (
               <Link
                 href={`/ehis-eklaim/klaim?pasien=${encodeURIComponent(patient.noRM)}`}
-                className="flex items-center gap-1 rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-700 ring-1 ring-teal-200 transition hover:bg-teal-100"
+                className="hidden items-center gap-1 rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-700 ring-1 ring-teal-200 transition hover:bg-teal-100 sm:flex"
                 title="Lihat klaim pasien di E-Klaim"
               >
                 E-Klaim ↗
               </Link>
             )}
             <div className="ml-auto flex items-center gap-2">
-              <FinalizeControl patient={patient} />
+              <FinalizeControl patient={patient} selesaiJam={selesaiJam} onCompleted={onCompleted} />
               <Link
                 href="/ehis-care/rawat-jalan"
                 className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:bg-white hover:text-slate-700"
@@ -232,18 +332,18 @@ export default function RJPatientHeader({ patient }: { patient: RJPatientDetail 
               hdr.identityWash, "to-transparent"
             )} />
 
-            <div className="relative grid grid-cols-1 gap-2 px-3 py-2.5 md:grid-cols-[1fr_300px] md:gap-3 md:px-4">
+            <div className="relative grid grid-cols-1 gap-2 px-3 py-2 md:grid-cols-[1fr_400px] md:gap-3 md:px-4">
 
               {/* Left: avatar + name + info chips */}
               <motion.div
-                className="flex flex-col gap-2"
+                className="flex flex-col gap-1.5"
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25, ease: "easeOut" }}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5">
                   <div className={cn(
-                    "relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-black ring-2",
+                    "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-black ring-2",
                     hdr.avatarRing,
                     patient.gender === "L" ? "bg-sky-100 text-sky-700" : "bg-pink-100 text-pink-700",
                   )}>
@@ -256,7 +356,7 @@ export default function RJPatientHeader({ patient }: { patient: RJPatientDetail 
                     )}
                   </div>
                   <div className="min-w-0">
-                    <h1 className="truncate text-base font-bold tracking-tight text-slate-900 md:text-lg">
+                    <h1 className="truncate text-base font-bold tracking-tight text-slate-900">
                       {patient.name}
                     </h1>
                     <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-slate-500">
@@ -265,49 +365,42 @@ export default function RJPatientHeader({ patient }: { patient: RJPatientDetail 
                       <span>{patient.gender === "L" ? "Laki-laki" : "Perempuan"}</span>
                       <span className="text-slate-300">·</span>
                       <span className="font-mono text-slate-500">{patient.noRM}</span>
-                      <span className="text-slate-300">·</span>
-                      <span className="text-slate-500">{patient.tanggalLahir}</span>
                     </p>
                   </div>
                 </div>
 
-                {/* Info chips */}
+                {/* Info chips (compact — tanpa Alamat, + No. SEP) */}
                 <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   <InfoChip
                     icon={CreditCard}
                     value={penjaminLabel}
                     cls="bg-emerald-50 ring-emerald-200 text-emerald-800"
                   />
+                  {patient.noSep && (
+                    <InfoChip
+                      icon={FileText}
+                      value={<>SEP <span className="font-mono font-semibold">{patient.noSep}</span></>}
+                      cls="bg-sky-50 ring-sky-200 text-sky-800"
+                    />
+                  )}
                   <InfoChip
                     icon={Phone}
                     value={`${patient.namaKeluarga} (${patient.hubunganKeluarga})`}
                     cls="bg-amber-50 ring-amber-200 text-amber-800"
                   />
-                  <InfoChip
-                    icon={MapPin}
-                    value={patient.alamat}
-                    cls="bg-teal-50 ring-teal-200 text-teal-800"
-                  />
                 </div>
               </motion.div>
 
-              {/* Right: Antrian + Dokter cards */}
+              {/* Right: 3 widget — Antrian · DPJP · Masuk→Keluar */}
               <motion.div
                 className="hidden gap-2 md:flex"
                 initial={{ opacity: 0, x: 8 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3, ease: "easeOut", delay: 0.05 }}
               >
-                <AntrianCard
-                  nomor={patient.nomorAntrian}
-                  status={patient.status}
-                  poli={pc.label}
-                />
-                <DokterCard
-                  dokter={patient.dokter}
-                  waktu={patient.waktuDaftar}
-                  tanggal={patient.tanggalKunjungan}
-                />
+                <AntrianCard nomor={patient.nomorAntrian} status={patient.status} />
+                <DPJPCard dokter={patient.dokter} />
+                <WaktuCard tglMasuk={patient.tanggalKunjungan} jamMasuk={patient.waktuDaftar} keluar={keluar} />
               </motion.div>
             </div>
           </div>

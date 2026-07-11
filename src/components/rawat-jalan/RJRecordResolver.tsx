@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { notFound } from "next/navigation";
 import type { RJPatientDetail } from "@/lib/data";
 import { getKunjungan } from "@/lib/api/kunjungan";
@@ -27,47 +27,46 @@ function ResolverLoading() {
 }
 
 export default function RJRecordResolver({ id }: { id: string }) {
+  const isUuid = UUID_RE.test(id); // non-UUID & tak ada di mock → notFound (di render, bukan efek).
   const [patient, setPatient] = useState<RJPatientDetail | null>(null);
-  const [state, setState] = useState<"loading" | "done">("loading");
+  const [state, setState] = useState<"loading" | "done">(isUuid ? "loading" : "done");
 
-  // Fetch SEKALI per id. Guard set-state via !aborted (StrictMode-safe).
-  useEffect(() => {
-    if (!UUID_RE.test(id)) { setState("done"); return; } // non-UUID & tak ada di mock → notFound.
-    const ac = new AbortController();
-    setState("loading");
-    (async () => {
-      try {
-        const k = await getKunjungan(id, ac.signal);
-        if (ac.signal.aborted) return;
-        // Hanya kunjungan Rawat Jalan yang dibuka di modul ini.
-        if (k.unit !== "RawatJalan") { setPatient(null); return; }
-        // Pasien + resolusi nama DPJP (dpjpId → nama) paralel — pola sama dgn board RJ.
-        const [p, dokterList] = await Promise.all([
-          getPatient(k.pasien.id, ac.signal),
-          k.dpjpId ? listDpjpTersedia(ac.signal).catch(() => []) : Promise.resolve([]),
-        ]);
-        if (ac.signal.aborted) return;
-        const dokterNama = k.dpjpId
-          ? dokterList.find((d) => d.dokterId === k.dpjpId)?.nama
-          : undefined;
-        setPatient(dtoToRJPatientDetail(k, p, dokterNama));
-      } catch {
-        if (!ac.signal.aborted) setPatient(null);
-      } finally {
-        if (!ac.signal.aborted) setState("done");
-      }
-    })();
-    return () => ac.abort();
+  // Fetch murni (tanpa setState) — dipakai load awal + refetch pasca-Selesaikan.
+  const fetchDetail = useCallback(async (signal?: AbortSignal): Promise<RJPatientDetail | null> => {
+    const k = await getKunjungan(id, signal);
+    if (k.unit !== "RawatJalan") return null; // hanya kunjungan Rawat Jalan
+    const [p, dokterList] = await Promise.all([
+      getPatient(k.pasien.id, signal),
+      k.dpjpId ? listDpjpTersedia(signal).catch(() => []) : Promise.resolve([]),
+    ]);
+    const dokterNama = k.dpjpId ? dokterList.find((d) => d.dokterId === k.dpjpId)?.nama : undefined;
+    return dtoToRJPatientDetail(k, p, dokterNama);
   }, [id]);
 
+  // Fetch SEKALI per id. Guard set-state via !aborted (StrictMode-safe); setState hanya di .then/.finally.
+  useEffect(() => {
+    if (!isUuid) return;
+    const ac = new AbortController();
+    fetchDetail(ac.signal)
+      .then((pt) => { if (!ac.signal.aborted) setPatient(pt); })
+      .catch(() => { if (!ac.signal.aborted) setPatient(null); })
+      .finally(() => { if (!ac.signal.aborted) setState("done"); });
+    return () => ac.abort();
+  }, [isUuid, fetchDetail]);
+
+  // Refetch ringan (tanpa layar loading) — dipanggil sesudah "Selesaikan" (rekam terkunci).
+  const refetch = useCallback(() => {
+    void fetchDetail().then((pt) => { if (pt) setPatient(pt); }).catch(() => { /* pertahankan tampilan */ });
+  }, [fetchDetail]);
+
   if (!patient) {
-    if (state !== "done") return <ResolverLoading />;
+    if (isUuid && state !== "done") return <ResolverLoading />;
     notFound();
   }
 
   return (
     <div className="flex h-full flex-col">
-      <RJPatientHeader patient={patient} />
+      <RJPatientHeader patient={patient} onCompleted={refetch} />
       <RJRecordTabs patient={patient} />
     </div>
   );

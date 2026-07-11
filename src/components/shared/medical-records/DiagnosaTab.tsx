@@ -29,6 +29,7 @@ import {
   deleteProsedur as apiDeleteProsedur,
   type DiagnosaDTO,
 } from "@/lib/api/diagnosa/diagnosa";
+import { emitRecordChange } from "@/lib/realtime/recordBus";
 
 // ── Accent per versi ICD ──────────────────────────────────
 
@@ -836,6 +837,8 @@ export default function DiagnosaTab({ initialDiagnosa, kunjunganId }: DiagnosaTa
     setError(null);
     try {
       applyAggregate(await p);
+      // Beri tahu header (gate "Selesaikan") + turunan lain bahwa diagnosa berubah.
+      if (kunjunganId) emitRecordChange(kunjunganId, "diagnosa");
     } catch {
       setError("Gagal menyimpan perubahan diagnosa");
       await reload();
@@ -928,6 +931,7 @@ export default function DiagnosaTab({ initialDiagnosa, kunjunganId }: DiagnosaTa
     if (isPersisted) {
       setIcd10List((prev) => prev.filter((d) => d.id !== id));
       runOptimistic(apiDeleteDiagnosa(kunjunganId!, id), "Gagal menghapus diagnosa");
+      emitRecordChange(kunjunganId!, "diagnosa"); // header re-evaluasi gate "Selesaikan"
       return;
     }
     setIcd10List((prev) => prev.filter((d) => d.id !== id));

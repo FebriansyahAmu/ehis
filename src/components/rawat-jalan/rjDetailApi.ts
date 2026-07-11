@@ -96,6 +96,10 @@ export function dtoToRJPatientDetail(
     namaKeluarga: kontak?.nama ?? "—",
     hubunganKeluarga: kontak?.hubungan ?? "—",
     noBpjs,
+    noSep: k.sep?.noSep ?? undefined,
+    selesaiAt: k.selesaiAt ?? undefined,
+    lockedAt: k.lockedAt ?? undefined,
+    version: k.version,
     riwayatAlergi,
     obatSaatIni: undefined,
 

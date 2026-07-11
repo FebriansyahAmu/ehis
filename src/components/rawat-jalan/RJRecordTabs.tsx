@@ -100,7 +100,12 @@ function GroupLabel({ children }: { children: React.ReactNode }) {
 export default function RJRecordTabs({ patient }: { patient: RJPatientDetail }) {
   const [active, setActive] = useState<TabId>("asesmen-awal");
   const queue = useRJQueue();
-  const locked = queue[patient.id]?.locked ?? false;
+  // Terkunci = kunjungan Selesai (real DB lockedAt) atau lock demo (store lokal pasien contoh).
+  const locked = !!patient.lockedAt || (queue[patient.id]?.locked ?? false);
+  // Tab Disposisi & Surat/Dokumen DIKECUALIKAN dari kunci: rujukan/admisi/SPRI + penerbitan/cetak
+  // surat dikerjakan pasca-Selesai (BE: allowWhenLocked). Pola sama IGD/RI (kecuali Pasien Pulang).
+  const lockExempt = active === "disposisi" || active === "surat";
+  const lockHere = locked && !lockExempt;
 
   // ── Identitas verifikasi (untuk tab aksi: Resep, Order Lab, Order Rad) ──
   const [identitasVerified, setIdentitasVerified] = useState(false);
@@ -160,16 +165,28 @@ export default function RJRecordTabs({ patient }: { patient: RJPatientDetail }) 
 
       {/* ── Content ── */}
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-        {locked && (
-          <div className="mx-4 mt-4 flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 md:mx-6">
-            <Lock size={15} className="mt-0.5 shrink-0 text-emerald-600" />
-            <p className="text-xs text-emerald-800">
-              <span className="font-bold">Encounter terkunci (Selesai).</span> Input klinis bersifat baca-saja —
-              asesmen, TTV, CPPT, diagnosa, order & resep baru tidak dapat diubah. Tetap diizinkan: rencana kontrol,
-              penerbitan surat, dan cetak dokumen/SEP/resume. Tekan <span className="font-semibold">“Batalkan Selesai”</span> di header untuk membuka kembali.
+        {lockHere && (
+          <div className="mx-4 mt-4 flex items-center gap-2.5 rounded-xl border border-slate-300 bg-slate-100 px-4 py-2.5 shadow-xs md:mx-6">
+            <Lock size={15} className="shrink-0 text-slate-500" />
+            <p className="text-xs font-semibold text-slate-700">
+              Kunjungan telah diselesaikan — rekam medis terkunci (hanya-baca).
+            </p>
+            <span className="ml-auto hidden text-[11px] text-slate-400 sm:block">Disposisi &amp; Surat/Dokumen tetap aktif.</span>
+          </div>
+        )}
+        {locked && lockExempt && (
+          <div className="mx-4 mt-4 flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 shadow-xs md:mx-6">
+            <Lock size={15} className="shrink-0 text-emerald-600" />
+            <p className="text-xs font-semibold text-emerald-800">
+              Rekam medis terkunci — tab {active === "surat" ? "Surat & Dokumen" : "Disposisi"} tetap aktif
+              untuk {active === "surat" ? "penerbitan & cetak surat pasca-selesai" : "rujukan / admisi / SPRI & dokumen keluar"}.
             </p>
           </div>
         )}
+        <div
+          className={cn(lockHere && "pointer-events-none select-none opacity-50 blur-[1.5px]")}
+          aria-hidden={lockHere || undefined}
+        >
         <AnimatePresence mode="wait">
           <motion.div
             key={active}
@@ -242,6 +259,7 @@ export default function RJRecordTabs({ patient }: { patient: RJPatientDetail }) 
             {active === "disposisi" && <DisposisiRJTab patient={patient} />}
           </motion.div>
         </AnimatePresence>
+        </div>
       </div>
 
     </div>
