@@ -440,6 +440,7 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
     waktuSelesai?: string; // "YYYY-MM-DDTHH:mm" (DateTimePicker)
     disposisi?: DisposisiInput; // wajib saat complete (Zod refine)
     alasanReopen?: string;
+    resetSelesai?: boolean; // reopen "perbaikan menyeluruh": kosongkan selesaiAt (tgl keluar baru)
   }
 
   /**
@@ -494,86 +495,105 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
         if (!diagnosa.some((d) => d.tipe === "Utama" && d.status === "Pasti")) {
           throw Errors.forbiddenState("Minimal 1 Diagnosa Utama (Pasti) wajib sebelum menyelesaikan kunjungan");
         }
-        const disp = opts.disposisi!; // dijamin ada (Zod refine)
-        const waktuSelesai = parseWaktuSelesai(opts.waktuSelesai) ?? clock.now();
-        const pemeriksa = await resolveActorNama(actor);
-        await disposisiDal.create({
-          kunjunganId: id,
-          jenis: disp.jenis,
-          waktuKeluar: waktuSelesai,
-          dokter: disp.dokter?.trim() || pemeriksa,
-          kondisiUmum: disp.kondisiUmum.trim(),
-          diagnosaKeluar: (disp.diagnosaKeluar ?? []).map((s) => s.trim()).filter(Boolean),
-          instruksi: disp.instruksi?.trim() ?? "",
-          rujukTujuan: disp.rujukTujuan?.trim() || null,
-          rujukAlasan: disp.rujukAlasan?.trim() || null,
-          meninggalWaktu: disp.meninggalWaktu?.trim() || null,
-          meninggalSebab: disp.meninggalSebab?.trim() || null,
-          apsAlasan: disp.apsAlasan?.trim() || null,
-          rawatInapRuangan: disp.rawatInapRuangan?.trim() || null,
-          rawatInapKelas: disp.rawatInapKelas?.trim() || null,
-          catatan: disp.catatan?.trim() || null,
-          obatPulang: disp.obatPulang?.trim() || null,
-          edukasiRisiko: disp.edukasiRisiko?.trim() || null,
-          penandatangan: disp.penandatangan?.trim() || null,
-          hubunganPenandatangan: disp.hubunganPenandatangan?.trim() || null,
-          pemeriksa,
-          authorUserId: actor.userId,
-          authorPegawaiId: actor.pegawaiId,
-        }, tx);
 
-        // SPRI (Surat Perintah Rawat Inap) — terbit atomik bersama disposisi Rawat_Inap.
-        // No. Referensi diterbitkan server (mock BPJS); null bila kepesertaan bermasalah →
-        // status MenungguRef (surat tetap terbit, ref diisi via revisi di worklist admisi).
-        if (disp.jenis === "Rawat_Inap" && disp.spri) {
-          const s = disp.spri;
-          // No. Kartu PENUH dari penjamin BPJS pasien (FE mengirim nilai ter-mask "0001•••••7890").
-          // Server-authoritative → SPRI joinable di worklist + InsertSPRI nyata kirim kartu valid.
-          let noKartuSpri = s.noKartu;
-          const pt = await patientDal.findById(k.patientId, tx);
-          const enc = pt?.penjamin.find(
-            (p) => (p.tipe === "BPJS_Non_PBI" || p.tipe === "BPJS_PBI") && p.nomorEnc,
-          )?.nomorEnc;
-          if (enc) noKartuSpri = decryptPii(enc);
-
-          const noReferensi = await issueSpriRef({
-            noKartu: noKartuSpri,
-            dpjpPegawaiId: s.dpjpPegawaiId ?? null,
-            poliKontrol: s.poliKode ?? undefined,
-            tglRencanaKontrol: s.tglRencanaRawat,
-            user: pemeriksa,
-            actor: actor.userId,
-            actorRole: actor.roles[0] ?? "registration",
-          });
-          await spriDal.create({
+        if (opts.disposisi) {
+          // ── Penyelesaian DENGAN disposisi baru (pertama / "perbaikan menyeluruh") ──
+          const disp = opts.disposisi;
+          const waktuSelesai = parseWaktuSelesai(opts.waktuSelesai) ?? clock.now();
+          const pemeriksa = await resolveActorNama(actor);
+          await disposisiDal.create({
             kunjunganId: id,
-            noKartu: noKartuSpri,
-            dpjpNama: s.dpjpNama,
-            dpjpPegawaiId: s.dpjpPegawaiId ?? null,
-            smfSpesialistik: s.smfSpesialistik ?? null,
-            poliKode: s.poliKode ?? null,
-            poliNama: s.poliNama ?? null,
-            tglRencanaRawat: new Date(s.tglRencanaRawat),
-            jenisPerawatan: s.jenisPerawatan,
-            indikasi: s.indikasi.trim(),
-            keterangan: s.keterangan?.trim() || null,
-            noReferensi,
-            status: noReferensi ? "Terbit" : "MenungguRef",
-            user: pemeriksa,
-            createdByUserId: actor.userId,
+            jenis: disp.jenis,
+            waktuKeluar: waktuSelesai,
+            dokter: disp.dokter?.trim() || pemeriksa,
+            kondisiUmum: disp.kondisiUmum.trim(),
+            diagnosaKeluar: (disp.diagnosaKeluar ?? []).map((s) => s.trim()).filter(Boolean),
+            instruksi: disp.instruksi?.trim() ?? "",
+            rujukTujuan: disp.rujukTujuan?.trim() || null,
+            rujukAlasan: disp.rujukAlasan?.trim() || null,
+            meninggalWaktu: disp.meninggalWaktu?.trim() || null,
+            meninggalSebab: disp.meninggalSebab?.trim() || null,
+            apsAlasan: disp.apsAlasan?.trim() || null,
+            rawatInapRuangan: disp.rawatInapRuangan?.trim() || null,
+            rawatInapKelas: disp.rawatInapKelas?.trim() || null,
+            catatan: disp.catatan?.trim() || null,
+            obatPulang: disp.obatPulang?.trim() || null,
+            edukasiRisiko: disp.edukasiRisiko?.trim() || null,
+            penandatangan: disp.penandatangan?.trim() || null,
+            hubunganPenandatangan: disp.hubunganPenandatangan?.trim() || null,
+            pemeriksa,
+            authorUserId: actor.userId,
+            authorPegawaiId: actor.pegawaiId,
           }, tx);
+
+          // SPRI (Surat Perintah Rawat Inap) — terbit atomik bersama disposisi Rawat_Inap.
+          // No. Referensi diterbitkan server (mock BPJS); null bila kepesertaan bermasalah →
+          // status MenungguRef (surat tetap terbit, ref diisi via revisi di worklist admisi).
+          if (disp.jenis === "Rawat_Inap" && disp.spri) {
+            const s = disp.spri;
+            // No. Kartu PENUH dari penjamin BPJS pasien (FE mengirim nilai ter-mask "0001•••••7890").
+            // Server-authoritative → SPRI joinable di worklist + InsertSPRI nyata kirim kartu valid.
+            let noKartuSpri = s.noKartu;
+            const pt = await patientDal.findById(k.patientId, tx);
+            const enc = pt?.penjamin.find(
+              (p) => (p.tipe === "BPJS_Non_PBI" || p.tipe === "BPJS_PBI") && p.nomorEnc,
+            )?.nomorEnc;
+            if (enc) noKartuSpri = decryptPii(enc);
+
+            const noReferensi = await issueSpriRef({
+              noKartu: noKartuSpri,
+              dpjpPegawaiId: s.dpjpPegawaiId ?? null,
+              poliKontrol: s.poliKode ?? undefined,
+              tglRencanaKontrol: s.tglRencanaRawat,
+              user: pemeriksa,
+              actor: actor.userId,
+              actorRole: actor.roles[0] ?? "registration",
+            });
+            await spriDal.create({
+              kunjunganId: id,
+              noKartu: noKartuSpri,
+              dpjpNama: s.dpjpNama,
+              dpjpPegawaiId: s.dpjpPegawaiId ?? null,
+              smfSpesialistik: s.smfSpesialistik ?? null,
+              poliKode: s.poliKode ?? null,
+              poliNama: s.poliNama ?? null,
+              tglRencanaRawat: new Date(s.tglRencanaRawat),
+              jenisPerawatan: s.jenisPerawatan,
+              indikasi: s.indikasi.trim(),
+              keterangan: s.keterangan?.trim() || null,
+              noReferensi,
+              status: noReferensi ? "Terbit" : "MenungguRef",
+              user: pemeriksa,
+              createdByUserId: actor.userId,
+            }, tx);
+          }
+          patch.selesaiAt = waktuSelesai;
+          if (!k.selesaiPertamaAt) patch.selesaiPertamaAt = waktuSelesai; // immutable, sekali
+          patch.lockedAt = clock.now();
+          patch.disposisi = disp.jenis;
+          await bedAlloc.release(id, tx);
+        } else {
+          // ── Selesaikan KEMBALI tanpa disposisi baru ("perbaikan pengimputan") ──
+          // Disposisi terakhir TETAP berlaku, tgl keluar DIPERTAHANKAN → cukup kunci ulang
+          // (langsung, tanpa form). Wajib pernah didisposisikan sebelumnya.
+          if (!k.disposisi) throw Errors.validation("Disposisi wajib saat menyelesaikan kunjungan");
+          const waktuSelesai = parseWaktuSelesai(opts.waktuSelesai) ?? k.selesaiAt ?? clock.now();
+          patch.selesaiAt = waktuSelesai;
+          if (!k.selesaiPertamaAt) patch.selesaiPertamaAt = waktuSelesai;
+          patch.lockedAt = clock.now();
+          await bedAlloc.release(id, tx);
         }
-        patch.selesaiAt = waktuSelesai;
-        if (!k.selesaiPertamaAt) patch.selesaiPertamaAt = waktuSelesai; // immutable, sekali
-        patch.lockedAt = clock.now();
-        patch.disposisi = disp.jenis;
-        await bedAlloc.release(id, tx);
       }
 
-      // Batal Selesai: buka kunci + simpan alasan (selesaiAt/selesaiPertamaAt dipertahankan).
+      // Batal Selesai: buka kunci + simpan alasan.
+      //  · "perbaikan pengimputan" (default): selesaiAt DIPERTAHANKAN → tgl keluar frozen; koreksi
+      //    input lalu selesaikan ulang dgn tanggal yang sama.
+      //  · "perbaikan menyeluruh" (resetSelesai): kosongkan selesaiAt → tgl keluar BARU dipilih saat
+      //    penyelesaian ulang. selesaiPertamaAt (jejak selesai pertama) TETAP sebagai audit.
       if (action === "reopen") {
         patch.lockedAt = null;
         patch.alasanReopen = opts.alasanReopen?.trim() || null;
+        if (opts.resetSelesai) patch.selesaiAt = null;
       }
 
       const count = await dal.updateStatus(id, k.version, patch, tx);

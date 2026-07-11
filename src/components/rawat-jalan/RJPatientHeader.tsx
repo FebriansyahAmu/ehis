@@ -18,6 +18,7 @@ import { useRecordVersion } from "@/lib/realtime/recordBus";
 import { STATUS_CFG, POLI_CFG, PENJAMIN_CFG } from "./rjShared";
 import { useRJQueue, selesaikanPoli, bukaKembaliPoli } from "@/lib/rawat-jalan/rjQueueStore";
 import SelesaikanDialog from "@/components/igd/selesai/SelesaikanDialog";
+import BatalSelesaiRJDialog, { type ReopenMode } from "./BatalSelesaiRJDialog";
 
 // id kunjungan DB = UUID; id demo/mock ("rj-1") → diagnosa gate baca prop lokal.
 const HDR_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -148,6 +149,7 @@ function FinalizeControl({ patient, selesaiJam, onCompleted }: {
   const demoLocked = entry?.locked ?? false;         // demo (queue store)
   const locked = dbLocked || demoLocked;
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [batalOpen, setBatalOpen] = useState(false);
 
   // Diagnosa (gate Selesaikan): pasien DB (UUID) → hitung dari domain Condition DB, reaktif atas
   // penyimpanan di tab Diagnosa (recordBus). Pasien demo → dari prop lokal snapshot.
@@ -179,21 +181,68 @@ function FinalizeControl({ patient, selesaiJam, onCompleted }: {
     }
   }
 
+  // Batalkan Selesai (reopen) — dua mode. "menyeluruh" mengosongkan tgl keluar (resetSelesai).
+  async function handleReopen(mode: ReopenMode, alasan: string) {
+    if (!isPersisted) {
+      bukaKembaliPoli(patient.id, mode === "menyeluruh");
+      toast.info("Penyelesaian dibatalkan", "Pasien demo — perubahan tidak tersimpan");
+      return;
+    }
+    try {
+      await transitionKunjungan(patient.id, "reopen", patient.version, {
+        alasanReopen: alasan.trim() || undefined,
+        resetSelesai: mode === "menyeluruh",
+      });
+      toast.success(
+        "Penyelesaian dibatalkan",
+        mode === "menyeluruh"
+          ? "Rekam medis dibuka — tetapkan tanggal keluar baru saat menyelesaikan ulang"
+          : "Rekam medis dibuka untuk perbaikan input (tanggal keluar dipertahankan)",
+      );
+      onCompleted?.();
+    } catch (e) {
+      toast.error("Gagal membatalkan penyelesaian", e instanceof ApiError ? e.message : undefined);
+      throw e; // dialog tetap terbuka
+    }
+  }
+
+  // Pasca "batal selesai — perbaikan pengimputan": tak terkunci TAPI tgl keluar masih ada
+  // (selesaiAt dipertahankan) → disposisi lama tetap berlaku. Selesaikan ULANG = kunci ulang
+  // LANGSUNG (tanpa form disposisi). "menyeluruh" mengosongkan selesaiAt → jalur form biasa.
+  const reopenedKoreksi = isPersisted && !locked && !!patient.selesaiAt;
+
+  // Selesaikan kembali langsung (tanpa disposisi baru) — server pertahankan disposisi terakhir.
+  async function handleRelock() {
+    try {
+      await transitionKunjungan(patient.id, "complete", patient.version, {});
+      toast.success("Kunjungan diselesaikan kembali", "Disposisi dipertahankan · rekam medis terkunci");
+      onCompleted?.();
+    } catch (e) {
+      toast.error("Gagal menyelesaikan kunjungan", e instanceof ApiError ? e.message : undefined);
+    }
+  }
+
   if (locked) {
     return (
       <div className="flex items-center gap-1.5">
         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-200">
           <Lock size={10} /> Terkunci{selesaiJam ? ` · ${selesaiJam}` : ""}
         </span>
-        {/* Reopen hanya utk demo (DB reopen RJ belum di-wire) */}
-        {demoLocked && !dbLocked && (
-          <button
-            type="button"
-            onClick={() => bukaKembaliPoli(patient.id)}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-50"
-          >
-            <Undo2 size={11} /> Batalkan Selesai
-          </button>
+        {/* Batalkan Selesai (reopen) — DB (UUID) & demo; dua mode + high alert. */}
+        <button
+          type="button"
+          onClick={() => setBatalOpen(true)}
+          className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-rose-600 transition hover:bg-rose-50"
+        >
+          <Undo2 size={11} /> Batalkan Selesai
+        </button>
+        {batalOpen && (
+          <BatalSelesaiRJDialog
+            patientName={patient.name}
+            selesaiAt={patient.selesaiAt ?? null}
+            onSubmit={handleReopen}
+            onClose={() => setBatalOpen(false)}
+          />
         )}
       </div>
     );
@@ -212,8 +261,16 @@ function FinalizeControl({ patient, selesaiJam, onCompleted }: {
       <button
         type="button"
         disabled={!hasDiagnosa}
-        onClick={() => (isPersisted ? setDialogOpen(true) : selesaikanPoli(patient.id))}
-        title={hasDiagnosa ? "Selesaikan & kunci kunjungan" : "Lengkapi diagnosa ICD-10 dahulu"}
+        onClick={() => {
+          if (!isPersisted) return selesaikanPoli(patient.id);        // demo → store lokal (langsung)
+          if (reopenedKoreksi) return void handleRelock();            // perbaikan input → kunci ulang langsung
+          setDialogOpen(true);                                        // pertama / menyeluruh → form disposisi
+        }}
+        title={
+          !hasDiagnosa ? "Lengkapi diagnosa ICD-10 dahulu"
+          : reopenedKoreksi ? "Kunci ulang — disposisi terakhir dipertahankan (perbaikan input)"
+          : "Selesaikan & kunci kunjungan"
+        }
         className={cn(
           "inline-flex items-center gap-1 rounded-lg px-2.5 py-0.5 text-[11px] font-bold transition active:scale-95",
           hasDiagnosa
@@ -221,7 +278,7 @@ function FinalizeControl({ patient, selesaiJam, onCompleted }: {
             : "cursor-not-allowed bg-slate-100 text-slate-400",
         )}
       >
-        <CheckCircle2 size={12} /> Selesaikan
+        <CheckCircle2 size={12} /> {reopenedKoreksi ? "Selesaikan Kembali" : "Selesaikan"}
       </button>
 
       {dialogOpen && (

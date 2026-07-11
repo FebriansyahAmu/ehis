@@ -20,5 +20,6 @@ export const PATCH = route({
       waktuSelesai: body.waktuSelesai,
       disposisi: body.disposisi,
       alasanReopen: body.alasanReopen,
+      resetSelesai: body.resetSelesai,
     }),
 });

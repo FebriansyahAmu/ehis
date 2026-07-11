@@ -55,6 +55,7 @@ export async function transitionKunjungan(
     waktuSelesai?: string; // "YYYY-MM-DDTHH:mm" — complete/re-complete
     disposisi?: DisposisiInput; // wajib saat complete
     alasanReopen?: string; // opsional saat reopen
+    resetSelesai?: boolean; // reopen "perbaikan menyeluruh": kosongkan tgl keluar (default false)
     signal?: AbortSignal;
   },
 ): Promise<KunjunganDTO> {
@@ -67,6 +68,7 @@ export async function transitionKunjungan(
       waktuSelesai: opts?.waktuSelesai,
       disposisi: opts?.disposisi,
       alasanReopen: opts?.alasanReopen,
+      resetSelesai: opts?.resetSelesai,
     },
     { signal: opts?.signal },
   );

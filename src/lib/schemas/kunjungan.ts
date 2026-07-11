@@ -146,11 +146,16 @@ export const TransitionInput = z
     disposisi: DisposisiInput.optional(),
     /** Alasan batal-selesai (medico-legal) — opsional saat `reopen`. */
     alasanReopen: z.string().max(2000).optional(),
-  })
-  .refine((d) => d.action !== "complete" || d.disposisi != null, {
-    message: "Disposisi wajib saat menyelesaikan kunjungan",
-    path: ["disposisi"],
+    /**
+     * Batal-selesai "perbaikan menyeluruh": kosongkan `selesaiAt` (tgl keluar) agar tanggal
+     * keluar BARU dipilih saat penyelesaian ulang. `selesaiPertamaAt` (jejak audit) tetap.
+     * Absen/false = "perbaikan pengimputan" (tgl keluar dipertahankan). Hanya berlaku `reopen`.
+     */
+    resetSelesai: z.boolean().optional(),
   });
+  // Catatan: "disposisi wajib saat complete" ditegakkan di Service (DB-state-aware) — sebab
+  // penyelesaian ULANG pasca "batal selesai — perbaikan pengimputan" me-relock TANPA disposisi
+  // baru (disposisi terakhir tetap berlaku), sesuatu yang tak bisa dibedakan di level schema.
 
 // ── Tipe inferensi ─────────────────────────────────────────────────────────---
 export type RegisterKunjunganInput = z.infer<typeof RegisterKunjunganInput>;

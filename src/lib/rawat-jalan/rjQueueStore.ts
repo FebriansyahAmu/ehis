@@ -187,9 +187,18 @@ export function selesaikanPoli(id: string) {
   });
 }
 
-/** Batalkan Selesai (re-open) → unlock, kembali Dilayani. `selesaiAt` dipertahankan. */
-export function bukaKembaliPoli(id: string) {
-  patch(id, (e) => ({ ...e, order: "Dilayani", locked: false }));
+/**
+ * Batalkan Selesai (re-open) → unlock, kembali Dilayani.
+ *  · default ("perbaikan pengimputan"): `selesaiAt` dipertahankan (tgl keluar frozen).
+ *  · resetSelesai ("perbaikan menyeluruh"): `selesaiAt` dikosongkan → tgl keluar baru saat selesai ulang.
+ */
+export function bukaKembaliPoli(id: string, resetSelesai = false) {
+  patch(id, (e) => ({
+    ...e,
+    order: "Dilayani",
+    locked: false,
+    selesaiAt: resetSelesai ? undefined : e.selesaiAt,
+  }));
 }
 
 // ── Reads ──────────────────────────────────────────────────
