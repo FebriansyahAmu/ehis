@@ -12,6 +12,16 @@
 
 ---
 
+## ✅ Selesai — Rawat Jalan: Filter Periode Tanggal (server-side) (2026-07-12)
+
+Landing [/ehis-care/rawat-jalan](../src/components/rawat-jalan/RJPageView.tsx) kini bisa difilter **rentang tanggal** (worklist/order; Konsultasi punya inbox sendiri).
+
+- **UI** — bar di baris tab: **Dari / Sampai** ([DatePicker](../src/components/shared/inputs/DatePicker.tsx) portal) + preset **Hari Ini · 7 Hari · Bulan Ini** (aktif ter-highlight) + **Reset** (muncul saat periode aktif). Rentang dijaga selalu valid (pilih ujung yang menyilang → tarik ujung lain). Ringkasan "Menampilkan kunjungan periode X – Y (N kunjungan)" di bawah bar.
+- **Server-side (bukan filter klien)** — agar bermakna lintas riwayat, bukan hanya jendela 50+30 yang ter-fetch: `WorklistQuery.{dari,sampai}` (Zod regex `YYYY-MM-DD`, opsional) → `kunjunganService.getWorklist` parse **UTC-day** (`dari`=`T00:00:00.000Z`, `sampai`=`T23:59:59.999Z`, selaras konvensi wall-clock UTC repo + `waktuKunjungan.slice(0,10)`) → `kunjunganDal.listByUnitStatus` tambah `waktuKunjungan: { gte, lte }`. Client `listKunjungan` params `dari`/`sampai` (diteruskan `{...params}`); `RJPageView` refetch saat rentang berubah (kedua query aktif+Completed dibawa periode; Completed limit dinaikkan 30→50 saat periode aktif). Kosong = tampilan live (perilaku lama). Tooltip "ada order masuk" ditekan saat menelusuri periode.
+- Verifikasi: `tsc` bersih · `eslint` bersih · smoke read-only pg — hari 2026-06-02 = 5/7 RJ cocok rentang, **0 kebocoran** batas hari.
+
+---
+
 ## ✅ Selesai — Header Pasien Rawat Jalan: compact + minimalist (pola IGD) (2026-07-11)
 
 [RJPatientHeader](../src/components/rawat-jalan/RJPatientHeader.tsx) dirombak ringkas mengikuti gaya header IGD ([PatientHeader](../src/components/igd/PatientHeader.tsx)):
