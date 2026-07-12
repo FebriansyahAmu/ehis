@@ -119,6 +119,9 @@ export const WorklistQuery = z.object({
   status: z.string().trim().optional(), // comma-separated → di-split Service
   /** Filter per pasien → timeline/Riwayat (patientId ada → semua status, bukan cuma aktif). */
   patientId: z.string().uuid().optional(),
+  /** Filter periode by waktuKunjungan (inklusif, tanggal-saja "YYYY-MM-DD"). */
+  dari: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal 'dari' tidak valid").optional(),
+  sampai: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal 'sampai' tidak valid").optional(),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });

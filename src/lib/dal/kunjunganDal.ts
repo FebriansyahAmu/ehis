@@ -108,10 +108,10 @@ export function findActiveByPatient(patientId: string, tx?: Tx) {
 
 /** Worklist lintas unit — cursor by (createdAt,id) desc. */
 export async function listByUnitStatus(
-  params: { unit?: KunjunganUnit; units?: KunjunganUnit[]; status?: KunjunganStatus[]; patientId?: string; cursor?: string; limit: number },
+  params: { unit?: KunjunganUnit; units?: KunjunganUnit[]; status?: KunjunganStatus[]; patientId?: string; dari?: Date; sampai?: Date; cursor?: string; limit: number },
   tx?: Tx,
 ) {
-  const { unit, units, status, patientId, cursor, limit } = params;
+  const { unit, units, status, patientId, dari, sampai, cursor, limit } = params;
   const rows = await db(tx).kunjungan.findMany({
     where: {
       deletedAt: null,
@@ -119,6 +119,10 @@ export async function listByUnitStatus(
       ...(units ? { unit: { in: units } } : unit ? { unit } : {}),
       ...(patientId ? { patientId } : {}),
       ...(status && status.length ? { status: { in: status } } : {}),
+      // Periode by waktuKunjungan (inklusif). dari = awal hari, sampai = akhir hari.
+      ...(dari || sampai
+        ? { waktuKunjungan: { ...(dari ? { gte: dari } : {}), ...(sampai ? { lte: sampai } : {}) } }
+        : {}),
     },
     include: listInclude,
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],

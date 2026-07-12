@@ -9,8 +9,9 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Inbox, Users, MessageSquare, Clock, Stethoscope, CheckCircle2 } from "lucide-react";
+import { Inbox, Users, MessageSquare, Clock, Stethoscope, CheckCircle2, CalendarRange, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DatePicker } from "@/components/shared/inputs/DatePicker";
 import { useSession } from "@/contexts/SessionContext";
 import type { RJPatient, RJPoli } from "@/lib/data";
 import { listKunjungan, transitionKunjungan, type KunjunganListItemDTO } from "@/lib/api/kunjungan";
@@ -25,6 +26,19 @@ import KonsultasiInbox from "./KonsultasiInbox";
 
 type View = "order" | "worklist" | "konsultasi";
 
+// ── Periode helpers (UTC-day — selaras interpretasi server atas waktuKunjungan) ──
+function ymdUtc(d: Date): string { return d.toISOString().slice(0, 10); }
+function addDaysUtc(base: Date, n: number): Date {
+  const d = new Date(base); d.setUTCDate(d.getUTCDate() + n); return d;
+}
+/** "2026-07-12" → "12 Jul 2026" (split string; hindari shift zona). */
+const MON_SHORT = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+function fmtYmd(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  return `${Number(m[3])} ${MON_SHORT[Number(m[2]) - 1] ?? m[2]} ${m[1]}`;
+}
+
 export default function RJPageView() {
   const { session } = useSession();
   const [view, setView]           = useState<View>("worklist"); // default = Worklist Pasien
@@ -32,7 +46,10 @@ export default function RJPageView() {
   const [konsulMasuk, setKonsulMasuk] = useState(0);
   const [myPolis, setMyPolis]     = useState<ReadonlySet<RJPoli> | null>(null);
   const [dokterNama, setDokterNama] = useState<Record<string, string>>({}); // dpjpId → nama DPJP
+  const [dari, setDari]           = useState(""); // filter periode "YYYY-MM-DD" (kosong = live)
+  const [sampai, setSampai]       = useState("");
   const pending = useRef<Set<string>>(new Set()); // cegah aksi ganda in-flight per id
+  const periodeAktif = dari !== "" || sampai !== "";
 
   // ── Tooltip singkat "ada order/konsul masuk" (auto-muncul ±2,5 dtk, antre berurutan) ──
   const [tip, setTip] = useState<View | null>(null);
@@ -51,17 +68,22 @@ export default function RJPageView() {
 
   // ── Kunjungan RJ (worklist aktif + selesai terkini) ──
   // Aktif (Registered/Queued/InService) + Completed terkini digabung agar filter/stat "Selesai"
-  // nyata (tanpa mock). Order Masuk & badge = subset aktif.
+  // nyata (tanpa mock). Order Masuk & badge = subset aktif. Filter periode (dari/sampai) diteruskan
+  // ke server (waktuKunjungan inklusif) → refetch saat rentang berubah.
   useEffect(() => {
     const ac = new AbortController();
+    const rentang = { dari: dari || undefined, sampai: sampai || undefined };
     Promise.all([
-      listKunjungan({ unit: "RawatJalan", limit: 50 }, ac.signal),
-      listKunjungan({ unit: "RawatJalan", status: "Completed", limit: 30 }, ac.signal)
+      listKunjungan({ unit: "RawatJalan", limit: 50, ...rentang }, ac.signal),
+      listKunjungan({ unit: "RawatJalan", status: "Completed", limit: periodeAktif ? 50 : 30, ...rentang }, ac.signal)
         .catch(() => ({ items: [] as KunjunganListItemDTO[], cursor: null })),
     ])
       .then(([aktif, selesai]) => {
         if (ac.signal.aborted) return;
         setItems([...aktif.items, ...selesai.items]);
+        // Tooltip "ada order masuk" hanya di tampilan live (tanpa filter periode) agar tak
+        // muncul berulang saat menelusuri riwayat.
+        if (periodeAktif) return;
         const n = aktif.items.filter((it) => {
           const o = orderFromStatus(it.status, it.callState);
           return o === "Order_Masuk" || o === "Dipanggil";
@@ -70,7 +92,7 @@ export default function RJPageView() {
       })
       .catch(() => { /* board tetap tampil (kosong) bila API gagal */ });
     return () => ac.abort();
-  }, []);
+  }, [dari, sampai, periodeAktif]);
 
   // ── Badge Konsultasi masuk (KonsultasiInbox lapor ulang saat tab dibuka) ──
   useEffect(() => {
@@ -189,6 +211,24 @@ export default function RJPageView() {
     { key: "konsultasi", label: "Konsultasi",      icon: MessageSquare, badge: konsulMasuk },
   ];
 
+  // ── Preset periode cepat (rentang dihitung UTC-day) ──
+  const presets = useMemo(() => {
+    const now = new Date();
+    const today = ymdUtc(now);
+    const firstOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    return [
+      { key: "hari",   label: "Hari Ini",  dari: today,                       sampai: today },
+      { key: "minggu", label: "7 Hari",    dari: ymdUtc(addDaysUtc(now, -6)), sampai: today },
+      { key: "bulan",  label: "Bulan Ini", dari: ymdUtc(firstOfMonth),        sampai: today },
+    ];
+  }, []);
+  const activePreset = presets.find((p) => p.dari === dari && p.sampai === sampai)?.key ?? null;
+
+  // Rentang selalu valid (dari ≤ sampai): pilih satu ujung → tarik ujung lain bila menyilang.
+  const onDari   = (v: string) => { setDari(v);   if (v && sampai && v > sampai) setSampai(v); };
+  const onSampai = (v: string) => { setSampai(v); if (v && dari && v < dari) setDari(v); };
+  const resetPeriode = () => { setDari(""); setSampai(""); };
+
   return (
     <div className="space-y-5">
       {/* ── Statistik nyata (dari worklist DB) ── */}
@@ -199,7 +239,8 @@ export default function RJPageView() {
         <StatCard label="Selesai"            value={stats.selesai}  sub="kunjungan tuntas"  icon={CheckCircle2} variant="success" />
       </div>
 
-      {/* ── Toggle tab (pola Lab) ── */}
+      {/* ── Baris kontrol: toggle tab + filter periode ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex w-fit gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
         {TABS.map(({ key, label, icon: Icon, badge }) => (
           <button
@@ -260,6 +301,57 @@ export default function RJPageView() {
           </button>
         ))}
       </div>
+
+        {/* Filter periode (worklist/order saja — Konsultasi punya inbox sendiri) */}
+        {view !== "konsultasi" && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
+            <span className="ml-1 hidden items-center gap-1.5 text-[11px] font-semibold text-slate-500 sm:flex">
+              <CalendarRange size={14} className="text-slate-400" /> Periode
+            </span>
+            <DatePicker value={dari} onChange={onDari} placeholder="Dari" className="w-36" clearable={false} />
+            <span className="text-slate-300">–</span>
+            <DatePicker value={sampai} onChange={onSampai} placeholder="Sampai" className="w-36" clearable={false} />
+            <div className="flex items-center gap-1">
+              {presets.map((p) => (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => { setDari(p.dari); setSampai(p.sampai); }}
+                  className={cn(
+                    "rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition",
+                    activePreset === p.key
+                      ? "bg-sky-600 text-white shadow-sm"
+                      : "text-slate-500 hover:bg-sky-50 hover:text-sky-700",
+                  )}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            {periodeAktif && (
+              <button
+                type="button"
+                onClick={resetPeriode}
+                className="flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-[11px] font-semibold text-slate-500 transition hover:bg-rose-50 hover:text-rose-600"
+                title="Hapus filter periode"
+              >
+                <X size={12} /> Reset
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Ringkasan rentang aktif */}
+      {periodeAktif && view !== "konsultasi" && (
+        <p className="-mt-2 text-[11px] text-slate-500">
+          Menampilkan kunjungan periode{" "}
+          <b className="text-slate-700">{dari ? fmtYmd(dari) : "…"}</b>
+          {" – "}
+          <b className="text-slate-700">{sampai ? fmtYmd(sampai) : "…"}</b>
+          {" "}<span className="text-slate-400">({items.length} kunjungan)</span>
+        </p>
+      )}
 
       {/* ── Konten per tab ── */}
       {view === "order" && (

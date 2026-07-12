@@ -620,11 +620,18 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
       units = scoped;
     }
 
+    // Periode by waktuKunjungan (tanggal-saja, inklusif). Wall-clock UTC (konvensi repo) →
+    // dari = awal hari (00:00:00.000Z), sampai = akhir hari (23:59:59.999Z).
+    const dari = query.dari ? new Date(`${query.dari}T00:00:00.000Z`) : undefined;
+    const sampai = query.sampai ? new Date(`${query.sampai}T23:59:59.999Z`) : undefined;
+
     const { items, nextCursor } = await dal.listByUnitStatus({
       unit: units ? undefined : query.unit,
       units,
       status,
       patientId: query.patientId,
+      dari,
+      sampai,
       cursor: query.cursor,
       limit: query.limit,
     });

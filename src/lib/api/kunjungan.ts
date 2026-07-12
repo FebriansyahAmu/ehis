@@ -79,6 +79,8 @@ export interface ListKunjunganParams {
   unit?: string;
   status?: string;
   patientId?: string;
+  dari?: string; // "YYYY-MM-DD" — filter periode (inklusif)
+  sampai?: string; // "YYYY-MM-DD" — filter periode (inklusif)
   cursor?: string;
   limit?: number;
 }
