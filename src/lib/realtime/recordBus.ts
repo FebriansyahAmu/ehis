@@ -23,7 +23,8 @@ export type RecordDomain =
   | "triase" // triase → panel level + status header
   | "cppt"
   | "diagnosa"
-  | "asesmen";
+  | "asesmen"
+  | "order"; // order klinis (Tindakan/Resep/Lab/Rad/BMHP) → widget Total Tagihan header
 
 type Listener = () => void;
 

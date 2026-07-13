@@ -163,6 +163,8 @@ Frontend Phase 0–3 master sudah selesai 100%. Workload selanjutnya bisa dipili
 
 Shared asesmen: `src/components/shared/asesmen/` → `AllergyPane` · `RiwayatPane` · `GiziPane` · `asesmenShared.ts`.
 
+**Header widget — Total Tagihan ✅ (2026-07-13):** [TotalTagihanWidget](src/components/shared/medical-records/TotalTagihanWidget.tsx) di header rekam medis IGD/RI/RJ (breadcrumb `ml-auto`) = chip akumulasi biaya SEMUA order klinis kunjungan (**Tindakan + Resep + Lab + Radiologi + BMHP**; Dibatalkan tak dihitung) + popover rincian per-jenis. Beda dari `BillingMiniWidget` (invoice/sisa billing store) — ini estimasi langsung dari order DB, lengkap walau charge-ingest BL6 belum penuh. Reuse `costByType`/`mergeDbOrders` + `Σ tindakan.harga×jumlah`. Reaktif via domain baru **`recordBus "order"`** yang di-**emit dari API client** (`createResep/cancelResep`, `create/cancel LabOrder·RadOrder·BmhpOrder`, `add/update/delete TindakanMedis`) → sentralisasi 1 layer, cover semua call-site. Demo (non-UUID) → `ORDERS_MOCK`.
+
 ---
 
 ## 🚦 Workflow

@@ -15,6 +15,7 @@ import { getDiagnosa } from "@/lib/api/diagnosa/diagnosa";
 import { transitionKunjungan } from "@/lib/api/kunjungan";
 import type { DisposisiInput } from "@/lib/schemas/disposisi/disposisi";
 import { useRecordVersion } from "@/lib/realtime/recordBus";
+import TotalTagihanWidget from "@/components/shared/medical-records/TotalTagihanWidget";
 import { STATUS_CFG, POLI_CFG, PENJAMIN_CFG } from "./rjShared";
 import { useRJQueue, selesaikanPoli, bukaKembaliPoli } from "@/lib/rawat-jalan/rjQueueStore";
 import SelesaikanDialog from "@/components/igd/selesai/SelesaikanDialog";
@@ -371,6 +372,7 @@ export default function RJPatientHeader({ patient, onCompleted }: {
               </Link>
             )}
             <div className="ml-auto flex items-center gap-2">
+              <TotalTagihanWidget kunjunganId={patient.id} noRM={patient.noRM} />
               <FinalizeControl patient={patient} selesaiJam={selesaiJam} onCompleted={onCompleted} />
               <Link
                 href="/ehis-care/rawat-jalan"

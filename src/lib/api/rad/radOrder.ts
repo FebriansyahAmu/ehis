@@ -3,6 +3,7 @@
 // /api/v1/rad/orders (GET worklist). Selaras api/lab/labOrder.ts.
 
 import { api } from "@/lib/api/client";
+import { emitRecordChange } from "@/lib/realtime/recordBus";
 import type {
   RadOrderBody, RadOrderDTO, RadOrderWorklistDTO, RadWorklistQuery,
 } from "@/lib/schemas/rad/radOrder";
@@ -24,6 +25,7 @@ export async function createRadOrder(
   signal?: AbortSignal,
 ): Promise<RadOrderDTO> {
   const { data } = await api.post<RadOrderDTO>(base(kunjunganId), input, { signal });
+  emitRecordChange(kunjunganId, "order"); // header Total Tagihan re-akumulasi
   return data;
 }
 
@@ -34,6 +36,7 @@ export async function cancelRadOrder(
   signal?: AbortSignal,
 ): Promise<RadOrderDTO> {
   const { data } = await api.post<RadOrderDTO>(`${base(kunjunganId)}/${encodeURIComponent(radId)}/cancel`, {}, { signal });
+  emitRecordChange(kunjunganId, "order");
   return data;
 }
 

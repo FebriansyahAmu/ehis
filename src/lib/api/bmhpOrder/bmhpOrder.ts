@@ -2,6 +2,7 @@
 // Endpoint: /api/v1/kunjungan/:id/bmhp (GET daftar · POST buat order · :bmhpOrderId/cancel).
 
 import { api } from "@/lib/api/client";
+import { emitRecordChange } from "@/lib/realtime/recordBus";
 import type {
   BmhpOrderBody, BmhpOrderDTO, BmhpOrderFarmasiDTO, FarmasiBmhpQuery,
 } from "@/lib/schemas/bmhpOrder/bmhpOrder";
@@ -23,6 +24,7 @@ export async function createBmhpOrder(
   signal?: AbortSignal,
 ): Promise<BmhpOrderDTO> {
   const { data } = await api.post<BmhpOrderDTO>(base(kunjunganId), input, { signal });
+  emitRecordChange(kunjunganId, "order"); // header Total Tagihan re-akumulasi
   return data;
 }
 
@@ -33,6 +35,7 @@ export async function cancelBmhpOrder(
   signal?: AbortSignal,
 ): Promise<BmhpOrderDTO> {
   const { data } = await api.post<BmhpOrderDTO>(`${base(kunjunganId)}/${encodeURIComponent(bmhpOrderId)}/cancel`, {}, { signal });
+  emitRecordChange(kunjunganId, "order");
   return data;
 }
 

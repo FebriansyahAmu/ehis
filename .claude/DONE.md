@@ -12,6 +12,18 @@
 
 ---
 
+## ✅ Selesai — Widget "Total Tagihan" di header rekam medis IGD/RI/RJ (2026-07-13)
+
+Header rekam medis ketiga unit kini menampilkan **chip Total Tagihan** = akumulasi biaya SEMUA order klinis kunjungan (Tindakan + Resep + Lab + Radiologi + BMHP). Berbeda dari `BillingMiniWidget` (yang membaca invoice/sisa bayar billing store, BL6 ~80% wired) — ini estimasi **langsung dari order klinis**, lengkap walau charge-ingest billing belum penuh.
+
+- **Komponen shared BARU:** [TotalTagihanWidget](../src/components/shared/medical-records/TotalTagihanWidget.tsx) — chip compact (indigo; slate "—" bila belum ada order bertarif) + **popover rincian per jenis** on hover (dot berwarna per jenis + total + catatan). Hook `useTotalTagihan(kunjunganId, noRM)`.
+- **Sumber data:** kunjungan UUID → `Promise.all` fetch `getTindakanMedis` + `listResep/Lab/Bmhp/Rad` → total = `costByType(mergeDbOrders(...)).byType` + `Σ tindakan.harga×jumlah`. Order **Dibatalkan tak dihitung** (via `costByType`). Reuse helper `costByType`/`mergeDbOrders`/`fmtRp` dari `daftarOrderShared` (konsisten dgn `OrderCostSummary` tab Daftar Order, + Tindakan yang belum ada di sana). Pasien demo (non-UUID) → `ORDERS_MOCK[noRM]` (indikatif).
+- **Reaktif tanpa refresh:** domain baru **`"order"`** di [recordBus](../src/lib/realtime/recordBus.ts); di-**emit dari API client** (bukan tiap komponen) pada mutasi kunjungan-scoped: `createResep/cancelResep`, `createLabOrder/cancelLabOrder`, `createRadOrder/cancelRadOrder`, `createBmhpOrder/cancelBmhpOrder`, `addTindakanMedis/updateTindakanMedis/deleteTindakanMedis`. Sentralisasi di layer API → semua ~12 call-site (tab order + panel Riwayat + DaftarOrderTab) ter-cover tanpa menyentuh masing-masing. Widget subscribe `useRecordVersion(kunjunganId, "order")` → re-akumulasi.
+- **Penempatan:** cluster `ml-auto` breadcrumb — IGD (sebelum `headerAction`), RI (sebelum `BillingMiniWidget`, dua widget berdampingan), RJ (sebelum `FinalizeControl`). Label "Total Tagihan" hidden `<sm` (chip jadi ikon+nominal).
+- Verifikasi: `tsc` bersih · `eslint` bersih (10 file tersentuh).
+
+---
+
 ## ✅ Selesai — Riwayat Order Resep di tab Resep & Obat (RI + RJ) (2026-07-13)
 
 RI (& RJ, karena berbagi `ResepPane`) sebelumnya tak menampilkan riwayat order resep DB di tab Resep & Obat (hanya IGD `ResepPasienTab` yang punya). Ditambahkan mengambil referensi pola **RiwayatOrderBmhp**.

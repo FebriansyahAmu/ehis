@@ -13,6 +13,7 @@ import type { IGDPatientDetail, TriageLevel, IGDStatus } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { listObservasi, type ObservationVitalSigns } from "@/lib/api/observation";
 import { useRecordVersion } from "@/lib/realtime/recordBus";
+import TotalTagihanWidget from "@/components/shared/medical-records/TotalTagihanWidget";
 
 // id kunjungan DB = UUID; id demo/mock ("igd-1") tak punya time-series TTV di DB.
 const HEADER_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -443,6 +444,7 @@ export default function PatientHeader({
               </Link>
             )}
             <div className="ml-auto flex shrink-0 items-center gap-2">
+              <TotalTagihanWidget kunjunganId={patient.id} noRM={patient.noRM} />
               {headerAction}
               <Link
                 href="/ehis-care/igd"

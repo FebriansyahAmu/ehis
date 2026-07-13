@@ -2,6 +2,7 @@
 // Endpoint: /api/v1/kunjungan/:id/tindakan (GET list · POST) · /:itemId (PATCH · DELETE).
 
 import { api } from "@/lib/api/client";
+import { emitRecordChange } from "@/lib/realtime/recordBus";
 import type {
   TindakanMedisInput, TindakanMedisUpdate, TindakanMedisDTO,
 } from "@/lib/schemas/tindakanMedis/tindakanMedis";
@@ -21,6 +22,7 @@ export async function addTindakanMedis(
   signal?: AbortSignal,
 ): Promise<TindakanMedisDTO> {
   const { data } = await api.post<TindakanMedisDTO>(base(kunjunganId), input, { signal });
+  emitRecordChange(kunjunganId, "order"); // header Total Tagihan re-akumulasi
   return data;
 }
 
@@ -35,6 +37,7 @@ export async function updateTindakanMedis(
     input,
     { signal },
   );
+  emitRecordChange(kunjunganId, "order"); // ubah jumlah → subtotal berubah
   return data;
 }
 
@@ -44,4 +47,5 @@ export async function deleteTindakanMedis(
   signal?: AbortSignal,
 ): Promise<void> {
   await api.del(`${base(kunjunganId)}/${encodeURIComponent(itemId)}`, { signal });
+  emitRecordChange(kunjunganId, "order");
 }

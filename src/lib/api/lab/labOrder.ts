@@ -3,6 +3,7 @@
 // Selaras api/resep/resep.ts.
 
 import { api } from "@/lib/api/client";
+import { emitRecordChange } from "@/lib/realtime/recordBus";
 import type {
   LabOrderBody, LabOrderDTO, LabOrderWorklistDTO, LabWorklistQuery,
 } from "@/lib/schemas/lab/labOrder";
@@ -24,6 +25,7 @@ export async function createLabOrder(
   signal?: AbortSignal,
 ): Promise<LabOrderDTO> {
   const { data } = await api.post<LabOrderDTO>(base(kunjunganId), input, { signal });
+  emitRecordChange(kunjunganId, "order"); // header Total Tagihan re-akumulasi
   return data;
 }
 
@@ -34,6 +36,7 @@ export async function cancelLabOrder(
   signal?: AbortSignal,
 ): Promise<LabOrderDTO> {
   const { data } = await api.post<LabOrderDTO>(`${base(kunjunganId)}/${encodeURIComponent(labId)}/cancel`, {}, { signal });
+  emitRecordChange(kunjunganId, "order");
   return data;
 }
 

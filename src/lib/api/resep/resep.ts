@@ -2,6 +2,7 @@
 // Endpoint: /api/v1/kunjungan/:id/resep (GET daftar · POST buat order) · /api/v1/farmasi/resep (GET worklist).
 
 import { api } from "@/lib/api/client";
+import { emitRecordChange } from "@/lib/realtime/recordBus";
 import type {
   ResepOrderBody, ResepOrderDTO, ResepOrderFarmasiDTO, FarmasiResepQuery, FarmasiTelaahBody,
   FarmasiDispensingBody,
@@ -27,6 +28,7 @@ export async function createResep(
   signal?: AbortSignal,
 ): Promise<ResepOrderDTO> {
   const { data } = await api.post<ResepOrderDTO>(base(kunjunganId), input, { signal });
+  emitRecordChange(kunjunganId, "order"); // header Total Tagihan re-akumulasi
   return data;
 }
 
@@ -37,6 +39,7 @@ export async function cancelResep(
   signal?: AbortSignal,
 ): Promise<ResepOrderDTO> {
   const { data } = await api.post<ResepOrderDTO>(`${base(kunjunganId)}/${encodeURIComponent(resepId)}/cancel`, {}, { signal });
+  emitRecordChange(kunjunganId, "order");
   return data;
 }
 
