@@ -12,6 +12,20 @@
 
 ---
 
+## ✅ Selesai — Gate akses rekam medis: order belum diterima tidak bisa dibuka (IGD + RI + RJ) (2026-07-13)
+
+**Bug:** rekam medis kunjungan yang ordernya **belum diterima** unit (status `Registered`) bisa dibuka — [RIRecordResolver](../src/components/rawat-inap/RIRecordResolver.tsx) & [IGDRecordResolver](../src/components/igd/IGDRecordResolver.tsx) tidak pernah memeriksa `k.status` (jalur masuk: URL langsung + tombol "Buka Rekam Medis" di Riwayat pasien registrasi; worklist sendiri sudah memisahkan order inbox vs census). Kunjungan `Cancelled` juga ikut terbuka.
+
+**Fix (render-time guard, tanpa sentuh effect → bebas lint set-state):**
+- Komponen shared BARU [RecordGateScreen](../src/components/shared/RecordGateScreen.tsx) — kartu penjaga 2 varian: **`belum-diterima`** (amber, ikon Hourglass, pesan + hint tindak lanjut per unit + tombol kembali ke worklist) · **`dibatalkan`** (rose, ikon Ban).
+- **RI**: `kunjungan.status === "Registered"` → gate (hint: Terima Order di "Order Masuk — Menunggu Diterima" worklist bangsal) · `Cancelled` → gate dibatalkan · lainnya (InService/Completed/…) → rekam normal (Completed tetap read-only lock eksisting).
+- **IGD**: kasus sama persis (ditelusuri atas permintaan) → gate identik (hint: tombol "Terima" + pilih bed di board IGD).
+- **RJ ✅ (menyusul, keputusan user)**: [RJRecordResolver](../src/components/rawat-jalan/RJRecordResolver.tsx) di-refactor — `fetchDetail` kini kembalikan `{patient, kunjungan}` (DTO status tersimpan di state) → gate **`Registered` DAN `Queued`** (dipanggil ≠ diterima; rekam terbuka hanya pasca-"Terima"/InService) + `Cancelled`; hint arahan worklist RJ. Demo rj-1/rj-2 tak terpengaruh (di-render langsung di page, bukan resolver).
+- **TECH_DEBT** baru: guard BE tulis `clinical.*` saat `Registered` (defense-in-depth; perlu whitelist pola `allowWhenLocked` karena registrasi IGD menulis Triase saat status masih Registered).
+- Verifikasi: `tsc` bersih · `eslint` bersih.
+
+---
+
 ## ✅ Selesai — Rawat Jalan: Filter Periode Tanggal (server-side) (2026-07-12)
 
 Landing [/ehis-care/rawat-jalan](../src/components/rawat-jalan/RJPageView.tsx) kini bisa difilter **rentang tanggal** (worklist/order; Konsultasi punya inbox sendiri).

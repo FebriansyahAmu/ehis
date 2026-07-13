@@ -7,6 +7,7 @@
 > - [CLAUDE.md](CLAUDE.md) — current state + module map
 > - [TODO.md](TODO.md) — Master phase roadmap (Phase 0–3 ✅)
 > - [TODO-EKLAIM.md](TODO-EKLAIM.md) — **Klaim BPJS & Asuransi roadmap (PISAH modul ke `/ehis-eklaim`)**
+> - [TODO-BILLING-BACKEND.md](TODO-BILLING-BACKEND.md) — **Billing BACKEND (📋 2026-07-13): Invoice DB + charge ingest server-side** — merealisasikan sisa BL0/BL6 secara nyata; `billingStore`/`chargeIngest` client di-retire di fase BB8
 > - [TECH_DEBT.md](TECH_DEBT.md) — tech debt registry
 > - [TODOS_BACKEND.md](TODOS_BACKEND.md) — backend roadmap (Billing depend B0/B1.7/B1.9)
 > - [.claude/STANDARDS.md](.claude/STANDARDS.md) — clinical & finance standards

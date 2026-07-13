@@ -19,6 +19,7 @@ import type { LocationNode, BedSubRecord } from "@/components/master/ruangan/rua
 import { riRoomsFromTree, riKelasOf } from "./riLandingShared";
 import { dtoToRawatInapPatientDetail } from "./riDetailApi";
 import RIRecordShell from "./RIRecordShell";
+import RecordGateScreen from "@/components/shared/RecordGateScreen";
 
 // id kunjungan DB = UUID; id demo/mock = "ri-1"/… → hanya UUID yang di-fetch ke API.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -101,6 +102,33 @@ export default function RIRecordResolver({ id }: { id: string }) {
   if (!patient) {
     if (state !== "done") return <ResolverLoading />;
     notFound();
+  }
+
+  // Gate akses: order RI yang BELUM diterima bangsal (Registered) / sudah dibatalkan → rekam
+  // medis tidak boleh dibuka (tutup jalur URL langsung + "Buka Rekam Medis" registrasi).
+  // Pengisian klinis dimulai setelah "Terima Order" (Registered→InService) di worklist bangsal.
+  if (kunjungan?.status === "Registered") {
+    return (
+      <RecordGateScreen
+        variant="belum-diterima"
+        nama={patient.name}
+        noRm={patient.noRM}
+        hint='Terima order melalui "Order Masuk — Menunggu Diterima" di worklist bangsal Rawat Inap, lalu rekam medis dapat dibuka.'
+        backHref="/ehis-care/rawat-inap"
+        backLabel="Ke Worklist Rawat Inap"
+      />
+    );
+  }
+  if (kunjungan?.status === "Cancelled") {
+    return (
+      <RecordGateScreen
+        variant="dibatalkan"
+        nama={patient.name}
+        noRm={patient.noRM}
+        backHref="/ehis-care/rawat-inap"
+        backLabel="Ke Worklist Rawat Inap"
+      />
+    );
   }
 
   return <RIRecordShell patient={patient} initialKunjungan={kunjungan ?? undefined} />;

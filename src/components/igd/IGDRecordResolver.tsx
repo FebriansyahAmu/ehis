@@ -14,6 +14,7 @@ import { getPatient } from "@/lib/api/patients";
 import { getDokter } from "@/lib/api/dokter";
 import { dtoToIGDPatientDetail } from "./igdDetailApi";
 import IGDRecordShell from "./IGDRecordShell";
+import RecordGateScreen from "@/components/shared/RecordGateScreen";
 
 // id kunjungan DB = UUID; id demo/mock = "igd-1"/… → hanya UUID yang di-fetch ke API.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -67,6 +68,32 @@ export default function IGDRecordResolver({ id }: { id: string }) {
   if (!patient) {
     if (state !== "done") return <ResolverLoading />;
     notFound();
+  }
+
+  // Gate akses: order IGD yang BELUM diterima (Registered) / sudah dibatalkan → rekam medis
+  // tidak boleh dibuka. Pengisian klinis dimulai setelah "Terima Pasien" (pilih bed) di board IGD.
+  if (kunjungan?.status === "Registered") {
+    return (
+      <RecordGateScreen
+        variant="belum-diterima"
+        nama={patient.name}
+        noRm={patient.noRM}
+        hint='Terima pasien melalui board IGD (tombol "Terima" + pilih bed), lalu rekam medis dapat dibuka.'
+        backHref="/ehis-care/igd"
+        backLabel="Ke Board IGD"
+      />
+    );
+  }
+  if (kunjungan?.status === "Cancelled") {
+    return (
+      <RecordGateScreen
+        variant="dibatalkan"
+        nama={patient.name}
+        noRm={patient.noRM}
+        backHref="/ehis-care/igd"
+        backLabel="Ke Board IGD"
+      />
+    );
   }
 
   return <IGDRecordShell patient={patient} initialKunjungan={kunjungan ?? undefined} />;
