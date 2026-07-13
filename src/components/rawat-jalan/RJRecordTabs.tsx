@@ -6,7 +6,7 @@ import IdentitasVerifikasiBanner, { type VerifikasiInfo } from "@/components/sha
 import {
   Stethoscope, HeartPulse, FileText, Tag, ScanLine,
   MessageSquare, ShieldCheck, ListChecks, Pill,
-  FlaskConical, Radiation, ScrollText, Navigation, Lock, Package, Repeat,
+  FlaskConical, Radiation, ScrollText, Navigation, Lock, Package, Repeat, Zap,
   type LucideIcon,
 } from "lucide-react";
 import type { RJPatientDetail } from "@/lib/data";
@@ -18,6 +18,7 @@ import TTVTab           from "./tabs/TTVTab";
 import CPPTTab          from "@/components/shared/medical-records/CPPTTab";
 import DiagnosaTab      from "@/components/shared/medical-records/DiagnosaTab";
 import PemeriksaanRJTab from "./tabs/PemeriksaanRJTab";
+import TindakanTab      from "./tabs/TindakanTab";
 import RekonsiliasTab   from "./tabs/RekonsiliasTab";
 import KonsultasiTab      from "@/components/shared/medical-records/KonsultasiTab";
 import InformedConsentTab from "@/components/shared/medical-records/InformedConsentTab";
@@ -39,6 +40,7 @@ const REKAM_MEDIS: TabDef[] = [
   { id: "cppt",             label: "CPPT / SOAP",       icon: FileText,      done: true  },
   { id: "diagnosa",         label: "Diagnosa",          icon: Tag,           done: true  },
   { id: "pemeriksaan",      label: "Pemeriksaan Fisik", icon: ScanLine,      done: true  },
+  { id: "tindakan",         label: "Tindakan",          icon: Zap,           done: true  },
   { id: "konsultasi",       label: "Konsultasi",        icon: MessageSquare, done: true  },
   { id: "informed-consent", label: "Informed Consent",  icon: ShieldCheck,   done: true  },
 ];
@@ -205,6 +207,7 @@ export default function RJRecordTabs({ patient }: { patient: RJPatientDetail }) 
               <DiagnosaTab initialDiagnosa={patient.diagnosa} kunjunganId={patient.id} />
             )}
             {active === "pemeriksaan" && <PemeriksaanRJTab patient={patient} />}
+            {active === "tindakan"    && withIdentitas(<TindakanTab patient={patient} />)}
             {active === "konsultasi"      && <KonsultasiTab noRM={patient.noRM} dokterPeminta={patient.dokter} kunjunganId={patient.id} />}
             {active === "informed-consent" && <InformedConsentTab patient={patient} />}
             {active === "rekonsiliasi" && <RekonsiliasTab patient={patient} />}

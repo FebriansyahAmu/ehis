@@ -28,12 +28,15 @@ export default function RiwayatOrderResep({
   kunjunganId,
   onCopy,
   canWrite = false,
+  refreshKey = 0,
 }: {
   kunjunganId: string;
   /** Salin item order ke form resep (re-prescribe). Absen → tombol Salin disembunyikan. */
   onCopy?: (order: ResepOrderDTO) => void;
   /** Boleh membatalkan order (DPJP penulis = clinical.resep:update). Default false → tombol Batalkan disembunyikan. */
   canWrite?: boolean;
+  /** Naikkan untuk memaksa refetch (mis. pasca-kirim order). */
+  refreshKey?: number;
 }) {
   const isPersisted = UUID_RE.test(kunjunganId);
   const [orders, setOrders] = useState<ResepOrderDTO[]>([]);
@@ -75,7 +78,7 @@ export default function RiwayatOrderResep({
     void refetch(ac.signal);
     return () => ac.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kunjunganId]);
+  }, [kunjunganId, refreshKey]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: orders.length, belum: 0, proses: 0, selesai: 0, lain: 0 };

@@ -21,9 +21,12 @@ import {
   KondisiKlinisPanel, AlergiObatBanner, AlergiMatchWarning,
 } from "@/components/shared/resep/ResepKlinisPanel";
 import { getAlergi } from "@/lib/api/asesmenMedis/asesmenAlergi";
-import { createResep } from "@/lib/api/resep/resep";
+import { createResep, type ResepOrderDTO } from "@/lib/api/resep/resep";
 import { listLokasiFarmasi, type LokasiFarmasi } from "@/lib/api/master/lokasiFarmasi";
 import { listObatTersedia } from "@/lib/api/master/obatTersedia";
+import { useSession } from "@/contexts/SessionContext";
+import { toast } from "@/lib/ui/toastStore";
+import RiwayatOrderResep from "@/components/shared/resep/RiwayatOrderResep";
 
 const KUNJUNGAN_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -258,6 +261,10 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
   const [lokasiFarmasi,  setLokasiFarmasi]   = useState<LokasiFarmasi[]>([]);
   const [obatKatalog,    setObatKatalog]     = useState<ObatCatalog[]>([]);
   const [sending,        setSending]         = useState(false);
+  const [riwayatVer,     setRiwayatVer]       = useState(0); // ↑ → RiwayatOrderResep refetch pasca-kirim
+
+  // Batalkan order = DPJP penulis (server gate clinical.resep:update); superuser tetap lolos.
+  const canCancelOrder = useSession().can("clinical.resep", "update");
 
   const copiedIds     = new Set(draftSourceMap.values());
   const riwayatGroups = buildGroups(items);
@@ -373,6 +380,31 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
 
   function copyAll(srcItems: ResepRIItem[]) { srcItems.forEach(copyItem); }
 
+  // Salin seluruh item dari SATU order resep DB (Riwayat Order) ke daftar draft → re-order.
+  function copyOrderToForm(o: ResepOrderDTO) {
+    o.items.forEach((it) => {
+      addDraft({
+        id:           genResepId(),
+        namaObat:     it.namaObat,
+        kodeObat:     it.kodeObat,
+        dosis:        it.dosis ?? "",
+        dosisSekali:  it.dosisSekali ?? "",
+        signa:        it.signa ?? "",
+        jumlah:       it.jumlah,
+        rute:         it.rute ?? "",
+        aturanPakai:  it.aturanPakai ?? "",
+        kategori:     it.kategori as ResepRIItem["kategori"],
+        keterangan:   it.keterangan ?? "",
+        durasiHari:   it.durasiHari,
+        harga:        it.harga ?? 0,
+        tanggalOrder: todayISO(),
+        dokterPj:     patient.dpjp,
+        aktif:        true,
+      });
+    });
+    toast.success("Disalin ke resep", `${o.items.length} item dari order ${o.depoNama}`);
+  }
+
   async function handleSend() {
     if (draftItems.length === 0) return;
     const kid = patient.kunjunganId;
@@ -408,6 +440,7 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
         return; // gagal → pertahankan draft (boundary error sudah toast di api client)
       }
       setSending(false);
+      setRiwayatVer((v) => v + 1); // order tersimpan di DB → Riwayat Order refetch
     }
     onSend(draftItems);
     setDraftItems([]);
@@ -643,7 +676,16 @@ export default function ResepPane({ patient, items, onSend, onToggleAktif }: Pro
         </div>
       </div>
 
-      {/* Riwayat order — full width */}
+      {/* Riwayat Order Resep (status pemenuhan Farmasi) — Salin / Batalkan + latar per-status.
+          Muncul hanya utk kunjungan terpersist (UUID); demo (non-UUID) → panel disembunyikan. */}
+      <RiwayatOrderResep
+        kunjunganId={patient.kunjunganId ?? ""}
+        onCopy={copyOrderToForm}
+        canWrite={canCancelOrder}
+        refreshKey={riwayatVer}
+      />
+
+      {/* Riwayat order lokal (template copy-dari-kunjungan; demo/mock) — kosong utk pasien DB */}
       <RiwayatSection
         groups={riwayatGroups}
         copiedIds={copiedIds}

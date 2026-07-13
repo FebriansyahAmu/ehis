@@ -12,6 +12,32 @@
 
 ---
 
+## ✅ Selesai — Riwayat Order Resep di tab Resep & Obat (RI + RJ) (2026-07-13)
+
+RI (& RJ, karena berbagi `ResepPane`) sebelumnya tak menampilkan riwayat order resep DB di tab Resep & Obat (hanya IGD `ResepPasienTab` yang punya). Ditambahkan mengambil referensi pola **RiwayatOrderBmhp**.
+
+- **Komponen sudah ada, tinggal di-wire:** [RiwayatOrderResep](../src/components/shared/resep/RiwayatOrderResep.tsx) (dipakai IGD) di-render di [ResepPane](../src/components/shared/medical-records/resep/ResepPane.tsx) (dipakai RI/RJ). Fitur sesuai permintaan: **Salin** (re-order → isi draft), **Batalkan** (`cancelResep`, status Menunggu saja), **latar warna per-status** (`resepOrderRowBg`: Menunggu/Diproses/Selesai/Dibatalkan), filter bucket + expand detail.
+- **`copyOrderToForm(o: ResepOrderDTO)`** — map item order DB → draft `ResepRIItem` via `addDraft` (dosis/signa/rute/aturan/kategori/durasi/harga snapshot) + toast.
+- **`canWrite`** = `useSession().can("clinical.resep","update")` (gate Batalkan; server tetap penjaga). RI/RJ `[id]` layout sudah `SessionProvider` → `useSession` aman.
+- **`refreshKey` (BARU di RiwayatOrderResep, mirror BMHP):** ditambah ke props + effect deps; `ResepPane` bump `riwayatVer` pasca-`createResep` sukses → panel auto-refetch (dulu tak refresh setelah kirim).
+- Muncul hanya utk kunjungan terpersist (UUID); demo (ri-1/rj-1 non-UUID) → panel tersembunyi, `RiwayatSection` lokal (template copy) tetap. IGD `ResepPasienTab` tak diubah.
+- Verifikasi: `tsc` bersih · `eslint` bersih (hanya warning ternary-statement pra-ada di `RiwayatSection`).
+
+---
+
+## ✅ Selesai — Tab Tindakan di Rawat Inap & Rawat Jalan (shared + DB-wired) (2026-07-13)
+
+RI & RJ sebelumnya tak punya tab **Tindakan** (hanya IGD). Ditambahkan ke keduanya, langsung persist ke `medicalrecord.TindakanMedis`.
+
+- **Ekstraksi shared (anti-fork):** logika TindakanTab IGD (~840L, coupled `IGDPatientDetail` + hardcode tier `IGD`) diangkat ke **[shared/medical-records/TindakanTab](../src/components/shared/medical-records/TindakanTab.tsx)** dengan prop narrow `TindakanTabPatient { kunjunganId, seed? }` + `jenisRuangan` (tier tarif) + `unitLabel` + `penjaminKode="UMUM"`. Search-first katalog ter-assign + kartu konfigurasi + daftar tergrup + sidebar estimasi — identik desain.
+- **3 adapter tipis:** [igd/tabs/TindakanTab](../src/components/igd/tabs/TindakanTab.tsx) (tier `IGD`, seed `patient.tindakan`), [rawat-inap/tabs/TindakanTab](../src/components/rawat-inap/tabs/TindakanTab.tsx) (tier `RAWAT_INAP:<kelas>` via `riTarifTier`; ICU/HCU→`ICU`), [rawat-jalan/tabs/TindakanTab](../src/components/rawat-jalan/tabs/TindakanTab.tsx) (tier `RAWAT_JALAN`). IGD kini adapter — perilaku tak berubah.
+- **Registrasi tab:** grup Rekam Medis setelah "Pemeriksaan Fisik" di RIRecordTabs & RJRecordTabs, dibungkus `withIdentitas` (verifikasi SKP 1, selaras IGD). Ikut lock-blur saat kunjungan selesai (bukan tab exempt).
+- **Backend nol perubahan:** endpoint `/kunjungan/:id/tindakan` sudah unit-agnostic (gate `clinical.tindakan` + careUnit ABAC via `route()`); `TindakanMedisInput.jenisRuangan` = string bebas ≤40 → tier RI/RJ diterima. Snapshot harga/penjamin/jenisRuangan per baris.
+- **Catatan tarif:** Tarif Matrix tindakan ter-seed hanya IGD/ICU/RAWAT_INAP:Kelas_1..3/VIP — **RJ belum di-seed → "Belum bertarif"** (harga null, graceful; snapshot konsisten dgn billing untariffed). Follow-up: seed tarif tindakan RAWAT_JALAN.
+- Verifikasi: `tsc` bersih · `eslint` bersih (hanya warning `ALL_TABS` konvensi repo).
+
+---
+
 ## ✅ Selesai — Gate akses rekam medis: order belum diterima tidak bisa dibuka (IGD + RI + RJ) (2026-07-13)
 
 **Bug:** rekam medis kunjungan yang ordernya **belum diterima** unit (status `Registered`) bisa dibuka — [RIRecordResolver](../src/components/rawat-inap/RIRecordResolver.tsx) & [IGDRecordResolver](../src/components/igd/IGDRecordResolver.tsx) tidak pernah memeriksa `k.status` (jalur masuk: URL langsung + tombol "Buka Rekam Medis" di Riwayat pasien registrasi; worklist sendiri sudah memisahkan order inbox vs census). Kunjungan `Cancelled` juga ikut terbuka.
