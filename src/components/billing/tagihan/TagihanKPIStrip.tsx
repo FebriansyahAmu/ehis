@@ -1,19 +1,37 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { KPI_MOCK, KPI_TONE, type KPIData } from "./tagihanShared";
+import { TrendingUp, TrendingDown, Minus, Receipt, ReceiptText, BedDouble, Users } from "lucide-react";
+import { KPI_TONE, fmtRupiah, fmtRupiahShort, type KPIData } from "./tagihanShared";
+import { sisa, type TagihanRow } from "./tagihanBoardLogic";
 import { cn } from "@/lib/utils";
 
 const TREND_ICON = { up: TrendingUp, down: TrendingDown, flat: Minus };
 
-export default function TagihanKPIStrip() {
+// KPI dihitung dari data NYATA (proyeksi order). Struktur & gaya kartu tetap seperti sebelumnya.
+function computeKpis(rows: TagihanRow[]): KPIData[] {
+  const totalRp = rows.reduce((s, r) => s + r.total, 0);
+  const outstanding = rows.reduce((s, r) => s + sisa(r), 0);
+  const belumLunas = rows.filter((r) => sisa(r) > 0).length;
+  const ri = rows.filter((r) => r.unit === "RI");
+  const riRp = ri.reduce((s, r) => s + r.total, 0);
+  const pasienUnik = new Set(rows.map((r) => r.pasien.noRM)).size;
+  return [
+    { id: "total",       label: "Total Tagihan",  value: String(rows.length),        sub: fmtRupiah(totalRp),      tone: "amber",   icon: Receipt },
+    { id: "outstanding", label: "Belum Dibayar",  value: fmtRupiahShort(outstanding), sub: `${belumLunas} tagihan`, tone: "rose",    icon: ReceiptText },
+    { id: "ri",          label: "Rawat Inap",     value: String(ri.length),          sub: fmtRupiah(riRp),         tone: "sky",     icon: BedDouble },
+    { id: "pasien",      label: "Jumlah Pasien",  value: String(pasienUnik),         sub: "pasien unik",           tone: "emerald", icon: Users },
+  ];
+}
+
+export default function TagihanKPIStrip({ rows }: { rows: TagihanRow[] }) {
+  const kpis = computeKpis(rows);
   return (
     <section
       aria-label="Ringkasan KPI Tagihan"
       className="grid gap-3 px-6 pt-5 sm:grid-cols-2 lg:grid-cols-4"
     >
-      {KPI_MOCK.map((kpi, idx) => (
+      {kpis.map((kpi, idx) => (
         <KPICard key={kpi.id} kpi={kpi} index={idx} />
       ))}
     </section>

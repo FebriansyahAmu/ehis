@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSkeletonDelay } from "@/components/master/shared";
 import TagihanHero from "./TagihanHero";
@@ -8,23 +8,43 @@ import TagihanKPIStrip from "./TagihanKPIStrip";
 import TagihanFilterPanel from "./TagihanFilterPanel";
 import TagihanWorkspaceShell from "./TagihanWorkspaceShell";
 import {
-  defaultFilters, type TagihanFilterState, type QuickTab, type Density,
+  defaultFilters, todayISO, type TagihanFilterState, type QuickTab, type Density,
 } from "./tagihanShared";
+import { listBillingKunjungan } from "@/lib/api/billing/projection";
+import { mapProjectionRow } from "./realRows";
+import type { TagihanRow } from "./tagihanBoardLogic";
+
+// Board Tagihan = DATA NYATA (proyeksi order klinis), tampilan tetap seperti sebelumnya.
+// Default periode diperlebar (bukan hanya "hari ini") karena data nyata lintas-tanggal.
+function initialFilters(): TagihanFilterState {
+  return { ...defaultFilters(), periodePreset: "custom", periodeFrom: "2000-01-01", periodeTo: todayISO() };
+}
 
 export default function TagihanBoardPage() {
   const ready = useSkeletonDelay(500);
-  const [filters, setFilters] = useState<TagihanFilterState>(() => defaultFilters());
+  const [rows, setRows] = useState<TagihanRow[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [filters, setFilters] = useState<TagihanFilterState>(initialFilters);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    listBillingKunjungan(ac.signal)
+      .then((data) => { if (!ac.signal.aborted) setRows(data.map(mapProjectionRow)); })
+      .catch(() => { /* diam — board tetap render kosong bila gagal */ })
+      .finally(() => { if (!ac.signal.aborted) setLoaded(true); });
+    return () => ac.abort();
+  }, []);
 
   const timestamp = useMemo(() => formatTimestamp(new Date()), []);
 
   const handleQuickTab = (tab: QuickTab) => setFilters({ ...filters, quickTab: tab });
   const handleDensity  = (density: Density) => setFilters({ ...filters, density });
-  const handleReset    = () => setFilters(defaultFilters());
+  const handleReset    = () => setFilters(initialFilters());
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-50/60 dark:bg-slate-950">
       <AnimatePresence mode="wait">
-        {!ready ? (
+        {!ready || !loaded ? (
           <SkeletonShell key="skeleton" />
         ) : (
           <motion.div
@@ -35,7 +55,7 @@ export default function TagihanBoardPage() {
             className="flex min-h-0 flex-1 flex-col"
           >
             <TagihanHero timestamp={timestamp} />
-            <TagihanKPIStrip />
+            <TagihanKPIStrip rows={rows} />
 
             {/* 2-panel split: filter (left, sticky) + workspace (right, fluid) */}
             <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 px-6 pt-4 pb-6 lg:grid-cols-[300px_minmax(0,1fr)]">
@@ -48,6 +68,7 @@ export default function TagihanBoardPage() {
               </div>
               <div className="min-h-0 lg:max-h-[calc(100vh-340px)]">
                 <TagihanWorkspaceShell
+                  rows={rows}
                   filters={filters}
                   onQuickTab={handleQuickTab}
                   onDensity={handleDensity}

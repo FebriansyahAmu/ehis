@@ -11,7 +11,8 @@
 // dari order klinis langsung — lengkap walau charge-ingest billing belum penuh (BL6 ~80%).
 
 import { useEffect, useMemo, useState } from "react";
-import { Wallet, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { Wallet, Loader2, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { listResep } from "@/lib/api/resep/resep";
 import { listLabOrders } from "@/lib/api/lab/labOrder";
@@ -97,23 +98,43 @@ function useTotalTagihan(kunjunganId: string, noRM: string): { data: Breakdown; 
 export default function TotalTagihanWidget({ kunjunganId, noRM }: { kunjunganId: string; noRM: string }) {
   const { data, loading } = useTotalTagihan(kunjunganId, noRM);
   const empty = data.total <= 0;
+  const isPersisted = UUID_RE.test(kunjunganId);
+
+  const chipCls = cn(
+    "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10.5px] font-semibold ring-1 transition",
+    empty && !loading
+      ? "bg-slate-100 text-slate-500 ring-slate-200"
+      : "bg-indigo-50 text-indigo-700 ring-indigo-200 group-hover:bg-indigo-100",
+    isPersisted && "cursor-pointer",
+  );
+  const chipInner = (
+    <>
+      {loading ? <Loader2 size={11} className="animate-spin" /> : <Wallet size={11} />}
+      <span className="hidden sm:inline">Total Tagihan</span>
+      <span className="font-mono tabular-nums">
+        {loading ? "…" : empty ? "—" : `Rp ${fmtRupiahShort(data.total)}`}
+      </span>
+      {isPersisted && !loading && (
+        <ChevronRight size={10} className="opacity-50 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
+      )}
+    </>
+  );
 
   return (
     <div className="group relative shrink-0">
-      <div
-        className={cn(
-          "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10.5px] font-semibold ring-1 transition",
-          empty && !loading
-            ? "bg-slate-100 text-slate-500 ring-slate-200"
-            : "bg-indigo-50 text-indigo-700 ring-indigo-200 group-hover:bg-indigo-100",
-        )}
-      >
-        {loading ? <Loader2 size={11} className="animate-spin" /> : <Wallet size={11} />}
-        <span className="hidden sm:inline">Total Tagihan</span>
-        <span className="font-mono tabular-nums">
-          {loading ? "…" : empty ? "—" : `Rp ${fmtRupiahShort(data.total)}`}
-        </span>
-      </div>
+      {isPersisted ? (
+        <Link
+          href={`/ehis-billing/tagihan/kunjungan/${encodeURIComponent(kunjunganId)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Buka rincian tagihan (proyeksi order)"
+          className={chipCls}
+        >
+          {chipInner}
+        </Link>
+      ) : (
+        <div className={chipCls}>{chipInner}</div>
+      )}
 
       {/* Popover rincian per jenis (hover) */}
       {!loading && !empty && (

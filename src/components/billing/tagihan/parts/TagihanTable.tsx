@@ -8,7 +8,7 @@ import { fmtRupiah } from "../tagihanShared";
 import type { TagihanFilterState, Density } from "../tagihanShared";
 import {
   applyFilters, applySort, cycleSort, sisa,
-  TAGIHAN_BOARD_MOCK, exportTagihanCsv,
+  exportTagihanCsv,
   type SortKey, type SortState, type TagihanRow as TagihanRowData,
 } from "../tagihanBoardLogic";
 import TagihanRow from "./TagihanRow";
@@ -17,6 +17,7 @@ import TagihanBulkBar from "./TagihanBulkBar";
 import type { ActionKey } from "./TagihanRowActions";
 
 interface Props {
+  rows: TagihanRowData[];
   filters: TagihanFilterState;
   onResetFilters: () => void;
 }
@@ -43,12 +44,12 @@ const COLUMNS: Column[] = [
   { key: "aksi",      label: "",          align: "center", width: "w-12",   sortable: false },
 ];
 
-export default function TagihanTable({ filters, onResetFilters }: Props) {
+export default function TagihanTable({ rows, filters, onResetFilters }: Props) {
   const router = useRouter();
   const [sort, setSort] = useState<SortState>({ key: "tanggal", dir: "desc" });
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const filtered = useMemo(() => applyFilters(TAGIHAN_BOARD_MOCK, filters), [filters]);
+  const filtered = useMemo(() => applyFilters(rows, filters), [rows, filters]);
   const sorted   = useMemo(() => applySort(filtered, sort), [filtered, sort]);
 
   const allSelected = sorted.length > 0 && sorted.every((r) => selected.has(r.id));
@@ -72,12 +73,13 @@ export default function TagihanTable({ filters, onResetFilters }: Props) {
   };
 
   const handleSort = (key: SortKey) => setSort((prev) => cycleSort(prev, key));
+  // Baris = kunjungan nyata → rincian proyeksi (id = kunjunganId).
   const handleOpenDetail = (row: TagihanRowData) => {
-    router.push(`/ehis-billing/tagihan/${row.id}`);
+    router.push(`/ehis-billing/tagihan/kunjungan/${row.id}`);
   };
   const handleAction = (action: ActionKey, row: TagihanRowData) => {
     if (action === "detail") {
-      router.push(`/ehis-billing/tagihan/${row.id}`);
+      router.push(`/ehis-billing/tagihan/kunjungan/${row.id}`);
       return;
     }
     console.log("[BL1.2] Action:", action, row.noTagihan);

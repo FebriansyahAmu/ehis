@@ -1,6 +1,27 @@
 # TODO — Billing Backend (Invoice DB + Charge Ingestion Server-Side)
 
-> **Status: 📋 Planned (2026-07-13).** Roadmap fase **BB0–BB9**.
+> **⚡ PIVOT ARSITEKTUR (2026-07-13, disetujui user): charge = PROYEKSI order, BUKAN post-charge di tx klinis.**
+> Karena setiap order klinis **sudah membekukan harga snapshot** di baris DB (§3), billing tak perlu
+> menulis ulang `InvoiceItem` saat aksi klinis. Sebaliknya billing **membaca/memproyeksikan** tabel
+> order (order = sumber kebenaran tunggal, `total = proyeksi`). Ini menghapus seluruh "wiring matrix
+> post-charge per sumber" (§3 aksi tulis) → tinggal 1 proyektor read + persist **Invoice header +
+> Payment + Adjustment (overlay by `sourceRef`)**. Menyederhanakan BB drastis.
+>
+> **✅ Slice 1 SELESAI (2026-07-13): proyeksi read-only.** `GET /kunjungan/:id/billing`
+> ([billingProjectionService](src/lib/services/billing/billingProjectionService.ts), gate
+> `billing.invoice:read` lintas-unit, **tanpa schema baru**) memproyeksikan Tindakan+Resep+Lab+Rad+BMHP
+> + akomodasi RI (basis `kelasHak` — memperbaiki masalah #6) → view read-only
+> [KunjunganInvoiceView](src/components/billing/invoice/KunjunganInvoiceView.tsx) di
+> `/ehis-billing/tagihan/kunjungan/[kid]`, deep-link dari chip Total Tagihan header. Order Dibatalkan
+> tak dihitung. Detail → [.claude/DONE.md](.claude/DONE.md).
+>
+> **➡️ Slice 2 (berikutnya):** persist `billing.Invoice` (1/kunjungan lazy) + `billing.Payment` +
+> `billing.InvoiceAdjustment` (diskon/void/add-item overlay `sourceRef`) → kasir NYATA + nomor INV +
+> status; integrasi board list per-kunjungan; admin/jasa dokter. Prinsip B1–B10 di bawah TETAP
+> berlaku KECUALI B (post-charge) diganti proyeksi. Fase BB2 (Invoice) + BB8 (Payment) tetap relevan;
+> BB3–BB7 (wiring per-sumber) **digantikan proyektor** — arsipkan sebagai referensi.
+>
+> **Status lama: 📋 Planned (2026-07-13).** Roadmap fase **BB0–BB9**.
 > FE Billing (board/detail/kasir) sudah operasional tapi **seluruh data charge hidup di client
 > (`billingStore` + `chargeIngest`)** — hilang saat refresh, tidak multi-user, tidak auditable.
 > Dokumen ini = kontrak data `billing.*` + **peta wiring charge dari SEMUA sumber klinis**

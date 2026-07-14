@@ -4,27 +4,23 @@ import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Rows3, Rows2, AlignJustify } from "lucide-react";
 import { QUICK_TABS, type TagihanFilterState, type QuickTab, type Density } from "./tagihanShared";
-import { computeQuickTabCounts, TAGIHAN_BOARD_MOCK } from "./tagihanBoardLogic";
+import { computeQuickTabCounts, type TagihanRow } from "./tagihanBoardLogic";
 import TagihanTable from "./parts/TagihanTable";
 import { cn } from "@/lib/utils";
 
 interface Props {
+  rows: TagihanRow[];
   filters: TagihanFilterState;
   onQuickTab: (tab: QuickTab) => void;
   onDensity: (density: Density) => void;
   onResetFilters: () => void;
 }
 
-export default function TagihanWorkspaceShell({ filters, onQuickTab, onDensity, onResetFilters }: Props) {
+export default function TagihanWorkspaceShell({ rows, filters, onQuickTab, onDensity, onResetFilters }: Props) {
   // BL1.4 — count per quick tab dihitung dinamis setelah filter lain di-apply.
-  // Memo dependency: semua field filter selain `quickTab` dan `density`.
   const quickTabCounts = useMemo(
-    () => computeQuickTabCounts(TAGIHAN_BOARD_MOCK, filters),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      filters.search, filters.periodeFrom, filters.periodeTo,
-      filters.units, filters.kelas, filters.penjamin, filters.status,
-    ],
+    () => computeQuickTabCounts(rows, filters),
+    [rows, filters],
   );
 
   return (
@@ -51,7 +47,7 @@ export default function TagihanWorkspaceShell({ filters, onQuickTab, onDensity, 
 
       {/* Body: TagihanTable (BL1.2) */}
       <div className="min-h-0 flex-1 overflow-hidden">
-        <TagihanTable filters={filters} onResetFilters={onResetFilters} />
+        <TagihanTable rows={rows} filters={filters} onResetFilters={onResetFilters} />
       </div>
     </section>
   );

@@ -123,7 +123,7 @@ export function getBillingQuickNavGroups(stats: BillingStats): QuickNavGroup[] {
       tone: "amber",
       desc: "Worklist tagihan, pembayaran, dan klaim",
       items: [
-        { label: "Tagihan",       href: "/ehis-billing/tagihan",     icon: Receipt,     subLabel: "Worklist invoice lintas unit",       badge: String(TAGIHAN_BOARD_MOCK.length) },
+        { label: "Tagihan",       href: "/ehis-billing/tagihan",     icon: Receipt,     subLabel: "Tagihan pasien dari order klinis (nyata)", badge: "Nyata" },
         { label: "Pembayaran",    href: "/ehis-billing/pembayaran",  icon: Wallet,      subLabel: "Counter kasir + Quick Bayar + Deposit", badge: `${stats.shiftAktif.count} shift` },
         { label: "Klaim Penjamin",href: "/ehis-eklaim",              icon: ShieldCheck, subLabel: "BPJS · Asuransi · Jamkesda (E-Klaim)",   badge: "Modul Lain", disabled: true },
         { label: "Refund",        href: "/ehis-billing/refund",      icon: RotateCcw,   subLabel: "Pengembalian dana ke pasien",          badge: "Soon",       disabled: true },
