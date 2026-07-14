@@ -35,14 +35,25 @@ import type { MetodeBayar } from "@/components/billing/invoice/invoiceShared";
  * State global: `shifts` (mutable list) + tab + modal. Payment yang masuk via
  * QuickBayar/Deposit otomatis akumulasi ke `activeShift.totalByMetode`.
  */
-export default function KasirCounterPage() {
+interface Props {
+  /** Tab awal (dari deep-link ?tab=). Default dashboard. */
+  initialTab?: KasirTabKey;
+  /** Deep-link dari detail tagihan (?invoice=<kunjunganId>) — bayar tagihan langsung di Quick Bayar. */
+  deepLinkInvoice?: string;
+}
+
+export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLinkProp }: Props = {}) {
   const ready = useSkeletonDelay(500);
 
   // Mock: anggap user session adalah "Sari Wulandari" (kasir-1 active)
   const SESSION_KASIR = "Sari Wulandari";
 
   const [shifts, setShifts] = useState<KasirShift[]>(KASIR_SHIFT_MOCK);
-  const [activeTab, setActiveTab] = useState<KasirTabKey>("dashboard");
+  // Deep-link invoice: dismissable (kasir bisa tutup → kembali ke search biasa).
+  const [deepLinkInvoice, setDeepLinkInvoice] = useState<string | undefined>(deepLinkProp);
+  const [activeTab, setActiveTab] = useState<KasirTabKey>(
+    initialTab ?? (deepLinkProp ? "quick" : "dashboard"),
+  );
   const [modal, setModal] = useState<"buka" | "tutup" | null>(null);
   // Counter untuk trigger re-render saat data mutated di mock store
   const [mutationTick, setMutationTick] = useState(0);
@@ -214,6 +225,8 @@ export default function KasirCounterPage() {
                       shift={activeShift}
                       onAccumulate={handleAccumulate}
                       onPrintKwitansi={setKwitansiCtx}
+                      deepLinkInvoice={deepLinkInvoice}
+                      onDismissDeepLink={() => setDeepLinkInvoice(undefined)}
                     />
                   </motion.div>
                 )}

@@ -39,8 +39,11 @@ export interface BillingKunjunganRowDTO {
   pasien: { noRM: string; nama: string; gender: "L" | "P"; age: number };
   penjaminTipe: string;
   kelas: string | null;
-  total: number;            // Σ order (harga snapshot) + akomodasi RI
+  total: number;            // Σ order (harga snapshot) + akomodasi RI (grand total, adjustment=0 s/d Slice 2d)
   itemCount: number;        // jumlah baris order (tanpa akomodasi)
+  dibayar: number;          // Σ payment non-void (0 bila belum ada invoice/bayar)
+  sisa: number;             // max(0, total − dibayar)
+  billingStatus: string;    // Draft | Belum Lunas | Lunas Sebagian | Lunas
 }
 
 export interface BillingProjectionDTO {

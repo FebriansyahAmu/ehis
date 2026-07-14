@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, MousePointerClick } from "lucide-react";
 import QuickSearchInput from "./QuickSearchInput";
 import OutstandingResultRow from "./OutstandingResultRow";
 import QuickPaymentForm from "./QuickPaymentForm";
 import RecentPaymentsFeed from "./RecentPaymentsFeed";
+import KasirInvoicePayPanel from "./KasirInvoicePayPanel";
 import {
   searchOutstanding, topOutstandingSuggestions,
   type OutstandingResult,
@@ -24,6 +25,9 @@ interface Props {
   onAccumulate: (metode: PaymentRecord["metode"], nominal: number) => void;
   /** Buka kwitansi modal — auto-trigger setelah save, juga dipanggil reprint feed. */
   onPrintKwitansi?: (ctx: KwitansiContext) => void;
+  /** Deep-link dari detail tagihan (kunjunganId) → panel pembayaran NYATA di atas search. */
+  deepLinkInvoice?: string;
+  onDismissDeepLink?: () => void;
 }
 
 /**
@@ -33,9 +37,11 @@ interface Props {
  *   - Left: search input + result list (atau form jika ada selected target)
  *   - Right: recent payments feed (sticky lg-up)
  */
-export default function QuickBayarPanel({ shift, onAccumulate, onPrintKwitansi }: Props) {
+export default function QuickBayarPanel({
+  shift, onAccumulate, onPrintKwitansi, deepLinkInvoice, onDismissDeepLink,
+}: Props) {
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<OutstandingResult | null>(null);
+  const [selectedRaw, setSelected] = useState<OutstandingResult | null>(null);
   const [feedRefresh, setFeedRefresh] = useState(0);  // trigger feed re-read
 
   const results = useMemo(() => {
@@ -43,12 +49,11 @@ export default function QuickBayarPanel({ shift, onAccumulate, onPrintKwitansi }
     return searchOutstanding(query);
   }, [query]);
 
-  // Auto-deselect kalau row terpilih hilang dari results (mis. ke-bayar di tab lain)
-  useEffect(() => {
-    if (selected && !results.find((r) => r.id === selected.id)) {
-      setSelected(null);
-    }
-  }, [results, selected]);
+  // Auto-deselect (derivasi saat render) kalau row terpilih hilang dari results (mis. ke-bayar di tab lain).
+  const selected = useMemo(
+    () => (selectedRaw && results.some((r) => r.id === selectedRaw.id) ? selectedRaw : null),
+    [selectedRaw, results],
+  );
 
   const recentPayments = useMemo(
     () => getShiftPayments(shift.id, 10),
@@ -96,9 +101,20 @@ export default function QuickBayarPanel({ shift, onAccumulate, onPrintKwitansi }
   };
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-      {/* Left column */}
-      <div className="space-y-3">
+    <div className="space-y-4">
+      {/* Deep-link: bayar tagihan kunjungan tertentu langsung (Slice 2b — pembayaran NYATA) */}
+      {deepLinkInvoice && (
+        <KasirInvoicePayPanel
+          kunjunganId={deepLinkInvoice}
+          shiftId={shift.id}
+          onPaid={(metode, nominal) => onAccumulate(metode, nominal)}
+          onDismiss={onDismissDeepLink}
+        />
+      )}
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        {/* Left column */}
+        <div className="space-y-3">
         {/* Search input */}
         <QuickSearchInput value={query} onChange={setQuery} autoFocus />
 
@@ -164,13 +180,14 @@ export default function QuickBayarPanel({ shift, onAccumulate, onPrintKwitansi }
         </AnimatePresence>
       </div>
 
-      {/* Right column — sticky feed */}
-      <aside className="lg:sticky lg:top-2 lg:self-start">
-        <RecentPaymentsFeed
-          payments={recentPayments}
-          onPrintKwitansi={handleReprintFromFeed}
-        />
-      </aside>
+        {/* Right column — sticky feed */}
+        <aside className="lg:sticky lg:top-2 lg:self-start">
+          <RecentPaymentsFeed
+            payments={recentPayments}
+            onPrintKwitansi={handleReprintFromFeed}
+          />
+        </aside>
+      </div>
     </div>
   );
 }

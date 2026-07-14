@@ -1,7 +1,7 @@
 // Adapter: proyeksi billing (BillingKunjunganRowDTO) → TagihanRow (bentuk board Tagihan yang ADA).
-// Board tampilannya TIDAK berubah — hanya sumber datanya kini nyata (order klinis, bukan mock).
-// Status = derivasi proyeksi (Slice 1, belum ada pembayaran): total 0 → Draft · terkunci → Belum
-// Lunas · selain itu Draft. dibayar = 0 (pembayaran nyata menyusul Slice 2 di tab Pembayaran).
+// Board tampilannya TIDAK berubah — hanya sumber datanya kini nyata (order klinis + pembayaran DB).
+// Status & dibayar NYATA (Slice 2b): billingStatus (Draft/Belum Lunas/Lunas Sebagian/Lunas) + Σ
+// payment non-void, diturunkan server (billingProjectionService.listKunjunganBilling).
 
 import type { BillingKunjunganRowDTO } from "@/lib/api/billing/projection";
 import type { TagihanRow } from "./tagihanBoardLogic";
@@ -19,8 +19,15 @@ const PENJAMIN_NAMA: Record<string, string> = {
   BPJS_Non_PBI: "BPJS Non-PBI", BPJS_PBI: "BPJS PBI", Umum: "Umum / Pribadi", Asuransi: "Asuransi", Jamkesda: "Jamkesda",
 };
 
+// billingStatus server = subset StatusFilter yang sama persis (Draft/Belum Lunas/Lunas Sebagian/Lunas).
+const STATUS_MAP: Record<string, StatusFilter> = {
+  "Draft": "Draft",
+  "Belum Lunas": "Belum Lunas",
+  "Lunas Sebagian": "Lunas Sebagian",
+  "Lunas": "Lunas",
+};
+
 export function mapProjectionRow(d: BillingKunjunganRowDTO): TagihanRow {
-  const status: StatusFilter = d.total <= 0 ? "Draft" : d.locked ? "Belum Lunas" : "Draft";
   return {
     id: d.kunjunganId,
     noTagihan: d.noKunjungan,
@@ -32,7 +39,7 @@ export function mapProjectionRow(d: BillingKunjunganRowDTO): TagihanRow {
     penjamin: { tipe: PENJAMIN_MAP[d.penjaminTipe] ?? "umum", nama: PENJAMIN_NAMA[d.penjaminTipe] ?? d.penjaminTipe },
     dpjp: "",
     total: d.total,
-    dibayar: 0,
-    status,
+    dibayar: d.dibayar,
+    status: STATUS_MAP[d.billingStatus] ?? "Draft",
   };
 }

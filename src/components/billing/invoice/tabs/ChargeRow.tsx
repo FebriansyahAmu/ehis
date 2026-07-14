@@ -13,9 +13,11 @@ interface Props {
   item: ChargeItem;
   index: number;
   onAction: (action: ChargeAction, item: ChargeItem) => void;
+  /** Mode proyeksi (billing) — sembunyikan aksi mutasi (diskon/void/source). */
+  readOnly?: boolean;
 }
 
-export default function ChargeRow({ item, index, onAction }: Props) {
+export default function ChargeRow({ item, index, onAction, readOnly }: Props) {
   const cov  = COVERAGE_CFG[item.coverage];
   const src  = SOURCE_BADGE_TONE[item.sourceModul];
   const gross = rowGross(item);
@@ -46,14 +48,16 @@ export default function ChargeRow({ item, index, onAction }: Props) {
           )}>
             {item.nama}
           </span>
-          <button
-            type="button"
-            onClick={() => onAction("source", item)}
-            title={`Buka source: ${item.sourceRef}`}
-            className="flex-none text-slate-300 transition-colors hover:text-amber-600 dark:text-slate-600 dark:hover:text-amber-400"
-          >
-            <ExternalLink size={11} />
-          </button>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={() => onAction("source", item)}
+              title={`Buka source: ${item.sourceRef}`}
+              className="flex-none text-slate-300 transition-colors hover:text-amber-600 dark:text-slate-600 dark:hover:text-amber-400"
+            >
+              <ExternalLink size={11} />
+            </button>
+          )}
         </div>
         {voided && item.voidReason && (
           <span className="mt-0.5 inline-block text-[10.5px] italic text-rose-500">
@@ -119,7 +123,11 @@ export default function ChargeRow({ item, index, onAction }: Props) {
 
       {/* Kebab actions */}
       <td className="px-2 py-2 text-center">
-        <RowKebab item={item} onAction={onAction} voided={voided} index={index} />
+        {readOnly ? (
+          <span className="text-slate-300 dark:text-slate-600">—</span>
+        ) : (
+          <RowKebab item={item} onAction={onAction} voided={voided} index={index} />
+        )}
       </td>
     </tr>
   );

@@ -1,0 +1,82 @@
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  billing — Invoice + Payment (Slice 2a: fondasi persist)                     ║
+// ║                                                                              ║
+// ║  Prinsip: CHARGE = PROYEKSI order klinis (TIDAK disimpan di billing.*).       ║
+// ║  Invoice = header + nomor + adjustment level-invoice; total/sisa DIHITUNG     ║
+// ║  saat baca (proyeksi total − Σ payment). Payment = catatan bayar (dalam shift ║
+// ║  kasir = SATU pintu). Soft-ref kunjunganId (validasi di Service, tanpa FK     ║
+// ║  lintas-schema — pola inventory). Nomor via BillingCounter (INV/KW).          ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+
+// Counter nomor dokumen billing — INV (invoice) · KW (kwitansi). Reset per bulan
+// (periode "YYYYMM"). Atomik via upsert-increment (pola inv_counter / master.*Counter).
+model BillingCounter {
+  kind    String // INV | KW
+  periode String // "YYYYMM"
+  lastSeq Int    @map("last_seq")
+
+  @@id([kind, periode])
+  @@map("billing_counter")
+  @@schema("billing")
+}
+
+// Invoice — 1 per kunjungan (lazy-create saat bayar/buka detail). Header saja; charge
+// tetap diproyeksikan dari order. Adjustment level-invoice disiapkan (default 0).
+model Invoice {
+  id          String @id @default(uuid(7)) @db.Uuid
+  kunjunganId String @unique @map("kunjungan_id") @db.Uuid // soft-ref encounter.Kunjungan
+  noInvoice   String @unique @map("no_invoice")            // "INV/YYYY/MM/NNNNN"
+
+  // Adjustment level-invoice (dipakai Slice 2d) — nominal Rp.
+  diskonInvoice Int     @default(0) @map("diskon_invoice")
+  materai       Int     @default(0)
+  ppnPct        Int     @default(0) @map("ppn_pct")
+  catatan       String?
+
+  createdBy    String? @map("created_by") // nama actor (snapshot)
+  authorUserId String? @map("author_user_id") @db.Uuid
+  version      Int     @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  payments Payment[]
+
+  @@map("invoice")
+  @@schema("billing")
+}
+
+// Payment — 1 transaksi kas terhadap invoice. Metode/kategori = TEXT (FE-facing,
+// validasi Zod). Void bukan delete (audit). nominal: + pembayaran/deposit, − refund.
+model Payment {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  invoiceId String  @map("invoice_id") @db.Uuid
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  noKwitansi String @unique @map("no_kwitansi") // "KW/YYYY/MM/NNNNN"
+  metode     String // Tunai | Transfer | QRIS | EDC | Voucher
+  kategori   String @default("Pembayaran") // Pembayaran | Deposit | Refund
+  nominal    Int
+  kasir      String // nama kasir (server-resolved dari actor, anti-spoof)
+
+  authorUserId String? @map("author_user_id") @db.Uuid
+  shiftId      String? @map("shift_id") // referensi shift kasir (diikat Slice 2b)
+  source       String? // Quick | Detail (provenance)
+  bank         String?
+  noRef        String? @map("no_ref")
+  bukti        String?
+  catatan      String?
+  refundOf     String? @map("refund_of") @db.Uuid
+
+  voided     Boolean   @default(false)
+  voidReason String?   @map("void_reason")
+  voidedBy   String?   @map("voided_by")
+  voidedAt   DateTime? @map("voided_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([invoiceId])
+  @@map("payment")
+  @@schema("billing")
+}

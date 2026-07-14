@@ -11,6 +11,11 @@ export interface OrderAggRow {
   n: bigint;
 }
 
+export interface PaidAggRow {
+  kid: string;
+  dibayar: bigint;
+}
+
 /** Agregat total order per kunjungan (semua kunjungan yang PUNYA order berharga). */
 export function aggregateOrderTotals() {
   return db().$queryRaw<OrderAggRow[]>`
@@ -43,6 +48,18 @@ export function aggregateOrderTotals() {
     SELECT kid::text AS kid, SUM(v)::bigint AS subtotal, SUM(n)::bigint AS n
     FROM agg
     GROUP BY kid;
+  `;
+}
+
+/** Total dibayar (Σ payment non-void) per kunjungan, via invoice. Kunjungan tanpa invoice → absen. */
+export function aggregatePaid(kunjunganIds: string[]) {
+  if (kunjunganIds.length === 0) return Promise.resolve([] as PaidAggRow[]);
+  return db().$queryRaw<PaidAggRow[]>`
+    SELECT i.kunjungan_id::text AS kid, COALESCE(SUM(p.nominal), 0)::bigint AS dibayar
+      FROM billing.invoice i
+      JOIN billing.payment p ON p.invoice_id = i.id AND p.voided = false
+      WHERE i.kunjungan_id = ANY(${kunjunganIds}::uuid[])
+      GROUP BY i.kunjungan_id;
   `;
 }
 

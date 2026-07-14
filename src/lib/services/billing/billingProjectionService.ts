@@ -11,6 +11,7 @@ import * as labDal from "@/lib/dal/lab/labOrderDal";
 import * as radDal from "@/lib/dal/rad/radOrderDal";
 import * as bmhpDal from "@/lib/dal/bmhpOrder/bmhpOrderDal";
 import * as billingReadDal from "@/lib/dal/billing/billingReadDal";
+import { deriveBillingStatus } from "./billingStatus";
 import { Errors } from "@/lib/errors/appError";
 import type {
   BillingProjectionDTO, BillingChargeDTO, BillingSourceModul, BillingCoverage,
@@ -243,13 +244,21 @@ async function listKunjunganBilling(limit = 100): Promise<BillingKunjunganRowDTO
   if (agg.length === 0) return [];
 
   const totals = new Map(agg.map((a) => [a.kid, { subtotal: Number(a.subtotal), n: Number(a.n) }]));
-  const headers = await billingReadDal.findKunjunganHeaders([...totals.keys()]);
+  const ids = [...totals.keys()];
+  const [headers, paidAgg] = await Promise.all([
+    billingReadDal.findKunjunganHeaders(ids),
+    billingReadDal.aggregatePaid(ids),
+  ]);
+  const paidMap = new Map(paidAgg.map((p) => [p.kid, Number(p.dibayar)]));
 
   const rows: BillingKunjunganRowDTO[] = headers.map((k) => {
     const t = totals.get(k.id) ?? { subtotal: 0, n: 0 };
     const admit = iso(k.waktuKunjungan);
     const endISO = iso(k.selesaiAt) || new Date().toISOString();
     const akom = k.unit === "RawatInap" ? akomodasiSum(k.kelasHak ?? k.kelas ?? null, admit, endISO) : 0;
+    const total = t.subtotal + akom;                       // grand total (adjustment=0 s/d Slice 2d)
+    const dibayar = paidMap.get(k.id) ?? 0;
+    const sisa = Math.max(0, total - dibayar);
     return {
       kunjunganId: k.id,
       noKunjungan: k.noKunjungan,
@@ -266,8 +275,11 @@ async function listKunjunganBilling(limit = 100): Promise<BillingKunjunganRowDTO
       },
       penjaminTipe: k.penjaminTipe,
       kelas: k.kelas ?? null,
-      total: t.subtotal + akom,
+      total,
       itemCount: t.n,
+      dibayar,
+      sisa,
+      billingStatus: deriveBillingStatus(total, total, dibayar),
     };
   });
 

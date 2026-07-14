@@ -17,11 +17,12 @@ interface Props {
   defaultOpen?: boolean;
   onAddItem: (kategori: KategoriCharge) => void;
   onItemAction: (action: ChargeAction, item: ChargeItem) => void;
+  readOnly?: boolean;
 }
 
 export default function ChargeCategorySection({
   kategori, items, count, voidedCount, subtotal, defaultOpen = false,
-  onAddItem, onItemAction,
+  onAddItem, onItemAction, readOnly,
 }: Props) {
   const [open, setOpen] = useState(defaultOpen);
   const [showVoided, setShowVoided] = useState(false);
@@ -103,6 +104,7 @@ export default function ChargeCategorySection({
                     item={item}
                     index={i}
                     onAction={onItemAction}
+                    readOnly={readOnly}
                   />
                 ))}
               </tbody>
@@ -110,14 +112,18 @@ export default function ChargeCategorySection({
 
             {/* Footer section: add + toggle voided */}
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/40 px-4 py-1.5 dark:border-slate-800/60 dark:bg-slate-900/30">
-              <button
-                type="button"
-                onClick={() => onAddItem(kategori)}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-medium text-amber-700 transition-colors hover:bg-amber-50 hover:text-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/30"
-              >
-                <Plus size={12} />
-                Tambah Item ke {cfg.label}
-              </button>
+              {readOnly ? (
+                <span className="text-[11px] text-slate-400">Proyeksi order — tak dapat diubah di sini</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onAddItem(kategori)}
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-medium text-amber-700 transition-colors hover:bg-amber-50 hover:text-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                >
+                  <Plus size={12} />
+                  Tambah Item ke {cfg.label}
+                </button>
+              )}
 
               {voidedCount > 0 && (
                 <button

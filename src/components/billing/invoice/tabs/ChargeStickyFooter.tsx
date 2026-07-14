@@ -14,9 +14,10 @@ interface Props {
   detail: InvoiceDetail;
   onApplyDiskonInvoice: () => void;
   onFinalize?: () => void;
+  readOnly?: boolean;
 }
 
-export default function ChargeStickyFooter({ detail, onApplyDiskonInvoice, onFinalize }: Props) {
+export default function ChargeStickyFooter({ detail, onApplyDiskonInvoice, onFinalize, readOnly }: Props) {
   const netItems = netAfterItemDiskon(detail.items);
   const dskItems = totalDiskonItem(detail.items);
   const dskInv   = detail.diskonInvoice ?? 0;
@@ -61,26 +62,28 @@ export default function ChargeStickyFooter({ detail, onApplyDiskonInvoice, onFin
           />
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={onApplyDiskonInvoice}
-            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11.5px] font-medium text-slate-700 transition-all hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700 active:scale-[0.97] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-amber-950/30"
-          >
-            <Percent size={12} />
-            Diskon Invoice
-          </button>
-          {showFinalize && (
+        {!readOnly && (
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={onFinalize}
-              className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-2.5 py-1 text-[11.5px] font-semibold text-white shadow-sm transition-all hover:bg-amber-700 active:scale-[0.97]"
+              onClick={onApplyDiskonInvoice}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11.5px] font-medium text-slate-700 transition-all hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700 active:scale-[0.97] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-amber-950/30"
             >
-              <CheckCircle2 size={12} />
-              Finalize
+              <Percent size={12} />
+              Diskon Invoice
             </button>
-          )}
-        </div>
+            {showFinalize && (
+              <button
+                type="button"
+                onClick={onFinalize}
+                className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-2.5 py-1 text-[11.5px] font-semibold text-white shadow-sm transition-all hover:bg-amber-700 active:scale-[0.97]"
+              >
+                <CheckCircle2 size={12} />
+                Finalize
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </motion.footer>
   );

@@ -17,10 +17,12 @@ interface Props {
   onItemAction: (action: ChargeAction, item: ChargeItem) => void;
   onApplyDiskonInvoice: () => void;
   onFinalize?: () => void;
+  /** Mode proyeksi (billing/kunjungan) — charge read-only, sembunyikan semua aksi mutasi. */
+  readOnly?: boolean;
 }
 
 export default function RincianChargeTab({
-  detail, onAddItem, onItemAction, onApplyDiskonInvoice, onFinalize,
+  detail, onAddItem, onItemAction, onApplyDiskonInvoice, onFinalize, readOnly,
 }: Props) {
   const sections = useMemo(() => groupByKategori(detail.items), [detail.items]);
   const coverage = useMemo(() => coverageBreakdown(detail.items), [detail.items]);
@@ -43,7 +45,7 @@ export default function RincianChargeTab({
           {/* Sections */}
           <div className="mt-4 space-y-2.5 pb-6">
             {sections.length === 0 ? (
-              <EmptyState onAdd={() => onAddItem("Lain-lain")} />
+              readOnly ? <ProjectionEmpty /> : <EmptyState onAdd={() => onAddItem("Lain-lain")} />
             ) : (
               sections.map((s) => (
                 <ChargeCategorySection
@@ -56,12 +58,13 @@ export default function RincianChargeTab({
                   defaultOpen={defaultOpenSet.has(s.kategori)}
                   onAddItem={onAddItem}
                   onItemAction={onItemAction}
+                  readOnly={readOnly}
                 />
               ))
             )}
 
-            {/* Persuasive add — selalu di bawah list */}
-            {sections.length > 0 && (
+            {/* Persuasive add — selalu di bawah list (disembunyikan di mode proyeksi) */}
+            {sections.length > 0 && !readOnly && (
               <button
                 type="button"
                 onClick={() => onAddItem("Lain-lain")}
@@ -80,7 +83,26 @@ export default function RincianChargeTab({
         detail={detail}
         onApplyDiskonInvoice={onApplyDiskonInvoice}
         onFinalize={onFinalize}
+        readOnly={readOnly}
       />
+    </div>
+  );
+}
+
+// ── Empty state (mode proyeksi/read-only) ───────────────
+
+function ProjectionEmpty() {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 px-6 py-12 text-center dark:border-slate-800">
+      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-400 ring-4 ring-slate-100/60 dark:bg-slate-900 dark:ring-slate-800/60">
+        <Sparkles size={20} />
+      </div>
+      <h3 className="text-[14px] font-semibold text-slate-800 dark:text-slate-100">
+        Belum ada tagihan
+      </h3>
+      <p className="mt-1 max-w-xs text-[12px] text-slate-500 dark:text-slate-400">
+        Charge otomatis muncul dari order klinis (tindakan, resep, lab, radiologi, BMHP) & akomodasi kunjungan ini.
+      </p>
     </div>
   );
 }

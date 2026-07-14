@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import KunjunganInvoiceView from "@/components/billing/invoice/KunjunganInvoiceView";
+import KunjunganInvoiceDetail from "@/components/billing/invoice/KunjunganInvoiceDetail";
 
-export const metadata: Metadata = { title: "Rincian Tagihan (Proyeksi) · EHIS Billing" };
+export const metadata: Metadata = { title: "Rincian Tagihan · EHIS Billing" };
 
 interface RouteParams {
   params: Promise<{ kid: string }>;
@@ -9,5 +9,5 @@ interface RouteParams {
 
 export default async function Page({ params }: RouteParams) {
   const { kid } = await params;
-  return <KunjunganInvoiceView kunjunganId={kid} />;
+  return <KunjunganInvoiceDetail kunjunganId={kid} />;
 }
