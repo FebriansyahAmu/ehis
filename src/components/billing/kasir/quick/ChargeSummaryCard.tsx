@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ChevronDown, ExternalLink, FileQuestion, ListChecks,
+  ChevronDown, ExternalLink, FileQuestion, ListChecks, Loader2,
   ChevronsDownUp, ChevronsUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,18 @@ import {
   fmtRupiah, KATEGORI_CFG, COVERAGE_CFG,
 } from "../../invoice/invoiceShared";
 import type { ChargeItem, KategoriCharge } from "../../invoice/invoiceShared";
-import { getChargeSummary, type ChargeKategoriRow } from "@/lib/billing/chargeSummary";
+import { getChargeSummary, buildChargeSummary, type ChargeKategoriRow, type ChargeSummary } from "@/lib/billing/chargeSummary";
+import { getInvoiceState } from "@/lib/api/billing/invoice";
+import { invoiceStateToDetail } from "../../invoice/invoiceStateMap";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Detail tagihan: kunjungan nyata (UUID) → rincian proyeksi; else mock invoice. */
+function tagihanHref(invoiceId: string): string {
+  return UUID_RE.test(invoiceId)
+    ? `/ehis-billing/tagihan/kunjungan/${invoiceId}`
+    : `/ehis-billing/tagihan/${invoiceId}`;
+}
 
 interface Props {
   invoiceId: string;
@@ -31,16 +42,39 @@ interface Props {
  * Per-kategori L2: default collapsed; tombol "Expand All / Collapse All" untuk batch.
  */
 export default function ChargeSummaryCard({ invoiceId, autoExpandThreshold = 5 }: Props) {
-  const summary = useMemo(() => getChargeSummary(invoiceId), [invoiceId]);
-  const [expandedOuter, setExpandedOuter] = useState(
-    summary.hasDetail && summary.itemCountTotal <= autoExpandThreshold,
-  );
-  const [expandedKategori, setExpandedKategori] = useState<Set<KategoriCharge>>(new Set());
+  const isReal = UUID_RE.test(invoiceId);
+  // Kunjungan nyata (UUID) → charge summary DIPROYEKSIKAN dari getInvoiceState (bukan mock).
+  const [live, setLive] = useState<ChargeSummary | null>(null);
+  const [loading, setLoading] = useState(isReal);
+  const mock = useMemo(() => (isReal ? null : getChargeSummary(invoiceId)), [isReal, invoiceId]);
 
-  // Fallback — invoice tidak ada di mock
-  if (!summary.hasDetail) {
-    return <NoDetailFallback invoiceId={invoiceId} />;
-  }
+  useEffect(() => {
+    if (!isReal) return;
+    const ac = new AbortController();
+    getInvoiceState(invoiceId, ac.signal)
+      .then((s) => { if (!ac.signal.aborted) setLive(buildChargeSummary(invoiceStateToDetail(s), invoiceId)); })
+      .catch(() => { if (!ac.signal.aborted) setLive(null); })
+      .finally(() => { if (!ac.signal.aborted) setLoading(false); });
+    return () => ac.abort();
+  }, [isReal, invoiceId]);
+
+  if (isReal && loading) return <LoadingCard />;
+  const summary = isReal ? live : mock;
+  if (!summary || !summary.hasDetail) return <NoDetailFallback invoiceId={invoiceId} />;
+  return <ChargeSummaryView summary={summary} invoiceId={invoiceId} autoExpandThreshold={autoExpandThreshold} />;
+}
+
+// ── View (summary sudah pasti ada) ─────────────────────
+
+function ChargeSummaryView({
+  summary, invoiceId, autoExpandThreshold,
+}: {
+  summary: ChargeSummary;
+  invoiceId: string;
+  autoExpandThreshold: number;
+}) {
+  const [expandedOuter, setExpandedOuter] = useState(summary.itemCountTotal <= autoExpandThreshold);
+  const [expandedKategori, setExpandedKategori] = useState<Set<KategoriCharge>>(new Set());
 
   const toggleKategori = (kategori: KategoriCharge) => {
     setExpandedKategori((prev) => {
@@ -141,7 +175,7 @@ export default function ChargeSummaryCard({ invoiceId, autoExpandThreshold = 5 }
 
             {/* Deep link */}
             <Link
-              href={`/ehis-billing/tagihan/${invoiceId}`}
+              href={tagihanHref(invoiceId)}
               className="group flex items-center justify-between gap-2 border-t border-slate-200 bg-amber-50/40 px-3 py-2 text-[11px] text-amber-700 transition-colors hover:bg-amber-100/50 dark:border-slate-700 dark:bg-amber-950/15 dark:text-amber-300 dark:hover:bg-amber-950/25"
               title="Lihat seluruh detail (audit, void, diskon, klaim, riwayat)"
             >
@@ -370,10 +404,10 @@ function NoDetailFallback({ invoiceId }: { invoiceId: string }) {
             Rincian charge belum tersedia
           </p>
           <p className="text-[10.5px] text-slate-500">
-            Backend belum sync detail invoice ini. Untuk audit lengkap, buka detail tagihan.
+            Belum ada order berharga pada kunjungan ini. Untuk audit lengkap, buka detail tagihan.
           </p>
           <Link
-            href={`/ehis-billing/tagihan/${invoiceId}`}
+            href={tagihanHref(invoiceId)}
             className="mt-1 inline-flex items-center gap-1 text-[10.5px] font-medium text-amber-700 hover:underline dark:text-amber-300"
           >
             Buka detail tagihan
@@ -381,6 +415,17 @@ function NoDetailFallback({ invoiceId }: { invoiceId: string }) {
           </Link>
         </div>
       </div>
+    </section>
+  );
+}
+
+// ── Loading (fetch charge nyata) ───────────────────────
+
+function LoadingCard() {
+  return (
+    <section className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/40 px-3 py-2.5 text-[11px] text-slate-500 dark:border-slate-700 dark:bg-slate-900/40">
+      <Loader2 size={13} className="animate-spin text-amber-500" />
+      Memuat rincian charge…
     </section>
   );
 }

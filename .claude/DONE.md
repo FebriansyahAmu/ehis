@@ -12,6 +12,20 @@
 
 ---
 
+## ✅ Selesai — Kasir Quick Bayar 100% NYATA (hapus semua mock pembayaran) (2026-07-14)
+
+Permintaan user: "hapus semua mock data di pembayaran/quickBayar, terapkan data real dari kunjungan (fetching pencarian dll), desain sama tanpa perubahan." Seluruh alur Quick Bayar kini bersumber DB — **tanpa mengubah 1 pun komponen desain** (QuickSearchInput / OutstandingResultRow / QuickPaymentForm / RecentPaymentsFeed / ChargeSummaryCard dipertahankan; hanya sumber data di-swap).
+
+- **Search outstanding NYATA** — [QuickBayarPanel](../src/components/billing/kasir/quick/QuickBayarPanel.tsx) fetch `GET /billing/kunjungan` (proyeksi) → `mapProjectionRow` → `TagihanRow[]`; `sisaTagihan = total − dibayar` (dibayar nyata dari DB). [outstandingSearch.ts](../src/lib/billing/outstandingSearch.ts) di-refactor: **buang `TAGIHAN_BOARD_MOCK`**, `searchOutstanding`/`topOutstandingSuggestions` kini WAJIB terima `source` nyata.
+- **Bayar NYATA** — submit form → `recordPayment(kunjunganId, {metode,nominal,source:"Quick",shiftId,...})` (kwitansi KW + kasir server-resolved) → refetch worklist+feed + update/clear target sesuai sisa. Kwitansi print dibangun dari state nyata (`invoiceStateToDetail` + payment terbaru), bukan `fromShiftLog` mock.
+- **Recent feed NYATA** — endpoint BARU `GET /billing/payments/recent?shiftId=&limit=` (gate `billing.kasir:read`): DAL [listRecentPaymentRows](../src/lib/dal/billing/billingReadDal.ts) (join `billing.payment`+`billing.invoice`, non-void, `$queryRawUnsafe` param) → Service `listRecentPayments` (resolve pasien via `findKunjunganHeaders`) → DTO `RecentPaymentDTO` → client `listRecentPayments` → map ke `ShiftPaymentLog`. Feed di-refresh tiap pembayaran; reprint kwitansi dari feed fetch `getInvoiceState`.
+- **ChargeSummaryCard NYATA** — kini UUID-aware: kunjungan (UUID) → fetch `getInvoiceState` → `invoiceStateToDetail` → **`buildChargeSummary`** (helper baru diekstrak dari `getChargeSummary`, dipakai mock & nyata); demo (non-UUID) → mock. Deep-link "Detail" → `/tagihan/kunjungan/[kid]` (UUID-aware).
+- **Deep-link unified** — `?tab=quick&invoice=<kid>` kini **pre-select** tagihan ke form Quick Bayar yang sama (fetch state → `outstandingFromState`); komponen `KasirInvoicePayPanel` (desain terpisah dari Slice 2b) **DIHAPUS** — satu UI konsisten. `KasirCounterPage` pass `deepLinkInvoice` langsung (state dismiss dibuang).
+- **Mapper bersama** — `invoiceStateToDetail` (InvoiceStateDTO→InvoiceDetail) diekstrak dari KunjunganInvoiceDetail ke [invoiceStateMap.ts](../src/components/billing/invoice/invoiceStateMap.ts) → dipakai detail + kasir (kwitansi/charge-summary), tanpa duplikasi.
+- **Verifikasi:** `tsc` bersih (src) · `eslint` bersih file tersentuh · smoke `pg` rollback: query `listRecentPaymentRows` 2 cabang (dgn/tanpa shiftId) OK — 14 kolom teralias benar, nominal numeric, kunjunganId resolve. **Sisa mock Kasir:** shift (buka/tutup/setoran) + tab Deposit Awal (rekonsiliasi = slice terpisah).
+
+---
+
 ## ✅ Selesai — Billing Slice 2b+2c: pembayaran NYATA di Kasir + detail adopsi desain InvoiceDetailPage (2026-07-14)
 
 Menutup loop pembayaran end-to-end di atas fondasi 2a, tanpa mengubah tampilan board (permintaan user "tampilan tetap, data nyata") + mengadopsi **desain InvoiceDetailPage** untuk detail tagihan nyata (read-only). **Kasir = satu pintu bayar** ditegakkan: form bayar hanya di Kasir; detail hanya status + deep-link.

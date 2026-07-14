@@ -17,7 +17,7 @@ import {
   type KategoriSummary,
 } from "@/lib/billing/invoiceCalc";
 import type {
-  ChargeItem, KategoriCharge, Coverage,
+  ChargeItem, KategoriCharge, Coverage, InvoiceDetail,
 } from "@/components/billing/invoice/invoiceShared";
 import type { KelasFilter, PenjaminFilter } from "@/components/billing/tagihan/tagihanShared";
 import type { AdmisiKategori } from "@/lib/billing/depositMock";
@@ -61,19 +61,11 @@ function deriveDominantCoverage(sum: KategoriSummary): Coverage {
 }
 
 /**
- * Derive ChargeSummary dari INVOICE_DETAIL_MOCK[invoiceId].
- * Return `hasDetail: false` jika invoice tidak ada di mock — UI handle fallback.
+ * Bangun ChargeSummary dari sebuah InvoiceDetail (sumber apa pun — mock atau nyata
+ * hasil `invoiceStateToDetail`). Single source aggregation (dipakai getChargeSummary
+ * + Quick Bayar live). `invoiceId` di-override caller (mis. kunjunganId nyata).
  */
-export function getChargeSummary(invoiceId: string): ChargeSummary {
-  const detail = INVOICE_DETAIL_MOCK[invoiceId];
-  if (!detail) {
-    return {
-      invoiceId, hasDetail: false,
-      kategori: [], subTotal: 0, diskonInvoice: 0, ppn: 0, materai: 0,
-      grandTotal: 0, dibayar: 0, sisa: 0, itemCountTotal: 0,
-    };
-  }
-
+export function buildChargeSummary(detail: InvoiceDetail, invoiceId = detail.id): ChargeSummary {
   const sections = groupByKategori(detail.items);
   const kategori: ChargeKategoriRow[] = sections.map((s) => ({
     kategori: s.kategori,
@@ -103,6 +95,22 @@ export function getChargeSummary(invoiceId: string): ChargeSummary {
     sisa: sisaTagihan(detail),
     itemCountTotal: kategori.reduce((s, k) => s + k.count, 0),
   };
+}
+
+/**
+ * Derive ChargeSummary dari INVOICE_DETAIL_MOCK[invoiceId] (jalur mock — Deposit Awal).
+ * Return `hasDetail: false` jika invoice tidak ada di mock — UI handle fallback.
+ */
+export function getChargeSummary(invoiceId: string): ChargeSummary {
+  const detail = INVOICE_DETAIL_MOCK[invoiceId];
+  if (!detail) {
+    return {
+      invoiceId, hasDetail: false,
+      kategori: [], subTotal: 0, diskonInvoice: 0, ppn: 0, materai: 0,
+      grandTotal: 0, dibayar: 0, sisa: 0, itemCountTotal: 0,
+    };
+  }
+  return buildChargeSummary(detail, invoiceId);
 }
 
 // ── Deposit Awal: estimated breakdown ──────────────────

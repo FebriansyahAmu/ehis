@@ -20,7 +20,6 @@ import {
   type KasirShift, type ShiftMetodeBreakdown, type SetoranRecord,
 } from "@/lib/billing/kasirShiftMock";
 import { PASIEN_ADMISI_MOCK } from "@/lib/billing/depositMock";
-import { getShiftPayments } from "@/lib/billing/shiftPaymentsMock";
 import type { KwitansiContext } from "@/lib/billing/kwitansiContext";
 import type { MetodeBayar } from "@/components/billing/invoice/invoiceShared";
 
@@ -49,8 +48,6 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
   const SESSION_KASIR = "Sari Wulandari";
 
   const [shifts, setShifts] = useState<KasirShift[]>(KASIR_SHIFT_MOCK);
-  // Deep-link invoice: dismissable (kasir bisa tutup → kembali ke search biasa).
-  const [deepLinkInvoice, setDeepLinkInvoice] = useState<string | undefined>(deepLinkProp);
   const [activeTab, setActiveTab] = useState<KasirTabKey>(
     initialTab ?? (deepLinkProp ? "quick" : "dashboard"),
   );
@@ -81,7 +78,8 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
     void mutationTick;  // re-derive saat mock mutated
     return {
       dashboard: undefined,
-      quick: getShiftPayments(activeShift.id, 99).length,
+      // Quick Bayar count = jumlah pembayaran nyata di feed (di dalam panel); tak pakai badge mock.
+      quick: undefined,
       deposit: PASIEN_ADMISI_MOCK.length,
     };
   }, [activeShift, mutationTick]);
@@ -225,8 +223,7 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
                       shift={activeShift}
                       onAccumulate={handleAccumulate}
                       onPrintKwitansi={setKwitansiCtx}
-                      deepLinkInvoice={deepLinkInvoice}
-                      onDismissDeepLink={() => setDeepLinkInvoice(undefined)}
+                      deepLinkInvoice={deepLinkProp}
                     />
                   </motion.div>
                 )}

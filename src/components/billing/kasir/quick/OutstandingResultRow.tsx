@@ -109,7 +109,7 @@ export default function OutstandingResultRow({
           <ArrowRight size={11} className="transition-transform group-hover:translate-x-0.5" />
         </button>
         <Link
-          href={`/ehis-billing/tagihan/${row.id}`}
+          href={`/ehis-billing/tagihan/kunjungan/${row.id}`}
           onClick={(e) => e.stopPropagation()}
           target="_blank"
           rel="noopener noreferrer"

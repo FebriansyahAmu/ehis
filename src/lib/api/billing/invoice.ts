@@ -2,9 +2,9 @@
 // Endpoint di bawah /kunjungan/:id/billing/{invoice,payment} (gate billing.invoice / billing.kasir).
 
 import { api } from "@/lib/api/client";
-import type { PaymentInput, PaymentDTO, InvoiceStateDTO } from "@/lib/schemas/billing/payment";
+import type { PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO } from "@/lib/schemas/billing/payment";
 
-export type { PaymentInput, PaymentDTO, InvoiceStateDTO };
+export type { PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO };
 
 const base = (k: string) => `/kunjungan/${encodeURIComponent(k)}/billing`;
 
@@ -27,6 +27,19 @@ export async function recordPayment(
 /** Daftar pembayaran kunjungan. */
 export async function listPayments(kunjunganId: string, signal?: AbortSignal): Promise<PaymentDTO[]> {
   const { data } = await api.get<PaymentDTO[]>(`${base(kunjunganId)}/payment`, { signal });
+  return data;
+}
+
+/** Pembayaran terbaru (feed Kasir), opsional per shift. */
+export async function listRecentPayments(
+  opts: { shiftId?: string; limit?: number } = {},
+  signal?: AbortSignal,
+): Promise<RecentPaymentDTO[]> {
+  const params = new URLSearchParams();
+  if (opts.shiftId) params.set("shiftId", opts.shiftId);
+  if (opts.limit) params.set("limit", String(opts.limit));
+  const qs = params.toString();
+  const { data } = await api.get<RecentPaymentDTO[]>(`/billing/payments/recent${qs ? `?${qs}` : ""}`, { signal });
   return data;
 }
 

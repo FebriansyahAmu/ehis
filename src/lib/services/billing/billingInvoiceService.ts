@@ -15,7 +15,7 @@ import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type { InvoiceEntity } from "@/lib/dal/billing/invoiceDal";
 import type { PaymentEntity } from "@/lib/dal/billing/paymentDal";
-import type { PaymentInput, PaymentDTO, InvoiceStateDTO } from "@/lib/schemas/billing/payment";
+import type { PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO } from "@/lib/schemas/billing/payment";
 
 function periodeNow(): { periode: string; yyyy: string; mm: string } {
   const d = new Date();
@@ -179,4 +179,36 @@ async function listPayments(kunjunganId: string): Promise<PaymentDTO[]> {
   return payments.map(toPaymentDTO);
 }
 
-export const billingInvoiceService = { getInvoiceState, recordPayment, voidPayment, listPayments };
+/** Pembayaran terbaru (feed Kasir) — non-void, opsional per shift; pasien di-resolve dari header. */
+async function listRecentPayments(shiftId: string | undefined, limit: number): Promise<RecentPaymentDTO[]> {
+  const rows = await billingReadDal.listRecentPaymentRows(shiftId, limit);
+  if (rows.length === 0) return [];
+  const headers = await billingReadDal.findKunjunganHeaders([...new Set(rows.map((r) => r.kunjunganId))]);
+  const byKid = new Map(headers.map((h) => [h.id, h]));
+  return rows.map((r) => {
+    const h = byKid.get(r.kunjunganId);
+    return {
+      id: r.id,
+      noKwitansi: r.noKwitansi,
+      metode: r.metode,
+      kategori: r.kategori,
+      nominal: r.nominal,
+      kasir: r.kasir,
+      source: r.source,
+      bank: r.bank,
+      noRef: r.noRef,
+      catatan: r.catatan,
+      voided: r.voided,
+      tanggalISO: r.createdAt.toISOString(),
+      kunjunganId: r.kunjunganId,
+      noInvoice: r.noInvoice,
+      noKunjungan: h?.noKunjungan ?? "",
+      pasienNama: h?.pasien.nama ?? "—",
+      pasienRM: h?.pasien.noRm ?? "",
+    };
+  });
+}
+
+export const billingInvoiceService = {
+  getInvoiceState, recordPayment, voidPayment, listPayments, listRecentPayments,
+};

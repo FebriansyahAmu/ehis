@@ -63,6 +63,43 @@ export function aggregatePaid(kunjunganIds: string[]) {
   `;
 }
 
+export interface RecentPaymentRow {
+  id: string;
+  noKwitansi: string;
+  metode: string;
+  kategori: string;
+  nominal: number;
+  kasir: string;
+  source: string | null;
+  bank: string | null;
+  noRef: string | null;
+  catatan: string | null;
+  voided: boolean;
+  createdAt: Date;
+  kunjunganId: string;
+  noInvoice: string;
+}
+
+/** Pembayaran terbaru (non-void), opsional per shift. Join billing.* saja; pasien di-resolve Service. */
+export function listRecentPaymentRows(shiftId: string | undefined, limit: number) {
+  const cols = `p.id, p.no_kwitansi AS "noKwitansi", p.metode, p.kategori, p.nominal, p.kasir,
+      p.source, p.bank, p.no_ref AS "noRef", p.catatan, p.voided,
+      p.created_at AS "createdAt", i.kunjungan_id::text AS "kunjunganId", i.no_invoice AS "noInvoice"`;
+  const base = `SELECT ${cols}
+     FROM billing.payment p JOIN billing.invoice i ON i.id = p.invoice_id
+     WHERE p.voided = false`;
+  if (shiftId) {
+    return db().$queryRawUnsafe<RecentPaymentRow[]>(
+      `${base} AND p.shift_id = $1 ORDER BY p.created_at DESC LIMIT $2`,
+      shiftId, limit,
+    );
+  }
+  return db().$queryRawUnsafe<RecentPaymentRow[]>(
+    `${base} ORDER BY p.created_at DESC LIMIT $1`,
+    limit,
+  );
+}
+
 /** Header kunjungan (typed) untuk daftar ids — pasien + info tarif/akomodasi. */
 export function findKunjunganHeaders(ids: string[]) {
   return db().kunjungan.findMany({

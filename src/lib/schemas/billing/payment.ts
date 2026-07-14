@@ -32,6 +32,33 @@ export const PaymentParam = z.object({
   paymentId: z.string().uuid(),
 });
 
+// ── Recent payments (feed Kasir) ─────────────────────────────────────────────
+export const RecentPaymentsQuery = z.object({
+  shiftId: z.string().trim().max(60).optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+});
+export type RecentPaymentsQuery = z.infer<typeof RecentPaymentsQuery>;
+
+export interface RecentPaymentDTO {
+  id: string;
+  noKwitansi: string;
+  metode: string;
+  kategori: string;
+  nominal: number;
+  kasir: string;
+  source: string | null;
+  bank: string | null;
+  noRef: string | null;
+  catatan: string | null;
+  voided: boolean;
+  tanggalISO: string;      // createdAt
+  kunjunganId: string;     // invoice.kunjunganId (deep-link + kwitansi source)
+  noInvoice: string;
+  noKunjungan: string;
+  pasienNama: string;
+  pasienRM: string;
+}
+
 // ── DTO ──────────────────────────────────────────────────────────────────────
 export interface PaymentDTO {
   id: string;
