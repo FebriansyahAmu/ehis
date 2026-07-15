@@ -80,6 +80,30 @@ export interface RecentPaymentRow {
   noInvoice: string;
 }
 
+export interface PaymentSummaryRow {
+  metode: string;
+  masuk: bigint;   // Σ nominal non-refund
+  refund: bigint;  // Σ |nominal| refund
+  trx: bigint;     // count non-refund
+}
+
+/** Agregat pembayaran (non-void) per metode — filter opsional shiftId dan/atau tanggal (YYYY-MM-DD). */
+export function aggregatePaymentSummary(opts: { shiftId?: string; date?: string }) {
+  const conds: string[] = ["p.voided = false"];
+  const params: unknown[] = [];
+  if (opts.shiftId) { params.push(opts.shiftId); conds.push(`p.shift_id = $${params.length}`); }
+  if (opts.date) { params.push(opts.date); conds.push(`p.created_at::date = $${params.length}::date`); }
+  const sql = `
+    SELECT p.metode,
+      COALESCE(SUM(CASE WHEN p.kategori <> 'Refund' THEN p.nominal ELSE 0 END), 0)::bigint AS masuk,
+      COALESCE(SUM(CASE WHEN p.kategori = 'Refund' THEN -p.nominal ELSE 0 END), 0)::bigint AS refund,
+      COUNT(*) FILTER (WHERE p.kategori <> 'Refund')::bigint AS trx
+    FROM billing.payment p
+    WHERE ${conds.join(" AND ")}
+    GROUP BY p.metode`;
+  return db().$queryRawUnsafe<PaymentSummaryRow[]>(sql, ...params);
+}
+
 /** Pembayaran terbaru (non-void), opsional per shift. Join billing.* saja; pasien di-resolve Service. */
 export function listRecentPaymentRows(shiftId: string | undefined, limit: number) {
   const cols = `p.id, p.no_kwitansi AS "noKwitansi", p.metode, p.kategori, p.nominal, p.kasir,

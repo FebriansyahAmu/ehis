@@ -39,6 +39,20 @@ export const RecentPaymentsQuery = z.object({
 });
 export type RecentPaymentsQuery = z.infer<typeof RecentPaymentsQuery>;
 
+// ── Ringkasan pembayaran (Dashboard Kasir) ──────────────────────────────────
+export const PaymentSummaryQuery = z.object({
+  shiftId: z.string().trim().max(60).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format tanggal YYYY-MM-DD").optional(),
+});
+export type PaymentSummaryQuery = z.infer<typeof PaymentSummaryQuery>;
+
+export interface PaymentSummaryDTO {
+  byMetode: { Tunai: number; Transfer: number; QRIS: number; EDC: number; Voucher: number };
+  totalMasuk: number;      // Σ pembayaran/deposit (non-refund)
+  totalRefund: number;     // Σ refund
+  totalTransaksi: number;  // jumlah transaksi non-refund
+}
+
 export interface RecentPaymentDTO {
   id: string;
   noKwitansi: string;

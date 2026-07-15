@@ -15,7 +15,9 @@ import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type { InvoiceEntity } from "@/lib/dal/billing/invoiceDal";
 import type { PaymentEntity } from "@/lib/dal/billing/paymentDal";
-import type { PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO } from "@/lib/schemas/billing/payment";
+import type {
+  PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO,
+} from "@/lib/schemas/billing/payment";
 
 function periodeNow(): { periode: string; yyyy: string; mm: string } {
   const d = new Date();
@@ -209,6 +211,25 @@ async function listRecentPayments(shiftId: string | undefined, limit: number): P
   });
 }
 
+const METODE_KEYS = ["Tunai", "Transfer", "QRIS", "EDC", "Voucher"] as const;
+
+/** Ringkasan pembayaran (Dashboard Kasir) — per shift dan/atau tanggal. */
+async function paymentSummary(shiftId: string | undefined, date: string | undefined): Promise<PaymentSummaryDTO> {
+  const rows = await billingReadDal.aggregatePaymentSummary({ shiftId, date });
+  const byMetode = { Tunai: 0, Transfer: 0, QRIS: 0, EDC: 0, Voucher: 0 };
+  let totalMasuk = 0, totalRefund = 0, totalTransaksi = 0;
+  for (const r of rows) {
+    const masuk = Number(r.masuk), refund = Number(r.refund), trx = Number(r.trx);
+    if ((METODE_KEYS as readonly string[]).includes(r.metode)) {
+      byMetode[r.metode as (typeof METODE_KEYS)[number]] = masuk;
+    }
+    totalMasuk += masuk;
+    totalRefund += refund;
+    totalTransaksi += trx;
+  }
+  return { byMetode, totalMasuk, totalRefund, totalTransaksi };
+}
+
 export const billingInvoiceService = {
-  getInvoiceState, recordPayment, voidPayment, listPayments, listRecentPayments,
+  getInvoiceState, recordPayment, voidPayment, listPayments, listRecentPayments, paymentSummary,
 };

@@ -2,7 +2,7 @@
 
 import ActiveShiftCard from "./ActiveShiftCard";
 import EmptyShiftState from "./EmptyShiftState";
-import ShiftKPIStrip from "./ShiftKPIStrip";
+import ShiftKPIStrip, { type ShiftKpiAgg } from "./ShiftKPIStrip";
 import ShiftMethodBreakdown from "./ShiftMethodBreakdown";
 import RecentShiftsTable, { type ShiftRowAction } from "./RecentShiftsTable";
 import type { KasirShift } from "@/lib/billing/kasirShiftMock";
@@ -13,6 +13,7 @@ interface Props {
   recents: KasirShift[];
   shifts: KasirShift[];
   excludeKasir: string;
+  kpi: ShiftKpiAgg;
   onBukaShift: () => void;
   onTutupShift: () => void;
   onShiftAction?: (action: ShiftRowAction, shift: KasirShift) => void;
@@ -23,7 +24,7 @@ interface Props {
  * modular. Layout 2-col: Left ActiveShift + Breakdown + Recent · Right KPI + OtherCounters.
  */
 export default function DashboardPanel({
-  activeShift, recents, shifts, excludeKasir, onBukaShift, onTutupShift, onShiftAction,
+  activeShift, recents, shifts, excludeKasir, kpi, onBukaShift, onTutupShift, onShiftAction,
 }: Props) {
   return (
     <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
@@ -43,7 +44,7 @@ export default function DashboardPanel({
 
       {/* Right column */}
       <aside className="space-y-4">
-        <ShiftKPIStrip />
+        <ShiftKPIStrip agg={kpi} />
         <OtherCountersStrip shifts={shifts} excludeKasir={excludeKasir} />
       </aside>
     </div>

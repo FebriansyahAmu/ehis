@@ -2,9 +2,11 @@
 // Endpoint di bawah /kunjungan/:id/billing/{invoice,payment} (gate billing.invoice / billing.kasir).
 
 import { api } from "@/lib/api/client";
-import type { PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO } from "@/lib/schemas/billing/payment";
+import type {
+  PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO,
+} from "@/lib/schemas/billing/payment";
 
-export type { PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO };
+export type { PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO };
 
 const base = (k: string) => `/kunjungan/${encodeURIComponent(k)}/billing`;
 
@@ -40,6 +42,19 @@ export async function listRecentPayments(
   if (opts.limit) params.set("limit", String(opts.limit));
   const qs = params.toString();
   const { data } = await api.get<RecentPaymentDTO[]>(`/billing/payments/recent${qs ? `?${qs}` : ""}`, { signal });
+  return data;
+}
+
+/** Ringkasan pembayaran (Dashboard Kasir), per shift dan/atau tanggal (YYYY-MM-DD). */
+export async function getPaymentSummary(
+  opts: { shiftId?: string; date?: string } = {},
+  signal?: AbortSignal,
+): Promise<PaymentSummaryDTO> {
+  const params = new URLSearchParams();
+  if (opts.shiftId) params.set("shiftId", opts.shiftId);
+  if (opts.date) params.set("date", opts.date);
+  const qs = params.toString();
+  const { data } = await api.get<PaymentSummaryDTO>(`/billing/payments/summary${qs ? `?${qs}` : ""}`, { signal });
   return data;
 }
 

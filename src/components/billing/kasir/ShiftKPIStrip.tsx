@@ -1,17 +1,29 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Receipt, Banknote, CreditCard, ArrowDownLeft } from "lucide-react";
+import { Receipt, Banknote, CreditCard, ArrowDownLeft, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtRupiah } from "../invoice/invoiceShared";
-import { aggregateHariIni } from "@/lib/billing/kasirShiftMock";
+
+/** Agregat KPI hari ini (dari pembayaran NYATA — getPaymentSummary by date). */
+export interface ShiftKpiAgg {
+  totalTransaksi: number;
+  totalTunai: number;
+  totalNonTunai: number;
+  totalRefund: number;
+  countersAktif: number;
+}
+
+interface Props {
+  agg: ShiftKpiAgg;
+}
 
 /**
- * KPI Strip hari ini — 4 card aggregate lintas semua shift Open + Closed hari ini.
+ * KPI Strip hari ini — 4 card aggregate pembayaran NYATA hari ini (lintas shift).
  * Dipakai di kanan ActiveShiftCard sebagai konteks operasional.
  */
-export default function ShiftKPIStrip() {
-  const agg = aggregateHariIni();
+export default function ShiftKPIStrip({ agg }: Props) {
+  const isEmpty = agg.totalTransaksi === 0;
 
   const cards: KPICardCfg[] = [
     {
@@ -50,10 +62,18 @@ export default function ShiftKPIStrip() {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-2 lg:grid-cols-1 lg:gap-2.5">
-      {cards.map((c, i) => (
-        <KPICard key={c.label} cfg={c} delay={i * 0.05} />
-      ))}
+    <div className="space-y-2">
+      {isEmpty && (
+        <div className="flex items-center gap-2 rounded-lg border border-dashed border-slate-200 bg-slate-50/60 px-3 py-2 text-[10.5px] text-slate-500 dark:border-slate-800 dark:bg-slate-900/40">
+          <Inbox size={13} className="text-slate-400" />
+          Belum ada transaksi pembayaran hari ini.
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-1 lg:gap-2.5">
+        {cards.map((c, i) => (
+          <KPICard key={c.label} cfg={c} delay={i * 0.05} />
+        ))}
+      </div>
     </div>
   );
 }

@@ -12,6 +12,19 @@
 
 ---
 
+## ✅ Selesai — Kasir Dashboard 100% NYATA (hapus mock shift, wire payment aggregates + empty states) (2026-07-14)
+
+Permintaan user: tab **Dashboard** di Pembayaran — desain tetap sama, hapus semua mock data, wire dengan aktual data, beri keterangan bila kosong. Angka Dashboard kini di-derive dari **`billing.payment` NYATA**; shift = sesi kasir yang dimulai KOSONG (tanpa mock) → empty states muncul natural.
+
+- **Endpoint agregat BARU** `GET /billing/payments/summary?shiftId=&date=` (gate `billing.kasir:read`): DAL [aggregatePaymentSummary](../src/lib/dal/billing/billingReadDal.ts) (`$queryRawUnsafe`, filter dinamis shiftId/tanggal; per metode: `masuk` non-refund, `refund` = Σ|nominal| refund, `trx` non-refund) → Service `paymentSummary` (rakit `byMetode` + `totalMasuk/Refund/Transaksi`) → DTO `PaymentSummaryDTO` → client `getPaymentSummary`.
+- **KasirCounterPage** — `KASIR_SHIFT_MOCK` **dibuang dari page**; `shifts` mulai `[]` → tak ada shift aktif → **EmptyShiftState** (buka shift dulu). Fetch 2 ringkasan NYATA (re-fetch tiap pembayaran via `mutationTick`): **hari ini** (by date → KPI) + **shift aktif** (by shiftId). **Shift aktif di-hidrasi** (`totalByMetode`/`totalTransaksi`/`totalRefund` dari summary) → dipakai ActiveShiftCard + ShiftMethodBreakdown + TutupShiftModal. **Accumulator client dihapus** (`handleAccumulate` kini cuma bump tick); **tutup shift snapshot** total nyata ke baris Recent.
+- **ShiftKPIStrip** — terima prop `agg: ShiftKpiAgg` (bukan `aggregateHariIni()` mock); 4 card desain sama dari data nyata + **caption "Belum ada transaksi pembayaran hari ini"** saat `totalTransaksi===0`. **DashboardPanel** meneruskan `kpi`.
+- **Empty states** (sesuai permintaan "keterangan bila kosong"): EmptyShiftState (tak ada shift) · RecentShiftsTable "Belum ada shift selesai" (eksisting) · KPI caption kosong · ShiftMethodBreakdown 0-bar natural.
+- **Scope**: `KASIR_SHIFT_MOCK` TETAP ada di file (masih dipakai **Beranda BL8** + SetoranFormModal — di luar tab Dashboard). Shift lifecycle masih **sesi client** (buka/tutup belum persist DB) → Recent reset saat reload; persist shift = slice terpisah.
+- **Verifikasi:** `tsc` bersih (src) · `eslint` bersih file tersentuh · smoke `pg` rollback: `aggregatePaymentSummary` by shift & by date benar (Tunai 300k · QRIS 200k · refund 50k terpisah · trx=2 non-refund).
+
+---
+
 ## ✅ Selesai — Kasir Quick Bayar 100% NYATA (hapus semua mock pembayaran) (2026-07-14)
 
 Permintaan user: "hapus semua mock data di pembayaran/quickBayar, terapkan data real dari kunjungan (fetching pencarian dll), desain sama tanpa perubahan." Seluruh alur Quick Bayar kini bersumber DB — **tanpa mengubah 1 pun komponen desain** (QuickSearchInput / OutstandingResultRow / QuickPaymentForm / RecentPaymentsFeed / ChargeSummaryCard dipertahankan; hanya sumber data di-swap).

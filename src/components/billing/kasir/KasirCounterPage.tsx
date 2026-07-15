@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSkeletonDelay } from "@/components/master/shared";
 import KasirHero from "./KasirHero";
 import KasirTabs, { type KasirTabKey } from "./KasirTabs";
 import DashboardPanel from "./DashboardPanel";
+import type { ShiftKpiAgg } from "./ShiftKPIStrip";
 import QuickBayarPanel from "./quick/QuickBayarPanel";
 import DepositAwalPanel from "./deposit/DepositAwalPanel";
 import BukaShiftModal, { type BukaShiftInput } from "./modals/BukaShiftModal";
@@ -16,12 +17,12 @@ import SetoranSlipPrintModal from "./modals/SetoranSlipPrintModal";
 import type { ShiftRowAction } from "./RecentShiftsTable";
 import KwitansiPrintModal from "../invoice/modals/KwitansiPrintModal";
 import {
-  KASIR_SHIFT_MOCK, getOpenShift, recentClosedShifts,
+  getOpenShift, recentClosedShifts,
   type KasirShift, type ShiftMetodeBreakdown, type SetoranRecord,
 } from "@/lib/billing/kasirShiftMock";
 import { PASIEN_ADMISI_MOCK } from "@/lib/billing/depositMock";
+import { getPaymentSummary, type PaymentSummaryDTO } from "@/lib/api/billing/invoice";
 import type { KwitansiContext } from "@/lib/billing/kwitansiContext";
-import type { MetodeBayar } from "@/components/billing/invoice/invoiceShared";
 
 /**
  * Kasir Counter Page — orchestrator untuk `/ehis-billing/pembayaran`.
@@ -44,10 +45,14 @@ interface Props {
 export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLinkProp }: Props = {}) {
   const ready = useSkeletonDelay(500);
 
-  // Mock: anggap user session adalah "Sari Wulandari" (kasir-1 active)
+  // Sesi kasir (nama dari user login — sementara statik sampai auth kasir di-wire).
   const SESSION_KASIR = "Sari Wulandari";
 
-  const [shifts, setShifts] = useState<KasirShift[]>(KASIR_SHIFT_MOCK);
+  // Shift = sesi kasir NYATA (buka/tutup); mulai KOSONG (tanpa mock) → kasir buka shift dulu.
+  const [shifts, setShifts] = useState<KasirShift[]>([]);
+  // Ringkasan pembayaran NYATA (billing.payment): per shift aktif + per hari (KPI).
+  const [activeSummary, setActiveSummary] = useState<PaymentSummaryDTO | null>(null);
+  const [todaySummary, setTodaySummary] = useState<PaymentSummaryDTO | null>(null);
   const [activeTab, setActiveTab] = useState<KasirTabKey>(
     initialTab ?? (deepLinkProp ? "quick" : "dashboard"),
   );
@@ -71,6 +76,52 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
 
   const recents = useMemo(() => recentClosedShifts(shifts, 8), [shifts]);
   const timestamp = useMemo(() => formatTimestamp(new Date()), []);
+
+  // ── Ringkasan pembayaran NYATA (re-fetch tiap ada pembayaran via mutationTick) ──
+  // KPI hari ini (lintas shift) — semua pembayaran hari ini.
+  useEffect(() => {
+    const ac = new AbortController();
+    const date = new Date().toISOString().slice(0, 10);
+    getPaymentSummary({ date }, ac.signal)
+      .then((s) => { if (!ac.signal.aborted) setTodaySummary(s); })
+      .catch(() => { if (!ac.signal.aborted) setTodaySummary(null); });
+    return () => ac.abort();
+  }, [mutationTick]);
+
+  // Ringkasan shift aktif — hanya bila shift terbuka.
+  useEffect(() => {
+    if (!activeShift) return;
+    const ac = new AbortController();
+    getPaymentSummary({ shiftId: activeShift.id }, ac.signal)
+      .then((s) => { if (!ac.signal.aborted) setActiveSummary(s); })
+      .catch(() => {});
+    return () => ac.abort();
+  }, [activeShift, mutationTick]);
+
+  // Shift aktif "ter-hidrasi" — total per metode/transaksi/refund dari pembayaran NYATA.
+  const hydratedActiveShift = useMemo<KasirShift | null>(() => {
+    if (!activeShift) return null;
+    if (!activeSummary) return activeShift;
+    return {
+      ...activeShift,
+      totalByMetode: activeSummary.byMetode,
+      totalTransaksi: activeSummary.totalTransaksi,
+      totalRefund: activeSummary.totalRefund,
+    };
+  }, [activeShift, activeSummary]);
+
+  // KPI hari ini (dari pembayaran NYATA).
+  const kpi = useMemo<ShiftKpiAgg>(() => {
+    const s = todaySummary;
+    const nonTunai = s ? s.byMetode.Transfer + s.byMetode.QRIS + s.byMetode.EDC + s.byMetode.Voucher : 0;
+    return {
+      totalTransaksi: s?.totalTransaksi ?? 0,
+      totalTunai: s?.byMetode.Tunai ?? 0,
+      totalNonTunai: nonTunai,
+      totalRefund: s?.totalRefund ?? 0,
+      countersAktif: activeShift ? 1 : 0,
+    };
+  }, [todaySummary, activeShift]);
 
   // Tab counts (badges)
   const tabCounts = useMemo(() => {
@@ -103,6 +154,8 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
   };
 
   const handleCloseShift = (input: TutupShiftInput) => {
+    // Snapshot total NYATA (dari ringkasan pembayaran) ke shift yang ditutup → tampil di Recent.
+    const snap = activeSummary;
     setShifts((prev) =>
       prev.map((s) =>
         s.id === input.shiftId
@@ -114,6 +167,9 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
               selisih: input.selisih,
               tutupCatatan: input.tutupCatatan,
               supervisor: "dr. Indra (Supervisor Keuangan)",
+              ...(snap
+                ? { totalByMetode: snap.byMetode, totalTransaksi: snap.totalTransaksi, totalRefund: snap.totalRefund }
+                : {}),
             }
           : s,
       ),
@@ -142,25 +198,9 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
     setShiftActionState({ action, shift });
   };
 
-  // ── Mutations: payment accumulator (dari QuickBayar / Deposit) ──
-  const handleAccumulate = (metode: MetodeBayar, nominal: number) => {
-    if (!activeShift) return;
-    setShifts((prev) =>
-      prev.map((s) =>
-        s.id === activeShift.id
-          ? {
-              ...s,
-              totalByMetode: {
-                ...s.totalByMetode,
-                [metode]: s.totalByMetode[metode] + nominal,
-              },
-              totalTransaksi: s.totalTransaksi + 1,
-            }
-          : s,
-      ),
-    );
-    setMutationTick((v) => v + 1);
-  };
+  // ── Pembayaran masuk (dari QuickBayar / Deposit) → refetch ringkasan NYATA ──
+  // Total shift/hari tidak lagi diakumulasi client; di-derive dari billing.payment.
+  const handleAccumulate = () => setMutationTick((v) => v + 1);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-50/60 dark:bg-slate-950">
@@ -201,10 +241,11 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
                     transition={{ duration: 0.18 }}
                   >
                     <DashboardPanel
-                      activeShift={activeShift}
+                      activeShift={hydratedActiveShift}
                       recents={recents}
                       shifts={shifts}
                       excludeKasir={SESSION_KASIR}
+                      kpi={kpi}
                       onBukaShift={() => setModal("buka")}
                       onTutupShift={() => setModal("tutup")}
                       onShiftAction={handleShiftAction}
@@ -258,7 +299,7 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
       />
       <TutupShiftModal
         open={modal === "tutup"}
-        shift={activeShift}
+        shift={hydratedActiveShift}
         onClose={() => setModal(null)}
         onTutupShift={handleCloseShift}
       />
