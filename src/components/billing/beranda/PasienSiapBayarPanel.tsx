@@ -11,13 +11,12 @@ import { AlertCircle, ChevronRight, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtRupiahShort, fmtRupiah } from "@/lib/master/penjaminMock";
 import {
-  getPasienSiapBayar,
   PENJAMIN_TIPE_CFG,
   TONE_PALETTE,
+  type PasienSiapBayarEntry,
 } from "./berandaBillingShared";
 
-export default function PasienSiapBayarPanel() {
-  const entries = getPasienSiapBayar(6);
+export default function PasienSiapBayarPanel({ entries }: { entries: PasienSiapBayarEntry[] }) {
   const totalAll = entries.reduce((a, e) => a + e.sisaNominal, 0);
 
   return (
@@ -63,7 +62,7 @@ export default function PasienSiapBayarPanel() {
             return (
               <li key={e.row.id}>
                 <Link
-                  href={`/ehis-billing/tagihan/${e.row.id}`}
+                  href={`/ehis-billing/tagihan/kunjungan/${e.row.id}`}
                   className="group block px-3 py-2.5 transition hover:bg-rose-50/40"
                 >
                   <div className="flex items-start justify-between gap-3">

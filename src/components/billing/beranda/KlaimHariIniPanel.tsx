@@ -3,8 +3,8 @@
 /**
  * Sidebar panel — aktivitas klaim hari ini (Submitted/Approved/Rejected/Paid).
  *
- * Source: `KLAIM_HARI_INI_MOCK` (inline di berandaBillingShared, future swap ke
- * `/ehis-eklaim` claimsMock di EK0). Setiap row deep-link ke `/ehis-eklaim`.
+ * Prop-driven (`entries`). Backend E-Klaim belum ada → dipanggil dengan `[]`
+ * (empty state). Siap terima feed NYATA saat modul E-Klaim di-backend-kan.
  */
 
 import Link from "next/link";
@@ -13,15 +13,14 @@ import { ShieldCheck, ChevronRight, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtRupiahShort } from "@/lib/master/penjaminMock";
 import {
-  KLAIM_HARI_INI_MOCK,
   KLAIM_KIND_CFG,
   PENJAMIN_TIPE_CFG,
   TONE_PALETTE,
   fmtAgo,
+  type KlaimActivityEntry,
 } from "./berandaBillingShared";
 
-export default function KlaimHariIniPanel() {
-  const entries = KLAIM_HARI_INI_MOCK;
+export default function KlaimHariIniPanel({ entries }: { entries: KlaimActivityEntry[] }) {
   const approvedTotal = entries
     .filter((e) => e.kind === "Approved" || e.kind === "Paid")
     .reduce((a, e) => a + e.nominal, 0);

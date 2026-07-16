@@ -12,6 +12,18 @@
 
 ---
 
+## ✅ Selesai — Beranda Billing (BL8) de-mock 100% NYATA (2026-07-17)
+
+Permintaan user: di tab Beranda `/ehis-billing` hapus semua mock data, wire dengan data aktual, **desain tetap**; Card grup **Laporan** dibiarkan (disabled), tombol disable lain dibiarkan.
+
+- **Mock DIHAPUS dari beranda**: `TAGIHAN_BOARD_MOCK`, `KASIR_SHIFT_MOCK`, `SHIFT_PAYMENTS_MOCK`, `KLAIM_HARI_INI_MOCK`, `getRecentPaymentsLintasCounter`, `RecentPaymentEntry`, `TODAY_ISO`, re-export `totalShiftAll` — semua dibuang dari [berandaBillingShared](../src/components/billing/beranda/berandaBillingShared.ts). Aggregator jadi **fungsi murni** menerima input NYATA: `getBillingStats({rows, pendapatan, openShifts})` + `getPasienSiapBayar(rows, limit)` (sisa = total−dibayar). Tipe + config Klaim/KLAIM_KIND_CFG dipertahankan (siap saat E-Klaim backend).
+- **[BerandaBillingPage](../src/components/billing/beranda/BerandaBillingPage.tsx)** fetch paralel (mount): `listBillingKunjungan`→`mapProjectionRow` (rows) · `getPaymentSummary({date:today})` (pendapatan) · `getShiftBoard` (openShifts) · `listRecentPayments({limit:10})` (feed). Render digate `loaded && dataReady` (skeleton s/d data siap). Semua dalam gate `billing.invoice:read`/`billing.kasir:read`.
+- **5 KPI NYATA** ([KPIStripBilling](../src/components/billing/beranda/KPIStripBilling.tsx) tak berubah, terima `stats`): Tagihan Hari Ini (rows waktuKunjungan hari ini) · Outstanding (sisa>0, bukan Draft) · **Klaim Pending = outstanding penjamin non-Umum** (proxy real, tak ada status "Proses Klaim" di proyeksi) · Pendapatan Hari Ini (`totalMasuk − totalRefund`, count=totalTransaksi) · Shift Aktif (openShifts + counter unik).
+- **3 panel prop-driven** (desain + empty-state eksisting dipertahankan): [PasienSiapBayarPanel](../src/components/billing/beranda/PasienSiapBayarPanel.tsx) `entries` + deep-link `→/ehis-billing/tagihan/kunjungan/:kid` (fix dari `/tagihan/:id`); [RecentPaymentsPanel](../src/components/billing/beranda/RecentPaymentsPanel.tsx) `payments: RecentPaymentDTO[]` (invoiceNo→noInvoice, counter→**kasir**, refund `Math.abs(nominal)`, deep-link kunjungan); [KlaimHariIniPanel](../src/components/billing/beranda/KlaimHariIniPanel.tsx) `entries=[]` (E-Klaim belum backend → empty-state, footer tetap link E-Klaim). QuickNavGrid badge dari stats NYATA; **grup Laporan + item disable (Klaim/Refund/Adjustment) TIDAK diubah** (sesuai permintaan).
+- **Verifikasi**: `tsc` bersih (src) · `eslint` bersih (5 file) · pg-smoke angka NYATA: 3 kunjungan ber-order (subtotal Σ 1.369.700) → outstanding; 1 pembayaran non-void → Pendapatan+feed; 1 shift Open → Shift Aktif. Empty-state jalan saat data absen.
+
+---
+
 ## ✅ Selesai — Kasir Shift PERSIST + dropdown Kasir NYATA (fix shift re-buka lintas navigasi) (2026-07-17)
 
 Permintaan user: (1) di tab Dashboard Pembayaran, shift kasir selalu harus dibuka lagi tiap pindah halaman — fix agar persist; (2) dropdown Kasir di Buka Shift ambil dari **user role "Kasir" + unitKerja kasir** (bukan mock); (3) ganti dropdown native jadi komponen Select yang proper. Akar masalah: `shifts` = state client (mulai `[]`) → hilang saat unmount/navigasi. Solusi: **persist shift ke DB**.

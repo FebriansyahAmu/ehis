@@ -1,16 +1,15 @@
 /**
  * Beranda Billing — aggregator + types untuk dashboard landing /ehis-billing.
  *
- * Pattern mirror `berandaShared.ts` di Beranda Master (Phase 3.1):
- *   - `getBillingStats()` — angka realtime dari mock source-of-truth
- *   - `getBillingQuickNavGroups()` — denormalisasi nav cards per grup
- *   - `getPasienSiapBayar()` — list discharge belum lunas (sort sisa desc)
- *   - `getKlaimHariIni()` — list klaim status changed today (mock inline)
- *   - `getRecentPaymentsLintasCounter()` — feed lintas semua shift
+ * DATA NYATA (tanpa mock): angka & daftar diturunkan dari proyeksi billing + pembayaran
+ * + shift NYATA yang di-fetch di `BerandaBillingPage`, lalu di-agregat oleh fungsi murni
+ * di sini (menerima input, tidak membaca store):
+ *   - `getBillingStats(input)`        — 5 KPI (tagihan hari ini · outstanding · klaim penjamin · pendapatan · shift)
+ *   - `getBillingQuickNavGroups(stats)` — denormalisasi nav cards per grup (badge dari stats)
+ *   - `getPasienSiapBayar(rows)`      — kunjungan outstanding (sort sisa desc)
  *
- * "Hari ini" memakai TODAY_ISO konstan = `2026-05-24` agar konsisten dengan
- * mock data (TAGIHAN_BOARD_MOCK + KASIR_SHIFT_MOCK semua seed di tanggal ini).
- * Saat backend ready: ganti dengan `new Date().toISOString().slice(0,10)`.
+ * Panel Klaim Hari Ini = feed aktivitas E-Klaim (belum ada backend → empty state);
+ * Pembayaran Terbaru = feed pembayaran NYATA lintas counter (RecentPaymentDTO, prop-driven).
  */
 
 import {
@@ -20,17 +19,15 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { TAGIHAN_BOARD_MOCK, sisa, type TagihanRow } from "@/lib/billing/tagihanBoardMock";
-import { KASIR_SHIFT_MOCK, totalShiftAll, type KasirShift } from "@/lib/billing/kasirShiftMock";
-import { SHIFT_PAYMENTS_MOCK, type ShiftPaymentLog } from "@/lib/billing/shiftPaymentsMock";
+import type { TagihanRow } from "@/lib/billing/tagihanBoardMock";
 
-// ── Konstanta demo ──────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────
 
-/** Tanggal "hari ini" untuk demo (selaras dengan seed mock). */
-export const TODAY_ISO = "2026-05-24";
+const todayISO = () => new Date().toISOString().slice(0, 10);
 
-function isToday(iso: string): boolean {
-  return iso.startsWith(TODAY_ISO);
+/** Sisa tagihan baris (proyeksi) = total − dibayar, tak negatif. */
+function rowSisa(r: TagihanRow): number {
+  return Math.max(0, r.total - r.dibayar);
 }
 
 // ── Public stats ─────────────────────────────────────────
@@ -43,29 +40,24 @@ export interface BillingStats {
   shiftAktif:        { count: number; counters: number };
 }
 
-export function getBillingStats(): BillingStats {
-  const todayRows = TAGIHAN_BOARD_MOCK.filter((r) => isToday(r.tanggalISO));
-  const outstandingRows = TAGIHAN_BOARD_MOCK.filter(
-    (r) => sisa(r) > 0 && r.status !== "Void" && r.status !== "Draft",
-  );
-  const klaimPendingRows = TAGIHAN_BOARD_MOCK.filter(
-    (r) => r.status === "Proses Klaim",
-  );
+/** Input agregasi KPI dari sumber NYATA (di-fetch di page). */
+export interface BillingStatsInput {
+  /** Baris tagihan kunjungan (proyeksi billing) → mapProjectionRow. */
+  rows: TagihanRow[];
+  /** Pendapatan hari ini (ringkasan pembayaran NYATA by date). */
+  pendapatan: { count: number; total: number };
+  /** Shift kasir Open (papan shift NYATA). */
+  openShifts: { counter: string }[];
+}
 
-  // Pendapatan hari ini = aggregate semua shift payment today (lintas counter)
-  let pendapatanTotal = 0;
-  let pendapatanCount = 0;
-  for (const logs of Object.values(SHIFT_PAYMENTS_MOCK)) {
-    for (const log of logs) {
-      if (!isToday(log.tanggalISO) || log.voided) continue;
-      pendapatanCount += 1;
-      // Refund kategori nominal sudah negatif (atau di-prefix "−") — kita treat sebagai self-cancel
-      pendapatanTotal += log.nominal;
-    }
-  }
-
-  const openShifts = KASIR_SHIFT_MOCK.filter((s) => s.status === "Open");
-  const uniqCounters = new Set(openShifts.map((s) => s.counter)).size;
+export function getBillingStats(input: BillingStatsInput): BillingStats {
+  const today = todayISO();
+  const todayRows = input.rows.filter((r) => r.tanggalISO.startsWith(today));
+  // Outstanding = tagihan belum lunas (ada sisa) & bukan Draft (belum ada charge).
+  const outstandingRows = input.rows.filter((r) => rowSisa(r) > 0 && r.status !== "Draft");
+  // Klaim penjamin pending = tagihan outstanding milik penjamin (bukan Umum) → menunggu klaim/settle.
+  const klaimPendingRows = outstandingRows.filter((r) => r.penjamin.tipe !== "umum");
+  const uniqCounters = new Set(input.openShifts.map((s) => s.counter)).size;
 
   return {
     tagihanHariIni: {
@@ -74,18 +66,15 @@ export function getBillingStats(): BillingStats {
     },
     outstanding: {
       count: outstandingRows.length,
-      total: outstandingRows.reduce((a, r) => a + sisa(r), 0),
+      total: outstandingRows.reduce((a, r) => a + rowSisa(r), 0),
     },
     klaimPending: {
       count: klaimPendingRows.length,
-      total: klaimPendingRows.reduce((a, r) => a + r.total, 0),
+      total: klaimPendingRows.reduce((a, r) => a + rowSisa(r), 0),
     },
-    pendapatanHariIni: {
-      count: pendapatanCount,
-      total: pendapatanTotal,
-    },
+    pendapatanHariIni: input.pendapatan,
     shiftAktif: {
-      count: openShifts.length,
+      count: input.openShifts.length,
       counters: uniqCounters,
     },
   };
@@ -187,28 +176,24 @@ export interface PasienSiapBayarEntry {
 
 /**
  * Pasien yang sudah dapat tagihan tapi belum lunas, urut sisa terbesar dulu.
- * Exclude Draft (belum final) + Void.
+ * Exclude Draft (belum ada charge). Sumber = baris proyeksi billing NYATA.
  */
-export function getPasienSiapBayar(limit = 6): PasienSiapBayarEntry[] {
-  return TAGIHAN_BOARD_MOCK
-    .filter((r) => sisa(r) > 0 && r.status !== "Void" && r.status !== "Draft")
+export function getPasienSiapBayar(rows: TagihanRow[], limit = 6): PasienSiapBayarEntry[] {
+  return rows
+    .filter((r) => rowSisa(r) > 0 && r.status !== "Draft")
     .map((r) => {
-      const s = sisa(r);
+      const s = rowSisa(r);
       return { row: r, sisaNominal: s, sisaPct: r.total > 0 ? Math.round((s / r.total) * 100) : 0 };
     })
     .sort((a, b) => b.sisaNominal - a.sisaNominal)
     .slice(0, limit);
 }
 
-// ── Klaim Hari Ini (inline mock — billing read-only view) ─
+// ── Klaim Hari Ini (feed aktivitas E-Klaim) ──────────────
+//
+// Belum ada backend E-Klaim → panel menerima `entries` (prop). Tanpa data nyata =
+// empty state. Tipe + config dipertahankan agar siap saat modul E-Klaim di-backend-kan.
 
-/**
- * Mock klaim activity hari ini untuk dashboard panel.
- *
- * Source of truth nantinya di `/ehis-eklaim` (claimsMock di EK0). Untuk Beranda
- * billing kita inline ringkas — sama pattern dengan `RECENT_EDITS_MOCK` di
- * Beranda Master yang inline aktivitas tanpa import seluruh audit store.
- */
 export type KlaimActivityKind =
   | "Submitted" | "Approved" | "Rejected" | "Paid";
 
@@ -221,18 +206,10 @@ export interface KlaimActivityEntry {
   penjaminTipe: "bpjs" | "asuransi" | "jamkesda";
   nominal: number;
   kind: KlaimActivityKind;
-  /** Detik dari TODAY_ISO start-of-day (negatif). */
+  /** Detik relatif sekarang (negatif = lampau). */
   agoSec: number;
   actor: string;
 }
-
-export const KLAIM_HARI_INI_MOCK: KlaimActivityEntry[] = [
-  { id: "k1", invoiceNo: "INV/2026/05/00239", pasienNama: "Sutrisno Bagus",  pasienRM: "RM-2025-008", penjamin: "BPJS Non-PBI",   penjaminTipe: "bpjs",     nominal: 16_265_000, kind: "Submitted", agoSec: -2_400,  actor: "Susi (Tim Klaim)" },
-  { id: "k2", invoiceNo: "INV/2026/05/00237", pasienNama: "Andi Pratama",    pasienRM: "RM-2025-031", penjamin: "BPJS Non-PBI",   penjaminTipe: "bpjs",     nominal: 11_450_000, kind: "Approved",  agoSec: -5_400,  actor: "Verifikator BPJS" },
-  { id: "k3", invoiceNo: "INV/2026/05/00220", pasienNama: "Hartono Sukirman",pasienRM: "RM-2025-040", penjamin: "AXA Mandiri",    penjaminTipe: "asuransi", nominal:  4_780_000, kind: "Rejected",  agoSec: -10_800, actor: "Verifikator AXA" },
-  { id: "k4", invoiceNo: "INV/2026/05/00198", pasienNama: "Indah Lestari",   pasienRM: "RM-2025-022", penjamin: "BPJS PBI",       penjaminTipe: "bpjs",     nominal:  8_320_000, kind: "Paid",      agoSec: -14_400, actor: "Bendahara BPJS" },
-  { id: "k5", invoiceNo: "INV/2026/05/00222", pasienNama: "Yuni Astuti",     pasienRM: "RM-2025-029", penjamin: "Jamkesda DKI",   penjaminTipe: "jamkesda", nominal:  2_640_000, kind: "Submitted", agoSec: -21_600, actor: "Susi (Tim Klaim)" },
-];
 
 export const KLAIM_KIND_CFG: Record<KlaimActivityKind, { label: string; tone: QuickNavTone; verb: string }> = {
   Submitted: { label: "Submitted", tone: "sky",     verb: "dikirim"     },
@@ -248,38 +225,6 @@ export const PENJAMIN_TIPE_CFG: Record<"bpjs" | "asuransi" | "jamkesda" | "umum"
   umum:     { label: "Umum",     tone: "slate"   },
 };
 
-// ── Recent Payments lintas counter ───────────────────────
-
-export interface RecentPaymentEntry extends ShiftPaymentLog {
-  shiftId: string;
-  counter: string;
-}
-
-/**
- * Feed pembayaran terakhir lintas semua shift (Open + Closed) — sortir DESC by
- * tanggalISO. Voided di-skip dari feed (audit ada di tab Riwayat invoice).
- */
-export function getRecentPaymentsLintasCounter(limit = 10): RecentPaymentEntry[] {
-  const all: RecentPaymentEntry[] = [];
-  const shiftIndex: Record<string, KasirShift> = {};
-  for (const s of KASIR_SHIFT_MOCK) shiftIndex[s.id] = s;
-
-  for (const [shiftId, logs] of Object.entries(SHIFT_PAYMENTS_MOCK)) {
-    for (const log of logs) {
-      if (log.voided) continue;
-      all.push({
-        ...log,
-        shiftId,
-        counter: shiftIndex[shiftId]?.counter ?? shiftId,
-      });
-    }
-  }
-
-  return all
-    .sort((a, b) => b.tanggalISO.localeCompare(a.tanggalISO))
-    .slice(0, limit);
-}
-
 // ── Format helpers ──────────────────────────────────────
 
 /** Format "X menit lalu" / "X jam lalu" / "X hari lalu". */
@@ -291,11 +236,9 @@ export function fmtAgo(sec: number): string {
   return `${Math.round(abs / 86400)} hari lalu`;
 }
 
-/** Format jam HH:mm dari ISO datetime. */
+/** Format jam HH:mm (waktu lokal) dari ISO datetime. */
 export function fmtJam(iso: string): string {
-  const time = iso.slice(11, 16);
-  return time || "--:--";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "--:--";
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
-
-/** Re-export aggregator total shift. */
-export { totalShiftAll };

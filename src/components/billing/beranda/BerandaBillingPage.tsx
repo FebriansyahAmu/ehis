@@ -12,7 +12,7 @@
  * Loading state: skeleton 500ms → fade-in motion.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Wallet, Clock } from "lucide-react";
 import { useSkeletonDelay } from "@/components/master/shared";
@@ -20,7 +20,17 @@ import { cn } from "@/lib/utils";
 import {
   getBillingStats,
   getBillingQuickNavGroups,
+  getPasienSiapBayar,
+  type BillingStats,
 } from "./berandaBillingShared";
+import { listBillingKunjungan } from "@/lib/api/billing/projection";
+import {
+  getPaymentSummary, listRecentPayments,
+  type PaymentSummaryDTO, type RecentPaymentDTO,
+} from "@/lib/api/billing/invoice";
+import { getShiftBoard } from "@/lib/api/billing/shift";
+import { mapProjectionRow } from "../tagihan/realRows";
+import type { TagihanRow } from "@/lib/billing/tagihanBoardMock";
 import KPIStripBilling from "./KPIStripBilling";
 import QuickNavGridBilling from "./QuickNavGridBilling";
 import PasienSiapBayarPanel from "./PasienSiapBayarPanel";
@@ -65,8 +75,47 @@ function PageSkeleton() {
 
 export default function BerandaBillingPage() {
   const loaded = useSkeletonDelay(500);
-  const stats = useMemo(() => getBillingStats(), []);
+
+  // ── Data NYATA: proyeksi tagihan + pembayaran hari ini + shift Open + feed pembayaran ──
+  const [rows, setRows] = useState<TagihanRow[]>([]);
+  const [summary, setSummary] = useState<PaymentSummaryDTO | null>(null);
+  const [openShifts, setOpenShifts] = useState<{ counter: string }[]>([]);
+  const [recent, setRecent] = useState<RecentPaymentDTO[]>([]);
+  const [dataReady, setDataReady] = useState(false);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    const today = new Date().toISOString().slice(0, 10);
+    Promise.all([
+      listBillingKunjungan(ac.signal),
+      getPaymentSummary({ date: today }, ac.signal),
+      getShiftBoard(ac.signal),
+      listRecentPayments({ limit: 10 }, ac.signal),
+    ])
+      .then(([kunj, sum, board, rec]) => {
+        if (ac.signal.aborted) return;
+        setRows(kunj.map(mapProjectionRow));
+        setSummary(sum);
+        setOpenShifts(board.open.map((s) => ({ counter: s.counter })));
+        setRecent(rec);
+      })
+      .catch(() => { /* biarkan default kosong → empty state */ })
+      .finally(() => { if (!ac.signal.aborted) setDataReady(true); });
+    return () => ac.abort();
+  }, []);
+
+  const stats = useMemo<BillingStats>(
+    () => getBillingStats({
+      rows,
+      pendapatan: summary
+        ? { count: summary.totalTransaksi, total: summary.totalMasuk - summary.totalRefund }
+        : { count: 0, total: 0 },
+      openShifts,
+    }),
+    [rows, summary, openShifts],
+  );
   const groups = useMemo(() => getBillingQuickNavGroups(stats), [stats]);
+  const pasienSiapBayar = useMemo(() => getPasienSiapBayar(rows, 6), [rows]);
 
   const timestamp = useMemo(() => {
     const d = new Date();
@@ -76,7 +125,7 @@ export default function BerandaBillingPage() {
   return (
     <div className="flex h-full flex-col">
       <AnimatePresence mode="wait">
-        {!loaded ? (
+        {!loaded || !dataReady ? (
           <motion.div key="skel" exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="h-full">
             <PageSkeleton />
           </motion.div>
@@ -129,9 +178,9 @@ export default function BerandaBillingPage() {
                 <QuickNavGridBilling groups={groups} />
               </div>
               <aside className="flex min-w-0 flex-col gap-4 lg:col-span-4">
-                <PasienSiapBayarPanel />
-                <KlaimHariIniPanel />
-                <RecentPaymentsPanel />
+                <PasienSiapBayarPanel entries={pasienSiapBayar} />
+                <KlaimHariIniPanel entries={[]} />
+                <RecentPaymentsPanel payments={recent} />
               </aside>
             </div>
           </motion.div>

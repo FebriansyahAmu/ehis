@@ -10,11 +10,9 @@ import { motion } from "framer-motion";
 import { History, ChevronRight, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtRupiahShort } from "@/lib/master/penjaminMock";
-import { METODE_CFG } from "@/components/billing/invoice/invoiceShared";
-import {
-  getRecentPaymentsLintasCounter,
-  fmtJam,
-} from "./berandaBillingShared";
+import { METODE_CFG, type MetodeBayar } from "@/components/billing/invoice/invoiceShared";
+import type { RecentPaymentDTO } from "@/lib/api/billing/invoice";
+import { fmtJam } from "./berandaBillingShared";
 
 const KATEGORI_TONE: Record<string, { bg: string; text: string }> = {
   Pembayaran: { bg: "bg-emerald-50", text: "text-emerald-700" },
@@ -22,8 +20,8 @@ const KATEGORI_TONE: Record<string, { bg: string; text: string }> = {
   Refund:     { bg: "bg-rose-50",    text: "text-rose-700"    },
 };
 
-export default function RecentPaymentsPanel() {
-  const entries = getRecentPaymentsLintasCounter(8);
+export default function RecentPaymentsPanel({ payments }: { payments: RecentPaymentDTO[] }) {
+  const entries = payments.slice(0, 8);
   const totalAll = entries
     .filter((e) => e.kategori !== "Refund")
     .reduce((a, e) => a + e.nominal, 0);
@@ -66,7 +64,7 @@ export default function RecentPaymentsPanel() {
       ) : (
         <ul className="divide-y divide-slate-100">
           {entries.map((e) => {
-            const m = METODE_CFG[e.metode];
+            const m = METODE_CFG[e.metode as MetodeBayar] ?? METODE_CFG.Tunai;
             const Icon = m.icon;
             const kategoriCfg = KATEGORI_TONE[e.kategori] ?? KATEGORI_TONE.Pembayaran;
             const isRefund = e.kategori === "Refund";
@@ -74,7 +72,7 @@ export default function RecentPaymentsPanel() {
             return (
               <li key={e.id}>
                 <Link
-                  href={`/ehis-billing/tagihan/${e.invoiceId}`}
+                  href={`/ehis-billing/tagihan/kunjungan/${e.kunjunganId}`}
                   className="group flex items-start gap-2 px-3 py-2.5 transition hover:bg-emerald-50/40"
                 >
                   <span
@@ -106,11 +104,11 @@ export default function RecentPaymentsPanel() {
                       )}
                     </div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                      <span className="font-mono text-[9.5px] text-slate-400">{e.invoiceNo}</span>
+                      <span className="font-mono text-[9.5px] text-slate-400">{e.noInvoice}</span>
                       <span className="text-[10px] text-slate-300">·</span>
                       <span className="text-[10px] text-slate-500">{e.metode}</span>
                       <span className="text-[10px] text-slate-300">·</span>
-                      <span className="text-[10px] text-slate-500">{e.counter}</span>
+                      <span className="truncate text-[10px] text-slate-500">{e.kasir}</span>
                     </div>
                   </div>
 
@@ -122,7 +120,7 @@ export default function RecentPaymentsPanel() {
                       )}
                     >
                       {isRefund && "−"}
-                      {fmtRupiahShort(e.nominal)}
+                      {fmtRupiahShort(Math.abs(e.nominal))}
                     </p>
                     <p className="font-mono text-[9.5px] text-slate-400">{fmtJam(e.tanggalISO)}</p>
                   </div>
