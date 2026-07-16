@@ -83,7 +83,7 @@ export default function AdmisiResultRow({
         <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-slate-500">
           <span className="font-mono">{pasien.noKunjungan}</span>
           <span>· {pasien.kelas} · {pasien.penjamin.nama}</span>
-          <span>· {pasien.dpjp}</span>
+          {pasien.dpjp && <span>· {pasien.dpjp}</span>}
         </div>
       </div>
 

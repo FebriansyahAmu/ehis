@@ -1,99 +1,93 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { PiggyBank, MousePointerClick, Inbox } from "lucide-react";
+import { PiggyBank, MousePointerClick, Inbox, Loader2 } from "lucide-react";
 import QuickSearchInput from "../quick/QuickSearchInput";
 import AdmisiResultRow from "./AdmisiResultRow";
 import DepositForm, { type DepositSubmitInput } from "./DepositForm";
 import DraftInvoicePreview from "./DraftInvoicePreview";
-import {
-  PASIEN_ADMISI_MOCK, searchPasienAdmisi, removePasienAdmisi,
-  type PasienAdmisi,
-} from "@/lib/billing/depositMock";
-import { appendShiftPayment, type ShiftPaymentLog } from "@/lib/billing/shiftPaymentsMock";
-import { nextNoKwitansi } from "@/lib/billing/paymentCalc";
-import { fromDepositInput, type KwitansiContext } from "@/lib/billing/kwitansiContext";
+import { searchPasienAdmisi, suggestDeposit, type PasienAdmisi } from "@/lib/billing/depositMock";
+import { recordPayment } from "@/lib/api/billing/invoice";
+import { invoiceStateToDetail } from "../../invoice/invoiceStateMap";
+import type { KwitansiContext } from "@/lib/billing/kwitansiContext";
 import type { KasirShift } from "@/lib/billing/kasirShiftMock";
 import type { PaymentRecord } from "../../invoice/invoiceShared";
 
 interface Props {
   shift: KasirShift;
+  /** Daftar pasien admisi pending (RI belum bayar) — data NYATA dari proyeksi billing (page-level). */
+  pending: PasienAdmisi[];
+  /** Status muat daftar (page-level fetch). */
+  loading: boolean;
   onAccumulate: (metode: PaymentRecord["metode"], nominal: number) => void;
   /** Auto-buka kwitansi preview setelah deposit di-save. */
   onPrintKwitansi?: (ctx: KwitansiContext) => void;
 }
 
 /**
- * Deposit Awal Panel (BL3.3) — orchestrator search + form + draft preview.
+ * Deposit Awal Panel (BL3.3) — orchestrator search + form + draft preview. Data NYATA (tanpa mock):
+ *   - Daftar admisi = kunjungan Rawat Inap belum bayar (proyeksi billing, di-supply page).
+ *   - Buka deposit = `recordPayment` kategori "Deposit" (kwitansi KW, kasir server-resolved).
  *
  * Layout 2-col responsive:
  *   - Left: search input + result list pasien admisi (atau form jika selected)
  *   - Right: DraftInvoicePreview sticky lg-up
  */
-export default function DepositAwalPanel({ shift, onAccumulate, onPrintKwitansi }: Props) {
+export default function DepositAwalPanel({ shift, pending, loading, onAccumulate, onPrintKwitansi }: Props) {
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<PasienAdmisi | null>(null);
-  const [previewNominal, setPreviewNominal] = useState(0);
-  const [previewMetode, setPreviewMetode] = useState("Tunai");
-  // Trigger re-render saat list mutated (pasien dihapus dari mock)
-  const [tick, setTick] = useState(0);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const results = useMemo(
-    () => searchPasienAdmisi(query, PASIEN_ADMISI_MOCK),
-    [query, tick],
+  const results = useMemo(() => searchPasienAdmisi(query, pending), [query, pending]);
+
+  // Seleksi diturunkan dari daftar nyata → auto-lepas bila pasien hilang (deposit tercatat / refetch).
+  const selected = useMemo(
+    () => (selectedId ? results.find((p) => p.id === selectedId) ?? null : null),
+    [selectedId, results],
   );
 
-  // Auto-deselect kalau pasien terpilih sudah hilang dari list (di-process di tab lain)
-  useEffect(() => {
-    if (selected && !results.find((p) => p.id === selected.id)) {
-      setSelected(null);
+  // Preview nominal = saran sistem (kelas × LOS default + buffer) — statik; form boleh override live.
+  const previewNominal = useMemo(
+    () => (selected
+      ? suggestDeposit({
+          kelas: selected.kelas,
+          losDays: selected.estimasiLOS ?? 5,
+          kategori: selected.kategori,
+          penjaminTipe: selected.penjamin.tipe,
+        }).total
+      : 0),
+    [selected],
+  );
+
+  const handleDepositSubmit = async (input: DepositSubmitInput) => {
+    try {
+      const state = await recordPayment(input.pasien.id, {
+        metode: input.payment.metode,
+        kategori: "Deposit",
+        nominal: input.payment.nominal,
+        shiftId: shift.id,
+        bank: input.payment.bank || undefined,
+        noRef: input.payment.noRef || undefined,
+        catatan: input.payment.catatan || undefined,
+      });
+      onAccumulate(input.payment.metode, input.payment.nominal);
+
+      // Kwitansi dari state nyata (invoice + deposit terbaru)
+      if (onPrintKwitansi) {
+        const detail = invoiceStateToDetail(state);
+        const payment = [...detail.payments]
+          .filter((p) => !p.voided)
+          .sort((a, b) => b.tanggalISO.localeCompare(a.tanggalISO))[0];
+        if (payment) onPrintKwitansi({ detail, payment });
+      }
+
+      // Pasien lepas dari daftar setelah refetch (dibayar > 0) — bersihkan seleksi + query.
+      setSelectedId(null);
+      setQuery("");
+    } catch (e) {
+      console.error("[Deposit] recordPayment gagal:", e);
     }
-  }, [results, selected]);
-
-  const handleDepositSubmit = (input: DepositSubmitInput) => {
-    // 1. Create payment log entry (mock — backend create invoice draft + payment)
-    const baseLog: ShiftPaymentLog = {
-      ...input.payment,
-      id: `log-${Date.now()}`,
-      noKwitansi: nextNoKwitansi([]),
-      invoiceId: `INV-DRAFT-${input.pasien.id}`,
-      invoiceNo: `INV/2026/05/NEW-${input.pasien.noKunjungan.slice(-4)}`,
-      pasienNama: input.pasien.pasien.nama,
-      pasienRM: input.pasien.pasien.noRM,
-    };
-
-    // 2. Synthesize InvoiceDetail draft → cache di log.draftDetail untuk reprint
-    const ctx = fromDepositInput(input.pasien, baseLog);
-    const log: ShiftPaymentLog = { ...baseLog, draftDetail: ctx.detail };
-
-    appendShiftPayment(shift.id, log);
-    onAccumulate(input.payment.metode, input.payment.nominal);
-
-    // 3. C2 — auto-buka kwitansi preview (cetak deposit slip)
-    if (onPrintKwitansi) onPrintKwitansi(ctx);
-
-    // 4. Remove pasien dari admisi pending list
-    removePasienAdmisi(input.pasien.id);
-    setSelected(null);
-    setQuery("");
-    setTick((v) => v + 1);
-
-    console.log("[BL3.3] Deposit awal submitted:", { input, log });
   };
-
-  // Watch nominal change di form (for preview update)
-  // Karena DepositForm tidak expose live state, kita pakai useEffect listener
-  // alternatif via re-mount approach. Simplest: bind state via parent.
-  // Untuk MVP — preview pakai suggested.total estimasi (default).
-  useEffect(() => {
-    if (selected) {
-      // Default preview = suggested total dengan LOS default
-      // (akan re-calc di DepositForm internal, preview is static estimate)
-      setPreviewNominal(0);  // will be updated when form mounts
-      setPreviewMetode("Tunai");
-    }
-  }, [selected]);
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
@@ -123,7 +117,7 @@ export default function DepositAwalPanel({ shift, onAccumulate, onPrintKwitansi 
               />
               <button
                 type="button"
-                onClick={() => setSelected(null)}
+                onClick={() => setSelectedId(null)}
                 className="mt-2 text-[11.5px] text-slate-500 hover:text-slate-700 hover:underline dark:hover:text-slate-300"
               >
                 ← Kembali ke daftar admisi
@@ -143,12 +137,14 @@ export default function DepositAwalPanel({ shift, onAccumulate, onPrintKwitansi 
                 hint={
                   query.trim()
                     ? `${results.length} pasien match "${query}"`
-                    : `${results.length} pasien menunggu deposit — sort by urgensi & jam`
+                    : `${results.length} pasien Rawat Inap menunggu deposit — belum ada pembayaran`
                 }
                 icon={query.trim() ? MousePointerClick : PiggyBank}
               />
 
-              {results.length === 0 ? (
+              {loading ? (
+                <LoadingResults />
+              ) : results.length === 0 ? (
                 <EmptyResults query={query} />
               ) : (
                 <ul className="space-y-2">
@@ -157,7 +153,7 @@ export default function DepositAwalPanel({ shift, onAccumulate, onPrintKwitansi 
                       key={p.id}
                       pasien={p}
                       selected={false}
-                      onSelect={() => setSelected(p)}
+                      onSelect={() => setSelectedId(p.id)}
                       delay={Math.min(0.25, idx * 0.04)}
                     />
                   ))}
@@ -173,8 +169,8 @@ export default function DepositAwalPanel({ shift, onAccumulate, onPrintKwitansi 
         {selected ? (
           <DraftInvoicePreview
             pasien={selected}
-            nominal={previewNominal || 0}
-            metode={previewMetode}
+            nominal={previewNominal}
+            metode="Tunai"
           />
         ) : (
           <DepositInfoCard />
@@ -204,6 +200,17 @@ function SectionLabel({
   );
 }
 
+// ── Loading results ────────────────────────────────────
+
+function LoadingResults() {
+  return (
+    <div className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/40 px-6 py-8 text-slate-400 dark:border-slate-800 dark:bg-slate-900/30">
+      <Loader2 size={15} className="animate-spin text-amber-500" />
+      <span className="text-[12px]">Memuat pasien admisi…</span>
+    </div>
+  );
+}
+
 // ── Empty results ──────────────────────────────────────
 
 function EmptyResults({ query }: { query: string }) {
@@ -218,7 +225,7 @@ function EmptyResults({ query }: { query: string }) {
       <p className="mt-1 max-w-sm text-[10.5px] text-slate-500">
         {query
           ? `Tidak ada match untuk "${query}". Coba kata kunci lain atau cek no kunjungan.`
-          : "Tidak ada pasien yang menunggu deposit admisi saat ini. Pasien baru akan muncul saat tim pendaftaran selesai entry."}
+          : "Belum ada pasien Rawat Inap yang menunggu deposit. Pasien baru akan muncul saat admisi RI dibuat dan belum ada pembayaran."}
       </p>
     </div>
   );
@@ -249,8 +256,8 @@ function DepositInfoCard() {
           keluarga.
         </li>
         <li>
-          <strong>1 invoice draft</strong> dibuat saat submit — tagihan baru muncul di
-          <em> /ehis-billing/tagihan</em>.
+          <strong>1 invoice</strong> dibuat saat submit — deposit tercatat sebagai pembayaran
+          pertama di <em>/ehis-billing/tagihan</em>.
         </li>
       </ul>
       <p className="mt-2 text-[10px] italic text-slate-500">

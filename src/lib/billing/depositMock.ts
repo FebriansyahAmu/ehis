@@ -1,13 +1,11 @@
 /**
- * Deposit Awal (BL3.3) — pasien baru admisi RI / pre-op tindakan major yang
- * butuh deposit di muka sebelum pelayanan dimulai.
+ * Deposit Awal (BL3.3) — pasien admisi RI yang butuh deposit di muka sebelum
+ * pelayanan dimulai.
  *
- * Mock-first: separate dari `TAGIHAN_BOARD_MOCK` (yang sudah ada invoice).
- * Daftar ini = "pasien sudah daftar admisi, belum punya tagihan/deposit".
- *
- * Saat backend ready: query `prisma.kunjungan.findMany({ where: {
- *   status: "Admisi_Pending", invoiceId: null,
- * }})` lalu sort by urgensi (pre-op CITO duluan).
+ * DATA NYATA: daftar pasien admisi kini diturunkan dari proyeksi billing
+ * (`GET /billing/kunjungan` → kunjungan Rawat Inap yang belum ada pembayaran),
+ * di-adapt ke `PasienAdmisi` via `components/billing/kasir/deposit/realAdmisi`.
+ * File ini menyimpan HANYA tipe + heuristik saran nominal (bukan data pasien).
  */
 
 import type {
@@ -104,97 +102,15 @@ function formatRupiahShort(v: number): string {
   return `Rp ${v}`;
 }
 
-// ── Mock pasien admisi ────────────────────────────────
-
-const today = "2026-05-24";
-const tomorrow = "2026-05-25";
-
-export const PASIEN_ADMISI_MOCK: PasienAdmisi[] = [
-  {
-    id: "adm-001",
-    noKunjungan: "RI/2026/05/0078",
-    pasien: { nama: "Hadi Wijaya", noRM: "RM-2025-091", gender: "L", age: 58 },
-    unit: "RI",
-    kelas: "K1",
-    penjamin: { tipe: "umum", nama: "Umum / Pribadi" },
-    dpjp: "dr. Budi Santoso, Sp.JP",
-    kategori: "RI Baru",
-    urgensi: "Rutin",
-    rencanaAdmisi: `${today}T15:00`,
-    diagnosaSementara: "Hipertensi Krisis + CHF NYHA III",
-    estimasiLOS: 5,
-    catatan: "Pasien rujukan dari poli jantung — admisi sore",
-  },
-  {
-    id: "adm-002",
-    noKunjungan: "RI/2026/05/0079",
-    pasien: { nama: "Lina Sari", noRM: "RM-2025-092", gender: "P", age: 42 },
-    unit: "RI",
-    kelas: "VIP",
-    penjamin: { tipe: "asuransi", nama: "AXA Mandiri" },
-    dpjp: "dr. Anisa Putri, Sp.OG",
-    kategori: "Pre-Op Major",
-    urgensi: "Rutin",
-    rencanaAdmisi: `${tomorrow}T07:00`,
-    diagnosaSementara: "Mioma Uteri",
-    rencanaTindakan: "Total Abdominal Hysterectomy",
-    estimasiLOS: 5,
-    catatan: "Asuransi sudah konfirmasi cashless — deposit utk uang muka",
-  },
-  {
-    id: "adm-003",
-    noKunjungan: "RI/2026/05/0080",
-    pasien: { nama: "Sutrisno Aji", noRM: "RM-2025-093", gender: "L", age: 64 },
-    unit: "RI",
-    kelas: "ICU",
-    penjamin: { tipe: "bpjs", nama: "BPJS Non-PBI" },
-    dpjp: "dr. Hendra Wijaya, Sp.EM",
-    kategori: "ICU Admisi",
-    urgensi: "Cito",
-    rencanaAdmisi: `${today}T13:30`,
-    diagnosaSementara: "Sepsis Berat dengan Gagal Napas",
-    estimasiLOS: 4,
-    catatan: "Transfer dari IGD — naik kelas ICU dari ICU BPJS",
-  },
-  {
-    id: "adm-004",
-    noKunjungan: "RI/2026/05/0081",
-    pasien: { nama: "Maya Lestari", noRM: "RM-2025-094", gender: "P", age: 28 },
-    unit: "RI",
-    kelas: "K2",
-    penjamin: { tipe: "bpjs", nama: "BPJS PBI" },
-    dpjp: "dr. Anisa Putri, Sp.OG",
-    kategori: "RI Baru",
-    urgensi: "Rutin",
-    rencanaAdmisi: `${tomorrow}T08:00`,
-    diagnosaSementara: "Persalinan Spontan",
-    estimasiLOS: 3,
-  },
-  {
-    id: "adm-005",
-    noKunjungan: "RI/2026/05/0082",
-    pasien: { nama: "Bambang Hartono", noRM: "RM-2025-095", gender: "L", age: 71 },
-    unit: "RI",
-    kelas: "VIP",
-    penjamin: { tipe: "umum", nama: "Umum / Pribadi" },
-    dpjp: "dr. Indra Cahyo, Sp.B",
-    kategori: "Pre-Op Major",
-    urgensi: "Emergency",
-    rencanaAdmisi: `${today}T16:30`,
-    diagnosaSementara: "Appendisitis Perforata",
-    rencanaTindakan: "Appendiktomi CITO + Laparotomi Eksplorasi",
-    estimasiLOS: 8,
-    catatan: "Operasi emergency malam ini — keluarga sudah konfirmasi deposit tunai",
-  },
-];
+// ── Search + sort pasien admisi (data NYATA di-supply caller) ──────────
 
 /**
- * Search pasien admisi by nama / noRM / noKunjungan.
+ * Search pasien admisi by nama / noRM / noKunjungan atas `source` NYATA.
  * Sort: urgensi (Emergency > Cito > Rutin) lalu rencanaAdmisi asc.
  */
 export function searchPasienAdmisi(
   query: string,
-  source: PasienAdmisi[] = PASIEN_ADMISI_MOCK,
+  source: PasienAdmisi[],
 ): PasienAdmisi[] {
   const q = query.trim().toLowerCase();
   const urgensiRank = { Emergency: 0, Cito: 1, Rutin: 2 };
@@ -209,10 +125,4 @@ export function searchPasienAdmisi(
       if (r !== 0) return r;
       return a.rencanaAdmisi.localeCompare(b.rencanaAdmisi);
     });
-}
-
-/** Hapus pasien dari list (setelah deposit dibuka → invoice created). */
-export function removePasienAdmisi(id: string): void {
-  const idx = PASIEN_ADMISI_MOCK.findIndex((p) => p.id === id);
-  if (idx >= 0) PASIEN_ADMISI_MOCK.splice(idx, 1);
 }

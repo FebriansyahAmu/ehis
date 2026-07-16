@@ -12,6 +12,20 @@
 
 ---
 
+## ✅ Selesai — Kasir Deposit Awal 100% NYATA (hapus PASIEN_ADMISI_MOCK, wire proyeksi billing + empty state) (2026-07-17)
+
+Permintaan user: sub **Deposit Awal** di tab Pembayaran — desain tetap sama tanpa perubahan, hapus semua mock data, wire dengan aktual data dari kunjungan. Daftar admisi pending kini diturunkan dari **proyeksi billing NYATA** (kunjungan Rawat Inap belum ada pembayaran); buka deposit = pembayaran nyata kategori `Deposit`.
+
+- **`PASIEN_ADMISI_MOCK` + `removePasienAdmisi` DIHAPUS** dari [depositMock](../src/lib/billing/depositMock.ts) (5 pasien fiktif). File kini simpan **hanya tipe + heuristik saran nominal** (`PasienAdmisi`/`AdmisiKategori`/`AdmisiUrgensi` · `suggestDeposit` + rate/LOS tables); `searchPasienAdmisi(query, source)` wajib source eksplisit (default mock dibuang).
+- **Adapter BARU** [realAdmisi](../src/components/billing/kasir/deposit/realAdmisi.ts) (mirror `realRows`): `isDepositPending(d)` = `unit==="RawatInap" && dibayar<=0` · `mapBillingRowToAdmisi` (kelas/penjamin dipetakan ke vocab; kategori="RI Baru"/urgensi="Rutin"/DPJP="" default karena proyeksi billing tak membawanya) · `toPendingAdmisi(rows)` filter+map → `PasienAdmisi[]`.
+- **[DepositAwalPanel](../src/components/billing/kasir/deposit/DepositAwalPanel.tsx) jadi prop-driven** (`pending`/`loading` dari page) — buang state mutasi mock (`appendShiftPayment`/`fromDepositInput`/`nextNoKwitansi`/`removePasienAdmisi`). Seleksi = `selectedId` diturunkan dari daftar nyata (auto-lepas saat pasien hilang). Submit → **`recordPayment(kunjunganId, {kategori:"Deposit", metode, nominal, shiftId, bank, noRef, catatan})`** (invoice lazy-create, kasir server-resolved, kwitansi KW) → kwitansi dari state nyata via `invoiceStateToDetail` + payment terbaru → `onAccumulate` bump → pasien lepas dari daftar (dibayar>0). `previewNominal` = `suggestDeposit(...).total` (bukan 0 lagi). Loading + empty-state ("belum ada pasien RI menunggu deposit").
+- **[KasirCounterPage](../src/components/billing/kasir/KasirCounterPage.tsx)** — fetch page-level `listBillingKunjungan` (re-fetch tiap `mutationTick`) → `toPendingAdmisi` → `depositRows`/`depositLoading` state; **badge tab Deposit = `depositRows.length` NYATA** (bukan `PASIEN_ADMISI_MOCK.length`); teruskan `pending`/`loading` ke panel.
+- **[AdmisiResultRow](../src/components/billing/kasir/deposit/AdmisiResultRow.tsx)** — sembunyikan span DPJP saat kosong (proyeksi billing tak bawa DPJP); desain tetap saat data lengkap.
+- **Verifikasi**: `tsc` bersih (src) · `eslint` bersih (5 file tersentuh) · pg-smoke: 6 kunjungan RawatInap, 0 pembayaran → **2 kunjungan** (RI/2026/00023, RI/2026/00025) muncul di daftar deposit (punya order, belum bayar); sesudah deposit → lepas dari daftar.
+- **Batas (follow-up)**: worklist billing **order-driven** (`aggregateOrderTotals`) → RI admisi tanpa order klinis (akomodasi saja) belum muncul sebagai kandidat deposit. Perluas worklist ke RI order-less bila deposit di titik admisi-awal diperlukan (dicatat TECH_DEBT).
+
+---
+
 ## ✅ Selesai — Kasir Dashboard 100% NYATA (hapus mock shift, wire payment aggregates + empty states) (2026-07-14)
 
 Permintaan user: tab **Dashboard** di Pembayaran — desain tetap sama, hapus semua mock data, wire dengan aktual data, beri keterangan bila kosong. Angka Dashboard kini di-derive dari **`billing.payment` NYATA**; shift = sesi kasir yang dimulai KOSONG (tanpa mock) → empty states muncul natural.

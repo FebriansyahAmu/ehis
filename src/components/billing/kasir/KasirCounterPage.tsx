@@ -20,8 +20,10 @@ import {
   getOpenShift, recentClosedShifts,
   type KasirShift, type ShiftMetodeBreakdown, type SetoranRecord,
 } from "@/lib/billing/kasirShiftMock";
-import { PASIEN_ADMISI_MOCK } from "@/lib/billing/depositMock";
 import { getPaymentSummary, type PaymentSummaryDTO } from "@/lib/api/billing/invoice";
+import { listBillingKunjungan } from "@/lib/api/billing/projection";
+import { toPendingAdmisi } from "./deposit/realAdmisi";
+import type { PasienAdmisi } from "@/lib/billing/depositMock";
 import type { KwitansiContext } from "@/lib/billing/kwitansiContext";
 
 /**
@@ -53,6 +55,9 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
   // Ringkasan pembayaran NYATA (billing.payment): per shift aktif + per hari (KPI).
   const [activeSummary, setActiveSummary] = useState<PaymentSummaryDTO | null>(null);
   const [todaySummary, setTodaySummary] = useState<PaymentSummaryDTO | null>(null);
+  // Daftar pasien admisi pending deposit — NYATA (proyeksi billing: RI belum ada pembayaran).
+  const [depositRows, setDepositRows] = useState<PasienAdmisi[]>([]);
+  const [depositLoading, setDepositLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<KasirTabKey>(
     initialTab ?? (deepLinkProp ? "quick" : "dashboard"),
   );
@@ -98,6 +103,16 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
     return () => ac.abort();
   }, [activeShift, mutationTick]);
 
+  // Daftar admisi pending deposit (RI belum bayar) — re-fetch tiap ada pembayaran (mutationTick).
+  useEffect(() => {
+    const ac = new AbortController();
+    listBillingKunjungan(ac.signal)
+      .then((rows) => { if (!ac.signal.aborted) setDepositRows(toPendingAdmisi(rows)); })
+      .catch(() => { if (!ac.signal.aborted) setDepositRows([]); })
+      .finally(() => { if (!ac.signal.aborted) setDepositLoading(false); });
+    return () => ac.abort();
+  }, [mutationTick]);
+
   // Shift aktif "ter-hidrasi" — total per metode/transaksi/refund dari pembayaran NYATA.
   const hydratedActiveShift = useMemo<KasirShift | null>(() => {
     if (!activeShift) return null;
@@ -126,14 +141,14 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
   // Tab counts (badges)
   const tabCounts = useMemo(() => {
     if (!activeShift) return { dashboard: undefined, quick: undefined, deposit: undefined };
-    void mutationTick;  // re-derive saat mock mutated
     return {
       dashboard: undefined,
-      // Quick Bayar count = jumlah pembayaran nyata di feed (di dalam panel); tak pakai badge mock.
+      // Quick Bayar count = jumlah pembayaran nyata di feed (di dalam panel); tak pakai badge.
       quick: undefined,
-      deposit: PASIEN_ADMISI_MOCK.length,
+      // Deposit count = pasien admisi RI menunggu deposit (NYATA).
+      deposit: depositRows.length,
     };
-  }, [activeShift, mutationTick]);
+  }, [activeShift, depositRows.length]);
 
   // ── Mutations: shift ──
   const handleOpenShift = (input: BukaShiftInput) => {
@@ -278,6 +293,8 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
                   >
                     <DepositAwalPanel
                       shift={activeShift}
+                      pending={depositRows}
+                      loading={depositLoading}
                       onAccumulate={handleAccumulate}
                       onPrintKwitansi={setKwitansiCtx}
                     />
