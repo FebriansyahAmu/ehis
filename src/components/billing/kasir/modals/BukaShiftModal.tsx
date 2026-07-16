@@ -2,65 +2,89 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { LockOpen, Building, MapPin } from "lucide-react";
+import { LockOpen, Building, MapPin, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  ModalShell, Field, ModalFooter, inputCn, selectCn,
+  ModalShell, Field, ModalFooter, inputCn,
 } from "../../invoice/modals/AddItemModal";
 import { fmtRupiah } from "../../invoice/invoiceShared";
 import {
-  COUNTER_LIST, KASIR_LIST, isCounterOccupied,
+  COUNTER_LIST, isCounterOccupied,
   type CounterId, type KasirShift,
 } from "@/lib/billing/kasirShiftMock";
 import { COUNTER_TONE } from "../kasirShared";
+import { Select } from "@/components/shared/inputs";
+import { listKasirUsers, type KasirUserDTO } from "@/lib/api/billing/shift";
 
 interface Props {
   open: boolean;
-  shifts: KasirShift[];     // untuk cek counter occupied
-  defaultKasir?: string;    // pre-fill kasir dari session
+  shifts: KasirShift[];     // untuk cek counter occupied (shift Open NYATA)
   onClose: () => void;
   onOpenShift: (input: BukaShiftInput) => void;
 }
 
 export interface BukaShiftInput {
   counter: CounterId;
-  kasirNama: string;
+  kasirPegawaiId: string;
   bukaSaldoAwal: number;
   bukaCatatan?: string;
 }
 
 interface FormState {
   counter: CounterId;
-  kasirId: string;
+  kasirId: string;     // pegawaiId kasir terpilih
   saldo: string;       // string untuk validasi user input
   catatan: string;
 }
 
-const initialState = (defaultKasirId: string): FormState => ({
+const initialState = (): FormState => ({
   counter: "Kasir-1",
-  kasirId: defaultKasirId,
+  kasirId: "",
   saldo: "500000",
   catatan: "",
 });
 
 /**
- * Form Buka Shift — pilih counter (occupied di-block) + kasir (default session)
- * + saldo kas fisik awal + catatan opsional serah-terima.
+ * Form Buka Shift — pilih counter (occupied di-block) + kasir (dropdown NYATA: user
+ * role "Kasir" + unitKerja kasir) + saldo kas fisik awal + catatan opsional serah-terima.
  */
 export default function BukaShiftModal({
-  open, shifts, defaultKasir = "sari", onClose, onOpenShift,
+  open, shifts, onClose, onOpenShift,
 }: Props) {
-  const [form, setForm] = useState<FormState>(() => initialState(defaultKasir));
+  const [form, setForm] = useState<FormState>(initialState);
   const [touched, setTouched] = useState(false);
+  const [kasirUsers, setKasirUsers] = useState<KasirUserDTO[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
 
+  // Muat kandidat kasir (sekali) — user role "Kasir" + unitKerja kasir.
   useEffect(() => {
-    if (open) setForm(initialState(defaultKasir));
-    if (!open) setTouched(false);
-  }, [open, defaultKasir]);
+    const ac = new AbortController();
+    listKasirUsers(ac.signal)
+      .then((u) => {
+        if (ac.signal.aborted) return;
+        setKasirUsers(u);
+        // Default kasir = kandidat pertama (bila belum dipilih).
+        setForm((f) => (f.kasirId || u.length === 0 ? f : { ...f, kasirId: u[0].pegawaiId }));
+      })
+      .catch(() => { if (!ac.signal.aborted) setKasirUsers([]); })
+      .finally(() => { if (!ac.signal.aborted) setUsersLoading(false); });
+    return () => ac.abort();
+  }, []);
+
+  // Reset form + validasi saat modal DIBUKA — pola "adjust state during render"
+  // (bukan effect) agar tidak memicu cascading render.
+  const [wasOpen, setWasOpen] = useState(false);
+  if (open && !wasOpen) {
+    setWasOpen(true);
+    setForm({ ...initialState(), kasirId: form.kasirId || kasirUsers[0]?.pegawaiId || "" });
+    setTouched(false);
+  } else if (!open && wasOpen) {
+    setWasOpen(false);
+  }
 
   const saldoNum = Number(form.saldo.replace(/[^\d]/g, ""));
   const counterOccupied = isCounterOccupied(form.counter, shifts);
-  const selectedKasir = KASIR_LIST.find((k) => k.id === form.kasirId);
+  const selectedKasir = kasirUsers.find((k) => k.pegawaiId === form.kasirId);
   const counterCfg = COUNTER_LIST.find((c) => c.id === form.counter);
   const counterTone = COUNTER_TONE[form.counter];
 
@@ -80,7 +104,7 @@ export default function BukaShiftModal({
     if (hasError || !selectedKasir) return;
     onOpenShift({
       counter: form.counter,
-      kasirNama: selectedKasir.nama,
+      kasirPegawaiId: selectedKasir.pegawaiId,
       bukaSaldoAwal: saldoNum,
       bukaCatatan: form.catatan.trim() || undefined,
     });
@@ -146,15 +170,13 @@ export default function BukaShiftModal({
             {/* Kasir + selected counter info card */}
             <div className="grid grid-cols-2 gap-2">
               <Field label="Kasir" error={touched ? errors.kasir : null}>
-                <select
+                <Select
                   value={form.kasirId}
-                  onChange={(e) => setForm({ ...form, kasirId: e.target.value })}
-                  className={selectCn}
-                >
-                  {KASIR_LIST.map((k) => (
-                    <option key={k.id} value={k.id}>{k.nama}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setForm({ ...form, kasirId: v })}
+                  options={kasirUsers.map((k) => ({ value: k.pegawaiId, label: k.nama }))}
+                  icon={UserRound}
+                  placeholder={usersLoading ? "Memuat kasir…" : "— Pilih kasir —"}
+                />
               </Field>
               <Field label="Lokasi">
                 <div className={cn(inputCn, "flex items-center gap-1.5 bg-slate-50 text-slate-600 dark:bg-slate-800/50")}>
@@ -163,6 +185,13 @@ export default function BukaShiftModal({
                 </div>
               </Field>
             </div>
+
+            {!usersLoading && kasirUsers.length === 0 && (
+              <p className="rounded-md border border-amber-200 bg-amber-50/50 px-2.5 py-1.5 text-[10.5px] text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/15 dark:text-amber-300">
+                Belum ada pengguna dengan peran <strong>Kasir</strong> &amp; unit kerja Kasir. Tambahkan
+                di Master → Pengguna sebelum membuka shift.
+              </p>
+            )}
 
             {/* Saldo awal */}
             <Field label="Saldo Kas Awal (Rp)" error={touched ? errors.saldo : null}>

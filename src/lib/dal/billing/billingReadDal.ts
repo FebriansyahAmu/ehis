@@ -104,6 +104,28 @@ export function aggregatePaymentSummary(opts: { shiftId?: string; date?: string 
   return db().$queryRawUnsafe<PaymentSummaryRow[]>(sql, ...params);
 }
 
+export interface ShiftMetodeAggRow {
+  shiftId: string;
+  metode: string;
+  masuk: bigint;   // Σ nominal non-refund
+  refund: bigint;  // Σ |nominal| refund
+  trx: bigint;     // count non-refund
+}
+
+/** Agregat pembayaran (non-void) per shift × metode — totals live shift Open. */
+export function aggregatePaymentByShifts(shiftIds: string[]) {
+  if (shiftIds.length === 0) return Promise.resolve([] as ShiftMetodeAggRow[]);
+  return db().$queryRaw<ShiftMetodeAggRow[]>`
+    SELECT p.shift_id AS "shiftId", p.metode,
+      COALESCE(SUM(CASE WHEN p.kategori <> 'Refund' THEN p.nominal ELSE 0 END), 0)::bigint AS masuk,
+      COALESCE(SUM(CASE WHEN p.kategori = 'Refund' THEN -p.nominal ELSE 0 END), 0)::bigint AS refund,
+      COUNT(*) FILTER (WHERE p.kategori <> 'Refund')::bigint AS trx
+    FROM billing.payment p
+    WHERE p.voided = false AND p.shift_id = ANY(${shiftIds}::text[])
+    GROUP BY p.shift_id, p.metode;
+  `;
+}
+
 /** Pembayaran terbaru (non-void), opsional per shift. Join billing.* saja; pasien di-resolve Service. */
 export function listRecentPaymentRows(shiftId: string | undefined, limit: number) {
   const cols = `p.id, p.no_kwitansi AS "noKwitansi", p.metode, p.kategori, p.nominal, p.kasir,

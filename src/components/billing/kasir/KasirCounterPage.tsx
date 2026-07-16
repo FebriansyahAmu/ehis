@@ -16,15 +16,37 @@ import SetoranFormModal from "./modals/SetoranFormModal";
 import SetoranSlipPrintModal from "./modals/SetoranSlipPrintModal";
 import type { ShiftRowAction } from "./RecentShiftsTable";
 import KwitansiPrintModal from "../invoice/modals/KwitansiPrintModal";
-import {
-  getOpenShift, recentClosedShifts,
-  type KasirShift, type ShiftMetodeBreakdown, type SetoranRecord,
-} from "@/lib/billing/kasirShiftMock";
+import type { CounterId, KasirShift, SetoranRecord } from "@/lib/billing/kasirShiftMock";
 import { getPaymentSummary, type PaymentSummaryDTO } from "@/lib/api/billing/invoice";
+import {
+  getShiftBoard, openShift as apiOpenShift, closeShift as apiCloseShift,
+  type ShiftDTO,
+} from "@/lib/api/billing/shift";
 import { listBillingKunjungan } from "@/lib/api/billing/projection";
 import { toPendingAdmisi } from "./deposit/realAdmisi";
 import type { PasienAdmisi } from "@/lib/billing/depositMock";
 import type { KwitansiContext } from "@/lib/billing/kwitansiContext";
+
+/** ShiftDTO (nyata, dari papan shift) → KasirShift (bentuk komponen kasir). */
+function dtoToShift(d: ShiftDTO): KasirShift {
+  return {
+    id: d.id,
+    counter: d.counter as CounterId,
+    kasirNama: d.kasirNama,
+    status: d.status,
+    bukaAt: d.bukaAt,
+    bukaSaldoAwal: d.bukaSaldoAwal,
+    bukaCatatan: d.bukaCatatan ?? undefined,
+    totalByMetode: d.totalByMetode,
+    totalTransaksi: d.totalTransaksi,
+    totalRefund: d.totalRefund,
+    tutupAt: d.tutupAt ?? undefined,
+    tutupSaldoAkhir: d.tutupSaldoAkhir ?? undefined,
+    selisih: d.selisih ?? undefined,
+    tutupCatatan: d.tutupCatatan ?? undefined,
+    supervisor: d.supervisor ?? undefined,
+  };
+}
 
 /**
  * Kasir Counter Page — orchestrator untuk `/ehis-billing/pembayaran`.
@@ -34,8 +56,9 @@ import type { KwitansiContext } from "@/lib/billing/kwitansiContext";
  *   - Quick Bayar (BL3.2) — search outstanding + terima pembayaran cepat
  *   - Deposit Awal (BL3.3) — pasien admisi pending + form deposit suggest
  *
- * State global: `shifts` (mutable list) + tab + modal. Payment yang masuk via
- * QuickBayar/Deposit otomatis akumulasi ke `activeShift.totalByMetode`.
+ * Shift = PERSIST (billing.shift) → di-fetch dari `getShiftBoard` tiap mount +
+ * tiap mutasi (mutationTick), sehingga sesi kasir BERTAHAN lintas navigasi. Totals
+ * shift Open = proyeksi billing.payment (live); dashboard KPI dari ringkasan hari ini.
  */
 interface Props {
   /** Tab awal (dari deep-link ?tab=). Default dashboard. */
@@ -47,13 +70,14 @@ interface Props {
 export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLinkProp }: Props = {}) {
   const ready = useSkeletonDelay(500);
 
-  // Sesi kasir (nama dari user login — sementara statik sampai auth kasir di-wire).
-  const SESSION_KASIR = "Sari Wulandari";
-
-  // Shift = sesi kasir NYATA (buka/tutup); mulai KOSONG (tanpa mock) → kasir buka shift dulu.
-  const [shifts, setShifts] = useState<KasirShift[]>([]);
-  // Ringkasan pembayaran NYATA (billing.payment): per shift aktif + per hari (KPI).
-  const [activeSummary, setActiveSummary] = useState<PaymentSummaryDTO | null>(null);
+  // Shift kasir NYATA & PERSIST (billing.shift) — di-fetch tiap mount → bertahan lintas navigasi.
+  //   active       = shift Open milik user login ("shift saya")
+  //   openShifts   = semua shift Open (occupancy + counter lain), totals live dari payment
+  //   recents      = shift Closed terbaru (snapshot totals)
+  const [active, setActive] = useState<KasirShift | null>(null);
+  const [openShifts, setOpenShifts] = useState<KasirShift[]>([]);
+  const [recents, setRecents] = useState<KasirShift[]>([]);
+  // Ringkasan pembayaran NYATA (billing.payment) hari ini — untuk KPI lintas shift.
   const [todaySummary, setTodaySummary] = useState<PaymentSummaryDTO | null>(null);
   // Daftar pasien admisi pending deposit — NYATA (proyeksi billing: RI belum ada pembayaran).
   const [depositRows, setDepositRows] = useState<PasienAdmisi[]>([]);
@@ -74,15 +98,26 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
     shift: KasirShift;
   } | null>(null);
 
-  const activeShift = useMemo(
-    () => getOpenShift(shifts, SESSION_KASIR),
-    [shifts],
-  );
-
-  const recents = useMemo(() => recentClosedShifts(shifts, 8), [shifts]);
+  const activeShift = active;
   const timestamp = useMemo(() => formatTimestamp(new Date()), []);
 
-  // ── Ringkasan pembayaran NYATA (re-fetch tiap ada pembayaran via mutationTick) ──
+  // ── Papan shift NYATA & PERSIST (re-fetch mount + tiap mutasi) → bertahan lintas navigasi ──
+  useEffect(() => {
+    const ac = new AbortController();
+    getShiftBoard(ac.signal)
+      .then((b) => {
+        if (ac.signal.aborted) return;
+        setActive(b.active ? dtoToShift(b.active) : null);
+        setOpenShifts(b.open.map(dtoToShift));
+        setRecents(b.recentClosed.map(dtoToShift));
+      })
+      .catch(() => {
+        if (ac.signal.aborted) return;
+        setActive(null); setOpenShifts([]); setRecents([]);
+      });
+    return () => ac.abort();
+  }, [mutationTick]);
+
   // KPI hari ini (lintas shift) — semua pembayaran hari ini.
   useEffect(() => {
     const ac = new AbortController();
@@ -92,16 +127,6 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
       .catch(() => { if (!ac.signal.aborted) setTodaySummary(null); });
     return () => ac.abort();
   }, [mutationTick]);
-
-  // Ringkasan shift aktif — hanya bila shift terbuka.
-  useEffect(() => {
-    if (!activeShift) return;
-    const ac = new AbortController();
-    getPaymentSummary({ shiftId: activeShift.id }, ac.signal)
-      .then((s) => { if (!ac.signal.aborted) setActiveSummary(s); })
-      .catch(() => {});
-    return () => ac.abort();
-  }, [activeShift, mutationTick]);
 
   // Daftar admisi pending deposit (RI belum bayar) — re-fetch tiap ada pembayaran (mutationTick).
   useEffect(() => {
@@ -113,18 +138,6 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
     return () => ac.abort();
   }, [mutationTick]);
 
-  // Shift aktif "ter-hidrasi" — total per metode/transaksi/refund dari pembayaran NYATA.
-  const hydratedActiveShift = useMemo<KasirShift | null>(() => {
-    if (!activeShift) return null;
-    if (!activeSummary) return activeShift;
-    return {
-      ...activeShift,
-      totalByMetode: activeSummary.byMetode,
-      totalTransaksi: activeSummary.totalTransaksi,
-      totalRefund: activeSummary.totalRefund,
-    };
-  }, [activeShift, activeSummary]);
-
   // KPI hari ini (dari pembayaran NYATA).
   const kpi = useMemo<ShiftKpiAgg>(() => {
     const s = todaySummary;
@@ -134,9 +147,9 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
       totalTunai: s?.byMetode.Tunai ?? 0,
       totalNonTunai: nonTunai,
       totalRefund: s?.totalRefund ?? 0,
-      countersAktif: activeShift ? 1 : 0,
+      countersAktif: openShifts.length,
     };
-  }, [todaySummary, activeShift]);
+  }, [todaySummary, openShifts.length]);
 
   // Tab counts (badges)
   const tabCounts = useMemo(() => {
@@ -150,62 +163,41 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
     };
   }, [activeShift, depositRows.length]);
 
-  // ── Mutations: shift ──
-  const handleOpenShift = (input: BukaShiftInput) => {
-    const newShift: KasirShift = {
-      id: `shift-${Date.now()}`,
-      counter: input.counter,
-      kasirNama: input.kasirNama,
-      status: "Open",
-      bukaAt: new Date().toISOString().slice(0, 16),
-      bukaSaldoAwal: input.bukaSaldoAwal,
-      bukaCatatan: input.bukaCatatan,
-      totalByMetode: emptyBreakdown(),
-      totalTransaksi: 0,
-      totalRefund: 0,
-    };
-    setShifts((prev) => [newShift, ...prev]);
-    console.log("[BL3.1] Buka shift:", newShift);
-  };
-
-  const handleCloseShift = (input: TutupShiftInput) => {
-    // Snapshot total NYATA (dari ringkasan pembayaran) ke shift yang ditutup → tampil di Recent.
-    const snap = activeSummary;
-    setShifts((prev) =>
-      prev.map((s) =>
-        s.id === input.shiftId
-          ? {
-              ...s,
-              status: "Closed",
-              tutupAt: new Date().toISOString().slice(0, 16),
-              tutupSaldoAkhir: input.tutupSaldoAkhir,
-              selisih: input.selisih,
-              tutupCatatan: input.tutupCatatan,
-              supervisor: "dr. Indra (Supervisor Keuangan)",
-              ...(snap
-                ? { totalByMetode: snap.byMetode, totalTransaksi: snap.totalTransaksi, totalRefund: snap.totalRefund }
-                : {}),
-            }
-          : s,
-      ),
-    );
-    console.log("[BL3.1] Tutup shift:", input);
-  };
-
-  // ── Mutations: setoran (dari kebab Recent Shifts → SetoranFormModal) ──
-  const handleRecordSetoran = (shiftId: string, setoran: SetoranRecord) => {
-    setShifts((prev) =>
-      prev.map((s) => (s.id === shiftId ? { ...s, setoran } : s)),
-    );
-    // Auto-pivot ke print slip setelah save (mirror auto-print kwitansi di BL3.2/3.3).
-    const updated = shifts.find((s) => s.id === shiftId);
-    if (updated) {
-      setShiftActionState({
-        action: "setoran-slip",
-        shift: { ...updated, setoran },
+  // ── Mutations: shift (PERSIST via API → refetch papan) ──
+  const handleOpenShift = async (input: BukaShiftInput) => {
+    try {
+      await apiOpenShift({
+        counter: input.counter,
+        kasirPegawaiId: input.kasirPegawaiId,
+        bukaSaldoAwal: input.bukaSaldoAwal,
+        bukaCatatan: input.bukaCatatan,
       });
+      setMutationTick((v) => v + 1);
+    } catch (e) {
+      console.error("[BL3.1] Buka shift gagal:", e);
     }
-    console.log("[BL3.4] Setoran tercatat:", { shiftId, setoran });
+  };
+
+  const handleCloseShift = async (input: TutupShiftInput) => {
+    // Server snapshot totals dari billing.payment + hitung selisih (authoritative).
+    try {
+      await apiCloseShift(input.shiftId, {
+        tutupSaldoAkhir: input.tutupSaldoAkhir,
+        tutupCatatan: input.tutupCatatan,
+      });
+      setMutationTick((v) => v + 1);
+    } catch (e) {
+      console.error("[BL3.1] Tutup shift gagal:", e);
+    }
+  };
+
+  // ── Setoran (dari kebab Recent Shifts → SetoranFormModal) → cetak slip ──
+  // Catatan: setoran belum persist (follow-up) — hanya membuka slip cetak dari shift NYATA.
+  const handleRecordSetoran = (shiftId: string, setoran: SetoranRecord) => {
+    const target = recents.find((s) => s.id === shiftId);
+    if (target) {
+      setShiftActionState({ action: "setoran-slip", shift: { ...target, setoran } });
+    }
   };
 
   // ── Kebab Recent Shifts dispatcher ──
@@ -256,10 +248,10 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
                     transition={{ duration: 0.18 }}
                   >
                     <DashboardPanel
-                      activeShift={hydratedActiveShift}
+                      activeShift={activeShift}
                       recents={recents}
-                      shifts={shifts}
-                      excludeKasir={SESSION_KASIR}
+                      shifts={openShifts}
+                      excludeKasir={activeShift?.kasirNama ?? ""}
                       kpi={kpi}
                       onBukaShift={() => setModal("buka")}
                       onTutupShift={() => setModal("tutup")}
@@ -309,14 +301,13 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
       {/* Modals */}
       <BukaShiftModal
         open={modal === "buka"}
-        shifts={shifts}
-        defaultKasir="sari"
+        shifts={openShifts}
         onClose={() => setModal(null)}
         onOpenShift={handleOpenShift}
       />
       <TutupShiftModal
         open={modal === "tutup"}
-        shift={hydratedActiveShift}
+        shift={activeShift}
         onClose={() => setModal(null)}
         onTutupShift={handleCloseShift}
       />
@@ -349,10 +340,6 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
 }
 
 // ── Helpers ────────────────────────────────────────────
-
-function emptyBreakdown(): ShiftMetodeBreakdown {
-  return { Tunai: 0, Transfer: 0, QRIS: 0, EDC: 0, Voucher: 0 };
-}
 
 function formatTimestamp(d: Date): string {
   const hh = String(d.getHours()).padStart(2, "0");

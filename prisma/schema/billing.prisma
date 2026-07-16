@@ -46,6 +46,45 @@ model Invoice {
   @@schema("billing")
 }
 
+// Shift kasir — sesi buka/tutup counter (persist Slice 2e). SATU pintu bayar: setiap
+// Payment.shiftId (soft-ref TEXT) menunjuk shift ini. Totals TIDAK live di-simpan —
+// diproyeksikan dari billing.payment saat baca (open) & DI-SNAPSHOT saat tutup (closed).
+// Owner sesi = authorUserId (persistensi "shift saya" lintas navigasi). Operator =
+// kasirPegawaiId (dipilih dari user role Kasir), kasirNama di-resolve server (anti-spoof).
+model Shift {
+  id             String  @id @default(uuid(7)) @db.Uuid
+  counter        String // Kasir-1 | Kasir-2 | Kasir-3 | Kasir-IGD
+  kasirNama      String  @map("kasir_nama") // snapshot nama operator (server-resolved dari pegawai)
+  kasirPegawaiId String? @map("kasir_pegawai_id") @db.Uuid // operator (user role Kasir)
+  authorUserId   String? @map("author_user_id") @db.Uuid // pemilik sesi (yang buka shift)
+
+  status        String  @default("Open") // Open | Closed
+  bukaAt        DateTime @map("buka_at") @db.Timestamptz(3)
+  bukaSaldoAwal Int      @map("buka_saldo_awal")
+  bukaCatatan   String?  @map("buka_catatan")
+
+  // Snapshot saat TUTUP (open → totals live dari payment). breakdown per metode = JSONB.
+  totalByMetode  Json? @map("total_by_metode")
+  totalTransaksi Int   @default(0) @map("total_transaksi")
+  totalRefund    Int   @default(0) @map("total_refund")
+
+  // Tutup (Closed only)
+  tutupAt         DateTime? @map("tutup_at") @db.Timestamptz(3)
+  tutupSaldoAkhir Int?      @map("tutup_saldo_akhir")
+  selisih         Int?
+  tutupCatatan    String?   @map("tutup_catatan")
+  supervisor      String?
+
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([status])
+  @@index([authorUserId, status])
+  @@map("shift")
+  @@schema("billing")
+}
+
 // Payment — 1 transaksi kas terhadap invoice. Metode/kategori = TEXT (FE-facing,
 // validasi Zod). Void bukan delete (audit). nominal: + pembayaran/deposit, − refund.
 model Payment {
