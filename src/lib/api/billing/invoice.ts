@@ -4,9 +4,10 @@
 import { api } from "@/lib/api/client";
 import type {
   PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO,
+  InvoiceAdjustmentInput,
 } from "@/lib/schemas/billing/payment";
 
-export type { PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO };
+export type { PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO, InvoiceAdjustmentInput };
 
 const base = (k: string) => `/kunjungan/${encodeURIComponent(k)}/billing`;
 
@@ -23,6 +24,18 @@ export async function recordPayment(
   signal?: AbortSignal,
 ): Promise<InvoiceStateDTO> {
   const { data } = await api.post<InvoiceStateDTO>(`${base(kunjunganId)}/payment`, input, { signal });
+  return data;
+}
+
+/** Set penyesuaian invoice level (diskon/materai/PPN) → state invoice ter-update. */
+export async function setInvoiceAdjustment(
+  kunjunganId: string,
+  input: InvoiceAdjustmentInput,
+  signal?: AbortSignal,
+): Promise<InvoiceStateDTO> {
+  const { data } = await api.patch<InvoiceStateDTO>(
+    `${base(kunjunganId)}/invoice/adjustment`, input, { signal },
+  );
   return data;
 }
 

@@ -32,6 +32,8 @@ interface Props {
   onPrintKwitansi?: (ctx: KwitansiContext) => void;
   /** Deep-link dari detail tagihan (kunjunganId) → pre-select tagihan di form. */
   deepLinkInvoice?: string;
+  /** Mode form: "refund" → kategori Refund (dari deep-link ?mode=refund). Default bayar. */
+  deepLinkMode?: "bayar" | "refund";
 }
 
 /**
@@ -41,7 +43,7 @@ interface Props {
  *   - Recent feed = `GET /billing/payments/recent` (per shift).
  * Deep-link `?invoice=<kid>` → pre-select tagihan tsb ke dalam form (desain sama).
  */
-export default function QuickBayarPanel({ shift, onAccumulate, onPrintKwitansi, deepLinkInvoice }: Props) {
+export default function QuickBayarPanel({ shift, onAccumulate, onPrintKwitansi, deepLinkInvoice, deepLinkMode = "bayar" }: Props) {
   const [query, setQuery] = useState("");
   const [allRows, setAllRows] = useState<TagihanRow[]>([]);
   const [rowsLoading, setRowsLoading] = useState(true);
@@ -84,12 +86,17 @@ export default function QuickBayarPanel({ shift, onAccumulate, onPrintKwitansi, 
     [query, allRows],
   );
 
+  // Mode refund HANYA berlaku untuk kunjungan yang di-deep-link (?mode=refund&invoice=<kid>).
+  // Pilih tagihan lain dari daftar/pencarian → kembali ke mode bayar (bukan refund global).
+  const formMode: "bayar" | "refund" =
+    deepLinkMode === "refund" && selected?.id === deepLinkInvoice ? "refund" : "bayar";
+
   const handlePaymentSubmit = async (payload: Omit<PaymentRecord, "id" | "noKwitansi">) => {
     if (!selected) return;
     try {
       const state = await recordPayment(selected.id, {
         metode: payload.metode,
-        kategori: "Pembayaran",
+        kategori: payload.kategori, // "Pembayaran" | "Refund" (dari mode form)
         nominal: payload.nominal,
         source: "Quick",
         shiftId: shift.id,
@@ -158,6 +165,7 @@ export default function QuickBayarPanel({ shift, onAccumulate, onPrintKwitansi, 
                 target={selected}
                 kasirName={shift.kasirNama}
                 onSubmit={handlePaymentSubmit}
+                mode={formMode}
               />
               <button
                 type="button"

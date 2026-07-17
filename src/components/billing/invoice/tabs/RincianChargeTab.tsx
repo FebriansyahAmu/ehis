@@ -19,10 +19,12 @@ interface Props {
   onFinalize?: () => void;
   /** Mode proyeksi (billing/kunjungan) — charge read-only, sembunyikan semua aksi mutasi. */
   readOnly?: boolean;
+  /** Read-only tapi izinkan penyesuaian level-invoice (tombol "Penyesuaian" di footer). */
+  onAdjust?: () => void;
 }
 
 export default function RincianChargeTab({
-  detail, onAddItem, onItemAction, onApplyDiskonInvoice, onFinalize, readOnly,
+  detail, onAddItem, onItemAction, onApplyDiskonInvoice, onFinalize, readOnly, onAdjust,
 }: Props) {
   const sections = useMemo(() => groupByKategori(detail.items), [detail.items]);
   const coverage = useMemo(() => coverageBreakdown(detail.items), [detail.items]);
@@ -84,6 +86,7 @@ export default function RincianChargeTab({
         onApplyDiskonInvoice={onApplyDiskonInvoice}
         onFinalize={onFinalize}
         readOnly={readOnly}
+        onAdjust={onAdjust}
       />
     </div>
   );

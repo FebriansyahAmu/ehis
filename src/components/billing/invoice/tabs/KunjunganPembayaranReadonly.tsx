@@ -1,16 +1,21 @@
 "use client";
 
-// Pembayaran (mode proyeksi/kunjungan) — READ-ONLY. Keputusan "Kasir = satu pintu": form bayar
-// TIDAK ada di detail; tab ini hanya menampilkan ringkasan (grand/dibayar/sisa) + riwayat pembayaran
-// nyata (DB) + CTA "Terima Pembayaran" yang deep-link ke Kasir Counter (Quick Bayar) dgn ?invoice=.
-// Void/refund juga di Kasir (shift-bound → rekonsiliasi setoran benar).
+// Pembayaran (mode proyeksi/kunjungan). Ringkasan (grand/dibayar/sisa) + riwayat pembayaran nyata
+// (DB) + CTA "Terima Pembayaran"/"Proses Refund" yang deep-link ke Kasir Counter (shift-bound).
+// PENGECUALIAN: pembatalan (VOID) kwitansi bisa langsung dari sini (koreksi kwitansi spesifik) —
+// gate billing.kasir:create; alasan wajib; voidedBy di-resolve server.
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Landmark, Wallet, ArrowUpRight, History, Inbox, Ban, ShieldCheck } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Landmark, Wallet, ArrowUpRight, History, Inbox, Ban, ShieldCheck, RotateCcw,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCan } from "@/components/auth/Can";
+import { voidPayment } from "@/lib/api/billing/invoice";
 import { fmtRupiah, METODE_CFG, type PaymentRecord, type MetodeBayar } from "../invoiceShared";
+import { ModalShell, Field, ModalFooter, inputCn } from "../modals/AddItemModal";
 import PaymentSummaryCard from "./payment/PaymentSummaryCard";
 
 interface Props {
@@ -20,17 +25,42 @@ interface Props {
   sisa: number;
   status: string;
   payments: PaymentRecord[];
+  /** Dipanggil sesudah void sukses → parent refetch state invoice. */
+  onChanged?: () => void;
 }
 
 export default function KunjunganPembayaranReadonly({
-  kunjunganId, grand, dibayar, sisa, status, payments,
+  kunjunganId, grand, dibayar, sisa, status, payments, onChanged,
 }: Props) {
+  const can = useCan();
+  const canVoid = can("billing.kasir", "create");
   const sorted = useMemo(
     () => [...payments].sort((a, b) => b.tanggalISO.localeCompare(a.tanggalISO)),
     [payments],
   );
   const isLunas = status === "Lunas";
   const kasirHref = `/ehis-billing/pembayaran?tab=quick&invoice=${encodeURIComponent(kunjunganId)}`;
+  const refundHref = `${kasirHref}&mode=refund`;
+
+  // Void dialog (koreksi kwitansi spesifik).
+  const [voidTarget, setVoidTarget] = useState<PaymentRecord | null>(null);
+  const [voidAlasan, setVoidAlasan] = useState("");
+  const [voidBusy, setVoidBusy] = useState(false);
+
+  const submitVoid = async () => {
+    if (!voidTarget || voidAlasan.trim().length < 1) return;
+    setVoidBusy(true);
+    try {
+      await voidPayment(kunjunganId, voidTarget.id, voidAlasan.trim());
+      setVoidTarget(null);
+      setVoidAlasan("");
+      onChanged?.();
+    } catch (e) {
+      console.error("[Void] gagal:", e);
+    } finally {
+      setVoidBusy(false);
+    }
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -47,26 +77,37 @@ export default function KunjunganPembayaranReadonly({
                   Pembayaran lewat satu pintu — Kasir Counter
                 </p>
                 <p className="mt-0.5 text-[11px] leading-snug text-slate-600 dark:text-slate-400">
-                  Tab ini <strong>read-only</strong> (status &amp; riwayat). Penerimaan uang, refund,
-                  &amp; void dilakukan di <strong>Kasir</strong> agar terikat shift (rekonsiliasi setoran benar).
+                  Penerimaan uang &amp; <strong>refund</strong> lewat <strong>Kasir</strong> (terikat shift).
+                  Pembatalan (<strong>void</strong>) kwitansi bisa langsung dari sini.
                 </p>
               </div>
             </div>
-            {isLunas ? (
-              <span className="inline-flex flex-none items-center gap-1.5 self-start rounded-md bg-emerald-50 px-2.5 py-1.5 text-[11.5px] font-semibold text-emerald-700 ring-1 ring-emerald-200 sm:self-auto dark:bg-emerald-950/30 dark:text-emerald-300">
-                <ShieldCheck size={13} /> Lunas
-              </span>
-            ) : (
-              <Link
-                href={kasirHref}
-                className="group inline-flex flex-none items-center gap-1.5 self-start rounded-md bg-indigo-600 px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 sm:self-auto"
-                title="Buka Kasir Counter · Quick Bayar untuk tagihan ini"
-              >
-                <Wallet size={13} />
-                Terima Pembayaran
-                <ArrowUpRight size={12} className="opacity-70 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-              </Link>
-            )}
+            <div className="flex flex-none flex-wrap items-center gap-1.5 self-start sm:self-auto">
+              {dibayar > 0 && (
+                <Link
+                  href={refundHref}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-rose-200 bg-white px-2.5 py-1.5 text-[11.5px] font-semibold text-rose-700 transition-colors hover:bg-rose-50 dark:border-rose-900/50 dark:bg-slate-900 dark:text-rose-300"
+                  title="Proses refund di Kasir Counter (terikat shift)"
+                >
+                  <RotateCcw size={12} /> Refund
+                </Link>
+              )}
+              {isLunas ? (
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1.5 text-[11.5px] font-semibold text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300">
+                  <ShieldCheck size={13} /> Lunas
+                </span>
+              ) : (
+                <Link
+                  href={kasirHref}
+                  className="group inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
+                  title="Buka Kasir Counter · Quick Bayar untuk tagihan ini"
+                >
+                  <Wallet size={13} />
+                  Terima Pembayaran
+                  <ArrowUpRight size={12} className="opacity-70 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                </Link>
+              )}
+            </div>
           </section>
 
           <PaymentSummaryCard grand={grand} dibayar={dibayar} sisa={sisa} />
@@ -91,20 +132,67 @@ export default function KunjunganPembayaranReadonly({
             ) : (
               <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                 {sorted.map((p, i) => (
-                  <PaymentRowReadonly key={p.id} payment={p} index={i} />
+                  <PaymentRowReadonly
+                    key={p.id}
+                    payment={p}
+                    index={i}
+                    onVoid={canVoid && !p.voided ? () => { setVoidTarget(p); setVoidAlasan(""); } : undefined}
+                  />
                 ))}
               </ul>
             )}
           </section>
         </div>
       </div>
+
+      {/* Dialog void kwitansi */}
+      <AnimatePresence>
+        {voidTarget && (
+          <ModalShell title="Batalkan Pembayaran" onClose={() => setVoidTarget(null)} maxWidth="max-w-sm">
+            <div className="space-y-3">
+              <div className="rounded-md border border-rose-200 bg-rose-50/50 px-3 py-2 text-[11.5px] text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-300">
+                <p className="font-semibold">
+                  {voidTarget.noKwitansi} · {fmtRupiah(Math.abs(voidTarget.nominal))}
+                </p>
+                <p className="mt-0.5 text-[10.5px] leading-snug">
+                  Void <strong>bukan hapus</strong> — kwitansi tetap tercatat sebagai dibatalkan (audit).
+                  Sisa tagihan akan bertambah kembali.
+                </p>
+              </div>
+              <Field label="Alasan pembatalan (wajib)">
+                <input
+                  type="text"
+                  value={voidAlasan}
+                  onChange={(e) => setVoidAlasan(e.target.value)}
+                  placeholder="mis. salah input nominal / metode"
+                  autoFocus
+                  className={inputCn}
+                />
+              </Field>
+            </div>
+            <ModalFooter
+              onClose={() => setVoidTarget(null)}
+              onConfirm={submitVoid}
+              confirmLabel={voidBusy ? "Membatalkan…" : "Batalkan Pembayaran"}
+              confirmIcon={Ban}
+              danger
+            />
+          </ModalShell>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
 // ── Row (read-only) ─────────────────────────────────────
 
-function PaymentRowReadonly({ payment, index }: { payment: PaymentRecord; index: number }) {
+function PaymentRowReadonly({
+  payment, index, onVoid,
+}: {
+  payment: PaymentRecord;
+  index: number;
+  onVoid?: () => void;
+}) {
   const cfg = METODE_CFG[payment.metode as MetodeBayar] ?? METODE_CFG.Tunai;
   const Icon = cfg.icon;
   const isRefund = payment.nominal < 0 || payment.kategori === "Refund";
@@ -148,13 +236,25 @@ function PaymentRowReadonly({ payment, index }: { payment: PaymentRecord; index:
           )}
         </p>
       </div>
-      <span className={cn(
-        "shrink-0 font-mono text-[13px] font-bold tabular-nums",
-        voided ? "text-slate-400 line-through dark:text-slate-600"
-          : isRefund ? "text-rose-600 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400",
-      )}>
-        {isRefund ? "−" : "+"}{fmtRupiah(Math.abs(payment.nominal))}
-      </span>
+      <div className="flex shrink-0 flex-col items-end gap-0.5">
+        <span className={cn(
+          "font-mono text-[13px] font-bold tabular-nums",
+          voided ? "text-slate-400 line-through dark:text-slate-600"
+            : isRefund ? "text-rose-600 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400",
+        )}>
+          {isRefund ? "−" : "+"}{fmtRupiah(Math.abs(payment.nominal))}
+        </span>
+        {onVoid && (
+          <button
+            type="button"
+            onClick={onVoid}
+            className="inline-flex items-center gap-1 rounded text-[10px] font-semibold text-slate-400 transition-colors hover:text-rose-600"
+            title="Batalkan (void) pembayaran ini"
+          >
+            <Ban size={10} /> Batalkan
+          </button>
+        )}
+      </div>
     </motion.li>
   );
 }

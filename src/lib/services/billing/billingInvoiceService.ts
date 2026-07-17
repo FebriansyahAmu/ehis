@@ -17,6 +17,7 @@ import type { InvoiceEntity } from "@/lib/dal/billing/invoiceDal";
 import type { PaymentEntity } from "@/lib/dal/billing/paymentDal";
 import type {
   PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO,
+  InvoiceAdjustmentInput,
 } from "@/lib/schemas/billing/payment";
 
 function periodeNow(): { periode: string; yyyy: string; mm: string } {
@@ -157,6 +158,25 @@ async function recordPayment(kunjunganId: string, input: PaymentInput, actor: Ac
   return getInvoiceState(kunjunganId);
 }
 
+/** Set penyesuaian level-invoice (diskon/materai/PPN). Lazy-create invoice; guard subtotal + versi. */
+async function setAdjustment(
+  kunjunganId: string, input: InvoiceAdjustmentInput, actor: Actor,
+): Promise<InvoiceStateDTO> {
+  const proj = await billingProjectionService.projectByKunjungan(kunjunganId); // guard 404 + subtotal
+  if (input.diskonInvoice > proj.subtotal) {
+    throw Errors.validation("Diskon invoice tidak boleh melebihi subtotal tagihan");
+  }
+  const kasir = await resolveActorNama(actor);
+  const invoice = await resolveInvoice(kunjunganId, kasir, actor);
+  const count = await invoiceDal.updateAdjustment(
+    invoice.id,
+    { diskonInvoice: input.diskonInvoice, materai: input.materai, ppnPct: input.ppnPct, catatan: input.alasan ?? null },
+    input.expectedVersion,
+  );
+  if (count === 0) throw Errors.conflictVersion("Invoice telah diubah — muat ulang lalu coba lagi");
+  return getInvoiceState(kunjunganId);
+}
+
 /** Void 1 pembayaran (bukan delete). Verifikasi payment ∈ invoice kunjungan (anti-IDOR). */
 async function voidPayment(
   kunjunganId: string, paymentId: string, alasan: string, actor: Actor,
@@ -231,5 +251,5 @@ async function paymentSummary(shiftId: string | undefined, date: string | undefi
 }
 
 export const billingInvoiceService = {
-  getInvoiceState, recordPayment, voidPayment, listPayments, listRecentPayments, paymentSummary,
+  getInvoiceState, recordPayment, setAdjustment, voidPayment, listPayments, listRecentPayments, paymentSummary,
 };

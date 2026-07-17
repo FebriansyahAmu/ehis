@@ -65,9 +65,11 @@ interface Props {
   initialTab?: KasirTabKey;
   /** Deep-link dari detail tagihan (?invoice=<kunjunganId>) — bayar tagihan langsung di Quick Bayar. */
   deepLinkInvoice?: string;
+  /** Mode Quick Bayar (?mode=refund) — form dalam mode Refund. */
+  deepLinkMode?: "bayar" | "refund";
 }
 
-export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLinkProp }: Props = {}) {
+export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLinkProp, deepLinkMode }: Props = {}) {
   const ready = useSkeletonDelay(500);
 
   // Shift kasir NYATA & PERSIST (billing.shift) — di-fetch tiap mount → bertahan lintas navigasi.
@@ -117,6 +119,15 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
       });
     return () => ac.abort();
   }, [mutationTick]);
+
+  // Bersihkan query deep-link (?invoice/&mode) dari address bar sesudah dikonsumsi — pakai
+  // history.replaceState agar prop tetap di memori (flow bayar/refund berjalan tak terganggu),
+  // sementara refresh/bookmark = Quick Bayar biasa (bukan auto pre-select/refund kunjungan lama).
+  useEffect(() => {
+    if ((deepLinkProp || deepLinkMode) && typeof window !== "undefined") {
+      window.history.replaceState(null, "", "/ehis-billing/pembayaran?tab=quick");
+    }
+  }, [deepLinkProp, deepLinkMode]);
 
   // KPI hari ini (lintas shift) — semua pembayaran hari ini.
   useEffect(() => {
@@ -272,6 +283,7 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
                       onAccumulate={handleAccumulate}
                       onPrintKwitansi={setKwitansiCtx}
                       deepLinkInvoice={deepLinkProp}
+                      deepLinkMode={deepLinkMode}
                     />
                   </motion.div>
                 )}

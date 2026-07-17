@@ -27,6 +27,18 @@ export const VoidPaymentInput = z.object({
 });
 export type VoidPaymentInput = z.infer<typeof VoidPaymentInput>;
 
+// ── Penyesuaian invoice level (Slice 2d — Fase 1) ────────────────────────────
+// Diskon/materai/PPN level-invoice (bukan per item). total = (subtotal − diskon) + PPN + materai.
+export const InvoiceAdjustmentInput = z.object({
+  diskonInvoice: z.coerce.number().int().min(0).max(2_000_000_000).default(0),
+  materai: z.coerce.number().int().min(0).max(100_000_000).default(0),
+  ppnPct: z.coerce.number().int().min(0).max(100).default(0),
+  alasan: z.string().trim().max(500).optional(),
+  /** Optimistic concurrency — versi invoice yang dilihat FE (opsional; 0 = invoice belum ada). */
+  expectedVersion: z.coerce.number().int().min(0).optional(),
+});
+export type InvoiceAdjustmentInput = z.infer<typeof InvoiceAdjustmentInput>;
+
 export const PaymentParam = z.object({
   id: z.string().uuid(),
   paymentId: z.string().uuid(),

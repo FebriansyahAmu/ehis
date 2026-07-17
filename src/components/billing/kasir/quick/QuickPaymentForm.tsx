@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { CheckCircle2, Sparkles, AlertCircle, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,8 @@ interface Props {
   target: OutstandingResult;
   kasirName: string;
   onSubmit: (payment: Omit<PaymentRecord, "id" | "noKwitansi">) => void;
+  /** "refund" → kategori Refund, batas = jumlah dibayar (bukan sisa). */
+  mode?: "bayar" | "refund";
 }
 
 interface FormState {
@@ -45,17 +47,24 @@ const BANK_OPTIONS = ["BCA", "Mandiri", "BNI", "BRI", "BSI", "CIMB"];
  *   - Header menampilkan target row context (nama pasien + sisa)
  *   - Submit langsung tanpa harus buka invoice detail
  */
-export default function QuickPaymentForm({ target, kasirName, onSubmit }: Props) {
-  const [form, setForm] = useState<FormState>(() => initialState(target.sisaTagihan));
+export default function QuickPaymentForm({ target, kasirName, onSubmit, mode = "bayar" }: Props) {
+  const isRefund = mode === "refund";
+  // Batas nominal: bayar → sisa tagihan; refund → jumlah yang sudah dibayar.
+  const maxNominal = isRefund ? target.dibayar : target.sisaTagihan;
+
+  const [form, setForm] = useState<FormState>(() => initialState(maxNominal));
   const [touched, setTouched] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);
 
-  // Reset saat target berubah (user pilih row lain)
-  useEffect(() => {
-    setForm(initialState(target.sisaTagihan));
+  // Reset saat target/mode berubah (user pilih row lain) — pola "adjust state during render".
+  const resetKey = `${target.id}|${maxNominal}`;
+  const [prevKey, setPrevKey] = useState(resetKey);
+  if (resetKey !== prevKey) {
+    setPrevKey(resetKey);
+    setForm(initialState(maxNominal));
     setTouched(false);
     setJustSubmitted(false);
-  }, [target.id, target.sisaTagihan]);
+  }
 
   const nominalNum = useMemo(
     () => Number(form.nominal.replace(/[^\d]/g, "")) || 0,
@@ -65,8 +74,8 @@ export default function QuickPaymentForm({ target, kasirName, onSubmit }: Props)
   const errors = useMemo(() => ({
     nominal:
       nominalNum <= 0 ? "Nominal harus > 0" :
-      nominalNum > target.sisaTagihan
-        ? `Nominal melebihi sisa (${fmtRupiah(target.sisaTagihan)})` : null,
+      nominalNum > maxNominal
+        ? `Nominal melebihi ${isRefund ? "yang dibayar" : "sisa"} (${fmtRupiah(maxNominal)})` : null,
     noRef:
       (form.metode === "Transfer" || form.metode === "EDC" || form.metode === "QRIS") &&
       form.noRef.trim() === ""
@@ -74,7 +83,7 @@ export default function QuickPaymentForm({ target, kasirName, onSubmit }: Props)
     bank:
       (form.metode === "Transfer" || form.metode === "EDC") && form.bank.trim() === ""
         ? "Pilih bank pembayar" : null,
-  }), [form, nominalNum, target.sisaTagihan]);
+  }), [form, nominalNum, maxNominal, isRefund]);
 
   const hasError = Object.values(errors).some(Boolean);
 
@@ -85,7 +94,7 @@ export default function QuickPaymentForm({ target, kasirName, onSubmit }: Props)
       tanggalISO: new Date().toISOString().slice(0, 16),
       metode: form.metode,
       nominal: nominalNum,
-      kategori: "Pembayaran",
+      kategori: isRefund ? "Refund" : "Pembayaran",
       source: "Quick",
       kasir: kasirName,
       bank: form.bank || undefined,
@@ -96,9 +105,9 @@ export default function QuickPaymentForm({ target, kasirName, onSubmit }: Props)
     setTimeout(() => setJustSubmitted(false), 1500);
   };
 
-  const setNominalLunas = () => setForm({ ...form, nominal: String(target.sisaTagihan) });
+  const setNominalLunas = () => setForm({ ...form, nominal: String(maxNominal) });
   const setNominalSetengah = () =>
-    setForm({ ...form, nominal: String(Math.floor(target.sisaTagihan / 2)) });
+    setForm({ ...form, nominal: String(Math.floor(maxNominal / 2)) });
 
   const needBank = form.metode === "Transfer" || form.metode === "EDC";
   const needRef = form.metode === "Transfer" || form.metode === "EDC" || form.metode === "QRIS";
@@ -112,8 +121,8 @@ export default function QuickPaymentForm({ target, kasirName, onSubmit }: Props)
       <div className="border-b border-amber-200 bg-gradient-to-r from-amber-50 via-amber-50/40 to-white px-4 py-2.5 dark:border-amber-900/40 dark:from-amber-950/30 dark:to-slate-900">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">
-              Pembayaran Untuk
+            <p className={cn("text-[10px] font-semibold uppercase tracking-wider", isRefund ? "text-rose-700 dark:text-rose-300" : "text-amber-700 dark:text-amber-300")}>
+              {isRefund ? "Refund Untuk" : "Pembayaran Untuk"}
             </p>
             <p className="truncate text-[13px] font-bold text-slate-800 dark:text-slate-100">
               {target.pasien.nama}{" "}
@@ -126,9 +135,11 @@ export default function QuickPaymentForm({ target, kasirName, onSubmit }: Props)
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[10px] uppercase tracking-wider text-amber-700">Sisa</p>
-            <p className="font-mono text-[15px] font-bold tabular-nums text-amber-700 dark:text-amber-300">
-              {fmtRupiah(target.sisaTagihan)}
+            <p className={cn("text-[10px] uppercase tracking-wider", isRefund ? "text-rose-700" : "text-amber-700")}>
+              {isRefund ? "Dibayar" : "Sisa"}
+            </p>
+            <p className={cn("font-mono text-[15px] font-bold tabular-nums", isRefund ? "text-rose-700 dark:text-rose-300" : "text-amber-700 dark:text-amber-300")}>
+              {fmtRupiah(maxNominal)}
             </p>
           </div>
         </div>
@@ -150,7 +161,7 @@ export default function QuickPaymentForm({ target, kasirName, onSubmit }: Props)
             className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200 transition-colors hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:ring-emerald-900/60"
           >
             <Sparkles size={10} />
-            Lunasi Sisa
+            {isRefund ? "Refund Penuh" : "Lunasi Sisa"}
           </button>
           <button
             type="button"
@@ -160,7 +171,7 @@ export default function QuickPaymentForm({ target, kasirName, onSubmit }: Props)
             Setengah
           </button>
           {[100_000, 500_000, 1_000_000]
-            .filter((n) => n <= target.sisaTagihan)
+            .filter((n) => n <= maxNominal)
             .map((n) => (
               <button
                 key={n}
@@ -206,7 +217,7 @@ export default function QuickPaymentForm({ target, kasirName, onSubmit }: Props)
         {/* Nominal big input */}
         <div>
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-            Nominal Bayar
+            {isRefund ? "Nominal Refund" : "Nominal Bayar"}
           </p>
           <input
             type="text"
@@ -302,7 +313,9 @@ export default function QuickPaymentForm({ target, kasirName, onSubmit }: Props)
             "flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-bold text-white shadow-sm transition-all active:scale-[0.98]",
             justSubmitted
               ? "bg-emerald-600"
-              : "bg-amber-600 hover:bg-amber-700",
+              : isRefund
+                ? "bg-rose-600 hover:bg-rose-700"
+                : "bg-amber-600 hover:bg-amber-700",
           )}
         >
           {justSubmitted ? (
@@ -313,7 +326,7 @@ export default function QuickPaymentForm({ target, kasirName, onSubmit }: Props)
           ) : (
             <>
               <Zap size={14} />
-              Terima Pembayaran {fmtRupiah(nominalNum)}
+              {isRefund ? "Proses Refund" : "Terima Pembayaran"} {fmtRupiah(nominalNum)}
             </>
           )}
         </button>

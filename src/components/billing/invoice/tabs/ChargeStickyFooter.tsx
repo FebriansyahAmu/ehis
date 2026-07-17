@@ -15,9 +15,11 @@ interface Props {
   onApplyDiskonInvoice: () => void;
   onFinalize?: () => void;
   readOnly?: boolean;
+  /** Mode proyeksi (readOnly) tetapi diizinkan set penyesuaian level-invoice (diskon/materai/PPN). */
+  onAdjust?: () => void;
 }
 
-export default function ChargeStickyFooter({ detail, onApplyDiskonInvoice, onFinalize, readOnly }: Props) {
+export default function ChargeStickyFooter({ detail, onApplyDiskonInvoice, onFinalize, readOnly, onAdjust }: Props) {
   const netItems = netAfterItemDiskon(detail.items);
   const dskItems = totalDiskonItem(detail.items);
   const dskInv   = detail.diskonInvoice ?? 0;
@@ -62,7 +64,7 @@ export default function ChargeStickyFooter({ detail, onApplyDiskonInvoice, onFin
           />
         </div>
 
-        {!readOnly && (
+        {!readOnly ? (
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -83,7 +85,16 @@ export default function ChargeStickyFooter({ detail, onApplyDiskonInvoice, onFin
               </button>
             )}
           </div>
-        )}
+        ) : onAdjust ? (
+          <button
+            type="button"
+            onClick={onAdjust}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11.5px] font-medium text-slate-700 transition-all hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700 active:scale-[0.97] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-amber-950/30"
+          >
+            <Percent size={12} />
+            Penyesuaian
+          </button>
+        ) : null}
       </div>
     </motion.footer>
   );

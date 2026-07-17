@@ -10,8 +10,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Loader2, AlertTriangle } from "lucide-react";
-import { getInvoiceState, type InvoiceStateDTO } from "@/lib/api/billing/invoice";
+import { getInvoiceState, setInvoiceAdjustment, type InvoiceStateDTO } from "@/lib/api/billing/invoice";
 import { useRecordVersion } from "@/lib/realtime/recordBus";
+import { useCan } from "@/components/auth/Can";
 import { invoiceStateToDetail } from "./invoiceStateMap";
 import PatientBannerBilling from "./PatientBannerBilling";
 import InvoiceTabs, { type InvoiceTabKey } from "./InvoiceTabs";
@@ -20,6 +21,7 @@ import KunjunganPembayaranReadonly from "./tabs/KunjunganPembayaranReadonly";
 import KlaimStatusTab from "./tabs/KlaimStatusTab";
 import RiwayatAuditTab from "./tabs/RiwayatAuditTab";
 import InvoicePrintModal from "./modals/InvoicePrintModal";
+import AdjustmentModal from "./modals/AdjustmentModal";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -27,6 +29,7 @@ const noop = () => {};
 
 export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: string }) {
   const router = useRouter();
+  const can = useCan();
   const isReal = UUID_RE.test(kunjunganId);
 
   const [state, setState] = useState<InvoiceStateDTO | null>(null);
@@ -34,6 +37,9 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<InvoiceTabKey>("rincian");
   const [printOpen, setPrintOpen] = useState(false);
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const [adjustBusy, setAdjustBusy] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0); // bump → refetch (sesudah void/refund)
 
   // Reaktif: charge = proyeksi order → refetch saat order kunjungan berubah.
   const orderVersion = useRecordVersion(kunjunganId, "order", isReal);
@@ -46,11 +52,29 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
       .catch((e) => { if (!ac.signal.aborted) setError(e instanceof Error ? e.message : "Gagal memuat tagihan"); })
       .finally(() => { if (!ac.signal.aborted) setLoading(false); });
     return () => ac.abort();
-  }, [kunjunganId, isReal, orderVersion]);
+  }, [kunjunganId, isReal, orderVersion, reloadTick]);
 
   const detail = useMemo(() => (state ? invoiceStateToDetail(state) : null), [state]);
+  const canAdjust = can("billing.invoice", "update");
 
   const handleOpenEklaim = useCallback((href: string) => router.push(href), [router]);
+
+  const handleAdjust = useCallback(
+    async (input: { diskonInvoice: number; materai: number; ppnPct: number; alasan?: string }) => {
+      if (!state) return;
+      setAdjustBusy(true);
+      try {
+        const next = await setInvoiceAdjustment(kunjunganId, { ...input, expectedVersion: state.version });
+        setState(next);
+        setAdjustOpen(false);
+      } catch (e) {
+        console.error("[Adjustment] gagal:", e);
+      } finally {
+        setAdjustBusy(false);
+      }
+    },
+    [kunjunganId, state],
+  );
 
   if (!isReal) {
     return <NotAvailable message="Detail tagihan hanya untuk kunjungan tersimpan (bukan pasien demo)." />;
@@ -89,6 +113,7 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
                 onItemAction={noop}
                 onApplyDiskonInvoice={noop}
                 readOnly
+                onAdjust={canAdjust ? () => setAdjustOpen(true) : undefined}
               />
             )}
             {tab === "pembayaran" && (
@@ -99,6 +124,7 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
                 sisa={state.sisa}
                 status={state.status}
                 payments={detail.payments}
+                onChanged={() => setReloadTick((v) => v + 1)}
               />
             )}
             {tab === "klaim" && <KlaimStatusTab detail={detail} onOpenEklaim={handleOpenEklaim} />}
@@ -108,6 +134,15 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
       </div>
 
       <InvoicePrintModal open={printOpen} detail={detail} onClose={() => setPrintOpen(false)} />
+
+      <AdjustmentModal
+        open={adjustOpen}
+        subtotal={state.subtotal}
+        current={{ diskonInvoice: state.diskonInvoice, materai: state.materai, ppnPct: state.ppnPct }}
+        busy={adjustBusy}
+        onClose={() => setAdjustOpen(false)}
+        onSubmit={handleAdjust}
+      />
     </div>
   );
 }

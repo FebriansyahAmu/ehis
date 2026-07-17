@@ -12,6 +12,19 @@
 
 ---
 
+## ✅ Selesai — Penyesuaian Tagihan + Refund + Void (Slice 2d Fase 1) (2026-07-17)
+
+Melengkapi "loop uang kasir": diskon/keringanan level-invoice, pembatalan (void) kwitansi, dan refund. Charge tetap PROYEKSI order (read-only) — penyesuaian = level-invoice saja (item-level = Fase 2). Fondasi sebagian sudah ada (kolom Invoice, `voidPayment`, `recordPayment kategori Refund`, desain footer `readOnly`).
+
+- **Adjustment invoice-level (BE)**: Zod `InvoiceAdjustmentInput` (diskonInvoice/materai/ppnPct + alasan + expectedVersion) · `invoiceDal.updateAdjustment` (updateMany guard versi optimistic, bump version) · `billingInvoiceService.setAdjustment` (guard 404 + **diskon ≤ subtotal** + lazy-create invoice + `conflictVersion`) · endpoint `PATCH /kunjungan/:id/billing/invoice/adjustment` (gate `billing.invoice:update`) · client `setInvoiceAdjustment`. Math sudah ada di `getInvoiceState` (`grand=(subtotal−diskon)+PPN+materai`).
+- **Adjustment (FE)**: [AdjustmentModal](../src/components/billing/invoice/modals/AdjustmentModal.tsx) (diskon Rp + hint %, materai Rp, PPN %, alasan, **preview grand total live**) dibuka via tombol **"Penyesuaian"** — prop BARU `onAdjust` di [ChargeStickyFooter](../src/components/billing/invoice/tabs/ChargeStickyFooter.tsx) muncul di mode read-only **tanpa** membuka charge rows (`onAdjust` ≠ `!readOnly`); [KunjunganInvoiceDetail](../src/components/billing/invoice/KunjunganInvoiceDetail.tsx) gate `useCan("billing.invoice","update")` → `setInvoiceAdjustment(...,expectedVersion)` → setState.
+- **Void (FE, inline di detail)**: tab Pembayaran [KunjunganPembayaranReadonly](../src/components/billing/invoice/tabs/KunjunganPembayaranReadonly.tsx) — tombol **Batalkan** per baris non-void (gate `billing.kasir:create`), dialog alasan wajib → `voidPayment` (guarded, `voidedBy` server) → `onChanged` bump `reloadTick` → refetch. Banner diperbarui: "refund via Kasir · void di sini". (BE `voidPayment` sudah ada.)
+- **Refund (via Kasir, terikat shift)**: deep-link `?tab=quick&invoice=<kid>&mode=refund` (tombol **Refund** di detail saat `dibayar>0`) → [QuickPaymentForm](../src/components/billing/kasir/quick/QuickPaymentForm.tsx) prop `mode="refund"` (kategori Refund, batas nominal=`dibayar`, accent rose, header "Refund Untuk"/"Dibayar", tombol "Proses Refund") → [QuickBayarPanel](../src/components/billing/kasir/quick/QuickBayarPanel.tsx) `recordPayment` kini pakai **`kategori: payload.kategori`** (bukan hardcode "Pembayaran") → server sign refund negatif. `deepLinkMode` di-thread [page](../src/app/ehis-billing/pembayaran/page.tsx)→KasirCounterPage→panel. (Reset form QuickPaymentForm dipindah ke pola adjust-state-during-render — lolos `set-state-in-effect`.)
+- **Verifikasi**: `tsc` bersih (src; 23 error sisa semua `prisma/scripts` pre-existing) · `eslint` bersih (14 file) · pg-smoke rollback: adjustment guarded update 1 lalu **0 saat versi basi** (guard OK); grand=(571000−100000)+PPN11%(51810)+materai(10000)=**532810**; void guarded 1 lalu 0 (re-void ditolak); refund nominal negatif mengurangi dibayar non-void.
+- **Batas (Fase 2)**: diskon/void **per baris charge** butuh tabel `billing.Adjustment` (overlay by `sourceRef` di proyeksi) — belum dibuat (dicatat TECH_DEBT). Adjustment tak mengemit recordBus (widget Total Tagihan header baca order, bukan invoice — tak terpengaruh).
+
+---
+
 ## ✅ Selesai — Beranda Billing (BL8) de-mock 100% NYATA (2026-07-17)
 
 Permintaan user: di tab Beranda `/ehis-billing` hapus semua mock data, wire dengan data aktual, **desain tetap**; Card grup **Laporan** dibiarkan (disabled), tombol disable lain dibiarkan.
