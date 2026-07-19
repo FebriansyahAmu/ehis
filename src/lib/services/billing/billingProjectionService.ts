@@ -11,6 +11,8 @@ import * as labDal from "@/lib/dal/lab/labOrderDal";
 import * as radDal from "@/lib/dal/rad/radOrderDal";
 import * as bmhpDal from "@/lib/dal/bmhpOrder/bmhpOrderDal";
 import * as billingReadDal from "@/lib/dal/billing/billingReadDal";
+import * as tarifKamarDal from "@/lib/dal/master/tarifKamarDal";
+import * as tarifAdministrasiDal from "@/lib/dal/master/tarifAdministrasiDal";
 import { deriveBillingStatus } from "./billingStatus";
 import { Errors } from "@/lib/errors/appError";
 import type {
@@ -22,8 +24,8 @@ import type {
 const CANCELLED = new Set(["Dibatalkan", "Ditolak"]);
 const isLive = (status: string) => !CANCELLED.has(status);
 
-// Tarif akomodasi per hari, per kelas (belum ada master rate kamar → konstanta; sinkron dgn
-// priceResolver.AKOMODASI_RATE_PER_HARI sisi mock). Basis tagihan = kelasHak (titipan) ?? kelas.
+// Tarif akomodasi per hari, per kelas — FALLBACK bila master TarifKamar belum di-set (kelas tsb).
+// Sumber utama = master.TarifKamar (Mapping Hub → Tarif → Ruang Rawat). Basis tagihan = kelasHak ?? kelas.
 const AKOMODASI_RATE: Record<string, number> = {
   VIP: 2_000_000, Kelas_1: 1_200_000, Kelas_2: 800_000, Kelas_3: 450_000,
   ICU: 1_500_000, HCU: 1_000_000, Isolasi: 800_000,
@@ -33,6 +35,40 @@ const KELAS_LABEL: Record<string, string> = {
   VIP: "VIP", Kelas_1: "Kelas 1", Kelas_2: "Kelas 2", Kelas_3: "Kelas 3",
   ICU: "ICU", HCU: "HCU", Isolasi: "Isolasi",
 };
+
+// ── Resolusi tarif dari master (kamar & administrasi) ──────────────────────────
+// Map key `${rowKey}:${penjaminKode}` → harga. penjaminTipe kunjungan → penjaminKode tarif.
+type TarifRateMap = Map<string, number>;
+
+/** penjaminTipe (kunjungan) → penjaminKode (tarif). BPJS → BPJS; sisanya Tarif PERDA = UMUM. */
+function tarifPenjaminKode(penjaminTipe: string): string {
+  return penjaminTipe === "BPJS_Non_PBI" || penjaminTipe === "BPJS_PBI" ? "BPJS" : "UMUM";
+}
+
+function buildKamarMap(rows: { kelas: string; penjaminKode: string; harga: number }[]): TarifRateMap {
+  const m: TarifRateMap = new Map();
+  for (const r of rows) m.set(`${r.kelas}:${r.penjaminKode}`, r.harga);
+  return m;
+}
+
+function buildAdminMap(rows: { unit: string; penjaminKode: string; harga: number }[]): TarifRateMap {
+  const m: TarifRateMap = new Map();
+  for (const r of rows) m.set(`${r.unit}:${r.penjaminKode}`, r.harga);
+  return m;
+}
+
+/** Tarif kamar/hari: (kelas, penjamin) → (kelas, UMUM) → konstanta fallback → 0. */
+function resolveKamarRate(map: TarifRateMap, kelas: string | null, penjaminTipe: string): number {
+  if (!kelas) return 0;
+  const pk = tarifPenjaminKode(penjaminTipe);
+  return map.get(`${kelas}:${pk}`) ?? map.get(`${kelas}:UMUM`) ?? AKOMODASI_RATE[kelas] ?? 0;
+}
+
+/** Biaya administrasi/kunjungan: (unit, penjamin) → (unit, UMUM) → 0 (tanpa fallback konstanta). */
+function resolveAdminFee(map: TarifRateMap, unit: string, penjaminTipe: string): number {
+  const pk = tarifPenjaminKode(penjaminTipe);
+  return map.get(`${unit}:${pk}`) ?? map.get(`${unit}:UMUM`) ?? 0;
+}
 
 const iso = (d: Date | string | null | undefined): string =>
   d == null ? "" : (typeof d === "string" ? d : d.toISOString());
@@ -57,18 +93,16 @@ function rawatDays(admitISO: string, endISO: string): number {
 }
 
 /** Total akomodasi (rate kelas × hari rawat) — untuk baris worklist. 0 bila tanpa tier/rate. */
-function akomodasiSum(tier: string | null, admitISO: string, endISO: string): number {
-  if (!tier) return 0;
-  const rate = AKOMODASI_RATE[tier] ?? 0;
-  return rate === 0 ? 0 : rate * rawatDays(admitISO, endISO);
+function akomodasiSum(tier: string | null, rate: number, admitISO: string, endISO: string): number {
+  if (!tier || rate <= 0) return 0;
+  return rate * rawatDays(admitISO, endISO);
 }
 
 /** Proyeksi hari rawat (RI) → 1 charge per hari "Kamar …". Hari masuk dihitung, hari pulang tidak. */
 function projectAkomodasi(
-  kunjunganId: string, tier: string | null, admitISO: string, endISO: string, coverage: BillingCoverage,
+  kunjunganId: string, tier: string | null, rate: number, admitISO: string, endISO: string, coverage: BillingCoverage,
 ): BillingChargeDTO[] {
   if (!tier) return [];
-  const rate = AKOMODASI_RATE[tier] ?? 0;
   const days = rawatDays(admitISO, endISO);
   if (days === 0) return [];
   const startDay = Date.UTC(
@@ -100,13 +134,17 @@ async function projectByKunjungan(kunjunganId: string): Promise<BillingProjectio
   const k = await kunjunganDal.findById(kunjunganId);
   if (!k) throw Errors.notFound("Kunjungan tidak ditemukan");
 
-  const [tindakan, resep, lab, rad, bmhp] = await Promise.all([
+  const [tindakan, resep, lab, rad, bmhp, kamarRows, adminRows] = await Promise.all([
     tindakanDal.list(kunjunganId),
     resepDal.listByKunjungan(kunjunganId),
     labDal.listByKunjungan(kunjunganId),
     radDal.listByKunjungan(kunjunganId),
     bmhpDal.listByKunjungan(kunjunganId),
+    tarifKamarDal.list({ limit: 500 }),
+    tarifAdministrasiDal.list({ limit: 500 }),
   ]);
+  const kamarMap = buildKamarMap(kamarRows.items);
+  const adminMap = buildAdminMap(adminRows.items);
 
   const coverage: BillingCoverage = k.penjaminTipe === "Umum" ? "Pasien" : "Penjamin";
   const unitMod: BillingSourceModul = k.unit === "IGD" ? "IGD" : k.unit === "RawatJalan" ? "RJ" : "RI";
@@ -210,11 +248,30 @@ async function projectByKunjungan(kunjunganId: string): Promise<BillingProjectio
     }
   }
 
-  // ── Akomodasi (RI saja) — proyeksi hari rawat × rate kelas (basis kelasHak) ──
+  // ── Akomodasi (RI saja) — proyeksi hari rawat × rate kelas master (basis kelasHak) ──
   if (k.unit === "RawatInap") {
     const tier = k.kelasHak ?? k.kelas ?? null;
+    const rate = resolveKamarRate(kamarMap, tier, k.penjaminTipe);
     const endISO = iso(k.selesaiAt) || new Date().toISOString();
-    items.push(...projectAkomodasi(kunjunganId, tier, iso(k.waktuKunjungan), endISO, coverage));
+    items.push(...projectAkomodasi(kunjunganId, tier, rate, iso(k.waktuKunjungan), endISO, coverage));
+  }
+
+  // ── Administrasi — 1 charge/kunjungan dari master TarifAdministrasi (unit × penjamin) ──
+  const adminFee = resolveAdminFee(adminMap, k.unit, k.penjaminTipe);
+  if (adminFee > 0) {
+    items.push({
+      id: `administrasi-${kunjunganId}`,
+      tanggalISO: iso(k.waktuKunjungan),
+      nama: "Biaya Administrasi",
+      sourceModul: unitMod,
+      sourceRef: `administrasi:${kunjunganId}`,
+      kategori: "Administrasi",
+      qty: 1,
+      satuan: "kunjungan",
+      hargaSatuan: adminFee,
+      coverage,
+      untariffed: false,
+    });
   }
 
   const subtotal = items.reduce((s, it) => s + it.hargaSatuan * it.qty, 0);
@@ -245,18 +302,25 @@ async function listKunjunganBilling(limit = 100): Promise<BillingKunjunganRowDTO
 
   const totals = new Map(agg.map((a) => [a.kid, { subtotal: Number(a.subtotal), n: Number(a.n) }]));
   const ids = [...totals.keys()];
-  const [headers, paidAgg] = await Promise.all([
+  const [headers, paidAgg, kamarRows, adminRows] = await Promise.all([
     billingReadDal.findKunjunganHeaders(ids),
     billingReadDal.aggregatePaid(ids),
+    tarifKamarDal.list({ limit: 500 }),
+    tarifAdministrasiDal.list({ limit: 500 }),
   ]);
   const paidMap = new Map(paidAgg.map((p) => [p.kid, Number(p.dibayar)]));
+  const kamarMap = buildKamarMap(kamarRows.items);
+  const adminMap = buildAdminMap(adminRows.items);
 
   const rows: BillingKunjunganRowDTO[] = headers.map((k) => {
     const t = totals.get(k.id) ?? { subtotal: 0, n: 0 };
     const admit = iso(k.waktuKunjungan);
     const endISO = iso(k.selesaiAt) || new Date().toISOString();
-    const akom = k.unit === "RawatInap" ? akomodasiSum(k.kelasHak ?? k.kelas ?? null, admit, endISO) : 0;
-    const total = t.subtotal + akom;                       // grand total (adjustment=0 s/d Slice 2d)
+    const tier = k.kelasHak ?? k.kelas ?? null;
+    const rate = k.unit === "RawatInap" ? resolveKamarRate(kamarMap, tier, k.penjaminTipe) : 0;
+    const akom = k.unit === "RawatInap" ? akomodasiSum(tier, rate, admit, endISO) : 0;
+    const admin = resolveAdminFee(adminMap, k.unit, k.penjaminTipe);
+    const total = t.subtotal + akom + admin;               // grand total (adjustment=0 s/d Slice 2d)
     const dibayar = paidMap.get(k.id) ?? 0;
     const sisa = Math.max(0, total - dibayar);
     return {

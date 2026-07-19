@@ -6,7 +6,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import {
-  BedDouble, Stethoscope, FlaskConical, ScanLine, Pill, UserRound, MoreHorizontal,
+  BedDouble, Stethoscope, FlaskConical, ScanLine, Pill, UserRound, MoreHorizontal, ReceiptText,
   CircleDot, FileText, Send, ShieldCheck, CheckCircle2, XCircle, Ban,
   Banknote, ArrowRightLeft, QrCode, CreditCard, Ticket,
 } from "lucide-react";
@@ -23,7 +23,7 @@ export type SourceModul =
   | "IGD" | "RI" | "RJ" | "Farmasi" | "Lab" | "Rad" | "Akomodasi" | "Adjustment";
 
 export type KategoriCharge =
-  | "Akomodasi" | "Tindakan" | "Lab" | "Rad" | "Obat & BMHP" | "Jasa Dokter" | "Lain-lain";
+  | "Akomodasi" | "Administrasi" | "Tindakan" | "Lab" | "Rad" | "Obat & BMHP" | "Jasa Dokter" | "Lain-lain";
 
 export interface ChargeItem {
   id: string;
@@ -130,6 +130,7 @@ interface ChipCfg {
 
 export const KATEGORI_CFG: Record<KategoriCharge, ChipCfg> = {
   "Akomodasi":   { label: "Akomodasi",   icon: BedDouble,    bg: "bg-teal-50",    text: "text-teal-700",    ring: "ring-teal-200",    dot: "bg-teal-500" },
+  "Administrasi": { label: "Administrasi", icon: ReceiptText, bg: "bg-indigo-50",  text: "text-indigo-700",  ring: "ring-indigo-200",  dot: "bg-indigo-500" },
   "Tindakan":    { label: "Tindakan",    icon: Stethoscope,  bg: "bg-sky-50",     text: "text-sky-700",     ring: "ring-sky-200",     dot: "bg-sky-500" },
   "Lab":         { label: "Laboratorium", icon: FlaskConical, bg: "bg-amber-50",   text: "text-amber-700",   ring: "ring-amber-200",   dot: "bg-amber-500" },
   "Rad":         { label: "Radiologi",   icon: ScanLine,     bg: "bg-pink-50",    text: "text-pink-700",    ring: "ring-pink-200",    dot: "bg-pink-500" },
@@ -140,7 +141,7 @@ export const KATEGORI_CFG: Record<KategoriCharge, ChipCfg> = {
 
 /** Urutan section pada Rincian (akomodasi paling atas, lain-lain paling bawah). */
 export const KATEGORI_ORDER: KategoriCharge[] = [
-  "Akomodasi", "Tindakan", "Lab", "Rad", "Obat & BMHP", "Jasa Dokter", "Lain-lain",
+  "Akomodasi", "Administrasi", "Tindakan", "Lab", "Rad", "Obat & BMHP", "Jasa Dokter", "Lain-lain",
 ];
 
 export const COVERAGE_CFG: Record<Coverage, { label: string; bg: string; text: string; ring: string }> = {

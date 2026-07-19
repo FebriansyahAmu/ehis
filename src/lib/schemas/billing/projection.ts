@@ -10,7 +10,7 @@ export type BillingSourceModul =
   | "IGD" | "RI" | "RJ" | "Farmasi" | "Lab" | "Rad" | "Akomodasi" | "Adjustment";
 
 export type BillingKategori =
-  | "Akomodasi" | "Tindakan" | "Lab" | "Rad" | "Obat & BMHP" | "Jasa Dokter" | "Lain-lain";
+  | "Akomodasi" | "Administrasi" | "Tindakan" | "Lab" | "Rad" | "Obat & BMHP" | "Jasa Dokter" | "Lain-lain";
 
 export interface BillingChargeDTO {
   id: string;

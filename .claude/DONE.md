@@ -12,6 +12,23 @@
 
 ---
 
+## ✅ Selesai — Master Tarif Ruang Rawat + Administrasi → proyeksi billing WIRED (2026-07-19)
+
+Menutup gap audit billing **#5** (master tarif kamar; `AKOMODASI_RATE` hardcode) & **#1** (charge Administrasi tak diproyeksikan). Dua fase: (A) **Settings** — Mapping Hub → Tarif jadi 3 sub-tab + 2 tabel master; (B) **Wiring** — proyeksi baca master.
+
+**(A) Settings (master + UI):**
+- Schema Postgres `master.TarifKamar` (Kelas × Penjamin/hari) + `master.TarifAdministrasi` (Unit × Penjamin), keduanya upsert-by-pair + komponen PMK 85 + **metadata SK opsional** (`noSk`/`tglSk` Date); migrasi `20260719120000` + `20260719130000` (anti-drift via pg + `migrate resolve`). Backend berlapis (Zod/DAL/Service/route `/master/tarif-{kamar,administrasi}` +`/:id`, gate `master.tarif`) + client. Seed 7 kelas (dari `AKOMODASI_RATE`) + 3 unit admin (UMUM).
+- FE: pane Tarif = **wadah 3 sub-tab segmented** [TarifHubPane](../src/components/master/mapping/tarif/TarifHubPane.tsx) (Matriks Layanan eksisting · Ruang Rawat · Administrasi); 2 sub-tab baru = [TarifSimplePane](../src/components/master/mapping/tarif/simpleTarif/TarifSimplePane.tsx) generik config-driven (penjamin=tab UMUM aktif · editor inline Total/Rinci komponen · **Nomor SK + Tanggal SK** DatePicker → **badge** indigo di bawah label · auto-save optimistik · **hapus = ConfirmDialog** reuse master). Spec [BACKEND-MAPPING §5b/5c](../docs/BACKEND-MAPPING.md).
+
+**(B) Wiring proyeksi** ([billingProjectionService](../src/lib/services/billing/billingProjectionService.ts)):
+- **Akomodasi** kini `resolveKamarRate(kamarMap, kelasHak/kelas, penjaminTipe)` per hari — lookup `(kelas, penjaminKode)` → `(kelas, UMUM)` → konstanta `AKOMODASI_RATE` fallback → 0; `projectAkomodasi`/`akomodasiSum` di-refactor terima `rate`.
+- **Administrasi** = charge BARU per kunjungan (semua unit) `resolveAdminFee(adminMap, unit, penjaminTipe)`; `sourceRef` idempoten `administrasi:<kid>`. Kategori **BARU `Administrasi`** ditambah ke `BillingKategori` (projection) + `KategoriCharge`/`KATEGORI_CFG`/`KATEGORI_ORDER` ([invoiceShared](../src/components/billing/invoice/invoiceShared.ts), ikon ReceiptText indigo) + row [TotalTagihanWidget](../src/components/shared/medical-records/TotalTagihanWidget.tsx) (dot cyan).
+- `penjaminTipe`→`penjaminKode`: BPJS_*→"BPJS" (fallback UMUM), sisanya "UMUM". Tarif map di-fetch **sekali** per `projectByKunjungan` + `listKunjunganBilling` (2 query kecil).
+- **Verifikasi:** tsc bersih · eslint 0 · pg smoke replikasi math pada kunjungan NYATA → proyeksi mengambil **nilai master ter-edit** (Kelas_3 = 400k user-set via UI, BUKAN konstanta 450k → bukti wiring baca master), administrasi tampil per unit (IGD 50k · RJ 25k · RI 100k), day-count benar (min 1, hari pulang tak dihitung).
+- **Sisa:** `AKOMODASI_RATE` konstanta dipertahankan sbg fallback (masih dipakai `priceResolver` mock lama → retire bareng billingStore); worklist billing tetap order-driven (RI order-less belum muncul).
+
+---
+
 ## ✅ Selesai — Billing P2: RI discharge gate/widget de-mock → billing NYATA (2026-07-19)
 
 Menutup temuan audit ehis-billing gap #2 (high|cross-module): **gate keputusan pulang RI + chip sisa header** masih membaca `billingStore` **mock** (key by noRM, seeded `INVOICE_DETAIL_MOCK`) — tak sinkron dengan tagihan proyeksi nyata. P2 mengarahkannya ke `getInvoiceState` yang sudah nyata, **tanpa melebarkan RBAC billing** (pakai gate klinis).

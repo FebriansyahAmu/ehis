@@ -24,6 +24,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // Kategori proyeksi billing → label + warna dot (urutan tampil di popover).
 const KATEGORI_CFG: { key: string; label: string; dot: string }[] = [
   { key: "Akomodasi",   label: "Akomodasi",     dot: "bg-violet-400"  },
+  { key: "Administrasi", label: "Administrasi",  dot: "bg-cyan-400"    },
   { key: "Tindakan",    label: "Tindakan",      dot: "bg-fuchsia-400" },
   { key: "Jasa Dokter", label: "Jasa Dokter",   dot: "bg-rose-400"    },
   { key: "Lab",         label: "Laboratorium",  dot: "bg-sky-400"     },
