@@ -10,11 +10,15 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Loader2, AlertTriangle } from "lucide-react";
-import { getInvoiceState, setInvoiceAdjustment, type InvoiceStateDTO } from "@/lib/api/billing/invoice";
+import {
+  getInvoiceState, setInvoiceAdjustment, finalizeInvoice, reopenInvoice,
+  type InvoiceStateDTO,
+} from "@/lib/api/billing/invoice";
 import { useRecordVersion } from "@/lib/realtime/recordBus";
 import { useCan } from "@/components/auth/Can";
 import { invoiceStateToDetail } from "./invoiceStateMap";
 import PatientBannerBilling from "./PatientBannerBilling";
+import InvoiceFinalizeBar from "./InvoiceFinalizeBar";
 import InvoiceTabs, { type InvoiceTabKey } from "./InvoiceTabs";
 import RincianChargeTab from "./tabs/RincianChargeTab";
 import KunjunganPembayaranReadonly from "./tabs/KunjunganPembayaranReadonly";
@@ -39,6 +43,8 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
   const [printOpen, setPrintOpen] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [adjustBusy, setAdjustBusy] = useState(false);
+  const [finBusy, setFinBusy] = useState(false);
+  const [finErr, setFinErr] = useState<string | null>(null);
   const [reloadTick, setReloadTick] = useState(0); // bump → refetch (sesudah void/refund)
 
   // Reaktif: charge = proyeksi order → refetch saat order kunjungan berubah.
@@ -76,6 +82,40 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
     [kunjunganId, state],
   );
 
+  const handleFinalize = useCallback(
+    async (force: boolean) => {
+      if (!state) return;
+      setFinBusy(true);
+      setFinErr(null);
+      try {
+        const next = await finalizeInvoice(kunjunganId, { force, expectedVersion: state.version });
+        setState(next);
+      } catch (e) {
+        setFinErr(e instanceof Error ? e.message : "Gagal memfinalisasi");
+      } finally {
+        setFinBusy(false);
+      }
+    },
+    [kunjunganId, state],
+  );
+
+  const handleReopen = useCallback(
+    async (alasan: string) => {
+      if (!state) return;
+      setFinBusy(true);
+      setFinErr(null);
+      try {
+        const next = await reopenInvoice(kunjunganId, { alasan, expectedVersion: state.version });
+        setState(next);
+      } catch (e) {
+        setFinErr(e instanceof Error ? e.message : "Gagal membatalkan finalisasi");
+      } finally {
+        setFinBusy(false);
+      }
+    },
+    [kunjunganId, state],
+  );
+
   if (!isReal) {
     return <NotAvailable message="Detail tagihan hanya untuk kunjungan tersimpan (bukan pasien demo)." />;
   }
@@ -93,6 +133,19 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-50/60 dark:bg-slate-950">
       <PatientBannerBilling detail={detail} onPrint={() => setPrintOpen(true)} />
+
+      <InvoiceFinalizeBar
+        lifecycle={state.lifecycle}
+        finalizedAt={state.finalizedAt}
+        finalizedBy={state.finalizedBy}
+        untariffedCount={state.untariffedCount}
+        subtotal={state.subtotal}
+        canManage={canAdjust}
+        busy={finBusy}
+        errorMsg={finErr}
+        onFinalize={handleFinalize}
+        onReopen={handleReopen}
+      />
 
       <InvoiceTabs detail={detail} active={tab} onChange={setTab} itemCount={detail.items.length} />
 
@@ -113,7 +166,7 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
                 onItemAction={noop}
                 onApplyDiskonInvoice={noop}
                 readOnly
-                onAdjust={canAdjust ? () => setAdjustOpen(true) : undefined}
+                onAdjust={canAdjust && state.lifecycle === "Draft" ? () => setAdjustOpen(true) : undefined}
               />
             )}
             {tab === "pembayaran" && (

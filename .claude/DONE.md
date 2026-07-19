@@ -12,6 +12,25 @@
 
 ---
 
+## ✅ Selesai — Billing Finalize / Lock Lifecycle Invoice (Slice 2f / BB6) (2026-07-19)
+
+Charge tagihan kini bisa **DIBEKUKAN** (frozen) — menutup gap fondasi Reports. **Keputusan arsitektur (disepakati user):** finalisasi = aksi **BILLING** (kasir/staf billing), **BUKAN dipicu discharge klinis "Pasien Pulang"**. Alasan terkuat: charge sering **menetes setelah pasien pulang** (hasil lab telat, retur/kembalian obat, obat pulang, koreksi tarif) → membekukan saat discharge = tagihan tak lengkap. Discharge tetap **informatif** (banner sisa, tak berubah). Urutan finalize→reports benar: report periode butuh angka **beku & otoritatif** (outstanding proyeksi-hidup berubah retroaktif → laporan tak stabil).
+
+**Skema** (migrasi `20260719140000` manual anti-drift via pg + `migrate resolve --applied`):
+- `billing.Invoice` +kolom `status` (Draft|Final, default Draft) · `finalizedAt` · `finalizedBy` (server-resolved) · `finalizedByUserId` + `@@index([status])`.
+- Tabel BARU **`billing.InvoiceItem`** — SNAPSHOT baris charge saat finalize (id/invoiceId FK CASCADE/tanggal/nama/sourceModul/sourceRef/kategori/qty/satuan/hargaSatuan/coverage/untariffed), `@@index([invoiceId])`+`@@index([kategori])` (agregasi report SUM per kategori via SQL). **Draft = tak ada baris** (charge tetap proyeksi); **Final = baris beku dari proyeksi**.
+
+**Backend berlapis:**
+- DAL: [invoiceItemDal](../src/lib/dal/billing/invoiceItemDal.ts) BARU (listByInvoice/createMany/deleteByInvoice) + [invoiceDal](../src/lib/dal/billing/invoiceDal.ts) `setFinal` (guard `WHERE status='Draft'`+versi, stempel finalize) / `setDraft` (guard `WHERE status='Final'`, bersihkan stempel).
+- Service [billingInvoiceService](../src/lib/services/billing/billingInvoiceService.ts): `buildState` bercabang (Final → baca `InvoiceItem`, subtotal/untariffedCount dari snapshot; header identitas selalu dari proyeksi) · `finalizeInvoice(force?,expectedVersion?)` (proyeksi→createMany dalam 1 tx; subtotal≤0 ditolak; **untariffed>0 ditolak 422 kecuali `force`** = peringatan FE) · `reopenInvoice(alasan,expectedVersion?)` (setDraft + deleteByInvoice; **pembayaran dipertahankan**) · `setAdjustment` kini **blokir saat Final** (`forbiddenState`). Payment/void tetap boleh saat Final (bayar tagihan beku).
+- Route: `POST /api/v1/kunjungan/:id/billing/finalize` + `/reopen` (gate **`billing.invoice:update`**, scopeKunjungan default false). Client `finalizeInvoice`/`reopenInvoice`. `InvoiceStateDTO`/`BillingRingkasDTO` +`lifecycle`("Draft"|"Final") +`finalizedAt`/`finalizedBy`.
+
+**FE:** [InvoiceFinalizeBar](../src/components/billing/invoice/InvoiceFinalizeBar.tsx) BARU — strip di antara banner & tab di [KunjunganInvoiceDetail](../src/components/billing/invoice/KunjunganInvoiceDetail.tsx): **Draft** = pill DRAFT + "charge mengikuti order" + badge N item belum bertarif + tombol **Finalisasi Tagihan** (emerald; disabled bila subtotal≤0; modal konfirmasi — peringatan bila untariffed→kirim `force`) · **Final** = pill FINAL hijau + "oleh siapa/kapan" + **Batalkan Finalisasi** (rose; modal alasan wajib). Gate `billing.invoice:update`. **Penyesuaian disembunyikan saat Final** (`onAdjust` di-gate lifecycle). Banner mock lama tak disentuh (shared).
+
+**Verifikasi:** tsc `src/` 0 error · eslint 0 · **pg smoke 13/13** (kolom finalize · tabel+FK CASCADE · Draft default · setFinal guard idempoten · subtotal beku 2.5jt · reopen buang snapshot · guard reopen · tak ada item yatim). **Sisa** (TECH_DEBT): reopen belum simpan history who/why finalisasi (butuh `billing.AuditLog`; re-finalize menimpa stempel) · `getInvoiceState` saat Final masih panggil proyeksi utk header (bisa di-slim).
+
+---
+
 ## ✅ Selesai — Master Tarif Ruang Rawat + Administrasi → proyeksi billing WIRED (2026-07-19)
 
 Menutup gap audit billing **#5** (master tarif kamar; `AKOMODASI_RATE` hardcode) & **#1** (charge Administrasi tak diproyeksikan). Dua fase: (A) **Settings** — Mapping Hub → Tarif jadi 3 sub-tab + 2 tabel master; (B) **Wiring** — proyeksi baca master.

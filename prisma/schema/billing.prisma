@@ -21,7 +21,14 @@ model BillingCounter {
 }
 
 // Invoice — 1 per kunjungan (lazy-create saat bayar/buka detail). Header saja; charge
-// tetap diproyeksikan dari order. Adjustment level-invoice disiapkan (default 0).
+// tetap diproyeksikan dari order (Draft) / DIBEKUKAN ke InvoiceItem (Final). Adjustment
+// level-invoice disiapkan (default 0).
+//
+// Lifecycle finalize (Slice 2f): status Draft → Final (bisa reopen balik ke Draft).
+//   Draft = charge proyeksi HIDUP (recompute tiap baca).
+//   Final = charge BEKU — snapshot baris ke billing.InvoiceItem; total/report otoritatif.
+// Finalize = aksi BILLING (gate billing.invoice:update), BUKAN dipicu discharge klinis
+// (charge sering menetes pasca-pulang). finalizedAt/By = stempel server (anti-spoof).
 model Invoice {
   id          String @id @default(uuid(7)) @db.Uuid
   kunjunganId String @unique @map("kunjungan_id") @db.Uuid // soft-ref encounter.Kunjungan
@@ -33,6 +40,12 @@ model Invoice {
   ppnPct        Int     @default(0) @map("ppn_pct")
   catatan       String?
 
+  // Lifecycle finalize (Slice 2f) — "Draft" | "Final".
+  status            String    @default("Draft")
+  finalizedAt       DateTime? @map("finalized_at") @db.Timestamptz(3)
+  finalizedBy       String?   @map("finalized_by") // nama actor (server-resolved)
+  finalizedByUserId String?   @map("finalized_by_user_id") @db.Uuid
+
   createdBy    String? @map("created_by") // nama actor (snapshot)
   authorUserId String? @map("author_user_id") @db.Uuid
   version      Int     @default(0)
@@ -41,8 +54,37 @@ model Invoice {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   payments Payment[]
+  items    InvoiceItem[]
 
+  @@index([status])
   @@map("invoice")
+  @@schema("billing")
+}
+
+// InvoiceItem — SNAPSHOT baris charge saat finalize (beku). Ditulis dari proyeksi order
+// (billingProjectionService) di dalam tx finalize; dihapus saat reopen. Draft = TIDAK ada baris
+// (charge tetap proyeksi). Report periode meng-agregasi tabel ini (SUM per kategori/unit) via SQL.
+model InvoiceItem {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  invoiceId String  @map("invoice_id") @db.Uuid
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  tanggal     DateTime @db.Timestamptz(3)            // waktu order/tindakan (atau hari akomodasi)
+  nama        String
+  sourceModul String   @map("source_modul")          // IGD | RI | RJ | Farmasi | Lab | Rad | Akomodasi | Adjustment
+  sourceRef   String   @map("source_ref")            // dedupe key snapshot (tindakan:… / akomodasi:…)
+  kategori    String                                  // Akomodasi | Administrasi | Tindakan | Lab | Rad | Obat & BMHP | Jasa Dokter | Lain-lain
+  qty         Int
+  satuan      String
+  hargaSatuan Int      @map("harga_satuan")
+  coverage    String                                  // Penjamin | Pasien | Mixed
+  untariffed  Boolean  @default(false)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([invoiceId])
+  @@index([kategori])
+  @@map("invoice_item")
   @@schema("billing")
 }
 

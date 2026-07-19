@@ -5,6 +5,7 @@
 
 import { transaction } from "@/lib/db/prisma";
 import * as invoiceDal from "@/lib/dal/billing/invoiceDal";
+import * as invoiceItemDal from "@/lib/dal/billing/invoiceItemDal";
 import * as paymentDal from "@/lib/dal/billing/paymentDal";
 import * as billingCounterDal from "@/lib/dal/billing/billingCounterDal";
 import * as billingReadDal from "@/lib/dal/billing/billingReadDal";
@@ -14,10 +15,12 @@ import { resolveActorNama } from "@/lib/services/actorName";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type { InvoiceEntity } from "@/lib/dal/billing/invoiceDal";
+import type { InvoiceItemData, InvoiceItemEntity } from "@/lib/dal/billing/invoiceItemDal";
 import type { PaymentEntity } from "@/lib/dal/billing/paymentDal";
+import type { BillingChargeDTO } from "@/lib/schemas/billing/projection";
 import type {
   PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO,
-  InvoiceAdjustmentInput, BillingRingkasDTO,
+  InvoiceAdjustmentInput, BillingRingkasDTO, InvoiceFinalizeInput, InvoiceReopenInput,
 } from "@/lib/schemas/billing/payment";
 
 function periodeNow(): { periode: string; yyyy: string; mm: string } {
@@ -33,6 +36,39 @@ function ageFrom(tglLahir: Date | null): number {
   if (!tglLahir) return 0;
   const ms = Date.now() - tglLahir.getTime();
   return ms > 0 ? Math.floor(ms / (365.25 * 24 * 3600 * 1000)) : 0;
+}
+
+/** Baris snapshot beku (InvoiceItem) → bentuk charge UI (BillingChargeDTO). */
+function toChargeFromSnapshot(it: InvoiceItemEntity): BillingChargeDTO {
+  return {
+    id: it.id,
+    tanggalISO: it.tanggal.toISOString(),
+    nama: it.nama,
+    sourceModul: it.sourceModul as BillingChargeDTO["sourceModul"],
+    sourceRef: it.sourceRef,
+    kategori: it.kategori as BillingChargeDTO["kategori"],
+    qty: it.qty,
+    satuan: it.satuan,
+    hargaSatuan: it.hargaSatuan,
+    coverage: it.coverage as BillingChargeDTO["coverage"],
+    untariffed: it.untariffed,
+  };
+}
+
+/** Charge proyeksi → data baris snapshot (ditulis saat finalize). */
+function toSnapshotData(c: BillingChargeDTO): InvoiceItemData {
+  return {
+    tanggal: new Date(c.tanggalISO),
+    nama: c.nama,
+    sourceModul: c.sourceModul,
+    sourceRef: c.sourceRef,
+    kategori: c.kategori,
+    qty: c.qty,
+    satuan: c.satuan,
+    hargaSatuan: c.hargaSatuan,
+    coverage: c.coverage,
+    untariffed: !!c.untariffed,
+  };
 }
 
 function toPaymentDTO(p: PaymentEntity): PaymentDTO {
@@ -62,11 +98,25 @@ async function buildState(
     billingReadDal.findKunjunganHeaders([kunjunganId]),
   ]);
   const hdr = headers[0];
+
+  // Charge: Draft = proyeksi HIDUP (proj) · Final = SNAPSHOT beku (InvoiceItem). Header
+  // (pasien/unit/penjamin/kelas/SEP) selalu dari proyeksi (identitas tak dibekukan).
+  const isFinal = invoice?.status === "Final";
+  let items = proj.items;
+  let subtotal = proj.subtotal;
+  let untariffedCount = proj.untariffedCount;
+  if (isFinal && invoice) {
+    const snap = await invoiceItemDal.listByInvoice(invoice.id);
+    items = snap.map(toChargeFromSnapshot);
+    subtotal = snap.reduce((s, i) => s + i.qty * i.hargaSatuan, 0);
+    untariffedCount = snap.filter((i) => i.untariffed).length;
+  }
+
   const dibayar = payments.filter((p) => !p.voided).reduce((s, p) => s + p.nominal, 0);
   const diskonInvoice = invoice?.diskonInvoice ?? 0;
   const materai = invoice?.materai ?? 0;
   const ppnPct = invoice?.ppnPct ?? 0;
-  const afterDiskon = Math.max(0, proj.subtotal - diskonInvoice);
+  const afterDiskon = Math.max(0, subtotal - diskonInvoice);
   const ppn = Math.round((afterDiskon * ppnPct) / 100);
   const grandTotal = afterDiskon + ppn + materai;
   const sisa = Math.max(0, grandTotal - dibayar);
@@ -77,7 +127,10 @@ async function buildState(
     kunjunganId: proj.kunjunganId,
     noKunjungan: proj.noKunjungan,
     unit: proj.unit,
-    status: deriveBillingStatus(proj.subtotal, grandTotal, dibayar),
+    status: deriveBillingStatus(subtotal, grandTotal, dibayar),
+    lifecycle: isFinal ? "Final" : "Draft",
+    finalizedAt: invoice?.finalizedAt ? invoice.finalizedAt.toISOString() : null,
+    finalizedBy: invoice?.finalizedBy ?? null,
     locked: proj.locked,
     selesaiAt: proj.selesaiAt,
     waktuKunjungan: hdr?.waktuKunjungan ? hdr.waktuKunjungan.toISOString() : null,
@@ -91,9 +144,9 @@ async function buildState(
     dpjp: null,
     kelas: proj.kelas,
     noSep: proj.noSep,
-    items: proj.items,
-    subtotal: proj.subtotal,
-    untariffedCount: proj.untariffedCount,
+    items,
+    subtotal,
+    untariffedCount,
     diskonInvoice, materai, ppnPct,
     grandTotal, dibayar, sisa,
     payments: payments.map(toPaymentDTO),
@@ -123,6 +176,7 @@ async function getRingkas(kunjunganId: string): Promise<BillingRingkasDTO> {
   return {
     invoiceId: s.invoiceId,
     status: s.status,
+    lifecycle: s.lifecycle,
     penjaminTipe: s.penjaminTipe,
     subtotal: s.subtotal,
     grandTotal: s.grandTotal,
@@ -193,6 +247,9 @@ async function setAdjustment(
   }
   const kasir = await resolveActorNama(actor);
   const invoice = await resolveInvoice(kunjunganId, kasir, actor);
+  if (invoice.status === "Final") {
+    throw Errors.forbiddenState("Tagihan sudah difinalisasi — batalkan finalisasi untuk menyesuaikan");
+  }
   const count = await invoiceDal.updateAdjustment(
     invoice.id,
     { diskonInvoice: input.diskonInvoice, materai: input.materai, ppnPct: input.ppnPct, catatan: input.alasan ?? null },
@@ -214,6 +271,60 @@ async function voidPayment(
   const voidedBy = await resolveActorNama(actor);
   const count = await paymentDal.voidGuarded(paymentId, invoice.id, { voidReason: alasan, voidedBy });
   if (count === 0) throw Errors.validation("Pembayaran sudah dibatalkan sebelumnya");
+
+  return getInvoiceState(kunjunganId);
+}
+
+/**
+ * Finalisasi tagihan (Draft → Final). BEKUKAN charge proyeksi → snapshot billing.InvoiceItem
+ * dalam 1 tx. Aksi BILLING (gate billing.invoice:update) — TIDAK dipicu discharge klinis.
+ * Guard: subtotal > 0; untariffed > 0 ditolak kecuali `force` (peringatan FE). Idempoten via
+ * setFinal (where status='Draft'). Payment tetap boleh setelah Final (bayar tagihan beku).
+ */
+async function finalizeInvoice(
+  kunjunganId: string, input: InvoiceFinalizeInput, actor: Actor,
+): Promise<InvoiceStateDTO> {
+  const proj = await billingProjectionService.projectByKunjungan(kunjunganId); // 404 guard + baris snapshot
+  if (proj.subtotal <= 0) throw Errors.validation("Tidak ada tagihan untuk difinalisasi");
+  if (proj.untariffedCount > 0 && !input.force) {
+    throw Errors.validation(
+      `Ada ${proj.untariffedCount} item belum bertarif (Rp0). Konfirmasi untuk tetap memfinalisasi.`,
+      { untariffedCount: proj.untariffedCount },
+    );
+  }
+  const nama = await resolveActorNama(actor);
+  const invoice = await resolveInvoice(kunjunganId, nama, actor);
+  if (invoice.status === "Final") throw Errors.forbiddenState("Tagihan sudah difinalisasi");
+
+  await transaction(async (tx) => {
+    const count = await invoiceDal.setFinal(
+      invoice.id, { finalizedBy: nama, finalizedByUserId: actor.userId }, input.expectedVersion, tx,
+    );
+    if (count === 0) throw Errors.conflictVersion("Invoice telah diubah — muat ulang lalu coba lagi");
+    await invoiceItemDal.deleteByInvoice(invoice.id, tx); // idempoten (Draft harusnya kosong)
+    await invoiceItemDal.createMany(invoice.id, proj.items.map(toSnapshotData), tx);
+  });
+
+  return getInvoiceState(kunjunganId);
+}
+
+/**
+ * Batalkan finalisasi (Final → Draft). Buang snapshot InvoiceItem → charge kembali proyeksi hidup.
+ * Gate billing.invoice:update; `alasan` wajib (deliberasi + intent audit). Pembayaran DIPERTAHANKAN.
+ */
+async function reopenInvoice(
+  kunjunganId: string, input: InvoiceReopenInput, actor: Actor,
+): Promise<InvoiceStateDTO> {
+  const invoice = await invoiceDal.findByKunjungan(kunjunganId);
+  if (!invoice) throw Errors.notFound("Invoice tidak ditemukan untuk kunjungan ini");
+  if (invoice.status !== "Final") throw Errors.forbiddenState("Tagihan belum difinalisasi");
+  await resolveActorNama(actor); // pastikan actor valid (nama resolvable)
+
+  await transaction(async (tx) => {
+    const count = await invoiceDal.setDraft(invoice.id, input.expectedVersion, tx);
+    if (count === 0) throw Errors.conflictVersion("Invoice telah diubah — muat ulang lalu coba lagi");
+    await invoiceItemDal.deleteByInvoice(invoice.id, tx);
+  });
 
   return getInvoiceState(kunjunganId);
 }
@@ -276,5 +387,6 @@ async function paymentSummary(shiftId: string | undefined, date: string | undefi
 }
 
 export const billingInvoiceService = {
-  getInvoiceState, getRingkas, recordPayment, setAdjustment, voidPayment, listPayments, listRecentPayments, paymentSummary,
+  getInvoiceState, getRingkas, recordPayment, setAdjustment, finalizeInvoice, reopenInvoice,
+  voidPayment, listPayments, listRecentPayments, paymentSummary,
 };

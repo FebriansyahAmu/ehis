@@ -4,10 +4,13 @@
 import { api } from "@/lib/api/client";
 import type {
   PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO,
-  InvoiceAdjustmentInput, BillingRingkasDTO,
+  InvoiceAdjustmentInput, BillingRingkasDTO, InvoiceFinalizeInput, InvoiceReopenInput,
 } from "@/lib/schemas/billing/payment";
 
-export type { PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO, InvoiceAdjustmentInput, BillingRingkasDTO };
+export type {
+  PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO,
+  InvoiceAdjustmentInput, BillingRingkasDTO, InvoiceFinalizeInput, InvoiceReopenInput,
+};
 
 const base = (k: string) => `/kunjungan/${encodeURIComponent(k)}/billing`;
 
@@ -77,6 +80,26 @@ export async function getPaymentSummary(
   if (opts.date) params.set("date", opts.date);
   const qs = params.toString();
   const { data } = await api.get<PaymentSummaryDTO>(`/billing/payments/summary${qs ? `?${qs}` : ""}`, { signal });
+  return data;
+}
+
+/** Finalisasi tagihan (Draft → Final): bekukan charge → snapshot. `force` lewati guard untariffed. */
+export async function finalizeInvoice(
+  kunjunganId: string,
+  input: InvoiceFinalizeInput = {},
+  signal?: AbortSignal,
+): Promise<InvoiceStateDTO> {
+  const { data } = await api.post<InvoiceStateDTO>(`${base(kunjunganId)}/finalize`, input, { signal });
+  return data;
+}
+
+/** Batalkan finalisasi (Final → Draft): buang snapshot → charge kembali proyeksi. Alasan wajib. */
+export async function reopenInvoice(
+  kunjunganId: string,
+  input: InvoiceReopenInput,
+  signal?: AbortSignal,
+): Promise<InvoiceStateDTO> {
+  const { data } = await api.post<InvoiceStateDTO>(`${base(kunjunganId)}/reopen`, input, { signal });
   return data;
 }
 

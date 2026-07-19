@@ -44,6 +44,21 @@ export const PaymentParam = z.object({
   paymentId: z.string().uuid(),
 });
 
+// ── Finalize / Reopen invoice (Slice 2f) ─────────────────────────────────────
+// Finalize = bekukan charge proyeksi → snapshot InvoiceItem; Draft → Final. `force` = tetap
+// finalisasi walau ada item belum bertarif (Rp0). Reopen = Final → Draft (buang snapshot).
+export const InvoiceFinalizeInput = z.object({
+  force: z.coerce.boolean().optional(),
+  expectedVersion: z.coerce.number().int().min(0).optional(),
+});
+export type InvoiceFinalizeInput = z.infer<typeof InvoiceFinalizeInput>;
+
+export const InvoiceReopenInput = z.object({
+  alasan: z.string().trim().min(1, "Alasan pembatalan finalisasi wajib").max(500),
+  expectedVersion: z.coerce.number().int().min(0).optional(),
+});
+export type InvoiceReopenInput = z.infer<typeof InvoiceReopenInput>;
+
 // ── Recent payments (feed Kasir) ─────────────────────────────────────────────
 export const RecentPaymentsQuery = z.object({
   shiftId: z.string().trim().max(60).optional(),
@@ -112,7 +127,8 @@ export interface BillingRingkasKategori {
 // gate discharge di rekam medis. Slim: status + sisa + breakdown per kategori (tanpa daftar item/payment).
 export interface BillingRingkasDTO {
   invoiceId: string | null;
-  status: string;        // Draft | Belum Lunas | Lunas Sebagian | Lunas
+  status: string;        // Draft | Belum Lunas | Lunas Sebagian | Lunas (status BAYAR)
+  lifecycle: "Draft" | "Final"; // status FINALISASI (beku/tidak) — nudge discharge
   penjaminTipe: string;
   subtotal: number;
   grandTotal: number;
@@ -128,7 +144,11 @@ export interface InvoiceStateDTO {
   kunjunganId: string;
   noKunjungan: string;
   unit: string;
-  status: string; // Draft | Belum Lunas | Lunas Sebagian | Lunas
+  status: string; // Draft | Belum Lunas | Lunas Sebagian | Lunas (status BAYAR)
+  // Lifecycle finalisasi (Slice 2f) — charge beku (Final) vs proyeksi hidup (Draft).
+  lifecycle: "Draft" | "Final";
+  finalizedAt: string | null;   // ISO
+  finalizedBy: string | null;
   locked: boolean;
   selesaiAt: string | null;
   waktuKunjungan: string | null; // ISO — waktu masuk (utk header/banner)

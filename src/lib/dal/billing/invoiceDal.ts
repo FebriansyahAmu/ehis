@@ -49,4 +49,59 @@ export async function updateAdjustment(
   return r.count;
 }
 
+export interface FinalizeStamp {
+  finalizedBy: string | null;
+  finalizedByUserId: string | null;
+}
+
+/**
+ * Draft → Final (finalize). Guard status='Draft' + versi (optimistic). Return count: 1 = berhasil.
+ * Idempoten-aman: invoice yang sudah Final tak akan ke-update (count 0).
+ */
+export async function setFinal(
+  id: string,
+  stamp: FinalizeStamp,
+  expectedVersion: number | undefined,
+  tx?: Tx,
+): Promise<number> {
+  const where =
+    expectedVersion === undefined
+      ? { id, status: "Draft" }
+      : { id, status: "Draft", version: expectedVersion };
+  const r = await db(tx).invoice.updateMany({
+    where,
+    data: {
+      status: "Final",
+      finalizedAt: new Date(),
+      finalizedBy: stamp.finalizedBy,
+      finalizedByUserId: stamp.finalizedByUserId,
+      version: { increment: 1 },
+    },
+  });
+  return r.count;
+}
+
+/** Final → Draft (reopen). Guard status='Final' + versi. Bersihkan stempel finalize. */
+export async function setDraft(
+  id: string,
+  expectedVersion: number | undefined,
+  tx?: Tx,
+): Promise<number> {
+  const where =
+    expectedVersion === undefined
+      ? { id, status: "Final" }
+      : { id, status: "Final", version: expectedVersion };
+  const r = await db(tx).invoice.updateMany({
+    where,
+    data: {
+      status: "Draft",
+      finalizedAt: null,
+      finalizedBy: null,
+      finalizedByUserId: null,
+      version: { increment: 1 },
+    },
+  });
+  return r.count;
+}
+
 export type InvoiceEntity = NonNullable<Awaited<ReturnType<typeof findById>>>;
