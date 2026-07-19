@@ -229,8 +229,8 @@ export default function PasienPulangTab({
       {/* Banner hijau "Pasien Sudah Dipulangkan" — muncul saat disposisi persisted */}
       {disposisi && <DischargedBanner disposisi={disposisi} />}
 
-      {/* BL6.2 — Discharge gate: sisa tagihan banner (reactive via billingStore) */}
-      <BillingGateBanner noRM={patient.noRM} />
+      {/* Discharge gate: sisa tagihan banner — data NYATA (getBillingRingkas), reaktif domain "order" */}
+      <BillingGateBanner kunjunganId={patient.id} noRM={patient.noRM} />
 
       {/* Sub-tab nav */}
       <div className="shrink-0 overflow-x-auto border-b border-slate-200 bg-white px-4">

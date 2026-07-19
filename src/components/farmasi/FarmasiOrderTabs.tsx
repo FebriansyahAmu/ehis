@@ -10,7 +10,6 @@ import {
   type FarmasiOrderItem, type SerahTerima, type CatatanFarmasi,
 } from "./farmasiShared";
 import { telaahFarmasiResep, dispensingFarmasiResep, type FarmasiTelaahBody } from "@/lib/api/resep/resep";
-import { ingestFarmasiOrder } from "@/lib/billing/chargeIngest";
 import { emitFarmasiTask } from "@/lib/farmasi/farmasiQueueStore";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
@@ -134,16 +133,7 @@ export default function FarmasiOrderTabs({
       };
       onOrderChange(next);
       emitFarmasiTask(order.noRM, 7); // Antrol T7 — obat diserahkan = akhir layan farmasi
-      // BL6.1 — silent wiring ke Billing. Idempotent (dedupe by sourceRef).
-      const result = ingestFarmasiOrder({
-        ...next,
-        timestamps: { ...(next.timestamps ?? { masuk: next.tanggal }), serahTerima: serahTerima.waktu },
-      });
-      if (result.ok && result.added > 0) {
-        console.info(
-          `[Billing] Farmasi ${next.noOrder} → invoice ${result.invoiceId} (+${result.added} charges, ${result.skipped} skipped)`,
-        );
-      }
+      // Billing = PROYEKSI order server-side (billingProjectionService) → tak perlu ingest client.
       toast.success("Obat diserahkan", `${next.noOrder} selesai`);
     } catch (e) {
       toast.error("Gagal menyelesaikan dispensing", e instanceof ApiError ? e.message : undefined);

@@ -1,91 +1,83 @@
 "use client";
 
 /**
- * BL6.2 — Discharge Gating Banner.
+ * Discharge Gating Banner (RI) — status tagihan pasien sebelum finalisasi pulang.
  *
- * Tampilkan status tagihan pasien sebelum finalisasi discharge:
- *   - **Sisa > 0** → banner rose dengan CTA "Selesaikan di Kasir". Submit
- *     finalize discharge tetap boleh (jangan hard-block UI), tapi user dapat
- *     warning visual jelas. Backend nanti enforce via API constraint.
+ * DATA NYATA (P2, 2026-07-19): baca ringkas billing via `useBillingRingkas`
+ * (`/kunjungan/:id/billing/ringkas`, gate clinical.rekammedis:read) — reaktif atas domain "order".
+ * Menggantikan billingStore mock lama (key by noRM). Deep-link ke view proyeksi nyata.
+ *
+ *   - **Sisa > 0 (Umum)** → banner rose "Selesaikan di Kasir" (warning visual; discharge tak di-hard-block).
+ *   - **Sisa > 0 (BPJS/Asuransi/Jamkesda)** → banner sky "sisa ditanggung penjamin — konfirmasi kasir".
  *   - **Lunas (sisa = 0)** → banner emerald "Tagihan lunas — siap pulang".
- *   - **Penjamin BPJS/Asuransi dengan klaim approved** → banner sky "Klaim
- *     disetujui — sisa selisih ditanggung penjamin".
- *   - **Invoice tidak ditemukan** → banner slate "Belum ada tagihan tercatat"
- *     (informatif saja, tidak gating).
- *
- * Reactive: subscribe ke billingStore via `useInvoiceDetail` → setiap charge
- * ingest baru (lab/rad/farmasi/akomodasi) langsung update angka di sini.
+ *   - **Belum ada tagihan / demo** → banner slate informatif (tidak gating).
  */
 
-import { useMemo } from "react";
 import Link from "next/link";
 import {
-  AlertTriangle, CheckCircle2, ShieldCheck, Receipt, ExternalLink, Info,
+  AlertTriangle, CheckCircle2, ShieldCheck, Receipt, ExternalLink, Info, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  findActiveInvoiceForPasien, useInvoiceDetail,
-} from "@/lib/billing/billingStore";
-import {
-  grandTotal, sisaTagihan,
-} from "@/lib/billing/invoiceCalc";
 import { fmtRupiah, fmtRupiahShort } from "@/lib/master/penjaminMock";
+import { useBillingRingkas } from "@/components/shared/medical-records/useBillingRingkas";
 
 interface Props {
-  noRM: string;
+  kunjunganId: string;
+  /** Kompatibilitas call-site; billing di-resolve via kunjunganId. */
+  noRM?: string;
 }
 
 type GateState =
+  | { kind: "loading" }
   | { kind: "no-invoice" }
-  | { kind: "lunas";        invoiceId: string; total: number }
-  | { kind: "outstanding";  invoiceId: string; sisa: number; total: number; dibayar: number }
-  | { kind: "klaim";        invoiceId: string; sisa: number; penjamin: string };
+  | { kind: "lunas";        total: number }
+  | { kind: "outstanding";  sisa: number; total: number; dibayar: number }
+  | { kind: "klaim";        sisa: number; penjamin: string };
 
-export default function BillingGateBanner({ noRM }: Props) {
-  // Resolve invoice via store (memoized).
-  const invoiceId = useMemo(
-    () => findActiveInvoiceForPasien(noRM)?.invoiceId ?? null,
-    [noRM],
-  );
-  // Subscribe reaktif — re-render saat charge ingest atau payment baru.
-  const detail = useInvoiceDetail(invoiceId ?? "");
+export default function BillingGateBanner({ kunjunganId }: Props) {
+  const { data, loading } = useBillingRingkas(kunjunganId);
 
-  const state: GateState = useMemo(() => {
-    if (!invoiceId || !detail) return { kind: "no-invoice" };
-    const total = grandTotal(detail);
-    const sisa = sisaTagihan(detail);
+  const href = `/ehis-billing/tagihan/kunjungan/${encodeURIComponent(kunjunganId)}`;
+  const eklaimHref = `/ehis-eklaim/klaim?kunjungan=${encodeURIComponent(kunjunganId)}`;
 
-    if (sisa <= 0) return { kind: "lunas", invoiceId, total };
-
-    // Klaim approved (BPJS/Asuransi) → sisa adalah selisih yang ditanggung pasien
-    const isPenjamin = detail.penjamin.tipe !== "umum";
-    const klaimApproved =
-      detail.status === "Klaim Disetujui" || detail.status === "Proses Klaim";
-    if (isPenjamin && klaimApproved) {
-      return { kind: "klaim", invoiceId, sisa, penjamin: detail.penjamin.nama };
-    }
-
-    return { kind: "outstanding", invoiceId, sisa, total, dibayar: detail.dibayar };
-  }, [invoiceId, detail]);
+  const state: GateState = ((): GateState => {
+    if (loading) return { kind: "loading" };
+    if (!data || data.subtotal <= 0) return { kind: "no-invoice" };
+    if (data.sisa <= 0) return { kind: "lunas", total: data.grandTotal };
+    const isPenjamin = data.penjaminTipe.toLowerCase() !== "umum";
+    if (isPenjamin) return { kind: "klaim", sisa: data.sisa, penjamin: data.penjaminTipe };
+    return { kind: "outstanding", sisa: data.sisa, total: data.grandTotal, dibayar: data.dibayar };
+  })();
 
   return (
     <div className="shrink-0 px-4 pt-3">
-      <BannerSwitch state={state} />
+      <BannerSwitch state={state} href={href} eklaimHref={eklaimHref} />
     </div>
   );
 }
 
 // ── Render switch ───────────────────────────────────────
 
-function BannerSwitch({ state }: { state: GateState }) {
+function BannerSwitch({ state, href, eklaimHref }: { state: GateState; href: string; eklaimHref: string }) {
   switch (state.kind) {
+    case "loading":
+      return (
+        <BannerShell
+          tone="slate"
+          icon={Loader2}
+          spin
+          title="Memuat status tagihan…"
+          desc="Menarik ringkas biaya order & pembayaran pasien."
+        />
+      );
+
     case "no-invoice":
       return (
         <BannerShell
           tone="slate"
           icon={Info}
           title="Belum ada tagihan tercatat"
-          desc="Discharge boleh dilanjutkan. Charge biasanya muncul otomatis setelah modul klinis (Lab/Rad/Farmasi) menutup order."
+          desc="Discharge boleh dilanjutkan. Charge muncul otomatis setelah ada order klinis bertarif."
         />
       );
 
@@ -96,7 +88,7 @@ function BannerSwitch({ state }: { state: GateState }) {
           icon={CheckCircle2}
           title="Tagihan lunas — siap pulang"
           desc={`Total Rp ${fmtRupiah(state.total).replace("Rp ", "")} sudah dibayar penuh.`}
-          deepLink={`/ehis-billing/tagihan/${state.invoiceId}`}
+          deepLink={href}
         />
       );
 
@@ -105,10 +97,10 @@ function BannerSwitch({ state }: { state: GateState }) {
         <BannerShell
           tone="sky"
           icon={ShieldCheck}
-          title={`Klaim ${state.penjamin} dalam proses`}
-          desc={`Sisa Rp ${fmtRupiah(state.sisa).replace("Rp ", "")} ditanggung penjamin. Discharge boleh — konfirmasi ke kasir untuk berkas klaim.`}
-          deepLink={`/ehis-billing/tagihan/${state.invoiceId}`}
-          eklaimHref={`/ehis-eklaim/klaim?invoice=${state.invoiceId}`}
+          title={`Penjamin ${state.penjamin} — sisa Rp ${fmtRupiahShort(state.sisa)}`}
+          desc="Sisa ditanggung/diklaim penjamin. Discharge boleh — konfirmasi ke kasir untuk berkas klaim."
+          deepLink={href}
+          eklaimHref={eklaimHref}
         />
       );
 
@@ -119,7 +111,7 @@ function BannerSwitch({ state }: { state: GateState }) {
           icon={AlertTriangle}
           title={`Sisa tagihan Rp ${fmtRupiahShort(state.sisa)}`}
           desc={`Dari total Rp ${fmtRupiahShort(state.total)}, sudah dibayar Rp ${fmtRupiahShort(state.dibayar)}. Selesaikan di Kasir sebelum pasien pulang.`}
-          deepLink={`/ehis-billing/tagihan/${state.invoiceId}`}
+          deepLink={href}
           required
         />
       );
@@ -129,13 +121,14 @@ function BannerSwitch({ state }: { state: GateState }) {
 // ── Shared shell ────────────────────────────────────────
 
 interface ShellProps {
-  tone:       "rose" | "emerald" | "sky" | "slate";
-  icon:       React.ComponentType<{ size?: number; className?: string }>;
-  title:      string;
-  desc:       string;
-  deepLink?:  string;
+  tone:        "rose" | "emerald" | "sky" | "slate";
+  icon:        React.ComponentType<{ size?: number; className?: string }>;
+  spin?:       boolean;
+  title:       string;
+  desc:        string;
+  deepLink?:   string;
   eklaimHref?: string;
-  required?:  boolean;
+  required?:   boolean;
 }
 
 const TONE_CFG: Record<ShellProps["tone"], {
@@ -148,7 +141,7 @@ const TONE_CFG: Record<ShellProps["tone"], {
   slate:   { bg: "bg-slate-50",   border: "border-slate-200",   iconBg: "bg-slate-100",   iconText: "text-slate-500",   titleText: "text-slate-700",   descText: "text-slate-500",   ctaCls: "border-slate-300 text-slate-600 hover:bg-slate-100"       },
 };
 
-function BannerShell({ tone, icon: Icon, title, desc, deepLink, eklaimHref, required }: ShellProps) {
+function BannerShell({ tone, icon: Icon, spin, title, desc, deepLink, eklaimHref, required }: ShellProps) {
   const cfg = TONE_CFG[tone];
   return (
     <div
@@ -158,7 +151,7 @@ function BannerShell({ tone, icon: Icon, title, desc, deepLink, eklaimHref, requ
       )}
     >
       <span className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", cfg.iconBg)}>
-        <Icon size={14} className={cfg.iconText} />
+        <Icon size={14} className={cn(cfg.iconText, spin && "animate-spin")} />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">

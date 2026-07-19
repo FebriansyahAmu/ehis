@@ -8,7 +8,6 @@ import { type RadOrder, fmtDate } from "../radShared";
 import { validateRadResult } from "@/lib/api/rad/radResult";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
-import { ingestRadOrder } from "@/lib/billing/chargeIngest";
 
 // ── Report display (read-only) ────────────────────────────
 
@@ -48,18 +47,7 @@ export default function ValidasiPane({
         validator: validator.trim(),
         catatanValidator: catatan.trim() || undefined,
       });
-      const now = new Date().toISOString();
-      // BL6.1 — silent wiring ke Billing. Idempotent (dedupe by sourceRef).
-      const result = ingestRadOrder({
-        ...order,
-        status: "Selesai",
-        timestamps: { ...order.timestamps, verifikasiHasil: now, rilis: now },
-      });
-      if (result.ok && result.added > 0) {
-        console.info(
-          `[Billing] Rad ${order.noOrder} → invoice ${result.invoiceId} (+${result.added} charges, ${result.skipped} skipped)`,
-        );
-      }
+      // Billing = PROYEKSI order server-side (billingProjectionService) → tak perlu ingest client.
       setDone(true);
       toast.success("Laporan divalidasi & dirilis", `Validator: ${validator.trim()}`);
       onStatusChange();

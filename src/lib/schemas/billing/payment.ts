@@ -102,6 +102,26 @@ export interface PaymentDTO {
   createdAt: string; // ISO
 }
 
+// Breakdown proyeksi charge per kategori (Akomodasi/Tindakan/Lab/Rad/Obat & BMHP/Jasa Dokter/Lain-lain).
+export interface BillingRingkasKategori {
+  kategori: string;
+  total: number;
+}
+
+// Ringkas billing untuk konsumen KLINIS (gate clinical.rekammedis:read) — widget Total Tagihan +
+// gate discharge di rekam medis. Slim: status + sisa + breakdown per kategori (tanpa daftar item/payment).
+export interface BillingRingkasDTO {
+  invoiceId: string | null;
+  status: string;        // Draft | Belum Lunas | Lunas Sebagian | Lunas
+  penjaminTipe: string;
+  subtotal: number;
+  grandTotal: number;
+  dibayar: number;
+  sisa: number;
+  untariffedCount: number;
+  byKategori: BillingRingkasKategori[]; // Σ per kategori = subtotal (incl. Akomodasi RI)
+}
+
 export interface InvoiceStateDTO {
   invoiceId: string | null; // null = invoice belum dibuat (belum ada pembayaran)
   noInvoice: string | null;

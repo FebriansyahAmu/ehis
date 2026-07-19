@@ -17,7 +17,7 @@ import type { InvoiceEntity } from "@/lib/dal/billing/invoiceDal";
 import type { PaymentEntity } from "@/lib/dal/billing/paymentDal";
 import type {
   PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO,
-  InvoiceAdjustmentInput,
+  InvoiceAdjustmentInput, BillingRingkasDTO,
 } from "@/lib/schemas/billing/payment";
 
 function periodeNow(): { periode: string; yyyy: string; mm: string } {
@@ -106,6 +106,31 @@ async function getInvoiceState(kunjunganId: string): Promise<InvoiceStateDTO> {
   const invoice = await invoiceDal.findByKunjungan(kunjunganId);
   const payments = invoice ? await paymentDal.listByInvoice(invoice.id) : [];
   return buildState(kunjunganId, invoice, payments);
+}
+
+/**
+ * Ringkas billing 1 kunjungan untuk konsumen KLINIS (widget/gate discharge di rekam medis).
+ * Reuse getInvoiceState lalu slim → cukup status + sisa. Route memakai gate klinis
+ * (clinical.rekammedis:read), bukan billing.invoice — staf medis boleh lihat sisa tagihan pasiennya.
+ */
+async function getRingkas(kunjunganId: string): Promise<BillingRingkasDTO> {
+  const s = await getInvoiceState(kunjunganId);
+  // Breakdown per kategori dari item proyeksi (Σ = subtotal, termasuk Akomodasi RI).
+  const map = new Map<string, number>();
+  for (const it of s.items) {
+    map.set(it.kategori, (map.get(it.kategori) ?? 0) + it.qty * it.hargaSatuan);
+  }
+  return {
+    invoiceId: s.invoiceId,
+    status: s.status,
+    penjaminTipe: s.penjaminTipe,
+    subtotal: s.subtotal,
+    grandTotal: s.grandTotal,
+    dibayar: s.dibayar,
+    sisa: s.sisa,
+    untariffedCount: s.untariffedCount,
+    byKategori: [...map.entries()].map(([kategori, total]) => ({ kategori, total })),
+  };
 }
 
 /** Resolve-or-create Invoice (lazy). Aman terhadap race via unique(kunjunganId) → re-find. */
@@ -251,5 +276,5 @@ async function paymentSummary(shiftId: string | undefined, date: string | undefi
 }
 
 export const billingInvoiceService = {
-  getInvoiceState, recordPayment, setAdjustment, voidPayment, listPayments, listRecentPayments, paymentSummary,
+  getInvoiceState, getRingkas, recordPayment, setAdjustment, voidPayment, listPayments, listRecentPayments, paymentSummary,
 };

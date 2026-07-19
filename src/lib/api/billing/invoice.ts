@@ -4,16 +4,25 @@
 import { api } from "@/lib/api/client";
 import type {
   PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO,
-  InvoiceAdjustmentInput,
+  InvoiceAdjustmentInput, BillingRingkasDTO,
 } from "@/lib/schemas/billing/payment";
 
-export type { PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO, InvoiceAdjustmentInput };
+export type { PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO, InvoiceAdjustmentInput, BillingRingkasDTO };
 
 const base = (k: string) => `/kunjungan/${encodeURIComponent(k)}/billing`;
 
 /** State invoice (proyeksi charge + invoice + payment + total/sisa/status). */
 export async function getInvoiceState(kunjunganId: string, signal?: AbortSignal): Promise<InvoiceStateDTO> {
   const { data } = await api.get<InvoiceStateDTO>(`${base(kunjunganId)}/invoice`, { signal });
+  return data;
+}
+
+/**
+ * Ringkas billing (status + sisa) untuk konsumen KLINIS — widget/gate discharge di rekam medis RI.
+ * Gate klinis (clinical.rekammedis:read), bukan billing.invoice → dapat dibaca Dokter/Perawat.
+ */
+export async function getBillingRingkas(kunjunganId: string, signal?: AbortSignal): Promise<BillingRingkasDTO> {
+  const { data } = await api.get<BillingRingkasDTO>(`${base(kunjunganId)}/ringkas`, { signal });
   return data;
 }
 

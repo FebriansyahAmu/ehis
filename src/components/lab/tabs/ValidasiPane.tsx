@@ -26,7 +26,6 @@ import {
   hasilKey,
 } from "../labShared";
 import { getLabResult, validateLabResult, type LabResultDTO } from "@/lib/api/lab/labResult";
-import { ingestLabOrder } from "@/lib/billing/chargeIngest";
 
 interface Props {
   order: LabOrder;
@@ -170,14 +169,7 @@ export default function ValidasiPane({ order, onStatusChange }: Props) {
             rilis: new Date().toISOString().slice(0, 16),
           },
         });
-        // BL6.1 — silent wiring ke Billing. Idempotent (dedupe by sourceRef).
-        // Jika invoice tidak ditemukan untuk noRM ini, ingest no-op (fallback ok).
-        const ingest = ingestLabOrder(order);
-        if (ingest.ok && ingest.added > 0) {
-          console.info(
-            `[Billing] Lab ${order.noOrder} → invoice ${ingest.invoiceId} (+${ingest.added} charges, ${ingest.skipped} skipped)`,
-          );
-        }
+        // Billing = PROYEKSI order server-side (billingProjectionService) → tak perlu ingest client.
         toast.success("Hasil tervalidasi & dirilis", `Validator: ${saved.validator ?? validatorName}`);
         onStatusChange();
       } catch (e) {

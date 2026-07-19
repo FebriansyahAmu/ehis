@@ -14,7 +14,6 @@ import {
 import { saveRadResult } from "@/lib/api/rad/radResult";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
-import { ingestRadOrder } from "@/lib/billing/chargeIngest";
 import { useRadRoster } from "../useRadRoster";
 import CriticalFindingModal, { CriticalFindingSelector } from "../CriticalFindingModal";
 import RadPrintModal from "../RadPrintModal";
@@ -130,16 +129,7 @@ export default function EkspertasiPane({
         saran: saran || undefined, spradNama, spradSIP: "",
         criticalFindings: findings, isDraft: false, isDone: true,
       };
-      // BL6.1 — silent wiring ke Billing (idempotent by sourceRef). Terbit = sekaligus dirilis → Selesai.
-      const now = new Date().toISOString();
-      const ing = ingestRadOrder({
-        ...order,
-        status: "Selesai",
-        timestamps: { ...order.timestamps, verifikasiHasil: now, rilis: now },
-      });
-      if (ing.ok && ing.added > 0) {
-        console.info(`[Billing] Rad ${order.noOrder} → invoice ${ing.invoiceId} (+${ing.added} charges, ${ing.skipped} skipped)`);
-      }
+      // Billing = PROYEKSI order server-side (billingProjectionService) → tak perlu ingest client.
       setSaved2(data);
       setDone(true);
       setShowModal(false);

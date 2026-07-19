@@ -1,70 +1,71 @@
 "use client";
 
 /**
- * BL6.3 — Mini Billing Widget.
+ * Mini Billing Widget — chip ringkas sisa tagihan pasien aktif untuk header rekam medis (RI).
  *
- * Compact 1-line summary tagihan pasien aktif untuk PatientBanner (IGD/RI/RJ).
- * Reactive via `useInvoiceDetail` — auto-update saat charge ingest jalan.
+ * DATA NYATA (P2, 2026-07-19): baca `/kunjungan/:id/billing/ringkas` (gate clinical.rekammedis:read)
+ * via `useBillingRingkas` — reaktif atas domain "order" (order klinis baru/batal → sisa ter-update).
+ * Menggantikan billingStore mock lama (yang key by noRM). Deep-link ke view proyeksi nyata
+ * `/ehis-billing/tagihan/kunjungan/[kid]`.
+ *
+ * Berbeda dari `TotalTagihanWidget` (di sebelahnya): itu = ESTIMASI biaya order (Tindakan/Resep/…);
+ * ini = SISA BAYAR nyata (grandTotal incl. akomodasi + adjustment − pembayaran).
  *
  * Tampilan:
- *   - Invoice ditemukan + sisa > 0 → chip rose "Sisa Rp X.XM" + Receipt icon + ChevronRight
- *   - Invoice ditemukan + lunas    → chip emerald "Lunas Rp X.XM"
- *   - Invoice tidak ditemukan      → chip slate "Belum ada tagihan" (read-only, no link)
+ *   - subtotal 0 / demo (non-UUID) → chip slate "Belum ada tagihan" (read-only)
+ *   - sisa > 0  → chip rose "Sisa Rp X" + deep-link
+ *   - lunas     → chip emerald "Lunas · Rp X"
  *
- * Klik widget → deep-link `/ehis-billing/tagihan/[id]` `target=_blank`
- * (preserve context modul klinis).
- *
- * Compact mode (`compact={true}`): single icon + sisa nominal, untuk header
- * strip yang sempit. Default mode: 2-row card untuk sidebar.
+ * Compact mode (`compact`): single chip untuk header strip. Default: card 2-row untuk sidebar.
  */
 
-import { useMemo } from "react";
 import Link from "next/link";
 import {
-  Receipt, ChevronRight, CheckCircle2, AlertCircle, FileQuestion,
+  Receipt, ChevronRight, CheckCircle2, AlertCircle, FileQuestion, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  findActiveInvoiceForPasien, useInvoiceDetail,
-} from "@/lib/billing/billingStore";
-import {
-  grandTotal, sisaTagihan,
-} from "@/lib/billing/invoiceCalc";
 import { fmtRupiahShort } from "@/lib/master/penjaminMock";
+import { useBillingRingkas, billingKind } from "./useBillingRingkas";
 
 interface Props {
-  noRM:     string;
+  kunjunganId: string;
+  /** Dipertahankan untuk kompatibilitas call-site + judul; billing di-resolve via kunjunganId. */
+  noRM?:    string;
   /** Compact: single inline chip. Default: 2-row card. */
   compact?: boolean;
 }
 
-type WidgetState =
-  | { kind: "no-invoice" }
-  | { kind: "lunas";       invoiceId: string; total: number }
-  | { kind: "outstanding"; invoiceId: string; total: number; sisa: number };
+export default function BillingMiniWidget({ kunjunganId, compact = false }: Props) {
+  const { data, loading } = useBillingRingkas(kunjunganId);
+  const kind = billingKind(data);
+  const href = `/ehis-billing/tagihan/kunjungan/${encodeURIComponent(kunjunganId)}`;
 
-export default function BillingMiniWidget({ noRM, compact = false }: Props) {
-  const invoiceId = useMemo(
-    () => findActiveInvoiceForPasien(noRM)?.invoiceId ?? null,
-    [noRM],
-  );
-  const detail = useInvoiceDetail(invoiceId ?? "");
+  return compact
+    ? <CompactChip kind={kind} loading={loading} sisa={data?.sisa ?? 0} grand={data?.grandTotal ?? 0} href={href} />
+    : <CardWidget  kind={kind} loading={loading} sisa={data?.sisa ?? 0} grand={data?.grandTotal ?? 0} href={href} />;
+}
 
-  const state: WidgetState = useMemo(() => {
-    if (!invoiceId || !detail) return { kind: "no-invoice" };
-    const total = grandTotal(detail);
-    const sisa = sisaTagihan(detail);
-    if (sisa <= 0) return { kind: "lunas", invoiceId, total };
-    return { kind: "outstanding", invoiceId, total, sisa };
-  }, [invoiceId, detail]);
-
-  return compact ? <CompactChip state={state} /> : <CardWidget state={state} />;
+interface ViewProps {
+  kind:    ReturnType<typeof billingKind>;
+  loading: boolean;
+  sisa:    number;
+  grand:   number;
+  href:    string;
 }
 
 // ── Compact (chip inline) ───────────────────────────────
 
-function CompactChip({ state }: { state: WidgetState }) {
-  if (state.kind === "no-invoice") {
+function CompactChip({ kind, loading, sisa, grand, href }: ViewProps) {
+  if (loading) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 text-[10.5px] font-semibold text-slate-400 ring-1 ring-slate-200">
+        <Loader2 size={11} className="animate-spin" />
+        <span className="hidden sm:inline">Tagihan…</span>
+      </span>
+    );
+  }
+
+  if (kind === "no-invoice") {
     return (
       <span
         title="Belum ada tagihan tercatat untuk pasien ini"
@@ -76,18 +77,16 @@ function CompactChip({ state }: { state: WidgetState }) {
     );
   }
 
-  const isLunas = state.kind === "lunas";
+  const isLunas = kind === "lunas";
   const Icon = isLunas ? CheckCircle2 : AlertCircle;
-  const label = isLunas
-    ? `Lunas · ${fmtRupiahShort(state.total)}`
-    : `Sisa Rp ${fmtRupiahShort(state.sisa)}`;
+  const label = isLunas ? `Lunas · ${fmtRupiahShort(grand)}` : `Sisa Rp ${fmtRupiahShort(sisa)}`;
   const tone = isLunas
     ? "bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100"
     : "bg-rose-50 text-rose-700 ring-rose-200 hover:bg-rose-100";
 
   return (
     <Link
-      href={`/ehis-billing/tagihan/${state.invoiceId}`}
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
       title={isLunas ? "Tagihan lunas — buka di Billing" : "Sisa tagihan — buka di Billing"}
@@ -105,27 +104,36 @@ function CompactChip({ state }: { state: WidgetState }) {
 
 // ── Card (2-row sidebar) ────────────────────────────────
 
-function CardWidget({ state }: { state: WidgetState }) {
-  if (state.kind === "no-invoice") {
+function CardWidget({ kind, loading, sisa, grand, href }: ViewProps) {
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-center">
+        <Loader2 size={16} className="mx-auto animate-spin text-slate-300" />
+        <p className="mt-1 text-[10.5px] font-semibold text-slate-400">Memuat tagihan…</p>
+      </div>
+    );
+  }
+
+  if (kind === "no-invoice") {
     return (
       <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-2.5 text-center">
         <FileQuestion size={16} className="mx-auto text-slate-300" />
         <p className="mt-1 text-[10.5px] font-semibold text-slate-500">Belum ada tagihan</p>
         <p className="mt-0.5 text-[9.5px] text-slate-400">
-          Charge akan muncul setelah modul klinis menutup order
+          Charge akan muncul setelah ada order klinis bertarif
         </p>
       </div>
     );
   }
 
-  const isLunas = state.kind === "lunas";
+  const isLunas = kind === "lunas";
   const tone = isLunas
     ? { card: "border-emerald-200 bg-emerald-50/40", text: "text-emerald-700", label: "text-emerald-600" }
     : { card: "border-rose-200 bg-rose-50/40",       text: "text-rose-700",    label: "text-rose-600"    };
 
   return (
     <Link
-      href={`/ehis-billing/tagihan/${state.invoiceId}`}
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
@@ -143,12 +151,12 @@ function CardWidget({ state }: { state: WidgetState }) {
         <ChevronRight size={11} className={cn("transition group-hover:translate-x-0.5", tone.label)} />
       </div>
       <p className={cn("mt-1 font-mono text-lg font-bold tabular-nums leading-tight", tone.text)}>
-        {fmtRupiahShort(isLunas ? state.total : state.sisa)}
+        {fmtRupiahShort(isLunas ? grand : sisa)}
       </p>
       <p className="mt-0.5 text-[9.5px] text-slate-500">
         {isLunas
           ? "Sudah dibayar penuh"
-          : `Dari total ${fmtRupiahShort(state.total)} · buka untuk detail`}
+          : `Dari total ${fmtRupiahShort(grand)} · buka untuk detail`}
       </p>
     </Link>
   );

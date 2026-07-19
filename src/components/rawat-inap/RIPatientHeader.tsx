@@ -450,8 +450,8 @@ export default function RIPatientHeader({
             <div className="ml-auto flex shrink-0 items-center gap-2">
               {/* Total Tagihan — akumulasi biaya order klinis (Tindakan/Resep/Lab/Rad/BMHP) */}
               <TotalTagihanWidget kunjunganId={patient.id} noRM={patient.noRM} />
-              {/* BL6.3 — Mini billing widget (reactive sisa tagihan, deep-link ke Billing) */}
-              <BillingMiniWidget noRM={patient.noRM} compact />
+              {/* Mini billing widget — sisa tagihan NYATA (getBillingRingkas), deep-link ke Billing */}
+              <BillingMiniWidget kunjunganId={patient.id} noRM={patient.noRM} compact />
               {headerAction}
               <Link
                 href="/ehis-care/rawat-inap"
