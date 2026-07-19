@@ -43,7 +43,8 @@ export interface BillingKunjunganRowDTO {
   itemCount: number;        // jumlah baris order (tanpa akomodasi)
   dibayar: number;          // Σ payment non-void (0 bila belum ada invoice/bayar)
   sisa: number;             // max(0, total − dibayar)
-  billingStatus: string;    // Draft | Belum Lunas | Lunas Sebagian | Lunas
+  billingStatus: string;    // Draft | Belum Lunas | Lunas Sebagian | Lunas (status BAYAR)
+  lifecycle: "Draft" | "Final"; // status FINALISASI (charge beku vs proyeksi hidup)
 }
 
 export interface BillingProjectionDTO {

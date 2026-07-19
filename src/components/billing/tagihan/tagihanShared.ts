@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Stethoscope, BedDouble, Activity, FlaskConical, ScanLine, Pill,
   CircleDot, FileText, CheckCircle2, Clock, AlertTriangle,
-  Send, ShieldCheck, XCircle, Undo2, Ban,
+  Send, ShieldCheck, XCircle, Undo2, Ban, Lock, PencilLine,
 } from "lucide-react";
 
 // ── Filter State ────────────────────────────────────────
@@ -128,6 +128,13 @@ export const STATUS_CFG: Record<StatusFilter, ChipCfg> = {
   "Klaim Ditolak":   { label: "Klaim Ditolak",   icon: XCircle,       bg: "bg-rose-50",    text: "text-rose-700",    ring: "ring-rose-300",    dot: "bg-rose-500" },
   "Refund":          { label: "Refund",          icon: Undo2,         bg: "bg-orange-50",  text: "text-orange-700",  ring: "ring-orange-300",  dot: "bg-orange-500" },
   "Void":            { label: "Void",            icon: Ban,           bg: "bg-slate-100",  text: "text-slate-500",   ring: "ring-slate-300",   dot: "bg-slate-400" },
+};
+
+// Status finalisasi tagihan (lifecycle) — beku (Final) vs proyeksi hidup (Draft).
+export type LifecycleStatus = "Draft" | "Final";
+export const LIFECYCLE_CFG: Record<LifecycleStatus, ChipCfg> = {
+  "Draft": { label: "Draft", icon: PencilLine, bg: "bg-slate-100",  text: "text-slate-500",   ring: "ring-slate-200",   dot: "bg-slate-400" },
+  "Final": { label: "Final", icon: Lock,       bg: "bg-emerald-50", text: "text-emerald-700", ring: "ring-emerald-300", dot: "bg-emerald-500" },
 };
 
 export const PENJAMIN_OPTIONS: { value: PenjaminFilter; label: string }[] = [

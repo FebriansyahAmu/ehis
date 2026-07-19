@@ -27,6 +27,8 @@ export interface TagihanRow {
   dibayar:  number;
   // sisa is derived: total - dibayar
   status:  StatusFilter;
+  /** Status finalisasi tagihan (charge beku vs proyeksi hidup). Opsional → mock lama default "Draft". */
+  lifecycle?: "Draft" | "Final";
 }
 
 export function sisa(row: TagihanRow): number {

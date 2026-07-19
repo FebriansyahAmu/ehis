@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { UNIT_CFG, KELAS_CFG, STATUS_CFG, fmtRupiah, fmtRupiahShort } from "../tagihanShared";
+import { UNIT_CFG, KELAS_CFG, STATUS_CFG, LIFECYCLE_CFG, fmtRupiah, fmtRupiahShort } from "../tagihanShared";
 import {
   formatTanggalShort, formatTanggalFull, sisa, type TagihanRow,
 } from "../tagihanBoardLogic";
@@ -41,6 +41,8 @@ export default function TagihanRow({
   const statusCfg = STATUS_CFG[row.status];
   const penjaminCfg = PENJAMIN_CFG[row.penjamin.tipe];
   const StatusIcon = statusCfg.icon!;
+  const lifeCfg = LIFECYCLE_CFG[row.lifecycle ?? "Draft"];
+  const LifeIcon = lifeCfg.icon!;
   const dcfg = DENSITY_CFG[density];
 
   return (
@@ -177,6 +179,20 @@ export default function TagihanRow({
         >
           <StatusIcon size={9} className="opacity-80" />
           {statusCfg.label}
+        </span>
+      </td>
+
+      {/* Finalisasi (lifecycle) */}
+      <td className={cn("px-2 text-center", dcfg.padY)}>
+        <span
+          title={row.lifecycle === "Final" ? "Tagihan sudah difinalisasi (charge beku)" : "Tagihan masih Draft (charge mengikuti order)"}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold ring-1",
+            lifeCfg.bg, lifeCfg.text, lifeCfg.ring,
+          )}
+        >
+          <LifeIcon size={9} className="opacity-80" />
+          {lifeCfg.label}
         </span>
       </td>
 

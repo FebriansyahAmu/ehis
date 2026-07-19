@@ -51,6 +51,15 @@ export function aggregateOrderTotals() {
   `;
 }
 
+/** Status finalisasi invoice (Draft|Final) per kunjungan. Kunjungan tanpa invoice → absen (Draft). */
+export function findInvoiceLifecycles(kunjunganIds: string[]) {
+  if (kunjunganIds.length === 0) return Promise.resolve([] as { kunjunganId: string; status: string }[]);
+  return db().invoice.findMany({
+    where: { kunjunganId: { in: kunjunganIds } },
+    select: { kunjunganId: true, status: true },
+  });
+}
+
 /** Total dibayar (Σ payment non-void) per kunjungan, via invoice. Kunjungan tanpa invoice → absen. */
 export function aggregatePaid(kunjunganIds: string[]) {
   if (kunjunganIds.length === 0) return Promise.resolve([] as PaidAggRow[]);

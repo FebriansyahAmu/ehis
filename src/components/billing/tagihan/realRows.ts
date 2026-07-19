@@ -41,5 +41,6 @@ export function mapProjectionRow(d: BillingKunjunganRowDTO): TagihanRow {
     total: d.total,
     dibayar: d.dibayar,
     status: STATUS_MAP[d.billingStatus] ?? "Draft",
+    lifecycle: d.lifecycle,
   };
 }

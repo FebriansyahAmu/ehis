@@ -23,7 +23,7 @@ interface Props {
 }
 
 interface Column {
-  key: SortKey | "checkbox" | "unit" | "penjamin" | "aksi";
+  key: SortKey | "checkbox" | "unit" | "penjamin" | "lifecycle" | "aksi";
   label: string;
   align: "left" | "right" | "center";
   width: string;          // tailwind w-*
@@ -41,6 +41,7 @@ const COLUMNS: Column[] = [
   { key: "dibayar",   label: "Dibayar",   align: "right",  width: "w-[100px]", sortable: true,  hideOn: "lg" },
   { key: "sisa",      label: "Sisa",      align: "right",  width: "w-[110px]", sortable: true  },
   { key: "status",    label: "Status",    align: "left",   width: "w-[140px]", sortable: true  },
+  { key: "lifecycle", label: "Finalisasi",align: "center", width: "w-[108px]", sortable: false },
   { key: "aksi",      label: "",          align: "center", width: "w-12",   sortable: false },
 ];
 

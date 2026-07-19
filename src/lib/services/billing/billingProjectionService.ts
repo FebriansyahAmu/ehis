@@ -302,13 +302,15 @@ async function listKunjunganBilling(limit = 100): Promise<BillingKunjunganRowDTO
 
   const totals = new Map(agg.map((a) => [a.kid, { subtotal: Number(a.subtotal), n: Number(a.n) }]));
   const ids = [...totals.keys()];
-  const [headers, paidAgg, kamarRows, adminRows] = await Promise.all([
+  const [headers, paidAgg, lifecycles, kamarRows, adminRows] = await Promise.all([
     billingReadDal.findKunjunganHeaders(ids),
     billingReadDal.aggregatePaid(ids),
+    billingReadDal.findInvoiceLifecycles(ids),
     tarifKamarDal.list({ limit: 500 }),
     tarifAdministrasiDal.list({ limit: 500 }),
   ]);
   const paidMap = new Map(paidAgg.map((p) => [p.kid, Number(p.dibayar)]));
+  const lifeMap = new Map(lifecycles.map((l) => [l.kunjunganId, l.status]));
   const kamarMap = buildKamarMap(kamarRows.items);
   const adminMap = buildAdminMap(adminRows.items);
 
@@ -344,6 +346,7 @@ async function listKunjunganBilling(limit = 100): Promise<BillingKunjunganRowDTO
       dibayar,
       sisa,
       billingStatus: deriveBillingStatus(total, total, dibayar),
+      lifecycle: lifeMap.get(k.id) === "Final" ? "Final" : "Draft",
     };
   });
 

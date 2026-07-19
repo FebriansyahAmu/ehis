@@ -160,12 +160,12 @@ export function exportTagihanCsv(
   if (typeof window === "undefined") return;
   const header = [
     "No Tagihan", "Tanggal", "No Kunjungan", "No RM", "Pasien", "Gender", "Usia",
-    "Unit", "Kelas", "Penjamin", "DPJP", "Total", "Dibayar", "Sisa", "Status",
+    "Unit", "Kelas", "Penjamin", "DPJP", "Total", "Dibayar", "Sisa", "Status", "Finalisasi",
   ];
   const lines = rows.map((r) => [
     r.noTagihan, r.tanggalISO, r.noKunjungan, r.pasien.noRM, r.pasien.nama,
     r.pasien.gender, r.pasien.age, r.unit, r.kelas, r.penjamin.nama, r.dpjp,
-    r.total, r.dibayar, sisa(r), r.status,
+    r.total, r.dibayar, sisa(r), r.status, r.lifecycle ?? "Draft",
   ].map(csvCell).join(","));
   const csv = [header.join(","), ...lines].join("\r\n");
   // BOM agar Excel kenali UTF-8 (Rupiah / unicode aman)
