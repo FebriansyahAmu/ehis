@@ -28,7 +28,7 @@ import MappingHubSidebar from "./MappingHubSidebar";
 import SDMAssignmentPane from "./sdm/SDMAssignmentPane";
 import KewenanganPane from "./kewenangan/KewenanganPane";
 import LayananUnitPane from "./layanan/LayananUnitPane";
-import TarifPane from "./tarif/TarifPane";
+import TarifHubPane from "./tarif/TarifHubPane";
 import KetersediaanFarmasiPane from "./formularium/KetersediaanFarmasiPane";
 import PenjaminRuanganPane from "./penjamin-ruangan/PenjaminRuanganPane";
 import DpjpBpjsPane from "./dpjp/DpjpBpjsPane";
@@ -213,7 +213,7 @@ function renderPane(
     return <SDMAssignmentPane initialTree={initialTree} initialDokters={initialDokters} initialPegawai={initialPegawai} initialPenugasan={initialPenugasan} />;
   if (key === "kewenangan")  return <KewenanganPane initialDokters={initialDokters} />;
   if (key === "layanan")     return <LayananUnitPane tindakan={initialTindakan} lab={initialLab} rad={initialRad} tree={initialTree} layanan={initialLayanan} layananLab={initialLayananLab} layananRad={initialLayananRad} />;
-  if (key === "tarif")       return <TarifPane tindakan={initialTindakan} lab={initialLab} rad={initialRad} tree={initialTree} tarif={initialTarif} tarifLab={initialTarifLab} tarifRad={initialTarifRad} />;
+  if (key === "tarif")       return <TarifHubPane tindakan={initialTindakan} lab={initialLab} rad={initialRad} tree={initialTree} tarif={initialTarif} tarifLab={initialTarifLab} tarifRad={initialTarifRad} />;
   if (key === "formularium") return <KetersediaanFarmasiPane obat={initialObat} formularium={initialFormularium} bmhp={initialBmhp} formulariumBmhp={initialFormulariumBmhp} tree={initialTree} />;
   if (key === "penjamin-ruangan") return <PenjaminRuanganPane />;
   if (key === "dpjp-bpjs")   return <DpjpBpjsPane />;

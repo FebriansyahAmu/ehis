@@ -1,0 +1,46 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Tarif Administrasi  (Postgres schema "master")
+//  FE: /ehis-master/mapping (sub-tab Tarif → "Tarif Administrasi")
+//  Doc: docs/BACKEND-MAPPING.md §5
+//
+//  Biaya administrasi/pendaftaran LEVEL-KUNJUNGAN, per (Unit × Penjamin). Charge sekali per
+//  kunjungan (gap #1). UPSERT by (unit, penjaminKode) — idempoten value.
+//
+//  DIMENSI:
+//   - unit         → IGD | RawatInap | RawatJalan (string; selaras kunjungan.unit). Bukan FK.
+//   - penjaminKode → KODE penjamin string ('UMUM'/'BPJS'/…). BELUM FK (master Penjamin mock).
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz. Tarif = LEAF (upsert by pair) → tanpa
+//  optimistic-version; updatedAt cukup. harga = Int (rupiah, tanpa sen). Komponen PMK 85 opsional.
+// ════════════════════════════════════════════════════════════════════════════
+
+model TarifAdministrasi {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  /// Unit layanan (string stabil, selaras kunjungan.unit — IGD/RawatInap/RawatJalan). Bukan FK.
+  unit String @map("unit")
+
+  /// Kode penjamin (string stabil — belum FK ke master Penjamin).
+  penjaminKode String @map("penjamin_kode")
+
+  /// Biaya administrasi per kunjungan (rupiah penuh). Bila komponen diisi → harga = jumlah komponen.
+  harga Int
+
+  // ── Komponen tarif (PMK 85/2015). Nullable: null = belum dirinci (total-only).
+  jasaSarana    Int? @map("jasa_sarana")
+  jasaMedis     Int? @map("jasa_medis")
+  jasaParamedis Int? @map("jasa_paramedis")
+
+  /// Nomor SK penetapan tarif (opsional — dasar hukum/administratif).
+  noSk  String?   @map("no_sk")
+  /// Tanggal SK penetapan tarif (opsional).
+  tglSk DateTime? @map("tgl_sk") @db.Date
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([unit, penjaminKode]) // 1 tarif per (unit, penjamin) → upsert idempoten
+  @@index([penjaminKode])
+  @@map("tarif_administrasi")
+  @@schema("master")
+}

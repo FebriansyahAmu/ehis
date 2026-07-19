@@ -1,0 +1,51 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Tarif Ruang Rawat (Akomodasi)  (Postgres schema "master")
+//  FE: /ehis-master/mapping (sub-tab Tarif → "Tarif Ruang Rawat")
+//  Doc: docs/BACKEND-MAPPING.md §5
+//
+//  Tarif kamar rawat inap PER HARI, per (Kelas × Penjamin). Menggantikan konstanta
+//  hardcode AKOMODASI_RATE di billingProjectionService (gap #5). Basis tagihan akomodasi =
+//  kelasHak (titipan) ?? kelas. UPSERT by (kelas, penjaminKode) — idempoten value.
+//
+//  DIMENSI:
+//   - kelas        → VIP | Kelas_1 | Kelas_2 | Kelas_3 | ICU | HCU | Isolasi (string; selaras
+//                    enum RIKelas — BUKAN FK, kelas = tier tarif bukan entitas).
+//   - penjaminKode → KODE penjamin string ('UMUM'/'BPJS'/…). BELUM FK (master Penjamin mock).
+//
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz. Tarif = LEAF (upsert by pair) → tanpa
+//  optimistic-version; updatedAt cukup. harga = Int/hari (rupiah, tanpa sen). Komponen PMK 85.
+// ════════════════════════════════════════════════════════════════════════════
+
+model TarifKamar {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  /// Kelas kamar (string stabil, selaras enum RIKelas — VIP/Kelas_1/…/Isolasi). Bukan FK.
+  kelas String @map("kelas")
+
+  /// Kode penjamin (string stabil — belum FK ke master Penjamin).
+  penjaminKode String @map("penjamin_kode")
+
+  /// Tarif kamar per hari (rupiah penuh, tanpa sen). Bila komponen diisi → harga = jumlah komponen.
+  harga Int
+
+  // ── Komponen tarif (PMK 85/2015). Nullable: null = belum dirinci (total-only).
+  /// Jasa Sarana: sewa kamar/alat, BHP, utilitas, pemeliharaan (komponen RS).
+  jasaSarana    Int? @map("jasa_sarana")
+  /// Jasa Medis: porsi visite/PJ (remunerasi) bila dilekatkan ke akomodasi.
+  jasaMedis     Int? @map("jasa_medis")
+  /// Jasa Paramedis: porsi asuhan keperawatan harian (remunerasi).
+  jasaParamedis Int? @map("jasa_paramedis")
+
+  /// Nomor SK penetapan tarif (opsional — dasar hukum/administratif).
+  noSk  String?   @map("no_sk")
+  /// Tanggal SK penetapan tarif (opsional).
+  tglSk DateTime? @map("tgl_sk") @db.Date
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([kelas, penjaminKode]) // 1 tarif per (kelas, penjamin) → upsert idempoten
+  @@index([penjaminKode])
+  @@map("tarif_kamar")
+  @@schema("master")
+}
