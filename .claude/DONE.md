@@ -12,6 +12,23 @@
 
 ---
 
+## ✅ Selesai — Billing Audit Trail (`billing.AuditLog`, Slice 2g) (2026-07-20)
+
+Jejak **IMMUTABLE** mutasi finansial invoice (UU PDP 27/2022, retensi ≥5 thn). Menutup gap yang ditandai di Slice 2f (reopen tak simpan siapa/kapan/kenapa) **dan** mengubah tab **Riwayat Audit** dari mock → data nyata.
+
+**Skema** (migrasi `20260720120000` manual anti-drift): tabel BARU `billing.AuditLog` — soft-ref `invoiceId` + `kunjunganId` (TANPA FK → audit bertahan independen), `action` (AuditActionKind), `actorNama`/`actorRole`/`actorUserId` (server-resolved), `summary`, `amount?`, `reason?`, `noKwitansi?`, `meta` JSONB (`{ diff?, target? }`), `createdAt`. Index invoiceId + kunjunganId.
+
+**Backend:**
+- DAL [auditLogDal](../src/lib/dal/billing/auditLogDal.ts) (create append-only + listByKunjungan desc).
+- Service [billingInvoiceService](../src/lib/services/billing/billingInvoiceService.ts) — helper `writeAudit` (aktor = `resolveActorNama` + `roles[0]`, anti-spoof) menulis dalam **tx aksi** (atomik): `invoice.create` (resolveInvoice) · `invoice.finalize` (diff Status Draft→Final + amount subtotal + reason bila `force`) · `invoice.reopen` (diff Final→Draft + alasan) · `invoice.diskon` (diff before/after diskon/materai/PPN) · `payment.add`/`payment.refund` (amount + noKwitansi) · `payment.void` (alasan + noKwitansi). `listAudit` map entity→`AuditEventDTO`.
+- DTO [schemas/billing/audit](../src/lib/schemas/billing/audit.ts) `AuditEventDTO` (selaras `AuditEvent` UI) + route `GET /kunjungan/:id/billing/audit` (gate `billing.invoice:read`) + client `listBillingAudit`.
+
+**FE:** [auditTrail](../src/lib/billing/auditTrail.ts) +kind **`invoice.reopen`** (RotateCcw/rose) + finalize di-recolor emerald; [RiwayatAuditTab](../src/components/billing/invoice/tabs/RiwayatAuditTab.tsx) +prop `events?` (nyata dari `billing.AuditLog`; fallback mock hanya route lama); [KunjunganInvoiceDetail](../src/components/billing/invoice/KunjunganInvoiceDetail.tsx) fetch audit (refetch atas `state.version`/`reloadTick`) → map DTO→AuditEvent → thread ke tab. Timeline UI (filter/export CSV) **zero-refactor** (mock memang schema 1:1).
+
+**Verifikasi:** tsc `src/` 0 · eslint 0 · **pg smoke 6/6** (13 kolom · 6 aksi ter-log · JSONB diff `Status→Final` + target payment round-trip · amount tersimpan · finalize+reopen ter-audit). **Sisa:** `item.*`/`klaim.*` kinds belum di-emit (charge=proyeksi klinis; klaim=modul E-Klaim terpisah).
+
+---
+
 ## ✅ Selesai — Billing Finalize / Lock Lifecycle Invoice (Slice 2f / BB6) (2026-07-19)
 
 Charge tagihan kini bisa **DIBEKUKAN** (frozen) — menutup gap fondasi Reports. **Keputusan arsitektur (disepakati user):** finalisasi = aksi **BILLING** (kasir/staf billing), **BUKAN dipicu discharge klinis "Pasien Pulang"**. Alasan terkuat: charge sering **menetes setelah pasien pulang** (hasil lab telat, retur/kembalian obat, obat pulang, koreksi tarif) → membekukan saat discharge = tagihan tak lengkap. Discharge tetap **informatif** (banner sisa, tak berubah). Urutan finalize→reports benar: report periode butuh angka **beku & otoritatif** (outstanding proyeksi-hidup berubah retroaktif → laporan tak stabil).

@@ -127,6 +127,33 @@ model Shift {
   @@schema("billing")
 }
 
+// AuditLog — jejak IMMUTABLE mutasi finansial invoice (UU PDP 27/2022, retensi ≥5 thn).
+// Soft-ref invoiceId + kunjunganId (TANPA FK → audit bertahan walau invoice terhapus). Ditulis
+// dalam tx aksi (finalize/reopen/adjustment/payment/void/create). `action` = AuditActionKind
+// (invoice.finalize · invoice.reopen · invoice.diskon · payment.add/refund/void · invoice.create).
+// `meta` JSONB simpan diff (before/after) + target. Aktor = server-resolved (anti-spoof).
+model AuditLog {
+  id          String  @id @default(uuid(7)) @db.Uuid
+  invoiceId   String  @map("invoice_id") @db.Uuid    // soft-ref billing.Invoice
+  kunjunganId String  @map("kunjungan_id") @db.Uuid  // soft-ref encounter.Kunjungan (kunci baca detail)
+  action      String                                  // AuditActionKind
+  actorNama   String  @map("actor_nama")              // nama pegawai (server-resolved)
+  actorRole   String? @map("actor_role")              // peran utama actor (roles[0])
+  actorUserId String? @map("actor_user_id") @db.Uuid
+  summary     String                                  // ringkasan satu-baris
+  amount      Int?                                     // nominal terkait (aksi keuangan)
+  reason      String?                                 // alasan (reopen/void/diskon)
+  noKwitansi  String? @map("no_kwitansi")             // referensi kwitansi (payment)
+  meta        Json?                                    // { diff?: [...], target?: {...} }
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([invoiceId])
+  @@index([kunjunganId])
+  @@map("audit_log")
+  @@schema("billing")
+}
+
 // Payment — 1 transaksi kas terhadap invoice. Metode/kategori = TEXT (FE-facing,
 // validasi Zod). Void bukan delete (audit). nominal: + pembayaran/deposit, − refund.
 model Payment {

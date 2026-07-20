@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import {
   applyAuditFilters, defaultAuditFilters, exportAuditCsv,
   getAuditEventsForInvoice, uniqueActors,
-  type AuditFilterState,
+  type AuditEvent, type AuditFilterState,
 } from "@/lib/billing/auditTrail";
 import type { InvoiceDetail } from "../invoiceShared";
 import AuditFilterBar from "./audit/AuditFilterBar";
@@ -13,19 +13,24 @@ import AuditTimeline from "./audit/AuditTimeline";
 
 interface Props {
   detail: InvoiceDetail;
+  /** Event NYATA dari billing.AuditLog (KunjunganInvoiceDetail). Absen → fallback mock (route lama). */
+  events?: AuditEvent[];
 }
 
 /**
- * Tab 4 — Riwayat Audit (BL2.5).
+ * Tab 4 — Riwayat Audit (BL2.5 + Slice 2g).
  *
  * Read-only timeline semua mutasi invoice (PMK 269/2008 + UU PDP 27/2022 audit trail).
  * Filter by actor / action type / date range. Export ke CSV.
  *
- * Source: `getAuditEventsForInvoice(invoiceId)` — mock saat ini, swap ke
- * `prisma.auditLog.findMany({ where: { invoiceId } })` saat backend ready.
+ * Source: `events` (NYATA, billing.AuditLog via GET /kunjungan/:id/billing/audit) bila diberikan;
+ * else `getAuditEventsForInvoice(invoiceId)` mock (dipakai route lama /tagihan/[id]).
  */
-export default function RiwayatAuditTab({ detail }: Props) {
-  const allEvents = useMemo(() => getAuditEventsForInvoice(detail.id), [detail.id]);
+export default function RiwayatAuditTab({ detail, events }: Props) {
+  const allEvents = useMemo(
+    () => events ?? getAuditEventsForInvoice(detail.id),
+    [events, detail.id],
+  );
   const actors = useMemo(() => uniqueActors(allEvents), [allEvents]);
 
   const [filters, setFilters] = useState<AuditFilterState>(() => defaultAuditFilters());

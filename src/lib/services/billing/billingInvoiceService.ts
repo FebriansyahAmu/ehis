@@ -3,9 +3,10 @@
 // (proyeksi − Σ payment). Bayar = SATU pintu (Kasir) — kasir di-resolve server dari actor (anti-spoof),
 // void bukan delete. Nomor INV/KW via BillingCounter. Layered: dipanggil route (gate billing.*).
 
-import { transaction } from "@/lib/db/prisma";
+import { transaction, type Tx } from "@/lib/db/prisma";
 import * as invoiceDal from "@/lib/dal/billing/invoiceDal";
 import * as invoiceItemDal from "@/lib/dal/billing/invoiceItemDal";
+import * as auditLogDal from "@/lib/dal/billing/auditLogDal";
 import * as paymentDal from "@/lib/dal/billing/paymentDal";
 import * as billingCounterDal from "@/lib/dal/billing/billingCounterDal";
 import * as billingReadDal from "@/lib/dal/billing/billingReadDal";
@@ -14,14 +15,53 @@ import { deriveBillingStatus } from "./billingStatus";
 import { resolveActorNama } from "@/lib/services/actorName";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
+import type { Prisma } from "@/generated/prisma/client";
 import type { InvoiceEntity } from "@/lib/dal/billing/invoiceDal";
 import type { InvoiceItemData, InvoiceItemEntity } from "@/lib/dal/billing/invoiceItemDal";
+import type { AuditLogEntity } from "@/lib/dal/billing/auditLogDal";
 import type { PaymentEntity } from "@/lib/dal/billing/paymentDal";
 import type { BillingChargeDTO } from "@/lib/schemas/billing/projection";
+import type { AuditEventDTO, AuditDiffDTO, AuditTargetDTO } from "@/lib/schemas/billing/audit";
 import type {
   PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO,
   InvoiceAdjustmentInput, BillingRingkasDTO, InvoiceFinalizeInput, InvoiceReopenInput,
 } from "@/lib/schemas/billing/payment";
+
+// Audit trail — jejak immutable (billing.AuditLog). Ditulis dalam tx aksi; aktor server-resolved.
+interface AuditMeta { diff?: AuditDiffDTO[]; target?: AuditTargetDTO }
+interface AuditEntry {
+  action: string; summary: string;
+  amount?: number | null; reason?: string | null; noKwitansi?: string | null; meta?: AuditMeta;
+}
+async function writeAudit(
+  tx: Tx | undefined, invoiceId: string, kunjunganId: string,
+  actor: Actor, actorNama: string, e: AuditEntry,
+): Promise<void> {
+  await auditLogDal.create({
+    invoiceId, kunjunganId, action: e.action, actorNama,
+    actorRole: actor.roles[0] ?? null, actorUserId: actor.userId,
+    summary: e.summary, amount: e.amount ?? null, reason: e.reason ?? null,
+    noKwitansi: e.noKwitansi ?? null,
+    meta: e.meta ? (e.meta as unknown as Prisma.InputJsonValue) : undefined,
+  }, tx);
+}
+
+function toAuditDTO(r: AuditLogEntity): AuditEventDTO {
+  const meta = (r.meta ?? {}) as AuditMeta;
+  return {
+    id: r.id,
+    at: r.createdAt.toISOString(),
+    invoiceId: r.invoiceId,
+    action: r.action,
+    actor: { name: r.actorNama, role: r.actorRole ?? "" },
+    summary: r.summary,
+    amount: r.amount ?? undefined,
+    reason: r.reason ?? undefined,
+    noKwitansi: r.noKwitansi ?? undefined,
+    target: meta.target,
+    diff: meta.diff,
+  };
+}
 
 function periodeNow(): { periode: string; yyyy: string; mm: string } {
   const d = new Date();
@@ -196,9 +236,15 @@ async function resolveInvoice(kunjunganId: string, kasirNama: string, actor: Act
     return await transaction(async (tx) => {
       const seq = await billingCounterDal.nextSeq("INV", periode, tx);
       const noInvoice = `INV/${yyyy}/${mm}/${pad5(seq)}`;
-      return invoiceDal.create(
+      const created = await invoiceDal.create(
         { kunjunganId, noInvoice, createdBy: kasirNama, authorUserId: actor.userId }, tx,
       );
+      await writeAudit(tx, created.id, kunjunganId, actor, kasirNama, {
+        action: "invoice.create",
+        summary: "Draft invoice dibuka",
+        meta: { target: { type: "invoice", id: created.id, label: noInvoice } },
+      });
+      return created;
     });
   } catch (e) {
     const again = await invoiceDal.findByKunjungan(kunjunganId); // race: dibuat konkuren
@@ -217,9 +263,10 @@ async function recordPayment(kunjunganId: string, input: PaymentInput, actor: Ac
   await transaction(async (tx) => {
     const { periode, yyyy, mm } = periodeNow();
     const seq = await billingCounterDal.nextSeq("KW", periode, tx);
+    const noKwitansi = `KW/${yyyy}/${mm}/${pad5(seq)}`;
     await paymentDal.create({
       invoiceId: invoice.id,
-      noKwitansi: `KW/${yyyy}/${mm}/${pad5(seq)}`,
+      noKwitansi,
       metode: input.metode,
       kategori: input.kategori,
       nominal: signed,
@@ -232,6 +279,15 @@ async function recordPayment(kunjunganId: string, input: PaymentInput, actor: Ac
       bukti: input.bukti ?? null,
       catatan: input.catatan ?? null,
     }, tx);
+    const isRefund = input.kategori === "Refund";
+    await writeAudit(tx, invoice.id, kunjunganId, actor, kasir, {
+      action: isRefund ? "payment.refund" : "payment.add",
+      summary: `${input.kategori} via ${input.metode}`,
+      amount: Math.abs(input.nominal),
+      reason: isRefund ? (input.catatan ?? null) : null,
+      noKwitansi,
+      meta: { target: { type: "payment" } },
+    });
   });
 
   return getInvoiceState(kunjunganId);
@@ -250,12 +306,30 @@ async function setAdjustment(
   if (invoice.status === "Final") {
     throw Errors.forbiddenState("Tagihan sudah difinalisasi — batalkan finalisasi untuk menyesuaikan");
   }
-  const count = await invoiceDal.updateAdjustment(
-    invoice.id,
-    { diskonInvoice: input.diskonInvoice, materai: input.materai, ppnPct: input.ppnPct, catatan: input.alasan ?? null },
-    input.expectedVersion,
-  );
-  if (count === 0) throw Errors.conflictVersion("Invoice telah diubah — muat ulang lalu coba lagi");
+  const before = { diskonInvoice: invoice.diskonInvoice, materai: invoice.materai, ppnPct: invoice.ppnPct };
+
+  await transaction(async (tx) => {
+    const count = await invoiceDal.updateAdjustment(
+      invoice.id,
+      { diskonInvoice: input.diskonInvoice, materai: input.materai, ppnPct: input.ppnPct, catatan: input.alasan ?? null },
+      input.expectedVersion,
+      tx,
+    );
+    if (count === 0) throw Errors.conflictVersion("Invoice telah diubah — muat ulang lalu coba lagi");
+
+    const diff: AuditDiffDTO[] = [];
+    if (before.diskonInvoice !== input.diskonInvoice) diff.push({ field: "Diskon Invoice", before: before.diskonInvoice, after: input.diskonInvoice, isMoney: true });
+    if (before.materai !== input.materai) diff.push({ field: "Materai", before: before.materai, after: input.materai, isMoney: true });
+    if (before.ppnPct !== input.ppnPct) diff.push({ field: "PPN %", before: before.ppnPct, after: input.ppnPct });
+    await writeAudit(tx, invoice.id, kunjunganId, actor, kasir, {
+      action: "invoice.diskon",
+      summary: "Penyesuaian invoice diperbarui",
+      amount: input.diskonInvoice || null,
+      reason: input.alasan ?? null,
+      meta: diff.length ? { diff } : undefined,
+    });
+  });
+
   return getInvoiceState(kunjunganId);
 }
 
@@ -271,6 +345,15 @@ async function voidPayment(
   const voidedBy = await resolveActorNama(actor);
   const count = await paymentDal.voidGuarded(paymentId, invoice.id, { voidReason: alasan, voidedBy });
   if (count === 0) throw Errors.validation("Pembayaran sudah dibatalkan sebelumnya");
+
+  await writeAudit(undefined, invoice.id, kunjunganId, actor, voidedBy, {
+    action: "payment.void",
+    summary: `Pembayaran ${payment.noKwitansi} dibatalkan`,
+    amount: Math.abs(payment.nominal),
+    reason: alasan,
+    noKwitansi: payment.noKwitansi,
+    meta: { target: { type: "payment", id: payment.id } },
+  });
 
   return getInvoiceState(kunjunganId);
 }
@@ -303,6 +386,15 @@ async function finalizeInvoice(
     if (count === 0) throw Errors.conflictVersion("Invoice telah diubah — muat ulang lalu coba lagi");
     await invoiceItemDal.deleteByInvoice(invoice.id, tx); // idempoten (Draft harusnya kosong)
     await invoiceItemDal.createMany(invoice.id, proj.items.map(toSnapshotData), tx);
+    await writeAudit(tx, invoice.id, kunjunganId, actor, nama, {
+      action: "invoice.finalize",
+      summary: `Tagihan difinalisasi · ${proj.items.length} baris dibekukan`,
+      amount: proj.subtotal,
+      reason: input.force && proj.untariffedCount > 0
+        ? `Dipaksa: ${proj.untariffedCount} item belum bertarif`
+        : null,
+      meta: { diff: [{ field: "Status", before: "Draft", after: "Final" }] },
+    });
   });
 
   return getInvoiceState(kunjunganId);
@@ -318,15 +410,27 @@ async function reopenInvoice(
   const invoice = await invoiceDal.findByKunjungan(kunjunganId);
   if (!invoice) throw Errors.notFound("Invoice tidak ditemukan untuk kunjungan ini");
   if (invoice.status !== "Final") throw Errors.forbiddenState("Tagihan belum difinalisasi");
-  await resolveActorNama(actor); // pastikan actor valid (nama resolvable)
+  const nama = await resolveActorNama(actor); // pastikan actor valid + stempel audit
 
   await transaction(async (tx) => {
     const count = await invoiceDal.setDraft(invoice.id, input.expectedVersion, tx);
     if (count === 0) throw Errors.conflictVersion("Invoice telah diubah — muat ulang lalu coba lagi");
     await invoiceItemDal.deleteByInvoice(invoice.id, tx);
+    await writeAudit(tx, invoice.id, kunjunganId, actor, nama, {
+      action: "invoice.reopen",
+      summary: "Finalisasi dibatalkan · charge kembali proyeksi",
+      reason: input.alasan,
+      meta: { diff: [{ field: "Status", before: "Final", after: "Draft" }] },
+    });
   });
 
   return getInvoiceState(kunjunganId);
+}
+
+/** Riwayat audit 1 kunjungan (read) — timeline mutasi finansial invoice. */
+async function listAudit(kunjunganId: string): Promise<AuditEventDTO[]> {
+  const rows = await auditLogDal.listByKunjungan(kunjunganId);
+  return rows.map(toAuditDTO);
 }
 
 /** Daftar pembayaran 1 kunjungan (read). */
@@ -388,5 +492,5 @@ async function paymentSummary(shiftId: string | undefined, date: string | undefi
 
 export const billingInvoiceService = {
   getInvoiceState, getRingkas, recordPayment, setAdjustment, finalizeInvoice, reopenInvoice,
-  voidPayment, listPayments, listRecentPayments, paymentSummary,
+  voidPayment, listPayments, listAudit, listRecentPayments, paymentSummary,
 };

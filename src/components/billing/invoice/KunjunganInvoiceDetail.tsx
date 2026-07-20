@@ -11,9 +11,10 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Loader2, AlertTriangle } from "lucide-react";
 import {
-  getInvoiceState, setInvoiceAdjustment, finalizeInvoice, reopenInvoice,
+  getInvoiceState, setInvoiceAdjustment, finalizeInvoice, reopenInvoice, listBillingAudit,
   type InvoiceStateDTO,
 } from "@/lib/api/billing/invoice";
+import type { AuditEvent, AuditActionKind } from "@/lib/billing/auditTrail";
 import { useRecordVersion } from "@/lib/realtime/recordBus";
 import { useCan } from "@/components/auth/Can";
 import { invoiceStateToDetail } from "./invoiceStateMap";
@@ -45,6 +46,7 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
   const [adjustBusy, setAdjustBusy] = useState(false);
   const [finBusy, setFinBusy] = useState(false);
   const [finErr, setFinErr] = useState<string | null>(null);
+  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [reloadTick, setReloadTick] = useState(0); // bump → refetch (sesudah void/refund)
 
   // Reaktif: charge = proyeksi order → refetch saat order kunjungan berubah.
@@ -59,6 +61,21 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
       .finally(() => { if (!ac.signal.aborted) setLoading(false); });
     return () => ac.abort();
   }, [kunjunganId, isReal, orderVersion, reloadTick]);
+
+  // Audit trail NYATA (billing.AuditLog) — refetch saat versi invoice / reload berubah
+  // (finalize/reopen/adjust menaikkan version; void/refund lewat reloadTick).
+  const stateVersion = state?.version ?? 0;
+  useEffect(() => {
+    if (!isReal) return;
+    const ac = new AbortController();
+    listBillingAudit(kunjunganId, ac.signal)
+      .then((rows) => {
+        if (ac.signal.aborted) return;
+        setAuditEvents(rows.map((r) => ({ ...r, action: r.action as AuditActionKind })));
+      })
+      .catch(() => { /* diam — audit advisory, tak menghalangi detail */ });
+    return () => ac.abort();
+  }, [kunjunganId, isReal, stateVersion, reloadTick]);
 
   const detail = useMemo(() => (state ? invoiceStateToDetail(state) : null), [state]);
   const canAdjust = can("billing.invoice", "update");
@@ -181,7 +198,7 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
               />
             )}
             {tab === "klaim" && <KlaimStatusTab detail={detail} onOpenEklaim={handleOpenEklaim} />}
-            {tab === "riwayat" && <RiwayatAuditTab detail={detail} />}
+            {tab === "riwayat" && <RiwayatAuditTab detail={detail} events={auditEvents} />}
           </motion.div>
         </AnimatePresence>
       </div>

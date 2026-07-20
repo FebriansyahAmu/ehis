@@ -15,7 +15,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   FilePlus2, CircleDot, ListPlus, Percent, Ban, RotateCcw,
-  Banknote, ArrowDownLeft, Trash2, Send, ShieldCheck, PiggyBank,
+  Banknote, ArrowDownLeft, Trash2, Send, ShieldCheck,
 } from "lucide-react";
 
 // ── Action kinds ────────────────────────────────────────
@@ -23,6 +23,7 @@ import {
 export type AuditActionKind =
   | "invoice.create"
   | "invoice.finalize"
+  | "invoice.reopen"
   | "invoice.diskon"
   | "item.add"
   | "item.diskon"
@@ -48,7 +49,8 @@ interface ActionCfg {
 
 export const AUDIT_ACTION_CFG: Record<AuditActionKind, ActionCfg> = {
   "invoice.create":   { label: "Buat Invoice",      icon: FilePlus2,    category: "invoice", tone: "slate",   description: "Draft invoice baru dibuka" },
-  "invoice.finalize": { label: "Finalisasi",        icon: CircleDot,    category: "invoice", tone: "amber",   description: "Status Draft → Final, items terkunci" },
+  "invoice.finalize": { label: "Finalisasi",        icon: CircleDot,    category: "invoice", tone: "emerald", description: "Status Draft → Final, charge dibekukan" },
+  "invoice.reopen":   { label: "Batalkan Finalisasi", icon: RotateCcw,  category: "invoice", tone: "rose",    description: "Status Final → Draft, charge kembali proyeksi" },
   "invoice.diskon":   { label: "Diskon Invoice",    icon: Percent,      category: "invoice", tone: "violet",  description: "Diskon level invoice (di luar diskon item)" },
   "item.add":         { label: "Tambah Item",       icon: ListPlus,     category: "item",    tone: "emerald", description: "Charge baru ditambahkan ke invoice" },
   "item.diskon":      { label: "Diskon Item",       icon: Percent,      category: "item",    tone: "violet",  description: "Diskon per-item applied" },
@@ -62,7 +64,7 @@ export const AUDIT_ACTION_CFG: Record<AuditActionKind, ActionCfg> = {
 };
 
 export const AUDIT_ACTION_ORDER: AuditActionKind[] = [
-  "invoice.create", "invoice.finalize", "invoice.diskon",
+  "invoice.create", "invoice.finalize", "invoice.reopen", "invoice.diskon",
   "item.add", "item.diskon", "item.void", "item.unvoid",
   "payment.add", "payment.refund", "payment.void",
   "klaim.submit", "klaim.status",

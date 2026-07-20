@@ -6,10 +6,11 @@ import type {
   PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO,
   InvoiceAdjustmentInput, BillingRingkasDTO, InvoiceFinalizeInput, InvoiceReopenInput,
 } from "@/lib/schemas/billing/payment";
+import type { AuditEventDTO } from "@/lib/schemas/billing/audit";
 
 export type {
   PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO,
-  InvoiceAdjustmentInput, BillingRingkasDTO, InvoiceFinalizeInput, InvoiceReopenInput,
+  InvoiceAdjustmentInput, BillingRingkasDTO, InvoiceFinalizeInput, InvoiceReopenInput, AuditEventDTO,
 };
 
 const base = (k: string) => `/kunjungan/${encodeURIComponent(k)}/billing`;
@@ -54,6 +55,12 @@ export async function setInvoiceAdjustment(
 /** Daftar pembayaran kunjungan. */
 export async function listPayments(kunjunganId: string, signal?: AbortSignal): Promise<PaymentDTO[]> {
   const { data } = await api.get<PaymentDTO[]>(`${base(kunjunganId)}/payment`, { signal });
+  return data;
+}
+
+/** Riwayat audit tagihan (timeline mutasi finansial), terbaru dulu. */
+export async function listBillingAudit(kunjunganId: string, signal?: AbortSignal): Promise<AuditEventDTO[]> {
+  const { data } = await api.get<AuditEventDTO[]>(`${base(kunjunganId)}/audit`, { signal });
   return data;
 }
 
