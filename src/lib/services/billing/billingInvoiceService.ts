@@ -290,7 +290,19 @@ async function recordPayment(kunjunganId: string, input: PaymentInput, actor: Ac
     });
   });
 
-  return getInvoiceState(kunjunganId);
+  // Auto-finalisasi saat PELUNASAN: hanya kategori "Pembayaran" yang membuat sisa = 0
+  // (tagihan bertarif & masih Draft). Deposit/Refund/cicilan TIDAK memicu. Force = true agar
+  // item belum bertarif (Rp0) tak memblokir (pasien sudah lunas). Best-effort: kegagalan
+  // auto-finalisasi tak membatalkan pembayaran yang sudah tercatat.
+  const afterPay = await getInvoiceState(kunjunganId);
+  if (input.kategori === "Pembayaran" && afterPay.lifecycle === "Draft" && afterPay.subtotal > 0 && afterPay.sisa === 0) {
+    try {
+      return await finalizeInvoice(kunjunganId, { force: true }, actor);
+    } catch {
+      return afterPay;
+    }
+  }
+  return afterPay;
 }
 
 /** Set penyesuaian level-invoice (diskon/materai/PPN). Lazy-create invoice; guard subtotal + versi. */

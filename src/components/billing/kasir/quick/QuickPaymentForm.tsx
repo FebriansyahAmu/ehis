@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
-import { CheckCircle2, Sparkles, AlertCircle, Zap } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { CheckCircle2, Sparkles, AlertCircle, Zap, Lock, Undo2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   METODE_CFG, METODE_ORDER, fmtRupiah,
@@ -55,6 +55,7 @@ export default function QuickPaymentForm({ target, kasirName, onSubmit, mode = "
   const [form, setForm] = useState<FormState>(() => initialState(maxNominal));
   const [touched, setTouched] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Reset saat target/mode berubah (user pilih row lain) — pola "adjust state during render".
   const resetKey = `${target.id}|${maxNominal}`;
@@ -64,6 +65,7 @@ export default function QuickPaymentForm({ target, kasirName, onSubmit, mode = "
     setForm(initialState(maxNominal));
     setTouched(false);
     setJustSubmitted(false);
+    setConfirmOpen(false);
   }
 
   const nominalNum = useMemo(
@@ -87,9 +89,20 @@ export default function QuickPaymentForm({ target, kasirName, onSubmit, mode = "
 
   const hasError = Object.values(errors).some(Boolean);
 
+  // Prediksi pelunasan (selaras aturan server: kategori Pembayaran → sisa 0 → auto-finalisasi).
+  const sisaAfter = isRefund ? 0 : Math.max(0, target.sisaTagihan - nominalNum);
+  const willLunas = !isRefund && target.sisaTagihan > 0 && nominalNum >= target.sisaTagihan;
+
+  // Klik tombol → validasi → buka konfirmasi (bukan submit langsung).
   const submit = () => {
     setTouched(true);
     if (hasError) return;
+    setConfirmOpen(true);
+  };
+
+  // Konfirmasi → benar-benar catat pembayaran.
+  const doSubmit = () => {
+    setConfirmOpen(false);
     onSubmit({
       tanggalISO: new Date().toISOString().slice(0, 16),
       metode: form.metode,
@@ -113,6 +126,7 @@ export default function QuickPaymentForm({ target, kasirName, onSubmit, mode = "
   const needRef = form.metode === "Transfer" || form.metode === "EDC" || form.metode === "QRIS";
 
   return (
+    <>
     <section
       aria-label="Quick Payment Form"
       className="overflow-hidden rounded-xl border-2 border-amber-300 bg-white shadow-md dark:border-amber-800 dark:bg-slate-900"
@@ -332,5 +346,148 @@ export default function QuickPaymentForm({ target, kasirName, onSubmit, mode = "
         </button>
       </div>
     </section>
+
+    {/* Konfirmasi pembayaran/refund + pemberitahuan auto-finalisasi saat pelunasan */}
+    <AnimatePresence>
+      {confirmOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={() => setConfirmOpen(false)}
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 8 }}
+            transition={{ type: "spring", stiffness: 360, damping: 26 }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-950"
+          >
+            {/* Header */}
+            <div className={cn(
+              "flex items-center justify-between px-4 py-3",
+              isRefund ? "bg-rose-50 dark:bg-rose-950/30" : "bg-amber-50 dark:bg-amber-950/30",
+            )}>
+              <h3 className={cn(
+                "inline-flex items-center gap-2 text-[13.5px] font-bold",
+                isRefund ? "text-rose-800 dark:text-rose-200" : "text-amber-800 dark:text-amber-200",
+              )}>
+                {isRefund ? <Undo2 size={15} /> : <CheckCircle2 size={15} />}
+                {isRefund ? "Konfirmasi Refund" : "Konfirmasi Pembayaran"}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setConfirmOpen(false)}
+                aria-label="Tutup"
+                className="rounded-md p-1 text-slate-400 transition hover:bg-white/60 hover:text-slate-600 dark:hover:bg-slate-800"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Ringkasan */}
+            <div className="space-y-2 px-4 py-3">
+              <SumRow label="Pasien" value={`${target.pasien.nama} · ${target.pasien.noRM}`} />
+              <SumRow label="No Tagihan" value={target.noTagihan} mono />
+              <SumRow
+                label="Metode"
+                value={form.bank ? `${form.metode} · ${form.bank}` : form.metode}
+              />
+              {form.noRef && <SumRow label="No Ref" value={form.noRef} mono />}
+
+              <div className="flex items-end justify-between border-t border-slate-100 pt-2 dark:border-slate-800">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  {isRefund ? "Nominal Refund" : "Nominal Bayar"}
+                </span>
+                <span className={cn(
+                  "font-mono text-[19px] font-extrabold tabular-nums",
+                  isRefund ? "text-rose-700 dark:text-rose-300" : "text-amber-700 dark:text-amber-300",
+                )}>
+                  {fmtRupiah(nominalNum)}
+                </span>
+              </div>
+              <p className="-mt-1 text-right text-[10.5px] italic text-slate-500">{terbilang(nominalNum)}</p>
+
+              {/* Pemberitahuan kondisional */}
+              {isRefund ? (
+                <NoticeBox tone="rose" icon={Undo2}>
+                  Dana <b>{fmtRupiah(nominalNum)}</b> dikembalikan ke pasien. Kwitansi refund akan terbit.
+                </NoticeBox>
+              ) : willLunas ? (
+                <NoticeBox tone="emerald" icon={Lock}>
+                  Pembayaran ini <b>MELUNASI</b> tagihan (sisa → Rp0). Setelah ini tagihan
+                  <b> otomatis difinalisasi</b> (charge dibekukan). Untuk mengubah lagi, gunakan
+                  <b> Batalkan Finalisasi</b>.
+                </NoticeBox>
+              ) : (
+                <NoticeBox tone="slate" icon={AlertCircle}>
+                  Sisa setelah pembayaran: <b>{fmtRupiah(sisaAfter)}</b>. Tagihan tetap <b>Draft</b>
+                  {" "}(belum difinalisasi).
+                </NoticeBox>
+              )}
+            </div>
+
+            {/* Aksi */}
+            <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-4 py-3 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setConfirmOpen(false)}
+                className="rounded-lg px-3 py-1.5 text-[12px] font-semibold text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50 dark:text-slate-300 dark:ring-slate-700 dark:hover:bg-slate-900"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={doSubmit}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[12px] font-bold text-white shadow-sm transition active:scale-[0.98]",
+                  isRefund ? "bg-rose-600 hover:bg-rose-700" : "bg-amber-600 hover:bg-amber-700",
+                )}
+              >
+                {isRefund ? <Undo2 size={13} /> : <CheckCircle2 size={13} />}
+                {isRefund ? "Proses Refund" : willLunas ? "Bayar & Finalisasi" : "Konfirmasi Bayar"}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+    </>
+  );
+}
+
+// ── Sub-components konfirmasi ────────────────────────────
+function SumRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 text-[12px]">
+      <span className="shrink-0 text-slate-500 dark:text-slate-400">{label}</span>
+      <span className={cn("truncate text-right font-medium text-slate-800 dark:text-slate-100", mono && "font-mono text-[11px]")}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function NoticeBox({
+  tone, icon: Icon, children,
+}: {
+  tone: "emerald" | "slate" | "rose";
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  children: React.ReactNode;
+}) {
+  const cfg = {
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200",
+    slate:   "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-300",
+    rose:    "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200",
+  }[tone];
+  return (
+    <div className={cn("mt-1 flex items-start gap-2 rounded-lg border px-3 py-2 text-[11.5px] leading-relaxed", cfg)}>
+      <Icon size={14} className="mt-0.5 flex-none" />
+      <span>{children}</span>
+    </div>
   );
 }
