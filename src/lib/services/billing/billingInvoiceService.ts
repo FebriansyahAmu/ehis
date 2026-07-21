@@ -6,6 +6,7 @@
 import { transaction, type Tx } from "@/lib/db/prisma";
 import * as invoiceDal from "@/lib/dal/billing/invoiceDal";
 import * as invoiceItemDal from "@/lib/dal/billing/invoiceItemDal";
+import * as itemAdjustmentDal from "@/lib/dal/billing/itemAdjustmentDal";
 import * as auditLogDal from "@/lib/dal/billing/auditLogDal";
 import * as paymentDal from "@/lib/dal/billing/paymentDal";
 import * as billingCounterDal from "@/lib/dal/billing/billingCounterDal";
@@ -22,9 +23,11 @@ import type { AuditLogEntity } from "@/lib/dal/billing/auditLogDal";
 import type { PaymentEntity } from "@/lib/dal/billing/paymentDal";
 import type { BillingChargeDTO } from "@/lib/schemas/billing/projection";
 import type { AuditEventDTO, AuditDiffDTO, AuditTargetDTO } from "@/lib/schemas/billing/audit";
+import type { ItemAdjustmentEntity } from "@/lib/dal/billing/itemAdjustmentDal";
 import type {
   PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO,
   InvoiceAdjustmentInput, BillingRingkasDTO, InvoiceFinalizeInput, InvoiceReopenInput,
+  ItemAdjustmentInput,
 } from "@/lib/schemas/billing/payment";
 
 // Audit trail — jejak immutable (billing.AuditLog). Ditulis dalam tx aksi; aktor server-resolved.
@@ -111,6 +114,33 @@ function toSnapshotData(c: BillingChargeDTO): InvoiceItemData {
   };
 }
 
+/** Net 1 baris charge sesudah overlay penyesuaian: 0 bila void, else gross − diskonItem. */
+function itemNet(it: BillingChargeDTO): number {
+  if (it.voided) return 0;
+  return Math.max(0, it.qty * it.hargaSatuan - (it.diskonItem ?? 0));
+}
+
+/** Rp reduksi aktual saat SET penyesuaian (dari gross baris). void = seluruh gross. */
+function computeReduksi(jenis: string, mode: string | null, nilai: number, gross: number): number {
+  if (jenis === "void") return gross;
+  if (mode === "pct") return Math.min(gross, Math.round((gross * nilai) / 100));
+  return Math.min(gross, nilai); // rp
+}
+
+/** Overlay penyesuaian per-baris ke daftar charge (cocokkan sourceRef). reduksi = snapshot saat set. */
+function applyItemAdjustments(
+  items: BillingChargeDTO[], adjMap: Map<string, ItemAdjustmentEntity>,
+): BillingChargeDTO[] {
+  if (adjMap.size === 0) return items;
+  return items.map((it) => {
+    const a = adjMap.get(it.sourceRef);
+    if (!a) return it;
+    if (a.jenis === "void") return { ...it, voided: true, voidReason: a.alasan ?? undefined };
+    const gross = it.qty * it.hargaSatuan;
+    return { ...it, diskonItem: Math.min(gross, a.reduksi), alasanDiskon: a.alasan ?? undefined };
+  });
+}
+
 function toPaymentDTO(p: PaymentEntity): PaymentDTO {
   return {
     id: p.id,
@@ -142,15 +172,17 @@ async function buildState(
   // Charge: Draft = proyeksi HIDUP (proj) · Final = SNAPSHOT beku (InvoiceItem). Header
   // (pasien/unit/penjamin/kelas/SEP) selalu dari proyeksi (identitas tak dibekukan).
   const isFinal = invoice?.status === "Final";
-  let items = proj.items;
-  let subtotal = proj.subtotal;
-  let untariffedCount = proj.untariffedCount;
-  if (isFinal && invoice) {
-    const snap = await invoiceItemDal.listByInvoice(invoice.id);
-    items = snap.map(toChargeFromSnapshot);
-    subtotal = snap.reduce((s, i) => s + i.qty * i.hargaSatuan, 0);
-    untariffedCount = snap.filter((i) => i.untariffed).length;
+  let items = isFinal && invoice
+    ? (await invoiceItemDal.listByInvoice(invoice.id)).map(toChargeFromSnapshot)
+    : proj.items;
+
+  // Overlay penyesuaian per-baris (diskon/void) — berlaku Draft & Final (dicocokkan sourceRef).
+  if (invoice) {
+    const adjs = await itemAdjustmentDal.listByInvoice(invoice.id);
+    items = applyItemAdjustments(items, new Map(adjs.map((a) => [a.sourceRef, a])));
   }
+  const subtotal = items.reduce((s, it) => s + itemNet(it), 0);
+  const untariffedCount = items.filter((it) => it.untariffed && !it.voided).length;
 
   const dibayar = payments.filter((p) => !p.voided).reduce((s, p) => s + p.nominal, 0);
   const diskonInvoice = invoice?.diskonInvoice ?? 0;
@@ -208,10 +240,10 @@ async function getInvoiceState(kunjunganId: string): Promise<InvoiceStateDTO> {
  */
 async function getRingkas(kunjunganId: string): Promise<BillingRingkasDTO> {
   const s = await getInvoiceState(kunjunganId);
-  // Breakdown per kategori dari item proyeksi (Σ = subtotal, termasuk Akomodasi RI).
+  // Breakdown per kategori dari item proyeksi — NET sesudah penyesuaian per-baris (Σ = subtotal).
   const map = new Map<string, number>();
   for (const it of s.items) {
-    map.set(it.kategori, (map.get(it.kategori) ?? 0) + it.qty * it.hargaSatuan);
+    map.set(it.kategori, (map.get(it.kategori) ?? 0) + itemNet(it));
   }
   return {
     invoiceId: s.invoiceId,
@@ -439,6 +471,73 @@ async function reopenInvoice(
   return getInvoiceState(kunjunganId);
 }
 
+/**
+ * Set penyesuaian per-baris charge (diskon Rp/pct atau void). Charge = proyeksi → overlay disimpan
+ * di billing.ItemAdjustment (upsert per sourceRef). `reduksi` di-snapshot dari gross baris (dipakai
+ * seragam detail & board). Diblokir saat Final. Gate billing.invoice:update.
+ */
+async function setItemAdjustment(
+  kunjunganId: string, input: ItemAdjustmentInput, actor: Actor,
+): Promise<InvoiceStateDTO> {
+  const proj = await billingProjectionService.projectByKunjungan(kunjunganId); // 404 + baris
+  const line = proj.items.find((i) => i.sourceRef === input.sourceRef);
+  if (!line) throw Errors.validation("Baris tagihan tidak ditemukan");
+  const gross = line.qty * line.hargaSatuan;
+  if (gross <= 0) throw Errors.validation("Baris belum bertarif — tak dapat didiskon/void");
+
+  const nama = await resolveActorNama(actor);
+  const invoice = await resolveInvoice(kunjunganId, nama, actor);
+  if (invoice.status === "Final") {
+    throw Errors.forbiddenState("Tagihan sudah difinalisasi — batalkan finalisasi untuk menyesuaikan");
+  }
+  const isVoid = input.jenis === "void";
+  const reduksi = computeReduksi(input.jenis, input.mode ?? null, input.nilai ?? 0, gross);
+
+  await transaction(async (tx) => {
+    await itemAdjustmentDal.upsert(invoice.id, input.sourceRef, {
+      jenis: input.jenis,
+      mode: isVoid ? null : (input.mode ?? null),
+      nilai: isVoid ? 0 : (input.nilai ?? 0),
+      reduksi,
+      alasan: input.alasan ?? null,
+      actorNama: nama,
+      actorUserId: actor.userId,
+    }, tx);
+    await writeAudit(tx, invoice.id, kunjunganId, actor, nama, {
+      action: isVoid ? "item.void" : "item.diskon",
+      summary: isVoid ? `Void baris: ${line.nama}` : `Diskon baris: ${line.nama}`,
+      amount: reduksi,
+      reason: input.alasan ?? null,
+      meta: { target: { type: "item", id: input.sourceRef, label: line.nama } },
+    });
+  });
+  return getInvoiceState(kunjunganId);
+}
+
+/** Hapus penyesuaian per-baris (kembalikan gross). Diblokir saat Final. Gate billing.invoice:update. */
+async function removeItemAdjustment(
+  kunjunganId: string, sourceRef: string, actor: Actor,
+): Promise<InvoiceStateDTO> {
+  const invoice = await invoiceDal.findByKunjungan(kunjunganId);
+  if (!invoice) throw Errors.notFound("Invoice tidak ditemukan untuk kunjungan ini");
+  if (invoice.status === "Final") {
+    throw Errors.forbiddenState("Tagihan sudah difinalisasi — batalkan finalisasi untuk menyesuaikan");
+  }
+  const existing = await itemAdjustmentDal.findBySourceRef(invoice.id, sourceRef);
+  if (!existing) throw Errors.notFound("Penyesuaian baris tidak ditemukan");
+  const nama = await resolveActorNama(actor);
+
+  await transaction(async (tx) => {
+    await itemAdjustmentDal.deleteBySourceRef(invoice.id, sourceRef, tx);
+    await writeAudit(tx, invoice.id, kunjunganId, actor, nama, {
+      action: existing.jenis === "void" ? "item.unvoid" : "item.diskon",
+      summary: existing.jenis === "void" ? "Void baris dipulihkan" : "Diskon baris dihapus",
+      meta: { target: { type: "item", id: sourceRef } },
+    });
+  });
+  return getInvoiceState(kunjunganId);
+}
+
 /** Riwayat audit 1 kunjungan (read) — timeline mutasi finansial invoice. */
 async function listAudit(kunjunganId: string): Promise<AuditEventDTO[]> {
   const rows = await auditLogDal.listByKunjungan(kunjunganId);
@@ -503,6 +602,6 @@ async function paymentSummary(shiftId: string | undefined, date: string | undefi
 }
 
 export const billingInvoiceService = {
-  getInvoiceState, getRingkas, recordPayment, setAdjustment, finalizeInvoice, reopenInvoice,
-  voidPayment, listPayments, listAudit, listRecentPayments, paymentSummary,
+  getInvoiceState, getRingkas, recordPayment, setAdjustment, setItemAdjustment, removeItemAdjustment,
+  finalizeInvoice, reopenInvoice, voidPayment, listPayments, listAudit, listRecentPayments, paymentSummary,
 };

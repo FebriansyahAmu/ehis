@@ -21,10 +21,12 @@ interface Props {
   readOnly?: boolean;
   /** Read-only tapi izinkan penyesuaian level-invoice (tombol "Penyesuaian" di footer). */
   onAdjust?: () => void;
+  /** Read-only tapi izinkan penyesuaian per-baris (kebab diskon/void). */
+  allowItemAdjust?: boolean;
 }
 
 export default function RincianChargeTab({
-  detail, onAddItem, onItemAction, onApplyDiskonInvoice, onFinalize, readOnly, onAdjust,
+  detail, onAddItem, onItemAction, onApplyDiskonInvoice, onFinalize, readOnly, onAdjust, allowItemAdjust,
 }: Props) {
   const sections = useMemo(() => groupByKategori(detail.items), [detail.items]);
   const coverage = useMemo(() => coverageBreakdown(detail.items), [detail.items]);
@@ -61,6 +63,7 @@ export default function RincianChargeTab({
                   onAddItem={onAddItem}
                   onItemAction={onItemAction}
                   readOnly={readOnly}
+                  allowAdjust={allowItemAdjust}
                 />
               ))
             )}

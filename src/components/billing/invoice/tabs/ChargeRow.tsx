@@ -15,9 +15,11 @@ interface Props {
   onAction: (action: ChargeAction, item: ChargeItem) => void;
   /** Mode proyeksi (billing) — sembunyikan aksi mutasi (diskon/void/source). */
   readOnly?: boolean;
+  /** readOnly tapi izinkan penyesuaian per-baris (diskon/void) — kebab tetap muncul, tanpa "source". */
+  allowAdjust?: boolean;
 }
 
-export default function ChargeRow({ item, index, onAction, readOnly }: Props) {
+export default function ChargeRow({ item, index, onAction, readOnly, allowAdjust }: Props) {
   const cov  = COVERAGE_CFG[item.coverage];
   const src  = SOURCE_BADGE_TONE[item.sourceModul];
   const gross = rowGross(item);
@@ -123,10 +125,10 @@ export default function ChargeRow({ item, index, onAction, readOnly }: Props) {
 
       {/* Kebab actions */}
       <td className="px-2 py-2 text-center">
-        {readOnly ? (
+        {readOnly && !allowAdjust ? (
           <span className="text-slate-300 dark:text-slate-600">—</span>
         ) : (
-          <RowKebab item={item} onAction={onAction} voided={voided} index={index} />
+          <RowKebab item={item} onAction={onAction} voided={voided} index={index} allowSource={!readOnly} />
         )}
       </td>
     </tr>
@@ -136,15 +138,17 @@ export default function ChargeRow({ item, index, onAction, readOnly }: Props) {
 // ── Kebab dropdown ──────────────────────────────────────
 
 function RowKebab({
-  item, onAction, voided,
+  item, onAction, voided, allowSource,
 }: {
   item: ChargeItem;
   onAction: (action: ChargeAction, item: ChargeItem) => void;
   voided: boolean;
   index: number;
+  allowSource: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const hasDiskon = (item.diskonItem ?? 0) > 0;
 
   useEffect(() => {
     if (!open) return;
@@ -184,11 +188,13 @@ function RowKebab({
           className="absolute right-0 top-8 z-20 w-44 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"
         >
           {voided ? (
-            <MenuItem icon={Undo2} label="Pulihkan" onClick={() => handle("unvoid")} />
+            <MenuItem icon={Undo2} label="Pulihkan (Batal Void)" onClick={() => handle("unvoid")} />
           ) : (
             <>
-              <MenuItem icon={Tag} label="Apply Diskon" onClick={() => handle("diskon")} />
-              <MenuItem icon={ExternalLink} label="Detail Source" onClick={() => handle("source")} />
+              <MenuItem icon={Tag} label={hasDiskon ? "Ubah Diskon" : "Apply Diskon"} onClick={() => handle("diskon")} />
+              {allowSource && (
+                <MenuItem icon={ExternalLink} label="Detail Source" onClick={() => handle("source")} />
+              )}
               <div className="my-0.5 border-t border-slate-100 dark:border-slate-800" />
               <MenuItem icon={Ban} label="Void Item" danger onClick={() => handle("void")} />
             </>

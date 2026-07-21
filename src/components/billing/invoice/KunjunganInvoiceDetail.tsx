@@ -12,12 +12,15 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Loader2, AlertTriangle } from "lucide-react";
 import {
   getInvoiceState, setInvoiceAdjustment, finalizeInvoice, reopenInvoice, listBillingAudit,
+  setItemAdjustment, removeItemAdjustment,
   type InvoiceStateDTO,
 } from "@/lib/api/billing/invoice";
 import type { AuditEvent, AuditActionKind } from "@/lib/billing/auditTrail";
 import { useRecordVersion } from "@/lib/realtime/recordBus";
 import { useCan } from "@/components/auth/Can";
 import { invoiceStateToDetail } from "./invoiceStateMap";
+import type { ChargeItem } from "./invoiceShared";
+import type { ChargeAction } from "./tabs/ChargeRow";
 import PatientBannerBilling from "./PatientBannerBilling";
 import InvoiceFinalizeBar from "./InvoiceFinalizeBar";
 import InvoiceTabs, { type InvoiceTabKey } from "./InvoiceTabs";
@@ -27,6 +30,7 @@ import KlaimStatusTab from "./tabs/KlaimStatusTab";
 import RiwayatAuditTab from "./tabs/RiwayatAuditTab";
 import InvoicePrintModal from "./modals/InvoicePrintModal";
 import AdjustmentModal from "./modals/AdjustmentModal";
+import ItemAdjustModal, { type ItemAdjustPayload } from "./modals/ItemAdjustModal";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -47,6 +51,11 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
   const [finBusy, setFinBusy] = useState(false);
   const [finErr, setFinErr] = useState<string | null>(null);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  // Penyesuaian per-baris (Slice 2d Fase 2)
+  const [adjItem, setAdjItem] = useState<ChargeItem | null>(null);
+  const [adjMode, setAdjMode] = useState<"diskon" | "void">("diskon");
+  const [itemAdjBusy, setItemAdjBusy] = useState(false);
+  const [itemAdjErr, setItemAdjErr] = useState<string | null>(null);
   const [reloadTick, setReloadTick] = useState(0); // bump → refetch (sesudah void/refund)
 
   // Reaktif: charge = proyeksi order → refetch saat order kunjungan berubah.
@@ -133,6 +142,61 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
     [kunjunganId, state],
   );
 
+  // Penyesuaian per-baris: buka modal (diskon/void) atau langsung pulihkan (unvoid).
+  const handleItemAction = useCallback(
+    async (action: ChargeAction, item: ChargeItem) => {
+      if (action === "diskon" || action === "void") {
+        setItemAdjErr(null);
+        setAdjMode(action);
+        setAdjItem(item);
+      } else if (action === "unvoid") {
+        try {
+          const next = await removeItemAdjustment(kunjunganId, item.sourceRef);
+          setState(next);
+        } catch (e) {
+          console.error("[ItemAdjust] unvoid gagal:", e);
+        }
+      }
+      // "source" → tak ada aksi di konteks billing (charge = proyeksi)
+    },
+    [kunjunganId],
+  );
+
+  const closeItemAdjust = useCallback(() => { setAdjItem(null); setItemAdjErr(null); }, []);
+
+  const handleItemAdjustSubmit = useCallback(
+    async (payload: ItemAdjustPayload) => {
+      if (!adjItem) return;
+      setItemAdjBusy(true);
+      setItemAdjErr(null);
+      try {
+        const next = await setItemAdjustment(kunjunganId, { sourceRef: adjItem.sourceRef, ...payload });
+        setState(next);
+        setAdjItem(null);
+      } catch (e) {
+        setItemAdjErr(e instanceof Error ? e.message : "Gagal menerapkan penyesuaian");
+      } finally {
+        setItemAdjBusy(false);
+      }
+    },
+    [kunjunganId, adjItem],
+  );
+
+  const handleItemAdjustRemove = useCallback(async () => {
+    if (!adjItem) return;
+    setItemAdjBusy(true);
+    setItemAdjErr(null);
+    try {
+      const next = await removeItemAdjustment(kunjunganId, adjItem.sourceRef);
+      setState(next);
+      setAdjItem(null);
+    } catch (e) {
+      setItemAdjErr(e instanceof Error ? e.message : "Gagal menghapus penyesuaian");
+    } finally {
+      setItemAdjBusy(false);
+    }
+  }, [kunjunganId, adjItem]);
+
   if (!isReal) {
     return <NotAvailable message="Detail tagihan hanya untuk kunjungan tersimpan (bukan pasien demo)." />;
   }
@@ -180,9 +244,10 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
               <RincianChargeTab
                 detail={detail}
                 onAddItem={noop}
-                onItemAction={noop}
+                onItemAction={handleItemAction}
                 onApplyDiskonInvoice={noop}
                 readOnly
+                allowItemAdjust={canAdjust && state.lifecycle === "Draft"}
                 onAdjust={canAdjust && state.lifecycle === "Draft" ? () => setAdjustOpen(true) : undefined}
               />
             )}
@@ -212,6 +277,17 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
         busy={adjustBusy}
         onClose={() => setAdjustOpen(false)}
         onSubmit={handleAdjust}
+      />
+
+      <ItemAdjustModal
+        open={adjItem !== null}
+        mode={adjMode}
+        item={adjItem}
+        busy={itemAdjBusy}
+        error={itemAdjErr}
+        onClose={closeItemAdjust}
+        onSubmit={handleItemAdjustSubmit}
+        onRemove={handleItemAdjustRemove}
       />
     </div>
   );

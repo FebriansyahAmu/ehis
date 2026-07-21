@@ -18,11 +18,12 @@ interface Props {
   onAddItem: (kategori: KategoriCharge) => void;
   onItemAction: (action: ChargeAction, item: ChargeItem) => void;
   readOnly?: boolean;
+  allowAdjust?: boolean;
 }
 
 export default function ChargeCategorySection({
   kategori, items, count, voidedCount, subtotal, defaultOpen = false,
-  onAddItem, onItemAction, readOnly,
+  onAddItem, onItemAction, readOnly, allowAdjust,
 }: Props) {
   const [open, setOpen] = useState(defaultOpen);
   const [showVoided, setShowVoided] = useState(false);
@@ -105,6 +106,7 @@ export default function ChargeCategorySection({
                     index={i}
                     onAction={onItemAction}
                     readOnly={readOnly}
+                    allowAdjust={allowAdjust}
                   />
                 ))}
               </tbody>

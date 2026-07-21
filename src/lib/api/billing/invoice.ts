@@ -5,12 +5,14 @@ import { api } from "@/lib/api/client";
 import type {
   PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO,
   InvoiceAdjustmentInput, BillingRingkasDTO, InvoiceFinalizeInput, InvoiceReopenInput,
+  ItemAdjustmentInput,
 } from "@/lib/schemas/billing/payment";
 import type { AuditEventDTO } from "@/lib/schemas/billing/audit";
 
 export type {
   PaymentInput, PaymentDTO, InvoiceStateDTO, RecentPaymentDTO, PaymentSummaryDTO,
-  InvoiceAdjustmentInput, BillingRingkasDTO, InvoiceFinalizeInput, InvoiceReopenInput, AuditEventDTO,
+  InvoiceAdjustmentInput, BillingRingkasDTO, InvoiceFinalizeInput, InvoiceReopenInput,
+  ItemAdjustmentInput, AuditEventDTO,
 };
 
 const base = (k: string) => `/kunjungan/${encodeURIComponent(k)}/billing`;
@@ -107,6 +109,28 @@ export async function reopenInvoice(
   signal?: AbortSignal,
 ): Promise<InvoiceStateDTO> {
   const { data } = await api.post<InvoiceStateDTO>(`${base(kunjunganId)}/reopen`, input, { signal });
+  return data;
+}
+
+/** Set penyesuaian per-baris (diskon Rp/pct atau void) → state invoice ter-update. */
+export async function setItemAdjustment(
+  kunjunganId: string,
+  input: ItemAdjustmentInput,
+  signal?: AbortSignal,
+): Promise<InvoiceStateDTO> {
+  const { data } = await api.post<InvoiceStateDTO>(`${base(kunjunganId)}/item-adjustment`, input, { signal });
+  return data;
+}
+
+/** Hapus penyesuaian per-baris (kembalikan gross) → state invoice ter-update. */
+export async function removeItemAdjustment(
+  kunjunganId: string,
+  sourceRef: string,
+  signal?: AbortSignal,
+): Promise<InvoiceStateDTO> {
+  const { data } = await api.del<InvoiceStateDTO>(
+    `${base(kunjunganId)}/item-adjustment?sourceRef=${encodeURIComponent(sourceRef)}`, { signal },
+  );
   return data;
 }
 

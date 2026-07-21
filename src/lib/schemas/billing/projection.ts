@@ -25,6 +25,11 @@ export interface BillingChargeDTO {
   coverage: BillingCoverage;
   /** Harga snapshot null (belum bertarif saat order) → ditandai; hargaSatuan=0. */
   untariffed?: boolean;
+  // Overlay penyesuaian per-baris (billing.ItemAdjustment) — diisi saat baca (Slice 2d Fase 2).
+  diskonItem?: number;      // Rp aktual dikurangi (net = gross − diskonItem)
+  alasanDiskon?: string;
+  voided?: boolean;         // baris di-void → net 0
+  voidReason?: string;
 }
 
 // Baris worklist "Tagihan Kunjungan" — 1 kunjungan + total proyeksi (order + akomodasi).

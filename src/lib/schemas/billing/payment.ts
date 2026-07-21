@@ -44,6 +44,28 @@ export const PaymentParam = z.object({
   paymentId: z.string().uuid(),
 });
 
+// ── Penyesuaian per-baris charge (Slice 2d Fase 2) ───────────────────────────
+// Diskon (Rp/pct) atau void 1 baris proyeksi (dicocokkan via sourceRef). Blocked saat Final.
+export const ItemAdjustmentInput = z.object({
+  sourceRef: z.string().trim().min(1).max(200),
+  jenis: z.enum(["diskon", "void"]),
+  mode: z.enum(["rp", "pct"]).optional(),         // wajib saat jenis=diskon
+  nilai: z.coerce.number().int().min(0).max(2_000_000_000).optional(),
+  alasan: z.string().trim().max(500).optional(),
+}).refine((v) => v.jenis !== "diskon" || (v.mode !== undefined && (v.nilai ?? 0) > 0), {
+  message: "Diskon butuh mode (Rp/persen) dan nilai > 0",
+  path: ["nilai"],
+}).refine((v) => v.jenis !== "diskon" || v.mode !== "pct" || (v.nilai ?? 0) <= 100, {
+  message: "Diskon persen maksimal 100",
+  path: ["nilai"],
+});
+export type ItemAdjustmentInput = z.infer<typeof ItemAdjustmentInput>;
+
+export const ItemAdjustmentRemoveInput = z.object({
+  sourceRef: z.string().trim().min(1).max(200),
+});
+export type ItemAdjustmentRemoveInput = z.infer<typeof ItemAdjustmentRemoveInput>;
+
 // ── Finalize / Reopen invoice (Slice 2f) ─────────────────────────────────────
 // Finalize = bekukan charge proyeksi → snapshot InvoiceItem; Draft → Final. `force` = tetap
 // finalisasi walau ada item belum bertarif (Rp0). Reopen = Final → Draft (buang snapshot).

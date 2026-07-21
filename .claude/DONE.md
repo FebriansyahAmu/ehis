@@ -12,6 +12,25 @@
 
 ---
 
+## ✅ Selesai — Billing Adjustment per-Item (diskon/void baris, Slice 2d Fase 2) (2026-07-21)
+
+Diskon (Rp/persen) & **void** per BARIS charge — melengkapi penyesuaian level-invoice (Fase 1). Karena charge = **PROYEKSI order** (read-only), penyesuaian disimpan sebagai **overlay** yang dicocokkan via `sourceRef`.
+
+**Skema** (migrasi `20260721120000`): tabel BARU `billing.ItemAdjustment` — `invoiceId`+`sourceRef` **unique** (1 aktif/baris, upsert), `jenis` (diskon|void), `mode` (rp|pct), `nilai`, **`reduksi`** (Rp aktual dikurangi, di-snapshot saat set), `alasan`, actor, FK invoice CASCADE.
+
+**Kunci desain — konsistensi detail↔board:** `reduksi` (Rp absolut) dipakai **seragam** oleh detail (net per baris) & board (Σ reduksi), jadi total/sisa/status tak drift. Board tak perlu data per-baris.
+
+**Backend:**
+- DAL [itemAdjustmentDal](../src/lib/dal/billing/itemAdjustmentDal.ts) (upsert/delete/find by sourceRef) + [billingReadDal.aggregateItemAdjustment](../src/lib/dal/billing/billingReadDal.ts) (Σ reduksi/kunjungan).
+- Service [billingInvoiceService](../src/lib/services/billing/billingInvoiceService.ts): helper `itemNet`/`computeReduksi`/`applyItemAdjustments`; `buildState` overlay (Draft & Final, cocokkan sourceRef → set `diskonItem`/`voided`; `subtotal`=Σ net; `untariffedCount` net) · `getRingkas` byKategori net · `setItemAdjustment` (validasi baris ada + bertarif, blokir Final, upsert, audit `item.diskon`/`item.void`) · `removeItemAdjustment` (blokir Final, audit `item.unvoid`/diskon dihapus). `listKunjunganBilling` kurangi Σ reduksi → board net.
+- DTO `BillingChargeDTO` +`diskonItem`/`alasanDiskon`/`voided`/`voidReason`; `invoiceStateToDetail` teruskan ke `ChargeItem`. Zod `ItemAdjustmentInput` (refine: diskon butuh mode+nilai>0, pct≤100). Route `POST`/`DELETE /kunjungan/:id/billing/item-adjustment` (gate `billing.invoice:update`) + client `setItemAdjustment`/`removeItemAdjustment`.
+
+**FE (desain kebab sudah ada — un-gate + wire):** `ChargeRow`/`ChargeCategorySection`/`RincianChargeTab` +prop `allowItemAdjust` → kebab (Diskon/Void/Pulihkan) muncul di mode read-only **hanya saat Draft** (Final disembunyikan; "Detail Source" disembunyikan di mode billing). [ItemAdjustModal](../src/components/billing/invoice/modals/ItemAdjustModal.tsx) BARU (toggle Rp/% + nilai + alasan + preview net live · void reason wajib · **Hapus Diskon**). [KunjunganInvoiceDetail](../src/components/billing/invoice/KunjunganInvoiceDetail.tsx) wire `onItemAction` (diskon/void→modal · unvoid→`removeItemAdjustment` langsung) + render modal. `ChargeRow` render diskon (coret+net) / voided (line-through) **sudah ada** → zero-refactor.
+
+**Verifikasi:** tsc `src/` 0 · eslint 0 · **pg smoke 5/5** (12 kolom · unique index · upsert per-sourceRef=3 baris · Σ reduksi 900k · cascade). **Sisa:** `reduksi` snapshot → stale bila harga order berubah pasca-diskon (jarang; re-apply/reopen fix); Reports join `ItemAdjustment` (snapshot=gross, overlay terpisah).
+
+---
+
 ## ✅ Selesai — Billing Audit Trail (`billing.AuditLog`, Slice 2g) (2026-07-20)
 
 Jejak **IMMUTABLE** mutasi finansial invoice (UU PDP 27/2022, retensi ≥5 thn). Menutup gap yang ditandai di Slice 2f (reopen tak simpan siapa/kapan/kenapa) **dan** mengubah tab **Riwayat Audit** dari mock → data nyata.

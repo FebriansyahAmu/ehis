@@ -51,6 +51,18 @@ export function aggregateOrderTotals() {
   `;
 }
 
+/** Σ reduksi penyesuaian per-baris (item_adjustment) per kunjungan — board kurangi dari total. */
+export function aggregateItemAdjustment(kunjunganIds: string[]) {
+  if (kunjunganIds.length === 0) return Promise.resolve([] as { kid: string; reduksi: bigint }[]);
+  return db().$queryRaw<{ kid: string; reduksi: bigint }[]>`
+    SELECT i.kunjungan_id::text AS kid, COALESCE(SUM(a.reduksi), 0)::bigint AS reduksi
+      FROM billing.item_adjustment a
+      JOIN billing.invoice i ON i.id = a.invoice_id
+      WHERE i.kunjungan_id = ANY(${kunjunganIds}::uuid[])
+      GROUP BY i.kunjungan_id;
+  `;
+}
+
 /** Status finalisasi invoice (Draft|Final) per kunjungan. Kunjungan tanpa invoice → absen (Draft). */
 export function findInvoiceLifecycles(kunjunganIds: string[]) {
   if (kunjunganIds.length === 0) return Promise.resolve([] as { kunjunganId: string; status: string }[]);

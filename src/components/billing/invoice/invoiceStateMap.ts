@@ -38,6 +38,11 @@ export function invoiceStateToDetail(s: InvoiceStateDTO): InvoiceDetail {
     satuan: it.satuan,
     hargaSatuan: it.hargaSatuan,
     coverage: it.coverage as Coverage,
+    // Overlay penyesuaian per-baris (Slice 2d Fase 2)
+    diskonItem: it.diskonItem,
+    alasanDiskon: it.alasanDiskon,
+    voided: it.voided,
+    voidReason: it.voidReason,
   }));
 
   const payments: PaymentRecord[] = s.payments.map((p) => ({

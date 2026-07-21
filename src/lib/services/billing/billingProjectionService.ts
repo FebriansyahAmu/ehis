@@ -302,15 +302,17 @@ async function listKunjunganBilling(limit = 100): Promise<BillingKunjunganRowDTO
 
   const totals = new Map(agg.map((a) => [a.kid, { subtotal: Number(a.subtotal), n: Number(a.n) }]));
   const ids = [...totals.keys()];
-  const [headers, paidAgg, lifecycles, kamarRows, adminRows] = await Promise.all([
+  const [headers, paidAgg, lifecycles, itemAdjAgg, kamarRows, adminRows] = await Promise.all([
     billingReadDal.findKunjunganHeaders(ids),
     billingReadDal.aggregatePaid(ids),
     billingReadDal.findInvoiceLifecycles(ids),
+    billingReadDal.aggregateItemAdjustment(ids),
     tarifKamarDal.list({ limit: 500 }),
     tarifAdministrasiDal.list({ limit: 500 }),
   ]);
   const paidMap = new Map(paidAgg.map((p) => [p.kid, Number(p.dibayar)]));
   const lifeMap = new Map(lifecycles.map((l) => [l.kunjunganId, l.status]));
+  const reduksiMap = new Map(itemAdjAgg.map((a) => [a.kid, Number(a.reduksi)]));
   const kamarMap = buildKamarMap(kamarRows.items);
   const adminMap = buildAdminMap(adminRows.items);
 
@@ -322,7 +324,8 @@ async function listKunjunganBilling(limit = 100): Promise<BillingKunjunganRowDTO
     const rate = k.unit === "RawatInap" ? resolveKamarRate(kamarMap, tier, k.penjaminTipe) : 0;
     const akom = k.unit === "RawatInap" ? akomodasiSum(tier, rate, admit, endISO) : 0;
     const admin = resolveAdminFee(adminMap, k.unit, k.penjaminTipe);
-    const total = t.subtotal + akom + admin;               // grand total (adjustment=0 s/d Slice 2d)
+    const reduksi = reduksiMap.get(k.id) ?? 0;             // Σ penyesuaian per-baris (diskon/void)
+    const total = Math.max(0, t.subtotal + akom + admin - reduksi); // net proyeksi + akomodasi + admin
     const dibayar = paidMap.get(k.id) ?? 0;
     const sisa = Math.max(0, total - dibayar);
     return {

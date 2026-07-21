@@ -53,11 +53,41 @@ model Invoice {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  payments Payment[]
-  items    InvoiceItem[]
+  payments    Payment[]
+  items       InvoiceItem[]
+  adjustments ItemAdjustment[]
 
   @@index([status])
   @@map("invoice")
+  @@schema("billing")
+}
+
+// ItemAdjustment — penyesuaian per BARIS charge (overlay proyeksi, Slice 2d Fase 2). Charge =
+// proyeksi order (read-only), jadi diskon/void per baris disimpan terpisah & di-cocokkan via
+// `sourceRef` saat baca. `reduksi` = Rp aktual yang dikurangi (dihitung saat set, dari gross
+// baris) → dipakai SERAGAM oleh detail (net per baris) & board (Σ reduksi) agar tak drift.
+// 1 penyesuaian aktif per (invoice, sourceRef) — upsert; hapus = kembalikan gross. Diblokir Final.
+model ItemAdjustment {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  invoiceId String  @map("invoice_id") @db.Uuid
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  sourceRef String  @map("source_ref")   // kunci baris charge (tindakan:… / lab:… / akomodasi:…)
+  jenis     String                        // "diskon" | "void"
+  mode      String?                        // "rp" | "pct" (diskon)
+  nilai     Int     @default(0)            // input user: Rp (rp) atau persen (pct)
+  reduksi   Int     @default(0)            // Rp aktual dikurangi (snapshot saat set)
+  alasan    String?
+
+  actorNama   String? @map("actor_nama")
+  actorUserId String? @map("actor_user_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([invoiceId, sourceRef])
+  @@index([invoiceId])
+  @@map("item_adjustment")
   @@schema("billing")
 }
 
