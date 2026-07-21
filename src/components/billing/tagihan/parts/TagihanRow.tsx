@@ -8,6 +8,7 @@ import {
 } from "../tagihanBoardLogic";
 import type { Density } from "../tagihanShared";
 import TagihanRowActions, { type ActionKey } from "./TagihanRowActions";
+import RowCheckbox from "./RowCheckbox";
 
 interface Props {
   row: TagihanRow;
@@ -60,12 +61,10 @@ export default function TagihanRow({
     >
       {/* Checkbox */}
       <td className={cn("pl-3 pr-1", dcfg.padY)} onClick={(e) => e.stopPropagation()}>
-        <input
-          type="checkbox"
+        <RowCheckbox
           checked={selected}
           onChange={() => onToggleSelect(row.id)}
-          aria-label={`Pilih tagihan ${row.noTagihan}`}
-          className="h-3.5 w-3.5 cursor-pointer rounded border-slate-300 text-amber-600 focus:ring-2 focus:ring-amber-500/40 focus:ring-offset-0"
+          label={`Pilih tagihan ${row.noTagihan}`}
         />
       </td>
 

@@ -11,6 +11,7 @@ import {
   type TagihanFilterState, type UnitFilter, type KelasFilter, type StatusFilter,
   type PenjaminFilter, type PeriodePreset,
 } from "./tagihanShared";
+import { DatePicker, Select } from "@/components/shared/inputs";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -103,19 +104,21 @@ export default function TagihanFilterPanel({ filters, onChange, onReset }: Props
                 transition={{ duration: 0.18 }}
                 className="mt-2 flex items-center gap-1.5"
               >
-                <input
-                  type="date"
-                  value={filters.periodeFrom}
-                  onChange={(e) => set("periodeFrom", e.target.value)}
-                  className="w-full max-w-[130px] rounded-md border border-slate-200 bg-white px-2 py-1 text-[11.5px] text-slate-800 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/15 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                />
+                <div className="w-full max-w-[140px]">
+                  <DatePicker
+                    value={filters.periodeFrom}
+                    onChange={(iso) => set("periodeFrom", iso)}
+                    placeholder="Dari"
+                  />
+                </div>
                 <span className="text-[11px] text-slate-400">→</span>
-                <input
-                  type="date"
-                  value={filters.periodeTo}
-                  onChange={(e) => set("periodeTo", e.target.value)}
-                  className="w-full max-w-[130px] rounded-md border border-slate-200 bg-white px-2 py-1 text-[11.5px] text-slate-800 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/15 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                />
+                <div className="w-full max-w-[140px]">
+                  <DatePicker
+                    value={filters.periodeTo}
+                    onChange={(iso) => set("periodeTo", iso)}
+                    placeholder="Sampai"
+                  />
+                </div>
               </motion.div>
             )}
           </Section>
@@ -149,21 +152,13 @@ export default function TagihanFilterPanel({ filters, onChange, onReset }: Props
 
           {/* Penjamin */}
           <Section icon={Shield} label="Penjamin">
-            <select
-              value={filters.penjamin}
-              onChange={(e) => set("penjamin", e.target.value as PenjaminFilter)}
-              className="w-full max-w-[260px] cursor-pointer appearance-none rounded-md border border-slate-200 bg-white bg-[length:14px] bg-[right_8px_center] bg-no-repeat py-1.5 pl-2.5 pr-7 text-[12.5px] text-slate-800 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/15 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-              style={{
-                backgroundImage:
-                  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>\")",
-              }}
-            >
-              {PENJAMIN_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+            <div className="w-full max-w-65">
+              <Select
+                value={filters.penjamin}
+                onChange={(v) => set("penjamin", v as PenjaminFilter)}
+                options={PENJAMIN_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+              />
+            </div>
           </Section>
 
           {/* Kelas */}

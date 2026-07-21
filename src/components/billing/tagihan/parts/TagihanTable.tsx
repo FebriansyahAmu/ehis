@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtRupiah } from "../tagihanShared";
 import type { TagihanFilterState, Density } from "../tagihanShared";
@@ -14,6 +14,7 @@ import {
 import TagihanRow from "./TagihanRow";
 import TagihanEmptyState from "./TagihanEmptyState";
 import TagihanBulkBar from "./TagihanBulkBar";
+import RowCheckbox from "./RowCheckbox";
 import type { ActionKey } from "./TagihanRowActions";
 
 interface Props {
@@ -30,6 +31,9 @@ interface Column {
   sortable: boolean;
   hideOn?: "lg" | "xl";   // hide on narrower viewports
 }
+
+/** Baris per halaman — tabel merender sepotong, bukan seluruh hasil filter. */
+const PAGE_SIZE = 25;
 
 const COLUMNS: Column[] = [
   { key: "checkbox",  label: "",          align: "center", width: "w-9",    sortable: false },
@@ -49,19 +53,40 @@ export default function TagihanTable({ rows, filters, onResetFilters }: Props) {
   const router = useRouter();
   const [sort, setSort] = useState<SortState>({ key: "tanggal", dir: "desc" });
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(1);
 
   const filtered = useMemo(() => applyFilters(rows, filters), [rows, filters]);
   const sorted   = useMemo(() => applySort(filtered, sort), [filtered, sort]);
 
-  const allSelected = sorted.length > 0 && sorted.every((r) => selected.has(r.id));
-  const someSelected = !allSelected && sorted.some((r) => selected.has(r.id));
+  // ── Paginasi (render, bukan fetch) ──
+  // Kembali ke halaman 1 saat kumpulan baris berubah (filter/urutan) — pola
+  // adjust-state-during-render, bukan effect, agar tak memicu render berjenjang.
+  const resultKey = `${filtered.length}|${filters.search}|${filters.units.join()}|${filters.kelas.join()}|${filters.penjamin}|${filters.status.join()}|${filters.quickTab}|${sort.key}|${sort.dir}`;
+  const [prevResultKey, setPrevResultKey] = useState(resultKey);
+  if (resultKey !== prevResultKey) {
+    setPrevResultKey(resultKey);
+    setPage(1);
+  }
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const paged = useMemo(
+    () => sorted.slice(pageStart, pageStart + PAGE_SIZE),
+    [sorted, pageStart],
+  );
+
+  // "Pilih semua" bekerja pada HALAMAN AKTIF (baris yang benar-benar terlihat); pilihan dari
+  // halaman lain tetap dipertahankan agar aksi massal bisa lintas halaman.
+  const allSelected = paged.length > 0 && paged.every((r) => selected.has(r.id));
+  const someSelected = !allSelected && paged.some((r) => selected.has(r.id));
 
   const toggleAll = () => {
-    if (allSelected || someSelected) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(sorted.map((r) => r.id)));
-    }
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allSelected || someSelected) paged.forEach((r) => next.delete(r.id));
+      else paged.forEach((r) => next.add(r.id));
+      return next;
+    });
   };
 
   const toggleOne = (id: string) => {
@@ -143,7 +168,7 @@ export default function TagihanTable({ rows, filters, onResetFilters }: Props) {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((row, i) => (
+              {paged.map((row, i) => (
                 <TagihanRow
                   key={row.id}
                   row={row}
@@ -163,6 +188,11 @@ export default function TagihanTable({ rows, filters, onResetFilters }: Props) {
       {/* Footer summary */}
       <FooterSummary
         total={sorted.length}
+        rangeFrom={pageStart + 1}
+        rangeTo={pageStart + paged.length}
+        page={safePage}
+        totalPages={totalPages}
+        onPage={setPage}
         density={filters.density}
         totalRp={sorted.reduce((s, r) => s + r.total, 0)}
         sisaRp={sorted.reduce((s, r) => s + sisa(r), 0)}
@@ -186,13 +216,11 @@ function Th({
   if (col.key === "checkbox") {
     return (
       <th className={cn("border-b border-slate-200 px-3 py-2 dark:border-slate-700", col.width)}>
-        <input
-          type="checkbox"
+        <RowCheckbox
           checked={allSelected}
-          ref={(el) => { if (el) el.indeterminate = someSelected; }}
+          indeterminate={someSelected}
           onChange={onToggleAll}
-          aria-label="Pilih semua"
-          className="h-3.5 w-3.5 cursor-pointer rounded border-slate-300 text-amber-600 focus:ring-2 focus:ring-amber-500/40 focus:ring-offset-0"
+          label="Pilih semua di halaman ini"
         />
       </th>
     );
@@ -235,10 +263,41 @@ function Th({
   );
 }
 
+function PageBtn({
+  children, label, disabled, onClick,
+}: {
+  children: React.ReactNode;
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className={cn(
+        "inline-flex h-5.5 w-5.5 items-center justify-center rounded-md ring-1 transition-all duration-150",
+        disabled
+          ? "cursor-not-allowed text-slate-300 ring-slate-200 dark:text-slate-700 dark:ring-slate-800"
+          : "text-slate-600 ring-slate-200 hover:bg-amber-50 hover:text-amber-700 hover:ring-amber-300 active:scale-90 dark:text-slate-300 dark:ring-slate-700 dark:hover:bg-amber-950/30",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 function FooterSummary({
-  total, density, totalRp, sisaRp,
+  total, rangeFrom, rangeTo, page, totalPages, onPage, density, totalRp, sisaRp,
 }: {
   total: number;
+  rangeFrom: number;
+  rangeTo: number;
+  page: number;
+  totalPages: number;
+  onPage: (p: number) => void;
   density: Density;
   totalRp: number;
   sisaRp: number;
@@ -246,9 +305,26 @@ function FooterSummary({
   if (total === 0) return null;
   return (
     <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-slate-50/60 px-4 py-2 text-[11px] dark:border-slate-800 dark:bg-slate-900/60">
-      <span className="text-slate-500 dark:text-slate-400">
-        Menampilkan <span className="font-semibold text-slate-700 dark:text-slate-200">{total}</span> tagihan
-        <span className="ml-1 text-slate-400">· density: {density}</span>
+      <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+        <span>
+          Menampilkan{" "}
+          <span className="font-semibold text-slate-700 dark:text-slate-200">{rangeFrom}–{rangeTo}</span>
+          {" "}dari <span className="font-semibold text-slate-700 dark:text-slate-200">{total}</span> tagihan
+          <span className="ml-1 text-slate-400">· density: {density}</span>
+        </span>
+        {totalPages > 1 && (
+          <span className="ml-1 inline-flex items-center gap-1">
+            <PageBtn label="Halaman sebelumnya" disabled={page <= 1} onClick={() => onPage(page - 1)}>
+              <ChevronLeft size={12} />
+            </PageBtn>
+            <span className="min-w-13 text-center font-mono text-[10.5px] tabular-nums text-slate-600 dark:text-slate-300">
+              {page} / {totalPages}
+            </span>
+            <PageBtn label="Halaman berikutnya" disabled={page >= totalPages} onClick={() => onPage(page + 1)}>
+              <ChevronRight size={12} />
+            </PageBtn>
+          </span>
+        )}
       </span>
       <div className="flex items-center gap-3 font-mono">
         <span className="text-slate-500 dark:text-slate-400">
