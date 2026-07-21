@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   History, TrendingUp, TrendingDown, CheckCircle2,
   MoreVertical, FileText, PiggyBank, Printer, Clock4,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePopover } from "@/components/shared/inputs/popoverShared";
 import { fmtRupiah } from "../invoice/invoiceShared";
 import {
   COUNTER_LIST, formatJam, formatTanggalShort, formatDuration, totalShiftAll,
@@ -15,6 +16,10 @@ import {
 import { COUNTER_TONE, SHIFT_STATUS_CFG } from "./kasirShared";
 
 export type ShiftRowAction = "laporan" | "setoran-form" | "setoran-slip";
+
+/** Dimensi menu kebab shift (px) — dipakai usePopover untuk keputusan flip-up sebelum render. */
+const MENU_W = 208;
+const MENU_H = 96;
 
 interface Props {
   shifts: KasirShift[];
@@ -225,47 +230,44 @@ function ShiftRowActions({
   shift: KasirShift;
   onAction?: (action: ShiftRowAction, shift: KasirShift) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
-
-  // Outside click + ESC close
-  useEffect(() => {
-    if (!open) return;
-    const out = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", out);
-    document.addEventListener("keydown", esc);
-    return () => {
-      document.removeEventListener("mousedown", out);
-      document.removeEventListener("keydown", esc);
-    };
-  }, [open]);
-
+  // Menu mengambang via portal + position:fixed. Baris terakhir tabel ter-clip oleh kartu
+  // `overflow-hidden` + pembungkus `overflow-x-auto` → dropdown absolute akan "tenggelam".
+  // Portal + flip-up (usePopover) menyelesaikannya; pola sama dgn kebab baris charge.
+  const { open, setOpen, mounted, coords, width, triggerRef, popRef } =
+    usePopover(MENU_W, MENU_H, { align: "end" });
   const hasSetoran = !!shift.setoran;
 
   return (
-    <div ref={ref} className="relative inline-block">
+    <>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={(e) => { e.stopPropagation(); setOpen((p) => !p); }}
+        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
         aria-label="Aksi shift"
-        className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className={cn(
+          "flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200",
+          open && "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
+        )}
       >
         <MoreVertical size={14} />
       </button>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -4, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98 }}
-            transition={{ duration: 0.12 }}
-            className="absolute right-0 top-9 z-20 w-52 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg ring-1 ring-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:ring-slate-700"
-            onClick={(e) => e.stopPropagation()}
-          >
+      {mounted && createPortal(
+        <AnimatePresence>
+          {open && coords && (
+            <motion.div
+              ref={popRef}
+              role="menu"
+              initial={{ opacity: 0, y: -4, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -4, scale: 0.98 }}
+              transition={{ duration: 0.12 }}
+              style={{ position: "fixed", top: coords.top, left: coords.left, width, zIndex: 60 }}
+              className="flex flex-col overflow-hidden rounded-md border border-slate-200 bg-white shadow-xl shadow-slate-900/10 ring-1 ring-black/5 dark:border-slate-700 dark:bg-slate-900"
+              onClick={(e) => e.stopPropagation()}
+            >
             <MenuItem
               icon={FileText}
               label="Cetak Laporan Tutup Kas"
@@ -288,8 +290,10 @@ function ShiftRowActions({
             )}
           </motion.div>
         )}
-      </AnimatePresence>
-    </div>
+        </AnimatePresence>,
+        document.body,
+      )}
+    </>
   );
 }
 
