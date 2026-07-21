@@ -6,6 +6,7 @@ import { useSkeletonDelay } from "@/components/master/shared";
 import KasirHero from "./KasirHero";
 import KasirTabs, { type KasirTabKey } from "./KasirTabs";
 import DashboardPanel from "./DashboardPanel";
+import EmptyShiftState from "./EmptyShiftState";
 import type { ShiftKpiAgg } from "./ShiftKPIStrip";
 import QuickBayarPanel from "./quick/QuickBayarPanel";
 import DepositAwalPanel from "./deposit/DepositAwalPanel";
@@ -291,7 +292,7 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
                     />
                   </motion.div>
                 )}
-                {activeTab === "quick" && activeShift && (
+                {activeTab === "quick" && (
                   <motion.div
                     key="quick"
                     initial={{ opacity: 0, y: 6 }}
@@ -299,16 +300,28 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
                     exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.18 }}
                   >
-                    <QuickBayarPanel
-                      shift={activeShift}
-                      onAccumulate={handleAccumulate}
-                      onPrintKwitansi={setKwitansiCtx}
-                      deepLinkInvoice={deepLinkProp}
-                      deepLinkMode={deepLinkMode}
-                    />
+                    {activeShift ? (
+                      <QuickBayarPanel
+                        shift={activeShift}
+                        onAccumulate={handleAccumulate}
+                        onPrintKwitansi={setKwitansiCtx}
+                        deepLinkInvoice={deepLinkProp}
+                        deepLinkMode={deepLinkMode}
+                      />
+                    ) : (
+                      // Deep-link "Terima Pembayaran" memaksa tab ini walau shift belum dibuka →
+                      // jangan biarkan kosong; jelaskan syaratnya + pertahankan tagihan tujuan.
+                      <EmptyShiftState
+                        variant="quick"
+                        note={deepLinkProp
+                          ? `Tagihan yang Anda pilih${deepLinkMode === "refund" ? " (refund)" : ""} akan langsung terbuka begitu shift dibuka.`
+                          : undefined}
+                        onBukaShift={() => setModal("buka")}
+                      />
+                    )}
                   </motion.div>
                 )}
-                {activeTab === "deposit" && activeShift && (
+                {activeTab === "deposit" && (
                   <motion.div
                     key="deposit"
                     initial={{ opacity: 0, y: 6 }}
@@ -316,13 +329,17 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
                     exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.18 }}
                   >
-                    <DepositAwalPanel
-                      shift={activeShift}
-                      pending={depositRows}
-                      loading={depositLoading}
-                      onAccumulate={handleAccumulate}
-                      onPrintKwitansi={setKwitansiCtx}
-                    />
+                    {activeShift ? (
+                      <DepositAwalPanel
+                        shift={activeShift}
+                        pending={depositRows}
+                        loading={depositLoading}
+                        onAccumulate={handleAccumulate}
+                        onPrintKwitansi={setKwitansiCtx}
+                      />
+                    ) : (
+                      <EmptyShiftState variant="deposit" onBukaShift={() => setModal("buka")} />
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>

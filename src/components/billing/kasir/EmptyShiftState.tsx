@@ -1,17 +1,40 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { LockOpen, AlertCircle, ListChecks } from "lucide-react";
+import { LockOpen, AlertCircle, ListChecks, Receipt } from "lucide-react";
+
+export type EmptyShiftVariant = "dashboard" | "quick" | "deposit";
 
 interface Props {
   onBukaShift: () => void;
+  /** Konteks pemanggil — menyesuaikan judul & penjelasan dengan aksi yang sedang dituju. */
+  variant?: EmptyShiftVariant;
+  /** Catatan tambahan, mis. tagihan yang menunggu dari deep-link "Terima Pembayaran". */
+  note?: string;
 }
+
+const COPY: Record<EmptyShiftVariant, { title: string; desc: string }> = {
+  dashboard: {
+    title: "Belum ada shift terbuka",
+    desc: "Sebelum menerima pembayaran, buka shift kasir terlebih dahulu. Sistem akan mengakumulasi semua transaksi pada shift ini sampai ditutup.",
+  },
+  quick: {
+    title: "Buka shift dulu untuk menerima pembayaran",
+    desc: "Setiap pembayaran tercatat sebagai bagian dari satu shift kasir — itu yang membuat kas bisa dipertanggungjawabkan saat tutup buku. Karena itu form pembayaran belum bisa dibuka.",
+  },
+  deposit: {
+    title: "Buka shift dulu untuk menerima deposit",
+    desc: "Deposit awal dicatat sebagai pembayaran pada shift berjalan, sehingga tak dapat diproses sebelum shift kasir dibuka.",
+  },
+};
 
 /**
  * Empty state ketika tidak ada shift Open untuk kasir sesi sekarang.
- * Hero + pre-req list + CTA "Buka Shift Baru".
+ * Hero + pre-req list + CTA "Buka Shift Baru". Dipakai di ketiga tab (teks menyesuaikan `variant`)
+ * agar tab yang dituju lewat deep-link tidak tampil kosong tanpa penjelasan.
  */
-export default function EmptyShiftState({ onBukaShift }: Props) {
+export default function EmptyShiftState({ onBukaShift, variant = "dashboard", note }: Props) {
+  const copy = COPY[variant];
   return (
     <motion.section
       initial={{ opacity: 0, y: 8 }}
@@ -30,12 +53,19 @@ export default function EmptyShiftState({ onBukaShift }: Props) {
       </motion.div>
 
       <h3 className="text-[15px] font-semibold text-slate-800 dark:text-slate-100">
-        Belum ada shift terbuka
+        {copy.title}
       </h3>
       <p className="mt-1 max-w-md text-[12.5px] leading-relaxed text-slate-600 dark:text-slate-400">
-        Sebelum menerima pembayaran, buka shift kasir terlebih dahulu. Sistem akan mengakumulasi
-        semua transaksi pada shift ini sampai ditutup.
+        {copy.desc}
       </p>
+
+      {/* Tagihan yang menunggu (deep-link dari detail tagihan) */}
+      {note && (
+        <p className="mt-3 inline-flex max-w-md items-start gap-1.5 rounded-lg bg-sky-50 px-3 py-2 text-left text-[11.5px] font-medium text-sky-800 ring-1 ring-sky-200 dark:bg-sky-950/30 dark:text-sky-300 dark:ring-sky-900/50">
+          <Receipt size={12} className="mt-0.5 flex-none" />
+          <span>{note}</span>
+        </p>
+      )}
 
       {/* Pre-req hints */}
       <ul className="mt-4 inline-flex max-w-md flex-col gap-1 rounded-lg bg-white/80 px-4 py-2 text-left text-[11.5px] text-slate-600 ring-1 ring-amber-100 dark:bg-slate-900/60 dark:text-slate-400 dark:ring-amber-900/40">
