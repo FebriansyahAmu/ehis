@@ -7,6 +7,7 @@ import {
   ModalShell, ModalFooter, Field, inputCn,
 } from "../../invoice/modals/AddItemModal";
 import { fmtRupiah } from "../../invoice/invoiceShared";
+import { DateTimePicker } from "@/components/shared/inputs";
 import { terbilang } from "@/lib/billing/terbilang";
 import { COUNTER_LIST, type KasirShift } from "@/lib/billing/kasirShiftMock";
 import type { SetoranInput } from "@/lib/api/billing/shift";
@@ -142,11 +143,9 @@ export default function SetoranFormModal({ open, shift, busy, error, onClose, on
             </Field>
 
             <Field label="Tanggal Serah" error={touched ? errors.tanggalSerah : null}>
-              <input
-                type="datetime-local"
+              <DateTimePicker
                 value={form.tanggalSerah}
-                onChange={(e) => setForm({ ...form, tanggalSerah: e.target.value })}
-                className={inputCn + " font-mono tabular-nums"}
+                onChange={(v) => setForm({ ...form, tanggalSerah: v })}
               />
             </Field>
 
