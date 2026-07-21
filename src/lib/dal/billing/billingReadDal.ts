@@ -168,6 +168,28 @@ export function listRecentPaymentRows(shiftId: string | undefined, limit: number
 }
 
 /** Header kunjungan (typed) untuk daftar ids — pasien + info tarif/akomodasi. */
+/**
+ * Header kunjungan yang BERPOTENSI bertagihan — semua kunjungan hidup kecuali `Cancelled`.
+ *
+ * Sengaja TIDAK disaring "punya order": biaya administrasi ditagih per kunjungan (semua unit) dan
+ * akomodasi RI dihitung per hari, jadi kunjungan tanpa order pun tetap punya tagihan nyata.
+ * Menyaring dari order akan menyembunyikannya — termasuk pasien RI baru masuk yang justru
+ * paling perlu ditagih deposit.
+ */
+export function listBillableHeaders(limit: number) {
+  return db().kunjungan.findMany({
+    where: { deletedAt: null, status: { not: "Cancelled" } },
+    orderBy: { waktuKunjungan: "desc" },
+    take: limit,
+    select: {
+      id: true, noKunjungan: true, unit: true, status: true,
+      waktuKunjungan: true, selesaiAt: true, lockedAt: true,
+      kelas: true, kelasHak: true, penjaminTipe: true,
+      pasien: { select: { noRm: true, nama: true, gender: true, tanggalLahir: true } },
+    },
+  });
+}
+
 export function findKunjunganHeaders(ids: string[]) {
   return db().kunjungan.findMany({
     where: { id: { in: ids }, deletedAt: null },

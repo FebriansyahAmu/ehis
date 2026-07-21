@@ -114,8 +114,10 @@ export default function SetoranSlipSheet({ shift, paper }: Props) {
       {/* Signature */}
       <SignatureBlock
         leftSlot={{
+          // Penyetor = petugas yang MENCATAT setoran (server-resolved), yang bisa berbeda dari
+          // operator shift — mis. supervisor yang menyerahkan kas shift bawahannya.
           label: "Penyetor / Kasir",
-          name: shift.kasirNama,
+          name: setoran.penyetor ?? shift.kasirNama,
           hint: shift.counter,
         }}
         rightSlot={{

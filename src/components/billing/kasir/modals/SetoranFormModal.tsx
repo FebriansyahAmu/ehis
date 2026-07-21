@@ -4,34 +4,23 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { PiggyBank, Sparkles, AlertCircle, Wallet } from "lucide-react";
 import {
-  ModalShell, ModalFooter, Field, inputCn, selectCn,
+  ModalShell, ModalFooter, Field, inputCn,
 } from "../../invoice/modals/AddItemModal";
 import { fmtRupiah } from "../../invoice/invoiceShared";
 import { terbilang } from "@/lib/billing/terbilang";
-import {
-  COUNTER_LIST, nextNoSetor, type KasirShift, type SetoranRecord,
-  KASIR_SHIFT_MOCK,
-} from "@/lib/billing/kasirShiftMock";
+import { COUNTER_LIST, type KasirShift } from "@/lib/billing/kasirShiftMock";
+import type { SetoranInput } from "@/lib/api/billing/shift";
 
 interface Props {
   open: boolean;
   shift: KasirShift | null;
+  busy?: boolean;
+  error?: string | null;
   onClose: () => void;
-  onSubmit: (shiftId: string, setoran: SetoranRecord) => void;
+  onSubmit: (shiftId: string, input: SetoranInput) => void;
 }
 
-/**
- * Daftar bendahara/penerima setoran — mock; backend ambil dari master pegawai
- * dengan role "Bendahara Penerima" / "Staf Keuangan".
- */
-const BENDAHARA_LIST: { id: string; nama: string }[] = [
-  { id: "hari",    nama: "Hari Mulyana (Bendahara Penerima)" },
-  { id: "ningsih", nama: "Ningsih Pratiwi (Staf Keuangan)" },
-  { id: "agus",    nama: "Agus Setiawan (Kepala Sub-Bag Keuangan)" },
-];
-
 interface FormState {
-  noSetor: string;
   tanggalSerah: string;   // datetime-local "YYYY-MM-DDTHH:mm"
   penerima: string;
   nominal: string;
@@ -43,45 +32,41 @@ interface FormState {
  * shift Closed.
  *
  * Default value:
- *   - noSetor: auto-gen via `nextNoSetor` (STR/YYYY/MM/NNNNN)
  *   - tanggalSerah: now (datetime-local format)
  *   - nominal: `tutupSaldoAkhir − bukaSaldoAwal` (net kas tunai yang disetor)
+ *
+ * No. setoran (STR/YYYY/MM/NNNNN) TIDAK diketik di sini — di-generate server saat simpan
+ * (counter atomik), sama seperti nomor invoice/kwitansi.
  *
  * Validation:
  *   - Semua field wajib (kecuali catatan)
  *   - Nominal > 0
  */
-export default function SetoranFormModal({ open, shift, onClose, onSubmit }: Props) {
+export default function SetoranFormModal({ open, shift, busy, error, onClose, onSubmit }: Props) {
   const defaultNominal = useMemo(() => {
     if (!shift) return 0;
     const akhir = shift.tutupSaldoAkhir ?? 0;
     return Math.max(0, akhir - shift.bukaSaldoAwal);
   }, [shift]);
 
-  const initialForm = useMemo<FormState>(() => ({
-    noSetor: nextNoSetor(KASIR_SHIFT_MOCK),
-    tanggalSerah: nowLocal(),
-    penerima: BENDAHARA_LIST[0].nama,
-    nominal: String(defaultNominal),
-    catatan: "",
-  }), [defaultNominal]);
-
-  const [form, setForm] = useState<FormState>(initialForm);
+  const [form, setForm] = useState<FormState>(() => ({
+    tanggalSerah: nowLocal(), penerima: "", nominal: "0", catatan: "",
+  }));
   const [touched, setTouched] = useState(false);
 
-  // Reset form saat shift berubah / modal dibuka
-  useEffect(() => {
-    if (open && shift) {
-      setForm({
-        noSetor: nextNoSetor(KASIR_SHIFT_MOCK),
-        tanggalSerah: nowLocal(),
-        penerima: BENDAHARA_LIST[0].nama,
-        nominal: String(defaultNominal),
-        catatan: "",
-      });
-      setTouched(false);
-    }
-  }, [open, shift, defaultNominal]);
+  // Prefill saat modal dibuka untuk shift tertentu (pola adjust-state-during-render, bukan effect).
+  const formKey = open && shift ? `${shift.id}|${defaultNominal}` : "";
+  const [prevKey, setPrevKey] = useState("");
+  if (formKey !== prevKey) {
+    setPrevKey(formKey);
+    setForm({
+      tanggalSerah: nowLocal(),
+      penerima: "",
+      nominal: String(defaultNominal),
+      catatan: "",
+    });
+    setTouched(false);
+  }
 
   // ESC close
   useEffect(() => {
@@ -97,9 +82,8 @@ export default function SetoranFormModal({ open, shift, onClose, onSubmit }: Pro
   const isAutoSuggested = Number.isFinite(nominalNum) && nominalNum === defaultNominal;
 
   const errors = {
-    noSetor: form.noSetor.trim() === "" ? "No. setor wajib diisi" : null,
     tanggalSerah: form.tanggalSerah.trim() === "" ? "Tanggal serah wajib diisi" : null,
-    penerima: form.penerima.trim() === "" ? "Penerima wajib dipilih" : null,
+    penerima: form.penerima.trim() === "" ? "Nama penerima wajib diisi" : null,
     nominal: !Number.isFinite(nominalNum) || nominalNum <= 0
       ? "Nominal harus > 0"
       : null,
@@ -108,15 +92,14 @@ export default function SetoranFormModal({ open, shift, onClose, onSubmit }: Pro
 
   const submit = () => {
     setTouched(true);
-    if (hasError) return;
+    if (hasError || busy) return;
+    // Modal TIDAK menutup sendiri — parent menutup sesudah server sukses (biar galat terlihat).
     onSubmit(shift.id, {
-      noSetor: form.noSetor.trim(),
       tanggalSerah: toIsoFromLocal(form.tanggalSerah),
       penerima: form.penerima.trim(),
       nominal: nominalNum,
       catatan: form.catatan.trim() || undefined,
     });
-    onClose();
   };
 
   return (
@@ -149,14 +132,13 @@ export default function SetoranFormModal({ open, shift, onClose, onSubmit }: Pro
 
           {/* Form fields */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="No. Setoran" error={touched ? errors.noSetor : null}>
-              <input
-                type="text"
-                value={form.noSetor}
-                onChange={(e) => setForm({ ...form, noSetor: e.target.value })}
-                className={inputCn + " font-mono tabular-nums"}
-                placeholder="STR/YYYY/MM/NNNNN"
-              />
+            <Field label="No. Setoran">
+              <div className="flex h-8.5 items-center gap-1.5 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 dark:border-slate-700 dark:bg-slate-900/40">
+                <Sparkles size={11} className="flex-none text-slate-400" />
+                <span className="font-mono text-[11.5px] text-slate-500">
+                  Auto <span className="text-slate-400">· STR/YYYY/MM/NNNNN</span>
+                </span>
+              </div>
             </Field>
 
             <Field label="Tanggal Serah" error={touched ? errors.tanggalSerah : null}>
@@ -170,15 +152,17 @@ export default function SetoranFormModal({ open, shift, onClose, onSubmit }: Pro
 
             <div className="sm:col-span-2">
               <Field label="Diterima Oleh (Penerima)" error={touched ? errors.penerima : null}>
-                <select
+                <input
+                  type="text"
                   value={form.penerima}
                   onChange={(e) => setForm({ ...form, penerima: e.target.value })}
-                  className={selectCn}
-                >
-                  {BENDAHARA_LIST.map((b) => (
-                    <option key={b.id} value={b.nama}>{b.nama}</option>
-                  ))}
-                </select>
+                  className={inputCn}
+                  placeholder="Nama bendahara / staf keuangan penerima"
+                />
+                <p className="mt-1 text-[10.5px] text-slate-500">
+                  Nama tercetak di slip sebagai pihak yang menerima fisik uang. Penyetor terisi
+                  otomatis dari akun Anda.
+                </p>
               </Field>
             </div>
 
@@ -240,10 +224,17 @@ export default function SetoranFormModal({ open, shift, onClose, onSubmit }: Pro
             </div>
           )}
 
+          {error && (
+            <div className="mt-3 flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[11.5px] font-medium text-rose-700 dark:border-rose-900/60 dark:bg-rose-900/20 dark:text-rose-300">
+              <AlertCircle size={12} className="mt-0.5 flex-none" />
+              <p>{error}</p>
+            </div>
+          )}
+
           <ModalFooter
             onClose={onClose}
             onConfirm={submit}
-            confirmLabel="Catat & Cetak Slip"
+            confirmLabel={busy ? "Menyimpan…" : "Catat & Cetak Slip"}
             confirmIcon={PiggyBank}
           />
         </ModalShell>
@@ -260,10 +251,14 @@ function nowLocal(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/**
+ * datetime-local ("YYYY-MM-DDTHH:mm", waktu LOKAL tanpa zona) → ISO ber-offset (UTC "Z").
+ * Wajib: kontrak server (`SetoranInput.tanggalSerah`) menolak string tanpa zona, dan tanpa
+ * konversi ini jam setoran akan tersimpan bergeser sebesar offset zona waktu.
+ */
 function toIsoFromLocal(local: string): string {
-  // datetime-local already in YYYY-MM-DDTHH:mm — append seconds for consistency.
-  if (local.length === 16) return local + ":00";
-  return local;
+  const d = new Date(local);
+  return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
 }
 
 function Stat({

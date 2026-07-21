@@ -18,9 +18,13 @@ const PENJAMIN_NAMA: Record<string, string> = {
   BPJS_Non_PBI: "BPJS Non-PBI", BPJS_PBI: "BPJS PBI", Umum: "Umum / Pribadi", Asuransi: "Asuransi", Jamkesda: "Jamkesda",
 };
 
-/** Kandidat deposit awal = kunjungan Rawat Inap yang belum menerima pembayaran apa pun. */
+/**
+ * Kandidat deposit awal = kunjungan Rawat Inap yang MASIH dirawat dan belum menerima pembayaran
+ * apa pun. Pasien yang sudah pulang (`Completed`) dikecualikan — tagihannya ditagih penuh di kasir,
+ * bukan lewat deposit admisi.
+ */
 export function isDepositPending(d: BillingKunjunganRowDTO): boolean {
-  return d.unit === "RawatInap" && d.dibayar <= 0;
+  return d.unit === "RawatInap" && d.status !== "Completed" && d.dibayar <= 0;
 }
 
 /** BillingKunjunganRowDTO → PasienAdmisi (kelas/penjamin dipetakan; kategori/urgensi default). */

@@ -3,10 +3,12 @@
 
 import { api } from "@/lib/api/client";
 import type {
-  OpenShiftInput, CloseShiftInput, ShiftBoardDTO, ShiftDTO, KasirUserDTO,
+  OpenShiftInput, CloseShiftInput, SetoranInput, ShiftBoardDTO, ShiftDTO, SetoranDTO, KasirUserDTO,
 } from "@/lib/schemas/billing/shift";
 
-export type { OpenShiftInput, CloseShiftInput, ShiftBoardDTO, ShiftDTO, KasirUserDTO };
+export type {
+  OpenShiftInput, CloseShiftInput, SetoranInput, ShiftBoardDTO, ShiftDTO, SetoranDTO, KasirUserDTO,
+};
 
 /** Papan shift kasir (active milik user + open semua counter + recent closed). */
 export async function getShiftBoard(signal?: AbortSignal): Promise<ShiftBoardDTO> {
@@ -26,6 +28,16 @@ export async function closeShift(
 ): Promise<ShiftBoardDTO> {
   const { data } = await api.patch<ShiftBoardDTO>(
     `/billing/shift/${encodeURIComponent(shiftId)}/tutup`, input, { signal },
+  );
+  return data;
+}
+
+/** Catat setoran kas shift (shift harus sudah ditutup) → papan ter-update. */
+export async function recordSetoran(
+  shiftId: string, input: SetoranInput, signal?: AbortSignal,
+): Promise<ShiftBoardDTO> {
+  const { data } = await api.post<ShiftBoardDTO>(
+    `/billing/shift/${encodeURIComponent(shiftId)}/setoran`, input, { signal },
   );
   return data;
 }

@@ -11,7 +11,7 @@
 // Counter nomor dokumen billing — INV (invoice) · KW (kwitansi). Reset per bulan
 // (periode "YYYYMM"). Atomik via upsert-increment (pola inv_counter / master.*Counter).
 model BillingCounter {
-  kind    String // INV | KW
+  kind    String // INV | KW | STR (setoran kas)
   periode String // "YYYYMM"
   lastSeq Int    @map("last_seq")
 
@@ -151,6 +151,8 @@ model Shift {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
+  setoran Setoran?
+
   @@index([status])
   @@index([authorUserId, status])
   @@map("shift")
@@ -216,5 +218,35 @@ model Payment {
 
   @@index([invoiceId])
   @@map("payment")
+  @@schema("billing")
+}
+
+/// Setoran kas — serah-terima uang tunai dari shift kasir yang SUDAH DITUTUP ke bendahara/keuangan.
+///
+/// Dokumen bernomor sendiri (`STR-<YYMM><NNN>` via BillingCounter) dan 1:1 dengan shift
+/// (`shiftId` unique) → satu shift tak bisa disetorkan dua kali. Penyetor = actor login
+/// (server-resolved, anti-spoof); `penerima` = nama pihak keuangan yang menerima fisik uang
+/// (isian bebas — master pegawai belum punya unit Keuangan/Bendahara).
+///
+/// Immutable: tak ada update/delete. Koreksi = setoran susulan (belum didukung; lihat TECH_DEBT).
+model Setoran {
+  id      String @id @default(uuid(7)) @db.Uuid
+  shiftId String @unique @map("shift_id") @db.Uuid
+  shift   Shift  @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+
+  noSetor      String   @unique @map("no_setor")
+  tanggalSerah DateTime @map("tanggal_serah") @db.Timestamptz(3)
+  nominal      Int // kas tunai yang diserahkan
+  penerima     String // snapshot nama penerima (bendahara/staf keuangan)
+  catatan      String?
+
+  // Penyetor = kasir yang menutup shift (server-resolved dari sesi).
+  penyetor     String  @map("penyetor")
+  authorUserId String? @map("author_user_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([tanggalSerah])
+  @@map("setoran")
   @@schema("billing")
 }

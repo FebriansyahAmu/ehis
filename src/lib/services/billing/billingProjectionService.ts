@@ -297,13 +297,17 @@ async function projectByKunjungan(kunjunganId: string): Promise<BillingProjectio
 
 /** Worklist "Tagihan Kunjungan" — kunjungan yang punya order + total proyeksi (order + akomodasi). */
 async function listKunjunganBilling(limit = 100): Promise<BillingKunjunganRowDTO[]> {
-  const agg = await billingReadDal.aggregateOrderTotals();
-  if (agg.length === 0) return [];
+  // Titik awal = KUNJUNGAN (bukan order): kunjungan tanpa order pun bertagihan lewat biaya
+  // administrasi + akomodasi RI. Order hanya menambah subtotal (default 0 bila belum ada).
+  const [headers, agg] = await Promise.all([
+    billingReadDal.listBillableHeaders(limit),
+    billingReadDal.aggregateOrderTotals(),
+  ]);
+  if (headers.length === 0) return [];
 
   const totals = new Map(agg.map((a) => [a.kid, { subtotal: Number(a.subtotal), n: Number(a.n) }]));
-  const ids = [...totals.keys()];
-  const [headers, paidAgg, lifecycles, itemAdjAgg, kamarRows, adminRows] = await Promise.all([
-    billingReadDal.findKunjunganHeaders(ids),
+  const ids = headers.map((h) => h.id);
+  const [paidAgg, lifecycles, itemAdjAgg, kamarRows, adminRows] = await Promise.all([
     billingReadDal.aggregatePaid(ids),
     billingReadDal.findInvoiceLifecycles(ids),
     billingReadDal.aggregateItemAdjustment(ids),

@@ -16,11 +16,12 @@ import SetoranFormModal from "./modals/SetoranFormModal";
 import SetoranSlipPrintModal from "./modals/SetoranSlipPrintModal";
 import type { ShiftRowAction } from "./RecentShiftsTable";
 import KwitansiPrintModal from "../invoice/modals/KwitansiPrintModal";
-import type { CounterId, KasirShift, SetoranRecord } from "@/lib/billing/kasirShiftMock";
+import type { CounterId, KasirShift } from "@/lib/billing/kasirShiftMock";
 import { getPaymentSummary, type PaymentSummaryDTO } from "@/lib/api/billing/invoice";
 import {
   getShiftBoard, openShift as apiOpenShift, closeShift as apiCloseShift,
-  type ShiftDTO,
+  recordSetoran as apiRecordSetoran,
+  type ShiftDTO, type SetoranInput,
 } from "@/lib/api/billing/shift";
 import { listBillingKunjungan } from "@/lib/api/billing/projection";
 import { toPendingAdmisi } from "./deposit/realAdmisi";
@@ -45,6 +46,9 @@ function dtoToShift(d: ShiftDTO): KasirShift {
     selisih: d.selisih ?? undefined,
     tutupCatatan: d.tutupCatatan ?? undefined,
     supervisor: d.supervisor ?? undefined,
+    // Tanpa ini badge "Disetor" & kebab (Cetak Slip vs Catat Setoran) di RecentShiftsTable
+    // kehilangan status sesudah reload, dan kasir akan mencoba menyetor shift yang sudah disetor.
+    setoran: d.setoran ?? undefined,
   };
 }
 
@@ -99,6 +103,8 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
     action: ShiftRowAction;
     shift: KasirShift;
   } | null>(null);
+  const [setoranBusy, setSetoranBusy] = useState(false);
+  const [setoranErr, setSetoranErr] = useState<string | null>(null);
 
   const activeShift = active;
   const timestamp = useMemo(() => formatTimestamp(new Date()), []);
@@ -202,12 +208,27 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
     }
   };
 
-  // ── Setoran (dari kebab Recent Shifts → SetoranFormModal) → cetak slip ──
-  // Catatan: setoran belum persist (follow-up) — hanya membuka slip cetak dari shift NYATA.
-  const handleRecordSetoran = (shiftId: string, setoran: SetoranRecord) => {
-    const target = recents.find((s) => s.id === shiftId);
-    if (target) {
-      setShiftActionState({ action: "setoran-slip", shift: { ...target, setoran } });
+  // ── Setoran (kebab Recent Shifts → SetoranFormModal) → PERSIST lalu cetak slip ──
+  // No. setoran & penyetor di-isi server; slip dicetak dari data yang benar-benar tersimpan.
+  const handleRecordSetoran = async (shiftId: string, input: SetoranInput) => {
+    setSetoranBusy(true);
+    setSetoranErr(null);
+    try {
+      const board = await apiRecordSetoran(shiftId, input);
+      const saved = board.recentClosed.find((s) => s.id === shiftId);
+      setMutationTick((v) => v + 1);
+      if (saved?.setoran) {
+        setShiftActionState({
+          action: "setoran-slip",
+          shift: { ...dtoToShift(saved), setoran: saved.setoran },
+        });
+      } else {
+        setShiftActionState(null);
+      }
+    } catch (e) {
+      setSetoranErr(e instanceof Error ? e.message : "Gagal mencatat setoran");
+    } finally {
+      setSetoranBusy(false);
     }
   };
 
@@ -339,7 +360,9 @@ export default function KasirCounterPage({ initialTab, deepLinkInvoice: deepLink
       <SetoranFormModal
         open={shiftActionState?.action === "setoran-form"}
         shift={shiftActionState?.action === "setoran-form" ? shiftActionState.shift : null}
-        onClose={() => setShiftActionState(null)}
+        busy={setoranBusy}
+        error={setoranErr}
+        onClose={() => { setShiftActionState(null); setSetoranErr(null); }}
         onSubmit={handleRecordSetoran}
       />
       <SetoranSlipPrintModal

@@ -60,11 +60,12 @@ export interface ShiftMetodeBreakdown {
  * agar 1 shift bisa di-cancel-setoran & re-issue dengan trail audit.
  */
 export interface SetoranRecord {
-  noSetor: string;              // STR/YYYY/MM/NNNNN
+  noSetor: string;              // STR/YYYY/MM/NNNNN (di-generate server)
   tanggalSerah: string;         // ISO datetime
   penerima: string;             // nama bendahara/keuangan
   nominal: number;              // kas tunai yang diserahkan (= tutupSaldoAkhir − bukaSaldoAwal kalau standard)
-  catatan?: string;
+  penyetor?: string;            // kasir penyetor (server-resolved dari sesi); absen pada data mock
+  catatan?: string | null;
 }
 
 export interface KasirShift {
