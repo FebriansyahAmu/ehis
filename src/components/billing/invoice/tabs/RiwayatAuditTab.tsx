@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { Loader2 } from "lucide-react";
 import {
   applyAuditFilters, defaultAuditFilters, exportAuditCsv,
   getAuditEventsForInvoice, uniqueActors,
@@ -15,6 +16,8 @@ interface Props {
   detail: InvoiceDetail;
   /** Event NYATA dari billing.AuditLog (KunjunganInvoiceDetail). Absen → fallback mock (route lama). */
   events?: AuditEvent[];
+  /** Sedang memuat audit dari server — tampilkan spinner alih-alih timeline kosong. */
+  loading?: boolean;
 }
 
 /**
@@ -26,7 +29,7 @@ interface Props {
  * Source: `events` (NYATA, billing.AuditLog via GET /kunjungan/:id/billing/audit) bila diberikan;
  * else `getAuditEventsForInvoice(invoiceId)` mock (dipakai route lama /tagihan/[id]).
  */
-export default function RiwayatAuditTab({ detail, events }: Props) {
+export default function RiwayatAuditTab({ detail, events, loading }: Props) {
   const allEvents = useMemo(
     () => events ?? getAuditEventsForInvoice(detail.id),
     [events, detail.id],
@@ -72,11 +75,18 @@ export default function RiwayatAuditTab({ detail, events }: Props) {
             filteredEvents={filteredEvents.length}
           />
 
-          <AuditTimeline
-            events={filteredEvents}
-            hasActiveFilters={hasActiveFilters}
-            onResetFilters={handleReset}
-          />
+          {loading && allEvents.length === 0 ? (
+            <div className="flex items-center justify-center gap-2 py-16 text-slate-400">
+              <Loader2 size={16} className="animate-spin" />
+              <span className="text-[12.5px]">Memuat riwayat audit…</span>
+            </div>
+          ) : (
+            <AuditTimeline
+              events={filteredEvents}
+              hasActiveFilters={hasActiveFilters}
+              onResetFilters={handleReset}
+            />
+          )}
 
           {/* Footer disclaimer */}
           <p className="pb-2 text-center text-[10.5px] text-slate-400">

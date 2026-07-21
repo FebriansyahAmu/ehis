@@ -51,6 +51,8 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
   const [finBusy, setFinBusy] = useState(false);
   const [finErr, setFinErr] = useState<string | null>(null);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditTick, setAuditTick] = useState(0); // bump tiap mutasi → audit ikut segar
   // Penyesuaian per-baris (Slice 2d Fase 2)
   const [adjItem, setAdjItem] = useState<ChargeItem | null>(null);
   const [adjMode, setAdjMode] = useState<"diskon" | "void">("diskon");
@@ -71,25 +73,34 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
     return () => ac.abort();
   }, [kunjunganId, isReal, orderVersion, reloadTick]);
 
-  // Audit trail NYATA (billing.AuditLog) — refetch saat versi invoice / reload berubah
-  // (finalize/reopen/adjust menaikkan version; void/refund lewat reloadTick).
-  const stateVersion = state?.version ?? 0;
+  // Audit trail NYATA (billing.AuditLog) — di-fetch tiap kali tab Riwayat DIBUKA, sehingga aksi apa
+  // pun (diskon/void baris, finalisasi, pembayaran) langsung terlihat tanpa refresh halaman.
+  //
+  // JANGAN andalkan `state.version`: penyesuaian per-baris disimpan di tabel overlay
+  // (billing.ItemAdjustment) dan TIDAK menaikkan versi invoice → audit takkan pernah refetch
+  // (bug: void item tak muncul sampai keluar-masuk halaman). `auditTick` menutup sisa kasus
+  // mutasi yang terjadi saat tab Riwayat sedang terbuka.
+  const auditActive = tab === "riwayat";
   useEffect(() => {
-    if (!isReal) return;
+    if (!isReal || !auditActive) return;
     const ac = new AbortController();
+    setAuditLoading(true);
     listBillingAudit(kunjunganId, ac.signal)
       .then((rows) => {
         if (ac.signal.aborted) return;
         setAuditEvents(rows.map((r) => ({ ...r, action: r.action as AuditActionKind })));
       })
-      .catch(() => { /* diam — audit advisory, tak menghalangi detail */ });
+      .catch(() => { /* diam — audit advisory, tak menghalangi detail */ })
+      .finally(() => { if (!ac.signal.aborted) setAuditLoading(false); });
     return () => ac.abort();
-  }, [kunjunganId, isReal, stateVersion, reloadTick]);
+  }, [kunjunganId, isReal, auditActive, auditTick]);
 
   const detail = useMemo(() => (state ? invoiceStateToDetail(state) : null), [state]);
   const canAdjust = can("billing.invoice", "update");
 
   const handleOpenEklaim = useCallback((href: string) => router.push(href), [router]);
+  /** Tandai audit basi sesudah mutasi — dibaca saat tab Riwayat dibuka (atau segera, bila sedang terbuka). */
+  const bumpAudit = useCallback(() => setAuditTick((v) => v + 1), []);
 
   const handleAdjust = useCallback(
     async (input: { diskonInvoice: number; materai: number; ppnPct: number; alasan?: string }) => {
@@ -98,6 +109,7 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
       try {
         const next = await setInvoiceAdjustment(kunjunganId, { ...input, expectedVersion: state.version });
         setState(next);
+        bumpAudit();
         setAdjustOpen(false);
       } catch (e) {
         console.error("[Adjustment] gagal:", e);
@@ -105,7 +117,7 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
         setAdjustBusy(false);
       }
     },
-    [kunjunganId, state],
+    [kunjunganId, state, bumpAudit],
   );
 
   const handleFinalize = useCallback(
@@ -116,13 +128,14 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
       try {
         const next = await finalizeInvoice(kunjunganId, { force, expectedVersion: state.version });
         setState(next);
+        bumpAudit();
       } catch (e) {
         setFinErr(e instanceof Error ? e.message : "Gagal memfinalisasi");
       } finally {
         setFinBusy(false);
       }
     },
-    [kunjunganId, state],
+    [kunjunganId, state, bumpAudit],
   );
 
   const handleReopen = useCallback(
@@ -133,13 +146,14 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
       try {
         const next = await reopenInvoice(kunjunganId, { alasan, expectedVersion: state.version });
         setState(next);
+        bumpAudit();
       } catch (e) {
         setFinErr(e instanceof Error ? e.message : "Gagal membatalkan finalisasi");
       } finally {
         setFinBusy(false);
       }
     },
-    [kunjunganId, state],
+    [kunjunganId, state, bumpAudit],
   );
 
   // Penyesuaian per-baris: buka modal (diskon/void) atau langsung pulihkan (unvoid).
@@ -153,13 +167,14 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
         try {
           const next = await removeItemAdjustment(kunjunganId, item.sourceRef);
           setState(next);
+          bumpAudit();
         } catch (e) {
           console.error("[ItemAdjust] unvoid gagal:", e);
         }
       }
       // "source" → tak ada aksi di konteks billing (charge = proyeksi)
     },
-    [kunjunganId],
+    [kunjunganId, bumpAudit],
   );
 
   const closeItemAdjust = useCallback(() => { setAdjItem(null); setItemAdjErr(null); }, []);
@@ -172,6 +187,7 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
       try {
         const next = await setItemAdjustment(kunjunganId, { sourceRef: adjItem.sourceRef, ...payload });
         setState(next);
+        bumpAudit();
         setAdjItem(null);
       } catch (e) {
         setItemAdjErr(e instanceof Error ? e.message : "Gagal menerapkan penyesuaian");
@@ -179,7 +195,7 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
         setItemAdjBusy(false);
       }
     },
-    [kunjunganId, adjItem],
+    [kunjunganId, adjItem, bumpAudit],
   );
 
   const handleItemAdjustRemove = useCallback(async () => {
@@ -189,13 +205,14 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
     try {
       const next = await removeItemAdjustment(kunjunganId, adjItem.sourceRef);
       setState(next);
+      bumpAudit();
       setAdjItem(null);
     } catch (e) {
       setItemAdjErr(e instanceof Error ? e.message : "Gagal menghapus penyesuaian");
     } finally {
       setItemAdjBusy(false);
     }
-  }, [kunjunganId, adjItem]);
+  }, [kunjunganId, adjItem, bumpAudit]);
 
   if (!isReal) {
     return <NotAvailable message="Detail tagihan hanya untuk kunjungan tersimpan (bukan pasien demo)." />;
@@ -259,11 +276,13 @@ export default function KunjunganInvoiceDetail({ kunjunganId }: { kunjunganId: s
                 sisa={state.sisa}
                 status={state.status}
                 payments={detail.payments}
-                onChanged={() => setReloadTick((v) => v + 1)}
+                onChanged={() => { setReloadTick((v) => v + 1); bumpAudit(); }}
               />
             )}
             {tab === "klaim" && <KlaimStatusTab detail={detail} onOpenEklaim={handleOpenEklaim} />}
-            {tab === "riwayat" && <RiwayatAuditTab detail={detail} events={auditEvents} />}
+            {tab === "riwayat" && (
+              <RiwayatAuditTab detail={detail} events={auditEvents} loading={auditLoading} />
+            )}
           </motion.div>
         </AnimatePresence>
       </div>
