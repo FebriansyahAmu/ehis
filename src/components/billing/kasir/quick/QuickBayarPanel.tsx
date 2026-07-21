@@ -72,14 +72,23 @@ export default function QuickBayarPanel({ shift, onAccumulate, onPrintKwitansi, 
   }, [shift.id, refreshTick]);
 
   // ── Deep-link: pre-select tagihan tertentu (fetch state → build target) ──
+  // Panel ini REMOUNT tiap kali tab Quick Bayar dibuka ulang, sementara prop deep-link sengaja
+  // ditahan di memori KasirCounterPage (URL sudah dibersihkan). Tanpa penyaring di bawah, kembali
+  // ke tab ini SESUDAH tagihan lunas akan memunculkan lagi form untuk tagihan yang sudah beres —
+  // tombol "Terima Pembayaran" mati, jadi tampak seperti aplikasi macet.
+  // Karena itu deep-link hanya dipakai selama tagihan masih relevan untuk aksinya.
   useEffect(() => {
     if (!deepLinkInvoice) return;
     const ac = new AbortController();
     getInvoiceState(deepLinkInvoice, ac.signal)
-      .then((s) => { if (!ac.signal.aborted) setSelected(outstandingFromState(s)); })
+      .then((s) => {
+        if (ac.signal.aborted) return;
+        const relevan = deepLinkMode === "refund" ? s.dibayar > 0 : s.sisa > 0;
+        if (relevan) setSelected(outstandingFromState(s));
+      })
       .catch(() => {});
     return () => ac.abort();
-  }, [deepLinkInvoice]);
+  }, [deepLinkInvoice, deepLinkMode]);
 
   const results = useMemo(
     () => (query.trim() === "" ? topOutstandingSuggestions(allRows) : searchOutstanding(query, allRows)),
