@@ -4,8 +4,7 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import {
-  applyAuditFilters, defaultAuditFilters, exportAuditCsv,
-  getAuditEventsForInvoice, uniqueActors,
+  applyAuditFilters, defaultAuditFilters, exportAuditCsv, uniqueActors,
   type AuditEvent, type AuditFilterState,
 } from "@/lib/billing/auditTrail";
 import type { InvoiceDetail } from "../invoiceShared";
@@ -14,8 +13,8 @@ import AuditTimeline from "./audit/AuditTimeline";
 
 interface Props {
   detail: InvoiceDetail;
-  /** Event NYATA dari billing.AuditLog (KunjunganInvoiceDetail). Absen → fallback mock (route lama). */
-  events?: AuditEvent[];
+  /** Event NYATA dari billing.AuditLog (GET /kunjungan/:id/billing/audit). */
+  events: AuditEvent[];
   /** Sedang memuat audit dari server — tampilkan spinner alih-alih timeline kosong. */
   loading?: boolean;
 }
@@ -26,14 +25,10 @@ interface Props {
  * Read-only timeline semua mutasi invoice (PMK 269/2008 + UU PDP 27/2022 audit trail).
  * Filter by actor / action type / date range. Export ke CSV.
  *
- * Source: `events` (NYATA, billing.AuditLog via GET /kunjungan/:id/billing/audit) bila diberikan;
- * else `getAuditEventsForInvoice(invoiceId)` mock (dipakai route lama /tagihan/[id]).
+ * Source: `events` — NYATA dari billing.AuditLog (GET /kunjungan/:id/billing/audit).
  */
 export default function RiwayatAuditTab({ detail, events, loading }: Props) {
-  const allEvents = useMemo(
-    () => events ?? getAuditEventsForInvoice(detail.id),
-    [events, detail.id],
-  );
+  const allEvents = events;
   const actors = useMemo(() => uniqueActors(allEvents), [allEvents]);
 
   const [filters, setFilters] = useState<AuditFilterState>(() => defaultAuditFilters());

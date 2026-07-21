@@ -18,11 +18,12 @@ import { invoiceStateToDetail } from "../../invoice/invoiceStateMap";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Detail tagihan: kunjungan nyata (UUID) → rincian proyeksi; else mock invoice. */
-function tagihanHref(invoiceId: string): string {
-  return UUID_RE.test(invoiceId)
-    ? `/ehis-billing/tagihan/kunjungan/${invoiceId}`
-    : `/ehis-billing/tagihan/${invoiceId}`;
+/**
+ * Detail tagihan = rincian proyeksi per kunjungan. Id non-UUID (demo) mendarat di layar
+ * "bukan pasien tersimpan" — jujur, alih-alih menampilkan angka mock seolah nyata.
+ */
+function tagihanHref(kunjunganId: string): string {
+  return `/ehis-billing/tagihan/kunjungan/${kunjunganId}`;
 }
 
 interface Props {

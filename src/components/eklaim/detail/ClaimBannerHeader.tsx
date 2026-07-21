@@ -137,7 +137,7 @@ export default function ClaimBannerHeader({
               <span className="font-mono tabular-nums">{claim.noKlaim}</span>
             </span>
             <Link
-              href={`/ehis-billing/tagihan/${claim.invoiceId}`}
+              href={`/ehis-billing/tagihan/kunjungan/${claim.kunjunganId}`}
               className="inline-flex items-center gap-1 rounded-md bg-white px-1.5 py-0.5 text-[11.5px] font-medium text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-amber-50 hover:text-amber-700 hover:ring-amber-200"
               title="Buka invoice billing"
             >

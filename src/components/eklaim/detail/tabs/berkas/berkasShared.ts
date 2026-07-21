@@ -177,7 +177,7 @@ export const KATEGORI_CFG: Record<BerkasKategori, BerkasKategoriCfg> = {
     tone: "amber",
     autoPull: {
       label: "Billing · Tagihan",
-      href: (c) => `/ehis-billing/tagihan/${c.invoiceId}`,
+      href: (c) => `/ehis-billing/tagihan/kunjungan/${c.kunjunganId}`,
       estimatedCount: 1,
     },
   },

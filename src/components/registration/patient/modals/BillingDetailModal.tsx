@@ -87,7 +87,9 @@ export function BillingDetailModal({
       </div>
       <div className="flex shrink-0 items-center justify-between gap-2 border-t border-slate-100 px-5 py-3">
         <Link
-          href={`/ehis-billing/tagihan/${record.id}`}
+          // BillingRecord (mock pasien demo) tak menyimpan id kunjungan → arahkan ke board,
+          // bukan ke detail tagihan yang tak punya padanan nyata.
+          href="/ehis-billing/tagihan"
           target="_blank"
           rel="noopener noreferrer"
           className="group flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 hover:text-amber-800"

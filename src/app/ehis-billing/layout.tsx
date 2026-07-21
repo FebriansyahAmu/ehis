@@ -1,8 +1,5 @@
 import ModuleLayout from "@/components/layout/ModuleLayout";
 import { requireModule } from "@/lib/auth/requireModule";
-import ObatPriceHydrator from "@/components/billing/ObatPriceHydrator";
-import { obatService } from "@/lib/services/master/obatService";
-import type { ObatPriceEntry } from "@/lib/billing/obatPriceCatalog";
 
 export default async function EhisBillingLayout({
   children,
@@ -11,21 +8,9 @@ export default async function EhisBillingLayout({
 }) {
   await requireModule("billing");
 
-  // SSR-prefetch harga obat (master.obat) → hydrate snapshot client utk priceResolver.
-  let obatPrices: ObatPriceEntry[] = [];
-  try {
-    const { items } = await obatService.list({ limit: 300 });
-    obatPrices = items.map((o) => ({
-      id: o.id, kode: o.kode, namaGenerik: o.namaGenerik, namaDagang: o.namaDagang, hargaSatuan: o.hargaSatuan,
-    }));
-  } catch {
-    /* abaikan — getHargaObat fallback */
-  }
+  // Catatan: dulu di sini ada SSR-prefetch 300 baris master.obat → hydrate snapshot harga untuk
+  // `priceResolver` (charge ingest client-side). Charge kini PROYEKSI server dengan harga snapshot
+  // dari order, jadi rantai itu dibuang beserta query-nya.
 
-  return (
-    <ModuleLayout moduleKey="billing">
-      <ObatPriceHydrator entries={obatPrices} />
-      {children}
-    </ModuleLayout>
-  );
+  return <ModuleLayout moduleKey="billing">{children}</ModuleLayout>;
 }
