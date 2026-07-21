@@ -530,8 +530,9 @@ async function removeItemAdjustment(
   await transaction(async (tx) => {
     await itemAdjustmentDal.deleteBySourceRef(invoice.id, sourceRef, tx);
     await writeAudit(tx, invoice.id, kunjunganId, actor, nama, {
-      action: existing.jenis === "void" ? "item.unvoid" : "item.diskon",
+      action: existing.jenis === "void" ? "item.unvoid" : "item.diskon.hapus",
       summary: existing.jenis === "void" ? "Void baris dipulihkan" : "Diskon baris dihapus",
+      amount: existing.reduksi,   // nilai yang dikembalikan ke tagihan
       meta: { target: { type: "item", id: sourceRef } },
     });
   });

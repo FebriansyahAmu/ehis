@@ -1,13 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import { MoreVertical, ExternalLink, Tag, Ban, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePopover } from "@/components/shared/inputs/popoverShared";
 import { COVERAGE_CFG, SOURCE_BADGE_TONE, fmtRupiah } from "../invoiceShared";
 import type { ChargeItem } from "../invoiceShared";
 import { rowGross, rowSubtotal } from "@/lib/billing/invoiceCalc";
 
 export type ChargeAction = "diskon" | "void" | "unvoid" | "source";
+
+/** Dimensi menu kebab (px) — dipakai usePopover untuk keputusan flip-up sebelum menu ter-render. */
+const MENU_W = 176;
+const MENU_H = 112;
 
 interface Props {
   item: ChargeItem;
@@ -146,23 +152,12 @@ function RowKebab({
   index: number;
   allowSource: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  // Menu mengambang via portal + position:fixed. Baris terakhir tabel ter-clip oleh
+  // `overflow-hidden` di ChargeCategorySection (kartu rounded + motion.div collapse) —
+  // dropdown absolute akan "tenggelam". Portal + flip-up menyelesaikannya.
+  const { open, setOpen, mounted, coords, width, triggerRef, popRef } =
+    usePopover(MENU_W, MENU_H, { align: "end" });
   const hasDiskon = (item.diskonItem ?? 0) > 0;
-
-  useEffect(() => {
-    if (!open) return;
-    const click = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", click);
-    document.addEventListener("keydown", esc);
-    return () => {
-      document.removeEventListener("mousedown", click);
-      document.removeEventListener("keydown", esc);
-    };
-  }, [open]);
 
   const handle = (action: ChargeAction) => {
     setOpen(false);
@@ -170,11 +165,14 @@ function RowKebab({
   };
 
   return (
-    <div ref={ref} className="relative inline-flex">
+    <>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen((p) => !p)}
+        onClick={() => setOpen(!open)}
         aria-label="Aksi item"
+        aria-haspopup="menu"
+        aria-expanded={open}
         className={cn(
           "inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200",
           open && "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
@@ -182,26 +180,38 @@ function RowKebab({
       >
         <MoreVertical size={14} />
       </button>
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 top-8 z-20 w-44 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"
-        >
-          {voided ? (
-            <MenuItem icon={Undo2} label="Pulihkan (Batal Void)" onClick={() => handle("unvoid")} />
-          ) : (
-            <>
-              <MenuItem icon={Tag} label={hasDiskon ? "Ubah Diskon" : "Apply Diskon"} onClick={() => handle("diskon")} />
-              {allowSource && (
-                <MenuItem icon={ExternalLink} label="Detail Source" onClick={() => handle("source")} />
+
+      {mounted && createPortal(
+        <AnimatePresence>
+          {open && coords && (
+            <motion.div
+              ref={popRef}
+              role="menu"
+              initial={{ opacity: 0, scale: 0.95, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -4 }}
+              transition={{ duration: 0.12 }}
+              style={{ position: "fixed", top: coords.top, left: coords.left, width, zIndex: 60 }}
+              className="flex flex-col overflow-hidden rounded-md border border-slate-200 bg-white shadow-xl shadow-slate-900/10 ring-1 ring-black/5 dark:border-slate-700 dark:bg-slate-900"
+            >
+              {voided ? (
+                <MenuItem icon={Undo2} label="Pulihkan (Batal Void)" onClick={() => handle("unvoid")} />
+              ) : (
+                <>
+                  <MenuItem icon={Tag} label={hasDiskon ? "Ubah Diskon" : "Apply Diskon"} onClick={() => handle("diskon")} />
+                  {allowSource && (
+                    <MenuItem icon={ExternalLink} label="Detail Source" onClick={() => handle("source")} />
+                  )}
+                  <div className="my-0.5 border-t border-slate-100 dark:border-slate-800" />
+                  <MenuItem icon={Ban} label="Void Item" danger onClick={() => handle("void")} />
+                </>
               )}
-              <div className="my-0.5 border-t border-slate-100 dark:border-slate-800" />
-              <MenuItem icon={Ban} label="Void Item" danger onClick={() => handle("void")} />
-            </>
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>,
+        document.body,
       )}
-    </div>
+    </>
   );
 }
 

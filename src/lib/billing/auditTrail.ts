@@ -14,7 +14,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import {
-  FilePlus2, CircleDot, ListPlus, Percent, Ban, RotateCcw,
+  FilePlus2, CircleDot, ListPlus, Percent, Ban, RotateCcw, Undo2,
   Banknote, ArrowDownLeft, Trash2, Send, ShieldCheck,
 } from "lucide-react";
 
@@ -27,6 +27,7 @@ export type AuditActionKind =
   | "invoice.diskon"
   | "item.add"
   | "item.diskon"
+  | "item.diskon.hapus"
   | "item.void"
   | "item.unvoid"
   | "payment.add"
@@ -51,9 +52,10 @@ export const AUDIT_ACTION_CFG: Record<AuditActionKind, ActionCfg> = {
   "invoice.create":   { label: "Buat Invoice",      icon: FilePlus2,    category: "invoice", tone: "slate",   description: "Draft invoice baru dibuka" },
   "invoice.finalize": { label: "Finalisasi",        icon: CircleDot,    category: "invoice", tone: "emerald", description: "Status Draft → Final, charge dibekukan" },
   "invoice.reopen":   { label: "Batalkan Finalisasi", icon: RotateCcw,  category: "invoice", tone: "rose",    description: "Status Final → Draft, charge kembali proyeksi" },
-  "invoice.diskon":   { label: "Diskon Invoice",    icon: Percent,      category: "invoice", tone: "violet",  description: "Diskon level invoice (di luar diskon item)" },
+  "invoice.diskon":   { label: "Diskon Invoice",    icon: Percent,      category: "invoice", tone: "amber",   description: "Diskon level invoice (di luar diskon item)" },
   "item.add":         { label: "Tambah Item",       icon: ListPlus,     category: "item",    tone: "emerald", description: "Charge baru ditambahkan ke invoice" },
-  "item.diskon":      { label: "Diskon Item",       icon: Percent,      category: "item",    tone: "violet",  description: "Diskon per-item applied" },
+  "item.diskon":      { label: "Diskon Item",       icon: Percent,      category: "item",    tone: "amber",   description: "Diskon per-baris charge diterapkan" },
+  "item.diskon.hapus":{ label: "Hapus Diskon Item", icon: Undo2,        category: "item",    tone: "slate",   description: "Diskon per-baris dicabut, nilai kembali penuh" },
   "item.void":        { label: "Void Item",         icon: Ban,          category: "item",    tone: "rose",    description: "Item di-void (soft delete + audit)" },
   "item.unvoid":      { label: "Pulihkan Item",     icon: RotateCcw,    category: "item",    tone: "slate",   description: "Item voided dipulihkan" },
   "payment.add":      { label: "Pembayaran",        icon: Banknote,     category: "payment", tone: "emerald", description: "Pembayaran / deposit masuk" },
@@ -65,7 +67,7 @@ export const AUDIT_ACTION_CFG: Record<AuditActionKind, ActionCfg> = {
 
 export const AUDIT_ACTION_ORDER: AuditActionKind[] = [
   "invoice.create", "invoice.finalize", "invoice.reopen", "invoice.diskon",
-  "item.add", "item.diskon", "item.void", "item.unvoid",
+  "item.add", "item.diskon", "item.diskon.hapus", "item.void", "item.unvoid",
   "payment.add", "payment.refund", "payment.void",
   "klaim.submit", "klaim.status",
 ];

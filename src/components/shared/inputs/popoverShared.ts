@@ -36,9 +36,14 @@ export function triggerClasses(variant: TriggerVariant, open: boolean): string {
  * @param popW  lebar popover (px). Diabaikan bila `matchWidth` true.
  * @param popH  perkiraan tinggi popover (px) untuk keputusan flip ke atas.
  * @param opts.matchWidth  samakan lebar popover dengan lebar trigger (untuk Select).
+ * @param opts.align  `start` (default) = tepi kiri popover sejajar trigger; `end` = tepi kanan
+ *                    sejajar trigger (untuk menu kebab di ujung kanan baris).
  */
-export function usePopover(popW: number, popH: number, opts?: { matchWidth?: boolean }) {
+export function usePopover(
+  popW: number, popH: number, opts?: { matchWidth?: boolean; align?: "start" | "end" },
+) {
   const matchWidth = opts?.matchWidth ?? false;
+  const align = opts?.align ?? "start";
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
@@ -57,7 +62,7 @@ export function usePopover(popW: number, popH: number, opts?: { matchWidth?: boo
     const w = matchWidth ? r.width : popW;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    let left = r.left;
+    let left = align === "end" ? r.right - w : r.left;
     if (left + w > vw - 8) left = vw - 8 - w;
     if (left < 8) left = 8;
     // Tinggi AKTUAL popover bila sudah ter-render (else estimasi popH). Pakai tinggi nyata agar
@@ -67,7 +72,7 @@ export function usePopover(popW: number, popH: number, opts?: { matchWidth?: boo
     if (top + h > vh - 8 && r.top - h - 6 > 8) top = r.top - h - 6; // flip up: bawah popover di atas trigger
     setCoords({ top, left });
     setWidth(w);
-  }, [popW, popH, matchWidth]);
+  }, [popW, popH, matchWidth, align]);
 
   useLayoutEffect(() => {
     if (!open) return;
