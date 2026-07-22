@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
   Search, CheckCircle2, XCircle, Loader2,
-  CreditCard, User, Calendar, Building2,
+  CreditCard, User, Calendar, Building2, Fingerprint,
 } from "lucide-react";
 import {
   type BpjsData, type BpjsMode, type BpjsPhase, type SepDraft,
@@ -81,15 +81,32 @@ export function BpjsPanel({
       <div className="flex flex-col gap-3">
         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Cari Kepesertaan</p>
 
-        <div className="flex overflow-hidden rounded-lg border border-slate-200 bg-white">
-          {(["kartu", "nik"] as BpjsMode[]).map(m => (
-            <button key={m} type="button" onClick={() => handleModeChange(m)}
-              className={cn("flex-1 py-1.5 text-[10px] font-bold transition",
-                mode === m ? "bg-sky-500 text-white" : "text-slate-500 hover:bg-slate-50 hover:text-slate-700")}
-            >
-              {m === "kartu" ? "No. Kartu" : "NIK"}
-            </button>
-          ))}
+        <div className="flex rounded-xl border border-slate-200 bg-slate-100 p-1">
+          {(["kartu", "nik"] as BpjsMode[]).map(m => {
+            const on   = mode === m;
+            const Icon = m === "kartu" ? CreditCard : Fingerprint;
+            return (
+              <button key={m} type="button" onClick={() => handleModeChange(m)}
+                aria-pressed={on}
+                className={cn(
+                  "relative flex flex-1 items-center justify-center rounded-lg py-2 text-[11px] font-bold transition-colors duration-200",
+                  on ? "text-white" : "text-slate-500 hover:text-slate-700",
+                )}
+              >
+                {on && (
+                  <motion.span
+                    layoutId="bpjs-mode-pill"
+                    transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                    className="absolute inset-0 rounded-lg bg-sky-500 shadow-sm shadow-sky-200"
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-1.5">
+                  <Icon size={13} className="shrink-0" />
+                  {m === "kartu" ? "No. Kartu" : "NIK"}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         <div className="relative">

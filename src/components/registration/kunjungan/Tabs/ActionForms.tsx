@@ -4,17 +4,15 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
-  Printer, HeartPulse, Wallet, HardHat, ShieldCheck,
-  ChevronLeft, ChevronRight, Check, CheckCircle2,
+  Printer, ChevronLeft, ChevronRight, Check, CheckCircle2,
 } from "lucide-react";
 import type { KunjunganRecord } from "@/lib/data";
-import { BpjsPanel } from "./sep/BpjsSearch";
-import { InlineSEPCard } from "./sep/InlineSEPCard";
 import { SepStep1 } from "./sep/BpjsSearch";
 import { SepStep2, SepStep3, SepStep4 } from "./sep/SepSteps";
 import { StepIndicator } from "./sep/SepShared";
-import { BLANK_DRAFT, SLIDE_VARIANTS, type SepDraft, type BpjsData } from "./sep/sepTypes";
+import { BLANK_DRAFT, SLIDE_VARIANTS, type SepDraft } from "./sep/sepTypes";
 
+export { PenjaminForm }   from "./PenjaminForm";
 export { PaketForm }       from "./PaketForm";
 export { RujukanForm }    from "./RujukanForm";
 export { KecelakaanForm } from "./KecelakaanForm";
@@ -57,145 +55,7 @@ function SaveBtn({ text, danger }: { text: string; danger?: boolean }) {
   );
 }
 
-function ToggleChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick}
-      className={cn(
-        "rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition active:scale-95",
-        active
-          ? "border-sky-500 bg-sky-500 text-white"
-          : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700",
-      )}
-    >
-      {label}
-    </button>
-  );
-}
-
-// ─── Penjamin form ────────────────────────────────────────────
-
-type PenjaminType = "bpjs-jkn" | "umum" | "bpjs-naker" | "asuransi";
-
-const PENJAMIN_OPTS: {
-  id: PenjaminType;
-  label: string;
-  sub: string;
-  icon: IconComponent;
-  idle: string;
-  active: string;
-}[] = [
-  { id: "bpjs-jkn",   label: "BPJS / JKN",          sub: "Kartu Indonesia Sehat",    icon: HeartPulse,  idle: "border-sky-200 bg-sky-50 text-sky-600",             active: "border-sky-500 bg-sky-500 text-white"         },
-  { id: "umum",       label: "Umum / Mandiri",        sub: "Bayar sendiri / tunai",    icon: Wallet,      idle: "border-slate-200 bg-slate-50 text-slate-600",       active: "border-slate-700 bg-slate-700 text-white"     },
-  { id: "bpjs-naker", label: "BPJS Ketenagakerjaan", sub: "Jaminan kecelakaan kerja", icon: HardHat,     idle: "border-emerald-200 bg-emerald-50 text-emerald-600", active: "border-emerald-500 bg-emerald-500 text-white" },
-  { id: "asuransi",   label: "Asuransi Lainnya",      sub: "Swasta / perusahaan",      icon: ShieldCheck, idle: "border-amber-200 bg-amber-50 text-amber-600",       active: "border-amber-500 bg-amber-500 text-white"     },
-];
-
-function getInitialType(penjamin?: string | null): PenjaminType {
-  if (!penjamin || penjamin.startsWith("BPJS") || penjamin.includes("PBI")) return "bpjs-jkn";
-  if (penjamin === "Umum") return "umum";
-  if (penjamin === "Asuransi") return "asuransi";
-  return "bpjs-jkn";
-}
-
-// Tab "Ubah Penjamin" = alur ubah/terbit SEP. Untuk BPJS: cek keaktifan peserta
-// (BpjsPanel) → lanjut ubah SEP (InlineSEPCard), flow sama dgn pendaftaran kunjungan.
-export function PenjaminForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
-  const [selected,     setSelected]     = useState<PenjaminType>(() => getInitialType(kunjungan.penjamin));
-  const [cara,         setCara]         = useState("Tunai");
-  const [bpjsSelected, setBpjsSelected] = useState<BpjsData | null>(null);
-
-  const handleTypeChange = (t: PenjaminType) => { setSelected(t); setBpjsSelected(null); };
-
-  return (
-    <div className="space-y-4">
-      <SectionHead title="Ubah Penjamin" desc="Pilih jenis penjamin lalu lengkapi data kepesertaan" />
-
-      <div className="grid grid-cols-2 gap-2">
-        {PENJAMIN_OPTS.map((opt) => {
-          const Icon     = opt.icon;
-          const isActive = selected === opt.id;
-          return (
-            <button key={opt.id} type="button" onClick={() => handleTypeChange(opt.id)}
-              className={cn(
-                "flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition active:scale-[0.98]",
-                isActive ? opt.active : cn(opt.idle, "hover:opacity-80"),
-              )}
-            >
-              <Icon size={15} className="shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[11px] font-bold leading-tight">{opt.label}</p>
-                <p className={cn("text-[9.5px] leading-tight", isActive ? "opacity-70" : "opacity-50")}>{opt.sub}</p>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      <AnimatePresence mode="wait">
-        <motion.div key={selected} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-          {selected === "bpjs-jkn" && (
-            <BpjsPanel defaultValue={kunjungan.noPenjamin ?? ""}
-              onSelect={data => setBpjsSelected(data)}
-              onDeselect={() => setBpjsSelected(null)}
-            />
-          )}
-          {selected === "umum" && (
-            <FieldGrid>
-              <p className="col-span-2 rounded-lg bg-sky-50 px-3 py-2 text-[11px] leading-relaxed text-sky-700 ring-1 ring-sky-100">
-                Pasien dikenakan tarif umum RS. Pastikan persetujuan biaya telah diperoleh.
-              </p>
-              <span className={lbl}>Pembayaran</span>
-              <div className="flex flex-wrap gap-1.5">
-                {["Tunai", "Transfer", "Kartu Debit", "Kartu Kredit"].map(v => (
-                  <ToggleChip key={v} label={v} active={cara === v} onClick={() => setCara(v)} />
-                ))}
-              </div>
-            </FieldGrid>
-          )}
-          {selected === "bpjs-naker" && (
-            <FieldGrid>
-              <p className="col-span-2 rounded-lg bg-emerald-50 px-3 py-2 text-[11px] leading-relaxed text-emerald-700 ring-1 ring-emerald-100">
-                Untuk kecelakaan kerja / penyakit akibat kerja yang ditanggung BPJS Ketenagakerjaan.
-              </p>
-              <span className={lbl}>No. KPJ</span>
-              <input className={sm} placeholder="Nomor Kartu Peserta..." />
-              <span className={lbl}>Perusahaan</span>
-              <input className={sm} placeholder="Nama perusahaan pemberi kerja..." />
-            </FieldGrid>
-          )}
-          {selected === "asuransi" && (
-            <FieldGrid>
-              <span className={lbl}>Nama Asuransi</span>
-              <input className={sm} placeholder="Mis. Prudential, AXA..." />
-              <span className={lbl}>No. Polis</span>
-              <input className={sm} placeholder="Nomor polis asuransi..." />
-              <span className={lbl}>Tertanggung</span>
-              <input className={sm} placeholder="Nama sesuai kartu / polis..." />
-              <span className={lbl}>Berlaku s/d</span>
-              <input type="date" className={sm} />
-            </FieldGrid>
-          )}
-        </motion.div>
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {selected === "bpjs-jkn" && bpjsSelected && (
-          <motion.div
-            initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.98 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="overflow-hidden rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/60"
-          >
-            <InlineSEPCard data={bpjsSelected} kunjungan={kunjungan} onClose={() => setBpjsSelected(null)} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {selected !== "bpjs-jkn" && <SaveBtn text="Simpan Perubahan" />}
-    </div>
-  );
-}
-
+// PenjaminForm is now a full redesigned component in ./PenjaminForm.tsx
 // RujukanForm is now a full redesigned component in ./RujukanForm.tsx
 
 // ─── Update data form ─────────────────────────────────────────
