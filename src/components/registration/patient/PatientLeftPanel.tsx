@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Camera,
@@ -8,31 +8,68 @@ import {
   Info,
   ClipboardList,
   Receipt,
-  ArrowRight,
   ExternalLink,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { PatientMaster } from "@/lib/data";
+import type { PatientMaster, BillingRecord } from "@/lib/data";
 import { UNIT_CFG, TAGIHAN_STATUS, calcKasir, fmtRp } from "./config";
 
 interface PatientLeftPanelProps {
   patient: PatientMaster;
   photoRef: React.RefObject<HTMLInputElement | null>;
   onInfoLengkap: () => void;
-  onOpenBilling: (id: string) => void;
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function PatientLeftPanel({
   patient,
   photoRef,
   onInfoLengkap,
-  onOpenBilling,
 }: PatientLeftPanelProps) {
   const kasirCalc = useMemo(
     () => (patient.kasir ? calcKasir(patient.kasir) : null),
     [patient.kasir],
   );
   const totalDeposit = patient.kasir?.deposits.reduce((s, d) => s + d.jumlah, 0) ?? 0;
+
+  // Rincian tagihan = ranah modul Billing. Kartu ini INFO ringkas saja; baris men-deep-link ke
+  // detail tagihan per kunjungan di /ehis-billing.
+  const kidByNoKunjungan = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const k of patient.riwayatKunjungan) m.set(k.noKunjungan, k.id);
+    return m;
+  }, [patient.riwayatKunjungan]);
+  const billingHref = (b: BillingRecord): string => {
+    // Record NYATA (listPatientBilling): id = kunjunganId (UUID) → deep-link langsung.
+    if (UUID_RE.test(b.id)) return `/ehis-billing/tagihan/kunjungan/${b.id}`;
+    // Demo/mock: coba resolusi UUID dari riwayat via noKunjungan; else board Billing.
+    const kid = kidByNoKunjungan.get(b.noKunjungan);
+    return kid && UUID_RE.test(kid)
+      ? `/ehis-billing/tagihan/kunjungan/${kid}`
+      : "/ehis-billing/tagihan";
+  };
+
+  // Tagihan terbaru dulu (tanggal "YYYY-MM-DD" → urut leksikal desc). Server sudah urut, tapi
+  // di-sort ulang agar konsisten juga untuk pasien demo/mock.
+  const sortedBilling = useMemo(
+    () => [...patient.billing].sort((a, b) => b.tanggal.localeCompare(a.tanggal)),
+    [patient.billing],
+  );
+
+  // Paginasi kartu: 4 baris/halaman, sisanya lewat kontrol prev/next (kolom kiri sempit).
+  const BILL_PAGE = 4;
+  const [billPage, setBillPage] = useState(1);
+  const billTotalPages = Math.max(1, Math.ceil(sortedBilling.length / BILL_PAGE));
+  // Reset ke halaman 1 saat daftar berubah (pola adjust-state-during-render, bukan effect).
+  const billKey = `${patient.id}|${sortedBilling.length}`;
+  const [prevBillKey, setPrevBillKey] = useState(billKey);
+  if (billKey !== prevBillKey) { setPrevBillKey(billKey); setBillPage(1); }
+  const billSafePage = Math.min(billPage, billTotalPages);
+  const billStart = (billSafePage - 1) * BILL_PAGE;
+  const pagedBilling = sortedBilling.slice(billStart, billStart + BILL_PAGE);
 
   // Data-only (tanpa closure pembaca-ref di dalam array yang di-render). Ref dibaca dalam
   // arrow onClick inline di JSX → konteks event handler (lolos react-hooks/refs).
@@ -93,14 +130,16 @@ export function PatientLeftPanel({
             </span>
           </div>
           <div className="divide-y divide-slate-50">
-            {patient.billing.map((b) => {
+            {pagedBilling.map((b) => {
               const uc = UNIT_CFG[b.unit];
               const UIcon = uc.icon;
               return (
-                <button
+                <Link
                   key={b.id}
-                  onClick={() => onOpenBilling(b.id)}
-                  title="Lihat rincian tagihan (read-only)"
+                  href={billingHref(b)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Buka rincian tagihan di modul Billing"
                   className="group flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50/70"
                 >
                   <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", uc.bg)}>
@@ -115,19 +154,49 @@ export function PatientLeftPanel({
                     <span
                       className={cn(
                         "text-[9px] font-semibold leading-tight",
-                        TAGIHAN_STATUS[b.status].split(" ").find((c) => c.startsWith("text-"))!,
+                        (TAGIHAN_STATUS[b.status] ?? "").split(" ").find((c) => c.startsWith("text-")) ?? "text-slate-500",
                       )}
                     >
                       {b.status}
                     </span>
                   </div>
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition group-hover:border-teal-300 group-hover:bg-teal-50 group-hover:text-teal-600">
-                    <ArrowRight size={12} />
+                    <ExternalLink size={12} />
                   </span>
-                </button>
+                </Link>
               );
             })}
           </div>
+
+          {/* Paginasi (muncul bila > 4 tagihan) */}
+          {billTotalPages > 1 && (
+            <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 px-4 py-2">
+              <span className="text-[10px] tabular-nums text-slate-500">
+                {billStart + 1}–{billStart + pagedBilling.length}
+                <span className="text-slate-400"> dari {sortedBilling.length}</span>
+              </span>
+              <div className="flex items-center gap-1">
+                <BillPageBtn
+                  label="Halaman sebelumnya"
+                  disabled={billSafePage <= 1}
+                  onClick={() => setBillPage(billSafePage - 1)}
+                >
+                  <ChevronLeft size={12} />
+                </BillPageBtn>
+                <span className="min-w-9 text-center font-mono text-[10px] tabular-nums text-slate-600">
+                  {billSafePage}/{billTotalPages}
+                </span>
+                <BillPageBtn
+                  label="Halaman berikutnya"
+                  disabled={billSafePage >= billTotalPages}
+                  onClick={() => setBillPage(billSafePage + 1)}
+                >
+                  <ChevronRight size={12} />
+                </BillPageBtn>
+              </div>
+            </div>
+          )}
+
           {((kasirCalc?.sisaBayar ?? 0) > 0 || totalDeposit > 0) && (
             <div className="space-y-1 border-t border-slate-100 bg-slate-50 px-4 py-3">
               {kasirCalc && kasirCalc.sisaBayar > 0 && (
@@ -173,5 +242,32 @@ export function PatientLeftPanel({
         </div>
       )}
     </div>
+  );
+}
+
+// ── Tombol paginasi kartu Tagihan ───────────────────────
+function BillPageBtn({
+  children, label, disabled, onClick,
+}: {
+  children: React.ReactNode;
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className={cn(
+        "inline-flex h-6 w-6 items-center justify-center rounded-md ring-1 transition-all duration-150",
+        disabled
+          ? "cursor-not-allowed text-slate-300 ring-slate-200"
+          : "text-slate-600 ring-slate-200 hover:bg-teal-50 hover:text-teal-700 hover:ring-teal-300 active:scale-90",
+      )}
+    >
+      {children}
+    </button>
   );
 }

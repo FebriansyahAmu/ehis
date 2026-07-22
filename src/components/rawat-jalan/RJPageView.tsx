@@ -240,7 +240,7 @@ export default function RJPageView() {
       </div>
 
       {/* ── Baris kontrol: toggle tab + filter periode ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
       <div className="flex w-fit gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
         {TABS.map(({ key, label, icon: Icon, badge }) => (
           <button
@@ -304,35 +304,44 @@ export default function RJPageView() {
 
         {/* Filter periode (worklist/order saja — Konsultasi punya inbox sendiri) */}
         {view !== "konsultasi" && (
-          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
-            <span className="ml-1 hidden items-center gap-1.5 text-[11px] font-semibold text-slate-500 sm:flex">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm">
+            <span className="hidden items-center gap-1.5 text-[11px] font-semibold text-slate-500 sm:flex">
               <CalendarRange size={14} className="text-slate-400" /> Periode
             </span>
-            <DatePicker value={dari} onChange={onDari} placeholder="Dari" className="w-36" clearable={false} />
-            <span className="text-slate-300">–</span>
-            <DatePicker value={sampai} onChange={onSampai} placeholder="Sampai" className="w-36" clearable={false} />
-            <div className="flex items-center gap-1">
+
+            {/* Preset cepat — kelompok segmented */}
+            <div className="flex items-center gap-0.5 rounded-lg bg-slate-100/80 p-0.5">
               {presets.map((p) => (
                 <button
                   key={p.key}
                   type="button"
                   onClick={() => { setDari(p.dari); setSampai(p.sampai); }}
                   className={cn(
-                    "rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition",
+                    "rounded-md px-2.5 py-1 text-[11px] font-semibold transition",
                     activePreset === p.key
                       ? "bg-sky-600 text-white shadow-sm"
-                      : "text-slate-500 hover:bg-sky-50 hover:text-sky-700",
+                      : "text-slate-500 hover:bg-white hover:text-sky-700",
                   )}
                 >
                   {p.label}
                 </button>
               ))}
             </div>
+
+            <span className="hidden h-5 w-px bg-slate-200 sm:block" />
+
+            {/* Rentang kustom */}
+            <div className="flex items-center gap-1.5">
+              <DatePicker value={dari} onChange={onDari} placeholder="Dari" className="w-32" clearable={false} />
+              <span className="text-[11px] text-slate-300">–</span>
+              <DatePicker value={sampai} onChange={onSampai} placeholder="Sampai" className="w-32" clearable={false} />
+            </div>
+
             {periodeAktif && (
               <button
                 type="button"
                 onClick={resetPeriode}
-                className="flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-[11px] font-semibold text-slate-500 transition hover:bg-rose-50 hover:text-rose-600"
+                className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200 transition hover:bg-rose-50 hover:text-rose-600 hover:ring-rose-200"
                 title="Hapus filter periode"
               >
                 <X size={12} /> Reset

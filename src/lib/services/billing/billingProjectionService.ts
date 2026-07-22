@@ -295,16 +295,16 @@ async function projectByKunjungan(kunjunganId: string): Promise<BillingProjectio
   };
 }
 
-/** Worklist "Tagihan Kunjungan" — kunjungan yang punya order + total proyeksi (order + akomodasi). */
-async function listKunjunganBilling(limit = 100): Promise<BillingKunjunganRowDTO[]> {
-  // Titik awal = KUNJUNGAN (bukan order): kunjungan tanpa order pun bertagihan lewat biaya
-  // administrasi + akomodasi RI. Order hanya menambah subtotal (default 0 bila belum ada).
-  const [headers, agg] = await Promise.all([
-    billingReadDal.listBillableHeaders(limit),
-    billingReadDal.aggregateOrderTotals(),
-  ]);
-  if (headers.length === 0) return [];
+/** Header kunjungan (subset yang dipakai proyeksi baris). */
+type BillableHeader = Awaited<ReturnType<typeof billingReadDal.listBillableHeaders>>[number];
 
+/**
+ * Proyeksikan sekumpulan header kunjungan → baris tagihan (total = order + akomodasi + admin − Σ
+ * penyesuaian; dibayar/status/lifecycle dari DB). Dipakai bersama worklist global & per-pasien.
+ */
+async function projectHeaders(headers: BillableHeader[]): Promise<BillingKunjunganRowDTO[]> {
+  if (headers.length === 0) return [];
+  const agg = await billingReadDal.aggregateOrderTotals();
   const totals = new Map(agg.map((a) => [a.kid, { subtotal: Number(a.subtotal), n: Number(a.n) }]));
   const ids = headers.map((h) => h.id);
   const [paidAgg, lifecycles, itemAdjAgg, kamarRows, adminRows] = await Promise.all([
@@ -358,7 +358,22 @@ async function listKunjunganBilling(limit = 100): Promise<BillingKunjunganRowDTO
   });
 
   rows.sort((a, b) => b.waktuKunjungan.localeCompare(a.waktuKunjungan));
+  return rows;
+}
+
+/** Worklist "Tagihan Kunjungan" — semua kunjungan bertagihan (order + akomodasi + admin). */
+async function listKunjunganBilling(limit = 100): Promise<BillingKunjunganRowDTO[]> {
+  // Titik awal = KUNJUNGAN (bukan order): kunjungan tanpa order pun bertagihan lewat biaya
+  // administrasi + akomodasi RI. Order hanya menambah subtotal (default 0 bila belum ada).
+  const headers = await billingReadDal.listBillableHeaders(limit);
+  const rows = await projectHeaders(headers);
   return rows.slice(0, limit);
 }
 
-export const billingProjectionService = { projectByKunjungan, listKunjunganBilling };
+/** Ringkasan tagihan per KUNJUNGAN utk satu pasien (kartu Tagihan dashboard pasien registrasi). */
+async function listByPatient(patientId: string): Promise<BillingKunjunganRowDTO[]> {
+  const headers = await billingReadDal.listBillableHeadersByPatient(patientId);
+  return projectHeaders(headers);
+}
+
+export const billingProjectionService = { projectByKunjungan, listKunjunganBilling, listByPatient };

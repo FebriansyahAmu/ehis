@@ -117,6 +117,7 @@ export const KATEGORI_CFG: Record<
 
 export const TAGIHAN_STATUS: Record<string, string> = {
   Lunas: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200",
+  "Lunas Sebagian": "bg-amber-100 text-amber-700 ring-1 ring-amber-200",
   "Belum Lunas": "bg-rose-100 text-rose-700 ring-1 ring-rose-200",
   "Proses Klaim": "bg-amber-100 text-amber-700 ring-1 ring-amber-200",
   Ditanggung: "bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200",

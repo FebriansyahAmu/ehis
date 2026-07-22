@@ -15,6 +15,8 @@ import { consumeSpri, listSpri, type SpriDTO } from "@/lib/api/spri/spri";
 import { toast } from "@/lib/ui/toastStore";
 import { ApiError } from "@/lib/api/client";
 import { dtoToKunjunganRecord } from "./patient/kunjunganRiwayatApi";
+import { dtoToBillingRecord } from "./patient/patientBillingApi";
+import { listPatientBilling } from "@/lib/api/billing/projection";
 import { dtoToPatientMaster } from "./pasien-list/pasienListApi";
 
 // id pasien DB = UUID; pasien demo/mock = "RM-..." → hanya UUID yang punya riwayat di API.
@@ -26,7 +28,6 @@ import { PatientLeftPanel } from "./patient/PatientLeftPanel";
 import { PatientRightPanel } from "./patient/PatientRightPanel";
 import { EditDataModal } from "./patient/modals/EditDataModal";
 import { EditKontakModal } from "./patient/modals/EditKontakModal";
-import { BillingDetailModal } from "./patient/modals/BillingDetailModal";
 import { RiwayatKunjunganModal } from "./patient/modals/RiwayatKunjunganModal";
 import { TambahJadwalModal } from "./patient/modals/TambahJadwalModal";
 import { DaftarKunjunganModal } from "./patient/modals/DaftarKunjunganModal";
@@ -64,7 +65,6 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
     setEditKontak(false);
     setRiwayat(false);
     setInfoLengkap(false);
-    setOpenBillingId(null);
     setShowSearch(false);
     setShowTambahJadwal(false);
   }
@@ -105,7 +105,6 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
   const [showDaftarKunjungan, setDaftarKunjungan] = useState(false);
   const [showTambahJadwal, setShowTambahJadwal] = useState(false);
   const [showInfoLengkap, setInfoLengkap] = useState(false);
-  const [openBillingId, setOpenBillingId] = useState<string | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
 
@@ -179,6 +178,25 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
         const recs = items.map(dtoToKunjunganRecord);
         setTabs((prev) =>
           prev.map((t) => (t.id === pid ? { ...t, riwayatKunjungan: recs } : t)),
+        );
+      })
+      .catch(() => { /* abort/gagal: jangan tandai → boleh retry */ });
+    return () => ac.abort();
+  }, [patient.id]);
+
+  // Ringkasan tagihan per kunjungan (proyeksi billing NYATA) → kartu Tagihan. Gate
+  // registration.kunjungan:read (staf loket). Gagal/403 → billing tetap [] (kartu empty-state).
+  const fetchedBilling = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const pid = patient.id;
+    if (!UUID_RE.test(pid) || fetchedBilling.current.has(pid)) return;
+    const ac = new AbortController();
+    listPatientBilling(pid, ac.signal)
+      .then((rows) => {
+        fetchedBilling.current.add(pid); // tandai HANYA setelah sukses
+        const bills = rows.map(dtoToBillingRecord);
+        setTabs((prev) =>
+          prev.map((t) => (t.id === pid ? { ...t, billing: bills } : t)),
         );
       })
       .catch(() => { /* abort/gagal: jangan tandai → boleh retry */ });
@@ -490,7 +508,6 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
                 patient={patientView}
                 photoRef={photoRef}
                 onInfoLengkap={() => setInfoLengkap(true)}
-                onOpenBilling={(id) => setOpenBillingId(id)}
               />
             </div>
             <div className="lg:col-span-3">
@@ -541,13 +558,6 @@ export default function PatientDashboard({ patient: init }: { patient: PatientMa
       {showTambahJadwal && (
         <TambahJadwalModal patient={patient} onClose={() => setShowTambahJadwal(false)} />
       )}
-      {openBillingId &&
-        (() => {
-          const rec = patient.billing.find((b) => b.id === openBillingId);
-          return rec ? (
-            <BillingDetailModal record={rec} onClose={() => setOpenBillingId(null)} />
-          ) : null;
-        })()}
 
       <input ref={photoRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
     </div>

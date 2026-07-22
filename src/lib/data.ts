@@ -543,7 +543,7 @@ export interface IGDRuangan {
 export type GolonganDarah    = "A" | "B" | "AB" | "O" | "-";
 export type StatusPerkawinan = "Belum Menikah" | "Menikah" | "Janda" | "Duda";
 export type UnitKunjungan    = "IGD" | "Rawat Jalan" | "Rawat Inap" | "Laboratorium" | "Radiologi" | "Farmasi";
-export type StatusTagihan    = "Lunas" | "Belum Lunas" | "Proses Klaim" | "Ditanggung";
+export type StatusTagihan    = "Lunas" | "Lunas Sebagian" | "Belum Lunas" | "Proses Klaim" | "Ditanggung";
 export type TipePenjamin     = "Umum" | "BPJS_Non_PBI" | "BPJS_PBI" | "Asuransi" | "Jamkesda";
 
 export interface PenjaminData {

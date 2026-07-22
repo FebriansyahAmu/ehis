@@ -190,6 +190,23 @@ export function listBillableHeaders(limit: number) {
   });
 }
 
+/**
+ * Header bertagihan untuk SATU pasien (kartu Tagihan di dashboard pasien registrasi). Sama seperti
+ * listBillableHeaders tapi difilter patientId — semua kunjungan hidup pasien kecuali Cancelled.
+ */
+export function listBillableHeadersByPatient(patientId: string) {
+  return db().kunjungan.findMany({
+    where: { patientId, deletedAt: null, status: { not: "Cancelled" } },
+    orderBy: { waktuKunjungan: "desc" },
+    select: {
+      id: true, noKunjungan: true, unit: true, status: true,
+      waktuKunjungan: true, selesaiAt: true, lockedAt: true,
+      kelas: true, kelasHak: true, penjaminTipe: true,
+      pasien: { select: { noRm: true, nama: true, gender: true, tanggalLahir: true } },
+    },
+  });
+}
+
 export function findKunjunganHeaders(ids: string[]) {
   return db().kunjungan.findMany({
     where: { id: { in: ids }, deletedAt: null },

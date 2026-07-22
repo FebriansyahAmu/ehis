@@ -26,3 +26,18 @@ export async function listBillingKunjungan(
   const { data } = await api.get<BillingKunjunganRowDTO[]>("/billing/kunjungan", { signal });
   return data;
 }
+
+/**
+ * Ringkasan tagihan per kunjungan untuk SATU pasien (kartu Tagihan dashboard pasien registrasi).
+ * Gate registration.kunjungan:read → dipakai staf loket (bukan endpoint billing.invoice).
+ */
+export async function listPatientBilling(
+  patientId: string,
+  signal?: AbortSignal,
+): Promise<BillingKunjunganRowDTO[]> {
+  const { data } = await api.get<BillingKunjunganRowDTO[]>(
+    `/patients/${encodeURIComponent(patientId)}/billing`,
+    { signal },
+  );
+  return data;
+}
