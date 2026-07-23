@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   HeartPulse, Wallet, HardHat, ShieldCheck,
@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import type { KunjunganRecord, PatientMaster, TipePenjamin } from "@/lib/data";
 import { DatePicker } from "@/components/shared/inputs";
 import { changePenjamin } from "@/lib/api/kunjungan";
+import { getPatientNoKartu } from "@/lib/api/patients";
 import { ApiError } from "@/lib/api/client";
 import { toast } from "@/lib/ui/toastStore";
 import { BpjsPanel } from "./sep/BpjsSearch";
@@ -98,7 +99,7 @@ function PanelCard({ children, tone }: { children: React.ReactNode; tone: Penjam
 
 // ─── Current-penjamin summary strip ───────────────────────────
 
-function CurrentStrip({ kunjungan, type }: { kunjungan: KunjunganRecord; type: PenjaminType }) {
+function CurrentStrip({ kunjungan, type, noKartu }: { kunjungan: KunjunganRecord; type: PenjaminType; noKartu?: string }) {
   const opt  = PENJAMIN_OPTS.find((o) => o.id === type)!;
   const Icon = opt.icon;
   const a    = ACCENT[type];
@@ -110,10 +111,10 @@ function CurrentStrip({ kunjungan, type }: { kunjungan: KunjunganRecord; type: P
       <div className="min-w-0 flex-1">
         <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Penjamin Saat Ini</p>
         <p className="truncate text-[14px] font-bold text-slate-800">{kunjungan.penjamin ?? opt.label}</p>
-        {(kunjungan.noPenjamin || kunjungan.noSEP) && (
+        {(noKartu || kunjungan.noSEP) && (
           <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5">
-            {kunjungan.noPenjamin && (
-              <span className="font-mono text-[10px] text-slate-500">{kunjungan.noPenjamin}</span>
+            {noKartu && (
+              <span className="font-mono text-[10px] text-slate-500">{noKartu}</span>
             )}
             {kunjungan.noSEP && (
               <span className="flex items-center gap-1 text-[10px] text-slate-500">
@@ -139,6 +140,21 @@ function CurrentStrip({ kunjungan, type }: { kunjungan: KunjunganRecord; type: P
 export function PenjaminForm({ kunjungan, patient }: { kunjungan: KunjunganRecord; patient: PatientMaster }) {
   const currentType = useMemo(() => typeOf(kunjungan.penjamin), [kunjungan.penjamin]);
   const isDbKunjungan = UUID_RE.test(kunjungan.id);
+
+  // No. Kartu BPJS PENUH (un-mask) dari jaminan pasien tersimpan → auto-fill pencarian
+  // kepesertaan untuk kunjungan APAPUN (tak bergantung SEP kunjungan ini). Ditarik saat mount.
+  const [prefilledNoKartu, setPrefilledNoKartu] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (!UUID_RE.test(patient.id)) return;
+    const ac = new AbortController();
+    getPatientNoKartu(patient.id, ac.signal)
+      .then(({ noKartu }) => { if (noKartu) setPrefilledNoKartu(noKartu); })
+      .catch(() => { /* fallback ke nomor kunjungan/masked */ });
+    return () => ac.abort();
+  }, [patient.id]);
+
+  // No. Kartu BPJS efektif: dari SEP kunjungan ini → jaminan tersimpan → nomor (mungkin masked).
+  const savedNoKartu = kunjungan.noPenjamin || prefilledNoKartu || patient.penjamin.nomor || "";
 
   const [selected,     setSelected]     = useState<PenjaminType>(currentType);
   const [bpjsSelected, setBpjsSelected] = useState<BpjsData | null>(null);
@@ -199,7 +215,11 @@ export function PenjaminForm({ kunjungan, patient }: { kunjungan: KunjunganRecor
         </p>
       </div>
 
-      <CurrentStrip kunjungan={kunjungan} type={currentType} />
+      <CurrentStrip
+        kunjungan={kunjungan}
+        type={currentType}
+        noKartu={currentType === "bpjs-jkn" ? (savedNoKartu || undefined) : (kunjungan.noPenjamin || undefined)}
+      />
 
       {/* ── Type selector ── */}
       <div>
@@ -279,7 +299,10 @@ export function PenjaminForm({ kunjungan, patient }: { kunjungan: KunjunganRecor
         >
           {selected === "bpjs-jkn" && (
             <BpjsPanel
-              defaultValue={kunjungan.noPenjamin ?? ""}
+              // Remount saat No. Kartu penuh dari DB tiba (async) → field pencarian ter-seed
+              // dengan nomor tersimpan. Operator tinggal "Cari Kepesertaan".
+              key={prefilledNoKartu ? "prefilled" : "default"}
+              defaultValue={savedNoKartu}
               patientName={patient.name}
               onSelect={(data) => setBpjsSelected(data)}
               onDeselect={() => setBpjsSelected(null)}
