@@ -232,6 +232,14 @@ export function SepFormBody({
                 <span className="truncate text-[12px] font-medium italic text-slate-400">Dibuat otomatis oleh sistem</span>
               </div>
             </Field>
+            {draft.poliTujuan && (
+              <Field label="Poli Tujuan" hint="gawat darurat">
+                <div className="flex h-10 items-center gap-2 rounded-xl bg-cyan-50 px-3 ring-1 ring-cyan-100">
+                  <Stethoscope size={13} className="shrink-0 text-cyan-500" />
+                  <span className="text-[13px] font-semibold text-cyan-700">{draft.poliTujuan}</span>
+                </div>
+              </Field>
+            )}
             <Field label="Diagnosa Awal (ICD-10)" hint="dari diagnosa utama IGD">
               <input className={cn(fieldInput, "font-mono")} value={draft.diagAwal}
                 placeholder="Mis. S06.0 — terisi dari diagnosa utama IGD"

@@ -213,7 +213,8 @@ export function DaftarKunjunganModal({
               asalRujukan: "2" as const,
               tglRujukan: s.tglRujukan || form.tanggal,
               ppkRujukan: s.ppkRujukan || s.ppkPelayanan,
-              poliTujuan: "",
+              // IGD gawat darurat → poli tujuan "IGD" (kode referensi BPJS); Rawat Inap = tanpa poli.
+              poliTujuan: isIgd ? "IGD" : "",
             }
           : {}),
       }));

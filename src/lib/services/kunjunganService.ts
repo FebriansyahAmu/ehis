@@ -349,7 +349,12 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
             skdpKodeDpjp: skdpKodeDpjpEff,
             rujukan: sepRujukan,
             // user SEP = nama actor login (server-otoritatif, anti-spoof) — override nilai client.
-            input: { ...input.sep, user: await resolveActorNama(actor) },
+            // IGD gawat darurat → poli tujuan "IGD" (kode referensi BPJS); RJ pakai poli dari form.
+            input: {
+              ...input.sep,
+              poliTujuan: input.unit === "IGD" ? "IGD" : input.sep.poliTujuan,
+              user: await resolveActorNama(actor),
+            },
           },
           tx,
         );
@@ -476,8 +481,11 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
       await dal.updatePenjamin(kunjunganId, { penjaminTipe: input.penjaminTipe, penjaminId: penjaminId ?? null }, tx);
 
       if (willIssue && input.sep) {
-        // Poli tujuan SEP (RJ) = poli kunjungan (server-otoritatif "auto per-unit").
-        const poliEff = k.unit === "RawatJalan" ? (k.poli ?? input.sep.poliTujuan) : undefined;
+        // Poli tujuan SEP: RJ = poli kunjungan; IGD gawat darurat = kode poli "IGD" (referensi
+        // BPJS gawat darurat — verifikasi/mapping saat V-Claim nyata). Server-otoritatif.
+        const poliEff = k.unit === "RawatJalan" ? (k.poli ?? input.sep.poliTujuan)
+          : k.unit === "IGD" ? "IGD"
+          : undefined;
         // Supersede SEP aktif lama → satu SEP aktif per kunjungan.
         await bpjsDal.supersedeSepByKunjungan(kunjunganId, clock.now(), tx);
         let rujukanId: string | undefined;

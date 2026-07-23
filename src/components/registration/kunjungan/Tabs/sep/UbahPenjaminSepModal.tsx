@@ -73,7 +73,7 @@ export function UbahPenjaminSepModal({
     noMR: patient.noRM,
     noTelp: patient.noHp ?? "",
     ppkPelayanan: "0107R001",
-    poliTujuan: needsRujukan ? (kunjungan.poli ?? "") : "",
+    poliTujuan: needsRujukan ? (kunjungan.poli ?? "") : (isIgd ? "IGD" : ""),
     diagAwal: kunjungan.kodeICD?.split(",")[0]?.trim() ?? "",
     user: operatorNama,
     // Unit internal (IGD/RI) → rujukan INTERNAL RS otomatis (Faskes 2). IGD tetap SEP RJ.
