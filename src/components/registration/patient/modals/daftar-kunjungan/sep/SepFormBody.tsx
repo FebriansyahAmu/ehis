@@ -35,15 +35,20 @@ const PEMBIAYAAN = [
 ];
 
 export function SepFormBody({
-  patientId, draft, setDraft,
+  patientId, draft, setDraft, forceInternalRujukan = false,
 }: {
   patientId: string;
   draft: SepDraft;
   setDraft: React.Dispatch<React.SetStateAction<SepDraft>>;
+  /** Paksa mode "Rujukan Internal" walau jenis SEP Rawat Jalan (mis. IGD — gawat darurat,
+   *  SEP RJ tapi rujukan internal RS, bukan FKTP). Default false. */
+  forceInternalRujukan?: boolean;
 }) {
   const set = <K extends keyof SepDraft>(k: K, v: SepDraft[K]) => setDraft((d) => ({ ...d, [k]: v }));
   const klsLabel = ({ "1": "Kelas I", "2": "Kelas II", "3": "Kelas III" } as Record<string, string>)[draft.klsRawatHak] ?? "—";
   const isRJ = draft.jnsPelayanan === "2";
+  // Blok rujukan: FKTP (editable) hanya untuk RJ non-IGD; else = rujukan INTERNAL RS.
+  const internalRujukan = !isRJ || forceInternalRujukan;
   const isLaka = draft.lakaLantas !== "0";
 
   // Ganti jenis pelayanan. Rawat Inap → siapkan default RUJUKAN INTERNAL (IGD → RI):
@@ -161,17 +166,17 @@ export function SepFormBody({
         </Reveal>
       </SectionCard>
 
-      {/* ── Rujukan ── selalu ada (t_sep wajib blok rujukan). RJ = rujukan faskes; RI = internal ── */}
+      {/* ── Rujukan ── selalu ada (t_sep wajib blok rujukan). RJ = rujukan faskes; IGD/RI = internal ── */}
       <SectionCard
-        title={isRJ ? "Rujukan & Poli Tujuan" : "Rujukan Internal"}
-        desc={isRJ ? "Dasar rujukan layanan rawat jalan" : "IGD → Rawat Inap (rujukan internal RS)"}
+        title={internalRujukan ? "Rujukan Internal" : "Rujukan & Poli Tujuan"}
+        desc={internalRujukan ? "Rujukan internal RS (gawat darurat / rawat inap)" : "Dasar rujukan layanan rawat jalan"}
         icon={Share2}
         accent="cyan"
-        badge={!isRJ && (
+        badge={internalRujukan && (
           <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-bold text-cyan-600">Internal</span>
         )}
       >
-        {isRJ ? (
+        {!internalRujukan ? (
           <div className="grid grid-cols-2 gap-3">
             <Field label="Asal Rujukan">
               <Segmented accent="cyan" value={draft.asalRujukan}
@@ -203,8 +208,8 @@ export function SepFormBody({
             <div className="flex items-start gap-2 rounded-xl border border-cyan-100 bg-cyan-50/60 px-3 py-2 text-[11px] leading-relaxed text-cyan-700">
               <Info size={14} className="mt-0.5 shrink-0 text-cyan-500" />
               <p>
-                Rujukan <b>internal</b> (IGD → Rawat Inap). Nomor &amp; tanggal dibuat otomatis sistem; diagnosa awal
-                diambil dari <b>diagnosa utama IGD</b>.
+                Rujukan <b>internal RS</b> (Faskes 2). Nomor &amp; tanggal dibuat otomatis sistem; diagnosa awal
+                diambil dari <b>diagnosa utama</b> kunjungan.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3">

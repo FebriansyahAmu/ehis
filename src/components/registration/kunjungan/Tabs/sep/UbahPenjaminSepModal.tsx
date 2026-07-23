@@ -57,6 +57,7 @@ export function UbahPenjaminSepModal({
   const reviewUnit = UNIT_MAP[kunjungan.unit] ?? "Rawat Jalan";
   const needsRujukan = reviewUnit === "Rawat Jalan";
   const isRanap = reviewUnit === "Rawat Inap";
+  const isIgd = reviewUnit === "IGD";
   const penjaminTipe = bpjsData.jenis === "PBI" ? "BPJS_PBI" : "BPJS_Non_PBI";
 
   const [terbitSep, setTerbitSep] = useState(true);
@@ -75,6 +76,8 @@ export function UbahPenjaminSepModal({
     poliTujuan: needsRujukan ? (kunjungan.poli ?? "") : "",
     diagAwal: kunjungan.kodeICD?.split(",")[0]?.trim() ?? "",
     user: operatorNama,
+    // Unit internal (IGD/RI) → rujukan INTERNAL RS otomatis (Faskes 2). IGD tetap SEP RJ.
+    ...(!needsRujukan ? { asalRujukan: "2" as const, tglRujukan: today, ppkRujukan: "0107R001" } : {}),
   }));
 
   const steps = useMemo<WizardStep[]>(() => {
@@ -236,7 +239,7 @@ export function UbahPenjaminSepModal({
                     />
                   )}
                   {current === "sep" && (
-                    <StepSEP patientId={patient.id} draft={sepDraft} setDraft={setSepDraft} terbitSep={terbitSep} setTerbitSep={setTerbitSep} />
+                    <StepSEP patientId={patient.id} draft={sepDraft} setDraft={setSepDraft} terbitSep={terbitSep} setTerbitSep={setTerbitSep} forceInternalRujukan={isIgd} />
                   )}
                   {current === "review" && (
                     <StepReview form={reviewForm} penjamin={reviewPenjamin} isBpjsFlow terbitSep={terbitSep} rujukan={needsRujukan ? rujukan : null} draft={sepDraft} />

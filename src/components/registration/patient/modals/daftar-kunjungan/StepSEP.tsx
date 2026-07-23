@@ -15,13 +15,15 @@ const JENIS: Record<string, string> = { PBI: "PBI", "Non PBI": "Non-PBI", "Non-P
  *  ☐ tak dicentang → SEP ditangguhkan; kunjungan tetap terdaftar, SEP dibuat nanti.
  */
 export function StepSEP({
-  patientId, draft, setDraft, terbitSep, setTerbitSep,
+  patientId, draft, setDraft, terbitSep, setTerbitSep, forceInternalRujukan = false,
 }: {
   patientId: string;
   draft: SepDraft;
   setDraft: React.Dispatch<React.SetStateAction<SepDraft>>;
   terbitSep: boolean;
   setTerbitSep: React.Dispatch<React.SetStateAction<boolean>>;
+  /** Paksa mode "Rujukan Internal" walau SEP Rawat Jalan (IGD). Diteruskan ke SepFormBody. */
+  forceInternalRujukan?: boolean;
 }) {
   const kls = KLS[draft.klsRawatHak] ?? "—";
   const jenis = JENIS[draft.jenisPeserta] ?? draft.jenisPeserta;
@@ -111,7 +113,7 @@ export function StepSEP({
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
           >
-            <SepFormBody patientId={patientId} draft={draft} setDraft={setDraft} />
+            <SepFormBody patientId={patientId} draft={draft} setDraft={setDraft} forceInternalRujukan={forceInternalRujukan} />
           </motion.div>
         ) : (
           <motion.div
