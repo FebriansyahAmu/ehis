@@ -579,6 +579,8 @@ export interface KunjunganRecord {
   ruanganId?: string;
   /** Nama ruangan/lokasi perawatan (mis. "Bedah", "Non Bedah") — diresolusi dari master. */
   ruangan?: string;
+  /** Poli Tujuan (Rawat Jalan) — dipakai Ubah Penjamin (SEP poliTujuan) & tampilan review. */
+  poli?: string;
   keluhan: string;
   diagnosa: string;
   penjamin?: string;

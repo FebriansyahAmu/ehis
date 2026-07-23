@@ -113,6 +113,31 @@ export const RegisterKunjunganInput = z
     // IGD = kegawatdaruratan: triase opsional di loket; rujukan TIDAK wajib (emergency).
   });
 
+// ── Ganti penjamin kunjungan (POST /kunjungan/:id/penjamin) ───────────────────
+// Ubah penjamin pada kunjungan yang SUDAH ada + (BPJS) terbitkan/ganti SEP. Field
+// turunan-kunjungan (unit/tanggal/dpjp/poli/kelasHak/diagAwal) DIRESOLUSI server dari
+// kunjungan — bukan dikirim FE. `sep`/`rujukan` = kontrak sama dgn pendaftaran.
+export const ChangePenjaminInput = z
+  .object({
+    penjaminTipe: TipePenjamin,
+    /** BPJS: terbitkan SEP sekarang (butuh `sep`). false → ganti penjamin saja. */
+    issueSep: z.boolean().default(false),
+    /** No. Kartu hasil verifikasi kepesertaan (BPJS). */
+    noKartu: z.string().trim().max(40).optional(),
+    rujukan: RujukanInput.optional(), // RJ BPJS
+    sep: SepInput.optional(),
+    forceSep: z.boolean().optional(), // tetap simpan walau SEP ditolak (SEP ditangguhkan)
+    // Non-BPJS (Asuransi/Jamkesda) — detail penjamin opsional utk persist ke jaminan pasien.
+    penjaminNama: z.string().trim().max(120).optional(),
+    penjaminNomor: z.string().trim().max(40).optional(),
+    noPolis: z.string().trim().max(40).optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.issueSep && !v.sep) {
+      ctx.addIssue({ code: "custom", path: ["sep"], message: "Data SEP wajib saat menerbitkan SEP" });
+    }
+  });
+
 // ── Worklist (GET /kunjungan) ─────────────────────────────────────────────────
 export const WorklistQuery = z.object({
   unit: KunjunganUnit.optional(),
@@ -162,6 +187,7 @@ export const TransitionInput = z
 
 // ── Tipe inferensi ─────────────────────────────────────────────────────────---
 export type RegisterKunjunganInput = z.infer<typeof RegisterKunjunganInput>;
+export type ChangePenjaminInput = z.infer<typeof ChangePenjaminInput>;
 export type RujukanInput = z.infer<typeof RujukanInput>;
 export type SepInput = z.infer<typeof SepInput>;
 export type WorklistQuery = z.infer<typeof WorklistQuery>;

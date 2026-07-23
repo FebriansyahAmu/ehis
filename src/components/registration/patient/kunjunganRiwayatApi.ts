@@ -81,6 +81,7 @@ export function dtoToKunjunganRecord(dto: KunjunganListItemDTO): KunjunganRecord
     dpjpId: dto.dpjpId ?? undefined,
     // Ruangan perawatan: list-item bawa ruanganId (UUID) → nama diresolusi pemanggil dari master.
     ruanganId: dto.ruanganId ?? undefined,
+    poli: dto.poli ?? undefined,
     keluhan: dto.keluhan ?? "",
     diagnosa: dto.diagnosaMasuk ?? "—",
     penjamin: PENJAMIN_LABEL[dto.penjaminTipe] ?? dto.penjaminTipe,
@@ -117,6 +118,7 @@ export function dtoDetailToKunjunganRecord(
     dokter: opts?.dpjpNama?.trim() || "—",
     dpjpId: dto.dpjpId ?? undefined,
     ruanganId: dto.ruanganId ?? undefined,
+    poli: dto.poli ?? undefined,
     keluhan: dto.keluhan ?? "",
     diagnosa: dto.diagnosaMasuk ?? "—",
     penjamin: PENJAMIN_LABEL[dto.penjaminTipe] ?? dto.penjaminTipe,

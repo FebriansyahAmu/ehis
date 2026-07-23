@@ -86,23 +86,29 @@ export function makeBpjsService(deps: { clock?: Clock; dal?: BpjsDal } = {}) {
     return `${ppkPelayanan}${yymmdd}V${pad(seq, 6)}`;
   }
 
+  function rujukanData(kunjunganId: string, input: RujukanInput) {
+    return {
+      kunjunganId,
+      sumber: input.sumber,
+      asalRujukan: input.asalRujukan,
+      noRujukan: input.noRujukan,
+      tglRujukan: dateOnly(input.tglRujukan),
+      ppkRujukan: input.ppkRujukan,
+      diagnosaKode: input.diagnosaKode,
+      diagnosaNama: input.diagnosaNama,
+      poliTujuan: input.poliTujuan,
+      noSepAsal: input.noSepAsal,
+    };
+  }
+
   /** Buat rujukan untuk kunjungan (1:1). */
   function createRujukan(kunjunganId: string, input: RujukanInput, tx?: Tx) {
-    return dal.createRujukan(
-      {
-        kunjunganId,
-        sumber: input.sumber,
-        asalRujukan: input.asalRujukan,
-        noRujukan: input.noRujukan,
-        tglRujukan: dateOnly(input.tglRujukan),
-        ppkRujukan: input.ppkRujukan,
-        diagnosaKode: input.diagnosaKode,
-        diagnosaNama: input.diagnosaNama,
-        poliTujuan: input.poliTujuan,
-        noSepAsal: input.noSepAsal,
-      },
-      tx,
-    );
+    return dal.createRujukan(rujukanData(kunjunganId, input), tx);
+  }
+
+  /** Upsert rujukan (Ubah Penjamin — kunjungan bisa sudah punya rujukan). */
+  function upsertRujukan(kunjunganId: string, input: RujukanInput, tx?: Tx) {
+    return dal.upsertRujukanByKunjungan(rujukanData(kunjunganId, input), tx);
   }
 
   /**
@@ -182,7 +188,7 @@ export function makeBpjsService(deps: { clock?: Clock; dal?: BpjsDal } = {}) {
     return { ok: true, sep };
   }
 
-  return { createRujukan, issueSep };
+  return { createRujukan, upsertRujukan, issueSep };
 }
 
 export const bpjsService = makeBpjsService();

@@ -4,13 +4,14 @@
 import { api } from "@/lib/api/client";
 import type {
   RegisterKunjunganInput,
+  ChangePenjaminInput,
   KunjunganDTO,
   KunjunganListItemDTO,
   KunjunganActionName,
 } from "@/lib/schemas/kunjungan";
 import type { DisposisiInput } from "@/lib/schemas/disposisi/disposisi";
 
-export type { RegisterKunjunganInput, KunjunganDTO, KunjunganListItemDTO, KunjunganActionName };
+export type { RegisterKunjunganInput, ChangePenjaminInput, KunjunganDTO, KunjunganListItemDTO, KunjunganActionName };
 
 export interface RegisterKunjunganResult {
   kunjungan: KunjunganDTO;
@@ -24,6 +25,16 @@ export async function registerKunjungan(
   signal?: AbortSignal,
 ): Promise<RegisterKunjunganResult> {
   const r = await api.post<KunjunganDTO>("/kunjungan", input, { signal });
+  return { kunjungan: r.data, message: r.message };
+}
+
+/** POST /kunjungan/:id/penjamin — Ubah Penjamin (ganti penjamin + BPJS terbitkan/ganti SEP). */
+export async function changePenjamin(
+  id: string,
+  input: ChangePenjaminInput,
+  signal?: AbortSignal,
+): Promise<{ kunjungan: KunjunganDTO; message?: string }> {
+  const r = await api.post<KunjunganDTO>(`/kunjungan/${encodeURIComponent(id)}/penjamin`, input, { signal });
   return { kunjungan: r.data, message: r.message };
 }
 

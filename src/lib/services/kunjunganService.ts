@@ -14,6 +14,7 @@
 import { transaction } from "@/lib/db/prisma";
 import * as defaultDal from "@/lib/dal/kunjunganDal";
 import * as patientDal from "@/lib/dal/patientDal";
+import * as bpjsDal from "@/lib/dal/bpjsDal";
 import * as diagnosaDal from "@/lib/dal/diagnosa/diagnosaDal";
 import * as disposisiDal from "@/lib/dal/disposisi/disposisiDal";
 import * as spriDal from "@/lib/dal/spri/spriDal";
@@ -28,7 +29,7 @@ import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import { unitScopeBypassed, type CareUnit } from "@/lib/auth/careUnit";
 import { assertUnitInScope } from "@/lib/services/clinicalScope";
-import type { RegisterKunjunganInput, WorklistQuery, KunjunganDTO, KunjunganListItemDTO, KunjunganActionName } from "@/lib/schemas/kunjungan";
+import type { RegisterKunjunganInput, ChangePenjaminInput, WorklistQuery, KunjunganDTO, KunjunganListItemDTO, KunjunganActionName } from "@/lib/schemas/kunjungan";
 import type { DisposisiInput } from "@/lib/schemas/disposisi/disposisi";
 import type { KunjunganEntity, KunjunganListEntity, UpdateStatusPatch } from "@/lib/dal/kunjunganDal";
 
@@ -375,6 +376,144 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
     return { ...toDTO(created), sepError };
   }
 
+  /**
+   * Ubah Penjamin pada kunjungan yang SUDAH ada (tab Ubah Penjamin registrasi). Ganti
+   * `penjaminTipe` kunjungan + jaminan pasien; BPJS → (opsional) terbitkan SEP baru dengan
+   * SUPERSEDE SEP aktif lama (satu SEP aktif per kunjungan). Field turunan (unit/tanggal/
+   * dpjp/poli/kelasHak/diagAwal) DIRESOLUSI dari kunjungan — bukan dari FE (inti "auto per-unit").
+   * Reuse penuh mesin issueSep pendaftaran (payload t_sep, PII, skdp, blok rujukan per-unit).
+   */
+  async function changePenjamin(kunjunganId: string, input: ChangePenjaminInput, actor: Actor): Promise<KunjunganDTO> {
+    const k = await dal.findById(kunjunganId);
+    if (!k) throw Errors.notFound("Kunjungan tidak ditemukan");
+    assertUnitInScope(actor, k);
+    if (k.status === "Cancelled") throw Errors.validation("Kunjungan dibatalkan — penjamin tidak dapat diubah");
+
+    const patient = await patientDal.findById(k.pasien.id);
+    if (!patient) throw Errors.notFound("Pasien tidak ditemukan");
+
+    const bpjsFlow = isBpjs(input.penjaminTipe);
+    const willIssue = bpjsFlow && input.issueSep;
+
+    // Penjamin pasien yang tipe-nya cocok (sumber No. Kartu tersimpan bila FE tak kirim).
+    const penjamin = patient.penjamin.find((p) => p.tipe === input.penjaminTipe);
+
+    // No. Kartu SEP: hasil verifikasi (FE) → nomor tersimpan (enc). Wajib bila menerbitkan SEP.
+    let noKartu: string | undefined;
+    if (bpjsFlow) {
+      noKartu = input.sep?.noKartu?.trim() || input.noKartu?.trim() || (penjamin?.nomorEnc ? decryptPii(penjamin.nomorEnc) : undefined);
+      if (willIssue && !noKartu) throw Errors.validation("No. Kartu BPJS belum ada — verifikasi kepesertaan dulu");
+    }
+
+    // Turunan SEP dari kunjungan yang ada (bukan dari FE).
+    const noTelpEff = (input.sep?.noTelp?.trim() || patient.noHp?.trim() || "");
+    let diagAwalEff = input.sep?.diagAwal?.trim() || input.rujukan?.diagnosaKode?.trim() || "";
+    if (willIssue && !diagAwalEff && k.unit === "RawatInap") {
+      // RI: diagnosa awal SEP = diagnosa utama kunjungan (ter-koding di rekam medis).
+      const rows = await diagnosaDal.listUtamaByKunjunganIds([kunjunganId]);
+      diagAwalEff = rows[0]?.kodeIcd10 ?? "";
+    }
+
+    // skdp.kodeDPJP: rantai No.Ref SPRI → pegawai → mapping; fallback dpjpId kunjungan → form.
+    let skdpKodeDpjpEff = "";
+    if (willIssue && input.sep) {
+      if (input.sep.skdpNoSurat?.trim()) {
+        const spri = await spriDal.findByNoReferensi(input.sep.skdpNoSurat.trim());
+        if (spri?.dpjpPegawaiId) skdpKodeDpjpEff = await resolveKodeDpjpBpjsByPegawai(spri.dpjpPegawaiId);
+      }
+      if (!skdpKodeDpjpEff && k.dpjpId) skdpKodeDpjpEff = await resolveKodeDpjpBpjs(k.dpjpId);
+      if (!skdpKodeDpjpEff) skdpKodeDpjpEff = input.sep.skdpKodeDpjp?.trim() ?? "";
+    }
+
+    // Blok rujukan t_sep: RJ pakai input.rujukan; IGD/RI = rujukan INTERNAL RS (asal Faskes 2).
+    const sepRujukan = input.rujukan
+      ? {
+          asalRujukan: (input.rujukan.asalRujukan === "Faskes2" ? "2" : "1") as "1" | "2",
+          tglRujukan: input.rujukan.tglRujukan,
+          noRujukan: input.rujukan.noRujukan,
+          ppkRujukan: input.rujukan.ppkRujukan,
+        }
+      : {
+          asalRujukan: "2" as const,
+          tglRujukan: k.waktuKunjungan.toISOString().slice(0, 10),
+          ppkRujukan: input.sep?.ppkPelayanan,
+        };
+
+    let sepError: { code: string; message: string; field?: string } | null = null;
+
+    const updated = await transaction(async (tx) => {
+      // Persist penjamin: BPJS → simpan jaminan pasien (No. Kartu enc) & jadikan primer.
+      let penjaminId = penjamin?.id;
+      if (bpjsFlow && noKartu) {
+        penjaminId = await patientDal.upsertPenjaminByTipe(
+          patient.id,
+          {
+            tipe: input.penjaminTipe,
+            nama: penjamin?.nama ?? defaultPenjaminNama(input.penjaminTipe),
+            nomorEnc: encryptPii(noKartu),
+            nomorHash: hashPii(noKartu),
+            kelas: input.sep?.klsRawatHak ?? penjamin?.kelas ?? null,
+          },
+          { setPrimary: true },
+          tx,
+        );
+      } else if (input.penjaminTipe === "Asuransi" || input.penjaminTipe === "Jamkesda") {
+        // Non-BPJS: persist detail penjamin bila dikirim (nama/nomor/polis).
+        penjaminId = await patientDal.upsertPenjaminByTipe(
+          patient.id,
+          {
+            tipe: input.penjaminTipe,
+            nama: input.penjaminNama?.trim() || penjamin?.nama || defaultPenjaminNama(input.penjaminTipe),
+            noPolis: input.noPolis?.trim() || null,
+          },
+          { setPrimary: true },
+          tx,
+        );
+      } else {
+        penjaminId = undefined; // Umum → tak ada record penjamin
+      }
+
+      await dal.updatePenjamin(kunjunganId, { penjaminTipe: input.penjaminTipe, penjaminId: penjaminId ?? null }, tx);
+
+      if (willIssue && input.sep) {
+        // Poli tujuan SEP (RJ) = poli kunjungan (server-otoritatif "auto per-unit").
+        const poliEff = k.unit === "RawatJalan" ? (k.poli ?? input.sep.poliTujuan) : undefined;
+        // Supersede SEP aktif lama → satu SEP aktif per kunjungan.
+        await bpjsDal.supersedeSepByKunjungan(kunjunganId, clock.now(), tx);
+        let rujukanId: string | undefined;
+        if (input.rujukan) {
+          const r = await bpjs.upsertRujukan(kunjunganId, { ...input.rujukan, poliTujuan: poliEff ?? input.rujukan.poliTujuan }, tx);
+          rujukanId = r.id;
+        }
+        const res = await bpjs.issueSep(
+          {
+            kunjunganId,
+            rujukanId,
+            noKartu: noKartu!,
+            klsRawatHak: input.sep.klsRawatHak ?? penjamin?.kelas ?? undefined,
+            tglSep: k.waktuKunjungan,
+            diagAwal: diagAwalEff,
+            noTelp: noTelpEff,
+            skdpKodeDpjp: skdpKodeDpjpEff,
+            rujukan: sepRujukan,
+            input: { ...input.sep, poliTujuan: poliEff ?? input.sep.poliTujuan, user: await resolveActorNama(actor) },
+          },
+          tx,
+        );
+        if (!res.ok) {
+          if (!input.forceSep) throw Errors.validation(res.error.message, { sepReject: res.error });
+          sepError = res.error; // tetap ubah penjamin; SEP ditangguhkan
+        }
+      }
+
+      const fresh = await dal.findById(kunjunganId, tx);
+      if (!fresh) throw Errors.internal("Gagal memuat kunjungan setelah ubah penjamin");
+      return fresh;
+    });
+
+    return { ...toDTO(updated), sepError };
+  }
+
   /** Detail kunjungan (incl. rujukan + SEP utk cetak). Unit-scope: anti-IDOR lintas unit. */
   async function getKunjungan(id: string, actor: Actor): Promise<KunjunganDTO> {
     const found = await dal.findById(id);
@@ -638,7 +777,7 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
     return { items: items.map(toListDTO), cursor: nextCursor };
   }
 
-  return { registerKunjungan, getKunjungan, getDiagnosaUtama, getWorklist, transition };
+  return { registerKunjungan, changePenjamin, getKunjungan, getDiagnosaUtama, getWorklist, transition };
 }
 
 export const kunjunganService = makeKunjunganService();

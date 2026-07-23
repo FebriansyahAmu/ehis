@@ -160,6 +160,23 @@ export async function setTriaseLevel(id: string, triaseLevel: number, tx?: Tx): 
   return res.count;
 }
 
+// ── Ganti penjamin kunjungan (Ubah Penjamin) ─────────────────────────────────
+export interface UpdatePenjaminPatch {
+  penjaminTipe: TipePenjamin;
+  penjaminId?: string | null;
+  diagnosaMasuk?: string;
+  kodeIcdMasuk?: string;
+}
+/** Update field penjamin kunjungan. Tanpa version guard (perubahan administratif,
+ *  bukan lifecycle worklist). Filter soft-delete. */
+export async function updatePenjamin(id: string, patch: UpdatePenjaminPatch, tx?: Tx): Promise<number> {
+  const res = await db(tx).kunjungan.updateMany({
+    where: { id, deletedAt: null },
+    data: patch,
+  });
+  return res.count;
+}
+
 // ── Soft-delete ────────────────────────────────────────────────────────────---
 export function softDelete(id: string, when: Date, tx?: Tx) {
   return db(tx).kunjungan.updateMany({ where: { id, deletedAt: null }, data: { deletedAt: when } });

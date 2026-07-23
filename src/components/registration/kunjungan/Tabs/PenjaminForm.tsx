@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   HeartPulse, Wallet, HardHat, ShieldCheck,
@@ -8,11 +8,22 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { KunjunganRecord } from "@/lib/data";
+import type { KunjunganRecord, PatientMaster, TipePenjamin } from "@/lib/data";
 import { DatePicker } from "@/components/shared/inputs";
+import { changePenjamin } from "@/lib/api/kunjungan";
+import { ApiError } from "@/lib/api/client";
+import { toast } from "@/lib/ui/toastStore";
 import { BpjsPanel } from "./sep/BpjsSearch";
-import { InlineSEPCard } from "./sep/InlineSEPCard";
+import { UbahPenjaminSepModal } from "./sep/UbahPenjaminSepModal";
 import type { BpjsData } from "./sep/sepTypes";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Jenis penjamin non-BPJS (tab) → enum TipePenjamin kanonik. BPJS Ketenagakerjaan tak punya
+// enum tersendiri → dipetakan ke Asuransi (jaminan kerja) dgn nama eksplisit.
+const NONBPJS_TIPE: Record<"umum" | "bpjs-naker" | "asuransi", TipePenjamin> = {
+  umum: "Umum", "bpjs-naker": "Asuransi", asuransi: "Asuransi",
+};
 
 // ─── Types & config ───────────────────────────────────────────
 
@@ -123,14 +134,19 @@ function CurrentStrip({ kunjungan, type }: { kunjungan: KunjunganRecord; type: P
 // ─── Main form ────────────────────────────────────────────────
 
 // Tab "Ubah Penjamin" — pilih jenis penjamin → lengkapi data. BPJS: cek kepesertaan
-// (BpjsPanel) → terbitkan/ubah SEP (InlineSEPCard). Non-BPJS: form ringkas + simpan.
-export function PenjaminForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
+// (BpjsPanel) → "Gunakan Data Ini" LANGSUNG buka modal penerbitan SEP (adaptif per unit).
+// Non-BPJS: form ringkas → Simpan (persist penjaminTipe kunjungan via changePenjamin).
+export function PenjaminForm({ kunjungan, patient }: { kunjungan: KunjunganRecord; patient: PatientMaster }) {
   const currentType = useMemo(() => typeOf(kunjungan.penjamin), [kunjungan.penjamin]);
+  const isDbKunjungan = UUID_RE.test(kunjungan.id);
 
   const [selected,     setSelected]     = useState<PenjaminType>(currentType);
   const [bpjsSelected, setBpjsSelected] = useState<BpjsData | null>(null);
   const [cara,         setCara]         = useState("Tunai");
+  const [asuransiNama, setAsuransiNama] = useState("");
+  const [asuransiPolis, setAsuransiPolis] = useState("");
   const [saveState,    setSaveState]    = useState<"idle" | "saving" | "saved">("idle");
+  const issuedRef = useRef(false); // SEP/penjamin sudah diperbarui via modal → reload saat tutup
 
   const choose = (t: PenjaminType) => {
     setSelected(t);
@@ -140,15 +156,34 @@ export function PenjaminForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
 
   const resetToCurrent = () => choose(currentType);
 
-  const doSave = () => {
-    if (saveState !== "idle") return;
+  const doSave = async () => {
+    if (saveState !== "idle" || selected === "bpjs-jkn") return;
+    // Pasien/kunjungan demo (id non-UUID) → simulasi lokal (tak hit API).
+    if (!isDbKunjungan) {
+      setSaveState("saving");
+      window.setTimeout(() => { setSaveState("saved"); window.setTimeout(() => setSaveState("idle"), 2200); }, 700);
+      return;
+    }
     setSaveState("saving");
-    // Persistensi non-BPJS belum di-wire (SaveBtn lama = no-op). Simulasi optimistik →
-    // konfirmasi visual; swap ke updatePenjamin saat kontrak siap.
-    window.setTimeout(() => {
+    try {
+      const tipe = NONBPJS_TIPE[selected];
+      const penjaminNama =
+        selected === "bpjs-naker" ? "BPJS Ketenagakerjaan"
+        : selected === "asuransi" ? (asuransiNama.trim() || undefined)
+        : undefined;
+      await changePenjamin(kunjungan.id, {
+        penjaminTipe: tipe,
+        issueSep: false,
+        penjaminNama,
+        noPolis: selected === "asuransi" ? (asuransiPolis.trim() || undefined) : undefined,
+      });
+      toast.success("Penjamin diperbarui", labelOf(selected));
       setSaveState("saved");
       window.setTimeout(() => setSaveState("idle"), 2200);
-    }, 700);
+    } catch (err) {
+      setSaveState("idle");
+      toast.error("Gagal ubah penjamin", err instanceof ApiError ? err.message : "Periksa koneksi lalu coba lagi.");
+    }
   };
 
   const changed = selected !== currentType;
@@ -243,24 +278,12 @@ export function PenjaminForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
           className="space-y-4"
         >
           {selected === "bpjs-jkn" && (
-            <>
-              <BpjsPanel
-                defaultValue={kunjungan.noPenjamin ?? ""}
-                onSelect={(data) => setBpjsSelected(data)}
-                onDeselect={() => setBpjsSelected(null)}
-              />
-              <AnimatePresence>
-                {bpjsSelected && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 8, scale: 0.98 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                    className="overflow-hidden rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/60"
-                  >
-                    <InlineSEPCard data={bpjsSelected} kunjungan={kunjungan} onClose={() => setBpjsSelected(null)} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </>
+            <BpjsPanel
+              defaultValue={kunjungan.noPenjamin ?? ""}
+              patientName={patient.name}
+              onSelect={(data) => setBpjsSelected(data)}
+              onDeselect={() => setBpjsSelected(null)}
+            />
           )}
 
           {selected === "umum" && (
@@ -329,11 +352,21 @@ export function PenjaminForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
                 <Field label="Nama Asuransi" full>
                   <div className="relative">
                     <ShieldCheck size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
-                    <input className={cn(inp, "pl-8")} placeholder="Mis. Prudential, AXA, Allianz…" />
+                    <input
+                      value={asuransiNama}
+                      onChange={(e) => setAsuransiNama(e.target.value)}
+                      className={cn(inp, "pl-8")}
+                      placeholder="Mis. Prudential, AXA, Allianz…"
+                    />
                   </div>
                 </Field>
                 <Field label="No. Polis">
-                  <input className={cn(inp, "font-mono tracking-wide")} placeholder="Nomor polis…" />
+                  <input
+                    value={asuransiPolis}
+                    onChange={(e) => setAsuransiPolis(e.target.value)}
+                    className={cn(inp, "font-mono tracking-wide")}
+                    placeholder="Nomor polis…"
+                  />
                 </Field>
                 <Field label="Berlaku s/d">
                   <DatePicker value="" onChange={() => { /* draft lokal */ }} placeholder="Pilih tanggal" />
@@ -396,6 +429,23 @@ export function PenjaminForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
             </AnimatePresence>
           </button>
         </div>
+      )}
+
+      {/* ── SEP modal (BPJS · "Gunakan Data Ini") ── */}
+      {bpjsSelected && (
+        <UbahPenjaminSepModal
+          patient={patient}
+          kunjungan={kunjungan}
+          bpjsData={bpjsSelected}
+          onIssued={() => { issuedRef.current = true; }}
+          onClose={() => {
+            const reload = issuedRef.current;
+            issuedRef.current = false;
+            setBpjsSelected(null);
+            // Refresh agar CurrentStrip/header memuat penjamin + SEP terbaru.
+            if (reload) window.location.reload();
+          }}
+        />
       )}
     </div>
   );

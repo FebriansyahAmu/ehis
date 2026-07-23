@@ -8,7 +8,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { KunjunganRecord } from "@/lib/data";
+import type { KunjunganRecord, PatientMaster } from "@/lib/data";
 import { OverviewTab } from "./Tabs/OverviewTab";
 import {
   PenjaminForm, PaketForm, RujukanForm, KecelakaanForm,
@@ -101,10 +101,12 @@ function TabContent({
   active,
   kunjungan,
   icdCodes,
+  patient,
 }: {
   active: TabId;
   kunjungan: KunjunganRecord;
   icdCodes: string[];
+  patient: PatientMaster;
 }) {
   return (
     <AnimatePresence mode="wait">
@@ -117,7 +119,7 @@ function TabContent({
         className="flex-1 p-4 md:p-6"
       >
         {active === "overview"    && <OverviewTab kunjungan={kunjungan} icdCodes={icdCodes} />}
-        {active === "penjamin"    && <PenjaminForm kunjungan={kunjungan} />}
+        {active === "penjamin"    && <PenjaminForm kunjungan={kunjungan} patient={patient} />}
         {active === "paket"       && <PaketForm kunjungan={kunjungan} />}
         {active === "rujukan"     && <RujukanForm kunjungan={kunjungan} />}
         {active === "kecelakaan"  && <KecelakaanForm />}
@@ -134,9 +136,11 @@ function TabContent({
 export default function KunjunganTabs({
   kunjungan,
   icdCodes,
+  patient,
 }: {
   kunjungan: KunjunganRecord;
   icdCodes: string[];
+  patient: PatientMaster;
 }) {
   const [active, setActive] = useState<TabId>("overview");
 
@@ -166,7 +170,7 @@ export default function KunjunganTabs({
 
       {/* ── Content area ── */}
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-        <TabContent active={active} kunjungan={kunjungan} icdCodes={icdCodes} />
+        <TabContent active={active} kunjungan={kunjungan} icdCodes={icdCodes} patient={patient} />
       </div>
 
     </div>

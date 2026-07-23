@@ -78,12 +78,33 @@ export function createRujukan(data: CreateRujukanData, tx?: Tx) {
   return db(tx).rujukan.create({ data });
 }
 
+/** Upsert rujukan by kunjunganId (1:1 @unique). Dipakai Ubah Penjamin RJ — kunjungan
+ *  yang sudah punya rujukan tak boleh create ganda (P2002). */
+export function upsertRujukanByKunjungan(data: CreateRujukanData, tx?: Tx) {
+  const { kunjunganId, ...rest } = data;
+  return db(tx).rujukan.upsert({
+    where: { kunjunganId },
+    create: data,
+    update: rest,
+  });
+}
+
 export function createSep(data: CreateSepData, tx?: Tx) {
   return db(tx).sEP.create({ data });
 }
 
 export function findSepByKunjungan(kunjunganId: string, tx?: Tx) {
   return db(tx).sEP.findFirst({ where: { kunjunganId, deletedAt: null } });
+}
+
+/** Supersede (soft-delete) SEMUA SEP aktif satu kunjungan — dipanggil sebelum terbit
+ *  SEP baru (Ubah Penjamin) agar hanya satu SEP aktif per kunjungan. */
+export async function supersedeSepByKunjungan(kunjunganId: string, when: Date, tx?: Tx): Promise<number> {
+  const res = await db(tx).sEP.updateMany({
+    where: { kunjunganId, deletedAt: null },
+    data: { deletedAt: when },
+  });
+  return res.count;
 }
 
 /** SEP TERBIT milik pasien (lintas kunjungan), terbaru dulu — picker No. SEP (jadwal kontrol dsb). */
