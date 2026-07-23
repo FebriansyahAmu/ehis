@@ -187,6 +187,9 @@ export function DaftarKunjunganModal({
     // Seed field SEP turunan-kunjungan saat masuk step SEP (lalu bebas diedit operator).
     if (steps[target].id === "sep") {
       const isRanap = form.unit === "Rawat Inap";
+      const isIgd = form.unit === "IGD";
+      // IGD & Rawat Inap = rujukan INTERNAL RS (bukan FKTP). IGD tetap SEP Rawat Jalan.
+      const internalRujukan = isRanap || isIgd;
       setSepDraft((s) => ({
         ...s,
         jnsPelayanan: isRanap ? "1" : "2",
@@ -202,10 +205,10 @@ export function DaftarKunjunganModal({
               poliTujuan: form.poli,
             }
           : {}),
-        // Rawat Inap: rujukan INTERNAL (IGD → RI). t_sep tetap butuh blok rujukan, tapi asal = RS
-        // sendiri (Faskes 2), tgl = tgl sistem, PPK = faskes RS sendiri. No. rujukan auto-gen &
-        // diagAwal (diagnosa utama IGD) diisi saat build payload — lihat TECH_DEBT.
-        ...(isRanap
+        // Rujukan INTERNAL (IGD gawat darurat / IGD → RI). t_sep tetap butuh blok rujukan, tapi
+        // asal = RS sendiri (Faskes 2), tgl = tgl sistem, PPK = faskes RS sendiri. No. rujukan
+        // auto-gen & diagAwal (diagnosa utama) diisi saat build payload — lihat TECH_DEBT.
+        ...(internalRujukan
           ? {
               asalRujukan: "2" as const,
               tglRujukan: s.tglRujukan || form.tanggal,
@@ -354,7 +357,7 @@ export function DaftarKunjunganModal({
                     />
                   )}
                   {current === "sep" && (
-                    <StepSEP patientId={patient.id} draft={sepDraft} setDraft={setSepDraft} terbitSep={terbitSep} setTerbitSep={setTerbitSep} />
+                    <StepSEP patientId={patient.id} draft={sepDraft} setDraft={setSepDraft} terbitSep={terbitSep} setTerbitSep={setTerbitSep} forceInternalRujukan={form.unit === "IGD"} />
                   )}
                   {current === "review" && (
                     <StepReview form={form} penjamin={penjamin} isBpjsFlow={bpjsFlow} terbitSep={terbitSep} rujukan={needsRujukan ? rujukan : null} draft={sepDraft} />
