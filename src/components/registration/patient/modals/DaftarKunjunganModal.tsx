@@ -42,6 +42,7 @@ const SEP_FIELD_LABEL: Record<string, string> = {
   skdpNoSurat: "No. Referensi SPRI",
   noKartu: "No. Kartu BPJS",
   ppkPelayanan: "Kode PPK Pelayanan",
+  tglSep: "Tanggal Pelayanan / SEP",
 };
 
 export function DaftarKunjunganModal({

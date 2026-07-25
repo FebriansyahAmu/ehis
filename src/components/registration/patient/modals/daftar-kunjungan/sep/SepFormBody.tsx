@@ -98,8 +98,13 @@ export function SepFormBody({
       {/* ── Detail Pelayanan ── */}
       <SectionCard title="Detail Pelayanan" desc="Tanggal & jenis layanan SEP" icon={CalendarDays} accent="sky">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Tanggal SEP">
-            <DatePicker variant="filled" value={draft.tglSep} onChange={(v) => set("tglSep", v)} />
+          {/* Tanggal SEP TERKUNCI = tanggal pelayanan. Ketentuan BPJS membatasi backdate SEP
+              (RJ/IGD same-day · RI 3×24 jam hari kerja) → tanggal tidak dapat diedit operator. */}
+          <Field label="Tanggal SEP" hint="tgl pelayanan · terkunci">
+            <div className="flex h-10 items-center gap-2 rounded-xl bg-slate-50 px-3 ring-1 ring-slate-200">
+              <CalendarDays size={13} className="shrink-0 text-slate-400" />
+              <span className="text-[13px] font-medium text-slate-600">{draft.tglSep ? fmtTglShort(draft.tglSep) : "—"}</span>
+            </div>
           </Field>
           <Field label="Jenis Pelayanan">
             <Segmented accent="sky" value={draft.jnsPelayanan}

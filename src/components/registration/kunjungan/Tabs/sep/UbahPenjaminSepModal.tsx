@@ -32,7 +32,7 @@ const UNIT_MAP: Record<string, UnitDaftar> = {
 // Label field penyebab penolakan SEP (BpjsMetaError.field) → teks operator (mirror DaftarKunjunganModal).
 const SEP_FIELD_LABEL: Record<string, string> = {
   noTelp: "No. Telepon", diagAwal: "Diagnosa Awal (ICD-10)", skdpNoSurat: "No. Referensi SPRI",
-  noKartu: "No. Kartu BPJS", ppkPelayanan: "Kode PPK Pelayanan",
+  noKartu: "No. Kartu BPJS", ppkPelayanan: "Kode PPK Pelayanan", tglSep: "Tanggal Pelayanan / SEP",
 };
 
 /**

@@ -140,8 +140,9 @@ export function makeBpjsService(deps: { clock?: Clock; dal?: BpjsDal } = {}) {
     const tglSepYmd = tglSep.toISOString().slice(0, 10);
 
     // Build t_sep + panggil konektor BPJS (mock). Konektor nyata kelak return noSep BPJS.
+    // `clock.now()` diteruskan untuk aturan batas tanggal SEP (R7) — deterministik/testable.
     const payload = buildInsertSepPayload({ sep: input, noKartu, tglSep: tglSepYmd, klsRawatHak, diagAwal, noTelp, skdpKodeDpjp, rujukan });
-    const res = insertSepMock(payload);
+    const res = insertSepMock(payload, clock.now());
     if (!res.ok) return { ok: false, error: res.error };
 
     const noSep = res.noSep ?? (await genNoSep(input.ppkPelayanan, tx));

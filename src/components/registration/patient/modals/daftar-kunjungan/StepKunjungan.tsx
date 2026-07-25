@@ -1,8 +1,9 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
+import { CalendarDays, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DatePicker, TimePicker } from "@/components/shared/inputs";
+import { TimePicker } from "@/components/shared/inputs";
 import { StepKunjunganIgd } from "./StepKunjunganIgd";
 import { StepKunjunganRi } from "./StepKunjunganRi";
 import { StepKunjunganRj } from "./StepKunjunganRj";
@@ -13,6 +14,13 @@ import {
 } from "./config";
 
 const KELAS_OPTS: [string, string][] = [["1", "Kelas 1"], ["2", "Kelas 2"], ["3", "Kelas 3"], ["vip", "VIP"]];
+
+/** Format "yyyy-MM-dd" → tanggal id-ID ringkas (mis. "Sen, 29 Jun 2026"). */
+function fmtTgl(ymd: string): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  if (!y) return ymd || "—";
+  return new Date(y, m - 1, d).toLocaleDateString("id-ID", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
+}
 
 export function StepKunjungan({
   form, setForm, spriDpjp,
@@ -63,7 +71,14 @@ export function StepKunjungan({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelCls}>Tanggal</label>
-            <DatePicker value={form.tanggal} onChange={(v) => set("tanggal", v)} />
+            {/* Tanggal TERKUNCI hari ini: SEP diterbitkan pada tgl pelayanan & tidak boleh
+                di-backdate (ketentuan BPJS). Jam tetap dapat disesuaikan. */}
+            <div className="flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+              <CalendarDays size={14} className="shrink-0 text-slate-400" />
+              <span className="flex-1 text-left font-medium text-slate-600">{fmtTgl(form.tanggal)}</span>
+              <Lock size={12} className="shrink-0 text-slate-300" />
+            </div>
+            <p className="mt-1 text-[9.5px] leading-tight text-slate-400">Terkunci hari ini · SEP tidak dapat di-backdate.</p>
           </div>
           <div>
             <label className={labelCls}>Jam</label>

@@ -43,8 +43,13 @@ export function SepStep2({ draft, setDraft }: {
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid grid-cols-2 gap-3">
+          {/* Tanggal SEP TERKUNCI = tgl pelayanan (ketentuan BPJS batasi backdate SEP). */}
           <SepField label="Tanggal SEP">
-            <DatePicker variant="filled" value={draft.tglSep} onChange={v => set("tglSep", v)} />
+            <div className="flex h-10 items-center gap-2 rounded-xl bg-slate-100 px-3">
+              <Calendar size={13} className="shrink-0 text-slate-400" />
+              <span className="text-[13px] font-semibold text-slate-600">{draft.tglSep || "—"}</span>
+              <span className="ml-auto text-[9px] text-slate-400">terkunci</span>
+            </div>
           </SepField>
           <SepField label="Jenis Pelayanan">
             <Chips options={[{ value: "2", label: "Rawat Jalan" }, { value: "1", label: "Rawat Inap" }]}

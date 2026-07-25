@@ -16,7 +16,7 @@ export type { InsertSEPPayload };
 export interface BpjsMetaError {
   code: string;
   message: string;
-  field?: "noTelp" | "diagAwal" | "skdpNoSurat" | "noKartu" | "ppkPelayanan";
+  field?: "noTelp" | "diagAwal" | "skdpNoSurat" | "noKartu" | "ppkPelayanan" | "tglSep";
 }
 
 /** Hasil konektor Insert SEP. `noSep` opsional saat sukses — mock biarkan undefined (Service
