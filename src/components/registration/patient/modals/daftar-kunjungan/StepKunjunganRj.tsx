@@ -1,15 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Building2, Stethoscope, Loader2, AlertCircle, UserX } from "lucide-react";
+import { Building2, Stethoscope, Loader2, AlertCircle, UserX, Package, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Select } from "@/components/shared/inputs";
 import { listRuanganByType } from "@/lib/api/ruangan";
 import { listDokter, type DokterListItemDTO } from "@/lib/api/dokter";
+import { listPaketLayananTersedia, type PaketDTO } from "@/lib/api/master/paketLayanan";
 import type { LocationNode } from "@/components/master/ruangan/ruanganShared";
 import { POLI_OPTS } from "../../config";
 import { inputCls, labelCls, type KunjunganForm } from "./config";
 
 const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name === "AbortError";
+const fmtRp = (v: number): string =>
+  new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(v);
 
 /**
  * Detail Rawat Jalan pada wizard pendaftaran: Poli Tujuan (master Location locationType=Rawat_Jalan)
@@ -74,6 +78,23 @@ export function StepKunjunganRj({
       .finally(() => { if (!cancelled) setDokterLoading(false); });
     return () => { cancelled = true; ctrl.abort(); };
   }, [form.poliRuanganId, setForm]);
+
+  // ── Paket Layanan (master.PaketLayanan, opsional) ──
+  const [pakets, setPakets] = useState<PaketDTO[] | null>(null);
+  const [showPaket, setShowPaket] = useState<boolean>(!!form.paketId);
+  useEffect(() => {
+    const ctrl = new AbortController();
+    listPaketLayananTersedia(ctrl.signal)
+      .then(setPakets)
+      .catch((e) => { if (!isAbort(e)) setPakets([]); });
+    return () => ctrl.abort();
+  }, []);
+  const togglePaket = (on: boolean) => {
+    setShowPaket(on);
+    if (!on) setForm((f) => ({ ...f, paketId: undefined }));
+  };
+  const pickPaket = (id: string) =>
+    setForm((f) => ({ ...f, paketId: f.paketId === id ? undefined : id }));
 
   const onPickPoli = (id: string) => {
     const r = poliList.find((x) => x.id === id);
@@ -159,6 +180,70 @@ export function StepKunjunganRj({
               <Stethoscope size={10} /> {dokter.length} dokter bertugas di poli ini
             </p>
           </>
+        )}
+      </div>
+
+      {/* Paket Layanan (opsional) — hanya Rawat Jalan */}
+      <div>
+        <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2.5 transition hover:bg-slate-50">
+          <input
+            type="checkbox"
+            checked={showPaket}
+            onChange={(e) => togglePaket(e.target.checked)}
+            className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 accent-sky-500"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-[12px] font-semibold text-slate-700">Sertakan Paket Layanan</p>
+            <p className="text-[10px] leading-tight text-slate-400">Paket bundling (MCU, dll.) — ditagihkan sebagai satu paket.</p>
+          </div>
+          <Package size={15} className={showPaket ? "text-sky-500" : "text-slate-300"} />
+        </label>
+
+        {showPaket && (
+          <div className="mt-2 space-y-1.5">
+            {pakets === null ? (
+              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-400">
+                <Loader2 size={13} className="animate-spin" /> Memuat paket layanan…
+              </div>
+            ) : pakets.length === 0 ? (
+              <div className="flex items-start gap-2 rounded-lg border border-dashed border-slate-200 bg-slate-50/60 px-3 py-2.5 text-[11px] text-slate-400">
+                <Package size={13} className="mt-px shrink-0" />
+                <span>Belum ada paket aktif di master. Atur di Master → Paket Layanan.</span>
+              </div>
+            ) : (
+              pakets.map((p) => {
+                const selected = form.paketId === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => pickPaket(p.id)}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition active:scale-[0.99]",
+                      selected ? "border-sky-400 bg-sky-50 ring-1 ring-sky-200" : "border-slate-200 hover:border-slate-300",
+                    )}
+                  >
+                    <span className={cn(
+                      "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition",
+                      selected ? "border-sky-500 bg-sky-500" : "border-slate-300",
+                    )}>
+                      {selected && <Check size={11} className="text-white" />}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[12px] font-semibold text-slate-700">{p.nama}</p>
+                      <p className="text-[10px] text-slate-400">{p.kategori} · {p.items.length} item</p>
+                    </div>
+                    <span className="shrink-0 text-[12px] font-bold text-sky-600">{fmtRp(p.hargaUmum)}</span>
+                  </button>
+                );
+              })
+            )}
+            {pakets && pakets.length > 0 && (
+              <p className="text-[9.5px] leading-tight text-slate-400">
+                Harga umum ditampilkan; tarif final mengikuti penjamin & muncul otomatis di tagihan (ehis-billing).
+              </p>
+            )}
+          </div>
         )}
       </div>
     </>

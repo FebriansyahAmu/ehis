@@ -184,7 +184,7 @@ export function listBillableHeaders(limit: number) {
     select: {
       id: true, noKunjungan: true, unit: true, status: true,
       waktuKunjungan: true, selesaiAt: true, lockedAt: true,
-      kelas: true, kelasHak: true, penjaminTipe: true,
+      kelas: true, kelasHak: true, penjaminTipe: true, paketLayananId: true,
       pasien: { select: { noRm: true, nama: true, gender: true, tanggalLahir: true } },
     },
   });
@@ -201,7 +201,7 @@ export function listBillableHeadersByPatient(patientId: string) {
     select: {
       id: true, noKunjungan: true, unit: true, status: true,
       waktuKunjungan: true, selesaiAt: true, lockedAt: true,
-      kelas: true, kelasHak: true, penjaminTipe: true,
+      kelas: true, kelasHak: true, penjaminTipe: true, paketLayananId: true,
       pasien: { select: { noRm: true, nama: true, gender: true, tanggalLahir: true } },
     },
   });
@@ -213,7 +213,7 @@ export function findKunjunganHeaders(ids: string[]) {
     select: {
       id: true, noKunjungan: true, unit: true, status: true,
       waktuKunjungan: true, selesaiAt: true, lockedAt: true,
-      kelas: true, kelasHak: true, penjaminTipe: true,
+      kelas: true, kelasHak: true, penjaminTipe: true, paketLayananId: true,
       pasien: { select: { noRm: true, nama: true, gender: true, tanggalLahir: true } },
     },
   });

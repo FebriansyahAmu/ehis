@@ -110,6 +110,9 @@ export interface KunjunganForm {
   /** Master Location id poli terpilih (Rawat_Jalan) — transient: untuk memuat dokter ter-assign
    *  poli (tidak dikirim ke server; DPJP dikirim via dpjpId). */
   poliRuanganId: string;
+  /** Paket Layanan terpilih (Rawat Jalan, opsional) — master.PaketLayanan id → Kunjungan.paketLayananId
+   *  → billing proyeksikan charge bundel. Kosong = tanpa paket. */
+  paketId?: string;
   asalMasuk: string;
   kelasRawat: string;
   /** Kelas KAMAR aktual dari ruangan RI terpilih (RIKelas: "Kelas_3"/"VIP"/"ICU"…). Placement fisik

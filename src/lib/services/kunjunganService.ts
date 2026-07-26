@@ -324,6 +324,8 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
           caraMasuk: input.caraMasuk,
           penjaminTipe: input.penjaminTipe,
           penjaminId,
+          // Paket Layanan (RJ saja) — dibaca billing untuk proyeksi charge bundel.
+          paketLayananId: input.unit === "RawatJalan" ? input.paketId : undefined,
           // Denormalisasi diagnosa masuk dari rujukan (tampilan cepat).
           diagnosaMasuk: input.rujukan?.diagnosaNama,
           kodeIcdMasuk: input.rujukan?.diagnosaKode,

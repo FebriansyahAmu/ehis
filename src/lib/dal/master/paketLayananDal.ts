@@ -68,6 +68,18 @@ export interface ListParams {
   limit: number;
 }
 
+/**
+ * Ambil paket by ids untuk KONSUMEN billing (proyeksi charge). TIDAK memfilter deletedAt/status:
+ * paket yang pernah dipilih pada kunjungan tetap ditagihkan walau kelak dinonaktifkan/dihapus.
+ */
+export function findByIds(ids: string[], tx?: Tx) {
+  if (ids.length === 0) return Promise.resolve([] as { id: string; nama: string; hargaUmum: number; hargaBpjs: number | null }[]);
+  return db(tx).paketLayanan.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, nama: true, hargaUmum: true, hargaBpjs: true },
+  });
+}
+
 export function list(p: ListParams, tx?: Tx) {
   const where: Record<string, unknown> = { ...ALIVE };
   if (p.kategori) where.kategori = p.kategori;

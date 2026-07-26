@@ -117,6 +117,8 @@ export function buildRegisterInput(args: BuildRegisterArgs): RegisterKunjunganIn
     keluhan: orUndef(form.keluhan),
     caraMasuk: orUndef(form.caraMasuk),
     penjaminTipe: penjamin.tipe,
+    // Paket Layanan (Rawat Jalan saja) → Kunjungan.paketLayananId → billing charge bundel.
+    paketId: unit === "RawatJalan" ? orUndef(form.paketId) : undefined,
     // No. Kartu terverifikasi dikirim terpisah → penjamin tetap tersimpan walau SEP ditangguhkan.
     noKartu: orUndef(noKartu),
     rujukan: rujukanInput,

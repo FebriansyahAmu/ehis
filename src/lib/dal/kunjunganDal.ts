@@ -38,6 +38,7 @@ export interface CreateKunjunganData {
   kodeIcdMasuk?: string;
   penjaminTipe: TipePenjamin;
   penjaminId?: string;
+  paketLayananId?: string; // RJ — paket layanan terpilih (soft-ref master.PaketLayanan)
 }
 
 export interface UpdateStatusPatch {

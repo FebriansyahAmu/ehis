@@ -13,6 +13,7 @@ import * as bmhpDal from "@/lib/dal/bmhpOrder/bmhpOrderDal";
 import * as billingReadDal from "@/lib/dal/billing/billingReadDal";
 import * as tarifKamarDal from "@/lib/dal/master/tarifKamarDal";
 import * as tarifAdministrasiDal from "@/lib/dal/master/tarifAdministrasiDal";
+import * as paketLayananDal from "@/lib/dal/master/paketLayananDal";
 import { deriveBillingStatus } from "./billingStatus";
 import { Errors } from "@/lib/errors/appError";
 import type {
@@ -68,6 +69,15 @@ function resolveKamarRate(map: TarifRateMap, kelas: string | null, penjaminTipe:
 function resolveAdminFee(map: TarifRateMap, unit: string, penjaminTipe: string): number {
   const pk = tarifPenjaminKode(penjaminTipe);
   return map.get(`${unit}:${pk}`) ?? map.get(`${unit}:UMUM`) ?? 0;
+}
+
+/** Harga paket bundel (fixed): BPJS → hargaBpjs ?? hargaUmum; selain itu hargaUmum. 0 bila absen. */
+function resolvePaketPrice(
+  paket: { hargaUmum: number; hargaBpjs: number | null } | undefined,
+  penjaminTipe: string,
+): number {
+  if (!paket) return 0;
+  return tarifPenjaminKode(penjaminTipe) === "BPJS" ? (paket.hargaBpjs ?? paket.hargaUmum) : paket.hargaUmum;
 }
 
 const iso = (d: Date | string | null | undefined): string =>
@@ -274,6 +284,28 @@ async function projectByKunjungan(kunjunganId: string): Promise<BillingProjectio
     });
   }
 
+  // ── Paket Layanan (RJ) — 1 charge bundel harga tetap (penjamin-aware). Item internal paket
+  //    bersifat informatif (bukan order) → TIDAK ditagih terpisah (anti double-bill). ──
+  if (k.paketLayananId) {
+    const [paket] = await paketLayananDal.findByIds([k.paketLayananId]);
+    if (paket) {
+      const harga = resolvePaketPrice(paket, k.penjaminTipe);
+      items.push({
+        id: `paket-${kunjunganId}`,
+        tanggalISO: iso(k.waktuKunjungan),
+        nama: `Paket: ${paket.nama}`,
+        sourceModul: unitMod,
+        sourceRef: `paket:${kunjunganId}:${paket.id}`,
+        kategori: "Lain-lain",
+        qty: 1,
+        satuan: "paket",
+        hargaSatuan: harga,
+        coverage,
+        untariffed: harga === 0,
+      });
+    }
+  }
+
   const subtotal = items.reduce((s, it) => s + it.hargaSatuan * it.qty, 0);
   const untariffedCount = items.filter((it) => it.untariffed).length;
 
@@ -307,18 +339,21 @@ async function projectHeaders(headers: BillableHeader[]): Promise<BillingKunjung
   const agg = await billingReadDal.aggregateOrderTotals();
   const totals = new Map(agg.map((a) => [a.kid, { subtotal: Number(a.subtotal), n: Number(a.n) }]));
   const ids = headers.map((h) => h.id);
-  const [paidAgg, lifecycles, itemAdjAgg, kamarRows, adminRows] = await Promise.all([
+  const paketIds = [...new Set(headers.map((h) => h.paketLayananId).filter((x): x is string => !!x))];
+  const [paidAgg, lifecycles, itemAdjAgg, kamarRows, adminRows, paketRows] = await Promise.all([
     billingReadDal.aggregatePaid(ids),
     billingReadDal.findInvoiceLifecycles(ids),
     billingReadDal.aggregateItemAdjustment(ids),
     tarifKamarDal.list({ limit: 500 }),
     tarifAdministrasiDal.list({ limit: 500 }),
+    paketLayananDal.findByIds(paketIds),
   ]);
   const paidMap = new Map(paidAgg.map((p) => [p.kid, Number(p.dibayar)]));
   const lifeMap = new Map(lifecycles.map((l) => [l.kunjunganId, l.status]));
   const reduksiMap = new Map(itemAdjAgg.map((a) => [a.kid, Number(a.reduksi)]));
   const kamarMap = buildKamarMap(kamarRows.items);
   const adminMap = buildAdminMap(adminRows.items);
+  const paketMap = new Map(paketRows.map((p) => [p.id, p]));
 
   const rows: BillingKunjunganRowDTO[] = headers.map((k) => {
     const t = totals.get(k.id) ?? { subtotal: 0, n: 0 };
@@ -328,8 +363,9 @@ async function projectHeaders(headers: BillableHeader[]): Promise<BillingKunjung
     const rate = k.unit === "RawatInap" ? resolveKamarRate(kamarMap, tier, k.penjaminTipe) : 0;
     const akom = k.unit === "RawatInap" ? akomodasiSum(tier, rate, admit, endISO) : 0;
     const admin = resolveAdminFee(adminMap, k.unit, k.penjaminTipe);
+    const paket = k.paketLayananId ? resolvePaketPrice(paketMap.get(k.paketLayananId), k.penjaminTipe) : 0;
     const reduksi = reduksiMap.get(k.id) ?? 0;             // Σ penyesuaian per-baris (diskon/void)
-    const total = Math.max(0, t.subtotal + akom + admin - reduksi); // net proyeksi + akomodasi + admin
+    const total = Math.max(0, t.subtotal + akom + admin + paket - reduksi); // net proyeksi + akomodasi + admin + paket
     const dibayar = paidMap.get(k.id) ?? 0;
     const sisa = Math.max(0, total - dibayar);
     return {

@@ -127,6 +127,10 @@ model Kunjungan {
   diagnosaMasuk String? @map("diagnosa_masuk")
   kodeIcdMasuk  String? @map("kode_icd_masuk") // ICD-10
 
+  /// Paket Layanan terpilih saat pendaftaran (RJ) — soft-ref master.PaketLayanan (tanpa FK lintas
+  /// schema). Billing MEMPROYEKSIKAN 1 charge bundel (harga penjamin-aware). Null = tanpa paket.
+  paketLayananId String? @map("paket_layanan_id") @db.Uuid
+
   // ── Penjamin kunjungan (snapshot tipe utk worklist + FK ke penjamin pasien) ──
   penjaminTipe TipePenjamin    @default(Umum) @map("penjamin_tipe")
   /// Penjamin yang dipakai utk kunjungan ini. No. kartu/BPJS disimpan di PasienPenjamin (enc).

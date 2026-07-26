@@ -91,6 +91,8 @@ export const RegisterKunjunganInput = z
     caraMasuk: z.string().trim().max(60).optional(),
     penjaminId: z.string().uuid().optional(), // pilih penjamin pasien; default primer
     penjaminTipe: TipePenjamin,
+    // Paket Layanan terpilih (RJ) — master.PaketLayanan id. Billing proyeksikan 1 charge bundel.
+    paketId: z.string().uuid().optional(),
     // No. Kartu BPJS terverifikasi di loket — dikirim terpisah dari SEP agar penjamin tetap
     // tersimpan walau penerbitan SEP ditangguhkan ("buat SEP nanti").
     noKartu: z.string().trim().max(40).optional(),
