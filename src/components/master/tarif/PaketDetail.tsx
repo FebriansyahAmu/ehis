@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Save, Trash2, Search, Plus, X, Package } from "lucide-react";
+import { Save, Trash2, Plus, X, Package, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import type { PaketLayanan, TarifRecord } from "@/lib/master/tarifMock";
-import { STATUS_CFG, STATUS_LIST, KATEGORI_CFG, fmtIDR, fmtIDRShort, calcPaketTotal } from "./tarifShared";
+import {
+  type PaketDraft, PAKET_KATEGORI, PAKET_BADGE, PAKET_STATUS, statusCfg,
+} from "./paketMasterShared";
+import { fmtIDR } from "./tarifShared";
 
 const INPUT = cn(
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800",
@@ -17,20 +19,26 @@ const LABEL = "block text-[10px] font-semibold uppercase tracking-wide text-slat
 type Tab = "identitas" | "komposisi";
 
 interface Props {
-  draft:     PaketLayanan;
-  isNew:     boolean;
-  isDirty:   boolean;
-  allTarifs: TarifRecord[];
-  onPatch:   (p: Partial<PaketLayanan>) => void;
-  onSave:    () => void;
-  onCancel:  () => void;
-  onDelete:  () => void;
+  draft:    PaketDraft;
+  isNew:    boolean;
+  isDirty:  boolean;
+  busy:     boolean;
+  onPatch:  (p: Partial<PaketDraft>) => void;
+  onSave:   () => void;
+  onCancel: () => void;
+  onDelete: () => void;
+}
+
+/** Harga setelah diskon (untuk preview). */
+function finalUmum(d: PaketDraft): number {
+  const disc = d.diskonPct ? Math.round(d.hargaUmum * d.diskonPct / 100) : 0;
+  return d.hargaUmum - disc;
 }
 
 // ── Right-panel widgets ──────────────────────────────────────
 
-function PaketPreviewCard({ draft }: { draft: PaketLayanan }) {
-  const stsCfg = STATUS_CFG[draft.status];
+function PaketPreviewCard({ draft }: { draft: PaketDraft }) {
+  const stsCfg = statusCfg(draft.status);
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-col items-center gap-2 bg-teal-50 px-4 pt-5 pb-4">
@@ -42,10 +50,15 @@ function PaketPreviewCard({ draft }: { draft: PaketLayanan }) {
             {draft.nama || "Nama Paket"}
           </p>
           <div className="mt-1 flex items-center justify-center gap-1.5 flex-wrap">
-            <span className="font-mono text-[10px] text-slate-500">{draft.kode || "—"}</span>
+            <span className="font-mono text-[10px] text-slate-500">{draft.kode || "Auto"}</span>
             <span className={cn("rounded-full px-2 py-0.5 text-[9px] font-bold", stsCfg.bg, stsCfg.text)}>
               {stsCfg.label}
             </span>
+            {draft.badge && (
+              <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[9px] font-bold text-sky-700">
+                {draft.badge}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -57,21 +70,28 @@ function PaketPreviewCard({ draft }: { draft: PaketLayanan }) {
         </div>
         <div className="px-3 py-3 text-center">
           <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Diskon</p>
-          <p className="mt-0.5 text-base font-black text-teal-700">{draft.diskon ?? 0}%</p>
+          <p className="mt-0.5 text-base font-black text-teal-700">{draft.diskonPct ?? 0}%</p>
         </div>
       </div>
 
-      {draft.tarifUmum > 0 && (
+      {draft.hargaUmum > 0 && (
         <div className="border-b border-slate-100 px-4 py-3 text-center">
           <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400">Tarif Paket Umum</p>
-          <p className="mt-0.5 text-base font-black text-teal-700">{fmtIDR(draft.tarifUmum)}</p>
-          {draft.tarifBPJS && (
-            <p className="text-[10px] text-sky-600 font-semibold">BPJS: {fmtIDR(draft.tarifBPJS)}</p>
+          <p className="mt-0.5 text-base font-black text-teal-700">{fmtIDR(finalUmum(draft))}</p>
+          {!!draft.diskonPct && (
+            <p className="text-[10px] text-slate-400 line-through">{fmtIDR(draft.hargaUmum)}</p>
+          )}
+          {draft.hargaBpjs != null && (
+            <p className="text-[10px] text-sky-600 font-semibold">BPJS: {fmtIDR(draft.hargaBpjs)}</p>
           )}
         </div>
       )}
 
       <div className="divide-y divide-slate-50 px-4 py-1">
+        <div className="py-2.5">
+          <span className="text-[10px] font-semibold uppercase text-slate-400">Kategori</span>
+          <p className="mt-0.5 text-[11px] font-semibold text-slate-600">{draft.kategori}</p>
+        </div>
         {draft.deskripsi && (
           <div className="py-2.5">
             <span className="text-[10px] font-semibold uppercase text-slate-400">Deskripsi</span>
@@ -86,14 +106,8 @@ function PaketPreviewCard({ draft }: { draft: PaketLayanan }) {
   );
 }
 
-function PaketSummaryCard({
-  draft, allTarifs,
-}: { draft: PaketLayanan; allTarifs: TarifRecord[] }) {
-  const baseTotal = calcPaketTotal(draft.items, allTarifs);
-  const diskonRp  = draft.diskon ? Math.round(baseTotal * draft.diskon / 100) : 0;
-  const finalUmum = baseTotal - diskonRp;
-  const maxVal    = baseTotal || 1;
-
+function PaketSummaryCard({ draft }: { draft: PaketDraft }) {
+  const disc = draft.diskonPct ? Math.round(draft.hargaUmum * draft.diskonPct / 100) : 0;
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-col items-center gap-1 bg-teal-50 px-4 py-4">
@@ -101,63 +115,49 @@ function PaketSummaryCard({
         <p className="text-xl font-black text-teal-800">{draft.items.length} Item</p>
       </div>
 
-      {draft.items.length > 0 && (
+      {draft.items.length > 0 ? (
         <div className="divide-y divide-slate-50 px-4 py-1">
-          {draft.items.map((item) => {
-            const t = allTarifs.find((x) => x.id === item.tarifId);
-            if (!t) return null;
-            const cfg = KATEGORI_CFG[t.kategori];
-            const subtotal = t.tarifUmum * item.qty;
-            const pct = Math.round((subtotal / maxVal) * 100);
-            return (
-              <div key={item.tarifId} className="py-2.5">
-                <div className="flex items-center justify-between gap-1 mb-1">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <cfg.icon size={11} className={cfg.text} />
-                    <span className="truncate text-[11px] font-semibold text-slate-700">{t.nama}</span>
-                  </div>
-                  <span className="shrink-0 text-[10px] font-bold text-teal-600">{fmtIDRShort(subtotal)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-1 flex-1 overflow-hidden rounded-full bg-slate-100">
-                    <motion.div
-                      className={cn("h-full rounded-full", cfg.bg.replace("-50", "-400"))}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${pct}%` }}
-                      transition={{ duration: 0.3 }}
-                    />
-                  </div>
-                  <span className="text-[9px] text-slate-400">×{item.qty}</span>
-                </div>
+          {draft.items.map((item, i) => (
+            <div key={i} className="flex items-center justify-between gap-2 py-2.5">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-teal-100 text-[8px] font-bold text-teal-700">
+                  {i + 1}
+                </span>
+                <span className="truncate text-[11px] font-medium text-slate-700">{item.nama || "—"}</span>
               </div>
-            );
-          })}
+              <span className="shrink-0 text-[10px] font-bold text-teal-600">×{item.qty}</span>
+            </div>
+          ))}
         </div>
+      ) : (
+        <p className="px-4 py-6 text-center text-[11px] italic text-slate-400">
+          Tambahkan item untuk melihat ringkasan
+        </p>
       )}
 
-      {baseTotal > 0 && (
+      {draft.hargaUmum > 0 && (
         <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-3 space-y-1.5">
           <div className="flex items-center justify-between text-[11px]">
-            <span className="text-slate-500">Subtotal</span>
-            <span className="font-semibold text-slate-700">{fmtIDR(baseTotal)}</span>
+            <span className="text-slate-500">Harga Umum</span>
+            <span className="font-semibold text-slate-700">{fmtIDR(draft.hargaUmum)}</span>
           </div>
-          {diskonRp > 0 && (
+          {disc > 0 && (
             <div className="flex items-center justify-between text-[11px]">
-              <span className="text-slate-500">Diskon {draft.diskon}%</span>
-              <span className="font-semibold text-rose-500">− {fmtIDR(diskonRp)}</span>
+              <span className="text-slate-500">Diskon {draft.diskonPct}%</span>
+              <span className="font-semibold text-rose-500">− {fmtIDR(disc)}</span>
             </div>
           )}
           <div className="flex items-center justify-between border-t border-slate-200 pt-1.5 text-xs">
             <span className="font-bold text-slate-700">Total Umum</span>
-            <span className="font-black text-teal-700">{fmtIDR(finalUmum)}</span>
+            <span className="font-black text-teal-700">{fmtIDR(finalUmum(draft))}</span>
           </div>
+          {draft.hargaBpjs != null && (
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-slate-500">Tarif BPJS</span>
+              <span className="font-semibold text-sky-600">{fmtIDR(draft.hargaBpjs)}</span>
+            </div>
+          )}
         </div>
-      )}
-
-      {draft.items.length === 0 && (
-        <p className="px-4 py-6 text-center text-[11px] italic text-slate-400">
-          Tambahkan item untuk melihat ringkasan
-        </p>
       )}
     </div>
   );
@@ -166,31 +166,26 @@ function PaketSummaryCard({
 // ── Main component ───────────────────────────────────────────
 
 export default function PaketDetail({
-  draft, isNew, isDirty, allTarifs, onPatch, onSave, onCancel, onDelete,
+  draft, isNew, isDirty, busy, onPatch, onSave, onCancel, onDelete,
 }: Props) {
   const [tab,     setTab]     = useState<Tab>("identitas");
-  const [addQ,    setAddQ]    = useState("");
-  const [showAdd, setShowAdd] = useState(false);
+  const [newNama, setNewNama] = useState("");
 
-  const stsCfg = STATUS_CFG[draft.status];
-  const valid  = !!draft.kode.trim() && !!draft.nama.trim() && draft.items.length > 0;
+  const stsCfg = statusCfg(draft.status);
+  const valid  = !!draft.nama.trim() && draft.hargaUmum > 0;
 
-  const addableItems = allTarifs.filter(
-    (t) => !draft.items.some((i) => i.tarifId === t.id) &&
-      (!addQ || t.nama.toLowerCase().includes(addQ.toLowerCase()) ||
-       t.kode.toLowerCase().includes(addQ.toLowerCase()))
-  );
-
-  const updateQty = (tarifId: string, qty: number) => {
-    onPatch({ items: draft.items.map((i) => i.tarifId === tarifId ? { ...i, qty } : i) });
+  const addItem = () => {
+    const n = newNama.trim();
+    if (!n) return;
+    onPatch({ items: [...draft.items, { nama: n, qty: 1 }] });
+    setNewNama("");
   };
-  const removeItem = (tarifId: string) => {
-    onPatch({ items: draft.items.filter((i) => i.tarifId !== tarifId) });
-  };
-  const addItem = (tarifId: string) => {
-    onPatch({ items: [...draft.items, { tarifId, qty: 1 }] });
-    setAddQ(""); setShowAdd(false);
-  };
+  const updateItemNama = (idx: number, nama: string) =>
+    onPatch({ items: draft.items.map((it, i) => i === idx ? { ...it, nama } : it) });
+  const updateQty = (idx: number, qty: number) =>
+    onPatch({ items: draft.items.map((it, i) => i === idx ? { ...it, qty } : it) });
+  const removeItem = (idx: number) =>
+    onPatch({ items: draft.items.filter((_, i) => i !== idx) });
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -207,7 +202,7 @@ export default function PaketDetail({
                 {draft.nama || (isNew ? "Paket Baru" : "—")}
               </p>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="text-[10px] font-mono text-slate-400">{draft.kode || "—"}</span>
+                <span className="text-[10px] font-mono text-slate-400">{draft.kode || "Auto"}</span>
                 <span className={cn("rounded-full px-1.5 py-0.5 text-[9px] font-bold", stsCfg.bg, stsCfg.text)}>
                   {stsCfg.label}
                 </span>
@@ -248,21 +243,27 @@ export default function PaketDetail({
                 <div className="space-y-4 overflow-y-auto border-r border-slate-100 p-5">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className={LABEL}>Kode Paket<span className="ml-0.5 text-rose-500">*</span></label>
-                      <input value={draft.kode} onChange={(e) => onPatch({ kode: e.target.value })}
-                        placeholder="cth. PKT-MCU-01" className={INPUT} />
+                      <label className={LABEL}>Kode Paket</label>
+                      {/* Kode AUTO-GEN server (PKT-NNNN) — tidak dapat diedit. */}
+                      <div className="flex h-8.5 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3">
+                        <Sparkles size={12} className="shrink-0 text-teal-500" />
+                        <span className="font-mono text-xs text-slate-600">
+                          {draft.kode || "Otomatis saat disimpan"}
+                        </span>
+                        <span className="ml-auto rounded bg-slate-200 px-1.5 py-0.5 text-[9px] font-bold text-slate-500">AUTO</span>
+                      </div>
                     </div>
                     <div>
                       <label className={LABEL}>Status</label>
                       <div className="flex gap-1.5 flex-wrap">
-                        {STATUS_LIST.map((s) => (
-                          <button key={s} onClick={() => onPatch({ status: s })}
+                        {PAKET_STATUS.map((s) => (
+                          <button key={s.value} onClick={() => onPatch({ status: s.value })}
                             className={cn(
                               "rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition",
-                              draft.status === s
-                                ? cn(STATUS_CFG[s].bg, STATUS_CFG[s].text, "border-transparent")
+                              draft.status === s.value
+                                ? cn(s.bg, s.text, "border-transparent")
                                 : "border-slate-200 text-slate-500 hover:border-slate-300",
-                            )}>{s}</button>
+                            )}>{s.label}</button>
                         ))}
                       </div>
                     </div>
@@ -274,9 +275,27 @@ export default function PaketDetail({
                       placeholder="Nama paket layanan" className={INPUT} />
                   </div>
 
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={LABEL}>Kategori</label>
+                      <select value={draft.kategori} onChange={(e) => onPatch({ kategori: e.target.value })}
+                        className={cn(INPUT, "cursor-pointer")}>
+                        {PAKET_KATEGORI.map((k) => <option key={k} value={k}>{k}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={LABEL}>Badge (opsional)</label>
+                      <select value={draft.badge ?? ""} onChange={(e) => onPatch({ badge: e.target.value || null })}
+                        className={cn(INPUT, "cursor-pointer")}>
+                        <option value="">— Tidak ada —</option>
+                        {PAKET_BADGE.map((b) => <option key={b} value={b}>{b}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
                   <div>
                     <label className={LABEL}>Deskripsi</label>
-                    <textarea value={draft.deskripsi ?? ""} onChange={(e) => onPatch({ deskripsi: e.target.value || undefined })}
+                    <textarea value={draft.deskripsi} onChange={(e) => onPatch({ deskripsi: e.target.value })}
                       rows={3} placeholder="Keterangan singkat tentang paket ini..."
                       className={cn(INPUT, "resize-none")} />
                   </div>
@@ -285,7 +304,7 @@ export default function PaketDetail({
                     <div>
                       <label className={LABEL}>Diskon (%)</label>
                       <input type="number" min={0} max={100}
-                        value={draft.diskon ?? ""} onChange={(e) => onPatch({ diskon: e.target.value ? Number(e.target.value) : undefined })}
+                        value={draft.diskonPct ?? ""} onChange={(e) => onPatch({ diskonPct: e.target.value ? Number(e.target.value) : null })}
                         className={INPUT} />
                     </div>
                     <div>
@@ -293,21 +312,21 @@ export default function PaketDetail({
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-400">Rp</span>
                         <input type="number" min={0}
-                          value={draft.tarifBPJS ?? ""} onChange={(e) => onPatch({ tarifBPJS: e.target.value ? Number(e.target.value) : undefined })}
+                          value={draft.hargaBpjs ?? ""} onChange={(e) => onPatch({ hargaBpjs: e.target.value ? Number(e.target.value) : null })}
                           className={cn(INPUT, "pl-8")} />
                       </div>
                     </div>
                   </div>
 
                   <div>
-                    <label className={LABEL}>Override Tarif Umum (Rp)</label>
+                    <label className={LABEL}>Harga Paket Umum (Rp)<span className="ml-0.5 text-rose-500">*</span></label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-400">Rp</span>
                       <input type="number" min={0}
-                        value={draft.tarifUmum || ""} onChange={(e) => onPatch({ tarifUmum: Number(e.target.value) })}
+                        value={draft.hargaUmum || ""} onChange={(e) => onPatch({ hargaUmum: Number(e.target.value) })}
                         className={cn(INPUT, "pl-8")} />
                     </div>
-                    <p className="mt-1 text-[10px] text-slate-400">Kosongkan untuk menggunakan total otomatis dari komposisi item</p>
+                    <p className="mt-1 text-[10px] text-slate-400">Harga paket yang ditagihkan (sudah termasuk seluruh item).</p>
                   </div>
                 </div>
 
@@ -327,87 +346,54 @@ export default function PaketDetail({
                     {draft.items.length === 0 ? (
                       <div className="rounded-xl border border-dashed border-slate-200 py-10 text-center">
                         <Package size={20} className="mx-auto mb-2 text-slate-300" />
-                        <p className="text-xs text-slate-400">Belum ada item — tambahkan dari katalog</p>
+                        <p className="text-xs text-slate-400">Belum ada item — tambahkan layanan di bawah</p>
                       </div>
                     ) : (
-                      draft.items.map((item) => {
-                        const t = allTarifs.find((x) => x.id === item.tarifId);
-                        if (!t) return null;
-                        const cfg = KATEGORI_CFG[t.kategori];
-                        return (
-                          <div key={item.tarifId}
-                            className="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
-                            <div className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg", cfg.bg)}>
-                              <cfg.icon size={12} className={cfg.text} />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-semibold text-slate-700">{t.nama}</p>
-                              <p className="text-[10px] font-mono text-slate-400">{t.kode}</p>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <button onClick={() => updateQty(item.tarifId, Math.max(1, item.qty - 1))}
-                                className="h-6 w-6 rounded text-center text-xs font-bold text-slate-400 hover:bg-slate-200 transition">−</button>
-                              <span className="w-6 text-center text-xs font-semibold text-slate-700">{item.qty}</span>
-                              <button onClick={() => updateQty(item.tarifId, item.qty + 1)}
-                                className="h-6 w-6 rounded text-center text-xs font-bold text-slate-400 hover:bg-slate-200 transition">+</button>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-xs font-bold text-teal-600">{fmtIDRShort(t.tarifUmum * item.qty)}</p>
-                              {item.qty > 1 && (
-                                <p className="text-[9px] text-slate-400">{fmtIDRShort(t.tarifUmum)} / item</p>
-                              )}
-                            </div>
-                            <button onClick={() => removeItem(item.tarifId)}
-                              className="text-slate-300 hover:text-rose-500 transition"><X size={13} /></button>
+                      draft.items.map((item, idx) => (
+                        <div key={idx}
+                          className="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-teal-100 text-[10px] font-bold text-teal-700">
+                            {idx + 1}
+                          </span>
+                          <input
+                            value={item.nama}
+                            onChange={(e) => updateItemNama(idx, e.target.value)}
+                            placeholder="Nama layanan…"
+                            className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-xs font-medium text-slate-700 outline-none transition hover:border-slate-200 focus:border-teal-300 focus:bg-white"
+                          />
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => updateQty(idx, Math.max(1, item.qty - 1))}
+                              className="h-6 w-6 rounded text-center text-xs font-bold text-slate-400 hover:bg-slate-200 transition">−</button>
+                            <span className="w-6 text-center text-xs font-semibold text-slate-700">{item.qty}</span>
+                            <button onClick={() => updateQty(idx, item.qty + 1)}
+                              className="h-6 w-6 rounded text-center text-xs font-bold text-slate-400 hover:bg-slate-200 transition">+</button>
                           </div>
-                        );
-                      })
+                          <button onClick={() => removeItem(idx)}
+                            className="text-slate-300 hover:text-rose-500 transition"><X size={13} /></button>
+                        </div>
+                      ))
                     )}
                   </div>
 
-                  {/* Add from catalog */}
-                  <div>
-                    <button onClick={() => setShowAdd((v) => !v)}
-                      className="flex items-center gap-1.5 text-xs font-semibold text-teal-600 hover:text-teal-800 transition">
-                      <Plus size={12} /> Tambah dari Katalog
+                  {/* Add item (free text) */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={newNama}
+                      onChange={(e) => setNewNama(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addItem(); } }}
+                      placeholder="Tambah layanan (mis. Darah Lengkap)…"
+                      className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-teal-400 focus:ring-1 focus:ring-teal-100 placeholder:text-slate-400"
+                    />
+                    <button onClick={addItem} disabled={!newNama.trim()}
+                      className="flex items-center gap-1 rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white hover:bg-teal-700 disabled:opacity-40 transition">
+                      <Plus size={12} /> Tambah
                     </button>
-                    <AnimatePresence>
-                      {showAdd && (
-                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
-                          exit={{ opacity: 0, height: 0 }} className="mt-2 overflow-hidden">
-                          <div className="relative mb-2">
-                            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input value={addQ} onChange={(e) => setAddQ(e.target.value)}
-                              placeholder="Cari tarif..." autoFocus
-                              className="w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-700 outline-none focus:border-teal-400 focus:ring-1 focus:ring-teal-100 placeholder:text-slate-400" />
-                          </div>
-                          <div className="max-h-48 overflow-y-auto rounded-lg border border-slate-100 divide-y divide-slate-50">
-                            {addableItems.slice(0, 12).map((t) => {
-                              const cfg = KATEGORI_CFG[t.kategori];
-                              return (
-                                <button key={t.id} onClick={() => addItem(t.id)}
-                                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left hover:bg-teal-50 transition">
-                                  <div className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded", cfg.bg)}>
-                                    <cfg.icon size={10} className={cfg.text} />
-                                  </div>
-                                  <span className="flex-1 truncate text-xs text-slate-700">{t.nama}</span>
-                                  <span className="shrink-0 text-[10px] font-semibold text-teal-600">{fmtIDRShort(t.tarifUmum)}</span>
-                                </button>
-                              );
-                            })}
-                            {addableItems.length === 0 && (
-                              <p className="px-3 py-3 text-[10px] text-slate-400 text-center">Semua tarif sudah ditambahkan</p>
-                            )}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
                   </div>
                 </div>
 
                 {/* Right: summary card */}
                 <div className="overflow-y-auto bg-slate-50/30 p-4">
-                  <PaketSummaryCard draft={draft} allTarifs={allTarifs} />
+                  <PaketSummaryCard draft={draft} />
                 </div>
               </div>
             )}
@@ -419,19 +405,19 @@ export default function PaketDetail({
       {/* Footer */}
       <div className="shrink-0 flex items-center justify-between border-t border-slate-100 bg-slate-50/50 px-5 py-3">
         {!isNew ? (
-          <button onClick={onDelete}
-            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-rose-500 hover:bg-rose-50 transition">
+          <button onClick={onDelete} disabled={busy}
+            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-rose-500 hover:bg-rose-50 disabled:opacity-40 transition">
             <Trash2 size={12} /> Hapus
           </button>
         ) : <div />}
         <div className="flex gap-2">
-          <button onClick={onCancel} disabled={!isDirty}
+          <button onClick={onCancel} disabled={!isDirty || busy}
             className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-30 transition">
             Batal
           </button>
-          <button onClick={onSave} disabled={!isDirty || !valid}
+          <button onClick={onSave} disabled={!isDirty || !valid || busy}
             className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-700 disabled:opacity-40 transition">
-            <Save size={12} /> Simpan
+            <Save size={12} /> {busy ? "Menyimpan…" : "Simpan"}
           </button>
         </div>
       </div>

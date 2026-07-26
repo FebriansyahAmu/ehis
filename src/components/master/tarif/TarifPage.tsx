@@ -2,19 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Package, Layers, Power, DollarSign } from "lucide-react";
+import { Package, Layers, Power, DollarSign, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TARIF_MOCK, PAKET_MOCK } from "@/lib/master/tarifMock";
-import type { PaketLayanan } from "@/lib/master/tarifMock";
+import {
+  listPaketLayanan, createPaketLayanan, updatePaketLayanan, deletePaketLayanan, type PaketDTO,
+} from "@/lib/api/master/paketLayanan";
+import {
+  type PaketDraft, dtoToDraft, emptyPaketDraft, draftToCreateInput, draftToUpdateInput,
+} from "./paketMasterShared";
 import PaketList   from "./PaketList";
 import PaketDetail from "./PaketDetail";
-import { fmtIDRShort, calcPaketTotal } from "./tarifShared";
+import { fmtIDRShort } from "./tarifShared";
 
-// Katalog item untuk komposisi paket (resolve nama/kode/harga). Read-only di sini.
-// CATATAN: tarif dasar per-tindakan kini dikelola di Mapping Hub → Tarif Matrix
-// (/ehis-master/mapping?sub=tarif). TARIF_MOCK dipertahankan sebagai sumber bundling paket
-// sampai federasi chargemaster (TODO-CHARGEMASTER) menyediakan katalog tindakan terpadu.
-const TARIF_CATALOG = TARIF_MOCK;
+// Data paket dari master DB (master.PaketLayanan). Kode PKT-NNNN di-generate SERVER (auto).
+// CATATAN: tarif dasar per-tindakan dikelola di Mapping Hub → Tarif Matrix; paket = bundling.
 
 // ── Skeleton ─────────────────────────────────────────────────
 
@@ -86,59 +87,90 @@ function StatCard({ label, value, sub, icon: Icon, accent }: {
 // ── Main page ────────────────────────────────────────────────
 
 export default function TarifPage() {
-  const [loaded, setLoaded] = useState(false);
-
-  const [pakets, setPakets] = useState<PaketLayanan[]>(() => structuredClone(PAKET_MOCK));
-  const [selP,   setSelP]   = useState<PaketLayanan | null>(() => PAKET_MOCK[0] ?? null);
-  const [draftP, setDraftP] = useState<PaketLayanan | null>(() => PAKET_MOCK[0] ? structuredClone(PAKET_MOCK[0]) : null);
+  const [pakets, setPakets] = useState<PaketDTO[] | null>(null); // null = memuat
+  const [selP,   setSelP]   = useState<PaketDraft | null>(null); // salinan "bersih" terpilih
+  const [draftP, setDraftP] = useState<PaketDraft | null>(null); // salinan editable
   const [isNewP, setIsNewP] = useState(false);
+  const [busy,   setBusy]   = useState(false);
+  const [err,    setErr]    = useState<string | null>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => setLoaded(true), 500);
-    return () => clearTimeout(t);
+    let alive = true;
+    listPaketLayanan({ limit: 500 })
+      .then(({ items }) => {
+        if (!alive) return;
+        setPakets(items);
+        if (items[0]) { const d = dtoToDraft(items[0]); setSelP(d); setDraftP(structuredClone(d)); }
+      })
+      .catch(() => { if (alive) { setPakets([]); setErr("Gagal memuat paket dari server."); } });
+    return () => { alive = false; };
   }, []);
 
-  // ── Derived stats ──────────────────────────────────────
-  const aktifCount = useMemo(() => pakets.filter((p) => p.status === "Aktif").length, [pakets]);
-  const totalItem  = useMemo(() => pakets.reduce((s, p) => s + p.items.length, 0), [pakets]);
+  /** Muat ulang daftar dari DB, opsional pilih paket tertentu (mis. setelah create/update). */
+  async function reload(selectId?: string) {
+    const { items } = await listPaketLayanan({ limit: 500 });
+    setPakets(items);
+    const target = selectId ? items.find((p) => p.id === selectId) : undefined;
+    if (target) { const d = dtoToDraft(target); setSelP(d); setDraftP(structuredClone(d)); setIsNewP(false); }
+    return items;
+  }
+
+  const list = pakets ?? [];
+
+  // ── Derived stats (dep `pakets` stabil; hindari array baru tiap render) ──
+  const aktifCount = useMemo(() => (pakets ?? []).filter((p) => p.status === "Aktif").length, [pakets]);
+  const totalItem  = useMemo(() => (pakets ?? []).reduce((s, p) => s + p.items.length, 0), [pakets]);
   const avgHarga   = useMemo(() => {
-    const aktif = pakets.filter((p) => p.status === "Aktif");
+    const aktif = (pakets ?? []).filter((p) => p.status === "Aktif");
     if (!aktif.length) return 0;
-    const sum = aktif.reduce((s, p) => s + (p.tarifUmum || calcPaketTotal(p.items, TARIF_CATALOG)), 0);
-    return Math.round(sum / aktif.length);
+    return Math.round(aktif.reduce((s, p) => s + p.hargaUmum, 0) / aktif.length);
   }, [pakets]);
 
-  // ── Paket handlers ─────────────────────────────────────
   const isDirtyP = useMemo(
     () => !!draftP && JSON.stringify(selP ?? {}) !== JSON.stringify(draftP),
     [selP, draftP],
   );
 
-  const selectPaket = (p: PaketLayanan) => {
+  // ── Handlers ───────────────────────────────────────────
+  const selectPaket = (p: PaketDTO) => {
     if (isDirtyP && !confirm("Ada perubahan belum tersimpan. Buang?")) return;
-    setSelP(p); setDraftP(structuredClone(p)); setIsNewP(false);
+    const d = dtoToDraft(p); setSelP(d); setDraftP(structuredClone(d)); setIsNewP(false); setErr(null);
   };
-  const addPaket = (p: PaketLayanan) => {
-    setSelP(null); setDraftP(p); setIsNewP(true);
+  const addPaket = () => {
+    if (isDirtyP && !confirm("Ada perubahan belum tersimpan. Buang?")) return;
+    setSelP(null); setDraftP(emptyPaketDraft()); setIsNewP(true); setErr(null);
   };
-  const savePaket = () => {
-    if (!draftP) return;
-    if (isNewP) {
-      setPakets((prev) => [...prev, draftP]);
-    } else {
-      setPakets((prev) => prev.map((x) => x.id === draftP.id ? draftP : x));
-    }
-    setSelP(draftP); setIsNewP(false);
+  const savePaket = async () => {
+    if (!draftP || busy) return;
+    setBusy(true); setErr(null);
+    try {
+      const saved = isNewP
+        ? await createPaketLayanan(draftToCreateInput(draftP))
+        : draftP.id ? await updatePaketLayanan(draftP.id, draftToUpdateInput(draftP)) : null;
+      if (saved) await reload(saved.id);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Gagal menyimpan paket.");
+    } finally { setBusy(false); }
   };
   const cancelPaket = () => {
     if (isDirtyP && !confirm("Buang perubahan?")) return;
-    setDraftP(selP ? structuredClone(selP) : null);
+    if (isNewP) { setIsNewP(false); setSelP(null); setDraftP(null); }
+    else setDraftP(selP ? structuredClone(selP) : null);
+    setErr(null);
   };
-  const deletePaket = () => {
-    if (!draftP || !confirm(`Hapus paket "${draftP.nama}"?`)) return;
-    setPakets((prev) => prev.filter((x) => x.id !== draftP.id));
-    setSelP(null); setDraftP(null);
+  const deletePaket = async () => {
+    if (!draftP?.id || busy || !confirm(`Hapus paket "${draftP.nama}"?`)) return;
+    setBusy(true); setErr(null);
+    try {
+      await deletePaketLayanan(draftP.id);
+      setSelP(null); setDraftP(null); setIsNewP(false);
+      await reload();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Gagal menghapus paket.");
+    } finally { setBusy(false); }
   };
+
+  const loaded = pakets !== null;
 
   return (
     <div className="flex h-full flex-col">
@@ -161,12 +193,12 @@ export default function TarifPage() {
                 </p>
                 <h1 className="mt-0.5 text-xl font-bold text-slate-900">Paket Layanan</h1>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  Kelola paket bundling layanan RS (komposisi item + harga paket). Tarif dasar per-tindakan
-                  dikelola di <span className="font-semibold text-teal-700">Mapping Hub → Tarif Matrix</span>.
+                  Kelola paket bundling layanan RS (komposisi item + harga paket). Kode paket
+                  <span className="font-semibold text-teal-700"> otomatis</span> dari sistem.
                 </p>
               </div>
               <div className="flex shrink-0 gap-2">
-                <StatCard label="Total Paket" value={pakets.length} icon={Package}
+                <StatCard label="Total Paket" value={list.length} icon={Package}
                   accent={{ bg: "bg-teal-50", text: "text-teal-600" }} />
                 <StatCard label="Aktif" value={aktifCount} icon={Power}
                   accent={{ bg: "bg-emerald-50", text: "text-emerald-600" }} />
@@ -178,20 +210,25 @@ export default function TarifPage() {
               </div>
             </motion.div>
 
+            {err && (
+              <div className="flex items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-[11px] font-medium text-rose-700 ring-1 ring-rose-100">
+                <AlertCircle size={13} className="shrink-0" /> {err}
+              </div>
+            )}
+
             {/* Two-panel body — Paket only */}
             <div className="flex min-h-0 flex-1 gap-4">
               <div className="w-85 shrink-0">
-                <PaketList items={pakets} selected={selP}
+                <PaketList items={list} selectedId={selP?.id ?? null}
                   onSelect={selectPaket} onAdd={addPaket} />
               </div>
               <div className="flex min-w-0 flex-1">
                 {draftP ? (
-                  <PaketDetail draft={draftP} isNew={isNewP} isDirty={isDirtyP}
-                    allTarifs={TARIF_CATALOG}
+                  <PaketDetail draft={draftP} isNew={isNewP} isDirty={isDirtyP} busy={busy}
                     onPatch={(p) => setDraftP((prev) => prev ? { ...prev, ...p } : prev)}
                     onSave={savePaket} onCancel={cancelPaket} onDelete={deletePaket} />
                 ) : (
-                  <EmptyState onAdd={() => addPaket({ ...PAKET_MOCK[0], id: `paket-${Date.now()}` })} />
+                  <EmptyState onAdd={addPaket} />
                 )}
               </div>
             </div>

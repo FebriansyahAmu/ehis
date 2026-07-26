@@ -4,18 +4,18 @@ import { useState } from "react";
 import { Search, Plus, Package } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import type { PaketLayanan } from "@/lib/master/tarifMock";
-import { emptyPaket } from "@/lib/master/tarifMock";
-import { STATUS_CFG, fmtIDRShort } from "./tarifShared";
+import type { PaketDTO } from "@/lib/api/master/paketLayanan";
+import { statusCfg } from "./paketMasterShared";
+import { fmtIDRShort } from "./tarifShared";
 
 interface Props {
-  items:    PaketLayanan[];
-  selected: PaketLayanan | null;
-  onSelect: (p: PaketLayanan) => void;
-  onAdd:    (p: PaketLayanan) => void;
+  items:      PaketDTO[];
+  selectedId: string | null;
+  onSelect:   (p: PaketDTO) => void;
+  onAdd:      () => void;
 }
 
-export default function PaketList({ items, selected, onSelect, onAdd }: Props) {
+export default function PaketList({ items, selectedId, onSelect, onAdd }: Props) {
   const [q, setQ] = useState("");
 
   const filtered = items.filter((p) =>
@@ -29,7 +29,7 @@ export default function PaketList({ items, selected, onSelect, onAdd }: Props) {
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Daftar Paket</span>
           <button
-            onClick={() => onAdd(emptyPaket())}
+            onClick={onAdd}
             className="flex items-center gap-1 rounded-lg bg-teal-600 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-teal-700 transition"
           >
             <Plus size={11} /> Tambah
@@ -54,8 +54,8 @@ export default function PaketList({ items, selected, onSelect, onAdd }: Props) {
           </div>
         ) : (
           filtered.map((p, i) => {
-            const stsCfg   = STATUS_CFG[p.status];
-            const isActive = selected?.id === p.id;
+            const stsCfg   = statusCfg(p.status);
+            const isActive = selectedId === p.id;
 
             return (
               <motion.button
@@ -97,12 +97,12 @@ export default function PaketList({ items, selected, onSelect, onAdd }: Props) {
                       <span className="text-[10px] text-slate-500">{p.items.length} item</span>
                       <span className="text-slate-300">·</span>
                       <span className="text-[10px] font-semibold text-teal-600">
-                        Rp {fmtIDRShort(p.tarifUmum)}
+                        Rp {fmtIDRShort(p.hargaUmum)}
                       </span>
                     </div>
-                    {p.diskon && (
+                    {!!p.diskonPct && (
                       <span className="mt-1 inline-block rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">
-                        Diskon {p.diskon}%
+                        Diskon {p.diskonPct}%
                       </span>
                     )}
                   </div>
