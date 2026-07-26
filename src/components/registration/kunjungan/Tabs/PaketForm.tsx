@@ -83,7 +83,7 @@ export function PaketForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
           transition={{ duration: 0.15, ease: "easeOut" }}
         >
           {active === "pindah-kelas"  && <PindahKelas  kunjungan={kunjungan} />}
-          {active === "paket-layanan" && <PaketLayanan kunjungan={kunjungan} />}
+          {active === "paket-layanan" && <PaketLayanan />}
         </motion.div>
       </AnimatePresence>
     </div>

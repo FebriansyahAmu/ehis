@@ -1,17 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Check, Package, AlertCircle, X, ChevronRight } from "lucide-react";
-import type { KunjunganRecord } from "@/lib/data";
-import { type PaketLayananData, type KategoriPaket, PAKET_LIST, fmtRp } from "./paketTypes";
+import { Check, Package, AlertCircle, X, ChevronRight, Loader2 } from "lucide-react";
+import { listPaketLayananTersedia, type PaketDTO } from "@/lib/api/master/paketLayanan";
+import { type PaketLayananData, fmtRp } from "./paketTypes";
+
+// ─── Adapter ──────────────────────────────────────────────────
+
+/** master.PaketLayanan (DTO) → kartu paket. `layanan` diturunkan dari item bundel snapshot. */
+function dtoToPaket(d: PaketDTO): PaketLayananData {
+  return {
+    id: d.id,
+    nama: d.nama,
+    kategori: d.kategori,
+    deskripsi: d.deskripsi,
+    layanan: d.items.map((i) => (i.qty > 1 ? `${i.nama} ×${i.qty}` : i.nama)),
+    harga: d.hargaUmum,
+    badge: (d.badge ?? undefined) as PaketLayananData["badge"],
+    aktif: d.status === "Aktif",
+  };
+}
 
 // ─── Constants ────────────────────────────────────────────────
-
-const KATEGORI_LIST: KategoriPaket[] = [
-  "Semua", "MCU", "Persalinan", "Bedah", "Dialisis", "Rehabilitasi",
-];
 
 const BADGE_STYLE: Record<string, string> = {
   Populer: "bg-sky-100 text-sky-700",
@@ -229,15 +241,31 @@ function SuccessState({ paket, onReset }: { paket: PaketLayananData; onReset: ()
 
 // ─── PaketLayanan ─────────────────────────────────────────────
 
-export function PaketLayanan({ kunjungan }: { kunjungan: KunjunganRecord }) {
-  const [kategori,   setKategori]   = useState<KategoriPaket>("Semua");
+export function PaketLayanan() {
+  const [pakets,     setPakets]     = useState<PaketLayananData[] | null>(null); // null = memuat
+  const [loadErr,    setLoadErr]    = useState(false);
+  const [kategori,   setKategori]   = useState<string>("Semua");
   const [confirming, setConfirming] = useState<string | null>(null);
   const [activeId,   setActiveId]   = useState<string | null>(null);
   const [submitted,  setSubmitted]  = useState(false);
 
-  const filtered     = PAKET_LIST.filter(p => kategori === "Semua" || p.kategori === kategori);
-  const confirmPaket = PAKET_LIST.find(p => p.id === confirming) ?? null;
-  const activePaket  = PAKET_LIST.find(p => p.id === activeId)  ?? null;
+  // Paket dari master DB (master.PaketLayanan, status Aktif) — bukan mock.
+  useEffect(() => {
+    const ac = new AbortController();
+    listPaketLayananTersedia(ac.signal)
+      .then((rows) => setPakets(rows.map(dtoToPaket)))
+      .catch(() => { if (!ac.signal.aborted) { setPakets([]); setLoadErr(true); } });
+    return () => ac.abort();
+  }, []);
+
+  const categories = useMemo(
+    () => ["Semua", ...Array.from(new Set((pakets ?? []).map(p => p.kategori)))],
+    [pakets],
+  );
+  const list         = pakets ?? [];
+  const filtered     = list.filter(p => kategori === "Semua" || p.kategori === kategori);
+  const confirmPaket = list.find(p => p.id === confirming) ?? null;
+  const activePaket  = list.find(p => p.id === activeId)  ?? null;
 
   const handleConfirm = () => {
     setActiveId(confirming);
@@ -249,11 +277,27 @@ export function PaketLayanan({ kunjungan }: { kunjungan: KunjunganRecord }) {
     return <SuccessState paket={activePaket} onReset={() => setSubmitted(false)} />;
   }
 
+  // Loading skeleton (fetch awal).
+  if (pakets === null) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-16 text-center text-slate-400">
+        <Loader2 size={22} className="animate-spin text-sky-500" />
+        <p className="text-[12px] font-medium">Memuat paket layanan…</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
-      {/* Category filter */}
+      {loadErr && (
+        <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-700 ring-1 ring-amber-100">
+          <AlertCircle size={13} className="shrink-0" /> Gagal memuat paket dari master. Coba muat ulang halaman.
+        </div>
+      )}
+
+      {/* Category filter — dinamis dari kategori yang ada di master */}
       <div className="flex gap-1.5 overflow-x-auto pb-1">
-        {KATEGORI_LIST.map(k => (
+        {categories.map(k => (
           <button
             key={k}
             type="button"

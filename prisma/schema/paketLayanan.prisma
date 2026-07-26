@@ -1,0 +1,46 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MASTER: Paket Layanan  (Postgres schema "master")
+//  FE master: /ehis-master (Tarif → Paket Layanan) · Konsumen: registrasi → Ubah
+//  Paket → sub-menu "Paket Layanan" (pilih paket untuk kunjungan).
+//
+//  Katalog paket layanan (bundel) — mis. MCU, persalinan, bedah, dialisis, rehab.
+//  SELF-CONTAINED: item bundel = snapshot JSONB [{ nama, qty }] agar tak bergantung
+//  ref tarif lain (mock TARIF_MOCK). Kode AUTO-GEN `PKT-NNNN` (counter atomik, pola
+//  master.SkalaCounter). Katalog leaf → tanpa optimistic-version; soft-delete.
+// ════════════════════════════════════════════════════════════════════════════
+
+model PaketLayanan {
+  id   String @id @default(uuid(7)) @db.Uuid
+  kode String // auto `PKT-NNNN` (counter) — unik antar baris hidup
+
+  nama      String
+  kategori  String @default("Lainnya") // MCU|Persalinan|Bedah|Dialisis|Rehabilitasi|Lainnya (FE-facing)
+  deskripsi String @default("")
+
+  /// Item bundel — snapshot JSONB [{ nama: string, qty: number }] (mandiri, tanpa FK tarif).
+  items Json @db.JsonB
+
+  hargaUmum Int     @map("harga_umum")
+  hargaBpjs Int?    @map("harga_bpjs")
+  diskonPct Int?    @map("diskon_pct")
+  badge     String? // Populer|Baru|Promo (opsional)
+
+  status    String    @default("Aktif") // Aktif|Non_Aktif|Draft
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([kategori, deletedAt]) // list/filter per kategori
+  @@map("paket_layanan")
+  @@schema("master")
+}
+
+// Counter kode paket (auto `PKT-NNNN`, tanpa reset periodik). Upsert by PK `scope` → increment
+// atomik, anti-race (pola master.SkalaCounter / SdkiCounter). Di-seed ke jumlah data awal.
+model PaketCounter {
+  scope   String @id // "PKT"
+  lastSeq Int    @map("last_seq")
+
+  @@map("paket_counter")
+  @@schema("master")
+}

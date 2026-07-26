@@ -36,6 +36,13 @@ export async function listAllTarifKamar(signal?: AbortSignal): Promise<TarifKama
   return out;
 }
 
+/** GET /master/tarif-kamar-tersedia — semua tarif kamar utk KONSUMSI (gate registration.kunjungan:read,
+ *  bukan master.tarif). Dipakai registrasi → Ubah Paket → Pindah Kelas. Konsumen resolve per (kelas, penjamin). */
+export async function listTarifKamarTersedia(signal?: AbortSignal): Promise<TarifKamarDTO[]> {
+  const { data } = await api.get<TarifKamarDTO[]>("/master/tarif-kamar-tersedia", { signal });
+  return data;
+}
+
 /** POST /master/tarif-kamar — set harga (upsert by pair). */
 export async function upsertTarifKamar(input: UpsertTarifKamarInput, signal?: AbortSignal): Promise<TarifKamarDTO> {
   const { data } = await api.post<TarifKamarDTO>("/master/tarif-kamar", input, { signal });

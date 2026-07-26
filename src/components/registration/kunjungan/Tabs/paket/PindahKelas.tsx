@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
@@ -8,9 +8,11 @@ import {
   TrendingUp, TrendingDown, ArrowRight,
 } from "lucide-react";
 import type { KunjunganRecord } from "@/lib/data";
+import { listTarifKamarTersedia } from "@/lib/api/master/tarifKamar";
 import {
-  type KelasId, type SumberPembayaran,
+  type KelasId, type SumberPembayaran, type KelasRawatData,
   KELAS_RAWAT, CURRENT_KELAS_DEFAULT, SUMBER_BAYAR, fmtRp,
+  penjaminKodeFromLabel, resolveKelasTarif,
 } from "./paketTypes";
 
 // ─── AmenityChip ──────────────────────────────────────────────
@@ -25,8 +27,7 @@ function AmenityChip({ label }: { label: string }) {
 
 // ─── CurrentKelasCard ─────────────────────────────────────────
 
-function CurrentKelasCard({ kelasId }: { kelasId: KelasId }) {
-  const kelas = KELAS_RAWAT.find(k => k.id === kelasId)!;
+function CurrentKelasCard({ kelas }: { kelas: KelasRawatData }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-slate-200">
@@ -130,9 +131,7 @@ function KelasCard({
 
 // ─── SelisihBanner ────────────────────────────────────────────
 
-function SelisihBanner({ currentId, targetId }: { currentId: KelasId; targetId: KelasId }) {
-  const current  = KELAS_RAWAT.find(k => k.id === currentId)!;
-  const target   = KELAS_RAWAT.find(k => k.id === targetId)!;
+function SelisihBanner({ current, target }: { current: KelasRawatData; target: KelasRawatData }) {
   const diff     = target.tarif - current.tarif;
   const isUpgrade = diff > 0;
 
@@ -293,6 +292,7 @@ function SuccessState({ targetId, onReset }: { targetId: KelasId; onReset: () =>
 
 export function PindahKelas({ kunjungan }: { kunjungan: KunjunganRecord }) {
   const currentId = CURRENT_KELAS_DEFAULT;
+  const penjaminKode = penjaminKodeFromLabel(kunjungan.penjamin);
 
   const [targetId,  setTargetId]  = useState<KelasId>(currentId);
   const [sumber,    setSumber]    = useState<SumberPembayaran | "">("");
@@ -300,8 +300,31 @@ export function PindahKelas({ kunjungan }: { kunjungan: KunjunganRecord }) {
   const [consent,   setConsent]   = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  const currentIdx = KELAS_RAWAT.findIndex(k => k.id === currentId);
-  const targetIdx  = KELAS_RAWAT.findIndex(k => k.id === targetId);
+  // Harga ruangan = master TarifKamar (Mapping Hub → Tarif → Ruang Rawat), bukan konstanta lokal.
+  const [rates,   setRates]   = useState<Map<string, number> | null>(null);
+  const [loadErr, setLoadErr] = useState(false);
+  useEffect(() => {
+    const ac = new AbortController();
+    listTarifKamarTersedia(ac.signal)
+      .then((rows) => {
+        const m = new Map<string, number>();
+        for (const r of rows) m.set(`${r.kelas}:${r.penjaminKode}`, r.harga);
+        setRates(m);
+      })
+      .catch(() => { if (!ac.signal.aborted) setLoadErr(true); });
+    return () => ac.abort();
+  }, []);
+
+  // Kelas + harga TAMPIL: metadata statis (amenities/kapasitas) + tarif dari matriks (fallback konstanta).
+  const kelasList: KelasRawatData[] = useMemo(
+    () => KELAS_RAWAT.map((k) => ({ ...k, tarif: resolveKelasTarif(rates, k.id, penjaminKode, k.tarif) })),
+    [rates, penjaminKode],
+  );
+  const currentKelas = kelasList.find(k => k.id === currentId)!;
+  const targetKelas  = kelasList.find(k => k.id === targetId)!;
+
+  const currentIdx = kelasList.findIndex(k => k.id === currentId);
+  const targetIdx  = kelasList.findIndex(k => k.id === targetId);
   const isChanged  = targetId !== currentId;
   const isUpgrade  = targetIdx > currentIdx;
 
@@ -320,15 +343,23 @@ export function PindahKelas({ kunjungan }: { kunjungan: KunjunganRecord }) {
   return (
     <div className="space-y-4">
       {/* Current class info */}
-      <CurrentKelasCard kelasId={currentId} />
+      <CurrentKelasCard kelas={currentKelas} />
 
       {/* Class selector */}
       <div className="space-y-2">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-          Pilih Kelas Tujuan
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            Pilih Kelas Tujuan
+          </p>
+          <span className={cn(
+            "text-[9px] font-semibold",
+            loadErr ? "text-amber-500" : rates ? "text-emerald-500" : "text-slate-400",
+          )}>
+            {loadErr ? "Tarif matriks gagal dimuat — pakai estimasi" : rates ? "Harga dari tarif matriks RS" : "Memuat tarif ruangan…"}
+          </span>
+        </div>
         <div className="flex gap-3 overflow-x-auto pb-2">
-          {KELAS_RAWAT.map(kelas => (
+          {kelasList.map(kelas => (
             <KelasCard
               key={kelas.id}
               kelas={kelas}
@@ -348,7 +379,7 @@ export function PindahKelas({ kunjungan }: { kunjungan: KunjunganRecord }) {
             exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             className="space-y-3 overflow-hidden"
           >
-            <SelisihBanner currentId={currentId} targetId={targetId} />
+            <SelisihBanner current={currentKelas} target={targetKelas} />
 
             {/* Payment source — only for upgrades */}
             <AnimatePresence>

@@ -1,6 +1,8 @@
 // ─── Types ────────────────────────────────────────────────────
 
-export type KelasId          = "kelas-3" | "kelas-2" | "kelas-1" | "vip" | "vvip";
+// Kelas kanonik = kunci master TarifKamar (master.TarifKamar / enum RIKelas). Kelas ranap yang
+// dapat dipilih pindah kelas (VIP + Kelas 1–3). ICU/HCU/Isolasi = penempatan klinis, bukan pindah kelas.
+export type KelasId          = "Kelas_3" | "Kelas_2" | "Kelas_1" | "VIP";
 export type KategoriPaket    = "Semua" | "MCU" | "Persalinan" | "Bedah" | "Dialisis" | "Rehabilitasi";
 export type SumberPembayaran = "pribadi" | "asuransi-tambahan" | "pemberi-kerja";
 export type BadgePaket       = "Populer" | "Baru" | "Promo";
@@ -17,7 +19,8 @@ export interface KelasRawatData {
 export interface PaketLayananData {
   id:        string;
   nama:      string;
-  kategori:  Exclude<KategoriPaket, "Semua">;
+  /** Kategori bebas (dari master.PaketLayanan.kategori — mis. MCU/Persalinan/Lainnya). */
+  kategori:  string;
   deskripsi: string;
   layanan:   string[];
   harga:     number;
@@ -26,41 +29,57 @@ export interface PaketLayananData {
 }
 
 // ─── Kelas rawat data ─────────────────────────────────────────
+// `tarif` = FALLBACK (dipakai bila master TarifKamar belum meng-set kelas tsb); selaras konstanta
+// AKOMODASI_RATE billing. Harga TAMPIL diambil dari master TarifKamar (Mapping Hub → Tarif → Ruang
+// Rawat) via listTarifKamarTersedia + resolveKelasTarif. Urut kelas rendah → tinggi.
 
 export const KELAS_RAWAT: KelasRawatData[] = [
   {
-    id: "kelas-3", label: "Kelas III", tarif: 250_000,
+    id: "Kelas_3", label: "Kelas III", tarif: 450_000,
     bpjsEntitlement: "BPJS PBI / Non-PBI Kelas III",
     amenities: ["AC Sentral", "KM Bersama", "6 TT/Ruang"],
     kapasitas: "6 TT",
   },
   {
-    id: "kelas-2", label: "Kelas II", tarif: 450_000,
+    id: "Kelas_2", label: "Kelas II", tarif: 800_000,
     bpjsEntitlement: "BPJS Non-PBI Kelas II",
     amenities: ["AC Ruangan", "KM Bersama", "3 TT/Ruang"],
     kapasitas: "3 TT",
   },
   {
-    id: "kelas-1", label: "Kelas I", tarif: 750_000,
+    id: "Kelas_1", label: "Kelas I", tarif: 1_200_000,
     bpjsEntitlement: "BPJS Non-PBI Kelas I",
     amenities: ["AC Ruangan", "KM Dalam", "TV", "2 TT/Ruang"],
     kapasitas: "2 TT",
   },
   {
-    id: "vip", label: "VIP", tarif: 1_500_000,
+    id: "VIP", label: "VIP", tarif: 2_000_000,
     bpjsEntitlement: null,
     amenities: ["AC Inverter", "KM Dalam", "Smart TV", "Kulkas", "Sofa"],
     kapasitas: "1 TT",
   },
-  {
-    id: "vvip", label: "VVIP", tarif: 3_000_000,
-    bpjsEntitlement: null,
-    amenities: ["AC Inverter", "KM Premium", "TV 55\"", "Kulkas", "Pantry"],
-    kapasitas: "Suite",
-  },
 ];
 
-export const CURRENT_KELAS_DEFAULT: KelasId = "kelas-2";
+export const CURRENT_KELAS_DEFAULT: KelasId = "Kelas_2";
+
+/** penjamin (string tampil kunjungan) → penjaminKode tarif (BPJS / UMUM). Selaras billing. */
+export function penjaminKodeFromLabel(penjamin?: string): "BPJS" | "UMUM" {
+  return /bpjs/i.test(penjamin ?? "") ? "BPJS" : "UMUM";
+}
+
+/**
+ * Harga kamar/hari dari master TarifKamar. Map di-key `${kelas}:${penjaminKode}`.
+ * Resolusi: (kelas, penjamin) → (kelas, UMUM) → fallback konstanta. Mirror resolveKamarRate billing.
+ */
+export function resolveKelasTarif(
+  rates: Map<string, number> | null,
+  kelasId: KelasId,
+  penjaminKode: string,
+  fallback: number,
+): number {
+  if (!rates) return fallback;
+  return rates.get(`${kelasId}:${penjaminKode}`) ?? rates.get(`${kelasId}:UMUM`) ?? fallback;
+}
 
 export const SUMBER_BAYAR: { id: SumberPembayaran; label: string; desc: string }[] = [
   { id: "pribadi",           label: "Pribadi",           desc: "Pasien / keluarga menanggung selisih" },
