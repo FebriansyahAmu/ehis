@@ -2,12 +2,11 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowDownToLine, Building2, ShieldOff, Siren } from "lucide-react";
+import { ArrowDownToLine, Building2, ShieldOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { KunjunganRecord } from "@/lib/data";
 import { RujukanMasukPanel } from "./rujukan/RujukanMasukPanel";
 import { KontrolPascaRanapForm } from "./rujukan/KontrolPascaRanapForm";
-import { RujukanIGDPanel } from "./rujukan/RujukanIGDPanel";
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -41,7 +40,7 @@ function NonBpjsBanner({ penjamin }: { penjamin: string }) {
 
 // ─── Sub-menu definitions ─────────────────────────────────────
 
-type SubMenu = "masuk" | "kontrol" | "igd";
+type SubMenu = "masuk" | "kontrol";
 
 const SUB_TABS = [
   {
@@ -55,12 +54,6 @@ const SUB_TABS = [
     label: "Kontrol Pasca Ranap",
     icon:  Building2,
     desc:  "Buat rujukan kontrol untuk pasien yang baru pulang dari rawat inap",
-  },
-  {
-    id:    "igd"     as SubMenu,
-    label: "Rujukan IGD",
-    icon:  Siren,
-    desc:  "Pengelolaan rujukan pasien gawat darurat — Perpres 82/2018 Pasal 47",
   },
 ] as const;
 
@@ -77,7 +70,7 @@ export function RujukanForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
       <div>
         <p className="text-[13px] font-bold text-slate-800">Surat Rujukan</p>
         <p className="mt-0.5 text-[11px] text-slate-400">
-          Manajemen rujukan BPJS Kesehatan — masuk, kontrol pasca rawat inap, dan IGD
+          Manajemen rujukan BPJS Kesehatan — rujukan masuk dari FKTP &amp; kontrol pasca rawat inap
         </p>
       </div>
 
@@ -145,7 +138,6 @@ export function RujukanForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
             >
               {active === "masuk"   && <RujukanMasukPanel   noBpjs={noBpjs} />}
               {active === "kontrol" && <KontrolPascaRanapForm kunjungan={kunjungan} />}
-              {active === "igd"     && <RujukanIGDPanel      noBpjs={noBpjs} />}
             </motion.div>
           </AnimatePresence>
         </>
