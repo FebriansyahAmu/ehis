@@ -3,9 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Check, Package, AlertCircle, X, ChevronRight, Loader2 } from "lucide-react";
+import { Check, Package, AlertCircle, Loader2 } from "lucide-react";
+import type { KunjunganRecord } from "@/lib/data";
 import { listPaketLayananTersedia, type PaketDTO } from "@/lib/api/master/paketLayanan";
+import { setKunjunganPaket } from "@/lib/api/kunjungan";
 import { type PaketLayananData, fmtRp } from "./paketTypes";
+import PaketConfirmDialog, { type PaketConfirmMode } from "./PaketConfirmDialog";
+
+// Pasien DB (UUID) → persist ke kunjungan.paketLayananId; demo (non-UUID) → pilihan lokal saja.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ─── Adapter ──────────────────────────────────────────────────
 
@@ -53,7 +59,7 @@ function EmptyState({ label }: { label: string }) {
           Tidak ada paket{label !== "Semua" ? ` kategori ${label}` : ""}
         </p>
         <p className="mt-0.5 text-[11px] text-slate-400">
-          Hubungi admin untuk informasi ketersediaan paket
+          Atur ketersediaan paket di Master → Paket Layanan
         </p>
       </div>
     </motion.div>
@@ -63,11 +69,13 @@ function EmptyState({ label }: { label: string }) {
 // ─── PackageCard ──────────────────────────────────────────────
 
 function PackageCard({
-  paket, isActive, onSelect, delay,
+  paket, isActive, busy, disabled, onToggle, delay,
 }: {
   paket: PaketLayananData;
   isActive: boolean;
-  onSelect: (id: string) => void;
+  busy: boolean;
+  disabled: boolean;
+  onToggle: (id: string) => void;
   delay: number;
 }) {
   return (
@@ -76,25 +84,25 @@ function PackageCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
-        "relative flex flex-col overflow-hidden rounded-xl border transition-shadow",
+        "relative flex flex-col overflow-hidden rounded-xl border-2 transition",
         isActive
-          ? "border-emerald-300 bg-emerald-50/30 shadow-md shadow-emerald-100/50"
+          ? "border-emerald-400 bg-emerald-50 shadow-md shadow-emerald-100/60"
           : "border-slate-200 bg-white hover:shadow-sm",
       )}
     >
       {/* Active accent top bar */}
       {isActive && (
-        <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-emerald-400 via-sky-400 to-emerald-400" />
+        <div className="absolute inset-x-0 top-0 h-1 bg-linear-to-r from-emerald-400 via-teal-400 to-emerald-400" />
       )}
 
       <div className="flex flex-col gap-3 p-4">
         {/* Header */}
         <div className="space-y-0.5">
           <div className="flex flex-wrap items-center gap-1.5">
-            <p className="text-[13px] font-bold text-slate-800">{paket.nama}</p>
+            <p className={cn("text-[13px] font-bold", isActive ? "text-emerald-800" : "text-slate-800")}>{paket.nama}</p>
             {isActive && (
-              <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[8.5px] font-bold text-emerald-700">
-                ✓ Aktif
+              <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-500 px-1.5 py-0.5 text-[8.5px] font-bold text-white">
+                <Check size={9} /> Terpilih
               </span>
             )}
             {paket.badge && !isActive && (
@@ -108,9 +116,9 @@ function PackageCard({
 
         {/* Service list */}
         <ul className="space-y-1">
-          {paket.layanan.map(l => (
+          {paket.layanan.map((l) => (
             <li key={l} className="flex items-start gap-1.5">
-              <Check size={10} className="mt-0.5 shrink-0 text-sky-500" />
+              <Check size={10} className={cn("mt-0.5 shrink-0", isActive ? "text-emerald-500" : "text-sky-500")} />
               <span className="text-[10.5px] leading-snug text-slate-600">{l}</span>
             </li>
           ))}
@@ -119,20 +127,30 @@ function PackageCard({
         {/* Footer */}
         <div className="mt-auto flex items-end justify-between border-t border-slate-100 pt-3">
           <div>
-            <p className="text-[14px] font-bold text-slate-800">{fmtRp(paket.harga)}</p>
-            <p className="text-[9px] text-slate-400">sudah termasuk pajak</p>
+            <p className={cn("text-[14px] font-bold", isActive ? "text-emerald-700" : "text-slate-800")}>{fmtRp(paket.harga)}</p>
+            <p className="text-[9px] text-slate-400">masuk tagihan</p>
           </div>
-          {isActive ? (
-            <span className="rounded-lg bg-emerald-100 px-3 py-1.5 text-[10px] font-bold text-emerald-700">
-              Paket Aktif
+          {busy ? (
+            <span className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-[10px] font-bold text-slate-500">
+              <Loader2 size={11} className="animate-spin" /> Menyimpan…
             </span>
+          ) : isActive ? (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onToggle(paket.id)}
+              className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-[10px] font-bold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-40 active:scale-95"
+            >
+              Lepas Paket
+            </button>
           ) : (
             <button
               type="button"
-              onClick={() => onSelect(paket.id)}
-              className="flex items-center gap-1 rounded-lg bg-sky-600 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-sky-700 active:scale-95"
+              disabled={disabled}
+              onClick={() => onToggle(paket.id)}
+              className="rounded-lg bg-sky-600 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-sky-700 disabled:opacity-40 active:scale-95"
             >
-              Pilih<ChevronRight size={10} />
+              Pilih Paket
             </button>
           )}
         </div>
@@ -141,115 +159,22 @@ function PackageCard({
   );
 }
 
-// ─── ConfirmPanel ─────────────────────────────────────────────
-
-function ConfirmPanel({
-  paket, onConfirm, onCancel,
-}: {
-  paket: PaketLayananData;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 8, scale: 0.98 }}
-      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-      className="overflow-hidden rounded-xl border border-sky-200 bg-sky-50 shadow-lg shadow-sky-100/50"
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-sky-100 bg-sky-500 px-4 py-3">
-        <div>
-          <p className="text-[12px] font-bold text-white">Konfirmasi Pilih Paket</p>
-          <p className="text-[9.5px] text-white/70">Pastikan paket sesuai dengan kebutuhan pasien</p>
-        </div>
-        <button type="button" onClick={onCancel}
-          className="flex h-6 w-6 items-center justify-center rounded-md bg-white/15 text-white/80 transition hover:bg-white/25">
-          <X size={12} />
-        </button>
-      </div>
-
-      <div className="p-4 space-y-3">
-        {/* Package summary */}
-        <div className="flex items-start gap-3 rounded-xl bg-white p-3.5 shadow-sm ring-1 ring-sky-100">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-100">
-            <Package size={15} className="text-sky-600" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[12px] font-bold text-slate-800">{paket.nama}</p>
-            <p className="mt-0.5 text-[10.5px] text-slate-500">{paket.deskripsi}</p>
-            <p className="mt-1.5 text-[14px] font-bold text-sky-700">{fmtRp(paket.harga)}</p>
-          </div>
-        </div>
-
-        {/* Warning */}
-        <div className="flex items-start gap-1.5 rounded-lg bg-amber-50 px-3 py-2 ring-1 ring-amber-100">
-          <AlertCircle size={11} className="mt-0.5 shrink-0 text-amber-600" />
-          <p className="text-[10px] leading-relaxed text-amber-700">
-            Paket ini akan <strong>menggantikan paket aktif</strong> saat ini. Perubahan berlaku
-            setelah dikonfirmasi oleh admin.
-          </p>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-2 pt-0.5">
-          <button type="button" onClick={onCancel}
-            className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50">
-            Batal
-          </button>
-          <button type="button" onClick={onConfirm}
-            className="flex-1 rounded-xl bg-sky-600 py-2.5 text-[11px] font-bold text-white transition hover:bg-sky-700 active:scale-95">
-            Ya, Ganti Paket
-          </button>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-// ─── SuccessState ─────────────────────────────────────────────
-
-function SuccessState({ paket, onReset }: { paket: PaketLayananData; onReset: () => void }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.25 }}
-      className="flex flex-col items-center gap-5 py-10 text-center"
-    >
-      <motion.div
-        initial={{ scale: 0, rotate: -12 }} animate={{ scale: 1, rotate: 0 }}
-        transition={{ delay: 0.1, type: "spring", stiffness: 280, damping: 18 }}
-        className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100"
-      >
-        <Check size={28} className="text-emerald-600" />
-      </motion.div>
-      <div>
-        <p className="text-[14px] font-bold text-slate-800">Paket Berhasil Diganti</p>
-        <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-          <span className="font-bold text-slate-600">{paket.nama}</span> kini menjadi paket
-          aktif. Admin akan mengkonfirmasi perubahan ini.
-        </p>
-      </div>
-      <button type="button" onClick={onReset}
-        className="rounded-xl border border-slate-200 px-5 py-2.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50">
-        Lihat Paket Lain
-      </button>
-    </motion.div>
-  );
-}
-
 // ─── PaketLayanan ─────────────────────────────────────────────
 
-export function PaketLayanan() {
+export function PaketLayanan({ kunjungan }: { kunjungan: KunjunganRecord }) {
+  const persist = UUID_RE.test(kunjungan.id); // pasien DB → simpan; demo → lokal
+
   const [pakets,     setPakets]     = useState<PaketLayananData[] | null>(null); // null = memuat
   const [loadErr,    setLoadErr]    = useState(false);
   const [kategori,   setKategori]   = useState<string>("Semua");
-  const [confirming, setConfirming] = useState<string | null>(null);
-  const [activeId,   setActiveId]   = useState<string | null>(null);
-  const [submitted,  setSubmitted]  = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(kunjungan.paketLayananId ?? null);
+  const [busyId,     setBusyId]     = useState<string | null>(null);
+  const [err,        setErr]        = useState<string | null>(null);
+  // Aksi tertunda menunggu konfirmasi (pilih / lepas paket).
+  const [pending, setPending] = useState<{ paket: PaketLayananData; mode: PaketConfirmMode; next: string | null } | null>(null);
 
-  // Paket dari master DB (master.PaketLayanan, status Aktif) — bukan mock.
+  // Paket dari master DB (status Aktif). Bila paket terpilih kunjungan sudah non-aktif, ia tak
+  // muncul di daftar — banner ringkasan tetap menandainya via selectedId (lihat di bawah).
   useEffect(() => {
     const ac = new AbortController();
     listPaketLayananTersedia(ac.signal)
@@ -259,23 +184,40 @@ export function PaketLayanan() {
   }, []);
 
   const categories = useMemo(
-    () => ["Semua", ...Array.from(new Set((pakets ?? []).map(p => p.kategori)))],
+    () => ["Semua", ...Array.from(new Set((pakets ?? []).map((p) => p.kategori)))],
     [pakets],
   );
   const list         = pakets ?? [];
-  const filtered     = list.filter(p => kategori === "Semua" || p.kategori === kategori);
-  const confirmPaket = list.find(p => p.id === confirming) ?? null;
-  const activePaket  = list.find(p => p.id === activeId)  ?? null;
+  const filtered     = list.filter((p) => kategori === "Semua" || p.kategori === kategori);
+  const selectedPaket = list.find((p) => p.id === selectedId) ?? null;
 
-  const handleConfirm = () => {
-    setActiveId(confirming);
-    setConfirming(null);
-    setSubmitted(true);
+  // Klik Pilih/Lepas → buka dialog konfirmasi (aksi ditunda sampai dikonfirmasi).
+  const requestToggle = (id: string) => {
+    if (busyId) return;
+    const paket = list.find((p) => p.id === id);
+    if (!paket) return;
+    const next: string | null = selectedId === id ? null : id; // klik paket terpilih = lepas
+    setErr(null);
+    setPending({ paket, mode: next === null ? "release" : "pick", next });
   };
 
-  if (submitted && activePaket) {
-    return <SuccessState paket={activePaket} onReset={() => setSubmitted(false)} />;
-  }
+  // Konfirmasi → persist ke kunjungan (billing reaktif via recordBus "order").
+  const confirmToggle = async () => {
+    if (!pending) return;
+    const { paket, next } = pending;
+    if (!persist) { setSelectedId(next); setPending(null); return; } // demo lokal
+    setBusyId(paket.id); setErr(null);
+    try {
+      await setKunjunganPaket(kunjungan.id, next);
+      setSelectedId(next);
+      setPending(null);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Gagal menyimpan paket.");
+      setPending(null);
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   // Loading skeleton (fetch awal).
   if (pakets === null) {
@@ -289,15 +231,48 @@ export function PaketLayanan() {
 
   return (
     <div className="space-y-4">
+      {err && (
+        <div className="flex items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-[11px] font-medium text-rose-700 ring-1 ring-rose-100">
+          <AlertCircle size={13} className="shrink-0" /> {err}
+        </div>
+      )}
       {loadErr && (
         <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-700 ring-1 ring-amber-100">
           <AlertCircle size={13} className="shrink-0" /> Gagal memuat paket dari master. Coba muat ulang halaman.
         </div>
       )}
+      {!persist && (
+        <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] font-medium text-slate-500 ring-1 ring-slate-200">
+          <AlertCircle size={13} className="shrink-0" /> Pasien demo — pilihan paket tidak tersimpan ke tagihan.
+        </div>
+      )}
+
+      {/* Ringkasan paket aktif — background hijau */}
+      {selectedPaket && (
+        <div className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100">
+            <Check size={15} className="text-emerald-600" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[12px] font-bold text-emerald-800">{selectedPaket.nama} — paket aktif</p>
+            <p className="text-[10.5px] text-emerald-600">
+              {fmtRp(selectedPaket.harga)} otomatis masuk tagihan (rekam medis &amp; ehis-billing).
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={!!busyId}
+            onClick={() => requestToggle(selectedPaket.id)}
+            className="shrink-0 rounded-lg border border-emerald-300 bg-white px-2.5 py-1.5 text-[10px] font-bold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-40"
+          >
+            Lepas
+          </button>
+        </div>
+      )}
 
       {/* Category filter — dinamis dari kategori yang ada di master */}
       <div className="flex gap-1.5 overflow-x-auto pb-1">
-        {categories.map(k => (
+        {categories.map((k) => (
           <button
             key={k}
             type="button"
@@ -314,7 +289,7 @@ export function PaketLayanan() {
         ))}
       </div>
 
-      {/* Package grid with AnimatePresence for category change */}
+      {/* Package grid */}
       <AnimatePresence mode="wait">
         {filtered.length === 0 ? (
           <EmptyState key="empty" label={kategori} />
@@ -329,8 +304,10 @@ export function PaketLayanan() {
               <PackageCard
                 key={paket.id}
                 paket={paket}
-                isActive={paket.id === activeId}
-                onSelect={setConfirming}
+                isActive={paket.id === selectedId}
+                busy={busyId === paket.id}
+                disabled={!!busyId}
+                onToggle={requestToggle}
                 delay={i * 0.04}
               />
             ))}
@@ -338,17 +315,20 @@ export function PaketLayanan() {
         )}
       </AnimatePresence>
 
-      {/* Inline confirm panel */}
-      <AnimatePresence>
-        {confirming && confirmPaket && (
-          <ConfirmPanel
-            key="confirm"
-            paket={confirmPaket}
-            onConfirm={handleConfirm}
-            onCancel={() => setConfirming(null)}
-          />
-        )}
-      </AnimatePresence>
+      {/* Konfirmasi pilih / lepas paket */}
+      <PaketConfirmDialog
+        open={pending !== null}
+        mode={pending?.mode ?? "pick"}
+        paket={pending?.paket ?? null}
+        replacing={
+          pending?.mode === "pick" && selectedPaket && selectedPaket.id !== pending.paket.id
+            ? selectedPaket
+            : null
+        }
+        busy={!!busyId}
+        onConfirm={confirmToggle}
+        onCancel={() => { if (!busyId) setPending(null); }}
+      />
     </div>
   );
 }

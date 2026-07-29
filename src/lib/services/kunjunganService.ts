@@ -18,6 +18,7 @@ import * as bpjsDal from "@/lib/dal/bpjsDal";
 import * as diagnosaDal from "@/lib/dal/diagnosa/diagnosaDal";
 import * as disposisiDal from "@/lib/dal/disposisi/disposisiDal";
 import * as spriDal from "@/lib/dal/spri/spriDal";
+import * as paketLayananDal from "@/lib/dal/master/paketLayananDal";
 import { issueSpriRef } from "@/lib/services/spri/spriBpjsMock";
 import { resolveKodeDpjpBpjs, resolveKodeDpjpBpjsByPegawai } from "@/lib/services/bpjs/referensiDpjp";
 import { makeBpjsService, toSepDTO, toRujukanDTO } from "@/lib/services/bpjsService";
@@ -150,6 +151,7 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
       kodeIcdMasuk: k.kodeIcdMasuk,
       penjaminTipe: k.penjaminTipe,
       penjaminId: k.penjaminId,
+      paketLayananId: k.paketLayananId ?? null,
       pasien: { id: k.pasien.id, noRm: k.pasien.noRm, nama: k.pasien.nama },
       rujukan: k.rujukan ? toRujukanDTO(k.rujukan) : null,
       sep: k.sep ? toSepDTO(k.sep) : null,
@@ -533,6 +535,24 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
   }
 
   /**
+   * Set/ganti/lepas Paket Layanan kunjungan (tab "Ubah Paket"). Persist `kunjungan.paketLayananId`
+   * → billing MEMPROYEKSIKAN charge bundel (parallel modal pendaftaran). `paketId=null` = lepas paket.
+   * Validasi paket ada (bila non-null) agar tak menaruh pointer menggantung.
+   */
+  async function setPaket(kunjunganId: string, paketId: string | null, actor: Actor): Promise<KunjunganDTO> {
+    const k = await dal.findById(kunjunganId);
+    if (!k) throw Errors.notFound("Kunjungan tidak ditemukan");
+    assertUnitInScope(actor, k);
+    if (paketId) {
+      const [paket] = await paketLayananDal.findByIds([paketId]);
+      if (!paket) throw Errors.validation("Paket layanan tidak ditemukan");
+    }
+    await dal.setPaketLayanan(kunjunganId, paketId);
+    const fresh = await dal.findById(kunjunganId);
+    return toDTO(fresh!);
+  }
+
+  /**
    * Diagnosa UTAMA (primary) satu kunjungan — untuk pra-isi rujukan "Kontrol Pasca Ranap"
    * (SEP ranap terakhir → diagnosa primer episode ranap). Gate registration.kunjungan:read;
    * Registrasi/Kasir = role global (bypass unit-scope). Null bila belum ada diagnosa utama.
@@ -787,7 +807,7 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
     return { items: items.map(toListDTO), cursor: nextCursor };
   }
 
-  return { registerKunjungan, changePenjamin, getKunjungan, getDiagnosaUtama, getWorklist, transition };
+  return { registerKunjungan, changePenjamin, setPaket, getKunjungan, getDiagnosaUtama, getWorklist, transition };
 }
 
 export const kunjunganService = makeKunjunganService();

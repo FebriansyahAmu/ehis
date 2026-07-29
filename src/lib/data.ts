@@ -581,6 +581,8 @@ export interface KunjunganRecord {
   ruangan?: string;
   /** Poli Tujuan (Rawat Jalan) — dipakai Ubah Penjamin (SEP poliTujuan) & tampilan review. */
   poli?: string;
+  /** Paket Layanan terpilih (master.PaketLayanan id) — tab Ubah Paket; billing proyeksikan charge. */
+  paketLayananId?: string | null;
   keluhan: string;
   diagnosa: string;
   penjamin?: string;

@@ -2,9 +2,11 @@
 // FE↔BE selalu selaras, nol kode server ter-bundle. Endpoint: /api/v1/kunjungan.
 
 import { api } from "@/lib/api/client";
+import { emitRecordChange } from "@/lib/realtime/recordBus";
 import type {
   RegisterKunjunganInput,
   ChangePenjaminInput,
+  SetPaketInput,
   KunjunganDTO,
   KunjunganListItemDTO,
   KunjunganActionName,
@@ -35,6 +37,19 @@ export async function changePenjamin(
   signal?: AbortSignal,
 ): Promise<{ kunjungan: KunjunganDTO; message?: string }> {
   const r = await api.post<KunjunganDTO>(`/kunjungan/${encodeURIComponent(id)}/penjamin`, input, { signal });
+  return { kunjungan: r.data, message: r.message };
+}
+
+/** POST /kunjungan/:id/paket — set/ganti/lepas Paket Layanan (tab Ubah Paket). Emit recordBus
+ *  "order" → widget Total Tagihan header + billing (mini widget / gate) ikut refresh. */
+export async function setKunjunganPaket(
+  id: string,
+  paketId: string | null,
+  signal?: AbortSignal,
+): Promise<{ kunjungan: KunjunganDTO; message?: string }> {
+  const body: SetPaketInput = { paketId };
+  const r = await api.post<KunjunganDTO>(`/kunjungan/${encodeURIComponent(id)}/paket`, body, { signal });
+  emitRecordChange(id, "order");
   return { kunjungan: r.data, message: r.message };
 }
 

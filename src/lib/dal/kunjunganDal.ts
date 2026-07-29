@@ -161,6 +161,17 @@ export async function setTriaseLevel(id: string, triaseLevel: number, tx?: Tx): 
   return res.count;
 }
 
+// ── Set/lepas Paket Layanan kunjungan (tab Ubah Paket) ────────────────────────
+/** Set `paketLayananId` (null = lepas paket). Tanpa version guard (pointer administratif;
+ *  billing memproyeksikan charge dari nilai ini). Filter soft-delete. */
+export async function setPaketLayanan(id: string, paketLayananId: string | null, tx?: Tx): Promise<number> {
+  const res = await db(tx).kunjungan.updateMany({
+    where: { id, deletedAt: null },
+    data: { paketLayananId },
+  });
+  return res.count;
+}
+
 // ── Ganti penjamin kunjungan (Ubah Penjamin) ─────────────────────────────────
 export interface UpdatePenjaminPatch {
   penjaminTipe: TipePenjamin;

@@ -119,6 +119,7 @@ export function dtoDetailToKunjunganRecord(
     dpjpId: dto.dpjpId ?? undefined,
     ruanganId: dto.ruanganId ?? undefined,
     poli: dto.poli ?? undefined,
+    paketLayananId: dto.paketLayananId ?? null,
     keluhan: dto.keluhan ?? "",
     diagnosa: dto.diagnosaMasuk ?? "—",
     penjamin: PENJAMIN_LABEL[dto.penjaminTipe] ?? dto.penjaminTipe,

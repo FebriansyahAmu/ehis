@@ -140,6 +140,15 @@ export const ChangePenjaminInput = z
     }
   });
 
+// ── Set/ganti Paket Layanan kunjungan (POST /kunjungan/:id/paket) ─────────────
+// Pilih/ganti/lepas paket pada kunjungan yang SUDAH ada (tab "Ubah Paket"). Persist
+// `kunjungan.paketLayananId` → billing memproyeksikan charge bundel (parallel modal pendaftaran).
+export const SetPaketInput = z.object({
+  /** master.PaketLayanan id, atau null untuk melepas paket. */
+  paketId: z.string().uuid("paketId tidak valid").nullable(),
+});
+export type SetPaketInput = z.infer<typeof SetPaketInput>;
+
 // ── Worklist (GET /kunjungan) ─────────────────────────────────────────────────
 export const WorklistQuery = z.object({
   unit: KunjunganUnit.optional(),
@@ -289,6 +298,8 @@ export interface KunjunganDTO {
   kodeIcdMasuk: string | null;
   penjaminTipe: string;
   penjaminId: string | null;
+  /** Paket Layanan terpilih (RJ) — master.PaketLayanan id. Null = tanpa paket. Billing proyeksikan charge. */
+  paketLayananId: string | null;
   pasien: { id: string; noRm: string; nama: string };
   rujukan: RujukanDTO | null;
   sep: SepDTO | null;
