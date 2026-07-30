@@ -168,10 +168,12 @@ src/components/registration/
         │   ├── PindahKelas.tsx         # KelasCard grid + SUMBER_BAYAR + tarif compare
         │   ├── PaketLayanan.tsx        # MCU / Persalinan / Bedah package selector
         │   └── paketTypes.ts           # KELAS_RAWAT array, SUMBER_BAYAR, fmtRp
-        ├── RujukanForm.tsx             # BPJS-only gate + 2 sub-menu (Masuk/Kontrol)
+        ├── RujukanForm.tsx             # BPJS-only gate + 3 sub-menu (Masuk/Kontrol/Internal)
         ├── rujukan/
         │   ├── RujukanMasukPanel.tsx   # Search hero rujukan FKTP + master-detail RujukanCard
         │   ├── KontrolPascaRanapForm.tsx # Rujukan kontrol pasca ranap (2-kolom, badge, global Select)
+        │   ├── RujukanInternalPanel.tsx # Rujuk internal antar poli/SMF dalam RS (tertaut SEP aktif)
+        │   ├── rujukanFormShared.tsx   # Primitif bersama: Badge/FieldCard/ReadinessBanner/Confirm/Success
         │   ├── RujukanCard.tsx         # Detail card display
         │   ├── DiagnosaCombobox.tsx    # ICD-10 picker
         │   └── rujukanTypes.ts         # BpjsRujukanItem, MOCK_RUJUKAN, MOCK_SEP_RANAP, KODE_RS, NAMA_RS, SMF_LIST, getIcdName

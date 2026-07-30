@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowDownToLine, Building2, ShieldOff } from "lucide-react";
+import { ArrowDownToLine, Building2, ShieldOff, Waypoints } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { KunjunganRecord } from "@/lib/data";
 import { RujukanMasukPanel } from "./rujukan/RujukanMasukPanel";
 import { KontrolPascaRanapForm } from "./rujukan/KontrolPascaRanapForm";
+import { RujukanInternalPanel } from "./rujukan/RujukanInternalPanel";
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -40,7 +41,7 @@ function NonBpjsBanner({ penjamin }: { penjamin: string }) {
 
 // ─── Sub-menu definitions ─────────────────────────────────────
 
-type SubMenu = "masuk" | "kontrol";
+type SubMenu = "masuk" | "kontrol" | "internal";
 
 const SUB_TABS = [
   {
@@ -54,6 +55,12 @@ const SUB_TABS = [
     label: "Kontrol Pasca Ranap",
     icon:  Building2,
     desc:  "Buat rujukan kontrol untuk pasien yang baru pulang dari rawat inap",
+  },
+  {
+    id:    "internal" as SubMenu,
+    label: "Rujukan Internal",
+    icon:  Waypoints,
+    desc:  "Rujuk peserta ke poli / spesialis lain di dalam RS yang sama (tertaut SEP aktif)",
   },
 ] as const;
 
@@ -70,7 +77,7 @@ export function RujukanForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
       <div>
         <p className="text-[13px] font-bold text-slate-800">Surat Rujukan</p>
         <p className="mt-0.5 text-[11px] text-slate-400">
-          Manajemen rujukan BPJS Kesehatan — rujukan masuk dari FKTP &amp; kontrol pasca rawat inap
+          Manajemen rujukan BPJS Kesehatan — rujukan masuk FKTP, kontrol pasca rawat inap &amp; rujukan internal antar poli
         </p>
       </div>
 
@@ -136,8 +143,9 @@ export function RujukanForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
             >
-              {active === "masuk"   && <RujukanMasukPanel   noBpjs={noBpjs} />}
-              {active === "kontrol" && <KontrolPascaRanapForm kunjungan={kunjungan} />}
+              {active === "masuk"    && <RujukanMasukPanel    noBpjs={noBpjs} />}
+              {active === "kontrol"  && <KontrolPascaRanapForm kunjungan={kunjungan} />}
+              {active === "internal" && <RujukanInternalPanel  kunjungan={kunjungan} />}
             </motion.div>
           </AnimatePresence>
         </>
