@@ -71,6 +71,15 @@ export const SepInput = z.object({
   user: z.string().trim().max(80).optional(), // operator loket → SEP.userPembuat
 });
 
+// ── Link rujukan BPJS (POST /kunjungan/:id/rujukan-bpjs) ───────────────────────
+// Tautkan/ganti rujukan pada kunjungan yang SUDAH ada (tab Surat Rujukan — gerbang B).
+// Reuse RujukanInput; `syncSep=true` → SEP aktif (bila ada) di-set rujukanId + diagAwal =
+// diagnosa rujukan, agar SEP TETAP SESUAI rujukan & diagnosa. Primitif tunggal, dua gerbang.
+export const LinkRujukanInput = RujukanInput.extend({
+  syncSep: z.boolean().default(true),
+});
+export type LinkRujukanInput = z.infer<typeof LinkRujukanInput>;
+
 // ── Register kunjungan (POST /kunjungan) ──────────────────────────────────────
 export const RegisterKunjunganInput = z
   .object({

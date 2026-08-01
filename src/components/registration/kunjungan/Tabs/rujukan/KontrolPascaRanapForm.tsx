@@ -11,6 +11,7 @@ import {
   Badge, SectionLabel, FieldCard, ReadinessBanner,
   RujukanConfirmPanel, RujukanSuccessState,
 } from "./rujukanFormShared";
+import type { RujukanLinkPayload } from "./useRujukanLink";
 import {
   KODE_RS, NAMA_RS, getIcdName, MOCK_SEP_RANAP, SMF_LIST,
   type IcdOption,
@@ -139,7 +140,13 @@ function ManualSEPInput({
 
 // ─── KontrolPascaRanapForm ────────────────────────────────────
 
-export function KontrolPascaRanapForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
+export function KontrolPascaRanapForm({
+  kunjungan, onLink,
+}: {
+  kunjungan: KunjunganRecord;
+  /** Persist tautan rujukan⇄SEP (gerbang B) — undefined utk pasien demo (lokal saja). */
+  onLink?: (payload: RujukanLinkPayload) => void | Promise<void>;
+}) {
   const [sepState,   setSepState]   = useState<SEPState>("idle");
   const [manualSEP,  setManualSEP]  = useState(false);
   const [noSEPInput, setNoSEPInput] = useState("");
@@ -163,6 +170,18 @@ export function KontrolPascaRanapForm({ kunjungan }: { kunjungan: KunjunganRecor
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     const dd = String(d.getDate()).padStart(2, "0");
     setNoRujukan(`${KODE_RS}${dd}${mm}${yy}K${ts}`);
+    // Persist ke bpjs.Rujukan + sinkron SEP.diagAwal (No. Rujukan kontrol = No. SEP ranap).
+    if (diagnosa) {
+      void onLink?.({
+        sumber:       "KontrolPascaRanap",
+        asalRujukan:  "Faskes2",
+        noRujukan:    noSEPActive,
+        diagnosaKode: diagnosa.code,
+        diagnosaNama: diagnosa.name,
+        poliTujuan:   smf || undefined,
+        noSepAsal:    noSEPActive,
+      });
+    }
     setConfirming(false);
     setSubmitted(true);
   };

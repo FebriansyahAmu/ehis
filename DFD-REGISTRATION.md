@@ -168,11 +168,13 @@ src/components/registration/
         │   ├── PindahKelas.tsx         # KelasCard grid + SUMBER_BAYAR + tarif compare
         │   ├── PaketLayanan.tsx        # MCU / Persalinan / Bedah package selector
         │   └── paketTypes.ts           # KELAS_RAWAT array, SUMBER_BAYAR, fmtRp
-        ├── RujukanForm.tsx             # BPJS-only gate + 3 sub-menu (Masuk/Kontrol/Internal)
+        ├── RujukanForm.tsx             # BPJS-gate + 3 sub-menu (Masuk/Kontrol/Internal) + RujukanStatusPanel (gerbang B)
         ├── rujukan/
-        │   ├── RujukanMasukPanel.tsx   # Search hero rujukan FKTP + master-detail RujukanCard
-        │   ├── KontrolPascaRanapForm.tsx # Rujukan kontrol pasca ranap (2-kolom, badge, global Select)
-        │   ├── RujukanInternalPanel.tsx # Rujuk internal antar poli/SMF dalam RS (tertaut SEP aktif)
+        │   ├── RujukanMasukPanel.tsx   # Search hero rujukan FKTP + master-detail; onPick → linkRujukan
+        │   ├── KontrolPascaRanapForm.tsx # Rujukan kontrol pasca ranap (2-kolom, badge, global Select); onLink → linkRujukan
+        │   ├── RujukanInternalPanel.tsx # Rujuk internal antar poli/SMF dalam RS (MOCK — tak menaut SEP)
+        │   ├── RujukanStatusPanel.tsx  # Status Rujukan⇄SEP + deteksi drift diagAwal + tombol Sinkronkan
+        │   ├── useRujukanLink.ts       # Hook: baca rujukan/sep/diagnosa + link() → POST /kunjungan/:id/rujukan-bpjs
         │   ├── rujukanFormShared.tsx   # Primitif bersama: Badge/FieldCard/ReadinessBanner/Confirm/Success
         │   ├── RujukanCard.tsx         # Detail card display
         │   ├── DiagnosaCombobox.tsx    # ICD-10 picker

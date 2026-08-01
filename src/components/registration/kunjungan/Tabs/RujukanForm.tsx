@@ -8,8 +8,14 @@ import type { KunjunganRecord } from "@/lib/data";
 import { RujukanMasukPanel } from "./rujukan/RujukanMasukPanel";
 import { KontrolPascaRanapForm } from "./rujukan/KontrolPascaRanapForm";
 import { RujukanInternalPanel } from "./rujukan/RujukanInternalPanel";
+import { RujukanStatusPanel } from "./rujukan/RujukanStatusPanel";
+import { useRujukanLink } from "./rujukan/useRujukanLink";
+import { getIcdName, type BpjsRujukanItem } from "./rujukan/rujukanTypes";
 
 // ─── Helpers ──────────────────────────────────────────────────
+
+// Pasien DB (UUID) → tautkan ke bpjs.Rujukan + SEP; demo (non-UUID) → sub-panel tetap lokal.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isBpjs(penjamin?: string): boolean {
   return (penjamin ?? "").toLowerCase().includes("bpjs");
@@ -68,8 +74,24 @@ const SUB_TABS = [
 
 export function RujukanForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
   const [active, setActive] = useState<SubMenu>("masuk");
-  const bpjs   = isBpjs(kunjungan.penjamin);
-  const noBpjs = kunjungan.noPenjamin ?? kunjungan.noSEP ?? "—";
+  const bpjs    = isBpjs(kunjungan.penjamin);
+  const noBpjs  = kunjungan.noPenjamin ?? kunjungan.noSEP ?? "—";
+  // Persist tautan rujukan⇄SEP hanya untuk pasien DB BPJS (bukan demo). Hook selalu dipanggil.
+  const persist   = bpjs && UUID_RE.test(kunjungan.id);
+  const linkState = useRujukanLink(kunjungan.id, persist);
+
+  // Pilih Rujukan Masuk (FKTP) → upsert bpjs.Rujukan + sinkron SEP.diagAwal.
+  const pickMasuk = (r: BpjsRujukanItem) => {
+    linkState.link({
+      sumber:       "RujukanMasuk",
+      asalRujukan:  "Faskes1",
+      noRujukan:    r.norujukan,
+      tglRujukan:   r.tglrujukan_awal,
+      diagnosaKode: r.diagppk,
+      diagnosaNama: getIcdName(r.diagppk),
+      poliTujuan:   kunjungan.poli ?? undefined,
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -85,6 +107,9 @@ export function RujukanForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
         <NonBpjsBanner penjamin={kunjungan.penjamin ?? ""} />
       ) : (
         <>
+          {/* Status Rujukan ⇄ SEP (gerbang B — konsistensi diagnosa) */}
+          {persist && <RujukanStatusPanel state={linkState} />}
+
           {/* Sub-menu pills */}
           <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
             {SUB_TABS.map(tab => {
@@ -143,8 +168,8 @@ export function RujukanForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
             >
-              {active === "masuk"    && <RujukanMasukPanel    noBpjs={noBpjs} />}
-              {active === "kontrol"  && <KontrolPascaRanapForm kunjungan={kunjungan} />}
+              {active === "masuk"    && <RujukanMasukPanel    noBpjs={noBpjs} onPick={persist ? pickMasuk : undefined} />}
+              {active === "kontrol"  && <KontrolPascaRanapForm kunjungan={kunjungan} onLink={persist ? linkState.link : undefined} />}
               {active === "internal" && <RujukanInternalPanel  kunjungan={kunjungan} />}
             </motion.div>
           </AnimatePresence>

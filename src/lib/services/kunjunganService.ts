@@ -30,7 +30,7 @@ import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import { unitScopeBypassed, type CareUnit } from "@/lib/auth/careUnit";
 import { assertUnitInScope } from "@/lib/services/clinicalScope";
-import type { RegisterKunjunganInput, ChangePenjaminInput, WorklistQuery, KunjunganDTO, KunjunganListItemDTO, KunjunganActionName } from "@/lib/schemas/kunjungan";
+import type { RegisterKunjunganInput, ChangePenjaminInput, LinkRujukanInput, WorklistQuery, KunjunganDTO, KunjunganListItemDTO, KunjunganActionName } from "@/lib/schemas/kunjungan";
 import type { DisposisiInput } from "@/lib/schemas/disposisi/disposisi";
 import type { KunjunganEntity, KunjunganListEntity, UpdateStatusPatch } from "@/lib/dal/kunjunganDal";
 
@@ -526,6 +526,41 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
     return { ...toDTO(updated), sepError };
   }
 
+  /**
+   * Tautkan rujukan BPJS ke kunjungan yang SUDAH ada (tab Surat Rujukan — Rujukan Masuk /
+   * Kontrol Pasca Ranap; "gerbang B"). Upsert bpjs.Rujukan (1:1) + —bila SEP aktif ada &
+   * `syncSep`— set SEP.rujukanId + SEP.diagAwal = diagnosa rujukan. INI seam tunggal yang
+   * menjaga "SEP tetap sesuai rujukan & diagnosa": gerbang penerbitan (register/ubah penjamin)
+   * & tab ini menulis DUA baris yang SAMA (bpjs.Rujukan + bpjs.SEP). Tanpa panggilan konektor
+   * (Ubah Rujukan / Update SEP V-Claim = follow-up saat WS nyata; issueSep pun masih mock).
+   */
+  async function linkRujukan(kunjunganId: string, input: LinkRujukanInput, actor: Actor): Promise<KunjunganDTO> {
+    const k = await dal.findById(kunjunganId);
+    if (!k) throw Errors.notFound("Kunjungan tidak ditemukan");
+    assertUnitInScope(actor, k);
+    if (k.status === "Cancelled") throw Errors.validation("Kunjungan dibatalkan — rujukan tidak dapat diubah");
+    if (!isBpjs(k.penjaminTipe)) throw Errors.validation("Rujukan BPJS hanya untuk peserta BPJS Kesehatan");
+
+    const updated = await transaction(async (tx) => {
+      const r = await bpjs.upsertRujukan(kunjunganId, input, tx);
+      if (input.syncSep) {
+        const sep = await bpjsDal.findSepByKunjungan(kunjunganId, tx);
+        if (sep) {
+          // SEP TETAP SESUAI RUJUKAN: diagAwal mengikuti diagnosa rujukan (bila ada).
+          await bpjsDal.linkSepRujukan(
+            sep.id,
+            { rujukanId: r.id, diagAwal: input.diagnosaKode ?? sep.diagAwal ?? undefined },
+            tx,
+          );
+        }
+      }
+      const fresh = await dal.findById(kunjunganId, tx);
+      if (!fresh) throw Errors.internal("Gagal memuat kunjungan setelah menautkan rujukan");
+      return fresh;
+    });
+    return toDTO(updated);
+  }
+
   /** Detail kunjungan (incl. rujukan + SEP utk cetak). Unit-scope: anti-IDOR lintas unit. */
   async function getKunjungan(id: string, actor: Actor): Promise<KunjunganDTO> {
     const found = await dal.findById(id);
@@ -807,7 +842,7 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
     return { items: items.map(toListDTO), cursor: nextCursor };
   }
 
-  return { registerKunjungan, changePenjamin, setPaket, getKunjungan, getDiagnosaUtama, getWorklist, transition };
+  return { registerKunjungan, changePenjamin, linkRujukan, setPaket, getKunjungan, getDiagnosaUtama, getWorklist, transition };
 }
 
 export const kunjunganService = makeKunjunganService();

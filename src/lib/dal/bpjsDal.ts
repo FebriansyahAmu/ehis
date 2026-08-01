@@ -97,6 +97,24 @@ export function findSepByKunjungan(kunjunganId: string, tx?: Tx) {
   return db(tx).sEP.findFirst({ where: { kunjunganId, deletedAt: null } });
 }
 
+/** Tautkan/segarkan rujukan pada SEP aktif yang ADA + sinkronkan diagAwal (tab Surat Rujukan).
+ *  Menjaga SEP tetap sesuai rujukan & diagnosa. `diagAwal` di-update hanya bila disertakan
+ *  (undefined = biarkan; null/string = set). Update by id (SEP aktif tunggal per kunjungan). */
+export async function linkSepRujukan(
+  sepId: string,
+  data: { rujukanId: string; diagAwal?: string | null },
+  tx?: Tx,
+): Promise<number> {
+  const res = await db(tx).sEP.updateMany({
+    where: { id: sepId, deletedAt: null },
+    data: {
+      rujukanId: data.rujukanId,
+      ...(data.diagAwal !== undefined ? { diagAwal: data.diagAwal } : {}),
+    },
+  });
+  return res.count;
+}
+
 /** Supersede (soft-delete) SEMUA SEP aktif satu kunjungan — dipanggil sebelum terbit
  *  SEP baru (Ubah Penjamin) agar hanya satu SEP aktif per kunjungan. */
 export async function supersedeSepByKunjungan(kunjunganId: string, when: Date, tx?: Tx): Promise<number> {

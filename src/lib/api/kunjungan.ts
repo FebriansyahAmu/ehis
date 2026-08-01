@@ -6,6 +6,7 @@ import { emitRecordChange } from "@/lib/realtime/recordBus";
 import type {
   RegisterKunjunganInput,
   ChangePenjaminInput,
+  LinkRujukanInput,
   SetPaketInput,
   KunjunganDTO,
   KunjunganListItemDTO,
@@ -13,7 +14,7 @@ import type {
 } from "@/lib/schemas/kunjungan";
 import type { DisposisiInput } from "@/lib/schemas/disposisi/disposisi";
 
-export type { RegisterKunjunganInput, ChangePenjaminInput, KunjunganDTO, KunjunganListItemDTO, KunjunganActionName };
+export type { RegisterKunjunganInput, ChangePenjaminInput, LinkRujukanInput, KunjunganDTO, KunjunganListItemDTO, KunjunganActionName };
 
 export interface RegisterKunjunganResult {
   kunjungan: KunjunganDTO;
@@ -49,6 +50,18 @@ export async function setKunjunganPaket(
 ): Promise<{ kunjungan: KunjunganDTO; message?: string }> {
   const body: SetPaketInput = { paketId };
   const r = await api.post<KunjunganDTO>(`/kunjungan/${encodeURIComponent(id)}/paket`, body, { signal });
+  emitRecordChange(id, "order");
+  return { kunjungan: r.data, message: r.message };
+}
+
+/** POST /kunjungan/:id/rujukan-bpjs — tautkan rujukan BPJS + sinkronkan SEP (tab Surat Rujukan).
+ *  Emit recordBus "order" → header SEP chip / billing ikut refresh. */
+export async function linkKunjunganRujukan(
+  id: string,
+  input: LinkRujukanInput,
+  signal?: AbortSignal,
+): Promise<{ kunjungan: KunjunganDTO; message?: string }> {
+  const r = await api.post<KunjunganDTO>(`/kunjungan/${encodeURIComponent(id)}/rujukan-bpjs`, input, { signal });
   emitRecordChange(id, "order");
   return { kunjungan: r.data, message: r.message };
 }
