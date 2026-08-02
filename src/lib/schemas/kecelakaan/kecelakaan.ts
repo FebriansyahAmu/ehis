@@ -40,6 +40,9 @@ export const UpsertKecelakaanInput = z.object({
   noKpj:              z.string().trim().max(40).default(""),
   jenisPekerjaan:     z.string().trim().max(120).default(""),
   lokasiKerja:        z.string().trim().max(300).default(""),
+  // Suplesi BPJS (perawatan lanjutan KLL) → SEP.jaminan.penjamin.suplesi
+  suplesi:            z.boolean().default(false),
+  noSepSuplesi:       z.string().trim().max(40).default(""),
   // Status klaim
   statusKlaim:        StatusKlaim.default("belum"),
   nomorKlaim:         z.string().trim().max(80).default(""),
@@ -71,7 +74,28 @@ export interface KecelakaanDTO {
   noKpj:              string;
   jenisPekerjaan:     string;
   lokasiKerja:        string;
+  suplesi:            boolean;
+  noSepSuplesi:       string;
   statusKlaim:        "belum" | "proses" | "selesai" | "ditolak";
   nomorKlaim:         string;
   updatedAt:          string; // ISO — audit
+}
+
+// ── Jembatan Kecelakaan → SEP (POST /kunjungan/:id/kecelakaan/sync-sep) ────────
+// Hasil sinkronisasi blok jaminan ke SEP aktif. lokasiLaka DITUNDA (referensi wilayah BPJS).
+export interface SepJaminanSyncDTO {
+  noSep:          string | null;
+  lakaLantas:     "BKLL" | "KLL_BKK" | "KLL_KK" | "KK";
+  noLp:           string;
+  tglKejadian:    string; // ISO date | ""
+  keteranganLaka: string;
+  suplesi:        boolean;
+  noSepSuplesi:   string;
+}
+
+// Kandidat No. SEP suplesi (SEP KLL terbit pasien, lintas kunjungan) — GET .../suplesi-kandidat.
+export interface SuplesiKandidatDTO {
+  noSep:      string;
+  tglSep:     string; // ISO date
+  lakaLantas: string;
 }

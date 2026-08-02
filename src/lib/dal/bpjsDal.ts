@@ -115,6 +115,53 @@ export async function linkSepRujukan(
   return res.count;
 }
 
+/** Tulis blok JAMINAN kecelakaan pada SEP aktif yang ADA (jembatan Data Kecelakaan → SEP).
+ *  Menyalin lakaLantas + No. LP + tgl kejadian + keterangan + suplesi. `lokasiKd*` DITUNDA
+ *  (butuh referensi wilayah BPJS). Field `undefined` = biarkan; null/nilai = set. Update by id. */
+export async function updateSepJaminan(
+  sepId: string,
+  data: {
+    lakaLantas: LakaLantas;
+    noLp?: string | null;
+    tglKejadian?: Date | null;
+    keteranganLaka?: string | null;
+    suplesi?: boolean;
+    noSepSuplesi?: string | null;
+  },
+  tx?: Tx,
+): Promise<number> {
+  const res = await db(tx).sEP.updateMany({
+    where: { id: sepId, deletedAt: null },
+    data: {
+      lakaLantas: data.lakaLantas,
+      ...(data.noLp !== undefined ? { noLp: data.noLp } : {}),
+      ...(data.tglKejadian !== undefined ? { tglKejadian: data.tglKejadian } : {}),
+      ...(data.keteranganLaka !== undefined ? { keteranganLaka: data.keteranganLaka } : {}),
+      ...(data.suplesi !== undefined ? { suplesi: data.suplesi } : {}),
+      ...(data.noSepSuplesi !== undefined ? { noSepSuplesi: data.noSepSuplesi } : {}),
+    },
+  });
+  return res.count;
+}
+
+/** SEP KLL TERBIT milik pasien (lintas kunjungan, exclude kunjungan berjalan) — kandidat
+ *  No. SEP suplesi (episode kecelakaan yang sama). lakaLantas ≠ BKLL = ada unsur kecelakaan. */
+export function listLakaSepByPatient(patientId: string, excludeKunjunganId: string, tx?: Tx) {
+  return db(tx).sEP.findMany({
+    where: {
+      status: "Terbit",
+      noSep: { not: null },
+      deletedAt: null,
+      lakaLantas: { not: "BKLL" },
+      kunjungan: { patientId },
+      kunjunganId: { not: excludeKunjunganId },
+    },
+    select: { noSep: true, tglSep: true, lakaLantas: true, kunjunganId: true },
+    orderBy: { tglSep: "desc" },
+    take: 20,
+  });
+}
+
 /** Supersede (soft-delete) SEMUA SEP aktif satu kunjungan — dipanggil sebelum terbit
  *  SEP baru (Ubah Penjamin) agar hanya satu SEP aktif per kunjungan. */
 export async function supersedeSepByKunjungan(kunjunganId: string, when: Date, tx?: Tx): Promise<number> {

@@ -15,6 +15,7 @@ import { getKecelakaan, saveKecelakaan } from "@/lib/api/kecelakaan";
 import { KLLPanel } from "./kecelakaan/KLLPanel";
 import { KKPanel } from "./kecelakaan/KKPanel";
 import { SuratJRModal } from "./kecelakaan/SuratJRModal";
+import { SepBridgePanel } from "./kecelakaan/SepBridgePanel";
 import {
   type JenisKecelakaan, type KecelakaanDraft, type StatusKlaim,
   BLANK_DRAFT, PROVINSI_LIST, STATUS_CONFIG, dtoToDraft,
@@ -303,6 +304,8 @@ function StatusKlaimSection({
 
 export function KecelakaanForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
   const persist = UUID_RE.test(kunjungan.id);
+  // Peserta BPJS Kesehatan → tampilkan jembatan jaminan ke SEP (backend enforce otoritatif).
+  const isBpjs = /bpjs/i.test(kunjungan.penjamin ?? "");
 
   const [draft,       setDraft]       = useState<KecelakaanDraft>({ ...BLANK_DRAFT });
   const [loading,     setLoading]     = useState(persist);
@@ -419,6 +422,11 @@ export function KecelakaanForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
 
       {/* Detail Kejadian (shared) */}
       <DetailKejadian draft={draft} setDraft={setDraft} />
+
+      {/* Jembatan jaminan → SEP (BPJS · kll/kerja) */}
+      {persist && isBpjs && draft.jenis !== "lainnya" && (
+        <SepBridgePanel kunjunganId={kunjungan.id} draft={draft} setDraft={setDraft} />
+      )}
 
       {/* Status Klaim */}
       <StatusKlaimSection draft={draft} setDraft={setDraft} />

@@ -28,6 +28,8 @@ export interface KecelakaanData {
   noKpj: string | null;
   jenisPekerjaan: string | null;
   lokasiKerja: string | null;
+  suplesi: boolean;
+  noSepSuplesi: string | null;
   statusKlaim: string;
   nomorKlaim: string | null;
 }

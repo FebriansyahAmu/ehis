@@ -34,6 +34,9 @@ export interface KecelakaanDraft {
   noKpj:            string;
   jenisPekerjaan:   string;
   lokasiKerja:      string;
+  // Suplesi BPJS (perawatan lanjutan KLL) → SEP.jaminan.penjamin.suplesi
+  suplesi:          boolean;
+  noSepSuplesi:     string;
   // Status klaim
   statusKlaim:      StatusKlaim;
   nomorKlaim:       string;
@@ -57,6 +60,8 @@ export const BLANK_DRAFT: KecelakaanDraft = {
   noKpj:           "",
   jenisPekerjaan:  "",
   lokasiKerja:     "",
+  suplesi:         false,
+  noSepSuplesi:    "",
   statusKlaim:     "belum",
   nomorKlaim:      "",
 };
@@ -179,6 +184,8 @@ export function dtoToDraft(dto: KecelakaanDTO): KecelakaanDraft {
     noKpj:              dto.noKpj,
     jenisPekerjaan:     dto.jenisPekerjaan,
     lokasiKerja:        dto.lokasiKerja,
+    suplesi:            dto.suplesi,
+    noSepSuplesi:       dto.noSepSuplesi,
     statusKlaim:        dto.statusKlaim,
     nomorKlaim:         dto.nomorKlaim,
   };

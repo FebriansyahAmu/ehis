@@ -39,6 +39,13 @@ model Kecelakaan {
   jenisPekerjaan String? @map("jenis_pekerjaan")
   lokasiKerja    String? @map("lokasi_kerja")
 
+  // ── Suplesi BPJS (perawatan lanjutan KLL) — dipetakan ke SEP.jaminan.penjamin.suplesi ──
+  // Jembatan Kecelakaan→SEP: kunjungan lanjutan kecelakaan yang sama ditandai suplesi merujuk
+  // No. SEP awal (episode 1 kecelakaan). Kode wilayah kejadian (lokasiLaka) DITUNDA → butuh
+  // referensi wilayah BPJS (kode ≠ Kemendagri); disambung saat referensi+mapping BPJS aktif.
+  suplesi      Boolean @default(false)
+  noSepSuplesi String? @map("no_sep_suplesi")
+
   // ── Status klaim ──
   statusKlaim String  @default("belum") @map("status_klaim") // belum | proses | selesai | ditolak
   nomorKlaim  String? @map("nomor_klaim")
