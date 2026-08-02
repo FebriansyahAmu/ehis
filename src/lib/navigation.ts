@@ -29,6 +29,7 @@ import {
   TestTube,
   Settings2,
   Landmark,
+  MapPinned,
   Package,
   Gauge,
   Activity,
@@ -371,6 +372,7 @@ export const masterNav: readonly NavGroup[] = [
     items: [
       { label: "Profil RS", href: "/ehis-master/profil-rs", icon: Settings2, perm: "master.konfigurasi" },
       { label: "Faskes Rujukan (PPK)", href: "/ehis-master/ppk", icon: Landmark, perm: "master.konfigurasi" },
+      { label: "Wilayah Kemendagri", href: "/ehis-master/wilayah", icon: MapPinned, perm: "master.konfigurasi" },
     ],
   },
 ] as const;

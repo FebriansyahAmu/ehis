@@ -1,0 +1,45 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Wilayah Kemendagri  (Postgres schema "master")
+//  Sumber data: repo cahyadsn/wilayah (Kepmendagri No 300.2.2-2430/2025) — di-seed
+//  dari db/wilayah.sql (fetch raw GitHub → parse → seed). BUKAN embed sebagai
+//  source-of-truth runtime; seed sekali dari sumber otoritatif (arsitektur wilayah).
+//
+//  Kode = KEMENDAGRI (dotted hierarkis). Kode BPJS BERBEDA → referensi + mapping
+//  TERPISAH (di-sync dari endpoint referensi BPJS; menyusul, konektor masih mock).
+//
+//  HIERARKI (kode dotted, `level` = jumlah titik + 1):
+//    1 Provinsi     "11"              parentKode = null
+//    2 Kab/Kota     "11.01"           parentKode = "11"
+//    3 Kecamatan    "11.01.01"        parentKode = "11.01"
+//    4 Desa/Kel     "11.01.01.2001"   parentKode = "11.01.01"
+//  `kodeFlat` = kode tanpa titik ("1101012001") → FHIR administrativeCode / BPS.
+//
+//  parentKode = SOFT-REF diri sendiri (indexed, TANPA FK) — pola inventory soft-ref:
+//  aman untuk bulk 83k baris (tanpa deadlock ordering) & re-seed idempoten; integritas
+//  tree divalidasi di API (level+parentKode). Reference data → tanpa optimistic-version.
+// ════════════════════════════════════════════════════════════════════════════
+
+model Wilayah {
+  /// Kode Kemendagri dotted ("11", "11.01", "11.01.01", "11.01.01.2001"). PK.
+  kode String @id
+
+  /// Nama wilayah (sudah membawa prefix "Kabupaten"/"Kota" pada level 2).
+  nama String
+
+  /// 1=Provinsi · 2=Kab/Kota · 3=Kecamatan · 4=Desa/Kelurahan.
+  level Int
+
+  /// Kode induk (self soft-ref, TANPA FK). Null untuk provinsi.
+  parentKode String? @map("parent_kode")
+
+  /// Kode tanpa titik ("1101012001") — FHIR administrativeCode / kode BPS.
+  kodeFlat String @map("kode_flat")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([parentKode])
+  @@index([level])
+  @@index([nama])
+  @@map("wilayah")
+  @@schema("master")
+}
