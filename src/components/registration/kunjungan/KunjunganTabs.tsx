@@ -122,7 +122,7 @@ function TabContent({
         {active === "penjamin"    && <PenjaminForm kunjungan={kunjungan} patient={patient} />}
         {active === "paket"       && <PaketForm kunjungan={kunjungan} />}
         {active === "rujukan"     && <RujukanForm kunjungan={kunjungan} />}
-        {active === "kecelakaan"  && <KecelakaanForm />}
+        {active === "kecelakaan"  && <KecelakaanForm kunjungan={kunjungan} />}
         {active === "update-sep"  && <UpdateSEPForm kunjungan={kunjungan} />}
         {active === "cetak"       && <CetakTab kunjungan={kunjungan} />}
         {active === "hapus"       && <HapusForm kunjungan={kunjungan} />}

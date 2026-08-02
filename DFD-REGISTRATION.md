@@ -179,7 +179,7 @@ src/components/registration/
         │   ├── RujukanCard.tsx         # Detail card display
         │   ├── DiagnosaCombobox.tsx    # ICD-10 picker
         │   └── rujukanTypes.ts         # BpjsRujukanItem, MOCK_RUJUKAN, MOCK_SEP_RANAP, KODE_RS, NAMA_RS, SMF_LIST, getIcdName
-        ├── KecelakaanForm.tsx          # JenisSelector + LainnyaPanel + DetailKejadian + StatusKlaim + SuratJRModal
+        ├── KecelakaanForm.tsx          # DB-wired: GET/POST /kunjungan/:id/kecelakaan (encounter.Kecelakaan 1:1) · JenisSelector + DetailKejadian (DatePicker/TimePicker/Select global) + StatusKlaim + SuratJRModal
         ├── kecelakaan/
         │   ├── KKPanel.tsx             # BPJS Naker detail (KPJ, perusahaan, jabatan)
         │   ├── KLLPanel.tsx            # Jasa Raharja detail (No LP, jenis kendaraan)

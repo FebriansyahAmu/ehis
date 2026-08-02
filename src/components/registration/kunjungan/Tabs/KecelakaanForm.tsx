@@ -1,19 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Car, HardHat, AlertTriangle, CheckCircle2,
-  FileText, MapPin, ChevronDown,
+  FileText, MapPin, Loader2, Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { KunjunganRecord } from "@/lib/data";
+import { Select } from "@/components/shared/inputs/Select";
+import { DatePicker } from "@/components/shared/inputs/DatePicker";
+import { TimePicker } from "@/components/shared/inputs/TimePicker";
+import { getKecelakaan, saveKecelakaan } from "@/lib/api/kecelakaan";
 import { KLLPanel } from "./kecelakaan/KLLPanel";
 import { KKPanel } from "./kecelakaan/KKPanel";
 import { SuratJRModal } from "./kecelakaan/SuratJRModal";
 import {
   type JenisKecelakaan, type KecelakaanDraft, type StatusKlaim,
-  BLANK_DRAFT, PROVINSI_LIST, STATUS_CONFIG,
+  BLANK_DRAFT, PROVINSI_LIST, STATUS_CONFIG, dtoToDraft,
 } from "./kecelakaan/kecelakaanTypes";
+
+// Pasien DB (UUID) → persist ke encounter.Kecelakaan; demo (non-UUID) → lokal saja.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ─── Field styles ─────────────────────────────────────────────
 
@@ -176,37 +184,31 @@ function DetailKejadian({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <p className={lbl}>Tanggal Kejadian</p>
-          <input
-            type="date"
-            className={sm}
+          <DatePicker
             value={draft.tanggal}
-            onChange={e => setDraft(d => ({ ...d, tanggal: e.target.value }))}
+            onChange={iso => setDraft(d => ({ ...d, tanggal: iso }))}
+            placeholder="Pilih tanggal…"
           />
         </div>
         <div>
           <p className={lbl}>Waktu Kejadian</p>
-          <input
-            type="time"
-            className={sm}
+          <TimePicker
             value={draft.waktu}
-            onChange={e => setDraft(d => ({ ...d, waktu: e.target.value }))}
+            onChange={hhmm => setDraft(d => ({ ...d, waktu: hhmm }))}
+            placeholder="Pilih waktu…"
           />
         </div>
       </div>
 
       <div>
         <p className={lbl}>Provinsi Kejadian</p>
-        <div className="relative">
-          <select
-            className={smSel}
-            value={draft.provinsi}
-            onChange={e => setDraft(d => ({ ...d, provinsi: e.target.value }))}
-          >
-            <option value="">Pilih provinsi...</option>
-            {PROVINSI_LIST.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
-          <ChevronDown size={12} className="pointer-events-none absolute right-2.5 top-2.5 text-slate-400" />
-        </div>
+        <Select
+          value={draft.provinsi}
+          onChange={v => setDraft(d => ({ ...d, provinsi: v }))}
+          options={[...PROVINSI_LIST]}
+          icon={MapPin}
+          placeholder="Pilih provinsi…"
+        />
       </div>
 
       <div>
@@ -222,7 +224,7 @@ function DetailKejadian({
       <div>
         <p className={lbl}>Kronologi Singkat</p>
         <textarea
-          className={cn(sm, "min-h-[72px] resize-none leading-relaxed")}
+          className={cn(sm, "min-h-18 resize-none leading-relaxed")}
           placeholder="Deskripsikan kronologi kejadian secara singkat dan jelas..."
           value={draft.kronologi}
           onChange={e => setDraft(d => ({ ...d, kronologi: e.target.value }))}
@@ -299,10 +301,49 @@ function StatusKlaimSection({
 
 // ─── KecelakaanForm ───────────────────────────────────────────
 
-export function KecelakaanForm() {
+export function KecelakaanForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
+  const persist = UUID_RE.test(kunjungan.id);
+
   const [draft,       setDraft]       = useState<KecelakaanDraft>({ ...BLANK_DRAFT });
+  const [loading,     setLoading]     = useState(persist);
+  const [saving,      setSaving]      = useState(false);
   const [submitted,   setSubmitted]   = useState(false);
   const [showJRModal, setShowJRModal] = useState(false);
+  const [err,         setErr]         = useState<string | null>(null);
+
+  // Muat data kecelakaan tersimpan (pasien DB). Demo (non-UUID) → form kosong/lokal.
+  useEffect(() => {
+    if (!persist) return;
+    const ac = new AbortController();
+    getKecelakaan(kunjungan.id, ac.signal)
+      .then((row) => { if (row) setDraft(dtoToDraft(row)); })
+      .catch(() => { /* biarkan blank → operator isi baru */ })
+      .finally(() => { if (!ac.signal.aborted) setLoading(false); });
+    return () => ac.abort();
+  }, [persist, kunjungan.id]);
+
+  const handleSave = async () => {
+    if (!persist) { setSubmitted(true); return; } // demo lokal
+    setSaving(true);
+    setErr(null);
+    try {
+      await saveKecelakaan(kunjungan.id, draft);
+      setSubmitted(true);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Gagal menyimpan data kecelakaan.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-16 text-center text-slate-400">
+        <Loader2 size={22} className="animate-spin text-sky-500" />
+        <p className="text-[12px] font-medium">Memuat data kecelakaan…</p>
+      </div>
+    );
+  }
 
   if (submitted) {
     return (
@@ -322,10 +363,10 @@ export function KecelakaanForm() {
         </div>
         <button
           type="button"
-          onClick={() => { setSubmitted(false); setDraft({ ...BLANK_DRAFT }); }}
+          onClick={() => setSubmitted(false)}
           className="rounded-lg border border-slate-200 px-4 py-2 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
         >
-          Input Data Baru
+          Kembali ke Form
         </button>
       </motion.div>
     );
@@ -340,6 +381,20 @@ export function KecelakaanForm() {
           Pengisian data kecelakaan untuk pelaporan dan klaim Jasa Raharja / BPJS Ketenagakerjaan
         </p>
       </div>
+
+      {/* Error */}
+      {err && (
+        <div className="flex items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-[11px] font-medium text-rose-700 ring-1 ring-rose-100">
+          <AlertTriangle size={13} className="shrink-0" /> {err}
+        </div>
+      )}
+
+      {/* Demo notice */}
+      {!persist && (
+        <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] font-medium text-slate-500 ring-1 ring-slate-200">
+          <AlertTriangle size={13} className="shrink-0" /> Pasien demo — data kecelakaan tidak tersimpan.
+        </div>
+      )}
 
       {/* Jenis selector */}
       <JenisSelector
@@ -398,10 +453,12 @@ export function KecelakaanForm() {
         </div>
         <button
           type="button"
-          onClick={() => setSubmitted(true)}
-          className="rounded-lg bg-sky-600 px-4 py-2 text-[12px] font-bold text-white transition hover:bg-sky-700 active:scale-95"
+          onClick={handleSave}
+          disabled={saving}
+          className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-4 py-2 text-[12px] font-bold text-white shadow-sm shadow-sky-200/70 transition hover:bg-sky-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Simpan Data Kecelakaan
+          {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+          {saving ? "Menyimpan…" : "Simpan Data Kecelakaan"}
         </button>
       </div>
     </div>

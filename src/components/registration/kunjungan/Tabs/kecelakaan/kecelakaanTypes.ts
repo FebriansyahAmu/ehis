@@ -1,3 +1,5 @@
+import type { KecelakaanDTO } from "@/lib/schemas/kecelakaan/kecelakaan";
+
 // ─── Types ────────────────────────────────────────────────────
 
 export type JenisKecelakaan = "kll" | "kerja" | "lainnya";
@@ -155,3 +157,29 @@ export const STATUS_CONFIG: Record<StatusKlaim, StatusConfig> = {
   selesai: { label: "Klaim Selesai",    chipCls: "border-emerald-200 bg-emerald-50 text-emerald-700", dot: "bg-emerald-400"  },
   ditolak: { label: "Klaim Ditolak",    chipCls: "border-rose-200 bg-rose-50 text-rose-700",           dot: "bg-rose-400"     },
 };
+
+// ─── Adapter DTO → draft (hydrate form dari DB) ───────────────
+// Shape DTO identik draft (+ updatedAt) → salin per-field (tanpa updatedAt).
+export function dtoToDraft(dto: KecelakaanDTO): KecelakaanDraft {
+  return {
+    jenis:              dto.jenis,
+    tanggal:            dto.tanggal,
+    waktu:              dto.waktu,
+    provinsi:           dto.provinsi,
+    lokasi:             dto.lokasi,
+    kronologi:          dto.kronologi,
+    mekanismeTrauma:    dto.mekanismeTrauma,
+    statusLP:           dto.statusLP,
+    noLapPol:           dto.noLapPol,
+    satuanPolisi:       dto.satuanPolisi,
+    kendaraan:          dto.kendaraan.map((k) => ({ jenis: k.jenis, noPol: k.noPol, peran: k.peran })),
+    penjaminLanjutan:   dto.penjaminLanjutan,
+    statusKoordinasiJR: dto.statusKoordinasiJR,
+    namaPerusahaan:     dto.namaPerusahaan,
+    noKpj:              dto.noKpj,
+    jenisPekerjaan:     dto.jenisPekerjaan,
+    lokasiKerja:        dto.lokasiKerja,
+    statusKlaim:        dto.statusKlaim,
+    nomorKlaim:         dto.nomorKlaim,
+  };
+}

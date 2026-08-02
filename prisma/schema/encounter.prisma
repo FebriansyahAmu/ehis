@@ -141,6 +141,9 @@ model Kunjungan {
   rujukan Rujukan?
   sep     SEP?
 
+  // ── Data kecelakaan (1:1; Jasa Raharja / BPJS Naker) ──
+  kecelakaan Kecelakaan?
+
   // ── Alokasi bed (operasional; okupansi/reservasi) ──
   bedAllocations BedAllocation[]
 

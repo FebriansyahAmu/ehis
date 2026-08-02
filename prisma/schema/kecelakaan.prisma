@@ -1,0 +1,53 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  ENCOUNTER: Kecelakaan  (Postgres schema "encounter")
+//  Tab "Data Kecelakaan" registrasi (detail kunjungan) — dasar klaim Jasa Raharja
+//  (KLL) / BPJS Ketenagakerjaan (kecelakaan kerja). 1:1 per kunjungan.
+//
+//  Enum FE-facing = TEXT + validasi Zod (bukan enum DB) — vocab UI (kll/kerja/lainnya,
+//  status LP/JR/klaim). kendaraan = snapshot JSONB [{ jenis, noPol, peran }].
+//  Konvensi (FLOWS §9): uuid v7 · timestamptz · soft-delete · optimistic version.
+// ════════════════════════════════════════════════════════════════════════════
+
+model Kecelakaan {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  /// 1:1 — data kecelakaan untuk kunjungan ini.
+  kunjunganId String    @unique @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  jenis String @default("kll") // kll | kerja | lainnya
+
+  // ── Kejadian (shared) ──
+  tglKejadian     DateTime? @map("tgl_kejadian") @db.Date
+  waktuKejadian   String?   @map("waktu_kejadian") // "HH:MM"
+  provinsi        String?
+  lokasi          String?
+  kronologi       String?
+  mekanismeTrauma String?   @map("mekanisme_trauma")
+
+  // ── KLL (Jasa Raharja) ──
+  statusLp           String? @map("status_lp")            // belum | proses | ada
+  noLapPol           String? @map("no_lap_pol")
+  satuanPolisi       String? @map("satuan_polisi")
+  kendaraan          Json    @default("[]") @db.JsonB     // [{ jenis, noPol, peran }]
+  penjaminLanjutan   String? @map("penjamin_lanjutan")
+  statusKoordinasiJr String? @map("status_koordinasi_jr") // belum | dijadwalkan | verifikasi
+
+  // ── Kecelakaan Kerja (BPJS Naker) ──
+  namaPerusahaan String? @map("nama_perusahaan")
+  noKpj          String? @map("no_kpj")
+  jenisPekerjaan String? @map("jenis_pekerjaan")
+  lokasiKerja    String? @map("lokasi_kerja")
+
+  // ── Status klaim ──
+  statusKlaim String  @default("belum") @map("status_klaim") // belum | proses | selesai | ditolak
+  nomorKlaim  String? @map("nomor_klaim")
+
+  version   Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  @@map("kecelakaan")
+  @@schema("encounter")
+}
