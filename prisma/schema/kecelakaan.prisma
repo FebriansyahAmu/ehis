@@ -33,11 +33,24 @@ model Kecelakaan {
   penjaminLanjutan   String? @map("penjamin_lanjutan")
   statusKoordinasiJr String? @map("status_koordinasi_jr") // belum | dijadwalkan | verifikasi
 
-  // ── Kecelakaan Kerja (BPJS Naker) ──
-  namaPerusahaan String? @map("nama_perusahaan")
-  noKpj          String? @map("no_kpj")
-  jenisPekerjaan String? @map("jenis_pekerjaan")
-  lokasiKerja    String? @map("lokasi_kerja")
+  // ── Kecelakaan Kerja (BPJS Ketenagakerjaan / JKK · e-PLKK) ──
+  // JKK ditanggung BPJS TK (bukan JKN). Rel utama = e-PLKK + Form KK1/KK2/KK3; SEP hanya jejak
+  // CoB kondisional (bila pasien JKN). Lihat docs/KECELAKAAN-KERJA-JKK.md.
+  namaPerusahaan  String? @map("nama_perusahaan")
+  npp             String?                            // Nomor Pendaftaran Perusahaan (BPJS TK) — Form KK1
+  noKpj           String? @map("no_kpj")             // No. Kartu Peserta BPJS TK (eligibilitas e-PLKK)
+  jenisPekerjaan  String? @map("jenis_pekerjaan")
+  lokasiKerja     String? @map("lokasi_kerja")
+  lingkupKerja    String? @map("lingkup_kerja")      // tempat_kerja | dinas | pp (berangkat-pulang)
+  statusLaporanKk String? @map("status_laporan_kk")  // belum | proses | terkirim (Laporan Tahap I / KK1, maks 2×24 jam)
+  isPlkk          Boolean @default(true) @map("is_plkk") // RS PLKK (direct-bill) vs non-PLKK (reimburse)
+  // Badan penyelenggara penjamin kecelakaan (kode SEP jaminan.penjamin, koma-join): "2"=BPJS TK ·
+  // "1,2"=Jasa Raharja+BPJS TK (KLL_KK / PP-laka). Derivasi server dari jenis+lingkup+kendaraan.
+  penjaminBadan   String? @map("penjamin_badan")
+  // Hasil PENETAPAN penjaminan JKK oleh BPJS TK via e-PLKK (bukan CoB; PMK 141/2018). RS melapor,
+  // BPJS TK menetapkan: menunggu | dijamin (JKK unlimited direct-bill) | ditolak (→ fallback JKN).
+  statusPenjaminanKk String? @map("status_penjaminan_kk") // menunggu | dijamin | ditolak
+  noJaminanKk        String? @map("no_jaminan_kk")        // No. Jaminan / Kasus e-PLKK saat dijamin
 
   // ── Suplesi BPJS (perawatan lanjutan KLL) — dipetakan ke SEP.jaminan.penjamin.suplesi ──
   // Jembatan Kecelakaan→SEP: kunjungan lanjutan kecelakaan yang sama ditandai suplesi merujuk

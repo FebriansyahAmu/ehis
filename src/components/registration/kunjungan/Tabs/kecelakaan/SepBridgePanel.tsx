@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Link2, ShieldCheck, Layers, Loader2, CheckCircle2, AlertTriangle, MapPinOff, Info,
+  Link2, ShieldCheck, Layers, Loader2, CheckCircle2, AlertTriangle, MapPinOff, Info, Handshake,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -22,10 +22,22 @@ const LAKA_LABEL: Record<SepJaminanSyncDTO["lakaLantas"], string> = {
   KK:      "Kecelakaan Kerja",
 };
 
-function deriveLaka(jenis: string): SepJaminanSyncDTO["lakaLantas"] {
-  if (jenis === "kll") return "KLL_BKK";
-  if (jenis === "kerja") return "KK";
-  return "BKLL";
+const PENJAMIN_LABEL: Record<string, string> = {
+  "1":   "Jasa Raharja",
+  "2":   "BPJS Ketenagakerjaan",
+  "1,2": "Jasa Raharja + BPJS Ketenagakerjaan",
+};
+
+// Derivasi preview — HARUS selaras server deriveLaka (kecelakaanService). Lihat docs/KECELAKAAN-KERJA-JKK.md §4.
+function deriveLaka(
+  jenis: string, lingkup: string, kendaraanCount: number,
+): { lakaLantas: SepJaminanSyncDTO["lakaLantas"]; penjamin: string | null } {
+  if (jenis === "kll") return { lakaLantas: "KLL_BKK", penjamin: "1" };
+  if (jenis === "kerja") {
+    const laluLintas = (lingkup === "pp" || lingkup === "dinas") && kendaraanCount > 0;
+    return laluLintas ? { lakaLantas: "KLL_KK", penjamin: "1,2" } : { lakaLantas: "KK", penjamin: "2" };
+  }
+  return { lakaLantas: "BKLL", penjamin: null };
 }
 
 export function SepBridgePanel({
@@ -40,7 +52,11 @@ export function SepBridgePanel({
   const [result, setResult] = useState<SepJaminanSyncDTO | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  // Kandidat No. SEP suplesi (SEP KLL terbit pasien, lintas kunjungan).
+  const isKK = draft.jenis === "kerja";
+  const preview = deriveLaka(draft.jenis, draft.lingkupKerja, draft.kendaraan.length);
+  const penjaminLabel = preview.penjamin ? PENJAMIN_LABEL[preview.penjamin] ?? preview.penjamin : "—";
+
+  // Kandidat No. SEP suplesi (SEP KLL/KK terbit pasien, lintas kunjungan).
   useEffect(() => {
     const ac = new AbortController();
     listSuplesiKandidat(kunjunganId, ac.signal)
@@ -62,19 +78,41 @@ export function SepBridgePanel({
     }
   };
 
-  const lakaPreview = deriveLaka(draft.jenis);
-
   return (
     <div className="space-y-3 rounded-2xl border border-sky-200 bg-linear-to-br from-sky-50/70 via-sky-50/30 to-white p-4 shadow-sm">
       <div className="flex items-center gap-2">
         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-sky-100">
           <Link2 size={12} className="text-sky-600" />
         </div>
-        <p className="text-[11px] font-bold uppercase tracking-wider text-sky-700">Jaminan BPJS · SEP</p>
+        <p className="text-[11px] font-bold uppercase tracking-wider text-sky-700">
+          {isKK ? "Penetapan Penjaminan · Dugaan KK-PAK" : "Jaminan BPJS · SEP"}
+        </p>
         <span className="ml-auto rounded-full bg-white px-2 py-0.5 text-[8.5px] font-bold uppercase tracking-wide text-sky-600 ring-1 ring-sky-200">
-          V-Claim
+          {isKK ? "e-PLKK ↔ V-Claim" : "V-Claim"}
         </span>
       </div>
+
+      {/* ── Penjelas penetapan penjaminan (khusus KK) ── */}
+      {isKK && (
+        <div className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
+          <Handshake size={14} className="mt-0.5 shrink-0 text-emerald-600" />
+          <div className="min-w-0 space-y-1">
+            <p className="text-[11px] font-bold text-emerald-800">SEP ini = jejak penetapan penjamin, bukan penjamin biaya</p>
+            <p className="text-[10px] leading-relaxed text-emerald-700">
+              Penjamin biaya utama = <span className="font-semibold">BPJS Ketenagakerjaan via e-PLKK</span>. SEP ber-flag
+              KK-PAK diteruskan untuk <span className="font-semibold">penetapan penjamin</span> (PMK 141/2018, bukan CoB);
+              bila BPJS TK menolak, SEP JKN menjadi jaring pengaman.
+            </p>
+            <p className="flex flex-wrap items-center gap-1.5 text-[10px] text-emerald-700">
+              <ShieldCheck size={11} className="shrink-0" />
+              Badan penjamin: <span className="font-semibold">{penjaminLabel}</span>
+              <span className="rounded-full bg-white px-1.5 py-0.5 font-mono text-[8.5px] text-emerald-600 ring-1 ring-emerald-200">
+                penjamin {preview.penjamin ?? "—"}
+              </span>
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── Suplesi ── */}
       <div className="rounded-xl border border-slate-200 bg-white p-3">
@@ -143,7 +181,8 @@ export function SepBridgePanel({
       <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
         <p className="flex items-start gap-1.5 text-[10px] leading-relaxed text-slate-500">
           <Info size={11} className="mt-0.5 shrink-0 text-slate-400" />
-          Menyalin ke SEP aktif: <span className="font-semibold text-slate-600">Laka Lantas ({LAKA_LABEL[lakaPreview]})</span>,
+          Menyalin ke SEP aktif: <span className="font-semibold text-slate-600">Laka Lantas ({LAKA_LABEL[preview.lakaLantas]})</span>,
+          <span className="font-semibold text-slate-600"> penjamin {preview.penjamin ?? "—"}</span>,
           No. LP, tgl kejadian, kronologi{draft.suplesi ? ", suplesi" : ""}. Berdasarkan data <span className="font-semibold">tersimpan</span> — simpan dulu bila ada perubahan.
         </p>
         <p className="mt-1.5 flex items-center gap-1.5 text-[9.5px] text-slate-400">
@@ -168,6 +207,7 @@ export function SepBridgePanel({
             </p>
             <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] text-emerald-700">
               <span>Laka: <b>{LAKA_LABEL[result.lakaLantas]}</b></span>
+              {result.penjamin && <span>Penjamin: <b>{PENJAMIN_LABEL[result.penjamin] ?? result.penjamin}</b></span>}
               {result.noLp && <span>No. LP: <b>{result.noLp}</b></span>}
               {result.tglKejadian && <span>Tgl: <b>{result.tglKejadian}</b></span>}
               {result.suplesi && <span>Suplesi: <b>{result.noSepSuplesi || "ya"}</b></span>}
@@ -183,7 +223,7 @@ export function SepBridgePanel({
         className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-sky-300 bg-white px-4 py-2 text-[12px] font-bold text-sky-700 shadow-sm transition hover:bg-sky-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {syncing ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
-        {syncing ? "Menyinkronkan…" : "Sinkronkan ke SEP"}
+        {syncing ? "Menyinkronkan…" : isKK ? "Sinkronkan Penjaminan ke SEP" : "Sinkronkan ke SEP"}
       </button>
     </div>
   );

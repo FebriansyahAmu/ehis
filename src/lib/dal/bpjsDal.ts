@@ -122,6 +122,7 @@ export async function updateSepJaminan(
   sepId: string,
   data: {
     lakaLantas: LakaLantas;
+    penjamin?: string | null; // badan penyelenggara (jaminan.penjamin.penjamin): "1"/"2"/"1,2"/…
     noLp?: string | null;
     tglKejadian?: Date | null;
     keteranganLaka?: string | null;
@@ -134,6 +135,7 @@ export async function updateSepJaminan(
     where: { id: sepId, deletedAt: null },
     data: {
       lakaLantas: data.lakaLantas,
+      ...(data.penjamin !== undefined ? { penjamin: data.penjamin } : {}),
       ...(data.noLp !== undefined ? { noLp: data.noLp } : {}),
       ...(data.tglKejadian !== undefined ? { tglKejadian: data.tglKejadian } : {}),
       ...(data.keteranganLaka !== undefined ? { keteranganLaka: data.keteranganLaka } : {}),

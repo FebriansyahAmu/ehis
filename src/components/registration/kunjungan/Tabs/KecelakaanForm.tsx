@@ -15,6 +15,7 @@ import { getKecelakaan, saveKecelakaan } from "@/lib/api/kecelakaan";
 import { KLLPanel } from "./kecelakaan/KLLPanel";
 import { KKPanel } from "./kecelakaan/KKPanel";
 import { SuratJRModal } from "./kecelakaan/SuratJRModal";
+import { SuratKK1Modal } from "./kecelakaan/SuratKK1Modal";
 import { SepBridgePanel } from "./kecelakaan/SepBridgePanel";
 import {
   type JenisKecelakaan, type KecelakaanDraft, type StatusKlaim,
@@ -312,6 +313,7 @@ export function KecelakaanForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
   const [saving,      setSaving]      = useState(false);
   const [submitted,   setSubmitted]   = useState(false);
   const [showJRModal, setShowJRModal] = useState(false);
+  const [showKK1Modal, setShowKK1Modal] = useState(false);
   const [err,         setErr]         = useState<string | null>(null);
 
   // Muat data kecelakaan tersimpan (pasien DB). Demo (non-UUID) → form kosong/lokal.
@@ -436,6 +438,11 @@ export function KecelakaanForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
         <SuratJRModal draft={draft} onClose={() => setShowJRModal(false)} />
       )}
 
+      {/* Form 3 / KK1 Modal (BPJS Ketenagakerjaan / JKK) */}
+      {showKK1Modal && (
+        <SuratKK1Modal draft={draft} onClose={() => setShowKK1Modal(false)} />
+      )}
+
       {/* Actions */}
       <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
         <div>
@@ -452,10 +459,11 @@ export function KecelakaanForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
           {draft.jenis === "kerja" && (
             <button
               type="button"
+              onClick={() => setShowKK1Modal(true)}
               className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100 active:scale-95"
             >
               <FileText size={12} />
-              Buat Laporan BPJS Naker (Form 3 KK)
+              Buat Laporan BPJS Naker (Form 3 / KK1)
             </button>
           )}
         </div>

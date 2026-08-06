@@ -10,6 +10,11 @@ export const StatusLP           = z.enum(["belum", "proses", "ada"]);
 export const StatusKoordinasiJR = z.enum(["belum", "dijadwalkan", "verifikasi"]);
 export const StatusKlaim        = z.enum(["belum", "proses", "selesai", "ditolak"]);
 export const PeranKendaraan     = z.enum(["Korban", "Pelaku", "Keterlibatan"]);
+// Kecelakaan Kerja (JKK): lingkup kejadian + status Laporan Tahap I (KK1). "" = belum dipilih.
+export const LingkupKerja       = z.enum(["", "tempat_kerja", "dinas", "pp"]);
+export const StatusLaporanKk    = z.enum(["belum", "proses", "terkirim"]);
+// Hasil penetapan penjaminan JKK oleh BPJS TK via e-PLKK (bukan CoB).
+export const StatusPenjaminanKk = z.enum(["menunggu", "dijamin", "ditolak"]);
 
 export const KendaraanItemInput = z.object({
   jenis: z.string().trim().max(60).default(""),
@@ -35,11 +40,17 @@ export const UpsertKecelakaanInput = z.object({
   kendaraan:          z.array(KendaraanItemInput).max(30).default([]),
   penjaminLanjutan:   z.string().trim().max(40).default(""),
   statusKoordinasiJR: StatusKoordinasiJR.default("belum"),
-  // Kecelakaan Kerja
+  // Kecelakaan Kerja (JKK / BPJS Ketenagakerjaan). penjaminBadan = DERIVASI server (bukan input).
   namaPerusahaan:     z.string().trim().max(200).default(""),
+  npp:                z.string().trim().max(40).default(""),
   noKpj:              z.string().trim().max(40).default(""),
   jenisPekerjaan:     z.string().trim().max(120).default(""),
   lokasiKerja:        z.string().trim().max(300).default(""),
+  lingkupKerja:       LingkupKerja.default(""),
+  statusLaporanKk:    StatusLaporanKk.default("belum"),
+  isPlkk:             z.boolean().default(true),
+  statusPenjaminanKk: StatusPenjaminanKk.default("menunggu"),
+  noJaminanKk:        z.string().trim().max(60).default(""),
   // Suplesi BPJS (perawatan lanjutan KLL) → SEP.jaminan.penjamin.suplesi
   suplesi:            z.boolean().default(false),
   noSepSuplesi:       z.string().trim().max(40).default(""),
@@ -71,9 +82,16 @@ export interface KecelakaanDTO {
   penjaminLanjutan:   string;
   statusKoordinasiJR: "belum" | "dijadwalkan" | "verifikasi";
   namaPerusahaan:     string;
+  npp:                string;
   noKpj:              string;
   jenisPekerjaan:     string;
   lokasiKerja:        string;
+  lingkupKerja:       "" | "tempat_kerja" | "dinas" | "pp";
+  statusLaporanKk:    "belum" | "proses" | "terkirim";
+  isPlkk:             boolean;
+  penjaminBadan:      string; // kode badan penyelenggara SEP (derivasi server): "" | "2" | "1,2"
+  statusPenjaminanKk: "menunggu" | "dijamin" | "ditolak";
+  noJaminanKk:        string;
   suplesi:            boolean;
   noSepSuplesi:       string;
   statusKlaim:        "belum" | "proses" | "selesai" | "ditolak";
@@ -86,6 +104,7 @@ export interface KecelakaanDTO {
 export interface SepJaminanSyncDTO {
   noSep:          string | null;
   lakaLantas:     "BKLL" | "KLL_BKK" | "KLL_KK" | "KK";
+  penjamin:       string | null; // badan penyelenggara: "1"=JR "2"=BPJS TK (koma-join) | null bila BKLL
   noLp:           string;
   tglKejadian:    string; // ISO date | ""
   keteranganLaka: string;

@@ -3,79 +3,14 @@
 import { Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Plus, X, Info, AlertCircle, ShieldCheck, Car, Check,
+  Plus, Info, AlertCircle, ShieldCheck, Car, Check,
   Landmark, Handshake, Route,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Select } from "@/components/shared/inputs/Select";
 import type { KecelakaanDraft, KendaraanItem, StatusLP, StatusKoordinasiJR } from "./kecelakaanTypes";
-import {
-  JENIS_KENDARAAN, MEKANISME_KLL,
-  STATUS_LP_CONFIG, STATUS_JR_CONFIG,
-} from "./kecelakaanTypes";
-
-// ─── Primitives ───────────────────────────────────────────────
-
-const lbl = "mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400";
-const inp = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12px] text-slate-800 placeholder:text-slate-300 transition focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100";
-
-function SectionCard({
-  icon: Icon, title, accent = "slate", right, children,
-}: {
-  icon: IconComponent;
-  title: string;
-  accent?: "slate" | "amber";
-  right?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  const iconCls = accent === "amber" ? "text-amber-500" : "text-slate-400";
-  return (
-    <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center gap-2">
-        <div className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-lg", accent === "amber" ? "bg-amber-50" : "bg-slate-100")}>
-          <Icon size={12} className={iconCls} />
-        </div>
-        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-600">{title}</p>
-        {right && <div className="ml-auto">{right}</div>}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-// ─── Status chip row (LP) ─────────────────────────────────────
-
-function ChipRow<T extends string>({
-  options, config, value, onChange,
-}: {
-  options:  T[];
-  config:   Record<T, { label: string; chipCls: string; dot: string }>;
-  value:    T;
-  onChange: (v: T) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((s) => {
-        const cfg = config[s];
-        const isActive = value === s;
-        return (
-          <button
-            key={s}
-            type="button"
-            onClick={() => onChange(s)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10.5px] font-semibold transition active:scale-95",
-              isActive ? cfg.chipCls : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50",
-            )}
-          >
-            <span className={cn("h-1.5 w-1.5 rounded-full", isActive ? cfg.dot : "bg-slate-300")} />
-            {cfg.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+import { MEKANISME_KLL, STATUS_LP_CONFIG, STATUS_JR_CONFIG } from "./kecelakaanTypes";
+import { SectionCard, ChipRow, KendaraanCard, lbl, inp } from "./kecelakaanShared";
 
 // ─── Status stepper (Koordinasi JR — pipeline 3 langkah) ──────
 
@@ -125,91 +60,6 @@ function StatusStepper<T extends string>({
         );
       })}
     </div>
-  );
-}
-
-// ─── Kendaraan card ───────────────────────────────────────────
-
-const PERAN_BADGE: Record<KendaraanItem["peran"], string> = {
-  Korban:       "bg-rose-50 text-rose-600 ring-rose-200",
-  Pelaku:       "bg-amber-50 text-amber-600 ring-amber-200",
-  Keterlibatan: "bg-slate-100 text-slate-500 ring-slate-200",
-};
-
-const PERAN_OPTS = [
-  { value: "Korban",       label: "Korban" },
-  { value: "Pelaku",       label: "Pelaku" },
-  { value: "Keterlibatan", label: "Keterlibatan" },
-];
-
-function KendaraanCard({
-  item, index, onUpdate, onRemove,
-}: {
-  item:     KendaraanItem;
-  index:    number;
-  onUpdate: (i: number, patch: Partial<KendaraanItem>) => void;
-  onRemove: (i: number) => void;
-}) {
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 8, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -6, scale: 0.98 }}
-      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-      className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
-    >
-      {/* Header */}
-      <div className="mb-2.5 flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-100 text-[10px] font-bold text-amber-700">
-          {index + 1}
-        </span>
-        <p className="text-[10.5px] font-bold text-slate-600">Kendaraan {index + 1}</p>
-        <span className={cn("rounded-full px-2 py-0.5 text-[8.5px] font-bold uppercase tracking-wide ring-1", PERAN_BADGE[item.peran])}>
-          {item.peran}
-        </span>
-        <button
-          type="button"
-          onClick={() => onRemove(index)}
-          className="ml-auto flex h-7 w-7 items-center justify-center rounded-lg border border-rose-200 text-rose-400 transition hover:bg-rose-50 hover:text-rose-600 active:scale-95"
-          aria-label="Hapus kendaraan"
-        >
-          <X size={12} />
-        </button>
-      </div>
-
-      {/* Fields */}
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[1fr_auto_9rem]">
-        <div className="min-w-0">
-          <p className={lbl}>Jenis Kendaraan</p>
-          <Select
-            value={item.jenis}
-            onChange={(v) => onUpdate(index, { jenis: v })}
-            options={[...JENIS_KENDARAAN]}
-            icon={Car}
-            placeholder="Pilih jenis…"
-          />
-        </div>
-        <div className="sm:w-32">
-          <p className={lbl}>No. Polisi</p>
-          <input
-            className="w-full rounded-lg border-2 border-slate-300 bg-slate-50 px-2 py-2 text-center font-mono text-[13px] font-bold uppercase tracking-widest text-slate-800 transition placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-300 focus:border-amber-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-100"
-            placeholder="B 1234 ABC"
-            value={item.noPol}
-            onChange={(e) => onUpdate(index, { noPol: e.target.value.toUpperCase() })}
-          />
-        </div>
-        <div>
-          <p className={lbl}>Peran</p>
-          <Select
-            value={item.peran}
-            onChange={(v) => onUpdate(index, { peran: v as KendaraanItem["peran"] })}
-            options={PERAN_OPTS}
-            placeholder="Peran…"
-          />
-        </div>
-      </div>
-    </motion.div>
   );
 }
 

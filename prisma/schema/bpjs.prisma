@@ -153,6 +153,9 @@ model SEP {
 
   // ── Jaminan kecelakaan ──
   lakaLantas     LakaLantas @default(BKLL) @map("laka_lantas")
+  // Badan penyelenggara penjamin kecelakaan (t_sep.jaminan.penjamin.penjamin, koma-join):
+  // "1"=Jasa Raharja · "2"=BPJS Ketenagakerjaan · "3"=Taspen · "4"=Asabri. KK→"2"; KLL_KK→"1,2".
+  penjamin       String?    @map("penjamin")
   noLp           String?    @map("no_lp")
   tglKejadian    DateTime?  @map("tgl_kejadian") @db.Date
   keteranganLaka String?    @map("keterangan_laka")

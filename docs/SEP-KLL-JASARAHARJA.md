@@ -1,7 +1,9 @@
 # SEP Kecelakaan (KLL) & Klaim Jasa Raharja / BPJS — Aturan & Implementasi
 
-> Referensi kanonik penerbitan SEP untuk pasien kecelakaan + alur klaim berjenjang.
-> Baca sebelum menyentuh jaminan kecelakaan pada SEP / tab Data Kecelakaan.
+> Referensi kanonik penerbitan SEP untuk pasien kecelakaan **lalu lintas (KLL)** + alur klaim berjenjang.
+> Baca sebelum menyentuh jaminan kecelakaan pada SEP / tab Data Kecelakaan → **Lalu Lintas**.
+> Untuk **Kecelakaan Kerja (JKK / BPJS Ketenagakerjaan · e-PLKK)** → [KECELAKAAN-KERJA-JKK.md](KECELAKAAN-KERJA-JKK.md)
+> (rel berbeda: BPJS TK bukan penerbit SEP; SEP = penetapan penjaminan kondisional PMK 141/2018, bukan CoB).
 
 ## 1. Prinsip — penjaminan berjenjang (tiered)
 

@@ -29,11 +29,18 @@ export interface KecelakaanDraft {
   kendaraan:          KendaraanItem[];
   penjaminLanjutan:   string;
   statusKoordinasiJR: StatusKoordinasiJR;
-  // KK
+  // KK (JKK / BPJS Ketenagakerjaan). penjaminBadan = derivasi server (display-only di FE).
   namaPerusahaan:   string;
+  npp:              string;
   noKpj:            string;
   jenisPekerjaan:   string;
   lokasiKerja:      string;
+  lingkupKerja:     "" | "tempat_kerja" | "dinas" | "pp";
+  statusLaporanKk:  "belum" | "proses" | "terkirim";
+  isPlkk:           boolean;
+  penjaminBadan:    string;
+  statusPenjaminanKk: "menunggu" | "dijamin" | "ditolak";
+  noJaminanKk:      string;
   // Suplesi BPJS (perawatan lanjutan KLL) → SEP.jaminan.penjamin.suplesi
   suplesi:          boolean;
   noSepSuplesi:     string;
@@ -57,9 +64,16 @@ export const BLANK_DRAFT: KecelakaanDraft = {
   penjaminLanjutan:   "",
   statusKoordinasiJR: "belum",
   namaPerusahaan:  "",
+  npp:             "",
   noKpj:           "",
   jenisPekerjaan:  "",
   lokasiKerja:     "",
+  lingkupKerja:    "",
+  statusLaporanKk: "belum",
+  isPlkk:          true,
+  penjaminBadan:   "",
+  statusPenjaminanKk: "menunggu",
+  noJaminanKk:     "",
   suplesi:         false,
   noSepSuplesi:    "",
   statusKlaim:     "belum",
@@ -114,9 +128,36 @@ export const MEKANISME_KK = [
   "Luka sayat / tusuk alat kerja",
   "Kebakaran / paparan panas",
   "Ledakan",
+  "Kecelakaan lalu lintas (dinas / PP)",
+  "Kekerasan fisik / pemerkosaan di tempat kerja", // kriteria baru Permenaker 1/2025
   "Penyakit akibat kerja (PAK)",
   "Lainnya",
 ] as const;
+
+// Lingkup kejadian kerja (JKK). PP/dinas berunsur lalu lintas → KLL_KK (Jasa Raharja ikut).
+export const LINGKUP_KERJA_OPTS = [
+  { value: "tempat_kerja", label: "Di Tempat Kerja",        sub: "Area/lingkungan kerja" },
+  { value: "dinas",        label: "Perjalanan Dinas",       sub: "Tugas luar dari pemberi kerja" },
+  { value: "pp",           label: "Berangkat–Pulang (PP)",  sub: "Rute wajar rumah↔kerja" },
+] as const;
+
+export type StatusLaporanKk = "belum" | "proses" | "terkirim";
+
+// Status Laporan Tahap I (Form KK1) — wajib maks 2×24 jam ke BPJS TK + Disnaker (Permenaker 5/2021 jo 1/2025).
+export const STATUS_LAPORAN_KK_CONFIG: Record<StatusLaporanKk, LPConfig> = {
+  belum:    { label: "Belum Dilaporkan",     chipCls: "border-slate-200 bg-slate-50 text-slate-600",       dot: "bg-slate-400"   },
+  proses:   { label: "Sedang Disiapkan",     chipCls: "border-amber-200 bg-amber-50 text-amber-700",       dot: "bg-amber-400"   },
+  terkirim: { label: "Terkirim ke BPJS TK",  chipCls: "border-emerald-200 bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
+};
+
+export type StatusPenjaminanKk = "menunggu" | "dijamin" | "ditolak";
+
+// Hasil PENETAPAN penjaminan JKK oleh BPJS TK via e-PLKK (PMK 141/2018, bukan CoB).
+export const STATUS_PENJAMINAN_KK_CONFIG: Record<StatusPenjaminanKk, LPConfig> = {
+  menunggu: { label: "Menunggu Penetapan", chipCls: "border-amber-200 bg-amber-50 text-amber-700",       dot: "bg-amber-400"   },
+  dijamin:  { label: "Dijamin JKK",         chipCls: "border-emerald-200 bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
+  ditolak:  { label: "Ditolak → JKN",       chipCls: "border-rose-200 bg-rose-50 text-rose-700",          dot: "bg-rose-400"    },
+};
 
 // ─── Shared constants ─────────────────────────────────────────
 
@@ -181,9 +222,16 @@ export function dtoToDraft(dto: KecelakaanDTO): KecelakaanDraft {
     penjaminLanjutan:   dto.penjaminLanjutan,
     statusKoordinasiJR: dto.statusKoordinasiJR,
     namaPerusahaan:     dto.namaPerusahaan,
+    npp:                dto.npp,
     noKpj:              dto.noKpj,
     jenisPekerjaan:     dto.jenisPekerjaan,
     lokasiKerja:        dto.lokasiKerja,
+    lingkupKerja:       dto.lingkupKerja,
+    statusLaporanKk:    dto.statusLaporanKk,
+    isPlkk:             dto.isPlkk,
+    penjaminBadan:      dto.penjaminBadan,
+    statusPenjaminanKk: dto.statusPenjaminanKk,
+    noJaminanKk:        dto.noJaminanKk,
     suplesi:            dto.suplesi,
     noSepSuplesi:       dto.noSepSuplesi,
     statusKlaim:        dto.statusKlaim,

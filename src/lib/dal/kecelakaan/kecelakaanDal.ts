@@ -25,9 +25,16 @@ export interface KecelakaanData {
   penjaminLanjutan: string | null;
   statusKoordinasiJr: string | null;
   namaPerusahaan: string | null;
+  npp: string | null;
   noKpj: string | null;
   jenisPekerjaan: string | null;
   lokasiKerja: string | null;
+  lingkupKerja: string | null;
+  statusLaporanKk: string | null;
+  isPlkk: boolean;
+  penjaminBadan: string | null;
+  statusPenjaminanKk: string | null;
+  noJaminanKk: string | null;
   suplesi: boolean;
   noSepSuplesi: string | null;
   statusKlaim: string;

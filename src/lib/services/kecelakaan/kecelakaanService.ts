@@ -15,12 +15,25 @@ import type {
 // Peserta BPJS Kesehatan (jaminan SEP). Non-BPJS → sinkronisasi jaminan ditolak.
 const isBpjs = (t: string): boolean => t === "BPJS_Non_PBI" || t === "BPJS_PBI";
 
-// jenis kecelakaan (FE) → kode lakaLantas SEP. KLL_KK (KLL sekaligus kecelakaan kerja) =
-// edge-case; disetel operator langsung di form SEP (jenis tunggal tak bisa mewakili dua).
-function deriveLakaLantas(jenis: string): SepJaminanSyncDTO["lakaLantas"] {
-  if (jenis === "kll") return "KLL_BKK";
-  if (jenis === "kerja") return "KK";
-  return "BKLL";
+// jenis + lingkup + jumlah kendaraan → { lakaLantas, penjamin } SEP (server-otoritatif).
+//  • KLL          → KLL_BKK, penjamin "1" (Jasa Raharja).
+//  • KK murni      → KK,      penjamin "2" (BPJS Ketenagakerjaan).
+//  • KK saat PP/dinas berunsur lalu lintas (ada kendaraan) → KLL_KK, penjamin "1,2" (JR + BPJS TK).
+//  • lainnya       → BKLL,    tanpa penjamin kecelakaan.
+// Rujukan: docs/KECELAKAAN-KERJA-JKK.md §4.
+function deriveLaka(
+  jenis: string,
+  lingkup: string,
+  kendaraanCount: number,
+): { lakaLantas: SepJaminanSyncDTO["lakaLantas"]; penjamin: string | null } {
+  if (jenis === "kll") return { lakaLantas: "KLL_BKK", penjamin: "1" };
+  if (jenis === "kerja") {
+    const laluLintas = (lingkup === "pp" || lingkup === "dinas") && kendaraanCount > 0;
+    return laluLintas
+      ? { lakaLantas: "KLL_KK", penjamin: "1,2" }
+      : { lakaLantas: "KK", penjamin: "2" };
+  }
+  return { lakaLantas: "BKLL", penjamin: null };
 }
 
 type Entity = NonNullable<KecelakaanEntity>;
@@ -52,9 +65,17 @@ function toData(input: UpsertKecelakaanInput): KecelakaanData {
     penjaminLanjutan:   nn(input.penjaminLanjutan),
     statusKoordinasiJr: input.statusKoordinasiJR,
     namaPerusahaan:     nn(input.namaPerusahaan),
+    npp:                nn(input.npp),
     noKpj:              nn(input.noKpj),
     jenisPekerjaan:     nn(input.jenisPekerjaan),
     lokasiKerja:        nn(input.lokasiKerja),
+    lingkupKerja:       nn(input.lingkupKerja),
+    statusLaporanKk:    input.statusLaporanKk,
+    isPlkk:             input.isPlkk,
+    // Badan penyelenggara penjamin kecelakaan = derivasi server (anti-spoof, single source).
+    penjaminBadan:      deriveLaka(input.jenis, input.lingkupKerja, input.kendaraan.length).penjamin,
+    statusPenjaminanKk: input.statusPenjaminanKk,
+    noJaminanKk:        nn(input.noJaminanKk),
     suplesi:            input.suplesi,
     noSepSuplesi:       nn(input.noSepSuplesi),
     statusKlaim:        input.statusKlaim,
@@ -87,9 +108,16 @@ function toDTO(e: Entity): KecelakaanDTO {
     penjaminLanjutan:   e.penjaminLanjutan ?? "",
     statusKoordinasiJR: (e.statusKoordinasiJr as KecelakaanDTO["statusKoordinasiJR"]) || "belum",
     namaPerusahaan:     e.namaPerusahaan ?? "",
+    npp:                e.npp ?? "",
     noKpj:              e.noKpj ?? "",
     jenisPekerjaan:     e.jenisPekerjaan ?? "",
     lokasiKerja:        e.lokasiKerja ?? "",
+    lingkupKerja:       (e.lingkupKerja as KecelakaanDTO["lingkupKerja"]) || "",
+    statusLaporanKk:    (e.statusLaporanKk as KecelakaanDTO["statusLaporanKk"]) || "belum",
+    isPlkk:             e.isPlkk ?? true,
+    penjaminBadan:      e.penjaminBadan ?? "",
+    statusPenjaminanKk: (e.statusPenjaminanKk as KecelakaanDTO["statusPenjaminanKk"]) || "menunggu",
+    noJaminanKk:        e.noJaminanKk ?? "",
     suplesi:            e.suplesi ?? false,
     noSepSuplesi:       e.noSepSuplesi ?? "",
     statusKlaim:        (e.statusKlaim as KecelakaanDTO["statusKlaim"]) || "belum",
@@ -131,9 +159,11 @@ export function makeKecelakaanService(deps: { dal?: typeof kecelakaanDal } = {})
     const sep = await bpjsDal.findSepByKunjungan(kunjunganId);
     if (!sep) throw Errors.validation("Belum ada SEP aktif pada kunjungan ini — terbitkan SEP dulu");
 
-    const lakaLantas = deriveLakaLantas(rec.jenis);
+    const kendaraanCount = Array.isArray(rec.kendaraan) ? rec.kendaraan.length : 0;
+    const { lakaLantas, penjamin } = deriveLaka(rec.jenis, rec.lingkupKerja ?? "", kendaraanCount);
     const count = await bpjsDal.updateSepJaminan(sep.id, {
       lakaLantas,
+      penjamin,
       noLp: rec.noLapPol ?? null,
       tglKejadian: rec.tglKejadian ?? null,
       keteranganLaka: rec.kronologi ?? null,
@@ -145,6 +175,7 @@ export function makeKecelakaanService(deps: { dal?: typeof kecelakaanDal } = {})
     return {
       noSep:          sep.noSep,
       lakaLantas,
+      penjamin,
       noLp:           rec.noLapPol ?? "",
       tglKejadian:    rec.tglKejadian ? rec.tglKejadian.toISOString().slice(0, 10) : "",
       keteranganLaka: rec.kronologi ?? "",
