@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
-  Printer, ChevronLeft, ChevronRight, Check, CheckCircle2,
+  ChevronLeft, ChevronRight, Check, CheckCircle2,
 } from "lucide-react";
 import type { KunjunganRecord } from "@/lib/data";
 import { SepStep1 } from "./sep/BpjsSearch";
@@ -16,6 +16,7 @@ export { PenjaminForm }   from "./PenjaminForm";
 export { PaketForm }       from "./PaketForm";
 export { RujukanForm }    from "./RujukanForm";
 export { KecelakaanForm } from "./KecelakaanForm";
+export { CetakTab }       from "./CetakDokumenTab";
 
 // ─── Shared form primitives ───────────────────────────────────
 
@@ -158,45 +159,7 @@ export function UpdateSEPForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
   );
 }
 
-// ─── Cetak tab ────────────────────────────────────────────────
-
-function PrintRow({ label, disabled }: { label: string; disabled?: boolean }) {
-  return (
-    <button type="button" disabled={disabled}
-      className={cn(
-        "group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition",
-        disabled ? "cursor-not-allowed opacity-40" : "hover:border-slate-300 hover:bg-slate-50",
-      )}
-    >
-      <div className={cn(
-        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 transition",
-        !disabled && "group-hover:bg-slate-800",
-      )}>
-        <Printer size={13} className={cn("text-slate-500 transition", !disabled && "group-hover:text-white")} />
-      </div>
-      <span className="flex-1 text-[12px] font-medium text-slate-700">{label}</span>
-    </button>
-  );
-}
-
-export function CetakTab({ kunjungan }: { kunjungan: KunjunganRecord }) {
-  const hasSEP     = !!kunjungan.noSEP;
-  const hasRujukan = !!kunjungan.dokumen?.rujukan;
-  const isDone     = kunjungan.status === "Selesai";
-  return (
-    <div className="space-y-4">
-      <SectionHead title="Cetak Dokumen" desc="Cetak dokumen terkait kunjungan ini" />
-      <div className="space-y-2">
-        <PrintRow label="Bukti Pendaftaran" />
-        <PrintRow label="Kartu Antrean" />
-        <PrintRow label="Gelang Identitas" />
-        <PrintRow label="No. SEP / Surat Eligibilitas" disabled={!hasSEP} />
-        <PrintRow label="Surat Rujukan"                disabled={!hasRujukan} />
-        <PrintRow label="Struk Pembayaran"             disabled={!isDone} />
-      </div>
-    </div>
-  );
-}
+// CetakTab is now a full redesigned component in ./CetakDokumenTab.tsx
 
 // ─── Hapus form ───────────────────────────────────────────────
 
