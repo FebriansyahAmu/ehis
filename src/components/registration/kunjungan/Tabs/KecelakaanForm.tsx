@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Car, HardHat, AlertTriangle, CheckCircle2,
-  FileText, MapPin, Loader2, Save,
+  MapPin, Loader2, Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { KunjunganRecord } from "@/lib/data";
@@ -14,8 +14,7 @@ import { TimePicker } from "@/components/shared/inputs/TimePicker";
 import { getKecelakaan, saveKecelakaan } from "@/lib/api/kecelakaan";
 import { KLLPanel } from "./kecelakaan/KLLPanel";
 import { KKPanel } from "./kecelakaan/KKPanel";
-import { SuratJRModal } from "./kecelakaan/SuratJRModal";
-import { SuratKK1Modal } from "./kecelakaan/SuratKK1Modal";
+import { CetakDokumenPanel } from "./kecelakaan/CetakDokumenPanel";
 import { SepBridgePanel } from "./kecelakaan/SepBridgePanel";
 import {
   type JenisKecelakaan, type KecelakaanDraft, type StatusKlaim,
@@ -308,13 +307,11 @@ export function KecelakaanForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
   // Peserta BPJS Kesehatan → tampilkan jembatan jaminan ke SEP (backend enforce otoritatif).
   const isBpjs = /bpjs/i.test(kunjungan.penjamin ?? "");
 
-  const [draft,       setDraft]       = useState<KecelakaanDraft>({ ...BLANK_DRAFT });
-  const [loading,     setLoading]     = useState(persist);
-  const [saving,      setSaving]      = useState(false);
-  const [submitted,   setSubmitted]   = useState(false);
-  const [showJRModal, setShowJRModal] = useState(false);
-  const [showKK1Modal, setShowKK1Modal] = useState(false);
-  const [err,         setErr]         = useState<string | null>(null);
+  const [draft,     setDraft]     = useState<KecelakaanDraft>({ ...BLANK_DRAFT });
+  const [loading,   setLoading]   = useState(persist);
+  const [saving,    setSaving]    = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [err,       setErr]       = useState<string | null>(null);
 
   // Muat data kecelakaan tersimpan (pasien DB). Demo (non-UUID) → form kosong/lokal.
   useEffect(() => {
@@ -433,40 +430,11 @@ export function KecelakaanForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
       {/* Status Klaim */}
       <StatusKlaimSection draft={draft} setDraft={setDraft} />
 
-      {/* JR Modal */}
-      {showJRModal && (
-        <SuratJRModal draft={draft} onClose={() => setShowJRModal(false)} />
-      )}
-
-      {/* Form 3 / KK1 Modal (BPJS Ketenagakerjaan / JKK) */}
-      {showKK1Modal && (
-        <SuratKK1Modal draft={draft} onClose={() => setShowKK1Modal(false)} />
-      )}
+      {/* Cetak Dokumen — kolom kartu penerbitan berkas klaim */}
+      <CetakDokumenPanel draft={draft} />
 
       {/* Actions */}
-      <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
-        <div>
-          {draft.jenis === "kll" && (
-            <button
-              type="button"
-              onClick={() => setShowJRModal(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100 active:scale-95"
-            >
-              <FileText size={12} />
-              Buat Laporan Jasa Raharja
-            </button>
-          )}
-          {draft.jenis === "kerja" && (
-            <button
-              type="button"
-              onClick={() => setShowKK1Modal(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100 active:scale-95"
-            >
-              <FileText size={12} />
-              Buat Laporan BPJS Naker (Form 3 / KK1)
-            </button>
-          )}
-        </div>
+      <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-3">
         <button
           type="button"
           onClick={handleSave}
