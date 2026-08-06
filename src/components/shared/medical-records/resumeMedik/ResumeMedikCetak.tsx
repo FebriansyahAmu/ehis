@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Printer, ShieldCheck } from "lucide-react";
 import type { IGDDiagnosa } from "@/lib/data";
 import KopSuratEklaim from "@/components/eklaim/berkas/KopSuratEklaim";
-import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
+import { useRsProfil } from "@/lib/master/rsProfilClient";
 import TteQr from "@/components/shared/TteQr";
 import type { ResumeMedikData } from "./resumeMedikTypes";
 
@@ -80,7 +80,7 @@ function Th({ children, right }: { children: React.ReactNode; right?: boolean })
 // ── Template A4 ───────────────────────────────────────────────────────────────
 
 function ResumeMedikTemplate({ model }: { model: ResumeMedikPrintModel }) {
-  const rs = RS_PROFIL_INITIAL;
+  const rs = useRsProfil();
   const { konteks, pasien, periodeTitle, periodeRows, rm, diagnosa, noKunjungan, dpjp, tte } = model;
   const isRJ = konteks === "rj";
   const diagnosaPrimer = diagnosa.find(d => d.tipe === "Utama");

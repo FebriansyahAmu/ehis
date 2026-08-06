@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Printer, ShieldCheck } from "lucide-react";
 import type { RawatInapPatientDetail, IGDDiagnosa } from "@/lib/data";
 import KopSuratEklaim from "@/components/eklaim/berkas/KopSuratEklaim";
-import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
+import { useRsProfil } from "@/lib/master/rsProfilClient";
 import TteQr from "@/components/shared/TteQr";
 import type { PasienPulangData } from "./pasienPulangShared";
 
@@ -53,7 +53,7 @@ function FR({ label, children }: { label: string; children: React.ReactNode }) {
 // ── Template A4 ───────────────────────────────────────────────────────────────
 
 function ResumePulangTemplate({ data, patient, diagnosa, tte }: Omit<Props, "open" | "onClose">) {
-  const rs = RS_PROFIL_INITIAL;
+  const rs = useRsProfil();
   const rp = data.resumePulang;
   const diagnosaPrimer = diagnosa.find((d) => d.tipe === "Utama");
   const diagnosaLain   = diagnosa.filter((d) => d.tipe !== "Utama");

@@ -9,7 +9,7 @@
  */
 
 import KopSuratEklaim from "@/components/eklaim/berkas/KopSuratEklaim";
-import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
+import { useRsProfil } from "@/lib/master/rsProfilClient";
 import type { SEPRecordExt } from "@/lib/bpjs/bpjsShared";
 import { fmtTgl, jnsLabel, asalLabel } from "./sepShared";
 import { fmtDateShortDoc, todayLong } from "@/components/eklaim/berkas/berkasGeneratorShared";
@@ -65,7 +65,7 @@ interface Props {
 }
 
 export default function SEPCetakTemplate({ sep }: Props) {
-  const rs = RS_PROFIL_INITIAL;
+  const rs = useRsProfil();
   const today = fmtDateShortDoc(new Date().toISOString());
   const isKLL = sep.jaminan && sep.jaminan.lakaLantas !== "0";
 

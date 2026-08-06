@@ -8,7 +8,7 @@
 // `.print-area` oleh modal.
 
 import KopSuratEklaim from "@/components/eklaim/berkas/KopSuratEklaim";
-import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
+import { useRsProfil } from "@/lib/master/rsProfilClient";
 import TteQr from "@/components/shared/TteQr";
 
 // ── Data contract (adapter dari SuratSehatDTO / mock demo) ───────────────────
@@ -94,7 +94,7 @@ function FR({ label, children }: { label: string; children: React.ReactNode }) {
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 export default function SuratKeteranganSehatTemplate({ data }: { data: SuratSehatCetakData }) {
-  const rs = RS_PROFIL_INITIAL;
+  const rs = useRsProfil();
   const { surat, pasien, dokter, tte } = data;
 
   const bmi = surat.tinggiBadan && surat.beratBadan && surat.tinggiBadan > 0

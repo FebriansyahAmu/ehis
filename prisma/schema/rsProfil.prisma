@@ -1,0 +1,45 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MODUL: MASTER / Profil RS  (Postgres schema "master")
+//  FE: /ehis-master/profil-rs · Tipe FE: src/lib/master/rsProfilStore.ts (RSProfil).
+//
+//  SINGLETON — identitas resmi Rumah Sakit (1 baris, id tetap "rs-profil"). Sumber
+//  KOP surat + logo untuk SELURUH cetakan EHIS (surat sakit/sehat, resume, SEP,
+//  rujukan, invoice, e-klaim, dst) via hook useRsProfil().
+//
+//  Konvensi (FLOWS §9): timestamptz. Bukan katalog list → tanpa soft-delete/cursor.
+//  Blok bertingkat (alamat/akreditasi/shift/kop) = JSONB (mirror interface FE,
+//  validasi struktur di Zod). `logoDataUrl` = data URI base64 (embedded self-contained
+//  agar ikut tercetak tanpa fetch eksternal). Enum FE-facing (kelas/tipe/…) = TEXT.
+// ════════════════════════════════════════════════════════════════════════════
+
+model RsProfil {
+  id String @id // singleton — konstanta "rs-profil"
+
+  // ── Identitas skalar ──
+  nama        String
+  namaInggris String? @map("nama_inggris")
+  kode        String
+  kelas       String // FE union KelasRS ("A" | "B" | "C" | "D" | "D Pratama")
+  tipe        String // FE union TipeRS
+  kepemilikan String // FE union KepemilikanRS
+  telp        String
+  fax         String?
+  email       String
+  website     String?
+
+  // ── Blok bertingkat (JSONB, mirror interface FE) ──
+  alamat     Json // RSAlamat
+  akreditasi Json // RSAkreditasi
+  shift      Json // Record<ShiftKey, ShiftJam>
+  kop        Json // RSKop
+
+  // ── Logo (data URI base64) — ikut tercetak di KOP semua surat ──
+  logoDataUrl String? @map("logo_data_url")
+
+  // ── Meta ──
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String?  @map("updated_by")
+
+  @@map("rs_profil")
+  @@schema("master")
+}

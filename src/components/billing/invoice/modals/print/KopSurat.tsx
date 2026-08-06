@@ -1,32 +1,37 @@
 "use client";
 
-import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
+import { useRsProfil } from "@/lib/master/rsProfilClient";
 import { Building2 } from "lucide-react";
 
 /**
  * KOP Surat RS — header untuk semua dokumen cetak (InvoiceSheet / KwitansiSheet).
  *
- * Layout: logo placeholder + nama RS + subtitle + alamat kop + meta-info (telp/email/web).
+ * Layout: logo RS + nama RS + subtitle + alamat kop + meta-info (telp/email/web).
  * Border bawah double-line (klasik dokumen resmi RS pemerintah).
  *
- * Consume `RS_PROFIL_INITIAL` dari [rsProfilStore](src/lib/master/rsProfilStore.ts).
+ * Consume profil live via `useRsProfil()` (DB + logo, fallback konstanta).
  */
 export default function KopSurat() {
-  const rs = RS_PROFIL_INITIAL;
+  const rs = useRsProfil();
   const kop = rs.kop;
   const initials = rs.kode.slice(0, 4).toUpperCase();
 
   return (
     <header className="page-break-avoid">
       <div className="flex items-start gap-4 pb-3">
-        {/* Logo placeholder */}
-        <div className="flex h-20 w-20 flex-none items-center justify-center rounded border-2 border-slate-700 bg-white">
-          <div className="text-center leading-tight">
-            <Building2 size={20} className="mx-auto text-slate-700" strokeWidth={2.2} />
-            <p className="mt-0.5 text-[8.5px] font-bold tracking-widest text-slate-700">
-              {initials}
-            </p>
-          </div>
+        {/* Logo RS (data URI) atau placeholder */}
+        <div className="flex h-20 w-20 flex-none items-center justify-center overflow-hidden rounded border-2 border-slate-700 bg-white">
+          {rs.logoDataUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={rs.logoDataUrl} alt={`Logo ${rs.nama}`} className="h-full w-full object-contain p-1" />
+          ) : (
+            <div className="text-center leading-tight">
+              <Building2 size={20} className="mx-auto text-slate-700" strokeWidth={2.2} />
+              <p className="mt-0.5 text-[8.5px] font-bold tracking-widest text-slate-700">
+                {initials}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Identity */}

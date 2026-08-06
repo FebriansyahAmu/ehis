@@ -21,7 +21,7 @@ import {
   fmtDateShortDoc,
   todayLong,
 } from "./berkasGeneratorShared";
-import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
+import { useRsProfil } from "@/lib/master/rsProfilClient";
 import type { ClaimRecord } from "@/lib/eklaim/eklaimShared";
 
 // ── Subcomponents ──────────────────────────────────────
@@ -94,7 +94,7 @@ interface Props {
 }
 
 export default function ResumeMedisTemplate({ claim }: Props) {
-  const rs = RS_PROFIL_INITIAL;
+  const rs = useRsProfil();
   const dp = claim.diagnosaPrimer;
   const ds = claim.diagnosaSekunder ?? [];
   const tp = claim.tindakanProsedur ?? [];

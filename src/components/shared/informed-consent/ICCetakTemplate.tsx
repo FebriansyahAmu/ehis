@@ -10,7 +10,7 @@
  */
 
 import KopSuratEklaim from "@/components/eklaim/berkas/KopSuratEklaim";
-import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
+import { useRsProfil } from "@/lib/master/rsProfilClient";
 import type { InformedConsentDetailDTO } from "@/lib/schemas/informedConsent/informedConsent";
 
 // ── Helpers ───────────────────────────────────────────────
@@ -84,7 +84,7 @@ interface Props {
 }
 
 export default function ICCetakTemplate({ detail, patient }: Props) {
-  const rs = RS_PROFIL_INITIAL;
+  const rs = useRsProfil();
   const setuju = detail.keputusan === "setuju";
   const bannerCfg = setuju
     ? { bar: "bg-emerald-600", soft: "bg-emerald-50 border-emerald-300", text: "text-emerald-700", label: "SETUJU", desc: "Pasien/wali MENYETUJUI tindakan" }

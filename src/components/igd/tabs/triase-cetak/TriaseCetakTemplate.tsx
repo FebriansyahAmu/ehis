@@ -13,7 +13,7 @@
  */
 
 import KopSuratEklaim from "@/components/eklaim/berkas/KopSuratEklaim";
-import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
+import { useRsProfil } from "@/lib/master/rsProfilClient";
 import type { TriaseDTO } from "@/lib/schemas/triase";
 import type { IGDPatientDetail } from "@/lib/data";
 
@@ -82,7 +82,7 @@ interface Props {
 }
 
 export default function TriaseCetakTemplate({ data, patient }: Props) {
-  const rs = RS_PROFIL_INITIAL;
+  const rs = useRsProfil();
   const lvl = LEVEL_CFG[data.triageLevel] ?? LEVEL_CFG.P3;
 
   // Kelompokkan kriteria observasi terpilih per-parameter (urut sesuai `urutan`).

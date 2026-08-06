@@ -1,6 +1,6 @@
-import { Building2, MapPin, ShieldCheck, Clock, FileText, type LucideIcon } from "lucide-react";
+import { Building2, MapPin, ShieldCheck, Clock, FileText, ImagePlus, type LucideIcon } from "lucide-react";
 
-export type SectionKey = "identitas" | "alamat" | "akreditasi" | "shift" | "kop";
+export type SectionKey = "identitas" | "alamat" | "akreditasi" | "shift" | "logo" | "kop";
 
 export interface SectionConfig {
   key:    SectionKey;
@@ -38,6 +38,13 @@ export const SECTION_REGISTRY: readonly SectionConfig[] = [
     desc:   "Jam kerja Pagi · Siang · Malam (dipakai seluruh modul)",
     icon:   Clock,
     accent: { bg: "bg-amber-50",   text: "text-amber-700",   ring: "ring-amber-200"   },
+  },
+  {
+    key:    "logo",
+    label:  "Logo RS",
+    desc:   "Unggah logo — tampil di KOP semua cetakan surat",
+    icon:   ImagePlus,
+    accent: { bg: "bg-indigo-50",  text: "text-indigo-700",  ring: "ring-indigo-200"  },
   },
   {
     key:    "kop",

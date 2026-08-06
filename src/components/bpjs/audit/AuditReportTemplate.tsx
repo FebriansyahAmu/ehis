@@ -12,7 +12,7 @@
  */
 
 import KopSuratEklaim from "@/components/eklaim/berkas/KopSuratEklaim";
-import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
+import { useRsProfil } from "@/lib/master/rsProfilClient";
 import type { BPJSAuditEntry } from "@/lib/bpjs/bpjsShared";
 import { todayLong, fmtDateShortDoc } from "@/components/eklaim/berkas/berkasGeneratorShared";
 import { cn } from "@/lib/utils";
@@ -80,7 +80,7 @@ interface Props {
 }
 
 export default function AuditReportTemplate({ entries, periode }: Props) {
-  const rs = RS_PROFIL_INITIAL;
+  const rs = useRsProfil();
   const today = fmtDateShortDoc(new Date().toISOString());
 
   const total   = entries.length;

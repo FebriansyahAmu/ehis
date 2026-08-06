@@ -3,7 +3,7 @@
 /**
  * KOP Surat Eklaim — header cetak standar untuk semua template E-Klaim (EK5).
  *
- * Consume RS_PROFIL_INITIAL dari rsProfilStore (single source of truth identitas RS).
+ * Consume profil live via useRsProfil() (DB + logo, fallback konstanta).
  * Layout klasik dokumen resmi: logo placeholder kiri · identitas center · double-border bawah.
  *
  * variant="full"    → 2-baris: alamat lengkap + telp/email/web
@@ -11,28 +11,33 @@
  */
 
 import { Building2 } from "lucide-react";
-import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
+import { useRsProfil } from "@/lib/master/rsProfilClient";
 
 interface Props {
   variant?: "full" | "compact";
 }
 
 export default function KopSuratEklaim({ variant = "full" }: Props) {
-  const rs = RS_PROFIL_INITIAL;
+  const rs = useRsProfil();
   const kop = rs.kop;
   const initials = rs.kode.slice(0, 4).toUpperCase();
 
   return (
     <header>
       <div className="flex items-start gap-3 pb-2">
-        {/* Logo placeholder */}
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded border-2 border-slate-700 bg-white">
-          <div className="text-center">
-            <Building2 size={16} className="mx-auto text-slate-700" strokeWidth={2.2} />
-            <p className="mt-0.5 text-[7px] font-bold tracking-widest text-slate-700">
-              {initials}
-            </p>
-          </div>
+        {/* Logo RS (data URI) atau placeholder */}
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded border-2 border-slate-700 bg-white">
+          {rs.logoDataUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={rs.logoDataUrl} alt={`Logo ${rs.nama}`} className="h-full w-full object-contain p-0.5" />
+          ) : (
+            <div className="text-center">
+              <Building2 size={16} className="mx-auto text-slate-700" strokeWidth={2.2} />
+              <p className="mt-0.5 text-[7px] font-bold tracking-widest text-slate-700">
+                {initials}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* RS Identity */}

@@ -2,17 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Save, BadgeCheck } from "lucide-react";
+import { Save, BadgeCheck, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
 import type { RSProfil } from "@/lib/master/rsProfilStore";
-import { SECTION_REGISTRY, getSectionCfg } from "./profilRsShared";
+import { setRsProfilCache, dtoToFull } from "@/lib/master/rsProfilClient";
+import { getRsProfil, saveRsProfil, uploadRsLogo, removeRsLogo } from "@/lib/api/master/profilRs";
+import { getSectionCfg } from "./profilRsShared";
 import type { SectionKey } from "./profilRsShared";
 import ProfilRsSidebar from "./ProfilRsSidebar";
 import IdentitasSection  from "./sections/IdentitasSection";
 import AlamatSection     from "./sections/AlamatSection";
 import AkreditasiSection from "./sections/AkreditasiSection";
 import ShiftSection      from "./sections/ShiftSection";
+import LogoSection       from "./sections/LogoSection";
 import KopSuratSection   from "./sections/KopSuratSection";
 
 // ── Skeleton ─────────────────────────────────────────────
@@ -46,15 +49,29 @@ function PageSkeleton() {
 // ── Page ─────────────────────────────────────────────────
 
 export default function ProfilRsPage() {
-  const [profil,  setProfil]  = useState<RSProfil>(RS_PROFIL_INITIAL);
-  const [draft,   setDraft]   = useState<RSProfil>(() => structuredClone(RS_PROFIL_INITIAL));
-  const [section, setSection] = useState<SectionKey>("identitas");
-  const [loaded,  setLoaded]  = useState(false);
-  const [saved,   setSaved]   = useState<SectionKey | null>(null);
+  const [profil,   setProfil]   = useState<RSProfil>(RS_PROFIL_INITIAL);
+  const [draft,    setDraft]    = useState<RSProfil>(() => structuredClone(RS_PROFIL_INITIAL));
+  const [logo,     setLogo]     = useState<string | null>(null);
+  const [section,  setSection]  = useState<SectionKey>("identitas");
+  const [loaded,   setLoaded]   = useState(false);
+  const [saved,    setSaved]    = useState<SectionKey | null>(null);
+  const [saving,   setSaving]   = useState(false);
+  const [logoBusy, setLogoBusy] = useState(false);
+  const [err,      setErr]      = useState<string | null>(null);
 
+  // Muat profil dari DB (fallback konstanta bila belum tersimpan / gagal).
   useEffect(() => {
-    const t = setTimeout(() => setLoaded(true), 500);
-    return () => clearTimeout(t);
+    const ac = new AbortController();
+    getRsProfil(ac.signal)
+      .then((dto) => {
+        const { logoDataUrl, ...text } = dtoToFull(dto);
+        setProfil(text);
+        setDraft(structuredClone(text));
+        setLogo(logoDataUrl);
+      })
+      .catch(() => { /* pertahankan fallback konstanta */ })
+      .finally(() => { if (!ac.signal.aborted) setLoaded(true); });
+    return () => ac.abort();
   }, []);
 
   const isDirty = useMemo(
@@ -66,10 +83,46 @@ export default function ProfilRsPage() {
     setDraft((prev) => ({ ...prev, ...patch }));
   };
 
-  const handleSave = () => {
-    setProfil(structuredClone(draft));
-    setSaved(section);
-    setTimeout(() => setSaved(null), 2200);
+  const handleSave = async () => {
+    setSaving(true);
+    setErr(null);
+    try {
+      await saveRsProfil(draft);
+      const savedText = structuredClone(draft);
+      setProfil(savedText);
+      setRsProfilCache({ ...savedText, logoDataUrl: logo }); // KOP cetak tercermin seketika
+      setSaved(section);
+      setTimeout(() => setSaved(null), 2200);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Gagal menyimpan profil RS.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Logo — endpoint terpisah (persist seketika, di luar alur Simpan/Batal teks).
+  const handleUploadLogo = async (dataUrl: string) => {
+    setLogoBusy(true);
+    setErr(null);
+    try {
+      const dto = await uploadRsLogo(dataUrl);
+      setLogo(dto.logoDataUrl);
+      setRsProfilCache({ ...profil, logoDataUrl: dto.logoDataUrl });
+    } finally {
+      setLogoBusy(false);
+    }
+  };
+
+  const handleRemoveLogo = async () => {
+    setLogoBusy(true);
+    setErr(null);
+    try {
+      await removeRsLogo();
+      setLogo(null);
+      setRsProfilCache({ ...profil, logoDataUrl: null });
+    } finally {
+      setLogoBusy(false);
+    }
   };
 
   const handleCancel = () => {
@@ -150,6 +203,20 @@ export default function ProfilRsPage() {
               </div>
             </motion.div>
 
+            {/* Error banner */}
+            <AnimatePresence>
+              {err && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className="flex shrink-0 items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-[12px] font-medium text-rose-700 ring-1 ring-rose-100"
+                >
+                  <AlertTriangle size={14} className="shrink-0" /> {err}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Body — two-panel */}
             <div className="flex min-h-0 flex-1 gap-4">
               <ProfilRsSidebar
@@ -191,27 +258,39 @@ export default function ProfilRsPage() {
                       {section === "alamat"      && <AlamatSection      {...sectionProps} />}
                       {section === "akreditasi"  && <AkreditasiSection  {...sectionProps} />}
                       {section === "shift"       && <ShiftSection       {...sectionProps} />}
+                      {section === "logo"        && (
+                        <LogoSection
+                          logo={logo}
+                          nama={draft.nama}
+                          kode={draft.kode}
+                          busy={logoBusy}
+                          onUpload={handleUploadLogo}
+                          onRemove={handleRemoveLogo}
+                        />
+                      )}
                       {section === "kop"         && <KopSuratSection    {...sectionProps} />}
                     </div>
 
-                    {/* Footer actions */}
-                    <div className="shrink-0 flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/50 px-5 py-3">
-                      <button
-                        onClick={handleCancel}
-                        disabled={!isDirty}
-                        className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-30"
-                      >
-                        Batal
-                      </button>
-                      <button
-                        onClick={handleSave}
-                        disabled={!isDirty}
-                        className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-700 disabled:opacity-40"
-                      >
-                        <Save size={12} />
-                        Simpan Perubahan
-                      </button>
-                    </div>
+                    {/* Footer actions — logo persist seketika, tak butuh Simpan/Batal teks */}
+                    {section !== "logo" && (
+                      <div className="shrink-0 flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/50 px-5 py-3">
+                        <button
+                          onClick={handleCancel}
+                          disabled={!isDirty || saving}
+                          className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-30"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          onClick={handleSave}
+                          disabled={!isDirty || saving}
+                          className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-700 disabled:opacity-40"
+                        >
+                          {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                          {saving ? "Menyimpan…" : "Simpan Perubahan"}
+                        </button>
+                      </div>
+                    )}
                   </motion.div>
                 </AnimatePresence>
               </div>

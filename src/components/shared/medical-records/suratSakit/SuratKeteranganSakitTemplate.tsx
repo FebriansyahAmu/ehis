@@ -7,7 +7,7 @@
 // TTD Dokter Pemeriksa. Light tones (printer-friendly). Dipakai di dalam `.print-area` oleh modal.
 
 import KopSuratEklaim from "@/components/eklaim/berkas/KopSuratEklaim";
-import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
+import { useRsProfil } from "@/lib/master/rsProfilClient";
 import TteQr from "@/components/shared/TteQr";
 
 // ── Data contract (adapter dari SuratSakitDTO / mock demo) ───────────────────
@@ -100,7 +100,7 @@ function FR({ label, children }: { label: string; children: React.ReactNode }) {
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 export default function SuratKeteranganSakitTemplate({ data }: { data: SuratSakitCetakData }) {
-  const rs = RS_PROFIL_INITIAL;
+  const rs = useRsProfil();
   const { surat, pasien, dokter, tte } = data;
   const showDiagnosa = !!surat.cantumkanDiagnosa && !!surat.diagnosa?.trim();
   const tglTerbit = surat.terbitAt

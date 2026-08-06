@@ -9,7 +9,7 @@
 // instruksi · TTD. Light tones (printer-friendly). Dipakai di dalam `.print-area` oleh modal.
 
 import KopSuratEklaim from "@/components/eklaim/berkas/KopSuratEklaim";
-import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
+import { useRsProfil } from "@/lib/master/rsProfilClient";
 
 // ── Data contract (adapter dari JadwalKontrolDTO / mock demo) ────────────────
 
@@ -87,7 +87,7 @@ const INSTRUKSI_HADIR = [
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 export default function SuratKontrolCetakTemplate({ data }: { data: SuratKontrolCetakData }) {
-  const rs = RS_PROFIL_INITIAL;
+  const rs = useRsProfil();
   const { jadwal, pasien, perawatan } = data;
   const isRJ = data.konteks === "rj";
   const isBpjs = !!jadwal.noReferensi || !!jadwal.noSep;

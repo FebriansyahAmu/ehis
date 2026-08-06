@@ -17,7 +17,7 @@ import {
   fmtDateShortDoc,
   todayLong,
 } from "./berkasGeneratorShared";
-import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
+import { useRsProfil } from "@/lib/master/rsProfilClient";
 import type { ClaimRecord, BerkasStatus } from "@/lib/eklaim/eklaimShared";
 
 // ── Status display mapping ─────────────────────────────
@@ -94,7 +94,7 @@ interface Props {
 }
 
 export default function BerkasKlaimTemplate({ claim }: Props) {
-  const rs = RS_PROFIL_INITIAL;
+  const rs = useRsProfil();
   const idrg = claim.iDRG;
   const cbg = claim.inaCbgLegacy;
   const berkasList = claim.berkas ?? [];

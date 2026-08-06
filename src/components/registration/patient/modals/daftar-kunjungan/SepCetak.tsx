@@ -5,7 +5,7 @@
 
 import { Printer, X } from "lucide-react";
 import KopSuratEklaim from "@/components/eklaim/berkas/KopSuratEklaim";
-import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
+import { useRsProfil } from "@/lib/master/rsProfilClient";
 import { triggerPrint, fmtTanggalShort, fmtTanggalJam } from "@/components/billing/invoice/modals/print/printShared";
 import type { KunjunganDTO } from "@/lib/api/kunjungan";
 
@@ -32,7 +32,7 @@ function SectionHead({ children }: { children: React.ReactNode }) {
 
 /** Sheet A4 SEP — render di dalam `.print-area`. */
 export function SepCetakSheet({ kunjungan }: { kunjungan: KunjunganDTO }) {
-  const rs = RS_PROFIL_INITIAL;
+  const rs = useRsProfil();
   const { sep, rujukan, pasien } = kunjungan;
   if (!sep) return null;
 

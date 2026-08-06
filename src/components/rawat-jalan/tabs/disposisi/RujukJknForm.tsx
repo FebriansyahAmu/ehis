@@ -29,7 +29,7 @@ import {
 import { getDiagnosa } from "@/lib/api/diagnosa/diagnosa";
 import { listSepTerbit, type SepTerbitDTO } from "@/lib/api/jadwalKontrol/jadwalKontrol";
 import { createRujukan, type RujukanEksternalInput } from "@/lib/api/rujukanEksternal/rujukanEksternal";
-import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
+import { useRsProfil } from "@/lib/master/rsProfilClient";
 import { SectionHeader, Field, Checklist, inputCls, textareaCls, type DisposisiResult } from "./shared";
 import RujukanPayloadModal from "./RujukanPayloadModal";
 import type { RujukanCetakData } from "./RujukanCetakTemplate";
@@ -86,6 +86,7 @@ export default function RujukJknForm({
   const kunjunganId = patient.id;
   const isPersisted = UUID_RE.test(kunjunganId);
 
+  const rs = useRsProfil();
   const [noSep, setNoSep] = useState("");
   const [sepInfo, setSepInfo] = useState<SepTerbitDTO | null>(null);
   const [tglRujukan, setTglRujukan] = useState("");
@@ -241,7 +242,7 @@ export default function RujukJknForm({
       jnsPelayanan,
       tipeRujukan,
       catatan: catatan.trim(),
-      asalRujukan: { kode: PPK_ASAL, nama: RS_PROFIL_INITIAL.nama },
+      asalRujukan: { kode: PPK_ASAL, nama: rs.nama },
       tujuanRujukan: { kode: ppkDirujuk, nama: ppkNama },
       poliTujuan: { kode: isBalikPRB ? "" : poliRujukan, nama: isBalikPRB ? "" : (poliNama ?? "") },
       diagnosa: { kode: diagKode, nama: diagNama },

@@ -8,7 +8,7 @@
 // Dirender di dalam `.print-area` oleh RujukanCetakModal.
 
 import KopSuratEklaim from "@/components/eklaim/berkas/KopSuratEklaim";
-import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
+import { useRsProfil } from "@/lib/master/rsProfilClient";
 import type { RujukanDetail } from "@/lib/schemas/rujukanEksternal/rujukanEksternal";
 
 // Kontrak CETAK = snapshot `RujukanDetail` (schema server, tersimpan di detail JSONB). Alias agar
@@ -54,7 +54,7 @@ const INSTRUKSI = [
 ];
 
 export default function RujukanCetakTemplate({ data }: { data: RujukanCetakData }) {
-  const rs = RS_PROFIL_INITIAL;
+  const rs = useRsProfil();
   const isPRB = data.tipeRujukan === "2";
   const tglTerbit = data.terbitAt
     ? new Date(data.terbitAt).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })

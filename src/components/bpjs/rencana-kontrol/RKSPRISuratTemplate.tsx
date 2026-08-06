@@ -10,7 +10,7 @@
  */
 
 import KopSuratEklaim from "@/components/eklaim/berkas/KopSuratEklaim";
-import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
+import { useRsProfil } from "@/lib/master/rsProfilClient";
 import type { RKDetailRecord } from "@/lib/bpjs/bpjsContracts";
 import { PRB_LABELS } from "@/lib/bpjs/bpjsContracts";
 import { fmtTgl } from "@/components/bpjs/sep/sepShared";
@@ -73,7 +73,7 @@ interface Props {
 }
 
 export default function RKSPRISuratTemplate({ rk }: Props) {
-  const rs = RS_PROFIL_INITIAL;
+  const rs = useRsProfil();
   const today = fmtDateShortDoc(new Date().toISOString());
   const isSPRI = rk.jnsKontrol === "1";
   const title = isSPRI

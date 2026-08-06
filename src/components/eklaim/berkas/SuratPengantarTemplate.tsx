@@ -19,7 +19,7 @@ import {
   todayLong,
   currentMonthYear,
 } from "./berkasGeneratorShared";
-import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
+import { useRsProfil } from "@/lib/master/rsProfilClient";
 import type { ClaimRecord } from "@/lib/eklaim/eklaimShared";
 
 // ── Subcomponents ──────────────────────────────────────
@@ -42,7 +42,7 @@ interface Props {
 }
 
 export default function SuratPengantarTemplate({ claim, batchKlaims }: Props) {
-  const rs = RS_PROFIL_INITIAL;
+  const rs = useRsProfil();
   const klaims = batchKlaims ?? [claim];
   const today = fmtDateShortDoc(new Date().toISOString());
   const bulan = currentMonthYear();
