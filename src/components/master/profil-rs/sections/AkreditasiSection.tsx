@@ -2,6 +2,8 @@
 
 import { ShieldCheck, ShieldAlert, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Select } from "@/components/shared/inputs/Select";
+import { DatePicker } from "@/components/shared/inputs/DatePicker";
 import type { RSAkreditasi, LembagaAkred } from "@/lib/master/rsProfilStore";
 import type { SectionProps } from "./IdentitasSection";
 
@@ -87,12 +89,13 @@ export default function AkreditasiSection({ draft, onPatch }: SectionProps) {
             </Field>
           </div>
           <Field label="Tanggal Izin">
-            <input
-              type="date"
-              value={draft.akreditasi.tanggalIzin ?? ""}
-              onChange={(e) => patch({ tanggalIzin: e.target.value || undefined })}
-              className={cn(base, "max-w-[180px]")}
-            />
+            <div className="max-w-[200px]">
+              <DatePicker
+                value={draft.akreditasi.tanggalIzin ?? ""}
+                onChange={(iso) => patch({ tanggalIzin: iso || undefined })}
+                placeholder="Pilih tanggal…"
+              />
+            </div>
           </Field>
         </div>
       </div>
@@ -103,15 +106,12 @@ export default function AkreditasiSection({ draft, onPatch }: SectionProps) {
           Akreditasi
         </p>
         <Field label="Lembaga Akreditasi" required>
-          <select
+          <Select
             value={draft.akreditasi.lembaga}
-            onChange={(e) => patch({ lembaga: e.target.value as LembagaAkred })}
-            className={cn(base, "max-w-[300px]")}
-          >
-            {LEMBAGA_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
+            onChange={(v) => patch({ lembaga: v as LembagaAkred })}
+            options={LEMBAGA_OPTIONS}
+            className="max-w-[320px]"
+          />
         </Field>
 
         {isAkred && (
@@ -128,20 +128,22 @@ export default function AkreditasiSection({ draft, onPatch }: SectionProps) {
               </Field>
             </div>
             <Field label="Tanggal Mulai">
-              <input
-                type="date"
-                value={draft.akreditasi.tanggalMulai ?? ""}
-                onChange={(e) => patch({ tanggalMulai: e.target.value || undefined })}
-                className={cn(base, "max-w-[180px]")}
-              />
+              <div className="max-w-[200px]">
+                <DatePicker
+                  value={draft.akreditasi.tanggalMulai ?? ""}
+                  onChange={(iso) => patch({ tanggalMulai: iso || undefined })}
+                  placeholder="Pilih tanggal…"
+                />
+              </div>
             </Field>
             <Field label="Tanggal Berakhir">
-              <input
-                type="date"
-                value={draft.akreditasi.tanggalBerakhir ?? ""}
-                onChange={(e) => patch({ tanggalBerakhir: e.target.value || undefined })}
-                className={cn(base, "max-w-[180px]")}
-              />
+              <div className="max-w-[200px]">
+                <DatePicker
+                  value={draft.akreditasi.tanggalBerakhir ?? ""}
+                  onChange={(iso) => patch({ tanggalBerakhir: iso || undefined })}
+                  placeholder="Pilih tanggal…"
+                />
+              </div>
             </Field>
 
             {/* Expiry status chip */}

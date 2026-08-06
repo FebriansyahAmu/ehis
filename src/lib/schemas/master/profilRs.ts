@@ -13,7 +13,9 @@ export const KepemilikanRsEnum = z.enum([
 ]);
 export const LembagaAkredEnum  = z.enum(["KARS", "JCI", "Proses", "Belum"]);
 
-const optStr = z.string().trim().max(300).optional().transform((v) => (v ? v : undefined));
+// Optional dgn KEY tetap opsional (tanpa .transform → hindari key jadi required|undefined,
+// agar assignable dari RSProfil/RSAkreditasi/RSKop yang key-nya opsional).
+const optStr = z.string().trim().max(300).optional();
 
 // ── Blok bertingkat ───────────────────────────────────────────────────────────
 export const RsAlamatSchema = z.object({

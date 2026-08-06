@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { Select } from "@/components/shared/inputs/Select";
 import type { RSProfil, KelasRS, TipeRS, KepemilikanRS } from "@/lib/master/rsProfilStore";
 
 const KELAS_OPTIONS: KelasRS[]       = ["A", "B", "C", "D", "D Pratama"];
@@ -104,22 +105,20 @@ export default function IdentitasSection({ draft, onPatch }: SectionProps) {
             </div>
           </Field>
           <Field label="Tipe RS" required>
-            <select
+            <Select
               value={draft.tipe}
-              onChange={(e) => onPatch({ tipe: e.target.value as TipeRS })}
-              className={cn(base, "max-w-[200px]")}
-            >
-              {TIPE_OPTIONS.map((t) => <option key={t}>{t}</option>)}
-            </select>
+              onChange={(v) => onPatch({ tipe: v as TipeRS })}
+              options={[...TIPE_OPTIONS]}
+              className="max-w-[200px]"
+            />
           </Field>
           <Field label="Kepemilikan" required>
-            <select
+            <Select
               value={draft.kepemilikan}
-              onChange={(e) => onPatch({ kepemilikan: e.target.value as KepemilikanRS })}
-              className={cn(base, "max-w-[220px]")}
-            >
-              {KEPEMILIKAN_OPTIONS.map((k) => <option key={k}>{k}</option>)}
-            </select>
+              onChange={(v) => onPatch({ kepemilikan: v as KepemilikanRS })}
+              options={[...KEPEMILIKAN_OPTIONS]}
+              className="max-w-[240px]"
+            />
           </Field>
         </div>
       </div>

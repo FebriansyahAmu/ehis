@@ -2,14 +2,10 @@
 
 import { Sunrise, Sun, Moon, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TimePicker } from "@/components/shared/inputs/TimePicker";
 import { SHIFT_KEYS } from "@/lib/master/rsProfilStore";
 import type { ShiftKey, ShiftJam } from "@/lib/master/rsProfilStore";
 import type { SectionProps } from "./IdentitasSection";
-
-const base =
-  "rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 font-mono " +
-  "placeholder:text-slate-400 outline-none transition hover:border-slate-300 " +
-  "focus:border-amber-400 focus:ring-2 focus:ring-amber-100";
 
 const SHIFT_DISPLAY: Record<ShiftKey, {
   icon: IconComponent;
@@ -80,28 +76,30 @@ export default function ShiftSection({ draft, onPatch }: SectionProps) {
               </div>
 
               {/* Time inputs */}
-              <div className="flex items-end gap-6 px-4 py-3">
+              <div className="flex items-end gap-4 px-4 py-3">
                 <div className="flex flex-col gap-1.5">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                     Mulai
                   </p>
-                  <input
-                    type="time"
-                    value={draft.shift[key].mulai}
-                    onChange={(e) => patch(key, { mulai: e.target.value })}
-                    className={cn(base, "w-[120px]")}
-                  />
+                  <div className="w-[130px]">
+                    <TimePicker
+                      value={draft.shift[key].mulai}
+                      onChange={(v) => patch(key, { mulai: v })}
+                      minuteStep={1}
+                    />
+                  </div>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                     Selesai
                   </p>
-                  <input
-                    type="time"
-                    value={draft.shift[key].selesai}
-                    onChange={(e) => patch(key, { selesai: e.target.value })}
-                    className={cn(base, "w-[120px]")}
-                  />
+                  <div className="w-[130px]">
+                    <TimePicker
+                      value={draft.shift[key].selesai}
+                      onChange={(v) => patch(key, { selesai: v })}
+                      minuteStep={1}
+                    />
+                  </div>
                 </div>
                 <p className="pb-2 text-[11px] text-slate-400">
                   {draft.shift[key].mulai} – {draft.shift[key].selesai}
