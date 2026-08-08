@@ -164,6 +164,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 .print-area[data-paper="A4"] { width: 190mm; min-height: 273mm; }
 .print-area[data-paper="A5"] { width: 138mm; min-height: 190mm; }
+/* Envelope #10 (105 × 241 mm) — dicetak landscape (sisi panjang horizontal) untuk
+   memuat form SEP dua kolom. Ukuran @page di-inject scoped oleh gate cetak SEP. */
+.print-area[data-paper="ENV10"] { width: 229mm; min-height: 97mm; }
 @media print {
   /* Override @page based on selected paper */
   .print-area[data-paper="A4"] ~ style[data-page="A4"],

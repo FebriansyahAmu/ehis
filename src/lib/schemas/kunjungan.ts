@@ -249,6 +249,7 @@ export interface SepDTO {
   lakaLantas: string;
   cob: boolean;
   katarak: boolean;
+  noTelp: string | null;
   catatan: string | null;
   userPembuat: string | null;
   createdAt: string;
@@ -309,7 +310,7 @@ export interface KunjunganDTO {
   penjaminId: string | null;
   /** Paket Layanan terpilih (RJ) — master.PaketLayanan id. Null = tanpa paket. Billing proyeksikan charge. */
   paketLayananId: string | null;
-  pasien: { id: string; noRm: string; nama: string };
+  pasien: { id: string; noRm: string; nama: string; gender: "L" | "P"; tanggalLahir: string | null };
   rujukan: RujukanDTO | null;
   sep: SepDTO | null;
   // SEP DITOLAK BPJS tapi kunjungan tetap didaftarkan (forceSep). Null = SEP terbit / tak diminta /

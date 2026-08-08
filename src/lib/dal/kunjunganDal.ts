@@ -54,9 +54,9 @@ export interface UpdateStatusPatch {
   bedId?: string; // di-set saat receive (IGD) — pointer cache bed yang ditempati
 }
 
-// Read DETAIL: pasien ringkas + artefak BPJS penuh (1:1) — utk halaman detail/cetak SEP.
+// Read DETAIL: pasien ringkas (+ gender/tglLahir utk cetak SEP) + artefak BPJS penuh (1:1).
 const detailInclude = {
-  pasien: { select: { id: true, noRm: true, nama: true } },
+  pasien: { select: { id: true, noRm: true, nama: true, gender: true, tanggalLahir: true } },
   rujukan: true,
   sep: true,
 } as const;

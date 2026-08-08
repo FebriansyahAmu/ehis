@@ -1,163 +1,65 @@
 "use client";
 
-// Cetak SEP — sheet A4 dari KunjunganDTO (hasil POST /kunjungan). Reuse mekanisme print
-// app: `.print-area`/`.no-print` (globals.css) + triggerPrint(). KOP via KopSuratEklaim.
+// Cetak SEP — sheet 1:1 format resmi BPJS (SepBpjsSheet) dari KunjunganDTO, dicetak di
+// kertas Envelope #10 (105 × 241 mm, landscape). Reuse mekanisme print app:
+// `.print-area`/`.no-print` (globals.css) + triggerPrint(). Ukuran @page di-inject scoped
+// di modal ini agar tak mengganggu cetakan A4 lain.
+// Nama DPJP diresolusi dari master Dokter (dpjpId = Dokter.id) → "Dokter" & "Sub/Spesialis".
 
+import { useEffect, useState } from "react";
 import { Printer, X } from "lucide-react";
-import KopSuratEklaim from "@/components/eklaim/berkas/KopSuratEklaim";
 import { useRsProfil } from "@/lib/master/rsProfilClient";
-import { triggerPrint, fmtTanggalShort, fmtTanggalJam } from "@/components/billing/invoice/modals/print/printShared";
+import { triggerPrint } from "@/components/billing/invoice/modals/print/printShared";
+import { getDokter } from "@/lib/api/dokter";
+import { SepBpjsSheet } from "@/components/shared/sep/SepBpjsSheet";
+import { buildSepPrintDataFromKunjungan } from "@/components/shared/sep/sepPrintShared";
 import type { KunjunganDTO } from "@/lib/api/kunjungan";
 
-const JNS_LABEL: Record<string, string> = { RawatJalan: "Rawat Jalan", RawatInap: "Rawat Inap" };
-const KLS_LABEL: Record<string, string> = { "1": "Kelas I", "2": "Kelas II", "3": "Kelas III" };
-const ASAL_LABEL: Record<string, string> = { Faskes1: "Faskes 1 (FKTP)", Faskes2: "Faskes 2 (FKRTL)" };
-const TUJUAN_LABEL: Record<string, string> = { Normal: "Normal", Prosedur: "Prosedur", KonsulDokter: "Konsul Dokter" };
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function FR({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <tr>
-      <td className="w-40 py-[2px] align-top text-[9pt] text-slate-500">{label}</td>
-      <td className="w-3 py-[2px] align-top text-[8.5pt] text-slate-400">:</td>
-      <td className="py-[2px] text-[9pt] font-medium text-slate-800">{children}</td>
-    </tr>
-  );
-}
+export interface DpjpInfo { nama?: string; spesialisLabel?: string }
 
-function SectionHead({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="mb-1.5 mt-3.5 text-[7.5pt] font-bold uppercase tracking-wider text-slate-400">{children}</p>
-  );
-}
-
-/** Sheet A4 SEP — render di dalam `.print-area`. */
-export function SepCetakSheet({ kunjungan }: { kunjungan: KunjunganDTO }) {
+/** Sheet A4 SEP (1:1 BPJS) — render di dalam `.print-area`. */
+export function SepCetakSheet({ kunjungan, dpjp }: { kunjungan: KunjunganDTO; dpjp?: DpjpInfo }) {
   const rs = useRsProfil();
-  const { sep, rujukan, pasien } = kunjungan;
-  if (!sep) return null;
-
-  return (
-    <div className="bg-white px-12 py-9 font-sans text-slate-900">
-      <KopSuratEklaim variant="compact" />
-
-      <div className="mt-4 border-b-[2.5px] border-double border-emerald-700 pb-1.5 text-center">
-        <h2 className="text-[12pt] font-bold uppercase tracking-widest text-emerald-800">
-          Surat Eligibilitas Peserta (SEP)
-        </h2>
-        <p className="text-[8pt] text-slate-500">
-          {rs.nama} &nbsp;·&nbsp; Kode PPK: {sep.ppkPelayanan}
-        </p>
+  const data = buildSepPrintDataFromKunjungan(kunjungan, {
+    rsNama: rs.nama,
+    dpjpNama: dpjp?.nama,
+    spesialisLabel: dpjp?.spesialisLabel,
+  });
+  if (!data) {
+    return (
+      <div className="w-full bg-white px-10 py-10 text-center font-sans text-sm text-slate-500">
+        SEP belum tersedia untuk kunjungan ini.
       </div>
-
-      {/* No. SEP prominent */}
-      <div className="mt-3 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5">
-        <div>
-          <p className="text-[7.5pt] font-semibold uppercase tracking-wider text-emerald-600">Nomor SEP</p>
-          <p className="mt-0.5 font-mono text-[12.5pt] font-bold tracking-widest text-emerald-900">
-            {sep.noSep ?? "—"}
-          </p>
-        </div>
-        <div className="text-right text-[9pt]">
-          <p className="text-slate-500">Status</p>
-          <p className="font-bold text-emerald-700">{sep.status.toUpperCase()}</p>
-        </div>
-      </div>
-
-      {/* 2-col: Pelayanan + Peserta/Rujukan */}
-      <div className="mt-3 grid grid-cols-2 gap-x-10">
-        <div>
-          <SectionHead>Data Pelayanan</SectionHead>
-          <table style={{ borderCollapse: "collapse" }}>
-            <tbody>
-              <FR label="Tanggal SEP">{fmtTanggalShort(sep.tglSep)}</FR>
-              <FR label="Jenis Pelayanan">{JNS_LABEL[sep.jnsPelayanan] ?? sep.jnsPelayanan}</FR>
-              <FR label="Kelas Hak">{sep.klsRawatHak ? KLS_LABEL[sep.klsRawatHak] ?? sep.klsRawatHak : "—"}</FR>
-              <FR label="Poli Tujuan">
-                <span className="font-semibold">{sep.poliTujuan ?? kunjungan.poli ?? "—"}</span>
-                {sep.poliEksekutif && (
-                  <span className="ml-1.5 rounded bg-sky-100 px-1.5 py-0.5 text-[7pt] font-bold text-sky-700">EKSEKUTIF</span>
-                )}
-              </FR>
-              <FR label="Tujuan Kunjungan">{TUJUAN_LABEL[sep.tujuanKunj] ?? sep.tujuanKunj}</FR>
-              {sep.dpjpLayan && <FR label="DPJP Layanan"><span className="font-mono">{sep.dpjpLayan}</span></FR>}
-            </tbody>
-          </table>
-        </div>
-
-        <div>
-          <SectionHead>Data Peserta</SectionHead>
-          <table style={{ borderCollapse: "collapse" }}>
-            <tbody>
-              <FR label="Nama Peserta">{pasien.nama}</FR>
-              <FR label="No. Kartu BPJS"><span className="font-mono font-bold tracking-wider">{sep.noKartu}</span></FR>
-              <FR label="No. Rekam Medis"><span className="font-mono">{pasien.noRm}</span></FR>
-            </tbody>
-          </table>
-
-          {rujukan && (
-            <>
-              <SectionHead>Data Rujukan</SectionHead>
-              <table style={{ borderCollapse: "collapse" }}>
-                <tbody>
-                  <FR label="Asal Rujukan">{ASAL_LABEL[rujukan.asalRujukan] ?? rujukan.asalRujukan}</FR>
-                  <FR label="No. Rujukan"><span className="font-mono">{rujukan.noRujukan}</span></FR>
-                  {rujukan.ppkRujukan && <FR label="Faskes Perujuk"><span className="font-mono">{rujukan.ppkRujukan}</span></FR>}
-                  {rujukan.tglRujukan && <FR label="Tgl. Rujukan">{fmtTanggalShort(rujukan.tglRujukan)}</FR>}
-                </tbody>
-              </table>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Diagnosa awal */}
-      <SectionHead>Diagnosa Awal</SectionHead>
-      <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5">
-        <span className="shrink-0 rounded bg-emerald-100 px-2 py-0.5 font-mono text-[10.5pt] font-bold text-emerald-800">
-          {sep.diagAwal ?? rujukan?.diagnosaKode ?? "—"}
-        </span>
-        <span className="text-[9.5pt] text-slate-700">{rujukan?.diagnosaNama ?? kunjungan.diagnosaMasuk ?? "—"}</span>
-      </div>
-
-      {sep.catatan && (
-        <>
-          <SectionHead>Catatan</SectionHead>
-          <p className="text-[9pt] italic text-slate-600">{sep.catatan}</p>
-        </>
-      )}
-
-      {/* TTD */}
-      <div className="mt-8 grid grid-cols-2 gap-4">
-        <div className="text-center">
-          <p className="text-[9pt] text-slate-600">{rs.alamat.kota}, {fmtTanggalShort(sep.createdAt)}</p>
-          <p className="mt-0.5 text-[9pt] font-bold text-slate-800">Petugas Pendaftaran</p>
-          <div className="mt-12 border-b border-slate-800" />
-          <p className="mt-0.5 text-[8.5pt] text-slate-500">( {sep.userPembuat ?? "........................"} )</p>
-        </div>
-        <div className="text-center">
-          <p className="text-[9pt] text-slate-600">{rs.alamat.kota}, {fmtTanggalShort(sep.createdAt)}</p>
-          <p className="mt-0.5 text-[9pt] font-bold text-slate-800">Peserta / Keluarga</p>
-          <div className="mt-12 border-b border-slate-800" />
-          <p className="mt-0.5 text-[8.5pt] text-slate-500">( ........................................ )</p>
-        </div>
-      </div>
-
-      <div className="mt-6 border-t border-slate-200 pt-2 text-center text-[7.5pt] text-slate-400">
-        Diterbitkan oleh EHIS &nbsp;·&nbsp; {fmtTanggalJam(sep.createdAt)} &nbsp;·&nbsp; No. Kunjungan {kunjungan.noKunjungan}
-      </div>
-    </div>
-  );
+    );
+  }
+  return <SepBpjsSheet data={data} />;
 }
 
-/** Modal preview + cetak SEP. */
+/** Modal preview + cetak SEP. Resolusi nama DPJP dari master Dokter. */
 export function SepPrintModal({ kunjungan, onClose }: { kunjungan: KunjunganDTO; onClose: () => void }) {
+  const [dpjp, setDpjp] = useState<DpjpInfo | undefined>();
+
+  useEffect(() => {
+    const id = kunjungan.dpjpId;
+    if (!id || !UUID_RE.test(id)) return;
+    const ac = new AbortController();
+    getDokter(id, ac.signal)
+      .then((d) => { if (!ac.signal.aborted) setDpjp({ nama: d.namaTampil, spesialisLabel: d.spesialisLabel }); })
+      .catch(() => { /* fallback "-" */ });
+    return () => ac.abort();
+  }, [kunjungan.dpjpId]);
+
   return (
     <div className="no-print fixed inset-0 z-[60] flex flex-col bg-slate-900/60 backdrop-blur-sm">
+      {/* Ukuran kertas Envelope #10 landscape — scoped ke gate SEP, override @page A4 global. */}
+      <style>{`@media print { @page { size: 241mm 105mm; margin: 4mm 6mm; } }`}</style>
       {/* Toolbar */}
       <div className="flex shrink-0 items-center justify-between gap-3 bg-white px-5 py-3 shadow">
         <div>
           <p className="text-sm font-bold text-slate-800">Cetak SEP</p>
-          <p className="text-[11px] text-slate-400">{kunjungan.sep?.noSep} · {kunjungan.pasien.nama}</p>
+          <p className="text-[11px] text-slate-400">{kunjungan.sep?.noSep ?? "—"} · {kunjungan.pasien.nama}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -181,8 +83,8 @@ export function SepPrintModal({ kunjungan, onClose }: { kunjungan: KunjunganDTO;
       {/* Preview */}
       <div className="flex-1 overflow-auto p-6">
         <div className="mx-auto w-fit rounded-lg bg-white shadow-xl">
-          <div className="print-area" data-paper="A4">
-            <SepCetakSheet kunjungan={kunjungan} />
+          <div className="print-area" data-paper="ENV10">
+            <SepCetakSheet kunjungan={kunjungan} dpjp={dpjp} />
           </div>
         </div>
       </div>

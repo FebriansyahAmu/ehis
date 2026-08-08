@@ -68,6 +68,7 @@ export function toSepDTO(s: NonNullable<SepEntity>): SepDTO {
     lakaLantas: s.lakaLantas,
     cob: s.cob,
     katarak: s.katarak,
+    noTelp: s.noTelp,
     catatan: s.catatan,
     userPembuat: s.userPembuat,
     createdAt: s.createdAt.toISOString(),

@@ -5,13 +5,18 @@
 //   Identitas & Antrean  → selalu tersedia setelah pasien terdaftar
 //   Administrasi & Klaim → kondisional (SEP terbit · rujukan tertaut · kunjungan selesai)
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   Printer, FileText, Ticket, Barcode, ShieldCheck, Navigation, ReceiptText,
-  ArrowRight, Lock,
+  ArrowRight, Lock, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { KunjunganRecord } from "@/lib/data";
+import { getKunjungan, type KunjunganDTO } from "@/lib/api/kunjungan";
+import { SepPrintModal } from "@/components/registration/patient/modals/daftar-kunjungan/SepCetak";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ─── Katalog dokumen ──────────────────────────────────────────
 type DocStatus = "ready" | "locked";
@@ -67,7 +72,9 @@ function buildGroups(k: KunjunganRecord): DocGroup[] {
 }
 
 // ─── Kartu dokumen ────────────────────────────────────────────
-function PrintDocCard({ doc, index }: { doc: PrintDoc; index: number }) {
+function PrintDocCard({ doc, index, onClick, busy }: {
+  doc: PrintDoc; index: number; onClick?: () => void; busy?: boolean;
+}) {
   const ready = doc.status === "ready";
   const Icon  = doc.icon;
 
@@ -96,9 +103,9 @@ function PrintDocCard({ doc, index }: { doc: PrintDoc; index: number }) {
 
       {ready ? (
         <div className="mt-auto flex items-center justify-end gap-1.5 pt-3 font-bold text-sky-600 transition-all group-hover:gap-2.5">
-          <Printer size={13} />
-          <span className="text-[11px]">Cetak</span>
-          <ArrowRight size={13} />
+          {busy ? <Loader2 size={13} className="animate-spin" /> : <Printer size={13} />}
+          <span className="text-[11px]">{busy ? "Menyiapkan…" : "Cetak"}</span>
+          {!busy && <ArrowRight size={13} />}
         </div>
       ) : (
         <div className="mt-auto flex items-start gap-1.5 pt-3 text-slate-400">
@@ -120,10 +127,13 @@ function PrintDocCard({ doc, index }: { doc: PrintDoc; index: number }) {
       {ready ? (
         <button
           type="button"
+          onClick={onClick}
+          disabled={busy}
           className={cn(
             base, "w-full cursor-pointer border-slate-200 bg-white shadow-sm",
             "hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-md active:scale-[0.99]",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200",
+            busy && "cursor-wait opacity-80",
           )}
         >
           {inner}
@@ -142,6 +152,20 @@ export function CetakTab({ kunjungan }: { kunjungan: KunjunganRecord }) {
   const groups     = buildGroups(kunjungan);
   const allDocs    = groups.flatMap((g) => g.docs);
   const readyTotal = allDocs.filter((d) => d.status === "ready").length;
+
+  // SEP → cetakan 1:1 BPJS. Ambil KunjunganDTO nyata (dpjp diresolusi di modal).
+  const [sepDto,  setSepDto]  = useState<KunjunganDTO | null>(null);
+  const [sepBusy, setSepBusy] = useState(false);
+
+  async function openSep() {
+    if (!UUID_RE.test(kunjungan.id)) return; // pasien demo → tak ada SEP nyata
+    setSepBusy(true);
+    try {
+      const dto = await getKunjungan(kunjungan.id);
+      if (dto.sep) setSepDto(dto);
+    } catch { /* diabaikan — kartu tetap */ }
+    finally { setSepBusy(false); }
+  }
 
   return (
     <div className="space-y-5">
@@ -168,12 +192,20 @@ export function CetakTab({ kunjungan }: { kunjungan: KunjunganRecord }) {
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {group.docs.map((doc, i) => (
-                <PrintDocCard key={doc.id} doc={doc} index={i} />
+                <PrintDocCard
+                  key={doc.id}
+                  doc={doc}
+                  index={i}
+                  onClick={doc.id === "sep" ? openSep : undefined}
+                  busy={doc.id === "sep" && sepBusy}
+                />
               ))}
             </div>
           </div>
         );
       })}
+
+      {sepDto && <SepPrintModal kunjungan={sepDto} onClose={() => setSepDto(null)} />}
     </div>
   );
 }

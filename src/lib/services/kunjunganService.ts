@@ -152,7 +152,13 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
       penjaminTipe: k.penjaminTipe,
       penjaminId: k.penjaminId,
       paketLayananId: k.paketLayananId ?? null,
-      pasien: { id: k.pasien.id, noRm: k.pasien.noRm, nama: k.pasien.nama },
+      pasien: {
+        id: k.pasien.id,
+        noRm: k.pasien.noRm,
+        nama: k.pasien.nama,
+        gender: k.pasien.gender,
+        tanggalLahir: k.pasien.tanggalLahir ? k.pasien.tanggalLahir.toISOString().slice(0, 10) : null,
+      },
       rujukan: k.rujukan ? toRujukanDTO(k.rujukan) : null,
       sep: k.sep ? toSepDTO(k.sep) : null,
       sepError: null, // di-set use-case bila SEP ditolak BPJS tapi kunjungan tetap didaftarkan
