@@ -44,6 +44,8 @@ Next.js 16.2.3 App Router · React 19.2.4 · TypeScript 5 · Tailwind v4 (`@tail
 
 **Convention:** `cn()` di `src/lib/utils.ts` · Navigation di `src/lib/navigation.ts` · Mock data klinis di `src/lib/data.ts` · Mock master di `src/lib/master/*Mock.ts` · Shared medical-records di `src/components/shared/medical-records/` · Master Template Layer di `src/components/master/shared/`.
 
+**Cetakan dokumen (BARU, mulai 2026-08-08):** komponen style cetakan (Sheet/Template + Modal print) diletakkan di **`src/components/cetakan/<halaman>/`** — satu folder per halaman/tab agar terstruktur (mis. `cetakan/detailKunjungan/` untuk Tab Cetak Dokumen di detail kunjungan). KOP + logo WAJIB dari master via `useRsProfil()` (reuse `KopSuratEklaim`). **Cetakan yang sudah terlanjur dibuat TIDAK dipindah** (SEP `shared/sep/`, surat klinis `shared/medical-records/*/`, e-klaim `eklaim/berkas/`, billing `billing/.../print/`, dst. tetap di tempatnya) — konvensi ini hanya untuk cetakan baru.
+
 ---
 
 ## 📦 Module Map

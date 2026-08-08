@@ -124,7 +124,7 @@ function TabContent({
         {active === "rujukan"     && <RujukanForm kunjungan={kunjungan} />}
         {active === "kecelakaan"  && <KecelakaanForm kunjungan={kunjungan} />}
         {active === "update-sep"  && <UpdateSEPForm kunjungan={kunjungan} />}
-        {active === "cetak"       && <CetakTab kunjungan={kunjungan} />}
+        {active === "cetak"       && <CetakTab kunjungan={kunjungan} patient={patient} />}
         {active === "hapus"       && <HapusForm kunjungan={kunjungan} />}
       </motion.div>
     </AnimatePresence>

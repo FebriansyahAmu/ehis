@@ -12,9 +12,10 @@ import {
   ArrowRight, Lock, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { KunjunganRecord } from "@/lib/data";
+import type { KunjunganRecord, PatientMaster } from "@/lib/data";
 import { getKunjungan, type KunjunganDTO } from "@/lib/api/kunjungan";
 import { SepPrintModal } from "@/components/registration/patient/modals/daftar-kunjungan/SepCetak";
+import BuktiPendaftaranModal from "@/components/cetakan/detailKunjungan/BuktiPendaftaranModal";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -148,7 +149,7 @@ function PrintDocCard({ doc, index, onClick, busy }: {
 }
 
 // ─── Tab ──────────────────────────────────────────────────────
-export function CetakTab({ kunjungan }: { kunjungan: KunjunganRecord }) {
+export function CetakTab({ kunjungan, patient }: { kunjungan: KunjunganRecord; patient: PatientMaster }) {
   const groups     = buildGroups(kunjungan);
   const allDocs    = groups.flatMap((g) => g.docs);
   const readyTotal = allDocs.filter((d) => d.status === "ready").length;
@@ -156,6 +157,8 @@ export function CetakTab({ kunjungan }: { kunjungan: KunjunganRecord }) {
   // SEP → cetakan 1:1 BPJS. Ambil KunjunganDTO nyata (dpjp diresolusi di modal).
   const [sepDto,  setSepDto]  = useState<KunjunganDTO | null>(null);
   const [sepBusy, setSepBusy] = useState(false);
+  // Bukti Pendaftaran → cetak A4 dari record+pasien yang sudah ada (nyata & demo).
+  const [buktiOpen, setBuktiOpen] = useState(false);
 
   async function openSep() {
     if (!UUID_RE.test(kunjungan.id)) return; // pasien demo → tak ada SEP nyata
@@ -166,6 +169,11 @@ export function CetakTab({ kunjungan }: { kunjungan: KunjunganRecord }) {
     } catch { /* diabaikan — kartu tetap */ }
     finally { setSepBusy(false); }
   }
+
+  const cardOnClick: Record<string, (() => void) | undefined> = {
+    sep: openSep,
+    bukti: () => setBuktiOpen(true),
+  };
 
   return (
     <div className="space-y-5">
@@ -196,7 +204,7 @@ export function CetakTab({ kunjungan }: { kunjungan: KunjunganRecord }) {
                   key={doc.id}
                   doc={doc}
                   index={i}
-                  onClick={doc.id === "sep" ? openSep : undefined}
+                  onClick={cardOnClick[doc.id]}
                   busy={doc.id === "sep" && sepBusy}
                 />
               ))}
@@ -206,6 +214,12 @@ export function CetakTab({ kunjungan }: { kunjungan: KunjunganRecord }) {
       })}
 
       {sepDto && <SepPrintModal kunjungan={sepDto} onClose={() => setSepDto(null)} />}
+      <BuktiPendaftaranModal
+        open={buktiOpen}
+        onClose={() => setBuktiOpen(false)}
+        kunjungan={kunjungan}
+        patient={patient}
+      />
     </div>
   );
 }
