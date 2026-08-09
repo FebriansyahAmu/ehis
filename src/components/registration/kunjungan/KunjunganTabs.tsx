@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ClipboardList, CreditCard, Package, Navigation, Car,
-  Upload, Printer, Trash2,
+  Upload, Printer, Ban,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,15 +12,16 @@ import type { KunjunganRecord, PatientMaster } from "@/lib/data";
 import { OverviewTab } from "./Tabs/OverviewTab";
 import {
   PenjaminForm, PaketForm, RujukanForm, KecelakaanForm,
-  UpdateSEPForm, CetakTab, HapusForm,
+  UpdateSEPForm, CetakTab,
 } from "./Tabs/ActionForms";
+import { BatalkanForm } from "./Tabs/BatalkanKunjunganTab";
 
 // ─── Tab definitions ──────────────────────────────────────────
 
 type TabId =
   | "overview"
   | "penjamin" | "paket" | "rujukan" | "kecelakaan"
-  | "update-sep" | "cetak" | "hapus";
+  | "update-sep" | "cetak" | "batal";
 
 interface TabDef {
   id: TabId;
@@ -43,7 +44,7 @@ const AKSI_TABS: TabDef[] = [
 const MGMT_TABS: TabDef[] = [
   { id: "update-sep", label: "Update SEP",     icon: Upload                  },
   { id: "cetak",      label: "Cetak Dokumen",  icon: Printer                 },
-  { id: "hapus",      label: "Hapus Kunjungan", icon: Trash2, variant: "danger" },
+  { id: "batal",      label: "Batalkan Kunjungan", icon: Ban, variant: "danger" },
 ];
 
 // ─── NavItem ──────────────────────────────────────────────────
@@ -125,7 +126,7 @@ function TabContent({
         {active === "kecelakaan"  && <KecelakaanForm kunjungan={kunjungan} />}
         {active === "update-sep"  && <UpdateSEPForm kunjungan={kunjungan} />}
         {active === "cetak"       && <CetakTab kunjungan={kunjungan} patient={patient} />}
-        {active === "hapus"       && <HapusForm kunjungan={kunjungan} />}
+        {active === "batal"       && <BatalkanForm kunjungan={kunjungan} />}
       </motion.div>
     </AnimatePresence>
   );

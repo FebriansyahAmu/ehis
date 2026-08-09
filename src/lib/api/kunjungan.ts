@@ -8,13 +8,15 @@ import type {
   ChangePenjaminInput,
   LinkRujukanInput,
   SetPaketInput,
+  CancelKunjunganInput,
+  CancelEligibilityDTO,
   KunjunganDTO,
   KunjunganListItemDTO,
   KunjunganActionName,
 } from "@/lib/schemas/kunjungan";
 import type { DisposisiInput } from "@/lib/schemas/disposisi/disposisi";
 
-export type { RegisterKunjunganInput, ChangePenjaminInput, LinkRujukanInput, KunjunganDTO, KunjunganListItemDTO, KunjunganActionName };
+export type { RegisterKunjunganInput, ChangePenjaminInput, LinkRujukanInput, CancelKunjunganInput, CancelEligibilityDTO, KunjunganDTO, KunjunganListItemDTO, KunjunganActionName };
 
 export interface RegisterKunjunganResult {
   kunjungan: KunjunganDTO;
@@ -63,6 +65,22 @@ export async function linkKunjunganRujukan(
 ): Promise<{ kunjungan: KunjunganDTO; message?: string }> {
   const r = await api.post<KunjunganDTO>(`/kunjungan/${encodeURIComponent(id)}/rujukan-bpjs`, input, { signal });
   emitRecordChange(id, "order");
+  return { kunjungan: r.data, message: r.message };
+}
+
+/** GET /kunjungan/:id/batalkan — kelayakan pembatalan (status + rincian aktivitas klinis). */
+export async function getCancelEligibility(id: string, signal?: AbortSignal): Promise<CancelEligibilityDTO> {
+  const { data } = await api.get<CancelEligibilityDTO>(`/kunjungan/${encodeURIComponent(id)}/batalkan`, { signal });
+  return data;
+}
+
+/** POST /kunjungan/:id/batalkan — batalkan kunjungan (guard: belum ada rekam medis/tindakan/order). */
+export async function cancelKunjungan(
+  id: string,
+  input: CancelKunjunganInput,
+  signal?: AbortSignal,
+): Promise<{ kunjungan: KunjunganDTO; message?: string }> {
+  const r = await api.post<KunjunganDTO>(`/kunjungan/${encodeURIComponent(id)}/batalkan`, input, { signal });
   return { kunjungan: r.data, message: r.message };
 }
 

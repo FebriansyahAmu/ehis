@@ -30,7 +30,8 @@ import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import { unitScopeBypassed, type CareUnit } from "@/lib/auth/careUnit";
 import { assertUnitInScope } from "@/lib/services/clinicalScope";
-import type { RegisterKunjunganInput, ChangePenjaminInput, LinkRujukanInput, WorklistQuery, KunjunganDTO, KunjunganListItemDTO, KunjunganActionName } from "@/lib/schemas/kunjungan";
+import type { RegisterKunjunganInput, ChangePenjaminInput, LinkRujukanInput, WorklistQuery, KunjunganDTO, KunjunganListItemDTO, KunjunganActionName, CancelKunjunganInput, CancelEligibilityDTO } from "@/lib/schemas/kunjungan";
+import { countClinicalActivity, totalActivity } from "@/lib/dal/kunjunganActivityDal";
 import type { DisposisiInput } from "@/lib/schemas/disposisi/disposisi";
 import type { KunjunganEntity, KunjunganListEntity, UpdateStatusPatch } from "@/lib/dal/kunjunganDal";
 
@@ -848,7 +849,72 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
     return { items: items.map(toListDTO), cursor: nextCursor };
   }
 
-  return { registerKunjungan, changePenjamin, linkRujukan, setPaket, getKunjungan, getDiagnosaUtama, getWorklist, transition };
+  // ── Batalkan Kunjungan (administratif, guard aktivitas klinis) ────────────────
+  const isCancelableStatus = (s: string): boolean => (ACTIVE_STATUS as readonly string[]).includes(s);
+
+  /** Kelayakan pembatalan: status transisional + belum ada rekam medis/tindakan/order. */
+  async function getCancelEligibility(id: string, actor: Actor): Promise<CancelEligibilityDTO> {
+    const k = await dal.findById(id);
+    if (!k) throw Errors.notFound("Kunjungan tidak ditemukan");
+    assertUnitInScope(actor, k);
+    const activity = await countClinicalActivity(id);
+    const total = totalActivity(activity);
+    const statusCancelable = isCancelableStatus(k.status);
+    return {
+      kunjunganId: k.id,
+      status: k.status,
+      version: k.version,
+      statusCancelable,
+      activity,
+      totalActivity: total,
+      cancelable: statusCancelable && total === 0,
+    };
+  }
+
+  /**
+   * Batalkan kunjungan (loket/admisi). HANYA bila status transisional & belum ada aktivitas
+   * klinis (rekam medis/tindakan/order semua 0) — guard ditegakkan DI DALAM tx (anti-race).
+   * Efek samping identik `transition("cancel")`: lepas bed + pulihkan SPRI dikonsumsi.
+   * Alasan disimpan (medico-legal). Jalur worklist/"Batalkan Order" tetap via transition().
+   */
+  async function cancelKunjungan(id: string, input: CancelKunjunganInput, actor: Actor): Promise<KunjunganDTO> {
+    const updated = await transaction(async (tx) => {
+      const k = await dal.findById(id, tx);
+      if (!k) throw Errors.notFound("Kunjungan tidak ditemukan");
+      assertUnitInScope(actor, k);
+      assertTransitionAllowed(actor, "cancel", k.status);
+      if (input.expectedVersion !== undefined && k.version !== input.expectedVersion) throw Errors.conflictVersion();
+      if (!isCancelableStatus(k.status)) {
+        throw Errors.forbiddenState(`Kunjungan berstatus ${k.status} tidak dapat dibatalkan`);
+      }
+      // Guard inti: aktivitas klinis harus NOL (hitung ulang dalam tx → tak bisa di-race).
+      const activity = await countClinicalActivity(id, tx);
+      if (totalActivity(activity) > 0) {
+        throw Errors.forbiddenState(
+          "Kunjungan tidak dapat dibatalkan — sudah ada rekam medis, tindakan, atau order. " +
+          "Batalkan tindakan/order terlebih dahulu atau gunakan Selesaikan Kunjungan.",
+        );
+      }
+      // Efek samping (sama dgn transition cancel): lepas alokasi bed + pulihkan SPRI dikonsumsi.
+      await bedAlloc.release(id, tx);
+      const spri = await spriDal.findConsumedByRiKunjungan(id, tx);
+      if (spri) {
+        await spriDal.revertConsumed(spri.id, spri.noReferensi ? "Terbit" : "MenungguRef", tx);
+      }
+      const count = await dal.updateStatus(id, k.version, {
+        status: "Cancelled",
+        callState: "Idle",
+        alasanBatal: input.alasan.trim(),
+      }, tx);
+      if (count === 0) throw Errors.conflictVersion();
+      const fresh = await dal.findById(id, tx);
+      if (!fresh) throw Errors.internal("Gagal memuat kunjungan setelah pembatalan");
+      return fresh;
+    });
+    return toDTO(updated);
+  }
+
+  return { registerKunjungan, changePenjamin, linkRujukan, setPaket, getKunjungan, getDiagnosaUtama, getWorklist, transition, getCancelEligibility, cancelKunjungan };
 }
 
 export const kunjunganService = makeKunjunganService();

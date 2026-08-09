@@ -222,6 +222,8 @@ model Kunjungan {
   disposisi String?
   /// Alasan batal-selesai (reopen) terakhir — medico-legal.
   alasanReopen String? @map("alasan_reopen")
+  /// Alasan pembatalan kunjungan (Batalkan Kunjungan, hanya bila belum ada aktivitas klinis) — medico-legal.
+  alasanBatal String? @map("alasan_batal")
 
   // ── Konkurensi & audit ──
   version   Int       @default(0)

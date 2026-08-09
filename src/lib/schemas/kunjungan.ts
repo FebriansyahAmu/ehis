@@ -205,7 +205,17 @@ export const TransitionInput = z
   // penyelesaian ULANG pasca "batal selesai — perbaikan pengimputan" me-relock TANPA disposisi
   // baru (disposisi terakhir tetap berlaku), sesuatu yang tak bisa dibedakan di level schema.
 
+// ── Batalkan Kunjungan (POST /kunjungan/:id/batalkan) ─────────────────────────
+// Kunjungan boleh dibatalkan HANYA bila belum ada rekam medis/tindakan/order (guard di Service).
+export const CancelKunjunganInput = z.object({
+  /** Alasan pembatalan (medico-legal) — wajib, disimpan di `kunjungan.alasanBatal`. */
+  alasan: z.string().trim().min(5, "Alasan minimal 5 karakter").max(2000),
+  /** Optimistic concurrency — bila dikirim, ditolak (409) saat version sudah berubah. */
+  expectedVersion: z.number().int().nonnegative().optional(),
+});
+
 // ── Tipe inferensi ─────────────────────────────────────────────────────────---
+export type CancelKunjunganInput = z.infer<typeof CancelKunjunganInput>;
 export type RegisterKunjunganInput = z.infer<typeof RegisterKunjunganInput>;
 export type ChangePenjaminInput = z.infer<typeof ChangePenjaminInput>;
 export type RujukanInput = z.infer<typeof RujukanInput>;
@@ -215,6 +225,24 @@ export type KunjunganActionName = z.infer<typeof KunjunganActionName>;
 export type TransitionInput = z.infer<typeof TransitionInput>;
 
 // ── DTO output ────────────────────────────────────────────────────────────────
+
+/** Kelayakan pembatalan kunjungan (GET /kunjungan/:id/batalkan). */
+export interface CancelEligibilityDTO {
+  kunjunganId: string;
+  status: string;
+  version: number;
+  /** true = status masih transisional (Registered/Queued/InService). */
+  statusCancelable: boolean;
+  /** Rincian jumlah aktivitas klinis per kategori (0 semua = kunjungan masih bersih). */
+  activity: {
+    diagnosa: number; cppt: number; observasi: number;
+    tindakan: number; resep: number; lab: number; rad: number;
+  };
+  totalActivity: number;
+  /** true = boleh dibatalkan (statusCancelable && totalActivity === 0). */
+  cancelable: boolean;
+}
+
 export interface RujukanDTO {
   id: string;
   sumber: string;

@@ -160,30 +160,4 @@ export function UpdateSEPForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
 }
 
 // CetakTab is now a full redesigned component in ./CetakDokumenTab.tsx
-
-// ─── Hapus form ───────────────────────────────────────────────
-
-export function HapusForm({ kunjungan }: { kunjungan: KunjunganRecord }) {
-  const isActive = kunjungan.status === "Aktif";
-  return (
-    <div className="space-y-4">
-      <SectionHead title="Hapus Kunjungan" desc="Tindakan ini tidak dapat dibatalkan" />
-      <p className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-700 ring-1 ring-amber-200">
-        Kunjungan hanya dapat dihapus oleh admin. Data terkait (SEP, order, diagnosa) ikut dihapus permanen.
-      </p>
-      {isActive && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-[11px] font-medium text-rose-700">
-          Kunjungan masih berstatus <strong>Aktif</strong>. Batalkan terlebih dahulu sebelum menghapus.
-        </div>
-      )}
-      <FieldGrid danger>
-        <span className={lblTop}>Alasan</span>
-        <textarea className={cn(sm, "min-h-16 resize-none")}
-          placeholder="Jelaskan alasan penghapusan data kunjungan..." />
-        <span className={lbl}>Konfirmasi</span>
-        <input className={sm} placeholder='Ketik "HAPUS" untuk melanjutkan' />
-      </FieldGrid>
-      <SaveBtn text="Hapus Kunjungan" danger />
-    </div>
-  );
-}
+// BatalkanForm (dulu HapusForm) → komponen sendiri di ./BatalkanKunjunganTab.tsx

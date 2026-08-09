@@ -48,6 +48,7 @@ export interface UpdateStatusPatch {
   selesaiPertamaAt?: Date; // waktu selesai pertama (immutable, di-set sekali)
   disposisi?: string; // pointer jenis disposisi terbaru
   alasanReopen?: string | null; // alasan batal-selesai
+  alasanBatal?: string | null; // alasan pembatalan kunjungan (Batalkan Kunjungan)
   callState?: CallState;
   recallCount?: number;
   invoiceId?: string;
