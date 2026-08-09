@@ -16,6 +16,7 @@ import type { KunjunganRecord, PatientMaster } from "@/lib/data";
 import { getKunjungan, type KunjunganDTO } from "@/lib/api/kunjungan";
 import { SepPrintModal } from "@/components/registration/patient/modals/daftar-kunjungan/SepCetak";
 import BuktiPendaftaranModal from "@/components/cetakan/detailKunjungan/BuktiPendaftaranModal";
+import GelangIdentitasModal from "@/components/cetakan/detailKunjungan/GelangIdentitasModal";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -159,6 +160,8 @@ export function CetakTab({ kunjungan, patient }: { kunjungan: KunjunganRecord; p
   const [sepBusy, setSepBusy] = useState(false);
   // Bukti Pendaftaran → cetak A4 dari record+pasien yang sudah ada (nyata & demo).
   const [buktiOpen, setBuktiOpen] = useState(false);
+  // Gelang Identitas → cetak strip gelang / A4 (SKP 1) dari identitas pasien.
+  const [gelangOpen, setGelangOpen] = useState(false);
 
   async function openSep() {
     if (!UUID_RE.test(kunjungan.id)) return; // pasien demo → tak ada SEP nyata
@@ -173,6 +176,7 @@ export function CetakTab({ kunjungan, patient }: { kunjungan: KunjunganRecord; p
   const cardOnClick: Record<string, (() => void) | undefined> = {
     sep: openSep,
     bukti: () => setBuktiOpen(true),
+    gelang: () => setGelangOpen(true),
   };
 
   return (
@@ -218,6 +222,11 @@ export function CetakTab({ kunjungan, patient }: { kunjungan: KunjunganRecord; p
         open={buktiOpen}
         onClose={() => setBuktiOpen(false)}
         kunjungan={kunjungan}
+        patient={patient}
+      />
+      <GelangIdentitasModal
+        open={gelangOpen}
+        onClose={() => setGelangOpen(false)}
         patient={patient}
       />
     </div>
