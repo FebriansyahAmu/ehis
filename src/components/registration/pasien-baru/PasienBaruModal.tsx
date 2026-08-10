@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Check, Loader2, ChevronRight, ChevronLeft, User, MapPin, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type FormState, type Errors, INITIAL_FORM, validateStep } from "./pasienBaruTypes";
+import type { Ch } from "./pasienBaruShared";
 import { StepContent } from "./PasienBaruSteps";
 import { formToRegisterInput } from "./pasienBaruApi";
 import { registerPatient } from "@/lib/api/patients";
@@ -220,7 +221,7 @@ export function PasienBaruModal({
     return () => { document.body.style.overflow = ""; };
   }, [open]);
 
-  const onChange = useCallback((field: keyof FormState, value: string | string[]) => {
+  const onChange = useCallback<Ch>((field, value) => {
     setForm((p) => ({ ...p, [field]: value } as FormState));
     setErrors((p) => { const n = { ...p }; delete n[field as string]; return n; });
   }, []);

@@ -1,10 +1,11 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { AlertCircle } from "lucide-react";
-import type { FormState } from "./pasienBaruTypes";
+import { AlertCircle, type LucideIcon } from "lucide-react";
+import { Select } from "@/components/shared/inputs/Select";
+import type { FormState, AlergiItem } from "./pasienBaruTypes";
 
-export type Ch = (field: keyof FormState, value: string | string[]) => void;
+export type Ch = (field: keyof FormState, value: string | string[] | AlergiItem[]) => void;
 
 // ── Error message ─────────────────────────────────────────────────────────────
 export function ErrMsg({ msg }: { msg?: string }) {
@@ -58,17 +59,21 @@ export function TInput({ name, value, onChange, placeholder, error, type = "text
   );
 }
 
-// ── Select input ──────────────────────────────────────────────────────────────
-export function SInput({ name, value, onChange, opts, placeholder, error }: {
+// ── Select input (global Select, bukan native) ─────────────────────────────────
+export function SInput({ name, value, onChange, opts, placeholder, error, icon, searchable }: {
   name: keyof FormState; value: string; onChange: Ch;
-  opts: string[]; placeholder?: string; error?: string;
+  opts: string[]; placeholder?: string; error?: string; icon?: LucideIcon; searchable?: boolean;
 }) {
   return (
-    <select value={value} onChange={(e) => onChange(name, e.target.value)}
-      className={cn(iCls(error), "cursor-pointer")}>
-      <option value="">{placeholder ?? "Pilih…"}</option>
-      {opts.map((o) => <option key={o} value={o}>{o}</option>)}
-    </select>
+    <Select
+      value={value}
+      onChange={(v) => onChange(name, v)}
+      options={opts}
+      placeholder={placeholder ?? "Pilih…"}
+      icon={icon}
+      searchable={searchable}
+      className={cn("py-2.5! text-sm!", error && "border-red-300! focus-visible:ring-red-100!")}
+    />
   );
 }
 

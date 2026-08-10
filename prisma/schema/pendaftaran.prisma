@@ -119,6 +119,8 @@ model Pasien {
   noPasporHash String? @unique @map("no_paspor_hash")
 
   nama         String
+  /// Nama ibu kandung — identifier kedua kanonik (BPJS/Dukcapil · SKP1/IPSG.1 dua-penanda).
+  namaIbu      String?   @map("nama_ibu")
   gender       Gender
   tempatLahir  String?   @map("tempat_lahir")
   tanggalLahir DateTime? @map("tanggal_lahir") @db.Date
@@ -147,6 +149,8 @@ model Pasien {
   dataLengkap  Boolean            @default(false) @map("data_lengkap")
   /// Mr.X — pasien tak dikenal IGD (NIK kosong, lewati dedup sampai identitas diketahui).
   isAnonim     Boolean            @default(false) @map("is_anonim")
+  /// Ciri fisik / keterangan identitas (Mr.X): perkiraan, tanda pengenal, untuk identifikasi + medico-legal.
+  catatanIdentitas String?        @map("catatan_identitas")
   sumberDaftar SumberPendaftaran? @map("sumber_daftar")
 
   /// Bila record ini hasil merge → menunjuk survivor. Lookup di-redirect ke survivor.

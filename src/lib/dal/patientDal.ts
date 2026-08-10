@@ -34,7 +34,7 @@ export interface CreatePatientData {
   noKkEnc?: string; noKkHash?: string;
   isWna: boolean; noPasporEnc?: string; noPasporHash?: string;
   isAnonim: boolean;
-  nama: string; gender: Gender;
+  nama: string; namaIbu?: string; catatanIdentitas?: string; gender: Gender;
   tempatLahir?: string; tanggalLahir?: Date;
   golonganDarah?: GolonganDarah; rhesus?: Rhesus; statusPerkawinan?: StatusPerkawinan;
   agama?: string; pendidikan?: string; pekerjaan?: string; suku?: string; kewarganegaraan: string;
@@ -49,7 +49,7 @@ export interface CreatePatientData {
 export interface UpdatePatientData {
   nikEnc?: string; nikHash?: string; noKkEnc?: string; noKkHash?: string;
   noPasporEnc?: string; noPasporHash?: string;
-  nama?: string; gender?: Gender; tempatLahir?: string; tanggalLahir?: Date;
+  nama?: string; namaIbu?: string; catatanIdentitas?: string; gender?: Gender; tempatLahir?: string; tanggalLahir?: Date;
   golonganDarah?: GolonganDarah; rhesus?: Rhesus; statusPerkawinan?: StatusPerkawinan;
   agama?: string; pendidikan?: string; pekerjaan?: string; suku?: string; kewarganegaraan?: string;
   noHp?: string; email?: string; dataLengkap?: boolean;
@@ -88,7 +88,8 @@ export async function create(data: CreatePatientData, tx?: Tx) {
       noKkEnc: data.noKkEnc, noKkHash: data.noKkHash,
       isWna: data.isWna, noPasporEnc: data.noPasporEnc, noPasporHash: data.noPasporHash,
       isAnonim: data.isAnonim,
-      nama: data.nama, gender: data.gender,
+      nama: data.nama, namaIbu: data.namaIbu, catatanIdentitas: data.catatanIdentitas,
+      gender: data.gender,
       tempatLahir: data.tempatLahir, tanggalLahir: data.tanggalLahir,
       golonganDarah: data.golonganDarah, rhesus: data.rhesus, statusPerkawinan: data.statusPerkawinan,
       agama: data.agama, pendidikan: data.pendidikan, pekerjaan: data.pekerjaan, suku: data.suku,

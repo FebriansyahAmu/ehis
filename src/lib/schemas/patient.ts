@@ -67,6 +67,8 @@ export const RegisterPatientInput = z
     isAnonim: z.boolean().default(false),
 
     nama: z.string().trim().min(1).max(160),
+    namaIbu: z.string().trim().max(160).optional(), // nama ibu kandung (identifier kedua)
+    catatanIdentitas: z.string().trim().max(1000).optional(), // ciri fisik Mr.X
     gender: Gender,
     tempatLahir: z.string().trim().max(120).optional(),
     tanggalLahir: ISO_DATE.optional(),
@@ -111,6 +113,8 @@ export const CompletePatientInput = z.object({
   noKK: z.string().regex(NIK_RE).optional(),
   noPaspor: z.string().trim().min(4).max(20).optional(),
   nama: z.string().trim().min(1).max(160).optional(),
+  namaIbu: z.string().trim().max(160).optional(),
+  catatanIdentitas: z.string().trim().max(1000).optional(),
   gender: Gender.optional(),
   tempatLahir: z.string().trim().max(120).optional(),
   tanggalLahir: ISO_DATE.optional(),
@@ -186,6 +190,8 @@ export interface PatientDTO {
   noRm: string;
   nikMasked: string | null;
   nama: string;
+  namaIbu: string | null;
+  catatanIdentitas: string | null;
   gender: "L" | "P";
   tempatLahir: string | null;
   tanggalLahir: string | null; // ISO yyyy-mm-dd
