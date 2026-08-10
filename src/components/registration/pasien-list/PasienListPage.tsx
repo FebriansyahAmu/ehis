@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import type { TipePenjamin, PatientMaster, KunjunganRecord } from "@/lib/data";
 import { searchPatients } from "@/lib/api/patients";
 import { listKunjungan } from "@/lib/api/kunjungan";
@@ -10,6 +10,7 @@ import { dtoToPatientMaster } from "./pasienListApi";
 import { dtoToKunjunganRecord } from "../patient/kunjunganRiwayatApi";
 import { PasienListControls } from "./PasienListControls";
 import { PasienListTable } from "./PasienListTable";
+import { PasienBaruModal } from "@/components/registration/pasien-baru/PasienBaruModal";
 
 const PAGE_SIZE = 8;
 // Worklist semua status (cap server = 50) → enrich tiap pasien dgn kunjungan nyatanya.
@@ -41,43 +42,46 @@ export default function PasienListPage() {
   const [filterPenjamin, setFilterPenjamin] = useState<FilterPenjamin>("Semua");
   const [filterStatus,   setFilterStatus]   = useState<FilterStatus>("Semua");
   const [page,           setPage]           = useState(1);
-  // Pasien + kunjungan 100% dari DB (mock dihapus). Fetch sekali saat mount.
+  // Pasien + kunjungan 100% dari DB (mock dihapus). Fetch saat mount + refresh pasca-tambah.
   const [dbPatients,     setDbPatients]     = useState<PatientMaster[]>([]);
   const [loading,        setLoading]        = useState(true);
+  const [modalOpen,      setModalOpen]      = useState(false);
+
+  // Loader dipakai mount + reload senyap (setelah tambah pasien). setState hanya di callback async.
+  const load = useCallback(async (signal?: AbortSignal) => {
+    try {
+      // Parallel: master pasien + worklist kunjungan (semua status, urut createdAt desc).
+      const [pat, vis] = await Promise.all([
+        searchPatients({ limit: 50 }, signal),
+        listKunjungan({ status: ALL_STATUS, limit: 50 }, signal),
+      ]);
+      if (signal?.aborted) return;
+      // Kelompokkan kunjungan per pasien; item[0] = terbaru (sudah urut desc dari server).
+      const byPatient = new Map<string, KunjunganRecord[]>();
+      for (const dto of vis.items) {
+        const arr = byPatient.get(dto.pasien.id) ?? [];
+        arr.push(dtoToKunjunganRecord(dto));
+        byPatient.set(dto.pasien.id, arr);
+      }
+      setDbPatients(
+        pat.items.map((dto) => ({
+          ...dtoToPatientMaster(dto),
+          riwayatKunjungan: byPatient.get(dto.id) ?? [],
+        })),
+      );
+    } catch (e) {
+      if (signal?.aborted) return; // unmount/StrictMode — abaikan
+      toast.error("Gagal memuat daftar pasien", e instanceof ApiError ? e.message : undefined);
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const ac = new AbortController();
-    let cancelled = false;
-    (async () => {
-      try {
-        // Parallel: master pasien + worklist kunjungan (semua status, urut createdAt desc).
-        const [pat, vis] = await Promise.all([
-          searchPatients({ limit: 50 }, ac.signal),
-          listKunjungan({ status: ALL_STATUS, limit: 50 }, ac.signal),
-        ]);
-        if (cancelled) return;
-        // Kelompokkan kunjungan per pasien; item[0] = terbaru (sudah urut desc dari server).
-        const byPatient = new Map<string, KunjunganRecord[]>();
-        for (const dto of vis.items) {
-          const arr = byPatient.get(dto.pasien.id) ?? [];
-          arr.push(dtoToKunjunganRecord(dto));
-          byPatient.set(dto.pasien.id, arr);
-        }
-        setDbPatients(
-          pat.items.map((dto) => ({
-            ...dtoToPatientMaster(dto),
-            riwayatKunjungan: byPatient.get(dto.id) ?? [],
-          })),
-        );
-      } catch (e) {
-        if (cancelled || ac.signal.aborted) return; // unmount/StrictMode — abaikan
-        toast.error("Gagal memuat daftar pasien", e instanceof ApiError ? e.message : undefined);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; ac.abort(); };
-  }, []);
+    void load(ac.signal);
+    return () => ac.abort();
+  }, [load]);
 
   const allPatients = useMemo(() => {
     return [...dbPatients].sort((a, b) => {
@@ -126,6 +130,7 @@ export default function PasienListPage() {
         filterStatus={filterStatus}
         onFilterPenjamin={handlePenjamin}
         onFilterStatus={handleStatus}
+        onNewPatient={() => setModalOpen(true)}
       />
       <PasienListTable
         loading={loading}
@@ -135,6 +140,12 @@ export default function PasienListPage() {
         pageSize={PAGE_SIZE}
         totalPages={totalPages}
         onPage={setPage}
+      />
+
+      {/* Pendaftaran pasien baru — reload daftar senyap saat modal ditutup (pasien baru muncul). */}
+      <PasienBaruModal
+        open={modalOpen}
+        onClose={() => { setModalOpen(false); void load(); }}
       />
     </div>
   );

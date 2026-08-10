@@ -20,6 +20,7 @@ interface PasienListControlsProps {
   filterStatus:    FilterStatus;
   onFilterPenjamin:(v: FilterPenjamin) => void;
   onFilterStatus:  (v: FilterStatus) => void;
+  onNewPatient:    () => void;
 }
 
 const PENJAMIN_FILTERS: { value: FilterPenjamin; label: string }[] = [
@@ -41,6 +42,7 @@ export function PasienListControls({
   stats, query, onQuery,
   filterPenjamin, filterStatus,
   onFilterPenjamin, onFilterStatus,
+  onNewPatient,
 }: PasienListControlsProps) {
   return (
     <div className="shrink-0 border-b border-slate-200 bg-white px-5 py-4 space-y-3.5">
@@ -52,7 +54,11 @@ export function PasienListControls({
           <p className="text-[11px] text-slate-400">Semua pasien terdaftar · diurutkan berdasarkan kunjungan terbaru</p>
         </div>
         <Can resource="registration.pasien" action="create">
-          <button className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-700 active:scale-[0.98]">
+          <button
+            type="button"
+            onClick={onNewPatient}
+            className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-700 active:scale-[0.98]"
+          >
             <UserPlus size={12} />
             Pasien Baru
           </button>
