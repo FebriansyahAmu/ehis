@@ -27,7 +27,7 @@ function buildInitial(prefill?: PasienBaruPrefill): FormState {
   return {
     ...INITIAL_FORM,
     nik: prefill.nik ?? "",
-    namaLengkap: prefill.nama ?? "",
+    namaLengkap: (prefill.nama ?? "").toUpperCase(),
     tanggalLahir: prefill.tglLahir ?? "",
     noHp: prefill.noHp ?? "",
     gender: prefill.gender ?? "",

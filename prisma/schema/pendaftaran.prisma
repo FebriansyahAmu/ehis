@@ -119,6 +119,10 @@ model Pasien {
   noPasporHash String? @unique @map("no_paspor_hash")
 
   nama         String
+  /// Gelar depan (mis. "H.", "Dr.", "Ir.", "Prof.") — display, dipisah dari `nama` inti (yang UPPERCASE).
+  gelarDepan    String?  @map("gelar_depan")
+  /// Gelar belakang (mis. "S.Kom", "M.M", "Sp.PD", "S.H") — display, casing dipertahankan.
+  gelarBelakang String?  @map("gelar_belakang")
   /// Nama ibu kandung — identifier kedua kanonik (BPJS/Dukcapil · SKP1/IPSG.1 dua-penanda).
   namaIbu      String?   @map("nama_ibu")
   gender       Gender

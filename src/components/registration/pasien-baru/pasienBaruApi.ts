@@ -28,6 +28,8 @@ function parseGolDarah(v: string): { golonganDarah?: Gol; rhesus?: Rh } {
 }
 
 const undef = (s: string): string | undefined => (s.trim() ? s.trim() : undefined);
+/** Nama pasien → UPPERCASE (rapi & konsisten); undefined bila kosong. */
+const undefUpper = (s: string): string | undefined => (s.trim() ? s.trim().toUpperCase() : undefined);
 
 /** Kode wilayah Kemendagri dotted "11.01.03.2001" → kode per level (leluhur = prefix). */
 function wilayahCodes(kodeWilayah: string): {
@@ -101,7 +103,7 @@ export function formToRegisterInput(form: FormState, prefill?: PasienBaruPrefill
   const kontakDarurat: RegisterPatientInput["kontakDarurat"] =
     form.kontakDaruratNama.trim() && form.kontakDaruratNoHp.trim()
       ? [{
-          nama: form.kontakDaruratNama.trim(),
+          nama: form.kontakDaruratNama.trim().toUpperCase(),
           hubungan: form.kontakDaruratHubungan || "Lainnya",
           noHp: form.kontakDaruratNoHp.trim(),
         }]
@@ -121,8 +123,10 @@ export function formToRegisterInput(form: FormState, prefill?: PasienBaruPrefill
     noPaspor: wna ? undef(form.noPaspor) : undefined,
     isWna: wna,
     isAnonim: anon,
-    nama: form.namaLengkap.trim(),
-    namaIbu: anon ? undefined : undef(form.namaIbu),
+    nama: form.namaLengkap.trim().toUpperCase(),
+    gelarDepan: anon ? undefined : undef(form.gelarDepan),
+    gelarBelakang: anon ? undefined : undef(form.gelarBelakang),
+    namaIbu: anon ? undefined : undefUpper(form.namaIbu),
     catatanIdentitas: anon ? undef(form.catatanIdentitas) : undefined,
     gender: (form.gender || "L") as "L" | "P",
     tempatLahir: undef(form.tempatLahir),

@@ -67,6 +67,8 @@ export const RegisterPatientInput = z
     isAnonim: z.boolean().default(false),
 
     nama: z.string().trim().min(1).max(160),
+    gelarDepan: z.string().trim().max(40).optional(),    // gelar depan (H./Dr./Ir.…)
+    gelarBelakang: z.string().trim().max(60).optional(), // gelar belakang (S.Kom/M.M/Sp.PD…)
     namaIbu: z.string().trim().max(160).optional(), // nama ibu kandung (identifier kedua)
     catatanIdentitas: z.string().trim().max(1000).optional(), // ciri fisik Mr.X
     gender: Gender,
@@ -113,6 +115,8 @@ export const CompletePatientInput = z.object({
   noKK: z.string().regex(NIK_RE).optional(),
   noPaspor: z.string().trim().min(4).max(20).optional(),
   nama: z.string().trim().min(1).max(160).optional(),
+  gelarDepan: z.string().trim().max(40).optional(),
+  gelarBelakang: z.string().trim().max(60).optional(),
   namaIbu: z.string().trim().max(160).optional(),
   catatanIdentitas: z.string().trim().max(1000).optional(),
   gender: Gender.optional(),
@@ -190,6 +194,8 @@ export interface PatientDTO {
   noRm: string;
   nikMasked: string | null;
   nama: string;
+  gelarDepan: string | null;
+  gelarBelakang: string | null;
   namaIbu: string | null;
   catatanIdentitas: string | null;
   gender: "L" | "P";

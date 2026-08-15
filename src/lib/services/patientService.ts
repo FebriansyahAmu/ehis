@@ -106,6 +106,8 @@ export function makePatientService(deps: { clock?: Clock; dal?: Dal } = {}) {
       noRm: p.noRm,
       nikMasked: nik ? maskPii(nik) : null,
       nama: p.nama,
+      gelarDepan: p.gelarDepan ?? null,
+      gelarBelakang: p.gelarBelakang ?? null,
       gender: p.gender,
       namaIbu: p.namaIbu ?? null,
       catatanIdentitas: p.catatanIdentitas ?? null,
@@ -187,6 +189,8 @@ export function makePatientService(deps: { clock?: Clock; dal?: Dal } = {}) {
       isWna: input.isWna,
       isAnonim: input.isAnonim,
       nama: input.nama,
+      gelarDepan: input.gelarDepan,
+      gelarBelakang: input.gelarBelakang,
       namaIbu: input.namaIbu,
       catatanIdentitas: input.catatanIdentitas,
       gender: input.gender,
@@ -235,6 +239,8 @@ export function makePatientService(deps: { clock?: Clock; dal?: Dal } = {}) {
 
     const patch: UpdatePatientData = {
       nama: input.nama,
+      gelarDepan: input.gelarDepan,
+      gelarBelakang: input.gelarBelakang,
       namaIbu: input.namaIbu,
       catatanIdentitas: input.catatanIdentitas,
       gender: input.gender,

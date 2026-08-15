@@ -46,15 +46,21 @@ export const iCls = (err?: string) => cn(
 );
 
 // ── Text input ────────────────────────────────────────────────────────────────
-export function TInput({ name, value, onChange, placeholder, error, type = "text", maxLength, onlyDigits }: {
+// `upper` → paksa UPPERCASE (nama pasien selalu uppercase agar rapi & konsisten).
+export function TInput({ name, value, onChange, placeholder, error, type = "text", maxLength, onlyDigits, upper }: {
   name: keyof FormState; value: string; onChange: Ch; placeholder?: string;
-  error?: string; type?: string; maxLength?: number; onlyDigits?: boolean;
+  error?: string; type?: string; maxLength?: number; onlyDigits?: boolean; upper?: boolean;
 }) {
   return (
     <input
       type={type} value={value} maxLength={maxLength} placeholder={placeholder}
-      onChange={(e) => onChange(name, onlyDigits ? e.target.value.replace(/\D/g, "") : e.target.value)}
-      className={iCls(error)}
+      onChange={(e) => {
+        let v = e.target.value;
+        if (onlyDigits) v = v.replace(/\D/g, "");
+        else if (upper) v = v.toUpperCase();
+        onChange(name, v);
+      }}
+      className={cn(iCls(error), upper && "uppercase placeholder:normal-case")}
     />
   );
 }

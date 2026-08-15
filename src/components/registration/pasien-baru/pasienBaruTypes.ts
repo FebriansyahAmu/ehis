@@ -12,7 +12,7 @@ export interface FormState {
   identitas: IdentitasMode;
 
   // ── Step 1 — Identitas ──
-  namaLengkap: string; namaIbu: string;
+  gelarDepan: string; namaLengkap: string; gelarBelakang: string; namaIbu: string;
   nik: string; noKK: string; noPaspor: string;
   tempatLahir: string; tanggalLahir: string;
   perkiraanUmur: string;                 // Anonim — estimasi umur (tahun) → estimasi tgl lahir
@@ -39,7 +39,7 @@ export type Errors = Record<string, string>;
 
 export const INITIAL_FORM: FormState = {
   identitas: "WNI",
-  namaLengkap: "", namaIbu: "",
+  gelarDepan: "", namaLengkap: "", gelarBelakang: "", namaIbu: "",
   nik: "", noKK: "", noPaspor: "",
   tempatLahir: "", tanggalLahir: "", perkiraanUmur: "",
   gender: "", golonganDarah: "", statusPerkawinan: "", agama: "",
@@ -62,14 +62,34 @@ export const PENDIDIKAN   = ["Tidak Sekolah","SD/Sederajat","SMP/Sederajat","SMA
 export const HUBUNGAN     = ["Suami","Istri","Ayah","Ibu","Anak","Kakak","Adik","Saudara","Wali","Lainnya"];
 export const TINGKAT_ALERGI = ["Ringan","Sedang","Berat"];
 
-// ── Anonim (Mr.X) helper — nama pseudonim untuk pasien tak dikenal ──
-const ANON_RE = /^(Tn|Ny)\. X/;
+// ── Anonim (Mr.Anonym) helper — nama pseudonim untuk pasien tak dikenal ──
+// Nama pasien selalu UPPERCASE → pseudonim pun uppercase agar konsisten.
+const ANON_RE = /^(TN|NY)\. ANONYM/i;
 export const isAnonName = (s: string) => ANON_RE.test(s.trim());
-/** "Tn. X-1432" / "Ny. X-1432" (suffix = HHMM saat generate, agar antar-Mr.X terbedakan). */
+/** "TN. ANONYM-1432" / "NY. ANONYM-1432" (suffix = HHMM saat generate, agar antar-Mr.Anonym terbedakan). */
 export function anonName(gender: "L" | "P" | ""): string {
-  const prefix = gender === "P" ? "Ny. X" : "Tn. X";
+  const prefix = gender === "P" ? "NY. ANONYM" : "TN. ANONYM";
   const suffix = new Date().toTimeString().slice(0, 5).replace(":", "");
   return `${prefix}-${suffix}`;
+}
+
+/** Umur terformat dari ISO tgl lahir → "34 tahun 2 bulan" / "8 bulan 12 hari" (bayi). null bila kosong/invalid/masa depan. */
+export function formatUmur(iso: string): string | null {
+  if (!iso) return null;
+  const dob = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(dob.getTime())) return null;
+  const now = new Date();
+  if (dob > now) return null;
+  let years = now.getFullYear() - dob.getFullYear();
+  let months = now.getMonth() - dob.getMonth();
+  let days = now.getDate() - dob.getDate();
+  if (days < 0) { months -= 1; days += new Date(now.getFullYear(), now.getMonth(), 0).getDate(); }
+  if (months < 0) { years -= 1; months += 12; }
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years} tahun`);
+  if (months > 0) parts.push(`${months} bulan`);
+  if (years === 0 && days > 0) parts.push(`${days} hari`);
+  return parts.length ? parts.join(" ") : "0 hari";
 }
 
 export function validateStep(step: number, f: FormState): Errors {

@@ -10,15 +10,15 @@ import { WilayahCascade, type WilayahValue } from "@/components/shared/inputs/Wi
 import {
   type FormState, type IdentitasMode, type AlergiItem,
   GOL_DARAH, AGAMA_OPT, STATUS_NIKAH, PENDIDIKAN, HUBUNGAN, TINGKAT_ALERGI,
-  anonName, isAnonName,
+  anonName, isAnonName, formatUmur,
 } from "./pasienBaruTypes";
 import { FField, TInput, SInput, SCard, iCls, ErrMsg, type Ch } from "./pasienBaruShared";
 
 // ── Segmented: mode identitas (WNI / WNA / Tidak Dikenal) ──────────────────────
 const MODES: { v: IdentitasMode; label: string; hint: string; icon: IconComponent; on: string }[] = [
   { v: "WNI",    label: "WNI",           hint: "NIK / KTP",        icon: Fingerprint, on: "border-sky-400 bg-sky-50 text-sky-700" },
-  { v: "WNA",    label: "WNA",           hint: "Paspor",           icon: Globe,       on: "border-indigo-400 bg-indigo-50 text-indigo-700" },
-  { v: "Anonim", label: "Tidak Dikenal", hint: "Mr.X / darurat",   icon: UserX,       on: "border-amber-400 bg-amber-50 text-amber-700" },
+  { v: "WNA",    label: "WNA",           hint: "Paspor",              icon: Globe,       on: "border-indigo-400 bg-indigo-50 text-indigo-700" },
+  { v: "Anonim", label: "Tidak Dikenal", hint: "Mr.Anonym / darurat", icon: UserX,       on: "border-amber-400 bg-amber-50 text-amber-700" },
 ];
 
 function ModeSelector({ d, ch }: { d: FormState; ch: Ch }) {
@@ -58,8 +58,11 @@ function Step1Identitas({ d, e, ch }: { d: FormState; e: Record<string, string>;
 
   function pickGender(v: "L" | "P") {
     ch("gender", v);
-    if (anon && isAnonName(d.namaLengkap)) ch("namaLengkap", d.namaLengkap.replace(/^(Tn|Ny)\. X/, v === "P" ? "Ny. X" : "Tn. X"));
+    if (anon && isAnonName(d.namaLengkap)) ch("namaLengkap", d.namaLengkap.replace(/^(TN|NY)\. ANONYM/i, v === "P" ? "NY. ANONYM" : "TN. ANONYM"));
   }
+  const namaTampil = [d.gelarDepan.trim(), d.namaLengkap.trim(), d.gelarBelakang.trim() && `, ${d.gelarBelakang.trim()}`]
+    .filter(Boolean).join(" ").replace(" ,", ",");
+  const umurTampil = !anon ? formatUmur(d.tanggalLahir) : null;
 
   return (
     <div className="space-y-4">
@@ -69,23 +72,42 @@ function Step1Identitas({ d, e, ch }: { d: FormState; e: Record<string, string>;
         <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/70 px-3.5 py-2.5">
           <Info size={15} className="mt-0.5 shrink-0 text-amber-500" />
           <p className="text-[11.5px] leading-relaxed text-amber-800">
-            <strong>Pasien tak dikenal (Mr.X).</strong> Pelayanan gawat darurat tidak boleh ditunda. Identitas sementara
+            <strong>Pasien tak dikenal (Mr.Anonym).</strong> Pelayanan gawat darurat tidak boleh ditunda. Identitas sementara
             dibuat otomatis; NIK, alamat, & kontak opsional. Data dilengkapi / <em>digabung</em> saat identitas diketahui.
           </p>
         </div>
       )}
 
       <SCard title="Data Pribadi" icon={User} accent={anon ? "amber" : "sky"}>
-        <FField label="Nama Lengkap" required error={e.namaLengkap}
-          hint={anon ? "pseudonim — boleh diedit" : "sesuai KTP / akta lahir"}>
-          <TInput name="namaLengkap" value={d.namaLengkap} onChange={ch}
-            placeholder={anon ? "Tn. X / Ny. X" : "Nama lengkap pasien"} error={e.namaLengkap} />
-        </FField>
-
-        {!anon && (
-          <FField label="Nama Ibu Kandung" error={e.namaIbu} hint="penanda identifikasi (SKP 1)">
-            <TInput name="namaIbu" value={d.namaIbu} onChange={ch} placeholder="Nama ibu kandung pasien" />
+        {anon ? (
+          <FField label="Nama Lengkap" required error={e.namaLengkap} hint="pseudonim — boleh diedit">
+            <TInput name="namaLengkap" value={d.namaLengkap} onChange={ch}
+              placeholder="TN. ANONYM / NY. ANONYM" error={e.namaLengkap} upper />
           </FField>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[0.8fr_2.2fr_1fr]">
+              <FField label="Gelar Depan" hint="opsional">
+                <TInput name="gelarDepan" value={d.gelarDepan} onChange={ch} placeholder="Dr. / H. / Ir." />
+              </FField>
+              <FField label="Nama Lengkap" required error={e.namaLengkap} hint="sesuai KTP / akta lahir">
+                <TInput name="namaLengkap" value={d.namaLengkap} onChange={ch}
+                  placeholder="Nama lengkap pasien" error={e.namaLengkap} upper />
+              </FField>
+              <FField label="Gelar Belakang" hint="opsional">
+                <TInput name="gelarBelakang" value={d.gelarBelakang} onChange={ch} placeholder="S.Kom / Sp.PD" />
+              </FField>
+            </div>
+            {(d.gelarDepan.trim() || d.gelarBelakang.trim()) && namaTampil && (
+              <p className="-mt-1.5 flex items-center gap-1.5 text-[11px] text-slate-400">
+                <User size={11} className="shrink-0 text-sky-400" />
+                Nama tampil: <span className="font-semibold text-slate-600">{namaTampil}</span>
+              </p>
+            )}
+            <FField label="Nama Ibu Kandung" error={e.namaIbu} hint="penanda identifikasi (SKP 1)">
+              <TInput name="namaIbu" value={d.namaIbu} onChange={ch} placeholder="Nama ibu kandung pasien" upper />
+            </FField>
+          </>
         )}
 
         {/* Identitas per-mode */}
@@ -126,10 +148,16 @@ function Step1Identitas({ d, e, ch }: { d: FormState; e: Record<string, string>;
             <FField label="Tempat Lahir" required error={e.tempatLahir}>
               <TInput name="tempatLahir" value={d.tempatLahir} onChange={ch} placeholder="Kota tempat lahir" error={e.tempatLahir} />
             </FField>
-            <FField label="Tanggal Lahir" required error={e.tanggalLahir}>
+            <FField label="Tanggal Lahir" required error={e.tanggalLahir}
+              hint={umurTampil ? undefined : "umur dihitung otomatis"}>
               <DatePicker value={d.tanggalLahir} onChange={(iso) => ch("tanggalLahir", iso)}
                 placeholder="Pilih tanggal lahir"
                 className={cn("py-2.5! text-sm!", e.tanggalLahir && "border-red-300!")} />
+              {umurTampil && (
+                <span className="mt-1.5 inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-100">
+                  Umur: {umurTampil}
+                </span>
+              )}
               <ErrMsg msg={e.tanggalLahir} />
             </FField>
           </div>
@@ -367,7 +395,7 @@ function Step3Kontak({ d, e, ch }: { d: FormState; e: Record<string, string>; ch
         <div className="grid grid-cols-2 gap-3">
           <FField label="Nama Lengkap" required={!anon} error={e.kontakDaruratNama} className="col-span-2">
             <TInput name="kontakDaruratNama" value={d.kontakDaruratNama} onChange={ch}
-              placeholder="Nama anggota keluarga / wali / pengantar" error={e.kontakDaruratNama} />
+              placeholder="Nama anggota keluarga / wali / pengantar" error={e.kontakDaruratNama} upper />
           </FField>
           <FField label="Hubungan dengan Pasien" required={!anon} error={e.kontakDaruratHubungan}>
             <SInput name="kontakDaruratHubungan" value={d.kontakDaruratHubungan} onChange={ch}
