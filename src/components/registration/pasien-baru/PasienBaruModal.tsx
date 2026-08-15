@@ -295,7 +295,7 @@ export function PasienBaruModal({
       <div
         ref={modalRef}
         className={cn(
-          "flex w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl",
+          "flex w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl",
           "max-h-[95vh] sm:max-h-[90vh] transition-all duration-300",
           open ? "translate-y-0 scale-100 opacity-100" : "translate-y-8 scale-95 opacity-0",
         )}

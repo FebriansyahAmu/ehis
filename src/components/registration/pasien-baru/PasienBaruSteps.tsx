@@ -51,6 +51,15 @@ function ModeSelector({ d, ch }: { d: FormState; ch: Ch }) {
   );
 }
 
+// Label 1-baris tinggi-tetap (nowrap) → tiga input pada baris nama sejajar presisi.
+function NmLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
+  return (
+    <label className="mb-1.5 flex h-3.5 items-center whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-400">
+      {children}{required && <span className="ml-0.5 text-red-400">*</span>}
+    </label>
+  );
+}
+
 // ── Step 1: Identitas ─────────────────────────────────────────────────────────
 function Step1Identitas({ d, e, ch }: { d: FormState; e: Record<string, string>; ch: Ch }) {
   const anon = d.identitas === "Anonim";
@@ -86,24 +95,33 @@ function Step1Identitas({ d, e, ch }: { d: FormState; e: Record<string, string>;
           </FField>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[0.8fr_2.2fr_1fr]">
-              <FField label="Gelar Depan" hint="opsional">
-                <TInput name="gelarDepan" value={d.gelarDepan} onChange={ch} placeholder="Dr. / H. / Ir." />
-              </FField>
-              <FField label="Nama Lengkap" required error={e.namaLengkap} hint="sesuai KTP / akta lahir">
-                <TInput name="namaLengkap" value={d.namaLengkap} onChange={ch}
-                  placeholder="Nama lengkap pasien" error={e.namaLengkap} upper />
-              </FField>
-              <FField label="Gelar Belakang" hint="opsional">
-                <TInput name="gelarBelakang" value={d.gelarBelakang} onChange={ch} placeholder="S.Kom / Sp.PD" />
-              </FField>
+            <div>
+              {/* Gelar depan · Nama · Gelar belakang — label 1-baris + items-end → input sejajar presisi */}
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[minmax(0,0.85fr)_minmax(0,2.6fr)_minmax(0,1fr)] sm:items-end">
+                <div>
+                  <NmLabel>Gelar Depan</NmLabel>
+                  <TInput name="gelarDepan" value={d.gelarDepan} onChange={ch} placeholder="Dr. / H." />
+                </div>
+                <div>
+                  <NmLabel required>Nama Lengkap</NmLabel>
+                  <TInput name="namaLengkap" value={d.namaLengkap} onChange={ch}
+                    placeholder="Nama lengkap pasien" error={e.namaLengkap} upper />
+                </div>
+                <div>
+                  <NmLabel>Gelar Belakang</NmLabel>
+                  <TInput name="gelarBelakang" value={d.gelarBelakang} onChange={ch} placeholder="S.Kom / Sp.PD" />
+                </div>
+              </div>
+              <ErrMsg msg={e.namaLengkap} />
+              {(d.gelarDepan.trim() || d.gelarBelakang.trim()) && namaTampil ? (
+                <p className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-400">
+                  <User size={11} className="shrink-0 text-sky-400" />
+                  Nama tampil: <span className="font-semibold text-slate-600">{namaTampil}</span>
+                </p>
+              ) : (
+                <p className="mt-1.5 text-[10.5px] text-slate-300">Sesuai KTP / akta lahir — nama otomatis huruf kapital.</p>
+              )}
             </div>
-            {(d.gelarDepan.trim() || d.gelarBelakang.trim()) && namaTampil && (
-              <p className="-mt-1.5 flex items-center gap-1.5 text-[11px] text-slate-400">
-                <User size={11} className="shrink-0 text-sky-400" />
-                Nama tampil: <span className="font-semibold text-slate-600">{namaTampil}</span>
-              </p>
-            )}
             <FField label="Nama Ibu Kandung" error={e.namaIbu} hint="penanda identifikasi (SKP 1)">
               <TInput name="namaIbu" value={d.namaIbu} onChange={ch} placeholder="Nama ibu kandung pasien" upper />
             </FField>
