@@ -25,21 +25,21 @@ function QuickActions({ onDaftarBaru }: { onDaftarBaru: () => void }) {
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <button
           onClick={onDaftarBaru}
-          className="flex items-center justify-center gap-2.5 rounded-xl bg-teal-600 px-3.5 py-2.5 text-xs font-semibold text-white transition hover:bg-teal-700 active:scale-[0.98]"
+          className="flex cursor-pointer items-center justify-center gap-2.5 rounded-xl bg-teal-600 px-3.5 py-2.5 text-xs font-semibold text-white transition hover:bg-teal-700 active:scale-[0.98]"
         >
           <UserPlus size={13} className="shrink-0" />
           Daftar Pasien Baru
         </button>
         <Link
           href="/ehis-registration/antrian"
-          className="flex items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98]"
+          className="flex cursor-pointer items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98]"
         >
           <CalendarDays size={13} className="shrink-0" />
           Lihat Antrian
         </Link>
         <Link
           href="/ehis-registration/pasien"
-          className="flex items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98]"
+          className="flex cursor-pointer items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98]"
         >
           <Users size={13} className="shrink-0" />
           Daftar Semua Pasien
@@ -97,28 +97,9 @@ export default function RegistrationBerandaPage() {
     <>
       <div className="flex flex-col gap-5 p-6">
         {/* ── Header ── */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-base font-bold text-slate-900">Beranda Registrasi</h1>
-            <p className="mt-0.5 text-xs text-slate-400">{today}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setModalOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-teal-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-700 active:scale-[0.98]"
-            >
-              <UserPlus size={12} />
-              Pasien Baru
-            </button>
-            <Link
-              href="/ehis-registration/pasien"
-              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98]"
-            >
-              <Users size={12} />
-              Semua Pasien
-            </Link>
-          </div>
+        <div>
+          <h1 className="text-base font-bold text-slate-900">Beranda Registrasi</h1>
+          <p className="mt-0.5 text-xs text-slate-400">{today}</p>
         </div>
 
         {/* ── Aksi Cepat ── */}
