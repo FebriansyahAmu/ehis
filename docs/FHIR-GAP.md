@@ -40,4 +40,18 @@
 | FG-15 | 🟡 | **Resolve Organization via `?partof=` lalu cocokkan identifier** — bila hasil ter-paginasi (banyak sub-unit), sub-unit yang sudah ada bisa terlewat → POST ganda. | Uji di sandbox: cek dukungan `Organization?identifier=` atau ikuti `link[next]`; perbaiki di `syncOrganizations`. |
 | FG-16 | 🟡 | **Guard run paralel in-memory per proses** (`running` Set). Multi-instance → bisa 2 run bersamaan. | Advisory lock Postgres (`pg_try_advisory_lock`) atau Redis lock saat multi-instance. |
 | FG-17 | ⚪ | **Master Location tak punya telepon** → `telecom` Location tak dikirim (opsional di SatuSehat). | Tambah kolom bila dibutuhkan. |
+| FG-18a | ⚪ | (catatan) Guard "run paralel" FG-16 berlaku juga untuk batch resolve pasien FH2. | idem FG-16. |
 | FG-18 | 🟡 | **Nakes tanpa IHS** (NIK tak terdaftar SISDMK/KKI) → `failed`, belum ada alur tindak lanjut di UI. | FH9: daftar "Practitioner belum terpetakan" + tombol resolve ulang (`force`). |
+
+## FH2 — Patient IHS (2026-10-26)
+
+**Keputusan desain:** pasien ber-NIK **hanya di-resolve** (`GET Patient?identifier=nik|…`), tidak pernah di-POST — SatuSehat = owner master pasien (Dukcapil). Peta → `ResourceMap(env, Patient)`; `Pasien.idSatusehat` hanya env prod. Verifikasi gender + tanggal lahir lokal vs SatuSehat = peringatan, bukan blokir (NIK = anchor). Resolve = **lazy** (tombol per pasien / batch ≤100) — bukan di dalam tx registrasi (R4).
+
+| ID | Status | Gap | Cara tutup |
+|---|---|---|---|
+| FG-19 | 🔴 | **Resolve Patient belum diuji ke sandbox** (kredensial, FG-02). Mock selalu "ketemu" tanpa gender/tgl lahir → verifikasi = `null`. | Setelah FG-02: `POST /api/v1/fhir/patient-lookup` dengan NIK uji sandbox, lalu `/fhir/patient/:id/resolve`. Cek field apa saja yang dikembalikan SatuSehat (nama/gender/birthDate bisa ter-mask). |
+| FG-20 | 🟡 | **Pasien tanpa NIK belum didukung** — bayi baru lahir (POST Patient ber-`nik-ibu`), WNA (paspor), Mr.X → status `no_nik`. Encounter FH3 untuk pasien ini akan tertahan. | Tentukan alur: bayi → POST Patient by NIK ibu (payload resmi Postman "Patient - by NIK Ibu"); WNA → cek identifier paspor SatuSehat; Mr.X → tunda kirim sampai identitas dilengkapi. |
+| FG-21 | 🟡 | **Belum di-hook ke registrasi & belum ada badge IHS di UI** — resolve hanya via endpoint. | Registrasi: setelah pasien tersimpan, panggil `resolvePatientIhs` dari FE (di luar tx) + badge di PatientDashboard; FH3 encounter builder juga resolve dulu bila belum ada peta. |
+| FG-22 | ⚪ | **Verifikasi tidak membandingkan nama** (format nama Dukcapil vs lokal sering beda gelar/kapital → false positive). | Pertimbangkan pembandingan ternormalisasi (tanpa gelar, uppercase) setelah tahu bentuk respons sandbox. |
+| FG-23 | 🟡 | **Merge pasien belum memindahkan peta** — `ResourceMap` milik rekam yang digabung tak dialihkan ke survivor. | Hook di service merge pasien: pindahkan/hapus peta Patient (env semua) ke survivor bila survivor belum punya. |
+| FG-24 | ⚪ | **Consent (bagian FH2) masih ditunda** — lihat FG-09. | — |
