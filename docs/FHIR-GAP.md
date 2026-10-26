@@ -26,3 +26,18 @@
 | FG-08 | 🟡 | **Retensi audit 5 tahun belum ada kebijakan** (partisi/arsip `fhir.fhir_audit_log`) — sama dengan `bpjs.bpjs_audit_log`. | Kebijakan retensi/partisi bulanan bersama audit BPJS (cross-cutting, TECH_DEBT). |
 | FG-09 | ⚪ | **`fhir.Consent` belum dibuat** (sengaja) — path Consent SatuSehat belum terkonfirmasi (G-3). | Tambah tabel di FH2 setelah path Consent dipastikan dari koleksi Postman resmi. |
 | FG-10 | ⚪ | **Belum ada konsol UI** untuk endpoint status/probe (`/ehis-fhir`). | FH9 — FE konsumsi `getFhirStatus()` / `probeFhirToken()` di [src/lib/api/fhir/status.ts](../src/lib/api/fhir/status.ts). |
+
+## FH1 — Onboarding Organization / Location / Practitioner (2026-10-26)
+
+**Keputusan desain:** `fhir.resource_map` kini ber-kolom **`env`** (unik `env+localType+localId`, migrasi `20261026130000`) — IHS id sandbox ≠ prod, id mock palsu; ganti `SATUSEHAT_MODE` otomatis "mulai bersih" per env. Kolom denormalisasi `Dokter.ihsPractitionerId` (dan nanti `Pasien.idSatusehat`) **hanya diisi id PRODUKSI**; untuk env lain baca `ResourceMap`.
+
+| ID | Status | Gap | Cara tutup |
+|---|---|---|---|
+| FG-11 | 🔴 | **Onboarding belum dijalankan ke sandbox** (kredensial, sama FG-02). Di mock: Organization/Location selalu "created" (pencarian mock kosong), Practitioner selalu ketemu (id `mock-prac-…`). | Setelah FG-02 hijau: jalankan `POST /api/v1/fhir/onboarding/organization` → `/location` → `/practitioner` (urutan wajib). NIK uji sandbox di [docs/FHIR-PAYLOADS.md](FHIR-PAYLOADS.md). |
+| FG-12 | ⚪ | **`OrgType.dept_clin` tak ada di CodeSystem HL7 organization-type** → dikirim sebagai `dept`. | Konfirmasi ke docs SatuSehat apakah ada kode departemen klinis khusus; bila ada, ganti di [adapters/organization.ts](../src/lib/fhir/adapters/organization.ts). |
+| FG-13 | 🟡 | **Bed belum dikirim sebagai Location** (`physicalType=bd`, `partOf` ruangan). Encounter RI mungkin butuh referensi bed. | Tambah saat FH3 (Encounter IMP) bila bundle RI resmi mereferensikan bed. |
+| FG-14 | ⚪ | **Contoh Postman resmi Location menukar latitude/longitude** (lat −6.23 ditaruh di `longitude`). Adapter mengikuti spesifikasi FHIR (longitude=bujur). Master Location tak punya GPS → pakai GPS Organization induk. | Verifikasi di sandbox; tambah GPS per ruangan bila diwajibkan. |
+| FG-15 | 🟡 | **Resolve Organization via `?partof=` lalu cocokkan identifier** — bila hasil ter-paginasi (banyak sub-unit), sub-unit yang sudah ada bisa terlewat → POST ganda. | Uji di sandbox: cek dukungan `Organization?identifier=` atau ikuti `link[next]`; perbaiki di `syncOrganizations`. |
+| FG-16 | 🟡 | **Guard run paralel in-memory per proses** (`running` Set). Multi-instance → bisa 2 run bersamaan. | Advisory lock Postgres (`pg_try_advisory_lock`) atau Redis lock saat multi-instance. |
+| FG-17 | ⚪ | **Master Location tak punya telepon** → `telecom` Location tak dikirim (opsional di SatuSehat). | Tambah kolom bila dibutuhkan. |
+| FG-18 | 🟡 | **Nakes tanpa IHS** (NIK tak terdaftar SISDMK/KKI) → `failed`, belum ada alur tindak lanjut di UI. | FH9: daftar "Practitioner belum terpetakan" + tombol resolve ulang (`force`). |

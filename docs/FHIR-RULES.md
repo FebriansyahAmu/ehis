@@ -107,7 +107,10 @@ Swap mock→real = ganti isi connector (`SATUSEHAT_MODE`) → **Route & FE tak b
 ## R8 — Idempotency WRITE: resolve-first + ResourceMap (anti duplikat)
 
 - **JANGAN create membuta.** Untuk Organization/Location/Practitioner/Patient: **search dulu** (by
-  `identifier`), simpan `fhir.ResourceMap(localType, localId ↔ ihsId)`. Kunjungan/klinis: cek ResourceMap
+  `identifier`), simpan `fhir.ResourceMap(env, localType, localId ↔ ihsId)`.
+- **ResourceMap per `env`** (mock|sandbox|prod — ditetapkan FH1 2026-10-26): IHS id sandbox tak berlaku di prod
+  dan id mock palsu → selalu baca/tulis dengan env aktif. Kolom denormalisasi di tabel domain
+  (`Pasien.idSatusehat`, `Dokter.ihsPractitionerId`) **hanya diisi id produksi**. Kunjungan/klinis: cek ResourceMap
   sebelum POST; sudah ada → **PUT by id** (upsert), belum → POST create lalu simpan `ihsId`.
 - Header `Idempotency-Key` (sudah didukung `route()`) untuk aksi kirim.
 - **Mengapa:** double-create Encounter/Condition = data ganda di SatuSehat + audit kacau.

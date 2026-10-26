@@ -14,13 +14,14 @@ import type { Actor } from "@/lib/auth/actor";
 import type { FhirStatusDTO, FhirTokenProbeDTO } from "@/lib/schemas/fhir/status";
 
 export async function getStatus(): Promise<FhirStatusDTO> {
+  const config = describeSatuSehatConfig();
   const [outbox, resourceMap, recent] = await Promise.all([
     syncLogDal.countByStatus(),
-    resourceMapDal.countByType(),
+    config.mode === "invalid" ? Promise.resolve({}) : resourceMapDal.countByType(config.mode),
     auditDal.listRecent(20),
   ]);
   return {
-    config: describeSatuSehatConfig(),
+    config,
     token: describeToken(),
     circuits: describeCircuits(),
     outbox,

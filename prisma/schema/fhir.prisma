@@ -7,6 +7,9 @@
 /// Peta resource lokal ↔ id SatuSehat. Resolve-first, anti create ganda (R8/R15).
 model ResourceMap {
   id           String   @id @default(uuid(7)) @db.Uuid
+  /// mock | sandbox | prod — IHS id BERBEDA per environment (id sandbox tak berlaku di prod,
+  /// id mock palsu) → peta dipisah per env agar ganti SATUSEHAT_MODE tak memakai id basi.
+  env          String
   /// Patient | Practitioner | Organization | Location | Encounter | Condition | ...
   localType    String   @map("local_type")
   /// PK domain lokal (pasienId/kunjunganId/diagnosaId/...) — soft-ref lintas schema, tanpa FK.
@@ -23,8 +26,8 @@ model ResourceMap {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  @@unique([localType, localId])
-  @@index([resourceType, ihsId])
+  @@unique([env, localType, localId])
+  @@index([env, resourceType, ihsId])
   @@map("resource_map")
   @@schema("fhir")
 }
