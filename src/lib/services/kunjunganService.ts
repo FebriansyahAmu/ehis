@@ -32,6 +32,7 @@ import { unitScopeBypassed, type CareUnit } from "@/lib/auth/careUnit";
 import { assertUnitInScope } from "@/lib/services/clinicalScope";
 import type { RegisterKunjunganInput, ChangePenjaminInput, LinkRujukanInput, WorklistQuery, KunjunganDTO, KunjunganListItemDTO, KunjunganActionName, CancelKunjunganInput, CancelEligibilityDTO } from "@/lib/schemas/kunjungan";
 import { countClinicalActivity, totalActivity } from "@/lib/dal/kunjunganActivityDal";
+import * as fhirOutbox from "@/lib/services/fhir/outboxEnqueue";
 import type { DisposisiInput } from "@/lib/schemas/disposisi/disposisi";
 import type { KunjunganEntity, KunjunganListEntity, UpdateStatusPatch } from "@/lib/dal/kunjunganDal";
 
@@ -678,6 +679,7 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
       //  · receive + bedId → tempati bed (Occupied) + simpan pointer Kunjungan.bedId
       //  · complete/cancel → lepas alokasi aktif kunjungan (bed bebas kembali)
       if (action === "receive") {
+        if (!k.dilayaniAt) patch.dilayaniAt = clock.now();
         // RI ("Terima Order"): admisi sudah reservasi bed → tempati bed yang SAMA
         // (Reserved→Occupied), hindari create ganda (P2002). IGD: belum ada reservasi →
         // tempati bed yang dipilih petugas saat menerima.
@@ -809,6 +811,8 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
 
       const count = await dal.updateStatus(id, k.version, patch, tx);
       if (count === 0) throw Errors.conflictVersion();
+      // SatuSehat (FH3/R4): catat intent sinkron Encounter di tx yang sama; kirim oleh outbox worker.
+      await fhirOutbox.enqueueEncounterSync(id, action, tx);
       const fresh = await dal.findById(id, tx);
       if (!fresh) throw Errors.internal("Gagal memuat kunjungan setelah transisi");
       return fresh;
@@ -907,6 +911,7 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
         alasanBatal: input.alasan.trim(),
       }, tx);
       if (count === 0) throw Errors.conflictVersion();
+      await fhirOutbox.enqueueEncounterSync(id, "cancel", tx);
       const fresh = await dal.findById(id, tx);
       if (!fresh) throw Errors.internal("Gagal memuat kunjungan setelah pembatalan");
       return fresh;

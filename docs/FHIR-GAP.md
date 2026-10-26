@@ -16,7 +16,7 @@
 
 | ID | Status | Gap | Cara tutup |
 |---|---|---|---|
-| FG-01 | ⚪ | **`tsc --noEmit` + eslint belum dijalankan** untuk file FH0 — sengaja ditunda karena RAM/disk laptop dev terbatas (RAM bebas ~700 MB, C: ~3 GB). Kode di-review manual; Prisma client sudah di-generate & tabel terverifikasi di DB. | Jalankan saat resource longgar: `npx tsc --noEmit` lalu `npx eslint src/lib/fhir src/lib/dal/fhir src/lib/services/fhir src/lib/api/fhir src/lib/schemas/fhir src/app/api/v1/fhir`. |
+| FG-01 | 🔴 | **(naik prioritas FH3 — menyentuh `kunjunganService.transition`/`cancelKunjungan` + `kunjunganDal` + `encounter.prisma`, jalur klinis inti)** **`tsc --noEmit` + eslint belum dijalankan** untuk file FH0 — sengaja ditunda karena RAM/disk laptop dev terbatas (RAM bebas ~700 MB, C: ~3 GB). Kode di-review manual; Prisma client sudah di-generate & tabel terverifikasi di DB. | Jalankan saat resource longgar: `npx tsc --noEmit` lalu `npx eslint src/lib/fhir src/lib/dal/fhir src/lib/services/fhir src/lib/api/fhir src/lib/schemas/fhir src/app/api/v1/fhir`. |
 | FG-02 | 🔴 | **Token nyata ke sandbox belum diuji** (DoD FH0) — kredensial DevHub belum ada (G-1). Mode default `mock`. | Isi `SATUSEHAT_CLIENT_ID/SECRET/ORG_ID` di `.env`, set `SATUSEHAT_MODE=sandbox`, panggil `POST /api/v1/fhir/status/probe` **sekali** (gagal → cooldown 60 dtk, rate-limit SatuSehat). |
 | FG-03 | 🟡 | **Outbox worker belum ada** — DAL siap (`syncLogDal.listDue/claim/markAcked/markFailed`), tapi belum ada runner yang mengeksekusi (G-7). | Bangun di FH3 bersama payload Encounter pertama: runner interval (long-running Node) → `listDue` → `claim` → `callSatuSehat` → `markAcked`/`markFailed(retryAt)`; backoff eksponensial, maks percobaan → `Failed`. |
 | FG-04 | 🟡 | **Token cache & circuit breaker in-memory per proses** (`globalThis`). Multi-instance → tiap proses minta token sendiri (risiko kena rate-limit 1/menit). | Pindah ke Redis (seam: isi `token.ts` state + `circuit.ts` map) saat deploy multi-instance. |
@@ -55,3 +55,24 @@
 | FG-22 | ⚪ | **Verifikasi tidak membandingkan nama** (format nama Dukcapil vs lokal sering beda gelar/kapital → false positive). | Pertimbangkan pembandingan ternormalisasi (tanpa gelar, uppercase) setelah tahu bentuk respons sandbox. |
 | FG-23 | 🟡 | **Merge pasien belum memindahkan peta** — `ResourceMap` milik rekam yang digabung tak dialihkan ke survivor. | Hook di service merge pasien: pindahkan/hapus peta Patient (env semua) ke survivor bila survivor belum punya. |
 | FG-24 | ⚪ | **Consent (bagian FH2) masih ditunda** — lihat FG-09. | — |
+
+## FH3 — Encounter + Outbox Worker (2026-10-26)
+
+**Keputusan desain:**
+- Transisi kunjungan `receive/complete/reopen/cancel` (+ Batalkan Kunjungan) → **enqueue di tx yang sama** (`fhir.sync_log`, trigger `encounter.sync`). Isi baris = **deskripsi job** (`{kind, kunjunganId, event}`), BUKAN payload FHIR — payload dibangun worker dari state TERKINI saat kirim (IHS pasien/nakes/lokasi bisa baru ter-resolve). Coalesce: 1 job Pending per kunjungan.
+- Efek samping FHIR **tak pernah menggagalkan aksi klinis** (config invalid → enqueue dilewati).
+- Kolom baru `encounter.kunjungan.dilayani_at` (migrasi `20261026140000`, set sekali saat receive) = awal `in-progress`.
+- Worker: retry network/5xx/429 dengan backoff 30 dtk → maks 1 jam, maks 8 percobaan; referensi kurang (DPJP/ruangan belum onboarding) = **Failed non-retry** → antre ulang manual (`POST /fhir/outbox/:id/retry`) setelah onboarding.
+
+| ID | Status | Gap | Cara tutup |
+|---|---|---|---|
+| FG-25 | 🔴 | **Encounter belum diuji ke sandbox** (kredensial, FG-02). | Setelah FG-02 + onboarding FH1: terima 1 kunjungan uji → `POST /fhir/outbox/run` → cek `fhir.sync_log` Acked + `GET Encounter/{id}` di sandbox. |
+| FG-26 | 🟡 | **Runner outbox default MATI** (`SATUSEHAT_OUTBOX_INTERVAL_MS` kosong) — job menumpuk Pending sampai dijalankan manual. Guard tick hanya per-proses. | Prod: set interval (mis. 30000). Multi-instance: klaim `FOR UPDATE SKIP LOCKED` / advisory lock. |
+| FG-27 | 🔴 | **Encounter `finished` kemungkinan wajib `diagnosis` (Condition)** — FH4 belum ada, jadi `diagnosis` kosong → bisa ditolak SatuSehat. | FH4: kirim Condition dulu (job berantai) sebelum Encounter finished; verifikasi aturan di sandbox. |
+| FG-28 | ⚪ | **ServiceClass RI**: kelas ICU/HCU/Isolasi tak punya kode → extension dihilangkan; kode `vip`/`naik-kelas`/`turun-kelas`/`titip-rawat` belum diverifikasi ke CodeSystem resmi. | Cocokkan dengan terminologi `locationServiceClass-Inpatient` & `locationUpgradeClass` SatuSehat. |
+| FG-29 | 🟡 | **Batal Selesai (reopen)** mengirim status mundur `finished → in-progress` — kemungkinan ditolak SatuSehat. | Kebijakan: jangan PUT mundur; tahan job sampai kunjungan diselesaikan ulang (skip event reopen) — putuskan setelah uji sandbox. |
+| FG-30 | 🟡 | **Riwayat lokasi tidak dilacak** — Encounter hanya memuat ruangan terakhir (contoh resmi IGD: triase → ruang tindakan dengan period masing-masing). | Bangun dari `encounter.BedAllocation` (riwayat okupansi) saat FH7 bundle. |
+| FG-31 | ⚪ | **Status `arrived` tidak dikirim saat pendaftaran** — Encounter baru dibuat saat diterima (langsung in-progress dengan history arrived). | Cukup untuk MVP; tambahkan hook registrasi bila SatuSehat mewajibkan real-time arrived. |
+| FG-32 | ⚪ | **Crash di antara POST sukses & simpan ResourceMap** → retry membuat Encounter ganda (belum ada resolve by identifier untuk Encounter). | Cek dukungan `Encounter?identifier=<system>|<noKunjungan>` di sandbox → tambahkan resolve-first sebelum POST. |
+| FG-33 | ⚪ | **Kunjungan lama** (`dilayani_at` NULL) → arrived & in-progress berimpit di `waktu_kunjungan`. | Terima apa adanya (data historis). |
+| FG-34 | ⚪ | **IGD → Rawat Inap = 2 Encounter terpisah** (EMER & IMP) tanpa tautan (`basedOn` ServiceRequest pra-ranap seperti contoh resmi RI). | FH6/FH7 (ServiceRequest SPRI). |

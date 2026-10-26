@@ -93,6 +93,9 @@ model Kunjungan {
   noPendaftaran  String?         @map("no_pendaftaran") // "REG-..."
   /// Waktu kunjungan (tanggal + jam dari modal, digabung di Service).
   waktuKunjungan DateTime        @default(now()) @map("waktu_kunjungan") @db.Timestamptz(3)
+  /// Waktu pertama diterima/dilayani (transisi `receive` → InService). Set sekali. Dipakai
+  /// FHIR Encounter statusHistory (arrived → in-progress). Null pada data lama → fallback waktuKunjungan.
+  dilayaniAt     DateTime?       @map("dilayani_at") @db.Timestamptz(3)
 
   /// Link spine TaskID antrol (RJ/onsite/MJKN). FK→Antrean saat modul siap.
   antreanKodebooking String? @unique @map("antrean_kodebooking")

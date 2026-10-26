@@ -1,0 +1,43 @@
+// encounterSourceDal — baca state kunjungan untuk membangun FHIR Encounter (FH3). Prisma murni,
+// read-only. Referensi lintas-schema (DPJP=master.Dokter.id, ruangan=master.Location.id) di-resolve
+// dengan query terpisah (soft-ref, tanpa FK).
+
+import { db, type Tx } from "@/lib/db/prisma";
+
+export function getKunjungan(id: string, tx?: Tx) {
+  return db(tx).kunjungan.findFirst({
+    where: { id, deletedAt: null },
+    select: {
+      id: true, noKunjungan: true, unit: true, status: true, patientId: true,
+      waktuKunjungan: true, dilayaniAt: true, selesaiAt: true,
+      dpjpId: true, ruanganId: true, kelas: true, kelasHak: true, titipan: true,
+      pasien: { select: { nama: true } },
+      disposisiRiwayat: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { jenis: true, rujukTujuan: true, instruksi: true },
+      },
+    },
+  });
+}
+
+/** Dokter (master) → pegawaiId (kunci peta Practitioner) + nama tampil. */
+export function getDokter(dokterId: string, tx?: Tx) {
+  return db(tx).dokter.findFirst({
+    where: { id: dokterId },
+    select: { pegawaiId: true, pegawai: { select: { namaLengkap: true, gelarDepan: true, gelarBelakang: true } } },
+  });
+}
+
+/** Diagnosa ICD-10 final (Pasti, Utama dulu) — kandidat Encounter.diagnosis (via peta Condition FH4). */
+export function listDiagnosaFinal(kunjunganId: string, tx?: Tx) {
+  return db(tx).diagnosa.findMany({
+    where: { kunjunganId, deletedAt: null, status: "Pasti", tipe: { in: ["Utama", "Sekunder"] } },
+    orderBy: [{ tipe: "desc" }, { createdAt: "asc" }], // "Utama" > "Sekunder" (desc) → Utama dulu
+    select: { id: true, kodeIcd10: true, namaDiagnosis: true, tipe: true },
+  });
+}
+
+export function getRuangan(locationId: string, tx?: Tx) {
+  return db(tx).location.findFirst({ where: { id: locationId }, select: { nama: true, locationType: true } });
+}

@@ -53,6 +53,7 @@ export interface UpdateStatusPatch {
   recallCount?: number;
   invoiceId?: string;
   bedId?: string; // di-set saat receive (IGD) — pointer cache bed yang ditempati
+  dilayaniAt?: Date; // di-set SEKALI saat receive pertama (FHIR Encounter in-progress)
 }
 
 // Read DETAIL: pasien ringkas (+ gender/tglLahir utk cetak SEP) + artefak BPJS penuh (1:1).

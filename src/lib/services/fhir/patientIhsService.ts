@@ -98,6 +98,21 @@ async function resolveRow(
   };
 }
 
+// ── Pastikan IHS ada (dipakai worker Encounter, aktor sistem) ─
+
+export type EnsureIhsResult = { ok: true; ihsId: string } | { ok: false; message: string; retryable: boolean };
+
+export async function ensurePatientIhs(patientId: string, audit: ReturnType<typeof auditActorOf>): Promise<EnsureIhsResult> {
+  const env = getSatuSehatConfig().mode;
+  const m = await resourceMapDal.findByLocal(env, "Patient", patientId);
+  if (m) return { ok: true, ihsId: m.ihsId };
+  const p = await patientDal.getPatient(patientId);
+  if (!p) return { ok: false, message: "Pasien tidak ditemukan", retryable: false };
+  const r = await resolveRow(p, env, audit, false);
+  if (r.ihsId) return { ok: true, ihsId: r.ihsId };
+  return { ok: false, message: `IHS Patient: ${r.message ?? r.status}`, retryable: r.status === "failed" };
+}
+
 // ── Batch (pasien belum terpetakan) ─────────────────────────
 
 export async function resolveBatch(actor: Actor, limit: number): Promise<PatientBatchDTO> {

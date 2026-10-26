@@ -18,6 +18,56 @@ export function enqueue(data: SyncLogEnqueue, tx?: Tx) {
   });
 }
 
+/** Job Pending untuk (trigger, kunjungan) — dipakai coalesce enqueue. */
+export function findPending(trigger: string, kunjunganId: string, tx?: Tx) {
+  return db(tx).syncLog.findFirst({
+    where: { trigger, kunjunganId, status: "Pending" },
+    select: { id: true },
+  });
+}
+
+export function getById(id: string, tx?: Tx) {
+  return db(tx).syncLog.findUnique({ where: { id } });
+}
+
+/** Daftar untuk konsol (tanpa payload — bisa berisi PII klinis). */
+export function listForConsole(filter: { status?: SyncStatus; kunjunganId?: string }, limit: number, tx?: Tx) {
+  return db(tx).syncLog.findMany({
+    where: { status: filter.status, kunjunganId: filter.kunjunganId },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    select: {
+      id: true, trigger: true, kunjunganId: true, bundleType: true, status: true, attempts: true,
+      lastError: true, ihsRefs: true, nextAttemptAt: true, createdAt: true, updatedAt: true,
+    },
+  });
+}
+
+/**
+ * Pulihkan job yang macet `Sending` (proses mati di tengah kirim) → Pending. Aman diulang:
+ * sisi kirim idempoten (ResourceMap → PUT bila sudah ada id).
+ */
+export async function releaseStale(olderThan: Date, tx?: Tx): Promise<number> {
+  const r = await db(tx).syncLog.updateMany({
+    where: { status: "Sending", updatedAt: { lt: olderThan } },
+    data: { status: "Pending", nextAttemptAt: null },
+  });
+  return r.count;
+}
+
+/** Antre ulang manual (konsol) job Failed → Pending, reset jadwal. */
+export async function requeue(id: string, tx?: Tx): Promise<boolean> {
+  const r = await db(tx).syncLog.updateMany({
+    where: { id, status: { in: ["Failed", "Skipped"] } },
+    data: { status: "Pending", nextAttemptAt: null, attempts: 0 },
+  });
+  return r.count === 1;
+}
+
+export function markSkipped(id: string, reason: Prisma.InputJsonValue, tx?: Tx) {
+  return db(tx).syncLog.update({ where: { id }, data: { status: "Skipped", lastError: reason, nextAttemptAt: null } });
+}
+
 /** Kandidat siap kirim: Pending/Failed-retryable yang jadwalnya sudah lewat, terlama dulu. */
 export function listDue(limit: number, now = new Date(), tx?: Tx) {
   return db(tx).syncLog.findMany({
