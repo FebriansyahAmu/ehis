@@ -160,7 +160,7 @@ connector; Route & FE tak berubah.
 
 | Fase | Judul | Isi inti | DoD |
 |---|---|---|---|
-| **FH0** | **Connector Spine** | Token service OAuth2 (secret server-only, cache+auto-refresh, **rate-limit 1/menit**) · HTTP client `/fhir-r4/v1` · `SATUSEHAT_MODE` · schema `fhir` (ResourceMap/SyncLog/Outbox) · audit · error→`OperationOutcome` · identifier-system const · **`docs/FHIR-RULES.md`** | token nyata ke **sandbox** OK; mock jalan tanpa kredensial |
+| **FH0** 🟡 **(kode ✅ 2026-10-26 · uji token sandbox menunggu kredensial)** | **Connector Spine** | Token service OAuth2 (secret server-only, cache+auto-refresh, **rate-limit 1/menit**) · HTTP client `/fhir-r4/v1` · `SATUSEHAT_MODE` · schema `fhir` (ResourceMap/SyncLog/Outbox) · audit · error→`OperationOutcome` · identifier-system const · **`docs/FHIR-RULES.md`** | token nyata ke **sandbox** OK; mock jalan tanpa kredensial |
 | **FH1** | **Onboarding Org/Loc/Practitioner** | Resolve-first + create (Org/Loc PUT-able) + Practitioner **GET-only** → simpan `ResourceMap`. Adapter dari master | 3 resource ter-map IHS id; idempoten |
 | **FH2** | **Patient IHS + Consent** | `Patient?identifier=<nik-system>\|<nik>` → set `Pasien.idSatusehat`. Tool NIK lookup. Consent (bila path tersedia); KYC opsional | pasien nyata dapat IHS id |
 | **FH3** | **Encounter lifecycle** | `Kunjungan`→Encounter (class AMB/EMER/IMP, status arrived/triaged/in-progress/finished, participant+location+serviceProvider). Hook transisi kunjungan | Encounter terkirim per unit |
@@ -170,6 +170,8 @@ connector; Route & FE tak berubah.
 | **FH7** | **Bundle transaction + Composition** | Kirim **Bundle (transaction)** urut-referensi per **Service Module** (§1e) + retry/backoff + idempotency; Composition (resume medis) | 1 kunjungan = 1 bundle atomik |
 | **FH8** | **KFA + validasi lokal** | KFA v2/v3 (ganti `kfaMock`) + Master Wilayah cross-check; **validator lokal** ICD-10/ICD-9/LOINC/SNOMED/KFA (SatuSehat TAK punya terminology server — validasi implisit saat POST) | kode divalidasi sebelum submit |
 | **FH9** | **Frontend `/ehis-fhir` (mock-first)** | Dashboard sync health · Kredensial/config · **Resource Map browser** · **Sync Log/Outbox** (+retry) · **NIK lookup** · Onboarding wizard · Conflict resolution · Polish | 100% FE mock→DB, accent non-ungu |
+
+**FH0 terbangun (2026-10-26):** schema `fhir` (ResourceMap · SyncLog+enum SyncStatus · FhirAuditLog; migrasi `20261026120000_fhir_init`, Consent ditunda FH2) + RBAC `fhir.sync` (r/c/u/d → Admin) · connector server-only [config](src/lib/fhir/server/config.ts) (`SATUSEHAT_MODE`, host per env) · [token](src/lib/fhir/server/token.ts) (cache+single-flight+cooldown 60 dtk) · [httpClient](src/lib/fhir/server/httpClient.ts) `callSatuSehat` (retry network/5xx/429, 401→re-auth 1×, OperationOutcome→Result) · [circuit](src/lib/fhir/server/circuit.ts) · [fhirShared](src/lib/fhir/fhirShared.ts) (identifier/code system R17, Result/FhirError, `toFhirDateTime` +07:00) · DAL `dal/fhir/{auditDal,resourceMapDal,syncLogDal}` · service `services/fhir/{audit,statusService}` · `GET /api/v1/fhir/status` + `POST /api/v1/fhir/status/probe` · client `api/fhir/status`. Gap implementasi → **[docs/FHIR-GAP.md](docs/FHIR-GAP.md)**.
 
 **Urutan**: FH0 → FH1 → FH2 → FH3 → (FH4–FH6 paralel per domain) → FH7 → FH8 → FH9. Estimasi ±4–6 minggu.
 

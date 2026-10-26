@@ -124,6 +124,13 @@ export const PERMISSION_TREE: PermissionModule[] = [
     ],
   },
   {
+    key: "fhir",
+    label: "Integrasi SatuSehat (FHIR)",
+    leaves: [
+      { key: "fhir.sync",             label: "Konsol Sinkronisasi SatuSehat", actions: ["read", "create", "update", "delete"] },
+    ],
+  },
+  {
     key: "report",
     label: "Laporan & Analytics",
     leaves: [

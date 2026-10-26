@@ -1,0 +1,96 @@
+// ╔════════════════════════════════════════════════════════════════════════════╗
+// ║  fhir — Integrasi SatuSehat (HL7 FHIR R4). FH0 Connector Spine.            ║
+// ║  Aturan: docs/FHIR-RULES.md (R4 outbox · R8 resolve-first · R9 audit).     ║
+// ║  Consent (FH2) menyusul — path Consent belum terkonfirmasi (TODO-FHIR G-3). ║
+// ╚════════════════════════════════════════════════════════════════════════════╝
+
+/// Peta resource lokal ↔ id SatuSehat. Resolve-first, anti create ganda (R8/R15).
+model ResourceMap {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  /// Patient | Practitioner | Organization | Location | Encounter | Condition | ...
+  localType    String   @map("local_type")
+  /// PK domain lokal (pasienId/kunjunganId/diagnosaId/...) — soft-ref lintas schema, tanpa FK.
+  localId      String   @map("local_id")
+  /// FHIR resourceType (biasanya = localType; beda bila 1 domain → >1 resource).
+  resourceType String   @map("resource_type")
+  /// Logical id SatuSehat.
+  ihsId        String   @map("ihs_id")
+  /// meta.versionId terakhir.
+  versionId    String?  @map("version_id")
+  /// sha256 payload terkirim (deteksi perubahan → PUT).
+  hash         String?
+  lastSyncAt   DateTime @map("last_sync_at") @db.Timestamptz(3)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([localType, localId])
+  @@index([resourceType, ihsId])
+  @@map("resource_map")
+  @@schema("fhir")
+}
+
+/// Outbox kiriman (R4). Aksi klinis commit → Pending → worker kirim → Acked/Failed.
+model SyncLog {
+  id          String     @id @default(uuid(7)) @db.Uuid
+  /// encounter.complete | diagnosa.create | onboarding.organization | ...
+  trigger     String
+  kunjunganId String?    @map("kunjungan_id") @db.Uuid
+  /// transaction | single
+  bundleType  String     @map("bundle_type")
+  /// Bundle / resource (JSONB). Berisi PII klinis — JANGAN di-log (R14).
+  payload     Json
+  status      SyncStatus @default(Pending)
+  attempts    Int        @default(0)
+  /// OperationOutcome terakhir (ringkas).
+  lastError   Json?      @map("last_error")
+  /// Hasil: [{resourceType, localId?, ihsId}].
+  ihsRefs     Json?      @map("ihs_refs")
+  /// Jadwal coba-ulang berikutnya (backoff worker).
+  nextAttemptAt DateTime? @map("next_attempt_at") @db.Timestamptz(3)
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([status, createdAt])
+  @@index([kunjunganId])
+  @@map("sync_log")
+  @@schema("fhir")
+}
+
+enum SyncStatus {
+  Pending
+  Sending
+  Acked
+  Failed
+  Skipped
+
+  @@schema("fhir")
+}
+
+/// Audit tiap panggilan SatuSehat (5 thn). Mirror bpjs.BpjsAuditLog; PII di-hash (R9/R14).
+model FhirAuditLog {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  startedAt      DateTime @map("started_at") @db.Timestamptz(3)
+  mode           String // mock | sandbox | prod
+  target         String // fhir | kfa | masterdata | oauth | kyc
+  /// Path dengan placeholder (TANPA PII), mis. "Patient?identifier={nik}".
+  endpoint       String
+  method         String
+  resourceType   String?  @map("resource_type")
+  ihsId          String?  @map("ihs_id")
+  requestHash    String?  @map("request_hash")
+  responseStatus String   @map("response_status") // HTTP status / "ERR"
+  success        Boolean
+  durationMs     Int      @map("duration_ms")
+  errorType      String?  @map("error_type")
+  retryCount     Int      @default(0) @map("retry_count")
+  nikHash        String?  @map("nik_hash")
+  actor          String
+  actorRole      String   @map("actor_role")
+  idempotencyKey String?  @map("idempotency_key")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([startedAt])
+  @@index([target, endpoint])
+  @@map("fhir_audit_log")
+  @@schema("fhir")
+}
