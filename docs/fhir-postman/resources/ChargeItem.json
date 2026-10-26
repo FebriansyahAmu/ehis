@@ -1,0 +1,63 @@
+{
+  "resourceType": "ChargeItem",
+  "status": "billable",
+  "code": {
+    "coding": [
+      {
+        "system": "http://terminology.kemkes.go.id/CodeSystem/kptl",
+        "code": "12777.LA018",
+        "display": "Paratiroidektomi, Parsial"
+      }
+    ]
+  },
+  "subject": {
+    "reference": "Patient/{{Patient_id}}"
+  },
+  "context": {
+    "reference": "Encounter/{{Encounter_id}}"
+  },
+  "occurrencePeriod": {
+    "start": "2023-06-05T09:07:58+00:00",
+    "end": "2023-06-05T10:07:58+00:00"
+  },
+  "performer": [
+    {
+      "function": {
+        "coding": [
+          {
+            "system": "http://snomed.info/sct",
+            "code": "39677007",
+            "display": "Internal medicine specialist"
+          }
+        ]
+      },
+      "actor": {
+        "reference": "Practitioner/{{Practitioner_id}}"
+      }
+    }
+  ],
+  "quantity": {
+    "value": 1
+  },
+  "account": [
+    {
+      "reference": "Account/{{Account_id}}"
+    }
+  ],
+  "extension": [
+    {
+      "url": "https: //fhir.kemkes.go.id/r4/StructureDefinition/unitPrice",
+      "valueMoney": {
+        "value": 15000000,
+        "currency": "IDR"
+      }
+    },
+    {
+      "url": "https: //fhir.kemkes.go.id/r4/StructureDefinition/totalPrice",
+      "valueMoney": {
+        "value": 15000000,
+        "currency": "IDR"
+      }
+    }
+  ]
+}

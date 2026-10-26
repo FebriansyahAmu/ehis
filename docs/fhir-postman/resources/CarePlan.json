@@ -1,0 +1,17 @@
+{
+  "resourceType": "CarePlan",
+  "status": "active",
+  "intent": "plan",
+  "description": "Rujuk ke RS Rujukan Tumbuh Kembang level 1",
+  "subject": {
+    "reference": "Patient/100000030004",
+    "display": "Anak Smith"
+  },
+  "encounter": {
+    "reference": "Encounter/{{Encounter_uuid}}"
+  },
+  "created": "2022-07-26",
+  "author": {
+    "reference": "Practitioner/N10000001"
+  }
+}

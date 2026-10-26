@@ -1,0 +1,118 @@
+{
+  "resourceType": "Patient",
+  "meta": {
+    "profile": [
+      "https://fhir.kemkes.go.id/r4/StructureDefinition/Patient"
+    ]
+  },
+  "identifier": [
+    {
+      "use": "official",
+      "system": "https://fhir.kemkes.go.id/id/nik",
+      "value": "3212121007331111"
+    }
+  ],
+  "active": true,
+  "name": [
+    {
+      "use": "official",
+      "text": "DUNSTAN GAGG"
+    }
+  ],
+  "gender": "male",
+  "birthDate": "1933-07-10",
+  "deceasedBoolean": false,
+  "address": [
+    {
+      "use": "home",
+      "line": [
+        "Gd. Prof. Dr. Sujudi Lt.5, Jl. H.R. Rasuna Said Blok X5 Kav. 4-9 Kuningan"
+      ],
+      "city": "Jakarta",
+      "postalCode": "12950",
+      "country": "ID",
+      "extension": [
+        {
+          "url": "https://fhir.kemkes.go.id/r4/StructureDefinition/administrativeCode",
+          "extension": [
+            {
+              "url": "province",
+              "valueCode": "32"
+            },
+            {
+              "url": "city",
+              "valueCode": "3212"
+            },
+            {
+              "url": "district",
+              "valueCode": "321212"
+            },
+            {
+              "url": "village",
+              "valueCode": "3212122013"
+            },
+            {
+              "url": "rw",
+              "valueCode": "4"
+            },
+            {
+              "url": "rt",
+              "valueCode": "50"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "maritalStatus": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/v3-MaritalStatus",
+        "code": "U",
+        "display": "Unmarried"
+      }
+    ],
+    "text": "Unmarried"
+  },
+  "multipleBirthInteger": 0,
+  "contact": [
+    {
+      "relationship": [
+        {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/v2-0131",
+              "code": "C"
+            }
+          ]
+        }
+      ],
+      "name": {
+        "use": "official",
+        "text": "HESTIA BAYBUTT"
+      },
+      "telecom": [
+        {
+          "system": "phone",
+          "value": "0690383372",
+          "use": "mobile"
+        }
+      ]
+    }
+  ],
+  "communication": [
+    {
+      "language": {
+        "coding": [
+          {
+            "system": "urn:ietf:bcp:47",
+            "code": "id-ID",
+            "display": "Indonesian"
+          }
+        ],
+        "text": "Indonesian"
+      },
+      "preferred": true
+    }
+  ]
+}
