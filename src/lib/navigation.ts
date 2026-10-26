@@ -56,6 +56,7 @@ import {
   Truck,
   Boxes,
   Handshake,
+  Waypoints,
   type LucideIcon,
 } from "lucide-react";
 import type { CareUnit } from "@/lib/auth/careUnit";
@@ -97,6 +98,7 @@ export type ModuleKey =
   | "eklaim"
   | "bpjs"
   | "inventory"
+  | "fhir"
   | "report";
 
 export type ModuleDescriptor = {
@@ -240,6 +242,17 @@ export const MODULES: readonly ModuleDescriptor[] = [
     icon: Warehouse,
     accent: { bg: "bg-cyan-50", text: "text-cyan-600", ring: "ring-cyan-100" },
     perms: ["inventory.view"],
+  },
+  {
+    key: "fhir",
+    label: "EHIS SatuSehat",
+    desc: "Integrasi FHIR SatuSehat",
+    href: "/ehis-fhir",
+    icon: Waypoints,
+    accent: { bg: "bg-teal-50", text: "text-teal-600", ring: "ring-teal-100" },
+    // Konsol operator interop (onboarding, antrean, cek NIK). Sinkron otomatis dari aksi
+    // klinis TIDAK butuh izin ini (side-effect server).
+    perms: ["fhir.sync"],
   },
 ] as const;
 
@@ -557,6 +570,22 @@ export const inventoryNav: readonly NavGroup[] = [
   },
 ] as const;
 
+// SatuSehat (FHIR) — konsol operator interop. Gate MODUL & menu = `fhir.sync`.
+export const fhirNav: readonly NavGroup[] = [
+  {
+    label: "Utama",
+    items: [{ label: "Beranda", href: "/ehis-fhir", icon: LayoutGrid }],
+  },
+  {
+    label: "Sinkronisasi",
+    items: [
+      { label: "Onboarding", href: "/ehis-fhir/onboarding", icon: Building2, perm: "fhir.sync" },
+      { label: "Antrean Kirim", href: "/ehis-fhir/antrean", icon: ListChecks, perm: "fhir.sync" },
+      { label: "Pasien & NIK", href: "/ehis-fhir/pasien", icon: UserCheck, perm: "fhir.sync" },
+    ],
+  },
+] as const;
+
 // ── Lookup helpers ────────────────────────────────────────
 
 const NAV_MAP: Record<ModuleKey, readonly NavGroup[]> = {
@@ -569,6 +598,7 @@ const NAV_MAP: Record<ModuleKey, readonly NavGroup[]> = {
   eklaim: eklaimNav,
   bpjs: bpjsNav,
   inventory: inventoryNav,
+  fhir: fhirNav,
   report: reportNav,
 };
 

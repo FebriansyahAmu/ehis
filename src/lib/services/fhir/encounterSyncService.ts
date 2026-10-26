@@ -7,7 +7,7 @@
 //   1) Encounter dipastikan ada (in-progress bila belum pernah terkirim) — entry pertama bundle.
 //   2) Resource klinis (FH4) · rantai obat (FH5) · diagnostik (FH6) · Composition resume (FH7).
 //   3) Encounter final (status target + diagnosis dari Condition).
-// Mode single: `finished` ditahan bila Condition gagal (SatuSehat butuh diagnosis valid).
+// Mode single: `finished` ditahan bila Condition gagal (SatuSehat butuh diagnosis valid, FG-27).
 //
 // Prasyarat referensi (R15): Patient (di-resolve otomatis bila belum), Practitioner DPJP & Location
 // ruangan (WAJIB sudah onboarding FH1 — bila belum, job gagal non-retry; antre ulang manual).

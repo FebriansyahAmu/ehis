@@ -135,7 +135,7 @@ export default function LabParameterEditor({ param, index, total, onPatch, onRem
             </label>
           )}
 
-          <div className="flex min-w-0 basis-full flex-col gap-1 lg:basis-auto lg:flex-[2]">
+          <div className="flex min-w-0 basis-full flex-col gap-1 lg:basis-auto lg:flex-2">
             <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">LOINC hasil (SatuSehat)</span>
             <LoincField
               compact

@@ -16,7 +16,7 @@
 
 | ID | Status | Gap | Cara tutup |
 |---|---|---|---|
-| FG-01 | 🔴 | **(naik prioritas FH3 — menyentuh `kunjunganService.transition`/`cancelKunjungan` + `kunjunganDal` + `encounter.prisma`, jalur klinis inti)** **`tsc --noEmit` + eslint belum dijalankan** untuk file FH0 — sengaja ditunda karena RAM/disk laptop dev terbatas (RAM bebas ~700 MB, C: ~3 GB). Kode di-review manual; Prisma client sudah di-generate & tabel terverifikasi di DB. | Jalankan saat resource longgar: `npx tsc --noEmit` lalu `npx eslint src/lib/fhir src/lib/dal/fhir src/lib/services/fhir src/lib/api/fhir src/lib/schemas/fhir src/app/api/v1/fhir`. |
+| FG-01 | 🟡 **(sebagian ✅ 2026-10-26 — diagnostik TS server editor (VS Code) bersih 0 error untuk ±60 file FHIR/master/lab yang tersentuh, termasuk kunjunganService/resepService/lab-rad result service & semua komponen /ehis-fhir; tinggal `tsc` penuh + eslint sekali jalan)** | **(naik prioritas FH3 — menyentuh `kunjunganService.transition`/`cancelKunjungan` + `kunjunganDal` + `encounter.prisma`, jalur klinis inti)** **`tsc --noEmit` + eslint belum dijalankan** untuk file FH0 — sengaja ditunda karena RAM/disk laptop dev terbatas (RAM bebas ~700 MB, C: ~3 GB). Kode di-review manual; Prisma client sudah di-generate & tabel terverifikasi di DB. | Jalankan saat resource longgar: `npx tsc --noEmit` lalu `npx eslint src/lib/fhir src/lib/dal/fhir src/lib/services/fhir src/lib/api/fhir src/lib/schemas/fhir src/app/api/v1/fhir`. |
 | FG-02 | 🔴 | **Token nyata ke sandbox belum diuji** (DoD FH0) — kredensial DevHub belum ada (G-1). Mode default `mock`. | Isi `SATUSEHAT_CLIENT_ID/SECRET/ORG_ID` di `.env`, set `SATUSEHAT_MODE=sandbox`, panggil `POST /api/v1/fhir/status/probe` **sekali** (gagal → cooldown 60 dtk, rate-limit SatuSehat). |
 | FG-03 | 🟡 | **Outbox worker belum ada** — DAL siap (`syncLogDal.listDue/claim/markAcked/markFailed`), tapi belum ada runner yang mengeksekusi (G-7). | Bangun di FH3 bersama payload Encounter pertama: runner interval (long-running Node) → `listDue` → `claim` → `callSatuSehat` → `markAcked`/`markFailed(retryAt)`; backoff eksponensial, maks percobaan → `Failed`. |
 | FG-04 | 🟡 | **Token cache & circuit breaker in-memory per proses** (`globalThis`). Multi-instance → tiap proses minta token sendiri (risiko kena rate-limit 1/menit). | Pindah ke Redis (seam: isi `token.ts` state + `circuit.ts` map) saat deploy multi-instance. |
@@ -25,7 +25,7 @@
 | FG-07 | ⚪ | **Audit `retryCount` = 0 pada jalur gagal** — `FhirError` tak membawa jumlah percobaan (jalur sukses sudah benar). | Tambah `attempts?` ke `FhirError` bila analisis retry dibutuhkan. |
 | FG-08 | 🟡 | **Retensi audit 5 tahun belum ada kebijakan** (partisi/arsip `fhir.fhir_audit_log`) — sama dengan `bpjs.bpjs_audit_log`. | Kebijakan retensi/partisi bulanan bersama audit BPJS (cross-cutting, TECH_DEBT). |
 | FG-09 | ⚪ | **`fhir.Consent` belum dibuat** (sengaja) — path Consent SatuSehat belum terkonfirmasi (G-3). | Tambah tabel di FH2 setelah path Consent dipastikan dari koleksi Postman resmi. |
-| FG-10 | ⚪ | **Belum ada konsol UI** untuk endpoint status/probe (`/ehis-fhir`). | FH9 — FE konsumsi `getFhirStatus()` / `probeFhirToken()` di [src/lib/api/fhir/status.ts](../src/lib/api/fhir/status.ts). |
+| FG-10 | ✅ **(FH9 2026-10-26 — konsol /ehis-fhir)** | **Belum ada konsol UI** untuk endpoint status/probe (`/ehis-fhir`). | FH9 — FE konsumsi `getFhirStatus()` / `probeFhirToken()` di [src/lib/api/fhir/status.ts](../src/lib/api/fhir/status.ts). |
 
 ## FH1 — Onboarding Organization / Location / Practitioner (2026-10-26)
 
@@ -148,3 +148,14 @@
 | FG-63 | ⚪ | **Composition**: narasi `section.text.div` = XHTML sesuai spesifikasi FHIR (contoh resmi memakai teks polos); kode LOINC section hanya Ringkasan (8648-8) & Diagnosis Keluar (11535-2) — Kondisi Masuk/Pulang tanpa kode. | Verifikasi di sandbox; tambahkan kode section bila diwajibkan. |
 | FG-64 | ⚪ | **Composition dikirim walau resume belum TTE** (`preliminary`), revisi → PUT. | Konfirmasi apakah SatuSehat menerima `preliminary`; bila tidak, kirim hanya setelah TTE. |
 | FG-65 | ⚪ | **Penulisan ulang referensi berbasis teks** — string JSON yang diawali `"Type/urn:uuid:` di teks bebas ikut ditulis ulang (kemungkinan sangat kecil). | Ganti ke penulisan ulang terstruktur (walk field `reference`) bila diperlukan. |
+
+## FH9 — Konsol `/ehis-fhir` (2026-10-26)
+
+**Dibangun:** modul ke-11 **EHIS SatuSehat** (`ModuleKey "fhir"`, accent teal, gate modul & menu `fhir.sync`, ikon Waypoints) — [Beranda](../src/components/fhir/FhirBeranda.tsx) (mode/kredensial terisi-kosong tanpa nilai rahasia · token OAuth2 + tombol **Uji Token** · circuit · antrean per status · peta resource · 20 panggilan audit terakhir) · [Onboarding](../src/components/fhir/FhirOnboarding.tsx) (3 kartu berurutan Organisasi → Ruangan → Nakes, progres terpetakan/lokal, daftar belum terpetakan, jalankan + opsi resolve ulang nakes, tabel hasil run) · [Antrean Kirim](../src/components/fhir/FhirAntrean.tsx) (filter status, jalankan antrean, antre ulang job Gagal/Dilewati, sinkron ulang 1 kunjungan by UUID, detail error OperationOutcome + resource terkirim + catatan) · [Pasien & NIK](../src/components/fhir/FhirPasien.tsx) (cek NIK tanpa simpan, resolve massal 25/50/100 + daftar perlu perhatian). UI kit [fhirShared](../src/components/fhir/fhirShared.tsx). Tombol aksi di-gate `useCan` (server tetap penjaga).
+
+| ID | Status | Gap | Cara tutup |
+|---|---|---|---|
+| FG-66 | ⚪ | **Belum ada browser Resource Map** (daftar lokal ↔ IHS id per jenis + cari) — Beranda hanya menampilkan jumlah per jenis. | Endpoint `GET /fhir/resource-map?localType=&q=` + tabel di konsol. |
+| FG-67 | ⚪ | **Belum ada UI konflik/rekonsiliasi** (FH9 roadmap "Conflict resolution") — mis. identitas lokal ≠ SatuSehat hanya tampil sebagai pesan. | Halaman daftar ketidakcocokan dari hasil resolve pasien + aksi koreksi di registrasi. |
+| FG-68 | ⚪ | **Status tidak live** — konsol dimuat sekali + tombol Muat ulang (tanpa polling/SSE). | Polling ringan (30 dtk) di Beranda/Antrean bila dibutuhkan; SSE saat infrastruktur realtime siap. |
+| FG-69 | ⚪ | **Konsol belum dicoba di browser** (pembatasan resource dev; diverifikasi via diagnostik TS editor saja). | Buka `/ehis-fhir` dengan akun Admin (mode mock): Uji Token → Onboarding 3 langkah → terima/selesaikan 1 kunjungan → Antrean → Jalankan. |

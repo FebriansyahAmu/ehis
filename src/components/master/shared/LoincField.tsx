@@ -2,7 +2,7 @@
 
 // Field kode LOINC (FHIR SatuSehat) — kode + nama display, validasi LOKAL live (format + check digit
 // Mod-10, R12: SatuSehat tak punya terminology server). Dipakai Katalog Lab (tes & parameter) dan
-// Katalog Radiologi. Kosong = sah (item belum dipetakan → tidak dikirim ke SatuSehat).
+// Katalog Radiologi. Kosong = sah (item belum dipetakan → tidak dikirim ke SatuSehat, FG-52).
 
 import { CheckCircle2, AlertTriangle, CircleDashed, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";

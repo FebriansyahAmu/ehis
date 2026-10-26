@@ -6,7 +6,7 @@
 //            adapter ditulis ulang jadi `urn:uuid:<x>` saat kirim. Respons `location` dipetakan balik
 //            ke ResourceMap; hash dihitung dari bentuk ber-id ASLI agar run berikutnya noop.
 //
-// Mode dari SATUSEHAT_SYNC_MODE (default bundle). Antarmuka sama → service FH3–FH6 tak peduli mode.
+// Mode dari SATUSEHAT_SYNC_MODE (default bundle). Antarmuka sama → service FH4–FH6 tak peduli mode.
 
 import "server-only";
 import { randomUUID } from "node:crypto";

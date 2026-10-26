@@ -1,7 +1,7 @@
 /**
  * Adapter `medicalrecord.ResumeMedik` (revisi terbaru) → FHIR `Composition` resume medis (FH7).
  * type LOINC 18842-5 Discharge summary · status final bila sudah TTE, preliminary bila belum.
- * Section = narasi (XHTML ter-escape). Contoh resmi: docs/fhir-postman/resources/Composition.json.
+ * Section = narasi (XHTML ter-escape, FG-63). Contoh resmi: docs/fhir-postman/resources/Composition.json.
  */
 
 import { FHIR_SYSTEM, orgIdentifierSystem, toFhirDateTime, type FhirResourceBase } from "../fhirShared";

@@ -2,7 +2,7 @@
 // ulang lintas resep) → MedicationRequest (per ResepItem) → MedicationDispense (per dispensing × item).
 // Dipanggil dari encounterSyncService fase 2 (setelah Encounter ada). Idempoten per item.
 //
-// - Item tanpa master Obat / tanpa KFA → dilewati + catatan (KFA wajib, R12/G-5).
+// - Item tanpa master Obat / tanpa KFA → dilewati + catatan (KFA wajib, R12/G-5/FG-45).
 // - Order resep soft-deleted yang pernah terkirim → `entered-in-error`.
 
 import "server-only";

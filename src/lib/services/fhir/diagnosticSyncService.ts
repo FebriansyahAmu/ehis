@@ -1,4 +1,4 @@
-// FH6 — Sinkron penunjang 1 kunjungan ke SatuSehat. Dipanggil di fase 2 encounterSyncService.
+// FH6 — Sinkron penunjang (Lab/Rad) 1 kunjungan ke SatuSehat. Dipanggil di fase 2 encounterSyncService.
 //   Lab : ServiceRequest per item tes → (bila hasil TERVALIDASI) Observation per parameter → DiagnosticReport per tes.
 //   Rad : ServiceRequest per item pemeriksaan → (bila ekspertise TERVALIDASI) Observation temuan → DiagnosticReport per order.
 //
