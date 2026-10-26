@@ -13,7 +13,7 @@ import type { Tx } from "@/lib/db/prisma";
 export const ENCOUNTER_TRIGGER = "encounter.sync";
 
 /** Aksi lifecycle kunjungan yang mengubah Encounter SatuSehat. */
-const ENCOUNTER_EVENTS = new Set(["receive", "complete", "reopen", "cancel", "manual", "dispense"]);
+const ENCOUNTER_EVENTS = new Set(["receive", "complete", "reopen", "cancel", "manual", "dispense", "diagnostic"]);
 
 export interface EncounterJob {
   kind: "encounter";

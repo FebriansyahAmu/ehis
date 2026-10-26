@@ -110,3 +110,19 @@
 | FG-48 | ⚪ | **Rute → kode ATC route** dipetakan manual (Oral/PO→O, IV/IM/SC→P, …); rute kosong (4/17) → tanpa `route`. | Pakai `kfa.ruteKode` bila tersedia; verifikasi sistem kode rute yang diterima SatuSehat. |
 | FG-49 | ⚪ | **`timing`/`doseAndRate` terstruktur tidak dikirim** — hanya `dosageInstruction.text` (signa bebas). | Parse signa (mis. "3x1") → `timing.repeat` + `doseQuantity` bila diwajibkan. |
 | FG-50 | ⚪ | **Satu dispensing = semua item order** (model lokal tak mencatat qty diserahkan per item / substitusi telaah). | Bila dispensing parsial/substitusi dicatat per item, gunakan qty & obat pengganti di MedicationDispense. |
+
+## FH6 — Diagnostik: ServiceRequest · Observation hasil · DiagnosticReport (2026-10-26)
+
+**Keputusan desain:** dikirim di fase 2 job `encounter.sync`; hook baru di **validasi Lab** (`labResultService.validate`) + **terbit/validasi Rad** (`radResultService.saveHasil(finalize)`/`validate`) — event `diagnostic`, di tx yang sama. Lab: ServiceRequest per item tes → **hanya hasil TERVALIDASI**: Observation per parameter (peta `<labOrderId>:<rowKey>` stabil lintas revisi → PUT) → DiagnosticReport per tes. Rad: ServiceRequest per item → Observation temuan → DiagnosticReport per order (conclusion = kesan + saran). **Kolom baru LOINC** (`loinc_code`/`loinc_display`) di `master.lab_test`, `master.lab_parameter`, `master.rad_catalog` (migrasi `20261026150000`, nullable).
+
+**Profil data:** LOINC terisi **0/38 tes · 0/88 parameter · 0/24 pemeriksaan rad** → saat ini Lab/Rad **TIDAK terkirim sama sekali** (dicatat sebagai `notes` job). Data uji: 2 order lab (tervalidasi), 1 order rad (tervalidasi), 3/3 item lab ber-katalog.
+
+| ID | Status | Gap | Cara tutup |
+|---|---|---|---|
+| FG-51 | 🔴 | **Diagnostik belum diuji ke sandbox** (kredensial, FG-02). | Setelah FG-52: validasi 1 order lab & 1 rad uji → `POST /fhir/outbox/run`. |
+| FG-52 | 🔴 | **LOINC master Lab/Rad kosong** + **belum ada UI** untuk mengisinya (form Katalog Lab/Radiologi belum punya field LOINC). Sengaja TIDAK di-seed otomatis — LOINC salah lebih berbahaya daripada kosong (bisa diterima dengan makna klinis keliru). | (1) Tambah field LOINC (+display) di form Katalog Lab (tes & parameter) dan Katalog Radiologi + Zod/DAL/DTO. (2) Pemetaan awal oleh petugas lab/rad dengan acuan daftar LOINC SatuSehat (Kamus Pemeriksaan Lab), dicek ulang sebelum dipakai prod. |
+| FG-53 | 🟡 | **Specimen tidak dikirim** — sampel diambil di luar aplikasi (step Pengambilan Sampel dihapus 2026-06-21); `LabTest.spesimen` teks bebas tanpa SNOMED; tak ada waktu ambil/terima. | Bila SatuSehat mewajibkan Specimen untuk use case lab: catat waktu ambil/terima + jenis spesimen ber-SNOMED, lalu Specimen terhubung ke ServiceRequest & DiagnosticReport. |
+| FG-54 | 🟡 | **ImagingStudy tidak dikirim** — butuh DICOM Study/Series/Instance UID dari PACS/DICOM router; belum ada integrasi PACS. | Integrasi DICOM router SatuSehat (umumnya PACS mengirim ImagingStudy, SIMRS cukup ACSN di ServiceRequest) — tambahkan identifier ACSN di ServiceRequest rad saat PACS tersedia. |
+| FG-55 | ⚪ | **Satuan hasil lab belum divalidasi UCUM** — `satuan` lokal dikirim apa adanya sebagai `valueQuantity.code` (mis. "sel/uL" bukan UCUM). | Peta satuan lokal → UCUM di master parameter (bersamaan FG-52). |
+| FG-56 | ⚪ | **DiagnosticReport rad multi-pemeriksaan** memakai LOINC pemeriksaan pertama sebagai `code`. | Pertimbangkan 1 DiagnosticReport per item bila ekspertise per pemeriksaan dipisah. |
+| FG-57 | ⚪ | **Hanya hasil tervalidasi yang dikirim** (status `final`) — hasil preliminary/belum validasi tidak. Item lab non-katalog (`labTestId` null) dilewati. | Sesuai kebutuhan klinis; preliminary bisa ditambah dengan status `preliminary`. |

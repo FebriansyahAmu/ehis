@@ -19,6 +19,7 @@ import { ensurePatientIhs } from "./patientIhsService";
 import { upsertClinicalResource } from "./resourceUpsert";
 import { syncClinical, type SyncRef } from "./clinicalSyncService";
 import { syncMedication } from "./medicationSyncService";
+import { syncDiagnostic } from "./diagnosticSyncService";
 import type { auditActorOf } from "./audit";
 
 export type JobResult =
@@ -119,6 +120,15 @@ export async function syncEncounter(kunjunganId: string, audit: ReturnType<typeo
   refs.push(...med.refs);
   cl.failures.push(...med.failures);
   cl.notes.push(...med.notes);
+
+  // FH6: penunjang Lab/Rad (ServiceRequest → Observation hasil → DiagnosticReport).
+  const diag = await syncDiagnostic(k.id, {
+    env, audit,
+    refs: { orgId, patient: { ihsId: patient.ihsId, nama: k.pasien.nama }, encounter: { ihsId: encounterIhs } },
+  });
+  refs.push(...diag.refs);
+  cl.failures.push(...diag.failures);
+  cl.notes.push(...diag.notes);
 
   if (target === "finished" && !cl.conditionsOk) {
     return summarizeFailures(cl.failures, "Diagnosis (Condition) gagal terkirim — Encounter belum di-finish");

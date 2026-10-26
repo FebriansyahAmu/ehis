@@ -9,6 +9,7 @@ import * as defaultDal from "@/lib/dal/lab/labResultDal";
 import * as labOrderDal from "@/lib/dal/lab/labOrderDal";
 import { assertActorAssignedToLab, resolveValidatorNama } from "@/lib/services/lab/labAssignment";
 import { resolveActorNama } from "@/lib/services/actorName";
+import * as fhirOutbox from "@/lib/services/fhir/outboxEnqueue";
 import { systemClock, type Clock } from "@/lib/core/clock";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
@@ -166,6 +167,8 @@ export function makeLabResultService(deps: { dal?: Dal; clock?: Clock } = {}) {
       if (c === 0) throw Errors.conflict("Hasil sudah divalidasi");
       const n = await labOrderDal.transition(labId, ["Divalidasi"], "Selesai", tx);
       if (n === 0) throw Errors.conflict("Status order berubah — muat ulang halaman");
+      // SatuSehat (FH6/R4): hasil tervalidasi ikut job sinkron kunjungan (outbox).
+      await fhirOutbox.enqueueEncounterSync(order.kunjunganId, "diagnostic", tx);
       const fresh = await dal.findLatestByOrder(labId);
       if (!fresh) throw Errors.internal("Gagal memuat hasil pasca-validasi");
       return fresh;

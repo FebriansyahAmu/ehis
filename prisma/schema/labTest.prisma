@@ -23,6 +23,9 @@ model LabTest {
   metode      String? // metode utama tes
   waktuTunggu String? @map("waktu_tunggu") // TAT, mis. "60 mnt"
   keterangan  String?
+  /// LOINC tes/panel (FHIR SatuSehat ServiceRequest + DiagnosticReport). Null = belum dipetakan → tak dikirim.
+  loincCode    String? @map("loinc_code")
+  loincDisplay String? @map("loinc_display")
 
   active Boolean @default(true) // FE status "Aktif"/"NonAktif" ⇄ active
 
@@ -60,6 +63,9 @@ model LabParameter {
   deltaPercent  Float? @map("delta_percent")
   metode        String? // metode spesifik parameter (opsional)
   urutan        Int     @default(0)
+  /// LOINC parameter hasil (FHIR SatuSehat Observation laboratorium). Null = tak dikirim.
+  loincCode    String? @map("loinc_code")
+  loincDisplay String? @map("loinc_display")
 
   @@index([testId])
   @@map("lab_parameter")

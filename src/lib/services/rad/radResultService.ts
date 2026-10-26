@@ -8,6 +8,7 @@ import { transaction } from "@/lib/db/prisma";
 import * as defaultDal from "@/lib/dal/rad/radResultDal";
 import * as radOrderDal from "@/lib/dal/rad/radOrderDal";
 import { assertActorAssignedToRad } from "@/lib/services/rad/radAssignment";
+import * as fhirOutbox from "@/lib/services/fhir/outboxEnqueue";
 import { systemClock, type Clock } from "@/lib/core/clock";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
@@ -130,6 +131,8 @@ export function makeRadResultService(deps: { dal?: Dal; clock?: Clock } = {}) {
         // Langsung Selesai (Divalidasi dilewati — ekspertise & validasi disatukan).
         const n = await radOrderDal.transition(radId, [...ENTRY_STATES], "Selesai", tx);
         if (n === 0) throw Errors.conflict("Status order berubah — muat ulang halaman");
+        // SatuSehat (FH6/R4): ekspertise terbit (= tervalidasi) ikut job sinkron kunjungan.
+        await fhirOutbox.enqueueEncounterSync(order.kunjunganId, "diagnostic", tx);
       }
       return row;
     });
@@ -161,6 +164,7 @@ export function makeRadResultService(deps: { dal?: Dal; clock?: Clock } = {}) {
       if (c === 0) throw Errors.conflict("Hasil sudah divalidasi");
       const n = await radOrderDal.transition(radId, ["Divalidasi"], "Selesai", tx);
       if (n === 0) throw Errors.conflict("Status order berubah — muat ulang halaman");
+      await fhirOutbox.enqueueEncounterSync(order.kunjunganId, "diagnostic", tx);
       const fresh = await dal.findLatestByOrder(radId);
       if (!fresh) throw Errors.internal("Gagal memuat hasil pasca-validasi");
       return fresh;

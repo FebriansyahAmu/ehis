@@ -1,0 +1,165 @@
+// FH6 — Sinkron penunjang 1 kunjungan ke SatuSehat. Dipanggil di fase 2 encounterSyncService.
+//   Lab : ServiceRequest per item tes → (bila hasil TERVALIDASI) Observation per parameter → DiagnosticReport per tes.
+//   Rad : ServiceRequest per item pemeriksaan → (bila ekspertise TERVALIDASI) Observation temuan → DiagnosticReport per order.
+//
+// - LOINC wajib (master.lab_test/lab_parameter/rad_catalog.loinc_code) — tanpa LOINC → dilewati + catatan.
+// - Peta Observation lab = `<labOrderId>:<rowKey>` (stabil lintas revisi hasil "latest wins" → PUT, bukan duplikat).
+// - Order soft-deleted yang pernah terkirim → entered-in-error (SR & DR).
+
+import "server-only";
+import type { SatuSehatMode } from "@/lib/fhir/fhirShared";
+import {
+  toFhirDiagnosticReport, toFhirLabObservation, toFhirRadObservation, toFhirServiceRequest,
+  type DiagRefs, type Loinc,
+} from "@/lib/fhir/adapters/diagnostic";
+import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
+import * as src from "@/lib/dal/fhir/diagnosticSourceDal";
+import * as clinicalSrc from "@/lib/dal/fhir/clinicalSourceDal";
+import { upsertClinicalResource, type UpsertResult } from "./resourceUpsert";
+import type { ClinicalSyncOutcome, SyncRef } from "./clinicalSyncService";
+import type { FhirRequestAudit } from "./transport";
+
+type Ref = { ihsId: string; nama: string };
+type Outcome = Omit<ClinicalSyncOutcome, "conditionsOk">;
+
+const loincOf = (x: { loincCode: string | null; loincDisplay: string | null; nama: string } | undefined): Loinc | null =>
+  x?.loincCode?.trim() ? { code: x.loincCode.trim(), display: x.loincDisplay?.trim() || x.nama } : null;
+
+export async function syncDiagnostic(
+  kunjunganId: string,
+  ctx: { env: SatuSehatMode; refs: DiagRefs; audit: Pick<FhirRequestAudit, "actor" | "actorRole"> },
+): Promise<Outcome> {
+  const out: Outcome = { refs: [], failures: [], notes: [] };
+  const [lab, rad] = await Promise.all([src.listLab(kunjunganId), src.listRad(kunjunganId)]);
+  if (!lab.length && !rad.length) return out;
+
+  // ── Referensi master & practitioner ──
+  const labTestIds = [...new Set(lab.flatMap((o) => o.items.map((i) => i.labTestId)).filter((x): x is string => !!x))];
+  const paramIds = [...new Set(lab.flatMap((o) => o.results[0]?.values.map((v) => v.labParameterId) ?? []).filter((x): x is string => !!x))];
+  const radIds = [...new Set(rad.flatMap((o) => o.items.map((i) => i.radCatalogId)).filter((x): x is string => !!x))];
+  const validatorUserIds = [...new Set([...lab, ...rad].map((o) => o.results[0]?.validatorUserId).filter((x): x is string => !!x))];
+
+  const [tests, params, radCat, userPeg, diagnosa] = await Promise.all([
+    src.listLabTestLoinc(labTestIds),
+    src.listLabParameterLoinc(paramIds),
+    src.listRadCatalogLoinc(radIds),
+    src.listUserPegawai(validatorUserIds),
+    clinicalSrc.listDiagnosa(kunjunganId),
+  ]);
+  const testById = new Map(tests.map((t) => [t.id, t]));
+  const paramById = new Map(params.map((p) => [p.id, p]));
+  const radById = new Map(radCat.map((c) => [c.id, c]));
+  const pegawaiOfUser = new Map(userPeg.map((u) => [u.id, u.pegawaiId]));
+
+  const pegawaiIds = [...new Set([
+    ...[...lab, ...rad].map((o) => o.authorPegawaiId),
+    ...[...lab, ...rad].map((o) => o.results[0]?.authorPegawaiId),
+    ...userPeg.map((u) => u.pegawaiId),
+  ].filter((x): x is string => !!x))];
+  const [pracMaps, names] = await Promise.all([
+    resourceMapDal.findManyByLocal(ctx.env, "Practitioner", pegawaiIds),
+    clinicalSrc.listPegawaiNama(pegawaiIds),
+  ]);
+  const nameOf = new Map(names.map((p) => [p.id, [p.gelarDepan, p.namaLengkap, p.gelarBelakang].filter(Boolean).join(" ")]));
+  const prac = new Map<string, Ref>(pracMaps.map((m) => [m.localId, { ihsId: m.ihsId, nama: nameOf.get(m.localId) ?? "" }]));
+  const pracOf = (pegawaiId: string | null | undefined) => (pegawaiId ? prac.get(pegawaiId) : undefined);
+  const validatorOf = (userId: string | null | undefined) => pracOf(userId ? pegawaiOfUser.get(userId) : undefined);
+
+  const utama = diagnosa.find((d) => !d.deletedAt && d.tipe === "Utama" && d.kodeIcd10.trim());
+  const reason = utama ? { kode: utama.kodeIcd10.trim().toUpperCase(), nama: utama.namaDiagnosis } : undefined;
+
+  const record = (resourceType: string, localId: string, r: UpsertResult | null): string | undefined => {
+    if (!r) return undefined;
+    if (r.ok) {
+      out.refs.push({ resourceType, localId, ihsId: r.ihsId, op: r.op } satisfies SyncRef);
+      return r.ihsId;
+    }
+    out.failures.push({ resourceType, localId, message: r.error.message, retryable: r.error.retryable });
+    return undefined;
+  };
+  const send = (localType: string, localId: string, resource: Parameters<typeof upsertClinicalResource>[0]["resource"], deleted: boolean) =>
+    upsertClinicalResource({ env: ctx.env, localType, localId, resource, audit: ctx.audit, allowCreate: !deleted });
+
+  // ── Lab ──
+  for (const o of lab) {
+    const deleted = !!o.deletedAt;
+    const order = { id: o.id, prioritas: o.prioritas, status: o.status, catatan: o.catatan, createdAt: o.createdAt, deleted };
+    const result = o.results[0];
+    const validated = !!result?.validatedAt && !deleted;
+
+    for (const it of o.items) {
+      const loinc = loincOf(it.labTestId ? testById.get(it.labTestId) : undefined);
+      if (!loinc) {
+        if (!deleted) out.notes.push(`Tes lab "${it.namaTes}" belum ber-LOINC — dilewati`);
+        continue;
+      }
+      const srIhs = record("ServiceRequest", it.id, await send("ServiceRequest", it.id,
+        toFhirServiceRequest("lab", order, { id: it.id, nama: it.namaTes }, loinc, ctx.refs, { requester: pracOf(o.authorPegawaiId), reason }), deleted));
+      if (!srIhs || !validated || !result) continue;
+
+      const issued = result.validatedAt!;
+      const performer = pracOf(result.authorPegawaiId);
+      const obsIhs: string[] = [];
+      let tanpaLoinc = 0;
+      for (const v of result.values.filter((x) => x.labTestId === it.labTestId && x.nilai?.trim())) {
+        const p = v.labParameterId ? paramById.get(v.labParameterId) : undefined;
+        const pl = loincOf(p);
+        if (!pl) {
+          tanpaLoinc++;
+          continue;
+        }
+        const localId = `${o.id}:${v.rowKey}`;
+        const ihs = record("Observation", localId, await send("Observation", localId, toFhirLabObservation(
+          { nilai: v.nilai!.trim(), satuan: v.satuan, rujukanStr: v.rujukanStr, flag: v.flag, numerik: p?.tipeHasil !== "Kualitatif" },
+          pl, ctx.refs, { serviceRequestIhsId: srIhs, issued, performer },
+        ), false));
+        if (ihs) obsIhs.push(ihs);
+      }
+      if (tanpaLoinc) out.notes.push(`${tanpaLoinc} parameter "${it.namaTes}" belum ber-LOINC — hasilnya dilewati`);
+
+      record("DiagnosticReport", it.id, await send("DiagnosticReport", it.id, toFhirDiagnosticReport("lab", it.id, loinc, ctx.refs, {
+        deleted: false, issued, observationIhsIds: obsIhs, serviceRequestIhsIds: [srIhs],
+        performer: validatorOf(result.validatorUserId) ?? performer, conclusion: result.catatanValidator,
+      }), false));
+    }
+  }
+
+  // ── Rad ──
+  for (const o of rad) {
+    const deleted = !!o.deletedAt;
+    const order = { id: o.id, prioritas: o.prioritas, status: o.status, catatan: o.catatan, createdAt: o.createdAt, deleted };
+    const srIhsIds: string[] = [];
+    let reportLoinc: Loinc | null = null;
+
+    for (const it of o.items) {
+      const loinc = loincOf(it.radCatalogId ? radById.get(it.radCatalogId) : undefined);
+      if (!loinc) {
+        if (!deleted) out.notes.push(`Pemeriksaan radiologi "${it.nama}" belum ber-LOINC — dilewati`);
+        continue;
+      }
+      reportLoinc ??= loinc;
+      const srIhs = record("ServiceRequest", it.id, await send("ServiceRequest", it.id,
+        toFhirServiceRequest("rad", order, { id: it.id, nama: it.nama }, loinc, ctx.refs, { requester: pracOf(o.authorPegawaiId), reason }), deleted));
+      if (srIhs) srIhsIds.push(srIhs);
+    }
+
+    const result = o.results[0];
+    if (deleted || !result?.validatedAt || !reportLoinc || !srIhsIds.length) continue;
+    const issued = result.validatedAt;
+    const performer = validatorOf(result.validatorUserId) ?? pracOf(result.authorPegawaiId);
+
+    const obsIhs: string[] = [];
+    if (result.temuan?.trim()) {
+      const localId = `${o.id}:temuan`;
+      const ihs = record("Observation", localId, await send("Observation", localId,
+        toFhirRadObservation(result.temuan.trim(), reportLoinc, ctx.refs, { serviceRequestIhsIds: srIhsIds, issued, performer }), false));
+      if (ihs) obsIhs.push(ihs);
+    }
+    const conclusion = [result.kesan?.trim(), result.saran?.trim() ? `Saran: ${result.saran.trim()}` : ""].filter(Boolean).join("\n");
+    record("DiagnosticReport", o.id, await send("DiagnosticReport", o.id, toFhirDiagnosticReport("rad", o.id, reportLoinc, ctx.refs, {
+      deleted: false, issued, observationIhsIds: obsIhs, serviceRequestIhsIds: srIhsIds, performer, conclusion: conclusion || null,
+    }), false));
+  }
+
+  return out;
+}
