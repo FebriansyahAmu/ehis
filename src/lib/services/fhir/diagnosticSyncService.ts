@@ -22,6 +22,21 @@ import type { FhirRequestAudit } from "./transport";
 type Ref = { ihsId: string; nama: string };
 type Outcome = Omit<ClinicalSyncOutcome, "conditionsOk">;
 
+/**
+ * Entry Hasil Lab menyimpan `labTestId`/`labParameterId` NULL (FHIR-GAP FG-58) — id tersedia di
+ * `rowKey` = "<labTestId>:<labParameterId>". Turunkan dari situ bila kolom kosong.
+ */
+function withIds<V extends { labTestId: string | null; labParameterId: string | null; rowKey: string }>(v: V): V {
+  if (v.labTestId && v.labParameterId) return v;
+  const [rkTest, rkParam] = v.rowKey.split(":");
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return {
+    ...v,
+    labTestId: v.labTestId ?? (uuid.test(rkTest ?? "") ? rkTest : null),
+    labParameterId: v.labParameterId ?? (uuid.test(rkParam ?? "") ? rkParam : null),
+  };
+}
+
 const loincOf = (x: { loincCode: string | null; loincDisplay: string | null; nama: string } | undefined): Loinc | null =>
   x?.loincCode?.trim() ? { code: x.loincCode.trim(), display: x.loincDisplay?.trim() || x.nama } : null;
 
@@ -35,19 +50,22 @@ export async function syncDiagnostic(
 
   // ── Referensi master & practitioner ──
   const labTestIds = [...new Set(lab.flatMap((o) => o.items.map((i) => i.labTestId)).filter((x): x is string => !!x))];
-  const paramIds = [...new Set(lab.flatMap((o) => o.results[0]?.values.map((v) => v.labParameterId) ?? []).filter((x): x is string => !!x))];
   const radIds = [...new Set(rad.flatMap((o) => o.items.map((i) => i.radCatalogId)).filter((x): x is string => !!x))];
   const validatorUserIds = [...new Set([...lab, ...rad].map((o) => o.results[0]?.validatorUserId).filter((x): x is string => !!x))];
 
   const [tests, params, radCat, userPeg, diagnosa] = await Promise.all([
     src.listLabTestLoinc(labTestIds),
-    src.listLabParameterLoinc(paramIds),
+    src.listLabParametersByTest(labTestIds),
     src.listRadCatalogLoinc(radIds),
     src.listUserPegawai(validatorUserIds),
     clinicalSrc.listDiagnosa(kunjunganId),
   ]);
   const testById = new Map(tests.map((t) => [t.id, t]));
   const paramById = new Map(params.map((p) => [p.id, p]));
+  const paramByName = new Map(params.map((p) => [`${p.testId}|${p.nama.trim().toLowerCase()}`, p]));
+  const paramOf = (v: { labParameterId: string | null; labTestId: string | null; nama: string }) =>
+    (v.labParameterId ? paramById.get(v.labParameterId) : undefined)
+    ?? (v.labTestId ? paramByName.get(`${v.labTestId}|${v.nama.trim().toLowerCase()}`) : undefined);
   const radById = new Map(radCat.map((c) => [c.id, c]));
   const pegawaiOfUser = new Map(userPeg.map((u) => [u.id, u.pegawaiId]));
 
@@ -101,8 +119,8 @@ export async function syncDiagnostic(
       const performer = pracOf(result.authorPegawaiId);
       const obsIhs: string[] = [];
       let tanpaLoinc = 0;
-      for (const v of result.values.filter((x) => x.labTestId === it.labTestId && x.nilai?.trim())) {
-        const p = v.labParameterId ? paramById.get(v.labParameterId) : undefined;
+      for (const v of result.values.map(withIds).filter((x) => x.labTestId === it.labTestId && x.nilai?.trim())) {
+        const p = paramOf(v);
         const pl = loincOf(p);
         if (!pl) {
           tanpaLoinc++;

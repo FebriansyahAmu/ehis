@@ -11,6 +11,7 @@ import {
   type LabParameterRow, type LabRujukanRow, emptyLabRujukan,
 } from "@/lib/master/labTestCatalog";
 import SatuanCombobox from "./SatuanCombobox";
+import { LoincField } from "@/components/master/shared";
 
 const cellInput =
   "w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-800 " +
@@ -133,6 +134,16 @@ export default function LabParameterEditor({ param, index, total, onPatch, onRem
               />
             </label>
           )}
+
+          <div className="flex min-w-0 basis-full flex-col gap-1 lg:basis-auto lg:flex-[2]">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">LOINC hasil (SatuSehat)</span>
+            <LoincField
+              compact
+              value={{ loincCode: param.loincCode, loincDisplay: param.loincDisplay }}
+              onChange={(v) => onPatch(v)}
+              displayPlaceholder="Nama LOINC parameter…"
+            />
+          </div>
 
           <label className="flex min-w-0 flex-1 flex-col gap-1">
             <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Metode (opsional)</span>

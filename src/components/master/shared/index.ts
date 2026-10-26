@@ -54,5 +54,8 @@ export type { MasterAccent, AccentClasses } from "./masterAccent";
 export { default as MappingSourceBadge } from "./MappingSourceBadge";
 
 // ── Dialogs ─────────────────────────────────────────────
+export { default as LoincField, isLoincInputOk } from "./LoincField";
+export type { LoincValue } from "./LoincField";
+
 export { default as DiscardDialog } from "./DiscardDialog";
 export type { DiscardDialogProps } from "./DiscardDialog";

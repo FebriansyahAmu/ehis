@@ -5,6 +5,20 @@
 // Update mengganti parameters secara REPLACE-ALL (anak Tes, bukan entitas mandiri).
 
 import { z } from "zod";
+import { LOINC_PATTERN, isValidLoinc } from "@/lib/fhir/terminology";
+
+// ── LOINC (FHIR SatuSehat) — null/"" = kosongkan ─────────
+// Bersama Katalog Radiologi. Format + check digit divalidasi lokal (R12, tanpa terminology server).
+export const LoincCodeInput = z
+  .string()
+  .trim()
+  .transform((v) => (v === "" ? null : v))
+  .pipe(
+    z.string().regex(LOINC_PATTERN, "Format LOINC: angka-checkdigit (mis. 718-7)")
+      .refine(isValidLoinc, "Check digit LOINC tidak valid").nullable(),
+  )
+  .nullish();
+export const LoincDisplayInput = z.string().trim().max(200).transform((v) => (v === "" ? null : v)).nullish();
 
 // ── Vocab terkontrol ──────────────────────────────────────
 export const LabKategoriEnum = z.enum([
@@ -47,6 +61,8 @@ export const ParameterInput = z.object({
   deltaPercent: z.number().nullish(),
   metode: optStr,
   urutan: z.number().int().min(0).optional(),
+  loincCode: LoincCodeInput,
+  loincDisplay: LoincDisplayInput,
 });
 export type ParameterInput = z.infer<typeof ParameterInput>;
 
@@ -60,6 +76,8 @@ export const CreateLabTestInput = z.object({
   waktuTunggu: optStr,
   keterangan: optStr,
   status: LabStatusEnum.optional(), // default Aktif di Service
+  loincCode: LoincCodeInput,
+  loincDisplay: LoincDisplayInput,
   parameters: z.array(ParameterInput).optional(),
 });
 export type CreateLabTestInput = z.infer<typeof CreateLabTestInput>;
@@ -74,6 +92,9 @@ export const UpdateLabTestInput = z.object({
   waktuTunggu: optStr,
   keterangan: optStr,
   status: LabStatusEnum.optional(),
+  /** null/"" = kosongkan; undefined = tak diubah. */
+  loincCode: LoincCodeInput,
+  loincDisplay: LoincDisplayInput,
   parameters: z.array(ParameterInput).optional(), // bila ada → ganti seluruh parameter
 });
 export type UpdateLabTestInput = z.infer<typeof UpdateLabTestInput>;
@@ -114,6 +135,8 @@ export interface LabParameterDTO {
   deltaPercent?: number | null;
   metode?: string;
   urutan: number;
+  loincCode: string | null;
+  loincDisplay: string | null;
 }
 
 export interface LabTestDTO {
@@ -126,5 +149,7 @@ export interface LabTestDTO {
   waktuTunggu?: string;
   keterangan?: string;
   status: LabStatusDTO;
+  loincCode: string | null;
+  loincDisplay: string | null;
   parameters: LabParameterDTO[];
 }

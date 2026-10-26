@@ -9,6 +9,7 @@ import {
   Radiation, Scan, Activity, Sparkles, Zap, RadioTower, Bone, Atom,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { checkLoinc } from "@/lib/fhir/terminology";
 import type {
   RadCatalogRecord, RadModalitas, RadRegion, RadJenisKontras, RadStatus,
 } from "@/lib/master/radCatalogMock";
@@ -141,6 +142,9 @@ export function getRadStatusCfg(status: RadStatus) {
 
 export function isRadCatalogValid(item: RadCatalogRecord, isNew = false): boolean {
   // Kode auto-gen server → tak wajib di klien. Cukup nama + estimasi valid.
+  // LOINC opsional; bila diisi wajib valid (format + check digit).
+  const loinc = checkLoinc(item.loincCode);
+  if (loinc !== "empty" && loinc !== "valid") return false;
   if (isNew) return !!item.nama.trim();
   return !!(item.nama.trim() && item.estimasiWaktuMenit > 0);
 }

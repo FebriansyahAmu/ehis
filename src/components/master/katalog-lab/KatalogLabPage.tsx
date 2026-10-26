@@ -33,6 +33,8 @@ function dtoToRecord(d: LabTestDTO): LabTestRecord {
     waktuTunggu: d.waktuTunggu ?? "",
     keterangan: d.keterangan ?? "",
     status: d.status,
+    loincCode: d.loincCode ?? "",
+    loincDisplay: d.loincDisplay ?? "",
     parameters: d.parameters.map((p): LabParameterRow => ({
       id: p.id,
       nama: p.nama,
@@ -54,6 +56,8 @@ function dtoToRecord(d: LabTestDTO): LabTestRecord {
       deltaPercent: p.deltaPercent ?? undefined,
       metode: p.metode,
       urutan: p.urutan,
+      loincCode: p.loincCode ?? "",
+      loincDisplay: p.loincDisplay ?? "",
     })),
   };
 }
@@ -69,6 +73,9 @@ function draftToInput(d: LabTestRecord) {
     waktuTunggu: d.waktuTunggu || undefined,
     keterangan: d.keterangan || undefined,
     status: d.status,
+    // null = kosongkan (field LOINC boleh dihapus kembali).
+    loincCode: d.loincCode?.trim() || null,
+    loincDisplay: d.loincDisplay?.trim() || null,
     parameters: d.parameters.map((p, i) => ({
       nama: p.nama,
       satuan: p.satuan,
@@ -88,6 +95,8 @@ function draftToInput(d: LabTestRecord) {
       deltaPercent: p.deltaPercent ?? null,
       metode: p.metode,
       urutan: p.urutan ?? i,
+      loincCode: p.loincCode?.trim() || null,
+      loincDisplay: p.loincDisplay?.trim() || null,
     })),
   };
 }

@@ -53,6 +53,8 @@ function paramToDTO(p: ParamEntity): LabParameterDTO {
     deltaPercent: p.deltaPercent ?? null,
     metode: p.metode ?? undefined,
     urutan: p.urutan,
+    loincCode: p.loincCode,
+    loincDisplay: p.loincDisplay,
   };
 }
 
@@ -67,6 +69,8 @@ function toDTO(e: LabTestEntity): LabTestDTO {
     waktuTunggu: e.waktuTunggu ?? undefined,
     keterangan: e.keterangan ?? undefined,
     status: e.active ? "Aktif" : "NonAktif",
+    loincCode: e.loincCode,
+    loincDisplay: e.loincDisplay,
     parameters: [...e.parameters].sort((a, b) => a.urutan - b.urutan).map(paramToDTO),
   };
 }
@@ -96,6 +100,9 @@ function paramInputToData(p: ParameterInput, idx: number): ParameterData {
     deltaPercent: kualitatif ? null : (p.deltaPercent ?? null),
     metode: p.metode ?? null,
     urutan: p.urutan ?? idx,
+    // LOINC: display tanpa kode tak bermakna → ikut dikosongkan.
+    loincCode: p.loincCode ?? null,
+    loincDisplay: p.loincCode ? (p.loincDisplay ?? null) : null,
   };
 }
 
@@ -138,6 +145,8 @@ export function makeLabTestService(deps: { dal?: Dal } = {}) {
       waktuTunggu: input.waktuTunggu ?? null,
       keterangan: input.keterangan ?? null,
       active: input.status ? input.status === "Aktif" : true,
+      loincCode: input.loincCode ?? null,
+      loincDisplay: input.loincCode ? (input.loincDisplay ?? null) : null,
       parameters: (input.parameters ?? []).map(paramInputToData),
     };
     const row = await dal.create(data);
@@ -158,6 +167,10 @@ export function makeLabTestService(deps: { dal?: Dal } = {}) {
     if (input.waktuTunggu !== undefined) patch.waktuTunggu = input.waktuTunggu;
     if (input.keterangan !== undefined) patch.keterangan = input.keterangan;
     if (input.status !== undefined) patch.active = input.status === "Aktif";
+    if (input.loincCode !== undefined) {
+      patch.loincCode = input.loincCode;
+      patch.loincDisplay = input.loincCode ? (input.loincDisplay ?? null) : null;
+    } else if (input.loincDisplay !== undefined) patch.loincDisplay = input.loincDisplay;
     if (input.parameters !== undefined) patch.parameters = input.parameters.map(paramInputToData);
 
     const row = await dal.update(id, patch);

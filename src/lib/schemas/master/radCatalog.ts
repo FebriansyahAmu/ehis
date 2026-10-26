@@ -4,6 +4,7 @@
 // modalitas = method FHIR (XR/CT/MR/RF/US/MG/DXA/NM); blok terstruktur = JSONB.
 
 import { z } from "zod";
+import { LoincCodeInput, LoincDisplayInput } from "./labTest";
 
 // ── Vocab terkontrol (FE-facing, identik union RadCatalogRecord) ──────────────
 export const RadModalitasEnum = z.enum(["XR", "CT", "MR", "RF", "US", "MG", "DXA", "NM"]);
@@ -85,6 +86,8 @@ export const CreateRadCatalogInput = z.object({
   drlReferensi: DrlSchema.nullish(),
   reportingTemplate: ReportingTemplateSchema.optional(),
   deskripsi: optStr,
+  loincCode: LoincCodeInput,
+  loincDisplay: LoincDisplayInput,
   status: RadStatusEnum.optional(), // default Aktif di Service
 });
 export type CreateRadCatalogInput = z.infer<typeof CreateRadCatalogInput>;
@@ -104,6 +107,9 @@ export const UpdateRadCatalogInput = z.object({
   drlReferensi: DrlSchema.nullish(),
   reportingTemplate: ReportingTemplateSchema.optional(),
   deskripsi: optStr,
+  /** null/"" = kosongkan; undefined = tak diubah. */
+  loincCode: LoincCodeInput,
+  loincDisplay: LoincDisplayInput,
   status: RadStatusEnum.optional(),
 });
 export type UpdateRadCatalogInput = z.infer<typeof UpdateRadCatalogInput>;
@@ -167,5 +173,7 @@ export interface RadCatalogDTO {
   drlReferensi?: DrlDTO;
   reportingTemplate: ReportingTemplateDTO;
   deskripsi?: string;
+  loincCode: string | null;
+  loincDisplay: string | null;
   status: RadStatusDTO;
 }

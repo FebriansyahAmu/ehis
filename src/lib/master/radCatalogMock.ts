@@ -112,6 +112,8 @@ export interface RadCatalogRecord {
   drlReferensi?: DRLReferensi;
   reportingTemplate: ReportingTemplate;
   deskripsi?: string;
+  loincCode?: string;      // LOINC pemeriksaan (FHIR SatuSehat ServiceRequest/DiagnosticReport); kosong = tak dikirim
+  loincDisplay?: string;
   status: RadStatus;
 }
 

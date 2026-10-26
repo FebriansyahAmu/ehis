@@ -27,6 +27,8 @@ export interface ParameterData {
   deltaPercent?: number | null;
   metode?: string | null;
   urutan?: number;
+  loincCode?: string | null;
+  loincDisplay?: string | null;
 }
 
 export interface CreateLabTestData {
@@ -38,6 +40,8 @@ export interface CreateLabTestData {
   waktuTunggu?: string | null;
   keterangan?: string | null;
   active?: boolean;
+  loincCode?: string | null;
+  loincDisplay?: string | null;
   parameters: ParameterData[];
 }
 
@@ -50,6 +54,8 @@ export interface UpdateLabTestData {
   waktuTunggu?: string | null;
   keterangan?: string | null;
   active?: boolean;
+  loincCode?: string | null;
+  loincDisplay?: string | null;
   /** Bila ada → ganti SELURUH parameter (replace-all). */
   parameters?: ParameterData[];
 }
@@ -73,6 +79,8 @@ function toParamCreate(p: ParameterData) {
     deltaPercent: p.deltaPercent ?? null,
     metode: p.metode ?? null,
     urutan: p.urutan ?? 0,
+    loincCode: p.loincCode ?? null,
+    loincDisplay: p.loincDisplay ?? null,
   };
 }
 

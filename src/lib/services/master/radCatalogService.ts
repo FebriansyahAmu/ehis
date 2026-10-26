@@ -86,6 +86,8 @@ function toDTO(e: RadCatalogEntity): RadCatalogDTO {
     drlReferensi: toDrl(e.drlReferensi),
     reportingTemplate: toReporting(e.reportingTemplate),
     deskripsi: e.deskripsi ?? undefined,
+    loincCode: e.loincCode,
+    loincDisplay: e.loincDisplay,
     status: e.status as RadStatusDTO,
   };
 }
@@ -143,6 +145,8 @@ export function makeRadCatalogService(deps: { dal?: Dal } = {}) {
         drlReferensi: input.drlReferensi ?? null,
         reportingTemplate: input.reportingTemplate ?? EMPTY_REPORTING,
         deskripsi: input.deskripsi ?? null,
+        loincCode: input.loincCode ?? null,
+        loincDisplay: input.loincCode ? (input.loincDisplay ?? null) : null,
         status: input.status ?? "Aktif",
       };
       return dal.create(data, tx);
@@ -169,6 +173,10 @@ export function makeRadCatalogService(deps: { dal?: Dal } = {}) {
     if (input.drlReferensi !== undefined) patch.drlReferensi = input.drlReferensi ?? null;
     if (input.reportingTemplate !== undefined) patch.reportingTemplate = input.reportingTemplate;
     if (input.deskripsi !== undefined) patch.deskripsi = input.deskripsi ?? null;
+    if (input.loincCode !== undefined) {
+      patch.loincCode = input.loincCode;
+      patch.loincDisplay = input.loincCode ? (input.loincDisplay ?? null) : null;
+    } else if (input.loincDisplay !== undefined) patch.loincDisplay = input.loincDisplay;
     setDefined(patch, "status", input.status);
 
     const row = await dal.update(id, patch);

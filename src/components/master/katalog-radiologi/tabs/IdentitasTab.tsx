@@ -11,7 +11,7 @@ import {
   REGION_LABEL, REGION_ORDER,
 } from "../katalogRadiologiShared";
 import {
-  Field, TextInput, NumberInput, TextArea, Select, SectionGroup, ChipToggle,
+  Field, TextInput, NumberInput, TextArea, Select, SectionGroup, ChipToggle, LoincField,
 } from "@/components/master/shared";
 import { listIcd, type IcdDTO } from "@/lib/api/master/icd";
 
@@ -74,6 +74,14 @@ export default function IdentitasTab({ draft, onPatch }: Props) {
             <IcdPicker
               value={draft.kodeIcd ?? ""}
               onChange={(v) => onPatch({ kodeIcd: v || undefined })}
+            />
+          </Field>
+          <Field label="Kode LOINC (SatuSehat)" hint="Untuk order & laporan radiologi ke SatuSehat — kosong = tidak dikirim">
+            <LoincField
+              accent="rose"
+              value={{ loincCode: draft.loincCode, loincDisplay: draft.loincDisplay }}
+              onChange={(v) => onPatch(v)}
+              displayPlaceholder="Nama LOINC (mis. XR Chest PA)"
             />
           </Field>
           <Field label="Deskripsi Singkat" hint="Tampil di card hover, max 200 karakter">

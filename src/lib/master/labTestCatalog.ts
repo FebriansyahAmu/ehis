@@ -110,6 +110,8 @@ export interface LabParameterRow {
   deltaPercent?: number;
   metode?: string;             // metode spesifik parameter (opsional, override metode tes)
   urutan: number;
+  loincCode?: string;          // LOINC hasil (FHIR SatuSehat Observation); kosong = tak dikirim
+  loincDisplay?: string;
 }
 
 /** Tes laboratorium (orderable) — memuat 1..N parameter. */
@@ -123,6 +125,8 @@ export interface LabTestRecord {
   waktuTunggu?: string;        // TAT, mis. "60 mnt"
   keterangan?: string;
   status: LabTestStatus;
+  loincCode?: string;          // LOINC tes/panel (FHIR SatuSehat ServiceRequest/DiagnosticReport)
+  loincDisplay?: string;
   parameters: LabParameterRow[];
 }
 

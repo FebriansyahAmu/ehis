@@ -47,11 +47,16 @@ export function listLabTestLoinc(ids: string[], tx?: Tx) {
   return db(tx).labTest.findMany({ where: { id: { in: ids } }, select: { id: true, nama: true, loincCode: true, loincDisplay: true } });
 }
 
-export function listLabParameterLoinc(ids: string[], tx?: Tx) {
-  if (!ids.length) return Promise.resolve([]);
+/**
+ * Parameter katalog SAAT INI per tes. Catatan: update Katalog Lab = replace-all parameter (id baru),
+ * jadi `LabResultValue.labParameterId` hasil lama bisa menunjuk id yang sudah terhapus → Service
+ * mencocokkan fallback by (testId, nama parameter).
+ */
+export function listLabParametersByTest(testIds: string[], tx?: Tx) {
+  if (!testIds.length) return Promise.resolve([]);
   return db(tx).labParameter.findMany({
-    where: { id: { in: ids } },
-    select: { id: true, nama: true, tipeHasil: true, loincCode: true, loincDisplay: true },
+    where: { testId: { in: testIds } },
+    select: { id: true, testId: true, nama: true, tipeHasil: true, loincCode: true, loincDisplay: true },
   });
 }
 

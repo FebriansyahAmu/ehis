@@ -39,6 +39,8 @@ function dtoToItem(d: RadCatalogDTO): RadCatalogRecord {
     drlReferensi: d.drlReferensi,
     reportingTemplate: d.reportingTemplate,
     deskripsi: d.deskripsi,
+    loincCode: d.loincCode ?? "",
+    loincDisplay: d.loincDisplay ?? "",
     status: d.status as RadStatus,
   };
 }
@@ -59,6 +61,9 @@ function draftToInput(d: RadCatalogRecord) {
     drlReferensi: d.drlReferensi ?? null,
     reportingTemplate: d.reportingTemplate,
     deskripsi: d.deskripsi || undefined,
+    // null = kosongkan (field LOINC boleh dihapus kembali).
+    loincCode: d.loincCode?.trim() || null,
+    loincDisplay: d.loincDisplay?.trim() || null,
     status: d.status,
   };
 }

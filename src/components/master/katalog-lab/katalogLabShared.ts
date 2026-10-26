@@ -7,6 +7,7 @@ import { FlaskConical, Beaker } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { LabTestRecord, LabKategori } from "@/lib/master/labTestCatalog";
 import { LAB_KATEGORI_ORDER, testHasCritical } from "@/lib/master/labTestCatalog";
+import { checkLoinc } from "@/lib/fhir/terminology";
 
 export { LAB_KATEGORI_ORDER, testHasCritical };
 
@@ -55,6 +56,7 @@ export const KATEGORI_CFG: Record<LabKategori, { short: string; bg: string; text
 // ── Validation ────────────────────────────────────────────
 export function isLabTestValid(test: LabTestRecord, isNew = false): boolean {
   if (!test.nama.trim()) return false;
+  if (!loincOk(test.loincCode) || test.parameters.some((p) => !loincOk(p.loincCode))) return false;
   if (isNew) return true;
   // Edit: minimal 1 parameter & semua parameter punya nama.
   return test.parameters.length > 0 && test.parameters.every((p) => p.nama.trim().length > 0);
@@ -64,7 +66,16 @@ export function labTestInvalidReason(test: LabTestRecord): string | null {
   if (!test.nama.trim()) return "Nama tes wajib diisi.";
   if (test.parameters.length === 0) return "Tambahkan minimal satu parameter.";
   if (test.parameters.some((p) => !p.nama.trim())) return "Setiap parameter wajib punya nama.";
+  if (!loincOk(test.loincCode)) return "Kode LOINC tes tidak valid (format / check digit).";
+  const bad = test.parameters.find((p) => !loincOk(p.loincCode));
+  if (bad) return `Kode LOINC parameter "${bad.nama || "tanpa nama"}" tidak valid.`;
   return null;
+}
+
+/** LOINC kosong = sah (belum dipetakan); terisi wajib format + check digit valid. */
+function loincOk(code: string | undefined): boolean {
+  const s = checkLoinc(code);
+  return s === "empty" || s === "valid";
 }
 
 // ── Helpers ───────────────────────────────────────────────

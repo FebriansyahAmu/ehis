@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import type { LabTestRecord } from "@/lib/master/labTestCatalog";
 import { LAB_KATEGORI_ORDER } from "../katalogLabShared";
+import { LoincField } from "@/components/master/shared";
 
 const inputCls =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 " +
@@ -111,6 +112,19 @@ export default function LabIdentitasTab({ draft, onPatch }: Props) {
           className={cn(inputCls, "resize-none")}
         />
       </Field>
+
+      {/* LOINC tes/panel — FHIR SatuSehat (ServiceRequest + DiagnosticReport) */}
+      <div className="flex flex-col gap-1.5">
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Kode LOINC Tes (SatuSehat)</span>
+        <LoincField
+          value={{ loincCode: draft.loincCode, loincDisplay: draft.loincDisplay }}
+          onChange={(v) => onPatch(v)}
+          displayPlaceholder="Nama LOINC panel/tes (mis. CBC panel - Blood by Automated count)"
+        />
+        <span className="text-[11px] text-slate-400">
+          Dipakai untuk order & laporan hasil ke SatuSehat. LOINC per parameter diisi di tab Parameter.
+        </span>
+      </div>
 
       {/* Status */}
       <div>

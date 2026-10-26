@@ -28,6 +28,8 @@ export interface RadCatalogData {
   drlReferensi?: Json | null;
   reportingTemplate: Json;
   deskripsi?: string | null;
+  loincCode?: string | null;
+  loincDisplay?: string | null;
   status: string;
 }
 
