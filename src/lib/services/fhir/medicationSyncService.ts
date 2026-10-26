@@ -14,9 +14,9 @@ import {
 import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
 import * as src from "@/lib/dal/fhir/medicationSourceDal";
 import * as clinicalSrc from "@/lib/dal/fhir/clinicalSourceDal";
-import { upsertClinicalResource, type UpsertResult } from "./resourceUpsert";
+import type { UpsertResult } from "./resourceUpsert";
+import type { ResourceSink } from "./resourceSink";
 import type { ClinicalSyncOutcome, SyncRef } from "./clinicalSyncService";
-import type { FhirRequestAudit } from "./transport";
 
 type Ref = { ihsId: string; nama: string };
 
@@ -28,7 +28,7 @@ export async function syncMedication(
     unit: MedicationRefs["unit"];
     patient: Ref;
     encounterIhsId: string;
-    audit: Pick<FhirRequestAudit, "actor" | "actorRole">;
+    sink: ResourceSink;
   },
 ): Promise<Omit<ClinicalSyncOutcome, "conditionsOk">> {
   const out: Omit<ClinicalSyncOutcome, "conditionsOk"> = { refs: [], failures: [], notes: [] };
@@ -83,7 +83,7 @@ export async function syncMedication(
     if (o && kfa && product) {
       const res = toFhirMedication({ id: o.id, namaGenerik: o.namaGenerik, namaDagang: o.namaDagang, status: o.status, kfa }, ctx.orgId);
       const ihs = res
-        ? record("Medication", o.id, await upsertClinicalResource({ env: ctx.env, localType: "Medication", localId: o.id, resource: res, audit: ctx.audit }))
+        ? record("Medication", o.id, await ctx.sink.submit({ localType: "Medication", localId: o.id, resource: res }))
         : undefined;
       if (ihs) ref = { ihsId: ihs, nama: product.display || o.namaGenerik };
     }
@@ -106,16 +106,16 @@ export async function syncMedication(
         orgId: ctx.orgId, unit: ctx.unit, patient: ctx.patient, encounter: { ihsId: ctx.encounterIhsId }, medication,
       };
 
-      const mrIhs = record("MedicationRequest", it.id, await upsertClinicalResource({
-        env: ctx.env, localType: "MedicationRequest", localId: it.id, audit: ctx.audit, allowCreate: !deleted,
+      const mrIhs = record("MedicationRequest", it.id, await ctx.sink.submit({
+        localType: "MedicationRequest", localId: it.id, allowCreate: !deleted,
         resource: toFhirMedicationRequest(local, item, refs, { requester: pracOf(r.authorPegawaiId), reason }),
       }));
       if (!mrIhs) continue; // dispense butuh MedicationRequest
 
       for (const d of r.dispensings) {
         const localId = `${d.id}:${it.id}`;
-        record("MedicationDispense", localId, await upsertClinicalResource({
-          env: ctx.env, localType: "MedicationDispense", localId, audit: ctx.audit, allowCreate: !deleted,
+        record("MedicationDispense", localId, await ctx.sink.submit({
+          localType: "MedicationDispense", localId, allowCreate: !deleted,
           resource: toFhirMedicationDispense(local, item, d, { ...refs, request: { ihsId: mrIhs } }, {
             performer: pracOf(d.authorPegawaiId),
             location: depoOf(r.depoKode),

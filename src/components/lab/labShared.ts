@@ -50,6 +50,9 @@ export interface LabOrderItem {
 export interface HasilItem {
   /** Kunci unik baris (param-level bila dari katalog). Fallback ke `kode`. */
   rowKey?:       string;
+  /** Relasi katalog (master.LabTest / LabParameter) — disimpan di lab_result_value (FHIR LOINC). */
+  labTestId?:      string;
+  labParameterId?: string;
   kode:          string;
   nama:          string;
   kategori:      KategoriLab;
@@ -300,6 +303,8 @@ export function buildHasilFromCatalog(order: LabOrder, tests: LabTestDTO[]): Has
         const r = pickRujukan(p.rujukan, order.gender, order.usia);
         rows.push({
           rowKey:       `${test.id}:${p.id}`,
+          labTestId:      test.id,
+          labParameterId: p.id,
           kode:         test.kode || item.kode,
           nama:         p.nama,
           kategori:     item.kategori,
@@ -332,6 +337,8 @@ export const hasilKey = (h: HasilItem): string => h.rowKey ?? h.kode;
 export function dtoValueToHasil(v: LabResultDTO["values"][number]): HasilItem {
   return {
     rowKey:       v.rowKey,
+    labTestId:      v.labTestId ?? undefined,
+    labParameterId: v.labParameterId ?? undefined,
     kode:         v.kodeTes,
     nama:         v.nama,
     kategori:     (v.kategori in KATEGORI_CFG ? v.kategori : "Kimia Klinik") as KategoriLab,

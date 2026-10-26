@@ -3,7 +3,7 @@
 // AllergyIntolerance (ber-SNOMED). Dipanggil dari encounterSyncService SETELAH Encounter ada
 // (semua resource mereferensikan Encounter/{id}).
 //
-// - Per item idempoten (upsertClinicalResource: noop bila hash sama).
+// - Per item idempoten via ResourceSink (noop bila hash sama; bundle/single — FH7).
 // - Data terhapus (soft-delete) yang sudah pernah terkirim → PUT `entered-in-error`; yang belum → abaikan.
 // - Gagal per item dikumpulkan, item lain tetap jalan. `conditionsOk=false` → Encounter TIDAK
 //   di-finish (SatuSehat butuh diagnosis valid).
@@ -15,8 +15,8 @@ import {
 } from "@/lib/fhir/adapters/clinical";
 import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
 import * as src from "@/lib/dal/fhir/clinicalSourceDal";
-import { upsertClinicalResource, type UpsertResult } from "./resourceUpsert";
-import type { FhirRequestAudit } from "./transport";
+import type { UpsertResult } from "./resourceUpsert";
+import type { ResourceSink, SubmitArgs } from "./resourceSink";
 
 // `type` (bukan interface) agar assignable ke Prisma InputJsonValue (ihs_refs JSONB).
 export type SyncRef = {
@@ -37,7 +37,7 @@ type Ref = { ihsId: string; nama: string };
 
 export async function syncClinical(
   kunjunganId: string,
-  ctx: { env: SatuSehatMode; refs: ClinicalRefs; audit: Pick<FhirRequestAudit, "actor" | "actorRole"> },
+  ctx: { env: SatuSehatMode; refs: ClinicalRefs; sink: ResourceSink },
 ): Promise<ClinicalSyncOutcome> {
   const out: ClinicalSyncOutcome = { refs: [], failures: [], notes: [], conditionsOk: true };
   const [diagnosa, prosedur, tindakan, ttv, alergi] = await Promise.all([
@@ -65,8 +65,8 @@ export async function syncClinical(
     if (r.ok) out.refs.push({ resourceType, localId, ihsId: r.ihsId, op: r.op });
     else out.failures.push({ resourceType, localId, message: r.error.message, retryable: r.error.retryable });
   };
-  const send = (localType: string, localId: string, resource: Parameters<typeof upsertClinicalResource>[0]["resource"], deleted = false) =>
-    upsertClinicalResource({ env: ctx.env, localType, localId, resource, audit: ctx.audit, allowCreate: !deleted });
+  const send = (localType: string, localId: string, resource: SubmitArgs["resource"], deleted = false) =>
+    ctx.sink.submit({ localType, localId, resource, allowCreate: !deleted });
 
   // ── Condition ──
   for (const d of diagnosa) {

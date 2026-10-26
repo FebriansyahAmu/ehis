@@ -362,6 +362,8 @@ export default function HasilPane({ order, onStatusChange }: Props) {
           criticalNotifs,
           values: finalHasil.map((h) => ({
             rowKey: hasilKey(h),
+            labTestId: h.labTestId,
+            labParameterId: h.labParameterId,
             kodeTes: h.kode,
             nama: h.nama,
             kategori: h.kategori,

@@ -39,6 +39,8 @@ const EnvSchema = z.object({
   SATUSEHAT_ORG_ID: blankToUndef(z.string().trim().min(1).optional()),
   SATUSEHAT_BASE_URL: blankToUndef(z.string().url().optional()),
   SATUSEHAT_REQUEST_TIMEOUT_MS: blankToUndef(z.coerce.number().int().positive().default(20_000)),
+  /** FH7: bundle = 1 Bundle transaction per kunjungan (default) · single = POST/PUT per resource. */
+  SATUSEHAT_SYNC_MODE: blankToUndef(z.enum(["bundle", "single"]).default("bundle")),
 });
 
 export interface SatuSehatConfig {
@@ -49,6 +51,8 @@ export interface SatuSehatConfig {
   /** Host tanpa trailing slash; kosong saat mock. */
   host: string;
   requestTimeoutMs: number;
+  /** FH7 — cara kirim job kunjungan: 1 Bundle transaction (default) atau per resource. */
+  syncMode: "bundle" | "single";
 }
 
 let cached: SatuSehatConfig | null = null;
@@ -73,6 +77,7 @@ export function getSatuSehatConfig(): SatuSehatConfig {
       orgId: e.SATUSEHAT_ORG_ID ?? "mock-org",
       host: "",
       requestTimeoutMs: e.SATUSEHAT_REQUEST_TIMEOUT_MS,
+      syncMode: e.SATUSEHAT_SYNC_MODE,
     };
     return cached;
   }
@@ -92,6 +97,7 @@ export function getSatuSehatConfig(): SatuSehatConfig {
     orgId: e.SATUSEHAT_ORG_ID!,
     host: (e.SATUSEHAT_BASE_URL ?? DEFAULT_HOST[mode]).replace(/\/+$/, ""),
     requestTimeoutMs: e.SATUSEHAT_REQUEST_TIMEOUT_MS,
+    syncMode: e.SATUSEHAT_SYNC_MODE,
   };
   return cached;
 }

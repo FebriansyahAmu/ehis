@@ -19,6 +19,17 @@ import type {
 import type { LabResultEntity } from "@/lib/dal/lab/labResultDal";
 
 type Dal = typeof defaultDal;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** rowKey baris katalog = "<labTestId>:<labParameterId>"; baris non-katalog = id item → null. */
+function idsFromRowKey(rowKey: string): { labTestId: string | null; labParameterId: string | null } {
+  const [t, p] = rowKey.split(":");
+  return {
+    labTestId: t && UUID_RE.test(t) && p ? t : null,
+    labParameterId: p && UUID_RE.test(p) ? p : null,
+  };
+}
 type ValueEntity = LabResultEntity["values"][number];
 
 // Status order yang boleh entry hasil → transisi ke Divalidasi.
@@ -111,8 +122,10 @@ export function makeLabResultService(deps: { dal?: Dal; clock?: Clock } = {}) {
           criticalNotifs: input.criticalNotifs ?? null,
           values: input.values.map((v, i) => ({
             rowKey: v.rowKey,
-            labTestId: v.labTestId ?? null,
-            labParameterId: v.labParameterId ?? null,
+            // Server-otoritatif: bila klien tak mengirim relasi katalog, turunkan dari rowKey
+            // "<labTestId>:<labParameterId>" (dipakai FHIR LOINC & trend).
+            labTestId: v.labTestId ?? idsFromRowKey(v.rowKey).labTestId,
+            labParameterId: v.labParameterId ?? idsFromRowKey(v.rowKey).labParameterId,
             kodeTes: v.kodeTes,
             nama: v.nama,
             kategori: v.kategori,

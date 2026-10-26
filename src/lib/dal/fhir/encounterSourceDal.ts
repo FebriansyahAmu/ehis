@@ -38,6 +38,18 @@ export function listDiagnosaFinal(kunjunganId: string, tx?: Tx) {
   });
 }
 
+/** Resume medis revisi TERBARU (append-only latest-wins) — sumber Composition (FH7). */
+export function getLatestResume(kunjunganId: string, tx?: Tx) {
+  return db(tx).resumeMedik.findFirst({
+    where: { kunjunganId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true, ringkasanKlinis: true, kondisiMasuk: true, kondisiPulang: true,
+      authorPegawaiId: true, tteSignedAt: true, createdAt: true,
+    },
+  });
+}
+
 export function getRuangan(locationId: string, tx?: Tx) {
   return db(tx).location.findFirst({ where: { id: locationId }, select: { nama: true, locationType: true } });
 }

@@ -10,6 +10,7 @@ import "server-only";
  * - GET pencarian lain (`Type?…`) → Bundle searchset kosong (belum terdaftar → service POST).
  * - GET `Type/{id}` → resource minimal ber-id.
  * - POST `Type` → 201 + resource ber-id `mock-…`.  PUT `Type/{id}` → 200 resource apa adanya.
+ * - POST root (Bundle transaction) → transaction-response dengan `location` per entry (FH7).
  */
 
 import { createHash, randomUUID } from "node:crypto";
@@ -33,6 +34,27 @@ export async function mockSatuSehat<T>(opts: FhirCallOptions): Promise<Result<Fh
   const [type, id] = pathPart.replace(/^\/+/, "").split("/");
   const ok = (status: number, body: unknown) => Ok({ status, body: body as T, retries: 0 });
 
+  // POST ke root = Bundle transaction → transaction-response (urutan entry dipertahankan).
+  if (!type && method === "POST") {
+    const b = (opts.body ?? {}) as Bundle;
+    if (b.resourceType !== "Bundle" || b.type !== "transaction") {
+      return Err({ type: "HttpError", status: 400, message: "Mock: POST root wajib Bundle transaction", retryable: false });
+    }
+    return ok(200, {
+      resourceType: "Bundle",
+      type: "transaction-response",
+      entry: (b.entry ?? []).map((e) => {
+        const [rt, existingId] = (e.request?.url ?? "").split("/");
+        const id = e.request?.method === "PUT" && existingId ? existingId : `mock-${randomUUID()}`;
+        return {
+          response: {
+            status: e.request?.method === "PUT" ? "200 OK" : "201 Created",
+            location: `${rt}/${id}/_history/${e.request?.method === "PUT" ? 2 : 1}`,
+          },
+        };
+      }),
+    } satisfies Bundle);
+  }
   if (!type) return Err({ type: "HttpError", status: 400, message: "Mock: path kosong", retryable: false });
 
   if (method === "GET") {

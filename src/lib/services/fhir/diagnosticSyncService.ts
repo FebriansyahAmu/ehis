@@ -15,16 +15,16 @@ import {
 import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
 import * as src from "@/lib/dal/fhir/diagnosticSourceDal";
 import * as clinicalSrc from "@/lib/dal/fhir/clinicalSourceDal";
-import { upsertClinicalResource, type UpsertResult } from "./resourceUpsert";
+import type { UpsertResult } from "./resourceUpsert";
+import type { ResourceSink, SubmitArgs } from "./resourceSink";
 import type { ClinicalSyncOutcome, SyncRef } from "./clinicalSyncService";
-import type { FhirRequestAudit } from "./transport";
 
 type Ref = { ihsId: string; nama: string };
 type Outcome = Omit<ClinicalSyncOutcome, "conditionsOk">;
 
 /**
- * Entry Hasil Lab menyimpan `labTestId`/`labParameterId` NULL (FHIR-GAP FG-58) — id tersedia di
- * `rowKey` = "<labTestId>:<labParameterId>". Turunkan dari situ bila kolom kosong.
+ * Pengaman: hasil Lab lama sempat tersimpan dengan `labTestId`/`labParameterId` NULL (FHIR-GAP FG-58,
+ * sudah diperbaiki + backfill) — id tersedia di `rowKey` = "<labTestId>:<labParameterId>".
  */
 function withIds<V extends { labTestId: string | null; labParameterId: string | null; rowKey: string }>(v: V): V {
   if (v.labTestId && v.labParameterId) return v;
@@ -42,7 +42,7 @@ const loincOf = (x: { loincCode: string | null; loincDisplay: string | null; nam
 
 export async function syncDiagnostic(
   kunjunganId: string,
-  ctx: { env: SatuSehatMode; refs: DiagRefs; audit: Pick<FhirRequestAudit, "actor" | "actorRole"> },
+  ctx: { env: SatuSehatMode; refs: DiagRefs; sink: ResourceSink },
 ): Promise<Outcome> {
   const out: Outcome = { refs: [], failures: [], notes: [] };
   const [lab, rad] = await Promise.all([src.listLab(kunjunganId), src.listRad(kunjunganId)]);
@@ -95,8 +95,8 @@ export async function syncDiagnostic(
     out.failures.push({ resourceType, localId, message: r.error.message, retryable: r.error.retryable });
     return undefined;
   };
-  const send = (localType: string, localId: string, resource: Parameters<typeof upsertClinicalResource>[0]["resource"], deleted: boolean) =>
-    upsertClinicalResource({ env: ctx.env, localType, localId, resource, audit: ctx.audit, allowCreate: !deleted });
+  const send = (localType: string, localId: string, resource: SubmitArgs["resource"], deleted: boolean) =>
+    ctx.sink.submit({ localType, localId, resource, allowCreate: !deleted });
 
   // ── Lab ──
   for (const o of lab) {
