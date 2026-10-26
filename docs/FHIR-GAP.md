@@ -94,3 +94,19 @@
 | FG-41 | ⚪ | **Kode LOINC tanda vital belum diverifikasi** ke use case SatuSehat (SpO₂ `59408-5` vs `2708-6`, GCS total `9269-2`, nyeri `72514-3`). | Cocokkan dengan bundle resmi IGD/RI di `docs/fhir-postman/bundles/`. |
 | FG-42 | ⚪ | **Belum dipetakan:** manifestasi reaksi alergi (SNOMED), onset Condition, kategori Komplikasi/Komorbid (problem-list), Encounter.diagnosis hanya Utama+Sekunder Pasti. | Sesuai kebutuhan klaim/use case berikutnya. |
 | FG-43 | 🟡 | **Data klinis hanya terkirim saat transisi kunjungan** (receive/complete/reopen) — isian di antara keduanya baru terkirim saat selesai; dokumen yang diubah SETELAH selesai (allowWhenLocked) tidak tersinkron ulang. | Enqueue juga dari aksi simpan klinis (coalesce sudah ada), atau tombol "Sinkron ulang" (`POST /fhir/encounter/:id/sync`). |
+
+## FH5 — Rantai Obat: Medication · MedicationRequest · MedicationDispense (2026-10-26)
+
+**Keputusan desain:** dikirim di fase 2 job `encounter.sync` (setelah resource klinis). **Medication = 1 per master Obat** (identifier `medication/{orgId}` = id Obat, kode KFA POA → fallback POV), dipakai ulang lintas resep — bukan 1 per resep seperti contoh bundle resmi (hemat panggilan; hash berubah bila master/KFA berubah → PUT). MedicationRequest per `ResepItem`, MedicationDispense per `ResepDispensing × item` (`authorizingPrescription` → MedicationRequest). Hook baru: **dispensing Farmasi** (`resepService.dispensing`) ikut enqueue job kunjungan (event `dispense`, di tx yang sama).
+
+**Profil data uji:** 17 item resep → 17 terhubung master Obat · **14 ber-KFA** (3 akan dilewati) · rute `Oral` 13 / kosong 4 · 6 dispensing.
+
+| ID | Status | Gap | Cara tutup |
+|---|---|---|---|
+| FG-44 | 🔴 | **Rantai obat belum diuji ke sandbox** (kredensial, FG-02). Validasi KFA SatuSehat (kode POA salah/kedaluwarsa) baru terlihat di sana. | Setelah FG-02: dispensing 1 resep uji → `POST /fhir/outbox/run` → cek Medication/MedicationRequest/MedicationDispense di `ihs_refs`. |
+| FG-45 | 🟡 | **Obat tanpa KFA tak terkirim** — 3/17 item uji; KFA seed sebagian dari `kfaMock` (kode POA 9 digit belum tentu valid di KFA nyata). | FH8: sinkron KFA v2/v3 nyata → lengkapi `master.Obat.kfa`; validasi lokal sebelum kirim. |
+| FG-46 | 🟡 | **Racikan (compound) belum didukung** — semua Medication dikirim `NC` (Non-compound). | Bila ada resep racikan: Medication `SD`/compound dengan ingredient per bahan. |
+| FG-47 | ⚪ | **Strength `denominator` tanpa satuan bentuk** (contoh resmi: `code: TAB` v3-orderableDrugForm); `quantity` MedicationRequest/Dispense tanpa unit/code. | Map `bentuk`/`dosisPerSatuan` lokal → v3-orderableDrugForm (TAB/CAP/VIAL…). |
+| FG-48 | ⚪ | **Rute → kode ATC route** dipetakan manual (Oral/PO→O, IV/IM/SC→P, …); rute kosong (4/17) → tanpa `route`. | Pakai `kfa.ruteKode` bila tersedia; verifikasi sistem kode rute yang diterima SatuSehat. |
+| FG-49 | ⚪ | **`timing`/`doseAndRate` terstruktur tidak dikirim** — hanya `dosageInstruction.text` (signa bebas). | Parse signa (mis. "3x1") → `timing.repeat` + `doseQuantity` bila diwajibkan. |
+| FG-50 | ⚪ | **Satu dispensing = semua item order** (model lokal tak mencatat qty diserahkan per item / substitusi telaah). | Bila dispensing parsial/substitusi dicatat per item, gunakan qty & obat pengganti di MedicationDispense. |

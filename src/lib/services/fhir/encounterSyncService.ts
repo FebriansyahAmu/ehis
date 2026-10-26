@@ -18,6 +18,7 @@ import * as src from "@/lib/dal/fhir/encounterSourceDal";
 import { ensurePatientIhs } from "./patientIhsService";
 import { upsertClinicalResource } from "./resourceUpsert";
 import { syncClinical, type SyncRef } from "./clinicalSyncService";
+import { syncMedication } from "./medicationSyncService";
 import type { auditActorOf } from "./audit";
 
 export type JobResult =
@@ -108,6 +109,16 @@ export async function syncEncounter(kunjunganId: string, audit: ReturnType<typeo
     },
   });
   refs.push(...cl.refs);
+
+  // FH5: rantai obat (Medication → MedicationRequest → MedicationDispense).
+  const med = await syncMedication(k.id, {
+    env, orgId, unit: k.unit, audit,
+    patient: { ihsId: patient.ihsId, nama: k.pasien.nama },
+    encounterIhsId: encounterIhs,
+  });
+  refs.push(...med.refs);
+  cl.failures.push(...med.failures);
+  cl.notes.push(...med.notes);
 
   if (target === "finished" && !cl.conditionsOk) {
     return summarizeFailures(cl.failures, "Diagnosis (Condition) gagal terkirim — Encounter belum di-finish");

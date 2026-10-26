@@ -9,6 +9,7 @@ import * as defaultDal from "@/lib/dal/resep/resepDal";
 import * as kunjunganDal from "@/lib/dal/kunjunganDal";
 import { resolveActorNama } from "@/lib/services/actorName";
 import { dispenseService } from "@/lib/services/inventory/dispenseService";
+import * as fhirOutbox from "@/lib/services/fhir/outboxEnqueue";
 import { systemClock, type Clock } from "@/lib/core/clock";
 import { transaction } from "@/lib/db/prisma";
 import { Errors } from "@/lib/errors/appError";
@@ -280,6 +281,8 @@ export function makeResepService(deps: { dal?: Dal; clock?: Clock } = {}) {
         authorUserId: actor.userId,
         authorPegawaiId: actor.pegawaiId,
       }, tx);
+      // SatuSehat (FH5/R4): MedicationRequest+Dispense ikut job sinkron kunjungan (outbox).
+      await fhirOutbox.enqueueEncounterSync(order.kunjunganId, "dispense", tx);
     });
     // Pengeluaran stok (OUT) dari depo atas obat yang diserahkan — best-effort, NON-BLOCKING (dispensing
     // sudah commit; stok kurang/tak ada tak menggagalkannya). Obat di-resolve by kode, lokasi by depoKode.
