@@ -50,7 +50,7 @@ export async function processDue(limit = 10): Promise<OutboxTickResult> {
       }
 
       if (r.kind === "acked") {
-        await syncLogDal.markAcked(job.id, r.refs);
+        await syncLogDal.markAcked(job.id, { refs: r.refs, notes: r.notes ?? [] });
         out.acked++;
       } else if (r.kind === "skipped") {
         await syncLogDal.markSkipped(job.id, { reason: r.reason });

@@ -76,3 +76,21 @@
 | FG-32 | ⚪ | **Crash di antara POST sukses & simpan ResourceMap** → retry membuat Encounter ganda (belum ada resolve by identifier untuk Encounter). | Cek dukungan `Encounter?identifier=<system>|<noKunjungan>` di sandbox → tambahkan resolve-first sebelum POST. |
 | FG-33 | ⚪ | **Kunjungan lama** (`dilayani_at` NULL) → arrived & in-progress berimpit di `waktu_kunjungan`. | Terima apa adanya (data historis). |
 | FG-34 | ⚪ | **IGD → Rawat Inap = 2 Encounter terpisah** (EMER & IMP) tanpa tautan (`basedOn` ServiceRequest pra-ranap seperti contoh resmi RI). | FH6/FH7 (ServiceRequest SPRI). |
+
+## FH4 — Clinical Core: Condition · Procedure · Observation · AllergyIntolerance (2026-10-26)
+
+**Keputusan desain:** dikirim di DALAM job `encounter.sync` (bukan job terpisah) dengan urutan wajib **Encounter ada → resource klinis → Encounter final** (resource klinis mereferensikan Encounter; Encounter `finished` butuh Condition). Primitif tunggal [resourceUpsert](../src/lib/services/fhir/resourceUpsert.ts) (noop bila hash sama · PUT · POST). Data soft-deleted yang sudah terkirim → `entered-in-error`. TindakanMedis yang kodenya sama dengan DiagnosaProsedur tidak dikirim ganda. Condition gagal → Encounter TIDAK di-finish.
+
+**Profil data uji (2026-10-26):** Diagnosa 11/11 format ICD-10 valid · Alergi **4/4 tanpa SNOMED** · TindakanMedis **4/4 tanpa kode ICD-9**.
+
+| ID | Status | Gap | Cara tutup |
+|---|---|---|---|
+| FG-35 | 🔴 | **Resource klinis belum diuji ke sandbox** (kredensial, FG-02). Validasi terminologi SatuSehat (kode ICD/LOINC/SNOMED salah → OperationOutcome) baru terlihat di sana. | Setelah FG-02/FG-25: selesaikan 1 kunjungan uji lengkap (diagnosa + TTV) → `POST /fhir/outbox/run` → cek `ihs_refs` job. |
+| FG-36 | 🟡 | **AllergyIntolerance tanpa SNOMED dilewati** — data uji 4/4 tanpa `snomedCode` → praktis tak ada alergi terkirim. | Pastikan AllergyPane mengisi `snomedCode` (quick-pick katalog asesmen ber-SNOMED); validasi lokal R12 (G-4). |
+| FG-37 | 🟡 | **TindakanMedis tanpa kode ICD-9-CM tak jadi Procedure** — data uji 4/4 tanpa kode; hanya DiagnosaProsedur (koding ICD-9) yang pasti terkirim. | Lengkapi kode ICD-9 di master Katalog Tindakan (kolom sudah ada, opsional) untuk tindakan yang wajib dilaporkan. |
+| FG-38 | ⚪ | **Procedure tanpa `category` & `bodySite`** (SNOMED) — contoh resmi memakai keduanya. | Tambah mapping kategori tindakan → SNOMED (diagnostic/therapeutic) bila diwajibkan validasi sandbox. |
+| FG-39 | ⚪ | **Display ICD-10 = nama diagnosis lokal** (bisa Bahasa Indonesia), bukan display resmi WHO (Inggris). | Ambil display dari master ICD bila tersedia; cek apakah SatuSehat memvalidasi display. |
+| FG-40 | 🟡 | **Volume TTV**: 1 baris TTV = hingga 10 Observation (1 POST masing-masing). Rawat inap multi-shift → ratusan panggilan per kunjungan. | FH7: kirim sebagai Bundle transaction. |
+| FG-41 | ⚪ | **Kode LOINC tanda vital belum diverifikasi** ke use case SatuSehat (SpO₂ `59408-5` vs `2708-6`, GCS total `9269-2`, nyeri `72514-3`). | Cocokkan dengan bundle resmi IGD/RI di `docs/fhir-postman/bundles/`. |
+| FG-42 | ⚪ | **Belum dipetakan:** manifestasi reaksi alergi (SNOMED), onset Condition, kategori Komplikasi/Komorbid (problem-list), Encounter.diagnosis hanya Utama+Sekunder Pasti. | Sesuai kebutuhan klaim/use case berikutnya. |
+| FG-43 | 🟡 | **Data klinis hanya terkirim saat transisi kunjungan** (receive/complete/reopen) — isian di antara keduanya baru terkirim saat selesai; dokumen yang diubah SETELAH selesai (allowWhenLocked) tidak tersinkron ulang. | Enqueue juga dari aksi simpan klinis (coalesce sudah ada), atau tombol "Sinkron ulang" (`POST /fhir/encounter/:id/sync`). |

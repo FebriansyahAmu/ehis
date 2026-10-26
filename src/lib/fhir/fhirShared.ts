@@ -32,7 +32,7 @@ export const FHIR_SYSTEM = {
 } as const;
 
 /** Identifier system lokal milik RS: `http://sys-ids.kemkes.go.id/<jenis>/<orgId>`. */
-export function orgIdentifierSystem(jenis: "encounter" | "location" | "organization" | "servicerequest" | "specimen" | "observation" | "diagnostic" | "prescription" | "medication" | "acsn", orgId: string): string {
+export function orgIdentifierSystem(jenis: "encounter" | "location" | "organization" | "servicerequest" | "specimen" | "observation" | "diagnostic" | "prescription" | "medication" | "acsn" | "allergy", orgId: string): string {
   return `http://sys-ids.kemkes.go.id/${jenis}/${orgId}`;
 }
 
