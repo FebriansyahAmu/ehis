@@ -22,12 +22,15 @@ model ResourceMap {
   versionId    String?  @map("version_id")
   /// sha256 payload terkirim (deteksi perubahan → PUT).
   hash         String?
+  /// Kunjungan pemilik (resource klinis per kunjungan). NULL = master (Org/Location/Practitioner/Patient).
+  kunjunganId  String?  @map("kunjungan_id") @db.Uuid
   lastSyncAt   DateTime @map("last_sync_at") @db.Timestamptz(3)
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@unique([env, localType, localId])
   @@index([env, resourceType, ihsId])
+  @@index([env, kunjunganId])
   @@map("resource_map")
   @@schema("fhir")
 }

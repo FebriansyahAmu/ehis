@@ -189,6 +189,8 @@ connector; Route & FE tak berubah.
 
 **FH9 terbangun (2026-10-26):** modul **EHIS SatuSehat** (`/ehis-fhir`, ModuleKey `fhir`, gate `fhir.sync`, accent teal) — Beranda (status/token/circuit/antrean/peta/audit + Uji Token) · Onboarding (3 langkah + hasil run) · Antrean Kirim (filter, jalankan, antre ulang, sinkron 1 kunjungan, detail error) · Pasien & NIK (cek NIK, resolve massal). Gap FG-66..FG-69 (FG-10 tertutup).
 
+**FH9b terbangun (2026-10-26):** grup menu **Data Terkirim** — **Kunjungan** (daftar + cari IHS Encounter id → detail: kartu semua resource per kunjungan berstatus Terkirim/Berubah/Belum + payload JSON + prasyarat + data dilewati + riwayat job + Kirim sekarang) · **Resource** (kartu per resourceType → daftar → drawer payload). Payload = pratinjau `PreviewSink` (builder sama dgn job, tanpa kirim/tulis). Kolom `resource_map.kunjungan_id`. Config terima `SATUSEHAT_BASE_URL` format DevHub + `SATUSEHAT_AUTH_URL`. Gap FG-70..FG-75 (FG-66 tertutup).
+
 **Urutan**: FH0 → FH1 → FH2 → FH3 → (FH4–FH6 paralel per domain) → FH7 → FH8 → FH9. Estimasi ±4–6 minggu.
 
 ---

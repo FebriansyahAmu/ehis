@@ -25,6 +25,7 @@ import type { Actor } from "@/lib/auth/actor";
 import type {
   OnboardingJenis, OnboardingItemResult, OnboardingOutcome, OnboardingRunDTO, OnboardingSummaryDTO,
 } from "@/lib/schemas/fhir/onboarding";
+import type { PayloadStatus } from "@/lib/schemas/fhir/resources";
 
 /** Profesi non-nakes — tidak punya Practitioner di SatuSehat. */
 const NON_NAKES = new Set(["Administrator", "Non-Tenaga Kesehatan"]);
@@ -290,6 +291,48 @@ function save(ctx: Ctx, a: UpsertArgs, ihsId: string, hash: string | null, versi
 
 function versionOf(body: unknown): string | null {
   return (body as FhirResourceBase | null)?.meta?.versionId ?? null;
+}
+
+// ── Pratinjau payload 1 item (konsol Resource, tanpa panggilan) ──
+
+export async function previewMaster(
+  localType: "Organization" | "Location",
+  localId: string,
+): Promise<{ resource: FhirResourceBase | null; status: PayloadStatus | null; note: string | null }> {
+  const cfg = getSatuSehatConfig();
+  const [orgs, orgMaps, existing] = await Promise.all([
+    sourceDal.listOrganizations(),
+    resourceMapDal.listByType(cfg.mode, "Organization"),
+    resourceMapDal.findByLocal(cfg.mode, localType, localId),
+  ]);
+  const orgById = new Map(orgs.map((o) => [o.id, o]));
+  const orgIhs = new Map(orgMaps.map((m) => [m.localId, m.ihsId]));
+  const pending = "(belum-terpetakan)";
+
+  let resource: FhirResourceBase;
+  if (localType === "Organization") {
+    const o = orgById.get(localId);
+    if (!o) return { resource: null, status: null, note: "Data unit lokal tidak ditemukan / sudah dihapus" };
+    if (o.isRoot) return { resource: null, status: null, note: "Root RS dipetakan langsung ke SATUSEHAT_ORG_ID (terdaftar via DevHub) — tidak dikirim" };
+    const partOfIhsId = o.parentId ? (orgIhs.get(o.parentId) ?? pending) : cfg.orgId;
+    resource = toFhirOrganization(o, { orgId: cfg.orgId, partOfIhsId });
+  } else {
+    const l = (await sourceDal.listLocations()).find((x) => x.id === localId);
+    if (!l) return { resource: null, status: null, note: "Data ruangan lokal tidak ditemukan / sudah dihapus" };
+    const org = orgById.get(l.organizationId);
+    resource = toFhirLocation(l, {
+      orgId: cfg.orgId,
+      managingOrgIhsId: orgIhs.get(l.organizationId) ?? (org?.isRoot ? cfg.orgId : pending),
+      parentAddress: org ?? {},
+      parentGps: org ? { lat: org.gpsLat, lng: org.gpsLng } : undefined,
+    });
+  }
+  if (!existing) return { resource, status: "new", note: null };
+  return {
+    resource: { ...resource, id: existing.ihsId },
+    status: existing.hash === hashOf(resource) ? "synced" : "changed",
+    note: existing.hash ? null : "Ditemukan sudah terdaftar (resolve) — diselaraskan (PUT) pada sinkron berikutnya",
+  };
 }
 
 function hasIdentifier(r: FhirResourceBase, system: string, value: string): boolean {

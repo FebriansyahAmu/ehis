@@ -24,13 +24,18 @@ export async function upsertClinicalResource(args: {
   audit: Pick<FhirRequestAudit, "actor" | "actorRole">;
   /** false = hanya PUT bila sudah terpetakan (mis. entered-in-error untuk data terhapus). */
   allowCreate?: boolean;
+  /** Kunjungan pemilik — disimpan di peta untuk konsol Resource/Kunjungan. */
+  kunjunganId?: string;
 }): Promise<UpsertResult | null> {
-  const { env, localType, localId, resource } = args;
+  const { env, localType, localId, resource, kunjunganId } = args;
   const type = resource.resourceType;
   const existing = await resourceMapDal.findByLocal(env, localType, localId);
   const hash = hashOf(resource);
 
-  if (existing?.hash === hash) return { ok: true, ihsId: existing.ihsId, op: "noop" };
+  if (existing?.hash === hash) {
+    if (kunjunganId && !existing.kunjunganId) await resourceMapDal.attachKunjungan(existing.id, kunjunganId);
+    return { ok: true, ihsId: existing.ihsId, op: "noop" };
+  }
   if (!existing && args.allowCreate === false) return null;
 
   const res = existing
@@ -49,7 +54,7 @@ export async function upsertClinicalResource(args: {
     return { ok: false, error: { type: "HttpError", status: res.value.status, message: `Respons SatuSehat tanpa id ${type}`, retryable: false } };
   }
   await resourceMapDal.upsert({
-    env, localType, localId, resourceType: type, ihsId, hash,
+    env, localType, localId, resourceType: type, ihsId, hash, kunjunganId,
     versionId: res.value.body?.meta?.versionId ?? null,
   });
   return { ok: true, ihsId, op: existing ? "update" : "create" };

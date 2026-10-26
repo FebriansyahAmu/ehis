@@ -36,15 +36,81 @@ export interface ResourceSink {
 
 type Audit = Pick<FhirRequestAudit, "actor" | "actorRole">;
 
-export function makeSink(mode: "single" | "bundle", env: SatuSehatMode, audit: Audit): ResourceSink {
-  return mode === "bundle" ? bundleSink(env, audit) : singleSink(env, audit);
+/** `kunjunganId` = pemilik resource (disimpan di peta untuk konsol Resource/Kunjungan). */
+export function makeSink(mode: "single" | "bundle", env: SatuSehatMode, audit: Audit, kunjunganId?: string): ResourceSink {
+  return mode === "bundle" ? bundleSink(env, audit, kunjunganId) : singleSink(env, audit, kunjunganId);
 }
 
-function singleSink(env: SatuSehatMode, audit: Audit): ResourceSink {
+function singleSink(env: SatuSehatMode, audit: Audit, kunjunganId?: string): ResourceSink {
   return {
     mode: "single",
-    submit: (a) => upsertClinicalResource({ env, audit, ...a }),
+    submit: (a) => upsertClinicalResource({ env, audit, kunjunganId, ...a }),
     flush: async () => ({ ok: true, resolved: new Map(), sent: 0 }),
+  };
+}
+
+// ── Pratinjau (konsol) ──────────────────────────────────────
+// Sink TANPA jaringan & TANPA tulis DB: menangkap resource yang AKAN dikirim job kunjungan dan
+// membandingkan hash-nya dengan peta. Hash sama = payload identik dengan yang sudah diterima SatuSehat.
+
+export type PreviewStatus = "synced" | "changed" | "new";
+
+export interface PreviewItem {
+  localType: string;
+  localId: string;
+  resourceType: string;
+  status: PreviewStatus;
+  /** IHS id bila sudah terpetakan; null = belum pernah terkirim. */
+  ihsId: string | null;
+  /** Bentuk yang dikirim (PUT menyertakan `id`). */
+  resource: FhirResourceBase;
+  lastSyncAt: Date | null;
+  versionId: string | null;
+}
+
+export interface PreviewSink extends ResourceSink {
+  items(): PreviewItem[];
+}
+
+type MapRow = Awaited<ReturnType<typeof resourceMapDal.findByLocal>>;
+
+export function makePreviewSink(env: SatuSehatMode): PreviewSink {
+  const captured = new Map<string, { a: SubmitArgs; existing: MapRow; tmpId: string }>();
+  const statusOf = (a: SubmitArgs, existing: MapRow): PreviewStatus =>
+    !existing ? "new" : existing.hash === hashOf(a.resource) ? "synced" : "changed";
+  const OP = { synced: "noop", changed: "update", new: "create" } as const;
+
+  return {
+    mode: "bundle",
+
+    async submit(a) {
+      const key = `${a.localType}|${a.localId}`;
+      const queued = captured.get(key);
+      if (queued) {
+        queued.a = a;
+        return { ok: true, ihsId: queued.existing?.ihsId ?? queued.tmpId, op: OP[statusOf(a, queued.existing)] };
+      }
+      const existing = await resourceMapDal.findByLocal(env, a.localType, a.localId);
+      if (!existing && a.allowCreate === false) return null;
+      const tmpId = `${URN}${randomUUID()}`;
+      captured.set(key, { a, existing, tmpId });
+      return { ok: true, ihsId: existing?.ihsId ?? tmpId, op: OP[statusOf(a, existing)] };
+    },
+
+    flush: async () => ({ ok: true, resolved: new Map(), sent: 0 }),
+
+    items() {
+      return [...captured.values()].map(({ a, existing }) => ({
+        localType: a.localType,
+        localId: a.localId,
+        resourceType: a.resource.resourceType,
+        status: statusOf(a, existing),
+        ihsId: existing?.ihsId ?? null,
+        resource: existing ? { ...a.resource, id: existing.ihsId } : a.resource,
+        lastSyncAt: existing?.lastSyncAt ?? null,
+        versionId: existing?.versionId ?? null,
+      }));
+    },
   };
 }
 
@@ -62,7 +128,7 @@ const URN = "urn:uuid:";
 /** `"Encounter/urn:uuid:…"` (bentuk adapter) → `"urn:uuid:…"` (referensi intra-bundle). */
 const toBundleRefs = (json: string) => json.replace(/"[A-Za-z]+\/urn:uuid:/g, `"${URN}`);
 
-function bundleSink(env: SatuSehatMode, audit: Audit): ResourceSink {
+function bundleSink(env: SatuSehatMode, audit: Audit, kunjunganId?: string): ResourceSink {
   const pending = new Map<string, Pending>(); // urutan sisip = urutan entry (Encounter duluan)
 
   return {
@@ -79,7 +145,10 @@ function bundleSink(env: SatuSehatMode, audit: Audit): ResourceSink {
 
       const existing = await resourceMapDal.findByLocal(env, a.localType, a.localId);
       if (!existing && a.allowCreate === false) return null;
-      if (existing?.hash === hashOf(a.resource)) return { ok: true, ihsId: existing.ihsId, op: "noop" };
+      if (existing?.hash === hashOf(a.resource)) {
+        if (kunjunganId && !existing.kunjunganId) await resourceMapDal.attachKunjungan(existing.id, kunjunganId);
+        return { ok: true, ihsId: existing.ihsId, op: "noop" };
+      }
 
       const p: Pending = existing
         ? { ...a, method: "PUT", ihsId: existing.ihsId, fullUrl: `${URN}${randomUUID()}` }
@@ -134,6 +203,7 @@ function bundleSink(env: SatuSehatMode, audit: Audit): ResourceSink {
           ihsId: resolved.get(p.ihsId) ?? p.ihsId,
           hash: hashOf(JSON.parse(json)),
           versionId,
+          kunjunganId,
         });
       }
       return { ok: true, resolved, sent: list.length };

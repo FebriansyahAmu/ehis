@@ -11,6 +11,8 @@ export interface ResourceMapUpsert {
   ihsId: string;
   versionId?: string | null;
   hash?: string | null;
+  /** Kunjungan pemilik — hanya resource klinis per kunjungan. Tidak ditimpa NULL saat update. */
+  kunjunganId?: string | null;
 }
 
 export function findByLocal(env: string, localType: string, localId: string, tx?: Tx) {
@@ -39,8 +41,56 @@ export function upsert(data: ResourceMapUpsert, tx?: Tx) {
       versionId: data.versionId ?? null,
       hash: data.hash ?? null,
       lastSyncAt: now,
+      ...(data.kunjunganId ? { kunjunganId: data.kunjunganId } : {}),
     },
   });
+}
+
+/** Lengkapi tautan kunjungan pada peta lama (dibuat sebelum kolom ada) tanpa menyentuh lastSyncAt. */
+export function attachKunjungan(id: string, kunjunganId: string, tx?: Tx) {
+  return db(tx).resourceMap.updateMany({ where: { id, kunjunganId: null }, data: { kunjunganId } });
+}
+
+export function findById(id: string, tx?: Tx) {
+  return db(tx).resourceMap.findUnique({ where: { id } });
+}
+
+export function listByKunjungan(env: string, kunjunganId: string, tx?: Tx) {
+  return db(tx).resourceMap.findMany({ where: { env, kunjunganId }, orderBy: { lastSyncAt: "asc" } });
+}
+
+/** Ringkasan per resourceType (env aktif): jumlah + sinkron terakhir — kartu konsol Resource. */
+export async function summaryByResourceType(env: string, tx?: Tx) {
+  const rows = await db(tx).resourceMap.groupBy({
+    by: ["resourceType"],
+    where: { env },
+    _count: { _all: true },
+    _max: { lastSyncAt: true },
+  });
+  return rows.map((r) => ({ resourceType: r.resourceType, count: r._count._all, lastSyncAt: r._max.lastSyncAt }));
+}
+
+/** Halaman peta per resourceType, terbaru dulu. `q` = cari IHS id / local id (prefix). */
+export async function listPage(
+  env: string,
+  q: { resourceType: string; q?: string; page: number; pageSize: number },
+  tx?: Tx,
+) {
+  const where = {
+    env,
+    resourceType: q.resourceType,
+    ...(q.q ? { OR: [{ ihsId: { startsWith: q.q } }, { localId: { startsWith: q.q } }] } : {}),
+  };
+  const [total, rows] = await Promise.all([
+    db(tx).resourceMap.count({ where }),
+    db(tx).resourceMap.findMany({
+      where,
+      orderBy: { lastSyncAt: "desc" },
+      skip: (q.page - 1) * q.pageSize,
+      take: q.pageSize,
+    }),
+  ]);
+  return { total, rows };
 }
 
 /** Jumlah peta per localType untuk env aktif (panel status). */

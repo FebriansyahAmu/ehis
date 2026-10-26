@@ -57,6 +57,7 @@ import {
   Boxes,
   Handshake,
   Waypoints,
+  Route,
   type LucideIcon,
 } from "lucide-react";
 import type { CareUnit } from "@/lib/auth/careUnit";
@@ -582,6 +583,13 @@ export const fhirNav: readonly NavGroup[] = [
       { label: "Onboarding", href: "/ehis-fhir/onboarding", icon: Building2, perm: "fhir.sync" },
       { label: "Antrean Kirim", href: "/ehis-fhir/antrean", icon: ListChecks, perm: "fhir.sync" },
       { label: "Pasien & NIK", href: "/ehis-fhir/pasien", icon: UserCheck, perm: "fhir.sync" },
+    ],
+  },
+  {
+    label: "Data Terkirim",
+    items: [
+      { label: "Kunjungan", href: "/ehis-fhir/kunjungan", icon: Route, perm: "fhir.sync" },
+      { label: "Resource", href: "/ehis-fhir/resource", icon: Boxes, perm: "fhir.sync" },
     ],
   },
 ] as const;

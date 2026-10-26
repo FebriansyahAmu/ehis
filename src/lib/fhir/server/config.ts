@@ -37,7 +37,10 @@ const EnvSchema = z.object({
   SATUSEHAT_CLIENT_SECRET: blankToUndef(z.string().trim().min(1).optional()),
   /** Organization ID RS (IHS) dari DevHub — dipakai serviceProvider & identifier system lokal. */
   SATUSEHAT_ORG_ID: blankToUndef(z.string().trim().min(1).optional()),
+  /** Boleh host saja atau base FHIR lengkap (".../fhir-r4/v1") — path target dibuang (normalizeHost). */
   SATUSEHAT_BASE_URL: blankToUndef(z.string().url().optional()),
+  /** Opsional: base OAuth2 (".../oauth2/v1") seperti di DevHub. Default = host + /oauth2/v1. */
+  SATUSEHAT_AUTH_URL: blankToUndef(z.string().url().optional()),
   SATUSEHAT_REQUEST_TIMEOUT_MS: blankToUndef(z.coerce.number().int().positive().default(20_000)),
   /** FH7: bundle = 1 Bundle transaction per kunjungan (default) · single = POST/PUT per resource. */
   SATUSEHAT_SYNC_MODE: blankToUndef(z.enum(["bundle", "single"]).default("bundle")),
@@ -50,6 +53,8 @@ export interface SatuSehatConfig {
   orgId: string;
   /** Host tanpa trailing slash; kosong saat mock. */
   host: string;
+  /** Base OAuth2 tanpa trailing slash (".../oauth2/v1"); kosong saat mock. */
+  authBase: string;
   requestTimeoutMs: number;
   /** FH7 — cara kirim job kunjungan: 1 Bundle transaction (default) atau per resource. */
   syncMode: "bundle" | "single";
@@ -76,6 +81,7 @@ export function getSatuSehatConfig(): SatuSehatConfig {
       clientSecret: e.SATUSEHAT_CLIENT_SECRET ?? "mock-secret",
       orgId: e.SATUSEHAT_ORG_ID ?? "mock-org",
       host: "",
+      authBase: "",
       requestTimeoutMs: e.SATUSEHAT_REQUEST_TIMEOUT_MS,
       syncMode: e.SATUSEHAT_SYNC_MODE,
     };
@@ -90,16 +96,29 @@ export function getSatuSehatConfig(): SatuSehatConfig {
     throw new FhirConfigError(`SATUSEHAT_MODE=${mode} tetapi env wajib hilang: ${missing.join(", ")}`);
   }
 
+  const host = normalizeHost(e.SATUSEHAT_BASE_URL ?? DEFAULT_HOST[mode]);
   cached = {
     mode,
     clientId: e.SATUSEHAT_CLIENT_ID!,
     clientSecret: e.SATUSEHAT_CLIENT_SECRET!,
     orgId: e.SATUSEHAT_ORG_ID!,
-    host: (e.SATUSEHAT_BASE_URL ?? DEFAULT_HOST[mode]).replace(/\/+$/, ""),
+    host,
+    authBase: (e.SATUSEHAT_AUTH_URL ?? `${host}/oauth2/v1`).replace(/\/+$/, ""),
     requestTimeoutMs: e.SATUSEHAT_REQUEST_TIMEOUT_MS,
     syncMode: e.SATUSEHAT_SYNC_MODE,
   };
   return cached;
+}
+
+/**
+ * DevHub memberi base URL lengkap per layanan (".../fhir-r4/v1", ".../oauth2/v1"). Connector butuh
+ * HOST saja (path target ditambahkan per panggilan) → buang path target/oauth bila ikut terisi.
+ */
+function normalizeHost(raw: string): string {
+  const url = raw.replace(/\/+$/, "");
+  const suffixes = [...Object.values(TARGET_PATH), "/oauth2/v1"];
+  const hit = suffixes.find((s) => url.endsWith(s));
+  return hit ? url.slice(0, -hit.length) : url;
 }
 
 /** URL absolut untuk target + path relatif. */
@@ -113,7 +132,7 @@ export function satuSehatUrl(target: FhirTarget, path: string): string {
 
 /** URL endpoint token OAuth2 (R5). */
 export function satuSehatTokenUrl(): string {
-  return `${getSatuSehatConfig().host}/oauth2/v1/accesstoken?grant_type=client_credentials`;
+  return `${getSatuSehatConfig().authBase}/accesstoken?grant_type=client_credentials`;
 }
 
 /** Reset cache config — untuk test (ganti env lalu re-load). */

@@ -4,6 +4,7 @@
 // dispensing/validasi hasil). Jalankan antrean manual, antre ulang job gagal, sinkron ulang 1 kunjungan.
 
 import { Fragment, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { ListChecks, Play, RefreshCw, RotateCcw, Send, ChevronDown, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/ui/toastStore";
@@ -163,7 +164,11 @@ export default function FhirAntrean() {
                         aria-expanded={expanded}
                       >
                         <td className={cn(tdCls, "whitespace-nowrap tabular-nums text-slate-500")}>{fmtTime(r.createdAt)}</td>
-                        <td className={cn(tdCls, "font-mono text-[11px]")} title={r.kunjunganId ?? ""}>{r.kunjunganId?.slice(0, 8) ?? "—"}…</td>
+                        <td className={cn(tdCls, "font-mono text-[11px]")} title={r.kunjunganId ?? ""} onClick={(e) => e.stopPropagation()}>
+                          {r.kunjunganId ? (
+                            <Link href={`/ehis-fhir/kunjungan/${r.kunjunganId}`} className="text-teal-700 hover:underline">{r.kunjunganId.slice(0, 8)}…</Link>
+                          ) : "—"}
+                        </td>
                         <td className={tdCls}><Pill label={STATUS_CFG[r.status].label} tone={STATUS_CFG[r.status].tone} dot /></td>
                         <td className={cn(tdCls, "tabular-nums")}>{r.attempts}</td>
                         <td className={cn(tdCls, "whitespace-nowrap tabular-nums text-slate-500")}>{r.status === "Pending" ? fmtTime(r.nextAttemptAt) : "—"}</td>

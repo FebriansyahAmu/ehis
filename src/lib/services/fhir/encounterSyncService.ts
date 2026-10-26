@@ -11,6 +11,10 @@
 //
 // Prasyarat referensi (R15): Patient (di-resolve otomatis bila belum), Practitioner DPJP & Location
 // ruangan (WAJIB sudah onboarding FH1 — bila belum, job gagal non-retry; antre ulang manual).
+//
+// `previewEncounter` menjalankan logika yang SAMA dengan PreviewSink (tanpa jaringan, tanpa tulis):
+// konsol melihat persis resource apa yang akan/sudah dikirim, prasyarat yang kurang tidak
+// menghentikan pratinjau — dicatat sebagai `blockers` dengan referensi placeholder.
 
 import "server-only";
 import { getSatuSehatConfig } from "@/lib/fhir/server/config";
@@ -21,7 +25,7 @@ import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
 import * as src from "@/lib/dal/fhir/encounterSourceDal";
 import * as clinicalSrc from "@/lib/dal/fhir/clinicalSourceDal";
 import { ensurePatientIhs } from "./patientIhsService";
-import { makeSink, type FlushResult } from "./resourceSink";
+import { makePreviewSink, makeSink, type FlushResult, type PreviewItem, type PreviewSink } from "./resourceSink";
 import { syncClinical, type SyncRef } from "./clinicalSyncService";
 import { syncMedication } from "./medicationSyncService";
 import { syncDiagnostic } from "./diagnosticSyncService";
@@ -34,21 +38,73 @@ export type JobResult =
 
 type Ref = { ihsId: string; nama: string };
 type Failure = { resourceType: string; message: string; retryable: boolean };
+type Audit = ReturnType<typeof auditActorOf>;
 
-export async function syncEncounter(kunjunganId: string, audit: ReturnType<typeof auditActorOf>): Promise<JobResult> {
+/** Referensi yang belum terpetakan saat pratinjau (tidak pernah ikut terkirim). */
+export const UNMAPPED_REF = "(belum-terpetakan)";
+
+export interface EncounterPlan {
+  /** Status Encounter target; null = kunjungan belum layak dikirim (lihat `skipReason`). */
+  target: EncounterStatus | null;
+  skipReason?: string;
+  /** Prasyarat yang kurang — job nyata akan GAGAL sampai dilengkapi. */
+  blockers: string[];
+  /** Info non-blokir (mis. pasien akan di-resolve otomatis by NIK saat kirim). */
+  infos: string[];
+  /** Data yang dilewati builder (obat tanpa KFA, lab tanpa LOINC, …). */
+  notes: string[];
+  items: PreviewItem[];
+}
+
+export function syncEncounter(kunjunganId: string, audit: Audit): Promise<JobResult> {
+  return runEncounter(kunjunganId, audit, null).then((r) => r.result);
+}
+
+export async function previewEncounter(kunjunganId: string, audit: Audit): Promise<EncounterPlan> {
+  const sink = makePreviewSink(getSatuSehatConfig().mode);
+  const { result, blockers, infos, target } = await runEncounter(kunjunganId, audit, sink);
+  return {
+    target,
+    ...(result.kind === "skipped" ? { skipReason: result.reason } : {}),
+    blockers,
+    infos,
+    notes: result.kind === "acked" ? (result.notes ?? []) : [],
+    items: result.kind === "skipped" ? [] : sink.items(),
+  };
+}
+
+async function runEncounter(
+  kunjunganId: string,
+  audit: Audit,
+  preview: PreviewSink | null,
+): Promise<{ result: JobResult; blockers: string[]; infos: string[]; target: EncounterStatus | null }> {
+  const blockers: string[] = [];
+  const infos: string[] = [];
+  let target: EncounterStatus | null = null;
+  const done = (result: JobResult) => ({ result, blockers, infos, target });
+
   const k = await src.getKunjungan(kunjunganId);
-  if (!k) return { kind: "skipped", reason: "Kunjungan tidak ditemukan / dihapus" };
+  if (!k) return done({ kind: "skipped", reason: "Kunjungan tidak ditemukan / dihapus" });
 
-  const target = encounterStatusOf(k.status);
-  if (!target) return { kind: "skipped", reason: `Status ${k.status} belum dikirim (menunggu diterima)` };
+  target = encounterStatusOf(k.status);
+  if (!target) return done({ kind: "skipped", reason: `Status ${k.status} belum dikirim (menunggu diterima)` });
 
   const { mode: env, orgId, syncMode } = getSatuSehatConfig();
   const existing = await resourceMapDal.findByLocal(env, "Encounter", k.id);
-  if (target === "cancelled" && !existing) return { kind: "skipped", reason: "Dibatalkan sebelum pernah terkirim" };
+  if (target === "cancelled" && !existing) return done({ kind: "skipped", reason: "Dibatalkan sebelum pernah terkirim" });
 
   // ── Referensi ──
-  const patient = await ensurePatientIhs(k.patientId, audit);
-  if (!patient.ok) return { kind: "failed", message: patient.message, retryable: patient.retryable };
+  let patientIhs: string;
+  if (preview) {
+    // Pratinjau tak memanggil SatuSehat: pakai peta yang ada, resolve NIK terjadi saat kirim nyata.
+    const m = await resourceMapDal.findByLocal(env, "Patient", k.patientId);
+    patientIhs = m?.ihsId ?? UNMAPPED_REF;
+    if (!m) infos.push("Pasien belum punya IHS Patient — di-resolve otomatis by NIK saat dikirim (gagal bila tanpa NIK / tak terdaftar)");
+  } else {
+    const patient = await ensurePatientIhs(k.patientId, audit);
+    if (!patient.ok) return done({ kind: "failed", message: patient.message, retryable: patient.retryable });
+    patientIhs = patient.ihsId;
+  }
 
   const missing: string[] = [];
   let practitioner: Ref | undefined;
@@ -69,7 +125,12 @@ export async function syncEncounter(kunjunganId: string, audit: ReturnType<typeo
   } else missing.push("Kunjungan tanpa ruangan");
 
   // Kunjungan yang dibatalkan cukup ubah status — referensi lain tak wajib lengkap.
-  if (missing.length && target !== "cancelled") return { kind: "failed", message: missing.join("; "), retryable: false };
+  if (missing.length && target !== "cancelled") {
+    if (!preview) return done({ kind: "failed", message: missing.join("; "), retryable: false });
+    blockers.push(...missing);
+    practitioner ??= { ihsId: UNMAPPED_REF, nama: "DPJP" };
+    location ??= { ihsId: UNMAPPED_REF, nama: "Ruangan" };
+  }
 
   const local: LocalEncounter = {
     noKunjungan: k.noKunjungan,
@@ -83,9 +144,9 @@ export async function syncEncounter(kunjunganId: string, audit: ReturnType<typeo
     titipan: k.titipan,
     disposisi: k.disposisiRiwayat[0] ?? null,
   };
-  const patientRef: Ref = { ihsId: patient.ihsId, nama: k.pasien.nama };
+  const patientRef: Ref = { ihsId: patientIhs, nama: k.pasien.nama };
   const baseRefs = { orgId, patient: patientRef, practitioner, location };
-  const sink = makeSink(syncMode, env, audit);
+  const sink = preview ?? makeSink(syncMode, env, audit, k.id);
   const sendEncounter = (status: EncounterStatus, diagnoses: { ihsId: string; display: string; rank: number }[] = []) =>
     sink.submit({ localType: "Encounter", localId: k.id, resource: toFhirEncounter(local, { ...baseRefs, diagnoses }, status) });
 
@@ -96,16 +157,16 @@ export async function syncEncounter(kunjunganId: string, audit: ReturnType<typeo
   // ── Batal: cukup status cancelled ──
   if (target === "cancelled") {
     const r = await sendEncounter("cancelled");
-    if (!r?.ok) return fail(r?.ok === false ? r.error : undefined, "Gagal membatalkan Encounter");
+    if (!r?.ok) return done(fail(r?.ok === false ? r.error : undefined, "Gagal membatalkan Encounter"));
     refs.push({ resourceType: "Encounter", localId: k.id, ihsId: r.ihsId, op: r.op });
-    return finish(await sink.flush(), refs, failures, notes);
+    return done(finish(await sink.flush(), refs, failures, notes));
   }
 
   // ── Fase 1: pastikan Encounter ada ──
   let encounterIhs = existing?.ihsId;
   if (!encounterIhs) {
     const r = await sendEncounter("in-progress");
-    if (!r?.ok) return fail(r?.ok === false ? r.error : undefined, "Gagal membuat Encounter");
+    if (!r?.ok) return done(fail(r?.ok === false ? r.error : undefined, "Gagal membuat Encounter"));
     encounterIhs = r.ihsId; // bundle: `urn:uuid:…` sementara
   }
   const encounterRef: Ref = { ihsId: encounterIhs, nama: `Kunjungan ${k.pasien.nama} (${k.noKunjungan})` };
@@ -149,7 +210,7 @@ export async function syncEncounter(kunjunganId: string, audit: ReturnType<typeo
   }
 
   if (sink.mode === "single" && target === "finished" && !cl.conditionsOk) {
-    return summarizeFailures(failures, "Diagnosis (Condition) gagal terkirim — Encounter belum di-finish");
+    return done(summarizeFailures(failures, "Diagnosis (Condition) gagal terkirim — Encounter belum di-finish"));
   }
 
   // ── Fase 3: Encounter final (+ diagnosis) ──
@@ -162,10 +223,10 @@ export async function syncEncounter(kunjunganId: string, audit: ReturnType<typeo
       .map((d, i) => ({ ihsId: sent.get(d.id)!, display: `${d.kodeIcd10} ${d.namaDiagnosis}`, rank: i + 1 }));
   }
   const fin = await sendEncounter(target, diagnoses);
-  if (!fin?.ok) return fail(fin?.ok === false ? fin.error : undefined, "Gagal memperbarui Encounter");
+  if (!fin?.ok) return done(fail(fin?.ok === false ? fin.error : undefined, "Gagal memperbarui Encounter"));
   refs.unshift({ resourceType: "Encounter", localId: k.id, ihsId: fin.ihsId, op: existing ? fin.op : "create" });
 
-  return finish(await sink.flush(), refs, failures, notes);
+  return done(finish(await sink.flush(), refs, failures, notes));
 }
 
 /** Selesaikan job: bundle gagal = semua gagal; id sementara → IHS id; gagal per item → failed. */
