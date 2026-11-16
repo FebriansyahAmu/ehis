@@ -6,10 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint --cache --cache-location .eslintcache",
     "typecheck": "node --max-old-space-size=2048 node_modules/typescript/bin/tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check:changed": "node scripts/check-changed.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

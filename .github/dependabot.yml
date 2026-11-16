@@ -1,0 +1,31 @@
+# Pembaruan dependensi otomatis (OWASP A03 Software Supply Chain). Dibuat konservatif:
+# bulanan, dikelompokkan, maksimal 3 PR terbuka — agar tak membanjiri antrean review.
+# Peringatan keamanan (Dependabot alerts/security updates) diaktifkan di Settings repo.
+
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Major Next/React/Prisma = keputusan migrasi terencana, bukan PR otomatis.
+      - dependency-name: next
+        update-types: [version-update:semver-major]
+      - dependency-name: react
+        update-types: [version-update:semver-major]
+      - dependency-name: react-dom
+        update-types: [version-update:semver-major]
+      - dependency-name: prisma
+        update-types: [version-update:semver-major]
+      - dependency-name: "@prisma/*"
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

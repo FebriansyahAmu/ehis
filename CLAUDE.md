@@ -8,6 +8,8 @@
 | File | Purpose |
 |---|---|
 | [CLAUDE.md](CLAUDE.md) | **You are here.** Current state · active work · key data contracts. |
+| [docs/ENGINEERING-RULES.md](docs/ENGINEERING-RULES.md) | **Aturan kerja WAJIB (mulai 2026-11-17)** — **Git:** branch per fitur `<tipe>/<area>-<ringkas>` dari `main` (tak kerja langsung di main) → PR → CI hijau → squash merge · **Verifikasi bertingkat** (laptop dev RAM terbatas): editor → `npm run check:changed` (lint+test file berubah saja, cek RAM) → tsc/lint penuh di **CI** · **Security OWASP** (ASVS 5.0 L2 + Top 10:2025 + API Top 10, aturan S1–S11) · **UI** frontend-design + **shadcn/ui bertahap** (Radix, copy-in `src/components/ui`, jebakan tailwind-merge vs `m-*`) · **Backend** konsisten B1–B8 · **DoD** per branch. Baca sebelum mulai fitur apa pun. |
+| [docs/SECURITY-GAP.md](docs/SECURITY-GAP.md) | **Register celah keamanan OWASP** (SG-xx). 🔴 P1: tanpa security header · tanpa cek Origin (CSRF) · `AUTH_ENFORCE` default false = DEV actor superuser. Catat temuan keamanan baru di sini. |
 | [TODO.md](TODO.md) | Master phase roadmap — Phase 0–3 frontend ✅ 100% (30/30). |
 | [TODO-BILLING.md](TODO-BILLING.md) | **Billing Kasir roadmap** — Fase BL0–BL9 (35 task, ~3 minggu). Core operasional ✅ (BL1+BL2+BL3+BL8 100% · BL6 ~80%). |
 | [TODO-BILLING-BACKEND.md](TODO-BILLING-BACKEND.md) | **Billing Backend roadmap** — 📋 Planned (2026-07-13). Ganti `billingStore`/`chargeIngest` client-side dengan **schema `billing.*` (Invoice/InvoiceItem/Payment) + ingest SERVER-SIDE dalam tx aksi klinis**. Fase BB0–BB9 (±9–12 hari). Inti: **wiring matrix per sumber** (Tindakan/Lab/Rad/Resep/BMHP/Akomodasi/Administrasi — hook Service eksisting + snapshot harga beku + `sourceRef` idempoten + Void bukan delete) · prinsip B1–B10 (harga=snapshot order, total=proyeksi, TITIPAN tagih `kelasHak`, primitif tunggal `postCharges`) · interaksi lifecycle complete/reopen/cancel · gap G-1..G-7 (tarif kamar belum ada master, biaya admin, jasa dokter, reopen-vs-pembayaran). Prasyarat E-Klaim nyata. |
@@ -42,6 +44,8 @@
 ## 🛠 Stack
 
 Next.js 16.2.3 App Router · React 19.2.4 · TypeScript 5 · Tailwind v4 (`@tailwindcss/postcss`) · Framer Motion 12 · Lucide React 1.8 · Prisma 7.7 (generated at `src/generated/prisma/`) · ESLint 9
+
+**UI primitives:** shadcn/ui diadopsi bertahap (Radix, copy-in ke `src/components/ui/`) untuk Dialog/Sheet/Popover/DropdownMenu/Tooltip/Tabs/Command — setup di branch `chore/ui-shadcn-setup` (belum dikerjakan); komponen global eksisting (Select/DatePicker/ConfirmDialog/toast) tetap dipakai sampai diganti sengaja. Lihat [ENGINEERING-RULES §4](docs/ENGINEERING-RULES.md).
 
 **Convention:** `cn()` di `src/lib/utils.ts` · Navigation di `src/lib/navigation.ts` · Mock data klinis di `src/lib/data.ts` · Mock master di `src/lib/master/*Mock.ts` · Shared medical-records di `src/components/shared/medical-records/` · Master Template Layer di `src/components/master/shared/`.
 
@@ -176,5 +180,7 @@ Shared asesmen: `src/components/shared/asesmen/` → `AllergyPane` · `RiwayatPa
 - **Saat menyelesaikan task**: (1) centang di file aktif (CLAUDE.md atau TODO.md), (2) pindahkan deskripsi detail ke [.claude/DONE.md](.claude/DONE.md), (3) catat tech debt baru di [TECH_DEBT.md](TECH_DEBT.md).
 - **Saat menemukan gap klinis**: catat di [.claude/GAP_ANALYSIS.md](.claude/GAP_ANALYSIS.md) sebelum mulai implementasi.
 - **Saat mulai modul baru**: cek [TODOS_BACKEND.md](TODOS_BACKEND.md) untuk lihat dependensi backend yang perlu diketahui.
-- **Sebelum commit**: jalankan `npx tsc --noEmit` untuk verifikasi types clean.
+- **Mulai fitur**: buat branch dari `main` terbaru (`git switch -c <tipe>/<area>-<ringkas>`) — [ENGINEERING-RULES §1](docs/ENGINEERING-RULES.md).
+- **Sebelum commit**: diagnostik editor bersih + `npm run check:changed` (lint & test file berubah saja). **`tsc --noEmit` penuh, lint penuh & `next build` dijalankan di CI**, bukan di laptop dev (RAM terbatas) — [ENGINEERING-RULES §2](docs/ENGINEERING-RULES.md).
+- **Security**: cek checklist OWASP S1–S11 tiap PR; temuan baru → [docs/SECURITY-GAP.md](docs/SECURITY-GAP.md).
 - **Komitmen file size**: tidak ada file >800 line. Jika lewat → split jadi sub-components (lihat pola di `farmasi/`, `lab/`, `rad/`, `master/mapping/`).

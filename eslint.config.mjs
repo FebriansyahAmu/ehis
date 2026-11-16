@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Kode hasil generate (Prisma client ±16 MB) — tak boleh di-lint: berat & bukan milik kita.
+    "src/generated/**",
+    // Cache/log lokal.
+    ".codenpm/**",
+    "coverage/**",
   ]),
 ]);
 

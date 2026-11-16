@@ -1,0 +1,22 @@
+{
+  // Hemat RAM/CPU laptop dev (docs/ENGINEERING-RULES.md §2): jangan pantau/indeks
+  // kode hasil generate, build cache, dan cache npm.
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.next/**": true,
+    "**/src/generated/**": true,
+    "**/.codenpm/**": true,
+    "**/coverage/**": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/src/generated": true,
+    "**/.codenpm": true,
+    "**/*.tsbuildinfo": true
+  },
+  // ESLint extension: lint saat simpan, bukan tiap ketikan.
+  "eslint.run": "onSave",
+  // Pakai TypeScript milik project (versi sama dengan CI).
+  "typescript.tsdk": "node_modules/typescript/lib"
+}

@@ -42,3 +42,9 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# cache/log npm lokal (dipindah ke folder project agar tak memenuhi disk C)
+/.codenpm/
+
+# cache eslint (npm run lint / check:changed)
+.eslintcache

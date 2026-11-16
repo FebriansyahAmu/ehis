@@ -1,0 +1,67 @@
+# CI EHIS — pemeriksaan BERAT dijalankan di sini, bukan di laptop dev (docs/ENGINEERING-RULES.md §2).
+# Jalan saat PR dibuka/diperbarui dan saat push ke main.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Typecheck · Lint · Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Dummy — `prisma generate` tidak terhubung ke DB; dibutuhkan hanya agar config terbaca.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Next typegen (route types + next-env.d.ts)
+        run: npx next typegen
+
+      - name: Typecheck
+        run: node --max-old-space-size=4096 node_modules/typescript/bin/tsc --noEmit
+
+      - name: Lint
+        run: npx eslint
+
+      - name: Unit test
+        run: npx vitest run
+
+  audit:
+    name: Audit dependensi (OWASP A03)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Informasional dulu — dijadikan wajib setelah baseline bersih (docs/SECURITY-GAP.md SG-07).
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: npm audit (runtime, high+)
+        run: npm audit --package-lock-only --omit=dev --audit-level=high

@@ -7,6 +7,8 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],
+    // Batasi worker: default = jumlah core (12 di laptop dev) → lonjakan RAM. Lihat docs/ENGINEERING-RULES.md §2.
+    maxWorkers: 2,
     // Integration test DAL (Testcontainers) = direktori terpisah, fase later.
     exclude: ["**/node_modules/**", "src/**/__tests__/integration/**"],
   },
