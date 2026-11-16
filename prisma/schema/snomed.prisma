@@ -1,0 +1,53 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MASTER: Kamus SNOMED CT lokal (SEMENTARA)  (Postgres schema "master")
+//  Sumber: dump Kemenkes tabel `snomed_ct` (deskripsi RF2) — file lokal docs/snomend_ct.sql,
+//  TIDAK di-commit (lisensi SNOMED + ±157 MB). Di-seed oleh prisma/scripts/seed-snomed.mts
+//  (TRUNCATE + load, idempoten).
+//
+//  Dipakai untuk: picker kode SNOMED (keluhan, riwayat penyakit, alergi non-obat, topik edukasi, …) dan
+//  cek "kode ada di kamus" sebelum kirim FHIR (docs/fhir-mapping, R12 — SatuSehat tidak punya terminology
+//  server). BUKAN pengganti validasi server SatuSehat.
+//
+//  Batasan sumber (profiling 2026-11-17): effectiveTime seluruhnya 20020131 (rilis lama) · tiap deskripsi
+//  tercatat 2× (dibuang oleh unique index) · hanya ±25% konsep punya FSN → `display` konsep lain diambil
+//  dari sinonim terpendek (`displaySource` = SYN) · tanpa relationship → ECL subsumption tak bisa dihitung;
+//  `semanticTag` hanya ada untuk konsep ber-FSN bertag. Reference data → tanpa FK, tanpa optimistic-version.
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Satu deskripsi aktif (FSN/sinonim/definisi) milik satu konsep.
+model SnomedDescription {
+  id            BigInt @id @default(autoincrement())
+  /// SCTID konsep (divalidasi Verhoeff saat seed). Soft-ref ke SnomedConcept (tanpa FK).
+  conceptId     String @map("concept_id")
+  term          String
+  /// FSN | SYN | DEF
+  type          String
+  languageCode  String @default("en") @map("language_code")
+  /// effectiveTime RF2 (YYYYMMDD).
+  effectiveTime Int    @map("effective_time")
+
+  // Anti duplikat + lookup per konsep (kolom terdepan conceptId).
+  @@unique([conceptId, type, term])
+  // GIN trigram (pg_trgm) → pencarian istilah (ILIKE/similarity) untuk picker.
+  @@index([term(ops: raw("gin_trgm_ops"))], type: Gin, map: "snomed_description_term_trgm_idx")
+  @@map("snomed_description")
+  @@schema("master")
+}
+
+/// Satu baris per konsep yang punya deskripsi aktif.
+model SnomedConcept {
+  conceptId     String  @id @map("concept_id")
+  /// FSN dari sumber (bisa tanpa semantic tag); null bila sumber tak memuat FSN konsep ini.
+  fsn           String?
+  /// Label tampilan: FSN tanpa semantic tag, atau sinonim terpendek bila FSN tidak ada.
+  display       String
+  /// FSN | SYN — asal `display` (SYN = heuristik, bukan preferred term resmi).
+  displaySource String  @map("display_source")
+  /// Tag semantik dari FSN ("finding", "disorder", "procedure", …) — hanya untuk FSN bertag.
+  semanticTag   String? @map("semantic_tag")
+  effectiveTime Int     @map("effective_time")
+
+  @@index([semanticTag])
+  @@map("snomed_concept")
+  @@schema("master")
+}

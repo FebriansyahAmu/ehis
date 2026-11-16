@@ -352,6 +352,8 @@ outbox worker → build Bundle (urn:uuid) → callSatuSehat(POST / , transaction
 
 ## Adapter mapping (domain lokal → FHIR) — ringkas
 
+> **Spesifikasi lengkap per link (2026-11-17):** [fhir-mapping/README.md](fhir-mapping/README.md) — tabel di bawah hanya ringkasan lama; bila berbeda, **fhir-mapping menang**.
+
 > Contoh payload JSON per resource (Patient/Encounter/Condition/Procedure/Observation/Medication chain/
 > ServiceRequest/DiagnosticReport/Composition + Bundle transaction) = **[docs/FHIR-PAYLOADS.md](FHIR-PAYLOADS.md)**
 > (dirakit dari contoh resmi kemkes `/fhir/resources/*`).
