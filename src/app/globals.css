@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* Animasi enter/exit primitif shadcn (data-[state=open]:animate-in …). */
+@import "tw-animate-css";
 
 /* ── Design System ──────────────────────────────────────── */
 :root {
@@ -47,6 +49,69 @@
 
 /* ── Tailwind v4 dark variant (class-based for toggle) ──── */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ── shadcn/ui tokens (docs/ENGINEERING-RULES.md §4) ────────
+ * Nama `--ui-*` SENGAJA terpisah dari variabel lama (--primary/--border di atas ikut blok
+ * prefers-color-scheme) agar primitif shadcn tetap terang & konsisten dengan app (light-only).
+ * Kelas semantik (bg-primary, text-muted-foreground, border-border, …) hanya dipakai komponen
+ * di src/components/ui/. Warna teks di atas primary memenuhi WCAG AA (≥ 4.5:1 dengan putih). */
+:root {
+  --ui-background: #ffffff;
+  --ui-foreground: #0f172a;            /* slate-900 */
+  --ui-popover: #ffffff;
+  --ui-popover-foreground: #0f172a;
+  --ui-primary: #4f46e5;               /* indigo-600 — default EHIS */
+  --ui-primary-foreground: #ffffff;
+  --ui-secondary: #f1f5f9;             /* slate-100 */
+  --ui-secondary-foreground: #0f172a;
+  --ui-muted: #f1f5f9;
+  --ui-muted-foreground: #64748b;      /* slate-500 */
+  --ui-accent: #f1f5f9;                /* permukaan hover item */
+  --ui-accent-foreground: #0f172a;
+  --ui-destructive: #e11d48;           /* rose-600 */
+  --ui-border: #e2e8f0;                /* slate-200 */
+  --ui-input: #e2e8f0;
+  --ui-ring: #818cf8;                  /* indigo-400 */
+}
+
+/* Aksen per modul — pasang `data-accent` di pembungkus modul. Konten ber-portal (Sheet/Dialog/
+ * Popover) dirender di <body>, jadi `data-accent` juga dipasang di Content-nya sendiri.
+ * Tanpa ungu/violet (preferensi desain EHIS). Varian -700 dipilih agar teks putih lolos AA. */
+[data-accent="teal"]    { --ui-primary: #0f766e; --ui-ring: #2dd4bf; } /* FHIR · BMHP */
+[data-accent="cyan"]    { --ui-primary: #0e7490; --ui-ring: #22d3ee; } /* Inventory */
+[data-accent="sky"]     { --ui-primary: #0369a1; --ui-ring: #38bdf8; }
+[data-accent="emerald"] { --ui-primary: #047857; --ui-ring: #34d399; }
+[data-accent="amber"]   { --ui-primary: #b45309; --ui-ring: #fbbf24; }
+[data-accent="rose"]    { --ui-primary: #e11d48; --ui-ring: #fb7185; }
+
+@theme inline {
+  --color-background: var(--ui-background);
+  --color-foreground: var(--ui-foreground);
+  --color-popover: var(--ui-popover);
+  --color-popover-foreground: var(--ui-popover-foreground);
+  --color-primary: var(--ui-primary);
+  --color-primary-foreground: var(--ui-primary-foreground);
+  --color-secondary: var(--ui-secondary);
+  --color-secondary-foreground: var(--ui-secondary-foreground);
+  --color-muted: var(--ui-muted);
+  --color-muted-foreground: var(--ui-muted-foreground);
+  --color-accent: var(--ui-accent);
+  --color-accent-foreground: var(--ui-accent-foreground);
+  --color-destructive: var(--ui-destructive);
+  --color-border: var(--ui-border);
+  --color-input: var(--ui-input);
+  --color-ring: var(--ui-ring);
+}
+
+/* Base shadcn (border/outline default) DI-SCOPE ke elemen ber-`data-slot` (hanya primitif shadcn),
+ * BUKAN `*` global seperti template shadcn — halaman lama tak berubah. Di @layer base agar utilitas
+ * (mis. border-rose-300) tetap bisa menimpa. */
+@layer base {
+  [data-slot] {
+    border-color: var(--ui-border);
+    outline-color: color-mix(in oklab, var(--ui-ring) 50%, transparent);
+  }
+}
 
 /* ── Base ───────────────────────────────────────────────── */
 body {

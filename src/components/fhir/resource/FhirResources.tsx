@@ -4,7 +4,7 @@
 // → daftar resource tipe itu, klik baris → drawer detail + payload yang dikirim (dibangun ulang dari
 // data terkini; status Terkirim/Berubah menunjukkan apakah identik dengan yang diterima SatuSehat).
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Boxes, RefreshCw, Search, Layers, Clock, ChevronLeft, ChevronRight, ArrowUpRight, Inbox, Hospital } from "lucide-react";
@@ -18,6 +18,7 @@ import { FhirShell, KpiCard, SectionCard, Pill, Button, EmptyState, SkeletonRows
 import { ALL_META, GROUPS, metaOf, groupTone } from "./resourceCatalog";
 import { IdChip, ResourceDrawer } from "./resourceUi";
 import { fmtDateTime, fmtRelative } from "./resourceTime";
+import { Button as UiButton } from "@/components/ui/button";
 
 const PAGE_SIZE = 24;
 const MODE_LABEL: Record<string, { label: string; tone: "slate" | "amber" | "emerald" }> = {
@@ -30,21 +31,15 @@ export default function FhirResources() {
   const [summary, setSummary] = useState<ResourceSummaryDTO | null>(null);
   const [type, setType] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
-
-  const loadSummary = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const s = await getResourceSummary(signal);
-      if (!signal?.aborted) setSummary(s);
-    } catch (e) {
-      if (!isAbort(e)) toast.error("Gagal memuat ringkasan resource", errMsg(e));
-    }
-  }, []);
+  const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
     const ac = new AbortController();
-    void loadSummary(ac.signal);
+    getResourceSummary(ac.signal)
+      .then((s) => { if (!ac.signal.aborted) setSummary(s); })
+      .catch((e) => { if (!isAbort(e)) toast.error("Gagal memuat ringkasan resource", errMsg(e)); });
     return () => ac.abort();
-  }, [loadSummary]);
+  }, [reloadTick]);
 
   const countOf = new Map((summary?.types ?? []).map((t) => [t.resourceType, t]));
   // Tipe di luar katalog (mis. resource baru) tetap tampil di grup klinis.
@@ -63,7 +58,7 @@ export default function FhirResources() {
       icon={Boxes}
       title="Resource"
       description="Semua resource FHIR yang sudah terpetakan ke SatuSehat, dikelompokkan per jenis. Pilih kartu untuk melihat daftarnya, lalu buka detail untuk melihat data yang dikirim."
-      actions={<Button variant="secondary" icon={RefreshCw} onClick={() => { setSummary(null); void loadSummary(); }}>Muat ulang</Button>}
+      actions={<Button variant="secondary" icon={RefreshCw} onClick={() => { setSummary(null); setReloadTick((t) => t + 1); }}>Muat ulang</Button>}
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <KpiCard icon={Layers} label="Resource terpetakan" value={summary ? summary.total.toLocaleString("id-ID") : "…"} sub={mode ? `Lingkungan ${mode.label}` : undefined} />
@@ -240,17 +235,22 @@ function RowCard({ row, clinical, onOpen }: { row: ResourceRowDTO; clinical: boo
 
 /** Drawer detail 1 peta resource — fetch saat dibuka. Dipakai juga oleh halaman lain. */
 export function ResourceDetailDrawer({ id, onClose }: { id: string | null; onClose: () => void }) {
-  const [d, setD] = useState<ResourceDetailDTO | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Hasil terakhir disimpan beserta id-nya: saat drawer menutup (id → null) isi lama tetap tampil
+  // selama animasi keluar; saat id baru dibuka, hasil lama tak cocok → status memuat.
+  const [loaded, setLoaded] = useState<{ id: string; d: ResourceDetailDTO | null; error: string | null } | null>(null);
 
   useEffect(() => {
     if (!id) return;
     const ac = new AbortController();
     getResource(id, ac.signal)
-      .then((x) => { if (!ac.signal.aborted) setD(x); })
-      .catch((e) => { if (!isAbort(e)) setError(errMsg(e) ?? "Gagal memuat detail"); });
-    return () => { ac.abort(); setD(null); setError(null); };
+      .then((x) => { if (!ac.signal.aborted) setLoaded({ id, d: x, error: null }); })
+      .catch((e) => { if (!isAbort(e)) setLoaded({ id, d: null, error: errMsg(e) ?? "Gagal memuat detail" }); });
+    return () => ac.abort();
   }, [id]);
+
+  const current = id ? (loaded?.id === id ? loaded : null) : loaded;
+  const d = current?.d ?? null;
+  const error = current?.error ?? null;
 
   return (
     <ResourceDrawer
@@ -260,7 +260,7 @@ export function ResourceDetailDrawer({ id, onClose }: { id: string | null; onClo
       status={d?.payloadStatus ?? null}
       payload={d?.payload ?? null}
       note={d?.payloadNote}
-      loading={!!id && !d && !error}
+      loading={!!id && !current}
       error={error}
       meta={d ? [
         { label: "IHS id", value: <IdChip value={d.ihsId} /> },
@@ -271,12 +271,11 @@ export function ResourceDetailDrawer({ id, onClose }: { id: string | null; onClo
         { label: "Hash payload", value: d.hash ? <code className="font-mono text-[11px]">{d.hash.slice(0, 16)}…</code> : "— (belum diselaraskan)" },
       ] : []}
       footer={d?.kunjunganId ? (
-        <Link
-          href={`/ehis-fhir/kunjungan/${d.kunjunganId}`}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-700"
-        >
-          Buka kunjungan <ArrowUpRight size={13} aria-hidden />
-        </Link>
+        <UiButton asChild size="sm" className="text-xs font-semibold">
+          <Link href={`/ehis-fhir/kunjungan/${d.kunjunganId}`}>
+            Buka kunjungan <ArrowUpRight aria-hidden />
+          </Link>
+        </UiButton>
       ) : undefined}
     />
   );

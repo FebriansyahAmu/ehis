@@ -2,14 +2,16 @@
 // Verifikasi RINGAN untuk laptop dev (docs/ENGINEERING-RULES.md §2, tingkat 1):
 //   1. cek RAM bebas — batal bila terlalu sedikit (hindari freeze), kecuali --force
 //   2. ESLint HANYA file yang berubah di branch ini (vs merge-base main) + cache
-//   3. Vitest HANYA test yang terkait file berubah (`vitest related`, maks 2 worker)
-//   4. peringatan file > 800 baris di antara file yang berubah
+//   3. Typecheck TERBATAS: tsc hanya atas graf impor file .ts/.tsx yang berubah (heap dibatasi;
+//      graf terlalu besar → dilewati & diserahkan ke CI, bukan dipaksa)
+//   4. Vitest HANYA test yang terkait file berubah (`vitest related`, maks 2 worker)
+//   5. peringatan file > 800 baris di antara file yang berubah
 // Typecheck penuh, lint penuh & audit dependensi berjalan di CI (GitHub Actions), bukan di sini.
 //
-// Pakai: npm run check:changed [-- --base=main] [-- --force] [-- --no-test]
+// Pakai: npm run check:changed [-- --base=main] [-- --force] [-- --no-test] [-- --no-types]
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import os from "node:os";
 
 const args = new Set(process.argv.slice(2));
@@ -62,7 +64,34 @@ let failed = false;
 console.log("\n▶ ESLint (file berubah, cache)");
 if (run("node_modules/eslint/bin/eslint.js", ["--cache", "--cache-location", ".eslintcache", ...lintable]) !== 0) failed = true;
 
-// ── 3. Vitest related ───────────────────────────────────────
+// ── 3. Typecheck terbatas (graf file berubah) ───────────────
+const TSC_HEAP_MB = 1024;
+const tsFiles = lintable.filter((f) => /\.(ts|tsx|mts)$/.test(f) && !f.endsWith(".d.ts"));
+if (!args.has("--no-types") && tsFiles.length) {
+  console.log(`\n▶ Typecheck terbatas (${tsFiles.length} file + impornya, heap ≤ ${TSC_HEAP_MB} MB)`);
+  const tmp = "tsconfig.check-changed.json";
+  writeFileSync(tmp, JSON.stringify({
+    extends: "./tsconfig.json",
+    compilerOptions: { incremental: false, plugins: [] },
+    include: ["next-env.d.ts", ...tsFiles],
+  }));
+  try {
+    const r = spawnSync(process.execPath, [`--max-old-space-size=${TSC_HEAP_MB}`, "node_modules/typescript/bin/tsc", "-p", tmp, "--noEmit"], { encoding: "utf8" });
+    const out = `${r.stdout ?? ""}${r.stderr ?? ""}`;
+    if (/heap out of memory|Allocation failed/i.test(out)) {
+      console.warn("⚠ Graf impor terlalu besar untuk batas heap — typecheck diserahkan ke CI.");
+    } else if (r.status !== 0) {
+      process.stdout.write(out);
+      failed = true;
+    } else {
+      console.log("✔ tanpa error tipe");
+    }
+  } finally {
+    rmSync(tmp, { force: true });
+  }
+}
+
+// ── 4. Vitest related ───────────────────────────────────────
 if (!args.has("--no-test")) {
   const srcFiles = lintable.filter((f) => f.startsWith("src/"));
   if (srcFiles.length) {
@@ -72,7 +101,7 @@ if (!args.has("--no-test")) {
   }
 }
 
-// ── 4. Ukuran file ──────────────────────────────────────────
+// ── 5. Ukuran file ──────────────────────────────────────────
 const big = lintable
   .map((f) => ({ f, n: readFileSync(f, "utf8").split("\n").length }))
   .filter((x) => x.n > MAX_LINES);

@@ -13,6 +13,17 @@
 
 Asesmen awal: **2026-11-17** (analisis statis kode + konfigurasi, tanpa pentest dinamis).
 
+## Antrean perbaikan (ditunda — keputusan user 2026-11-17)
+
+Dikerjakan setelah setup UI shadcn, masing-masing di branch sendiri ([ENGINEERING-RULES §1](ENGINEERING-RULES.md)):
+
+| Urutan | Branch | Menutup | Prasyarat / catatan |
+|---|---|---|---|
+| 1 | `fix/ci-baseline` | **SG-14** (+FG-01) | Butuh hasil CI pertama di GitHub (push + PR). Perbaiki error tsc/ESLint lama yang muncul → aktifkan *Require status checks* untuk `main`. |
+| 2 | `fix/security-p1` | **SG-01** header · **SG-02** cek Origin · **SG-03** `AUTH_ENFORCE` fail-fast | Wajib sebelum ada deployment yang dapat diakses pengguna lain (server bersama/staging). CSP mulai Report-Only. |
+
+Selama antrean ini belum dikerjakan: **jangan deploy** ke lingkungan yang dapat diakses orang lain tanpa `AUTH_ENFORCE=true` dan header keamanan.
+
 ---
 
 ## Konfigurasi & sesi

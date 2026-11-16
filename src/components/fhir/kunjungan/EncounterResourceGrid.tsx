@@ -29,7 +29,9 @@ export function EncounterResourceGrid({ resources, orphans, counts }: {
   counts: Record<PayloadStatus, number>;
 }) {
   const [filter, setFilter] = useState<PayloadStatus | "">("");
-  const [open, setOpen] = useState<EncounterResourceDTO | null>(null);
+  // Item terpilih dipertahankan saat drawer menutup → animasi keluar tak berkedip kosong.
+  const [selected, setSelected] = useState<EncounterResourceDTO | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [orphanId, setOrphanId] = useState<string | null>(null);
 
   const shown = useMemo(() => (filter ? resources.filter((r) => r.status === filter) : resources), [resources, filter]);
@@ -81,7 +83,7 @@ export function EncounterResourceGrid({ resources, orphans, counts }: {
             <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 2xl:grid-cols-3">
               {byGroup.get(g.key)!.map((r, i) => (
                 <motion.li key={`${r.localType}|${r.localId}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.16, delay: Math.min(i * 0.02, 0.15) }}>
-                  <ResourceCard r={r} onOpen={() => setOpen(r)} />
+                  <ResourceCard r={r} onOpen={() => { setSelected(r); setDrawerOpen(true); }} />
                 </motion.li>
               ))}
             </ul>
@@ -109,17 +111,17 @@ export function EncounterResourceGrid({ resources, orphans, counts }: {
       )}
 
       <ResourceDrawer
-        open={!!open}
-        onClose={() => setOpen(null)}
-        resourceType={open?.resourceType ?? "Resource"}
-        status={open?.status ?? null}
-        payload={open?.payload ?? null}
-        meta={open ? [
-          { label: "IHS id", value: <IdChip value={open.ihsId} muted="belum ada — dibuat saat dikirim" /> },
-          { label: "ID lokal", value: <IdChip value={open.localId} /> },
-          { label: "Sumber lokal", value: open.localType },
-          { label: "Versi SatuSehat", value: open.versionId ?? "—" },
-          { label: "Sinkron terakhir", value: fmtDateTime(open.lastSyncAt) },
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        resourceType={selected?.resourceType ?? "Resource"}
+        status={selected?.status ?? null}
+        payload={selected?.payload ?? null}
+        meta={selected ? [
+          { label: "IHS id", value: <IdChip value={selected.ihsId} muted="belum ada — dibuat saat dikirim" /> },
+          { label: "ID lokal", value: <IdChip value={selected.localId} /> },
+          { label: "Sumber lokal", value: selected.localType },
+          { label: "Versi SatuSehat", value: selected.versionId ?? "—" },
+          { label: "Sinkron terakhir", value: fmtDateTime(selected.lastSyncAt) },
         ] : []}
       />
       <ResourceDetailDrawer id={orphanId} onClose={() => setOrphanId(null)} />

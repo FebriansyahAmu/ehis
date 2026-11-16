@@ -35,7 +35,7 @@ Laptop dev: RAM 7,7 GB (bebas sering < 1 GB saat VS Code + browser terbuka). Pem
 | Tingkat | Kapan | Apa | Biaya |
 |---|---|---|---|
 | **0 Editor** | Setiap edit | Diagnostik TS server VS Code per file (sudah berjalan, tanpa proses baru) | ≈0 |
-| **1 Lokal ringan** | Akhir fitur | `npm run check:changed` → cek RAM bebas ≥ 1 GB · ESLint **hanya file berubah** (+cache) · `vitest related` (maks 2 worker) · peringatan file > 800 baris | kecil |
+| **1 Lokal ringan** | Akhir fitur | `npm run check:changed` → cek RAM bebas ≥ 1 GB · ESLint **hanya file berubah** (+cache) · **tsc terbatas** pada graf impor file berubah (heap ≤ 1 GB; graf terlalu besar → diserahkan ke CI) · `vitest related` (maks 2 worker) · peringatan file > 800 baris | kecil (graf UI ±300 MB) |
 | **2 CI** | Push / PR | [ci.yml](../.github/workflows/ci.yml): `prisma generate` → `next typegen` → **tsc penuh** → **ESLint penuh** → **vitest** · audit dependensi | 0 di laptop |
 | **Review** | Akhir fitur | Review diff branch (`git diff main...HEAD`) terhadap checklist §3 & §5; `/code-review` level low/medium bila perlu | kecil |
 
@@ -84,12 +84,16 @@ Backlog perbaikan keamanan (header, CSRF/Origin, rate-limit login, dll.) → [SE
 | **U2** | **shadcn/ui diadopsi bertahap, bukan rewrite.** Primitif di-*copy-in* ke `src/components/ui/` (kode milik kita), berbasis **Radix**. Dipakai untuk fitur baru & layar yang sedang disentuh. |
 | **U3** | Prioritas adopsi = komponen yang aksesibilitasnya sulit dibuat sendiri: **Dialog/Sheet** (focus trap, Esc, aria), **Popover**, **DropdownMenu**, **Tooltip**, **Tabs**, **Command** (combobox cari). |
 | **U4** | Komponen global yang sudah ada (`Select`, `DatePicker`, `TimePicker`, toast, `DiscardDialog`, `ConfirmDialog`) **tetap dipakai** sampai diganti secara sengaja di branch tersendiri — jangan ada dua pola untuk hal yang sama di satu layar. |
-| **U5** | Token shadcn (`--primary`, `--ring`, `--radius`, dst.) dipetakan ke palet EHIS (slate/indigo/emerald); **tanpa ungu sebagai primary**; aksen per modul (teal FHIR, cyan Inventory, dst.) lewat override token per modul. |
-| **U6** | Utilitas density `m-mini/m-tiny/m-xs/m-sm/m-base/m-lg` tetap dipakai untuk ukuran font. **Jebakan:** bila `cn()` diganti `clsx` + `tailwind-merge`, kelas `m-*` ini dikira *margin* dan bisa terhapus diam-diam → wajib `extendTailwindMerge` yang mendaftarkannya sebagai grup font-size. |
+| **U5** | Token semantik shadcn memakai variabel **`--ui-*`** di [globals.css](../src/app/globals.css) (terpisah dari `--primary/--border` lama yang ikut blok `prefers-color-scheme`), dipetakan ke palet EHIS (default indigo-600, slate); **tanpa ungu**. Aksen modul: atribut **`data-accent`** (`teal`·`cyan`·`sky`·`emerald`·`amber`·`rose`, varian -700 agar teks putih lolos AA). Konten ber-portal (Sheet/Dialog/Popover/Dropdown) dirender di `<body>` → pasang `data-accent` **di Content-nya**, bukan hanya di pembungkus halaman. |
+| **U6** | Primitif shadcn memakai **`cn` dari `@/lib/ui/utils`** (clsx + tailwind-merge — `className` pemakai bisa menimpa default). `cn()` lama di `@/lib/utils` (gabung string, dipakai ±2.000 file) **tidak diubah**. Utilitas density `m-mini … m-lg` didaftarkan sebagai grup `ehis-density` (teruji: tak bentrok dengan margin `m-*` maupun `text-*`; antar-density yang terakhir menang). |
+| **U6b** | Base shadcn (warna border/outline default) **di-scope ke `[data-slot]`** dalam `@layer base` — bukan `*` global seperti template shadcn — sehingga halaman lama tidak berubah. Animasi enter/exit dari `tw-animate-css`. App light-only: varian `dark:` pada primitif tidak aktif (dark mode = `data-theme="dark"`, belum dipakai). |
+| **U6c** | **Menambah komponen:** `npm run ui:add -- <nama>` ([scripts/shadcn-add.mjs](../scripts/shadcn-add.mjs)), **bukan** `npx shadcn add` langsung — CLI 4.x menulis `import { cn } from "cn"` dan memasang paket npm `cn` pihak ketiga. Dependensi npm komponen (mis. `cmdk`) dipasang manual setelah cek `npx shadcn@4.23.0 add <nama> --dry-run`. Teks bawaan berbahasa Inggris dilokalkan (mis. `Close` → `Tutup`). |
 | **U7** | Aksesibilitas target **WCAG 2.2 AA**: semua aksi bisa via keyboard, fokus terlihat, label form, kontras ≥ 4.5:1, status tak hanya lewat warna, hormati `prefers-reduced-motion`. |
 | **U8** | Responsif mobile-first; tak ada scroll horizontal halaman (tabel lebar boleh scroll di dalam kontainernya). |
 
-Setup shadcn (components.json, dependensi `radix-ui` · `class-variance-authority` · `clsx` · `tailwind-merge` · `tw-animate-css`, pemetaan token, `cn()` baru) dikerjakan di branch tersendiri `chore/ui-shadcn-setup`.
+**Setup ✅ (2026-11-17, branch `chore/ui-shadcn-setup`):** [components.json](../components.json) (style `new-york`, Radix) · dependensi `radix-ui` · `class-variance-authority` · `clsx` · `tailwind-merge` · `tw-animate-css` · `cmdk` · primitif di [src/components/ui/](../src/components/ui/): `button` · `dialog` · `sheet` · `popover` · `dropdown-menu` · `tooltip` · `tabs` · `command`.
+
+**Pilot:** drawer detail resource konsol FHIR ([resourceUi.tsx](../src/components/fhir/resource/resourceUi.tsx) `ResourceDrawer`) dipindah dari overlay buatan sendiri ke **`Sheet` + `Tabs`** (focus trap, Esc/klik luar, roving focus tab, `aria` dari `SheetTitle`/`SheetDescription`) dengan `data-accent="teal"`; tombol "Buka kunjungan" → `Button` shadcn (teal-700, lolos AA). Pemakai drawer mempertahankan data terpilih selama animasi tutup (tanpa kedip kosong). **Belum dibuka di browser.**
 
 ---
 

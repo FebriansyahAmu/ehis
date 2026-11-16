@@ -48,3 +48,6 @@ next-env.d.ts
 
 # cache eslint (npm run lint / check:changed)
 .eslintcache
+
+# tsconfig sementara typecheck terbatas (npm run check:changed)
+tsconfig.check-changed.json
