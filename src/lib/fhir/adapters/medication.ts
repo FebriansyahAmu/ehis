@@ -8,6 +8,7 @@
  */
 
 import { FHIR_SYSTEM, orgIdentifierSystem, toFhirDateTime, type FhirResourceBase } from "../fhirShared";
+import { MEDICATION_CATEGORY_DISPLAY, ORDER_PRIORITY, ROUTE_ATC, lookup, type KategoriResep } from "../conceptMap";
 
 type FhirRes = FhirResourceBase & Record<string, unknown>;
 type Ref = { ihsId: string; nama: string };
@@ -103,23 +104,6 @@ export interface MedicationRefs {
   medication: Ref;
 }
 
-const PRIORITY: Record<string, string> = { CITO: "stat", Segera: "urgent", Rutin: "routine" };
-
-/** Rute lokal (FE union) → kode rute ATC (dipakai contoh resmi). Tak terpetakan → tanpa route. */
-const ROUTE_ATC: Record<string, { code: string; display: string }> = {
-  PO: { code: "O", display: "Oral" },
-  Oral: { code: "O", display: "Oral" },
-  SL: { code: "SL", display: "Sublingual" },
-  IV: { code: "P", display: "Parenteral" },
-  IM: { code: "P", display: "Parenteral" },
-  SC: { code: "P", display: "Parenteral" },
-  Rektal: { code: "R", display: "Rectal" },
-  Inhalasi: { code: "Inhal", display: "Inhalation" },
-  Nasal: { code: "N", display: "Nasal" },
-  Transdermal: { code: "TD", display: "Transdermal" },
-  Vaginal: { code: "V", display: "Vaginal" },
-};
-
 function statusOf(r: LocalResep): string {
   if (r.deleted) return "entered-in-error";
   if (r.status === "Dibatalkan") return "cancelled";
@@ -127,10 +111,9 @@ function statusOf(r: LocalResep): string {
   return "active";
 }
 
-function categoryOf(r: LocalResep, unit: MedicationRefs["unit"]): { code: string; display: string } {
-  if (r.isObatPulang) return { code: "discharge", display: "Discharge" };
-  if (unit === "RawatInap") return { code: "inpatient", display: "Inpatient" };
-  return { code: "outpatient", display: "Outpatient" };
+function categoryOf(r: LocalResep, unit: MedicationRefs["unit"]): { code: KategoriResep; display: string } {
+  const code: KategoriResep = r.isObatPulang ? "discharge" : unit === "RawatInap" ? "inpatient" : "outpatient";
+  return { code, display: MEDICATION_CATEGORY_DISPLAY[code] };
 }
 
 function dosageText(i: LocalResepItem): string {
@@ -143,7 +126,7 @@ export function toFhirMedicationRequest(
   refs: MedicationRefs,
   extra: { requester?: Ref; reason?: { kode: string; nama: string } },
 ): FhirRes {
-  const route = i.rute ? ROUTE_ATC[i.rute] : undefined;
+  const route = lookup(ROUTE_ATC, i.rute);
   const cat = categoryOf(r, refs.unit);
   return {
     resourceType: "MedicationRequest",
@@ -154,7 +137,7 @@ export function toFhirMedicationRequest(
     status: statusOf(r),
     intent: "order",
     category: [{ coding: [{ system: "http://terminology.hl7.org/CodeSystem/medicationrequest-category", ...cat }] }],
-    priority: PRIORITY[r.prioritas] ?? "routine",
+    priority: lookup(ORDER_PRIORITY, r.prioritas) ?? "routine",
     medicationReference: { reference: `Medication/${refs.medication.ihsId}`, display: refs.medication.nama },
     subject: { reference: `Patient/${refs.patient.ihsId}`, display: refs.patient.nama },
     encounter: { reference: `Encounter/${refs.encounter.ihsId}` },
@@ -165,7 +148,7 @@ export function toFhirMedicationRequest(
       sequence: 1,
       text: dosageText(i),
       ...(i.keterangan ? { additionalInstruction: [{ text: i.keterangan }] } : {}),
-      ...(route ? { route: { coding: [{ system: "http://www.whocc.no/atc", ...route }] } } : {}),
+      ...(route ? { route: { coding: [route] } } : {}),
     }],
     dispenseRequest: {
       quantity: { value: i.jumlah },

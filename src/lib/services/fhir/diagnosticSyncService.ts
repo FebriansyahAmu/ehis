@@ -12,12 +12,14 @@ import {
   toFhirDiagnosticReport, toFhirLabObservation, toFhirRadObservation, toFhirServiceRequest,
   type DiagRefs, type Loinc,
 } from "@/lib/fhir/adapters/diagnostic";
+import { diagnosaUtamaOf } from "@/lib/fhir/links/diagnosa";
 import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
 import * as src from "@/lib/dal/fhir/diagnosticSourceDal";
 import * as clinicalSrc from "@/lib/dal/fhir/clinicalSourceDal";
 import type { UpsertResult } from "./resourceUpsert";
 import type { ResourceSink, SubmitArgs } from "./resourceSink";
 import type { ClinicalSyncOutcome, SyncRef } from "./clinicalSyncService";
+import type { EncounterSnapshot } from "./encounterSnapshot";
 
 type Ref = { ihsId: string; nama: string };
 type Outcome = Omit<ClinicalSyncOutcome, "conditionsOk">;
@@ -41,11 +43,11 @@ const loincOf = (x: { loincCode: string | null; loincDisplay: string | null; nam
   x?.loincCode?.trim() ? { code: x.loincCode.trim(), display: x.loincDisplay?.trim() || x.nama } : null;
 
 export async function syncDiagnostic(
-  kunjunganId: string,
+  snap: Pick<EncounterSnapshot, "lab" | "rad" | "diagnosa">,
   ctx: { env: SatuSehatMode; refs: DiagRefs; sink: ResourceSink },
 ): Promise<Outcome> {
-  const out: Outcome = { refs: [], failures: [], notes: [] };
-  const [lab, rad] = await Promise.all([src.listLab(kunjunganId), src.listRad(kunjunganId)]);
+  const out: Outcome = { refs: [], failures: [], issues: [] };
+  const { lab, rad, diagnosa } = snap;
   if (!lab.length && !rad.length) return out;
 
   // ── Referensi master & practitioner ──
@@ -53,12 +55,11 @@ export async function syncDiagnostic(
   const radIds = [...new Set(rad.flatMap((o) => o.items.map((i) => i.radCatalogId)).filter((x): x is string => !!x))];
   const validatorUserIds = [...new Set([...lab, ...rad].map((o) => o.results[0]?.validatorUserId).filter((x): x is string => !!x))];
 
-  const [tests, params, radCat, userPeg, diagnosa] = await Promise.all([
+  const [tests, params, radCat, userPeg] = await Promise.all([
     src.listLabTestLoinc(labTestIds),
     src.listLabParametersByTest(labTestIds),
     src.listRadCatalogLoinc(radIds),
     src.listUserPegawai(validatorUserIds),
-    clinicalSrc.listDiagnosa(kunjunganId),
   ]);
   const testById = new Map(tests.map((t) => [t.id, t]));
   const paramById = new Map(params.map((p) => [p.id, p]));
@@ -83,8 +84,7 @@ export async function syncDiagnostic(
   const pracOf = (pegawaiId: string | null | undefined) => (pegawaiId ? prac.get(pegawaiId) : undefined);
   const validatorOf = (userId: string | null | undefined) => pracOf(userId ? pegawaiOfUser.get(userId) : undefined);
 
-  const utama = diagnosa.find((d) => !d.deletedAt && d.tipe === "Utama" && d.kodeIcd10.trim());
-  const reason = utama ? { kode: utama.kodeIcd10.trim().toUpperCase(), nama: utama.namaDiagnosis } : undefined;
+  const reason = diagnosaUtamaOf(diagnosa);
 
   const record = (resourceType: string, localId: string, r: UpsertResult | null): string | undefined => {
     if (!r) return undefined;
@@ -108,7 +108,7 @@ export async function syncDiagnostic(
     for (const it of o.items) {
       const loinc = loincOf(it.labTestId ? testById.get(it.labTestId) : undefined);
       if (!loinc) {
-        if (!deleted) out.notes.push(`Tes lab "${it.namaTes}" belum ber-LOINC — dilewati`);
+        if (!deleted) out.issues.push({ link: "L16", resourceType: "ServiceRequest", localId: it.id, code: "kode-kosong", message: `Tes lab "${it.namaTes}" belum ber-LOINC — ditahan` });
         continue;
       }
       const srIhs = record("ServiceRequest", it.id, await send("ServiceRequest", it.id,
@@ -118,22 +118,20 @@ export async function syncDiagnostic(
       const issued = result.validatedAt!;
       const performer = pracOf(result.authorPegawaiId);
       const obsIhs: string[] = [];
-      let tanpaLoinc = 0;
       for (const v of result.values.map(withIds).filter((x) => x.labTestId === it.labTestId && x.nilai?.trim())) {
         const p = paramOf(v);
         const pl = loincOf(p);
+        const localId = `${o.id}:${v.rowKey}`;
         if (!pl) {
-          tanpaLoinc++;
+          out.issues.push({ link: "L16", resourceType: "Observation", localId, code: "kode-kosong", message: `Parameter "${v.nama}" (${it.namaTes}) belum ber-LOINC — hasil ditahan` });
           continue;
         }
-        const localId = `${o.id}:${v.rowKey}`;
         const ihs = record("Observation", localId, await send("Observation", localId, toFhirLabObservation(
           { nilai: v.nilai!.trim(), satuan: v.satuan, rujukanStr: v.rujukanStr, flag: v.flag, numerik: p?.tipeHasil !== "Kualitatif" },
           pl, ctx.refs, { serviceRequestIhsId: srIhs, issued, performer },
         ), false));
         if (ihs) obsIhs.push(ihs);
       }
-      if (tanpaLoinc) out.notes.push(`${tanpaLoinc} parameter "${it.namaTes}" belum ber-LOINC — hasilnya dilewati`);
 
       record("DiagnosticReport", it.id, await send("DiagnosticReport", it.id, toFhirDiagnosticReport("lab", it.id, loinc, ctx.refs, {
         deleted: false, issued, observationIhsIds: obsIhs, serviceRequestIhsIds: [srIhs],
@@ -152,7 +150,7 @@ export async function syncDiagnostic(
     for (const it of o.items) {
       const loinc = loincOf(it.radCatalogId ? radById.get(it.radCatalogId) : undefined);
       if (!loinc) {
-        if (!deleted) out.notes.push(`Pemeriksaan radiologi "${it.nama}" belum ber-LOINC — dilewati`);
+        if (!deleted) out.issues.push({ link: "L17", resourceType: "ServiceRequest", localId: it.id, code: "kode-kosong", message: `Pemeriksaan radiologi "${it.nama}" belum ber-LOINC — ditahan` });
         continue;
       }
       reportLoinc ??= loinc;

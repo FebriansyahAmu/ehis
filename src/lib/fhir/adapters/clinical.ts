@@ -5,6 +5,7 @@
  */
 
 import { FHIR_SYSTEM, orgIdentifierSystem, toFhirDateTime, type FhirResourceBase } from "../fhirShared";
+import { ALLERGY_CATEGORY, CONDITION_VERIFICATION, lookup } from "../conceptMap";
 
 export interface ClinicalRefs {
   orgId: string;
@@ -28,20 +29,14 @@ export interface LocalDiagnosa {
   createdAt: Date;
 }
 
-const VERIF_CONDITION: Record<string, { code: string; display: string }> = {
-  Pasti: { code: "confirmed", display: "Confirmed" },
-  Dicurigai: { code: "provisional", display: "Provisional" },
-  Diferensial: { code: "differential", display: "Differential" },
-};
-
 export function toFhirCondition(d: LocalDiagnosa, r: ClinicalRefs): FhirRes {
   const verif = d.deleted
-    ? { code: "entered-in-error", display: "Entered in Error" }
-    : VERIF_CONDITION[d.status] ?? VERIF_CONDITION.Pasti;
+    ? { system: "http://terminology.hl7.org/CodeSystem/condition-ver-status", code: "entered-in-error", display: "Entered in Error" }
+    : lookup(CONDITION_VERIFICATION, d.status) ?? CONDITION_VERIFICATION.Pasti;
   return {
     resourceType: "Condition",
     clinicalStatus: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/condition-clinical", code: "active", display: "Active" }] },
-    verificationStatus: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/condition-ver-status", ...verif }] },
+    verificationStatus: { coding: [verif] },
     category: [{ coding: [{ system: "http://terminology.hl7.org/CodeSystem/condition-category", code: "encounter-diagnosis", display: "Encounter Diagnosis" }] }],
     code: { coding: [{ system: FHIR_SYSTEM.icd10, code: d.kodeIcd10.trim().toUpperCase(), display: d.namaDiagnosis }] },
     subject: subject(r),
@@ -157,8 +152,6 @@ export interface LocalAlergi {
   deleted: boolean;
 }
 
-const ALLERGY_CATEGORY: Record<string, string> = { Obat: "medication", Makanan: "food", Lainnya: "environment" };
-
 export function toFhirAllergy(a: LocalAlergi, r: ClinicalRefs, recorder?: Ref): FhirRes {
   const verif = a.deleted
     ? { code: "entered-in-error", display: "Entered in Error" }
@@ -171,7 +164,7 @@ export function toFhirAllergy(a: LocalAlergi, r: ClinicalRefs, recorder?: Ref): 
     identifier: [{ system: orgIdentifierSystem("allergy", r.orgId), use: "official", value: a.id }],
     clinicalStatus: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical", code: "active", display: "Active" }] },
     verificationStatus: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/allergyintolerance-verification", ...verif }] },
-    category: [ALLERGY_CATEGORY[a.category] ?? "environment"],
+    category: [lookup(ALLERGY_CATEGORY, a.category) ?? "environment"],
     criticality: a.severity === "Berat" ? "high" : "low",
     code: { coding: [{ system: FHIR_SYSTEM.snomed, code: a.snomedCode, display: a.allergen }], text },
     patient: subject(r),

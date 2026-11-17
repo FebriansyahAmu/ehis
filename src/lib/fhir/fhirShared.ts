@@ -104,8 +104,28 @@ export function summarizeIssues(issues: OperationOutcomeIssue[] | undefined): st
     .join("; ");
 }
 
-/** Datetime ISO-8601 dengan offset +07:00 (WIB) — format wajib payload SatuSehat (R6). */
+/**
+ * Datetime ISO-8601 **UTC** (`…+00:00`) — ketentuan umum playbook SatuSehat RJ/IGD/RI: waktu dikirim dalam
+ * UTC+00 (WIB dikurangi 7 jam), contoh resmi `2023-08-23T10:35:00+00:00` (R6, FG-83). Detik dipertahankan,
+ * milidetik dibuang.
+ */
 export function toFhirDateTime(d: Date): string {
-  const wib = new Date(d.getTime() + 7 * 60 * 60 * 1000);
-  return `${wib.toISOString().slice(0, 19)}+07:00`;
+  return `${d.toISOString().slice(0, 19)}+00:00`;
+}
+
+/**
+ * JSON kanonik: key objek diurutkan rekursif (urutan array dipertahankan). Dipakai untuk hash deteksi
+ * perubahan payload — hasil sama walau urutan properti di builder berubah (ARSITEKTUR §7).
+ */
+export function canonicalJson(value: unknown): string {
+  return JSON.stringify(value, (_k, v: unknown) => {
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+      const o = v as Record<string, unknown>;
+      return Object.keys(o).sort().reduce<Record<string, unknown>>((acc, k) => {
+        acc[k] = o[k];
+        return acc;
+      }, {});
+    }
+    return v;
+  });
 }

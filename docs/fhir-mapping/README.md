@@ -5,6 +5,7 @@
 > ("tidak salah kamar"), dengan performa dan kualitas data yang konsisten.
 >
 > - Arsitektur & best practice (jawaban "pakai procedure DB atau tidak") → **[ARSITEKTUR.md](ARSITEKTUR.md)**
+> - Flow eksekusi (pemicu · urutan resource · gerbang readiness · branch per langkah S1–S5) → **[FLOW.md](FLOW.md)** — S1 Fondasi ✅ 2026-11-17
 > - Aturan connector → [../FHIR-RULES.md](../FHIR-RULES.md) · gap implementasi → [../FHIR-GAP.md](../FHIR-GAP.md) · roadmap → [../../TODO-FHIR.md](../../TODO-FHIR.md)
 
 ## Sumber riset (first-party saja)

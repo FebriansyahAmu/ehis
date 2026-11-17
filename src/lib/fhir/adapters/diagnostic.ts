@@ -9,6 +9,7 @@
  */
 
 import { FHIR_SYSTEM, orgIdentifierSystem, toFhirDateTime, type FhirResourceBase } from "../fhirShared";
+import { ORDER_PRIORITY, lookup } from "../conceptMap";
 
 type FhirRes = FhirResourceBase & Record<string, unknown>;
 type Ref = { ihsId: string; nama: string };
@@ -33,8 +34,6 @@ const SR_CATEGORY: Record<DiagKind, { code: string; display: string }> = {
   lab: { code: "108252007", display: "Laboratory procedure" },
   rad: { code: "363679005", display: "Imaging" },
 };
-
-const PRIORITY: Record<string, string> = { CITO: "stat", Segera: "urgent", Rutin: "routine" };
 
 export interface LocalDiagOrder {
   id: string;
@@ -65,7 +64,7 @@ export function toFhirServiceRequest(
     identifier: [{ system: orgIdentifierSystem("servicerequest", r.orgId), value: item.id }],
     status: srStatus(o),
     intent: "original-order",
-    priority: PRIORITY[o.prioritas] ?? "routine",
+    priority: lookup(ORDER_PRIORITY, o.prioritas) ?? "routine",
     category: [{ coding: [{ system: FHIR_SYSTEM.snomed, ...SR_CATEGORY[kind] }] }],
     code: { ...coding(loinc), text: item.nama },
     subject: subject(r),

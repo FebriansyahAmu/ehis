@@ -93,7 +93,7 @@ Swap mock→real = ganti isi connector (`SATUSEHAT_MODE`) → **Route & FE tak b
 ## R6 — Auth header & content
 
 - Setiap request FHIR/KFA/Masterdata: `Authorization: Bearer <access_token>` + `Content-Type: application/json`.
-- Datetime **ISO-8601 dengan offset** (`2026-08-19T10:30:00+07:00`). NIK **16 digit** tervalidasi.
+- Datetime **ISO-8601 UTC** (`2026-08-19T03:30:00+00:00`) — ketentuan umum playbook RJ/IGD/RI: WIB dikurangi 7 jam (dikoreksi 2026-11-17, sebelumnya `+07:00`; helper `toFhirDateTime`). Tanggal < 2014-06-03 ditolak. NIK **16 digit** tervalidasi.
 
 ## R7 — Response: FHIR resource / Bundle / OperationOutcome → Result
 
@@ -381,5 +381,5 @@ outbox worker → build Bundle (urn:uuid) → callSatuSehat(POST / , transaction
 2. `SATUSEHAT_MODE=mock` jalan tanpa jaringan (adapter mock, shape sama). `sandbox` terbukti hijau sebelum prod.
 3. Idempoten: resolve-first + ResourceMap; retry aman; tak pernah create ganda (R8/R15).
 4. Panggilan eksternal di luar DB tx (outbox) (R4). Audit 1 baris/call, PII di-hash (R9/R14).
-5. Kode divalidasi lokal (R12) + system URL kanonik (R17). Datetime ISO-8601 +07:00.
+5. Kode divalidasi lokal (R12) + system URL kanonik (R17). Datetime ISO-8601 UTC `+00:00` (R6).
 6. `tsc --noEmit` bersih + eslint file tersentuh. Tak ada secret ke client (R1).

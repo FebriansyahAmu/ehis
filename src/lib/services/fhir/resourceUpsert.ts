@@ -5,7 +5,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
-import type { FhirError, FhirResourceBase, SatuSehatMode } from "@/lib/fhir/fhirShared";
+import { canonicalJson, type FhirError, type FhirResourceBase, type SatuSehatMode } from "@/lib/fhir/fhirShared";
 import { fhirRequest, type FhirRequestAudit } from "./transport";
 
 export type UpsertOp = "create" | "update" | "noop";
@@ -14,7 +14,8 @@ export type UpsertResult =
   | { ok: true; ihsId: string; op: UpsertOp }
   | { ok: false; error: FhirError };
 
-export const hashOf = (r: unknown) => createHash("sha256").update(JSON.stringify(r)).digest("hex");
+/** Hash deteksi perubahan payload — dari JSON KANONIK (key terurut) agar stabil lintas urutan properti builder. */
+export const hashOf = (r: unknown) => createHash("sha256").update(canonicalJson(r)).digest("hex");
 
 export async function upsertClinicalResource(args: {
   env: SatuSehatMode;

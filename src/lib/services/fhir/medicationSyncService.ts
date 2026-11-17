@@ -11,17 +11,19 @@ import {
   kfaProductOf, toFhirMedication, toFhirMedicationDispense, toFhirMedicationRequest,
   type KfaMapping, type MedicationRefs,
 } from "@/lib/fhir/adapters/medication";
+import { diagnosaUtamaOf } from "@/lib/fhir/links/diagnosa";
 import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
 import * as src from "@/lib/dal/fhir/medicationSourceDal";
 import * as clinicalSrc from "@/lib/dal/fhir/clinicalSourceDal";
 import type { UpsertResult } from "./resourceUpsert";
 import type { ResourceSink } from "./resourceSink";
 import type { ClinicalSyncOutcome, SyncRef } from "./clinicalSyncService";
+import type { EncounterSnapshot } from "./encounterSnapshot";
 
 type Ref = { ihsId: string; nama: string };
 
 export async function syncMedication(
-  kunjunganId: string,
+  snap: Pick<EncounterSnapshot, "resep" | "diagnosa">,
   ctx: {
     env: SatuSehatMode;
     orgId: string;
@@ -31,8 +33,8 @@ export async function syncMedication(
     sink: ResourceSink;
   },
 ): Promise<Omit<ClinicalSyncOutcome, "conditionsOk">> {
-  const out: Omit<ClinicalSyncOutcome, "conditionsOk"> = { refs: [], failures: [], notes: [] };
-  const resep = await src.listResep(kunjunganId);
+  const out: Omit<ClinicalSyncOutcome, "conditionsOk"> = { refs: [], failures: [], issues: [] };
+  const { resep, diagnosa } = snap;
   if (!resep.length) return out;
 
   const kodes = [...new Set(resep.flatMap((r) => r.items.map((i) => i.kodeObat)).filter(Boolean))];
@@ -41,12 +43,11 @@ export async function syncMedication(
     resep.flatMap((r) => [r.authorPegawaiId, ...r.dispensings.map((d) => d.authorPegawaiId)]).filter((x): x is string => !!x),
   )];
 
-  const [obat, depos, pracMaps, names, diagnosa] = await Promise.all([
+  const [obat, depos, pracMaps, names] = await Promise.all([
     src.listObatByKode(kodes),
     src.listLocationByKode(depoKodes),
     resourceMapDal.findManyByLocal(ctx.env, "Practitioner", pegawaiIds),
     clinicalSrc.listPegawaiNama(pegawaiIds),
-    clinicalSrc.listDiagnosa(kunjunganId),
   ]);
   const obatByKode = new Map(obat.map((o) => [o.kode, o]));
   const nameOf = new Map(names.map((p) => [p.id, [p.gelarDepan, p.namaLengkap, p.gelarBelakang].filter(Boolean).join(" ")]));
@@ -59,8 +60,7 @@ export async function syncMedication(
     const ihs = d ? locIhs.get(d.id) : undefined;
     return d && ihs ? { ihsId: ihs, nama: d.nama } : undefined;
   };
-  const utama = diagnosa.find((d) => !d.deletedAt && d.tipe === "Utama" && d.kodeIcd10.trim());
-  const reason = utama ? { kode: utama.kodeIcd10.trim().toUpperCase(), nama: utama.namaDiagnosis } : undefined;
+  const reason = diagnosaUtamaOf(diagnosa);
 
   const record = (resourceType: string, localId: string, r: UpsertResult | null): string | undefined => {
     if (!r) return undefined;
@@ -98,7 +98,7 @@ export async function syncMedication(
     for (const [idx, it] of r.items.entries()) {
       const medication = await ensureMedication(it.kodeObat);
       if (!medication) {
-        if (!deleted) out.notes.push(`Obat "${it.namaObat}" belum ber-KFA di master — MedicationRequest dilewati`);
+        if (!deleted) out.issues.push({ link: "L18", resourceType: "MedicationRequest", localId: it.id, code: "kode-kosong", message: `Obat "${it.namaObat}" belum ber-KFA di master — MedicationRequest ditahan` });
         continue;
       }
       const item = { ...it, seq: idx + 1 };

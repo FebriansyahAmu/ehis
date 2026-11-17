@@ -9,7 +9,6 @@
 //   dikumpulkan; item lain tetap diproses.
 
 import "server-only";
-import { createHash } from "node:crypto";
 import { getSatuSehatConfig } from "@/lib/fhir/server/config";
 import { FHIR_SYSTEM, orgIdentifierSystem, type Bundle, type FhirResourceBase, type SatuSehatMode } from "@/lib/fhir/fhirShared";
 import { toFhirOrganization } from "@/lib/fhir/adapters/organization";
@@ -20,6 +19,7 @@ import { Errors } from "@/lib/errors/appError";
 import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
 import * as sourceDal from "@/lib/dal/fhir/onboardingSourceDal";
 import { fhirRequest } from "./transport";
+import { hashOf } from "./resourceUpsert";
 import { auditActorOf } from "./audit";
 import type { Actor } from "@/lib/auth/actor";
 import type {
@@ -45,7 +45,7 @@ type Ctx = {
   audit: ReturnType<typeof auditActorOf>;
 };
 
-const hashOf = (r: unknown) => createHash("sha256").update(JSON.stringify(r)).digest("hex");
+
 
 // ── Entry point ─────────────────────────────────────────────
 

@@ -13,10 +13,13 @@ import type { SatuSehatMode } from "@/lib/fhir/fhirShared";
 import {
   toFhirAllergy, toFhirCondition, toFhirProcedure, toFhirVitalObservations, type ClinicalRefs,
 } from "@/lib/fhir/adapters/clinical";
+import type { Issue } from "@/lib/fhir/links/types";
+import { diagnosaUtamaOf } from "@/lib/fhir/links/diagnosa";
 import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
 import * as src from "@/lib/dal/fhir/clinicalSourceDal";
 import type { UpsertResult } from "./resourceUpsert";
 import type { ResourceSink, SubmitArgs } from "./resourceSink";
+import type { EncounterSnapshot } from "./encounterSnapshot";
 
 // `type` (bukan interface) agar assignable ke Prisma InputJsonValue (ihs_refs JSONB).
 export type SyncRef = {
@@ -29,24 +32,19 @@ export type SyncRef = {
 export interface ClinicalSyncOutcome {
   refs: SyncRef[];
   failures: { resourceType: string; localId: string; message: string; retryable: boolean }[];
-  notes: string[];
+  /** Item ditahan gerbang readiness (tidak dikirim, tidak menggagalkan job) — FLOW.md §4. */
+  issues: Issue[];
   conditionsOk: boolean;
 }
 
 type Ref = { ihsId: string; nama: string };
 
 export async function syncClinical(
-  kunjunganId: string,
+  snap: Pick<EncounterSnapshot, "diagnosa" | "prosedur" | "tindakan" | "ttv" | "alergi">,
   ctx: { env: SatuSehatMode; refs: ClinicalRefs; sink: ResourceSink },
 ): Promise<ClinicalSyncOutcome> {
-  const out: ClinicalSyncOutcome = { refs: [], failures: [], notes: [], conditionsOk: true };
-  const [diagnosa, prosedur, tindakan, ttv, alergi] = await Promise.all([
-    src.listDiagnosa(kunjunganId),
-    src.listProsedur(kunjunganId),
-    src.listTindakanBerkode(kunjunganId),
-    src.listTtv(kunjunganId),
-    src.listAlergi(kunjunganId),
-  ]);
+  const out: ClinicalSyncOutcome = { refs: [], failures: [], issues: [], conditionsOk: true };
+  const { diagnosa, prosedur, tindakan, ttv, alergi } = snap;
 
   // Practitioner (performer/recorder) — hanya yang sudah onboarding FH1; selain itu tanpa performer.
   const pegawaiIds = [...new Set(
@@ -71,7 +69,7 @@ export async function syncClinical(
   // ── Condition ──
   for (const d of diagnosa) {
     if (!d.kodeIcd10.trim()) {
-      if (!d.deletedAt) out.notes.push(`Diagnosa "${d.namaDiagnosis}" tanpa kode ICD-10 — dilewati`);
+      if (!d.deletedAt) out.issues.push({ link: "L13", resourceType: "Condition", localId: d.id, code: "kode-kosong", message: `Diagnosa "${d.namaDiagnosis}" tanpa kode ICD-10 — ditahan` });
       continue;
     }
     const r = await send("Condition", d.id, toFhirCondition({ ...d, deleted: !!d.deletedAt }, ctx.refs), !!d.deletedAt);
@@ -80,8 +78,7 @@ export async function syncClinical(
   }
 
   // ── Procedure ──
-  const utama = diagnosa.find((d) => !d.deletedAt && d.tipe === "Utama" && d.kodeIcd10.trim());
-  const reason = utama ? { kode: utama.kodeIcd10.trim().toUpperCase(), nama: utama.namaDiagnosis } : undefined;
+  const reason = diagnosaUtamaOf(diagnosa);
   const kodeProsedur = new Set(prosedur.filter((p) => !p.deletedAt).map((p) => p.kode.trim()));
 
   for (const p of prosedur) {
@@ -116,7 +113,7 @@ export async function syncClinical(
   // ── AllergyIntolerance ──
   for (const a of alergi) {
     if (!a.snomedCode?.trim()) {
-      if (!a.deletedAt) out.notes.push(`Alergi "${a.allergen}" tanpa kode SNOMED — dilewati`);
+      if (!a.deletedAt) out.issues.push({ link: "L06", resourceType: "AllergyIntolerance", localId: a.id, code: "kode-kosong", message: `Alergi "${a.allergen}" tanpa kode SNOMED — ditahan` });
       continue;
     }
     const deleted = !!a.deletedAt;

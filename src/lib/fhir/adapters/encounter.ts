@@ -7,13 +7,17 @@
  * Contoh resmi: docs/fhir-postman/resources/Encounter.json + bundles/*.json (entry Encounter).
  */
 
-import { FHIR_SYSTEM, orgIdentifierSystem, toFhirDateTime, type FhirResourceBase } from "../fhirShared";
+import { orgIdentifierSystem, toFhirDateTime, type FhirResourceBase } from "../fhirShared";
+import {
+  DISCHARGE_DISPOSITION, ENCOUNTER_CLASS, KELAS_RANK, SERVICE_CLASS_INPATIENT, SERVICE_CLASS_OUTPATIENT_REGULER,
+  UPGRADE_CLASS, lookup, type KunjunganUnit, type UpgradeClass,
+} from "../conceptMap";
 
 export type EncounterStatus = "arrived" | "in-progress" | "finished" | "cancelled";
 
 export interface LocalEncounter {
   noKunjungan: string;
-  unit: "IGD" | "RawatJalan" | "RawatInap";
+  unit: KunjunganUnit;
   status: string;
   waktuKunjungan: Date;
   dilayaniAt: Date | null;
@@ -40,12 +44,6 @@ export interface FhirEncounter extends FhirResourceBase {
   [k: string]: unknown;
 }
 
-const CLASS: Record<LocalEncounter["unit"], { code: string; display: string }> = {
-  IGD: { code: "EMER", display: "emergency" },
-  RawatJalan: { code: "AMB", display: "ambulatory" },
-  RawatInap: { code: "IMP", display: "inpatient encounter" },
-};
-
 const FINISHED = new Set(["Completed", "Closed", "Billed", "Claimed"]);
 
 /** Status FHIR dari status kunjungan; null = belum layak dikirim (belum diterima). */
@@ -56,55 +54,25 @@ export function encounterStatusOf(status: string): EncounterStatus | null {
   return null;
 }
 
-/** Disposisi lokal → HL7 discharge-disposition. */
-const DISCHARGE: Record<string, { code: string; display: string }> = {
-  Pulang: { code: "home", display: "Home" },
-  Rujuk: { code: "other-hcf", display: "Other healthcare facility" },
-  Meninggal: { code: "exp", display: "Expired" },
-  APS: { code: "aadvice", display: "Left against advice" },
-  Rawat_Inap: { code: "oth", display: "Other" },
-};
-
-/** Kelas kamar lokal → kode locationServiceClass-Inpatient. */
-const KELAS_INPATIENT: Record<string, { code: string; display: string }> = {
-  VIP: { code: "vip", display: "Kelas VIP" },
-  Kelas_1: { code: "1", display: "Kelas 1" },
-  Kelas_2: { code: "2", display: "Kelas 2" },
-  Kelas_3: { code: "3", display: "Kelas 3" },
-};
-const KELAS_RANK: Record<string, number> = { Kelas_3: 1, Kelas_2: 2, Kelas_1: 3, VIP: 4 };
-
 function serviceClassExtension(e: LocalEncounter) {
   const inpatient = e.unit === "RawatInap";
-  const kelas = inpatient ? KELAS_INPATIENT[e.kelas ?? ""] : { code: "reguler", display: "Kelas Reguler" };
+  const kelas = inpatient ? lookup(SERVICE_CLASS_INPATIENT, e.kelas) : SERVICE_CLASS_OUTPATIENT_REGULER;
   if (!kelas) return undefined; // RI tanpa kelas terpetakan (ICU/HCU/Isolasi) → tanpa extension (FG-28)
 
-  let upgrade = { code: "kelas-tetap", display: "Kelas Tetap Perawatan" };
-  if (inpatient && e.titipan) upgrade = { code: "titip-rawat", display: "Titip Rawat" };
-  else if (inpatient && e.kelas && e.kelasHak && KELAS_RANK[e.kelas] && KELAS_RANK[e.kelasHak]) {
-    const d = KELAS_RANK[e.kelas] - KELAS_RANK[e.kelasHak];
-    if (d > 0) upgrade = { code: "naik-kelas", display: "Naik Kelas" };
-    else if (d < 0) upgrade = { code: "turun-kelas", display: "Turun Kelas" };
+  let upgrade: UpgradeClass = "kelas-tetap";
+  const kamar = lookup(KELAS_RANK, e.kelas);
+  const hak = lookup(KELAS_RANK, e.kelasHak);
+  if (inpatient && e.titipan) upgrade = "titip-rawat";
+  else if (inpatient && kamar && hak) {
+    if (kamar > hak) upgrade = "naik-kelas";
+    else if (kamar < hak) upgrade = "turun-kelas";
   }
 
   return [{
     url: "https://fhir.kemkes.go.id/r4/StructureDefinition/ServiceClass",
     extension: [
-      {
-        url: "value",
-        valueCodeableConcept: {
-          coding: [{
-            system: `http://terminology.kemkes.go.id/CodeSystem/locationServiceClass-${inpatient ? "Inpatient" : "Outpatient"}`,
-            ...kelas,
-          }],
-        },
-      },
-      {
-        url: "upgradeClassIndicator",
-        valueCodeableConcept: {
-          coding: [{ system: "http://terminology.kemkes.go.id/CodeSystem/locationUpgradeClass", ...upgrade }],
-        },
-      },
+      { url: "value", valueCodeableConcept: { coding: [kelas] } },
+      { url: "upgradeClassIndicator", valueCodeableConcept: { coding: [UPGRADE_CLASS[upgrade]] } },
     ],
   }];
 }
@@ -124,7 +92,7 @@ export function toFhirEncounter(e: LocalEncounter, refs: EncounterRefs, status: 
   if (done) history.push({ status: "finished", period: { start: t(done), end: t(done) } });
   if (status === "cancelled") history.push({ status: "cancelled", period: { start: t(served) } });
 
-  const disp = status === "finished" && e.disposisi ? DISCHARGE[e.disposisi.jenis] : undefined;
+  const disp = status === "finished" && e.disposisi ? lookup(DISCHARGE_DISPOSITION, e.disposisi.jenis) : undefined;
   const dispText = e.disposisi?.jenis === "Rujuk" && e.disposisi.rujukTujuan
     ? `Rujuk ke ${e.disposisi.rujukTujuan}`
     : e.disposisi?.instruksi || undefined;
@@ -135,7 +103,7 @@ export function toFhirEncounter(e: LocalEncounter, refs: EncounterRefs, status: 
     identifier: [{ system: orgIdentifierSystem("encounter", refs.orgId), value: e.noKunjungan }],
     status,
     statusHistory: history,
-    class: { system: FHIR_SYSTEM.actCode, ...CLASS[e.unit] },
+    class: ENCOUNTER_CLASS[e.unit],
     subject: { reference: `Patient/${refs.patient.ihsId}`, display: refs.patient.nama },
     ...(refs.practitioner ? {
       participant: [{
@@ -160,7 +128,7 @@ export function toFhirEncounter(e: LocalEncounter, refs: EncounterRefs, status: 
     ...(disp ? {
       hospitalization: {
         dischargeDisposition: {
-          coding: [{ system: "http://terminology.hl7.org/CodeSystem/discharge-disposition", ...disp }],
+          coding: [disp],
           ...(dispText ? { text: dispText } : {}),
         },
       },

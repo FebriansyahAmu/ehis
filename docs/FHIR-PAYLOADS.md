@@ -5,6 +5,7 @@
 
 ## Provenans & disclaimer (baca dulu)
 
+> **Catatan waktu (2026-11-17):** contoh di dokumen ini masih menulis `+07:00`. Payload yang benar-benar dikirim memakai **UTC `+00:00`** sesuai ketentuan playbook (lihat FHIR-RULES R6).
 - **Payload VERBATIM RESMI sudah tersedia di [docs/fhir-postman/](fhir-postman/)** — ditarik langsung dari
   **workspace Postman RESMI SatuSehat** (`satusehat/satusehat-public`, di-fork + Postman API): `resources/`
   = 1 contoh Create kanonik per resource (25 file, lengkap dgn `meta.profile`/ingredient/administrativeCode),

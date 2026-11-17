@@ -29,14 +29,6 @@ export function getDokter(dokterId: string, tx?: Tx) {
   });
 }
 
-/** Diagnosa ICD-10 final (Pasti, Utama dulu) — kandidat Encounter.diagnosis (via peta Condition FH4). */
-export function listDiagnosaFinal(kunjunganId: string, tx?: Tx) {
-  return db(tx).diagnosa.findMany({
-    where: { kunjunganId, deletedAt: null, status: "Pasti", tipe: { in: ["Utama", "Sekunder"] } },
-    orderBy: [{ tipe: "desc" }, { createdAt: "asc" }], // "Utama" > "Sekunder" (desc) → Utama dulu
-    select: { id: true, kodeIcd10: true, namaDiagnosis: true, tipe: true },
-  });
-}
 
 /** Resume medis revisi TERBARU (append-only latest-wins) — sumber Composition (FH7). */
 export function getLatestResume(kunjunganId: string, tx?: Tx) {
