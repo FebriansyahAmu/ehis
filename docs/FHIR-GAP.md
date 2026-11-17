@@ -288,3 +288,26 @@ playbook RI v6.0 §17 & §19 (2026-11-18). Test murni [obat.test.ts](../src/lib/
 | FG-116 | ⚪ | **KFA MedicationAdministration: 93 diutamakan, cadangan 92** — playbook tidak mengatur (contoh resmi 93; Dispense wajib 93). | Wajibkan 93 bila sandbox menolak 92. |
 | FG-117 | 🟡 | **Dosis MAR teks** — `dose` hanya terisi untuk "<angka> <satuan UCUM>" (mg/g/mcg/mL/IU); "1 tablet" tidak terurai. Playbook menyebut UCUM, contoh resmi memakai `v3-orderableDrugForm` TAB (tidak konsisten). | Field dosis terstruktur (nilai + satuan) di MAR / resep (terkait FG-81). |
 | FG-118 | ⚪ | **MAR belum punya data uji** (0 baris, 2026-11-18) → L21 belum terlihat di konsol; Telaah: 6 baris, semua lulus lengkap. | Isi MAR pasien RI uji lalu cek pratinjau konsol. |
+
+## S4c Link rencana & pulang (2026-11-18, branch `feat/fhir-link-rencana`)
+
+**Dibangun** ([rencanaSyncService](../src/lib/services/fhir/rencanaSyncService.ts), dipanggil sesudah klinis): L22 **Goal** `nursing`
+per tujuan (description = teks — contoh resmi RI juga teks saja) + **CarePlan** rencana rawat per masalah (category per unit, `goal[]`,
+`addresses` → Condition diagnosis bila masalah bersumber Diagnosa) · L23 **CarePlan** `736372004` dari asesmen discharge terakhir
+(localId per kunjungan → revisi = PUT) · L15 **Procedure** edukasi `409073007` dengan **2 coding** (SNOMED topik + KPTL `10913`, wajib
+menurut playbook) · L25 **ServiceRequest** `3457005` dari jadwal kontrol (`185389009`, locationCode `OF`), konsultasi (`11429006`),
+rujukan eksternal (`737481003`/`737492002` dari `jnsPelayanan` BPJS, `HOSP`/`PC` rujuk balik) + `patientInstruction` kontak darurat
+dari Profil RS. Composition: section **Perencanaan Perawatan** 18776-5 · **Edukasi** 34895-3 · **Rencana Tindak Lanjut** 8653-8
+(urutan contoh RI). Kode & display diverifikasi verbatim playbook RJ Tabel 25/28/30 · IGD Tabel 10 · RI Tabel 8/9 (2026-11-18).
+Test murni [rencana.test.ts](../src/lib/fhir/links/rencana.test.ts) + S1–S4b: 68 lulus. Data uji: 1 masalah (0 goal) · 1 asesmen
+discharge · 1 edukasi · 2 kontrol · 1 konsultasi · 1 rujukan · 4 SPRI.
+
+| ID | Status | Gap | Cara tutup |
+|---|---|---|---|
+| FG-119 | 🟡 | **Kriteria rencana pemulangan (Observation `OC000055`) ditahan (D15)** — Asesmen Discharge tidak mencatat kriteria (5 nilai playbook); menurunkannya dari umur/alat bantu = tebakan. | Tambah pilihan "Kriteria rencana pemulangan" di form Asesmen Discharge. |
+| FG-120 | ⚪ | **Kategori CarePlan IGD tidak konsisten di sumber resmi** — tabel playbook IGD Tabel 10: `TK000068` "Emergency care plan" (system `http://terminology.kemkes.go.id`); contoh Bundle: SNOMED `702779007`. EHIS ikut tabel. RJ `736271009` hanya dari contoh (tabel RJ belum terbaca verbatim). | Verifikasi di sandbox. |
+| FG-121 | 🟡 | **SPRI tidak dikirim (D8)** — ServiceRequest SPRI (category `inpatient-admission` "Admisi Rawat Inap", code `spri` "Surat Perintah Rawat Inap", sudah diverifikasi) + Encounter RI `basedOn` menunggu keputusan; tampil sebagai Issue L25. | Putuskan D8. |
+| FG-122 | 🟡 | **7 dari 12 topik edukasi pemulangan tanpa padanan SNOMED** di daftar playbook (tanda bahaya, restriksi cairan, perawatan di rumah, jadwal kontrol, pemantauan, edukasi keluarga, gaya hidup) → ditahan (Issue L15). Edukasi saat asesmen (`AsesmenEdukasiPasien`/`Emergency`) belum dikirim. | Penetapan klinis kode per topik di `EDUKASI_TOPIK` (conceptMap) atau pecah topik; sambungkan edukasi asesmen. |
+| FG-123 | ⚪ | **Edukasi hanya mencatat tanggal** — `performedPeriod` = jam pencatatan bila hari sama, selain itu tanggal saja (tanpa jam). | Tambah jam sesi edukasi di form. |
+| FG-124 | ⚪ | **CarePlan per masalah (problem-oriented)** — contoh resmi: 2 CarePlan per kunjungan ("Rencana Rawat" + "Instruksi Medik dan Keperawatan"); instruksi medik CPPT belum dikirim. Masalah belum diverifikasi DPJP tetap dikirim. Target waktu/indikator Goal teks → `note` (`Goal.target` butuh measure LOINC). | Putuskan pola CarePlan (per masalah vs ringkasan per kunjungan) saat uji sandbox. |
+| FG-125 | ⚪ | **CarePlan wajib `author`** → rencana asuhan/pemulangan ditahan bila pencatat belum onboarding Practitioner (Issue `nakes-tanpa-ihs`); performer/requester resource lain tetap opsional (pola lama). Kontrol: poli dikirim `locationCode` OF + teks (contoh resmi `locationReference` Location poli — Location poli belum dipetakan). | Onboarding Practitioner/Location poli (FH1). |

@@ -16,7 +16,7 @@ type Ref = { ihsId: string; nama: string };
 /** Section resume yang merujuk resource link lain (L26 §Section → kode → entry). */
 export type ResumeSection =
   | "keluhanUtama" | "alergi" | "tandaVital" | "lab" | "rad" | "diagnosis" | "tindakan" | "obat" | "obatPulang"
-  | "kondisiPulang";
+  | "kondisiPulang" | "rencanaRawat" | "edukasi" | "tindakLanjut";
 
 /**
  * Referensi `"Type/ihsId"` per section — diisi layanan sinkron HANYA untuk resource aktif yang terkirim
@@ -74,6 +74,7 @@ const STRUKTUR: SectionDef[] = [
       { title: "Tanda Vital", code: loinc("8716-3", "Vital signs"), key: "tandaVital" },
     ],
   },
+  { title: "Perencanaan Perawatan", code: loinc("18776-5", "Plan of treatment (narrative)"), key: "rencanaRawat" },
   {
     title: "Pemeriksaan Penunjang", code: kemkes("TK000009", "Hasil Pemeriksaan Penunjang"), sub: [
       { title: "Hasil Pemeriksaan Laboratorium", code: loinc("11502-2", "Laboratory report"), key: "lab" },
@@ -92,11 +93,13 @@ const STRUKTUR: SectionDef[] = [
       { title: "Obat Pulang", code: loinc("75311-1", "Discharge medications Narrative"), key: "obatPulang" },
     ],
   },
+  { title: "Edukasi", code: loinc("34895-3", "Education note"), key: "edukasi" },
   {
     title: "Kondisi Saat Meninggalkan Rumah Sakit",
     code: loinc("10184-0", "Hospital discharge physical findings Narrative"),
     key: "kondisiPulang",
   },
+  { title: "Rencana Tindak Lanjut", code: loinc("8653-8", "Hospital Discharge instructions"), key: "tindakLanjut" },
 ];
 
 type FhirSection = { title: string; code?: { coding: Coding[] }; entry?: { reference: string }[]; section?: FhirSection[]; text?: unknown };

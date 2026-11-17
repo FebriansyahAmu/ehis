@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | 📋 belum ada |
+| Status | ✅ S4c 2026-11-18 ([adapters/rencana.ts](../../src/lib/fhir/adapters/rencana.ts) · [rencanaSyncService](../../src/lib/services/fhir/rencanaSyncService.ts)) — Goal `description.text` (contoh resmi RI juga teks saja → gerbang SNOMED gugur) · CarePlan per masalah, category IGD `TK000068` mengikuti tabel playbook (FG-120) · sisa: pola CarePlan per kunjungan & instruksi medik (FG-124) |
 | Kamar | **Goal** (category `nursing`) + **CarePlan** (rencana rawat & instruksi medik/keperawatan) |
 | Playbook | RJ/IGD/RI §Tujuan Perawatan (Goal) · §Rencana Rawat · §Instruksi Medik dan Keperawatan (CarePlan) [V] |
 | Contoh resmi | RJ: 2× `CarePlan cat 736271009` · IGD: 2× `CarePlan cat 702779007` · RI: `Goal cat nursing` + 2× `CarePlan cat 736353004` |
@@ -32,8 +32,16 @@ target · indikator · targetWaktu · intervensi[] · status · evaluasi). Saat 
 
 ## Gerbang pra-kirim
 
-`Goal.description` wajib CodeableConcept — target teks bebas tanpa SNOMED: verifikasi sandbox apakah `text` saja
-diterima; bila tidak → belum siap (jangan karang kode). DPJP verifikasi (co-sign) sebaiknya sudah ada sebelum kirim.
+`Goal.description` wajib CodeableConcept — **contoh resmi RI memakai `{"text": …}` saja** (dicek 2026-11-18), jadi target teks
+bebas dikirim sebagai `text` tanpa SNOMED. Wajib playbook RI Tabel 8: `lifecycleStatus` · `description` · `subject`.
+CarePlan wajib `author` → ditahan bila pencatat belum onboarding Practitioner (FG-125). DPJP verifikasi (co-sign) belum jadi
+gerbang (FG-124).
+
+**Dibangun S4c:** lifecycle Goal = status goal (`Tercapai` → completed) kecuali masalah Teratasi (completed) / Batal (cancelled) /
+terhapus (entered-in-error); `achievementStatus` goal-achievement `in-progress`/`improving`/`achieved`; `statusDate` = tanggal WIB;
+target waktu · intervensi · evaluasi → `note`. CarePlan: status Aktif/Teratasi/Batal → active/completed/revoked, `description` =
+masalah (+ sumber/kode) + daftar tujuan. Category: RI `736353004` "Inpatient care plan" (Tabel 9) · IGD `TK000068` "Emergency care
+plan" (Tabel 10) · RJ `736271009` (contoh). Goal & CarePlan masuk section Composition "Perencanaan Perawatan" 18776-5.
 
 ## Jangan salah kamar
 

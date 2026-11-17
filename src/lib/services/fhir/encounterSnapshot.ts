@@ -10,10 +10,12 @@ import * as clinicalSrc from "@/lib/dal/fhir/clinicalSourceDal";
 import * as medicationSrc from "@/lib/dal/fhir/medicationSourceDal";
 import * as diagnosticSrc from "@/lib/dal/fhir/diagnosticSourceDal";
 import * as encounterSrc from "@/lib/dal/fhir/encounterSourceDal";
+import * as rencanaSrc from "@/lib/dal/fhir/rencanaSourceDal";
 
 export async function loadEncounterSnapshot(kunjunganId: string) {
   const [
     diagnosa, prosedur, tindakan, ttv, alergi, triase, penilaianSkala, resep, mar, lab, rad, resume, anamnesis, triaseWaktu,
+    carePlan, dischargeAsesmen, edukasi, jadwalKontrol, konsultasi, rujukan, spri, rsKontak,
   ] = await Promise.all([
     clinicalSrc.listDiagnosa(kunjunganId),
     clinicalSrc.listProsedur(kunjunganId),
@@ -30,10 +32,20 @@ export async function loadEncounterSnapshot(kunjunganId: string) {
     encounterSrc.getLatestResume(kunjunganId),
     encounterSrc.getLatestAnamnesis(kunjunganId), // L03 keluhan utama
     encounterSrc.getFirstTriaseWaktu(kunjunganId), // L01 statusHistory `triaged` (IGD)
+
+    rencanaSrc.listCarePlan(kunjunganId), // L22 rencana asuhan
+    rencanaSrc.getLatestDischargeAsesmen(kunjunganId), // L23 rencana pemulangan
+    rencanaSrc.listDischargeEdukasi(kunjunganId), // L15 edukasi
+    rencanaSrc.listJadwalKontrol(kunjunganId), // L25 kontrol
+    rencanaSrc.listKonsultasi(kunjunganId), // L25 konsultasi
+    rencanaSrc.listRujukanEksternal(kunjunganId), // L25 rujukan eksternal
+    rencanaSrc.listSpri(kunjunganId), // L25 SPRI (ditahan D8)
+    rencanaSrc.getRsKontak(), // patientInstruction kontak darurat
   ]);
   return {
     kunjunganId, diagnosa, prosedur, tindakan, ttv, alergi, triase, penilaianSkala, resep, mar, lab, rad, resume, anamnesis,
     triaseWaktu,
+    carePlan, dischargeAsesmen, edukasi, jadwalKontrol, konsultasi, rujukan, spri, rsKontak,
   };
 }
 

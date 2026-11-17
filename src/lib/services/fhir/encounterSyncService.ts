@@ -25,7 +25,7 @@ import { addSectionRef, mergeSectionRefs, toFhirComposition } from "@/lib/fhir/a
 import { toFhirChiefComplaint, toFhirKondisiPulang } from "@/lib/fhir/adapters/encounterCondition";
 import type { FhirError, FhirResourceBase } from "@/lib/fhir/fhirShared";
 import type { Issue } from "@/lib/fhir/links/types";
-import { diagnosaFinalOf } from "@/lib/fhir/links/diagnosa";
+import { diagnosaFinalOf, diagnosaUtamaOf } from "@/lib/fhir/links/diagnosa";
 import {
   ccLocalId, finishedBlockers, keluhanUtamaOf, kondisiPulangLocalId, kondisiPulangOf,
 } from "@/lib/fhir/links/encounterFinal";
@@ -37,6 +37,7 @@ import { makePreviewSink, makeSink, type FlushResult, type PreviewItem, type Pre
 import { syncClinical, type SyncRef } from "./clinicalSyncService";
 import { syncMedication } from "./medicationSyncService";
 import { syncDiagnostic } from "./diagnosticSyncService";
+import { syncRencana } from "./rencanaSyncService";
 import { loadEncounterSnapshot } from "./encounterSnapshot";
 import type { auditActorOf } from "./audit";
 
@@ -232,8 +233,21 @@ async function runEncounter(
     .filter((d) => dxSent.has(d.id))
     .map((d, i) => ({ ihsId: dxSent.get(d.id)!, display: `${d.kodeIcd10} ${d.namaDiagnosis}`, rank: i + 1 }));
 
+  // ── Fase B6: rencana & pulang (L15 · L22 · L23 · L25) — Goal.addresses merujuk Condition yang terkirim ──
+  const conditionByKode = new Map(
+    snap.diagnosa
+      .filter((d) => !d.deletedAt && dxSent.has(d.id))
+      .map((d) => [d.kodeIcd10.trim().toUpperCase(), { ihsId: dxSent.get(d.id)!, display: `${d.kodeIcd10} ${d.namaDiagnosis}` }] as const),
+  );
+  const ren = await syncRencana(snap, {
+    env, sink, unit: k.unit, refs: clinicalRefs, conditionByKode, reason: diagnosaUtamaOf(snap.diagnosa),
+  });
+  refs.push(...ren.refs);
+  failures.push(...ren.failures);
+  issues.push(...ren.issues);
+
   // Referensi resource per section resume (Composition L26) — hanya resource aktif yang terkirim.
-  const sections = mergeSectionRefs(cl.sections, med.sections, diag.sections);
+  const sections = mergeSectionRefs(cl.sections, med.sections, diag.sections, ren.sections);
   if (chiefComplaint) addSectionRef(sections, "keluhanUtama", "Condition", chiefComplaint.ihsId);
   for (const d of diagnoses) addSectionRef(sections, "diagnosis", "Condition", d.ihsId);
 

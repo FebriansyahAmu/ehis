@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | 📋 belum ada |
+| Status | 🟡 S4c 2026-11-18 — CarePlan `736372004` ✅ (localId per kunjungan) · Observation kriteria `OC000055` ditahan (D15, FG-119) |
 | Kamar | **Observation** `survey` code `OC000055` + **CarePlan** category SNOMED `736372004` "Discharge care plan" |
 | Playbook | RI §23 · IGD §22 Perencanaan Pemulangan Pasien [V] |
 | Contoh resmi | IGD & RI: `Observation cat=[survey] clinical-term|OC000055` + `CarePlan cat=[736372004]` |
@@ -34,7 +34,10 @@ di form Asesmen Discharge.
 | `description` | ringkasan: rencana KRS · caregiver · homecare · alat bantu · catatan |
 | `subject` · `encounter` · `author` | Patient · Encounter · pencatat |
 
-`localId` = `<dischargeAsesmenId>:kriteria` · `<dischargeAsesmenId>:careplan`. Latest-wins → PUT resource yang sama.
+`localId` = `<kunjunganId>:kriteria-pemulangan` · `<kunjunganId>:rencana-pemulangan` — **per kunjungan**, bukan id baris:
+DischargeAsesmen append-only (tiap simpan = baris baru), jadi kunci baris akan membuat CarePlan ganda. Asesmen terakhir → PUT resource
+yang sama. Title "Perencanaan Pemulangan Pasien" (contoh resmi); masuk section Composition "Kondisi Saat Meninggalkan RS" 10184-0 dan
+"Rencana Tindak Lanjut" 8653-8 (seperti contoh RI).
 
 ## Jangan salah kamar
 

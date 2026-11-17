@@ -20,6 +20,8 @@ export interface Coding {
 
 const HL7 = "http://terminology.hl7.org/CodeSystem";
 const KEMKES = "http://terminology.kemkes.go.id/CodeSystem";
+/** Sistem Kemkes tanpa `/CodeSystem` (mis. chief-complaint, TK000068, inpatient-admission). */
+const KEMKES_BASE = "http://terminology.kemkes.go.id";
 
 // ── Encounter (L01) ─────────────────────────────────────────
 
@@ -268,6 +270,85 @@ export const KESADARAN_TTV: Record<StatusKesadaranLokal, Coding | null> = {
 export const NYERI_CODE = {
   pain: { system: "http://snomed.info/sct", code: "22253000", display: "Pain" },
   nrs: { system: "http://snomed.info/sct", code: "1172399009", display: "Numeric rating scale score" },
+} as const satisfies Record<string, Coding>;
+
+// ── Rencana & pulang (L15 / L22 / L23 / L25) — verbatim playbook RJ v7.0 · IGD v5.2 · RI v6.0 ──
+
+/**
+ * L22 — `CarePlan.category` rencana rawat per unit. IGD: tabel playbook IGD Tabel 10 `TK000068` (contoh Bundle
+ * memakai SNOMED 702779007 — berbeda, ikut tabel; FG-120). RI: Tabel 9. RJ: contoh Bundle resmi.
+ */
+export const CAREPLAN_CATEGORY: Record<KunjunganUnit, Coding> = {
+  RawatInap: { system: "http://snomed.info/sct", code: "736353004", display: "Inpatient care plan" },
+  IGD: { system: KEMKES_BASE, code: "TK000068", display: "Emergency care plan" },
+  RawatJalan: { system: "http://snomed.info/sct", code: "736271009", display: "Outpatient care plan" },
+};
+
+/** L23 — CarePlan perencanaan pemulangan. */
+export const CAREPLAN_DISCHARGE: Coding = { system: "http://snomed.info/sct", code: "736372004", display: "Discharge care plan" };
+
+/** L22 — status masalah rencana asuhan → `CarePlan.status`. */
+export const CAREPLAN_STATUS: Record<"Aktif" | "Teratasi" | "Batal", "active" | "completed" | "revoked"> = {
+  Aktif: "active",
+  Teratasi: "completed",
+  Batal: "revoked",
+};
+
+export type GoalStatusLokal = "Belum_Tercapai" | "Tercapai_Sebagian" | "Tercapai";
+
+/** L22 — status goal → `Goal.achievementStatus` (HL7 goal-achievement) + `lifecycleStatus`. */
+export const GOAL_STATUS: Record<GoalStatusLokal, { lifecycle: "active" | "completed"; achievement: Coding }> = {
+  Belum_Tercapai: { lifecycle: "active", achievement: { system: `${HL7}/goal-achievement`, code: "in-progress", display: "In Progress" } },
+  Tercapai_Sebagian: { lifecycle: "active", achievement: { system: `${HL7}/goal-achievement`, code: "improving", display: "Improving" } },
+  Tercapai: { lifecycle: "completed", achievement: { system: `${HL7}/goal-achievement`, code: "achieved", display: "Achieved" } },
+};
+
+/** L15 — Procedure edukasi: category + KPTL umum (playbook: SNOMED topik **dan** KPTL dalam 1 payload). */
+export const EDUKASI = {
+  category: { system: "http://snomed.info/sct", code: "409073007", display: "Education" },
+  kptl: { system: "http://terminology.kemkes.go.id/CodeSystem/kptl", code: "10913", display: "Edukasi Kesehatan Individu" },
+} as const satisfies Record<string, Coding>;
+
+const sct = (code: string, display: string): Coding => ({ system: SCT, code, display });
+
+export type EdukasiTopikId =
+  | "edu-01" | "edu-02" | "edu-03" | "edu-04" | "edu-05" | "edu-06" | "edu-07" | "edu-08" | "edu-09" | "edu-10" | "edu-11" | "edu-12";
+
+/**
+ * L15 — topik edukasi pemulangan (template FE `TOPIK_EDUKASI_TEMPLATE`) → SNOMED topik (daftar 7 kode playbook RJ
+ * Tabel 25 / RI Tabel 26). `null` = tidak ada padanan pasti di daftar playbook → edukasi ditahan (FG-122; tetapkan
+ * klinis sebelum diisi — jangan karang kode).
+ */
+export const EDUKASI_TOPIK: Record<EdukasiTopikId, Coding | null> = {
+  "edu-01": sct("84635008", "Disease process or condition education"), // Diagnosis & perjalanan penyakit
+  "edu-02": null, // Tanda bahaya → ke RS/IGD
+  "edu-03": sct("967006", "Medication education"), // Cara penggunaan obat & kepatuhan
+  "edu-04": sct("967006", "Medication education"), // Efek samping obat
+  "edu-05": sct("61310001", "Nutrition education"), // Diet & nutrisi
+  "edu-06": null, // Restriksi cairan & pemantauan BB
+  "edu-07": sct("410082002", "Rehabilitation therapy education"), // Aktivitas fisik bertahap (kategori Rehabilitasi)
+  "edu-08": null, // Perawatan di rumah (luka/alat bantu) — campuran
+  "edu-09": null, // Jadwal kontrol
+  "edu-10": null, // Pemantauan kondisi di rumah
+  "edu-11": null, // Edukasi keluarga/caregiver
+  "edu-12": null, // Modifikasi gaya hidup
+};
+
+/** L25 — rencana tindak lanjut (playbook RJ Tabel 28/30). */
+export const TINDAK_LANJUT = {
+  category: sct("3457005", "Patient referral"),
+  rawatInap: sct("737481003", "Inpatient care management"),
+  rawatJalan: sct("737492002", "Outpatient care management"),
+  kontrol: sct("185389009", "Follow-up visit"),
+  konsultasi: sct("11429006", "Consultation"),
+} as const satisfies Record<string, Coding>;
+
+/** L25 — `ServiceRequest.locationCode` (v3-RoleCode, playbook RJ Tabel 30). */
+export const LOKASI_TINDAK_LANJUT = {
+  poli: { system: `${HL7}/v3-RoleCode`, code: "OF", display: "Outpatient facility" },
+  rumahSakit: { system: `${HL7}/v3-RoleCode`, code: "HOSP", display: "Hospital" },
+  faskesPrimer: { system: `${HL7}/v3-RoleCode`, code: "PC", display: "Primary care clinic" },
+  ambulans: { system: `${HL7}/v3-RoleCode`, code: "AMB", display: "Ambulance" },
 } as const satisfies Record<string, Coding>;
 
 // ── AllergyIntolerance (L06) ────────────────────────────────

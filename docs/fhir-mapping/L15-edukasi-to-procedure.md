@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | 📋 belum ada |
+| Status | 🟡 S4c 2026-11-18 — edukasi pemulangan ✅ (SNOMED topik + KPTL 10913) · 7/12 topik tanpa padanan ditahan (FG-122) · edukasi saat asesmen belum |
 | Kamar | **Procedure** category SNOMED `409073007` "Education" |
 | Playbook | RJ §Edukasi · RI §21 [V] |
 | Contoh resmi | RJ: `cat 409073007 · sct|61310001 Nutrition education` · RI: `sct|84635008 + kptl|10913` |
@@ -39,6 +39,21 @@ deletedAt) · `AsesmenEdukasiPasien` / `AsesmenEdukasiEmergency` (edukasi saat a
 | Penggunaan alat medis | `362978005` |
 
 Usulan data: tambah kolom `snomedCode` pada master topik edukasi (`topikId`) — topik tanpa kode = belum siap.
+
+**Dibangun S4c (2026-11-18):** topik pemulangan = template FE `TOPIK_EDUKASI_TEMPLATE` (bukan tabel master) → peta kode di
+`EDUKASI_TOPIK` (conceptMap, diuji mencakup semua template). Display verbatim playbook RJ Tabel 25:
+
+| Template | SNOMED |
+|---|---|
+| edu-01 Diagnosis & perjalanan penyakit | `84635008` Disease process or condition education |
+| edu-03 Cara penggunaan obat · edu-04 Efek samping obat | `967006` Medication education |
+| edu-05 Diet & nutrisi | `61310001` Nutrition education |
+| edu-07 Aktivitas fisik bertahap (kategori Rehabilitasi) | `410082002` Rehabilitation therapy education |
+| edu-02 · 06 · 08 · 09 · 10 · 11 · 12 | — tidak ada padanan pasti → ditahan (FG-122) |
+
+Daftar playbook juga memuat `712651001` Education about pain · `698608004` Hand washing education · `362978005` Medical equipment or
+device education (belum ada template topiknya). KPTL `10913` "Edukasi Kesehatan Individu" **wajib** bersama SNOMED ("Perlu dikirimkan
+2 `Procedure.code` dalam 1 payload"). `performedPeriod` = jam pencatatan bila hari sama dengan tanggal sesi, selain itu tanggal saja (FG-123).
 
 ## Jangan salah kamar
 

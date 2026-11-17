@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | 📋 belum ada |
+| Status | 🟡 S4c 2026-11-18 — kontrol · konsultasi · rujukan eksternal ✅ · SPRI ditahan (D8, FG-121) · Location poli belum dipetakan (FG-125) |
 | Kamar | **ServiceRequest** category SNOMED `3457005` "Patient referral" (+ SR SPRI category Kemkes `inpatient-admission`) |
 | Playbook | RJ/IGD/RI §Rencana Tindak Lanjut + §Instruksi Tindak Lanjut & Sarana Transportasi Rujuk [V] |
 | Contoh resmi | RJ: `ServiceRequest cat=[3457005] sct|737481003 Inpatient care management` · RI: `737492002` + `185389009 Follow-up visit` |
@@ -27,6 +27,19 @@ System `locationCode`: `http://terminology.hl7.org/CodeSystem/v3-RoleCode`.
 (dokter) · `patientInstruction` = kontak keadaan darurat · `reasonReference` Condition diagnosis bila ada.
 
 `localId` = `<sumberTabel>:<id>` (mis. `jadwal-kontrol:<id>`, `spri:<id>`) — beda tabel, kunci tidak boleh bentrok.
+
+## Dibangun S4c (2026-11-18, verbatim playbook RJ Tabel 28/30)
+
+| Sumber | `code` | status | Lokasi · waktu |
+|---|---|---|---|
+| JadwalKontrol | `185389009` Follow-up visit, text "Kontrol <poli> — <dokter>" | terhapus → `revoked` | `locationCode` `OF` "Outpatient facility" + text poli · `occurrenceDateTime` = tanggal kontrol · performer = dokter kontrol (bila onboarding) |
+| Konsultasi | `11429006` Consultation, text "Konsultasi <SMF>" | Selesai → `completed`, terhapus → `revoked` | priority CITO→stat · Urgen→urgent · performer = konsultan |
+| RujukanEksternal | `jnsPelayanan` "1" → `737481003` · "2" → `737492002` (lainnya = Issue) | terhapus → `revoked` | `HOSP` "Hospital" · `tipeRujukan` "2" (rujuk balik) → `PC` "Primary care clinic" · `occurrenceDateTime` = tgl rencana kunjungan · reasonCode = diagnosa rujukan |
+| Spri | — | ditahan (Issue `menunggu-keputusan`, D8) | — |
+
+Semua: `intent` `original-order` · category `3457005` "Patient referral" · identifier `servicerequest/{Org_id}` = nomor dokumen ·
+`reasonCode` ICD-10 diagnosis Utama · `patientInstruction` = instruksi + "Dalam keadaan darurat dapat menghubungi <RS> di nomor
+<telp Profil RS>". Semua masuk section Composition "Rencana Tindak Lanjut" 8653-8.
 
 ## Tautan antar-Encounter (D8 / FG-34)
 

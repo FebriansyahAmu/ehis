@@ -50,17 +50,17 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 | [L12](L12-penilaian-to-observation.md) | `penilaianToObservation` | `PenilaianSkala` · `PenilaianStatus` | **Observation** `exam`/`survey` (Morse · Humpty Dumpty · Edmonson · psikologis) | semua | 🟡 S4 (risiko jatuh ✅; Braden D13 · Barthel D5 ditahan; psikologis ⛔) |
 | [L13](L13-diagnosa-to-condition.md) | `diagnosaToCondition` | `medicalrecord.Diagnosa` | **Condition** `encounter-diagnosis` + `Encounter.diagnosis` | semua | ⚠️ |
 | [L14](L14-tindakan-to-procedure.md) | `tindakanToProcedure` | `DiagnosaProsedur` · `TindakanMedis` | **Procedure** (ICD-9-CM, category) | semua | ✅ S3 |
-| [L15](L15-edukasi-to-procedure.md) | `edukasiToProcedure` | `DischargeEdukasi` · `AsesmenEdukasiPasien` | **Procedure** `409073007` Education | semua | 📋 |
+| [L15](L15-edukasi-to-procedure.md) | `edukasiToProcedure` | `DischargeEdukasi` · `AsesmenEdukasiPasien` | **Procedure** `409073007` Education | semua | 🟡 S4c (5/12 topik berkode; edukasi asesmen belum, FG-122) |
 | [L16](L16-lab-to-diagnostic.md) | `labToDiagnostic` | `LabOrder/Item` · `LabResult/Value` | **ServiceRequest · Specimen · Observation · DiagnosticReport** | semua | 🟡 S3 (gerbang terminologi ✅; LOINC master 0%, Specimen ⛔) |
 | [L17](L17-rad-to-diagnostic.md) | `radToDiagnostic` | `RadOrder/Item` · `RadResult` | **ServiceRequest · ImagingStudy · Observation · DiagnosticReport** | semua | ⚠️ |
 | [L18](L18-resep-to-medicationrequest.md) | `resepToMedicationRequest` | `ResepOrder/Item` + `master.Obat` | **Medication + MedicationRequest** | semua | 🟡 S3 (pola Medication ✅; timing.repeat) |
 | [L19](L19-telaah-to-questionnaireresponse.md) | `telaahToQuestionnaireResponse` | `ResepTelaah` | **QuestionnaireResponse** `Q0007` | semua | ✅ S4b (BB/TB 1.1 belum dinilai lokal, FG-113) |
 | [L20](L20-dispensing-to-medicationdispense.md) | `dispensingToMedicationDispense` | `ResepDispensing` | **MedicationDispense** (+Medication `contained`) | semua | 🟡 S3 (pola Medication + KFA 93 ✅; qty/batch) |
 | [L21](L21-mar-to-medicationadministration.md) | `marToMedicationAdministration` | `MarEntry` | **MedicationAdministration** | RI (IGD) | ✅ S4b (Medication contained; `not-done` belum diuji sandbox FG-115) |
-| [L22](L22-careplan-to-goal-careplan.md) | `carePlanToGoalCarePlan` | `CarePlanMasalah/Goal` | **Goal** `nursing` + **CarePlan** | RI | 📋 |
-| [L23](L23-discharge-planning-to-observation.md) | `dischargePlanningToObservation` | `DischargeAsesmen` | **Observation** OC000055 + **CarePlan** 736372004 | RI · IGD | 📋 |
+| [L22](L22-careplan-to-goal-careplan.md) | `carePlanToGoalCarePlan` | `CarePlanMasalah/Goal` | **Goal** `nursing` + **CarePlan** | RI | ✅ S4c (Goal teks seperti contoh RI; pola CarePlan per masalah FG-124) |
+| [L23](L23-discharge-planning-to-observation.md) | `dischargePlanningToObservation` | `DischargeAsesmen` | **Observation** OC000055 + **CarePlan** 736372004 | RI · IGD | 🟡 S4c (CarePlan ✅; kriteria ditahan D15) |
 | [L24](L24-disposisi-to-kondisi-pulang.md) | `disposisiToKondisiPulang` | `Disposisi` | **Condition** kondisi pulang + `Encounter.hospitalization.dischargeDisposition` | semua | ✅ S2 |
-| [L25](L25-tindak-lanjut-to-servicerequest.md) | `tindakLanjutToServiceRequest` | `JadwalKontrol` · `RujukanEksternal` · `Spri` · `Konsultasi` | **ServiceRequest** `3457005` (+ SPRI `inpatient-admission`) | semua | 📋 |
+| [L25](L25-tindak-lanjut-to-servicerequest.md) | `tindakLanjutToServiceRequest` | `JadwalKontrol` · `RujukanEksternal` · `Spri` · `Konsultasi` | **ServiceRequest** `3457005` (+ SPRI `inpatient-admission`) | semua | 🟡 S4c (kontrol · konsultasi · rujukan ✅; SPRI ditahan D8) |
 | [L26](L26-resume-to-composition.md) | `resumeToComposition` | `ResumeMedik` | **Composition** (type per unit) | semua | ✅ S3 |
 
 ### ⛔ Ada di playbook, EHIS belum punya sumber terstruktur
@@ -101,14 +101,14 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 | D5 | GCS, SpO₂, Barthel, Braden (di luar playbook) | Tahan sampai uji sandbox; jangan masuk Bundle atomik dulu (1 tolak = 1 kunjungan gagal, FG-61) — **S3: GCS & nyeri sudah dikeluarkan dari vital-signs (salah kamar); SpO₂ masih dikirim sampai D5 diputuskan** | L08 · L12 |
 | D6 | Pola Medication | ✅ **Dikerjakan S3 (2026-11-17):** ikuti playbook — **Medication per paket** (contained/entry bersama Request/Dispense), bukan 1 Medication per master obat | L18 · L20 |
 | D7 | Kode riwayat penyakit/keluarga/obat | Simpan **kode item katalog** (bukan nama) di record asesmen | L04 · L05 · L07 |
-| D8 | IGD/RJ → Rawat Inap | `dischargeDisposition` tak punya kode "rawat inap" → kirim ServiceRequest `737481003` + SPRI; Encounter RI `basedOn` SPRI (FG-34) | L24 · L25 |
+| D8 | IGD/RJ → Rawat Inap | `dischargeDisposition` tak punya kode "rawat inap" → kirim ServiceRequest `737481003` + SPRI; Encounter RI `basedOn` SPRI (FG-34). **S4c: kode SPRI sudah diverifikasi; SPRI ditahan sebagai Issue sampai diputuskan (FG-121)** | L24 · L25 |
 | D9 | Format waktu | Kirim UTC `+00:00` sesuai playbook (sekarang `+07:00`) | semua |
 | D10 | "Cara Masuk" Triase mencampur mobilisasi & transportasi | Tambah field **Sarana Transportasi** (Ambulans/Mobil/Motor/Lain-lain) | L02 |
 | D11 | Kondisi pulang EHIS (Baik/Sedang/Buruk/Kritis) ≠ playbook (Stabil/Tidak stabil/Perbaikan) | ✅ **Diputuskan 2026-11-17:** form EHIS **tetap** (Baik/Sedang/Buruk/Kritis); disesuaikan ke kode SatuSehat lewat ConceptMap saat kirim | L24 |
 | D12 | Head-to-toe EHIS 11 sistem ≠ 28 bagian playbook | Kirim 5 sistem yang padan dulu; pecah field bertahap | L10 |
 | D13 | Braden → skrining dekubitus (`285304000` boolean) | Ambang skor ditetapkan klinis sebelum diturunkan. **S4: Braden/Braden Q ditahan (Issue `menunggu-keputusan`)** | L12 |
 | D14 | Order rad multi-pemeriksaan, ekspertise 1 laporan | SR per item; Observation+DR hanya untuk order 1 pemeriksaan | L17 |
-| D15 | Kriteria rencana pemulangan (`OC000055`) tak dicatat | Tambah pilihan 5 nilai playbook di Asesmen Discharge | L23 |
+| D15 | Kriteria rencana pemulangan (`OC000055`) tak dicatat | Tambah pilihan 5 nilai playbook di Asesmen Discharge. **S4c: CarePlan pemulangan terkirim; Observation kriteria ditahan (FG-119)** | L23 |
 | D16 | Batas meninggal 48 jam untuk RI dari IGD | Hitung dari masuk kunjungan ini atau dari masuk IGD — konfirmasi. **Sementara (S2): dari masuk kunjungan ini** | L24 |
 | D17 | Form Pasien Pulang IGD/RI tidak menilai kondisi umum (diturunkan dari status: "Dirujuk ke faskes lain", "Pulang atas permintaan sendiri", …) | Kembalikan pilihan kondisi (Baik/Sedang/Buruk/Kritis — kosakata D11) untuk Rujuk & APS; sampai itu, Condition kondisi pulang tidak dikirim untuk kasus tsb (Issue L24) | L24 |
 
@@ -134,7 +134,7 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 2. ✅ **Blocker Encounter finished** — L03 (keluhan CC) + koreksi L01 (diagnosis CC, discharge `exp-*`) + L24.
 3. ✅ **Koreksi kamar yang sudah ada** — L08 (nyeri/GCS keluar dari vital-signs), L06 (KFA alergi obat), L14 (category), L26 (type per unit), L18/L20 (pola Medication).
 4. **Link baru bersumber siap** — per kelompok: ✅ **S4a Pemeriksaan** L09 · L11 · L12 · ✅ **S4b Obat** L19 · L21 ·
-   Rencana & pulang (L22 · L23 · L25 · L15) · Anamnesis & fisik (L04 · L05 · L10). L02 ditunda (D2).
+   ✅ **S4c Rencana & pulang** L22 · L23 · L25 · L15 · Anamnesis & fisik (L04 · L05 · L10). L02 ditunda (D2).
 5. **Link yang butuh perubahan entry** — L07 (picker KFA), lalu ⛔ ClinicalImpression/NutritionOrder bila diputuskan.
 
 Setiap langkah = branch sendiri, DoD per [ENGINEERING-RULES](../ENGINEERING-RULES.md) (bila belum ada di `main`, lihat branch `chore/engineering-rules`).
