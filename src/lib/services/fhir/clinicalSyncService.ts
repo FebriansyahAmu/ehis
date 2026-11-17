@@ -9,6 +9,8 @@
 //   di-finish (SatuSehat butuh diagnosis valid).
 // - Koreksi kamar S3 (docs/fhir-mapping): L06 alergi obat = KFA 91 · L08 tanpa nyeri/GCS · L14 category +
 //   reasonReference + tindakan tanpa ICD-9 = Issue. `sections` = referensi resource untuk Composition (L26).
+// - S4 pemeriksaan: L09 kesadaran (AVPU triase + TTV) · L11 nyeri (induk Pain + hasMember NRS/Wong-Baker) ·
+//   L12 skala risiko (Morse/Humpty Dumpty/Edmonson; pemetaan dari master skala).
 
 import "server-only";
 import type { SatuSehatMode } from "@/lib/fhir/fhirShared";
@@ -16,10 +18,15 @@ import {
   toFhirAllergy, toFhirCondition, toFhirProcedure, toFhirVitalObservations, type ClinicalRefs,
 } from "@/lib/fhir/adapters/clinical";
 import { addSectionRef, type SectionRefs } from "@/lib/fhir/adapters/composition";
+import {
+  toFhirKesadaran, toFhirNyeriInduk, toFhirNyeriNrs, toFhirSkalaSkor, type ObsCtx,
+} from "@/lib/fhir/adapters/pemeriksaan";
 import { PROCEDURE_CATEGORY, lookup } from "@/lib/fhir/conceptMap";
 import type { Issue } from "@/lib/fhir/links/types";
 import { diagnosaFinalOf, diagnosaUtamaOf } from "@/lib/fhir/links/diagnosa";
 import { alergiKodeOf } from "@/lib/fhir/links/alergi";
+import { kesadaranAvpuOf, kesadaranTtvOf, nrsOf, pemeriksaanLocalId as pid } from "@/lib/fhir/links/pemeriksaan";
+import { skalaRencanaOf } from "@/lib/fhir/links/skalaPemetaan";
 import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
 import * as src from "@/lib/dal/fhir/clinicalSourceDal";
 import type { UpsertResult } from "./resourceUpsert";
@@ -47,15 +54,16 @@ export interface ClinicalSyncOutcome {
 type Ref = { ihsId: string; nama: string };
 
 export async function syncClinical(
-  snap: Pick<EncounterSnapshot, "diagnosa" | "prosedur" | "tindakan" | "ttv" | "alergi">,
+  snap: Pick<EncounterSnapshot, "diagnosa" | "prosedur" | "tindakan" | "ttv" | "alergi" | "triase" | "penilaianSkala">,
   ctx: { env: SatuSehatMode; refs: ClinicalRefs; sink: ResourceSink },
 ): Promise<ClinicalSyncOutcome> {
   const out: ClinicalSyncOutcome = { refs: [], failures: [], issues: [], sections: {}, conditionsOk: true };
-  const { diagnosa, prosedur, tindakan, ttv, alergi } = snap;
+  const { diagnosa, prosedur, tindakan, ttv, alergi, triase, penilaianSkala } = snap;
 
   // Practitioner (performer/recorder) — hanya yang sudah onboarding FH1; selain itu tanpa performer.
   const pegawaiIds = [...new Set(
-    [...prosedur, ...tindakan, ...ttv, ...alergi].map((r) => r.authorPegawaiId).filter((x): x is string => !!x),
+    [...prosedur, ...tindakan, ...ttv, ...alergi, ...triase, ...penilaianSkala]
+      .map((r) => r.authorPegawaiId).filter((x): x is string => !!x),
   )];
   const [pracMaps, names] = await Promise.all([
     resourceMapDal.findManyByLocal(ctx.env, "Practitioner", pegawaiIds),
@@ -134,6 +142,48 @@ export async function syncClinical(
       const ihs = record("Observation", localId, await send("Observation", localId, v.resource));
       if (ihs) addSectionRef(out.sections, "tandaVital", "Observation", ihs);
     }
+  }
+
+  // ── Pemeriksaan (fase B2): L09 · L11 · L12 — Observation append-only (sumber tanpa soft-delete) ──
+  const sendObs = async (localId: string, resource: SubmitArgs["resource"]) =>
+    record("Observation", localId, await send("Observation", localId, resource));
+  const obsCtx = (waktu: Date, authorPegawaiId: string | null): ObsCtx =>
+    ({ refs: ctx.refs, waktu, performer: pracOf(authorPegawaiId) });
+  /** L11 — anggota skala dulu (butuh id-nya), lalu induk "Pain" yang `hasMember` ke anggota. */
+  const sendNyeri = async (indukId: string, memberId: string, nilai: number, member: SubmitArgs["resource"], c: ObsCtx) => {
+    const memberIhs = await sendObs(memberId, member);
+    if (memberIhs) await sendObs(indukId, toFhirNyeriInduk(nilai > 0, memberIhs, c));
+  };
+
+  // L09 kesadaran — Triase IGD (AVPU) + tiap baris TTV; ikut section Tanda Vital (contoh resmi RI).
+  for (const t of triase) {
+    const k = kesadaranAvpuOf(t);
+    if (!k.ok) { out.issues.push(k.issue); continue; }
+    const ihs = await sendObs(pid.avpu(t.id), toFhirKesadaran(k.coding, obsCtx(t.waktuTriase, t.authorPegawaiId)));
+    if (ihs) addSectionRef(out.sections, "tandaVital", "Observation", ihs);
+  }
+  for (const o of ttv) {
+    const c = obsCtx(o.waktuObservasi, o.authorPegawaiId);
+    const k = kesadaranTtvOf(o);
+    if (!k.ok) out.issues.push(k.issue);
+    else {
+      const ihs = await sendObs(pid.kesadaran(o.id), toFhirKesadaran(k.coding, c));
+      if (ihs) addSectionRef(out.sections, "tandaVital", "Observation", ihs);
+    }
+    // L11 nyeri — skor NRS TTV (sumber tunggal skor).
+    const nrs = nrsOf(o.skalaNyeri);
+    if (nrs != null) await sendNyeri(pid.nyeri(o.id), pid.nyeriNrs(o.id), nrs, toFhirNyeriNrs(nrs, c), c);
+  }
+
+  // L11/L12 skala — pemetaan instrumen dari master; belum dipetakan / di luar playbook / menunggu keputusan = Issue.
+  for (const s of penilaianSkala) {
+    const rencana = skalaRencanaOf(s.fhirPemetaan, s);
+    if (rencana.aksi === "lewati") continue;
+    if (rencana.aksi === "tahan") { out.issues.push(rencana.issue); continue; }
+    const c = obsCtx(s.createdAt, s.authorPegawaiId);
+    const res = toFhirSkalaSkor(rencana.def, s.totalSkor, c);
+    if (rencana.def.nyeri) await sendNyeri(pid.nyeri(s.id), s.id, s.totalSkor, res, c);
+    else await sendObs(s.id, res);
   }
 
   // ── AllergyIntolerance (L06) ──

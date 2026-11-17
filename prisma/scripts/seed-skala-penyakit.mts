@@ -37,9 +37,9 @@ async function main() {
       await client.query(
         `INSERT INTO "master"."skala_instrument" (
            "id","kode","nama","singkat","deskripsi","referensi","kategori",
-           "scoring_mode","arah","total_max","items","interpretasi","konsumen_modul","status","updated_at"
+           "scoring_mode","arah","total_max","items","interpretasi","konsumen_modul","status","fhir_pemetaan","updated_at"
          ) VALUES (
-           $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12::jsonb,$13,$14, now()
+           $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12::jsonb,$13,$14,$15, now()
          )`,
         [
           randomUUID(), kode, s.nama, s.singkat ?? "", s.deskripsi ?? "", s.referensi ?? "", KATEGORI,
@@ -48,6 +48,8 @@ async function main() {
           JSON.stringify(s.interpretasi ?? []),
           s.konsumenModul ?? [],
           s.status ?? "Aktif",
+          // Klasifikasi penyakit = PenilaianKomposit, bukan kamar 3 modul pelayanan dasar (L12).
+          s.fhirPemetaan ?? "tidak-dikirim",
         ],
       );
     }

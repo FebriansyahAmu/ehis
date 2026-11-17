@@ -7,6 +7,7 @@
 // logika, beda config. Schema input/DTO (schemas/master/skalaRisiko) category-agnostic → di-reuse.
 
 import * as defaultDal from "@/lib/dal/master/skalaRisikoDal";
+import { skalaFhirKeyOf } from "@/lib/fhir/links/skalaPemetaan";
 import { transaction } from "@/lib/db/prisma";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
@@ -70,6 +71,7 @@ function toDTO(e: SkalaEntity): SkalaRisikoDTO {
     interpretasi: toInterpretasi(e.interpretasi),
     referensi: e.referensi,
     konsumenModul: e.konsumenModul as SkalaRisikoDTO["konsumenModul"],
+    fhirPemetaan: skalaFhirKeyOf(e.fhirPemetaan),
     status: e.status as SkalaRisikoDTO["status"],
   };
 }
@@ -123,6 +125,7 @@ export function makeSkalaService(config: SkalaServiceConfig) {
         items: input.items ?? [],
         interpretasi: input.interpretasi ?? [],
         konsumenModul: input.konsumenModul ?? [],
+        fhirPemetaan: input.fhirPemetaan ?? null,
         status: input.status ?? "Aktif",
       };
       return dal.create(data, tx);
@@ -146,6 +149,7 @@ export function makeSkalaService(config: SkalaServiceConfig) {
     if (input.items !== undefined) patch.items = input.items;
     if (input.interpretasi !== undefined) patch.interpretasi = input.interpretasi;
     setDefined(patch, "konsumenModul", input.konsumenModul);
+    setDefined(patch, "fhirPemetaan", input.fhirPemetaan); // null = kosongkan; undefined = tak diubah
     setDefined(patch, "status", input.status);
 
     const row = await dal.update(id, patch);

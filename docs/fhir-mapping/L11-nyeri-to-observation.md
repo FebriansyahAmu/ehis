@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | 📋 belum ada (skor nyeri saat ini salah kamar di L08) |
+| Status | 🟡 S4 2026-11-17 — NRS dari TTV ✅ · Wong-Baker dari Penilaian Skala ✅ (pemetaan master skala, [links/skalaPemetaan.ts](../../src/lib/fhir/links/skalaPemetaan.ts)) · sisa: NIPS ditahan (FG-107), interpretasi tak dikirim (FG-106), durasi/lokasi PQRST masih teks |
 | Kamar | **Observation** induk "Pain" SNOMED `22253000` category `survey` `valueBoolean` + **`hasMember`** → Observation skala |
 | Playbook | IGD §5a "Asesmen nyeri" [V]; RJ/RI merujuk pola yang sama |
 
@@ -28,7 +28,11 @@
 | Lokasi | `bodySite` SNOMED (body structure) | — | `PenilaianNyeri.lokasi` teks → belum berkode |
 
 Induk & anggota: category `survey`, `status` `final`, `subject`, `encounter`, `performer`, `effectiveDateTime` =
-`waktuObservasi`. `localId` = `<observationId>:pain` / `:pain-nrs`.
+`waktuObservasi`. `localId` = `<observationId>:nyeri` (induk) / `:nyeri-nrs` (anggota) — **bukan** `:pain`, karena localId itu
+milik Observation lama salah kamar (LOINC 72514-3, FG-100) dan tidak ditimpa dengan kode lain. Dari Penilaian Skala:
+anggota = `<penilaianSkalaId>`, induk = `<penilaianSkalaId>:nyeri`. Anggota dikirim dulu (id-nya dirujuk `hasMember`).
+Skor 0 = "tidak nyeri" (nilai sah, form TTV wajib isi) → induk `valueBoolean: false` + NRS 0.
+Display diverifikasi verbatim 2026-11-17 (Wong-Baker: "Pain severity Wong-Baker FACES pain rating scale").
 
 **Interpretasi** (`OI000019` Mild to No Pain · `OI000020` Mild to Moderate Pain · SNOMED `76948002` Severe pain):
 batas skor tidak tertulis di bagian playbook yang terbaca → **jangan kirim `interpretation`** sampai batasnya diverifikasi.

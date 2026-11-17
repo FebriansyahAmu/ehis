@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | 📋 belum ada |
+| Status | ✅ S4 2026-11-17 ([links/pemeriksaan.ts](../../src/lib/fhir/links/pemeriksaan.ts) · [adapters/pemeriksaan.ts](../../src/lib/fhir/adapters/pemeriksaan.ts)) — AVPU triase + `statusKesadaran` TTV; **Apatis ditahan** (Issue `menunggu-keputusan`, D3 / FG-104). Masuk section Composition **Tanda Vital** (contoh resmi RI) |
 | Kamar | **Observation** category `exam` · code LOINC `67775-7` "Level of responsiveness" · `valueCodeableConcept` SNOMED |
 | Playbook | IGD §5c · RJ/RI §Pemeriksaan Fisik [V IGD] |
 | Contoh resmi | RJ/IGD/RI: `Observation cat=[exam] loinc|67775-7` (RJ menaruhnya di `vital-signs` — contoh tidak konsisten; ikuti tabel playbook: `exam`) |
@@ -15,7 +15,7 @@
 | Observasi berkala (semua unit) | `Observation.statusKesadaran` | `Compos_Mentis` · `Apatis` · `Somnolen` · `Sopor` · `Koma` |
 | Tidak dipakai | `PenilaianFisik.kesadaran` · `PemeriksaanFisik.kesadaran` · `PenilaianStatus.kesadaran` · `Triase.kondisiTiba` | duplikat → hindari 3 versi kesadaran yang berbeda di SatuSehat |
 
-## Nilai resmi (SNOMED) [V IGD]
+## Nilai resmi (SNOMED) [V IGD — diverifikasi ulang verbatim 2026-11-17]
 
 | Kode | Display | Label playbook |
 |---|---|---|

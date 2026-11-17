@@ -37,6 +37,9 @@ model SkalaInstrument {
   // ── Konsumen (assignment per unit klinis) ──
   konsumenModul String[] @map("konsumen_modul") // IGD/RI/RJ/ICU
 
+  // ── Pemetaan SatuSehat (L11/L12) — kunci ke src/lib/fhir/links/skalaPemetaan.ts; NULL = belum dipetakan ──
+  fhirPemetaan String? @map("fhir_pemetaan")
+
   // ── Meta ──
   status    String    @default("Aktif") // Aktif | Non_Aktif
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)

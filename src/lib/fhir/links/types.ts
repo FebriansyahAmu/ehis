@@ -36,6 +36,7 @@ export type IssueCode =
   | "kategori-salah" //    mis. kode LOINC "Hasil" dipakai di ServiceRequest
   | "nakes-tanpa-ihs" //   Practitioner (penulis/pelaksana) belum terpetakan
   | "di-luar-playbook" // parameter tanpa kamar resmi (GCS, SpO₂, Barthel — D5)
+  | "menunggu-keputusan" // padanan kode ada tapi menunggu keputusan klinis (D-nomor di README, mis. D3 Apatis · D13 Braden)
   | "syarat-finished"; //  Encounter ditahan `in-progress`: syarat finished (CC + diagnosis) belum terpenuhi
 
 /** Item yang ditahan: tidak dikirim, tidak menggagalkan job, tampil di konsol per kunjungan. */

@@ -240,3 +240,30 @@ Test murni [kamar.test.ts](../src/lib/fhir/links/kamar.test.ts) + test S1/S2: 32
 | FG-101 | ⚪ | **`Procedure.category` kosong untuk kategori ambigu** — Obstetri · Pediatrik · Spesialistik · Anestesi · Tindakan_Invasif · Non_Kategori (bisa diagnostik ATAU terapeutik). | Tambah atribut tipe (diagnostik/terapeutik/bedah) di master Katalog Tindakan, atau tetapkan peta per kategori secara klinis. |
 | FG-102 | ⚪ | **Gerbang L16 ketat: kode LOINC yang tidak ada di Lampiran resmi ditahan** (meski LOINC valid). Belum berdampak (LOINC master Lab 0%). | Verifikasi di sandbox apakah lampiran = daftar wajib; longgarkan bila SatuSehat menerima LOINC di luar lampiran. |
 | FG-103 | ⚪ | **Display alergi obat = nama allergen (produk, mis. "Ibuprofen 400 mg")**, bukan display BZA KFA ("Ibuprofen") — EHIS tidak menyimpan display BZA. | Simpan `bzaDisplay` saat allergen dipilih dari Katalog Obat (KFA `zatAktif`). |
+
+## S4a Link pemeriksaan (2026-11-17, branch `feat/fhir-link-pemeriksaan`)
+
+**Dibangun:** L09 kesadaran `exam` 67775-7 dari AVPU Triase IGD + `statusKesadaran` tiap baris TTV (masuk section Tanda Vital,
+mengikuti contoh resmi RI) · L11 asesmen nyeri `survey`: induk "Pain" 22253000 `valueBoolean` + `hasMember` → NRS 1172399009 (dari TTV,
+sumber tunggal skor) atau Wong-Baker 38221-8 (dari Penilaian Skala) · L12 skala risiko `exam`: Morse 59461-4 · Humpty Dumpty OC000035 ·
+Edmonson OC000036, `valueQuantity {score}` + `interpretation` clinical-term dihitung dari skor (bukan label lokal). Semua kode & display
+diverifikasi **verbatim** dari playbook IGD v5.2 §5 (2026-11-17). Issue baru `menunggu-keputusan` (D3/D13) di panel Data ditahan.
+Test murni [pemeriksaan.test.ts](../src/lib/fhir/links/pemeriksaan.test.ts) + test S1–S3: 45 lulus.
+
+**Keputusan desain:** pemetaan instrumen skala disimpan sebagai **kunci** di kolom baru `master.skala_instrument.fhir_pemetaan`
+(migrasi `20261117160000`, backfill 19 instrumen bawaan sekali dari nama); kode, kategori, tipe nilai, dan pita interpretasi ada di
+[links/skalaPemetaan.ts](../src/lib/fhir/links/skalaPemetaan.ts). Admin memilih kunci di Master Skala → Identitas → "Pemetaan SatuSehat"
+(bukan mengetik kode — beda dari usulan awal L12 yang menyimpan system/code/pita di DB). Instrumen tanpa pemetaan = Issue L12.
+localId nyeri `<ttvId>:nyeri` / `:nyeri-nrs` — sengaja tidak memakai `:pain` agar Observation lama salah kamar (FG-100) tidak ditimpa
+dengan kode lain.
+
+| ID | Status | Gap | Cara tutup |
+|---|---|---|---|
+| FG-104 | 🟡 | **Kesadaran "Apatis" ditahan (D3)** — belum ada padanan SNOMED; data uji: 4 dari 8 baris TTV berstatus Apatis → kesadarannya tidak terkirim (Issue `menunggu-keputusan`). | Putuskan D3: kirim `248234008` + `valueCodeableConcept.text` "Apatis", atau tetap tahan / ubah pilihan form. |
+| FG-105 | ⚪ | **Celah pita interpretasi di playbook** — Humpty Dumpty "7 - 11" & "> 12" (skor 12 tak tercakup), Edmonson "0 - 89" & "> 90" (skor 90). Skor di celah dikirim tanpa `interpretation`. | Verifikasi ke SatuSehat/sandbox (Humpty Dumpty asli: ≥12 = risiko tinggi). |
+| FG-106 | ⚪ | **Interpretasi nyeri tidak dikirim** — kode OI000019 / OI000020 / SNOMED 76948002 ada di playbook tapi batas skornya tidak tertulis. | Tambahkan pita di `skalaPemetaan` setelah batas resmi diketahui. |
+| FG-107 | 🟡 | **NIPS (panel 101967-8) ditahan** — butuh kode LOINC per item (95624-3, 95622-7, 98009-4, 98010-2, 98011-0, 95623-5) + jawaban `LA…`; item master skala tidak berkode. | Kolom kode per item/opsi di master skala, atau peta item NIPS di `skalaPemetaan`. |
+| FG-108 | ⚪ | **Penilaian Skala tanpa waktu klinis** — `effectiveDateTime` = waktu simpan (`createdAt`), bukan waktu penilaian. | Tambah kolom waktu penilaian (DateTimePicker) di form Asesmen Risiko. |
+| FG-109 | 🟡 | **Form TTV mengisi awal semua nilai dari pencatatan terakhir** (termasuk skor nyeri & kesadaran) — nilai yang tidak diubah perawat terkirim sebagai pemeriksaan baru (L08/L09/L11). | Nilai awal kosong / tombol "salin dari sebelumnya" eksplisit + wajib isi; minimal tandai nilai salinan. |
+| FG-110 | ⚪ | **Observation per baris TTV kini ≤ 11** (8 tanda vital + kesadaran + 2 nyeri) — RI dengan pencatatan per shift membuat Bundle besar. | Pantau ukuran Bundle di sandbox; pecah per fase/hari bila mendekati batas. |
+| FG-111 | ⚪ | **Observation tanpa `identifier`** — contoh resmi IGD menyertakan `identifier` `observation/{Org_id}`; contoh RI tidak. Berlaku juga tanda vital (L08). | Tambahkan bila sandbox mewajibkan (localId sebagai value). |

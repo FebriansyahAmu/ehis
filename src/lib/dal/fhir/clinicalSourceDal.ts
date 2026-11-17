@@ -40,9 +40,39 @@ export function listTtv(kunjunganId: string, tx?: Tx) {
     select: {
       id: true, tdSistolik: true, tdDiastolik: true, nadi: true, respirasi: true, suhu: true, spo2: true,
       gcsEye: true, gcsVerbal: true, gcsMotor: true, skalaNyeri: true, beratBadan: true, tinggiBadan: true,
-      waktuObservasi: true, authorPegawaiId: true,
+      statusKesadaran: true, waktuObservasi: true, authorPegawaiId: true,
     },
   });
+}
+
+/** Triase IGD (append-only) — L09 kesadaran AVPU per momen triase. */
+export function listTriaseAvpu(kunjunganId: string, tx?: Tx) {
+  return db(tx).triase.findMany({
+    where: { kunjunganId },
+    orderBy: { waktuTriase: "asc" },
+    select: { id: true, avpu: true, waktuTriase: true, authorPegawaiId: true },
+  });
+}
+
+/**
+ * Penilaian skala (append-only) + pemetaan SatuSehat instrumennya SAAT INI (L11/L12). `skalaKode` = snapshot
+ * kode master; instrumen terhapus/tak ditemukan → `fhirPemetaan` null (Issue "belum dipetakan").
+ */
+export async function listPenilaianSkala(kunjunganId: string, tx?: Tx) {
+  const rows = await db(tx).penilaianSkala.findMany({
+    where: { kunjunganId },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, skalaKode: true, skalaNama: true, totalSkor: true, authorPegawaiId: true, createdAt: true },
+  });
+  const kodes = [...new Set(rows.map((r) => r.skalaKode))];
+  const master = kodes.length
+    ? await db(tx).skalaInstrument.findMany({
+        where: { kode: { in: kodes }, deletedAt: null },
+        select: { kode: true, fhirPemetaan: true },
+      })
+    : [];
+  const pemetaanOf = new Map(master.map((m) => [m.kode, m.fhirPemetaan]));
+  return rows.map((r) => ({ ...r, fhirPemetaan: pemetaanOf.get(r.skalaKode) ?? null }));
 }
 
 /** Nama tampil pegawai (performer/recorder display). */

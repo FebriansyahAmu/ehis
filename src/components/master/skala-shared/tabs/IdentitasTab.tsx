@@ -1,7 +1,8 @@
 "use client";
 
-import { IdCard, Hash, Network, BookOpen } from "lucide-react";
+import { IdCard, Hash, Network, BookOpen, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SKALA_FHIR, SKALA_FHIR_KEYS, type SkalaFhirKey } from "@/lib/fhir/links/skalaPemetaan";
 import {
   Field, TextInput, TextArea, Select, ToggleSwitch, ChipToggle, SectionGroup,
   type MasterAccent,
@@ -55,6 +56,24 @@ const HEAD_PRIMARY: Record<MasterAccent, { bg: string; text: string }> = {
 const HEAD_EMERALD = { bg: "bg-emerald-50", text: "text-emerald-700" };
 const HEAD_VIOLET  = { bg: "bg-violet-50",  text: "text-violet-700"  };
 const HEAD_SLATE   = { bg: "bg-slate-50",   text: "text-slate-700"   };
+const HEAD_TEAL    = { bg: "bg-teal-50",    text: "text-teal-700"    };
+
+// Pemetaan SatuSehat (L11/L12) — opsi dari registry kode (src/lib/fhir/links/skalaPemetaan.ts).
+const FHIR_OPTS: { value: SkalaFhirKey; label: string }[] = SKALA_FHIR_KEYS.map((k) => ({ value: k, label: SKALA_FHIR[k].label }));
+
+/** Ringkasan akibat pemetaan terpilih saat sinkron SatuSehat. */
+function fhirEffect(key: SkalaFhirKey | null | undefined): { tone: string; text: string } {
+  if (!key) return { tone: "border-amber-200 bg-amber-50 text-amber-800", text: "Belum dipetakan — penilaian dengan skala ini ditahan saat kirim (tampil di konsol EHIS SatuSehat)." };
+  const d = SKALA_FHIR[key];
+  if (d.aksi === "kirim") {
+    return {
+      tone: "border-emerald-200 bg-emerald-50 text-emerald-800",
+      text: `Dikirim: Observation ${d.category} · ${d.code.code} "${d.code.display}"${d.nyeri ? " (anggota asesmen nyeri)" : ""}${d.pita.length ? " + interpretasi skor" : ""}.`,
+    };
+  }
+  if (d.aksi === "tahan") return { tone: "border-amber-200 bg-amber-50 text-amber-800", text: `Ditahan: ${d.alasan}.` };
+  return { tone: "border-slate-200 bg-slate-50 text-slate-600", text: `Tidak dikirim: ${d.alasan}.` };
+}
 
 export default function IdentitasTab({ accent, draft, onPatch }: Props) {
   const primary = HEAD_PRIMARY[accent];
@@ -218,6 +237,31 @@ export default function IdentitasTab({ accent, draft, onPatch }: Props) {
                 </button>
               );
             })}
+          </div>
+        </Field>
+      </SectionGroup>
+
+      {/* Pemetaan SatuSehat */}
+      <SectionGroup
+        title="Pemetaan SatuSehat"
+        icon={<Share2 size={11} />}
+        accent={HEAD_TEAL}
+        desc="Kamar FHIR untuk hasil penilaian skala ini (kode resmi dari playbook, bukan dari nama skala)"
+      >
+        <Field label="Instrumen SatuSehat" hint="Kosongkan bila belum diketahui — penilaian ditahan sampai dipetakan">
+          <div className="flex flex-col gap-2">
+            <Select<SkalaFhirKey>
+              value={draft.fhirPemetaan ?? undefined}
+              onChange={(v) => onPatch({ fhirPemetaan: v ?? null })}
+              options={FHIR_OPTS}
+              placeholder="Belum dipetakan"
+              maxW="max-w-[320px]"
+              accent="teal"
+            />
+            {(() => {
+              const e = fhirEffect(draft.fhirPemetaan);
+              return <p className={cn("rounded-lg border px-2.5 py-1.5 text-[10.5px] leading-snug", e.tone)} role="note">{e.text}</p>;
+            })()}
           </div>
         </Field>
       </SectionGroup>

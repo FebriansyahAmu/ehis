@@ -42,6 +42,7 @@ function dtoToItem(d: SkalaRisikoDTO): SkalaRisikoRecord {
     interpretasi: d.interpretasi,
     referensi: d.referensi,
     konsumenModul: d.konsumenModul,
+    fhirPemetaan: d.fhirPemetaan,
     status: d.status,
   };
 }
@@ -59,6 +60,7 @@ function draftToInput(d: SkalaRisikoRecord) {
     items: d.items,
     interpretasi: d.interpretasi,
     konsumenModul: d.konsumenModul,
+    fhirPemetaan: d.fhirPemetaan ?? null,
     status: d.status,
   };
 }

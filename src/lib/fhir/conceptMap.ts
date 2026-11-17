@@ -228,6 +228,48 @@ export const COMPOSITION_TYPE: Record<KunjunganUnit, Coding> = {
   RawatInap: { system: "http://loinc.org", code: "34105-7", display: "Hospital Discharge summary" },
 };
 
+// ── Observation pemeriksaan (L09 / L11 / L12) ───────────────
+
+/** `Observation.category` (HL7 observation-category). */
+export const OBSERVATION_CATEGORY = {
+  vitalSigns: { system: `${HL7}/observation-category`, code: "vital-signs", display: "Vital Signs" },
+  exam: { system: `${HL7}/observation-category`, code: "exam", display: "Exam" },
+  survey: { system: `${HL7}/observation-category`, code: "survey", display: "Survey" },
+} as const satisfies Record<string, Coding>;
+
+/** L09 — `Observation.code` tingkat kesadaran (LOINC). */
+export const KESADARAN_CODE: Coding = { system: "http://loinc.org", code: "67775-7", display: "Level of responsiveness" };
+
+export type AvpuLokal = "Alert" | "Verbal" | "Pain" | "Unresponsive";
+
+/** L09 — AVPU Triase IGD → nilai SNOMED (playbook IGD §5, verbatim; padanan langsung). */
+export const KESADARAN_AVPU: Record<AvpuLokal, Coding> = {
+  Alert: { system: "http://snomed.info/sct", code: "248234008", display: "Mentally alert" },
+  Verbal: { system: "http://snomed.info/sct", code: "300202002", display: "Response to voice" },
+  Pain: { system: "http://snomed.info/sct", code: "450847001", display: "Response to pain" },
+  Unresponsive: { system: "http://snomed.info/sct", code: "422768004", display: "Unresponsive" },
+};
+
+export type StatusKesadaranLokal = "Compos_Mentis" | "Apatis" | "Somnolen" | "Sopor" | "Koma";
+
+/**
+ * L09 — status kesadaran TTV → nilai SNOMED (ConceptMap usulan L09, padanan mendekati untuk Somnolen/Sopor).
+ * `null` = belum ada padanan → item ditahan (Apatis — keputusan D3).
+ */
+export const KESADARAN_TTV: Record<StatusKesadaranLokal, Coding | null> = {
+  Compos_Mentis: KESADARAN_AVPU.Alert,
+  Somnolen: KESADARAN_AVPU.Verbal,
+  Sopor: KESADARAN_AVPU.Pain,
+  Koma: KESADARAN_AVPU.Unresponsive,
+  Apatis: null,
+};
+
+/** L11 — induk asesmen nyeri & skor NRS (playbook IGD §5 "Asesmen nyeri", verbatim). */
+export const NYERI_CODE = {
+  pain: { system: "http://snomed.info/sct", code: "22253000", display: "Pain" },
+  nrs: { system: "http://snomed.info/sct", code: "1172399009", display: "Numeric rating scale score" },
+} as const satisfies Record<string, Coding>;
+
 // ── AllergyIntolerance (L06) ────────────────────────────────
 
 export type AlergiKategori = "Obat" | "Makanan" | "Lainnya";

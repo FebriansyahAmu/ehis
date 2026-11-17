@@ -16,6 +16,7 @@ const CODE: Record<IssueCode, { label: string; tone: Tone }> = {
   "kategori-salah": { label: "Kategori salah", tone: "rose" },
   "nakes-tanpa-ihs": { label: "Nakes tanpa IHS", tone: "sky" },
   "di-luar-playbook": { label: "Di luar playbook", tone: "slate" },
+  "menunggu-keputusan": { label: "Menunggu keputusan", tone: "amber" },
 };
 
 export function IssuePanel({ issues }: { issues: Issue[] }) {

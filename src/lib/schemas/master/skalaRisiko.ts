@@ -4,8 +4,11 @@
 // interpretasi[] = blok JSONB (di-set/replace utuh). Enum identik union FE → pass-through.
 
 import { z } from "zod";
+import { SKALA_FHIR_KEYS, type SkalaFhirKey } from "@/lib/fhir/links/skalaPemetaan";
 
 // ── Vocab terkontrol (identik union skalaCommon) ──────────────────────────────
+/** Kunci pemetaan SatuSehat (L11/L12); null = belum dipetakan. */
+export const SkalaFhirKeyEnum = z.enum(SKALA_FHIR_KEYS);
 export const ScoringModeEnum = z.enum(["sum_items", "select_value"]);
 export const ArahEnum = z.enum(["higher_is_worse", "lower_is_worse"]);
 export const SkalaStatusEnum = z.enum(["Aktif", "Non_Aktif"]);
@@ -48,6 +51,7 @@ export const CreateSkalaRisikoInput = z.object({
   items: z.array(SkalaItemSchema).optional(),
   interpretasi: z.array(SkalaInterpretasiSchema).optional(),
   konsumenModul: modulList,
+  fhirPemetaan: SkalaFhirKeyEnum.nullable().optional(), // default null (belum dipetakan)
   status: SkalaStatusEnum.optional(),           // default Aktif di Service
 });
 export type CreateSkalaRisikoInput = z.infer<typeof CreateSkalaRisikoInput>;
@@ -64,6 +68,7 @@ export const UpdateSkalaRisikoInput = z.object({
   items: z.array(SkalaItemSchema).optional(),
   interpretasi: z.array(SkalaInterpretasiSchema).optional(),
   konsumenModul: z.array(ModulEnum).optional(),
+  fhirPemetaan: SkalaFhirKeyEnum.nullable().optional(), // null = kosongkan pemetaan
   status: SkalaStatusEnum.optional(),
 });
 export type UpdateSkalaRisikoInput = z.infer<typeof UpdateSkalaRisikoInput>;
@@ -113,5 +118,7 @@ export interface SkalaRisikoDTO {
   interpretasi: SkalaInterpretasiDTO[];
   referensi: string;
   konsumenModul: z.infer<typeof ModulEnum>[];
+  /** Pemetaan SatuSehat (L11/L12) — null = belum dipetakan (penilaian ditahan). */
+  fhirPemetaan: SkalaFhirKey | null;
   status: z.infer<typeof SkalaStatusEnum>;
 }

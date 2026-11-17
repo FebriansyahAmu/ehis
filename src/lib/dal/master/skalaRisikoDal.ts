@@ -21,6 +21,7 @@ export interface SkalaData {
   items: Json;
   interpretasi: Json;
   konsumenModul: string[];
+  fhirPemetaan: string | null;
   status: string;
 }
 

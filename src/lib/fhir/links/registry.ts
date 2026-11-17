@@ -18,10 +18,10 @@ export const LINKS: readonly LinkMeta[] = [
   { id: "L06", name: "alergiToAllergyIntolerance", resourceTypes: ["AllergyIntolerance"], units: ALL, status: "koreksi", doc: "L06-alergi-to-allergyintolerance.md" },
   { id: "L07", name: "riwayatObatToMedicationStatement", resourceTypes: ["MedicationStatement"], units: ALL, status: "baru", doc: "L07-riwayat-obat-to-medicationstatement.md" },
   { id: "L08", name: "ttvToObservation", resourceTypes: ["Observation"], units: ALL, status: "aktif", doc: "L08-ttv-to-observation.md" }, // S3
-  { id: "L09", name: "kesadaranToObservation", resourceTypes: ["Observation"], units: ALL, status: "baru", doc: "L09-kesadaran-to-observation.md" },
+  { id: "L09", name: "kesadaranToObservation", resourceTypes: ["Observation"], units: ALL, status: "aktif", doc: "L09-kesadaran-to-observation.md" }, // S4 (Apatis ditahan D3)
   { id: "L10", name: "pemeriksaanFisikToObservation", resourceTypes: ["Observation"], units: ALL, status: "baru", doc: "L10-pemeriksaan-fisik-to-observation.md" },
-  { id: "L11", name: "nyeriToObservation", resourceTypes: ["Observation"], units: ALL, status: "baru", doc: "L11-nyeri-to-observation.md" },
-  { id: "L12", name: "penilaianToObservation", resourceTypes: ["Observation"], units: ALL, status: "baru", doc: "L12-penilaian-to-observation.md" },
+  { id: "L11", name: "nyeriToObservation", resourceTypes: ["Observation"], units: ALL, status: "aktif", doc: "L11-nyeri-to-observation.md" }, // S4 (NRS TTV + Wong-Baker; NIPS ditahan)
+  { id: "L12", name: "penilaianToObservation", resourceTypes: ["Observation"], units: ALL, status: "aktif", doc: "L12-penilaian-to-observation.md" }, // S4 (Morse/Humpty/Edmonson; Braden D13)
   { id: "L13", name: "diagnosaToCondition", resourceTypes: ["Condition"], units: ALL, status: "koreksi", doc: "L13-diagnosa-to-condition.md" },
   { id: "L14", name: "tindakanToProcedure", resourceTypes: ["Procedure"], units: ALL, status: "aktif", doc: "L14-tindakan-to-procedure.md" }, // S3
   { id: "L15", name: "edukasiToProcedure", resourceTypes: ["Procedure"], units: ALL, status: "baru", doc: "L15-edukasi-to-procedure.md" },

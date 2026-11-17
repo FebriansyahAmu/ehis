@@ -49,6 +49,7 @@ const BARTHEL: SkalaRisikoRecord = {
   id: "skl-barthel",
   kode: "BARTHEL",
   nama: "Barthel Index",
+  fhirPemetaan: "barthel",
   singkat: "ADL",
   deskripsi:
     "Indeks penilaian Activities of Daily Living (ADL). Mengukur tingkat kemandirian pasien dalam 10 aktivitas harian.",
@@ -124,6 +125,7 @@ const MORSE: SkalaRisikoRecord = {
   id: "skl-morse",
   kode: "MORSE",
   nama: "Morse Fall Scale",
+  fhirPemetaan: "morse",
   singkat: "Risiko Jatuh",
   deskripsi:
     "Skala penilaian risiko jatuh pada pasien dewasa. Skor lebih tinggi = risiko jatuh lebih besar.",
@@ -170,6 +172,7 @@ const BRADEN: SkalaRisikoRecord = {
   id: "skl-braden",
   kode: "BRADEN",
   nama: "Braden Scale",
+  fhirPemetaan: "braden",
   singkat: "Risiko Dekubitus",
   deskripsi:
     "Skala penilaian risiko dekubitus (luka tekan). INVERSE: skor lebih rendah = risiko lebih tinggi.",
@@ -229,6 +232,7 @@ const NRS_PAIN: SkalaRisikoRecord = {
   id: "skl-nrs",
   kode: "NRS-PAIN",
   nama: "NRS Pain Scale",
+  fhirPemetaan: "nrs",
   singkat: "Skala Nyeri",
   deskripsi:
     "Numeric Rating Scale untuk pengukuran intensitas nyeri pasien dewasa. Skala 0 (tidak nyeri) hingga 10 (nyeri maksimal).",
@@ -265,6 +269,7 @@ const MUST: SkalaRisikoRecord = {
   id: "skl-must",
   kode: "MUST",
   nama: "MUST (Skrining Gizi)",
+  fhirPemetaan: "tidak-dikirim",
   singkat: "Skrining Malnutrisi",
   deskripsi:
     "Malnutrition Universal Screening Tool — alat skrining cepat untuk risiko malnutrisi pada pasien dewasa.",
@@ -302,6 +307,7 @@ const HUMPTY_DUMPTY: SkalaRisikoRecord = {
   id: "skl-humpty",
   kode: "HUMPTY",
   nama: "Humpty Dumpty Fall Scale",
+  fhirPemetaan: "humpty-dumpty",
   singkat: "Jatuh Anak",
   deskripsi:
     "Skala risiko jatuh khusus pasien anak (pediatrik). Skor lebih tinggi = risiko jatuh lebih besar.",
@@ -361,6 +367,7 @@ const WONG_BAKER: SkalaRisikoRecord = {
   id: "skl-wong-baker",
   kode: "WONG-BAKER",
   nama: "Wong-Baker FACES Pain Rating Scale",
+  fhirPemetaan: "wong-baker",
   singkat: "Nyeri Wajah",
   deskripsi:
     "Skala nyeri ekspresi wajah untuk anak ≥ 3 tahun yang mampu self-report. Enam wajah, skor 0–10.",
@@ -393,6 +400,7 @@ const FLACC: SkalaRisikoRecord = {
   id: "skl-flacc",
   kode: "FLACC",
   nama: "FLACC Behavioral Pain Scale",
+  fhirPemetaan: "flacc",
   singkat: "Nyeri Non-Verbal",
   deskripsi:
     "Skala nyeri observasional untuk bayi/anak (2 bln–7 thn) atau pasien non-verbal. 5 kategori: Face, Legs, Activity, Cry, Consolability.",
@@ -442,6 +450,7 @@ const CPOT: SkalaRisikoRecord = {
   id: "skl-cpot",
   kode: "CPOT",
   nama: "Critical-Care Pain Observation Tool",
+  fhirPemetaan: "cpot",
   singkat: "Nyeri ICU",
   deskripsi:
     "Skala nyeri observasional untuk pasien kritis non-verbal / terintubasi di ICU. 4 indikator perilaku.",
@@ -484,6 +493,7 @@ const NIPS: SkalaRisikoRecord = {
   id: "skl-nips",
   kode: "NIPS",
   nama: "Neonatal Infant Pain Scale",
+  fhirPemetaan: "nips",
   singkat: "Nyeri Neonatus",
   deskripsi:
     "Skala nyeri observasional untuk neonatus / bayi. 6 indikator perilaku & fisiologis.",
@@ -532,6 +542,7 @@ const BRADEN_Q: SkalaRisikoRecord = {
   id: "skl-braden-q",
   kode: "BRADEN-Q",
   nama: "Braden Q Scale",
+  fhirPemetaan: "braden-q",
   singkat: "Dekubitus Anak",
   deskripsi:
     "Skala risiko dekubitus khusus pasien anak (21 hari–8 tahun). 7 subskala. INVERSE: skor lebih rendah = risiko lebih tinggi.",
@@ -597,6 +608,7 @@ const MST: SkalaRisikoRecord = {
   id: "skl-mst",
   kode: "MST",
   nama: "Malnutrition Screening Tool",
+  fhirPemetaan: "tidak-dikirim",
   singkat: "Skrining Gizi Dewasa",
   deskripsi:
     "Alat skrining malnutrisi 2 pertanyaan untuk pasien dewasa (umum dipakai RS Indonesia). Skor ≥ 2 = berisiko.",
@@ -630,6 +642,7 @@ const STRONGKIDS: SkalaRisikoRecord = {
   id: "skl-strongkids",
   kode: "STRONGKIDS",
   nama: "STRONGkids (Skrining Gizi Anak)",
+  fhirPemetaan: "tidak-dikirim",
   singkat: "Skrining Gizi Anak",
   deskripsi:
     "Screening Tool for Risk On Nutritional Status and Growth — skrining malnutrisi pediatrik (1 bln–18 thn).",

@@ -76,7 +76,8 @@ L02 (triase) ditunda (D2). Link ⛔ (ClinicalImpression, NutritionOrder, …) ti
 | **Blokir job** | Patient tanpa NIK/IHS · DPJP tanpa IHS · ruangan belum onboarding | Seluruh job gagal (non-retry) sampai dilengkapi; pratinjau tetap jalan dengan placeholder |
 | **Blokir `finished`** | Tidak ada Condition keluhan utama (CC) siap · diagnosis Utama belum ada | Fase B tetap terkirim; Encounter tetap `in-progress` sampai syarat terpenuhi |
 | **Tahan item** | Kode kosong/salah format (ICD-10, LOINC, KFA, SNOMED) · kode lab salah kategori Permintaan/Hasil · nakes item tanpa IHS | Item itu saja tidak dikirim; item lain jalan. Bundle tidak ikut gagal karena 1 item (mitigasi FG-61) |
-| **Di luar playbook** | GCS · SpO₂ · Barthel (D5) | Tidak dikirim sampai lolos uji sandbox |
+| **Di luar playbook** | GCS · SpO₂ · Barthel · FLACC · CPOT (D5) | Tidak dikirim sampai lolos uji sandbox |
+| **Menunggu keputusan** | Kesadaran Apatis (D3) · Braden (D13) | Item ditahan sampai keputusan klinis (Issue `menunggu-keputusan`) |
 
 Setiap item tertahan menjadi **Issue** `{ link, localId, kode, pesan }` — tampil di konsol per kunjungan, bukan
 lagi teks "dilewati" yang hilang (FG-36/FG-37).
@@ -104,7 +105,10 @@ Registered/Queued ──(tidak dikirim)
 | **S1 Fondasi** ✅ 2026-11-17 | `feat/fhir-mapping-fondasi` | Waktu UTC (D9) · hash kanonik · `conceptMap.ts` (enum → kode, exhaustive) · kontrak & registry link · `loadEncounterSnapshot` dipakai layanan sinkron eksisting · tipe Issue | Ya: format waktu + display kelas → semua resource terkirim ulang sekali (PUT, FG-89) |
 | **S2 Blocker finished** ✅ 2026-11-17 | `feat/fhir-encounter-finished` | L03 keluhan (D4: picker SNOMED di Anamnesis, subset master Keluhan Utama) · L01 koreksi (CC, `classHistory`, `length`, `triaged`, `location.period`; multi-lokasi menunggu fitur pindah ruangan) · L24 (kode meninggal, kondisi pulang D11) · gerbang "blokir finished" | Ya: Encounter + 2 Condition baru per kunjungan. Temuan: FG-93 (kunjungan terkunci tanpa kode keluhan), D17 |
 | **S3 Koreksi kamar** ✅ 2026-11-17 | `fix/fhir-mapping-kamar` | L08 (nyeri/GCS keluar) · L06 (KFA alergi obat) · L14 (category, reasonReference) · L26 (type per unit, section ber-entry) · L18/L20 (pola Medication D6) · L16 (gerbang Permintaan/Hasil, category per bagian) · konsol panel Data ditahan (FG-91) | Ya: Medication per paket, Observation nyeri/GCS berhenti (yatim di mock, FG-100), Composition baru |
-| **S4 Link baru** | per kelompok | L09 · L11 · L12 · L19 · L21 · L23 · L25 · L04 · L05 · L10 · L15 · L22 | Menambah resource |
+| **S4a Pemeriksaan** ✅ 2026-11-17 | `feat/fhir-link-pemeriksaan` | L09 kesadaran (AVPU triase + TTV) · L11 nyeri (induk Pain + `hasMember` NRS/Wong-Baker) · L12 risiko jatuh (Morse/Humpty Dumpty/Edmonson) · kolom pemetaan di Master Skala · Issue `menunggu-keputusan` | Ya: per baris TTV +1 kesadaran +2 nyeri (FG-110). Temuan FG-104..111 |
+| **S4b Obat** | `feat/fhir-link-obat` (usulan) | L19 telaah → QuestionnaireResponse · L21 MAR → MedicationAdministration | Menambah resource |
+| **S4c Rencana & pulang** | `feat/fhir-link-rencana` (usulan) | L22 · L23 · L25 · L15 | Menambah resource (D8, D15 menunggu) |
+| **S4d Anamnesis & fisik** | `feat/fhir-link-anamnesis` (usulan) | L04 · L05 · L10 | Butuh D7 (kode katalog) · D12 (5 sistem) |
 | **S5 Perubahan entry** | per form | Picker KFA riwayat obat (L07), kolom kode master skala/topik edukasi, field transportasi (D10) | — |
 
 Setiap langkah: dokumen link diperbarui statusnya (✅) + gap ditutup di [FHIR-GAP.md](../FHIR-GAP.md).

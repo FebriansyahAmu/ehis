@@ -10,6 +10,8 @@
  *   - `skalaPenyakitMock.ts` → Killip/NYHA/TIMI/ECOG/TNM/Stadium
  */
 
+import type { SkalaFhirKey } from "../fhir/links/skalaPemetaan";
+
 // ── Common types ─────────────────────────────────────────
 
 export type SkalaScoringMode = "sum_items" | "select_value";
@@ -61,6 +63,8 @@ export interface SkalaRecord {
   interpretasi: SkalaInterpretasi[];
   referensi: string;
   konsumenModul: SkalaModulKonsumen[];
+  /** Pemetaan SatuSehat (L11/L12) — null/absen = belum dipetakan (penilaian ditahan saat kirim). */
+  fhirPemetaan?: SkalaFhirKey | null;
   status: SkalaStatus;
 }
 
@@ -80,6 +84,7 @@ export function emptySkalaRecord(idPrefix = "skl"): SkalaRecord {
     interpretasi: [],
     referensi: "",
     konsumenModul: ["IGD", "RI"],
+    fhirPemetaan: null,
     status: "Aktif",
   };
 }

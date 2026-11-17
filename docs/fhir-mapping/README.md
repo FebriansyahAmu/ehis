@@ -44,10 +44,10 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 | [L06](L06-alergi-to-allergyintolerance.md) | `alergiToAllergyIntolerance` | `AsesmenAlergi` | **AllergyIntolerance** | semua | 🟡 S3 (kode KFA 91 ✅; manifestasi reaksi S5) |
 | [L07](L07-riwayat-obat-to-medicationstatement.md) | `riwayatObatToMedicationStatement` | `AsesmenObat(+Item)` | **MedicationStatement** | semua | 📋 |
 | [L08](L08-ttv-to-observation.md) | `ttvToObservation` | `medicalrecord.Observation` (TTV) | **Observation** `vital-signs` | semua | ✅ S3 |
-| [L09](L09-kesadaran-to-observation.md) | `kesadaranToObservation` | `Triase.avpu` · `Observation.statusKesadaran` | **Observation** `exam` 67775-7 | semua | 📋 |
+| [L09](L09-kesadaran-to-observation.md) | `kesadaranToObservation` | `Triase.avpu` · `Observation.statusKesadaran` | **Observation** `exam` 67775-7 | semua | ✅ S4 (Apatis ditahan, D3) |
 | [L10](L10-pemeriksaan-fisik-to-observation.md) | `pemeriksaanFisikToObservation` | `PemeriksaanFisik.sistem` (head-to-toe) | **Observation** `exam` LOINC per bagian tubuh | semua | 📋 |
-| [L11](L11-nyeri-to-observation.md) | `nyeriToObservation` | `Observation.skalaNyeri` + `PenilaianNyeri` | **Observation** `survey` 22253000 + `hasMember` NRS | semua | 📋 |
-| [L12](L12-penilaian-to-observation.md) | `penilaianToObservation` | `PenilaianSkala` · `PenilaianStatus` | **Observation** `exam`/`survey` (Morse · Humpty Dumpty · Edmonson · psikologis) | semua | 📋 |
+| [L11](L11-nyeri-to-observation.md) | `nyeriToObservation` | `Observation.skalaNyeri` + `PenilaianNyeri` | **Observation** `survey` 22253000 + `hasMember` NRS | semua | 🟡 S4 (NRS + Wong-Baker ✅; NIPS ditahan FG-107) |
+| [L12](L12-penilaian-to-observation.md) | `penilaianToObservation` | `PenilaianSkala` · `PenilaianStatus` | **Observation** `exam`/`survey` (Morse · Humpty Dumpty · Edmonson · psikologis) | semua | 🟡 S4 (risiko jatuh ✅; Braden D13 · Barthel D5 ditahan; psikologis ⛔) |
 | [L13](L13-diagnosa-to-condition.md) | `diagnosaToCondition` | `medicalrecord.Diagnosa` | **Condition** `encounter-diagnosis` + `Encounter.diagnosis` | semua | ⚠️ |
 | [L14](L14-tindakan-to-procedure.md) | `tindakanToProcedure` | `DiagnosaProsedur` · `TindakanMedis` | **Procedure** (ICD-9-CM, category) | semua | ✅ S3 |
 | [L15](L15-edukasi-to-procedure.md) | `edukasiToProcedure` | `DischargeEdukasi` · `AsesmenEdukasiPasien` | **Procedure** `409073007` Education | semua | 📋 |
@@ -96,7 +96,7 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 |---|---|---|---|
 | D1 | Arsitektur mapping | Mapper TS murni per link + ConceptMap + gerbang; **bukan** stored procedure | [ARSITEKTUR](ARSITEKTUR.md) |
 | D2 | Triase → CTAS 6 nilai (`75910-0`) | ⏸ **Ditunda (keputusan user 2026-11-17)** — L02 tidak dikerjakan dulu. Usulan tersimpan di L02: kode dari level protokol paling gawat (1:1 CTAS), dicek terhadap pita warna P1–P4; P4 Hitam ≠ otomatis DOA | L02 |
-| D3 | Sumber tingkat kesadaran | IGD: `Triase.avpu` (padanan langsung). TTV: `statusKesadaran` dipetakan, **"Apatis" belum punya padanan** → butuh keputusan klinis | L09 |
+| D3 | Sumber tingkat kesadaran | IGD: `Triase.avpu` (padanan langsung). TTV: `statusKesadaran` dipetakan, **"Apatis" belum punya padanan** → butuh keputusan klinis. **S4: dibangun; Apatis sementara ditahan (Issue `menunggu-keputusan`, FG-104)** | L09 |
 | D4 | Keluhan utama wajib berkode SNOMED | ✅ **Dikerjakan S2 (2026-11-17, atas usulan ini):** picker SNOMED di **Anamnesis** IGD/RI/RJ dari subset terkurasi master asesmen kategori **Keluhan Utama** (54 kode, admin dapat menambah); teks bebas tetap (→ `note`). Triase tidak diberi picker (L02 ditunda, D2) | L03 |
 | D5 | GCS, SpO₂, Barthel, Braden (di luar playbook) | Tahan sampai uji sandbox; jangan masuk Bundle atomik dulu (1 tolak = 1 kunjungan gagal, FG-61) — **S3: GCS & nyeri sudah dikeluarkan dari vital-signs (salah kamar); SpO₂ masih dikirim sampai D5 diputuskan** | L08 · L12 |
 | D6 | Pola Medication | ✅ **Dikerjakan S3 (2026-11-17):** ikuti playbook — **Medication per paket** (contained/entry bersama Request/Dispense), bukan 1 Medication per master obat | L18 · L20 |
@@ -106,7 +106,7 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 | D10 | "Cara Masuk" Triase mencampur mobilisasi & transportasi | Tambah field **Sarana Transportasi** (Ambulans/Mobil/Motor/Lain-lain) | L02 |
 | D11 | Kondisi pulang EHIS (Baik/Sedang/Buruk/Kritis) ≠ playbook (Stabil/Tidak stabil/Perbaikan) | ✅ **Diputuskan 2026-11-17:** form EHIS **tetap** (Baik/Sedang/Buruk/Kritis); disesuaikan ke kode SatuSehat lewat ConceptMap saat kirim | L24 |
 | D12 | Head-to-toe EHIS 11 sistem ≠ 28 bagian playbook | Kirim 5 sistem yang padan dulu; pecah field bertahap | L10 |
-| D13 | Braden → skrining dekubitus (`285304000` boolean) | Ambang skor ditetapkan klinis sebelum diturunkan | L12 |
+| D13 | Braden → skrining dekubitus (`285304000` boolean) | Ambang skor ditetapkan klinis sebelum diturunkan. **S4: Braden/Braden Q ditahan (Issue `menunggu-keputusan`)** | L12 |
 | D14 | Order rad multi-pemeriksaan, ekspertise 1 laporan | SR per item; Observation+DR hanya untuk order 1 pemeriksaan | L17 |
 | D15 | Kriteria rencana pemulangan (`OC000055`) tak dicatat | Tambah pilihan 5 nilai playbook di Asesmen Discharge | L23 |
 | D16 | Batas meninggal 48 jam untuk RI dari IGD | Hitung dari masuk kunjungan ini atau dari masuk IGD — konfirmasi. **Sementara (S2): dari masuk kunjungan ini** | L24 |
@@ -121,7 +121,8 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 | Simpan `kode` item katalog asesmen (bukan nama) di riwayat penyakit/keluarga | L04 · L05 | kolom + UI kecil |
 | Allergen obat → kode **KFA BZA (91…)** (`AsesmenAlergi.bzaKode` sudah ada) | L06 | adapter |
 | Riwayat obat pakai picker KFA (92/93) | L07 | UI + kolom |
-| Kolom kode FHIR (LOINC/OC) di `master.SkalaInstrument` | L12 | kolom master |
+| ~~Kolom kode FHIR (LOINC/OC) di `master.SkalaInstrument`~~ ✅ S4 — kolom kunci `fhir_pemetaan` + dropdown "Pemetaan SatuSehat" di Master Skala | L11 · L12 | kolom master |
+| Waktu penilaian di form Asesmen Risiko (FG-108) · nilai awal TTV tidak disalin diam-diam (FG-109) | L08 · L09 · L11 · L12 | UI kecil |
 | Kode SNOMED topik di master topik edukasi | L15 | kolom master |
 | Isi LOINC katalog Lab/Rad (UI sudah ada, FG-52) | L16 · L17 | data |
 | Field prognosis (opsional) | ⛔ ClinicalImpression | kolom baru |
@@ -131,7 +132,8 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 1. ✅ **Fondasi** — `links/` registry + `conceptMap.ts` + snapshot loader + gerbang `readiness` + waktu UTC (tanpa mengubah perilaku kirim).
 2. ✅ **Blocker Encounter finished** — L03 (keluhan CC) + koreksi L01 (diagnosis CC, discharge `exp-*`) + L24.
 3. ✅ **Koreksi kamar yang sudah ada** — L08 (nyeri/GCS keluar dari vital-signs), L06 (KFA alergi obat), L14 (category), L26 (type per unit), L18/L20 (pola Medication).
-4. **Link baru bersumber siap** — L02, L09, L11, L12, L19, L21, L23, L25, L04, L05, L10, L15, L22.
+4. **Link baru bersumber siap** — per kelompok: ✅ **S4a Pemeriksaan** L09 · L11 · L12 · lalu Obat (L19 · L21) ·
+   Rencana & pulang (L22 · L23 · L25 · L15) · Anamnesis & fisik (L04 · L05 · L10). L02 ditunda (D2).
 5. **Link yang butuh perubahan entry** — L07 (picker KFA), lalu ⛔ ClinicalImpression/NutritionOrder bila diputuskan.
 
 Setiap langkah = branch sendiri, DoD per [ENGINEERING-RULES](../ENGINEERING-RULES.md) (bila belum ada di `main`, lihat branch `chore/engineering-rules`).
