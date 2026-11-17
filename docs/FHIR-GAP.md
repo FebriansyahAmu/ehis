@@ -267,3 +267,24 @@ dengan kode lain.
 | FG-109 | 🟡 | **Form TTV mengisi awal semua nilai dari pencatatan terakhir** (termasuk skor nyeri & kesadaran) — nilai yang tidak diubah perawat terkirim sebagai pemeriksaan baru (L08/L09/L11). | Nilai awal kosong / tombol "salin dari sebelumnya" eksplisit + wajib isi; minimal tandai nilai salinan. |
 | FG-110 | ⚪ | **Observation per baris TTV kini ≤ 11** (8 tanda vital + kesadaran + 2 nyeri) — RI dengan pencatatan per shift membuat Bundle besar. | Pantau ukuran Bundle di sandbox; pecah per fase/hari bila mendekati batas. |
 | FG-111 | ⚪ | **Observation tanpa `identifier`** — contoh resmi IGD menyertakan `identifier` `observation/{Org_id}`; contoh RI tidak. Berlaku juga tanda vital (L08). | Tambahkan bila sandbox mewajibkan (localId sebagai value). |
+
+## S4b Link obat (2026-11-18, branch `feat/fhir-link-obat`)
+
+**Dibangun:** L19 telaah resep → **QuestionnaireResponse Q0007** per telaah ([links/telaah.ts](../src/lib/fhir/links/telaah.ts):
+peta butir lokal ↔ linkId Q0007 eksplisit; 1.x/2.x/3.1 `OV000052`/`OV000053`, 3.2–3.5 `valueBoolean` **dibalik** dari "lulus";
+item 4 = `valueReference` ke semua MedicationRequest resep yang terkirim; struktur & teks diuji sama persis dengan contoh Bundle RI) ·
+L21 MAR → **MedicationAdministration** per slot (`<resepItemId>:<tanggal>:<shift>`, entri terakhir; koreksi = PUT resource sama),
+Medication **contained** (contoh RI), `effectivePeriod` dari tanggal + jam WIB → UTC, `reasonCode` "b", `dosage.route` ATC, `dose` UCUM
+bila dosis teks sederhana; Ditolak/Tidak tersedia → `not-done` + `statusReason.text`; Ditunda → tidak dikirim (ditarik bila slot
+pernah terkirim). MedicationAdministration masuk section Composition "Obat Saat Kunjungan" (contoh RI). Aturan diverifikasi verbatim
+playbook RI v6.0 §17 & §19 (2026-11-18). Test murni [obat.test.ts](../src/lib/fhir/links/obat.test.ts) + S1–S4a: 55 lulus.
+
+| ID | Status | Gap | Cara tutup |
+|---|---|---|---|
+| FG-112 | ⚪ | **Contoh resmi IGD Q0007 bersarang salah** — item "2" & "3" berada di dalam item "1" dan tanpa item 4; contoh RI (7 QR) sejajar 1–4. EHIS mengikuti contoh RI. | Konfirmasi di sandbox bila QR ditolak. |
+| FG-113 | 🟡 | **Q0007 1.1 menanyakan berat & tinggi badan**, checklist telaah lokal hanya identitas + umur/jenis kelamin → "Sesuai" tanpa menilai BB/TB. | Tambah butir "Berat & tinggi badan" di checklist telaah Farmasi (`TELAAH_GROUPS`). |
+| FG-114 | ⚪ | **Butir lokal tanpa padanan Q0007 tidak dikirim** — `farm-kompatibilitas`; keterangan `valueString` per butir 3.2–3.5 juga tidak dikirim (EHIS hanya punya catatan umum). Telaah "Dikembalikan" tetap dikirim `completed` (playbook tidak memberi aturan). | Catatan per butir di form telaah bila dibutuhkan. |
+| FG-115 | 🟡 | **MedicationAdministration `not-done` belum ada contoh resmi** — playbook RI §19 hanya "kode FHIR Terminology" tanpa kode `statusReason` → dikirim `statusReason.text` saja. 1 penolakan = 1 Bundle kunjungan gagal (FG-61). | Uji di sandbox; bila ditolak, tahan Ditolak/Tidak tersedia seperti D5. |
+| FG-116 | ⚪ | **KFA MedicationAdministration: 93 diutamakan, cadangan 92** — playbook tidak mengatur (contoh resmi 93; Dispense wajib 93). | Wajibkan 93 bila sandbox menolak 92. |
+| FG-117 | 🟡 | **Dosis MAR teks** — `dose` hanya terisi untuk "<angka> <satuan UCUM>" (mg/g/mcg/mL/IU); "1 tablet" tidak terurai. Playbook menyebut UCUM, contoh resmi memakai `v3-orderableDrugForm` TAB (tidak konsisten). | Field dosis terstruktur (nilai + satuan) di MAR / resep (terkait FG-81). |
+| FG-118 | ⚪ | **MAR belum punya data uji** (0 baris, 2026-11-18) → L21 belum terlihat di konsol; Telaah: 6 baris, semua lulus lengkap. | Isi MAR pasien RI uji lalu cek pratinjau konsol. |

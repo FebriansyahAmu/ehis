@@ -54,9 +54,9 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 | [L16](L16-lab-to-diagnostic.md) | `labToDiagnostic` | `LabOrder/Item` · `LabResult/Value` | **ServiceRequest · Specimen · Observation · DiagnosticReport** | semua | 🟡 S3 (gerbang terminologi ✅; LOINC master 0%, Specimen ⛔) |
 | [L17](L17-rad-to-diagnostic.md) | `radToDiagnostic` | `RadOrder/Item` · `RadResult` | **ServiceRequest · ImagingStudy · Observation · DiagnosticReport** | semua | ⚠️ |
 | [L18](L18-resep-to-medicationrequest.md) | `resepToMedicationRequest` | `ResepOrder/Item` + `master.Obat` | **Medication + MedicationRequest** | semua | 🟡 S3 (pola Medication ✅; timing.repeat) |
-| [L19](L19-telaah-to-questionnaireresponse.md) | `telaahToQuestionnaireResponse` | `ResepTelaah` | **QuestionnaireResponse** `Q0007` | semua | 📋 |
+| [L19](L19-telaah-to-questionnaireresponse.md) | `telaahToQuestionnaireResponse` | `ResepTelaah` | **QuestionnaireResponse** `Q0007` | semua | ✅ S4b (BB/TB 1.1 belum dinilai lokal, FG-113) |
 | [L20](L20-dispensing-to-medicationdispense.md) | `dispensingToMedicationDispense` | `ResepDispensing` | **MedicationDispense** (+Medication `contained`) | semua | 🟡 S3 (pola Medication + KFA 93 ✅; qty/batch) |
-| [L21](L21-mar-to-medicationadministration.md) | `marToMedicationAdministration` | `MarEntry` | **MedicationAdministration** | RI (IGD) | 📋 |
+| [L21](L21-mar-to-medicationadministration.md) | `marToMedicationAdministration` | `MarEntry` | **MedicationAdministration** | RI (IGD) | ✅ S4b (Medication contained; `not-done` belum diuji sandbox FG-115) |
 | [L22](L22-careplan-to-goal-careplan.md) | `carePlanToGoalCarePlan` | `CarePlanMasalah/Goal` | **Goal** `nursing` + **CarePlan** | RI | 📋 |
 | [L23](L23-discharge-planning-to-observation.md) | `dischargePlanningToObservation` | `DischargeAsesmen` | **Observation** OC000055 + **CarePlan** 736372004 | RI · IGD | 📋 |
 | [L24](L24-disposisi-to-kondisi-pulang.md) | `disposisiToKondisiPulang` | `Disposisi` | **Condition** kondisi pulang + `Encounter.hospitalization.dischargeDisposition` | semua | ✅ S2 |
@@ -123,6 +123,7 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 | Riwayat obat pakai picker KFA (92/93) | L07 | UI + kolom |
 | ~~Kolom kode FHIR (LOINC/OC) di `master.SkalaInstrument`~~ ✅ S4 — kolom kunci `fhir_pemetaan` + dropdown "Pemetaan SatuSehat" di Master Skala | L11 · L12 | kolom master |
 | Waktu penilaian di form Asesmen Risiko (FG-108) · nilai awal TTV tidak disalin diam-diam (FG-109) | L08 · L09 · L11 · L12 | UI kecil |
+| Butir "Berat & tinggi badan" di checklist telaah Farmasi (FG-113) · dosis MAR terstruktur nilai + satuan (FG-117) | L19 · L21 | UI kecil |
 | Kode SNOMED topik di master topik edukasi | L15 | kolom master |
 | Isi LOINC katalog Lab/Rad (UI sudah ada, FG-52) | L16 · L17 | data |
 | Field prognosis (opsional) | ⛔ ClinicalImpression | kolom baru |
@@ -132,7 +133,7 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 1. ✅ **Fondasi** — `links/` registry + `conceptMap.ts` + snapshot loader + gerbang `readiness` + waktu UTC (tanpa mengubah perilaku kirim).
 2. ✅ **Blocker Encounter finished** — L03 (keluhan CC) + koreksi L01 (diagnosis CC, discharge `exp-*`) + L24.
 3. ✅ **Koreksi kamar yang sudah ada** — L08 (nyeri/GCS keluar dari vital-signs), L06 (KFA alergi obat), L14 (category), L26 (type per unit), L18/L20 (pola Medication).
-4. **Link baru bersumber siap** — per kelompok: ✅ **S4a Pemeriksaan** L09 · L11 · L12 · lalu Obat (L19 · L21) ·
+4. **Link baru bersumber siap** — per kelompok: ✅ **S4a Pemeriksaan** L09 · L11 · L12 · ✅ **S4b Obat** L19 · L21 ·
    Rencana & pulang (L22 · L23 · L25 · L15) · Anamnesis & fisik (L04 · L05 · L10). L02 ditunda (D2).
 5. **Link yang butuh perubahan entry** — L07 (picker KFA), lalu ⛔ ClinicalImpression/NutritionOrder bila diputuskan.
 

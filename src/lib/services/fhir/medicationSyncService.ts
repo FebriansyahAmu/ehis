@@ -7,16 +7,21 @@
 // - Item tanpa master Obat / tanpa KFA → Issue L18 (KFA wajib, R12/G-5/FG-45).
 // - Dispense hanya untuk obat ber-KFA aktual `93…`; obat ber-KFA virtual `92…` saja → Issue L20.
 // - Order resep soft-deleted yang pernah terkirim → `entered-in-error` (Medication paket ikut).
-// - `sections` = MedicationRequest/Dispense aktif untuk Composition (obat saat kunjungan / obat pulang).
+// - `sections` = MedicationRequest/Dispense/Administration aktif untuk Composition (obat saat kunjungan / obat pulang).
+// - S4b: L19 telaah → QuestionnaireResponse Q0007 (item 4 = semua MedicationRequest resep yang terkirim) ·
+//   L21 MAR → MedicationAdministration per slot (Medication contained, setelah MedicationRequest item terkirim).
 
 import "server-only";
 import type { SatuSehatMode } from "@/lib/fhir/fhirShared";
 import {
-  kfaProductOf, toFhirMedication, toFhirMedicationDispense, toFhirMedicationRequest,
+  kfaProductOf, toFhirMedication, toFhirMedicationAdministration, toFhirMedicationDispense, toFhirMedicationRequest,
   type KfaMapping, type LocalObat, type MedicationRefs,
 } from "@/lib/fhir/adapters/medication";
+import { toFhirPengkajianResep } from "@/lib/fhir/adapters/pengkajianResep";
 import { addSectionRef } from "@/lib/fhir/adapters/composition";
 import { diagnosaUtamaOf } from "@/lib/fhir/links/diagnosa";
+import { doseOf, marLocalId, marRencanaOf, marSlotsOf } from "@/lib/fhir/links/mar";
+import { q0007ItemsOf } from "@/lib/fhir/links/telaah";
 import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
 import * as src from "@/lib/dal/fhir/medicationSourceDal";
 import * as clinicalSrc from "@/lib/dal/fhir/clinicalSourceDal";
@@ -28,7 +33,7 @@ import type { EncounterSnapshot } from "./encounterSnapshot";
 type Ref = { ihsId: string; nama: string };
 
 export async function syncMedication(
-  snap: Pick<EncounterSnapshot, "resep" | "diagnosa">,
+  snap: Pick<EncounterSnapshot, "resep" | "diagnosa" | "mar">,
   ctx: {
     env: SatuSehatMode;
     orgId: string;
@@ -42,10 +47,17 @@ export async function syncMedication(
   const { resep, diagnosa } = snap;
   if (!resep.length) return out;
 
+  // L21 — slot MAR (entri terakhir per resepItem × tanggal × shift), dikelompokkan per item resep.
+  const marByItem = new Map<string, EncounterSnapshot["mar"]>();
+  for (const s of marSlotsOf(snap.mar)) marByItem.set(s.resepItemId, [...(marByItem.get(s.resepItemId) ?? []), s]);
+
   const kodes = [...new Set(resep.flatMap((r) => r.items.map((i) => i.kodeObat)).filter(Boolean))];
   const depoKodes = [...new Set(resep.map((r) => r.depoKode).filter((x): x is string => !!x))];
   const pegawaiIds = [...new Set(
-    resep.flatMap((r) => [r.authorPegawaiId, ...r.dispensings.map((d) => d.authorPegawaiId)]).filter((x): x is string => !!x),
+    [
+      ...resep.flatMap((r) => [r.authorPegawaiId, ...r.dispensings.map((d) => d.authorPegawaiId), ...r.telaahs.map((t) => t.authorPegawaiId)]),
+      ...snap.mar.map((m) => m.authorPegawaiId),
+    ].filter((x): x is string => !!x),
   )];
 
   const [obat, depos, pracMaps, names] = await Promise.all([
@@ -83,13 +95,19 @@ export async function syncMedication(
     const deleted = !!r.deletedAt;
     const local = { id: r.id, prioritas: r.prioritas, status: r.status, isObatPulang: r.isObatPulang, createdAt: r.createdAt, deleted };
     const section = r.isObatPulang ? "obatPulang" : "obat";
+    const mrIhsResep: string[] = []; // L19 item 4 — MedicationRequest resep ini yang terkirim
 
     for (const [idx, it] of r.items.entries()) {
       const o = obatByKode.get(it.kodeObat);
       const kfa = (o?.kfa ?? null) as unknown as KfaMapping | null;
       const reqProduct = kfaProductOf(kfa, "request");
       if (!o || !kfa || !reqProduct) {
-        if (!deleted) out.issues.push({ link: "L18", resourceType: "MedicationRequest", localId: it.id, code: "kode-kosong", message: `Obat "${it.namaObat}" belum ber-KFA (92…/93…) di master — MedicationRequest ditahan` });
+        if (!deleted) {
+          out.issues.push({ link: "L18", resourceType: "MedicationRequest", localId: it.id, code: "kode-kosong", message: `Obat "${it.namaObat}" belum ber-KFA (92…/93…) di master — MedicationRequest ditahan` });
+          if (marByItem.get(it.id)?.length) {
+            out.issues.push({ link: "L21", resourceType: "MedicationAdministration", localId: `${it.id}:mar`, code: "kode-kosong", message: `Pemberian obat "${it.namaObat}" ditahan — MedicationRequest belum terkirim (obat belum ber-KFA, lihat L18)` });
+          }
+        }
         continue;
       }
       const obatLocal: LocalObat = { id: o.id, namaGenerik: o.namaGenerik, namaDagang: o.namaDagang, status: o.status, kfa };
@@ -106,8 +124,36 @@ export async function syncMedication(
       };
       const mrIhs = await submit("MedicationRequest", it.id,
         toFhirMedicationRequest(local, item, refs, { requester: pracOf(r.authorPegawaiId), reason }), deleted);
-      if (!mrIhs) continue; // dispense butuh MedicationRequest
-      if (!deleted) addSectionRef(out.sections, section, "MedicationRequest", mrIhs);
+      if (!mrIhs) continue; // dispense & administration butuh MedicationRequest
+      if (!deleted) {
+        addSectionRef(out.sections, section, "MedicationRequest", mrIhs);
+        mrIhsResep.push(mrIhs);
+      }
+
+      // ── L21 Pemberian obat (MAR) — 1 MedicationAdministration per slot, Medication contained ──
+      for (const slot of marByItem.get(it.id) ?? []) {
+        const localId = marLocalId(slot);
+        const rencana = marRencanaOf(slot);
+        if (rencana.aksi === "tahan") {
+          if (!deleted) out.issues.push(rencana.issue);
+          continue;
+        }
+        // Belum diberikan (Ditunda) / order dihapus → hanya tarik bila slot pernah terkirim (allowCreate false).
+        const plan = rencana.aksi === "kirim" && !deleted
+          ? { status: rencana.status, alasan: rencana.alasan, waktu: rencana.waktu }
+          : { status: "entered-in-error" as const, waktu: rencana.waktu };
+        const tarik = plan.status === "entered-in-error";
+        const med = toFhirMedication(obatLocal, ctx.orgId, { identifier: `mar-${localId.split(":").join("-")}`, untuk: "request", deleted: tarik });
+        if (!med) continue;
+        const maIhs = await submit("MedicationAdministration", localId, toFhirMedicationAdministration(
+          slot,
+          plan,
+          med,
+          { ...refs, request: { ihsId: mrIhs } },
+          { performer: pracOf(slot.authorPegawaiId), dose: doseOf(slot.dosis) },
+        ), tarik);
+        if (maIhs && !tarik) addSectionRef(out.sections, section, "MedicationAdministration", maIhs);
+      }
 
       // ── Paket Dispense (per dispensing) ──
       const dispProduct = kfaProductOf(kfa, "dispense");
@@ -127,6 +173,21 @@ export async function syncMedication(
         ), deleted);
         if (mdIhs && !deleted) addSectionRef(out.sections, section, "MedicationDispense", mdIhs);
       }
+    }
+
+    // ── L19 Pengkajian resep — 1 QuestionnaireResponse Q0007 per telaah (telaah ulang = resource baru) ──
+    for (const t of r.telaahs) {
+      const q = q0007ItemsOf(t);
+      if (!q.ok) {
+        if (!deleted) out.issues.push(q.issue);
+        continue;
+      }
+      await submit("QuestionnaireResponse", t.id, toFhirPengkajianResep(
+        { createdAt: t.createdAt, deleted },
+        q.items,
+        { patient: ctx.patient, encounterIhsId: ctx.encounterIhsId },
+        { author: pracOf(t.authorPegawaiId), medicationRequestIhsIds: mrIhsResep },
+      ), deleted);
     }
   }
   return out;

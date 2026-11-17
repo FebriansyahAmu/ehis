@@ -307,6 +307,20 @@ export const MEDICATION_CATEGORY_DISPLAY: Record<KategoriResep, string> = {
   discharge: "Discharge",
 };
 
+export type MarStatusLokal = "Diberikan" | "Ditunda" | "Ditolak" | "TidakTersedia";
+
+/**
+ * L21 — status MAR → `MedicationAdministration.status` (FHIR medication-admin-status; playbook RI §19: "kode FHIR
+ * Terminology"). `null` = belum diberikan → tidak dikirim (ditarik `entered-in-error` bila slot pernah terkirim).
+ * `alasan` = `statusReason.text` (playbook tidak memberi kode statusReason — FG-115).
+ */
+export const MAR_STATUS: Record<MarStatusLokal, { status: "completed" | "not-done"; alasan?: string } | null> = {
+  Diberikan: { status: "completed" },
+  Ditolak: { status: "not-done", alasan: "Pasien menolak obat" },
+  TidakTersedia: { status: "not-done", alasan: "Obat tidak tersedia" },
+  Ditunda: null,
+};
+
 // ── Order (L16/L17/L18) ─────────────────────────────────────
 
 /** Prioritas order lokal → `ServiceRequest.priority` / `MedicationRequest.priority`. */

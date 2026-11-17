@@ -28,9 +28,9 @@ export const LINKS: readonly LinkMeta[] = [
   { id: "L16", name: "labToDiagnostic", resourceTypes: ["ServiceRequest", "Specimen", "Observation", "DiagnosticReport"], units: ALL, status: "koreksi", doc: "L16-lab-to-diagnostic.md" },
   { id: "L17", name: "radToDiagnostic", resourceTypes: ["ServiceRequest", "ImagingStudy", "Observation", "DiagnosticReport"], units: ALL, status: "koreksi", doc: "L17-rad-to-diagnostic.md" },
   { id: "L18", name: "resepToMedicationRequest", resourceTypes: ["Medication", "MedicationRequest"], units: ALL, status: "koreksi", doc: "L18-resep-to-medicationrequest.md" },
-  { id: "L19", name: "telaahToQuestionnaireResponse", resourceTypes: ["QuestionnaireResponse"], units: ALL, status: "baru", doc: "L19-telaah-to-questionnaireresponse.md" },
+  { id: "L19", name: "telaahToQuestionnaireResponse", resourceTypes: ["QuestionnaireResponse"], units: ALL, status: "aktif", doc: "L19-telaah-to-questionnaireresponse.md" }, // S4b
   { id: "L20", name: "dispensingToMedicationDispense", resourceTypes: ["Medication", "MedicationDispense"], units: ALL, status: "koreksi", doc: "L20-dispensing-to-medicationdispense.md" },
-  { id: "L21", name: "marToMedicationAdministration", resourceTypes: ["MedicationAdministration"], units: ["RawatInap", "IGD"], status: "baru", doc: "L21-mar-to-medicationadministration.md" },
+  { id: "L21", name: "marToMedicationAdministration", resourceTypes: ["MedicationAdministration"], units: ["RawatInap", "IGD"], status: "aktif", doc: "L21-mar-to-medicationadministration.md" }, // S4b
   { id: "L22", name: "carePlanToGoalCarePlan", resourceTypes: ["Goal", "CarePlan"], units: ["RawatInap"], status: "baru", doc: "L22-careplan-to-goal-careplan.md" },
   { id: "L23", name: "dischargePlanningToObservation", resourceTypes: ["Observation", "CarePlan"], units: ["RawatInap", "IGD"], status: "baru", doc: "L23-discharge-planning-to-observation.md" },
   { id: "L24", name: "disposisiToKondisiPulang", resourceTypes: ["Condition", "Encounter"], units: ALL, status: "aktif", doc: "L24-disposisi-to-kondisi-pulang.md" }, // S2

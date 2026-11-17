@@ -13,7 +13,7 @@ import * as encounterSrc from "@/lib/dal/fhir/encounterSourceDal";
 
 export async function loadEncounterSnapshot(kunjunganId: string) {
   const [
-    diagnosa, prosedur, tindakan, ttv, alergi, triase, penilaianSkala, resep, lab, rad, resume, anamnesis, triaseWaktu,
+    diagnosa, prosedur, tindakan, ttv, alergi, triase, penilaianSkala, resep, mar, lab, rad, resume, anamnesis, triaseWaktu,
   ] = await Promise.all([
     clinicalSrc.listDiagnosa(kunjunganId),
     clinicalSrc.listProsedur(kunjunganId),
@@ -23,7 +23,8 @@ export async function loadEncounterSnapshot(kunjunganId: string) {
     clinicalSrc.listTriaseAvpu(kunjunganId), // L09 kesadaran (IGD)
     clinicalSrc.listPenilaianSkala(kunjunganId), // L11/L12 skala
 
-    medicationSrc.listResep(kunjunganId),
+    medicationSrc.listResep(kunjunganId), // L18/L19/L20 (+ telaah)
+    medicationSrc.listMar(kunjunganId), // L21 pemberian obat
     diagnosticSrc.listLab(kunjunganId),
     diagnosticSrc.listRad(kunjunganId),
     encounterSrc.getLatestResume(kunjunganId),
@@ -31,7 +32,8 @@ export async function loadEncounterSnapshot(kunjunganId: string) {
     encounterSrc.getFirstTriaseWaktu(kunjunganId), // L01 statusHistory `triaged` (IGD)
   ]);
   return {
-    kunjunganId, diagnosa, prosedur, tindakan, ttv, alergi, triase, penilaianSkala, resep, lab, rad, resume, anamnesis, triaseWaktu,
+    kunjunganId, diagnosa, prosedur, tindakan, ttv, alergi, triase, penilaianSkala, resep, mar, lab, rad, resume, anamnesis,
+    triaseWaktu,
   };
 }
 

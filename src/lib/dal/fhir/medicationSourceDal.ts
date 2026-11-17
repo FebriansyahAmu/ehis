@@ -22,6 +22,26 @@ export function listResep(kunjunganId: string, tx?: Tx) {
         orderBy: { createdAt: "asc" },
         select: { id: true, apoteker: true, authorPegawaiId: true, createdAt: true },
       },
+      // L19 — tiap telaah (append-only; telaah ulang = baris baru) → 1 QuestionnaireResponse Q0007.
+      telaahs: {
+        orderBy: { createdAt: "asc" },
+        select: { id: true, hasil: true, answers: true, catatan: true, authorPegawaiId: true, createdAt: true },
+      },
+    },
+  });
+}
+
+/**
+ * L21 — catatan pemberian obat (MAR) kunjungan, append-only "latest wins" per slot
+ * (resepItemId × tanggal × shift). Reduksi ke entri terakhir per slot di links/mar.ts.
+ */
+export function listMar(kunjunganId: string, tx?: Tx) {
+  return db(tx).marEntry.findMany({
+    where: { kunjunganId },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true, resepItemId: true, dosis: true, rute: true, tanggal: true, shift: true, status: true,
+      waktuPemberian: true, perawat2: true, catatan: true, authorPegawaiId: true, createdAt: true,
     },
   });
 }

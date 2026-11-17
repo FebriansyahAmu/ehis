@@ -211,3 +211,55 @@ export function toFhirMedicationDispense(
     dosageInstruction: [{ sequence: 1, text: dosageText(i) }],
   };
 }
+
+// ── MedicationAdministration (L21) ──────────────────────────
+
+/**
+ * 1 slot MAR → MedicationAdministration dengan Medication **contained** (contoh resmi RI: `medicationReference`
+ * `#<id>`; playbook RI §19: Medication + MedicationAdministration "1 paket"). `effectivePeriod` start = end
+ * (MAR mencatat jam pemberian, bukan durasi). `dose` hanya bila dosis teks terurai ke UCUM (links/mar.ts).
+ */
+export function toFhirMedicationAdministration(
+  m: { dosis: string; rute: string; perawat2: string; catatan: string },
+  plan: { status: "completed" | "not-done" | "entered-in-error"; alasan?: string; waktu: Date },
+  medication: FhirRes,
+  refs: MedicationRefs & { request: { ihsId: string } },
+  extra: { performer?: Ref; dose?: { value: number; unit: string; system: string; code: string } | null },
+): FhirRes {
+  const route = lookup(ROUTE_ATC, m.rute);
+  const when = toFhirDateTime(plan.waktu);
+  const inpatient = refs.unit === "RawatInap";
+  const note = [m.catatan.trim(), m.perawat2.trim() ? `Verifikator kedua (HAM): ${m.perawat2.trim()}` : ""].filter(Boolean);
+  return {
+    resourceType: "MedicationAdministration",
+    contained: [{ ...medication, id: "med" }],
+    status: plan.status,
+    ...(plan.status === "not-done" && plan.alasan ? { statusReason: [{ text: plan.alasan }] } : {}),
+    category: {
+      coding: [{
+        system: "http://terminology.hl7.org/CodeSystem/medication-admin-category",
+        code: inpatient ? "inpatient" : "outpatient",
+        display: inpatient ? "Inpatient" : "Outpatient",
+      }],
+    },
+    medicationReference: { reference: "#med", display: refs.medication.nama },
+    subject: { reference: `Patient/${refs.patient.ihsId}`, display: refs.patient.nama },
+    context: { reference: `Encounter/${refs.encounter.ihsId}` },
+    effectivePeriod: { start: when, end: when },
+    ...(extra.performer ? { performer: [{ actor: { reference: `Practitioner/${extra.performer.ihsId}`, display: extra.performer.nama } }] } : {}),
+    ...(plan.status === "completed"
+      ? { reasonCode: [{ coding: [{ system: "http://terminology.hl7.org/CodeSystem/reason-medication-given", code: "b", display: "Given as Ordered" }] }] }
+      : {}),
+    request: { reference: `MedicationRequest/${refs.request.ihsId}` },
+    ...(m.dosis.trim() || route || extra.dose
+      ? {
+          dosage: {
+            ...(m.dosis.trim() ? { text: m.dosis.trim() } : {}),
+            ...(route ? { route: { coding: [route] } } : {}),
+            ...(extra.dose ? { dose: extra.dose } : {}),
+          },
+        }
+      : {}),
+    ...(note.length ? { note: note.map((text) => ({ text })) } : {}),
+  };
+}
