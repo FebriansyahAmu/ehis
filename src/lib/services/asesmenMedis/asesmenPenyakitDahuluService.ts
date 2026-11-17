@@ -5,6 +5,8 @@
 import * as defaultDal from "@/lib/dal/asesmenMedis/asesmenPenyakitDahuluDal";
 import * as kunjunganDal from "@/lib/dal/kunjunganDal";
 import { resolveActorNama } from "@/lib/services/actorName";
+import * as katalogDal from "@/lib/dal/master/asesmenKatalogDal";
+import { indeksKode, kodeSejajar, type KategoriRiwayat } from "@/lib/services/asesmenMedis/katalogKode";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type { AsesmenPenyakitDahuluInput, AsesmenPenyakitDahuluDTO } from "@/lib/schemas/asesmenMedis/asesmenPenyakitDahulu";
@@ -25,8 +27,10 @@ function toDTO(r: NonNullEntity): AsesmenPenyakitDahuluDTO {
   };
 }
 
-export function makeAsesmenPenyakitDahuluService(deps: { dal?: Dal } = {}) {
+export function makeAsesmenPenyakitDahuluService(deps: { dal?: Dal; katalog?: Pick<typeof katalogDal, "listKodeNama"> } = {}) {
   const dal = deps.dal ?? defaultDal;
+  const katalog = deps.katalog ?? katalogDal;
+  const muatIndeks = async (k: KategoriRiwayat) => indeksKode(await katalog.listKodeNama(k));
 
   async function assertKunjungan(kunjunganId: string) {
     const k = await kunjunganDal.findById(kunjunganId);
@@ -40,10 +44,11 @@ export function makeAsesmenPenyakitDahuluService(deps: { dal?: Dal } = {}) {
     actor: Actor,
   ): Promise<AsesmenPenyakitDahuluDTO> {
     await assertKunjungan(kunjunganId);
-    const pemeriksa = await resolveActorNama(actor);
+    const [pemeriksa, idx] = await Promise.all([resolveActorNama(actor), muatIndeks("PenyakitDahulu")]);
     const row = await dal.create({
       kunjunganId,
       penyakit: input.penyakit,
+      penyakitKode: kodeSejajar(input.penyakit, idx), // D7: kode diturunkan server dari katalog
       catatan: input.catatan ?? null,
       pemeriksa,
       authorUserId: actor.userId,

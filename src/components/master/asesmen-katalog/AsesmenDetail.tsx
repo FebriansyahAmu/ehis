@@ -10,7 +10,7 @@ import type {
   AsesmenItem, AsesmenKategori, AsesmenSeverity, AsesmenStatus,
 } from "@/lib/master/asesmenKatalogMock";
 import { isAsesmenValid, asesmenInitials, getAsesmenStatusCfg } from "@/lib/master/asesmenKatalogMock";
-import { KATEGORI_PREFIX, KATEGORI_WAJIB_SNOMED, SCTID_RE } from "@/lib/schemas/master/asesmenKatalog";
+import { KATEGORI_PREFIX, KATEGORI_SNOMED_RIWAYAT, KATEGORI_WAJIB_SNOMED, SCTID_RE } from "@/lib/schemas/master/asesmenKatalog";
 import {
   KATEGORI_CFG, KATEGORI_ORDER, KATEGORI_GROUPS,
   SEVERITY_CFG, SEVERITY_OPTS,
@@ -42,7 +42,8 @@ export default function AsesmenDetail({
   const snomedRequired = KATEGORI_WAJIB_SNOMED.has(draft.kategori);
   const snomedOk = !draft.snomedCode || SCTID_RE.test(draft.snomedCode);
   const valid = isAsesmenValid(draft, isNew) && snomedOk && (!snomedRequired || !!draft.snomedCode);
-  const showSnomed = draft.kategori.startsWith("Allergen") || snomedRequired;
+  const hintRiwayat = KATEGORI_SNOMED_RIWAYAT[draft.kategori]; // L04/L05: konsep "History of" / "Family history"
+  const showSnomed = draft.kategori.startsWith("Allergen") || snomedRequired || !!hintRiwayat;
   const showSeverity = draft.kategori === "ReaksiAlergi";
 
   return (
@@ -126,7 +127,7 @@ export default function AsesmenDetail({
                   required={snomedRequired}
                   hint={snomedRequired
                     ? "Wajib — Condition keluhan utama (chief-complaint) SatuSehat"
-                    : "Opsional — interoperabilitas FHIR AllergyIntolerance.code"}
+                    : hintRiwayat ?? "Opsional — interoperabilitas FHIR AllergyIntolerance.code"}
                   error={snomedOk ? undefined : "Kode SNOMED harus 6–18 digit angka"}
                 >
                   <div className="flex items-center gap-1.5">
@@ -134,7 +135,7 @@ export default function AsesmenDetail({
                     <TextInput
                       value={draft.snomedCode ?? ""}
                       onChange={(v) => onPatch({ snomedCode: v.replace(/\D/g, "") || undefined })}
-                      placeholder={snomedRequired ? "386661006" : "764146007"}
+                      placeholder={snomedRequired ? "386661006" : hintRiwayat ? "161501007" : "764146007"}
                       className="font-mono"
                       maxW="max-w-[200px]"
                       accent="teal"

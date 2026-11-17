@@ -1,5 +1,5 @@
 /**
- * Adapter pemeriksaan → Observation (fase B2): L09 kesadaran (`exam` 67775-7) · L11 nyeri (`survey` induk "Pain"
+ * Adapter pemeriksaan → Observation (fase B2): L09 kesadaran (`exam` 67775-7) · L10 head-to-toe (`exam` valueString) · L11 nyeri (`survey` induk "Pain"
  * 22253000 + `hasMember` skala) · L12 skala risiko (`exam`, skor + interpretation clinical-term).
  * Fungsi murni; kode dari conceptMap / skalaPemetaan (verbatim playbook IGD v5.2 §5).
  * Contoh resmi: docs/fhir-postman/bundles/bundle-igd.json (67775-7, 59461-4).
@@ -41,6 +41,14 @@ const skor = (value: number) => ({ value, unit: "{score}", system: "http://units
 /** L09 — tingkat kesadaran (category `exam`, sesuai tabel playbook; contoh RJ yang memakai vital-signs tidak diikuti). */
 export function toFhirKesadaran(value: Coding, c: ObsCtx): FhirRes {
   return obs(OBSERVATION_CATEGORY.exam, KESADARAN_CODE, c, { valueCodeableConcept: { coding: [value] } });
+}
+
+/**
+ * L10 — temuan head-to-toe per bagian tubuh (`exam` + LOINC "Physical findings of … Narrative" + `valueString`,
+ * pola contoh resmi RI). Dihapus dari pemeriksaan terbaru → status entered-in-error.
+ */
+export function toFhirPemeriksaanFisik(code: Coding, teks: string, c: ObsCtx, deleted = false): FhirRes {
+  return { ...obs(OBSERVATION_CATEGORY.exam, code, c, { valueString: teks }), ...(deleted ? { status: "entered-in-error" } : {}) };
 }
 
 /** L11 — anggota skor NRS 0–10 (`valueInteger`). */

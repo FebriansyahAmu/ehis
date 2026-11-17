@@ -42,11 +42,12 @@ async function main() {
 
       await client.query(
         `INSERT INTO "master"."asesmen_item" (
-           "id","kode","nama","kategori","deskripsi","snomed_code","severity_default","status","updated_at"
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8, now())`,
+           "id","kode","nama","kategori","deskripsi","snomed_code","snomed_display","severity_default","status","updated_at"
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, now())`,
         [
           randomUUID(), it.kode, it.nama, it.kategori, it.deskripsi ?? "",
           it.snomedCode ?? null,
+          it.snomedCode ? (it.snomedDisplay ?? null) : null, // riwayat L04/L05: "H/O: …" / "FH: …"
           it.kategori === "ReaksiAlergi" ? (it.severityDefault ?? null) : null,
           it.status ?? "Aktif",
         ],

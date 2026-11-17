@@ -38,6 +38,7 @@ import { syncClinical, type SyncRef } from "./clinicalSyncService";
 import { syncMedication } from "./medicationSyncService";
 import { syncDiagnostic } from "./diagnosticSyncService";
 import { syncRencana } from "./rencanaSyncService";
+import { syncAnamnesisFisik } from "./anamnesisSyncService";
 import { loadEncounterSnapshot } from "./encounterSnapshot";
 import type { auditActorOf } from "./audit";
 
@@ -217,11 +218,14 @@ async function runEncounter(
     if (ihsId) chiefComplaint = { ihsId, display: cc.data.display };
   }
 
+  // ── Fase B1/B2: riwayat penyakit pribadi & keluarga (L04 · L05) + head-to-toe (L10) ──
+  const ana = await syncAnamnesisFisik(snap, { env, sink, refs: clinicalRefs });
+
   // ── Fase B2–B5: klinis · obat · diagnostik ──
   const cl = await syncClinical(snap, { env, sink, refs: clinicalRefs });
   const med = await syncMedication(snap, { env, orgId, unit: k.unit, sink, patient: patientRef, encounterIhsId: encounterIhs });
   const diag = await syncDiagnostic(snap, { env, sink, refs: { orgId, patient: patientRef, encounter: { ihsId: encounterIhs } } });
-  for (const o of [cl, med, diag]) {
+  for (const o of [ana, cl, med, diag]) {
     refs.push(...o.refs);
     failures.push(...o.failures);
     issues.push(...o.issues);
@@ -247,7 +251,7 @@ async function runEncounter(
   issues.push(...ren.issues);
 
   // Referensi resource per section resume (Composition L26) — hanya resource aktif yang terkirim.
-  const sections = mergeSectionRefs(cl.sections, med.sections, diag.sections, ren.sections);
+  const sections = mergeSectionRefs(ana.sections, cl.sections, med.sections, diag.sections, ren.sections);
   if (chiefComplaint) addSectionRef(sections, "keluhanUtama", "Condition", chiefComplaint.ihsId);
   for (const d of diagnoses) addSectionRef(sections, "diagnosis", "Condition", d.ihsId);
 

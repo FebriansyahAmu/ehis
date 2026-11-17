@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | 📋 belum ada |
+| Status | 🟡 S4d 2026-11-18 — 5/11 sistem terkirim (D12 tahap 1) · 6 ditahan (FG-131) · performer = pencatat (FG-130) |
 | Kamar | **Observation** category `exam` · LOINC per bagian tubuh · `valueString` (narasi temuan) |
 | Playbook | RJ/IGD/RI §Pemeriksaan Fisik — Head to Toe [V IGD] |
 | Contoh resmi | RI bundle: 28 Observation `exam` "Physical findings of … Narrative" |
@@ -46,4 +46,17 @@ dikirim (itu temuan normal yang didokumentasikan), selama petugas menyimpan.
 ## Keputusan D12
 
 Pilih salah satu: (a) form head-to-toe dipecah mengikuti bagian playbook (paling rapi, perubahan UI), atau
-(b) kirim hanya 5 sistem yang padan sekarang, sisanya ditahan. Usulan: **(b) dulu, (a) bertahap**.
+(b) kirim hanya 5 sistem yang padan sekarang, sisanya ditahan. Usulan: **(b) dulu, (a) bertahap** — ✅ **disetujui 2026-11-18**.
+
+## Dibangun S4d (2026-11-18)
+
+- Peta di `PEMERIKSAAN_FISIK` (conceptMap, exhaustive atas 11 sistem): Kepala `10199-8` · Mata `10197-2` · Leher `11411-6` ·
+  Toraks/Paru → Dada `11391-0` · Abdomen → Perut `10191-5` (display verbatim playbook RJ/RI Tabel 5 · IGD Tabel 6 + contoh RI).
+- Sumber append-only "latest wins" → hanya pemeriksaan **terbaru** yang dikirim; **localId** = `<kunjunganId>:pemeriksaan-fisik:<sistem>`.
+  Sistem padan yang dikosongkan di pemeriksaan terbaru → `status` entered-in-error (hanya bila pernah terkirim).
+- Bentuk = contoh resmi RI: `exam` · `valueString` · `effectiveDateTime` = `issued` = waktu pemeriksaan · `performer` = **pencatat**
+  (dokter pemeriksa hanya disimpan sebagai nama — FG-130).
+- Ditahan (Issue): THT · Urogenital · Ekstremitas = `menunggu-keputusan` (pecah field); Jantung · Neurologi · Kulit = `di-luar-playbook`.
+- Composition: sub-section **Pemeriksaan Fisik Head to Toe** `10187-3` "Review of systems Narrative - Reported" (di bawah Pemeriksaan Fisik).
+- Catatan playbook (FG-132): kuku kaki `770805009` (RJ/RI) vs `77085009` (IGD); SNOMED bagian di `code` (RJ) vs `bodySite` (RI/IGD) —
+  ikuti contoh RI (`bodySite`) saat field dipecah.

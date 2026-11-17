@@ -15,7 +15,7 @@ type Ref = { ihsId: string; nama: string };
 
 /** Section resume yang merujuk resource link lain (L26 §Section → kode → entry). */
 export type ResumeSection =
-  | "keluhanUtama" | "alergi" | "tandaVital" | "lab" | "rad" | "diagnosis" | "tindakan" | "obat" | "obatPulang"
+  | "keluhanUtama" | "riwayatPenyakit" | "riwayatKeluarga" | "alergi" | "tandaVital" | "headToToe" | "lab" | "rad" | "diagnosis" | "tindakan" | "obat" | "obatPulang"
   | "kondisiPulang" | "rencanaRawat" | "edukasi" | "tindakLanjut";
 
 /**
@@ -66,12 +66,15 @@ const STRUKTUR: SectionDef[] = [
   {
     title: "Anamnesis", code: kemkes("TK000003", "Anamnesis"), sub: [
       { title: "Keluhan Utama", code: loinc("10154-3", "Chief complaint Narrative - Reported"), key: "keluhanUtama" },
+      { title: "Riwayat Penyakit Pribadi Terdahulu", code: loinc("11348-0", "History of Past illness Narrative"), key: "riwayatPenyakit" },
+      { title: "Riwayat Penyakit Keluarga", code: loinc("10157-6", "History of family member diseases Narrative"), key: "riwayatKeluarga" },
       { title: "Riwayat Alergi", code: loinc("48765-2", "Allergies and adverse reactions Document"), key: "alergi" },
     ],
   },
   {
     title: "Pemeriksaan Fisik", code: kemkes("TK000007", "Pemeriksaan Fisik"), sub: [
       { title: "Tanda Vital", code: loinc("8716-3", "Vital signs"), key: "tandaVital" },
+      { title: "Pemeriksaan Fisik Head to Toe", code: loinc("10187-3", "Review of systems Narrative - Reported"), key: "headToToe" },
     ],
   },
   { title: "Perencanaan Perawatan", code: loinc("18776-5", "Plan of treatment (narrative)"), key: "rencanaRawat" },

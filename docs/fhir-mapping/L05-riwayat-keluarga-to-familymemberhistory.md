@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | 📋 belum ada |
+| Status | 🟡 S4d 2026-11-18 — terkirim per anggota untuk penyakit katalog ber-SNOMED (5/10) · relationship FAMMEMB (FG-129) |
 | Kamar | **FamilyMemberHistory** |
 | Playbook | RJ/IGD/RI §Anamnesis — Riwayat Penyakit Keluarga [V] |
 | Contoh resmi | RI bundle: 1 entry `FamilyMemberHistory(completed)` |
@@ -41,6 +41,26 @@ Satu item anggota = satu FamilyMemberHistory, berisi N `condition`. `localId` = 
 
 Sama dengan L04 (D7): simpan kode item, bukan nama; katalog `PenyakitKeluarga` harus berisi konsep
 **"Family history of …"** (turunan `416471007`), bukan konsep penyakit langsung.
+
+## Dibangun S4d (2026-11-18, D7 disetujui)
+
+- **Sumber kode (D7):** `anggota_kode` (AK-NNN) + `penyakit_kode` sejajar `penyakit`, diturunkan Service saat simpan (pola L04).
+- **localId** = `<kunjunganId>:riwayat-keluarga:<kodeAnggota | nama-anggota>`; anggota sama dalam satu simpanan digabung. Anggota yang
+  hilang dari simpanan terbaru → `status` entered-in-error (hanya bila pernah terkirim).
+- **Elemen:** `status` completed · patient · `date` = waktu simpan · `relationship` = **`FAMMEMB` "Family member"** (satu-satunya kode di
+  tabel playbook) + `text` = anggota EHIS (Ayah/Ibu/…) · `condition[].code` SNOMED katalog · `note` = keterangan. Tanpa encounter (R4).
+  ConceptMap anggota → v3-RoleCode spesifik (usulan di atas) **belum dipakai** (FG-129).
+- Anggota tanpa satu pun penyakit ber-SNOMED tidak dikirim; tiap penyakit tak berkode = Issue `kode-kosong`.
+- Composition: sub-section **Riwayat Penyakit Keluarga** `10157-6` "History of family member diseases Narrative".
+
+| Katalog | SNOMED |
+|---|---|
+| PK-001 Hipertensi | `160357008` FH: Hypertension |
+| PK-002 Diabetes Melitus | `160303001` FH: Diabetes mellitus |
+| PK-006 Tuberkulosis | `160280002` FH: Tuberculosis |
+| PK-007 Asma | `160377001` FH: Asthma |
+| PK-008 Thalassemia | `160319008` FH: Thalassemia |
+| PK-003 Jantung · 004 Stroke · 005 Kanker · 009 Gangguan Jiwa · 010 HIV | — ditahan (FG-127) |
 
 ## Jangan salah kamar
 

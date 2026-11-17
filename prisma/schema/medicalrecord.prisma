@@ -259,8 +259,11 @@ model AsesmenPenyakitDahulu {
   kunjunganId String    @map("kunjungan_id") @db.Uuid
   kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
 
-  penyakit String[] // penyakit tercentang (Hipertensi/DM/PJK/…)
-  catatan  String? // keterangan tambahan (tahun diagnosis, komplikasi, dll)
+  penyakit     String[] // penyakit tercentang (Hipertensi/DM/PJK/…) — label snapshot
+  // Kode item katalog master.AsesmenItem (PD-NNN) SEJAJAR indeks dgn `penyakit`; "" = tak ada di katalog.
+  // Diturunkan Service saat simpan (D7, FHIR L04) — SNOMED diambil dari katalog saat kirim.
+  penyakitKode String[] @default([]) @map("penyakit_kode")
+  catatan      String? // keterangan tambahan (tahun diagnosis, komplikasi, dll)
 
   // ── Pemeriksa + author (dari actor) ──
   pemeriksa       String
@@ -465,9 +468,11 @@ model AsesmenPenyakitKeluargaItem {
   asesmenPenyakitKeluargaId String                  @map("asesmen_penyakit_keluarga_id") @db.Uuid
   asesmenPenyakitKeluarga   AsesmenPenyakitKeluarga @relation(fields: [asesmenPenyakitKeluargaId], references: [id], onDelete: Cascade)
 
-  anggota    String // Ayah/Ibu/Kakak/…
-  penyakit   String[] // penyakit tercentang utk anggota itu
-  keterangan String?
+  anggota      String // Ayah/Ibu/Kakak/… — label snapshot
+  anggotaKode  String?  @map("anggota_kode") // kode katalog AK-NNN (null = tak ada di katalog) — D7
+  penyakit     String[] // penyakit tercentang utk anggota itu
+  penyakitKode String[] @default([]) @map("penyakit_kode") // PK-NNN sejajar `penyakit`; "" = tak ada di katalog (D7, FHIR L05)
+  keterangan   String?
   urutan     Int      @default(0)
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 

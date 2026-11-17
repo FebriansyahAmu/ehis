@@ -13,6 +13,7 @@ import {
   listAsesmenKatalog, createAsesmenKatalog, updateAsesmenKatalog, deleteAsesmenKatalog,
   type AsesmenItemDTO,
 } from "@/lib/api/master/asesmenKatalog";
+import { KATEGORI_SNOMED_RIWAYAT } from "@/lib/schemas/master/asesmenKatalog";
 import { ApiError } from "@/lib/api/client";
 import { toast } from "@/lib/ui/toastStore";
 import AsesmenList from "./AsesmenList";
@@ -35,7 +36,8 @@ function dtoToItem(d: AsesmenItemDTO): AsesmenItem {
 }
 
 // Kategori yang memakai kolom SNOMED (allergen opsional · keluhan utama wajib).
-const usesSnomed = (k: AsesmenItem["kategori"]) => k.startsWith("Allergen") || k === "KeluhanUtama";
+const usesSnomed = (k: AsesmenItem["kategori"]) =>
+  k.startsWith("Allergen") || k === "KeluhanUtama" || !!KATEGORI_SNOMED_RIWAYAT[k]; // + riwayat L04/L05
 
 // Draft → payload create (kode TIDAK dikirim — auto-gen <PREFIX>-NNN di server).
 function draftToCreateInput(d: AsesmenItem) {

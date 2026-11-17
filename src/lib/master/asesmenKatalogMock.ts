@@ -66,7 +66,7 @@ function mk(
   kode: string,
   nama: string,
   kategori: AsesmenKategori,
-  extra: Partial<Pick<AsesmenItem, "snomedCode" | "deskripsi" | "severityDefault">> = {},
+  extra: Partial<Pick<AsesmenItem, "snomedCode" | "snomedDisplay" | "deskripsi" | "severityDefault">> = {},
 ): AsesmenItem {
   return { id, kode, nama, kategori, status: "Aktif", ...extra };
 }
@@ -114,24 +114,24 @@ const REAKSI_ALERGI: AsesmenItem[] = [
 ];
 
 const PENYAKIT_DAHULU: AsesmenItem[] = [
-  mk("ask-pd-1",  "PD-001", "Hipertensi",                "PenyakitDahulu"),
-  mk("ask-pd-2",  "PD-002", "Diabetes Melitus",          "PenyakitDahulu"),
+  mk("ask-pd-1",  "PD-001", "Hipertensi",                "PenyakitDahulu", { snomedCode: "161501007", snomedDisplay: "H/O: hypertension" }),
+  mk("ask-pd-2",  "PD-002", "Diabetes Melitus",          "PenyakitDahulu", { snomedCode: "161445009", snomedDisplay: "H/O: diabetes mellitus" }),
   mk("ask-pd-3",  "PD-003", "Penyakit Jantung Koroner",  "PenyakitDahulu"),
-  mk("ask-pd-4",  "PD-004", "Gagal Jantung Kongestif",   "PenyakitDahulu"),
+  mk("ask-pd-4",  "PD-004", "Gagal Jantung Kongestif",   "PenyakitDahulu", { snomedCode: "161505003", snomedDisplay: "H/O: heart failure" }),
   mk("ask-pd-5",  "PD-005", "Stroke / TIA",              "PenyakitDahulu"),
-  mk("ask-pd-6",  "PD-006", "Asma Bronkial",             "PenyakitDahulu"),
+  mk("ask-pd-6",  "PD-006", "Asma Bronkial",             "PenyakitDahulu", { snomedCode: "161527007", snomedDisplay: "H/O: asthma" }),
   mk("ask-pd-7",  "PD-007", "PPOK",                      "PenyakitDahulu"),
-  mk("ask-pd-8",  "PD-008", "Tuberkulosis Paru",         "PenyakitDahulu"),
+  mk("ask-pd-8",  "PD-008", "Tuberkulosis Paru",         "PenyakitDahulu", { snomedCode: "161414005", snomedDisplay: "H/O: tuberculosis" }),
   mk("ask-pd-9",  "PD-009", "Hepatitis B",               "PenyakitDahulu"),
   mk("ask-pd-10", "PD-010", "Hepatitis C",               "PenyakitDahulu"),
   mk("ask-pd-11", "PD-011", "HIV / AIDS",                "PenyakitDahulu"),
   mk("ask-pd-12", "PD-012", "Gagal Ginjal Kronis",       "PenyakitDahulu"),
-  mk("ask-pd-13", "PD-013", "Batu Saluran Kemih",        "PenyakitDahulu"),
+  mk("ask-pd-13", "PD-013", "Batu Saluran Kemih",        "PenyakitDahulu", { snomedCode: "161548009", snomedDisplay: "H/O: urinary stone" }),
   mk("ask-pd-14", "PD-014", "Kanker / Keganasan",        "PenyakitDahulu"),
-  mk("ask-pd-15", "PD-015", "Epilepsi",                  "PenyakitDahulu"),
-  mk("ask-pd-16", "PD-016", "Gangguan Jiwa",             "PenyakitDahulu"),
+  mk("ask-pd-15", "PD-015", "Epilepsi",                  "PenyakitDahulu", { snomedCode: "161480008", snomedDisplay: "H/O: epilepsy" }),
+  mk("ask-pd-16", "PD-016", "Gangguan Jiwa",             "PenyakitDahulu", { snomedCode: "161464003", snomedDisplay: "H/O: psychiatric disorder" }),
   mk("ask-pd-17", "PD-017", "Penyakit Tiroid",           "PenyakitDahulu"),
-  mk("ask-pd-18", "PD-018", "Rheumatoid Arthritis",      "PenyakitDahulu"),
+  mk("ask-pd-18", "PD-018", "Rheumatoid Arthritis",      "PenyakitDahulu", { snomedCode: "161567008", snomedDisplay: "H/O: rheumatoid arthritis" }),
   mk("ask-pd-19", "PD-019", "Lupus (SLE)",               "PenyakitDahulu"),
   mk("ask-pd-20", "PD-020", "Thalassemia",               "PenyakitDahulu"),
 ];
@@ -152,14 +152,14 @@ const PENYAKIT_BERESIKO: AsesmenItem[] = [
 ];
 
 const PENYAKIT_KELUARGA: AsesmenItem[] = [
-  mk("ask-pk-1",  "PK-001", "Hipertensi",                "PenyakitKeluarga"),
-  mk("ask-pk-2",  "PK-002", "Diabetes Melitus",          "PenyakitKeluarga"),
+  mk("ask-pk-1",  "PK-001", "Hipertensi",                "PenyakitKeluarga", { snomedCode: "160357008", snomedDisplay: "FH: Hypertension" }),
+  mk("ask-pk-2",  "PK-002", "Diabetes Melitus",          "PenyakitKeluarga", { snomedCode: "160303001", snomedDisplay: "FH: Diabetes mellitus" }),
   mk("ask-pk-3",  "PK-003", "Penyakit Jantung",          "PenyakitKeluarga"),
   mk("ask-pk-4",  "PK-004", "Stroke",                    "PenyakitKeluarga"),
   mk("ask-pk-5",  "PK-005", "Kanker",                    "PenyakitKeluarga"),
-  mk("ask-pk-6",  "PK-006", "Tuberkulosis",              "PenyakitKeluarga"),
-  mk("ask-pk-7",  "PK-007", "Asma",                      "PenyakitKeluarga"),
-  mk("ask-pk-8",  "PK-008", "Thalassemia",               "PenyakitKeluarga"),
+  mk("ask-pk-6",  "PK-006", "Tuberkulosis",              "PenyakitKeluarga", { snomedCode: "160280002", snomedDisplay: "FH: Tuberculosis" }),
+  mk("ask-pk-7",  "PK-007", "Asma",                      "PenyakitKeluarga", { snomedCode: "160377001", snomedDisplay: "FH: Asthma" }),
+  mk("ask-pk-8",  "PK-008", "Thalassemia",               "PenyakitKeluarga", { snomedCode: "160319008", snomedDisplay: "FH: Thalassemia" }),
   mk("ask-pk-9",  "PK-009", "Gangguan Jiwa",             "PenyakitKeluarga"),
   mk("ask-pk-10", "PK-010", "HIV/AIDS",                  "PenyakitKeluarga"),
 ];

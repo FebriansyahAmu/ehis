@@ -108,7 +108,7 @@ Registered/Queued ──(tidak dikirim)
 | **S4a Pemeriksaan** ✅ 2026-11-17 | `feat/fhir-link-pemeriksaan` | L09 kesadaran (AVPU triase + TTV) · L11 nyeri (induk Pain + `hasMember` NRS/Wong-Baker) · L12 risiko jatuh (Morse/Humpty Dumpty/Edmonson) · kolom pemetaan di Master Skala · Issue `menunggu-keputusan` | Ya: per baris TTV +1 kesadaran +2 nyeri (FG-110). Temuan FG-104..111 |
 | **S4b Obat** ✅ 2026-11-18 | `feat/fhir-link-obat` | L19 telaah → QuestionnaireResponse Q0007 (item 4 → MedicationRequest resep) · L21 MAR → MedicationAdministration per slot (Medication contained) | Ya: +1 QR per telaah, +1 MA per slot MAR. Temuan FG-112..118 |
 | **S4c Rencana & pulang** ✅ 2026-11-18 | `feat/fhir-link-rencana` | L22 Goal + CarePlan rencana rawat · L23 CarePlan pemulangan (kriteria ditahan D15) · L15 Procedure edukasi (SNOMED + KPTL) · L25 ServiceRequest kontrol/konsultasi/rujukan (SPRI ditahan D8) · 3 section Composition baru | Ya: Goal/CarePlan/Procedure/ServiceRequest baru + section resume. Temuan FG-119..125 |
-| **S4d Anamnesis & fisik** | `feat/fhir-link-anamnesis` (usulan) | L04 · L05 · L10 | Butuh D7 (kode katalog) · D12 (5 sistem) |
+| **S4d Anamnesis & fisik** ✅ 2026-11-18 | `feat/fhir-link-anamnesis` | L04 Condition `previous-condition` · L05 FamilyMemberHistory · L10 head-to-toe 5 sistem (D12) · D7 kode katalog di record riwayat (migrasi `20261118120000`) · 3 sub-section Composition | Ya: +Condition per riwayat penyakit, +FMH per anggota, +Observation per sistem. Temuan FG-126..133 |
 | **S5 Perubahan entry** | per form | Picker KFA riwayat obat (L07), kolom kode master skala/topik edukasi, field transportasi (D10) | — |
 
 Setiap langkah: dokumen link diperbarui statusnya (✅) + gap ditutup di [FHIR-GAP.md](../FHIR-GAP.md).

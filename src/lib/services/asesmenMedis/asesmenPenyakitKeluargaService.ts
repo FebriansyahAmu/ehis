@@ -3,6 +3,8 @@
 import * as defaultDal from "@/lib/dal/asesmenMedis/asesmenPenyakitKeluargaDal";
 import * as kunjunganDal from "@/lib/dal/kunjunganDal";
 import { resolveActorNama } from "@/lib/services/actorName";
+import * as katalogDal from "@/lib/dal/master/asesmenKatalogDal";
+import { indeksKode, kodeSejajar, type KategoriRiwayat } from "@/lib/services/asesmenMedis/katalogKode";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type { AsesmenPenyakitKeluargaInput, AsesmenPenyakitKeluargaDTO } from "@/lib/schemas/asesmenMedis/asesmenPenyakitKeluarga";
@@ -29,8 +31,10 @@ function toDTO(r: NonNullEntity): AsesmenPenyakitKeluargaDTO {
   };
 }
 
-export function makeAsesmenPenyakitKeluargaService(deps: { dal?: Dal } = {}) {
+export function makeAsesmenPenyakitKeluargaService(deps: { dal?: Dal; katalog?: Pick<typeof katalogDal, "listKodeNama"> } = {}) {
   const dal = deps.dal ?? defaultDal;
+  const katalog = deps.katalog ?? katalogDal;
+  const muatIndeks = async (k: KategoriRiwayat) => indeksKode(await katalog.listKodeNama(k));
 
   async function assertKunjungan(kunjunganId: string) {
     const k = await kunjunganDal.findById(kunjunganId);
@@ -44,7 +48,9 @@ export function makeAsesmenPenyakitKeluargaService(deps: { dal?: Dal } = {}) {
     actor: Actor,
   ): Promise<AsesmenPenyakitKeluargaDTO> {
     await assertKunjungan(kunjunganId);
-    const pemeriksa = await resolveActorNama(actor);
+    const [pemeriksa, idxAnggota, idxPenyakit] = await Promise.all([
+      resolveActorNama(actor), muatIndeks("AnggotaKeluarga"), muatIndeks("PenyakitKeluarga"),
+    ]);
     const row = await dal.create({
       kunjunganId,
       riwayatLain: input.riwayatLain ?? null,
@@ -53,7 +59,9 @@ export function makeAsesmenPenyakitKeluargaService(deps: { dal?: Dal } = {}) {
       authorPegawaiId: actor.pegawaiId,
       items: input.items.map((it, i) => ({
         anggota: it.anggota,
+        anggotaKode: kodeSejajar([it.anggota], idxAnggota)[0] || null, // D7: kode diturunkan server
         penyakit: it.penyakit,
+        penyakitKode: kodeSejajar(it.penyakit, idxPenyakit),
         keterangan: it.keterangan ?? null,
         urutan: i,
       })),

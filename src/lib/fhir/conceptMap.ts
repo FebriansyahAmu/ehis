@@ -113,7 +113,16 @@ export const DIAGNOSIS_ROLE = {
 export const CONDITION_CATEGORY = {
   chiefComplaint: { system: "http://terminology.kemkes.go.id", code: "chief-complaint", display: "Chief Complaint" },
   problemListItem: { system: `${HL7}/condition-category`, code: "problem-list-item", display: "Problem List Item" },
+  /** L04 riwayat penyakit pribadi (playbook RJ/RI Tabel 3 · IGD Tabel 4 item 3, verbatim). */
+  previousCondition: { system: "http://terminology.kemkes.go.id", code: "previous-condition", display: "Previous Condition" },
 } as const satisfies Record<string, Coding>;
+
+/**
+ * L05 — `FamilyMemberHistory.relationship` (playbook Tabel 3/4 item 4, verbatim: hanya FAMMEMB "Family member").
+ * Anggota spesifik EHIS (Ayah/Ibu/…) dibawa di `relationship.text`; kode v3-RoleCode spesifik (MTH/FTH/…)
+ * belum dipakai karena tidak ada di tabel playbook (FG-129).
+ */
+export const FAMILY_MEMBER: Coding = { system: `${HL7}/v3-RoleCode`, code: "FAMMEMB", display: "Family member" };
 
 const SCT = "http://snomed.info/sct";
 const KONDISI_STABIL: Coding = { system: SCT, code: "359746009", display: "Patient's condition stable" };
@@ -238,6 +247,33 @@ export const OBSERVATION_CATEGORY = {
   exam: { system: `${HL7}/observation-category`, code: "exam", display: "Exam" },
   survey: { system: `${HL7}/observation-category`, code: "survey", display: "Survey" },
 } as const satisfies Record<string, Coding>;
+
+/** Sistem head-to-toe form Pemeriksaan Fisik EHIS (= `SistemFisikKey` di lib/data.ts). */
+export type SistemFisikLokal =
+  | "kepala" | "mata" | "tht" | "leher" | "toraks_paru"
+  | "jantung" | "abdomen" | "urogenital" | "ekstremitas" | "neurologi" | "kulit";
+
+const loincExam = (code: string, display: string): Coding => ({ system: "http://loinc.org", code, display });
+
+/**
+ * L10 — sistem EHIS → `Observation.code` head-to-toe (category `exam`, `valueString`). Kode verbatim playbook
+ * RJ/RI Tabel 5 · IGD Tabel 6 item 3 (28 bagian) + contoh resmi RI. `null` = ditahan (D12: 5 sistem padan dulu):
+ * tht/urogenital/ekstremitas = 1 teks EHIS untuk banyak bagian playbook (pecah field bertahap);
+ * jantung/neurologi/kulit = tidak ada di daftar head-to-toe playbook.
+ */
+export const PEMERIKSAAN_FISIK: Record<SistemFisikLokal, Coding | null> = {
+  kepala: loincExam("10199-8", "Physical findings of Head Narrative"),
+  mata: loincExam("10197-2", "Physical findings of Eye Narrative"),
+  leher: loincExam("11411-6", "Physical findings of Neck Narrative"),
+  toraks_paru: loincExam("11391-0", "Physical findings of Chest Narrative"), // playbook "Dada"
+  abdomen: loincExam("10191-5", "Physical findings of Abdomen Narrative"), // playbook "Perut"
+  tht: null,
+  urogenital: null,
+  ekstremitas: null,
+  jantung: null,
+  neurologi: null,
+  kulit: null,
+};
 
 /** L09 — `Observation.code` tingkat kesadaran (LOINC). */
 export const KESADARAN_CODE: Coding = { system: "http://loinc.org", code: "67775-7", display: "Level of responsiveness" };

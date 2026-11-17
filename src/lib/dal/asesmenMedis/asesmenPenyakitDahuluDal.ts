@@ -6,6 +6,7 @@ import { db, type Tx } from "@/lib/db/prisma";
 export interface CreateAsesmenPenyakitDahuluData {
   kunjunganId: string;
   penyakit: string[];
+  penyakitKode: string[]; // kode katalog sejajar `penyakit` ("" = tak ada di katalog) — D7
   catatan?: string | null;
   pemeriksa: string;
   authorUserId?: string | null;

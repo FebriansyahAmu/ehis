@@ -49,6 +49,16 @@ export function findActiveBySnomed(kategori: string, snomedCode: string, tx?: Tx
   });
 }
 
+/** Kode + nama item hidup per kategori — padanan nama → kode saat simpan riwayat (D7). Termasuk Non_Aktif:
+ *  item yang dinonaktifkan tetap sah untuk data yang sudah dipilih sebelumnya. */
+export function listKodeNama(kategori: string, tx?: Tx) {
+  return db(tx).asesmenItem.findMany({
+    where: { kategori, ...ALIVE },
+    orderBy: { createdAt: "asc" },
+    select: { kode: true, nama: true },
+  });
+}
+
 export function update(id: string, data: AsesmenPatch, tx?: Tx) {
   return db(tx).asesmenItem.update({ where: { id }, data });
 }

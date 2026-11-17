@@ -4,7 +4,9 @@ import { db, type Tx } from "@/lib/db/prisma";
 
 export interface CreateKeluargaItemData {
   anggota: string;
+  anggotaKode: string | null; // kode katalog AK-NNN — D7
   penyakit: string[];
+  penyakitKode: string[]; // PK-NNN sejajar `penyakit` ("" = tak ada di katalog)
   keterangan?: string | null;
   urutan: number;
 }

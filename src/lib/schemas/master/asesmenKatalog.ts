@@ -39,6 +39,16 @@ export const KATEGORI_PREFIX: Record<AsesmenKategoriEnum, string> = {
 /** Kategori yang WAJIB berkode SNOMED (tanpa kode = tak berguna untuk interoperabilitas). */
 export const KATEGORI_WAJIB_SNOMED: ReadonlySet<AsesmenKategoriEnum> = new Set(["KeluhanUtama"]);
 
+/**
+ * Kategori riwayat dengan kode SNOMED OPSIONAL — konsep konteks riwayat, BUKAN konsep penyakitnya langsung
+ * (FHIR L04 `< 417662000 History of clinical finding` · L05 `< 416471007 Family history of clinical finding`).
+ * Item tanpa kode tetap bisa dipilih di form; riwayatnya ditahan (Issue) saat kirim SatuSehat.
+ */
+export const KATEGORI_SNOMED_RIWAYAT: Partial<Record<AsesmenKategoriEnum, string>> = {
+  PenyakitDahulu: "Opsional — SNOMED konsep \"History of …\" (mis. 161501007 H/O: hypertension) untuk Condition riwayat penyakit SatuSehat. Bukan kode penyakitnya langsung",
+  PenyakitKeluarga: "Opsional — SNOMED konsep \"Family history …\" (mis. 160357008 FH: Hypertension) untuk FamilyMemberHistory SatuSehat. Bukan kode penyakitnya langsung",
+};
+
 /** SCTID: 6–18 digit, tanpa nol di depan (check digit divalidasi di skrip seed / saat POST SatuSehat). */
 export const SCTID_RE = /^[1-9]\d{5,17}$/;
 

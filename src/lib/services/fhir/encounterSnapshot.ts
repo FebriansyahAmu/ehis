@@ -11,11 +11,13 @@ import * as medicationSrc from "@/lib/dal/fhir/medicationSourceDal";
 import * as diagnosticSrc from "@/lib/dal/fhir/diagnosticSourceDal";
 import * as encounterSrc from "@/lib/dal/fhir/encounterSourceDal";
 import * as rencanaSrc from "@/lib/dal/fhir/rencanaSourceDal";
+import * as anamnesisSrc from "@/lib/dal/fhir/anamnesisSourceDal";
 
 export async function loadEncounterSnapshot(kunjunganId: string) {
   const [
     diagnosa, prosedur, tindakan, ttv, alergi, triase, penilaianSkala, resep, mar, lab, rad, resume, anamnesis, triaseWaktu,
     carePlan, dischargeAsesmen, edukasi, jadwalKontrol, konsultasi, rujukan, spri, rsKontak,
+    penyakitDahulu, penyakitKeluarga, pemeriksaanFisik, katalogRiwayat,
   ] = await Promise.all([
     clinicalSrc.listDiagnosa(kunjunganId),
     clinicalSrc.listProsedur(kunjunganId),
@@ -41,11 +43,17 @@ export async function loadEncounterSnapshot(kunjunganId: string) {
     rencanaSrc.listRujukanEksternal(kunjunganId), // L25 rujukan eksternal
     rencanaSrc.listSpri(kunjunganId), // L25 SPRI (ditahan D8)
     rencanaSrc.getRsKontak(), // patientInstruction kontak darurat
+
+    anamnesisSrc.listPenyakitDahulu(kunjunganId), // L04 riwayat penyakit pribadi
+    anamnesisSrc.listPenyakitKeluarga(kunjunganId), // L05 riwayat penyakit keluarga
+    anamnesisSrc.listPemeriksaanFisik(kunjunganId), // L10 head-to-toe
+    anamnesisSrc.listKatalogRiwayat(), // SNOMED katalog riwayat (D7)
   ]);
   return {
     kunjunganId, diagnosa, prosedur, tindakan, ttv, alergi, triase, penilaianSkala, resep, mar, lab, rad, resume, anamnesis,
     triaseWaktu,
     carePlan, dischargeAsesmen, edukasi, jadwalKontrol, konsultasi, rujukan, spri, rsKontak,
+    penyakitDahulu, penyakitKeluarga, pemeriksaanFisik, katalogRiwayat,
   };
 }
 
