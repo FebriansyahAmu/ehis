@@ -26,7 +26,7 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 
 | Simbol | Arti |
 |---|---|
-| ✅ | Sudah ada (FH3–FH7) dan sesuai playbook |
+| ✅ | Sudah ada (FH3–FH7 / langkah S1–S5) dan sesuai playbook |
 | ⚠️ | Sudah ada tapi **salah kamar / kode / pola** — perlu koreksi |
 | 📋 | Belum ada, **sumber data EHIS sudah ada** → tinggal dibangun |
 | ⛔ | Ada di playbook, **EHIS belum punya sumber data** |
@@ -36,9 +36,9 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 
 | ID | Link | Sumber EHIS | Resource SatuSehat (kamar) | Unit | Status |
 |---|---|---|---|---|---|
-| [L01](L01-kunjungan-to-encounter.md) | `kunjunganToEncounter` | `encounter.Kunjungan` + `BedAllocation` + `Disposisi` | **Encounter** (class AMB/EMER/IMP) | semua | ⚠️ |
+| [L01](L01-kunjungan-to-encounter.md) | `kunjunganToEncounter` | `encounter.Kunjungan` + `BedAllocation` + `Disposisi` | **Encounter** (class AMB/EMER/IMP) | semua | ✅ S2 (riwayat lokasi menunggu fitur pindah ruangan, FG-30) |
 | [L02](L02-triase-to-observation.md) | `triaseToObservation` | `medicalrecord.Triase` | **Observation** `survey` (transportasi · surat rujukan · CTAS) | IGD | 📋 |
-| [L03](L03-keluhan-to-condition.md) | `keluhanToCondition` | `Anamnesis.keluhanUtama` · `Triase.keluhanUtama/gejalaPenyerta` | **Condition** `chief-complaint` / `problem-list-item` + `Encounter.diagnosis` **CC** | semua | 📋 🔴 |
+| [L03](L03-keluhan-to-condition.md) | `keluhanToCondition` | `Anamnesis.keluhanUtama` · `Triase.keluhanUtama/gejalaPenyerta` | **Condition** `chief-complaint` / `problem-list-item` + `Encounter.diagnosis` **CC** | semua | ✅ S2 keluhan utama · 📋 keluhan penyerta (ditunda bersama D2) |
 | [L04](L04-riwayat-penyakit-to-condition.md) | `riwayatPenyakitToCondition` | `AsesmenPenyakitDahulu` | **Condition** `previous-condition` | semua | 📋 |
 | [L05](L05-riwayat-keluarga-to-familymemberhistory.md) | `riwayatKeluargaToFamilyMemberHistory` | `AsesmenPenyakitKeluarga(+Item)` | **FamilyMemberHistory** | semua | 📋 |
 | [L06](L06-alergi-to-allergyintolerance.md) | `alergiToAllergyIntolerance` | `AsesmenAlergi` | **AllergyIntolerance** | semua | ⚠️ |
@@ -59,7 +59,7 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 | [L21](L21-mar-to-medicationadministration.md) | `marToMedicationAdministration` | `MarEntry` | **MedicationAdministration** | RI (IGD) | 📋 |
 | [L22](L22-careplan-to-goal-careplan.md) | `carePlanToGoalCarePlan` | `CarePlanMasalah/Goal` | **Goal** `nursing` + **CarePlan** | RI | 📋 |
 | [L23](L23-discharge-planning-to-observation.md) | `dischargePlanningToObservation` | `DischargeAsesmen` | **Observation** OC000055 + **CarePlan** 736372004 | RI · IGD | 📋 |
-| [L24](L24-disposisi-to-kondisi-pulang.md) | `disposisiToKondisiPulang` | `Disposisi` | **Condition** kondisi pulang + `Encounter.hospitalization.dischargeDisposition` | semua | 📋 |
+| [L24](L24-disposisi-to-kondisi-pulang.md) | `disposisiToKondisiPulang` | `Disposisi` | **Condition** kondisi pulang + `Encounter.hospitalization.dischargeDisposition` | semua | ✅ S2 |
 | [L25](L25-tindak-lanjut-to-servicerequest.md) | `tindakLanjutToServiceRequest` | `JadwalKontrol` · `RujukanEksternal` · `Spri` · `Konsultasi` | **ServiceRequest** `3457005` (+ SPRI `inpatient-admission`) | semua | 📋 |
 | [L26](L26-resume-to-composition.md) | `resumeToComposition` | `ResumeMedik` | **Composition** (type per unit) | semua | ⚠️ |
 
@@ -97,7 +97,7 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 | D1 | Arsitektur mapping | Mapper TS murni per link + ConceptMap + gerbang; **bukan** stored procedure | [ARSITEKTUR](ARSITEKTUR.md) |
 | D2 | Triase → CTAS 6 nilai (`75910-0`) | ⏸ **Ditunda (keputusan user 2026-11-17)** — L02 tidak dikerjakan dulu. Usulan tersimpan di L02: kode dari level protokol paling gawat (1:1 CTAS), dicek terhadap pita warna P1–P4; P4 Hitam ≠ otomatis DOA | L02 |
 | D3 | Sumber tingkat kesadaran | IGD: `Triase.avpu` (padanan langsung). TTV: `statusKesadaran` dipetakan, **"Apatis" belum punya padanan** → butuh keputusan klinis | L09 |
-| D4 | Keluhan utama wajib berkode SNOMED | Tambah **picker SNOMED (subset keluhan umum)** di Anamnesis/Triase; teks bebas tetap di `text` | L03 |
+| D4 | Keluhan utama wajib berkode SNOMED | ✅ **Dikerjakan S2 (2026-11-17, atas usulan ini):** picker SNOMED di **Anamnesis** IGD/RI/RJ dari subset terkurasi master asesmen kategori **Keluhan Utama** (54 kode, admin dapat menambah); teks bebas tetap (→ `note`). Triase tidak diberi picker (L02 ditunda, D2) | L03 |
 | D5 | GCS, SpO₂, Barthel, Braden (di luar playbook) | Tahan sampai uji sandbox; jangan masuk Bundle atomik dulu (1 tolak = 1 kunjungan gagal, FG-61) | L08 · L12 |
 | D6 | Pola Medication | Ikuti playbook: **Medication per paket** (contained/entry bersama Request/Dispense), bukan 1 Medication per master obat | L18 · L20 |
 | D7 | Kode riwayat penyakit/keluarga/obat | Simpan **kode item katalog** (bukan nama) di record asesmen | L04 · L05 · L07 |
@@ -109,13 +109,15 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 | D13 | Braden → skrining dekubitus (`285304000` boolean) | Ambang skor ditetapkan klinis sebelum diturunkan | L12 |
 | D14 | Order rad multi-pemeriksaan, ekspertise 1 laporan | SR per item; Observation+DR hanya untuk order 1 pemeriksaan | L17 |
 | D15 | Kriteria rencana pemulangan (`OC000055`) tak dicatat | Tambah pilihan 5 nilai playbook di Asesmen Discharge | L23 |
-| D16 | Batas meninggal 48 jam untuk RI dari IGD | Hitung dari masuk kunjungan ini atau dari masuk IGD — konfirmasi | L24 |
+| D16 | Batas meninggal 48 jam untuk RI dari IGD | Hitung dari masuk kunjungan ini atau dari masuk IGD — konfirmasi. **Sementara (S2): dari masuk kunjungan ini** | L24 |
+| D17 | Form Pasien Pulang IGD/RI tidak menilai kondisi umum (diturunkan dari status: "Dirujuk ke faskes lain", "Pulang atas permintaan sendiri", …) | Kembalikan pilihan kondisi (Baik/Sedang/Buruk/Kritis — kosakata D11) untuk Rujuk & APS; sampai itu, Condition kondisi pulang tidak dikirim untuk kasus tsb (Issue L24) | L24 |
 
 ## Perubahan di sumber data yang dibutuhkan (kualitas data)
 
 | Perubahan | Untuk link | Jenis |
 |---|---|---|
-| Picker SNOMED keluhan utama (Anamnesis + Triase) | L03 | UI + kolom kode |
+| ~~Picker SNOMED keluhan utama (Anamnesis + Triase)~~ ✅ S2 — Anamnesis (Triase ditunda bersama D2) | L03 | UI + kolom kode |
+| Pilihan kondisi umum di form Pasien Pulang untuk Rujuk/APS (D17) | L24 | UI kecil |
 | Simpan `kode` item katalog asesmen (bukan nama) di riwayat penyakit/keluarga | L04 · L05 | kolom + UI kecil |
 | Allergen obat → kode **KFA BZA (91…)** (`AsesmenAlergi.bzaKode` sudah ada) | L06 | adapter |
 | Riwayat obat pakai picker KFA (92/93) | L07 | UI + kolom |
@@ -126,8 +128,8 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 
 ## Urutan kerja yang diusulkan (setelah disetujui)
 
-1. **Fondasi** — `links/` registry + `conceptMap.ts` + snapshot loader + gerbang `readiness` + waktu UTC (tanpa mengubah perilaku kirim).
-2. **Blocker Encounter finished** — L03 (keluhan CC) + koreksi L01 (diagnosis CC, discharge `exp-*`) + L24.
+1. ✅ **Fondasi** — `links/` registry + `conceptMap.ts` + snapshot loader + gerbang `readiness` + waktu UTC (tanpa mengubah perilaku kirim).
+2. ✅ **Blocker Encounter finished** — L03 (keluhan CC) + koreksi L01 (diagnosis CC, discharge `exp-*`) + L24.
 3. **Koreksi kamar yang sudah ada** — L08 (nyeri/GCS keluar dari vital-signs), L06 (KFA alergi obat), L14 (category), L26 (type per unit), L18/L20 (pola Medication).
 4. **Link baru bersumber siap** — L02, L09, L11, L12, L19, L21, L23, L25, L04, L05, L10, L15, L22.
 5. **Link yang butuh perubahan entry** — L07 (picker KFA), lalu ⛔ ClinicalImpression/NutritionOrder bila diputuskan.

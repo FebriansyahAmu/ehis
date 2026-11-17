@@ -28,10 +28,14 @@ function dtoToItem(d: AsesmenItemDTO): AsesmenItem {
     kategori: d.kategori,
     deskripsi: d.deskripsi,
     snomedCode: d.snomedCode,
+    snomedDisplay: d.snomedDisplay,
     severityDefault: d.severityDefault,
     status: d.status,
   };
 }
+
+// Kategori yang memakai kolom SNOMED (allergen opsional · keluhan utama wajib).
+const usesSnomed = (k: AsesmenItem["kategori"]) => k.startsWith("Allergen") || k === "KeluhanUtama";
 
 // Draft → payload create (kode TIDAK dikirim — auto-gen <PREFIX>-NNN di server).
 function draftToCreateInput(d: AsesmenItem) {
@@ -39,7 +43,8 @@ function draftToCreateInput(d: AsesmenItem) {
     nama: d.nama,
     kategori: d.kategori,
     deskripsi: d.deskripsi || undefined,
-    snomedCode: d.snomedCode || undefined,
+    snomedCode: usesSnomed(d.kategori) ? (d.snomedCode || undefined) : undefined,
+    snomedDisplay: usesSnomed(d.kategori) ? (d.snomedDisplay || undefined) : undefined,
     severityDefault: d.kategori === "ReaksiAlergi" ? d.severityDefault : undefined,
     status: d.status,
   };
@@ -50,8 +55,9 @@ function draftToUpdateInput(d: AsesmenItem) {
   return {
     nama: d.nama,
     deskripsi: d.deskripsi || undefined,
-    // "" → kosongkan SNOMED; hanya relevan kategori allergen.
-    snomedCode: d.kategori.startsWith("Allergen") ? (d.snomedCode ?? "") : undefined,
+    // "" → kosongkan SNOMED; hanya relevan kategori allergen & keluhan utama.
+    snomedCode: usesSnomed(d.kategori) ? (d.snomedCode ?? "") : undefined,
+    snomedDisplay: usesSnomed(d.kategori) ? (d.snomedDisplay ?? "") : undefined,
     severityDefault: d.kategori === "ReaksiAlergi" ? d.severityDefault : undefined,
     status: d.status,
   };

@@ -6,6 +6,7 @@
 // RBAC `clinical.igd` di Route; ABAC unit-scope menyusul (TODO-CLINICAL §keputusan 4).
 
 import * as defaultDal from "@/lib/dal/asesmenMedis/anamnesisDal";
+import * as asesmenKatalogDal from "@/lib/dal/master/asesmenKatalogDal";
 import * as kunjunganDal from "@/lib/dal/kunjunganDal";
 import * as pegawaiDal from "@/lib/dal/pegawaiDal";
 import { Errors } from "@/lib/errors/appError";
@@ -44,12 +45,24 @@ async function resolvePemeriksa(actor: Actor): Promise<string> {
   return p ? namaTampil(p) : "—";
 }
 
+/** Kode keluhan → snapshot {kode, display} dari master KeluhanUtama AKTIF (anti-spoof: display tak
+ *  pernah dari klien; kode di luar subset terkurasi ditolak — kualitas data FHIR L03). */
+async function resolveKeluhanSnomed(kode: string | undefined): Promise<{ kode: string; display: string } | null> {
+  if (!kode) return null;
+  const item = await asesmenKatalogDal.findActiveBySnomed("KeluhanUtama", kode);
+  if (!item) throw Errors.validation("Kode keluhan utama tidak ada di katalog Keluhan Utama (master asesmen)");
+  return { kode, display: item.snomedDisplay?.trim() || item.nama };
+}
+
 function toDTO(a: NonNullEntity): AnamnesisDTO {
   return {
     id: a.id,
     kunjunganId: a.kunjunganId,
     sumberAnamnesis: a.sumberAnamnesis as SumberAnamnesis,
     keluhanUtama: a.keluhanUtama,
+    keluhanSnomed: a.keluhanSnomedKode && a.keluhanSnomedDisplay
+      ? { kode: a.keluhanSnomedKode, display: a.keluhanSnomedDisplay }
+      : null,
     rps: a.rps,
     onsetDurasi: a.onsetDurasi,
     mekanismeCedera: a.mekanismeCedera,
@@ -78,12 +91,17 @@ export function makeAnamnesisService(deps: { dal?: Dal } = {}) {
   /** Simpan asesmen anamnesis (append baris baru). */
   async function save(kunjunganId: string, input: AnamnesisInput, actor: Actor): Promise<AnamnesisDTO> {
     await assertKunjungan(kunjunganId);
-    const pemeriksa = await resolvePemeriksa(actor);
+    const [pemeriksa, keluhanSnomed] = await Promise.all([
+      resolvePemeriksa(actor),
+      resolveKeluhanSnomed(input.keluhanSnomedKode),
+    ]);
 
     const row = await dal.create({
       kunjunganId,
       sumberAnamnesis: input.sumberAnamnesis,
       keluhanUtama: input.keluhanUtama,
+      keluhanSnomedKode: keluhanSnomed?.kode ?? null,
+      keluhanSnomedDisplay: keluhanSnomed?.display ?? null,
       rps: input.rps,
       onsetDurasi: input.onsetDurasi ?? null,
       mekanismeCedera: input.mekanismeCedera ?? null,

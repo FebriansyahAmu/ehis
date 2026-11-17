@@ -3,15 +3,19 @@
  * di-resolve oleh pemanggil.
  *
  * Status: InService → in-progress · Completed/Closed/Billed/Claimed → finished · Cancelled → cancelled.
- * statusHistory: arrived [waktuKunjungan → dilayaniAt] → in-progress [dilayaniAt → selesaiAt] → finished.
+ * statusHistory: arrived [waktuKunjungan → dilayaniAt] → in-progress [dilayaniAt → selesaiAt] → finished;
+ * IGD dengan triase: arrived → triaged [waktuTriase → dilayaniAt] → in-progress (contoh resmi IGD).
+ * Saat finished (S2, docs/fhir-mapping/L01): `length` · `diagnosis` CC (keluhan, L03) + DD (L13) ·
+ * `dischargeDisposition` (L24, meninggal exp-lt48h/exp-gt48h). `classHistory` & `location.period` selalu.
  * Contoh resmi: docs/fhir-postman/resources/Encounter.json + bundles/*.json (entry Encounter).
  */
 
 import { orgIdentifierSystem, toFhirDateTime, type FhirResourceBase } from "../fhirShared";
 import {
-  DISCHARGE_DISPOSITION, ENCOUNTER_CLASS, KELAS_RANK, SERVICE_CLASS_INPATIENT, SERVICE_CLASS_OUTPATIENT_REGULER,
-  UPGRADE_CLASS, lookup, type KunjunganUnit, type UpgradeClass,
+  DIAGNOSIS_ROLE, ENCOUNTER_CLASS, KELAS_RANK, SERVICE_CLASS_INPATIENT, SERVICE_CLASS_OUTPATIENT_REGULER,
+  UPGRADE_CLASS, dischargeDispositionOf, lookup, type KunjunganUnit, type UpgradeClass,
 } from "../conceptMap";
+import { lamaKunjunganOf } from "../links/encounterFinal";
 
 export type EncounterStatus = "arrived" | "in-progress" | "finished" | "cancelled";
 
@@ -26,8 +30,10 @@ export interface LocalEncounter {
   kelas: string | null;
   kelasHak: string | null;
   titipan: boolean;
-  /** Jenis disposisi terakhir (Pulang/Rawat_Inap/Rujuk/Meninggal/APS) bila selesai. */
-  disposisi?: { jenis: string; rujukTujuan: string | null; instruksi: string } | null;
+  /** Waktu triase pertama (IGD) — menyisipkan status `triaged` di statusHistory. */
+  triagedAt?: Date | null;
+  /** Disposisi berlaku (Pulang/Rawat_Inap/Rujuk/Meninggal/APS) bila selesai. */
+  disposisi?: { jenis: string; rujukTujuan: string | null; instruksi: string; waktuKeluar?: Date } | null;
 }
 
 export interface EncounterRefs {
@@ -35,8 +41,10 @@ export interface EncounterRefs {
   patient: { ihsId: string; nama: string };
   practitioner?: { ihsId: string; nama: string };
   location?: { ihsId: string; nama: string };
-  /** Condition terpetakan (FH4) — wajib untuk status finished di SatuSehat (FHIR-GAP FG-27). */
+  /** Condition diagnosis terpetakan (L13, use DD) — wajib untuk status finished (FG-27). */
   diagnoses?: { ihsId: string; display: string; rank: number }[];
+  /** Condition keluhan utama (L03, use CC) — wajib untuk status finished [V semua playbook]. */
+  chiefComplaint?: { ihsId: string; display: string };
 }
 
 export interface FhirEncounter extends FhirResourceBase {
@@ -83,20 +91,47 @@ export function toFhirEncounter(e: LocalEncounter, refs: EncounterRefs, status: 
   const served = e.dilayaniAt ?? e.waktuKunjungan;
   const done = status === "finished" ? (e.selesaiAt ?? served) : null;
 
-  const history: { status: EncounterStatus; period: { start: string; end?: string } }[] = [
-    { status: "arrived", period: { start: t(arrived), end: t(served) } },
+  // `triaged` hanya bila waktu triase berada di antara datang dan dilayani (data janggal → dilewati).
+  const triaged = e.unit === "IGD" && e.triagedAt
+    && e.triagedAt.getTime() >= arrived.getTime() && e.triagedAt.getTime() <= served.getTime()
+    ? e.triagedAt : null;
+
+  const history: { status: EncounterStatus | "triaged"; period: { start: string; end?: string } }[] = [
+    { status: "arrived", period: { start: t(arrived), end: t(triaged ?? served) } },
   ];
+  if (triaged) history.push({ status: "triaged", period: { start: t(triaged), end: t(served) } });
   if (status === "in-progress" || status === "finished") {
     history.push({ status: "in-progress", period: { start: t(served), ...(done ? { end: t(done) } : {}) } });
   }
   if (done) history.push({ status: "finished", period: { start: t(done), end: t(done) } });
   if (status === "cancelled") history.push({ status: "cancelled", period: { start: t(served) } });
 
-  const disp = status === "finished" && e.disposisi ? lookup(DISCHARGE_DISPOSITION, e.disposisi.jenis) : undefined;
+  const period = { start: t(arrived), ...(done ? { end: t(done) } : {}) };
+  // Waktu keluar menurut disposisi (lebih tepat dari selesaiAt untuk batas 48 jam meninggal).
+  const keluar = e.disposisi?.waktuKeluar ?? done;
+  const disp = status === "finished" && e.disposisi && keluar
+    ? dischargeDispositionOf(e.disposisi.jenis, arrived, keluar)
+    : undefined;
   const dispText = e.disposisi?.jenis === "Rujuk" && e.disposisi.rujukTujuan
     ? `Rujuk ke ${e.disposisi.rujukTujuan}`
-    : e.disposisi?.instruksi || undefined;
+    : e.disposisi?.jenis === "Rawat_Inap"
+      ? "Pasien dipindahkan ke rawat inap" // teks contoh resmi IGD untuk `oth`
+      : e.disposisi?.instruksi || undefined;
   const serviceClass = serviceClassExtension(e);
+
+  const diagnosis = status === "finished"
+    ? [
+        ...(refs.diagnoses ?? []).map((d) => ({
+          condition: { reference: `Condition/${d.ihsId}`, display: d.display },
+          use: { coding: [DIAGNOSIS_ROLE.DD] },
+          rank: d.rank,
+        })),
+        ...(refs.chiefComplaint ? [{
+          condition: { reference: `Condition/${refs.chiefComplaint.ihsId}`, display: refs.chiefComplaint.display },
+          use: { coding: [DIAGNOSIS_ROLE.CC] },
+        }] : []),
+      ]
+    : [];
 
   return {
     resourceType: "Encounter",
@@ -104,6 +139,8 @@ export function toFhirEncounter(e: LocalEncounter, refs: EncounterRefs, status: 
     status,
     statusHistory: history,
     class: ENCOUNTER_CLASS[e.unit],
+    // Wajib di playbook; 1 entri (perubahan class mis. IGD→OBSENC belum ada sumbernya di EHIS).
+    classHistory: [{ class: ENCOUNTER_CLASS[e.unit], period }],
     subject: { reference: `Patient/${refs.patient.ihsId}`, display: refs.patient.nama },
     ...(refs.practitioner ? {
       participant: [{
@@ -111,20 +148,17 @@ export function toFhirEncounter(e: LocalEncounter, refs: EncounterRefs, status: 
         individual: { reference: `Practitioner/${refs.practitioner.ihsId}`, display: refs.practitioner.nama },
       }],
     } : {}),
-    period: { start: t(arrived), ...(done ? { end: t(done) } : {}) },
+    period,
+    ...(done ? { length: lamaKunjunganOf(e.unit, arrived, done) } : {}),
     ...(refs.location ? {
+      // 1 lokasi ber-period (EHIS belum punya pindah ruangan/bed → riwayat lokasi FG-30 menunggu fitur itu).
       location: [{
         location: { reference: `Location/${refs.location.ihsId}`, display: refs.location.nama },
+        period,
         ...(serviceClass ? { extension: serviceClass } : {}),
       }],
     } : {}),
-    ...(status === "finished" && refs.diagnoses?.length ? {
-      diagnosis: refs.diagnoses.map((d) => ({
-        condition: { reference: `Condition/${d.ihsId}`, display: d.display },
-        use: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/diagnosis-role", code: "DD", display: "Discharge diagnosis" }] },
-        rank: d.rank,
-      })),
-    } : {}),
+    ...(diagnosis.length ? { diagnosis } : {}),
     ...(disp ? {
       hospitalization: {
         dischargeDisposition: {

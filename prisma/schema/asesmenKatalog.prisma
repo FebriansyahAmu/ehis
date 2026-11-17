@@ -20,11 +20,12 @@ model AsesmenItem {
 
   // ── Identitas ──
   nama      String
-  kategori  String // FE union (10): AllergenMakanan | AllergenLainnya | ReaksiAlergi | PenyakitDahulu | PenyakitBeresiko | PenyakitKeluarga | PerilakuBeresiko | AnggotaKeluarga | MetodeKB | JenisPersalinan. (AllergenObat dihapus 2026-06-18 → allergen obat dari master.obat + BZA)
+  kategori  String // FE union (11): AllergenMakanan | AllergenLainnya | ReaksiAlergi | PenyakitDahulu | PenyakitBeresiko | PenyakitKeluarga | PerilakuBeresiko | AnggotaKeluarga | MetodeKB | JenisPersalinan | KeluhanUtama (2026-11-17, subset SNOMED keluhan — FHIR L03). (AllergenObat dihapus 2026-06-18 → allergen obat dari master.obat + BZA)
   deskripsi String @default("")
 
   // ── Metadata opsional ──
-  snomedCode      String? @map("snomed_code")      // allergen tervalidasi (FHIR AllergyIntolerance.code)
+  snomedCode      String? @map("snomed_code")      // allergen tervalidasi (FHIR AllergyIntolerance.code) · keluhan utama (Condition chief-complaint)
+  snomedDisplay   String? @map("snomed_display")   // display resmi SNOMED (Inggris) → FHIR coding.display; `nama` tetap label UI
   severityDefault String? @map("severity_default") // hanya ReaksiAlergi: Ringan | Sedang | Berat
 
   // ── Meta ──

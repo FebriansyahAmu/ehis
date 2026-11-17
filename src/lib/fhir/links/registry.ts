@@ -10,9 +10,9 @@ import type { LinkId, LinkMeta } from "./types";
 const ALL: KunjunganUnit[] = ["IGD", "RawatJalan", "RawatInap"];
 
 export const LINKS: readonly LinkMeta[] = [
-  { id: "L01", name: "kunjunganToEncounter", resourceTypes: ["Encounter"], units: ALL, status: "koreksi", doc: "L01-kunjungan-to-encounter.md" },
+  { id: "L01", name: "kunjunganToEncounter", resourceTypes: ["Encounter"], units: ALL, status: "aktif", doc: "L01-kunjungan-to-encounter.md" }, // S2
   { id: "L02", name: "triaseToObservation", resourceTypes: ["Observation"], units: ["IGD"], status: "ditunda", doc: "L02-triase-to-observation.md" },
-  { id: "L03", name: "keluhanToCondition", resourceTypes: ["Condition"], units: ALL, status: "baru", doc: "L03-keluhan-to-condition.md" },
+  { id: "L03", name: "keluhanToCondition", resourceTypes: ["Condition"], units: ALL, status: "aktif", doc: "L03-keluhan-to-condition.md" }, // S2 (keluhan utama)
   { id: "L04", name: "riwayatPenyakitToCondition", resourceTypes: ["Condition"], units: ALL, status: "baru", doc: "L04-riwayat-penyakit-to-condition.md" },
   { id: "L05", name: "riwayatKeluargaToFamilyMemberHistory", resourceTypes: ["FamilyMemberHistory"], units: ALL, status: "baru", doc: "L05-riwayat-keluarga-to-familymemberhistory.md" },
   { id: "L06", name: "alergiToAllergyIntolerance", resourceTypes: ["AllergyIntolerance"], units: ALL, status: "koreksi", doc: "L06-alergi-to-allergyintolerance.md" },
@@ -33,7 +33,7 @@ export const LINKS: readonly LinkMeta[] = [
   { id: "L21", name: "marToMedicationAdministration", resourceTypes: ["MedicationAdministration"], units: ["RawatInap", "IGD"], status: "baru", doc: "L21-mar-to-medicationadministration.md" },
   { id: "L22", name: "carePlanToGoalCarePlan", resourceTypes: ["Goal", "CarePlan"], units: ["RawatInap"], status: "baru", doc: "L22-careplan-to-goal-careplan.md" },
   { id: "L23", name: "dischargePlanningToObservation", resourceTypes: ["Observation", "CarePlan"], units: ["RawatInap", "IGD"], status: "baru", doc: "L23-discharge-planning-to-observation.md" },
-  { id: "L24", name: "disposisiToKondisiPulang", resourceTypes: ["Condition", "Encounter"], units: ALL, status: "baru", doc: "L24-disposisi-to-kondisi-pulang.md" },
+  { id: "L24", name: "disposisiToKondisiPulang", resourceTypes: ["Condition", "Encounter"], units: ALL, status: "aktif", doc: "L24-disposisi-to-kondisi-pulang.md" }, // S2
   { id: "L25", name: "tindakLanjutToServiceRequest", resourceTypes: ["ServiceRequest"], units: ALL, status: "baru", doc: "L25-tindak-lanjut-to-servicerequest.md" },
   { id: "L26", name: "resumeToComposition", resourceTypes: ["Composition"], units: ALL, status: "koreksi", doc: "L26-resume-to-composition.md" },
 ];

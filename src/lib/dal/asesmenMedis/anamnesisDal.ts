@@ -9,6 +9,8 @@ export interface CreateAnamnesisData {
   kunjunganId: string;
   sumberAnamnesis: string;
   keluhanUtama: string;
+  keluhanSnomedKode?: string | null;
+  keluhanSnomedDisplay?: string | null;
   rps: string;
   onsetDurasi?: string | null;
   mekanismeCedera?: string | null;

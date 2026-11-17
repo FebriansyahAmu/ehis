@@ -13,6 +13,7 @@ import {
 } from "./asesmenAwalShared";
 import AnamnesisSebelumnya from "@/components/shared/medical-records/AnamnesisSebelumnya";
 import AnamnesisTemplatePicker, { type AnamnesisTemplateDTO } from "@/components/shared/medical-records/AnamnesisTemplatePicker";
+import KeluhanSnomedPicker, { type KeluhanSnomedValue } from "@/components/shared/medical-records/KeluhanSnomedPicker";
 import { getAnamnesis, saveAnamnesis } from "@/lib/api/asesmenMedis/anamnesis";
 import type { SumberAnamnesis, AnamnesisInput } from "@/lib/schemas/asesmenMedis/anamnesis";
 import { useSession } from "@/contexts/SessionContext";
@@ -305,6 +306,8 @@ export default function AnamnesisPaneRI({ patient, onComplete }: AnamnesisPaneRI
   const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
 
   const [sumber, setSumber] = useState<SumberAnamnesis>("Pasien");
+  // Kode SNOMED keluhan (FHIR L03) — state terpisah: AnamnesisRIData juga dipakai mock asesmen awal.
+  const [keluhanSnomed, setKeluhanSnomed] = useState<KeluhanSnomedValue | null>(null);
   const [loading, setLoading] = useState(isPersisted);
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState<string | null>(null);
@@ -318,6 +321,7 @@ export default function AnamnesisPaneRI({ patient, onComplete }: AnamnesisPaneRI
       .then((dto) => {
         if (ac.signal.aborted || !dto) return;
         setSumber((dto.sumberAnamnesis as SumberAnamnesis) ?? "Pasien");
+        setKeluhanSnomed(dto.keluhanSnomed);
         setForm((f) => ({
           ...f,
           keluhanUtama: dto.keluhanUtama,
@@ -352,6 +356,7 @@ export default function AnamnesisPaneRI({ patient, onComplete }: AnamnesisPaneRI
       const dto = await saveAnamnesis(patient.id, {
         sumberAnamnesis: sumber,
         keluhanUtama: form.keluhanUtama,
+        keluhanSnomedKode: keluhanSnomed?.kode,
         rps: form.rps,
         onsetDurasi: form.onsetDurasi || undefined,
         mekanismeCedera: undefined, // RI tak fokus trauma; isi bila relevan
@@ -389,6 +394,7 @@ export default function AnamnesisPaneRI({ patient, onComplete }: AnamnesisPaneRI
       statusGeneralis: t.statusGeneralis,
     };
     setForm(updated);
+    setKeluhanSnomed(null); // teks keluhan diganti template → kode lama tak lagi relevan
     onComplete?.(updated.keluhanUtama.trim().length > 3 && updated.rps.trim().length > 10 && updated.statusGeneralis.trim().length > 3);
   }
 
@@ -430,6 +436,7 @@ export default function AnamnesisPaneRI({ patient, onComplete }: AnamnesisPaneRI
           </div>
           <TA label="Keluhan Utama" required value={form.keluhanUtama} onChange={v => set("keluhanUtama", v)}
             placeholder="Keluhan utama yang membawa pasien masuk RS..." />
+          <KeluhanSnomedPicker value={keluhanSnomed} onChange={setKeluhanSnomed} keluhanText={form.keluhanUtama} />
           <TA label="Riwayat Penyakit Sekarang (RPS)" rows={4} required value={form.rps} onChange={v => set("rps", v)}
             placeholder="Kronologis keluhan: kapan mulai, bagaimana perkembangannya, gejala penyerta, sudah berobat sebelumnya..." />
           <div className="grid gap-3 sm:grid-cols-3">

@@ -3,11 +3,13 @@
 //   bundle (default) : semua resource → 1 Bundle transaction (atomik: semua masuk / tidak sama sekali).
 //   single           : per resource (POST/PUT langsung).
 //
-// Urutan (wajib karena referensi):
-//   1) Encounter dipastikan ada (in-progress bila belum pernah terkirim) — entry pertama bundle.
-//   2) Resource klinis (FH4) · rantai obat (FH5) · diagnostik (FH6) · Composition resume (FH7).
-//   3) Encounter final (status target + diagnosis dari Condition).
-// Mode single: `finished` ditahan bila Condition gagal (SatuSehat butuh diagnosis valid, FG-27).
+// Urutan (wajib karena referensi — docs/fhir-mapping/FLOW.md §3):
+//   A) Encounter dipastikan ada (in-progress bila belum pernah terkirim) — entry pertama bundle.
+//   B) Keluhan utama CC (L03) · klinis (FH4) · rantai obat (FH5) · diagnostik (FH6) · kondisi pulang (L24).
+//   D) Composition resume (FH7).
+//   C) Encounter final: status target + diagnosis CC & DD + length + dischargeDisposition.
+// Gerbang "blokir finished" (S2): tanpa CC atau diagnosis → Encounter tetap in-progress + Issue
+// `syarat-finished`. Mode single: `finished` juga ditahan bila Condition gagal (FG-27).
 //
 // Prasyarat referensi (R15): Patient (di-resolve otomatis bila belum), Practitioner DPJP & Location
 // ruangan (WAJIB sudah onboarding FH1 — bila belum, job gagal non-retry; antre ulang manual).
@@ -20,9 +22,13 @@ import "server-only";
 import { getSatuSehatConfig } from "@/lib/fhir/server/config";
 import { encounterStatusOf, toFhirEncounter, type EncounterStatus, type LocalEncounter } from "@/lib/fhir/adapters/encounter";
 import { toFhirComposition } from "@/lib/fhir/adapters/composition";
-import type { FhirError } from "@/lib/fhir/fhirShared";
+import { toFhirChiefComplaint, toFhirKondisiPulang } from "@/lib/fhir/adapters/encounterCondition";
+import type { FhirError, FhirResourceBase } from "@/lib/fhir/fhirShared";
 import type { Issue } from "@/lib/fhir/links/types";
 import { diagnosaFinalOf } from "@/lib/fhir/links/diagnosa";
+import {
+  ccLocalId, finishedBlockers, keluhanUtamaOf, kondisiPulangLocalId, kondisiPulangOf,
+} from "@/lib/fhir/links/encounterFinal";
 import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
 import * as src from "@/lib/dal/fhir/encounterSourceDal";
 import * as clinicalSrc from "@/lib/dal/fhir/clinicalSourceDal";
@@ -154,8 +160,14 @@ async function runEncounter(
   const patientRef: Ref = { ihsId: patientIhs, nama: k.pasien.nama };
   const baseRefs = { orgId, patient: patientRef, practitioner, location };
   const sink = preview ?? makeSink(syncMode, env, audit, k.id);
-  const sendEncounter = (status: EncounterStatus, diagnoses: { ihsId: string; display: string; rank: number }[] = []) =>
-    sink.submit({ localType: "Encounter", localId: k.id, resource: toFhirEncounter(local, { ...baseRefs, diagnoses }, status) });
+  const sendEncounter = (
+    status: EncounterStatus,
+    diagnoses: { ihsId: string; display: string; rank: number }[] = [],
+    chiefComplaint?: { ihsId: string; display: string },
+  ) => sink.submit({
+    localType: "Encounter", localId: k.id,
+    resource: toFhirEncounter(local, { ...baseRefs, diagnoses, chiefComplaint }, status),
+  });
 
   const refs: SyncRef[] = [];
   const failures: Failure[] = [];
@@ -171,6 +183,7 @@ async function runEncounter(
   // ── Snapshot sumber: 1 putaran query paralel, dibagi ke semua builder (FLOW §2 ①) ──
   const snap = await loadEncounterSnapshot(k.id);
   const dxFinal = diagnosaFinalOf(snap.diagnosa);
+  local.triagedAt = snap.triaseWaktu; // statusHistory `triaged` (IGD)
 
   // ── Fase 1: pastikan Encounter ada ──
   let encounterIhs = existing?.ihsId;
@@ -180,12 +193,31 @@ async function runEncounter(
     encounterIhs = r.ihsId; // bundle: `urn:uuid:…` sementara
   }
   const encounterRef: Ref = { ihsId: encounterIhs, nama: `Kunjungan ${k.pasien.nama} (${k.noKunjungan})` };
+  const clinicalRefs = { orgId, patient: patientRef, encounter: { ihsId: encounterIhs, display: encounterRef.nama } };
 
-  // ── Fase 2: klinis · obat · diagnostik · resume ──
-  const cl = await syncClinical(snap, {
-    env, sink,
-    refs: { orgId, patient: patientRef, encounter: { ihsId: encounterIhs, display: encounterRef.nama } },
-  });
+  /** Kirim 1 Condition tingkat kunjungan; ihsId bila terkirim/tak berubah, undefined bila gagal. */
+  const submitCondition = async (localId: string, resource: FhirResourceBase) => {
+    const r = await sink.submit({ localType: "Condition", localId, resource });
+    if (r?.ok) {
+      refs.push({ resourceType: "Condition", localId, ihsId: r.ihsId, op: r.op });
+      return r.ihsId;
+    }
+    if (r) failures.push({ resourceType: "Condition", message: r.error.message, retryable: r.error.retryable });
+    return undefined;
+  };
+
+  // ── Fase B1: keluhan utama → Condition chief-complaint (L03) ──
+  let chiefComplaint: { ihsId: string; display: string } | undefined;
+  const cc = keluhanUtamaOf(k.id, snap.anamnesis);
+  if (!cc.ok) issues.push(cc.issue);
+  else {
+    const recorder = await authorOf(env, snap.anamnesis?.authorPegawaiId ?? null);
+    const ihsId = await submitCondition(ccLocalId(k.id), toFhirChiefComplaint(cc.data, clinicalRefs, recorder));
+    if (ihsId) chiefComplaint = { ihsId, display: cc.data.display };
+  }
+
+  // ── Fase B2–B5: klinis · obat · diagnostik ──
+  const cl = await syncClinical(snap, { env, sink, refs: clinicalRefs });
   const med = await syncMedication(snap, { env, orgId, unit: k.unit, sink, patient: patientRef, encounterIhsId: encounterIhs });
   const diag = await syncDiagnostic(snap, { env, sink, refs: { orgId, patient: patientRef, encounter: { ihsId: encounterIhs } } });
   for (const o of [cl, med, diag]) {
@@ -194,6 +226,20 @@ async function runEncounter(
     issues.push(...o.issues);
   }
 
+  // ── Fase B6: kondisi saat meninggalkan RS → Condition problem-list-item (L24, D11) ──
+  const disposisi = k.disposisiRiwayat[0] ?? null;
+  if (target === "finished" && disposisi) {
+    const kp = kondisiPulangOf(k.id, disposisi);
+    if (kp && !kp.ok) issues.push(kp.issue);
+    else if (kp) {
+      await submitCondition(
+        kondisiPulangLocalId(k.id),
+        toFhirKondisiPulang({ kode: kp.kode, lokal: kp.lokal, recordedAt: disposisi.waktuKeluar }, clinicalRefs),
+      );
+    }
+  }
+
+  // ── Fase D: resume → Composition ──
   const resume = snap.resume;
   if (resume) {
     const author = (await authorOf(env, resume.authorPegawaiId)) ?? practitioner;
@@ -226,15 +272,22 @@ async function runEncounter(
     return done(summarizeFailures(failures, "Diagnosis (Condition) gagal terkirim — Encounter belum di-finish"));
   }
 
-  // ── Fase 3: Encounter final (+ diagnosis) ──
+  // ── Fase C: Encounter final (+ diagnosis CC & DD) ──
   let diagnoses: { ihsId: string; display: string; rank: number }[] = [];
   if (target === "finished") {
     const sent = new Map(cl.refs.filter((r) => r.resourceType === "Condition").map((r) => [r.localId, r.ihsId]));
     diagnoses = dxFinal
       .filter((d) => sent.has(d.id))
       .map((d, i) => ({ ihsId: sent.get(d.id)!, display: `${d.kodeIcd10} ${d.namaDiagnosis}`, rank: i + 1 }));
+    // Gerbang "blokir finished" (FLOW §4): tanpa CC / diagnosis → tetap in-progress, resource fase B
+    // tetap terkirim; dikirim finished pada sinkron berikutnya setelah data dilengkapi.
+    const hold = finishedBlockers(k.id, !!chiefComplaint, diagnoses.length);
+    if (hold.length) {
+      issues.push(...hold);
+      target = "in-progress";
+    }
   }
-  const fin = await sendEncounter(target, diagnoses);
+  const fin = await sendEncounter(target, diagnoses, chiefComplaint);
   if (!fin?.ok) return done(fail(fin?.ok === false ? fin.error : undefined, "Gagal memperbarui Encounter"));
   refs.unshift({ resourceType: "Encounter", localId: k.id, ihsId: fin.ihsId, op: existing ? fin.op : "create" });
 

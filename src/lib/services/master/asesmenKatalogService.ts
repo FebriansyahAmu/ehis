@@ -9,7 +9,7 @@ import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type { AsesmenEntity, AsesmenData, AsesmenPatch } from "@/lib/dal/master/asesmenKatalogDal";
 import {
-  KATEGORI_PREFIX,
+  KATEGORI_PREFIX, KATEGORI_WAJIB_SNOMED,
   type CreateAsesmenInput, type UpdateAsesmenInput, type AsesmenQuery,
   type AsesmenItemDTO, type AsesmenKategoriEnum,
 } from "@/lib/schemas/master/asesmenKatalog";
@@ -26,6 +26,7 @@ function toDTO(e: AsesmenEntity): AsesmenItemDTO {
     kategori: e.kategori as AsesmenKategoriEnum,
     deskripsi: e.deskripsi,
     snomedCode: e.snomedCode ?? undefined,
+    snomedDisplay: e.snomedDisplay ?? undefined,
     severityDefault: (e.severityDefault as AsesmenItemDTO["severityDefault"]) ?? undefined,
     status: e.status as AsesmenItemDTO["status"],
   };
@@ -64,6 +65,9 @@ export function makeAsesmenKatalogService(config: AsesmenKatalogServiceConfig = 
     const prefix = KATEGORI_PREFIX[input.kategori];
     // severityDefault hanya bermakna untuk ReaksiAlergi; abaikan di kategori lain.
     const severityDefault = input.kategori === "ReaksiAlergi" ? (input.severityDefault ?? null) : null;
+    if (KATEGORI_WAJIB_SNOMED.has(input.kategori) && !input.snomedCode) {
+      throw Errors.validation("Kode SNOMED wajib untuk kategori ini (dipakai pengiriman SatuSehat)");
+    }
 
     const row = await transaction(async (tx) => {
       const seq = await dal.nextAsesmenSeq(prefix, tx);
@@ -73,6 +77,7 @@ export function makeAsesmenKatalogService(config: AsesmenKatalogServiceConfig = 
         kategori: input.kategori,
         deskripsi: input.deskripsi ?? "",
         snomedCode: input.snomedCode ?? null,
+        snomedDisplay: input.snomedCode ? (input.snomedDisplay ?? null) : null, // display tanpa kode tak bermakna
         severityDefault,
         status: input.status ?? "Aktif",
       };
@@ -90,6 +95,13 @@ export function makeAsesmenKatalogService(config: AsesmenKatalogServiceConfig = 
     setDefined(patch, "nama", input.nama);
     setDefined(patch, "deskripsi", input.deskripsi);
     if (input.snomedCode !== undefined) patch.snomedCode = input.snomedCode.trim() || null;
+    if (input.snomedDisplay !== undefined) patch.snomedDisplay = input.snomedDisplay.trim() || null;
+    if (patch.snomedCode === null) {
+      if (KATEGORI_WAJIB_SNOMED.has(existing.kategori as AsesmenKategoriEnum)) {
+        throw Errors.validation("Kode SNOMED wajib untuk kategori ini (dipakai pengiriman SatuSehat)");
+      }
+      patch.snomedDisplay = null; // display tanpa kode tak bermakna
+    }
     if (input.severityDefault !== undefined) {
       // severityDefault hanya untuk ReaksiAlergi — kategori lain dipaksa null.
       patch.severityDefault = existing.kategori === "ReaksiAlergi" ? input.severityDefault : null;

@@ -6,7 +6,7 @@
 import {
   IdCard, Tag,
   Utensils, ShieldAlert, Activity,
-  History, AlertTriangle, Users, Cigarette, UsersRound, Heart, Baby,
+  History, AlertTriangle, Users, Cigarette, UsersRound, Heart, Baby, MessageSquareText,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { AsesmenKategori } from "@/lib/master/asesmenKatalogMock";
@@ -43,12 +43,14 @@ export const KATEGORI_CFG: Record<AsesmenKategori, KategoriConfig> = {
   AnggotaKeluarga:  { label: "Anggota Keluarga",    groupLabel: "Riwayat Medis", usage: "RiwayatPane (sub-tab Riwayat Medis) — pilihan anggota keluarga",      icon: Users,         bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500", ring: "ring-emerald-200"},
   MetodeKB:         { label: "Metode KB",           groupLabel: "Riwayat Medis", usage: "RiwayatPane (sub-tab Riwayat Medis) — Riwayat Obstetri: Metode KB",   icon: Heart,         bg: "bg-pink-50",    text: "text-pink-700",    dot: "bg-pink-500",    ring: "ring-pink-200"   },
   JenisPersalinan:  { label: "Jenis Persalinan",    groupLabel: "Riwayat Medis", usage: "RiwayatPane (sub-tab Riwayat Medis) — Riwayat Obstetri: Jenis Persalinan", icon: Baby,      bg: "bg-fuchsia-50", text: "text-fuchsia-700", dot: "bg-fuchsia-500", ring: "ring-fuchsia-200"},
+  KeluhanUtama:     { label: "Keluhan Utama",       groupLabel: "Anamnesis",     usage: "Sub-menu Anamnesis IGD/RI/RJ — kode SNOMED keluhan utama (wajib untuk SatuSehat)", icon: MessageSquareText, bg: "bg-cyan-50", text: "text-cyan-700", dot: "bg-cyan-500", ring: "ring-cyan-200" },
 };
 
 export const KATEGORI_ORDER: AsesmenKategori[] = [
   "AllergenMakanan", "AllergenLainnya", "ReaksiAlergi",
   "PenyakitDahulu", "PenyakitBeresiko", "PenyakitKeluarga", "PerilakuBeresiko",
   "AnggotaKeluarga", "MetodeKB", "JenisPersalinan",
+  "KeluhanUtama",
 ];
 
 /**
@@ -68,6 +70,11 @@ export const KATEGORI_GROUPS: Array<{ label: string; sub: string; items: Asesmen
     label: "Sub-tab Riwayat Medis",
     sub: "RiwayatPane",
     items: ["PenyakitDahulu", "PenyakitBeresiko", "PenyakitKeluarga", "PerilakuBeresiko", "AnggotaKeluarga", "MetodeKB", "JenisPersalinan"],
+  },
+  {
+    label: "Sub-menu Anamnesis",
+    sub: "AnamnesisPane",
+    items: ["KeluhanUtama"],
   },
 ];
 

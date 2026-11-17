@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  ALLERGY_CATEGORY, CONDITION_VERIFICATION, DISCHARGE_DISPOSITION, ENCOUNTER_CLASS, KELAS_RANK,
-  SERVICE_CLASS_INPATIENT, UPGRADE_CLASS, lookup,
+  ALLERGY_CATEGORY, CONDITION_VERIFICATION, ENCOUNTER_CLASS, KELAS_RANK,
+  SERVICE_CLASS_INPATIENT, UPGRADE_CLASS, dischargeDispositionOf, lookup,
 } from "./conceptMap";
 import { DisposisiJenis } from "@/lib/schemas/disposisi/disposisi";
 import { canonicalJson, toFhirDateTime } from "./fhirShared";
@@ -10,7 +10,8 @@ import { diagnosaFinalOf, diagnosaUtamaOf } from "./links/diagnosa";
 
 describe("conceptMap", () => {
   it("setiap jenis disposisi lokal punya kode dischargeDisposition", () => {
-    for (const j of DisposisiJenis.options) expect(DISCHARGE_DISPOSITION[j]?.code).toBeTruthy();
+    const t = new Date("2026-01-01T00:00:00Z");
+    for (const j of DisposisiJenis.options) expect(dischargeDispositionOf(j, t, t)?.code).toBeTruthy();
   });
 
   it("class Encounter sesuai playbook per unit", () => {

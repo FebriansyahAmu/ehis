@@ -50,6 +50,9 @@ export type SpiritualData = z.infer<typeof SpiritualSchema>;
 export const AnamnesisInput = z.object({
   sumberAnamnesis: SumberAnamnesis,
   keluhanUtama: reqStr("Keluhan utama"),
+  // Kode SNOMED keluhan utama (subset master KeluhanUtama). Opsional di form; WAJIB untuk Encounter
+  // `finished` SatuSehat (FHIR L03/D4). Display TIDAK dikirim klien — diturunkan server dari master.
+  keluhanSnomedKode: optStr.refine((v) => v === undefined || /^[1-9]\d{5,17}$/.test(v), "Kode SNOMED keluhan tidak valid"),
   rps: reqStr("Riwayat penyakit sekarang"),
   onsetDurasi: optStr,
   mekanismeCedera: optStr,
@@ -68,6 +71,8 @@ export interface AnamnesisDTO {
   kunjunganId: string;
   sumberAnamnesis: SumberAnamnesis;
   keluhanUtama: string;
+  /** Kode keluhan utama terpilih (snapshot saat simpan) — null = belum dikodekan. */
+  keluhanSnomed: { kode: string; display: string } | null;
   rps: string;
   onsetDurasi: string | null;
   mekanismeCedera: string | null;

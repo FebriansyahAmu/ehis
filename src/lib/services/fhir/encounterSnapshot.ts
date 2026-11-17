@@ -12,7 +12,7 @@ import * as diagnosticSrc from "@/lib/dal/fhir/diagnosticSourceDal";
 import * as encounterSrc from "@/lib/dal/fhir/encounterSourceDal";
 
 export async function loadEncounterSnapshot(kunjunganId: string) {
-  const [diagnosa, prosedur, tindakan, ttv, alergi, resep, lab, rad, resume] = await Promise.all([
+  const [diagnosa, prosedur, tindakan, ttv, alergi, resep, lab, rad, resume, anamnesis, triaseWaktu] = await Promise.all([
     clinicalSrc.listDiagnosa(kunjunganId),
     clinicalSrc.listProsedur(kunjunganId),
     clinicalSrc.listTindakanBerkode(kunjunganId),
@@ -22,8 +22,10 @@ export async function loadEncounterSnapshot(kunjunganId: string) {
     diagnosticSrc.listLab(kunjunganId),
     diagnosticSrc.listRad(kunjunganId),
     encounterSrc.getLatestResume(kunjunganId),
+    encounterSrc.getLatestAnamnesis(kunjunganId), // L03 keluhan utama
+    encounterSrc.getFirstTriaseWaktu(kunjunganId), // L01 statusHistory `triaged` (IGD)
   ]);
-  return { kunjunganId, diagnosa, prosedur, tindakan, ttv, alergi, resep, lab, rad, resume };
+  return { kunjunganId, diagnosa, prosedur, tindakan, ttv, alergi, resep, lab, rad, resume, anamnesis, triaseWaktu };
 }
 
 export type EncounterSnapshot = Awaited<ReturnType<typeof loadEncounterSnapshot>>;

@@ -67,16 +67,82 @@ export const UPGRADE_CLASS: Record<UpgradeClass, Coding> = {
 };
 
 /**
- * Jenis disposisi → `Encounter.hospitalization.dischargeDisposition`.
- * Rawat_Inap tak punya kode → `oth` + teks (contoh resmi IGD). Meninggal masih `exp` HL7 —
- * dikoreksi ke `exp-lt48h`/`exp-gt48h` (system Kemkes) di langkah S2 (FG-77, L24).
+ * Jenis disposisi (selain Meninggal) → `Encounter.hospitalization.dischargeDisposition` (HL7).
+ * Rawat_Inap tak punya kode → `oth` + teks (contoh resmi IGD). Meninggal → {@link dischargeDispositionOf}.
  */
-export const DISCHARGE_DISPOSITION: Record<DisposisiJenis, Coding> = {
+export const DISCHARGE_DISPOSITION: Record<Exclude<DisposisiJenis, "Meninggal">, Coding> = {
   Pulang: { system: `${HL7}/discharge-disposition`, code: "home", display: "Home" },
   Rujuk: { system: `${HL7}/discharge-disposition`, code: "other-hcf", display: "Other healthcare facility" },
-  Meninggal: { system: `${HL7}/discharge-disposition`, code: "exp", display: "Expired" },
   APS: { system: `${HL7}/discharge-disposition`, code: "aadvice", display: "Left against advice" },
   Rawat_Inap: { system: `${HL7}/discharge-disposition`, code: "oth", display: "Other" },
+};
+
+/**
+ * Meninggal → kode Kemkes menurut lama dirawat (L24, FG-77). Display dari tabel "Cara Keluar" playbook
+ * IGD/RI — belum terverifikasi verbatim (FG-92); SatuSehat memvalidasi `code`, bukan display.
+ */
+export const DISCHARGE_MENINGGAL = {
+  lt48h: { system: `${KEMKES}/discharge-disposition`, code: "exp-lt48h", display: "Meninggal < 48 jam" },
+  gt48h: { system: `${KEMKES}/discharge-disposition`, code: "exp-gt48h", display: "Meninggal > 48 jam" },
+} as const satisfies Record<string, Coding>;
+
+const JAM_48_MS = 48 * 60 * 60 * 1000;
+
+/**
+ * Disposisi → `dischargeDisposition`. Meninggal: selisih waktu keluar − waktu masuk kunjungan INI
+ * < 48 jam → `exp-lt48h`, selain itu `exp-gt48h` (tepat 48 jam = gt). Jenis tak dikenal → undefined.
+ */
+export function dischargeDispositionOf(jenis: string, masuk: Date, keluar: Date): Coding | undefined {
+  if (jenis === "Meninggal") {
+    return keluar.getTime() - masuk.getTime() < JAM_48_MS ? DISCHARGE_MENINGGAL.lt48h : DISCHARGE_MENINGGAL.gt48h;
+  }
+  return lookup(DISCHARGE_DISPOSITION, jenis);
+}
+
+/** Peran Condition di `Encounter.diagnosis.use` (contoh Bundle RI: CC tanpa rank, DD ber-rank). */
+export const DIAGNOSIS_ROLE = {
+  CC: { system: `${HL7}/diagnosis-role`, code: "CC", display: "Chief Complaint" },
+  DD: { system: `${HL7}/diagnosis-role`, code: "DD", display: "Discharge diagnosis" },
+} as const satisfies Record<string, Coding>;
+
+// ── Condition keluhan & kondisi pulang (L03 / L24) ──────────
+
+/** `Condition.category` — keluhan utama (Kemkes) & keluhan penyerta / kondisi pulang (HL7). */
+export const CONDITION_CATEGORY = {
+  chiefComplaint: { system: "http://terminology.kemkes.go.id", code: "chief-complaint", display: "Chief Complaint" },
+  problemListItem: { system: `${HL7}/condition-category`, code: "problem-list-item", display: "Problem List Item" },
+} as const satisfies Record<string, Coding>;
+
+const SCT = "http://snomed.info/sct";
+const KONDISI_STABIL: Coding = { system: SCT, code: "359746009", display: "Patient's condition stable" };
+const KONDISI_TIDAK_STABIL: Coding = { system: SCT, code: "162668006", display: "Patient's condition unstable" };
+const KONDISI_MEMBAIK: Coding = { system: SCT, code: "268910001", display: "Patient's condition improved" };
+
+/**
+ * Nilai `Disposisi.kondisiUmum` yang ditulis form EHIS (2 sumber) — kolomnya teks bebas, maka union ini
+ * = kosakata yang dikenal; nilai lain → lookup undefined (Issue kode-tidak-valid).
+ *  - SelesaikanDialog (IGD/RJ): Baik · Sedang · Buruk · Kritis (D11 — form tetap, dipetakan saat kirim).
+ *  - PasienPulangTab (IGD, dipakai ulang RI): diturunkan dari status pulang, bukan dinilai terpisah.
+ */
+export type KondisiUmumLokal =
+  | "Baik" | "Sedang" | "Buruk" | "Kritis"
+  | "Membaik" | "Dalam perawatan" | "Dirujuk ke faskes lain" | "Pulang atas permintaan sendiri" | "Meninggal";
+
+/**
+ * Kondisi umum → SNOMED kondisi saat meninggalkan RS (L24, D11 ✅ 2026-11-17). null = nilai tidak
+ * menilai kondisi (turunan status pulang) → Condition tidak dikirim. "Membaik" = tren eksplisit dari
+ * status pulang → `268910001` Perbaikan.
+ */
+export const KONDISI_PULANG: Record<KondisiUmumLokal, Coding | null> = {
+  Baik: KONDISI_STABIL,
+  Sedang: KONDISI_STABIL,
+  Buruk: KONDISI_TIDAK_STABIL,
+  Kritis: KONDISI_TIDAK_STABIL,
+  Membaik: KONDISI_MEMBAIK,
+  "Dalam perawatan": null,
+  "Dirujuk ke faskes lain": null,
+  "Pulang atas permintaan sendiri": null,
+  Meninggal: null,
 };
 
 // ── Condition (L13) ─────────────────────────────────────────

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | ⚠️ ada (FH3, [encounter.ts](../../src/lib/fhir/adapters/encounter.ts)) — perlu koreksi |
+| Status | ✅ dikoreksi S2 2026-11-17 ([encounter.ts](../../src/lib/fhir/adapters/encounter.ts)) — sisa: riwayat lokasi (#4, menunggu fitur pindah ruangan) |
 | Kamar | **Encounter** · class `AMB` (RJ) · `EMER` (IGD) · `IMP` (RI) — system `http://terminology.hl7.org/CodeSystem/v3-ActCode` |
 | Playbook | RJ §2 + §28 Pembaharuan · IGD §2 + §27 · RI §2 + §28 (+ variasi kasus kelas/kamar) [V] |
 | Contoh resmi | entry Encounter di `bundles/bundle-{rawat-jalan,igd,rawat-inap}.json` |
@@ -73,11 +73,11 @@ belum siap, jangan kirim Encounter tanpa participant) · saat `finished`: ada �
 
 | # | Temuan | Tindakan |
 |---|---|---|
-| 1 | 🔴 `diagnosis` hanya DD, tanpa CC | Bangun L03; tambahkan CC ke `diagnosis` |
-| 2 | Meninggal dikirim `exp` (system HL7) | Ganti `exp-lt48h`/`exp-gt48h` system Kemkes (L24) |
-| 3 | `classHistory` tidak dikirim | Tambah 1 entri |
-| 4 | Riwayat lokasi tidak dilacak (FG-30) | Bangun dari `BedAllocation` + ruangan IGD awal |
-| 5 | Status `triaged` IGD tidak dikirim | Dari `Triase.waktuTriase` |
-| 6 | `length` tidak dikirim | Hitung saat finished |
-| 7 | Waktu `+07:00` | UTC (D9) |
+| 1 | ✅ S2 — `diagnosis` hanya DD, tanpa CC | CC dari L03 (tanpa `rank`) + DD ber-`rank`. **Gerbang:** tanpa CC atau tanpa DD → Encounter tetap `in-progress` + Issue `syarat-finished` (FLOW §4) |
+| 2 | ✅ S2 — Meninggal dikirim `exp` (system HL7) | `exp-lt48h`/`exp-gt48h` system Kemkes (L24) |
+| 3 | ✅ S2 — `classHistory` tidak dikirim | 1 entri `{class, period}` |
+| 4 | 🟡 Riwayat lokasi tidak dilacak (FG-30) | S2: `location[0].period` (= period kunjungan, pola contoh RI). EHIS **belum punya fitur pindah ruangan/bed** → riwayat multi-lokasi dibangun saat fitur itu ada |
+| 5 | ✅ S2 — Status `triaged` IGD tidak dikirim | Dari `Triase.waktuTriase` pertama; dilewati bila di luar rentang datang–dilayani |
+| 6 | ✅ S2 — `length` tidak dikirim | RI: hari kalender WIB (min 1, contoh resmi `d`) · RJ/IGD: menit (`min`) |
+| 7 | ✅ S1 — Waktu `+07:00` | UTC (D9) |
 | 8 | Extension status pengunjung (`new/returning`) | ⛔ system URL belum ditemukan di playbook — tunda |

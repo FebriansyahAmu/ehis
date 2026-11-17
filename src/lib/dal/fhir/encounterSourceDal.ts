@@ -12,10 +12,12 @@ export function getKunjungan(id: string, tx?: Tx) {
       waktuKunjungan: true, dilayaniAt: true, selesaiAt: true,
       dpjpId: true, ruanganId: true, kelas: true, kelasHak: true, titipan: true,
       pasien: { select: { nama: true } },
+      // Disposisi BERLAKU = terbaru yang belum dihapus (Batal Selesai men-soft-delete).
       disposisiRiwayat: {
+        where: { deletedAt: null },
         orderBy: { createdAt: "desc" },
         take: 1,
-        select: { jenis: true, rujukTujuan: true, instruksi: true },
+        select: { id: true, jenis: true, rujukTujuan: true, instruksi: true, kondisiUmum: true, waktuKeluar: true },
       },
     },
   });
@@ -40,6 +42,28 @@ export function getLatestResume(kunjunganId: string, tx?: Tx) {
       authorPegawaiId: true, tteSignedAt: true, createdAt: true,
     },
   });
+}
+
+/** Anamnesis TERBARU (append-only latest-wins) — sumber keluhan utama / Condition CC (L03). */
+export function getLatestAnamnesis(kunjunganId: string, tx?: Tx) {
+  return db(tx).anamnesis.findFirst({
+    where: { kunjunganId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true, keluhanUtama: true, keluhanSnomedKode: true, keluhanSnomedDisplay: true,
+      authorPegawaiId: true, createdAt: true,
+    },
+  });
+}
+
+/** Waktu triase PERTAMA (IGD) — status `triaged` di Encounter.statusHistory (L01). */
+export async function getFirstTriaseWaktu(kunjunganId: string, tx?: Tx): Promise<Date | null> {
+  const t = await db(tx).triase.findFirst({
+    where: { kunjunganId },
+    orderBy: { waktuTriase: "asc" },
+    select: { waktuTriase: true },
+  });
+  return t?.waktuTriase ?? null;
 }
 
 export function getRuangan(locationId: string, tx?: Tx) {

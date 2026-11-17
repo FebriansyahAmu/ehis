@@ -10,6 +10,7 @@ import {
 } from "./asesmenAwalRJShared";
 import AnamnesisSebelumnya from "@/components/shared/medical-records/AnamnesisSebelumnya";
 import AnamnesisTemplatePicker, { type AnamnesisTemplateDTO } from "@/components/shared/medical-records/AnamnesisTemplatePicker";
+import KeluhanSnomedPicker, { type KeluhanSnomedValue } from "@/components/shared/medical-records/KeluhanSnomedPicker";
 import { getAnamnesis, saveAnamnesis } from "@/lib/api/asesmenMedis/anamnesis";
 import type { SumberAnamnesis } from "@/lib/schemas/asesmenMedis/anamnesis";
 import { useSession } from "@/contexts/SessionContext";
@@ -85,6 +86,8 @@ export default function AnamnesisPaneRJ({ patient, onComplete }: Props) {
   const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
 
   const [sumber, setSumber]   = useState<SumberAnamnesis>("Pasien");
+  // Kode SNOMED keluhan (FHIR L03) — state terpisah: AnamnesisRJData juga dipakai mock asesmen RJ.
+  const [keluhanSnomed, setKeluhanSnomed] = useState<KeluhanSnomedValue | null>(null);
   const [loading, setLoading] = useState(isPersisted);
   const [saving, setSaving]   = useState(false);
   const [error, setError]     = useState<string | null>(null);
@@ -104,6 +107,7 @@ export default function AnamnesisPaneRJ({ patient, onComplete }: Props) {
       .then((dto) => {
         if (ac.signal.aborted || !dto) return;
         setSumber((dto.sumberAnamnesis as SumberAnamnesis) ?? "Pasien");
+        setKeluhanSnomed(dto.keluhanSnomed);
         setForm((f) => ({
           ...f,
           keluhanUtama: dto.keluhanUtama,
@@ -146,6 +150,7 @@ export default function AnamnesisPaneRJ({ patient, onComplete }: Props) {
       keadaanUmum:    t.statusGeneralis, // RJ: status generalis → keadaan umum
     };
     setForm(updated);
+    setKeluhanSnomed(null); // teks keluhan diganti template → kode lama tak lagi relevan
     onComplete?.(doneOf(updated));
   }
 
@@ -160,6 +165,7 @@ export default function AnamnesisPaneRJ({ patient, onComplete }: Props) {
       const dto = await saveAnamnesis(patient.id, {
         sumberAnamnesis: sumber,
         keluhanUtama: form.keluhanUtama,
+        keluhanSnomedKode: keluhanSnomed?.kode,
         rps: form.rps,
         onsetDurasi: form.onsetDurasi || undefined,
         mekanismeCedera: undefined, // RJ tak fokus trauma
@@ -218,6 +224,7 @@ export default function AnamnesisPaneRJ({ patient, onComplete }: Props) {
           <TA label="Keluhan Utama" required value={form.keluhanUtama}
             onChange={v => set("keluhanUtama", v)}
             placeholder="Keluhan utama yang membawa pasien ke poliklinik..." />
+          <KeluhanSnomedPicker value={keluhanSnomed} onChange={setKeluhanSnomed} keluhanText={form.keluhanUtama} />
           <TA label="Riwayat Penyakit Sekarang (RPS)" rows={4} required
             value={form.rps} onChange={v => set("rps", v)}
             placeholder="Kronologis keluhan: kapan mulai, bagaimana perkembangannya, gejala penyerta, sudah berobat sebelumnya..." />

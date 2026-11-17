@@ -22,7 +22,10 @@ export type AsesmenKategori =
   | "PerilakuBeresiko"
   | "AnggotaKeluarga"
   | "MetodeKB"
-  | "JenisPersalinan";
+  | "JenisPersalinan"
+  // Subset keluhan utama ber-SNOMED (WAJIB kode) — dipakai picker di sub-menu Anamnesis IGD/RI/RJ
+  // → FHIR Condition chief-complaint (docs/fhir-mapping L03 · D4). Data di DB (seed-keluhan-utama.mts).
+  | "KeluhanUtama";
 
 export type AsesmenStatus = "Aktif" | "Non_Aktif";
 
@@ -35,7 +38,9 @@ export interface AsesmenItem {
   nama: string;
   kategori: AsesmenKategori;
   deskripsi?: string;
-  snomedCode?: string;     // optional, untuk allergen tervalidasi
+  snomedCode?: string;     // optional, untuk allergen tervalidasi · WAJIB untuk KeluhanUtama
+  /** Display resmi SNOMED (Inggris) → FHIR `coding.display`; `nama` tetap label UI. */
+  snomedDisplay?: string;
   /** Hanya untuk ReaksiAlergi. */
   severityDefault?: AsesmenSeverity;
   status: AsesmenStatus;

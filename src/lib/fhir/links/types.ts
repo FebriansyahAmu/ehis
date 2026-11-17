@@ -35,7 +35,8 @@ export type IssueCode =
   | "kode-tidak-valid" //  format / check digit salah
   | "kategori-salah" //    mis. kode LOINC "Hasil" dipakai di ServiceRequest
   | "nakes-tanpa-ihs" //   Practitioner (penulis/pelaksana) belum terpetakan
-  | "di-luar-playbook"; // parameter tanpa kamar resmi (GCS, SpO₂, Barthel — D5)
+  | "di-luar-playbook" // parameter tanpa kamar resmi (GCS, SpO₂, Barthel — D5)
+  | "syarat-finished"; //  Encounter ditahan `in-progress`: syarat finished (CC + diagnosis) belum terpenuhi
 
 /** Item yang ditahan: tidak dikirim, tidak menggagalkan job, tampil di konsol per kunjungan. */
 export interface Issue {

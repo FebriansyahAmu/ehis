@@ -31,6 +31,7 @@ import { listObatTersedia, type ObatTersediaDTO } from "@/lib/api/master/obatTer
 import ObatAllergenInput from "@/components/shared/asesmen/ObatAllergenInput";
 import AnamnesisSebelumnya from "@/components/shared/medical-records/AnamnesisSebelumnya";
 import AnamnesisTemplatePicker, { type AnamnesisTemplateDTO } from "@/components/shared/medical-records/AnamnesisTemplatePicker";
+import KeluhanSnomedPicker, { type KeluhanSnomedValue } from "@/components/shared/medical-records/KeluhanSnomedPicker";
 import { getAsesmenRingkasan } from "@/lib/api/asesmenMedis/ringkasan";
 import { useSession } from "@/contexts/SessionContext";
 import { toast } from "@/lib/ui/toastStore";
@@ -212,6 +213,7 @@ type SumberAnamnesis = "Pasien" | "Keluarga" | "Pengantar" | "Rekam Medis";
 interface AnamnesisIGDForm {
   sumberAnamnesis: SumberAnamnesis | "";
   keluhanUtama: string;
+  keluhanSnomed: KeluhanSnomedValue | null; // kode SNOMED keluhan (FHIR L03)
   rps: string;
   onsetDurasi: string;
   mekanismeCedera: string;
@@ -232,6 +234,7 @@ function dtoToAnamnesisForm(d: AnamnesisDTO): AnamnesisIGDForm {
   return {
     sumberAnamnesis: d.sumberAnamnesis,
     keluhanUtama: d.keluhanUtama,
+    keluhanSnomed: d.keluhanSnomed,
     rps: d.rps,
     onsetDurasi: d.onsetDurasi ?? "",
     mekanismeCedera: d.mekanismeCedera ?? "",
@@ -251,6 +254,7 @@ function AnamnesisPane({
   const [form, setForm] = useState<AnamnesisIGDForm>({
     sumberAnamnesis: "Pasien",
     keluhanUtama: patient.complaint,
+    keluhanSnomed: null,
     rps: patient.riwayatPenyakitSekarang,
     onsetDurasi: "",
     mekanismeCedera: patient.mekanismeCedera ?? "",
@@ -274,6 +278,7 @@ function AnamnesisPane({
     const updated: AnamnesisIGDForm = {
       ...form,
       keluhanUtama:    t.keluhanUtama,
+      keluhanSnomed:   null, // teks keluhan diganti template → kode lama tak lagi relevan
       rps:             t.rps,
       onsetDurasi:     t.onsetDurasi,
       mekanismeCedera: t.mekanismeCedera,
@@ -323,6 +328,7 @@ function AnamnesisPane({
       const dto = await saveAnamnesis(patient.id, {
         sumberAnamnesis: sumber,
         keluhanUtama: form.keluhanUtama,
+        keluhanSnomedKode: form.keluhanSnomed?.kode,
         rps: form.rps,
         onsetDurasi: form.onsetDurasi,
         mekanismeCedera: form.mekanismeCedera,
@@ -380,6 +386,8 @@ function AnamnesisPane({
           </div>
           <TA label="Keluhan Utama" required value={form.keluhanUtama}
             onChange={v => set("keluhanUtama", v)} placeholder="Keluhan utama yang membawa pasien ke IGD..." />
+          <KeluhanSnomedPicker value={form.keluhanSnomed} onChange={v => set("keluhanSnomed", v)}
+            keluhanText={form.keluhanUtama} />
           <TA label="Riwayat Penyakit Sekarang (RPS)" rows={4} required value={form.rps}
             onChange={v => set("rps", v)}
             placeholder="Kronologis keluhan: kapan mulai, bagaimana perkembangannya, gejala penyerta, sudah berobat sebelumnya..." />

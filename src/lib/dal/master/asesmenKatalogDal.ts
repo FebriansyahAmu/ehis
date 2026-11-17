@@ -10,6 +10,7 @@ export interface AsesmenData {
   kategori: string;
   deskripsi: string;
   snomedCode: string | null;
+  snomedDisplay: string | null;
   severityDefault: string | null;
   status: string;
 }
@@ -38,6 +39,14 @@ export function create(data: AsesmenData, tx?: Tx) {
 
 export function findById(id: string, tx?: Tx) {
   return db(tx).asesmenItem.findFirst({ where: { id, ...ALIVE } });
+}
+
+/** Item AKTIF suatu kategori ber-kode SNOMED tertentu (mis. keluhan utama terpilih di Anamnesis). */
+export function findActiveBySnomed(kategori: string, snomedCode: string, tx?: Tx) {
+  return db(tx).asesmenItem.findFirst({
+    where: { kategori, snomedCode, status: "Aktif", ...ALIVE },
+    select: { nama: true, snomedCode: true, snomedDisplay: true },
+  });
 }
 
 export function update(id: string, data: AsesmenPatch, tx?: Tx) {

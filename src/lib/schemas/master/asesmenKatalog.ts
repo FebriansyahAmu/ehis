@@ -11,6 +11,7 @@ export const AsesmenKategoriEnum = z.enum([
   "AllergenMakanan", "AllergenLainnya", "ReaksiAlergi",
   "PenyakitDahulu", "PenyakitBeresiko", "PenyakitKeluarga", "PerilakuBeresiko",
   "AnggotaKeluarga", "MetodeKB", "JenisPersalinan",
+  "KeluhanUtama", // subset keluhan ber-SNOMED → FHIR Condition chief-complaint (L03 · D4, 2026-11-17)
 ]);
 export type AsesmenKategoriEnum = z.infer<typeof AsesmenKategoriEnum>;
 
@@ -32,7 +33,14 @@ export const KATEGORI_PREFIX: Record<AsesmenKategoriEnum, string> = {
   AnggotaKeluarga:  "AK",
   MetodeKB:         "KB",
   JenisPersalinan:  "JP",
+  KeluhanUtama:     "KU",
 };
+
+/** Kategori yang WAJIB berkode SNOMED (tanpa kode = tak berguna untuk interoperabilitas). */
+export const KATEGORI_WAJIB_SNOMED: ReadonlySet<AsesmenKategoriEnum> = new Set(["KeluhanUtama"]);
+
+/** SCTID: 6–18 digit, tanpa nol di depan (check digit divalidasi di skrip seed / saat POST SatuSehat). */
+export const SCTID_RE = /^[1-9]\d{5,17}$/;
 
 const optStr = z.string().trim().optional().transform((v) => (v ? v : undefined));
 
@@ -41,7 +49,8 @@ export const CreateAsesmenInput = z.object({
   nama: z.string().trim().min(1, "Nama item wajib").max(200),
   kategori: AsesmenKategoriEnum,
   deskripsi: optStr,
-  snomedCode: optStr,
+  snomedCode: optStr.refine((v) => v === undefined || SCTID_RE.test(v), "Kode SNOMED harus 6–18 digit angka"),
+  snomedDisplay: z.string().trim().max(255).optional().transform((v) => (v ? v : undefined)),
   severityDefault: AsesmenSeverityEnum.optional(),
   status: AsesmenStatusEnum.optional(), // default Aktif di Service
 });
@@ -52,7 +61,9 @@ export type CreateAsesmenInput = z.infer<typeof CreateAsesmenInput>;
 export const UpdateAsesmenInput = z.object({
   nama: z.string().trim().min(1).max(200).optional(),
   deskripsi: optStr,
-  snomedCode: z.string().trim().optional(), // "" → kosongkan snomed
+  snomedCode: z.string().trim().optional() // "" → kosongkan snomed
+    .refine((v) => !v || SCTID_RE.test(v), "Kode SNOMED harus 6–18 digit angka"),
+  snomedDisplay: z.string().trim().max(255).optional(), // "" → kosongkan display
   severityDefault: AsesmenSeverityEnum.optional(),
   status: AsesmenStatusEnum.optional(),
 });
@@ -78,6 +89,7 @@ export interface AsesmenItemDTO {
   kategori: AsesmenKategoriEnum;
   deskripsi: string;
   snomedCode?: string;
+  snomedDisplay?: string;
   severityDefault?: z.infer<typeof AsesmenSeverityEnum>;
   status: z.infer<typeof AsesmenStatusEnum>;
 }

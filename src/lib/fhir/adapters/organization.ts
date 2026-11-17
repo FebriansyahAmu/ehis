@@ -42,7 +42,7 @@ export function toFhirOrganization(o: LocalOrganization, ctx: { orgId: string; p
   const telecom = [
     o.telp && { system: "phone" as const, value: o.telp, use: "work" as const },
     o.email && { system: "email" as const, value: o.email, use: "work" as const },
-  ].filter((x): x is NonNullable<typeof x> => !!x);
+  ].filter((x): x is Exclude<typeof x, "" | null | undefined> => !!x);
   const address = toFhirAddress(o, "work");
 
   return {

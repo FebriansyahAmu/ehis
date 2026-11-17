@@ -209,6 +209,13 @@ model Anamnesis {
   keluhanUtama    String @map("keluhan_utama")
   rps             String @map("riwayat_penyakit_sekarang")
 
+  // ── Kode keluhan utama (SNOMED, subset master.asesmen_item kategori KeluhanUtama) ──
+  //  Snapshot saat simpan; display diturunkan SERVER dari master (bukan klien). Opsional di form,
+  //  tetapi WAJIB untuk Encounter `finished` SatuSehat (Condition chief-complaint, FHIR L03/D4).
+  //  CHECK `anamnesis_keluhan_snomed_chk`: kode & display berpasangan, kode = SCTID.
+  keluhanSnomedKode    String? @map("keluhan_snomed_kode")
+  keluhanSnomedDisplay String? @map("keluhan_snomed_display")
+
   // ── Karakter keluhan (opsional) ──
   onsetDurasi     String? @map("onset_durasi")
   mekanismeCedera String? @map("mekanisme_cedera") // relevan bila trauma

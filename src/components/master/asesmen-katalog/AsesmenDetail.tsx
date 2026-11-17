@@ -10,7 +10,7 @@ import type {
   AsesmenItem, AsesmenKategori, AsesmenSeverity, AsesmenStatus,
 } from "@/lib/master/asesmenKatalogMock";
 import { isAsesmenValid, asesmenInitials, getAsesmenStatusCfg } from "@/lib/master/asesmenKatalogMock";
-import { KATEGORI_PREFIX } from "@/lib/schemas/master/asesmenKatalog";
+import { KATEGORI_PREFIX, KATEGORI_WAJIB_SNOMED, SCTID_RE } from "@/lib/schemas/master/asesmenKatalog";
 import {
   KATEGORI_CFG, KATEGORI_ORDER, KATEGORI_GROUPS,
   SEVERITY_CFG, SEVERITY_OPTS,
@@ -38,8 +38,11 @@ const STATUS_OPTS: { value: AsesmenStatus; label: string }[] = [
 export default function AsesmenDetail({
   draft, isNew, isDirty, onPatch, onSave, onCancel, onDelete,
 }: Props) {
-  const valid = isAsesmenValid(draft, isNew);
-  const showSnomed = draft.kategori.startsWith("Allergen");
+  // KeluhanUtama: kode SNOMED WAJIB (tanpa kode, item tak berguna untuk SatuSehat — FHIR L03).
+  const snomedRequired = KATEGORI_WAJIB_SNOMED.has(draft.kategori);
+  const snomedOk = !draft.snomedCode || SCTID_RE.test(draft.snomedCode);
+  const valid = isAsesmenValid(draft, isNew) && snomedOk && (!snomedRequired || !!draft.snomedCode);
+  const showSnomed = draft.kategori.startsWith("Allergen") || snomedRequired;
   const showSeverity = draft.kategori === "ReaksiAlergi";
 
   return (
@@ -115,21 +118,39 @@ export default function AsesmenDetail({
               </div>
             </div>
 
-            {/* SNOMED (kondisional untuk allergen) */}
+            {/* SNOMED (allergen: opsional · keluhan utama: wajib) */}
             {showSnomed && (
-              <Field label="SNOMED CT Code" hint="Opsional — interoperabilitas FHIR AllergyIntolerance.code">
-                <div className="flex items-center gap-1.5">
-                  <BookOpen size={12} className="text-slate-400" />
+              <>
+                <Field
+                  label="SNOMED CT Code"
+                  required={snomedRequired}
+                  hint={snomedRequired
+                    ? "Wajib — Condition keluhan utama (chief-complaint) SatuSehat"
+                    : "Opsional — interoperabilitas FHIR AllergyIntolerance.code"}
+                  error={snomedOk ? undefined : "Kode SNOMED harus 6–18 digit angka"}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <BookOpen size={12} className="text-slate-400" />
+                    <TextInput
+                      value={draft.snomedCode ?? ""}
+                      onChange={(v) => onPatch({ snomedCode: v.replace(/\D/g, "") || undefined })}
+                      placeholder={snomedRequired ? "386661006" : "764146007"}
+                      className="font-mono"
+                      maxW="max-w-[200px]"
+                      accent="teal"
+                    />
+                  </div>
+                </Field>
+                <Field label="Display SNOMED" hint="Istilah resmi SNOMED (Inggris), mis. “Fever” — dikirim sebagai coding.display">
                   <TextInput
-                    value={draft.snomedCode ?? ""}
-                    onChange={(v) => onPatch({ snomedCode: v || undefined })}
-                    placeholder="764146007"
-                    className="font-mono"
-                    maxW="max-w-[200px]"
+                    value={draft.snomedDisplay ?? ""}
+                    onChange={(v) => onPatch({ snomedDisplay: v || undefined })}
+                    placeholder="Fever"
+                    maxW="max-w-none"
                     accent="teal"
                   />
-                </div>
-              </Field>
+                </Field>
+              </>
             )}
 
             {/* Severity default (kondisional untuk reaksi) */}
