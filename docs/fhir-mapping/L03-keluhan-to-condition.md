@@ -18,7 +18,9 @@
   Dizziness, Hematochezia, Itching). Admin dapat menambah di Master › Asesmen Katalog.
 - **Form:** [KeluhanSnomedPicker](../../src/components/shared/medical-records/KeluhanSnomedPicker.tsx) di bawah teks
   Keluhan Utama (3 pane Anamnesis) — combobox + "saran dari teks". Tidak wajib di form; tanpa kode → Issue
-  `kode-kosong` dan Encounter ditahan `in-progress` (Issue `syarat-finished`).
+  `kode-kosong` dan Encounter ditahan `in-progress` (Issue `syarat-finished`). Saat Selesaikan Kunjungan
+  muncul **peringatan non-blokir** ([KeluhanKodeWarning](../../src/components/shared/medical-records/KeluhanKodeWarning.tsx),
+  FG-93); mewajibkan kode sebelum `complete` = temuan terbuka FG-98.
 - **Payload:** mengikuti contoh resmi RI — teks bebas di `note[].text`, `recorder` = penulis anamnesis (bila
   Practitioner terpetakan). `localId` = `<kunjunganId>:cc` (**1 per kunjungan**: anamnesis append-only, revisi =
   PUT resource yang sama — bukan per baris anamnesis agar tak menumpuk Condition yatim).

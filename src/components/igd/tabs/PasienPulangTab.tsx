@@ -42,6 +42,7 @@ import SPRIPanel         from "./pasienPulang/SPRIPanel";
 import SembuhPanel       from "./pasienPulang/SembuhPanel";
 import APSPanel          from "./pasienPulang/APSPanel";
 import MeninggalPanel    from "./pasienPulang/MeninggalPanel";
+import KeluhanKodeWarning from "@/components/shared/medical-records/KeluhanKodeWarning";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -660,6 +661,9 @@ export default function PasienPulangTab({
           apsData={apsData}
         />
       )}
+
+      {/* Peringatan non-blokir: keluhan utama belum berkode SNOMED (SatuSehat) — FG-93 */}
+      {isPersisted && onComplete && statusPulang && <KeluhanKodeWarning kunjunganId={kunjunganId} />}
 
       {/* ── Sticky footer ── */}
       <div

@@ -285,6 +285,7 @@ function FinalizeControl({ patient, selesaiJam, onCompleted }: {
       {dialogOpen && (
         <SelesaikanDialog
           patientName={patient.name}
+          kunjunganId={patient.id}
           onSubmit={handleComplete}
           onClose={() => setDialogOpen(false)}
         />

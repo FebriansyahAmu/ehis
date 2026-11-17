@@ -130,6 +130,7 @@ export default function IGDRecordShell({
       {showSelesai && (
         <SelesaikanDialog
           patientName={patient.name}
+          kunjunganId={patient.id}
           onSubmit={handleComplete}
           onClose={() => setShowSelesai(false)}
         />

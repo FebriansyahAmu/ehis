@@ -10,6 +10,7 @@ import { X, CheckCircle2, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DateTimePicker, nowInputValue } from "@/components/shared/inputs/DateTimePicker";
 import type { DisposisiInput } from "@/lib/schemas/disposisi/disposisi";
+import KeluhanKodeWarning from "@/components/shared/medical-records/KeluhanKodeWarning";
 
 const JENIS: { id: DisposisiInput["jenis"]; label: string }[] = [
   { id: "Pulang", label: "Pulang" },
@@ -27,10 +28,13 @@ const chipSel = "border-emerald-400 bg-emerald-50 text-emerald-800 ring-1 ring-e
 
 export default function SelesaikanDialog({
   patientName,
+  kunjunganId,
   onSubmit,
   onClose,
 }: {
   patientName: string;
+  /** Kunjungan (UUID) — untuk peringatan keluhan utama belum berkode SNOMED (FG-93). */
+  kunjunganId?: string;
   onSubmit: (disposisi: DisposisiInput, waktuSelesai: string) => Promise<void> | void;
   onClose: () => void;
 }) {
@@ -70,7 +74,7 @@ export default function SelesaikanDialog({
         initial={{ opacity: 0, scale: 0.97, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.18 }}
-        className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
+        className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-emerald-500/20 bg-emerald-600 px-4 py-3">
@@ -121,6 +125,9 @@ export default function SelesaikanDialog({
               className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 shadow-xs outline-none transition focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"
             />
           </div>
+
+          {/* Peringatan non-blokir: keluhan utama belum berkode (SatuSehat) — FG-93 */}
+          {kunjunganId && <KeluhanKodeWarning kunjunganId={kunjunganId} />}
 
           {/* Konfirmasi ekstra (kunci) */}
           <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
