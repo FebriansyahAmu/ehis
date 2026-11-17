@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | ⚠️ ada (FH7, [composition.ts](../../src/lib/fhir/adapters/composition.ts)) — `type` & kode section tidak sesuai unit |
+| Status | ✅ dikoreksi S3 2026-11-17 — `type` per unit, section bersarang ber-`entry` (keluhan · alergi · tanda vital · lab · rad · diagnosis akhir · tindakan · obat/obat pulang · kondisi pulang) + narasi Perjalanan Kunjungan, `attester` saat TTE. Section lain menyusul bersama link-nya (S4) |
 | Kamar | **Composition** · category LOINC `LP173421-1` "Report" · `type` **per unit** |
 | Playbook | RJ §Resume Medis (Tabel 35) · IGD §28 · RI §30 [V] |
 | Contoh resmi | RI bundle: `Composition type 34105-7 Hospital Discharge summary` |

@@ -44,7 +44,19 @@ export function listRad(kunjunganId: string, tx?: Tx) {
 
 export function listLabTestLoinc(ids: string[], tx?: Tx) {
   if (!ids.length) return Promise.resolve([]);
-  return db(tx).labTest.findMany({ where: { id: { in: ids } }, select: { id: true, nama: true, loincCode: true, loincDisplay: true } });
+  return db(tx).labTest.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, nama: true, kategori: true, loincCode: true, loincDisplay: true },
+  });
+}
+
+/** Kategori Permintaan/Hasil kode lab di Lampiran LOINC Laboratorium resmi (master.terminologi_lab) — gerbang L16. */
+export function listTerminologiLabKategori(codes: string[], tx?: Tx) {
+  if (!codes.length) return Promise.resolve([]);
+  return db(tx).terminologiLab.findMany({
+    where: { code: { in: codes } },
+    select: { code: true, permintaanHasil: true },
+  });
 }
 
 /**

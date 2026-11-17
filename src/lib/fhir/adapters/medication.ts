@@ -1,10 +1,12 @@
 /**
  * Adapter Farmasi → FHIR rantai obat (FH5): Medication (master Obat + KFA) · MedicationRequest
  * (ResepItem) · MedicationDispense (ResepDispensing × item). Fungsi murni.
- * Contoh resmi: docs/fhir-postman/resources/{Medication,MedicationRequest,MedicationDispense}.json.
+ * Contoh resmi: docs/fhir-postman/bundles/bundle-rawat-jalan.json (Medication_forRequest / _forDispense).
  *
- * Medication dibuat SEKALI per master Obat (bukan per resep) — identifier RS `medication/{orgId}`
- * = id Obat; dirujuk semua MedicationRequest/Dispense. Racikan (compound) belum didukung (FG-46).
+ * Pola D6 (S3, docs/fhir-mapping/L18 · L20): **1 Medication per paket** — satu untuk tiap MedicationRequest
+ * dan satu untuk tiap MedicationDispense, dikirim bersama di Bundle (POST Medication berdiri sendiri tak
+ * dapat dipakai mulai 2025). Kode: Request boleh KFA virtual `92…` atau aktual `93…`; Dispense WAJIB `93…`.
+ * Racikan (compound) belum didukung (FG-46).
  */
 
 import { FHIR_SYSTEM, orgIdentifierSystem, toFhirDateTime, type FhirResourceBase } from "../fhirShared";
@@ -34,15 +36,36 @@ export interface LocalObat {
   kfa: KfaMapping;
 }
 
-/** Kode KFA produk: POA (produk aktual, 93xxx) diutamakan, fallback POV (virtual, 92xxx). */
-export function kfaProductOf(kfa: KfaMapping | null | undefined): { code: string; display: string } | null {
-  if (kfa?.poaKode) return { code: kfa.poaKode, display: kfa.poaNama ?? "" };
-  if (kfa?.povKode) return { code: kfa.povKode, display: kfa.povNama ?? "" };
+export type PemakaianMedication = "request" | "dispense";
+
+const KFA_AKTUAL = /^93\d+$/; // POA — produk aktual
+const KFA_VIRTUAL = /^92\d+$/; // POV — produk virtual
+
+/**
+ * Kode KFA produk menurut pemakaian paket. request: POA (93) diutamakan, cadangan POV (92).
+ * dispense: HANYA POA 93 (playbook) — null bila obat hanya ber-POV.
+ */
+export function kfaProductOf(
+  kfa: KfaMapping | null | undefined,
+  untuk: PemakaianMedication = "request",
+): { code: string; display: string } | null {
+  const poa = kfa?.poaKode?.trim();
+  const pov = kfa?.povKode?.trim();
+  if (poa && KFA_AKTUAL.test(poa)) return { code: poa, display: kfa?.poaNama ?? "" };
+  if (untuk === "request" && pov && KFA_VIRTUAL.test(pov)) return { code: pov, display: kfa?.povNama ?? "" };
   return null;
 }
 
-export function toFhirMedication(o: LocalObat, orgId: string): FhirRes | null {
-  const product = kfaProductOf(o.kfa);
+/**
+ * Medication satu paket. `paket.identifier` = id paket (unik per Org) — bukan id master obat, karena
+ * Medication tidak lagi dipakai ulang lintas resep. `deleted` → status entered-in-error.
+ */
+export function toFhirMedication(
+  o: LocalObat,
+  orgId: string,
+  paket: { identifier: string; untuk: PemakaianMedication; deleted?: boolean },
+): FhirRes | null {
+  const product = kfaProductOf(o.kfa, paket.untuk);
   if (!product) return null;
   const ingredient = (o.kfa.zatAktif ?? [])
     .filter((z) => z.kode)
@@ -57,9 +80,9 @@ export function toFhirMedication(o: LocalObat, orgId: string): FhirRes | null {
   return {
     resourceType: "Medication",
     meta: { profile: ["https://fhir.kemkes.go.id/r4/StructureDefinition/Medication"] },
-    identifier: [{ system: orgIdentifierSystem("medication", orgId), use: "official", value: o.id }],
+    identifier: [{ system: orgIdentifierSystem("medication", orgId), use: "official", value: paket.identifier }],
     code: { coding: [{ system: FHIR_SYSTEM.kfa, code: product.code, display: product.display || `${o.namaGenerik} (${o.namaDagang})` }] },
-    status: o.status === "Aktif" ? "active" : "inactive",
+    status: paket.deleted ? "entered-in-error" : o.status === "Aktif" ? "active" : "inactive",
     ...(o.kfa.bentukKode ? {
       form: { coding: [{ system: "http://terminology.kemkes.go.id/CodeSystem/medication-form", code: o.kfa.bentukKode, display: o.kfa.bentukNama ?? "" }] },
     } : {}),

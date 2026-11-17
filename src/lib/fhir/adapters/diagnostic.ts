@@ -9,7 +9,7 @@
  */
 
 import { FHIR_SYSTEM, orgIdentifierSystem, toFhirDateTime, type FhirResourceBase } from "../fhirShared";
-import { ORDER_PRIORITY, lookup } from "../conceptMap";
+import { ORDER_PRIORITY, lookup, type Coding } from "../conceptMap";
 
 type FhirRes = FhirResourceBase & Record<string, unknown>;
 type Ref = { ihsId: string; nama: string };
@@ -158,13 +158,15 @@ export function toFhirDiagnosticReport(
     serviceRequestIhsIds: string[];
     performer?: Ref;
     conclusion?: string | null;
+    /** Lab: kategori per bagian (LAB_REPORT_CATEGORY — HM/CH/…, L16); absen → LAB/RAD umum. */
+    category?: Coding;
   },
 ): FhirRes {
   return {
     resourceType: "DiagnosticReport",
     identifier: [{ system: `${orgIdentifierSystem("diagnostic", r.orgId)}/${kind}`, use: "official", value: localId }],
     status: extra.deleted ? "entered-in-error" : "final",
-    category: [{ coding: [{ system: "http://terminology.hl7.org/CodeSystem/v2-0074", ...DR_CATEGORY[kind] }] }],
+    category: [{ coding: [extra.category ?? { system: "http://terminology.hl7.org/CodeSystem/v2-0074", ...DR_CATEGORY[kind] }] }],
     code: coding(loinc),
     subject: subject(r),
     encounter: encounter(r),

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | ⚠️ ada (FH5, [medication.ts](../../src/lib/fhir/adapters/medication.ts)) — **pola Medication berbeda dari resmi**, `timing` tak terstruktur |
+| Status | 🟡 pola Medication per paket ✅ S3 2026-11-17 (D6) · sisa: `timing.repeat` terstruktur (FG-81/FG-49), mode single → `contained` (FG-99) |
 | Kamar | **Medication** (per paket) + **MedicationRequest** |
 | Playbook | RJ/IGD/RI §Peresepan Obat [V RI tabel 18–19, S sebagian] |
 | Contoh resmi | Bundle: `Medication` (`urn:uuid:{{Medication_forRequest}}`) → `MedicationRequest(completed) cat=[outpatient|inpatient]` |

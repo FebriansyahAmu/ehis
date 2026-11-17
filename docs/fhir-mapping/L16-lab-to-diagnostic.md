@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | ⚠️ ada (FH6, [diagnostic.ts](../../src/lib/fhir/adapters/diagnostic.ts)) — LOINC kosong, Specimen & status puasa belum |
+| Status | 🟡 S3 2026-11-17: gerbang Lampiran LOINC resmi Permintaan/Hasil ✅ ([links/labTerminologi.ts](../../src/lib/fhir/links/labTerminologi.ts)) · `DiagnosticReport.category` per bagian ✅ · sisa: LOINC master 0% (FG-52), Specimen (FG-53), status puasa |
 | Kamar | **ServiceRequest** (cat SNOMED `108252007`) → **Specimen** → **Observation** (`laboratory`) → **DiagnosticReport** |
 | Playbook | RJ/IGD/RI §Pemeriksaan Penunjang Laboratorium [V] |
 | Contoh resmi | IGD: SR `58410-2 CBC panel` → Specimen → Obs `718-7` + `787-2` → DR `HM 58410-2` · RI: SR `2093-3` + `kptl|30326` → … → DR `CH` |

@@ -18,6 +18,7 @@ import { Callout, IdChip } from "../resource/resourceUi";
 import { fmtDateTime } from "../resource/resourceTime";
 import { EncounterResourceGrid } from "./EncounterResourceGrid";
 import { JobTimeline } from "./JobTimeline";
+import { IssuePanel } from "./IssuePanel";
 import { ENCOUNTER_TARGET_LABEL, KUNJUNGAN_STATUS_LABEL, UNIT_LABEL } from "./kunjunganShared";
 
 const MODE: Record<string, { label: string; tone: "slate" | "amber" | "emerald" }> = {
@@ -188,15 +189,8 @@ export default function FhirKunjunganDetail({ kunjunganId }: { kunjunganId: stri
         </div>
 
         <aside className="flex min-w-0 flex-col gap-4">
-          {d.notes.length > 0 && (
-            <SectionCard title="Data dilewati" desc="Tidak dikirim karena data belum memenuhi syarat SatuSehat">
-              <ul className="flex flex-col gap-1.5 px-4 py-3 text-[11.5px] leading-snug text-amber-800">
-                {d.notes.map((n, i) => (
-                  <li key={i} className="flex items-start gap-1.5"><TriangleAlert size={12} className="mt-0.5 shrink-0 text-amber-500" aria-hidden />{n}</li>
-                ))}
-              </ul>
-            </SectionCard>
-          )}
+          <IssuePanel issues={d.issues} />
+
           <SectionCard title="Riwayat job" desc={`${d.jobs.length} job terakhir`}>
             <JobTimeline jobs={d.jobs} />
           </SectionCard>

@@ -160,6 +160,7 @@ export async function getEncounter(kunjunganId: string, actor: Actor): Promise<E
     blockers: plan.blockers,
     infos: plan.infos,
     notes: plan.notes,
+    issues: plan.issues,
     resources: plan.items.map((i) => ({
       localType: i.localType, localId: i.localId, resourceType: i.resourceType, status: i.status,
       ihsId: i.ihsId, versionId: i.versionId, lastSyncAt: iso(i.lastSyncAt), payload: i.resource,

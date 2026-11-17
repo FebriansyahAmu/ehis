@@ -15,7 +15,7 @@ export async function loadEncounterSnapshot(kunjunganId: string) {
   const [diagnosa, prosedur, tindakan, ttv, alergi, resep, lab, rad, resume, anamnesis, triaseWaktu] = await Promise.all([
     clinicalSrc.listDiagnosa(kunjunganId),
     clinicalSrc.listProsedur(kunjunganId),
-    clinicalSrc.listTindakanBerkode(kunjunganId),
+    clinicalSrc.listTindakan(kunjunganId),
     clinicalSrc.listTtv(kunjunganId),
     clinicalSrc.listAlergi(kunjunganId),
     medicationSrc.listResep(kunjunganId),

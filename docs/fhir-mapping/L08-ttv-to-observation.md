@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | ⚠️ ada (FH4, `toFhirVitalObservations`) — **2 parameter salah kamar, 1 di luar playbook** |
+| Status | ✅ dikoreksi S3 2026-11-17 — nyeri & GCS dikeluarkan (nyeri → L11 S4; GCS menunggu D5), nilai 0 = kosong; SpO₂ masih dikirim (D5 belum diputuskan) |
 | Kamar | **Observation** category `vital-signs` (system `http://terminology.hl7.org/CodeSystem/observation-category`) |
 | Playbook | RJ/IGD/RI §Pemeriksaan Fisik — Tanda Vital & Antropometri [V] |
 | Contoh resmi | RI: 8480-6 · 8462-4 · 8310-5 · 8867-4 · 9279-1 · 8302-2 · 29463-7 · 8277-6 (semua `vital-signs`) |
@@ -47,7 +47,7 @@ punya IHS · `statusKesadaran` → L09, bukan di sini.
 
 | # | Temuan | Tindakan |
 |---|---|---|
-| 1 | `pain` di vital-signs | Pindah ke L11 (survey, SNOMED 22253000 + NRS 1172399009) |
-| 2 | `gcs` di vital-signs | Keluarkan; putuskan kirim GCS sebagai `exam` setelah uji sandbox (D5) |
+| 1 | ✅ S3 — `pain` di vital-signs | Pindah ke L11 (survey, SNOMED 22253000 + NRS 1172399009) |
+| 2 | ✅ S3 (keluar) — `gcs` di vital-signs | Keluarkan; putuskan kirim GCS sebagai `exam` setelah uji sandbox (D5) |
 | 3 | `spo2` di luar playbook | Tahan / kirim terpisah dari Bundle atomik sampai terbukti diterima (D5) |
-| 4 | Nilai `0` default ikut terkirim | Gerbang: 0 = kosong untuk parameter yang tak mungkin 0 |
+| 4 | ✅ S3 — Nilai `0` default ikut terkirim | Gerbang: 0 = kosong untuk parameter yang tak mungkin 0 |

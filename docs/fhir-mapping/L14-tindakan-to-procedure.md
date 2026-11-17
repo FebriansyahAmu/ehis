@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | ⚠️ ada (FH4, `toFhirProcedure`) — tanpa `category`, tindakan tanpa ICD-9 hilang |
+| Status | ✅ dikoreksi S3 2026-11-17 — `category` dari kategori katalog (`PROCEDURE_CATEGORY`, kategori ambigu tanpa category FG-101) · `reasonReference` Condition Utama (cadangan `reasonCode`) · tindakan tanpa ICD-9 = Issue L14 |
 | Kamar | **Procedure** (`status` completed) — ICD-9-CM (+ KPTL / SNOMED) |
 | Playbook | RJ/IGD/RI §Tindakan/Prosedur Medis [S] |
 | Contoh resmi | RJ: `cat 277132007 · icd-9-cm|93.94 Nebulizer` · IGD: `cat 373110003 · icd-9-cm|74.0` · RI: Procedure `icd-9-cm|39.95 Hemodialysis + sct|302497006` (KPTL `11586…` ada di ServiceRequest order-nya) |

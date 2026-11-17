@@ -17,13 +17,13 @@ export const LINKS: readonly LinkMeta[] = [
   { id: "L05", name: "riwayatKeluargaToFamilyMemberHistory", resourceTypes: ["FamilyMemberHistory"], units: ALL, status: "baru", doc: "L05-riwayat-keluarga-to-familymemberhistory.md" },
   { id: "L06", name: "alergiToAllergyIntolerance", resourceTypes: ["AllergyIntolerance"], units: ALL, status: "koreksi", doc: "L06-alergi-to-allergyintolerance.md" },
   { id: "L07", name: "riwayatObatToMedicationStatement", resourceTypes: ["MedicationStatement"], units: ALL, status: "baru", doc: "L07-riwayat-obat-to-medicationstatement.md" },
-  { id: "L08", name: "ttvToObservation", resourceTypes: ["Observation"], units: ALL, status: "koreksi", doc: "L08-ttv-to-observation.md" },
+  { id: "L08", name: "ttvToObservation", resourceTypes: ["Observation"], units: ALL, status: "aktif", doc: "L08-ttv-to-observation.md" }, // S3
   { id: "L09", name: "kesadaranToObservation", resourceTypes: ["Observation"], units: ALL, status: "baru", doc: "L09-kesadaran-to-observation.md" },
   { id: "L10", name: "pemeriksaanFisikToObservation", resourceTypes: ["Observation"], units: ALL, status: "baru", doc: "L10-pemeriksaan-fisik-to-observation.md" },
   { id: "L11", name: "nyeriToObservation", resourceTypes: ["Observation"], units: ALL, status: "baru", doc: "L11-nyeri-to-observation.md" },
   { id: "L12", name: "penilaianToObservation", resourceTypes: ["Observation"], units: ALL, status: "baru", doc: "L12-penilaian-to-observation.md" },
   { id: "L13", name: "diagnosaToCondition", resourceTypes: ["Condition"], units: ALL, status: "koreksi", doc: "L13-diagnosa-to-condition.md" },
-  { id: "L14", name: "tindakanToProcedure", resourceTypes: ["Procedure"], units: ALL, status: "koreksi", doc: "L14-tindakan-to-procedure.md" },
+  { id: "L14", name: "tindakanToProcedure", resourceTypes: ["Procedure"], units: ALL, status: "aktif", doc: "L14-tindakan-to-procedure.md" }, // S3
   { id: "L15", name: "edukasiToProcedure", resourceTypes: ["Procedure"], units: ALL, status: "baru", doc: "L15-edukasi-to-procedure.md" },
   { id: "L16", name: "labToDiagnostic", resourceTypes: ["ServiceRequest", "Specimen", "Observation", "DiagnosticReport"], units: ALL, status: "koreksi", doc: "L16-lab-to-diagnostic.md" },
   { id: "L17", name: "radToDiagnostic", resourceTypes: ["ServiceRequest", "ImagingStudy", "Observation", "DiagnosticReport"], units: ALL, status: "koreksi", doc: "L17-rad-to-diagnostic.md" },
@@ -35,7 +35,7 @@ export const LINKS: readonly LinkMeta[] = [
   { id: "L23", name: "dischargePlanningToObservation", resourceTypes: ["Observation", "CarePlan"], units: ["RawatInap", "IGD"], status: "baru", doc: "L23-discharge-planning-to-observation.md" },
   { id: "L24", name: "disposisiToKondisiPulang", resourceTypes: ["Condition", "Encounter"], units: ALL, status: "aktif", doc: "L24-disposisi-to-kondisi-pulang.md" }, // S2
   { id: "L25", name: "tindakLanjutToServiceRequest", resourceTypes: ["ServiceRequest"], units: ALL, status: "baru", doc: "L25-tindak-lanjut-to-servicerequest.md" },
-  { id: "L26", name: "resumeToComposition", resourceTypes: ["Composition"], units: ALL, status: "koreksi", doc: "L26-resume-to-composition.md" },
+  { id: "L26", name: "resumeToComposition", resourceTypes: ["Composition"], units: ALL, status: "aktif", doc: "L26-resume-to-composition.md" }, // S3
 ];
 
 export const LINK_BY_ID = Object.fromEntries(LINKS.map((l) => [l.id, l])) as Record<LinkId, LinkMeta>;

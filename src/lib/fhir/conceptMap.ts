@@ -156,6 +156,78 @@ export const CONDITION_VERIFICATION: Record<DiagnosaStatus, Coding> = {
   Diferensial: { system: `${HL7}/condition-ver-status`, code: "differential", display: "Differential" },
 };
 
+// ── Procedure (L14) ─────────────────────────────────────────
+
+/** Kategori katalog tindakan (master.Tindakan, snapshot di TindakanMedis) — identik TindakanKategoriEnum. */
+export type TindakanKategori =
+  | "Konsultasi" | "Tindakan_Medis" | "Diagnostik" | "Bedah_Minor" | "Bedah_Mayor" | "Bedah_Khusus" | "Obstetri"
+  | "Pediatrik" | "Resusitasi" | "Anestesi" | "Spesialistik" | "Non_Kategori" | "Prosedur_Bedah"
+  | "Prosedur_Non_Bedah" | "Keperawatan" | "Tindakan_Invasif";
+
+const sctProc = (code: string, display: string): Coding => ({ system: "http://snomed.info/sct", code, display });
+const PROC_DIAGNOSTIK = sctProc("103693007", "Diagnostic procedure");
+const PROC_TERAPEUTIK = sctProc("277132007", "Therapeutic procedure");
+const PROC_BEDAH = sctProc("387713003", "Surgical procedure");
+
+/**
+ * Kategori tindakan → `Procedure.category` (SNOMED, ECL < 71388002). Kode dari contoh resmi (277132007 RJ,
+ * 373110003 IGD) + hierarki prosedur SNOMED. null = kategori ambigu (bisa diagnostik ATAU terapeutik) →
+ * category tidak dikirim (elemen opsional) — lebih baik kosong daripada salah.
+ */
+export const PROCEDURE_CATEGORY: Record<TindakanKategori, Coding | null> = {
+  Diagnostik: PROC_DIAGNOSTIK,
+  Tindakan_Medis: PROC_TERAPEUTIK,
+  Prosedur_Non_Bedah: PROC_TERAPEUTIK,
+  Bedah_Minor: PROC_BEDAH,
+  Bedah_Mayor: PROC_BEDAH,
+  Bedah_Khusus: PROC_BEDAH,
+  Prosedur_Bedah: PROC_BEDAH,
+  Resusitasi: sctProc("373110003", "Emergency procedure"),
+  Konsultasi: sctProc("11429006", "Consultation"),
+  Keperawatan: sctProc("9632001", "Nursing procedure"),
+  Obstetri: null,
+  Pediatrik: null,
+  Spesialistik: null,
+  Anestesi: null,
+  Tindakan_Invasif: null,
+  Non_Kategori: null,
+};
+
+// ── DiagnosticReport lab (L16) ──────────────────────────────
+
+/** Kategori master.LabTest (10 — identik `KategoriLab` di components/lab/labShared.ts). */
+export type KategoriLab =
+  | "Hematologi" | "Kimia Klinik" | "Urinalisis" | "Mikrobiologi" | "Serologi"
+  | "Koagulasi" | "Analisa Gas Darah" | "Feses" | "Imunologi" | "Toksikologi";
+
+const v20074 = (code: string, display: string): Coding => ({ system: `${HL7}/v2-0074`, code, display });
+
+/** Bagian lab tanpa kode khusus di v2-0074 (Urinalisis, Feses, kategori tak dikenal). */
+export const LAB_REPORT_CATEGORY_UMUM: Coding = v20074("LAB", "Laboratory");
+
+/** Kategori lab → `DiagnosticReport.category` per bagian (contoh resmi: HM, CH). */
+export const LAB_REPORT_CATEGORY: Record<KategoriLab, Coding> = {
+  Hematologi: v20074("HM", "Hematology"),
+  Koagulasi: v20074("HM", "Hematology"),
+  "Kimia Klinik": v20074("CH", "Chemistry"),
+  "Analisa Gas Darah": v20074("BG", "Blood Gases"),
+  Mikrobiologi: v20074("MB", "Microbiology"),
+  Serologi: v20074("SR", "Serology"),
+  Imunologi: v20074("IMM", "Immunology"),
+  Toksikologi: v20074("TX", "Toxicology"),
+  Urinalisis: LAB_REPORT_CATEGORY_UMUM,
+  Feses: LAB_REPORT_CATEGORY_UMUM,
+};
+
+// ── Composition (L26) ───────────────────────────────────────
+
+/** Unit → `Composition.type` (LOINC) — playbook RJ Tabel 35 · IGD §28 · RI §30. */
+export const COMPOSITION_TYPE: Record<KunjunganUnit, Coding> = {
+  RawatJalan: { system: "http://loinc.org", code: "88645-7", display: "Outpatient hospital Discharge summary" },
+  IGD: { system: "http://loinc.org", code: "97663-9", display: "Emergency medicine Emergency department Discharge summary" },
+  RawatInap: { system: "http://loinc.org", code: "34105-7", display: "Hospital Discharge summary" },
+};
+
 // ── AllergyIntolerance (L06) ────────────────────────────────
 
 export type AlergiKategori = "Obat" | "Makanan" | "Lainnya";

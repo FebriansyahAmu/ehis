@@ -21,7 +21,7 @@
 import "server-only";
 import { getSatuSehatConfig } from "@/lib/fhir/server/config";
 import { encounterStatusOf, toFhirEncounter, type EncounterStatus, type LocalEncounter } from "@/lib/fhir/adapters/encounter";
-import { toFhirComposition } from "@/lib/fhir/adapters/composition";
+import { addSectionRef, mergeSectionRefs, toFhirComposition } from "@/lib/fhir/adapters/composition";
 import { toFhirChiefComplaint, toFhirKondisiPulang } from "@/lib/fhir/adapters/encounterCondition";
 import type { FhirError, FhirResourceBase } from "@/lib/fhir/fhirShared";
 import type { Issue } from "@/lib/fhir/links/types";
@@ -226,16 +226,28 @@ async function runEncounter(
     issues.push(...o.issues);
   }
 
+  // Diagnosis final yang terkirim (DD, Utama dulu) — dipakai Composition (L26) & Encounter final (L01).
+  const dxSent = new Map(cl.refs.filter((r) => r.resourceType === "Condition").map((r) => [r.localId, r.ihsId]));
+  const diagnoses = dxFinal
+    .filter((d) => dxSent.has(d.id))
+    .map((d, i) => ({ ihsId: dxSent.get(d.id)!, display: `${d.kodeIcd10} ${d.namaDiagnosis}`, rank: i + 1 }));
+
+  // Referensi resource per section resume (Composition L26) — hanya resource aktif yang terkirim.
+  const sections = mergeSectionRefs(cl.sections, med.sections, diag.sections);
+  if (chiefComplaint) addSectionRef(sections, "keluhanUtama", "Condition", chiefComplaint.ihsId);
+  for (const d of diagnoses) addSectionRef(sections, "diagnosis", "Condition", d.ihsId);
+
   // ── Fase B6: kondisi saat meninggalkan RS → Condition problem-list-item (L24, D11) ──
   const disposisi = k.disposisiRiwayat[0] ?? null;
   if (target === "finished" && disposisi) {
     const kp = kondisiPulangOf(k.id, disposisi);
     if (kp && !kp.ok) issues.push(kp.issue);
     else if (kp) {
-      await submitCondition(
+      const ihsId = await submitCondition(
         kondisiPulangLocalId(k.id),
         toFhirKondisiPulang({ kode: kp.kode, lokal: kp.lokal, recordedAt: disposisi.waktuKeluar }, clinicalRefs),
       );
+      if (ihsId) addSectionRef(sections, "kondisiPulang", "Condition", ihsId);
     }
   }
 
@@ -249,18 +261,16 @@ async function runEncounter(
         message: "Resume medis ditahan — penulis/DPJP belum terpetakan ke Practitioner",
       });
     } else {
-      const dx = dxFinal;
       const r = await sink.submit({
         localType: "Composition",
         localId: k.id, // 1 Composition per kunjungan, revisi resume = PUT
         resource: toFhirComposition(
           {
             kunjunganId: k.id, noKunjungan: k.noKunjungan, unit: k.unit,
-            ringkasanKlinis: resume.ringkasanKlinis, kondisiMasuk: resume.kondisiMasuk, kondisiPulang: resume.kondisiPulang,
-            diagnosisKeluar: dx.map((d) => `${d.kodeIcd10} — ${d.namaDiagnosis}`),
-            signedAt: resume.tteSignedAt, createdAt: resume.createdAt,
+            ringkasanKlinis: resume.ringkasanKlinis, signedAt: resume.tteSignedAt, createdAt: resume.createdAt,
           },
           { orgId, patient: patientRef, encounter: encounterRef, author },
+          sections,
         ),
       });
       if (r?.ok) refs.push({ resourceType: "Composition", localId: k.id, ihsId: r.ihsId, op: r.op });
@@ -273,12 +283,7 @@ async function runEncounter(
   }
 
   // ── Fase C: Encounter final (+ diagnosis CC & DD) ──
-  let diagnoses: { ihsId: string; display: string; rank: number }[] = [];
   if (target === "finished") {
-    const sent = new Map(cl.refs.filter((r) => r.resourceType === "Condition").map((r) => [r.localId, r.ihsId]));
-    diagnoses = dxFinal
-      .filter((d) => sent.has(d.id))
-      .map((d, i) => ({ ihsId: sent.get(d.id)!, display: `${d.kodeIcd10} ${d.namaDiagnosis}`, rank: i + 1 }));
     // Gerbang "blokir finished" (FLOW §4): tanpa CC / diagnosis → tetap in-progress, resource fase B
     // tetap terkirim; dikirim finished pada sinkron berikutnya setelah data dilengkapi.
     const hold = finishedBlockers(k.id, !!chiefComplaint, diagnoses.length);

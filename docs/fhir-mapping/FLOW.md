@@ -103,7 +103,7 @@ Registered/Queued ──(tidak dikirim)
 |---|---|---|---|
 | **S1 Fondasi** ✅ 2026-11-17 | `feat/fhir-mapping-fondasi` | Waktu UTC (D9) · hash kanonik · `conceptMap.ts` (enum → kode, exhaustive) · kontrak & registry link · `loadEncounterSnapshot` dipakai layanan sinkron eksisting · tipe Issue | Ya: format waktu + display kelas → semua resource terkirim ulang sekali (PUT, FG-89) |
 | **S2 Blocker finished** ✅ 2026-11-17 | `feat/fhir-encounter-finished` | L03 keluhan (D4: picker SNOMED di Anamnesis, subset master Keluhan Utama) · L01 koreksi (CC, `classHistory`, `length`, `triaged`, `location.period`; multi-lokasi menunggu fitur pindah ruangan) · L24 (kode meninggal, kondisi pulang D11) · gerbang "blokir finished" | Ya: Encounter + 2 Condition baru per kunjungan. Temuan: FG-93 (kunjungan terkunci tanpa kode keluhan), D17 |
-| **S3 Koreksi kamar** | `fix/fhir-mapping-kamar` | L08 (nyeri/GCS keluar) · L06 (KFA alergi obat) · L14 (category) · L26 (type per unit) · L18/L20 (pola Medication D6) · L16 (gerbang Permintaan/Hasil) | Ya |
+| **S3 Koreksi kamar** ✅ 2026-11-17 | `fix/fhir-mapping-kamar` | L08 (nyeri/GCS keluar) · L06 (KFA alergi obat) · L14 (category, reasonReference) · L26 (type per unit, section ber-entry) · L18/L20 (pola Medication D6) · L16 (gerbang Permintaan/Hasil, category per bagian) · konsol panel Data ditahan (FG-91) | Ya: Medication per paket, Observation nyeri/GCS berhenti (yatim di mock, FG-100), Composition baru |
 | **S4 Link baru** | per kelompok | L09 · L11 · L12 · L19 · L21 · L23 · L25 · L04 · L05 · L10 · L15 · L22 | Menambah resource |
 | **S5 Perubahan entry** | per form | Picker KFA riwayat obat (L07), kolom kode master skala/topik edukasi, field transportasi (D10) | — |
 

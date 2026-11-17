@@ -2,9 +2,13 @@
 //   Lab : ServiceRequest per item tes → (bila hasil TERVALIDASI) Observation per parameter → DiagnosticReport per tes.
 //   Rad : ServiceRequest per item pemeriksaan → (bila ekspertise TERVALIDASI) Observation temuan → DiagnosticReport per order.
 //
-// - LOINC wajib (master.lab_test/lab_parameter/rad_catalog.loinc_code) — tanpa LOINC → dilewati + catatan.
+// - LOINC wajib (master.lab_test/lab_parameter/rad_catalog.loinc_code) — tanpa LOINC → Issue.
+// - S3 L16: kode lab harus ada di Lampiran LOINC Laboratorium resmi dengan kategori yang cocok
+//   (SR = Permintaan · Observation = Hasil; "Permintaan & Hasil" sah untuk keduanya) — selain itu Issue.
+//   DiagnosticReport.category per bagian lab (HM/CH/…, conceptMap LAB_REPORT_CATEGORY).
 // - Peta Observation lab = `<labOrderId>:<rowKey>` (stabil lintas revisi hasil "latest wins" → PUT, bukan duplikat).
 // - Order soft-deleted yang pernah terkirim → entered-in-error (SR & DR).
+// - `sections` = SR/Observation/DR aktif untuk Composition (lab / rad).
 
 import "server-only";
 import type { SatuSehatMode } from "@/lib/fhir/fhirShared";
@@ -12,6 +16,9 @@ import {
   toFhirDiagnosticReport, toFhirLabObservation, toFhirRadObservation, toFhirServiceRequest,
   type DiagRefs, type Loinc,
 } from "@/lib/fhir/adapters/diagnostic";
+import { addSectionRef, type ResumeSection } from "@/lib/fhir/adapters/composition";
+import { LAB_REPORT_CATEGORY, LAB_REPORT_CATEGORY_UMUM, lookup } from "@/lib/fhir/conceptMap";
+import { cekKodeLab, kategoriKodeLabOf } from "@/lib/fhir/links/labTerminologi";
 import { diagnosaUtamaOf } from "@/lib/fhir/links/diagnosa";
 import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
 import * as src from "@/lib/dal/fhir/diagnosticSourceDal";
@@ -46,7 +53,7 @@ export async function syncDiagnostic(
   snap: Pick<EncounterSnapshot, "lab" | "rad" | "diagnosa">,
   ctx: { env: SatuSehatMode; refs: DiagRefs; sink: ResourceSink },
 ): Promise<Outcome> {
-  const out: Outcome = { refs: [], failures: [], issues: [] };
+  const out: Outcome = { refs: [], failures: [], issues: [], sections: {} };
   const { lab, rad, diagnosa } = snap;
   if (!lab.length && !rad.length) return out;
 
@@ -70,6 +77,10 @@ export async function syncDiagnostic(
   const radById = new Map(radCat.map((c) => [c.id, c]));
   const pegawaiOfUser = new Map(userPeg.map((u) => [u.id, u.pegawaiId]));
 
+  // Gerbang terminologi lab resmi (L16): kategori Permintaan/Hasil semua kode LOINC tes & parameter.
+  const kodeLab = [...new Set([...tests, ...params].map((x) => x.loincCode?.trim()).filter((x): x is string => !!x))];
+  const kategoriKode = kategoriKodeLabOf(await src.listTerminologiLabKategori(kodeLab));
+
   const pegawaiIds = [...new Set([
     ...[...lab, ...rad].map((o) => o.authorPegawaiId),
     ...[...lab, ...rad].map((o) => o.results[0]?.authorPegawaiId),
@@ -86,10 +97,14 @@ export async function syncDiagnostic(
 
   const reason = diagnosaUtamaOf(diagnosa);
 
-  const record = (resourceType: string, localId: string, r: UpsertResult | null): string | undefined => {
+  /** Catat hasil kirim; resource aktif ikut section resume (lab/rad). */
+  const record = (
+    resourceType: string, localId: string, r: UpsertResult | null, section?: ResumeSection, deleted = false,
+  ): string | undefined => {
     if (!r) return undefined;
     if (r.ok) {
       out.refs.push({ resourceType, localId, ihsId: r.ihsId, op: r.op } satisfies SyncRef);
+      if (section && !deleted) addSectionRef(out.sections, section, resourceType, r.ihsId);
       return r.ihsId;
     }
     out.failures.push({ resourceType, localId, message: r.error.message, retryable: r.error.retryable });
@@ -106,13 +121,20 @@ export async function syncDiagnostic(
     const validated = !!result?.validatedAt && !deleted;
 
     for (const it of o.items) {
-      const loinc = loincOf(it.labTestId ? testById.get(it.labTestId) : undefined);
+      const test = it.labTestId ? testById.get(it.labTestId) : undefined;
+      const loinc = loincOf(test);
       if (!loinc) {
         if (!deleted) out.issues.push({ link: "L16", resourceType: "ServiceRequest", localId: it.id, code: "kode-kosong", message: `Tes lab "${it.namaTes}" belum ber-LOINC — ditahan` });
         continue;
       }
+      const gerbangSr = cekKodeLab(kategoriKode, loinc.code, "permintaan", { resourceType: "ServiceRequest", localId: it.id, nama: it.namaTes });
+      if (gerbangSr) {
+        if (!deleted) out.issues.push(gerbangSr);
+        continue;
+      }
       const srIhs = record("ServiceRequest", it.id, await send("ServiceRequest", it.id,
-        toFhirServiceRequest("lab", order, { id: it.id, nama: it.namaTes }, loinc, ctx.refs, { requester: pracOf(o.authorPegawaiId), reason }), deleted));
+        toFhirServiceRequest("lab", order, { id: it.id, nama: it.namaTes }, loinc, ctx.refs, { requester: pracOf(o.authorPegawaiId), reason }), deleted),
+        "lab", deleted);
       if (!srIhs || !validated || !result) continue;
 
       const issued = result.validatedAt!;
@@ -126,17 +148,23 @@ export async function syncDiagnostic(
           out.issues.push({ link: "L16", resourceType: "Observation", localId, code: "kode-kosong", message: `Parameter "${v.nama}" (${it.namaTes}) belum ber-LOINC — hasil ditahan` });
           continue;
         }
+        const gerbangObs = cekKodeLab(kategoriKode, pl.code, "hasil", { resourceType: "Observation", localId, nama: `${v.nama} (${it.namaTes})` });
+        if (gerbangObs) {
+          out.issues.push(gerbangObs);
+          continue;
+        }
         const ihs = record("Observation", localId, await send("Observation", localId, toFhirLabObservation(
           { nilai: v.nilai!.trim(), satuan: v.satuan, rujukanStr: v.rujukanStr, flag: v.flag, numerik: p?.tipeHasil !== "Kualitatif" },
           pl, ctx.refs, { serviceRequestIhsId: srIhs, issued, performer },
-        ), false));
+        ), false), "lab");
         if (ihs) obsIhs.push(ihs);
       }
 
       record("DiagnosticReport", it.id, await send("DiagnosticReport", it.id, toFhirDiagnosticReport("lab", it.id, loinc, ctx.refs, {
         deleted: false, issued, observationIhsIds: obsIhs, serviceRequestIhsIds: [srIhs],
         performer: validatorOf(result.validatorUserId) ?? performer, conclusion: result.catatanValidator,
-      }), false));
+        category: lookup(LAB_REPORT_CATEGORY, test?.kategori) ?? LAB_REPORT_CATEGORY_UMUM,
+      }), false), "lab");
     }
   }
 
@@ -155,7 +183,8 @@ export async function syncDiagnostic(
       }
       reportLoinc ??= loinc;
       const srIhs = record("ServiceRequest", it.id, await send("ServiceRequest", it.id,
-        toFhirServiceRequest("rad", order, { id: it.id, nama: it.nama }, loinc, ctx.refs, { requester: pracOf(o.authorPegawaiId), reason }), deleted));
+        toFhirServiceRequest("rad", order, { id: it.id, nama: it.nama }, loinc, ctx.refs, { requester: pracOf(o.authorPegawaiId), reason }), deleted),
+        "rad", deleted);
       if (srIhs) srIhsIds.push(srIhs);
     }
 
@@ -168,13 +197,13 @@ export async function syncDiagnostic(
     if (result.temuan?.trim()) {
       const localId = `${o.id}:temuan`;
       const ihs = record("Observation", localId, await send("Observation", localId,
-        toFhirRadObservation(result.temuan.trim(), reportLoinc, ctx.refs, { serviceRequestIhsIds: srIhsIds, issued, performer }), false));
+        toFhirRadObservation(result.temuan.trim(), reportLoinc, ctx.refs, { serviceRequestIhsIds: srIhsIds, issued, performer }), false), "rad");
       if (ihs) obsIhs.push(ihs);
     }
     const conclusion = [result.kesan?.trim(), result.saran?.trim() ? `Saran: ${result.saran.trim()}` : ""].filter(Boolean).join("\n");
     record("DiagnosticReport", o.id, await send("DiagnosticReport", o.id, toFhirDiagnosticReport("rad", o.id, reportLoinc, ctx.refs, {
       deleted: false, issued, observationIhsIds: obsIhs, serviceRequestIhsIds: srIhsIds, performer, conclusion: conclusion || null,
-    }), false));
+    }), false), "rad");
   }
 
   return out;

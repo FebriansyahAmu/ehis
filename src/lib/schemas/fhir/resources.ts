@@ -1,6 +1,7 @@
 // Kontrak konsol Resource & Kunjungan SatuSehat (FH9b). Dipakai route + FE (import type).
 
 import { z } from "zod";
+import type { Issue } from "@/lib/fhir/links/types";
 
 export const KUNJUNGAN_SYNC_FILTER = ["terkirim", "belum", "gagal", "antre"] as const;
 export const KUNJUNGAN_UNIT = ["IGD", "RawatJalan", "RawatInap"] as const;
@@ -131,7 +132,10 @@ export interface EncounterDetailDTO {
   skipReason: string | null;
   blockers: string[];
   infos: string[];
+  /** Teks ringkas item ditahan (= issues[].message) — dipertahankan untuk kompatibilitas. */
   notes: string[];
+  /** Item ditahan gerbang readiness per link (FLOW.md §4) — dipakai panel "Data ditahan" (FG-91). */
+  issues: Issue[];
   resources: EncounterResourceDTO[];
   /** Terpetakan di SatuSehat tapi tak lagi dibangun dari data terkini (sumber dihapus/diganti). */
   orphans: ResourceRowDTO[];

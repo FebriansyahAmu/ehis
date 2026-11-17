@@ -20,12 +20,15 @@ export function listProsedur(kunjunganId: string, tx?: Tx) {
   });
 }
 
-/** Tindakan ber-kode ICD-9-CM saja (tanpa kode tak bisa jadi Procedure terkode). */
-export function listTindakanBerkode(kunjunganId: string, tx?: Tx) {
+/**
+ * SEMUA tindakan (termasuk tanpa kode ICD-9-CM) — yang tanpa kode menjadi Issue L14 di konsol, bukan
+ * hilang diam-diam (FG-37). `kategori` = snapshot kategori katalog → `Procedure.category`.
+ */
+export function listTindakan(kunjunganId: string, tx?: Tx) {
   return db(tx).tindakanMedis.findMany({
-    where: { kunjunganId, kode: { not: "" } },
+    where: { kunjunganId },
     orderBy: { dilakukanPada: "asc" },
-    select: { id: true, kode: true, nama: true, authorPegawaiId: true, dilakukanPada: true, deletedAt: true },
+    select: { id: true, kode: true, nama: true, kategori: true, authorPegawaiId: true, dilakukanPada: true, deletedAt: true },
   });
 }
 
@@ -57,7 +60,7 @@ export function listAlergi(kunjunganId: string, tx?: Tx) {
     orderBy: { createdAt: "asc" },
     select: {
       id: true, category: true, allergen: true, reactions: true, severity: true, status: true, keterangan: true,
-      snomedCode: true, authorPegawaiId: true, createdAt: true, deletedAt: true,
+      snomedCode: true, bzaKode: true, authorPegawaiId: true, createdAt: true, deletedAt: true,
     },
   });
 }

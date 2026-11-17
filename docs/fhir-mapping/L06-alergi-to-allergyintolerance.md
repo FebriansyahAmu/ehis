@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | ⚠️ ada (FH4, `toFhirAllergy` di [clinical.ts](../../src/lib/fhir/adapters/clinical.ts)) — **sistem kode alergi obat salah** |
+| Status | 🟡 dikoreksi S3 2026-11-17 — obat = KFA 91 dari `bzaKode`, kode per kategori di [links/alergi.ts](../../src/lib/fhir/links/alergi.ts), tanpa kode = Issue · sisa: `reaction.manifestation` (#2, butuh kode item reaksi — S5) |
 | Kamar | **AllergyIntolerance** |
 | Playbook | RJ/IGD/RI §Anamnesis — Riwayat Alergi [V] |
 | Contoh resmi | RI: `kfa|91000299 Aspirin` (obat) · `sct|226963000 Duck - meat` (makanan) · `sct|128488006 House dust` (lingkungan) · RJ/IGD: `kfa|91000928 Barium Sulfate` |
@@ -42,6 +42,6 @@ Kode sesuai kategori ada (obat: `bzaKode`; lainnya: `snomedCode`) · recorder pu
 
 | # | Temuan | Tindakan |
 |---|---|---|
-| 1 | Alergi obat dikirim SNOMED | Pakai `bzaKode` (KFA 91…) untuk category `medication` |
+| 1 | ✅ S3 — Alergi obat dikirim SNOMED | Pakai `bzaKode` (KFA 91…) untuk category `medication` |
 | 2 | `reaction.manifestation` tidak dikirim (FG-42) | Simpan kode item reaksi (bukan nama) → SNOMED dari katalog |
-| 3 | Alergi tanpa kode dilewati diam-diam (FG-36) | Ubah jadi status "belum siap" + alasan di konsol |
+| 3 | ✅ S3 — Alergi tanpa kode dilewati diam-diam (FG-36) | Ubah jadi status "belum siap" + alasan di konsol |

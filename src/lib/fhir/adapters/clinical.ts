@@ -1,11 +1,12 @@
 /**
- * Adapter rekam medis → FHIR klinis inti (FH4): Condition (ICD-10) · Procedure (ICD-9-CM) ·
- * Observation tanda vital (LOINC/UCUM) · AllergyIntolerance (SNOMED-CT). Fungsi murni.
+ * Adapter rekam medis → FHIR klinis inti (FH4): Condition (ICD-10) · Procedure (ICD-9-CM + category SNOMED) ·
+ * Observation tanda vital (LOINC/UCUM, tanpa nyeri/GCS) · AllergyIntolerance (obat: KFA 91 · lainnya: SNOMED).
+ * Fungsi murni. Koreksi kamar S3: docs/fhir-mapping/L06 · L08 · L14.
  * Contoh resmi: docs/fhir-postman/resources/{Condition,Procedure,Observation,AllergyIntolerance}.json.
  */
 
 import { FHIR_SYSTEM, orgIdentifierSystem, toFhirDateTime, type FhirResourceBase } from "../fhirShared";
-import { ALLERGY_CATEGORY, CONDITION_VERIFICATION, lookup } from "../conceptMap";
+import { ALLERGY_CATEGORY, CONDITION_VERIFICATION, lookup, type Coding } from "../conceptMap";
 
 export interface ClinicalRefs {
   orgId: string;
@@ -58,23 +59,39 @@ export interface LocalProsedur {
 export function toFhirProcedure(
   p: LocalProsedur,
   r: ClinicalRefs,
-  extra: { performer?: Ref; reason?: { kode: string; nama: string } },
+  extra: {
+    performer?: Ref;
+    /** Kategori tindakan → SNOMED (PROCEDURE_CATEGORY); null/absen = tanpa category. */
+    category?: Coding | null;
+    /** Condition diagnosis Utama yang sudah terkirim → `reasonReference` (L14, lebih tepat dari teks). */
+    reasonCondition?: { ihsId: string; display: string };
+    /** Cadangan bila Condition Utama belum terkirim → `reasonCode` ICD-10. */
+    reason?: { kode: string; nama: string };
+  },
 ): FhirRes {
   return {
     resourceType: "Procedure",
     status: p.deleted ? "entered-in-error" : "completed",
+    ...(extra.category ? { category: { coding: [extra.category] } } : {}),
     code: { coding: [{ system: FHIR_SYSTEM.icd9cm, code: p.kode.trim(), display: p.nama }] },
     subject: subject(r),
     encounter: encounter(r),
     performedPeriod: { start: toFhirDateTime(p.waktu), end: toFhirDateTime(p.waktu) },
     ...(extra.performer ? { performer: [{ actor: { reference: `Practitioner/${extra.performer.ihsId}`, display: extra.performer.nama } }] } : {}),
-    ...(extra.reason ? { reasonCode: [{ coding: [{ system: FHIR_SYSTEM.icd10, code: extra.reason.kode, display: extra.reason.nama }] }] } : {}),
+    ...(extra.reasonCondition
+      ? { reasonReference: [{ reference: `Condition/${extra.reasonCondition.ihsId}`, display: extra.reasonCondition.display }] }
+      : extra.reason
+        ? { reasonCode: [{ coding: [{ system: FHIR_SYSTEM.icd10, code: extra.reason.kode, display: extra.reason.nama }] }] }
+        : {}),
     ...(p.catatan ? { note: [{ text: p.catatan }] } : {}),
   };
 }
 
 // ── Observation (tanda vital) ───────────────────────────────
 
+// L08 (S3): GCS & skala nyeri DIKELUARKAN dari vital-signs — salah kamar (GCS = exam/kesadaran L09, di luar
+// playbook D5; nyeri = asesmen nyeri category survey L11). SpO₂ tetap (kode HL7 vital-signs valid; D5 belum
+// diputuskan). docs/fhir-mapping/L08-ttv-to-observation.md.
 export interface LocalTtv {
   tdSistolik: number;
   tdDiastolik: number;
@@ -82,10 +99,6 @@ export interface LocalTtv {
   respirasi: number;
   suhu: number;
   spo2: number;
-  gcsEye: number;
-  gcsVerbal: number;
-  gcsMotor: number;
-  skalaNyeri: number;
   beratBadan: number | null;
   tinggiBadan: number | null;
   waktuObservasi: Date;
@@ -108,17 +121,18 @@ const VITALS: VitalDef[] = [
   { key: "rr", loinc: "9279-1", display: "Respiratory rate", unit: "breaths/minute", ucum: "/min", value: (t) => t.respirasi },
   { key: "temp", loinc: "8310-5", display: "Body temperature", unit: "C", ucum: "Cel", value: (t) => t.suhu },
   { key: "spo2", loinc: "59408-5", display: "Oxygen saturation in Arterial blood by Pulse oximetry", unit: "%", ucum: "%", value: (t) => t.spo2 },
-  { key: "gcs", loinc: "9269-2", display: "Glasgow coma score total", unit: "{score}", ucum: "{score}", value: (t) => t.gcsEye + t.gcsVerbal + t.gcsMotor },
-  { key: "pain", loinc: "72514-3", display: "Pain severity - 0-10 verbal numeric rating [Score] - Reported", unit: "{score}", ucum: "{score}", value: (t) => t.skalaNyeri },
   { key: "bw", loinc: "29463-7", display: "Body weight", unit: "kg", ucum: "kg", value: (t) => t.beratBadan },
   { key: "bh", loinc: "8302-2", display: "Body height", unit: "cm", ucum: "cm", value: (t) => t.tinggiBadan },
 ];
+
+/** Nilai ≤ 0 / non-angka = TIDAK DIISI (form TTV menyimpan 0 sebagai default) — tak satu parameter di atas bisa 0. */
+const terisi = (v: number | null): v is number => v != null && Number.isFinite(v) && v > 0;
 
 export function toFhirVitalObservations(t: LocalTtv, r: ClinicalRefs, performer?: Ref): { key: string; resource: FhirRes }[] {
   const when = toFhirDateTime(t.waktuObservasi);
   return VITALS.flatMap((v) => {
     const value = v.value(t);
-    if (value == null || !Number.isFinite(value)) return [];
+    if (!terisi(value)) return [];
     return [{
       key: v.key,
       resource: {
@@ -147,12 +161,15 @@ export interface LocalAlergi {
   severity: string; // Ringan/Sedang/Berat
   status: string; // Terkonfirmasi/Dicurigai
   keterangan: string | null;
-  snomedCode: string;
   createdAt: Date;
   deleted: boolean;
 }
 
-export function toFhirAllergy(a: LocalAlergi, r: ClinicalRefs, recorder?: Ref): FhirRes {
+/**
+ * L06: `code` sudah dipilih per kategori oleh `alergiKodeOf` (links/alergi.ts) — obat = KFA zat aktif `91…`
+ * (system kfa, contoh resmi), makanan/lingkungan = SNOMED.
+ */
+export function toFhirAllergy(a: LocalAlergi, code: Coding, r: ClinicalRefs, recorder?: Ref): FhirRes {
   const verif = a.deleted
     ? { code: "entered-in-error", display: "Entered in Error" }
     : a.status === "Dicurigai"
@@ -166,7 +183,7 @@ export function toFhirAllergy(a: LocalAlergi, r: ClinicalRefs, recorder?: Ref): 
     verificationStatus: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/allergyintolerance-verification", ...verif }] },
     category: [lookup(ALLERGY_CATEGORY, a.category) ?? "environment"],
     criticality: a.severity === "Berat" ? "high" : "low",
-    code: { coding: [{ system: FHIR_SYSTEM.snomed, code: a.snomedCode, display: a.allergen }], text },
+    code: { coding: [code], text },
     patient: subject(r),
     encounter: encounter(r),
     recordedDate: toFhirDateTime(a.createdAt),

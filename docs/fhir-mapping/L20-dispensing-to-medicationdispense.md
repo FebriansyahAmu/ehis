@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | ⚠️ ada (FH5) — pola Medication (D6), qty per item, batch |
+| Status | 🟡 pola Medication per paket + wajib KFA 93 ✅ S3 2026-11-17 (D6) · sisa: qty per item (FG-50), batch/ED dari Inventory, obat kronis 7/23 hari |
 | Kamar | **MedicationDispense** + **Medication** (`93…`, contained atau entry Bundle) |
 | Playbook | RJ/IGD/RI §Pengeluaran Obat [V] |
 | Contoh resmi | Bundle: `Medication` (`{{Medication_forDispense}}`) → `MedicationDispense(completed) cat=[outpatient|inpatient]` |
