@@ -34,10 +34,26 @@ Contoh resmi memakai `HM` (hematologi) & `CH` (kimia), sedangkan adapter sekaran
 semua. Usulan peta (cek terhadap 10 kategori lab EHIS): Hematologi→`HM` · Kimia klinik→`CH` · Mikrobiologi→`MB` ·
 Serologi/Imunologi→`SR`/`IMM` · lainnya→`LAB`.
 
+## Terminologi resmi (keputusan 2026-11-17: pakai Lampiran LOINC Laboratorium SatuSehat, bukan LOINC penuh)
+
+Tabel `master.terminologi_lab` (6.532 baris · 3.294 kode · 5 lampiran: Patologi Klinik bag. 1 v1.1 & bag. 2 v1.2,
+Patologi Anatomi, Mikrobiologi Klinik, Parasitologi Klinik) + `master.terminologi_lab_jawaban` (5.177 jawaban berkode),
+model [terminologiLab.prisma](../../prisma/schema/terminologiLab.prisma), seed
+[seed-terminologi-lab.mts](../../prisma/scripts/seed-terminologi-lab.mts) dari file lokal `docs/terminologi/loinc-lab/`
+(tidak di-commit).
+
+| Dipakai untuk | Aturan |
+|---|---|
+| Picker LOINC di Katalog Lab | Cari `nama_pemeriksaan`/`display`; admin memilih — kecocokan nama hanya **saran** (uji 2026-11-17: 42/88 parameter cocok persis, 63/88 mengandung) |
+| `ServiceRequest.code` | Kode harus punya baris `permintaan_hasil` ∈ {Permintaan, Permintaan & Hasil} |
+| `Observation.code` | Kode harus punya baris `permintaan_hasil` ∈ {Hasil, Permintaan & Hasil} |
+| `Observation.valueCodeableConcept` (Nominal/Ordinal) | Jawaban dari `terminologi_lab_jawaban` untuk kode tsb. (mis. Positive `LA6576-8`) |
+| Kode tanpa padanan LOINC | Kode pemeriksaan Kemenkes (`X…`, `PA…`, `PR…`) system `http://terminology.kemkes.go.id/CodeSystem/examination` — sah dipakai |
+
 ## Gerbang pra-kirim
 
 LOINC terisi di master untuk tes **dan** setiap parameter (FG-52; tanpa LOINC = belum siap, jangan pakai kode
-lokal) · satuan valid UCUM (FG-55) · validator punya IHS · `DiagnosticReport.specimen*` wajib → selama Specimen ⛔,
+lokal) · kode ada di `master.terminologi_lab` dengan kategori Permintaan/Hasil yang sesuai resource · satuan valid UCUM (FG-55) · validator punya IHS · `DiagnosticReport.specimen*` wajib → selama Specimen ⛔,
 paket lab tidak lolos gerbang untuk profil yang mewajibkannya → **verifikasi sandbox** apakah DR tanpa specimen ditolak.
 
 ## Jangan salah kamar

@@ -51,3 +51,6 @@ next-env.d.ts
 
 # kamus SNOMED CT dari Kemenkes (lisensi SNOMED + ±157 MB) — di-seed lokal via prisma/scripts/seed-snomed.mts
 /docs/snomend_ct.sql
+
+# lampiran terminologi resmi SatuSehat (LOINC lab, dst.) — unduhan lokal, di-seed via prisma/scripts/seed-*.mts
+/docs/terminologi/

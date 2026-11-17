@@ -94,7 +94,7 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 | # | Keputusan | Usulan | Link |
 |---|---|---|---|
 | D1 | Arsitektur mapping | Mapper TS murni per link + ConceptMap + gerbang; **bukan** stored procedure | [ARSITEKTUR](ARSITEKTUR.md) |
-| D2 | Triase P1–P4 → CTAS 5 level (`75910-0`) | P1→Resusitasi · P2→Emergensi · P3→Urgent · P4→Less Urgent (perlu konfirmasi klinis; DOA terpisah) | L02 |
+| D2 | Triase → CTAS 6 nilai (`75910-0`) | ⏸ **Ditunda (keputusan user 2026-11-17)** — L02 tidak dikerjakan dulu. Usulan tersimpan di L02: kode dari level protokol paling gawat (1:1 CTAS), dicek terhadap pita warna P1–P4; P4 Hitam ≠ otomatis DOA | L02 |
 | D3 | Sumber tingkat kesadaran | IGD: `Triase.avpu` (padanan langsung). TTV: `statusKesadaran` dipetakan, **"Apatis" belum punya padanan** → butuh keputusan klinis | L09 |
 | D4 | Keluhan utama wajib berkode SNOMED | Tambah **picker SNOMED (subset keluhan umum)** di Anamnesis/Triase; teks bebas tetap di `text` | L03 |
 | D5 | GCS, SpO₂, Barthel, Braden (di luar playbook) | Tahan sampai uji sandbox; jangan masuk Bundle atomik dulu (1 tolak = 1 kunjungan gagal, FG-61) | L08 · L12 |
@@ -103,7 +103,7 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 | D8 | IGD/RJ → Rawat Inap | `dischargeDisposition` tak punya kode "rawat inap" → kirim ServiceRequest `737481003` + SPRI; Encounter RI `basedOn` SPRI (FG-34) | L24 · L25 |
 | D9 | Format waktu | Kirim UTC `+00:00` sesuai playbook (sekarang `+07:00`) | semua |
 | D10 | "Cara Masuk" Triase mencampur mobilisasi & transportasi | Tambah field **Sarana Transportasi** (Ambulans/Mobil/Motor/Lain-lain) | L02 |
-| D11 | Kondisi pulang EHIS (Baik/Sedang/Buruk/Kritis) ≠ playbook (Stabil/Tidak stabil/Perbaikan) | Ganti pilihan form ke 3 nilai playbook (atau peta yang disetujui klinis) | L24 |
+| D11 | Kondisi pulang EHIS (Baik/Sedang/Buruk/Kritis) ≠ playbook (Stabil/Tidak stabil/Perbaikan) | ✅ **Diputuskan 2026-11-17:** form EHIS **tetap** (Baik/Sedang/Buruk/Kritis); disesuaikan ke kode SatuSehat lewat ConceptMap saat kirim | L24 |
 | D12 | Head-to-toe EHIS 11 sistem ≠ 28 bagian playbook | Kirim 5 sistem yang padan dulu; pecah field bertahap | L10 |
 | D13 | Braden → skrining dekubitus (`285304000` boolean) | Ambang skor ditetapkan klinis sebelum diturunkan | L12 |
 | D14 | Order rad multi-pemeriksaan, ekspertise 1 laporan | SR per item; Observation+DR hanya untuk order 1 pemeriksaan | L17 |

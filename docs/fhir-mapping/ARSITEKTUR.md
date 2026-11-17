@@ -106,6 +106,18 @@ SNOMED (L03/L04/L05/L06/L15) dan cek "kode ada di kamus" di gerbang pra-kirim. I
   dijaga lewat **subset terkurasi** (katalog asesmen berisi kode yang dipilih admin), bukan filter otomatis.
 - Ganti dengan rilis SNOMED terbaru bila tersedia (skrip seed sama, cukup ganti `SNOMED_SQL_FILE`).
 
+**Terminologi Lab resmi SatuSehat (2026-11-17):** LOINC **tidak** di-seed penuh (±100 rb kode, hampir tak terpakai).
+Yang di-seed = **Lampiran LOINC Laboratorium SatuSehat** → `master.terminologi_lab` + `master.terminologi_lab_jawaban`
+(detail & aturan di [L16](L16-lab-to-diagnostic.md)). Kode LOINC tetap dari playbook (tanda vital, Morse, section
+Composition, …) cukup konstanta di ConceptMap.
+
+| Terminologi | Di-seed? | Alasan |
+|---|---|---|
+| SNOMED (sementara, dump Kemenkes) | ✅ | Dipilih klinisi saat entry, ruang kode luas |
+| Lampiran LOINC Lab SatuSehat | ✅ | Kategori Permintaan/Hasil + answer list = aturan resmi gerbang L16 |
+| LOINC penuh | ❌ | Kode lab dipilih sekali per item katalog; sisanya konstanta playbook |
+| KPTL / pemetaan ICD-9-CM↔KPTL | belum | Kandidat berikutnya (L14/L16) — lampiran resmi tersedia di docs SatuSehat |
+
 ## 6. Gerbang kualitas data (3 lapis)
 
 1. **Di sumber (saat entry)** — Zod di Service + `CHECK`/`NOT NULL` di DB untuk kolom kode; picker katalog, bukan ketik bebas, untuk elemen yang wajib berkode.

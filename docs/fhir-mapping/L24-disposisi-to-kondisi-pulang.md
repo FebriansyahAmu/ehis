@@ -35,17 +35,19 @@ kunjungan **ini** (IGD/RI). Kunjungan RI dari IGD: verifikasi apakah 48 jam dihi
 | `subject*` · `encounter*` | ✅ |
 | `recordedDate` | `waktuKeluar` |
 
-**ConceptMap kondisiUmum (D11 — EHIS memakai skala berbeda):**
+**ConceptMap kondisiUmum (D11 ✅ diputuskan 2026-11-17):** form EHIS **tetap** memakai Baik/Sedang/Buruk/Kritis;
+nilai disesuaikan ke kode SatuSehat **saat kirim** (konstanta ber-tipe di `conceptMap.ts`, exhaustive).
 
-| EHIS | Usulan | Catatan |
+| EHIS (`Disposisi.kondisiUmum`) | SNOMED dikirim | `code.text` |
 |---|---|---|
-| Baik | `359746009` Stabil | atau `268910001` Perbaikan — butuh keputusan klinis |
-| Sedang | `359746009` Stabil | |
-| Buruk | `162668006` Tidak stabil | |
-| Kritis | `162668006` Tidak stabil | |
+| Baik | `359746009` Patient's condition stable | "Kondisi umum: Baik" |
+| Sedang | `359746009` Patient's condition stable | "Kondisi umum: Sedang" |
+| Buruk | `162668006` Patient's condition unstable | "Kondisi umum: Buruk" |
+| Kritis | `162668006` Patient's condition unstable | "Kondisi umum: Kritis" |
 
-Lebih rapi: ganti pilihan form disposisi ke **3 nilai playbook** (Stabil/Tidak stabil/Perbaikan) agar tidak ada peta tebakan.
-Disposisi `Meninggal` → **tanpa** Condition kondisi (cukup `exp-*`).
+- Nilai lokal asli selalu ikut di `code.text` → tetap terlacak walau 4 nilai dipetakan ke 2 kode.
+- `268910001` Perbaikan **tidak dipakai**: itu tren (dibanding kondisi masuk), tidak bisa diturunkan dari satu nilai kondisi umum.
+- Disposisi `Meninggal` → **tanpa** Condition kondisi (cukup `exp-*`).
 
 `localId` = `<disposisiId>:kondisi`. Disposisi dihapus (Batal Selesai) → Condition `entered-in-error`.
 

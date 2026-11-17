@@ -1,0 +1,70 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  MASTER: Terminologi Laboratorium resmi SatuSehat (Lampiran LOINC Laboratorium)
+//  (Postgres schema "master")
+//  Sumber: 5 file lampiran resmi (Patologi Klinik bag. 1 & 2, Patologi Anatomi, Mikrobiologi Klinik,
+//  Parasitologi Klinik) dari satusehat.kemkes.go.id/platform/docs/id/terminology/loinc/laboratory/ —
+//  diunduh lokal ke docs/terminologi/loinc-lab/ (TIDAK di-commit), di-seed oleh
+//  prisma/scripts/seed-terminologi-lab.mts (TRUNCATE + load, idempoten).
+//
+//  Dipakai untuk: picker LOINC di Katalog Lab (FG-52) + gerbang pra-kirim L16 — kode ServiceRequest
+//  wajib berkategori "Permintaan"/"Permintaan & Hasil", kode Observation "Hasil"/"Permintaan & Hasil";
+//  jawaban berkode (Nominal/Ordinal) untuk Observation.valueCodeableConcept.
+//  Satu kode bisa muncul di beberapa baris (beda nama lokal/spesimen/metode/sumber) → tanpa unique per kode.
+//  Reference data → tanpa FK, tanpa optimistic-version.
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Satu baris lampiran: pemeriksaan/parameter lokal ↔ kode LOINC (atau kode pemeriksaan Kemenkes).
+model TerminologiLab {
+  id              BigInt  @id @default(autoincrement())
+  /// PK1 · PK2 · PA · MK · PAR (file lampiran asal)
+  sumber          String
+  sumberVersi     String? @map("sumber_versi")
+  /// Nomor baris data di sheet (1-based) — kunci idempoten bersama `sumber`.
+  baris           Int
+  kategori        String?
+  namaPemeriksaan String  @map("nama_pemeriksaan")
+  /// Permintaan | Hasil | Permintaan & Hasil (dinormalkan)
+  permintaanHasil String? @map("permintaan_hasil")
+  spesimen        String?
+  /// Nominal | Ordinal | Quantitative | OrdQn | Narrative | SemiQuantitative | Qualitative (dinormalkan)
+  tipeHasil       String? @map("tipe_hasil")
+  satuan          String?
+  metode          String?
+  /// Kode LOINC (`nnnnn-n`, check digit tervalidasi) atau kode pemeriksaan Kemenkes.
+  code            String
+  codeSystem      String  @map("code_system")
+  /// LOINC Long Common Name / nama kode Kemenkes.
+  display         String?
+  component       String?
+  property        String?
+  timing          String?
+  /// Sumbu LOINC "System" (jenis spesimen LOINC).
+  loincSystem     String? @map("loinc_system")
+  scale           String?
+  loincMethod     String? @map("loinc_method")
+  ucum            String?
+
+  @@unique([sumber, baris])
+  @@index([code])
+  @@map("terminologi_lab")
+  @@schema("master")
+}
+
+/// Jawaban berkode untuk pemeriksaan Nominal/Ordinal (Answer List lampiran).
+model TerminologiLabJawaban {
+  id            BigInt  @id @default(autoincrement())
+  sumber        String
+  /// Kode pemeriksaan (LOINC) yang ditanyakan.
+  kodePemeriksaan String @map("kode_pemeriksaan")
+  /// Kode jawaban (LOINC `LA…`, SNOMED, atau kode Kemenkes).
+  code          String
+  display       String
+  codeSystem    String  @map("code_system")
+  urutan        Int?
+  keterangan    String?
+
+  @@unique([sumber, kodePemeriksaan, code])
+  @@index([kodePemeriksaan])
+  @@map("terminologi_lab_jawaban")
+  @@schema("master")
+}
