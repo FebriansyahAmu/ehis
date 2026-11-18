@@ -17,7 +17,7 @@ export async function loadEncounterSnapshot(kunjunganId: string) {
   const [
     diagnosa, prosedur, tindakan, ttv, alergi, triase, penilaianSkala, resep, mar, lab, rad, resume, anamnesis, triaseWaktu,
     carePlan, dischargeAsesmen, edukasi, jadwalKontrol, konsultasi, rujukan, spri, rsKontak,
-    penyakitDahulu, penyakitKeluarga, pemeriksaanFisik, katalogRiwayat,
+    penyakitDahulu, penyakitKeluarga, pemeriksaanFisik, katalogRiwayat, riwayatObat,
   ] = await Promise.all([
     clinicalSrc.listDiagnosa(kunjunganId),
     clinicalSrc.listProsedur(kunjunganId),
@@ -48,12 +48,13 @@ export async function loadEncounterSnapshot(kunjunganId: string) {
     anamnesisSrc.listPenyakitKeluarga(kunjunganId), // L05 riwayat penyakit keluarga
     anamnesisSrc.listPemeriksaanFisik(kunjunganId), // L10 head-to-toe
     anamnesisSrc.listKatalogRiwayat(), // SNOMED katalog riwayat (D7)
+    anamnesisSrc.listRiwayatObat(kunjunganId), // L07 riwayat pengobatan (+ KFA master)
   ]);
   return {
     kunjunganId, diagnosa, prosedur, tindakan, ttv, alergi, triase, penilaianSkala, resep, mar, lab, rad, resume, anamnesis,
     triaseWaktu,
     carePlan, dischargeAsesmen, edukasi, jadwalKontrol, konsultasi, rujukan, spri, rsKontak,
-    penyakitDahulu, penyakitKeluarga, pemeriksaanFisik, katalogRiwayat,
+    penyakitDahulu, penyakitKeluarga, pemeriksaanFisik, katalogRiwayat, riwayatObat,
   };
 }
 

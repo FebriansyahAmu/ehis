@@ -14,7 +14,8 @@ import { cn } from "@/lib/utils";
 import EdukasiPane from "@/components/igd/tabs/EdukasiPane";
 import GiziPane    from "@/components/shared/asesmen/GiziPane";
 import ConfirmDialog from "@/components/master/ruangan/ConfirmDialog";
-import { RUTE_OBAT } from "@/components/shared/asesmen/asesmenShared";
+import RiwayatObatEditor from "@/components/shared/asesmen/riwayatObat/RiwayatObatEditor";
+import { dtoToRiwayatObat, emptyRiwayatObat, riwayatObatToInput, type RiwayatObatEntry } from "@/components/shared/asesmen/riwayatObat/riwayatObatShared";
 import { AsesmenKatalogProvider, useAsesmenKatalog } from "@/components/shared/asesmen/asesmenKatalogContext";
 import { getAnamnesis, saveAnamnesis, type AnamnesisDTO } from "@/lib/api/asesmenMedis/anamnesis";
 import { getPenyakitDahulu, savePenyakitDahulu } from "@/lib/api/asesmenMedis/asesmenPenyakitDahulu";
@@ -641,23 +642,16 @@ function PenyakitDahuluPane({ patient, onSaved }: { patient: IGDPatientDetail; o
   );
 }
 
-interface ObatEntry { id: string; nama: string; dosis: string; frekuensi: string; rute: string; sejak: string; indikasi: string; }
-
-const EMPTY_OBAT = (): ObatEntry => ({ id: `ob-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, nama: "", dosis: "", frekuensi: "", rute: "Oral", sejak: "", indikasi: "" });
-
+// Riwayat obat: editor bersama RI/RJ — nama obat = combobox rekomendasi formularium (tertaut → kode KFA, FHIR L07).
 function PemberianObatPane({ patient, onSaved }: { patient: IGDPatientDetail; onSaved?: () => void }) {
   const { session } = useSession();
   const isPersisted = ANAMNESIS_UUID_RE.test(patient.id);
 
-  const [obats, setObats] = useState<ObatEntry[]>([{ id: "ob-1", nama: "", dosis: "", frekuensi: "", rute: "Oral", sejak: "", indikasi: "" }]);
+  const [obats, setObats] = useState<RiwayatObatEntry[]>(() => [emptyRiwayatObat()]);
   const [loading, setLoading] = useState(isPersisted);
   const [saving, setSaving]   = useState(false);
   const [error, setError]     = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
-
-  const add = () => setObats(p => [...p, EMPTY_OBAT()]);
-  const rem = (id: string) => setObats(p => p.filter(e => e.id !== id));
-  const upd = (id: string, k: keyof ObatEntry, v: string) => setObats(p => p.map(e => e.id === id ? { ...e, [k]: v } : e));
 
   // Muat daftar obat terbaru dari DB (kunjungan nyata).
   useEffect(() => {
@@ -669,10 +663,7 @@ function PemberianObatPane({ patient, onSaved }: { patient: IGDPatientDetail; on
         const dto = await getObat(patient.id, ac.signal);
         if (ac.signal.aborted) return;
         if (dto && dto.items.length) {
-          setObats(dto.items.map(it => ({
-            id: it.id, nama: it.nama, dosis: it.dosis ?? "", frekuensi: it.frekuensi ?? "",
-            rute: it.rute ?? "Oral", sejak: it.sejak ?? "", indikasi: it.indikasi ?? "",
-          })));
+          setObats(dtoToRiwayatObat(dto));
           setSavedAt(dto.createdAt);
           onSaved?.(); // data sudah tersimpan → tandai Riwayat selesai (persisten lintas refresh)
         }
@@ -689,15 +680,10 @@ function PemberianObatPane({ patient, onSaved }: { patient: IGDPatientDetail; on
   async function handleSave() {
     if (saving) return;
     if (!isPersisted) { setError("Pasien demo — data tidak tersimpan ke database."); return; }
-    const items = obats.filter(o => o.nama.trim()).map(o => ({
-      nama: o.nama, dosis: o.dosis, frekuensi: o.frekuensi, rute: o.rute, sejak: o.sejak, indikasi: o.indikasi,
-    }));
     setSaving(true); setError(null);
     try {
-      const dto = await saveObat(patient.id, { items });
-      setObats(dto.items.length
-        ? dto.items.map(it => ({ id: it.id, nama: it.nama, dosis: it.dosis ?? "", frekuensi: it.frekuensi ?? "", rute: it.rute ?? "Oral", sejak: it.sejak ?? "", indikasi: it.indikasi ?? "" }))
-        : [EMPTY_OBAT()]);
+      const dto = await saveObat(patient.id, riwayatObatToInput(obats));
+      setObats(dtoToRiwayatObat(dto)); // tautan yang ditolak server ikut terlihat lepas
       setSavedAt(dto.createdAt);
       toast.success("Riwayat obat tersimpan", `${patient.name} · ${dto.items.length} obat tercatat.`);
       onSaved?.();
@@ -716,50 +702,7 @@ function PemberianObatPane({ patient, onSaved }: { patient: IGDPatientDetail; on
         </div>
       )}
       <Block title="Daftar Obat yang Sedang / Pernah Diminum">
-        <div className="flex flex-col gap-3">
-          {obats.map((ob, i) => (
-            <div key={ob.id} className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500">Obat #{i + 1}</span>
-                {obats.length > 1 && (
-                  <button type="button" onClick={() => rem(ob.id)} className="cursor-pointer rounded-md p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-500"><X size={14} /></button>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <div className="sm:col-span-2">
-                  <Label>Nama Obat</Label>
-                  <input value={ob.nama} onChange={e => upd(ob.id, "nama", e.target.value)} placeholder="Nama generik / merek..." className={INPUT_CLS} />
-                </div>
-                <div>
-                  <Label>Dosis</Label>
-                  <input value={ob.dosis} onChange={e => upd(ob.id, "dosis", e.target.value)} placeholder="5 mg, 500 mg..." className={INPUT_CLS} />
-                </div>
-                <div>
-                  <Label>Frekuensi</Label>
-                  <input value={ob.frekuensi} onChange={e => upd(ob.id, "frekuensi", e.target.value)} placeholder="1×/hari, 3×/hari..." className={INPUT_CLS} />
-                </div>
-                <div>
-                  <Label>Rute</Label>
-                  <select value={ob.rute} onChange={e => upd(ob.id, "rute", e.target.value)} className={INPUT_CLS}>
-                    {RUTE_OBAT.map(r => <option key={r}>{r}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <Label>Sejak</Label>
-                  <input value={ob.sejak} onChange={e => upd(ob.id, "sejak", e.target.value)} placeholder="Jan 2024, ±6 bulan..." className={INPUT_CLS} />
-                </div>
-                <div className="sm:col-span-3">
-                  <Label>Indikasi</Label>
-                  <input value={ob.indikasi} onChange={e => upd(ob.id, "indikasi", e.target.value)} placeholder="Indikasi / keterangan penggunaan..." className={INPUT_CLS} />
-                </div>
-              </div>
-            </div>
-          ))}
-          <button type="button" onClick={add}
-            className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-2.5 text-xs font-medium text-slate-400 transition hover:border-sky-300 hover:text-sky-500">
-            <Plus size={15} /> Tambah Obat
-          </button>
-        </div>
+        <RiwayatObatEditor value={obats} onChange={setObats} />
       </Block>
       <SaveRwyFooter
         isPersisted={isPersisted} saving={saving} error={error} savedAt={savedAt}

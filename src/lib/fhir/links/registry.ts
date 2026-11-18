@@ -16,7 +16,7 @@ export const LINKS: readonly LinkMeta[] = [
   { id: "L04", name: "riwayatPenyakitToCondition", resourceTypes: ["Condition"], units: ALL, status: "aktif", doc: "L04-riwayat-penyakit-to-condition.md" }, // S4d (penyakit tanpa SNOMED katalog ditahan)
   { id: "L05", name: "riwayatKeluargaToFamilyMemberHistory", resourceTypes: ["FamilyMemberHistory"], units: ALL, status: "aktif", doc: "L05-riwayat-keluarga-to-familymemberhistory.md" }, // S4d
   { id: "L06", name: "alergiToAllergyIntolerance", resourceTypes: ["AllergyIntolerance"], units: ALL, status: "koreksi", doc: "L06-alergi-to-allergyintolerance.md" },
-  { id: "L07", name: "riwayatObatToMedicationStatement", resourceTypes: ["MedicationStatement"], units: ALL, status: "baru", doc: "L07-riwayat-obat-to-medicationstatement.md" },
+  { id: "L07", name: "riwayatObatToMedicationStatement", resourceTypes: ["MedicationStatement"], units: ALL, status: "aktif", doc: "L07-riwayat-obat-to-medicationstatement.md" }, // S5a (obat ketik bebas / tanpa KFA ditahan)
   { id: "L08", name: "ttvToObservation", resourceTypes: ["Observation"], units: ALL, status: "aktif", doc: "L08-ttv-to-observation.md" }, // S3
   { id: "L09", name: "kesadaranToObservation", resourceTypes: ["Observation"], units: ALL, status: "aktif", doc: "L09-kesadaran-to-observation.md" }, // S4 (Apatis ditahan D3)
   { id: "L10", name: "pemeriksaanFisikToObservation", resourceTypes: ["Observation"], units: ALL, status: "aktif", doc: "L10-pemeriksaan-fisik-to-observation.md" }, // S4d (5/11 sistem, sisanya ditahan D12)

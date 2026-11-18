@@ -42,7 +42,7 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 | [L04](L04-riwayat-penyakit-to-condition.md) | `riwayatPenyakitToCondition` | `AsesmenPenyakitDahulu` | **Condition** `previous-condition` | semua | 🟡 S4d (9/20 penyakit katalog ber-SNOMED, sisanya ditahan FG-127) |
 | [L05](L05-riwayat-keluarga-to-familymemberhistory.md) | `riwayatKeluargaToFamilyMemberHistory` | `AsesmenPenyakitKeluarga(+Item)` | **FamilyMemberHistory** | semua | 🟡 S4d (5/10 penyakit keluarga ber-SNOMED; relationship FAMMEMB FG-129) |
 | [L06](L06-alergi-to-allergyintolerance.md) | `alergiToAllergyIntolerance` | `AsesmenAlergi` | **AllergyIntolerance** | semua | 🟡 S3 (kode KFA 91 ✅; manifestasi reaksi S5) |
-| [L07](L07-riwayat-obat-to-medicationstatement.md) | `riwayatObatToMedicationStatement` | `AsesmenObat(+Item)` | **MedicationStatement** | semua | 📋 |
+| [L07](L07-riwayat-obat-to-medicationstatement.md) | `riwayatObatToMedicationStatement` | `AsesmenObat(+Item)` | **MedicationStatement** | semua | 🟡 S5a (rekomendasi formularium ber-KFA; ketik bebas / obat tanpa KFA ditahan FG-134) |
 | [L08](L08-ttv-to-observation.md) | `ttvToObservation` | `medicalrecord.Observation` (TTV) | **Observation** `vital-signs` | semua | ✅ S3 |
 | [L09](L09-kesadaran-to-observation.md) | `kesadaranToObservation` | `Triase.avpu` · `Observation.statusKesadaran` | **Observation** `exam` 67775-7 | semua | ✅ S4 (Apatis ditahan, D3) |
 | [L10](L10-pemeriksaan-fisik-to-observation.md) | `pemeriksaanFisikToObservation` | `PemeriksaanFisik.sistem` (head-to-toe) | **Observation** `exam` LOINC per bagian tubuh | semua | 🟡 S4d (5/11 sistem; sisanya ditahan D12, FG-131) |
@@ -100,7 +100,7 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 | D4 | Keluhan utama wajib berkode SNOMED | ✅ **Dikerjakan S2 (2026-11-17, atas usulan ini):** picker SNOMED di **Anamnesis** IGD/RI/RJ dari subset terkurasi master asesmen kategori **Keluhan Utama** (54 kode, admin dapat menambah); teks bebas tetap (→ `note`). Triase tidak diberi picker (L02 ditunda, D2) | L03 |
 | D5 | GCS, SpO₂, Barthel, Braden (di luar playbook) | Tahan sampai uji sandbox; jangan masuk Bundle atomik dulu (1 tolak = 1 kunjungan gagal, FG-61) — **S3: GCS & nyeri sudah dikeluarkan dari vital-signs (salah kamar); SpO₂ masih dikirim sampai D5 diputuskan** | L08 · L12 |
 | D6 | Pola Medication | ✅ **Dikerjakan S3 (2026-11-17):** ikuti playbook — **Medication per paket** (contained/entry bersama Request/Dispense), bukan 1 Medication per master obat | L18 · L20 |
-| D7 | Kode riwayat penyakit/keluarga/obat | Simpan **kode item katalog** (bukan nama) di record asesmen. ✅ **Disetujui & dikerjakan S4d (2026-11-18)** untuk riwayat penyakit/keluarga: kolom kode sejajar nama, diturunkan Service saat simpan; SNOMED milik katalog. Riwayat obat (L07) menyusul (picker KFA) | L04 · L05 · L07 |
+| D7 | Kode riwayat penyakit/keluarga/obat | Simpan **kode item katalog** (bukan nama) di record asesmen. ✅ **Disetujui & dikerjakan S4d (2026-11-18)** untuk riwayat penyakit/keluarga: kolom kode sejajar nama, diturunkan Service saat simpan; SNOMED milik katalog. Riwayat obat (L07) ✅ S5a: `obat_id` dipilih dari rekomendasi formularium, KFA dari master Obat | L04 · L05 · L07 |
 | D8 | IGD/RJ → Rawat Inap | `dischargeDisposition` tak punya kode "rawat inap" → kirim ServiceRequest `737481003` + SPRI; Encounter RI `basedOn` SPRI (FG-34). **S4c: kode SPRI sudah diverifikasi; SPRI ditahan sebagai Issue sampai diputuskan (FG-121)** | L24 · L25 |
 | D9 | Format waktu | Kirim UTC `+00:00` sesuai playbook (sekarang `+07:00`) | semua |
 | D10 | "Cara Masuk" Triase mencampur mobilisasi & transportasi | Tambah field **Sarana Transportasi** (Ambulans/Mobil/Motor/Lain-lain) | L02 |
@@ -120,7 +120,7 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 | Pilihan kondisi umum di form Pasien Pulang untuk Rujuk/APS (D17) | L24 | UI kecil |
 | ~~Simpan `kode` item katalog asesmen (bukan nama) di riwayat penyakit/keluarga~~ ✅ S4d — kolom `penyakit_kode`/`anggota_kode` diturunkan server (tanpa ubah form) | L04 · L05 | kolom |
 | Allergen obat → kode **KFA BZA (91…)** (`AsesmenAlergi.bzaKode` sudah ada) | L06 | adapter |
-| Riwayat obat pakai picker KFA (92/93) | L07 | UI + kolom |
+| ~~Riwayat obat pakai picker KFA (92/93)~~ ✅ S5a — combobox rekomendasi formularium + status (pencarian KFA nasional menunggu FH8) | L07 | UI + kolom |
 | ~~Kolom kode FHIR (LOINC/OC) di `master.SkalaInstrument`~~ ✅ S4 — kolom kunci `fhir_pemetaan` + dropdown "Pemetaan SatuSehat" di Master Skala | L11 · L12 | kolom master |
 | Waktu penilaian di form Asesmen Risiko (FG-108) · nilai awal TTV tidak disalin diam-diam (FG-109) | L08 · L09 · L11 · L12 | UI kecil |
 | Butir "Berat & tinggi badan" di checklist telaah Farmasi (FG-113) · dosis MAR terstruktur nilai + satuan (FG-117) | L19 · L21 | UI kecil |
@@ -135,6 +135,6 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 3. ✅ **Koreksi kamar yang sudah ada** — L08 (nyeri/GCS keluar dari vital-signs), L06 (KFA alergi obat), L14 (category), L26 (type per unit), L18/L20 (pola Medication).
 4. **Link baru bersumber siap** — per kelompok: ✅ **S4a Pemeriksaan** L09 · L11 · L12 · ✅ **S4b Obat** L19 · L21 ·
    ✅ **S4c Rencana & pulang** L22 · L23 · L25 · L15 · ✅ **S4d Anamnesis & fisik** L04 · L05 · L10. L02 ditunda (D2).
-5. **Link yang butuh perubahan entry** — L07 (picker KFA), lalu ⛔ ClinicalImpression/NutritionOrder bila diputuskan.
+5. **Link yang butuh perubahan entry** — ✅ **S5a L07** (picker rekomendasi + KFA), lalu ⛔ ClinicalImpression/NutritionOrder bila diputuskan.
 
 Setiap langkah = branch sendiri, DoD per [ENGINEERING-RULES](../ENGINEERING-RULES.md) (bila belum ada di `main`, lihat branch `chore/engineering-rules`).

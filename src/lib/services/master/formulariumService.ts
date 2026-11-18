@@ -53,7 +53,10 @@ export function makeFormulariumService(deps: { dal?: Dal } = {}) {
         if (!existing.ruanganKodes.includes(r.location.kode)) existing.ruanganKodes.push(r.location.kode);
         continue;
       }
-      const kfa = (o.kfa ?? null) as { zatAktif?: { kode?: string; display?: string }[] } | null;
+      const kfa = (o.kfa ?? null) as {
+        zatAktif?: { kode?: string; display?: string }[];
+        povKode?: string; povNama?: string; poaKode?: string; poaNama?: string;
+      } | null;
       const bza = (kfa?.zatAktif ?? [])
         .filter((z) => z.kode)
         .map((z) => ({ kode: z.kode as string, display: z.display ?? "" }));
@@ -71,6 +74,9 @@ export function makeFormulariumService(deps: { dal?: Dal } = {}) {
         efekSamping: o.efekSamping ?? null,
         hargaSatuan: o.hargaSatuan ?? null,
         bza,
+        kfaProduk: kfa && (kfa.povKode || kfa.poaKode)
+          ? { povKode: kfa.povKode, povNama: kfa.povNama, poaKode: kfa.poaKode, poaNama: kfa.poaNama }
+          : null,
         ruanganKodes: [r.location.kode],
       });
     }

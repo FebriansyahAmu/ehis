@@ -5,10 +5,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Plus, X, Check, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  type SmokingStatus, type ObatEntry, type KeluargaEntry,
+  type SmokingStatus, type KeluargaEntry,
   type RawatEntry, type BedahEntry, type PersalinanEntry,
   PENYAKIT_DAHULU_LIST, PENYAKIT_BERESIKO, PERILAKU_BERESIKO,
-  PENYAKIT_KELUARGA_LIST, ANGGOTA_KELUARGA, RUTE_OBAT,
+  PENYAKIT_KELUARGA_LIST, ANGGOTA_KELUARGA,
   METODE_KB, JENIS_PERSALINAN,
   type AsesmenPatientBase,
 } from "./asesmenShared";
@@ -22,6 +22,8 @@ import { getGinekologi, saveGinekologi } from "@/lib/api/asesmenMedis/asesmenGin
 import { getPerawatan, savePerawatan } from "@/lib/api/asesmenMedis/asesmenPerawatan";
 import { getObstetri, saveObstetri } from "@/lib/api/asesmenMedis/asesmenObstetri";
 import RiwayatSebelumnya from "./RiwayatSebelumnya";
+import RiwayatObatEditor from "./riwayatObat/RiwayatObatEditor";
+import { dtoToRiwayatObat, emptyRiwayatObat, riwayatObatToInput, type RiwayatObatEntry } from "./riwayatObat/riwayatObatShared";
 import {
   getRiwayatSebelumnya, type RiwayatDomainKey, type RiwayatSebelumnyaDTO,
 } from "@/lib/api/asesmenMedis/riwayatSebelumnya";
@@ -179,53 +181,28 @@ function PenyakitDahuluPane({ patient, kunjunganId, persisted, onSaved }: { pati
   );
 }
 
+// Riwayat obat: nama obat = combobox rekomendasi formularium (tertaut → kode KFA, FHIR L07) + status per obat.
 function PemberianObatPane({ kunjunganId, persisted, onSaved }: PaneProps) {
-  const [obats, setObats] = useState<ObatEntry[]>([{ id: "ob-1", nama: "", dosis: "", frekuensi: "", rute: "Oral", sejak: "", indikasi: "" }]);
+  const [obats, setObats] = useState<RiwayatObatEntry[]>(() => [emptyRiwayatObat()]);
   const st = useSaveState();
   useEffect(() => {
     if (!persisted) return;
     const ac = new AbortController();
     getObat(kunjunganId, ac.signal)
-      .then(d => {
-        if (ac.signal.aborted || !d || d.items.length === 0) return;
-        setObats(d.items.map(it => ({ id: it.id, nama: it.nama, dosis: it.dosis ?? "", frekuensi: it.frekuensi ?? "", rute: it.rute ?? "Oral", sejak: it.sejak ?? "", indikasi: it.indikasi ?? "" })));
-      })
-      .catch(e => { if (!isAbort(e)) { /* */ } });
+      .then(d => { if (!ac.signal.aborted && d && d.items.length) setObats(dtoToRiwayatObat(d)); })
+      .catch(e => { if (!isAbort(e)) { /* biarkan kosong */ } });
     return () => ac.abort();
   }, [kunjunganId, persisted]);
-  const add = () => setObats(p => [...p, { id: `ob-${Date.now()}`, nama: "", dosis: "", frekuensi: "", rute: "Oral", sejak: "", indikasi: "" }]);
-  const rem = (id: string) => setObats(p => p.filter(e => e.id !== id));
-  const upd = (id: string, k: keyof ObatEntry, v: string) => setObats(p => p.map(e => e.id === id ? { ...e, [k]: v } : e));
-  const onSave = () => st.run(() => saveObat(kunjunganId, {
-    items: obats.filter(o => o.nama.trim()).map(o => ({ nama: o.nama.trim(), dosis: u(o.dosis), frekuensi: u(o.frekuensi), rute: u(o.rute), sejak: u(o.sejak), indikasi: u(o.indikasi) })),
-  }), onSaved);
+  // Sesudah simpan, muat ulang dari respons: tautan yang ditolak server (obat tak dikenal) ikut terlihat lepas.
+  const onSave = () => st.run(async () => {
+    const d = await saveObat(kunjunganId, riwayatObatToInput(obats));
+    setObats(dtoToRiwayatObat(d));
+    return d;
+  }, onSaved);
   return (
     <div className="flex flex-col gap-4">
       <Block title="Daftar Obat yang Sedang / Pernah Diminum">
-        <div className="flex flex-col gap-3">
-          {obats.map((ob, i) => (
-            <div key={ob.id} className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500">Obat #{i + 1}</span>
-                {obats.length > 1 && (
-                  <button type="button" onClick={() => rem(ob.id)} className="cursor-pointer rounded-md p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-500"><X size={14} /></button>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <div className="sm:col-span-2"><Label>Nama Obat</Label><input value={ob.nama} onChange={e => upd(ob.id, "nama", e.target.value)} placeholder="Nama generik / merek..." className={INPUT_CLS} /></div>
-                <div><Label>Dosis</Label><input value={ob.dosis} onChange={e => upd(ob.id, "dosis", e.target.value)} placeholder="5 mg..." className={INPUT_CLS} /></div>
-                <div><Label>Frekuensi</Label><input value={ob.frekuensi} onChange={e => upd(ob.id, "frekuensi", e.target.value)} placeholder="1×/hari..." className={INPUT_CLS} /></div>
-                <div><Label>Rute</Label><select value={ob.rute} onChange={e => upd(ob.id, "rute", e.target.value)} className={INPUT_CLS}>{RUTE_OBAT.map(r => <option key={r}>{r}</option>)}</select></div>
-                <div><Label>Sejak</Label><input value={ob.sejak} onChange={e => upd(ob.id, "sejak", e.target.value)} placeholder="Jan 2024..." className={INPUT_CLS} /></div>
-                <div className="sm:col-span-3"><Label>Indikasi</Label><input value={ob.indikasi} onChange={e => upd(ob.id, "indikasi", e.target.value)} placeholder="Indikasi / keterangan..." className={INPUT_CLS} /></div>
-              </div>
-            </div>
-          ))}
-          <button type="button" onClick={add}
-            className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-2.5 text-xs font-medium text-slate-400 transition hover:border-sky-300 hover:text-sky-500">
-            <Plus size={15} /> Tambah Obat
-          </button>
-        </div>
+        <RiwayatObatEditor value={obats} onChange={setObats} />
       </Block>
       <SaveBtn persisted={persisted} state={st} onSave={onSave} />
     </div>

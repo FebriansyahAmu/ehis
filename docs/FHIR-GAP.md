@@ -336,3 +336,25 @@ Master Asesmen Katalog: isian SNOMED dibuka untuk Penyakit Dahulu/Keluarga (opsi
 | FG-131 | 🟡 | **6/11 sistem head-to-toe ditahan (D12)** — THT (Telinga/Hidung/Tenggorokan), Urogenital (playbook hanya Genital), Ekstremitas (lengan/tangan/tungkai/kaki/sendi) = `menunggu-keputusan`; Jantung · Neurologi · Kulit tidak ada di daftar 28 bagian playbook = `di-luar-playbook`. Bagian playbook tanpa field EHIS: Rambut, Bibir, Gigi, Lidah, Langit-langit, Tonsil, Payudara, Punggung, Anus. | Pecah field form mengikuti bagian playbook (D12 tahap 2). |
 | FG-132 | ⚪ | **Ketidakkonsistenan playbook head-to-toe** (belum berdampak — 5 sistem terkirim tidak memakai bodySite): kuku kaki SNOMED `770805009` (RJ/RI) vs `77085009` (IGD, kemungkinan salah ketik); SNOMED bagian (langit-langit, tonsil, anus, jari, kuku, sendi) di `code.coding` (RJ) vs `bodySite` (RI/IGD); RJ menulis `valueQuantity.value` bertipe String untuk semua baris (RI/IGD & contoh: `valueString`). | Ikuti contoh RI (`bodySite`, `valueString`) saat field dipecah. |
 | FG-133 | ⚪ | **Faktor risiko penyakit (`AsesmenFaktorResiko`) tidak dikirim** — bukan riwayat penyakit pribadi; tidak ada kamar di 3 modul dasar. | — (sesuai spesifikasi L04). |
+
+## S5a Riwayat pengobatan (2026-11-18, branch `feat/fhir-link-riwayat-obat`)
+
+**Dibangun:** form **Pemberian Obat** (Asesmen Awal › Riwayat Medis) IGD · RI · RJ kini satu editor bersama
+([RiwayatObatEditor](../src/components/shared/asesmen/riwayatObat/RiwayatObatEditor.tsx)) — nama obat = **combobox ketik + rekomendasi
+formularium RS** (`GET /master/obat-tersedia`, hasil mapping obat ⇄ ruangan) dengan badge kode KFA; memilih rekomendasi menautkan
+`obatId` (migrasi `20261118140000`: `asesmen_obat_item.obat_id` + `status`), mengetik ulang melepas tautan. Kode KFA **tidak**
+diterima dari klien — Service memvalidasi `obatId` ke master (id tak dikenal dilepas) dan KFA diturunkan dari `master.obat.kfa` saat kirim
+(pola D7). Isian baru **Status** (Masih diminum / Sudah berhenti → `active`/`completed`, wajib). L07
+[MedicationStatement](../src/lib/fhir/links/riwayatObat.ts): `medicationCodeableConcept` KFA (obat bukan dari fasyankes ini — playbook RJ/RI
+Tabel 3 · IGD Tabel 4 item 6 + skenario 92/93) · subject · context · dateAsserted · `dosage.text` (dosis · frekuensi · rute) · `note` (sejak ·
+indikasi); localId per obat katalog tingkat kunjungan, obat yang dihapus → entered-in-error. Composition: sub-section **Riwayat Pengobatan**
+10160-0. Test [riwayatObat.test.ts](../src/lib/fhir/links/riwayatObat.test.ts) + S1–S4d: 91 lulus. Data: 29 obat formularium — 17 ber-KFA
+template 92, 12 tanpa KFA; 1 baris riwayat lama (ketik bebas).
+
+| ID | Status | Gap | Cara tutup |
+|---|---|---|---|
+| FG-134 | 🟡 | **Rekomendasi hanya formularium RS** (seluruh formularium, tanpa filter ruangan — riwayat = obat rumah pasien). Obat di luar formularium tetap ketik bebas → ditahan; 12/29 obat formularium belum dipetakan KFA → ditahan. | Lengkapi Mapping KFA di Master Katalog Obat; pencarian KFA nasional 92/93 di picker setelah API KFA nyata (FH8, kredensial). |
+| FG-135 | ⚪ | **Template 92 diutamakan** — riwayat dituturkan; obat formularium menandai zat/kekuatan/bentuk, bukan bukti merek yang dikonsumsi. Skenario playbook "pasien membawa obat & merek diketahui" (aktual 93) belum punya isian. | Tambah isian "obat dibawa pasien" bila perlu → pakai 93. |
+| FG-136 | ⚪ | **Elemen opsional tidak dikirim:** `category` (tidak ada di tabel playbook; contoh RI "inpatient" untuk obat rumah), `effective[x]` ("sejak" teks bebas → `note`), `informationSource`. Obat yang **berasal dari fasyankes ini** menurut playbook memakai `medicationReference` ke Medication hasil MedicationDispense — belum dibedakan (semua `medicationCodeableConcept`). | Putuskan saat uji sandbox; isian tanggal mulai terstruktur bila diperlukan. |
+| FG-137 | ⚪ | **Baris lama ketik bebas** (sebelum S5a) tetap Issue L07 sampai diisi ulang lewat rekomendasi. Baris obat baru default status "Masih diminum" (dapat diubah). | — |
+

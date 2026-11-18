@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | 📋 belum ada — butuh perubahan entry (D7) |
+| Status | 🟡 S5a 2026-11-18 — terkirim untuk obat dipilih dari rekomendasi formularium ber-KFA · ketik bebas / tanpa KFA ditahan (FG-134) |
 | Kamar | **MedicationStatement** |
 | Playbook | RJ/IGD/RI §Anamnesis — Riwayat Pengobatan [V] |
 | Contoh resmi | RI bundle: `MedicationStatement(completed) cat=[inpatient]` |
@@ -30,6 +30,22 @@
 `medication[x]*` wajib berkode KFA, sedangkan sumber teks bebas. Usulan: item riwayat obat memakai **picker
 KFA** (sama dengan katalog obat, plus pencarian KFA 92/93 untuk obat yang tidak ada di formularium RS).
 Item tanpa KFA → belum siap (teks tetap tersimpan lokal).
+
+## Dibangun S5a (2026-11-18)
+
+Verbatim playbook RJ/RI Tabel 3 · IGD Tabel 4 item 6 + skenario (RJ/RI Tabel 4 · IGD Tabel 5): wajib `status` · `medication[x]` ·
+`subject` (+ `context` bertanda * di IGD). Obat **bukan dari fasyankes ini** → `medicationCodeableConcept` system `http://sys-ids.kemkes.go.id/kfa`:
+`93…` "Kode Produk Obat Aktual" bila merek diketahui, `92…` "Kode Produk Obat Template" bila tidak (contoh: 93005512 / 92001087 Ampicillin).
+
+- **Form (IGD · RI · RJ, satu editor bersama):** Nama obat = combobox ketik + **rekomendasi formularium RS** (`/master/obat-tersedia`) dengan
+  badge KFA; pilih → `obat_id` tertaut; ketik ulang → lepas tautan. Isian **Status** baru (Masih diminum → `active` · Sudah berhenti → `completed`).
+- **Kode:** server memvalidasi `obat_id`; KFA diturunkan dari `master.obat.kfa` saat kirim (tidak dari klien). **Template 92 diutamakan**, aktual 93
+  cadangan (riwayat dituturkan — merek umumnya tak diketahui, FG-135).
+- **Elemen:** `dateAsserted` = waktu simpan · `dosage.text` = dosis · frekuensi · rute · `note` = sejak · indikasi. `category`, `effective[x]`,
+  `informationSource` tidak dikirim (FG-136). localId `<kunjunganId>:riwayat-obat:<obatId>`; obat yang dihapus → entered-in-error.
+- **Issue `kode-kosong`:** ketik bebas · obat katalog tanpa KFA · status kosong.
+- Composition: sub-section **Riwayat Pengobatan** `10160-0` "History of Medication use Narrative".
+- Belum: obat dari fasyankes ini via `medicationReference` (MedicationDispense) · pencarian KFA nasional (FH8).
 
 ## Jangan salah kamar
 

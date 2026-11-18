@@ -426,7 +426,12 @@ model AsesmenObatItem {
   asesmenObatId String      @map("asesmen_obat_id") @db.Uuid
   asesmenObat   AsesmenObat @relation(fields: [asesmenObatId], references: [id], onDelete: Cascade)
 
-  nama      String
+  nama      String // label snapshot (dipilih dari rekomendasi atau diketik bebas)
+  // Tautan katalog master.Obat (soft-ref, tanpa FK lintas schema) — diisi bila dipilih dari rekomendasi
+  // formularium. Kode KFA (FHIR L07 MedicationStatement) diturunkan dari master SAAT KIRIM (pola D7);
+  // null = ketik bebas → ditahan sebagai Issue.
+  obatId    String?  @map("obat_id") @db.Uuid
+  status    String? // "aktif" (masih diminum) | "berhenti" — MedicationStatement.status active/completed
   dosis     String?
   frekuensi String?
   rute      String?

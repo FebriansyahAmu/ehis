@@ -55,3 +55,8 @@ next-env.d.ts
 # lampiran terminologi resmi SatuSehat (LOINC lab, dst.) — unduhan lokal, di-seed via prisma/scripts/seed-*.mts
 /docs/terminologi/
 tsconfig.check-changed.json
+
+# folder agent & skill AI (lokal per developer — dipasang via npx skills / Claude Code)
+/.agents/
+/.claude/
+skills-lock.json

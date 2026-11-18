@@ -1,6 +1,7 @@
 // S4d — Sinkron anamnesis & fisik 1 kunjungan ke SatuSehat (docs/fhir-mapping L04 · L05 · L10):
 //   L04 riwayat penyakit pribadi  : Condition `previous-condition` per penyakit (SNOMED "History of …" dari katalog)
 //   L05 riwayat penyakit keluarga : FamilyMemberHistory per anggota (SNOMED "Family history …" dari katalog)
+//   L07 riwayat pengobatan        : MedicationStatement per obat katalog (KFA 92/93 dari master Obat; S5a)
 //   L10 pemeriksaan fisik         : Observation `exam` head-to-toe — 5 sistem padan (D12), sisanya Issue
 // Dipanggil encounterSyncService di fase B1/B2 (setelah Encounter ada). Sumber "latest wins" → localId tingkat
 // kunjungan; item yang hilang dari simpanan terbaru dikirim entered-in-error (hanya bila pernah terkirim).
@@ -9,11 +10,12 @@ import "server-only";
 import type { SatuSehatMode } from "@/lib/fhir/fhirShared";
 import { addSectionRef } from "@/lib/fhir/adapters/composition";
 import type { ClinicalRefs } from "@/lib/fhir/adapters/clinical";
-import { toFhirRiwayatKeluarga, toFhirRiwayatPenyakit } from "@/lib/fhir/adapters/anamnesis";
+import { toFhirRiwayatKeluarga, toFhirRiwayatObat, toFhirRiwayatPenyakit } from "@/lib/fhir/adapters/anamnesis";
 import { toFhirPemeriksaanFisik } from "@/lib/fhir/adapters/pemeriksaan";
 import {
   indeksKatalog, pemeriksaanFisikRencana, riwayatKeluargaRencana, riwayatPenyakitRencana,
 } from "@/lib/fhir/links/anamnesis";
+import { riwayatObatRencana, type KfaProduk } from "@/lib/fhir/links/riwayatObat";
 import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
 import * as clinicalSrc from "@/lib/dal/fhir/clinicalSourceDal";
 import type { UpsertResult } from "./resourceUpsert";
@@ -24,17 +26,23 @@ import type { EncounterSnapshot } from "./encounterSnapshot";
 type Ref = { ihsId: string; nama: string };
 
 export async function syncAnamnesisFisik(
-  snap: Pick<EncounterSnapshot, "kunjunganId" | "penyakitDahulu" | "penyakitKeluarga" | "pemeriksaanFisik" | "katalogRiwayat">,
+  snap: Pick<
+    EncounterSnapshot,
+    "kunjunganId" | "penyakitDahulu" | "penyakitKeluarga" | "pemeriksaanFisik" | "katalogRiwayat" | "riwayatObat"
+  >,
   ctx: { env: SatuSehatMode; sink: ResourceSink; refs: ClinicalRefs },
 ): Promise<Omit<ClinicalSyncOutcome, "conditionsOk">> {
   const out: Omit<ClinicalSyncOutcome, "conditionsOk"> = { refs: [], failures: [], issues: [], sections: {} };
-  const { kunjunganId, penyakitDahulu, penyakitKeluarga, pemeriksaanFisik, katalogRiwayat } = snap;
+  const { kunjunganId, penyakitDahulu, penyakitKeluarga, pemeriksaanFisik, katalogRiwayat, riwayatObat } = snap;
   const katalog = indeksKatalog(katalogRiwayat);
 
   const riwayat = riwayatPenyakitRencana(kunjunganId, penyakitDahulu, katalog);
   const keluarga = riwayatKeluargaRencana(kunjunganId, penyakitKeluarga, katalog);
   const fisik = pemeriksaanFisikRencana(kunjunganId, pemeriksaanFisik);
-  out.issues.push(...riwayat.issues, ...keluarga.issues, ...fisik.issues);
+  const obat = riwayatObatRencana(
+    kunjunganId, riwayatObat.rows, new Map(riwayatObat.kfa.map((o) => [o.id, (o.kfa ?? null) as KfaProduk | null])),
+  );
+  out.issues.push(...riwayat.issues, ...keluarga.issues, ...obat.issues, ...fisik.issues);
 
   // Practitioner (recorder L04 · performer L10) — hanya yang sudah onboarding (FH1); selain itu tanpa referensi.
   // L10: dokter pemeriksa disimpan sebagai NAMA saja → performer = pencatat (FG-130).
@@ -76,6 +84,14 @@ export async function syncAnamnesisFisik(
     for (const f of items) {
       const ihs = await submit("FamilyMemberHistory", f.localId, toFhirRiwayatKeluarga({ ...f, deleted }, ctx.refs), deleted);
       if (ihs && !deleted) addSectionRef(out.sections, "riwayatKeluarga", "FamilyMemberHistory", ihs);
+    }
+  }
+
+  // ── L07 riwayat pengobatan ──
+  for (const [items, deleted] of [[obat.kirim, false], [obat.tarik, true]] as const) {
+    for (const o of items) {
+      const ihs = await submit("MedicationStatement", o.localId, toFhirRiwayatObat({ ...o, deleted }, ctx.refs), deleted);
+      if (ihs && !deleted) addSectionRef(out.sections, "riwayatObat", "MedicationStatement", ihs);
     }
   }
 

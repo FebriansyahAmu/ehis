@@ -15,7 +15,7 @@ type Ref = { ihsId: string; nama: string };
 
 /** Section resume yang merujuk resource link lain (L26 §Section → kode → entry). */
 export type ResumeSection =
-  | "keluhanUtama" | "riwayatPenyakit" | "riwayatKeluarga" | "alergi" | "tandaVital" | "headToToe" | "lab" | "rad" | "diagnosis" | "tindakan" | "obat" | "obatPulang"
+  | "keluhanUtama" | "riwayatPenyakit" | "riwayatKeluarga" | "alergi" | "riwayatObat" | "tandaVital" | "headToToe" | "lab" | "rad" | "diagnosis" | "tindakan" | "obat" | "obatPulang"
   | "kondisiPulang" | "rencanaRawat" | "edukasi" | "tindakLanjut";
 
 /**
@@ -69,6 +69,7 @@ const STRUKTUR: SectionDef[] = [
       { title: "Riwayat Penyakit Pribadi Terdahulu", code: loinc("11348-0", "History of Past illness Narrative"), key: "riwayatPenyakit" },
       { title: "Riwayat Penyakit Keluarga", code: loinc("10157-6", "History of family member diseases Narrative"), key: "riwayatKeluarga" },
       { title: "Riwayat Alergi", code: loinc("48765-2", "Allergies and adverse reactions Document"), key: "alergi" },
+      { title: "Riwayat Pengobatan", code: loinc("10160-0", "History of Medication use Narrative"), key: "riwayatObat" },
     ],
   },
   {

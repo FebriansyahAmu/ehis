@@ -73,6 +73,12 @@ export function findById(id: string, tx?: Tx) {
   return db(tx).obat.findFirst({ where: { id, ...ALIVE } });
 }
 
+/** Pemetaan KFA obat hidup per id — tautan Riwayat Obat (validasi id + kode KFA, FHIR L07). */
+export function findKfaByIds(ids: string[], tx?: Tx) {
+  if (ids.length === 0) return Promise.resolve([]);
+  return db(tx).obat.findMany({ where: { id: { in: ids }, ...ALIVE }, select: { id: true, kfa: true } });
+}
+
 export function update(id: string, data: ObatPatch, tx?: Tx) {
   return db(tx).obat.update({ where: { id }, data });
 }

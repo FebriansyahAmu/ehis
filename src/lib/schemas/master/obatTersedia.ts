@@ -38,6 +38,11 @@ export interface ObatTersediaDTO {
   hargaSatuan: number | null;
   /** Zat aktif termapping KFA (kode BZA + nama) — untuk pelinkan alergi obat. */
   bza: ObatBza[];
+  /**
+   * Kode PRODUK KFA (template 92 / aktual 93) dari pemetaan master — dipakai picker Riwayat Obat untuk menampilkan
+   * kode yang akan dikirim (aturan pilih: `kfaRiwayatOf` di lib/fhir/links/riwayatObat). null = belum dipetakan.
+   */
+  kfaProduk: { povKode?: string; povNama?: string; poaKode?: string; poaNama?: string } | null;
   /** Kode ruangan tempat obat ini masuk formularium (≥1). */
   ruanganKodes: string[];
 }

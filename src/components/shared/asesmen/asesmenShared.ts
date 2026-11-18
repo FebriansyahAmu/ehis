@@ -31,16 +31,6 @@ export interface AllergyEntry {
 
 // ── Riwayat types ─────────────────────────────────────────
 
-export interface ObatEntry {
-  id: string;
-  nama: string;
-  dosis: string;
-  frekuensi: string;
-  rute: string;
-  sejak: string;
-  indikasi: string;
-}
-
 export interface KeluargaEntry {
   anggota: string;
   penyakit: string[];

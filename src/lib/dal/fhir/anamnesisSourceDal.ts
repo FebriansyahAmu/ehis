@@ -28,6 +28,27 @@ export function listPenyakitKeluarga(kunjunganId: string, tx?: Tx) {
   });
 }
 
+/**
+ * L07 — riwayat pengobatan (semua simpanan, urut naik) + blok KFA master untuk obat yang ditautkan. Master yang
+ * sudah dihapus TETAP dibaca: kodenya tetap sah untuk riwayat & untuk menarik (entered-in-error) yang pernah terkirim.
+ */
+export async function listRiwayatObat(kunjunganId: string, tx?: Tx) {
+  const rows = await db(tx).asesmenObat.findMany({
+    where: { kunjunganId },
+    orderBy: { createdAt: "asc" },
+    select: {
+      createdAt: true,
+      items: {
+        orderBy: { urutan: "asc" },
+        select: { nama: true, obatId: true, status: true, dosis: true, frekuensi: true, rute: true, sejak: true, indikasi: true },
+      },
+    },
+  });
+  const ids = [...new Set(rows.flatMap((r) => r.items.map((i) => i.obatId)).filter((x): x is string => !!x))];
+  const obat = ids.length ? await db(tx).obat.findMany({ where: { id: { in: ids } }, select: { id: true, kfa: true } }) : [];
+  return { rows, kfa: obat };
+}
+
 /** L10 — pemeriksaan fisik head-to-toe (`sistem` JSONB). */
 export function listPemeriksaanFisik(kunjunganId: string, tx?: Tx) {
   return db(tx).pemeriksaanFisik.findMany({

@@ -4,6 +4,8 @@ import { db, type Tx } from "@/lib/db/prisma";
 
 export interface CreateAsesmenObatItemData {
   nama: string;
+  obatId: string | null; // soft-ref master.Obat (tervalidasi Service)
+  status: string | null; // aktif | berhenti
   dosis?: string | null;
   frekuensi?: string | null;
   rute?: string | null;

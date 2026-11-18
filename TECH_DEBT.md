@@ -114,6 +114,11 @@
 
 ## 🩻 Rekam Medis Klinis (shared IGD/RI/RJ)
 
+### Riwayat Obat — combobox rekomendasi (S5a FHIR L07, 2026-11-18)
+- [ ] **`ObatAllergenInput` (alergi obat) belum pola ARIA combobox** — tanpa `role=combobox`/`aria-activedescendant`/navigasi ↑↓/Enter/Esc. Samakan dengan [ObatKfaCombobox](src/components/shared/asesmen/riwayatObat/ObatKfaCombobox.tsx) (atau pakai ulang).
+- [ ] **Dropdown rekomendasi = absolut di dalam kartu** (pola picker lain) — belum flip di tepi viewport; CSS anchor positioning belum didukung Firefox (butuh polyfill/`@supports`).
+- [ ] **Pencarian KFA nasional (92/93) untuk obat di luar formularium** — menunggu API KFA nyata (FH8).
+
 ### Pemeriksaan Fisik — cleanup pasca Anatomi domain *(2026-06-14)*
 - [ ] **`PemeriksaanFisik.bodyMarkings` (JSONB) vestigial** — sub-tab Anatomi kini punya domain sendiri `medicalrecord.PenandaanAnatomi` (per-item, body-map). Kolom `bodyMarkings` di `pemeriksaan_fisik` (+ field di `PemeriksaanFisikEntry`/Zod/DTO/`emptyFormState`) tak lagi sumber kebenaran & selalu kosong (StatusFisikPane tak mengisinya). Aman di-drop (belum ada data nyata): drop-column migration + bersihkan schema/Zod/Service/DTO/FE. Ditunda — harmless.
 - [x] **Sub-tab Penunjang (PemeriksaanTab IGD) di-wire** ✅ *(2026-06-15)* — difokuskan ulang ke diagnostik bedside **non-Lab/Rad** (Lab/Rad/USG dihapus karena punya modul sendiri; sisa EKG + Spirometri/EEG/EMG/Audiometri/Ekokardiografi/Treadmill). Form di-redesain (interpretatif: Keterangan+Hasil+Kesimpulan, tanggal=DateTimePicker). Domain backend `medicalrecord.PemeriksaanPenunjang` (add/delete only, soft-delete, gate `clinical.pemeriksaan`). **Sisa: upload file hasil masih placeholder** — butuh storage (belum ada); object storage + tabel attachment lintas-domain = follow-up tersendiri.
