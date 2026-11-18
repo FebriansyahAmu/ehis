@@ -1370,10 +1370,24 @@ model RadOrderItem {
   persiapan    String? // ringkasan persiapan pasien
   harga        Int? // snapshot tarif (rupiah) saat order; null = belum bertarif
 
+  // ── Accession Number (ACSN) — nomor unik per pemeriksaan, dibangkitkan Service saat order ──
+  //  `R<YYMMDD WIB><seq ≥4 digit>` (≤16 karakter = batas DICOM SH). Diketik/di-worklist ke modalitas →
+  //  DICOM router mencocokkan ImagingStudy ke ServiceRequest (identifier ACSN, FHIR L17 / FG-54).
+  acsn String? @unique
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@index([radOrderId])
   @@map("rad_order_item")
+  @@schema("medicalrecord")
+}
+
+// Counter ACSN radiologi — scope = "R<YYMMDD>" (tanggal WIB, reset harian), seq naik atomik.
+model RadAcsnCounter {
+  scope String @id
+  seq   Int    @default(0)
+
+  @@map("rad_acsn_counter")
   @@schema("medicalrecord")
 }
 

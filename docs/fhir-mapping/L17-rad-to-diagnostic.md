@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | ⚠️ ada (FH6) — tanpa accession number & ImagingStudy |
+| Status | 🟡 S6a 2026-11-18 — ACSN ✅ (identifier + orderDetail modality) · sisa: AE title (FG-138), ImagingStudy via DICOM router/PACS (FG-54), order multi-pemeriksaan (D14) |
 | Kamar | **ServiceRequest** (cat SNOMED `363679005` Imaging) → **ImagingStudy** (DICOM router) → **Observation** (`imaging`) → **DiagnosticReport** |
 | Playbook | RJ/IGD/RI §Pemeriksaan Penunjang Radiologi [S] |
 | Contoh resmi | RJ: SR/Obs/DR `24648-8 XR Chest PA` (DR `RAD`) · IGD: `11525-3 US for pregnancy` (DR `OUS`) · RI: `38036-0 US Kidney` + `kptl|31537` (DR `RAD`) |
@@ -40,3 +40,16 @@ LOINC katalog terisi · accession number dibangkitkan saat order (nomor unik per
 - Kesan radiologi = `DiagnosticReport.conclusion`, **bukan** Condition diagnosis.
 - Alergi kontras (contoh resmi menyertakan AllergyIntolerance kontras) dikirim lewat **L06**, bukan dibuat ulang di sini.
 - Dosis radiasi/proteksi bukan Observation klinis → tidak dikirim.
+
+## Dibangun S6a — Accession Number
+
+- **ImagingStudy dikirim DICOM router/PACS, bukan EHIS.** Router mencocokkan studi DICOM ke order lewat **ACSN** → ACSN wajib ada di
+  ServiceRequest rad (ketiga contoh resmi). SR rad tanpa ACSN sah = Issue ([links/radiologi.ts](../../src/lib/fhir/links/radiologi.ts)).
+- ACSN dibangkitkan **server saat order**, satu per pemeriksaan (1 SR per item): `R<YYMMDD WIB><urut ≥4 digit>`, ≤16 karakter (batas
+  DICOM Accession Number, VR SH) — [services/rad/acsn.ts](../../src/lib/services/rad/acsn.ts), counter harian `medicalrecord.rad_acsn_counter`,
+  kolom unik `rad_order_item.acsn` (migrasi `20261118160000`, data lama di-backfill).
+- SR: `identifier[1]` = `{use: usual, type: v2-0203|ACSN, system: http://sys-ids.kemkes.go.id/acsn/{Org_id}, value}` · `orderDetail` =
+  modality DICOM (`http://dicom.nema.org/resources/ontology/DCM`; XR→`DX` sesuai contoh, CT/MR/RF/US/MG/NM sama, DXA ditahan FG-139).
+  AE title belum ada master (FG-138).
+- UI: ACSN + tombol salin di header detail order Rad (diketik di modalitas — belum MWL, FG-140), teks di kartu worklist & riwayat order
+  klinis, baris "Accession No." di cetak hasil.

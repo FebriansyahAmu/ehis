@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | ⚠️ ada (FH4, `toFhirCondition`) — kamar benar, perlu perapian |
+| Status | 🟡 S6a 2026-11-18 — dirapikan: display master ICD-10 · diagnosa masuk AD · gerbang Utama tepat satu · sisa: SNOMED pendamping, `CM` komorbid (FG-142) |
 | Kamar | **Condition** category `encounter-diagnosis` (system `condition-category`) + `Encounter.diagnosis` |
 | Playbook | RJ/IGD/RI §Diagnosis [S] + Pembaharuan Data Kunjungan [V] |
 | Contoh resmi | RJ: `icd-10|A15.0` + `icd-10|E11.9` · RI: `icd-10|N18.5` **+ `sct|433146000`** (ICD-10 & SNOMED dalam 1 `code`) |
@@ -44,3 +44,13 @@ Kode ICD-10 valid format & ada di master ICD · diagnosa `Utama` ada tepat satu 
 
 - Diagnosis **bukan** `problem-list-item` (itu keluhan penyerta / kondisi pulang) dan bukan `previous-condition`.
 - Diagnosa keperawatan SDKI **tidak** dikirim sebagai Condition.
+
+## Dibangun S6a
+
+- `code.coding.display` = **display master ICD-10** (`master.icd_code.display`, dibaca saat kirim; FG-39 ✅) · nama lokal → `code.text`
+  bila berbeda · kode yang **tidak ada di master** → Issue `kode-tidak-valid` (ditahan) — [links/diagnosa.ts](../../src/lib/fhir/links/diagnosa.ts) `diagnosaSiap`.
+- **Diagnosa masuk** `kunjungan.kode_icd_masuk` → Condition `encounter-diagnosis` (bentuk contoh resmi IGD "Diagnosis Awal": tanpa
+  verificationStatus, `onsetDateTime` = waktu kunjungan) + `Encounter.diagnosis` use **AD** (tanpa rank). localId `<kunjunganId>:diagnosa-masuk`.
+- Gerbang finished ([encounterFinal.ts](../../src/lib/fhir/links/encounterFinal.ts) `finishedBlockers`): diagnosis **Utama terkirim tepat satu**;
+  kosong / ganda → Encounter tetap `in-progress` + Issue `syarat-finished`.
+- Komplikasi/Komorbid tetap di luar `Encounter.diagnosis` (Condition-nya terkirim); `CM` menunggu uji sandbox (FG-142).

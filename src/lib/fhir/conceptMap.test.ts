@@ -52,9 +52,9 @@ describe("fhirShared", () => {
 });
 
 describe("registry link", () => {
-  it("L01–L26 lengkap, unik, dan ber-dokumen", () => {
-    expect(LINKS).toHaveLength(26);
-    expect(new Set(LINKS.map((l) => l.id)).size).toBe(26);
+  it("L01–L27 lengkap, unik, dan ber-dokumen", () => {
+    expect(LINKS).toHaveLength(27);
+    expect(new Set(LINKS.map((l) => l.id)).size).toBe(27);
     for (const l of LINKS) {
       expect(LINK_BY_ID[l.id]).toBe(l);
       expect(l.doc).toMatch(new RegExp(`^${l.id}-[a-z-]+\\.md$`));

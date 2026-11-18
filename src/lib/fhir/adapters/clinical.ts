@@ -28,6 +28,8 @@ export interface LocalDiagnosa {
   status: string; // Pasti/Dicurigai/Diferensial
   deleted: boolean;
   createdAt: Date;
+  /** Display resmi master ICD-10 (L13/FG-39); absen (baris ditarik tanpa master) → nama lokal. */
+  display?: string;
 }
 
 export function toFhirCondition(d: LocalDiagnosa, r: ClinicalRefs): FhirRes {
@@ -39,10 +41,43 @@ export function toFhirCondition(d: LocalDiagnosa, r: ClinicalRefs): FhirRes {
     clinicalStatus: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/condition-clinical", code: "active", display: "Active" }] },
     verificationStatus: { coding: [verif] },
     category: [{ coding: [{ system: "http://terminology.hl7.org/CodeSystem/condition-category", code: "encounter-diagnosis", display: "Encounter Diagnosis" }] }],
-    code: { coding: [{ system: FHIR_SYSTEM.icd10, code: d.kodeIcd10.trim().toUpperCase(), display: d.namaDiagnosis }] },
+    code: icd10Code(d.kodeIcd10, d.display ?? d.namaDiagnosis, d.namaDiagnosis),
     subject: subject(r),
     encounter: encounter(r),
     recordedDate: toFhirDateTime(d.createdAt),
+  };
+}
+
+/** `code` ICD-10: display resmi master; nama lokal ke `code.text` hanya bila berbeda (contoh resmi RI). */
+function icd10Code(kode: string, display: string, namaLokal: string) {
+  const text = namaLokal.trim();
+  return {
+    coding: [{ system: FHIR_SYSTEM.icd10, code: kode.trim().toUpperCase(), display }],
+    ...(text && text !== display ? { text } : {}),
+  };
+}
+
+export interface LocalDiagnosaMasuk {
+  kode: string;
+  display: string;
+  waktu: Date;
+}
+
+/**
+ * L13 diagnosa masuk → Condition `encounter-diagnosis` (bentuk = contoh resmi IGD "Diagnosis Awal":
+ * clinicalStatus · category · code · subject · encounter · onsetDateTime · recordedDate; tanpa
+ * verificationStatus). Dirujuk `Encounter.diagnosis` use AD saat finished.
+ */
+export function toFhirDiagnosaMasuk(d: LocalDiagnosaMasuk, r: ClinicalRefs): FhirRes {
+  return {
+    resourceType: "Condition",
+    clinicalStatus: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/condition-clinical", code: "active", display: "Active" }] },
+    category: [{ coding: [{ system: "http://terminology.hl7.org/CodeSystem/condition-category", code: "encounter-diagnosis", display: "Encounter Diagnosis" }] }],
+    code: icd10Code(d.kode, d.display, d.display),
+    subject: subject(r),
+    encounter: encounter(r),
+    onsetDateTime: toFhirDateTime(d.waktu),
+    recordedDate: toFhirDateTime(d.waktu),
   };
 }
 

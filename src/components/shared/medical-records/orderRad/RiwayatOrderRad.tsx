@@ -476,6 +476,9 @@ export default function RiwayatOrderRad({
                               <td className="px-2.5 py-1.5">
                                 <span className="font-medium text-slate-800">{it.nama}</span>
                                 {it.kode && <span className="ml-1 font-mono text-[9px] text-slate-400">{it.kode}</span>}
+                                {it.acsn && (
+                                  <span className="mt-0.5 block font-mono text-[9px] text-sky-700">ACSN {it.acsn}</span>
+                                )}
                               </td>
                               <td className="px-2.5 py-1.5 text-slate-600">{modLabel(it.modalitas)}</td>
                               <td className="px-2.5 py-1.5 text-slate-500">{it.waktuTunggu || "—"}</td>

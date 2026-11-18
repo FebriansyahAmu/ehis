@@ -120,6 +120,7 @@ function mapToRadOrder(
       modalitas: MODALITAS_MAP[it.modalitas] ?? "Konvensional",
       region: it.region,
       withKontras: false,
+      acsn: it.acsn ?? undefined,
     })),
     catatan: dto.catatan ?? undefined,
     akuisisi: akuisisi ? toAkuisisi(akuisisi) : undefined,

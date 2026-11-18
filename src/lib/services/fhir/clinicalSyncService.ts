@@ -23,7 +23,7 @@ import {
 } from "@/lib/fhir/adapters/pemeriksaan";
 import { PROCEDURE_CATEGORY, lookup } from "@/lib/fhir/conceptMap";
 import type { Issue } from "@/lib/fhir/links/types";
-import { diagnosaFinalOf, diagnosaUtamaOf } from "@/lib/fhir/links/diagnosa";
+import { diagnosaFinalOf, diagnosaSiap, diagnosaUtamaOf, indeksIcd10 } from "@/lib/fhir/links/diagnosa";
 import { alergiKodeOf } from "@/lib/fhir/links/alergi";
 import { kesadaranAvpuOf, kesadaranTtvOf, nrsOf, pemeriksaanLocalId as pid } from "@/lib/fhir/links/pemeriksaan";
 import { skalaRencanaOf } from "@/lib/fhir/links/skalaPemetaan";
@@ -54,11 +54,11 @@ export interface ClinicalSyncOutcome {
 type Ref = { ihsId: string; nama: string };
 
 export async function syncClinical(
-  snap: Pick<EncounterSnapshot, "diagnosa" | "prosedur" | "tindakan" | "ttv" | "alergi" | "triase" | "penilaianSkala">,
+  snap: Pick<EncounterSnapshot, "diagnosa" | "prosedur" | "tindakan" | "ttv" | "alergi" | "triase" | "penilaianSkala" | "icd10">,
   ctx: { env: SatuSehatMode; refs: ClinicalRefs; sink: ResourceSink },
 ): Promise<ClinicalSyncOutcome> {
   const out: ClinicalSyncOutcome = { refs: [], failures: [], issues: [], sections: {}, conditionsOk: true };
-  const { diagnosa, prosedur, tindakan, ttv, alergi, triase, penilaianSkala } = snap;
+  const { diagnosa, prosedur, tindakan, ttv, alergi, triase, penilaianSkala, icd10 } = snap;
 
   // Practitioner (performer/recorder) — hanya yang sudah onboarding FH1; selain itu tanpa performer.
   const pegawaiIds = [...new Set(
@@ -86,13 +86,17 @@ export async function syncClinical(
   const send = (localType: string, localId: string, resource: SubmitArgs["resource"], deleted = false) =>
     ctx.sink.submit({ localType, localId, resource, allowCreate: !deleted });
 
-  // ── Condition (L13) ──
+  // ── Condition (L13) — S6a: display resmi dari master ICD-10; kode di luar master ditahan ──
+  const icd = indeksIcd10(icd10.icd);
   for (const d of diagnosa) {
-    if (!d.kodeIcd10.trim()) {
-      if (!d.deletedAt) out.issues.push({ link: "L13", resourceType: "Condition", localId: d.id, code: "kode-kosong", message: `Diagnosa "${d.namaDiagnosis}" tanpa kode ICD-10 — ditahan` });
-      continue;
+    const siap = diagnosaSiap(d, icd);
+    if (!siap.ok) {
+      if (!d.deletedAt) out.issues.push(siap.issue);
+      // Baris terhapus tanpa master tetap ditarik (bila pernah terkirim) memakai nama lokal.
+      if (!d.deletedAt || !d.kodeIcd10.trim()) continue;
     }
-    const r = await send("Condition", d.id, toFhirCondition({ ...d, deleted: !!d.deletedAt }, ctx.refs), !!d.deletedAt);
+    const display = siap.ok ? siap.display : undefined;
+    const r = await send("Condition", d.id, toFhirCondition({ ...d, display, deleted: !!d.deletedAt }, ctx.refs), !!d.deletedAt);
     record("Condition", d.id, r);
     if (r && !r.ok && !d.deletedAt) out.conditionsOk = false;
   }

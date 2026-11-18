@@ -1,6 +1,7 @@
 // FH6 — Sinkron penunjang (Lab/Rad) 1 kunjungan ke SatuSehat. Dipanggil di fase 2 encounterSyncService.
 //   Lab : ServiceRequest per item tes → (bila hasil TERVALIDASI) Observation per parameter → DiagnosticReport per tes.
 //   Rad : ServiceRequest per item pemeriksaan → (bila ekspertise TERVALIDASI) Observation temuan → DiagnosticReport per order.
+//         S6a: SR rad membawa identifier ACSN + orderDetail modality DICOM; item tanpa ACSN → Issue (links/radiologi).
 //
 // - LOINC wajib (master.lab_test/lab_parameter/rad_catalog.loinc_code) — tanpa LOINC → Issue.
 // - S3 L16: kode lab harus ada di Lampiran LOINC Laboratorium resmi dengan kategori yang cocok
@@ -20,6 +21,7 @@ import { addSectionRef, type ResumeSection } from "@/lib/fhir/adapters/compositi
 import { LAB_REPORT_CATEGORY, LAB_REPORT_CATEGORY_UMUM, lookup } from "@/lib/fhir/conceptMap";
 import { cekKodeLab, kategoriKodeLabOf } from "@/lib/fhir/links/labTerminologi";
 import { diagnosaUtamaOf } from "@/lib/fhir/links/diagnosa";
+import { radSrSiap } from "@/lib/fhir/links/radiologi";
 import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
 import * as src from "@/lib/dal/fhir/diagnosticSourceDal";
 import * as clinicalSrc from "@/lib/dal/fhir/clinicalSourceDal";
@@ -181,9 +183,18 @@ export async function syncDiagnostic(
         if (!deleted) out.issues.push({ link: "L17", resourceType: "ServiceRequest", localId: it.id, code: "kode-kosong", message: `Pemeriksaan radiologi "${it.nama}" belum ber-LOINC — ditahan` });
         continue;
       }
+      // S6a: ACSN wajib (pencocokan ImagingStudy oleh DICOM router). Penarikan order lama tetap jalan.
+      const siap = radSrSiap(it);
+      if (!siap.ok && !deleted) {
+        out.issues.push(siap.issue);
+        continue;
+      }
       reportLoinc ??= loinc;
       const srIhs = record("ServiceRequest", it.id, await send("ServiceRequest", it.id,
-        toFhirServiceRequest("rad", order, { id: it.id, nama: it.nama }, loinc, ctx.refs, { requester: pracOf(o.authorPegawaiId), reason }), deleted),
+        toFhirServiceRequest("rad", order, { id: it.id, nama: it.nama }, loinc, ctx.refs, {
+          requester: pracOf(o.authorPegawaiId), reason,
+          ...(siap.ok ? { acsn: siap.acsn, modality: siap.modality } : {}),
+        }), deleted),
         "rad", deleted);
       if (srIhs) srIhsIds.push(srIhs);
     }

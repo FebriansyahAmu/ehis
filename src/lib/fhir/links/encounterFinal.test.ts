@@ -73,8 +73,12 @@ describe("L01 length & gerbang finished", () => {
     expect(lamaKunjunganOf("IGD", new Date("2026-01-01T00:00:00Z"), new Date("2026-01-01T01:30:00Z"))).toMatchObject({ value: 90, code: "min" });
   });
   it("tanpa CC atau diagnosis → Issue syarat-finished", () => {
-    expect(finishedBlockers("K1", true, 1)).toEqual([]);
-    expect(finishedBlockers("K1", false, 0).map((i) => i.code)).toEqual(["syarat-finished", "syarat-finished"]);
+    expect(finishedBlockers("K1", true, 1, 1)).toEqual([]);
+    expect(finishedBlockers("K1", false, 0, 0).map((i) => i.code)).toEqual(["syarat-finished", "syarat-finished"]);
+  });
+  it("S6a: diagnosis Utama terkirim harus tepat satu", () => {
+    expect(finishedBlockers("K1", true, 2, 0).map((i) => i.message)).toEqual([expect.stringContaining("Utama belum terkirim")]);
+    expect(finishedBlockers("K1", true, 3, 2).map((i) => i.message)).toEqual([expect.stringContaining("2 diagnosis Utama")]);
   });
 });
 

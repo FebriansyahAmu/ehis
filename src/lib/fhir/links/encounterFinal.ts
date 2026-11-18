@@ -93,11 +93,19 @@ export function lamaKunjunganOf(unit: KunjunganUnit, masuk: Date, keluar: Date) 
  * Gerbang "blokir finished" (FLOW.md §4): SatuSehat mensyaratkan Encounter `finished` membawa diagnosis
  * CC (keluhan utama) + diagnosis klinis. Bila belum terpenuhi → Encounter tetap dikirim `in-progress`
  * (resource fase B tetap terkirim) dan Issue `syarat-finished` tampil di konsol.
+ * S6a (L13): diagnosis Utama terkirim harus TEPAT SATU (rank 1 tidak boleh ganda / kosong).
  */
-export function finishedBlockers(kunjunganId: string, ccTerkirim: boolean, jumlahDiagnosis: number): Issue[] {
+export function finishedBlockers(
+  kunjunganId: string,
+  ccTerkirim: boolean,
+  jumlahDiagnosis: number,
+  jumlahUtama: number,
+): Issue[] {
   const base = { link: "L01" as const, resourceType: "Encounter", localId: kunjunganId, code: "syarat-finished" as const };
   const out: Issue[] = [];
   if (!ccTerkirim) out.push({ ...base, message: "Encounter ditahan in-progress — Condition keluhan utama (CC) belum siap" });
   if (jumlahDiagnosis === 0) out.push({ ...base, message: "Encounter ditahan in-progress — belum ada diagnosis (ICD-10) terkirim" });
+  else if (jumlahUtama === 0) out.push({ ...base, message: "Encounter ditahan in-progress — diagnosis Utama belum terkirim" });
+  else if (jumlahUtama > 1) out.push({ ...base, message: `Encounter ditahan in-progress — ${jumlahUtama} diagnosis Utama aktif, harus tepat satu` });
   return out;
 }

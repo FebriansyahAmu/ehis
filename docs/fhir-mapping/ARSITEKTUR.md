@@ -50,7 +50,7 @@ aksi klinis (Service, tx)  ──enqueue──▶  fhir.sync_log (deskriptor job
                                                ▼
  ① EXTRACT   loadEncounterSnapshot(kunjunganId)        1 putaran query paralel ber-indeks, kolom minimal
  ② RESOLVE   refs: Patient/Practitioner/Location IHS    dari resource_map (+ resolve-first bila belum ada)
- ③ MAP       link.build(row, ctx) per link L01–L26      murni, tanpa I/O, tanpa Date.now()
+ ③ MAP       link.build(row, ctx) per link L01–L27      murni, tanpa I/O, tanpa Date.now()
  ④ CODE      ConceptMap (enum→kode) · kolom master      teks bebas TIDAK dikodekan otomatis
  ⑤ VALIDATE  gerbang profil: wajib, system URL, ref     gagal → "belum siap: <alasan>" (tak dikirim)
  ⑥ DIFF      canonical hash vs resource_map.hash        sama → skip (noop)

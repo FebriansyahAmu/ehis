@@ -3,6 +3,7 @@
 //   L05 riwayat penyakit keluarga : FamilyMemberHistory per anggota (SNOMED "Family history …" dari katalog)
 //   L07 riwayat pengobatan        : MedicationStatement per obat katalog (KFA 92/93 dari master Obat; S5a)
 //   L10 pemeriksaan fisik         : Observation `exam` head-to-toe — 5 sistem padan (D12), sisanya Issue
+//   L27 riwayat perjalanan        : ClinicalImpression 312850006 dari Anamnesis.rps (S6a)
 // Dipanggil encounterSyncService di fase B1/B2 (setelah Encounter ada). Sumber "latest wins" → localId tingkat
 // kunjungan; item yang hilang dari simpanan terbaru dikirim entered-in-error (hanya bila pernah terkirim).
 
@@ -10,12 +11,15 @@ import "server-only";
 import type { SatuSehatMode } from "@/lib/fhir/fhirShared";
 import { addSectionRef } from "@/lib/fhir/adapters/composition";
 import type { ClinicalRefs } from "@/lib/fhir/adapters/clinical";
-import { toFhirRiwayatKeluarga, toFhirRiwayatObat, toFhirRiwayatPenyakit } from "@/lib/fhir/adapters/anamnesis";
+import {
+  toFhirRiwayatKeluarga, toFhirRiwayatObat, toFhirRiwayatPenyakit, toFhirRiwayatPerjalanan,
+} from "@/lib/fhir/adapters/anamnesis";
 import { toFhirPemeriksaanFisik } from "@/lib/fhir/adapters/pemeriksaan";
 import {
   indeksKatalog, pemeriksaanFisikRencana, riwayatKeluargaRencana, riwayatPenyakitRencana,
 } from "@/lib/fhir/links/anamnesis";
 import { riwayatObatRencana, type KfaProduk } from "@/lib/fhir/links/riwayatObat";
+import { riwayatPerjalananRencana } from "@/lib/fhir/links/riwayatPerjalanan";
 import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
 import * as clinicalSrc from "@/lib/dal/fhir/clinicalSourceDal";
 import type { UpsertResult } from "./resourceUpsert";
@@ -28,12 +32,12 @@ type Ref = { ihsId: string; nama: string };
 export async function syncAnamnesisFisik(
   snap: Pick<
     EncounterSnapshot,
-    "kunjunganId" | "penyakitDahulu" | "penyakitKeluarga" | "pemeriksaanFisik" | "katalogRiwayat" | "riwayatObat"
+    "kunjunganId" | "penyakitDahulu" | "penyakitKeluarga" | "pemeriksaanFisik" | "katalogRiwayat" | "riwayatObat" | "anamnesis"
   >,
   ctx: { env: SatuSehatMode; sink: ResourceSink; refs: ClinicalRefs },
 ): Promise<Omit<ClinicalSyncOutcome, "conditionsOk">> {
   const out: Omit<ClinicalSyncOutcome, "conditionsOk"> = { refs: [], failures: [], issues: [], sections: {} };
-  const { kunjunganId, penyakitDahulu, penyakitKeluarga, pemeriksaanFisik, katalogRiwayat, riwayatObat } = snap;
+  const { kunjunganId, penyakitDahulu, penyakitKeluarga, pemeriksaanFisik, katalogRiwayat, riwayatObat, anamnesis } = snap;
   const katalog = indeksKatalog(katalogRiwayat);
 
   const riwayat = riwayatPenyakitRencana(kunjunganId, penyakitDahulu, katalog);
@@ -42,12 +46,13 @@ export async function syncAnamnesisFisik(
   const obat = riwayatObatRencana(
     kunjunganId, riwayatObat.rows, new Map(riwayatObat.kfa.map((o) => [o.id, (o.kfa ?? null) as KfaProduk | null])),
   );
-  out.issues.push(...riwayat.issues, ...keluarga.issues, ...obat.issues, ...fisik.issues);
+  const perjalanan = riwayatPerjalananRencana(kunjunganId, anamnesis ?? null);
+  out.issues.push(...riwayat.issues, ...keluarga.issues, ...obat.issues, ...fisik.issues, ...perjalanan.issues);
 
   // Practitioner (recorder L04 · performer L10) — hanya yang sudah onboarding (FH1); selain itu tanpa referensi.
   // L10: dokter pemeriksa disimpan sebagai NAMA saja → performer = pencatat (FG-130).
   const pegawaiIds = [...new Set(
-    [...riwayat.kirim, ...riwayat.tarik, ...fisik.kirim, ...fisik.tarik]
+    [...riwayat.kirim, ...riwayat.tarik, ...fisik.kirim, ...fisik.tarik, ...perjalanan.kirim, ...perjalanan.tarik]
       .map((i) => i.authorPegawaiId).filter((x): x is string => !!x),
   )];
   const [pracMaps, names] = await Promise.all([
@@ -92,6 +97,15 @@ export async function syncAnamnesisFisik(
     for (const o of items) {
       const ihs = await submit("MedicationStatement", o.localId, toFhirRiwayatObat({ ...o, deleted }, ctx.refs), deleted);
       if (ihs && !deleted) addSectionRef(out.sections, "riwayatObat", "MedicationStatement", ihs);
+    }
+  }
+
+  // ── L27 riwayat perjalanan penyakit (S6a) — section "Perencanaan Perawatan" mengikuti contoh resmi RI ──
+  for (const [items, deleted] of [[perjalanan.kirim, false], [perjalanan.tarik, true]] as const) {
+    for (const c of items) {
+      const res = toFhirRiwayatPerjalanan({ ...c, deleted }, ctx.refs, pracOf(c.authorPegawaiId));
+      const ihs = await submit("ClinicalImpression", c.localId, res, deleted);
+      if (ihs && !deleted) addSectionRef(out.sections, "rencanaRawat", "ClinicalImpression", ihs);
     }
   }
 

@@ -105,6 +105,8 @@ export function dischargeDispositionOf(jenis: string, masuk: Date, keluar: Date)
 export const DIAGNOSIS_ROLE = {
   CC: { system: `${HL7}/diagnosis-role`, code: "CC", display: "Chief Complaint" },
   DD: { system: `${HL7}/diagnosis-role`, code: "DD", display: "Discharge diagnosis" },
+  /** Diagnosa masuk (L13, contoh resmi IGD "Diagnosis Awal"). */
+  AD: { system: `${HL7}/diagnosis-role`, code: "AD", display: "Admission diagnosis" },
 } as const satisfies Record<string, Coding>;
 
 // ── Condition keluhan & kondisi pulang (L03 / L24) ──────────
@@ -123,6 +125,14 @@ export const CONDITION_CATEGORY = {
  * belum dipakai karena tidak ada di tabel playbook (FG-129).
  */
 export const FAMILY_MEMBER: Coding = { system: `${HL7}/v3-RoleCode`, code: "FAMMEMB", display: "Family member" };
+
+/**
+ * `ClinicalImpression.code` — L27 riwayat perjalanan penyakit (playbook RJ/RI bab 6 · IGD bab 8 "Pengiriman
+ * Data Riwayat Perjalanan Penyakit", Tabel: SNOMED 312850006 + `summary` string; contoh resmi RI identik).
+ */
+export const CLINICAL_IMPRESSION = {
+  riwayatPerjalanan: { system: "http://snomed.info/sct", code: "312850006", display: "History of disorder" },
+} as const satisfies Record<string, Coding>;
 
 const SCT = "http://snomed.info/sct";
 const KONDISI_STABIL: Coding = { system: SCT, code: "359746009", display: "Patient's condition stable" };
@@ -446,6 +456,29 @@ export const ORDER_PRIORITY: Record<string, "stat" | "urgent" | "routine"> = {
   Segera: "urgent",
   Rutin: "routine",
 };
+
+/**
+ * Modalitas katalog Radiologi (method FHIR, snapshot `rad_order_item.modalitas`, boleh ber-subtype
+ * `CT.angio`) → kode DICOM Modality (0008,0060) untuk `ServiceRequest.orderDetail` (L17).
+ * XR → `DX` mengikuti contoh resmi (XR Chest PA = DX). DXA (densitometri) sengaja `null`: kode DICOM
+ * `BMD` tidak muncul di playbook → orderDetail dilewati sampai uji sandbox (FG-139).
+ */
+export const DICOM_MODALITY: Record<string, string | null> = {
+  XR: "DX",
+  CT: "CT",
+  MR: "MR",
+  RF: "RF",
+  US: "US",
+  MG: "MG",
+  NM: "NM",
+  DXA: null,
+};
+
+/** Modalitas snapshot (`CT.angio` → `CT`) → kode DICOM, atau null bila tak dikenal / ditahan. */
+export function dicomModalityOf(modalitas: string | null | undefined): string | null {
+  const base = (modalitas ?? "").split(".")[0].trim().toUpperCase();
+  return DICOM_MODALITY[base] ?? null;
+}
 
 // ── Helper lookup aman (input string bebas dari DB) ─────────
 

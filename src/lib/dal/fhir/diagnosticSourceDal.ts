@@ -32,7 +32,10 @@ export function listRad(kunjunganId: string, tx?: Tx) {
     orderBy: { createdAt: "asc" },
     select: {
       id: true, prioritas: true, status: true, authorPegawaiId: true, catatan: true, createdAt: true, deletedAt: true,
-      items: { orderBy: { createdAt: "asc" }, select: { id: true, radCatalogId: true, kode: true, nama: true } },
+      items: {
+        orderBy: { createdAt: "asc" },
+        select: { id: true, radCatalogId: true, kode: true, nama: true, modalitas: true, acsn: true },
+      },
       results: {
         orderBy: { createdAt: "desc" },
         take: 1,

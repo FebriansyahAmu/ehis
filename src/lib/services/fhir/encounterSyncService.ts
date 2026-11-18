@@ -5,10 +5,11 @@
 //
 // Urutan (wajib karena referensi — docs/fhir-mapping/FLOW.md §3):
 //   A) Encounter dipastikan ada (in-progress bila belum pernah terkirim) — entry pertama bundle.
-//   B) Keluhan utama CC (L03) · klinis (FH4) · rantai obat (FH5) · diagnostik (FH6) · kondisi pulang (L24).
+//   B) Keluhan utama CC (L03) · diagnosa masuk AD (L13) · klinis (FH4) · rantai obat (FH5) · diagnostik (FH6) ·
+//      kondisi pulang (L24).
 //   D) Composition resume (FH7).
-//   C) Encounter final: status target + diagnosis CC & DD + length + dischargeDisposition.
-// Gerbang "blokir finished" (S2): tanpa CC atau diagnosis → Encounter tetap in-progress + Issue
+//   C) Encounter final: status target + diagnosis CC, AD & DD + length + dischargeDisposition.
+// Gerbang "blokir finished" (S2/S6a): tanpa CC, tanpa diagnosis, atau Utama ≠ 1 → Encounter tetap in-progress + Issue
 // `syarat-finished`. Mode single: `finished` juga ditahan bila Condition gagal (FG-27).
 //
 // Prasyarat referensi (R15): Patient (di-resolve otomatis bila belum), Practitioner DPJP & Location
@@ -25,7 +26,8 @@ import { addSectionRef, mergeSectionRefs, toFhirComposition } from "@/lib/fhir/a
 import { toFhirChiefComplaint, toFhirKondisiPulang } from "@/lib/fhir/adapters/encounterCondition";
 import type { FhirError, FhirResourceBase } from "@/lib/fhir/fhirShared";
 import type { Issue } from "@/lib/fhir/links/types";
-import { diagnosaFinalOf, diagnosaUtamaOf } from "@/lib/fhir/links/diagnosa";
+import { diagnosaFinalOf, diagnosaMasukOf, diagnosaUtamaOf, indeksIcd10 } from "@/lib/fhir/links/diagnosa";
+import { toFhirDiagnosaMasuk } from "@/lib/fhir/adapters/clinical";
 import {
   ccLocalId, finishedBlockers, keluhanUtamaOf, kondisiPulangLocalId, kondisiPulangOf,
 } from "@/lib/fhir/links/encounterFinal";
@@ -166,9 +168,10 @@ async function runEncounter(
     status: EncounterStatus,
     diagnoses: { ihsId: string; display: string; rank: number }[] = [],
     chiefComplaint?: { ihsId: string; display: string },
+    admissionDiagnosis?: { ihsId: string; display: string },
   ) => sink.submit({
     localType: "Encounter", localId: k.id,
-    resource: toFhirEncounter(local, { ...baseRefs, diagnoses, chiefComplaint }, status),
+    resource: toFhirEncounter(local, { ...baseRefs, diagnoses, chiefComplaint, admissionDiagnosis }, status),
   });
 
   const refs: SyncRef[] = [];
@@ -218,6 +221,16 @@ async function runEncounter(
     if (ihsId) chiefComplaint = { ihsId, display: cc.data.display };
   }
 
+  // ── Fase B1: diagnosa masuk → Condition encounter-diagnosis, Encounter.diagnosis AD (L13, S6a) ──
+  let admissionDiagnosis: { ihsId: string; display: string } | undefined;
+  const icd = indeksIcd10(snap.icd10.icd);
+  const masuk = diagnosaMasukOf(k.id, snap.icd10.kodeIcdMasuk, icd, k.waktuKunjungan);
+  if (masuk && !masuk.ok) issues.push(masuk.issue);
+  else if (masuk) {
+    const ihsId = await submitCondition(masuk.item.localId, toFhirDiagnosaMasuk(masuk.item, clinicalRefs));
+    if (ihsId) admissionDiagnosis = { ihsId, display: `${masuk.item.kode} ${masuk.item.display}` };
+  }
+
   // ── Fase B1/B2: riwayat penyakit pribadi & keluarga (L04 · L05) + head-to-toe (L10) ──
   const ana = await syncAnamnesisFisik(snap, { env, sink, refs: clinicalRefs });
 
@@ -233,9 +246,10 @@ async function runEncounter(
 
   // Diagnosis final yang terkirim (DD, Utama dulu) — dipakai Composition (L26) & Encounter final (L01).
   const dxSent = new Map(cl.refs.filter((r) => r.resourceType === "Condition").map((r) => [r.localId, r.ihsId]));
-  const diagnoses = dxFinal
-    .filter((d) => dxSent.has(d.id))
+  const dxTerkirim = dxFinal.filter((d) => dxSent.has(d.id));
+  const diagnoses = dxTerkirim
     .map((d, i) => ({ ihsId: dxSent.get(d.id)!, display: `${d.kodeIcd10} ${d.namaDiagnosis}`, rank: i + 1 }));
+  const jumlahUtama = dxTerkirim.filter((d) => d.tipe === "Utama").length;
 
   // ── Fase B6: rencana & pulang (L15 · L22 · L23 · L25) — Goal.addresses merujuk Condition yang terkirim ──
   const conditionByKode = new Map(
@@ -304,13 +318,13 @@ async function runEncounter(
   if (target === "finished") {
     // Gerbang "blokir finished" (FLOW §4): tanpa CC / diagnosis → tetap in-progress, resource fase B
     // tetap terkirim; dikirim finished pada sinkron berikutnya setelah data dilengkapi.
-    const hold = finishedBlockers(k.id, !!chiefComplaint, diagnoses.length);
+    const hold = finishedBlockers(k.id, !!chiefComplaint, diagnoses.length, jumlahUtama);
     if (hold.length) {
       issues.push(...hold);
       target = "in-progress";
     }
   }
-  const fin = await sendEncounter(target, diagnoses, chiefComplaint);
+  const fin = await sendEncounter(target, diagnoses, chiefComplaint, admissionDiagnosis);
   if (!fin?.ok) return done(fail(fin?.ok === false ? fin.error : undefined, "Gagal memperbarui Encounter"));
   refs.unshift({ resourceType: "Encounter", localId: k.id, ihsId: fin.ihsId, op: existing ? fin.op : "create" });
 

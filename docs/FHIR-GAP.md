@@ -89,7 +89,7 @@
 | FG-36 | 🟡 **(S3 2026-11-17: alergi obat kini dikirim via KFA zat aktif `bzaKode` — 4/4 data uji siap; makanan/lainnya tetap butuh SNOMED → Issue L06 di konsol)** | **AllergyIntolerance tanpa SNOMED dilewati** — data uji 4/4 tanpa `snomedCode` → praktis tak ada alergi terkirim. | Pastikan AllergyPane mengisi `snomedCode` (quick-pick katalog asesmen ber-SNOMED); validasi lokal R12 (G-4). |
 | FG-37 | 🟡 **(S3: tindakan tanpa ICD-9 kini tampil sebagai Issue L14 di konsol — bukan hilang diam-diam; pengisian kode tetap perlu)** | **TindakanMedis tanpa kode ICD-9-CM tak jadi Procedure** — data uji 4/4 tanpa kode; hanya DiagnosaProsedur (koding ICD-9) yang pasti terkirim. | Lengkapi kode ICD-9 di master Katalog Tindakan (kolom sudah ada, opsional) untuk tindakan yang wajib dilaporkan. |
 | FG-38 | ⚪ | **Procedure tanpa `category` & `bodySite`** (SNOMED) — contoh resmi memakai keduanya. | Tambah mapping kategori tindakan → SNOMED (diagnostic/therapeutic) bila diwajibkan validasi sandbox. |
-| FG-39 | ⚪ | **Display ICD-10 = nama diagnosis lokal** (bisa Bahasa Indonesia), bukan display resmi WHO (Inggris). | Ambil display dari master ICD bila tersedia; cek apakah SatuSehat memvalidasi display. |
+| FG-39 | ✅ | **Display ICD-10 = nama diagnosis lokal** (bisa Bahasa Indonesia), bukan display resmi WHO (Inggris). | **S6a:** display dibaca dari `master.icd_code.display` (teks tampilan SatuSehat) saat kirim, nama lokal → `code.text` bila berbeda; kode di luar master = Issue. |
 | FG-40 | ✅ **(FH7 2026-10-26: mode bundle default — 1 POST per kunjungan)** | **Volume TTV**: 1 baris TTV = hingga 10 Observation (1 POST masing-masing). Rawat inap multi-shift → ratusan panggilan per kunjungan. | FH7: kirim sebagai Bundle transaction. |
 | FG-41 | ✅ **(2026-11-17 — dijawab riset playbook → lihat FG-78)** | **Kode LOINC tanda vital belum diverifikasi** ke use case SatuSehat (SpO₂ `59408-5` vs `2708-6`, GCS total `9269-2`, nyeri `72514-3`). | Cocokkan dengan bundle resmi IGD/RI di `docs/fhir-postman/bundles/`. |
 | FG-42 | ⚪ | **Belum dipetakan:** manifestasi reaksi alergi (SNOMED), onset Condition, kategori Komplikasi/Komorbid (problem-list), Encounter.diagnosis hanya Utama+Sekunder Pasti. | Sesuai kebutuhan klaim/use case berikutnya. |
@@ -122,7 +122,7 @@
 | FG-51 | 🔴 | **Diagnostik belum diuji ke sandbox** (kredensial, FG-02). | Setelah FG-52: validasi 1 order lab & 1 rad uji → `POST /fhir/outbox/run`. |
 | FG-52 | 🟡 **(UI ✅ 2026-10-26 — tinggal pengisian data)** | **LOINC master Lab/Rad kosong** + ~~belum ada UI~~ (field LOINC kini ada — lihat "FG-52 lanjutan" di bawah). Sengaja TIDAK di-seed otomatis — LOINC salah lebih berbahaya daripada kosong (bisa diterima dengan makna klinis keliru). | (1) Tambah field LOINC (+display) di form Katalog Lab (tes & parameter) dan Katalog Radiologi + Zod/DAL/DTO. (2) Pemetaan awal oleh petugas lab/rad dengan acuan daftar LOINC SatuSehat (Kamus Pemeriksaan Lab), dicek ulang sebelum dipakai prod. |
 | FG-53 | 🟡 | **Specimen tidak dikirim** — sampel diambil di luar aplikasi (step Pengambilan Sampel dihapus 2026-06-21); `LabTest.spesimen` teks bebas tanpa SNOMED; tak ada waktu ambil/terima. | Bila SatuSehat mewajibkan Specimen untuk use case lab: catat waktu ambil/terima + jenis spesimen ber-SNOMED, lalu Specimen terhubung ke ServiceRequest & DiagnosticReport. |
-| FG-54 | 🟡 | **ImagingStudy tidak dikirim** — butuh DICOM Study/Series/Instance UID dari PACS/DICOM router; belum ada integrasi PACS. | Integrasi DICOM router SatuSehat (umumnya PACS mengirim ImagingStudy, SIMRS cukup ACSN di ServiceRequest) — tambahkan identifier ACSN di ServiceRequest rad saat PACS tersedia. |
+| FG-54 | 🟡 | **ImagingStudy tidak dikirim** — butuh DICOM Study/Series/Instance UID dari PACS/DICOM router; belum ada integrasi PACS. | **S6a: ACSN ✅** di ServiceRequest rad (identifier `ACSN`, dibangkitkan saat order). Sisa: DICOM router/PACS yang mengirim ImagingStudy + `DiagnosticReport.imagingStudy` (cari ImagingStudy by ACSN). |
 | FG-55 | ⚪ | **Satuan hasil lab belum divalidasi UCUM** — `satuan` lokal dikirim apa adanya sebagai `valueQuantity.code` (mis. "sel/uL" bukan UCUM). | Peta satuan lokal → UCUM di master parameter (bersamaan FG-52). |
 | FG-56 | ⚪ | **DiagnosticReport rad multi-pemeriksaan** memakai LOINC pemeriksaan pertama sebagai `code`. | Pertimbangkan 1 DiagnosticReport per item bila ekspertise per pemeriksaan dipisah. |
 | FG-57 | ⚪ | **Hanya hasil tervalidasi yang dikirim** (status `final`) — hasil preliminary/belum validasi tidak. Item lab non-katalog (`labTestId` null) dilewati. | Sesuai kebutuhan klinis; preliminary bisa ditambah dengan status `preliminary`. |
@@ -358,3 +358,27 @@ template 92, 12 tanpa KFA; 1 baris riwayat lama (ketik bebas).
 | FG-136 | ⚪ | **Elemen opsional tidak dikirim:** `category` (tidak ada di tabel playbook; contoh RI "inpatient" untuk obat rumah), `effective[x]` ("sejak" teks bebas → `note`), `informationSource`. Obat yang **berasal dari fasyankes ini** menurut playbook memakai `medicationReference` ke Medication hasil MedicationDispense — belum dibedakan (semua `medicationCodeableConcept`). | Putuskan saat uji sandbox; isian tanggal mulai terstruktur bila diperlukan. |
 | FG-137 | ⚪ | **Baris lama ketik bebas** (sebelum S5a) tetap Issue L07 sampai diisi ulang lewat rekomendasi. Baris obat baru default status "Masih diminum" (dapat diubah). | — |
 
+## S6a ACSN · riwayat perjalanan · perapian L13 (2026-11-18, branch `feat/fhir-s6a-acsn-riwayat-perjalanan`)
+
+**Dibangun:**
+- **L17 ACSN** — kolom `rad_order_item.acsn` (unik) + counter harian `rad_acsn_counter` (migrasi `20261118160000`, data lama
+  di-backfill pola sama). Format [`R<YYMMDD WIB><urut ≥4 digit>`](../src/lib/services/rad/acsn.ts) (≤16 karakter = batas DICOM SH),
+  dibangkitkan Service dalam tx order. ServiceRequest rad: identifier[1] `ACSN` (type v2-0203, system `…/acsn/{Org_id}`) + `orderDetail`
+  modality DICOM ([`DICOM_MODALITY`](../src/lib/fhir/conceptMap.ts), XR→DX sesuai contoh resmi) — bentuk identik contoh RJ/IGD/RI. SR rad
+  tanpa ACSN sah → Issue ([links/radiologi.ts](../src/lib/fhir/links/radiologi.ts)). UI: ACSN + tombol salin di header detail order Rad,
+  teks di kartu worklist & riwayat order klinis, baris "Accession No." di cetak hasil.
+- **L27 riwayat perjalanan penyakit** — ClinicalImpression `312850006` dari `Anamnesis.rps` (playbook RJ/RI bab 6 · IGD bab 8; semua unit),
+  1 per kunjungan (latest wins), dikosongkan → entered-in-error. Section Composition "Perencanaan Perawatan" (contoh RI).
+- **L13 perapian** — display ICD-10 dari master (FG-39 ✅), kode di luar master ditahan; **diagnosa masuk** (`kunjungan.kode_icd_masuk`)
+  → Condition `encounter-diagnosis` + `Encounter.diagnosis` **AD** (contoh resmi IGD); gerbang finished: diagnosis **Utama terkirim tepat satu**.
+
+Test [koreksiS6a.test.ts](../src/lib/fhir/links/koreksiS6a.test.ts) + S1–S5a: 102 lulus. Data dev: 11 diagnosa aktif — semua ada di master &
+nama = display master; 5/20 kunjungan ber-diagnosa masuk; 1 item rad lama → `R2606220001`; katalog rad 8 modalitas (DXA ditahan).
+
+| ID | Status | Gap | Cara tutup |
+|---|---|---|---|
+| FG-138 | ⚪ | **AE title tidak dikirim** — contoh resmi menyertakan `orderDetail` kedua (`http://sys-ids.kemkes.go.id/ae-title`, nama alat), EHIS belum punya master alat/AE title per modalitas. | Master alat radiologi + AE title (Katalog/Mapping), kirim sebagai orderDetail kedua. |
+| FG-139 | ⚪ | **DXA → kode DICOM `BMD`** tidak muncul di playbook → `orderDetail` dilewati untuk densitometri (SR tetap terkirim). | Uji sandbox kode `BMD`; isi `DICOM_MODALITY.DXA` bila diterima. |
+| FG-140 | 🟡 | **ACSN diketik manual di modalitas** (belum DICOM Modality Worklist) — salah ketik = ImagingStudy tak tertaut ke order. | Kirim worklist (DICOM MWL / HL7 ORM) dari EHIS ke modalitas saat PACS/router dipasang; sementara ACSN tampil + tombol salin di detail order & cetakan. |
+| FG-141 | ⚪ | **ClinicalImpression riwayat perjalanan:** daftar elemen IGD bab 8 ikut menandai `investigation.code` & `prognosisCodeableConcept` wajib, tetapi contoh resmi RI tidak memuat keduanya → diikuti contoh resmi. Contoh RI menaruh rujukannya di section "Perencanaan Perawatan", bukan "Anamnesis" → diikuti. | Konfirmasi lewat uji sandbox. |
+| FG-142 | ⚪ | **L13:** gerbang "Utama tepat satu" kini menahan finished bila Utama tidak terkirim (sebelumnya Sekunder bisa menjadi rank 1). Komplikasi/Komorbid tetap tidak masuk `Encounter.diagnosis` (`CM` belum diuji). Diagnosa masuk hanya dari `kode_icd_masuk` (diagnosa rujukan saat daftar) — diagnosa kerja awal dokter IGD belum dibedakan. | Uji sandbox `CM`; isian diagnosa awal IGD bila diperlukan. |

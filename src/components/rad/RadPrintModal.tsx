@@ -132,6 +132,7 @@ export default function RadPrintModal({ order, onClose }: { order: RadOrder; onC
                   ["Dokter Pengirim", order.dokter],
                   ["Pemeriksaan", modItem ? `${modItem.nama} (${modItem.modalitas})` : "—"],
                   ["Unit",        order.unitAsal + (order.ruangan ? ` · ${order.ruangan}` : "")],
+                  ["Accession No.", order.items.map((i) => i.acsn).filter(Boolean).join(", ") || "—"],
                 ].map(([k, v]) => (
                   <div key={k} className="flex gap-2">
                     <span className="w-28 shrink-0 text-slate-500">{k}</span>

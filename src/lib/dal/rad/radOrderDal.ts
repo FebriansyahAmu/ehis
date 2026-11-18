@@ -12,6 +12,8 @@ export interface CreateRadItemData {
   waktuTunggu?: string | null;
   persiapan?: string | null;
   harga?: number | null;
+  /** Accession Number — dibangkitkan Service (counter harian) dalam tx yang sama. */
+  acsn?: string | null;
 }
 
 export interface CreateRadOrderData {
@@ -36,6 +38,16 @@ export function create(data: CreateRadOrderData, tx?: Tx) {
     data: { ...header, items: { create: items } },
     include: withItems,
   });
+}
+
+/** Naikkan counter ACSN per-scope ("R<YYMMDD>") atomik, kembalikan seq baru. */
+export async function nextAcsnSeq(scope: string, tx?: Tx): Promise<number> {
+  const r = await db(tx).radAcsnCounter.upsert({
+    where: { scope },
+    create: { scope, seq: 1 },
+    update: { seq: { increment: 1 } },
+  });
+  return r.seq;
 }
 
 export function listByKunjungan(kunjunganId: string, tx?: Tx) {

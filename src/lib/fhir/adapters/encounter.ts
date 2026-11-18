@@ -5,7 +5,7 @@
  * Status: InService → in-progress · Completed/Closed/Billed/Claimed → finished · Cancelled → cancelled.
  * statusHistory: arrived [waktuKunjungan → dilayaniAt] → in-progress [dilayaniAt → selesaiAt] → finished;
  * IGD dengan triase: arrived → triaged [waktuTriase → dilayaniAt] → in-progress (contoh resmi IGD).
- * Saat finished (S2, docs/fhir-mapping/L01): `length` · `diagnosis` CC (keluhan, L03) + DD (L13) ·
+ * Saat finished (S2, docs/fhir-mapping/L01): `length` · `diagnosis` CC (keluhan, L03) + DD + AD (L13, S6a) ·
  * `dischargeDisposition` (L24, meninggal exp-lt48h/exp-gt48h). `classHistory` & `location.period` selalu.
  * Contoh resmi: docs/fhir-postman/resources/Encounter.json + bundles/*.json (entry Encounter).
  */
@@ -45,6 +45,8 @@ export interface EncounterRefs {
   diagnoses?: { ihsId: string; display: string; rank: number }[];
   /** Condition keluhan utama (L03, use CC) — wajib untuk status finished [V semua playbook]. */
   chiefComplaint?: { ihsId: string; display: string };
+  /** Condition diagnosa masuk (L13, use AD) — opsional, dari `kunjungan.kode_icd_masuk` (S6a). */
+  admissionDiagnosis?: { ihsId: string; display: string };
 }
 
 export interface FhirEncounter extends FhirResourceBase {
@@ -126,6 +128,10 @@ export function toFhirEncounter(e: LocalEncounter, refs: EncounterRefs, status: 
           use: { coding: [DIAGNOSIS_ROLE.DD] },
           rank: d.rank,
         })),
+        ...(refs.admissionDiagnosis ? [{
+          condition: { reference: `Condition/${refs.admissionDiagnosis.ihsId}`, display: refs.admissionDiagnosis.display },
+          use: { coding: [DIAGNOSIS_ROLE.AD] },
+        }] : []),
         ...(refs.chiefComplaint ? [{
           condition: { reference: `Condition/${refs.chiefComplaint.ihsId}`, display: refs.chiefComplaint.display },
           use: { coding: [DIAGNOSIS_ROLE.CC] },

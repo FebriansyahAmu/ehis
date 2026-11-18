@@ -1,5 +1,5 @@
 /**
- * Registry link pemetaan EMR → FHIR (L01–L26) — cermin tabel "Peta kamar" docs/fhir-mapping/README.md.
+ * Registry link pemetaan EMR → FHIR (L01–L27) — cermin tabel "Peta kamar" docs/fhir-mapping/README.md.
  * Dipakai untuk label Issue di konsol dan pengecekan konsistensi (test). Ubah status di sini SAAT link
  * selesai dikoreksi/dibangun, bersamaan dengan dokumen link-nya.
  */
@@ -36,6 +36,7 @@ export const LINKS: readonly LinkMeta[] = [
   { id: "L24", name: "disposisiToKondisiPulang", resourceTypes: ["Condition", "Encounter"], units: ALL, status: "aktif", doc: "L24-disposisi-to-kondisi-pulang.md" }, // S2
   { id: "L25", name: "tindakLanjutToServiceRequest", resourceTypes: ["ServiceRequest"], units: ALL, status: "aktif", doc: "L25-tindak-lanjut-to-servicerequest.md" }, // S4c (SPRI ditahan D8)
   { id: "L26", name: "resumeToComposition", resourceTypes: ["Composition"], units: ALL, status: "aktif", doc: "L26-resume-to-composition.md" }, // S3
+  { id: "L27", name: "riwayatPerjalananToClinicalImpression", resourceTypes: ["ClinicalImpression"], units: ALL, status: "aktif", doc: "L27-riwayat-perjalanan-to-clinicalimpression.md" }, // S6a (Anamnesis.rps)
 ];
 
 export const LINK_BY_ID = Object.fromEntries(LINKS.map((l) => [l.id, l])) as Record<LinkId, LinkMeta>;

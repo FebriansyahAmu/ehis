@@ -44,13 +44,13 @@ export function getLatestResume(kunjunganId: string, tx?: Tx) {
   });
 }
 
-/** Anamnesis TERBARU (append-only latest-wins) — sumber keluhan utama / Condition CC (L03). */
+/** Anamnesis TERBARU (append-only latest-wins) — keluhan utama / Condition CC (L03) + RPS / ClinicalImpression (L27). */
 export function getLatestAnamnesis(kunjunganId: string, tx?: Tx) {
   return db(tx).anamnesis.findFirst({
     where: { kunjunganId },
     orderBy: { createdAt: "desc" },
     select: {
-      id: true, keluhanUtama: true, keluhanSnomedKode: true, keluhanSnomedDisplay: true,
+      id: true, keluhanUtama: true, keluhanSnomedKode: true, keluhanSnomedDisplay: true, rps: true,
       authorPegawaiId: true, createdAt: true,
     },
   });

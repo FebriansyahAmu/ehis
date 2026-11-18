@@ -164,9 +164,10 @@ export default function RadInbox({ onPendingChange }: { onPendingChange?: (n: nu
                 {/* Items */}
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {o.items.map((it) => (
-                    <span key={it.id} className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-[10px] font-medium text-slate-600 ring-1 ring-slate-200">
+                    <span key={it.id} className="inline-flex flex-wrap items-center gap-1 rounded-md bg-white px-2 py-0.5 text-[10px] font-medium text-slate-600 ring-1 ring-slate-200">
                       {it.nama}
                       <span className="text-slate-400">· {modLabel(it.modalitas)}</span>
+                      {it.acsn && <span className="font-mono text-[10px] text-sky-700">· {it.acsn}</span>}
                     </span>
                   ))}
                 </div>
@@ -227,9 +228,10 @@ export default function RadInbox({ onPendingChange }: { onPendingChange?: (n: nu
                         {/* Items */}
                         <div className="mt-2 flex flex-wrap gap-1.5">
                           {o.items.map((it) => (
-                            <span key={it.id} className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-[10px] font-medium text-slate-600 ring-1 ring-slate-200">
+                            <span key={it.id} className="inline-flex flex-wrap items-center gap-1 rounded-md bg-white px-2 py-0.5 text-[10px] font-medium text-slate-600 ring-1 ring-slate-200">
                               {it.nama}
                               <span className="text-slate-400">· {modLabel(it.modalitas)}</span>
+                              {it.acsn && <span className="font-mono text-[10px] text-sky-700">· {it.acsn}</span>}
                             </span>
                           ))}
                         </div>

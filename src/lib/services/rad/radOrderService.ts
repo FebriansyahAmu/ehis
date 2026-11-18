@@ -8,6 +8,8 @@ import * as defaultDal from "@/lib/dal/rad/radOrderDal";
 import * as kunjunganDal from "@/lib/dal/kunjunganDal";
 import { radRoster, assertActorAssignedToRad } from "@/lib/services/rad/radAssignment";
 import { resolveActorNama } from "@/lib/services/actorName";
+import { acsnScope, formatAcsn } from "@/lib/services/rad/acsn";
+import { transaction } from "@/lib/db/prisma";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type {
@@ -29,6 +31,7 @@ function toItemDTO(i: ItemEntity): RadOrderItemDTO {
     waktuTunggu: i.waktuTunggu ?? null,
     persiapan: i.persiapan ?? null,
     harga: i.harga ?? null,
+    acsn: i.acsn ?? null,
   };
 }
 
@@ -91,27 +94,37 @@ export function makeRadOrderService(deps: { dal?: Dal } = {}) {
     // RJ/Poli → langsung worklist (resepsi = antrean fisik). IGD/RI → "Menunggu" (perlu diterima Rad dulu).
     const statusAwal = k.unit === "RawatJalan" ? "Diterima" : "Menunggu";
     const penulis = input.penulis?.trim() || (await resolveActorNama(actor));
-    const row = await dal.create({
-      kunjunganId,
-      radKode: input.radKode ?? null,
-      radNama: input.radNama,
-      catatan: input.catatan ?? null,
-      prioritas: input.prioritas,
-      status: statusAwal,
-      penulis,
-      penulisKontak: input.penulisKontak ?? null,
-      authorUserId: actor.userId,
-      authorPegawaiId: actor.pegawaiId,
-      items: input.items.map((it) => ({
-        radCatalogId: it.radCatalogId ?? null,
-        kode: it.kode,
-        nama: it.nama,
-        modalitas: it.modalitas,
-        region: it.region,
-        waktuTunggu: it.waktuTunggu ?? null,
-        persiapan: it.persiapan ?? null,
-        harga: it.harga ?? null,
-      })),
+    // ACSN per pemeriksaan (1 ServiceRequest per item) — counter harian WIB, atomik bersama order.
+    const row = await transaction(async (tx) => {
+      const scope = acsnScope(new Date());
+      const items: defaultDal.CreateRadItemData[] = [];
+      for (const it of input.items) {
+        const acsn = formatAcsn(scope, await dal.nextAcsnSeq(scope, tx));
+        items.push({
+          radCatalogId: it.radCatalogId ?? null,
+          kode: it.kode,
+          nama: it.nama,
+          modalitas: it.modalitas,
+          region: it.region,
+          waktuTunggu: it.waktuTunggu ?? null,
+          persiapan: it.persiapan ?? null,
+          harga: it.harga ?? null,
+          acsn,
+        });
+      }
+      return dal.create({
+        kunjunganId,
+        radKode: input.radKode ?? null,
+        radNama: input.radNama,
+        catatan: input.catatan ?? null,
+        prioritas: input.prioritas,
+        status: statusAwal,
+        penulis,
+        penulisKontak: input.penulisKontak ?? null,
+        authorUserId: actor.userId,
+        authorPegawaiId: actor.pegawaiId,
+        items,
+      }, tx);
     });
     return toDTO(row);
   }

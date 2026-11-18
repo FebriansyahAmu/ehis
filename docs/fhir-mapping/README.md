@@ -48,11 +48,11 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 | [L10](L10-pemeriksaan-fisik-to-observation.md) | `pemeriksaanFisikToObservation` | `PemeriksaanFisik.sistem` (head-to-toe) | **Observation** `exam` LOINC per bagian tubuh | semua | 🟡 S4d (5/11 sistem; sisanya ditahan D12, FG-131) |
 | [L11](L11-nyeri-to-observation.md) | `nyeriToObservation` | `Observation.skalaNyeri` + `PenilaianNyeri` | **Observation** `survey` 22253000 + `hasMember` NRS | semua | 🟡 S4 (NRS + Wong-Baker ✅; NIPS ditahan FG-107) |
 | [L12](L12-penilaian-to-observation.md) | `penilaianToObservation` | `PenilaianSkala` · `PenilaianStatus` | **Observation** `exam`/`survey` (Morse · Humpty Dumpty · Edmonson · psikologis) | semua | 🟡 S4 (risiko jatuh ✅; Braden D13 · Barthel D5 ditahan; psikologis ⛔) |
-| [L13](L13-diagnosa-to-condition.md) | `diagnosaToCondition` | `medicalrecord.Diagnosa` | **Condition** `encounter-diagnosis` + `Encounter.diagnosis` | semua | ⚠️ |
+| [L13](L13-diagnosa-to-condition.md) | `diagnosaToCondition` | `medicalrecord.Diagnosa` | **Condition** `encounter-diagnosis` + `Encounter.diagnosis` | semua | 🟡 S6a (display master ICD · diagnosa masuk AD · Utama tepat satu; `CM` komorbid FG-142) |
 | [L14](L14-tindakan-to-procedure.md) | `tindakanToProcedure` | `DiagnosaProsedur` · `TindakanMedis` | **Procedure** (ICD-9-CM, category) | semua | ✅ S3 |
 | [L15](L15-edukasi-to-procedure.md) | `edukasiToProcedure` | `DischargeEdukasi` · `AsesmenEdukasiPasien` | **Procedure** `409073007` Education | semua | 🟡 S4c (5/12 topik berkode; edukasi asesmen belum, FG-122) |
 | [L16](L16-lab-to-diagnostic.md) | `labToDiagnostic` | `LabOrder/Item` · `LabResult/Value` | **ServiceRequest · Specimen · Observation · DiagnosticReport** | semua | 🟡 S3 (gerbang terminologi ✅; LOINC master 0%, Specimen ⛔) |
-| [L17](L17-rad-to-diagnostic.md) | `radToDiagnostic` | `RadOrder/Item` · `RadResult` | **ServiceRequest · ImagingStudy · Observation · DiagnosticReport** | semua | ⚠️ |
+| [L17](L17-rad-to-diagnostic.md) | `radToDiagnostic` | `RadOrder/Item` · `RadResult` | **ServiceRequest · ImagingStudy · Observation · DiagnosticReport** | semua | 🟡 S6a (ACSN ✅; ImagingStudy dikirim DICOM router FG-54, AE title FG-138) |
 | [L18](L18-resep-to-medicationrequest.md) | `resepToMedicationRequest` | `ResepOrder/Item` + `master.Obat` | **Medication + MedicationRequest** | semua | 🟡 S3 (pola Medication ✅; timing.repeat) |
 | [L19](L19-telaah-to-questionnaireresponse.md) | `telaahToQuestionnaireResponse` | `ResepTelaah` | **QuestionnaireResponse** `Q0007` | semua | ✅ S4b (BB/TB 1.1 belum dinilai lokal, FG-113) |
 | [L20](L20-dispensing-to-medicationdispense.md) | `dispensingToMedicationDispense` | `ResepDispensing` | **MedicationDispense** (+Medication `contained`) | semua | 🟡 S3 (pola Medication + KFA 93 ✅; qty/batch) |
@@ -62,18 +62,19 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 | [L24](L24-disposisi-to-kondisi-pulang.md) | `disposisiToKondisiPulang` | `Disposisi` | **Condition** kondisi pulang + `Encounter.hospitalization.dischargeDisposition` | semua | ✅ S2 |
 | [L25](L25-tindak-lanjut-to-servicerequest.md) | `tindakLanjutToServiceRequest` | `JadwalKontrol` · `RujukanEksternal` · `Spri` · `Konsultasi` | **ServiceRequest** `3457005` (+ SPRI `inpatient-admission`) | semua | 🟡 S4c (kontrol · konsultasi · rujukan ✅; SPRI ditahan D8) |
 | [L26](L26-resume-to-composition.md) | `resumeToComposition` | `ResumeMedik` | **Composition** (type per unit) | semua | ✅ S3 |
+| [L27](L27-riwayat-perjalanan-to-clinicalimpression.md) | `riwayatPerjalananToClinicalImpression` | `Anamnesis.rps` | **ClinicalImpression** `312850006` | semua | ✅ S6a (konflik daftar wajib IGD vs contoh RI, FG-141) |
 
 ### ⛔ Ada di playbook, EHIS belum punya sumber terstruktur
 
 | Kamar SatuSehat | Isi | Catatan |
 |---|---|---|
-| ClinicalImpression `312850006` | Riwayat perjalanan penyakit | Narasi ada di CPPT/Resume, tapi belum field terstruktur |
 | ClinicalImpression `TK000056` | Rasional klinis | — |
 | ClinicalImpression `20481000` | Prognosis (baik/dubia ad bonam/dubia ad malam/buruk) | Kandidat field baru di Disposisi/Resume |
 | RiskAssessment | Penilaian risiko penyakit | — |
 | NutritionOrder | Diet (proposal/order) | Belum ada domain order diet |
-| Specimen | Data sampel lab | Pengambilan sampel di luar aplikasi (FG-53) |
-| ImagingStudy | DICOM study | Butuh PACS/DICOM router (FG-54) |
+| Specimen | Data sampel lab | Dikirim **sesudah** ServiceRequest Lab (`Specimen.request`). Belum: jenis spesimen ber-SNOMED (katalog masih teks), waktu & petugas terima Lab tidak disimpan (FG-53) → **S6b** |
+| ImagingStudy | DICOM study | Dikirim **DICOM router/PACS**, bukan EHIS — dicocokkan lewat ACSN di ServiceRequest rad (✅ S6a). Menunggu PACS (FG-54) |
+| ServiceRequest `TK000028` / `277132007` | Prosedur diagnostik (EKG, ekokardiografi) / terapeutik (hemodialisis) | Contoh RI. Sumber diagnostik ada: Pemeriksaan Penunjang (EKG, Spirometri, …) — kandidat link baru |
 | Device/DeviceRequest/SupplyDelivery | Alkes | Kandidat dari `BmhpOrder` — fase lanjut |
 | QuestionnaireResponse `Q0008` | Skrining batuk (IGD) | Kandidat dari `AsesmenTuberkulosis` — perlu cek kecocokan item |
 | Encounter `extension` EncounterToFacility | Status pengunjung `new/returning/unknown` | Bisa diturunkan dari riwayat kunjungan pasien; system URL belum ditemukan di playbook |
@@ -121,6 +122,8 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 | ~~Simpan `kode` item katalog asesmen (bukan nama) di riwayat penyakit/keluarga~~ ✅ S4d — kolom `penyakit_kode`/`anggota_kode` diturunkan server (tanpa ubah form) | L04 · L05 | kolom |
 | Allergen obat → kode **KFA BZA (91…)** (`AsesmenAlergi.bzaKode` sudah ada) | L06 | adapter |
 | ~~Riwayat obat pakai picker KFA (92/93)~~ ✅ S5a — combobox rekomendasi formularium + status (pencarian KFA nasional menunggu FH8) | L07 | UI + kolom |
+| ~~Accession Number per pemeriksaan radiologi~~ ✅ S6a — dibangkitkan saat order, tampil + salin di detail order Rad | L17 | kolom + UI |
+| Jenis spesimen ber-SNOMED di Katalog Lab + waktu/petugas terima Lab (S6b) | L16 Specimen | kolom master + kolom order |
 | ~~Kolom kode FHIR (LOINC/OC) di `master.SkalaInstrument`~~ ✅ S4 — kolom kunci `fhir_pemetaan` + dropdown "Pemetaan SatuSehat" di Master Skala | L11 · L12 | kolom master |
 | Waktu penilaian di form Asesmen Risiko (FG-108) · nilai awal TTV tidak disalin diam-diam (FG-109) | L08 · L09 · L11 · L12 | UI kecil |
 | Butir "Berat & tinggi badan" di checklist telaah Farmasi (FG-113) · dosis MAR terstruktur nilai + satuan (FG-117) | L19 · L21 | UI kecil |
@@ -135,6 +138,8 @@ Kunci Postman API di `.env` sudah tidak valid (401, 2026-11-17) → refresh cont
 3. ✅ **Koreksi kamar yang sudah ada** — L08 (nyeri/GCS keluar dari vital-signs), L06 (KFA alergi obat), L14 (category), L26 (type per unit), L18/L20 (pola Medication).
 4. **Link baru bersumber siap** — per kelompok: ✅ **S4a Pemeriksaan** L09 · L11 · L12 · ✅ **S4b Obat** L19 · L21 ·
    ✅ **S4c Rencana & pulang** L22 · L23 · L25 · L15 · ✅ **S4d Anamnesis & fisik** L04 · L05 · L10. L02 ditunda (D2).
-5. **Link yang butuh perubahan entry** — ✅ **S5a L07** (picker rekomendasi + KFA), lalu ⛔ ClinicalImpression/NutritionOrder bila diputuskan.
+5. **Link yang butuh perubahan entry** — ✅ **S5a L07** (picker rekomendasi + KFA), lalu ⛔ NutritionOrder / prognosis / rasional klinis bila diputuskan.
+6. **Rantai ServiceRequest & koreksi sisa** — ✅ **S6a** L17 ACSN · L27 riwayat perjalanan (`Anamnesis.rps`) · L13 perapian; **S6b** Specimen
+   (sesudah ServiceRequest Lab).
 
 Setiap langkah = branch sendiri, DoD per [ENGINEERING-RULES](../ENGINEERING-RULES.md) (bila belum ada di `main`, lihat branch `chore/engineering-rules`).

@@ -47,6 +47,8 @@ export interface RadOrderItem {
   modalitas:   Modalitas;
   region:      string;
   withKontras: boolean;
+  /** Accession Number (ACSN) — dari server; diketik ke modalitas (pencocokan ImagingStudy, FHIR L17). */
+  acsn?:       string;
 }
 
 export interface KontrasInfo {

@@ -3,13 +3,14 @@
  *  - L04 riwayat penyakit pribadi → Condition category `previous-condition` (Kemkes)
  *  - L05 riwayat penyakit keluarga → FamilyMemberHistory (relationship FAMMEMB + teks anggota)
  *  - L07 riwayat pengobatan → MedicationStatement (`medicationCodeableConcept` KFA 92/93 — obat bukan dari fasyankes ini)
+ *  - L27 riwayat perjalanan penyakit → ClinicalImpression `312850006` (summary = Anamnesis.rps; S6a)
  * Bentuk mengikuti contoh resmi docs/fhir-postman/bundles/bundle-rawat-inap.json (Condition 472969004 /
  * 161527007 dengan recorder + note; FamilyMemberHistory `completed` tanpa encounter).
  */
 
 import { FHIR_SYSTEM, toFhirDateTime, type FhirResourceBase } from "../fhirShared";
 import type { KfaRiwayat } from "../links/riwayatObat";
-import { CONDITION_CATEGORY, FAMILY_MEMBER, type Coding } from "../conceptMap";
+import { CLINICAL_IMPRESSION, CONDITION_CATEGORY, FAMILY_MEMBER, type Coding } from "../conceptMap";
 import type { ClinicalRefs } from "./clinical";
 
 type FhirRes = FhirResourceBase & Record<string, unknown>;
@@ -93,5 +94,34 @@ export function toFhirRiwayatObat(o: LocalRiwayatObat, r: ClinicalRefs): FhirRes
     dateAsserted: toFhirDateTime(o.dateAsserted),
     ...(o.dosis ? { dosage: [{ text: o.dosis }] } : {}),
     ...(o.catatan.length ? { note: o.catatan.map((text) => ({ text })) } : {}),
+  };
+}
+
+export interface LocalRiwayatPerjalanan {
+  summary: string;
+  waktu: Date;
+  deleted: boolean;
+}
+
+/**
+ * L27 — riwayat perjalanan penyakit → ClinicalImpression `312850006` (bentuk = contoh resmi RI: status · code ·
+ * subject · encounter · effectiveDateTime · date · assessor · summary; tanpa identifier/investigation/prognosis).
+ * Dihapus/dikosongkan → status entered-in-error.
+ */
+export function toFhirRiwayatPerjalanan(
+  c: LocalRiwayatPerjalanan,
+  r: ClinicalRefs,
+  assessor?: { ihsId: string; nama: string },
+): FhirRes {
+  return {
+    resourceType: "ClinicalImpression",
+    status: c.deleted ? "entered-in-error" : "completed",
+    code: { coding: [CLINICAL_IMPRESSION.riwayatPerjalanan] },
+    subject: { reference: `Patient/${r.patient.ihsId}`, display: r.patient.nama },
+    encounter: { reference: `Encounter/${r.encounter.ihsId}`, display: r.encounter.display },
+    effectiveDateTime: toFhirDateTime(c.waktu),
+    date: toFhirDateTime(c.waktu),
+    ...(assessor ? { assessor: { reference: `Practitioner/${assessor.ihsId}`, display: assessor.nama } } : {}),
+    ...(c.summary ? { summary: c.summary } : {}),
   };
 }

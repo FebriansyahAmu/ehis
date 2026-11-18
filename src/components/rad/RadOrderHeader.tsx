@@ -7,6 +7,7 @@ import {
   Hash, Clock, CheckCircle2, Circle, AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import AcsnChip from "@/components/shared/rad/AcsnChip";
 import {
   type RadOrder, type RadStatus, RAD_STATUS_CFG, MODALITAS_CFG, URGENSI_CFG,
   calcTATMenit, getTATStatus, fmtTimestamp,
@@ -142,6 +143,20 @@ export default function RadOrderHeader({ order }: { order: RadOrder }) {
           </div>
         </div>
       </div>
+
+      {/* Accession Number per pemeriksaan — diketik di modalitas agar studi DICOM tertaut ke order (SatuSehat) */}
+      {order.items.some((it) => it.acsn) && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 pb-2">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Accession No.</span>
+          {order.items.map((it) => (
+            <span key={it.id} className="inline-flex items-center gap-1.5">
+              <AcsnChip acsn={it.acsn} pemeriksaan={it.nama} />
+              {order.items.length > 1 && <span className="text-[10px] text-slate-500">{it.nama}</span>}
+            </span>
+          ))}
+          <span className="text-[10px] text-slate-400">Masukkan ke modalitas agar gambar tertaut ke order</span>
+        </div>
+      )}
 
       {/* TAT + Progress bar */}
       <div className="flex items-center gap-3 px-4 pb-3">

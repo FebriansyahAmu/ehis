@@ -12,6 +12,26 @@ export function listDiagnosa(kunjunganId: string, tx?: Tx) {
   });
 }
 
+/**
+ * L13 — display resmi ICD-10 (master.icd_code, teks tampilan SatuSehat) untuk semua kode diagnosa kunjungan
+ * + diagnosa masuk (`kunjungan.kode_icd_masuk`, Encounter.diagnosis AD). Kode dinormalisasi huruf besar.
+ */
+export async function listIcd10Kunjungan(kunjunganId: string, tx?: Tx) {
+  const [dx, k] = await Promise.all([
+    db(tx).diagnosa.findMany({ where: { kunjunganId }, select: { kodeIcd10: true } }),
+    db(tx).kunjungan.findFirst({ where: { id: kunjunganId }, select: { kodeIcdMasuk: true } }),
+  ]);
+  const kodeIcdMasuk = k?.kodeIcdMasuk?.trim() || null;
+  const kodes = [...new Set([...dx.map((d) => d.kodeIcd10), kodeIcdMasuk ?? ""].map((s) => s.trim().toUpperCase()).filter(Boolean))];
+  const icd = kodes.length
+    ? await db(tx).icdCode.findMany({
+        where: { jenis: "ICD_10", kode: { in: kodes }, deletedAt: null },
+        select: { kode: true, display: true },
+      })
+    : [];
+  return { kodeIcdMasuk, icd };
+}
+
 export function listProsedur(kunjunganId: string, tx?: Tx) {
   return db(tx).diagnosaProsedur.findMany({
     where: { kunjunganId },

@@ -4,8 +4,8 @@
  * Fungsi murni; LOINC wajib (pemanggil melewati item tanpa LOINC).
  * Contoh resmi: docs/fhir-postman/resources/{ServiceRequest,DiagnosticReport,Observation}.json.
  *
- * Specimen (Lab) & ImagingStudy (Rad) ditunda — butuh data pengambilan sampel & DICOM UID dari
- * PACS/router yang belum ada (FHIR-GAP FG-53/FG-54).
+ * Specimen (Lab) ditunda (S6b, FG-53). ImagingStudy dikirim DICOM router/PACS, bukan EHIS: EHIS cukup
+ * membawa ACSN di ServiceRequest rad (S6a) agar router dapat mencocokkan studi ke order (FG-54).
  */
 
 import { FHIR_SYSTEM, orgIdentifierSystem, toFhirDateTime, type FhirResourceBase } from "../fhirShared";
@@ -29,6 +29,9 @@ export interface Loinc {
 const subject = (r: DiagRefs) => ({ reference: `Patient/${r.patient.ihsId}`, display: r.patient.nama });
 const encounter = (r: DiagRefs) => ({ reference: `Encounter/${r.encounter.ihsId}` });
 const coding = (l: Loinc) => ({ coding: [{ system: FHIR_SYSTEM.loinc, code: l.code, display: l.display }] });
+
+/** DICOM Controlled Terminology — kode Modality di `ServiceRequest.orderDetail` (contoh resmi rad). */
+const DICOM_SYSTEM = "http://dicom.nema.org/resources/ontology/DCM";
 
 const SR_CATEGORY: Record<DiagKind, { code: string; display: string }> = {
   lab: { code: "108252007", display: "Laboratory procedure" },
@@ -57,16 +60,37 @@ export function toFhirServiceRequest(
   item: { id: string; nama: string },
   loinc: Loinc,
   r: DiagRefs,
-  extra: { requester?: Ref; reason?: { kode: string; nama: string } },
+  extra: {
+    requester?: Ref;
+    reason?: { kode: string; nama: string };
+    /** Rad: Accession Number (wajib — pemanggil menahan item tanpa ACSN). */
+    acsn?: string;
+    /** Rad: kode DICOM Modality (null/absen → orderDetail dilewati). AE title belum ada master (FG-138). */
+    modality?: string | null;
+  },
 ): FhirRes {
   return {
     resourceType: "ServiceRequest",
-    identifier: [{ system: orgIdentifierSystem("servicerequest", r.orgId), value: item.id }],
+    identifier: [
+      { system: orgIdentifierSystem("servicerequest", r.orgId), value: item.id },
+      // Contoh resmi rad: identifier[1] ACSN — kunci pencocokan ImagingStudy oleh DICOM router.
+      ...(extra.acsn
+        ? [{
+            use: "usual",
+            type: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/v2-0203", code: "ACSN" }] },
+            system: orgIdentifierSystem("acsn", r.orgId),
+            value: extra.acsn,
+          }]
+        : []),
+    ],
     status: srStatus(o),
     intent: "original-order",
     priority: lookup(ORDER_PRIORITY, o.prioritas) ?? "routine",
     category: [{ coding: [{ system: FHIR_SYSTEM.snomed, ...SR_CATEGORY[kind] }] }],
     code: { ...coding(loinc), text: item.nama },
+    ...(extra.modality
+      ? { orderDetail: [{ coding: [{ system: DICOM_SYSTEM, code: extra.modality }], text: `Modality Code: ${extra.modality}` }] }
+      : {}),
     subject: subject(r),
     encounter: encounter(r),
     occurrenceDateTime: toFhirDateTime(o.createdAt),

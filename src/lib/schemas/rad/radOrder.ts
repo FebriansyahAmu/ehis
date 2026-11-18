@@ -70,6 +70,8 @@ export interface RadOrderItemDTO {
   waktuTunggu: string | null;
   persiapan: string | null;
   harga: number | null;
+  /** Accession Number (ACSN) — dibangkitkan server saat order, null hanya utk data sangat lama. */
+  acsn: string | null;
 }
 
 export interface RadOrderDTO {
