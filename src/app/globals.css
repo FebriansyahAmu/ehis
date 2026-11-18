@@ -58,6 +58,8 @@
 :root {
   --ui-background: #ffffff;
   --ui-foreground: #0f172a;            /* slate-900 */
+  --ui-card: #ffffff;
+  --ui-card-foreground: #0f172a;
   --ui-popover: #ffffff;
   --ui-popover-foreground: #0f172a;
   --ui-primary: #4f46e5;               /* indigo-600 — default EHIS */
@@ -87,6 +89,8 @@
 @theme inline {
   --color-background: var(--ui-background);
   --color-foreground: var(--ui-foreground);
+  --color-card: var(--ui-card);
+  --color-card-foreground: var(--ui-card-foreground);
   --color-popover: var(--ui-popover);
   --color-popover-foreground: var(--ui-popover-foreground);
   --color-primary: var(--ui-primary);

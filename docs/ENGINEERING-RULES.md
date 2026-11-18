@@ -93,6 +93,8 @@ Backlog perbaikan keamanan (header, CSRF/Origin, rate-limit login, dll.) → [SE
 
 **Setup ✅ (2026-11-17, branch `chore/ui-shadcn-setup`):** [components.json](../components.json) (style `new-york`, Radix) · dependensi `radix-ui` · `class-variance-authority` · `clsx` · `tailwind-merge` · `tw-animate-css` · `cmdk` · primitif di [src/components/ui/](../src/components/ui/): `button` · `dialog` · `sheet` · `popover` · `dropdown-menu` · `tooltip` · `tabs` · `command`.
 
+**+Card · Badge (2026-11-19, branch `feat/care-beranda-redesign`):** token `--ui-card`/`--ui-card-foreground` (+`--color-card*`). Dipakai **Beranda EHIS Care** ([page](../src/app/ehis-care/(main)/page.tsx) + [components/care/beranda/](../src/components/care/beranda/)): strip KPI 1 Card (sel `gap-px`), kartu layanan per kelompok Pelayanan/Penunjang dengan pola *stretched link* (hanya judul = `<a>`, `::after` menutup kartu; hover & cincin fokus di kartu via `has-[a:hover]`/`has-[a:focus-visible]`), animasi masuk `motion-safe:` saja, badge "Data contoh" (angka belum terhubung data).
+
 **Pilot:** drawer detail resource konsol FHIR ([resourceUi.tsx](../src/components/fhir/resource/resourceUi.tsx) `ResourceDrawer`) dipindah dari overlay buatan sendiri ke **`Sheet` + `Tabs`** (focus trap, Esc/klik luar, roving focus tab, `aria` dari `SheetTitle`/`SheetDescription`) dengan `data-accent="teal"`; tombol "Buka kunjungan" → `Button` shadcn (teal-700, lolos AA). Pemakai drawer mempertahankan data terpilih selama animasi tutup (tanpa kedip kosong). **Belum dibuka di browser.**
 
 ---

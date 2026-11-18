@@ -51,3 +51,15 @@ next-env.d.ts
 
 # tsconfig sementara typecheck terbatas (npm run check:changed)
 tsconfig.check-changed.json
+
+# folder lokal agen AI (Claude Code & skill agen) — di semua level
+.claude/
+.agents/
+.agent/
+skills-lock.json
+
+# kamus SNOMED CT dari Kemenkes (lisensi SNOMED + ±150 MB) — di-seed lokal via prisma/scripts/seed-snomed.mts
+/docs/snomend_ct.sql
+
+# lampiran terminologi resmi SatuSehat (LOINC lab, dst.) — unduhan lokal, di-seed via prisma/scripts/seed-*.mts
+/docs/terminologi/
