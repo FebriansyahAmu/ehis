@@ -10,6 +10,7 @@ export function listLab(kunjunganId: string, tx?: Tx) {
     orderBy: { createdAt: "asc" },
     select: {
       id: true, prioritas: true, status: true, authorPegawaiId: true, catatan: true, createdAt: true, deletedAt: true,
+      diterimaAt: true, diterimaOlehPegawaiId: true, // S6b Specimen.receivedTime + ReceivedPerson
       items: { orderBy: { createdAt: "asc" }, select: { id: true, labTestId: true, kodeTes: true, namaTes: true } },
       results: {
         orderBy: { createdAt: "desc" },
@@ -49,7 +50,7 @@ export function listLabTestLoinc(ids: string[], tx?: Tx) {
   if (!ids.length) return Promise.resolve([]);
   return db(tx).labTest.findMany({
     where: { id: { in: ids } },
-    select: { id: true, nama: true, kategori: true, loincCode: true, loincDisplay: true },
+    select: { id: true, nama: true, kategori: true, loincCode: true, loincDisplay: true, spesimenSnomed: true },
   });
 }
 

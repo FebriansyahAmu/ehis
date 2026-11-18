@@ -86,6 +86,9 @@ export interface LabOrderDTO {
   penulisKontak: string | null;
   items: LabOrderItemDTO[];
   createdAt: string; // ISO
+  /** Stamp aksi "Terima" Lab (ISO) — null bila belum / order RJ (langsung Diterima saat order). */
+  diterimaAt: string | null;
+  diterimaOleh: string | null;
 }
 
 /** Roster petugas Lab (SDM Assignment ke Location Laboratorium) — cek penerima/analis

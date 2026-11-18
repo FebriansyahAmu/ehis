@@ -20,6 +20,9 @@ model LabTest {
 
   kategori    String // FE-facing: "Hematologi" | "Kimia Klinik" | ... (boleh spasi)
   spesimen    String? // mis. "Darah EDTA", "Serum", "Urin sewaktu"
+  /// Jenis spesimen SNOMED (ECL < 123038009) untuk FHIR Specimen.type (L16, S6b). Kode dari daftar
+  /// terkurasi `SPESIMEN_SNOMED` (conceptMap); display dibaca dari daftar itu saat kirim. Null = belum dipetakan.
+  spesimenSnomed String? @map("spesimen_snomed")
   metode      String? // metode utama tes
   waktuTunggu String? @map("waktu_tunggu") // TAT, mis. "60 mnt"
   keterangan  String?

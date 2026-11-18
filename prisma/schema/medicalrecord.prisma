@@ -1209,6 +1209,12 @@ model LabOrder {
   authorUserId    String? @map("author_user_id") @db.Uuid
   authorPegawaiId String? @map("author_pegawai_id") @db.Uuid
 
+  // ── Penerimaan Lab (aksi "Terima", stamp sekali) — FHIR Specimen.receivedTime + ReceivedPerson (S6b) ──
+  //  Null = belum diterima lewat aksi Terima (RJ langsung "Diterima" saat order, atau data sebelum S6b).
+  diterimaAt            DateTime? @map("diterima_at") @db.Timestamptz(3)
+  diterimaOleh          String?   @map("diterima_oleh") // nama tampil penerima (actor login)
+  diterimaOlehPegawaiId String?   @map("diterima_oleh_pegawai_id") @db.Uuid
+
   items   LabOrderItem[]
   results LabResult[]
 

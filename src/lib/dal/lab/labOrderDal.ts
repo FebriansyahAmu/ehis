@@ -90,12 +90,18 @@ export async function transition(id: string, from: string[], to: string, tx?: Tx
   return r.count;
 }
 
-/** Terima order — hanya saat "Menunggu" → "Diterima" (masuk worklist). Atomic guard.
+export interface ReceiveStamp {
+  diterimaAt: Date;
+  diterimaOleh: string;
+  diterimaOlehPegawaiId: string | null;
+}
+
+/** Terima order — hanya saat "Menunggu" → "Diterima" (masuk worklist) + stamp penerima (sekali, ikut guard).
  *  Return count: 1 = berhasil, 0 = tak ada / status sudah lanjut. */
-export async function receive(id: string, tx?: Tx) {
+export async function receive(id: string, stamp: ReceiveStamp, tx?: Tx) {
   const r = await db(tx).labOrder.updateMany({
     where: { id, deletedAt: null, status: "Menunggu" },
-    data: { status: "Diterima" },
+    data: { status: "Diterima", ...stamp },
   });
   return r.count;
 }

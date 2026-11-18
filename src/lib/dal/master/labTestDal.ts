@@ -36,6 +36,7 @@ export interface CreateLabTestData {
   nama: string;
   kategori: string;
   spesimen?: string | null;
+  spesimenSnomed?: string | null;
   metode?: string | null;
   waktuTunggu?: string | null;
   keterangan?: string | null;
@@ -50,6 +51,7 @@ export interface UpdateLabTestData {
   nama?: string;
   kategori?: string;
   spesimen?: string | null;
+  spesimenSnomed?: string | null;
   metode?: string | null;
   waktuTunggu?: string | null;
   keterangan?: string | null;

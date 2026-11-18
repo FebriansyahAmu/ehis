@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | 🟡 S3 2026-11-17: gerbang Lampiran LOINC resmi Permintaan/Hasil ✅ ([links/labTerminologi.ts](../../src/lib/fhir/links/labTerminologi.ts)) · `DiagnosticReport.category` per bagian ✅ · sisa: LOINC master 0% (FG-52), Specimen (FG-53), status puasa |
+| Status | 🟡 S3 2026-11-17: gerbang Lampiran LOINC resmi Permintaan/Hasil ✅ ([links/labTerminologi.ts](../../src/lib/fhir/links/labTerminologi.ts)) · `DiagnosticReport.category` per bagian ✅ · **S6b 2026-11-19: Specimen ✅** (sesudah SR) · sisa: LOINC master 0% (FG-52), waktu ambil & status puasa (FG-143) |
 | Kamar | **ServiceRequest** (cat SNOMED `108252007`) → **Specimen** → **Observation** (`laboratory`) → **DiagnosticReport** |
 | Playbook | RJ/IGD/RI §Pemeriksaan Penunjang Laboratorium [V] |
 | Contoh resmi | IGD: SR `58410-2 CBC panel` → Specimen → Obs `718-7` + `787-2` → DR `HM 58410-2` · RI: SR `2093-3` + `kptl|30326` → … → DR `CH` |
@@ -24,7 +24,7 @@
 |---|---|---|
 | ServiceRequest | identifier `…/servicerequest/{Org_id}` · `status` · `intent` order · category `108252007` · `code*` LOINC tes ("Permintaan"/"Permintaan & Hasil") atau KPTL · `requester*` dokter pengirim · `performer*` · `priority` `stat` (CITO) / `routine` · `reasonReference` Condition · `supportingInfo` → Procedure puasa | LabOrderItem |
 | Procedure status puasa | category `103693007` · code SNOMED `792805006` Fasting · `status` `done`/`not-done` | ⛔ belum ada field puasa di order (contoh resmi selalu menyertakan) |
-| Specimen | `status*` · `type*` SNOMED (ECL `< 123038009`) · `subject*` · `collection.collectedDateTime` · `collection.fastingStatusCodeableConcept` v2-0916 `F`/`NF` · `request` | ⛔ sampel diambil di luar aplikasi (FG-53) |
+| Specimen | `status*` · `type*` SNOMED (ECL `< 123038009`) · `subject*` · `collection.collectedDateTime` · `collection.fastingStatusCodeableConcept` v2-0916 `F`/`NF` · `request` | ✅ S6b: type dari `lab_test.spesimen_snomed` · receivedTime/ReceivedPerson dari aksi Terima Lab; `collection` ⛔ (FG-143) |
 | Observation | category `laboratory` · `code*` LOINC parameter ("Hasil") · `value[x]*` Quantity (UCUM) / CodeableConcept / String · `referenceRange` (dianjurkan) · `interpretation` v3-ObservationInterpretation · `performer*` analis · `specimen` · `basedOn` SR | LabResultValue |
 | DiagnosticReport | `status` · category v2-0074 (**per bagian lab**, lihat bawah) · `code*` = SR.code · `basedOn*` · `result*` · `specimen*` · `performer*` validator · `conclusion` | LabResult |
 
@@ -61,3 +61,19 @@ paket lab tidak lolos gerbang untuk profil yang mewajibkannya → **verifikasi s
 - Hasil lab **bukan** `vital-signs` / `exam` — selalu `laboratory`.
 - Interpretasi kritis (HH/LL) tetap di `interpretation`, bukan Observation terpisah.
 - KPTL adalah kode **tarif/tindakan**, bukan pengganti LOINC parameter hasil.
+
+## Dibangun S6b — Specimen
+
+- **Urutan:** ServiceRequest **terkirim dulu** → Specimen (`request` → `ServiceRequest/{id}`, seperti contoh resmi RI) →
+  Observation (`specimen`) → DiagnosticReport (`specimen*`). Dikirim saat sampel sudah di Lab: order **diterima lewat aksi
+  Terima** atau **hasil sudah dientri** (order RJ langsung "Diterima" saat dibuat). Gerbang murni
+  [links/specimen.ts](../../src/lib/fhir/links/specimen.ts).
+- **1 Specimen per item tes** (localId = id item, identifier `…/specimen/{Org_id}` + assigner). Bentuk = contoh resmi IGD:
+  status `available` · `type` SNOMED · `subject` · `request` · `receivedTime` + extension `ReceivedPerson`. Order dihapus →
+  `entered-in-error`.
+- **Jenis spesimen:** kolom `master.lab_test.spesimen_snomed` (migrasi `20261119120000`, backfill dari teks spesimen — 38/38 tes
+  terpetakan) dari daftar terkurasi [`SPESIMEN_SNOMED`](../../src/lib/fhir/conceptMap.ts) (15 jenis; display dibaca saat kirim).
+  Dropdown "Jenis Spesimen SatuSehat" di Katalog Lab › Identitas. Kosong → Issue `kode-kosong`.
+- **Penerimaan:** kolom `lab_order.diterima_at/diterima_oleh/diterima_oleh_pegawai_id` di-stamp server saat aksi Terima (worklist
+  maupun tab Penerimaan di detail order — yang terakhir sebelumnya hanya mengubah tampilan lokal).
+- **DiagnosticReport lab tanpa Specimen terkirim → ditahan** (Observation tetap terkirim).

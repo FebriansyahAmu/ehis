@@ -474,6 +474,37 @@ export const DICOM_MODALITY: Record<string, string | null> = {
   DXA: null,
 };
 
+/**
+ * Jenis spesimen Lab → SNOMED (`Specimen.type`, ECL `< 123038009` Specimen; L16, S6b). Daftar terkurasi untuk
+ * dropdown Katalog Lab — kode & display dicek terhadap kamus SNOMED lokal; 119297000 & 122575003 identik contoh
+ * resmi IGD/RI. Disimpan di master hanya KODE; display dibaca dari daftar ini saat kirim (pola D7).
+ */
+export const SPESIMEN_SNOMED = [
+  { code: "119297000", display: "Blood specimen", label: "Darah", grup: "Darah" },
+  { code: "122555007", display: "Venous blood specimen", label: "Darah vena", grup: "Darah" },
+  { code: "122552005", display: "Arterial blood specimen", label: "Darah arteri", grup: "Darah" },
+  { code: "122554006", display: "Capillary blood specimen", label: "Darah kapiler", grup: "Darah" },
+  { code: "119364003", display: "Serum specimen", label: "Serum", grup: "Darah" },
+  { code: "119361006", display: "Plasma specimen", label: "Plasma", grup: "Darah" },
+  { code: "122575003", display: "Urine specimen", label: "Urin", grup: "Urin & feses" },
+  { code: "122880004", display: "Urine specimen obtained by clean catch procedure", label: "Urin pancar tengah", grup: "Urin & feses" },
+  { code: "119339001", display: "Stool specimen", label: "Feses", grup: "Urin & feses" },
+  { code: "119334006", display: "Sputum specimen", label: "Sputum", grup: "Cairan & lainnya" },
+  { code: "258450006", display: "Cerebrospinal fluid sample", label: "Cairan otak (LCS)", grup: "Cairan & lainnya" },
+  { code: "119342007", display: "Saliva specimen", label: "Saliva", grup: "Cairan & lainnya" },
+  { code: "257261003", display: "Swab", label: "Swab", grup: "Cairan & lainnya" },
+  { code: "258529004", display: "Throat swab", label: "Swab tenggorok", grup: "Cairan & lainnya" },
+  { code: "119376003", display: "Tissue specimen", label: "Jaringan", grup: "Cairan & lainnya" },
+] as const satisfies readonly { code: string; display: string; label: string; grup: string }[];
+
+export type SpesimenSnomedKode = (typeof SPESIMEN_SNOMED)[number]["code"];
+
+/** Kode SNOMED spesimen → Coding (system SNOMED), null bila kosong / di luar daftar. */
+export function spesimenCodingOf(kode: string | null | undefined): Coding | null {
+  const s = SPESIMEN_SNOMED.find((x) => x.code === (kode ?? "").trim());
+  return s ? { system: "http://snomed.info/sct", code: s.code, display: s.display } : null;
+}
+
 /** Modalitas snapshot (`CT.angio` → `CT`) → kode DICOM, atau null bila tak dikenal / ditahan. */
 export function dicomModalityOf(modalitas: string | null | undefined): string | null {
   const base = (modalitas ?? "").split(".")[0].trim().toUpperCase();

@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import type { LabTestRecord } from "@/lib/master/labTestCatalog";
 import { LAB_KATEGORI_ORDER } from "../katalogLabShared";
 import { LoincField } from "@/components/master/shared";
+import SpesimenSnomedField from "./SpesimenSnomedField";
 
 const inputCls =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 " +
@@ -69,7 +70,7 @@ export default function LabIdentitasTab({ draft, onPatch }: Props) {
         </div>
       </Field>
 
-      {/* Spesimen + Waktu Tunggu */}
+      {/* Spesimen + Jenis SNOMED (SatuSehat) + Waktu Tunggu */}
       <div className="grid grid-cols-2 gap-4">
         <Field label="Spesimen" hint="mis. Darah EDTA, Serum, Urin sewaktu">
           <input
@@ -80,6 +81,13 @@ export default function LabIdentitasTab({ draft, onPatch }: Props) {
             className={inputCls}
           />
         </Field>
+        <SpesimenSnomedField
+          value={draft.spesimenSnomed ?? ""}
+          onChange={(v) => onPatch({ spesimenSnomed: v })}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
         <Field label="Waktu Tunggu (TAT)" hint="Estimasi TAT worklist">
           <input
             type="text"

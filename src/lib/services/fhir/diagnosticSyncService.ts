@@ -1,5 +1,6 @@
 // FH6 — Sinkron penunjang (Lab/Rad) 1 kunjungan ke SatuSehat. Dipanggil di fase 2 encounterSyncService.
-//   Lab : ServiceRequest per item tes → (bila hasil TERVALIDASI) Observation per parameter → DiagnosticReport per tes.
+//   Lab : ServiceRequest per item tes → Specimen (S6b: sesudah SR terkirim, saat sampel diterima Lab / hasil ada)
+//         → (bila hasil TERVALIDASI) Observation per parameter (+specimen) → DiagnosticReport per tes (specimen wajib).
 //   Rad : ServiceRequest per item pemeriksaan → (bila ekspertise TERVALIDASI) Observation temuan → DiagnosticReport per order.
 //         S6a: SR rad membawa identifier ACSN + orderDetail modality DICOM; item tanpa ACSN → Issue (links/radiologi).
 //
@@ -14,7 +15,7 @@
 import "server-only";
 import type { SatuSehatMode } from "@/lib/fhir/fhirShared";
 import {
-  toFhirDiagnosticReport, toFhirLabObservation, toFhirRadObservation, toFhirServiceRequest,
+  toFhirDiagnosticReport, toFhirLabObservation, toFhirRadObservation, toFhirServiceRequest, toFhirSpecimen,
   type DiagRefs, type Loinc,
 } from "@/lib/fhir/adapters/diagnostic";
 import { addSectionRef, type ResumeSection } from "@/lib/fhir/adapters/composition";
@@ -22,6 +23,7 @@ import { LAB_REPORT_CATEGORY, LAB_REPORT_CATEGORY_UMUM, lookup } from "@/lib/fhi
 import { cekKodeLab, kategoriKodeLabOf } from "@/lib/fhir/links/labTerminologi";
 import { diagnosaUtamaOf } from "@/lib/fhir/links/diagnosa";
 import { radSrSiap } from "@/lib/fhir/links/radiologi";
+import { drLabTanpaSpecimen, specimenRencana } from "@/lib/fhir/links/specimen";
 import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
 import * as src from "@/lib/dal/fhir/diagnosticSourceDal";
 import * as clinicalSrc from "@/lib/dal/fhir/clinicalSourceDal";
@@ -85,6 +87,7 @@ export async function syncDiagnostic(
 
   const pegawaiIds = [...new Set([
     ...[...lab, ...rad].map((o) => o.authorPegawaiId),
+    ...lab.map((o) => o.diterimaOlehPegawaiId), // Specimen ReceivedPerson (S6b)
     ...[...lab, ...rad].map((o) => o.results[0]?.authorPegawaiId),
     ...userPeg.map((u) => u.pegawaiId),
   ].filter((x): x is string => !!x))];
@@ -137,7 +140,23 @@ export async function syncDiagnostic(
       const srIhs = record("ServiceRequest", it.id, await send("ServiceRequest", it.id,
         toFhirServiceRequest("lab", order, { id: it.id, nama: it.namaTes }, loinc, ctx.refs, { requester: pracOf(o.authorPegawaiId), reason }), deleted),
         "lab", deleted);
-      if (!srIhs || !validated || !result) continue;
+      if (!srIhs) continue;
+
+      // ── Specimen (S6b) — SESUDAH ServiceRequest terkirim (request → SR) ──
+      let specimenIhs: string | undefined;
+      const sp = specimenRencana(
+        it,
+        { deleted, status: o.status, diterimaAt: o.diterimaAt, adaHasil: !!result },
+        test?.spesimenSnomed,
+      );
+      if (sp.kind === "tahan") out.issues.push(sp.issue);
+      else if (sp.kind === "kirim") {
+        specimenIhs = record("Specimen", it.id, await send("Specimen", it.id, toFhirSpecimen(it.id, sp.type, ctx.refs, {
+          serviceRequestIhsId: srIhs, deleted: sp.deleted,
+          receivedTime: o.diterimaAt, receivedBy: pracOf(o.diterimaOlehPegawaiId),
+        }), sp.deleted), "lab", sp.deleted);
+      }
+      if (!validated || !result) continue;
 
       const issued = result.validatedAt!;
       const performer = pracOf(result.authorPegawaiId);
@@ -157,13 +176,18 @@ export async function syncDiagnostic(
         }
         const ihs = record("Observation", localId, await send("Observation", localId, toFhirLabObservation(
           { nilai: v.nilai!.trim(), satuan: v.satuan, rujukanStr: v.rujukanStr, flag: v.flag, numerik: p?.tipeHasil !== "Kualitatif" },
-          pl, ctx.refs, { serviceRequestIhsId: srIhs, issued, performer },
+          pl, ctx.refs, { serviceRequestIhsId: srIhs, issued, performer, specimenIhsId: specimenIhs },
         ), false), "lab");
         if (ihs) obsIhs.push(ihs);
       }
 
+      // DiagnosticReport lab wajib `specimen` → tanpa Specimen terkirim ditahan (Observation tetap terkirim).
+      if (!specimenIhs) {
+        if (sp.kind !== "tahan") out.issues.push(drLabTanpaSpecimen(it)); // "tahan" sudah ber-Issue Specimen
+        continue;
+      }
       record("DiagnosticReport", it.id, await send("DiagnosticReport", it.id, toFhirDiagnosticReport("lab", it.id, loinc, ctx.refs, {
-        deleted: false, issued, observationIhsIds: obsIhs, serviceRequestIhsIds: [srIhs],
+        deleted: false, issued, observationIhsIds: obsIhs, serviceRequestIhsIds: [srIhs], specimenIhsIds: [specimenIhs],
         performer: validatorOf(result.validatorUserId) ?? performer, conclusion: result.catatanValidator,
         category: lookup(LAB_REPORT_CATEGORY, test?.kategori) ?? LAB_REPORT_CATEGORY_UMUM,
       }), false), "lab");

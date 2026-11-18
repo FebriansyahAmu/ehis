@@ -6,6 +6,7 @@
 
 import { z } from "zod";
 import { LOINC_PATTERN, isValidLoinc } from "@/lib/fhir/terminology";
+import { SPESIMEN_SNOMED } from "@/lib/fhir/conceptMap";
 
 // ── LOINC (FHIR SatuSehat) — null/"" = kosongkan ─────────
 // Bersama Katalog Radiologi. Format + check digit divalidasi lokal (R12, tanpa terminology server).
@@ -19,6 +20,15 @@ export const LoincCodeInput = z
   )
   .nullish();
 export const LoincDisplayInput = z.string().trim().max(200).transform((v) => (v === "" ? null : v)).nullish();
+
+// ── Jenis spesimen SNOMED (FHIR Specimen.type, S6b) — hanya kode dari daftar terkurasi; null/"" = kosongkan ──
+const SPESIMEN_KODE = new Set<string>(SPESIMEN_SNOMED.map((s) => s.code));
+export const SpesimenSnomedInput = z
+  .string()
+  .trim()
+  .transform((v) => (v === "" ? null : v))
+  .pipe(z.string().refine((v) => SPESIMEN_KODE.has(v), "Jenis spesimen SNOMED tidak dikenal").nullable())
+  .nullish();
 
 // ── Vocab terkontrol ──────────────────────────────────────
 export const LabKategoriEnum = z.enum([
@@ -72,6 +82,7 @@ export const CreateLabTestInput = z.object({
   kode: z.string().trim().max(30).optional(),
   kategori: LabKategoriEnum.optional(), // default Hematologi di Service
   spesimen: optStr,
+  spesimenSnomed: SpesimenSnomedInput,
   metode: optStr,
   waktuTunggu: optStr,
   keterangan: optStr,
@@ -88,6 +99,7 @@ export const UpdateLabTestInput = z.object({
   kode: z.string().trim().max(30).optional(),
   kategori: LabKategoriEnum.optional(),
   spesimen: optStr,
+  spesimenSnomed: SpesimenSnomedInput,
   metode: optStr,
   waktuTunggu: optStr,
   keterangan: optStr,
@@ -145,6 +157,8 @@ export interface LabTestDTO {
   nama: string;
   kategori: LabKategoriDTO;
   spesimen?: string;
+  /** Kode SNOMED jenis spesimen (daftar SPESIMEN_SNOMED) — null = belum dipetakan. */
+  spesimenSnomed: string | null;
   metode?: string;
   waktuTunggu?: string;
   keterangan?: string;

@@ -65,6 +65,7 @@ function toDTO(e: LabTestEntity): LabTestDTO {
     nama: e.nama,
     kategori: e.kategori as LabKategoriDTO,
     spesimen: e.spesimen ?? undefined,
+    spesimenSnomed: e.spesimenSnomed ?? null,
     metode: e.metode ?? undefined,
     waktuTunggu: e.waktuTunggu ?? undefined,
     keterangan: e.keterangan ?? undefined,
@@ -141,6 +142,7 @@ export function makeLabTestService(deps: { dal?: Dal } = {}) {
       nama: input.nama,
       kategori: input.kategori ?? "Hematologi",
       spesimen: input.spesimen ?? null,
+      spesimenSnomed: input.spesimenSnomed ?? null,
       metode: input.metode ?? null,
       waktuTunggu: input.waktuTunggu ?? null,
       keterangan: input.keterangan ?? null,
@@ -163,6 +165,7 @@ export function makeLabTestService(deps: { dal?: Dal } = {}) {
     if (input.kode !== undefined) patch.kode = input.kode;
     if (input.kategori !== undefined) patch.kategori = input.kategori;
     if (input.spesimen !== undefined) patch.spesimen = input.spesimen;
+    if (input.spesimenSnomed !== undefined) patch.spesimenSnomed = input.spesimenSnomed;
     if (input.metode !== undefined) patch.metode = input.metode;
     if (input.waktuTunggu !== undefined) patch.waktuTunggu = input.waktuTunggu;
     if (input.keterangan !== undefined) patch.keterangan = input.keterangan;

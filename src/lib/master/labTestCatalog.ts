@@ -121,6 +121,7 @@ export interface LabTestRecord {
   nama: string;
   kategori: LabKategori;
   spesimen?: string;           // mis. "Darah EDTA", "Serum", "Urin sewaktu"
+  spesimenSnomed?: string;     // kode SNOMED jenis spesimen (SPESIMEN_SNOMED) — FHIR Specimen.type; kosong = belum dipetakan
   metode?: string;             // metode utama tes
   waktuTunggu?: string;        // TAT, mis. "60 mnt"
   keterangan?: string;
@@ -159,6 +160,7 @@ export function emptyLabTest(): LabTestRecord {
     nama: "",
     kategori: "Hematologi",
     spesimen: "",
+    spesimenSnomed: "",
     metode: "",
     waktuTunggu: "",
     status: "Aktif",

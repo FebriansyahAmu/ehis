@@ -270,7 +270,8 @@ export function mapDbLabOrder(dto: LabOrderWorklistDTO): LabOrder {
       kategori:    toKategori(it.kategori),
       waktuTunggu: it.waktuTunggu ?? "—",
     })),
-    timestamps: { order: dto.createdAt },
+    timestamps: { order: dto.createdAt, ...(dto.diterimaAt ? { terima: dto.diterimaAt } : {}) },
+    ...(dto.diterimaOleh ? { diterima_oleh: dto.diterimaOleh } : {}),
   };
 }
 

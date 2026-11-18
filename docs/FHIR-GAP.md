@@ -121,7 +121,7 @@
 |---|---|---|---|
 | FG-51 | 🔴 | **Diagnostik belum diuji ke sandbox** (kredensial, FG-02). | Setelah FG-52: validasi 1 order lab & 1 rad uji → `POST /fhir/outbox/run`. |
 | FG-52 | 🟡 **(UI ✅ 2026-10-26 — tinggal pengisian data)** | **LOINC master Lab/Rad kosong** + ~~belum ada UI~~ (field LOINC kini ada — lihat "FG-52 lanjutan" di bawah). Sengaja TIDAK di-seed otomatis — LOINC salah lebih berbahaya daripada kosong (bisa diterima dengan makna klinis keliru). | (1) Tambah field LOINC (+display) di form Katalog Lab (tes & parameter) dan Katalog Radiologi + Zod/DAL/DTO. (2) Pemetaan awal oleh petugas lab/rad dengan acuan daftar LOINC SatuSehat (Kamus Pemeriksaan Lab), dicek ulang sebelum dipakai prod. |
-| FG-53 | 🟡 | **Specimen tidak dikirim** — sampel diambil di luar aplikasi (step Pengambilan Sampel dihapus 2026-06-21); `LabTest.spesimen` teks bebas tanpa SNOMED; tak ada waktu ambil/terima. | Bila SatuSehat mewajibkan Specimen untuk use case lab: catat waktu ambil/terima + jenis spesimen ber-SNOMED, lalu Specimen terhubung ke ServiceRequest & DiagnosticReport. |
+| FG-53 | ✅ | **Specimen tidak dikirim** — sampel diambil di luar aplikasi (step Pengambilan Sampel dihapus 2026-06-21); `LabTest.spesimen` teks bebas tanpa SNOMED; tak ada waktu ambil/terima. | **S6b:** jenis spesimen SNOMED di Katalog Lab + stamp waktu/petugas Terima Lab → Specimen sesudah ServiceRequest, dirujuk Observation & DiagnosticReport. Sisa waktu ambil/puasa → FG-143. |
 | FG-54 | 🟡 | **ImagingStudy tidak dikirim** — butuh DICOM Study/Series/Instance UID dari PACS/DICOM router; belum ada integrasi PACS. | **S6a: ACSN ✅** di ServiceRequest rad (identifier `ACSN`, dibangkitkan saat order). Sisa: DICOM router/PACS yang mengirim ImagingStudy + `DiagnosticReport.imagingStudy` (cari ImagingStudy by ACSN). |
 | FG-55 | ⚪ | **Satuan hasil lab belum divalidasi UCUM** — `satuan` lokal dikirim apa adanya sebagai `valueQuantity.code` (mis. "sel/uL" bukan UCUM). | Peta satuan lokal → UCUM di master parameter (bersamaan FG-52). |
 | FG-56 | ⚪ | **DiagnosticReport rad multi-pemeriksaan** memakai LOINC pemeriksaan pertama sebagai `code`. | Pertimbangkan 1 DiagnosticReport per item bila ekspertise per pemeriksaan dipisah. |
@@ -382,3 +382,20 @@ nama = display master; 5/20 kunjungan ber-diagnosa masuk; 1 item rad lama → `R
 | FG-140 | 🟡 | **ACSN diketik manual di modalitas** (belum DICOM Modality Worklist) — salah ketik = ImagingStudy tak tertaut ke order. | Kirim worklist (DICOM MWL / HL7 ORM) dari EHIS ke modalitas saat PACS/router dipasang; sementara ACSN tampil + tombol salin di detail order & cetakan. |
 | FG-141 | ⚪ | **ClinicalImpression riwayat perjalanan:** daftar elemen IGD bab 8 ikut menandai `investigation.code` & `prognosisCodeableConcept` wajib, tetapi contoh resmi RI tidak memuat keduanya → diikuti contoh resmi. Contoh RI menaruh rujukannya di section "Perencanaan Perawatan", bukan "Anamnesis" → diikuti. | Konfirmasi lewat uji sandbox. |
 | FG-142 | ⚪ | **L13:** gerbang "Utama tepat satu" kini menahan finished bila Utama tidak terkirim (sebelumnya Sekunder bisa menjadi rank 1). Komplikasi/Komorbid tetap tidak masuk `Encounter.diagnosis` (`CM` belum diuji). Diagnosa masuk hanya dari `kode_icd_masuk` (diagnosa rujukan saat daftar) — diagnosa kerja awal dokter IGD belum dibedakan. | Uji sandbox `CM`; isian diagnosa awal IGD bila diperlukan. |
+
+## S6b Specimen Lab (2026-11-19, branch `feat/fhir-s6b-specimen`)
+
+**Dibangun:** Specimen per item tes **sesudah ServiceRequest terkirim** ([links/specimen.ts](../src/lib/fhir/links/specimen.ts) ·
+`toFhirSpecimen` di [adapters/diagnostic.ts](../src/lib/fhir/adapters/diagnostic.ts)) → `Observation.specimen` + `DiagnosticReport.specimen`;
+DR lab tanpa Specimen ditahan. Sumber: `master.lab_test.spesimen_snomed` (dropdown Katalog Lab, daftar terkurasi 15 jenis
+[`SPESIMEN_SNOMED`](../src/lib/fhir/conceptMap.ts), backfill 38/38 tes) + stamp `lab_order.diterima_at/oleh/oleh_pegawai_id` saat aksi
+Terima (migrasi `20261119120000`). Perbaikan: tombol **Terima di tab Penerimaan detail order Lab** kini memanggil server (sebelumnya
+hanya overlay lokal → status tak tersimpan). Seed `seed-lab.mts` ikut mengisi `spesimen_snomed`. Test
+[specimen.test.ts](../src/lib/fhir/links/specimen.test.ts) + S1–S6a: 109 lulus. Data dev: 2 order lab (Selesai, sebelum S6b → tanpa stamp
+terima; Specimen tetap terkirim karena hasil ada, tanpa `receivedTime`).
+
+| ID | Status | Gap | Cara tutup |
+|---|---|---|---|
+| FG-143 | ⚪ | **`Specimen.collection` tidak dikirim** — waktu & petugas pengambilan, metode, volume, status puasa (`fastingStatusCodeableConcept`) tidak dicatat (sampel diambil di luar aplikasi). Procedure status puasa (`supportingInfo` SR) juga belum. | Isian opsional "waktu ambil + puasa" di Penerimaan Lab bila diwajibkan sandbox. |
+| FG-144 | ⚪ | **Display SNOMED spesimen dari kamus lokal rilis 2002** (FG-87) — 2 kode identik contoh resmi (Blood/Urine specimen); 13 lainnya belum dibandingkan dengan rilis terbaru. | Cek display saat uji sandbox / akses terminology server; perbarui `SPESIMEN_SNOMED`. |
+| FG-145 | ⚪ | **DiagnosticReport lab kini menunggu Specimen** — tes tanpa jenis spesimen SNOMED = Observation terkirim, laporan ditahan (Issue). Order **RJ** (langsung "Diterima" saat dibuat, tanpa aksi Terima) baru punya Specimen setelah hasil dientri, tanpa `receivedTime`. | Lengkapi pemetaan di Katalog Lab; pertimbangkan aksi Terima untuk RJ. |

@@ -7,7 +7,8 @@ import { cn } from "@/lib/utils";
 import { useSession } from "@/contexts/SessionContext";
 import { useLabRoster } from "../useLabRoster";
 import AssignmentGuardBanner from "../AssignmentGuardBanner";
-import { type LabOrder, updateLabWorkflow } from "../labShared";
+import { type LabOrder } from "../labShared";
+import { receiveLabOrder } from "@/lib/api/lab/labOrder";
 
 // ── Props ─────────────────────────────────────────────────
 
@@ -61,22 +62,25 @@ export default function PenerimaanPane({ order, onStatusChange }: Props) {
   const [checked3,    setChecked3]    = useState(isAlreadyReceived);
   const [saving,      setSaving]      = useState(false);
   const [saved,       setSaved]       = useState(isAlreadyReceived);
+  const [error,       setError]       = useState<string | null>(null);
 
   const canSubmit = checked1 && checked2 && checked3 && penerimaName.trim().length > 0 && !notAssigned;
 
-  function handleSubmit() {
-    if (!canSubmit) return;
+  // Terima = aksi SERVER (status Menunggu→Diterima + stamp waktu & petugas penerima, dipakai FHIR Specimen —
+  // S6b). Penerima diturunkan server dari sesi login (bukan nama dari klien). Sebelumnya hanya overlay lokal.
+  async function handleSubmit() {
+    if (!canSubmit || saving) return;
     setSaving(true);
-    setTimeout(() => {
-      updateLabWorkflow(order.id, {
-        status: "Diterima",
-        diterima_oleh: penerimaName,
-        timestamps: { terima: new Date().toISOString().slice(0, 16) },
-      });
-      setSaving(false);
+    setError(null);
+    try {
+      await receiveLabOrder(order.id);
       setSaved(true);
       onStatusChange();
-    }, 600);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal menerima order — coba lagi");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -156,7 +160,15 @@ export default function PenerimaanPane({ order, onStatusChange }: Props) {
                 <AssignmentGuardBanner message="Anda belum ditugaskan ke unit Laboratorium pada SDM Assignment. Hanya petugas ter-assign yang dapat menerima order. Hubungi admin untuk penugasan." />
               )}
 
+              {error && (
+                <p role="alert" className="flex items-start gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700">
+                  <AlertTriangle size={13} className="mt-px shrink-0" aria-hidden />
+                  {error}
+                </p>
+              )}
+
               <button
+                type="button"
                 onClick={handleSubmit}
                 disabled={!canSubmit || saving}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-sky-700 disabled:opacity-40"
@@ -179,6 +191,7 @@ export default function PenerimaanPane({ order, onStatusChange }: Props) {
             <motion.div
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
+              role="status"
               className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3"
             >
               <CheckCircle2 size={20} className="text-emerald-600" />

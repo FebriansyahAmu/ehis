@@ -43,6 +43,8 @@ function toDTO(o: LabOrderEntity): LabOrderDTO {
     penulisKontak: o.penulisKontak ?? null,
     items: o.items.map(toItemDTO),
     createdAt: o.createdAt.toISOString(),
+    diterimaAt: o.diterimaAt ? o.diterimaAt.toISOString() : null,
+    diterimaOleh: o.diterimaOleh ?? null,
   };
 }
 
@@ -132,7 +134,12 @@ export function makeLabOrderService(deps: { dal?: Dal } = {}) {
     if (!order || order.deletedAt) throw Errors.notFound("Order lab tidak ditemukan");
     if (order.status !== "Menunggu") throw Errors.conflict("Order sudah diterima / diproses Lab");
     await assertActorAssignedToLab(actor, order.labKode);
-    const n = await dal.receive(labId);
+    // Stamp penerima = actor login (server-otoritatif) → FHIR Specimen.receivedTime + ReceivedPerson (S6b).
+    const n = await dal.receive(labId, {
+      diterimaAt: new Date(),
+      diterimaOleh: await resolveActorNama(actor),
+      diterimaOlehPegawaiId: actor.pegawaiId ?? null,
+    });
     if (n === 0) throw Errors.conflict("Order sudah diterima / diproses Lab");
     const fresh = await dal.findById(labId);
     return toDTO(fresh!);

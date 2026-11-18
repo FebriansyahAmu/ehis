@@ -29,6 +29,7 @@ function dtoToRecord(d: LabTestDTO): LabTestRecord {
     nama: d.nama,
     kategori: d.kategori,
     spesimen: d.spesimen ?? "",
+    spesimenSnomed: d.spesimenSnomed ?? "",
     metode: d.metode ?? "",
     waktuTunggu: d.waktuTunggu ?? "",
     keterangan: d.keterangan ?? "",
@@ -69,6 +70,8 @@ function draftToInput(d: LabTestRecord) {
     kode: d.kode || undefined,
     kategori: d.kategori,
     spesimen: d.spesimen || undefined,
+    // null = kosongkan (pemetaan SNOMED boleh dihapus kembali).
+    spesimenSnomed: d.spesimenSnomed?.trim() || null,
     metode: d.metode || undefined,
     waktuTunggu: d.waktuTunggu || undefined,
     keterangan: d.keterangan || undefined,

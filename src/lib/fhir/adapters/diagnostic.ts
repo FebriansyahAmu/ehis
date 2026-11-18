@@ -4,7 +4,7 @@
  * Fungsi murni; LOINC wajib (pemanggil melewati item tanpa LOINC).
  * Contoh resmi: docs/fhir-postman/resources/{ServiceRequest,DiagnosticReport,Observation}.json.
  *
- * Specimen (Lab) ditunda (S6b, FG-53). ImagingStudy dikirim DICOM router/PACS, bukan EHIS: EHIS cukup
+ * Specimen (Lab, S6b): dikirim SESUDAH ServiceRequest (request → SR). ImagingStudy dikirim DICOM router/PACS, bukan EHIS: EHIS cukup
  * membawa ACSN di ServiceRequest rad (S6a) agar router dapat mencocokkan studi ke order (FG-54).
  */
 
@@ -119,7 +119,7 @@ export function toFhirLabObservation(
   v: { nilai: string; satuan: string; rujukanStr: string; flag: string | null; numerik: boolean },
   loinc: Loinc,
   r: DiagRefs,
-  extra: { serviceRequestIhsId: string; issued: Date; performer?: Ref },
+  extra: { serviceRequestIhsId: string; issued: Date; performer?: Ref; specimenIhsId?: string },
 ): FhirRes {
   const num = v.numerik ? Number(v.nilai.replace(",", ".")) : NaN;
   const interp = v.flag ? INTERPRETATION[v.flag.toUpperCase()] : undefined;
@@ -131,6 +131,7 @@ export function toFhirLabObservation(
     subject: subject(r),
     encounter: encounter(r),
     basedOn: [{ reference: `ServiceRequest/${extra.serviceRequestIhsId}` }],
+    ...(extra.specimenIhsId ? { specimen: { reference: `Specimen/${extra.specimenIhsId}` } } : {}),
     ...(extra.performer ? { performer: [{ reference: `Practitioner/${extra.performer.ihsId}` }] } : {}),
     effectiveDateTime: toFhirDateTime(extra.issued),
     issued: toFhirDateTime(extra.issued),
@@ -184,6 +185,8 @@ export function toFhirDiagnosticReport(
     conclusion?: string | null;
     /** Lab: kategori per bagian (LAB_REPORT_CATEGORY — HM/CH/…, L16); absen → LAB/RAD umum. */
     category?: Coding;
+    /** Lab: Specimen terkirim (`specimen*` wajib playbook — pemanggil menahan DR lab tanpa Specimen, S6b). */
+    specimenIhsIds?: string[];
   },
 ): FhirRes {
   return {
@@ -202,6 +205,44 @@ export function toFhirDiagnosticReport(
     ],
     ...(extra.observationIhsIds.length ? { result: extra.observationIhsIds.map((id) => ({ reference: `Observation/${id}` })) } : {}),
     basedOn: extra.serviceRequestIhsIds.map((id) => ({ reference: `ServiceRequest/${id}` })),
+    ...(extra.specimenIhsIds?.length ? { specimen: extra.specimenIhsIds.map((id) => ({ reference: `Specimen/${id}` })) } : {}),
     ...(extra.conclusion ? { conclusion: extra.conclusion } : {}),
+  };
+}
+
+// ── Specimen (Lab, S6b) ─────────────────────────────────────
+
+/**
+ * Specimen per item tes (1 tes = 1 SR + 1 Specimen, playbook L16). Bentuk = contoh resmi IGD: identifier
+ * `…/specimen/{Org_id}` + assigner · status · type SNOMED · subject · `request` → ServiceRequest yang SUDAH
+ * terkirim · receivedTime + extension ReceivedPerson (aksi Terima Lab). `collection` (waktu/petugas ambil,
+ * status puasa) tidak dikirim — pengambilan sampel di luar aplikasi (FG-143).
+ */
+export function toFhirSpecimen(
+  itemId: string,
+  type: Coding,
+  r: DiagRefs,
+  extra: { serviceRequestIhsId: string; deleted: boolean; receivedTime?: Date | null; receivedBy?: Ref },
+): FhirRes {
+  return {
+    resourceType: "Specimen",
+    identifier: [{
+      system: orgIdentifierSystem("specimen", r.orgId),
+      value: itemId,
+      assigner: { reference: `Organization/${r.orgId}` },
+    }],
+    status: extra.deleted ? "entered-in-error" : "available",
+    type: { coding: [type] },
+    subject: subject(r),
+    request: [{ reference: `ServiceRequest/${extra.serviceRequestIhsId}` }],
+    ...(extra.receivedTime ? { receivedTime: toFhirDateTime(extra.receivedTime) } : {}),
+    ...(extra.receivedBy
+      ? {
+          extension: [{
+            url: "https://fhir.kemkes.go.id/r4/StructureDefinition/ReceivedPerson",
+            valueReference: { reference: `Practitioner/${extra.receivedBy.ihsId}`, display: extra.receivedBy.nama },
+          }],
+        }
+      : {}),
   };
 }

@@ -79,6 +79,22 @@ async function main() {
       }
     }
 
+    // Jenis spesimen SNOMED (FHIR Specimen.type, S6b) — pola sama dengan migrasi 20261119120000_lab_specimen.
+    await client.query(`
+      UPDATE "master"."lab_test" SET spesimen_snomed = CASE
+        WHEN spesimen ILIKE 'serum%'        THEN '119364003'
+        WHEN spesimen ILIKE 'urin%pancar%'  THEN '122880004'
+        WHEN spesimen ILIKE 'urin%'         THEN '122575003'
+        WHEN spesimen ILIKE 'plasma%'       THEN '119361006'
+        WHEN spesimen ILIKE 'darah vena%'   THEN '122555007'
+        WHEN spesimen ILIKE 'darah arteri%' THEN '122552005'
+        WHEN spesimen ILIKE 'darah kapiler' THEN '122554006'
+        WHEN spesimen ILIKE 'darah%'        THEN '119297000'
+        WHEN spesimen ILIKE 'feses%'        THEN '119339001'
+        WHEN spesimen ILIKE 'sputum%'       THEN '119334006'
+      END
+      WHERE spesimen IS NOT NULL`);
+
     await client.query("COMMIT");
     console.log(`✅ Seed lab selesai: ${nTest} tes, ${nParam} parameter.`);
   } catch (e) {
