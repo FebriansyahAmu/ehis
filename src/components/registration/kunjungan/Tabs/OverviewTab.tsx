@@ -304,7 +304,7 @@ function DokumenCard({ doc, className }: { doc: KunjunganRecord["dokumen"]; clas
 
 export function OverviewTab({ kunjungan, icdCodes, onNavigate }: Props) {
   return (
-    <div className="mx-auto grid max-w-6xl gap-3 lg:grid-cols-5">
+    <div className="grid gap-3 lg:grid-cols-5">
       <KunjunganCard kunjungan={kunjungan} className="lg:col-span-3" />
       <PenjaminCard kunjungan={kunjungan} onNavigate={onNavigate} className="lg:col-span-2" />
       <DiagnosaCard kunjungan={kunjungan} icdCodes={icdCodes} className="lg:col-span-3" />

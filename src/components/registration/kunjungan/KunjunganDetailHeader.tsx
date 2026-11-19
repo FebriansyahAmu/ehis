@@ -24,6 +24,12 @@ import { UNIT_CFG } from "./shared";
 const CRUMB =
   "rounded-sm underline-offset-4 hover:text-slate-900 hover:underline focus-visible:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600";
 
+// Tombol aksi header — ghost minimalis: dikenali dari teks/ikon (slate-600 ≈ 7,6:1 · sky-700 ≈ 5,9:1),
+// tiap status beda: hover = tint latar, tekan = skala, fokus = outline solid sky-600 (≥ 3:1; ring
+// bawaan shadcn `ring/50` terlalu pucat bila jadi satu-satunya penanda fokus).
+const ACTION =
+  "font-medium transition-[background-color,color,scale] duration-150 motion-safe:active:scale-[0.97] focus-visible:ring-0 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600";
+
 interface Fact {
   icon: LucideIcon;
   label: string;
@@ -119,20 +125,23 @@ export function KunjunganDetailHeader({
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <Button asChild variant="outline" size="sm">
+          <div className="flex shrink-0 items-center gap-1">
+            <Button asChild variant="ghost" size="sm" className={cn(ACTION, "text-slate-600 hover:bg-slate-100 hover:text-slate-900")}>
               <Link href={pasienHref}>
                 <ArrowLeft aria-hidden="true" />
                 <span className="sr-only sm:not-sr-only">Kembali</span>
               </Link>
             </Button>
             {kunjungan.klinisPath && (
-              <Button asChild size="sm">
-                <Link href={kunjungan.klinisPath}>
-                  <Stethoscope aria-hidden="true" />
-                  Rekam Medis
-                </Link>
-              </Button>
+              <>
+                <span aria-hidden="true" className="h-4 w-px bg-slate-200" />
+                <Button asChild variant="ghost" size="sm" className={cn(ACTION, "text-sky-700 hover:bg-sky-50 hover:text-sky-800")}>
+                  <Link href={kunjungan.klinisPath}>
+                    <Stethoscope aria-hidden="true" />
+                    Rekam Medis
+                  </Link>
+                </Button>
+              </>
             )}
           </div>
         </div>
