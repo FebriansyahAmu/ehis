@@ -1,336 +1,314 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
+// Tab "Ringkasan & Info" Detail Kunjungan — 4 Card shadcn: Kunjungan · Penjamin & SEP · Diagnosa ·
+// Dokumen. DPJP/tanggal/cara masuk sudah di header (selalu terlihat), jadi tidak diulang di sini.
+
 import {
-  Stethoscope, Shield, Hash, FileText, CheckCircle,
-  FilePen, ClipboardList, AlertCircle, Copy, Check,
+  ArrowRight, CheckCircle2, CircleDashed, ClipboardList, FilePen, FileText, Hash, ShieldCheck,
+  type LucideIcon,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/ui/utils";
 import type { KunjunganRecord, UnitKunjungan } from "@/lib/data";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import CopyValueButton from "@/components/shared/CopyValueButton";
 import { UNIT_CFG } from "../shared";
+import type { KunjunganTabId } from "../KunjunganTabs";
 
 interface Props {
   kunjungan: KunjunganRecord;
   icdCodes: string[];
+  /** Pindah ke tab lain (mis. Update SEP) — disediakan KunjunganTabs. */
+  onNavigate?: (tab: KunjunganTabId) => void;
 }
 
-// ─── Copy button ──────────────────────────────────────────────
+const isBlank = (v: string | undefined) => !v || !v.trim() || v.trim() === "—";
 
-function CopyBtn({ value, dark }: { value: string; dark?: boolean }) {
-  const [copied, setCopied] = useState(false);
-  const handle = () => {
-    navigator.clipboard.writeText(value).catch(() => {});
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-  return (
-    <button
-      onClick={handle}
-      title={copied ? "Disalin!" : "Salin nomor"}
-      className={cn(
-        "flex h-6 items-center gap-1 rounded-md px-1.5 text-[10px] font-semibold transition",
-        dark
-          ? copied
-            ? "bg-white/25 text-white"
-            : "bg-white/10 text-white/60 hover:bg-white/20 hover:text-white"
-          : copied
-          ? "bg-emerald-100 text-emerald-600"
-          : "bg-slate-100 text-slate-500 hover:bg-slate-200",
-      )}
-    >
-      {copied ? <Check size={9} /> : <Copy size={9} />}
-      {copied ? "Disalin" : "Salin"}
-    </button>
-  );
-}
+// ─── Kerangka kartu ───────────────────────────────────────────
 
-// ─── Card shell ───────────────────────────────────────────────
-
-function Card({
-  children,
-  delay = 0,
-  className,
-}: {
-  children: React.ReactNode;
-  delay?: number;
-  className?: string;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22, delay, ease: [0.16, 1, 0.3, 1] }}
-      className={cn("overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm", className)}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-function CardHead({
-  icon: Icon,
-  iconCls,
+function Section({
   title,
-  extra,
+  icon: Icon,
+  action,
+  className,
+  children,
 }: {
-  icon: IconComponent;
-  iconCls: string;
   title: string;
-  extra?: React.ReactNode;
+  icon: LucideIcon;
+  action?: React.ReactNode;
+  className?: string;
+  children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2 border-b border-slate-50 px-4 py-2.5">
-      <div className={cn("flex h-6 w-6 items-center justify-center rounded-md", iconCls)}>
-        <Icon size={12} />
-      </div>
-      <p className="flex-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">{title}</p>
-      {extra}
+    <Card className={cn("gap-0 py-0", className)}>
+      <CardHeader className="items-center gap-1 px-4 pt-3.5">
+        <CardTitle className="flex items-center gap-2">
+          <span aria-hidden="true" className="flex size-6 items-center justify-center rounded-md bg-slate-100 text-slate-600">
+            <Icon className="size-3.5" />
+          </span>
+          <h2 className="m-sm font-semibold text-slate-800">{title}</h2>
+        </CardTitle>
+        {action && <CardAction className="self-center">{action}</CardAction>}
+      </CardHeader>
+      <CardContent className="px-4 pt-3 pb-4">{children}</CardContent>
+    </Card>
+  );
+}
+
+const LABEL = "m-tiny font-medium text-slate-500";
+
+// ─── Kunjungan ────────────────────────────────────────────────
+
+function IdField({ label, value, primary }: { label: string; value: string; primary?: boolean }) {
+  return (
+    <div className="min-w-0 rounded-lg bg-slate-50 px-3 py-2 ring-1 ring-inset ring-slate-200/70">
+      <dt className={LABEL}>{label}</dt>
+      <dd className="flex items-center justify-between gap-2">
+        <span
+          className={cn(
+            "truncate font-mono font-semibold tabular-nums",
+            primary ? "text-base text-sky-800" : "m-sm text-slate-800",
+          )}
+        >
+          {value}
+        </span>
+        {!isBlank(value) && <CopyValueButton value={value} label={label} />}
+      </dd>
     </div>
   );
 }
 
-// ─── Ringkasan card ───────────────────────────────────────────
-
-function RingkasanCard({ kunjungan }: { kunjungan: KunjunganRecord }) {
-  const unit = UNIT_CFG[kunjungan.unit as UnitKunjungan];
+function KunjunganCard({ kunjungan: k, className }: { kunjungan: KunjunganRecord; className?: string }) {
+  const unit = UNIT_CFG[k.unit as UnitKunjungan];
   return (
-    <Card delay={0}>
-      <CardHead icon={ClipboardList} iconCls="bg-sky-50 text-sky-600" title="Ringkasan Kunjungan" />
-      <div className="space-y-3 p-4">
+    <Section title="Kunjungan" icon={ClipboardList} className={className}>
+      <dl className="grid gap-2 sm:grid-cols-2">
+        <IdField label="No. Pendaftaran" value={k.noPendaftaran} primary />
+        <IdField label="No. Kunjungan" value={k.noKunjungan} />
+      </dl>
 
-        {/* No. Pendaftaran strip */}
-        <div className="flex items-center gap-3 rounded-lg bg-sky-600 px-3.5 py-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-sky-200">No. Pendaftaran</p>
-            <p className="mt-0.5 font-mono text-[15px] font-black tracking-tight text-white">
-              {kunjungan.noPendaftaran}
-            </p>
-          </div>
-          <CopyBtn value={kunjungan.noPendaftaran} dark />
-          <span className={cn("shrink-0 rounded px-2 py-0.5 text-[10px] font-bold", unit.bg, unit.text)}>
-            {kunjungan.unit}
-          </span>
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+        <div>
+          <dt className={LABEL}>Unit</dt>
+          <dd className="mt-1">
+            <Badge variant="outline" className={cn("border-transparent", unit?.bg, unit?.text)}>
+              {k.unit}
+            </Badge>
+          </dd>
         </div>
+        {!isBlank(k.poli) && (
+          <div className="min-w-0">
+            <dt className={LABEL}>Poli tujuan</dt>
+            <dd className="m-sm mt-0.5 truncate font-medium text-slate-800">{k.poli}</dd>
+          </div>
+        )}
+        {!isBlank(k.ruangan) && (
+          <div className="min-w-0">
+            <dt className={LABEL}>Ruangan</dt>
+            <dd className="m-sm mt-0.5 truncate font-medium text-slate-800">{k.ruangan}</dd>
+          </div>
+        )}
+      </dl>
 
-        {/* Meta grid */}
-        <div className="grid grid-cols-3 gap-2 rounded-lg bg-slate-50 px-3 py-2.5 text-center">
-          <div>
-            <p className="text-[8.5px] font-semibold uppercase tracking-wider text-slate-400">No. Kunjungan</p>
-            <p className="mt-0.5 font-mono text-[11px] font-bold text-slate-700">{kunjungan.noKunjungan}</p>
-          </div>
-          <div>
-            <p className="text-[8.5px] font-semibold uppercase tracking-wider text-slate-400">Tanggal</p>
-            <p className="mt-0.5 text-[11px] font-semibold text-slate-700">{kunjungan.tanggal}</p>
-          </div>
-          <div>
-            <p className="text-[8.5px] font-semibold uppercase tracking-wider text-slate-400">Cara Masuk</p>
-            <p className="mt-0.5 text-[11px] font-semibold text-slate-700">
-              {kunjungan.caraMasuk ?? "—"}
-            </p>
-          </div>
-        </div>
-
-        {/* DPJP — bright */}
-        <div className="flex items-center gap-3 rounded-lg border border-sky-200 bg-sky-50 px-3.5 py-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-500 shadow-sm shadow-sky-200">
-            <Stethoscope size={14} className="text-white" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-sky-500">DPJP</p>
-            <p className="mt-0.5 truncate text-[13px] font-bold text-sky-900">{kunjungan.dokter}</p>
-          </div>
-        </div>
-
-        {/* Keluhan */}
-        <div className="rounded-lg bg-amber-50 px-3.5 py-2.5 ring-1 ring-amber-100">
-          <p className="mb-1 text-[8.5px] font-bold uppercase tracking-[0.15em] text-amber-500">Keluhan Utama</p>
-          <p className="text-[12px] leading-relaxed text-slate-700">{kunjungan.keluhan}</p>
-        </div>
-
+      <div className="mt-3 border-t border-slate-100 pt-3">
+        <h3 className={LABEL}>Keluhan utama</h3>
+        {isBlank(k.keluhan) ? (
+          <p className="m-sm mt-1 italic text-slate-500">Belum diisi</p>
+        ) : (
+          <p className="m-sm mt-1 border-l-2 border-amber-300 pl-3 leading-relaxed text-slate-700">{k.keluhan}</p>
+        )}
       </div>
-    </Card>
+    </Section>
   );
 }
 
-// ─── Penjamin card ────────────────────────────────────────────
+// ─── Penjamin & SEP ───────────────────────────────────────────
 
-function PenjaminCard({ kunjungan }: { kunjungan: KunjunganRecord }) {
-  const hasSEP = !!kunjungan.noSEP;
+function PenjaminCard({
+  kunjungan: k,
+  onNavigate,
+  className,
+}: {
+  kunjungan: KunjunganRecord;
+  onNavigate?: Props["onNavigate"];
+  className?: string;
+}) {
+  const isBpjs = /bpjs/i.test(k.penjamin ?? "");
+  const noSep = k.noSEP?.trim();
+  const noKartu = k.noPenjamin?.trim();
+
   return (
-    <Card delay={0.06}>
-      <CardHead icon={Shield} iconCls="bg-slate-100 text-slate-600" title="Penjamin & SEP" />
-      <div className="space-y-2.5 p-4">
-
-        <div className="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3.5 py-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-800">
-            <Shield size={14} className="text-white" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Jenis Penjamin</p>
-            <p className="mt-0.5 text-[13px] font-bold text-slate-800">
-              {kunjungan.penjamin ?? "Tidak Ditentukan"}
-            </p>
-            {kunjungan.noPenjamin ? (
-              <p className="mt-0.5 font-mono text-[10px] text-slate-500">{kunjungan.noPenjamin}</p>
+    <Section title="Penjamin & SEP" icon={ShieldCheck} className={className}>
+      <dl className="space-y-3">
+        <div>
+          <dt className={LABEL}>Penjamin</dt>
+          <dd className="m-sm mt-0.5 font-semibold text-slate-800">
+            {isBlank(k.penjamin) ? <span className="font-normal italic text-slate-500">Belum ditentukan</span> : k.penjamin}
+          </dd>
+        </div>
+        <div>
+          <dt className={LABEL}>No. kartu</dt>
+          <dd className="mt-0.5 flex items-center gap-1">
+            {!noKartu || isBlank(noKartu) ? (
+              <span className="m-sm italic text-slate-500">Belum diisi</span>
             ) : (
-              <p className="mt-0.5 text-[10px] italic text-slate-400">No. kepesertaan belum diisi</p>
+              <>
+                <span className="m-sm font-mono font-medium tabular-nums text-slate-800">{noKartu}</span>
+                <CopyValueButton value={noKartu} label="No. kartu penjamin" />
+              </>
             )}
-          </div>
+          </dd>
         </div>
+      </dl>
 
-        {hasSEP ? (
-          <div className="flex items-center gap-2.5 rounded-lg border border-teal-200 bg-teal-50 px-3.5 py-2.5">
-            <CheckCircle size={13} className="shrink-0 text-teal-600" />
-            <div className="min-w-0">
-              <p className="text-[8.5px] font-bold uppercase tracking-wider text-teal-600">SEP Aktif</p>
-              <p className="mt-0.5 font-mono text-[11px] font-bold text-teal-800">{kunjungan.noSEP}</p>
+      <div className="mt-3 border-t border-slate-100 pt-3">
+        {noSep ? (
+          <div className="flex items-center gap-2.5 rounded-lg bg-emerald-50 px-3 py-2 ring-1 ring-inset ring-emerald-200">
+            <CheckCircle2 className="size-4 shrink-0 text-emerald-600" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <p className="m-tiny font-medium text-emerald-800">SEP terbit</p>
+              <p className="m-sm truncate font-mono font-semibold tabular-nums text-emerald-900">{noSep}</p>
             </div>
+            <CopyValueButton value={noSep} label="No. SEP" />
+          </div>
+        ) : isBpjs ? (
+          <div className="rounded-lg border border-dashed border-slate-300 px-3 py-2.5">
+            <p className="m-sm flex items-center gap-2 font-medium text-slate-700">
+              <CircleDashed className="size-4 shrink-0 text-slate-400" aria-hidden="true" />
+              Belum ada SEP
+            </p>
+            {onNavigate && (
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                onClick={() => onNavigate("update-sep")}
+                className="mt-1 h-auto px-0 py-0 text-sky-700"
+              >
+                Buka Update SEP
+                <ArrowRight aria-hidden="true" />
+              </Button>
+            )}
           </div>
         ) : (
-          <div className="flex items-center gap-2.5 rounded-lg border border-dashed border-slate-200 px-3.5 py-2.5">
-            <AlertCircle size={13} className="shrink-0 text-slate-400" />
-            <div>
-              <p className="text-[11px] font-semibold text-slate-500">Belum ada SEP</p>
-              <p className="mt-0.5 text-[9.5px] text-slate-400">Buat melalui tab Update SEP</p>
-            </div>
-          </div>
+          <p className="m-xs text-slate-500">SEP hanya untuk penjamin BPJS.</p>
         )}
-
       </div>
-    </Card>
+    </Section>
   );
 }
 
-// ─── Diagnosa card ────────────────────────────────────────────
+// ─── Diagnosa ─────────────────────────────────────────────────
 
-const CODE_COLORS = [
-  "bg-indigo-50 ring-indigo-200 text-indigo-700",
-  "bg-teal-50 ring-teal-200 text-teal-700",
-  "bg-sky-50 ring-sky-200 text-sky-700",
-  "bg-emerald-50 ring-emerald-200 text-emerald-700",
-];
-
-function DiagnosaCard({ kunjungan, icdCodes }: { kunjungan: KunjunganRecord; icdCodes: string[] }) {
-  const empty = icdCodes.length === 0 && !kunjungan.diagnosa;
+function DiagnosaCard({
+  kunjungan: k,
+  icdCodes,
+  className,
+}: {
+  kunjungan: KunjunganRecord;
+  icdCodes: string[];
+  className?: string;
+}) {
+  const hasDesc = !isBlank(k.diagnosa);
   return (
-    <Card delay={0.09}>
-      <CardHead icon={Hash} iconCls="bg-teal-50 text-teal-600" title="Diagnosa" />
-      <div className="p-4">
-        {empty ? (
-          <div className="flex flex-col items-center gap-2 py-5 text-center">
-            <Hash size={18} className="text-slate-200" />
-            <p className="text-[11px] font-medium text-slate-400">Belum ada diagnosa tercatat</p>
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {icdCodes.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {icdCodes.map((code, i) => (
-                  <div
-                    key={code}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 ring-1",
-                      CODE_COLORS[i % CODE_COLORS.length],
-                    )}
-                  >
-                    <span className="text-[8px] font-bold opacity-40">#{i + 1}</span>
-                    <span className="font-mono text-[12px] font-black tracking-tight">{code}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {kunjungan.diagnosa && (
-              <div className="rounded-lg bg-slate-50 px-3 py-2.5">
-                <p className="text-[8.5px] font-semibold uppercase tracking-[0.12em] text-slate-400">Deskripsi</p>
-                <p className="mt-1 text-[12px] leading-relaxed text-slate-700">{kunjungan.diagnosa}</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </Card>
+    <Section
+      title="Diagnosa"
+      icon={Hash}
+      className={className}
+      action={
+        icdCodes.length > 0 ? (
+          <Badge variant="secondary" className="tabular-nums">
+            {icdCodes.length} kode ICD-10
+          </Badge>
+        ) : undefined
+      }
+    >
+      {icdCodes.length === 0 && !hasDesc ? (
+        <p className="m-sm text-slate-500">Belum ada diagnosa tercatat.</p>
+      ) : (
+        <>
+          {icdCodes.length > 0 && (
+            <ul role="list" className="flex flex-wrap gap-1.5" aria-label="Kode ICD-10">
+              {icdCodes.map((code) => (
+                <li key={code}>
+                  <Badge variant="outline" className="m-xs rounded-md border-slate-300 font-mono font-semibold text-slate-800">
+                    {code}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+          {hasDesc && <p className={cn("m-sm leading-relaxed text-slate-700", icdCodes.length > 0 && "mt-2.5")}>{k.diagnosa}</p>}
+        </>
+      )}
+    </Section>
   );
 }
 
-// ─── Dokumen card ─────────────────────────────────────────────
+// ─── Dokumen ──────────────────────────────────────────────────
 
-function DokumenCard({ doc }: { doc: KunjunganRecord["dokumen"] }) {
-  const items: { label: string; status: string | undefined; icon: IconComponent }[] = [
-    { label: "General Consent",  status: doc?.generalConsent,  icon: FileText      },
-    { label: "Surat Rujukan",    status: doc?.rujukan,         icon: FilePen       },
+function DokumenCard({ doc, className }: { doc: KunjunganRecord["dokumen"]; className?: string }) {
+  const items: { label: string; status: string | undefined; icon: LucideIcon }[] = [
+    { label: "General Consent", status: doc?.generalConsent, icon: FileText },
+    { label: "Surat Rujukan", status: doc?.rujukan, icon: FilePen },
     { label: "Pengantar Pasien", status: doc?.pengantarPasien, icon: ClipboardList },
   ];
-  const completed = items.filter(
-    ({ status }) => !!status && status !== "Tidak Ada" && status !== "Belum Ditandatangani",
-  ).length;
+  const isOk = (s: string | undefined) => !!s && s !== "Tidak Ada" && s !== "Belum Ditandatangani";
+  const done = items.filter((i) => isOk(i.status)).length;
 
   return (
-    <Card delay={0.12}>
-      <CardHead
-        icon={FileText}
-        iconCls="bg-sky-50 text-sky-600"
-        title="Dokumen"
-        extra={
-          <span
-            className={cn(
-              "rounded-full px-2 py-0.5 text-[9px] font-bold",
-              completed === items.length
-                ? "bg-emerald-100 text-emerald-700"
-                : "bg-slate-100 text-slate-500",
-            )}
-          >
-            {completed}/{items.length} lengkap
-          </span>
-        }
-      />
-      <div className="divide-y divide-slate-50">
+    <Section
+      title="Dokumen"
+      icon={FileText}
+      className={className}
+      action={
+        <Badge
+          variant="outline"
+          className={cn(
+            "border-transparent tabular-nums",
+            done === items.length ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600",
+          )}
+        >
+          {done}/{items.length} lengkap
+        </Badge>
+      }
+    >
+      <ul role="list" className="-my-1 divide-y divide-slate-100">
         {items.map(({ label, status, icon: DocIcon }) => {
-          const ok = !!status && status !== "Tidak Ada" && status !== "Belum Ditandatangani";
+          const ok = isOk(status);
           return (
-            <div key={label} className="flex items-center gap-3 px-4 py-2.5">
-              <div
+            <li key={label} className="flex items-center gap-3 py-2">
+              <span
+                aria-hidden="true"
                 className={cn(
-                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
-                  ok ? "bg-emerald-100" : "bg-slate-50",
+                  "flex size-7 shrink-0 items-center justify-center rounded-lg",
+                  ok ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-400",
                 )}
               >
-                {ok ? (
-                  <CheckCircle size={13} className="text-emerald-600" />
-                ) : (
-                  <DocIcon size={12} className="text-slate-300" />
-                )}
-              </div>
+                {ok ? <CheckCircle2 className="size-3.5" /> : <DocIcon className="size-3.5" />}
+              </span>
               <div className="min-w-0 flex-1">
-                <p className="text-[12px] font-semibold text-slate-700">{label}</p>
-                <p className={cn("text-[10px]", ok ? "text-emerald-600" : "text-slate-400")}>
-                  {status ?? "Tidak ada dokumen"}
-                </p>
+                <p className="m-sm font-medium text-slate-800">{label}</p>
+                <p className={cn("m-xs", ok ? "text-emerald-700" : "text-slate-500")}>{status ?? "Belum tercatat"}</p>
               </div>
-              {ok && (
-                <button className="shrink-0 rounded-lg border border-emerald-200 bg-white px-2 py-1 text-[10px] font-semibold text-emerald-700 transition hover:bg-emerald-50 active:scale-95">
-                  Lihat
-                </button>
-              )}
-            </div>
+            </li>
           );
         })}
-      </div>
-    </Card>
+      </ul>
+    </Section>
   );
 }
 
 // ─── Export ───────────────────────────────────────────────────
 
-export function OverviewTab({ kunjungan, icdCodes }: Props) {
+export function OverviewTab({ kunjungan, icdCodes, onNavigate }: Props) {
   return (
-    <div className="space-y-3">
-      <RingkasanCard kunjungan={kunjungan} />
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <PenjaminCard kunjungan={kunjungan} />
-        <DiagnosaCard kunjungan={kunjungan} icdCodes={icdCodes} />
-      </div>
-      <DokumenCard doc={kunjungan.dokumen} />
+    <div className="mx-auto grid max-w-6xl gap-3 lg:grid-cols-5">
+      <KunjunganCard kunjungan={kunjungan} className="lg:col-span-3" />
+      <PenjaminCard kunjungan={kunjungan} onNavigate={onNavigate} className="lg:col-span-2" />
+      <DiagnosaCard kunjungan={kunjungan} icdCodes={icdCodes} className="lg:col-span-3" />
+      <DokumenCard doc={kunjungan.dokumen} className="lg:col-span-2" />
     </div>
   );
 }

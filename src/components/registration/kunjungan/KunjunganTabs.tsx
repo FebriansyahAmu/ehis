@@ -1,13 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+// Navigasi tab Detail Kunjungan — Radix Tabs (primitif yang sama dengan shadcn Tabs). Gaya ditulis di
+// sini karena TabsTrigger shadcn terikat varian pill/line + orientasi tetap; di sini orientasi berubah
+// per layar: ≥ md = sidebar vertikal ber-grup, < md = baris horizontal yang bisa digeser.
+//
+// Aksesibilitas: tablist hanya berisi tab (label grup & pemisah aria-hidden) · aktivasi MANUAL
+// (panel berisi form yang memuat data saat dibuka — panah tidak memuat tiap tab yang dilewati) ·
+// tab terpilih ditandai garis border di pseudo-element (tetap terlihat di forced-colors), bukan warna
+// saja, tanpa mengubah ukuran tab · tab terpilih digulir ke tampilan saat berganti.
+
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Tabs as TabsPrimitive } from "radix-ui";
 import {
-  ClipboardList, CreditCard, Package, Navigation, Car,
-  Upload, Printer, Ban,
+  Ban, Car, ClipboardList, CreditCard, Navigation, Package, Printer, Upload,
   type LucideIcon,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/ui/utils";
+import { useMediaQuery } from "@/lib/ui/useMediaQuery";
 import type { KunjunganRecord, PatientMaster } from "@/lib/data";
 import { OverviewTab } from "./Tabs/OverviewTab";
 import {
@@ -18,118 +27,93 @@ import { BatalkanForm } from "./Tabs/BatalkanKunjunganTab";
 
 // ─── Tab definitions ──────────────────────────────────────────
 
-type TabId =
+export type KunjunganTabId =
   | "overview"
   | "penjamin" | "paket" | "rujukan" | "kecelakaan"
   | "update-sep" | "cetak" | "batal";
 
+type Tone = "default" | "warning" | "danger";
+
 interface TabDef {
-  id: TabId;
+  id: KunjunganTabId;
   label: string;
   icon: LucideIcon;
-  variant?: "warning" | "danger";
+  tone?: Tone;
 }
 
-const INFO_TABS: TabDef[] = [
-  { id: "overview", label: "Ringkasan & Info", icon: ClipboardList },
+const GROUPS: readonly { label: string; tabs: readonly TabDef[] }[] = [
+  {
+    label: "Informasi",
+    tabs: [{ id: "overview", label: "Ringkasan & Info", icon: ClipboardList }],
+  },
+  {
+    label: "Aksi kunjungan",
+    tabs: [
+      { id: "penjamin", label: "Ubah Penjamin", icon: CreditCard },
+      { id: "paket", label: "Ubah Paket", icon: Package },
+      { id: "rujukan", label: "Surat Rujukan", icon: Navigation },
+      { id: "kecelakaan", label: "Data Kecelakaan", icon: Car, tone: "warning" },
+    ],
+  },
+  {
+    label: "Manajemen",
+    tabs: [
+      { id: "update-sep", label: "Update SEP", icon: Upload },
+      { id: "cetak", label: "Cetak Dokumen", icon: Printer },
+      { id: "batal", label: "Batalkan Kunjungan", icon: Ban, tone: "danger" },
+    ],
+  },
 ];
 
-const AKSI_TABS: TabDef[] = [
-  { id: "penjamin",   label: "Ubah Penjamin",     icon: CreditCard              },
-  { id: "paket",      label: "Ubah Paket",         icon: Package                 },
-  { id: "rujukan",    label: "Surat Rujukan",       icon: Navigation              },
-  { id: "kecelakaan", label: "Data Kecelakaan",     icon: Car, variant: "warning" },
-];
+const ALL_TABS = GROUPS.flatMap((g) => g.tabs);
 
-const MGMT_TABS: TabDef[] = [
-  { id: "update-sep", label: "Update SEP",     icon: Upload                  },
-  { id: "cetak",      label: "Cetak Dokumen",  icon: Printer                 },
-  { id: "batal",      label: "Batalkan Kunjungan", icon: Ban, variant: "danger" },
-];
+// Warna teks ≥ 4.5:1 di latar putih/tint; garis penanda (-600) ≥ 3:1.
+const TONE: Record<Tone, string> = {
+  default:
+    "text-slate-600 hover:text-slate-900 data-[state=active]:bg-sky-50 data-[state=active]:text-sky-800 before:border-sky-600",
+  warning:
+    "text-amber-700 hover:text-amber-800 data-[state=active]:bg-amber-50 data-[state=active]:text-amber-800 before:border-amber-600",
+  danger:
+    "text-rose-600 hover:text-rose-700 data-[state=active]:bg-rose-50 data-[state=active]:text-rose-700 before:border-rose-600",
+};
 
-// ─── NavItem ──────────────────────────────────────────────────
+const TRIGGER = cn(
+  "relative inline-flex flex-none snap-start items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 m-sm font-medium transition-colors",
+  "hover:not-data-[state=active]:bg-slate-100",
+  "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-600",
+  // Penanda terpilih: garis bawah (ponsel) → bilah kiri (≥ md), border di ::before.
+  "before:pointer-events-none before:absolute before:inset-x-2 before:bottom-0 before:border-b-2 before:opacity-0 data-[state=active]:before:opacity-100",
+  "md:w-full md:before:left-0 md:before:right-auto md:before:inset-y-1.5 md:before:border-b-0 md:before:border-l-[3px]",
+);
 
-function NavItem({
-  tab,
-  active,
-  onClick,
-}: {
-  tab: TabDef;
-  active: boolean;
-  onClick: () => void;
-}) {
-  const Icon      = tab.icon;
-  const isDanger  = tab.variant === "danger";
-  const isWarning = tab.variant === "warning";
+// ─── Panels ───────────────────────────────────────────────────
 
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "mx-2 flex w-[calc(100%-16px)] cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-all duration-150",
-        active
-          ? isDanger
-            ? "bg-rose-600 text-white shadow-sm shadow-rose-200"
-            : isWarning
-            ? "bg-amber-500 text-white shadow-sm shadow-amber-200"
-            : "bg-sky-600 text-white shadow-sm shadow-sky-200"
-          : isDanger
-          ? "text-rose-500 hover:bg-rose-50 hover:text-rose-700"
-          : isWarning
-          ? "text-amber-600 hover:bg-amber-50 hover:text-amber-700"
-          : "text-slate-500 hover:bg-sky-50 hover:text-sky-700",
-      )}
-    >
-      <Icon size={14} className="shrink-0" />
-      <span className="truncate">{tab.label}</span>
-    </button>
-  );
-}
-
-// ─── Group label ──────────────────────────────────────────────
-
-function GroupLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="mb-1 mt-4 px-4 text-[9px] font-bold uppercase tracking-widest text-slate-400 first:mt-2">
-      {children}
-    </p>
-  );
-}
-
-// ─── Content renderer ─────────────────────────────────────────
-
-function TabContent({
-  active,
-  kunjungan,
-  icdCodes,
-  patient,
-}: {
-  active: TabId;
+interface PanelCtx {
   kunjungan: KunjunganRecord;
   icdCodes: string[];
   patient: PatientMaster;
-}) {
-  return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={active}
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.15 }}
-        className="flex-1 p-4 md:p-6"
-      >
-        {active === "overview"    && <OverviewTab kunjungan={kunjungan} icdCodes={icdCodes} />}
-        {active === "penjamin"    && <PenjaminForm kunjungan={kunjungan} patient={patient} />}
-        {active === "paket"       && <PaketForm kunjungan={kunjungan} />}
-        {active === "rujukan"     && <RujukanForm kunjungan={kunjungan} />}
-        {active === "kecelakaan"  && <KecelakaanForm kunjungan={kunjungan} />}
-        {active === "update-sep"  && <UpdateSEPForm kunjungan={kunjungan} />}
-        {active === "cetak"       && <CetakTab kunjungan={kunjungan} patient={patient} />}
-        {active === "batal"       && <BatalkanForm kunjungan={kunjungan} />}
-      </motion.div>
-    </AnimatePresence>
-  );
+  navigate: (id: KunjunganTabId) => void;
+}
+
+function PanelBody({ id, kunjungan, icdCodes, patient, navigate }: PanelCtx & { id: KunjunganTabId }): ReactNode {
+  switch (id) {
+    case "overview":
+      return <OverviewTab kunjungan={kunjungan} icdCodes={icdCodes} onNavigate={navigate} />;
+    case "penjamin":
+      return <PenjaminForm kunjungan={kunjungan} patient={patient} />;
+    case "paket":
+      return <PaketForm kunjungan={kunjungan} />;
+    case "rujukan":
+      return <RujukanForm kunjungan={kunjungan} />;
+    case "kecelakaan":
+      return <KecelakaanForm kunjungan={kunjungan} />;
+    case "update-sep":
+      return <UpdateSEPForm kunjungan={kunjungan} />;
+    case "cetak":
+      return <CetakTab kunjungan={kunjungan} patient={patient} />;
+    case "batal":
+      return <BatalkanForm kunjungan={kunjungan} />;
+  }
 }
 
 // ─── Main export ──────────────────────────────────────────────
@@ -143,37 +127,86 @@ export default function KunjunganTabs({
   icdCodes: string[];
   patient: PatientMaster;
 }) {
-  const [active, setActive] = useState<TabId>("overview");
+  const [active, setActive] = useState<KunjunganTabId>("overview");
+  const isWide = useMediaQuery("(min-width: 768px)", true);
+  const triggers = useRef(new Map<KunjunganTabId, HTMLButtonElement>());
+
+  // Tab terpilih selalu terlihat di baris yang bisa digeser (hanya menggulir tablist, bukan halaman).
+  useEffect(() => {
+    triggers.current
+      .get(active)
+      ?.scrollIntoView({ block: "nearest", inline: "nearest", container: "nearest" } as ScrollIntoViewOptions);
+  }, [active]);
+
+  // Pindah tab dari dalam panel (mis. "Buka Update SEP"): fokus ikut ke tab tujuan agar tidak hilang
+  // bersama tombol pemicu yang ter-unmount.
+  const navigate = useCallback((id: KunjunganTabId) => {
+    setActive(id);
+    requestAnimationFrame(() => triggers.current.get(id)?.focus());
+  }, []);
 
   return (
-    <div className="flex min-h-0 flex-1">
-
-      {/* ── Left sidebar ── */}
-      <nav
-        className="flex w-52 shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-white pb-6"
-        aria-label="Navigasi kunjungan"
-      >
-        <GroupLabel>Informasi</GroupLabel>
-        {INFO_TABS.map(tab => (
-          <NavItem key={tab.id} tab={tab} active={active === tab.id} onClick={() => setActive(tab.id)} />
-        ))}
-
-        <GroupLabel>Aksi kunjungan</GroupLabel>
-        {AKSI_TABS.map(tab => (
-          <NavItem key={tab.id} tab={tab} active={active === tab.id} onClick={() => setActive(tab.id)} />
-        ))}
-
-        <GroupLabel>Manajemen</GroupLabel>
-        {MGMT_TABS.map(tab => (
-          <NavItem key={tab.id} tab={tab} active={active === tab.id} onClick={() => setActive(tab.id)} />
-        ))}
-      </nav>
-
-      {/* ── Content area ── */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-        <TabContent active={active} kunjungan={kunjungan} icdCodes={icdCodes} patient={patient} />
+    <TabsPrimitive.Root
+      value={active}
+      onValueChange={(v) => setActive(v as KunjunganTabId)}
+      orientation={isWide ? "vertical" : "horizontal"}
+      activationMode="manual"
+      className="flex min-h-0 flex-1 flex-col md:flex-row"
+    >
+      <div className="shrink-0 border-b border-slate-200 bg-white md:w-56 md:overflow-y-auto md:border-r md:border-b-0">
+        <TabsPrimitive.List
+          aria-label="Bagian detail kunjungan"
+          className="flex snap-x snap-proximity scroll-px-2 gap-1 overflow-x-auto px-2 py-1.5 [scrollbar-width:thin] md:flex-col md:gap-0.5 md:overflow-x-visible md:px-2 md:py-3"
+        >
+          {GROUPS.map((g, gi) => (
+            <Fragment key={g.label}>
+              {gi > 0 && <span aria-hidden="true" className="my-1.5 w-px shrink-0 bg-slate-200 md:hidden" />}
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "m-mini hidden px-3 pb-1 font-semibold uppercase tracking-wider text-slate-500 md:block",
+                  gi > 0 ? "pt-4" : "pt-0.5",
+                )}
+              >
+                {g.label}
+              </span>
+              {g.tabs.map((t) => {
+                const Icon = t.icon;
+                return (
+                  <TabsPrimitive.Trigger
+                    key={t.id}
+                    value={t.id}
+                    // Panel non-aktif tidak dirender → aria-controls akan menunjuk id yang tak ada.
+                    aria-controls={undefined}
+                    ref={(el) => {
+                      if (el) triggers.current.set(t.id, el);
+                      else triggers.current.delete(t.id);
+                    }}
+                    className={cn(TRIGGER, TONE[t.tone ?? "default"])}
+                  >
+                    <Icon className="size-4 shrink-0" aria-hidden="true" />
+                    <span className="truncate">{t.label}</span>
+                  </TabsPrimitive.Trigger>
+                );
+              })}
+            </Fragment>
+          ))}
+        </TabsPrimitive.List>
       </div>
 
-    </div>
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+        {ALL_TABS.map((t) => (
+          <TabsPrimitive.Content
+            key={t.id}
+            value={t.id}
+            className="outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-600"
+          >
+            <div className="p-4 motion-safe:animate-[fade-in_0.2s_ease_both] md:p-6">
+              <PanelBody id={t.id} kunjungan={kunjungan} icdCodes={icdCodes} patient={patient} navigate={navigate} />
+            </div>
+          </TabsPrimitive.Content>
+        ))}
+      </div>
+    </TabsPrimitive.Root>
   );
 }

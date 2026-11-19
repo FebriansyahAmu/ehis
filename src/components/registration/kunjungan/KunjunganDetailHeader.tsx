@@ -1,267 +1,154 @@
 "use client";
 
-import { useState } from "react";
+// Header Detail Kunjungan — breadcrumb · identitas pasien + kunjungan · fakta ringkas kunjungan.
+// Fakta (DPJP/tanggal/cara masuk/cara datang) tampil di sini agar konteks tetap terlihat di tab
+// mana pun; tab "Ringkasan & Info" tidak mengulanginya.
+
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  ArrowLeft, ChevronRight, Stethoscope, ExternalLink, X,
-  Pencil, Check, UserCog, Calendar, DoorOpen, MessageSquare, Ambulance,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Ambulance, ArrowLeft, CalendarDays, DoorOpen, Stethoscope, UserRound, type LucideIcon } from "lucide-react";
+import { cn } from "@/lib/ui/utils";
 import type { PatientMaster, KunjunganRecord } from "@/lib/data";
-import { UNIT_CFG, StatusBadge } from "./shared";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { kunjunganStatusView } from "../patient/config";
+import { UNIT_CFG } from "./shared";
 
-const sm    = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12px] text-slate-800 placeholder:text-slate-300 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100 transition";
-const smSel = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12px] text-slate-800 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100 transition cursor-pointer";
-const lbl   = "mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400";
+// Tautan breadcrumb: garis bawah saat hover/fokus (bukan warna saja) + cincin fokus kontras ≥ 3:1.
+const CRUMB =
+  "rounded-sm underline-offset-4 hover:text-slate-900 hover:underline focus-visible:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600";
 
-function InfoChip({ icon: Icon, label, value }: {
-  icon:  IconComponent;
+interface Fact {
+  icon: LucideIcon;
   label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <Icon size={11} className="shrink-0 text-slate-400" />
-      <span className="text-[10.5px] text-slate-400">{label}</span>
-      <span className="text-[11px] font-semibold text-slate-700">{value || "—"}</span>
-    </div>
-  );
+  value: string | undefined;
 }
 
 export function KunjunganDetailHeader({
   patient,
   kunjungan,
 }: {
-  patient:   PatientMaster;
+  patient: PatientMaster;
   kunjungan: KunjunganRecord;
 }) {
-  const unit     = UNIT_CFG[kunjungan.unit];
-  const initials = patient.name.split(" ").map(n => n[0]).slice(0, 2).join("");
+  const unit = UNIT_CFG[kunjungan.unit];
+  const status = kunjunganStatusView(kunjungan);
+  const initials = patient.name
+    .split(" ")
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("");
+  const pasienHref = `/ehis-registration/pasien/${encodeURIComponent(patient.noRM)}`;
+  const selfHref = `${pasienHref}/kunjungan/${encodeURIComponent(kunjungan.id)}`;
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [dokter,    setDokter]    = useState(kunjungan.dokter ?? "");
-  const [tanggal,   setTanggal]   = useState(kunjungan.tanggal ?? "");
-  const [caraMasuk, setCaraMasuk] = useState(kunjungan.caraMasuk ?? "");
-  const [keluhan,   setKeluhan]   = useState(kunjungan.keluhan ?? "");
-
-  const handleSave = () => setIsEditing(false);
-  const handleCancel = () => {
-    setDokter(kunjungan.dokter ?? "");
-    setTanggal(kunjungan.tanggal ?? "");
-    setCaraMasuk(kunjungan.caraMasuk ?? "");
-    setKeluhan(kunjungan.keluhan ?? "");
-    setIsEditing(false);
-  };
+  const facts: Fact[] = [
+    { icon: UserRound, label: "DPJP", value: kunjungan.dokter },
+    { icon: CalendarDays, label: "Tanggal", value: kunjungan.tanggal },
+    { icon: DoorOpen, label: "Cara masuk", value: kunjungan.caraMasuk },
+    // Cara datang (IGD) — hanya bila terisi.
+    ...(kunjungan.caraDatang ? [{ icon: Ambulance, label: "Cara datang", value: kunjungan.caraDatang }] : []),
+  ];
 
   return (
-    <header className="shrink-0 bg-white shadow-sm">
+    <header data-accent="sky" className="shrink-0 border-b border-slate-200 bg-white">
+      <div className={cn("h-0.5", unit.accent)} aria-hidden="true" />
 
-      {/* Unit accent strip */}
-      <div className={cn("h-0.5 w-full", unit.accent)} />
+      <div className="space-y-3 px-4 pt-2.5 pb-3 sm:px-6">
+        <Breadcrumb aria-label="Breadcrumb">
+          <BreadcrumbList className="m-xs flex-nowrap gap-1 text-slate-500 sm:gap-1.5">
+            <BreadcrumbItem className="shrink-0">
+              <BreadcrumbLink asChild className={CRUMB}>
+                <Link href="/ehis-registration">Registrasi</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem className="min-w-0">
+              <BreadcrumbLink asChild className={cn(CRUMB, "block truncate")}>
+                <Link href={pasienHref}>{patient.name}</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem className="shrink-0">
+              {/* Halaman aktif tetap tautan (struktur jejak konsisten) + aria-current. */}
+              <BreadcrumbLink asChild className={cn(CRUMB, "font-medium text-slate-800")}>
+                <Link href={selfHref} aria-current="page">
+                  Detail kunjungan
+                </Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
 
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 border-b border-slate-100 px-5 py-2 text-[11px]">
-        <Link href="/ehis-registration" className="text-slate-400 transition hover:text-slate-600">
-          Beranda
-        </Link>
-        <ChevronRight size={10} className="shrink-0 text-slate-300" />
-        <Link
-          href={`/ehis-registration/pasien/${patient.noRM}`}
-          className="max-w-35 truncate text-slate-400 transition hover:text-slate-600"
-        >
-          {patient.name}
-        </Link>
-        <ChevronRight size={10} className="shrink-0 text-slate-300" />
-        <span className="font-medium text-slate-600">Detail kunjungan</span>
-        <Link
-          href="/ehis-registration"
-          className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-        >
-          <X size={12} />
-        </Link>
-      </div>
-
-      {/* Patient identity row */}
-      <motion.div
-        initial={{ opacity: 0, y: -6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-        className="flex items-center gap-3 px-5 py-3"
-      >
-        {/* Avatar */}
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-[13px] font-bold text-indigo-700 ring-2 ring-indigo-50">
-          {initials}
-        </div>
-
-        {/* Name + IDs */}
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[15px] font-bold text-slate-900">{patient.name}</span>
-            <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[9.5px] text-slate-500">
-              {patient.noRM}
+        {/* ── Identitas ── */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+          <div className="flex min-w-0 flex-1 basis-64 items-center gap-3">
+            <span
+              aria-hidden="true"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-sm font-semibold text-indigo-700 ring-1 ring-indigo-100"
+            >
+              {initials}
             </span>
-            <span className={cn("shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold", unit.bg, unit.text)}>
-              {kunjungan.unit}
-            </span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <h1 className="truncate text-base font-semibold tracking-tight text-slate-900 sm:text-lg">
+                  {patient.name}
+                </h1>
+                <Badge variant="outline" className={cn("border-transparent", unit.bg, unit.text)}>
+                  {kunjungan.unit}
+                </Badge>
+                <Badge variant="outline" className={cn("border-transparent", status.badge)}>
+                  {status.label}
+                </Badge>
+              </div>
+              <p className="m-xs mt-0.5 flex flex-wrap items-center gap-x-1.5 text-slate-500">
+                <span>
+                  No. RM <span className="font-mono font-medium text-slate-700">{patient.noRM}</span>
+                </span>
+                <span aria-hidden="true">·</span>
+                <span>
+                  No. Pendaftaran{" "}
+                  <span className="font-mono font-semibold text-sky-800">{kunjungan.noPendaftaran}</span>
+                </span>
+              </p>
+            </div>
           </div>
-          <div className="mt-0.5 flex items-center gap-2">
-            <span className="font-mono text-[11px] font-bold text-indigo-600">{kunjungan.noPendaftaran}</span>
-            <span className="text-slate-200">·</span>
-            <span className="text-[11px] text-slate-400">{tanggal}</span>
+
+          <div className="flex shrink-0 items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link href={pasienHref}>
+                <ArrowLeft aria-hidden="true" />
+                <span className="sr-only sm:not-sr-only">Kembali</span>
+              </Link>
+            </Button>
+            {kunjungan.klinisPath && (
+              <Button asChild size="sm">
+                <Link href={kunjungan.klinisPath}>
+                  <Stethoscope aria-hidden="true" />
+                  Rekam Medis
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex shrink-0 items-center gap-2">
-          <Link
-            href={`/ehis-registration/pasien/${patient.noRM}`}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 active:scale-95"
-          >
-            <ArrowLeft size={12} />
-            <span className="hidden sm:inline">Kembali</span>
-          </Link>
-          {kunjungan.klinisPath && (
-            <Link
-              href={kunjungan.klinisPath}
-              className="flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-[11px] font-semibold text-indigo-600 transition hover:bg-indigo-100 active:scale-95"
-            >
-              <Stethoscope size={12} />
-              <span className="hidden md:inline">Rekam Medis</span>
-              <ExternalLink size={10} className="hidden md:block" />
-            </Link>
-          )}
-          <StatusBadge status={kunjungan.status} />
-        </div>
-      </motion.div>
-
-      {/* ── Info bar / Inline edit ── */}
-      <div className="border-t border-emerald-100 bg-emerald-50/50 px-5">
-        <AnimatePresence mode="wait">
-          {!isEditing ? (
-            <motion.div
-              key="view"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.12 }}
-              className="flex items-center gap-3 py-2.5"
-            >
-              {/* Info chips */}
-              <div className="flex flex-1 flex-wrap items-center gap-x-4 gap-y-1.5">
-                <InfoChip icon={UserCog}  label="DPJP"       value={dokter}    />
-                <span className="hidden h-3 w-px bg-slate-200 sm:block" />
-                <InfoChip icon={Calendar} label="Tanggal"    value={tanggal}   />
-                <span className="hidden h-3 w-px bg-slate-200 sm:block" />
-                <InfoChip icon={DoorOpen} label="Cara masuk" value={caraMasuk} />
-                {/* Cara datang (IGD) — hanya tampil bila terisi; null → dikosongkan. */}
-                {kunjungan.caraDatang && (
-                  <>
-                    <span className="hidden h-3 w-px bg-slate-200 sm:block" />
-                    <InfoChip icon={Ambulance} label="Cara datang" value={kunjungan.caraDatang} />
-                  </>
-                )}
-                {keluhan && (
-                  <>
-                    <span className="hidden h-3 w-px bg-slate-200 md:block" />
-                    <div className="hidden items-center gap-1.5 md:flex">
-                      <MessageSquare size={11} className="shrink-0 text-slate-400" />
-                      <span className="max-w-56 truncate text-[11px] italic text-slate-400">
-                        &ldquo;{keluhan}&rdquo;
-                      </span>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Edit trigger */}
-              <button
-                type="button"
-                onClick={() => setIsEditing(true)}
-                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-2.5 py-1 text-[10.5px] font-semibold text-emerald-600 transition hover:border-emerald-400 hover:bg-emerald-100 hover:text-emerald-700 active:scale-95"
-              >
-                <Pencil size={10} />
-                Edit
-              </button>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="edit"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="space-y-3 py-3"
-            >
-              {/* Fields row */}
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <p className={lbl}>DPJP</p>
-                  <input
-                    className={sm}
-                    value={dokter}
-                    onChange={e => setDokter(e.target.value)}
-                    placeholder="Nama dokter penanggung jawab..."
-                    autoFocus
-                  />
-                </div>
-                <div>
-                  <p className={lbl}>Tanggal Kunjungan</p>
-                  <input
-                    type="date"
-                    className={sm}
-                    value={tanggal}
-                    onChange={e => setTanggal(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <p className={lbl}>Cara Masuk</p>
-                  <select
-                    className={smSel}
-                    value={caraMasuk}
-                    onChange={e => setCaraMasuk(e.target.value)}
-                  >
-                    <option value="">Pilih cara masuk...</option>
-                    <option>Rawat Jalan</option>
-                    <option>IGD</option>
-                    <option>Rujukan</option>
-                    <option>Langsung</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Keluhan row */}
-              <div>
-                <p className={lbl}>Keluhan Utama</p>
-                <input
-                  className={sm}
-                  value={keluhan}
-                  onChange={e => setKeluhan(e.target.value)}
-                  placeholder="Keluhan utama pasien..."
-                />
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex items-center justify-end gap-2 pb-1">
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 active:scale-95"
-                >
-                  Batal
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-sky-700 active:scale-95"
-                >
-                  <Check size={11} />
-                  Simpan
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* ── Fakta kunjungan ── */}
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg bg-slate-50 px-3 py-2.5 ring-1 ring-inset ring-slate-200/70 sm:flex sm:flex-wrap sm:items-center sm:gap-x-6">
+          {facts.map(({ icon: Icon, label, value }) => (
+            <div key={label} className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
+              <dt className="m-xs flex shrink-0 items-center gap-1.5 text-slate-500">
+                <Icon className="size-3.5 text-slate-400" aria-hidden="true" />
+                {label}
+              </dt>
+              <dd className="m-xs truncate font-semibold text-slate-800">{value?.trim() || "—"}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
     </header>
   );
