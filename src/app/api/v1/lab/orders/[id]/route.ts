@@ -10,5 +10,6 @@ export const GET = route({
   action: "read",
   scopeKunjungan: false,
   params: LabOrderIdParam,
+  aksesLog: (o) => ({ kunjunganId: o.kunjunganId }), // log akses RM (pasien/unit diturunkan)
   handler: async ({ params, actor }) => reply(await labOrderService.getLabOne(params.id, actor)),
 });

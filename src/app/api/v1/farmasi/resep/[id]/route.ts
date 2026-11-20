@@ -11,5 +11,6 @@ export const GET = route({
   action: "read",
   scopeKunjungan: false,
   params: FarmasiResepIdParam,
+  aksesLog: (o) => ({ kunjunganId: o.kunjunganId }), // log akses RM (pasien/unit diturunkan)
   handler: async ({ params, actor }) => reply(await resepService.getFarmasiOne(params.id, actor)),
 });

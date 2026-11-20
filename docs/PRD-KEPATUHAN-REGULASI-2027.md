@@ -206,7 +206,7 @@ Setiap epik mengikuti [ENGINEERING-RULES.md](ENGINEERING-RULES.md): branch per f
 
 | ID | Kebutuhan |
 |---|---|
-| FR-5.1 | **Log akses baca rekam medis**: siapa, kapan, pasien/kunjungan apa, dari modul mana. Append-only dan bisa dicari Unit RM |
+| FR-5.1 | **Log akses baca rekam medis**: siapa, kapan, pasien/kunjungan apa, dari modul mana. Append-only dan bisa dicari Unit RM. **Tahap 1 ✅ 2026-11-21** (`feat/audit-akses-rekam-medis`): tabel `auth.akses_rekam_medis`, pencatatan di `route()`, halaman `/ehis-master/jejak-akses`. Tahap 2: penanda anomali, cetak/ekspor, break-the-glass, permintaan pasien |
 | FR-5.2 | Akses di luar unit/penugasan memakai "break-the-glass" dengan alasan wajib, lalu ditandai untuk ditinjau |
 | FR-5.3 | Persetujuan umum (general consent) dan pemberitahuan pemrosesan data tercatat di DB (menutup TECH_DEBT G-E), termasuk penarikan persetujuan |
 | FR-5.4 | Jejak koreksi seragam lintas domain (nilai lama → nilai baru, oleh siapa, alasan) sesuai MRMIK 8 |

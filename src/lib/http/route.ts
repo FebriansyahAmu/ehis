@@ -10,7 +10,7 @@
 //     handler: ({ body, actor }) => patientService.registerPatient(body, actor),
 //   });
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import type { ZodType } from "zod";
 import { getActor, assertCan, type Actor } from "@/lib/auth/actor";
 import { handleError } from "@/lib/errors/handleError";
@@ -18,6 +18,12 @@ import { success, type Meta } from "@/lib/http/envelope";
 import { Errors } from "@/lib/errors/appError";
 import { loadKunjunganInScope } from "@/lib/services/clinicalScope";
 import { assertAllowedOrigin } from "@/lib/http/originGuard";
+import {
+  aksesRekamMedisService,
+  clientIp,
+  domainFromPath,
+  type AksesSubject,
+} from "@/lib/services/audit/aksesRekamMedisService";
 
 // Hasil ber-anotasi (status/message/meta) tanpa membuat `data` ambigu. Handler boleh
 // kembalikan data mentah (→ status default, tanpa message) ATAU reply(...) untuk kontrol.
@@ -39,6 +45,9 @@ export function reply<T>(data: T, opts: { status?: number; message?: string; met
 export function paginated<T>(data: T, meta: Meta): Reply<T> {
   return reply(data, { meta });
 }
+
+/** Data di balik reply(...) — yang diterima opsi `aksesLog`. */
+type Unreply<R> = R extends Reply<infer T> ? T : R;
 
 function isReply(v: unknown): v is Reply<unknown> {
   return typeof v === "object" && v !== null && (v as Record<symbol, unknown>)[REPLY] === true;
@@ -71,6 +80,10 @@ interface RouteConfig<B, Q, P, R> {
    *  resume medik (PMK 269 — dilengkapi ≤1×24 jam setelah pulang), jadwal kontrol,
    *  pengembalian obat. Data klinis inti (CPPT/TTV/diagnosa/…) TIDAK boleh pakai ini. */
   allowWhenLocked?: boolean;
+  /** Log akses BACA rekam medis (PRD E5 · FR-5.1). GET ber-scopeKunjungan dicatat OTOMATIS.
+   *  Rute GET lain yang menampilkan data pasien (detail pasien, order Lab/Rad/Farmasi) memasang
+   *  ini: kembalikan subjek dari hasil handler (kunjunganId cukup — pasien/unit diturunkan). */
+  aksesLog?: (data: Unreply<R>, params: P) => (AksesSubject & { domain?: string }) | null;
   handler: (args: HandlerArgs<B, Q, P>) => Promise<R> | R;
 }
 
@@ -101,10 +114,22 @@ export function route<B = undefined, Q = undefined, P = undefined, R = unknown>(
 
       // ABAC unit-scope (anti-IDOR): clinical.* → params.id = kunjunganId harus di unit kerja actor.
       const scopeKunjungan = config.scopeKunjungan ?? !!config.resource?.startsWith("clinical.");
+      const ip = clientIp(req);
+      const domain = domainFromPath(new URL(req.url).pathname);
+      let scoped: AksesSubject | null = null;
       if (scopeKunjungan) {
         const id = (params as { id?: unknown } | undefined)?.id;
         if (typeof id === "string") {
-          const k = await loadKunjunganInScope(id, actor);
+          const k = await loadKunjunganInScope(id, actor, undefined, {
+            // Percobaan membuka kunjungan di luar unit kerja → dicatat "denied" (method apa pun).
+            onDenied: (d) =>
+              after(() =>
+                aksesRekamMedisService.recordRead({
+                  actor, kunjunganId: d.id, patientId: d.patientId, unit: d.unit, domain, outcome: "denied", ip,
+                }),
+              ),
+          });
+          scoped = { kunjunganId: k.id, patientId: k.patientId, unit: k.unit };
           // Lock rekam medis: kunjungan Selesai (lockedAt) → tolak TULIS clinical.* (baca tetap
           // lolos). Transisi lifecycle pakai resource registration.* (action read) → tak terkena,
           // jadi "Batal Selesai" tetap bisa membuka kunci. Rute ber-`allowWhenLocked` (dokumen
@@ -127,6 +152,16 @@ export function route<B = undefined, Q = undefined, P = undefined, R = unknown>(
       const idempotencyKey = req.headers.get("Idempotency-Key") ?? undefined;
 
       const result = await config.handler({ req, body, query, params, actor, idempotencyKey });
+
+      // Log akses BACA rekam medis — sesudah respons terkirim (tak memperlambat/menggagalkan GET).
+      if (req.method === "GET") {
+        const data = (isReply(result) ? result.data : result) as Unreply<R>;
+        const subj = scoped ?? config.aksesLog?.(data, params) ?? null;
+        if (subj) {
+          const d = (subj as { domain?: string }).domain ?? domain;
+          after(() => aksesRekamMedisService.recordRead({ actor, ...subj, domain: d, outcome: "allowed", ip }));
+        }
+      }
 
       const fallback = config.status ?? 200;
       if (isReply(result)) {

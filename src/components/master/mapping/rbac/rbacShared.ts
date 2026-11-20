@@ -131,6 +131,14 @@ export const PERMISSION_TREE: PermissionModule[] = [
     ],
   },
   {
+    key: "audit",
+    label: "Keamanan & Audit",
+    leaves: [
+      // Log akses BACA rekam medis (UU PDP) — hanya read; log ditulis sistem. Migrasi 20261121120000.
+      { key: "audit.akses",           label: "Jejak Akses Rekam Medis",       actions: ["read"] },
+    ],
+  },
+  {
     key: "report",
     label: "Laporan & Analytics",
     leaves: [

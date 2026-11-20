@@ -10,5 +10,6 @@ export const GET = route({
   action: "read",
   scopeKunjungan: false,
   params: RadOrderIdParam,
+  aksesLog: (o) => ({ kunjunganId: o.kunjunganId }), // log akses RM (pasien/unit diturunkan)
   handler: async ({ params, actor }) => reply(await radOrderService.getRadOne(params.id, actor)),
 });

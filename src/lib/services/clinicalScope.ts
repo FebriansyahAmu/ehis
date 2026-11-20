@@ -24,9 +24,20 @@ export function assertUnitInScope(actor: Actor, kunjungan: KunjunganLite): void 
  * Muat kunjungan + tegakkan unit-scope. Pengganti `kunjunganDal.findById` di domain klinis.
  * Tak ada → notFound. Di luar unit kerja → notFound (tak bocorkan keberadaan).
  */
-export async function loadKunjunganInScope(kunjunganId: string, actor: Actor, tx?: Tx) {
+export async function loadKunjunganInScope(
+  kunjunganId: string,
+  actor: Actor,
+  tx?: Tx,
+  opts?: {
+    /** Dipanggil sebelum menolak akses di luar unit kerja (dipakai log akses RM — route()). */
+    onDenied?: (k: { id: string; patientId: string; unit: string }) => void;
+  },
+) {
   const k = await kunjunganDal.findById(kunjunganId, tx);
   if (!k) throw Errors.notFound("Kunjungan tidak ditemukan");
+  if (opts?.onDenied && !canAccessUnit(actor, k.unit)) {
+    opts.onDenied({ id: k.id, patientId: k.patientId, unit: k.unit });
+  }
   assertUnitInScope(actor, k);
   return k;
 }

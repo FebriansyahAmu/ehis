@@ -389,6 +389,13 @@ export const masterNav: readonly NavGroup[] = [
       { label: "Wilayah Kemendagri", href: "/ehis-master/wilayah", icon: MapPinned, perm: "master.konfigurasi" },
     ],
   },
+  {
+    label: "Keamanan & Audit",
+    items: [
+      // Log akses BACA rekam medis (PRD Kepatuhan E5 · FR-5.1). Unit RM / DPO / Admin.
+      { label: "Jejak Akses RM", href: "/ehis-master/jejak-akses", icon: History, perm: "audit.akses" },
+    ],
+  },
 ] as const;
 
 export const registrationNav: readonly NavGroup[] = [

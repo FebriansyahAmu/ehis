@@ -9,6 +9,7 @@ export const GET = route({
   resource: "registration.pasien",
   action: "read",
   params: IdParam,
+  aksesLog: (p) => ({ patientId: p.id, domain: "identitas-pasien" }), // log akses RM
   handler: ({ params, actor }) => patientService.getPatient(params.id, actor),
 });
 

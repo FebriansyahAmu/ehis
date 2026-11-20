@@ -195,3 +195,45 @@ model RefreshToken {
   @@map("refresh_tokens")
   @@schema("auth")
 }
+
+// ── Log akses BACA rekam medis (UU PDP · Permenkes 24/2022 · SG-10) ──────────────
+//  Siapa membuka RM pasien mana, kapan, bagian apa. Ditulis otomatis oleh route() (GET clinical.*
+//  ber-kunjungan + rute ber-opsi `aksesLog`). Dedup: 1 baris per pegawai × subjek × jendela 15
+//  menit × hasil → akses berikutnya hanya memperbarui lastAt/hitCount/domains.
+//  APPEND-ONLY: trigger DB menolak DELETE & perubahan kolom identitas (migrasi 20261121120000).
+//  Tanpa isi rekam medis — hanya ID + nama domain (log tak boleh jadi sumber kebocoran baru).
+
+model AksesRekamMedis {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  pegawaiId String?  @map("pegawai_id") @db.Uuid
+  /// Snapshot role saat akses.
+  roles     String[] @default([])
+
+  patientId   String? @map("patient_id") @db.Uuid
+  kunjunganId String? @map("kunjungan_id") @db.Uuid
+  /// Kunci dedup: kunjunganId · "p:<patientId>" · "audit:<uuid>" (pencarian log = tak di-dedup).
+  subjectKey  String  @map("subject_key")
+  /// Unit kunjungan (IGD/RawatJalan/RawatInap) bila ada.
+  unit        String?
+  /// Jalur hak akses: unit (unit kerja sendiri) · penunjang (Lab/Rad/Farmasi) · global (superuser/role global) · audit.
+  jalur       String
+  /// Bagian yang dibuka, mis. ["cppt","diagnosa","lab"]. Diakumulasi dalam satu jendela.
+  domains     String[] @default([])
+  hitCount    Int      @default(1) @map("hit_count")
+  /// allowed | denied (percobaan di luar unit kerja ikut dicatat).
+  outcome     String
+  /// HMAC-SHA256 IP (bukan IP mentah).
+  ipHash      String?  @map("ip_hash")
+
+  bucketStart DateTime @map("bucket_start") @db.Timestamptz(3)
+  firstAt     DateTime @default(now()) @map("first_at") @db.Timestamptz(3)
+  lastAt      DateTime @default(now()) @map("last_at") @db.Timestamptz(3)
+
+  @@unique([userId, subjectKey, bucketStart, outcome])
+  @@index([patientId, lastAt(sort: Desc)])
+  @@index([userId, lastAt(sort: Desc)])
+  @@index([kunjunganId])
+  @@map("akses_rekam_medis")
+  @@schema("auth")
+}
