@@ -108,8 +108,7 @@ export default function FhirResources() {
                       </span>
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-slate-800">{m.label}</p>
-                      <p className="truncate font-mono text-[10.5px] text-slate-400">{m.type}</p>
+                      <p className="truncate font-mono text-sm font-bold text-slate-800">{m.label}</p>
                       <p className="mt-1 line-clamp-1 text-[11px] text-slate-500">{m.desc}</p>
                     </div>
                     <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-[11px]">

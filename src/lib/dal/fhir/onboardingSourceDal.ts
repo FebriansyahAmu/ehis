@@ -39,6 +39,7 @@ export function listPractitionerCandidates(tx?: Tx) {
     orderBy: { namaLengkap: "asc" },
     select: {
       id: true, nip: true, namaLengkap: true, gelarDepan: true, gelarBelakang: true, profesi: true, nikEnc: true,
+      jenisKelamin: true, tanggalLahir: true,
       dokter: { select: { id: true, ihsPractitionerId: true } },
     },
   });

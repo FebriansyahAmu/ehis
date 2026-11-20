@@ -11,7 +11,7 @@ import type { PayloadStatus } from "@/lib/api/fhir/resources";
 export type ResourceGroup = "master" | "kunjungan" | "klinis" | "obat" | "penunjang";
 
 export const GROUPS: { key: ResourceGroup; label: string; desc: string; tone: Tone }[] = [
-  { key: "master", label: "Identitas & Master", desc: "Organisasi, ruangan, nakes, dan pasien yang sudah terpetakan ke IHS", tone: "sky" },
+  { key: "master", label: "Prerequisites", desc: "Organization, Location, Practitioner, dan Patient yang sudah terpetakan ke IHS", tone: "sky" },
   { key: "kunjungan", label: "Kunjungan", desc: "Encounter dan resume medis per kunjungan", tone: "teal" },
   { key: "klinis", label: "Klinis", desc: "Diagnosis, tanda vital, tindakan, dan alergi", tone: "rose" },
   { key: "obat", label: "Obat", desc: "Rantai peresepan hingga penyerahan obat", tone: "amber" },
@@ -27,21 +27,22 @@ export interface ResourceMeta {
 }
 
 const META: ResourceMeta[] = [
-  { type: "Organization", label: "Organisasi", desc: "Unit/instalasi di bawah RS", icon: Building2, group: "master" },
-  { type: "Location", label: "Lokasi", desc: "Ruangan, poli, bangsal", icon: MapPin, group: "master" },
-  { type: "Practitioner", label: "Tenaga Kesehatan", desc: "Resolve IHS by NIK (tanpa kirim)", icon: Stethoscope, group: "master" },
-  { type: "Patient", label: "Pasien", desc: "Resolve IHS by NIK (tanpa kirim)", icon: UserRound, group: "master" },
-  { type: "Encounter", label: "Kunjungan", desc: "Episode pelayanan IGD/RJ/RI", icon: Hospital, group: "kunjungan" },
-  { type: "Composition", label: "Resume Medis", desc: "Ringkasan pulang (LOINC 18842-5)", icon: FileText, group: "kunjungan" },
-  { type: "Condition", label: "Diagnosis", desc: "ICD-10 final per kunjungan", icon: HeartPulse, group: "klinis" },
-  { type: "Observation", label: "Observasi", desc: "Tanda vital & hasil penunjang", icon: Activity, group: "klinis" },
-  { type: "Procedure", label: "Tindakan", desc: "Prosedur ICD-9-CM", icon: Scissors, group: "klinis" },
-  { type: "AllergyIntolerance", label: "Alergi", desc: "Riwayat alergi pasien", icon: ShieldAlert, group: "klinis" },
-  { type: "Medication", label: "Obat (KFA)", desc: "Master obat ber-KFA", icon: Pill, group: "obat" },
-  { type: "MedicationRequest", label: "Resep", desc: "Peresepan per item obat", icon: ClipboardList, group: "obat" },
-  { type: "MedicationDispense", label: "Penyerahan Obat", desc: "Dispensing farmasi", icon: PackageCheck, group: "obat" },
-  { type: "ServiceRequest", label: "Permintaan Penunjang", desc: "Order lab & radiologi", icon: FlaskConical, group: "penunjang" },
-  { type: "DiagnosticReport", label: "Laporan Penunjang", desc: "Hasil lab & ekspertise radiologi", icon: Microscope, group: "penunjang" },
+  // label = nama resource persis seperti Playbook SATUSEHAT Kemenkes; desc = penjelasan berbahasa Indonesia.
+  { type: "Organization", label: "Organization", desc: "Struktur organisasi — unit/instalasi di bawah RS", icon: Building2, group: "master" },
+  { type: "Location", label: "Location", desc: "Struktur lokasi — ruangan, poli, bangsal", icon: MapPin, group: "master" },
+  { type: "Practitioner", label: "Practitioner", desc: "Nomor IHS tenaga kesehatan (GET by NIK, tanpa kirim)", icon: Stethoscope, group: "master" },
+  { type: "Patient", label: "Patient", desc: "Nomor IHS pasien (GET by NIK, tanpa kirim)", icon: UserRound, group: "master" },
+  { type: "Encounter", label: "Encounter", desc: "Kunjungan — episode pelayanan IGD/RJ/RI", icon: Hospital, group: "kunjungan" },
+  { type: "Composition", label: "Composition", desc: "Resume medis pulang (LOINC 18842-5)", icon: FileText, group: "kunjungan" },
+  { type: "Condition", label: "Condition", desc: "Diagnosis ICD-10 per kunjungan", icon: HeartPulse, group: "klinis" },
+  { type: "Observation", label: "Observation", desc: "Tanda vital & hasil penunjang", icon: Activity, group: "klinis" },
+  { type: "Procedure", label: "Procedure", desc: "Tindakan / prosedur ICD-9-CM", icon: Scissors, group: "klinis" },
+  { type: "AllergyIntolerance", label: "AllergyIntolerance", desc: "Riwayat alergi pasien", icon: ShieldAlert, group: "klinis" },
+  { type: "Medication", label: "Medication", desc: "Obat ber-kode KFA", icon: Pill, group: "obat" },
+  { type: "MedicationRequest", label: "MedicationRequest", desc: "Peresepan per item obat", icon: ClipboardList, group: "obat" },
+  { type: "MedicationDispense", label: "MedicationDispense", desc: "Penyerahan obat oleh farmasi", icon: PackageCheck, group: "obat" },
+  { type: "ServiceRequest", label: "ServiceRequest", desc: "Permintaan pemeriksaan lab & radiologi", icon: FlaskConical, group: "penunjang" },
+  { type: "DiagnosticReport", label: "DiagnosticReport", desc: "Laporan hasil lab & ekspertise radiologi", icon: Microscope, group: "penunjang" },
 ];
 
 const BY_TYPE = new Map(META.map((m) => [m.type, m]));
@@ -205,6 +206,13 @@ export function summarize(resourceType: string, payload: unknown): PayloadSummar
         title: str(p.name) ?? resourceType,
         subtitle: str(obj(arr(p.identifier)[0])?.value),
         chips: [...chips, ...(p.active === false ? ["nonaktif"] : [])],
+      };
+    case "Patient":
+    case "Practitioner":
+      return {
+        title: str(obj(arr(p.name)[0])?.text) ?? resourceType,
+        subtitle: [str(p.gender), str(p.birthDate)].filter(Boolean).join(" · ") || undefined,
+        chips: [...chips, "representasi — tidak dikirim"],
       };
     default:
       return { title: code.display ?? str(p.name) ?? resourceType, chips };

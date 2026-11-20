@@ -137,8 +137,8 @@ export default function FhirKunjunganDetail({ kunjunganId }: { kunjunganId: stri
         </div>
 
         <dl className="grid grid-cols-1 gap-x-6 gap-y-3 border-t border-slate-100 px-4 py-3 text-xs sm:grid-cols-2 sm:px-5 lg:grid-cols-4">
-          <Fact icon={Stethoscope} label="DPJP" value={k.dpjp ?? "—"} />
-          <Fact icon={MapPin} label="Ruangan" value={k.ruangan ?? "—"} />
+          <Fact icon={Stethoscope} label="Practitioner (DPJP)" value={k.dpjp ?? "—"} />
+          <Fact icon={MapPin} label="Location" value={k.ruangan ?? "—"} />
           <Fact icon={CalendarClock} label="Masuk → Selesai" value={`${fmtDateTime(k.dilayaniAt ?? k.waktuKunjungan)} → ${k.selesaiAt ? fmtDateTime(k.selesaiAt) : "…"}`} />
           <Fact icon={UserRound} label="IHS Patient" value={<IdChip value={k.pasien.ihsId} muted="belum di-resolve" />} />
           <Fact icon={Route} label="IHS Encounter" value={<IdChip value={d.encounterIhsId} muted="belum terkirim" />} />
@@ -178,7 +178,7 @@ export default function FhirKunjunganDetail({ kunjunganId }: { kunjunganId: stri
             <Callout tone="rose" icon={TriangleAlert}>
               <p className="font-semibold">Prasyarat belum lengkap — job kirim akan gagal sampai dilengkapi</p>
               <ul className="mt-1 list-disc pl-4">{d.blockers.map((b, i) => <li key={i}>{b}</li>)}</ul>
-              <Link href="/ehis-fhir/onboarding" className="mt-1 inline-block font-semibold underline">Buka Onboarding →</Link>
+              <Link href="/ehis-fhir/onboarding" className="mt-1 inline-block font-semibold underline">Buka Prerequisites →</Link>
             </Callout>
           )}
           {d.infos.map((msg, i) => <Callout key={i} tone="sky" icon={Info}>{msg}</Callout>)}

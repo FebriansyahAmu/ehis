@@ -24,7 +24,7 @@ const CIRCUIT_TONE: Record<string, Tone> = { closed: "emerald", "half-open": "am
 const OUTBOX_TONE: Record<string, Tone> = { Pending: "sky", Sending: "teal", Acked: "emerald", Failed: "rose", Skipped: "slate" };
 
 const QUICK = [
-  { href: "/ehis-fhir/onboarding", label: "Onboarding", desc: "Organisasi · ruangan · nakes", icon: Building2 },
+  { href: "/ehis-fhir/onboarding", label: "Prerequisites", desc: "Organization · Location · Practitioner · Patient", icon: Building2 },
   { href: "/ehis-fhir/antrean", label: "Antrean Kirim", desc: "Job kunjungan & retry", icon: ListChecks },
   { href: "/ehis-fhir/pasien", label: "Pasien & NIK", desc: "Cek NIK · resolve IHS", icon: UserCheck },
 ] as const;
@@ -149,7 +149,7 @@ export default function FhirBeranda() {
         {/* Resource map */}
         <SectionCard title="Peta Resource" desc={`Lokal ↔ IHS id (mode ${cfg?.mode ?? "—"})`}>
           {!data ? <SkeletonRows rows={3} /> : Object.keys(data.resourceMap).length === 0 ? (
-            <EmptyState icon={Network} title="Belum ada resource terpetakan" desc="Mulai dari Onboarding: Organisasi → Ruangan → Nakes." />
+            <EmptyState icon={Network} title="Belum ada resource terpetakan" desc="Mulai dari Prerequisites: Organization → Location → Practitioner → Patient." />
           ) : (
             <ul className="grid grid-cols-2 gap-1.5 p-4">
               {Object.entries(data.resourceMap).sort((a, b) => b[1] - a[1]).map(([k, v]) => (

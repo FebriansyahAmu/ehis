@@ -114,15 +114,15 @@ async function runEncounter(
     if (d && m) {
       const p = d.pegawai;
       practitioner = { ihsId: m.ihsId, nama: [p.gelarDepan, p.namaLengkap, p.gelarBelakang].filter(Boolean).join(" ") };
-    } else missing.push("DPJP belum terpetakan ke Practitioner (jalankan onboarding practitioner)");
-  } else missing.push("Kunjungan tanpa DPJP");
+    } else missing.push("DPJP belum terpetakan ke Practitioner — jalankan Prerequisites langkah 4 (Nomor IHS Tenaga Kesehatan)");
+  } else missing.push("Kunjungan tanpa DPJP (Practitioner)");
 
   let location: Ref | undefined;
   if (k.ruanganId) {
     const [r, m] = await Promise.all([src.getRuangan(k.ruanganId), resourceMapDal.findByLocal(env, "Location", k.ruanganId)]);
     if (r && m) location = { ihsId: m.ihsId, nama: r.nama };
-    else missing.push("Ruangan belum terpetakan ke Location (jalankan onboarding location)");
-  } else missing.push("Kunjungan tanpa ruangan");
+    else missing.push("Ruangan belum terpetakan ke Location — jalankan Prerequisites langkah 3 (Registrasi Struktur Lokasi)");
+  } else missing.push("Kunjungan tanpa ruangan (Location)");
 
   // Kunjungan yang dibatalkan cukup ubah status — referensi lain tak wajib lengkap.
   if (missing.length && target !== "cancelled") {

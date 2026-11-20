@@ -205,7 +205,9 @@ export function ResourceDrawer({
             <Icon size={18} aria-hidden />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">{resourceType} · {m.label}</p>
+            <p className="truncate text-[11px] font-semibold text-slate-400">
+              <span className="uppercase tracking-widest">{resourceType}</span> · {m.desc}
+            </p>
             <SheetTitle className="mt-0.5 truncate text-base font-bold text-slate-900">{sum?.title ?? m.label}</SheetTitle>
             <SheetDescription className={sum?.subtitle ? "truncate text-xs text-slate-500" : "sr-only"}>
               {sum?.subtitle ?? `Detail ${m.label} dan data yang dikirim ke SatuSehat`}

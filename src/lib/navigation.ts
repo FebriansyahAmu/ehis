@@ -587,7 +587,8 @@ export const fhirNav: readonly NavGroup[] = [
   {
     label: "Sinkronisasi",
     items: [
-      { label: "Onboarding", href: "/ehis-fhir/onboarding", icon: Building2, perm: "fhir.sync" },
+      // Playbook SATUSEHAT "Orientasi/Onboarding/Prerequisites" — 5 langkah (Autentikasi → Patient).
+      { label: "Prerequisites", href: "/ehis-fhir/onboarding", icon: Building2, perm: "fhir.sync" },
       { label: "Antrean Kirim", href: "/ehis-fhir/antrean", icon: ListChecks, perm: "fhir.sync" },
       { label: "Pasien & NIK", href: "/ehis-fhir/pasien", icon: UserCheck, perm: "fhir.sync" },
     ],

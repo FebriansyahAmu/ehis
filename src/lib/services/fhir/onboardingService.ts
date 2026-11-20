@@ -26,9 +26,10 @@ import type {
   OnboardingJenis, OnboardingItemResult, OnboardingOutcome, OnboardingRunDTO, OnboardingSummaryDTO,
 } from "@/lib/schemas/fhir/onboarding";
 import type { PayloadStatus } from "@/lib/schemas/fhir/resources";
+import * as patientSourceDal from "@/lib/dal/fhir/patientSourceDal";
 
 /** Profesi non-nakes — tidak punya Practitioner di SatuSehat. */
-const NON_NAKES = new Set(["Administrator", "Non-Tenaga Kesehatan"]);
+export const NON_NAKES = new Set(["Administrator", "Non-Tenaga Kesehatan"]);
 
 const LOCAL_TYPE: Record<OnboardingJenis, string> = {
   organization: "Organization",
@@ -344,13 +345,14 @@ function hasIdentifier(r: FhirResourceBase, system: string, value: string): bool
 
 export async function summary(): Promise<OnboardingSummaryDTO> {
   const cfg = getSatuSehatConfig();
-  const [orgs, locs, pegawai, orgMaps, locMaps, pracMaps] = await Promise.all([
+  const [orgs, locs, pegawai, orgMaps, locMaps, pracMaps, pasien] = await Promise.all([
     sourceDal.listOrganizations(),
     sourceDal.listLocations(),
     sourceDal.listPractitionerCandidates(),
     resourceMapDal.listByType(cfg.mode, LOCAL_TYPE.organization),
     resourceMapDal.listByType(cfg.mode, LOCAL_TYPE.location),
     resourceMapDal.listByType(cfg.mode, LOCAL_TYPE.practitioner),
+    patientSourceDal.countIhsReadiness(cfg.mode),
   ]);
 
   const build = (rows: { id: string; kode: string; nama: string }[], maps: { localId: string }[]) => {
@@ -370,5 +372,6 @@ export async function summary(): Promise<OnboardingSummaryDTO> {
         pracMaps,
       ),
     },
+    pasien: { total: pasien.total, viaNik: pasien.via_nik, terpetakan: pasien.terpetakan },
   };
 }

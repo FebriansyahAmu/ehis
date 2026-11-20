@@ -14,6 +14,7 @@ import type { Actor } from "@/lib/auth/actor";
 import { auditActorOf } from "./audit";
 import { previewEncounter } from "./encounterSyncService";
 import { previewMaster } from "./onboardingService";
+import { identityView } from "./prerequisiteService";
 import type {
   EncounterDetailDTO, EncounterPageDTO, PayloadStatus, ResourceDetailDTO, ResourcePageDTO,
   ResourceRowDTO, ResourceSummaryDTO,
@@ -52,10 +53,9 @@ export async function getResource(id: string, actor: Actor): Promise<ResourceDet
 
 async function payloadOf(row: MapRow, actor: Actor): Promise<Pick<ResourceDetailDTO, "payload" | "payloadStatus" | "payloadNote">> {
   if (row.localType === "Patient" || row.localType === "Practitioner") {
-    return {
-      payload: null, payloadStatus: null,
-      payloadNote: "Resolve-only — RS tidak mengirim resource ini; IHS id diambil dari SatuSehat berdasarkan NIK.",
-    };
+    // Resolve-only: tidak dikirim. Payload = representasi profil SATUSEHAT dari data lokal (NIK dimasker).
+    const v = await identityView(row.localType, row.localId, row.ihsId);
+    return { payload: v.resource, payloadStatus: null, payloadNote: v.note };
   }
   if (row.localType === "Organization" || row.localType === "Location") {
     const r = await previewMaster(row.localType, row.localId);
