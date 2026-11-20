@@ -31,9 +31,12 @@ export default async function ModuleLayout({
           <Navbar activeModule={moduleKey} />
           <div className="flex flex-1 overflow-hidden">
             <Sidebar moduleKey={moduleKey} />
+            {/* `relative` = containing block utk elemen absolute di dalam konten (mis. teks `sr-only`
+                di tabel). Tanpa ini mereka lolos dari area gulir <main>, memperpanjang tinggi dokumen,
+                dan seluruh shell bisa ikut tergulir sampai latar body terlihat di bawahnya. */}
             <main
               id="main-content"
-              className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950"
+              className="relative flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950"
             >
               {children}
             </main>
