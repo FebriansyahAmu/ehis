@@ -179,3 +179,69 @@ export async function softDeleteBed(id: string, when: Date, tx?: Tx): Promise<nu
   const res = await db(tx).bed.updateMany({ where: { id, deletedAt: null }, data: { deletedAt: when } });
   return res.count;
 }
+
+// ── RS Induk ⇄ Profil RS ─────────────────────────────────────────────────────
+//  Profil RS (master.RsProfil) = sumber kebenaran identitas RS Induk. Organization root di sini
+//  hanya cerminannya (read-only di Unit & Ruangan) → diselaraskan setiap Profil RS disimpan.
+
+/** Identitas + alamat RS Induk yang bersumber dari Profil RS (bentuk kolom DB Organization). */
+export interface RootIdentityData {
+  kode: string;
+  nama: string;
+  telp: string | null;
+  email: string | null;
+  alamat: string | null;
+  kodePos: string | null;
+  provinsiNama: string | null;
+  kotaNama: string | null;
+  kecamatanNama: string | null;
+  kelurahanNama: string | null;
+  /** Kode wilayah Kemendagri tingkat kelurahan (dotted/flat; level di atasnya diturunkan). */
+  kelurahanKode: string | null;
+}
+
+const ALAMAT_KEYS = ["alamat", "kodePos", "provinsiNama", "kotaNama", "kecamatanNama", "kelurahanNama", "kelurahanKode"] as const;
+
+/**
+ * Selaraskan Organization root dengan Profil RS. Sub-unit yang alamatnya masih SAMA PERSIS dengan
+ * alamat root lama (salinan warisan saat dibuat) ikut dipindah ke alamat baru; sub-unit beralamat
+ * sendiri tidak disentuh. Ruangan mewarisi alamat unitnya saat runtime (overrideAlamat=false).
+ * Tak ada perubahan → tidak menulis (version tak naik).
+ */
+export async function syncRootIdentity(d: RootIdentityData, tx?: Tx): Promise<{ root: number; units: number }> {
+  const root = await db(tx).organization.findFirst({ where: { isRoot: true, deletedAt: null } });
+  if (!root) return { root: 0, units: 0 };
+
+  const alamatBaru = Object.fromEntries(ALAMAT_KEYS.map((k) => [k, d[k]])) as Pick<RootIdentityData, (typeof ALAMAT_KEYS)[number]>;
+  const alamatLama = Object.fromEntries(ALAMAT_KEYS.map((k) => [k, root[k]])) as typeof alamatBaru;
+  const alamatBerubah = ALAMAT_KEYS.some((k) => (alamatLama[k] ?? null) !== (alamatBaru[k] ?? null));
+  const identitasBerubah =
+    root.kode !== d.kode || root.nama !== d.nama || (root.telp ?? null) !== d.telp || (root.email ?? null) !== d.email;
+
+  let units = 0;
+  if (alamatBerubah) {
+    const res = await db(tx).organization.updateMany({
+      where: { isRoot: false, deletedAt: null, rtRw: root.rtRw, ...alamatLama },
+      data: { ...alamatBaru, provinsiKode: null, kotaKode: null, kecamatanKode: null, version: { increment: 1 } },
+    });
+    units = res.count;
+  }
+  if (!alamatBerubah && !identitasBerubah) return { root: 0, units };
+
+  await db(tx).organization.update({
+    where: { id: root.id },
+    data: {
+      kode: d.kode,
+      nama: d.nama,
+      telp: d.telp,
+      email: d.email,
+      ...alamatBaru,
+      // Kode level atas diturunkan dari kode kelurahan (FHIR administrativeCodes) — kosongkan agar tak basi.
+      provinsiKode: null,
+      kotaKode: null,
+      kecamatanKode: null,
+      version: { increment: 1 },
+    },
+  });
+  return { root: 1, units };
+}

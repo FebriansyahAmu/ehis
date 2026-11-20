@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  Building2, MapPin, Save, Trash2, ChevronDown, ChevronRight,
+  ArrowUpRight, Building2, MapPin, Save, Trash2, ChevronDown, ChevronRight,
   Hospital, Lock, ToggleLeft, ToggleRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -63,7 +64,7 @@ export default function OrganizationForm({
   };
 
   const headerCfg = isRoot
-    ? { bg: "bg-violet-50", ring: "ring-violet-100", text: "text-violet-600", label: "RS Induk", Icon: Hospital }
+    ? { bg: "bg-sky-50", ring: "ring-sky-100", text: "text-sky-700", label: "RS Induk", Icon: Hospital }
     : { bg: "bg-teal-50", ring: "ring-teal-100", text: "text-teal-600", label: "Unit / Organisasi", Icon: Building2 };
 
   return (
@@ -351,15 +352,21 @@ export default function OrganizationForm({
 
 function RSRootBanner() {
   return (
-    <div className="flex items-start gap-2 rounded-xl border border-violet-200 bg-violet-50/60 px-3 py-2.5">
-      <Lock size={13} className="mt-0.5 shrink-0 text-violet-600" />
+    <div className="flex items-start gap-2 rounded-xl border border-sky-200 bg-sky-50/60 px-3 py-2.5">
+      <Lock size={13} className="mt-0.5 shrink-0 text-sky-700" aria-hidden />
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-bold text-violet-800">Profil RS — Read Only</p>
-        <p className="mt-0.5 text-[10px] leading-relaxed text-violet-700">
-          Data inti RS Induk dikelola di modul <span className="font-semibold">Profil RS</span>{" "}
-          (Konfigurasi). Halaman ini hanya menampilkan sebagai parent dari semua sub-unit di
-          bawahnya.
+        <p className="text-[11px] font-bold text-sky-900">Mengikuti Profil RS — Read Only</p>
+        <p className="mt-0.5 text-[10px] leading-relaxed text-sky-800">
+          Nama, kode, kontak, dan alamat RS Induk bersumber dari <span className="font-semibold">Profil RS</span>{" "}
+          dan diselaraskan otomatis setiap Profil RS disimpan. Sub-unit yang alamatnya masih mewarisi RS Induk
+          ikut diperbarui.
         </p>
+        <Link
+          href="/ehis-master/profil-rs"
+          className="mt-1 inline-flex items-center gap-0.5 rounded text-[10.5px] font-semibold text-sky-800 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+        >
+          Ubah di Profil RS <ArrowUpRight size={11} aria-hidden />
+        </Link>
       </div>
     </div>
   );

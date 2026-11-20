@@ -16,6 +16,11 @@ export const PATCH = route({
   resource: "master.konfigurasi",
   action: "update",
   body: UpsertRsProfilInput,
-  handler: async ({ body, actor }) =>
-    reply(await rsProfilService.save(body, actor), { message: "Profil RS tersimpan" }),
+  handler: async ({ body, actor }) => {
+    const { profil, rsInduk } = await rsProfilService.save(body, actor);
+    const ikut = rsInduk.root
+      ? ` · RS Induk di Unit & Ruangan ikut diperbarui${rsInduk.units ? ` (+${rsInduk.units} unit beralamat warisan)` : ""}`
+      : "";
+    return reply(profil, { message: `Profil RS tersimpan${ikut}` });
+  },
 });

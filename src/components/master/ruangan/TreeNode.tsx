@@ -42,7 +42,7 @@ export default function TreeNode({
   const hasChildren = children.length > 0;
   const Icon = isRoot ? Hospital : ICON_MAP[node.type];
   const cfg = isRoot
-    ? { iconBg: "bg-violet-50", iconText: "text-violet-600" }
+    ? { iconBg: "bg-sky-50", iconText: "text-sky-700" }
     : NODE_CFG[node.type];
   const selected = selectedId === node.id;
   const inactive = node.type === "Organization" && !node.active;

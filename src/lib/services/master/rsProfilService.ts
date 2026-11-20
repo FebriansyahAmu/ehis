@@ -5,6 +5,8 @@
 
 import * as defaultDal from "@/lib/dal/master/rsProfilDal";
 import type { RsProfilData, RsProfilEntity } from "@/lib/dal/master/rsProfilDal";
+import { syncRootIdentity, type RootIdentityData } from "@/lib/dal/ruanganDal";
+import { transaction } from "@/lib/db/prisma";
 import type { Actor } from "@/lib/auth/actor";
 import { RS_PROFIL_INITIAL } from "@/lib/master/rsProfilStore";
 import {
@@ -79,8 +81,33 @@ function inputToData(input: UpsertRsProfilInput, actor: Actor): RsProfilData {
   };
 }
 
-export function makeRsProfilService(deps: { dal?: Dal } = {}) {
+/** Profil RS → kolom Organization root (RS Induk di Unit & Ruangan). String kosong → null. */
+export function rootIdentityFromProfil(p: Pick<RsProfilData, "kode" | "nama" | "telp" | "email" | "alamat">): RootIdentityData {
+  const v = (s: string | null | undefined) => (s && s.trim() ? s.trim() : null);
+  return {
+    kode: p.kode.trim().toUpperCase(),
+    nama: p.nama.trim(),
+    telp: v(p.telp),
+    email: v(p.email),
+    alamat: v(p.alamat.jalan),
+    kodePos: v(p.alamat.kodePos),
+    provinsiNama: v(p.alamat.provinsi),
+    kotaNama: v(p.alamat.kota),
+    kecamatanNama: v(p.alamat.kecamatan),
+    kelurahanNama: v(p.alamat.kelurahan),
+    kelurahanKode: v(p.alamat.kodeWilayah),
+  };
+}
+
+export interface SaveRsProfilResult {
+  profil: RsProfilDTO;
+  /** Jumlah baris Organization yang ikut diselaraskan (root 0/1 · sub-unit beralamat warisan). */
+  rsInduk: { root: number; units: number };
+}
+
+export function makeRsProfilService(deps: { dal?: Dal; syncRoot?: typeof syncRootIdentity } = {}) {
   const dal = deps.dal ?? defaultDal;
+  const syncRoot = deps.syncRoot ?? syncRootIdentity;
 
   /** Profil efektif (DB bila ada, else default konstanta). ACTOR-LESS. */
   async function get(): Promise<RsProfilDTO> {
@@ -88,9 +115,17 @@ export function makeRsProfilService(deps: { dal?: Dal } = {}) {
     return row ? entityToDTO(row) : defaultDTO();
   }
 
-  /** Simpan profil tekstual (upsert singleton). */
-  async function save(input: UpsertRsProfilInput, actor: Actor): Promise<RsProfilDTO> {
-    return entityToDTO(await dal.upsert(inputToData(input, actor)));
+  /**
+   * Simpan profil tekstual (upsert singleton) + selaraskan RS Induk (Organization root) dalam SATU
+   * transaksi — Profil RS sumber kebenaran identitas; Unit & Ruangan hanya menampilkannya.
+   */
+  async function save(input: UpsertRsProfilInput, actor: Actor): Promise<SaveRsProfilResult> {
+    const data = inputToData(input, actor);
+    return transaction(async (tx) => {
+      const row = await dal.upsert(data, tx);
+      const rsInduk = await syncRoot(rootIdentityFromProfil(data), tx);
+      return { profil: entityToDTO(row), rsInduk };
+    });
   }
 
   /** Set logo (data URI). Baris dijamin ada dulu (seed default bila perlu). */
