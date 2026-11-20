@@ -8,7 +8,8 @@
 //
 // Gate bertahap (BACKEND-AUTH §8): AUTH_ENFORCE=false (default) → request tanpa sesi valid
 // jatuh ke DEV actor agar route yang belum dilindungi tetap jalan selama transisi. Set
-// AUTH_ENFORCE=true untuk menolak (401) request tanpa sesi.
+// AUTH_ENFORCE=true untuk menolak (401) request tanpa sesi. Di production penegakan selalu
+// aktif (SG-03, lib/auth/enforce.ts) → DEV actor tak pernah dipakai di production.
 
 import { cookies } from "next/headers";
 import { Errors } from "@/lib/errors/appError";
@@ -16,6 +17,7 @@ import { verifyAccessToken } from "@/lib/auth/jwt";
 import { permissionsForRoles } from "@/lib/auth/rbacCache";
 import { hasSuperuserRole } from "@/lib/auth/superuser";
 import { readCookie, ACCESS_COOKIE } from "@/lib/auth/cookies";
+import { isAuthEnforced } from "@/lib/auth/enforce";
 import type { AccessClaims } from "@/lib/schemas/auth";
 
 export interface Actor {
@@ -34,7 +36,7 @@ export interface Actor {
   isSuperuser: boolean;
 }
 
-// Sentinel dev actor — hanya dipakai saat AUTH_ENFORCE=false & tak ada sesi (transisi).
+// Sentinel dev actor — hanya dipakai saat penegakan mati (dev, AUTH_ENFORCE≠true) & tak ada sesi.
 const DEV_ACTOR: Actor = {
   userId: "00000000-0000-0000-0000-000000000000",
   pegawaiId: "00000000-0000-0000-0000-000000000000",
@@ -46,7 +48,7 @@ const DEV_ACTOR: Actor = {
   isSuperuser: true,
 };
 
-const enforce = (): boolean => process.env.AUTH_ENFORCE === "true";
+const enforce = isAuthEnforced;
 
 async function actorFromClaims(claims: AccessClaims): Promise<Actor> {
   const permissions = await permissionsForRoles(claims.roles);

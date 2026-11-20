@@ -1,6 +1,6 @@
 // route() — wrapper Route handler yang SERAGAM (FLOWS §2/§3). Setiap endpoint:
-//   AuthN(getActor) → RBAC(assertCan) → Zod(params/query/body) → handler(1 service) →
-//   envelope sukses → handleError pada exception.
+//   Origin(assertAllowedOrigin) → AuthN(getActor) → RBAC(assertCan) → Zod(params/query/body) →
+//   handler(1 service) → envelope sukses → handleError pada exception.
 // Route jadi TIPIS: tak ada try/catch, parsing, atau if-else domain tersebar.
 //
 // Pemakaian:
@@ -17,6 +17,7 @@ import { handleError } from "@/lib/errors/handleError";
 import { success, type Meta } from "@/lib/http/envelope";
 import { Errors } from "@/lib/errors/appError";
 import { loadKunjunganInScope } from "@/lib/services/clinicalScope";
+import { assertAllowedOrigin } from "@/lib/http/originGuard";
 
 // Hasil ber-anotasi (status/message/meta) tanpa membuat `data` ambigu. Handler boleh
 // kembalikan data mentah (→ status default, tanpa message) ATAU reply(...) untuk kontrol.
@@ -90,6 +91,8 @@ export function route<B = undefined, Q = undefined, P = undefined, R = unknown>(
 ) {
   return async (req: Request, ctx?: Ctx): Promise<Response> => {
     try {
+      // SG-02: tolak request lintas situs SEBELUM AuthN (tak bocorkan status sesi).
+      assertAllowedOrigin(req);
       const actor = await getActor(req);
       if (config.resource && config.action) assertCan(actor, config.resource, config.action);
 

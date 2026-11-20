@@ -40,14 +40,16 @@ Setiap endpoint dibungkus **satu** helper `route()` di [src/lib/http/route.ts](.
 Wrapper ini menjalankan urutan SERAGAM — Route file tak pernah mengulangnya:
 
 ```
-getActor(req)  →  assertCan(actor, resource, action)  →  Zod.parse(params/query/body)
-   AuthN              RBAC                                 Validasi
+assertAllowedOrigin(req)  →  getActor(req)  →  assertCan(actor, resource, action)  →  Zod.parse(params/query/body)
+   Origin (SG-02)              AuthN              RBAC                                 Validasi
         →  handler({ body, query, params, actor, idempotencyKey })  →  envelope sukses
                               (panggil TEPAT 1 service)                 (success/reply/paginated)
         →  catch → handleError(e) → envelope gagal + HTTP status
 ```
 
 Konsekuensi: **Route file = deklaratif, tanpa `try/catch`, tanpa parsing manual, tanpa if-else domain.**
+
+**Handler mentah** (tanpa `route()`, mis. auth login/refresh/logout yang perlu mengatur cookie) **WAJIB** memanggil `assertAllowedOrigin(req)` dari [originGuard.ts](../src/lib/http/originGuard.ts) di baris pertama `try`, dan `getActor(req)` bila endpoint bukan untuk tamu. Proxy tidak menjaga `/api` — jangan andalkan proxy untuk keamanan endpoint.
 
 ---
 

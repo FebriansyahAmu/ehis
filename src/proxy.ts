@@ -4,13 +4,15 @@
 // Penjaga sebenarnya = getActor/assertCan di route() + getServerActor di SSR (tak bisa di-bypass).
 // (Next merekomendasikan proxy sebagai "last resort" & SELALU verifikasi ulang di server.)
 //
-// Sakelar tunggal AUTH_ENFORCE menyatukan proxy + enforcement server:
-//   • false (default, transisi/dev) → NO-OP (app terbuka, getActor fallback DEV actor).
-//   • true → redirect page tanpa cookie sesi + getActor menolak request tanpa sesi.
-// Jadi tak ada lockout sebelum ada akun: aktifkan true HANYA setelah admin di-bootstrap.
+// Sakelar tunggal isAuthEnforced() (lib/auth/enforce.ts) menyatukan proxy + enforcement server:
+//   • mati (dev, AUTH_ENFORCE≠true) → NO-OP (app terbuka, getActor fallback DEV actor).
+//   • aktif (AUTH_ENFORCE=true, atau SELALU di production — SG-03) → redirect page tanpa cookie
+//     sesi + getActor menolak request tanpa sesi.
+// Bootstrap admin dulu sebelum menjalankan build production (production tak punya DEV actor).
 
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { isAuthEnforced } from "@/lib/auth/enforce";
 
 // Nama cookie sengaja di-inline (proxy independen, tak menarik modul berat spt jose). Selaras
 // lib/auth/cookies.ts. ehis_rt (refresh, 3 jam) = sinyal "ada sesi" paling tahan lama.
@@ -19,7 +21,7 @@ const ACCESS_COOKIE = "ehis_at";
 const LOGIN_PATH = "/";
 
 export function proxy(req: NextRequest): NextResponse {
-  if (process.env.AUTH_ENFORCE !== "true") return NextResponse.next();
+  if (!isAuthEnforced()) return NextResponse.next();
 
   const { pathname } = req.nextUrl;
   if (pathname === LOGIN_PATH) return NextResponse.next(); // jangan redirect login → login (loop)

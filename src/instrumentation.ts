@@ -5,6 +5,13 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
+  // SG-03: production selalu menegakkan auth (lib/auth/enforce.ts). Ingatkan bila flag tak eksplisit.
+  if (process.env.NODE_ENV === "production" && process.env.AUTH_ENFORCE !== "true") {
+    console.warn(
+      '[auth] AUTH_ENFORCE bukan "true" di production — autentikasi TETAP ditegakkan. Set AUTH_ENFORCE=true agar konfigurasi eksplisit.',
+    );
+  }
+
   const interval = Number(process.env.SATUSEHAT_OUTBOX_INTERVAL_MS ?? 0);
   if (!Number.isFinite(interval) || interval <= 0) return;
 

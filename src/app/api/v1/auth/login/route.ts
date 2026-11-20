@@ -8,9 +8,11 @@ import { success } from "@/lib/http/envelope";
 import { handleError } from "@/lib/errors/handleError";
 import { Errors } from "@/lib/errors/appError";
 import { setSessionCookies } from "@/lib/auth/cookies";
+import { assertAllowedOrigin } from "@/lib/http/originGuard";
 
 export async function POST(req: Request): Promise<Response> {
   try {
+    assertAllowedOrigin(req); // SG-02: cegah login CSRF dari situs lain
     let raw: unknown;
     try {
       raw = await req.json();

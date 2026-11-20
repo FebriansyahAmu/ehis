@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
+import { getActor } from "@/lib/auth/actor";
+import { assertAllowedOrigin } from "@/lib/http/originGuard";
+import { handleError } from "@/lib/errors/handleError";
+import { isAppError } from "@/lib/errors/appError";
+
+// SG-15: endpoint ini memproses gambar (CPU + memori berat) → wajib sesi, asal same-origin, dan
+// ukuran dibatasi. Foto tanda tangan dari webcam jauh di bawah batas ini.
+const MAX_BODY_BYTES = 10_000_000;
 
 /**
  * Sauvola local adaptive thresholding (O(n) via integral images).
@@ -63,10 +71,21 @@ function buildSauvolaMask(
 
 export async function POST(req: NextRequest) {
   try {
+    assertAllowedOrigin(req);
+    await getActor(req);
+
+    const declared = Number(req.headers.get("content-length") ?? 0);
+    if (declared > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: "Gambar terlalu besar" }, { status: 413 });
+    }
+
     const { imageData, sensitivity = 50 } = await req.json() as {
       imageData: string;
       sensitivity?: number;
     };
+    if (typeof imageData !== "string" || imageData.length > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: "Data gambar tidak valid" }, { status: 400 });
+    }
 
     const base64 = imageData.replace(/^data:image\/\w+;base64,/, "");
     const inputBuffer = Buffer.from(base64, "base64");
@@ -127,6 +146,10 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (err) {
+    if (isAppError(err)) {
+      const { status, body } = handleError(err);
+      return NextResponse.json(body, { status });
+    }
     console.error("[enhance-signature]", err);
     return NextResponse.json({ error: "Gagal memproses gambar" }, { status: 500 });
   }
