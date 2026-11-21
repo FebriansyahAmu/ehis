@@ -7,10 +7,11 @@
 
 import { useId, useRef, useState } from "react";
 import { ChevronRight, CircleCheck, CircleSlash, Link2, Link2Off, ScanSearch, TriangleAlert } from "lucide-react";
-import { lookupIhs, type IhsLookupDTO, type IhsLookupType } from "@/lib/api/fhir/ihsLookup";
+import { lookupIhs, type IhsLookupDTO, type IhsLookupType, type IhsMapDTO } from "@/lib/api/fhir/ihsLookup";
 import { Button, Pill, errMsg } from "../fhirShared";
 import { Callout, IdChip, JsonView } from "../resource/resourceUi";
 import { fmtDateTime } from "../resource/resourceTime";
+import { IhsMapAction } from "./IhsMapAction";
 
 /**
  * Contoh dari tabel data dummy Sandbox di halaman Playbook (hanya berlaku di Sandbox). Nama = yang TERTULIS di
@@ -48,6 +49,8 @@ export function IhsLookupPanel({
   defaultIhs,
   localId,
   compact,
+  canMap = false,
+  onMapped,
 }: {
   resourceType: IhsLookupType;
   /** Prefill (mis. IHS terpetakan data yang sedang dilihat). */
@@ -56,6 +59,10 @@ export function IhsLookupPanel({
   localId?: string;
   /** Tanpa judul (dipakai di dalam tab drawer yang sudah berjudul). */
   compact?: boolean;
+  /** Izin `fhir.sync:create` → aksi Petakan manual (muncul hanya di mode Sandbox + ada `localId`). */
+  canMap?: boolean;
+  /** Sesudah dipetakan (mis. muat ulang detail & daftar). */
+  onMapped?: (m: IhsMapDTO) => void;
 }) {
   const inputId = useId();
   const hintId = useId();
@@ -90,6 +97,12 @@ export function IhsLookupPanel({
     } finally {
       setBusy(false);
     }
+  }
+
+  // Sesudah petakan: perbarui catatan kecocokan di tempat (tanpa GET ulang ke SatuSehat).
+  function handleMapped(m: IhsMapDTO) {
+    setResult((prev) => (prev && prev.ihsId === m.ihsId ? { ...prev, cocok: true, ihsTerpetakan: m.ihsId, lokal: m.lokal } : prev));
+    onMapped?.(m);
   }
 
   return (
@@ -156,12 +169,20 @@ export function IhsLookupPanel({
       {error && (
         <div role="alert"><Callout tone="rose" icon={TriangleAlert}>{error}</Callout></div>
       )}
-      {result && <ResultCard r={result} localId={localId} />}
+      {result && (
+        <ResultCard
+          r={result}
+          localId={localId}
+          mapAction={canMap && localId && result.found && result.mode === "sandbox"
+            ? <IhsMapAction key={result.ihsId} r={result} localId={localId} onMapped={handleMapped} />
+            : null}
+        />
+      )}
     </section>
   );
 }
 
-function ResultCard({ r, localId }: { r: IhsLookupDTO; localId?: string }) {
+function ResultCard({ r, localId, mapAction }: { r: IhsLookupDTO; localId?: string; mapAction: React.ReactNode }) {
   const s = r.ringkas;
   // Patient by ID di SatuSehat hanya mengembalikan identifier + meta (nama/kelamin/tgl lahir tak disertakan).
   const minimal = !!s && !s.nama && !s.gender && !s.birthDate;
@@ -216,6 +237,7 @@ function ResultCard({ r, localId }: { r: IhsLookupDTO; localId?: string }) {
       )}
 
       <MappingNote r={r} localId={localId} />
+      {mapAction}
 
       {r.resource !== null && r.resource !== undefined && (
         <details className="group rounded-xl border border-slate-200 bg-white">
@@ -245,11 +267,18 @@ function MappingNote({ r, localId }: { r: IhsLookupDTO; localId?: string }) {
     );
   }
   if (localId && r.cocok === false) {
-    return <Callout tone="amber" icon={Link2Off}>Data ini terpetakan ke <b>IHS lain</b>, bukan {r.ihsId}.</Callout>;
+    return (
+      <Callout tone="amber" icon={Link2Off}>
+        Data ini terpetakan ke <b>IHS lain</b>{r.ihsTerpetakan && <> (<span className="font-mono">{r.ihsTerpetakan}</span>)</>}, bukan {r.ihsId}.
+      </Callout>
+    );
   }
   return (
     <Callout tone="slate" icon={r.found ? CircleCheck : CircleSlash}>
-      IHS {r.ihsId} belum dipetakan ke data lokal mana pun (mode {r.mode}). Pemetaan dilakukan lewat <b>Cari IHS</b> (GET by NIK).
+      IHS {r.ihsId} belum dipetakan ke data lokal mana pun (mode {r.mode}).
+      {!localId && r.found && (
+        <> Pemetaan lewat <b>Cari IHS</b> (GET by NIK){r.mode === "sandbox" && <>, atau di Sandbox: buka <b>Detail</b> data → tab <b>Data SatuSehat</b> → <b>Petakan</b></>}.</>
+      )}
     </Callout>
   );
 }

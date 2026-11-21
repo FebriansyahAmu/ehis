@@ -120,8 +120,10 @@ export function Pill({ label, tone = "slate", dot }: { label: string; tone?: Ton
 // ── Buttons ───────────────────────────────────────────────
 
 export function Button({
-  children, onClick, loading, disabled, variant = "primary", icon: Icon, type = "button", title, ariaExpanded, ariaControls,
+  children, onClick, loading, disabled, variant = "primary", icon: Icon, type = "button", title, ariaExpanded, ariaControls, ref,
 }: {
+  /** Untuk memindah fokus (mis. ke aksi aman saat konfirmasi inline muncul). */
+  ref?: React.Ref<HTMLButtonElement>;
   children: React.ReactNode;
   onClick?: () => void;
   loading?: boolean;
@@ -136,6 +138,7 @@ export function Button({
 }) {
   return (
     <button
+      ref={ref}
       type={type}
       title={title}
       onClick={onClick}

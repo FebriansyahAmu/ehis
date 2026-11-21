@@ -289,13 +289,18 @@ export function PrereqDetailDrawer({
                     {d.map
                       ? <>Ambil data <b>{resourceType}</b> yang tersimpan di SatuSehat untuk Nomor IHS terpetakan — bandingkan dengan Data lokal / Payload FHIR.</>
                       : <>Data ini <b>belum terpetakan</b>. Masukkan Nomor IHS untuk melihat datanya di SatuSehat, atau pakai <b>Cari IHS</b> (GET by NIK) untuk memetakan.</>}
+                    {" "}Di mode Sandbox, IHS hasil Ambil bisa <b>dipetakan manual</b> ke data ini untuk menguji resource lain.
                   </Callout>
+                  {/* Key = localId saja: muat ulang detail sesudah dipetakan tak boleh me-remount panel
+                      (hasil & konfirmasi tetap tampil, fokus tak hilang). */}
                   <IhsLookupPanel
-                    key={`${localId}|${d.map?.ihsId ?? ""}`}
+                    key={localId}
                     compact
                     resourceType={resourceType as "Practitioner" | "Patient"}
                     defaultIhs={d.map?.ihsId}
                     localId={localId}
+                    canMap={canSend}
+                    onMapped={afterSend}
                   />
                 </div>
               ))}

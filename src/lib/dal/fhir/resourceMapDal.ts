@@ -30,6 +30,15 @@ export function findByIhs(env: string, resourceType: string, ihsId: string, tx?:
   });
 }
 
+/** Data lokal LAIN (≠ `excludeLocalId`) yang memakai IHS id ini — cek pemakaian bersama saat petakan manual. */
+export function findOtherByIhs(env: string, resourceType: string, ihsId: string, excludeLocalId: string, tx?: Tx) {
+  return db(tx).resourceMap.findFirst({
+    where: { env, resourceType, ihsId, localId: { not: excludeLocalId } },
+    orderBy: { lastSyncAt: "desc" },
+    select: { localType: true, localId: true },
+  });
+}
+
 export function findManyByLocal(env: string, localType: string, localIds: string[], tx?: Tx) {
   return db(tx).resourceMap.findMany({ where: { env, localType, localId: { in: localIds } } });
 }

@@ -347,7 +347,18 @@ async function resolvePractitioner(
     { ...ctx.audit, endpoint: "Practitioner?identifier={nik}", resourceType: "Practitioner", nik, localType: "Practitioner", localId: p.id },
   );
   if (!res.ok) return { ...base, outcome: "failed", message: res.error.message };
-  const ihsId = res.value.body?.entry?.[0]?.resource?.id;
+  // 1 NIK seharusnya = 1 nakes (Master Nakes Index). >1 hasil → JANGAN ambil entry[0] diam-diam
+  // (bisa salah orang); peta lama dibiarkan. Sandbox bersama berisi duplikat → pakai Petakan manual.
+  const ids = [...new Set((res.value.body?.entry ?? []).flatMap((e) =>
+    e.resource?.resourceType === "Practitioner" && e.resource.id ? [e.resource.id] : []))];
+  if (ids.length > 1) {
+    return {
+      ...base,
+      outcome: "failed",
+      message: `NIK cocok dengan ${ids.length} nakes di SatuSehat — tidak dipetakan otomatis.${ctx.env === "sandbox" ? " Di Sandbox: tab Data SatuSehat → Petakan ke data ini." : " Laporkan duplikat ke helpdesk SATUSEHAT."}`,
+    };
+  }
+  const ihsId = ids[0];
   if (!ihsId) return { ...base, outcome: "failed", message: "NIK tidak terdaftar sebagai nakes di SatuSehat (cek SISDMK/KKI)" };
 
   await resourceMapDal.upsert({ env: ctx.env, localType: "Practitioner", localId: p.id, resourceType: "Practitioner", ihsId });
