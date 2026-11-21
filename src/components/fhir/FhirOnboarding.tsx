@@ -414,7 +414,14 @@ export default function FhirOnboarding() {
 
       <div ref={dataRef} className="scroll-mt-4">
         {dataJenis && (
-          <PrereqDataList key={dataJenis} jenis={dataJenis} refreshKey={refreshKey} onClose={() => setDataJenis(null)} />
+          <PrereqDataList
+            key={dataJenis}
+            jenis={dataJenis}
+            refreshKey={refreshKey}
+            onClose={() => setDataJenis(null)}
+            canSend={canRun}
+            onItemSent={() => void load()}
+          />
         )}
       </div>
 

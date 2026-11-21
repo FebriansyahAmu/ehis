@@ -23,10 +23,13 @@ import { fhirRequest } from "./transport";
 import { auditActorOf } from "./audit";
 import type { Actor } from "@/lib/auth/actor";
 import type {
-  OnboardingJenis, OnboardingItemResult, OnboardingOutcome, OnboardingRunDTO, OnboardingSummaryDTO,
+  OnboardingJenis, OnboardingItemResult, OnboardingItemSendDTO, OnboardingOutcome, OnboardingRunDTO,
+  OnboardingSummaryDTO, PrereqJenis,
 } from "@/lib/schemas/fhir/onboarding";
 import type { PayloadStatus } from "@/lib/schemas/fhir/resources";
+import type { PatientIhsDTO } from "@/lib/schemas/fhir/patient";
 import * as patientSourceDal from "@/lib/dal/fhir/patientSourceDal";
+import { resolveForPatient } from "./patientIhsService";
 
 /** Profesi non-nakes — tidak punya Practitioner di SatuSehat. */
 export const NON_NAKES = new Set(["Administrator", "Non-Tenaga Kesehatan"]);
@@ -75,6 +78,137 @@ export async function run(jenis: OnboardingJenis, actor: Actor, opts: { force?: 
   } finally {
     running.delete(jenis);
   }
+}
+
+// ── Kirim 1 item (konsol Prerequisites) ─────────────────────
+// Logika SAMA dengan sinkron massal (resolve-first → POST / PUT bila berubah; GET-only untuk nakes &
+// pasien), hanya untuk satu data. Prasyarat induk tidak dikirim otomatis: bila unit induk / unit
+// pengelola belum terpetakan → gagal dengan petunjuk (kirim induk dulu), bukan mengirim berantai diam-diam.
+
+/** Kunci per item: cegah dobel klik → 2 POST paralel untuk data yang sama. */
+const sendingItems = new Set<string>();
+
+export async function sendItem(
+  jenis: PrereqJenis,
+  localId: string,
+  actor: Actor,
+  opts: { force?: boolean } = {},
+): Promise<OnboardingItemSendDTO> {
+  if (jenis !== "patient" && running.has(jenis)) {
+    throw Errors.conflict(`Sinkron ${jenis} massal sedang berjalan — tunggu hingga selesai`);
+  }
+  const key = `${jenis}|${localId}`;
+  if (sendingItems.has(key)) throw Errors.conflict("Item ini sedang dikirim — tunggu hingga selesai");
+  sendingItems.add(key);
+  const t0 = Date.now();
+  try {
+    const cfg = getSatuSehatConfig();
+    const ctx: Ctx = { env: cfg.mode, orgId: cfg.orgId, audit: auditActorOf(actor) };
+    const force = !!opts.force;
+    const item =
+      jenis === "organization" ? await sendOrganization(ctx, localId, force)
+      : jenis === "location" ? await sendLocation(ctx, localId, force)
+      : jenis === "practitioner" ? await sendPractitioner(ctx, localId, force)
+      : await sendPatient(localId, actor, force);
+    return { jenis, mode: cfg.mode, item, durationMs: Date.now() - t0 };
+  } finally {
+    sendingItems.delete(key);
+  }
+}
+
+async function sendOrganization(ctx: Ctx, localId: string, force: boolean): Promise<OnboardingItemResult> {
+  const o = await sourceDal.getOrganization(localId);
+  if (!o) throw Errors.notFound("Unit lokal tidak ditemukan / sudah dihapus");
+  const base = { localId: o.id, kode: o.kode, nama: o.nama };
+  const existing = await resourceMapDal.findByLocal(ctx.env, "Organization", o.id);
+
+  if (o.isRoot) {
+    if (existing?.ihsId === ctx.orgId) return { ...base, outcome: "unchanged", ihsId: ctx.orgId, message: "Root RS sudah dipetakan ke SATUSEHAT_ORG_ID" };
+    await resourceMapDal.upsert({ env: ctx.env, localType: "Organization", localId: o.id, resourceType: "Organization", ihsId: ctx.orgId });
+    return { ...base, outcome: "resolved", ihsId: ctx.orgId, message: "Root RS dipetakan ke SATUSEHAT_ORG_ID (terdaftar via DevHub) — tanpa panggilan" };
+  }
+
+  const parent = o.parentId ? await sourceDal.getOrganization(o.parentId) : null;
+  const partOfIhsId = !parent || parent.isRoot
+    ? ctx.orgId
+    : (await resourceMapDal.findByLocal(ctx.env, "Organization", parent.id))?.ihsId;
+  if (!partOfIhsId) {
+    return { ...base, outcome: "failed", message: `Unit induk "${parent?.nama}" belum terpetakan — kirim unit induk dulu` };
+  }
+
+  const r = await upsertResource(ctx, {
+    localType: "Organization",
+    localId: o.id,
+    active: o.active,
+    resource: toFhirOrganization(o, { orgId: ctx.orgId, partOfIhsId }),
+    existing: existing ?? undefined,
+    searchPath: `Organization?partof=${encodeURIComponent(partOfIhsId)}`,
+    searchEndpoint: "Organization?partof={ihs}",
+    matches: (x) => hasIdentifier(x, orgIdentifierSystem("organization", ctx.orgId), o.kode),
+    force,
+  });
+  return { ...base, ...r };
+}
+
+async function sendLocation(ctx: Ctx, localId: string, force: boolean): Promise<OnboardingItemResult> {
+  const l = await sourceDal.getLocation(localId);
+  if (!l) throw Errors.notFound("Ruangan lokal tidak ditemukan / sudah dihapus");
+  const base = { localId: l.id, kode: l.kode, nama: l.nama };
+  const [org, orgMap, existing] = await Promise.all([
+    sourceDal.getOrganization(l.organizationId),
+    resourceMapDal.findByLocal(ctx.env, "Organization", l.organizationId),
+    resourceMapDal.findByLocal(ctx.env, "Location", l.id),
+  ]);
+  const managingOrgIhsId = orgMap?.ihsId ?? (org?.isRoot ? ctx.orgId : undefined);
+  if (!managingOrgIhsId) {
+    return { ...base, outcome: "failed", message: `Unit "${org?.nama ?? "?"}" belum terpetakan — kirim Organization unitnya dulu` };
+  }
+
+  const system = orgIdentifierSystem("location", ctx.orgId);
+  const r = await upsertResource(ctx, {
+    localType: "Location",
+    localId: l.id,
+    active: l.active,
+    resource: toFhirLocation(l, {
+      orgId: ctx.orgId,
+      managingOrgIhsId,
+      parentAddress: org ?? {},
+      parentGps: org ? { lat: org.gpsLat, lng: org.gpsLng } : undefined,
+    }),
+    existing: existing ?? undefined,
+    searchPath: `Location?identifier=${encodeURIComponent(`${system}|${l.kode}`)}`,
+    searchEndpoint: "Location?identifier={system}|{kode}",
+    matches: (x) => hasIdentifier(x, system, l.kode),
+    force,
+  });
+  return { ...base, ...r };
+}
+
+async function sendPractitioner(ctx: Ctx, localId: string, force: boolean): Promise<OnboardingItemResult> {
+  const p = await sourceDal.getPractitionerCandidate(localId);
+  if (!p) throw Errors.notFound("Pegawai aktif ber-profesi tidak ditemukan");
+  if (!p.profesi || NON_NAKES.has(p.profesi)) {
+    return { localId: p.id, kode: p.nip, nama: p.namaLengkap, outcome: "skipped", message: "Bukan tenaga kesehatan — tidak punya Practitioner di SatuSehat" };
+  }
+  const known = await resourceMapDal.findByLocal(ctx.env, "Practitioner", p.id);
+  return resolvePractitioner(ctx, p, known ?? undefined, force);
+}
+
+const PATIENT_OUTCOME: Record<PatientIhsDTO["status"], OnboardingItemResult["outcome"]> = {
+  cached: "unchanged", resolved: "resolved", not_found: "failed", no_nik: "skipped", failed: "failed",
+};
+
+async function sendPatient(localId: string, actor: Actor, force: boolean): Promise<OnboardingItemResult> {
+  const r = await resolveForPatient(localId, actor, { force });
+  const p = await patientSourceDal.getPatient(localId);
+  return {
+    localId,
+    kode: r.noRm,
+    nama: p?.nama ?? r.noRm,
+    outcome: PATIENT_OUTCOME[r.status],
+    ...(r.ihsId ? { ihsId: r.ihsId } : {}),
+    message: r.message ?? (r.status === "cached" ? "Sudah terpetakan — tidak dicari ulang" : undefined),
+  };
 }
 
 // ── Organization ────────────────────────────────────────────
@@ -181,50 +315,47 @@ async function syncPractitioners(ctx: Ctx, force: boolean): Promise<OnboardingIt
   const out: OnboardingItemResult[] = [];
 
   for (const p of pegawai) {
-    const nama = [p.gelarDepan, p.namaLengkap, p.gelarBelakang].filter(Boolean).join(" ");
-    const base = { localId: p.id, kode: p.nip, nama };
     if (!p.profesi || NON_NAKES.has(p.profesi)) continue;
-
-    const known = existing.get(p.id);
-    if (known && !force) {
-      out.push({ ...base, outcome: "unchanged", ihsId: known.ihsId });
-      continue;
-    }
-
-    let nik: string;
-    try {
-      nik = decryptPii(p.nikEnc).replace(/\D/g, "");
-    } catch {
-      out.push({ ...base, outcome: "failed", message: "NIK tidak dapat didekripsi" });
-      continue;
-    }
-    if (nik.length !== 16) {
-      out.push({ ...base, outcome: "failed", message: "NIK pegawai tidak valid (harus 16 digit)" });
-      continue;
-    }
-
-    const res = await fhirRequest<Bundle>(
-      { method: "GET", path: `Practitioner?identifier=${encodeURIComponent(`${FHIR_SYSTEM.nik}|${nik}`)}` },
-      { ...ctx.audit, endpoint: "Practitioner?identifier={nik}", resourceType: "Practitioner", nik, localType: "Practitioner", localId: p.id },
-    );
-    if (!res.ok) {
-      out.push({ ...base, outcome: "failed", message: res.error.message });
-      continue;
-    }
-    const ihsId = res.value.body?.entry?.[0]?.resource?.id;
-    if (!ihsId) {
-      out.push({ ...base, outcome: "failed", message: "NIK tidak terdaftar sebagai nakes di SatuSehat (cek SISDMK/KKI)" });
-      continue;
-    }
-
-    await resourceMapDal.upsert({ env: ctx.env, localType: "Practitioner", localId: p.id, resourceType: "Practitioner", ihsId });
-    // Kolom denormalisasi master Dokter hanya diisi id PRODUKSI (id sandbox/mock tak berlaku di prod).
-    if (ctx.env === "prod" && p.dokter && p.dokter.ihsPractitionerId !== ihsId) {
-      await sourceDal.setDokterIhsPractitionerId(p.dokter.id, ihsId);
-    }
-    out.push({ ...base, outcome: known ? (known.ihsId === ihsId ? "unchanged" : "updated") : "resolved", ihsId });
+    out.push(await resolvePractitioner(ctx, p, existing.get(p.id), force));
   }
   return out;
+}
+
+type PractitionerRow = NonNullable<Awaited<ReturnType<typeof sourceDal.getPractitionerCandidate>>>;
+
+/** Resolve IHS 1 nakes by NIK (GET-only). Dipakai sinkron massal & kirim per item. */
+async function resolvePractitioner(
+  ctx: Ctx,
+  p: PractitionerRow,
+  known: { ihsId: string } | undefined,
+  force: boolean,
+): Promise<OnboardingItemResult> {
+  const nama = [p.gelarDepan, p.namaLengkap, p.gelarBelakang].filter(Boolean).join(" ");
+  const base = { localId: p.id, kode: p.nip, nama };
+  if (known && !force) return { ...base, outcome: "unchanged", ihsId: known.ihsId, message: "Sudah terpetakan — tidak dicari ulang" };
+
+  let nik: string;
+  try {
+    nik = decryptPii(p.nikEnc).replace(/\D/g, "");
+  } catch {
+    return { ...base, outcome: "failed", message: "NIK tidak dapat didekripsi" };
+  }
+  if (nik.length !== 16) return { ...base, outcome: "failed", message: "NIK pegawai tidak valid (harus 16 digit)" };
+
+  const res = await fhirRequest<Bundle>(
+    { method: "GET", path: `Practitioner?identifier=${encodeURIComponent(`${FHIR_SYSTEM.nik}|${nik}`)}` },
+    { ...ctx.audit, endpoint: "Practitioner?identifier={nik}", resourceType: "Practitioner", nik, localType: "Practitioner", localId: p.id },
+  );
+  if (!res.ok) return { ...base, outcome: "failed", message: res.error.message };
+  const ihsId = res.value.body?.entry?.[0]?.resource?.id;
+  if (!ihsId) return { ...base, outcome: "failed", message: "NIK tidak terdaftar sebagai nakes di SatuSehat (cek SISDMK/KKI)" };
+
+  await resourceMapDal.upsert({ env: ctx.env, localType: "Practitioner", localId: p.id, resourceType: "Practitioner", ihsId });
+  // Kolom denormalisasi master Dokter hanya diisi id PRODUKSI (id sandbox/mock tak berlaku di prod).
+  if (ctx.env === "prod" && p.dokter && p.dokter.ihsPractitionerId !== ihsId) {
+    await sourceDal.setDokterIhsPractitionerId(p.dokter.id, ihsId);
+  }
+  return { ...base, outcome: known ? (known.ihsId === ihsId ? "unchanged" : "updated") : "resolved", ihsId };
 }
 
 // ── Primitif resolve-first + create/PUT (Organization/Location) ──
@@ -240,6 +371,8 @@ interface UpsertArgs {
   /** Template endpoint untuk audit (tanpa nilai). */
   searchEndpoint: string;
   matches: (r: FhirResourceBase) => boolean;
+  /** Kirim per item "Kirim ulang": PUT walau payload identik (uji/penyelarasan manual). */
+  force?: boolean;
 }
 
 async function upsertResource(ctx: Ctx, a: UpsertArgs): Promise<Pick<OnboardingItemResult, "outcome" | "ihsId" | "message">> {
@@ -249,7 +382,9 @@ async function upsertResource(ctx: Ctx, a: UpsertArgs): Promise<Pick<OnboardingI
 
   // 1) Sudah terpetakan → PUT bila berubah.
   if (a.existing) {
-    if (a.existing.hash === hash) return { outcome: "unchanged", ihsId: a.existing.ihsId };
+    if (a.existing.hash === hash && !a.force) {
+      return { outcome: "unchanged", ihsId: a.existing.ihsId, message: "Payload identik dengan yang diterima SatuSehat — tidak dikirim" };
+    }
     const res = await fhirRequest(
       { method: "PUT", path: `${type}/${a.existing.ihsId}`, body: { ...a.resource, id: a.existing.ihsId } },
       { ...ctx.audit, ...link, endpoint: `${type}/{id}`, resourceType: type },

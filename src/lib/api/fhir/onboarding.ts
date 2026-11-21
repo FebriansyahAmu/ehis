@@ -4,12 +4,12 @@
 
 import { api } from "@/lib/api/client";
 import type {
-  OnboardingJenis, OnboardingRunDTO, OnboardingSummaryDTO,
+  OnboardingItemSendDTO, OnboardingJenis, OnboardingRunDTO, OnboardingSummaryDTO,
   PrereqItemDetailDTO, PrereqItemDTO, PrereqItemPageDTO, PrereqJenis,
 } from "@/lib/schemas/fhir/onboarding";
 
 export type {
-  OnboardingJenis, OnboardingRunDTO, OnboardingSummaryDTO,
+  OnboardingItemSendDTO, OnboardingJenis, OnboardingRunDTO, OnboardingSummaryDTO,
   PrereqItemDetailDTO, PrereqItemDTO, PrereqItemPageDTO, PrereqJenis,
 };
 
@@ -40,6 +40,19 @@ export async function listPrereqItems(jenis: PrereqJenis, p: PrereqItemsParams, 
   if (p.pageSize) sp.set("pageSize", String(p.pageSize));
   const qs = sp.toString();
   const { data } = await api.get<PrereqItemPageDTO>(`/fhir/onboarding/${jenis}/items${qs ? `?${qs}` : ""}`, { signal });
+  return data;
+}
+
+/**
+ * Kirim/cari 1 data ke SatuSehat. `force` = kirim ulang (PUT) walau tak berubah / cari ulang IHS.
+ * Penolakan SatuSehat → `item.outcome = "failed"` (bukan exception); exception = konflik/validasi/jaringan EHIS.
+ */
+export async function sendPrereqItem(
+  jenis: PrereqJenis,
+  localId: string,
+  opts: { force?: boolean } = {},
+): Promise<OnboardingItemSendDTO> {
+  const { data } = await api.post<OnboardingItemSendDTO>(`/fhir/onboarding/${jenis}/items/${localId}/sync`, opts);
   return data;
 }
 

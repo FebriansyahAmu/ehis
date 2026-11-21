@@ -8,13 +8,14 @@
 //   Log pengiriman — riwayat panggilan SatuSehat untuk data ini (request & response tercatat)
 // shadcn Sheet (Radix Dialog): focus trap, Esc, klik luar, judul = SheetTitle.
 
-import { useEffect, useState } from "react";
-import { Info, TriangleAlert, X } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { CircleCheck, CircleX, Info, RefreshCw, ScanSearch, Send, TriangleAlert, X, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetClose, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getPrereqItem, type PrereqItemDetailDTO, type PrereqJenis } from "@/lib/api/fhir/onboarding";
-import { Pill, SkeletonRows, TONE_SOFT, errMsg, isAbort } from "../fhirShared";
+import { Button, Pill, SkeletonRows, TONE_SOFT, errMsg, isAbort } from "../fhirShared";
+import { useSendPrereqItem, type SendNotice, type SendTone } from "./useSendPrereqItem";
 import { PAYLOAD_STATUS, groupTone, metaOf } from "../resource/resourceCatalog";
 import { Callout, CopyButton, IdChip, JsonView, PayloadStatusPill } from "../resource/resourceUi";
 import { fmtDateTime } from "../resource/resourceTime";
@@ -41,18 +42,112 @@ function Meta({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
+/**
+ * Kaki drawer: kirim item ini. Organization/Location → "Kirim" (POST baru / PUT bila berubah) +
+ * "Kirim ulang" (PUT paksa walau identik). Practitioner/Patient → "Cari IHS" (GET by NIK; bila sudah
+ * terpetakan = cari ulang). Root RS / data tanpa NIK → tak ada request → tombol nonaktif + alasan.
+ */
+const NOTICE_TONE: Record<SendTone, { tone: "emerald" | "sky" | "amber" | "rose"; icon: LucideIcon }> = {
+  success: { tone: "emerald", icon: CircleCheck },
+  info: { tone: "sky", icon: Info },
+  warning: { tone: "amber", icon: TriangleAlert },
+  error: { tone: "rose", icon: CircleX },
+};
+
+/** Alert hasil kirim di dalam drawer. Gagal = role alert (diumumkan segera); lainnya = status (sopan). */
+function SendNoticeBanner({ notice, onDismiss }: { notice: SendNotice; onDismiss: () => void }) {
+  const cfg = NOTICE_TONE[notice.tone];
+  const Icon = cfg.icon;
+  return (
+    <div
+      role={notice.tone === "error" ? "alert" : "status"}
+      className={cn("flex w-full items-start gap-2 rounded-xl px-3 py-2.5 text-xs leading-relaxed", TONE_SOFT[cfg.tone])}
+    >
+      <Icon size={15} className="mt-0.5 shrink-0" aria-hidden />
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold">{notice.title}</p>
+        {notice.message && <p className="mt-0.5 wrap-break-word opacity-90">{notice.message}</p>}
+      </div>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Tutup notifikasi"
+        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md opacity-70 outline-none transition hover:bg-white/60 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-current"
+      >
+        <X size={13} aria-hidden />
+      </button>
+    </div>
+  );
+}
+
+function SendFooter({ jenis, d, busy, notice, onDismiss, onSend }: {
+  jenis: PrereqJenis;
+  d: PrereqItemDetailDTO;
+  busy: boolean;
+  notice: SendNotice | null;
+  onDismiss: () => void;
+  onSend: (force: boolean) => void;
+}) {
+  const getOnly = jenis === "practitioner" || jenis === "patient";
+  const isRoot = jenis === "organization" && !d.request;
+  const blocked = getOnly && !d.request;
+  const hint = isRoot
+    ? d.map ? "Root RS sudah dipetakan ke Organization ID DevHub — tak perlu dikirim." : "Root RS dipetakan ke Organization ID DevHub (tanpa panggilan)."
+    : blocked ? "Tanpa NIK valid — belum bisa dicari di SatuSehat."
+    : getOnly ? (d.map ? "Cari ulang IHS id dengan GET by NIK." : "Cari IHS id dengan GET by NIK.")
+    : d.map ? (d.payloadStatus === "changed" ? "Data berubah — kirim PUT untuk menyelaraskan." : "Sudah terkirim. \"Kirim ulang\" memaksa PUT walau identik.")
+    : "Belum terdaftar — kirim untuk mendaftarkan (cari dulu, POST bila belum ada).";
+
+  return (
+    <SheetFooter className="mt-0 flex-row flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-5 py-3">
+      {notice && <SendNoticeBanner notice={notice} onDismiss={onDismiss} />}
+      <p className="min-w-0 flex-1 text-[11px] text-slate-500">{hint}</p>
+      <div className="flex items-center gap-2">
+        {!getOnly && !isRoot && d.map && (
+          <Button variant="secondary" icon={RefreshCw} loading={busy} onClick={() => onSend(true)}>Kirim ulang</Button>
+        )}
+        {!(isRoot && d.map) && (
+          <Button
+            icon={getOnly ? ScanSearch : Send}
+            loading={busy}
+            disabled={blocked}
+            onClick={() => onSend(getOnly && !!d.map)}
+          >
+            {busy ? (getOnly ? "Mencari…" : "Mengirim…") : getOnly ? (d.map ? "Cari ulang IHS" : "Cari IHS") : isRoot ? "Petakan root" : "Kirim item ini"}
+          </Button>
+        )}
+      </div>
+    </SheetFooter>
+  );
+}
+
 export function PrereqDetailDrawer({
   jenis,
   localId,
   onClose,
+  canSend = false,
+  onSent,
 }: {
   jenis: PrereqJenis;
   localId: string | null;
   onClose: () => void;
+  /** Izin `fhir.sync:create` — tombol kirim item di kaki drawer. */
+  canSend?: boolean;
+  /** Setelah kirim (mis. segarkan baris daftar + ringkasan). */
+  onSent?: () => void;
 }) {
   const [tab, setTab] = useState<Tab>("ringkasan");
   // Hasil disimpan beserta id-nya: saat menutup, isi lama tetap tampil selama animasi keluar.
   const [loaded, setLoaded] = useState<{ id: string; d: PrereqItemDetailDTO | null; error: string | null } | null>(null);
+  // Naik setiap item dikirim → detail (status/IHS/hash) & log pengiriman dimuat ulang.
+  const [version, setVersion] = useState(0);
+
+  const afterSend = useCallback(() => {
+    setVersion((v) => v + 1);
+    onSent?.();
+  }, [onSent]);
+  // Drawer = dialog modal → hasil kirim ditampilkan inline di dalamnya (toast di luar modal tak terbaca).
+  const { send, isBusy, noticeFor, clearNotice } = useSendPrereqItem(jenis, afterSend, { mode: "inline" });
 
   useEffect(() => {
     if (!localId) return;
@@ -61,7 +156,7 @@ export function PrereqDetailDrawer({
       .then((d) => { if (!ac.signal.aborted) setLoaded({ id: localId, d, error: null }); })
       .catch((e) => { if (!isAbort(e)) setLoaded({ id: localId, d: null, error: errMsg(e) ?? "Gagal memuat detail" }); });
     return () => ac.abort();
-  }, [jenis, localId]);
+  }, [jenis, localId, version]);
 
   const current = localId ? (loaded?.id === localId ? loaded : null) : loaded;
   const d = current?.d ?? null;
@@ -78,7 +173,7 @@ export function PrereqDetailDrawer({
   const activeTab: Tab = tab === "fhir" && d && !fhirValue ? "ringkasan" : tab;
 
   return (
-    <Sheet open={!!localId} onOpenChange={(o) => { if (!o) { onClose(); setTab("ringkasan"); } }}>
+    <Sheet open={!!localId} onOpenChange={(o) => { if (!o) { onClose(); setTab("ringkasan"); clearNotice(); } }}>
       <SheetContent side="right" showCloseButton={false} data-accent="teal" className="w-full gap-0 p-0 sm:max-w-2xl">
         <SheetHeader className="flex-row items-start gap-3 border-b border-slate-100 px-5 py-4">
           <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", TONE_SOFT[groupTone(m.group)])}>
@@ -186,7 +281,7 @@ export function PrereqDetailDrawer({
           <TabsContent value="log" className="min-h-0 overflow-y-auto px-5 py-4">
             {localId && (
               <SendLogPanel
-                key={localId}
+                key={`${localId}|${version}`}
                 target={{ localType: resourceType, localId }}
                 emptyHint={
                   !d || d.request ? undefined
@@ -198,6 +293,17 @@ export function PrereqDetailDrawer({
             )}
           </TabsContent>
         </Tabs>
+
+        {canSend && d && localId && (
+          <SendFooter
+            jenis={jenis}
+            d={d}
+            busy={isBusy(localId)}
+            notice={noticeFor(localId)}
+            onDismiss={clearNotice}
+            onSend={(force) => void send(localId, d.nama, { force })}
+          />
+        )}
       </SheetContent>
     </Sheet>
   );

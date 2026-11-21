@@ -2,13 +2,15 @@
 
 // Daftar data lokal 1 langkah Prerequisites (Organization · Location · Practitioner · Patient) beserta
 // status peta IHS di mode aktif. Cari kode/nama · filter Semua/Terpetakan/Belum · paginasi · Detail →
-// drawer data mentah (master lokal · payload FHIR / request GET by NIK).
+// drawer data mentah (master lokal · payload FHIR / request GET by NIK) · Kirim per item (notifikasi
+// berhasil/gagal) tanpa menunggu sinkron massal.
 
-import { useEffect, useId, useState } from "react";
-import { ChevronLeft, ChevronRight, Inbox, Search } from "lucide-react";
+import { useCallback, useEffect, useId, useState } from "react";
+import { ChevronLeft, ChevronRight, Inbox, ScanSearch, Search, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/ui/toastStore";
 import { listPrereqItems, type PrereqItemPageDTO, type PrereqJenis } from "@/lib/api/fhir/onboarding";
+import { useSendPrereqItem } from "./useSendPrereqItem";
 import {
   Button, EmptyState, FHIR_ACCENT, Pill, SectionCard, SkeletonRows, errMsg, isAbort,
   tableCls, tableWrap, tdCls, thCls, trCls,
@@ -30,11 +32,17 @@ export function PrereqDataList({
   jenis,
   refreshKey,
   onClose,
+  canSend = false,
+  onItemSent,
 }: {
   jenis: PrereqJenis;
   /** Naik setiap sinkron selesai → daftar dimuat ulang. */
   refreshKey: number;
   onClose: () => void;
+  /** Izin `fhir.sync:create` — tombol Kirim per item. */
+  canSend?: boolean;
+  /** Setelah 1 item dikirim (mis. muat ulang ringkasan langkah di halaman induk). */
+  onItemSent?: () => void;
 }) {
   const resource = PREREQ_RESOURCE[jenis];
   const searchId = useId();
@@ -44,6 +52,17 @@ export function PrereqDataList({
   const [page, setPage] = useState(1);
   const [data, setData] = useState<PrereqItemPageDTO | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
+
+  // Sesudah kirim: segarkan baris (status/IHS id) di halaman yang sama + ringkasan induk.
+  const afterSend = useCallback(() => {
+    setReload((r) => r + 1);
+    onItemSent?.();
+  }, [onItemSent]);
+  const { send, isBusy } = useSendPrereqItem(jenis, afterSend);
+  const isGetOnly = jenis === "practitioner" || jenis === "patient";
+  const SendIcon = isGetOnly ? ScanSearch : Send;
+  const sendLabel = isGetOnly ? "Cari IHS" : "Kirim";
 
   useEffect(() => {
     const t = setTimeout(() => { setQuery(q.trim()); setPage(1); }, 300);
@@ -56,7 +75,7 @@ export function PrereqDataList({
       .then((d) => { if (!ac.signal.aborted) setData(d); })
       .catch((e) => { if (!isAbort(e)) toast.error(`Gagal memuat data ${resource}`, errMsg(e)); });
     return () => ac.abort();
-  }, [jenis, resource, query, status, page, refreshKey]);
+  }, [jenis, resource, query, status, page, refreshKey, reload]);
 
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   const kodeLabel = jenis === "practitioner" ? "NIP" : jenis === "patient" ? "No. RM" : "Kode";
@@ -122,6 +141,7 @@ export function PrereqDataList({
             </caption>
             <thead>
               <tr>
+                <th scope="col" className={cn(thCls, "w-10 text-right")}>No.</th>
                 <th scope="col" className={thCls}>{kodeLabel}</th>
                 <th scope="col" className={thCls}>Nama</th>
                 <th scope="col" className={thCls}>Status</th>
@@ -131,8 +151,11 @@ export function PrereqDataList({
               </tr>
             </thead>
             <tbody>
-              {data.rows.map((r) => (
+              {data.rows.map((r, i) => (
                 <tr key={r.localId} className={trCls}>
+                  <td className={cn(tdCls, "text-right font-mono text-[11px] tabular-nums text-slate-400")}>
+                    {(data.page - 1) * data.pageSize + i + 1}
+                  </td>
                   <td className={cn(tdCls, "font-mono text-[11px] text-slate-500")}>{r.kode}</td>
                   <th scope="row" className={cn(tdCls, "text-left font-normal")}>
                     <span className="block font-medium text-slate-800">{r.nama}</span>
@@ -144,9 +167,23 @@ export function PrereqDataList({
                   <td className={cn(tdCls, "font-mono text-[11px]")}>{r.ihsId ? <IdChip value={r.ihsId} /> : "—"}</td>
                   <td className={cn(tdCls, "whitespace-nowrap text-slate-500")}>{r.lastSyncAt ? fmtRelative(r.lastSyncAt) : "—"}</td>
                   <td className={cn(tdCls, "text-right")}>
-                    <Button variant="secondary" onClick={() => setOpenId(r.localId)}>
-                      Detail<span className="sr-only"> {r.nama}</span>
-                    </Button>
+                    <div className="inline-flex items-center gap-1.5">
+                      {canSend && (
+                        <Button
+                          variant="secondary"
+                          icon={SendIcon}
+                          loading={isBusy(r.localId)}
+                          onClick={() => void send(r.localId, r.nama)}
+                          title={isGetOnly ? "Cari IHS id data ini di SatuSehat (GET by NIK)" : "Kirim data ini ke SatuSehat (POST baru / PUT bila berubah)"}
+                        >
+                          {isBusy(r.localId) ? (isGetOnly ? "Mencari…" : "Mengirim…") : sendLabel}
+                          <span className="sr-only"> {r.nama}</span>
+                        </Button>
+                      )}
+                      <Button variant="secondary" onClick={() => setOpenId(r.localId)}>
+                        Detail<span className="sr-only"> {r.nama}</span>
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -167,7 +204,7 @@ export function PrereqDataList({
         </div>
       )}
 
-      <PrereqDetailDrawer jenis={jenis} localId={openId} onClose={() => setOpenId(null)} />
+      <PrereqDetailDrawer jenis={jenis} localId={openId} onClose={() => setOpenId(null)} canSend={canSend} onSent={afterSend} />
     </SectionCard>
   );
 }

@@ -38,6 +38,14 @@ export interface OnboardingRunDTO {
 
 // ── Data & detail mentah per langkah Prerequisites (konsol) ──────────────────────
 
+/** Hasil kirim 1 item (POST /fhir/onboarding/:jenis/items/:localId/sync). */
+export interface OnboardingItemSendDTO {
+  jenis: PrereqJenis;
+  mode: "mock" | "sandbox" | "prod";
+  item: OnboardingItemResult;
+  durationMs: number;
+}
+
 /** Langkah 2–5 Playbook: Organization · Location · Practitioner · Patient. */
 export const PREREQ_JENIS = ["organization", "location", "practitioner", "patient"] as const;
 export type PrereqJenis = (typeof PREREQ_JENIS)[number];
