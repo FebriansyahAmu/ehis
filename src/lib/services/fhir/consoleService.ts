@@ -13,6 +13,7 @@ import * as encounterSrc from "@/lib/dal/fhir/encounterSourceDal";
 import type { Actor } from "@/lib/auth/actor";
 import { auditActorOf } from "./audit";
 import { previewEncounter } from "./encounterSyncService";
+import { pendingDependencies } from "./encounterItemService";
 import { previewMaster } from "./onboardingService";
 import { identityView } from "./prerequisiteService";
 import type {
@@ -145,6 +146,7 @@ export async function getEncounter(kunjunganId: string, actor: Actor): Promise<E
 
   return {
     mode: env,
+    syncMode: getSatuSehatConfig().syncMode,
     kunjungan: {
       id: k.id, noKunjungan: k.noKunjungan, unit: k.unit, status: k.status,
       waktuKunjungan: k.waktuKunjungan.toISOString(), dilayaniAt: iso(k.dilayaniAt), selesaiAt: iso(k.selesaiAt),
@@ -165,6 +167,7 @@ export async function getEncounter(kunjunganId: string, actor: Actor): Promise<E
     resources: plan.items.map((i) => ({
       localType: i.localType, localId: i.localId, resourceType: i.resourceType, status: i.status,
       ihsId: i.ihsId, versionId: i.versionId, lastSyncAt: iso(i.lastSyncAt), payload: i.resource,
+      dependsOn: pendingDependencies(i),
     })),
     orphans,
     jobs: jobs.map((j) => ({ ...j, createdAt: j.createdAt.toISOString(), updatedAt: j.updatedAt.toISOString() })),

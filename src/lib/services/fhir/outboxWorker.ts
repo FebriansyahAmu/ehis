@@ -7,6 +7,7 @@ import "server-only";
 import * as syncLogDal from "@/lib/dal/fhir/syncLogDal";
 import { syncEncounter, type JobResult } from "./encounterSyncService";
 import { SYSTEM_AUDIT_ACTOR } from "./audit";
+import { tryLockKunjungan, unlockKunjungan } from "./kunjunganSendLock";
 
 const MAX_ATTEMPTS = 8;
 const STALE_SENDING_MS = 10 * 60_000;
@@ -74,8 +75,18 @@ export async function processDue(limit = 10): Promise<OutboxTickResult> {
   }
 }
 
-function runJob(payload: unknown): Promise<JobResult> {
+async function runJob(payload: unknown): Promise<JobResult> {
   const p = (payload ?? {}) as { kind?: string; kunjunganId?: string };
-  if (p.kind === "encounter" && p.kunjunganId) return syncEncounter(p.kunjunganId, SYSTEM_AUDIT_ACTOR);
-  return Promise.resolve({ kind: "skipped", reason: `Jenis job tidak dikenal: ${p.kind ?? "-"}` });
+  if (p.kind === "encounter" && p.kunjunganId) {
+    // Kirim per resource dari konsol sedang berjalan untuk kunjungan ini → jadwalkan ulang (backoff).
+    if (!tryLockKunjungan(p.kunjunganId)) {
+      return { kind: "failed", message: "Kunjungan sedang dikirim per resource dari konsol — dicoba lagi otomatis", retryable: true };
+    }
+    try {
+      return await syncEncounter(p.kunjunganId, SYSTEM_AUDIT_ACTOR);
+    } finally {
+      unlockKunjungan(p.kunjunganId);
+    }
+  }
+  return { kind: "skipped", reason: `Jenis job tidak dikenal: ${p.kind ?? "-"}` };
 }

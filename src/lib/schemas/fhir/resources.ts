@@ -98,6 +98,30 @@ export interface EncounterResourceDTO {
   versionId: string | null;
   lastSyncAt: string | null;
   payload: unknown;
+  /** Resource kunjungan ini yang dirujuk tapi BELUM terkirim — harus dikirim dulu (kirim per item). */
+  dependsOn: string[];
+}
+
+/** Kirim SATU resource milik kunjungan (kartu di konsol). `localId` di body: bisa berisi ":" (TTV/dispense). */
+export const EncounterItemSyncInput = z.object({
+  localType: z.string().regex(/^[A-Z][A-Za-z]{2,40}$/, "localType tidak valid"),
+  localId: z.string().trim().min(1).max(200),
+});
+export type EncounterItemSyncInput = z.infer<typeof EncounterItemSyncInput>;
+
+export type EncounterItemOutcome = "created" | "updated" | "unchanged" | "blocked" | "skipped" | "failed";
+
+export interface EncounterItemSyncDTO {
+  localType: string;
+  localId: string;
+  resourceType: string | null;
+  outcome: EncounterItemOutcome;
+  ihsId: string | null;
+  message: string;
+  /** Prasyarat yang belum terkirim (outcome `blocked`). */
+  dependsOn: string[];
+  /** Rincian penolakan SatuSehat (OperationOutcome), maks 5. */
+  issues: string[];
 }
 
 export interface EncounterJobDTO {
@@ -113,6 +137,8 @@ export interface EncounterJobDTO {
 
 export interface EncounterDetailDTO {
   mode: string;
+  /** Cara "Kirim semua": bundle = 1 Bundle transaction atomik · single = per resource berurutan. */
+  syncMode: "bundle" | "single";
   kunjungan: {
     id: string;
     noKunjungan: string;

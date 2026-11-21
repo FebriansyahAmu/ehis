@@ -114,6 +114,43 @@ export function makePreviewSink(env: SatuSehatMode): PreviewSink {
   };
 }
 
+// ── Kirim satu resource (konsol kunjungan, per kartu) ───────
+// Builder kunjungan berjalan utuh (urutan & referensi sama dengan job), tetapi HANYA resource target
+// yang dikirim (POST/PUT via upsertClinicalResource). Resource lain tidak disentuh: yang sudah
+// terpetakan dipakai id-nya sebagai referensi; yang belum = gagal "belum terkirim" sehingga builder
+// berhenti di jalur itu (mis. MedicationRequest tanpa Medication terpetakan tak pernah dibangun).
+
+export interface TargetedSink extends ResourceSink {
+  /** Hasil kirim target. `undefined` = builder tak sampai ke target · `null` = data terhapus & belum pernah terkirim. */
+  result(): UpsertResult | null | undefined;
+}
+
+export function makeTargetedSink(
+  env: SatuSehatMode,
+  audit: Audit,
+  kunjunganId: string,
+  target: { localType: string; localId: string },
+): TargetedSink {
+  const key = `${target.localType}|${target.localId}`;
+  let result: UpsertResult | null | undefined;
+  return {
+    mode: "single",
+    async submit(a) {
+      if (`${a.localType}|${a.localId}` === key) {
+        // Encounter bisa dikirim 2× dalam 1 alur (dibuat in-progress lalu status akhir) — hasil terakhir dipakai.
+        result = await upsertClinicalResource({ env, audit, kunjunganId, ...a });
+        return result;
+      }
+      const existing = await resourceMapDal.findByLocal(env, a.localType, a.localId);
+      if (existing) return { ok: true, ihsId: existing.ihsId, op: "noop" };
+      if (a.allowCreate === false) return null;
+      return { ok: false, error: { type: "HttpError", message: `${a.resource.resourceType} belum terkirim`, retryable: false } };
+    },
+    flush: async () => ({ ok: true, resolved: new Map(), sent: result?.ok && result.op !== "noop" ? 1 : 0 }),
+    result: () => result,
+  };
+}
+
 interface Pending {
   localType: string;
   localId: string;

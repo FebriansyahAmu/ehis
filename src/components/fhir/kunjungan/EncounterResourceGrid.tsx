@@ -1,8 +1,11 @@
 "use client";
 
-// Kartu resource milik 1 kunjungan, dikelompokkan per kategori + filter status kirim.
+// Kartu resource milik 1 kunjungan, dikelompokkan per kategori + filter status kirim. Tiap kartu bisa
+// dikirim sendiri ("kirim satu per satu") di samping "Kirim semua" (Bundle) di hero halaman.
+// Kartu = <article>: judul berupa tombol pembuka drawer yang area kliknya direntangkan ke seluruh
+// kartu (::after), aksi kirim = tombol terpisah di <footer> (di atas overlay, selalu terlihat).
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Inbox, Unlink } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -13,6 +16,8 @@ import { IdChip, PayloadStatusPill, ResourceDrawer } from "../resource/resourceU
 import { ResourceDetailDrawer } from "../resource/FhirResources";
 import { fmtDateTime, fmtRelative } from "../resource/resourceTime";
 import { SendLogPanel } from "../log/SendLogPanel";
+import { CardSendAction, DrawerSendFooter } from "./EncounterItemSend";
+import { itemKey, useSendEncounterItem } from "./useSendEncounterItem";
 
 const FILTERS: (PayloadStatus | "")[] = ["", "new", "changed", "synced"];
 const TONE_DOT: Record<Tone, string> = {
@@ -24,18 +29,34 @@ const STATUS_RING: Record<PayloadStatus, string> = {
   new: "border-dashed border-sky-300",
 };
 
-export function EncounterResourceGrid({ kunjunganId, resources, orphans, counts }: {
+export function EncounterResourceGrid({ kunjunganId, resources, orphans, counts, canSend = false, sendLocked = false, onSent, onBusyChange }: {
   /** Kunjungan pemilik — log resource klinis ikut menampilkan Bundle transaction yang memuatnya. */
   kunjunganId: string;
   resources: EncounterResourceDTO[];
   orphans: ResourceRowDTO[];
   counts: Record<PayloadStatus, number>;
+  /** Izin `fhir.sync:create` & kunjungan layak dikirim — tampilkan aksi kirim per resource. */
+  canSend?: boolean;
+  /** "Kirim semua" sedang berjalan → kirim per resource dinonaktifkan sementara. */
+  sendLocked?: boolean;
+  /** Setelah resource diterima SatuSehat → muat ulang detail (status kartu & progres). */
+  onSent?: () => void;
+  /** Ada kirim per resource yang sedang berjalan → hero menonaktifkan "Kirim semua". */
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const [filter, setFilter] = useState<PayloadStatus | "">("");
-  // Item terpilih dipertahankan saat drawer menutup → animasi keluar tak berkedip kosong.
+  // Snapshot item terpilih dipertahankan saat drawer menutup → animasi keluar tak berkedip kosong;
+  // selama terbuka dibaca versi TERKINI dari `resources` (status berubah sesudah kirim).
   const [selected, setSelected] = useState<EncounterResourceDTO | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [orphanId, setOrphanId] = useState<string | null>(null);
+  const { send, busy, notice, dismiss, version } = useSendEncounterItem(kunjunganId, onSent);
+  const current = selected ? (resources.find((r) => itemKey(r) === itemKey(selected)) ?? selected) : null;
+  const anyBusy = busy.size > 0;
+
+  useEffect(() => { onBusyChange?.(anyBusy); }, [anyBusy, onBusyChange]);
+
+  const nameOf = (r: EncounterResourceDTO) => `${metaOf(r.resourceType).label} · ${summarize(r.resourceType, r.payload).title}`;
 
   const shown = useMemo(() => (filter ? resources.filter((r) => r.status === filter) : resources), [resources, filter]);
   const byGroup = useMemo(() => {
@@ -85,8 +106,20 @@ export function EncounterResourceGrid({ kunjunganId, resources, orphans, counts 
             </h3>
             <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 2xl:grid-cols-3">
               {byGroup.get(g.key)!.map((r, i) => (
-                <motion.li key={`${r.localType}|${r.localId}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.16, delay: Math.min(i * 0.02, 0.15) }}>
-                  <ResourceCard r={r} onOpen={() => { setSelected(r); setDrawerOpen(true); }} />
+                <motion.li key={itemKey(r)} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.16, delay: Math.min(i * 0.02, 0.15) }}>
+                  <ResourceCard
+                    r={r}
+                    onOpen={() => { setSelected(r); setDrawerOpen(true); }}
+                    action={canSend ? (
+                      <CardSendAction
+                        r={r}
+                        name={nameOf(r)}
+                        busy={busy.has(itemKey(r))}
+                        disabled={sendLocked || anyBusy}
+                        onSend={() => void send(r, nameOf(r))}
+                      />
+                    ) : null}
+                  />
                 </motion.li>
               ))}
             </ul>
@@ -116,20 +149,30 @@ export function EncounterResourceGrid({ kunjunganId, resources, orphans, counts 
       <ResourceDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        resourceType={selected?.resourceType ?? "Resource"}
-        status={selected?.status ?? null}
-        payload={selected?.payload ?? null}
-        meta={selected ? [
-          { label: "IHS id", value: <IdChip value={selected.ihsId} muted="belum ada — dibuat saat dikirim" /> },
-          { label: "ID lokal", value: <IdChip value={selected.localId} /> },
-          { label: "Sumber lokal", value: selected.localType },
-          { label: "Versi SatuSehat", value: selected.versionId ?? "—" },
-          { label: "Sinkron terakhir", value: fmtDateTime(selected.lastSyncAt) },
+        resourceType={current?.resourceType ?? "Resource"}
+        status={current?.status ?? null}
+        payload={current?.payload ?? null}
+        meta={current ? [
+          { label: "IHS id", value: <IdChip value={current.ihsId} muted="belum ada — dibuat saat dikirim" /> },
+          { label: "ID lokal", value: <IdChip value={current.localId} /> },
+          { label: "Sumber lokal", value: current.localType },
+          { label: "Versi SatuSehat", value: current.versionId ?? "—" },
+          { label: "Sinkron terakhir", value: fmtDateTime(current.lastSyncAt) },
         ] : []}
-        logPanel={selected ? (
+        footer={current && canSend ? (
+          <DrawerSendFooter
+            r={current}
+            busy={busy.has(itemKey(current))}
+            disabled={sendLocked || anyBusy}
+            notice={notice?.key === itemKey(current) ? notice.n : null}
+            onDismiss={dismiss}
+            onSend={() => void send(current, nameOf(current), { inline: true })}
+          />
+        ) : null}
+        logPanel={current ? (
           <SendLogPanel
-            key={`${selected.localType}|${selected.localId}`}
-            target={{ localType: selected.localType, localId: selected.localId, kunjunganId }}
+            key={`${itemKey(current)}|${version}`}
+            target={{ localType: current.localType, localId: current.localId, kunjunganId }}
           />
         ) : null}
       />
@@ -138,17 +181,17 @@ export function EncounterResourceGrid({ kunjunganId, resources, orphans, counts 
   );
 }
 
-function ResourceCard({ r, onOpen }: { r: EncounterResourceDTO; onOpen: () => void }) {
+function ResourceCard({ r, onOpen, action }: { r: EncounterResourceDTO; onOpen: () => void; action: React.ReactNode }) {
   const m = metaOf(r.resourceType);
   const s = summarize(r.resourceType, r.payload);
   const Icon = m.icon;
   return (
-    <button
-      type="button"
-      onClick={onOpen}
+    <article
       className={cn(
-        "group flex h-full w-full flex-col gap-2.5 rounded-2xl border bg-white p-3.5 text-left shadow-sm transition outline-none",
-        "hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:ring-teal-300",
+        "relative flex h-full w-full flex-col gap-2.5 rounded-2xl border bg-white p-3.5 shadow-sm transition",
+        // Hover/fokus digambar di kartu (bukan di tombol judul yang direntangkan).
+        "has-[.card-open:hover]:-translate-y-0.5 has-[.card-open:hover]:shadow-md",
+        "has-[.card-open:focus-visible]:ring-2 has-[.card-open:focus-visible]:ring-teal-300",
         STATUS_RING[r.status],
       )}
     >
@@ -158,7 +201,16 @@ function ResourceCard({ r, onOpen }: { r: EncounterResourceDTO; onOpen: () => vo
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[10.5px] font-semibold uppercase tracking-wide text-slate-400">{m.label}</p>
-          <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-slate-800">{s.title}</p>
+          <h4 className="line-clamp-2 text-[13px] font-semibold leading-snug text-slate-800">
+            {/* Klik di mana pun pada kartu = buka detail: ::after merentang ke seluruh <article>. */}
+            <button
+              type="button"
+              onClick={onOpen}
+              className="card-open text-left outline-none after:absolute after:inset-0 after:rounded-2xl after:content-['']"
+            >
+              {s.title}
+            </button>
+          </h4>
         </div>
         <PayloadStatusPill status={r.status} short />
       </div>
@@ -170,10 +222,13 @@ function ResourceCard({ r, onOpen }: { r: EncounterResourceDTO; onOpen: () => vo
           ))}
         </div>
       )}
-      <div className="mt-auto flex items-center justify-between gap-2 border-t border-slate-100 pt-2 text-[10.5px] text-slate-400">
-        <span className="truncate">{s.when ?? m.type}</span>
-        <span className="shrink-0">{r.ihsId ? `IHS …${r.ihsId.slice(-6)}` : "belum ada IHS"}</span>
-      </div>
-    </button>
+      <footer className="mt-auto flex flex-col gap-2 border-t border-slate-100 pt-2 text-[10.5px] text-slate-400">
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate">{s.when ?? m.type}</span>
+          <span className="shrink-0">{r.ihsId ? `IHS …${r.ihsId.slice(-6)}` : "belum ada IHS"}</span>
+        </div>
+        {action && <div className="flex min-w-0 items-center justify-end">{action}</div>}
+      </footer>
+    </article>
   );
 }

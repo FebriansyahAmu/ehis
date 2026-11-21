@@ -26,7 +26,7 @@ import * as src from "@/lib/dal/fhir/encounterSourceDal";
 import * as clinicalSrc from "@/lib/dal/fhir/clinicalSourceDal";
 import { ensurePatientIhs } from "./patientIhsService";
 import { fhirRequest } from "./transport";
-import { makePreviewSink, makeSink, type FlushResult, type PreviewItem, type PreviewSink } from "./resourceSink";
+import { makePreviewSink, makeSink, type FlushResult, type PreviewItem, type PreviewSink, type ResourceSink } from "./resourceSink";
 import { syncClinical, type SyncRef } from "./clinicalSyncService";
 import { syncMedication } from "./medicationSyncService";
 import { syncDiagnostic } from "./diagnosticSyncService";
@@ -61,6 +61,11 @@ export function syncEncounter(kunjunganId: string, audit: Audit): Promise<JobRes
   return runEncounter(kunjunganId, audit, null).then((r) => r.result);
 }
 
+/** Alur builder yang sama dengan job, memakai sink pemanggil (kirim satu resource — TargetedSink). */
+export function runEncounterWithSink(kunjunganId: string, audit: Audit, sink: ResourceSink) {
+  return runEncounter(kunjunganId, audit, null, sink);
+}
+
 export async function previewEncounter(kunjunganId: string, audit: Audit): Promise<EncounterPlan> {
   const sink = makePreviewSink(getSatuSehatConfig().mode);
   const { result, blockers, infos, target } = await runEncounter(kunjunganId, audit, sink);
@@ -78,6 +83,7 @@ async function runEncounter(
   kunjunganId: string,
   audit: Audit,
   preview: PreviewSink | null,
+  sinkOverride?: ResourceSink,
 ): Promise<{ result: JobResult; blockers: string[]; infos: string[]; target: EncounterStatus | null }> {
   const blockers: string[] = [];
   const infos: string[] = [];
@@ -152,7 +158,7 @@ async function runEncounter(
   };
   const patientRef: Ref = { ihsId: patientIhs, nama: k.pasien.nama };
   const baseRefs = { orgId, patient: patientRef, practitioner, location };
-  const sink = preview ?? makeSink(syncMode, env, audit, k.id);
+  const sink = preview ?? sinkOverride ?? makeSink(syncMode, env, audit, k.id);
   const sendEncounter = (status: EncounterStatus, diagnoses: { ihsId: string; display: string; rank: number }[] = []) =>
     sink.submit({ localType: "Encounter", localId: k.id, resource: toFhirEncounter(local, { ...baseRefs, diagnoses }, status) });
 

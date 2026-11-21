@@ -2,6 +2,8 @@
 
 // Detail SatuSehat 1 kunjungan: identitas + IHS, progres kirim, prasyarat, kartu semua resource
 // (Terkirim / Berubah / Belum) dengan payload, dan riwayat job. Pratinjau tanpa memanggil SatuSehat.
+// Dua cara kirim: "Kirim semua" (job outbox — Bundle transaction) di hero, atau per resource dari
+// kartu/drawer (hanya resource itu; prasyarat yang belum terkirim ditampilkan di kartu).
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -38,6 +40,8 @@ export default function FhirKunjunganDetail({ kunjunganId }: { kunjunganId: stri
   const [d, setD] = useState<EncounterDetailDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"queue" | "send" | null>(null);
+  /** Kirim per resource sedang berjalan (dari kartu/drawer) → "Kirim semua" ditahan. */
+  const [itemBusy, setItemBusy] = useState(false);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -53,6 +57,9 @@ export default function FhirKunjunganDetail({ kunjunganId }: { kunjunganId: stri
     void load(ac.signal);
     return () => ac.abort();
   }, [load]);
+
+  // Sesudah satu resource diterima SatuSehat: segarkan status kartu & progres (tanpa skeleton).
+  const reload = useCallback(() => { void load(); }, [load]);
 
   async function queue(sendNow: boolean) {
     setBusy(sendNow ? "send" : "queue");
@@ -131,8 +138,18 @@ export default function FhirKunjunganDetail({ kunjunganId }: { kunjunganId: stri
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" icon={RefreshCw} onClick={() => { setD(null); void load(); }}>Muat ulang</Button>
-            {canSend && <Button variant="secondary" icon={Send} loading={busy === "queue"} disabled={!!busy} onClick={() => void queue(false)}>Antre sinkron</Button>}
-            {canSend && <Button icon={Zap} loading={busy === "send"} disabled={!!busy} onClick={() => void queue(true)}>Kirim sekarang</Button>}
+            {canSend && <Button variant="secondary" icon={Send} loading={busy === "queue"} disabled={!!busy || itemBusy} onClick={() => void queue(false)}>Antre sinkron</Button>}
+            {canSend && (
+              <Button
+                icon={Zap}
+                loading={busy === "send"}
+                disabled={!!busy || itemBusy}
+                title={d.syncMode === "bundle" ? "Semua resource dalam 1 Bundle transaction — satu salah, semua batal" : "Semua resource dikirim satu per satu berurutan"}
+                onClick={() => void queue(true)}
+              >
+                {d.syncMode === "bundle" ? "Kirim semua (Bundle)" : "Kirim semua"}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -183,7 +200,16 @@ export default function FhirKunjunganDetail({ kunjunganId }: { kunjunganId: stri
           )}
           {d.infos.map((msg, i) => <Callout key={i} tone="sky" icon={Info}>{msg}</Callout>)}
           {!d.skipReason && (
-            <EncounterResourceGrid kunjunganId={d.kunjungan.id} resources={d.resources} orphans={d.orphans} counts={d.counts} />
+            <EncounterResourceGrid
+              kunjunganId={d.kunjungan.id}
+              resources={d.resources}
+              orphans={d.orphans}
+              counts={d.counts}
+              canSend={canSend && d.blockers.length === 0}
+              sendLocked={!!busy}
+              onSent={reload}
+              onBusyChange={setItemBusy}
+            />
           )}
         </div>
 
