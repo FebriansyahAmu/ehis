@@ -4,6 +4,7 @@
 import type { RJPatient, RJPoli, TipePenjamin } from "@/lib/data";
 import type { KunjunganListItemDTO } from "@/lib/api/kunjungan";
 import type { RJOrderStatus } from "@/lib/rawat-jalan/rjQueueStore";
+import { localYmd } from "@/lib/time/localTime";
 
 const RJ_POLI: ReadonlySet<string> = new Set([
   "Poli_Umum", "Poli_Dalam", "Poli_Jantung", "Poli_Paru", "Poli_Bedah",
@@ -65,7 +66,7 @@ export function dtoToRJPatient(dto: KunjunganListItemDTO): RJPatient {
     status: "Menunggu_Skrining",
     keluhan: dto.keluhan ?? "",
     penjamin: dto.penjaminTipe as TipePenjamin,
-    tanggalKunjungan: dto.waktuKunjungan.slice(0, 10),
+    tanggalKunjungan: localYmd(dto.waktuKunjungan),
     waktuDaftar: fmtJam(dto.waktuKunjungan),
   };
 }

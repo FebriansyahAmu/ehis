@@ -23,6 +23,7 @@ import { ApiError } from "@/lib/api/client";
 import type { SpriInput } from "@/lib/schemas/disposisi/disposisi";
 import type { PulangPatient } from "@/components/igd/tabs/pasienPulang/pasienPulangShared";
 import SpriIssuePanel from "@/components/shared/spri/SpriIssuePanel";
+import { localYmd } from "@/lib/time/localTime";
 
 const UNIT_LABEL: Record<string, string> = {
   RawatJalan: "Rawat Jalan", IGD: "IGD", RawatInap: "Rawat Inap",
@@ -31,7 +32,7 @@ const UNIT_LABEL: Record<string, string> = {
 function fmtDateTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
+  return d.toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 /** No. Kartu BPJS ter-mask untuk display peserta (SPRIPanel). Server tetap resolusi nilai penuh. */
@@ -124,7 +125,7 @@ export default function SpriCreateModal({ onClose, onCreated }: { onClose: () =>
       gender: patient.gender,
       doctor: "",
       diagnosa: [],
-      tglKunjungan: src?.waktuKunjungan?.slice(0, 10) ?? "",
+      tglKunjungan: src?.waktuKunjungan ? localYmd(src.waktuKunjungan) : "",
       arrivalTime: "",
       noBpjs: bpjsNomorMasked(patient),
       namaKeluarga: "",

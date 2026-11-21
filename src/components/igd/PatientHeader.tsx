@@ -244,13 +244,13 @@ function inputToDisplay(iso: string): string {
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
-/** ISO (wall-clock UTC, konvensi repo) → { tgl "14 Apr 2026", jam "14:15" }. */
+/** ISO instan → { tgl "14 Apr 2026", jam "14:15" } dalam zona lokal browser (= zona RS). */
 function fmtKeluar(iso: string): { tgl: string; jam: string } | null {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
   return {
-    tgl: `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}`,
-    jam: `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`,
+    tgl: `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`,
+    jam: `${pad2(d.getHours())}:${pad2(d.getMinutes())}`,
   };
 }
 

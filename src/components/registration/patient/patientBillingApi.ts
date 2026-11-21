@@ -4,6 +4,7 @@
 
 import type { BillingRecord, UnitKunjungan, StatusTagihan } from "@/lib/data";
 import type { BillingKunjunganRowDTO } from "@/lib/api/billing/projection";
+import { localYmd } from "@/lib/time/localTime";
 
 const UNIT_MAP: Record<string, UnitKunjungan> = {
   IGD: "IGD",
@@ -30,7 +31,7 @@ export function dtoToBillingRecord(d: BillingKunjunganRowDTO): BillingRecord {
   return {
     id: d.kunjunganId,            // = kunjunganId → dipakai kartu utk deep-link detail Billing
     noTagihan: d.noKunjungan,
-    tanggal: d.waktuKunjungan.slice(0, 10),
+    tanggal: localYmd(d.waktuKunjungan),
     noKunjungan: d.noKunjungan,
     unit: UNIT_MAP[d.unit] ?? "Rawat Jalan",
     rincian: [],                  // detail rincian = ranah modul Billing

@@ -27,6 +27,7 @@ import { SuccessPanel } from "./daftar-kunjungan/SuccessPanel";
 import { SepPrintModal } from "./daftar-kunjungan/SepCetak";
 import { buildRegisterInput } from "./daftar-kunjungan/daftarKunjunganApi";
 import { KelasMismatchDialog, type KelasDecision } from "./daftar-kunjungan/KelasMismatchDialog";
+import { localYmd } from "@/lib/time/localTime";
 import {
   isBpjs, HAK_TO_RIKELAS,
   type KunjunganForm, type PenjaminForm, type RujukanPick, type WizardStep, type SpriDpjpHint,
@@ -64,7 +65,9 @@ export function DaftarKunjunganModal({
   /** DPJP yang ditetapkan SPRI (admisi RI) → peringatan bila operator pilih DPJP berbeda. */
   spriDpjp?: SpriDpjpHint;
 }) {
-  const today = new Date().toISOString().split("T")[0];
+  // Tanggal & jam default sama-sama LOKAL (dulu tanggal UTC + jam lokal → 00:00–06:59 WIB
+  // tanggal default = kemarin). Server mengubah jam dinding ini ke instan via RS_TIMEZONE.
+  const today = localYmd(new Date());
   const nowTime = new Date().toTimeString().slice(0, 5);
   const { session } = useSession(); // sesi SSR-seed (ModuleLayout) → nama operator SEP = user login
 

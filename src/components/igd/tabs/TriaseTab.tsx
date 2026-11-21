@@ -13,6 +13,7 @@ import { ApiError } from "@/lib/api/client";
 import { Select, DateTimePicker } from "@/components/shared/inputs";
 import { toast } from "@/lib/ui/toastStore";
 import TriaseCetakModal from "./triase-cetak/TriaseCetakModal";
+import { toLocalInputValue } from "@/lib/time/localTime";
 
 // id kunjungan DB = UUID; id demo/mock ("igd-1") tak tersimpan ke DB.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -653,9 +654,9 @@ const EMPTY: TriaseForm = {
 
 // ── DB ↔ form mapping ─────────────────────────────────────
 
-// ISO ("…Z") → "YYYY-MM-DDTHH:mm" untuk <input datetime-local> (UTC wall-clock,
-// konsisten dgn konvensi simpan/format waktu lain di modul IGD).
-const toLocalInput = (iso: string): string => iso.slice(0, 16);
+// ISO instan → "YYYY-MM-DDTHH:mm" jam lokal untuk DateTimePicker (server menyimpan instan nyata;
+// jam dinding dikonversi via RS_TIMEZONE saat simpan).
+const toLocalInput = (iso: string): string => toLocalInputValue(iso);
 
 function dtoToForm(d: TriaseDTO): TriaseForm {
   return {
@@ -1286,7 +1287,7 @@ export default function TriaseTab({ patient }: { patient: IGDPatientDetail }) {
         )}
         {!error && savedAt && (
           <div className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700">
-            <Check size={13} className="shrink-0" /> Tersimpan · {savedAt.slice(0, 16).replace("T", " ")} WIB
+            <Check size={13} className="shrink-0" /> Tersimpan · {toLocalInputValue(savedAt).replace("T", " ")}
           </div>
         )}
         {!isPersisted && !error && (

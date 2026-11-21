@@ -25,6 +25,7 @@ import { makeBpjsService, toSepDTO, toRujukanDTO } from "@/lib/services/bpjsServ
 import { makeBedAllocationService } from "@/lib/services/bedAllocationService";
 import { resolveActorNama } from "@/lib/services/actorName";
 import { systemClock, type Clock } from "@/lib/core/clock";
+import { parseClientDateTime, rsEndOfDay, rsParts, rsStartOfDay } from "@/lib/time/rsTime";
 import { decryptPii, encryptPii, hashPii } from "@/lib/crypto/pii";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
@@ -83,9 +84,9 @@ function assertTransitionAllowed(actor: Actor, action: KunjunganActionName, stat
 /** "YYYY-MM-DDTHH:mm" (DateTimePicker) → Date UTC wall-clock (samakan combineDateTime). */
 function parseWaktuSelesai(s?: string): Date | undefined {
   if (!s) return undefined;
-  const iso = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s) ? `${s}:00.000Z` : s;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) throw Errors.validation("Waktu selesai tidak valid");
+  // DateTimePicker "YYYY-MM-DDTHH:mm" = jam dinding RS → instan nyata (lib/time/rsTime).
+  const d = parseClientDateTime(s);
+  if (!d) throw Errors.validation("Waktu selesai tidak valid");
   return d;
 }
 
@@ -108,16 +109,16 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
 
   // ── Helpers ─────────────────────────────────────────────────────────────---
   function combineDateTime(tanggal: string, jam?: string): Date {
-    // Gabung tanggal + jam modal → timestamptz. UTC eksplisit (deterministik; samakan
-    // dgn pola patientService.toDate). Penyesuaian zona klinis = fase later.
-    const d = new Date(`${tanggal}T${jam ?? "00:00"}:00.000Z`);
-    if (Number.isNaN(d.getTime())) throw Errors.validation("Tanggal/jam kunjungan tidak valid");
+    // Gabung tanggal + jam modal (jam dinding RS) → instan nyata. Dulu ditempeli `Z` sehingga
+    // tersimpan 7–9 jam lebih lambat dari kenyataan (TECH_DEBT zona waktu, FG-154).
+    const d = parseClientDateTime(`${tanggal}T${jam ?? "00:00"}`);
+    if (!d) throw Errors.validation("Tanggal/jam kunjungan tidak valid");
     return d;
   }
 
   function formatNoKunjungan(unit: string, seq: number): string {
     const prefix = unit === "RawatJalan" ? "RJ" : unit === "RawatInap" ? "RI" : "IGD";
-    return `${prefix}/${clock.now().getUTCFullYear()}/${String(seq).padStart(5, "0")}`;
+    return `${prefix}/${rsParts(clock.now()).year}/${String(seq).padStart(5, "0")}`;
   }
 
   function parseStatuses(raw?: string): NonNullEntity["status"][] | undefined {
@@ -835,10 +836,10 @@ export function makeKunjunganService(deps: { clock?: Clock; dal?: Dal; bpjs?: Bp
       units = scoped;
     }
 
-    // Periode by waktuKunjungan (tanggal-saja, inklusif). Wall-clock UTC (konvensi repo) →
-    // dari = awal hari (00:00:00.000Z), sampai = akhir hari (23:59:59.999Z).
-    const dari = query.dari ? new Date(`${query.dari}T00:00:00.000Z`) : undefined;
-    const sampai = query.sampai ? new Date(`${query.sampai}T23:59:59.999Z`) : undefined;
+    // Periode by waktuKunjungan (tanggal-saja, inklusif) menurut hari kalender RS:
+    // dari = 00:00 RS, sampai = 23:59:59.999 RS.
+    const dari = query.dari ? (rsStartOfDay(query.dari) ?? undefined) : undefined;
+    const sampai = query.sampai ? (rsEndOfDay(query.sampai) ?? undefined) : undefined;
 
     const { items, nextCursor } = await dal.listByUnitStatus({
       unit: units ? undefined : query.unit,

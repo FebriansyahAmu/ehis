@@ -42,7 +42,7 @@ function fmtTanggalLahir(iso: string | null): string {
 function fmtTglKunjungan(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return `${d.getUTCDate()} ${BULAN[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  return `${d.getDate()} ${BULAN[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 /** Rangkai alamat dari komponen wilayah (KTP diutamakan). */

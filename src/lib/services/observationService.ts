@@ -10,6 +10,7 @@ import * as defaultDal from "@/lib/dal/observationDal";
 import * as kunjunganDal from "@/lib/dal/kunjunganDal";
 import * as pegawaiDal from "@/lib/dal/pegawaiDal";
 import { systemClock, type Clock } from "@/lib/core/clock";
+import { parseClientDateTime, rsDayKey, rsParts } from "@/lib/time/rsTime";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type { ObservationInput, ObservationDTO, RIShift, StatusKesadaran } from "@/lib/schemas/observation";
@@ -17,20 +18,17 @@ import type { ObservationEntity } from "@/lib/dal/observationDal";
 
 type Dal = typeof defaultDal;
 
-/** datetime-local ("YYYY-MM-DDTHH:mm") atau ISO → Date. Tanpa tz → diperlakukan UTC
- *  (deterministik; selaras konvensi simpan wall-clock di triase/kunjunganService). */
+/** datetime-local ("YYYY-MM-DDTHH:mm" = jam dinding RS) atau ISO ber-offset → instan nyata. */
 function parseWaktu(raw: string | undefined, now: Date): Date {
   if (!raw) return now;
-  const hasTz = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(raw);
-  const s = hasTz ? raw : `${raw.length === 16 ? `${raw}:00` : raw}Z`;
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) throw Errors.validation("Waktu observasi tidak valid");
+  const d = parseClientDateTime(raw);
+  if (!d) throw Errors.validation("Waktu observasi tidak valid");
   return d;
 }
 
-/** Turunkan shift dari jam (UTC wall-clock) bila tak dikirim — mirror timeToShift FE. */
+/** Turunkan shift dari jam lokal RS bila tak dikirim — mirror timeToShift FE. */
 function deriveShift(waktu: Date): RIShift {
-  const h = waktu.getUTCHours();
+  const h = rsParts(waktu).hour;
   if (h >= 7 && h < 14) return "Pagi";
   if (h >= 14 && h < 21) return "Siang";
   return "Malam";
@@ -54,11 +52,12 @@ async function resolvePerawat(actor: Actor, fallback?: string): Promise<string> 
 
 function toDTO(o: ObservationEntity): ObservationDTO {
   const iso = o.waktuObservasi.toISOString();
+  const p = rsParts(o.waktuObservasi);
   return {
     id: o.id,
     kunjunganId: o.kunjunganId,
-    tanggal: iso.slice(0, 10), // YYYY-MM-DD (wall-clock UTC = yang diinput)
-    jam: iso.slice(11, 16), // HH:mm
+    tanggal: rsDayKey(o.waktuObservasi), // YYYY-MM-DD menurut kalender RS
+    jam: `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`, // HH:mm jam RS
     shift: (o.shift as RIShift | null) ?? null,
     perawat: o.perawat,
     vitalSigns: {

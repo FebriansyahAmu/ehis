@@ -7,6 +7,7 @@
 import * as defaultDal from "@/lib/dal/intakeOutput/intakeOutputDal";
 import * as kunjunganDal from "@/lib/dal/kunjunganDal";
 import { resolveActorNama } from "@/lib/services/actorName";
+import { parseClientDateTime, rsDayKey, rsParts } from "@/lib/time/rsTime";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import type { EntryEntity, TargetEntity } from "@/lib/dal/intakeOutput/intakeOutputDal";
@@ -18,20 +19,17 @@ import {
 
 type Dal = typeof defaultDal;
 
-/** datetime-local ("YYYY-MM-DDTHH:mm") / ISO → Date. Tanpa tz → UTC wall-clock (deterministik,
- *  selaras observationService: nilai yang diinput = yang di-render kembali). */
+/** datetime-local ("YYYY-MM-DDTHH:mm" = jam dinding RS) / ISO ber-offset → instan nyata. */
 function parseWaktu(raw: string | undefined, now: Date): Date {
   if (!raw) return now;
-  const hasTz = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(raw);
-  const s = hasTz ? raw : `${raw.length === 16 ? `${raw}:00` : raw}Z`;
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) throw Errors.validation("Waktu entri tidak valid");
+  const d = parseClientDateTime(raw);
+  if (!d) throw Errors.validation("Waktu entri tidak valid");
   return d;
 }
 
-/** Shift dari jam (UTC wall-clock) — mirror detectShift FE. */
+/** Shift dari jam lokal RS — mirror detectShift FE. */
 function deriveShift(waktu: Date): IOShift {
-  const h = waktu.getUTCHours();
+  const h = rsParts(waktu).hour;
   if (h >= 7 && h < 14) return "Pagi";
   if (h >= 14 && h < 21) return "Siang";
   return "Malam";
@@ -40,11 +38,11 @@ function deriveShift(waktu: Date): IOShift {
 function asShift(v: string): IOShift { return v === "Siang" || v === "Malam" ? v : "Pagi"; }
 
 function toEntryDTO(e: EntryEntity): IOEntryDTO {
-  const iso = e.waktu.toISOString();
+  const p = rsParts(e.waktu);
   return {
     id: e.id,
-    waktu: iso.slice(11, 16), // HH:MM
-    tanggal: iso.slice(0, 10), // YYYY-MM-DD
+    waktu: `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`, // HH:MM jam RS
+    tanggal: rsDayKey(e.waktu), // YYYY-MM-DD kalender RS
     shift: asShift(e.shift),
     tipe: e.tipe as IOTipe,
     kategori: e.kategori as IOKategori,

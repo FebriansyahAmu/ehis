@@ -5,6 +5,7 @@
 // (billing.invoice:read, cross-unit; scopeKunjungan default false untuk resource non-clinical).
 
 import * as kunjunganDal from "@/lib/dal/kunjunganDal";
+import { rsDayDiff, rsParts } from "@/lib/time/rsTime";
 import * as tindakanDal from "@/lib/dal/tindakanMedis/tindakanMedisDal";
 import * as resepDal from "@/lib/dal/resep/resepDal";
 import * as labDal from "@/lib/dal/lab/labOrderDal";
@@ -92,14 +93,12 @@ function ageFrom(tglLahir: Date | null): number {
 
 const DAY_MS = 86_400_000;
 
-/** Jumlah hari rawat (RI): hari masuk dihitung, hari pulang tidak (min 1). Basis UTC-day. */
+/** Jumlah hari rawat (RI): hari masuk dihitung, hari pulang tidak (min 1). Basis hari kalender RS. */
 function rawatDays(admitISO: string, endISO: string): number {
   const start = new Date(admitISO);
   const end = new Date(endISO);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
-  const startDay = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
-  const endDay = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate());
-  return Math.max(1, Math.round((endDay - startDay) / DAY_MS));
+  return Math.max(1, rsDayDiff(start, end));
 }
 
 /** Total akomodasi (rate kelas × hari rawat) — untuk baris worklist. 0 bila tanpa tier/rate. */
@@ -115,9 +114,10 @@ function projectAkomodasi(
   if (!tier) return [];
   const days = rawatDays(admitISO, endISO);
   if (days === 0) return [];
-  const startDay = Date.UTC(
-    new Date(admitISO).getUTCFullYear(), new Date(admitISO).getUTCMonth(), new Date(admitISO).getUTCDate(),
-  );
+  // Hari ke-0 = tanggal masuk menurut kalender RS; tanggal berikutnya = aritmetika kalender murni
+  // (Date.UTC dari komponen, bukan instan) → dayISO selalu tanggal RS.
+  const a = rsParts(new Date(admitISO));
+  const startDay = Date.UTC(a.year, a.month - 1, a.day);
   const label = KELAS_LABEL[tier] ?? tier;
 
   const out: BillingChargeDTO[] = [];

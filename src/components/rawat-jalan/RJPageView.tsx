@@ -26,10 +26,11 @@ import KonsultasiInbox from "./KonsultasiInbox";
 
 type View = "order" | "worklist" | "konsultasi";
 
-// ── Periode helpers (UTC-day — selaras interpretasi server atas waktuKunjungan) ──
-function ymdUtc(d: Date): string { return d.toISOString().slice(0, 10); }
-function addDaysUtc(base: Date, n: number): Date {
-  const d = new Date(base); d.setUTCDate(d.getUTCDate() + n); return d;
+// ── Periode helpers (hari kalender lokal = zona RS — selaras server rsStartOfDay/rsEndOfDay) ──
+const pad2 = (n: number) => String(n).padStart(2, "0");
+function ymdLocal(d: Date): string { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+function addDaysLocal(base: Date, n: number): Date {
+  const d = new Date(base); d.setDate(d.getDate() + n); return d;
 }
 /** "2026-07-12" → "12 Jul 2026" (split string; hindari shift zona). */
 const MON_SHORT = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
@@ -168,14 +169,14 @@ export default function RJPageView() {
 
   // Statistik NYATA dari worklist DB (menggantikan rjStats mock).
   const stats = useMemo(() => {
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = ymdLocal(new Date());
     let hariIni = 0, menunggu = 0, dilayani = 0, selesai = 0;
     for (const it of items) {
       const o = orderFromStatus(it.status, it.callState);
       if (o === "Order_Masuk" || o === "Dipanggil") menunggu++;
       else if (o === "Dilayani") dilayani++;
       else if (o === "Selesai") selesai++;
-      if (it.waktuKunjungan.slice(0, 10) === todayStr) hariIni++;
+      if (ymdLocal(new Date(it.waktuKunjungan)) === todayStr) hariIni++;
     }
     return { hariIni, menunggu, dilayani, selesai };
   }, [items]);
@@ -211,15 +212,15 @@ export default function RJPageView() {
     { key: "konsultasi", label: "Konsultasi",      icon: MessageSquare, badge: konsulMasuk },
   ];
 
-  // ── Preset periode cepat (rentang dihitung UTC-day) ──
+  // ── Preset periode cepat (rentang dihitung per hari kalender lokal) ──
   const presets = useMemo(() => {
     const now = new Date();
-    const today = ymdUtc(now);
-    const firstOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const today = ymdLocal(now);
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     return [
-      { key: "hari",   label: "Hari Ini",  dari: today,                       sampai: today },
-      { key: "minggu", label: "7 Hari",    dari: ymdUtc(addDaysUtc(now, -6)), sampai: today },
-      { key: "bulan",  label: "Bulan Ini", dari: ymdUtc(firstOfMonth),        sampai: today },
+      { key: "hari",   label: "Hari Ini",  dari: today,                           sampai: today },
+      { key: "minggu", label: "7 Hari",    dari: ymdLocal(addDaysLocal(now, -6)), sampai: today },
+      { key: "bulan",  label: "Bulan Ini", dari: ymdLocal(firstOfMonth),          sampai: today },
     ];
   }, []);
   const activePreset = presets.find((p) => p.dari === dari && p.sampai === sampai)?.key ?? null;

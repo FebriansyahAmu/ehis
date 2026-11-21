@@ -9,6 +9,7 @@ import { transaction } from "@/lib/db/prisma";
 import * as defaultDal from "@/lib/dal/triaseDal";
 import * as kunjunganDal from "@/lib/dal/kunjunganDal";
 import { systemClock, type Clock } from "@/lib/core/clock";
+import { parseClientDateTime } from "@/lib/time/rsTime";
 import { Errors } from "@/lib/errors/appError";
 import type { Actor } from "@/lib/auth/actor";
 import { triaseLevelToInt, type TriaseInput, type TriaseDTO, type TriaseLevel } from "@/lib/schemas/triase";
@@ -17,15 +18,11 @@ import type { TriaseEntity } from "@/lib/dal/triaseDal";
 type Dal = typeof defaultDal;
 type NonNullEntity = NonNullable<TriaseEntity>;
 
-/** datetime-local ("YYYY-MM-DDTHH:mm") atau ISO → Date. Tanpa tz → diperlakukan UTC
- *  (deterministik; selaras konvensi simpan wall-clock di kunjunganService). */
+/** datetime-local ("YYYY-MM-DDTHH:mm" = jam dinding RS) atau ISO ber-offset → instan nyata. */
 function parseWaktu(raw: string | undefined, now: Date): Date {
   if (!raw) return now;
-  const hasTz = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(raw);
-  // datetime-local tanpa tz: "YYYY-MM-DDTHH:mm" (16) → tambah detik; lalu paksa UTC.
-  const s = hasTz ? raw : `${raw.length === 16 ? `${raw}:00` : raw}Z`;
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) throw Errors.validation("Waktu triase tidak valid");
+  const d = parseClientDateTime(raw);
+  if (!d) throw Errors.validation("Waktu triase tidak valid");
   return d;
 }
 

@@ -50,13 +50,13 @@ function fmtTglIso(iso: string): string {
   return `${Number(d)} ${MONTHS_SHORT[idx] ?? mo} ${y}`;
 }
 
-/** ISO datetime DB (wall-clock UTC, konvensi repo) → { tgl, jam }. */
+/** ISO instan DB → { tgl, jam } dalam zona lokal (zona RS). */
 function fmtKeluarIso(iso: string): { tgl: string; jam: string } | null {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
   return {
-    tgl: `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}`,
-    jam: `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`,
+    tgl: `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`,
+    jam: `${pad2(d.getHours())}:${pad2(d.getMinutes())}`,
   };
 }
 

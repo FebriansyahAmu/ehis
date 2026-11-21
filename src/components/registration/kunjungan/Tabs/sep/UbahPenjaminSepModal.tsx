@@ -23,6 +23,7 @@ import type {
 } from "@/components/registration/patient/modals/daftar-kunjungan/config";
 import { BLANK_DRAFT, SLIDE_VARIANTS, type SepDraft, type BpjsData } from "./sepTypes";
 import { buildChangePenjaminInput } from "./ubahPenjaminApi";
+import { localYmd } from "@/lib/time/localTime";
 
 const KLS_MAP: Record<string, "1" | "2" | "3"> = { "Kelas I": "1", "Kelas II": "2", "Kelas III": "3" };
 const UNIT_MAP: Record<string, UnitDaftar> = {
@@ -50,7 +51,7 @@ export function UbahPenjaminSepModal({
   onClose: () => void;
   onIssued: (k: KunjunganDTO) => void;
 }) {
-  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const today = useMemo(() => localYmd(new Date()), []); // tanggal lokal (bukan UTC)
   const { session } = useSession();
   const operatorNama = session?.namaTampil ?? "Operator Loket";
 

@@ -20,7 +20,7 @@ function fmt(iso: string | null): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleString("id-ID", {
-    timeZone: "UTC", day: "numeric", month: "short", year: "numeric",
+    day: "numeric", month: "short", year: "numeric",
     hour: "2-digit", minute: "2-digit",
   });
 }

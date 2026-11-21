@@ -51,8 +51,8 @@ function toRjVisit(d: KunjunganListItemDTO): RjVisit {
     penjamin: d.penjaminTipe,
     status: STATUS_LABEL[d.status] ?? d.status,
     rawStatus: d.status,
-    // waktuKunjungan disimpan apa-adanya (wall-clock dianggap UTC) → tampilkan UTC.
-    time: new Date(d.waktuKunjungan).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" }),
+    // waktuKunjungan = instan nyata → tampilkan jam lokal (zona RS).
+    time: new Date(d.waktuKunjungan).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
   };
 }
 

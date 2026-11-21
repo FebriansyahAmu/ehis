@@ -10,6 +10,7 @@ import type { RJPatientDetail, RJStatus, IGDVitalSigns, TipePenjamin } from "@/l
 import type { KunjunganDTO } from "@/lib/api/kunjungan";
 import type { PatientDTO } from "@/lib/api/patients";
 import { toRJPoli, ageFrom, fmtJam } from "./rjLiveApi";
+import { localYmd } from "@/lib/time/localTime";
 
 type PatientAddressDTO = PatientDTO["alamat"][number];
 
@@ -87,7 +88,7 @@ export function dtoToRJPatientDetail(
     status: rjStatusFrom(k.status, k.callState),
     keluhan: k.keluhan ?? "",
     penjamin: k.penjaminTipe as TipePenjamin,
-    tanggalKunjungan: k.waktuKunjungan.slice(0, 10),
+    tanggalKunjungan: localYmd(k.waktuKunjungan),
     waktuDaftar: fmtJam(k.waktuKunjungan),
 
     // ── Demografi (RJPatientDetail) ──

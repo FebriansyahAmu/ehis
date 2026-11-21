@@ -176,21 +176,21 @@ function shortDisplay(display: string): string {
   return `${parts[0]} ${parts[1].slice(0, 3)} ${parts[2]}`;
 }
 
-/** admitDate ISO → jam "HH:mm" (UTC, konvensi repo). Date-only → null (tak ada jam). */
+/** admitDate ISO instan → jam "HH:mm" lokal (zona RS). Date-only → null (tak ada jam). */
 function jamFromIso(iso: string): string | null {
   if (!/T\d{2}:\d{2}/.test(iso)) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
-/** ISO (wall-clock UTC) → { tgl "3 Mei 2025", jam "14:15" }. */
+/** ISO instan → { tgl "3 Mei 2025", jam "14:15" } dalam zona lokal (zona RS). */
 function fmtKeluar(iso: string): { tgl: string; jam: string } | null {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
   return {
-    tgl: `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}`,
-    jam: `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`,
+    tgl: `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`,
+    jam: `${pad2(d.getHours())}:${pad2(d.getMinutes())}`,
   };
 }
 

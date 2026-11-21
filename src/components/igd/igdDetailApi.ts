@@ -48,14 +48,14 @@ function fmtTanggalLahir(iso: string | null): string {
 function fmtTglKunjungan(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return `${d.getUTCDate()} ${BULAN[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  return `${d.getDate()} ${BULAN[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-/** ISO datetime → "HH:mm" (UTC, konsisten konvensi simpan wall-clock). */
+/** ISO instan → "HH:mm" dalam zona lokal (zona RS). */
 function fmtJam(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
+  return d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
 }
 
 function ageFrom(iso: string | null): number {

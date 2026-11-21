@@ -116,10 +116,11 @@ type TimelineSrc = Pick<LocalEncounter, "waktuKunjungan" | "dilayaniAt" | "seles
  * Garis waktu Encounter yang dijamin urut (datang ≤ dilayani ≤ selesai). SatuSehat menolak
  * `statusHistory.period` dengan start > end (FHIRPath `per-1`) dan menolak SELURUH Bundle.
  *
- * Kenapa bisa terbalik: `waktuKunjungan` dari form pendaftaran disimpan sebagai jam dinding yang
- * dilabeli UTC (TECH_DEBT zona waktu), sedangkan `dilayaniAt` = waktu nyata saat Terima. Jam daftar
- * jadi tampak 7–9 jam LEBIH LAMBAT dari jam diterima. Bila terbalik, awal kunjungan dikirim = jam
- * diterima (tidak pernah memajukan waktu); begitu juga jam selesai yang lebih awal dari jam diterima.
+ * Kenapa bisa terbalik: data sebelum perbaikan zona waktu (2026-11-21, `lib/time/rsTime`) menyimpan
+ * `waktuKunjungan` sebagai jam dinding berlabel UTC, sedangkan `dilayaniAt` = waktu nyata saat Terima,
+ * sehingga jam daftar tampak 7–9 jam LEBIH LAMBAT. Data baru sudah instan nyata; penjaga ini tetap
+ * untuk data lama yang belum dikoreksi & jam yang diketik petugas secara keliru. Bila terbalik, awal
+ * kunjungan dikirim = jam diterima (tak pernah memajukan waktu); idem jam selesai < jam diterima.
  * `adjusted` = catatan untuk pratinjau konsol.
  */
 export function encounterTimeline(e: TimelineSrc, status: EncounterStatus) {
