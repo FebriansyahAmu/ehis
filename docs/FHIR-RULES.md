@@ -112,6 +112,10 @@ Swap mock→real = ganti isi connector (`SATUSEHAT_MODE`) → **Route & FE tak b
   dan id mock palsu → selalu baca/tulis dengan env aktif. Kolom denormalisasi di tabel domain
   (`Pasien.idSatusehat`, `Dokter.ihsPractitionerId`) **hanya diisi id produksi**. Kunjungan/klinis: cek ResourceMap
   sebelum POST; sudah ada → **PUT by id** (upsert), belum → POST create lalu simpan `ihsId`.
+- **Encounter juga resolve-first (2026-11-21, FG-32):** belum ada di ResourceMap → `GET Encounter?identifier=
+  http://sys-ids.kemkes.go.id/encounter/{orgId}|{noKunjungan}` dulu (didukung Sandbox); ketemu → petakan lalu PUT.
+  Cari gagal → batalkan POST. Respons Bundle: `location` SatuSehat = URL **absolut** → baca via
+  `parseEntryResponse` (fhirShared), jangan `split("/")`.
 - Header `Idempotency-Key` (sudah didukung `route()`) untuk aksi kirim.
 - **Mengapa:** double-create Encounter/Condition = data ganda di SatuSehat + audit kacau.
 

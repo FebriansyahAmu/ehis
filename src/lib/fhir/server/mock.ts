@@ -46,10 +46,13 @@ export async function mockSatuSehat<T>(opts: FhirCallOptions): Promise<Result<Fh
       entry: (b.entry ?? []).map((e) => {
         const [rt, existingId] = (e.request?.url ?? "").split("/");
         const id = e.request?.method === "PUT" && existingId ? existingId : `mock-${randomUUID()}`;
+        // Bentuk seperti SatuSehat nyata: `location` URL absolut + `resourceType`/`resourceID`.
         return {
           response: {
             status: e.request?.method === "PUT" ? "200 OK" : "201 Created",
-            location: `${rt}/${id}/_history/${e.request?.method === "PUT" ? 2 : 1}`,
+            location: `https://mock.satusehat.local/fhir-r4/v1/${rt}/${id}/_history/${e.request?.method === "PUT" ? 2 : 1}`,
+            resourceType: rt,
+            resourceID: id,
           },
         };
       }),

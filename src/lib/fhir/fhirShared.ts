@@ -61,7 +61,19 @@ export interface BundleEntry<R extends FhirResourceBase = FhirResourceBase> {
   fullUrl?: string;
   resource?: R;
   request?: { method: FhirMethod; url: string };
-  response?: { status: string; location?: string; etag?: string; lastModified?: string };
+  /** `resourceType`/`resourceID` = tambahan non-standar SatuSehat di transaction-response. */
+  response?: { status: string; location?: string; etag?: string; lastModified?: string; resourceType?: string; resourceID?: string };
+}
+
+/**
+ * id & versi dari `response` entri transaction-response. SatuSehat mengirim `location` URL ABSOLUT
+ * (`https://…/fhir-r4/v1/Encounter/<id>/_history/<v>`) + `resourceID`; server FHIR umum relatif
+ * (`Encounter/<id>/_history/<v>`). Keduanya didukung — dulu `split("/")[1]` memberi "" untuk URL absolut.
+ */
+export function parseEntryResponse(r: BundleEntry["response"]): { id: string | null; versionId: string | null } {
+  const m = /(?:^|\/)[A-Z][A-Za-z]+\/([^/?#]+)(?:\/_history\/([^/?#]+))?\/?$/.exec(r?.location ?? "");
+  const etag = /^W\/"(.+)"$/.exec(r?.etag ?? "")?.[1] ?? null;
+  return { id: m?.[1] ?? r?.resourceID ?? null, versionId: m?.[2] ?? etag };
 }
 
 export interface Bundle<R extends FhirResourceBase = FhirResourceBase> extends FhirResourceBase {

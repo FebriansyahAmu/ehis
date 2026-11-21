@@ -18,13 +18,14 @@
 
 import "server-only";
 import { getSatuSehatConfig } from "@/lib/fhir/server/config";
-import { encounterStatusOf, toFhirEncounter, type EncounterStatus, type LocalEncounter } from "@/lib/fhir/adapters/encounter";
+import { encounterStatusOf, encounterTimeline, toFhirEncounter, type EncounterStatus, type LocalEncounter } from "@/lib/fhir/adapters/encounter";
 import { toFhirComposition } from "@/lib/fhir/adapters/composition";
-import type { FhirError } from "@/lib/fhir/fhirShared";
+import { orgIdentifierSystem, type Bundle, type FhirError, type SatuSehatMode } from "@/lib/fhir/fhirShared";
 import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
 import * as src from "@/lib/dal/fhir/encounterSourceDal";
 import * as clinicalSrc from "@/lib/dal/fhir/clinicalSourceDal";
 import { ensurePatientIhs } from "./patientIhsService";
+import { fhirRequest } from "./transport";
 import { makePreviewSink, makeSink, type FlushResult, type PreviewItem, type PreviewSink } from "./resourceSink";
 import { syncClinical, type SyncRef } from "./clinicalSyncService";
 import { syncMedication } from "./medicationSyncService";
@@ -90,7 +91,12 @@ async function runEncounter(
   if (!target) return done({ kind: "skipped", reason: `Status ${k.status} belum dikirim (menunggu diterima)` });
 
   const { mode: env, orgId, syncMode } = getSatuSehatConfig();
-  const existing = await resourceMapDal.findByLocal(env, "Encounter", k.id);
+  let existing = await resourceMapDal.findByLocal(env, "Encounter", k.id);
+  if (!existing && !preview) {
+    const found = await resolveEncounter(env, orgId, k, audit);
+    if (!found.ok) return done({ kind: "failed", message: found.message, retryable: found.retryable });
+    existing = found.row;
+  }
   if (target === "cancelled" && !existing) return done({ kind: "skipped", reason: "Dibatalkan sebelum pernah terkirim" });
 
   // ── Referensi ──
@@ -152,7 +158,7 @@ async function runEncounter(
 
   const refs: SyncRef[] = [];
   const failures: Failure[] = [];
-  const notes: string[] = [];
+  const notes: string[] = [...encounterTimeline(local, target).adjusted];
 
   // ── Batal: cukup status cancelled ──
   if (target === "cancelled") {
@@ -240,6 +246,40 @@ function finish(
   const resolved = refs.map((r) => ({ ...r, ihsId: flushed.resolved.get(r.ihsId) ?? r.ihsId }));
   if (failures.length) return summarizeFailures(failures, "Sebagian resource gagal terkirim");
   return { kind: "acked", refs: resolved, ...(notes.length ? { notes } : {}) };
+}
+
+/**
+ * FG-32 — resolve-first Encounter: sebelum POST Encounter yang belum terpetakan, cari di SatuSehat
+ * by identifier `encounter/{orgId}|noKunjungan` (didukung Sandbox, diuji 2026-11-21). Menutup kasus
+ * POST sudah diterima tetapi peta tak tersimpan (crash / respons gagal dibaca) — tanpa ini kirim
+ * ulang ditolak "Found duplicate resource: Encounter" (RuleNumber 20002). Ketemu → dipetakan dengan
+ * hash kosong agar job ini mengirim PUT berisi data terkini. Cari gagal → POST dibatalkan (bukan
+ * nekat POST yang berisiko ganda).
+ */
+async function resolveEncounter(
+  env: SatuSehatMode,
+  orgId: string,
+  k: { id: string; noKunjungan: string },
+  audit: Audit,
+): Promise<{ ok: true; row: Awaited<ReturnType<typeof resourceMapDal.findByLocal>> } | { ok: false; message: string; retryable: boolean }> {
+  const res = await fhirRequest<Bundle>(
+    { method: "GET", path: `Encounter?identifier=${encodeURIComponent(`${orgIdentifierSystem("encounter", orgId)}|${k.noKunjungan}`)}` },
+    { ...audit, endpoint: "Encounter?identifier={noKunjungan}", resourceType: "Encounter", localType: "Encounter", localId: k.id, kunjunganId: k.id },
+  );
+  if (!res.ok) {
+    return { ok: false, message: `Cek Encounter by identifier gagal — POST dibatalkan agar tidak ganda: ${res.error.message}`, retryable: res.error.retryable };
+  }
+  const found = (res.value.body?.entry ?? []).flatMap(({ resource: r }) =>
+    r?.resourceType === "Encounter" && r.id ? [{ id: r.id, versionId: r.meta?.versionId ?? null }] : []);
+  if (found.length > 1) {
+    return { ok: false, message: `Ada ${found.length} Encounter ber-identifier ${k.noKunjungan} di SatuSehat — perlu dibereskan manual`, retryable: false };
+  }
+  if (!found.length) return { ok: true, row: null };
+  const row = await resourceMapDal.upsert({
+    env, localType: "Encounter", localId: k.id, resourceType: "Encounter",
+    ihsId: found[0].id, versionId: found[0].versionId, hash: null, kunjunganId: k.id,
+  });
+  return { ok: true, row };
 }
 
 async function authorOf(env: string, pegawaiId: string | null): Promise<Ref | undefined> {

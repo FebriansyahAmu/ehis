@@ -3,7 +3,8 @@
  * di-resolve oleh pemanggil.
  *
  * Status: InService → in-progress · Completed/Closed/Billed/Claimed → finished · Cancelled → cancelled.
- * statusHistory: arrived [waktuKunjungan → dilayaniAt] → in-progress [dilayaniAt → selesaiAt] → finished.
+ * statusHistory: arrived [waktuKunjungan → dilayaniAt] → in-progress [dilayaniAt → selesaiAt] → finished
+ * (urutan dijamin `encounterTimeline`).
  * Contoh resmi: docs/fhir-postman/resources/Encounter.json + bundles/*.json (entry Encounter).
  */
 
@@ -109,11 +110,36 @@ function serviceClassExtension(e: LocalEncounter) {
   }];
 }
 
+type TimelineSrc = Pick<LocalEncounter, "waktuKunjungan" | "dilayaniAt" | "selesaiAt">;
+
+/**
+ * Garis waktu Encounter yang dijamin urut (datang ≤ dilayani ≤ selesai). SatuSehat menolak
+ * `statusHistory.period` dengan start > end (FHIRPath `per-1`) dan menolak SELURUH Bundle.
+ *
+ * Kenapa bisa terbalik: `waktuKunjungan` dari form pendaftaran disimpan sebagai jam dinding yang
+ * dilabeli UTC (TECH_DEBT zona waktu), sedangkan `dilayaniAt` = waktu nyata saat Terima. Jam daftar
+ * jadi tampak 7–9 jam LEBIH LAMBAT dari jam diterima. Bila terbalik, awal kunjungan dikirim = jam
+ * diterima (tidak pernah memajukan waktu); begitu juga jam selesai yang lebih awal dari jam diterima.
+ * `adjusted` = catatan untuk pratinjau konsol.
+ */
+export function encounterTimeline(e: TimelineSrc, status: EncounterStatus) {
+  const served = e.dilayaniAt ?? e.waktuKunjungan;
+  const arrived = e.waktuKunjungan.getTime() > served.getTime() ? served : e.waktuKunjungan;
+  const rawDone = status === "finished" ? (e.selesaiAt ?? served) : null;
+  const done = rawDone && rawDone.getTime() < served.getTime() ? served : rawDone;
+  const adjusted: string[] = [];
+  if (arrived !== e.waktuKunjungan) {
+    adjusted.push("Jam kunjungan dari form pendaftaran lebih lambat dari jam diterima (kemungkinan selisih zona waktu) — awal kunjungan dikirim = jam diterima");
+  }
+  if (done !== rawDone) {
+    adjusted.push("Jam selesai lebih awal dari jam diterima — akhir kunjungan dikirim = jam diterima");
+  }
+  return { arrived, served, done, adjusted };
+}
+
 export function toFhirEncounter(e: LocalEncounter, refs: EncounterRefs, status: EncounterStatus): FhirEncounter {
   const t = toFhirDateTime;
-  const arrived = e.waktuKunjungan;
-  const served = e.dilayaniAt ?? e.waktuKunjungan;
-  const done = status === "finished" ? (e.selesaiAt ?? served) : null;
+  const { arrived, served, done } = encounterTimeline(e, status);
 
   const history: { status: EncounterStatus; period: { start: string; end?: string } }[] = [
     { status: "arrived", period: { start: t(arrived), end: t(served) } },

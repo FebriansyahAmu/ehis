@@ -11,7 +11,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
-import type { Bundle, FhirError, FhirResourceBase, SatuSehatMode } from "@/lib/fhir/fhirShared";
+import { parseEntryResponse, type Bundle, type FhirError, type FhirResourceBase, type SatuSehatMode } from "@/lib/fhir/fhirShared";
 import { fhirRequest, type FhirRequestAudit } from "./transport";
 import { hashOf, upsertClinicalResource, type UpsertResult } from "./resourceUpsert";
 
@@ -186,12 +186,10 @@ function bundleSink(env: SatuSehatMode, audit: Audit, kunjunganId?: string): Res
       if (!res.ok) return { ok: false, error: res.error };
 
       const entries = res.value.body?.entry ?? [];
+      const parsed = list.map((_, i) => parseEntryResponse(entries[i]?.response));
       const resolved = new Map<string, string>();
       for (const [i, p] of list.entries()) {
-        const e = entries[i];
-        const loc = e?.response?.location ?? "";
-        const idFromLoc = loc.split("/")[1]; // "Type/<id>/_history/<v>"
-        const ihsId = p.method === "PUT" ? p.ihsId : (e?.resource?.id ?? idFromLoc);
+        const ihsId = p.method === "PUT" ? p.ihsId : (entries[i]?.resource?.id ?? parsed[i].id);
         if (!ihsId) {
           return { ok: false, error: { type: "HttpError", status: res.value.status, message: `Respons Bundle tanpa id untuk entry ${i + 1} (${p.resource.resourceType})`, retryable: false } };
         }
@@ -202,7 +200,7 @@ function bundleSink(env: SatuSehatMode, audit: Audit, kunjunganId?: string): Res
       for (const [i, p] of list.entries()) {
         let json = JSON.stringify(p.resource);
         for (const [tmp, real] of resolved) json = json.split(tmp).join(real);
-        const versionId = (entries[i]?.response?.location ?? "").split("/")[3] ?? null;
+        const versionId = parsed[i].versionId;
         await resourceMapDal.upsert({
           env, localType: p.localType, localId: p.localId, resourceType: p.resource.resourceType,
           ihsId: resolved.get(p.ihsId) ?? p.ihsId,
