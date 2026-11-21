@@ -120,10 +120,12 @@ export function Pill({ label, tone = "slate", dot }: { label: string; tone?: Ton
 // ── Buttons ───────────────────────────────────────────────
 
 export function Button({
-  children, onClick, loading, disabled, variant = "primary", icon: Icon, type = "button", title, ariaExpanded, ariaControls, ref,
+  children, onClick, loading, disabled, variant = "primary", icon: Icon, type = "button", title, ariaExpanded, ariaControls, ariaDescribedby, ref,
 }: {
   /** Untuk memindah fokus (mis. ke aksi aman saat konfirmasi inline muncul). */
   ref?: React.Ref<HTMLButtonElement>;
+  /** Teks konsekuensi yang dibacakan saat tombol menerima fokus (mis. Batal di konfirmasi). */
+  ariaDescribedby?: string;
   children: React.ReactNode;
   onClick?: () => void;
   loading?: boolean;
@@ -146,6 +148,7 @@ export function Button({
       aria-busy={loading || undefined}
       aria-expanded={ariaExpanded}
       aria-controls={ariaControls}
+      aria-describedby={ariaDescribedby}
       className={cn(
         "inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition outline-none",
         "focus-visible:ring-2 focus-visible:ring-teal-300 disabled:cursor-not-allowed disabled:opacity-50",

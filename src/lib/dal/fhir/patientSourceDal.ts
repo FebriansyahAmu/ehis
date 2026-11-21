@@ -14,6 +14,28 @@ export function getPatient(id: string, tx?: Tx) {
 }
 
 /**
+ * Pasien + elemen tambahan untuk POST Patient (Playbook MPI): No. KK, kontak, status kawin, dan
+ * alamat KTP beserta kode wilayah Kemendagri. Hanya alamat KTP — Dukcapil mencocokkan dengan KTP.
+ */
+export function getPatientForCreate(id: string, tx?: Tx) {
+  return db(tx).pasien.findFirst({
+    where: { id, deletedAt: null },
+    select: {
+      ...SELECT,
+      noKkEnc: true, noHp: true, statusPerkawinan: true,
+      alamat: {
+        where: { jenis: "KTP" },
+        take: 1,
+        select: {
+          alamat: true, rtRw: true, kodePos: true,
+          provinsiKode: true, kotaKode: true, kotaNama: true, kecamatanKode: true, kelurahanKode: true,
+        },
+      },
+    },
+  });
+}
+
+/**
  * Pasien yang BELUM punya peta Patient di env ini — kandidat batch resolve. Hanya yang
  * bisa di-resolve via NIK: non-anonim, non-WNA, ber-NIK, bukan hasil merge. Terbaru dulu
  * (pasien aktif lebih mungkin segera butuh Encounter).

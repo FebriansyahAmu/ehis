@@ -45,6 +45,38 @@ export interface PatientBatchDTO {
   durationMs: number;
 }
 
+/**
+ * Daftarkan pasien ke SatuSehat (Playbook MPI "Pasien dengan NIK"): GET by NIK dulu; POST Patient
+ * HANYA bila tidak ditemukan.
+ * - `cached`     sudah terpetakan di mode ini — tidak ada panggilan
+ * - `resolved`   GET menemukan pasien → dipetakan TANPA POST
+ * - `created`    POST berhasil → IHS baru dipetakan
+ * - `incomplete` elemen wajib belum lengkap → tidak ada panggilan
+ * - `failed`     GET/POST gagal (mis. data tidak cocok Dukcapil) → peta tidak berubah
+ */
+export type PatientRegisterOutcome = "cached" | "resolved" | "created" | "incomplete" | "failed";
+
+export interface PatientRegisterDTO {
+  patientId: string;
+  noRm: string;
+  mode: "mock" | "sandbox" | "prod";
+  outcome: PatientRegisterOutcome;
+  ihsId: string | null;
+  lastSyncAt: string | null;
+  message: string;
+  /** Elemen wajib yang belum ada (outcome `incomplete`). */
+  kurang?: string[];
+  /** Rincian penolakan SatuSehat per elemen (OperationOutcome), bila ada. */
+  issues?: string[];
+}
+
+/** Kesiapan POST Patient untuk ditampilkan di konsol (tanpa panggilan SatuSehat). */
+export interface PatientCreateCheckDTO {
+  siap: boolean;
+  kurang: string[];
+  saran: string[];
+}
+
 export interface NikLookupDTO {
   mode: "mock" | "sandbox" | "prod";
   found: boolean;

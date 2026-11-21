@@ -2,9 +2,15 @@
 // Konsumen: badge IHS registrasi · konsol /ehis-fhir (FH9).
 
 import { api } from "@/lib/api/client";
-import type { NikLookupDTO, PatientBatchDTO, PatientIhsDTO } from "@/lib/schemas/fhir/patient";
+import type { NikLookupDTO, PatientBatchDTO, PatientIhsDTO, PatientRegisterDTO } from "@/lib/schemas/fhir/patient";
 
-export type { NikLookupDTO, PatientBatchDTO, PatientIhsDTO };
+export type { NikLookupDTO, PatientBatchDTO, PatientIhsDTO, PatientRegisterDTO };
+
+/** Daftarkan pasien ke SatuSehat: GET by NIK dulu, POST Patient hanya bila tidak ditemukan. */
+export async function registerPatient(patientId: string): Promise<PatientRegisterDTO> {
+  const { data } = await api.post<PatientRegisterDTO>(`/fhir/patient/${patientId}/register`, {});
+  return data;
+}
 
 /** Status peta IHS pasien (tanpa panggilan SatuSehat). */
 export async function getPatientIhs(patientId: string, signal?: AbortSignal): Promise<PatientIhsDTO> {

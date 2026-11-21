@@ -2,8 +2,10 @@
 //
 // Read-only. Detail menampilkan: data master lokal apa adanya (NIK dimasker), baris peta ResourceMap,
 // payload FHIR — Organization/Location dari builder yang SAMA dengan sinkron (previewMaster);
-// Practitioner/Patient = representasi profil SATUSEHAT (adapters/identity, TIDAK dikirim — RS hanya
-// GET by NIK) — serta request SatuSehat. Payload tidak disimpan (dibangun ulang dari data terkini, R14).
+// Practitioner = representasi profil SATUSEHAT (adapters/identity, TIDAK dikirim — RS hanya GET by NIK);
+// Patient belum terpetakan = body POST Patient (adapters/patientCreate, dikirim HANYA bila GET by NIK
+// tidak menemukan pasien) + kesiapan elemen wajib — serta request SatuSehat. Payload tidak disimpan
+// (dibangun ulang dari data terkini, R14).
 
 import "server-only";
 import { getSatuSehatConfig } from "@/lib/fhir/server/config";
@@ -14,6 +16,7 @@ import * as resourceMapDal from "@/lib/dal/fhir/resourceMapDal";
 import * as sourceDal from "@/lib/dal/fhir/onboardingSourceDal";
 import * as patientSourceDal from "@/lib/dal/fhir/patientSourceDal";
 import { NON_NAKES, previewMaster } from "./onboardingService";
+import { previewPatientCreate } from "./patientIhsService";
 import { toFhirPatientView, toFhirPractitionerView } from "@/lib/fhir/adapters/identity";
 import type { FhirResourceBase } from "@/lib/fhir/fhirShared";
 import type {
@@ -106,7 +109,7 @@ export async function getItem(jenis: PrereqJenis, localId: string): Promise<Prer
   const map = m
     ? { id: m.id, ihsId: m.ihsId, versionId: m.versionId, hash: m.hash, lastSyncAt: m.lastSyncAt.toISOString() }
     : null;
-  const base = { jenis, resourceType, localId, map };
+  const base = { jenis, resourceType, localId, map, mode: env };
 
   if (jenis === "organization" || jenis === "location") {
     // Pratinjau sekaligus mengembalikan baris lokal (PK lookup) — tak memuat master 2×.
@@ -149,6 +152,8 @@ export async function getItem(jenis: PrereqJenis, localId: string): Promise<Prer
   const p = await patientSourceDal.getPatient(localId);
   if (!p) throw Errors.notFound("Pasien tidak ditemukan");
   const nik = nikMasked(p.nikEnc);
+  // Belum terpetakan → tampilkan body POST Patient yang AKAN dikirim bila GET by NIK tak menemukan.
+  const create = !map && nik && !p.isAnonim && !p.isWna ? await previewPatientCreate(localId, nikMasked) : null;
   return {
     ...base,
     kode: p.noRm,
@@ -158,12 +163,15 @@ export async function getItem(jenis: PrereqJenis, localId: string): Promise<Prer
       tanggalLahir: iso(p.tanggalLahir)?.slice(0, 10) ?? null,
       nik, isAnonim: p.isAnonim, isWna: p.isWna, mergedIntoId: p.mergedIntoId, idSatusehat: p.idSatusehat,
     },
-    payload: toFhirPatientView({ ...p, nik }, { ihsId: map?.ihsId }),
+    payload: create?.payload ?? toFhirPatientView({ ...p, nik }, { ihsId: map?.ihsId }),
     payloadStatus: null,
-    payloadNote: nik
-      ? GET_ONLY_NOTE.Patient
-      : "Tanpa NIK — belum bisa dicari (jalur pasien tanpa NIK/anonim/WNA belum didukung). Payload di bawah tanpa identifier NIK.",
+    payloadNote: !nik
+      ? "Tanpa NIK — belum bisa dicari (jalur pasien tanpa NIK/anonim/WNA belum didukung). Payload di bawah tanpa identifier NIK."
+      : create
+        ? "Belum terpetakan. Langkah Playbook: GET by NIK dulu; bila pasien tidak ditemukan, RS wajib POST Patient (body di tab Payload FHIR) — SatuSehat mencocokkan datanya dengan Dukcapil."
+        : GET_ONLY_NOTE.Patient,
     request: nik ? { method: "GET", path: `Patient?identifier=${FHIR_SYSTEM.nik}|${nik}` } : null,
+    patientCreate: create?.check ?? null,
   };
 }
 
@@ -171,7 +179,7 @@ const GET_ONLY_NOTE = {
   Practitioner:
     "Representasi FHIR dari data pegawai (profil SATUSEHAT) — TIDAK dikirim: RS hanya GET by NIK; data resmi Practitioner milik SDMK.",
   Patient:
-    "Representasi FHIR dari data pasien (profil SATUSEHAT) — TIDAK dikirim: RS hanya GET by NIK; data resmi Patient milik SatuSehat (Dukcapil/MPI).",
+    "Representasi FHIR dari data pasien (profil SATUSEHAT) — tidak dikirim ulang: pasien sudah terpetakan; data resmi Patient milik SatuSehat (Dukcapil/MPI).",
 } as const;
 
 /**

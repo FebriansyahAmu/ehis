@@ -165,11 +165,18 @@ Swap mock→real = ganti isi connector (`SATUSEHAT_MODE`) → **Route & FE tak b
 - Service baru yang memanggil `fhirRequest` WAJIB menyertakan tautan data (`localType`/`localId`, klinis +
   `kunjunganId`; Bundle + `localRefs` berurutan) agar riwayatnya muncul di tab **Log pengiriman** konsol.
 
-## R15 — Resolve-first onboarding (Patient/Practitioner GET-only)
+## R15 — Resolve-first onboarding (Practitioner GET-only · Patient GET lalu POST bila tak ada)
 
 - **Patient**: resolve IHS via `GET /Patient?identifier=https://fhir.kemkes.go.id/id/nik|<nik>` → Bundle;
   IHS = `Patient.id` + identifier `.../id/ihs-number`. Simpan ke `pendaftaran.Pasien.idSatusehat` **dan**
   `ResourceMap`. **RS tidak "membuat" master pasien membuta** — resolve dulu.
+- **Patient belum terdaftar** (Playbook MPI "Pasien dengan NIK", langkah 2): bila GET by NIK kosong, RS **wajib**
+  `POST /Patient` — elemen wajib identifier NIK · name · birthDate · gender · address + extension
+  `administrativeCode` (kode Kemendagri datar: provinsi 2 · kota 4 · kecamatan 6 · kelurahan 10 digit); opsional
+  tempat lahir · No. KK · telecom. SatuSehat mencocokkan dengan KTP di Dukcapil (nama TANPA gelar, alamat KTP).
+  Implementasi `registerPatient` **selalu GET dulu di request yang sama** (sudah ada → petakan tanpa POST; 409 →
+  GET ulang), cek kelengkapan sebelum memanggil, dan **dipicu operator** (`fhir.sync:create`) — worker
+  Encounter tetap GET-only (tak membuat data MPI tanpa pemeriksaan). Bayi baru lahir (`nik-ibu`) belum (FG-20).
 - **Practitioner**: **GET-only** (RS tak create nakes) — resolve by NIK nakes, simpan IHS.
 - **Organization/Location**: search dulu (by name/identifier), create/PUT bila belum ada, simpan IHS.
 
@@ -346,6 +353,9 @@ registrasi/aksi → resolvePatientIhs(nik)
   else → GET /Patient?identifier=<nik-system>|<nik>
     Bundle.total>0 → simpan idSatusehat + ResourceMap → return ihsId
     total=0 → PatientNotFound (belum terdaftar SatuSehat / NIK salah)
+      operator "Daftarkan" (registerPatient) → cek elemen wajib → GET ulang → masih kosong → POST /Patient
+        2xx → simpan id (Pasien.idSatusehat hanya prod) + ResourceMap
+        4xx → OperationOutcome per elemen (mis. tak cocok Dukcapil) → peta tidak berubah
 ```
 
 **3) Encounter bundle (R4/R16)**

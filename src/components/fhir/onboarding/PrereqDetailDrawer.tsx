@@ -3,8 +3,9 @@
 // Drawer detail mentah 1 data Prerequisites. Tab:
 //   Ringkasan  — status peta IHS, versi, hash, request SatuSehat, catatan
 //   Data lokal — baris master RS apa adanya (JSON, NIK dimasker)
-//   Payload FHIR — Organization/Location: payload sinkron; Practitioner/Patient: representasi profil
-//                  SATUSEHAT dari data lokal (tidak dikirim) + request GET by NIK
+//   Payload FHIR — Organization/Location: payload sinkron; Practitioner (dan Patient terpetakan):
+//                  representasi profil SATUSEHAT (tidak dikirim) + request GET by NIK; Patient belum
+//                  terpetakan: body POST Patient (dikirim hanya bila GET by NIK tidak menemukan)
 //   Log pengiriman — riwayat panggilan SatuSehat untuk data ini (request & response tercatat)
 // shadcn Sheet (Radix Dialog): focus trap, Esc, klik luar, judul = SheetTitle.
 
@@ -17,6 +18,7 @@ import { getPrereqItem, type PrereqItemDetailDTO, type PrereqJenis } from "@/lib
 import { Button, Pill, SkeletonRows, TONE_SOFT, errMsg, isAbort } from "../fhirShared";
 import { useSendPrereqItem, type SendNotice, type SendTone } from "./useSendPrereqItem";
 import { IhsLookupPanel } from "./IhsLookupPanel";
+import { PatientRegisterAction } from "./PatientRegisterAction";
 import { PAYLOAD_STATUS, groupTone, metaOf } from "../resource/resourceCatalog";
 import { Callout, CopyButton, IdChip, JsonView, PayloadStatusPill } from "../resource/resourceUi";
 import { fmtDateTime } from "../resource/resourceTime";
@@ -95,7 +97,7 @@ function SendFooter({ jenis, d, busy, notice, onDismiss, onSend }: {
   const hint = isRoot
     ? d.map ? "Root RS sudah dipetakan ke Organization ID DevHub — tak perlu dikirim." : "Root RS dipetakan ke Organization ID DevHub (tanpa panggilan)."
     : blocked ? "Tanpa NIK valid — belum bisa dicari di SatuSehat."
-    : getOnly ? (d.map ? "Cari ulang IHS id dengan GET by NIK." : "Cari IHS id dengan GET by NIK.")
+    : getOnly ? (d.map ? "Cari ulang IHS id dengan GET by NIK." : d.patientCreate ? "Cari IHS id dengan GET by NIK. Belum terdaftar? Daftarkan di tab Ringkasan." : "Cari IHS id dengan GET by NIK.")
     : d.map ? (d.payloadStatus === "changed" ? "Data berubah — kirim PUT untuk menyelaraskan." : "Sudah terkirim. \"Kirim ulang\" memaksa PUT walau identik.")
     : "Belum terdaftar — kirim untuk mendaftarkan (cari dulu, POST bila belum ada).";
 
@@ -143,6 +145,9 @@ export function PrereqDetailDrawer({
   // Naik setiap item dikirim → detail (status/IHS/hash) & log pengiriman dimuat ulang.
   const [version, setVersion] = useState(0);
 
+  // Pasien yang baru didaftarkan: panel hasil tetap tampil walau detail termuat ulang sudah terpetakan.
+  const [registered, setRegistered] = useState<string | null>(null);
+
   const afterSend = useCallback(() => {
     setVersion((v) => v + 1);
     onSent?.();
@@ -168,6 +173,8 @@ export function PrereqDetailDrawer({
   const m = metaOf(resourceType);
   const Icon = m.icon;
   const isGetOnly = jenis === "practitioner" || jenis === "patient";
+  const createCheck = jenis === "patient" ? d?.patientCreate ?? null : null;
+  const showRegister = canSend && !!d && !!localId && jenis === "patient" && (!!createCheck || registered === localId);
   const fhirValue = d?.payload ?? null;
   const state = loading ? <SkeletonRows rows={6} /> : error ? <Callout tone="rose" icon={TriangleAlert}>{error}</Callout> : null;
   // Tab payload/request tak bermakna bila kosong (mis. root RS, pasien tanpa NIK) → jatuh ke Ringkasan.
@@ -240,7 +247,28 @@ export function PrereqDetailDrawer({
                       <code className="min-w-0 flex-1 truncate font-mono text-[11px] text-slate-700">{d.request.path}</code>
                       <CopyButton text={`${d.request.method} ${d.request.path}`} label="Salin" />
                     </div>
+                    {createCheck && (
+                      <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-dashed border-slate-200 px-3 py-2">
+                        <Pill label="POST" tone="sky" />
+                        <code className="min-w-0 flex-1 truncate font-mono text-[11px] text-slate-700">Patient</code>
+                        <span className="shrink-0 text-[11px] text-slate-400">hanya bila GET tidak menemukan</span>
+                      </div>
+                    )}
                   </div>
+                )}
+
+                {showRegister && localId && (
+                  <PatientRegisterAction
+                    key={localId}
+                    localId={localId}
+                    nama={d.nama}
+                    mode={d.mode}
+                    check={createCheck}
+                    onDone={(r) => {
+                      if (r.outcome === "created" || r.outcome === "resolved" || r.outcome === "cached") setRegistered(localId);
+                      afterSend();
+                    }}
+                  />
                 )}
               </div>
             ))}
@@ -258,7 +286,12 @@ export function PrereqDetailDrawer({
           <TabsContent value="fhir" className="min-h-0 overflow-y-auto px-5 py-4">
             {state ?? (fhirValue ? (
               <div className="flex flex-col gap-2">
-                {isGetOnly ? (
+                {createCheck ? (
+                  <Callout tone="sky" icon={Info}>
+                    Body <b>POST Patient</b> dari data lokal — dikirim <b>hanya bila</b> GET by NIK di bawah tidak menemukan
+                    pasien (Playbook MPI). NIK/KK dimasker di tampilan ini; yang dikirim nilai asli.
+                  </Callout>
+                ) : isGetOnly ? (
                   <Callout tone="sky" icon={Info}>
                     Representasi <b>{resourceType}</b> menurut profil SATUSEHAT, disusun dari data lokal (NIK dimasker).
                     Resource ini <b>tidak dikirim</b> — RS hanya mencari IHS id dengan request GET di bawah.

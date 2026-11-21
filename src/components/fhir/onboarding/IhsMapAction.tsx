@@ -77,7 +77,8 @@ export function IhsMapAction({
   const shared = r.lokal && r.lokal.localId !== localId ? r.lokal : null;
 
   return (
-    <section aria-labelledby={titleId} className="rounded-xl border border-teal-200 bg-teal-50/40">
+    // <div>, bukan <section aria-labelledby>: section berlabel menjadi landmark region yang tak perlu.
+    <div className="rounded-xl border border-teal-200 bg-teal-50/40">
       <div className="flex flex-wrap items-start justify-between gap-3 px-3 py-2.5">
         <div className="min-w-0 flex-1">
           <h4 id={titleId} className="flex flex-wrap items-center gap-1.5 text-xs font-bold text-slate-800">
@@ -99,7 +100,8 @@ export function IhsMapAction({
 
       {phase !== "idle" && (
         <div className="border-t border-teal-100 px-3 py-2.5">
-          <ul className="flex flex-col gap-1.5 text-[11px] leading-relaxed text-slate-600">
+          {/* role="list": Safari membuang semantik list pada <ul> ber-display flex. */}
+          <ul role="list" className="flex flex-col gap-1.5 text-[11px] leading-relaxed text-slate-600">
             {replacing && (
               <li className="flex gap-1.5">
                 <TriangleAlert size={12} className="mt-0.5 shrink-0 text-amber-600" aria-hidden />
@@ -136,6 +138,6 @@ export function IhsMapAction({
           <Callout tone="rose" icon={TriangleAlert}>{error}</Callout>
         </div>
       )}
-    </section>
+    </div>
   );
 }

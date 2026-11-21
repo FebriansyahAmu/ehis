@@ -3,6 +3,7 @@
 
 import { z } from "zod";
 import type { PayloadStatus } from "./resources";
+import type { PatientCreateCheckDTO } from "./patient";
 
 export const ONBOARDING_JENIS = ["organization", "location", "practitioner"] as const;
 export type OnboardingJenis = (typeof ONBOARDING_JENIS)[number];
@@ -82,6 +83,7 @@ export interface PrereqItemPageDTO {
 
 export interface PrereqItemDetailDTO {
   jenis: PrereqJenis;
+  mode: "mock" | "sandbox" | "prod";
   resourceType: string;
   localId: string;
   kode: string;
@@ -96,6 +98,8 @@ export interface PrereqItemDetailDTO {
   payloadNote: string | null;
   /** Request SatuSehat yang akan/telah dipakai (NIK dimasker). */
   request: { method: "GET" | "POST" | "PUT"; path: string } | null;
+  /** Patient belum terpetakan ber-NIK: kesiapan POST Patient (bila GET by NIK tak menemukan). */
+  patientCreate?: PatientCreateCheckDTO | null;
 }
 
 export interface OnboardingSummaryDTO {
