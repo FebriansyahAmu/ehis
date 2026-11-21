@@ -6,11 +6,12 @@
 // berhasil/gagal) tanpa menunggu sinkron massal.
 
 import { useCallback, useEffect, useId, useState } from "react";
-import { ChevronLeft, ChevronRight, Inbox, ScanSearch, Search, Send } from "lucide-react";
+import { ChevronLeft, ChevronRight, Fingerprint, Inbox, ScanSearch, Search, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/ui/toastStore";
 import { listPrereqItems, type PrereqItemPageDTO, type PrereqJenis } from "@/lib/api/fhir/onboarding";
 import { useSendPrereqItem } from "./useSendPrereqItem";
+import { IhsLookupPanel } from "./IhsLookupPanel";
 import {
   Button, EmptyState, FHIR_ACCENT, Pill, SectionCard, SkeletonRows, errMsg, isAbort,
   tableCls, tableWrap, tdCls, thCls, trCls,
@@ -53,6 +54,7 @@ export function PrereqDataList({
   const [data, setData] = useState<PrereqItemPageDTO | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  const [ihsOpen, setIhsOpen] = useState(false);
 
   // Sesudah kirim: segarkan baris (status/IHS id) di halaman yang sama + ringkasan induk.
   const afterSend = useCallback(() => {
@@ -120,7 +122,25 @@ export function PrereqDataList({
             ))}
           </div>
         </fieldset>
+        {isGetOnly && (
+          <Button
+            variant={ihsOpen ? "primary" : "secondary"}
+            icon={Fingerprint}
+            onClick={() => setIhsOpen((v) => !v)}
+            title={`Ambil ${resource} langsung dari SatuSehat berdasarkan Nomor IHS`}
+            ariaExpanded={ihsOpen}
+            ariaControls={`${searchId}-ihs`}
+          >
+            GET by IHS
+          </Button>
+        )}
       </div>
+
+      {isGetOnly && ihsOpen && (
+        <div id={`${searchId}-ihs`} className="border-b border-slate-100 bg-slate-50/60 p-4">
+          <IhsLookupPanel resourceType={jenis === "practitioner" ? "Practitioner" : "Patient"} />
+        </div>
+      )}
 
       {!data ? <SkeletonRows rows={6} /> : data.rows.length === 0 ? (
         <EmptyState

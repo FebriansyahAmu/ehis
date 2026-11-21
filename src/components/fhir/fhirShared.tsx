@@ -120,7 +120,7 @@ export function Pill({ label, tone = "slate", dot }: { label: string; tone?: Ton
 // ── Buttons ───────────────────────────────────────────────
 
 export function Button({
-  children, onClick, loading, disabled, variant = "primary", icon: Icon, type = "button", title,
+  children, onClick, loading, disabled, variant = "primary", icon: Icon, type = "button", title, ariaExpanded, ariaControls,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
@@ -130,6 +130,9 @@ export function Button({
   icon?: LucideIcon;
   type?: "button" | "submit";
   title?: string;
+  /** Tombol pembuka/penutup panel (disclosure). */
+  ariaExpanded?: boolean;
+  ariaControls?: string;
 }) {
   return (
     <button
@@ -138,6 +141,8 @@ export function Button({
       onClick={onClick}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
+      aria-expanded={ariaExpanded}
+      aria-controls={ariaControls}
       className={cn(
         "inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition outline-none",
         "focus-visible:ring-2 focus-visible:ring-teal-300 disabled:cursor-not-allowed disabled:opacity-50",

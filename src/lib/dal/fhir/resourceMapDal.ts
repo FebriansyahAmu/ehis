@@ -21,6 +21,15 @@ export function findByLocal(env: string, localType: string, localId: string, tx?
   });
 }
 
+/** Data lokal pemilik 1 IHS id (index `env, resource_type, ihs_id`). Bisa >1 bila data ganda → ambil terbaru. */
+export function findByIhs(env: string, resourceType: string, ihsId: string, tx?: Tx) {
+  return db(tx).resourceMap.findFirst({
+    where: { env, resourceType, ihsId },
+    orderBy: { lastSyncAt: "desc" },
+    select: { localType: true, localId: true, lastSyncAt: true },
+  });
+}
+
 export function findManyByLocal(env: string, localType: string, localIds: string[], tx?: Tx) {
   return db(tx).resourceMap.findMany({ where: { env, localType, localId: { in: localIds } } });
 }

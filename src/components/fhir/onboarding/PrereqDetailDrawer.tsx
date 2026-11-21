@@ -16,12 +16,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getPrereqItem, type PrereqItemDetailDTO, type PrereqJenis } from "@/lib/api/fhir/onboarding";
 import { Button, Pill, SkeletonRows, TONE_SOFT, errMsg, isAbort } from "../fhirShared";
 import { useSendPrereqItem, type SendNotice, type SendTone } from "./useSendPrereqItem";
+import { IhsLookupPanel } from "./IhsLookupPanel";
 import { PAYLOAD_STATUS, groupTone, metaOf } from "../resource/resourceCatalog";
 import { Callout, CopyButton, IdChip, JsonView, PayloadStatusPill } from "../resource/resourceUi";
 import { fmtDateTime } from "../resource/resourceTime";
 import { SendLogPanel } from "../log/SendLogPanel";
 
-type Tab = "ringkasan" | "lokal" | "fhir" | "log";
+type Tab = "ringkasan" | "lokal" | "fhir" | "satusehat" | "log";
 
 export const PREREQ_RESOURCE: Record<PrereqJenis, string> = {
   organization: "Organization",
@@ -206,6 +207,7 @@ export function PrereqDetailDrawer({
               <TabsTrigger value="ringkasan" className={TAB_TRIGGER}>Ringkasan</TabsTrigger>
               <TabsTrigger value="lokal" className={TAB_TRIGGER}>Data lokal</TabsTrigger>
               <TabsTrigger value="fhir" disabled={!fhirValue} className={TAB_TRIGGER}>Payload FHIR</TabsTrigger>
+              {isGetOnly && <TabsTrigger value="satusehat" className={TAB_TRIGGER}>Data SatuSehat</TabsTrigger>}
               <TabsTrigger value="log" className={TAB_TRIGGER}>Log pengiriman</TabsTrigger>
             </TabsList>
           </div>
@@ -276,6 +278,29 @@ export function PrereqDetailDrawer({
               </div>
             ) : null)}
           </TabsContent>
+
+          {/* GET /Practitioner|Patient/{id} — data asli SatuSehat (bukan representasi lokal). Tak otomatis:
+              tiap ambil = 1 panggilan ke SatuSehat, jadi operator menekan "Ambil" sendiri. */}
+          {isGetOnly && (
+            <TabsContent value="satusehat" className="min-h-0 overflow-y-auto px-5 py-4">
+              {state ?? (d && localId && (
+                <div className="flex flex-col gap-3">
+                  <Callout tone="sky" icon={Info}>
+                    {d.map
+                      ? <>Ambil data <b>{resourceType}</b> yang tersimpan di SatuSehat untuk Nomor IHS terpetakan — bandingkan dengan Data lokal / Payload FHIR.</>
+                      : <>Data ini <b>belum terpetakan</b>. Masukkan Nomor IHS untuk melihat datanya di SatuSehat, atau pakai <b>Cari IHS</b> (GET by NIK) untuk memetakan.</>}
+                  </Callout>
+                  <IhsLookupPanel
+                    key={`${localId}|${d.map?.ihsId ?? ""}`}
+                    compact
+                    resourceType={resourceType as "Practitioner" | "Patient"}
+                    defaultIhs={d.map?.ihsId}
+                    localId={localId}
+                  />
+                </div>
+              ))}
+            </TabsContent>
+          )}
 
           {/* Konten tab tak dirender saat tak aktif → log baru diambil ketika tab dibuka. */}
           <TabsContent value="log" className="min-h-0 overflow-y-auto px-5 py-4">
