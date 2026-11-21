@@ -109,10 +109,10 @@ export async function getItem(jenis: PrereqJenis, localId: string): Promise<Prer
   const base = { jenis, resourceType, localId, map };
 
   if (jenis === "organization" || jenis === "location") {
-    const rows = jenis === "organization" ? await sourceDal.listOrganizations() : await sourceDal.listLocations();
-    const local = rows.find((r) => r.id === localId);
-    if (!local) throw Errors.notFound(`${resourceType} lokal tidak ditemukan`);
+    // Pratinjau sekaligus mengembalikan baris lokal (PK lookup) — tak memuat master 2×.
     const preview = await previewMaster(resourceType as "Organization" | "Location", localId);
+    const local = preview.local;
+    if (!local) throw Errors.notFound(`${resourceType} lokal tidak ditemukan`);
     const isRoot = "isRoot" in local && local.isRoot;
     return {
       ...base,
@@ -127,7 +127,7 @@ export async function getItem(jenis: PrereqJenis, localId: string): Promise<Prer
   }
 
   if (jenis === "practitioner") {
-    const p = (await sourceDal.listPractitionerCandidates()).find((x) => x.id === localId);
+    const p = await sourceDal.getPractitionerCandidate(localId);
     if (!p) throw Errors.notFound("Pegawai lokal tidak ditemukan");
     const nik = nikMasked(p.nikEnc);
     return {
@@ -190,7 +190,7 @@ export async function identityView(
       note: p ? GET_ONLY_NOTE.Patient : "Data pasien lokal tidak ditemukan / sudah dihapus",
     };
   }
-  const p = (await sourceDal.listPractitionerCandidates()).find((x) => x.id === localId);
+  const p = await sourceDal.getPractitionerCandidate(localId);
   return {
     resource: p ? toFhirPractitionerView({ ...p, nik: nikMasked(p.nikEnc) }, { ihsId }) : null,
     note: p ? GET_ONLY_NOTE.Practitioner : "Data pegawai lokal tidak ditemukan / nonaktif",

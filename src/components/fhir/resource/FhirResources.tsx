@@ -18,6 +18,7 @@ import { FhirShell, KpiCard, SectionCard, Pill, Button, EmptyState, SkeletonRows
 import { ALL_META, GROUPS, metaOf, groupTone } from "./resourceCatalog";
 import { IdChip, ResourceDrawer } from "./resourceUi";
 import { fmtDateTime, fmtRelative } from "./resourceTime";
+import { SendLogPanel } from "../log/SendLogPanel";
 import { Button as UiButton } from "@/components/ui/button";
 
 const PAGE_SIZE = 24;
@@ -269,6 +270,9 @@ export function ResourceDetailDrawer({ id, onClose }: { id: string | null; onClo
         { label: "Sinkron terakhir", value: fmtDateTime(d.lastSyncAt) },
         { label: "Hash payload", value: d.hash ? <code className="font-mono text-[11px]">{d.hash.slice(0, 16)}…</code> : "— (belum diselaraskan)" },
       ] : []}
+      logPanel={d ? (
+        <SendLogPanel key={d.id} target={{ localType: d.localType, localId: d.localId, kunjunganId: d.kunjunganId }} />
+      ) : null}
       footer={d?.kunjunganId ? (
         <UiButton asChild size="sm" className="text-xs font-semibold">
           <Link href={`/ehis-fhir/kunjungan/${d.kunjunganId}`}>

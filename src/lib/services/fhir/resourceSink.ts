@@ -174,9 +174,14 @@ function bundleSink(env: SatuSehatMode, audit: Audit, kunjunganId?: string): Res
         })),
       };
 
+      // localRefs berurutan = urutan entry → log per resource bisa menunjuk entry-nya di Bundle.
       const res = await fhirRequest<Bundle>(
         { method: "POST", path: "", body: bundle },
-        { ...audit, endpoint: "Bundle(transaction)", resourceType: "Bundle" },
+        {
+          ...audit, endpoint: "Bundle(transaction)", resourceType: "Bundle",
+          localType: "Bundle", localId: kunjunganId, kunjunganId,
+          localRefs: list.map((p) => `${p.localType}|${p.localId}`),
+        },
       );
       if (!res.ok) return { ok: false, error: res.error };
 

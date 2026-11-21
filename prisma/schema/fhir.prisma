@@ -31,6 +31,8 @@ model ResourceMap {
   @@unique([env, localType, localId])
   @@index([env, resourceType, ihsId])
   @@index([env, kunjunganId])
+  /// Konsol Resource: daftar per resourceType terbaru dulu.
+  @@index([env, resourceType, lastSyncAt(sort: Desc)])
   @@map("resource_map")
   @@schema("fhir")
 }
@@ -93,10 +95,41 @@ model FhirAuditLog {
   actor          String
   actorRole      String   @map("actor_role")
   idempotencyKey String?  @map("idempotency_key")
+  /// Data lokal yang dikirim/dicari (Organization/Location/Practitioner/Patient/klinis · "Bundle").
+  localType      String?  @map("local_type")
+  /// PK lokal; Bundle = kunjunganId.
+  localId        String?  @map("local_id")
+  kunjunganId    String?  @map("kunjungan_id") @db.Uuid
+  /// Isi Bundle transaction berurutan "<localType>|<localId>" (indeks = nomor entry).
+  localRefs      String[] @map("local_refs")
+  /// Path nyata (NIK dimasker).
+  requestPath    String?  @map("request_path")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  payload        FhirAuditPayload?
 
   @@index([startedAt])
   @@index([target, endpoint])
+  @@index([mode, localType, localId, startedAt(sort: Desc), id(sort: Desc)], map: "fhir_audit_log_local_idx")
+  @@index([mode, kunjunganId, startedAt(sort: Desc), id(sort: Desc)], map: "fhir_audit_log_kunjungan_idx")
   @@map("fhir_audit_log")
+  @@schema("fhir")
+}
+
+/// Isi request/response 1 panggilan (1:1 audit). TERENKRIPSI AES-256-GCM (encryptPii); NIK & token tak
+/// pernah tersimpan (identifier dimasker, target oauth tak dicatat). Dipangkas setelah masa retensi
+/// (SATUSEHAT_LOG_BODY_DAYS) — baris audit tetap 5 tahun.
+model FhirAuditPayload {
+  auditId       String       @id @map("audit_id") @db.Uuid
+  audit         FhirAuditLog @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  requestEnc    String?      @map("request_enc")
+  responseEnc   String?      @map("response_enc")
+  requestBytes  Int?         @map("request_bytes")
+  responseBytes Int?         @map("response_bytes")
+  /// Body melebihi batas simpan → dipotong (disimpan sebagai teks, bukan JSON utuh).
+  truncated     Boolean      @default(false)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([createdAt])
+  @@map("fhir_audit_payload")
   @@schema("fhir")
 }

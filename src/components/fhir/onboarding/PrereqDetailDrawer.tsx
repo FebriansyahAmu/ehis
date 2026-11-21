@@ -5,6 +5,7 @@
 //   Data lokal — baris master RS apa adanya (JSON, NIK dimasker)
 //   Payload FHIR — Organization/Location: payload sinkron; Practitioner/Patient: representasi profil
 //                  SATUSEHAT dari data lokal (tidak dikirim) + request GET by NIK
+//   Log pengiriman — riwayat panggilan SatuSehat untuk data ini (request & response tercatat)
 // shadcn Sheet (Radix Dialog): focus trap, Esc, klik luar, judul = SheetTitle.
 
 import { useEffect, useState } from "react";
@@ -17,8 +18,9 @@ import { Pill, SkeletonRows, TONE_SOFT, errMsg, isAbort } from "../fhirShared";
 import { PAYLOAD_STATUS, groupTone, metaOf } from "../resource/resourceCatalog";
 import { Callout, CopyButton, IdChip, JsonView, PayloadStatusPill } from "../resource/resourceUi";
 import { fmtDateTime } from "../resource/resourceTime";
+import { SendLogPanel } from "../log/SendLogPanel";
 
-type Tab = "ringkasan" | "lokal" | "fhir";
+type Tab = "ringkasan" | "lokal" | "fhir" | "log";
 
 export const PREREQ_RESOURCE: Record<PrereqJenis, string> = {
   organization: "Organization",
@@ -109,6 +111,7 @@ export function PrereqDetailDrawer({
               <TabsTrigger value="ringkasan" className={TAB_TRIGGER}>Ringkasan</TabsTrigger>
               <TabsTrigger value="lokal" className={TAB_TRIGGER}>Data lokal</TabsTrigger>
               <TabsTrigger value="fhir" disabled={!fhirValue} className={TAB_TRIGGER}>Payload FHIR</TabsTrigger>
+              <TabsTrigger value="log" className={TAB_TRIGGER}>Log pengiriman</TabsTrigger>
             </TabsList>
           </div>
 
@@ -177,6 +180,22 @@ export function PrereqDetailDrawer({
                 <JsonView value={fhirValue} />
               </div>
             ) : null)}
+          </TabsContent>
+
+          {/* Konten tab tak dirender saat tak aktif → log baru diambil ketika tab dibuka. */}
+          <TabsContent value="log" className="min-h-0 overflow-y-auto px-5 py-4">
+            {localId && (
+              <SendLogPanel
+                key={localId}
+                target={{ localType: resourceType, localId }}
+                emptyHint={
+                  !d || d.request ? undefined
+                  : jenis === "organization" ? "Root RS dipetakan langsung ke Organization ID DevHub — tidak pernah dikirim, jadi tak ada panggilan."
+                  : isGetOnly ? "Tanpa NIK valid — data ini belum bisa dicari di SatuSehat, jadi belum ada panggilan."
+                  : undefined
+                }
+              />
+            )}
           </TabsContent>
         </Tabs>
       </SheetContent>

@@ -38,14 +38,15 @@ export async function upsertClinicalResource(args: {
   }
   if (!existing && args.allowCreate === false) return null;
 
+  const link = { localType, localId, kunjunganId };
   const res = existing
     ? await fhirRequest<FhirResourceBase>(
         { method: "PUT", path: `${type}/${existing.ihsId}`, body: { ...resource, id: existing.ihsId } },
-        { ...args.audit, endpoint: `${type}/{id}`, resourceType: type },
+        { ...args.audit, ...link, endpoint: `${type}/{id}`, resourceType: type },
       )
     : await fhirRequest<FhirResourceBase>(
         { method: "POST", path: type, body: resource },
-        { ...args.audit, endpoint: type, resourceType: type },
+        { ...args.audit, ...link, endpoint: type, resourceType: type },
       );
   if (!res.ok) return { ok: false, error: res.error };
 

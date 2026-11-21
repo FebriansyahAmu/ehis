@@ -88,6 +88,8 @@ export interface FhirError {
   message: string;
   issues?: OperationOutcomeIssue[];
   retryable: boolean;
+  /** Body respons gagal apa adanya (JSON/teks terpotong) — HANYA untuk log pengiriman terenkripsi. */
+  body?: unknown;
 }
 
 export function isOperationOutcome(v: unknown): v is OperationOutcome {

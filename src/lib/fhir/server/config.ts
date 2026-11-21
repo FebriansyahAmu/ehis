@@ -44,6 +44,8 @@ const EnvSchema = z.object({
   SATUSEHAT_REQUEST_TIMEOUT_MS: blankToUndef(z.coerce.number().int().positive().default(20_000)),
   /** FH7: bundle = 1 Bundle transaction per kunjungan (default) · single = POST/PUT per resource. */
   SATUSEHAT_SYNC_MODE: blankToUndef(z.enum(["bundle", "single"]).default("bundle")),
+  /** Retensi isi request/response log pengiriman (hari). 0 = isi tidak disimpan (metadata tetap). */
+  SATUSEHAT_LOG_BODY_DAYS: blankToUndef(z.coerce.number().int().min(0).max(3650).default(90)),
 });
 
 export interface SatuSehatConfig {
@@ -58,6 +60,8 @@ export interface SatuSehatConfig {
   requestTimeoutMs: number;
   /** FH7 — cara kirim job kunjungan: 1 Bundle transaction (default) atau per resource. */
   syncMode: "bundle" | "single";
+  /** Hari simpan isi request/response log pengiriman; 0 = tidak disimpan. */
+  logBodyDays: number;
 }
 
 let cached: SatuSehatConfig | null = null;
@@ -84,6 +88,7 @@ export function getSatuSehatConfig(): SatuSehatConfig {
       authBase: "",
       requestTimeoutMs: e.SATUSEHAT_REQUEST_TIMEOUT_MS,
       syncMode: e.SATUSEHAT_SYNC_MODE,
+      logBodyDays: e.SATUSEHAT_LOG_BODY_DAYS,
     };
     return cached;
   }
@@ -106,6 +111,7 @@ export function getSatuSehatConfig(): SatuSehatConfig {
     authBase: (e.SATUSEHAT_AUTH_URL ?? `${host}/oauth2/v1`).replace(/\/+$/, ""),
     requestTimeoutMs: e.SATUSEHAT_REQUEST_TIMEOUT_MS,
     syncMode: e.SATUSEHAT_SYNC_MODE,
+    logBodyDays: e.SATUSEHAT_LOG_BODY_DAYS,
   };
   return cached;
 }

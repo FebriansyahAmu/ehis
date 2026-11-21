@@ -12,6 +12,7 @@ import { GROUPS, PAYLOAD_STATUS, groupTone, metaOf, summarize } from "../resourc
 import { IdChip, PayloadStatusPill, ResourceDrawer } from "../resource/resourceUi";
 import { ResourceDetailDrawer } from "../resource/FhirResources";
 import { fmtDateTime, fmtRelative } from "../resource/resourceTime";
+import { SendLogPanel } from "../log/SendLogPanel";
 
 const FILTERS: (PayloadStatus | "")[] = ["", "new", "changed", "synced"];
 const TONE_DOT: Record<Tone, string> = {
@@ -23,7 +24,9 @@ const STATUS_RING: Record<PayloadStatus, string> = {
   new: "border-dashed border-sky-300",
 };
 
-export function EncounterResourceGrid({ resources, orphans, counts }: {
+export function EncounterResourceGrid({ kunjunganId, resources, orphans, counts }: {
+  /** Kunjungan pemilik — log resource klinis ikut menampilkan Bundle transaction yang memuatnya. */
+  kunjunganId: string;
   resources: EncounterResourceDTO[];
   orphans: ResourceRowDTO[];
   counts: Record<PayloadStatus, number>;
@@ -123,6 +126,12 @@ export function EncounterResourceGrid({ resources, orphans, counts }: {
           { label: "Versi SatuSehat", value: selected.versionId ?? "—" },
           { label: "Sinkron terakhir", value: fmtDateTime(selected.lastSyncAt) },
         ] : []}
+        logPanel={selected ? (
+          <SendLogPanel
+            key={`${selected.localType}|${selected.localId}`}
+            target={{ localType: selected.localType, localId: selected.localId, kunjunganId }}
+          />
+        ) : null}
       />
       <ResourceDetailDrawer id={orphanId} onClose={() => setOrphanId(null)} />
     </div>

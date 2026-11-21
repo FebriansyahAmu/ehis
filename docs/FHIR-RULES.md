@@ -156,6 +156,14 @@ Swap mock→real = ganti isi connector (`SATUSEHAT_MODE`) → **Route & FE tak b
 ## R14 — Jangan log payload sensitif
 
 - Jangan `console.log` request/response FHIR mentah berisi PII (nama/NIK/alamat/klinis). Audit pakai **hash**.
+- **Satu-satunya tempat isi request/response disimpan = log pengiriman** (`fhir.fhir_audit_payload`, 2026-11-21),
+  ditulis otomatis oleh `auditedFhirCall` — JANGAN menyimpan payload di tempat lain (sync_log, console, file). Syarat
+  yang dijaga di sana: NIK/KK/paspor dimasker **sebelum** disimpan (juga di URL pencarian ter-encode) · body
+  dienkripsi AES-256-GCM (`encryptPii`) · target `oauth` tak pernah dicatat isinya · dipangkas setelah
+  `SATUSEHAT_LOG_BODY_DAYS` (default 90; 0 = mati) sementara baris audit tetap 5 thn · dibaca hanya via
+  `GET /fhir/log/:id` (RBAC `fhir.sync:read` + dicatat di log akses rekam medis).
+- Service baru yang memanggil `fhirRequest` WAJIB menyertakan tautan data (`localType`/`localId`, klinis +
+  `kunjunganId`; Bundle + `localRefs` berurutan) agar riwayatnya muncul di tab **Log pengiriman** konsol.
 
 ## R15 — Resolve-first onboarding (Patient/Practitioner GET-only)
 

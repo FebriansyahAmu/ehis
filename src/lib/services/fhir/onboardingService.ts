@@ -205,7 +205,7 @@ async function syncPractitioners(ctx: Ctx, force: boolean): Promise<OnboardingIt
 
     const res = await fhirRequest<Bundle>(
       { method: "GET", path: `Practitioner?identifier=${encodeURIComponent(`${FHIR_SYSTEM.nik}|${nik}`)}` },
-      { ...ctx.audit, endpoint: "Practitioner?identifier={nik}", resourceType: "Practitioner", nik },
+      { ...ctx.audit, endpoint: "Practitioner?identifier={nik}", resourceType: "Practitioner", nik, localType: "Practitioner", localId: p.id },
     );
     if (!res.ok) {
       out.push({ ...base, outcome: "failed", message: res.error.message });
@@ -245,13 +245,14 @@ interface UpsertArgs {
 async function upsertResource(ctx: Ctx, a: UpsertArgs): Promise<Pick<OnboardingItemResult, "outcome" | "ihsId" | "message">> {
   const hash = hashOf(a.resource);
   const type = a.localType;
+  const link = { localType: type, localId: a.localId };
 
   // 1) Sudah terpetakan → PUT bila berubah.
   if (a.existing) {
     if (a.existing.hash === hash) return { outcome: "unchanged", ihsId: a.existing.ihsId };
     const res = await fhirRequest(
       { method: "PUT", path: `${type}/${a.existing.ihsId}`, body: { ...a.resource, id: a.existing.ihsId } },
-      { ...ctx.audit, endpoint: `${type}/{id}`, resourceType: type },
+      { ...ctx.audit, ...link, endpoint: `${type}/{id}`, resourceType: type },
     );
     if (!res.ok) return { outcome: "failed", ihsId: a.existing.ihsId, message: res.error.message };
     await save(ctx, a, a.existing.ihsId, hash, versionOf(res.value.body));
@@ -264,7 +265,7 @@ async function upsertResource(ctx: Ctx, a: UpsertArgs): Promise<Pick<OnboardingI
   // 2) Resolve-first: cari by identifier.
   const found = await fhirRequest<Bundle>(
     { method: "GET", path: a.searchPath },
-    { ...ctx.audit, endpoint: a.searchEndpoint, resourceType: type },
+    { ...ctx.audit, ...link, endpoint: a.searchEndpoint, resourceType: type },
   );
   if (!found.ok) return { outcome: "failed", message: found.error.message };
   const match = found.value.body?.entry?.map((e) => e.resource).find((r): r is FhirResourceBase => !!r && a.matches(r));
@@ -277,7 +278,7 @@ async function upsertResource(ctx: Ctx, a: UpsertArgs): Promise<Pick<OnboardingI
   // 3) Belum ada → create.
   const created = await fhirRequest<FhirResourceBase>(
     { method: "POST", path: type, body: a.resource },
-    { ...ctx.audit, endpoint: type, resourceType: type },
+    { ...ctx.audit, ...link, endpoint: type, resourceType: type },
   );
   if (!created.ok) return { outcome: "failed", message: created.error.message };
   const ihsId = created.value.body?.id;
@@ -296,43 +297,60 @@ function versionOf(body: unknown): string | null {
 
 // ── Pratinjau payload 1 item (konsol Resource, tanpa panggilan) ──
 
-export async function previewMaster(
-  localType: "Organization" | "Location",
-  localId: string,
-): Promise<{ resource: FhirResourceBase | null; status: PayloadStatus | null; note: string | null }> {
+type LocalOrg = NonNullable<Awaited<ReturnType<typeof sourceDal.getOrganization>>>;
+type LocalLoc = NonNullable<Awaited<ReturnType<typeof sourceDal.getLocation>>>;
+
+export interface MasterPreview {
+  resource: FhirResourceBase | null;
+  status: PayloadStatus | null;
+  note: string | null;
+  /** Baris master lokal (null = tidak ada / terhapus) — dipakai ulang detail Prerequisites. */
+  local: LocalOrg | LocalLoc | null;
+}
+
+/**
+ * Pratinjau 1 Organization/Location dengan builder yang SAMA dengan sinkron. Hanya lookup PK
+ * (data + induk + peta), tidak memuat seluruh master — biaya konstan berapa pun jumlah unit/ruangan.
+ */
+export async function previewMaster(localType: "Organization" | "Location", localId: string): Promise<MasterPreview> {
   const cfg = getSatuSehatConfig();
-  const [orgs, orgMaps, existing] = await Promise.all([
-    sourceDal.listOrganizations(),
-    resourceMapDal.listByType(cfg.mode, "Organization"),
-    resourceMapDal.findByLocal(cfg.mode, localType, localId),
-  ]);
-  const orgById = new Map(orgs.map((o) => [o.id, o]));
-  const orgIhs = new Map(orgMaps.map((m) => [m.localId, m.ihsId]));
   const pending = "(belum-terpetakan)";
+  const orgIhsOf = async (orgId: string) => (await resourceMapDal.findByLocal(cfg.mode, "Organization", orgId))?.ihsId;
 
   let resource: FhirResourceBase;
+  let local: LocalOrg | LocalLoc;
+  let existing: Awaited<ReturnType<typeof resourceMapDal.findByLocal>>;
+
   if (localType === "Organization") {
-    const o = orgById.get(localId);
-    if (!o) return { resource: null, status: null, note: "Data unit lokal tidak ditemukan / sudah dihapus" };
-    if (o.isRoot) return { resource: null, status: null, note: "Root RS dipetakan langsung ke SATUSEHAT_ORG_ID (terdaftar via DevHub) — tidak dikirim" };
-    const partOfIhsId = o.parentId ? (orgIhs.get(o.parentId) ?? pending) : cfg.orgId;
+    const [o, map] = await Promise.all([sourceDal.getOrganization(localId), resourceMapDal.findByLocal(cfg.mode, localType, localId)]);
+    if (!o) return { resource: null, status: null, note: "Data unit lokal tidak ditemukan / sudah dihapus", local: null };
+    if (o.isRoot) {
+      return { resource: null, status: null, note: "Root RS dipetakan langsung ke SATUSEHAT_ORG_ID (terdaftar via DevHub) — tidak dikirim", local: o };
+    }
+    const partOfIhsId = o.parentId ? ((await orgIhsOf(o.parentId)) ?? pending) : cfg.orgId;
     resource = toFhirOrganization(o, { orgId: cfg.orgId, partOfIhsId });
+    local = o;
+    existing = map;
   } else {
-    const l = (await sourceDal.listLocations()).find((x) => x.id === localId);
-    if (!l) return { resource: null, status: null, note: "Data ruangan lokal tidak ditemukan / sudah dihapus" };
-    const org = orgById.get(l.organizationId);
+    const [l, map] = await Promise.all([sourceDal.getLocation(localId), resourceMapDal.findByLocal(cfg.mode, localType, localId)]);
+    if (!l) return { resource: null, status: null, note: "Data ruangan lokal tidak ditemukan / sudah dihapus", local: null };
+    const [org, orgIhs] = await Promise.all([sourceDal.getOrganization(l.organizationId), orgIhsOf(l.organizationId)]);
     resource = toFhirLocation(l, {
       orgId: cfg.orgId,
-      managingOrgIhsId: orgIhs.get(l.organizationId) ?? (org?.isRoot ? cfg.orgId : pending),
+      managingOrgIhsId: orgIhs ?? (org?.isRoot ? cfg.orgId : pending),
       parentAddress: org ?? {},
       parentGps: org ? { lat: org.gpsLat, lng: org.gpsLng } : undefined,
     });
+    local = l;
+    existing = map;
   }
-  if (!existing) return { resource, status: "new", note: null };
+
+  if (!existing) return { resource, status: "new", note: null, local };
   return {
     resource: { ...resource, id: existing.ihsId },
     status: existing.hash === hashOf(resource) ? "synced" : "changed",
     note: existing.hash ? null : "Ditemukan sudah terdaftar (resolve) — diselaraskan (PUT) pada sinkron berikutnya",
+    local,
   };
 }
 

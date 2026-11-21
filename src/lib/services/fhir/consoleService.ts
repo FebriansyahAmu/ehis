@@ -81,11 +81,13 @@ async function payloadOf(row: MapRow, actor: Actor): Promise<Pick<ResourceDetail
 async function toRows(rows: MapRow[]): Promise<ResourceRowDTO[]> {
   const byType = new Map<string, string[]>();
   for (const r of rows) if (!r.kunjunganId) byType.set(r.localType, [...(byType.get(r.localType) ?? []), r.localId]);
+  // Label per tipe + label kunjungan diambil PARALEL (sebelumnya berurutan: N+1 round-trip).
+  const [perType, kl] = await Promise.all([
+    Promise.all([...byType].map(async ([type, ids]) => [type, await consoleDal.labelsFor(type, ids)] as const)),
+    consoleDal.kunjunganLabels([...new Set(rows.flatMap((r) => (r.kunjunganId ? [r.kunjunganId] : [])))]),
+  ]);
   const labels = new Map<string, { label: string; sub?: string }>();
-  for (const [type, ids] of byType) {
-    for (const [id, l] of await consoleDal.labelsFor(type, ids)) labels.set(`${type}|${id}`, l);
-  }
-  const kl = await consoleDal.kunjunganLabels([...new Set(rows.flatMap((r) => (r.kunjunganId ? [r.kunjunganId] : [])))]);
+  for (const [type, m] of perType) for (const [id, l] of m) labels.set(`${type}|${id}`, l);
 
   return rows.map((r) => {
     const k = r.kunjunganId ? kl.get(r.kunjunganId) : undefined;

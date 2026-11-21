@@ -76,7 +76,7 @@ async function resolveRow(
   const nik = nikOf(p);
   if (!nik) return { ...base, status: "no_nik", ihsId: null, lastSyncAt: null, message: noNikReason(p) };
 
-  const res = await searchByNik(nik, audit);
+  const res = await searchByNik(nik, audit, p.id);
   if (!res.ok) return { ...base, status: "failed", ihsId: null, lastSyncAt: null, message: res.message };
   if (!res.patient?.id) {
     return { ...base, status: "not_found", ihsId: null, lastSyncAt: null, message: "NIK tidak ditemukan di SatuSehat — periksa ulang NIK pasien" };
@@ -159,13 +159,18 @@ export async function lookupByNik(nik: string, actor: Actor): Promise<NikLookupD
 
 // ── Helper ──────────────────────────────────────────────────
 
+/** `patientId` = tautan log pengiriman ke pasien lokal (tool lookup NIK tanpa pasien → tak ditautkan). */
 async function searchByNik(
   nik: string,
   audit: ReturnType<typeof auditActorOf>,
+  patientId?: string,
 ): Promise<{ ok: true; patient: FhirPatient | null } | { ok: false; message: string }> {
   const res = await fhirRequest<Bundle<FhirPatient>>(
     { method: "GET", path: `Patient?identifier=${encodeURIComponent(`${FHIR_SYSTEM.nik}|${nik}`)}` },
-    { ...audit, endpoint: "Patient?identifier={nik}", resourceType: "Patient", nik },
+    {
+      ...audit, endpoint: "Patient?identifier={nik}", resourceType: "Patient", nik,
+      ...(patientId ? { localType: "Patient", localId: patientId } : {}),
+    },
   );
   if (!res.ok) return { ok: false, message: res.error.message };
   return { ok: true, patient: res.value.body?.entry?.[0]?.resource ?? null };

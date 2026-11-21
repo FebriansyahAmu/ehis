@@ -183,7 +183,7 @@ export default function FhirKunjunganDetail({ kunjunganId }: { kunjunganId: stri
           )}
           {d.infos.map((msg, i) => <Callout key={i} tone="sky" icon={Info}>{msg}</Callout>)}
           {!d.skipReason && (
-            <EncounterResourceGrid resources={d.resources} orphans={d.orphans} counts={d.counts} />
+            <EncounterResourceGrid kunjunganId={d.kunjungan.id} resources={d.resources} orphans={d.orphans} counts={d.counts} />
           )}
         </div>
 

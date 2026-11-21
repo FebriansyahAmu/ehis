@@ -173,8 +173,10 @@ export function collectRefs(payload: unknown): PayloadRef[] {
 
 export interface DrawerMeta { label: string; value: React.ReactNode }
 
+type DrawerTab = "ringkasan" | "json" | "log";
+
 export function ResourceDrawer({
-  open, onClose, resourceType, status, payload, note, meta, loading, error, footer,
+  open, onClose, resourceType, status, payload, note, meta, loading, error, footer, logPanel,
 }: {
   open: boolean;
   onClose: () => void;
@@ -186,14 +188,16 @@ export function ResourceDrawer({
   loading?: boolean;
   error?: string | null;
   footer?: React.ReactNode;
+  /** Isi tab "Log pengiriman" (mis. `<SendLogPanel>`) — slot agar primitif UI ini tak bergantung pada modul log. */
+  logPanel?: React.ReactNode;
 }) {
-  const [tab, setTab] = useState<"ringkasan" | "json">("ringkasan");
+  const [tab, setTab] = useState<DrawerTab>("ringkasan");
   const m = metaOf(resourceType);
   const Icon = m.icon;
   const sum = payload ? summarize(resourceType, payload) : null;
   const refs = payload ? collectRefs(payload) : [];
-  // Tab JSON tak bermakna tanpa payload (resolve-only/root) → selalu jatuh ke Ringkasan.
-  const activeTab = payload ? tab : "ringkasan";
+  // Tab JSON tak bermakna tanpa payload (resolve-only/root); tab Log tanpa target → jatuh ke Ringkasan.
+  const activeTab: DrawerTab = (tab === "json" && !payload) || (tab === "log" && !logPanel) ? "ringkasan" : tab;
   const state = loading ? <SkeletonRows rows={6} /> : error ? <Callout tone="rose" icon={TriangleAlert}>{error}</Callout> : null;
 
   // shadcn Sheet (Radix Dialog): focus trap, Esc, klik luar, aria-modal & label dari SheetTitle.
@@ -225,11 +229,12 @@ export function ResourceDrawer({
           </SheetClose>
         </SheetHeader>
 
-        <Tabs value={activeTab} onValueChange={(v) => setTab(v as "ringkasan" | "json")} className="min-h-0 flex-1 gap-0">
+        <Tabs value={activeTab} onValueChange={(v) => setTab(v as DrawerTab)} className="min-h-0 flex-1 gap-0">
           <div className="border-b border-slate-100 px-5">
             <TabsList variant="line" aria-label="Tampilan detail">
               <TabsTrigger value="ringkasan" className={TAB_TRIGGER}>Ringkasan</TabsTrigger>
               <TabsTrigger value="json" disabled={!payload} className={TAB_TRIGGER}>Payload JSON</TabsTrigger>
+              {logPanel && <TabsTrigger value="log" className={TAB_TRIGGER}>Log pengiriman</TabsTrigger>}
             </TabsList>
           </div>
 
@@ -275,6 +280,13 @@ export function ResourceDrawer({
           <TabsContent value="json" className="min-h-0 overflow-y-auto px-5 py-4">
             {state ?? (payload ? <JsonView value={payload} /> : null)}
           </TabsContent>
+
+          {/* Tak dirender saat tak aktif → log diambil hanya ketika tab dibuka. */}
+          {logPanel && (
+            <TabsContent value="log" className="min-h-0 overflow-y-auto px-5 py-4">
+              {logPanel}
+            </TabsContent>
+          )}
         </Tabs>
 
         {footer && <SheetFooter className="mt-0 flex-row flex-wrap items-center justify-end gap-2 border-t border-slate-100 px-5 py-3">{footer}</SheetFooter>}

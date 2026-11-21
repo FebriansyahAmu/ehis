@@ -122,7 +122,8 @@ export async function callSatuSehat<T = unknown>(opts: FhirCallOptions): Promise
       return Ok({ status, body: parsed as T, retries: attempt });
     }
 
-    const err = toFhirError(status, parsed);
+    // Body non-JSON (mis. halaman HTML 502 gateway) disimpan terpotong untuk log pengiriman.
+    const err = { ...toFhirError(status, parsed), body: parsed ?? (text ? text.slice(0, 4_000) : null) };
     if (status >= 500) recordFailure(target);
     if (err.retryable && attempt < maxRetries) {
       lastErr = err;
