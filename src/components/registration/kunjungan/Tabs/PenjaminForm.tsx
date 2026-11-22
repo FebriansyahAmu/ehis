@@ -1,148 +1,71 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+// Tab "Ubah Penjamin" — 2 langkah + bilah aksi lengket:
+//   Ringkasan  "Saat ini → Akan menjadi" (amber = perubahan belum disimpan).
+//   Langkah 1  pilih jenis (radio native ber-fieldset).
+//   Langkah 2  BPJS: cek kepesertaan → kartu peserta → Terbitkan SEP (modal adaptif per unit).
+//              Non-BPJS: isian ringkas → Simpan (changePenjamin, issueSep=false).
+// Panel tiap jenis tetap terpasang (atribut `hidden`) → isian & hasil cek tidak hilang saat berpindah.
+// Sesudah simpan/terbit SEP → `onSaved(patch)` memperbarui data kunjungan di KunjunganTabs (tab
+// Ringkasan ikut berubah) tanpa memuat ulang halaman.
+
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
+import { MotionConfig } from "framer-motion";
 import {
-  HeartPulse, Wallet, HardHat, ShieldCheck,
-  Check, Loader2, RefreshCw, Building2, Hash, FileCheck, ArrowRight,
-  type LucideIcon,
+  ArrowRight, BadgeCheck, Ban, Check, CircleDashed, CreditCard, FileCheck, Hash, Loader2, Search, Undo2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import type { KunjunganRecord, PatientMaster, TipePenjamin } from "@/lib/data";
-import { DatePicker } from "@/components/shared/inputs";
-import { changePenjamin } from "@/lib/api/kunjungan";
+import { cn } from "@/lib/ui/utils";
+import type { KunjunganRecord, PatientMaster } from "@/lib/data";
+import { Button } from "@/components/ui/button";
+import { changePenjamin, type KunjunganDTO } from "@/lib/api/kunjungan";
 import { getPatientNoKartu } from "@/lib/api/patients";
 import { ApiError } from "@/lib/api/client";
 import { toast } from "@/lib/ui/toastStore";
-import { BpjsPanel } from "./sep/BpjsSearch";
+import { dtoDetailToKunjunganRecord } from "../../patient/kunjunganRiwayatApi";
+import type { KunjunganTabId } from "../KunjunganTabs";
 import { UbahPenjaminSepModal } from "./sep/UbahPenjaminSepModal";
 import type { BpjsData } from "./sep/sepTypes";
+import {
+  NONBPJS_TIPE, groupDigits, isFullNoKartu, optOf, savedLabel, typeOf, type PenjaminType,
+} from "./penjamin/penjaminConfig";
+import { Callout, DetailChip, StepTitle } from "./penjamin/penjaminUi";
+import { PenjaminCompare, type CompareSide } from "./penjamin/PenjaminCompare";
+import { PenjaminTypePicker } from "./penjamin/PenjaminTypePicker";
+import { BpjsKepesertaanPanel } from "./penjamin/BpjsKepesertaanPanel";
+import { AsuransiPanel, NakerPanel, UmumPanel } from "./penjamin/NonBpjsPanels";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const NAKER_NAMA = "BPJS Ketenagakerjaan";
 
-// Jenis penjamin non-BPJS (tab) → enum TipePenjamin kanonik. BPJS Ketenagakerjaan tak punya
-// enum tersendiri → dipetakan ke Asuransi (jaminan kerja) dgn nama eksplisit.
-const NONBPJS_TIPE: Record<"umum" | "bpjs-naker" | "asuransi", TipePenjamin> = {
-  umum: "Umum", "bpjs-naker": "Asuransi", asuransi: "Asuransi",
+/** Field kunjungan yang berubah sesudah penjamin disimpan / SEP terbit. */
+export type PenjaminPatch = Pick<KunjunganRecord, "penjamin" | "noPenjamin" | "noSEP">;
+
+const STEP2: Record<PenjaminType, { title: string; desc: string }> = {
+  "bpjs-jkn": { title: "Cek kepesertaan JKN", desc: "Verifikasi status peserta sebelum SEP diterbitkan." },
+  umum: { title: "Konfirmasi tarif umum", desc: "Pasien membayar sendiri sesuai tarif umum RS." },
+  "bpjs-naker": { title: "Data BPJS Ketenagakerjaan", desc: "Penjamin untuk kecelakaan kerja / penyakit akibat kerja." },
+  asuransi: { title: "Data asuransi", desc: "Asuransi swasta atau jaminan perusahaan." },
 };
 
-// ─── Types & config ───────────────────────────────────────────
+const PRIMARY = "h-10 min-w-40 flex-1 rounded-xl px-5 font-semibold text-white sm:flex-none";
 
-type PenjaminType = "bpjs-jkn" | "umum" | "bpjs-naker" | "asuransi";
-
-type Accent = {
-  ring: string; tile: string; dot: string; soft: string; text: string;
-};
-
-// Aksen per jenis penjamin — dipakai halus (tile ikon + ring terpilih + label),
-// bukan sebagai isian tombol penuh. Palet: sky/slate/emerald/indigo (hindari ungu primer).
-const ACCENT: Record<PenjaminType, Accent> = {
-  "bpjs-jkn":   { ring: "ring-sky-500/60",     tile: "bg-sky-100 text-sky-600",         dot: "bg-sky-500",     soft: "bg-sky-50/70",     text: "text-sky-700"     },
-  "umum":       { ring: "ring-slate-400/60",   tile: "bg-slate-100 text-slate-600",     dot: "bg-slate-500",   soft: "bg-slate-50",      text: "text-slate-700"   },
-  "bpjs-naker": { ring: "ring-emerald-500/60", tile: "bg-emerald-100 text-emerald-600", dot: "bg-emerald-500", soft: "bg-emerald-50/70", text: "text-emerald-700" },
-  "asuransi":   { ring: "ring-indigo-500/60",  tile: "bg-indigo-100 text-indigo-600",   dot: "bg-indigo-500",  soft: "bg-indigo-50/70",  text: "text-indigo-700"  },
-};
-
-const PENJAMIN_OPTS: { id: PenjaminType; label: string; sub: string; icon: LucideIcon }[] = [
-  { id: "bpjs-jkn",   label: "BPJS / JKN",           sub: "Kartu Indonesia Sehat",    icon: HeartPulse  },
-  { id: "umum",       label: "Umum / Mandiri",       sub: "Bayar sendiri / tunai",    icon: Wallet      },
-  { id: "bpjs-naker", label: "BPJS Ketenagakerjaan", sub: "Jaminan kecelakaan kerja", icon: HardHat     },
-  { id: "asuransi",   label: "Asuransi Lainnya",     sub: "Swasta / perusahaan",      icon: ShieldCheck },
-];
-
-const labelOf = (t: PenjaminType) => PENJAMIN_OPTS.find((o) => o.id === t)?.label ?? "—";
-
-function typeOf(penjamin?: string | null): PenjaminType {
-  if (!penjamin) return "bpjs-jkn";
-  const p = penjamin.toLowerCase();
-  if (p.includes("bpjs") || p.includes("jkn") || p.includes("pbi") || p.includes("kis")) {
-    return p.includes("kerja") || p.includes("naker") ? "bpjs-naker" : "bpjs-jkn";
-  }
-  if (p.includes("umum") || p.includes("mandiri")) return "umum";
-  if (p.includes("asuransi") || p.includes("swasta") || p.includes("polis")) return "asuransi";
-  return "bpjs-jkn";
-}
-
-const PAYMENTS = ["Tunai", "Transfer", "QRIS", "Kartu Debit", "Kartu Kredit"];
-
-const inp =
-  "h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-[13px] text-slate-800 placeholder:text-slate-300 transition focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100";
-
-// ─── Small primitives ─────────────────────────────────────────
-
-function Field({
-  label, hint, full, children,
+export function PenjaminForm({
+  kunjungan, patient, onSaved, onNavigate,
 }: {
-  label: string;
-  hint?: string;
-  full?: boolean;
-  children: React.ReactNode;
+  kunjungan: KunjunganRecord;
+  patient: PatientMaster;
+  /** Perbarui data kunjungan di induk sesudah simpan. Tanpa ini → muat ulang halaman. */
+  onSaved?: (patch: PenjaminPatch) => void;
+  /** Pindah tab (Update SEP / Data Kecelakaan). */
+  onNavigate?: (tab: KunjunganTabId) => void;
 }) {
-  return (
-    <label className={cn("flex flex-col gap-1.5", full && "sm:col-span-2")}>
-      <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-        {label}
-        {hint && <span className="font-medium normal-case tracking-normal text-slate-400">· {hint}</span>}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-function PanelCard({ children, tone }: { children: React.ReactNode; tone: PenjaminType }) {
-  return (
-    <div className={cn("rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm", tone === "umum" && "bg-white")}>
-      {children}
-    </div>
-  );
-}
-
-// ─── Current-penjamin summary strip ───────────────────────────
-
-function CurrentStrip({ kunjungan, type, noKartu }: { kunjungan: KunjunganRecord; type: PenjaminType; noKartu?: string }) {
-  const opt  = PENJAMIN_OPTS.find((o) => o.id === type)!;
-  const Icon = opt.icon;
-  const a    = ACCENT[type];
-  return (
-    <div className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm">
-      <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl", a.tile)}>
-        <Icon size={19} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Penjamin Saat Ini</p>
-        <p className="truncate text-[14px] font-bold text-slate-800">{kunjungan.penjamin ?? opt.label}</p>
-        {(noKartu || kunjungan.noSEP) && (
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5">
-            {noKartu && (
-              <span className="font-mono text-[10px] text-slate-500">{noKartu}</span>
-            )}
-            {kunjungan.noSEP && (
-              <span className="flex items-center gap-1 text-[10px] text-slate-500">
-                <FileCheck size={10} className="text-emerald-500" />
-                SEP {kunjungan.noSEP}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-      <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-wider", a.soft, a.text)}>
-        Aktif
-      </span>
-    </div>
-  );
-}
-
-// ─── Main form ────────────────────────────────────────────────
-
-// Tab "Ubah Penjamin" — pilih jenis penjamin → lengkapi data. BPJS: cek kepesertaan
-// (BpjsPanel) → "Gunakan Data Ini" LANGSUNG buka modal penerbitan SEP (adaptif per unit).
-// Non-BPJS: form ringkas → Simpan (persist penjaminTipe kunjungan via changePenjamin).
-export function PenjaminForm({ kunjungan, patient }: { kunjungan: KunjunganRecord; patient: PatientMaster }) {
   const currentType = useMemo(() => typeOf(kunjungan.penjamin), [kunjungan.penjamin]);
   const isDbKunjungan = UUID_RE.test(kunjungan.id);
+  const locked = kunjungan.status === "Dibatalkan";
+  const formId = useId();
+  const step2Id = useId();
 
-  // No. Kartu BPJS PENUH (un-mask) dari jaminan pasien tersimpan → auto-fill pencarian
-  // kepesertaan untuk kunjungan APAPUN (tak bergantung SEP kunjungan ini). Ditarik saat mount.
+  // No. Kartu BPJS PENUH (un-mask) dari jaminan pasien tersimpan → isi awal pencarian kepesertaan.
   const [prefilledNoKartu, setPrefilledNoKartu] = useState<string | undefined>(undefined);
   useEffect(() => {
     if (!UUID_RE.test(patient.id)) return;
@@ -152,324 +75,323 @@ export function PenjaminForm({ kunjungan, patient }: { kunjungan: KunjunganRecor
       .catch(() => { /* fallback ke nomor kunjungan/masked */ });
     return () => ac.abort();
   }, [patient.id]);
-
-  // No. Kartu BPJS efektif: dari SEP kunjungan ini → jaminan tersimpan → nomor (mungkin masked).
   const savedNoKartu = kunjungan.noPenjamin || prefilledNoKartu || patient.penjamin.nomor || "";
 
-  const [selected,     setSelected]     = useState<PenjaminType>(currentType);
-  const [bpjsSelected, setBpjsSelected] = useState<BpjsData | null>(null);
-  const [cara,         setCara]         = useState("Tunai");
-  const [asuransiNama, setAsuransiNama] = useState("");
-  const [asuransiPolis, setAsuransiPolis] = useState("");
-  const [saveState,    setSaveState]    = useState<"idle" | "saving" | "saved">("idle");
-  const issuedRef = useRef(false); // SEP/penjamin sudah diperbarui via modal → reload saat tutup
+  // Isian non-BPJS: isi awal dari jaminan tersimpan pasien (bila tipenya Asuransi).
+  const savedAsuransi = patient.penjamin.tipe === "Asuransi" ? patient.penjamin : null;
+  const savedIsNaker = !!savedAsuransi && /ketenagakerjaan|naker/i.test(savedAsuransi.nama);
+
+  const [selected, setSelected] = useState<PenjaminType>(currentType);
+  const [bpjsResult, setBpjsResult] = useState<BpjsData | null>(null);
+  const [sepOpen, setSepOpen] = useState(false);
+  const [nudge, setNudge] = useState(false);
+  const [asuransiNama, setAsuransiNama] = useState(savedAsuransi && !savedIsNaker ? savedAsuransi.nama : "");
+  const [polis, setPolis] = useState(savedAsuransi && !savedIsNaker ? (savedAsuransi.noPolis ?? "") : "");
+  const [kpj, setKpj] = useState(savedIsNaker ? (savedAsuransi?.noPolis ?? "") : "");
+  const [namaError, setNamaError] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+
+  const searchRef = useRef<HTMLInputElement>(null);
+  const namaRef = useRef<HTMLInputElement>(null);
+  const issuedRef = useRef<KunjunganDTO | null>(null);
+  const savedTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(savedTimer.current), []);
+
+  const isBpjs = selected === "bpjs-jkn";
+  const changed = selected !== currentType;
+  const saving = saveState === "saving";
 
   const choose = (t: PenjaminType) => {
     setSelected(t);
-    setBpjsSelected(null);
-    setSaveState("idle");
+    setNudge(false);
+    setNamaError(null);
+    if (saveState === "saved") setSaveState("idle");
   };
 
-  const resetToCurrent = () => choose(currentType);
+  const applyPatch = (patch: PenjaminPatch) => {
+    if (onSaved) onSaved(patch);
+    else window.location.reload();
+  };
 
-  const doSave = async () => {
-    if (saveState !== "idle" || selected === "bpjs-jkn") return;
-    // Pasien/kunjungan demo (id non-UUID) → simulasi lokal (tak hit API).
-    if (!isDbKunjungan) {
-      setSaveState("saving");
-      window.setTimeout(() => { setSaveState("saved"); window.setTimeout(() => setSaveState("idle"), 2200); }, 700);
+  const flashSaved = () => {
+    setSaveState("saved");
+    window.clearTimeout(savedTimer.current);
+    savedTimer.current = window.setTimeout(() => setSaveState("idle"), 2400);
+  };
+
+  // ── Simpan non-BPJS ──
+  const save = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (saving || locked || selected === "bpjs-jkn") return;
+    if (selected === "asuransi" && !asuransiNama.trim()) {
+      setNamaError("Isi nama asuransi sebelum menyimpan.");
+      namaRef.current?.focus();
       return;
     }
+    const t = selected;
+    const nomor = t === "asuransi" ? polis.trim() : t === "bpjs-naker" ? kpj.trim() : "";
+    const patch: PenjaminPatch = { penjamin: savedLabel(t, asuransiNama), noPenjamin: nomor || undefined };
     setSaveState("saving");
+
+    // Kunjungan demo (id non-UUID) → simulasi lokal, tanpa API.
+    if (!isDbKunjungan) {
+      await new Promise((r) => setTimeout(r, 600));
+      applyPatch(patch);
+      toast.success("Penjamin diperbarui", `${patch.penjamin} (demo — tidak disimpan ke server)`);
+      flashSaved();
+      return;
+    }
     try {
-      const tipe = NONBPJS_TIPE[selected];
-      const penjaminNama =
-        selected === "bpjs-naker" ? "BPJS Ketenagakerjaan"
-        : selected === "asuransi" ? (asuransiNama.trim() || undefined)
-        : undefined;
       await changePenjamin(kunjungan.id, {
-        penjaminTipe: tipe,
+        penjaminTipe: NONBPJS_TIPE[t],
         issueSep: false,
-        penjaminNama,
-        noPolis: selected === "asuransi" ? (asuransiPolis.trim() || undefined) : undefined,
+        penjaminNama: t === "bpjs-naker" ? NAKER_NAMA : t === "asuransi" ? asuransiNama.trim() : undefined,
+        noPolis: nomor || undefined,
       });
-      toast.success("Penjamin diperbarui", labelOf(selected));
-      setSaveState("saved");
-      window.setTimeout(() => setSaveState("idle"), 2200);
+      applyPatch(patch);
+      toast.success("Penjamin diperbarui", patch.penjamin);
+      flashSaved();
     } catch (err) {
       setSaveState("idle");
       toast.error("Gagal ubah penjamin", err instanceof ApiError ? err.message : "Periksa koneksi lalu coba lagi.");
     }
   };
 
-  const changed = selected !== currentType;
-  const isBpjs  = selected === "bpjs-jkn";
+  // ── BPJS: buka modal SEP (atau arahkan ke cek kepesertaan dulu) ──
+  const openSep = () => {
+    if (!bpjsResult) {
+      setNudge(true);
+      requestAnimationFrame(() => searchRef.current?.focus());
+      return;
+    }
+    setSepOpen(true);
+  };
+
+  const closeSep = () => {
+    setSepOpen(false);
+    const dto = issuedRef.current;
+    issuedRef.current = null;
+    if (!dto) return;
+    const r = dtoDetailToKunjunganRecord(dto);
+    setBpjsResult(null);
+    applyPatch({ penjamin: r.penjamin, noPenjamin: r.noPenjamin, noSEP: r.noSEP });
+  };
+
+  // ── Ringkasan ──
+  const current: CompareSide = {
+    type: currentType,
+    label: kunjungan.penjamin?.trim() || optOf(currentType).label,
+    details: (
+      <>
+        {currentType === "bpjs-jkn" && savedNoKartu && (
+          <DetailChip icon={CreditCard} mono>{isFullNoKartu(savedNoKartu) ? groupDigits(savedNoKartu) : savedNoKartu}</DetailChip>
+        )}
+        {kunjungan.noSEP ? (
+          <DetailChip icon={FileCheck} tone="ok" mono>SEP {kunjungan.noSEP}</DetailChip>
+        ) : currentType === "bpjs-jkn" ? (
+          <DetailChip icon={CircleDashed} tone="muted">Belum ada SEP</DetailChip>
+        ) : null}
+      </>
+    ),
+  };
+
+  const next: CompareSide | null = !changed ? null : {
+    type: selected,
+    label:
+      selected === "bpjs-jkn" ? (bpjsResult ? `BPJS ${bpjsResult.jenis}` : "BPJS / JKN")
+      : selected === "asuransi" ? (asuransiNama.trim() || "Asuransi Lainnya")
+      : optOf(selected).label,
+    details:
+      selected === "bpjs-jkn" ? (
+        bpjsResult ? (
+          <>
+            <DetailChip icon={BadgeCheck} tone="ok">Peserta {bpjsResult.status.toLowerCase()} · {bpjsResult.kelas}</DetailChip>
+            <DetailChip icon={CreditCard} mono>{groupDigits(bpjsResult.noKartu)}</DetailChip>
+          </>
+        ) : (
+          <DetailChip icon={Search} tone="muted">Menunggu cek kepesertaan</DetailChip>
+        )
+      ) : selected === "umum" ? (
+        <DetailChip>Tarif umum · bayar di Kasir</DetailChip>
+      ) : selected === "bpjs-naker" ? (
+        kpj.trim() ? <DetailChip icon={Hash} mono>KPJ {kpj.trim()}</DetailChip> : <DetailChip tone="muted">No. KPJ belum diisi</DetailChip>
+      ) : (
+        <>
+          {!asuransiNama.trim() && <DetailChip tone="warn">Nama asuransi wajib diisi</DetailChip>}
+          {polis.trim() ? <DetailChip icon={Hash} mono>Polis {polis.trim()}</DetailChip> : <DetailChip tone="muted">No. polis belum diisi</DetailChip>}
+        </>
+      ),
+  };
+
+  // ── Teks bilah aksi ──
+  const fromLabel = current.label;
+  const summary = isBpjs
+    ? bpjsResult
+      ? <>Peserta <b className="font-semibold text-slate-900">{bpjsResult.nama}</b> terverifikasi — lanjutkan penerbitan SEP.</>
+      : changed
+        ? <><b className="font-semibold text-slate-900">{fromLabel}</b> → <b className="font-semibold text-slate-900">BPJS / JKN</b> · cek kepesertaan dulu.</>
+        : <>Cek kepesertaan untuk menerbitkan SEP kunjungan ini.</>
+    : saveState === "saved"
+      ? <>Penjamin tersimpan.</>
+      : changed
+        ? <>Perubahan: <b className="font-semibold text-slate-900">{fromLabel}</b> → <b className="font-semibold text-slate-900">{next?.label}</b></>
+        : <>Jenis sama — simpan untuk memperbarui data penjamin.</>;
+  const dot = saveState === "saved" || (isBpjs && bpjsResult) ? "bg-emerald-500" : changed ? "bg-amber-500" : "bg-slate-300";
+
+  const opt = optOf(selected);
+  const OptIcon = opt.icon;
 
   return (
-    <div className="flex w-full flex-col gap-4">
-      {/* ── Header ── */}
-      <div>
-        <p className="text-[15px] font-bold text-slate-800">Ubah Penjamin</p>
-        <p className="mt-0.5 text-[11px] text-slate-400">
-          Pilih jenis penjamin lalu lengkapi data kepesertaan untuk kunjungan ini.
-        </p>
-      </div>
+    <MotionConfig reducedMotion="user">
+      <div className="flex w-full flex-col gap-5">
+        {/* ── Judul ── */}
+        <header className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-slate-900">Ubah Penjamin</h2>
+            <p className="mt-0.5 m-xs text-slate-500">
+              Ganti penjamin kunjungan <span className="font-mono font-medium text-slate-700">{kunjungan.noKunjungan}</span> — berlaku
+              untuk tagihan kunjungan ini.
+            </p>
+          </div>
+        </header>
 
-      <CurrentStrip
-        kunjungan={kunjungan}
-        type={currentType}
-        noKartu={currentType === "bpjs-jkn" ? (savedNoKartu || undefined) : (kunjungan.noPenjamin || undefined)}
-      />
-
-      {/* ── Type selector ── */}
-      <div>
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Pilih Jenis Penjamin</p>
-        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-          {PENJAMIN_OPTS.map((opt) => {
-            const Icon   = opt.icon;
-            const active = selected === opt.id;
-            const a      = ACCENT[opt.id];
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => choose(opt.id)}
-                aria-pressed={active}
-                className={cn(
-                  "group relative flex flex-col gap-2.5 rounded-2xl border bg-white p-3 text-left transition-all duration-150 active:scale-[0.98]",
-                  active
-                    ? cn("border-transparent shadow-sm ring-2", a.ring, a.soft)
-                    : "border-slate-200 hover:border-slate-300 hover:bg-slate-50",
-                )}
-              >
-                <div className="flex items-center justify-between">
-                  <span className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-xl transition",
-                    active ? a.tile : "bg-slate-100 text-slate-500 group-hover:bg-slate-200",
-                  )}>
-                    <Icon size={16} />
-                  </span>
-                  <span className={cn(
-                    "flex h-4 w-4 items-center justify-center rounded-full border-2 transition",
-                    active ? cn(a.dot, "border-transparent") : "border-slate-300 group-hover:border-slate-400",
-                  )}>
-                    {active && <Check size={9} strokeWidth={3.5} className="text-white" />}
-                  </span>
-                </div>
-                <div>
-                  <p className={cn("text-[12px] font-bold leading-tight", active ? a.text : "text-slate-700")}>
-                    {opt.label}
-                  </p>
-                  <p className="mt-0.5 text-[9.5px] leading-tight text-slate-400">{opt.sub}</p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Changed hint ── */}
-      <AnimatePresence initial={false}>
-        {changed && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-snug text-amber-700">
-              <RefreshCw size={13} className="shrink-0" />
-              <span>
-                Mengubah dari <b>{labelOf(currentType)}</b>
-                <ArrowRight size={11} className="mx-1 inline -translate-y-px" />
-                <b>{labelOf(selected)}</b>.
-                {isBpjs ? " Perubahan tersimpan saat SEP diterbitkan." : " Klik Simpan untuk menerapkan."}
-              </span>
-            </div>
-          </motion.div>
+        {locked && (
+          <Callout tone="danger" icon={Ban} title="Kunjungan dibatalkan">
+            Penjamin kunjungan yang sudah dibatalkan tidak dapat diubah.
+          </Callout>
         )}
-      </AnimatePresence>
 
-      {/* ── Dynamic panel ── */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={selected}
-          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.18 }}
-          className="space-y-4"
-        >
-          {selected === "bpjs-jkn" && (
-            <BpjsPanel
-              // Remount saat No. Kartu penuh dari DB tiba (async) → field pencarian ter-seed
-              // dengan nomor tersimpan. Operator tinggal "Cari Kepesertaan".
+        <PenjaminCompare current={current} next={next} />
+
+        <PenjaminTypePicker value={selected} current={currentType} onChange={choose} disabled={locked || saving} />
+
+        {/* ── Langkah 2 ── */}
+        <section aria-labelledby={step2Id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <h3 id={step2Id} className="min-w-0">
+              <StepTitle n={2} title={STEP2[selected].title} desc={STEP2[selected].desc} done={isBpjs && !!bpjsResult} />
+            </h3>
+            <span className={cn("inline-flex items-center gap-1.5 rounded-full py-1 pr-2.5 pl-1.5 m-tiny font-semibold", opt.accent.tile)}>
+              <OptIcon className="size-3.5" aria-hidden="true" />
+              {opt.label}
+            </span>
+          </div>
+
+          {isBpjs && kunjungan.noSEP && (
+            <Callout
+              tone="warning"
+              title={`Kunjungan ini sudah punya SEP ${kunjungan.noSEP}`}
+              className="mb-4"
+              action={onNavigate && (
+                <Button type="button" variant="outline" size="sm" onClick={() => onNavigate("update-sep")} className="border-amber-300 bg-white text-amber-900 hover:bg-amber-100">
+                  Buka Update SEP
+                  <ArrowRight aria-hidden="true" />
+                </Button>
+              )}
+            >
+              Menerbitkan SEP baru akan menggantikan SEP tersebut. Hanya ingin mengoreksi data SEP? Gunakan Update SEP.
+            </Callout>
+          )}
+          {!isBpjs && changed && kunjungan.noSEP && (
+            <Callout tone="warning" title={`SEP ${kunjungan.noSEP} tidak dibatalkan otomatis`} className="mb-4">
+              Mengganti penjamin tidak membatalkan SEP. Batalkan SEP secara terpisah bila tidak dipakai lagi.
+            </Callout>
+          )}
+
+          <div hidden={!isBpjs} className="motion-safe:animate-[fade-in_0.2s_ease_backwards]">
+            <BpjsKepesertaanPanel
+              // Remount saat No. Kartu penuh dari DB tiba (async) → field pencarian terisi nomor tersimpan.
               key={prefilledNoKartu ? "prefilled" : "default"}
-              defaultValue={savedNoKartu}
+              defaultNoKartu={prefilledNoKartu || kunjungan.noPenjamin || patient.penjamin.nomor || ""}
               patientName={patient.name}
-              onSelect={(data) => setBpjsSelected(data)}
-              onDeselect={() => setBpjsSelected(null)}
+              savedNoKartu={savedNoKartu}
+              result={bpjsResult}
+              onResult={setBpjsResult}
+              inputRef={searchRef}
+              nudge={nudge}
+              onNudgeClear={() => setNudge(false)}
+              disabled={locked}
             />
-          )}
+          </div>
 
-          {selected === "umum" && (
-            <PanelCard tone="umum">
-              <div className="flex items-start gap-2.5 rounded-xl bg-sky-50 px-3.5 py-2.5 ring-1 ring-sky-100">
-                <Wallet size={14} className="mt-px shrink-0 text-sky-500" />
-                <p className="text-[11px] leading-relaxed text-sky-700">
-                  Pasien dikenakan tarif umum RS. Pastikan persetujuan biaya telah diperoleh sebelum pelayanan.
-                </p>
+          <form id={formId} hidden={isBpjs} noValidate onSubmit={save} aria-labelledby={step2Id}>
+            <div hidden={selected !== "umum"} className="motion-safe:animate-[fade-in_0.2s_ease_backwards]">
+              <UmumPanel />
+            </div>
+            <div hidden={selected !== "bpjs-naker"} className="motion-safe:animate-[fade-in_0.2s_ease_backwards]">
+              <NakerPanel
+                kpj={kpj}
+                onKpj={setKpj}
+                onOpenKecelakaan={onNavigate && (() => onNavigate("kecelakaan"))}
+                disabled={locked || saving}
+              />
+            </div>
+            <div hidden={selected !== "asuransi"} className="motion-safe:animate-[fade-in_0.2s_ease_backwards]">
+              <AsuransiPanel
+                nama={asuransiNama}
+                onNama={(v) => { setAsuransiNama(v); if (namaError) setNamaError(null); }}
+                polis={polis}
+                onPolis={setPolis}
+                error={namaError}
+                namaRef={namaRef}
+                disabled={locked || saving}
+              />
+            </div>
+          </form>
+        </section>
+
+        {/* ── Bilah aksi lengket ── */}
+        {!locked && (
+          <div className="sticky bottom-3 z-10 rounded-2xl border border-slate-200 bg-white/95 p-2.5 shadow-lg shadow-slate-900/10 backdrop-blur supports-backdrop-filter:bg-white/80 sm:pl-4">
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+              <p className="flex min-w-0 items-start gap-2 px-1 m-xs leading-snug text-slate-600 sm:items-center sm:px-0">
+                <span aria-hidden="true" className={cn("mt-1 size-2 shrink-0 rounded-full transition-colors sm:mt-0", dot)} />
+                <span className="min-w-0">{summary}</span>
+              </p>
+              <div className="flex items-center gap-2 sm:shrink-0">
+                {changed && (
+                  <Button type="button" variant="ghost" onClick={() => choose(currentType)} disabled={saving} className="h-10 rounded-xl text-slate-700">
+                    <Undo2 aria-hidden="true" />
+                    Kembalikan
+                  </Button>
+                )}
+                {isBpjs ? (
+                  <Button type="button" onClick={openSep} className={cn(PRIMARY, "bg-sky-600 hover:bg-sky-700 focus-visible:ring-sky-500/40")}>
+                    <FileCheck aria-hidden="true" />
+                    Terbitkan SEP
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    form={formId}
+                    disabled={saving}
+                    className={cn(
+                      PRIMARY,
+                      saveState === "saved"
+                        ? "bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500/40"
+                        : "bg-sky-600 hover:bg-sky-700 focus-visible:ring-sky-500/40",
+                    )}
+                  >
+                    {saving ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Check aria-hidden="true" />}
+                    {saving ? "Menyimpan…" : saveState === "saved" ? "Tersimpan" : "Simpan penjamin"}
+                  </Button>
+                )}
               </div>
-              <div className="mt-4">
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Metode Pembayaran</p>
-                <div className="flex flex-wrap gap-2">
-                  {PAYMENTS.map((v) => {
-                    const on = cara === v;
-                    return (
-                      <button
-                        key={v}
-                        type="button"
-                        onClick={() => setCara(v)}
-                        aria-pressed={on}
-                        className={cn(
-                          "rounded-xl border px-3.5 py-2 text-[11.5px] font-semibold transition active:scale-95",
-                          on
-                            ? "border-sky-500 bg-sky-500 text-white shadow-sm shadow-sky-200"
-                            : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700",
-                        )}
-                      >
-                        {v}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </PanelCard>
-          )}
+            </div>
+          </div>
+        )}
 
-          {selected === "bpjs-naker" && (
-            <PanelCard tone="bpjs-naker">
-              <div className="flex items-start gap-2.5 rounded-xl bg-emerald-50 px-3.5 py-2.5 ring-1 ring-emerald-100">
-                <HardHat size={14} className="mt-px shrink-0 text-emerald-500" />
-                <p className="text-[11px] leading-relaxed text-emerald-700">
-                  Untuk kecelakaan kerja / penyakit akibat kerja yang ditanggung BPJS Ketenagakerjaan.
-                </p>
-              </div>
-              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Field label="No. KPJ" hint="Kartu Peserta">
-                  <div className="relative">
-                    <Hash size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
-                    <input className={cn(inp, "pl-8 font-mono tracking-wide")} placeholder="Nomor kartu peserta…" />
-                  </div>
-                </Field>
-                <Field label="Perusahaan">
-                  <div className="relative">
-                    <Building2 size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
-                    <input className={cn(inp, "pl-8")} placeholder="Pemberi kerja…" />
-                  </div>
-                </Field>
-              </div>
-            </PanelCard>
-          )}
-
-          {selected === "asuransi" && (
-            <PanelCard tone="asuransi">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Field label="Nama Asuransi" full>
-                  <div className="relative">
-                    <ShieldCheck size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
-                    <input
-                      value={asuransiNama}
-                      onChange={(e) => setAsuransiNama(e.target.value)}
-                      className={cn(inp, "pl-8")}
-                      placeholder="Mis. Prudential, AXA, Allianz…"
-                    />
-                  </div>
-                </Field>
-                <Field label="No. Polis">
-                  <input
-                    value={asuransiPolis}
-                    onChange={(e) => setAsuransiPolis(e.target.value)}
-                    className={cn(inp, "font-mono tracking-wide")}
-                    placeholder="Nomor polis…"
-                  />
-                </Field>
-                <Field label="Berlaku s/d">
-                  <DatePicker value="" onChange={() => { /* draft lokal */ }} placeholder="Pilih tanggal" />
-                </Field>
-                <Field label="Nama Tertanggung" full>
-                  <input className={inp} placeholder="Sesuai kartu / polis…" />
-                </Field>
-              </div>
-            </PanelCard>
-          )}
-        </motion.div>
-      </AnimatePresence>
-
-      {/* ── Action bar (non-BPJS) ── */}
-      {!isBpjs && (
-        <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
-          <button
-            type="button"
-            onClick={resetToCurrent}
-            disabled={!changed || saveState !== "idle"}
-            className={cn(
-              "flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-[11.5px] font-semibold transition active:scale-95",
-              !changed || saveState !== "idle"
-                ? "cursor-not-allowed border-slate-100 text-slate-300"
-                : "border-slate-200 text-slate-600 hover:bg-slate-50",
-            )}
-          >
-            <RefreshCw size={13} />
-            Batalkan
-          </button>
-
-          <button
-            type="button"
-            onClick={doSave}
-            disabled={saveState !== "idle"}
-            className={cn(
-              "flex min-w-[9.5rem] items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-[12px] font-bold text-white shadow-sm transition active:scale-[0.98]",
-              saveState === "saved" ? "bg-emerald-600" : "bg-sky-600 hover:bg-sky-700",
-            )}
-          >
-            <AnimatePresence mode="wait" initial={false}>
-              {saveState === "idle" && (
-                <motion.span key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  className="flex items-center gap-2">
-                  <Check size={14} />Simpan Perubahan
-                </motion.span>
-              )}
-              {saveState === "saving" && (
-                <motion.span key="saving" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  className="flex items-center gap-2">
-                  <Loader2 size={14} className="animate-spin" />Menyimpan…
-                </motion.span>
-              )}
-              {saveState === "saved" && (
-                <motion.span key="saved" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-                  className="flex items-center gap-2">
-                  <Check size={14} strokeWidth={3} />Tersimpan
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </button>
-        </div>
-      )}
-
-      {/* ── SEP modal (BPJS · "Gunakan Data Ini") ── */}
-      {bpjsSelected && (
-        <UbahPenjaminSepModal
-          patient={patient}
-          kunjungan={kunjungan}
-          bpjsData={bpjsSelected}
-          onIssued={() => { issuedRef.current = true; }}
-          onClose={() => {
-            const reload = issuedRef.current;
-            issuedRef.current = false;
-            setBpjsSelected(null);
-            // Refresh agar CurrentStrip/header memuat penjamin + SEP terbaru.
-            if (reload) window.location.reload();
-          }}
-        />
-      )}
-    </div>
+        {/* ── Modal penerbitan SEP ── */}
+        {sepOpen && bpjsResult && (
+          <UbahPenjaminSepModal
+            patient={patient}
+            kunjungan={kunjungan}
+            bpjsData={bpjsResult}
+            onIssued={(dto) => { issuedRef.current = dto; }}
+            onClose={closeSep}
+          />
+        )}
+      </div>
+    </MotionConfig>
   );
 }

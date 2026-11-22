@@ -9,7 +9,7 @@
 // tab terpilih ditandai garis border di pseudo-element (tetap terlihat di forced-colors), bukan warna
 // saja, tanpa mengubah ukuran tab · tab terpilih digulir ke tampilan saat berganti.
 
-import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Tabs as TabsPrimitive } from "radix-ui";
 import {
   Ban, Car, ClipboardList, CreditCard, Navigation, Package, Printer, Upload,
@@ -24,6 +24,7 @@ import {
   UpdateSEPForm, CetakTab,
 } from "./Tabs/ActionForms";
 import { BatalkanForm } from "./Tabs/BatalkanKunjunganTab";
+import type { PenjaminPatch } from "./Tabs/PenjaminForm";
 
 // ─── Tab definitions ──────────────────────────────────────────
 
@@ -93,14 +94,15 @@ interface PanelCtx {
   icdCodes: string[];
   patient: PatientMaster;
   navigate: (id: KunjunganTabId) => void;
+  patchKunjungan: (patch: PenjaminPatch) => void;
 }
 
-function PanelBody({ id, kunjungan, icdCodes, patient, navigate }: PanelCtx & { id: KunjunganTabId }): ReactNode {
+function PanelBody({ id, kunjungan, icdCodes, patient, navigate, patchKunjungan }: PanelCtx & { id: KunjunganTabId }): ReactNode {
   switch (id) {
     case "overview":
       return <OverviewTab kunjungan={kunjungan} icdCodes={icdCodes} onNavigate={navigate} />;
     case "penjamin":
-      return <PenjaminForm kunjungan={kunjungan} patient={patient} />;
+      return <PenjaminForm kunjungan={kunjungan} patient={patient} onSaved={patchKunjungan} onNavigate={navigate} />;
     case "paket":
       return <PaketForm kunjungan={kunjungan} />;
     case "rujukan":
@@ -119,7 +121,7 @@ function PanelBody({ id, kunjungan, icdCodes, patient, navigate }: PanelCtx & { 
 // ─── Main export ──────────────────────────────────────────────
 
 export default function KunjunganTabs({
-  kunjungan,
+  kunjungan: initialKunjungan,
   icdCodes,
   patient,
 }: {
@@ -128,6 +130,11 @@ export default function KunjunganTabs({
   patient: PatientMaster;
 }) {
   const [active, setActive] = useState<KunjunganTabId>("overview");
+  // Perubahan penjamin/SEP dari tab Ubah Penjamin ditimpakan di sini → tab lain (Ringkasan, Update SEP,
+  // Cetak) langsung memakai data terbaru tanpa memuat ulang halaman.
+  const [patch, setPatch] = useState<PenjaminPatch | null>(null);
+  const kunjungan = useMemo(() => (patch ? { ...initialKunjungan, ...patch } : initialKunjungan), [initialKunjungan, patch]);
+  const patchKunjungan = useCallback((p: PenjaminPatch) => setPatch((prev) => ({ ...prev, ...p })), []);
   const isWide = useMediaQuery("(min-width: 768px)", true);
   const triggers = useRef(new Map<KunjunganTabId, HTMLButtonElement>());
 
@@ -201,8 +208,18 @@ export default function KunjunganTabs({
             value={t.id}
             className="outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-600"
           >
-            <div className="p-4 motion-safe:animate-[fade-in_0.2s_ease_both] md:p-6">
-              <PanelBody id={t.id} kunjungan={kunjungan} icdCodes={icdCodes} patient={patient} navigate={navigate} />
+            {/* fill-mode `backwards`, BUKAN `both`: keyframe fade-in berakhir di `transform: translateY(0)` —
+                bila menempel sesudah animasi, panel jadi containing block utk `position: fixed` sehingga
+                modal di dalam tab (SEP, Surat KK1/JR) terkurung di panel & terpotong area gulir. */}
+            <div className="p-4 motion-safe:animate-[fade-in_0.2s_ease_backwards] md:p-6">
+              <PanelBody
+                id={t.id}
+                kunjungan={kunjungan}
+                icdCodes={icdCodes}
+                patient={patient}
+                navigate={navigate}
+                patchKunjungan={patchKunjungan}
+              />
             </div>
           </TabsPrimitive.Content>
         ))}
