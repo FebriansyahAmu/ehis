@@ -280,7 +280,66 @@ export const RUJUKAN_MOCK: ReadonlyArray<RujukanRecord> = [
     status: "Aktif",
     masaBerlaku: { from: "2026-05-22", to: addDays("2026-05-22", 90) },
   },
+
+  // ── 2 rujukan RELATIF hari ini (data uji status berlaku) ──
+  // Seed di atas bertanggal Mei 2026 → semuanya sudah kedaluwarsa. Dua entri ini dihitung dari
+  // tanggal saat modul dimuat agar status "Berlaku" & "Segera berakhir" bisa dicoba (kartu …892).
+  rujukanRelatif({
+    no: "0118",
+    mundur: 12,
+    asal: "FKTP",
+    ppkAsal: PKM_MAWAR,
+    poli: { kode: "JAN", nama: "Jantung" },
+    diagnosa: { kode: "I20.9", nama: "Angina pectoris, unspecified" },
+    keluhan: "Nyeri dada saat aktivitas sejak 2 minggu",
+    catatan: "EKG istirahat normal, mohon evaluasi treadmill/ekokardiografi",
+  }),
+  rujukanRelatif({
+    no: "0097",
+    mundur: 85,
+    asal: "FKRTL",
+    ppkAsal: RS_CITRA,
+    poli: { kode: "MAT", nama: "Mata" },
+    diagnosa: { kode: "H40.9", nama: "Glaucoma, unspecified" },
+    keluhan: "Tekanan bola mata tinggi, lapang pandang menyempit",
+    catatan: "Rujukan untuk evaluasi tindakan laser, alat di RS Citra rusak",
+  }),
 ];
+
+/** Rujukan untuk peserta …892 bertanggal `mundur` hari sebelum hari ini (lokal), berlaku 90 hari. */
+function rujukanRelatif(o: {
+  no: string;
+  mundur: number;
+  asal: "FKTP" | "FKRTL";
+  ppkAsal: { kode: string; nama: string; tipe: "FKTP" | "FKRTL" };
+  poli: { kode: string; nama: string };
+  diagnosa: { kode: string; nama: string };
+  keluhan: string;
+  catatan: string;
+}): RujukanRecord {
+  const iso = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const now = new Date();
+  const dari = new Date(now.getFullYear(), now.getMonth(), now.getDate() - o.mundur);
+  const sampai = new Date(dari.getFullYear(), dari.getMonth(), dari.getDate() + 90);
+  const tgl = iso(dari);
+  return {
+    noRujukan: `RUJ/${o.asal}-${o.ppkAsal.nama.split(" ").pop()}/${tgl.slice(0, 4)}/${tgl.slice(5, 7)}/${o.no}`,
+    asalRujukan: o.asal,
+    tglKunjungan: tgl,
+    tglRujukan: tgl,
+    ppkAsal: o.ppkAsal,
+    ppkRujukan: { kode: RS_KITA.kode, nama: RS_KITA.nama },
+    jnsPelayanan: "2",
+    poli: o.poli,
+    diagnosa: o.diagnosa,
+    catatan: o.catatan,
+    peserta: PESERTA_MOCK[1],
+    keluhan: o.keluhan,
+    status: "Aktif",
+    masaBerlaku: { from: tgl, to: iso(sampai) },
+  };
+}
 
 // ── Lookup Helpers ─────────────────────────────────────
 

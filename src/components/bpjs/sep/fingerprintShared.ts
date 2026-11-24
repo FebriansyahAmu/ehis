@@ -5,7 +5,6 @@
 
 import type { BPJSError, FingerPrintResponse } from "@/lib/bpjs/bpjsShared";
 import { findPesertaByKartu } from "@/lib/bpjs/mock/pesertaMock";
-import { parseTgl } from "./sepShared";
 
 export type HasilFingerprint =
   | { status: "idle" }
@@ -27,12 +26,7 @@ export function namaPeserta(noKartu: string): string | null {
   return findPesertaByKartu(noKartu)?.nama ?? null;
 }
 
-/** Geser tanggal yyyy-mm-dd sebanyak `n` hari (kalender lokal). */
-export function geserHari(iso: string, n: number): string {
-  const d = parseTgl(iso) ?? new Date();
-  const t = new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
-  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
-}
+export { geserHari } from "@/components/bpjs/shared/tanggal";
 
 /** Pesan galat ringkas (judul errorLabel menyebut "SEP" untuk kode 201 — tak cocok di sini). */
 export function pesanGalat(err: BPJSError): string {

@@ -94,32 +94,6 @@ export function validasiPulang(isian: IsianPulang, sep: SEPRecordExt): Partial<R
 
 export const URUTAN_KOLOM: KolomPulang[] = ["tglPulang", "noSurat", "tglMeninggal", "noLP"];
 
-// ── Periode riwayat ────────────────────────────────────────
+// ── Periode riwayat (helper bersama modul BPJS) ───────────
 
-export const NAMA_BULAN = [
-  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-  "Juli", "Agustus", "September", "Oktober", "November", "Desember",
-];
-
-export interface Periode {
-  bulan: number; // 1–12
-  tahun: number;
-}
-
-export function periodeIni(): Periode {
-  const d = new Date();
-  return { bulan: d.getMonth() + 1, tahun: d.getFullYear() };
-}
-
-export function geserPeriode(p: Periode, langkah: number): Periode {
-  const d = new Date(p.tahun, p.bulan - 1 + langkah, 1);
-  return { bulan: d.getMonth() + 1, tahun: d.getFullYear() };
-}
-
-export function samaPeriode(a: Periode, b: Periode): boolean {
-  return a.bulan === b.bulan && a.tahun === b.tahun;
-}
-
-export function labelPeriode(p: Periode): string {
-  return `${NAMA_BULAN[p.bulan - 1]} ${p.tahun}`;
-}
+export { NAMA_BULAN, geserPeriode, labelPeriode, periodeIni, samaPeriode, type Periode } from "@/components/bpjs/shared/tanggal";

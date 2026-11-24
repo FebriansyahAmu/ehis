@@ -10,6 +10,10 @@
  * jnsLabel/asalLabel juga dipakai lembar cetak SEP (SEPCetakTemplate).
  */
 import type { BPJSError, BPJSMetaError, SEPRecordExt, SEPStatusInternal } from "@/lib/bpjs/bpjsShared";
+import type { BadgeTone } from "@/components/bpjs/shared/badge";
+
+// Helper tanggal kini bersama modul BPJS (dipakai juga Rujukan) — diekspor ulang agar import lama tetap jalan.
+export { fmtTgl, fmtTglPendek, fmtWaktu, hariIniISO, parseTgl, selisihHari, sisaHari } from "@/components/bpjs/shared/tanggal";
 
 // ── Result shapes ─────────────────────────────────────────
 
@@ -19,33 +23,9 @@ export type SEPResult =
   | { status: "found"; sep: SEPRecordExt }
   | { status: "error"; error: BPJSError };
 
-// ── Badge bermakna ────────────────────────────────────────
+// ── Badge bermakna (peta warna bersama modul BPJS) ───────
 
-export type BadgeTone = "emerald" | "blue" | "slate" | "rose" | "cyan" | "sky" | "teal" | "amber" | "indigo";
-
-export const BADGE: Record<BadgeTone, string> = {
-  emerald: "bg-emerald-50 text-emerald-800",
-  blue: "bg-blue-50 text-blue-800",
-  slate: "bg-slate-100 text-slate-700",
-  rose: "bg-rose-50 text-rose-800",
-  cyan: "bg-cyan-50 text-cyan-800",
-  sky: "bg-sky-50 text-sky-800",
-  teal: "bg-teal-50 text-teal-800",
-  amber: "bg-amber-50 text-amber-800",
-  indigo: "bg-indigo-50 text-indigo-800",
-};
-
-export const DOT: Record<BadgeTone, string> = {
-  emerald: "bg-emerald-500",
-  blue: "bg-blue-500",
-  slate: "bg-slate-400",
-  rose: "bg-rose-500",
-  cyan: "bg-cyan-500",
-  sky: "bg-sky-500",
-  teal: "bg-teal-500",
-  amber: "bg-amber-500",
-  indigo: "bg-indigo-500",
-};
+export { BADGE, DOT, type BadgeTone } from "@/components/bpjs/shared/badge";
 
 export const STATUS_META: Record<SEPStatusInternal, { label: string; tone: BadgeTone }> = {
   Draft: { label: "Draf", tone: "slate" },
@@ -96,62 +76,6 @@ export function klsLabel(kode: "1" | "2" | "3"): string {
 
 export function asalLabel(kode: "1" | "2"): string {
   return kode === "1" ? "FKTP" : "FKRTL";
-}
-
-/** "yyyy-mm-dd" (atau ISO) → Date LOKAL tengah malam; tanggal-saja tidak digeser zona. */
-export function parseTgl(s: string | null | undefined): Date | null {
-  if (!s) return null;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-    const [y, m, d] = s.split("-").map(Number);
-    return new Date(y, m - 1, d);
-  }
-  const d = new Date(s);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-export function fmtTgl(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  const d = parseTgl(iso);
-  if (!d) return iso;
-  return d.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
-}
-
-/** Tanggal ringkas, mis. "1 Mei 2026". */
-export function fmtTglPendek(iso: string | null | undefined): string {
-  const d = parseTgl(iso);
-  return d ? d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "—";
-}
-
-/** Instan (audit) → tanggal + jam zona lokal browser. */
-export function fmtWaktu(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-}
-
-/** Hari ini sebagai yyyy-mm-dd LOKAL (bukan toISOString yang UTC → bisa mundur sehari). */
-export function hariIniISO(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-/** Selisih hari kalender `dari` → `sampai` (yyyy-mm-dd); null bila salah satu tak valid. */
-export function selisihHari(dari: string | null | undefined, sampai: string | null | undefined): number | null {
-  const a = parseTgl(dari);
-  const b = parseTgl(sampai);
-  if (!a || !b) return null;
-  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
-}
-
-/** Selisih hari kalender dari hari ini (lokal) ke tanggal `iso`; null bila tak valid. */
-export function sisaHari(iso: string | null | undefined): number | null {
-  const d = parseTgl(iso);
-  if (!d) return null;
-  const n = new Date();
-  const today = new Date(n.getFullYear(), n.getMonth(), n.getDate());
-  const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
 }
 
 // ── Error label ────────────────────────────────────────────
