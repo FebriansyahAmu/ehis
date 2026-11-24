@@ -1,224 +1,101 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { List, Loader2, Search, ArrowRightLeft } from "lucide-react";
+// Daftar SEP untuk dipilih di tab SEP Internal: saring No. SEP / kartu / diagnosa di klien,
+// klik baris → rujukan internal SEP itu tampil di panel detail (dulu tombol "Detail" malah membuka
+// tab Cari, dan jumlah rujukan dimuat saat kursor lewat — tak terjangkau keyboard & memanggil
+// V-Claim tiap hover). Baris terpilih ditandai aria-current + latar emerald. Baris tanpa garis.
+// Komponen shadcn: Item · Badge · Input · Button.
 
-import { cn } from "@/lib/utils";
-import { dataSepInternal } from "@/lib/bpjs/vClaimSEP";
-import type { BPJSError } from "@/lib/bpjs/bpjsShared";
-import { SEP_MOCK } from "@/lib/bpjs/mock/sepMock";
+import { useId, useMemo, useState } from "react";
+import { Search, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Item } from "@/components/ui/item";
+import { cn } from "@/lib/ui/utils";
+import { BADGE, DOT, STATUS_META, fmtTglPendek } from "./sepShared";
+import { cocokSep, daftarSepPilihan } from "./sepInternalShared";
 
-// ── Helpers ────────────────────────────────────────────────
-
-function errMsg(e: BPJSError): string {
-  if ("message" in e && typeof e.message === "string") return e.message;
-  return "Gagal memuat data.";
-}
-
-function fmtDate(s: string) {
-  if (!s) return "—";
-  const [y, m, d] = s.split("-");
-  return `${d}/${m}/${y}`;
-}
-
-// Derive RI SEPs for a given noKartu from SEP_MOCK (mock-first phase)
-function getRiSEPs(noKartu: string) {
-  return SEP_MOCK.filter(
-    (s) => (!noKartu || s.noKartu === noKartu) && s.jnsPelayanan === "1" && s.statusInternal !== "Deleted",
-  );
-}
-
-// ── Row ────────────────────────────────────────────────────
-
-function SEPRow({
-  noKartu, noSEP, tglTerbit, diagAwal, diagAwalNama, statusInternal, index,
-  onSelect,
-}: {
-  noKartu: string; noSEP: string; tglTerbit: string; diagAwal: string;
-  diagAwalNama: string | undefined; statusInternal: string; index: number;
-  onSelect: (noSEP: string) => void;
-}) {
-  const [intCount, setIntCount] = useState<number | null>(null);
-  const [loading, setLoading]   = useState(false);
-
-  async function loadCount() {
-    if (intCount !== null || loading) return;
-    setLoading(true);
-    try {
-      const res = await dataSepInternal(noSEP);
-      if (res.ok) setIntCount(res.value.response?.list.length ?? 0);
-    } finally {
-      setLoading(false);
-    }
-  }
+export default function SEPInternalList({ terpilih, onPilih }: { terpilih: string | null; onPilih: (noSEP: string) => void }) {
+  const id = useId();
+  const [q, setQ] = useState("");
+  const semua = useMemo(() => daftarSepPilihan(), []);
+  const tampil = semua.filter((s) => cocokSep(s, q.trim()));
 
   return (
-    <motion.tr
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.18, delay: index * 0.03 }}
-      className="group border-b border-slate-100 last:border-0 hover:bg-slate-50/50"
-      onMouseEnter={loadCount}
-    >
-      <td className="py-2.5 pl-3 pr-3">
-        <p className="font-mono text-[11px] font-medium text-slate-700">{noSEP}</p>
-        <p className="mt-0.5 font-mono text-[10px] text-slate-400">{noKartu}</p>
-      </td>
-      <td className="py-2.5 pr-3">
-        <p className="font-mono text-[11px] font-bold text-slate-800">{diagAwal}</p>
-        <p className="mt-0.5 text-[10px] text-slate-400 line-clamp-1">{diagAwalNama ?? "—"}</p>
-      </td>
-      <td className="py-2.5 pr-3 text-[11px] text-slate-500">{fmtDate(tglTerbit)}</td>
-      <td className="py-2.5 pr-3">
-        <span className={cn(
-          "rounded-full px-2 py-0.5 text-[10px] font-bold",
-          statusInternal === "Issued" ? "bg-emerald-100 text-emerald-700" :
-          statusInternal === "Updated" ? "bg-sky-100 text-sky-700" :
-          "bg-slate-100 text-slate-600",
-        )}>
-          {statusInternal}
+    <section aria-labelledby={`${id}-judul`} className="flex flex-col gap-3 py-4">
+      <div className="flex items-baseline justify-between gap-2 px-4">
+        <h3 id={`${id}-judul`} className="text-xs font-semibold">
+          Pilih dari daftar SEP
+        </h3>
+        <span className="text-[11px] text-muted-foreground tabular-nums">
+          {q.trim() ? `${tampil.length} dari ${semua.length}` : `${semua.length} SEP`}
         </span>
-      </td>
-      <td className="py-2.5 pr-3">
-        {loading ? (
-          <Loader2 size={11} className="animate-spin text-slate-300" />
-        ) : intCount !== null ? (
-          <span className={cn(
-            "rounded-full px-1.5 py-0.5 text-[10px] font-bold",
-            intCount > 0 ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-400",
-          )}>
-            {intCount}
-          </span>
-        ) : (
-          <span className="text-[10px] text-slate-300">—</span>
-        )}
-      </td>
-      <td className="py-2.5 pr-3">
-        <button
-          type="button"
-          onClick={() => onSelect(noSEP)}
-          className="flex items-center gap-1 rounded-lg bg-sky-50 px-2 py-1 text-[10px] font-semibold text-sky-600 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-sky-100"
-        >
-          <ArrowRightLeft size={9} strokeWidth={2.5} />
-          Detail
-        </button>
-      </td>
-    </motion.tr>
-  );
-}
-
-// ── Component ──────────────────────────────────────────────
-
-interface SEPInternalListProps {
-  onSelectSEP?: (noSEP: string) => void;
-}
-
-const SAMPLES = [
-  { label: "Kartu 891", value: "0001234567891" },
-  { label: "Kartu 892", value: "0001234567892" },
-  { label: "Kartu 899 (KLL)", value: "0001234567899" },
-];
-
-export default function SEPInternalList({ onSelectSEP }: SEPInternalListProps) {
-  const [noKartu, setNoKartu] = useState("");
-  const [rows, setRows]       = useState(() => getRiSEPs(""));
-
-  const handleFilter = useCallback(() => {
-    setRows(getRiSEPs(noKartu.trim()));
-  }, [noKartu]);
-
-  return (
-    <div className="flex flex-col gap-4 p-5">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <List size={13} className="text-sky-500" strokeWidth={2.3} />
-        <p className="text-xs font-semibold text-slate-700">Daftar SEP Rawat Inap</p>
       </div>
 
-      {/* Filter */}
-      <div className="flex gap-2">
-        <input
-          type="text"
-          inputMode="numeric"
-          value={noKartu}
-          onChange={(e) => setNoKartu(e.target.value.replace(/\D/g, "").slice(0, 13))}
-          placeholder="Filter No. Kartu (13 digit)…"
-          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2 font-mono text-xs text-slate-700 placeholder:font-sans placeholder:text-slate-300 focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-100"
+      <div className="relative px-4">
+        <label htmlFor={`${id}-q`} className="sr-only">
+          Saring No. SEP, kartu, atau diagnosa
+        </label>
+        <Search className="pointer-events-none absolute top-1/2 left-6.5 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Input
+          id={`${id}-q`}
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Saring No. SEP, kartu, diagnosa"
+          className="h-8 rounded-lg border-0 bg-slate-100 pl-8 text-xs shadow-none placeholder:text-muted-foreground/70 focus-visible:bg-white focus-visible:ring-ring/40 md:text-xs"
         />
-        <button
-          type="button"
-          onClick={handleFilter}
-          className="flex shrink-0 items-center gap-1.5 rounded-xl bg-sky-500 px-4 py-2 text-xs font-semibold text-white shadow-sm shadow-sky-200/50 hover:bg-sky-600 transition-colors"
-        >
-          <Search size={11} strokeWidth={2.5} />
-          Filter
-        </button>
       </div>
 
-      {/* Dev samples */}
-      <div className="flex flex-wrap gap-1.5">
-        {SAMPLES.map((s) => (
-          <button key={s.value} type="button"
-            onClick={() => { setNoKartu(s.value); setRows(getRiSEPs(s.value)); }}
-            className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600 transition-colors hover:bg-sky-50 hover:text-sky-700"
-          >
-            {s.label}
-          </button>
-        ))}
-        <button type="button"
-          onClick={() => { setNoKartu(""); setRows(getRiSEPs("")); }}
-          className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
-        >
-          Tampilkan Semua
-        </button>
-      </div>
-
-      {/* Note */}
-      <p className="text-[10px] leading-relaxed text-slate-400">
-        Hover baris untuk muat jumlah SEP Internal. Klik "Detail" untuk lihat transfer di panel kiri.
-      </p>
-
-      {/* Table */}
-      <AnimatePresence mode="wait">
-        <motion.div key="table" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          {rows.length === 0 ? (
-            <div className="rounded-xl bg-slate-50 px-4 py-6 text-center">
-              <p className="text-xs text-slate-400">Tidak ada SEP Rawat Inap untuk kartu ini.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto rounded-xl border border-slate-200/60">
-              <table className="w-full min-w-[580px] text-left">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/80">
-                    {["No. SEP / Kartu", "Diagnosa", "Tgl Terbit", "Status", "Internal", ""].map((h) => (
-                      <th key={h} className="px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50 bg-white">
-                  {rows.map((sep, i) => (
-                    <SEPRow
-                      key={sep.noSEP}
-                      noKartu={sep.noKartu}
-                      noSEP={sep.noSEP}
-                      tglTerbit={sep.tglTerbit}
-                      diagAwal={sep.diagAwal}
-                      diagAwalNama={sep.diagAwalNama}
-                      statusInternal={sep.statusInternal}
-                      index={i}
-                      onSelect={(noSEP) => onSelectSEP?.(noSEP)}
-                    />
-                  ))}
-                </tbody>
-              </table>
-              <p className="border-t border-slate-100 bg-slate-50/60 px-3 py-2 text-[10px] text-slate-400">
-                {rows.length} SEP Rawat Inap aktif
-              </p>
-            </div>
-          )}
-        </motion.div>
-      </AnimatePresence>
-    </div>
+      {tampil.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 px-4 py-6 text-center">
+          <p className="text-xs text-muted-foreground">
+            Tidak ada SEP yang cocok dengan “<span className="text-foreground">{q.trim()}</span>”
+          </p>
+          <Button variant="ghost" size="xs" onClick={() => setQ("")}>
+            <X aria-hidden="true" />
+            Hapus saringan
+          </Button>
+        </div>
+      ) : (
+        <ul aria-label="Daftar SEP" className="flex flex-col gap-0.5 px-2">
+          {tampil.map((s) => {
+            const aktif = s.noSEP === terpilih;
+            const meta = STATUS_META[s.statusInternal];
+            const ri = s.jnsPelayanan === "1";
+            return (
+              <li key={s.noSEP}>
+                <Item
+                  asChild
+                  size="sm"
+                  className={cn(
+                    "w-full flex-col flex-nowrap items-stretch gap-1 rounded-xl px-3 py-2.5 text-left transition-colors",
+                    aktif ? "bg-emerald-50 text-emerald-950" : "hover:bg-slate-50",
+                  )}
+                >
+                  <button type="button" aria-current={aktif ? "true" : undefined} onClick={() => onPilih(s.noSEP)}>
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="truncate text-xs font-semibold tracking-wide tabular-nums">{s.noSEP}</span>
+                      <Badge className={cn("shrink-0 px-1.5 text-[11px]", BADGE[meta.tone])}>{meta.label}</Badge>
+                    </span>
+                    <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <span className="font-medium text-foreground tabular-nums">{s.diagAwal}</span>
+                      <span className="truncate">{s.diagAwalNama ?? "—"}</span>
+                    </span>
+                    <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground tabular-nums">
+                      <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", DOT[ri ? "cyan" : "sky"])} />
+                      <span className="truncate">
+                        {ri ? "Rawat inap" : "Rawat jalan"} · {s.noKartu} · {fmtTglPendek(s.tglTerbit)}
+                      </span>
+                    </span>
+                  </button>
+                </Item>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }

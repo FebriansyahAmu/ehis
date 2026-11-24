@@ -5,8 +5,8 @@
 // karena memilih tab mengubah URL. `?update=<noSEP>` tetap membuka tab Update Tgl Pulang.
 // Redesign bertahap: tahap 1 = kerangka + Cari SEP + modal Hapus SEP; tahap 2 = Update tanggal
 // pulang (periksa SEP → isi, riwayat per bulan dengan aksi Lihat/Ubah); tahap 3 = Suplesi Jasa
-// Raharja (satu cek kartu → potensi suplesi + riwayat kecelakaan). Tab lain masih komponen lama
-// yang dibungkus kartu baru.
+// Raharja (satu cek kartu → potensi suplesi + riwayat kecelakaan); tahap 4 = SEP Internal
+// (daftar–detail + dialog hapus). Tab lain masih komponen lama yang dibungkus kartu baru.
 // Komponen shadcn: Tabs · Card · Item · Badge · Button · Skeleton · Spinner (kartu tanpa garis).
 
 import { Suspense, useCallback, useRef, useState, type ReactNode } from "react";
@@ -41,8 +41,7 @@ import UpdateTglPulangForm from "./UpdateTglPulangForm";
 import UpdateTglPulangList from "./UpdateTglPulangList";
 import SEPIntegrasiInaCBGCard from "./SEPIntegrasiInaCBGCard";
 import SuplesiTab from "./SuplesiTab";
-import SEPInternalForm from "./SEPInternalForm";
-import SEPInternalList from "./SEPInternalList";
+import SEPInternalTab from "./SEPInternalTab";
 import FingerprintPanel from "./FingerprintPanel";
 import FingerprintListPanel from "./FingerprintListPanel";
 import { BADGE, DOT, STATUS_META, errorLabel, type BadgeTone, type SEPResult } from "./sepShared";
@@ -377,16 +376,8 @@ function SEPPageInner() {
           </TabsContent>
 
           {/* SEP internal */}
-          <TabsContent value="internal" className="min-h-0 overflow-y-auto">
-            <div className="grid content-start gap-4 p-4 sm:p-5 lg:grid-cols-[22rem_minmax(0,1fr)]">
-              <Kartu>
-                <SEPInternalForm />
-              </Kartu>
-              <Kartu>
-                {/* Klik baris → buka SEP itu di tab Cari SEP (dulu tidak melakukan apa-apa). */}
-                <SEPInternalList onSelectSEP={bukaSEP} />
-              </Kartu>
-            </div>
+          <TabsContent value="internal" className="min-h-0 overflow-y-auto lg:overflow-hidden">
+            <SEPInternalTab onBukaSEP={bukaSEP} />
           </TabsContent>
 
           {/* Fingerprint */}
