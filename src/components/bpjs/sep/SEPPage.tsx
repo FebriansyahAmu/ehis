@@ -1,12 +1,14 @@
 "use client";
 
-// BPJS V-Claim → SEP. Kerangka 6 sub-tab (Tabs shadcn/Radix) yang tersimpan di URL (`?tab=`,
+// BPJS V-Claim → SEP. Kerangka 5 sub-tab (Tabs shadcn/Radix) yang tersimpan di URL (`?tab=`,
 // lewat history.replaceState — tanpa round-trip server). Aktivasi tab MANUAL (Enter/klik)
-// karena memilih tab mengubah URL. `?update=<noSEP>` tetap membuka tab Update Tgl Pulang.
+// karena memilih tab mengubah URL. `?update=<noSEP>` tetap membuka tab Update Tgl Pulang;
+// `?tab=` yang tak dikenal (mis. "integrasi" lama) jatuh ke Cari SEP.
 // Redesign bertahap: tahap 1 = kerangka + Cari SEP + modal Hapus SEP; tahap 2 = Update tanggal
 // pulang (periksa SEP → isi, riwayat per bulan dengan aksi Lihat/Ubah); tahap 3 = Suplesi Jasa
 // Raharja (satu cek kartu → potensi suplesi + riwayat kecelakaan); tahap 4 = SEP Internal
-// (daftar–detail + dialog hapus). Tab lain masih komponen lama yang dibungkus kartu baru.
+// (daftar–detail + dialog hapus); tahap 5 = Fingerprint (cek + verifikasi pertanyaan + daftar
+// per tanggal). Tab Integrasi E-Klaim dihapus (pemetaan SEP ke klaim = ranah modul E-Klaim).
 // Komponen shadcn: Tabs · Card · Item · Badge · Button · Skeleton · Spinner (kartu tanpa garis).
 
 import { Suspense, useCallback, useRef, useState, type ReactNode } from "react";
@@ -17,7 +19,6 @@ import {
   CalendarClock,
   FileText,
   Fingerprint,
-  Link2,
   ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
@@ -39,11 +40,9 @@ import SEPDetailCard from "./SEPDetailCard";
 import HapusSEPModal from "./HapusSEPModal";
 import UpdateTglPulangForm from "./UpdateTglPulangForm";
 import UpdateTglPulangList from "./UpdateTglPulangList";
-import SEPIntegrasiInaCBGCard from "./SEPIntegrasiInaCBGCard";
 import SuplesiTab from "./SuplesiTab";
 import SEPInternalTab from "./SEPInternalTab";
-import FingerprintPanel from "./FingerprintPanel";
-import FingerprintListPanel from "./FingerprintListPanel";
+import FingerprintTab from "./FingerprintTab";
 import { BADGE, DOT, STATUS_META, errorLabel, type BadgeTone, type SEPResult } from "./sepShared";
 
 // ── Tab ────────────────────────────────────────────────────
@@ -51,7 +50,6 @@ import { BADGE, DOT, STATUS_META, errorLabel, type BadgeTone, type SEPResult } f
 const TABS = [
   { key: "cari", label: "Cari SEP", icon: FileText },
   { key: "update-tgl", label: "Update tgl pulang", icon: CalendarClock },
-  { key: "integrasi", label: "Integrasi E-Klaim", icon: Link2 },
   { key: "suplesi", label: "Suplesi Jasa Raharja", icon: ShieldAlert },
   { key: "internal", label: "SEP internal", icon: ArrowRightLeft },
   { key: "fingerprint", label: "Fingerprint", icon: Fingerprint },
@@ -231,7 +229,7 @@ function SEPPageInner() {
     [cari],
   );
 
-  /** Buka SEP di tab Cari (dipakai riwayat update, form update, dan daftar SEP internal). */
+  /** Buka SEP di tab Cari (dipakai riwayat update, form update, SEP internal, daftar fingerprint). */
   const bukaSEP = useCallback(
     (no: string) => {
       gantiTab("cari");
@@ -361,15 +359,6 @@ function SEPPageInner() {
             </div>
           </TabsContent>
 
-          {/* Integrasi E-Klaim */}
-          <TabsContent value="integrasi" className="min-h-0 overflow-y-auto">
-            <div className="mx-auto max-w-2xl p-4 sm:p-5">
-              <Kartu>
-                <SEPIntegrasiInaCBGCard />
-              </Kartu>
-            </div>
-          </TabsContent>
-
           {/* Suplesi Jasa Raharja */}
           <TabsContent value="suplesi" className="min-h-0 overflow-y-auto">
             <SuplesiTab onBukaSEP={bukaSEP} />
@@ -382,14 +371,7 @@ function SEPPageInner() {
 
           {/* Fingerprint */}
           <TabsContent value="fingerprint" className="min-h-0 overflow-y-auto">
-            <div className="grid content-start gap-4 p-4 sm:p-5 lg:grid-cols-[22rem_minmax(0,1fr)]">
-              <Kartu>
-                <FingerprintPanel />
-              </Kartu>
-              <Kartu>
-                <FingerprintListPanel />
-              </Kartu>
-            </div>
+            <FingerprintTab onBukaSEP={bukaSEP} />
           </TabsContent>
         </Tabs>
       </div>

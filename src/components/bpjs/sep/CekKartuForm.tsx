@@ -1,14 +1,13 @@
 "use client";
 
-// Form cek kecelakaan peserta untuk tab Suplesi Jasa Raharja. SATU pencarian (No. kartu +
-// tanggal pelayanan) menjalankan dua cek V-Claim sekaligus — dulu dua form terpisah yang
-// meminta nomor kartu diketik dua kali. Nilai dipegang halaman (data uji bisa mengisi ulang).
-// Form = landmark pencarian (role="search") bernama dari judul kartu. Galat tampil setelah
+// Form cek peserta per No. kartu + tanggal pelayanan, dipakai tab Suplesi Jasa Raharja dan
+// Fingerprint (dulu dua form salinan). Nilai dipegang halaman (data uji / daftar bisa mengisi
+// ulang). Form = landmark pencarian (role="search") bernama dari judul kartu. Galat tampil setelah
 // interaksi; submit gagal → fokus ke kolom pertama yang salah. Tanggal = lokal, bukan UTC.
 // Komponen shadcn: Label · Input · Button · Spinner · Collapsible · Item.
 
-import { useId, useState, type FormEvent, type RefObject } from "react";
-import { Check, ChevronDown, FlaskConical, Info, Search } from "lucide-react";
+import { useId, useState, type FormEvent, type ReactNode, type RefObject } from "react";
+import { Check, ChevronDown, FlaskConical, Search, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
@@ -19,9 +18,16 @@ import { DatePicker } from "@/components/shared/inputs";
 import { useUmumkanGalat } from "@/components/bpjs/shared/useUmumkanGalat";
 import { cn } from "@/lib/ui/utils";
 import { INPUT_ISI, PesanGalat } from "./tglPulangUi";
-import { PANJANG_KARTU, SAMPLE_KARTU, validasiKartu, validasiTglPelayanan } from "./suplesiShared";
+import { PANJANG_KARTU, validasiKartu, validasiTglPelayanan } from "./suplesiShared";
 
-export default function SuplesiJasaRaharjaForm({
+export interface SampelKartu {
+  label: string;
+  value: string;
+  /** Keterangan tambahan (mis. jawaban verifikasi untuk data uji). */
+  hint?: string;
+}
+
+export default function CekKartuForm({
   judulId,
   kartu,
   tgl,
@@ -30,6 +36,10 @@ export default function SuplesiJasaRaharjaForm({
   onSubmit,
   busy,
   inputRef,
+  catatan,
+  labelTombol,
+  ikonTombol: IkonTombol = Search,
+  sampel,
 }: {
   /** id judul kartu pembungkus → nama aksesibel form. */
   judulId: string;
@@ -40,6 +50,11 @@ export default function SuplesiJasaRaharjaForm({
   onSubmit: (kartu: string, tgl: string) => void;
   busy: boolean;
   inputRef: RefObject<HTMLInputElement | null>;
+  /** Catatan konteks di atas isian (sudah bergaya dari pemakai). */
+  catatan?: ReactNode;
+  labelTombol: string;
+  ikonTombol?: LucideIcon;
+  sampel: readonly SampelKartu[];
 }) {
   const id = useId();
   const pengumum = useUmumkanGalat();
@@ -66,13 +81,7 @@ export default function SuplesiJasaRaharjaForm({
 
   return (
     <form onSubmit={handleSubmit} noValidate role="search" aria-labelledby={judulId} className="flex flex-col gap-4">
-      <p className="flex items-start gap-2 rounded-xl bg-amber-50/80 p-3 text-xs/relaxed text-amber-950">
-        <Info className="mt-0.5 size-3.5 shrink-0 text-amber-700" aria-hidden="true" />
-        <span>
-          Jasa Raharja menjamin biaya perawatan kecelakaan lalu lintas sampai <strong className="font-semibold">Rp 20 juta</strong>.
-          Sisanya dijamin BPJS lewat <strong className="font-semibold">SEP suplesi</strong> yang merujuk SEP kecelakaan awal.
-        </span>
-      </p>
+      {catatan}
 
       {/* No. kartu */}
       <div className="flex flex-col gap-1.5">
@@ -157,8 +166,8 @@ export default function SuplesiJasaRaharjaForm({
           </>
         ) : (
           <>
-            <Search className="size-3.5" aria-hidden="true" />
-            Periksa kecelakaan
+            <IkonTombol className="size-3.5" aria-hidden="true" />
+            {labelTombol}
           </>
         )}
       </Button>
@@ -181,12 +190,12 @@ export default function SuplesiJasaRaharjaForm({
         </CollapsibleTrigger>
         <CollapsibleContent>
           <ul className="flex flex-col gap-1 px-2 pb-2">
-            {SAMPLE_KARTU.map((s) => (
+            {sampel.map((s) => (
               <li key={s.value}>
                 <Item
                   asChild
                   size="sm"
-                  className="w-full flex-nowrap justify-between gap-2 rounded-lg bg-white px-2.5 py-1.5 text-left shadow-xs hover:bg-emerald-50"
+                  className="w-full flex-nowrap items-start justify-between gap-2 rounded-lg bg-white px-2.5 py-1.5 text-left shadow-xs hover:bg-emerald-50"
                 >
                   <button
                     type="button"
@@ -197,8 +206,11 @@ export default function SuplesiJasaRaharjaForm({
                       if (!busy && !validasiTglPelayanan(tgl)) onSubmit(s.value, tgl);
                     }}
                   >
-                    <span className="text-xs text-foreground">{s.label}</span>
-                    <span className="truncate text-[11px] text-muted-foreground tabular-nums">{s.value}</span>
+                    <span className="flex min-w-0 flex-col">
+                      <span className="text-xs text-foreground">{s.label}</span>
+                      {s.hint && <span className="text-[11px] text-muted-foreground">{s.hint}</span>}
+                    </span>
+                    <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">{s.value}</span>
                   </button>
                 </Item>
               </li>

@@ -7,7 +7,7 @@
  *   amber = kecelakaan/suplesi (penjamin lain) · indigo = pembiayaan tambahan (eksekutif,
  *   naik kelas, COB)
  *
- * Ekspor lama (statusChipCls, jnsLabel, …) dipertahankan untuk tab yang belum dirombak.
+ * jnsLabel/asalLabel juga dipakai lembar cetak SEP (SEPCetakTemplate).
  */
 import type { BPJSError, BPJSMetaError, SEPRecordExt, SEPStatusInternal } from "@/lib/bpjs/bpjsShared";
 
@@ -83,20 +83,6 @@ export const PEMBIAYAAN_LABEL: Record<string, string> = {
   "2": "Pemberi kerja",
   "3": "Asuransi tambahan",
 };
-
-// ── Status chip lama (tab yang belum dirombak) ────────────
-
-export function statusChipCls(status: SEPRecordExt["statusInternal"]): string {
-  const map: Record<SEPRecordExt["statusInternal"], string> = {
-    Issued:  "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200",
-    Closed:  "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
-    Updated: "bg-sky-100 text-sky-700 ring-1 ring-sky-200",
-    Suplesi: "bg-amber-100 text-amber-700 ring-1 ring-amber-200",
-    Deleted: "bg-rose-100 text-rose-700 ring-1 ring-rose-200",
-    Draft:   "bg-gray-100 text-gray-500 ring-1 ring-gray-200",
-  };
-  return map[status];
-}
 
 // ── Display helpers ────────────────────────────────────────
 

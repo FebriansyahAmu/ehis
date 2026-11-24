@@ -669,8 +669,12 @@ export function getFingerPrint(
       if (!/^\d{13}$/.test(noKartu)) {
         return errEnvelope("204", endpoint, "Nomor kartu harus 13 digit");
       }
-      // Mock: 70% sudah validasi, 30% belum
-      const validated = Math.random() < 0.7;
+      // Mock DETERMINISTIK (dulu acak 70/30 → hasil berubah tiap cek): sudah validasi bila peserta
+      // punya SEP pada tanggal itu (selaras List Finger Print) atau digit terakhir kartu bukan 2/5/8.
+      const adaSep = SEP_MOCK.some(
+        (s) => s.noKartu === noKartu && s.tglTerbit === tglPelayanan && s.statusInternal !== "Deleted",
+      );
+      const validated = adaSep || !"258".includes(noKartu.slice(-1));
       const response: FingerPrintResponse = validated
         ? {
             kode: "1",
@@ -715,6 +719,13 @@ export function listFingerPrint(
 
 // ── 13. RANDOM QUESTION (alternatif fingerprint) ───────
 
+/** FKTP pengecoh untuk pilihan Random Question (mock). */
+const FASKES_PENGECOH: ReadonlyArray<{ kode: string; nama: string }> = [
+  { kode: "0177B030", nama: "Klinik Citra Madina" },
+  { kode: "21061801", nama: "DAMAU" },
+  { kode: "01031201", nama: "PEUKAN BADA" },
+];
+
 export function randomQuestion(
   noKartu: string,
   tglPelayanan: string,
@@ -729,14 +740,15 @@ export function randomQuestion(
       if (!/^\d{13}$/.test(noKartu)) {
         return errEnvelope("204", endpoint, "Nomor kartu harus 13 digit");
       }
-      // Mock: 3 faskes acak — peserta pilih yang benar (lookup riwayat FKTP)
-      return okEnvelope({
-        faskes: [
-          { kode: "0177B030", nama: "Klinik Citra Madina" },
-          { kode: "21061801", nama: "DAMAU" },
-          { kode: "01031201", nama: "PEUKAN BADA" },
-        ],
-      }, "Ok");
+      // Mock: 3 pilihan FKTP — satu FKTP terdaftar peserta + dua pengecoh, posisi jawaban
+      // benar ditentukan digit terakhir kartu (deterministik, dulu tak memuat jawaban benar).
+      const peserta = PESERTA_MOCK.find((p) => p.noKartu === noKartu);
+      if (!peserta) return errEnvelope("201", endpoint, "Peserta tidak ditemukan");
+      const digit = Number(noKartu.slice(-1));
+      const pengecoh = [FASKES_PENGECOH[digit % 3], FASKES_PENGECOH[(digit + 1) % 3]];
+      const faskes: RandomQuestionResponse["faskes"] = [...pengecoh];
+      faskes.splice(digit % 3, 0, { kode: peserta.provUmum.kdProvider, nama: peserta.provUmum.nmProvider });
+      return okEnvelope({ faskes }, "Ok");
     },
   )();
 }
@@ -759,9 +771,10 @@ export function postRandomAnswer(
       if (!payload.user || payload.user.trim().length === 0) {
         return errEnvelope("204", endpoint, "user wajib diisi");
       }
-      // Mock: 85% verifikasi sukses
-      const verified = Math.random() < 0.85;
-      if (!verified) {
+      // Mock: jawaban benar = FKTP terdaftar + tanggal lahir peserta (dulu acak 85%).
+      const peserta = PESERTA_MOCK.find((p) => p.noKartu === payload.noKartu);
+      if (!peserta) return errEnvelope("201", endpoint, "Peserta tidak ditemukan");
+      if (payload.ppkPst !== peserta.provUmum.kdProvider || payload.tglLahir !== peserta.tglLahir) {
         return errEnvelope("204", endpoint, "Jawaban tidak sesuai");
       }
       return okEnvelope({ verified: true }, "Verifikasi peserta sukses");

@@ -6,13 +6,14 @@
 // Respons basi (disusul pemeriksaan lain) diabaikan. Ringkasan hasil diumumkan lewat role="status".
 
 import { useCallback, useId, useRef, useState } from "react";
+import { Info } from "lucide-react";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { dataIndukKecelakaan, suplesiCek } from "@/lib/bpjs/vClaimSEP";
 import type { DataIndukKecelakaanItem, SuplesiJaminanItem } from "@/lib/bpjs/bpjsShared";
 import { hariIniISO } from "./sepShared";
-import SuplesiJasaRaharjaForm from "./SuplesiJasaRaharjaForm";
+import CekKartuForm from "./CekKartuForm";
 import SuplesiHasil, { ringkasSuplesi } from "./SuplesiHasil";
-import { GALAT_KONEKSI, type Bagian, type HasilSuplesi } from "./suplesiShared";
+import { GALAT_KONEKSI, SAMPLE_KARTU, type Bagian, type HasilSuplesi } from "./suplesiShared";
 
 async function cekPotensi(kartu: string, tgl: string): Promise<Bagian<SuplesiJaminanItem[]>> {
   try {
@@ -64,7 +65,7 @@ export default function SuplesiTab({ onBukaSEP }: { onBukaSEP?: (noSEP: string) 
           <CardDescription className="text-xs">Cek potensi suplesi & riwayat kecelakaan peserta</CardDescription>
         </CardHeader>
         <div className="p-4">
-          <SuplesiJasaRaharjaForm
+          <CekKartuForm
             judulId={judulId}
             kartu={kartu}
             tgl={tgl}
@@ -73,6 +74,18 @@ export default function SuplesiTab({ onBukaSEP }: { onBukaSEP?: (noSEP: string) 
             onSubmit={(k, t) => void periksa(k, t)}
             busy={hasil.status === "loading"}
             inputRef={inputRef}
+            labelTombol="Periksa kecelakaan"
+            sampel={SAMPLE_KARTU}
+            catatan={
+              <p className="flex items-start gap-2 rounded-xl bg-amber-50/80 p-3 text-xs/relaxed text-amber-950">
+                <Info className="mt-0.5 size-3.5 shrink-0 text-amber-700" aria-hidden="true" />
+                <span>
+                  Jasa Raharja menjamin biaya perawatan kecelakaan lalu lintas sampai{" "}
+                  <strong className="font-semibold">Rp 20 juta</strong>. Sisanya dijamin BPJS lewat{" "}
+                  <strong className="font-semibold">SEP suplesi</strong> yang merujuk SEP kecelakaan awal.
+                </span>
+              </p>
+            }
           />
         </div>
       </Card>
