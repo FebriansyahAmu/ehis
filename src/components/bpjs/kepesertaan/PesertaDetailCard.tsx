@@ -24,7 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/ui/utils";
 import type { BPJSError, PesertaRecord } from "@/lib/bpjs/bpjsShared";
-import { CopyButton } from "./CopyButton";
+import { CopyButton } from "@/components/bpjs/shared/CopyButton";
 import {
   errorLabel,
   fmtTgl,

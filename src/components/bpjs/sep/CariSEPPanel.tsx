@@ -1,150 +1,118 @@
 "use client";
 
-import { useState, useId } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { FileText, Search, Loader2, ChevronDown, Info } from "lucide-react";
+// Form Cari SEP (nilai dipegang halaman agar riwayat & data uji bisa mengisi ulang).
+// Galat tampil setelah field diisi lalu ditinggal, atau saat submit (lalu fokus ke field).
+// Pesan galat ditautkan lewat aria-describedby hanya selama tampil.
 
-import { cn } from "@/lib/utils";
-import { validateNoSEP, SAMPLE_SEP } from "./sepShared";
+import { useId, useState, type FormEvent, type RefObject } from "react";
+import { AlertCircle, ChevronDown, FlaskConical, Loader2, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/ui/utils";
+import { SAMPLE_SEP, validateNoSEP } from "./sepShared";
 
-interface CariSEPPanelProps {
+export default function CariSEPPanel({
+  value,
+  onChange,
+  onSubmit,
+  busy,
+  inputRef,
+}: {
+  value: string;
+  onChange: (v: string) => void;
   onSubmit: (noSEP: string) => void;
   busy: boolean;
-}
-
-export default function CariSEPPanel({ onSubmit, busy }: CariSEPPanelProps) {
-  const [value, setValue]             = useState("");
-  const [touched, setTouched]         = useState(false);
-  const [showSamples, setShowSamples] = useState(false);
-  const inputId = useId();
-
+  inputRef: RefObject<HTMLInputElement | null>;
+}) {
+  const id = useId();
+  const [touched, setTouched] = useState(false);
   const err = touched ? validateNoSEP(value) : null;
 
-  function handleSubmit(e: { preventDefault(): void }) {
+  function kirim(no: string) {
+    if (busy) return;
+    onSubmit(no.trim());
+  }
+
+  function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setTouched(true);
-    if (validateNoSEP(value) || busy) return;
-    onSubmit(value.trim());
+    if (validateNoSEP(value)) {
+      inputRef.current?.focus();
+      return;
+    }
+    kirim(value);
   }
 
   return (
-    <div className="flex h-full flex-col">
-
-      {/* Panel header */}
-      <div className="shrink-0 border-b border-slate-100 px-5 py-4">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">V-Claim</p>
-        <h2 className="mt-0.5 text-sm font-semibold text-slate-700">Pencarian SEP</h2>
+    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+      <div>
+        <label htmlFor={`${id}-no`} className="mb-1.5 block text-xs font-medium text-foreground">
+          Nomor SEP
+        </label>
+        <input
+          ref={inputRef}
+          id={`${id}-no`}
+          autoComplete="off"
+          spellCheck={false}
+          value={value}
+          placeholder="Mis. 0301R0011117V000008"
+          aria-invalid={Boolean(err)}
+          aria-describedby={err ? `${id}-err` : undefined}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={() => value && setTouched(true)}
+          className={cn(
+            "h-10 w-full rounded-xl px-3 font-mono text-sm tracking-wide text-foreground transition-[background-color,box-shadow] outline-none placeholder:font-sans placeholder:tracking-normal placeholder:text-muted-foreground/70 focus-visible:ring-[3px]",
+            err
+              ? "bg-rose-50 focus-visible:ring-rose-200"
+              : "bg-slate-100 hover:bg-slate-200/70 focus-visible:bg-white focus-visible:ring-ring/40",
+          )}
+        />
+        {err && (
+          <p id={`${id}-err`} className="mt-1.5 flex items-center gap-1 text-xs text-rose-700">
+            <AlertCircle className="size-3.5 shrink-0" aria-hidden="true" />
+            {err}
+          </p>
+        )}
       </div>
 
-      {/* Form body */}
-      <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 overflow-y-auto p-5">
+      <Button type="submit" disabled={busy} className="h-9 w-full rounded-xl text-xs font-semibold">
+        {busy ? (
+          <>
+            <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+            Mencari SEP…
+          </>
+        ) : (
+          <>
+            <Search className="size-3.5" aria-hidden="true" />
+            Cari SEP
+          </>
+        )}
+      </Button>
 
-        {/* Context info */}
-        <div className="rounded-xl bg-emerald-50/70 px-3.5 py-3 ring-1 ring-emerald-100">
-          <div className="flex items-start gap-2">
-            <FileText size={13} className="mt-0.5 shrink-0 text-emerald-500" strokeWidth={2} />
-            <p className="text-xs leading-relaxed text-emerald-700">
-              Cari SEP untuk melihat detail lengkap, verifikasi status kepesertaan, atau melakukan penghapusan SEP via V-Claim BPJS.
-            </p>
-          </div>
-        </div>
-
-        {/* No SEP input */}
-        <div>
-          <div className="mb-1.5 flex items-center justify-between">
-            <label htmlFor={inputId} className="text-xs font-semibold text-slate-600">
-              Nomor SEP
-            </label>
-            <span className="text-xs tabular-nums text-slate-400">{value.length} karakter</span>
-          </div>
-          <input
-            id={inputId}
-            type="text"
-            placeholder="SEP-2026-0501-00012"
-            value={value}
-            autoComplete="off"
-            onChange={(e) => setValue(e.target.value)}
-            onBlur={() => setTouched(true)}
-            className={cn(
-              "w-full rounded-xl border px-3.5 py-2.5 font-mono text-sm text-slate-800 placeholder:font-sans placeholder:text-slate-300 transition-all focus:outline-none focus:ring-2",
-              err
-                ? "border-rose-300 bg-rose-50/30 focus:ring-rose-100"
-                : "border-slate-200 bg-white focus:border-emerald-300 focus:ring-emerald-100",
-            )}
-          />
-          <AnimatePresence mode="wait">
-            {err && (
-              <motion.p
-                key="err"
-                initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.14 }}
-                className="mt-1.5 text-xs font-medium text-rose-500"
+      <details className="group rounded-xl bg-slate-100/70">
+        <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-xl px-3 py-2 text-xs text-muted-foreground transition-colors select-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+          <FlaskConical className="size-3.5" aria-hidden="true" />
+          <span className="flex-1">Data uji (mock)</span>
+          <ChevronDown className="size-3.5 transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
+        </summary>
+        <ul className="flex flex-col gap-1 px-2 pb-2">
+          {SAMPLE_SEP.map((s) => (
+            <li key={s.value}>
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(s.value);
+                  setTouched(false);
+                  kirim(s.value);
+                }}
+                className="flex w-full items-center justify-between gap-2 rounded-lg bg-white px-2.5 py-1.5 text-left shadow-xs transition-colors hover:bg-emerald-50 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
               >
-                {err}
-              </motion.p>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Submit */}
-        <motion.button
-          type="submit"
-          disabled={busy}
-          whileTap={!busy ? { scale: 0.98 } : undefined}
-          className={cn(
-            "flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold tracking-wide transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-2",
-            busy
-              ? "cursor-wait bg-emerald-300 text-white"
-              : "bg-emerald-500 text-white shadow-md shadow-emerald-200/50 hover:bg-emerald-600 hover:shadow-lg hover:shadow-emerald-300/40",
-          )}
-        >
-          {busy
-            ? <><Loader2 size={14} strokeWidth={2.3} className="animate-spin" />Mencari SEP…</>
-            : <><Search size={14} strokeWidth={2.3} />Cari SEP</>
-          }
-        </motion.button>
-
-        {/* Dev sample — collapsible */}
-        <div className="pt-1">
-          <button
-            type="button"
-            onClick={() => setShowSamples((v) => !v)}
-            className="flex w-full items-center gap-1.5 text-xs text-slate-400 transition-colors hover:text-slate-600"
-          >
-            <Info size={11} />
-            <span className="flex-1 text-left">Contoh No. SEP (dev helper)</span>
-            <motion.span animate={{ rotate: showSamples ? 180 : 0 }} transition={{ duration: 0.18 }}>
-              <ChevronDown size={11} />
-            </motion.span>
-          </button>
-          <AnimatePresence initial={false}>
-            {showSamples && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-                <div className="mt-2 flex flex-col gap-1.5 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-3">
-                  {SAMPLE_SEP.map((s) => (
-                    <button
-                      key={s.value}
-                      type="button"
-                      onClick={() => { setValue(s.value); setTouched(false); }}
-                      className="flex items-center justify-between gap-2 rounded-lg bg-white px-2.5 py-1.5 text-left ring-1 ring-slate-200 transition-colors hover:text-emerald-700 hover:ring-emerald-300"
-                    >
-                      <span className="text-xs font-medium text-slate-500 shrink-0">{s.label}</span>
-                      <span className="truncate font-mono text-xs text-slate-600">{s.value}</span>
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-      </form>
-    </div>
+                <span className="text-xs text-foreground">{s.label}</span>
+                <span className="truncate font-mono text-[11px] text-muted-foreground">{s.value}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </details>
+    </form>
   );
 }

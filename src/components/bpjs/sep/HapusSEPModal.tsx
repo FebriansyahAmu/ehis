@@ -1,38 +1,71 @@
 "use client";
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, X, Trash2, Loader2, CheckCircle } from "lucide-react";
+// Konfirmasi Hapus SEP (Dialog shadcn/Radix: fokus terkunci, Esc menutup, fokus kembali ke
+// pemicu). Konfirmasi destruktif → fokus awal di tombol AMAN (Batal/Tutup). Selama proses
+// hapus, dialog tidak bisa ditutup. Alasan wajib ≥20 karakter; galat tampil setelah interaksi.
 
-import { cn } from "@/lib/utils";
+import { useId, useRef, useState } from "react";
+import { AlertCircle, AlertTriangle, CheckCircle2, Loader2, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/ui/utils";
 import type { SEPRecordExt } from "@/lib/bpjs/bpjsShared";
-import { statusChipCls } from "./sepShared";
+import { BADGE, STATUS_META, sepTerbuka } from "./sepShared";
 
-interface HapusSEPModalProps {
+const MIN_ALASAN = 20;
+
+export default function HapusSEPModal({
+  sep,
+  onConfirm,
+  onClose,
+  onDeleted,
+}: {
   sep: SEPRecordExt | null;
   onConfirm: (noSep: string, alasan: string) => Promise<void>;
   onClose: () => void;
   onDeleted?: () => void;
-}
-
-const BLOCKED_STATUSES: SEPRecordExt["statusInternal"][] = ["Deleted", "Closed"];
-const MIN_ALASAN = 20;
-
-export default function HapusSEPModal({ sep, onConfirm, onClose, onDeleted }: HapusSEPModalProps) {
-  const [alasan, setAlasan]       = useState("");
-  const [touched, setTouched]     = useState(false);
-  const [loading, setLoading]     = useState(false);
-  const [done, setDone]           = useState(false);
+}) {
+  const id = useId();
+  const [alasan, setAlasan] = useState("");
+  const [touched, setTouched] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
+  const amanRef = useRef<HTMLButtonElement>(null);
+  const alasanRef = useRef<HTMLTextAreaElement>(null);
 
-  const isBlocked  = sep ? BLOCKED_STATUSES.includes(sep.statusInternal) : false;
-  const alasanErr  = touched && alasan.trim().length < MIN_ALASAN
-    ? `Min. ${MIN_ALASAN} karakter (${alasan.trim().length}/${MIN_ALASAN})`
-    : null;
+  const blocked = sep ? !sepTerbuka(sep.statusInternal) : false;
+  const panjang = alasan.trim().length;
+  const err = touched && panjang < MIN_ALASAN ? `Alasan minimal ${MIN_ALASAN} karakter, baru ${panjang}` : null;
 
-  async function handleConfirm() {
+  function reset() {
+    setAlasan("");
+    setTouched(false);
+    setDone(false);
+    setModalError(null);
+  }
+
+  function handleOpenChange(open: boolean) {
+    if (open || loading) return;
+    reset();
+    onClose();
+  }
+
+  async function hapus() {
     setTouched(true);
-    if (!sep || isBlocked || alasan.trim().length < MIN_ALASAN) return;
+    if (!sep || blocked) return;
+    if (panjang < MIN_ALASAN) {
+      alasanRef.current?.focus();
+      return;
+    }
     setLoading(true);
     setModalError(null);
     try {
@@ -46,208 +79,153 @@ export default function HapusSEPModal({ sep, onConfirm, onClose, onDeleted }: Ha
     }
   }
 
-  function handleClose() {
-    if (loading) return;
-    setAlasan("");
-    setTouched(false);
-    setDone(false);
-    setModalError(null);
-    onClose();
-  }
+  const meta = sep ? STATUS_META[sep.statusInternal] : null;
 
   return (
-    <AnimatePresence>
-      {sep && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            key="backdrop"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[2px]"
-            onClick={handleClose}
-          />
-
-          {/* Modal */}
-          <motion.div
-            key="modal"
-            initial={{ opacity: 0, scale: 0.96, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 8 }}
-            transition={{ type: "spring", stiffness: 400, damping: 32 }}
-            className="fixed inset-x-4 top-1/2 z-50 mx-auto max-w-md -translate-y-1/2 rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200/60"
-          >
-            {/* Header */}
-            <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-rose-100">
-                <Trash2 size={14} className="text-rose-600" strokeWidth={2.3} />
+    <Dialog open={!!sep} onOpenChange={handleOpenChange}>
+      {sep && meta && (
+        <DialogContent
+          data-accent="rose"
+          showCloseButton={!loading}
+          className="gap-0 border-0 p-0 text-foreground sm:max-w-md"
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            amanRef.current?.focus();
+          }}
+        >
+          <DialogHeader className="px-5 pt-5 text-left">
+            <div className="flex items-center gap-3 pr-6">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-700">
+                <Trash2 className="size-4" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <DialogTitle className="text-sm font-semibold">Hapus SEP</DialogTitle>
+                <DialogDescription className="truncate font-mono text-xs">{sep.noSEP}</DialogDescription>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-slate-800">Hapus SEP</p>
-                <p className="truncate font-mono text-xs text-slate-500">{sep.noSEP}</p>
-              </div>
-              <button
-                type="button"
-                onClick={handleClose}
-                disabled={loading}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40"
-              >
-                <X size={14} />
-              </button>
             </div>
+          </DialogHeader>
 
-            {/* Body */}
-            <div className="p-5">
-              {done ? (
-                /* Success state */
-                <div className="flex flex-col items-center gap-3 py-4 text-center">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 ring-1 ring-emerald-100">
-                    <CheckCircle size={22} className="text-emerald-500" strokeWidth={1.8} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-700">SEP Berhasil Dihapus</p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      Penghapusan telah tercatat di audit trail V-Claim BPJS.
+          <div className="px-5 py-4">
+            {done ? (
+              <div className="flex flex-col items-center gap-3 py-3 text-center" role="status">
+                <span className="flex size-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                  <CheckCircle2 className="size-5" aria-hidden="true" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold">SEP berhasil dihapus</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Penghapusan tercatat di audit trail V-Claim BPJS</p>
+                </div>
+              </div>
+            ) : blocked ? (
+              <div className="flex items-start gap-2.5 rounded-xl bg-amber-50 p-3.5 text-amber-900">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                <p className="text-xs leading-relaxed">
+                  SEP berstatus <strong className="font-semibold">{meta.label.toLowerCase()}</strong> tidak dapat dihapus.
+                  SEP yang ditutup sudah punya tanggal pulang atau data klaim.
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <p className="flex items-start gap-2 rounded-xl bg-rose-50 p-3 text-xs leading-relaxed text-rose-900">
+                  <AlertTriangle className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+                  Penghapusan tidak dapat dibatalkan dan tercatat di audit trail V-Claim. Pastikan tidak ada klaim aktif
+                  yang terhubung ke SEP ini.
+                </p>
+
+                <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-medium">
+                      <span className="font-mono">{sep.diagAwal}</span> · {sep.diagAwalNama ?? "—"}
                     </p>
+                    <p className="font-mono text-[11px] text-muted-foreground">{sep.noKartu}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleClose}
-                    className="mt-1 rounded-xl bg-slate-100 px-5 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-200"
-                  >
-                    Tutup
-                  </button>
+                  <Badge className={cn("shrink-0", BADGE[meta.tone])}>{meta.label}</Badge>
                 </div>
-              ) : isBlocked ? (
-                /* Blocked state */
-                <div className="rounded-xl bg-amber-50 p-4 ring-1 ring-amber-200">
-                  <div className="flex items-start gap-2.5">
-                    <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-500" strokeWidth={2} />
-                    <div>
-                      <p className="text-sm font-semibold text-amber-800">Tidak Dapat Dihapus</p>
-                      <p className="mt-1 text-xs leading-relaxed text-amber-700">
-                        SEP dengan status{" "}
-                        <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-bold", statusChipCls(sep.statusInternal))}>
-                          {sep.statusInternal}
-                        </span>{" "}
-                        tidak dapat dihapus. SEP Closed sudah memiliki data klaim atau sudah ada tanggal pulang.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {/* Warning banner */}
-                  <div className="mb-4 rounded-xl bg-rose-50 p-3.5 ring-1 ring-rose-200">
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle size={14} className="mt-0.5 shrink-0 text-rose-500" strokeWidth={2} />
-                      <p className="text-xs leading-relaxed text-rose-700">
-                        Tindakan ini <span className="font-bold">tidak dapat dibatalkan</span> dan akan tercatat di audit trail BPJS (UU PDP 27/2022). Pastikan tidak ada klaim aktif yang terhubung ke SEP ini.
-                      </p>
-                    </div>
-                  </div>
 
-                  {/* SEP summary */}
-                  <div className="mb-4 rounded-xl border border-slate-200/60 bg-slate-50/50 px-3.5 py-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-semibold text-slate-600">
-                        {sep.diagAwal} · {sep.diagAwalNama ?? "—"}
-                      </p>
-                      <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold", statusChipCls(sep.statusInternal))}>
-                        {sep.statusInternal}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 font-mono text-[11px] text-slate-400">{sep.noKartu}</p>
+                <div>
+                  <div className="mb-1.5 flex items-baseline justify-between gap-2">
+                    <label htmlFor={`${id}-alasan`} className="text-xs font-medium">
+                      Alasan penghapusan
+                    </label>
+                    <span
+                      id={`${id}-hitung`}
+                      className={cn("text-[11px] tabular-nums", panjang >= MIN_ALASAN ? "text-emerald-700" : "text-muted-foreground")}
+                    >
+                      {panjang}/{MIN_ALASAN}+ karakter
+                    </span>
                   </div>
-
-                  {/* Alasan textarea */}
-                  <div>
-                    <div className="mb-1.5 flex items-center justify-between">
-                      <label className="text-xs font-semibold text-slate-600">Alasan Penghapusan</label>
-                      <span className={cn(
-                        "text-xs tabular-nums",
-                        alasan.trim().length >= MIN_ALASAN ? "text-emerald-500" : "text-slate-400",
-                      )}>
-                        {alasan.trim().length}/{MIN_ALASAN}+
-                      </span>
-                    </div>
-                    <textarea
-                      rows={3}
-                      value={alasan}
-                      placeholder="Tuliskan alasan penghapusan SEP ini (wajib min. 20 karakter)…"
-                      onChange={(e) => setAlasan(e.target.value)}
-                      onBlur={() => setTouched(true)}
-                      className={cn(
-                        "w-full resize-none rounded-xl border px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-300 transition-all focus:outline-none focus:ring-2",
-                        alasanErr
-                          ? "border-rose-300 bg-rose-50/30 focus:ring-rose-100"
-                          : "border-slate-200 bg-white focus:border-rose-300 focus:ring-rose-100",
-                      )}
-                    />
-                    <AnimatePresence mode="wait">
-                      {alasanErr && (
-                        <motion.p
-                          key="err"
-                          initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                          transition={{ duration: 0.14 }}
-                          className="mt-1 text-xs font-medium text-rose-500"
-                        >
-                          {alasanErr}
-                        </motion.p>
-                      )}
-                    </AnimatePresence>
-                  </div>
-
-                  {/* API error */}
-                  {modalError && (
-                    <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600 ring-1 ring-rose-200">
-                      {modalError}
+                  <textarea
+                    ref={alasanRef}
+                    id={`${id}-alasan`}
+                    rows={3}
+                    value={alasan}
+                    placeholder="Mis. SEP terbit ganda untuk kunjungan yang sama"
+                    aria-invalid={Boolean(err)}
+                    aria-describedby={err ? `${id}-hitung ${id}-err` : `${id}-hitung`}
+                    onChange={(e) => setAlasan(e.target.value)}
+                    onBlur={() => alasan && setTouched(true)}
+                    className={cn(
+                      "w-full resize-none rounded-xl px-3 py-2.5 text-sm transition-[background-color,box-shadow] outline-none placeholder:text-muted-foreground/70 focus-visible:ring-[3px]",
+                      err ? "bg-rose-50 focus-visible:ring-rose-200" : "bg-slate-100 focus-visible:bg-white focus-visible:ring-ring/40",
+                    )}
+                  />
+                  {err && (
+                    <p id={`${id}-err`} className="mt-1.5 flex items-center gap-1 text-xs text-rose-700">
+                      <AlertCircle className="size-3.5 shrink-0" aria-hidden="true" />
+                      {err}
                     </p>
                   )}
-                </>
-              )}
-            </div>
+                </div>
 
-            {/* Footer */}
-            {!done && !isBlocked && (
-              <div className="flex items-center justify-end gap-2.5 border-t border-slate-100 px-5 py-3.5">
-                <button
-                  type="button"
-                  onClick={handleClose}
+                {modalError && (
+                  <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-800">
+                    {modalError}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="px-5 pb-5">
+            {done || blocked ? (
+              <Button ref={amanRef} size="sm" variant="secondary" className="h-8 text-xs" autoFocus={done} onClick={() => handleOpenChange(false)}>
+                Tutup
+              </Button>
+            ) : (
+              <>
+                <Button
+                  ref={amanRef}
+                  size="sm"
+                  variant="secondary"
+                  className="h-8 text-xs"
                   disabled={loading}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40"
+                  onClick={() => handleOpenChange(false)}
                 >
                   Batal
-                </button>
-                <motion.button
-                  type="button"
-                  onClick={handleConfirm}
-                  disabled={loading || (touched && !!alasanErr)}
-                  whileTap={!loading ? { scale: 0.97 } : undefined}
-                  className="flex items-center gap-1.5 rounded-xl bg-rose-500 px-4 py-2 text-xs font-semibold text-white shadow-sm shadow-rose-200/60 transition-all hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-8 bg-rose-600 text-xs text-white hover:bg-rose-700"
+                  disabled={loading}
+                  onClick={hapus}
                 >
-                  {loading
-                    ? <><Loader2 size={12} className="animate-spin" />Menghapus…</>
-                    : <><Trash2 size={12} strokeWidth={2.3} />Hapus SEP</>
-                  }
-                </motion.button>
-              </div>
+                  {loading ? (
+                    <>
+                      <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                      Menghapus…
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="size-3.5" aria-hidden="true" />
+                      Hapus SEP
+                    </>
+                  )}
+                </Button>
+              </>
             )}
-
-            {!done && isBlocked && (
-              <div className="flex justify-end border-t border-slate-100 px-5 py-3.5">
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
-                >
-                  Tutup
-                </button>
-              </div>
-            )}
-          </motion.div>
-        </>
+          </DialogFooter>
+        </DialogContent>
       )}
-    </AnimatePresence>
+    </Dialog>
   );
 }

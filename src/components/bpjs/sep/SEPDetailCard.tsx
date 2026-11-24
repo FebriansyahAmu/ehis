@@ -1,344 +1,473 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+// Panel hasil Cari SEP — 4 keadaan (kosong · memuat · ditemukan · galat).
+// Ditemukan = "lembar SEP": nomor SEP mono + salin, stempel status, diagnosa awal, deret badge
+// berwarna (arti tetap, lihat sepShared) → 4 tanggal penting (masa berlaku memberi peringatan)
+// → rincian (peserta, kelas, rujukan, kecelakaan, catatan) + linimasa dari data nyata → aksi.
+
+import Link from "next/link";
+import type { ReactNode } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
-  FileText, AlertTriangle, WifiOff, SearchX,
-  Shield, MapPin, Activity, Stethoscope, ClipboardList, Trash2,
+  AlertTriangle,
+  Ban,
+  CheckCircle2,
+  FileSearch,
+  Lock,
+  PencilLine,
+  CalendarCheck,
+  RefreshCw,
+  RotateCcw,
+  SearchX,
+  ShieldAlert,
+  Trash2,
+  WifiOff,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { CopyButton } from "@/components/bpjs/shared/CopyButton";
+import { cn } from "@/lib/ui/utils";
+import type { BPJSError, SEPRecordExt, SEPStatusInternal } from "@/lib/bpjs/bpjsShared";
+import {
+  BADGE,
+  DOT,
+  LAKA_LABEL,
+  NAIK_KELAS_LABEL,
+  PEMBIAYAAN_LABEL,
+  STATUS_META,
+  asalLabel,
+  errorLabel,
+  fmtTglPendek,
+  fmtWaktu,
+  klsLabel,
+  sepTerbuka,
+  sisaHari,
+  type BadgeTone,
+  type SEPResult,
+} from "./sepShared";
 
-import { cn } from "@/lib/utils";
-import type { BPJSError, SEPRecordExt } from "@/lib/bpjs/bpjsShared";
-import type { SEPResult } from "./sepShared";
-import { statusChipCls, jnsLabel, klsLabel, asalLabel, fmtTgl, errorLabel } from "./sepShared";
+const EASE = [0.22, 1, 0.36, 1] as const;
+const PANEL = "rounded-xl bg-card shadow-sm";
 
-// ── Skeleton ───────────────────────────────────────────────
-
-function Bone({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded-xl bg-slate-100", className)} />;
-}
-
-function LoadingSkeleton() {
+function Muncul({ id, children, className }: { id: string; children: ReactNode; className?: string }) {
   return (
     <motion.div
-      key="skel"
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="flex flex-col gap-3.5 p-5"
+      key={id}
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.22, ease: EASE }}
+      className={className}
     >
-      <Bone className="h-23 rounded-2xl" />
-      <div className="grid grid-cols-2 gap-3">
-        <Bone className="h-24" />
-        <Bone className="h-24" />
-      </div>
-      <Bone className="h-17" />
-      <Bone className="h-12" />
+      {children}
     </motion.div>
   );
 }
 
-// ── Empty state ────────────────────────────────────────────
+// ── Kosong / memuat / galat ───────────────────────────────
 
-function EmptyState() {
+function Kosong() {
   return (
-    <motion.div
-      key="idle"
-      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-      transition={{ duration: 0.25 }}
-      className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center"
-    >
-      <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-50 ring-1 ring-emerald-100/80">
-        <FileText size={32} className="text-emerald-200" strokeWidth={1.5} />
-      </div>
-      <div className="max-w-[200px]">
-        <p className="text-sm font-semibold text-slate-500">Cari SEP</p>
-        <p className="mt-1.5 text-xs leading-relaxed text-slate-400">
-          Masukkan No. SEP untuk melihat detail, verifikasi status, atau mengelola SEP di V-Claim BPJS
+    <Muncul id="idle" className={cn(PANEL, "flex h-full min-h-72 flex-col items-center justify-center gap-3 p-8 text-center")}>
+      <span className="flex size-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+        <FileSearch className="size-5" aria-hidden="true" />
+      </span>
+      <div>
+        <p className="text-sm font-semibold text-foreground">Belum ada SEP dibuka</p>
+        <p className="mt-1 max-w-xs text-xs leading-relaxed text-muted-foreground">
+          Masukkan nomor SEP lalu tekan Enter untuk melihat status, tanggal penting, dan rinciannya
         </p>
       </div>
-    </motion.div>
+    </Muncul>
   );
 }
 
-// ── Error state ────────────────────────────────────────────
+function Tulang({ className }: { className?: string }) {
+  return <div className={cn("rounded-lg bg-muted motion-safe:animate-pulse", className)} />;
+}
 
-function ErrorState({ error, onRetry }: { error: BPJSError; onRetry?: () => void }) {
-  const { title, desc, color, retryable } = errorLabel(error);
-  const cfg = {
-    slate: { wrap: "bg-slate-50 ring-slate-100", icon: "text-slate-300", title: "text-slate-600", desc: "text-slate-400", Icon: SearchX },
-    amber: { wrap: "bg-amber-50 ring-amber-100", icon: "text-amber-400", title: "text-amber-700", desc: "text-amber-600", Icon: AlertTriangle },
-    rose:  { wrap: "bg-rose-50 ring-rose-100",   icon: "text-rose-400",  title: "text-rose-700",  desc: "text-rose-600",  Icon: WifiOff },
-  }[color];
-
+function Memuat() {
   return (
-    <motion.div
-      key="error"
-      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-      transition={{ duration: 0.22 }}
-      className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center"
-    >
-      <div className={cn("flex h-16 w-16 items-center justify-center rounded-2xl ring-1", cfg.wrap)}>
-        <cfg.Icon size={24} className={cfg.icon} strokeWidth={1.8} />
+    <Muncul id="loading" className="flex flex-col gap-3">
+      <span className="sr-only">Memuat data SEP</span>
+      <div className={cn(PANEL, "space-y-3 p-4")}>
+        <div className="flex justify-between gap-3">
+          <Tulang className="h-6 w-56" />
+          <Tulang className="h-6 w-20 rounded-full" />
+        </div>
+        <Tulang className="h-5 w-2/3" />
+        <div className="flex gap-1.5">
+          <Tulang className="h-5 w-20 rounded-full" />
+          <Tulang className="h-5 w-24 rounded-full" />
+          <Tulang className="h-5 w-16 rounded-full" />
+        </div>
       </div>
-      <div>
-        <p className={cn("text-sm font-semibold", cfg.title)}>{title}</p>
-        <p className={cn("mt-1 max-w-60 text-xs leading-relaxed", cfg.desc)}>{desc}</p>
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <Tulang key={i} className="h-18 rounded-xl" />
+        ))}
       </div>
-      {retryable && onRetry && (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="rounded-xl border border-rose-200 bg-white px-4 py-2 text-xs font-semibold text-rose-600 shadow-sm transition-colors hover:bg-rose-50"
-        >
-          Coba Lagi
-        </button>
-      )}
-    </motion.div>
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_16rem]">
+        <Tulang className="h-40 rounded-xl" />
+        <Tulang className="h-40 rounded-xl" />
+      </div>
+    </Muncul>
   );
 }
 
-// ── InfoPair ───────────────────────────────────────────────
+const GALAT = {
+  slate: { icon: "bg-muted text-muted-foreground", title: "text-foreground", Icon: SearchX },
+  amber: { icon: "bg-amber-50 text-amber-700", title: "text-amber-900", Icon: AlertTriangle },
+  rose: { icon: "bg-rose-50 text-rose-700", title: "text-rose-900", Icon: WifiOff },
+} as const;
 
-function InfoPair({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
+function Galat({ error, onRetry, onCariLagi }: { error: BPJSError; onRetry?: () => void; onCariLagi: () => void }) {
+  const { title, desc, color, retryable, kode } = errorLabel(error);
+  const t = GALAT[color];
   return (
-    <div>
-      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
-      <p className={cn("mt-0.5 text-sm font-medium text-slate-800", mono && "font-mono text-xs tracking-tight")}>
-        {value ?? "—"}
-      </p>
+    <Muncul id="error" className={cn(PANEL, "flex flex-col items-start gap-4 p-5 sm:flex-row")}>
+      <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl", t.icon)}>
+        <t.Icon className="size-5" aria-hidden="true" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className={cn("text-sm font-semibold", t.title)}>{title}</p>
+          {kode && (
+            <Badge variant="secondary" className="font-mono text-[11px] text-muted-foreground">
+              Kode {kode}
+            </Badge>
+          )}
+        </div>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{desc}</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {retryable && onRetry && (
+            <Button size="sm" className="h-8 text-xs" onClick={onRetry}>
+              <RotateCcw className="size-3.5" aria-hidden="true" />
+              Coba lagi
+            </Button>
+          )}
+          <Button size="sm" variant="secondary" className="h-8 text-xs" onClick={onCariLagi}>
+            Ubah pencarian
+          </Button>
+        </div>
+      </div>
+    </Muncul>
+  );
+}
+
+// ── Bagian kartu "ditemukan" ──────────────────────────────
+
+const STATUS_ICON: Record<SEPStatusInternal, typeof CheckCircle2> = {
+  Draft: PencilLine,
+  Issued: CheckCircle2,
+  Updated: RefreshCw,
+  Suplesi: ShieldAlert,
+  Closed: Lock,
+  Deleted: Ban,
+};
+
+function Penanda({ tone, children }: { tone: BadgeTone; children: ReactNode }) {
+  return (
+    <Badge className={cn("gap-1.5 px-2 py-0.5 font-medium", BADGE[tone])}>
+      <span aria-hidden="true" className={cn("size-1.5 rounded-full", DOT[tone])} />
+      {children}
+    </Badge>
+  );
+}
+
+type FaktaTone = "default" | "amber" | "rose";
+const FAKTA_TONE: Record<FaktaTone, { box: string; value: string }> = {
+  default: { box: "", value: "text-foreground" },
+  amber: { box: "bg-amber-50", value: "text-amber-900" },
+  rose: { box: "bg-rose-50", value: "text-rose-900" },
+};
+
+function Fakta({ label, value, sub, tone = "default" }: { label: string; value: ReactNode; sub?: ReactNode; tone?: FaktaTone }) {
+  const t = FAKTA_TONE[tone];
+  return (
+    <div className={cn(PANEL, "min-w-0 p-3", t.box)}>
+      <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
+      <p className={cn("mt-1 truncate text-sm font-semibold", t.value)}>{value}</p>
+      {sub && <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{sub}</p>}
     </div>
   );
 }
 
-// ── SEPFound ───────────────────────────────────────────────
+function Rincian({ title, rows }: { title: string; rows: [string, ReactNode][] }) {
+  return (
+    <section className={cn(PANEL, "p-3")}>
+      <h3 className="text-xs font-semibold text-foreground">{title}</h3>
+      <dl className="mt-2 space-y-1">
+        {rows.map(([k, v]) => (
+          <div key={k} className="flex items-baseline justify-between gap-3 py-1 text-xs">
+            <dt className="shrink-0 text-muted-foreground">{k}</dt>
+            <dd className="min-w-0 truncate text-right font-medium text-foreground">{v ?? "—"}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
 
-function SEPFound({ sep, onDelete }: { sep: SEPRecordExt; onDelete?: (noSep: string) => void }) {
-  const isKLL      = sep.jaminan && sep.jaminan.lakaLantas !== "0";
-  const hasRujukan = !!sep.rujukan.noRujukan;
-  const isNaikKelas = !!sep.klsRawat.klsRawatNaik;
-  const isDeletable = sep.statusInternal !== "Deleted" && sep.statusInternal !== "Closed";
+function Mono({ children }: { children: ReactNode }) {
+  return <span className="font-mono">{children}</span>;
+}
+
+interface Langkah {
+  key: string;
+  label: string;
+  waktu?: string;
+  oleh?: string;
+  tone: BadgeTone;
+  selesai: boolean;
+}
+
+function Linimasa({ sep }: { sep: SEPRecordExt }) {
+  const terbuka = sepTerbuka(sep.statusInternal);
+  const langkah: Langkah[] = [
+    { key: "terbit", label: "Terbit", waktu: fmtTglPendek(sep.tglTerbit), oleh: sep.audit.createdBy, tone: "emerald", selesai: true },
+  ];
+  if (sep.audit.updatedAt) {
+    langkah.push({ key: "ubah", label: "Diperbarui", waktu: fmtWaktu(sep.audit.updatedAt), oleh: sep.audit.updatedBy, tone: "blue", selesai: true });
+  }
+  if (sep.tglPulang) {
+    langkah.push({ key: "pulang", label: "Pulang", waktu: fmtTglPendek(sep.tglPulang), tone: "cyan", selesai: true });
+  } else if (sep.jnsPelayanan === "1" && terbuka) {
+    langkah.push({ key: "pulang", label: "Menunggu tanggal pulang", tone: "amber", selesai: false });
+  }
+  if (sep.statusInternal === "Closed") {
+    langkah.push({ key: "tutup", label: "Ditutup", tone: "slate", selesai: true });
+  }
+  if (sep.audit.deletedAt) {
+    langkah.push({ key: "hapus", label: "Dihapus", waktu: fmtWaktu(sep.audit.deletedAt), oleh: sep.audit.deletedBy, tone: "rose", selesai: true });
+  }
 
   return (
-    <motion.div
-      key="found"
-      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-      transition={{ duration: 0.25 }}
-      className="flex flex-col gap-3.5 p-4"
-    >
-      {/* SEP Header */}
-      <div className="rounded-2xl border border-emerald-200/60 bg-emerald-50/30 p-4">
-        <div className="flex flex-wrap items-start gap-2">
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">No. SEP</p>
-            <p className="mt-0.5 break-all font-mono text-sm font-bold text-slate-800">{sep.noSEP}</p>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold", statusChipCls(sep.statusInternal))}>
-              {sep.statusInternal}
-            </span>
-            <span className={cn(
-              "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-              sep.jnsPelayanan === "1" ? "bg-emerald-100 text-emerald-700" : "bg-sky-100 text-sky-700",
-            )}>
-              {jnsLabel(sep.jnsPelayanan)}
-            </span>
-          </div>
-        </div>
-
-        {/* Key dates */}
-        <div className="mt-3 grid grid-cols-3 gap-3 rounded-xl border border-white/70 bg-white/60 px-3 py-2.5">
-          <InfoPair label="Tgl. Terbit"   value={fmtTgl(sep.tglTerbit)} />
-          <InfoPair label="Berlaku s/d"   value={fmtTgl(sep.masaBerlaku.to)} />
-          <InfoPair label="Tgl. Pulang"   value={sep.tglPulang ? fmtTgl(sep.tglPulang) : "—"} />
-        </div>
-      </div>
-
-      {/* Poli & DPJP + Kelas Rawat */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-slate-200/60 bg-white p-3.5">
-          <div className="mb-2.5 flex items-center gap-1.5">
-            <Stethoscope size={12} className="text-emerald-500" strokeWidth={2.3} />
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Poli & DPJP</p>
-          </div>
-          <p className="text-sm font-semibold text-slate-800">{sep.poli.tujuan}</p>
-          {sep.poli.eksekutif === "1" && (
-            <span className="mt-1 inline-block rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">
-              Eksekutif
-            </span>
-          )}
-          {sep.dpjpLayan && (
-            <p className="mt-1.5 text-xs text-slate-500">
-              DPJP: <span className="font-mono text-slate-700">{sep.dpjpLayan}</span>
-            </p>
-          )}
-        </div>
-
-        <div className="rounded-xl border border-slate-200/60 bg-white p-3.5">
-          <div className="mb-2.5 flex items-center gap-1.5">
-            <Shield size={12} className="text-teal-500" strokeWidth={2.3} />
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Kelas Rawat</p>
-          </div>
-          <p className="text-sm font-semibold text-slate-800">{klsLabel(sep.klsRawat.klsRawatHak)}</p>
-          {isNaikKelas && (
-            <div className="mt-1.5 space-y-0.5 text-xs text-slate-500">
-              <p>Naik → Kelas {sep.klsRawat.klsRawatNaik}</p>
-              <p>Tanggung Jawab: {sep.klsRawat.penanggungJawab ?? "—"}</p>
+    <section aria-labelledby="linimasa-judul" className={cn(PANEL, "p-3")}>
+      <h3 id="linimasa-judul" className="text-xs font-semibold text-foreground">
+        Linimasa
+      </h3>
+      <ol className="mt-2.5 space-y-3">
+        {langkah.map((l) => (
+          <li key={l.key} className="flex gap-2.5">
+            <span
+              aria-hidden="true"
+              className={cn("mt-1 size-2 shrink-0 rounded-full", DOT[l.tone], !l.selesai && "opacity-40")}
+            />
+            <div className="min-w-0 text-xs">
+              <p className={cn("font-medium", l.selesai ? "text-foreground" : "text-amber-800")}>{l.label}</p>
+              {l.waktu && <p className="tabular-nums text-muted-foreground">{l.waktu}</p>}
+              {l.oleh && <p className="truncate text-muted-foreground">oleh {l.oleh}</p>}
             </div>
-          )}
-        </div>
-      </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
 
-      {/* Diagnosa */}
-      <div className="rounded-xl border border-slate-200/60 bg-white p-3.5">
-        <div className="mb-2.5 flex items-center gap-1.5">
-          <ClipboardList size={12} className="text-slate-400" strokeWidth={2.3} />
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Diagnosa Awal</p>
+function Ditemukan({
+  sep,
+  onDelete,
+  onCariLagi,
+}: {
+  sep: SEPRecordExt;
+  onDelete: (sep: SEPRecordExt) => void;
+  onCariLagi: () => void;
+}) {
+  const meta = STATUS_META[sep.statusInternal];
+  const StatusIcon = STATUS_ICON[sep.statusInternal];
+  const terbuka = sepTerbuka(sep.statusInternal);
+  const ri = sep.jnsPelayanan === "1";
+  const laka = sep.jaminan && sep.jaminan.lakaLantas !== "0" ? sep.jaminan : null;
+  const naik = sep.klsRawat.klsRawatNaik;
+
+  const penanda: { key: string; tone: BadgeTone; label: string }[] = [
+    { key: "jns", tone: ri ? "cyan" : "sky", label: ri ? "Rawat inap" : "Rawat jalan" },
+    { key: "kelas", tone: "slate", label: `Hak ${klsLabel(sep.klsRawat.klsRawatHak).toLowerCase()}` },
+  ];
+  if (naik) penanda.push({ key: "naik", tone: "indigo", label: `Naik ke ${NAIK_KELAS_LABEL[naik] ?? naik}` });
+  if (sep.poli.eksekutif === "1") penanda.push({ key: "eks", tone: "indigo", label: "Poli eksekutif" });
+  if (sep.cob?.cob === "1") penanda.push({ key: "cob", tone: "indigo", label: "COB" });
+  if (sep.rujukan.noRujukan) penanda.push({ key: "rujuk", tone: "teal", label: `Rujukan ${asalLabel(sep.rujukan.asalRujukan)}` });
+  if (laka) penanda.push({ key: "laka", tone: "amber", label: LAKA_LABEL[laka.lakaLantas as "1" | "2" | "3"] });
+  if (sep.katarak?.katarak === "1") penanda.push({ key: "katarak", tone: "slate", label: "Katarak" });
+
+  const sisa = sisaHari(sep.masaBerlaku.to);
+  const berlakuTone: FaktaTone = !terbuka || sisa === null ? "default" : sisa < 0 ? "rose" : sisa <= 3 ? "amber" : "default";
+  const berlakuSub =
+    sisa === null ? undefined : !terbuka ? `Mulai ${fmtTglPendek(sep.masaBerlaku.from)}` : sisa < 0 ? `Lewat ${-sisa} hari` : sisa === 0 ? "Berakhir hari ini" : `${sisa} hari lagi`;
+
+  return (
+    <Muncul id={`found-${sep.noSEP}`} className="flex flex-col gap-3">
+      {/* Lembar SEP */}
+      <section aria-labelledby="sep-nomor" className={cn(PANEL, "p-4")}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] text-muted-foreground">No. SEP</p>
+            <div className="mt-0.5 flex items-center gap-1">
+              <h2 id="sep-nomor" className="font-mono text-lg font-semibold tracking-wide break-all text-foreground">
+                {sep.noSEP}
+              </h2>
+              <CopyButton value={sep.noSEP} label="nomor SEP" />
+            </div>
+          </div>
+          <Badge className={cn("gap-1.5 px-2.5 py-1 text-xs", BADGE[meta.tone])}>
+            <StatusIcon aria-hidden="true" />
+            {meta.label}
+          </Badge>
         </div>
-        <div className="flex items-start gap-2.5">
-          <span className="shrink-0 rounded-lg bg-emerald-50 px-2 py-1 font-mono text-xs font-bold text-emerald-700 ring-1 ring-emerald-100">
+
+        <div className="mt-3 flex items-start gap-2.5">
+          <span className="shrink-0 rounded-lg bg-emerald-50 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-800">
             {sep.diagAwal}
           </span>
-          <p className="text-sm text-slate-700">{sep.diagAwalNama ?? "—"}</p>
+          <p className="text-sm text-foreground">{sep.diagAwalNama ?? "Nama diagnosa belum tersedia"}</p>
         </div>
-      </div>
 
-      {/* Identitas & Kontak */}
-      <div className="rounded-xl border border-slate-200/60 bg-white p-3.5">
-        <div className="mb-2.5 flex items-center gap-1.5">
-          <Activity size={12} className="text-slate-400" strokeWidth={2.3} />
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Identitas & Kontak</p>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <InfoPair label="No. Kartu"       value={sep.noKartu} mono />
-          <InfoPair label="No. Rekam Medis" value={sep.noMR ?? "—"} mono />
-          <InfoPair label="Telepon"         value={sep.noTelp ?? "—"} mono />
-        </div>
-      </div>
+        <ul aria-label="Penanda SEP" className="mt-3 flex flex-wrap gap-1.5">
+          {penanda.map((p) => (
+            <li key={p.key}>
+              <Penanda tone={p.tone}>{p.label}</Penanda>
+            </li>
+          ))}
+        </ul>
+      </section>
 
-      {/* Rujukan — conditional */}
-      {hasRujukan && (
-        <motion.div
-          initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2, delay: 0.05 }}
-          className="rounded-xl border border-teal-200/60 bg-teal-50/30 p-3.5"
-        >
-          <div className="mb-2.5 flex items-center gap-1.5">
-            <MapPin size={12} className="text-teal-600" strokeWidth={2.3} />
-            <p className="text-[10px] font-bold uppercase tracking-wider text-teal-700">Rujukan</p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <InfoPair label="Asal Rujukan" value={asalLabel(sep.rujukan.asalRujukan)} />
-            <InfoPair label="No. Rujukan"  value={sep.rujukan.noRujukan} mono />
-            {sep.rujukan.tglRujukan  && <InfoPair label="Tgl. Rujukan"  value={fmtTgl(sep.rujukan.tglRujukan)} />}
-            {sep.rujukan.ppkRujukan  && <InfoPair label="PPK Rujukan"   value={sep.rujukan.ppkRujukan} mono />}
-          </div>
-        </motion.div>
-      )}
+      {/* Tanggal penting */}
+      <section aria-label="Tanggal penting" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <Fakta label="Tanggal terbit" value={fmtTglPendek(sep.tglTerbit)} sub={sep.audit.createdBy ? `oleh ${sep.audit.createdBy}` : undefined} />
+        <Fakta label="Berlaku sampai" value={fmtTglPendek(sep.masaBerlaku.to)} sub={berlakuSub} tone={berlakuTone} />
+        <Fakta
+          label="Tanggal pulang"
+          value={sep.tglPulang ? fmtTglPendek(sep.tglPulang) : ri ? "Belum pulang" : "—"}
+          sub={!sep.tglPulang && ri && terbuka ? "Perbarui setelah pasien pulang" : undefined}
+          tone={!sep.tglPulang && ri && terbuka ? "amber" : "default"}
+        />
+        <Fakta
+          label="Poli tujuan"
+          value={<Mono>{sep.poli.tujuan}</Mono>}
+          sub={sep.dpjpLayan ? <>DPJP <Mono>{sep.dpjpLayan}</Mono></> : ri ? "Rawat inap, tanpa DPJP layan" : undefined}
+        />
+      </section>
 
-      {/* Jaminan KLL — conditional */}
-      {isKLL && sep.jaminan && (
-        <motion.div
-          initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2, delay: 0.05 }}
-          className="rounded-xl border border-amber-200/60 bg-amber-50/30 p-3.5"
-        >
-          <div className="mb-2.5 flex items-center gap-1.5">
-            <AlertTriangle size={12} className="text-amber-600" strokeWidth={2.3} />
-            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Jaminan Kecelakaan</p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <InfoPair label="No. Laporan Polisi" value={sep.jaminan.noLP ?? "—"} mono />
-            {sep.jaminan.penjamin?.tglKejadian && (
-              <InfoPair label="Tgl. Kejadian" value={fmtTgl(sep.jaminan.penjamin.tglKejadian)} />
-            )}
-            {sep.jaminan.penjamin?.keterangan && (
-              <div className="col-span-2">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Keterangan</p>
-                <p className="mt-0.5 text-xs text-slate-700">{sep.jaminan.penjamin.keterangan}</p>
-              </div>
-            )}
-          </div>
-        </motion.div>
-      )}
-
-      {/* Catatan — conditional */}
-      {sep.catatan && (
-        <div className="rounded-xl border border-slate-200/60 bg-white p-3.5">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Catatan</p>
-          <p className="mt-1.5 text-xs leading-relaxed text-slate-600">{sep.catatan}</p>
-        </div>
-      )}
-
-      {/* Audit trail */}
-      <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Audit Trail</p>
-        <div className="space-y-1 text-[11px] text-slate-500">
-          <p>
-            Dibuat: <span className="font-medium text-slate-700">{sep.audit.createdBy}</span>
-            {" · "}{fmtTgl(sep.audit.createdAt?.slice(0, 10))}
-          </p>
-          {sep.audit.updatedBy && (
-            <p>
-              Diperbarui: <span className="font-medium text-slate-700">{sep.audit.updatedBy}</span>
-              {" · "}{fmtTgl(sep.audit.updatedAt?.slice(0, 10))}
-            </p>
+      {/* Rincian + linimasa */}
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_16rem]">
+        <div className="grid content-start gap-3 sm:grid-cols-2">
+          <Rincian
+            title="Peserta"
+            rows={[
+              [
+                "No. kartu",
+                <span key="k" className="inline-flex items-center gap-1">
+                  <Mono>{sep.noKartu}</Mono>
+                  <CopyButton value={sep.noKartu} label="nomor kartu" />
+                </span>,
+              ],
+              ["No. RM", sep.noMR ? <Mono>{sep.noMR}</Mono> : "—"],
+              ["Telepon", sep.noTelp ? <Mono>{sep.noTelp}</Mono> : "—"],
+            ]}
+          />
+          <Rincian
+            title="Kelas rawat"
+            rows={[
+              ["Hak kelas", klsLabel(sep.klsRawat.klsRawatHak)],
+              ["Naik ke", naik ? (NAIK_KELAS_LABEL[naik] ?? naik) : "Tidak naik kelas"],
+              ...(naik
+                ? ([
+                    ["Pembiayaan", sep.klsRawat.pembiayaan ? (PEMBIAYAAN_LABEL[sep.klsRawat.pembiayaan] ?? "—") : "—"],
+                    ["Penanggung jawab", sep.klsRawat.penanggungJawab ?? "—"],
+                  ] as [string, ReactNode][])
+                : []),
+            ]}
+          />
+          {sep.rujukan.noRujukan && (
+            <Rincian
+              title="Rujukan"
+              rows={[
+                ["Asal", asalLabel(sep.rujukan.asalRujukan)],
+                ["No. rujukan", <Mono key="r">{sep.rujukan.noRujukan}</Mono>],
+                ["Tanggal", fmtTglPendek(sep.rujukan.tglRujukan)],
+                ["PPK perujuk", sep.rujukan.ppkRujukan ? <Mono>{sep.rujukan.ppkRujukan}</Mono> : "—"],
+              ]}
+            />
           )}
-          {sep.audit.deletedBy && (
-            <p className="text-rose-500">
-              Dihapus: <span className="font-medium">{sep.audit.deletedBy}</span>
-              {" · "}{fmtTgl(sep.audit.deletedAt?.slice(0, 10))}
-            </p>
+          {laka && (
+            <Rincian
+              title="Jaminan kecelakaan"
+              rows={[
+                ["Jenis", LAKA_LABEL[laka.lakaLantas as "1" | "2" | "3"]],
+                ["No. laporan polisi", laka.noLP ? <Mono>{laka.noLP}</Mono> : "—"],
+                ["Tanggal kejadian", fmtTglPendek(laka.penjamin?.tglKejadian)],
+                ["Keterangan", laka.penjamin?.keterangan ?? "—"],
+              ]}
+            />
+          )}
+          {sep.catatan && (
+            <section className={cn(PANEL, "p-3 sm:col-span-2")}>
+              <h3 className="text-xs font-semibold text-foreground">Catatan</h3>
+              <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{sep.catatan}</p>
+            </section>
           )}
         </div>
+        <Linimasa sep={sep} />
       </div>
 
-      {/* Quick actions */}
-      <motion.div
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-        transition={{ duration: 0.2, delay: 0.15 }}
-        className="grid grid-cols-2 gap-2 pt-0.5"
-      >
-        {isDeletable ? (
-          <button
-            type="button"
-            onClick={() => onDelete?.(sep.noSEP)}
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3 py-2.5 text-xs font-semibold text-rose-600 shadow-sm transition-all hover:border-rose-300 hover:bg-rose-50"
-          >
-            <Trash2 size={12} strokeWidth={2.5} />
-            Hapus SEP
-          </button>
+      {/* Aksi */}
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        {terbuka ? (
+          <>
+            <Button asChild size="sm" className="h-8 text-xs">
+              <Link href={`/ehis-bpjs/vclaim/sep?tab=update-tgl&update=${encodeURIComponent(sep.noSEP)}`}>
+                <CalendarCheck className="size-3.5" aria-hidden="true" />
+                Update tgl pulang
+              </Link>
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-8 bg-rose-50 text-xs text-rose-700 hover:bg-rose-100"
+              onClick={() => onDelete(sep)}
+            >
+              <Trash2 className="size-3.5" aria-hidden="true" />
+              Hapus SEP
+            </Button>
+          </>
         ) : (
-          <div className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5 text-xs font-semibold text-slate-400">
-            <Trash2 size={12} strokeWidth={2.5} />
-            Tidak Dapat Dihapus
-          </div>
+          <p className="text-xs text-muted-foreground">
+            SEP berstatus {meta.label.toLowerCase()} tidak bisa dihapus atau diubah tanggal pulangnya
+          </p>
         )}
-        <a
-          href={`/ehis-bpjs/vclaim/sep?update=${encodeURIComponent(sep.noSEP)}`}
-          className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 px-3 py-2.5 text-xs font-semibold text-white shadow-sm shadow-emerald-200/60 transition-all hover:bg-emerald-600 hover:shadow-md hover:shadow-emerald-300/40"
-        >
-          Update Tgl Pulang
-        </a>
-      </motion.div>
-    </motion.div>
+        <Button size="sm" variant="ghost" className="ml-auto h-8 text-xs" onClick={onCariLagi}>
+          <RotateCcw className="size-3.5" aria-hidden="true" />
+          Cari SEP lain
+        </Button>
+      </div>
+    </Muncul>
   );
 }
 
-// ── Main export ────────────────────────────────────────────
+// ── Export ────────────────────────────────────────────────
 
-interface SEPDetailCardProps {
+export default function SEPDetailCard({
+  result,
+  onRetry,
+  onDelete,
+  onCariLagi,
+}: {
   result: SEPResult;
   onRetry?: () => void;
-  onDelete?: (noSep: string) => void;
-}
-
-export default function SEPDetailCard({ result, onRetry, onDelete }: SEPDetailCardProps) {
+  onDelete: (sep: SEPRecordExt) => void;
+  onCariLagi: () => void;
+}) {
   return (
-    <div className="h-full">
-      <AnimatePresence mode="wait">
-        {result.status === "idle"    && <EmptyState />}
-        {result.status === "loading" && <LoadingSkeleton />}
-        {result.status === "found"   && <SEPFound key="found" sep={result.sep} onDelete={onDelete} />}
-        {result.status === "error"   && <ErrorState key="error" error={result.error} onRetry={onRetry} />}
-      </AnimatePresence>
-    </div>
+    <AnimatePresence mode="wait" initial={false}>
+      {result.status === "idle" && <Kosong key="idle" />}
+      {result.status === "loading" && <Memuat key="loading" />}
+      {result.status === "found" && (
+        <Ditemukan key={`found-${result.sep.noSEP}`} sep={result.sep} onDelete={onDelete} onCariLagi={onCariLagi} />
+      )}
+      {result.status === "error" && <Galat key="error" error={result.error} onRetry={onRetry} onCariLagi={onCariLagi} />}
+    </AnimatePresence>
   );
 }
