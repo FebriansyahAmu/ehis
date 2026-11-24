@@ -1,221 +1,274 @@
 "use client";
 
-// ANT0 / Beranda modul Antrean — KPI ringkas + launcher Mode APM + quick nav.
-// Stats reaktif dari antreanStore (useSyncExternalStore).
+// Beranda modul Antrean — peluncur kiosk APM (dengan struk terakhir dari kiosk), alur
+// pasien per tahap, sumber antrean, navigasi cepat. Reaktif dari antreanStore; data
+// contoh dimuat bila store kosong (pola sama dengan board/monitoring/display).
+// Permukaan netral slate, satu aksen indigo: tombol APM + tahap terpadat.
 
 import Link from "next/link";
-import { useMemo } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useMemo, type ReactNode } from "react";
+import { MotionConfig, motion } from "framer-motion";
 import {
-  MonitorSmartphone,
-  Ticket,
-  Clock,
-  Stethoscope,
-  CheckCircle2,
-  ListChecks,
   Activity,
+  ChevronRight,
+  ExternalLink,
+  Globe,
+  ListChecks,
   MonitorPlay,
-  ArrowRight,
-  Wifi,
-  Building,
+  MonitorSmartphone,
+  Smartphone,
+  type LucideIcon,
 } from "lucide-react";
-import { useAntreanStore } from "@/lib/antrean/antreanStore";
-import type { AntreanRecord } from "@/lib/antrean/types";
+import { useAntreanStore, seedAntrean } from "@/lib/antrean/antreanStore";
+import { buildSeedAntrean } from "@/lib/antrean/antreanSeed";
+import type { SumberAntrean } from "@/lib/antrean/types";
 import { useSkeletonDelay } from "@/components/master/shared";
+import { todayISO } from "@/components/antrean/board/boardShared";
 import { cn } from "@/lib/utils";
+import { AlurPasienPanel } from "./AlurPasienPanel";
+import { StrukKiosk } from "./StrukKiosk";
+import {
+  antreanHariIni,
+  hitungAlur,
+  hitungSumber,
+  ringkasNavigasi,
+  strukTerakhir,
+  tanggalHariIni,
+} from "./berandaStats";
+
+const EASE = [0.22, 1, 0.36, 1] as const;
+const PANEL = "rounded-2xl bg-white ring-1 ring-slate-900/8";
+const HALAMAN = "mx-auto flex w-full max-w-[1440px] flex-col gap-6 p-4 sm:p-6 lg:p-8";
 
 export default function AntrianBerandaPage() {
   const store = useAntreanStore();
   const loaded = useSkeletonDelay(500);
 
-  const list = useMemo<AntreanRecord[]>(
-    () => Object.values(store.byKode).sort((a, b) => b.createdAt - a.createdAt),
-    [store.byKode],
-  );
+  // Data contoh hanya bila store kosong (tak menimpa antrean nyata dari kiosk).
+  useEffect(() => {
+    seedAntrean(buildSeedAntrean());
+  }, []);
 
-  const stats = useMemo(() => {
-    const onsite = list.filter((a) => a.sumber === "Onsite").length;
-    const online = list.length - onsite;
-    return {
-      total: list.length,
-      onsite,
-      online,
-      menungguAdmisi: list.filter((a) => a.status === "MenungguAdmisi").length,
-      menungguPoli: list.filter((a) => a.status === "MenungguPoli").length,
-      selesai: list.filter((a) => a.status === "Selesai").length,
-    };
-  }, [list]);
+  const list = useMemo(() => antreanHariIni(store.byKode), [store.byKode]);
+  const alur = useMemo(() => hitungAlur(list), [list]);
+  const sumber = useMemo(() => hitungSumber(list), [list]);
+  const nav = useMemo(() => ringkasNavigasi(list), [list]);
 
   if (!loaded) return <BerandaSkeleton />;
 
+  const tanggalPanjang = new Date().toLocaleDateString("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
-      {/* Hero / launcher */}
-      <motion.section
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-indigo-600 to-cyan-500 p-8 text-white shadow-lg shadow-indigo-600/20"
-      >
-        <div className="absolute -right-10 -top-10 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
-        <div className="relative flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-          <div className="max-w-xl">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
-              <Ticket className="h-4 w-4" /> Modul Antrean
-            </span>
-            <h1 className="mt-3 text-3xl font-extrabold tracking-tight">
-              Pusat Antrean Rawat Jalan
-            </h1>
-            <p className="mt-2 text-indigo-100">
-              Kelola antrean online (Mobile JKN) & onsite (kiosk APM) dalam satu tempat. Luncurkan
-              layar kiosk untuk pendaftaran mandiri pasien.
-            </p>
-          </div>
-          <Link
-            href="/ehis-antrian/apm"
-            target="_blank"
-            className="group inline-flex items-center gap-3 rounded-2xl bg-white px-7 py-5 text-lg font-bold text-indigo-700 shadow-lg transition-transform hover:scale-[1.02] active:scale-95"
+    <MotionConfig reducedMotion="user">
+      <div className={HALAMAN}>
+        <Masuk urutan={0}>
+          <section
+            aria-labelledby="beranda-judul"
+            className={cn(PANEL, "grid overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]")}
           >
-            <MonitorSmartphone className="h-7 w-7" />
-            Buka Mode APM
-            <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-          </Link>
-        </div>
-      </motion.section>
+            <div className="flex flex-col justify-center gap-6 p-6 sm:p-8">
+              <div>
+                <p className="m-sm text-slate-500">
+                  <time dateTime={todayISO()}>{tanggalPanjang}</time>
+                </p>
+                <h1 id="beranda-judul" className="mt-2 text-2xl font-medium leading-tight text-slate-900 sm:text-3xl">
+                  Antrean rawat jalan
+                </h1>
+                <p className="mt-3 max-w-xl m-base text-slate-600">
+                  Pasien onsite mengambil nomor sendiri di kiosk APM. Booking Mobile JKN dan website masuk ke
+                  antrean yang sama, lalu dipanggil di loket admisi, atau langsung ke poli untuk pasien lama.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <Link
+                  href="/ehis-antrian/apm"
+                  target="_blank"
+                  className="inline-flex h-11 items-center gap-2 rounded-lg bg-indigo-600 px-5 m-base font-medium text-white transition-[background-color,transform] duration-150 hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 active:scale-[0.98]"
+                >
+                  <MonitorSmartphone className="size-[18px]" strokeWidth={1.5} aria-hidden="true" />
+                  Buka mode APM
+                  <ExternalLink className="size-4 text-indigo-200" strokeWidth={1.5} aria-hidden="true" />
+                  <span className="sr-only"> (tab baru)</span>
+                </Link>
+                <p className="m-sm text-slate-500">Terbuka di tab baru untuk layar anjungan</p>
+              </div>
+            </div>
+            <div className="flex items-center justify-center border-t border-slate-900/6 bg-slate-50 px-6 py-8 lg:border-t-0 lg:border-l">
+              <StrukKiosk record={strukTerakhir(list)} tanggal={tanggalHariIni()} />
+            </div>
+          </section>
+        </Masuk>
 
-      {/* KPI strip */}
-      <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiCard icon={Ticket} label="Total Antrean Hari Ini" value={stats.total} tone="indigo" />
-        <KpiCard icon={Clock} label="Menunggu Admisi" value={stats.menungguAdmisi} tone="amber" />
-        <KpiCard icon={Stethoscope} label="Menunggu Poli" value={stats.menungguPoli} tone="cyan" />
-        <KpiCard icon={CheckCircle2} label="Selesai" value={stats.selesai} tone="emerald" />
-      </section>
+        <Masuk urutan={1}>
+          <AlurPasienPanel tahap={alur.tahap} batal={alur.batal} terpadat={alur.terpadat} />
+        </Masuk>
 
-      {/* Sumber + Quick nav */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <section className="rounded-3xl bg-white p-6 ring-1 ring-slate-200">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-slate-400">Sumber Antrean</h2>
-          <div className="mt-4 flex flex-col gap-4">
-            <SumberBar label="Onsite (Kiosk APM)" icon={Building} value={stats.onsite} total={stats.total} tone="bg-indigo-500" />
-            <SumberBar label="Online (Mobile JKN)" icon={Wifi} value={stats.online} total={stats.total} tone="bg-cyan-500" />
-          </div>
-        </section>
-
-        <section className="lg:col-span-2">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-400">Navigasi Cepat</h2>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <QuickNav href="/ehis-antrian/antrean" icon={ListChecks} title="Antrean List" desc="Board loket & respon kedatangan" />
-            <QuickNav href="/ehis-antrian/monitoring" icon={Activity} title="Monitoring" desc="Status TaskID & pengiriman" />
-            <QuickNav href="/ehis-antrian/display" icon={MonitorPlay} title="Display" desc="Layar panggilan ruang tunggu" />
-          </div>
-        </section>
+        <Masuk urutan={2} className="grid gap-6 lg:grid-cols-3">
+          <SumberPanel sumber={sumber} />
+          <NavCepat nav={nav} />
+        </Masuk>
       </div>
-    </div>
+    </MotionConfig>
   );
 }
 
 // ── Pieces ─────────────────────────────────────────────────
 
-const KPI_TONE: Record<string, string> = {
-  indigo: "bg-indigo-50 text-indigo-600",
-  amber: "bg-amber-50 text-amber-600",
-  cyan: "bg-cyan-50 text-cyan-600",
-  emerald: "bg-emerald-50 text-emerald-600",
-};
-
-function KpiCard({
-  icon: Icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: typeof Ticket;
-  label: string;
-  value: number;
-  tone: keyof typeof KPI_TONE | string;
-}) {
+/** Satu-satunya animasi masuk: fade + naik 8px, jeda 50ms per blok. */
+function Masuk({ urutan, className, children }: { urutan: number; className?: string; children: ReactNode }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex items-center gap-4 rounded-2xl bg-white p-5 ring-1 ring-slate-200"
+      transition={{ duration: 0.4, ease: EASE, delay: urutan * 0.05 }}
+      className={className}
     >
-      <span className={cn("flex h-12 w-12 items-center justify-center rounded-xl", KPI_TONE[tone])}>
-        <Icon className="h-6 w-6" />
-      </span>
-      <div>
-        <p className="text-3xl font-extrabold tabular-nums text-slate-800">{value}</p>
-        <p className="text-xs font-medium text-slate-500">{label}</p>
-      </div>
+      {children}
     </motion.div>
   );
 }
 
-function SumberBar({
-  label,
-  icon: Icon,
-  value,
-  total,
-  tone,
-}: {
-  label: string;
-  icon: typeof Wifi;
-  value: number;
-  total: number;
-  tone: string;
-}) {
-  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+const IKON_SUMBER: Record<SumberAntrean, LucideIcon> = {
+  Onsite: MonitorSmartphone,
+  MJKN: Smartphone,
+  Website: Globe,
+};
+
+function SumberPanel({ sumber }: { sumber: ReturnType<typeof hitungSumber> }) {
+  const total = sumber.reduce((n, s) => n + s.count, 0);
+  const terbesar = Math.max(0, ...sumber.map((s) => s.count));
+
   return (
-    <div>
-      <div className="mb-1.5 flex items-center justify-between text-sm">
-        <span className="flex items-center gap-2 font-medium text-slate-600">
-          <Icon className="h-4 w-4 text-slate-400" /> {label}
-        </span>
-        <span className="font-bold text-slate-700">{value}</span>
-      </div>
-      <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
-        <div className={cn("h-full rounded-full transition-all", tone)} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
+    <section aria-labelledby="sumber-judul" className={cn(PANEL, "p-5 sm:p-6")}>
+      <h2 id="sumber-judul" className="m-lg font-medium text-slate-900">Sumber antrean</h2>
+      <ul className="mt-4 flex flex-col gap-4">
+        {sumber.map((s) => {
+          const Icon = IKON_SUMBER[s.key];
+          const pct = total > 0 ? Math.round((s.count / total) * 100) : 0;
+          return (
+            <li key={s.key}>
+              <div className="flex items-center gap-2.5 m-sm">
+                <Icon className="size-4 shrink-0 text-slate-500" strokeWidth={1.5} aria-hidden="true" />
+                <span className="min-w-0 flex-1 truncate text-slate-700">{s.label}</span>
+                <span className="tabular-nums text-slate-900">{s.count}</span>
+                <span className="w-10 text-right m-xs tabular-nums text-slate-500">{pct}%</span>
+              </div>
+              <div aria-hidden="true" className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className={cn("h-full rounded-full", s.count > 0 && s.count === terbesar ? "bg-slate-700" : "bg-slate-400")}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
-function QuickNav({
-  href,
-  icon: Icon,
-  title,
-  desc,
-}: {
-  href: string;
-  icon: typeof ListChecks;
-  title: string;
-  desc: string;
-}) {
+const TITIK = { amber: "bg-amber-500", emerald: "bg-emerald-500", slate: "bg-slate-300" } as const;
+
+function InfoTitik({ tone, children }: { tone: keyof typeof TITIK; children: ReactNode }) {
   return (
-    <Link
-      href={href}
-      className="group flex flex-col gap-2 rounded-2xl bg-white p-5 ring-1 ring-slate-200 transition-all hover:-translate-y-0.5 hover:shadow-md hover:ring-indigo-200"
-    >
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-        <Icon className="h-6 w-6" />
-      </span>
-      <span className="font-bold text-slate-800">{title}</span>
-      <span className="text-xs text-slate-500">{desc}</span>
-    </Link>
+    <>
+      <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", TITIK[tone])} />
+      <span className="tabular-nums">{children}</span>
+    </>
+  );
+}
+
+function NavCepat({ nav }: { nav: ReturnType<typeof ringkasNavigasi> }) {
+  const items: { href: string; icon: LucideIcon; judul: string; ket: string; info: ReactNode }[] = [
+    {
+      href: "/ehis-antrian/antrean",
+      icon: ListChecks,
+      judul: "Antrean List",
+      ket: "Board loket dan respons kedatangan pasien",
+      info: (
+        <InfoTitik tone={nav.menungguLoket > 0 ? "amber" : "slate"}>{nav.menungguLoket} menunggu di loket</InfoTitik>
+      ),
+    },
+    {
+      href: "/ehis-antrian/monitoring",
+      icon: Activity,
+      judul: "Monitoring",
+      ket: "Status TaskID dan pengiriman ke BPJS",
+      info:
+        nav.taskBelumTerkirim > 0 ? (
+          <InfoTitik tone="amber">{nav.taskBelumTerkirim} task belum terkirim</InfoTitik>
+        ) : (
+          <InfoTitik tone="emerald">Semua task terkirim</InfoTitik>
+        ),
+    },
+    {
+      href: "/ehis-antrian/display",
+      icon: MonitorPlay,
+      judul: "Display",
+      ket: "Layar panggilan ruang tunggu",
+      info:
+        nav.dipanggil.length === 1 ? (
+          <span>
+            <span className="font-mono text-slate-900">{nav.dipanggil[0]}</span> sedang dipanggil
+          </span>
+        ) : nav.dipanggil.length > 1 ? (
+          <span className="tabular-nums">{nav.dipanggil.length} nomor dipanggil</span>
+        ) : (
+          <span>Belum ada panggilan</span>
+        ),
+    },
+  ];
+
+  return (
+    <section aria-labelledby="nav-judul" className={cn(PANEL, "p-2 lg:col-span-2")}>
+      <h2 id="nav-judul" className="px-3 pt-3 m-lg font-medium text-slate-900 sm:px-4 sm:pt-4">
+        Navigasi cepat
+      </h2>
+      <ul className="mt-2 flex flex-col gap-1">
+        {items.map((it) => (
+          <li key={it.href}>
+            <Link
+              href={it.href}
+              className="group flex items-center gap-3 rounded-lg px-3 py-3 transition-colors duration-150 hover:bg-slate-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:px-4"
+            >
+              <span
+                aria-hidden="true"
+                className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600"
+              >
+                <it.icon className="size-[18px]" strokeWidth={1.5} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block m-base font-medium text-slate-900">{it.judul}</span>
+                <span className="block m-sm text-slate-500">{it.ket}</span>
+                <span className="mt-1 flex items-center gap-2 m-xs text-slate-600 sm:hidden">{it.info}</span>
+              </span>
+              <span className="hidden shrink-0 items-center gap-2 m-xs text-slate-600 sm:flex">{it.info}</span>
+              <ChevronRight
+                className="size-4 shrink-0 text-slate-400 transition-transform duration-150 group-hover:translate-x-0.5"
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
 function BerandaSkeleton() {
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
-      <div className="h-44 animate-pulse rounded-3xl bg-slate-100" />
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-24 animate-pulse rounded-2xl bg-slate-100" />
-        ))}
-      </div>
+    <div className={HALAMAN} aria-hidden="true">
+      <div className="h-72 rounded-2xl bg-slate-100 motion-safe:animate-pulse" />
+      <div className="h-44 rounded-2xl bg-slate-100 motion-safe:animate-pulse" />
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="h-48 animate-pulse rounded-3xl bg-slate-100" />
-        <div className="h-48 animate-pulse rounded-3xl bg-slate-100 lg:col-span-2" />
+        <div className="h-56 rounded-2xl bg-slate-100 motion-safe:animate-pulse" />
+        <div className="h-56 rounded-2xl bg-slate-100 motion-safe:animate-pulse lg:col-span-2" />
       </div>
     </div>
   );

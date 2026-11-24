@@ -1,96 +1,89 @@
 "use client";
 
-// ANT7 — Kartu panggilan utama (hero), tema terang + aksen SKY (tanpa gradient).
-// Nomor besar + loket tujuan + flash saat dipanggil/recall.
+// ANT7 — Panggilan utama: nomor sangat besar + loket tujuan (satu-satunya aksen sky).
+// Panggilan/recall baru → konten naik-pudar halus + sapuan warna lembut SEKALI (bukan
+// kedip berulang). Nama pasien tidak ditampilkan (layar publik).
 
 import { motion } from "framer-motion";
-import { ArrowRight, BellRing, Stethoscope, Hourglass } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DisplayCall } from "./displayShared";
+
+const EASE = [0.22, 1, 0.36, 1] as const;
 
 export function CurrentCallHero({
   call,
   signature,
-  reducedMotion,
+  announceText,
 }: {
   call: DisplayCall | undefined;
   signature: string;
-  reducedMotion: boolean;
+  announceText: string;
 }) {
-  if (!call) return <IdleHero />;
+  return (
+    <section
+      aria-labelledby="panggilan-judul"
+      className="relative flex min-h-[28rem] flex-col overflow-hidden rounded-3xl bg-(--d-panel) ring-1 ring-(--d-line) lg:min-h-0"
+    >
+      <h2 id="panggilan-judul" className="sr-only">Panggilan saat ini</h2>
+      <p className="sr-only" aria-live="polite">{announceText}</p>
+      {call ? <Panggilan key={signature} call={call} /> : <Kosong />}
+    </section>
+  );
+}
 
-  const isRecall = call.recalls > 0;
+function Panggilan({ call }: { call: DisplayCall }) {
+  const ulang = call.recalls > 0;
 
   return (
-    <motion.div
-      // key=signature → animasi flash diputar ulang tiap panggilan / recall baru.
-      key={signature}
-      initial={reducedMotion ? false : { scale: 0.96, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
-      className="relative flex h-full flex-col overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200"
-    >
-      {/* Flash overlay */}
-      {!reducedMotion && (
-        <motion.div
-          key={`flash-${signature}`}
-          initial={{ opacity: 0.5 }}
-          animate={{ opacity: 0 }}
-          transition={{ duration: 1.1, repeat: 2, repeatType: "reverse" }}
-          className={cn("pointer-events-none absolute inset-0 z-10", isRecall ? "bg-amber-300" : "bg-sky-300")}
-        />
-      )}
+    <>
+      <motion.div
+        aria-hidden="true"
+        initial={{ opacity: 1 }}
+        animate={{ opacity: 0 }}
+        transition={{ duration: 2.4, ease: "easeOut" }}
+        className={cn("pointer-events-none absolute inset-0", ulang ? "bg-(--d-recall)/10" : "bg-(--d-accent)/10")}
+      />
 
-      <div className="flex items-center justify-between gap-3 bg-sky-500 px-8 py-5 text-white">
-        <span className="text-3xl font-bold tracking-wide">
-          {isRecall ? "Panggilan Ulang" : "Silakan Menuju"}
+      <p className="relative flex items-center gap-3 px-10 pt-8 text-xl">
+        <span aria-hidden="true" className={cn("size-2.5 rounded-full", ulang ? "bg-(--d-recall)" : "bg-(--d-accent)")} />
+        <span className={ulang ? "text-(--d-recall)" : "text-(--d-text-2)"}>
+          {ulang ? `Panggilan ulang ke-${call.recalls + 1}` : "Sedang dipanggil"}
         </span>
-        {isRecall && (
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-4 py-1.5 text-2xl font-bold">
-            <BellRing className="h-6 w-6" /> ke-{call.recalls + 1}
-          </span>
-        )}
-      </div>
+      </p>
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-7 px-8 py-6 text-center">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: EASE }}
+        className="relative flex flex-1 flex-col items-center justify-center gap-8 px-10 pb-10 text-center"
+      >
         <div>
-          <p className="text-2xl font-semibold uppercase tracking-[0.3em] text-slate-400">Nomor Antrean</p>
-          <p className="mt-1 font-mono text-[11rem] font-black leading-none tracking-tight text-sky-500 [font-variant-numeric:tabular-nums]">
+          <p className="text-2xl text-(--d-text-2)">Nomor antrean</p>
+          {/* Ukuran mengikuti lebar DAN tinggi layar agar muat di TV 1080p maupun laptop 768p. */}
+          <p className="mt-2 text-[length:clamp(6rem,min(15vw,22vh),17rem)] leading-[0.9] font-semibold tracking-[-0.02em] tabular-nums text-(--d-text)">
             {call.nomorAntrean}
           </p>
         </div>
 
-        <div className="flex items-center gap-5 rounded-2xl bg-sky-50 px-10 py-6 ring-1 ring-sky-100">
-          <span className="text-3xl font-semibold text-slate-500">Menuju</span>
-          <ArrowRight className="h-9 w-9 text-sky-400" />
-          <span className="text-5xl font-black text-sky-600">{call.loket}</span>
-        </div>
+        <span aria-hidden="true" className="h-px w-24 bg-(--d-text)/15" />
 
-        <div className="flex items-center gap-3 text-2xl text-slate-500">
-          <Stethoscope className="h-6 w-6 text-slate-300" />
-          <span className="font-semibold text-slate-700">{call.poli}</span>
-          <span className="text-slate-300">·</span>
-          <span>{call.nama}</span>
+        <div>
+          <p className="text-2xl text-(--d-text-2)">Silakan menuju</p>
+          <p className="mt-3 text-[length:clamp(2.25rem,min(4vw,6vh),3.75rem)] leading-tight font-medium text-(--d-accent)">
+            {call.loket}
+          </p>
+          <p className="mt-4 text-2xl text-(--d-text-2)">{call.poli}</p>
         </div>
-      </div>
-    </motion.div>
+      </motion.div>
+    </>
   );
 }
 
-function IdleHero() {
+function Kosong() {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-6 rounded-3xl bg-white text-center shadow-sm ring-1 ring-slate-200">
-      <motion.span
-        animate={{ scale: [1, 1.08, 1], opacity: [0.6, 1, 0.6] }}
-        transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-        className="flex h-28 w-28 items-center justify-center rounded-full bg-sky-50 text-sky-500"
-      >
-        <Hourglass className="h-14 w-14" />
-      </motion.span>
-      <div>
-        <p className="text-4xl font-black text-slate-700">Menunggu Panggilan</p>
-        <p className="mt-2 text-xl text-slate-400">Nomor antrean berikutnya akan tampil di sini.</p>
-      </div>
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 px-10 text-center">
+      <p className="text-4xl font-medium text-(--d-text)">Belum ada panggilan</p>
+      <p className="text-2xl text-(--d-text-2)">Nomor yang dipanggil akan tampil di sini</p>
     </div>
   );
 }

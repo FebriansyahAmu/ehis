@@ -1,57 +1,60 @@
 "use client";
 
-// ANT7 — Display antrean (layar ruang tunggu, full-screen, tema terang + aksen SKY).
-// Hero panggilan + daftar terakhir + papan informasi/video + ticker + jam live + flash & TTS.
+// ANT7 — Display antrean (layar TV ruang tunggu, full-screen). Tema terang (bawaan) atau
+// gelap — pilihan tersimpan per perangkat; latar & panel netral, aksen sky hanya di loket
+// tujuan, amber untuk panggilan ulang (token di displayTema.ts). Nomor saja — nama pasien
+// tidak ditampilkan. Kontrol (suara · jeda info · tema · layar penuh · keluar) memudar
+// setelah 3 detik tanpa aktivitas dan muncul lagi saat pointer bergerak, disentuh, atau fokus.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Hospital, Clock, Volume2, VolumeX, Maximize2, Minimize2, LogOut } from "lucide-react";
+import { MotionConfig } from "framer-motion";
+import { LogOut, Maximize2, Minimize2, Moon, Pause, Play, Sun, Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAntreanStore, seedAntrean } from "@/lib/antrean/antreanStore";
 import { buildSeedAntrean } from "@/lib/antrean/antreanSeed";
 import { useLoketStore } from "@/lib/antrean/loketStore";
+import { useRsProfil } from "@/lib/master/rsProfilClient";
 import { useFullscreen } from "../apm/useFullscreen";
 import { CurrentCallHero } from "./CurrentCallHero";
 import { RecentCallsList } from "./RecentCallsList";
 import { InfoBoard } from "./InfoBoard";
 import { DisplayTicker } from "./DisplayTicker";
-import {
-  buildCalls,
-  callSignature,
-  useAnnouncer,
-  useClock,
-  usePrefersReducedMotion,
-} from "./displayShared";
+import { buildCalls, callSignature, useAnnouncer, useClock, useIdle } from "./displayShared";
+import { TEMA_TOKENS, useDisplayTema } from "./displayTema";
 
 /** "A-12" → "A 12" agar TTS membaca huruf & angka terpisah. */
 function spellNomor(nomor: string): string {
   return nomor.replace(/-/g, " ");
 }
 
+const CTRL =
+  "inline-flex size-11 items-center justify-center rounded-lg text-(--d-text-2) transition-colors duration-150 hover:bg-(--d-raised) hover:text-(--d-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--d-accent)";
+
 export default function DisplayScreen() {
   const antrean = useAntreanStore();
   const loket = useLoketStore();
+  const rs = useRsProfil();
   const now = useClock();
-  const reduced = usePrefersReducedMotion();
+  const idle = useIdle(3000);
+  const [tema, setTema] = useDisplayTema();
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
 
   const [sound, setSound] = useState(false);
+  const [paused, setPaused] = useState(false);
   const announce = useAnnouncer(sound);
 
   useEffect(() => {
     seedAntrean(buildSeedAntrean());
   }, []);
 
-  const calls = useMemo(
-    () => buildCalls(antrean.byKode, loket.panggilan),
-    [antrean.byKode, loket.panggilan],
-  );
+  const calls = useMemo(() => buildCalls(antrean.byKode, loket.panggilan), [antrean.byKode, loket.panggilan]);
   const hero = calls[0];
   const recent = calls.slice(1, 6);
   const sig = callSignature(hero);
   const announceText = hero ? `Nomor antrean ${spellNomor(hero.nomorAntrean)}. Menuju ${hero.loket}.` : "";
 
-  // Umumkan (suara) saat hero berubah (panggilan / recall baru). Flash via key=sig di hero.
+  // Umumkan (suara) saat hero berubah (panggilan / recall baru). Sorot via key=sig di hero.
   const lastSig = useRef("");
   useEffect(() => {
     if (!sig || sig === lastSig.current) return;
@@ -59,86 +62,104 @@ export default function DisplayScreen() {
     if (announceText) announce(announceText);
   }, [sig, announceText, announce]);
 
-  const jam = now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const jam = now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
   const tanggal = now.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
   return (
-    <div className="flex h-screen w-screen flex-col gap-4 overflow-hidden bg-slate-100 p-5 text-slate-800">
-      {/* Header (sky solid) */}
-      <header className="flex shrink-0 items-center justify-between gap-4 rounded-2xl bg-sky-500 px-6 py-4 text-white shadow-sm">
-        <div className="flex items-center gap-3">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15">
-            <Hospital className="h-7 w-7" />
-          </span>
-          <div className="leading-tight">
-            <p className="text-2xl font-extrabold tracking-tight">RS Sakti Husada</p>
-            <p className="text-sm font-medium uppercase tracking-[0.25em] text-sky-100">Antrean Pendaftaran</p>
+    <MotionConfig reducedMotion="user">
+      <div
+        style={TEMA_TOKENS[tema]}
+        className={cn(
+          "flex min-h-screen flex-col gap-6 bg-(--d-bg) p-6 text-(--d-text) transition-colors duration-500 lg:h-screen lg:p-8",
+          idle && "cursor-none",
+        )}
+      >
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-8 gap-y-4">
+          <div className="min-w-0">
+            <p className="truncate text-2xl font-medium text-(--d-text) lg:text-3xl">{rs.nama}</p>
+            <p className="mt-1 text-lg text-(--d-text-2)">Antrean pendaftaran</p>
           </div>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <CtrlButton onClick={() => setSound((s) => !s)} title={sound ? "Matikan suara panggilan" : "Aktifkan suara panggilan"} active={sound}>
-            {sound ? <Volume2 className="h-6 w-6" /> : <VolumeX className="h-6 w-6" />}
-          </CtrlButton>
-          <CtrlButton onClick={toggleFullscreen} title={isFullscreen ? "Keluar layar penuh" : "Layar penuh"}>
-            {isFullscreen ? <Minimize2 className="h-6 w-6" /> : <Maximize2 className="h-6 w-6" />}
-          </CtrlButton>
+          <div className="flex items-center gap-6">
+            <div
+              className={cn(
+                "flex items-center gap-1 transition-opacity duration-300 focus-within:opacity-100",
+                idle ? "opacity-0" : "opacity-100",
+              )}
+            >
+              <CtrlButton label="Suara panggilan" pressed={sound} onClick={() => setSound((s) => !s)}>
+                {sound ? <Volume2 className="size-5" strokeWidth={1.5} /> : <VolumeX className="size-5" strokeWidth={1.5} />}
+              </CtrlButton>
+              <CtrlButton label={paused ? "Putar info berjalan" : "Jeda info berjalan"} onClick={() => setPaused((p) => !p)}>
+                {paused ? <Play className="size-5" strokeWidth={1.5} /> : <Pause className="size-5" strokeWidth={1.5} />}
+              </CtrlButton>
+              <CtrlButton
+                label={tema === "terang" ? "Ganti ke tema gelap" : "Ganti ke tema terang"}
+                onClick={() => setTema(tema === "terang" ? "gelap" : "terang")}
+              >
+                {tema === "terang" ? (
+                  <Moon className="size-5" strokeWidth={1.5} />
+                ) : (
+                  <Sun className="size-5" strokeWidth={1.5} />
+                )}
+              </CtrlButton>
+              <CtrlButton label={isFullscreen ? "Keluar layar penuh" : "Layar penuh"} onClick={toggleFullscreen}>
+                {isFullscreen ? (
+                  <Minimize2 className="size-5" strokeWidth={1.5} />
+                ) : (
+                  <Maximize2 className="size-5" strokeWidth={1.5} />
+                )}
+              </CtrlButton>
+              <Link href="/ehis-antrian" aria-label="Keluar dari display" title="Keluar dari display" className={CTRL}>
+                <LogOut className="size-5" strokeWidth={1.5} aria-hidden="true" />
+              </Link>
+            </div>
 
-          <div className="flex items-center gap-3 rounded-2xl bg-white/15 px-5 py-2.5">
-            <Clock className="h-6 w-6 text-sky-100" />
-            <div className="flex flex-col items-end leading-tight">
-              <span suppressHydrationWarning className="font-mono text-3xl font-black tabular-nums">{jam}</span>
-              <span suppressHydrationWarning className="text-xs text-sky-100">{tanggal}</span>
+            <div className="text-right">
+              <p suppressHydrationWarning className="text-5xl leading-none font-light tabular-nums text-(--d-text)">
+                {jam}
+              </p>
+              <p suppressHydrationWarning className="mt-2 text-base text-(--d-text-2)">
+                {tanggal}
+              </p>
             </div>
           </div>
+        </header>
 
-          <Link
-            href="/ehis-antrian"
-            title="Keluar dari Display"
-            className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 text-white transition-colors hover:bg-white/25"
-          >
-            <LogOut className="h-6 w-6" />
-          </Link>
-        </div>
-      </header>
+        <main className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)]">
+          <CurrentCallHero call={hero} signature={sig} announceText={announceText} />
+          <div className="grid min-h-0 gap-6 lg:grid-rows-[minmax(0,1fr)_auto]">
+            <RecentCallsList calls={recent} />
+            <InfoBoard paused={paused} />
+          </div>
+        </main>
 
-      {/* Main: hero + (recent atas, info bawah) */}
-      <main className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[1.7fr_1fr]">
-        <CurrentCallHero call={hero} signature={sig} reducedMotion={reduced} />
-        <div className="grid min-h-0 grid-rows-2 gap-4">
-          <RecentCallsList calls={recent} />
-          <InfoBoard />
-        </div>
-      </main>
-
-      {/* Ticker */}
-      <footer className="shrink-0">
-        <DisplayTicker />
-      </footer>
-    </div>
+        <DisplayTicker namaRs={rs.nama} paused={paused} />
+      </div>
+    </MotionConfig>
   );
 }
 
 function CtrlButton({
+  label,
+  pressed,
   onClick,
-  title,
-  active,
   children,
 }: {
+  label: string;
+  /** Hanya untuk tombol yang labelnya tetap (mis. suara); jangan dipakai bila label berganti. */
+  pressed?: boolean;
   onClick: () => void;
-  title: string;
-  active?: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      title={title}
-      className={cn(
-        "inline-flex h-12 w-12 items-center justify-center rounded-2xl transition-colors",
-        active ? "bg-white text-sky-600" : "bg-white/15 text-white hover:bg-white/25",
-      )}
+      aria-label={label}
+      title={label}
+      aria-pressed={pressed}
+      className={cn(CTRL, pressed && "bg-(--d-raised) text-(--d-text)")}
     >
       {children}
     </button>

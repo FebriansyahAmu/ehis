@@ -1,19 +1,12 @@
 "use client";
 
-// ANT7 — Papan Informasi: media engaging untuk ruang tunggu. Default = slide info
-// layanan berputar otomatis. Video-ready: beri prop `videoSrc` untuk memutar video.
+// ANT7 — Papan informasi ruang tunggu. Default = info layanan berganti tiap 8 detik dengan
+// pudar silang (opacity saja, dua slide ditumpuk di sel grid yang sama). Bisa dijeda dari
+// kontrol layar. Video-ready: beri prop `videoSrc` untuk memutar video.
 
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  Sparkles,
-  HeartPulse,
-  Syringe,
-  Smartphone,
-  Clock,
-  ShieldCheck,
-  type LucideIcon,
-} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Clock, HeartPulse, ShieldCheck, Smartphone, Syringe, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface InfoSlide {
@@ -23,91 +16,93 @@ interface InfoSlide {
 }
 
 const SLIDES: InfoSlide[] = [
-  { icon: HeartPulse, title: "IGD 24 Jam", text: "Instalasi Gawat Darurat melayani 24 jam setiap hari tanpa antrean." },
-  { icon: Syringe, title: "Vaksinasi Tersedia", text: "Layanan imunisasi anak & dewasa di Poli Anak dan Poli Umum." },
-  { icon: Smartphone, title: "Daftar via Mobile JKN", text: "Ambil antrean online dari rumah — pindai QR di loket pendaftaran." },
-  { icon: ShieldCheck, title: "Siapkan Berkas BPJS", text: "Bawa kartu JKN aktif dan surat rujukan FKTP yang masih berlaku." },
-  { icon: Clock, title: "Jam Besuk Pasien", text: "Siang 11.00–13.00 & sore 17.00–19.00. Mohon tertib & jaga ketenangan." },
+  { icon: HeartPulse, title: "IGD 24 jam", text: "Instalasi Gawat Darurat melayani pasien 24 jam setiap hari." },
+  { icon: Syringe, title: "Layanan vaksinasi", text: "Imunisasi anak dan dewasa tersedia di Poli Anak dan Poli Umum." },
+  { icon: Smartphone, title: "Daftar lewat Mobile JKN", text: "Ambil antrean dari rumah, lalu pindai QR di loket pendaftaran." },
+  { icon: ShieldCheck, title: "Siapkan berkas BPJS", text: "Bawa kartu JKN aktif dan surat rujukan FKTP yang masih berlaku." },
+  { icon: Clock, title: "Jam besuk pasien", text: "Siang pukul 11.00–13.00 dan sore pukul 17.00–19.00." },
 ];
 
-const ROTATE_MS = 6000;
+const ROTATE_MS = 8000;
 
-export function InfoBoard({ videoSrc }: { videoSrc?: string }) {
+export function InfoBoard({ videoSrc, paused }: { videoSrc?: string; paused: boolean }) {
   const [idx, setIdx] = useState(0);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    if (videoSrc) return;
+    if (videoSrc || paused) return;
     const t = setInterval(() => setIdx((i) => (i + 1) % SLIDES.length), ROTATE_MS);
     return () => clearInterval(t);
-  }, [videoSrc]);
+  }, [videoSrc, paused]);
 
-  return (
-    <section className="flex min-h-0 flex-col overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200">
-      <div className="flex shrink-0 items-center gap-2.5 border-b border-slate-100 px-6 py-3.5">
-        <Sparkles className="h-6 w-6 text-sky-500" />
-        <h2 className="text-2xl font-bold text-slate-700">Informasi Layanan</h2>
-      </div>
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (paused) v.pause();
+    else void v.play().catch(() => {});
+  }, [paused]);
 
-      <div className="relative min-h-0 flex-1">
-        {videoSrc ? (
-          <video
-            src={videoSrc}
-            autoPlay
-            muted
-            loop
-            playsInline
-            aria-label="Video informasi rumah sakit"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <SlideShow idx={idx} onJump={setIdx} />
-        )}
-      </div>
-    </section>
-  );
-}
-
-function SlideShow({ idx, onJump }: { idx: number; onJump: (i: number) => void }) {
   const slide = SLIDES[idx];
   const Icon = slide.icon;
+
   return (
-    <div className="flex h-full flex-col">
-      <div className="relative flex-1 overflow-hidden bg-sky-50">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={idx}
-            initial={{ opacity: 0, scale: 0.97 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.03 }}
-            transition={{ duration: 0.45, ease: "easeOut" }}
-            className="flex h-full flex-col items-center justify-center gap-5 px-8 text-center"
-          >
-            <span className="flex h-24 w-24 items-center justify-center rounded-3xl bg-sky-500 text-white shadow-sm">
-              <Icon className="h-12 w-12" />
-            </span>
-            <div>
-              <p className="text-3xl font-black text-sky-600">{slide.title}</p>
-              <p className="mx-auto mt-2 max-w-md text-xl leading-relaxed text-slate-500">{slide.text}</p>
-            </div>
-          </motion.div>
-        </AnimatePresence>
+    <section
+      aria-labelledby="info-judul"
+      className="flex flex-col overflow-hidden rounded-3xl bg-(--d-panel) ring-1 ring-(--d-line)"
+    >
+      <div className="flex items-center justify-between gap-4 px-8 pt-6">
+        <h2 id="info-judul" className="text-xl font-medium text-(--d-text-2)">Informasi layanan</h2>
+        {!videoSrc && (
+          <span aria-hidden="true" className="flex gap-1.5">
+            {SLIDES.map((s, i) => (
+              <span
+                key={s.title}
+                className={cn(
+                  "h-1 w-6 rounded-full transition-colors duration-500",
+                  i === idx ? "bg-(--d-text)/70" : "bg-(--d-text)/15",
+                )}
+              />
+            ))}
+          </span>
+        )}
       </div>
 
-      {/* Progress dots */}
-      <div className="flex shrink-0 items-center justify-center gap-2 py-3">
-        {SLIDES.map((_, i) => (
-          <button
-            key={i}
-            type="button"
-            aria-label={`Tampilkan info ${i + 1}`}
-            onClick={() => onJump(i)}
-            className={cn(
-              "h-2.5 rounded-full transition-all",
-              i === idx ? "w-8 bg-sky-500" : "w-2.5 bg-sky-200 hover:bg-sky-300",
-            )}
-          />
-        ))}
-      </div>
-    </div>
+      {videoSrc ? (
+        <video
+          ref={videoRef}
+          src={videoSrc}
+          autoPlay
+          muted
+          loop
+          playsInline
+          aria-label="Video informasi rumah sakit"
+          className="mt-4 aspect-video w-full object-cover"
+        />
+      ) : (
+        <div className="grid min-h-40 px-8 pt-5 pb-8">
+          <AnimatePresence initial={false}>
+            <motion.div
+              key={idx}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.8, ease: "easeInOut" }}
+              className="col-start-1 row-start-1 flex items-start gap-5"
+            >
+              <span
+                aria-hidden="true"
+                className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-(--d-raised) text-(--d-text-2)"
+              >
+                <Icon className="size-7" strokeWidth={1.5} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-2xl font-medium text-(--d-text)">{slide.title}</p>
+                <p className="mt-2 text-lg leading-relaxed text-(--d-text-2)">{slide.text}</p>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      )}
+    </section>
   );
 }

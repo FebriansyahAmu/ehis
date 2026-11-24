@@ -1,8 +1,10 @@
 "use client";
 
-// ANT7 — Helper Display antrean: derivasi panggilan + jam live + pengumuman suara (TTS).
+// ANT7 — Helper Display antrean: derivasi panggilan + jam live + pengumuman suara (TTS)
+// + deteksi diam (kontrol layar disembunyikan saat tak ada aktivitas).
+// Layar ini publik: data panggilan sengaja TIDAK membawa nama pasien.
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { loketLabel } from "@/lib/antrean/posStore";
 import type { PanggilanRef } from "@/lib/antrean/loketStore";
 import type { AntreanRecord } from "@/lib/antrean/types";
@@ -10,14 +12,13 @@ import type { AntreanRecord } from "@/lib/antrean/types";
 export interface DisplayCall {
   kodebooking: string;
   nomorAntrean: string;
-  nama: string;
   poli: string;
   loket: string;
   calledAt: number;
   recalls: number;
 }
 
-/** Tanda tangan panggilan (berubah saat ada panggilan/recall baru) → pemicu flash + TTS. */
+/** Tanda tangan panggilan (berubah saat ada panggilan/recall baru) → pemicu sorot + TTS. */
 export function callSignature(call: DisplayCall | undefined): string {
   return call ? `${call.kodebooking}#${call.recalls}@${call.calledAt}` : "";
 }
@@ -39,10 +40,9 @@ export function buildCalls(
     out.push({
       kodebooking: rec.kodebooking,
       nomorAntrean: rec.nomorAntrean,
-      nama: rec.pasien.nama,
       poli: rec.poli,
       loket: p ? loketLabel(p.pos, p.loket) : "Loket Pendaftaran",
-      calledAt: p?.calledAt ?? lastTaskWaktu ?? rec.createdAt,
+      calledAt: p?.calledAt ?? (lastTaskWaktu || rec.createdAt),
       recalls: p?.recalls ?? 0,
     });
   }
@@ -77,15 +77,22 @@ export function useAnnouncer(enabled: boolean) {
   }, []);
 }
 
-/** Hormati prefers-reduced-motion untuk efek flash (pola useSyncExternalStore, SSR-safe). */
-export function usePrefersReducedMotion(): boolean {
-  return useSyncExternalStore(
-    (cb) => {
-      const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-      mq.addEventListener("change", cb);
-      return () => mq.removeEventListener("change", cb);
-    },
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-    () => false,
-  );
+/** `true` setelah `ms` tanpa gerakan pointer/sentuhan/keyboard; aktivitas apa pun → `false`. */
+export function useIdle(ms: number): boolean {
+  const [idle, setIdle] = useState(false);
+  useEffect(() => {
+    let t = setTimeout(() => setIdle(true), ms);
+    const wake = () => {
+      setIdle(false);
+      clearTimeout(t);
+      t = setTimeout(() => setIdle(true), ms);
+    };
+    const events = ["pointermove", "pointerdown", "keydown"] as const;
+    events.forEach((e) => window.addEventListener(e, wake, { passive: true }));
+    return () => {
+      clearTimeout(t);
+      events.forEach((e) => window.removeEventListener(e, wake));
+    };
+  }, [ms]);
+  return idle;
 }
