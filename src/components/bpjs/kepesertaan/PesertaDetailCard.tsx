@@ -1,345 +1,409 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  UserCheck, User, Shield, MapPin, Activity,
-  CreditCard, ArrowRight, AlertTriangle, WifiOff, SearchX,
-} from "lucide-react";
-import Link from "next/link";
+// Panel hasil cek kepesertaan — 4 keadaan (kosong · memuat · ditemukan · galat).
+// Ditemukan: kartu identitas (garis status di atas + badge teks Aktif/Tidak aktif, nomor bisa
+// disalin) → 4 fakta penjaminan (hak kelas disorot aksen sky, masa berlaku memberi peringatan
+// amber ≤30 hari / rose bila lewat) → penanda khusus (PRB, COB, SKTM, Dinsos) → rincian → aksi.
 
-import { cn } from "@/lib/utils";
-import type { PesertaRecord, BPJSError } from "@/lib/bpjs/bpjsShared";
-import type { KepesertaanResult } from "./kepesertaanShared";
+import Link from "next/link";
+import type { ReactNode } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
-  kelasChipCls, jenisChipCls, statusChipCls,
-  fmtTgl, sexLabel, errorLabel,
+  AlertTriangle,
+  ArrowRight,
+  CreditCard,
+  FileSearch,
+  RotateCcw,
+  SearchX,
+  ShieldCheck,
+  ShieldX,
+  UserSearch,
+  WifiOff,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/ui/utils";
+import type { BPJSError, PesertaRecord } from "@/lib/bpjs/bpjsShared";
+import { CopyButton } from "./CopyButton";
+import {
+  errorLabel,
+  fmtTgl,
+  inisial,
+  masaBerlaku,
+  rapikan,
+  sexLabel,
+  type KepesertaanResult,
 } from "./kepesertaanShared";
 
-// ── Utils ──────────────────────────────────────────────────
+const EASE = [0.22, 1, 0.36, 1] as const;
+// Kartu tanpa garis tepi — dipisahkan dari latar oleh bayangan halus.
+const PANEL = "rounded-xl bg-card shadow-sm";
 
-function getInitials(nama: string): string {
-  return nama.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
-}
-
-function membershipPct(tmt: string | null, tat: string | null): number {
-  if (!tmt || !tat) return 0;
-  const now   = Date.now();
-  const start = new Date(tmt).getTime();
-  const end   = new Date(tat).getTime();
-  if (end <= start || now >= end) return 0;
-  if (now <= start) return 100;
-  return Math.round(((end - now) / (end - start)) * 100);
-}
-
-function barCls(pct: number, aktif: boolean): string {
-  if (!aktif || pct === 0) return "bg-rose-400";
-  if (pct < 25) return "bg-amber-400";
-  return "bg-emerald-400";
-}
-
-function barTextCls(pct: number, aktif: boolean): string {
-  if (!aktif || pct === 0) return "text-rose-500";
-  if (pct < 25) return "text-amber-500";
-  return "text-emerald-600";
-}
-
-// ── Skeleton ───────────────────────────────────────────────
-
-function Bone({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded-xl bg-slate-100", className)} />;
-}
-
-function LoadingSkeleton() {
+function Muncul({ id, children, className }: { id: string; children: ReactNode; className?: string }) {
   return (
     <motion.div
-      key="skel"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="flex flex-col gap-3.5 p-5"
-    >
-      <Bone className="h-23 rounded-2xl" />
-      <div className="grid grid-cols-2 gap-3">
-        <Bone className="h-28" />
-        <Bone className="h-28" />
-      </div>
-      <Bone className="h-17" />
-      <Bone className="h-10" />
-    </motion.div>
-  );
-}
-
-// ── Empty state ────────────────────────────────────────────
-
-function EmptyState() {
-  return (
-    <motion.div
-      key="idle"
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.25 }}
-      className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center"
-    >
-      <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-sky-50 ring-1 ring-sky-100/80">
-        <UserCheck size={32} className="text-sky-200" strokeWidth={1.5} />
-      </div>
-      <div className="max-w-[200px]">
-        <p className="text-sm font-semibold text-slate-500">Verifikasi Peserta</p>
-        <p className="mt-1.5 text-xs leading-relaxed text-slate-400">
-          Masukkan nomor kartu BPJS atau NIK KTP untuk memeriksa status kepesertaan
-        </p>
-      </div>
-      <div className="flex gap-5 text-xs text-slate-300">
-        <span className="flex items-center gap-1.5">
-          <CreditCard size={11} strokeWidth={1.8} />
-          Kartu BPJS 13 digit
-        </span>
-        <span className="flex items-center gap-1.5">
-          <User size={11} strokeWidth={1.8} />
-          NIK KTP 16 digit
-        </span>
-      </div>
-    </motion.div>
-  );
-}
-
-// ── Error state ────────────────────────────────────────────
-
-function ErrorState({ error, onRetry }: { error: BPJSError; onRetry?: () => void }) {
-  const { title, desc, color, retryable } = errorLabel(error);
-  const cfg = {
-    slate: { wrap: "bg-slate-50 ring-slate-100",  icon: "text-slate-300",  title: "text-slate-600",  desc: "text-slate-400",  Icon: SearchX },
-    amber: { wrap: "bg-amber-50 ring-amber-100",  icon: "text-amber-400",  title: "text-amber-700",  desc: "text-amber-600",  Icon: AlertTriangle },
-    rose:  { wrap: "bg-rose-50  ring-rose-100",   icon: "text-rose-400",   title: "text-rose-700",   desc: "text-rose-600",   Icon: WifiOff },
-  }[color];
-
-  return (
-    <motion.div
-      key="error"
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.22 }}
-      className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center"
-    >
-      <div className={cn("flex h-16 w-16 items-center justify-center rounded-2xl ring-1", cfg.wrap)}>
-        <cfg.Icon size={24} className={cfg.icon} strokeWidth={1.8} />
-      </div>
-      <div>
-        <p className={cn("text-sm font-semibold", cfg.title)}>{title}</p>
-        <p className={cn("mt-1 max-w-60 text-xs leading-relaxed", cfg.desc)}>{desc}</p>
-      </div>
-      {retryable && onRetry && (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="rounded-xl border border-rose-200 bg-white px-4 py-2 text-xs font-semibold text-rose-600 shadow-sm transition-colors hover:bg-rose-50"
-        >
-          Coba Lagi
-        </button>
-      )}
-    </motion.div>
-  );
-}
-
-// ── InfoPair ───────────────────────────────────────────────
-
-function InfoPair({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
-  return (
-    <div>
-      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
-      <p className={cn("mt-0.5 text-sm font-medium text-slate-800", mono && "font-mono text-xs tracking-tight")}>
-        {value ?? "—"}
-      </p>
-    </div>
-  );
-}
-
-// ── PesertaFound ───────────────────────────────────────────
-
-function PesertaFound({ peserta }: { peserta: PesertaRecord }) {
-  const isAktif  = peserta.statusPeserta.kode === "0";
-  const hasCOB   = peserta.cob.nmAsuransi !== null;
-  const prolanis = peserta.informasi.prolanisPRB;
-  const pct      = membershipPct(peserta.tglTMT, peserta.tglTAT);
-
-  return (
-    <motion.div
-      key="found"
+      key={id}
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.25 }}
-      className="flex flex-col gap-3.5 p-4"
+      transition={{ duration: 0.22, ease: EASE }}
+      className={className}
     >
-      {/* ── Identity header ── */}
-      <div className={cn(
-        "rounded-2xl border p-4",
-        isAktif ? "border-emerald-200/60 bg-emerald-50/30" : "border-rose-200/60 bg-rose-50/30",
-      )}>
-        <div className="flex items-start gap-3">
-          {/* Initials avatar */}
-          <div className={cn(
-            "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold",
-            isAktif ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-600",
-          )}>
-            {getInitials(peserta.nama)}
-          </div>
-
-          {/* Name + meta */}
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="truncate text-sm font-bold text-slate-800">{peserta.nama}</h2>
-              <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold", statusChipCls(peserta.statusPeserta.kode))}>
-                {peserta.statusPeserta.keterangan}
-              </span>
-            </div>
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-              <span>{sexLabel(peserta.sex)}</span>
-              <span className="text-slate-300">·</span>
-              <span>{peserta.umur.umurSekarang}</span>
-              {prolanis && (
-                <>
-                  <span className="text-slate-300">·</span>
-                  <span className="rounded-md bg-teal-100 px-1.5 py-0.5 text-[10px] font-bold text-teal-700">
-                    PRB · {prolanis}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Hak kelas badge */}
-          <span className={cn("shrink-0 rounded-xl px-2.5 py-1 text-xs font-bold", kelasChipCls(peserta.hakKelas.kode))}>
-            {peserta.hakKelas.keterangan}
-          </span>
-        </div>
-
-        {/* Key identifiers row */}
-        <div className="mt-3 grid grid-cols-3 gap-3 rounded-xl border border-white/70 bg-white/60 px-3 py-2.5">
-          <InfoPair label="No. Kartu" value={peserta.noKartu} mono />
-          <InfoPair label="NIK" value={peserta.nik} mono />
-          <InfoPair label="Tgl. Lahir" value={fmtTgl(peserta.tglLahir)} />
-        </div>
-      </div>
-
-      {/* ── Kepesertaan + FKTP ── */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-slate-200/60 bg-white p-3.5">
-          <div className="mb-2.5 flex items-center gap-1.5">
-            <Shield size={12} className="text-sky-500" strokeWidth={2.3} />
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Kepesertaan</p>
-          </div>
-          <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", jenisChipCls(peserta.jenisPeserta.kode))}>
-            {peserta.jenisPeserta.keterangan}
-          </span>
-          {/* Validity bar */}
-          <div className="mt-3">
-            <div className="flex items-center justify-between text-[10px] text-slate-400">
-              <span>{fmtTgl(peserta.tglTMT)}</span>
-              <span>{fmtTgl(peserta.tglTAT)}</span>
-            </div>
-            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
-              <motion.div
-                className={cn("h-full rounded-full", barCls(pct, isAktif))}
-                initial={{ width: 0 }}
-                animate={{ width: `${pct}%` }}
-                transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
-              />
-            </div>
-            <p className={cn("mt-1 text-[10px] font-semibold", barTextCls(pct, isAktif))}>
-              {isAktif ? `${pct}% sisa masa berlaku` : "Kepesertaan tidak aktif"}
-            </p>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-200/60 bg-white p-3.5">
-          <div className="mb-2.5 flex items-center gap-1.5">
-            <MapPin size={12} className="text-teal-500" strokeWidth={2.3} />
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">FKTP Terdaftar</p>
-          </div>
-          <p className="text-sm font-semibold leading-snug text-slate-800">{peserta.provUmum.nmProvider}</p>
-          <p className="mt-1 font-mono text-[11px] text-slate-400">{peserta.provUmum.kdProvider}</p>
-        </div>
-      </div>
-
-      {/* ── Rekam Medis & Kontak ── */}
-      <div className="rounded-xl border border-slate-200/60 bg-white p-3.5">
-        <div className="mb-2.5 flex items-center gap-1.5">
-          <Activity size={12} className="text-slate-400" strokeWidth={2.3} />
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Rekam Medis & Kontak</p>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <InfoPair label="No. Rekam Medis" value={peserta.mr.noMR ?? "—"} mono />
-          <InfoPair label="Telepon" value={peserta.mr.noTelepon ?? "—"} mono />
-          <InfoPair label="TMT Pendaftaran" value={fmtTgl(peserta.tglTMT)} />
-        </div>
-      </div>
-
-      {/* ── COB — conditional ── */}
-      {hasCOB && (
-        <motion.div
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2, delay: 0.1 }}
-          className="rounded-xl border border-emerald-200/60 bg-emerald-50/30 p-3.5"
-        >
-          <div className="mb-2.5 flex items-center gap-1.5">
-            <CreditCard size={12} className="text-emerald-600" strokeWidth={2.3} />
-            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">COB — Asuransi Tambahan</p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <InfoPair label="Nama Asuransi" value={peserta.cob.nmAsuransi} />
-            <InfoPair label="No. Polis" value={peserta.cob.noAsuransi} mono />
-            <InfoPair label="TMT Asuransi" value={fmtTgl(peserta.cob.tglTMT)} />
-            <InfoPair label="TAT Asuransi" value={fmtTgl(peserta.cob.tglTAT)} />
-          </div>
-        </motion.div>
-      )}
-
-      {/* ── Quick actions ── */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.2, delay: 0.15 }}
-        className="grid grid-cols-2 gap-2 pt-0.5"
-      >
-        <Link
-          href={`/ehis-registration?peserta=${peserta.noKartu}`}
-          className="flex items-center justify-center gap-1.5 rounded-xl bg-sky-500 px-3 py-2.5 text-xs font-semibold text-white shadow-sm shadow-sky-200/60 transition-all hover:bg-sky-600 hover:shadow-md hover:shadow-sky-300/40"
-        >
-          Buat SEP
-          <ArrowRight size={12} strokeWidth={2.5} />
-        </Link>
-        <Link
-          href={`/ehis-bpjs/vclaim/rujukan?kartu=${peserta.noKartu}`}
-          className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50"
-        >
-          Cari Rujukan
-          <ArrowRight size={12} strokeWidth={2.5} />
-        </Link>
-      </motion.div>
+      {children}
     </motion.div>
   );
 }
 
-// ── Main export ────────────────────────────────────────────
+// ── Kosong ────────────────────────────────────────────────
 
-interface PesertaDetailCardProps {
-  result: KepesertaanResult;
-  onRetry?: () => void;
+function Kosong() {
+  return (
+    <Muncul id="idle" className={cn(PANEL, "flex h-full min-h-72 flex-col items-center justify-center gap-3 p-8 text-center")}>
+      <span className="flex size-11 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+        <UserSearch className="size-5" aria-hidden="true" />
+      </span>
+      <div>
+        <p className="text-sm font-semibold text-foreground">Belum ada pencarian</p>
+        <p className="mt-1 max-w-xs text-xs leading-relaxed text-muted-foreground">
+          Isi nomor kartu (13 digit) atau NIK (16 digit), pilih tanggal SEP, lalu tekan Enter atau Cek kepesertaan
+        </p>
+      </div>
+    </Muncul>
+  );
 }
 
-export default function PesertaDetailCard({ result, onRetry }: PesertaDetailCardProps) {
+// ── Memuat ────────────────────────────────────────────────
+
+function Tulang({ className }: { className?: string }) {
+  return <div className={cn("rounded-lg bg-muted motion-safe:animate-pulse", className)} />;
+}
+
+function Memuat() {
   return (
-    <div className="h-full">
-      <AnimatePresence mode="wait">
-        {result.status === "idle"    && <EmptyState />}
-        {result.status === "loading" && <LoadingSkeleton />}
-        {result.status === "found"   && <PesertaFound key="found" peserta={result.peserta} />}
-        {result.status === "error"   && <ErrorState key="error" error={result.error} onRetry={onRetry} />}
-      </AnimatePresence>
+    <Muncul id="loading" className="flex flex-col gap-3" >
+      <span className="sr-only">Memuat data peserta</span>
+      <div className={cn(PANEL, "p-4")}>
+        <div className="flex items-center gap-3">
+          <Tulang className="size-10" />
+          <div className="flex-1 space-y-2">
+            <Tulang className="h-4 w-1/3" />
+            <Tulang className="h-3 w-1/2" />
+          </div>
+          <Tulang className="h-5 w-16 rounded-full" />
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <Tulang className="h-9" />
+          <Tulang className="h-9" />
+          <Tulang className="h-9" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <Tulang key={i} className="h-20 rounded-xl" />
+        ))}
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <Tulang className="h-32 rounded-xl" />
+        <Tulang className="h-32 rounded-xl" />
+      </div>
+    </Muncul>
+  );
+}
+
+// ── Galat ─────────────────────────────────────────────────
+
+const TONE_GALAT = {
+  slate: { icon: "bg-muted text-muted-foreground", title: "text-foreground", Icon: SearchX },
+  amber: { icon: "bg-amber-50 text-amber-700", title: "text-amber-900", Icon: AlertTriangle },
+  rose: { icon: "bg-rose-50 text-rose-700", title: "text-rose-900", Icon: WifiOff },
+} as const;
+
+function Galat({ error, onRetry, onCariLagi }: { error: BPJSError; onRetry?: () => void; onCariLagi: () => void }) {
+  const { title, desc, tone, retryable, kode } = errorLabel(error);
+  const t = TONE_GALAT[tone];
+  return (
+    <Muncul id="error" className={cn(PANEL, "flex flex-col items-start gap-4 p-5 sm:flex-row")}>
+      <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl", t.icon)}>
+        <t.Icon className="size-5" aria-hidden="true" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className={cn("text-sm font-semibold", t.title)}>{title}</p>
+          {kode && (
+            <Badge variant="secondary" className="font-mono text-[11px] text-muted-foreground">
+              Kode {kode}
+            </Badge>
+          )}
+        </div>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{desc}</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {retryable && onRetry && (
+            <Button size="sm" onClick={onRetry}>
+              <RotateCcw aria-hidden="true" />
+              Coba lagi
+            </Button>
+          )}
+          <Button size="sm" variant="secondary" onClick={onCariLagi}>
+            Ubah pencarian
+          </Button>
+        </div>
+      </div>
+    </Muncul>
+  );
+}
+
+// ── Ditemukan ─────────────────────────────────────────────
+
+function IdCell({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[11px] text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 flex items-center gap-1">
+        <span className="truncate font-mono text-sm tabular-nums text-foreground">{value ?? "—"}</span>
+        {value && <CopyButton value={value} label={label} />}
+      </dd>
     </div>
+  );
+}
+
+type Tone = "default" | "primary" | "amber" | "rose";
+
+const TONE_FAKTA: Record<Tone, { box: string; value: string; bar: string }> = {
+  default: { box: "", value: "text-foreground", bar: "bg-emerald-500" },
+  primary: { box: "bg-sky-50", value: "text-sky-900", bar: "bg-sky-500" },
+  amber: { box: "bg-amber-50", value: "text-amber-900", bar: "bg-amber-500" },
+  rose: { box: "bg-rose-50", value: "text-rose-900", bar: "bg-rose-500" },
+};
+
+function Fakta({
+  label,
+  value,
+  sub,
+  tone = "default",
+  besar,
+  porsi,
+}: {
+  label: string;
+  value: string;
+  sub?: ReactNode;
+  tone?: Tone;
+  besar?: boolean;
+  /** 0–1 → bilah tipis di bawah (mis. sisa masa berlaku). */
+  porsi?: number;
+}) {
+  const t = TONE_FAKTA[tone];
+  return (
+    <div className={cn(PANEL, "min-w-0 p-3", t.box)}>
+      <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
+      <p className={cn("mt-1 truncate font-semibold", besar ? "text-lg leading-6" : "text-sm", t.value)} title={value}>
+        {value}
+      </p>
+      {sub && <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{sub}</p>}
+      {porsi !== undefined && (
+        <div aria-hidden="true" className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
+          <motion.div
+            className={cn("h-full origin-left", t.bar)}
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: porsi }}
+            transition={{ duration: 0.6, delay: 0.1, ease: EASE }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function sisaTeks(hari: number): string {
+  if (hari > 365) return `±${Math.floor(hari / 365)} tahun lagi`;
+  if (hari > 60) return `±${Math.round(hari / 30)} bulan lagi`;
+  return `${hari} hari lagi`;
+}
+
+function Rincian({ title, rows, className }: { title: string; rows: [string, ReactNode][]; className?: string }) {
+  return (
+    <section className={cn(PANEL, "p-3", className)}>
+      <h3 className="text-xs font-semibold text-foreground">{title}</h3>
+      <dl className="mt-2 space-y-1">
+        {rows.map(([k, v]) => (
+          <div key={k} className="flex items-baseline justify-between gap-3 py-1 text-xs">
+            <dt className="shrink-0 text-muted-foreground">{k}</dt>
+            <dd className="min-w-0 truncate text-right font-medium text-foreground">{v ?? "—"}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+function Ditemukan({ peserta, onCariLagi }: { peserta: PesertaRecord; onCariLagi: () => void }) {
+  const aktif = peserta.statusPeserta.kode === "0";
+  const cob = peserta.cob.nmAsuransi !== null;
+  const info = peserta.informasi;
+  const masa = masaBerlaku(peserta.tglTMT, peserta.tglTAT);
+
+  const masaTone: Tone =
+    !aktif || (masa.sisaHari !== null && masa.sisaHari < 0) ? "rose" : masa.sisaHari !== null && masa.sisaHari <= 30 ? "amber" : "default";
+  const masaValue =
+    masa.sisaHari === null ? "Tidak tercantum" : masa.sisaHari < 0 ? "Sudah berakhir" : `s.d. ${fmtTgl(peserta.tglTAT)}`;
+  const masaSub =
+    masa.sisaHari === null ? "TAT kosong di V-Claim" : masa.sisaHari < 0 ? `Berakhir ${fmtTgl(peserta.tglTAT)}` : sisaTeks(masa.sisaHari);
+
+  const penanda: { key: string; label: string; cls: string }[] = [
+    info.prolanisPRB && { key: "prb", label: `Prolanis PRB · ${info.prolanisPRB}`, cls: "bg-teal-50 text-teal-800" },
+    cob && { key: "cob", label: `COB · ${peserta.cob.nmAsuransi}`, cls: "bg-sky-50 text-sky-800" },
+    info.noSKTM && { key: "sktm", label: `SKTM · ${info.noSKTM}`, cls: "bg-amber-50 text-amber-800" },
+    info.dinsos && { key: "dinsos", label: `Dinsos · ${info.dinsos}`, cls: "bg-amber-50 text-amber-800" },
+  ].filter(Boolean) as { key: string; label: string; cls: string }[];
+
+  return (
+    <Muncul id="found" className="flex flex-col gap-3">
+      {/* Identitas */}
+      <section aria-labelledby="peserta-nama" className={cn(PANEL, "overflow-hidden")}>
+        <div aria-hidden="true" className={cn("h-1", aktif ? "bg-emerald-500" : "bg-rose-500")} />
+        <div className="flex flex-wrap items-start gap-3 px-4 pt-4 pb-3">
+          <span
+            aria-hidden="true"
+            className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-sm font-semibold text-foreground"
+          >
+            {inisial(peserta.nama)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 id="peserta-nama" className="truncate text-base font-semibold text-foreground">
+              {peserta.nama}
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {sexLabel(peserta.sex)} · lahir {fmtTgl(peserta.tglLahir)} · {peserta.umur.umurSekarang}
+            </p>
+          </div>
+          <Badge
+            className={cn("gap-1.5 px-2.5 py-1", aktif ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800")}
+          >
+            {aktif ? <ShieldCheck aria-hidden="true" /> : <ShieldX aria-hidden="true" />}
+            {aktif ? "Aktif" : "Tidak aktif"}
+            <span className="sr-only">({peserta.statusPeserta.keterangan})</span>
+          </Badge>
+        </div>
+        <div className="space-y-2 px-4 pb-4">
+          <dl className="grid gap-3 rounded-lg bg-slate-50 px-3 py-2.5 sm:grid-cols-3">
+            <IdCell label="No. kartu" value={peserta.noKartu} />
+            <IdCell label="NIK" value={peserta.nik} />
+            <IdCell label="No. RM" value={peserta.mr.noMR} />
+          </dl>
+          {!aktif && (
+            <p className="flex items-start gap-2 rounded-lg bg-rose-50 px-3 py-2.5 text-xs text-rose-800">
+              <AlertTriangle className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+              Kepesertaan tidak aktif. Periksa tunggakan iuran atau masa berlaku sebelum menerbitkan SEP.
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* Fakta penjaminan */}
+      <section aria-label="Ringkasan penjaminan" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <Fakta label="Hak kelas" value={`Kelas ${peserta.hakKelas.kode}`} sub={rapikan(peserta.hakKelas.keterangan)} tone="primary" besar />
+        <Fakta label="Jenis peserta" value={rapikan(peserta.jenisPeserta.keterangan)} sub={`Kode ${peserta.jenisPeserta.kode}`} />
+        <Fakta label="Masa berlaku" value={masaValue} sub={masaSub} tone={masaTone} porsi={aktif ? masa.porsi : 0} />
+        <Fakta
+          label="FKTP terdaftar"
+          value={rapikan(peserta.provUmum.nmProvider)}
+          sub={<span className="font-mono">{peserta.provUmum.kdProvider}</span>}
+        />
+      </section>
+
+      {/* Penanda khusus */}
+      {penanda.length > 0 && (
+        <ul aria-label="Penanda khusus" className="flex flex-wrap gap-1.5">
+          {penanda.map((p) => (
+            <li key={p.key}>
+              <Badge className={cn("px-2 py-0.5", p.cls)}>
+                {p.label}
+              </Badge>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Rincian */}
+      <div className={cn("grid gap-3", cob ? "lg:grid-cols-3" : "lg:grid-cols-2")}>
+        <Rincian
+          title="Data kepesertaan"
+          rows={[
+            ["Mulai tanggungan (TMT)", fmtTgl(peserta.tglTMT)],
+            ["Akhir tanggungan (TAT)", fmtTgl(peserta.tglTAT)],
+            ["Cetak kartu", fmtTgl(peserta.tglCetakKartu)],
+            ["Umur saat pelayanan", peserta.umur.umurSaatPelayanan],
+          ]}
+        />
+        <Rincian
+          title="Kontak & informasi"
+          rows={[
+            ["Telepon", peserta.mr.noTelepon ? <span className="font-mono">{peserta.mr.noTelepon}</span> : "—"],
+            ["Prolanis PRB", info.prolanisPRB ?? "—"],
+            ["No. SKTM", info.noSKTM ?? "—"],
+            ["Dinsos", info.dinsos ?? "—"],
+          ]}
+        />
+        {cob && (
+          <Rincian
+            title="COB · asuransi tambahan"
+            rows={[
+              ["Asuransi", peserta.cob.nmAsuransi],
+              ["No. polis", peserta.cob.noAsuransi ? <span className="font-mono">{peserta.cob.noAsuransi}</span> : "—"],
+              ["TMT", fmtTgl(peserta.cob.tglTMT)],
+              ["TAT", fmtTgl(peserta.cob.tglTAT)],
+            ]}
+          />
+        )}
+      </div>
+
+      {/* Aksi */}
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        {aktif ? (
+          <Button asChild size="sm">
+            <Link href={`/ehis-registration?peserta=${peserta.noKartu}`}>
+              <CreditCard aria-hidden="true" />
+              Buat SEP
+            </Link>
+          </Button>
+        ) : (
+          <Button size="sm" disabled title="Peserta tidak aktif">
+            <CreditCard aria-hidden="true" />
+            Buat SEP
+          </Button>
+        )}
+        <Button asChild size="sm" variant="secondary" className="bg-white shadow-sm hover:bg-slate-50">
+          <Link href={`/ehis-bpjs/vclaim/rujukan?kartu=${peserta.noKartu}`}>
+            <FileSearch aria-hidden="true" />
+            Cari rujukan
+            <ArrowRight className="size-3.5 text-muted-foreground" aria-hidden="true" />
+          </Link>
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCariLagi} className="ml-auto">
+          <RotateCcw aria-hidden="true" />
+          Cari peserta lain
+        </Button>
+      </div>
+    </Muncul>
+  );
+}
+
+// ── Export ────────────────────────────────────────────────
+
+export default function PesertaDetailCard({
+  result,
+  onRetry,
+  onCariLagi,
+}: {
+  result: KepesertaanResult;
+  onRetry?: () => void;
+  onCariLagi: () => void;
+}) {
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      {result.status === "idle" && <Kosong key="idle" />}
+      {result.status === "loading" && <Memuat key="loading" />}
+      {result.status === "found" && <Ditemukan key={`found-${result.peserta.noKartu}`} peserta={result.peserta} onCariLagi={onCariLagi} />}
+      {result.status === "error" && <Galat key="error" error={result.error} onRetry={onRetry} onCariLagi={onCariLagi} />}
+    </AnimatePresence>
   );
 }

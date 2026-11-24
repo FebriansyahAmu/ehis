@@ -1,255 +1,225 @@
 "use client";
 
-import { useState, useId } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { CreditCard, Fingerprint, Search, Loader2, ChevronDown, Info } from "lucide-react";
+// Form cek kepesertaan (state query dipegang halaman). Mode = segmented control radio native.
+// Validasi tampil setelah interaksi (field diisi lalu ditinggal) atau saat submit; submit gagal
+// → fokus ke field pertama yang salah. Pesan galat ditautkan lewat aria-describedby HANYA
+// selama tampil. Data uji (mock) = isi & langsung cek.
 
-import { cn } from "@/lib/utils";
-import type { SearchMode } from "./kepesertaanShared";
-import { SAMPLE_KARTU, SAMPLE_NIK } from "./kepesertaanShared";
+import { useId, useState, type FormEvent, type RefObject } from "react";
+import { AlertCircle, Check, ChevronDown, CreditCard, Fingerprint, FlaskConical, Loader2, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/shared/inputs";
+import { cn } from "@/lib/ui/utils";
+import {
+  PANJANG,
+  RENTANG_TGL,
+  SAMPLE,
+  validasiNomor,
+  validasiTgl,
+  type Query,
+  type SearchMode,
+} from "./kepesertaanShared";
 
-// ── Props ──────────────────────────────────────────────────
+const MODE: { key: SearchMode; label: string; icon: typeof CreditCard }[] = [
+  { key: "kartu", label: "No. kartu", icon: CreditCard },
+  { key: "nik", label: "NIK KTP", icon: Fingerprint },
+];
 
-interface CekPesertaFormProps {
-  onSubmit: (mode: SearchMode, value: string, tgl: string) => void;
+export default function CekPesertaForm({
+  query,
+  onChange,
+  onSubmit,
+  busy,
+  inputRef,
+}: {
+  query: Query;
+  onChange: (q: Query) => void;
+  onSubmit: (q: Query) => void;
   busy: boolean;
-}
+  inputRef: RefObject<HTMLInputElement | null>;
+}) {
+  const id = useId();
+  const [touched, setTouched] = useState({ value: false, tgl: false });
 
-// ── Helpers ────────────────────────────────────────────────
+  const max = PANJANG[query.mode];
+  const lengkap = query.value.length === max;
+  const errValue = touched.value ? validasiNomor(query.mode, query.value) : null;
+  const errTgl = touched.tgl ? validasiTgl(query.tgl) : null;
 
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-function offsetDate(days: number): string {
-  return new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
-}
-function validateInput(mode: SearchMode, value: string): string | null {
-  if (!value) return "Wajib diisi";
-  if (!/^\d+$/.test(value)) return "Hanya angka";
-  const required = mode === "kartu" ? 13 : 16;
-  if (value.length !== required) return `${value.length} dari ${required} digit`;
-  return null;
-}
-
-// ── Component ──────────────────────────────────────────────
-
-export default function CekPesertaForm({ onSubmit, busy }: CekPesertaFormProps) {
-  const [mode, setMode]             = useState<SearchMode>("kartu");
-  const [value, setValue]           = useState("");
-  const [tgl, setTgl]               = useState(todayISO);
-  const [touched, setTouched]       = useState(false);
-  const [showSamples, setShowSamples] = useState(false);
-  const inputId = useId();
-  const dateId  = useId();
-
-  const maxLen = mode === "kartu" ? 13 : 16;
-  const err    = touched ? validateInput(mode, value) : null;
-  const pct    = Math.min(Math.round((value.length / maxLen) * 100), 100);
-
-  function handleModeSwitch(m: SearchMode) {
-    if (m === mode) return;
-    setMode(m);
-    setValue("");
-    setTouched(false);
+  function gantiMode(m: SearchMode) {
+    if (m === query.mode) return;
+    onChange({ ...query, mode: m, value: "" });
+    setTouched((t) => ({ ...t, value: false }));
   }
 
-  function handleSubmit(e: { preventDefault(): void }) {
+  function kirim(q: Query) {
+    if (busy) return;
+    onSubmit(q);
+  }
+
+  function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setTouched(true);
-    if (validateInput(mode, value) || busy) return;
-    onSubmit(mode, value, tgl);
+    setTouched({ value: true, tgl: true });
+    if (validasiNomor(query.mode, query.value)) {
+      inputRef.current?.focus();
+      return;
+    }
+    if (validasiTgl(query.tgl)) {
+      document.getElementById(`${id}-tgl`)?.focus();
+      return;
+    }
+    kirim(query);
   }
 
-  const samples = mode === "kartu" ? SAMPLE_KARTU : SAMPLE_NIK;
+  function pakaiContoh(value: string) {
+    const q = { ...query, value };
+    onChange(q);
+    setTouched((t) => ({ ...t, value: false }));
+    if (!validasiTgl(q.tgl)) kirim(q);
+  }
 
   return (
-    <div className="flex h-full flex-col">
+    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+      {/* Mode */}
+      <fieldset>
+        <legend className="mb-1.5 text-xs font-medium text-muted-foreground">Cari berdasarkan</legend>
+        <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-0.75">
+          {MODE.map(({ key, label, icon: Icon }) => {
+            const on = query.mode === key;
+            return (
+              <label
+                key={key}
+                className={cn(
+                  "relative flex h-7 cursor-pointer items-center justify-center gap-1.5 rounded-md text-xs font-medium transition-[color,background-color,box-shadow] duration-150 has-focus-visible:ring-[3px] has-focus-visible:ring-ring/50",
+                  on ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <input
+                  type="radio"
+                  name={`${id}-mode`}
+                  value={key}
+                  checked={on}
+                  onChange={() => gantiMode(key)}
+                  className="sr-only"
+                />
+                <Icon className="size-3.5" aria-hidden="true" />
+                {label}
+              </label>
+            );
+          })}
+        </div>
+      </fieldset>
 
-      {/* ── Panel header ── */}
-      <div className="shrink-0 border-b border-slate-100 px-5 py-4">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">V-Claim</p>
-        <h2 className="mt-0.5 text-sm font-semibold text-slate-700">Pencarian Peserta</h2>
+      {/* Nomor */}
+      <div>
+        <div className="mb-1.5 flex items-baseline justify-between gap-2">
+          <label htmlFor={`${id}-no`} className="text-xs font-medium text-foreground">
+            {query.mode === "kartu" ? "Nomor kartu BPJS" : "NIK KTP"}
+          </label>
+          <span
+            id={`${id}-hint`}
+            className={cn("text-[11px] tabular-nums transition-colors", lengkap ? "text-emerald-700" : "text-muted-foreground")}
+          >
+            {query.value.length}/{max} digit
+          </span>
+        </div>
+        <div className="relative">
+          <input
+            ref={inputRef}
+            id={`${id}-no`}
+            inputMode="numeric"
+            autoComplete="off"
+            spellCheck={false}
+            maxLength={max}
+            value={query.value}
+            placeholder={query.mode === "kartu" ? "13 digit nomor kartu" : "16 digit NIK"}
+            aria-invalid={Boolean(errValue)}
+            aria-describedby={errValue ? `${id}-hint ${id}-err-no` : `${id}-hint`}
+            onChange={(e) => onChange({ ...query, value: e.target.value.replace(/\D/g, "").slice(0, max) })}
+            onBlur={() => query.value && setTouched((t) => ({ ...t, value: true }))}
+            className={cn(
+              "h-10 w-full rounded-xl pr-9 pl-3 font-mono text-sm tracking-wide text-foreground transition-[background-color,box-shadow] outline-none placeholder:font-sans placeholder:tracking-normal placeholder:text-muted-foreground/70 focus-visible:ring-[3px]",
+              errValue
+                ? "bg-rose-50 focus-visible:ring-rose-200"
+                : "bg-slate-100 hover:bg-slate-200/70 focus-visible:bg-white focus-visible:ring-ring/40",
+            )}
+          />
+          {lengkap && !errValue && (
+            <Check className="absolute top-1/2 right-3 size-4 -translate-y-1/2 text-emerald-600" aria-hidden="true" />
+          )}
+        </div>
+        {errValue && (
+          <p id={`${id}-err-no`} className="mt-1.5 flex items-center gap-1 text-xs text-rose-700">
+            <AlertCircle className="size-3.5 shrink-0" aria-hidden="true" />
+            {errValue}
+          </p>
+        )}
       </div>
 
-      {/* ── Form body ── */}
-      <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 overflow-y-auto p-5">
+      {/* Tanggal SEP */}
+      <div>
+        <label htmlFor={`${id}-tgl`} className="mb-1.5 block text-xs font-medium text-foreground">
+          Tanggal SEP
+        </label>
+        <DatePicker
+          id={`${id}-tgl`}
+          value={query.tgl}
+          clearable={false}
+          variant="filled"
+          onChange={(v) => {
+            onChange({ ...query, tgl: v });
+            setTouched((t) => ({ ...t, tgl: true }));
+          }}
+        />
+        {errTgl ? (
+          <p className="mt-1.5 flex items-center gap-1 text-xs text-rose-700">
+            <AlertCircle className="size-3.5 shrink-0" aria-hidden="true" />
+            {errTgl}
+          </p>
+        ) : (
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            {RENTANG_TGL.mundur} hari lalu sampai {RENTANG_TGL.maju} hari ke depan
+          </p>
+        )}
+      </div>
 
-        {/* Mode toggle */}
-        <div>
-          <p className="mb-2 text-xs font-semibold text-slate-500">Cari berdasarkan</p>
-          <div
-            role="tablist"
-            aria-label="Mode pencarian"
-            className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100/70 p-1"
-          >
-            {(["kartu", "nik"] as const).map((m) => {
-              const active = mode === m;
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => handleModeSwitch(m)}
-                  className={cn(
-                    "relative flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-semibold tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300",
-                    active ? "text-slate-800" : "text-slate-400 hover:text-slate-600",
-                  )}
-                >
-                  {active && (
-                    <motion.span
-                      layoutId="kep-mode-pill"
-                      className="absolute inset-0 rounded-lg bg-white shadow-sm ring-1 ring-slate-200/50"
-                      transition={{ type: "spring", stiffness: 450, damping: 34 }}
-                    />
-                  )}
-                  <span className="relative shrink-0">
-                    {m === "kartu"
-                      ? <CreditCard size={13} strokeWidth={2.2} />
-                      : <Fingerprint size={13} strokeWidth={2.2} />
-                    }
-                  </span>
-                  <span className="relative">{m === "kartu" ? "No. Kartu" : "NIK KTP"}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+      <Button type="submit" disabled={busy} className="h-10 w-full rounded-xl">
+        {busy ? (
+          <>
+            <Loader2 className="animate-spin" aria-hidden="true" />
+            Memeriksa…
+          </>
+        ) : (
+          <>
+            <Search aria-hidden="true" />
+            Cek kepesertaan
+          </>
+        )}
+      </Button>
 
-        {/* Number input */}
-        <div>
-          <div className="mb-1.5 flex items-center justify-between">
-            <label htmlFor={inputId} className="text-xs font-semibold text-slate-600">
-              {mode === "kartu" ? "Nomor Kartu BPJS" : "NIK KTP"}
-            </label>
-            <span className={cn(
-              "text-xs tabular-nums font-medium transition-colors",
-              value.length === maxLen ? "text-emerald-500" : "text-slate-400",
-            )}>
-              {value.length}/{maxLen}
-            </span>
-          </div>
-          <input
-            id={inputId}
-            type="text"
-            inputMode="numeric"
-            pattern="\d*"
-            maxLength={maxLen}
-            placeholder={mode === "kartu" ? "0001234567891" : "3171010103700001"}
-            value={value}
-            autoComplete="off"
-            onChange={(e) => setValue(e.target.value.replace(/\D/g, "").slice(0, maxLen))}
-            onBlur={() => setTouched(true)}
-            className={cn(
-              "w-full rounded-xl border px-3.5 py-2.5 font-mono text-sm text-slate-800 placeholder:font-sans placeholder:text-slate-300 transition-all focus:outline-none focus:ring-2",
-              err
-                ? "border-rose-300 bg-rose-50/30 focus:ring-rose-100"
-                : "border-slate-200 bg-white focus:border-sky-300 focus:ring-sky-100",
-            )}
-          />
-          {/* Digit progress bar */}
-          <div className="mt-1.5 h-0.5 overflow-hidden rounded-full bg-slate-100">
-            <motion.div
-              className={cn("h-full rounded-full", pct >= 100 ? "bg-emerald-400" : "bg-sky-400")}
-              animate={{ width: `${pct}%` }}
-              transition={{ type: "spring", stiffness: 280, damping: 28 }}
-            />
-          </div>
-          <AnimatePresence mode="wait">
-            {err && (
-              <motion.p
-                key="err"
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.14 }}
-                className="mt-1.5 text-xs font-medium text-rose-500"
-              >
-                {err}
-              </motion.p>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Tanggal SEP */}
-        <div>
-          <label htmlFor={dateId} className="mb-1.5 block text-xs font-semibold text-slate-600">
-            Tanggal SEP
-          </label>
-          <input
-            id={dateId}
-            type="date"
-            value={tgl}
-            min={offsetDate(-7)}
-            max={offsetDate(30)}
-            onChange={(e) => setTgl(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-700 transition-all focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-100"
-          />
-          <p className="mt-1 text-xs text-slate-400">Rentang: 7 hari lalu — 30 hari ke depan</p>
-        </div>
-
-        {/* Submit */}
-        <motion.button
-          type="submit"
-          disabled={busy}
-          whileTap={!busy ? { scale: 0.98 } : undefined}
-          className={cn(
-            "flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold tracking-wide transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-2",
-            busy
-              ? "cursor-wait bg-sky-300 text-white"
-              : "bg-sky-500 text-white shadow-md shadow-sky-200/50 hover:bg-sky-600 hover:shadow-lg hover:shadow-sky-300/40",
-          )}
-        >
-          {busy ? (
-            <><Loader2 size={14} strokeWidth={2.3} className="animate-spin" />Memverifikasi…</>
-          ) : (
-            <><Search size={14} strokeWidth={2.3} />Cek Kepesertaan</>
-          )}
-        </motion.button>
-
-        {/* Contoh data — collapsible */}
-        <div className="pt-1">
-          <button
-            type="button"
-            onClick={() => setShowSamples((v) => !v)}
-            className="flex w-full items-center gap-1.5 text-xs text-slate-400 transition-colors hover:text-slate-600"
-          >
-            <Info size={11} />
-            <span className="flex-1 text-left">Contoh data uji</span>
-            <motion.span
-              animate={{ rotate: showSamples ? 180 : 0 }}
-              transition={{ duration: 0.18 }}
+      {/* Data uji (mock) */}
+      <details className="group rounded-xl bg-slate-100/70">
+        <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-xl px-3 py-2 text-xs text-muted-foreground transition-colors select-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+          <FlaskConical className="size-3.5" aria-hidden="true" />
+          <span className="flex-1">Data uji (mock)</span>
+          <ChevronDown className="size-3.5 transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
+        </summary>
+        <div className="flex flex-wrap gap-1.5 px-3 pb-3">
+          {SAMPLE[query.mode].map((s) => (
+            <Button
+              key={s.value}
+              type="button"
+              variant="secondary"
+              size="xs"
+              className="bg-white shadow-xs hover:bg-slate-50"
+              onClick={() => pakaiContoh(s.value)}
+              title={`Isi ${s.value} lalu cek`}
             >
-              <ChevronDown size={11} />
-            </motion.span>
-          </button>
-          <AnimatePresence initial={false}>
-            {showSamples && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-                <div className="mt-2 flex flex-wrap gap-1.5 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-3">
-                  {samples.map((s) => (
-                    <button
-                      key={s.value}
-                      type="button"
-                      onClick={() => { setValue(s.value); setTouched(false); }}
-                      className="rounded-lg bg-white px-2.5 py-1 font-mono text-xs text-slate-600 ring-1 ring-slate-200 transition-colors hover:text-sky-700 hover:ring-sky-300"
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              {s.label}
+            </Button>
+          ))}
         </div>
-
-      </form>
-    </div>
+      </details>
+    </form>
   );
 }
