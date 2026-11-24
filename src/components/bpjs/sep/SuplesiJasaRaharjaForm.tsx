@@ -1,251 +1,211 @@
 "use client";
 
-import { useState, useId } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { ShieldAlert, Loader2, Search, AlertCircle } from "lucide-react";
+// Form cek kecelakaan peserta untuk tab Suplesi Jasa Raharja. SATU pencarian (No. kartu +
+// tanggal pelayanan) menjalankan dua cek V-Claim sekaligus — dulu dua form terpisah yang
+// meminta nomor kartu diketik dua kali. Nilai dipegang halaman (data uji bisa mengisi ulang).
+// Form = landmark pencarian (role="search") bernama dari judul kartu. Galat tampil setelah
+// interaksi; submit gagal → fokus ke kolom pertama yang salah. Tanggal = lokal, bukan UTC.
+// Komponen shadcn: Label · Input · Button · Spinner · Collapsible · Item.
 
-import { cn } from "@/lib/utils";
-import { suplesiCek } from "@/lib/bpjs/vClaimSEP";
-import type { SuplesiJaminanItem, BPJSError } from "@/lib/bpjs/bpjsShared";
+import { useId, useState, type FormEvent, type RefObject } from "react";
+import { Check, ChevronDown, FlaskConical, Info, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
+import { Item } from "@/components/ui/item";
+import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
+import { DatePicker } from "@/components/shared/inputs";
+import { useUmumkanGalat } from "@/components/bpjs/shared/useUmumkanGalat";
+import { cn } from "@/lib/ui/utils";
+import { INPUT_ISI, PesanGalat } from "./tglPulangUi";
+import { PANJANG_KARTU, SAMPLE_KARTU, validasiKartu, validasiTglPelayanan } from "./suplesiShared";
 
-// ── Helpers ────────────────────────────────────────────────
-
-function errMsg(e: BPJSError): string {
-  if ("message" in e && typeof e.message === "string") return e.message;
-  return "Gagal memuat data.";
-}
-
-function fmtDate(s: string) {
-  if (!s) return "—";
-  const [y, m, d] = s.split("-");
-  return `${d}/${m}/${y}`;
-}
-
-// ── Row ────────────────────────────────────────────────────
-
-function Row({ item, index }: { item: SuplesiJaminanItem; index: number }) {
-  return (
-    <motion.tr
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.18, delay: index * 0.04 }}
-      className="border-b border-slate-100 last:border-0"
-    >
-      <td className="py-2.5 pl-3 pr-3">
-        <p className="font-mono text-xs font-medium text-slate-700">{item.noRegister}</p>
-      </td>
-      <td className="py-2.5 pr-3">
-        <p className="font-mono text-[11px] text-slate-700">{item.noSep}</p>
-        <p className="mt-0.5 font-mono text-[10px] text-slate-400">{item.noSepAwal}</p>
-      </td>
-      <td className="py-2.5 pr-3 text-[11px] text-slate-500">{fmtDate(item.tglKejadian)}</td>
-      <td className="py-2.5 pr-3 text-[11px] text-slate-500">{fmtDate(item.tglSep)}</td>
-    </motion.tr>
-  );
-}
-
-// ── Field wrapper ──────────────────────────────────────────
-
-function Field({
-  label, htmlFor, error, children,
+export default function SuplesiJasaRaharjaForm({
+  judulId,
+  kartu,
+  tgl,
+  onKartu,
+  onTgl,
+  onSubmit,
+  busy,
+  inputRef,
 }: {
-  label: string; htmlFor?: string; error?: string | null; children: React.ReactNode;
+  /** id judul kartu pembungkus → nama aksesibel form. */
+  judulId: string;
+  kartu: string;
+  tgl: string;
+  onKartu: (v: string) => void;
+  onTgl: (v: string) => void;
+  onSubmit: (kartu: string, tgl: string) => void;
+  busy: boolean;
+  inputRef: RefObject<HTMLInputElement | null>;
 }) {
-  return (
-    <div>
-      {htmlFor
-        ? <label htmlFor={htmlFor} className="mb-1.5 block text-xs font-semibold text-slate-600">{label}</label>
-        : <p className="mb-1.5 text-xs font-semibold text-slate-600">{label}</p>
-      }
-      {children}
-      <AnimatePresence mode="wait">
-        {error && (
-          <motion.p key="e"
-            initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.14 }}
-            className="mt-1 text-xs font-medium text-rose-500"
-          >{error}</motion.p>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
+  const id = useId();
+  const pengumum = useUmumkanGalat();
+  const [touched, setTouched] = useState<{ kartu?: boolean; tgl?: boolean }>({});
+  const errKartu = touched.kartu ? validasiKartu(kartu) : null;
+  const errTgl = touched.tgl ? validasiTglPelayanan(tgl) : null;
+  const lengkap = kartu.length === PANJANG_KARTU;
 
-// ── Component ──────────────────────────────────────────────
-
-type SuplesiState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "loaded"; list: SuplesiJaminanItem[] }
-  | { status: "error"; msg: string };
-
-const SAMPLES = [
-  { label: "KLL · Concussion", value: "0001234567899" },
-  { label: "KK · Radius #", value: "0001234567812" },
-];
-
-export default function SuplesiJasaRaharjaForm() {
-  const kartuId = useId();
-  const tglId   = useId();
-
-  const [noKartu, setNoKartu]         = useState("");
-  const [tglPelayanan, setTglPelayanan] = useState(new Date().toISOString().slice(0, 10));
-  const [touched, setTouched]         = useState(false);
-  const [state, setState]             = useState<SuplesiState>({ status: "idle" });
-
-  const kartuErr = touched && !/^\d{13}$/.test(noKartu.trim())
-    ? "Nomor kartu harus 13 digit angka" : null;
-  const tglErr   = touched && !tglPelayanan ? "Tanggal wajib diisi" : null;
-
-  async function handleSearch(e: { preventDefault(): void }) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setTouched(true);
-    if (kartuErr || tglErr || state.status === "loading") return;
-    setState({ status: "loading" });
-    try {
-      const res = await suplesiCek(noKartu.trim(), tglPelayanan);
-      if (!res.ok) { setState({ status: "error", msg: errMsg(res.error) }); return; }
-      setState({ status: "loaded", list: res.value.response?.jaminan ?? [] });
-    } catch {
-      setState({ status: "error", msg: "Koneksi ke V-Claim gagal." });
+    setTouched({ kartu: true, tgl: true });
+    if (validasiKartu(kartu)) {
+      pengumum.tandaiDibacakan("kartu");
+      inputRef.current?.focus();
+      return;
     }
+    if (validasiTglPelayanan(tgl)) {
+      pengumum.tandaiDibacakan("tgl");
+      document.getElementById(`${id}-tgl`)?.focus();
+      return;
+    }
+    if (!busy) onSubmit(kartu, tgl);
   }
 
   return (
-    <div className="flex flex-col gap-4 p-5">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <ShieldAlert size={13} className="text-amber-500" strokeWidth={2.3} />
-        <p className="text-xs font-semibold text-slate-700">Potensi Suplesi Jasa Raharja</p>
-      </div>
+    <form onSubmit={handleSubmit} noValidate role="search" aria-labelledby={judulId} className="flex flex-col gap-4">
+      <p className="flex items-start gap-2 rounded-xl bg-amber-50/80 p-3 text-xs/relaxed text-amber-950">
+        <Info className="mt-0.5 size-3.5 shrink-0 text-amber-700" aria-hidden="true" />
+        <span>
+          Jasa Raharja menjamin biaya perawatan kecelakaan lalu lintas sampai <strong className="font-semibold">Rp 20 juta</strong>.
+          Sisanya dijamin BPJS lewat <strong className="font-semibold">SEP suplesi</strong> yang merujuk SEP kecelakaan awal.
+        </span>
+      </p>
 
-      {/* Info banner */}
-      <div className="flex items-start gap-2 rounded-xl bg-amber-50/70 px-3.5 py-3 ring-1 ring-amber-100">
-        <AlertCircle size={13} className="mt-0.5 shrink-0 text-amber-500" strokeWidth={2} />
-        <p className="text-xs leading-relaxed text-amber-700">
-          Cek potensi suplesi untuk peserta yang mengalami kecelakaan lalu lintas (KLL) atau kecelakaan kerja (KK).
-        </p>
-      </div>
-
-      {/* Form */}
-      <form onSubmit={handleSearch} className="flex flex-col gap-3">
-        <Field label="No. Kartu BPJS" htmlFor={kartuId} error={kartuErr}>
-          <input
-            id={kartuId}
-            type="text"
-            inputMode="numeric"
-            value={noKartu}
-            onChange={(e) => setNoKartu(e.target.value.replace(/\D/g, "").slice(0, 13))}
-            onBlur={() => setTouched(true)}
-            placeholder="0001234567891"
-            className={cn(
-              "w-full rounded-xl border px-3.5 py-2.5 font-mono text-sm text-slate-800 placeholder:font-sans placeholder:text-slate-300 transition-all focus:outline-none focus:ring-2",
-              kartuErr
-                ? "border-rose-300 bg-rose-50/30 focus:ring-rose-100"
-                : "border-slate-200 bg-white focus:border-amber-300 focus:ring-amber-100",
-            )}
-          />
-        </Field>
-
-        <Field label="Tanggal Pelayanan" htmlFor={tglId} error={tglErr}>
-          <input
-            id={tglId}
-            type="date"
-            value={tglPelayanan}
-            max={new Date().toISOString().slice(0, 10)}
-            onChange={(e) => setTglPelayanan(e.target.value)}
-            onBlur={() => setTouched(true)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 transition-all focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-100"
-          />
-        </Field>
-
-        {/* Dev samples */}
-        <div className="flex flex-wrap gap-1.5">
-          {SAMPLES.map((s) => (
-            <button key={s.value} type="button"
-              onClick={() => { setNoKartu(s.value); setTouched(false); }}
-              className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600 transition-colors hover:bg-amber-50 hover:text-amber-700"
-            >
-              {s.label}
-            </button>
-          ))}
+      {/* No. kartu */}
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-baseline justify-between gap-2">
+          <Label htmlFor={`${id}-kartu`} className="text-xs">
+            Nomor kartu BPJS
+          </Label>
+          <span
+            id={`${id}-kartu-hint`}
+            className={cn("text-[11px] tabular-nums transition-colors", lengkap ? "text-emerald-700" : "text-muted-foreground")}
+          >
+            {kartu.length}/{PANJANG_KARTU} digit
+          </span>
         </div>
-
-        <button
-          type="submit"
-          disabled={state.status === "loading"}
-          className={cn(
-            "flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold text-white shadow-sm transition-all",
-            state.status === "loading"
-              ? "cursor-wait bg-amber-300"
-              : "bg-amber-500 shadow-amber-200/50 hover:bg-amber-600",
+        <div className="relative">
+          <Input
+            ref={inputRef}
+            id={`${id}-kartu`}
+            name="noKartu"
+            inputMode="numeric"
+            enterKeyHint="search"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            maxLength={PANJANG_KARTU}
+            value={kartu}
+            placeholder="13 digit nomor kartu"
+            aria-invalid={Boolean(errKartu)}
+            aria-describedby={errKartu ? `${id}-kartu-hint ${id}-kartu-err` : `${id}-kartu-hint`}
+            onChange={(e) => {
+              const v = e.target.value.replace(/\D/g, "").slice(0, PANJANG_KARTU);
+              onKartu(v);
+              if (!validasiKartu(v)) pengumum.bersihkan("kartu");
+            }}
+            onBlur={() => {
+              if (!kartu) return;
+              setTouched((t) => ({ ...t, kartu: true }));
+              const g = validasiKartu(kartu);
+              if (g) pengumum.umumkan(g, "kartu");
+            }}
+            className={cn(INPUT_ISI, "pr-9 tracking-wide tabular-nums placeholder:tracking-normal")}
+          />
+          {lengkap && !errKartu && (
+            <Check className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-emerald-600" aria-hidden="true" />
           )}
-        >
-          {state.status === "loading"
-            ? <><Loader2 size={12} className="animate-spin" />Memeriksa…</>
-            : <><Search size={12} strokeWidth={2.5} />Cek Suplesi JR</>
-          }
-        </button>
-      </form>
+        </div>
+        {errKartu && <PesanGalat id={`${id}-kartu-err`}>{errKartu}</PesanGalat>}
+      </div>
 
-      {/* Result */}
-      <AnimatePresence mode="wait">
-        {state.status === "idle" && (
-          <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="flex flex-col items-center gap-2.5 py-8 text-center"
+      {/* Tanggal pelayanan */}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={`${id}-tgl`} className="text-xs">
+          Tanggal pelayanan
+        </Label>
+        <p id={`${id}-tgl-hint`} className="text-[11px] text-muted-foreground">
+          Tanggal SEP yang akan diterbitkan
+        </p>
+        <DatePicker
+          id={`${id}-tgl`}
+          value={tgl}
+          onChange={(v) => {
+            onTgl(v);
+            setTouched((t) => ({ ...t, tgl: true }));
+            const g = validasiTglPelayanan(v);
+            if (g) pengumum.umumkan(g, "tgl");
+            else pengumum.bersihkan("tgl");
+          }}
+          variant="filled"
+          clearable={false}
+          invalid={Boolean(errTgl)}
+          ariaDescribedBy={errTgl ? `${id}-tgl-hint ${id}-tgl-err` : `${id}-tgl-hint`}
+        />
+        {errTgl && <PesanGalat id={`${id}-tgl-err`}>{errTgl}</PesanGalat>}
+      </div>
+
+      <Button type="submit" disabled={busy} className="h-9 w-full rounded-xl text-xs font-semibold">
+        {busy ? (
+          <>
+            <Spinner className="size-3.5" aria-hidden="true" />
+            Memeriksa…
+          </>
+        ) : (
+          <>
+            <Search className="size-3.5" aria-hidden="true" />
+            Periksa kecelakaan
+          </>
+        )}
+      </Button>
+
+      <p aria-live="polite" className="sr-only">
+        {pengumum.teks}
+      </p>
+
+      <Collapsible className="rounded-xl bg-slate-100/70">
+        <CollapsibleTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            className="group h-auto w-full justify-start gap-1.5 rounded-xl px-3 py-2 text-xs font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 ring-1 ring-amber-100">
-              <ShieldAlert size={20} className="text-amber-200" strokeWidth={1.5} />
-            </div>
-            <p className="text-xs text-slate-400">Masukkan No. Kartu dan tanggal untuk cek potensi suplesi</p>
-          </motion.div>
-        )}
-
-        {state.status === "loading" && (
-          <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="flex items-center justify-center gap-2 py-8 text-xs text-slate-400"
-          >
-            <Loader2 size={13} className="animate-spin text-amber-400" />
-            Memeriksa data suplesi…
-          </motion.div>
-        )}
-
-        {state.status === "error" && (
-          <motion.p key="err" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600 ring-1 ring-rose-200"
-          >{state.msg}</motion.p>
-        )}
-
-        {state.status === "loaded" && (
-          <motion.div key="loaded" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            {state.list.length === 0 ? (
-              <div className="rounded-xl bg-slate-50 px-4 py-6 text-center">
-                <p className="text-xs text-slate-400">Tidak ada potensi suplesi JR ditemukan untuk peserta ini.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto rounded-xl border border-slate-200/60">
-                <table className="w-full min-w-[420px] text-left">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/80">
-                      {["No. Register", "No. SEP / Awal", "Tgl Kejadian", "Tgl SEP"].map((h) => (
-                        <th key={h} className="px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white">
-                    {state.list.map((item, i) => (
-                      <Row key={item.noRegister} item={item} index={i} />
-                    ))}
-                  </tbody>
-                </table>
-                <p className="border-t border-slate-100 bg-amber-50/50 px-3 py-2 text-[10px] font-medium text-amber-700">
-                  {state.list.length} potensi suplesi JR ditemukan
-                </p>
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+            <FlaskConical className="size-3.5" aria-hidden="true" />
+            <span className="flex-1 text-left">Data uji (mock)</span>
+            <ChevronDown className="size-3.5 transition-transform duration-200 group-data-[state=open]:rotate-180" aria-hidden="true" />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <ul className="flex flex-col gap-1 px-2 pb-2">
+            {SAMPLE_KARTU.map((s) => (
+              <li key={s.value}>
+                <Item
+                  asChild
+                  size="sm"
+                  className="w-full flex-nowrap justify-between gap-2 rounded-lg bg-white px-2.5 py-1.5 text-left shadow-xs hover:bg-emerald-50"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onKartu(s.value);
+                      setTouched({});
+                      pengumum.bersihkan("kartu");
+                      if (!busy && !validasiTglPelayanan(tgl)) onSubmit(s.value, tgl);
+                    }}
+                  >
+                    <span className="text-xs text-foreground">{s.label}</span>
+                    <span className="truncate text-[11px] text-muted-foreground tabular-nums">{s.value}</span>
+                  </button>
+                </Item>
+              </li>
+            ))}
+          </ul>
+        </CollapsibleContent>
+      </Collapsible>
+    </form>
   );
 }

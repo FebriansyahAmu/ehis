@@ -144,6 +144,20 @@ export function fmtWaktu(iso: string | null | undefined): string {
   return d.toLocaleString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
+/** Hari ini sebagai yyyy-mm-dd LOKAL (bukan toISOString yang UTC → bisa mundur sehari). */
+export function hariIniISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Selisih hari kalender `dari` → `sampai` (yyyy-mm-dd); null bila salah satu tak valid. */
+export function selisihHari(dari: string | null | undefined, sampai: string | null | undefined): number | null {
+  const a = parseTgl(dari);
+  const b = parseTgl(sampai);
+  if (!a || !b) return null;
+  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
+}
+
 /** Selisih hari kalender dari hari ini (lokal) ke tanggal `iso`; null bila tak valid. */
 export function sisaHari(iso: string | null | undefined): number | null {
   const d = parseTgl(iso);

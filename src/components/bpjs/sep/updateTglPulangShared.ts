@@ -2,7 +2,7 @@
 // Tanggal = yyyy-mm-dd LOKAL (bukan toISOString yang UTC → bisa mundur sehari).
 
 import type { SEPRecordExt, StatusPulangKode } from "@/lib/bpjs/bpjsShared";
-import { fmtTglPendek, parseTgl, sepTerbuka, type BadgeTone } from "./sepShared";
+import { fmtTglPendek, hariIniISO, selisihHari, sepTerbuka, type BadgeTone } from "./sepShared";
 
 // ── Status pulang (kode spec V-Claim) ──────────────────────
 
@@ -17,20 +17,9 @@ export function statusPulangMeta(kode: string | null | undefined) {
   return STATUS_PULANG.find((s) => s.value === kode) ?? null;
 }
 
-// ── Tanggal lokal ──────────────────────────────────────────
+// ── Tanggal lokal (dipindah ke sepShared; diekspor ulang agar impor lama tetap jalan) ──
 
-export function hariIniISO(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-/** Selisih hari kalender `dari` → `sampai` (yyyy-mm-dd); null bila salah satu tak valid. */
-export function selisihHari(dari: string | null | undefined, sampai: string | null | undefined): number | null {
-  const a = parseTgl(dari);
-  const b = parseTgl(sampai);
-  if (!a || !b) return null;
-  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
-}
+export { hariIniISO, selisihHari };
 
 export function labelLamaRawat(hari: number | null): string | null {
   if (hari === null || hari < 0) return null;
