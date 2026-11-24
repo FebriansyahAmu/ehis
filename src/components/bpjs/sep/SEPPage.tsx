@@ -3,8 +3,9 @@
 // BPJS V-Claim → SEP. Kerangka 6 sub-tab (Tabs shadcn/Radix) yang tersimpan di URL (`?tab=`,
 // lewat history.replaceState — tanpa round-trip server). Aktivasi tab MANUAL (Enter/klik)
 // karena memilih tab mengubah URL. `?update=<noSEP>` tetap membuka tab Update Tgl Pulang.
-// Tahap 1 redesign: kerangka + tab Cari SEP + modal Hapus SEP. Tab lain masih komponen lama,
-// dibungkus kartu baru (dirombak bertahap).
+// Redesign bertahap: tahap 1 = kerangka + Cari SEP + modal Hapus SEP; tahap 2 = Update tanggal
+// pulang (periksa SEP → isi, riwayat per bulan dengan aksi Lihat/Ubah). Tab lain masih komponen
+// lama yang dibungkus kartu baru.
 // Komponen shadcn: Tabs · Card · Item · Badge · Button · Skeleton · Spinner (kartu tanpa garis).
 
 import { Suspense, useCallback, useRef, useState, type ReactNode } from "react";
@@ -170,6 +171,14 @@ function SEPPageInner() {
   const [riwayat, setRiwayat] = useState<RiwayatItem[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<SEPRecordExt | null>(null);
   const [updateRefresh, setUpdateRefresh] = useState(0);
+  // SEP yang dipilih dari riwayat update ("Ubah") → form dipasang ulang dengan SEP itu.
+  // `?update=` di URL tetap menang: bila berubah, pilihan riwayat dilepas (pola adjust-on-render).
+  const [pilihanUpdate, setPilihanUpdate] = useState<{ no: string; n: number } | null>(null);
+  const [updateUrlSebelum, setUpdateUrlSebelum] = useState(initialUpdateNoSEP);
+  if (updateUrlSebelum !== initialUpdateNoSEP) {
+    setUpdateUrlSebelum(initialUpdateNoSEP);
+    setPilihanUpdate(null);
+  }
   const lastNo = useRef<string | null>(null);
   const reqId = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -221,6 +230,15 @@ function SEPPageInner() {
       void cari(no);
     },
     [cari],
+  );
+
+  /** Buka SEP di tab Cari (dipakai riwayat update, form update, dan daftar SEP internal). */
+  const bukaSEP = useCallback(
+    (no: string) => {
+      gantiTab("cari");
+      cariDari(no);
+    },
+    [gantiTab, cariDari],
   );
 
   const ulang = useCallback(() => {
@@ -324,12 +342,22 @@ function SEPPageInner() {
 
           {/* Update tgl pulang */}
           <TabsContent value="update-tgl" className="min-h-0 overflow-y-auto">
-            <div className="grid content-start gap-4 p-4 sm:p-5 lg:grid-cols-[22rem_minmax(0,1fr)]">
+            <div className="grid content-start gap-4 p-4 sm:p-5 lg:grid-cols-[24rem_minmax(0,1fr)]">
               <Kartu judul="Update tanggal pulang" deskripsi="Untuk SEP rawat inap yang pasiennya sudah pulang">
-                <UpdateTglPulangForm initialNoSEP={initialUpdateNoSEP} onSuccess={() => setUpdateRefresh((n) => n + 1)} />
+                <UpdateTglPulangForm
+                  key={`${pilihanUpdate?.no ?? initialUpdateNoSEP ?? ""}#${pilihanUpdate?.n ?? 0}`}
+                  initialNoSEP={pilihanUpdate?.no ?? initialUpdateNoSEP}
+                  fokusAwal={pilihanUpdate !== null}
+                  onSuccess={() => setUpdateRefresh((n) => n + 1)}
+                  onBukaSEP={bukaSEP}
+                />
               </Kartu>
               <Kartu>
-                <UpdateTglPulangList refreshKey={updateRefresh} />
+                <UpdateTglPulangList
+                  refreshKey={updateRefresh}
+                  onBukaSEP={bukaSEP}
+                  onUbah={(no) => setPilihanUpdate((p) => ({ no, n: (p?.n ?? 0) + 1 }))}
+                />
               </Kartu>
             </div>
           </TabsContent>
@@ -363,12 +391,7 @@ function SEPPageInner() {
               </Kartu>
               <Kartu>
                 {/* Klik baris → buka SEP itu di tab Cari SEP (dulu tidak melakukan apa-apa). */}
-                <SEPInternalList
-                  onSelectSEP={(no) => {
-                    gantiTab("cari");
-                    cariDari(no);
-                  }}
-                />
+                <SEPInternalList onSelectSEP={bukaSEP} />
               </Kartu>
             </div>
           </TabsContent>

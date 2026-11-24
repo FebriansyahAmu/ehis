@@ -13,18 +13,24 @@ export type TriggerVariant = "default" | "filled";
  * `filled` = field abu-abu h-10 rounded-xl (selaras form SEP `sInp`/`sSel`).
  * Dipisah per-state agar tidak ada utility yang bentrok (cn proyek = join saja).
  */
-export function triggerClasses(variant: TriggerVariant, open: boolean): string {
+export function triggerClasses(variant: TriggerVariant, open: boolean, invalid = false): string {
   if (variant === "filled") {
     return cn(
       "flex h-10 w-full items-center gap-2 rounded-xl px-3 text-[13px] outline-none transition",
       open
         ? "border border-sky-400 bg-white ring-2 ring-sky-100"
-        : "border border-transparent bg-slate-100 hover:bg-slate-200/70",
+        : invalid
+          ? "border border-transparent bg-rose-50 hover:bg-rose-100"
+          : "border border-transparent bg-slate-100 hover:bg-slate-200/70",
     );
   }
   return cn(
     "flex w-full items-center gap-2 rounded-lg border bg-white px-3 py-2 text-xs outline-none transition",
-    open ? "border-sky-400 ring-2 ring-sky-100" : "border-slate-200 hover:border-slate-300",
+    open
+      ? "border-sky-400 ring-2 ring-sky-100"
+      : invalid
+        ? "border-rose-300 hover:border-rose-400"
+        : "border-slate-200 hover:border-slate-300",
   );
 }
 

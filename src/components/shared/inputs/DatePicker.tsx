@@ -59,10 +59,15 @@ export interface DatePickerProps {
   /** Tampilkan tombol "Hapus" di footer (default true). */
   clearable?: boolean;
   id?: string;
+  /** Tampilan galat (latar/tepi rose). Pesan galat tetap ditulis pemakai di luar komponen. */
+  invalid?: boolean;
+  /** id petunjuk/pesan galat yang dibacakan bersama tombol (isi hanya saat galat tampil). */
+  ariaDescribedBy?: string;
 }
 
 export function DatePicker({
   value, onChange, className, placeholder = "Pilih tanggal", variant = "default", clearable = true, id,
+  invalid = false, ariaDescribedBy,
 }: DatePickerProps) {
   const reduce = useReducedMotion();
   const today = useMemo(() => new Date(), []);
@@ -171,7 +176,8 @@ export function DatePicker({
         onClick={toggleOpen}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className={cn(triggerClasses(variant, open), className)}
+        aria-describedby={ariaDescribedBy}
+        className={cn(triggerClasses(variant, open, invalid), className)}
       >
         <CalendarDays size={14} className="shrink-0 text-slate-400" />
         <span className={cn("flex-1 text-left", selected ? "text-slate-700" : "text-slate-400")}>
