@@ -714,7 +714,7 @@ function ComparatorPrintView({
           {mdcRows.map((r, i) => (
             <tr key={r.mdcLabel} style={{ backgroundColor: i % 2 ? "#f8fafc" : "white" }}>
               <td style={{ padding: "5px 8px", borderBottom: "1px solid #f1f5f9" }}>{r.mdcLabel}</td>
-              <td style={{ padding: "5px 8px", borderBottom: "1px solid #f1f5f9", fontFamily: "monospace", fontSize: 9, color: "#94a3b8" }}>{r.mdcCode}</td>
+              <td style={{ padding: "5px 8px", borderBottom: "1px solid #f1f5f9", fontFamily: "var(--font-geist-mono, ui-monospace), ui-monospace, monospace", fontSize: 9, color: "#94a3b8" }}>{r.mdcCode}</td>
               <td style={{ padding: "5px 8px", borderBottom: "1px solid #f1f5f9" }}>{r.count}</td>
               <td style={{ padding: "5px 8px", borderBottom: "1px solid #f1f5f9", color: r.idrgAvgPct > 0 ? "#059669" : "#e11d48", fontWeight: 600 }}>{r.idrgAvgPct > 0 ? "+" : ""}{r.idrgAvgPct.toFixed(1)}%</td>
               <td style={{ padding: "5px 8px", borderBottom: "1px solid #f1f5f9", color: "#475569" }}>{r.inaCbgAvgPct > 0 ? "+" : ""}{r.inaCbgAvgPct.toFixed(1)}%</td>

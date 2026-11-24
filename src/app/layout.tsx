@@ -1,18 +1,20 @@
 import type { Metadata } from "next";
-import { Inter, Poppins } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ToastViewport from "@/components/ui/ToastViewport";
 
-const inter = Inter({
-  variable: "--font-inter",
+// Font global = Geist Sans + Geist Mono (keluarga yang dipakai situs shadcn/ui), satu keluarga
+// untuk teks DAN judul. Font variabel → satu berkas untuk semua ketebalan. next/font meng-host
+// sendiri dan membuat font cadangan bermetrik (size-adjust/ascent-override) agar teks tidak
+// melompat saat font selesai dimuat. Token Tailwind font-sans/font-mono ada di globals.css.
+const geistSans = Geist({
+  variable: "--font-geist-sans",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800", "900"],
 });
 
-const poppins = Poppins({
-  variable: "--font-poppins",
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
   subsets: ["latin"],
-  weight: ["500", "600", "700", "800", "900"],
 });
 
 export const metadata: Metadata = {
@@ -27,7 +29,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="id" className={`${inter.variable} ${poppins.variable} h-full antialiased`}>
+    <html lang="id" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="h-full bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
         {children}
         <ToastViewport />

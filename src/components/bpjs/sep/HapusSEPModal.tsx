@@ -3,9 +3,13 @@
 // Konfirmasi Hapus SEP (Dialog shadcn/Radix: fokus terkunci, Esc menutup, fokus kembali ke
 // pemicu). Konfirmasi destruktif → fokus awal di tombol AMAN (Batal/Tutup). Selama proses
 // hapus, dialog tidak bisa ditutup. Alasan wajib ≥20 karakter; galat tampil setelah interaksi.
+// Komponen shadcn: Dialog · Alert · Item · Label · Textarea · Empty · Badge · Button · Spinner.
+// Peringatan statis memakai role="note" (bukan role="alert" bawaan Alert) agar tidak
+// dibacakan mendadak saat dialog dibuka; hanya galat dari server yang role="alert".
 
 import { useId, useRef, useState } from "react";
-import { AlertCircle, AlertTriangle, CheckCircle2, Loader2, Trash2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, Trash2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,11 +20,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
+import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
+import { useUmumkanGalat } from "@/components/bpjs/shared/useUmumkanGalat";
 import { cn } from "@/lib/ui/utils";
 import type { SEPRecordExt } from "@/lib/bpjs/bpjsShared";
 import { BADGE, STATUS_META, sepTerbuka } from "./sepShared";
 
 const MIN_ALASAN = 20;
+const CATATAN = "rounded-xl border-0 p-3 has-[>svg]:gap-x-2 [&>svg]:size-3.5";
 
 export default function HapusSEPModal({
   sep,
@@ -41,16 +52,19 @@ export default function HapusSEPModal({
   const [modalError, setModalError] = useState<string | null>(null);
   const amanRef = useRef<HTMLButtonElement>(null);
   const alasanRef = useRef<HTMLTextAreaElement>(null);
+  const pengumum = useUmumkanGalat();
 
   const blocked = sep ? !sepTerbuka(sep.statusInternal) : false;
   const panjang = alasan.trim().length;
-  const err = touched && panjang < MIN_ALASAN ? `Alasan minimal ${MIN_ALASAN} karakter, baru ${panjang}` : null;
+  const pesanGalat = (n: number) => `Alasan minimal ${MIN_ALASAN} karakter, baru ${n}`;
+  const err = touched && panjang < MIN_ALASAN ? pesanGalat(panjang) : null;
 
   function reset() {
     setAlasan("");
     setTouched(false);
     setDone(false);
     setModalError(null);
+    pengumum.bersihkan();
   }
 
   function handleOpenChange(open: boolean) {
@@ -59,10 +73,22 @@ export default function HapusSEPModal({
     onClose();
   }
 
+  function ubah(v: string) {
+    setAlasan(v);
+    if (v.trim().length >= MIN_ALASAN) pengumum.bersihkan();
+  }
+
+  function handleBlur() {
+    if (!alasan) return;
+    setTouched(true);
+    if (panjang < MIN_ALASAN) pengumum.umumkan(pesanGalat(panjang));
+  }
+
   async function hapus() {
     setTouched(true);
     if (!sep || blocked) return;
     if (panjang < MIN_ALASAN) {
+      pengumum.tandaiDibacakan();
       alasanRef.current?.focus();
       return;
     }
@@ -100,53 +126,66 @@ export default function HapusSEPModal({
               </span>
               <div className="min-w-0">
                 <DialogTitle className="text-sm font-semibold">Hapus SEP</DialogTitle>
-                <DialogDescription className="truncate font-mono text-xs">{sep.noSEP}</DialogDescription>
+                <DialogDescription className="truncate text-xs tabular-nums">{sep.noSEP}</DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
+          {/* Live region tetap ada sejak dialog terbuka → perubahan isinya dibacakan andal. */}
+          <p role="status" className="sr-only">
+            {done ? "SEP berhasil dihapus" : ""}
+          </p>
+
           <div className="px-5 py-4">
             {done ? (
-              <div className="flex flex-col items-center gap-3 py-3 text-center" role="status">
-                <span className="flex size-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-                  <CheckCircle2 className="size-5" aria-hidden="true" />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold">SEP berhasil dihapus</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Penghapusan tercatat di audit trail V-Claim BPJS</p>
-                </div>
-              </div>
+              <Empty className="gap-3 p-0 py-3 md:p-0 md:py-3">
+                <EmptyHeader className="gap-1">
+                  <EmptyMedia variant="icon" className="mb-2 size-11 rounded-xl bg-emerald-50 text-emerald-700">
+                    <CheckCircle2 className="size-5" aria-hidden="true" />
+                  </EmptyMedia>
+                  <EmptyTitle className="text-sm font-semibold tracking-normal">SEP berhasil dihapus</EmptyTitle>
+                  <EmptyDescription className="text-xs">Penghapusan tercatat di audit trail V-Claim BPJS</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             ) : blocked ? (
-              <div className="flex items-start gap-2.5 rounded-xl bg-amber-50 p-3.5 text-amber-900">
-                <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                <p className="text-xs leading-relaxed">
-                  SEP berstatus <strong className="font-semibold">{meta.label.toLowerCase()}</strong> tidak dapat dihapus.
-                  SEP yang ditutup sudah punya tanggal pulang atau data klaim.
-                </p>
-              </div>
+              <Alert role="note" className={cn(CATATAN, "bg-amber-50 text-amber-900")}>
+                <AlertTriangle aria-hidden="true" />
+                <AlertDescription className="text-xs/relaxed text-amber-900">
+                  <p>
+                    SEP berstatus <strong className="font-semibold">{meta.label.toLowerCase()}</strong> tidak dapat
+                    dihapus. SEP yang ditutup sudah punya tanggal pulang atau data klaim.
+                  </p>
+                </AlertDescription>
+              </Alert>
             ) : (
               <div className="flex flex-col gap-3">
-                <p className="flex items-start gap-2 rounded-xl bg-rose-50 p-3 text-xs leading-relaxed text-rose-900">
-                  <AlertTriangle className="mt-px size-3.5 shrink-0" aria-hidden="true" />
-                  Penghapusan tidak dapat dibatalkan dan tercatat di audit trail V-Claim. Pastikan tidak ada klaim aktif
-                  yang terhubung ke SEP ini.
-                </p>
-
-                <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5">
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-medium">
-                      <span className="font-mono">{sep.diagAwal}</span> · {sep.diagAwalNama ?? "—"}
+                <Alert role="note" className={cn(CATATAN, "bg-rose-50 text-rose-900")}>
+                  <AlertTriangle aria-hidden="true" />
+                  <AlertDescription className="text-xs/relaxed text-rose-900">
+                    <p>
+                      Penghapusan tidak dapat dibatalkan dan tercatat di audit trail V-Claim. Pastikan tidak ada klaim
+                      aktif yang terhubung ke SEP ini.
                     </p>
-                    <p className="font-mono text-[11px] text-muted-foreground">{sep.noKartu}</p>
-                  </div>
-                  <Badge className={cn("shrink-0", BADGE[meta.tone])}>{meta.label}</Badge>
-                </div>
+                  </AlertDescription>
+                </Alert>
 
-                <div>
-                  <div className="mb-1.5 flex items-baseline justify-between gap-2">
-                    <label htmlFor={`${id}-alasan`} className="text-xs font-medium">
+                <Item variant="muted" size="sm" className="flex-nowrap gap-3 rounded-xl bg-slate-50 px-3 py-2.5">
+                  <ItemContent className="min-w-0 gap-0">
+                    <ItemTitle className="block w-full truncate text-xs">
+                      <span className="tabular-nums">{sep.diagAwal}</span> · {sep.diagAwalNama ?? "—"}
+                    </ItemTitle>
+                    <ItemDescription className="text-[11px] tabular-nums">{sep.noKartu}</ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    <Badge className={cn("shrink-0", BADGE[meta.tone])}>{meta.label}</Badge>
+                  </ItemActions>
+                </Item>
+
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <Label htmlFor={`${id}-alasan`} className="text-xs">
                       Alasan penghapusan
-                    </label>
+                    </Label>
                     <span
                       id={`${id}-hitung`}
                       className={cn("text-[11px] tabular-nums", panjang >= MIN_ALASAN ? "text-emerald-700" : "text-muted-foreground")}
@@ -154,33 +193,33 @@ export default function HapusSEPModal({
                       {panjang}/{MIN_ALASAN}+ karakter
                     </span>
                   </div>
-                  <textarea
+                  <Textarea
                     ref={alasanRef}
                     id={`${id}-alasan`}
-                    rows={3}
                     value={alasan}
                     placeholder="Mis. SEP terbit ganda untuk kunjungan yang sama"
                     aria-invalid={Boolean(err)}
                     aria-describedby={err ? `${id}-hitung ${id}-err` : `${id}-hitung`}
-                    onChange={(e) => setAlasan(e.target.value)}
-                    onBlur={() => alasan && setTouched(true)}
-                    className={cn(
-                      "w-full resize-none rounded-xl px-3 py-2.5 text-sm transition-[background-color,box-shadow] outline-none placeholder:text-muted-foreground/70 focus-visible:ring-[3px]",
-                      err ? "bg-rose-50 focus-visible:ring-rose-200" : "bg-slate-100 focus-visible:bg-white focus-visible:ring-ring/40",
-                    )}
+                    onChange={(e) => ubah(e.target.value)}
+                    onBlur={handleBlur}
+                    className="min-h-20 resize-none rounded-xl border-0 bg-slate-100 px-3 py-2.5 shadow-none placeholder:text-muted-foreground/70 focus-visible:bg-white focus-visible:ring-ring/40 aria-invalid:bg-rose-50"
                   />
                   {err && (
-                    <p id={`${id}-err`} className="mt-1.5 flex items-center gap-1 text-xs text-rose-700">
+                    <p id={`${id}-err`} className="flex items-center gap-1 text-xs text-rose-700">
                       <AlertCircle className="size-3.5 shrink-0" aria-hidden="true" />
                       {err}
                     </p>
                   )}
+                  <p aria-live="polite" className="sr-only">
+                    {pengumum.teks}
+                  </p>
                 </div>
 
                 {modalError && (
-                  <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-800">
-                    {modalError}
-                  </p>
+                  <Alert className={cn(CATATAN, "bg-rose-50 py-2 text-rose-800")}>
+                    <AlertCircle aria-hidden="true" />
+                    <AlertDescription className="text-xs text-rose-800">{modalError}</AlertDescription>
+                  </Alert>
                 )}
               </div>
             )}
@@ -188,7 +227,14 @@ export default function HapusSEPModal({
 
           <DialogFooter className="px-5 pb-5">
             {done || blocked ? (
-              <Button ref={amanRef} size="sm" variant="secondary" className="h-8 text-xs" autoFocus={done} onClick={() => handleOpenChange(false)}>
+              <Button
+                ref={amanRef}
+                size="sm"
+                variant="secondary"
+                className="h-8 text-xs"
+                autoFocus={done}
+                onClick={() => handleOpenChange(false)}
+              >
                 Tutup
               </Button>
             ) : (
@@ -211,7 +257,7 @@ export default function HapusSEPModal({
                 >
                   {loading ? (
                     <>
-                      <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                      <Spinner className="size-3.5" aria-hidden="true" />
                       Menghapus…
                     </>
                   ) : (

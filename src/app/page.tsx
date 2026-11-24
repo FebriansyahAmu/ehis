@@ -77,7 +77,7 @@ export default function LoginPage() {
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 shadow-lg shadow-teal-900/10">
               <Activity size={26} className="text-teal-300" />
             </div>
-            <h1 className="font-(family-name:--font-poppins) mt-5 text-2xl font-semibold tracking-tight text-slate-900">
+            <h1 className="mt-5 text-2xl font-semibold tracking-tight text-slate-900">
               Masuk ke EHIS
             </h1>
             <p className="mt-1.5 text-sm text-slate-500">

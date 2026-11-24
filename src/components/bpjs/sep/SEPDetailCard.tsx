@@ -1,9 +1,11 @@
 "use client";
 
 // Panel hasil Cari SEP — 4 keadaan (kosong · memuat · ditemukan · galat).
-// Ditemukan = "lembar SEP": nomor SEP mono + salin, stempel status, diagnosa awal, deret badge
+// Ditemukan = "lembar SEP": nomor SEP (angka tabular) + salin, stempel status, diagnosa awal, deret badge
 // berwarna (arti tetap, lihat sepShared) → 4 tanggal penting (masa berlaku memberi peringatan)
 // → rincian (peserta, kelas, rujukan, kecelakaan, catatan) + linimasa dari data nyata → aksi.
+// Komponen shadcn: Card · Empty · Skeleton · Badge · Button. Kartu tanpa garis (border-0,
+// bayangan lembut) — selera visual modul BPJS.
 
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -25,6 +27,9 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CopyButton } from "@/components/bpjs/shared/CopyButton";
 import { cn } from "@/lib/ui/utils";
 import type { BPJSError, SEPRecordExt, SEPStatusInternal } from "@/lib/bpjs/bpjsShared";
@@ -47,7 +52,8 @@ import {
 } from "./sepShared";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
-const PANEL = "rounded-xl bg-card shadow-sm";
+// Card shadcn tanpa garis & tanpa jarak bawaan (padding diatur per kartu).
+const KARTU = "gap-0 border-0 py-0";
 
 function Muncul({ id, children, className }: { id: string; children: ReactNode; className?: string }) {
   return (
@@ -68,48 +74,46 @@ function Muncul({ id, children, className }: { id: string; children: ReactNode; 
 
 function Kosong() {
   return (
-    <Muncul id="idle" className={cn(PANEL, "flex h-full min-h-72 flex-col items-center justify-center gap-3 p-8 text-center")}>
-      <span className="flex size-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-        <FileSearch className="size-5" aria-hidden="true" />
-      </span>
-      <div>
-        <p className="text-sm font-semibold text-foreground">Belum ada SEP dibuka</p>
-        <p className="mt-1 max-w-xs text-xs leading-relaxed text-muted-foreground">
-          Masukkan nomor SEP lalu tekan Enter untuk melihat status, tanggal penting, dan rinciannya
-        </p>
-      </div>
+    <Muncul id="idle" className="h-full">
+      <Empty className="h-full min-h-72 gap-3 rounded-xl bg-card p-8 text-card-foreground shadow-sm md:p-8">
+        <EmptyHeader className="gap-1">
+          <EmptyMedia variant="icon" className="mb-2 size-11 rounded-xl bg-emerald-50 text-emerald-700">
+            <FileSearch className="size-5" aria-hidden="true" />
+          </EmptyMedia>
+          <EmptyTitle className="text-sm font-semibold tracking-normal">Belum ada SEP dibuka</EmptyTitle>
+          <EmptyDescription className="max-w-xs text-xs/relaxed">
+            Masukkan nomor SEP lalu tekan Enter untuk melihat status, tanggal penting, dan rinciannya
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     </Muncul>
   );
-}
-
-function Tulang({ className }: { className?: string }) {
-  return <div className={cn("rounded-lg bg-muted motion-safe:animate-pulse", className)} />;
 }
 
 function Memuat() {
   return (
     <Muncul id="loading" className="flex flex-col gap-3">
       <span className="sr-only">Memuat data SEP</span>
-      <div className={cn(PANEL, "space-y-3 p-4")}>
+      <Card className={cn(KARTU, "gap-3 p-4")} aria-hidden="true">
         <div className="flex justify-between gap-3">
-          <Tulang className="h-6 w-56" />
-          <Tulang className="h-6 w-20 rounded-full" />
+          <Skeleton className="h-6 w-56 rounded-lg" />
+          <Skeleton className="h-6 w-20 rounded-full" />
         </div>
-        <Tulang className="h-5 w-2/3" />
+        <Skeleton className="h-5 w-2/3 rounded-lg" />
         <div className="flex gap-1.5">
-          <Tulang className="h-5 w-20 rounded-full" />
-          <Tulang className="h-5 w-24 rounded-full" />
-          <Tulang className="h-5 w-16 rounded-full" />
+          <Skeleton className="h-5 w-20 rounded-full" />
+          <Skeleton className="h-5 w-24 rounded-full" />
+          <Skeleton className="h-5 w-16 rounded-full" />
         </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      </Card>
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-hidden="true">
         {[0, 1, 2, 3].map((i) => (
-          <Tulang key={i} className="h-18 rounded-xl" />
+          <Skeleton key={i} className="h-18 rounded-xl" />
         ))}
       </div>
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_16rem]">
-        <Tulang className="h-40 rounded-xl" />
-        <Tulang className="h-40 rounded-xl" />
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_16rem]" aria-hidden="true">
+        <Skeleton className="h-40 rounded-xl" />
+        <Skeleton className="h-40 rounded-xl" />
       </div>
     </Muncul>
   );
@@ -125,32 +129,36 @@ function Galat({ error, onRetry, onCariLagi }: { error: BPJSError; onRetry?: () 
   const { title, desc, color, retryable, kode } = errorLabel(error);
   const t = GALAT[color];
   return (
-    <Muncul id="error" className={cn(PANEL, "flex flex-col items-start gap-4 p-5 sm:flex-row")}>
-      <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl", t.icon)}>
-        <t.Icon className="size-5" aria-hidden="true" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className={cn("text-sm font-semibold", t.title)}>{title}</p>
-          {kode && (
-            <Badge variant="secondary" className="font-mono text-[11px] text-muted-foreground">
-              Kode {kode}
-            </Badge>
-          )}
-        </div>
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{desc}</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {retryable && onRetry && (
-            <Button size="sm" className="h-8 text-xs" onClick={onRetry}>
-              <RotateCcw className="size-3.5" aria-hidden="true" />
-              Coba lagi
+    <Muncul id="error">
+      <Card className={cn(KARTU, "items-start gap-4 p-5 sm:flex-row")}>
+        <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl", t.icon)}>
+          <t.Icon className="size-5" aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle role="heading" aria-level={2} className={cn("text-sm", t.title)}>
+              {title}
+            </CardTitle>
+            {kode && (
+              <Badge variant="secondary" className="text-[11px] text-muted-foreground tabular-nums">
+                Kode {kode}
+              </Badge>
+            )}
+          </div>
+          <CardDescription className="mt-1 text-xs/relaxed">{desc}</CardDescription>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {retryable && onRetry && (
+              <Button size="sm" className="h-8 text-xs" onClick={onRetry}>
+                <RotateCcw className="size-3.5" aria-hidden="true" />
+                Coba lagi
+              </Button>
+            )}
+            <Button size="sm" variant="secondary" className="h-8 text-xs" onClick={onCariLagi}>
+              Ubah pencarian
             </Button>
-          )}
-          <Button size="sm" variant="secondary" className="h-8 text-xs" onClick={onCariLagi}>
-            Ubah pencarian
-          </Button>
+          </div>
         </div>
-      </div>
+      </Card>
     </Muncul>
   );
 }
@@ -185,32 +193,45 @@ const FAKTA_TONE: Record<FaktaTone, { box: string; value: string }> = {
 function Fakta({ label, value, sub, tone = "default" }: { label: string; value: ReactNode; sub?: ReactNode; tone?: FaktaTone }) {
   const t = FAKTA_TONE[tone];
   return (
-    <div className={cn(PANEL, "min-w-0 p-3", t.box)}>
-      <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
-      <p className={cn("mt-1 truncate text-sm font-semibold", t.value)}>{value}</p>
+    <Card className={cn(KARTU, "min-w-0 p-3", t.box)}>
+      <CardDescription className="text-[11px] font-medium">{label}</CardDescription>
+      <CardTitle className={cn("mt-1 truncate text-sm leading-normal", t.value)}>{value}</CardTitle>
       {sub && <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{sub}</p>}
-    </div>
+    </Card>
+  );
+}
+
+function Bagian({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
+  return (
+    <Card className={cn(KARTU, "p-3", className)}>
+      <CardHeader className="p-0">
+        <CardTitle role="heading" aria-level={3} className="text-xs">
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">{children}</CardContent>
+    </Card>
   );
 }
 
 function Rincian({ title, rows }: { title: string; rows: [string, ReactNode][] }) {
   return (
-    <section className={cn(PANEL, "p-3")}>
-      <h3 className="text-xs font-semibold text-foreground">{title}</h3>
+    <Bagian title={title}>
       <dl className="mt-2 space-y-1">
         {rows.map(([k, v]) => (
           <div key={k} className="flex items-baseline justify-between gap-3 py-1 text-xs">
             <dt className="shrink-0 text-muted-foreground">{k}</dt>
-            <dd className="min-w-0 truncate text-right font-medium text-foreground">{v ?? "—"}</dd>
+            <dd className="min-w-0 truncate text-right font-medium">{v ?? "—"}</dd>
           </div>
         ))}
       </dl>
-    </section>
+    </Bagian>
   );
 }
 
-function Mono({ children }: { children: ReactNode }) {
-  return <span className="font-mono">{children}</span>;
+// Nomor/kode memakai Geist Sans (pilihan user) dengan angka tabular agar lebar digit seragam.
+function Nomor({ children }: { children: ReactNode }) {
+  return <span className="tabular-nums">{children}</span>;
 }
 
 interface Langkah {
@@ -243,10 +264,7 @@ function Linimasa({ sep }: { sep: SEPRecordExt }) {
   }
 
   return (
-    <section aria-labelledby="linimasa-judul" className={cn(PANEL, "p-3")}>
-      <h3 id="linimasa-judul" className="text-xs font-semibold text-foreground">
-        Linimasa
-      </h3>
+    <Bagian title="Linimasa">
       <ol className="mt-2.5 space-y-3">
         {langkah.map((l) => (
           <li key={l.key} className="flex gap-2.5">
@@ -262,7 +280,7 @@ function Linimasa({ sep }: { sep: SEPRecordExt }) {
           </li>
         ))}
       </ol>
-    </section>
+    </Bagian>
   );
 }
 
@@ -301,14 +319,14 @@ function Ditemukan({
   return (
     <Muncul id={`found-${sep.noSEP}`} className="flex flex-col gap-3">
       {/* Lembar SEP */}
-      <section aria-labelledby="sep-nomor" className={cn(PANEL, "p-4")}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
+      <Card className={cn(KARTU, "p-4")}>
+        <CardHeader className="flex flex-wrap items-start justify-between gap-3 p-0">
           <div className="min-w-0">
-            <p className="text-[11px] text-muted-foreground">No. SEP</p>
+            <CardDescription className="text-[11px]">No. SEP</CardDescription>
             <div className="mt-0.5 flex items-center gap-1">
-              <h2 id="sep-nomor" className="font-mono text-lg font-semibold tracking-wide break-all text-foreground">
+              <CardTitle role="heading" aria-level={2} className="text-lg leading-snug tracking-wide tabular-nums break-all">
                 {sep.noSEP}
-              </h2>
+              </CardTitle>
               <CopyButton value={sep.noSEP} label="nomor SEP" />
             </div>
           </div>
@@ -316,23 +334,25 @@ function Ditemukan({
             <StatusIcon aria-hidden="true" />
             {meta.label}
           </Badge>
-        </div>
+        </CardHeader>
 
-        <div className="mt-3 flex items-start gap-2.5">
-          <span className="shrink-0 rounded-lg bg-emerald-50 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-800">
-            {sep.diagAwal}
-          </span>
-          <p className="text-sm text-foreground">{sep.diagAwalNama ?? "Nama diagnosa belum tersedia"}</p>
-        </div>
+        <CardContent className="p-0">
+          <div className="mt-3 flex items-start gap-2.5">
+            <Badge className="shrink-0 rounded-lg bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-800 tabular-nums">
+              {sep.diagAwal}
+            </Badge>
+            <p className="text-sm">{sep.diagAwalNama ?? "Nama diagnosa belum tersedia"}</p>
+          </div>
 
-        <ul aria-label="Penanda SEP" className="mt-3 flex flex-wrap gap-1.5">
-          {penanda.map((p) => (
-            <li key={p.key}>
-              <Penanda tone={p.tone}>{p.label}</Penanda>
-            </li>
-          ))}
-        </ul>
-      </section>
+          <ul aria-label="Penanda SEP" className="mt-3 flex flex-wrap gap-1.5">
+            {penanda.map((p) => (
+              <li key={p.key}>
+                <Penanda tone={p.tone}>{p.label}</Penanda>
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
 
       {/* Tanggal penting */}
       <section aria-label="Tanggal penting" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
@@ -346,8 +366,8 @@ function Ditemukan({
         />
         <Fakta
           label="Poli tujuan"
-          value={<Mono>{sep.poli.tujuan}</Mono>}
-          sub={sep.dpjpLayan ? <>DPJP <Mono>{sep.dpjpLayan}</Mono></> : ri ? "Rawat inap, tanpa DPJP layan" : undefined}
+          value={<Nomor>{sep.poli.tujuan}</Nomor>}
+          sub={sep.dpjpLayan ? <>DPJP <Nomor>{sep.dpjpLayan}</Nomor></> : ri ? "Rawat inap, tanpa DPJP layan" : undefined}
         />
       </section>
 
@@ -360,12 +380,12 @@ function Ditemukan({
               [
                 "No. kartu",
                 <span key="k" className="inline-flex items-center gap-1">
-                  <Mono>{sep.noKartu}</Mono>
+                  <Nomor>{sep.noKartu}</Nomor>
                   <CopyButton value={sep.noKartu} label="nomor kartu" />
                 </span>,
               ],
-              ["No. RM", sep.noMR ? <Mono>{sep.noMR}</Mono> : "—"],
-              ["Telepon", sep.noTelp ? <Mono>{sep.noTelp}</Mono> : "—"],
+              ["No. RM", sep.noMR ? <Nomor>{sep.noMR}</Nomor> : "—"],
+              ["Telepon", sep.noTelp ? <Nomor>{sep.noTelp}</Nomor> : "—"],
             ]}
           />
           <Rincian
@@ -386,9 +406,9 @@ function Ditemukan({
               title="Rujukan"
               rows={[
                 ["Asal", asalLabel(sep.rujukan.asalRujukan)],
-                ["No. rujukan", <Mono key="r">{sep.rujukan.noRujukan}</Mono>],
+                ["No. rujukan", <Nomor key="r">{sep.rujukan.noRujukan}</Nomor>],
                 ["Tanggal", fmtTglPendek(sep.rujukan.tglRujukan)],
-                ["PPK perujuk", sep.rujukan.ppkRujukan ? <Mono>{sep.rujukan.ppkRujukan}</Mono> : "—"],
+                ["PPK perujuk", sep.rujukan.ppkRujukan ? <Nomor>{sep.rujukan.ppkRujukan}</Nomor> : "—"],
               ]}
             />
           )}
@@ -397,17 +417,16 @@ function Ditemukan({
               title="Jaminan kecelakaan"
               rows={[
                 ["Jenis", LAKA_LABEL[laka.lakaLantas as "1" | "2" | "3"]],
-                ["No. laporan polisi", laka.noLP ? <Mono>{laka.noLP}</Mono> : "—"],
+                ["No. laporan polisi", laka.noLP ? <Nomor>{laka.noLP}</Nomor> : "—"],
                 ["Tanggal kejadian", fmtTglPendek(laka.penjamin?.tglKejadian)],
                 ["Keterangan", laka.penjamin?.keterangan ?? "—"],
               ]}
             />
           )}
           {sep.catatan && (
-            <section className={cn(PANEL, "p-3 sm:col-span-2")}>
-              <h3 className="text-xs font-semibold text-foreground">Catatan</h3>
+            <Bagian title="Catatan" className="sm:col-span-2">
               <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{sep.catatan}</p>
-            </section>
+            </Bagian>
           )}
         </div>
         <Linimasa sep={sep} />

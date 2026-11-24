@@ -5,6 +5,7 @@
 // karena memilih tab mengubah URL. `?update=<noSEP>` tetap membuka tab Update Tgl Pulang.
 // Tahap 1 redesign: kerangka + tab Cari SEP + modal Hapus SEP. Tab lain masih komponen lama,
 // dibungkus kartu baru (dirombak bertahap).
+// Komponen shadcn: Tabs · Card · Item · Badge · Button · Skeleton · Spinner (kartu tanpa garis).
 
 import { Suspense, useCallback, useRef, useState, type ReactNode } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -15,12 +16,15 @@ import {
   FileText,
   Fingerprint,
   Link2,
-  Loader2,
   ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Item } from "@/components/ui/item";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSkeletonDelay } from "@/components/master/shared";
 import { useSessionOptional } from "@/contexts/SessionContext";
@@ -76,19 +80,22 @@ function getErrMsg(err: BPJSError): string {
 
 // ── Potongan UI ───────────────────────────────────────────
 
-const KARTU = "rounded-xl bg-card shadow-sm";
+// Card shadcn tanpa garis & tanpa jarak bawaan (padding diatur per kartu).
+const KARTU = "gap-0 border-0 py-0";
 
 function Kartu({ judul, deskripsi, children, className }: { judul?: string; deskripsi?: string; children: ReactNode; className?: string }) {
   return (
-    <section className={cn(KARTU, "min-w-0 overflow-hidden", className)}>
+    <Card className={cn(KARTU, "min-w-0 overflow-hidden", className)}>
       {judul && (
-        <header className="px-4 pt-4">
-          <h2 className="text-sm font-semibold text-foreground">{judul}</h2>
-          {deskripsi && <p className="mt-0.5 text-xs text-muted-foreground">{deskripsi}</p>}
-        </header>
+        <CardHeader className="gap-0.5 px-4 pt-4">
+          <CardTitle role="heading" aria-level={2} className="text-sm">
+            {judul}
+          </CardTitle>
+          {deskripsi && <CardDescription className="text-xs">{deskripsi}</CardDescription>}
+        </CardHeader>
       )}
       {children}
-    </section>
+    </Card>
   );
 }
 
@@ -102,44 +109,46 @@ interface RiwayatItem {
 function RiwayatSEP({ items, onPilih, onHapus }: { items: RiwayatItem[]; onPilih: (no: string) => void; onHapus: () => void }) {
   if (items.length === 0) return null;
   return (
-    <section aria-labelledby="riwayat-sep" className={KARTU}>
-      <div className="flex items-center justify-between gap-2 px-4 pt-3">
-        <h2 id="riwayat-sep" className="text-xs font-semibold text-foreground">
+    <Card className={KARTU}>
+      <CardHeader className="grid-rows-1 items-center gap-0 px-4 pt-3">
+        <CardTitle role="heading" aria-level={2} className="text-xs">
           Riwayat sesi ini
-        </h2>
-        <Button variant="ghost" size="xs" onClick={onHapus} className="text-muted-foreground">
-          Hapus
-        </Button>
-      </div>
-      <ul className="p-1.5">
-        {items.map((r) => (
-          <li key={r.noSEP}>
-            <button
-              type="button"
-              onClick={() => onPilih(r.noSEP)}
-              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-            >
-              <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{r.noSEP}</span>
-              <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium", BADGE[r.tone])}>
-                <span aria-hidden="true" className={cn("size-1.5 rounded-full", DOT[r.tone])} />
-                {r.label}
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </section>
+        </CardTitle>
+        <CardAction className="row-span-1 self-center">
+          <Button variant="ghost" size="xs" onClick={onHapus} className="text-muted-foreground">
+            Hapus
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="p-1.5">
+        <ul>
+          {items.map((r) => (
+            <li key={r.noSEP}>
+              <Item asChild size="sm" className="w-full flex-nowrap gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-accent">
+                <button type="button" onClick={() => onPilih(r.noSEP)}>
+                  <span className="min-w-0 flex-1 truncate text-xs text-foreground tabular-nums">{r.noSEP}</span>
+                  <Badge className={cn("gap-1 px-1.5 text-[11px]", BADGE[r.tone])}>
+                    <span aria-hidden="true" className={cn("size-1.5 rounded-full", DOT[r.tone])} />
+                    {r.label}
+                  </Badge>
+                </button>
+              </Item>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   );
 }
 
 function PageSkeleton() {
   return (
     <div className="flex h-full flex-col gap-4 p-4 sm:p-5" aria-hidden="true">
-      <div className="h-10 w-72 rounded-lg bg-muted motion-safe:animate-pulse" />
-      <div className="h-9 w-full max-w-2xl rounded-lg bg-muted motion-safe:animate-pulse" />
+      <Skeleton className="h-10 w-72 rounded-lg" />
+      <Skeleton className="h-9 w-full max-w-2xl rounded-lg" />
       <div className="grid flex-1 gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
-        <div className="h-80 rounded-xl bg-muted motion-safe:animate-pulse" />
-        <div className="h-80 rounded-xl bg-muted motion-safe:animate-pulse" />
+        <Skeleton className="h-80 rounded-xl" />
+        <Skeleton className="h-80 rounded-xl" />
       </div>
     </div>
   );
@@ -255,12 +264,12 @@ function SEPPageInner() {
                 transition={{ duration: 0.15 }}
                 className="inline-flex items-center gap-1.5 text-xs text-emerald-700"
               >
-                <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                <Spinner className="size-3.5" aria-hidden="true" />
                 Menghubungi V-Claim
               </motion.span>
             )}
           </AnimatePresence>
-          <Badge variant="secondary" className="bg-white font-mono text-[11px] text-muted-foreground shadow-xs">
+          <Badge variant="secondary" className="bg-white text-[11px] text-muted-foreground tabular-nums shadow-xs">
             V-Claim 5.0
           </Badge>
         </header>
