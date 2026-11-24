@@ -443,7 +443,7 @@ export function CpptComposer({
                       <label
                         key={m}
                         className={cn(
-                          "flex flex-1 cursor-pointer items-center justify-center gap-1 rounded-md px-3 m-xs font-semibold transition",
+                          "relative flex flex-1 cursor-pointer items-center justify-center gap-1 rounded-md px-3 m-xs font-semibold transition",
                           "has-focus-visible:ring-2 has-focus-visible:ring-rose-600",
                           on ? "bg-white text-rose-800 shadow-sm" : "text-slate-600 hover:text-slate-900",
                         )}
@@ -488,7 +488,7 @@ export function CpptComposer({
                     <label
                       key={s.key}
                       className={cn(
-                        "flex cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2.5 transition",
+                        "relative flex cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2.5 transition",
                         "has-focus-visible:ring-2 has-focus-visible:ring-emerald-600",
                         on ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white hover:border-slate-300",
                       )}

@@ -57,7 +57,12 @@ export function RawatInapPageView() {
       if (signal?.aborted) return;
       const rooms = riRoomsFromTree(tree);
       const allocByBed = new Map(allocs.map((a) => [a.bedId, a]));
-      const allocByKunjungan = new Map(allocs.map((a) => [a.kunjunganId, a]));
+      // Mutasi Diajukan → kunjungan punya 2 alokasi (asal Occupied + tujuan Reserved): pakai yang DITEMPATI.
+      const allocByKunjungan = new Map<string, (typeof allocs)[number]>();
+      for (const a of allocs) {
+        const cur = allocByKunjungan.get(a.kunjunganId);
+        if (!cur || (cur.status !== "Occupied" && a.status === "Occupied")) allocByKunjungan.set(a.kunjunganId, a);
+      }
       const bedByIdCode = new Map<string, BedSubRecord>();
       const roomById = new Map<string, LocationNode>();
       for (const r of rooms) {

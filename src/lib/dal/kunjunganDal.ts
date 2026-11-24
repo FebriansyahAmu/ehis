@@ -175,6 +175,26 @@ export async function setPaketLayanan(id: string, paketLayananId: string | null,
 }
 
 // ── Ganti penjamin kunjungan (Ubah Penjamin) ─────────────────────────────────
+export interface UpdateLokasiPatch {
+  ruanganId: string;
+  bedId: string | null;
+  /** RI — kelas kamar baru (placement). undefined = tidak diubah (IGD). */
+  kelas?: KelasRawat;
+}
+
+/** Pindahkan pointer lokasi (mutasi selesai). Pointer cache — TANPA bump version (lihat setTriaseLevel). */
+export async function updateLokasi(id: string, patch: UpdateLokasiPatch, tx?: Tx): Promise<number> {
+  const res = await db(tx).kunjungan.updateMany({
+    where: { id, deletedAt: null },
+    data: {
+      ruanganId: patch.ruanganId,
+      bedId: patch.bedId,
+      ...(patch.kelas ? { kelas: patch.kelas } : {}),
+    },
+  });
+  return res.count;
+}
+
 export interface UpdatePenjaminPatch {
   penjaminTipe: TipePenjamin;
   penjaminId?: string | null;

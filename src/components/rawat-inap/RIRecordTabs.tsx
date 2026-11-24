@@ -8,7 +8,7 @@ import {
   FileText, HeartPulse, Tag, HeartHandshake, ScanLine,
   Pill, FlaskConical, Radiation, ClipboardList, LogOut,
   MessageSquare, Droplets, DoorOpen, Stethoscope, ArrowRightLeft,
-  ListChecks, ShieldCheck, Repeat, Target, Salad, Activity, ClipboardCheck, BookOpen, Package, Gauge, Zap, Lock, type LucideIcon,
+  ListChecks, ShieldCheck, Repeat, Target, Salad, Activity, ClipboardCheck, BookOpen, Package, Gauge, Zap, Lock, BedDouble, type LucideIcon,
 } from "lucide-react";
 import type { RawatInapPatientDetail } from "@/lib/data";
 import type { DisposisiCompleteFn } from "@/components/igd/IGDRecordTabs";
@@ -39,6 +39,7 @@ import GiziNutrisiTab      from "./tabs/GiziNutrisiTab";
 import ICUScoringTab       from "./tabs/ICUScoringTab";
 import MARTab              from "@/components/shared/medical-records/MARTab";
 import KonselingTab        from "@/components/shared/medical-records/KonselingTab";
+import MutasiTab           from "@/components/shared/medical-records/mutasi/MutasiTab";
 
 // ── Tab definitions ───────────────────────────────────────
 
@@ -70,6 +71,7 @@ const LAYANAN: TabDef[] = [
   { id: "order-lab",    label: "Order Lab",            icon: FlaskConical,   done: true  },
   { id: "order-rad",    label: "Order Radiologi",      icon: Radiation,      done: true  },
   { id: "konsultasi",   label: "Konsultasi",           icon: MessageSquare,  done: true  },
+  { id: "mutasi",       label: "Mutasi",               icon: BedDouble,      done: true  },
   { id: "discharge",    label: "Discharge Planning",   icon: LogOut,         done: true  },
   { id: "pasien-pulang",label: "Pasien Pulang",        icon: DoorOpen,       done: true  },
   { id: "konseling",    label: "Konseling Obat",       icon: BookOpen,       done: true  },
@@ -236,7 +238,9 @@ export default function RIRecordTabs({
       </nav>
 
       {/* ── Tab content ── */}
-      <main className="flex-1 overflow-y-auto bg-slate-50 p-4 md:p-5">
+      {/* `relative` = containing block utk elemen absolute di dalam tab (input `sr-only` dsb.) — cegah
+          shell ikut tergulir (pola sama dgn ModuleLayout / IGDRecordTabs). */}
+      <main className="relative flex-1 overflow-y-auto bg-slate-50 p-4 md:p-5">
         {lockHere && (
           <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-slate-300 bg-slate-100 px-4 py-2.5 shadow-xs">
             <Lock size={15} className="shrink-0 text-slate-500" />
@@ -307,6 +311,7 @@ export default function RIRecordTabs({
             {active === "order-lab"     && withIdentitas(<OrderLabTab    patient={patient} />)}
             {active === "order-rad"     && withIdentitas(<OrderRadTab    patient={patient} />)}
             {active === "konsultasi"    && <KonsultasiTab     noRM={patient.noRM} dokterPeminta={patient.dpjp} kunjunganId={patient.id} />}
+            {active === "mutasi"        && <MutasiTab         kunjunganId={patient.id} unitLabel="Rawat Inap" />}
             {active === "discharge"     && <DischargePlanTab  patient={patient} />}
             {active === "pasien-pulang" && withIdentitas(<PasienPulangTab patient={patient} onComplete={onComplete} />)}
             {active === "konseling"     && <KonselingTab patient={patient} />}

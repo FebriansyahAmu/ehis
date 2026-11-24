@@ -122,6 +122,13 @@
 
 ## 🩻 Rekam Medis Klinis (shared IGD/RI/RJ)
 
+### Mutasi ruangan/bed (IGD · RI) *(2026-11-23, branch `feat/klinis-mutasi-pasien`)*
+- [ ] **Akomodasi RI belum per segmen kelas** — mutasi selesai mengubah `kunjungan.kelas`; proyeksi billing menghitung akomodasi SELURUH lama rawat dengan kelas terakhir (kecuali titipan → `kelasHak`). Riwayat kelas tersedia di `encounter.mutasi` (`dariKelas`/`keKelas`/`selesaiAt`) → pecah akomodasi per periode di `billingProjectionService`.
+- [ ] **Belum ada inbox "mutasi masuk" di ruangan tujuan** — konfirmasi pindah dilakukan dari tab Mutasi pasien (petugas mana pun yang berwenang). Tambahkan daftar mutasi Diajukan per ruangan di landing RI/board IGD (pola RIOrderInbox).
+- [ ] **IGD → ruang rawat inap = penempatan fisik saja** *(diputuskan 2026-11-23)* — IGD boleh mutasi ke ruangan IGD + Rawat_Inap/ICU/HCU/Isolasi, tetapi kunjungan TETAP IGD (kelas tak diubah, tak masuk sensus/rekam medis RI, akomodasi RI tak ditagih). Admisi tetap via SPRI → kunjungan RI baru; bed RI dilepas saat kunjungan IGD diselesaikan lalu admisi mereservasi bed yang sama (admisi harus memilih bed tersebut secara manual). Pertimbangkan: prefill bed admisi dari lokasi IGD terakhir + tampilkan pasien "titip IGD" di landing RI.
+- [ ] **Cetak lembar transfer** belum ada (data tersimpan JSONB di `encounter.mutasi.lembar_transfer`) → template A4 di `src/components/cetakan/` + KOP `useRsProfil()`.
+- [ ] **Belum diuji** di browser / DB (migrasi `20261123120000_mutasi_pasien` + `prisma generate` dijalankan manual).
+
 ### Pemeriksaan Fisik — cleanup pasca Anatomi domain *(2026-06-14)*
 - [ ] **`PemeriksaanFisik.bodyMarkings` (JSONB) vestigial** — sub-tab Anatomi kini punya domain sendiri `medicalrecord.PenandaanAnatomi` (per-item, body-map). Kolom `bodyMarkings` di `pemeriksaan_fisik` (+ field di `PemeriksaanFisikEntry`/Zod/DTO/`emptyFormState`) tak lagi sumber kebenaran & selalu kosong (StatusFisikPane tak mengisinya). Aman di-drop (belum ada data nyata): drop-column migration + bersihkan schema/Zod/Service/DTO/FE. Ditunda — harmless.
 - [x] **Sub-tab Penunjang (PemeriksaanTab IGD) di-wire** ✅ *(2026-06-15)* — difokuskan ulang ke diagnostik bedside **non-Lab/Rad** (Lab/Rad/USG dihapus karena punya modul sendiri; sisa EKG + Spirometri/EEG/EMG/Audiometri/Ekokardiografi/Treadmill). Form di-redesain (interpretatif: Keterangan+Hasil+Kesimpulan, tanggal=DateTimePicker). Domain backend `medicalrecord.PemeriksaanPenunjang` (add/delete only, soft-delete, gate `clinical.pemeriksaan`). **Sisa: upload file hasil masih placeholder** — butuh storage (belum ada); object storage + tabel attachment lintas-domain = follow-up tersendiri.

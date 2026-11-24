@@ -56,6 +56,25 @@ export async function releaseByKunjungan(kunjunganId: string, when: Date, tx?: T
   return res.count;
 }
 
+/** Lepas HANYA alokasi berstatus tertentu milik kunjungan (mutasi: bed asal / reservasi tujuan). */
+export async function releaseByKunjunganStatus(
+  kunjunganId: string,
+  status: Exclude<AllocStatus, "Released">,
+  when: Date,
+  tx?: Tx,
+): Promise<number> {
+  const res = await db(tx).bedAllocation.updateMany({
+    where: { kunjunganId, status },
+    data: { status: "Released", releasedAt: when, version: { increment: 1 } },
+  });
+  return res.count;
+}
+
+/** Alokasi aktif berstatus tertentu milik kunjungan (Occupied = bed yang ditempati sekarang). */
+export function findByKunjunganStatus(kunjunganId: string, status: Exclude<AllocStatus, "Released">, tx?: Tx) {
+  return db(tx).bedAllocation.findFirst({ where: { kunjunganId, status } });
+}
+
 /** Reserved → Occupied (mis. admisi RI). Mengembalikan count (0 = tak ada reservasi aktif). */
 export async function occupyByKunjungan(kunjunganId: string, when: Date, tx?: Tx): Promise<number> {
   const res = await db(tx).bedAllocation.updateMany({

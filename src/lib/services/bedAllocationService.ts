@@ -7,6 +7,7 @@
 
 import * as defaultDal from "@/lib/dal/bedAllocationDal";
 import * as defaultRuanganDal from "@/lib/dal/ruanganDal";
+import * as defaultMutasiDal from "@/lib/dal/mutasiDal";
 import { systemClock, type Clock } from "@/lib/core/clock";
 import { Errors } from "@/lib/errors/appError";
 import type { Tx } from "@/lib/db/prisma";
@@ -37,11 +38,12 @@ function toActiveDTO(a: NonNullable<BedAllocationActiveRow>): BedAllocationDTO {
 }
 
 export function makeBedAllocationService(
-  deps: { clock?: Clock; dal?: Dal; ruangan?: RuanganDal } = {},
+  deps: { clock?: Clock; dal?: Dal; ruangan?: RuanganDal; mutasi?: typeof defaultMutasiDal } = {},
 ) {
   const clock = deps.clock ?? systemClock;
   const dal = deps.dal ?? defaultDal;
   const ruangan = deps.ruangan ?? defaultRuanganDal;
+  const mutasiDal = deps.mutasi ?? defaultMutasiDal;
 
   // ── Mutasi (dipanggil dalam tx milik use-case kunjungan) ──
   async function allocate(bedId: string, kunjunganId: string, status: Extract<AllocStatus, "Reserved" | "Occupied">, tx?: Tx) {
@@ -78,9 +80,33 @@ export function makeBedAllocationService(
     await dal.occupyByKunjungan(kunjunganId, clock.now(), tx);
     return active.bedId;
   }
-  /** Lepas semua alokasi aktif kunjungan (batal/pulang/transfer). */
-  function release(kunjunganId: string, tx?: Tx) {
-    return dal.releaseByKunjungan(kunjunganId, clock.now(), tx);
+  /**
+   * Lepas semua alokasi aktif kunjungan (batal/pulang/transfer). Reservasi mutasi ikut lepas →
+   * mutasi yang masih Diajukan dibatalkan otomatis (dipanggil di semua jalur pulang/batal).
+   */
+  async function release(kunjunganId: string, tx?: Tx) {
+    const now = clock.now();
+    const count = await dal.releaseByKunjungan(kunjunganId, now, tx);
+    await mutasiDal.cancelPendingByKunjungan(kunjunganId, "Otomatis — kunjungan selesai / dibatalkan", now, tx);
+    return count;
+  }
+
+  // ── Mutasi ruangan/bed (dipanggil mutasiService dalam tx) ──
+  /** Bed yang sedang DITEMPATI kunjungan (alokasi Occupied), atau null. */
+  function findOccupied(kunjunganId: string, tx?: Tx) {
+    return dal.findByKunjunganStatus(kunjunganId, "Occupied", tx);
+  }
+  /** Lepas bed asal (Occupied) — sebelum reservasi tujuan dijadikan Occupied (urutan index unik). */
+  function releaseOccupied(kunjunganId: string, tx?: Tx) {
+    return dal.releaseByKunjunganStatus(kunjunganId, "Occupied", clock.now(), tx);
+  }
+  /** Lepas reservasi tujuan (mutasi dibatalkan). */
+  function releaseReserved(kunjunganId: string, tx?: Tx) {
+    return dal.releaseByKunjunganStatus(kunjunganId, "Reserved", clock.now(), tx);
+  }
+  /** Reservasi tujuan → Occupied (mutasi selesai). Mengembalikan count (0 = reservasi hilang). */
+  function occupyReservation(kunjunganId: string, tx?: Tx) {
+    return dal.occupyByKunjungan(kunjunganId, clock.now(), tx);
   }
 
   // ── Read (endpoint GET /bed-allocations) ──
@@ -95,7 +121,10 @@ export function makeBedAllocationService(
     return rows.map(toActiveDTO);
   }
 
-  return { reserve, occupy, occupyReserved, release, listActive };
+  return {
+    reserve, occupy, occupyReserved, release, listActive,
+    findOccupied, releaseOccupied, releaseReserved, occupyReservation,
+  };
 }
 
 export const bedAllocationService = makeBedAllocationService();

@@ -15,6 +15,7 @@ import { getDokter } from "@/lib/api/dokter";
 import { dtoToIGDPatientDetail } from "./igdDetailApi";
 import IGDRecordShell from "./IGDRecordShell";
 import RecordGateScreen from "@/components/shared/RecordGateScreen";
+import { useRecordVersion } from "@/lib/realtime/recordBus";
 
 // id kunjungan DB = UUID; id demo/mock = "igd-1"/… → hanya UUID yang di-fetch ke API.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -31,6 +32,7 @@ export default function IGDRecordResolver({ id }: { id: string }) {
   const [patient, setPatient] = useState<IGDPatientDetail | null>(null);
   const [kunjungan, setKunjungan] = useState<KunjunganDTO | null>(null);
   const [state, setState] = useState<"loading" | "done">("loading");
+  const lokasiVer = useRecordVersion(UUID_RE.test(id) ? id : undefined, "lokasi");
 
   // Fetch SEKALI per id. Guard set-state via !aborted (StrictMode-safe).
   useEffect(() => {
@@ -63,7 +65,8 @@ export default function IGDRecordResolver({ id }: { id: string }) {
       }
     })();
     return () => ac.abort();
-  }, [id]);
+    // lokasiVer: mutasi ruangan/bed selesai → muat ulang header.
+  }, [id, lokasiVer]);
 
   if (!patient) {
     if (state !== "done") return <ResolverLoading />;

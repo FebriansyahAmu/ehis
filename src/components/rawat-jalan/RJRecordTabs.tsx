@@ -166,7 +166,8 @@ export default function RJRecordTabs({ patient }: { patient: RJPatientDetail }) 
       </nav>
 
       {/* ── Content ── */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+      {/* `relative`: tahan elemen absolute (input sr-only) di dalam area gulir — cegah shell ikut tergulir. */}
+      <div className="relative flex min-w-0 flex-1 flex-col overflow-y-auto">
         {lockHere && (
           <div className="mx-4 mt-4 flex items-center gap-2.5 rounded-xl border border-slate-300 bg-slate-100 px-4 py-2.5 shadow-xs md:mx-6">
             <Lock size={15} className="shrink-0 text-slate-500" />

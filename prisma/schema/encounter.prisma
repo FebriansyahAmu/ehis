@@ -150,6 +150,9 @@ model Kunjungan {
   // ── Alokasi bed (operasional; okupansi/reservasi) ──
   bedAllocations BedAllocation[]
 
+  // ── Mutasi ruangan/bed dalam kunjungan yang sama (IGD · RI) ──
+  mutasi Mutasi[]
+
   // ── SPRI (artefak admisi BPJS; kunjungan IGD asal) ──
   spriRiwayat Spri[]
 
@@ -270,6 +273,72 @@ model BedAllocation {
   @@index([bedId])
   @@index([kunjunganId])
   @@map("bed_allocation")
+  @@schema("encounter")
+}
+
+// ── Mutasi (pindah ruangan/bed dalam kunjungan yang sama) ──────────────────────
+//  Dua tahap, pola admisi RI: Diajukan = bed tujuan di-RESERVE (BedAllocation Reserved) sementara
+//  bed asal tetap Occupied → Selesai = bed asal Released + tujuan Reserved→Occupied + pointer
+//  kunjungan (ruanganId/bedId/kelas) dipindah → Dibatalkan = reservasi tujuan Released.
+//  Nama ruangan/bed/kelas disimpan sebagai SNAPSHOT (riwayat tetap terbaca walau master berubah).
+//  Lembar transfer pasien (opsional) = JSONB snapshot terakhir (shape divalidasi Zod).
+//  Pindah ke unit LAIN (IGD → Rawat Inap) BUKAN mutasi — itu admisi via SPRI (kunjungan baru).
+
+enum MutasiStatus {
+  Diajukan
+  Selesai
+  Dibatalkan
+
+  @@schema("encounter")
+}
+
+model Mutasi {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  kunjunganId String    @map("kunjungan_id") @db.Uuid
+  kunjungan   Kunjungan @relation(fields: [kunjunganId], references: [id], onDelete: Cascade)
+
+  status MutasiStatus @default(Diajukan)
+
+  // Asal (snapshot saat diajukan)
+  dariRuanganId   String? @map("dari_ruangan_id") @db.Uuid
+  dariRuanganNama String? @map("dari_ruangan_nama")
+  dariBedId       String? @map("dari_bed_id") @db.Uuid
+  dariBedKode     String? @map("dari_bed_kode")
+  dariKelas       String? @map("dari_kelas")
+
+  // Tujuan
+  keRuanganId   String  @map("ke_ruangan_id") @db.Uuid // → master.Location (divalidasi Service)
+  keRuanganNama String  @map("ke_ruangan_nama")
+  keBedId       String? @map("ke_bed_id") @db.Uuid // null = ruangan tanpa bed terdaftar
+  keBedKode     String? @map("ke_bed_kode")
+  keKelas       String? @map("ke_kelas")
+
+  alasan  String
+  catatan String?
+
+  diajukanOleh       String   @map("diajukan_oleh") // nama aktor (server)
+  diajukanOlehUserId String?  @map("diajukan_oleh_user_id") @db.Uuid
+  diajukanAt         DateTime @default(now()) @map("diajukan_at") @db.Timestamptz(3)
+
+  selesaiOleh String?   @map("selesai_oleh")
+  selesaiAt   DateTime? @map("selesai_at") @db.Timestamptz(3)
+
+  dibatalkanOleh String?   @map("dibatalkan_oleh")
+  dibatalkanAt   DateTime? @map("dibatalkan_at") @db.Timestamptz(3)
+  alasanBatal    String?   @map("alasan_batal")
+
+  // Lembar transfer pasien (opsional) — snapshot terakhir
+  lembarTransfer      Json?     @map("lembar_transfer")
+  lembarDiisiOleh     String?   @map("lembar_diisi_oleh")
+  lembarDiisiAt       DateTime? @map("lembar_diisi_at") @db.Timestamptz(3)
+
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([kunjunganId])
+  @@map("mutasi")
   @@schema("encounter")
 }
 

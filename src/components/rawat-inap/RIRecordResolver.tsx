@@ -20,6 +20,7 @@ import { riRoomsFromTree, riKelasOf } from "./riLandingShared";
 import { dtoToRawatInapPatientDetail } from "./riDetailApi";
 import RIRecordShell from "./RIRecordShell";
 import RecordGateScreen from "@/components/shared/RecordGateScreen";
+import { useRecordVersion } from "@/lib/realtime/recordBus";
 
 // id kunjungan DB = UUID; id demo/mock = "ri-1"/… → hanya UUID yang di-fetch ke API.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -37,6 +38,7 @@ export default function RIRecordResolver({ id }: { id: string }) {
   const [patient, setPatient] = useState<RawatInapPatientDetail | null>(null);
   const [kunjungan, setKunjungan] = useState<KunjunganDTO | null>(null);
   const [state, setState] = useState<"loading" | "done">("loading");
+  const lokasiVer = useRecordVersion(UUID_RE.test(id) ? id : undefined, "lokasi");
 
   // Fetch SEKALI per id. Guard set-state via !aborted (StrictMode-safe).
   useEffect(() => {
@@ -64,7 +66,11 @@ export default function RIRecordResolver({ id }: { id: string }) {
         const room: LocationNode | undefined = k.ruanganId
           ? rooms.find((r) => r.id === k.ruanganId)
           : undefined;
-        const alloc = allocs.find((a) => a.kunjunganId === k.id);
+        // Selama mutasi Diajukan, kunjungan memegang 2 alokasi (asal Occupied + tujuan Reserved)
+        // → bed yang ditampilkan = yang DITEMPATI.
+        const alloc =
+          allocs.find((a) => a.kunjunganId === k.id && a.status === "Occupied") ??
+          allocs.find((a) => a.kunjunganId === k.id);
         const bed = alloc ? bedByIdCode.get(alloc.bedId) : undefined;
         const kelas: RIKelas = room
           ? riKelasOf(room)
@@ -97,7 +103,8 @@ export default function RIRecordResolver({ id }: { id: string }) {
       }
     })();
     return () => ac.abort();
-  }, [id]);
+    // lokasiVer: mutasi ruangan/bed selesai → muat ulang header (ruangan/bed/kelas).
+  }, [id, lokasiVer]);
 
   if (!patient) {
     if (state !== "done") return <ResolverLoading />;

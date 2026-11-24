@@ -24,7 +24,8 @@ export type RecordDomain =
   | "cppt"
   | "diagnosa"
   | "asesmen"
-  | "order"; // order klinis (Tindakan/Resep/Lab/Rad/BMHP) → widget Total Tagihan header
+  | "order" // order klinis (Tindakan/Resep/Lab/Rad/BMHP) → widget Total Tagihan header
+  | "lokasi"; // mutasi ruangan/bed selesai → header (ruangan/bed/kelas) dimuat ulang
 
 type Listener = () => void;
 

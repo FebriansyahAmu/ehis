@@ -6,7 +6,7 @@ import {
   ClipboardList, HeartPulse, Stethoscope, Tag, FileText, Zap,
   Pill, FlaskConical, Radiation, Send, Home,
   Repeat, HeartHandshake, ScanLine, ClipboardCheck, ScanEye, ListChecks, ShieldCheck,
-  ArrowRightLeft, Lock, Package,
+  ArrowRightLeft, Lock, Package, BedDouble,
   type LucideIcon,
 } from "lucide-react";
 import type { IGDPatientDetail } from "@/lib/data";
@@ -35,6 +35,7 @@ import PenandaanGambarTab   from "./tabs/PenandaanGambarTab";
 import DaftarOrderTab        from "./tabs/DaftarOrderTab";
 import InformedConsentTab   from "./tabs/InformedConsentTab";
 import HandoverTab           from "./tabs/HandoverTab";
+import MutasiTab             from "@/components/shared/medical-records/mutasi/MutasiTab";
 
 // ── Tab groups ────────────────────────────────────────────
 
@@ -62,6 +63,7 @@ const LAYANAN: TabDef[] = [
   { id: "order-bmhp",   label: "Order BMHP",      icon: Package      },
   { id: "order-lab",    label: "Order Lab",       icon: FlaskConical },
   { id: "order-rad",    label: "Order Radiologi", icon: Radiation    },
+  { id: "mutasi",       label: "Mutasi",          icon: BedDouble    },
   { id: "rujukan",      label: "Rujukan Keluar",  icon: Send         },
   { id: "pulang",       label: "Pasien Pulang",   icon: Home         },
 ];
@@ -224,7 +226,10 @@ export default function IGDRecordTabs({
       </nav>
 
       {/* ── Content with smooth fade transition ── */}
-      <main className="flex-1 overflow-y-auto bg-slate-50 p-4 md:p-5">
+      {/* `relative` = containing block utk elemen absolute di dalam tab (mis. input `sr-only` radio/checkbox
+          kustom). Tanpa ini mereka lolos dari area gulir, memperpanjang tinggi dokumen, dan seluruh shell
+          ikut tergulir sampai latar body terlihat (pola sama dgn ModuleLayout). */}
+      <main className="relative flex-1 overflow-y-auto bg-slate-50 p-4 md:p-5">
         {locked && active !== "pulang" && (
           <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-slate-300 bg-slate-100 px-4 py-2.5 shadow-xs">
             <Lock size={15} className="shrink-0 text-slate-500" />
@@ -284,6 +289,7 @@ export default function IGDRecordTabs({
             {active === "keperawatan"  && <KeperawatanTab  patient={patient} />}
             {active === "pemeriksaan"  && <PemeriksaanTab    patient={patient} />}
             {active === "penilaian"    && <PenilaianTab    kunjunganId={patient.id} modul="IGD" />}
+            {active === "mutasi"       && <MutasiTab          kunjunganId={patient.id} unitLabel="IGD" />}
             {active === "rujukan"      && <RujukanKeluarTab    patient={patient} />}
             {active === "penandaan"   && <PenandaanGambarTab patient={patient} />}
             {active === "handover"    && <HandoverTab        patient={patient} />}

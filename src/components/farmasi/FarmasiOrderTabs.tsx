@@ -169,7 +169,8 @@ export default function FarmasiOrderTabs({
       </nav>
 
       {/* ── Content ── */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+      {/* `relative`: tahan elemen absolute (input sr-only) di dalam area gulir — cegah shell ikut tergulir. */}
+      <div className="relative flex min-w-0 flex-1 flex-col overflow-y-auto">
         <AnimatePresence mode="wait">
           <motion.div
             key={active}
