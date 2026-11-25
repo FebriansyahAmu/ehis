@@ -82,7 +82,7 @@ export function wrapWithAudit<T>(
       const entry: BPJSAuditEntry = {
         id: makeAuditId(start),
         timestamp: new Date(start).toISOString(),
-        endpoint: meta.endpoint,
+        endpoint: samarkanEndpoint(meta.endpoint),
         method: meta.method,
         requestHash,
         responseCode: "ERR",
@@ -109,7 +109,7 @@ export function wrapWithAudit<T>(
     const entry: BPJSAuditEntry = {
       id: makeAuditId(start),
       timestamp: new Date(start).toISOString(),
-      endpoint: meta.endpoint,
+      endpoint: samarkanEndpoint(meta.endpoint),
       method: meta.method,
       requestHash,
       responseCode: code,
@@ -177,6 +177,15 @@ function simpleHash(s: string): string {
   let h = 5381;
   for (let i = 0; i < s.length; i++) h = (h * 33) ^ s.charCodeAt(i);
   return (h >>> 0).toString(16).padStart(8, "0");
+}
+
+/**
+ * UU PDP 27/2022: nomor identitas di path (No. kartu 13 digit, NIK 16 digit, … = deret ≥ 10
+ * angka) disamarkan sebelum masuk audit, mis. `0001234567891` → `0001••••••891`. Jejaknya
+ * tetap bisa ditelusuri (awal + akhir), isi lengkapnya tidak tersimpan di log.
+ */
+export function samarkanEndpoint(endpoint: string): string {
+  return endpoint.replace(/\d{10,}/g, (s) => `${s.slice(0, 4)}${"•".repeat(s.length - 7)}${s.slice(-3)}`);
 }
 
 function makeAuditId(ts: number): string {
