@@ -366,6 +366,7 @@ const REFERENCE_LABEL: Record<ReferenceCacheStatus["kind"], string> = {
   faskes: "Faskes / PPK",
   spesialistik: "Spesialistik",
   "pasca-pulang": "Pasca Pulang",
+  "kelas-aplicares": "Kelas Kamar Aplicares",
 };
 
 export function getReferenceRows(): ReferenceRowVm[] {

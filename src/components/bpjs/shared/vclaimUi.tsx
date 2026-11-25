@@ -33,16 +33,19 @@ export function BadgeNada({ tone, children, titik = false, className }: { tone: 
 export function GalatVClaim({
   error,
   objek,
+  layanan,
   onUlang,
   className,
 }: {
   error: BPJSError;
   /** Kata benda untuk kode 201, mis. "Rujukan" → "Rujukan tidak ditemukan". */
   objek?: string;
+  /** Nama layanan untuk galat sambungan (bawaan "V-Claim"), mis. "Aplicares". */
+  layanan?: string;
   onUlang?: () => void;
   className?: string;
 }) {
-  const { title, desc, kode, retryable } = labelGalat(error, objek);
+  const { title, desc, kode, retryable } = labelGalat(error, objek, layanan);
   const nada = kode === "201" ? "bg-slate-50 text-slate-900" : kode === "204" ? "bg-amber-50 text-amber-900" : "bg-rose-50 text-rose-900";
   return (
     <Alert role="note" className={cn("rounded-xl border-0 p-3 [&>svg]:size-4", nada, className)}>
@@ -159,9 +162,9 @@ export interface OpsiSegmen<T extends string> {
 }
 
 /**
- * Grup tombol saring yang saling eksklusif (aria-pressed, satu selalu aktif). Tombol aktif =
- * latar putih + cincin emerald (kontras ≥ 3:1 terhadap jalur abu-abu, tidak mengandalkan latar
- * saja); di forced-colors cincin hilang → digarisbawahi.
+ * Grup tombol saring yang saling eksklusif (aria-pressed, satu selalu aktif). Tampil seperti tab
+ * garis: tombol aktif = teks emerald + garis bawah emerald dari BORDER pseudo-elemen (kontras
+ * ≥ 3:1 terhadap latar putih, bukan warna teks saja, dan tetap tampil di forced-colors).
  */
 export function SegmenFilter<T extends string>({
   label,
@@ -177,7 +180,7 @@ export function SegmenFilter<T extends string>({
   className?: string;
 }) {
   return (
-    <div role="group" aria-label={label} className={cn("flex w-fit max-w-full flex-wrap gap-0.5 rounded-xl bg-slate-100 p-1", className)}>
+    <div role="group" aria-label={label} className={cn("flex w-fit max-w-full flex-wrap gap-1", className)}>
       {opsi.map((o) => (
         <Button
           key={o.value}
@@ -187,9 +190,9 @@ export function SegmenFilter<T extends string>({
           aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            "h-6 gap-1 rounded-lg px-2 text-[11px] font-medium text-muted-foreground hover:bg-white/70 hover:text-foreground",
-            "aria-pressed:bg-white aria-pressed:text-emerald-800 aria-pressed:shadow-xs aria-pressed:ring-1 aria-pressed:ring-emerald-600 aria-pressed:ring-inset",
-            "forced-colors:aria-pressed:underline",
+            "relative h-7 gap-1 rounded-md px-2 text-[11px] font-medium text-muted-foreground hover:bg-transparent hover:text-foreground",
+            "after:absolute after:inset-x-2 after:bottom-0 after:border-b-2 after:border-transparent after:transition-colors",
+            "aria-pressed:text-emerald-800 aria-pressed:after:border-emerald-600",
           )}
         >
           {o.label}

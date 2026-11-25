@@ -2,7 +2,7 @@
  * Reference Cache (BP0.4).
  *
  * Local cache TTL 24 jam untuk data referensi BPJS yang jarang berubah:
- * diagnosa · poli · dokter · faskes · spesialistik · pasca-pulang.
+ * diagnosa · poli · dokter · faskes · spesialistik · pasca-pulang · kelas kamar Aplicares.
  *
  * Cache key strategy: `${kind}:${normalizedQuery}` — agar query variant
  * tetap konsisten (case-insensitive trim).
@@ -20,7 +20,9 @@ export type ReferenceKind =
   | "dokter"
   | "faskes"
   | "spesialistik"
-  | "pasca-pulang";
+  | "pasca-pulang"
+  /** Aplicares GET /ref/kelas — kode kelas kamar. */
+  | "kelas-aplicares";
 
 interface CacheEntry<T> {
   data: T;
@@ -144,6 +146,7 @@ export function getAllCacheStatus(): ReferenceCacheStatus[] {
     "faskes",
     "spesialistik",
     "pasca-pulang",
+    "kelas-aplicares",
   ];
   return kinds.map(getCacheStatus);
 }

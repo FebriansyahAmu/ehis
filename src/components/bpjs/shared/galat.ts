@@ -24,6 +24,8 @@ export const GALAT_TIDAK_ADA: BPJSError = {
 export function labelGalat(
   err: BPJSError,
   objek = "Data",
+  /** Nama layanan BPJS untuk galat sambungan, mis. "Aplicares". */
+  layanan = "V-Claim",
 ): {
   title: string;
   desc: string;
@@ -36,7 +38,7 @@ export function labelGalat(
     return { title: "BPJS menolak permintaan", desc: err.message, kode: err.code, retryable: err.retryable };
   }
   return {
-    title: "Gagal terhubung ke V-Claim",
+    title: `Gagal terhubung ke ${layanan}`,
     desc: "Sambungan ke server BPJS terputus. Periksa koneksi lalu coba lagi.",
     kode: null,
     retryable: true,

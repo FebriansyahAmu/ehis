@@ -1,10 +1,12 @@
 /**
  * BP7 Aplicares — shared types + UI helpers.
  *
- * Scope: ReferensiKamarPage (BP7.1) + MapKelasPage (BP7.2).
+ * Scope: ReferensiKamarPage (BP7.1) + MapKelasPage (BP7.2) + KetersediaanKamarPage (BP7.3).
  * No "use client" — pure helper module (no hooks, no JSX).
  */
 
+import type { BadgeTone } from "@/components/bpjs/shared/badge";
+import type { AplicaresKamarRecord, MapKelasRecord } from "@/lib/bpjs/bpjsShared";
 import type { KelasRawat } from "@/lib/eklaim/eklaimShared";
 
 // ── Local CRUD row type ────────────────────────────────
@@ -17,28 +19,6 @@ export interface MapRowLocal {
   kdKelasLokal: KelasRawat;
   namaKelasLokal: string;
   multiplier: number;
-}
-
-// ── Cache status ───────────────────────────────────────
-
-export type CacheStatus = "fresh" | "stale" | "expired" | "empty";
-
-export function cacheStatusCls(s: CacheStatus): string {
-  switch (s) {
-    case "fresh":   return "bg-emerald-100 text-emerald-700";
-    case "stale":   return "bg-amber-100 text-amber-700";
-    case "expired": return "bg-rose-100 text-rose-700";
-    default:        return "bg-slate-100 text-slate-500";
-  }
-}
-
-export function cacheStatusLabel(s: CacheStatus): string {
-  switch (s) {
-    case "fresh":   return "Fresh";
-    case "stale":   return "Stale";
-    case "expired": return "Expired";
-    default:        return "Empty";
-  }
 }
 
 // ── Kelas BPJS helpers ─────────────────────────────────
@@ -67,17 +47,99 @@ export function kelasBPJSChipCls(kode: string): string {
   return map[kode] ?? "bg-slate-100 text-slate-600";
 }
 
-/** Catatan informatif per kode kelas BPJS untuk tabel Referensi Kamar. */
-export function kelasBPJSNote(kode: string): string {
-  const map: Record<string, string> = {
-    NON: "Tidak valid untuk pembuatan SEP",
-    VVP: "VVIP — khusus RS kelas tertentu",
-    VIP: "VIP standar — admisi kelas atas",
-    "1": "Kelas 1 — standar JKN",
-    "2": "Kelas 2 — standar JKN",
-    "3": "Kelas 3 — standar JKN (PBI APBN/APBD)",
-  };
-  return map[kode] ?? "—";
+/** Nama kelas untuk tampilan: Aplicares mengirim "-" untuk kode NON → pakai label kode. */
+export function namaKelasTampil(kode: string, nama: string): string {
+  const n = nama.trim();
+  return n && n !== "-" ? n : kelasBPJSLabel(kode);
+}
+
+// ── Golongan kelas (Referensi Kamar) ───────────────────
+
+export type GolonganKelas = "hak" | "naik" | "tanpa" | "lain";
+
+/**
+ * Golongan kode kelas terhadap hak rawat JKN. Warna mengikuti arti tetap badge BPJS:
+ * emerald = berlaku (hak kelas), indigo = pembiayaan tambahan (naik kelas), slate = netral.
+ */
+export const GOLONGAN_KELAS: Record<GolonganKelas, { label: string; tone: BadgeTone; ket: string }> = {
+  hak: {
+    label: "Hak kelas JKN",
+    tone: "emerald",
+    ket: "Kelas hak rawat peserta JKN (kelas 1, 2, dan 3), sesuai kelas yang tercatat di kartu peserta.",
+  },
+  naik: {
+    label: "Naik kelas",
+    tone: "indigo",
+    ket: "Di atas hak kelas JKN. Peserta yang naik ke kelas ini membayar selisih biaya; tidak berlaku untuk peserta PBI.",
+  },
+  tanpa: {
+    label: "Tanpa kelas",
+    tone: "slate",
+    ket: "Kode untuk ruang rawat yang tidak memakai pembagian kelas.",
+  },
+  lain: {
+    label: "Kode khusus",
+    tone: "slate",
+    ket: "Kode kelas khusus dari Aplicares.",
+  },
+};
+
+export const URUTAN_GOLONGAN: readonly GolonganKelas[] = ["hak", "naik", "tanpa", "lain"];
+
+export function golonganKelas(kode: string): GolonganKelas {
+  if (kode === "1" || kode === "2" || kode === "3") return "hak";
+  if (kode === "VIP" || kode === "VVP") return "naik";
+  if (kode === "NON") return "tanpa";
+  return "lain";
+}
+
+// ── Pemakaian kelas di RS (Referensi Kamar) ────────────
+
+export interface PemakaianKelas {
+  /** Ruangan RS yang dilaporkan ke Aplicares dengan kode kelas ini. */
+  ruang: AplicaresKamarRecord[];
+  /** Kelas RS lokal yang dipetakan ke kode kelas ini (Map Kelas). */
+  lokal: MapKelasRecord[];
+  kapasitas: number;
+  terisi: number;
+  tersedia: number;
+}
+
+export const PEMAKAIAN_KOSONG: PemakaianKelas = { ruang: [], lokal: [], kapasitas: 0, terisi: 0, tersedia: 0 };
+
+/** Kelompokkan ruangan Aplicares + pemetaan kelas RS per kode kelas BPJS. */
+export function pemakaianPerKelas(
+  kamar: readonly AplicaresKamarRecord[],
+  peta: readonly MapKelasRecord[],
+): Map<string, PemakaianKelas> {
+  const ruangPer = Object.groupBy(kamar, (k) => k.kdKelas);
+  const lokalPer = Object.groupBy(peta, (m) => m.kdKelasBPJS);
+  const kode = new Set<string>([...Object.keys(ruangPer), ...Object.keys(lokalPer)]);
+  return new Map(
+    [...kode].map((k) => {
+      const ruang = ruangPer[k as keyof typeof ruangPer] ?? [];
+      const hasil: PemakaianKelas = {
+        ruang,
+        lokal: lokalPer[k as keyof typeof lokalPer] ?? [],
+        kapasitas: ruang.reduce((n, r) => n + r.kapasitas, 0),
+        terisi: ruang.reduce((n, r) => n + r.terisi, 0),
+        tersedia: ruang.reduce((n, r) => n + r.tersedia, 0),
+      };
+      return [k, hasil];
+    }),
+  );
+}
+
+/** Nada bilah keterisian: ≥ 90% merah muda, ≥ 75% kuning, selebihnya hijau. */
+export function nadaKeterisian(terisi: number, kapasitas: number): BadgeTone {
+  if (kapasitas <= 0) return "slate";
+  const pct = (terisi / kapasitas) * 100;
+  return pct >= 90 ? "rose" : pct >= 75 ? "amber" : "emerald";
+}
+
+/** Pengali tarif, mis. 1.3 → "1,30×". */
+export function fmtPengali(m: number | undefined): string {
+  return `${(m ?? 1).toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}×`;
 }
 
 // ── Kelas lokal helpers ────────────────────────────────

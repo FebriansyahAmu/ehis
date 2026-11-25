@@ -1,9 +1,9 @@
 "use client";
 
-// Potongan UI daftar bersama halaman V-Claim (Monitoring, Rencana Kontrol, …): kepala kartu
-// (judul + kontrol), keadaan kosong, pilihan data uji, saringan tanpa hasil, kerangka daftar,
-// tombol unduh CSV, dan pengumuman hasil aksi (live region). Komponen shadcn: Empty · Button ·
-// Skeleton.
+// Potongan UI daftar bersama halaman BPJS (Monitoring, Rencana Kontrol, Aplicares, …): kepala
+// kartu (judul + kontrol), ubin angka ringkasan, keadaan kosong, pilihan data uji, saringan tanpa
+// hasil, kerangka daftar, tombol unduh CSV, dan pengumuman hasil aksi (live region).
+// Komponen shadcn: Empty · Button · Skeleton.
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Download, X, type LucideIcon } from "lucide-react";
@@ -22,6 +22,38 @@ export function KepalaKartu({ judulId, judul, deskripsi, children }: { judulId: 
         <p className="text-xs text-muted-foreground">{deskripsi}</p>
       </div>
       {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
+    </div>
+  );
+}
+
+const NADA_NILAI = {
+  emerald: "text-emerald-800",
+  amber: "text-amber-800",
+  rose: "text-rose-800",
+} as const;
+
+/** Satu pasangan label–nilai ringkasan (ubin angka); dipakai di dalam <dl>. */
+export function UbinAngka({
+  label,
+  nilai,
+  ket,
+  nada,
+  children,
+  className,
+}: {
+  label: string;
+  nilai: ReactNode;
+  ket?: ReactNode;
+  nada?: keyof typeof NADA_NILAI;
+  children?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex min-w-0 flex-col gap-0.5 rounded-xl bg-slate-50 px-3 py-2.5", className)}>
+      <dt className="text-[11px] text-muted-foreground">{label}</dt>
+      <dd className={cn("text-sm font-semibold wrap-break-word tabular-nums", nada && NADA_NILAI[nada])}>{nilai}</dd>
+      {ket && <dd className="text-[11px] text-muted-foreground tabular-nums">{ket}</dd>}
+      {children && <dd className="mt-1">{children}</dd>}
     </div>
   );
 }
