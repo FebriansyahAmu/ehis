@@ -13,6 +13,7 @@ import { CheckCircle2, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
+import { useCan } from "@/components/auth/Can";
 import { KepalaKartu, KerangkaDaftar } from "@/components/bpjs/shared/daftarUi";
 import { BadgeNada, KARTU } from "@/components/bpjs/shared/vclaimUi";
 import { cn } from "@/lib/ui/utils";
@@ -69,6 +70,7 @@ export default function KartuTugas({
   onUlangKamar: () => void;
 }) {
   const id = useId();
+  const can = useCan();
   const nPenting = tugas.filter((t) => t.nada !== "slate").length;
   return (
     <Card className={KARTU}>
@@ -107,9 +109,12 @@ export default function KartuTugas({
                       <ItemTitle className="w-auto text-xs font-semibold tabular-nums">{t.judul}</ItemTitle>
                       <ItemDescription className="text-[11px] text-pretty tabular-nums">{t.ket}</ItemDescription>
                     </ItemContent>
-                    <ItemActions className="shrink-0">
-                      <Aksi t={t} memuatKamar={memuatKamar} onUlangKamar={onUlangKamar} />
-                    </ItemActions>
+                    {/* Aksi hanya bila berizin membuka tujuannya; info tugasnya tetap tampil. */}
+                    {can(t.aksi.izin, "read") && (
+                      <ItemActions className="shrink-0">
+                        <Aksi t={t} memuatKamar={memuatKamar} onUlangKamar={onUlangKamar} />
+                      </ItemActions>
+                    )}
                   </Item>
                 </motion.li>
               );

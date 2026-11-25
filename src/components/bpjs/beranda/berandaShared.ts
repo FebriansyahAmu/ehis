@@ -2,23 +2,8 @@
 // koneksi terpisah), ringkasan tempat tidur yang dilaporkan ke Aplicares per kelas, daftar hal yang
 // perlu ditindaklanjuti, dan menu modul. Semua turunan murni dari data — tanpa angka karangan.
 
-import {
-  Activity,
-  Bed,
-  BedDouble,
-  CalendarCheck,
-  DoorClosed,
-  FileText,
-  History,
-  LayoutGrid,
-  Send,
-  Share2,
-  Timer,
-  UserCheck,
-  WifiOff,
-  XCircle,
-  type LucideIcon,
-} from "lucide-react";
+import { Activity, DoorClosed, Send, Timer, WifiOff, XCircle, type LucideIcon } from "lucide-react";
+import { bpjsNav, type NavItem } from "@/lib/navigation";
 import type { BadgeTone } from "@/components/bpjs/shared/badge";
 import { BATAS_LAMBAT_MS, artiKode, fmtDurasi, hariLokal, layananDari, urlAudit, type Layanan } from "@/components/bpjs/audit/auditShared";
 import { kelasBPJSLabel, urutKodeKelas } from "@/components/bpjs/aplicares/aplicaresShared";
@@ -26,6 +11,10 @@ import { BATAS_TERKINI_MENIT, kesegaran, waktuRelatif } from "@/components/bpjs/
 import type { AplicaresKamarRecord, BPJSAuditEntry } from "@/lib/bpjs/bpjsShared";
 
 export const HREF_KETERSEDIAAN = "/ehis-bpjs/aplicares/ketersediaan";
+
+/** Izin baca (RBAC `bpjs.*`) yang menentukan bagian Beranda mana yang boleh tampil. */
+export const IZIN_APLICARES = "bpjs.aplicares";
+export const IZIN_AUDIT = "bpjs.audit";
 
 // ── Sambungan per layanan ──────────────────────────────
 
@@ -179,6 +168,8 @@ export interface Tugas {
     label: string;
     /** Teks tambahan khusus pembaca layar agar nama tautan/tombol tidak kembar. */
     konteks: string;
+    /** Resource RBAC (read) yang dibutuhkan aksi — tanpa izin, tombol disembunyikan. */
+    izin: string;
   } & ({ href: string } | { ulangKamar: true });
 }
 
@@ -211,8 +202,8 @@ export function daftarTugas({
         ket: `${waktuRelatif(r.terakhir.timestamp, sekarang)} · ${r.terakhir.endpoint} · ${artiKode(r.terakhir.responseCode)}`,
         aksi:
           r.layanan === "Aplicares"
-            ? { label: "Coba lagi", konteks: " memuat data Aplicares", ulangKamar: true }
-            : { label: "Lihat log", konteks: " panggilan V-Claim yang gagal", href: urlAudit({ layanan: r.layanan, hasil: "gagal" }) },
+            ? { label: "Coba lagi", konteks: " memuat data Aplicares", izin: IZIN_APLICARES, ulangKamar: true }
+            : { label: "Lihat log", konteks: " panggilan V-Claim yang gagal", izin: IZIN_AUDIT, href: urlAudit({ layanan: r.layanan, hasil: "gagal" }) },
       });
     } else if (r.status === "tidak-stabil") {
       tugas.push({
@@ -221,7 +212,7 @@ export function daftarTugas({
         ikon: Activity,
         judul: `Sambungan ke ${r.layanan} tidak stabil`,
         ket: `${r.putus10} dari 10 panggilan terakhir tidak tersambung — periksa jaringan atau status layanan BPJS.`,
-        aksi: { label: "Lihat log", konteks: ` panggilan ${r.layanan} yang gagal`, href: urlAudit({ layanan: r.layanan, hasil: "gagal" }) },
+        aksi: { label: "Lihat log", konteks: ` panggilan ${r.layanan} yang gagal`, izin: IZIN_AUDIT, href: urlAudit({ layanan: r.layanan, hasil: "gagal" }) },
       });
     }
   }
@@ -234,7 +225,7 @@ export function daftarTugas({
       ikon: Send,
       judul: `${kamar.perluKirim.length} ruangan belum dilaporkan dalam ${BATAS_TERKINI_MENIT} menit terakhir`,
       ket: `Terlama ${terlama.namaRuang} (${waktuRelatif(terlama.lastSyncISO, sekarang)}). Kirim ulang agar peserta melihat tempat tidur kosong yang benar.`,
-      aksi: { label: "Kirim laporan", konteks: " ketersediaan kamar", href: HREF_KETERSEDIAAN },
+      aksi: { label: "Kirim laporan", konteks: " ketersediaan kamar", izin: IZIN_APLICARES, href: HREF_KETERSEDIAAN },
     });
   }
 
@@ -247,7 +238,7 @@ export function daftarTugas({
       ikon: DoorClosed,
       judul: `${kamar.tutup.length} ruangan ditutup sementara`,
       ket: `${nama.join(", ")}${lebih > 0 ? ` dan ${lebih} lainnya` : ""} — buka kembali bila sudah siap dipakai.`,
-      aksi: { label: "Tinjau", konteks: " ruangan yang ditutup", href: HREF_KETERSEDIAAN },
+      aksi: { label: "Tinjau", konteks: " ruangan yang ditutup", izin: IZIN_APLICARES, href: HREF_KETERSEDIAAN },
     });
   }
 
@@ -267,7 +258,7 @@ export function daftarTugas({
         teratas && teratas.n >= 2
           ? `Paling sering ke ${teratas.endpoint} (${teratas.n}×).`
           : "Termasuk respons BPJS selain kode 200, mis. data tidak ditemukan.",
-      aksi: { label: "Lihat", konteks: " panggilan gagal hari ini", href: urlAudit({ periode: "hari", hasil: "gagal" }) },
+      aksi: { label: "Lihat", konteks: " panggilan gagal hari ini", izin: IZIN_AUDIT, href: urlAudit({ periode: "hari", hasil: "gagal" }) },
     });
   }
 
@@ -279,7 +270,7 @@ export function daftarTugas({
       ikon: Timer,
       judul: `${lambat.length} panggilan lambat hari ini`,
       ket: `Lebih dari ${BATAS_LAMBAT_MS / 1000} detik — terlama ${fmtDurasi(lambat[0].durationMs)} ke ${lambat[0].endpoint}.`,
-      aksi: { label: "Lihat", konteks: " semua panggilan hari ini", href: urlAudit({ periode: "hari" }) },
+      aksi: { label: "Lihat", konteks: " semua panggilan hari ini", izin: IZIN_AUDIT, href: urlAudit({ periode: "hari" }) },
     });
   }
 
@@ -288,34 +279,22 @@ export function daftarTugas({
 
 // ── Menu modul ─────────────────────────────────────────
 
-export interface ItemMenu {
-  href: string;
-  label: string;
-  ket: string;
-  ikon: LucideIcon;
-}
+/** Item menu Beranda = item `bpjsNav` (href, ikon, izin — satu sumber dengan Sidebar) + keterangan. */
+export type ItemMenu = NavItem & { ket: string };
 
-export const MENU: readonly { grup: string; item: readonly ItemMenu[] }[] = [
-  {
-    grup: "V-Claim",
-    item: [
-      { href: "/ehis-bpjs/vclaim/kepesertaan", label: "Kepesertaan", ket: "Cek status peserta lewat nomor kartu atau NIK", ikon: UserCheck },
-      { href: "/ehis-bpjs/vclaim/sep", label: "SEP", ket: "Cari, perbarui, suplesi, SEP internal, sidik jari", ikon: FileText },
-      { href: "/ehis-bpjs/vclaim/rujukan", label: "Rujukan", ket: "Rujukan masuk, keluar, khusus, dan referensi faskes", ikon: Share2 },
-      { href: "/ehis-bpjs/vclaim/monitoring", label: "Monitoring", ket: "Kunjungan, klaim, histori pelayanan, Jasa Raharja", ikon: Activity },
-      { href: "/ehis-bpjs/vclaim/rencana-kontrol", label: "Rencana Kontrol", ket: "Surat kontrol dan SPRI", ikon: CalendarCheck },
-    ],
-  },
-  {
-    grup: "Aplicares",
-    item: [
-      { href: "/ehis-bpjs/aplicares/referensi-kamar", label: "Referensi Kamar", ket: "Kode kelas kamar dan pemakaiannya di RS", ikon: BedDouble },
-      { href: "/ehis-bpjs/aplicares/map-kelas", label: "Map Kelas", ket: "Pemetaan kelas RS ke kelas BPJS", ikon: LayoutGrid },
-      { href: HREF_KETERSEDIAAN, label: "Ketersediaan", ket: "Laporkan tempat tidur kosong per ruangan", ikon: Bed },
-    ],
-  },
-  {
-    grup: "Audit",
-    item: [{ href: "/ehis-bpjs/audit", label: "Audit Trail", ket: "Jejak setiap panggilan ke web service BPJS", ikon: History }],
-  },
-];
+const KET_MENU: Record<string, string> = {
+  "/ehis-bpjs/vclaim/kepesertaan": "Cek status peserta lewat nomor kartu atau NIK",
+  "/ehis-bpjs/vclaim/sep": "Cari, perbarui, suplesi, SEP internal, sidik jari",
+  "/ehis-bpjs/vclaim/rujukan": "Rujukan masuk, keluar, khusus, dan referensi faskes",
+  "/ehis-bpjs/vclaim/monitoring": "Kunjungan, klaim, histori pelayanan, Jasa Raharja",
+  "/ehis-bpjs/vclaim/rencana-kontrol": "Surat kontrol dan SPRI",
+  "/ehis-bpjs/aplicares/referensi-kamar": "Kode kelas kamar dan pemakaiannya di RS",
+  "/ehis-bpjs/aplicares/map-kelas": "Pemetaan kelas RS ke kelas BPJS",
+  [HREF_KETERSEDIAAN]: "Laporkan tempat tidur kosong per ruangan",
+  "/ehis-bpjs/audit": "Jejak setiap panggilan ke web service BPJS",
+};
+
+/** Grup menu tanpa "Utama" (Beranda itu sendiri). Saring izin di komponen (`navItemVisible`). */
+export const MENU: readonly { grup: string; item: readonly ItemMenu[] }[] = bpjsNav
+  .filter((g) => g.label !== "Utama")
+  .map((g) => ({ grup: g.label, item: g.items.map((it) => ({ ...it, ket: KET_MENU[it.href] ?? "" })) }));

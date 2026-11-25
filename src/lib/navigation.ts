@@ -220,7 +220,8 @@ export const MODULES: readonly ModuleDescriptor[] = [
       text: "text-emerald-600",
       ring: "ring-emerald-100",
     },
-    perms: ["billing.klaim"],
+    // Gerbang modul sendiri (bukan billing.klaim milik E-Klaim). Hak per menu = bpjs.* di bpjsNav.
+    perms: ["bpjs.view"],
   },
   {
     key: "report",
@@ -493,18 +494,21 @@ export const bpjsNav: readonly NavGroup[] = [
         label: "Kepesertaan",
         href: "/ehis-bpjs/vclaim/kepesertaan",
         icon: UserCheck,
+        perm: "bpjs.kepesertaan",
       },
-      { label: "SEP", href: "/ehis-bpjs/vclaim/sep", icon: FileText },
-      { label: "Rujukan", href: "/ehis-bpjs/vclaim/rujukan", icon: Share2 },
+      { label: "SEP", href: "/ehis-bpjs/vclaim/sep", icon: FileText, perm: "bpjs.sep" },
+      { label: "Rujukan", href: "/ehis-bpjs/vclaim/rujukan", icon: Share2, perm: "bpjs.rujukan" },
       {
         label: "Monitoring",
         href: "/ehis-bpjs/vclaim/monitoring",
         icon: Activity,
+        perm: "bpjs.monitoring",
       },
       {
         label: "Rencana Kontrol",
         href: "/ehis-bpjs/vclaim/rencana-kontrol",
         icon: CalendarCheck,
+        perm: "bpjs.rencanakontrol",
       },
     ],
   },
@@ -515,22 +519,25 @@ export const bpjsNav: readonly NavGroup[] = [
         label: "Referensi Kamar",
         href: "/ehis-bpjs/aplicares/referensi-kamar",
         icon: BedDouble,
+        perm: "bpjs.aplicares",
       },
       {
         label: "Map Kelas",
         href: "/ehis-bpjs/aplicares/map-kelas",
         icon: LayoutGrid,
+        perm: "bpjs.aplicares",
       },
       {
         label: "Ketersediaan",
         href: "/ehis-bpjs/aplicares/ketersediaan",
         icon: Bed,
+        perm: "bpjs.aplicares",
       },
     ],
   },
   {
     label: "Audit",
-    items: [{ label: "Audit Trail", href: "/ehis-bpjs/audit", icon: History }],
+    items: [{ label: "Audit Trail", href: "/ehis-bpjs/audit", icon: History, perm: "bpjs.audit" }],
   },
 ] as const;
 

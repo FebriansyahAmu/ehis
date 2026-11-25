@@ -49,7 +49,39 @@ export function consumeRateLimit(consId: string, limit = DEFAULT_DAILY_LIMIT): R
   return { ok: true, remaining: limit - b.count, limit };
 }
 
+// ── Jendela per kunci (mis. per pengguna) ───────────────
+
+interface Jendela {
+  mulai: number;
+  count: number;
+}
+
+const jendela = new Map<string, Jendela>();
+
+export interface JendelaResult {
+  ok: boolean;
+  /** Detik sampai jendela berikutnya (0 bila ok). */
+  retryAfterSec: number;
+}
+
+/**
+ * Batas `limit` panggilan per `windowMs` per `key` (jendela tetap). Dipakai untuk pencarian data
+ * pribadi per pengguna (cek kepesertaan) — mencegah panen data massal (OWASP API4/API6).
+ * ⚠️ in-memory per-proses, sama seperti kuota harian di atas → Redis saat multi-instance.
+ */
+export function consumeWindow(key: string, limit: number, windowMs: number, now = Date.now()): JendelaResult {
+  let j = jendela.get(key);
+  if (!j || now - j.mulai >= windowMs) {
+    j = { mulai: now, count: 0 };
+    jendela.set(key, j);
+  }
+  if (j.count >= limit) return { ok: false, retryAfterSec: Math.max(1, Math.ceil((j.mulai + windowMs - now) / 1000)) };
+  j.count += 1;
+  return { ok: true, retryAfterSec: 0 };
+}
+
 /** Reset (test). */
 export function resetRateLimit(): void {
   buckets.clear();
+  jendela.clear();
 }

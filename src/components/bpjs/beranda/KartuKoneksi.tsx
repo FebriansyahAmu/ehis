@@ -78,7 +78,7 @@ function Angka({ label, children, ket }: { label: string; children: ReactNode; k
   );
 }
 
-function UbinLayanan({ r, cakupan, sekarang }: { r: RingkasLayanan; cakupan: string; sekarang: number }) {
+function UbinLayanan({ r, cakupan, sekarang, bolehLog }: { r: RingkasLayanan; cakupan: string; sekarang: number; bolehLog: boolean }) {
   const s = LABEL_STATUS_LAYANAN[r.status];
   const nadaRata = r.rataMs !== null ? nadaDurasi(r.rataMs) : null;
   return (
@@ -107,19 +107,32 @@ function UbinLayanan({ r, cakupan, sekarang }: { r: RingkasLayanan; cakupan: str
         </Angka>
       </dl>
 
-      <footer className="-mb-1 flex justify-end">
-        <Button asChild variant="ghost" size="xs" className="text-emerald-800 hover:bg-white hover:text-emerald-900">
-          <Link href={urlAudit({ layanan: r.layanan })}>
-            Lihat log<span className="sr-only"> {r.layanan}</span>
-            <ArrowUpRight aria-hidden="true" />
-          </Link>
-        </Button>
-      </footer>
+      {bolehLog && (
+        <footer className="-mb-1 flex justify-end">
+          <Button asChild variant="ghost" size="xs" className="text-emerald-800 hover:bg-white hover:text-emerald-900">
+            <Link href={urlAudit({ layanan: r.layanan })}>
+              Lihat log<span className="sr-only"> {r.layanan}</span>
+              <ArrowUpRight aria-hidden="true" />
+            </Link>
+          </Button>
+        </footer>
+      )}
     </article>
   );
 }
 
-export default function KartuKoneksi({ siap, layanan, sekarang }: { siap: boolean; layanan: readonly RingkasLayanan[]; sekarang: number }) {
+export default function KartuKoneksi({
+  siap,
+  layanan,
+  sekarang,
+  bolehLog,
+}: {
+  siap: boolean;
+  layanan: readonly RingkasLayanan[];
+  sekarang: number;
+  /** Izin `bpjs.audit:read` — tautan "Lihat log" ke Audit trail. */
+  bolehLog: boolean;
+}) {
   const id = useId();
   return (
     <Card className={KARTU}>
@@ -132,7 +145,9 @@ export default function KartuKoneksi({ siap, layanan, sekarang }: { siap: boolea
         <div className="grid gap-2 px-4 sm:grid-cols-2">
           {!siap
             ? [0, 1].map((i) => <Skeleton key={i} className="h-48 rounded-xl" />)
-            : layanan.map((r) => <UbinLayanan key={r.layanan} r={r} cakupan={LAYANAN.find((l) => l.nama === r.layanan)?.cakupan ?? ""} sekarang={sekarang} />)}
+            : layanan.map((r) => (
+                <UbinLayanan key={r.layanan} r={r} cakupan={LAYANAN.find((l) => l.nama === r.layanan)?.cakupan ?? ""} sekarang={sekarang} bolehLog={bolehLog} />
+              ))}
         </div>
       </section>
     </Card>

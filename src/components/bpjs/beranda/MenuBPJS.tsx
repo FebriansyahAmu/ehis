@@ -1,6 +1,7 @@
 "use client";
 
-// Kartu "Menu" Beranda BPJS: pintasan ke semua halaman modul per grup (V-Claim · Aplicares · Audit).
+// Kartu "Menu" Beranda BPJS: pintasan ke halaman modul per grup (V-Claim · Aplicares · Audit),
+// HANYA yang boleh dibuka pengguna (izin `bpjs.*` — aturan sama dengan Sidebar & guard server).
 // Tiap entri = SATU tautan (seluruh baris bisa diklik, tanpa kontrol lain di dalamnya).
 // Komponen shadcn: Card · Item.
 
@@ -9,23 +10,28 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
+import { useCan } from "@/components/auth/Can";
 import { KepalaKartu } from "@/components/bpjs/shared/daftarUi";
 import { KARTU } from "@/components/bpjs/shared/vclaimUi";
+import { navItemVisible } from "@/lib/navigation";
 import { MENU } from "./berandaShared";
 
 export default function MenuBPJS() {
   const id = useId();
+  const can = useCan();
+  const grup = MENU.map((g) => ({ ...g, item: g.item.filter((m) => navItemVisible(m, can)) })).filter((g) => g.item.length > 0);
+  if (grup.length === 0) return null;
   return (
     <Card className={KARTU}>
       <nav aria-labelledby={`${id}-judul`} className="flex flex-col gap-3 py-4">
-        <KepalaKartu judulId={`${id}-judul`} judul="Menu BPJS" deskripsi="Semua halaman V-Claim, Aplicares, dan audit" />
+        <KepalaKartu judulId={`${id}-judul`} judul="Menu BPJS" deskripsi="Halaman V-Claim, Aplicares, dan audit yang bisa Anda buka" />
         <div className="flex flex-col gap-3 px-2">
-          {MENU.map((g) => (
+          {grup.map((g) => (
             <div key={g.grup} className="flex flex-col gap-0.5">
               <h3 className="px-2 text-[11px] font-medium text-muted-foreground">{g.grup}</h3>
               <ul className="flex flex-col">
                 {g.item.map((m) => {
-                  const Ikon = m.ikon;
+                  const Ikon = m.icon;
                   return (
                     <li key={m.href}>
                       <Item

@@ -88,7 +88,8 @@ export const PERMISSION_TREE: PermissionModule[] = [
       { key: "registration.kunjungan", label: "Pendaftaran Kunjungan",       actions: ["read", "create", "update", "delete"] },
       { key: "billing.invoice",       label: "Billing — Invoice",            actions: ["read", "create", "update", "delete", "export"] },
       { key: "billing.kasir",         label: "Billing — Kasir / Bayar",      actions: ["read", "create"] },
-      { key: "billing.klaim",         label: "Billing — Klaim BPJS",         actions: ["read", "create", "update", "export"] },
+      // Klaim (modul E-Klaim) — BUKAN akses modul bridging BPJS (itu bpjs.* di grup "BPJS").
+      { key: "billing.klaim",         label: "Billing — Klaim (E-Klaim)",    actions: ["read", "create", "update", "export"] },
     ],
   },
   {
@@ -121,6 +122,23 @@ export const PERMISSION_TREE: PermissionModule[] = [
       { key: "inventory.distribusi",  label: "Distribusi Unit",               actions: ["read", "create", "update"] },
       { key: "inventory.monitoring",  label: "Monitoring Stok",               actions: ["read", "export"] },
       { key: "inventory.rekanan",     label: "Rekanan (Vendor/PBF)",          actions: ["read", "create", "update", "delete"] },
+    ],
+  },
+  {
+    // Bridging web service BPJS (V-Claim + Aplicares) — terpisah dari billing.klaim (E-Klaim).
+    // bpjs.view = melihat modul; leaf lain = hak data/aksi per menu yang juga dicek API
+    // (mis. POST /api/v1/bpjs/peserta/cek → bpjs.kepesertaan:read). Migrasi 20261125120000.
+    key: "bpjs",
+    label: "BPJS (V-Claim & Aplicares)",
+    leaves: [
+      { key: "bpjs.view",            label: "BPJS — Akses Modul",               actions: ["read"] },
+      { key: "bpjs.kepesertaan",     label: "Cek Kepesertaan",                  actions: ["read"] },
+      { key: "bpjs.sep",             label: "SEP",                              actions: ["read", "create", "update", "delete"] },
+      { key: "bpjs.rujukan",         label: "Rujukan",                          actions: ["read", "create", "update", "delete"] },
+      { key: "bpjs.monitoring",      label: "Monitoring Kunjungan & Klaim",     actions: ["read", "export"] },
+      { key: "bpjs.rencanakontrol",  label: "Rencana Kontrol & SPRI",           actions: ["read", "create", "update", "delete"] },
+      { key: "bpjs.aplicares",       label: "Aplicares (Referensi & Ketersediaan Kamar)", actions: ["read", "create", "update", "delete"] },
+      { key: "bpjs.audit",           label: "Audit Trail BPJS",                 actions: ["read", "export"] },
     ],
   },
   {
@@ -287,6 +305,15 @@ const ROLE_DEFAULT_GRANTS: Record<UserRole, Record<string, CrudAction[]>> = {
     "billing.invoice": ["read", "create", "update"],
     "billing.kasir": ["read", "create"],
     "billing.klaim": ["read", "update"],
+    // Paritas migrasi 20261125120000: dulu modul BPJS terbuka lewat billing.klaim → kini baca saja.
+    "bpjs.view": ["read"],
+    "bpjs.kepesertaan": ["read"],
+    "bpjs.sep": ["read"],
+    "bpjs.rujukan": ["read"],
+    "bpjs.monitoring": ["read"],
+    "bpjs.rencanakontrol": ["read"],
+    "bpjs.aplicares": ["read"],
+    "bpjs.audit": ["read"],
     "registration.pasien": ["read"],
     "registration.kunjungan": ["read"],
     "report.financial": ["read", "export"],

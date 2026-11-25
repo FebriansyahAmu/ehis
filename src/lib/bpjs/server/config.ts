@@ -43,7 +43,13 @@ const EnvSchema = z.object({
   // Override khusus: paksa sync REFERENSI (read-only) ke BPJS nyata walau BPJS_MODE=mock.
   // Untuk uji konektivitas referensi tanpa mengaktifkan write (InsertSPRI/SEP) ke nyata.
   BPJS_REFERENSI_LIVE: blankToUndef(z.enum(["true", "false"]).default("false")),
+  // Override khusus: panggilan BACA per pengguna (cek kepesertaan, …) ke BPJS nyata walau
+  // BPJS_MODE=mock — write (SEP/SPRI/rencana kontrol) TETAP mock. Untuk uji kredensial.
+  BPJS_BACA_LIVE: blankToUndef(z.enum(["true", "false"]).default("false")),
 });
+
+/** Env inti yang wajib ada untuk panggilan nyata (urutan = urutan pesan galat). */
+const ENV_INTI = ["BPJS_CONS_ID", "BPJS_CONS_SECRET", "BPJS_USER_KEY", "BPJS_VCLAIM_BASE_URL"] as const;
 
 export interface ServiceEndpoint {
   baseUrl: string;
@@ -59,6 +65,13 @@ export interface BpjsConfig {
   requestTimeoutMs: number;
   /** Paksa sync referensi (read-only) ke BPJS nyata walau mode mock. */
   referensiLive: boolean;
+  /** Paksa panggilan baca per pengguna (cek kepesertaan) ke BPJS nyata walau mode mock. */
+  bacaLive: boolean;
+  /**
+   * Nama env inti yang belum diisi (hanya bisa tidak kosong di mode mock — sandbox/prod sudah
+   * fail-fast). Dipakai sebelum panggilan nyata lewat override `*_LIVE`.
+   */
+  envKurang: string[];
   /** Per-service base URL + user_key. baseUrl kosong = service belum dikonfigurasi. */
   services: Record<BpjsService, ServiceEndpoint>;
 }
@@ -79,6 +92,7 @@ export function getBpjsConfig(): BpjsConfig {
   }
   const e = parsed.data;
   const mode = e.BPJS_MODE;
+  const envKurang = ENV_INTI.filter((k) => !e[k]);
 
   if (mode === "mock") {
     // Placeholder — callBpjs menolak jalan di mode mock (adapter mock dipakai di service).
@@ -90,6 +104,8 @@ export function getBpjsConfig(): BpjsConfig {
       timestampToleranceSec: e.BPJS_TIMESTAMP_TOLERANCE_SEC,
       requestTimeoutMs: e.BPJS_REQUEST_TIMEOUT_MS,
       referensiLive: e.BPJS_REFERENSI_LIVE === "true",
+      bacaLive: e.BPJS_BACA_LIVE === "true",
+      envKurang,
       services: {
         vclaim: { baseUrl: e.BPJS_VCLAIM_BASE_URL ?? "", userKey: e.BPJS_USER_KEY ?? "mock-key" },
         aplicares: { baseUrl: e.BPJS_APLICARES_BASE_URL ?? "", userKey: e.BPJS_APLICARES_USER_KEY ?? e.BPJS_USER_KEY ?? "mock-key" },
@@ -100,13 +116,8 @@ export function getBpjsConfig(): BpjsConfig {
   }
 
   // mode sandbox/prod → kredensial inti wajib.
-  const missing: string[] = [];
-  if (!e.BPJS_CONS_ID) missing.push("BPJS_CONS_ID");
-  if (!e.BPJS_CONS_SECRET) missing.push("BPJS_CONS_SECRET");
-  if (!e.BPJS_USER_KEY) missing.push("BPJS_USER_KEY");
-  if (!e.BPJS_VCLAIM_BASE_URL) missing.push("BPJS_VCLAIM_BASE_URL");
-  if (missing.length) {
-    throw new BpjsConfigError(`BPJS_MODE=${mode} tetapi env wajib hilang: ${missing.join(", ")}`);
+  if (envKurang.length) {
+    throw new BpjsConfigError(`BPJS_MODE=${mode} tetapi env wajib hilang: ${envKurang.join(", ")}`);
   }
 
   cached = {
@@ -117,6 +128,8 @@ export function getBpjsConfig(): BpjsConfig {
     timestampToleranceSec: e.BPJS_TIMESTAMP_TOLERANCE_SEC,
     requestTimeoutMs: e.BPJS_REQUEST_TIMEOUT_MS,
     referensiLive: e.BPJS_REFERENSI_LIVE === "true",
+    bacaLive: e.BPJS_BACA_LIVE === "true",
+    envKurang: [],
     services: {
       vclaim: { baseUrl: e.BPJS_VCLAIM_BASE_URL!, userKey: e.BPJS_USER_KEY! },
       // aplicares/antrean opsional — baseUrl kosong → ditolak saat dipanggil.
@@ -135,4 +148,9 @@ export function resetBpjsConfigCache(): void {
 /** True bila mode mock (service pakai adapter mock, bukan HTTP nyata). */
 export function isBpjsMockMode(): boolean {
   return getBpjsConfig().mode === "mock";
+}
+
+/** Panggilan BACA per pengguna (cek kepesertaan) ke BPJS nyata? sandbox/prod, atau mock + BPJS_BACA_LIVE. */
+export function bacaBpjsLive(cfg: BpjsConfig = getBpjsConfig()): boolean {
+  return cfg.mode !== "mock" || cfg.bacaLive;
 }

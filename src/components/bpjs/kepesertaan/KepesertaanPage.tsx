@@ -3,13 +3,15 @@
 // BPJS V-Claim → Cek Kepesertaan. Kolom kiri sempit (form + riwayat sesi), kanan lebar (hasil).
 // Gaya shadcn (Button/Badge, token --ui-* beraksen sky via data-accent). State query dipegang
 // di sini agar riwayat bisa mengisi ulang form; respons basi (pencarian yang sudah disusul)
-// diabaikan lewat nomor permintaan.
+// diabaikan lewat nomor permintaan. Pencarian lewat BFF (`POST /api/v1/bpjs/peserta/cek`);
+// `sumber` (dari server) menandai data uji vs V-Claim sungguhan di kepala halaman.
 
 import { useCallback, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { Loader2, UserCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useSkeletonDelay } from "@/components/master/shared";
+import { cn } from "@/lib/ui/utils";
 import { getPesertaByKartu, getPesertaByNik } from "@/lib/bpjs/vClaimKepesertaan";
 import CekPesertaForm from "./CekPesertaForm";
 import PesertaDetailCard from "./PesertaDetailCard";
@@ -21,6 +23,7 @@ import {
   type KepesertaanResult,
   type Query,
   type RiwayatItem,
+  type SumberData,
 } from "./kepesertaanShared";
 
 function PageSkeleton() {
@@ -44,7 +47,7 @@ function ringkas(r: KepesertaanResult): string {
   return "";
 }
 
-export default function KepesertaanPage() {
+export default function KepesertaanPage({ sumber }: { sumber: SumberData }) {
   const loaded = useSkeletonDelay(400);
 
   const [query, setQuery] = useState<Query>(() => ({ mode: "kartu", value: "", tgl: toYmd(hariIni()) }));
@@ -133,8 +136,12 @@ export default function KepesertaanPage() {
               </motion.span>
             )}
           </AnimatePresence>
-          <Badge variant="secondary" className="bg-white text-[11px] text-muted-foreground tabular-nums shadow-xs">
-            V-Claim 5.0
+          <Badge
+            variant="secondary"
+            className={cn("gap-1.5 text-[11px] shadow-xs", sumber.live ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800")}
+          >
+            <span aria-hidden="true" className={cn("size-1.5 rounded-full", sumber.live ? "bg-emerald-500" : "bg-amber-500")} />
+            {sumber.label}
           </Badge>
         </header>
 
@@ -148,7 +155,7 @@ export default function KepesertaanPage() {
               <h2 id="form-judul" className="mb-3 text-sm font-semibold text-foreground">
                 Pencarian peserta
               </h2>
-              <CekPesertaForm query={query} onChange={setQuery} onSubmit={cek} busy={busy} inputRef={inputRef} />
+              <CekPesertaForm query={query} onChange={setQuery} onSubmit={cek} busy={busy} inputRef={inputRef} dataUji={!sumber.live} />
             </section>
             <RiwayatPencarian
               items={riwayat}

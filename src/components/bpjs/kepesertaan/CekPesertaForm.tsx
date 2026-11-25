@@ -31,12 +31,15 @@ export default function CekPesertaForm({
   onSubmit,
   busy,
   inputRef,
+  dataUji,
 }: {
   query: Query;
   onChange: (q: Query) => void;
   onSubmit: (q: Query) => void;
   busy: boolean;
   inputRef: RefObject<HTMLInputElement | null>;
+  /** Tampilkan pintasan data uji — hanya saat server memakai data uji (bukan V-Claim sungguhan). */
+  dataUji: boolean;
 }) {
   const id = useId();
   const [touched, setTouched] = useState({ value: false, tgl: false });
@@ -197,29 +200,32 @@ export default function CekPesertaForm({
         )}
       </Button>
 
-      {/* Data uji (mock) */}
-      <details className="group rounded-xl bg-slate-100/70">
-        <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-xl px-3 py-2 text-xs text-muted-foreground transition-colors select-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
-          <FlaskConical className="size-3.5" aria-hidden="true" />
-          <span className="flex-1">Data uji (mock)</span>
-          <ChevronDown className="size-3.5 transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
-        </summary>
-        <div className="flex flex-wrap gap-1.5 px-3 pb-3">
-          {SAMPLE[query.mode].map((s) => (
-            <Button
-              key={s.value}
-              type="button"
-              variant="secondary"
-              size="xs"
-              className="bg-white shadow-xs hover:bg-slate-50"
-              onClick={() => pakaiContoh(s.value)}
-              title={`Isi ${s.value} lalu cek`}
-            >
-              {s.label}
-            </Button>
-          ))}
-        </div>
-      </details>
+      {/* Data uji (mock) — disembunyikan saat tersambung V-Claim sungguhan: nomor contoh bisa saja
+          milik peserta nyata. */}
+      {dataUji && (
+        <details className="group rounded-xl bg-slate-100/70">
+          <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-xl px-3 py-2 text-xs text-muted-foreground transition-colors select-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+            <FlaskConical className="size-3.5" aria-hidden="true" />
+            <span className="flex-1">Data uji (mock)</span>
+            <ChevronDown className="size-3.5 transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
+          </summary>
+          <div className="flex flex-wrap gap-1.5 px-3 pb-3">
+            {SAMPLE[query.mode].map((s) => (
+              <Button
+                key={s.value}
+                type="button"
+                variant="secondary"
+                size="xs"
+                className="bg-white shadow-xs hover:bg-slate-50"
+                onClick={() => pakaiContoh(s.value)}
+                title={`Isi ${s.value} lalu cek`}
+              >
+                {s.label}
+              </Button>
+            ))}
+          </div>
+        </details>
+      )}
     </form>
   );
 }

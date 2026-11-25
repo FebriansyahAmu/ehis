@@ -253,7 +253,8 @@ export interface PesertaRecord {
   sex: "L" | "P";
   /** PISA indicator (kode string per BPJS internal — biasanya "1" atau "2"). */
   pisa: string;
-  hakKelas: { kode: "1" | "2" | "3"; keterangan: string };
+  /** Kode hak kelas — umumnya "1"/"2"/"3"; data asli V-Claim bisa memuat kode lain (tampil apa adanya). */
+  hakKelas: { kode: "1" | "2" | "3" | (string & {}); keterangan: string };
   jenisPeserta: { kode: JenisPesertaKode; keterangan: string };
   statusPeserta: { kode: StatusPesertaKode; keterangan: string };
   mr: PesertaMR;

@@ -17,6 +17,15 @@ export interface Query {
   tgl: string;
 }
 
+/**
+ * Sumber data cek kepesertaan (ditentukan server dari BPJS_MODE / BPJS_BACA_LIVE): `live` = V-Claim
+ * sungguhan → tombol data uji disembunyikan agar nomor contoh tidak dikirim ke BPJS.
+ */
+export interface SumberData {
+  live: boolean;
+  label: string;
+}
+
 export type KepesertaanResult =
   | { status: "idle" }
   | { status: "loading" }
@@ -157,6 +166,19 @@ export function errorLabel(err: BPJSError): {
     if (e.code === "204")
       return { title: "Validasi gagal", desc: e.message, tone: "rose", retryable: false, kode: e.code };
     return { title: "BPJS menolak permintaan", desc: e.message, tone: "rose", retryable: e.retryable, kode: e.code };
+  }
+  if (err.type === "AuthError") return { title: "Akses ditolak", desc: err.message, tone: "rose", retryable: false, kode: null };
+  if (err.type === "ValidationError") return { title: "Permintaan tidak valid", desc: err.message, tone: "rose", retryable: false, kode: null };
+  if (err.type === "NetworkError") {
+    // retryable:false = permintaan ditahan server (batas laju / kuota harian), bukan sambungan putus.
+    if (!err.retryable) return { title: "Pencarian ditahan sementara", desc: err.message, tone: "amber", retryable: false, kode: null };
+    return {
+      title: "Gagal terhubung ke V-Claim",
+      desc: err.message || "Sambungan ke server BPJS terputus. Periksa koneksi lalu coba lagi.",
+      tone: "rose",
+      retryable: true,
+      kode: null,
+    };
   }
   return {
     title: "Gagal terhubung ke V-Claim",

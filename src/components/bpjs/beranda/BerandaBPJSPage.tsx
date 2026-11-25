@@ -15,6 +15,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { MotionConfig } from "framer-motion";
 import { RotateCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useCan } from "@/components/auth/Can";
 import { useSkeletonDelay } from "@/components/master/shared";
 import { keISO } from "@/components/bpjs/shared/tanggal";
 import { useSekarang } from "@/components/bpjs/aplicares/ketersediaanShared";
@@ -23,7 +24,7 @@ import { listKamar } from "@/lib/bpjs/aplicaresAdapter";
 import { getAuditEntries, subscribeAudit } from "@/lib/bpjs/auditStore";
 import type { AplicaresKamarRecord, BPJSAuditEntry, BPJSError } from "@/lib/bpjs/bpjsShared";
 import { seedAuditTrailMock } from "@/lib/bpjs/mock/auditTrailMock";
-import { LAYANAN, daftarTugas, ringkasKamar, ringkasLayanan } from "./berandaShared";
+import { IZIN_APLICARES, IZIN_AUDIT, LAYANAN, daftarTugas, ringkasKamar, ringkasLayanan } from "./berandaShared";
 import KartuKoneksi from "./KartuKoneksi";
 import KartuPanggilan from "./KartuPanggilan";
 import KartuTempatTidur from "./KartuTempatTidur";
@@ -39,9 +40,14 @@ export default function BerandaBPJSPage() {
   const siap = useSkeletonDelay(400);
   const log = useSyncExternalStore(subscribeAudit, getAuditEntries, () => KOSONG);
   const sekarang = useSekarang();
+  // Bagian Beranda mengikuti izin menu tujuannya (RBAC bpjs.*): data kamar ↔ Aplicares,
+  // daftar panggilan (aktor, endpoint) ↔ Audit trail. Hanya UX — API tetap penjaga utama.
+  const can = useCan();
+  const bolehKamar = can(IZIN_APLICARES, "read");
+  const bolehAudit = can(IZIN_AUDIT, "read");
   const [muat, setMuat] = useState(0);
   const [hasil, setHasil] = useState<HasilKamar | null>(null);
-  const memuatKamar = hasil?.kunci !== muat;
+  const memuatKamar = bolehKamar && hasil?.kunci !== muat;
 
   // Data uji audit sekali per sesi (idempoten) — panggilan nyata dari adapter tercatat di store yang sama.
   useEffect(() => {
@@ -49,6 +55,7 @@ export default function BerandaBPJSPage() {
   }, []);
 
   useEffect(() => {
+    if (!bolehKamar) return;
     let batal = false;
     listKamar()
       .then((res) => {
@@ -61,7 +68,7 @@ export default function BerandaBPJSPage() {
     return () => {
       batal = true;
     };
-  }, [muat]);
+  }, [muat, bolehKamar]);
 
   const urut = log.toSorted((a, b) => b.timestamp.localeCompare(a.timestamp));
   const hariIni = keISO(new Date(sekarang));
@@ -84,38 +91,46 @@ export default function BerandaBPJSPage() {
             <h1 className="text-sm font-semibold">Beranda BPJS</h1>
             <p className="text-xs text-muted-foreground">Koneksi web service, hal yang perlu ditindaklanjuti, dan aktivitas V-Claim serta Aplicares</p>
           </div>
-          <div className="flex items-center gap-2">
-            {kamarOk && (
-              <span className="text-[11px] text-muted-foreground tabular-nums">
-                Data kamar dimuat{" "}
-                <time dateTime={new Date(kamarOk.waktu).toISOString()}>
-                  {new Date(kamarOk.waktu).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
-                </time>
-              </span>
-            )}
-            <Button
-              variant="secondary"
-              size="xs"
-              onClick={() => {
-                if (!memuatKamar) ulangKamar();
-              }}
-              aria-disabled={memuatKamar}
-              className="bg-white shadow-xs aria-disabled:cursor-wait aria-disabled:opacity-60"
-            >
-              <RotateCw aria-hidden="true" className={cn(memuatKamar && "animate-spin motion-reduce:animate-none")} />
-              Muat ulang<span className="sr-only"> data tempat tidur Aplicares</span>
-            </Button>
-          </div>
+          {bolehKamar && (
+            <div className="flex items-center gap-2">
+              {kamarOk && (
+                <span className="text-[11px] text-muted-foreground tabular-nums">
+                  Data kamar dimuat{" "}
+                  <time dateTime={new Date(kamarOk.waktu).toISOString()}>
+                    {new Date(kamarOk.waktu).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                  </time>
+                </span>
+              )}
+              <Button
+                variant="secondary"
+                size="xs"
+                onClick={() => {
+                  if (!memuatKamar) ulangKamar();
+                }}
+                aria-disabled={memuatKamar}
+                className="bg-white shadow-xs aria-disabled:cursor-wait aria-disabled:opacity-60"
+              >
+                <RotateCw aria-hidden="true" className={cn(memuatKamar && "animate-spin motion-reduce:animate-none")} />
+                Muat ulang<span className="sr-only"> data tempat tidur Aplicares</span>
+              </Button>
+            </div>
+          )}
         </header>
 
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <div className="flex min-w-0 flex-col gap-4">
-            <KartuKoneksi siap={siap} layanan={layanan} sekarang={sekarang} />
-            <KartuTugas siap={siap} tugas={tugas} kamarSiap={hasil !== null} memuatKamar={memuatKamar} onUlangKamar={ulangKamar} />
-            <KartuPanggilan siap={siap} log={urut} sekarang={sekarang} />
+            <KartuKoneksi siap={siap} layanan={layanan} sekarang={sekarang} bolehLog={bolehAudit} />
+            <KartuTugas
+              siap={siap}
+              tugas={tugas}
+              kamarSiap={!bolehKamar || hasil !== null}
+              memuatKamar={memuatKamar}
+              onUlangKamar={ulangKamar}
+            />
+            {bolehAudit && <KartuPanggilan siap={siap} log={urut} sekarang={sekarang} />}
           </div>
           <div className="flex min-w-0 flex-col gap-4">
-            <KartuTempatTidur siap={siap} memuat={memuatKamar} kamar={kamar} error={galatKamar} onUlang={ulangKamar} />
+            {bolehKamar && <KartuTempatTidur siap={siap} memuat={memuatKamar} kamar={kamar} error={galatKamar} onUlang={ulangKamar} />}
             <MenuBPJS />
           </div>
         </div>

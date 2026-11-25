@@ -53,6 +53,10 @@ export const Errors = {
   conflictVersion: (msg = "Data telah diubah pihak lain, muat ulang") =>
     new AppError("CONFLICT_VERSION", msg),
   forbiddenState: (msg = "Transisi status tidak diperbolehkan") => new AppError("FORBIDDEN_STATE", msg),
+  rateLimited: (msg = "Terlalu banyak permintaan, coba lagi sebentar lagi", details?: unknown) =>
+    new AppError("RATE_LIMITED", msg, details),
+  /** Layanan eksternal (BPJS, SatuSehat, …) gagal/tak terjangkau — pesan aman, detail di log server. */
+  upstream: (msg = "Layanan eksternal tidak dapat dihubungi") => new AppError("UPSTREAM_ERROR", msg),
   internal: (msg = "Terjadi kesalahan internal") => new AppError("INTERNAL", msg),
 } as const;
 

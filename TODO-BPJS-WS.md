@@ -67,12 +67,12 @@
 ---
 
 ## BWS1 — BFF endpoints + de-client
-- [ ] Route handlers `/api/v1/bpjs/*` (RBAC gate per fitur, reuse `bpjs.*` permission bila ada / `registration.*`).
+- [ ] Route handlers `/api/v1/bpjs/*` (RBAC gate per fitur). **Resource `bpjs.*` ✅ (2026-11-25, migrasi `20261125120000_rbac_bpjs_service`)**: `bpjs.view` (gerbang modul) + `bpjs.kepesertaan` · `bpjs.sep` · `bpjs.rujukan` · `bpjs.monitoring` · `bpjs.rencanakontrol` · `bpjs.aplicares` · `bpjs.audit` — pakai resource menu terkait untuk setiap route baru (contoh: peserta → `bpjs.kepesertaan:read`).
 - [ ] FE adapter (`vClaim*.ts`, `aplicaresAdapter.ts`) → panggil **BFF**, bukan BPJS langsung.
 - [ ] Hapus jalur signing/credential di client; `credentialsStore` jadi server-only.
 
 ## BWS2 — V-Claim Kepesertaan (read pertama, risiko rendah)
-- [ ] `getPesertaByNoKartu` / `byNik` live (sandbox) → swap [vClaimKepesertaan.ts](src/lib/bpjs/vClaimKepesertaan.ts).
+- [x] **Cek kepesertaan via BFF ✅ (2026-11-25, branch `feat/bpjs-kepesertaan-live`)** — `POST /api/v1/bpjs/peserta/cek` ([route](src/app/api/v1/bpjs/peserta/cek/route.ts), gate `bpjs.kepesertaan:read`, nomor di BODY bukan URL, `Cache-Control: no-store`) → [pesertaService](src/lib/services/bpjs/pesertaService.ts): data uji `PESERTA_MOCK` saat `BPJS_MODE=mock`; **V-Claim nyata** saat sandbox/prod **atau override baru `BPJS_BACA_LIVE=true`** (baca saja — write SEP/SPRI/RK tetap mock). Jalur nyata: cek env inti → batas 30 pencarian/menit/pengguna → kuota harian cons-id → `auditedCall` (nomor di-hash) → Zod [schemas/bpjs/peserta.ts](src/lib/schemas/bpjs/peserta.ts) (field tak dikenal dibuang) → `PesertaRecord`. Galat bisnis (201/…) dikembalikan sebagai DTO; sambungan/konfigurasi → 502 pesan aman (URL berisi nomor tak pernah diteruskan/di-log). [vClaimKepesertaan.ts](src/lib/bpjs/vClaimKepesertaan.ts) kini memanggil BFF (dipakai halaman Kepesertaan + Form Rencana Kontrol). Halaman menandai sumber data (Data uji / V-Claim produksi/sandbox/langsung) dan menyembunyikan tombol data uji saat tersambung. **Belum diuji melawan BPJS sungguhan dari laptop dev** (menunggu uji pengguna).
 - [ ] Prefill verifikasi kepesertaan registrasi pakai data nyata (kini un-mask dari DB).
 
 ## BWS3 — Reference sync (cron/BullMQ) — **unblock kode DPJP/SEP**

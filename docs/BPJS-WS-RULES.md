@@ -138,6 +138,10 @@ iv  = key.slice(0, 16)
 ## R13 — Mode & environment
 
 - `BPJS_MODE=mock|sandbox|prod`. `mock` = parity dev/CI (shape sama, tanpa jaringan).
+- Override baca-saja saat `BPJS_MODE=mock` (write tetap mock): `BPJS_REFERENSI_LIVE=true` (sync
+  referensi) · `BPJS_BACA_LIVE=true` (panggilan baca per pengguna, mis. cek kepesertaan). Keduanya
+  butuh env inti lengkap (`BPJS_CONS_ID/SECRET/USER_KEY/VCLAIM_BASE_URL`); jangan naikkan
+  `BPJS_MODE` hanya untuk menguji baca — itu ikut menyalakan write.
 - **Sandbox dulu** (`apijkn-dev`). **Write (SEP) DILARANG ke prod** sebelum sandbox hijau.
 - Base URL & path per-versi **verifikasi di katalog layanan BPJS** (berubah antar rilis).
 
