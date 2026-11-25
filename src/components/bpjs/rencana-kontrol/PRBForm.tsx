@@ -28,10 +28,10 @@ import {
 } from "./prbShared";
 
 const KARTU_PILIH =
-  "flex cursor-pointer items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs transition-colors hover:bg-slate-100 has-data-[state=checked]:bg-emerald-50 has-data-[state=checked]:text-emerald-900 has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-emerald-600 has-data-[state=checked]:ring-inset has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-emerald-600";
+  "relative flex cursor-pointer items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs transition-colors hover:bg-slate-100 has-data-[state=checked]:bg-emerald-50 has-data-[state=checked]:text-emerald-900 has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-emerald-600 has-data-[state=checked]:ring-inset has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-emerald-600";
 
 const SEGMEN_FLAG =
-  "flex-1 cursor-pointer justify-center rounded-lg px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground has-data-[state=checked]:bg-white has-data-[state=checked]:text-foreground has-data-[state=checked]:shadow-xs has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-emerald-600 has-data-[state=checked]:ring-inset has-focus-visible:outline-2 has-focus-visible:outline-emerald-600";
+  "relative flex-1 cursor-pointer justify-center rounded-lg px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground has-data-[state=checked]:bg-white has-data-[state=checked]:text-foreground has-data-[state=checked]:shadow-xs has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-emerald-600 has-data-[state=checked]:ring-inset has-focus-visible:outline-2 has-focus-visible:outline-emerald-600";
 
 function teksAwal(data: PRBFormData): Partial<Record<keyof PRBFormData, string>> {
   const t: Partial<Record<keyof PRBFormData, string>> = {};

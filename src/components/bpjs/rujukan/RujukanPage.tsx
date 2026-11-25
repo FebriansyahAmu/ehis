@@ -125,7 +125,7 @@ function RujukanPageInner() {
               key={key}
               value={key}
               forceMount={dikunjungi.has(key) || undefined}
-              className="min-h-0 overflow-y-auto data-[state=inactive]:hidden"
+              className="relative min-h-0 overflow-y-auto data-[state=inactive]:hidden" // relative: radio/teks sr-only tetap di dalam panel gulir
             >
               {dikunjungi.has(key) && isi}
             </TabsContent>

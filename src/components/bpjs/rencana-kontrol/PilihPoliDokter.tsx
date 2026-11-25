@@ -28,8 +28,8 @@ export interface Pilihan {
   nama: string;
 }
 
-const KARTU =
-  "flex cursor-pointer flex-col items-stretch gap-1.5 rounded-xl bg-slate-50 px-3 py-2.5 text-xs transition-colors hover:bg-slate-100 has-data-[state=checked]:bg-emerald-50 has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-emerald-600 has-data-[state=checked]:ring-inset has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-emerald-600 has-disabled:cursor-not-allowed has-disabled:opacity-60 has-disabled:hover:bg-slate-50";
+const KARTU = // relative: radio sr-only menempel ke kartunya, bukan ke panel di atasnya
+  "relative flex cursor-pointer flex-col items-stretch gap-1.5 rounded-xl bg-slate-50 px-3 py-2.5 text-xs transition-colors hover:bg-slate-100 has-data-[state=checked]:bg-emerald-50 has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-emerald-600 has-data-[state=checked]:ring-inset has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-emerald-600 has-disabled:cursor-not-allowed has-disabled:opacity-60 has-disabled:hover:bg-slate-50";
 
 function angka(s: string): number {
   const n = Number(s);

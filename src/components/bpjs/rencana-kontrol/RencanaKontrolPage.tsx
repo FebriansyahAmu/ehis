@@ -130,12 +130,15 @@ function RencanaKontrolPageInner() {
             </TabsList>
           </div>
 
+          {/* `relative` = panel gulir jadi containing block elemen absolute di dalamnya (radio
+              `sr-only` di kartu poli/dokter/PRB). Tanpa ini mereka menempel ke <main>, memanjangkan
+              area gulir <main> melewati panel, dan halaman tergulir sampai latar kosong di bawahnya. */}
           {TABS.map(({ key }) => (
             <TabsContent
               key={key}
               value={key}
               forceMount={dikunjungi.has(key) || undefined}
-              className="min-h-0 overflow-y-auto data-[state=inactive]:hidden"
+              className="relative min-h-0 overflow-y-auto data-[state=inactive]:hidden"
             >
               {dikunjungi.has(key) && panel[key]}
             </TabsContent>
