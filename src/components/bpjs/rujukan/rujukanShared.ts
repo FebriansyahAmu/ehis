@@ -6,6 +6,7 @@
 import type { BPJSError, RujukanRecord } from "@/lib/bpjs/bpjsShared";
 import type { BadgeTone } from "@/components/bpjs/shared/badge";
 import { fmtTglPendek, hariIniISO, selisihHari } from "@/components/bpjs/shared/tanggal";
+import { labelGalat as labelGalatVClaim } from "@/components/bpjs/shared/galat";
 
 export type Asal = "FKTP" | "FKRTL";
 
@@ -79,32 +80,12 @@ export function statusBerlaku(dari: string | null | undefined, sampai: string | 
 
 // ── Galat ─────────────────────────────────────────────────
 
-export const GALAT_KONEKSI: BPJSError = {
-  type: "BPJSMetaError",
-  code: "503",
-  message: "Koneksi ke V-Claim gagal",
-  endpoint: "",
-  retryable: true,
-};
+// Galat koneksi & label galat kini bersama modul BPJS (bpjs/shared/galat) — diekspor ulang.
+export { GALAT_KONEKSI } from "@/components/bpjs/shared/galat";
 
 /** Label galat V-Claim untuk modul Rujukan (errorLabel SEP menyebut "SEP" untuk kode 201). */
-export function labelGalat(err: BPJSError, objek = "Rujukan"): {
-  title: string;
-  desc: string;
-  kode: string | null;
-  retryable: boolean;
-} {
-  if (err.type === "BPJSMetaError") {
-    if (err.code === "201") return { title: `${objek} tidak ditemukan`, desc: err.message, kode: err.code, retryable: false };
-    if (err.code === "204") return { title: "Validasi gagal", desc: err.message, kode: err.code, retryable: false };
-    return { title: "BPJS menolak permintaan", desc: err.message, kode: err.code, retryable: err.retryable };
-  }
-  return {
-    title: "Gagal terhubung ke V-Claim",
-    desc: "Sambungan ke server BPJS terputus. Periksa koneksi lalu coba lagi.",
-    kode: null,
-    retryable: true,
-  };
+export function labelGalat(err: BPJSError, objek = "Rujukan") {
+  return labelGalatVClaim(err, objek);
 }
 
 // ── Data uji (mock) ───────────────────────────────────────

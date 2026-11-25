@@ -108,6 +108,18 @@ const INACBG_BY_POLI: Record<string, { kode: string; nama: string }> = {
   HDL: { kode: "N-3-15-0", nama: "DIALYSIS" },
 };
 
+/**
+ * Jenis pelayanan ("1" RI / "2" RJ) per No. SEP — metadata mock untuk menyaring klaim, karena
+ * item klaim wire-format tidak memuat `jnsPelayanan` (V-Claim menyaringnya di server).
+ */
+const JNS_PELAYANAN_BY_SEP: ReadonlyMap<string, string> = new Map(
+  ACTIVE_SEPS.map((sep) => [sep.noSEP, sep.jnsPelayanan]),
+);
+
+export function jnsPelayananSep(noSEP: string): string | undefined {
+  return JNS_PELAYANAN_BY_SEP.get(noSEP);
+}
+
 export const KLAIM_MONITORING_MOCK: ReadonlyArray<KlaimMonitoringItem> =
   ACTIVE_SEPS.map((sep) => {
     const peserta = PESERTA_MOCK.find((p) => p.noKartu === sep.noKartu);

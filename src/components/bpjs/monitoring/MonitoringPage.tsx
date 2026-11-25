@@ -1,259 +1,151 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Activity, FileText, HeartPulse, ShieldAlert } from "lucide-react";
-import { cn } from "@/lib/utils";
-import {
-  KUNJUNGAN_MONITORING_MOCK,
-  KLAIM_MONITORING_MOCK,
-  JASA_RAHARJA_MONITORING_MOCK,
-} from "@/lib/bpjs/mock/monitoringMock";
-import KunjunganPanel      from "./KunjunganPanel";
-import KlaimPanel          from "./KlaimPanel";
-import HistoriPelayananPanel from "./HistoriPelayananPanel";
-import JasaRaharjaPanel    from "./JasaRaharjaPanel";
+// BPJS V-Claim → Monitoring. Empat sub-tab (Tabs shadcn/Radix) tersimpan di URL (`?tab=`, lewat
+// history.replaceState — tanpa round-trip server); aktivasi MANUAL (Enter/klik) karena memilih
+// tab mengubah URL. Panel dipasang saat PERTAMA dikunjungi lalu tetap terpasang (disembunyikan
+// saat tidak aktif) — hasil & saringan tidak hilang saat pindah tab, dan tab yang belum dibuka
+// tidak memanggil V-Claim. Tombol "Histori" di Kunjungan/Klaim/Jasa Raharja membuka tab Histori
+// pelayanan untuk peserta itu. Dulu: kartu statistik dihitung langsung dari data mock + empat
+// panel "pilih filter lalu klik Cari"; kini tiap tab memuat otomatis & meringkas datanya sendiri.
+// Komponen shadcn: Tabs · Badge · Skeleton (kartu tanpa garis, aksen emerald).
 
-// ── Skeleton ───────────────────────────────────────────
+import { Suspense, useCallback, useState, type ReactNode } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { MotionConfig } from "framer-motion";
+import { Activity, CarFront, History, ReceiptText, UsersRound, type LucideIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useSkeletonDelay } from "@/components/master/shared";
+import { cn } from "@/lib/ui/utils";
+import KunjunganTab from "./KunjunganTab";
+import KlaimTab from "./KlaimTab";
+import HistoriTab, { type PrefillHistori } from "./HistoriTab";
+import JasaRaharjaTab from "./JasaRaharjaTab";
 
-function Bone({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded-lg bg-slate-100", className)} />;
+const TABS = [
+  { key: "kunjungan", label: "Kunjungan", icon: UsersRound },
+  { key: "klaim", label: "Klaim", icon: ReceiptText },
+  { key: "histori", label: "Histori pelayanan", icon: History },
+  { key: "jasaraharja", label: "Jasa Raharja", icon: CarFront },
+] as const satisfies readonly { key: string; label: string; icon: LucideIcon }[];
+
+type TabKey = (typeof TABS)[number]["key"];
+
+function isTab(v: string | null): v is TabKey {
+  return TABS.some((t) => t.key === v);
 }
 
 function PageSkeleton() {
   return (
-    <div className="flex flex-col gap-4 p-6">
-      <div className="flex flex-col gap-2">
-        <Bone className="h-3 w-28" />
-        <Bone className="h-5 w-44" />
-        <Bone className="h-3 w-72" />
-      </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[0, 1, 2, 3].map((i) => <Bone key={i} className="h-16 rounded-2xl" />)}
-      </div>
-      <Bone className="h-96 rounded-2xl" />
+    <div className="flex h-full flex-col gap-4 p-4 sm:p-5" aria-hidden="true">
+      <Skeleton className="h-10 w-72 rounded-lg" />
+      <Skeleton className="h-9 w-full max-w-xl rounded-lg" />
+      <Skeleton className="h-96 rounded-xl" />
     </div>
   );
 }
 
-// ── Stat card ──────────────────────────────────────────
+function MonitoringPageInner() {
+  const loaded = useSkeletonDelay(400);
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const t = searchParams.get("tab");
+  const tab: TabKey = isTab(t) ? t : "kunjungan";
+  const [dikunjungi, setDikunjungi] = useState<ReadonlySet<TabKey>>(() => new Set([tab]));
+  if (!dikunjungi.has(tab)) setDikunjungi(new Set(dikunjungi).add(tab)); // adjust-on-render
+  const [prefill, setPrefill] = useState<PrefillHistori | null>(null);
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  sub,
-  iconCls,
-  delay = 0,
-}: {
-  icon: IconComponent;
-  label: string;
-  value: string;
-  sub: string;
-  iconCls: string;
-  delay?: number;
-}) {
+  const gantiTab = useCallback(
+    (v: string) => {
+      if (!isTab(v)) return;
+      // replaceState: Next.js menyinkronkan useSearchParams tanpa memuat ulang segmen dari server.
+      window.history.replaceState(null, "", `${pathname}?tab=${v}`);
+      requestAnimationFrame(() => {
+        document
+          .querySelector(`[data-tab="${v}"]`)
+          ?.scrollIntoView({ block: "nearest", inline: "nearest", container: "nearest" } as ScrollIntoViewOptions);
+      });
+    },
+    [pathname],
+  );
+
+  const bukaHistori = useCallback(
+    (kartu: string, acuan: string) => {
+      setPrefill((p) => ({ kartu, acuan, n: (p?.n ?? 0) + 1 }));
+      gantiTab("histori");
+    },
+    [gantiTab],
+  );
+
+  if (!loaded) return <PageSkeleton />;
+
+  const panel: Record<TabKey, ReactNode> = {
+    kunjungan: <KunjunganTab onHistori={bukaHistori} />,
+    klaim: <KlaimTab onHistori={bukaHistori} />,
+    histori: <HistoriTab prefill={prefill} aktif={tab === "histori"} />,
+    jasaraharja: <JasaRaharjaTab onHistori={bukaHistori} />,
+  };
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay, ease: "easeOut" }}
-      className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm"
-    >
-      <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", iconCls)}>
-        <Icon size={15} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-medium text-slate-500">{label}</p>
-        <p className="mt-0.5 text-xl font-black leading-none text-slate-900">{value}</p>
-        <p className="mt-0.5 text-[10px] text-slate-400">{sub}</p>
+    <MotionConfig reducedMotion="user">
+      <div data-accent="emerald" className="flex h-full min-h-0 flex-col text-foreground">
+        <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 px-4 pt-4 sm:px-5 sm:pt-5">
+          <span aria-hidden="true" className="flex size-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+            <Activity className="size-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-sm font-semibold">Monitoring</h1>
+            <p className="truncate text-xs text-muted-foreground">Kunjungan, status klaim, histori pelayanan peserta, dan jaminan Jasa Raharja lewat V-Claim BPJS</p>
+          </div>
+          <Badge variant="secondary" className="bg-white text-[11px] text-muted-foreground tabular-nums shadow-xs">
+            V-Claim
+          </Badge>
+        </header>
+
+        <Tabs value={tab} onValueChange={gantiTab} activationMode="manual" className="min-h-0 flex-1 gap-0">
+          <div className="shrink-0 overflow-x-auto px-4 pt-3 [scrollbar-width:none] sm:px-5 [&::-webkit-scrollbar]:hidden">
+            <TabsList variant="line" aria-label="Fitur monitoring" className="w-max gap-1">
+              {TABS.map(({ key, label, icon: Icon }) => (
+                <TabsTrigger
+                  key={key}
+                  value={key}
+                  data-tab={key}
+                  className={cn(
+                    "flex-none px-2.5 text-xs text-muted-foreground hover:text-foreground",
+                    "data-[state=active]:text-emerald-800",
+                    // Penanda tab aktif = garis bawah dari BORDER pseudo-elemen (tetap terlihat di
+                    // forced-colors), bukan warna saja.
+                    "after:h-0 after:border-b-2 after:border-emerald-600 after:bg-transparent",
+                  )}
+                >
+                  <Icon className="size-3.5" aria-hidden="true" />
+                  {label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+
+          {TABS.map(({ key }) => (
+            <TabsContent
+              key={key}
+              value={key}
+              forceMount={dikunjungi.has(key) || undefined}
+              className="min-h-0 overflow-y-auto data-[state=inactive]:hidden"
+            >
+              {dikunjungi.has(key) && panel[key]}
+            </TabsContent>
+          ))}
+        </Tabs>
       </div>
-    </motion.div>
+    </MotionConfig>
   );
 }
 
-// ── Tab types ──────────────────────────────────────────
-
-type TabKey = "kunjungan" | "klaim" | "histori" | "jasaraharja";
-
-const TABS: { key: TabKey; label: string; icon: IconComponent }[] = [
-  { key: "kunjungan",   label: "Kunjungan",        icon: Activity    },
-  { key: "klaim",       label: "Data Klaim",        icon: FileText    },
-  { key: "histori",     label: "Histori Pelayanan", icon: HeartPulse  },
-  { key: "jasaraharja", label: "Jasa Raharja",      icon: ShieldAlert },
-];
-
-const TAB_ORDER: Record<TabKey, number> = {
-  kunjungan: 0, klaim: 1, histori: 2, jasaraharja: 3,
-};
-
-// ── Page ───────────────────────────────────────────────
-
 export default function MonitoringPage() {
-  const [loaded, setLoaded] = useState(false);
-  const [tab, setTab]       = useState<TabKey>("kunjungan");
-  const [prev, setPrev]     = useState<TabKey>("kunjungan");
-
-  useEffect(() => {
-    const t = setTimeout(() => setLoaded(true), 600);
-    return () => clearTimeout(t);
-  }, []);
-
-  function switchTab(next: TabKey) {
-    if (next === tab) return;
-    setPrev(tab);
-    setTab(next);
-  }
-
-  const dir = TAB_ORDER[tab] > TAB_ORDER[prev] ? 12 : -12;
-
-  const stats = useMemo(() => {
-    const ri      = KUNJUNGAN_MONITORING_MOCK.filter((k) => k.jnsPelayanan === "R.Inap").length;
-    const rj      = KUNJUNGAN_MONITORING_MOCK.filter((k) => k.jnsPelayanan === "R.Jalan").length;
-    const pending = KLAIM_MONITORING_MOCK.filter((k) => k.status === "Pending Verifikasi").length;
-    const jr      = JASA_RAHARJA_MONITORING_MOCK.length;
-    return { ri, rj, pending, jr };
-  }, []);
-
   return (
-    <AnimatePresence mode="wait">
-      {!loaded ? (
-        <motion.div key="skel" exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="h-full">
-          <PageSkeleton />
-        </motion.div>
-      ) : (
-        <motion.div
-          key="page"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.25 }}
-          className="flex h-full flex-col gap-4 p-6"
-        >
-          {/* Header */}
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-600">
-              EHIS BPJS · V-Claim
-            </p>
-            <h1 className="mt-0.5 text-base font-bold text-slate-900">Monitoring</h1>
-            <p className="mt-0.5 text-[11px] text-slate-500">
-              Pantau kunjungan · data klaim · riwayat pelayanan peserta · klaim Jasa Raharja
-            </p>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatCard
-              icon={Activity}
-              label="Kunjungan Rawat Inap"
-              value={String(stats.ri)}
-              sub="total SEP aktif RI"
-              iconCls="bg-emerald-100 text-emerald-600"
-              delay={0}
-            />
-            <StatCard
-              icon={Activity}
-              label="Kunjungan Rawat Jalan"
-              value={String(stats.rj)}
-              sub="total SEP aktif RJ"
-              iconCls="bg-sky-100 text-sky-600"
-              delay={0.06}
-            />
-            <StatCard
-              icon={FileText}
-              label="Klaim Pending"
-              value={String(stats.pending)}
-              sub="belum diverifikasi"
-              iconCls="bg-amber-100 text-amber-600"
-              delay={0.12}
-            />
-            <StatCard
-              icon={ShieldAlert}
-              label="Jasa Raharja"
-              value={String(stats.jr)}
-              sub="klaim kecelakaan"
-              iconCls="bg-rose-100 text-rose-600"
-              delay={0.18}
-            />
-          </div>
-
-          {/* Tab panel */}
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            {/* Tab bar */}
-            <div className="shrink-0 flex items-center gap-1 border-b border-slate-100 bg-slate-50/50 px-3 py-2 overflow-x-auto">
-              {TABS.map(({ key, label, icon: Icon }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => switchTab(key)}
-                  className={cn(
-                    "flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-bold transition-all",
-                    tab === key
-                      ? "bg-white text-amber-700 shadow-sm ring-1 ring-slate-200/80"
-                      : "text-slate-500 hover:bg-white/70 hover:text-slate-700",
-                  )}
-                >
-                  <Icon size={11} strokeWidth={2.5} />
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {/* Tab content — absolute-positioned for slide animation */}
-            <div className="relative min-h-0 flex-1 overflow-hidden">
-              <AnimatePresence mode="wait" initial={false}>
-                {tab === "kunjungan" && (
-                  <motion.div
-                    key="kunjungan"
-                    initial={{ opacity: 0, x: dir }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -dir }}
-                    transition={{ duration: 0.18, ease: "easeOut" }}
-                    className="absolute inset-0 flex flex-col"
-                  >
-                    <KunjunganPanel />
-                  </motion.div>
-                )}
-                {tab === "klaim" && (
-                  <motion.div
-                    key="klaim"
-                    initial={{ opacity: 0, x: dir }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -dir }}
-                    transition={{ duration: 0.18, ease: "easeOut" }}
-                    className="absolute inset-0 flex flex-col"
-                  >
-                    <KlaimPanel />
-                  </motion.div>
-                )}
-                {tab === "histori" && (
-                  <motion.div
-                    key="histori"
-                    initial={{ opacity: 0, x: dir }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -dir }}
-                    transition={{ duration: 0.18, ease: "easeOut" }}
-                    className="absolute inset-0 flex flex-col"
-                  >
-                    <HistoriPelayananPanel />
-                  </motion.div>
-                )}
-                {tab === "jasaraharja" && (
-                  <motion.div
-                    key="jasaraharja"
-                    initial={{ opacity: 0, x: dir }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -dir }}
-                    transition={{ duration: 0.18, ease: "easeOut" }}
-                    className="absolute inset-0 flex flex-col"
-                  >
-                    <JasaRaharjaPanel />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <Suspense fallback={<PageSkeleton />}>
+      <MonitoringPageInner />
+    </Suspense>
   );
 }

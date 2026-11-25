@@ -36,6 +36,7 @@ import {
   JASA_RAHARJA_MONITORING_MOCK,
   KLAIM_MONITORING_MOCK,
   KUNJUNGAN_MONITORING_MOCK,
+  jnsPelayananSep,
 } from "./mock/monitoringMock";
 
 // ── Spec 1: monitoringKunjungan ────────────────────────
@@ -90,14 +91,14 @@ export function monitoringKlaim(
     async () => {
       const err = await preflightMock(config);
       if (err) return Err(err);
+      // Item klaim wire-format tidak memuat `jnsPelayanan` (V-Claim menyaring di server) →
+      // mock memakai metadata jenis pelayanan per SEP.
       const list = KLAIM_MONITORING_MOCK.filter(
-        (k) => k.tglPulang === tglPulang && k.status === expectedStatus,
+        (k) =>
+          k.tglPulang === tglPulang &&
+          k.status === expectedStatus &&
+          jnsPelayananSep(k.noSEP) === jnsPelayanan,
       );
-      // Filter kelas RI/RJ: spec parameter jnsPelayanan filter berdasarkan
-      // kelas SEP. Karena KlaimMonitoringItem tidak ada `jnsPelayanan` field
-      // direct, mock store metadata internal. Skip filter di mock — biarkan
-      // semua status yang match status saja (mock simplification).
-      void jnsPelayanan;
       return okEnvelope(list);
     },
   )();
