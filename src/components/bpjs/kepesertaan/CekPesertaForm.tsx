@@ -138,7 +138,7 @@ export default function CekPesertaForm({
             onChange={(e) => onChange({ ...query, value: e.target.value.replace(/\D/g, "").slice(0, max) })}
             onBlur={() => query.value && setTouched((t) => ({ ...t, value: true }))}
             className={cn(
-              "h-10 w-full rounded-xl pr-9 pl-3 font-mono text-sm tracking-wide text-foreground transition-[background-color,box-shadow] outline-none placeholder:font-sans placeholder:tracking-normal placeholder:text-muted-foreground/70 focus-visible:ring-[3px]",
+              "h-10 w-full rounded-xl pr-9 pl-3 text-sm tracking-wide text-foreground tabular-nums transition-[background-color,box-shadow] outline-none placeholder:tracking-normal placeholder:text-muted-foreground/70 focus-visible:ring-[3px]",
               errValue
                 ? "bg-rose-50 focus-visible:ring-rose-200"
                 : "bg-slate-100 hover:bg-slate-200/70 focus-visible:bg-white focus-visible:ring-ring/40",

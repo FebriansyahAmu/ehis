@@ -133,7 +133,7 @@ export default function KepesertaanPage() {
               </motion.span>
             )}
           </AnimatePresence>
-          <Badge variant="secondary" className="bg-white font-mono text-[11px] text-muted-foreground shadow-xs">
+          <Badge variant="secondary" className="bg-white text-[11px] text-muted-foreground tabular-nums shadow-xs">
             V-Claim 5.0
           </Badge>
         </header>

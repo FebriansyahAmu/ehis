@@ -130,7 +130,7 @@ function Galat({ error, onRetry, onCariLagi }: { error: BPJSError; onRetry?: () 
         <div className="flex flex-wrap items-center gap-2">
           <p className={cn("text-sm font-semibold", t.title)}>{title}</p>
           {kode && (
-            <Badge variant="secondary" className="font-mono text-[11px] text-muted-foreground">
+            <Badge variant="secondary" className="text-[11px] text-muted-foreground tabular-nums">
               Kode {kode}
             </Badge>
           )}
@@ -159,7 +159,7 @@ function IdCell({ label, value }: { label: string; value: string | null }) {
     <div className="min-w-0">
       <dt className="text-[11px] text-muted-foreground">{label}</dt>
       <dd className="mt-0.5 flex items-center gap-1">
-        <span className="truncate font-mono text-sm tabular-nums text-foreground">{value ?? "—"}</span>
+        <span className="truncate text-sm text-foreground tabular-nums">{value ?? "—"}</span>
         {value && <CopyButton value={value} label={label} />}
       </dd>
     </div>
@@ -306,7 +306,7 @@ function Ditemukan({ peserta, onCariLagi }: { peserta: PesertaRecord; onCariLagi
         <Fakta
           label="FKTP terdaftar"
           value={rapikan(peserta.provUmum.nmProvider)}
-          sub={<span className="font-mono">{peserta.provUmum.kdProvider}</span>}
+          sub={<span className="tabular-nums">{peserta.provUmum.kdProvider}</span>}
         />
       </section>
 
@@ -337,7 +337,7 @@ function Ditemukan({ peserta, onCariLagi }: { peserta: PesertaRecord; onCariLagi
         <Rincian
           title="Kontak & informasi"
           rows={[
-            ["Telepon", peserta.mr.noTelepon ? <span className="font-mono">{peserta.mr.noTelepon}</span> : "—"],
+            ["Telepon", peserta.mr.noTelepon ? <span className="tabular-nums">{peserta.mr.noTelepon}</span> : "—"],
             ["Prolanis PRB", info.prolanisPRB ?? "—"],
             ["No. SKTM", info.noSKTM ?? "—"],
             ["Dinsos", info.dinsos ?? "—"],
@@ -348,7 +348,7 @@ function Ditemukan({ peserta, onCariLagi }: { peserta: PesertaRecord; onCariLagi
             title="COB · asuransi tambahan"
             rows={[
               ["Asuransi", peserta.cob.nmAsuransi],
-              ["No. polis", peserta.cob.noAsuransi ? <span className="font-mono">{peserta.cob.noAsuransi}</span> : "—"],
+              ["No. polis", peserta.cob.noAsuransi ? <span className="tabular-nums">{peserta.cob.noAsuransi}</span> : "—"],
               ["TMT", fmtTgl(peserta.cob.tglTMT)],
               ["TAT", fmtTgl(peserta.cob.tglTAT)],
             ]}
