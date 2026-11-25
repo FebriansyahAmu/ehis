@@ -93,3 +93,52 @@ export function rentangEntri(list: readonly BPJSAuditEntry[]): { from: string; t
   const urut = hari.toSorted();
   return { from: urut[0], to: urut[urut.length - 1] };
 }
+
+// ── Saringan lewat URL (tautan dari Beranda BPJS) ───────
+
+export type SaringHasil = "semua" | "ok" | "gagal";
+
+/** Saringan awal halaman Audit trail, mis. `/ehis-bpjs/audit?periode=hari&hasil=gagal`. */
+export interface SaringAwal {
+  periode?: Periode;
+  hasil?: SaringHasil;
+  layanan?: Layanan;
+  q?: string;
+}
+
+const BATAS_Q = 120;
+const PERIODE_SAH = new Set<string>(OPSI_PERIODE.map((o) => o.value));
+const HASIL_SAH = new Set<string>(["semua", "ok", "gagal"]);
+const LAYANAN_SAH = new Set<string>(["V-Claim", "Aplicares"]);
+
+/**
+ * Parameter URL → saringan awal. Hanya nilai dari daftar yang dikenal yang dipakai (selebihnya
+ * diabaikan), teks pencarian dipangkas & dibatasi panjangnya — URL adalah masukan pengguna.
+ */
+export function bacaSaringAwal(sp: Record<string, string | string[] | undefined>): SaringAwal {
+  const satu = (k: string) => {
+    const v = sp[k];
+    return typeof v === "string" ? v : undefined;
+  };
+  const periode = satu("periode");
+  const hasil = satu("hasil");
+  const layanan = satu("layanan");
+  const q = satu("q")?.trim().slice(0, BATAS_Q);
+  return {
+    ...(periode && PERIODE_SAH.has(periode) ? { periode: periode as Periode } : {}),
+    ...(hasil && HASIL_SAH.has(hasil) ? { hasil: hasil as SaringHasil } : {}),
+    ...(layanan && LAYANAN_SAH.has(layanan) ? { layanan: layanan as Layanan } : {}),
+    ...(q ? { q } : {}),
+  };
+}
+
+/** Tautan ke Audit trail dengan saringan awal (endpoint di log sudah disamarkan → aman di URL). */
+export function urlAudit(s: SaringAwal = {}): string {
+  const p = new URLSearchParams();
+  if (s.periode && s.periode !== "semua") p.set("periode", s.periode);
+  if (s.hasil && s.hasil !== "semua") p.set("hasil", s.hasil);
+  if (s.layanan) p.set("layanan", s.layanan);
+  if (s.q) p.set("q", s.q.slice(0, BATAS_Q));
+  const qs = p.toString();
+  return qs ? `/ehis-bpjs/audit?${qs}` : "/ehis-bpjs/audit";
+}

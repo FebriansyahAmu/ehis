@@ -11,32 +11,32 @@
 // • saring layanan & metode (opsi kosong disembunyikan) + teks (endpoint, aktor, kode, key, ID);
 // • daftar per HARI (judul lengket) dengan "Tampilkan lagi"; klik → Sheet detail (rantai percobaan
 //   dengan idempotency key yang sama, sidik hash);
-// • unduh CSV (aman formula injection) + cetak laporan A4 (template KOP RS) dari hasil saringan.
+// • unduh CSV (aman formula injection) + cetak laporan A4 (template KOP RS) dari hasil saringan;
+// • saringan awal bisa datang dari URL (`?periode=&hasil=&layanan=&q=`, tautan Beranda BPJS).
 // Endpoint ber-nomor identitas disamarkan di sumbernya (`samarkanEndpoint`, UU PDP).
 // Komponen shadcn: Card · Item · Badge · Button · Input · Skeleton · Empty · Sheet.
 
 import { useCallback, useEffect, useId, useState, useSyncExternalStore } from "react";
-import { MotionConfig, motion } from "framer-motion";
-import { CheckCircle2, ChevronDown, ListFilter, Printer, ScrollText, XCircle } from "lucide-react";
+import { MotionConfig } from "framer-motion";
+import { ChevronDown, ListFilter, Printer, ScrollText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Item } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSkeletonDelay } from "@/components/master/shared";
 import { DOT, type BadgeTone } from "@/components/bpjs/shared/badge";
 import { unduhCsv } from "@/components/bpjs/shared/csv";
 import { KepalaKartu, KerangkaDaftar, KosongData, SaringKosong, TombolUnduh, UbinAngka, useStatusAksi } from "@/components/bpjs/shared/daftarUi";
-import { BadgeNada, KARTU, KolomSaring, SegmenFilter, type OpsiSegmen } from "@/components/bpjs/shared/vclaimUi";
+import { KARTU, KolomSaring, SegmenFilter, type OpsiSegmen } from "@/components/bpjs/shared/vclaimUi";
 import { cn } from "@/lib/ui/utils";
 import { getAuditEntries, subscribeAudit } from "@/lib/bpjs/auditStore";
 import type { BPJSAuditEntry, BPJSAuditMethod } from "@/lib/bpjs/bpjsShared";
 import { seedAuditTrailMock } from "@/lib/bpjs/mock/auditTrailMock";
 import AuditSheet from "./AuditSheet";
+import BarisAudit from "./BarisAudit";
 import CetakLaporanAudit from "./CetakLaporanAudit";
 import {
   BATAS_LAMBAT_MS,
-  NADA_METODE,
   OPSI_PERIODE,
   URUTAN_METODE,
   artiKode,
@@ -50,17 +50,16 @@ import {
   rentangEntri,
   type Layanan,
   type Periode,
+  type SaringAwal,
+  type SaringHasil,
 } from "./auditShared";
 
-type SaringHasil = "semua" | "ok" | "gagal";
 type Cetak = { entries: BPJSAuditEntry[]; periode: { from: string; to: string }; keterangan?: string };
 
 const KOSONG: readonly BPJSAuditEntry[] = [];
 const HALAMAN = 30;
 /** Kapasitas ring buffer `auditStore` (entri tertua dibuang). */
 const KAPASITAS_LOG = 200;
-
-const NADA_TEKS_DURASI: Partial<Record<BadgeTone, string>> = { rose: "text-rose-700", amber: "text-amber-800" };
 
 function UbinHasil({ label, tone, n, ket, aktif, onClick }: { label: string; tone: BadgeTone; n: number; ket: string; aktif: boolean; onClick: () => void }) {
   return (
@@ -84,49 +83,6 @@ function UbinHasil({ label, tone, n, ket, aktif, onClick }: { label: string; ton
   );
 }
 
-function Baris({ e, index, onBuka }: { e: BPJSAuditEntry; index: number; onBuka: () => void }) {
-  const nadaDur = nadaDurasi(e.durationMs);
-  return (
-    <motion.li initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.16, delay: Math.min(index, 8) * 0.02 }}>
-      {/* scroll-mt: baris yang menerima fokus tidak tertutup judul hari yang lengket (WCAG 2.4.11). */}
-      <Item asChild size="sm" className="relative w-full scroll-mt-10 flex-nowrap items-start gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-slate-50 sm:items-center">
-        <button type="button" onClick={onBuka} aria-haspopup="dialog">
-          <span
-            aria-hidden="true"
-            className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg", e.success ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700")}
-          >
-            {e.success ? <CheckCircle2 className="size-4" /> : <XCircle className="size-4" />}
-          </span>
-          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="flex min-w-0 items-center gap-2 text-xs">
-              <span className="sr-only">{e.success ? "Berhasil," : "Gagal,"}</span>
-              <BadgeNada tone={NADA_METODE[e.method]} className="shrink-0 px-1 text-[10px] tabular-nums">
-                {e.method}
-              </BadgeNada>
-              <span className="truncate font-medium tabular-nums" title={e.endpoint}>
-                {e.endpoint}
-              </span>
-            </span>
-            <span className="line-clamp-1 text-[11px] text-muted-foreground tabular-nums">
-              {jamLokal(e.timestamp)} · {e.actor} · {e.actorRole}
-              {!e.success && (
-                <span className="text-rose-700">
-                  {" "}
-                  · kode {e.responseCode} {artiKode(e.responseCode).toLowerCase()}
-                </span>
-              )}
-            </span>
-          </span>
-          <span className="flex shrink-0 flex-col items-end gap-0.5 text-right tabular-nums">
-            <span className={cn("text-xs font-medium", nadaDur ? NADA_TEKS_DURASI[nadaDur] : "text-foreground")}>{fmtDurasi(e.durationMs)}</span>
-            <span className="text-[11px] text-muted-foreground">{layananDari(e.endpoint)}</span>
-          </span>
-        </button>
-      </Item>
-    </motion.li>
-  );
-}
-
 function KerangkaHalaman() {
   return (
     <div className="flex flex-col gap-3" aria-hidden="true">
@@ -142,15 +98,16 @@ function KerangkaHalaman() {
   );
 }
 
-export default function AuditTrailPage() {
+export default function AuditTrailPage({ awal = {} }: { awal?: SaringAwal }) {
   const id = useId();
   const siap = useSkeletonDelay(400);
   const log = useSyncExternalStore(subscribeAudit, getAuditEntries, () => KOSONG);
-  const [periode, setPeriode] = useState<Periode>("semua");
-  const [hasil, setHasil] = useState<SaringHasil>("semua");
-  const [layanan, setLayanan] = useState<"semua" | Layanan>("semua");
+  // Saringan awal dari URL (tautan Beranda BPJS); route me-remount halaman bila parameternya berubah.
+  const [periode, setPeriode] = useState<Periode>(awal.periode ?? "semua");
+  const [hasil, setHasil] = useState<SaringHasil>(awal.hasil ?? "semua");
+  const [layanan, setLayanan] = useState<"semua" | Layanan>(awal.layanan ?? "semua");
   const [metode, setMetode] = useState<"semua" | BPJSAuditMethod>("semua");
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(awal.q ?? "");
   const [batas, setBatas] = useState(HALAMAN);
   const [buka, setBuka] = useState<BPJSAuditEntry | null>(null);
   const [cetak, setCetak] = useState<Cetak | null>(null);
@@ -388,7 +345,7 @@ export default function AuditTrailPage() {
                             </h3>
                             <ul className="flex flex-col gap-0.5">
                               {list.map((e, i) => (
-                                <Baris key={e.id} e={e} index={i} onBuka={() => setBuka(e)} />
+                                <BarisAudit key={e.id} e={e} index={i} onBuka={() => setBuka(e)} />
                               ))}
                             </ul>
                           </section>

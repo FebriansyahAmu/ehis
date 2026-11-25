@@ -30,10 +30,19 @@ function make(e: RawEntry): BPJSAuditEntry {
 
 let _seeded = false;
 
+/**
+ * Seed sekali per sesi (Audit trail & Beranda BPJS). Waktu entri DIGESER agar entri terbaru jatuh
+ * beberapa menit sebelum sekarang — jarak antar-entri tetap — sehingga "Hari ini", status koneksi,
+ * dan "Panggilan terbaru" berisi data yang masuk akal kapan pun aplikasi dibuka.
+ */
 export function seedAuditTrailMock(): void {
   if (_seeded) return;
   _seeded = true;
-  [...AUDIT_TRAIL_MOCK].reverse().forEach((e) => logAuditEntry(e));
+  const terbaru = Math.max(...AUDIT_TRAIL_MOCK.map((e) => Date.parse(e.timestamp)));
+  const geser = Date.now() - 3 * 60_000 - terbaru;
+  [...AUDIT_TRAIL_MOCK]
+    .reverse()
+    .forEach((e) => logAuditEntry({ ...e, timestamp: new Date(Date.parse(e.timestamp) + geser).toISOString() }));
 }
 
 export const AUDIT_TRAIL_MOCK: BPJSAuditEntry[] = [

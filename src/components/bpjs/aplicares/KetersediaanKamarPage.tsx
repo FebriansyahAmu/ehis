@@ -32,7 +32,7 @@ import { BadgeNada, GalatVClaim, KARTU, KolomSaring, Meter, SegmenFilter, type O
 import { cn } from "@/lib/ui/utils";
 import { listKamar, setMaintenance, updateKamar } from "@/lib/bpjs/aplicaresAdapter";
 import type { AplicaresKamarRecord, BPJSError } from "@/lib/bpjs/bpjsShared";
-import { GOLONGAN_KELAS, golonganKelas, kelasBPJSLabel, nadaKeterisian } from "./aplicaresShared";
+import { GOLONGAN_KELAS, golonganKelas, kelasBPJSLabel, nadaKeterisian, urutKodeKelas } from "./aplicaresShared";
 import {
   BATAS_TERKINI_MENIT,
   LABEL_STATUS,
@@ -54,18 +54,10 @@ type Massal = { total: number; selesai: number; gagal: number; jalan: boolean; w
 type SaringStatus = "semua" | "perlu" | "penuh" | "tutup";
 
 const GALAT_SAMBUNGAN: BPJSError = { type: "NetworkError", message: "Koneksi ke Aplicares gagal", retryable: true };
-const URUTAN_KELAS = ["VVP", "VIP", "1", "2", "3", "NON"];
-
 const KOTAK_KODE: Partial<Record<BadgeTone, string>> = {
   emerald: "bg-emerald-50 text-emerald-800",
   indigo: "bg-indigo-50 text-indigo-800",
 };
-
-function urutKelas(a: string, b: string): number {
-  const ia = URUTAN_KELAS.indexOf(a);
-  const ib = URUTAN_KELAS.indexOf(b);
-  return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
-}
 
 function Baris({
   r,
@@ -304,7 +296,7 @@ export default function KetersediaanKamarPage() {
   const opsiKelas: OpsiSegmen<string>[] = [
     { value: "semua", label: "Semua kelas", jumlah: rows.length },
     ...Object.keys(perKelas)
-      .toSorted(urutKelas)
+      .toSorted(urutKodeKelas)
       .map((k) => ({ value: k, label: kelasBPJSLabel(k), jumlah: perKelas[k as keyof typeof perKelas]?.length ?? 0 })),
   ];
   const kelasAktif = opsiKelas.some((o) => o.value === kelas) ? kelas : "semua";

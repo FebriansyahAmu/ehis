@@ -93,6 +93,15 @@ export function golonganKelas(kode: string): GolonganKelas {
   return "lain";
 }
 
+const URUTAN_KODE_KELAS = ["VVP", "VIP", "1", "2", "3", "NON"];
+
+/** Pembanding urutan kode kelas BPJS (VVIP → VIP → 1 → 2 → 3 → non-kelas, kode lain di akhir). */
+export function urutKodeKelas(a: string, b: string): number {
+  const ia = URUTAN_KODE_KELAS.indexOf(a);
+  const ib = URUTAN_KODE_KELAS.indexOf(b);
+  return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+}
+
 // ── Pemakaian kelas di RS (Referensi Kamar) ────────────
 
 export interface PemakaianKelas {
