@@ -95,7 +95,9 @@ const DERIVED_FROM_MASTER: AplicaresKamarRecord[] = RUANGAN_MOCK
       kosong,
       namaRuang: loc.name,
       kodeRuang: loc.kode,
-      flagMaintenance: maintenanceBeds > 0,
+      // Ruangan dianggap ditutup sementara hanya bila SEMUA bed-nya dalam perawatan (tak ada yang
+      // aktif); bed perawatan sebagian cukup mengurangi `tersedia`.
+      flagMaintenance: activeBeds === 0 && maintenanceBeds > 0,
       lastSyncISO: SYNC_TIMESTAMP,
     };
   });

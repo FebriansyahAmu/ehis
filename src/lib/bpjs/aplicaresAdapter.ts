@@ -238,18 +238,20 @@ export function deleteKamar(
 }
 
 // ── setMaintenance ─────────────────────────────────────
-// Wrapper updateKamar — set tersedia=0 saat maintenance aktif.
+// Wrapper updateKamar — tutup sementara (tersedia=0) / buka kembali ruangan.
 // Tidak ada di contract Aplicares; ini abstraksi RS-side (PMK 4/2018 transparansi).
+// Buka kembali WAJIB membawa `tersedia` (tempat tidur kosong saat dibuka) — dulu otomatis
+// = kapasitas, sehingga pasien yang sedang dirawat ikut dilaporkan sebagai bed kosong.
+
+export type SetMaintenancePayload = {
+  kdKelas: KelasBPJSKode;
+  kodeRuang: string;
+  namaRuang: string;
+  kapasitas: number;
+} & ({ aktif: true; alasan: string } | { aktif: false; tersedia: number });
 
 export function setMaintenance(
-  payload: {
-    kdKelas: KelasBPJSKode;
-    kodeRuang: string;
-    namaRuang: string;
-    kapasitas: number;
-    aktif: boolean;
-    alasan?: string;
-  },
+  payload: SetMaintenancePayload,
   config: BPJSConfig = {},
 ): Promise<Result<BPJSEnvelope<BedAplicaresRecord>, BPJSError>> {
   const kodeppk = resolvePPK(config);
@@ -261,10 +263,13 @@ export function setMaintenance(
       if (err) return Err(err);
       const exists = findKamarByKode(payload.kodeRuang);
       if (!exists) return errEnvelope("201", endpoint, "Kamar tidak ditemukan");
-      if (payload.aktif && (!payload.alasan || payload.alasan.trim().length < 10)) {
+      if (payload.aktif && payload.alasan.trim().length < 10) {
         return errEnvelope("204", endpoint, "Alasan maintenance minimal 10 karakter");
       }
-      const tersedia = payload.aktif ? 0 : payload.kapasitas;
+      if (!payload.aktif && (payload.tersedia < 0 || payload.tersedia > payload.kapasitas)) {
+        return errEnvelope("204", endpoint, "Tersedia tidak boleh melebihi kapasitas");
+      }
+      const tersedia = payload.aktif ? 0 : payload.tersedia;
       const wire: BedAplicaresRecord = {
         kodekelas: payload.kdKelas,
         koderuang: payload.kodeRuang,

@@ -1,565 +1,521 @@
 "use client";
 
-/**
- * BP7.3 — Ketersediaan Kamar (Bed Sync Status).
- *
- * Route: /ehis-bpjs/aplicares/ketersediaan
- * Accent: pink · Adapters: listKamar · updateKamar · setMaintenance
- *
- * - Table per ruangan (derive dari APLICARES_KAMAR_MOCK ← RUANGAN_MOCK)
- * - Per-row aksi: Force Sync (updateKamar) · Maintenance toggle (setMaintenance)
- * - Cross-link: klik nama ruang → /ehis-master/ruangan?id={kodeRuang}
- */
+// BP7.3 Ketersediaan Kamar (Aplicares GET /bed/read + POST /bed/update): tempat tidur kosong per
+// ruang rawat yang dilaporkan RS ke BPJS. Dulu tabel 8 kolom + banner "Tersinkronisasi" yang
+// sebenarnya mengukur waktu MUAT HALAMAN, dan "Nonaktifkan maintenance" melaporkan tersedia =
+// kapasitas penuh (pasien yang dirawat ikut dihitung kosong). Kini:
+// • kesegaran dihitung per ruangan dari kapan laporannya terakhir DIKIRIM (≤ 15 menit = terkini),
+//   teks relatif berdetak tiap 30 detik;
+// • ringkasan (ruang, tempat tidur + bilah keterisian, tersedia, laporan terkini) + saring kelas
+//   BPJS, status (perlu dikirim · penuh · ditutup), teks, unduh CSV;
+// • "Kirim" per ruangan dan "Kirim semua" (berurutan, bilah progres + hasil diumumkan lewat live
+//   region, yang gagal ditandai dan bisa dikirim ulang);
+// • klik ruangan → Sheet: komposisi tempat tidur, form laporan (tersedia + rincian jenis kelamin),
+//   tutup sementara / buka kembali (tersedia dipulihkan ke nilai sebelum ditutup).
+// Mock tidak menyimpan perubahan → hasil kirim/tutup disimpan sebagai perubahan sesi di atas data.
+// Komponen shadcn: Card · Item · Badge · Button · Input · Skeleton · Empty · Alert · Sheet · Dialog.
 
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useId, useState } from "react";
+import { MotionConfig, motion } from "framer-motion";
+import { AlertCircle, Bed, Check, RotateCw, Send, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Item, ItemActions } from "@/components/ui/item";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
+import { DOT, type BadgeTone } from "@/components/bpjs/shared/badge";
+import { unduhCsv } from "@/components/bpjs/shared/csv";
+import { KepalaKartu, KerangkaDaftar, KosongData, SaringKosong, TombolUnduh, UbinAngka, useStatusAksi } from "@/components/bpjs/shared/daftarUi";
+import { fmtWaktu } from "@/components/bpjs/shared/tanggal";
+import { BadgeNada, GalatVClaim, KARTU, KolomSaring, Meter, SegmenFilter, type OpsiSegmen } from "@/components/bpjs/shared/vclaimUi";
+import { cn } from "@/lib/ui/utils";
+import { listKamar, setMaintenance, updateKamar } from "@/lib/bpjs/aplicaresAdapter";
+import type { AplicaresKamarRecord, BPJSError } from "@/lib/bpjs/bpjsShared";
+import { GOLONGAN_KELAS, golonganKelas, kelasBPJSLabel, nadaKeterisian } from "./aplicaresShared";
 import {
-  BedDouble, CheckCircle2, Layers, Activity,
-  RotateCw, Wrench, ExternalLink, X,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { listKamar, updateKamar, setMaintenance } from "@/lib/bpjs/aplicaresAdapter";
-import type { AplicaresKamarRecord } from "@/lib/bpjs/bpjsShared";
-import { kelasBPJSChipCls } from "./aplicaresShared";
-import BedSyncStatusBanner from "./BedSyncStatusBanner";
+  BATAS_TERKINI_MENIT,
+  LABEL_STATUS,
+  kesegaran,
+  nilaiSaatIni,
+  perkiraanTersedia,
+  statusRuang,
+  tidakSiap,
+  useSekarang,
+  waktuRelatif,
+  type BarisRuang,
+  type NilaiLaporan,
+} from "./ketersediaanShared";
+import RuangSheet from "./RuangSheet";
 
-// ── Skeleton ───────────────────────────────────────────
+type Hasil = { kunci: number; ok: true; list: AplicaresKamarRecord[] } | { kunci: number; ok: false; error: BPJSError };
+type StatusKirim = "proses" | "ok" | "gagal";
+type Massal = { total: number; selesai: number; gagal: number; jalan: boolean; waktu?: string };
+type SaringStatus = "semua" | "perlu" | "penuh" | "tutup";
 
-function Bone({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded-lg bg-slate-100", className)} />;
+const GALAT_SAMBUNGAN: BPJSError = { type: "NetworkError", message: "Koneksi ke Aplicares gagal", retryable: true };
+const URUTAN_KELAS = ["VVP", "VIP", "1", "2", "3", "NON"];
+
+const KOTAK_KODE: Partial<Record<BadgeTone, string>> = {
+  emerald: "bg-emerald-50 text-emerald-800",
+  indigo: "bg-indigo-50 text-indigo-800",
+};
+
+function urutKelas(a: string, b: string): number {
+  const ia = URUTAN_KELAS.indexOf(a);
+  const ib = URUTAN_KELAS.indexOf(b);
+  return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
 }
 
-function PageSkeleton() {
-  return (
-    <div className="flex flex-col gap-4 p-6">
-      <div className="flex flex-col gap-2">
-        <Bone className="h-2.5 w-28" />
-        <Bone className="h-5 w-64" />
-        <Bone className="h-2.5 w-96" />
-      </div>
-      <Bone className="h-12 rounded-2xl" />
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[0, 1, 2, 3].map((i) => <Bone key={i} className="h-16 rounded-2xl" />)}
-      </div>
-      <Bone className="h-96 rounded-2xl" />
-    </div>
-  );
-}
-
-// ── StatCard ───────────────────────────────────────────
-
-function StatCard({
-  icon: Icon, label, value, sub, iconCls, delay = 0,
+function Baris({
+  r,
+  index,
+  sekarang,
+  kirim,
+  onBuka,
+  onKirim,
 }: {
-  icon: IconComponent; label: string; value: string;
-  sub: string; iconCls: string; delay?: number;
+  r: BarisRuang;
+  index: number;
+  sekarang: number;
+  kirim: StatusKirim | undefined;
+  onBuka: () => void;
+  onKirim: () => void;
 }) {
+  const g = GOLONGAN_KELAS[golonganKelas(r.kdKelas)];
+  const st = statusRuang(r);
+  const segar = kesegaran(r.lastSyncISO, sekarang);
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay, ease: "easeOut" }}
-      className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm"
-    >
-      <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", iconCls)}>
-        <Icon size={15} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">{label}</p>
-        <p className="mt-0.5 text-xl font-normal leading-none text-slate-900">{value}</p>
-        <p className="mt-0.5 text-[10px] font-normal text-slate-400">{sub}</p>
-      </div>
-    </motion.div>
-  );
-}
-
-// ── Occupancy Bar ──────────────────────────────────────
-
-function OccupancyBar({ terisi, kapasitas }: { terisi: number; kapasitas: number }) {
-  const pct = kapasitas > 0 ? Math.min(1, terisi / kapasitas) : 0;
-  const barCls =
-    pct >= 0.9 ? "bg-rose-400" :
-    pct >= 0.7 ? "bg-amber-400" :
-    "bg-emerald-400";
-  return (
-    <div className="flex items-center gap-1.5">
-      <div className="h-1.5 w-14 overflow-hidden rounded-full bg-slate-100">
-        <div className={cn("h-full rounded-full transition-all", barCls)} style={{ width: `${pct * 100}%` }} />
-      </div>
-      <span className="text-[10px] tabular-nums text-slate-400">{Math.round(pct * 100)}%</span>
-    </div>
-  );
-}
-
-// ── Maintenance Modal ──────────────────────────────────
-
-function MaintenanceModal({
-  open, row, onClose, onConfirm,
-}: {
-  open: boolean;
-  row: AplicaresKamarRecord | null;
-  onClose: () => void;
-  onConfirm: (alasan: string) => void;
-}) {
-  const [alasan, setAlasan] = useState("");
-
-  useEffect(() => {
-    if (open) setAlasan("");
-  }, [open]);
-
-  const isActivating = row ? !row.flagMaintenance : true;
-  const valid = !isActivating || alasan.trim().length >= 10;
-
-  return (
-    <AnimatePresence>
-      {open && row && (
-        <motion.div
-          key="backdrop"
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          transition={{ duration: 0.18 }}
-          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]"
-          onClick={onClose}
-        />
-      )}
-      {open && row && (
-        <motion.div
-          key="modal"
-          initial={{ opacity: 0, scale: 0.96, y: 12 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.96, y: 12 }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          onClick={(e) => e.stopPropagation()}
+    <motion.li initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18, delay: Math.min(index, 8) * 0.025 }}>
+      <Item size="sm" className="relative flex-nowrap items-center gap-1 rounded-xl p-0 transition-colors hover:bg-slate-50">
+        <button
+          type="button"
+          onClick={onBuka}
+          aria-haspopup="dialog"
+          className="flex min-w-0 flex-1 items-start gap-3 rounded-xl px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 sm:items-center"
         >
-          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-pink-600">
-                  Aplicares · Maintenance
-                </p>
-                <h2 className="text-sm font-bold text-slate-900">
-                  {isActivating ? "Set Maintenance" : "Nonaktifkan Maintenance"}
-                </h2>
-                <p className="font-mono text-[10px] text-slate-400">
-                  {row.namaRuang} · {row.kodeRuang}
-                </p>
-              </div>
-              <button
-                onClick={onClose}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100"
-              >
-                <X size={14} />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="p-4">
-              {isActivating ? (
-                <>
-                  <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
-                    Mengaktifkan maintenance akan mengatur{" "}
-                    <strong>tersedia = 0</strong> untuk ruang ini di Aplicares BPJS.
-                  </p>
-                  <label className="block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-                    Alasan Maintenance <span className="text-rose-500">*</span>
-                  </label>
-                  <textarea
-                    value={alasan}
-                    onChange={(e) => setAlasan(e.target.value)}
-                    rows={3}
-                    placeholder="Misal: Renovasi sarana · Disinfeksi · Kerusakan AC…"
-                    className={cn(
-                      "mt-1.5 w-full resize-none rounded-lg border px-3 py-2 text-[11px]",
-                      "text-slate-800 outline-none transition",
-                      "focus:border-pink-400 focus:ring-2 focus:ring-pink-100",
-                      alasan.trim().length > 0 && alasan.trim().length < 10
-                        ? "border-rose-300"
-                        : "border-slate-200",
-                    )}
-                  />
-                  <p className="mt-0.5 text-[10px] text-slate-400">
-                    {alasan.trim().length} / 10 char minimum
-                  </p>
-                </>
-              ) : (
-                <p className="text-[11px] text-slate-700">
-                  Nonaktifkan maintenance untuk ruang{" "}
-                  <strong>{row.namaRuang}</strong>?
-                  Bed tersedia akan dikembalikan ke kapasitas normal (
-                  {row.kapasitas} bed).
-                </p>
+          <span
+            aria-hidden="true"
+            className={cn(
+              "flex h-9 min-w-9 shrink-0 items-center justify-center rounded-lg px-1.5 text-xs font-semibold tabular-nums",
+              KOTAK_KODE[g.tone] ?? "bg-slate-100 text-slate-700",
+            )}
+          >
+            {r.kdKelas}
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+              <span className="truncate font-semibold">{r.namaRuang}</span>
+              <span className="sr-only">{kelasBPJSLabel(r.kdKelas)},</span>
+              {st !== "buka" && (
+                <BadgeNada tone={LABEL_STATUS[st].tone} titik>
+                  {LABEL_STATUS[st].label}
+                </BadgeNada>
               )}
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-4 py-3">
-              <button
-                onClick={onClose}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
-              >
-                Batal
-              </button>
-              <button
-                onClick={() => valid && onConfirm(alasan)}
-                disabled={!valid}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-[11px] font-semibold text-white transition",
-                  isActivating
-                    ? "bg-amber-600 hover:bg-amber-700 disabled:opacity-50"
-                    : "bg-emerald-600 hover:bg-emerald-700",
-                )}
-              >
-                <Wrench size={11} />
-                {isActivating ? "Aktifkan Maintenance" : "Nonaktifkan"}
-              </button>
-            </div>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+            </span>
+            <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground tabular-nums">
+              <span>{r.kodeRuang}</span>
+              <span aria-hidden="true">·</span>
+              <span className="inline-flex items-center gap-1">
+                <span aria-hidden="true" className={cn("size-1.5 rounded-full", DOT[segar.tone])} />
+                {segar.terkini ? "" : <span className="sr-only">{segar.label}, </span>}
+                dikirim {waktuRelatif(r.lastSyncISO, sekarang)}
+              </span>
+            </span>
+          </span>
+          <span className="flex w-24 shrink-0 flex-col items-end gap-1 text-right tabular-nums sm:w-40">
+            <span className={cn("text-xs font-semibold", r.tersedia > 0 ? "text-emerald-800" : "text-muted-foreground")}>
+              {st === "tutup" ? "Ditutup" : `${r.tersedia} tersedia`}
+            </span>
+            <Meter
+              value={Math.min(r.terisi, r.kapasitas)}
+              max={Math.max(r.kapasitas, 1)}
+              tone={nadaKeterisian(r.terisi, r.kapasitas)}
+              label={`Keterisian ${r.namaRuang}`}
+            />
+            <span className="text-[11px] text-muted-foreground">
+              {r.terisi}/{r.kapasitas} terisi
+            </span>
+          </span>
+        </button>
+        <ItemActions className="shrink-0 pr-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            onClick={onKirim}
+            aria-disabled={kirim === "proses"}
+            className={cn(
+              "w-20 justify-start aria-disabled:cursor-wait",
+              kirim === "gagal" ? "text-rose-700 hover:bg-rose-50 hover:text-rose-800" : "text-emerald-700 hover:text-emerald-800",
+            )}
+          >
+            {kirim === "proses" ? (
+              <Spinner className="size-3" aria-hidden="true" />
+            ) : kirim === "ok" ? (
+              <Check aria-hidden="true" />
+            ) : kirim === "gagal" ? (
+              <AlertCircle aria-hidden="true" />
+            ) : (
+              <Send aria-hidden="true" />
+            )}
+            {kirim === "proses" ? "Mengirim" : kirim === "gagal" ? "Ulangi" : "Kirim"}
+            <span className="sr-only"> laporan {r.namaRuang} ke Aplicares</span>
+          </Button>
+        </ItemActions>
+      </Item>
+    </motion.li>
   );
 }
 
-// ── Page ───────────────────────────────────────────────
+function KerangkaRingkasan() {
+  return (
+    <div className="grid grid-cols-2 gap-2 px-4 lg:grid-cols-4" aria-hidden="true">
+      {[0, 1, 2, 3].map((i) => (
+        <Skeleton key={i} className="h-17 rounded-xl" />
+      ))}
+    </div>
+  );
+}
 
 export default function KetersediaanKamarPage() {
-  const [loaded,          setLoaded]          = useState(false);
-  const [rows,            setRows]            = useState<AplicaresKamarRecord[]>([]);
-  const [lastSyncTime,    setLastSyncTime]    = useState<string | null>(null);
-  const [isRefreshing,    setIsRefreshing]    = useState(false);
-  const [maintenanceRow,  setMaintenanceRow]  = useState<AplicaresKamarRecord | null>(null);
-  const [modalOpen,       setModalOpen]       = useState(false);
-  const [syncingId,       setSyncingId]       = useState<string | null>(null);
+  const id = useId();
+  const sekarang = useSekarang();
+  const [muat, setMuat] = useState(0);
+  const [hasil, setHasil] = useState<Hasil | null>(null);
+  // Perubahan sesi per kode ruang (mock tidak menyimpan hasil kirim/tutup).
+  const [ubahan, setUbahan] = useState<Record<string, Partial<BarisRuang>>>({});
+  const [kirim, setKirim] = useState<Record<string, StatusKirim>>({});
+  const [massal, setMassal] = useState<Massal | null>(null);
+  const [kelas, setKelas] = useState("semua");
+  const [status, setStatus] = useState<SaringStatus>("semua");
+  const [q, setQ] = useState("");
+  const [sheet, setSheet] = useState<{ kode: string; buka: boolean } | null>(null);
+  const aksi = useStatusAksi();
+  const { umumkan } = aksi;
+  const memuat = hasil?.kunci !== muat;
 
-  async function fetchKamar() {
-    const res = await listKamar();
-    if (res.ok && res.value.response) {
-      setRows([...res.value.response]);
-      setLastSyncTime(new Date().toISOString());
+  useEffect(() => {
+    let batal = false;
+    listKamar()
+      .then((res) => {
+        if (batal) return;
+        setHasil(res.ok ? { kunci: muat, ok: true, list: res.value.response ?? [] } : { kunci: muat, ok: false, error: res.error });
+      })
+      .catch(() => {
+        if (!batal) setHasil({ kunci: muat, ok: false, error: GALAT_SAMBUNGAN });
+      });
+    return () => {
+      batal = true;
+    };
+  }, [muat]);
+
+  const data = hasil?.ok ? hasil : null;
+  const rows: BarisRuang[] = (data?.list ?? []).map((r) => ({ ...r, ...ubahan[r.kodeRuang] }));
+
+  // ── Aksi ──────────────────────────────────────────────
+
+  function simpanUbahan(kode: string, u: Partial<BarisRuang>) {
+    setUbahan((s) => ({ ...s, [kode]: { ...s[kode], ...u } }));
+  }
+
+  async function kirimRuang(r: BarisRuang, nilai: NilaiLaporan = nilaiSaatIni(r)): Promise<BPJSError | null> {
+    setKirim((s) => ({ ...s, [r.kodeRuang]: "proses" }));
+    try {
+      const res = await updateKamar({ kdKelas: r.kdKelas, kodeRuang: r.kodeRuang, namaRuang: r.namaRuang, kapasitas: r.kapasitas, ...nilai });
+      if (!res.ok) {
+        setKirim((s) => ({ ...s, [r.kodeRuang]: "gagal" }));
+        return res.error;
+      }
+      simpanUbahan(r.kodeRuang, { ...nilai, lastSyncISO: new Date().toISOString() });
+      setKirim((s) => ({ ...s, [r.kodeRuang]: "ok" }));
+      return null;
+    } catch {
+      setKirim((s) => ({ ...s, [r.kodeRuang]: "gagal" }));
+      return GALAT_SAMBUNGAN;
     }
   }
 
-  useEffect(() => {
-    const t = setTimeout(async () => {
-      await fetchKamar();
-      setLoaded(true);
-    }, 600);
-    return () => clearTimeout(t);
-  }, []);
-
-  async function handleForceRefresh() {
-    setIsRefreshing(true);
-    await fetchKamar();
-    setTimeout(() => setIsRefreshing(false), 600);
+  async function kirimSatu(r: BarisRuang) {
+    if (kirim[r.kodeRuang] === "proses") return;
+    const err = await kirimRuang(r);
+    umumkan(err ? `Laporan ${r.namaRuang} gagal dikirim` : `Laporan ${r.namaRuang} terkirim ke Aplicares`);
   }
 
-  async function handleForceSync(row: AplicaresKamarRecord) {
-    setSyncingId(row.kodeRuang);
-    await updateKamar({
-      kdKelas: row.kdKelas,
-      kodeRuang: row.kodeRuang,
-      namaRuang: row.namaRuang,
-      kapasitas: row.kapasitas,
-      tersedia:  row.tersedia,
-    });
-    setRows((prev) =>
-      prev.map((r) =>
-        r.kodeRuang === row.kodeRuang
-          ? { ...r, lastSyncISO: new Date().toISOString() }
-          : r,
-      ),
+  async function kirimBanyak(daftar: BarisRuang[]) {
+    if (massal?.jalan || daftar.length === 0) return;
+    const total = daftar.length;
+    let gagal = 0;
+    setMassal({ total, selesai: 0, gagal: 0, jalan: true });
+    // Berurutan (bukan paralel) agar tidak membanjiri batas panggilan per cons-id BPJS.
+    for (const [i, r] of daftar.entries()) {
+      if (await kirimRuang(r)) gagal += 1;
+      setMassal({ total, selesai: i + 1, gagal, jalan: i + 1 < total, waktu: i + 1 < total ? undefined : new Date().toISOString() });
+    }
+    umumkan(gagal > 0 ? `${total - gagal} dari ${total} ruang terkirim, ${gagal} gagal` : `${total} ruang terkirim ke Aplicares`);
+  }
+
+  async function tutupRuang(r: BarisRuang, alasan: string): Promise<BPJSError | null> {
+    try {
+      const res = await setMaintenance({ kdKelas: r.kdKelas, kodeRuang: r.kodeRuang, namaRuang: r.namaRuang, kapasitas: r.kapasitas, aktif: true, alasan });
+      if (!res.ok) return res.error;
+      const waktu = new Date().toISOString();
+      simpanUbahan(r.kodeRuang, {
+        flagMaintenance: true,
+        tersedia: 0,
+        tersediaPria: undefined,
+        tersediaWanita: undefined,
+        tersediaPriaWanita: undefined,
+        lastSyncISO: waktu,
+        tutup: { alasan, sejak: waktu, tersediaSebelum: r.tersedia },
+      });
+      umumkan(`${r.namaRuang} ditutup sementara`);
+      return null;
+    } catch {
+      return GALAT_SAMBUNGAN;
+    }
+  }
+
+  async function bukaKembali(r: BarisRuang): Promise<BPJSError | null> {
+    const tersedia = Math.min(r.tutup?.tersediaSebelum ?? perkiraanTersedia(r), Math.max(r.kapasitas - r.terisi, 0));
+    try {
+      const res = await setMaintenance({ kdKelas: r.kdKelas, kodeRuang: r.kodeRuang, namaRuang: r.namaRuang, kapasitas: r.kapasitas, aktif: false, tersedia });
+      if (!res.ok) return res.error;
+      simpanUbahan(r.kodeRuang, { flagMaintenance: false, tersedia, lastSyncISO: new Date().toISOString(), tutup: undefined });
+      umumkan(`${r.namaRuang} dibuka kembali, ${tersedia} tempat tidur tersedia`);
+      return null;
+    } catch {
+      return GALAT_SAMBUNGAN;
+    }
+  }
+
+  // ── Turunan tampilan ──────────────────────────────────
+
+  const segarPer = new Map(rows.map((r) => [r.kodeRuang, kesegaran(r.lastSyncISO, sekarang)]));
+  const perlu = rows.filter((r) => !segarPer.get(r.kodeRuang)?.terkini);
+  const terkini = rows.length - perlu.length;
+  const kapasitas = rows.reduce((n, r) => n + r.kapasitas, 0);
+  const terisi = rows.reduce((n, r) => n + r.terisi, 0);
+  const tersedia = rows.reduce((n, r) => n + r.tersedia, 0);
+  const ditutup = rows.filter((r) => statusRuang(r) === "tutup").length;
+  const pct = kapasitas > 0 ? Math.round((terisi / kapasitas) * 100) : 0;
+
+  const perKelas = Object.groupBy(rows, (r) => r.kdKelas);
+  const opsiKelas: OpsiSegmen<string>[] = [
+    { value: "semua", label: "Semua kelas", jumlah: rows.length },
+    ...Object.keys(perKelas)
+      .toSorted(urutKelas)
+      .map((k) => ({ value: k, label: kelasBPJSLabel(k), jumlah: perKelas[k as keyof typeof perKelas]?.length ?? 0 })),
+  ];
+  const kelasAktif = opsiKelas.some((o) => o.value === kelas) ? kelas : "semua";
+  const diKelas = kelasAktif === "semua" ? rows : rows.filter((r) => r.kdKelas === kelasAktif);
+
+  const cocokStatus = (r: BarisRuang, s: SaringStatus) =>
+    s === "semua" ? true : s === "perlu" ? !segarPer.get(r.kodeRuang)?.terkini : statusRuang(r) === s;
+  const opsiStatus: OpsiSegmen<SaringStatus>[] = (
+    [
+      { value: "semua", label: "Semua status" },
+      { value: "perlu", label: "Perlu dikirim" },
+      { value: "penuh", label: "Penuh" },
+      { value: "tutup", label: "Ditutup" },
+    ] as const
+  )
+    .map((o) => ({ ...o, jumlah: diKelas.filter((r) => cocokStatus(r, o.value)).length }))
+    .filter((o) => o.value === "semua" || o.jumlah > 0);
+  const statusAktif = opsiStatus.some((o) => o.value === status) ? status : "semua";
+
+  const kata = q.trim().toLowerCase();
+  const tampil = diKelas
+    .filter((r) => cocokStatus(r, statusAktif))
+    .filter((r) => !kata || r.namaRuang.toLowerCase().includes(kata) || r.kodeRuang.toLowerCase().includes(kata));
+
+  const gagalDaftar = rows.filter((r) => kirim[r.kodeRuang] === "gagal");
+  const ruangSheet = sheet ? (rows.find((r) => r.kodeRuang === sheet.kode) ?? null) : null;
+
+  function unduh() {
+    unduhCsv(
+      [
+        ["Kode ruang", "Nama ruang", "Kelas BPJS", "Kapasitas", "Terisi", "Tersedia", "Tidak siap", "Status", "Terakhir dikirim"],
+        ...tampil.map((r) => {
+          const st = statusRuang(r);
+          return [
+            r.kodeRuang,
+            r.namaRuang,
+            kelasBPJSLabel(r.kdKelas),
+            r.kapasitas,
+            r.terisi,
+            r.tersedia,
+            tidakSiap(r),
+            st === "buka" ? "Buka" : LABEL_STATUS[st].label,
+            fmtWaktu(r.lastSyncISO),
+          ];
+        }),
+      ],
+      "ketersediaan-kamar-aplicares.csv",
     );
-    setTimeout(() => setSyncingId(null), 1200);
+    umumkan(`CSV ${tampil.length} ruang diunduh`);
   }
-
-  async function handleMaintenanceConfirm(alasan: string) {
-    const row = maintenanceRow;
-    if (!row) return;
-    const isActivating = !row.flagMaintenance;
-    setModalOpen(false);
-    setMaintenanceRow(null);
-    await setMaintenance({
-      kdKelas:   row.kdKelas,
-      kodeRuang: row.kodeRuang,
-      namaRuang: row.namaRuang,
-      kapasitas: row.kapasitas,
-      aktif:     isActivating,
-      alasan:    isActivating ? alasan : undefined,
-    });
-    setRows((prev) =>
-      prev.map((r) =>
-        r.kodeRuang === row.kodeRuang
-          ? {
-              ...r,
-              flagMaintenance: isActivating,
-              tersedia: isActivating ? 0 : r.kapasitas,
-              lastSyncISO: new Date().toISOString(),
-            }
-          : r,
-      ),
-    );
-  }
-
-  function openMaintenanceModal(row: AplicaresKamarRecord) {
-    setMaintenanceRow(row);
-    setModalOpen(true);
-  }
-
-  const totalKapasitas  = rows.reduce((s, r) => s + r.kapasitas, 0);
-  const totalTersedia   = rows.reduce((s, r) => s + r.tersedia,  0);
-  const totalTerisi     = rows.reduce((s, r) => s + r.terisi,    0);
-  const hunianPct       = totalKapasitas > 0 ? Math.round((totalTerisi / totalKapasitas) * 100) : 0;
-  const maintenanceCount = rows.filter((r) => r.flagMaintenance).length;
-
-  const pageContent = (
-    <motion.div
-      key="page"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.25 }}
-      className="flex flex-col gap-4 p-6"
-    >
-      {/* Header */}
-      <div className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-pink-600">
-          EHIS BPJS · Aplicares
-        </p>
-        <h1 className="mt-0.5 text-base font-bold text-slate-900">Ketersediaan Kamar</h1>
-        <p className="mt-0.5 text-[11px] text-slate-500">
-          Sinkronisasi status bed ke{" "}
-          <span className="font-semibold">Aplicares BPJS</span> per ruang rawat inap.
-          PMK 4/2018 — transparansi kapasitas publik.
-        </p>
-      </div>
-
-      {/* Sync Status Banner */}
-      <BedSyncStatusBanner
-        lastSyncISO={lastSyncTime}
-        onForceRefresh={handleForceRefresh}
-        isRefreshing={isRefreshing}
-      />
-
-      {/* StatCards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard
-          icon={BedDouble} label="Total Kapasitas" value={String(totalKapasitas)}
-          sub={`${rows.length} ruang rawat`}
-          iconCls="bg-pink-100 text-pink-600" delay={0}
-        />
-        <StatCard
-          icon={CheckCircle2} label="Tersedia" value={String(totalTersedia)}
-          sub={`${totalKapasitas > 0 ? Math.round((totalTersedia / totalKapasitas) * 100) : 0}% dari kapasitas`}
-          iconCls="bg-emerald-100 text-emerald-600" delay={0.06}
-        />
-        <StatCard
-          icon={Layers} label="Terisi" value={String(totalTerisi)}
-          sub={`${hunianPct}% tingkat hunian`}
-          iconCls="bg-amber-100 text-amber-700" delay={0.12}
-        />
-        <StatCard
-          icon={Activity} label="Maintenance" value={`${maintenanceCount} ruang`}
-          sub={`${rows.length - maintenanceCount} operasional`}
-          iconCls="bg-rose-100 text-rose-600" delay={0.18}
-        />
-      </div>
-
-      {/* Table Panel */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.22 }}
-        className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
-      >
-        {/* Panel header */}
-        <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
-          <BedDouble size={13} className="text-pink-500" />
-          <span className="text-[11px] font-semibold text-slate-700">Daftar Ruang Rawat</span>
-          <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-semibold text-pink-700">
-            {rows.length} ruang
-          </span>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-[11px]">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50">
-                {[
-                  "Kelas BPJS", "Nama Ruang", "Kapasitas",
-                  "Terisi", "Tersedia", "Maintenance", "Last Sync", "Aksi",
-                ].map((h) => (
-                  <th
-                    key={h}
-                    className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-slate-500"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <AnimatePresence initial={false}>
-                {rows.map((row) => (
-                  <motion.tr
-                    key={row.kodeRuang}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 8 }}
-                    transition={{ duration: 0.18 }}
-                    className={cn(
-                      "border-b border-slate-50 transition-colors",
-                      row.flagMaintenance
-                        ? "bg-amber-50/40"
-                        : syncingId === row.kodeRuang
-                          ? "bg-emerald-50/50"
-                          : "hover:bg-pink-50/30",
-                    )}
-                  >
-                    {/* Kelas BPJS */}
-                    <td className="px-4 py-2.5">
-                      <span className={cn(
-                        "inline-flex items-center rounded-md px-2 py-0.5 font-mono text-[10px] font-bold",
-                        kelasBPJSChipCls(row.kdKelas),
-                      )}>
-                        {row.kdKelas}
-                      </span>
-                    </td>
-
-                    {/* Nama Ruang — cross-link ke master ruangan */}
-                    <td className="px-4 py-2.5">
-                      <a
-                        href={`/ehis-master/ruangan?id=${row.kodeRuang}`}
-                        className="flex items-center gap-1 font-semibold text-slate-700 transition-colors hover:text-pink-600"
-                        title="Buka di Master Ruangan"
-                      >
-                        {row.namaRuang}
-                        <ExternalLink size={9} className="shrink-0 text-slate-400" />
-                      </a>
-                      <span className="mt-0.5 block font-mono text-[9px] text-slate-400">
-                        {row.kodeRuang}
-                      </span>
-                    </td>
-
-                    {/* Kapasitas */}
-                    <td className="px-4 py-2.5 font-mono text-slate-700">{row.kapasitas}</td>
-
-                    {/* Terisi + bar */}
-                    <td className="px-4 py-2.5">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-mono font-semibold text-slate-700">{row.terisi}</span>
-                        <OccupancyBar terisi={row.terisi} kapasitas={row.kapasitas} />
-                      </div>
-                    </td>
-
-                    {/* Tersedia badge */}
-                    <td className="px-4 py-2.5">
-                      <span className={cn(
-                        "inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums",
-                        row.tersedia > 0
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-rose-100 text-rose-700",
-                      )}>
-                        {row.tersedia} bed
-                      </span>
-                    </td>
-
-                    {/* Maintenance */}
-                    <td className="px-4 py-2.5">
-                      {row.flagMaintenance ? (
-                        <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                          <Wrench size={9} />
-                          Aktif
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-slate-400">—</span>
-                      )}
-                    </td>
-
-                    {/* Last Sync */}
-                    <td className="px-4 py-2.5 font-mono text-[10px] text-slate-400">
-                      {new Date(row.lastSyncISO).toLocaleTimeString("id-ID", {
-                        day: "2-digit", month: "short",
-                        hour: "2-digit", minute: "2-digit",
-                      })}
-                    </td>
-
-                    {/* Aksi */}
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleForceSync(row)}
-                          disabled={syncingId === row.kodeRuang}
-                          title="Force Sync ke Aplicares"
-                          className="flex h-6 items-center gap-1 rounded-md px-2 text-[10px] font-medium text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50"
-                        >
-                          <RotateCw
-                            size={10}
-                            className={syncingId === row.kodeRuang ? "animate-spin" : ""}
-                          />
-                          Sync
-                        </button>
-                        <button
-                          onClick={() => openMaintenanceModal(row)}
-                          title={row.flagMaintenance ? "Nonaktifkan Maintenance" : "Set Maintenance"}
-                          className={cn(
-                            "flex h-6 items-center gap-1 rounded-md px-2 text-[10px] font-medium transition",
-                            row.flagMaintenance
-                              ? "text-emerald-600 hover:bg-emerald-50"
-                              : "text-amber-600 hover:bg-amber-50",
-                          )}
-                        >
-                          <Wrench size={10} />
-                          {row.flagMaintenance ? "Restore" : "Maint."}
-                        </button>
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
-              </AnimatePresence>
-
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="py-10 text-center text-[11px] text-slate-400">
-                    Tidak ada data kamar — klik{" "}
-                    <strong>Force Refresh</strong> untuk memuat dari Aplicares.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 px-4 py-2">
-          <span className="text-[10px] text-slate-400">
-            {rows.length} ruang · {totalTersedia} bed tersedia · Hunian {hunianPct}%
-          </span>
-          <span className="text-[10px] text-slate-400">
-            Auto-sync setiap 5 menit (backend)
-          </span>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
 
   return (
-    <>
-      <AnimatePresence mode="wait">
-        {!loaded ? (
-          <motion.div key="skel" exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-            <PageSkeleton />
-          </motion.div>
-        ) : pageContent}
-      </AnimatePresence>
+    <MotionConfig reducedMotion="user">
+      <div data-accent="emerald" className="flex flex-col gap-4 p-4 text-foreground sm:p-5">
+        <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span aria-hidden="true" className="flex size-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+            <Bed className="size-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-sm font-semibold">Ketersediaan kamar</h1>
+            <p className="text-xs text-muted-foreground">Tempat tidur kosong per ruang rawat yang dilaporkan RS ke BPJS sebagai informasi untuk peserta</p>
+          </div>
+          <Badge variant="secondary" className="bg-white text-[11px] text-muted-foreground shadow-xs">
+            Aplicares
+          </Badge>
+        </header>
 
-      {/* Modal lives outside AnimatePresence to avoid mode="wait" multi-child warning */}
-      <MaintenanceModal
-        open={modalOpen}
-        row={maintenanceRow}
-        onClose={() => { setModalOpen(false); setMaintenanceRow(null); }}
-        onConfirm={handleMaintenanceConfirm}
-      />
-    </>
+        <Card className={KARTU}>
+          <section aria-labelledby={`${id}-judul`} className="flex flex-col gap-3 py-4">
+            <KepalaKartu
+              judulId={`${id}-judul`}
+              judul="Ruang rawat"
+              deskripsi={`Kirim ulang laporan bila sudah lebih dari ${BATAS_TERKINI_MENIT} menit atau isinya berubah`}
+            >
+              <Button variant="ghost" size="xs" onClick={() => !memuat && setMuat((n) => n + 1)} aria-disabled={memuat} className="aria-disabled:opacity-60">
+                <RotateCw aria-hidden="true" className={cn(memuat && "motion-safe:animate-spin")} />
+                Muat ulang
+              </Button>
+              <Button
+                size="xs"
+                onClick={() => kirimBanyak(rows)}
+                aria-disabled={massal?.jalan || rows.length === 0}
+                className="bg-emerald-600 text-white hover:bg-emerald-700 aria-disabled:cursor-not-allowed aria-disabled:opacity-60"
+              >
+                <Send aria-hidden="true" />
+                Kirim semua
+                <span className="sr-only"> laporan ke Aplicares</span>
+              </Button>
+            </KepalaKartu>
+
+            {massal && (
+              <div className="mx-4 flex flex-col gap-1.5 rounded-xl bg-emerald-50/60 px-3 py-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
+                  <span className="font-medium text-emerald-950 tabular-nums">
+                    {massal.jalan
+                      ? `Mengirim ke Aplicares… ${massal.selesai} dari ${massal.total}`
+                      : `${massal.total - massal.gagal} dari ${massal.total} ruang terkirim${massal.waktu ? ` · ${fmtWaktu(massal.waktu)}` : ""}`}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    {massal.gagal > 0 && <span className="text-[11px] font-medium text-rose-700 tabular-nums">{massal.gagal} gagal</span>}
+                    {!massal.jalan && massal.gagal > 0 && (
+                      <Button variant="ghost" size="xs" onClick={() => kirimBanyak(gagalDaftar)} className="text-emerald-700">
+                        <RotateCw aria-hidden="true" />
+                        Kirim ulang yang gagal
+                      </Button>
+                    )}
+                    {!massal.jalan && (
+                      <Button variant="ghost" size="icon-xs" aria-label="Tutup ringkasan kirim" onClick={() => setMassal(null)}>
+                        <X aria-hidden="true" />
+                      </Button>
+                    )}
+                  </span>
+                </div>
+                <Meter value={massal.selesai} max={Math.max(massal.total, 1)} tone={massal.gagal > 0 ? "amber" : "emerald"} label="Progres kirim ke Aplicares" />
+              </div>
+            )}
+
+            {!data && memuat ? (
+              <>
+                <KerangkaRingkasan />
+                <div className="px-2">
+                  <KerangkaDaftar baris={5} tinggi="h-15" />
+                </div>
+              </>
+            ) : hasil && !hasil.ok ? (
+              <div className="px-4">
+                <GalatVClaim error={hasil.error} objek="Data kamar" layanan="Aplicares" onUlang={() => setMuat((n) => n + 1)} />
+              </div>
+            ) : rows.length === 0 ? (
+              <KosongData ikon={Bed} judul="Belum ada ruang rawat di Aplicares" deskripsi="Ruang rawat inap dari master ruangan belum didaftarkan ke Aplicares." />
+            ) : (
+              <div className={cn("flex flex-col gap-3 transition-opacity", memuat && "opacity-60")}>
+                <dl className="grid grid-cols-2 gap-2 px-4 lg:grid-cols-4">
+                  <UbinAngka label="Ruang rawat" nilai={rows.length} ket={`${Object.keys(perKelas).length} kelas BPJS`} />
+                  <UbinAngka label="Tempat tidur" nilai={kapasitas} ket={`${terisi} terisi (${pct}%)`}>
+                    <Meter value={Math.min(terisi, kapasitas)} max={Math.max(kapasitas, 1)} tone={nadaKeterisian(terisi, kapasitas)} label={`Keterisian tempat tidur ${pct} persen`} />
+                  </UbinAngka>
+                  <UbinAngka label="Tersedia" nilai={tersedia} nada="emerald" ket={ditutup > 0 ? `${ditutup} ruang ditutup` : "siap untuk pasien baru"} />
+                  <UbinAngka
+                    label="Laporan terkini"
+                    nilai={`${terkini}/${rows.length}`}
+                    nada={terkini === rows.length ? "emerald" : "amber"}
+                    ket={perlu.length > 0 ? `${perlu.length} ruang perlu dikirim` : `semua ≤ ${BATAS_TERKINI_MENIT} menit`}
+                  />
+                </dl>
+
+                <div className="flex flex-wrap items-center gap-2 px-4">
+                  <SegmenFilter label="Saring kelas BPJS" opsi={opsiKelas} value={kelasAktif} onChange={setKelas} />
+                  <SegmenFilter label="Saring status ruangan" opsi={opsiStatus} value={statusAktif} onChange={setStatus} />
+                </div>
+                <div className="flex flex-wrap items-center gap-2 px-4">
+                  <KolomSaring id={`${id}-q`} value={q} onChange={setQ} label="Saring nama atau kode ruang" placeholder="Saring nama atau kode ruang" />
+                  <TombolUnduh onClick={unduh} jumlah={tampil.length} />
+                </div>
+
+                <div className="px-2">
+                  {tampil.length === 0 ? (
+                    <SaringKosong
+                      pesan={
+                        kata ? (
+                          <>
+                            Tidak ada ruang yang cocok dengan “<span className="text-foreground">{q.trim()}</span>”
+                          </>
+                        ) : (
+                          "Tidak ada ruang dengan saringan ini"
+                        )
+                      }
+                      onReset={() => {
+                        setQ("");
+                        setKelas("semua");
+                        setStatus("semua");
+                      }}
+                    />
+                  ) : (
+                    <ul aria-label="Ruang rawat di Aplicares" className="flex flex-col gap-0.5">
+                      {tampil.map((r, i) => (
+                        <Baris
+                          key={r.kodeRuang}
+                          r={r}
+                          index={i}
+                          sekarang={sekarang}
+                          kirim={kirim[r.kodeRuang]}
+                          onBuka={() => setSheet({ kode: r.kodeRuang, buka: true })}
+                          onKirim={() => kirimSatu(r)}
+                        />
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <p role="status" className="sr-only">
+              {memuat ? "" : hasil && !hasil.ok ? "Data kamar gagal dimuat" : `${tampil.length} ruang rawat`}
+            </p>
+            <p role="status" className="sr-only">
+              {aksi.teks}
+            </p>
+          </section>
+        </Card>
+
+        <RuangSheet
+          ruang={ruangSheet}
+          open={Boolean(sheet?.buka)}
+          sekarang={sekarang}
+          onClose={() => setSheet((s) => (s ? { ...s, buka: false } : s))}
+          onKirim={kirimRuang}
+          onTutup={tutupRuang}
+          onBukaKembali={bukaKembali}
+        />
+      </div>
+    </MotionConfig>
   );
 }

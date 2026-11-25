@@ -108,8 +108,8 @@ function Isi({ k }: { k: BarisKelas }) {
                             {r.namaRuang}
                           </span>
                           {r.flagMaintenance && (
-                            <BadgeNada tone="amber" titik>
-                              Ada bed dalam perawatan
+                            <BadgeNada tone="rose" titik>
+                              Ditutup sementara
                             </BadgeNada>
                           )}
                         </span>
