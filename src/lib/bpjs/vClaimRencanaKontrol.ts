@@ -50,7 +50,60 @@ import {
   findRKByNoSurat,
 } from "./mock/rencanaKontrolMock";
 import { findSEPByNo } from "./mock/sepMock";
+import { PESERTA_MOCK } from "./mock/pesertaMock";
 import { keyForInsertRK } from "./idempotencyKey";
+
+
+// ── Helper mock ────────────────────────────────────────
+
+/** Hari ini yyyy-MM-dd LOKAL (toISOString = UTC → bisa mundur sehari di WIB pagi). */
+function hariIniLokal(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Kode jenis kontrol WIRE V-Claim: "1" = SPRI, "2" = Rencana Kontrol (domain `tipeKontrol` terbalik). */
+function jnsKontrolWire(rk: RencanaKontrolRecord): "1" | "2" {
+  return rk.jenis === "SPRI" ? "1" : "2";
+}
+
+const NAMA_POLI: Record<string, string> = {
+  INT: "Penyakit Dalam",
+  BED: "Bedah",
+  OBG: "Obstetri & Ginekologi",
+  ANA: "Anak",
+  MAT: "Mata",
+  THT: "THT-KL",
+  PAR: "Paru",
+  JAN: "Jantung",
+  SAR: "Saraf",
+  ORT: "Ortopedi",
+  IGD: "IGD",
+  HDL: "Hemodialisa",
+};
+
+/** Peserta ringkas untuk shape SEP-untuk-RK, dari mock peserta (dulu "PESERTA MOCK"). */
+function pesertaRingkas(noKartu: string): SEPUntukRKRecord["peserta"] {
+  const p = PESERTA_MOCK.find((x) => x.noKartu === noKartu);
+  return {
+    noKartu,
+    nama: p?.nama ?? "Tidak diketahui",
+    tglLahir: p?.tglLahir ?? "",
+    kelamin: p?.sex ?? "L",
+    hakKelas: p?.hakKelas.keterangan ?? "-",
+  };
+}
+
+function namaPeserta(noKartu: string): string {
+  return PESERTA_MOCK.find((x) => x.noKartu === noKartu)?.nama ?? "Tidak diketahui";
+}
+
+/** Hash deterministik kecil (mock kapasitas poli per tanggal). */
+function hashMock(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
+}
 
 // ── Spec 1: insertRKV2 (dengan formPRB) ────────────────
 
@@ -74,7 +127,7 @@ export function insertRKV2(
     async () => {
       const err = await preflightMock(config);
       if (err) return Err(err);
-      const today = new Date().toISOString().slice(0, 10);
+      const today = hariIniLokal();
       if (payload.tglRencanaKontrol < today) {
         return errEnvelope("204", endpoint, "Tgl rencana kontrol harus >= hari ini");
       }
@@ -159,7 +212,7 @@ export function insertSPRI(
     async () => {
       const err = await preflightMock(config);
       if (err) return Err(err);
-      const today = new Date().toISOString().slice(0, 10);
+      const today = hariIniLokal();
       if (payload.tglRencanaKontrol < today) {
         return errEnvelope("204", endpoint, "Tgl SPRI harus >= hari ini");
       }
@@ -217,15 +270,9 @@ export function getSEPUntukRK(
         noSep: sep.noSEP,
         tglSep: sep.tglTerbit,
         jnsPelayanan: sep.jnsPelayanan === "1" ? "Rawat Inap" : "Rawat Jalan",
-        poli: `${sep.poli.tujuan} - ${sep.poli.tujuan}`,
+        poli: `${sep.poli.tujuan} - ${NAMA_POLI[sep.poli.tujuan] ?? sep.poli.tujuan}`,
         diagnosa: `${sep.diagAwal} - ${sep.diagAwalNama ?? sep.diagAwal}`,
-        peserta: {
-          noKartu: sep.noKartu,
-          nama: "PESERTA MOCK",
-          tglLahir: "1980-01-01",
-          kelamin: "L",
-          hakKelas: "-",
-        },
+        peserta: pesertaRingkas(sep.noKartu),
         provUmum: { kdProvider: "03100202", nmProvider: "FKTP MOCK" },
         provPerujuk: {
           kdProviderPerujuk: sep.rujukan.ppkRujukan ?? "",
@@ -260,7 +307,7 @@ export function getNoSuratKontrol(
         noSuratKontrol: rk.noSurat,
         tglRencanaKontrol: rk.tglRencana,
         tglTerbit: rk.audit.createdAt.slice(0, 10),
-        jnsKontrol: rk.tipeKontrol,
+        jnsKontrol: jnsKontrolWire(rk),
         poliTujuan: rk.poli.kode,
         namaPoliTujuan: rk.poli.nama,
         kodeDokter: rk.dokter.kode,
@@ -274,15 +321,9 @@ export function getNoSuratKontrol(
               noSep: sep.noSEP,
               tglSep: sep.tglTerbit,
               jnsPelayanan: sep.jnsPelayanan === "1" ? "Rawat Inap" : "Rawat Jalan",
-              poli: `${sep.poli.tujuan} - ${sep.poli.tujuan}`,
+              poli: `${sep.poli.tujuan} - ${NAMA_POLI[sep.poli.tujuan] ?? sep.poli.tujuan}`,
               diagnosa: `${sep.diagAwal} - ${sep.diagAwalNama ?? sep.diagAwal}`,
-              peserta: {
-                noKartu: sep.noKartu,
-                nama: "PESERTA MOCK",
-                tglLahir: "1980-01-01",
-                kelamin: "L",
-                hakKelas: "-",
-              },
+              peserta: pesertaRingkas(sep.noKartu),
               provUmum: { kdProvider: "03100202", nmProvider: "FKTP MOCK" },
               provPerujuk: {
                 kdProviderPerujuk: sep.rujukan.ppkRujukan ?? "",
@@ -320,10 +361,10 @@ export function listRKByKartu(
       if (err) return Err(err);
       const tglAwal = `${tahun}-${bulan.padStart(2, "0")}-01`;
       const tglAkhir = `${tahun}-${bulan.padStart(2, "0")}-31`;
-      const rks = filterRKByPeriode(tglAwal, tglAkhir).filter((rk) => {
-        const sep = findSEPByNo(rk.noSEPAsal);
-        return sep?.noKartu === noKartu || rk.jenis === "SPRI";
-      });
+      // Mock SPRI juga menaut SEP (sumber kartu peserta) → saring per kartu untuk keduanya.
+      const rks = filterRKByPeriode(tglAwal, tglAkhir).filter(
+        (rk) => findSEPByNo(rk.noSEPAsal)?.noKartu === noKartu,
+      );
       const items: RKListByKartuItem[] = rks.map((rk) =>
         toListByKartuItem(rk, noKartu),
       );
@@ -341,20 +382,20 @@ function toListByKartuItem(
   return {
     noSuratKontrol: rk.noSurat,
     jnsPelayanan: isSPRI ? "Rawat Inap" : "Rawat Jalan",
-    jnsKontrol: rk.tipeKontrol,
+    jnsKontrol: jnsKontrolWire(rk),
     namaJnsKontrol: isSPRI ? "SPRI" : "Kontrol",
     tglRencanaKontrol: rk.tglRencana,
     tglTerbitKontrol: rk.audit.createdAt.slice(0, 10),
     noSepAsalKontrol: isSPRI ? "" : rk.noSEPAsal,
     poliAsal: sep?.poli.tujuan ?? rk.poli.kode,
-    namaPoliAsal: sep?.poli.tujuan ?? rk.poli.nama,
+    namaPoliAsal: sep ? (NAMA_POLI[sep.poli.tujuan] ?? sep.poli.tujuan) : rk.poli.nama,
     poliTujuan: rk.poli.kode,
     namaPoliTujuan: rk.poli.nama,
     tglSEP: sep?.tglTerbit ?? "",
     kodeDokter: rk.dokter.kode,
     namaDokter: rk.dokter.nama,
     noKartu: sep?.noKartu ?? noKartu,
-    nama: "PESERTA MOCK",
+    nama: namaPeserta(sep?.noKartu ?? noKartu),
     terbitSEP: rk.status === "Used" ? "Sudah" : "Belum",
   };
 }
@@ -386,20 +427,20 @@ function toListPeriodeItem(rk: RencanaKontrolRecord): RKListPeriodeItem {
   return {
     noSuratKontrol: rk.noSurat,
     jnsPelayanan: isSPRI ? "Rawat Inap" : "Rawat Jalan",
-    jnsKontrol: rk.tipeKontrol,
+    jnsKontrol: jnsKontrolWire(rk),
     namaJnsKontrol: isSPRI ? "SPRI" : "Kontrol",
     tglRencanaKontrol: rk.tglRencana,
     tglTerbitKontrol: rk.audit.createdAt.slice(0, 10),
     noSepAsalKontrol: isSPRI ? "" : rk.noSEPAsal,
     poliAsal: sep?.poli.tujuan ?? rk.poli.kode,
-    namaPoliAsal: sep?.poli.tujuan ?? rk.poli.nama,
+    namaPoliAsal: sep ? (NAMA_POLI[sep.poli.tujuan] ?? sep.poli.tujuan) : rk.poli.nama,
     poliTujuan: rk.poli.kode,
     namaPoliTujuan: rk.poli.nama,
     tglSEP: sep?.tglTerbit ?? "",
     kodeDokter: rk.dokter.kode,
     namaDokter: rk.dokter.nama,
     noKartu: sep?.noKartu ?? "",
-    nama: "PESERTA MOCK",
+    nama: sep ? namaPeserta(sep.noKartu) : "Tidak diketahui",
   };
 }
 
@@ -424,6 +465,8 @@ const POLI_RK_REF: PoliRKSpecItem[] = [
   { kodePoli: "BED", namaPoli: "Bedah", kapasitas: "25", jmlRencanaKontroldanRujukan: "0", persentase: "0.00" },
   { kodePoli: "MAT", namaPoli: "Mata", kapasitas: "20", jmlRencanaKontroldanRujukan: "0", persentase: "0.00" },
   { kodePoli: "JAN", namaPoli: "Jantung", kapasitas: "20", jmlRencanaKontroldanRujukan: "0", persentase: "0.00" },
+  { kodePoli: "PAR", namaPoli: "Paru", kapasitas: "20", jmlRencanaKontroldanRujukan: "0", persentase: "0.00" },
+  { kodePoli: "ORT", namaPoli: "Ortopedi", kapasitas: "18", jmlRencanaKontroldanRujukan: "0", persentase: "0.00" },
 ];
 
 export function getPoliRK(
@@ -438,7 +481,13 @@ export function getPoliRK(
     async () => {
       const err = await preflightMock(config);
       if (err) return Err(err);
-      return okEnvelope(POLI_RK_REF);
+      // Mock: jumlah rencana kontrol + rujukan per poli deterministik per tanggal (dulu selalu 0).
+      const list = POLI_RK_REF.map((p) => {
+        const kap = Number(p.kapasitas);
+        const jml = hashMock(`${p.kodePoli}|${tglRencana}`) % (kap + 4);
+        return { ...p, jmlRencanaKontroldanRujukan: String(jml), persentase: ((jml / kap) * 100).toFixed(2) };
+      });
+      return okEnvelope(list);
     },
   )();
 }
@@ -463,6 +512,12 @@ const POLI_TO_DOKTER: Record<string, string[]> = {
   ORT: ["DR-011"],
   JAN: ["DR-003"],
   OBG: ["DR-014"],
+  "004": ["DR-001"],
+  "005": ["DR-001"],
+  "008": ["DR-001"],
+  "013": ["DR-001"],
+  "015": ["DR-003"],
+  "023": ["DR-014"],
 };
 
 export function getDokterRK(

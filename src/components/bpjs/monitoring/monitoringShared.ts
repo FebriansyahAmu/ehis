@@ -102,16 +102,10 @@ export function persen(bagian: number, total: number): number | null {
 
 // ── Validasi histori pelayanan ────────────────────────────
 
-export const PANJANG_KARTU = 13;
+// No. kartu kini bersama modul BPJS (bpjs/shared/kartu) — diekspor ulang.
+export { PANJANG_KARTU, validasiKartu } from "@/components/bpjs/shared/kartu";
 export const MAKS_HARI = 90;
 export const PRESET_HARI = [30, 60, 90] as const;
-
-export function validasiKartu(k: string): string | null {
-  if (!k) return "Isi No. kartu BPJS peserta";
-  if (!/^\d+$/.test(k)) return "No. kartu hanya berisi angka";
-  if (k.length !== PANJANG_KARTU) return `No. kartu harus ${PANJANG_KARTU} digit, baru ${k.length}`;
-  return null;
-}
 
 export function validasiPeriode(mulai: string, akhir: string, hariIni: string): string | null {
   if (!mulai || !akhir) return "Pilih tanggal awal dan akhir periode";
@@ -143,30 +137,8 @@ export type BukaHistori = (kartu: string, acuan: string) => void;
 
 // ── Unduh CSV ─────────────────────────────────────────────
 
-/**
- * Sel CSV: diapit kutip ganda. Isi yang diawali = + - @ tab/CR diberi awalan ' agar tidak
- * dijalankan sebagai rumus saat dibuka di spreadsheet (CSV/formula injection — OWASP).
- */
-function selCsv(v: string | number | null | undefined): string {
-  let s = String(v ?? "");
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
-  return `"${s.replace(/"/g, '""')}"`;
-}
-
-/** Unduh CSV UTF-8 (BOM agar Excel membaca huruf non-ASCII). */
-export function unduhCsv(baris: readonly (readonly (string | number | null | undefined)[])[], namaBerkas: string): void {
-  const isi = "﻿" + baris.map((r) => r.map(selCsv).join(",")).join("\r\n");
-  const url = URL.createObjectURL(new Blob([isi], { type: "text/csv;charset=utf-8" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = namaBerkas;
-  a.hidden = true;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  // Dicabut sesudah unduhan dimulai (mencabut seketika bisa membatalkannya di sebagian peramban).
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+// Kini bersama modul BPJS (bpjs/shared/csv) — diekspor ulang.
+export { unduhCsv } from "@/components/bpjs/shared/csv";
 
 // ── Data uji (mock) ───────────────────────────────────────
 

@@ -12,6 +12,15 @@ export const GALAT_KONEKSI: BPJSError = {
   retryable: true,
 };
 
+/** Respons sukses tanpa isi diperlakukan sama dengan kode 201. */
+export const GALAT_TIDAK_ADA: BPJSError = {
+  type: "BPJSMetaError",
+  code: "201",
+  message: "Data tidak ditemukan di V-Claim",
+  endpoint: "",
+  retryable: false,
+};
+
 export function labelGalat(
   err: BPJSError,
   objek = "Data",
