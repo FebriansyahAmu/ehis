@@ -1,249 +1,356 @@
 "use client";
 
-// ANT2.1 — Header kontrol "Buka Loket": pilih Pos · Loket · Tanggal · Jenis Pasien.
-// Sesi aktif ditampilkan sebagai chip + tombol Tutup. Aksi baris terikat sesi ini.
+// ANT2.1 — Panel loket. Dua keadaan:
+// • Tertutup → form "Buka loket" (Pos · Loket · Tanggal · Jenis pasien, dropdown Select shadcn).
+//   Petugas = akun yang login (bukan teks tetap).
+// • Terbuka → identitas loket + pasien yang SEDANG DIPANGGIL di loket ini (panggil ulang / respon
+//   langsung dari sini) + "Panggil berikutnya" (antrean menunggu admisi paling lama, FIFO), riwayat
+//   shift, dan tutup loket.
+// Fokus dipindah ke judul panel sesudah buka/tutup karena kontrol pemicunya hilang dari DOM.
+// Komponen shadcn: Card · Select · Label · Button · Badge.
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { DoorOpen, DoorClosed, MapPin, Calendar, Users, History, X } from "lucide-react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
+import { BellRing, DoorClosed, DoorOpen, History, PhoneCall, UserCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DatePicker } from "@/components/shared/inputs";
+import { KARTU } from "@/components/bpjs/shared/vclaimUi";
+import { useSessionOptional } from "@/contexts/SessionContext";
+import { cn } from "@/lib/ui/utils";
 import { usePosStore, loketLabel } from "@/lib/antrean/posStore";
-import {
-  bukaLoket,
-  tutupLoket,
-  type JenisFilter,
-  type LoketSession,
-  type ShiftLogEntry,
-} from "@/lib/antrean/loketStore";
-import { todayISO } from "./boardShared";
+import { bukaLoket, tutupLoket, type JenisFilter, type LoketSession, type PanggilanRef } from "@/lib/antrean/loketStore";
+import type { AntreanRecord } from "@/lib/antrean/types";
+import { fmtJam, todayISO } from "./boardShared";
 
-const JENIS_OPTS: JenisFilter[] = ["Semua", "Baru", "Lama"];
+const JENIS_OPTS: { value: JenisFilter; label: string }[] = [
+  { value: "Semua", label: "Semua pasien" },
+  { value: "Baru", label: "Pasien baru" },
+  { value: "Lama", label: "Pasien lama" },
+];
 
-const ACTION_LABEL: Record<string, string> = {
-  buka: "Buka loket",
-  tutup: "Tutup loket",
-  panggil: "Panggil",
-  panggilUlang: "Panggil ulang",
-  respon: "Respon",
-  batal: "Batal",
-};
+export const PEMICU_SELECT = "h-8 w-full rounded-lg border-0 bg-slate-100 px-2.5 text-xs shadow-none focus-visible:bg-white focus-visible:ring-ring/40";
+export const ITEM_SELECT = "text-xs";
+const TOMBOL_EMERALD = "bg-emerald-600 text-white hover:bg-emerald-700 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-emerald-600";
 
 export function LoketControlBar({
   session,
-  shiftLog,
+  shiftLogCount,
+  dipanggil,
+  dipanggilRef,
+  berikutnya,
+  jumlahMenunggu,
+  pilihPosRef,
+  onPanggil,
+  onPanggilUlang,
+  onRespon,
+  onBukaRiwayat,
 }: {
   session: LoketSession | null;
-  shiftLog: ShiftLogEntry[];
+  shiftLogCount: number;
+  /** Pasien berstatus Dipanggil yang terakhir dipanggil di loket aktif. */
+  dipanggil: AntreanRecord | null;
+  dipanggilRef?: PanggilanRef;
+  /** Antrean menunggu admisi berikutnya (paling lama menunggu). */
+  berikutnya: AntreanRecord | null;
+  jumlahMenunggu: number;
+  /** Pemicu dropdown Pos — difokus saat petugas mencoba aksi sebelum loket dibuka. */
+  pilihPosRef: RefObject<HTMLButtonElement | null>;
+  onPanggil: (rec: AntreanRecord) => void;
+  onPanggilUlang: (rec: AntreanRecord) => void;
+  onRespon: (rec: AntreanRecord) => void;
+  onBukaRiwayat: () => void;
 }) {
-  const posList = usePosStore();
-  const [posKode, setPosKode] = useState("");
-  const [loketKode, setLoketKode] = useState("");
-  const [tanggal, setTanggal] = useState(todayISO());
-  const [jenis, setJenis] = useState<JenisFilter>("Semua");
-  const [logOpen, setLogOpen] = useState(false);
+  const judulRef = useRef<HTMLHeadingElement>(null);
+  const fokusJudul = useRef(false);
+  const terbuka = session !== null;
 
-  // Pilihan diturunkan dari store → robust bila pos/loket dihapus di Pengaturan.
-  const posObj = posList.find((p) => p.kode === posKode) ?? posList[0];
-  const loketObj = posObj?.loket.find((l) => l.kode === loketKode) ?? posObj?.loket[0];
-
-  const onPickPos = (kode: string) => {
-    setPosKode(kode);
-    setLoketKode("");
-  };
-
-  const handleBuka = () => {
-    if (!posObj || !loketObj) return;
-    bukaLoket({ pos: posObj.kode, loket: loketObj.kode, tanggal, jenisPasien: jenis, petugas: "Petugas Admisi" });
-  };
+  // Sesudah buka/tutup, kontrol pemicu hilang → pindahkan fokus ke judul panel yang baru.
+  useEffect(() => {
+    if (!fokusJudul.current) return;
+    fokusJudul.current = false;
+    judulRef.current?.focus();
+  }, [terbuka]);
 
   if (session) {
     return (
-      <SessionBar session={session} shiftLog={shiftLog} logOpen={logOpen} setLogOpen={setLogOpen} />
+      <LoketAktif
+        session={session}
+        judulRef={judulRef}
+        shiftLogCount={shiftLogCount}
+        dipanggil={dipanggil}
+        dipanggilRef={dipanggilRef}
+        berikutnya={berikutnya}
+        jumlahMenunggu={jumlahMenunggu}
+        onPanggil={onPanggil}
+        onPanggilUlang={onPanggilUlang}
+        onRespon={onRespon}
+        onBukaRiwayat={onBukaRiwayat}
+        onTutup={() => {
+          fokusJudul.current = true;
+          tutupLoket();
+        }}
+      />
     );
+  }
+  return (
+    <FormBukaLoket
+      judulRef={judulRef}
+      pilihPosRef={pilihPosRef}
+      onDibuka={() => {
+        fokusJudul.current = true;
+      }}
+    />
+  );
+}
+
+// ── Loket tertutup ─────────────────────────────────────────
+
+function FormBukaLoket({
+  judulRef,
+  pilihPosRef,
+  onDibuka,
+}: {
+  judulRef: RefObject<HTMLHeadingElement | null>;
+  pilihPosRef: RefObject<HTMLButtonElement | null>;
+  onDibuka: () => void;
+}) {
+  const id = useId();
+  const posList = usePosStore();
+  const petugas = useSessionOptional()?.session?.namaTampil ?? "Petugas admisi";
+  const [posKode, setPosKode] = useState("");
+  const [loketKode, setLoketKode] = useState("");
+  const [tanggal, setTanggal] = useState(todayISO);
+  const [jenis, setJenis] = useState<JenisFilter>("Semua");
+
+  // Pilihan diturunkan dari store → tetap sah bila pos/loket dihapus di Pengaturan.
+  const posObj = posList.find((p) => p.kode === posKode) ?? posList[0];
+  const loketObj = posObj?.loket.find((l) => l.kode === loketKode) ?? posObj?.loket[0];
+  const tanpaLoket = !posObj || posObj.loket.length === 0;
+
+  function buka(e: FormEvent) {
+    e.preventDefault();
+    if (!posObj || !loketObj) return;
+    onDibuka();
+    bukaLoket({ pos: posObj.kode, loket: loketObj.kode, tanggal, jenisPasien: jenis, petugas });
   }
 
   return (
-    <section className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
-      <div className="flex flex-wrap items-end gap-3">
-        <Field label="Pos Antrian" icon={MapPin}>
-          <select
-            value={posObj?.kode ?? ""}
-            onChange={(e) => onPickPos(e.target.value)}
-            className={selectClass}
-          >
-            {posList.map((p) => (
-              <option key={p.kode} value={p.kode}>{p.nama}</option>
-            ))}
-          </select>
-        </Field>
+    <Card className={KARTU}>
+      <form onSubmit={buka} aria-labelledby={`${id}-judul`} className="flex flex-col gap-3 p-4">
+        <div className="flex items-start gap-3">
+          <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+            <DoorClosed className="size-4" />
+          </span>
+          <div className="min-w-0">
+            <h2 id={`${id}-judul`} ref={judulRef} tabIndex={-1} className="text-sm font-semibold outline-none">
+              Loket belum dibuka
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Pilih tempat Anda bertugas. Panggil, respon kedatangan, dan batal aktif setelah loket dibuka atas nama{" "}
+              <span className="font-medium text-foreground">{petugas}</span>.
+            </p>
+          </div>
+        </div>
 
-        <Field label="Loket" icon={DoorOpen}>
-          <select
-            value={loketObj?.kode ?? ""}
-            onChange={(e) => setLoketKode(e.target.value)}
-            disabled={!posObj || posObj.loket.length === 0}
-            className={selectClass}
-          >
-            {posObj && posObj.loket.length > 0 ? (
-              posObj.loket.map((l) => (
-                <option key={l.kode} value={l.kode}>{l.nama}</option>
-              ))
-            ) : (
-              <option value="">— belum ada loket —</option>
-            )}
-          </select>
-        </Field>
+        <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[repeat(4,minmax(0,1fr))_auto]">
+          <Kolom id={`${id}-pos`} label="Pos antrean">
+            <Select
+              value={posObj?.kode}
+              onValueChange={(v) => {
+                setPosKode(v);
+                setLoketKode("");
+              }}
+            >
+              <SelectTrigger id={`${id}-pos`} ref={pilihPosRef} size="sm" className={PEMICU_SELECT}>
+                <SelectValue placeholder="Belum ada pos" />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                {posList.map((p) => (
+                  <SelectItem key={p.kode} value={p.kode} className={ITEM_SELECT}>
+                    {p.nama}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Kolom>
 
-        <Field label="Tanggal" icon={Calendar}>
-          <input
-            type="date"
-            value={tanggal}
-            onChange={(e) => setTanggal(e.target.value)}
-            className={selectClass}
-          />
-        </Field>
+          <Kolom id={`${id}-loket`} label="Loket">
+            <Select value={loketObj?.kode} onValueChange={setLoketKode} disabled={tanpaLoket}>
+              <SelectTrigger id={`${id}-loket`} size="sm" className={PEMICU_SELECT} aria-describedby={tanpaLoket ? `${id}-tanpa-loket` : undefined}>
+                <SelectValue placeholder="Belum ada loket" />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                {posObj?.loket.map((l) => (
+                  <SelectItem key={l.kode} value={l.kode} className={ITEM_SELECT}>
+                    {l.nama}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Kolom>
 
-        <Field label="Jenis Pasien" icon={Users}>
-          <select value={jenis} onChange={(e) => setJenis(e.target.value as JenisFilter)} className={selectClass}>
-            {JENIS_OPTS.map((j) => (
-              <option key={j} value={j}>{j}</option>
-            ))}
-          </select>
-        </Field>
+          <Kolom id={`${id}-tgl`} label="Tanggal layanan">
+            {/* cn DatePicker hanya menggabung kelas (tanpa tailwind-merge) → ringkas lewat `!`. */}
+            <DatePicker
+              id={`${id}-tgl`}
+              value={tanggal}
+              onChange={(v) => v && setTanggal(v)}
+              variant="filled"
+              clearable={false}
+              className="h-8! rounded-lg! px-2.5! text-xs! tabular-nums"
+            />
+          </Kolom>
 
-        <button
-          type="button"
-          onClick={handleBuka}
-          disabled={!loketObj}
-          className="ml-auto inline-flex items-center gap-2 rounded-xl bg-sky-600 px-5 py-2.5 m-sm font-bold text-white shadow-sm transition-colors hover:bg-sky-700 active:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-        >
-          <DoorOpen className="h-4 w-4" />
-          Buka Loket
-        </button>
-      </div>
-      <p className="mt-2.5 m-tiny text-slate-400">
-        Buka loket dahulu untuk mengaktifkan aksi <span className="font-semibold text-slate-500">Panggil · Respon Kedatangan · Batal</span> pada tabel di bawah.
-      </p>
-    </section>
+          <Kolom id={`${id}-jenis`} label="Jenis pasien">
+            <Select value={jenis} onValueChange={(v) => setJenis(v as JenisFilter)}>
+              <SelectTrigger id={`${id}-jenis`} size="sm" className={PEMICU_SELECT}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                {JENIS_OPTS.map((j) => (
+                  <SelectItem key={j.value} value={j.value} className={ITEM_SELECT}>
+                    {j.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Kolom>
+
+          <Button type="submit" size="sm" disabled={!loketObj} className={cn("h-8 text-xs", TOMBOL_EMERALD)}>
+            <DoorOpen aria-hidden="true" />
+            Buka loket
+          </Button>
+        </div>
+        {tanpaLoket && (
+          <p id={`${id}-tanpa-loket`} className="text-[11px] text-amber-800">
+            Pos ini belum punya loket. Tambahkan loket di menu Pengaturan.
+          </p>
+        )}
+      </form>
+    </Card>
   );
 }
 
-// ── Sesi aktif ─────────────────────────────────────────────
+function Kolom({ id, label, children }: { id: string; label: string; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <Label htmlFor={id} className="text-[11px] font-medium text-muted-foreground">
+        {label}
+      </Label>
+      {children}
+    </div>
+  );
+}
 
-function SessionBar({
+// ── Loket terbuka ──────────────────────────────────────────
+
+function LoketAktif({
   session,
-  shiftLog,
-  logOpen,
-  setLogOpen,
+  judulRef,
+  shiftLogCount,
+  dipanggil,
+  dipanggilRef,
+  berikutnya,
+  jumlahMenunggu,
+  onPanggil,
+  onPanggilUlang,
+  onRespon,
+  onBukaRiwayat,
+  onTutup,
 }: {
   session: LoketSession;
-  shiftLog: ShiftLogEntry[];
-  logOpen: boolean;
-  setLogOpen: (v: boolean) => void;
+  judulRef: RefObject<HTMLHeadingElement | null>;
+  shiftLogCount: number;
+  dipanggil: AntreanRecord | null;
+  dipanggilRef?: PanggilanRef;
+  berikutnya: AntreanRecord | null;
+  jumlahMenunggu: number;
+  onPanggil: (rec: AntreanRecord) => void;
+  onPanggilUlang: (rec: AntreanRecord) => void;
+  onRespon: (rec: AntreanRecord) => void;
+  onBukaRiwayat: () => void;
+  onTutup: () => void;
 }) {
+  const id = useId();
+  const jenis = JENIS_OPTS.find((j) => j.value === session.jenisPasien)?.label ?? session.jenisPasien;
+  const recalls = dipanggilRef?.recalls ?? 0;
+
   return (
-    <section className="relative flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl bg-gradient-to-r from-sky-600 to-sky-500 p-4 text-white shadow-sm">
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15">
-        <DoorOpen className="h-6 w-6" />
-      </span>
-      <div className="min-w-0">
-        <p className="m-tiny font-medium uppercase tracking-wider text-sky-100">Loket Aktif</p>
-        <p className="m-base font-extrabold leading-tight">{loketLabel(session.pos, session.loket)}</p>
-      </div>
+    <Card className={KARTU}>
+      <section aria-labelledby={`${id}-judul`} className="flex flex-col gap-3 p-4 xl:flex-row xl:items-center xl:gap-4">
+        <div className="flex min-w-0 items-center gap-3 xl:w-72 xl:shrink-0">
+          <span aria-hidden="true" className="relative flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+            <DoorOpen className="size-4" />
+            <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-emerald-700">Loket dibuka</p>
+            <h2 id={`${id}-judul`} ref={judulRef} tabIndex={-1} className="truncate text-sm font-semibold outline-none">
+              {loketLabel(session.pos, session.loket)}
+            </h2>
+            <p className="truncate text-[11px] text-muted-foreground tabular-nums">
+              {session.petugas} · {jenis} · sejak {fmtJam(session.openedAt)}
+            </p>
+          </div>
+        </div>
 
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 m-xs">
-        <Meta label="Petugas" value={session.petugas} />
-        <Meta label="Jenis" value={session.jenisPasien} />
-        <Meta
-          label="Dibuka"
-          value={new Date(session.openedAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
-        />
-      </div>
-
-      <div className="ml-auto flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setLogOpen(!logOpen)}
-          className="inline-flex items-center gap-2 rounded-xl bg-white/15 px-3.5 py-2 m-xs font-semibold text-white transition-colors hover:bg-white/25"
-        >
-          <History className="h-4 w-4" />
-          Shift Log
-          <span className="rounded-full bg-white/25 px-1.5 py-0.5 m-mini font-bold tabular-nums">{shiftLog.length}</span>
-        </button>
-        <button
-          type="button"
-          onClick={tutupLoket}
-          className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 m-sm font-bold text-sky-700 shadow-sm transition-colors hover:bg-sky-50"
-        >
-          <DoorClosed className="h-4 w-4" />
-          Tutup Loket
-        </button>
-      </div>
-
-      <AnimatePresence>
-        {logOpen && <ShiftLogPanel shiftLog={shiftLog} onClose={() => setLogOpen(false)} />}
-      </AnimatePresence>
-    </section>
-  );
-}
-
-function ShiftLogPanel({ shiftLog, onClose }: { shiftLog: ShiftLogEntry[]; onClose: () => void }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      className="absolute right-4 top-full z-30 mt-2 flex max-h-80 w-80 flex-col overflow-hidden rounded-2xl bg-white text-slate-700 shadow-xl ring-1 ring-slate-200"
-    >
-      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
-        <p className="m-xs font-bold uppercase tracking-wide text-slate-500">Shift Log (audit)</p>
-        <button type="button" onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100">
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-      <div className="flex-1 overflow-y-auto">
-        {shiftLog.length === 0 ? (
-          <p className="px-4 py-6 text-center m-xs text-slate-400">Belum ada aktivitas.</p>
-        ) : (
-          shiftLog.map((e) => (
-            <div key={e.id} className="flex items-start gap-3 border-b border-slate-50 px-4 py-2.5 last:border-0">
-              <span className="mt-0.5 rounded-md bg-slate-100 px-1.5 py-0.5 m-mini font-bold uppercase text-slate-500">
-                {ACTION_LABEL[e.action] ?? e.action}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="m-xs text-slate-700">{e.detail}</p>
-                <p className="m-mini text-slate-400">
-                  {new Date(e.ts).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-slate-50 px-3 py-2">
+          {dipanggil ? (
+            <>
+              <span className="text-xl leading-none font-semibold text-blue-800 tabular-nums">{dipanggil.nomorAntrean}</span>
+              <div className="min-w-0 flex-1 basis-40">
+                <p className="text-[11px] text-muted-foreground tabular-nums">
+                  Sedang dipanggil{dipanggilRef ? ` · ${fmtJam(dipanggilRef.calledAt)}` : ""}
+                  {recalls > 0 && ` · ${recalls + 1}× dipanggil`}
                 </p>
+                <p className="truncate text-xs font-medium">{dipanggil.pasien.nama}</p>
               </div>
-            </div>
-          ))
-        )}
-      </div>
-    </motion.div>
-  );
-}
+              <div className="flex items-center gap-1">
+                <Button type="button" variant="ghost" size="xs" onClick={() => onPanggilUlang(dipanggil)} className="text-amber-800 hover:bg-amber-50 hover:text-amber-900">
+                  <BellRing aria-hidden="true" />
+                  Panggil ulang
+                </Button>
+                <Button type="button" size="xs" onClick={() => onRespon(dipanggil)} className={TOMBOL_EMERALD}>
+                  <UserCheck aria-hidden="true" />
+                  Respon
+                  <span className="sr-only"> kedatangan {dipanggil.pasien.nama}</span>
+                </Button>
+              </div>
+            </>
+          ) : (
+            <p className="py-1 text-xs text-muted-foreground">Belum ada pasien yang dipanggil di loket ini.</p>
+          )}
+        </div>
 
-// ── Pieces ─────────────────────────────────────────────────
-
-const selectClass =
-  "rounded-lg border border-slate-200 bg-white px-3 py-2 m-sm font-medium text-slate-700 shadow-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100";
-
-function Field({ label, icon: Icon, children }: { label: string; icon: typeof MapPin; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="flex items-center gap-1.5 m-tiny font-semibold uppercase tracking-wide text-slate-400">
-        <Icon className="h-3.5 w-3.5" /> {label}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-function Meta({ label, value }: { label: string; value: string }) {
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className="text-sky-200">{label}:</span>
-      <span className="font-bold">{value}</span>
-    </span>
+        <div className="flex flex-wrap items-center gap-1.5 xl:shrink-0">
+          <Button
+            type="button"
+            size="xs"
+            onClick={() => berikutnya && onPanggil(berikutnya)}
+            aria-disabled={!berikutnya}
+            aria-describedby={`${id}-menunggu`}
+            className={TOMBOL_EMERALD}
+          >
+            <PhoneCall aria-hidden="true" />
+            Panggil berikutnya
+            {berikutnya && <span className="tabular-nums opacity-80">{berikutnya.nomorAntrean}</span>}
+          </Button>
+          <span id={`${id}-menunggu`} className="text-[11px] text-muted-foreground tabular-nums">
+            {jumlahMenunggu > 0 ? `${jumlahMenunggu} menunggu` : "Tidak ada yang menunggu"}
+          </span>
+          <Button type="button" variant="ghost" size="xs" onClick={onBukaRiwayat} aria-haspopup="dialog">
+            <History aria-hidden="true" />
+            Riwayat shift
+            <span className="text-muted-foreground tabular-nums">{shiftLogCount}</span>
+          </Button>
+          <Button type="button" variant="ghost" size="xs" onClick={onTutup} className="text-rose-700 hover:bg-rose-50 hover:text-rose-800">
+            <DoorClosed aria-hidden="true" />
+            Tutup loket
+          </Button>
+        </div>
+      </section>
+    </Card>
   );
 }
